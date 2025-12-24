@@ -28,7 +28,7 @@ public enum FileConnectorErrorCode implements SeaTunnelErrorCode {
     FILE_READ_STRATEGY_NOT_SUPPORT("FILE-06", "File strategy not support"),
     FORMAT_NOT_SUPPORT("FILE-07", "Format not support"),
     FILE_READ_FAILED("FILE-08", "File read failed"),
-    ;
+    BINARY_FILE_PART_ORDER_ERROR("FILE-09", "Binary file fragment order abnormality");
 
     private final String code;
     private final String description;

@@ -24,6 +24,7 @@ import org.apache.seatunnel.api.source.SourceSplit;
 import org.apache.seatunnel.api.table.type.SeaTunnelRow;
 import org.apache.seatunnel.translation.source.BaseSourceFunction;
 import org.apache.seatunnel.translation.source.CoordinatedSource;
+import org.apache.seatunnel.translation.spark.execution.MultiTableManager;
 import org.apache.seatunnel.translation.spark.serialization.InternalRowCollector;
 import org.apache.seatunnel.translation.spark.source.state.ReaderState;
 
@@ -47,7 +48,8 @@ public class CoordinatedMicroBatchPartitionReader extends ParallelMicroBatchPart
             String checkpointPath,
             String hdfsRoot,
             String hdfsUser,
-            Map<String, String> envOptions) {
+            Map<String, String> envOptions,
+            MultiTableManager multiTableManager) {
         super(
                 source,
                 parallelism,
@@ -58,13 +60,13 @@ public class CoordinatedMicroBatchPartitionReader extends ParallelMicroBatchPart
                 checkpointPath,
                 hdfsRoot,
                 hdfsUser,
-                envOptions);
+                envOptions,
+                multiTableManager);
         this.collectorMap = new HashMap<>(parallelism);
         for (int i = 0; i < parallelism; i++) {
             collectorMap.put(
                     i,
-                    new InternalRowCollector(
-                            handover, new Object(), source.getProducedType(), envOptions));
+                    multiTableManager.getInternalRowCollector(handover, new Object(), envOptions));
         }
     }
 

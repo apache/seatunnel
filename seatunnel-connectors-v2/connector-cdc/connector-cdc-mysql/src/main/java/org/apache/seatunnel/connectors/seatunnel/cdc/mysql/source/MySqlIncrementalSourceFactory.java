@@ -17,35 +17,37 @@
 
 package org.apache.seatunnel.connectors.seatunnel.cdc.mysql.source;
 
+import org.apache.seatunnel.api.configuration.ReadonlyConfig;
 import org.apache.seatunnel.api.configuration.util.OptionRule;
+import org.apache.seatunnel.api.options.ConnectorCommonOptions;
 import org.apache.seatunnel.api.source.SeaTunnelSource;
 import org.apache.seatunnel.api.source.SourceSplit;
-import org.apache.seatunnel.api.table.catalog.CatalogOptions;
 import org.apache.seatunnel.api.table.catalog.CatalogTable;
 import org.apache.seatunnel.api.table.catalog.CatalogTableUtil;
 import org.apache.seatunnel.api.table.catalog.TablePath;
 import org.apache.seatunnel.api.table.connector.TableSource;
 import org.apache.seatunnel.api.table.factory.Factory;
-import org.apache.seatunnel.api.table.factory.TableSourceFactory;
 import org.apache.seatunnel.api.table.factory.TableSourceFactoryContext;
-import org.apache.seatunnel.api.table.type.SeaTunnelDataType;
-import org.apache.seatunnel.api.table.type.SeaTunnelRow;
 import org.apache.seatunnel.connectors.cdc.base.config.JdbcSourceTableConfig;
 import org.apache.seatunnel.connectors.cdc.base.option.JdbcSourceOptions;
 import org.apache.seatunnel.connectors.cdc.base.option.SourceOptions;
 import org.apache.seatunnel.connectors.cdc.base.option.StartupMode;
 import org.apache.seatunnel.connectors.cdc.base.option.StopMode;
+import org.apache.seatunnel.connectors.cdc.base.source.BaseChangeStreamTableSourceFactory;
 import org.apache.seatunnel.connectors.cdc.base.utils.CatalogTableUtils;
-import org.apache.seatunnel.connectors.seatunnel.jdbc.catalog.JdbcCatalogOptions;
+import org.apache.seatunnel.connectors.seatunnel.cdc.mysql.config.MySqlSourceConfigFactory;
+import org.apache.seatunnel.connectors.seatunnel.jdbc.config.JdbcCommonOptions;
 
 import com.google.auto.service.AutoService;
+import lombok.extern.slf4j.Slf4j;
 
 import java.io.Serializable;
 import java.util.List;
 import java.util.Optional;
 
 @AutoService(Factory.class)
-public class MySqlIncrementalSourceFactory implements TableSourceFactory {
+@Slf4j
+public class MySqlIncrementalSourceFactory extends BaseChangeStreamTableSourceFactory {
     @Override
     public String factoryIdentifier() {
         return MySqlIncrementalSource.IDENTIFIER;
@@ -57,8 +59,8 @@ public class MySqlIncrementalSourceFactory implements TableSourceFactory {
                 .required(
                         JdbcSourceOptions.USERNAME,
                         JdbcSourceOptions.PASSWORD,
-                        JdbcCatalogOptions.BASE_URL)
-                .exclusive(CatalogOptions.TABLE_NAMES, CatalogOptions.TABLE_PATTERN)
+                        JdbcCommonOptions.URL)
+                .exclusive(ConnectorCommonOptions.TABLE_NAMES, ConnectorCommonOptions.TABLE_PATTERN)
                 .optional(
                         JdbcSourceOptions.DATABASE_NAMES,
                         JdbcSourceOptions.SERVER_ID,
@@ -70,7 +72,9 @@ public class MySqlIncrementalSourceFactory implements TableSourceFactory {
                         JdbcSourceOptions.CHUNK_KEY_EVEN_DISTRIBUTION_FACTOR_UPPER_BOUND,
                         JdbcSourceOptions.SAMPLE_SHARDING_THRESHOLD,
                         JdbcSourceOptions.INVERSE_SAMPLING_RATE,
-                        JdbcSourceOptions.TABLE_NAMES_CONFIG)
+                        JdbcSourceOptions.TABLE_NAMES_CONFIG,
+                        JdbcSourceOptions.SCHEMA_CHANGES_ENABLED,
+                        JdbcCommonOptions.INT_TYPE_NARROWING)
                 .optional(MySqlSourceOptions.STARTUP_MODE, MySqlSourceOptions.STOP_MODE)
                 .conditional(
                         MySqlSourceOptions.STARTUP_MODE,
@@ -86,6 +90,10 @@ public class MySqlIncrementalSourceFactory implements TableSourceFactory {
                         StopMode.SPECIFIC,
                         SourceOptions.STOP_SPECIFIC_OFFSET_FILE,
                         SourceOptions.STOP_SPECIFIC_OFFSET_POS)
+                .conditional(
+                        MySqlSourceOptions.STARTUP_MODE,
+                        StartupMode.TIMESTAMP,
+                        SourceOptions.STARTUP_TIMESTAMP)
                 .build();
     }
 
@@ -96,11 +104,43 @@ public class MySqlIncrementalSourceFactory implements TableSourceFactory {
 
     @Override
     public <T, SplitT extends SourceSplit, StateT extends Serializable>
-            TableSource<T, SplitT, StateT> createSource(TableSourceFactoryContext context) {
+            TableSource<T, SplitT, StateT> restoreSource(
+                    TableSourceFactoryContext context, List<CatalogTable> restoreTables) {
         return () -> {
+            // Load the JDBC driver in to DriverManager
+            try {
+                Class.forName("com.mysql.cj.jdbc.Driver");
+            } catch (Exception e) {
+                log.warn("Failed to load JDBC driver com.mysql.cj.jdbc.Driver ", e);
+            }
+            ReadonlyConfig config = context.getOptions();
             List<CatalogTable> catalogTables =
-                    CatalogTableUtil.getCatalogTables(
-                            context.getOptions(), context.getClassLoader());
+                    CatalogTableUtil.getCatalogTables(config, context.getClassLoader());
+            boolean enableSchemaChange =
+                    context.getOptions()
+                            .getOptional(SourceOptions.SCHEMA_CHANGES_ENABLED)
+                            .orElse(
+                                    // TODO remove this after all users used the new schema change
+                                    // option
+                                    context.getOptions()
+                                            .getOptional(SourceOptions.DEBEZIUM_PROPERTIES)
+                                            .map(
+                                                    e ->
+                                                            e.getOrDefault(
+                                                                    MySqlSourceConfigFactory
+                                                                            .SCHEMA_CHANGE_KEY,
+                                                                    SourceOptions
+                                                                            .SCHEMA_CHANGES_ENABLED
+                                                                            .defaultValue()
+                                                                            .toString()))
+                                            .map(Boolean::parseBoolean)
+                                            .orElse(
+                                                    SourceOptions.SCHEMA_CHANGES_ENABLED
+                                                            .defaultValue()));
+            if (!restoreTables.isEmpty() && enableSchemaChange) {
+                catalogTables = mergeTableStruct(catalogTables, restoreTables);
+            }
+
             Optional<List<JdbcSourceTableConfig>> tableConfigs =
                     context.getOptions().getOptional(JdbcSourceOptions.TABLE_NAMES_CONFIG);
             if (tableConfigs.isPresent()) {
@@ -110,10 +150,8 @@ public class MySqlIncrementalSourceFactory implements TableSourceFactory {
                                 tableConfigs.get(),
                                 text -> TablePath.of(text, false));
             }
-            SeaTunnelDataType<SeaTunnelRow> dataType =
-                    CatalogTableUtil.convertToMultipleRowType(catalogTables);
             return (SeaTunnelSource<T, SplitT, StateT>)
-                    new MySqlIncrementalSource<>(context.getOptions(), dataType, catalogTables);
+                    new MySqlIncrementalSource<>(config, catalogTables);
         };
     }
 }

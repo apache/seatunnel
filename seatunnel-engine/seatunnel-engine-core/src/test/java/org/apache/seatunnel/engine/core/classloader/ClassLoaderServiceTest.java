@@ -17,11 +17,20 @@
 
 package org.apache.seatunnel.engine.core.classloader;
 
+import org.apache.seatunnel.shade.com.google.common.collect.Lists;
+
+import org.apache.seatunnel.engine.common.exception.ClassLoaderException;
+
 import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.Test;
+import org.mockito.Mockito;
 
-import com.google.common.collect.Lists;
+import com.hazelcast.cluster.Address;
+import com.hazelcast.instance.impl.Node;
+import com.hazelcast.spi.impl.NodeEngineImpl;
 
+import java.io.File;
+import java.io.IOException;
 import java.net.MalformedURLException;
 import java.net.URL;
 
@@ -99,5 +108,46 @@ public class ClassLoaderServiceTest extends AbstractClassLoaderServiceTest {
         Assertions.assertNull(thread.getContextClassLoader());
         Thread.sleep(2000);
         Assertions.assertFalse(thread.isAlive());
+    }
+
+    @Test
+    void testPreCheckJar() throws IOException {
+
+        // Mocking Node and NodeEngineImpl for testing
+        Node mockNode = Mockito.mock(Node.class);
+        Mockito.when(mockNode.getThisAddress()).thenReturn(new Address("localhost", 5801));
+        NodeEngineImpl mockNodeEngine = Mockito.mock(NodeEngineImpl.class);
+        Mockito.when(mockNodeEngine.getNode()).thenReturn(mockNode);
+        // Creating DefaultClassLoaderService object for testing
+        DefaultClassLoaderService defaultClassLoaderService =
+                new DefaultClassLoaderService(cacheMode(), mockNodeEngine);
+        // Test case to check ClassLoaderException when file is not found
+        Assertions.assertThrows(
+                ClassLoaderException.class,
+                () -> {
+                    try {
+                        defaultClassLoaderService.getClassLoader(
+                                3L, Lists.newArrayList(new URL("file:/fake.jar")));
+                    } catch (ClassLoaderException e) {
+                        Assertions.assertTrue(
+                                e.getMessage()
+                                        .contains(
+                                                "The jar file file:/fake.jar can not be found in node localhost, please ensure that the deployment paths of SeaTunnel on different nodes are consistent."));
+                        throw e;
+                    }
+                });
+
+        // Creating a temporary jar file for testing
+        File tempJar = File.createTempFile("console", ".jar");
+        String tempJarPath = tempJar.toURI().toURL().toString();
+
+        // Test case to check successful class loader creation with existing jar file
+        Assertions.assertDoesNotThrow(
+                () ->
+                        defaultClassLoaderService.getClassLoader(
+                                3L, Lists.newArrayList(new URL(tempJarPath))));
+
+        // Deleting the temporary jar file after test
+        tempJar.delete();
     }
 }

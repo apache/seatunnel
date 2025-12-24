@@ -17,8 +17,6 @@
 
 package org.apache.seatunnel.connectors.selectdb.sink.committer;
 
-import org.apache.seatunnel.shade.com.typesafe.config.Config;
-
 import org.apache.seatunnel.api.sink.SinkCommitter;
 import org.apache.seatunnel.connectors.selectdb.config.SelectDBConfig;
 import org.apache.seatunnel.connectors.selectdb.rest.CopySQLUtil;
@@ -31,11 +29,8 @@ import java.util.List;
 
 @Slf4j
 public class SelectDBCommitter implements SinkCommitter<SelectDBCommitInfo> {
-    private final SelectDBConfig selectdbConfig;
 
-    public SelectDBCommitter(Config pluginConfig) {
-        this(SelectDBConfig.loadConfig(pluginConfig));
-    }
+    private final SelectDBConfig selectdbConfig;
 
     public SelectDBCommitter(SelectDBConfig selectdbConfig) {
         this.selectdbConfig = selectdbConfig;

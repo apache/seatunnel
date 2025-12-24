@@ -61,13 +61,22 @@ public class ChangeStreamOffset extends Offset {
         this.offset = offsetMap;
     }
 
+    public void updatePosition(BsonDocument resumeToken) {
+        Objects.requireNonNull(resumeToken);
+        offset.put(TIMESTAMP_FIELD, String.valueOf(decodeTimestamp(resumeToken).getValue()));
+        offset.put(RESUME_TOKEN_FIELD, resumeToken.toJson());
+    }
+
     @Nullable public BsonDocument getResumeToken() {
         String resumeTokenJson = offset.get(RESUME_TOKEN_FIELD);
         return Optional.ofNullable(resumeTokenJson).map(BsonDocument::parse).orElse(null);
     }
 
     public BsonTimestamp getTimestamp() {
-        long timestamp = Long.parseLong(offset.get(TIMESTAMP_FIELD));
+        long timestamp = System.currentTimeMillis();
+        if (offset.get(TIMESTAMP_FIELD) != null) {
+            timestamp = Long.parseLong(offset.get(TIMESTAMP_FIELD));
+        }
         return new BsonTimestamp(timestamp);
     }
 

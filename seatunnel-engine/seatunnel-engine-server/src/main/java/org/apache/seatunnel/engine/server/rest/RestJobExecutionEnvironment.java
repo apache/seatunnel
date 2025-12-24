@@ -17,7 +17,9 @@
 
 package org.apache.seatunnel.engine.server.rest;
 
+import org.apache.seatunnel.shade.com.google.common.annotations.VisibleForTesting;
 import org.apache.seatunnel.shade.com.typesafe.config.Config;
+import org.apache.seatunnel.shade.org.apache.commons.lang3.tuple.ImmutablePair;
 
 import org.apache.seatunnel.api.common.JobContext;
 import org.apache.seatunnel.engine.common.Constant;
@@ -26,10 +28,9 @@ import org.apache.seatunnel.engine.core.dag.actions.Action;
 import org.apache.seatunnel.engine.core.dag.logical.LogicalDag;
 import org.apache.seatunnel.engine.core.job.AbstractJobEnvironment;
 import org.apache.seatunnel.engine.core.job.JobImmutableInformation;
+import org.apache.seatunnel.engine.core.job.JobPipelineCheckpointData;
 import org.apache.seatunnel.engine.core.parse.MultipleTableJobConfigParser;
 import org.apache.seatunnel.engine.server.SeaTunnelServer;
-
-import org.apache.commons.lang3.tuple.ImmutablePair;
 
 import com.hazelcast.instance.impl.Node;
 import com.hazelcast.spi.impl.NodeEngineImpl;
@@ -39,6 +40,7 @@ import java.util.ArrayList;
 import java.util.Collections;
 import java.util.HashSet;
 import java.util.List;
+import java.util.Objects;
 import java.util.Set;
 
 public class RestJobExecutionEnvironment extends AbstractJobEnvironment {
@@ -63,7 +65,7 @@ public class RestJobExecutionEnvironment extends AbstractJobEnvironment {
         this.nodeEngine = node.getNodeEngine();
         this.jobConfig.setJobContext(
                 new JobContext(
-                        isStartWithSavePoint
+                        Objects.nonNull(jobId)
                                 ? jobId
                                 : nodeEngine
                                         .getHazelcastInstance()
@@ -76,8 +78,9 @@ public class RestJobExecutionEnvironment extends AbstractJobEnvironment {
         return jobId;
     }
 
+    @VisibleForTesting
     @Override
-    protected LogicalDag getLogicalDag() {
+    public LogicalDag getLogicalDag() {
         ImmutablePair<List<Action>, Set<URL>> immutablePair =
                 getJobConfigParser().parse(seaTunnelServer.getClassLoaderService());
         actions.addAll(immutablePair.getLeft());
@@ -93,8 +96,21 @@ public class RestJobExecutionEnvironment extends AbstractJobEnvironment {
 
     @Override
     protected MultipleTableJobConfigParser getJobConfigParser() {
+        List<JobPipelineCheckpointData> pipelineCheckpoints = Collections.emptyList();
+        if (isStartWithSavePoint) {
+            LOGGER.info("Start with savepoint, get checkpoint state from server");
+            pipelineCheckpoints =
+                    seaTunnelServer
+                            .getCheckpointService()
+                            .getLatestCheckpointData(jobConfig.getJobContext().getJobId());
+        }
         return new MultipleTableJobConfigParser(
-                seaTunnelJobConfig, idGenerator, jobConfig, commonPluginJars, isStartWithSavePoint);
+                seaTunnelJobConfig,
+                idGenerator,
+                jobConfig,
+                commonPluginJars,
+                isStartWithSavePoint,
+                pipelineCheckpoints);
     }
 
     public JobImmutableInformation build() {
@@ -102,8 +118,8 @@ public class RestJobExecutionEnvironment extends AbstractJobEnvironment {
                 Long.parseLong(jobConfig.getJobContext().getJobId()),
                 jobConfig.getName(),
                 isStartWithSavePoint,
-                nodeEngine.getSerializationService().toData(getLogicalDag()),
-                jobConfig,
+                nodeEngine.getSerializationService(),
+                getLogicalDag(),
                 new ArrayList<>(jarUrls),
                 new ArrayList<>(connectorJarIdentifiers));
     }

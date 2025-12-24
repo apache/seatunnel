@@ -57,7 +57,7 @@ import static org.awaitility.Awaitility.given;
 
 @Slf4j
 public class StarRocksCDCSinkIT extends TestSuiteBase implements TestResource {
-    private static final String DOCKER_IMAGE = "d87904488/starrocks-starter:2.2.1";
+    private static final String DOCKER_IMAGE = "seatunnelhub/starrocks-starter:2.2.1";
     private static final String DRIVER_CLASS = "com.mysql.cj.jdbc.Driver";
     private static final String HOST = "starrocks_cdc_e2e";
     private static final int SR_DOCKER_PORT = 9030;
@@ -144,8 +144,8 @@ public class StarRocksCDCSinkIT extends TestSuiteBase implements TestResource {
 
         String sinkSql = String.format("select * from %s.%s", DATABASE, SINK_TABLE);
         Set<List<Object>> actual = new HashSet<>();
-        try (Statement sinkStatement = jdbcConnection.createStatement()) {
-            ResultSet sinkResultSet = sinkStatement.executeQuery(sinkSql);
+        try (Statement sinkStatement = jdbcConnection.createStatement();
+                ResultSet sinkResultSet = sinkStatement.executeQuery(sinkSql); ) {
             while (sinkResultSet.next()) {
                 List<Object> row =
                         Arrays.asList(

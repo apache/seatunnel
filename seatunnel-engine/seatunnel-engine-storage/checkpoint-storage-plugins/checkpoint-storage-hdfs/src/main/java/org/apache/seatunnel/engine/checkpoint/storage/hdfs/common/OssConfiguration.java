@@ -43,6 +43,10 @@ public class OssConfiguration extends AbstractConfiguration {
         Configuration hadoopConf = new Configuration();
         hadoopConf.set(FS_DEFAULT_NAME_KEY, config.get(OSS_BUCKET_KEY));
         hadoopConf.set(OSS_IMPL_KEY, HDFS_OSS_IMPL);
+        hadoopConf.setBoolean(
+                String.format(COMMON_DISABLE_CACHE, OSS_IMPL_KEY),
+                Boolean.parseBoolean(
+                        config.getOrDefault(DISABLE_CACHE_KEY, DISABLE_CACHE_DEFAULT_VALUE)));
         setExtraConfiguration(hadoopConf, config, OSS_KEY);
         return hadoopConf;
     }

@@ -1,3 +1,5 @@
+import ChangeLog from '../changelog/connector-starrocks.md';
+
 # StarRocks
 
 > StarRocks sink connector
@@ -12,11 +14,22 @@
 
 - [ ] [exactly-once](../../concept/connector-v2-features.md)
 - [x] [cdc](../../concept/connector-v2-features.md)
+- [x] [support multiple table write](../../concept/connector-v2-features.md)
 
 ## Description
 
 Used to send data to StarRocks. Both support streaming and batch mode.
 The internal implementation of StarRocks sink connector is cached and imported by stream load in batches.
+
+## Using Dependency
+
+### For Spark/Flink Engine
+
+> 1. You need to ensure that the [jdbc driver jar package](https://mvnrepository.com/artifact/mysql/mysql-connector-java) has been placed in directory `${SEATUNNEL_HOME}/plugins/`.
+
+### For SeaTunnel Zeta Engine
+
+> 1. You need to ensure that the [jdbc driver jar package](https://mvnrepository.com/artifact/mysql/mysql-connector-java) has been placed in directory `${SEATUNNEL_HOME}/lib/`.
 
 ## Sink Options
 
@@ -51,11 +64,12 @@ and the default template can be modified according to the situation. Only work o
 Default template:
 
 ```sql
-CREATE TABLE IF NOT EXISTS `${database}`.`${table_name}` (
+CREATE TABLE IF NOT EXISTS `${database}`.`${table}` (
 ${rowtype_primary_key},
 ${rowtype_fields}
 ) ENGINE=OLAP
 PRIMARY KEY (${rowtype_primary_key})
+COMMENT '${comment}'
 DISTRIBUTED BY HASH (${rowtype_primary_key})PROPERTIES (
 "replication_num" = "1"
 )
@@ -64,11 +78,13 @@ DISTRIBUTED BY HASH (${rowtype_primary_key})PROPERTIES (
 If a custom field is filled in the template, such as adding an `id` field
 
 ```sql
-CREATE TABLE IF NOT EXISTS `${database}`.`${table_name}`
+CREATE TABLE IF NOT EXISTS `${database}`.`${table}`
 (   
     id,
     ${rowtype_fields}
-) ENGINE = OLAP DISTRIBUTED BY HASH (${rowtype_primary_key})
+) ENGINE = OLAP 
+    COMMENT '${comment}'
+    DISTRIBUTED BY HASH (${rowtype_primary_key})
     PROPERTIES
 (
     "replication_num" = "1"
@@ -86,6 +102,7 @@ You can use the following placeholders
   description of StarRocks
 - rowtype_primary_key: Used to get the primary key in the upstream schema (maybe a list)
 - rowtype_unique_key: Used to get the unique key in the upstream schema (maybe a list)
+- comment: Used to get the table comment in the upstream schema
 
 ### table [string]
 
@@ -100,15 +117,16 @@ for example:
 2. sink_sinktable
 3. ss_${table_name}
 
-### schema_save_mode[Enum]
+### schema_save_mode [Enum]
 
 Before the synchronous task is turned on, different treatment schemes are selected for the existing surface structure of the target side.  
 Option introduction：  
 `RECREATE_SCHEMA` ：Will create when the table does not exist, delete and rebuild when the table is saved        
 `CREATE_SCHEMA_WHEN_NOT_EXIST` ：Will Created when the table does not exist, skipped when the table is saved        
-`ERROR_WHEN_SCHEMA_NOT_EXIST` ：Error will be reported when the table does not exist
+`ERROR_WHEN_SCHEMA_NOT_EXIST` ：Error will be reported when the table does not exist  
+`IGNORE` ：Ignore the treatment of the table
 
-### data_save_mode[Enum]
+### data_save_mode [Enum]
 
 Before the synchronous task is turned on, different processing schemes are selected for data existing data on the target side.  
 Option introduction：  
@@ -117,7 +135,7 @@ Option introduction：
 `CUSTOM_PROCESSING`：User defined processing  
 `ERROR_WHEN_DATA_EXISTS`：When there is data, an error is reported
 
-### custom_sql[String]
+### custom_sql [String]
 
 When data_save_mode selects CUSTOM_PROCESSING, you should fill in the CUSTOM_SQL parameter. This parameter usually fills in a SQL that can be executed. SQL will be executed before synchronization tasks.
 
@@ -147,7 +165,7 @@ The supported formats include CSV and JSON
 
 ## Task Example
 
-### Simple:
+### Simple
 
 > The following example describes writing multiple data types to StarRocks, and users need to create corresponding tables downstream
 
@@ -227,6 +245,7 @@ sink {
 sink {
   StarRocks {
     nodeUrls = ["e2e_starRocksdb:8030"]
+    base-url = "jdbc:mysql://e2e_starRocksdb:9030/"
     username = root
     password = ""
     database = "test"
@@ -247,6 +266,7 @@ sink {
 sink {
   StarRocks {
     nodeUrls = ["e2e_starRocksdb:8030"]
+    base-url = "jdbc:mysql://e2e_starRocksdb:9030/"
     username = root
     password = ""
     database = "test"
@@ -267,6 +287,7 @@ sink {
 sink {
   StarRocks {
     nodeUrls = ["e2e_starRocksdb:8030"]
+    base-url = "jdbc:mysql://e2e_starRocksdb:9030/"
     username = root
     password = ""
     database = "test"
@@ -283,11 +304,92 @@ sink {
 }
 ```
 
+### Multiple table
+
+#### example1
+
+```hocon
+env {
+  parallelism = 1
+  job.mode = "STREAMING"
+  checkpoint.interval = 5000
+}
+
+source {
+  Mysql-CDC {
+    base-url = "jdbc:mysql://127.0.0.1:3306/seatunnel"
+    username = "root"
+    password = "******"
+    
+    table-names = ["seatunnel.role","seatunnel.user","galileo.Bucket"]
+  }
+}
+
+transform {
+}
+
+sink {
+  StarRocks {
+    nodeUrls = ["e2e_starRocksdb:8030"]
+    base-url = "jdbc:mysql://e2e_starRocksdb:9030/"
+    username = root
+    password = ""
+    database = "${database_name}_test"
+    table = "${table_name}_test"
+    ...
+
+    // Support upsert/delete event synchronization (enable_upsert_delete=true), only supports PrimaryKey model.
+    enable_upsert_delete = true
+  }
+}
+```
+
+#### example2
+
+```hocon
+env {
+  parallelism = 1
+  job.mode = "BATCH"
+}
+
+source {
+  Jdbc {
+    driver = oracle.jdbc.driver.OracleDriver
+    url = "jdbc:oracle:thin:@localhost:1521/XE"
+    user = testUser
+    password = testPassword
+
+    table_list = [
+      {
+        table_path = "TESTSCHEMA.TABLE_1"
+      },
+      {
+        table_path = "TESTSCHEMA.TABLE_2"
+      }
+    ]
+  }
+}
+
+transform {
+}
+
+sink {
+  StarRocks {
+    nodeUrls = ["e2e_starRocksdb:8030"]
+    base-url = "jdbc:mysql://e2e_starRocksdb:9030/"
+    username = root
+    password = ""
+    database = "${schema_name}_test"
+    table = "${table_name}_test"
+    ...
+
+    // Support upsert/delete event synchronization (enable_upsert_delete=true), only supports PrimaryKey model.
+    enable_upsert_delete = true
+  }
+}
+```
+
 ## Changelog
 
-### next version
-
-- Add StarRocks Sink Connector
-- [Improve] Change Connector Custom Config Prefix To Map [3719](https://github.com/apache/seatunnel/pull/3719)
-- [Feature] Support write cdc changelog event(INSERT/UPDATE/DELETE) [3865](https://github.com/apache/seatunnel/pull/3865)
+<ChangeLog />
 

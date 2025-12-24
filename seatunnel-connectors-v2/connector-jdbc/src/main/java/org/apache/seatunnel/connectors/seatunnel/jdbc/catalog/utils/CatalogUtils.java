@@ -17,6 +17,9 @@
 
 package org.apache.seatunnel.connectors.seatunnel.jdbc.catalog.utils;
 
+import org.apache.seatunnel.shade.org.apache.commons.lang3.StringUtils;
+import org.apache.seatunnel.shade.org.apache.commons.lang3.tuple.Pair;
+
 import org.apache.seatunnel.api.table.catalog.CatalogTable;
 import org.apache.seatunnel.api.table.catalog.Column;
 import org.apache.seatunnel.api.table.catalog.ConstraintKey;
@@ -31,8 +34,6 @@ import org.apache.seatunnel.connectors.seatunnel.jdbc.internal.dialect.JdbcDiale
 import org.apache.seatunnel.connectors.seatunnel.jdbc.internal.dialect.dialectenum.FieldIdeEnum;
 
 import org.apache.commons.collections4.CollectionUtils;
-import org.apache.commons.lang3.StringUtils;
-import org.apache.commons.lang3.tuple.Pair;
 
 import lombok.extern.slf4j.Slf4j;
 
@@ -49,6 +50,7 @@ import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
+import java.util.Set;
 import java.util.function.BiFunction;
 import java.util.stream.Collectors;
 
@@ -101,33 +103,50 @@ public class CatalogUtils {
         return getFieldIde(identifier, fieldIde);
     }
 
+    public static Optional<String> getTableComment(DatabaseMetaData metaData, TablePath tablePath)
+            throws SQLException {
+        try (ResultSet rs =
+                metaData.getTables(
+                        tablePath.getDatabaseName(),
+                        tablePath.getSchemaName(),
+                        tablePath.getTableName(),
+                        new String[] {"TABLE"})) {
+            if (rs.next()) {
+                return Optional.ofNullable(rs.getString("REMARKS"));
+            }
+        }
+        return Optional.empty();
+    }
+
     public static Optional<PrimaryKey> getPrimaryKey(DatabaseMetaData metaData, TablePath tablePath)
             throws SQLException {
         // According to the Javadoc of java.sql.DatabaseMetaData#getPrimaryKeys,
         // the returned primary key columns are ordered by COLUMN_NAME, not by KEY_SEQ.
         // We need to sort them based on the KEY_SEQ value.
-        ResultSet rs =
-                metaData.getPrimaryKeys(
-                        tablePath.getDatabaseName(),
-                        tablePath.getSchemaName(),
-                        tablePath.getTableName());
-
         // seq -> column name
         List<Pair<Integer, String>> primaryKeyColumns = new ArrayList<>();
         String pkName = null;
-        while (rs.next()) {
-            String columnName = rs.getString("COLUMN_NAME");
-            // all the PK_NAME should be the same
-            pkName = rs.getString("PK_NAME");
-            int keySeq = rs.getInt("KEY_SEQ");
-            // KEY_SEQ is 1-based index
-            primaryKeyColumns.add(Pair.of(keySeq, columnName));
+        try (ResultSet rs =
+                metaData.getPrimaryKeys(
+                        tablePath.getDatabaseName(),
+                        tablePath.getSchemaName(),
+                        tablePath.getTableName())) {
+
+            while (rs.next()) {
+                String columnName = rs.getString("COLUMN_NAME");
+                // all the PK_NAME should be the same
+                pkName = cleanKeyName(rs.getString("PK_NAME"));
+                int keySeq = rs.getInt("KEY_SEQ");
+                // KEY_SEQ is 1-based index
+                primaryKeyColumns.add(Pair.of(keySeq, columnName));
+            }
         }
         // initialize size
         List<String> pkFields =
                 primaryKeyColumns.stream()
                         .sorted(Comparator.comparingInt(Pair::getKey))
                         .map(Pair::getValue)
+                        .distinct()
                         .collect(Collectors.toList());
         if (CollectionUtils.isEmpty(pkFields)) {
             return Optional.empty();
@@ -138,45 +157,55 @@ public class CatalogUtils {
     public static List<ConstraintKey> getConstraintKeys(
             DatabaseMetaData metadata, TablePath tablePath) throws SQLException {
         // We set approximate to true to avoid querying the statistics table, which is slow.
-        ResultSet resultSet =
+        try (ResultSet resultSet =
                 metadata.getIndexInfo(
                         tablePath.getDatabaseName(),
                         tablePath.getSchemaName(),
                         tablePath.getTableName(),
                         false,
-                        true);
-        // index name -> index
-        Map<String, ConstraintKey> constraintKeyMap = new HashMap<>();
-        while (resultSet.next()) {
-            String columnName = resultSet.getString("COLUMN_NAME");
-            if (columnName == null) {
-                continue;
+                        true)) {
+            // index name -> index
+            Map<String, ConstraintKey> constraintKeyMap = new HashMap<>();
+            while (resultSet.next()) {
+                String columnName = resultSet.getString("COLUMN_NAME");
+                if (columnName == null) {
+                    continue;
+                }
+                String indexName = cleanKeyName(resultSet.getString("INDEX_NAME"));
+                boolean noUnique = resultSet.getBoolean("NON_UNIQUE");
+
+                ConstraintKey constraintKey =
+                        constraintKeyMap.computeIfAbsent(
+                                indexName,
+                                s -> {
+                                    ConstraintKey.ConstraintType constraintType =
+                                            ConstraintKey.ConstraintType.INDEX_KEY;
+                                    if (!noUnique) {
+                                        constraintType = ConstraintKey.ConstraintType.UNIQUE_KEY;
+                                    }
+                                    return ConstraintKey.of(
+                                            constraintType, indexName, new ArrayList<>());
+                                });
+
+                ConstraintKey.ColumnSortType sortType =
+                        "A".equals(resultSet.getString("ASC_OR_DESC"))
+                                ? ConstraintKey.ColumnSortType.ASC
+                                : ConstraintKey.ColumnSortType.DESC;
+                ConstraintKey.ConstraintKeyColumn constraintKeyColumn =
+                        new ConstraintKey.ConstraintKeyColumn(columnName, sortType);
+                constraintKey.getColumnNames().add(constraintKeyColumn);
             }
-            String indexName = resultSet.getString("INDEX_NAME");
-            boolean noUnique = resultSet.getBoolean("NON_UNIQUE");
-
-            ConstraintKey constraintKey =
-                    constraintKeyMap.computeIfAbsent(
-                            indexName,
-                            s -> {
-                                ConstraintKey.ConstraintType constraintType =
-                                        ConstraintKey.ConstraintType.INDEX_KEY;
-                                if (!noUnique) {
-                                    constraintType = ConstraintKey.ConstraintType.UNIQUE_KEY;
-                                }
-                                return ConstraintKey.of(
-                                        constraintType, indexName, new ArrayList<>());
-                            });
-
-            ConstraintKey.ColumnSortType sortType =
-                    "A".equals(resultSet.getString("ASC_OR_DESC"))
-                            ? ConstraintKey.ColumnSortType.ASC
-                            : ConstraintKey.ColumnSortType.DESC;
-            ConstraintKey.ConstraintKeyColumn constraintKeyColumn =
-                    new ConstraintKey.ConstraintKeyColumn(columnName, sortType);
-            constraintKey.getColumnNames().add(constraintKeyColumn);
+            return new ArrayList<>(constraintKeyMap.values());
         }
-        return new ArrayList<>(constraintKeyMap.values());
+    }
+
+    private static String cleanKeyName(String keyName) {
+        if (keyName != null) {
+            // only keep the characters that are valid in an index name
+            keyName = keyName.replaceAll("[^a-zA-Z0-9_]", "");
+            keyName = keyName.replaceAll("^_+", "");
+        }
+        return keyName;
     }
 
     public static TableSchema getTableSchema(
@@ -260,6 +289,15 @@ public class CatalogUtils {
             throws SQLException {
         TableSchema.Builder schemaBuilder = TableSchema.builder();
         Map<String, String> unsupported = new LinkedHashMap<>();
+        String tableName = null;
+        String databaseName = null;
+        String schemaName = null;
+        try {
+            tableName = metadata.getTableName(1);
+            databaseName = metadata.getCatalogName(1);
+            schemaName = metadata.getSchemaName(1);
+        } catch (SQLException ignored) {
+        }
         for (int index = 1; index <= metadata.getColumnCount(); index++) {
             try {
                 Column column = columnConverter.apply(metadata, index);
@@ -277,8 +315,14 @@ public class CatalogUtils {
             throw CommonError.getCatalogTableWithUnsupportedType("UNKNOWN", sqlQuery, unsupported);
         }
         String catalogName = "jdbc_catalog";
+        databaseName = StringUtils.isBlank(databaseName) ? null : databaseName;
+        schemaName = StringUtils.isBlank(schemaName) ? null : schemaName;
+        TablePath tablePath =
+                StringUtils.isBlank(tableName)
+                        ? TablePath.DEFAULT
+                        : TablePath.of(databaseName, schemaName, tableName);
         return CatalogTable.of(
-                TableIdentifier.of(catalogName, "default", "default", "default"),
+                TableIdentifier.of(catalogName, tablePath),
                 schemaBuilder.build(),
                 new HashMap<>(),
                 new ArrayList<>(),
@@ -290,16 +334,45 @@ public class CatalogUtils {
             Connection connection, String sqlQuery, JdbcDialectTypeMapper typeMapper)
             throws SQLException {
         try (PreparedStatement ps = connection.prepareStatement(sqlQuery)) {
-            return getCatalogTable(ps.getMetaData(), typeMapper, sqlQuery);
+            ResultSetMetaData resultSetMetaData = ps.getMetaData();
+            CatalogTable catalogTable = getCatalogTable(resultSetMetaData, typeMapper, sqlQuery);
+
+            PrimaryKey primaryKey = extractPrimaryKey(connection, resultSetMetaData, sqlQuery);
+            if (primaryKey == null) {
+                return catalogTable;
+            }
+
+            Set<String> queryColumns =
+                    catalogTable.getTableSchema().getColumns().stream()
+                            .map(Column::getName)
+                            .collect(Collectors.toSet());
+            if (!queryColumns.containsAll(primaryKey.getColumnNames())) {
+                return catalogTable;
+            }
+
+            TableSchema newSchema =
+                    TableSchema.builder()
+                            .columns(catalogTable.getTableSchema().getColumns())
+                            .primaryKey(primaryKey)
+                            .constraintKey(catalogTable.getTableSchema().getConstraintKeys())
+                            .build();
+
+            return CatalogTable.of(
+                    catalogTable.getTableId(),
+                    newSchema,
+                    catalogTable.getOptions(),
+                    catalogTable.getPartitionKeys(),
+                    catalogTable.getComment(),
+                    catalogTable.getCatalogName());
         }
     }
 
     /**
-     * @deprecated instead by {@link #getCatalogTable(Connection, String, JdbcDialectTypeMapper)}
      * @param connection
      * @param sqlQuery
      * @return
      * @throws SQLException
+     * @deprecated instead by {@link #getCatalogTable(Connection, String, JdbcDialectTypeMapper)}
      */
     @Deprecated
     public static CatalogTable getCatalogTable(Connection connection, String sqlQuery)
@@ -308,6 +381,34 @@ public class CatalogUtils {
         try (PreparedStatement ps = connection.prepareStatement(sqlQuery)) {
             resultSetMetaData = ps.getMetaData();
             return getCatalogTable(resultSetMetaData, sqlQuery);
+        }
+    }
+
+    private static PrimaryKey extractPrimaryKey(
+            Connection connection, ResultSetMetaData resultSetMetaData, String sqlQuery) {
+        try {
+            String tableName = resultSetMetaData.getTableName(1);
+            if (StringUtils.isBlank(tableName)) {
+                return null;
+            }
+
+            String databaseName = resultSetMetaData.getCatalogName(1);
+            String schemaName = resultSetMetaData.getSchemaName(1);
+            DatabaseMetaData dbMetaData = connection.getMetaData();
+
+            TablePath tablePath =
+                    TablePath.of(
+                            StringUtils.isBlank(databaseName) ? null : databaseName,
+                            StringUtils.isBlank(schemaName) ? null : schemaName,
+                            tableName);
+
+            return getPrimaryKey(dbMetaData, tablePath).orElse(null);
+        } catch (SQLException e) {
+            log.debug(
+                    "Failed to extract primary key from database metadata for sql: {}",
+                    sqlQuery,
+                    e);
+            return null;
         }
     }
 }

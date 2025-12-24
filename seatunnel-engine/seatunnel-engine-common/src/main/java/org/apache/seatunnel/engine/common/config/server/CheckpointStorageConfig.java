@@ -25,10 +25,12 @@ import java.util.Map;
 @Data
 public class CheckpointStorageConfig {
 
-    private String storage = ServerConfigOptions.CHECKPOINT_STORAGE_TYPE.defaultValue();
+    private String storage =
+            ServerConfigOptions.MasterServerConfigOptions.CHECKPOINT_STORAGE_TYPE.defaultValue();
 
     private int maxRetainedCheckpoints =
-            ServerConfigOptions.CHECKPOINT_STORAGE_MAX_RETAINED.defaultValue();
+            ServerConfigOptions.MasterServerConfigOptions.CHECKPOINT_STORAGE_MAX_RETAINED
+                    .defaultValue();
 
     /** Storage plugin instance configuration */
     private Map<String, String> storagePluginConfig = new HashMap<>();

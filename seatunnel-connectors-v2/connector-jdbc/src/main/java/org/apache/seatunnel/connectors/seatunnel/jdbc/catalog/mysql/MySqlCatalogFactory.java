@@ -18,6 +18,7 @@
 package org.apache.seatunnel.connectors.seatunnel.jdbc.catalog.mysql;
 
 import org.apache.seatunnel.shade.com.google.common.base.Preconditions;
+import org.apache.seatunnel.shade.org.apache.commons.lang3.StringUtils;
 
 import org.apache.seatunnel.api.configuration.ReadonlyConfig;
 import org.apache.seatunnel.api.configuration.util.OptionRule;
@@ -25,10 +26,8 @@ import org.apache.seatunnel.api.table.catalog.Catalog;
 import org.apache.seatunnel.api.table.factory.CatalogFactory;
 import org.apache.seatunnel.api.table.factory.Factory;
 import org.apache.seatunnel.common.utils.JdbcUrlUtil;
-import org.apache.seatunnel.connectors.seatunnel.jdbc.catalog.JdbcCatalogOptions;
+import org.apache.seatunnel.connectors.seatunnel.jdbc.config.JdbcCommonOptions;
 import org.apache.seatunnel.connectors.seatunnel.jdbc.internal.dialect.DatabaseIdentifier;
-
-import org.apache.commons.lang3.StringUtils;
 
 import com.google.auto.service.AutoService;
 
@@ -42,20 +41,22 @@ public class MySqlCatalogFactory implements CatalogFactory {
 
     @Override
     public Catalog createCatalog(String catalogName, ReadonlyConfig options) {
-        String urlWithDatabase = options.get(JdbcCatalogOptions.BASE_URL);
+        String urlWithDatabase = options.get(JdbcCommonOptions.URL);
         Preconditions.checkArgument(
                 StringUtils.isNoneBlank(urlWithDatabase),
-                "Miss config <base-url>! Please check your config.");
+                "Miss config <url>! Please check your config.");
         JdbcUrlUtil.UrlInfo urlInfo = JdbcUrlUtil.getUrlInfo(urlWithDatabase);
         return new MySqlCatalog(
                 catalogName,
-                options.get(JdbcCatalogOptions.USERNAME),
-                options.get(JdbcCatalogOptions.PASSWORD),
-                urlInfo);
+                options.get(JdbcCommonOptions.USERNAME),
+                options.get(JdbcCommonOptions.PASSWORD),
+                urlInfo,
+                options.get(JdbcCommonOptions.DRIVER),
+                options.get(JdbcCommonOptions.INT_TYPE_NARROWING));
     }
 
     @Override
     public OptionRule optionRule() {
-        return JdbcCatalogOptions.BASE_RULE.build();
+        return JdbcCommonOptions.BASE_CATALOG_RULE.build();
     }
 }

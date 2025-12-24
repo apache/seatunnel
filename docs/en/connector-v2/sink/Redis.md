@@ -1,3 +1,5 @@
+import ChangeLog from '../changelog/connector-redis.md';
+
 # Redis
 
 > Redis sink connector
@@ -12,20 +14,26 @@ Used to write data to Redis.
 
 ## Options
 
-|      name      |  type  |       required        | default value |
-|----------------|--------|-----------------------|---------------|
-| host           | string | yes                   | -             |
-| port           | int    | yes                   | -             |
-| key            | string | yes                   | -             |
-| data_type      | string | yes                   | -             |
-| user           | string | no                    | -             |
-| auth           | string | no                    | -             |
-| db_num         | int    | no                    | 0             |
-| mode           | string | no                    | single        |
-| nodes          | list   | yes when mode=cluster | -             |
-| format         | string | no                    | json          |
-| expire         | long   | no                    | -1            |
-| common-options |        | no                    | -             |
+| name               | type    |       required        | default value |
+|--------------------|---------|-----------------------|---------------|
+| host               | string  | yes  when mode=single | -             |
+| port               | int     | no                    | 6379          |
+| key                | string  | yes                   | -             |
+| data_type          | string  | yes                   | -             |
+| batch_size         | int     | no                    | 10            |
+| user               | string  | no                    | -             |
+| auth               | string  | no                    | -             |
+| db_num             | int     | no                    | 0             |
+| mode               | string  | no                    | single        |
+| nodes              | list    | yes when mode=cluster | -             |
+| format             | string  | no                    | json          |
+| expire             | long    | no                    | -1            |
+| support_custom_key | boolean | no                    | false         |
+| value_field        | string  | no                    | -             |
+| hash_key_field     | string  | no                    | -             |
+| hash_value_field   | string  | no                    | -             |
+| field_delimiter    | string  | no                    | ','           |
+| common-options     |         | no                    | -             |
 
 ### host [string]
 
@@ -49,12 +57,12 @@ Upstream data is the following:
 | 500  | internal error | false   |
 
 If you assign field name to `code` and data_type to `key`, two data will be written to redis:
-1. `200 -> {code: 200, message: true, data: get success}`
-2. `500 -> {code: 500, message: false, data: internal error}`
+1. `200 -> {code: 200, data: get success, success: true}`
+2. `500 -> {code: 500, data: internal error, success: false}`
 
 If you assign field name to `value` and data_type to `key`, only one data will be written to redis because `value` is not existed in upstream data's fields:
 
-1. `value -> {code: 500, message: false, data: internal error}`
+1. `value -> {code: 500, data: internal error, success: false}`
 
 Please see the data_type section for specific writing rules.
 
@@ -83,6 +91,10 @@ Redis data types, support `key` `hash` `list` `set` `zset`
 - zset
 
 > Each data from upstream will be added to the configured zset key with a weight of 1. So the order of data in zset is based on the order of data consumption.
+>
+### batch_size [int]
+
+ensure the batch write size in single-machine mode; no guarantees in cluster mode.
 
 ### user [string]
 
@@ -108,7 +120,7 @@ redis nodes information, used in cluster mode, must like as the following format
 
 ### format [string]
 
-The format of upstream data, now only support `json`, `text` will be supported later, default `json`.
+The format of upstream data, currently support `json`, `text` format, default `json`.
 
 When you assign format is `json`, for example:
 
@@ -123,16 +135,80 @@ Connector will generate data as the following and write it to redis:
 ```json
 
 {"code":  200, "data":  "get success", "success":  "true"}
-
 ```
+
+when you assign format is `text`, and set field_delimiter to `#`, connector will generate data as the following and write it to redis:
+```text
+200#get success#true
+```
+
+### field_delimiter [string]
+Field delimiter, used to tell connector how to slice and dice fields.
+
+Currently, only need to be configured when format is `text`. default is ",".
 
 ### expire [long]
 
 Set redis expiration time, the unit is second. The default value is -1, keys do not automatically expire by default.
 
+### support_custom_key [boolean]
+
+if true, the key can be customized by the field value in the upstream data.
+
+Upstream data is the following:
+
+| code |      data      | success |
+|------|----------------|---------|
+| 200  | get success    | true    |
+| 500  | internal error | false   |
+
+You can customize the Redis key using '{' and '}', and the field name in '{}' will be parsed and replaced by the field value in the upstream data. For example, If you assign field name to `{code}` and data_type to `key`, two data will be written to redis:
+1. `200 -> {code: 200, data: get success, success: true}`
+2. `500 -> {code: 500, data: internal error, success: false}`
+
+Redis key can be composed of fixed and variable parts, connected by ':'. For example, If you assign field name to `code:{code}` and data_type to `key`, two data will be written to redis:
+1. `code:200 -> {code: 200, data: get success, success: true}`
+2. `code:500 -> {code: 500, data: internal error, success: false}`
+
+### value_field [string]
+
+The field of value you want to write to redis, `data_type` support `key` `list` `set` `zset`.
+
+When you assign field name to `value` and value_field is `data` and data_type to `key`, for example:
+
+Upstream data is the following:
+
+| code |    data     | success |
+|------|-------------|---------|
+| 200  | get success | true    |
+
+The following data will be written to redis:
+1. `value -> get success`
+
+### hash_key_field [string]
+
+The field of hash key you want to write to redis, `data_type` support `hash`
+
+### hash_value_field [string]
+
+The field of hash value you want to write to redis, `data_type` support `hash`
+
+When you assign field name to `value` and hash_key_field is `data` and hash_value_field is `success` and data_type to `hash`, for example:
+
+Upstream data is the following:
+
+| code |    data     | success |
+|------|-------------|---------|
+| 200  | get success | true    |
+
+Connector will generate data as the following and write it to redis:
+
+The following data will be written to redis:
+1. `value -> get success | true`
+
 ### common options
 
-Sink plugin common parameters, please refer to [Sink Common Options](common-options.md) for details
+Sink plugin common parameters, please refer to [Sink Common Options](../sink-common-options.md) for details
 
 ## Example
 
@@ -147,13 +223,44 @@ Redis {
 }
 ```
 
+custom key:
+
+```hocon
+Redis {
+  host = localhost
+  port = 6379
+  key = "name:${name}"
+  support_custom_key = true
+  data_type = key
+}
+```
+
+custom value:
+
+```hocon
+Redis {
+  host = localhost
+  port = 6379
+  key = person
+  value_field = "name"
+  data_type = key
+}
+```
+
+custom HashKey and HashValue:
+
+```hocon
+Redis {
+  host = localhost
+  port = 6379
+  key = person
+  hash_key_field = "name"
+  hash_value_field = "age"
+  data_type = hash
+}
+```
+
 ## Changelog
 
-### 2.2.0-beta 2022-09-26
-
-- Add Redis Sink Connector
-
-### next version
-
-- [Improve] Support redis cluster mode connection and user authentication [3188](https://github.com/apache/seatunnel/pull/3188)
+<ChangeLog />
 

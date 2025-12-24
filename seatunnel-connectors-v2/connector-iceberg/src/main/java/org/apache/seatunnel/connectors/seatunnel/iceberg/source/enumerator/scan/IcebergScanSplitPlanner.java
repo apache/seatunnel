@@ -174,7 +174,7 @@ public class IcebergScanSplitPlanner {
             List<IcebergFileScanTaskSplit> splits = new ArrayList<>();
             for (CombinedScanTask combinedScanTask : tasksIterable) {
                 for (FileScanTask fileScanTask : combinedScanTask.files()) {
-                    splits.add(new IcebergFileScanTaskSplit(fileScanTask));
+                    splits.add(new IcebergFileScanTaskSplit(context.getTablePath(), fileScanTask));
                 }
             }
             return splits;

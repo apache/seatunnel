@@ -19,7 +19,7 @@ package org.apache.seatunnel.api.sink;
 
 import org.apache.seatunnel.api.common.metrics.MetricsContext;
 import org.apache.seatunnel.api.event.EventListener;
-import org.apache.seatunnel.api.table.event.SchemaChangeEvent;
+import org.apache.seatunnel.api.table.schema.event.SchemaChangeEvent;
 
 import java.io.IOException;
 import java.io.Serializable;
@@ -46,12 +46,8 @@ public interface SinkWriter<T, CommitInfoT, StateT> {
      */
     void write(T element) throws IOException;
 
-    /**
-     * apply schema change to third party data receiver.
-     *
-     * @param event
-     * @throws IOException
-     */
+    /** @deprecated instead by {@link SupportSchemaEvolutionSinkWriter} TODO: remove this method */
+    @Deprecated
     default void applySchemaChange(SchemaChangeEvent event) throws IOException {}
 
     /**
@@ -62,7 +58,22 @@ public interface SinkWriter<T, CommitInfoT, StateT> {
      *
      * @return the commit info need to commit
      */
+    @Deprecated
     Optional<CommitInfoT> prepareCommit() throws IOException;
+
+    /**
+     * prepare the commit, will be called before {@link #snapshotState(long checkpointId)}. If you
+     * need to use 2pc, you can return the commit info in this method, and receive the commit info
+     * in {@link SinkCommitter#commit(List)}. If this method failed (by throw exception), **Only**
+     * Spark engine will call {@link #abortPrepare()}
+     *
+     * @param checkpointId checkpointId
+     * @return the commit info need to commit
+     * @throws IOException If fail to prepareCommit
+     */
+    default Optional<CommitInfoT> prepareCommit(long checkpointId) throws IOException {
+        return prepareCommit();
+    }
 
     /**
      * @return The writer's state.
@@ -91,6 +102,11 @@ public interface SinkWriter<T, CommitInfoT, StateT> {
 
         /** @return The index of this subtask. */
         int getIndexOfSubtask();
+
+        /** @return parallelism of this writer. */
+        default int getNumberOfParallelSubtasks() {
+            return 1;
+        }
 
         /** @return metricsContext of this reader. */
         MetricsContext getMetricsContext();

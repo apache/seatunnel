@@ -19,16 +19,21 @@
 
 package org.apache.seatunnel.connectors.seatunnel.iceberg.sink;
 
+import org.apache.seatunnel.shade.com.google.common.collect.Lists;
+import org.apache.seatunnel.shade.org.apache.commons.lang3.StringUtils;
+
 import org.apache.seatunnel.api.sink.SinkWriter;
 import org.apache.seatunnel.api.sink.SupportMultiTableSinkWriter;
+import org.apache.seatunnel.api.sink.SupportSchemaEvolutionSinkWriter;
 import org.apache.seatunnel.api.table.catalog.CatalogTable;
-import org.apache.seatunnel.api.table.event.SchemaChangeEvent;
-import org.apache.seatunnel.api.table.event.handler.DataTypeChangeEventDispatcher;
-import org.apache.seatunnel.api.table.event.handler.DataTypeChangeEventHandler;
+import org.apache.seatunnel.api.table.catalog.TableSchema;
+import org.apache.seatunnel.api.table.schema.event.SchemaChangeEvent;
+import org.apache.seatunnel.api.table.schema.handler.DataTypeChangeEventDispatcher;
+import org.apache.seatunnel.api.table.schema.handler.DataTypeChangeEventHandler;
 import org.apache.seatunnel.api.table.type.SeaTunnelRow;
 import org.apache.seatunnel.api.table.type.SeaTunnelRowType;
 import org.apache.seatunnel.connectors.seatunnel.iceberg.IcebergTableLoader;
-import org.apache.seatunnel.connectors.seatunnel.iceberg.config.SinkConfig;
+import org.apache.seatunnel.connectors.seatunnel.iceberg.config.IcebergSinkConfig;
 import org.apache.seatunnel.connectors.seatunnel.iceberg.sink.commit.IcebergCommitInfo;
 import org.apache.seatunnel.connectors.seatunnel.iceberg.sink.commit.IcebergFilesCommitter;
 import org.apache.seatunnel.connectors.seatunnel.iceberg.sink.state.IcebergSinkState;
@@ -36,9 +41,6 @@ import org.apache.seatunnel.connectors.seatunnel.iceberg.sink.writer.IcebergWrit
 import org.apache.seatunnel.connectors.seatunnel.iceberg.sink.writer.RecordWriter;
 import org.apache.seatunnel.connectors.seatunnel.iceberg.sink.writer.WriteResult;
 
-import org.apache.commons.lang3.StringUtils;
-
-import com.google.common.collect.Lists;
 import lombok.extern.slf4j.Slf4j;
 
 import java.io.IOException;
@@ -52,32 +54,32 @@ import java.util.UUID;
 @Slf4j
 public class IcebergSinkWriter
         implements SinkWriter<SeaTunnelRow, IcebergCommitInfo, IcebergSinkState>,
-                SupportMultiTableSinkWriter<Void> {
+                SupportMultiTableSinkWriter<Void>,
+                SupportSchemaEvolutionSinkWriter {
+    private TableSchema tableSchema;
     private SeaTunnelRowType rowType;
-    private SinkConfig config;
-    private IcebergTableLoader icebergTableLoader;
-    private RecordWriter writer;
-    private IcebergFilesCommitter filesCommitter;
-    private List<WriteResult> results = Lists.newArrayList();
+    private final IcebergSinkConfig config;
+    private final IcebergTableLoader icebergTableLoader;
+    private volatile RecordWriter writer;
+    private final IcebergFilesCommitter filesCommitter;
+    private final List<WriteResult> results = Lists.newArrayList();
     private String commitUser = UUID.randomUUID().toString();
-    private long checkpointId;
 
     private final DataTypeChangeEventHandler dataTypeChangeEventHandler;
 
     public IcebergSinkWriter(
             IcebergTableLoader icebergTableLoader,
-            SinkConfig config,
-            SeaTunnelRowType seaTunnelRowType,
+            IcebergSinkConfig config,
+            TableSchema tableSchema,
             List<IcebergSinkState> states) {
         this.config = config;
         this.icebergTableLoader = icebergTableLoader;
-        this.rowType = seaTunnelRowType;
+        this.tableSchema = tableSchema;
+        this.rowType = tableSchema.toPhysicalRowDataType();
         this.filesCommitter = IcebergFilesCommitter.of(config, icebergTableLoader);
         this.dataTypeChangeEventHandler = new DataTypeChangeEventDispatcher();
-        tryCreateRecordWriter();
         if (Objects.nonNull(states) && !states.isEmpty()) {
             this.commitUser = states.get(0).getCommitUser();
-            this.checkpointId = states.get(0).getCheckpointId();
             preCommit(states);
         }
     }
@@ -93,20 +95,19 @@ public class IcebergSinkWriter
         if (this.writer == null) {
             IcebergWriterFactory icebergWriterFactory =
                     new IcebergWriterFactory(icebergTableLoader, config);
-            this.writer = icebergWriterFactory.createWriter(this.rowType);
+            this.writer = icebergWriterFactory.createWriter(this.tableSchema);
         }
     }
 
-    public static IcebergSinkWriter of(SinkConfig config, CatalogTable catalogTable) {
+    public static IcebergSinkWriter of(IcebergSinkConfig config, CatalogTable catalogTable) {
         return of(config, catalogTable, null);
     }
 
     public static IcebergSinkWriter of(
-            SinkConfig config, CatalogTable catalogTable, List<IcebergSinkState> states) {
-        IcebergTableLoader icebergTableLoader =
-                IcebergTableLoader.create(config, catalogTable).open();
+            IcebergSinkConfig config, CatalogTable catalogTable, List<IcebergSinkState> states) {
+        IcebergTableLoader icebergTableLoader = IcebergTableLoader.create(config, catalogTable);
         return new IcebergSinkWriter(
-                icebergTableLoader, config, catalogTable.getSeaTunnelRowType(), states);
+                icebergTableLoader, config, catalogTable.getTableSchema(), states);
     }
 
     @Override
@@ -117,7 +118,12 @@ public class IcebergSinkWriter
 
     @Override
     public Optional<IcebergCommitInfo> prepareCommit() throws IOException {
-        List<WriteResult> writeResults = writer.complete();
+        List<WriteResult> writeResults;
+        if (writer != null) {
+            writeResults = writer.complete();
+        } else {
+            writeResults = Collections.emptyList();
+        }
         IcebergCommitInfo icebergCommitInfo = new IcebergCommitInfo(writeResults);
         this.results.addAll(writeResults);
         return Optional.of(icebergCommitInfo);
@@ -130,6 +136,7 @@ public class IcebergSinkWriter
             log.info("changed rowType before: {}", fieldsInfo(rowType));
             this.rowType = dataTypeChangeEventHandler.reset(rowType).apply(event);
             log.info("changed rowType after: {}", fieldsInfo(rowType));
+            tryCreateRecordWriter();
             writer.applySchemaChange(this.rowType, event);
         }
     }
@@ -145,7 +152,16 @@ public class IcebergSinkWriter
     public void abortPrepare() {}
 
     @Override
-    public void close() throws IOException {}
+    public void close() throws IOException {
+        try {
+            if (writer != null) {
+                writer.close();
+            }
+            icebergTableLoader.close();
+        } finally {
+            results.clear();
+        }
+    }
 
     private String fieldsInfo(SeaTunnelRowType seaTunnelRowType) {
         String[] fieldsInfo = new String[seaTunnelRowType.getTotalFields()];

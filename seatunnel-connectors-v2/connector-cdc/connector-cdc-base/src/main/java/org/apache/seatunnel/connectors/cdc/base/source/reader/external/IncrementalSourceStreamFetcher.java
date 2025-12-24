@@ -17,6 +17,8 @@
 
 package org.apache.seatunnel.connectors.cdc.base.source.reader.external;
 
+import org.apache.seatunnel.shade.com.google.common.util.concurrent.ThreadFactoryBuilder;
+
 import org.apache.seatunnel.common.utils.SeaTunnelException;
 import org.apache.seatunnel.connectors.cdc.base.schema.SchemaChangeResolver;
 import org.apache.seatunnel.connectors.cdc.base.source.offset.Offset;
@@ -29,7 +31,6 @@ import org.apache.seatunnel.connectors.cdc.base.utils.SourceRecordUtils;
 
 import org.apache.kafka.connect.source.SourceRecord;
 
-import com.google.common.util.concurrent.ThreadFactoryBuilder;
 import io.debezium.connector.base.ChangeEventQueue;
 import io.debezium.pipeline.DataChangeEvent;
 import io.debezium.relational.TableId;
@@ -104,7 +105,7 @@ public class IncrementalSourceStreamFetcher implements Fetcher<SourceRecords, So
                                 currentIncrementalSplit,
                                 taskContext.isExactlyOnce());
                         streamFetchTask.execute(taskContext);
-                    } catch (Exception e) {
+                    } catch (Throwable e) {
                         log.error(
                                 String.format(
                                         "Execute stream read task for incremental split %s fail",
@@ -171,69 +172,7 @@ public class IncrementalSourceStreamFetcher implements Fetcher<SourceRecords, So
      * checkpoint-after] [a, b, c, d, e]
      */
     Iterator<SourceRecords> splitSchemaChangeStream(List<DataChangeEvent> batchEvents) {
-        List<SourceRecords> sourceRecordsSet = new ArrayList<>();
-
-        List<SourceRecord> sourceRecordList = new ArrayList<>();
-        SourceRecord previousRecord = null;
-        for (int i = 0; i < batchEvents.size(); i++) {
-            DataChangeEvent event = batchEvents.get(i);
-            SourceRecord currentRecord = event.getRecord();
-            if (!shouldEmit(currentRecord)) {
-                continue;
-            }
-
-            if (SourceRecordUtils.isSchemaChangeEvent(currentRecord)) {
-                if (!schemaChangeResolver.support(currentRecord)) {
-                    continue;
-                }
-
-                if (previousRecord == null) {
-                    // add schema-change-before to first
-                    sourceRecordList.add(
-                            WatermarkEvent.createSchemaChangeBeforeWatermark(currentRecord));
-                    sourceRecordsSet.add(new SourceRecords(sourceRecordList));
-                    sourceRecordList = new ArrayList<>();
-                    sourceRecordList.add(currentRecord);
-                } else if (SourceRecordUtils.isSchemaChangeEvent(previousRecord)) {
-                    sourceRecordList.add(currentRecord);
-                } else {
-                    sourceRecordList.add(
-                            WatermarkEvent.createSchemaChangeBeforeWatermark(currentRecord));
-                    sourceRecordsSet.add(new SourceRecords(sourceRecordList));
-                    sourceRecordList = new ArrayList<>();
-                    sourceRecordList.add(currentRecord);
-                }
-            } else if (SourceRecordUtils.isDataChangeRecord(currentRecord)
-                    || SourceRecordUtils.isHeartbeatRecord(currentRecord)) {
-                if (previousRecord == null
-                        || SourceRecordUtils.isDataChangeRecord(previousRecord)
-                        || SourceRecordUtils.isHeartbeatRecord(previousRecord)) {
-                    sourceRecordList.add(currentRecord);
-                } else {
-                    sourceRecordList.add(
-                            WatermarkEvent.createSchemaChangeAfterWatermark(currentRecord));
-                    sourceRecordsSet.add(new SourceRecords(sourceRecordList));
-                    sourceRecordList = new ArrayList<>();
-                    sourceRecordList.add(currentRecord);
-                }
-            }
-            previousRecord = currentRecord;
-            if (i == batchEvents.size() - 1) {
-                if (SourceRecordUtils.isSchemaChangeEvent(currentRecord)) {
-                    sourceRecordList.add(
-                            WatermarkEvent.createSchemaChangeAfterWatermark(currentRecord));
-                }
-                sourceRecordsSet.add(new SourceRecords(sourceRecordList));
-            }
-        }
-
-        if (sourceRecordsSet.size() > 1) {
-            log.debug(
-                    "Split events stream into {} batches and mark schema checkpoint before/after",
-                    sourceRecordsSet.size());
-        }
-
-        return sourceRecordsSet.iterator();
+        return new SchemaChangeStreamSplitter().split(batchEvents);
     }
 
     private void checkReadException() {
@@ -249,12 +188,15 @@ public class IncrementalSourceStreamFetcher implements Fetcher<SourceRecords, So
     @Override
     public void close() {
         try {
-            if (taskContext != null) {
-                taskContext.close();
-            }
+            // 1. try close the split task
             if (streamFetchTask != null) {
-                streamFetchTask.shutdown();
+                try {
+                    streamFetchTask.shutdown();
+                } catch (Exception e) {
+                    log.error("Close stream split read task error", e);
+                }
             }
+            // 2. close the fetcher thread
             if (executorService != null) {
                 executorService.shutdown();
                 if (!executorService.awaitTermination(
@@ -267,6 +209,11 @@ public class IncrementalSourceStreamFetcher implements Fetcher<SourceRecords, So
             }
         } catch (Exception e) {
             log.error("Close stream fetcher error", e);
+        } finally {
+            // 3. close the task context
+            if (taskContext != null) {
+                taskContext.close();
+            }
         }
     }
 
@@ -348,5 +295,98 @@ public class IncrementalSourceStreamFetcher implements Fetcher<SourceRecords, So
         this.finishedSplitsInfo = splitsInfoMap;
         this.maxSplitHighWatermarkMap = tableIdBinlogPositionMap;
         this.pureBinlogPhaseTables.clear();
+    }
+
+    class SchemaChangeStreamSplitter {
+        private List<SourceRecords> blockSet;
+        private List<SourceRecord> currentBlock;
+        private SourceRecord previousRecord;
+
+        public SchemaChangeStreamSplitter() {
+            blockSet = new ArrayList<>();
+            currentBlock = new ArrayList<>();
+            previousRecord = null;
+        }
+
+        public Iterator<SourceRecords> split(List<DataChangeEvent> batchEvents) {
+            for (int i = 0; i < batchEvents.size(); i++) {
+                DataChangeEvent event = batchEvents.get(i);
+                SourceRecord currentRecord = event.getRecord();
+                if (!shouldEmit(currentRecord)) {
+                    continue;
+                }
+
+                if (SourceRecordUtils.isSchemaChangeEvent(currentRecord)) {
+                    if (!schemaChangeResolver.support(currentRecord)) {
+                        continue;
+                    }
+
+                    if (previousRecord == null) {
+                        // add schema-change-before to first
+                        currentBlock.add(
+                                WatermarkEvent.createSchemaChangeBeforeWatermark(currentRecord));
+                        flipBlock();
+
+                        currentBlock.add(currentRecord);
+                    } else if (SourceRecordUtils.isSchemaChangeEvent(previousRecord)) {
+                        currentBlock.add(currentRecord);
+                    } else {
+                        currentBlock.add(
+                                WatermarkEvent.createSchemaChangeBeforeWatermark(currentRecord));
+                        flipBlock();
+
+                        currentBlock.add(currentRecord);
+                    }
+                } else if (SourceRecordUtils.isDataChangeRecord(currentRecord)
+                        || SourceRecordUtils.isHeartbeatRecord(currentRecord)) {
+                    if (previousRecord == null
+                            || SourceRecordUtils.isDataChangeRecord(previousRecord)
+                            || SourceRecordUtils.isHeartbeatRecord(previousRecord)) {
+                        currentBlock.add(currentRecord);
+                    } else {
+                        endBlock(previousRecord);
+                        flipBlock();
+
+                        currentBlock.add(currentRecord);
+                    }
+                }
+
+                previousRecord = currentRecord;
+                if (i == batchEvents.size() - 1) {
+                    endBlock(currentRecord);
+                    flipBlock();
+                }
+            }
+
+            endLastBlock(previousRecord);
+
+            if (blockSet.size() > 1) {
+                log.debug(
+                        "Split events stream into {} batches and mark schema change checkpoint",
+                        blockSet.size());
+            }
+
+            return blockSet.iterator();
+        }
+
+        void flipBlock() {
+            if (!currentBlock.isEmpty()) {
+                blockSet.add(new SourceRecords(currentBlock));
+                currentBlock = new ArrayList<>();
+            }
+        }
+
+        void endBlock(SourceRecord lastRecord) {
+            if (!currentBlock.isEmpty()) {
+                if (SourceRecordUtils.isSchemaChangeEvent(lastRecord)) {
+                    currentBlock.add(WatermarkEvent.createSchemaChangeAfterWatermark(lastRecord));
+                }
+            }
+        }
+
+        void endLastBlock(SourceRecord lastRecord) {
+            endBlock(lastRecord);
+            flipBlock();
+        }
     }
 }

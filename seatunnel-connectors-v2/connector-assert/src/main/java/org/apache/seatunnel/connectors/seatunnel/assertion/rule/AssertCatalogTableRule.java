@@ -34,6 +34,7 @@ import lombok.NoArgsConstructor;
 
 import java.io.Serializable;
 import java.util.List;
+import java.util.Objects;
 
 import static org.apache.seatunnel.connectors.seatunnel.assertion.exception.AssertConnectorErrorCode.CATALOG_TABLE_FAILED;
 
@@ -137,13 +138,33 @@ public class AssertCatalogTableRule implements Serializable {
             if (CollectionUtils.isEmpty(check)) {
                 throw new AssertConnectorException(CATALOG_TABLE_FAILED, "columns is null");
             }
-            if (CollectionUtils.isNotEmpty(columns)
-                    && !CollectionUtils.isEqualCollection(columns, check)) {
+
+            if (columns.size() != check.size()) {
                 throw new AssertConnectorException(
                         CATALOG_TABLE_FAILED,
                         String.format("columns: %s is not equal to %s", check, columns));
             }
+            for (int i = 0; i < columns.size(); i++) {
+                if (!isColumnEqual(columns.get(i), check.get(i))) {
+                    throw new AssertConnectorException(
+                            CATALOG_TABLE_FAILED,
+                            String.format(
+                                    "columns: %s is not equal to %s",
+                                    check.get(i), columns.get(i)));
+                }
+            }
         }
+    }
+
+    private static boolean isColumnEqual(Column column1, Column column2) {
+        return Objects.equals(column1.getName(), column2.getName())
+                && Objects.equals(column1.getDataType(), column2.getDataType())
+                && Objects.equals(column1.getColumnLength(), column2.getColumnLength())
+                && Objects.equals(column1.getScale(), column2.getScale())
+                && column1.isNullable() == column2.isNullable()
+                && Objects.equals(column1.getDefaultValue(), column2.getDefaultValue())
+                && Objects.equals(column1.getComment(), column2.getComment())
+                && Objects.equals(column1.getSourceType(), column2.getSourceType());
     }
 
     @Data

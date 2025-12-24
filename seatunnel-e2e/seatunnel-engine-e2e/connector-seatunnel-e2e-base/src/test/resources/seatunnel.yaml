@@ -21,6 +21,7 @@ seatunnel:
     backup-count: 2
     queue-type: blockingqueue
     print-execution-info-interval: 10
+    classloader-cache-mode: false
     slot-service:
       dynamic-slot: true
     checkpoint:
@@ -31,3 +32,11 @@ seatunnel:
         max-retained: 3
         plugin-config:
           namespace: /tmp/seatunnel/checkpoint_snapshot/
+    http:
+        enable-http: true
+        port: 8080
+    telemetry:
+      metric:
+         enabled: false
+      logs:
+         scheduled-deletion-enable: false

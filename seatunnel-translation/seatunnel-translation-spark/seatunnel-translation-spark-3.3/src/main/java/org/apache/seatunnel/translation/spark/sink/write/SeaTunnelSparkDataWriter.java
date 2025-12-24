@@ -21,10 +21,9 @@ import org.apache.seatunnel.api.sink.MultiTableResourceManager;
 import org.apache.seatunnel.api.sink.SinkCommitter;
 import org.apache.seatunnel.api.sink.SinkWriter;
 import org.apache.seatunnel.api.sink.SupportResourceShare;
-import org.apache.seatunnel.api.table.type.SeaTunnelDataType;
+import org.apache.seatunnel.api.sink.event.WriterCloseEvent;
 import org.apache.seatunnel.api.table.type.SeaTunnelRow;
-import org.apache.seatunnel.translation.serialization.RowConverter;
-import org.apache.seatunnel.translation.spark.serialization.InternalRowConverter;
+import org.apache.seatunnel.translation.spark.execution.MultiTableManager;
 
 import org.apache.spark.sql.catalyst.InternalRow;
 import org.apache.spark.sql.connector.write.DataWriter;
@@ -41,32 +40,36 @@ import java.util.Optional;
 @Slf4j
 public class SeaTunnelSparkDataWriter<CommitInfoT, StateT> implements DataWriter<InternalRow> {
 
-    private final SinkWriter<SeaTunnelRow, CommitInfoT, StateT> sinkWriter;
+    protected final SinkWriter<SeaTunnelRow, CommitInfoT, StateT> sinkWriter;
 
-    @Nullable private final SinkCommitter<CommitInfoT> sinkCommitter;
-    private final RowConverter<InternalRow> rowConverter;
-    private CommitInfoT latestCommitInfoT;
-    private long epochId;
-    private volatile MultiTableResourceManager resourceManager;
+    @Nullable protected final SinkCommitter<CommitInfoT> sinkCommitter;
+    protected CommitInfoT latestCommitInfoT;
+    protected long epochId;
+    protected volatile MultiTableResourceManager resourceManager;
+
+    private final MultiTableManager multiTableManager;
+    private final SinkWriter.Context context;
 
     public SeaTunnelSparkDataWriter(
             SinkWriter<SeaTunnelRow, CommitInfoT, StateT> sinkWriter,
             @Nullable SinkCommitter<CommitInfoT> sinkCommitter,
-            SeaTunnelDataType<?> dataType,
-            long epochId) {
+            MultiTableManager multiTableManager,
+            long epochId,
+            SinkWriter.Context context) {
         this.sinkWriter = sinkWriter;
         this.sinkCommitter = sinkCommitter;
-        this.rowConverter = new InternalRowConverter(dataType);
+        this.multiTableManager = multiTableManager;
         this.epochId = epochId == 0 ? 1 : epochId;
+        this.context = context;
         initResourceManger();
     }
 
     @Override
     public void write(InternalRow record) throws IOException {
-        sinkWriter.write(rowConverter.reconvert(record));
+        sinkWriter.write(multiTableManager.reconvert(record));
     }
 
-    private void initResourceManger() {
+    protected void initResourceManger() {
         if (sinkWriter instanceof SupportResourceShare) {
             resourceManager =
                     ((SupportResourceShare) sinkWriter).initMultiTableResourceManager(1, 1);
@@ -76,7 +79,7 @@ public class SeaTunnelSparkDataWriter<CommitInfoT, StateT> implements DataWriter
 
     @Override
     public WriterCommitMessage commit() throws IOException {
-        Optional<CommitInfoT> commitInfoTOptional = sinkWriter.prepareCommit();
+        Optional<CommitInfoT> commitInfoTOptional = sinkWriter.prepareCommit(epochId);
         commitInfoTOptional.ifPresent(commitInfoT -> latestCommitInfoT = commitInfoT);
         sinkWriter.snapshotState(epochId++);
         if (sinkCommitter != null) {
@@ -90,6 +93,7 @@ public class SeaTunnelSparkDataWriter<CommitInfoT, StateT> implements DataWriter
                 new SeaTunnelSparkWriterCommitMessage<>(latestCommitInfoT);
         cleanCommitInfo();
         sinkWriter.close();
+        context.getEventListener().onEvent(new WriterCloseEvent());
         try {
             if (resourceManager != null) {
                 resourceManager.close();

@@ -17,6 +17,7 @@
 
 package org.apache.seatunnel.connectors.seatunnel.iotdb.source;
 
+import org.apache.seatunnel.api.configuration.ReadonlyConfig;
 import org.apache.seatunnel.api.source.Boundedness;
 import org.apache.seatunnel.api.source.Collector;
 import org.apache.seatunnel.api.source.SourceReader;
@@ -39,25 +40,24 @@ import java.io.IOException;
 import java.util.ArrayList;
 import java.util.LinkedList;
 import java.util.List;
-import java.util.Map;
 import java.util.Queue;
 import java.util.stream.Collectors;
 import java.util.stream.Stream;
 
-import static org.apache.seatunnel.connectors.seatunnel.iotdb.config.SourceConfig.ENABLE_CACHE_LEADER;
-import static org.apache.seatunnel.connectors.seatunnel.iotdb.config.SourceConfig.FETCH_SIZE;
-import static org.apache.seatunnel.connectors.seatunnel.iotdb.config.SourceConfig.NODE_URLS;
-import static org.apache.seatunnel.connectors.seatunnel.iotdb.config.SourceConfig.PASSWORD;
-import static org.apache.seatunnel.connectors.seatunnel.iotdb.config.SourceConfig.THRIFT_DEFAULT_BUFFER_SIZE;
-import static org.apache.seatunnel.connectors.seatunnel.iotdb.config.SourceConfig.THRIFT_MAX_FRAME_SIZE;
-import static org.apache.seatunnel.connectors.seatunnel.iotdb.config.SourceConfig.USERNAME;
-import static org.apache.seatunnel.connectors.seatunnel.iotdb.config.SourceConfig.VERSION;
+import static org.apache.seatunnel.connectors.seatunnel.iotdb.config.IoTDBSourceOptions.ENABLE_CACHE_LEADER;
+import static org.apache.seatunnel.connectors.seatunnel.iotdb.config.IoTDBSourceOptions.FETCH_SIZE;
+import static org.apache.seatunnel.connectors.seatunnel.iotdb.config.IoTDBSourceOptions.NODE_URLS;
+import static org.apache.seatunnel.connectors.seatunnel.iotdb.config.IoTDBSourceOptions.PASSWORD;
+import static org.apache.seatunnel.connectors.seatunnel.iotdb.config.IoTDBSourceOptions.THRIFT_DEFAULT_BUFFER_SIZE;
+import static org.apache.seatunnel.connectors.seatunnel.iotdb.config.IoTDBSourceOptions.THRIFT_MAX_FRAME_SIZE;
+import static org.apache.seatunnel.connectors.seatunnel.iotdb.config.IoTDBSourceOptions.USERNAME;
+import static org.apache.seatunnel.connectors.seatunnel.iotdb.config.IoTDBSourceOptions.VERSION;
 import static org.apache.seatunnel.connectors.seatunnel.iotdb.constant.SourceConstants.NODES_SPLIT;
 
 @Slf4j
 public class IoTDBSourceReader implements SourceReader<SeaTunnelRow, IoTDBSourceSplit> {
 
-    private final Map<String, Object> conf;
+    private final ReadonlyConfig conf;
 
     private final Queue<IoTDBSourceSplit> pendingSplits;
 
@@ -70,9 +70,7 @@ public class IoTDBSourceReader implements SourceReader<SeaTunnelRow, IoTDBSource
     private volatile boolean noMoreSplitsAssignment;
 
     public IoTDBSourceReader(
-            Map<String, Object> conf,
-            SourceReader.Context readerContext,
-            SeaTunnelRowType rowType) {
+            ReadonlyConfig conf, SourceReader.Context readerContext, SeaTunnelRowType rowType) {
         this.conf = conf;
         this.pendingSplits = new LinkedList<>();
         this.context = readerContext;
@@ -126,35 +124,35 @@ public class IoTDBSourceReader implements SourceReader<SeaTunnelRow, IoTDBSource
         }
     }
 
-    private Session buildSession(Map<String, Object> conf) {
+    private Session buildSession(ReadonlyConfig conf) {
         Session.Builder sessionBuilder = new Session.Builder();
-        String nodeUrlsString = (String) conf.get(NODE_URLS.key());
+        String nodeUrlsString = conf.get(NODE_URLS);
         List<String> nodes =
                 Stream.of(nodeUrlsString.split(NODES_SPLIT)).collect(Collectors.toList());
         sessionBuilder.nodeUrls(nodes);
-        if (null != conf.get(FETCH_SIZE.key())) {
-            sessionBuilder.fetchSize(Integer.parseInt(conf.get(FETCH_SIZE.key()).toString()));
+        if (null != conf.get(FETCH_SIZE)) {
+            sessionBuilder.fetchSize(Integer.parseInt(conf.get(FETCH_SIZE).toString()));
         }
-        if (null != conf.get(USERNAME.key())) {
-            sessionBuilder.username((String) conf.get(USERNAME.key()));
+        if (null != conf.get(USERNAME)) {
+            sessionBuilder.username(conf.get(USERNAME));
         }
-        if (null != conf.get(PASSWORD.key())) {
-            sessionBuilder.password((String) conf.get(PASSWORD.key()));
+        if (null != conf.get(PASSWORD)) {
+            sessionBuilder.password(conf.get(PASSWORD));
         }
-        if (null != conf.get(THRIFT_DEFAULT_BUFFER_SIZE.key())) {
+        if (null != conf.get(THRIFT_DEFAULT_BUFFER_SIZE)) {
             sessionBuilder.thriftDefaultBufferSize(
-                    Integer.parseInt(conf.get(THRIFT_DEFAULT_BUFFER_SIZE.key()).toString()));
+                    Integer.parseInt(conf.get(THRIFT_DEFAULT_BUFFER_SIZE).toString()));
         }
-        if (null != conf.get(THRIFT_MAX_FRAME_SIZE.key())) {
+        if (null != conf.get(THRIFT_MAX_FRAME_SIZE)) {
             sessionBuilder.thriftMaxFrameSize(
-                    Integer.parseInt(conf.get(THRIFT_MAX_FRAME_SIZE.key()).toString()));
+                    Integer.parseInt(conf.get(THRIFT_MAX_FRAME_SIZE).toString()));
         }
-        if (null != conf.get(ENABLE_CACHE_LEADER.key())) {
+        if (null != conf.get(ENABLE_CACHE_LEADER)) {
             sessionBuilder.enableCacheLeader(
-                    Boolean.parseBoolean(conf.get(ENABLE_CACHE_LEADER.key()).toString()));
+                    Boolean.parseBoolean(conf.get(ENABLE_CACHE_LEADER).toString()));
         }
-        if (null != conf.get(VERSION.key())) {
-            Version version = Version.valueOf(conf.get(VERSION.key()).toString());
+        if (null != conf.get(VERSION)) {
+            Version version = Version.valueOf(conf.get(VERSION));
             sessionBuilder.version(version);
         }
         return sessionBuilder.build();

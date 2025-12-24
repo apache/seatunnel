@@ -1,3 +1,5 @@
+import ChangeLog from '../changelog/connector-http-github.md';
+
 # Github
 
 > Github source connector
@@ -269,7 +271,7 @@ source {
 
 ### common options
 
-Source plugin common parameters, please refer to [Source Common Options](common-options.md) for details
+Source plugin common parameters, please refer to [Source Common Options](../source-common-options.md) for details
 
 ## Example
 
@@ -293,4 +295,6 @@ Github {
 ```
 
 ## Changelog
+
+<ChangeLog />
 

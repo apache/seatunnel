@@ -208,7 +208,7 @@ public class NumericFunction {
         c:
         switch (t.toUpperCase()) {
             case "INTEGER":
-            case "SHOT":
+            case "SHORT":
             case "LONG":
                 {
                     if (scale < 0) {
@@ -262,10 +262,10 @@ public class NumericFunction {
     }
 
     private static Number convertTo(String valueType, Number column) {
-        switch (valueType) {
+        switch (valueType.toUpperCase()) {
             case "INTEGER":
                 return column.intValue();
-            case "SHOT":
+            case "SHORT":
                 return column.shortValue();
             case "LONG":
                 return column.longValue();
@@ -403,10 +403,10 @@ public class NumericFunction {
         return round(v1, v2, RoundingMode.HALF_UP);
     }
 
-    public static int sign(List<Object> args) {
+    public static Integer sign(List<Object> args) {
         Number v1 = (Number) args.get(0);
         if (v1 == null) {
-            return 0;
+            return null;
         }
         if (v1 instanceof Integer) {
             return Integer.signum((Integer) v1);
@@ -442,5 +442,20 @@ public class NumericFunction {
             v2 = (Number) args.get(1);
         }
         return round(v1, v2, RoundingMode.DOWN);
+    }
+
+    public static String trimScale(List<Object> args) {
+        Number v1 = (Number) args.get(0);
+        if (v1 == null) {
+            return null;
+        }
+        BigDecimal bd;
+        if (v1 instanceof BigDecimal) {
+            bd = (BigDecimal) v1;
+        } else {
+            bd = new BigDecimal(v1.toString());
+        }
+        bd = bd.stripTrailingZeros();
+        return bd.toPlainString();
     }
 }

@@ -31,18 +31,21 @@ import org.apache.seatunnel.engine.server.task.operation.GetMetricsOperation;
 import org.apache.seatunnel.engine.server.task.operation.GetTaskGroupAddressOperation;
 import org.apache.seatunnel.engine.server.task.operation.GetTaskGroupMetricsOperation;
 import org.apache.seatunnel.engine.server.task.operation.NotifyTaskStatusOperation;
+import org.apache.seatunnel.engine.server.task.operation.ReportMetricsOperation;
 import org.apache.seatunnel.engine.server.task.operation.SendConnectorJarToMemberNodeOperation;
 import org.apache.seatunnel.engine.server.task.operation.checkpoint.BarrierFlowOperation;
 import org.apache.seatunnel.engine.server.task.operation.checkpoint.CloseRequestOperation;
 import org.apache.seatunnel.engine.server.task.operation.sink.SinkPrepareCommitOperation;
 import org.apache.seatunnel.engine.server.task.operation.sink.SinkRegisterOperation;
 import org.apache.seatunnel.engine.server.task.operation.source.AssignSplitOperation;
+import org.apache.seatunnel.engine.server.task.operation.source.CloseIdleReaderOperation;
 import org.apache.seatunnel.engine.server.task.operation.source.LastCheckpointNotifyOperation;
 import org.apache.seatunnel.engine.server.task.operation.source.RequestSplitOperation;
 import org.apache.seatunnel.engine.server.task.operation.source.RestoredSplitOperation;
 import org.apache.seatunnel.engine.server.task.operation.source.SourceNoMoreElementOperation;
 import org.apache.seatunnel.engine.server.task.operation.source.SourceReaderEventOperation;
 import org.apache.seatunnel.engine.server.task.operation.source.SourceRegisterOperation;
+import org.apache.seatunnel.engine.server.telemetry.log.operation.CleanLogOperation;
 
 import com.hazelcast.internal.serialization.DataSerializerHook;
 import com.hazelcast.internal.serialization.impl.FactoryIdHelper;
@@ -100,6 +103,12 @@ public class TaskDataSerializerHook implements DataSerializerHook {
     public static final int DELETE_CONNECTOR_JAR_IN_EXECUTION_NODE = 24;
 
     public static final int REPORT_JOB_EVENT = 25;
+
+    public static final int CLOSE_READER_OPERATION = 26;
+
+    public static final int CLEAN_LOG_OPERATION = 27;
+
+    public static final int REPORT_METRICS_OPERATION = 28;
 
     public static final int FACTORY_ID =
             FactoryIdHelper.getFactoryId(
@@ -171,6 +180,12 @@ public class TaskDataSerializerHook implements DataSerializerHook {
                     return new DeleteConnectorJarInExecutionNode();
                 case REPORT_JOB_EVENT:
                     return new JobEventReportOperation();
+                case CLOSE_READER_OPERATION:
+                    return new CloseIdleReaderOperation();
+                case CLEAN_LOG_OPERATION:
+                    return new CleanLogOperation();
+                case REPORT_METRICS_OPERATION:
+                    return new ReportMetricsOperation();
                 default:
                     throw new IllegalArgumentException("Unknown type id " + typeId);
             }

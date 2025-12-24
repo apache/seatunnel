@@ -17,9 +17,12 @@
 
 package org.apache.seatunnel.e2e.common.container.spark;
 
+import org.apache.seatunnel.common.utils.FileUtils;
 import org.apache.seatunnel.e2e.common.container.AbstractTestContainer;
 import org.apache.seatunnel.e2e.common.container.ContainerExtendedFactory;
+import org.apache.seatunnel.e2e.common.util.ContainerUtil;
 
+import org.testcontainers.containers.BindMode;
 import org.testcontainers.containers.Container;
 import org.testcontainers.containers.GenericContainer;
 import org.testcontainers.containers.output.Slf4jLogConsumer;
@@ -30,8 +33,10 @@ import org.testcontainers.utility.DockerLoggerFactory;
 import lombok.extern.slf4j.Slf4j;
 
 import java.io.IOException;
+import java.nio.file.Paths;
 import java.time.Duration;
 import java.util.Arrays;
+import java.util.Collections;
 import java.util.List;
 import java.util.stream.Stream;
 
@@ -49,6 +54,7 @@ public abstract class AbstractTestSparkContainer extends AbstractTestContainer {
 
     @Override
     public void startUp() throws Exception {
+        FileUtils.createNewDir(HOST_VOLUME_MOUNT_PATH);
         master =
                 new GenericContainer<>(getDockerImage())
                         .withNetwork(NETWORK)
@@ -59,6 +65,10 @@ public abstract class AbstractTestSparkContainer extends AbstractTestContainer {
                                 new Slf4jLogConsumer(
                                         DockerLoggerFactory.getLogger(getDockerImage())))
                         .withCreateContainerCmdModifier(cmd -> cmd.withUser("root"))
+                        .withFileSystemBind(
+                                HOST_VOLUME_MOUNT_PATH,
+                                CONTAINER_VOLUME_MOUNT_PATH,
+                                BindMode.READ_WRITE)
                         .waitingFor(
                                 new LogMessageWaitStrategy()
                                         .withRegEx(".*Master: Starting Spark master at.*")
@@ -77,12 +87,20 @@ public abstract class AbstractTestSparkContainer extends AbstractTestContainer {
     @Override
     public void tearDown() throws Exception {
         if (master != null) {
+            // delete the volume
+            master.execInContainer("rm", "-rf", CONTAINER_VOLUME_MOUNT_PATH);
             master.stop();
         }
+        FileUtils.deleteFile(HOST_VOLUME_MOUNT_PATH);
     }
 
     @Override
     protected String getSavePointCommand() {
+        throw new UnsupportedOperationException("Not implemented");
+    }
+
+    @Override
+    protected String getCancelJobCommand() {
         throw new UnsupportedOperationException("Not implemented");
     }
 
@@ -101,14 +119,32 @@ public abstract class AbstractTestSparkContainer extends AbstractTestContainer {
         extendedFactory.extend(master);
     }
 
+    @Override
     public Container.ExecResult executeJob(String confFile)
             throws IOException, InterruptedException {
+        return executeJob(confFile, Collections.emptyList());
+    }
+
+    @Override
+    public Container.ExecResult executeJob(String confFile, List<String> variables)
+            throws IOException, InterruptedException {
         log.info("test in container: {}", identifier());
-        return executeJob(master, confFile);
+        return executeJob(master, confFile, null, variables);
     }
 
     @Override
     public String getServerLogs() {
         return master.getLogs();
+    }
+
+    @Override
+    public void copyFileToContainer(String path, String targetPath) {
+        ContainerUtil.copyFileIntoContainers(
+                ContainerUtil.getResourcesFile(path).toPath(), targetPath, master);
+    }
+
+    @Override
+    public void copyAbsolutePathToContainer(String path, String targetPath) {
+        ContainerUtil.copyFileIntoContainers(Paths.get(path), targetPath, master);
     }
 }

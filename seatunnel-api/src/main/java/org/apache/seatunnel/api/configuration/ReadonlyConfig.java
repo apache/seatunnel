@@ -69,8 +69,8 @@ public class ReadonlyConfig implements Serializable {
     /**
      * Transform to Config todo: This method should be removed after we remove Config
      *
-     * @deprecated Please use ReadonlyConfig directly
      * @return Config
+     * @deprecated Please use ReadonlyConfig directly
      */
     @Deprecated
     public Config toConfig() {
@@ -94,6 +94,10 @@ public class ReadonlyConfig implements Serializable {
         for (Map.Entry<String, Object> entry : confData.entrySet()) {
             result.put(entry.getKey(), convertToJsonString(entry.getValue()));
         }
+    }
+
+    public Map<String, Object> getSourceMap() {
+        return confData;
     }
 
     public <T> Optional<T> getOptional(Option<T> option) {

@@ -17,67 +17,78 @@
 
 package org.apache.seatunnel.connectors.seatunnel.hive.commit;
 
-import org.apache.seatunnel.shade.com.typesafe.config.Config;
-
+import org.apache.seatunnel.api.configuration.ReadonlyConfig;
 import org.apache.seatunnel.connectors.seatunnel.file.config.HadoopConf;
 import org.apache.seatunnel.connectors.seatunnel.file.sink.commit.FileAggregatedCommitInfo;
 import org.apache.seatunnel.connectors.seatunnel.file.sink.commit.FileSinkAggregatedCommitter;
-import org.apache.seatunnel.connectors.seatunnel.hive.utils.HiveMetaStoreProxy;
+import org.apache.seatunnel.connectors.seatunnel.hive.sink.HiveSinkOptions;
+import org.apache.seatunnel.connectors.seatunnel.hive.utils.HiveMetaStoreCatalog;
 
 import org.apache.thrift.TException;
 
 import lombok.extern.slf4j.Slf4j;
 
 import java.io.IOException;
+import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.Set;
 import java.util.stream.Collectors;
-
-import static org.apache.seatunnel.connectors.seatunnel.hive.config.HiveConfig.ABORT_DROP_PARTITION_METADATA;
 
 @Slf4j
 public class HiveSinkAggregatedCommitter extends FileSinkAggregatedCommitter {
-    private final Config pluginConfig;
     private final String dbName;
     private final String tableName;
     private final boolean abortDropPartitionMetadata;
+    private final org.apache.seatunnel.api.sink.DataSaveMode dataSaveMode;
+
+    private final ReadonlyConfig readonlyConfig;
+    private final HiveMetaStoreCatalog hiveMetaStore;
 
     public HiveSinkAggregatedCommitter(
-            Config pluginConfig, String dbName, String tableName, HadoopConf hadoopConf) {
+            ReadonlyConfig readonlyConfig, String dbName, String tableName, HadoopConf hadoopConf) {
         super(hadoopConf);
-        this.pluginConfig = pluginConfig;
+        this.readonlyConfig = readonlyConfig;
+        this.hiveMetaStore = HiveMetaStoreCatalog.create(readonlyConfig);
         this.dbName = dbName;
         this.tableName = tableName;
         this.abortDropPartitionMetadata =
-                pluginConfig.hasPath(ABORT_DROP_PARTITION_METADATA.key())
-                        ? pluginConfig.getBoolean(ABORT_DROP_PARTITION_METADATA.key())
-                        : ABORT_DROP_PARTITION_METADATA.defaultValue();
+                readonlyConfig.get(HiveSinkOptions.ABORT_DROP_PARTITION_METADATA);
+        // Normalize overwrite into data_save_mode
+        org.apache.seatunnel.api.sink.DataSaveMode configured =
+                readonlyConfig.get(
+                        org.apache.seatunnel.connectors.seatunnel.hive.sink.HiveSinkOptions
+                                .DATA_SAVE_MODE);
+        boolean overwrite = readonlyConfig.get(HiveSinkOptions.OVERWRITE);
+        this.dataSaveMode =
+                overwrite ? org.apache.seatunnel.api.sink.DataSaveMode.DROP_DATA : configured;
     }
 
     @Override
     public List<FileAggregatedCommitInfo> commit(
             List<FileAggregatedCommitInfo> aggregatedCommitInfos) throws IOException {
+        log.info("Aggregated commit infos: {}", aggregatedCommitInfos);
+        if (dataSaveMode == org.apache.seatunnel.api.sink.DataSaveMode.DROP_DATA) {
+            log.info("DataSaveMode=DROP_DATA: delete existing target directories before commit.");
+            deleteDirectories(aggregatedCommitInfos);
+        }
+
         List<FileAggregatedCommitInfo> errorCommitInfos = super.commit(aggregatedCommitInfos);
         if (errorCommitInfos.isEmpty()) {
-            HiveMetaStoreProxy hiveMetaStore = HiveMetaStoreProxy.getInstance(pluginConfig);
-            try {
-                for (FileAggregatedCommitInfo aggregatedCommitInfo : aggregatedCommitInfos) {
-                    Map<String, List<String>> partitionDirAndValuesMap =
-                            aggregatedCommitInfo.getPartitionDirAndValuesMap();
-                    List<String> partitions =
-                            partitionDirAndValuesMap.keySet().stream()
-                                    .map(partition -> partition.replaceAll("\\\\", "/"))
-                                    .collect(Collectors.toList());
-                    try {
-                        hiveMetaStore.addPartitions(dbName, tableName, partitions);
-                        log.info("Add these partitions {}", partitions);
-                    } catch (TException e) {
-                        log.error("Failed to add these partitions {}", partitions, e);
-                        errorCommitInfos.add(aggregatedCommitInfo);
-                    }
+            for (FileAggregatedCommitInfo aggregatedCommitInfo : aggregatedCommitInfos) {
+                Map<String, List<String>> partitionDirAndValuesMap =
+                        aggregatedCommitInfo.getPartitionDirAndValuesMap();
+                List<String> partitions =
+                        partitionDirAndValuesMap.keySet().stream()
+                                .map(partition -> partition.replaceAll("\\\\", "/"))
+                                .collect(Collectors.toList());
+                try {
+                    hiveMetaStore.addPartitions(dbName, tableName, partitions);
+                    log.info("Add these partitions {}", partitions);
+                } catch (TException e) {
+                    log.error("Failed to add these partitions {}", partitions, e);
+                    errorCommitInfos.add(aggregatedCommitInfo);
                 }
-            } finally {
-                hiveMetaStore.close();
             }
         }
         return errorCommitInfos;
@@ -87,7 +98,6 @@ public class HiveSinkAggregatedCommitter extends FileSinkAggregatedCommitter {
     public void abort(List<FileAggregatedCommitInfo> aggregatedCommitInfos) throws Exception {
         super.abort(aggregatedCommitInfos);
         if (abortDropPartitionMetadata) {
-            HiveMetaStoreProxy hiveMetaStore = HiveMetaStoreProxy.getInstance(pluginConfig);
             for (FileAggregatedCommitInfo aggregatedCommitInfo : aggregatedCommitInfos) {
                 Map<String, List<String>> partitionDirAndValuesMap =
                         aggregatedCommitInfo.getPartitionDirAndValuesMap();
@@ -102,7 +112,78 @@ public class HiveSinkAggregatedCommitter extends FileSinkAggregatedCommitter {
                     log.error("Failed to remove these partitions {}", partitions, e);
                 }
             }
+        }
+    }
+
+    @Override
+    public void close() throws IOException {
+        try {
             hiveMetaStore.close();
+        } finally {
+            super.close();
+        }
+    }
+
+    /**
+     * Deletes the partition directories based on the partition paths stored in the aggregated
+     * commit information.
+     *
+     * <p>This method is invoked during the commit phase when the overwrite option is enabled. It
+     * iterates over the partition directories specified in the commit information and deletes the
+     * directories from the Hadoop file system.
+     *
+     * @param aggregatedCommitInfos
+     */
+    private void deleteDirectories(List<FileAggregatedCommitInfo> aggregatedCommitInfos)
+            throws IOException {
+        if (aggregatedCommitInfos.isEmpty()) {
+            return;
+        }
+
+        for (FileAggregatedCommitInfo aggregatedCommitInfo : aggregatedCommitInfos) {
+            LinkedHashMap<String, LinkedHashMap<String, String>> transactionMap =
+                    aggregatedCommitInfo.getTransactionMap();
+
+            // Do not delete if source data is empty
+            if (transactionMap.values().stream().allMatch(Map::isEmpty)) {
+                log.info("Data source is empty, no directories will be deleted.");
+                continue;
+            }
+
+            try {
+                // Get the first target path from transactionMap
+                String targetPath =
+                        transactionMap.values().stream()
+                                .flatMap(m -> m.values().stream())
+                                .findFirst()
+                                .orElseThrow(
+                                        () -> new IllegalStateException("No target paths found"));
+
+                if (aggregatedCommitInfo.getPartitionDirAndValuesMap().isEmpty()) {
+                    // For non-partitioned table, extract and delete table directory
+                    // Example: hdfs://hadoop-master1:8020/warehouse/test_overwrite_1/
+                    String tableDir = targetPath.substring(0, targetPath.lastIndexOf('/'));
+                    hadoopFileSystemProxy.deleteFile(tableDir);
+                    log.info("Deleted table directory: {}", tableDir);
+                } else {
+                    // For partitioned table, extract and delete partition directories
+                    // Example:
+                    // hdfs://hadoop-master1:8020/warehouse/test_overwrite_partition/age=26/
+                    Set<String> partitionDirs =
+                            transactionMap.values().stream()
+                                    .flatMap(m -> m.values().stream())
+                                    .map(path -> path.substring(0, path.lastIndexOf('/')))
+                                    .collect(Collectors.toSet());
+
+                    for (String partitionDir : partitionDirs) {
+                        hadoopFileSystemProxy.deleteFile(partitionDir);
+                        log.info("Deleted partition directory: {}", partitionDir);
+                    }
+                }
+            } catch (IOException e) {
+                log.error("Failed to delete directories", e);
+                throw e;
+            }
         }
     }
 }

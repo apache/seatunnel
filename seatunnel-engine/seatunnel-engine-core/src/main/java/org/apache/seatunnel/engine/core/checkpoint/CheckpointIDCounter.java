@@ -18,9 +18,8 @@
 
 package org.apache.seatunnel.engine.core.checkpoint;
 
+import org.apache.seatunnel.engine.common.utils.concurrent.CompletableFuture;
 import org.apache.seatunnel.engine.core.job.PipelineStatus;
-
-import java.util.concurrent.CompletableFuture;
 
 /** A checkpoint ID counter. */
 public interface CheckpointIDCounter {

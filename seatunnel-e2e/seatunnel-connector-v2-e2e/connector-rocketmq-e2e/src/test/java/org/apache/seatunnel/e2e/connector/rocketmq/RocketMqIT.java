@@ -19,6 +19,7 @@ package org.apache.seatunnel.e2e.connector.rocketmq;
 
 import org.apache.seatunnel.shade.com.fasterxml.jackson.databind.ObjectMapper;
 import org.apache.seatunnel.shade.com.fasterxml.jackson.databind.node.ObjectNode;
+import org.apache.seatunnel.shade.com.google.common.collect.Lists;
 
 import org.apache.seatunnel.api.table.type.ArrayType;
 import org.apache.seatunnel.api.table.type.BasicType;
@@ -48,7 +49,10 @@ import org.apache.rocketmq.common.admin.TopicOffset;
 import org.apache.rocketmq.common.message.Message;
 import org.apache.rocketmq.common.message.MessageExt;
 import org.apache.rocketmq.common.message.MessageQueue;
+import org.apache.rocketmq.common.protocol.route.QueueData;
+import org.apache.rocketmq.common.protocol.route.TopicRouteData;
 import org.apache.rocketmq.remoting.protocol.LanguageCode;
+import org.apache.rocketmq.tools.admin.DefaultMQAdminExt;
 
 import org.junit.jupiter.api.AfterAll;
 import org.junit.jupiter.api.Assertions;
@@ -60,7 +64,6 @@ import org.testcontainers.containers.wait.strategy.HostPortWaitStrategy;
 import org.testcontainers.utility.DockerImageName;
 import org.testcontainers.utility.DockerLoggerFactory;
 
-import com.google.common.collect.Lists;
 import lombok.SneakyThrows;
 import lombok.extern.slf4j.Slf4j;
 
@@ -77,6 +80,7 @@ import java.util.List;
 import java.util.Map;
 import java.util.Set;
 import java.util.UUID;
+import java.util.stream.Collectors;
 
 import static org.apache.seatunnel.e2e.connector.rocketmq.RocketMqContainer.NAMESRV_PORT;
 
@@ -147,6 +151,7 @@ public class RocketMqIT extends TestSuiteBase implements TestResource {
         DefaultSeaTunnelRowSerializer serializer =
                 new DefaultSeaTunnelRowSerializer(
                         "test_topic_source",
+                        null,
                         SEATUNNEL_ROW_TYPE,
                         DEFAULT_FORMAT,
                         DEFAULT_FIELD_DELIMITER);
@@ -183,7 +188,7 @@ public class RocketMqIT extends TestSuiteBase implements TestResource {
         Assertions.assertEquals(0, execResult.getExitCode(), execResult.getStderr());
 
         String topicName = "test_topic";
-        Map<String, String> data = getRocketMqConsumerData(topicName);
+        Map<String, RocketMqConsumerMessage> data = getRocketMqConsumerData(topicName);
         ObjectMapper objectMapper = new ObjectMapper();
         String key = data.keySet().iterator().next();
         ObjectNode objectNode = objectMapper.readValue(key, ObjectNode.class);
@@ -199,8 +204,44 @@ public class RocketMqIT extends TestSuiteBase implements TestResource {
                 container.executeJob("/rocketmq-text-sink_fake_to_rocketmq.conf");
         Assertions.assertEquals(0, execResult.getExitCode(), execResult.getStderr());
         String topicName = "test_text_topic";
-        Map<String, String> data = getRocketMqConsumerData(topicName);
+        Map<String, RocketMqConsumerMessage> data = getRocketMqConsumerData(topicName);
         Assertions.assertEquals(10, data.size());
+    }
+
+    @TestTemplate
+    public void testSourceRocketMqTextTagToConsole(TestContainer container)
+            throws IOException, InterruptedException {
+        String topic = "test_topic_text_tag";
+        String tag = "tag_test";
+
+        // delete topic if exist
+        deleteTopicIfExist(topic);
+
+        DefaultSeaTunnelRowSerializer serializer =
+                new DefaultSeaTunnelRowSerializer(
+                        topic, tag, SEATUNNEL_ROW_TYPE, SchemaFormat.TEXT, DEFAULT_FIELD_DELIMITER);
+        generateTestData(serializer::serializeRow, topic, 0, 32);
+        Container.ExecResult execResult =
+                container.executeJob("/rocketmq-source_text_tag_to_console.conf");
+        Assertions.assertEquals(0, execResult.getExitCode(), execResult.getStderr());
+    }
+
+    @TestTemplate
+    public void testSourceRocketMqTextErrorTagToConsole(TestContainer container)
+            throws IOException, InterruptedException {
+        String topic = "test_topic_text_error_tag";
+        String tag = "test_error_tag";
+
+        // delete topic if exist
+        deleteTopicIfExist(topic);
+
+        DefaultSeaTunnelRowSerializer serializer =
+                new DefaultSeaTunnelRowSerializer(
+                        topic, tag, SEATUNNEL_ROW_TYPE, SchemaFormat.TEXT, DEFAULT_FIELD_DELIMITER);
+        generateTestData(serializer::serializeRow, topic, 0, 32);
+        Container.ExecResult execResult =
+                container.executeJob("/rocketmq-source_text_error_tag_to_console.conf");
+        Assertions.assertEquals(0, execResult.getExitCode(), execResult.getStderr());
     }
 
     @TestTemplate
@@ -209,6 +250,7 @@ public class RocketMqIT extends TestSuiteBase implements TestResource {
         DefaultSeaTunnelRowSerializer serializer =
                 new DefaultSeaTunnelRowSerializer(
                         "test_topic_text",
+                        null,
                         SEATUNNEL_ROW_TYPE,
                         SchemaFormat.TEXT,
                         DEFAULT_FIELD_DELIMITER);
@@ -228,6 +270,7 @@ public class RocketMqIT extends TestSuiteBase implements TestResource {
         DefaultSeaTunnelRowSerializer serializer =
                 new DefaultSeaTunnelRowSerializer(
                         "test_topic_text_offset_check",
+                        null,
                         SEATUNNEL_ROW_TYPE,
                         SchemaFormat.TEXT,
                         DEFAULT_FIELD_DELIMITER);
@@ -245,6 +288,7 @@ public class RocketMqIT extends TestSuiteBase implements TestResource {
         DefaultSeaTunnelRowSerializer serializer =
                 new DefaultSeaTunnelRowSerializer(
                         "test_topic_json",
+                        null,
                         SEATUNNEL_ROW_TYPE,
                         DEFAULT_FORMAT,
                         DEFAULT_FIELD_DELIMITER);
@@ -292,11 +336,31 @@ public class RocketMqIT extends TestSuiteBase implements TestResource {
         DefaultSeaTunnelRowSerializer serializer =
                 new DefaultSeaTunnelRowSerializer(
                         "test_topic_group",
+                        null,
                         SEATUNNEL_ROW_TYPE,
                         DEFAULT_FORMAT,
                         DEFAULT_FIELD_DELIMITER);
         generateTestData(row -> serializer.serializeRow(row), "test_topic_group", 100, 150);
         testRocketMqGroupOffsetsToConsole(container);
+    }
+
+    @TestTemplate
+    public void testSinkRocketMqMessageTag(TestContainer container)
+            throws IOException, InterruptedException {
+        Container.ExecResult execResult =
+                container.executeJob("/rocketmq-sink_fake_to_rocketmq_message_tag.conf");
+        Assertions.assertEquals(0, execResult.getExitCode(), execResult.getStderr());
+
+        String topicName = "test_topic_message_tag";
+        String tag = "test_tag";
+        Map<String, RocketMqConsumerMessage> data = getRocketMqConsumerData(topicName);
+        ObjectMapper objectMapper = new ObjectMapper();
+        String key = data.keySet().iterator().next();
+        ObjectNode objectNode = objectMapper.readValue(key, ObjectNode.class);
+        Assertions.assertTrue(objectNode.has("c_map"));
+        Assertions.assertTrue(objectNode.has("c_string"));
+        Assertions.assertEquals(10, data.size());
+        Assertions.assertEquals(tag, data.get(key).getTag());
     }
 
     public void testRocketMqGroupOffsetsToConsole(TestContainer container)
@@ -334,8 +398,8 @@ public class RocketMqIT extends TestSuiteBase implements TestResource {
         }
     }
 
-    private Map<String, String> getRocketMqConsumerData(String topicName) {
-        Map<String, String> data = new HashMap<>();
+    private Map<String, RocketMqConsumerMessage> getRocketMqConsumerData(String topicName) {
+        Map<String, RocketMqConsumerMessage> data = new HashMap<>();
         try {
             DefaultLitePullConsumer consumer =
                     RocketMqAdminUtil.initDefaultLitePullConsumer(newConfiguration(), false);
@@ -373,9 +437,11 @@ public class RocketMqIT extends TestSuiteBase implements TestResource {
                     break;
                 }
                 for (MessageExt message : messages) {
-                    data.put(
-                            message.getKeys(),
-                            new String(message.getBody(), StandardCharsets.UTF_8));
+                    RocketMqConsumerMessage consumerMessage =
+                            new RocketMqConsumerMessage(
+                                    new String(message.getBody(), StandardCharsets.UTF_8),
+                                    message.getTags());
+                    data.put(message.getKeys(), consumerMessage);
                     consumer.getOffsetStore()
                             .updateConsumeOffsetToBroker(
                                     new MessageQueue(
@@ -431,5 +497,33 @@ public class RocketMqIT extends TestSuiteBase implements TestResource {
 
     interface ProducerRecordConverter {
         Message convert(SeaTunnelRow row);
+    }
+
+    private void deleteTopicIfExist(String topicName) {
+        DefaultMQAdminExt admin = new DefaultMQAdminExt();
+        admin.setInstanceName(UUID.randomUUID().toString());
+        try {
+            admin.start();
+            TopicRouteData topicRouteData = admin.examineTopicRouteInfo(topicName);
+            if (topicRouteData != null
+                    && topicRouteData.getQueueDatas() != null
+                    && !topicRouteData.getQueueDatas().isEmpty()) {
+                Set<String> brokerNames =
+                        topicRouteData.getQueueDatas().stream()
+                                .map(QueueData::getBrokerName)
+                                .collect(Collectors.toSet());
+                admin.deleteTopicInBroker(brokerNames, topicName);
+                admin.deleteTopicInNameServer(brokerNames, topicName, "delete_topic");
+                log.info("Deleted topic: {}", topicName);
+            } else {
+                log.info("Topic {} does not exist", topicName);
+            }
+        } catch (Exception e) {
+            log.warn("Failed to delete topic {}: {}", topicName, e.getMessage());
+        } finally {
+            if (admin != null) {
+                admin.shutdown();
+            }
+        }
     }
 }

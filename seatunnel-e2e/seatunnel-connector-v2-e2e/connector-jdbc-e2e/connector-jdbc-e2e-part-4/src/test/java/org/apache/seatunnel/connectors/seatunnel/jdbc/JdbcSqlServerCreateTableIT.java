@@ -17,6 +17,8 @@
 
 package org.apache.seatunnel.connectors.seatunnel.jdbc;
 
+import org.apache.seatunnel.shade.com.google.common.collect.Lists;
+
 import org.apache.seatunnel.api.table.catalog.CatalogTable;
 import org.apache.seatunnel.api.table.catalog.TablePath;
 import org.apache.seatunnel.common.exception.SeaTunnelRuntimeException;
@@ -45,7 +47,6 @@ import org.testcontainers.lifecycle.Startables;
 import org.testcontainers.utility.DockerImageName;
 import org.testcontainers.utility.DockerLoggerFactory;
 
-import com.google.common.collect.Lists;
 import lombok.extern.slf4j.Slf4j;
 
 import java.sql.Connection;
@@ -59,7 +60,8 @@ import java.util.stream.Stream;
 @DisabledOnContainer(
         value = {},
         type = {EngineType.SPARK, EngineType.FLINK},
-        disabledReason = "Currently SPARK and FLINK do not support cdc")
+        disabledReason =
+                "Currently testcase does not depend on a specific engine, but needs to be started with the engine")
 public class JdbcSqlServerCreateTableIT extends TestSuiteBase implements TestResource {
 
     private static final String SQLSERVER_IMAGE = "mcr.microsoft.com/mssql/server:2022-latest";
@@ -128,7 +130,7 @@ public class JdbcSqlServerCreateTableIT extends TestSuiteBase implements TestRes
     private static final String PG_GEOMETRY_JAR =
             "https://repo1.maven.org/maven2/net/postgis/postgis-geometry/2.5.1/postgis-geometry-2.5.1.jar";
 
-    private static final String MYSQL_IMAGE = "mysql:8.0";
+    private static final String MYSQL_IMAGE = "mysql:8.0.43";
     private static final String MYSQL_CONTAINER_HOST = "mysql-e2e";
     private static final String MYSQL_DATABASE = "auto";
 
@@ -280,10 +282,10 @@ public class JdbcSqlServerCreateTableIT extends TestSuiteBase implements TestRes
         TablePath tablePathPG = TablePath.of("pg", "public", "sqlserver_auto_create_pg");
 
         SqlServerCatalog sqlServerCatalog =
-                new SqlServerCatalog("sqlserver", "sa", password, sqlParse, "dbo");
-        MySqlCatalog mySqlCatalog = new MySqlCatalog("mysql", "root", PASSWORD, MysqlUrlInfo);
+                new SqlServerCatalog("sqlserver", "sa", password, sqlParse, "dbo", null);
+        MySqlCatalog mySqlCatalog = new MySqlCatalog("mysql", "root", PASSWORD, MysqlUrlInfo, null);
         PostgresCatalog postgresCatalog =
-                new PostgresCatalog("postgres", "testUser", PASSWORD, pg, "public");
+                new PostgresCatalog("postgres", "testUser", PASSWORD, pg, "public", null);
 
         mySqlCatalog.open();
         sqlServerCatalog.open();
@@ -361,8 +363,9 @@ public class JdbcSqlServerCreateTableIT extends TestSuiteBase implements TestRes
     }
 
     private boolean checkMysql(String sql) {
-        try (Connection connection = getJdbcMySqlConnection()) {
-            ResultSet resultSet = connection.createStatement().executeQuery(sql);
+        try (Connection connection = getJdbcMySqlConnection();
+                Statement statement = connection.createStatement();
+                ResultSet resultSet = statement.executeQuery(sql)) {
             boolean tableExists = false;
             if (resultSet.next()) {
                 tableExists = resultSet.getBoolean(1);
@@ -374,8 +377,9 @@ public class JdbcSqlServerCreateTableIT extends TestSuiteBase implements TestRes
     }
 
     private boolean checkPG(String sql) {
-        try (Connection connection = getJdbcPgConnection()) {
-            ResultSet resultSet = connection.createStatement().executeQuery(sql);
+        try (Connection connection = getJdbcPgConnection();
+                Statement statement = connection.createStatement();
+                ResultSet resultSet = statement.executeQuery(sql)) {
             boolean tableExists = false;
             if (resultSet.next()) {
                 tableExists = resultSet.getBoolean(1);
@@ -387,8 +391,9 @@ public class JdbcSqlServerCreateTableIT extends TestSuiteBase implements TestRes
     }
 
     private boolean checkSqlServer(String sql) {
-        try (Connection connection = getJdbcSqlServerConnection()) {
-            ResultSet resultSet = connection.createStatement().executeQuery(sql);
+        try (Connection connection = getJdbcSqlServerConnection();
+                Statement statement = connection.createStatement();
+                ResultSet resultSet = statement.executeQuery(sql)) {
             boolean tableExists = false;
             if (resultSet.next()) {
                 tableExists = resultSet.getInt(1) == 1;

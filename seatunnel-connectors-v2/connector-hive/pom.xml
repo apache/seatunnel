@@ -30,7 +30,7 @@
     <name>SeaTunnel : Connectors V2 : Hive</name>
 
     <properties>
-        <hive.exec.version>2.3.9</hive.exec.version>
+        <hive.exec.version>3.1.3</hive.exec.version>
         <connector.name>connector.hive</connector.name>
     </properties>
 
@@ -43,6 +43,10 @@
                 <exclusion>
                     <groupId>org.apache.seatunnel</groupId>
                     <artifactId>seatunnel-hadoop3-3.1.4-uber</artifactId>
+                </exclusion>
+                <exclusion>
+                    <groupId>org.xerial.snappy</groupId>
+                    <artifactId>snappy-java</artifactId>
                 </exclusion>
             </exclusions>
         </dependency>

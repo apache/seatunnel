@@ -23,6 +23,10 @@ import org.apache.seatunnel.api.source.SeaTunnelSource;
 import org.apache.seatunnel.api.source.SourceReader;
 import org.apache.seatunnel.api.source.SourceSplit;
 import org.apache.seatunnel.api.source.SourceSplitEnumerator;
+import org.apache.seatunnel.api.source.event.EnumeratorCloseEvent;
+import org.apache.seatunnel.api.source.event.EnumeratorOpenEvent;
+import org.apache.seatunnel.api.source.event.ReaderCloseEvent;
+import org.apache.seatunnel.api.source.event.ReaderOpenEvent;
 import org.apache.seatunnel.translation.util.ThreadPoolExecutorFactory;
 
 import org.slf4j.Logger;
@@ -30,6 +34,7 @@ import org.slf4j.LoggerFactory;
 
 import java.io.IOException;
 import java.io.Serializable;
+import java.sql.DriverManager;
 import java.util.ArrayList;
 import java.util.Collections;
 import java.util.HashMap;
@@ -40,6 +45,19 @@ import java.util.concurrent.ScheduledThreadPoolExecutor;
 
 public class ParallelSource<T, SplitT extends SourceSplit, StateT extends Serializable>
         implements BaseSourceFunction<T> {
+
+    static {
+        // Load DriverManager first to avoid deadlock between DriverManager's
+        // static initialization block and specific driver class's static
+        // initialization block when two different driver classes are loading
+        // concurrently using Class.forName while DriverManager is uninitialized
+        // before.
+        //
+        // This could happen in JDK 8 but not above as driver loading has been
+        // moved out of DriverManager's static initialization block since JDK 9.
+        DriverManager.getDrivers();
+    }
+
     private static final Logger LOG = LoggerFactory.getLogger(ParallelSource.class);
 
     protected final SeaTunnelSource<T, SplitT, StateT> source;
@@ -115,7 +133,9 @@ public class ParallelSource<T, SplitT extends SourceSplit, StateT extends Serial
             splitEnumerator.addSplitsBack(restoredSplitState, subtaskId);
         }
         reader.open();
+        readerContext.getEventListener().onEvent(new ReaderOpenEvent());
         parallelEnumeratorContext.register();
+        parallelEnumeratorContext.getEventListener().onEvent(new EnumeratorOpenEvent());
         splitEnumerator.registerReader(subtaskId);
     }
 
@@ -170,6 +190,8 @@ public class ParallelSource<T, SplitT extends SourceSplit, StateT extends Serial
         if (reader != null) {
             LOG.debug("Close the data reader for the Apache SeaTunnel source.");
             reader.close();
+            readerContext.getEventListener().onEvent(new ReaderCloseEvent());
+            parallelEnumeratorContext.getEventListener().onEvent(new EnumeratorCloseEvent());
         }
     }
 

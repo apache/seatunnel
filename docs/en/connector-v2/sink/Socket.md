@@ -1,3 +1,5 @@
+import ChangeLog from '../changelog/connector-socket.md';
+
 # Socket
 
 > Socket sink connector
@@ -20,12 +22,12 @@ Used to send data to Socket Server. Both support streaming and batch mode.
 
 ## Sink Options
 
-|      Name      |  Type   | Required | Default |                                               Description                                               |
-|----------------|---------|----------|---------|---------------------------------------------------------------------------------------------------------|
-| host           | String  | Yes      |         | socket server host                                                                                      |
-| port           | Integer | Yes      |         | socket server port                                                                                      |
-| max_retries    | Integer | No       | 3       | The number of retries to send record failed                                                             |
-| common-options |         | No       | -       | Source plugin common parameters, please refer to [Source Common Options](common-options.md) for details |
+|      Name      |  Type   | Required | Default |                                                   Description                                                   |
+|----------------|---------|----------|---------|-----------------------------------------------------------------------------------------------------------------|
+| host           | String  | Yes      |         | socket server host                                                                                              |
+| port           | Integer | Yes      |         | socket server port                                                                                              |
+| max_retries    | Integer | No       | 3       | The number of retries to send record failed                                                                     |
+| common-options |         | No       | -       | Source plugin common parameters, please refer to [Source Common Options](../sink-common-options.md) for details |
 
 ## Task Example
 
@@ -39,7 +41,7 @@ env {
 
 source {
   FakeSource {
-    result_table_name = "fake"
+    plugin_output = "fake"
     schema = {
       fields {
         name = "string"
@@ -73,7 +75,5 @@ nc -l -v 9999
 
 ## Changelog
 
-### 2.2.0-beta 2022-09-26
-
-- Add Socket Sink Connector
+<ChangeLog />
 

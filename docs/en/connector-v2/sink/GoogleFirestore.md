@@ -1,3 +1,5 @@
+import ChangeLog from '../changelog/connector-google-firestore.md';
+
 # GoogleFirestore
 
 > Google Firestore sink connector
@@ -32,7 +34,7 @@ The credentials of Google Cloud service account, use base64 codec. If not set, n
 
 ### common options
 
-Sink plugin common parameters, please refer to [Sink Common Options](common-options.md) for details.
+Sink plugin common parameters, please refer to [Sink Common Options](../sink-common-options.md) for details.
 
 ## Example
 
@@ -46,7 +48,4 @@ GoogleFirestore {
 
 ## Changelog
 
-### next version
-
-- Add Google Firestore Sink Connector
-
+<ChangeLog />

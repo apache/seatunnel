@@ -33,7 +33,7 @@ public class SparkStarterTest {
     public void testGetSparkConf() throws URISyntaxException, FileNotFoundException {
         URI uri = ClassLoader.getSystemResource("spark_application.conf").toURI();
         String file = new File(uri).toString();
-        Map<String, String> sparkConf = SparkStarter.getSparkConf(file);
+        Map<String, String> sparkConf = SparkStarter.getSparkConf(file, null);
         assertEquals("SeaTunnel", sparkConf.get("job.name"));
         assertEquals("1", sparkConf.get("spark.executor.cores"));
     }

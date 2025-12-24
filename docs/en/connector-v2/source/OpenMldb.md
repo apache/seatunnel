@@ -1,3 +1,5 @@
+import ChangeLog from '../changelog/connector-openmldb.md';
+
 # OpenMldb
 
 > OpenMldb source connector
@@ -68,7 +70,7 @@ OpenMldb request timeout(ms), default 10000
 
 ### common options
 
-Source plugin common parameters, please refer to [Source Common Options](common-options.md) for details
+Source plugin common parameters, please refer to [Source Common Options](../source-common-options.md) for details
 
 ## Example
 
@@ -84,3 +86,6 @@ Source plugin common parameters, please refer to [Source Common Options](common-
 
 ```
 
+## Changelog
+
+<ChangeLog />

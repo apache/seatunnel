@@ -17,35 +17,95 @@
 
 package org.apache.seatunnel.engine.server.dag;
 
+import org.apache.seatunnel.api.sink.SeaTunnelSink;
+import org.apache.seatunnel.api.sink.multitablesink.MultiTableSink;
+import org.apache.seatunnel.api.table.catalog.CatalogTable;
+import org.apache.seatunnel.api.table.catalog.TablePath;
 import org.apache.seatunnel.engine.common.config.EngineConfig;
+import org.apache.seatunnel.engine.core.classloader.ClassLoaderService;
+import org.apache.seatunnel.engine.core.dag.actions.Action;
 import org.apache.seatunnel.engine.core.dag.actions.ActionUtils;
+import org.apache.seatunnel.engine.core.dag.actions.SinkAction;
+import org.apache.seatunnel.engine.core.dag.actions.SourceAction;
 import org.apache.seatunnel.engine.core.dag.logical.LogicalDag;
 import org.apache.seatunnel.engine.core.dag.logical.LogicalVertex;
 import org.apache.seatunnel.engine.core.job.Edge;
+import org.apache.seatunnel.engine.core.job.ExecutionAddress;
 import org.apache.seatunnel.engine.core.job.JobDAGInfo;
 import org.apache.seatunnel.engine.core.job.JobImmutableInformation;
 import org.apache.seatunnel.engine.core.job.VertexInfo;
 import org.apache.seatunnel.engine.server.dag.execution.ExecutionPlanGenerator;
 import org.apache.seatunnel.engine.server.dag.execution.Pipeline;
 
+import com.hazelcast.internal.serialization.Data;
+import com.hazelcast.internal.serialization.SerializationService;
+import lombok.extern.slf4j.Slf4j;
+
+import java.net.URL;
+import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.Optional;
+import java.util.Set;
 import java.util.function.Function;
 import java.util.stream.Collectors;
 
+@Slf4j
 public class DAGUtils {
+
+    public static LogicalDag restoreLogicalDag(
+            JobImmutableInformation jobImmutableInformation,
+            SerializationService serializationService,
+            List<ClassLoader> classLoaders) {
+        LogicalDag logicalDag =
+                serializationService.toObject(jobImmutableInformation.getLogicalDag());
+        ClassLoader classLoader = Thread.currentThread().getContextClassLoader();
+        try {
+            List<Data> logicalVertexDataList = jobImmutableInformation.getLogicalVertexDataList();
+            for (int i = 0; i < jobImmutableInformation.getLogicalVertexDataList().size(); i++) {
+                Thread.currentThread().setContextClassLoader(classLoaders.get(i));
+                logicalDag.addLogicalVertex(
+                        serializationService.toObject(logicalVertexDataList.get(i)));
+            }
+            return logicalDag;
+        } finally {
+            Thread.currentThread().setContextClassLoader(classLoader);
+        }
+    }
+
+    public static LogicalDag restoreLogicalDag(
+            JobImmutableInformation jobImmutableInformation,
+            SerializationService serializationService,
+            ClassLoaderService classLoaderService) {
+        List<Set<URL>> logicalVertexJarsList = jobImmutableInformation.getLogicalVertexJarsList();
+        List<ClassLoader> classLoaders = new ArrayList<>();
+        try {
+            for (Set<URL> urls : logicalVertexJarsList) {
+                classLoaders.add(
+                        classLoaderService.getClassLoader(
+                                jobImmutableInformation.getJobId(), urls));
+            }
+            return restoreLogicalDag(jobImmutableInformation, serializationService, classLoaders);
+        } finally {
+            for (Set<URL> urls : logicalVertexJarsList) {
+                classLoaderService.releaseClassLoader(jobImmutableInformation.getJobId(), urls);
+            }
+        }
+    }
 
     public static JobDAGInfo getJobDAGInfo(
             LogicalDag logicalDag,
             JobImmutableInformation jobImmutableInformation,
             EngineConfig engineConfig,
-            boolean isPhysicalDAGIInfo) {
+            boolean isPhysicalDAGInfo,
+            ExecutionAddress master,
+            Set<ExecutionAddress> historyExecutionAddress) {
         List<Pipeline> pipelines =
                 new ExecutionPlanGenerator(logicalDag, jobImmutableInformation, engineConfig)
                         .generate()
                         .getPipelines();
-        if (isPhysicalDAGIInfo) {
+        if (isPhysicalDAGInfo) {
             // Generate ExecutePlan DAG
             Map<Integer, List<Edge>> pipelineWithEdges = new HashMap<>();
             Map<Long, VertexInfo> vertexInfoMap = new HashMap<>();
@@ -69,11 +129,17 @@ public class DAGUtils {
                                                             vertex.getVertexId(),
                                                             ActionUtils.getActionType(
                                                                     vertex.getAction()),
-                                                            vertex.getAction().getName()));
+                                                            vertex.getAction().getName(),
+                                                            getTablePaths(vertex.getAction())));
                                         });
                     });
             return new JobDAGInfo(
-                    jobImmutableInformation.getJobId(), pipelineWithEdges, vertexInfoMap);
+                    jobImmutableInformation.getJobId(),
+                    logicalDag.getJobConfig().getEnvOptions(),
+                    pipelineWithEdges,
+                    vertexInfoMap,
+                    master,
+                    historyExecutionAddress);
         } else {
             // Generate LogicalPlan DAG
             List<Edge> edges =
@@ -89,7 +155,8 @@ public class DAGUtils {
                                             new VertexInfo(
                                                     v.getVertexId(),
                                                     ActionUtils.getActionType(v.getAction()),
-                                                    v.getAction().getName()))
+                                                    v.getAction().getName(),
+                                                    getTablePaths(v.getAction())))
                             .collect(
                                     Collectors.toMap(VertexInfo::getVertexId, Function.identity()));
 
@@ -116,7 +183,49 @@ public class DAGUtils {
                                             },
                                             Collectors.toList()));
             return new JobDAGInfo(
-                    jobImmutableInformation.getJobId(), pipelineWithEdges, vertexInfoMap);
+                    jobImmutableInformation.getJobId(),
+                    logicalDag.getJobConfig().getEnvOptions(),
+                    pipelineWithEdges,
+                    vertexInfoMap,
+                    master,
+                    historyExecutionAddress);
         }
+    }
+
+    private static List<TablePath> getTablePaths(Action action) {
+
+        List<TablePath> tablePaths = new ArrayList<>();
+        if (action instanceof SourceAction) {
+            SourceAction sourceAction = (SourceAction) action;
+
+            try {
+
+                List<CatalogTable> producedCatalogTables =
+                        sourceAction.getSource().getProducedCatalogTables();
+                List<TablePath> sourceTablePaths =
+                        producedCatalogTables.stream()
+                                .map(CatalogTable::getTablePath)
+                                .collect(Collectors.toList());
+                tablePaths.addAll(sourceTablePaths);
+            } catch (UnsupportedOperationException e) {
+                // ignore
+                log.warn(
+                        "SourceAction {} does not support getProducedCatalogTables, fallback to default table path",
+                        action.getName());
+                tablePaths.add(TablePath.DEFAULT);
+            }
+        } else if (action instanceof SinkAction) {
+            SeaTunnelSink seaTunnelSink = ((SinkAction<?, ?, ?, ?>) action).getSink();
+            if (seaTunnelSink instanceof MultiTableSink) {
+                List<TablePath> sinkTablePaths =
+                        new ArrayList<>(((MultiTableSink) seaTunnelSink).getSinkTables());
+                tablePaths.addAll(sinkTablePaths);
+            } else {
+                Optional<CatalogTable> catalogTable = seaTunnelSink.getWriteCatalogTable();
+                catalogTable.ifPresent(table -> tablePaths.add(table.getTablePath()));
+            }
+        }
+
+        return tablePaths;
     }
 }

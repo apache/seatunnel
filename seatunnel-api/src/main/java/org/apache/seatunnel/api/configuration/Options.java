@@ -18,8 +18,7 @@
 package org.apache.seatunnel.api.configuration;
 
 import org.apache.seatunnel.shade.com.fasterxml.jackson.core.type.TypeReference;
-
-import org.apache.commons.lang3.StringUtils;
+import org.apache.seatunnel.shade.org.apache.commons.lang3.StringUtils;
 
 import lombok.NonNull;
 
@@ -122,6 +121,14 @@ public class Options {
          */
         public TypedOptionBuilder<Map<String, String>> mapType() {
             return new TypedOptionBuilder<>(key, new TypeReference<Map<String, String>>() {});
+        }
+
+        /**
+         * Defines that the value of the option should be a set of properties, which can be
+         * represented as {@code Map<String, Object>}.
+         */
+        public TypedOptionBuilder<Map<String, Object>> mapObjectType() {
+            return new TypedOptionBuilder<>(key, new TypeReference<Map<String, Object>>() {});
         }
 
         /**

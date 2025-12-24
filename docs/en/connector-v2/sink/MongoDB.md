@@ -1,3 +1,5 @@
+import ChangeLog from '../changelog/connector-mongodb.md';
+
 # MongoDB
 
 > MongoDB Sink Connector
@@ -12,6 +14,7 @@
 
 - [x] [exactly-once](../../concept/connector-v2-features.md)
 - [x] [cdc](../../concept/connector-v2-features.md)
+- [x] [support multiple table write](../../concept/connector-v2-features.md)
 
 **Tips**
 
@@ -27,9 +30,9 @@ This document describes how to set up the MongoDB connector to run data writers 
 In order to use the Mongodb connector, the following dependencies are required.
 They can be downloaded via install-plugin.sh or from the Maven central repository.
 
-| Datasource | Supported Versions |                                                  Dependency                                                   |
-|------------|--------------------|---------------------------------------------------------------------------------------------------------------|
-| MongoDB    | universal          | [Download](https://mvnrepository.com/artifact/org.apache.seatunnel/seatunnel-connectors-v2/connector-mongodb) |
+| Datasource | Supported Versions | Dependency                                                                            |
+|------------|--------------------|---------------------------------------------------------------------------------------|
+| MongoDB    | universal          | [Download](https://mvnrepository.com/artifact/org.apache.seatunnel/connector-mongodb) |
 
 ## Data Type Mapping
 
@@ -60,20 +63,21 @@ The following table lists the field data type mapping from MongoDB BSON type to 
 
 ## Sink Options
 
-|         Name          |   Type   | Required | Default |                                                         Description                                                          |
-|-----------------------|----------|----------|---------|------------------------------------------------------------------------------------------------------------------------------|
-| uri                   | String   | Yes      | -       | The MongoDB standard connection uri. eg. mongodb://user:password@hosts:27017/database?readPreference=secondary&slaveOk=true. |
-| database              | String   | Yes      | -       | The name of MongoDB database to read or write.                                                                               |
-| collection            | String   | Yes      | -       | The name of MongoDB collection to read or write.                                                                             |
-| schema                | String   | Yes      | -       | MongoDB's BSON and seatunnel data structure mapping.                                                                         |
-| buffer-flush.max-rows | String   | No       | 1000    | Specifies the maximum number of buffered rows per batch request.                                                             |
-| buffer-flush.interval | String   | No       | 30000   | Specifies the maximum interval of buffered rows per batch request, the unit is millisecond.                                  |
-| retry.max             | String   | No       | 3       | Specifies the max number of retry if writing records to database failed.                                                     |
-| retry.interval        | Duration | No       | 1000    | Specifies the retry time interval if writing records to database failed, the unit is millisecond.                            |
-| upsert-enable         | Boolean  | No       | false   | Whether to write documents via upsert mode.                                                                                  |
-| primary-key           | List     | No       | -       | The primary keys for upsert/update. Keys are in `["id","name",...]` format for properties.                                   |
-| transaction           | Boolean  | No       | false   | Whether to use transactions in MongoSink (requires MongoDB 4.2+).                                                            |
-| common-options        |          | No       | -       | Source plugin common parameters, please refer to [Source Common Options](common-options.md) for details                      |
+| Name                  | Type     | Required | Default | Description                                                                                                                                                                                                                                                           |
+|-----------------------|----------|----------|--------|-----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------|
+| uri                   | String   | Yes      | -      | The MongoDB standard connection uri. eg. mongodb://user:password@hosts:27017/database?readPreference=secondary&slaveOk=true.                                                                                                                                          |
+| database              | String   | Yes      | -      | The name of the MongoDB database to read or write to. When configuring multiple tables at the source, you can use `${database_name}` as a placeholder, for example: `database = "${database_name}_test_database"` .                                                     |
+| collection            | String   | Yes      | -      | The name of the MongoDB collection to read or write. When configuring multiple tables at the source end, you can use `${table_name}`,`${schema_name}`,`${table_name}` as placeholders, for example: `collection = "${database_name}_${schema_name}_${table_name}_check"` |
+| buffer-flush.max-rows | String   | No       | 1000   | Specifies the maximum number of buffered rows per batch request.                                                                                                                                                                                                      |
+| buffer-flush.interval | String   | No       | 30000  | Specifies the maximum interval of buffered rows per batch request, the unit is millisecond.                                                                                                                                                                           |
+| retry.max             | String   | No       | 3      | Specifies the max number of retry if writing records to database failed.                                                                                                                                                                                              |
+| retry.interval        | Duration | No       | 1000   | Specifies the retry time interval if writing records to database failed, the unit is millisecond.                                                                                                                                                                     |
+| upsert-enable         | Boolean  | No       | false  | Whether to write documents via upsert mode.                                                                                                                                                                                                                           |
+| primary-key           | List     | No       | -      | The primary keys for upsert/update. Keys are in `["id","name",...]` format for properties.                                                                                                                                                                            |
+| transaction           | Boolean  | No       | false  | Whether to use transactions in MongoSink (requires MongoDB 4.2+).                                                                                                                                                                                                     |
+| common-options        |          | No       | -      | Source plugin common parameters, please refer to [Source Common Options](../sink-common-options.md) for details                                                                                                                                                       |
+| data_save_mode        | String   | No       | APPEND_DATA       | The data saving mode of mongodb，Option introduction,`DROP_DATA`:The collection will be cleared before inserting data;`APPEND_DATA`:Append data ;`ERROR_WHEN_DATA_EXISTS`:An error will be reported if there is data in the collection.                                |
+
 
 ### Tips
 
@@ -113,12 +117,6 @@ sink {
     uri = mongodb://user:password@127.0.0.1:27017
     database = "test"
     collection = "test"
-    schema = {
-      fields {
-        _id = string
-        c_bigint = bigint
-      }
-    }
   }
 }
 ```
@@ -175,13 +173,6 @@ sink {
     collection = "users"
     buffer-flush.max-rows = 2000
     buffer-flush.interval = 1000
-    schema = {
-      fields {
-        _id = string
-        id = bigint
-        status = string
-      }
-    }
   }
 }
 ```
@@ -208,28 +199,11 @@ sink {
     collection = "users"
     upsert-enable = true
     primary-key = ["name","status"]
-    schema = {
-      fields {
-        _id = string
-        name = string
-        status = string
-      }
-    }
   }
 }
 ```
 
 ## Changelog
 
-### 2.2.0-beta
-
-- Add MongoDB Source Connector
-
-### 2.3.1-release
-
-- [Feature]Refactor mongodb source connector([4620](https://github.com/apache/incubator-seatunnel/pull/4620))
-
-### Next Version
-
-- [Feature]Mongodb support cdc sink([4833](https://github.com/apache/seatunnel/pull/4833))
+<ChangeLog />
 

@@ -19,7 +19,6 @@ package org.apache.seatunnel.api.table.converter;
 
 import org.apache.seatunnel.api.table.catalog.Column;
 import org.apache.seatunnel.api.table.type.ArrayType;
-import org.apache.seatunnel.api.table.type.BasicType;
 import org.apache.seatunnel.api.table.type.MapType;
 import org.apache.seatunnel.api.table.type.SeaTunnelDataType;
 import org.apache.seatunnel.api.table.type.SeaTunnelRow;
@@ -75,6 +74,8 @@ public interface BasicDataConverter<T> extends DataConverter<T> {
                 return convertTime(value);
             case TIMESTAMP:
                 return convertLocalDateTime(value);
+            case TIMESTAMP_TZ:
+                return convertOffsetDateTime(value);
             case BYTES:
                 return convertBytes(value);
             case STRING:
@@ -124,6 +125,8 @@ public interface BasicDataConverter<T> extends DataConverter<T> {
                 return convertTime(typeDefine, value);
             case TIMESTAMP:
                 return convertLocalDateTime(typeDefine, value);
+            case TIMESTAMP_TZ:
+                return convertOffsetDateTime(typeDefine, value);
             case BYTES:
                 return convertBytes(typeDefine, value);
             case STRING:
@@ -164,7 +167,7 @@ public interface BasicDataConverter<T> extends DataConverter<T> {
     default Object[] convertArray(ArrayType typeDefine, Object value)
             throws UnsupportedOperationException {
         if (value.getClass().isArray()) {
-            BasicType elementType = typeDefine.getElementType();
+            SeaTunnelDataType elementType = typeDefine.getElementType();
 
             Object[] array = (Object[]) value;
             for (int i = 0; i < array.length; i++) {
@@ -173,7 +176,7 @@ public interface BasicDataConverter<T> extends DataConverter<T> {
             return array;
         }
         if (value instanceof List) {
-            BasicType elementType = typeDefine.getElementType();
+            SeaTunnelDataType elementType = typeDefine.getElementType();
 
             List<Object> list = (List<Object>) value;
             int elements = list.size();
@@ -183,7 +186,7 @@ public interface BasicDataConverter<T> extends DataConverter<T> {
             return list.toArray();
         }
         if (value instanceof Set) {
-            BasicType elementType = typeDefine.getElementType();
+            SeaTunnelDataType elementType = typeDefine.getElementType();
 
             return ((Set) value).stream().map(e -> convert(elementType, e)).toArray();
         }
@@ -435,6 +438,50 @@ public interface BasicDataConverter<T> extends DataConverter<T> {
                         + typeDefine);
     }
 
+    default OffsetDateTime convertOffsetDateTime(T typeDefine, Object value)
+            throws UnsupportedOperationException {
+        if (value instanceof OffsetDateTime) {
+            return (OffsetDateTime) value;
+        }
+        if (value instanceof LocalDateTime) {
+            return ((LocalDateTime) value).atZone(ZoneId.systemDefault()).toOffsetDateTime();
+        }
+        if (value instanceof Instant) {
+            return ((Instant) value).atZone(ZoneId.systemDefault()).toOffsetDateTime();
+        }
+        if (value instanceof java.sql.Date) {
+            return ((java.sql.Date) value)
+                    .toLocalDate()
+                    .atTime(LocalTime.MIDNIGHT)
+                    .atZone(ZoneId.systemDefault())
+                    .toOffsetDateTime();
+        }
+        if (value instanceof java.sql.Timestamp) {
+            return ((java.sql.Timestamp) value)
+                    .toInstant()
+                    .atZone(ZoneId.systemDefault())
+                    .toOffsetDateTime();
+        }
+        if (value instanceof Date) {
+            return ((Date) value).toInstant().atZone(ZoneId.systemDefault()).toOffsetDateTime();
+        }
+        if (value instanceof LocalDate) {
+            return ((LocalDate) value)
+                    .atTime(LocalTime.MIDNIGHT)
+                    .atZone(ZoneId.systemDefault())
+                    .toOffsetDateTime();
+        }
+        if (value instanceof String) {
+            return OffsetDateTime.parse((String) value);
+        }
+
+        throw new UnsupportedOperationException(
+                "Unsupported convert "
+                        + value.getClass()
+                        + " to OffsetDateTime, typeDefine: "
+                        + typeDefine);
+    }
+
     default LocalDateTime convertLocalDateTime(T typeDefine, Instant value) {
         return convertLocalDateTime(value);
     }
@@ -479,6 +526,47 @@ public interface BasicDataConverter<T> extends DataConverter<T> {
         if (value instanceof Number) {
             return convertLocalDateTime((Number) value);
         }
+        throw new UnsupportedOperationException(
+                "Unsupported convert " + value.getClass() + " to LocalDateTime");
+    }
+
+    default OffsetDateTime convertOffsetDateTime(Object value)
+            throws UnsupportedOperationException {
+        if (value instanceof OffsetDateTime) {
+            return (OffsetDateTime) value;
+        }
+        if (value instanceof LocalDateTime) {
+            return ((LocalDateTime) value).atZone(ZoneId.systemDefault()).toOffsetDateTime();
+        }
+        if (value instanceof Instant) {
+            return ((Instant) value).atZone(ZoneId.systemDefault()).toOffsetDateTime();
+        }
+        if (value instanceof java.sql.Date) {
+            return ((java.sql.Date) value)
+                    .toLocalDate()
+                    .atTime(LocalTime.MIDNIGHT)
+                    .atZone(ZoneId.systemDefault())
+                    .toOffsetDateTime();
+        }
+        if (value instanceof java.sql.Timestamp) {
+            return ((java.sql.Timestamp) value)
+                    .toInstant()
+                    .atZone(ZoneId.systemDefault())
+                    .toOffsetDateTime();
+        }
+        if (value instanceof Date) {
+            return ((Date) value).toInstant().atZone(ZoneId.systemDefault()).toOffsetDateTime();
+        }
+        if (value instanceof LocalDate) {
+            return ((LocalDate) value)
+                    .atTime(LocalTime.MIDNIGHT)
+                    .atZone(ZoneId.systemDefault())
+                    .toOffsetDateTime();
+        }
+        if (value instanceof String) {
+            return OffsetDateTime.parse((String) value);
+        }
+
         throw new UnsupportedOperationException(
                 "Unsupported convert " + value.getClass() + " to LocalDateTime");
     }

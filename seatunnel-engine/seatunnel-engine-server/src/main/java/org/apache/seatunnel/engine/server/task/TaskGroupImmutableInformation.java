@@ -18,6 +18,8 @@
 package org.apache.seatunnel.engine.server.task;
 
 import org.apache.seatunnel.engine.core.job.ConnectorJarIdentifier;
+import org.apache.seatunnel.engine.server.execution.TaskGroupLocation;
+import org.apache.seatunnel.engine.server.execution.TaskGroupType;
 import org.apache.seatunnel.engine.server.serializable.TaskDataSerializerHook;
 
 import com.hazelcast.internal.nio.IOUtil;
@@ -29,6 +31,8 @@ import lombok.AllArgsConstructor;
 
 import java.io.IOException;
 import java.net.URL;
+import java.util.ArrayList;
+import java.util.List;
 import java.util.Set;
 
 @lombok.Data
@@ -38,9 +42,15 @@ public class TaskGroupImmutableInformation implements IdentifiedDataSerializable
     // Each deployment generates a new executionId
     private long executionId;
 
-    private Data group;
+    private TaskGroupType taskGroupType;
 
-    private Set<URL> jars;
+    private TaskGroupLocation taskGroupLocation;
+
+    private String taskGroupName;
+
+    private List<Data> tasksData;
+
+    private List<Set<URL>> jars;
 
     // Set<URL> pluginJarsUrls is a collection of paths stored on the engine for all connector Jar
     // packages and third-party Jar packages that the connector relies on.
@@ -52,7 +62,7 @@ public class TaskGroupImmutableInformation implements IdentifiedDataSerializable
     // connector plugin using the current Jar, the type of the current Jar package, and so on.
     // TODO: Only use Set<ConnectorJarIdentifier>to save more information about the Jar package,
     // including the storage path of the Jar package on the server.
-    private Set<ConnectorJarIdentifier> connectorJarIdentifiers;
+    private List<Set<ConnectorJarIdentifier>> connectorJarIdentifiers;
 
     public TaskGroupImmutableInformation() {}
 
@@ -70,17 +80,30 @@ public class TaskGroupImmutableInformation implements IdentifiedDataSerializable
     public void writeData(ObjectDataOutput out) throws IOException {
         out.writeLong(jobId);
         out.writeLong(executionId);
+        out.writeObject(taskGroupType);
         out.writeObject(jars);
         out.writeObject(connectorJarIdentifiers);
-        IOUtil.writeData(out, group);
+        out.writeInt(tasksData.size());
+        for (Data data : tasksData) {
+            IOUtil.writeData(out, data);
+        }
+        out.writeObject(taskGroupLocation);
+        out.writeString(taskGroupName);
     }
 
     @Override
     public void readData(ObjectDataInput in) throws IOException {
         jobId = in.readLong();
         executionId = in.readLong();
+        taskGroupType = in.readObject();
         jars = in.readObject();
         connectorJarIdentifiers = in.readObject();
-        group = IOUtil.readData(in);
+        int size = in.readInt();
+        tasksData = new ArrayList<>(size);
+        for (int i = 0; i < size; i++) {
+            tasksData.add(IOUtil.readData(in));
+        }
+        taskGroupLocation = in.readObject();
+        taskGroupName = in.readString();
     }
 }

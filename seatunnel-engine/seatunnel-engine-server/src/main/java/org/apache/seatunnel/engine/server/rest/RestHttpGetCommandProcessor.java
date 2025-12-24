@@ -17,69 +17,79 @@
 
 package org.apache.seatunnel.engine.server.rest;
 
-import org.apache.seatunnel.shade.com.fasterxml.jackson.core.JsonProcessingException;
-import org.apache.seatunnel.shade.com.fasterxml.jackson.databind.JsonNode;
-import org.apache.seatunnel.shade.com.fasterxml.jackson.databind.ObjectMapper;
+import org.apache.seatunnel.shade.org.apache.commons.lang3.StringUtils;
 
-import org.apache.seatunnel.api.common.metrics.JobMetrics;
-import org.apache.seatunnel.common.utils.DateTimeUtils;
+import org.apache.seatunnel.common.exception.SeaTunnelRuntimeException;
+import org.apache.seatunnel.common.utils.FileUtils;
 import org.apache.seatunnel.common.utils.JsonUtils;
-import org.apache.seatunnel.engine.common.Constant;
-import org.apache.seatunnel.engine.core.classloader.ClassLoaderService;
-import org.apache.seatunnel.engine.core.dag.logical.LogicalDag;
-import org.apache.seatunnel.engine.core.job.JobDAGInfo;
-import org.apache.seatunnel.engine.core.job.JobImmutableInformation;
-import org.apache.seatunnel.engine.core.job.JobInfo;
-import org.apache.seatunnel.engine.core.job.JobStatus;
-import org.apache.seatunnel.engine.server.SeaTunnelServer;
+import org.apache.seatunnel.engine.server.NodeExtension;
+import org.apache.seatunnel.engine.server.log.FormatType;
 import org.apache.seatunnel.engine.server.log.Log4j2HttpGetCommandProcessor;
-import org.apache.seatunnel.engine.server.master.JobHistoryService.JobState;
-import org.apache.seatunnel.engine.server.operation.GetClusterHealthMetricsOperation;
-import org.apache.seatunnel.engine.server.operation.GetJobMetricsOperation;
-import org.apache.seatunnel.engine.server.operation.GetJobStatusOperation;
-import org.apache.seatunnel.engine.server.utils.NodeEngineUtil;
+import org.apache.seatunnel.engine.server.rest.service.JobInfoService;
+import org.apache.seatunnel.engine.server.rest.service.LogService;
+import org.apache.seatunnel.engine.server.rest.service.OverviewService;
+import org.apache.seatunnel.engine.server.rest.service.RunningThreadService;
+import org.apache.seatunnel.engine.server.rest.service.SystemMonitoringService;
+import org.apache.seatunnel.engine.server.rest.service.ThreadDumpService;
 
-import com.hazelcast.cluster.Address;
-import com.hazelcast.cluster.Cluster;
-import com.hazelcast.cluster.Member;
 import com.hazelcast.internal.ascii.TextCommandService;
 import com.hazelcast.internal.ascii.rest.HttpCommandProcessor;
 import com.hazelcast.internal.ascii.rest.HttpGetCommand;
-import com.hazelcast.internal.json.JsonArray;
-import com.hazelcast.internal.json.JsonObject;
-import com.hazelcast.internal.json.JsonValue;
+import com.hazelcast.internal.ascii.rest.RestValue;
 import com.hazelcast.internal.util.JsonUtil;
 import com.hazelcast.internal.util.StringUtil;
-import com.hazelcast.jet.impl.execution.init.CustomClassLoadedObject;
-import com.hazelcast.map.IMap;
-import com.hazelcast.spi.impl.NodeEngine;
+import com.hazelcast.spi.impl.NodeEngineImpl;
+import io.prometheus.client.exporter.common.TextFormat;
+import lombok.extern.slf4j.Slf4j;
 
+import java.io.File;
+import java.io.IOException;
+import java.io.StringWriter;
+import java.nio.charset.StandardCharsets;
 import java.util.Arrays;
-import java.util.Comparator;
-import java.util.HashMap;
 import java.util.Map;
-import java.util.Set;
-import java.util.concurrent.ExecutionException;
+import java.util.stream.Collectors;
 
+import static com.hazelcast.internal.ascii.rest.HttpStatusCode.SC_400;
 import static com.hazelcast.internal.ascii.rest.HttpStatusCode.SC_500;
-import static org.apache.seatunnel.engine.server.rest.RestConstant.FINISHED_JOBS_INFO;
-import static org.apache.seatunnel.engine.server.rest.RestConstant.RUNNING_JOBS_URL;
-import static org.apache.seatunnel.engine.server.rest.RestConstant.RUNNING_JOB_URL;
-import static org.apache.seatunnel.engine.server.rest.RestConstant.RUNNING_THREADS;
-import static org.apache.seatunnel.engine.server.rest.RestConstant.SYSTEM_MONITORING_INFORMATION;
+import static org.apache.seatunnel.engine.server.rest.RestConstant.CONTEXT_PATH;
+import static org.apache.seatunnel.engine.server.rest.RestConstant.INSTANCE_CONTEXT_PATH;
+import static org.apache.seatunnel.engine.server.rest.RestConstant.REST_URL_FINISHED_JOBS;
+import static org.apache.seatunnel.engine.server.rest.RestConstant.REST_URL_GET_ALL_LOG_NAME;
+import static org.apache.seatunnel.engine.server.rest.RestConstant.REST_URL_JOB_INFO;
+import static org.apache.seatunnel.engine.server.rest.RestConstant.REST_URL_LOG;
+import static org.apache.seatunnel.engine.server.rest.RestConstant.REST_URL_LOGS;
+import static org.apache.seatunnel.engine.server.rest.RestConstant.REST_URL_METRICS;
+import static org.apache.seatunnel.engine.server.rest.RestConstant.REST_URL_OPEN_METRICS;
+import static org.apache.seatunnel.engine.server.rest.RestConstant.REST_URL_OVERVIEW;
+import static org.apache.seatunnel.engine.server.rest.RestConstant.REST_URL_RUNNING_JOB;
+import static org.apache.seatunnel.engine.server.rest.RestConstant.REST_URL_RUNNING_JOBS;
+import static org.apache.seatunnel.engine.server.rest.RestConstant.REST_URL_RUNNING_THREADS;
+import static org.apache.seatunnel.engine.server.rest.RestConstant.REST_URL_SYSTEM_MONITORING_INFORMATION;
+import static org.apache.seatunnel.engine.server.rest.RestConstant.REST_URL_THREAD_DUMP;
 
+@Slf4j
 public class RestHttpGetCommandProcessor extends HttpCommandProcessor<HttpGetCommand> {
 
     private final Log4j2HttpGetCommandProcessor original;
-
-    private static final String SOURCE_RECEIVED_COUNT = "SourceReceivedCount";
-
-    private static final String SINK_WRITE_COUNT = "SinkWriteCount";
-
-    private NodeEngine nodeEngine;
+    private NodeEngineImpl nodeEngine;
+    private OverviewService overviewService;
+    private JobInfoService jobInfoService;
+    private SystemMonitoringService systemMonitoringService;
+    private ThreadDumpService threadDumpService;
+    private RunningThreadService runningThreadService;
+    private LogService logService;
 
     public RestHttpGetCommandProcessor(TextCommandService textCommandService) {
+
         this(textCommandService, new Log4j2HttpGetCommandProcessor(textCommandService));
+        this.nodeEngine = this.textCommandService.getNode().getNodeEngine();
+        this.overviewService = new OverviewService(nodeEngine);
+        this.jobInfoService = new JobInfoService(nodeEngine);
+        this.systemMonitoringService = new SystemMonitoringService(nodeEngine);
+        this.threadDumpService = new ThreadDumpService(nodeEngine);
+        this.runningThreadService = new RunningThreadService(nodeEngine);
+        this.logService = new LogService(nodeEngine);
     }
 
     public RestHttpGetCommandProcessor(
@@ -89,27 +99,52 @@ public class RestHttpGetCommandProcessor extends HttpCommandProcessor<HttpGetCom
                 textCommandService,
                 textCommandService.getNode().getLogger(Log4j2HttpGetCommandProcessor.class));
         this.original = log4j2HttpGetCommandProcessor;
+        this.nodeEngine = this.textCommandService.getNode().getNodeEngine();
+        this.overviewService = new OverviewService(nodeEngine);
+        this.jobInfoService = new JobInfoService(nodeEngine);
+        this.systemMonitoringService = new SystemMonitoringService(nodeEngine);
+        this.threadDumpService = new ThreadDumpService(nodeEngine);
+        this.runningThreadService = new RunningThreadService(nodeEngine);
+        this.logService = new LogService(nodeEngine);
     }
 
     @Override
     public void handle(HttpGetCommand httpGetCommand) {
         String uri = httpGetCommand.getURI();
+
         try {
-            if (uri.startsWith(RUNNING_JOBS_URL)) {
+            if (uri.startsWith(CONTEXT_PATH + REST_URL_RUNNING_JOBS)) {
                 handleRunningJobsInfo(httpGetCommand);
-            } else if (uri.startsWith(FINISHED_JOBS_INFO)) {
+            } else if (uri.startsWith(CONTEXT_PATH + REST_URL_FINISHED_JOBS)) {
                 handleFinishedJobsInfo(httpGetCommand, uri);
-            } else if (uri.startsWith(RUNNING_JOB_URL)) {
+            } else if (uri.startsWith(CONTEXT_PATH + REST_URL_RUNNING_JOB)
+                    || uri.startsWith(CONTEXT_PATH + REST_URL_JOB_INFO)) {
                 handleJobInfoById(httpGetCommand, uri);
-            } else if (uri.startsWith(SYSTEM_MONITORING_INFORMATION)) {
+            } else if (uri.startsWith(CONTEXT_PATH + REST_URL_SYSTEM_MONITORING_INFORMATION)) {
                 getSystemMonitoringInformation(httpGetCommand);
-            } else if (uri.startsWith(RUNNING_THREADS)) {
+            } else if (uri.startsWith(CONTEXT_PATH + REST_URL_RUNNING_THREADS)) {
                 getRunningThread(httpGetCommand);
+            } else if (uri.startsWith(CONTEXT_PATH + REST_URL_OVERVIEW)) {
+                overView(httpGetCommand, uri);
+            } else if (uri.equals(INSTANCE_CONTEXT_PATH + REST_URL_METRICS)) {
+                handleMetrics(httpGetCommand, TextFormat.CONTENT_TYPE_004);
+            } else if (uri.equals(INSTANCE_CONTEXT_PATH + REST_URL_OPEN_METRICS)) {
+                handleMetrics(httpGetCommand, TextFormat.CONTENT_TYPE_OPENMETRICS_100);
+            } else if (uri.startsWith(CONTEXT_PATH + REST_URL_THREAD_DUMP)) {
+                getThreadDump(httpGetCommand);
+            } else if (uri.startsWith(CONTEXT_PATH + REST_URL_GET_ALL_LOG_NAME)) {
+                getAllLogName(httpGetCommand);
+            } else if (uri.startsWith(CONTEXT_PATH + REST_URL_LOGS)) {
+                getAllNodeLog(httpGetCommand, uri);
+            } else if (uri.startsWith(CONTEXT_PATH + REST_URL_LOG)) {
+                getCurrentNodeLog(httpGetCommand, uri);
             } else {
                 original.handle(httpGetCommand);
             }
         } catch (IndexOutOfBoundsException e) {
             httpGetCommand.send400();
+        } catch (IllegalArgumentException e) {
+            prepareResponse(SC_400, httpGetCommand, exceptionResponse(e));
         } catch (Throwable e) {
             logger.warning("An error occurred while handling request " + httpGetCommand, e);
             prepareResponse(SC_500, httpGetCommand, exceptionResponse(e));
@@ -123,57 +158,40 @@ public class RestHttpGetCommandProcessor extends HttpCommandProcessor<HttpGetCom
         handle(httpGetCommand);
     }
 
-    private void getSystemMonitoringInformation(HttpGetCommand command) {
-        Cluster cluster = textCommandService.getNode().hazelcastInstance.getCluster();
-        nodeEngine = textCommandService.getNode().hazelcastInstance.node.nodeEngine;
+    public void overView(HttpGetCommand command, String uri) {
+        uri = StringUtil.stripTrailingSlash(uri);
+        String tagStr;
+        if (uri.contains("?")) {
+            int index = uri.indexOf("?");
+            tagStr = uri.substring(index + 1);
+        } else {
+            tagStr = "";
+        }
+        Map<String, String> tags =
+                Arrays.stream(tagStr.split("&"))
+                        .map(variable -> variable.split("=", 2))
+                        .filter(pair -> pair.length == 2)
+                        .collect(Collectors.toMap(pair -> pair[0], pair -> pair[1]));
 
-        Set<Member> members = cluster.getMembers();
-        JsonArray jsonValues =
-                members.stream()
-                        .map(
-                                member -> {
-                                    Address address = member.getAddress();
-                                    String input = null;
-                                    try {
-                                        input =
-                                                (String)
-                                                        NodeEngineUtil.sendOperationToMemberNode(
-                                                                        nodeEngine,
-                                                                        new GetClusterHealthMetricsOperation(),
-                                                                        address)
-                                                                .get();
-                                    } catch (InterruptedException | ExecutionException e) {
-                                        logger.severe("get system monitoring information fail", e);
-                                    }
-                                    String[] parts = input.split(", ");
-                                    JsonObject jobInfo = new JsonObject();
-                                    Arrays.stream(parts)
-                                            .forEach(
-                                                    part -> {
-                                                        String[] keyValue = part.split("=");
-                                                        jobInfo.add(keyValue[0], keyValue[1]);
-                                                    });
-                                    return jobInfo;
-                                })
-                        .collect(JsonArray::new, JsonArray::add, JsonArray::add);
-        this.prepareResponse(command, jsonValues);
+        this.prepareResponse(
+                command,
+                JsonUtil.toJsonObject(
+                        JsonUtils.toMap(
+                                JsonUtils.toJsonString(overviewService.getOverviewInfo(tags)))));
+    }
+
+    public void getThreadDump(HttpGetCommand command) {
+
+        this.prepareResponse(command, threadDumpService.getThreadDump());
+    }
+
+    private void getSystemMonitoringInformation(HttpGetCommand command) {
+        this.prepareResponse(
+                command, systemMonitoringService.getSystemMonitoringInformationJsonValues());
     }
 
     private void handleRunningJobsInfo(HttpGetCommand command) {
-        IMap<Long, JobInfo> values =
-                this.textCommandService
-                        .getNode()
-                        .getNodeEngine()
-                        .getHazelcastInstance()
-                        .getMap(Constant.IMAP_RUNNING_JOB_INFO);
-        JsonArray jobs =
-                values.entrySet().stream()
-                        .map(
-                                jobInfoEntry ->
-                                        convertToJson(
-                                                jobInfoEntry.getValue(), jobInfoEntry.getKey()))
-                        .collect(JsonArray::new, JsonArray::add, JsonArray::add);
-        this.prepareResponse(command, jobs);
+        this.prepareResponse(command, jobInfoService.getRunningJobsJson());
     }
 
     private void handleFinishedJobsInfo(HttpGetCommand command, String uri) {
@@ -188,272 +206,143 @@ public class RestHttpGetCommandProcessor extends HttpCommandProcessor<HttpGetCom
             state = uri.substring(indexEnd + 1);
         }
 
-        IMap<Long, JobState> finishedJob =
-                this.textCommandService
-                        .getNode()
-                        .getNodeEngine()
-                        .getHazelcastInstance()
-                        .getMap(Constant.IMAP_FINISHED_JOB_STATE);
-
-        IMap<Long, JobMetrics> finishedJobMetrics =
-                this.textCommandService
-                        .getNode()
-                        .getNodeEngine()
-                        .getHazelcastInstance()
-                        .getMap(Constant.IMAP_FINISHED_JOB_METRICS);
-
-        IMap<Long, JobDAGInfo> finishedJobDAGInfo =
-                this.textCommandService
-                        .getNode()
-                        .getNodeEngine()
-                        .getHazelcastInstance()
-                        .getMap(Constant.IMAP_FINISHED_JOB_VERTEX_INFO);
-        SeaTunnelServer seaTunnelServer = getSeaTunnelServer(true);
-        JsonArray jobs =
-                finishedJob.values().stream()
-                        .filter(
-                                jobState -> {
-                                    if (state.isEmpty()) {
-                                        return true;
-                                    }
-                                    return jobState.getJobStatus()
-                                            .name()
-                                            .equals(state.toUpperCase());
-                                })
-                        .sorted(Comparator.comparing(JobState::getFinishTime))
-                        .map(
-                                jobState -> {
-                                    Long jobId = jobState.getJobId();
-                                    String jobMetrics;
-                                    if (seaTunnelServer == null) {
-                                        jobMetrics =
-                                                (String)
-                                                        NodeEngineUtil.sendOperationToMasterNode(
-                                                                        getNode().nodeEngine,
-                                                                        new GetJobMetricsOperation(
-                                                                                jobId))
-                                                                .join();
-                                    } else {
-                                        jobMetrics =
-                                                seaTunnelServer
-                                                        .getCoordinatorService()
-                                                        .getJobMetrics(jobId)
-                                                        .toJsonString();
-                                    }
-                                    return getJobInfoJson(
-                                            jobState, jobMetrics, finishedJobDAGInfo.get(jobId));
-                                })
-                        .collect(JsonArray::new, JsonArray::add, JsonArray::add);
-
-        this.prepareResponse(command, jobs);
+        this.prepareResponse(command, jobInfoService.getJobsByStateJson(state));
     }
 
     private void handleJobInfoById(HttpGetCommand command, String uri) {
         uri = StringUtil.stripTrailingSlash(uri);
         int indexEnd = uri.indexOf('/', URI_MAPS.length());
         String jobId = uri.substring(indexEnd + 1);
-
-        JobInfo jobInfo =
-                (JobInfo)
-                        this.textCommandService
-                                .getNode()
-                                .getNodeEngine()
-                                .getHazelcastInstance()
-                                .getMap(Constant.IMAP_RUNNING_JOB_INFO)
-                                .get(Long.valueOf(jobId));
-
-        JobState finishedJobState =
-                (JobState)
-                        this.textCommandService
-                                .getNode()
-                                .getNodeEngine()
-                                .getHazelcastInstance()
-                                .getMap(Constant.IMAP_FINISHED_JOB_STATE)
-                                .get(Long.valueOf(jobId));
-        if (!jobId.isEmpty() && jobInfo != null) {
-            this.prepareResponse(command, convertToJson(jobInfo, Long.parseLong(jobId)));
-        } else if (!jobId.isEmpty() && finishedJobState != null) {
-            JobMetrics finishedJobMetrics =
-                    (JobMetrics)
-                            this.textCommandService
-                                    .getNode()
-                                    .getNodeEngine()
-                                    .getHazelcastInstance()
-                                    .getMap(Constant.IMAP_FINISHED_JOB_METRICS)
-                                    .get(Long.valueOf(jobId));
-            JobDAGInfo finishedJobDAGInfo =
-                    (JobDAGInfo)
-                            this.textCommandService
-                                    .getNode()
-                                    .getNodeEngine()
-                                    .getHazelcastInstance()
-                                    .getMap(Constant.IMAP_FINISHED_JOB_VERTEX_INFO)
-                                    .get(Long.valueOf(jobId));
-            this.prepareResponse(
-                    command,
-                    getJobInfoJson(
-                            finishedJobState,
-                            finishedJobMetrics.toJsonString(),
-                            finishedJobDAGInfo));
-        } else {
-            this.prepareResponse(command, new JsonObject().add(RestConstant.JOB_ID, jobId));
-        }
+        this.prepareResponse(command, jobInfoService.getJobInfoJson(Long.valueOf(jobId)));
     }
 
     private void getRunningThread(HttpGetCommand command) {
-        this.prepareResponse(
-                command,
-                Thread.getAllStackTraces().keySet().stream()
-                        .sorted(Comparator.comparing(Thread::getName))
-                        .map(
-                                stackTraceElements -> {
-                                    JsonObject jobInfoJson = new JsonObject();
-                                    jobInfoJson.add("threadName", stackTraceElements.getName());
-                                    jobInfoJson.add(
-                                            "classLoader",
-                                            String.valueOf(
-                                                    stackTraceElements.getContextClassLoader()));
-                                    return jobInfoJson;
-                                })
-                        .collect(JsonArray::new, JsonArray::add, JsonArray::add));
+        this.prepareResponse(command, runningThreadService.getRunningThread());
     }
 
-    private Map<String, Long> getJobMetrics(String jobMetrics) {
-        Map<String, Long> metricsMap = new HashMap<>();
-        long sourceReadCount = 0L;
-        long sinkWriteCount = 0L;
+    private void handleMetrics(HttpGetCommand httpGetCommand, String contentType) {
+        log.info("Metrics request received");
+        StringWriter stringWriter = new StringWriter();
+        NodeExtension nodeExtension =
+                (NodeExtension) textCommandService.getNode().getNodeExtension();
         try {
-            JsonNode jobMetricsStr = new ObjectMapper().readTree(jobMetrics);
-            JsonNode sourceReceivedCountJson = jobMetricsStr.get(SOURCE_RECEIVED_COUNT);
-            JsonNode sinkWriteCountJson = jobMetricsStr.get(SINK_WRITE_COUNT);
-            for (int i = 0; i < jobMetricsStr.get(SOURCE_RECEIVED_COUNT).size(); i++) {
-                JsonNode sourceReader = sourceReceivedCountJson.get(i);
-                JsonNode sinkWriter = sinkWriteCountJson.get(i);
-                sourceReadCount += sourceReader.get("value").asLong();
-                sinkWriteCount += sinkWriter.get("value").asLong();
+            TextFormat.writeFormat(
+                    contentType,
+                    stringWriter,
+                    nodeExtension.getCollectorRegistry().metricFamilySamples());
+            this.prepareResponse(httpGetCommand, stringWriter.toString());
+        } catch (IOException e) {
+            httpGetCommand.send400();
+        } finally {
+            try {
+                stringWriter.close();
+            } catch (IOException e) {
+                logger.warning("An error occurred while handling request " + httpGetCommand, e);
+                prepareResponse(SC_500, httpGetCommand, exceptionResponse(e));
             }
-        } catch (JsonProcessingException | NullPointerException e) {
-            return metricsMap;
         }
-        metricsMap.put(SOURCE_RECEIVED_COUNT, sourceReadCount);
-        metricsMap.put(SINK_WRITE_COUNT, sinkWriteCount);
-
-        return metricsMap;
     }
 
-    private SeaTunnelServer getSeaTunnelServer(boolean shouldBeMaster) {
-        Map<String, Object> extensionServices =
-                this.textCommandService.getNode().getNodeExtension().createExtensionServices();
-        SeaTunnelServer seaTunnelServer =
-                (SeaTunnelServer) extensionServices.get(Constant.SEATUNNEL_SERVICE_NAME);
-        if (shouldBeMaster && !seaTunnelServer.isMasterNode()) {
-            return null;
+    private void getAllNodeLog(HttpGetCommand httpGetCommand, String uri) {
+
+        // Analysis uri, get logName and jobId param
+        String param = getParam(uri);
+        boolean isLogFile = param.contains(".log");
+        String logName = isLogFile ? param : StringUtils.EMPTY;
+        String jobId = !isLogFile ? param : StringUtils.EMPTY;
+
+        String logPath = logService.getLogPath();
+        if (StringUtils.isBlank(logPath)) {
+            logger.warning(
+                    "Log file path is empty, no log file path configured in the current configuration file");
+            httpGetCommand.send404();
+            return;
         }
-        return seaTunnelServer;
-    }
 
-    private JsonObject convertToJson(JobInfo jobInfo, long jobId) {
-
-        JsonObject jobInfoJson = new JsonObject();
-        JobImmutableInformation jobImmutableInformation =
-                this.textCommandService
-                        .getNode()
-                        .getNodeEngine()
-                        .getSerializationService()
-                        .toObject(
-                                this.textCommandService
-                                        .getNode()
-                                        .getNodeEngine()
-                                        .getSerializationService()
-                                        .toObject(jobInfo.getJobImmutableInformation()));
-
-        SeaTunnelServer seaTunnelServer = getSeaTunnelServer(true);
-        ClassLoaderService classLoaderService =
-                seaTunnelServer == null
-                        ? getSeaTunnelServer(false).getClassLoaderService()
-                        : seaTunnelServer.getClassLoaderService();
-        ClassLoader classLoader =
-                classLoaderService.getClassLoader(
-                        jobId, jobImmutableInformation.getPluginJarsUrls());
-        LogicalDag logicalDag =
-                CustomClassLoadedObject.deserializeWithCustomClassLoader(
-                        this.textCommandService.getNode().getNodeEngine().getSerializationService(),
-                        classLoader,
-                        jobImmutableInformation.getLogicalDag());
-        classLoaderService.releaseClassLoader(jobId, jobImmutableInformation.getPluginJarsUrls());
-
-        String jobMetrics;
-        JobStatus jobStatus;
-        if (seaTunnelServer == null) {
-            jobMetrics =
-                    (String)
-                            NodeEngineUtil.sendOperationToMasterNode(
-                                            getNode().nodeEngine, new GetJobMetricsOperation(jobId))
-                                    .join();
-            jobStatus =
-                    JobStatus.values()[
-                            (int)
-                                    NodeEngineUtil.sendOperationToMasterNode(
-                                                    getNode().nodeEngine,
-                                                    new GetJobStatusOperation(jobId))
-                                            .join()];
+        if (StringUtils.isBlank(logName)) {
+            FormatType formatType = getFormatType(uri);
+            switch (formatType) {
+                case JSON:
+                    this.prepareResponse(httpGetCommand, logService.allNodeLogFormatJson(jobId));
+                    return;
+                case HTML:
+                default:
+                    this.prepareResponse(
+                            httpGetCommand, getRestValue(logService.allNodeLogFormatHtml(jobId)));
+            }
         } else {
-            jobMetrics =
-                    seaTunnelServer.getCoordinatorService().getJobMetrics(jobId).toJsonString();
-            jobStatus = seaTunnelServer.getCoordinatorService().getJobStatus(jobId);
+            prepareLogResponse(httpGetCommand, logPath, logName);
         }
-
-        jobInfoJson
-                .add(RestConstant.JOB_ID, String.valueOf(jobId))
-                .add(RestConstant.JOB_NAME, logicalDag.getJobConfig().getName())
-                .add(RestConstant.JOB_STATUS, jobStatus.toString())
-                .add(
-                        RestConstant.ENV_OPTIONS,
-                        JsonUtil.toJsonObject(logicalDag.getJobConfig().getEnvOptions()))
-                .add(
-                        RestConstant.CREATE_TIME,
-                        DateTimeUtils.toString(
-                                jobImmutableInformation.getCreateTime(),
-                                DateTimeUtils.Formatter.YYYY_MM_DD_HH_MM_SS))
-                .add(RestConstant.JOB_DAG, logicalDag.getLogicalDagAsJson())
-                .add(
-                        RestConstant.PLUGIN_JARS_URLS,
-                        (JsonValue)
-                                jobImmutableInformation.getPluginJarsUrls().stream()
-                                        .map(
-                                                url -> {
-                                                    JsonObject jarUrl = new JsonObject();
-                                                    jarUrl.add(
-                                                            RestConstant.JAR_PATH, url.toString());
-                                                    return jarUrl;
-                                                })
-                                        .collect(JsonArray::new, JsonArray::add, JsonArray::add))
-                .add(
-                        RestConstant.IS_START_WITH_SAVE_POINT,
-                        jobImmutableInformation.isStartWithSavePoint())
-                .add(RestConstant.METRICS, JsonUtil.toJsonObject(getJobMetrics(jobMetrics)));
-
-        return jobInfoJson;
     }
 
-    private JsonObject getJobInfoJson(JobState jobState, String jobMetrics, JobDAGInfo jobDAGInfo) {
-        return new JsonObject()
-                .add(RestConstant.JOB_ID, String.valueOf(jobState.getJobId()))
-                .add(RestConstant.JOB_NAME, jobState.getJobName())
-                .add(RestConstant.JOB_STATUS, jobState.getJobStatus().toString())
-                .add(RestConstant.ERROR_MSG, jobState.getErrorMessage())
-                .add(
-                        RestConstant.CREATE_TIME,
-                        DateTimeUtils.toString(
-                                jobState.getSubmitTime(),
-                                DateTimeUtils.Formatter.YYYY_MM_DD_HH_MM_SS))
-                .add(
-                        RestConstant.FINISH_TIME,
-                        DateTimeUtils.toString(
-                                jobState.getFinishTime(),
-                                DateTimeUtils.Formatter.YYYY_MM_DD_HH_MM_SS))
-                .add(RestConstant.JOB_DAG, JsonUtils.toJsonString(jobDAGInfo))
-                .add(RestConstant.PLUGIN_JARS_URLS, new JsonArray())
-                .add(RestConstant.METRICS, JsonUtil.toJsonObject(getJobMetrics(jobMetrics)));
+    private FormatType getFormatType(String uri) {
+        Map<String, String> uriParam = getUriParam(uri);
+        return FormatType.fromString(uriParam.get("format"));
+    }
+
+    private Map<String, String> getUriParam(String uri) {
+        String queryString = uri.contains("?") ? uri.substring(uri.indexOf("?") + 1) : "";
+        return Arrays.stream(queryString.split("&"))
+                .map(param -> param.split("=", 2))
+                .filter(pair -> pair.length == 2)
+                .collect(Collectors.toMap(pair -> pair[0], pair -> pair[1]));
+    }
+
+    private String getParam(String uri) {
+        uri = StringUtil.stripTrailingSlash(uri);
+        int indexEnd = uri.indexOf('/', URI_MAPS.length());
+        if (indexEnd != -1) {
+            String param = uri.substring(indexEnd + 1);
+            logger.fine(String.format("Request: %s , Param: %s", uri, param));
+            return param;
+        }
+        return StringUtils.EMPTY;
+    }
+
+    private static RestValue getRestValue(String logContent) {
+        RestValue restValue = new RestValue();
+        restValue.setContentType("text/html; charset=UTF-8".getBytes(StandardCharsets.UTF_8));
+        restValue.setValue(logContent.getBytes(StandardCharsets.UTF_8));
+        return restValue;
+    }
+
+    /** Get Current Node Log By /log request */
+    private void getCurrentNodeLog(HttpGetCommand httpGetCommand, String uri) {
+        String logName = getParam(uri);
+        String logPath = logService.getLogPath();
+
+        if (StringUtils.isBlank(logName)) {
+            // Get Current Node Log List
+            this.prepareResponse(httpGetCommand, getRestValue(logService.currentNodeLog()));
+        } else {
+            // Get Current Node Log Content
+            prepareLogResponse(httpGetCommand, logPath, logName);
+        }
+    }
+
+    /** Prepare Log Response */
+    private void prepareLogResponse(HttpGetCommand httpGetCommand, String logPath, String logName) {
+        String logFilePath = logPath + "/" + logName;
+        try {
+            String logContent = FileUtils.readFileToStr(new File(logFilePath).toPath());
+            this.prepareResponse(httpGetCommand, logContent);
+        } catch (SeaTunnelRuntimeException e) {
+            // If the log file does not exist, return 400
+            httpGetCommand.send400();
+            logger.warning(
+                    String.format("Log file content is empty, get log path : %s", logFilePath));
+        }
+    }
+
+    private void getAllLogName(HttpGetCommand httpGetCommand) {
+
+        try {
+            this.prepareResponse(httpGetCommand, JsonUtils.toJsonString(logService.allLogName()));
+        } catch (SeaTunnelRuntimeException e) {
+            httpGetCommand.send400();
+            logger.warning(
+                    String.format(
+                            "Log file name get failed, get log path: %s", logService.getLogPath()));
+        }
     }
 }

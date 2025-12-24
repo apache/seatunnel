@@ -32,7 +32,11 @@ public class SeaTunnelBatchPartitionReader implements PartitionReader<InternalRo
 
     @Override
     public boolean next() throws IOException {
-        return partitionReader.next();
+        try {
+            return partitionReader.next();
+        } catch (Exception e) {
+            throw new RuntimeException(e);
+        }
     }
 
     @Override

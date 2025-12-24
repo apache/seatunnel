@@ -62,7 +62,7 @@ Debezium provides a unified format for changelog, here is a simple example for a
 }
 ```
 
-Note: please refer to [Debezium documentation](https://debezium.io/documentation/reference/2.5/connectors/mysql.html#mysql-events) about the meaning of each fields.
+Note: please refer to [Debezium documentation](https://github.com/debezium/debezium/blob/v1.9.8.Final/documentation/modules/ROOT/pages/connectors/mysql.adoc#data-change-events) about the meaning of each fields.
 
 The MySQL products table has 4 columns (id, name, description and weight).
 The above JSON message is an update change event on the products table where the weight value of the row with id = 111 is changed from 5.18 to 5.17.
@@ -84,7 +84,7 @@ source {
   Kafka {
     bootstrap.servers = "kafkaCluster:9092"
     topic = "products_binlog"
-    result_table_name = "kafka_name"
+    plugin_output = "kafka_name"
     start_mode = earliest
     schema = {
       fields {

@@ -30,7 +30,6 @@ import io.debezium.annotation.Immutable;
 import io.debezium.connector.postgresql.connection.PostgresConnection;
 import io.debezium.util.Collect;
 
-import java.sql.Connection;
 import java.sql.PreparedStatement;
 import java.sql.ResultSet;
 import java.sql.SQLException;
@@ -45,10 +44,13 @@ import java.util.Map;
 import java.util.Set;
 
 /**
- * A registry of types supported by a PostgreSQL instance. Allows lookup of the types according to
- * type name or OID.
+ * Copied from Debezium 1.9.8.Final
  *
- * @author Jiri Pechanec
+ * <p>Line 91 : For {@link io.debezium.connector.postgresql.TypeRegistry#SQL_TYPES} add condition
+ * <code> and t.typtypmod != 0</code>.
+ *
+ * <p>A registry of types supported by a PostgreSQL instance. Allows lookup of the types according
+ * to type name or OID.
  */
 public class TypeRegistry {
 
@@ -118,8 +120,7 @@ public class TypeRegistry {
     private final Map<String, PostgresType> nameToType = new HashMap<>();
     private final Map<Integer, PostgresType> oidToType = new HashMap<>();
 
-    private final Connection connection;
-    private final TypeInfo typeInfo;
+    private final PostgresConnection connection;
     private final SqlTypeMapper sqlTypeMapper;
 
     private int geometryOid = Integer.MIN_VALUE;
@@ -136,9 +137,8 @@ public class TypeRegistry {
 
     public TypeRegistry(PostgresConnection connection) {
         try {
-            this.connection = connection.connection();
-            typeInfo = ((BaseConnection) this.connection).getTypeInfo();
-            sqlTypeMapper = new SqlTypeMapper(this.connection, typeInfo);
+            this.connection = connection;
+            sqlTypeMapper = new SqlTypeMapper(this.connection);
 
             prime();
         } catch (SQLException e) {
@@ -286,7 +286,7 @@ public class TypeRegistry {
 
     /** Prime the {@link TypeRegistry} with all existing database types */
     private void prime() throws SQLException {
-        try (final Statement statement = connection.createStatement();
+        try (final Statement statement = connection.connection().createStatement();
                 final ResultSet rs = statement.executeQuery(SQL_TYPES)) {
             final List<PostgresType.Builder> delayResolvedBuilders = new ArrayList<>();
             while (rs.next()) {
@@ -325,7 +325,7 @@ public class TypeRegistry {
                         oid,
                         sqlTypeMapper.getSqlType(typeName),
                         modifiers,
-                        typeInfo);
+                        getTypeInfo(connection));
 
         if (CATEGORY_ENUM.equals(category)) {
             String[] enumValues = (String[]) rs.getArray("enum_values").getArray();
@@ -340,7 +340,8 @@ public class TypeRegistry {
         try {
             LOGGER.trace("Type '{}' not cached, attempting to lookup from database.", name);
 
-            try (final PreparedStatement statement = connection.prepareStatement(SQL_NAME_LOOKUP)) {
+            try (final PreparedStatement statement =
+                    connection.connection().prepareStatement(SQL_NAME_LOOKUP)) {
                 statement.setString(1, name);
                 return loadType(statement);
             }
@@ -355,7 +356,8 @@ public class TypeRegistry {
             LOGGER.trace(
                     "Type OID '{}' not cached, attempting to lookup from database.", lookupOid);
 
-            try (final PreparedStatement statement = connection.prepareStatement(SQL_OID_LOOKUP)) {
+            try (final PreparedStatement statement =
+                    connection.connection().prepareStatement(SQL_OID_LOOKUP)) {
                 statement.setInt(1, lookupOid);
                 return loadType(statement);
             }
@@ -405,16 +407,17 @@ public class TypeRegistry {
                         + "    ON sp.nspoid = typnamespace "
                         + " ORDER BY typname, sp.r, pg_type.oid;";
 
-        private final TypeInfo typeInfo;
+        private final PostgresConnection connection;
 
         @Immutable private final Set<String> preloadedSqlTypes;
 
         @Immutable private final Map<String, Integer> sqlTypesByPgTypeNames;
 
-        private SqlTypeMapper(Connection db, TypeInfo typeInfo) throws SQLException {
-            this.typeInfo = typeInfo;
-            this.preloadedSqlTypes = Collect.unmodifiableSet(typeInfo.getPGTypeNamesWithSQLTypes());
-            this.sqlTypesByPgTypeNames = Collections.unmodifiableMap(getSqlTypes(db, typeInfo));
+        private SqlTypeMapper(PostgresConnection connection) throws SQLException {
+            this.connection = connection;
+            this.preloadedSqlTypes =
+                    Collect.unmodifiableSet(getTypeInfo(connection).getPGTypeNamesWithSQLTypes());
+            this.sqlTypesByPgTypeNames = Collections.unmodifiableMap(getSqlTypes(connection));
         }
 
         public int getSqlType(String typeName) throws SQLException {
@@ -424,7 +427,7 @@ public class TypeRegistry {
             // types to the JDBC
             // type codes. Also those values are cached in TypeInfoCache.
             if (isCoreType) {
-                return typeInfo.getSQLType(typeName);
+                return getTypeInfo(connection).getSQLType(typeName);
             }
             if (typeName.endsWith("[]")) {
                 return Types.ARRAY;
@@ -439,13 +442,13 @@ public class TypeRegistry {
                     LOGGER.info(
                             "Failed to obtain SQL type information for type {} via custom statement, falling back to TypeInfo#getSQLType()",
                             typeName);
-                    return typeInfo.getSQLType(typeName);
+                    return getTypeInfo(connection).getSQLType(typeName);
                 } catch (Exception e) {
                     LOGGER.warn(
                             "Failed to obtain SQL type information for type {} via custom statement, falling back to TypeInfo#getSQLType()",
                             typeName,
                             e);
-                    return typeInfo.getSQLType(typeName);
+                    return getTypeInfo(connection).getSQLType(typeName);
                 }
             }
         }
@@ -454,11 +457,11 @@ public class TypeRegistry {
          * Builds up a map of SQL (JDBC) types by PG type name; contains only values for non-core
          * types.
          */
-        private static Map<String, Integer> getSqlTypes(Connection db, TypeInfo typeInfo)
+        private static Map<String, Integer> getSqlTypes(PostgresConnection connection)
                 throws SQLException {
             Map<String, Integer> sqlTypesByPgTypeNames = new HashMap<>();
 
-            try (final Statement statement = db.createStatement()) {
+            try (final Statement statement = connection.connection().createStatement()) {
                 try (final ResultSet rs = statement.executeQuery(SQL_TYPE_DETAILS)) {
                     while (rs.next()) {
                         int type;
@@ -483,5 +486,9 @@ public class TypeRegistry {
 
             return sqlTypesByPgTypeNames;
         }
+    }
+
+    private static TypeInfo getTypeInfo(PostgresConnection connection) throws SQLException {
+        return ((BaseConnection) connection.connection()).getTypeInfo();
     }
 }

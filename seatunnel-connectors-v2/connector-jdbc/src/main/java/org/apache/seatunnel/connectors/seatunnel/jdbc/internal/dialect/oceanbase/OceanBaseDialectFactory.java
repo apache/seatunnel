@@ -17,9 +17,9 @@
 
 package org.apache.seatunnel.connectors.seatunnel.jdbc.internal.dialect.oceanbase;
 
+import org.apache.seatunnel.connectors.seatunnel.jdbc.internal.dialect.DatabaseIdentifier;
 import org.apache.seatunnel.connectors.seatunnel.jdbc.internal.dialect.JdbcDialect;
 import org.apache.seatunnel.connectors.seatunnel.jdbc.internal.dialect.JdbcDialectFactory;
-import org.apache.seatunnel.connectors.seatunnel.jdbc.internal.dialect.mysql.MysqlDialect;
 import org.apache.seatunnel.connectors.seatunnel.jdbc.internal.dialect.oracle.OracleDialect;
 
 import com.google.auto.service.AutoService;
@@ -28,6 +28,11 @@ import javax.annotation.Nonnull;
 
 @AutoService(JdbcDialectFactory.class)
 public class OceanBaseDialectFactory implements JdbcDialectFactory {
+    @Override
+    public String dialectFactoryName() {
+        return DatabaseIdentifier.OCEANBASE;
+    }
+
     @Override
     public boolean acceptsURL(String url) {
         return url.startsWith("jdbc:oceanbase:");
@@ -44,6 +49,6 @@ public class OceanBaseDialectFactory implements JdbcDialectFactory {
         if ("oracle".equalsIgnoreCase(compatibleMode)) {
             return new OracleDialect();
         }
-        return new MysqlDialect();
+        return new OceanBaseMysqlDialect();
     }
 }

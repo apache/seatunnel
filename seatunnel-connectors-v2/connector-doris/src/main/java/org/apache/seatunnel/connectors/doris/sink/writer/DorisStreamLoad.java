@@ -17,8 +17,14 @@
 
 package org.apache.seatunnel.connectors.doris.sink.writer;
 
+import org.apache.seatunnel.shade.com.fasterxml.jackson.core.type.TypeReference;
+import org.apache.seatunnel.shade.com.fasterxml.jackson.databind.ObjectMapper;
+import org.apache.seatunnel.shade.com.google.common.util.concurrent.ThreadFactoryBuilder;
+
 import org.apache.seatunnel.api.table.catalog.TablePath;
-import org.apache.seatunnel.connectors.doris.config.DorisConfig;
+import org.apache.seatunnel.common.utils.ExceptionUtils;
+import org.apache.seatunnel.common.utils.JsonUtils;
+import org.apache.seatunnel.connectors.doris.config.DorisSinkConfig;
 import org.apache.seatunnel.connectors.doris.exception.DorisConnectorErrorCode;
 import org.apache.seatunnel.connectors.doris.exception.DorisConnectorException;
 import org.apache.seatunnel.connectors.doris.rest.models.RespContent;
@@ -31,9 +37,7 @@ import org.apache.http.entity.InputStreamEntity;
 import org.apache.http.impl.client.CloseableHttpClient;
 import org.apache.http.util.EntityUtils;
 
-import com.fasterxml.jackson.core.type.TypeReference;
-import com.fasterxml.jackson.databind.ObjectMapper;
-import com.google.common.util.concurrent.ThreadFactoryBuilder;
+import lombok.Getter;
 import lombok.extern.slf4j.Slf4j;
 
 import java.io.IOException;
@@ -48,10 +52,10 @@ import java.util.concurrent.ThreadPoolExecutor;
 import java.util.concurrent.TimeUnit;
 import java.util.regex.Matcher;
 
-import static com.google.common.base.Preconditions.checkState;
 import static org.apache.seatunnel.connectors.doris.sink.writer.LoadConstants.LINE_DELIMITER_DEFAULT;
 import static org.apache.seatunnel.connectors.doris.sink.writer.LoadConstants.LINE_DELIMITER_KEY;
 import static org.apache.seatunnel.connectors.doris.util.ResponseUtil.LABEL_EXIST_PATTERN;
+import static org.apache.seatunnel.shade.com.google.common.base.Preconditions.checkState;
 
 /** load data to doris. */
 @Slf4j
@@ -64,40 +68,44 @@ public class DorisStreamLoad implements Serializable {
     private static final String ABORT_URL_PATTERN = "http://%s/api/%s/_stream_load_2pc";
     private static final String JOB_EXIST_FINISHED = "FINISHED";
     private final String loadUrlStr;
-    private final String hostPort;
+    @Getter private final String hostPort;
     private final String abortUrlStr;
     private final String user;
     private final String passwd;
-    private final String db;
+    @Getter private final String db;
     private final String table;
     private final boolean enable2PC;
     private final boolean enableDelete;
     private final Properties streamLoadProp;
     private final RecordStream recordStream;
-    private Future<CloseableHttpResponse> pendingLoadFuture;
+    @Getter private Future<CloseableHttpResponse> pendingLoadFuture;
     private final CloseableHttpClient httpClient;
     private final ExecutorService executorService;
     private volatile boolean loadBatchFirstRecord;
+    private volatile boolean loading = false;
     private String label;
-    private long recordCount = 0;
+    @Getter private long recordCount = 0;
 
     public DorisStreamLoad(
             String hostPort,
             TablePath tablePath,
-            DorisConfig dorisConfig,
+            DorisSinkConfig dorisSinkConfig,
             LabelGenerator labelGenerator,
             CloseableHttpClient httpClient) {
         this.hostPort = hostPort;
         this.db = tablePath.getDatabaseName();
-        this.table = tablePath.getTableName();
-        this.user = dorisConfig.getUsername();
-        this.passwd = dorisConfig.getPassword();
+        this.table =
+                dorisSinkConfig.isCaseSensitive()
+                        ? tablePath.getTableName()
+                        : tablePath.getTableName().toLowerCase();
+        this.user = dorisSinkConfig.getUsername();
+        this.passwd = dorisSinkConfig.getPassword();
         this.labelGenerator = labelGenerator;
         this.loadUrlStr = String.format(LOAD_URL_PATTERN, hostPort, db, table);
         this.abortUrlStr = String.format(ABORT_URL_PATTERN, hostPort, db);
-        this.enable2PC = dorisConfig.getEnable2PC();
-        this.streamLoadProp = dorisConfig.getStreamLoadProps();
-        this.enableDelete = dorisConfig.getEnableDelete();
+        this.enable2PC = dorisSinkConfig.getEnable2PC();
+        this.streamLoadProp = dorisSinkConfig.getStreamLoadProps();
+        this.enableDelete = dorisSinkConfig.getEnableDelete();
         this.httpClient = httpClient;
         this.executorService =
                 new ThreadPoolExecutor(
@@ -108,27 +116,15 @@ public class DorisStreamLoad implements Serializable {
                         new LinkedBlockingQueue<>(),
                         new ThreadFactoryBuilder().setNameFormat("stream-load-upload").build());
         this.recordStream =
-                new RecordStream(dorisConfig.getBufferSize(), dorisConfig.getBufferCount());
+                new RecordStream(dorisSinkConfig.getBufferSize(), dorisSinkConfig.getBufferCount());
         lineDelimiter =
                 streamLoadProp.getProperty(LINE_DELIMITER_KEY, LINE_DELIMITER_DEFAULT).getBytes();
         loadBatchFirstRecord = true;
     }
 
-    public String getDb() {
-        return db;
-    }
-
-    public String getHostPort() {
-        return hostPort;
-    }
-
-    public Future<CloseableHttpResponse> getPendingLoadFuture() {
-        return pendingLoadFuture;
-    }
-
-    public void abortPreCommit(String labelSuffix, long chkID) throws Exception {
+    public void abortPreCommit(String labelPrefix, long chkID) throws Exception {
         long startChkID = chkID;
-        log.info("abort for labelSuffix {}. start chkId {}.", labelSuffix, chkID);
+        log.info("abort for labelPrefix {}. start chkId {}.", labelPrefix, chkID);
         while (true) {
             try {
                 String label = labelGenerator.generateLabel(startChkID);
@@ -180,7 +176,7 @@ public class DorisStreamLoad implements Serializable {
                 throw e;
             }
         }
-        log.info("abort for labelSuffix {} finished", labelSuffix);
+        log.info("abort for labelPrefix {} finished", labelPrefix);
     }
 
     public void writeRecord(byte[] record) throws IOException {
@@ -195,11 +191,25 @@ public class DorisStreamLoad implements Serializable {
         recordCount++;
     }
 
-    public long getRecordCount() {
-        return recordCount;
+    public String getLoadFailedMsg() {
+        if (!loading) {
+            return null;
+        }
+        if (this.getPendingLoadFuture() != null && this.getPendingLoadFuture().isDone()) {
+            String errorMessage;
+            try {
+                errorMessage = handlePreCommitResponse(pendingLoadFuture.get()).getMessage();
+            } catch (Exception e) {
+                errorMessage = ExceptionUtils.getMessage(e);
+            }
+            recordStream.setErrorMessageByStreamLoad(errorMessage);
+            return errorMessage;
+        } else {
+            return null;
+        }
     }
 
-    public RespContent handlePreCommitResponse(CloseableHttpResponse response) throws Exception {
+    private RespContent handlePreCommitResponse(CloseableHttpResponse response) throws Exception {
         final int statusCode = response.getStatusLine().getStatusCode();
         if (statusCode == HTTP_TEMPORARY_REDIRECT && response.getEntity() != null) {
             String loadResult = EntityUtils.toString(response.getEntity());
@@ -211,6 +221,7 @@ public class DorisStreamLoad implements Serializable {
     }
 
     public RespContent stopLoad() throws IOException {
+        loading = false;
         if (pendingLoadFuture != null) {
             log.info("stream load stopped.");
             recordStream.endInput();
@@ -230,6 +241,7 @@ public class DorisStreamLoad implements Serializable {
         loadBatchFirstRecord = true;
         recordCount = 0;
         this.label = label;
+        this.loading = true;
     }
 
     private void startStreamLoad() {
@@ -279,10 +291,9 @@ public class DorisStreamLoad implements Serializable {
                     "Fail to abort transaction " + txnID + " with url " + abortUrlStr);
         }
 
-        ObjectMapper mapper = new ObjectMapper();
         String loadResult = EntityUtils.toString(response.getEntity());
         Map<String, String> res =
-                mapper.readValue(loadResult, new TypeReference<HashMap<String, String>>() {});
+                JsonUtils.parseObject(loadResult, new TypeReference<HashMap<String, String>>() {});
         if (!LoadStatus.SUCCESS.equals(res.get("status"))) {
             if (ResponseUtil.isCommitted(res.get("msg"))) {
                 throw new DorisConnectorException(

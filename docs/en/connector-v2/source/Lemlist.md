@@ -1,3 +1,5 @@
+import ChangeLog from '../changelog/connector-http-lemlist.md';
+
 # Lemlist
 
 > Lemlist source connector
@@ -271,7 +273,7 @@ source {
 
 ### common options
 
-Source plugin common parameters, please refer to [Source Common Options](common-options.md) for details
+Source plugin common parameters, please refer to [Source Common Options](../source-common-options.md) for details
 
 ## Example
 
@@ -290,8 +292,5 @@ Lemlist {
 
 ## Changelog
 
-### next version
-
-- Add Lemlist Source Connector
-- [Feature][Connector-V2][HTTP] Use json-path parsing ([3510](https://github.com/apache/seatunnel/pull/3510))
+<ChangeLog />
 

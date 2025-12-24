@@ -23,12 +23,16 @@ import org.apache.seatunnel.connectors.seatunnel.clickhouse.exception.Clickhouse
 
 public class FileTransferFactory {
     public static FileTransfer createFileTransfer(
-            ClickhouseFileCopyMethod type, String host, String user, String password) {
+            ClickhouseFileCopyMethod type,
+            String host,
+            String user,
+            String password,
+            String keyPath) {
         switch (type) {
             case SCP:
-                return new ScpFileTransfer(host, user, password);
+                return new ScpFileTransfer(host, user, password, keyPath);
             case RSYNC:
-                return new RsyncFileTransfer(host, user, password);
+                return new RsyncFileTransfer(host, user, password, keyPath);
             default:
                 throw new ClickhouseConnectorException(
                         CommonErrorCodeDeprecated.ILLEGAL_ARGUMENT,

@@ -1,3 +1,5 @@
+import ChangeLog from '../changelog/connector-clickhouse.md';
+
 # Clickhouse
 
 > Clickhouse sink connector
@@ -15,6 +17,8 @@
 
 > The Clickhouse sink plug-in can achieve accuracy once by implementing idempotent writing, and needs to cooperate with aggregatingmergetree and other engines that support deduplication.
 
+- [x] [support multiple table sink](../../concept/connector-v2-features.md)
+
 ## Description
 
 Used to write data to Clickhouse.
@@ -24,9 +28,9 @@ Used to write data to Clickhouse.
 In order to use the Clickhouse connector, the following dependencies are required.
 They can be downloaded via install-plugin.sh or from the Maven central repository.
 
-| Datasource | Supported Versions |                                                    Dependency                                                    |
-|------------|--------------------|------------------------------------------------------------------------------------------------------------------|
-| Clickhouse | universal          | [Download](https://mvnrepository.com/artifact/org.apache.seatunnel/seatunnel-connectors-v2/connector-clickhouse) |
+| Datasource | Supported Versions | Dependency                                                                               |
+|------------|--------------------|------------------------------------------------------------------------------------------|
+| Clickhouse | universal          | [Download](https://mvnrepository.com/artifact/org.apache.seatunnel/connector-clickhouse) |
 
 ## Data Type Mapping
 
@@ -59,9 +63,76 @@ They can be downloaded via install-plugin.sh or from the Maven central repositor
 | primary_key                           | String  | No       | -       | Mark the primary key column from clickhouse table, and based on primary key execute INSERT/UPDATE/DELETE to clickhouse table.                                                                                                                                                                               |
 | support_upsert                        | Boolean | No       | false   | Support upsert row by query primary key.                                                                                                                                                                                                                                                                    |
 | allow_experimental_lightweight_delete | Boolean | No       | false   | Allow experimental lightweight delete based on `*MergeTree` table engine.                                                                                                                                                                                                                                   |
-| common-options                        |         | No       | -       | Sink plugin common parameters, please refer to [Sink Common Options](common-options.md) for details.                                                                                                                                                                                                        |
+| schema_save_mode               | Enum    | no       | CREATE_SCHEMA_WHEN_NOT_EXIST | Schema save mode. Please refer to the `schema_save_mode` section below.                                                                                       |
+| data_save_mode                 | Enum    | no       | APPEND_DATA                  | Data save mode. Please refer to the `data_save_mode` section below.                                                                                         |
+| custom_sql                  | String  | no       | -                            | When data_save_mode selects CUSTOM_PROCESSING, you should fill in the CUSTOM_SQL parameter. This parameter usually fills in a SQL that can be executed. SQL will be executed before synchronization tasks.        |
+| save_mode_create_template      | string  | no       | see below                    | See below.                                                                                                                                                  |
+| common-options                        |         | No       | -       | Sink plugin common parameters, please refer to [Sink Common Options](../sink-common-options.md) for details.                                                                                                                                                                                                |
 
-## How to Create a Clickhouse Data Synchronization Jobs
+### schema_save_mode [Enum]
+
+Before starting the synchronization task, choose different processing options for the existing table schema.  
+Option descriptions:  
+`RECREATE_SCHEMA`: Create the table if it does not exist; drop and recreate the table when saving.  
+`CREATE_SCHEMA_WHEN_NOT_EXIST`: Create the table if it does not exist; skip if the table already exists.  
+`ERROR_WHEN_SCHEMA_NOT_EXIST`: Throw an error if the table does not exist.  
+`IGNORE`: Ignore the processing of the table.
+
+### data_save_mode [Enum]
+
+Before starting the synchronization task, choose different processing options for the existing data on the target side.  
+Option descriptions:  
+`DROP_DATA`: Retain the database schema but delete the data.  
+`APPEND_DATA`: Retain the database schema and the data.  
+`CUSTOM_PROCESSING`: Custom user-defined processing.  
+`ERROR_WHEN_DATA_EXISTS`: Throw an error if data exists.
+
+### save_mode_create_template
+
+Automatically create Clickhouse tables using templates.  
+The table creation statements will be generated based on the upstream data types and schema. The default template can be modified as needed.
+
+Default template:
+```sql
+CREATE TABLE IF NOT EXISTS `${database}`.`${table}` (
+    ${rowtype_primary_key},
+    ${rowtype_fields}
+) ENGINE = MergeTree()
+ORDER BY (${rowtype_primary_key})
+PRIMARY KEY (${rowtype_primary_key})
+SETTINGS
+    index_granularity = 8192
+COMMENT '${comment}';
+```
+
+If custom fields are added to the template, for example, adding an `id` field:
+
+```sql
+CREATE TABLE IF NOT EXISTS `${database}`.`${table}` (
+    id,
+    ${rowtype_fields}
+) ENGINE = MergeTree()
+    ORDER BY (${rowtype_primary_key})
+    PRIMARY KEY (${rowtype_primary_key})
+    SETTINGS
+    index_granularity = 8192
+COMMENT '${comment}';
+```
+
+The connector will automatically retrieve the corresponding types from the upstream source and fill in the template, removing the `id` field from the `rowtype_fields`. This method can be used to modify custom field types and attributes.
+
+The following placeholders can be used:
+
+- `database`: Retrieves the database from the upstream schema.
+- `table_name`: Retrieves the table name from the upstream schema.
+- `rowtype_fields`: Retrieves all fields from the upstream schema and automatically maps them to Clickhouse field descriptions.
+- `rowtype_primary_key`: Retrieves the primary key from the upstream schema (this may be a list).
+- `rowtype_unique_key`: Retrieves the unique key from the upstream schema (this may be a list).
+- `comment`: Retrieves the table comment from the upstream schema.
+
+## Example Configurations and Cases
+
+### How to Create a Clickhouse Data Synchronization Jobs
 
 The following example demonstrates how to create a data synchronization job that writes randomly generated data to a Clickhouse database:
 
@@ -99,13 +170,13 @@ sink {
 }
 ```
 
-### Tips
-
+> Tips:
+>
 > 1.[SeaTunnel Deployment Document](../../start-v2/locally/deployment.md). <br/>
 > 2.The table to be written to needs to be created in advance before synchronization.<br/>
 > 3.When sink is writing to the ClickHouse table, you don't need to set its schema because the connector will query ClickHouse for the current table's schema information before writing.<br/>
 
-## Clickhouse Sink Config
+### Clickhouse Sink Config
 
 ```hocon
 sink {
@@ -123,7 +194,7 @@ sink {
 }
 ```
 
-## Split Mode
+### Split Mode
 
 ```hocon
 sink {
@@ -141,7 +212,7 @@ sink {
 }
 ```
 
-## CDC(Change data capture) Sink
+### CDC(Change data capture) Sink
 
 ```hocon
 sink {
@@ -159,7 +230,7 @@ sink {
 }
 ```
 
-## CDC(Change data capture) for *MergeTree engine
+### CDC(Change data capture) for *MergeTree engine
 
 ```hocon
 sink {
@@ -178,3 +249,104 @@ sink {
 }
 ```
 
+### Multiple table Sink Cases
+
+In ClickHouse, create the following two data tables in advance:
+
+```
+create table if not exists `default`.multi_sink_table1(
+     `c_string`          String,
+     `c_boolean`         Boolean,
+     `c_tinyint`         Int8,
+     `c_smallint`        Int16,
+     `c_int`             Int32,
+     `c_bigint`          Int64,
+     `c_float`           Float32,
+     `c_double`          Float64,
+     `c_decimal`         Decimal(30, 8),
+     `c_date`            Date,
+     `c_time`            DateTime64,
+     `c_map`             Map(String, Int32),
+     `c_array`           Array(Int32)
+)engine=Memory
+comment '''N''-N';
+
+create table if not exists `default`.multi_sink_table2 as `default`.multi_sink_table1;
+```
+
+Then, the configuration to be used is referred to as follows: 
+
+```
+env {
+  parallelism = 1
+  job.mode = "BATCH"
+  job.name = "fake_to_clickhouse_with_multi_table"
+}
+
+source {
+  FakeSource {
+    tables_configs = [
+      {
+        schema = {
+          table = "multi_sink_table1"
+          fields {
+            c_string = string
+            c_boolean = boolean
+            c_tinyint = tinyint
+            c_smallint = smallint
+            c_int = int
+            c_bigint = bigint
+            c_float = float
+            c_double = double
+            c_decimal = "decimal(30, 8)"
+            c_date = date
+            c_time = timestamp
+            c_map = "map<string, int>"
+            c_array = "array<int>"
+          }
+        }
+        row.num = 100
+      },
+      {
+        schema = {
+          table = "multi_sink_table2"
+          fields {
+            c_string = string
+            c_boolean = boolean
+            c_tinyint = tinyint
+            c_smallint = smallint
+            c_int = int
+            c_bigint = bigint
+            c_float = float
+            c_double = double
+            c_decimal = "decimal(30, 8)"
+            c_date = date
+            c_time = timestamp
+            c_map = "map<string, int>"
+            c_array = "array<int>"
+          }
+        }
+        row.num = 100
+      }
+    ]
+    plugin_output = "multi_sink_table"
+  }
+}
+
+sink {
+  Clickhouse {
+    plugin_input = "multi_sink_table"
+    host = "clickhouse:8123"
+    database = "default"
+    table = "${table_name}"
+    username = "default"
+    password = ""
+  }
+}
+```
+
+After submitting the job and successfully executing it, we can see that the data volume of the ClickHouse data tables `multi_sink_table1` and `multi_sink_table2` is 100 for each. 
+
+## Changelog
+
+<ChangeLog />

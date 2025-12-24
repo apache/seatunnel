@@ -19,13 +19,14 @@
 
 package org.apache.seatunnel.connectors.seatunnel.iceberg.data;
 
+import org.apache.seatunnel.shade.com.fasterxml.jackson.databind.ObjectMapper;
 import org.apache.seatunnel.shade.com.google.common.base.Preconditions;
 import org.apache.seatunnel.shade.com.google.common.collect.Maps;
 
 import org.apache.seatunnel.api.table.type.SeaTunnelDataType;
 import org.apache.seatunnel.api.table.type.SeaTunnelRow;
 import org.apache.seatunnel.api.table.type.SeaTunnelRowType;
-import org.apache.seatunnel.connectors.seatunnel.iceberg.config.SinkConfig;
+import org.apache.seatunnel.connectors.seatunnel.iceberg.config.IcebergSinkConfig;
 import org.apache.seatunnel.connectors.seatunnel.iceberg.sink.schema.SchemaChangeWrapper;
 import org.apache.seatunnel.connectors.seatunnel.iceberg.utils.SchemaUtils;
 
@@ -41,8 +42,6 @@ import org.apache.iceberg.types.Type;
 import org.apache.iceberg.types.Types;
 import org.apache.iceberg.util.DateTimeUtil;
 
-import com.fasterxml.jackson.databind.ObjectMapper;
-
 import java.io.IOException;
 import java.io.UncheckedIOException;
 import java.math.BigDecimal;
@@ -52,6 +51,7 @@ import java.time.LocalDate;
 import java.time.LocalDateTime;
 import java.time.LocalTime;
 import java.time.OffsetDateTime;
+import java.time.ZoneId;
 import java.time.ZoneOffset;
 import java.time.format.DateTimeFormatter;
 import java.time.format.DateTimeFormatterBuilder;
@@ -78,10 +78,10 @@ public class RowConverter {
 
     private final Schema tableSchema;
     private final NameMapping nameMapping;
-    private final SinkConfig config;
+    private final IcebergSinkConfig config;
     private final Map<Integer, Map<String, Types.NestedField>> structNames = Maps.newHashMap();
 
-    public RowConverter(Table table, SinkConfig config) {
+    public RowConverter(Table table, IcebergSinkConfig config) {
         this.tableSchema = table.schema();
         this.nameMapping = createNameMapping(table);
         this.config = config;
@@ -92,17 +92,17 @@ public class RowConverter {
         return nameMappingString != null ? NameMappingParser.fromJson(nameMappingString) : null;
     }
 
-    public Record convert(Object row, SeaTunnelDataType rowType) {
+    public Record convert(Object row, SeaTunnelDataType<?> rowType) {
         return convertStructValue(row, rowType, tableSchema.asStruct(), -1, null);
     }
 
-    public Record convert(Object row, SeaTunnelDataType rowType, SchemaChangeWrapper wrapper) {
+    public Record convert(Object row, SeaTunnelDataType<?> rowType, SchemaChangeWrapper wrapper) {
         return convertStructValue(row, rowType, tableSchema.asStruct(), -1, wrapper);
     }
 
     protected GenericRecord convertStructValue(
             Object value,
-            SeaTunnelDataType fromType,
+            SeaTunnelDataType<?> fromType,
             Types.StructType schema,
             int parentFieldId,
             SchemaChangeWrapper wrapper) {
@@ -120,15 +120,7 @@ public class RowConverter {
         }
     }
 
-    /**
-     * Convert RowType
-     *
-     * @param row
-     * @param fromType
-     * @param schema
-     * @param structFieldId
-     * @return
-     */
+    /** Convert RowType */
     private GenericRecord convertToStruct(
             SeaTunnelRow row,
             SeaTunnelRowType fromType,
@@ -136,9 +128,9 @@ public class RowConverter {
             int structFieldId,
             SchemaChangeWrapper wrapper) {
         GenericRecord result = GenericRecord.create(schema);
-        String[] filedNames = fromType.getFieldNames();
-        for (int i = 0; i < filedNames.length; i++) {
-            String recordField = filedNames[i];
+        String[] fieldNames = fromType.getFieldNames();
+        for (int i = 0; i < fieldNames.length; i++) {
+            String recordField = fieldNames[i];
             Type afterType = SchemaUtils.toIcebergType(fromType.getFieldType(i));
             Types.NestedField tableField = lookupStructField(recordField, schema, structFieldId);
             // add column
@@ -179,7 +171,7 @@ public class RowConverter {
 
     public Object convertValue(
             Object value,
-            SeaTunnelDataType fromType,
+            SeaTunnelDataType<?> fromType,
             Type type,
             int fieldId,
             SchemaChangeWrapper wrapper) {
@@ -252,7 +244,7 @@ public class RowConverter {
 
     protected List<Object> convertListValue(
             Object value,
-            SeaTunnelDataType fromType,
+            SeaTunnelDataType<?> fromType,
             Types.ListType type,
             SchemaChangeWrapper wrapper) {
         Preconditions.checkArgument(value.getClass().isArray());
@@ -269,7 +261,7 @@ public class RowConverter {
 
     protected Map<Object, Object> convertMapValue(
             Object value,
-            SeaTunnelDataType fromType,
+            SeaTunnelDataType<?> fromType,
             Types.MapType type,
             SchemaChangeWrapper wrapper) {
         Preconditions.checkArgument(value instanceof Map);
@@ -438,7 +430,11 @@ public class RowConverter {
         } else if (value instanceof OffsetDateTime) {
             return (OffsetDateTime) value;
         } else if (value instanceof LocalDateTime) {
-            return ((LocalDateTime) value).atOffset(ZoneOffset.UTC);
+            // Convert to OffsetDateTime using the system(jvm) default timezone
+            return ((LocalDateTime) value)
+                    .atZone(ZoneId.systemDefault())
+                    .withZoneSameInstant(ZoneOffset.UTC)
+                    .toOffsetDateTime();
         } else if (value instanceof Date) {
             return DateTimeUtil.timestamptzFromMicros(((Date) value).getTime() * 1000);
         }

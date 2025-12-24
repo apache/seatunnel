@@ -32,10 +32,11 @@ import org.apache.seatunnel.api.table.factory.CatalogFactory;
 import org.apache.seatunnel.common.config.CheckConfigUtil;
 import org.apache.seatunnel.common.config.CheckResult;
 import org.apache.seatunnel.common.constants.PluginType;
+import org.apache.seatunnel.connectors.seatunnel.file.config.FileBaseSinkOptions;
 import org.apache.seatunnel.connectors.seatunnel.file.config.FileSystemType;
 import org.apache.seatunnel.connectors.seatunnel.file.exception.FileConnectorException;
-import org.apache.seatunnel.connectors.seatunnel.file.s3.config.S3Conf;
-import org.apache.seatunnel.connectors.seatunnel.file.s3.config.S3ConfigOptions;
+import org.apache.seatunnel.connectors.seatunnel.file.s3.config.S3FileSinkOptions;
+import org.apache.seatunnel.connectors.seatunnel.file.s3.config.S3HadoopConf;
 import org.apache.seatunnel.connectors.seatunnel.file.sink.BaseMultipleTableFileSink;
 
 import java.util.Optional;
@@ -44,8 +45,8 @@ import static org.apache.seatunnel.api.table.factory.FactoryUtil.discoverFactory
 
 public class S3FileSink extends BaseMultipleTableFileSink implements SupportSaveMode {
 
-    private CatalogTable catalogTable;
-    private ReadonlyConfig readonlyConfig;
+    private final CatalogTable catalogTable;
+    private final ReadonlyConfig readonlyConfig;
 
     private static final String S3 = "S3";
 
@@ -55,15 +56,15 @@ public class S3FileSink extends BaseMultipleTableFileSink implements SupportSave
     }
 
     public S3FileSink(CatalogTable catalogTable, ReadonlyConfig readonlyConfig) {
-        super(S3Conf.buildWithConfig(readonlyConfig.toConfig()), readonlyConfig, catalogTable);
+        super(S3HadoopConf.buildWithReadOnlyConfig(readonlyConfig), readonlyConfig, catalogTable);
         this.catalogTable = catalogTable;
         this.readonlyConfig = readonlyConfig;
         Config pluginConfig = readonlyConfig.toConfig();
         CheckResult result =
                 CheckConfigUtil.checkAllExists(
                         pluginConfig,
-                        S3ConfigOptions.FILE_PATH.key(),
-                        S3ConfigOptions.S3_BUCKET.key());
+                        S3FileSinkOptions.FILE_PATH.key(),
+                        S3FileSinkOptions.S3_BUCKET.key());
         if (!result.isSuccess()) {
             throw new FileConnectorException(
                     SeaTunnelAPIErrorCode.CONFIG_VALIDATION_FAILED,
@@ -83,10 +84,15 @@ public class S3FileSink extends BaseMultipleTableFileSink implements SupportSave
             return Optional.empty();
         }
         final Catalog catalog = catalogFactory.createCatalog(S3, readonlyConfig);
-        SchemaSaveMode schemaSaveMode = readonlyConfig.get(S3ConfigOptions.SCHEMA_SAVE_MODE);
-        DataSaveMode dataSaveMode = readonlyConfig.get(S3ConfigOptions.DATA_SAVE_MODE);
+        SchemaSaveMode schemaSaveMode = readonlyConfig.get(FileBaseSinkOptions.SCHEMA_SAVE_MODE);
+        DataSaveMode dataSaveMode = readonlyConfig.get(FileBaseSinkOptions.DATA_SAVE_MODE);
         return Optional.of(
                 new DefaultSaveModeHandler(
                         schemaSaveMode, dataSaveMode, catalog, catalogTable, null));
+    }
+
+    @Override
+    public Optional<CatalogTable> getWriteCatalogTable() {
+        return Optional.ofNullable(catalogTable);
     }
 }

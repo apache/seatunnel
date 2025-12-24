@@ -18,15 +18,14 @@
 
 package org.apache.seatunnel.connectors.seatunnel.jdbc;
 
-import org.apache.seatunnel.api.table.type.SeaTunnelRow;
+import org.apache.seatunnel.shade.com.google.common.collect.Lists;
+import org.apache.seatunnel.shade.org.apache.commons.lang3.tuple.Pair;
 
-import org.apache.commons.lang3.tuple.Pair;
+import org.apache.seatunnel.api.table.type.SeaTunnelRow;
 
 import org.testcontainers.containers.GenericContainer;
 import org.testcontainers.containers.output.Slf4jLogConsumer;
 import org.testcontainers.utility.DockerLoggerFactory;
-
-import com.google.common.collect.Lists;
 
 import java.math.BigDecimal;
 import java.sql.Date;
@@ -127,11 +126,9 @@ public class JdbcDmIT extends AbstractJdbcIT {
                 .configFile(CONFIG_FILE)
                 .insertSql(insertSql)
                 .testData(testDataSet)
+                .tablePathFullName(String.format("%s.%s", DM_DATABASE, DM_SOURCE))
                 .build();
     }
-
-    @Override
-    void compareResult(String executeKey) {}
 
     @Override
     String driverUrl() {
@@ -220,6 +217,14 @@ public class JdbcDmIT extends AbstractJdbcIT {
         }
 
         return Pair.of(fieldNames, rows);
+    }
+
+    protected String buildTableInfoWithSchema(String database, String schema, String table) {
+        return buildTableInfoWithSchema(schema, table);
+    }
+
+    protected void clearTable(String database, String schema, String table) {
+        clearTable(schema, table);
     }
 
     @Override

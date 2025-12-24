@@ -17,6 +17,11 @@
 
 package org.apache.seatunnel.connectors.seatunnel.jdbc.source;
 
+import org.apache.seatunnel.shade.org.apache.commons.lang3.StringUtils;
+import org.apache.seatunnel.shade.org.apache.commons.lang3.tuple.Pair;
+
+import org.apache.seatunnel.api.table.catalog.Column;
+import org.apache.seatunnel.api.table.catalog.TableSchema;
 import org.apache.seatunnel.api.table.type.DecimalType;
 import org.apache.seatunnel.api.table.type.SeaTunnelDataType;
 import org.apache.seatunnel.api.table.type.SeaTunnelRowType;
@@ -26,8 +31,7 @@ import org.apache.seatunnel.connectors.seatunnel.jdbc.config.JdbcSourceConfig;
 import org.apache.seatunnel.connectors.seatunnel.jdbc.exception.JdbcConnectorException;
 import org.apache.seatunnel.connectors.seatunnel.jdbc.internal.split.JdbcNumericBetweenParametersProvider;
 
-import org.apache.commons.lang3.StringUtils;
-import org.apache.commons.lang3.tuple.Pair;
+import org.apache.commons.collections4.CollectionUtils;
 
 import lombok.extern.slf4j.Slf4j;
 
@@ -47,6 +51,9 @@ import java.util.List;
 
 @Slf4j
 public class FixedChunkSplitter extends ChunkSplitter {
+
+    private final boolean useCharsetBasedStringSplitter =
+            StringSplitMode.CHARSET_BASED.equals(config.getStringSplitMode());
 
     public FixedChunkSplitter(JdbcSourceConfig config) {
         super(config);
@@ -69,19 +76,115 @@ public class FixedChunkSplitter extends ChunkSplitter {
             }
         }
         if (SqlType.STRING.equals(splitKeyType.getSqlType())) {
-            return createStringColumnSplits(table, splitKeyName, splitKeyType);
+            log.info("useNewStringSplitter is {}", useCharsetBasedStringSplitter);
+            if (useCharsetBasedStringSplitter) {
+                return getJdbcSourceStringSplits(table, splitKeyName, splitKeyType);
+            } else {
+                return createStringColumnSplits(table, splitKeyName, splitKeyType);
+            }
         }
+        return getJdbcSourceSplits(table, splitKeyName, splitKeyType);
+    }
 
-        BigDecimal partitionStart = table.getPartitionStart();
-        BigDecimal partitionEnd = table.getPartitionEnd();
+    private Collection<JdbcSourceSplit> getJdbcSourceStringSplits(
+            JdbcSourceTable table, String splitKeyName, SeaTunnelDataType splitKeyType)
+            throws SQLException {
+        String partitionStart = table.getPartitionStart();
+        String partitionEnd = table.getPartitionEnd();
+        if (partitionStart == null || partitionEnd == null) {
+            Pair<String, String> range = findSplitStringColumnRange(table, splitKeyName);
+            partitionStart = range.getLeft();
+            partitionEnd = range.getRight();
+        }
+        if (partitionStart == null || partitionEnd == null) {
+            JdbcSourceSplit split = createSingleSplit(table);
+            return Collections.singletonList(split);
+        }
+        boolean paddingAtEnd = true;
+        boolean isCaseInsensitive = false;
+        String collationSequence =
+                jdbcDialect.getCollationSequence(
+                        getOrEstablishConnection(), config.getStringSplitModeCollate());
+        if (collationSequence.matches(".*[aA][Aa].*")) {
+            isCaseInsensitive = true;
+            collationSequence = filterOutUppercase(collationSequence);
+        }
+        int radix = collationSequence.length() + 1;
+        int maxLength = Math.max(partitionStart.length(), partitionEnd.length());
+        BigInteger min =
+                CollationBasedSplitter.encodeStringToNumericRange(
+                        partitionStart,
+                        maxLength,
+                        paddingAtEnd,
+                        isCaseInsensitive,
+                        collationSequence,
+                        radix);
+        BigInteger max =
+                CollationBasedSplitter.encodeStringToNumericRange(
+                        partitionEnd,
+                        maxLength,
+                        paddingAtEnd,
+                        isCaseInsensitive,
+                        collationSequence,
+                        radix);
+        Collection<JdbcSourceSplit> numberColumnSplits =
+                createNumberColumnSplits(
+                        table,
+                        splitKeyName,
+                        splitKeyType,
+                        new BigDecimal(min),
+                        new BigDecimal(max));
+        if (CollectionUtils.isNotEmpty(numberColumnSplits)) {
+            List<JdbcSourceSplit> result = new ArrayList<>();
+            int index = 0;
+            for (JdbcSourceSplit jdbcSourceSplit : numberColumnSplits) {
+                result.add(
+                        new JdbcSourceSplit(
+                                jdbcSourceSplit.getTablePath(),
+                                jdbcSourceSplit.getSplitId(),
+                                jdbcSourceSplit.getSplitQuery(),
+                                jdbcSourceSplit.getSplitKeyName(),
+                                jdbcSourceSplit.getSplitKeyType(),
+                                index == 0
+                                        ? partitionStart
+                                        : CollationBasedSplitter.decodeNumericRangeToString(
+                                                jdbcSourceSplit.getSplitStart().toString(),
+                                                maxLength,
+                                                radix,
+                                                collationSequence),
+                                index == numberColumnSplits.size() - 1
+                                        ? partitionEnd
+                                        : CollationBasedSplitter.decodeNumericRangeToString(
+                                                jdbcSourceSplit.getSplitEnd().toString(),
+                                                maxLength,
+                                                radix,
+                                                collationSequence)));
+                index++;
+            }
+            return result;
+        }
+        return numberColumnSplits;
+    }
+
+    private Collection<JdbcSourceSplit> getJdbcSourceSplits(
+            JdbcSourceTable table, String splitKeyName, SeaTunnelDataType splitKeyType)
+            throws SQLException {
+        BigDecimal partitionStart =
+                StringUtils.isBlank(table.getPartitionStart())
+                        ? null
+                        : new BigDecimal(table.getPartitionStart());
+        BigDecimal partitionEnd =
+                StringUtils.isBlank(table.getPartitionEnd())
+                        ? null
+                        : new BigDecimal(table.getPartitionEnd());
         if (partitionStart == null || partitionEnd == null) {
             Pair<BigDecimal, BigDecimal> range = findSplitColumnRange(table, splitKeyName);
             partitionStart = range.getLeft();
             partitionEnd = range.getRight();
         }
         if (partitionStart == null || partitionEnd == null) {
-            JdbcSourceSplit spilt = createSingleSplit(table);
-            return Collections.singletonList(spilt);
+            JdbcSourceSplit split = createSingleSplit(table);
+            return Collections.singletonList(split);
         }
 
         return createNumberColumnSplits(
@@ -89,8 +192,10 @@ public class FixedChunkSplitter extends ChunkSplitter {
     }
 
     @Override
-    protected PreparedStatement createSplitStatement(JdbcSourceSplit split) throws SQLException {
-        if (SqlType.STRING.equals(split.getSplitKeyType().getSqlType())) {
+    protected PreparedStatement createSplitStatement(JdbcSourceSplit split, TableSchema schema)
+            throws SQLException {
+        if (SqlType.STRING.equals(split.getSplitKeyType().getSqlType())
+                && !useCharsetBasedStringSplitter) {
             return createStringColumnSplitStatement(split);
         }
         if (split.getSplitStart() == null && split.getSplitEnd() == null) {
@@ -103,6 +208,11 @@ public class FixedChunkSplitter extends ChunkSplitter {
     private Collection<JdbcSourceSplit> createStringColumnSplits(
             JdbcSourceTable table, String splitKeyName, SeaTunnelDataType splitKeyType) {
         List<JdbcSourceSplit> splits = new ArrayList<>(table.getPartitionNumber());
+        Column column =
+                table.getCatalogTable().getTableSchema().getColumns().stream()
+                        .filter(c -> c.getName().equals(splitKeyName))
+                        .findAny()
+                        .get();
         for (int i = 0; i < table.getPartitionNumber(); i++) {
             String splitQuery;
             if (StringUtils.isNotBlank(table.getQuery())) {
@@ -111,14 +221,18 @@ public class FixedChunkSplitter extends ChunkSplitter {
                                 "SELECT * FROM (%s) st_jdbc_splitter WHERE %s = ?",
                                 table.getQuery(),
                                 jdbcDialect.hashModForField(
-                                        splitKeyName, table.getPartitionNumber()));
+                                        column.getSourceType(),
+                                        splitKeyName,
+                                        table.getPartitionNumber()));
             } else {
                 splitQuery =
                         String.format(
                                 "SELECT * FROM %s WHERE %s = ?",
                                 jdbcDialect.tableIdentifier(table.getTablePath()),
                                 jdbcDialect.hashModForField(
-                                        splitKeyName, table.getPartitionNumber()));
+                                        column.getSourceType(),
+                                        splitKeyName,
+                                        table.getPartitionNumber()));
             }
 
             JdbcSourceSplit split =
@@ -232,6 +346,20 @@ public class FixedChunkSplitter extends ChunkSplitter {
         return statement;
     }
 
+    private Pair<String, String> findSplitStringColumnRange(
+            JdbcSourceTable table, String columnName) throws SQLException {
+        Pair<Object, Object> splitColumnRange = queryMinMax(table, columnName);
+        Object min = splitColumnRange.getLeft();
+        Object max = splitColumnRange.getRight();
+        if (min != null) {
+            min = min.toString();
+        }
+        if (max != null) {
+            max = max.toString();
+        }
+        return Pair.of(((String) min), ((String) max));
+    }
+
     private Pair<BigDecimal, BigDecimal> findSplitColumnRange(
             JdbcSourceTable table, String columnName) throws SQLException {
         Pair<Object, Object> splitColumnRange = queryMinMax(table, columnName);
@@ -260,7 +388,7 @@ public class FixedChunkSplitter extends ChunkSplitter {
         } else if (o instanceof Boolean) {
             return BigDecimal.valueOf((Boolean) o ? 1 : 0);
         } else if (o instanceof Float) {
-            return BigDecimal.valueOf((Float) o);
+            return new BigDecimal(o.toString());
         } else if (o instanceof Byte) {
             return BigDecimal.valueOf((Byte) o);
         } else if (o instanceof Short) {

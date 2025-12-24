@@ -18,17 +18,16 @@
 
 package org.apache.seatunnel.connectors.seatunnel.jdbc;
 
+import org.apache.seatunnel.shade.com.google.common.collect.Lists;
+import org.apache.seatunnel.shade.org.apache.commons.lang3.tuple.Pair;
+
 import org.apache.seatunnel.api.table.type.SeaTunnelRow;
 import org.apache.seatunnel.common.exception.SeaTunnelRuntimeException;
-
-import org.apache.commons.lang3.tuple.Pair;
 
 import org.testcontainers.containers.Db2Container;
 import org.testcontainers.containers.GenericContainer;
 import org.testcontainers.containers.output.Slf4jLogConsumer;
 import org.testcontainers.utility.DockerLoggerFactory;
-
-import com.google.common.collect.Lists;
 
 import java.math.BigDecimal;
 import java.sql.Date;
@@ -44,9 +43,9 @@ public class JdbcDb2IT extends AbstractJdbcIT {
 
     private static final String DB2_CONTAINER_HOST = "db2-e2e";
 
-    private static final String DB2_DATABASE = "E2E";
-    private static final String DB2_SOURCE = "SOURCE";
-    private static final String DB2_SINK = "SINK";
+    protected static final String DB2_DATABASE = "E2E";
+    protected static final String DB2_SOURCE = "SOURCE";
+    protected static final String DB2_SINK = "SINK";
 
     private static final String DB2_URL = "jdbc:db2://" + HOST + ":%s/%s";
 
@@ -83,7 +82,8 @@ public class JdbcDb2IT extends AbstractJdbcIT {
                     + "    C_VARCHAR          VARCHAR(255),\n"
                     + "    C_BINARY           BINARY(1),\n"
                     + "    C_VARBINARY        VARBINARY(2048),\n"
-                    + "    C_DATE             DATE\n"
+                    + "    C_DATE             DATE,\n"
+                    + "    \"c_int_2\"             INTEGER\n"
                     + ");\n";
 
     @Override
@@ -111,14 +111,12 @@ public class JdbcDb2IT extends AbstractJdbcIT {
                 .sourceTable(DB2_SOURCE)
                 .sinkTable(DB2_SINK)
                 .createSql(CREATE_SQL)
+                .sinkCreateSql(CREATE_SQL)
                 .configFile(CONFIG_FILE)
                 .insertSql(insertSql)
                 .testData(testDataSet)
                 .build();
     }
-
-    @Override
-    void compareResult(String executeKey) {}
 
     @Override
     String driverUrl() {
@@ -146,6 +144,7 @@ public class JdbcDb2IT extends AbstractJdbcIT {
             "C_BINARY",
             "C_VARBINARY",
             "C_DATE",
+            "c_int_2"
         };
 
         List<SeaTunnelRow> rows = new ArrayList<>();
@@ -171,6 +170,7 @@ public class JdbcDb2IT extends AbstractJdbcIT {
                                 "f".getBytes(),
                                 "test".getBytes(),
                                 Date.valueOf(LocalDate.now()),
+                                i,
                             });
             rows.add(row);
         }

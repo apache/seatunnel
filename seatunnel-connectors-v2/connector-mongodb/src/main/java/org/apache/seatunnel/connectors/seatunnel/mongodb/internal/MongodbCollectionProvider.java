@@ -17,7 +17,7 @@
 
 package org.apache.seatunnel.connectors.seatunnel.mongodb.internal;
 
-import com.google.common.base.Preconditions;
+import org.apache.seatunnel.shade.com.google.common.base.Preconditions;
 
 /** A builder class for creating {@link MongodbClientProvider}. */
 public class MongodbCollectionProvider {

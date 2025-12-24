@@ -17,7 +17,7 @@
 
 package org.apache.seatunnel.connectors.seatunnel.amazondynamodb.sink;
 
-import org.apache.seatunnel.connectors.seatunnel.amazondynamodb.config.AmazonDynamoDBSourceOptions;
+import org.apache.seatunnel.connectors.seatunnel.amazondynamodb.config.AmazonDynamoDBConfig;
 
 import software.amazon.awssdk.auth.credentials.AwsBasicCredentials;
 import software.amazon.awssdk.auth.credentials.StaticCredentialsProvider;
@@ -35,13 +35,13 @@ import java.util.List;
 import java.util.Map;
 
 public class DynamoDbSinkClient {
-    private final AmazonDynamoDBSourceOptions amazondynamodbSourceOptions;
+    private final AmazonDynamoDBConfig amazondynamodbConfig;
     private volatile boolean initialize;
     private DynamoDbClient dynamoDbClient;
     private final List<WriteRequest> batchList;
 
-    public DynamoDbSinkClient(AmazonDynamoDBSourceOptions amazondynamodbSourceOptions) {
-        this.amazondynamodbSourceOptions = amazondynamodbSourceOptions;
+    public DynamoDbSinkClient(AmazonDynamoDBConfig amazondynamodbConfig) {
+        this.amazondynamodbConfig = amazondynamodbConfig;
         this.batchList = new ArrayList<>();
     }
 
@@ -51,15 +51,15 @@ public class DynamoDbSinkClient {
         }
         dynamoDbClient =
                 DynamoDbClient.builder()
-                        .endpointOverride(URI.create(amazondynamodbSourceOptions.getUrl()))
+                        .endpointOverride(URI.create(amazondynamodbConfig.getUrl()))
                         // The region is meaningless for local DynamoDb but required for client
                         // builder validation
-                        .region(Region.of(amazondynamodbSourceOptions.getRegion()))
+                        .region(Region.of(amazondynamodbConfig.getRegion()))
                         .credentialsProvider(
                                 StaticCredentialsProvider.create(
                                         AwsBasicCredentials.create(
-                                                amazondynamodbSourceOptions.getAccessKeyId(),
-                                                amazondynamodbSourceOptions.getSecretAccessKey())))
+                                                amazondynamodbConfig.getAccessKeyId(),
+                                                amazondynamodbConfig.getSecretAccessKey())))
                         .build();
         initialize = true;
     }
@@ -70,8 +70,8 @@ public class DynamoDbSinkClient {
                 WriteRequest.builder()
                         .putRequest(PutRequest.builder().item(putItemRequest.item()).build())
                         .build());
-        if (amazondynamodbSourceOptions.getBatchSize() > 0
-                && batchList.size() >= amazondynamodbSourceOptions.getBatchSize()) {
+        if (amazondynamodbConfig.getBatchSize() > 0
+                && batchList.size() >= amazondynamodbConfig.getBatchSize()) {
             flush();
         }
     }
@@ -88,7 +88,7 @@ public class DynamoDbSinkClient {
             return;
         }
         Map<String, List<WriteRequest>> requestItems = new HashMap<>(1);
-        requestItems.put(amazondynamodbSourceOptions.getTable(), batchList);
+        requestItems.put(amazondynamodbConfig.getTable(), batchList);
         dynamoDbClient.batchWriteItem(
                 BatchWriteItemRequest.builder().requestItems(requestItems).build());
 

@@ -18,11 +18,14 @@
 package org.apache.seatunnel.connectors.seatunnel.file.source.reader;
 
 import org.apache.seatunnel.shade.com.fasterxml.jackson.databind.ObjectMapper;
+import org.apache.seatunnel.shade.org.apache.commons.lang3.ArrayUtils;
+import org.apache.seatunnel.shade.org.apache.commons.lang3.StringUtils;
 
 import org.apache.seatunnel.api.common.SeaTunnelAPIErrorCode;
 import org.apache.seatunnel.api.configuration.Option;
 import org.apache.seatunnel.api.configuration.ReadonlyConfig;
 import org.apache.seatunnel.api.source.Collector;
+import org.apache.seatunnel.api.table.catalog.CatalogTable;
 import org.apache.seatunnel.api.table.type.SeaTunnelDataType;
 import org.apache.seatunnel.api.table.type.SeaTunnelRow;
 import org.apache.seatunnel.api.table.type.SeaTunnelRowType;
@@ -31,14 +34,14 @@ import org.apache.seatunnel.common.exception.CommonErrorCodeDeprecated;
 import org.apache.seatunnel.common.utils.DateTimeUtils;
 import org.apache.seatunnel.common.utils.DateUtils;
 import org.apache.seatunnel.common.utils.TimeUtils;
-import org.apache.seatunnel.connectors.seatunnel.file.config.BaseSourceConfigOptions;
+import org.apache.seatunnel.connectors.seatunnel.file.config.FileBaseSourceOptions;
+import org.apache.seatunnel.connectors.seatunnel.file.config.FileFormat;
 import org.apache.seatunnel.connectors.seatunnel.file.config.HadoopConf;
 import org.apache.seatunnel.connectors.seatunnel.file.exception.FileConnectorErrorCode;
 import org.apache.seatunnel.connectors.seatunnel.file.exception.FileConnectorException;
+import org.apache.seatunnel.connectors.seatunnel.file.source.split.FileSourceSplit;
 
 import org.apache.commons.collections4.CollectionUtils;
-import org.apache.commons.lang3.ArrayUtils;
-import org.apache.commons.lang3.StringUtils;
 
 import org.dom4j.Document;
 import org.dom4j.DocumentException;
@@ -50,6 +53,7 @@ import lombok.SneakyThrows;
 import lombok.extern.slf4j.Slf4j;
 
 import java.io.IOException;
+import java.io.InputStream;
 import java.io.InputStreamReader;
 import java.math.BigDecimal;
 import java.nio.charset.StandardCharsets;
@@ -74,7 +78,7 @@ public class XmlReadStrategy extends AbstractReadStrategy {
     private DateUtils.Formatter dateFormat;
     private DateTimeUtils.Formatter datetimeFormat;
     private TimeUtils.Formatter timeFormat;
-    private String encoding = BaseSourceConfigOptions.ENCODING.defaultValue();
+    private String encoding = FileBaseSourceOptions.ENCODING.defaultValue();
 
     private final ObjectMapper objectMapper = new ObjectMapper();
 
@@ -88,16 +92,27 @@ public class XmlReadStrategy extends AbstractReadStrategy {
     public void read(String path, String tableId, Collector<SeaTunnelRow> output)
             throws IOException, FileConnectorException {
         Map<String, String> partitionsMap = parsePartitionsByPath(path);
+        resolveArchiveCompressedInputStream(
+                new FileSourceSplit(tableId, path), output, partitionsMap, FileFormat.XML);
+    }
+
+    @Override
+    public void readProcess(
+            FileSourceSplit split,
+            Collector<SeaTunnelRow> output,
+            InputStream inputStream,
+            Map<String, String> partitionsMap,
+            String currentFileName)
+            throws IOException {
         SAXReader saxReader = new SAXReader();
         Document document;
         try {
-            document =
-                    saxReader.read(
-                            new InputStreamReader(
-                                    hadoopFileSystemProxy.getInputStream(path), encoding));
+            document = saxReader.read(new InputStreamReader(inputStream, encoding));
         } catch (DocumentException e) {
             throw new FileConnectorException(
-                    FileConnectorErrorCode.FILE_READ_FAILED, "Failed to read xml file: " + path, e);
+                    FileConnectorErrorCode.FILE_READ_FAILED,
+                    "Failed to read xml file: " + split.getFilePath(),
+                    e);
         }
         Element rootElement = document.getRootElement();
 
@@ -149,7 +164,7 @@ public class XmlReadStrategy extends AbstractReadStrategy {
                                 }
                             }
 
-                            seaTunnelRow.setTableId(tableId);
+                            seaTunnelRow.setTableId(split.getTableId());
                             output.collect(seaTunnelRow);
                         });
     }
@@ -162,20 +177,20 @@ public class XmlReadStrategy extends AbstractReadStrategy {
     }
 
     @Override
-    public void setSeaTunnelRowTypeInfo(SeaTunnelRowType seaTunnelRowType) {
-        if (ArrayUtils.isEmpty(seaTunnelRowType.getFieldNames())
-                || ArrayUtils.isEmpty(seaTunnelRowType.getFieldTypes())) {
+    public void setCatalogTable(CatalogTable catalogTable) {
+        SeaTunnelRowType rowType = catalogTable.getSeaTunnelRowType();
+        if (ArrayUtils.isEmpty(rowType.getFieldNames())
+                || ArrayUtils.isEmpty(rowType.getFieldTypes())) {
             throw new FileConnectorException(
                     CommonErrorCodeDeprecated.ILLEGAL_ARGUMENT,
                     "Schema information is undefined or misconfigured, please check your configuration file.");
         }
 
         if (readColumns.isEmpty()) {
-            this.seaTunnelRowType = seaTunnelRowType;
-            this.seaTunnelRowTypeWithPartition =
-                    mergePartitionTypes(fileNames.get(0), seaTunnelRowType);
+            this.seaTunnelRowType = rowType;
+            this.seaTunnelRowTypeWithPartition = mergePartitionTypes(fileNames.get(0), rowType);
         } else {
-            if (readColumns.retainAll(Arrays.asList(seaTunnelRowType.getFieldNames()))) {
+            if (readColumns.retainAll(Arrays.asList(rowType.getFieldNames()))) {
                 log.warn(
                         "The read columns configuration will be filtered by the schema configuration, this may cause the actual results to be inconsistent with expectations. This is due to read columns not being a subset of the schema, "
                                 + "maybe you should check the schema and read_columns!");
@@ -184,9 +199,9 @@ public class XmlReadStrategy extends AbstractReadStrategy {
             String[] fields = new String[readColumns.size()];
             SeaTunnelDataType<?>[] types = new SeaTunnelDataType[readColumns.size()];
             for (int i = 0; i < readColumns.size(); i++) {
-                indexes[i] = seaTunnelRowType.indexOf(readColumns.get(i));
-                fields[i] = seaTunnelRowType.getFieldName(indexes[i]);
-                types[i] = seaTunnelRowType.getFieldType(indexes[i]);
+                indexes[i] = rowType.indexOf(readColumns.get(i));
+                fields[i] = rowType.getFieldName(indexes[i]);
+                types[i] = rowType.getFieldType(indexes[i]);
             }
             this.seaTunnelRowType = new SeaTunnelRowType(fields, types);
             this.seaTunnelRowTypeWithPartition =
@@ -252,8 +267,9 @@ public class XmlReadStrategy extends AbstractReadStrategy {
 
     /** Performs pre-checks and initialization of the configuration for reading XML files. */
     private void preCheckAndInitializeConfiguration() {
-        this.tableRowName = getPrimitiveConfigValue(BaseSourceConfigOptions.XML_ROW_TAG);
-        this.useAttrFormat = getPrimitiveConfigValue(BaseSourceConfigOptions.XML_USE_ATTR_FORMAT);
+        ReadonlyConfig readonlyConfig = ReadonlyConfig.fromConfig(pluginConfig);
+        this.tableRowName = readonlyConfig.get(FileBaseSourceOptions.XML_ROW_TAG);
+        this.useAttrFormat = readonlyConfig.get(FileBaseSourceOptions.XML_USE_ATTR_FORMAT);
 
         // Check mandatory configurations
         if (StringUtils.isEmpty(tableRowName) || useAttrFormat == null) {
@@ -261,40 +277,26 @@ public class XmlReadStrategy extends AbstractReadStrategy {
                     SeaTunnelAPIErrorCode.CONFIG_VALIDATION_FAILED,
                     String.format(
                             "Mandatory configurations '%s' and '%s' must be specified when reading XML files.",
-                            BaseSourceConfigOptions.XML_ROW_TAG.key(),
-                            BaseSourceConfigOptions.XML_USE_ATTR_FORMAT.key()));
+                            FileBaseSourceOptions.XML_ROW_TAG.key(),
+                            FileBaseSourceOptions.XML_USE_ATTR_FORMAT.key()));
         }
 
-        this.delimiter = getPrimitiveConfigValue(BaseSourceConfigOptions.FIELD_DELIMITER);
+        this.delimiter = readonlyConfig.get(FileBaseSourceOptions.FIELD_DELIMITER);
 
         this.dateFormat =
                 getComplexDateConfigValue(
-                        BaseSourceConfigOptions.DATE_FORMAT, DateUtils.Formatter::parse);
+                        FileBaseSourceOptions.DATE_FORMAT_LEGACY, DateUtils.Formatter::parse);
         this.timeFormat =
                 getComplexDateConfigValue(
-                        BaseSourceConfigOptions.TIME_FORMAT, TimeUtils.Formatter::parse);
+                        FileBaseSourceOptions.TIME_FORMAT_LEGACY, TimeUtils.Formatter::parse);
         this.datetimeFormat =
                 getComplexDateConfigValue(
-                        BaseSourceConfigOptions.DATETIME_FORMAT, DateTimeUtils.Formatter::parse);
+                        FileBaseSourceOptions.DATETIME_FORMAT_LEGACY,
+                        DateTimeUtils.Formatter::parse);
         this.encoding =
                 ReadonlyConfig.fromConfig(pluginConfig)
-                        .getOptional(BaseSourceConfigOptions.ENCODING)
+                        .getOptional(FileBaseSourceOptions.ENCODING)
                         .orElse(StandardCharsets.UTF_8.name());
-    }
-
-    /**
-     * Retrieves the value of a primitive configuration option.
-     *
-     * @param option the configuration option to retrieve the value for
-     * @param <T> the type of the configuration option
-     * @return the value of the configuration option, or the default value if the option is not set
-     */
-    @SuppressWarnings("unchecked")
-    private <T> T getPrimitiveConfigValue(Option<?> option) {
-        if (!pluginConfig.hasPath(option.key())) {
-            return (T) option.defaultValue();
-        }
-        return (T) pluginConfig.getAnyRef(option.key());
     }
 
     /**

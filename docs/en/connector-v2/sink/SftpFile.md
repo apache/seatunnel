@@ -1,3 +1,5 @@
+import ChangeLog from '../changelog/connector-file-sftp.md';
+
 # SftpFile
 
 > Sftp file sink connector
@@ -16,9 +18,13 @@ If you use SeaTunnel Engine, It automatically integrated the hadoop jar when you
 
 ## Key features
 
+- [x] [multimodal](../../concept/connector-v2-features.md#multimodal)
+
+  Use binary file format to read and write files in any format, such as videos, pictures, etc. In short, any files can be synchronized to the target place.
+
 - [x] [exactly-once](../../concept/connector-v2-features.md)
 
-By default, we use 2PC commit to ensure `exactly-once`
+  By default, we use 2PC commit to ensure `exactly-once`
 
 - [x] file format type
   - [x] text
@@ -28,38 +34,53 @@ By default, we use 2PC commit to ensure `exactly-once`
   - [x] json
   - [x] excel
   - [x] xml
+  - [x] binary
+  - [x] canal_json
+  - [x] debezium_json
+  - [x] maxwell_json
 
 ## Options
 
-|               name               |  type   | required |               default value                |                                                      remarks                                                      |
-|----------------------------------|---------|----------|--------------------------------------------|-------------------------------------------------------------------------------------------------------------------|
-| host                             | string  | yes      | -                                          |                                                                                                                   |
-| port                             | int     | yes      | -                                          |                                                                                                                   |
-| username                         | string  | yes      | -                                          |                                                                                                                   |
-| password                         | string  | yes      | -                                          |                                                                                                                   |
-| path                             | string  | yes      | -                                          |                                                                                                                   |
-| tmp_path                         | string  | yes      | /tmp/seatunnel                             | The result file will write to a tmp path first and then use `mv` to submit tmp dir to target dir. Need a FTP dir. |
-| custom_filename                  | boolean | no       | false                                      | Whether you need custom the filename                                                                              |
-| file_name_expression             | string  | no       | "${transactionId}"                         | Only used when custom_filename is true                                                                            |
-| filename_time_format             | string  | no       | "yyyy.MM.dd"                               | Only used when custom_filename is true                                                                            |
-| file_format_type                 | string  | no       | "csv"                                      |                                                                                                                   |
-| field_delimiter                  | string  | no       | '\001'                                     | Only used when file_format_type is text                                                                           |
-| row_delimiter                    | string  | no       | "\n"                                       | Only used when file_format_type is text                                                                           |
-| have_partition                   | boolean | no       | false                                      | Whether you need processing partitions.                                                                           |
-| partition_by                     | array   | no       | -                                          | Only used then have_partition is true                                                                             |
-| partition_dir_expression         | string  | no       | "${k0}=${v0}/${k1}=${v1}/.../${kn}=${vn}/" | Only used then have_partition is true                                                                             |
-| is_partition_field_write_in_file | boolean | no       | false                                      | Only used then have_partition is true                                                                             |
-| sink_columns                     | array   | no       |                                            | When this parameter is empty, all fields are sink columns                                                         |
-| is_enable_transaction            | boolean | no       | true                                       |                                                                                                                   |
-| batch_size                       | int     | no       | 1000000                                    |                                                                                                                   |
-| compress_codec                   | string  | no       | none                                       |                                                                                                                   |
-| common-options                   | object  | no       | -                                          |                                                                                                                   |
-| max_rows_in_memory               | int     | no       | -                                          | Only used when file_format_type is excel.                                                                         |
-| sheet_name                       | string  | no       | Sheet${Random number}                      | Only used when file_format_type is excel.                                                                         |
-| xml_root_tag                     | string  | no       | RECORDS                                    | Only used when file_format is xml.                                                                                |
-| xml_row_tag                      | string  | no       | RECORD                                     | Only used when file_format is xml.                                                                                |
-| xml_use_attr_format              | boolean | no       | -                                          | Only used when file_format is xml.                                                                                |
-| encoding                         | string  | no       | "UTF-8"                                    | Only used when file_format_type is json,text,csv,xml.                                                             |
+| name                                  | type    | required | default value                              | remarks                                                                                                                                                                         |
+|---------------------------------------|---------|----------|--------------------------------------------|---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------|
+| host                                  | string  | yes      | -                                          |                                                                                                                                                                                 |
+| port                                  | int     | yes      | -                                          |                                                                                                                                                                                 |
+| user                                  | string  | yes      | -                                          |                                                                                                                                                                                 |
+| password                              | string  | yes      | -                                          |                                                                                                                                                                                 |
+| path                                  | string  | yes      | -                                          |                                                                                                                                                                                 |
+| tmp_path                              | string  | yes      | /tmp/seatunnel                             | The result file will write to a tmp path first and then use `mv` to submit tmp dir to target dir. Need a FTP dir.                                                               |
+| custom_filename                       | boolean | no       | false                                      | Whether you need custom the filename                                                                                                                                            |
+| file_name_expression                  | string  | no       | "${transactionId}"                         | Only used when custom_filename is true                                                                                                                                          |
+| filename_time_format                  | string  | no       | "yyyy.MM.dd"                               | Only used when custom_filename is true                                                                                                                                          |
+| file_format_type                      | string  | no       | "csv"                                      |                                                                                                                                                                                 |
+| filename_extension                    | string  | no       | -                                          | Override the default file name extensions with custom file name extensions. E.g. `.xml`, `.json`, `dat`, `.customtype`                                                          |
+| field_delimiter                       | string  | no       | '\001' for text and ',' for csv            | Only used when file_format_type is text and csv                                                                                                                                 |
+| row_delimiter                         | string  | no       | "\n"                                       | Only used when file_format_type is `text`, `csv` and `json`                                                                                                                     |
+| have_partition                        | boolean | no       | false                                      | Whether you need processing partitions.                                                                                                                                         |
+| partition_by                          | array   | no       | -                                          | Only used then have_partition is true                                                                                                                                           |
+| partition_dir_expression              | string  | no       | "${k0}=${v0}/${k1}=${v1}/.../${kn}=${vn}/" | Only used then have_partition is true                                                                                                                                           |
+| is_partition_field_write_in_file      | boolean | no       | false                                      | Only used then have_partition is true                                                                                                                                           |
+| sink_columns                          | array   | no       |                                            | When this parameter is empty, all fields are sink columns                                                                                                                       |
+| is_enable_transaction                 | boolean | no       | true                                       |                                                                                                                                                                                 |
+| batch_size                            | int     | no       | 1000000                                    |                                                                                                                                                                                 |
+| compress_codec                        | string  | no       | none                                       |                                                                                                                                                                                 |
+| common-options                        | object  | no       | -                                          |                                                                                                                                                                                 |
+| max_rows_in_memory                    | int     | no       | -                                          | Only used when file_format_type is excel.                                                                                                                                       |
+| sheet_max_rows                        | int     | no       | 1048576                                    | Only used when file_format_type is excel.                                                                                                                                       |
+| sheet_name                            | string  | no       | Sheet${Random number}                      | Only used when file_format_type is excel.                                                                                                                                       |
+| csv_string_quote_mode                 | enum    | no       | MINIMAL                                    | Only used when file_format is csv.                                                                                                                                              |
+| xml_root_tag                          | string  | no       | RECORDS                                    | Only used when file_format is xml.                                                                                                                                              |
+| xml_row_tag                           | string  | no       | RECORD                                     | Only used when file_format is xml.                                                                                                                                              |
+| xml_use_attr_format                   | boolean | no       | -                                          | Only used when file_format is xml.                                                                                                                                              |
+| single_file_mode                      | boolean | no       | false                                      | Each parallelism will only output one file. When this parameter is turned on, batch_size will not take effect. The output file name does not have a file block suffix.          |
+| create_empty_file_when_no_data        | boolean | no       | false                                      | When there is no data synchronization upstream, the corresponding data files are still generated.                                                                               |
+| parquet_avro_write_timestamp_as_int96 | boolean | no       | false                                      | Only used when file_format is parquet.                                                                                                                                          |
+| enable_header_write                   | boolean | no       | false                                      | Only used when file_format_type is text,csv.<br/> false:don't write header,true:write header.                                                                                   |
+| parquet_avro_write_fixed_as_int96     | array   | no       | -                                          | Only used when file_format is parquet.                                                                                                                                          |
+| encoding                              | string  | no       | "UTF-8"                                    | Only used when file_format_type is json,text,csv,xml.                                                                                                                           |
+| schema_save_mode                      | string  | no       | CREATE_SCHEMA_WHEN_NOT_EXIST               | Existing dir processing method                                                                                                                                                  |
+| data_save_mode                        | string  | no       | APPEND_DATA                                | Existing data processing method                                                                                                                                                 |
+| merge_update_event                    | boolean | no       | false                                      | Only used when file_format_type is canal_json,debezium_json or maxwell_json. When value is true, the UPDATE_AFTER and UPDATE_BEFORE event will be merged into UPDATE event data |
 
 ### host [string]
 
@@ -69,9 +90,9 @@ The target sftp host is required
 
 The target sftp port is required
 
-### username [string]
+### user [string]
 
-The target sftp username is required
+The target sftp user is required
 
 ### password [string]
 
@@ -113,17 +134,17 @@ When the format in the `file_name_expression` parameter is `xxxx-${now}` , `file
 
 We supported as the following file types:
 
-`text` `json` `csv` `orc` `parquet` `excel` `xml`
+`text` `csv` `parquet` `orc` `json` `excel` `xml` `binary` `canal_json` `debezium_json` `maxwell_json`
 
 Please note that, The final file name will end with the file_format_type's suffix, the suffix of the text file is `txt`.
 
 ### field_delimiter [string]
 
-The separator between columns in a row of data. Only needed by `text` file format.
+The separator between columns in a row of data. Only needed by `text` and `csv` file format.
 
 ### row_delimiter [string]
 
-The separator between rows in a file. Only needed by `text` file format.
+The separator between rows in a file. Only needed by `text`, `csv` and `json` file format.
 
 ### have_partition [boolean]
 
@@ -182,15 +203,27 @@ Tips: excel type does not support any compression format
 
 ### common options
 
-Sink plugin common parameters, please refer to [Sink Common Options](common-options.md) for details.
+Sink plugin common parameters, please refer to [Sink Common Options](../sink-common-options.md) for details.
 
 ### max_rows_in_memory
 
 When File Format is Excel,The maximum number of data items that can be cached in the memory.
 
+### sheet_max_rows
+
+When file format is Excel, the maximum number of rows per sheet.
+
 ### sheet_name
 
 Writer the sheet of the workbook
+
+### csv_string_quote_mode [string]
+
+When File Format is CSV,The string quote mode of CSV.
+
+- ALL: All String fields will be quoted.
+- MINIMAL: Quotes fields which contain special characters such as a the field delimiter, quote character or any of the characters in the line separator string.
+- NONE: Never quotes fields. When the delimiter occurs in data, the printer prefixes it with the escape character. If the escape character is not set, format validation throws an exception.
 
 ### xml_root_tag [string]
 
@@ -204,10 +237,44 @@ Specifies the tag name of the data rows within the XML file.
 
 Specifies Whether to process data using the tag attribute format.
 
+### parquet_avro_write_timestamp_as_int96 [boolean]
+
+Support writing Parquet INT96 from a timestamp, only valid for parquet files.
+
+### parquet_avro_write_fixed_as_int96 [array]
+
+Support writing Parquet INT96 from a 12-byte field, only valid for parquet files.
+
+### enable_header_write [boolean]
+
+Only used when file_format_type is text,csv.false:don't write header,true:write header.
+
 ### encoding [string]
 
 Only used when file_format_type is json,text,csv,xml.
 The encoding of the file to write. This param will be parsed by `Charset.forName(encoding)`.
+
+### schema_save_mode [string]
+
+Existing dir processing method.
+
+- RECREATE_SCHEMA: will create when the dir does not exist, delete and recreate when the dir is exist
+- CREATE_SCHEMA_WHEN_NOT_EXIST: will create when the dir does not exist, skipped when the dir is exist
+- ERROR_WHEN_SCHEMA_NOT_EXIST: error will be reported when the dir does not exist
+- IGNORE ：Ignore the treatment of the table
+
+### data_save_mode [string]
+
+Existing data processing method.
+
+- DROP_DATA: preserve dir and delete data files
+- APPEND_DATA: preserve dir, preserve data files
+- ERROR_WHEN_DATA_EXISTS: when there is data files, an error is reported
+
+### merge_update_event [boolean]
+
+Only used when file_format_type is canal_json,debezium_json or maxwell_json. 
+When value is true, the UPDATE_AFTER and UPDATE_BEFORE event will be merged into UPDATE event data
 
 ## Example
 
@@ -218,7 +285,7 @@ For text file format with `have_partition` and `custom_filename` and `sink_colum
 SftpFile {
     host = "xxx.xxx.xxx.xxx"
     port = 22
-    username = "username"
+    user = "username"
     password = "password"
     path = "/data/sftp/seatunnel/job1"
     tmp_path = "/data/sftp/seatunnel/tmp"
@@ -238,18 +305,36 @@ SftpFile {
 
 ```
 
+When our source end is multiple tables, and wants different expressions to different directory, we can configure this
+way
+
+```hocon
+SftpFile {
+    host = "xxx.xxx.xxx.xxx"
+    port = 22
+    user = "username"
+    password = "password"
+    path = "/data/sftp/seatunnel/job1/${table_name}"
+    tmp_path = "/data/sftp/seatunnel/tmp"
+    file_format_type = "text"
+    field_delimiter = "\t"
+    row_delimiter = "\n"
+    have_partition = true
+    partition_by = ["age"]
+    partition_dir_expression = "${k0}=${v0}"
+    is_partition_field_write_in_file = true
+    custom_filename = true
+    file_name_expression = "${transactionId}_${now}"
+    filename_time_format = "yyyy.MM.dd"
+    sink_columns = ["name","age"]
+    is_enable_transaction = true
+    schema_save_mode=RECREATE_SCHEMA
+    data_save_mode=DROP_DATA
+}
+
+
+```
+
 ## Changelog
 
-### 2.3.0 2022-12-30
-
-- Add SftpFile Sink Connector
-- [BugFix] Fixed the following bugs that failed to write data to files ([3258](https://github.com/apache/seatunnel/pull/3258))
-  - When field from upstream is null it will throw NullPointerException
-  - Sink columns mapping failed
-  - When restore writer from states getting transaction directly failed
-- [Improve] Support setting batch size for every file ([3625](https://github.com/apache/seatunnel/pull/3625))
-
-### Next version
-
-- [Improve] Support file compress ([3899](https://github.com/apache/seatunnel/pull/3899))
-
+<ChangeLog />

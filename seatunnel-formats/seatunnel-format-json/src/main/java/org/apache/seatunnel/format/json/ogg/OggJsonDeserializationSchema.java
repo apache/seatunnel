@@ -23,18 +23,24 @@ import org.apache.seatunnel.shade.com.fasterxml.jackson.databind.node.ObjectNode
 
 import org.apache.seatunnel.api.serialization.DeserializationSchema;
 import org.apache.seatunnel.api.source.Collector;
+import org.apache.seatunnel.api.table.catalog.CatalogTable;
+import org.apache.seatunnel.api.table.catalog.TablePath;
+import org.apache.seatunnel.api.table.type.MetadataUtil;
 import org.apache.seatunnel.api.table.type.RowKind;
 import org.apache.seatunnel.api.table.type.SeaTunnelDataType;
 import org.apache.seatunnel.api.table.type.SeaTunnelRow;
 import org.apache.seatunnel.api.table.type.SeaTunnelRowType;
 import org.apache.seatunnel.common.exception.CommonError;
 import org.apache.seatunnel.common.exception.SeaTunnelRuntimeException;
+import org.apache.seatunnel.common.utils.DateTimeUtils;
 import org.apache.seatunnel.format.json.JsonDeserializationSchema;
 
-import java.io.IOException;
-import java.util.regex.Pattern;
+import lombok.NonNull;
 
-import static java.lang.String.format;
+import java.io.IOException;
+import java.time.ZoneOffset;
+import java.util.Optional;
+import java.util.regex.Pattern;
 
 public class OggJsonDeserializationSchema implements DeserializationSchema<SeaTunnelRow> {
 
@@ -45,6 +51,8 @@ public class OggJsonDeserializationSchema implements DeserializationSchema<SeaTu
     private static final String FIELD_TYPE = "op_type";
 
     private static final String FIELD_DATABASE_TABLE = "table";
+
+    private static final String FIELD_TS = "op_ts";
 
     private static final String DATA_BEFORE = "before"; // BEFORE
 
@@ -61,9 +69,9 @@ public class OggJsonDeserializationSchema implements DeserializationSchema<SeaTu
                     + "if you are using Ogg Postgres Connector, "
                     + "please check the Postgres table has been set REPLICA IDENTITY to FULL level.";
 
-    private String database;
+    private final String database;
 
-    private String table;
+    private final String table;
 
     /** Names of fields. */
     private final String[] fieldNames;
@@ -71,7 +79,7 @@ public class OggJsonDeserializationSchema implements DeserializationSchema<SeaTu
     /** Field number. */
     private final int fieldCount;
 
-    private boolean ignoreParseErrors;
+    private final boolean ignoreParseErrors;
 
     /** Pattern of the specific database. */
     private final Pattern databasePattern;
@@ -81,21 +89,23 @@ public class OggJsonDeserializationSchema implements DeserializationSchema<SeaTu
 
     private final JsonDeserializationSchema jsonDeserializer;
 
-    private final SeaTunnelRowType physicalRowType;
+    private final SeaTunnelRowType seaTunnelRowType;
+
+    private final CatalogTable catalogTable;
 
     public OggJsonDeserializationSchema(
-            SeaTunnelRowType physicalRowType,
+            @NonNull CatalogTable catalogTable,
             String database,
             String table,
             boolean ignoreParseErrors) {
-        this.physicalRowType = physicalRowType;
-        final SeaTunnelRowType jsonRowType = createJsonRowType(physicalRowType);
+        this.catalogTable = catalogTable;
+        this.seaTunnelRowType = catalogTable.getSeaTunnelRowType();
         this.jsonDeserializer =
-                new JsonDeserializationSchema(false, ignoreParseErrors, jsonRowType);
+                new JsonDeserializationSchema(catalogTable, false, ignoreParseErrors);
         this.database = database;
         this.table = table;
-        this.fieldNames = physicalRowType.getFieldNames();
-        this.fieldCount = physicalRowType.getTotalFields();
+        this.fieldNames = seaTunnelRowType.getFieldNames();
+        this.fieldCount = seaTunnelRowType.getTotalFields();
         this.ignoreParseErrors = ignoreParseErrors;
         this.databasePattern = database == null ? null : Pattern.compile(database);
         this.tablePattern = table == null ? null : Pattern.compile(table);
@@ -109,81 +119,12 @@ public class OggJsonDeserializationSchema implements DeserializationSchema<SeaTu
 
     @Override
     public SeaTunnelDataType<SeaTunnelRow> getProducedType() {
-        return this.physicalRowType;
+        return this.seaTunnelRowType;
     }
 
-    private ObjectNode convertBytes(byte[] message) throws SeaTunnelRuntimeException {
-        try {
-            return (ObjectNode) jsonDeserializer.deserializeToJsonNode(message);
-        } catch (Throwable t) {
-            throw CommonError.jsonOperationError(FORMAT, new String(message), t);
-        }
-    }
+    public void deserializeMessage(
+            byte[] message, Collector<SeaTunnelRow> out, TablePath tablePath) {
 
-    public void deserialize(ObjectNode jsonNode, Collector<SeaTunnelRow> out) throws IOException {
-        try {
-            if (database != null
-                    && !databasePattern
-                            .matcher(jsonNode.get(FIELD_DATABASE_TABLE).asText().split("\\.")[0])
-                            .matches()) {
-                return;
-            }
-            if (table != null
-                    && !tablePattern
-                            .matcher(jsonNode.get(FIELD_DATABASE_TABLE).asText().split("\\.")[1])
-                            .matches()) {
-                return;
-            }
-
-            String op = jsonNode.get(FIELD_TYPE).asText().trim();
-            if (OP_INSERT.equals(op)) {
-                // Gets the data for the INSERT operation
-                JsonNode dataAfter = jsonNode.get(DATA_AFTER);
-                SeaTunnelRow row = convertJsonNode(dataAfter);
-                out.collect(row);
-            } else if (OP_UPDATE.equals(op)) {
-                JsonNode dataBefore = jsonNode.get(DATA_BEFORE);
-                // Modify Operation Data cannot be empty before modification
-                if (dataBefore == null || dataBefore.isNull()) {
-                    throw new IllegalStateException(
-                            String.format(REPLICA_IDENTITY_EXCEPTION, "UPDATE"));
-                }
-                JsonNode dataAfter = jsonNode.get(DATA_AFTER);
-                // Gets the data for the UPDATE BEFORE operation
-                SeaTunnelRow before = convertJsonNode(dataBefore);
-                // Gets the data for the UPDATE AFTER operation
-                SeaTunnelRow after = convertJsonNode(dataAfter);
-
-                before.setRowKind(RowKind.UPDATE_BEFORE);
-                out.collect(before);
-
-                after.setRowKind(RowKind.UPDATE_AFTER);
-                out.collect(after);
-            } else if (OP_DELETE.equals(op)) {
-                JsonNode dataBefore = jsonNode.get(DATA_BEFORE);
-                if (dataBefore == null || dataBefore.isNull()) {
-                    throw new IllegalStateException(
-                            String.format(REPLICA_IDENTITY_EXCEPTION, "DELETE"));
-                }
-                // Gets the data for the DELETE BEFORE operation
-                SeaTunnelRow before = convertJsonNode(dataBefore);
-                if (before == null) {
-                    throw new IllegalStateException(
-                            String.format(REPLICA_IDENTITY_EXCEPTION, "DELETE"));
-                }
-                before.setRowKind(RowKind.DELETE);
-                out.collect(before);
-            } else {
-                throw new IllegalStateException(format("Unknown operation type '%s'.", op));
-            }
-        } catch (RuntimeException e) {
-            if (!ignoreParseErrors) {
-                throw CommonError.jsonOperationError(FORMAT, jsonNode.toString(), e);
-            }
-        }
-    }
-
-    public void deserialize(byte[] message, Collector<SeaTunnelRow> out) throws IOException {
         if (message == null || message.length == 0) {
             // skip tombstone messages
             return;
@@ -199,7 +140,118 @@ public class OggJsonDeserializationSchema implements DeserializationSchema<SeaTu
                 return;
             }
         }
-        deserialize(jsonNode, out);
+
+        try {
+            if (database != null
+                    && !databasePattern
+                            .matcher(jsonNode.get(FIELD_DATABASE_TABLE).asText().split("\\.")[0])
+                            .matches()) {
+                return;
+            }
+            if (table != null
+                    && !tablePattern
+                            .matcher(jsonNode.get(FIELD_DATABASE_TABLE).asText().split("\\.")[1])
+                            .matches()) {
+                return;
+            }
+
+            String op = jsonNode.get(FIELD_TYPE).asText().trim();
+            JsonNode tsNode = jsonNode.get(FIELD_TS);
+            // ogg json ts is date, eg "2020-05-13 15:40:07.000000"
+            long ts = 0;
+            if (tsNode != null) {
+                String tsDateTime = tsNode.asText();
+                ts = DateTimeUtils.parse(tsDateTime).toEpochSecond(ZoneOffset.UTC) * 1000;
+            }
+            switch (op) {
+                case OP_INSERT:
+                    // Gets the data for the INSERT operation
+                    JsonNode dataInsert = jsonNode.get(DATA_AFTER);
+                    SeaTunnelRow row = convertJsonNode(dataInsert);
+                    if (tablePath != null) {
+                        row.setTableId(tablePath.toString());
+                    }
+                    if (tsNode != null) {
+                        MetadataUtil.setEventTime(row, ts);
+                    }
+                    out.collect(row);
+                    break;
+                case OP_UPDATE:
+                    JsonNode dataBefore = jsonNode.get(DATA_BEFORE);
+                    // Modify Operation Data cannot be empty before modification
+                    if (dataBefore == null || dataBefore.isNull()) {
+                        throw new IllegalStateException(
+                                String.format(REPLICA_IDENTITY_EXCEPTION, "UPDATE"));
+                    }
+                    JsonNode dataAfter = jsonNode.get(DATA_AFTER);
+                    // Gets the data for the UPDATE BEFORE operation
+                    SeaTunnelRow before = convertJsonNode(dataBefore);
+                    // Gets the data for the UPDATE AFTER operation
+                    SeaTunnelRow after = convertJsonNode(dataAfter);
+                    before.setRowKind(RowKind.UPDATE_BEFORE);
+                    if (tablePath != null) {
+                        before.setTableId(tablePath.toString());
+                    }
+                    if (tsNode != null) {
+                        MetadataUtil.setEventTime(before, ts);
+                    }
+
+                    after.setRowKind(RowKind.UPDATE_AFTER);
+                    if (tablePath != null) {
+                        after.setTableId(tablePath.toString());
+                    }
+                    if (tsNode != null) {
+                        MetadataUtil.setEventTime(after, ts);
+                    }
+                    out.collect(before);
+                    out.collect(after);
+                    break;
+                case OP_DELETE:
+                    JsonNode dataBeforeDel = jsonNode.get(DATA_BEFORE);
+                    if (dataBeforeDel == null || dataBeforeDel.isNull()) {
+                        throw new IllegalStateException(
+                                String.format(REPLICA_IDENTITY_EXCEPTION, "DELETE"));
+                    }
+                    // Gets the data for the DELETE BEFORE operation
+                    SeaTunnelRow beforeDelete = convertJsonNode(dataBeforeDel);
+                    if (beforeDelete == null) {
+                        throw new IllegalStateException(
+                                String.format(REPLICA_IDENTITY_EXCEPTION, "DELETE"));
+                    }
+                    beforeDelete.setRowKind(RowKind.DELETE);
+                    if (tablePath != null) {
+                        beforeDelete.setTableId(tablePath.toString());
+                    }
+                    if (tsNode != null) {
+                        MetadataUtil.setEventTime(beforeDelete, ts);
+                    }
+                    out.collect(beforeDelete);
+                    break;
+                default:
+                    throw new IllegalStateException(
+                            String.format("Unknown operation type '%s'.", op));
+            }
+
+        } catch (RuntimeException e) {
+            if (!ignoreParseErrors) {
+                throw CommonError.jsonOperationError(FORMAT, jsonNode.toString(), e);
+            }
+        }
+    }
+
+    private ObjectNode convertBytes(byte[] message) throws SeaTunnelRuntimeException {
+        try {
+            return (ObjectNode) jsonDeserializer.deserializeToJsonNode(message);
+        } catch (Throwable t) {
+            throw CommonError.jsonOperationError(FORMAT, new String(message), t);
+        }
+    }
+
+    @Override
+    public void deserialize(byte[] message, Collector<SeaTunnelRow> out) {
+        TablePath tablePath =
+                Optional.ofNullable(catalogTable).map(CatalogTable::getTablePath).orElse(null);
+        deserializeMessage(message, out, tablePath);
     }
 
     private SeaTunnelRow convertJsonNode(JsonNode root) {
@@ -216,8 +268,8 @@ public class OggJsonDeserializationSchema implements DeserializationSchema<SeaTu
     // ------------------------------------------------------------------------------------------
 
     /** Creates A builder for building a {@link OggJsonDeserializationSchema}. */
-    public static Builder builder(SeaTunnelRowType physicalDataType) {
-        return new Builder(physicalDataType);
+    public static Builder builder(CatalogTable catalogTable) {
+        return new Builder(catalogTable);
     }
 
     public static class Builder {
@@ -228,10 +280,10 @@ public class OggJsonDeserializationSchema implements DeserializationSchema<SeaTu
 
         private String table = null;
 
-        private final SeaTunnelRowType physicalDataType;
+        private CatalogTable catalogTable;
 
-        public Builder(SeaTunnelRowType physicalDataType) {
-            this.physicalDataType = physicalDataType;
+        public Builder(CatalogTable catalogTable) {
+            this.catalogTable = catalogTable;
         }
 
         public Builder setDatabase(String database) {
@@ -251,7 +303,7 @@ public class OggJsonDeserializationSchema implements DeserializationSchema<SeaTu
 
         public OggJsonDeserializationSchema build() {
             return new OggJsonDeserializationSchema(
-                    physicalDataType, database, table, ignoreParseErrors);
+                    catalogTable, database, table, ignoreParseErrors);
         }
     }
 }

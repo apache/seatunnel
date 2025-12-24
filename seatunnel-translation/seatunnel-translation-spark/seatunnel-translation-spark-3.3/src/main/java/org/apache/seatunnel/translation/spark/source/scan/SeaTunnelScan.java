@@ -19,9 +19,9 @@ package org.apache.seatunnel.translation.spark.source.scan;
 
 import org.apache.seatunnel.api.source.SeaTunnelSource;
 import org.apache.seatunnel.api.table.type.SeaTunnelRow;
+import org.apache.seatunnel.translation.spark.execution.MultiTableManager;
 import org.apache.seatunnel.translation.spark.source.partition.batch.SeaTunnelBatch;
 import org.apache.seatunnel.translation.spark.source.partition.micro.SeaTunnelMicroBatch;
-import org.apache.seatunnel.translation.spark.utils.TypeConverterUtils;
 
 import org.apache.spark.sql.connector.read.Batch;
 import org.apache.spark.sql.connector.read.Scan;
@@ -40,31 +40,40 @@ public class SeaTunnelScan implements Scan {
 
     private final CaseInsensitiveStringMap caseInsensitiveStringMap;
 
+    private final MultiTableManager multiTableManager;
+
     public SeaTunnelScan(
             SeaTunnelSource<SeaTunnelRow, ?, ?> source,
             int parallelism,
             String jobId,
-            CaseInsensitiveStringMap caseInsensitiveStringMap) {
+            CaseInsensitiveStringMap caseInsensitiveStringMap,
+            MultiTableManager multiTableManager) {
         this.source = source;
         this.parallelism = parallelism;
         this.jobId = jobId;
         this.caseInsensitiveStringMap = caseInsensitiveStringMap;
+        this.multiTableManager = multiTableManager;
     }
 
     @Override
     public StructType readSchema() {
-        return (StructType) TypeConverterUtils.convert(source.getProducedType());
+        return multiTableManager.getTableSchema();
     }
 
     @Override
     public Batch toBatch() {
         Map<String, String> envOptions = caseInsensitiveStringMap.asCaseSensitiveMap();
-        return new SeaTunnelBatch(source, parallelism, jobId, envOptions);
+        return new SeaTunnelBatch(source, parallelism, jobId, envOptions, multiTableManager);
     }
 
     @Override
     public MicroBatchStream toMicroBatchStream(String checkpointLocation) {
         return new SeaTunnelMicroBatch(
-                source, parallelism, jobId, checkpointLocation, caseInsensitiveStringMap);
+                source,
+                parallelism,
+                jobId,
+                checkpointLocation,
+                caseInsensitiveStringMap,
+                multiTableManager);
     }
 }

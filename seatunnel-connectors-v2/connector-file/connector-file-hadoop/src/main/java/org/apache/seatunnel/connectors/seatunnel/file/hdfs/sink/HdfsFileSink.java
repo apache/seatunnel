@@ -17,16 +17,23 @@
 
 package org.apache.seatunnel.connectors.seatunnel.file.hdfs.sink;
 
-import org.apache.seatunnel.shade.com.typesafe.config.Config;
-
-import org.apache.seatunnel.api.common.PrepareFailException;
-import org.apache.seatunnel.api.sink.SeaTunnelSink;
+import org.apache.seatunnel.api.configuration.ReadonlyConfig;
+import org.apache.seatunnel.api.table.catalog.CatalogTable;
 import org.apache.seatunnel.connectors.seatunnel.file.config.FileSystemType;
+import org.apache.seatunnel.connectors.seatunnel.file.config.HadoopConf;
+import org.apache.seatunnel.connectors.seatunnel.file.sink.BaseMultipleTableFileSink;
 
-import com.google.auto.service.AutoService;
+import java.util.Optional;
 
-@AutoService(SeaTunnelSink.class)
-public class HdfsFileSink extends BaseHdfsFileSink {
+public class HdfsFileSink extends BaseMultipleTableFileSink {
+
+    private final CatalogTable catalogTable;
+
+    public HdfsFileSink(
+            HadoopConf hadoopConf, ReadonlyConfig readonlyConfig, CatalogTable catalogTable) {
+        super(hadoopConf, readonlyConfig, catalogTable);
+        this.catalogTable = catalogTable;
+    }
 
     @Override
     public String getPluginName() {
@@ -34,7 +41,7 @@ public class HdfsFileSink extends BaseHdfsFileSink {
     }
 
     @Override
-    public void prepare(Config pluginConfig) throws PrepareFailException {
-        super.prepare(pluginConfig);
+    public Optional<CatalogTable> getWriteCatalogTable() {
+        return Optional.ofNullable(catalogTable);
     }
 }

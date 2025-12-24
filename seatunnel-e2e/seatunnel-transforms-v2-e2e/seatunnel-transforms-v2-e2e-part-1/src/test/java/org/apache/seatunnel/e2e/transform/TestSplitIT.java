@@ -32,4 +32,12 @@ public class TestSplitIT extends TestSuiteBase {
         Container.ExecResult execResult = container.executeJob("/split_transform.conf");
         Assertions.assertEquals(0, execResult.getExitCode());
     }
+
+    @TestTemplate
+    public void testSplitMultiTable(TestContainer container)
+            throws IOException, InterruptedException {
+        Container.ExecResult execResult =
+                container.executeJob("/rowkind_extractor_transform_case1_multi_table.conf");
+        Assertions.assertEquals(0, execResult.getExitCode());
+    }
 }

@@ -25,7 +25,7 @@ import org.apache.seatunnel.engine.client.job.ClientJobProxy;
 import org.apache.seatunnel.engine.common.config.ConfigProvider;
 import org.apache.seatunnel.engine.common.config.JobConfig;
 import org.apache.seatunnel.engine.common.config.SeaTunnelConfig;
-import org.apache.seatunnel.engine.core.job.JobStatus;
+import org.apache.seatunnel.engine.common.job.JobStatus;
 import org.apache.seatunnel.engine.server.SeaTunnelServerStarter;
 
 import org.awaitility.Awaitility;
@@ -70,7 +70,7 @@ public class SeaTunnelSlotIT {
             CompletableFuture<JobStatus> objectCompletableFuture =
                     CompletableFuture.supplyAsync(clientJobProxy::waitForJobComplete);
             Awaitility.await()
-                    .atMost(600000, TimeUnit.MILLISECONDS)
+                    .atMost(300000, TimeUnit.MILLISECONDS)
                     .untilAsserted(
                             () -> {
                                 Thread.sleep(2000);
@@ -122,7 +122,7 @@ public class SeaTunnelSlotIT {
             CompletableFuture<JobStatus> objectCompletableFuture =
                     CompletableFuture.supplyAsync(clientJobProxy::waitForJobComplete);
             Awaitility.await()
-                    .atMost(600000, TimeUnit.MILLISECONDS)
+                    .atMost(300000, TimeUnit.MILLISECONDS)
                     .untilAsserted(
                             () -> {
                                 Thread.sleep(2000);

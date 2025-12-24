@@ -17,16 +17,20 @@
 
 package org.apache.seatunnel.translation.spark.source;
 
-import org.apache.seatunnel.api.common.CommonOptions;
-import org.apache.seatunnel.api.env.EnvCommonOptions;
+import org.apache.seatunnel.shade.org.apache.commons.lang3.StringUtils;
+
+import org.apache.seatunnel.api.options.EnvCommonOptions;
 import org.apache.seatunnel.api.source.SeaTunnelSource;
+import org.apache.seatunnel.api.table.catalog.CatalogTable;
+import org.apache.seatunnel.api.table.catalog.CatalogTableUtil;
+import org.apache.seatunnel.api.table.type.SeaTunnelDataType;
 import org.apache.seatunnel.api.table.type.SeaTunnelRow;
 import org.apache.seatunnel.common.Constants;
 import org.apache.seatunnel.common.utils.SerializationUtils;
+import org.apache.seatunnel.translation.spark.execution.MultiTableManager;
 import org.apache.seatunnel.translation.spark.source.reader.batch.BatchSourceReader;
 import org.apache.seatunnel.translation.spark.source.reader.micro.MicroBatchSourceReader;
 
-import org.apache.commons.lang3.StringUtils;
 import org.apache.hadoop.conf.Configuration;
 import org.apache.hadoop.fs.FileSystem;
 import org.apache.spark.sql.SparkSession;
@@ -42,6 +46,7 @@ import org.apache.spark.sql.types.StructType;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
+import java.util.List;
 import java.util.Map;
 import java.util.Optional;
 
@@ -64,10 +69,22 @@ public class SeaTunnelSourceSupport
     @Override
     public DataSourceReader createReader(DataSourceOptions options) {
         SeaTunnelSource<SeaTunnelRow, ?, ?> seaTunnelSource = getSeaTunnelSource(options);
-        int parallelism = options.getInt(CommonOptions.PARALLELISM.key(), 1);
+        int parallelism = options.getInt(EnvCommonOptions.PARALLELISM.key(), 1);
         Map<String, String> envOptions = options.asMap();
         String applicationId = SparkSession.getActiveSession().get().sparkContext().applicationId();
-        return new BatchSourceReader(seaTunnelSource, applicationId, parallelism, envOptions);
+        List<CatalogTable> catalogTables;
+        try {
+            catalogTables = seaTunnelSource.getProducedCatalogTables();
+        } catch (UnsupportedOperationException e) {
+            // TODO remove it when all connector use `getProducedCatalogTables`
+            SeaTunnelDataType<?> seaTunnelDataType = seaTunnelSource.getProducedType();
+            catalogTables =
+                    CatalogTableUtil.convertDataTypeToCatalogTables(seaTunnelDataType, "default");
+        }
+        MultiTableManager multiTableManager =
+                new MultiTableManager(catalogTables.toArray(new CatalogTable[0]));
+        return new BatchSourceReader(
+                seaTunnelSource, applicationId, parallelism, envOptions, multiTableManager);
     }
 
     @Override
@@ -76,7 +93,7 @@ public class SeaTunnelSourceSupport
             String checkpointLocation,
             DataSourceOptions options) {
         SeaTunnelSource<SeaTunnelRow, ?, ?> seaTunnelSource = getSeaTunnelSource(options);
-        Integer parallelism = options.getInt(CommonOptions.PARALLELISM.key(), 1);
+        Integer parallelism = options.getInt(EnvCommonOptions.PARALLELISM.key(), 1);
         String applicationId = SparkSession.getActiveSession().get().sparkContext().applicationId();
         Integer checkpointInterval =
                 options.getInt(
@@ -91,6 +108,17 @@ public class SeaTunnelSourceSupport
         String hdfsUser = options.get(Constants.HDFS_USER).orElse("");
         Integer checkpointId = options.getInt(Constants.CHECKPOINT_ID, 1);
         Map<String, String> envOptions = options.asMap();
+        List<CatalogTable> catalogTables;
+        try {
+            catalogTables = seaTunnelSource.getProducedCatalogTables();
+        } catch (UnsupportedOperationException e) {
+            // TODO remove it when all connector use `getProducedCatalogTables`
+            SeaTunnelDataType<?> seaTunnelDataType = seaTunnelSource.getProducedType();
+            catalogTables =
+                    CatalogTableUtil.convertDataTypeToCatalogTables(seaTunnelDataType, "default");
+        }
+        MultiTableManager multiTableManager =
+                new MultiTableManager(catalogTables.toArray(new CatalogTable[0]));
         return new MicroBatchSourceReader(
                 seaTunnelSource,
                 parallelism,
@@ -100,7 +128,8 @@ public class SeaTunnelSourceSupport
                 checkpointPath,
                 hdfsRoot,
                 hdfsUser,
-                envOptions);
+                envOptions,
+                multiTableManager);
     }
 
     private SeaTunnelSource<SeaTunnelRow, ?, ?> getSeaTunnelSource(DataSourceOptions options) {

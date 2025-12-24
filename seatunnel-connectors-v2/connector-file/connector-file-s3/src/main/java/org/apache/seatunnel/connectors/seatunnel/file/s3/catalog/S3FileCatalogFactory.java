@@ -22,9 +22,10 @@ import org.apache.seatunnel.api.configuration.util.OptionRule;
 import org.apache.seatunnel.api.table.catalog.Catalog;
 import org.apache.seatunnel.api.table.factory.CatalogFactory;
 import org.apache.seatunnel.api.table.factory.Factory;
+import org.apache.seatunnel.connectors.seatunnel.file.config.FileBaseSourceOptions;
 import org.apache.seatunnel.connectors.seatunnel.file.config.HadoopConf;
 import org.apache.seatunnel.connectors.seatunnel.file.hadoop.HadoopFileSystemProxy;
-import org.apache.seatunnel.connectors.seatunnel.file.s3.config.S3Conf;
+import org.apache.seatunnel.connectors.seatunnel.file.s3.config.S3HadoopConf;
 
 import com.google.auto.service.AutoService;
 
@@ -32,9 +33,9 @@ import com.google.auto.service.AutoService;
 public class S3FileCatalogFactory implements CatalogFactory {
     @Override
     public Catalog createCatalog(String catalogName, ReadonlyConfig options) {
-        HadoopConf hadoopConf = S3Conf.buildWithReadOnlyConfig(options);
+        HadoopConf hadoopConf = S3HadoopConf.buildWithReadOnlyConfig(options);
         HadoopFileSystemProxy fileSystemUtils = new HadoopFileSystemProxy(hadoopConf);
-        return new S3FileCatalog(fileSystemUtils, options);
+        return new S3FileCatalog(fileSystemUtils, options.get(FileBaseSourceOptions.FILE_PATH));
     }
 
     @Override

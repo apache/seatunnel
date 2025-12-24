@@ -17,48 +17,32 @@
 
 package org.apache.seatunnel.api.table.catalog;
 
-import org.apache.seatunnel.api.table.type.SeaTunnelDataType;
-import org.apache.seatunnel.api.table.type.SeaTunnelRowType;
-
-import lombok.AllArgsConstructor;
 import lombok.Data;
+import lombok.EqualsAndHashCode;
 
-import java.io.Serializable;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.stream.Collectors;
 
 /** Represent a physical table schema. */
+@EqualsAndHashCode(callSuper = true)
 @Data
-@AllArgsConstructor
-public final class TableSchema implements Serializable {
+public final class TableSchema extends AbstractSchema {
     private static final long serialVersionUID = 1L;
-    private final List<Column> columns;
 
     private final PrimaryKey primaryKey;
 
     private final List<ConstraintKey> constraintKeys;
 
+    public TableSchema(
+            List<Column> columns, PrimaryKey primaryKey, List<ConstraintKey> constraintKeys) {
+        super(columns);
+        this.primaryKey = primaryKey;
+        this.constraintKeys = constraintKeys;
+    }
+
     public static Builder builder() {
         return new Builder();
-    }
-
-    public SeaTunnelRowType toPhysicalRowDataType() {
-        SeaTunnelDataType<?>[] fieldTypes =
-                columns.stream()
-                        .filter(Column::isPhysical)
-                        .map(Column::getDataType)
-                        .toArray(SeaTunnelDataType[]::new);
-        String[] fields =
-                columns.stream()
-                        .filter(Column::isPhysical)
-                        .map(Column::getName)
-                        .toArray(String[]::new);
-        return new SeaTunnelRowType(fields, fieldTypes);
-    }
-
-    public String[] getFieldNames() {
-        return columns.stream().map(Column::getName).toArray(String[]::new);
     }
 
     public static final class Builder {

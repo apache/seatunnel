@@ -45,9 +45,11 @@ echo $SCRIPT_DIR
 echo $SEATUNNEL_ENGINE_HOME
 echo $PROTOCOL_DIRECTORY
 
-$GIT clone --depth=1 https://github.com/hazelcast/hazelcast-client-protocol.git $PROTOCOL_DIRECTORY
+$GIT clone https://github.com/hazelcast/hazelcast-client-protocol.git $PROTOCOL_DIRECTORY
 
 cd $PROTOCOL_DIRECTORY
+
+$GIT checkout 8db5d9828132ea60d6d8755bf7e67058c9191b91
 
 $PIP3 install -r requirements.txt
 

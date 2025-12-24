@@ -17,8 +17,7 @@
 
 package org.apache.seatunnel.connectors.seatunnel.easysearch.source;
 
-import org.apache.seatunnel.shade.com.typesafe.config.Config;
-
+import org.apache.seatunnel.api.configuration.ReadonlyConfig;
 import org.apache.seatunnel.api.source.Collector;
 import org.apache.seatunnel.api.source.SourceReader;
 import org.apache.seatunnel.api.table.type.SeaTunnelRow;
@@ -44,14 +43,16 @@ public class EasysearchSourceReader implements SourceReader<SeaTunnelRow, Easyse
 
     private final SeaTunnelRowDeserializer deserializer;
     private final long pollNextWaitTime = 1000L;
-    private final Config pluginConfig;
+    private final ReadonlyConfig pluginConfig;
     SourceReader.Context context;
     Deque<EasysearchSourceSplit> splits = new LinkedList<>();
     boolean noMoreSplit;
     private EasysearchClient ezsClient;
 
     public EasysearchSourceReader(
-            SourceReader.Context context, Config pluginConfig, SeaTunnelRowType rowTypeInfo) {
+            SourceReader.Context context,
+            ReadonlyConfig pluginConfig,
+            SeaTunnelRowType rowTypeInfo) {
         this.context = context;
         this.pluginConfig = pluginConfig;
         this.deserializer = new DefaultSeaTunnelRowDeserializer(rowTypeInfo);
@@ -73,19 +74,33 @@ public class EasysearchSourceReader implements SourceReader<SeaTunnelRow, Easyse
             EasysearchSourceSplit split = splits.poll();
             if (split != null) {
                 SourceIndexInfo sourceIndexInfo = split.getSourceIndexInfo();
-                ScrollResult scrollResult =
-                        ezsClient.searchByScroll(
-                                sourceIndexInfo.getIndex(),
-                                sourceIndexInfo.getSource(),
-                                sourceIndexInfo.getQuery(),
-                                sourceIndexInfo.getScrollTime(),
-                                sourceIndexInfo.getScrollSize());
-                outputFromScrollResult(scrollResult, sourceIndexInfo.getSource(), output);
-                while (scrollResult.getDocs() != null && scrollResult.getDocs().size() > 0) {
-                    scrollResult =
-                            ezsClient.searchWithScrollId(
-                                    scrollResult.getScrollId(), sourceIndexInfo.getScrollTime());
+                String scrollId = null;
+                try {
+                    ScrollResult scrollResult =
+                            ezsClient.searchByScroll(
+                                    sourceIndexInfo.getIndex(),
+                                    sourceIndexInfo.getSource(),
+                                    sourceIndexInfo.getQuery(),
+                                    sourceIndexInfo.getScrollTime(),
+                                    sourceIndexInfo.getScrollSize());
+                    scrollId = scrollResult.getScrollId();
                     outputFromScrollResult(scrollResult, sourceIndexInfo.getSource(), output);
+                    while (scrollResult.getDocs() != null && scrollResult.getDocs().size() > 0) {
+                        scrollResult =
+                                ezsClient.searchWithScrollId(
+                                        scrollResult.getScrollId(),
+                                        sourceIndexInfo.getScrollTime());
+                        scrollId = scrollResult.getScrollId();
+                        outputFromScrollResult(scrollResult, sourceIndexInfo.getSource(), output);
+                    }
+                } finally {
+                    if (scrollId != null && !scrollId.isEmpty()) {
+                        try {
+                            ezsClient.clearScroll(scrollId);
+                        } catch (Exception e) {
+                            log.warn("Failed to clear Easysearch scrollId: " + scrollId, e);
+                        }
+                    }
                 }
             } else if (noMoreSplit) {
                 // signal to the source that we have reached the end of the data.

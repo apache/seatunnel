@@ -32,37 +32,35 @@
         <module>seatunnel-engine-core</module>
         <module>seatunnel-engine-storage</module>
         <module>seatunnel-engine-serializer</module>
+        <module>seatunnel-engine-ui</module>
     </modules>
 
     <properties>
         <!--  SeaTunnel Engine use     -->
-        <hazelcast.version>5.1</hazelcast.version>
         <disruptor.version>3.4.4</disruptor.version>
+        <oshi.version>6.6.5</oshi.version>
     </properties>
 
     <dependencyManagement>
         <dependencies>
             <!-- SeaTunnel engine use begin -->
             <dependency>
-                <groupId>com.hazelcast</groupId>
-                <artifactId>hazelcast</artifactId>
-                <version>${hazelcast.version}</version>
+                <groupId>org.apache.seatunnel</groupId>
+                <artifactId>seatunnel-hazelcast-shade</artifactId>
+                <version>${project.version}</version>
+                <classifier>optional</classifier>
             </dependency>
             <dependency>
                 <groupId>com.lmax</groupId>
                 <artifactId>disruptor</artifactId>
                 <version>${disruptor.version}</version>
             </dependency>
-
-            <!-- test dependencies -->
-            <dependency>
-                <groupId>com.hazelcast</groupId>
-                <artifactId>hazelcast</artifactId>
-                <version>${hazelcast.version}</version>
-                <classifier>tests</classifier>
-                <scope>test</scope>
-            </dependency>
             <!-- SeaTunnel engine use end -->
+            <dependency>
+                <groupId>com.github.oshi</groupId>
+                <artifactId>oshi-core</artifactId>
+                <version>${oshi.version}</version>
+            </dependency>
         </dependencies>
     </dependencyManagement>
 

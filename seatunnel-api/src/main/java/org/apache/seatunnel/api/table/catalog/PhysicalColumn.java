@@ -39,6 +39,30 @@ public class PhysicalColumn extends Column {
         super(name, dataType, columnLength, scale);
     }
 
+    public PhysicalColumn(
+            String name,
+            SeaTunnelDataType<?> dataType,
+            Long columnLength,
+            Integer scale,
+            boolean nullable,
+            Object defaultValue,
+            String comment,
+            String sinkType,
+            String sourceType,
+            Map<String, Object> options) {
+        super(
+                name,
+                dataType,
+                columnLength,
+                scale,
+                nullable,
+                defaultValue,
+                comment,
+                sinkType,
+                sourceType,
+                options);
+    }
+
     protected PhysicalColumn(
             String name,
             SeaTunnelDataType<?> dataType,
@@ -163,6 +187,7 @@ public class PhysicalColumn extends Column {
             Object defaultValue,
             String comment,
             String sourceType,
+            String sinkType,
             Map<String, Object> options,
             boolean isUnsigned,
             boolean isZeroFill,
@@ -177,6 +202,7 @@ public class PhysicalColumn extends Column {
                 defaultValue,
                 comment,
                 sourceType,
+                sinkType,
                 options,
                 isUnsigned,
                 isZeroFill,
@@ -216,15 +242,52 @@ public class PhysicalColumn extends Column {
             String sourceType,
             Map<String, Object> options) {
         return new PhysicalColumn(
+                name, dataType, columnLength, nullable, defaultValue, comment, sourceType, options);
+    }
+
+    public static PhysicalColumn of(
+            String name,
+            SeaTunnelDataType<?> dataType,
+            Long columnLength,
+            Integer scale,
+            boolean nullable,
+            Object defaultValue,
+            String comment,
+            String sourceType,
+            Map<String, Object> options) {
+        return new PhysicalColumn(
                 name,
                 dataType,
                 columnLength,
-                null,
+                scale,
                 nullable,
                 defaultValue,
                 comment,
                 sourceType,
                 options);
+    }
+
+    public static PhysicalColumn of(
+            String name,
+            SeaTunnelDataType<?> dataType,
+            Long columnLength,
+            Integer scale,
+            boolean nullable,
+            Object defaultValue,
+            String comment,
+            String sinkType,
+            String sourceType) {
+        return new PhysicalColumn(
+                name,
+                dataType,
+                columnLength,
+                scale,
+                nullable,
+                defaultValue,
+                comment,
+                sinkType,
+                sourceType,
+                null);
     }
 
     @Deprecated
@@ -283,6 +346,7 @@ public class PhysicalColumn extends Column {
                 defaultValue,
                 comment,
                 sourceType,
+                sinkType,
                 options,
                 isUnsigned,
                 isZeroFill,
@@ -301,6 +365,7 @@ public class PhysicalColumn extends Column {
                 defaultValue,
                 comment,
                 sourceType,
+                sinkType,
                 options,
                 isUnsigned,
                 isZeroFill,
@@ -319,6 +384,26 @@ public class PhysicalColumn extends Column {
                 defaultValue,
                 comment,
                 sourceType,
+                sinkType,
+                options,
+                isUnsigned,
+                isZeroFill,
+                bitLen,
+                longColumnLength);
+    }
+
+    @Override
+    public Column reSourceType(String newSourceType) {
+        return new PhysicalColumn(
+                name,
+                dataType,
+                columnLength,
+                scale,
+                nullable,
+                defaultValue,
+                comment,
+                newSourceType,
+                sinkType,
                 options,
                 isUnsigned,
                 isZeroFill,

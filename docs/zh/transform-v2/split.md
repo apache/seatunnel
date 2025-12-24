@@ -18,11 +18,11 @@
 
 拆分内容的分隔符
 
-### split_field[string]
+### split_field [string]
 
 需要拆分的字段
 
-### output_fields[array]
+### output_fields [array]
 
 拆分后的结果字段
 
@@ -46,8 +46,8 @@
 ```
 transform {
   Split {
-    source_table_name = "fake"
-    result_table_name = "fake1"
+    plugin_input = "fake"
+    plugin_output = "fake1"
     separator = " "
     split_field = "name"
     output_fields = [first_name, second_name]

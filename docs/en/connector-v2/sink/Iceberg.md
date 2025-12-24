@@ -1,10 +1,12 @@
+import ChangeLog from '../changelog/connector-iceberg.md';
+
 # Apache Iceberg
 
 > Apache Iceberg sink connector
 
 ## Support Iceberg Version
 
-- 1.4.2
+- 1.6.1
 
 ## Support Those Engines
 
@@ -15,6 +17,10 @@
 ## Description
 
 Sink connector for Apache Iceberg. It can support cdc mode 、auto create table and table schema evolution.
+
+## Key features
+
+- [x] [support multiple table write](../../concept/connector-v2-features.md)
 
 ## Supported DataSource Info
 
@@ -55,7 +61,7 @@ libfb303-xxx.jar
 
 ## Sink Options
 
-|                  Name                  |  Type   | Required |           Default            |                                                                                                                                                        Description                                                                                                                                                        |
+| Name                                   | Type    | Required | Default                      | Description                                                                                                                                                                                                                                                                                                               |
 |----------------------------------------|---------|----------|------------------------------|---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------|
 | catalog_name                           | string  | yes      | default                      | User-specified catalog name. default is `default`                                                                                                                                                                                                                                                                         |
 | namespace                              | string  | yes      | default                      | The iceberg database name in the backend catalog. default is `default`                                                                                                                                                                                                                                                    |
@@ -72,11 +78,12 @@ libfb303-xxx.jar
 | iceberg.table.upsert-mode-enabled      | boolean | no       | false                        | Set to `true` to enable upsert mode, default is `false`                                                                                                                                                                                                                                                                   |
 | schema_save_mode                       | Enum    | no       | CREATE_SCHEMA_WHEN_NOT_EXIST | the schema save mode, please refer to `schema_save_mode` below                                                                                                                                                                                                                                                            |
 | data_save_mode                         | Enum    | no       | APPEND_DATA                  | the data save mode, please refer to `data_save_mode` below                                                                                                                                                                                                                                                                |
+| custom_sql                             | string  | no       | -                            | Custom `delete` data sql for data save mode. e.g: `delete from ... where ...`                                                                                                                                                                                                                                             |
 | iceberg.table.commit-branch            | string  | no       | -                            | Default branch for commits                                                                                                                                                                                                                                                                                                |
 
 ## Task Example
 
-### Simple:
+### Simple
 
 ```hocon
 env {
@@ -87,12 +94,12 @@ env {
 
 source {
   MySQL-CDC {
-    result_table_name = "customers_mysql_cdc_iceberg"
+    plugin_output = "customers_mysql_cdc_iceberg"
     server-id = 5652
     username = "st_user"
     password = "seatunnel"
     table-names = ["mysql_cdc.mysql_cdc_e2e_source_table"]
-    base-url = "jdbc:mysql://mysql_cdc_e2e:3306/mysql_cdc"
+    url = "jdbc:mysql://mysql_cdc_e2e:3306/mysql_cdc"
   }
 }
 
@@ -121,63 +128,183 @@ sink {
 }
 ```
 
-### Hive Catalog:
+### Hive Catalog
 
 ```hocon
 sink {
   Iceberg {
-    catalog_name="seatunnel_test"
-    iceberg.catalog.config={
+    catalog_name = "seatunnel_test"
+    iceberg.catalog.config = {
       type = "hive"
       uri = "thrift://localhost:9083"
-      warehouse = "hdfs://your_cluster//tmp/seatunnel/iceberg/"
+      warehouse = "hdfs://your_cluster/tmp/seatunnel/iceberg/"
     }
-    namespace="seatunnel_namespace"
-    table="iceberg_sink_table"
-    iceberg.table.write-props={
-      write.format.default="parquet"
-      write.target-file-size-bytes=536870912
+    namespace = "seatunnel_namespace"
+    table = "iceberg_sink_table"
+    iceberg.table.write-props = {
+      write.format.default = "parquet"
+      write.target-file-size-bytes = 536870912
     }
-    iceberg.table.primary-keys="id"
-    iceberg.table.partition-keys="f_datetime"
-    iceberg.table.upsert-mode-enabled=true
-    iceberg.table.schema-evolution-enabled=true
-    case_sensitive=true
+    iceberg.table.primary-keys = "id"
+    iceberg.table.partition-keys = "f_datetime"
+    iceberg.table.upsert-mode-enabled = true
+    iceberg.table.schema-evolution-enabled = true
+    case_sensitive = true
   }
 }
 ```
 
-### Hadoop catalog:
+### Hadoop Catalog
 
 ```hocon
 sink {
   Iceberg {
-    catalog_name="seatunnel_test"
-    iceberg.catalog.config={
+    catalog_name = "seatunnel_test"
+    iceberg.catalog.config = {
       type = "hadoop"
       warehouse = "hdfs://your_cluster/tmp/seatunnel/iceberg/"
     }
-    namespace="seatunnel_namespace"
-    table="iceberg_sink_table"
-    iceberg.table.write-props={
-      write.format.default="parquet"
-      write.target-file-size-bytes=536870912
+    namespace = "seatunnel_namespace"
+    table = "iceberg_sink_table"
+    iceberg.table.write-props = {
+      write.format.default = "parquet"
+      write.target-file-size-bytes = 536870912
     }
-    iceberg.table.primary-keys="id"
-    iceberg.table.partition-keys="f_datetime"
-    iceberg.table.upsert-mode-enabled=true
-    iceberg.table.schema-evolution-enabled=true
-    case_sensitive=true
+    iceberg.table.primary-keys = "id"
+    iceberg.table.partition-keys = "f_datetime"
+    iceberg.table.upsert-mode-enabled = true
+    iceberg.table.schema-evolution-enabled = true
+    case_sensitive = true
+  }
+}
+```
+
+### Glue Catalog
+
+```hocon
+sink {
+  Iceberg {
+    catalog_name = "seatunnel_test"
+    iceberg.catalog.config = {
+      warehouse     = "s3://your-bucket/warehouse/"
+      catalog-impl  = "org.apache.iceberg.aws.glue.GlueCatalog"
+      io-impl       = "org.apache.iceberg.aws.s3.S3FileIO"
+      client.region = "your-region"
+    }
+    namespace = "seatunnel_namespace"
+    table     = "iceberg_sink_table"
+    iceberg.table.write-props = {
+      write.format.default = "parquet"
+      write.target-file-size-bytes = 536870912
+    }
+    iceberg.table.primary-keys = "id"
+    iceberg.table.partition-keys = "f_datetime"
+    iceberg.table.upsert-mode-enabled = true
+    iceberg.table.schema-evolution-enabled = true
+    case_sensitive = true
   }
 }
 
+```
+
+### AWS S3 Tables REST Catalog
+
+Amazon S3 Tables is a storage service for tabular data that's optimized for analytics workloads, with features designed to continuously improve query performance and reduce storage costs for tables. S3 Tables is purpose-built for storing tabular data, such as daily purchase transactions, streaming sensor data, or ad impressions. Tabular data represents data in columns and rows, like in a database table.
+
+You can connect an Iceberg REST client to the Amazon S3 Tables Iceberg REST endpoint and then make REST API calls to create, update, or query tables in S3 table buckets. The endpoint implements a standardized set of Iceberg REST APIs specified in the Apache Iceberg REST Catalog Open API specification. The endpoint works by translating Iceberg REST API operations to corresponding S3 Tables operations.
+
+Data in S3 Tables is stored in a new bucket type: table buckets, which store tables as subresources. Table buckets support storing tables in Apache Iceberg format. Using standard SQL statements, you can query tables through Iceberg-compatible query engines such as Amazon Athena, Amazon Redshift, and Apache Spark.
+
+```hocon
+sink {
+  Iceberg {
+    catalog_name = "s3_tables_catalog"
+    namespace = "s3_tables_catalog"
+    table = "user_data"
+
+    iceberg.catalog.config = {
+      type: "rest"
+      warehouse: "arn:aws:s3tables:<Region>:<accountID>:bucket/<bucketname>"
+      uri: "https://s3tables.<Region>.amazonaws.com/iceberg"
+      rest.sigv4-enabled: "true"
+      rest.signing-name: "s3tables"
+      rest.signing-region: "<Region>"
+    }
+  }
+}
+```
+
+### Multiple table
+
+#### example1
+
+```hocon
+env {
+  parallelism = 1
+  job.mode = "STREAMING"
+  checkpoint.interval = 5000
+}
+
+source {
+  Mysql-CDC {
+    url = "jdbc:mysql://127.0.0.1:3306/seatunnel"
+    username = "root"
+    password = "******"
+    
+    table-names = ["seatunnel.role","seatunnel.user","galileo.Bucket"]
+  }
+}
+
+transform {
+}
+
+sink {
+  Iceberg {
+    ...
+    namespace = "${database_name}_test"
+    table = "${table_name}_test"
+  }
+}
+```
+
+#### example2
+
+```hocon
+env {
+  parallelism = 1
+  job.mode = "BATCH"
+}
+
+source {
+  Jdbc {
+    driver = oracle.jdbc.driver.OracleDriver
+    url = "jdbc:oracle:thin:@localhost:1521/XE"
+    user = testUser
+    password = testPassword
+
+    table_list = [
+      {
+        table_path = "TESTSCHEMA.TABLE_1"
+      },
+      {
+        table_path = "TESTSCHEMA.TABLE_2"
+      }
+    ]
+  }
+}
+
+transform {
+}
+
+sink {
+  Iceberg {
+    ...
+    namespace = "${schema_name}_test"
+    table = "${table_name}_test"
+  }
+}
 ```
 
 ## Changelog
 
-### 2.3.4-SNAPSHOT 2024-01-18
-
-- Add Iceberg Sink Connector
-
-### next version
-
+<ChangeLog />

@@ -25,12 +25,12 @@ import org.apache.seatunnel.engine.server.exception.TaskGroupContextNotFoundExce
 import org.apache.seatunnel.engine.server.execution.TaskLocation;
 import org.apache.seatunnel.engine.server.serializable.TaskDataSerializerHook;
 import org.apache.seatunnel.engine.server.task.SourceSplitEnumeratorTask;
+import org.apache.seatunnel.engine.server.task.operation.TracingOperation;
 
 import com.hazelcast.cluster.Address;
 import com.hazelcast.nio.ObjectDataInput;
 import com.hazelcast.nio.ObjectDataOutput;
 import com.hazelcast.nio.serialization.IdentifiedDataSerializable;
-import com.hazelcast.spi.impl.operationservice.Operation;
 
 import java.io.IOException;
 
@@ -38,7 +38,8 @@ import java.io.IOException;
  * For {@link org.apache.seatunnel.api.source.SourceReader} to register with the {@link
  * org.apache.seatunnel.api.source.SourceSplitEnumerator}
  */
-public class SourceRegisterOperation extends Operation implements IdentifiedDataSerializable {
+public class SourceRegisterOperation extends TracingOperation
+        implements IdentifiedDataSerializable {
 
     private TaskLocation readerTaskID;
     private TaskLocation enumeratorTaskID;
@@ -51,7 +52,7 @@ public class SourceRegisterOperation extends Operation implements IdentifiedData
     }
 
     @Override
-    public void run() throws Exception {
+    public void runInternal() throws Exception {
         SeaTunnelServer server = getService();
         Address readerAddress = getCallerAddress();
         RetryUtils.retryWithException(
@@ -59,7 +60,7 @@ public class SourceRegisterOperation extends Operation implements IdentifiedData
                     ClassLoader classLoader =
                             server.getTaskExecutionService()
                                     .getExecutionContext(enumeratorTaskID.getTaskGroupLocation())
-                                    .getClassLoader();
+                                    .getClassLoader(enumeratorTaskID.getTaskID());
                     ClassLoader oldClassLoader = Thread.currentThread().getContextClassLoader();
                     SourceSplitEnumeratorTask<?> task =
                             server.getTaskExecutionService().getTask(enumeratorTaskID);

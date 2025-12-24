@@ -58,7 +58,6 @@ import java.util.Map;
  *      fs.oss.accessKeySecret = "your script key"
  *      fs.oss.endpoint = "such as: oss-cn-hangzhou.aliyuncs.com"
  *      oss.bucket= "oss://your bucket"
- *      fs.oss.credentials.provider = "org.apache.hadoop.fs.aliyun.oss.AliyunCredentialsProvider"
  *  </pre>
  */
 @AutoService(CheckpointStorageFactory.class)

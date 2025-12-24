@@ -23,8 +23,8 @@ import org.apache.seatunnel.api.table.catalog.PrimaryKey;
 import org.apache.seatunnel.common.utils.SeaTunnelException;
 import org.apache.seatunnel.connectors.cdc.base.config.JdbcSourceConfig;
 import org.apache.seatunnel.connectors.cdc.base.dialect.JdbcDataSourceDialect;
-import org.apache.seatunnel.connectors.cdc.base.relational.connection.JdbcConnectionPoolFactory;
 import org.apache.seatunnel.connectors.cdc.base.source.enumerator.splitter.ChunkSplitter;
+import org.apache.seatunnel.connectors.cdc.base.source.offset.Offset;
 import org.apache.seatunnel.connectors.cdc.base.source.reader.external.FetchTask;
 import org.apache.seatunnel.connectors.cdc.base.source.split.IncrementalSplit;
 import org.apache.seatunnel.connectors.cdc.base.source.split.SnapshotSplit;
@@ -33,6 +33,7 @@ import org.apache.seatunnel.connectors.cdc.base.utils.CatalogTableUtils;
 import org.apache.seatunnel.connectors.seatunnel.cdc.postgres.config.PostgresSourceConfig;
 import org.apache.seatunnel.connectors.seatunnel.cdc.postgres.config.PostgresSourceConfigFactory;
 import org.apache.seatunnel.connectors.seatunnel.cdc.postgres.source.enumerator.PostgresChunkSplitter;
+import org.apache.seatunnel.connectors.seatunnel.cdc.postgres.source.offset.LsnOffset;
 import org.apache.seatunnel.connectors.seatunnel.cdc.postgres.source.reader.PostgresSourceFetchTaskContext;
 import org.apache.seatunnel.connectors.seatunnel.cdc.postgres.source.reader.snapshot.PostgresSnapshotFetchTask;
 import org.apache.seatunnel.connectors.seatunnel.cdc.postgres.source.reader.wal.PostgresWalFetchTask;
@@ -42,6 +43,7 @@ import org.apache.seatunnel.connectors.seatunnel.jdbc.internal.dialect.DatabaseI
 
 import io.debezium.connector.postgresql.PostgresConnectorConfig;
 import io.debezium.connector.postgresql.connection.PostgresConnection;
+import io.debezium.connector.postgresql.connection.ServerInfo;
 import io.debezium.jdbc.JdbcConnection;
 import io.debezium.relational.RelationalDatabaseConnectorConfig;
 import io.debezium.relational.TableId;
@@ -88,7 +90,9 @@ public class PostgresDialect implements JdbcDataSourceDialect {
                 (PostgresConnectorConfig) sourceConfig.getDbzConnectorConfig();
         return new PostgresConnection(
                 conf.getJdbcConfig(),
-                newPostgresValueConverterBuilder(conf, sourceConfig.getServerTimeZone()));
+                newPostgresValueConverterBuilder(
+                        conf, "postgres-dialect", sourceConfig.getServerTimeZone()),
+                "postgres-dialect");
     }
 
     @Override
@@ -97,18 +101,32 @@ public class PostgresDialect implements JdbcDataSourceDialect {
     }
 
     @Override
-    public JdbcConnectionPoolFactory getPooledDataSourceFactory() {
-        return new PostgresPooledDataSourceFactory();
-    }
-
-    @Override
     public List<TableId> discoverDataCollections(JdbcSourceConfig sourceConfig) {
         PostgresSourceConfig postgresSourceConfig = (PostgresSourceConfig) sourceConfig;
         try (JdbcConnection jdbcConnection = openJdbcConnection(sourceConfig)) {
-            return TableDiscoveryUtils.listTables(
-                    jdbcConnection, postgresSourceConfig.getTableFilters());
+            List<TableId> tables =
+                    TableDiscoveryUtils.listTables(
+                            jdbcConnection, postgresSourceConfig.getTableFilters());
+            this.checkAllTablesEnabledCapture(jdbcConnection, tables);
+            return tables;
         } catch (SQLException e) {
             throw new SeaTunnelException("Error to discover tables: " + e.getMessage(), e);
+        }
+    }
+
+    @Override
+    public void checkAllTablesEnabledCapture(JdbcConnection jdbcConnection, List<TableId> tableIds)
+            throws SQLException {
+        PostgresConnection postgresConnection = (PostgresConnection) jdbcConnection;
+        for (TableId tableId : tableIds) {
+            ServerInfo.ReplicaIdentity replicaIdentity =
+                    postgresConnection.readReplicaIdentityInfo(tableId);
+            if (!ServerInfo.ReplicaIdentity.FULL.equals(replicaIdentity)) {
+                throw new SeaTunnelException(
+                        String.format(
+                                "Table %s does not have a full replica identity, please execute: ALTER TABLE %s REPLICA IDENTITY FULL;",
+                                tableId, tableId));
+            }
         }
     }
 
@@ -132,7 +150,9 @@ public class PostgresDialect implements JdbcDataSourceDialect {
                         dbzConnectorConfig.getJdbcConfig(),
                         newPostgresValueConverterBuilder(
                                 (PostgresConnectorConfig) dbzConnectorConfig,
-                                taskSourceConfig.getServerTimeZone()));
+                                "postgres-source-fetch-task",
+                                taskSourceConfig.getServerTimeZone()),
+                        "postgres-source-fetch-task");
 
         List<TableChanges.TableChange> tableChangeList = new ArrayList<>();
         // TODO: support save table schema
@@ -155,15 +175,21 @@ public class PostgresDialect implements JdbcDataSourceDialect {
         if (sourceSplitBase.isSnapshotSplit()) {
             return new PostgresSnapshotFetchTask(sourceSplitBase.asSnapshotSplit());
         } else {
+            try (JdbcConnection jdbcConnection = openJdbcConnection(sourceConfig)) {
+                List<TableId> tables = sourceSplitBase.asIncrementalSplit().getTableIds();
+                this.checkAllTablesEnabledCapture(jdbcConnection, tables);
+            } catch (SQLException e) {
+                throw new SeaTunnelException("Error to check tables: " + e.getMessage(), e);
+            }
             postgresWalFetchTask = new PostgresWalFetchTask(sourceSplitBase.asIncrementalSplit());
             return postgresWalFetchTask;
         }
     }
 
     @Override
-    public void notifyCheckpointComplete(long checkpointId) throws Exception {
+    public void commitChangeLogOffset(Offset offset) throws Exception {
         if (postgresWalFetchTask != null) {
-            postgresWalFetchTask.commitCurrentOffset();
+            postgresWalFetchTask.commitCurrentOffset((LsnOffset) offset);
         }
     }
 

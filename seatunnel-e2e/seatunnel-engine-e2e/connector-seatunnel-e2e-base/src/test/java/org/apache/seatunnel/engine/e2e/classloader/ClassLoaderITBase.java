@@ -18,7 +18,7 @@
 package org.apache.seatunnel.engine.e2e.classloader;
 
 import org.apache.seatunnel.e2e.common.util.ContainerUtil;
-import org.apache.seatunnel.engine.e2e.SeaTunnelContainer;
+import org.apache.seatunnel.engine.e2e.SeaTunnelEngineContainer;
 import org.apache.seatunnel.engine.server.rest.RestConstant;
 
 import org.awaitility.Awaitility;
@@ -41,7 +41,7 @@ import static io.restassured.RestAssured.given;
 import static org.apache.seatunnel.e2e.common.util.ContainerUtil.PROJECT_ROOT_PATH;
 import static org.hamcrest.Matchers.equalTo;
 
-public abstract class ClassLoaderITBase extends SeaTunnelContainer {
+public abstract class ClassLoaderITBase extends SeaTunnelEngineContainer {
 
     private static final String CONF_FILE = "/classloader/fake_to_inmemory.conf";
 
@@ -68,7 +68,7 @@ public abstract class ClassLoaderITBase extends SeaTunnelContainer {
             if (cacheMode()) {
                 Assertions.assertTrue(3 >= getClassLoaderCount());
             } else {
-                Assertions.assertTrue(2 + i >= getClassLoaderCount());
+                Assertions.assertTrue(3 + 2 * i >= getClassLoaderCount());
             }
         }
     }
@@ -110,7 +110,7 @@ public abstract class ClassLoaderITBase extends SeaTunnelContainer {
                                     + "\t\"source\": [\n"
                                     + "\t\t{\n"
                                     + "\t\t\t\"plugin_name\": \"FakeSource\",\n"
-                                    + "\t\t\t\"result_table_name\": \"fake\",\n"
+                                    + "\t\t\t\"plugin_output\": \"fake\",\n"
                                     + "\t\t\t\"parallelism\": 10,\n"
                                     + "\t\t\t\"schema\": {\n"
                                     + "\t\t\t\t\"fields\": {\n"
@@ -125,7 +125,7 @@ public abstract class ClassLoaderITBase extends SeaTunnelContainer {
                                     + "\t\"sink\": [\n"
                                     + "\t\t{\n"
                                     + "\t\t\t\"plugin_name\": \"InMemory\",\n"
-                                    + "\t\t\t\"source_table_name\": \"fake\"\n"
+                                    + "\t\t\t\"plugin_input\": \"fake\"\n"
                                     + "\t\t}\n"
                                     + "\t]\n"
                                     + "}")
@@ -135,7 +135,8 @@ public abstract class ClassLoaderITBase extends SeaTunnelContainer {
                                     + server.getHost()
                                     + colon
                                     + server.getFirstMappedPort()
-                                    + RestConstant.SUBMIT_JOB_URL)
+                                    + RestConstant.CONTEXT_PATH
+                                    + RestConstant.REST_URL_SUBMIT_JOB)
                     .then()
                     .statusCode(200);
 
@@ -148,7 +149,8 @@ public abstract class ClassLoaderITBase extends SeaTunnelContainer {
                                                             + server.getHost()
                                                             + colon
                                                             + server.getFirstMappedPort()
-                                                            + RestConstant.FINISHED_JOBS_INFO
+                                                            + RestConstant.CONTEXT_PATH
+                                                            + RestConstant.REST_URL_FINISHED_JOBS
                                                             + "/FINISHED")
                                             .then()
                                             .statusCode(200)
@@ -158,7 +160,7 @@ public abstract class ClassLoaderITBase extends SeaTunnelContainer {
             if (cacheMode()) {
                 Assertions.assertTrue(3 >= getClassLoaderCount());
             } else {
-                Assertions.assertTrue(2 + i >= getClassLoaderCount());
+                Assertions.assertTrue(3 + 2 * i >= getClassLoaderCount());
             }
         }
     }

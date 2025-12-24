@@ -36,8 +36,8 @@ We want copy fields `name`、`age` to a new fields `name1`、`name2`、`age1`, w
 ```
 transform {
   Copy {
-    source_table_name = "fake"
-    result_table_name = "fake1"
+    plugin_input = "fake"
+    plugin_output = "fake1"
     fields {
       name1 = name
       name2 = name

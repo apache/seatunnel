@@ -1,3 +1,5 @@
+import ChangeLog from '../changelog/connector-rocketmq.md';
+
 # RocketMQ
 
 > RocketMQ source connector
@@ -27,10 +29,11 @@ Source connector for Apache RocketMQ.
 
 ## Source Options
 
-|                Name                 |  Type   | Required |          Default           |                                                                                                    Description                                                                                                     |
+| Name                                |  Type   | Required |          Default           | Description                                                                                                                                                                                                        |
 |-------------------------------------|---------|----------|----------------------------|--------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------|
 | topics                              | String  | yes      | -                          | `RocketMQ topic` name. If there are multiple `topics`, use `,` to split, for example: `"tpc1,tpc2"`.                                                                                                               |
 | name.srv.addr                       | String  | yes      | -                          | `RocketMQ` name server cluster address.                                                                                                                                                                            |
+| tags                                | String  | no       | -                          | `RocketMQ tag` name. If there are multiple `tags`, use `,` to split, for example: `"tag1,tag2"`.                                                                                                                   |
 | acl.enabled                         | Boolean | no       | false                      | If true, access control is enabled, and access key and secret key need to be configured.                                                                                                                           |
 | access.key                          | String  | no       |                            |                                                                                                                                                                                                                    |
 | secret.key                          | String  | no       |                            | When ACL_ENABLED is true, secret key cannot be empty.                                                                                                                                                              |
@@ -44,7 +47,8 @@ Source connector for Apache RocketMQ.
 | start.mode.offsets                  |         | no       |                            |                                                                                                                                                                                                                    |
 | start.mode.timestamp                | Long    | no       |                            | The time required for consumption mode to be "CONSUME_FROM_TIMESTAMP".                                                                                                                                             |
 | partition.discovery.interval.millis | long    | no       | -1                         | The interval for dynamically discovering topics and partitions.                                                                                                                                                    |
-| common-options                      | config  | no       | -                          | Source plugin common parameters, please refer to [Source Common Options](common-options.md) for details.                                                                                                           |
+| ignore_parse_errors                 | Boolean | no       | false                      | Optional flag to skip parse errors instead of failing.                                                                                                                                                             |
+| common-options                      | config  | no       | -                          | Source plugin common parameters, please refer to [Source Common Options](../source-common-options.md) for details.                                                                                                 |
 
 ### start.mode.offsets
 
@@ -62,7 +66,7 @@ start.mode.offsets = {
 
 ## Task Example
 
-### Simple:
+### Simple
 
 > Consumer reads Rocketmq data and prints it to the console type
 
@@ -76,7 +80,7 @@ source {
   Rocketmq {
     name.srv.addr = "rocketmq-e2e:9876"
     topics = "test_topic_json"
-    result_table_name = "rocketmq_table"
+    plugin_output = "rocketmq_table"
     schema = {
       fields {
         id = bigint
@@ -110,7 +114,7 @@ sink {
 }
 ```
 
-### Specified format consumption Simple:
+### Specified format consumption simple
 
 > When I consume the topic data in json format parsing and pulling the number of bars each time is 400, the consumption starts from the original location
 
@@ -124,7 +128,7 @@ source {
   Rocketmq {
     name.srv.addr = "localhost:9876"
     topics = "test_topic"
-    result_table_name = "rocketmq_table"
+    plugin_output = "rocketmq_table"
     start.mode = "CONSUME_FROM_FIRST_OFFSET"
     batch.size = "400"
     consumer.group = "test_topic_group"
@@ -161,7 +165,7 @@ sink {
 }
 ```
 
-### Specified timestamp Simple:
+### Specified timestamp simple
 
 > This is to specify a time to consume, and I dynamically sense the existence of a new partition every 1000 milliseconds to pull the consumption
 
@@ -217,3 +221,66 @@ sink {
 }
 ```
 
+### Specified tag example
+
+> Here you can specify a tag to consume data. If there are multiple tags, use `,` to separate them, for example: "tag1,tag2"
+
+```hocon
+env {
+  parallelism = 1
+  job.mode = "BATCH"
+  
+  # You can set spark configuration here
+  spark.app.name = "SeaTunnel"
+  spark.executor.instances = 2
+  spark.executor.cores = 1
+  spark.executor.memory = "1g"
+  spark.master = local
+}
+
+source {
+  Rocketmq {
+    plugin_output = "rocketmq_table"
+    name.srv.addr = "localhost:9876"
+    topics = "test_topic"
+    format = text
+    # The default field delimiter is ","
+    field_delimiter = ","
+    tags = "test_tag"
+    schema = {
+      fields {
+        id = bigint
+        c_map = "map<string, smallint>"
+        c_array = "array<tinyint>"
+        c_string = string
+        c_boolean = boolean
+        c_tinyint = tinyint
+        c_smallint = smallint
+        c_int = int
+        c_bigint = bigint
+        c_float = float
+        c_double = double
+        c_decimal = "decimal(2, 1)"
+        c_bytes = bytes
+        c_date = date
+        c_timestamp = timestamp
+      }
+    }
+  }
+}
+
+transform {
+  # If you would like to get more information about how to configure seatunnel and see full list of transform plugins,
+  # please go to https://seatunnel.apache.org/docs/category/transform
+}
+
+sink {
+  Console {
+    plugin_input = "rocketmq_table"
+  }
+}
+```
+
+## Changelog
+
+<ChangeLog />

@@ -18,35 +18,40 @@
 
 package org.apache.seatunnel.connectors.seatunnel.jdbc;
 
+import org.apache.seatunnel.shade.com.google.common.collect.Lists;
+import org.apache.seatunnel.shade.org.apache.commons.lang3.tuple.Pair;
+
 import org.apache.seatunnel.api.table.catalog.CatalogTable;
 import org.apache.seatunnel.api.table.catalog.Column;
 import org.apache.seatunnel.api.table.catalog.TablePath;
 import org.apache.seatunnel.api.table.type.SeaTunnelRow;
 import org.apache.seatunnel.common.utils.JdbcUrlUtil;
 import org.apache.seatunnel.connectors.seatunnel.jdbc.catalog.mysql.MySqlCatalog;
-
-import org.apache.commons.lang3.tuple.Pair;
+import org.apache.seatunnel.e2e.common.container.TestContainer;
 
 import org.junit.jupiter.api.AfterAll;
 import org.junit.jupiter.api.Assertions;
+import org.testcontainers.containers.Container;
 import org.testcontainers.containers.GenericContainer;
 import org.testcontainers.containers.MySQLContainer;
 import org.testcontainers.containers.output.Slf4jLogConsumer;
 import org.testcontainers.containers.wait.strategy.Wait;
+import org.testcontainers.images.PullPolicy;
 import org.testcontainers.utility.DockerImageName;
 import org.testcontainers.utility.DockerLoggerFactory;
 
 import com.github.dockerjava.api.model.Image;
-import com.google.common.collect.Lists;
 import lombok.extern.slf4j.Slf4j;
 
 import java.math.BigDecimal;
 import java.sql.Date;
 import java.sql.SQLException;
 import java.sql.Timestamp;
+import java.time.Duration;
 import java.time.LocalDate;
 import java.time.LocalDateTime;
 import java.util.ArrayList;
+import java.util.Collections;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
@@ -55,7 +60,7 @@ import java.util.stream.Collectors;
 @Slf4j
 public class JdbcMysqlSaveModeHandlerIT extends AbstractJdbcIT {
 
-    private static final String MYSQL_IMAGE = "mysql:8.0";
+    private static final String MYSQL_IMAGE = "mysql:8.0.43";
     private static final String MYSQL_CONTAINER_HOST = "mysql-e2e-2";
     private static final String MYSQL_DATABASE = "seatunnel";
     private static final String MYSQL_SOURCE = "source";
@@ -74,6 +79,7 @@ public class JdbcMysqlSaveModeHandlerIT extends AbstractJdbcIT {
     private static final String CREATE_SQL =
             "CREATE TABLE IF NOT EXISTS %s\n"
                     + "(\n"
+                    + "    `id`                     bigint(20)            NOT NULL,\n"
                     + "    `c_bit_1`                bit(1)                DEFAULT NULL,\n"
                     + "    `c_bit_8`                bit(8)                DEFAULT NULL,\n"
                     + "    `c_bit_16`               bit(16)               DEFAULT NULL,\n"
@@ -117,7 +123,8 @@ public class JdbcMysqlSaveModeHandlerIT extends AbstractJdbcIT {
                     + "    `c_integer_unsigned`     int(10) unsigned      DEFAULT NULL,\n"
                     + "    `c_bigint_30`            BIGINT(40)  unsigned  DEFAULT NULL,\n"
                     + "    `c_decimal_unsigned_30`  DECIMAL(30) unsigned  DEFAULT NULL,\n"
-                    + "    `c_decimal_30`           DECIMAL(30)           DEFAULT NULL\n"
+                    + "    `c_decimal_30`           DECIMAL(30)           DEFAULT NULL,\n"
+                    + "    UNIQUE (c_int)\n"
                     + ");";
 
     @Override
@@ -154,7 +161,7 @@ public class JdbcMysqlSaveModeHandlerIT extends AbstractJdbcIT {
     }
 
     @Override
-    void compareResult(String executeKey) {
+    void checkResult(String executeKey, TestContainer container, Container.ExecResult execResult) {
         final TablePath tablePathSource = TablePath.of("seatunnel", "source");
         final CatalogTable tableSource = catalog.getTable(tablePathSource);
         final List<Column> columnsSource = tableSource.getTableSchema().getColumns();
@@ -164,6 +171,9 @@ public class JdbcMysqlSaveModeHandlerIT extends AbstractJdbcIT {
         final List<Column> columns = table.getTableSchema().getColumns();
 
         Assertions.assertEquals(columns.size(), columnsSource.size());
+        Assertions.assertIterableEquals(
+                Collections.singletonList("id"),
+                table.getTableSchema().getPrimaryKey().getColumnNames());
     }
 
     @Override
@@ -175,6 +185,7 @@ public class JdbcMysqlSaveModeHandlerIT extends AbstractJdbcIT {
     Pair<String[], List<SeaTunnelRow>> initTestData() {
         String[] fieldNames =
                 new String[] {
+                    "id",
                     "c_bit_1",
                     "c_bit_8",
                     "c_bit_16",
@@ -229,6 +240,7 @@ public class JdbcMysqlSaveModeHandlerIT extends AbstractJdbcIT {
             SeaTunnelRow row =
                     new SeaTunnelRow(
                             new Object[] {
+                                (long) i,
                                 i % 2 == 0 ? (byte) 1 : (byte) 0,
                                 new byte[] {byteArr},
                                 new byte[] {byteArr, byteArr},
@@ -289,6 +301,7 @@ public class JdbcMysqlSaveModeHandlerIT extends AbstractJdbcIT {
 
         GenericContainer<?> container =
                 new MySQLContainer<>(imageName)
+                        .withImagePullPolicy(PullPolicy.ageBased(Duration.ofDays(7)))
                         .withUsername(MYSQL_USERNAME)
                         .withPassword(MYSQL_PASSWORD)
                         .withDatabaseName(MYSQL_DATABASE)
@@ -312,7 +325,8 @@ public class JdbcMysqlSaveModeHandlerIT extends AbstractJdbcIT {
                         jdbcCase.getUserName(),
                         jdbcCase.getPassword(),
                         JdbcUrlUtil.getUrlInfo(
-                                jdbcCase.getJdbcUrl().replace(HOST, dbServer.getHost())));
+                                jdbcCase.getJdbcUrl().replace(HOST, dbServer.getHost())),
+                        null);
         catalog.open();
     }
 

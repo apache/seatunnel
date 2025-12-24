@@ -17,14 +17,16 @@
 
 package org.apache.seatunnel.translation.spark.source.partition.micro;
 
+import org.apache.seatunnel.shade.org.apache.commons.lang3.StringUtils;
+
 import org.apache.seatunnel.api.source.SeaTunnelSource;
 import org.apache.seatunnel.api.table.type.SeaTunnelRow;
 import org.apache.seatunnel.common.utils.SerializationUtils;
 import org.apache.seatunnel.translation.source.BaseSourceFunction;
+import org.apache.seatunnel.translation.spark.execution.MultiTableManager;
 import org.apache.seatunnel.translation.spark.source.partition.batch.ParallelBatchPartitionReader;
 import org.apache.seatunnel.translation.util.ThreadPoolExecutorFactory;
 
-import org.apache.commons.lang3.StringUtils;
 import org.apache.hadoop.conf.Configuration;
 import org.apache.hadoop.fs.FSDataInputStream;
 import org.apache.hadoop.fs.FSDataOutputStream;
@@ -64,8 +66,9 @@ public class ParallelMicroBatchPartitionReader extends ParallelBatchPartitionRea
             String checkpointPath,
             String hdfsRoot,
             String hdfsUser,
-            Map<String, String> envOptions) {
-        super(source, parallelism, jobId, subtaskId, envOptions);
+            Map<String, String> envOptions,
+            MultiTableManager multiTableManager) {
+        super(source, parallelism, jobId, subtaskId, envOptions, multiTableManager);
         this.checkpointId = checkpointId;
         this.checkpointInterval = checkpointInterval;
         this.checkpointPath = checkpointPath;

@@ -19,18 +19,17 @@ package org.apache.seatunnel.connectors.seatunnel.file.writer;
 
 import org.apache.seatunnel.shade.com.typesafe.config.Config;
 import org.apache.seatunnel.shade.com.typesafe.config.ConfigFactory;
+import org.apache.seatunnel.shade.org.apache.commons.lang3.StringUtils;
 
 import org.apache.seatunnel.api.source.Collector;
+import org.apache.seatunnel.api.table.catalog.CatalogTable;
 import org.apache.seatunnel.api.table.catalog.CatalogTableUtil;
 import org.apache.seatunnel.api.table.type.SeaTunnelRow;
-import org.apache.seatunnel.api.table.type.SeaTunnelRowType;
 import org.apache.seatunnel.connectors.seatunnel.file.config.HadoopConf;
 import org.apache.seatunnel.connectors.seatunnel.file.source.reader.AbstractReadStrategy;
 import org.apache.seatunnel.connectors.seatunnel.file.source.reader.JsonReadStrategy;
 import org.apache.seatunnel.connectors.seatunnel.file.source.reader.TextReadStrategy;
 import org.apache.seatunnel.connectors.seatunnel.file.source.reader.XmlReadStrategy;
-
-import org.apache.commons.lang3.StringUtils;
 
 import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.BeforeAll;
@@ -121,11 +120,10 @@ public class ReadStrategyEncodingTest {
         readStrategy.init(localConf);
         readStrategy.getFileNamesByPath(sourceFilePath);
         testCollector = new TestCollector();
-        SeaTunnelRowType seaTunnelRowTypeInfo =
-                CatalogTableUtil.buildWithConfig(pluginConfig).getSeaTunnelRowType();
-        Assertions.assertNotNull(seaTunnelRowTypeInfo);
-        readStrategy.setSeaTunnelRowTypeInfo(seaTunnelRowTypeInfo);
-        log.info(seaTunnelRowTypeInfo.toString());
+        CatalogTable catalogTable = CatalogTableUtil.buildWithConfig(pluginConfig);
+        Assertions.assertNotNull(catalogTable.getSeaTunnelRowType());
+        readStrategy.setCatalogTable(catalogTable);
+        log.info(catalogTable.getSeaTunnelRowType().toString());
         readStrategy.read(sourceFilePath, "", testCollector);
         assertRows(testCollector);
     }

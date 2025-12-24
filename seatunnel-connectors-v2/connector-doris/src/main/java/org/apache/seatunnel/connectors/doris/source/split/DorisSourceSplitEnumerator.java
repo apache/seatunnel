@@ -18,13 +18,14 @@
 package org.apache.seatunnel.connectors.doris.source.split;
 
 import org.apache.seatunnel.api.source.SourceSplitEnumerator;
-import org.apache.seatunnel.api.table.type.SeaTunnelRowType;
+import org.apache.seatunnel.api.table.catalog.TablePath;
 import org.apache.seatunnel.common.exception.CommonErrorCodeDeprecated;
-import org.apache.seatunnel.connectors.doris.config.DorisConfig;
+import org.apache.seatunnel.connectors.doris.config.DorisSourceConfig;
 import org.apache.seatunnel.connectors.doris.exception.DorisConnectorException;
 import org.apache.seatunnel.connectors.doris.rest.PartitionDefinition;
 import org.apache.seatunnel.connectors.doris.rest.RestService;
 import org.apache.seatunnel.connectors.doris.source.DorisSourceState;
+import org.apache.seatunnel.connectors.doris.source.DorisSourceTable;
 
 import lombok.extern.slf4j.Slf4j;
 
@@ -32,40 +33,45 @@ import java.io.IOException;
 import java.util.ArrayList;
 import java.util.Collection;
 import java.util.Collections;
+import java.util.Comparator;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
 import java.util.concurrent.ConcurrentHashMap;
+import java.util.concurrent.atomic.AtomicInteger;
+import java.util.stream.Collectors;
 
 @Slf4j
 public class DorisSourceSplitEnumerator
         implements SourceSplitEnumerator<DorisSourceSplit, DorisSourceState> {
 
-    private Context<DorisSourceSplit> context;
-    private DorisConfig dorisConfig;
+    private final Context<DorisSourceSplit> context;
+    private final DorisSourceConfig dorisSourceConfig;
 
     private volatile boolean shouldEnumerate;
 
     private final Map<Integer, List<DorisSourceSplit>> pendingSplit;
 
-    private SeaTunnelRowType seaTunnelRowType;
+    private final Map<TablePath, DorisSourceTable> dorisSourceTables;
     private final Object stateLock = new Object();
+
+    private final AtomicInteger assignCount = new AtomicInteger(0);
 
     public DorisSourceSplitEnumerator(
             Context<DorisSourceSplit> context,
-            DorisConfig dorisConfig,
-            SeaTunnelRowType seaTunnelRowType) {
-        this(context, dorisConfig, seaTunnelRowType, null);
+            DorisSourceConfig dorisSourceConfig,
+            Map<TablePath, DorisSourceTable> dorisSourceTables) {
+        this(context, dorisSourceConfig, dorisSourceTables, null);
     }
 
     public DorisSourceSplitEnumerator(
             Context<DorisSourceSplit> context,
-            DorisConfig dorisConfig,
-            SeaTunnelRowType rowType,
+            DorisSourceConfig dorisSourceConfig,
+            Map<TablePath, DorisSourceTable> dorisSourceTables,
             DorisSourceState dorisSourceState) {
         this.context = context;
-        this.dorisConfig = dorisConfig;
-        this.seaTunnelRowType = rowType;
+        this.dorisSourceConfig = dorisSourceConfig;
+        this.dorisSourceTables = dorisSourceTables;
         this.pendingSplit = new ConcurrentHashMap<>();
         this.shouldEnumerate = (dorisSourceState == null);
         if (dorisSourceState != null) {
@@ -101,16 +107,14 @@ public class DorisSourceSplitEnumerator
     public void addSplitsBack(List<DorisSourceSplit> splits, int subtaskId) {
         log.debug("Add back splits {} to DorisSourceSplitEnumerator.", splits);
         if (!splits.isEmpty()) {
-            synchronized (stateLock) {
-                addPendingSplit(splits);
-                if (context.registeredReaders().contains(subtaskId)) {
-                    assignSplit(Collections.singletonList(subtaskId));
-                } else {
-                    log.warn(
-                            "Reader {} is not registered. Pending splits {} are not assigned.",
-                            subtaskId,
-                            splits);
-                }
+            addPendingSplit(splits);
+            if (context.registeredReaders().contains(subtaskId)) {
+                assignSplit(Collections.singletonList(subtaskId));
+            } else {
+                log.warn(
+                        "Reader {} is not registered. Pending splits {} are not assigned.",
+                        subtaskId,
+                        splits);
             }
         }
     }
@@ -131,9 +135,7 @@ public class DorisSourceSplitEnumerator
     public void registerReader(int subtaskId) {
         log.debug("Register reader {} to DorisSourceSplitEnumerator.", subtaskId);
         if (!pendingSplit.isEmpty()) {
-            synchronized (stateLock) {
-                assignSplit(Collections.singletonList(subtaskId));
-            }
+            assignSplit(Collections.singletonList(subtaskId));
         }
     }
 
@@ -149,25 +151,36 @@ public class DorisSourceSplitEnumerator
 
     private List<DorisSourceSplit> getDorisSourceSplit() {
         List<DorisSourceSplit> splits = new ArrayList<>();
-        List<PartitionDefinition> partitions =
-                RestService.findPartitions(seaTunnelRowType, dorisConfig, log);
-        for (PartitionDefinition partition : partitions) {
-            splits.add(new DorisSourceSplit(partition, String.valueOf(partition.hashCode())));
+        for (DorisSourceTable dorisSourceTable : dorisSourceTables.values()) {
+            List<PartitionDefinition> partitions =
+                    RestService.findPartitions(dorisSourceConfig, dorisSourceTable, log);
+            for (PartitionDefinition partition : partitions) {
+                splits.add(new DorisSourceSplit(partition, String.valueOf(partition.hashCode())));
+            }
         }
         return splits;
     }
 
     private void addPendingSplit(Collection<DorisSourceSplit> splits) {
         int readerCount = context.currentParallelism();
-        for (DorisSourceSplit split : splits) {
-            int ownerReader = getSplitOwner(split.splitId(), readerCount);
+
+        // sorting the splits to ensure the order
+        List<DorisSourceSplit> sortedSplits =
+                splits.stream()
+                        .sorted(Comparator.comparing(DorisSourceSplit::getSplitId))
+                        .collect(Collectors.toList());
+
+        // allocate splits in load balancing mode
+        assignCount.set(0);
+        for (DorisSourceSplit split : sortedSplits) {
+            int ownerReader = getSplitOwner(assignCount.getAndIncrement(), readerCount);
             log.info("Assigning split {} to reader {} .", split.splitId(), ownerReader);
             pendingSplit.computeIfAbsent(ownerReader, f -> new ArrayList<>()).add(split);
         }
     }
 
-    private static int getSplitOwner(String tp, int numReaders) {
-        return (tp.hashCode() & Integer.MAX_VALUE) % numReaders;
+    private static int getSplitOwner(int assignCount, int numReaders) {
+        return assignCount % numReaders;
     }
 
     private void assignSplit(Collection<Integer> readers) {

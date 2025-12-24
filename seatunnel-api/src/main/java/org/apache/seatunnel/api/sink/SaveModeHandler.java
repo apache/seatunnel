@@ -22,9 +22,13 @@ import org.apache.seatunnel.api.table.catalog.TablePath;
 
 public interface SaveModeHandler extends AutoCloseable {
 
+    void open();
+
     void handleSchemaSaveMode();
 
     void handleDataSaveMode();
+
+    void handleSchemaSaveModeWithRestore();
 
     SchemaSaveMode getSchemaSaveMode();
 

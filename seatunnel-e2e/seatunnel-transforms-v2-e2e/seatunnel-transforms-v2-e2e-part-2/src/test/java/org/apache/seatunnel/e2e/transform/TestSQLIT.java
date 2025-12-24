@@ -59,6 +59,54 @@ public class TestSQLIT extends TestSuiteBase {
         Assertions.assertEquals(0, sqlAllColumns.getExitCode());
         Container.ExecResult caseWhenSql = container.executeJob("/sql_transform/case_when.conf");
         Assertions.assertEquals(0, caseWhenSql.getExitCode());
+
+        Container.ExecResult execResultBySql =
+                container.executeJob("/sql_transform/explode_transform.conf");
+        Assertions.assertEquals(0, execResultBySql.getExitCode());
+
+        Container.ExecResult execResultBySqlWithoutOuter =
+                container.executeJob("/sql_transform/explode_transform_without_outer.conf");
+        Assertions.assertEquals(0, execResultBySqlWithoutOuter.getExitCode());
+
+        Container.ExecResult execResultBySqlWithOuter =
+                container.executeJob("/sql_transform/explode_transform_with_outer.conf");
+        Assertions.assertEquals(0, execResultBySqlWithOuter.getExitCode());
+
+        Container.ExecResult arraySql = container.executeJob("/sql_transform/func_array.conf");
+        Assertions.assertEquals(0, arraySql.getExitCode());
+
+        Container.ExecResult splitSql = container.executeJob("/sql_transform/func_split.conf");
+        Assertions.assertEquals(0, splitSql.getExitCode());
+
+        Container.ExecResult maxMinSql =
+                container.executeJob("/sql_transform/func_array_max_min.conf");
+        Assertions.assertEquals(0, maxMinSql.getExitCode());
+
+        Container.ExecResult multiIfSql = container.executeJob("/sql_transform/func_multi_if.conf");
+        Assertions.assertEquals(0, multiIfSql.getExitCode());
+
+        Container.ExecResult nullReturnSql =
+                container.executeJob("/sql_transform/func_null_return.conf");
+        Assertions.assertEquals(0, nullReturnSql.getExitCode());
+    }
+
+    @TestTemplate
+    @DisabledOnContainer(
+            value = {},
+            type = {EngineType.SPARK},
+            disabledReason = "Vector functions are not supported in Spark engine")
+    public void testVectorFunctions(TestContainer container)
+            throws IOException, InterruptedException {
+        Container.ExecResult vectorFunctionResult =
+                container.executeJob("/sql_transform/func_vector.conf");
+        Assertions.assertEquals(0, vectorFunctionResult.getExitCode());
+    }
+
+    @TestTemplate
+    public void testSQLTransformMultiTable(TestContainer container)
+            throws IOException, InterruptedException {
+        Container.ExecResult sqlTransform = container.executeJob("/sql_transform.conf");
+        Assertions.assertEquals(0, sqlTransform.getExitCode());
     }
 
     @TestTemplate
@@ -70,5 +118,16 @@ public class TestSQLIT extends TestSuiteBase {
         Container.ExecResult innerQuerySql =
                 container.executeJob("/sql_transform/inner_query.conf");
         Assertions.assertEquals(0, innerQuerySql.getExitCode());
+    }
+
+    @TestTemplate
+    @DisabledOnContainer(
+            value = {},
+            type = {EngineType.SPARK, EngineType.FLINK},
+            disabledReason = "Spark and Flink translation has some issue on nested type")
+    public void testNestedType(TestContainer container) throws IOException, InterruptedException {
+        Container.ExecResult nestedTypeSql =
+                container.executeJob("/sql_transform/nested_type.conf");
+        Assertions.assertEquals(0, nestedTypeSql.getExitCode());
     }
 }

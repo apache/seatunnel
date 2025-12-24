@@ -22,7 +22,9 @@ import org.apache.seatunnel.api.table.catalog.Column;
 import org.apache.seatunnel.api.table.catalog.ConstraintKey;
 import org.apache.seatunnel.api.table.catalog.TableIdentifier;
 import org.apache.seatunnel.api.table.catalog.TableSchema;
+import org.apache.seatunnel.api.table.type.MetadataUtil;
 import org.apache.seatunnel.api.table.type.SeaTunnelRow;
+import org.apache.seatunnel.api.table.type.SeaTunnelRowAccessor;
 
 import lombok.NonNull;
 import lombok.extern.slf4j.Slf4j;
@@ -33,7 +35,7 @@ import java.util.Optional;
 import java.util.stream.Collectors;
 
 @Slf4j
-public abstract class MultipleFieldOutputTransform extends AbstractCatalogSupportTransform {
+public abstract class MultipleFieldOutputTransform extends AbstractCatalogSupportMapTransform {
 
     private static final String[] TYPE_ARRAY_STRING = new String[0];
 
@@ -45,9 +47,18 @@ public abstract class MultipleFieldOutputTransform extends AbstractCatalogSuppor
         super(inputCatalogTable);
     }
 
+    public MultipleFieldOutputTransform(
+            @NonNull CatalogTable inputCatalogTable, ErrorHandleWay errorHandleWay) {
+        super(inputCatalogTable, errorHandleWay);
+    }
+
     @Override
     protected SeaTunnelRow transformRow(SeaTunnelRow inputRow) {
+
         Object[] fieldValues = getOutputFieldValues(new SeaTunnelRowAccessor(inputRow));
+        if (MetadataUtil.isBinaryFormat(inputRow) && !MetadataUtil.isComplete(inputRow)) {
+            return null;
+        }
         SeaTunnelRow outputRow = rowContainerGenerator.apply(inputRow);
         for (int i = 0; i < outputFieldNames.length; i++) {
             outputRow.setField(fieldsIndex[i], fieldValues == null ? null : fieldValues[i]);
@@ -131,6 +142,7 @@ public abstract class MultipleFieldOutputTransform extends AbstractCatalogSuppor
                             SeaTunnelRow outputRow = new SeaTunnelRow(outputFieldValues);
                             outputRow.setTableId(inputRow.getTableId());
                             outputRow.setRowKind(inputRow.getRowKind());
+                            outputRow.setOptions(inputRow.getOptions());
                             return outputRow;
                         }
                     };

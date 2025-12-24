@@ -17,8 +17,8 @@
 
 package org.apache.seatunnel.connectors.seatunnel.file.sink.writer;
 
+import org.apache.seatunnel.api.table.catalog.CatalogTable;
 import org.apache.seatunnel.api.table.type.SeaTunnelRow;
-import org.apache.seatunnel.api.table.type.SeaTunnelRowType;
 import org.apache.seatunnel.connectors.seatunnel.file.config.HadoopConf;
 import org.apache.seatunnel.connectors.seatunnel.file.exception.FileConnectorException;
 import org.apache.seatunnel.connectors.seatunnel.file.hadoop.HadoopFileSystemProxy;
@@ -27,11 +27,12 @@ import org.apache.seatunnel.connectors.seatunnel.file.sink.config.FileSinkConfig
 import org.apache.hadoop.conf.Configuration;
 
 import java.io.Closeable;
+import java.io.IOException;
 import java.io.Serializable;
 import java.util.LinkedHashMap;
 import java.util.List;
 
-public interface WriteStrategy extends Transaction, Serializable, Closeable {
+public interface WriteStrategy<T> extends Transaction, Serializable, Closeable {
     /**
      * init hadoop conf
      *
@@ -56,11 +57,11 @@ public interface WriteStrategy extends Transaction, Serializable, Closeable {
     void write(SeaTunnelRow seaTunnelRow) throws FileConnectorException;
 
     /**
-     * set seaTunnelRowTypeInfo in writer
+     * set catalog table to write strategy
      *
-     * @param seaTunnelRowType seaTunnelRowType
+     * @param catalogTable catalogTable
      */
-    void setSeaTunnelRowTypeInfo(SeaTunnelRowType seaTunnelRowType);
+    void setCatalogTable(CatalogTable catalogTable);
 
     /**
      * use seaTunnelRow generate partition directory
@@ -69,6 +70,8 @@ public interface WriteStrategy extends Transaction, Serializable, Closeable {
      * @return the map of partition directory
      */
     LinkedHashMap<String, List<String>> generatorPartitionDir(SeaTunnelRow seaTunnelRow);
+
+    T getOrCreateOutputStream(String path) throws IOException;
 
     /**
      * use transaction id generate file name

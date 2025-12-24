@@ -17,7 +17,9 @@
 
 package org.apache.seatunnel.connectors.seatunnel.jdbc.source;
 
+import org.apache.seatunnel.api.table.catalog.PhysicalColumn;
 import org.apache.seatunnel.api.table.catalog.TablePath;
+import org.apache.seatunnel.api.table.catalog.TableSchema;
 import org.apache.seatunnel.api.table.type.BasicType;
 import org.apache.seatunnel.connectors.seatunnel.jdbc.config.JdbcConnectionConfig;
 import org.apache.seatunnel.connectors.seatunnel.jdbc.config.JdbcSourceConfig;
@@ -35,7 +37,7 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
 public class DynamicChunkSplitterTest {
 
     @Test
-    public void testGenerateSplitQuerySQL() {
+    public void testPostgresGenerateSplitQuerySQL() {
         JdbcSourceConfig config =
                 JdbcSourceConfig.builder()
                         .jdbcConnectionConfig(
@@ -44,6 +46,17 @@ public class DynamicChunkSplitterTest {
                                         .driverName("org.postgresql.Driver")
                                         .build())
                         .build();
+        TableSchema tableSchema =
+                TableSchema.builder()
+                        .columns(
+                                Arrays.asList(
+                                        PhysicalColumn.builder()
+                                                .name("id")
+                                                .sourceType("int4")
+                                                .dataType(BasicType.INT_TYPE)
+                                                .build()))
+                        .build();
+
         DynamicChunkSplitter splitter = new DynamicChunkSplitter(config);
 
         JdbcSourceSplit split =
@@ -55,7 +68,7 @@ public class DynamicChunkSplitterTest {
                         BasicType.INT_TYPE,
                         1,
                         10);
-        String splitQuerySQL = splitter.createDynamicSplitQuerySQL(split);
+        String splitQuerySQL = splitter.createDynamicSplitQuerySQL(split, tableSchema);
         Assertions.assertEquals(
                 "SELECT * FROM \"db1\".\"schema1\".\"table1\" WHERE \"id\" >= ? AND NOT (\"id\" = ?) AND \"id\" <= ?",
                 splitQuerySQL);
@@ -69,9 +82,33 @@ public class DynamicChunkSplitterTest {
                         BasicType.INT_TYPE,
                         1,
                         10);
-        splitQuerySQL = splitter.createDynamicSplitQuerySQL(split);
+        splitQuerySQL = splitter.createDynamicSplitQuerySQL(split, tableSchema);
         Assertions.assertEquals(
                 "SELECT * FROM (select * from table1) tmp WHERE \"id\" >= ? AND NOT (\"id\" = ?) AND \"id\" <= ?",
+                splitQuerySQL);
+
+        tableSchema =
+                TableSchema.builder()
+                        .columns(
+                                Arrays.asList(
+                                        PhysicalColumn.builder()
+                                                .name("id")
+                                                .sourceType("uuid")
+                                                .dataType(BasicType.INT_TYPE)
+                                                .build()))
+                        .build();
+        split =
+                new JdbcSourceSplit(
+                        TablePath.of("db1", "schema1", "table1"),
+                        "split1",
+                        "select * from table1",
+                        "id",
+                        BasicType.INT_TYPE,
+                        1,
+                        10);
+        splitQuerySQL = splitter.createDynamicSplitQuerySQL(split, tableSchema);
+        Assertions.assertEquals(
+                "SELECT * FROM (select * from table1) tmp WHERE \"id\"::text >= ? AND NOT (\"id\"::text = ?) AND \"id\"::text <= ?",
                 splitQuerySQL);
     }
 

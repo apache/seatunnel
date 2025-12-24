@@ -69,6 +69,10 @@ public class S3Configuration extends AbstractConfiguration {
         Configuration hadoopConf = new Configuration();
         hadoopConf.set(FS_DEFAULT_NAME_KEY, config.get(S3_BUCKET_KEY));
         hadoopConf.set(formatKey(protocol, HDFS_IMPL_KEY), fsImpl);
+        hadoopConf.setBoolean(
+                String.format(COMMON_DISABLE_CACHE, formatKey(protocol, HDFS_IMPL_KEY)),
+                Boolean.parseBoolean(
+                        config.getOrDefault(DISABLE_CACHE_KEY, DISABLE_CACHE_DEFAULT_VALUE)));
         setExtraConfiguration(hadoopConf, config, FS_KEY + protocol + SPLIT_CHAR);
         return hadoopConf;
     }

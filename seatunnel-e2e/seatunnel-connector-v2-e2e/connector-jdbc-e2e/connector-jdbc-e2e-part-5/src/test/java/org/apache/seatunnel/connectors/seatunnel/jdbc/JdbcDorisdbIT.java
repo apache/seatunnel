@@ -17,6 +17,8 @@
 
 package org.apache.seatunnel.connectors.seatunnel.jdbc;
 
+import org.apache.seatunnel.shade.com.google.common.collect.Lists;
+
 import org.apache.seatunnel.api.table.type.SeaTunnelRow;
 import org.apache.seatunnel.common.utils.ExceptionUtils;
 import org.apache.seatunnel.e2e.common.TestResource;
@@ -36,7 +38,6 @@ import org.testcontainers.containers.output.Slf4jLogConsumer;
 import org.testcontainers.lifecycle.Startables;
 import org.testcontainers.shaded.org.apache.commons.io.IOUtils;
 
-import com.google.common.collect.Lists;
 import lombok.extern.slf4j.Slf4j;
 
 import java.io.IOException;
@@ -66,7 +67,7 @@ import static org.awaitility.Awaitility.given;
 @Slf4j
 @Disabled("Doris docker container is unstable")
 public class JdbcDorisdbIT extends TestSuiteBase implements TestResource {
-    private static final String DOCKER_IMAGE = "taozex/doris:v1.1.1";
+    private static final String DOCKER_IMAGE = "seatunnelhub/doris:v1.1.1";
     private static final String DRIVER_CLASS = "com.mysql.cj.jdbc.Driver";
     private static final String HOST = "doris_e2e";
     private static final int DOCKER_PORT = 9030;
@@ -332,9 +333,9 @@ public class JdbcDorisdbIT extends TestSuiteBase implements TestResource {
     }
 
     private void assertHasData(String table) {
-        try (Statement statement = jdbcConnection.createStatement()) {
-            String sql = String.format("select * from %s.%s limit 1", DATABASE, table);
-            ResultSet source = statement.executeQuery(sql);
+        String sql = String.format("select * from %s.%s limit 1", DATABASE, table);
+        try (Statement statement = jdbcConnection.createStatement();
+                ResultSet source = statement.executeQuery(sql)) {
             Assertions.assertTrue(source.next());
         } catch (Exception e) {
             throw new RuntimeException("Test doris server image error", e);

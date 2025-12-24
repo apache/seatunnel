@@ -23,9 +23,9 @@ import org.apache.seatunnel.shade.com.google.common.collect.Maps;
 import org.apache.seatunnel.shade.com.google.common.collect.Sets;
 import org.apache.seatunnel.shade.com.google.common.primitives.Ints;
 
-import org.apache.seatunnel.api.table.type.SeaTunnelRowType;
+import org.apache.seatunnel.api.table.catalog.TableSchema;
 import org.apache.seatunnel.connectors.seatunnel.iceberg.IcebergTableLoader;
-import org.apache.seatunnel.connectors.seatunnel.iceberg.config.SinkConfig;
+import org.apache.seatunnel.connectors.seatunnel.iceberg.config.IcebergSinkConfig;
 import org.apache.seatunnel.connectors.seatunnel.iceberg.utils.SchemaUtils;
 
 import org.apache.iceberg.FileFormat;
@@ -39,9 +39,6 @@ import org.apache.iceberg.io.TaskWriter;
 import org.apache.iceberg.io.UnpartitionedWriter;
 import org.apache.iceberg.types.TypeUtil;
 import org.apache.iceberg.util.PropertyUtil;
-
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
 
 import lombok.extern.slf4j.Slf4j;
 
@@ -58,16 +55,15 @@ import static org.apache.iceberg.TableProperties.WRITE_TARGET_FILE_SIZE_BYTES_DE
 
 @Slf4j
 public class IcebergWriterFactory {
-    private static final Logger LOG = LoggerFactory.getLogger(IcebergWriterFactory.class);
     private final IcebergTableLoader tableLoader;
-    private final SinkConfig config;
+    private final IcebergSinkConfig config;
 
-    public IcebergWriterFactory(IcebergTableLoader tableLoader, SinkConfig config) {
+    public IcebergWriterFactory(IcebergTableLoader tableLoader, IcebergSinkConfig config) {
         this.tableLoader = tableLoader;
         this.config = config;
     }
 
-    public RecordWriter createWriter(SeaTunnelRowType rowType) {
+    public RecordWriter createWriter(TableSchema tableSchema) {
         Table table;
         try {
             table = tableLoader.loadTable();
@@ -80,7 +76,7 @@ public class IcebergWriterFactory {
                                     tableLoader.getCatalog(),
                                     tableLoader.getTableIdentifier(),
                                     config,
-                                    rowType);
+                                    tableSchema);
                     // Create an empty snapshot for the branch
                     if (config.getCommitBranch() != null) {
                         table.manageSnapshots().createBranch(config.getCommitBranch()).commit();
@@ -93,7 +89,7 @@ public class IcebergWriterFactory {
         return new IcebergRecordWriter(table, this, config);
     }
 
-    public TaskWriter<Record> createTaskWriter(Table table, SinkConfig config) {
+    public TaskWriter<Record> createTaskWriter(Table table, IcebergSinkConfig config) {
         Map<String, String> tableProps = Maps.newHashMap(table.properties());
         tableProps.putAll(config.getWriteProps());
 
@@ -114,7 +110,13 @@ public class IcebergWriterFactory {
         if (!idCols.isEmpty()) {
             identifierFieldIds =
                     idCols.stream()
-                            .map(colName -> table.schema().findField(colName).fieldId())
+                            .map(
+                                    colName ->
+                                            config.isCaseSensitive()
+                                                    ? table.schema()
+                                                            .caseInsensitiveFindField(colName)
+                                                            .fieldId()
+                                                    : table.schema().findField(colName).fieldId())
                             .collect(toSet());
         }
 

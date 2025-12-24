@@ -1,3 +1,5 @@
+import ChangeLog from '../changelog/connector-jdbc.md';
+
 # Phoenix
 
 > Phoenix source connector
@@ -35,7 +37,7 @@ if you use phoenix (thick) driver the value is `jdbc:phoenix:localhost:2182/hbas
 
 ### common options
 
-Source plugin common parameters, please refer to [Source Common Options](common-options.md) for details
+Source plugin common parameters, please refer to [Source Common Options](../source-common-options.md) for details
 
 ## Example
 
@@ -62,7 +64,5 @@ Jdbc {
 
 ## Changelog
 
-### 2.2.0-beta 2022-09-26
-
-- Add Phoenix Source Connector
+<ChangeLog />
 

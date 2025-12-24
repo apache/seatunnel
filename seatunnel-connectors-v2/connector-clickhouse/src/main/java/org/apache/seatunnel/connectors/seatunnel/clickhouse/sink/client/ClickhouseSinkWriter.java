@@ -17,7 +17,11 @@
 
 package org.apache.seatunnel.connectors.seatunnel.clickhouse.sink.client;
 
+import org.apache.seatunnel.shade.com.google.common.base.Strings;
+import org.apache.seatunnel.shade.org.apache.commons.lang3.StringUtils;
+
 import org.apache.seatunnel.api.sink.SinkWriter;
+import org.apache.seatunnel.api.sink.SupportMultiTableSinkWriter;
 import org.apache.seatunnel.api.table.type.SeaTunnelRow;
 import org.apache.seatunnel.common.config.Common;
 import org.apache.seatunnel.common.exception.CommonErrorCodeDeprecated;
@@ -28,12 +32,10 @@ import org.apache.seatunnel.connectors.seatunnel.clickhouse.sink.client.executor
 import org.apache.seatunnel.connectors.seatunnel.clickhouse.sink.client.executor.JdbcBatchStatementExecutorBuilder;
 import org.apache.seatunnel.connectors.seatunnel.clickhouse.state.CKCommitInfo;
 import org.apache.seatunnel.connectors.seatunnel.clickhouse.state.ClickhouseSinkState;
-import org.apache.seatunnel.connectors.seatunnel.clickhouse.tool.IntHolder;
-
-import org.apache.commons.lang3.StringUtils;
+import org.apache.seatunnel.connectors.seatunnel.clickhouse.util.ClickhouseProxy;
+import org.apache.seatunnel.connectors.seatunnel.clickhouse.util.IntHolder;
 
 import com.clickhouse.jdbc.internal.ClickHouseConnectionImpl;
-import com.google.common.base.Strings;
 import lombok.extern.slf4j.Slf4j;
 
 import java.io.IOException;
@@ -47,7 +49,8 @@ import java.util.stream.Stream;
 
 @Slf4j
 public class ClickhouseSinkWriter
-        implements SinkWriter<SeaTunnelRow, CKCommitInfo, ClickhouseSinkState> {
+        implements SinkWriter<SeaTunnelRow, CKCommitInfo, ClickhouseSinkState>,
+                SupportMultiTableSinkWriter<Void> {
 
     private final Context context;
     private final ReaderOption option;
@@ -210,8 +213,9 @@ public class ClickhouseSinkWriter
             return false;
         }
         String configKey = "allow_experimental_lightweight_delete";
-        try (Statement stmt = clickhouseConnection.createStatement()) {
-            ResultSet resultSet = stmt.executeQuery("SHOW SETTINGS ILIKE '%" + configKey + "%'");
+        try (Statement stmt = clickhouseConnection.createStatement();
+                ResultSet resultSet =
+                        stmt.executeQuery("SHOW SETTINGS ILIKE '%" + configKey + "%'")) {
             while (resultSet.next()) {
                 String name = resultSet.getString("name");
                 if (name.equalsIgnoreCase(configKey)) {

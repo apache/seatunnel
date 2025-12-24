@@ -18,6 +18,7 @@
 package org.apache.seatunnel.connectors.seatunnel.jdbc.catalog.oceanbase;
 
 import org.apache.seatunnel.shade.com.google.common.base.Preconditions;
+import org.apache.seatunnel.shade.org.apache.commons.lang3.StringUtils;
 
 import org.apache.seatunnel.api.configuration.ReadonlyConfig;
 import org.apache.seatunnel.api.configuration.util.OptionRule;
@@ -26,10 +27,11 @@ import org.apache.seatunnel.api.table.catalog.Catalog;
 import org.apache.seatunnel.api.table.factory.CatalogFactory;
 import org.apache.seatunnel.api.table.factory.Factory;
 import org.apache.seatunnel.common.utils.JdbcUrlUtil;
-import org.apache.seatunnel.connectors.seatunnel.jdbc.catalog.JdbcCatalogOptions;
+import org.apache.seatunnel.connectors.seatunnel.jdbc.config.JdbcCommonOptions;
 import org.apache.seatunnel.connectors.seatunnel.jdbc.internal.dialect.DatabaseIdentifier;
 
-import org.apache.commons.lang3.StringUtils;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 
 import com.google.auto.service.AutoService;
 
@@ -38,45 +40,51 @@ import java.util.Optional;
 @AutoService(Factory.class)
 public class OceanBaseCatalogFactory implements CatalogFactory {
 
+    private static final Logger log = LoggerFactory.getLogger(OceanBaseCatalogFactory.class);
+
     @Override
     public String factoryIdentifier() {
-        return DatabaseIdentifier.OCENABASE;
+        return DatabaseIdentifier.OCEANBASE;
     }
 
     @Override
     public Catalog createCatalog(String catalogName, ReadonlyConfig options) {
-        String urlWithDatabase = options.get(JdbcCatalogOptions.BASE_URL);
+        String urlWithDatabase = options.get(JdbcCommonOptions.URL);
         Preconditions.checkArgument(
                 StringUtils.isNoneBlank(urlWithDatabase),
-                "Miss config <base-url>! Please check your config.");
+                "Miss config <url>! Please check your config.");
         JdbcUrlUtil.UrlInfo urlInfo = JdbcUrlUtil.getUrlInfo(urlWithDatabase);
         Optional<String> defaultDatabase = urlInfo.getDefaultDatabase();
         if (!defaultDatabase.isPresent()) {
-            throw new OptionValidationException(JdbcCatalogOptions.BASE_URL);
+            throw new OptionValidationException(JdbcCommonOptions.URL);
         }
 
-        String compatibleMode = options.get(JdbcCatalogOptions.COMPATIBLE_MODE);
+        String compatibleMode = options.get(JdbcCommonOptions.COMPATIBLE_MODE);
         Preconditions.checkArgument(
                 StringUtils.isNoneBlank(compatibleMode),
-                "Miss config <compatibleMode>! Please check your config.");
+                "Miss config <compatible_mode>! Please check your config.");
 
         if ("oracle".equalsIgnoreCase(compatibleMode.trim())) {
             return new OceanBaseOracleCatalog(
                     catalogName,
-                    options.get(JdbcCatalogOptions.USERNAME),
-                    options.get(JdbcCatalogOptions.PASSWORD),
+                    options.get(JdbcCommonOptions.USERNAME),
+                    options.get(JdbcCommonOptions.PASSWORD),
                     urlInfo,
-                    options.get(JdbcCatalogOptions.SCHEMA));
+                    options.get(JdbcCommonOptions.SCHEMA),
+                    options.get(JdbcCommonOptions.DRIVER));
         }
         return new OceanBaseMySqlCatalog(
                 catalogName,
-                options.get(JdbcCatalogOptions.USERNAME),
-                options.get(JdbcCatalogOptions.PASSWORD),
-                urlInfo);
+                options.get(JdbcCommonOptions.USERNAME),
+                options.get(JdbcCommonOptions.PASSWORD),
+                urlInfo,
+                options.get(JdbcCommonOptions.DRIVER));
     }
 
     @Override
     public OptionRule optionRule() {
-        return JdbcCatalogOptions.BASE_RULE.required(JdbcCatalogOptions.COMPATIBLE_MODE).build();
+        return JdbcCommonOptions.BASE_CATALOG_RULE
+                .required(JdbcCommonOptions.COMPATIBLE_MODE)
+                .build();
     }
 }

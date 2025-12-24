@@ -27,9 +27,13 @@ public class RestConstant {
 
     public static final String IS_STOP_WITH_SAVE_POINT = "isStopWithSavePoint";
 
+    public static final String CONFIG_FORMAT = "format";
+
     public static final String JOB_STATUS = "jobStatus";
 
     public static final String CREATE_TIME = "createTime";
+
+    public static final String START_TIME = "startTime";
 
     public static final String FINISH_TIME = "finishTime";
 
@@ -44,18 +48,56 @@ public class RestConstant {
     public static final String ERROR_MSG = "errorMsg";
 
     public static final String METRICS = "metrics";
-    public static final String RUNNING_JOBS_URL = "/hazelcast/rest/maps/running-jobs";
-    public static final String RUNNING_JOB_URL = "/hazelcast/rest/maps/running-job";
+    public static final String LIMIT = "limit";
 
-    public static final String FINISHED_JOBS_INFO = "/hazelcast/rest/maps/finished-jobs";
-    public static final String SUBMIT_JOB_URL = "/hazelcast/rest/maps/submit-job";
-    public static final String ENCRYPT_CONFIG = "/hazelcast/rest/maps/encrypt-config";
+    public static final String TABLE_SOURCE_RECEIVED_COUNT = "TableSourceReceivedCount";
+    public static final String TABLE_SINK_WRITE_COUNT = "TableSinkWriteCount";
+    public static final String TABLE_SOURCE_RECEIVED_QPS = "TableSourceReceivedQPS";
+    public static final String TABLE_SINK_WRITE_QPS = "TableSinkWriteQPS";
+    public static final String TABLE_SOURCE_RECEIVED_BYTES = "TableSourceReceivedBytes";
+    public static final String TABLE_SINK_WRITE_BYTES = "TableSinkWriteBytes";
+    public static final String TABLE_SOURCE_RECEIVED_BYTES_PER_SECONDS =
+            "TableSourceReceivedBytesPerSeconds";
+    public static final String TABLE_SINK_WRITE_BYTES_PER_SECONDS = "TableSinkWriteBytesPerSeconds";
+    public static final String TABLE_SINK_COMMITTED_COUNT = "TableSinkCommittedCount";
+    public static final String TABLE_SINK_COMMITTED_QPS = "TableSinkCommittedQPS";
+    public static final String TABLE_SINK_COMMITTED_BYTES = "TableSinkCommittedBytes";
+    public static final String TABLE_SINK_COMMITTED_BYTES_PER_SECONDS =
+            "TableSinkCommittedBytesPerSeconds";
+    public static final String CONTEXT_PATH = "/hazelcast/rest/maps";
+    public static final String INSTANCE_CONTEXT_PATH = "/hazelcast/rest/instance";
 
+    public static final String PRETTY = "pretty";
+
+    // api path start
+    public static final String REST_URL_OVERVIEW = "/overview";
+    public static final String REST_URL_RUNNING_JOBS = "/running-jobs";
+    @Deprecated public static final String REST_URL_RUNNING_JOB = "/running-job";
+    public static final String REST_URL_JOB_INFO = "/job-info";
+    public static final String REST_URL_FINISHED_JOBS = "/finished-jobs";
+    public static final String REST_URL_ENCRYPT_CONFIG = "/encrypt-config";
+    public static final String REST_URL_THREAD_DUMP = "/thread-dump";
     // only for test use
-    public static final String RUNNING_THREADS = "/hazelcast/rest/maps/running-threads";
+    public static final String REST_URL_RUNNING_THREADS = "/running-threads";
+    public static final String REST_URL_SYSTEM_MONITORING_INFORMATION =
+            "/system-monitoring-information";
+    public static final String REST_URL_SUBMIT_JOB = "/submit-job";
 
-    public static final String SYSTEM_MONITORING_INFORMATION =
-            "/hazelcast/rest/maps/system-monitoring-information";
+    public static final String REST_URL_SUBMIT_JOB_BY_UPLOAD_FILE = "/submit-job/upload";
 
-    public static final String STOP_JOB_URL = "/hazelcast/rest/maps/stop-job";
+    public static final String REST_URL_SUBMIT_JOBS = "/submit-jobs";
+    public static final String REST_URL_STOP_JOB = "/stop-job";
+    public static final String REST_URL_STOP_JOBS = "/stop-jobs";
+    public static final String REST_URL_UPDATE_TAGS = "/update-tags";
+    public static final String REST_URL_PENDING_JOBS = "/pending-jobs";
+    // Get All Nodes Log
+    public static final String REST_URL_LOGS = "/logs";
+    // Get Current Node Log
+    public static final String REST_URL_LOG = "/log";
+    // Code internal Use , Get Node Log Name
+    public static final String REST_URL_GET_ALL_LOG_NAME = "/get-all-log-name";
+    public static final String REST_URL_METRICS = "/metrics";
+    public static final String REST_URL_OPEN_METRICS = "/openmetrics";
+    // api path end
+
 }

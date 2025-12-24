@@ -34,6 +34,7 @@ import org.apache.spark.sql.connector.write.streaming.StreamingDataWriterFactory
 import org.apache.spark.sql.connector.write.streaming.StreamingWrite;
 
 import java.io.IOException;
+import java.sql.DriverManager;
 import java.util.Arrays;
 import java.util.Collections;
 import java.util.List;
@@ -43,24 +44,40 @@ import java.util.stream.Collectors;
 public class SeaTunnelBatchWrite<StateT, CommitInfoT, AggregatedCommitInfoT>
         implements BatchWrite, StreamingWrite {
 
+    static {
+        // Load DriverManager first to avoid deadlock between DriverManager's
+        // static initialization block and specific driver class's static
+        // initialization block when two different driver classes are loading
+        // concurrently using Class.forName while DriverManager is uninitialized
+        // before.
+        //
+        // This could happen in JDK 8 but not above as driver loading has been
+        // moved out of DriverManager's static initialization block since JDK 9.
+        DriverManager.getDrivers();
+    }
+
     private final SeaTunnelSink<SeaTunnelRow, StateT, CommitInfoT, AggregatedCommitInfoT> sink;
 
     private final SinkAggregatedCommitter<CommitInfoT, AggregatedCommitInfoT> aggregatedCommitter;
 
     private MultiTableResourceManager resourceManager;
 
-    private final CatalogTable catalogTable;
+    private final CatalogTable[] catalogTables;
 
     private final String jobId;
 
+    private final int parallelism;
+
     public SeaTunnelBatchWrite(
             SeaTunnelSink<SeaTunnelRow, StateT, CommitInfoT, AggregatedCommitInfoT> sink,
-            CatalogTable catalogTable,
-            String jobId)
+            CatalogTable[] catalogTables,
+            String jobId,
+            int parallelism)
             throws IOException {
         this.sink = sink;
-        this.catalogTable = catalogTable;
+        this.catalogTables = catalogTables;
         this.jobId = jobId;
+        this.parallelism = parallelism;
         this.aggregatedCommitter = sink.createAggregatedCommitter().orElse(null);
         if (aggregatedCommitter != null) {
             if (this.aggregatedCommitter instanceof SupportResourceShare) {
@@ -78,7 +95,7 @@ public class SeaTunnelBatchWrite<StateT, CommitInfoT, AggregatedCommitInfoT>
 
     @Override
     public DataWriterFactory createBatchWriterFactory(PhysicalWriteInfo info) {
-        return new SeaTunnelSparkDataWriterFactory<>(sink, catalogTable, jobId);
+        return new SeaTunnelSparkDataWriterFactory<>(sink, catalogTables, jobId, parallelism);
     }
 
     @Override

@@ -17,13 +17,20 @@
 
 package org.apache.seatunnel.e2e.common.container.seatunnel;
 
+import org.apache.seatunnel.shade.com.fasterxml.jackson.core.type.TypeReference;
+import org.apache.seatunnel.shade.com.fasterxml.jackson.databind.ObjectMapper;
+import org.apache.seatunnel.shade.com.fasterxml.jackson.databind.node.ObjectNode;
+
 import org.apache.seatunnel.common.utils.FileUtils;
+import org.apache.seatunnel.common.utils.JsonUtils;
 import org.apache.seatunnel.e2e.common.container.AbstractTestContainer;
 import org.apache.seatunnel.e2e.common.container.ContainerExtendedFactory;
 import org.apache.seatunnel.e2e.common.container.TestContainer;
 import org.apache.seatunnel.e2e.common.container.TestContainerId;
 import org.apache.seatunnel.e2e.common.util.ContainerUtil;
 
+import org.apache.commons.compress.utils.Lists;
+import org.apache.http.HttpStatus;
 import org.apache.http.client.methods.CloseableHttpResponse;
 import org.apache.http.client.methods.HttpGet;
 import org.apache.http.impl.client.CloseableHttpClient;
@@ -32,15 +39,15 @@ import org.apache.http.util.EntityUtils;
 
 import org.awaitility.Awaitility;
 import org.junit.jupiter.api.Assertions;
+import org.testcontainers.containers.BindMode;
 import org.testcontainers.containers.Container;
 import org.testcontainers.containers.GenericContainer;
+import org.testcontainers.containers.Network;
 import org.testcontainers.containers.output.Slf4jLogConsumer;
 import org.testcontainers.containers.wait.strategy.Wait;
 import org.testcontainers.utility.DockerLoggerFactory;
 import org.testcontainers.utility.MountableFile;
 
-import com.fasterxml.jackson.core.type.TypeReference;
-import com.fasterxml.jackson.databind.ObjectMapper;
 import com.google.auto.service.AutoService;
 import groovy.lang.Tuple2;
 import lombok.NoArgsConstructor;
@@ -69,7 +76,7 @@ import static org.apache.seatunnel.e2e.common.util.ContainerUtil.copyAllConnecto
 @AutoService(TestContainer.class)
 public class SeaTunnelContainer extends AbstractTestContainer {
     private static final ObjectMapper OBJECT_MAPPER = new ObjectMapper();
-    protected static final String JDK_DOCKER_IMAGE = "openjdk:8";
+    protected static final String JDK_DOCKER_IMAGE = "seatunnelhub/openjdk:8u342";
     private static final String CLIENT_SHELL = "seatunnel.sh";
     protected static final String SERVER_SHELL = "seatunnel-cluster.sh";
     protected static final String CONNECTOR_CHECK_SHELL = "seatunnel-connector.sh";
@@ -78,26 +85,44 @@ public class SeaTunnelContainer extends AbstractTestContainer {
 
     @Override
     public void startUp() throws Exception {
+        FileUtils.createNewDir(HOST_VOLUME_MOUNT_PATH);
         server = createSeaTunnelServer();
     }
 
+    /**
+     * Start up the seatunnel server with the given network.
+     *
+     * @param NETWORK the network to use
+     */
+    public void startUp(Network NETWORK) throws Exception {
+        server = createSeaTunnelServer(NETWORK);
+    }
+
     private GenericContainer<?> createSeaTunnelServer() throws IOException, InterruptedException {
+        return createSeaTunnelServer(NETWORK);
+    }
+
+    private GenericContainer<?> createSeaTunnelServer(Network NETWORK)
+            throws IOException, InterruptedException {
         GenericContainer<?> server =
                 new GenericContainer<>(getDockerImage())
                         .withNetwork(NETWORK)
                         .withEnv("TZ", "UTC")
-                        .withCommand(
-                                ContainerUtil.adaptPathForWin(
-                                        Paths.get(SEATUNNEL_HOME, "bin", SERVER_SHELL).toString()))
+                        .withCommand(buildStartCommand())
                         .withNetworkAliases("server")
                         .withExposedPorts()
+                        .withFileSystemBind("/tmp", "/opt/hive")
                         .withLogConsumer(
                                 new Slf4jLogConsumer(
                                         DockerLoggerFactory.getLogger(
                                                 "seatunnel-engine:" + JDK_DOCKER_IMAGE)))
-                        .waitingFor(Wait.forListeningPort());
+                        .withFileSystemBind(
+                                HOST_VOLUME_MOUNT_PATH,
+                                CONTAINER_VOLUME_MOUNT_PATH,
+                                BindMode.READ_WRITE)
+                        .waitingFor(Wait.forLogMessage(".*received new worker register:.*", 1));
         copySeaTunnelStarterToContainer(server);
-        server.setPortBindings(Collections.singletonList("5801:5801"));
+        server.setPortBindings(Arrays.asList("5801:5801", "8080:8080"));
         server.withCopyFileToContainer(
                 MountableFile.forHostPath(
                         PROJECT_ROOT_PATH
@@ -113,7 +138,14 @@ public class SeaTunnelContainer extends AbstractTestContainer {
         executeExtraCommands(server);
 
         server.start();
+
         return server;
+    }
+
+    protected String[] buildStartCommand() {
+        return new String[] {
+            ContainerUtil.adaptPathForWin(Paths.get(SEATUNNEL_HOME, "bin", SERVER_SHELL).toString())
+        };
     }
 
     protected GenericContainer<?> createSeaTunnelContainerWithFakeSourceAndInMemorySink(
@@ -131,10 +163,10 @@ public class SeaTunnelContainer extends AbstractTestContainer {
                                 new Slf4jLogConsumer(
                                         DockerLoggerFactory.getLogger(
                                                 "seatunnel-engine:" + JDK_DOCKER_IMAGE)))
-                        .waitingFor(Wait.forListeningPort());
+                        .waitingFor(Wait.forLogMessage(".*received new worker register:.*", 1));
         copySeaTunnelStarterToContainer(server);
-        server.setPortBindings(Collections.singletonList("5801:5801"));
-        server.setExposedPorts(Collections.singletonList(5801));
+        server.setPortBindings(Arrays.asList("5801:5801", "8080:8080"));
+        server.setExposedPorts(Arrays.asList(5801, 8080));
 
         server.withCopyFileToContainer(
                 MountableFile.forHostPath(
@@ -187,8 +219,11 @@ public class SeaTunnelContainer extends AbstractTestContainer {
     @Override
     public void tearDown() throws Exception {
         if (server != null) {
+            // delete the volume
+            server.execInContainer("rm", "-rf", CONTAINER_VOLUME_MOUNT_PATH);
             server.close();
         }
+        FileUtils.deleteFile(HOST_VOLUME_MOUNT_PATH);
     }
 
     @Override
@@ -237,6 +272,11 @@ public class SeaTunnelContainer extends AbstractTestContainer {
     }
 
     @Override
+    protected String getCancelJobCommand() {
+        return "-can";
+    }
+
+    @Override
     protected String getRestoreCommand() {
         return "-r";
     }
@@ -264,13 +304,39 @@ public class SeaTunnelContainer extends AbstractTestContainer {
         return executeCommand(server, command);
     }
 
+    public Container.ExecResult executeBaseCommand(String[] args)
+            throws IOException, InterruptedException {
+        final List<String> command = new ArrayList<>();
+        String binPath = Paths.get(SEATUNNEL_HOME, "bin", getStartShellName()).toString();
+        command.add(adaptPathForWin(binPath));
+        Arrays.stream(args).forEach(arg -> command.add(arg));
+        return executeCommand(server, command);
+    }
+
     @Override
     public Container.ExecResult executeJob(String confFile)
+            throws IOException, InterruptedException {
+        return executeJob(confFile, Lists.newArrayList());
+    }
+
+    @Override
+    public Container.ExecResult executeJob(String confFile, List<String> variables)
+            throws IOException, InterruptedException {
+        return doExecuteJob(confFile, null, variables);
+    }
+
+    @Override
+    public Container.ExecResult executeJob(String confFile, String jobId, String... variables)
+            throws IOException, InterruptedException {
+        return doExecuteJob(confFile, jobId, variables != null ? Arrays.asList(variables) : null);
+    }
+
+    private Container.ExecResult doExecuteJob(String confFile, String jobId, List<String> variables)
             throws IOException, InterruptedException {
         log.info("test in container: {}", identifier());
         List<String> beforeThreads = ContainerUtil.getJVMThreadNames(server);
         runningCount.incrementAndGet();
-        Container.ExecResult result = executeJob(server, confFile);
+        Container.ExecResult result = executeJob(server, confFile, jobId, variables);
         if (runningCount.decrementAndGet() > 0) {
             // only check thread when job all finished.
             return result;
@@ -281,9 +347,9 @@ public class SeaTunnelContainer extends AbstractTestContainer {
             //            classLoaderObjectCheck(1);
             return result;
         } else {
-            // Waiting 10s for release thread
+            // Waiting 120s for release thread
             Awaitility.await()
-                    .atMost(10, TimeUnit.SECONDS)
+                    .atMost(120, TimeUnit.SECONDS)
                     .untilAsserted(
                             () -> {
                                 List<String> threads = ContainerUtil.getJVMThreadNames(server);
@@ -302,7 +368,6 @@ public class SeaTunnelContainer extends AbstractTestContainer {
                                                         .collect(Collectors.joining()));
                             });
         }
-        //        classLoaderObjectCheck(1);
         return result;
     }
 
@@ -337,6 +402,7 @@ public class SeaTunnelContainer extends AbstractTestContainer {
                 || s.startsWith("seatunnel-coordinator-service")
                 || s.startsWith("GC task thread")
                 || s.contains("CompilerThread")
+                || s.startsWith("SeaTunnel-CompletableFuture-Thread-")
                 || s.contains("NioNetworking-closeListenerExecutor")
                 || s.contains("ForkJoinPool.commonPool")
                 || s.contains("DestroyJavaVM")
@@ -352,11 +418,15 @@ public class SeaTunnelContainer extends AbstractTestContainer {
                 || s.contains(
                         "org.apache.hadoop.fs.FileSystem$Statistics$StatisticsDataReferenceCleaner")
                 || s.startsWith("Log4j2-TF-")
+                || s.startsWith("heartbeat") // Add heartbeat threads as system threads
                 || aqsThread.matcher(s).matches()
                 // The renewed background thread of the hdfs client
                 || s.startsWith("LeaseRenewer")
                 // The read of hdfs which has the thread that is all in running status
-                || s.startsWith("org.apache.hadoop.hdfs.PeerCache");
+                || s.startsWith("org.apache.hadoop.hdfs.PeerCache")
+                || s.startsWith("java-sdk-progress-listener-callback-thread")
+                // redis pool evictor daemon thread
+                || s.startsWith("commons-pool-evictor");
     }
 
     private void classLoaderObjectCheck(Integer maxSize) throws IOException, InterruptedException {
@@ -397,7 +467,7 @@ public class SeaTunnelContainer extends AbstractTestContainer {
     }
 
     /** The thread should be recycled but not, we should fix it in the future. */
-    private boolean isIssueWeAlreadyKnow(String threadName) {
+    protected boolean isIssueWeAlreadyKnow(String threadName) {
         // ClickHouse com.clickhouse.client.ClickHouseClientBuilder
         return threadName.startsWith("ClickHouseClientWorker")
                 // InfluxDB okio.AsyncTimeout$Watchdog
@@ -420,7 +490,20 @@ public class SeaTunnelContainer extends AbstractTestContainer {
                 || threadName.startsWith("MaintenanceTimer")
                 || threadName.startsWith("cluster-")
                 // Iceberg
-                || threadName.startsWith("iceberg");
+                || threadName.startsWith("iceberg")
+                // Iceberg S3 Hadoop catalog
+                || threadName.contains("java-sdk-http-connection-reaper")
+                || threadName.contains("Timer for 's3a-file-system' metrics system")
+                || threadName.startsWith("MutableQuantiles-")
+                // JDBC Hana driver
+                || threadName.startsWith("Thread-")
+                // JNA Cleaner
+                || threadName.startsWith("JNA Cleaner")
+                // GRPC client
+                || threadName.startsWith("grpc")
+                // Paimon
+                || threadName.startsWith("AsyncOutputStream")
+                || threadName.startsWith("MANIFEST-READ-THREAD-POOL");
     }
 
     @Override
@@ -430,16 +513,59 @@ public class SeaTunnelContainer extends AbstractTestContainer {
     }
 
     @Override
-    public Container.ExecResult restoreJob(String confFile, String jobId)
+    public Container.ExecResult restoreJob(String confFile, String jobId, String... variables)
             throws IOException, InterruptedException {
         runningCount.incrementAndGet();
-        Container.ExecResult result = restoreJob(server, confFile, jobId);
+        Container.ExecResult result =
+                restoreJob(
+                        server,
+                        confFile,
+                        jobId,
+                        variables != null ? Arrays.asList(variables) : null);
         runningCount.decrementAndGet();
         return result;
     }
 
     @Override
+    public Container.ExecResult cancelJob(String jobId) throws IOException, InterruptedException {
+        return cancelJob(server, jobId);
+    }
+
+    @Override
+    public String getJobStatus(String jobId) {
+        HttpGet get =
+                new HttpGet(
+                        String.format(
+                                "http://%s:%d/job-info/%s",
+                                server.getHost(), server.getMappedPort(8080), jobId));
+        try (CloseableHttpClient client = HttpClients.createDefault()) {
+            CloseableHttpResponse response = client.execute(get);
+            if (response.getStatusLine().getStatusCode() == HttpStatus.SC_OK) {
+                String jobStatus = EntityUtils.toString(response.getEntity());
+                ObjectNode jsonNodes = JsonUtils.parseObject(jobStatus);
+                if (jsonNodes.has("jobStatus")) {
+                    return jsonNodes.get("jobStatus").asText();
+                }
+            }
+        } catch (IOException e) {
+            throw new RuntimeException(e);
+        }
+        return null;
+    }
+
+    @Override
     public String getServerLogs() {
         return server.getLogs();
+    }
+
+    @Override
+    public void copyFileToContainer(String path, String targetPath) {
+        ContainerUtil.copyFileIntoContainers(
+                ContainerUtil.getResourcesFile(path).toPath(), targetPath, server);
+    }
+
+    @Override
+    public void copyAbsolutePathToContainer(String path, String targetPath) {
+        ContainerUtil.copyFileIntoContainers(Paths.get(path), targetPath, server);
     }
 }

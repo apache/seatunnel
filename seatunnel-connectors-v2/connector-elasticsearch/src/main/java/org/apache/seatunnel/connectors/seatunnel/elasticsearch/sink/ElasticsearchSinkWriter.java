@@ -19,13 +19,28 @@ package org.apache.seatunnel.connectors.seatunnel.elasticsearch.sink;
 
 import org.apache.seatunnel.api.configuration.ReadonlyConfig;
 import org.apache.seatunnel.api.sink.SinkWriter;
+import org.apache.seatunnel.api.sink.SupportMultiTableSinkWriter;
+import org.apache.seatunnel.api.sink.SupportSchemaEvolutionSinkWriter;
 import org.apache.seatunnel.api.table.catalog.CatalogTable;
+import org.apache.seatunnel.api.table.catalog.Column;
+import org.apache.seatunnel.api.table.catalog.TableSchema;
+import org.apache.seatunnel.api.table.converter.BasicTypeDefine;
+import org.apache.seatunnel.api.table.schema.event.AlterTableAddColumnEvent;
+import org.apache.seatunnel.api.table.schema.event.AlterTableColumnEvent;
+import org.apache.seatunnel.api.table.schema.event.AlterTableColumnsEvent;
+import org.apache.seatunnel.api.table.schema.event.SchemaChangeEvent;
+import org.apache.seatunnel.api.table.schema.handler.TableSchemaChangeEventDispatcher;
+import org.apache.seatunnel.api.table.schema.handler.TableSchemaChangeEventHandler;
 import org.apache.seatunnel.api.table.type.RowKind;
 import org.apache.seatunnel.api.table.type.SeaTunnelRow;
 import org.apache.seatunnel.common.exception.CommonErrorCodeDeprecated;
 import org.apache.seatunnel.common.utils.RetryUtils;
 import org.apache.seatunnel.common.utils.RetryUtils.RetryMaterial;
+import org.apache.seatunnel.common.utils.SeaTunnelException;
+import org.apache.seatunnel.connectors.seatunnel.elasticsearch.catalog.ElasticSearchTypeConverter;
 import org.apache.seatunnel.connectors.seatunnel.elasticsearch.client.EsRestClient;
+import org.apache.seatunnel.connectors.seatunnel.elasticsearch.client.EsType;
+import org.apache.seatunnel.connectors.seatunnel.elasticsearch.config.ElasticsearchSinkOptions;
 import org.apache.seatunnel.connectors.seatunnel.elasticsearch.dto.BulkResponse;
 import org.apache.seatunnel.connectors.seatunnel.elasticsearch.dto.IndexInfo;
 import org.apache.seatunnel.connectors.seatunnel.elasticsearch.exception.ElasticsearchConnectorErrorCode;
@@ -39,6 +54,7 @@ import lombok.extern.slf4j.Slf4j;
 
 import java.io.IOException;
 import java.util.ArrayList;
+import java.util.Collections;
 import java.util.List;
 import java.util.Optional;
 
@@ -47,38 +63,57 @@ import java.util.Optional;
  */
 @Slf4j
 public class ElasticsearchSinkWriter
-        implements SinkWriter<SeaTunnelRow, ElasticsearchCommitInfo, ElasticsearchSinkState> {
+        implements SinkWriter<SeaTunnelRow, ElasticsearchCommitInfo, ElasticsearchSinkState>,
+                SupportMultiTableSinkWriter<Void>,
+                SupportSchemaEvolutionSinkWriter {
 
-    private final SinkWriter.Context context;
+    private final Context context;
 
     private final int maxBatchSize;
 
-    private final SeaTunnelRowSerializer seaTunnelRowSerializer;
+    private SeaTunnelRowSerializer seaTunnelRowSerializer;
     private final List<String> requestEsList;
     private EsRestClient esRestClient;
     private RetryMaterial retryMaterial;
     private static final long DEFAULT_SLEEP_TIME_MS = 200L;
+    private final IndexInfo indexInfo;
+    private TableSchema tableSchema;
+    private final TableSchemaChangeEventHandler tableSchemaChangeEventHandler;
+    private final ReadonlyConfig config;
 
     public ElasticsearchSinkWriter(
-            SinkWriter.Context context,
+            Context context,
             CatalogTable catalogTable,
             ReadonlyConfig config,
             int maxBatchSize,
             int maxRetryCount) {
         this.context = context;
         this.maxBatchSize = maxBatchSize;
+        this.config = config;
 
-        IndexInfo indexInfo = new IndexInfo(catalogTable.getTableId().getTableName(), config);
+        this.indexInfo =
+                new IndexInfo(catalogTable.getTableId().getTableName().toLowerCase(), config);
         esRestClient = EsRestClient.createInstance(config);
+
+        // Get vectorization fields and dimension from config
+        List<String> vectorizationFields =
+                config.getOptional(ElasticsearchSinkOptions.VECTORIZATION_FIELDS)
+                        .orElse(Collections.emptyList());
+        int vectorDimension = config.get(ElasticsearchSinkOptions.VECTOR_DIMENSIONS);
+
         this.seaTunnelRowSerializer =
                 new ElasticsearchRowSerializer(
                         esRestClient.getClusterInfo(),
                         indexInfo,
-                        catalogTable.getSeaTunnelRowType());
+                        catalogTable.getSeaTunnelRowType(),
+                        vectorizationFields,
+                        vectorDimension);
 
         this.requestEsList = new ArrayList<>(maxBatchSize);
         this.retryMaterial =
                 new RetryMaterial(maxRetryCount, true, exception -> true, DEFAULT_SLEEP_TIME_MS);
+        this.tableSchema = catalogTable.getTableSchema();
+        this.tableSchemaChangeEventHandler = new TableSchemaChangeEventDispatcher();
     }
 
     @Override
@@ -91,6 +126,48 @@ public class ElasticsearchSinkWriter
         requestEsList.add(indexRequestRow);
         if (requestEsList.size() >= maxBatchSize) {
             bulkEsWithRetry(this.esRestClient, this.requestEsList);
+        }
+    }
+
+    @Override
+    public void applySchemaChange(SchemaChangeEvent event) throws IOException {
+        if (event instanceof AlterTableColumnsEvent) {
+            for (AlterTableColumnEvent columnEvent : ((AlterTableColumnsEvent) event).getEvents()) {
+                applySingleSchemaChangeEvent(columnEvent);
+            }
+        } else if (event instanceof AlterTableColumnEvent) {
+            applySingleSchemaChangeEvent(event);
+        } else {
+            throw new UnsupportedOperationException("Unsupported alter table event: " + event);
+        }
+
+        this.tableSchema = tableSchemaChangeEventHandler.reset(tableSchema).apply(event);
+
+        // Get vectorization fields and dimension from config
+        List<String> vectorizationFields =
+                config.getOptional(ElasticsearchSinkOptions.VECTORIZATION_FIELDS)
+                        .orElse(Collections.emptyList());
+        int vectorDimension = config.get(ElasticsearchSinkOptions.VECTOR_DIMENSIONS);
+
+        this.seaTunnelRowSerializer =
+                new ElasticsearchRowSerializer(
+                        esRestClient.getClusterInfo(),
+                        indexInfo,
+                        tableSchema.toPhysicalRowDataType(),
+                        vectorizationFields,
+                        vectorDimension);
+    }
+
+    private void applySingleSchemaChangeEvent(SchemaChangeEvent event) {
+        if (event instanceof AlterTableAddColumnEvent) {
+            AlterTableAddColumnEvent addColumnEvent = (AlterTableAddColumnEvent) event;
+            Column column = addColumnEvent.getColumn();
+            BasicTypeDefine<EsType> reconvert =
+                    ElasticSearchTypeConverter.INSTANCE.reconvert(column);
+            esRestClient.addField(indexInfo.getIndex(), reconvert);
+            log.info("Add column {} to index {}", column.getName(), indexInfo.getIndex());
+        } else {
+            throw new SeaTunnelException("Unsupported schemaChangeEvent : " + event.getEventType());
         }
     }
 
@@ -131,8 +208,11 @@ public class ElasticsearchSinkWriter
     }
 
     @Override
-    public void close() throws IOException {
-        bulkEsWithRetry(this.esRestClient, this.requestEsList);
-        esRestClient.close();
+    public void close() {
+        try {
+            bulkEsWithRetry(this.esRestClient, this.requestEsList);
+        } finally {
+            esRestClient.close();
+        }
     }
 }

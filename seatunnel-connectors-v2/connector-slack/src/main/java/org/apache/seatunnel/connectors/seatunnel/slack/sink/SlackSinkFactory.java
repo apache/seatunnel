@@ -20,7 +20,7 @@ package org.apache.seatunnel.connectors.seatunnel.slack.sink;
 import org.apache.seatunnel.api.configuration.util.OptionRule;
 import org.apache.seatunnel.api.table.factory.Factory;
 import org.apache.seatunnel.api.table.factory.TableSinkFactory;
-import org.apache.seatunnel.connectors.seatunnel.slack.config.SlackConfig;
+import org.apache.seatunnel.connectors.seatunnel.slack.config.SlackSinkOptions;
 
 import com.google.auto.service.AutoService;
 
@@ -35,9 +35,9 @@ public class SlackSinkFactory implements TableSinkFactory {
     public OptionRule optionRule() {
         return OptionRule.builder()
                 .required(
-                        SlackConfig.WEBHOOKS_URL,
-                        SlackConfig.OAUTH_TOKEN,
-                        SlackConfig.SLACK_CHANNEL)
+                        SlackSinkOptions.WEBHOOKS_URL,
+                        SlackSinkOptions.OAUTH_TOKEN,
+                        SlackSinkOptions.SLACK_CHANNEL)
                 .build();
     }
 }

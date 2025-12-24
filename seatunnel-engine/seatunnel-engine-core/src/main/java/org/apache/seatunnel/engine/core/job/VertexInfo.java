@@ -17,6 +17,7 @@
 
 package org.apache.seatunnel.engine.core.job;
 
+import org.apache.seatunnel.api.table.catalog.TablePath;
 import org.apache.seatunnel.common.constants.PluginType;
 
 import lombok.AllArgsConstructor;
@@ -24,6 +25,7 @@ import lombok.Data;
 import lombok.NoArgsConstructor;
 
 import java.io.Serializable;
+import java.util.List;
 
 @Data
 @NoArgsConstructor
@@ -35,4 +37,6 @@ public class VertexInfo implements Serializable {
     private PluginType type;
 
     private String connectorType;
+
+    private List<TablePath> tablePaths;
 }

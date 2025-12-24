@@ -27,8 +27,10 @@
 
     <dependencies>
         <dependency>
-            <groupId>com.hazelcast</groupId>
-            <artifactId>hazelcast</artifactId>
+            <groupId>org.apache.seatunnel</groupId>
+            <artifactId>seatunnel-hazelcast-shade</artifactId>
+            <version>${project.version}</version>
+            <classifier>optional</classifier>
         </dependency>
         <dependency>
             <groupId>org.apache.commons</groupId>
@@ -93,14 +95,14 @@
         </dependency>
 
         <dependency>
-            <groupId>com.hazelcast</groupId>
-            <artifactId>hazelcast</artifactId>
-            <classifier>tests</classifier>
+            <groupId>org.awaitility</groupId>
+            <artifactId>awaitility</artifactId>
             <scope>test</scope>
         </dependency>
         <dependency>
-            <groupId>org.awaitility</groupId>
-            <artifactId>awaitility</artifactId>
+            <groupId>org.junit-pioneer</groupId>
+            <artifactId>junit-pioneer</artifactId>
+            <version>1.9.1</version>
             <scope>test</scope>
         </dependency>
     </dependencies>

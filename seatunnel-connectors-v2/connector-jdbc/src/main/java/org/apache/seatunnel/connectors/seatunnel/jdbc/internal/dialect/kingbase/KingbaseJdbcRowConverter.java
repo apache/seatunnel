@@ -27,6 +27,8 @@ import org.apache.seatunnel.connectors.seatunnel.jdbc.internal.converter.Abstrac
 import org.apache.seatunnel.connectors.seatunnel.jdbc.internal.dialect.DatabaseIdentifier;
 import org.apache.seatunnel.connectors.seatunnel.jdbc.utils.JdbcFieldTypeUtils;
 
+import javax.annotation.Nullable;
+
 import java.math.BigDecimal;
 import java.sql.Date;
 import java.sql.PreparedStatement;
@@ -37,6 +39,7 @@ import java.sql.Timestamp;
 import java.time.LocalDate;
 import java.time.LocalDateTime;
 import java.time.LocalTime;
+import java.time.OffsetDateTime;
 import java.util.Optional;
 
 public class KingbaseJdbcRowConverter extends AbstractJdbcRowConverter {
@@ -119,7 +122,10 @@ public class KingbaseJdbcRowConverter extends AbstractJdbcRowConverter {
 
     @Override
     public PreparedStatement toExternal(
-            TableSchema tableSchema, SeaTunnelRow row, PreparedStatement statement)
+            TableSchema tableSchema,
+            @Nullable TableSchema databaseTableSchema,
+            SeaTunnelRow row,
+            PreparedStatement statement)
             throws SQLException {
         SeaTunnelRowType rowType = tableSchema.toPhysicalRowDataType();
         for (int fieldIndex = 0; fieldIndex < rowType.getTotalFields(); fieldIndex++) {
@@ -169,8 +175,12 @@ public class KingbaseJdbcRowConverter extends AbstractJdbcRowConverter {
                     break;
                 case TIMESTAMP:
                     LocalDateTime localDateTime = (LocalDateTime) row.getField(fieldIndex);
+                    statement.setTimestamp(statementIndex, Timestamp.valueOf(localDateTime));
+                    break;
+                case TIMESTAMP_TZ:
+                    OffsetDateTime offsetDateTime = (OffsetDateTime) row.getField(fieldIndex);
                     statement.setTimestamp(
-                            statementIndex, java.sql.Timestamp.valueOf(localDateTime));
+                            statementIndex, Timestamp.from(offsetDateTime.toInstant()));
                     break;
                 case BYTES:
                     statement.setBytes(statementIndex, (byte[]) row.getField(fieldIndex));

@@ -23,13 +23,16 @@ import org.apache.seatunnel.api.common.metrics.MetricNames;
 import org.apache.seatunnel.api.common.metrics.MetricsContext;
 import org.apache.seatunnel.api.sink.MultiTableResourceManager;
 import org.apache.seatunnel.api.sink.SupportResourceShare;
-import org.apache.seatunnel.api.table.type.SeaTunnelDataType;
+import org.apache.seatunnel.api.sink.SupportSchemaEvolutionSinkWriter;
+import org.apache.seatunnel.api.sink.event.WriterCloseEvent;
+import org.apache.seatunnel.api.table.schema.event.FlushEvent;
+import org.apache.seatunnel.api.table.schema.event.SchemaChangeEvent;
+import org.apache.seatunnel.api.table.schema.exception.SchemaEvolutionErrorCode;
+import org.apache.seatunnel.api.table.schema.exception.SinkWriterSchemaException;
 import org.apache.seatunnel.api.table.type.SeaTunnelRow;
-import org.apache.seatunnel.translation.flink.serialization.FlinkRowConverter;
 
 import org.apache.flink.api.connector.sink.Sink;
 import org.apache.flink.api.connector.sink.SinkWriter;
-import org.apache.flink.types.Row;
 
 import lombok.extern.slf4j.Slf4j;
 
@@ -37,6 +40,7 @@ import java.io.IOException;
 import java.io.InvalidClassException;
 import java.util.Collections;
 import java.util.List;
+import java.util.Map;
 import java.util.Optional;
 import java.util.stream.Collectors;
 
@@ -54,7 +58,8 @@ public class FlinkSinkWriter<InputT, CommT, WriterStateT>
 
     private final org.apache.seatunnel.api.sink.SinkWriter<SeaTunnelRow, CommT, WriterStateT>
             sinkWriter;
-    private final FlinkRowConverter rowSerialization;
+
+    private final org.apache.seatunnel.api.sink.SinkWriter.Context context;
 
     private final Counter sinkWriteCount;
 
@@ -69,11 +74,11 @@ public class FlinkSinkWriter<InputT, CommT, WriterStateT>
     FlinkSinkWriter(
             org.apache.seatunnel.api.sink.SinkWriter<SeaTunnelRow, CommT, WriterStateT> sinkWriter,
             long checkpointId,
-            SeaTunnelDataType<?> dataType,
-            MetricsContext metricsContext) {
+            org.apache.seatunnel.api.sink.SinkWriter.Context context) {
+        this.context = context;
         this.sinkWriter = sinkWriter;
         this.checkpointId = checkpointId;
-        this.rowSerialization = new FlinkRowConverter(dataType);
+        MetricsContext metricsContext = context.getMetricsContext();
         this.sinkWriteCount = metricsContext.counter(MetricNames.SINK_WRITE_COUNT);
         this.sinkWriteBytes = metricsContext.counter(MetricNames.SINK_WRITE_BYTES);
         this.sinkWriterQPS = metricsContext.meter(MetricNames.SINK_WRITE_QPS);
@@ -86,21 +91,77 @@ public class FlinkSinkWriter<InputT, CommT, WriterStateT>
 
     @Override
     public void write(InputT element, SinkWriter.Context context) throws IOException {
-        if (element instanceof Row) {
-            SeaTunnelRow seaTunnelRow = rowSerialization.reconvert((Row) element);
-            sinkWriter.write(seaTunnelRow);
+        if (element == null) {
+            return;
+        }
+        if (element instanceof SeaTunnelRow) {
+            SeaTunnelRow seaTunnelRow = (SeaTunnelRow) element;
+            Map<String, Object> options = seaTunnelRow.getOptions();
+
+            if (options != null && options.containsKey("flush_event")) {
+                FlushEvent flushEvent = (FlushEvent) options.get("flush_event");
+                log.info(
+                        "FlinkSinkWriter detected FlushEvent for table: {}",
+                        flushEvent.tableIdentifier());
+
+                if (sinkWriter instanceof SupportSchemaEvolutionSinkWriter) {
+                    try {
+                        ((SupportSchemaEvolutionSinkWriter) sinkWriter)
+                                .handleFlushEvent(flushEvent);
+                        log.info(
+                                "FlinkSinkWriter handled FlushEvent for table: {}",
+                                flushEvent.tableIdentifier());
+                    } catch (Exception e) {
+                        log.error("Failed to handle flush event", e);
+                        throw new SinkWriterSchemaException(
+                                SchemaEvolutionErrorCode.FLUSH_EVENT_PROCESSING_FAILED,
+                                "Failed to handle flush event in Flink sink writer",
+                                flushEvent.tableIdentifier(),
+                                flushEvent.getJobId(),
+                                e);
+                    }
+                }
+            }
+
+            if (options != null && options.containsKey("schema_change_event")) {
+                SchemaChangeEvent schemaChangeEvent =
+                        (SchemaChangeEvent) options.get("schema_change_event");
+                log.info(
+                        "FlinkSinkWriter detected SchemaChangeEvent for table: {}",
+                        schemaChangeEvent.tableIdentifier());
+
+                if (sinkWriter instanceof SupportSchemaEvolutionSinkWriter) {
+                    try {
+                        ((SupportSchemaEvolutionSinkWriter) sinkWriter)
+                                .applySchemaChange(schemaChangeEvent);
+                        log.info(
+                                "FlinkSinkWriter applied SchemaChangeEvent for table: {}",
+                                schemaChangeEvent.tableIdentifier());
+                    } catch (Exception e) {
+                        log.error("Failed to apply schema change", e);
+                        throw new SinkWriterSchemaException(
+                                SchemaEvolutionErrorCode.SCHEMA_EVENT_PROCESSING_FAILED,
+                                "Failed to apply schema change in Flink sink writer",
+                                schemaChangeEvent.tableIdentifier(),
+                                schemaChangeEvent.getJobId(),
+                                e);
+                    }
+                }
+            }
+
+            sinkWriter.write((SeaTunnelRow) element);
             sinkWriteCount.inc();
-            sinkWriteBytes.inc(seaTunnelRow.getBytesSize());
+            sinkWriteBytes.inc(((SeaTunnelRow) element).getBytesSize());
             sinkWriterQPS.markEvent();
         } else {
             throw new InvalidClassException(
-                    "only support Flink Row at now, the element Class is " + element.getClass());
+                    "only support SeaTunnelRow at now, the element Class is " + element.getClass());
         }
     }
 
     @Override
     public List<CommitWrapper<CommT>> prepareCommit(boolean flush) throws IOException {
-        Optional<CommT> commTOptional = sinkWriter.prepareCommit();
+        Optional<CommT> commTOptional = sinkWriter.prepareCommit(checkpointId);
         return commTOptional
                 .map(CommitWrapper::new)
                 .map(Collections::singletonList)
@@ -120,6 +181,7 @@ public class FlinkSinkWriter<InputT, CommT, WriterStateT>
     @Override
     public void close() throws Exception {
         sinkWriter.close();
+        context.getEventListener().onEvent(new WriterCloseEvent());
         try {
             if (resourceManager != null) {
                 resourceManager.close();

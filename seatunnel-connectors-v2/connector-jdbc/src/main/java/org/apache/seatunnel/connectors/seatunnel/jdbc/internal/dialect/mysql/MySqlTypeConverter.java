@@ -17,6 +17,8 @@
 
 package org.apache.seatunnel.connectors.seatunnel.jdbc.internal.dialect.mysql;
 
+import org.apache.seatunnel.shade.com.google.common.base.Preconditions;
+
 import org.apache.seatunnel.api.table.catalog.Column;
 import org.apache.seatunnel.api.table.catalog.PhysicalColumn;
 import org.apache.seatunnel.api.table.converter.BasicTypeDefine;
@@ -27,10 +29,10 @@ import org.apache.seatunnel.api.table.type.LocalTimeType;
 import org.apache.seatunnel.api.table.type.PrimitiveByteArrayType;
 import org.apache.seatunnel.common.exception.CommonError;
 import org.apache.seatunnel.connectors.seatunnel.common.source.TypeDefineUtils;
+import org.apache.seatunnel.connectors.seatunnel.jdbc.config.JdbcCommonOptions;
 import org.apache.seatunnel.connectors.seatunnel.jdbc.internal.dialect.DatabaseIdentifier;
 
 import com.google.auto.service.AutoService;
-import com.google.common.base.Preconditions;
 import com.mysql.cj.MysqlType;
 import lombok.extern.slf4j.Slf4j;
 
@@ -42,6 +44,7 @@ public class MySqlTypeConverter implements TypeConverter<BasicTypeDefine<MysqlTy
     // ============================data types=====================
     static final String MYSQL_NULL = "NULL";
     static final String MYSQL_BIT = "BIT";
+    static final String MYSQL_BIT_UNSIGNED = "BIT UNSIGNED";
 
     // -------------------------number----------------------------
     static final String MYSQL_TINYINT = "TINYINT";
@@ -72,6 +75,7 @@ public class MySqlTypeConverter implements TypeConverter<BasicTypeDefine<MysqlTy
     static final String MYSQL_LONGTEXT = "LONGTEXT";
     static final String MYSQL_JSON = "JSON";
     static final String MYSQL_ENUM = "ENUM";
+    static final String MYSQL_SET = "SET";
 
     // ------------------------------time-------------------------
     static final String MYSQL_DATE = "DATE";
@@ -79,6 +83,7 @@ public class MySqlTypeConverter implements TypeConverter<BasicTypeDefine<MysqlTy
     public static final String MYSQL_TIME = "TIME";
     public static final String MYSQL_TIMESTAMP = "TIMESTAMP";
     static final String MYSQL_YEAR = "YEAR";
+    static final String MYSQL_YEAR_UNSIGNED = "YEAR UNSIGNED";
 
     // ------------------------------blob-------------------------
     static final String MYSQL_TINYBLOB = "TINYBLOB";
@@ -100,7 +105,24 @@ public class MySqlTypeConverter implements TypeConverter<BasicTypeDefine<MysqlTy
     public static final long POWER_2_24 = (long) Math.pow(2, 24);
     public static final long POWER_2_32 = (long) Math.pow(2, 32);
     public static final long MAX_VARBINARY_LENGTH = POWER_2_16 - 4;
-    public static final MySqlTypeConverter INSTANCE = new MySqlTypeConverter();
+    public static final MySqlTypeConverter DEFAULT_INSTANCE =
+            new MySqlTypeConverter(MySqlVersion.V_5_7);
+
+    private final MySqlVersion version;
+    private final boolean intTypeNarrowing;
+
+    public MySqlTypeConverter() {
+        this(MySqlVersion.V_5_7, JdbcCommonOptions.INT_TYPE_NARROWING.defaultValue());
+    }
+
+    public MySqlTypeConverter(MySqlVersion version) {
+        this(version, JdbcCommonOptions.INT_TYPE_NARROWING.defaultValue());
+    }
+
+    public MySqlTypeConverter(MySqlVersion version, boolean intTypeNarrowing) {
+        this.version = version;
+        this.intTypeNarrowing = intTypeNarrowing;
+    }
 
     @Override
     public String identifier() {
@@ -118,6 +140,10 @@ public class MySqlTypeConverter implements TypeConverter<BasicTypeDefine<MysqlTy
                         .comment(typeDefine.getComment());
 
         String mysqlDataType = typeDefine.getDataType().toUpperCase();
+        if (mysqlDataType.endsWith("ZEROFILL")) {
+            mysqlDataType =
+                    mysqlDataType.substring(0, mysqlDataType.length() - "ZEROFILL".length()).trim();
+        }
         if (typeDefine.isUnsigned() && !(mysqlDataType.endsWith(" UNSIGNED"))) {
             mysqlDataType = mysqlDataType + " UNSIGNED";
         }
@@ -126,9 +152,11 @@ public class MySqlTypeConverter implements TypeConverter<BasicTypeDefine<MysqlTy
                 builder.dataType(BasicType.VOID_TYPE);
                 break;
             case MYSQL_BIT:
-                if (typeDefine.getLength() == null || typeDefine.getLength() <= 0) {
+            case MYSQL_BIT_UNSIGNED:
+                if ((typeDefine.getLength() == null || typeDefine.getLength() <= 0)
+                        && intTypeNarrowing) {
                     builder.dataType(BasicType.BOOLEAN_TYPE);
-                } else if (typeDefine.getLength() == 1) {
+                } else if ((typeDefine.getLength() == 1) && intTypeNarrowing) {
                     builder.dataType(BasicType.BOOLEAN_TYPE);
                 } else {
                     builder.dataType(PrimitiveByteArrayType.INSTANCE);
@@ -139,7 +167,7 @@ public class MySqlTypeConverter implements TypeConverter<BasicTypeDefine<MysqlTy
                 }
                 break;
             case MYSQL_TINYINT:
-                if (typeDefine.getColumnType().equalsIgnoreCase("tinyint(1)")) {
+                if (typeDefine.getColumnType().equalsIgnoreCase("tinyint(1)") && intTypeNarrowing) {
                     builder.dataType(BasicType.BOOLEAN_TYPE);
                 } else {
                     builder.dataType(BasicType.BYTE_TYPE);
@@ -155,6 +183,7 @@ public class MySqlTypeConverter implements TypeConverter<BasicTypeDefine<MysqlTy
             case MYSQL_INT:
             case MYSQL_INTEGER:
             case MYSQL_YEAR:
+            case MYSQL_YEAR_UNSIGNED:
                 builder.dataType(BasicType.INT_TYPE);
                 break;
             case MYSQL_INT_UNSIGNED:
@@ -216,6 +245,7 @@ public class MySqlTypeConverter implements TypeConverter<BasicTypeDefine<MysqlTy
                 builder.scale(decimalUnsignedType.getScale());
                 break;
             case MYSQL_ENUM:
+            case MYSQL_SET:
                 builder.dataType(BasicType.STRING_TYPE);
                 if (typeDefine.getLength() == null || typeDefine.getLength() <= 0) {
                     builder.columnLength(100L);
@@ -462,7 +492,9 @@ public class MySqlTypeConverter implements TypeConverter<BasicTypeDefine<MysqlTy
             case TIME:
                 builder.nativeType(MysqlType.TIME);
                 builder.dataType(MYSQL_TIME);
-                if (column.getScale() != null && column.getScale() > 0) {
+                if (version.isAtOrBefore(MySqlVersion.V_5_5)) {
+                    builder.columnType(MYSQL_TIME);
+                } else if (column.getScale() != null && column.getScale() > 0) {
                     int timeScale = column.getScale();
                     if (timeScale > MAX_TIME_SCALE) {
                         timeScale = MAX_TIME_SCALE;
@@ -484,7 +516,9 @@ public class MySqlTypeConverter implements TypeConverter<BasicTypeDefine<MysqlTy
             case TIMESTAMP:
                 builder.nativeType(MysqlType.DATETIME);
                 builder.dataType(MYSQL_DATETIME);
-                if (column.getScale() != null && column.getScale() > 0) {
+                if (version.isAtOrBefore(MySqlVersion.V_5_5)) {
+                    builder.columnType(MYSQL_DATETIME);
+                } else if (column.getScale() != null && column.getScale() > 0) {
                     int timestampScale = column.getScale();
                     if (timestampScale > MAX_TIMESTAMP_SCALE) {
                         timestampScale = MAX_TIMESTAMP_SCALE;

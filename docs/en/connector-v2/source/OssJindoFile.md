@@ -1,3 +1,5 @@
+import ChangeLog from '../changelog/connector-file-oss-jindo.md';
+
 # OssJindoFile
 
 > OssJindo file source connector
@@ -12,9 +14,13 @@
 
 - [x] [batch](../../concept/connector-v2-features.md)
 - [ ] [stream](../../concept/connector-v2-features.md)
+- [x] [multimodal](../../concept/connector-v2-features.md#multimodal)
+
+  Use binary file format to read and write files in any format, such as videos, pictures, etc. In short, any files can be synchronized to the target place.
+
 - [x] [exactly-once](../../concept/connector-v2-features.md)
 
-Read all the data in a split in a pollNext call. What splits are read will be saved in snapshot.
+  Read all the data in a split in a pollNext call. What splits are read will be saved in snapshot.
 
 - [ ] [column projection](../../concept/connector-v2-features.md)
 - [x] [parallelism](../../concept/connector-v2-features.md)
@@ -27,6 +33,8 @@ Read all the data in a split in a pollNext call. What splits are read will be sa
   - [x] json
   - [x] excel
   - [x] xml
+  - [x] binary
+  - [x] markdown
 
 ## Description
 
@@ -48,29 +56,35 @@ It only supports hadoop version **2.9.X+**.
 
 ## Options
 
-|           name            |  type   | required |    default value    |
-|---------------------------|---------|----------|---------------------|
-| path                      | string  | yes      | -                   |
-| file_format_type          | string  | yes      | -                   |
-| bucket                    | string  | yes      | -                   |
-| access_key                | string  | yes      | -                   |
-| access_secret             | string  | yes      | -                   |
-| endpoint                  | string  | yes      | -                   |
-| read_columns              | list    | no       | -                   |
-| delimiter/field_delimiter | string  | no       | \001                |
-| parse_partition_from_path | boolean | no       | true                |
-| date_format               | string  | no       | yyyy-MM-dd          |
-| datetime_format           | string  | no       | yyyy-MM-dd HH:mm:ss |
-| time_format               | string  | no       | HH:mm:ss            |
-| skip_header_row_number    | long    | no       | 0                   |
-| schema                    | config  | no       | -                   |
-| sheet_name                | string  | no       | -                   |
-| xml_row_tag               | string  | no       | -                   |
-| xml_use_attr_format       | boolean | no       | -                   |
-| file_filter_pattern       | string  | no       | -                   |
-| compress_codec            | string  | no       | none                |
-| encoding                  | string  | no       | UTF-8               |
-| common-options            |         | no       | -                   |
+| name                       | type    | required | default value               |
+|----------------------------|---------|----------|-----------------------------|
+| path                       | string  | yes      | -                           |
+| file_format_type           | string  | yes      | -                           |
+| bucket                     | string  | yes      | -                           |
+| access_key                 | string  | yes      | -                           |
+| access_secret              | string  | yes      | -                           |
+| endpoint                   | string  | yes      | -                           |
+| read_columns               | list    | no       | -                           |
+| delimiter/field_delimiter  | string  | no       | \001 for text and , for csv |
+| row_delimiter              | string  | no       | \n                          |
+| parse_partition_from_path  | boolean | no       | true                        |
+| date_format                | string  | no       | yyyy-MM-dd                  |
+| datetime_format            | string  | no       | yyyy-MM-dd HH:mm:ss         |
+| time_format                | string  | no       | HH:mm:ss                    |
+| skip_header_row_number     | long    | no       | 0                           |
+| schema                     | config  | no       | -                           |
+| sheet_name                 | string  | no       | -                           |
+| xml_row_tag                | string  | no       | -                           |
+| xml_use_attr_format        | boolean | no       | -                           |
+| csv_use_header_line        | boolean | no       | false                       |
+| file_filter_pattern        | string  | no       |                             |
+| compress_codec             | string  | no       | none                        |
+| archive_compress_codec     | string  | no       | none                        |
+| encoding                   | string  | no       | UTF-8                       |
+| null_format                | string  | no       | -                           |
+| common-options             |         | no       | -                           |
+| file_filter_modified_start | string  | no       | -                           | 
+| file_filter_modified_end   | string  | no       | -                           | 
 
 ### path [string]
 
@@ -80,7 +94,7 @@ The source file path.
 
 File type, supported as the following file types:
 
-`text` `csv` `parquet` `orc` `json` `excel` `xml`
+`text` `csv` `parquet` `orc` `json` `excel` `xml` `binary` `markdown`
 
 If you assign file type to `json`, you should also assign schema option to tell connector how to parse data to the row you want.
 
@@ -164,6 +178,25 @@ connector will generate data as the following:
 |---------------|-----|--------|
 | tyrantlucifer | 26  | male   |
 
+If you assign file type to `binary`, SeaTunnel can synchronize files in any format,
+such as compressed packages, pictures, etc. In short, any files can be synchronized to the target place.
+Under this requirement, you need to ensure that the source and sink use `binary` format for file synchronization
+at the same time. You can find the specific usage in the example below.
+
+If you assign file type to `markdown`, SeaTunnel can parse markdown files and extract structured data.
+The markdown parser extracts various elements including headings, paragraphs, lists, code blocks, tables, and more.
+Each element is converted to a row with the following schema:
+- `element_id`: Unique identifier for the element
+- `element_type`: Type of the element (Heading, Paragraph, ListItem, etc.)
+- `heading_level`: Level of heading (1-6, null for non-heading elements)
+- `text`: Text content of the element
+- `page_number`: Page number (default: 1)
+- `position_index`: Position index within the document
+- `parent_id`: ID of the parent element
+- `child_ids`: Comma-separated list of child element IDs
+
+Note: Markdown format only supports reading, not writing.
+
 ### bucket [string]
 
 The bucket address of oss file system, for example: `oss://tyrantlucifer-image-bed`
@@ -193,6 +226,14 @@ Only need to be configured when file_format is text.
 Field delimiter, used to tell connector how to slice and dice fields.
 
 default `\001`, the same as hive's default delimiter
+
+### row_delimiter [string]
+
+Only need to be configured when file_format is text
+
+Row delimiter, used to tell connector how to slice and dice rows
+
+default `\n`
 
 ### parse_partition_from_path [boolean]
 
@@ -258,7 +299,60 @@ Reader the sheet of the workbook.
 
 ### file_filter_pattern [string]
 
-Filter pattern, which used for filtering files.
+Filter pattern, which used for filtering files.  If you only want to filter based on file names, simply write the regular file names; If you want to filter based on the file directory at the same time, the expression needs to start with `path`.
+
+The pattern follows standard regular expressions. For details, please refer to https://en.wikipedia.org/wiki/Regular_expression.
+There are some examples.
+
+File Structure Example:
+```
+/data/seatunnel/20241001/report.txt
+/data/seatunnel/20241007/abch202410.csv
+/data/seatunnel/20241002/abcg202410.csv
+/data/seatunnel/20241005/old_data.csv
+/data/seatunnel/20241012/logo.png
+```
+Matching Rules Example:
+
+**Example 1**: *Match all .txt files*，Regular Expression:
+```
+.*.txt
+```
+The result of this example matching is:
+```
+/data/seatunnel/20241001/report.txt
+```
+**Example 2**: *Match all file starting with abc*，Regular Expression:
+```
+abc.*
+```
+The result of this example matching is:
+```
+/data/seatunnel/20241007/abch202410.csv
+/data/seatunnel/20241002/abcg202410.csv
+```
+**Example 3**: *Match all files starting with abc in folder 20241007，And the fourth character is either h or g*, the Regular Expression:
+```
+/data/seatunnel/20241007/abc[h,g].*
+```
+The result of this example matching is:
+```
+/data/seatunnel/20241007/abch202410.csv
+```
+**Example 4**: *Match third level folders starting with 202410 and files ending with .csv*, the Regular Expression:
+```
+/data/seatunnel/202410\d*/.*.csv
+```
+The result of this example matching is:
+```
+/data/seatunnel/20241007/abch202410.csv
+/data/seatunnel/20241002/abcg202410.csv
+/data/seatunnel/20241005/old_data.csv
+```
+
+### filename_extension [string]
+
+Filter filename extension, which used for filtering files with specific extension. Example: `csv` `.txt` `json` `.xml`.
 
 ### compress_codec [string]
 
@@ -270,14 +364,43 @@ The compress codec of files and the details that supported as the following show
 - orc/parquet:  
   automatically recognizes the compression type, no additional settings required.
 
+### archive_compress_codec [string]
+
+The compress codec of archive files and the details that supported as the following shown:
+
+| archive_compress_codec | file_format        | archive_compress_suffix |
+|------------------------|--------------------|-------------------------|
+| ZIP                    | txt,json,excel,xml | .zip                    |
+| TAR                    | txt,json,excel,xml | .tar                    |
+| TAR_GZ                 | txt,json,excel,xml | .tar.gz                 |
+| GZ                     | txt,json,excel,xml | .gz                     |
+| NONE                   | all                | .*                      |
+
+Note: gz compressed excel file needs to compress the original file or specify the file suffix, such as e2e.xls ->e2e_test.xls.gz
+
 ### encoding [string]
 
 Only used when file_format_type is json,text,csv,xml.
 The encoding of the file to read. This param will be parsed by `Charset.forName(encoding)`.
 
+### null_format [string]
+
+Only used when file_format_type is text.
+null_format to define which strings can be represented as null.
+
+e.g: `\N`
+
+### file_filter_modified_start [string]
+
+File modification time filter. The connector will filter some files base on the last modification start time (include start time). The default data format is `yyyy-MM-dd HH:mm:ss`.
+
+### file_filter_modified_end [string]
+
+File modification time filter. The connector will filter some files base on the last modification end time (not include end time). The default data format is `yyyy-MM-dd HH:mm:ss`.
+
 ### common options
 
-Source plugin common parameters, please refer to [Source Common Options](common-options.md) for details.
+Source plugin common parameters, please refer to [Source Common Options](../source-common-options.md) for details.
 
 ## Example
 
@@ -313,9 +436,66 @@ OssJindoFile {
 
 ```
 
+### Transfer Binary File
+
+```hocon
+
+env {
+  parallelism = 1
+  job.mode = "BATCH"
+}
+
+source {
+  OssJindoFile {
+    bucket = "oss://tyrantlucifer-image-bed"
+    access_key = "xxxxxxxxxxxxxxxxx"
+    access_secret = "xxxxxxxxxxxxxxxxxxxxxx"
+    endpoint = "oss-cn-beijing.aliyuncs.com"
+    path = "/seatunnel/read/binary/"
+    file_format_type = "binary"
+  }
+}
+sink {
+  // you can transfer local file to s3/hdfs/oss etc.
+  OssJindoFile {
+    bucket = "oss://tyrantlucifer-image-bed"
+    access_key = "xxxxxxxxxxxxxxxxx"
+    access_secret = "xxxxxxxxxxxxxxxxxxxxxx"
+    endpoint = "oss-cn-beijing.aliyuncs.com"
+    path = "/seatunnel/read/binary2/"
+    file_format_type = "binary"
+  }
+}
+
+```
+
+### Filter File
+
+```hocon
+env {
+  parallelism = 1
+  job.mode = "BATCH"
+}
+
+source {
+  OssJindoFile {
+    bucket = "oss://tyrantlucifer-image-bed"
+    access_key = "xxxxxxxxxxxxxxxxx"
+    access_secret = "xxxxxxxxxxxxxxxxxxxxxx"
+    endpoint = "oss-cn-beijing.aliyuncs.com"
+    path = "/seatunnel/read/binary/"
+    file_format_type = "binary"
+    // file example abcD2024.csv
+    file_filter_pattern = "abc[DX]*.*"
+  }
+}
+
+sink {
+  Console {
+  }
+}
+```
+
 ## Changelog
 
-### next version
-
-- Add OSS Jindo File Source Connector
-
+<ChangeLog />

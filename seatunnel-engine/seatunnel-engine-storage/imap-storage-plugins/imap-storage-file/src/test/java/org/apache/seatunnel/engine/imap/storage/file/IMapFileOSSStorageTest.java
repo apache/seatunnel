@@ -68,9 +68,6 @@ public class IMapFileOSSStorageTest {
         CONF.set("fs.oss.accessKeyId", OSS_ACCESS_KEY_ID);
         CONF.set("fs.oss.accessKeySecret", OSS_ACCESS_KEY_SECRET);
         CONF.set("fs.oss.impl", "org.apache.hadoop.fs.aliyun.oss.AliyunOSSFileSystem");
-        CONF.set(
-                "fs.oss.credentials.provider",
-                "org.apache.hadoop.fs.aliyun.oss.AliyunCredentialsProvider");
 
         STORAGE = new IMapFileStorage();
         Map<String, Object> properties = new HashMap<>();
@@ -81,9 +78,6 @@ public class IMapFileOSSStorageTest {
         properties.put("fs.oss.accessKeyId", OSS_ACCESS_KEY_ID);
         properties.put("fs.oss.accessKeySecret", OSS_ACCESS_KEY_SECRET);
         properties.put("fs.oss.impl", "org.apache.hadoop.fs.aliyun.oss.AliyunOSSFileSystem");
-        properties.put(
-                "fs.oss.credentials.provider",
-                "org.apache.hadoop.fs.aliyun.oss.AliyunCredentialsProvider");
         properties.put(FileConstants.FileInitProperties.BUSINESS_KEY, BUSINESS);
         properties.put(FileConstants.FileInitProperties.NAMESPACE_KEY, NAMESPACE);
         properties.put(FileConstants.FileInitProperties.CLUSTER_NAME, CLUSTER_NAME);

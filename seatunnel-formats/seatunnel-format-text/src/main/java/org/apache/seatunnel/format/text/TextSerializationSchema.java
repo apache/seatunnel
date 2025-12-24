@@ -19,7 +19,6 @@ package org.apache.seatunnel.format.text;
 
 import org.apache.seatunnel.api.serialization.SerializationSchema;
 import org.apache.seatunnel.api.table.type.ArrayType;
-import org.apache.seatunnel.api.table.type.BasicType;
 import org.apache.seatunnel.api.table.type.MapType;
 import org.apache.seatunnel.api.table.type.SeaTunnelDataType;
 import org.apache.seatunnel.api.table.type.SeaTunnelRow;
@@ -49,6 +48,7 @@ public class TextSerializationSchema implements SerializationSchema {
     private final DateTimeUtils.Formatter dateTimeFormatter;
     private final TimeUtils.Formatter timeFormatter;
     private final Charset charset;
+    private final String nullValue;
 
     private TextSerializationSchema(
             @NonNull SeaTunnelRowType seaTunnelRowType,
@@ -56,13 +56,15 @@ public class TextSerializationSchema implements SerializationSchema {
             DateUtils.Formatter dateFormatter,
             DateTimeUtils.Formatter dateTimeFormatter,
             TimeUtils.Formatter timeFormatter,
-            Charset charset) {
+            Charset charset,
+            String nullValue) {
         this.seaTunnelRowType = seaTunnelRowType;
         this.separators = separators;
         this.dateFormatter = dateFormatter;
         this.dateTimeFormatter = dateTimeFormatter;
         this.timeFormatter = timeFormatter;
         this.charset = charset;
+        this.nullValue = nullValue;
     }
 
     public static Builder builder() {
@@ -77,6 +79,7 @@ public class TextSerializationSchema implements SerializationSchema {
                 DateTimeUtils.Formatter.YYYY_MM_DD_HH_MM_SS;
         private TimeUtils.Formatter timeFormatter = TimeUtils.Formatter.HH_MM_SS;
         private Charset charset = StandardCharsets.UTF_8;
+        private String nullValue = "";
 
         private Builder() {}
 
@@ -115,6 +118,11 @@ public class TextSerializationSchema implements SerializationSchema {
             return this;
         }
 
+        public Builder nullValue(String nullValue) {
+            this.nullValue = nullValue;
+            return this;
+        }
+
         public TextSerializationSchema build() {
             return new TextSerializationSchema(
                     seaTunnelRowType,
@@ -122,7 +130,8 @@ public class TextSerializationSchema implements SerializationSchema {
                     dateFormatter,
                     dateTimeFormatter,
                     timeFormatter,
-                    charset);
+                    charset,
+                    nullValue);
         }
     }
 
@@ -142,7 +151,7 @@ public class TextSerializationSchema implements SerializationSchema {
 
     private String convert(Object field, SeaTunnelDataType<?> fieldType, int level) {
         if (field == null) {
-            return "";
+            return nullValue;
         }
         switch (fieldType.getSqlType()) {
             case DOUBLE:
@@ -168,7 +177,7 @@ public class TextSerializationSchema implements SerializationSchema {
             case BYTES:
                 return new String((byte[]) field, StandardCharsets.UTF_8);
             case ARRAY:
-                BasicType<?> elementType = ((ArrayType<?, ?>) fieldType).getElementType();
+                SeaTunnelDataType<?> elementType = ((ArrayType<?, ?>) fieldType).getElementType();
                 return Arrays.stream((Object[]) field)
                         .map(f -> convert(f, elementType, level + 1))
                         .collect(Collectors.joining(separators[level + 1]));

@@ -77,9 +77,9 @@ class ReadonlyConfigParserTest extends BaseConfigParserTest {
                 constraintKey.getColumnNames().get(0).getSortType());
     }
 
-    private void assertColumn(TableSchema tableSchema, boolean checkDefaultValue) {
+    private void assertColumn(TableSchema tableSchema, boolean comeFromColumnConfig) {
         List<Column> columns = tableSchema.getColumns();
-        Assertions.assertEquals(19, columns.size());
+        Assertions.assertEquals(20, columns.size());
 
         Assertions.assertEquals("id", columns.get(0).getName());
 
@@ -109,12 +109,22 @@ class ReadonlyConfigParserTest extends BaseConfigParserTest {
         SeaTunnelRowType seatunnalRowType1 = (SeaTunnelRowType) seaTunnelRowType.getFieldType(17);
         Assertions.assertEquals(17, seatunnalRowType1.getTotalFields());
 
-        if (checkDefaultValue) {
+        Assertions.assertEquals("source", columns.get(19).getName());
+        Assertions.assertEquals(SqlType.ROW, columns.get(19).getDataType().getSqlType());
+
+        SeaTunnelRowType seaTunnelRowType2 = (SeaTunnelRowType) columns.get(19).getDataType();
+        Assertions.assertEquals(3, seaTunnelRowType2.getTotalFields());
+
+        Assertions.assertEquals("source", seaTunnelRowType2.getFieldName(2));
+        Assertions.assertEquals(SqlType.ROW, seaTunnelRowType2.getFieldType(2).getSqlType());
+
+        if (comeFromColumnConfig) {
             Assertions.assertEquals(0, columns.get(0).getDefaultValue());
             Assertions.assertEquals("I'm default value", columns.get(4).getDefaultValue());
             Assertions.assertEquals(false, columns.get(5).getDefaultValue());
             Assertions.assertEquals(1.1, columns.get(10).getDefaultValue());
             Assertions.assertEquals("2020-01-01", columns.get(15).getDefaultValue());
+            Assertions.assertEquals(4294967295L, columns.get(4).getColumnLength());
         }
     }
 }

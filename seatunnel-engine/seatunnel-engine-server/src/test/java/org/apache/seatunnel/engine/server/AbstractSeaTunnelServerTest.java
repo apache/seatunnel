@@ -18,8 +18,16 @@
 package org.apache.seatunnel.engine.server;
 
 import org.apache.seatunnel.common.utils.ExceptionUtils;
+import org.apache.seatunnel.common.utils.FileUtils;
 import org.apache.seatunnel.engine.common.config.ConfigProvider;
 import org.apache.seatunnel.engine.common.config.SeaTunnelConfig;
+import org.apache.seatunnel.engine.common.runtime.ExecutionMode;
+import org.apache.seatunnel.engine.common.utils.PassiveCompletableFuture;
+import org.apache.seatunnel.engine.core.dag.logical.LogicalDag;
+import org.apache.seatunnel.engine.core.job.JobImmutableInformation;
+
+import org.apache.logging.log4j.LogManager;
+import org.apache.logging.log4j.core.LoggerContext;
 
 import org.junit.jupiter.api.AfterAll;
 import org.junit.jupiter.api.BeforeAll;
@@ -27,9 +35,14 @@ import org.junit.jupiter.api.TestInstance;
 
 import com.hazelcast.config.Config;
 import com.hazelcast.instance.impl.HazelcastInstanceImpl;
+import com.hazelcast.internal.serialization.Data;
 import com.hazelcast.logging.ILogger;
 import com.hazelcast.spi.impl.NodeEngine;
 import lombok.extern.slf4j.Slf4j;
+
+import java.nio.file.Path;
+import java.nio.file.Paths;
+import java.util.Collections;
 
 @Slf4j
 @TestInstance(TestInstance.Lifecycle.PER_CLASS)
@@ -46,41 +59,69 @@ public abstract class AbstractSeaTunnelServerTest<T extends AbstractSeaTunnelSer
     @BeforeAll
     public void before() {
         String name = ((T) this).getClass().getName();
-        String yaml =
-                "hazelcast:\n"
-                        + "  cluster-name: seatunnel\n"
-                        + "  network:\n"
-                        + "    rest-api:\n"
-                        + "      enabled: true\n"
-                        + "      endpoint-groups:\n"
-                        + "        CLUSTER_WRITE:\n"
-                        + "          enabled: true\n"
-                        + "    join:\n"
-                        + "      tcp-ip:\n"
-                        + "        enabled: true\n"
-                        + "        member-list:\n"
-                        + "          - localhost\n"
-                        + "    port:\n"
-                        + "      auto-increment: true\n"
-                        + "      port-count: 100\n"
-                        + "      port: 5801\n"
-                        + "\n"
-                        + "  properties:\n"
-                        + "    hazelcast.invocation.max.retry.count: 200\n"
-                        + "    hazelcast.tcp.join.port.try.count: 30\n"
-                        + "    hazelcast.invocation.retry.pause.millis: 2000\n"
-                        + "    hazelcast.slow.operation.detector.stacktrace.logging.enabled: true\n"
-                        + "    hazelcast.logging.type: log4j2\n"
-                        + "    hazelcast.operation.generic.thread.count: 200\n";
-        Config hazelcastConfig = Config.loadFromString(yaml);
+        Config hazelcastConfig = Config.loadFromString(getHazelcastConfig());
         hazelcastConfig.setClusterName(
                 TestUtils.getClusterName("AbstractSeaTunnelServerTest_" + name));
-        SeaTunnelConfig seaTunnelConfig = ConfigProvider.locateAndGetSeaTunnelConfig();
+        SeaTunnelConfig seaTunnelConfig = loadSeaTunnelConfig();
         seaTunnelConfig.setHazelcastConfig(hazelcastConfig);
+        seaTunnelConfig.getEngineConfig().setMode(ExecutionMode.LOCAL);
         instance = SeaTunnelServerStarter.createHazelcastInstance(seaTunnelConfig);
         nodeEngine = instance.node.nodeEngine;
         server = nodeEngine.getService(SeaTunnelServer.SERVICE_NAME);
         LOGGER = nodeEngine.getLogger(AbstractSeaTunnelServerTest.class);
+    }
+
+    protected String getHazelcastConfig() {
+        return "hazelcast:\n"
+                + "  cluster-name: seatunnel\n"
+                + "  network:\n"
+                + "    rest-api:\n"
+                + "      enabled: true\n"
+                + "      endpoint-groups:\n"
+                + "        CLUSTER_WRITE:\n"
+                + "          enabled: true\n"
+                + "    join:\n"
+                + "      tcp-ip:\n"
+                + "        enabled: true\n"
+                + "        member-list:\n"
+                + "          - localhost\n"
+                + "    port:\n"
+                + "      auto-increment: true\n"
+                + "      port-count: 100\n"
+                + "      port: 5801\n"
+                + "\n"
+                + "  properties:\n"
+                + "    hazelcast.invocation.max.retry.count: 200\n"
+                + "    hazelcast.tcp.join.port.try.count: 30\n"
+                + "    hazelcast.invocation.retry.pause.millis: 2000\n"
+                + "    hazelcast.slow.operation.detector.stacktrace.logging.enabled: true\n"
+                + "    hazelcast.logging.type: log4j2\n"
+                + "    hazelcast.operation.generic.thread.count: 200\n";
+    }
+
+    public SeaTunnelConfig loadSeaTunnelConfig() {
+        return ConfigProvider.locateAndGetSeaTunnelConfig();
+    }
+
+    protected void startJob(Long jobId, String path, boolean isStartWithSavePoint) {
+        LogicalDag testLogicalDag = TestUtils.createTestLogicalPlan(path, jobId.toString(), jobId);
+
+        JobImmutableInformation jobImmutableInformation =
+                new JobImmutableInformation(
+                        jobId,
+                        "Test",
+                        isStartWithSavePoint,
+                        nodeEngine.getSerializationService(),
+                        testLogicalDag,
+                        Collections.emptyList(),
+                        Collections.emptyList());
+
+        Data data = nodeEngine.getSerializationService().toData(jobImmutableInformation);
+
+        PassiveCompletableFuture<Void> voidPassiveCompletableFuture =
+                server.getCoordinatorService()
+                        .submitJob(jobId, data, jobImmutableInformation.isStartWithSavePoint());
+        voidPassiveCompletableFuture.join();
     }
 
     @AfterAll
@@ -93,6 +134,12 @@ public abstract class AbstractSeaTunnelServerTest<T extends AbstractSeaTunnelSer
             if (instance != null) {
                 instance.shutdown();
             }
+
+            // Manually release log4j2 context references, otherwise deleting log files will fail
+            LoggerContext context = (LoggerContext) LogManager.getContext(false);
+            context.close();
+            Path logPath = Paths.get("logs");
+            FileUtils.deleteFile(logPath.toString());
         } catch (Exception e) {
             log.error(ExceptionUtils.getMessage(e));
         }

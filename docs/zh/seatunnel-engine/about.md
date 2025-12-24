@@ -1,11 +1,10 @@
 ---
-
 sidebar_position: 1
--------------------
+---
 
-# SeaTunnel Engine
+# SeaTunnel Engine 简介
 
-SeaTunnel Engine 是一个由社区开发的用于数据同步场景的引擎，作为 SeaTunnel 的默认引擎，它支持高吞吐量、低延迟和强一致性的数据同步作业操作，更快、更稳定、更节省资源且易于使用
+SeaTunnel Engine 是一个由社区开发的用于数据同步场景的引擎，作为 SeaTunnel 的默认引擎，它支持高吞吐量、低延迟和强一致性的数据同步作业操作，更快、更稳定、更节省资源且易于使用。
 
 SeaTunnel Engine 的整体设计遵循以下路径：
 
@@ -20,7 +19,7 @@ SeaTunnel Engine 的整体设计遵循以下路径：
 
 - 支持独立运行；
 - 支持集群运行；
-- 支持自治集群（去中心化），使用户无需为 SeaTunnel Engine 集群指定主节点，因为它可以在运行过程中自行选择主节点，并且在主节点失败时自动选择新的主节点。
+- 支持自治集群（去中心化），使用户无需为 SeaTunnel Engine 集群指定主节点，因为它可以在运行过程中自行选择主节点，并且在主节点失败时自动选择新的主节点；
 - 自治集群节点发现和具有相同 cluster_name 的节点将自动形成集群。
 
 ### 核心功能
@@ -38,3 +37,7 @@ SeaTunnel Engine 的整体设计遵循以下路径：
 ### 快速开始
 
 https://seatunnel.apache.org/docs/start-v2/locally/quick-start-seatunnel-engine
+
+### 下载安装
+
+[下载安装](download-seatunnel.md)

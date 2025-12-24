@@ -34,7 +34,7 @@ import java.sql.SQLException;
 import java.util.Enumeration;
 import java.util.Properties;
 
-import static com.google.common.base.Preconditions.checkNotNull;
+import static org.apache.seatunnel.shade.com.google.common.base.Preconditions.checkNotNull;
 
 /** Simple JDBC connection provider. */
 public class SimpleJdbcConnectionProvider implements JdbcConnectionProvider, Serializable {

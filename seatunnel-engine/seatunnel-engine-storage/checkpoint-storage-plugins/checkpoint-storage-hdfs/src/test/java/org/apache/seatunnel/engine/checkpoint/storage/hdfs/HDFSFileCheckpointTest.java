@@ -36,7 +36,7 @@ public class HDFSFileCheckpointTest extends AbstractFileCheckPointTest {
     public static void setup() throws CheckpointStorageException {
         Map<String, String> config = new HashMap<>();
         config.put("storage.type", "hdfs");
-        config.put("fs.defaultFS", "hdfs://usdp-bing");
+        config.put("disable.cache", "false");
         config.put("seatunnel.hadoop.dfs.nameservices", "usdp-bing");
         config.put("seatunnel.hadoop.dfs.ha.namenodes.usdp-bing", "nn1,nn2");
         config.put("seatunnel.hadoop.dfs.namenode.rpc-address.usdp-bing.nn1", "usdp-bing-nn1:8020");

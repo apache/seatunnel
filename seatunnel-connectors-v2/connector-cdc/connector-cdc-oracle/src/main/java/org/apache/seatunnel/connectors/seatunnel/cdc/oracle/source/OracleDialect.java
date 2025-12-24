@@ -23,18 +23,16 @@ import org.apache.seatunnel.api.table.catalog.PrimaryKey;
 import org.apache.seatunnel.common.utils.SeaTunnelException;
 import org.apache.seatunnel.connectors.cdc.base.config.JdbcSourceConfig;
 import org.apache.seatunnel.connectors.cdc.base.dialect.JdbcDataSourceDialect;
-import org.apache.seatunnel.connectors.cdc.base.relational.connection.JdbcConnectionPoolFactory;
 import org.apache.seatunnel.connectors.cdc.base.source.enumerator.splitter.ChunkSplitter;
 import org.apache.seatunnel.connectors.cdc.base.source.reader.external.FetchTask;
 import org.apache.seatunnel.connectors.cdc.base.source.split.SourceSplitBase;
 import org.apache.seatunnel.connectors.cdc.base.utils.CatalogTableUtils;
 import org.apache.seatunnel.connectors.seatunnel.cdc.oracle.config.OracleSourceConfig;
 import org.apache.seatunnel.connectors.seatunnel.cdc.oracle.config.OracleSourceConfigFactory;
-import org.apache.seatunnel.connectors.seatunnel.cdc.oracle.source.eumerator.OracleChunkSplitter;
+import org.apache.seatunnel.connectors.seatunnel.cdc.oracle.source.enumerator.OracleChunkSplitter;
 import org.apache.seatunnel.connectors.seatunnel.cdc.oracle.source.reader.fetch.OracleSourceFetchTaskContext;
 import org.apache.seatunnel.connectors.seatunnel.cdc.oracle.source.reader.fetch.logminer.OracleRedoLogFetchTask;
 import org.apache.seatunnel.connectors.seatunnel.cdc.oracle.source.reader.fetch.scan.OracleSnapshotFetchTask;
-import org.apache.seatunnel.connectors.seatunnel.cdc.oracle.utils.OracleConnectionUtils;
 import org.apache.seatunnel.connectors.seatunnel.cdc.oracle.utils.OracleSchema;
 
 import io.debezium.connector.oracle.OracleConnection;
@@ -46,6 +44,7 @@ import java.sql.SQLException;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
+import java.util.stream.Collectors;
 
 import static org.apache.seatunnel.connectors.seatunnel.cdc.oracle.utils.OracleConnectionUtils.createOracleConnection;
 
@@ -82,7 +81,7 @@ public class OracleDialect implements JdbcDataSourceDialect {
 
     @Override
     public JdbcConnection openJdbcConnection(JdbcSourceConfig sourceConfig) {
-        return createOracleConnection(sourceConfig.getDbzConfiguration());
+        return createOracleConnection(sourceConfig.getDbzConnectorConfig().getJdbcConfig());
     }
 
     @Override
@@ -91,21 +90,13 @@ public class OracleDialect implements JdbcDataSourceDialect {
     }
 
     @Override
-    public JdbcConnectionPoolFactory getPooledDataSourceFactory() {
-        return new OraclePooledDataSourceFactory();
-    }
-
-    @Override
     public List<TableId> discoverDataCollections(JdbcSourceConfig sourceConfig) {
         OracleSourceConfig oracleSourceConfig = (OracleSourceConfig) sourceConfig;
         String database = oracleSourceConfig.getDbzConnectorConfig().getDatabaseName();
 
-        try (JdbcConnection jdbcConnection = openJdbcConnection(sourceConfig)) {
-            return OracleConnectionUtils.listTables(
-                    jdbcConnection, database, oracleSourceConfig.getTableFilters());
-        } catch (SQLException e) {
-            throw new SeaTunnelException("Error to discover tables: " + e.getMessage(), e);
-        }
+        return tableMap.keySet().stream()
+                .map(tableId -> new TableId(database, tableId.schema(), tableId.table()))
+                .collect(Collectors.toList());
     }
 
     @Override

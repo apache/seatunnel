@@ -25,13 +25,12 @@ import org.apache.seatunnel.connectors.cdc.base.source.split.wartermark.Watermar
 import org.apache.kafka.connect.source.SourceRecord;
 
 import io.debezium.config.CommonConnectorConfig;
-import io.debezium.config.Configuration;
 import io.debezium.connector.base.ChangeEventQueue;
-import io.debezium.heartbeat.Heartbeat;
 import io.debezium.pipeline.DataChangeEvent;
 import io.debezium.pipeline.EventDispatcher;
 import io.debezium.pipeline.source.spi.EventMetadataProvider;
 import io.debezium.pipeline.spi.ChangeEventCreator;
+import io.debezium.pipeline.spi.Partition;
 import io.debezium.relational.TableId;
 import io.debezium.relational.history.HistoryRecord;
 import io.debezium.schema.DataCollectionFilters;
@@ -39,8 +38,6 @@ import io.debezium.schema.DatabaseSchema;
 import io.debezium.schema.TopicSelector;
 import io.debezium.util.SchemaNameAdjuster;
 
-import java.time.Duration;
-import java.time.temporal.ChronoUnit;
 import java.util.Map;
 
 /**
@@ -52,7 +49,7 @@ import java.util.Map;
  *     this is useful for downstream to deserialize the {@link HistoryRecord} back.
  * </pre>
  */
-public class JdbcSourceEventDispatcher extends EventDispatcher<TableId> {
+public class JdbcSourceEventDispatcher<P extends Partition> extends EventDispatcher<P, TableId> {
 
     private final ChangeEventQueue<DataChangeEvent> queue;
 
@@ -75,10 +72,6 @@ public class JdbcSourceEventDispatcher extends EventDispatcher<TableId> {
                 filter,
                 changeEventCreator,
                 metadataProvider,
-                Heartbeat.create(
-                        getHeartbeatInterval(connectorConfig),
-                        topicSelector.getHeartbeatTopic(),
-                        connectorConfig.getLogicalName()),
                 schemaNameAdjuster);
         this.queue = queue;
         this.topic = topicSelector.getPrimaryTopic();
@@ -99,15 +92,5 @@ public class JdbcSourceEventDispatcher extends EventDispatcher<TableId> {
                 WatermarkEvent.create(
                         sourcePartition, topic, sourceSplit.splitId(), watermarkKind, watermark);
         queue.enqueue(new DataChangeEvent(sourceRecord));
-    }
-
-    private static Duration getHeartbeatInterval(CommonConnectorConfig connectorConfig) {
-        Configuration configuration = connectorConfig.getConfig();
-        Duration heartbeatInterval =
-                configuration.getDuration(Heartbeat.HEARTBEAT_INTERVAL, ChronoUnit.MILLIS);
-        if (heartbeatInterval.isZero()) {
-            return Duration.ofMillis(5000);
-        }
-        return heartbeatInterval;
     }
 }

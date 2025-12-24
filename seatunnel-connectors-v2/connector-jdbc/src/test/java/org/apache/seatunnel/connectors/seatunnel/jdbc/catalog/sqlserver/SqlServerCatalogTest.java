@@ -24,6 +24,7 @@ import org.apache.seatunnel.connectors.seatunnel.jdbc.catalog.mysql.MySqlCatalog
 import org.apache.seatunnel.connectors.seatunnel.jdbc.catalog.psql.PostgresCatalog;
 
 import org.junit.jupiter.api.AfterAll;
+import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.BeforeAll;
 import org.junit.jupiter.api.Disabled;
 import org.junit.jupiter.api.MethodOrderer;
@@ -38,7 +39,7 @@ import java.util.List;
 class SqlServerCatalogTest {
 
     static JdbcUrlUtil.UrlInfo sqlParse =
-            SqlServerURLParser.parse("jdbc:sqlserver://127.0.0.1:1434;database=TestDB");
+            SqlServerURLParser.parse("jdbc:sqlserver://127.0.0.1:1433;database=master");
     static JdbcUrlUtil.UrlInfo MysqlUrlInfo =
             JdbcUrlUtil.getUrlInfo("jdbc:mysql://127.0.0.1:33061/liuliTest?useSSL=false");
     static JdbcUrlUtil.UrlInfo pg =
@@ -65,9 +66,10 @@ class SqlServerCatalogTest {
         tablePathMySql = TablePath.of(databaseName, schemaName, "mysql_to_sqlserver");
         tablePathPG = TablePath.of(databaseName, schemaName, "pg_to_sqlserver");
         tablePathOracle = TablePath.of(databaseName, schemaName, "oracle_to_sqlserver");
-        sqlServerCatalog = new SqlServerCatalog("sqlserver", "sa", "root@123", sqlParse, null);
-        mySqlCatalog = new MySqlCatalog("mysql", "root", "root@123", MysqlUrlInfo);
-        postgresCatalog = new PostgresCatalog("postgres", "postgres", "postgres", pg, null);
+        sqlServerCatalog =
+                new SqlServerCatalog("sqlserver", "sa", "root@123", sqlParse, null, null);
+        mySqlCatalog = new MySqlCatalog("mysql", "root", "root@123", MysqlUrlInfo, null);
+        postgresCatalog = new PostgresCatalog("postgres", "postgres", "postgres", pg, null, null);
         mySqlCatalog.open();
         sqlServerCatalog.open();
         postgresCatalog.open();
@@ -75,7 +77,7 @@ class SqlServerCatalogTest {
 
     @Test
     void listDatabases() {
-        List<String> list = sqlServerCatalog.listDatabases();
+        sqlServerCatalog.listDatabases();
     }
 
     @Test
@@ -84,9 +86,14 @@ class SqlServerCatalogTest {
     }
 
     @Test
-    void tableExists() {
-
-        //        boolean b = sqlServerCatalog.tableExists(tablePath);
+    void exists() {
+        Assertions.assertTrue(sqlServerCatalog.databaseExists("master"));
+        Assertions.assertTrue(
+                sqlServerCatalog.tableExists(
+                        TablePath.of("master", "dbo", "MSreplication_options")));
+        Assertions.assertTrue(
+                sqlServerCatalog.tableExists(TablePath.of("master", "dbo", "spt_fallback_db")));
+        Assertions.assertFalse(sqlServerCatalog.tableExists(TablePath.of("master", "dbo", "xxx")));
     }
 
     @Test

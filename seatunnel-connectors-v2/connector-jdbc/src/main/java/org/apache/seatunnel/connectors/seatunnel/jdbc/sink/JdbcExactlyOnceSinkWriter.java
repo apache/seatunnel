@@ -17,19 +17,21 @@
 
 package org.apache.seatunnel.connectors.seatunnel.jdbc.sink;
 
+import org.apache.seatunnel.shade.com.google.common.base.Throwables;
+import org.apache.seatunnel.shade.org.apache.commons.lang3.SerializationUtils;
+
 import org.apache.seatunnel.api.common.JobContext;
 import org.apache.seatunnel.api.sink.SinkWriter;
-import org.apache.seatunnel.api.sink.SupportMultiTableSinkWriter;
+import org.apache.seatunnel.api.table.catalog.TablePath;
 import org.apache.seatunnel.api.table.catalog.TableSchema;
+import org.apache.seatunnel.api.table.schema.exception.SinkWriterSchemaException;
 import org.apache.seatunnel.api.table.type.SeaTunnelRow;
 import org.apache.seatunnel.common.exception.CommonErrorCodeDeprecated;
 import org.apache.seatunnel.connectors.seatunnel.jdbc.config.JdbcSinkConfig;
 import org.apache.seatunnel.connectors.seatunnel.jdbc.exception.JdbcConnectorErrorCode;
 import org.apache.seatunnel.connectors.seatunnel.jdbc.exception.JdbcConnectorException;
-import org.apache.seatunnel.connectors.seatunnel.jdbc.internal.JdbcOutputFormat;
 import org.apache.seatunnel.connectors.seatunnel.jdbc.internal.JdbcOutputFormatBuilder;
 import org.apache.seatunnel.connectors.seatunnel.jdbc.internal.dialect.JdbcDialect;
-import org.apache.seatunnel.connectors.seatunnel.jdbc.internal.executor.JdbcBatchStatementExecutor;
 import org.apache.seatunnel.connectors.seatunnel.jdbc.internal.xa.XaFacade;
 import org.apache.seatunnel.connectors.seatunnel.jdbc.internal.xa.XaGroupOps;
 import org.apache.seatunnel.connectors.seatunnel.jdbc.internal.xa.XaGroupOpsImpl;
@@ -37,12 +39,8 @@ import org.apache.seatunnel.connectors.seatunnel.jdbc.internal.xa.XidGenerator;
 import org.apache.seatunnel.connectors.seatunnel.jdbc.state.JdbcSinkState;
 import org.apache.seatunnel.connectors.seatunnel.jdbc.state.XidInfo;
 
-import org.apache.commons.lang3.SerializationUtils;
-
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
-
-import com.google.common.base.Throwables;
 
 import javax.transaction.xa.Xid;
 
@@ -54,9 +52,7 @@ import java.util.Optional;
 import static org.apache.seatunnel.shade.com.google.common.base.Preconditions.checkArgument;
 import static org.apache.seatunnel.shade.com.google.common.base.Preconditions.checkState;
 
-public class JdbcExactlyOnceSinkWriter
-        implements SinkWriter<SeaTunnelRow, XidInfo, JdbcSinkState>,
-                SupportMultiTableSinkWriter<Void> {
+public class JdbcExactlyOnceSinkWriter extends AbstractJdbcSinkWriter<Void> {
     private static final Logger LOG = LoggerFactory.getLogger(JdbcExactlyOnceSinkWriter.class);
 
     private final SinkWriter.Context sinkcontext;
@@ -71,35 +67,38 @@ public class JdbcExactlyOnceSinkWriter
 
     private final XidGenerator xidGenerator;
 
-    private final JdbcOutputFormat<SeaTunnelRow, JdbcBatchStatementExecutor<SeaTunnelRow>>
-            outputFormat;
-
-    private transient boolean isOpen;
-
     private transient Xid currentXid;
     private transient Xid prepareXid;
 
     public JdbcExactlyOnceSinkWriter(
+            TablePath sinkTablePath,
             SinkWriter.Context sinkcontext,
             JobContext context,
             JdbcDialect dialect,
             JdbcSinkConfig jdbcSinkConfig,
             TableSchema tableSchema,
+            TableSchema databaseTableSchema,
             List<JdbcSinkState> states) {
         checkArgument(
                 jdbcSinkConfig.getJdbcConnectionConfig().getMaxRetries() == 0,
                 "JDBC XA sink requires maxRetries equal to 0, otherwise it could "
                         + "cause duplicates.");
-
+        this.sinkTablePath = sinkTablePath;
+        this.dialect = dialect;
+        this.tableSchema = tableSchema;
+        this.jdbcSinkConfig = jdbcSinkConfig;
         this.context = context;
         this.sinkcontext = sinkcontext;
         this.recoverStates = states;
         this.xidGenerator = XidGenerator.semanticXidGenerator();
         checkState(jdbcSinkConfig.isExactlyOnce(), "is_exactly_once config error");
-        this.xaFacade =
+        this.connectionProvider =
                 XaFacade.fromJdbcConnectionOptions(jdbcSinkConfig.getJdbcConnectionConfig());
+        this.xaFacade = (XaFacade) this.connectionProvider;
         this.outputFormat =
-                new JdbcOutputFormatBuilder(dialect, xaFacade, jdbcSinkConfig, tableSchema).build();
+                new JdbcOutputFormatBuilder(
+                                dialect, xaFacade, jdbcSinkConfig, tableSchema, databaseTableSchema)
+                        .build();
         this.xaGroupOps = new XaGroupOpsImpl(xaFacade);
     }
 
@@ -133,10 +132,51 @@ public class JdbcExactlyOnceSinkWriter
 
     @Override
     public void write(SeaTunnelRow element) {
+        if (element != null && element.getOptions() != null) {
+            if (element.getOptions().containsKey("flush_event")
+                    || element.getOptions().containsKey("schema_change_event")) {
+                LOG.debug("Skipping schema change event row: {}", element.getOptions().keySet());
+                return;
+            }
+        }
+
         tryOpen();
         checkState(currentXid != null, "current xid must not be null");
         SeaTunnelRow copy = SerializationUtils.clone(element);
         outputFormat.writeRecord(copy);
+    }
+
+    @Override
+    public void flushData() throws IOException {
+        tryOpen();
+        outputFormat.checkFlushException();
+        outputFormat.flush();
+    }
+
+    @Override
+    public void handleFlushEvent(org.apache.seatunnel.api.table.schema.event.FlushEvent event)
+            throws IOException {
+        LOG.info(
+                "JdbcExactlyOnceSinkWriter handling FlushEvent for table: {}",
+                event.tableIdentifier());
+        try {
+            tryOpen();
+            flushData();
+            LOG.info(
+                    "JdbcExactlyOnceSinkWriter flush completed for table: {}",
+                    event.tableIdentifier());
+            sendFlushSuccessful(event);
+        } catch (Exception e) {
+            LOG.error(
+                    "JdbcExactlyOnceSinkWriter flush failed for table: {}",
+                    event.tableIdentifier(),
+                    e);
+            throw SinkWriterSchemaException.flushFailed(
+                    event.tableIdentifier(),
+                    event.getJobId(),
+                    "Exactly-once JDBC flush operation failed",
+                    e);
+        }
     }
 
     @Override
@@ -180,10 +220,12 @@ public class JdbcExactlyOnceSinkWriter
                     CommonErrorCodeDeprecated.WRITER_OPERATION_FAILED,
                     "unable to close JDBC exactly one writer",
                     e);
+        } finally {
+            outputFormat.close();
+            xidGenerator.close();
+            currentXid = null;
+            prepareXid = null;
         }
-        xidGenerator.close();
-        currentXid = null;
-        prepareXid = null;
     }
 
     private void beginTx() throws IOException {

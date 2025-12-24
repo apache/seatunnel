@@ -17,10 +17,11 @@
 
 package org.apache.seatunnel.connectors.seatunnel.jdbc.utils;
 
+import org.apache.seatunnel.shade.org.apache.commons.lang3.StringUtils;
+
 import org.apache.seatunnel.connectors.seatunnel.jdbc.config.JdbcConnectionConfig;
 import org.apache.seatunnel.connectors.seatunnel.jdbc.exception.JdbcConnectorException;
 
-import org.apache.commons.lang3.StringUtils;
 import org.apache.hadoop.conf.Configuration;
 import org.apache.hadoop.security.UserGroupInformation;
 
@@ -34,9 +35,9 @@ import static org.apache.seatunnel.connectors.seatunnel.jdbc.exception.JdbcConne
 public class HiveJdbcUtils {
 
     public static synchronized void doKerberosAuthentication(JdbcConnectionConfig jdbcConfig) {
-        String principal = jdbcConfig.kerberosPrincipal;
-        String keytabPath = jdbcConfig.kerberosKeytabPath;
-        String krb5Path = jdbcConfig.krb5Path;
+        String principal = jdbcConfig.getKerberosPrincipal();
+        String keytabPath = jdbcConfig.getKerberosKeytabPath();
+        String krb5Path = jdbcConfig.getKrb5Path();
         System.setProperty("java.security.krb5.conf", krb5Path);
         Configuration configuration = new Configuration();
 

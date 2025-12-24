@@ -19,12 +19,13 @@ package org.apache.seatunnel.connectors.cdc.base.source.reader;
 
 import org.apache.seatunnel.api.source.Collector;
 import org.apache.seatunnel.api.source.SourceReader;
-import org.apache.seatunnel.api.table.type.SeaTunnelDataType;
+import org.apache.seatunnel.api.table.catalog.CatalogTable;
 import org.apache.seatunnel.connectors.cdc.base.config.SourceConfig;
 import org.apache.seatunnel.connectors.cdc.base.dialect.DataSourceDialect;
 import org.apache.seatunnel.connectors.cdc.base.source.event.CompletedSnapshotPhaseEvent;
 import org.apache.seatunnel.connectors.cdc.base.source.event.CompletedSnapshotSplitsReportEvent;
 import org.apache.seatunnel.connectors.cdc.base.source.event.SnapshotSplitWatermark;
+import org.apache.seatunnel.connectors.cdc.base.source.offset.Offset;
 import org.apache.seatunnel.connectors.cdc.base.source.split.IncrementalSplit;
 import org.apache.seatunnel.connectors.cdc.base.source.split.SnapshotSplit;
 import org.apache.seatunnel.connectors.cdc.base.source.split.SourceRecords;
@@ -51,7 +52,7 @@ import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.function.Supplier;
 import java.util.stream.Collectors;
 
-import static com.google.common.base.Preconditions.checkState;
+import static org.apache.seatunnel.shade.com.google.common.base.Preconditions.checkState;
 
 /**
  * The multi-parallel source reader for table snapshot phase from {@link SnapshotSplit} and then
@@ -71,6 +72,8 @@ public class IncrementalSourceReader<T, C extends SourceConfig>
     private final DebeziumDeserializationSchema<T> debeziumDeserializationSchema;
 
     private final DataSourceDialect<C> dataSourceDialect;
+
+    private transient volatile Offset snapshotChangeLogOffset;
 
     private final AtomicBoolean needSendSplitRequest = new AtomicBoolean(false);
 
@@ -108,12 +111,18 @@ public class IncrementalSourceReader<T, C extends SourceConfig>
             context.sendSplitRequest();
             needSendSplitRequest.compareAndSet(true, false);
         }
-        super.pollNext(output);
+
+        if (isNoMoreSplitsAssignment() && isNoMoreElement()) {
+            log.info("Reader {} send NoMoreElement event", context.getIndexOfSubtask());
+            context.signalNoMoreElement();
+        } else {
+            super.pollNext(output);
+        }
     }
 
     @Override
     public void notifyCheckpointComplete(long checkpointId) throws Exception {
-        dataSourceDialect.notifyCheckpointComplete(checkpointId);
+        dataSourceDialect.commitChangeLogOffset(snapshotChangeLogOffset);
     }
 
     @Override
@@ -206,7 +215,7 @@ public class IncrementalSourceReader<T, C extends SourceConfig>
                         incrementalSplit.splitId(),
                         incrementalSplit.getCheckpointDataType());
                 debeziumDeserializationSchema.restoreCheckpointProducedType(
-                        incrementalSplit.getCheckpointDataType());
+                        incrementalSplit.getCheckpointTables());
             }
             IncrementalSplitState splitState = new IncrementalSplitState(incrementalSplit);
             if (splitState.autoEnterPureIncrementPhaseIfAllowed()) {
@@ -238,7 +247,9 @@ public class IncrementalSourceReader<T, C extends SourceConfig>
         unfinishedSplits.addAll(finishedUnackedSplits.values());
 
         if (isIncrementalSplitPhase(unfinishedSplits)) {
-            return snapshotCheckpointDataType(unfinishedSplits);
+            IncrementalSplit incrementalSplit = unfinishedSplits.get(0).asIncrementalSplit();
+            snapshotChangeLogOffset = incrementalSplit.getStartupOffset();
+            return snapshotCheckpointDataType(incrementalSplit);
         }
 
         return unfinishedSplits;
@@ -253,19 +264,19 @@ public class IncrementalSourceReader<T, C extends SourceConfig>
         return stateSplits.size() == 1 && stateSplits.get(0).isIncrementalSplit();
     }
 
-    private List<SourceSplitBase> snapshotCheckpointDataType(List<SourceSplitBase> stateSplits) {
-        if (!isIncrementalSplitPhase(stateSplits)) {
-            throw new IllegalStateException(
-                    "The splits should be incremental split when snapshot  checkpoint datatype");
-        }
-        IncrementalSplit incrementalSplit = stateSplits.get(0).asIncrementalSplit();
-        // Snapshot current datatype to checkpoint
-        SeaTunnelDataType<T> checkpointDataType = debeziumDeserializationSchema.getProducedType();
+    private List<SourceSplitBase> snapshotCheckpointDataType(IncrementalSplit incrementalSplit) {
+        // Snapshot current table struct to checkpoint
+        List<CatalogTable> checkpointTables = debeziumDeserializationSchema.getProducedType();
+
+        // Snapshot current history table changes to checkpoint for debezium
         IncrementalSplit newIncrementalSplit =
-                new IncrementalSplit(incrementalSplit, checkpointDataType);
+                new IncrementalSplit(
+                        incrementalSplit,
+                        checkpointTables,
+                        debeziumDeserializationSchema.getHistoryTableChanges());
         log.debug(
                 "Snapshot checkpoint datatype {} into split[{}] state.",
-                checkpointDataType,
+                checkpointTables,
                 incrementalSplit.splitId());
         return Arrays.asList(newIncrementalSplit);
     }

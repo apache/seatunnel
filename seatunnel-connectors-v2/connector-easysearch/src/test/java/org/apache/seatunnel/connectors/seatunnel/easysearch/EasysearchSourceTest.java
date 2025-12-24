@@ -17,6 +17,8 @@
 
 package org.apache.seatunnel.connectors.seatunnel.easysearch;
 
+import org.apache.seatunnel.shade.com.google.common.collect.Lists;
+
 import org.apache.seatunnel.api.common.PrepareFailException;
 import org.apache.seatunnel.api.table.type.BasicType;
 import org.apache.seatunnel.api.table.type.SeaTunnelDataType;
@@ -27,8 +29,6 @@ import org.apache.commons.collections4.CollectionUtils;
 
 import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.Test;
-
-import com.google.common.collect.Lists;
 
 import java.util.ArrayList;
 import java.util.HashMap;

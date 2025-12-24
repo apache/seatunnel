@@ -44,10 +44,12 @@ public class IcebergFileScanTaskSplitReader implements Closeable {
         OffsetSeekIterator<Record> seekIterator = new OffsetSeekIterator<>(iterator);
         seekIterator.seek(split.getRecordOffset());
 
+        String tableId = split.getTablePath().getFullName();
         return CloseableIterator.transform(
                 seekIterator,
                 record -> {
                     SeaTunnelRow seaTunnelRow = deserializer.deserialize(record);
+                    seaTunnelRow.setTableId(tableId);
                     split.setRecordOffset(split.getRecordOffset() + 1);
                     return seaTunnelRow;
                 });

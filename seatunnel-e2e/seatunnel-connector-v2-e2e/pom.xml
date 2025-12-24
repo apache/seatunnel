@@ -32,14 +32,17 @@
         <module>connector-redis-e2e</module>
         <module>connector-cdc-sqlserver-e2e</module>
         <module>connector-clickhouse-e2e</module>
+        <module>connector-databend-e2e</module>
         <module>connector-starrocks-e2e</module>
         <module>connector-influxdb-e2e</module>
         <module>connector-amazondynamodb-e2e</module>
         <module>connector-amazonsqs-e2e</module>
         <module>connector-file-local-e2e</module>
         <module>connector-file-cos-e2e</module>
+        <module>connector-file-hadoop-e2e</module>
         <module>connector-file-sftp-e2e</module>
         <module>connector-file-oss-e2e</module>
+        <module>connector-file-s3-e2e</module>
         <module>connector-cassandra-e2e</module>
         <module>connector-neo4j-e2e</module>
         <module>connector-http-e2e</module>
@@ -49,17 +52,22 @@
         <module>connector-fake-e2e</module>
         <module>connector-elasticsearch-e2e</module>
         <module>connector-iotdb-e2e</module>
+        <module>connector-iotdb-v2-e2e</module>
         <module>connector-cdc-mysql-e2e</module>
         <module>connector-cdc-mongodb-e2e</module>
         <module>connector-iceberg-e2e</module>
         <module>connector-iceberg-hadoop3-e2e</module>
+        <module>connector-iceberg-s3-e2e</module>
         <module>connector-tdengine-e2e</module>
         <module>connector-datahub-e2e</module>
         <module>connector-mongodb-e2e</module>
         <module>connector-hbase-e2e</module>
+        <module>connector-web3j-e2e</module>
         <module>connector-maxcompute-e2e</module>
+        <module>connector-druid-e2e</module>
         <module>connector-google-firestore-e2e</module>
         <module>connector-rocketmq-e2e</module>
+        <!--        <module>connector-file-obs-e2e</module>-->
         <module>connector-file-ftp-e2e</module>
         <module>connector-pulsar-e2e</module>
         <module>connector-paimon-e2e</module>
@@ -68,6 +76,20 @@
         <module>connector-cdc-postgres-e2e</module>
         <module>connector-cdc-oracle-e2e</module>
         <module>connector-hive-e2e</module>
+        <module>connector-hudi-e2e</module>
+        <module>connector-milvus-e2e</module>
+        <module>connector-activemq-e2e</module>
+        <module>connector-prometheus-e2e</module>
+        <module>connector-qdrant-e2e</module>
+        <module>connector-sls-e2e</module>
+        <module>connector-typesense-e2e</module>
+        <module>connector-email-e2e</module>
+        <module>connector-cdc-opengauss-e2e</module>
+        <module>connector-cdc-tidb-e2e</module>
+        <module>connector-graphql-e2e</module>
+        <module>connector-aerospike-e2e</module>
+        <module>connector-sensorsdata-e2e</module>
+        <module>connector-hugegraph-e2e</module>
     </modules>
 
     <dependencies>
@@ -87,6 +109,12 @@
         <dependency>
             <groupId>org.apache.seatunnel</groupId>
             <artifactId>seatunnel-flink-15-starter</artifactId>
+            <version>${project.version}</version>
+            <scope>test</scope>
+        </dependency>
+        <dependency>
+            <groupId>org.apache.seatunnel</groupId>
+            <artifactId>seatunnel-flink-20-starter</artifactId>
             <version>${project.version}</version>
             <scope>test</scope>
         </dependency>

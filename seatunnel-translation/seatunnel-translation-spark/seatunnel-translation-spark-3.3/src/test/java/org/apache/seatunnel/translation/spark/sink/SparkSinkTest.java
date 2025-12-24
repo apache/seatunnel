@@ -17,11 +17,13 @@
 
 package org.apache.seatunnel.translation.spark.sink;
 
+import org.apache.seatunnel.api.table.catalog.CatalogTable;
 import org.apache.seatunnel.api.table.catalog.CatalogTableUtil;
 import org.apache.seatunnel.api.table.type.BasicType;
 import org.apache.seatunnel.api.table.type.LocalTimeType;
 import org.apache.seatunnel.api.table.type.SeaTunnelDataType;
 import org.apache.seatunnel.api.table.type.SeaTunnelRowType;
+import org.apache.seatunnel.translation.spark.utils.TypeConverterUtils;
 
 import org.apache.spark.sql.Dataset;
 import org.apache.spark.sql.Row;
@@ -34,8 +36,6 @@ import org.apache.spark.sql.types.MapType;
 import org.apache.spark.sql.types.StructType;
 
 import org.junit.jupiter.api.Test;
-import org.junit.jupiter.api.condition.DisabledOnJre;
-import org.junit.jupiter.api.condition.JRE;
 
 import java.math.BigDecimal;
 import java.sql.Timestamp;
@@ -58,11 +58,6 @@ import static org.apache.spark.sql.types.DataTypes.TimestampType;
 public class SparkSinkTest {
 
     @Test
-    @DisabledOnJre(
-            value = JRE.JAVA_11,
-            disabledReason =
-                    "We should update apache common lang3 version to 3.8 to avoid NPE, "
-                            + "see https://github.com/apache/commons-lang/commit/50ce8c44e1601acffa39f5568f0fc140aade0564")
     public void testSparkSinkWriteDataWithCopy() {
         // We should make sure that the data is written to the sink with copy.
         SparkSession spark =
@@ -131,6 +126,8 @@ public class SparkSinkTest {
         GenericRow row1WithRow =
                 new GenericRow(
                         new Object[] {
+                            (byte) 1,
+                            "test.test.test",
                             42,
                             "string1",
                             true,
@@ -196,6 +193,8 @@ public class SparkSinkTest {
         GenericRow row2WithRow =
                 new GenericRow(
                         new Object[] {
+                            (byte) 1,
+                            "test.test.test",
                             12,
                             "string2",
                             false,
@@ -261,6 +260,8 @@ public class SparkSinkTest {
         GenericRow row3WithRow =
                 new GenericRow(
                         new Object[] {
+                            (byte) 1,
+                            "test.test.test",
                             233,
                             "string3",
                             true,
@@ -397,16 +398,20 @@ public class SparkSinkTest {
                                                 BasicType.STRING_TYPE, BasicType.STRING_TYPE)
                                     })
                         });
-
+        structType.add("row", structType);
+        StructType parcelStructType = (StructType) TypeConverterUtils.parcel(rowType);
         Dataset<Row> dataset =
                 spark.createDataFrame(
-                        Arrays.asList(row1WithRow, row2WithRow, row3WithRow),
-                        structType.add("row", structType));
+                        Arrays.asList(row1WithRow, row2WithRow, row3WithRow), parcelStructType);
         SparkSinkInjector.inject(
                         dataset.write(),
                         new SeaTunnelSinkWithBuffer(),
-                        CatalogTableUtil.getCatalogTable("test", "test", "test", "test", rowType),
-                        spark.sparkContext().applicationId())
+                        new CatalogTable[] {
+                            CatalogTableUtil.getCatalogTable(
+                                    "test", "test", "test", "test", rowType)
+                        },
+                        spark.sparkContext().applicationId(),
+                        spark.sparkContext().defaultParallelism())
                 .option("checkpointLocation", "/tmp")
                 .mode(SaveMode.Append)
                 .save();

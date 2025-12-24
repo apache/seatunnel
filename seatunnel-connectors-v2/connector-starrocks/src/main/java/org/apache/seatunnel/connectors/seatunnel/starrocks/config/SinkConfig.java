@@ -71,9 +71,9 @@ public class SinkConfig implements Serializable {
         SinkConfig sinkConfig = new SinkConfig();
         sinkConfig.setNodeUrls(config.get(StarRocksSinkOptions.NODE_URLS));
         sinkConfig.setDatabase(config.get(StarRocksSinkOptions.DATABASE));
-        sinkConfig.setJdbcUrl(config.get(StarRocksOptions.BASE_URL));
-        config.getOptional(StarRocksOptions.USERNAME).ifPresent(sinkConfig::setUsername);
-        config.getOptional(StarRocksOptions.PASSWORD).ifPresent(sinkConfig::setPassword);
+        sinkConfig.setJdbcUrl(config.get(StarRocksSinkOptions.BASE_URL));
+        config.getOptional(StarRocksSinkOptions.USERNAME).ifPresent(sinkConfig::setUsername);
+        config.getOptional(StarRocksSinkOptions.PASSWORD).ifPresent(sinkConfig::setPassword);
         config.getOptional(StarRocksSinkOptions.TABLE).ifPresent(sinkConfig::setTable);
         config.getOptional(StarRocksSinkOptions.LABEL_PREFIX).ifPresent(sinkConfig::setLabelPrefix);
         sinkConfig.setBatchMaxSize(config.get(StarRocksSinkOptions.BATCH_MAX_SIZE));

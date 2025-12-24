@@ -18,6 +18,7 @@
 package org.apache.seatunnel.connectors.seatunnel.iceberg.source.split;
 
 import org.apache.seatunnel.api.source.SourceSplit;
+import org.apache.seatunnel.api.table.catalog.TablePath;
 
 import org.apache.iceberg.FileScanTask;
 
@@ -36,11 +37,18 @@ public class IcebergFileScanTaskSplit implements SourceSplit {
 
     private static final long serialVersionUID = -9043797960947110643L;
 
+    private final TablePath tablePath;
     private final FileScanTask task;
     @Setter private volatile long recordOffset;
 
+    public IcebergFileScanTaskSplit(TablePath tablePath, @NonNull FileScanTask task) {
+        this(tablePath, task, 0);
+    }
+
+    // TODO: Waiting for old version migration to complete before remove
+    @Deprecated
     public IcebergFileScanTaskSplit(@NonNull FileScanTask task) {
-        this(task, 0);
+        this(null, task, 0);
     }
 
     @Override

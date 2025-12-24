@@ -24,6 +24,8 @@ import org.apache.seatunnel.api.table.type.SeaTunnelRow;
 import org.apache.seatunnel.api.table.type.SeaTunnelRowType;
 import org.apache.seatunnel.api.table.type.SqlType;
 
+import lombok.extern.slf4j.Slf4j;
+
 import java.io.IOException;
 import java.io.Serializable;
 import java.util.ArrayList;
@@ -35,6 +37,7 @@ import java.util.Map;
  *
  * @param <T> engine row
  */
+@Slf4j
 public abstract class RowConverter<T> implements Serializable {
     protected final SeaTunnelDataType<?> dataType;
 
@@ -84,12 +87,20 @@ public abstract class RowConverter<T> implements Serializable {
             case DATE:
             case TIME:
             case TIMESTAMP:
+            case TIMESTAMP_TZ:
             case FLOAT:
             case DOUBLE:
             case STRING:
             case DECIMAL:
             case BYTES:
-                return dataType.getTypeClass() == field.getClass();
+                boolean isEq = (dataType.getTypeClass() == field.getClass());
+                if (!isEq) {
+                    log.error(
+                            String.format(
+                                    "dateType.getTypeClass is %s, but field.getClass is %s",
+                                    dataType.getTypeClass(), field.getClass()));
+                }
+                return isEq;
             case ARRAY:
                 if (!(field instanceof Object[])) {
                     return false;
@@ -103,6 +114,10 @@ public abstract class RowConverter<T> implements Serializable {
                 }
             case MAP:
                 if (!(field instanceof Map)) {
+                    log.error(
+                            String.format(
+                                    "field type is %s, not instanceof java.util.Map",
+                                    field.getClass()));
                     return false;
                 }
                 MapType<?, ?> mapType = (MapType<?, ?>) dataType;

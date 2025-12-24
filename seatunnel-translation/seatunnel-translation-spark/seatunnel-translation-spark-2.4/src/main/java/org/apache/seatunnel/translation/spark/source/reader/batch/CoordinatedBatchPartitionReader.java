@@ -24,6 +24,7 @@ import org.apache.seatunnel.api.source.SourceSplit;
 import org.apache.seatunnel.api.table.type.SeaTunnelRow;
 import org.apache.seatunnel.translation.source.BaseSourceFunction;
 import org.apache.seatunnel.translation.source.CoordinatedSource;
+import org.apache.seatunnel.translation.spark.execution.MultiTableManager;
 import org.apache.seatunnel.translation.spark.serialization.InternalRowCollector;
 
 import java.io.Serializable;
@@ -41,14 +42,14 @@ public class CoordinatedBatchPartitionReader extends ParallelBatchPartitionReade
             Integer parallelism,
             String jobId,
             Integer subtaskId,
-            Map<String, String> envOptions) {
-        super(source, parallelism, jobId, subtaskId, envOptions);
+            Map<String, String> envOptions,
+            MultiTableManager multiTableManager) {
+        super(source, parallelism, jobId, subtaskId, envOptions, multiTableManager);
         this.collectorMap = new HashMap<>(parallelism);
         for (int i = 0; i < parallelism; i++) {
             collectorMap.put(
                     i,
-                    new InternalRowCollector(
-                            handover, new Object(), source.getProducedType(), envOptions));
+                    multiTableManager.getInternalRowCollector(handover, new Object(), envOptions));
         }
     }
 

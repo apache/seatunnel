@@ -35,13 +35,11 @@ public class OssFileCheckpointTest extends AbstractFileCheckPointTest {
     public static void setup() throws CheckpointStorageException {
         Map<String, String> config = new HashMap<>();
         config.put("storage.type", "oss");
+        config.put("disable.cache", "false");
         config.put("fs.oss.accessKeyId", "your access key id");
         config.put("fs.oss.accessKeySecret", "your access key secret");
         config.put("fs.oss.endpoint", "oss-cn-hangzhou.aliyuncs.com");
         config.put("oss.bucket", "oss://seatunnel-test/");
-        config.put(
-                "fs.oss.credentials.provider",
-                "org.apache.hadoop.fs.aliyun.oss.AliyunCredentialsProvider");
         STORAGE = new HdfsStorage(config);
         initStorageData();
     }

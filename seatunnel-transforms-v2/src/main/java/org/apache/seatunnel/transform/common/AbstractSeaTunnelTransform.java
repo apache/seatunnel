@@ -14,24 +14,87 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-
 package org.apache.seatunnel.transform.common;
 
 import org.apache.seatunnel.api.table.catalog.CatalogTable;
+import org.apache.seatunnel.api.table.catalog.TableIdentifier;
+import org.apache.seatunnel.api.table.catalog.TableSchema;
 import org.apache.seatunnel.api.table.type.SeaTunnelRow;
-import org.apache.seatunnel.api.table.type.SeaTunnelRowType;
 import org.apache.seatunnel.api.transform.SeaTunnelTransform;
+import org.apache.seatunnel.transform.exception.ErrorDataTransformException;
 
-public abstract class AbstractSeaTunnelTransform implements SeaTunnelTransform<SeaTunnelRow> {
+import lombok.NonNull;
+import lombok.extern.slf4j.Slf4j;
 
-    protected String inputTableName;
-    protected SeaTunnelRowType inputRowType;
+import java.util.Collections;
+import java.util.List;
 
-    protected SeaTunnelRowType outputRowType;
+@Slf4j
+public abstract class AbstractSeaTunnelTransform<T, R> implements SeaTunnelTransform<T> {
+
+    protected final ErrorHandleWay rowErrorHandleWay;
+    protected CatalogTable inputCatalogTable;
+
+    protected volatile CatalogTable outputCatalogTable;
+
+    public AbstractSeaTunnelTransform(@NonNull CatalogTable inputCatalogTable) {
+        this(inputCatalogTable, TransformCommonOptions.ROW_ERROR_HANDLE_WAY_OPTION.defaultValue());
+    }
+
+    public AbstractSeaTunnelTransform(
+            @NonNull CatalogTable inputCatalogTable, ErrorHandleWay rowErrorHandleWay) {
+        this.inputCatalogTable = inputCatalogTable;
+        this.rowErrorHandleWay = rowErrorHandleWay;
+    }
+
+    public CatalogTable getProducedCatalogTable() {
+        if (outputCatalogTable == null) {
+            synchronized (this) {
+                if (outputCatalogTable == null) {
+                    outputCatalogTable = transformCatalogTable();
+                }
+            }
+        }
+
+        return outputCatalogTable;
+    }
 
     @Override
-    public SeaTunnelRow map(SeaTunnelRow row) {
-        return transformRow(row);
+    public List<CatalogTable> getProducedCatalogTables() {
+        return Collections.singletonList(getProducedCatalogTable());
+    }
+
+    private CatalogTable transformCatalogTable() {
+        TableIdentifier tableIdentifier = transformTableIdentifier();
+        TableSchema tableSchema = transformTableSchema();
+        return CatalogTable.of(
+                tableIdentifier,
+                tableSchema,
+                inputCatalogTable.getOptions(),
+                inputCatalogTable.getPartitionKeys(),
+                inputCatalogTable.getComment(),
+                inputCatalogTable.getTableId().getCatalogName(),
+                inputCatalogTable.getMetadataSchema());
+    }
+
+    public R transform(SeaTunnelRow row) {
+        try {
+            return transformRow(row);
+        } catch (ErrorDataTransformException e) {
+            if (e.getErrorHandleWay() != null) {
+                ErrorHandleWay errorHandleWay = e.getErrorHandleWay();
+                if (errorHandleWay.allowSkipThisRow()) {
+                    log.debug("Skip row due to error", e);
+                    return null;
+                }
+                throw e;
+            }
+            if (rowErrorHandleWay.allowSkip()) {
+                log.debug("Skip row due to error", e);
+                return null;
+            }
+            throw e;
+        }
     }
 
     /**
@@ -39,13 +102,9 @@ public abstract class AbstractSeaTunnelTransform implements SeaTunnelTransform<S
      *
      * @param inputRow upstream input row data
      */
-    protected abstract SeaTunnelRow transformRow(SeaTunnelRow inputRow);
+    protected abstract R transformRow(SeaTunnelRow inputRow);
 
-    @Override
-    public CatalogTable getProducedCatalogTable() {
-        throw new UnsupportedOperationException(
-                String.format(
-                        "Connector %s must implement TableTransformFactory.createTransform method",
-                        getPluginName()));
-    }
+    protected abstract TableSchema transformTableSchema();
+
+    protected abstract TableIdentifier transformTableIdentifier();
 }

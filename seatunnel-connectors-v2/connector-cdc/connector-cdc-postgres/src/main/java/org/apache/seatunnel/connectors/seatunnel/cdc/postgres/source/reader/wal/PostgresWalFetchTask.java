@@ -20,6 +20,7 @@ package org.apache.seatunnel.connectors.seatunnel.cdc.postgres.source.reader.wal
 import org.apache.seatunnel.connectors.cdc.base.source.reader.external.FetchTask;
 import org.apache.seatunnel.connectors.cdc.base.source.split.IncrementalSplit;
 import org.apache.seatunnel.connectors.cdc.base.source.split.SourceSplitBase;
+import org.apache.seatunnel.connectors.seatunnel.cdc.postgres.source.offset.LsnOffset;
 import org.apache.seatunnel.connectors.seatunnel.cdc.postgres.source.reader.PostgresSourceFetchTaskContext;
 
 import io.debezium.connector.postgresql.PostgresOffsetContext;
@@ -55,7 +56,7 @@ public class PostgresWalFetchTask implements FetchTask<SourceSplitBase> {
                         sourceFetchContext.getDbzConnectorConfig(),
                         sourceFetchContext.getSnapshotter(),
                         sourceFetchContext.getDataConnection(),
-                        sourceFetchContext.getDispatcher(),
+                        sourceFetchContext.getPgEventDispatcher(),
                         sourceFetchContext.getErrorHandler(),
                         Clock.SYSTEM,
                         sourceFetchContext.getDatabaseSchema(),
@@ -70,15 +71,15 @@ public class PostgresWalFetchTask implements FetchTask<SourceSplitBase> {
         log.info(
                 "Start streaming change event source for postgres wal split: {}",
                 split.getStartupOffset().toString());
-        streamingChangeEventSource.execute(changeEventSourceContext, offsetContext);
+        streamingChangeEventSource.execute(
+                changeEventSourceContext, sourceFetchContext.getPartition(), offsetContext);
     }
 
-    public void commitCurrentOffset() {
-        if (streamingChangeEventSource != null && offsetContext != null) {
+    public void commitCurrentOffset(LsnOffset offset) {
+        if (streamingChangeEventSource != null && offset != null) {
 
             // only extracting and storing the lsn of the last commit
-            Long commitLsn =
-                    (Long) offsetContext.getOffset().get(PostgresOffsetContext.LAST_COMMIT_LSN_KEY);
+            Long commitLsn = offset.getLsn().asLong();
             if (commitLsn != null
                     && (lastCommitLsn == null
                             || Lsn.valueOf(commitLsn).compareTo(Lsn.valueOf(lastCommitLsn)) > 0)) {

@@ -26,6 +26,7 @@ import org.slf4j.LoggerFactory;
 import io.debezium.config.Configuration;
 import io.debezium.connector.oracle.OracleConnection;
 import io.debezium.connector.oracle.Scn;
+import io.debezium.jdbc.JdbcConfiguration;
 import io.debezium.jdbc.JdbcConnection;
 import io.debezium.relational.RelationalTableFilters;
 import io.debezium.relational.TableId;
@@ -50,11 +51,11 @@ public class OracleConnectionUtils {
     private static final String SHOW_CURRENT_SCN = "SELECT CURRENT_SCN FROM V$DATABASE";
 
     /** Creates a new {@link OracleConnection}, but not open the connection. */
-    public static OracleConnection createOracleConnection(Configuration dbzConfiguration) {
+    public static OracleConnection createOracleConnection(JdbcConfiguration dbzConfiguration) {
         Configuration configuration = dbzConfiguration.subset(DATABASE_CONFIG_PREFIX, true);
 
         return new OracleConnection(
-                configuration.isEmpty() ? dbzConfiguration : configuration,
+                configuration.isEmpty() ? dbzConfiguration : JdbcConfiguration.adapt(configuration),
                 OracleConnectionUtils.class::getClassLoader);
     }
 
@@ -91,7 +92,8 @@ public class OracleConnectionUtils {
         Set<TableId> tableIdSet = new HashSet<>();
         String queryTablesSql =
                 "SELECT OWNER ,TABLE_NAME,TABLESPACE_NAME FROM ALL_TABLES \n"
-                        + "WHERE TABLESPACE_NAME IS NOT NULL AND TABLESPACE_NAME NOT IN ('SYSAUX')";
+                        + "WHERE PARTITIONED = 'YES' OR (TABLESPACE_NAME IS NOT NULL AND TABLESPACE_NAME NOT IN ('SYSAUX'))";
+
         try {
             jdbcConnection.query(
                     queryTablesSql,

@@ -1,3 +1,5 @@
+import ChangeLog from '../changelog/connector-influxdb.md';
+
 # InfluxDB
 
 > InfluxDB source connector
@@ -136,7 +138,7 @@ the timeout for connecting to InfluxDB, in milliseconds
 
 ### common options
 
-Source plugin common parameters, please refer to [Source Common Options](common-options.md) for details
+Source plugin common parameters, please refer to [Source Common Options](../source-common-options.md) for details
 
 ## Examples
 
@@ -189,7 +191,4 @@ source {
 
 ## Changelog
 
-### 2.2.0-beta 2022-09-26
-
-- Add InfluxDB Source Connector
-
+<ChangeLog />

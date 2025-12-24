@@ -31,12 +31,9 @@ public final class TableUtil {
     private TableUtil() {}
 
     public static DataStream<Row> tableToDataStream(
-            StreamTableEnvironment tableEnvironment, Table table, boolean isAppend) {
+            StreamTableEnvironment tableEnvironment, Table table) {
 
         TypeInformation<Row> typeInfo = table.getSchema().toRowType();
-        if (isAppend) {
-            return tableEnvironment.toAppendStream(table, typeInfo);
-        }
         DataStream<Row> dataStream = tableEnvironment.toChangelogStream(table);
         dataStream.getTransformation().setOutputType(typeInfo);
         return dataStream;

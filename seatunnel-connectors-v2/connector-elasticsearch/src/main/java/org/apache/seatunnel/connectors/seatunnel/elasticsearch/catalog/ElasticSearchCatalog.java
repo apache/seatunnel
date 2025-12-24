@@ -17,6 +17,8 @@
 
 package org.apache.seatunnel.connectors.seatunnel.elasticsearch.catalog;
 
+import org.apache.seatunnel.shade.com.google.common.collect.Lists;
+
 import org.apache.seatunnel.api.configuration.ReadonlyConfig;
 import org.apache.seatunnel.api.configuration.util.ConfigUtil;
 import org.apache.seatunnel.api.table.catalog.Catalog;
@@ -41,7 +43,6 @@ import org.apache.seatunnel.connectors.seatunnel.elasticsearch.dto.source.IndexD
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
-import com.google.common.collect.Lists;
 import lombok.extern.slf4j.Slf4j;
 
 import java.util.Collections;
@@ -50,7 +51,7 @@ import java.util.List;
 import java.util.Map;
 import java.util.Optional;
 
-import static com.google.common.base.Preconditions.checkNotNull;
+import static org.apache.seatunnel.shade.com.google.common.base.Preconditions.checkNotNull;
 
 /**
  * Elasticsearch catalog implementation.
@@ -110,8 +111,7 @@ public class ElasticSearchCatalog implements Catalog {
     public boolean databaseExists(String databaseName) throws CatalogException {
         // check if the index exist
         try {
-            List<IndexDocsCount> indexDocsCount = esRestClient.getIndexDocsCount(databaseName);
-            return true;
+            return esRestClient.checkIndexExist(databaseName);
         } catch (Exception e) {
             log.error(
                     String.format(
@@ -182,6 +182,12 @@ public class ElasticSearchCatalog implements Catalog {
             throws TableAlreadyExistException, DatabaseNotExistException, CatalogException {
         // Create the index
         checkNotNull(tablePath, "tablePath cannot be null");
+        if (tableExists(tablePath)) {
+            if (!ignoreIfExists) {
+                throw new TableAlreadyExistException(catalogName, tablePath);
+            }
+            return;
+        }
         esRestClient.createIndex(tablePath.getTableName());
     }
 
@@ -189,8 +195,11 @@ public class ElasticSearchCatalog implements Catalog {
     public void dropTable(TablePath tablePath, boolean ignoreIfNotExists)
             throws TableNotExistException, CatalogException {
         checkNotNull(tablePath);
-        if (!tableExists(tablePath) && !ignoreIfNotExists) {
-            throw new TableNotExistException(catalogName, tablePath);
+        if (!tableExists(tablePath)) {
+            if (!ignoreIfNotExists) {
+                throw new TableNotExistException(catalogName, tablePath);
+            }
+            return;
         }
         try {
             esRestClient.dropIndex(tablePath.getTableName());
@@ -206,19 +215,26 @@ public class ElasticSearchCatalog implements Catalog {
     @Override
     public void createDatabase(TablePath tablePath, boolean ignoreIfExists)
             throws DatabaseAlreadyExistException, CatalogException {
-        createTable(tablePath, null, ignoreIfExists);
+        try {
+            createTable(tablePath, null, ignoreIfExists);
+        } catch (TableAlreadyExistException ex) {
+            throw new DatabaseAlreadyExistException(catalogName, tablePath.getDatabaseName());
+        }
     }
 
     @Override
     public void dropDatabase(TablePath tablePath, boolean ignoreIfNotExists)
             throws DatabaseNotExistException, CatalogException {
-        dropTable(tablePath, ignoreIfNotExists);
+        try {
+            dropTable(tablePath, ignoreIfNotExists);
+        } catch (TableNotExistException ex) {
+            throw new DatabaseNotExistException(catalogName, tablePath.getDatabaseName());
+        }
     }
 
     @Override
     public void truncateTable(TablePath tablePath, boolean ignoreIfNotExists) {
-        dropTable(tablePath, ignoreIfNotExists);
-        createTable(tablePath, null, ignoreIfNotExists);
+        esRestClient.clearIndexData(tablePath.getTableName());
     }
 
     @Override

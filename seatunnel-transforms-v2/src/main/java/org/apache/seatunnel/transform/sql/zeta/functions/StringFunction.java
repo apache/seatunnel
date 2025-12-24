@@ -17,16 +17,31 @@
 
 package org.apache.seatunnel.transform.sql.zeta.functions;
 
+import org.apache.seatunnel.shade.com.google.common.hash.Hashing;
+
 import org.apache.seatunnel.common.exception.CommonErrorCodeDeprecated;
+import org.apache.seatunnel.common.utils.DateTimeUtils;
+import org.apache.seatunnel.common.utils.DateUtils;
 import org.apache.seatunnel.transform.exception.TransformException;
 import org.apache.seatunnel.transform.sql.zeta.ZetaSQLFunction;
 
+import org.apache.groovy.parser.antlr4.util.StringUtils;
+
+import java.lang.reflect.Array;
 import java.nio.charset.StandardCharsets;
+import java.time.LocalDate;
+import java.time.LocalDateTime;
+import java.time.OffsetDateTime;
+import java.time.ZoneOffset;
 import java.time.temporal.Temporal;
+import java.util.ArrayList;
 import java.util.Arrays;
+import java.util.Date;
 import java.util.List;
+import java.util.Objects;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
+import java.util.stream.Collectors;
 
 public class StringFunction {
     private static final byte[] SOUNDEX_INDEX =
@@ -35,7 +50,7 @@ public class StringFunction {
 
     public static Integer ascii(List<Object> args) {
         String arg = (String) args.get(0);
-        if (arg == null) {
+        if (arg == null || arg.isEmpty()) {
             return null;
         } else {
             return (int) arg.charAt(0);
@@ -103,7 +118,22 @@ public class StringFunction {
                 }
                 f = true;
             }
-            builder.append(arg);
+            if (arg.getClass().isArray()) {
+                int len = Array.getLength(arg);
+                List<Object> ll = new ArrayList<>();
+                for (int j = 0; j < len; j++) {
+                    Object o = Array.get(arg, j);
+                    ll.add(o);
+                }
+                String s =
+                        ll.stream()
+                                .filter(Objects::nonNull)
+                                .map(Object::toString)
+                                .collect(Collectors.joining(separator != null ? separator : ""));
+                builder.append(s);
+            } else {
+                builder.append(arg);
+            }
         }
         return builder.toString();
     }
@@ -201,6 +231,9 @@ public class StringFunction {
             return null;
         }
         int count = ((Number) args.get(1)).intValue();
+        if (count < 0) {
+            return "";
+        }
         if (count > arg.length()) {
             count = arg.length();
         }
@@ -213,6 +246,9 @@ public class StringFunction {
             return null;
         }
         int count = ((Number) args.get(1)).intValue();
+        if (count < 0) {
+            return "";
+        }
         int length = arg.length();
         if (count > length) {
             count = length;
@@ -330,6 +366,18 @@ public class StringFunction {
             sp = (String) args.get(1);
         }
         return trim(arg, true, true, sp);
+    }
+
+    public static String[] split(List<Object> args) {
+        String arg = (String) args.get(0);
+        if (StringUtils.isEmpty(arg)) {
+            return null;
+        }
+        String delimiter = "";
+        if (args.size() >= 2) {
+            delimiter = (String) args.get(1);
+        }
+        return arg.split(delimiter);
     }
 
     public static String trim(String s, boolean leading, boolean trailing, String sp) {
@@ -590,11 +638,74 @@ public class StringFunction {
         return new String(chars, StandardCharsets.ISO_8859_1);
     }
 
-    public static String substring(List<Object> args) {
-        String s = (String) args.get(0);
-        if (s == null) {
+    /**
+     * Convert date/time objects to standardized string format
+     *
+     * @param obj the object to convert
+     * @return standardized string representation of the date/time object
+     */
+    private static String convertDateToString(Object obj) {
+        if (obj == null) {
             return null;
         }
+
+        // Handle java.util.Date and subclasses (java.sql.Date, java.sql.Timestamp)
+        if (obj instanceof Date) {
+            Date date = (Date) obj;
+            LocalDateTime localDateTime = LocalDateTime.ofInstant(date.toInstant(), ZoneOffset.UTC);
+            return DateTimeUtils.toString(
+                    localDateTime, DateTimeUtils.Formatter.YYYY_MM_DD_HH_MM_SS);
+        }
+
+        // Handle java.time types
+        if (obj instanceof LocalDate) {
+            LocalDate localDate = (LocalDate) obj;
+            return DateUtils.toString(localDate, DateUtils.Formatter.YYYY_MM_DD);
+        }
+
+        if (obj instanceof LocalDateTime) {
+            LocalDateTime localDateTime = (LocalDateTime) obj;
+            return DateTimeUtils.toString(
+                    localDateTime, DateTimeUtils.Formatter.YYYY_MM_DD_HH_MM_SS);
+        }
+
+        if (obj instanceof OffsetDateTime) {
+            OffsetDateTime offsetDateTime = (OffsetDateTime) obj;
+            return DateTimeUtils.toString(
+                    offsetDateTime, DateTimeUtils.Formatter.YYYY_MM_DD_HH_MM_SS);
+        }
+
+        // For Temporal objects that are not specifically handled above
+        if (obj instanceof Temporal) {
+            Temporal temporal = (Temporal) obj;
+            try {
+                // Try to format as timestamp first
+                return DateTimeUtils.toString(
+                        temporal, DateTimeUtils.Formatter.YYYY_MM_DD_HH_MM_SS);
+            } catch (Exception e) {
+                try {
+                    // Fallback to date-only format
+                    return DateUtils.toString(temporal, DateUtils.Formatter.YYYY_MM_DD);
+                } catch (Exception ex) {
+                    // If all else fails, use toString
+                    return obj.toString();
+                }
+            }
+        }
+
+        // For non-date objects, convert to string directly
+        return obj.toString();
+    }
+
+    public static String substring(List<Object> args) {
+        Object input = args.get(0);
+        if (input == null) {
+            return null;
+        }
+
+        // Convert date types to standardized string format
+        String s = convertDateToString(input);
+
         int sl = s.length();
         int start = ((Number) args.get(1)).intValue();
         Object v3 = null;
@@ -663,5 +774,19 @@ public class StringFunction {
             }
         }
         return builder == null ? original : builder.toString();
+    }
+
+    /**
+     * Calculate MurmurHash 128 for the input string and return the lower 64 bits as a long value
+     *
+     * @param args List containing the input string
+     * @return Lower 64 bits of MurmurHash 128 as Long, or null if input is null
+     */
+    public static Long murmur64(List<Object> args) {
+        String arg = (String) args.get(0);
+        if (arg == null) {
+            return null;
+        }
+        return Hashing.murmur3_128().hashString(arg, StandardCharsets.UTF_8).asLong();
     }
 }

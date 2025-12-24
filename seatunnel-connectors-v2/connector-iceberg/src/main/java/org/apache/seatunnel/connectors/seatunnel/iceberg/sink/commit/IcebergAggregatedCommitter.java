@@ -20,7 +20,7 @@ package org.apache.seatunnel.connectors.seatunnel.iceberg.sink.commit;
 import org.apache.seatunnel.api.sink.SinkAggregatedCommitter;
 import org.apache.seatunnel.api.table.catalog.CatalogTable;
 import org.apache.seatunnel.connectors.seatunnel.iceberg.IcebergTableLoader;
-import org.apache.seatunnel.connectors.seatunnel.iceberg.config.SinkConfig;
+import org.apache.seatunnel.connectors.seatunnel.iceberg.config.IcebergSinkConfig;
 
 import lombok.extern.slf4j.Slf4j;
 
@@ -33,10 +33,19 @@ import java.util.List;
 public class IcebergAggregatedCommitter
         implements SinkAggregatedCommitter<IcebergCommitInfo, IcebergAggregatedCommitInfo> {
 
-    private final IcebergFilesCommitter filesCommitter;
+    private IcebergTableLoader tableLoader;
+    private IcebergFilesCommitter filesCommitter;
+    private final IcebergSinkConfig config;
+    private final CatalogTable catalogTable;
 
-    public IcebergAggregatedCommitter(SinkConfig config, CatalogTable catalogTable) {
-        IcebergTableLoader tableLoader = IcebergTableLoader.create(config, catalogTable).open();
+    public IcebergAggregatedCommitter(IcebergSinkConfig config, CatalogTable catalogTable) {
+        this.config = config;
+        this.catalogTable = catalogTable;
+    }
+
+    @Override
+    public void init() {
+        this.tableLoader = IcebergTableLoader.create(config, catalogTable);
         this.filesCommitter = IcebergFilesCommitter.of(config, tableLoader);
     }
 
@@ -51,7 +60,8 @@ public class IcebergAggregatedCommitter
 
     private void commitFiles(List<IcebergCommitInfo> commitInfos) {
         for (IcebergCommitInfo icebergCommitInfo : commitInfos) {
-            if (icebergCommitInfo.getResults() == null) {
+            if (icebergCommitInfo.getResults() == null
+                    || icebergCommitInfo.getResults().isEmpty()) {
                 continue;
             }
             filesCommitter.doCommit(icebergCommitInfo.getResults());
@@ -67,5 +77,7 @@ public class IcebergAggregatedCommitter
     public void abort(List<IcebergAggregatedCommitInfo> aggregatedCommitInfo) throws Exception {}
 
     @Override
-    public void close() throws IOException {}
+    public void close() throws IOException {
+        this.tableLoader.close();
+    }
 }

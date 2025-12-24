@@ -17,13 +17,17 @@
 
 package org.apache.seatunnel.connectors.seatunnel.paimon.utils;
 
+import org.apache.seatunnel.shade.org.apache.commons.lang3.StringUtils;
+
 import org.apache.seatunnel.api.table.type.ArrayType;
 import org.apache.seatunnel.api.table.type.DecimalType;
 import org.apache.seatunnel.api.table.type.MapType;
 import org.apache.seatunnel.api.table.type.SeaTunnelDataType;
 import org.apache.seatunnel.api.table.type.SeaTunnelRow;
 import org.apache.seatunnel.api.table.type.SeaTunnelRowType;
-import org.apache.seatunnel.common.exception.CommonErrorCodeDeprecated;
+import org.apache.seatunnel.common.exception.CommonError;
+import org.apache.seatunnel.connectors.seatunnel.paimon.config.PaimonBaseOptions;
+import org.apache.seatunnel.connectors.seatunnel.paimon.exception.PaimonConnectorErrorCode;
 import org.apache.seatunnel.connectors.seatunnel.paimon.exception.PaimonConnectorException;
 
 import org.apache.paimon.data.BinaryArray;
@@ -50,11 +54,14 @@ import org.apache.paimon.types.TimestampType;
 import org.apache.paimon.utils.DateTimeUtils;
 
 import java.math.BigDecimal;
+import java.math.RoundingMode;
 import java.time.LocalDate;
 import java.time.LocalDateTime;
+import java.time.LocalTime;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.Optional;
 
 /** The converter for converting {@link InternalRow} and {@link SeaTunnelRow} */
 public class RowConverter {
@@ -68,7 +75,8 @@ public class RowConverter {
      * @param dataType Data type of the array
      * @return SeaTunnel array object
      */
-    public static Object convert(InternalArray array, SeaTunnelDataType<?> dataType) {
+    public static Object convertArrayType(
+            String fieldName, InternalArray array, SeaTunnelDataType<?> dataType) {
         switch (dataType.getSqlType()) {
             case STRING:
                 String[] strings = new String[array.size()];
@@ -119,10 +127,10 @@ public class RowConverter {
                 }
                 return doubles;
             default:
-                String errorMsg =
-                        String.format("Array type not support this genericType [%s]", dataType);
-                throw new PaimonConnectorException(
-                        CommonErrorCodeDeprecated.UNSUPPORTED_DATA_TYPE, errorMsg);
+                throw CommonError.unsupportedArrayGenericType(
+                        PaimonBaseOptions.CONNECTOR_IDENTITY,
+                        dataType.getSqlType().toString(),
+                        fieldName);
         }
     }
 
@@ -133,7 +141,8 @@ public class RowConverter {
      * @param dataType SeaTunnel array data type
      * @return Paimon array object {@link BinaryArray}
      */
-    public static BinaryArray reconvert(Object array, SeaTunnelDataType<?> dataType) {
+    public static BinaryArray reconvert(
+            String fieldName, Object array, SeaTunnelDataType<?> dataType) {
         int length = ((Object[]) array).length;
         BinaryArray binaryArray = new BinaryArray();
         BinaryArrayWriter binaryArrayWriter;
@@ -220,10 +229,10 @@ public class RowConverter {
                 }
                 break;
             default:
-                String errorMsg =
-                        String.format("Array type not support this genericType [%s]", dataType);
-                throw new PaimonConnectorException(
-                        CommonErrorCodeDeprecated.UNSUPPORTED_DATA_TYPE, errorMsg);
+                throw CommonError.unsupportedArrayGenericType(
+                        PaimonBaseOptions.CONNECTOR_IDENTITY,
+                        dataType.getSqlType().toString(),
+                        fieldName);
         }
         binaryArrayWriter.complete();
         return binaryArray;
@@ -236,7 +245,8 @@ public class RowConverter {
      * @param seaTunnelRowType SeaTunnel row type
      * @return SeaTunnel row
      */
-    public static SeaTunnelRow convert(InternalRow rowData, SeaTunnelRowType seaTunnelRowType) {
+    public static SeaTunnelRow convert(
+            InternalRow rowData, SeaTunnelRowType seaTunnelRowType, TableSchema tableSchema) {
         Object[] objects = new Object[seaTunnelRowType.getTotalFields()];
         for (int i = 0; i < objects.length; i++) {
             // judge the field is or not equals null
@@ -245,6 +255,7 @@ public class RowConverter {
                 continue;
             }
             SeaTunnelDataType<?> fieldType = seaTunnelRowType.getFieldType(i);
+            String fieldName = seaTunnelRowType.getFieldName(i);
             switch (fieldType.getSqlType()) {
                 case TINYINT:
                     objects[i] = rowData.getByte(i);
@@ -265,12 +276,11 @@ public class RowConverter {
                     objects[i] = rowData.getDouble(i);
                     break;
                 case DECIMAL:
-                    SeaTunnelDataType<?> decimalType = seaTunnelRowType.getFieldType(i);
                     Decimal decimal =
                             rowData.getDecimal(
                                     i,
-                                    ((DecimalType) decimalType).getPrecision(),
-                                    ((DecimalType) decimalType).getScale());
+                                    ((DecimalType) fieldType).getPrecision(),
+                                    ((DecimalType) fieldType).getScale());
                     objects[i] = decimal.toBigDecimal();
                     break;
                 case STRING:
@@ -287,25 +297,37 @@ public class RowConverter {
                     objects[i] = DateTimeUtils.toLocalDate(dateInt);
                     break;
                 case TIMESTAMP:
-                    // Now SeaTunnel not supported assigned the timezone for timestamp,
-                    // so we use the default precision 6
-                    Timestamp timestamp = rowData.getTimestamp(i, 6);
+                    int precision = TimestampType.DEFAULT_PRECISION;
+                    Optional<DataField> precisionOptional =
+                            tableSchema.fields().stream()
+                                    .filter(dataField -> dataField.name().equals(fieldName))
+                                    .findFirst();
+                    if (precisionOptional.isPresent()) {
+                        precision = ((TimestampType) precisionOptional.get().type()).getPrecision();
+                    }
+                    Timestamp timestamp = rowData.getTimestamp(i, precision);
                     objects[i] = timestamp.toLocalDateTime();
                     break;
                 case ARRAY:
-                    SeaTunnelDataType<?> arrayType = seaTunnelRowType.getFieldType(i);
-                    InternalArray array = rowData.getArray(i);
-                    objects[i] = convert(array, ((ArrayType<?, ?>) arrayType).getElementType());
+                    InternalArray paimonArray = rowData.getArray(i);
+                    ArrayType<?, ?> seatunnelArray = (ArrayType<?, ?>) fieldType;
+                    objects[i] =
+                            convertArrayType(
+                                    fieldName, paimonArray, seatunnelArray.getElementType());
+                    break;
+                case TIME:
+                    int timeInt = rowData.getInt(i);
+                    objects[i] = DateTimeUtils.toLocalTime(timeInt);
                     break;
                 case MAP:
-                    SeaTunnelDataType<?> mapType = seaTunnelRowType.getFieldType(i);
+                    MapType<?, ?> mapType = (MapType<?, ?>) fieldType;
                     InternalMap map = rowData.getMap(i);
                     InternalArray keyArray = map.keyArray();
                     InternalArray valueArray = map.valueArray();
-                    SeaTunnelDataType<?> keyType = ((MapType<?, ?>) mapType).getKeyType();
-                    SeaTunnelDataType<?> valueType = ((MapType<?, ?>) mapType).getValueType();
-                    Object[] key = (Object[]) convert(keyArray, keyType);
-                    Object[] value = (Object[]) convert(valueArray, valueType);
+                    SeaTunnelDataType<?> keyType = mapType.getKeyType();
+                    SeaTunnelDataType<?> valueType = mapType.getValueType();
+                    Object[] key = (Object[]) convertArrayType(fieldName, keyArray, keyType);
+                    Object[] value = (Object[]) convertArrayType(fieldName, valueArray, valueType);
                     Map<Object, Object> mapData = new HashMap<>();
                     for (int j = 0; j < key.length; j++) {
                         mapData.put(key[j], value[j]);
@@ -316,12 +338,13 @@ public class RowConverter {
                     SeaTunnelDataType<?> rowType = seaTunnelRowType.getFieldType(i);
                     InternalRow row =
                             rowData.getRow(i, ((SeaTunnelRowType) rowType).getTotalFields());
-                    objects[i] = convert(row, (SeaTunnelRowType) rowType);
+                    objects[i] = convert(row, (SeaTunnelRowType) rowType, tableSchema);
                     break;
                 default:
-                    throw new PaimonConnectorException(
-                            CommonErrorCodeDeprecated.UNSUPPORTED_DATA_TYPE,
-                            "SeaTunnel does not support this type");
+                    throw CommonError.unsupportedDataType(
+                            PaimonBaseOptions.CONNECTOR_IDENTITY,
+                            fieldType.getSqlType().toString(),
+                            fieldName);
             }
         }
         return new SeaTunnelRow(objects);
@@ -332,117 +355,194 @@ public class RowConverter {
      *
      * @param seaTunnelRow SeaTunnel row object
      * @param seaTunnelRowType SeaTunnel row type
-     * @param tableSchema Paimon table schema
+     * @param sinkTableSchema Paimon table schema
      * @return Paimon row object
      */
     public static InternalRow reconvert(
-            SeaTunnelRow seaTunnelRow, SeaTunnelRowType seaTunnelRowType, TableSchema tableSchema) {
-        List<DataField> fields = tableSchema.fields();
-        BinaryRow binaryRow = new BinaryRow(seaTunnelRowType.getTotalFields());
+            SeaTunnelRow seaTunnelRow,
+            SeaTunnelRowType seaTunnelRowType,
+            TableSchema sinkTableSchema) {
+        List<DataField> sinkTotalFields = sinkTableSchema.fields();
+        int sourceTotalFields = seaTunnelRowType.getTotalFields();
+        if (sourceTotalFields != sinkTotalFields.size()) {
+            throw CommonError.writeRowErrorWithFieldsCountNotMatch(
+                    PaimonBaseOptions.CONNECTOR_IDENTITY,
+                    sourceTotalFields,
+                    sinkTotalFields.size());
+        }
+        BinaryRow binaryRow = new BinaryRow(sourceTotalFields);
         BinaryWriter binaryWriter = new BinaryRowWriter(binaryRow);
         // Convert SeaTunnel RowKind to Paimon RowKind
         org.apache.paimon.types.RowKind rowKind =
                 RowKindConverter.convertSeaTunnelRowKind2PaimonRowKind(seaTunnelRow.getRowKind());
+        if (rowKind == null) {
+            throw CommonError.unsupportedRowKind(
+                    PaimonBaseOptions.CONNECTOR_IDENTITY,
+                    seaTunnelRow.getRowKind().shortString(),
+                    seaTunnelRow.getTableId());
+        }
         binaryRow.setRowKind(rowKind);
         SeaTunnelDataType<?>[] fieldTypes = seaTunnelRowType.getFieldTypes();
         for (int i = 0; i < fieldTypes.length; i++) {
+            Object fieldValue = seaTunnelRow.getField(i);
             // judge the field is or not equals null
-            if (seaTunnelRow.getField(i) == null) {
+            if (fieldValue == null) {
                 binaryWriter.setNullAt(i);
                 continue;
             }
+            checkCanWriteWithSchema(i, seaTunnelRowType, sinkTotalFields, fieldValue);
+            String fieldName = seaTunnelRowType.getFieldName(i);
             switch (fieldTypes[i].getSqlType()) {
                 case TINYINT:
-                    binaryWriter.writeByte(i, (Byte) seaTunnelRow.getField(i));
+                    binaryWriter.writeByte(i, (Byte) fieldValue);
                     break;
                 case SMALLINT:
-                    binaryWriter.writeShort(i, (Short) seaTunnelRow.getField(i));
+                    binaryWriter.writeShort(i, (Short) fieldValue);
                     break;
                 case INT:
-                    binaryWriter.writeInt(i, (Integer) seaTunnelRow.getField(i));
+                    binaryWriter.writeInt(i, (Integer) fieldValue);
                     break;
                 case BIGINT:
-                    binaryWriter.writeLong(i, (Long) seaTunnelRow.getField(i));
+                    binaryWriter.writeLong(i, (Long) fieldValue);
                     break;
                 case FLOAT:
-                    binaryWriter.writeFloat(i, (Float) seaTunnelRow.getField(i));
+                    binaryWriter.writeFloat(i, (Float) fieldValue);
                     break;
                 case DOUBLE:
-                    binaryWriter.writeDouble(i, (Double) seaTunnelRow.getField(i));
+                    binaryWriter.writeDouble(i, (Double) fieldValue);
                     break;
                 case DECIMAL:
-                    DecimalType fieldType = (DecimalType) seaTunnelRowType.getFieldType(i);
+                    DataField decimalDataField =
+                            SchemaUtil.getDataField(sinkTotalFields, fieldName);
+                    org.apache.paimon.types.DecimalType decimalType =
+                            (org.apache.paimon.types.DecimalType) decimalDataField.type();
                     binaryWriter.writeDecimal(
                             i,
                             Decimal.fromBigDecimal(
                                     (BigDecimal) seaTunnelRow.getField(i),
-                                    fieldType.getPrecision(),
-                                    fieldType.getScale()),
-                            fieldType.getPrecision());
+                                    decimalType.getPrecision(),
+                                    decimalType.getScale()),
+                            decimalType.getPrecision());
                     break;
                 case STRING:
-                    binaryWriter.writeString(
-                            i, BinaryString.fromString((String) seaTunnelRow.getField(i)));
+                    binaryWriter.writeString(i, BinaryString.fromString((String) fieldValue));
                     break;
                 case BYTES:
-                    binaryWriter.writeBinary(i, (byte[]) seaTunnelRow.getField(i));
+                    binaryWriter.writeBinary(i, (byte[]) fieldValue);
                     break;
                 case BOOLEAN:
-                    binaryWriter.writeBoolean(i, (Boolean) seaTunnelRow.getField(i));
+                    binaryWriter.writeBoolean(i, (Boolean) fieldValue);
                     break;
                 case DATE:
-                    LocalDate date = (LocalDate) seaTunnelRow.getField(i);
+                    LocalDate date = (LocalDate) fieldValue;
                     BinaryWriter.createValueSetter(DataTypes.DATE())
                             .setValue(binaryWriter, i, DateTimeUtils.toInternal(date));
                     break;
                 case TIMESTAMP:
-                    String fieldName = seaTunnelRowType.getFieldName(i);
-                    DataField dataField = SchemaUtil.getDataField(fields, fieldName);
+                    DataField dataField = SchemaUtil.getDataField(sinkTotalFields, fieldName);
                     int precision = ((TimestampType) dataField.type()).getPrecision();
-                    LocalDateTime datetime = (LocalDateTime) seaTunnelRow.getField(i);
+                    LocalDateTime datetime = (LocalDateTime) fieldValue;
                     binaryWriter.writeTimestamp(
                             i, Timestamp.fromLocalDateTime(datetime), precision);
+                    break;
+                case TIME:
+                    LocalTime time = (LocalTime) fieldValue;
+                    BinaryWriter.createValueSetter(DataTypes.TIME())
+                            .setValue(binaryWriter, i, DateTimeUtils.toInternal(time));
                     break;
                 case MAP:
                     MapType<?, ?> mapType = (MapType<?, ?>) seaTunnelRowType.getFieldType(i);
                     SeaTunnelDataType<?> keyType = mapType.getKeyType();
                     SeaTunnelDataType<?> valueType = mapType.getValueType();
-                    DataType paimonKeyType = RowTypeConverter.reconvert(keyType);
-                    DataType paimonValueType = RowTypeConverter.reconvert(valueType);
-                    Map<?, ?> field = (Map<?, ?>) seaTunnelRow.getField(i);
+                    DataType paimonKeyType = RowTypeConverter.reconvert(fieldName, keyType);
+                    DataType paimonValueType = RowTypeConverter.reconvert(fieldName, valueType);
+                    Map<?, ?> field = (Map<?, ?>) fieldValue;
                     Object[] keys = field.keySet().toArray(new Object[0]);
                     Object[] values = field.values().toArray(new Object[0]);
                     binaryWriter.writeMap(
                             i,
                             BinaryMap.valueOf(
-                                    reconvert(keys, keyType), reconvert(values, valueType)),
+                                    reconvert(fieldName, keys, keyType),
+                                    reconvert(fieldName, values, valueType)),
                             new InternalMapSerializer(paimonKeyType, paimonValueType));
                     break;
                 case ARRAY:
                     ArrayType<?, ?> arrayType = (ArrayType<?, ?>) seaTunnelRowType.getFieldType(i);
                     BinaryArray paimonArray =
-                            reconvert(seaTunnelRow.getField(i), arrayType.getElementType());
+                            reconvert(fieldName, fieldValue, arrayType.getElementType());
                     binaryWriter.writeArray(
                             i,
                             paimonArray,
                             new InternalArraySerializer(
-                                    RowTypeConverter.reconvert(arrayType.getElementType())));
+                                    RowTypeConverter.reconvert(
+                                            fieldName, arrayType.getElementType())));
                     break;
                 case ROW:
                     SeaTunnelDataType<?> rowType = seaTunnelRowType.getFieldType(i);
-                    Object row = seaTunnelRow.getField(i);
+                    Object row = fieldValue;
                     InternalRow paimonRow =
-                            reconvert((SeaTunnelRow) row, (SeaTunnelRowType) rowType, tableSchema);
+                            reconvert(
+                                    (SeaTunnelRow) row,
+                                    (SeaTunnelRowType) rowType,
+                                    sinkTableSchema);
                     RowType paimonRowType =
-                            RowTypeConverter.reconvert((SeaTunnelRowType) rowType, tableSchema);
+                            RowTypeConverter.reconvert((SeaTunnelRowType) rowType, sinkTableSchema);
                     binaryWriter.writeRow(i, paimonRow, new InternalRowSerializer(paimonRowType));
                     break;
                 default:
-                    throw new PaimonConnectorException(
-                            CommonErrorCodeDeprecated.UNSUPPORTED_DATA_TYPE,
-                            "Unsupported data type " + seaTunnelRowType.getFieldType(i));
+                    throw CommonError.unsupportedDataType(
+                            PaimonBaseOptions.CONNECTOR_IDENTITY,
+                            seaTunnelRowType.getFieldType(i).getSqlType().toString(),
+                            fieldName);
             }
         }
         return binaryRow;
+    }
+
+    private static void checkCanWriteWithSchema(
+            int i, SeaTunnelRowType seaTunnelRowType, List<DataField> fields, Object fieldValue) {
+        String sourceFieldName = seaTunnelRowType.getFieldName(i);
+        SeaTunnelDataType<?> sourceFieldType = seaTunnelRowType.getFieldType(i);
+        DataField sinkDataField = fields.get(i);
+        DataType exceptDataType =
+                RowTypeConverter.reconvert(sourceFieldName, seaTunnelRowType.getFieldType(i));
+        DataField exceptDataField = new DataField(i, sourceFieldName, exceptDataType);
+        DataType sinkDataType = sinkDataField.type();
+        if (!exceptDataType.getTypeRoot().equals(sinkDataType.getTypeRoot())
+                || !StringUtils.equals(sourceFieldName, sinkDataField.name())) {
+            throw CommonError.writeRowErrorWithSchemaIncompatibleSchema(
+                    PaimonBaseOptions.CONNECTOR_IDENTITY,
+                    sourceFieldName + StringUtils.SPACE + sourceFieldType.getSqlType(),
+                    exceptDataField.asSQLString(),
+                    sinkDataField.asSQLString());
+        }
+        if (sourceFieldType instanceof DecimalType
+                && sinkDataType instanceof org.apache.paimon.types.DecimalType) {
+            DecimalType sourceDecimalType = (DecimalType) sourceFieldType;
+            org.apache.paimon.types.DecimalType sinkDecimalType =
+                    (org.apache.paimon.types.DecimalType) sinkDataType;
+            if (sinkDecimalType.getPrecision() < sourceDecimalType.getPrecision()
+                    || sinkDecimalType.getScale() < sourceDecimalType.getScale()) {
+                throw CommonError.writeRowErrorWithSchemaIncompatibleSchema(
+                        PaimonBaseOptions.CONNECTOR_IDENTITY,
+                        sourceFieldName + StringUtils.SPACE + sourceFieldType.getSqlType(),
+                        exceptDataField.asSQLString(),
+                        sinkDataField.asSQLString());
+            }
+            BigDecimal bd =
+                    ((BigDecimal) fieldValue)
+                            .setScale(sinkDecimalType.getScale(), RoundingMode.HALF_UP);
+            if (bd.precision() > sinkDecimalType.getPrecision()) {
+                String message =
+                        String.format(
+                                "`%s` field value is: %s, except field schema of sink is %s, but the field in sink table with actual schema is %s. Please check the schema of the sink table.",
+                                sourceFieldName,
+                                fieldValue,
+                                exceptDataField.asSQLString(),
+                                sinkDataField.asSQLString());
+                throw new PaimonConnectorException(
+                        PaimonConnectorErrorCode.DECIMAL_PRECISION_INCOMPATIBLE, message);
+            }
+        }
     }
 }

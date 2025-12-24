@@ -17,6 +17,9 @@
 
 package org.apache.seatunnel.engine.server.checkpoint;
 
+import org.apache.seatunnel.shade.com.google.common.annotations.VisibleForTesting;
+
+import org.apache.seatunnel.api.tracing.MDCTracer;
 import org.apache.seatunnel.common.utils.ExceptionUtils;
 import org.apache.seatunnel.common.utils.RetryUtils;
 import org.apache.seatunnel.common.utils.SeaTunnelException;
@@ -26,6 +29,7 @@ import org.apache.seatunnel.engine.common.Constant;
 import org.apache.seatunnel.engine.common.config.server.CheckpointConfig;
 import org.apache.seatunnel.engine.common.utils.ExceptionUtil;
 import org.apache.seatunnel.engine.common.utils.PassiveCompletableFuture;
+import org.apache.seatunnel.engine.common.utils.concurrent.CompletableFuture;
 import org.apache.seatunnel.engine.core.checkpoint.Checkpoint;
 import org.apache.seatunnel.engine.core.checkpoint.CheckpointIDCounter;
 import org.apache.seatunnel.engine.core.checkpoint.CheckpointType;
@@ -45,7 +49,7 @@ import org.apache.seatunnel.engine.server.task.statemachine.SeaTunnelTaskState;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
-import com.google.common.annotations.VisibleForTesting;
+import com.hazelcast.jet.datamodel.Tuple2;
 import com.hazelcast.map.IMap;
 import com.hazelcast.spi.impl.operationservice.impl.InvocationFuture;
 import lombok.Getter;
@@ -55,10 +59,11 @@ import lombok.SneakyThrows;
 import java.time.Instant;
 import java.util.ArrayDeque;
 import java.util.ArrayList;
+import java.util.HashMap;
+import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
-import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.CompletionException;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.CopyOnWriteArraySet;
@@ -111,6 +116,8 @@ public class CheckpointCoordinator {
     private final CheckpointPlan plan;
 
     private final Set<TaskLocation> readyToCloseStartingTask;
+    private final Set<TaskLocation> readyToCloseIdleTask;
+    @Getter private final Set<TaskLocation> closedIdleTask;
     private final ConcurrentHashMap<Long, PendingCheckpoint> pendingCheckpoints;
 
     private final ArrayDeque<String> completedCheckpointIds;
@@ -132,7 +139,7 @@ public class CheckpointCoordinator {
     /** Flag marking the coordinator as shut down (not accepting any messages anymore). */
     private volatile boolean shutdown;
 
-    private volatile boolean isAllTaskReady = false;
+    private final AtomicBoolean isAllTaskReady = new AtomicBoolean(false);
 
     private final ExecutorService executorService;
 
@@ -184,11 +191,14 @@ public class CheckpointCoordinator {
                             return thread;
                         });
         ((ScheduledThreadPoolExecutor) this.scheduler).setRemoveOnCancelPolicy(true);
+        this.scheduler = MDCTracer.tracing(scheduler);
         this.serializer = new ProtoStuffSerializer();
         this.pipelineTasks = getPipelineTasks(plan.getPipelineSubtasks());
         this.pipelineTaskStatus = new ConcurrentHashMap<>();
         this.checkpointIdCounter = checkpointIdCounter;
         this.readyToCloseStartingTask = new CopyOnWriteArraySet<>();
+        this.readyToCloseIdleTask = new CopyOnWriteArraySet<>();
+        this.closedIdleTask = new CopyOnWriteArraySet<>();
 
         LOG.info(
                 "Create CheckpointCoordinator for job({}@{}) with plan({})",
@@ -277,17 +287,23 @@ public class CheckpointCoordinator {
         if (checkpointCoordinatorFuture.isDone()) {
             return;
         }
-        cleanPendingCheckpoint(reason);
         updateStatus(CheckpointCoordinatorStatus.FAILED);
         checkpointCoordinatorFuture.complete(
                 new CheckpointCoordinatorState(
                         CheckpointCoordinatorStatus.FAILED, errorByPhysicalVertex.get()));
         checkpointManager.handleCheckpointError(pipelineId, false);
+        // we should wait the checkpoint manager handle the error to cancel other task by use
+        // checkpoint coordinator thread pool. So we killed the thread pool at the end of this
+        // method to avoid the thread be interrupted before handle checkpoint error finished.
+        cleanPendingCheckpoint(reason);
     }
 
     private void restoreTaskState(TaskLocation taskLocation) {
         List<ActionSubtaskState> states = new ArrayList<>();
         if (latestCompletedCheckpoint != null) {
+            if (!latestCompletedCheckpoint.isRestored()) {
+                latestCompletedCheckpoint.setRestored(true);
+            }
             final Integer currentParallelism = pipelineTasks.get(taskLocation.getTaskVertexId());
             plan.getSubtaskActions()
                     .get(taskLocation)
@@ -309,7 +325,11 @@ public class CheckpointCoordinator {
                                 for (int i = tuple.f1();
                                         i < actionState.getParallelism();
                                         i += currentParallelism) {
-                                    states.add(actionState.getSubtaskStates().get(i));
+                                    ActionSubtaskState subtaskState =
+                                            actionState.getSubtaskStates().get(i);
+                                    if (subtaskState != null) {
+                                        states.add(subtaskState);
+                                    }
                                 }
                             });
         }
@@ -327,7 +347,10 @@ public class CheckpointCoordinator {
                 return;
             }
         }
-        isAllTaskReady = true;
+        if (!isAllTaskReady.compareAndSet(false, true)) {
+            LOG.info("all task already ready, skip notify task start");
+            return;
+        }
         InvocationFuture<?>[] futures = notifyTaskStart();
         CompletableFuture.allOf(futures).join();
         notifyCompleted(latestCompletedCheckpoint);
@@ -340,7 +363,8 @@ public class CheckpointCoordinator {
         }
     }
 
-    private void notifyCompleted(CompletedCheckpoint completedCheckpoint) {
+    @VisibleForTesting
+    protected void notifyCompleted(CompletedCheckpoint completedCheckpoint) {
         if (completedCheckpoint != null) {
             try {
                 LOG.info(
@@ -383,7 +407,9 @@ public class CheckpointCoordinator {
         scheduleTriggerPendingCheckpoint(CHECKPOINT_TYPE, delayMills);
     }
 
-    private void scheduleTriggerPendingCheckpoint(CheckpointType checkpointType, long delayMills) {
+    @VisibleForTesting
+    protected void scheduleTriggerPendingCheckpoint(
+            CheckpointType checkpointType, long delayMills) {
         scheduler.schedule(
                 () -> tryTriggerPendingCheckpoint(checkpointType),
                 delayMills,
@@ -397,19 +423,72 @@ public class CheckpointCoordinator {
         }
     }
 
+    protected void readyToCloseIdleTask(TaskLocation taskLocation) {
+        if (plan.getStartingSubtasks().contains(taskLocation)) {
+            throw new UnsupportedOperationException("Unsupported close starting task");
+        }
+
+        LOG.info(
+                "Received close idle task[{}]({}/{}). {}",
+                taskLocation.getTaskID(),
+                taskLocation.getPipelineId(),
+                taskLocation.getJobId(),
+                taskLocation);
+        synchronized (readyToCloseIdleTask) {
+            if (readyToCloseIdleTask.contains(taskLocation)
+                    || closedIdleTask.contains(taskLocation)) {
+                LOG.warn(
+                        "task[{}]({}/{}) already in closed. {}",
+                        taskLocation.getTaskID(),
+                        taskLocation.getPipelineId(),
+                        taskLocation.getJobId(),
+                        taskLocation);
+                return;
+            }
+
+            List<TaskLocation> subTaskList = new ArrayList<>();
+            for (TaskLocation subTask : plan.getPipelineSubtasks()) {
+                if (subTask.getTaskGroupLocation().equals(taskLocation.getTaskGroupLocation())) {
+                    // close all subtask in the same task group
+                    subTaskList.add(subTask);
+                    LOG.info(
+                            "Add task[{}]({}/{}) to prepare close list",
+                            subTask.getTaskID(),
+                            subTask.getPipelineId(),
+                            subTask.getJobId());
+                }
+            }
+            readyToCloseIdleTask.addAll(subTaskList);
+        }
+    }
+
+    protected void completedCloseIdleTask(TaskLocation taskLocation) {
+        synchronized (readyToCloseIdleTask) {
+            if (readyToCloseIdleTask.contains(taskLocation)) {
+                readyToCloseIdleTask.remove(taskLocation);
+                closedIdleTask.add(taskLocation);
+                LOG.info(
+                        "Completed close task[{}]({}/{})",
+                        taskLocation.getTaskID(),
+                        taskLocation.getPipelineId(),
+                        taskLocation.getJobId());
+            }
+        }
+    }
+
     protected void restoreCoordinator(boolean alreadyStarted) {
-        LOG.info("received restore CheckpointCoordinator with alreadyStarted= " + alreadyStarted);
+        LOG.info("received restore CheckpointCoordinator with alreadyStarted = {}", alreadyStarted);
         errorByPhysicalVertex = new AtomicReference<>();
         checkpointCoordinatorFuture = new CompletableFuture<>();
         updateStatus(CheckpointCoordinatorStatus.RUNNING);
         cleanPendingCheckpoint(CheckpointCloseReason.CHECKPOINT_COORDINATOR_RESET);
         shutdown = false;
         if (alreadyStarted) {
-            isAllTaskReady = true;
+            isAllTaskReady.set(true);
             notifyCompleted(latestCompletedCheckpoint);
             tryTriggerPendingCheckpoint(CHECKPOINT_TYPE);
         } else {
-            isAllTaskReady = false;
+            isAllTaskReady.set(false);
         }
     }
 
@@ -420,10 +499,43 @@ public class CheckpointCoordinator {
         }
         final long currentTimestamp = Instant.now().toEpochMilli();
         if (checkpointType.notFinalCheckpoint() && checkpointType.notSchemaChangeCheckpoint()) {
-            if (currentTimestamp - latestTriggerTimestamp.get()
-                            < coordinatorConfig.getCheckpointInterval()
-                    || !isAllTaskReady) {
+            if (!isAllTaskReady.get()) {
+                LOG.info("Not all tasks are ready, skipping checkpoint trigger");
                 return;
+            }
+            long interval = currentTimestamp - latestTriggerTimestamp.get();
+            if (interval <= 0) {
+                LOG.error(
+                        "The time on your server may not be incremental which can lead checkpoint to stop. The latestTriggerTimestamp: ({}), but the currentTimestamp: ({})",
+                        latestTriggerTimestamp.get(),
+                        currentTimestamp);
+            }
+            if (interval < coordinatorConfig.getCheckpointInterval()) {
+                LOG.info(
+                        "skip trigger checkpoint because the last trigger timestamp is {} and current timestamp is {}, the interval is less than config.",
+                        latestTriggerTimestamp.get(),
+                        currentTimestamp);
+                scheduleTriggerPendingCheckpoint(
+                        checkpointType, coordinatorConfig.getCheckpointInterval() - interval);
+                return;
+            }
+
+            if (latestCompletedCheckpoint != null
+                    && coordinatorConfig.getCheckpointMinPause() != -1) {
+                long lastCompletedTime = latestCompletedCheckpoint.getCompletedTimestamp();
+                long timeSinceLastCompleted = currentTimestamp - lastCompletedTime;
+                if (timeSinceLastCompleted < coordinatorConfig.getCheckpointMinPause()) {
+                    long minPauseDelay =
+                            coordinatorConfig.getCheckpointMinPause() - timeSinceLastCompleted;
+                    LOG.info(
+                            "skip trigger checkpoint because the last completed timestamp is {} and current timestamp is {}, the time since completion ({} ms) is less than min-pause ({} ms).",
+                            lastCompletedTime,
+                            currentTimestamp,
+                            timeSinceLastCompleted,
+                            coordinatorConfig.getCheckpointMinPause());
+                    scheduleTriggerPendingCheckpoint(checkpointType, minPauseDelay);
+                    return;
+                }
             }
         }
         synchronized (lock) {
@@ -456,6 +568,10 @@ public class CheckpointCoordinator {
             // if checkpoint type are final type, we don't need to trigger next checkpoint
             if (checkpointType.notFinalCheckpoint() && checkpointType.notSchemaChangeCheckpoint()) {
                 scheduleTriggerPendingCheckpoint(coordinatorConfig.getCheckpointInterval());
+            } else {
+                LOG.info(
+                        "skip schedule trigger checkpoint because checkpoint type is {}",
+                        checkpointType);
             }
         }
     }
@@ -479,7 +595,7 @@ public class CheckpointCoordinator {
             return completableFutureWithError(
                     CheckpointCloseReason.CHECKPOINT_COORDINATOR_SHUTDOWN);
         }
-        if (!isAllTaskReady) {
+        if (!isAllTaskReady.get()) {
             return completableFutureWithError(
                     CheckpointCloseReason.TASK_NOT_ALL_READY_WHEN_SAVEPOINT);
         }
@@ -518,7 +634,7 @@ public class CheckpointCoordinator {
             CompletableFuture<PendingCheckpoint> pendingCompletableFuture) {
         pendingCompletableFuture.thenAccept(
                 pendingCheckpoint -> {
-                    LOG.info("wait checkpoint completed: " + pendingCheckpoint.getCheckpointId());
+                    LOG.info("wait checkpoint completed: {}", pendingCheckpoint.getCheckpointId());
                     PassiveCompletableFuture<CompletedCheckpoint> completableFuture =
                             pendingCheckpoint.getCompletableFuture();
                     completableFuture.whenCompleteAsync(
@@ -553,7 +669,9 @@ public class CheckpointCoordinator {
                                                             pendingCheckpoint.getCheckpointId(),
                                                             pendingCheckpoint
                                                                     .getCheckpointTimestamp(),
-                                                            pendingCheckpoint.getCheckpointType()),
+                                                            pendingCheckpoint.getCheckpointType(),
+                                                            new HashSet<>(readyToCloseIdleTask),
+                                                            new HashSet<>(closedIdleTask)),
                                             executorService)
                                     .thenApplyAsync(this::triggerCheckpoint, executorService);
 
@@ -567,8 +685,8 @@ public class CheckpointCoordinator {
                     }
                     if (coordinatorConfig.isCheckpointEnable()) {
                         LOG.debug(
-                                "Start a scheduled task to prevent checkpoint timeouts for barrier "
-                                        + pendingCheckpoint.getInfo());
+                                "Start a scheduled task to prevent checkpoint timeouts for barrier {}",
+                                pendingCheckpoint.getInfo());
                         long checkpointTimeout = coordinatorConfig.getCheckpointTimeout();
                         if (pendingCheckpoint.getCheckpointType().isSchemaChangeAfterCheckpoint()) {
                             checkpointTimeout =
@@ -585,8 +703,8 @@ public class CheckpointCoordinator {
                                                             != null
                                                     && !pendingCheckpoint.isFullyAcknowledged()) {
                                                 LOG.info(
-                                                        "timeout checkpoint: "
-                                                                + pendingCheckpoint.getInfo());
+                                                        "timeout checkpoint: {}",
+                                                        pendingCheckpoint.getInfo());
                                                 handleCoordinatorError(
                                                         CheckpointCloseReason.CHECKPOINT_EXPIRED,
                                                         null);
@@ -664,15 +782,26 @@ public class CheckpointCoordinator {
     }
 
     private Set<Long> getNotYetAcknowledgedTasks() {
-        // TODO: some tasks have completed and don't need to be ack
         return plan.getPipelineSubtasks().stream()
+                .filter(e -> !closedIdleTask.contains(e))
                 .map(TaskLocation::getTaskID)
                 .collect(Collectors.toCollection(CopyOnWriteArraySet::new));
     }
 
     private Map<ActionStateKey, ActionState> getActionStates() {
-        // TODO: some tasks have completed and will not submit state again.
-        return plan.getPipelineActions().entrySet().stream()
+        Map<ActionStateKey, Integer> pipelineActions = new HashMap<>(plan.getPipelineActions());
+        Set<ActionStateKey> closedActionKeys =
+                plan.getSubtaskActions().entrySet().stream()
+                        .filter(
+                                entry ->
+                                        SeaTunnelTaskState.CLOSED.equals(
+                                                this.pipelineTaskStatus.get(
+                                                        entry.getKey().getTaskID())))
+                        .flatMap(entry -> entry.getValue().stream().map(Tuple2::f0))
+                        .collect(Collectors.toSet());
+        pipelineActions.keySet().removeAll(closedActionKeys);
+
+        return pipelineActions.entrySet().stream()
                 .collect(
                         Collectors.toMap(
                                 Map.Entry::getKey,
@@ -680,8 +809,13 @@ public class CheckpointCoordinator {
     }
 
     private Map<Long, TaskStatistics> getTaskStatistics() {
-        // TODO: some tasks have completed and don't need to be ack
-        return this.pipelineTasks.entrySet().stream()
+        Map<Long, Integer> tasks = new HashMap<>(this.pipelineTasks);
+        for (Long taskId : this.pipelineTasks.keySet()) {
+            if (SeaTunnelTaskState.CLOSED.equals(this.pipelineTaskStatus.get(taskId))) {
+                tasks.remove(taskId);
+            }
+        }
+        return tasks.entrySet().stream()
                 .collect(
                         Collectors.toMap(
                                 Map.Entry::getKey,
@@ -689,8 +823,11 @@ public class CheckpointCoordinator {
     }
 
     public InvocationFuture<?>[] triggerCheckpoint(CheckpointBarrier checkpointBarrier) {
-        // TODO: some tasks have completed and don't need to trigger
         return plan.getStartingSubtasks().stream()
+                .filter(
+                        taskLocation ->
+                                !SeaTunnelTaskState.CLOSED.equals(
+                                        this.pipelineTaskStatus.get(taskLocation.getTaskID())))
                 .map(
                         taskLocation ->
                                 new CheckpointBarrierTriggerOperation(
@@ -701,7 +838,7 @@ public class CheckpointCoordinator {
 
     protected void cleanPendingCheckpoint(CheckpointCloseReason closedReason) {
         shutdown = true;
-        isAllTaskReady = false;
+        isAllTaskReady.set(false);
         synchronized (lock) {
             LOG.info("start clean pending checkpoint cause {}", closedReason.message());
             if (!pendingCheckpoints.isEmpty()) {
@@ -715,6 +852,8 @@ public class CheckpointCoordinator {
             }
             pipelineTaskStatus.clear();
             readyToCloseStartingTask.clear();
+            readyToCloseIdleTask.clear();
+            closedIdleTask.clear();
             pendingCounter.set(0);
             schemaChanging.set(false);
             scheduler.shutdownNow();
@@ -735,7 +874,7 @@ public class CheckpointCoordinator {
         final long checkpointId = ackOperation.getBarrier().getId();
         final PendingCheckpoint pendingCheckpoint = pendingCheckpoints.get(checkpointId);
         if (pendingCheckpoint == null) {
-            LOG.info("skip already ack checkpoint " + checkpointId);
+            LOG.info("skip already ack checkpoint {}", checkpointId);
             return;
         }
         TaskLocation location = ackOperation.getTaskLocation();
@@ -752,6 +891,11 @@ public class CheckpointCoordinator {
                 pendingCheckpoint.getCheckpointType().isSavepoint()
                         ? SubtaskStatus.SAVEPOINT_PREPARE_CLOSE
                         : SubtaskStatus.RUNNING);
+
+        if (ackOperation.getBarrier().getCheckpointType().notFinalCheckpoint()
+                && ackOperation.getBarrier().prepareClose(location)) {
+            completedCloseIdleTask(location);
+        }
     }
 
     public synchronized void completePendingCheckpoint(CompletedCheckpoint completedCheckpoint) {
@@ -767,14 +911,16 @@ public class CheckpointCoordinator {
         final long checkpointId = completedCheckpoint.getCheckpointId();
         completedCheckpointIds.addLast(String.valueOf(completedCheckpoint.getCheckpointId()));
         try {
-            byte[] states = serializer.serialize(completedCheckpoint);
-            checkpointStorage.storeCheckPoint(
-                    PipelineState.builder()
-                            .checkpointId(checkpointId)
-                            .jobId(String.valueOf(jobId))
-                            .pipelineId(pipelineId)
-                            .states(states)
-                            .build());
+            if (completedCheckpoint.getCheckpointType().notCompletedCheckpoint()) {
+                byte[] states = serializer.serialize(completedCheckpoint);
+                checkpointStorage.storeCheckPoint(
+                        PipelineState.builder()
+                                .checkpointId(checkpointId)
+                                .jobId(String.valueOf(jobId))
+                                .pipelineId(pipelineId)
+                                .states(states)
+                                .build());
+            }
             if (completedCheckpointIds.size()
                                     % coordinatorConfig.getStorage().getMaxRetainedCheckpoints()
                             == 0
@@ -805,6 +951,7 @@ public class CheckpointCoordinator {
         notifyCompleted(completedCheckpoint);
         pendingCheckpoints.remove(checkpointId).abortCheckpointTimeoutFutureWhenIsCompleted();
         pendingCounter.decrementAndGet();
+
         if (isCompleted()) {
             cleanPendingCheckpoint(CheckpointCloseReason.CHECKPOINT_COORDINATOR_COMPLETED);
             if (latestCompletedCheckpoint.getCheckpointType().isSavepoint()) {
@@ -906,7 +1053,7 @@ public class CheckpointCoordinator {
                     new RetryUtils.RetryMaterial(
                             Constant.OPERATION_RETRY_TIME,
                             true,
-                            exception -> ExceptionUtil.isOperationNeedRetryException(exception),
+                            ExceptionUtil::isOperationNeedRetryException,
                             Constant.OPERATION_RETRY_SLEEP));
         } catch (Exception e) {
             LOG.warn(
@@ -965,9 +1112,18 @@ public class CheckpointCoordinator {
         }
     }
 
+    public String getCheckpointStateImapKey() {
+        return checkpointStateImapKey;
+    }
+
     /** Only for test */
     @VisibleForTesting
     public PendingCheckpoint getSavepointPendingCheckpoint() {
         return savepointPendingCheckpoint;
+    }
+
+    @VisibleForTesting
+    public Map<Long, SeaTunnelTaskState> getPipelineTaskStatus() {
+        return pipelineTaskStatus;
     }
 }

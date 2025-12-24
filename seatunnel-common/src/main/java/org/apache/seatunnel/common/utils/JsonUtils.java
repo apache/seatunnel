@@ -35,10 +35,10 @@ import org.apache.seatunnel.shade.com.fasterxml.jackson.databind.node.ObjectNode
 import org.apache.seatunnel.shade.com.fasterxml.jackson.databind.node.TextNode;
 import org.apache.seatunnel.shade.com.fasterxml.jackson.databind.type.CollectionType;
 import org.apache.seatunnel.shade.com.fasterxml.jackson.datatype.jsr310.JavaTimeModule;
-
-import org.apache.commons.lang3.StringUtils;
+import org.apache.seatunnel.shade.org.apache.commons.lang3.StringUtils;
 
 import java.io.IOException;
+import java.io.InputStream;
 import java.util.ArrayList;
 import java.util.Collections;
 import java.util.LinkedHashMap;
@@ -83,6 +83,14 @@ public class JsonUtils {
     }
 
     public static JsonNode stringToJsonNode(String obj) throws JsonProcessingException {
+        return OBJECT_MAPPER.readTree(obj);
+    }
+
+    public static JsonNode readTree(byte[] obj) throws IOException {
+        return OBJECT_MAPPER.readTree(obj);
+    }
+
+    public static JsonNode readTree(InputStream obj) throws IOException {
         return OBJECT_MAPPER.readTree(obj);
     }
 
@@ -297,6 +305,15 @@ public class JsonUtils {
             } else {
                 return node.toString();
             }
+        }
+    }
+
+    public static boolean isJsonArray(String jsonString) {
+        try {
+            JsonNode jsonNode = OBJECT_MAPPER.readTree(jsonString);
+            return jsonNode.isArray();
+        } catch (Exception e) {
+            return false;
         }
     }
 }

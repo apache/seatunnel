@@ -1,3 +1,5 @@
+import ChangeLog from '../changelog/connector-http-persistiq.md';
+
 # Persistiq
 
 > Persistiq source connector
@@ -270,7 +272,7 @@ source {
 
 ### common options
 
-Source plugin common parameters, please refer to [Source Common Options](common-options.md) for details
+Source plugin common parameters, please refer to [Source Common Options](../source-common-options.md) for details
 
 ## Example
 
@@ -294,7 +296,4 @@ Persistiq{
 
 ## Changelog
 
-### next version
-
-- Add Persistiq Source Connector
-
+<ChangeLog />

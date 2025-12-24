@@ -20,20 +20,28 @@ package org.apache.seatunnel.e2e.connector.easysearch;
 import org.apache.seatunnel.shade.com.fasterxml.jackson.core.JsonProcessingException;
 import org.apache.seatunnel.shade.com.fasterxml.jackson.databind.JsonNode;
 import org.apache.seatunnel.shade.com.fasterxml.jackson.databind.ObjectMapper;
+import org.apache.seatunnel.shade.com.google.common.collect.Lists;
 
+import org.apache.seatunnel.api.configuration.ReadonlyConfig;
+import org.apache.seatunnel.api.table.catalog.Catalog;
+import org.apache.seatunnel.api.table.catalog.TablePath;
+import org.apache.seatunnel.api.table.catalog.exception.CatalogException;
+import org.apache.seatunnel.api.table.catalog.exception.DatabaseAlreadyExistException;
+import org.apache.seatunnel.api.table.catalog.exception.DatabaseNotExistException;
 import org.apache.seatunnel.common.utils.JsonUtils;
+import org.apache.seatunnel.connectors.seatunnel.easysearch.catalog.EasysearchCatalog;
 import org.apache.seatunnel.connectors.seatunnel.easysearch.client.EasysearchClient;
+import org.apache.seatunnel.connectors.seatunnel.easysearch.dto.source.IndexDocsCount;
 import org.apache.seatunnel.connectors.seatunnel.easysearch.dto.source.ScrollResult;
 import org.apache.seatunnel.e2e.common.TestResource;
 import org.apache.seatunnel.e2e.common.TestSuiteBase;
-import org.apache.seatunnel.e2e.common.container.EngineType;
 import org.apache.seatunnel.e2e.common.container.TestContainer;
-import org.apache.seatunnel.e2e.common.junit.DisabledOnContainer;
 
 import org.awaitility.Awaitility;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.BeforeEach;
+import org.junit.jupiter.api.Disabled;
 import org.junit.jupiter.api.TestTemplate;
 import org.testcontainers.containers.Container;
 import org.testcontainers.containers.GenericContainer;
@@ -41,7 +49,6 @@ import org.testcontainers.containers.output.Slf4jLogConsumer;
 import org.testcontainers.lifecycle.Startables;
 import org.testcontainers.utility.DockerLoggerFactory;
 
-import com.google.common.collect.Lists;
 import lombok.extern.slf4j.Slf4j;
 
 import java.io.IOException;
@@ -57,7 +64,6 @@ import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Objects;
-import java.util.Optional;
 import java.util.concurrent.TimeUnit;
 import java.util.stream.Collectors;
 import java.util.stream.Stream;
@@ -75,6 +81,10 @@ public class EasysearchIT extends TestSuiteBase implements TestResource {
     private GenericContainer<?> easysearchServer;
 
     private EasysearchClient easysearchClient;
+
+    private ReadonlyConfig easysearchConfig;
+
+    private Catalog catalog;
 
     @BeforeEach
     @Override
@@ -107,17 +117,18 @@ public class EasysearchIT extends TestSuiteBase implements TestResource {
     private void initConnection() {
         String host = easysearchServer.getContainerIpAddress();
         String endpoint = String.format("https://%s:%d", host, PORT);
-        easysearchClient =
-                EasysearchClient.createInstance(
-                        Lists.newArrayList(endpoint),
-                        Optional.of("admin"),
-                        Optional.of("admin"),
-                        false,
-                        false,
-                        Optional.empty(),
-                        Optional.empty(),
-                        Optional.empty(),
-                        Optional.empty());
+        Map<String, Object> config = new HashMap<>();
+        config.put("username", "admin");
+        config.put("password", "admin");
+        config.put("hosts", Lists.newArrayList(endpoint));
+        config.put("tls_verify_certificate", false);
+        config.put("tls_verify_hostname", false);
+
+        easysearchConfig = ReadonlyConfig.fromMap(config);
+
+        easysearchClient = EasysearchClient.createInstance(easysearchConfig);
+        catalog = new EasysearchCatalog("easysearch", "default", easysearchConfig);
+        catalog.open();
         createIndexDocs();
     }
 
@@ -134,10 +145,6 @@ public class EasysearchIT extends TestSuiteBase implements TestResource {
         easysearchClient.bulk(requestBody.toString());
     }
 
-    @DisabledOnContainer(
-            value = {},
-            type = {EngineType.SPARK, EngineType.FLINK},
-            disabledReason = "Test only one engine for first change")
     @TestTemplate
     public void testEasysearch(TestContainer container) throws IOException, InterruptedException {
         Container.ExecResult execResult =
@@ -146,6 +153,121 @@ public class EasysearchIT extends TestSuiteBase implements TestResource {
         List<String> sinkData = readSinkData();
         // for DSL is: {"range":{"c_int":{"gte":10,"lte":20}}}
         Assertions.assertIterableEquals(mapTestDatasetForDSL(), sinkData);
+    }
+
+    @TestTemplate
+    public void testEasysearchWithSaveMode(TestContainer container)
+            throws IOException, InterruptedException {
+        // Test CREATE_SCHEMA_WHEN_NOT_EXIST mode
+        Container.ExecResult execResult =
+                container.executeJob("/easysearch/easysearch_source_and_sink_with_save_mode.conf");
+        Assertions.assertEquals(0, execResult.getExitCode());
+
+        // Wait for index refresh
+        Thread.sleep(2000);
+
+        // Verify the index was created with the correct schema
+        String indexName = "st_index_save_mode";
+        try {
+            List<IndexDocsCount> indexDocsCounts = easysearchClient.getIndexDocsCount(indexName);
+            Assertions.assertFalse(indexDocsCounts.isEmpty(), "Index should exist");
+        } catch (Exception e) {
+            Assertions.fail("Index should exist but got exception: " + e.getMessage());
+        }
+
+        // Verify the data was written correctly
+        List<String> sinkData = readSinkDataFromIndex(indexName);
+        // for DSL is: {"range":{"c_int":{"gte":10,"lte":20}}}
+        Assertions.assertIterableEquals(mapTestDatasetForDSL(), sinkData);
+    }
+
+    private List<String> readSinkDataFromIndex(String indexName) throws InterruptedException {
+        // wait for index refresh
+        Thread.sleep(2000);
+        List<String> source =
+                Lists.newArrayList(
+                        "c_map",
+                        "c_array",
+                        "c_string",
+                        "c_boolean",
+                        "c_tinyint",
+                        "c_smallint",
+                        "c_int",
+                        "c_bigint",
+                        "c_float",
+                        "c_double",
+                        "c_decimal",
+                        "c_bytes",
+                        "c_date",
+                        "c_timestamp");
+        HashMap<String, Object> rangeParam = new HashMap<>();
+        rangeParam.put("gte", 10);
+        rangeParam.put("lte", 20);
+        HashMap<String, Object> range = new HashMap<>();
+        range.put("c_int", rangeParam);
+        Map<String, Object> query = new HashMap<>();
+        query.put("range", range);
+        ScrollResult scrollResult =
+                easysearchClient.searchByScroll(indexName, source, query, "1m", 1000);
+        String scrollId = scrollResult.getScrollId();
+        scrollResult
+                .getDocs()
+                .forEach(
+                        x -> {
+                            x.remove("_index");
+                            x.remove("_type");
+                            x.remove("_id");
+                            // I don't know if converting the test cases in this way complies with
+                            // the CI specification
+                            x.replace(
+                                    "c_timestamp",
+                                    LocalDateTime.parse(x.get("c_timestamp").toString())
+                                            .toInstant(ZoneOffset.UTC)
+                                            .toEpochMilli());
+                        });
+        List<String> docs =
+                scrollResult.getDocs().stream()
+                        .sorted(
+                                Comparator.comparingInt(
+                                        o -> Integer.valueOf(o.get("c_int").toString())))
+                        .map(JsonUtils::toJsonString)
+                        .collect(Collectors.toList());
+
+        if (scrollId != null && !scrollId.isEmpty()) {
+            boolean cleared = easysearchClient.clearScroll(scrollId);
+            Assertions.assertTrue(cleared);
+        }
+
+        return docs;
+    }
+
+    @TestTemplate
+    @Disabled("Easysearch catalog not yet realized, see EasysearchCatalogFactory.class")
+    public void testCatalog(TestContainer container) {
+        // always exist
+        Exception exception =
+                Assertions.assertThrows(
+                        Exception.class,
+                        () -> catalog.createDatabase(TablePath.of("", "st_index"), false));
+        Assertions.assertTrue(
+                exception instanceof DatabaseAlreadyExistException
+                        || exception instanceof CatalogException);
+
+        Assertions.assertDoesNotThrow(
+                () -> catalog.createDatabase(TablePath.of("", "st_index"), true));
+
+        // create
+        Assertions.assertDoesNotThrow(
+                () -> catalog.createTable(TablePath.of("", "tmp_index"), null, false));
+        Assertions.assertDoesNotThrow(
+                () -> catalog.dropDatabase(TablePath.of("", "tmp_index"), false));
+        Exception tmpIndex =
+                Assertions.assertThrows(
+                        Exception.class,
+                        () -> catalog.dropDatabase(TablePath.of("", "tmp_index"), false));
+        Assertions.assertTrue(
+                tmpIndex instanceof DatabaseNotExistException
+                        || tmpIndex instanceof CatalogException);
     }
 
     private List<String> generateTestDataSet() throws JsonProcessingException {
@@ -229,6 +351,7 @@ public class EasysearchIT extends TestSuiteBase implements TestResource {
         query.put("range", range);
         ScrollResult scrollResult =
                 easysearchClient.searchByScroll("st_index2", source, query, "1m", 1000);
+        String scrollId = scrollResult.getScrollId();
         scrollResult
                 .getDocs()
                 .forEach(
@@ -251,6 +374,12 @@ public class EasysearchIT extends TestSuiteBase implements TestResource {
                                         o -> Integer.valueOf(o.get("c_int").toString())))
                         .map(JsonUtils::toJsonString)
                         .collect(Collectors.toList());
+
+        if (scrollId != null && !scrollId.isEmpty()) {
+            boolean cleared = easysearchClient.clearScroll(scrollId);
+            Assertions.assertTrue(cleared);
+        }
+
         return docs;
     }
 
@@ -274,6 +403,9 @@ public class EasysearchIT extends TestSuiteBase implements TestResource {
     public void tearDown() {
         if (Objects.nonNull(easysearchClient)) {
             easysearchClient.close();
+        }
+        if (Objects.nonNull(catalog)) {
+            catalog.close();
         }
         easysearchServer.close();
     }

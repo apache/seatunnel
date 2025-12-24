@@ -17,12 +17,13 @@
 
 package org.apache.seatunnel.translation.spark.source.partition.micro;
 
-import org.apache.seatunnel.api.env.EnvCommonOptions;
+import org.apache.seatunnel.api.options.EnvCommonOptions;
 import org.apache.seatunnel.api.source.SeaTunnelSource;
 import org.apache.seatunnel.api.source.SupportCoordinate;
 import org.apache.seatunnel.api.table.type.SeaTunnelRow;
 import org.apache.seatunnel.common.Constants;
 import org.apache.seatunnel.common.utils.JsonUtils;
+import org.apache.seatunnel.translation.spark.execution.MultiTableManager;
 
 import org.apache.hadoop.conf.Configuration;
 import org.apache.hadoop.fs.FileSystem;
@@ -56,17 +57,21 @@ public class SeaTunnelMicroBatch implements MicroBatchStream {
 
     private Offset currentOffset = initialOffset;
 
+    private final MultiTableManager multiTableManager;
+
     public SeaTunnelMicroBatch(
             SeaTunnelSource<SeaTunnelRow, ?, ?> source,
             int parallelism,
             String jobId,
             String checkpointLocation,
-            CaseInsensitiveStringMap caseInsensitiveStringMap) {
+            CaseInsensitiveStringMap caseInsensitiveStringMap,
+            MultiTableManager multiTableManager) {
         this.source = source;
         this.parallelism = parallelism;
         this.jobId = jobId;
         this.checkpointLocation = checkpointLocation;
         this.caseInsensitiveStringMap = caseInsensitiveStringMap;
+        this.multiTableManager = multiTableManager;
     }
 
     @Override
@@ -119,7 +124,12 @@ public class SeaTunnelMicroBatch implements MicroBatchStream {
     @Override
     public PartitionReaderFactory createReaderFactory() {
         return new SeaTunnelMicroBatchPartitionReaderFactory(
-                source, parallelism, jobId, checkpointLocation, caseInsensitiveStringMap);
+                source,
+                parallelism,
+                jobId,
+                checkpointLocation,
+                caseInsensitiveStringMap,
+                multiTableManager);
     }
 
     @Override

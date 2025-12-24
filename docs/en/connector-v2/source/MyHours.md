@@ -1,3 +1,5 @@
+import ChangeLog from '../changelog/connector-http-myhours.md';
+
 # My Hours
 
 > My Hours source connector
@@ -37,7 +39,7 @@ They can be downloaded via install-plugin.sh or from the Maven central repositor
 
 | Datasource | Supported Versions |                                         Dependency                                          |
 |------------|--------------------|---------------------------------------------------------------------------------------------|
-| My Hours   | universal          | [Download](https://mvnrepository.com/artifact/org.apache.seatunnel/seatunnel-connectors-v2) |
+| My Hours   | universal          | [Download](https://mvnrepository.com/artifact/org.apache.seatunnel) |
 
 ## Source Options
 
@@ -60,7 +62,7 @@ They can be downloaded via install-plugin.sh or from the Maven central repositor
 | retry_backoff_multiplier_ms | Int     | No       | 100     | The retry-backoff times(millis) multiplier if request http failed.                                                                   |
 | retry_backoff_max_ms        | Int     | No       | 10000   | The maximum retry-backoff times(millis) if request http failed                                                                       |
 | enable_multi_lines          | Boolean | No       | false   |                                                                                                                                      |
-| common-options              |         | No       | -       | Source plugin common parameters, please refer to [Source Common Options](common-options.md) for details                              |
+| common-options              |         | No       | -       | Source plugin common parameters, please refer to [Source Common Options](../source-common-options.md) for details                    |
 
 ## How to Create a My Hours Data Synchronization Jobs
 
@@ -303,8 +305,4 @@ source {
 
 ## Changelog
 
-### next version
-
-- Add My Hours Source Connector
-- [Feature][Connector-V2][HTTP] Use json-path parsing ([3510](https://github.com/apache/seatunnel/pull/3510))
-
+<ChangeLog />

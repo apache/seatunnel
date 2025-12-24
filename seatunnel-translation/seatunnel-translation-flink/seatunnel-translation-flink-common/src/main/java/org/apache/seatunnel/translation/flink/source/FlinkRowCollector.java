@@ -24,24 +24,22 @@ import org.apache.seatunnel.api.common.metrics.Meter;
 import org.apache.seatunnel.api.common.metrics.MetricNames;
 import org.apache.seatunnel.api.common.metrics.MetricsContext;
 import org.apache.seatunnel.api.source.Collector;
+import org.apache.seatunnel.api.table.schema.event.SchemaChangeEvent;
 import org.apache.seatunnel.api.table.type.SeaTunnelRow;
-import org.apache.seatunnel.api.table.type.SeaTunnelRowType;
 import org.apache.seatunnel.core.starter.flowcontrol.FlowControlGate;
 import org.apache.seatunnel.core.starter.flowcontrol.FlowControlStrategy;
-import org.apache.seatunnel.translation.flink.serialization.FlinkRowConverter;
 
 import org.apache.flink.api.connector.source.ReaderOutput;
-import org.apache.flink.types.Row;
 
-/**
- * The implementation of {@link Collector} for flink engine, as a container for {@link SeaTunnelRow}
- * and convert {@link SeaTunnelRow} to {@link Row}.
- */
+import lombok.extern.slf4j.Slf4j;
+
+import java.util.HashMap;
+
+/** The implementation of {@link Collector} for flink engine. */
+@Slf4j
 public class FlinkRowCollector implements Collector<SeaTunnelRow> {
 
-    private ReaderOutput<Row> readerOutput;
-
-    private final FlinkRowConverter rowSerialization;
+    private ReaderOutput<SeaTunnelRow> readerOutput;
 
     private final FlowControlGate flowControlGate;
 
@@ -51,9 +49,9 @@ public class FlinkRowCollector implements Collector<SeaTunnelRow> {
 
     private final Meter sourceReadQPS;
 
-    public FlinkRowCollector(
-            SeaTunnelRowType seaTunnelRowType, Config envConfig, MetricsContext metricsContext) {
-        this.rowSerialization = new FlinkRowConverter(seaTunnelRowType);
+    private boolean emptyThisPollNext = true;
+
+    public FlinkRowCollector(Config envConfig, MetricsContext metricsContext) {
         this.flowControlGate = FlowControlGate.create(FlowControlStrategy.fromConfig(envConfig));
         this.sourceReadCount = metricsContext.counter(MetricNames.SOURCE_RECEIVED_COUNT);
         this.sourceReadBytes = metricsContext.counter(MetricNames.SOURCE_RECEIVED_BYTES);
@@ -64,13 +62,24 @@ public class FlinkRowCollector implements Collector<SeaTunnelRow> {
     public void collect(SeaTunnelRow record) {
         flowControlGate.audit(record);
         try {
-            readerOutput.collect(rowSerialization.convert(record));
+            readerOutput.collect(record);
             sourceReadCount.inc();
             sourceReadBytes.inc(record.getBytesSize());
             sourceReadQPS.markEvent();
+            emptyThisPollNext = false;
         } catch (Exception e) {
             throw new RuntimeException(e);
         }
+    }
+
+    @Override
+    public void collect(SchemaChangeEvent event) {
+        SeaTunnelRow eventRow = new SeaTunnelRow(0);
+        eventRow.setTableId("__SCHEMA_CHANGE_EVENT__");
+        HashMap<String, Object> options = new HashMap<>();
+        options.put("schema_change_event", event);
+        eventRow.setOptions(options);
+        readerOutput.collect(eventRow);
     }
 
     @Override
@@ -78,8 +87,19 @@ public class FlinkRowCollector implements Collector<SeaTunnelRow> {
         return this;
     }
 
-    public FlinkRowCollector withReaderOutput(ReaderOutput<Row> readerOutput) {
+    @Override
+    public boolean isEmptyThisPollNext() {
+        return emptyThisPollNext;
+    }
+
+    @Override
+    public void resetEmptyThisPollNext() {
+        this.emptyThisPollNext = true;
+    }
+
+    public FlinkRowCollector withReaderOutput(ReaderOutput<SeaTunnelRow> readerOutput) {
         this.readerOutput = readerOutput;
+        this.emptyThisPollNext = true;
         return this;
     }
 }

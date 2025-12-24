@@ -33,8 +33,9 @@ public class SqlServerURLParser {
 
     public static JdbcUrlUtil.UrlInfo parse(String url) {
         String serverName = "";
-        Integer port = DEFAULT_PORT;
+        Integer port = null;
         String dbInstance = null;
+        String instanceName = null;
         int hostIndex = url.indexOf("://");
         if (hostIndex <= 0) {
             return null;
@@ -44,13 +45,23 @@ public class SqlServerURLParser {
         String[] split = url.split(";", 2);
         if (split.length > 1) {
             props = parseQueryParams(split[1], ";");
-            serverName = props.get("serverName");
-            dbInstance = props.getOrDefault("databaseName", props.get("database"));
-            if (props.containsKey("portNumber")) {
-                String portNumber = props.get("portNumber");
+            Map<String, String> propsWithUpperCaseKey =
+                    props.entrySet().stream()
+                            .collect(
+                                    Collectors.toMap(
+                                            e -> e.getKey().toUpperCase(), Map.Entry::getValue));
+            serverName = propsWithUpperCaseKey.get("SERVERNAME");
+            instanceName = propsWithUpperCaseKey.get("INSTANCENAME");
+            dbInstance = propsWithUpperCaseKey.getOrDefault("DATABASENAME", props.get("DATABASE"));
+            if (propsWithUpperCaseKey.containsKey("PORTNUMBER")
+                    || propsWithUpperCaseKey.containsKey("PORT")) {
+                String portNumber =
+                        propsWithUpperCaseKey.get("PORTNUMBER") == null
+                                ? propsWithUpperCaseKey.get("PORT")
+                                : propsWithUpperCaseKey.get("PORTNUMBER");
                 try {
                     port = Integer.parseInt(portNumber);
-                } catch (NumberFormatException e) {
+                } catch (NumberFormatException ignored) {
                 }
             }
         }
@@ -68,7 +79,9 @@ public class SqlServerURLParser {
 
         int instanceLoc = serverName.indexOf("\\");
         if (instanceLoc > 1) {
-            serverName = serverName.substring(0, instanceLoc);
+            final String[] splitForInstance = serverName.split("\\\\");
+            serverName = splitForInstance[0];
+            instanceName = splitForInstance[1];
         }
 
         if (serverName.isEmpty()) {
@@ -79,18 +92,29 @@ public class SqlServerURLParser {
                 props.entrySet().stream()
                         .filter(
                                 e ->
-                                        !e.getKey().equals("databaseName")
-                                                && !e.getKey().equals("database"))
+                                        !e.getKey().equalsIgnoreCase("databaseName")
+                                                && !e.getKey().equalsIgnoreCase("database"))
                         .map(e -> e.getKey() + "=" + e.getValue())
                         .collect(Collectors.joining(";", "", ""));
         suffix = Optional.ofNullable(suffix).orElse("");
+
+        String urlWithoutDatabase;
+        if (port != null) {
+            urlWithoutDatabase =
+                    String.format("jdbc:sqlserver://%s:%s", serverName, port) + ";" + suffix;
+        } else if (instanceName != null) {
+            urlWithoutDatabase =
+                    String.format("jdbc:sqlserver://%s\\%s", serverName, instanceName)
+                            + ";"
+                            + suffix;
+        } else {
+            port = DEFAULT_PORT;
+            urlWithoutDatabase =
+                    String.format("jdbc:sqlserver://%s:%s", serverName, port) + ";" + suffix;
+        }
+
         return new JdbcUrlUtil.UrlInfo(
-                url,
-                String.format("jdbc:sqlserver://%s:%s", serverName, port) + ";" + suffix,
-                serverName,
-                port,
-                dbInstance,
-                suffix);
+                url, urlWithoutDatabase, serverName, port, dbInstance, suffix);
     }
 
     private static Map<String, String> parseQueryParams(String query, String separator) {

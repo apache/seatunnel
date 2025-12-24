@@ -39,6 +39,11 @@ public class LocalConfiguration extends AbstractConfiguration {
         hadoopConf.set(
                 FS_DEFAULT_NAME_KEY,
                 config.getOrDefault(FS_DEFAULT_NAME_KEY, FS_DEFAULT_NAME_DEFAULT));
+        hadoopConf.setBoolean(
+                String.format(COMMON_DISABLE_CACHE, HDFS_LOCAL_IMPL_KEY),
+                Boolean.parseBoolean(
+                        config.getOrDefault(DISABLE_CACHE_KEY, DISABLE_CACHE_DEFAULT_VALUE)));
+
         return hadoopConf;
     }
 }

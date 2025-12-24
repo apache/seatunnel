@@ -4,28 +4,23 @@
 
 ## 模块概述
 
-| 模块名                                    | 介绍                                                                                           |
-|----------------------------------------|---------------------------------------------------------------------------------------------------|
-| seatunnel-api                          | SeaTunnel connector V2 API 模块                                                                   |
-| seatunnel-apis                         | SeaTunnel connector V1 API 模块                                                                   |
-| seatunnel-common                       | SeaTunnel 通用模块                                                                                |
-| seatunnel-connectors                   | SeaTunnel connector V1 模块, 当前 connector V1 处在稳定状态, 社区会持续维护，但不会有大的特性更新 |
-| seatunnel-connectors-v2                | SeaTunnel connector V2 模块, connector V2 处于社区重点开发中                                      |
-| seatunnel-core/seatunnel-spark         | SeaTunnel connector V1 的 spark 引擎核心启动模块                                                  |
-| seatunnel-core/seatunnel-flink         | SeaTunnel connector V1 的 flink 引擎核心启动模块                                                  |
-| seatunnel-core/seatunnel-flink-sql     | SeaTunnel connector V1 的 flink-sql 引擎核心启动模块                                              |
-| seatunnel-core/seatunnel-spark-starter | SeaTunnel connector V2 的 Spark 引擎核心启动模块                                                  |
-| seatunnel-core/seatunnel-flink-starter | SeaTunnel connector V2 的 Flink 引擎核心启动模块                                                  |
-| seatunnel-core/seatunnel-starter       | SeaTunnel connector V2 的 SeaTunnel 引擎核心启动模块                                              |
-| seatunnel-e2e                          | SeaTunnel 端到端测试模块                                                                          |
-| seatunnel-examples                     | SeaTunnel 本地案例模块， 开发者可以用来单元测试和集成测试                                         |
-| seatunnel-engine                       | SeaTunnel 引擎模块, seatunnel-engine 是 SeaTunnel 社区新开发的计算引擎，用来实现数据同步          |
-| seatunnel-formats                      | SeaTunnel 格式化模块，用来提供格式化数据的能力                                                    |
-| seatunnel-plugin-discovery             | SeaTunnel 插件发现模块，用来加载类路径中的SPI插件                                                 |
-| seatunnel-transforms-v2                | SeaTunnel transform V2 模块, transform V2 处于社区重点开发中                                      |
-| seatunnel-translation                  | SeaTunnel translation 模块, 用来适配Connector V2 和其他计算引擎， 例如Spark、Flink等              |
+| 模块名                                    | 介绍                                                                 |
+|----------------------------------------|--------------------------------------------------------------------|
+| seatunnel-api                          | SeaTunnel connector V2 API 模块                                      |
+| seatunnel-common                       | SeaTunnel 通用模块                                                     |
+| seatunnel-connectors-v2                | SeaTunnel connector V2 模块, connector V2 处于社区重点开发中                  |
+| seatunnel-core/seatunnel-spark-starter | SeaTunnel connector V2 的 Spark 引擎核心启动模块                            |
+| seatunnel-core/seatunnel-flink-starter | SeaTunnel connector V2 的 Flink 引擎核心启动模块                            |
+| seatunnel-core/seatunnel-starter       | SeaTunnel connector V2 的 SeaTunnel 引擎核心启动模块                        |
+| seatunnel-e2e                          | SeaTunnel 端到端测试模块                                                  |
+| seatunnel-examples                     | SeaTunnel 本地案例模块， 开发者可以用来单元测试和集成测试                                 |
+| seatunnel-engine                       | SeaTunnel 引擎模块, seatunnel-engine 是 SeaTunnel 社区新开发的计算引擎，用来实现数据同步   |
+| seatunnel-formats                      | SeaTunnel 格式化模块，用来提供格式化数据的能力                                       |
+| seatunnel-plugin-discovery             | SeaTunnel 插件发现模块，用来加载类路径中的SPI插件                                    |
+| seatunnel-transforms-v2                | SeaTunnel transform V2 模块, transform V2 处于社区重点开发中                  |
+| seatunnel-translation                  | SeaTunnel translation 模块, 用来适配Connector V2 和其他计算引擎， 例如Spark、Flink等 |
 
-## 如何提交一个高质量的 pull request
+## 如何提交一个高质量的Pull Request
 
 1. 创建实体类的时候使用 `lombok` 插件的注解(`@Data` `@Getter` `@Setter` `@NonNull` 等)来减少代码量。在编码过程中优先使用 lombok 插件是一个很好的习惯。
 
@@ -41,7 +36,7 @@
    4. 子模块名称: 当前 pull request 或 issue 所涉及的子模块名称, 例如:`File` `Redis` `Hbase`等。
    5. 描述: 高度概括下当前 pull request 和 issue 要做的事情，尽量见名知意。
 
-   提示:**更多内容, 可以参考 [issue guide](https://seatunnel.apache.org/community/contribution_guide/contribute#issue) 和 [pull request guide](https://seatunnel.apache.org/community/contribution_guide/contribute#pull-request)**
+   提示:**更多内容, 可以参考 [Issue Guide](https://seatunnel.apache.org/community/contribution_guide/contribute#issue) 和 [Pull Request Guide](https://seatunnel.apache.org/community/contribution_guide/contribute#pull-request)**
 
 4. 代码片段不要重复。 如果一段代码被使用多次，定义多次不是好的选择，最佳实践是把它公共独立出来让其他模块使用。
 
@@ -98,7 +93,7 @@
 
 10. 如果提交的 pull request 是一个新的特性， 请记得更新文档。
 
-12. 提交 connector 相关的 pull request, 可以通过写 e2e 测试保证鲁棒性，e2e 测试需要包含所有的数据类型，并且初始化尽可能小的 docker 镜像，sink 和 source 的测试用例可以写在一起减少资源的损耗。 可以参考这个不错的例子： [MongodbIT.java](https://github.com/apache/seatunnel/blob/dev/seatunnel-e2e/seatunnel-connector-v2-e2e/connector-mongodb-e2e/src/test/java/org/apache/seatunnel/e2e/connector/v2/mongodb/MongodbIT.java)
+11. 提交 connector 相关的 pull request, 可以通过写 e2e 测试保证鲁棒性，e2e 测试需要包含所有的数据类型，并且初始化尽可能小的 docker 镜像，sink 和 source 的测试用例可以写在一起减少资源的损耗。 可以参考这个不错的例子： [MongodbIT.java](https://github.com/apache/seatunnel/blob/dev/seatunnel-e2e/seatunnel-connector-v2-e2e/connector-mongodb-e2e/src/test/java/org/apache/seatunnel/e2e/connector/v2/mongodb/MongodbIT.java)
 
 12. 类中默认的权限需要使用 `private`， 不可修改的需要设置 `final`， 特殊场景除外。
 

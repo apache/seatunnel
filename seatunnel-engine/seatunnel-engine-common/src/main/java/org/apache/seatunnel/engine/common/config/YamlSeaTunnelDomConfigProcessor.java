@@ -17,17 +17,24 @@
 
 package org.apache.seatunnel.engine.common.config;
 
+import org.apache.seatunnel.shade.org.apache.commons.lang3.StringUtils;
+
+import org.apache.seatunnel.engine.common.config.server.AllocateStrategy;
 import org.apache.seatunnel.engine.common.config.server.CheckpointConfig;
 import org.apache.seatunnel.engine.common.config.server.CheckpointStorageConfig;
 import org.apache.seatunnel.engine.common.config.server.ConnectorJarHAStorageConfig;
 import org.apache.seatunnel.engine.common.config.server.ConnectorJarStorageConfig;
 import org.apache.seatunnel.engine.common.config.server.ConnectorJarStorageMode;
+import org.apache.seatunnel.engine.common.config.server.CoordinatorServiceConfig;
+import org.apache.seatunnel.engine.common.config.server.HttpConfig;
 import org.apache.seatunnel.engine.common.config.server.QueueType;
+import org.apache.seatunnel.engine.common.config.server.ScheduleStrategy;
 import org.apache.seatunnel.engine.common.config.server.ServerConfigOptions;
 import org.apache.seatunnel.engine.common.config.server.SlotServiceConfig;
+import org.apache.seatunnel.engine.common.config.server.TelemetryConfig;
+import org.apache.seatunnel.engine.common.config.server.TelemetryLogsConfig;
+import org.apache.seatunnel.engine.common.config.server.TelemetryMetricConfig;
 import org.apache.seatunnel.engine.common.config.server.ThreadShareMode;
-
-import org.apache.commons.lang3.StringUtils;
 
 import org.w3c.dom.NamedNodeMap;
 import org.w3c.dom.Node;
@@ -89,11 +96,18 @@ public class YamlSeaTunnelDomConfigProcessor extends AbstractDomConfigProcessor 
         SlotServiceConfig slotServiceConfig = new SlotServiceConfig();
         for (Node node : childElements(slotServiceNode)) {
             String name = cleanNodeName(node);
-            if (ServerConfigOptions.DYNAMIC_SLOT.key().equals(name)) {
+            if (ServerConfigOptions.WorkerServerConfigOptions.DYNAMIC_SLOT.key().equals(name)) {
                 slotServiceConfig.setDynamicSlot(getBooleanValue(getTextContent(node)));
-            } else if (ServerConfigOptions.SLOT_NUM.key().equals(name)) {
+            } else if (ServerConfigOptions.WorkerServerConfigOptions.SLOT_NUM.key().equals(name)) {
                 slotServiceConfig.setSlotNum(
-                        getIntegerValue(ServerConfigOptions.SLOT_NUM.key(), getTextContent(node)));
+                        getIntegerValue(
+                                ServerConfigOptions.WorkerServerConfigOptions.SLOT_NUM.key(),
+                                getTextContent(node)));
+            } else if (ServerConfigOptions.MasterServerConfigOptions.SLOT_ALLOCATE_STRATEGY
+                    .key()
+                    .equals(name)) {
+                slotServiceConfig.setAllocateStrategy(
+                        AllocateStrategy.valueOf(getTextContent(node).toUpperCase()));
             } else {
                 LOGGER.warning("Unrecognized element: " + name);
             }
@@ -101,60 +115,127 @@ public class YamlSeaTunnelDomConfigProcessor extends AbstractDomConfigProcessor 
         return slotServiceConfig;
     }
 
+    private CoordinatorServiceConfig parseCoordinatorServiceConfig(Node coordinatorServiceNode) {
+        CoordinatorServiceConfig coordinatorServiceConfig = new CoordinatorServiceConfig();
+        for (Node node : childElements(coordinatorServiceNode)) {
+            String name = cleanNodeName(node);
+            if (ServerConfigOptions.MasterServerConfigOptions.MAX_THREAD_NUM.key().equals(name)) {
+                coordinatorServiceConfig.setMaxThreadNum(
+                        getIntegerValue(
+                                ServerConfigOptions.MasterServerConfigOptions.MAX_THREAD_NUM.key(),
+                                getTextContent(node)));
+            } else if (ServerConfigOptions.MasterServerConfigOptions.CORE_THREAD_NUM
+                    .key()
+                    .equals(name)) {
+                coordinatorServiceConfig.setCoreThreadNum(
+                        getIntegerValue(
+                                ServerConfigOptions.MasterServerConfigOptions.CORE_THREAD_NUM.key(),
+                                getTextContent(node)));
+            } else {
+                LOGGER.warning("Unrecognized element: " + name);
+            }
+        }
+        return coordinatorServiceConfig;
+    }
+
     private void parseEngineConfig(Node engineNode, SeaTunnelConfig config) {
         final EngineConfig engineConfig = config.getEngineConfig();
         for (Node node : childElements(engineNode)) {
             String name = cleanNodeName(node);
-            if (ServerConfigOptions.BACKUP_COUNT.key().equals(name)) {
+            if (ServerConfigOptions.MasterServerConfigOptions.BACKUP_COUNT.key().equals(name)) {
                 engineConfig.setBackupCount(
                         getIntegerValue(
-                                ServerConfigOptions.BACKUP_COUNT.key(), getTextContent(node)));
-            } else if (ServerConfigOptions.QUEUE_TYPE.key().equals(name)) {
+                                ServerConfigOptions.MasterServerConfigOptions.BACKUP_COUNT.key(),
+                                getTextContent(node)));
+            } else if (ServerConfigOptions.WorkerServerConfigOptions.QUEUE_TYPE
+                    .key()
+                    .equals(name)) {
                 engineConfig.setQueueType(
                         QueueType.valueOf(getTextContent(node).toUpperCase(Locale.ROOT)));
-            } else if (ServerConfigOptions.PRINT_EXECUTION_INFO_INTERVAL.key().equals(name)) {
+            } else if (ServerConfigOptions.MasterServerConfigOptions.PRINT_EXECUTION_INFO_INTERVAL
+                    .key()
+                    .equals(name)) {
                 engineConfig.setPrintExecutionInfoInterval(
                         getIntegerValue(
-                                ServerConfigOptions.PRINT_EXECUTION_INFO_INTERVAL.key(),
+                                ServerConfigOptions.MasterServerConfigOptions
+                                        .PRINT_EXECUTION_INFO_INTERVAL
+                                        .key(),
                                 getTextContent(node)));
-            } else if (ServerConfigOptions.PRINT_JOB_METRICS_INFO_INTERVAL.key().equals(name)) {
+            } else if (ServerConfigOptions.MasterServerConfigOptions.PRINT_JOB_METRICS_INFO_INTERVAL
+                    .key()
+                    .equals(name)) {
                 engineConfig.setPrintJobMetricsInfoInterval(
                         getIntegerValue(
-                                ServerConfigOptions.PRINT_JOB_METRICS_INFO_INTERVAL.key(),
+                                ServerConfigOptions.MasterServerConfigOptions
+                                        .PRINT_JOB_METRICS_INFO_INTERVAL
+                                        .key(),
                                 getTextContent(node)));
-            } else if (ServerConfigOptions.JOB_METRICS_BACKUP_INTERVAL.key().equals(name)) {
+            } else if (ServerConfigOptions.MasterServerConfigOptions.JOB_METRICS_BACKUP_INTERVAL
+                    .key()
+                    .equals(name)) {
                 engineConfig.setJobMetricsBackupInterval(
                         getIntegerValue(
-                                ServerConfigOptions.JOB_METRICS_BACKUP_INTERVAL.key(),
+                                ServerConfigOptions.MasterServerConfigOptions
+                                        .JOB_METRICS_BACKUP_INTERVAL
+                                        .key(),
                                 getTextContent(node)));
-            } else if (ServerConfigOptions.TASK_EXECUTION_THREAD_SHARE_MODE.key().equals(name)) {
+            } else if (ServerConfigOptions.MasterServerConfigOptions.JOB_METRICS_PARTITION_COUNT
+                    .key()
+                    .equals(name)) {
+                engineConfig.setJobMetricsPartitionCount(
+                        getIntegerValue(
+                                ServerConfigOptions.MasterServerConfigOptions
+                                        .JOB_METRICS_PARTITION_COUNT
+                                        .key(),
+                                getTextContent(node)));
+            } else if (ServerConfigOptions.WorkerServerConfigOptions
+                    .TASK_EXECUTION_THREAD_SHARE_MODE
+                    .key()
+                    .equals(name)) {
                 String mode = getTextContent(node).toUpperCase(Locale.ROOT);
                 if (!Arrays.asList("ALL", "OFF", "PART").contains(mode)) {
                     throw new IllegalArgumentException(
-                            ServerConfigOptions.TASK_EXECUTION_THREAD_SHARE_MODE
+                            ServerConfigOptions.WorkerServerConfigOptions
+                                            .TASK_EXECUTION_THREAD_SHARE_MODE
                                     + " must in [ALL, OFF, PART]");
                 }
                 engineConfig.setTaskExecutionThreadShareMode(ThreadShareMode.valueOf(mode));
-            } else if (ServerConfigOptions.SLOT_SERVICE.key().equals(name)) {
+            } else if (ServerConfigOptions.WorkerServerConfigOptions.SLOT_SERVICE
+                    .key()
+                    .equals(name)) {
                 engineConfig.setSlotServiceConfig(parseSlotServiceConfig(node));
-            } else if (ServerConfigOptions.CHECKPOINT.key().equals(name)) {
+            } else if (ServerConfigOptions.MasterServerConfigOptions.CHECKPOINT
+                    .key()
+                    .equals(name)) {
                 engineConfig.setCheckpointConfig(parseCheckpointConfig(node));
-            } else if (ServerConfigOptions.HISTORY_JOB_EXPIRE_MINUTES.key().equals(name)) {
+            } else if (ServerConfigOptions.MasterServerConfigOptions.HISTORY_JOB_EXPIRE_MINUTES
+                    .key()
+                    .equals(name)) {
                 engineConfig.setHistoryJobExpireMinutes(
                         getIntegerValue(
-                                ServerConfigOptions.HISTORY_JOB_EXPIRE_MINUTES.key(),
+                                ServerConfigOptions.MasterServerConfigOptions
+                                        .HISTORY_JOB_EXPIRE_MINUTES
+                                        .key(),
                                 getTextContent(node)));
-            } else if (ServerConfigOptions.CONNECTOR_JAR_STORAGE_CONFIG.key().equals(name)) {
+            } else if (ServerConfigOptions.MasterServerConfigOptions.CONNECTOR_JAR_STORAGE_CONFIG
+                    .key()
+                    .equals(name)) {
                 engineConfig.setConnectorJarStorageConfig(parseConnectorJarStorageConfig(node));
             } else if (ServerConfigOptions.CLASSLOADER_CACHE_MODE.key().equals(name)) {
                 engineConfig.setClassloaderCacheMode(getBooleanValue(getTextContent(node)));
-            } else if (ServerConfigOptions.EVENT_REPORT_HTTP.equalsIgnoreCase(name)) {
+            } else if (ServerConfigOptions.MasterServerConfigOptions.EVENT_REPORT_HTTP
+                    .equalsIgnoreCase(name)) {
                 NamedNodeMap attributes = node.getAttributes();
-                Node urlNode = attributes.getNamedItem(ServerConfigOptions.EVENT_REPORT_HTTP_URL);
+                Node urlNode =
+                        attributes.getNamedItem(
+                                ServerConfigOptions.MasterServerConfigOptions
+                                        .EVENT_REPORT_HTTP_URL);
                 if (urlNode != null) {
                     engineConfig.setEventReportHttpApi(getTextContent(urlNode));
                     Node headersNode =
-                            attributes.getNamedItem(ServerConfigOptions.EVENT_REPORT_HTTP_HEADERS);
+                            attributes.getNamedItem(
+                                    ServerConfigOptions.MasterServerConfigOptions
+                                            .EVENT_REPORT_HTTP_HEADERS);
                     if (headersNode != null) {
                         Map<String, String> headers = new LinkedHashMap<>();
                         NodeList nodeList = headersNode.getChildNodes();
@@ -165,9 +246,28 @@ public class YamlSeaTunnelDomConfigProcessor extends AbstractDomConfigProcessor 
                         engineConfig.setEventReportHttpHeaders(headers);
                     }
                 }
+            } else if (ServerConfigOptions.TELEMETRY.key().equals(name)) {
+                engineConfig.setTelemetryConfig(parseTelemetryConfig(node));
+            } else if (ServerConfigOptions.MasterServerConfigOptions.JOB_SCHEDULE_STRATEGY
+                    .key()
+                    .equals(name)) {
+                engineConfig.setScheduleStrategy(
+                        ScheduleStrategy.valueOf(getTextContent(node).toUpperCase(Locale.ROOT)));
+            } else if (ServerConfigOptions.MasterServerConfigOptions.HTTP.key().equals(name)) {
+                engineConfig.setHttpConfig(parseHttpConfig(node));
+            } else if (ServerConfigOptions.MasterServerConfigOptions.COORDINATOR_SERVICE
+                    .key()
+                    .equals(name)) {
+                engineConfig.setCoordinatorServiceConfig(parseCoordinatorServiceConfig(node));
             } else {
                 LOGGER.warning("Unrecognized element: " + name);
             }
+        }
+
+        if (engineConfig.getSlotServiceConfig().isDynamicSlot()) {
+            // If dynamic slot is enabled, the schedule strategy must be REJECT
+            LOGGER.info("Dynamic slot is enabled, the schedule strategy is set to REJECT");
+            engineConfig.setScheduleStrategy(ScheduleStrategy.REJECT);
         }
     }
 
@@ -175,22 +275,43 @@ public class YamlSeaTunnelDomConfigProcessor extends AbstractDomConfigProcessor 
         CheckpointConfig checkpointConfig = new CheckpointConfig();
         for (Node node : childElements(checkpointNode)) {
             String name = cleanNodeName(node);
-            if (ServerConfigOptions.CHECKPOINT_INTERVAL.key().equals(name)) {
+            if (ServerConfigOptions.MasterServerConfigOptions.CHECKPOINT_INTERVAL
+                    .key()
+                    .equals(name)) {
                 checkpointConfig.setCheckpointInterval(
                         getIntegerValue(
-                                ServerConfigOptions.CHECKPOINT_INTERVAL.key(),
+                                ServerConfigOptions.MasterServerConfigOptions.CHECKPOINT_INTERVAL
+                                        .key(),
                                 getTextContent(node)));
-            } else if (ServerConfigOptions.CHECKPOINT_TIMEOUT.key().equals(name)) {
+            } else if (ServerConfigOptions.MasterServerConfigOptions.CHECKPOINT_TIMEOUT
+                    .key()
+                    .equals(name)) {
                 checkpointConfig.setCheckpointTimeout(
                         getIntegerValue(
-                                ServerConfigOptions.CHECKPOINT_TIMEOUT.key(),
+                                ServerConfigOptions.MasterServerConfigOptions.CHECKPOINT_TIMEOUT
+                                        .key(),
                                 getTextContent(node)));
-            } else if (ServerConfigOptions.SCHEMA_CHANGE_CHECKPOINT_TIMEOUT.key().equals(name)) {
+            } else if (ServerConfigOptions.MasterServerConfigOptions.CHECKPOINT_MIN_PAUSE
+                    .key()
+                    .equals(name)) {
+                checkpointConfig.setCheckpointMinPause(
+                        getIntegerValue(
+                                ServerConfigOptions.MasterServerConfigOptions.CHECKPOINT_MIN_PAUSE
+                                        .key(),
+                                getTextContent(node)));
+            } else if (ServerConfigOptions.MasterServerConfigOptions
+                    .SCHEMA_CHANGE_CHECKPOINT_TIMEOUT
+                    .key()
+                    .equals(name)) {
                 checkpointConfig.setSchemaChangeCheckpointTimeout(
                         getIntegerValue(
-                                ServerConfigOptions.SCHEMA_CHANGE_CHECKPOINT_TIMEOUT.key(),
+                                ServerConfigOptions.MasterServerConfigOptions
+                                        .SCHEMA_CHANGE_CHECKPOINT_TIMEOUT
+                                        .key(),
                                 getTextContent(node)));
-            } else if (ServerConfigOptions.CHECKPOINT_STORAGE.key().equals(name)) {
+            } else if (ServerConfigOptions.MasterServerConfigOptions.CHECKPOINT_STORAGE
+                    .key()
+                    .equals(name)) {
                 checkpointConfig.setStorage(parseCheckpointStorageConfig(node));
             } else {
                 LOGGER.warning("Unrecognized element: " + name);
@@ -204,14 +325,23 @@ public class YamlSeaTunnelDomConfigProcessor extends AbstractDomConfigProcessor 
         CheckpointStorageConfig checkpointStorageConfig = new CheckpointStorageConfig();
         for (Node node : childElements(checkpointStorageConfigNode)) {
             String name = cleanNodeName(node);
-            if (ServerConfigOptions.CHECKPOINT_STORAGE_TYPE.key().equals(name)) {
+            if (ServerConfigOptions.MasterServerConfigOptions.CHECKPOINT_STORAGE_TYPE
+                    .key()
+                    .equals(name)) {
                 checkpointStorageConfig.setStorage(getTextContent(node));
-            } else if (ServerConfigOptions.CHECKPOINT_STORAGE_MAX_RETAINED.key().equals(name)) {
+            } else if (ServerConfigOptions.MasterServerConfigOptions.CHECKPOINT_STORAGE_MAX_RETAINED
+                    .key()
+                    .equals(name)) {
                 checkpointStorageConfig.setMaxRetainedCheckpoints(
                         getIntegerValue(
-                                ServerConfigOptions.CHECKPOINT_STORAGE_MAX_RETAINED.key(),
+                                ServerConfigOptions.MasterServerConfigOptions
+                                        .CHECKPOINT_STORAGE_MAX_RETAINED
+                                        .key(),
                                 getTextContent(node)));
-            } else if (ServerConfigOptions.CHECKPOINT_STORAGE_PLUGIN_CONFIG.key().equals(name)) {
+            } else if (ServerConfigOptions.MasterServerConfigOptions
+                    .CHECKPOINT_STORAGE_PLUGIN_CONFIG
+                    .key()
+                    .equals(name)) {
                 Map<String, String> pluginConfig = parseCheckpointPluginConfig(node);
                 checkpointStorageConfig.setStoragePluginConfig(pluginConfig);
             } else {
@@ -241,30 +371,47 @@ public class YamlSeaTunnelDomConfigProcessor extends AbstractDomConfigProcessor 
         ConnectorJarStorageConfig connectorJarStorageConfig = new ConnectorJarStorageConfig();
         for (Node node : childElements(connectorJarStorageConfigNode)) {
             String name = cleanNodeName(node);
-            if (ServerConfigOptions.ENABLE_CONNECTOR_JAR_STORAGE.key().equals(name)) {
+            if (ServerConfigOptions.MasterServerConfigOptions.ENABLE_CONNECTOR_JAR_STORAGE
+                    .key()
+                    .equals(name)) {
                 connectorJarStorageConfig.setEnable(getBooleanValue(getTextContent(node)));
-            } else if (ServerConfigOptions.CONNECTOR_JAR_STORAGE_MODE.key().equals(name)) {
+            } else if (ServerConfigOptions.MasterServerConfigOptions.CONNECTOR_JAR_STORAGE_MODE
+                    .key()
+                    .equals(name)) {
                 String mode = getTextContent(node).toUpperCase();
                 if (StringUtils.isNotBlank(mode)
                         && !Arrays.asList("SHARED", "ISOLATED").contains(mode)) {
                     throw new IllegalArgumentException(
-                            ServerConfigOptions.CONNECTOR_JAR_STORAGE_MODE
+                            ServerConfigOptions.MasterServerConfigOptions.CONNECTOR_JAR_STORAGE_MODE
                                     + " must in [SHARED, ISOLATED]");
                 }
                 connectorJarStorageConfig.setStorageMode(ConnectorJarStorageMode.valueOf(mode));
-            } else if (ServerConfigOptions.CONNECTOR_JAR_STORAGE_PATH.key().equals(name)) {
+            } else if (ServerConfigOptions.MasterServerConfigOptions.CONNECTOR_JAR_STORAGE_PATH
+                    .key()
+                    .equals(name)) {
                 connectorJarStorageConfig.setStoragePath(getTextContent(node));
-            } else if (ServerConfigOptions.CONNECTOR_JAR_CLEANUP_TASK_INTERVAL.key().equals(name)) {
+            } else if (ServerConfigOptions.MasterServerConfigOptions
+                    .CONNECTOR_JAR_CLEANUP_TASK_INTERVAL
+                    .key()
+                    .equals(name)) {
                 connectorJarStorageConfig.setCleanupTaskInterval(
                         getIntegerValue(
-                                ServerConfigOptions.CONNECTOR_JAR_CLEANUP_TASK_INTERVAL.key(),
+                                ServerConfigOptions.MasterServerConfigOptions
+                                        .CONNECTOR_JAR_CLEANUP_TASK_INTERVAL
+                                        .key(),
                                 getTextContent(node)));
-            } else if (ServerConfigOptions.CONNECTOR_JAR_EXPIRY_TIME.key().equals(name)) {
+            } else if (ServerConfigOptions.MasterServerConfigOptions.CONNECTOR_JAR_EXPIRY_TIME
+                    .key()
+                    .equals(name)) {
                 connectorJarStorageConfig.setConnectorJarExpiryTime(
                         getIntegerValue(
-                                ServerConfigOptions.CONNECTOR_JAR_EXPIRY_TIME.key(),
+                                ServerConfigOptions.MasterServerConfigOptions
+                                        .CONNECTOR_JAR_EXPIRY_TIME
+                                        .key(),
                                 getTextContent(node)));
-            } else if (ServerConfigOptions.CONNECTOR_JAR_HA_STORAGE_CONFIG.key().equals(name)) {
+            } else if (ServerConfigOptions.MasterServerConfigOptions.CONNECTOR_JAR_HA_STORAGE_CONFIG
+                    .key()
+                    .equals(name)) {
                 connectorJarStorageConfig.setConnectorJarHAStorageConfig(
                         parseConnectorJarHAStorageConfig(node));
             } else {
@@ -279,16 +426,20 @@ public class YamlSeaTunnelDomConfigProcessor extends AbstractDomConfigProcessor 
         ConnectorJarHAStorageConfig connectorJarHAStorageConfig = new ConnectorJarHAStorageConfig();
         for (Node node : childElements(connectorJarHAStorageConfigNode)) {
             String name = cleanNodeName(node);
-            if (ServerConfigOptions.CONNECTOR_JAR_HA_STORAGE_TYPE.key().equals(name)) {
+            if (ServerConfigOptions.MasterServerConfigOptions.CONNECTOR_JAR_HA_STORAGE_TYPE
+                    .key()
+                    .equals(name)) {
                 String type = getTextContent(node);
                 if (StringUtils.isNotBlank(type)
                         && !Arrays.asList("localfile", "hdfs").contains(type)) {
                     throw new IllegalArgumentException(
-                            ServerConfigOptions.CONNECTOR_JAR_HA_STORAGE_TYPE
+                            ServerConfigOptions.MasterServerConfigOptions
+                                            .CONNECTOR_JAR_HA_STORAGE_TYPE
                                     + " must in [localfile, hdfs]");
                 }
                 connectorJarHAStorageConfig.setType(type);
-            } else if (ServerConfigOptions.CONNECTOR_JAR_HA_STORAGE_PLUGIN_CONFIG
+            } else if (ServerConfigOptions.MasterServerConfigOptions
+                    .CONNECTOR_JAR_HA_STORAGE_PLUGIN_CONFIG
                     .key()
                     .equals(name)) {
                 Map<String, String> connectorJarHAStoragePluginConfig =
@@ -310,5 +461,127 @@ public class YamlSeaTunnelDomConfigProcessor extends AbstractDomConfigProcessor 
             connectorJarHAStoragePluginConfig.put(name, getTextContent(node));
         }
         return connectorJarHAStoragePluginConfig;
+    }
+
+    private TelemetryConfig parseTelemetryConfig(Node telemetryNode) {
+        TelemetryConfig telemetryConfig = new TelemetryConfig();
+        for (Node node : childElements(telemetryNode)) {
+            String name = cleanNodeName(node);
+            if (ServerConfigOptions.TELEMETRY_METRIC.key().equals(name)) {
+                telemetryConfig.setMetric(parseTelemetryMetricConfig(node));
+            } else if (ServerConfigOptions.TELEMETRY_LOGS.key().equals(name)) {
+                telemetryConfig.setLogs(parseTelemetryLogsConfig(node));
+            } else {
+                LOGGER.warning("Unrecognized element: " + name);
+            }
+        }
+
+        return telemetryConfig;
+    }
+
+    private TelemetryMetricConfig parseTelemetryMetricConfig(Node metricNode) {
+        TelemetryMetricConfig metricConfig = new TelemetryMetricConfig();
+        for (Node node : childElements(metricNode)) {
+            String name = cleanNodeName(node);
+            if (ServerConfigOptions.TELEMETRY_METRIC_ENABLED.key().equals(name)) {
+                metricConfig.setEnabled(getBooleanValue(getTextContent(node)));
+            } else {
+                LOGGER.warning("Unrecognized element: " + name);
+            }
+        }
+
+        return metricConfig;
+    }
+
+    private TelemetryLogsConfig parseTelemetryLogsConfig(Node logsNode) {
+        TelemetryLogsConfig logsConfig = new TelemetryLogsConfig();
+        for (Node node : childElements(logsNode)) {
+            String name = cleanNodeName(node);
+            if (ServerConfigOptions.TELEMETRY_LOGS_SCHEDULED_DELETION_ENABLE.key().equals(name)) {
+                logsConfig.setEnabled(getBooleanValue(getTextContent(node)));
+            } else {
+                LOGGER.warning("Unrecognized element: " + name);
+            }
+        }
+
+        return logsConfig;
+    }
+
+    private HttpConfig parseHttpConfig(Node httpNode) {
+        HttpConfig httpConfig = new HttpConfig();
+        for (Node node : childElements(httpNode)) {
+            String name = cleanNodeName(node);
+            if (ServerConfigOptions.MasterServerConfigOptions.PORT.key().equals(name)) {
+                httpConfig.setPort(
+                        getIntegerValue(
+                                ServerConfigOptions.MasterServerConfigOptions.PORT.key(),
+                                getTextContent(node)));
+            } else if (ServerConfigOptions.MasterServerConfigOptions.CONTEXT_PATH
+                    .key()
+                    .equals(name)) {
+                httpConfig.setContextPath(getTextContent(node));
+            } else if (ServerConfigOptions.MasterServerConfigOptions.ENABLE_HTTP
+                    .key()
+                    .equals(name)) {
+                httpConfig.setEnabled(getBooleanValue(getTextContent(node)));
+            } else if (ServerConfigOptions.MasterServerConfigOptions.ENABLE_DYNAMIC_PORT
+                    .key()
+                    .equals(name)) {
+                httpConfig.setEnableDynamicPort(getBooleanValue(getTextContent(node)));
+            } else if (ServerConfigOptions.MasterServerConfigOptions.PORT_RANGE
+                    .key()
+                    .equals(name)) {
+                httpConfig.setPortRange(
+                        getIntegerValue(
+                                ServerConfigOptions.MasterServerConfigOptions.PORT_RANGE.key(),
+                                getTextContent(node)));
+            } else if (ServerConfigOptions.MasterServerConfigOptions.ENABLE_HTTPS
+                    .key()
+                    .equals(name)) {
+                httpConfig.setEnableHttps(getBooleanValue(getTextContent(node)));
+            } else if (ServerConfigOptions.MasterServerConfigOptions.HTTPS_PORT
+                    .key()
+                    .equals(name)) {
+                httpConfig.setHttpsPort(
+                        getIntegerValue(
+                                ServerConfigOptions.MasterServerConfigOptions.HTTPS_PORT.key(),
+                                getTextContent(node)));
+            } else if (ServerConfigOptions.MasterServerConfigOptions.KEY_STORE_PATH
+                    .key()
+                    .equals(name)) {
+                httpConfig.setKeyStorePath(getTextContent(node));
+            } else if (ServerConfigOptions.MasterServerConfigOptions.KEY_STORE_PASSWORD
+                    .key()
+                    .equals(name)) {
+                httpConfig.setKeyStorePassword(getTextContent(node));
+            } else if (ServerConfigOptions.MasterServerConfigOptions.KEY_MANAGER_PASSWORD
+                    .key()
+                    .equals(name)) {
+                httpConfig.setKeyManagerPassword(getTextContent(node));
+            } else if (ServerConfigOptions.MasterServerConfigOptions.TRUST_STORE_PATH
+                    .key()
+                    .equals(name)) {
+                httpConfig.setTrustStorePath(getTextContent(node));
+            } else if (ServerConfigOptions.MasterServerConfigOptions.TRUST_STORE_PASSWORD
+                    .key()
+                    .equals(name)) {
+                httpConfig.setTrustStorePassword(getTextContent(node));
+            } else if (ServerConfigOptions.MasterServerConfigOptions.ENABLE_BASIC_AUTH
+                    .key()
+                    .equals(name)) {
+                httpConfig.setEnableBasicAuth(getBooleanValue(getTextContent(node)));
+            } else if (ServerConfigOptions.MasterServerConfigOptions.BASIC_AUTH_USERNAME
+                    .key()
+                    .equals(name)) {
+                httpConfig.setBasicAuthUsername(getTextContent(node));
+            } else if (ServerConfigOptions.MasterServerConfigOptions.BASIC_AUTH_PASSWORD
+                    .key()
+                    .equals(name)) {
+                httpConfig.setBasicAuthPassword(getTextContent(node));
+            } else {
+                LOGGER.warning("Unrecognized element: " + name);
+            }
+        }
+        return httpConfig;
     }
 }

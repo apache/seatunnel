@@ -18,6 +18,9 @@
 
 package org.apache.seatunnel.e2e.connector.pulsar;
 
+import org.apache.seatunnel.shade.com.google.common.collect.Lists;
+import org.apache.seatunnel.shade.org.apache.commons.lang3.StringUtils;
+
 import org.apache.seatunnel.connectors.seatunnel.cdc.mysql.testutils.MySqlContainer;
 import org.apache.seatunnel.connectors.seatunnel.cdc.mysql.testutils.MySqlVersion;
 import org.apache.seatunnel.connectors.seatunnel.cdc.mysql.testutils.UniqueDatabase;
@@ -29,7 +32,6 @@ import org.apache.seatunnel.e2e.common.container.TestContainer;
 import org.apache.seatunnel.e2e.common.junit.DisabledOnContainer;
 import org.apache.seatunnel.e2e.common.junit.TestContainerExtension;
 
-import org.apache.commons.lang3.StringUtils;
 import org.apache.pulsar.client.admin.PulsarAdmin;
 import org.apache.pulsar.client.admin.PulsarAdminException;
 import org.apache.pulsar.client.api.PulsarClientException;
@@ -50,8 +52,6 @@ import org.testcontainers.lifecycle.Startables;
 import org.testcontainers.utility.DockerImageName;
 import org.testcontainers.utility.DockerLoggerFactory;
 import org.testcontainers.utility.MountableFile;
-
-import com.google.common.collect.Lists;
 
 import java.io.IOException;
 import java.sql.Connection;
@@ -309,8 +309,9 @@ public class CanalToPulsarIT extends TestSuiteBase implements TestResource {
                         POSTGRESQL_CONTAINER.getJdbcUrl(),
                         POSTGRESQL_CONTAINER.getUsername(),
                         POSTGRESQL_CONTAINER.getPassword())) {
-            try (Statement statement = connection.createStatement()) {
-                ResultSet resultSet = statement.executeQuery("SELECT * FROM sink ORDER BY id");
+            try (Statement statement = connection.createStatement();
+                    ResultSet resultSet =
+                            statement.executeQuery("SELECT * FROM sink ORDER BY id"); ) {
                 while (resultSet.next()) {
                     List<Object> row =
                             Arrays.asList(

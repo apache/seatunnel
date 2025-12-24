@@ -17,6 +17,10 @@
 
 package org.apache.seatunnel.engine.server.task.record;
 
+import org.apache.seatunnel.engine.server.execution.TaskLocation;
+
+import java.util.Set;
+
 /** barrier flowing in data flow */
 public interface Barrier {
     Long PREPARE_CLOSE_BARRIER_ID = Long.MAX_VALUE;
@@ -32,4 +36,21 @@ public interface Barrier {
 
     /** Barrier indicating that the task should prepare to close. */
     boolean prepareClose();
+
+    /**
+     * Barrier indicating that the task should prepare to close.
+     *
+     * @param task task location
+     * @return If the task is included, the return true
+     */
+    default boolean prepareClose(TaskLocation task) {
+        return prepareClose();
+    }
+
+    /**
+     * Indicates a list of tasks that have been closed.
+     *
+     * @return
+     */
+    Set<TaskLocation> closedTasks();
 }

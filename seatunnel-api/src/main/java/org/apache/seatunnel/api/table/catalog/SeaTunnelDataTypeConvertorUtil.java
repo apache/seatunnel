@@ -31,6 +31,7 @@ import org.apache.seatunnel.api.table.type.PrimitiveByteArrayType;
 import org.apache.seatunnel.api.table.type.SeaTunnelDataType;
 import org.apache.seatunnel.api.table.type.SeaTunnelRowType;
 import org.apache.seatunnel.api.table.type.SqlType;
+import org.apache.seatunnel.api.table.type.VectorType;
 import org.apache.seatunnel.common.exception.CommonError;
 
 public class SeaTunnelDataTypeConvertorUtil {
@@ -78,8 +79,20 @@ public class SeaTunnelDataTypeConvertorUtil {
                 return LocalTimeType.LOCAL_TIME_TYPE;
             case TIMESTAMP:
                 return LocalTimeType.LOCAL_DATE_TIME_TYPE;
+            case TIMESTAMP_TZ:
+                return LocalTimeType.OFFSET_DATE_TIME_TYPE;
             case MAP:
                 return parseMapType(field, columnType);
+            case BINARY_VECTOR:
+                return VectorType.VECTOR_BINARY_TYPE;
+            case FLOAT_VECTOR:
+                return VectorType.VECTOR_FLOAT_TYPE;
+            case FLOAT16_VECTOR:
+                return VectorType.VECTOR_FLOAT16_TYPE;
+            case BFLOAT16_VECTOR:
+                return VectorType.VECTOR_BFLOAT16_TYPE;
+            case SPARSE_FLOAT_VECTOR:
+                return VectorType.VECTOR_SPARSE_FLOAT_TYPE;
             default:
                 throw CommonError.unsupportedDataType("SeaTunnel", columnType, field);
         }
@@ -217,6 +230,9 @@ public class SeaTunnelDataTypeConvertorUtil {
                 return ArrayType.FLOAT_ARRAY_TYPE;
             case DOUBLE:
                 return ArrayType.DOUBLE_ARRAY_TYPE;
+            case MAP:
+                MapType<?, ?> mapType = (MapType<?, ?>) dataType;
+                return new ArrayType<>(MapType.class, mapType);
             default:
                 throw CommonError.unsupportedDataType("SeaTunnel", genericType, field);
         }

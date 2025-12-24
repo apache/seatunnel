@@ -18,6 +18,9 @@
 
 package org.apache.seatunnel.connectors.seatunnel.jdbc;
 
+import org.apache.seatunnel.shade.com.google.common.collect.Lists;
+import org.apache.seatunnel.shade.org.apache.commons.lang3.tuple.Pair;
+
 import org.apache.seatunnel.api.configuration.ReadonlyConfig;
 import org.apache.seatunnel.api.table.catalog.CatalogTable;
 import org.apache.seatunnel.api.table.catalog.TablePath;
@@ -28,12 +31,11 @@ import org.apache.seatunnel.common.utils.JdbcUrlUtil;
 import org.apache.seatunnel.connectors.seatunnel.jdbc.catalog.mysql.MySqlCatalog;
 import org.apache.seatunnel.connectors.seatunnel.jdbc.config.JdbcSourceConfig;
 import org.apache.seatunnel.connectors.seatunnel.jdbc.source.DynamicChunkSplitter;
+import org.apache.seatunnel.connectors.seatunnel.jdbc.source.FixedChunkSplitter;
 import org.apache.seatunnel.connectors.seatunnel.jdbc.source.JdbcSourceSplit;
 import org.apache.seatunnel.connectors.seatunnel.jdbc.source.JdbcSourceTable;
 import org.apache.seatunnel.e2e.common.TestResource;
 import org.apache.seatunnel.e2e.common.TestSuiteBase;
-
-import org.apache.commons.lang3.tuple.Pair;
 
 import org.jetbrains.annotations.NotNull;
 import org.junit.jupiter.api.Assertions;
@@ -44,11 +46,10 @@ import org.slf4j.LoggerFactory;
 import org.testcontainers.containers.MySQLContainer;
 import org.testcontainers.containers.output.Slf4jLogConsumer;
 import org.testcontainers.containers.wait.strategy.Wait;
+import org.testcontainers.images.PullPolicy;
 import org.testcontainers.lifecycle.Startables;
 import org.testcontainers.utility.DockerImageName;
 import org.testcontainers.utility.DockerLoggerFactory;
-
-import com.google.common.collect.Lists;
 
 import java.math.BigDecimal;
 import java.sql.Connection;
@@ -57,6 +58,7 @@ import java.sql.DriverManager;
 import java.sql.PreparedStatement;
 import java.sql.SQLException;
 import java.sql.Timestamp;
+import java.time.Duration;
 import java.time.LocalDate;
 import java.time.LocalDateTime;
 import java.util.ArrayList;
@@ -74,7 +76,7 @@ import static org.awaitility.Awaitility.given;
 public class JdbcMysqlSplitIT extends TestSuiteBase implements TestResource {
     private static final Logger LOG = LoggerFactory.getLogger(JdbcMysqlSplitIT.class);
 
-    private static final String MYSQL_IMAGE = "mysql:8.0";
+    private static final String MYSQL_IMAGE = "mysql:8.0.43";
     private static final String MYSQL_CONTAINER_HOST = "mysql-e2e";
     private static final String MYSQL_DATABASE = "auto";
     private static final String MYSQL_TABLE = "split_test";
@@ -145,6 +147,7 @@ public class JdbcMysqlSplitIT extends TestSuiteBase implements TestResource {
         DockerImageName imageName = DockerImageName.parse(MYSQL_IMAGE);
         mysql_container =
                 new MySQLContainer<>(imageName)
+                        .withImagePullPolicy(PullPolicy.ageBased(Duration.ofDays(7)))
                         .withUsername(MYSQL_USERNAME)
                         .withPassword(MYSQL_PASSWORD)
                         .withDatabaseName(MYSQL_DATABASE)
@@ -362,7 +365,7 @@ public class JdbcMysqlSplitIT extends TestSuiteBase implements TestResource {
 
         TablePath tablePathMySql = TablePath.of(MYSQL_DATABASE, MYSQL_TABLE);
         MySqlCatalog mySqlCatalog =
-                new MySqlCatalog("mysql", MYSQL_USERNAME, MYSQL_PASSWORD, mysqlUrlInfo);
+                new MySqlCatalog("mysql", MYSQL_USERNAME, MYSQL_PASSWORD, mysqlUrlInfo, null);
         mySqlCatalog.open();
         Assertions.assertTrue(mySqlCatalog.tableExists(tablePathMySql));
         CatalogTable table = mySqlCatalog.getTable(tablePathMySql);
@@ -468,7 +471,7 @@ public class JdbcMysqlSplitIT extends TestSuiteBase implements TestResource {
 
     private JdbcSourceSplit[] getCheckedSplitArray(
             Map<String, Object> configMap, CatalogTable table, String splitKey, int splitNum)
-            throws SQLException {
+            throws Exception {
         configMap.put("partition_column", splitKey);
         DynamicChunkSplitter splitter = getDynamicChunkSplitter(configMap);
 
@@ -488,14 +491,14 @@ public class JdbcMysqlSplitIT extends TestSuiteBase implements TestResource {
     private void assertNumSplit(JdbcSourceSplit[] splitArray, String info) {
         for (int i = 0; i < splitArray.length; i++) {
             if (i == 0) {
-                Assertions.assertEquals(null, splitArray[i].getSplitStart());
+                Assertions.assertNull(splitArray[i].getSplitStart());
                 Assertions.assertEquals("10" + info, splitArray[i].getSplitEnd().toString());
                 continue;
             }
 
             if (i == splitArray.length - 1 && i != 0) {
                 Assertions.assertEquals(10 * i + info, splitArray[i].getSplitStart().toString());
-                Assertions.assertEquals(null, splitArray[i].getSplitEnd());
+                Assertions.assertNull(splitArray[i].getSplitEnd());
                 continue;
             }
 
@@ -507,7 +510,7 @@ public class JdbcMysqlSplitIT extends TestSuiteBase implements TestResource {
     private void assertDateSplit(JdbcSourceSplit[] splitArray) {
         for (int i = 0; i < splitArray.length; i++) {
             if (i == 0) {
-                Assertions.assertEquals(null, splitArray[i].getSplitStart());
+                Assertions.assertNull(splitArray[i].getSplitStart());
                 Assertions.assertEquals(
                         currentDateOld.plusDays(i * 9).toString(),
                         splitArray[i].getSplitEnd().toString());
@@ -518,7 +521,7 @@ public class JdbcMysqlSplitIT extends TestSuiteBase implements TestResource {
                 Assertions.assertEquals(
                         currentDateOld.plusDays((i - 1) * 9).toString(),
                         splitArray[i].getSplitStart().toString());
-                Assertions.assertEquals(null, splitArray[i].getSplitEnd());
+                Assertions.assertNull(splitArray[i].getSplitEnd());
                 continue;
             }
 
@@ -538,11 +541,168 @@ public class JdbcMysqlSplitIT extends TestSuiteBase implements TestResource {
         return splitter;
     }
 
+    @NotNull private FixedChunkSplitter getFixedChunkSplitter(Map<String, Object> configMap) {
+        ReadonlyConfig readonlyConfig = ReadonlyConfig.fromMap(configMap);
+        JdbcSourceConfig sourceConfig = JdbcSourceConfig.of(readonlyConfig);
+        FixedChunkSplitter splitter = new FixedChunkSplitter(sourceConfig);
+        return splitter;
+    }
+
     @Override
     public void tearDown() throws Exception {
         if (mysql_container != null) {
             mysql_container.close();
-            dockerClient.removeContainerCmd(mysql_container.getContainerId()).exec();
+        }
+    }
+
+    @Test
+    public void testDynamicCharSplit() {
+        Map<String, Object> configMap = new HashMap<>();
+        configMap.put("url", mysqlUrlInfo.getUrlWithDatabase().get());
+        configMap.put("driver", "com.mysql.cj.jdbc.Driver");
+        configMap.put("user", MYSQL_USERNAME);
+        configMap.put("password", MYSQL_PASSWORD);
+        configMap.put("table_path", MYSQL_DATABASE + "." + MYSQL_TABLE);
+        configMap.put("split.size", "10");
+        configMap.put("split.string_split_mode", "charset_based");
+
+        TablePath tablePathMySql = TablePath.of(MYSQL_DATABASE, MYSQL_TABLE);
+        MySqlCatalog mySqlCatalog =
+                new MySqlCatalog("mysql", MYSQL_USERNAME, MYSQL_PASSWORD, mysqlUrlInfo, null);
+        mySqlCatalog.open();
+        Assertions.assertTrue(mySqlCatalog.tableExists(tablePathMySql));
+        CatalogTable table = mySqlCatalog.getTable(tablePathMySql);
+
+        String[] charColumns = {
+            "c_char", "c_varchar", "c_tinytext", "c_text", "c_mediumtext", "c_longtext"
+        };
+
+        for (String charColumn : charColumns) {
+            try {
+                LOG.info("Testing split on character column: {}", charColumn);
+                configMap.put("partition_column", charColumn);
+                DynamicChunkSplitter splitter = getDynamicChunkSplitter(configMap);
+
+                JdbcSourceTable jdbcSourceTable =
+                        JdbcSourceTable.builder()
+                                .tablePath(TablePath.of(MYSQL_DATABASE, MYSQL_TABLE))
+                                .catalogTable(table)
+                                .partitionColumn(charColumn)
+                                .build();
+
+                Collection<JdbcSourceSplit> jdbcSourceSplits =
+                        splitter.generateSplits(jdbcSourceTable);
+
+                LOG.info(
+                        "Split results for column {}: {} splits",
+                        charColumn,
+                        jdbcSourceSplits.size());
+                int splitIndex = 0;
+                for (JdbcSourceSplit split : jdbcSourceSplits) {
+                    LOG.info(
+                            "Split {}: key={}, start={}, end={}",
+                            splitIndex++,
+                            split.getSplitKeyName(),
+                            split.getSplitStart(),
+                            split.getSplitEnd());
+                }
+
+                if (!jdbcSourceSplits.isEmpty()) {
+                    JdbcSourceSplit[] splitArray = jdbcSourceSplits.toArray(new JdbcSourceSplit[0]);
+                    Assertions.assertEquals(charColumn, splitArray[0].getSplitKeyName());
+                    printCharSplitBoundaries(splitArray);
+                }
+            } catch (Exception e) {
+                LOG.error("Error splitting on column {}: {}", charColumn, e.getMessage(), e);
+            }
+        }
+
+        mySqlCatalog.close();
+    }
+
+    @Test
+    public void testFixedCharSplit() {
+        Map<String, Object> configMap = new HashMap<>();
+        configMap.put("url", mysqlUrlInfo.getUrlWithDatabase().get());
+        configMap.put("driver", "com.mysql.cj.jdbc.Driver");
+        configMap.put("user", MYSQL_USERNAME);
+        configMap.put("password", MYSQL_PASSWORD);
+        configMap.put("table_path", MYSQL_DATABASE + "." + MYSQL_TABLE);
+        configMap.put("split.string_split_mode", "charset_based");
+
+        TablePath tablePathMySql = TablePath.of(MYSQL_DATABASE, MYSQL_TABLE);
+        MySqlCatalog mySqlCatalog =
+                new MySqlCatalog("mysql", MYSQL_USERNAME, MYSQL_PASSWORD, mysqlUrlInfo, null);
+        mySqlCatalog.open();
+        Assertions.assertTrue(mySqlCatalog.tableExists(tablePathMySql));
+        CatalogTable table = mySqlCatalog.getTable(tablePathMySql);
+
+        String[] charColumns = {
+            "c_bigint", "c_varchar", "c_tinytext", "c_text", "c_mediumtext", "c_longtext", "c_char"
+        };
+
+        for (String charColumn : charColumns) {
+            try {
+                LOG.info("Testing split on character column: {}", charColumn);
+                configMap.put("partition_column", charColumn);
+                FixedChunkSplitter splitter = getFixedChunkSplitter(configMap);
+
+                JdbcSourceTable jdbcSourceTable =
+                        JdbcSourceTable.builder()
+                                .tablePath(TablePath.of(MYSQL_DATABASE, MYSQL_TABLE))
+                                .catalogTable(table)
+                                .partitionColumn(charColumn)
+                                .partitionNumber(10)
+                                .build();
+
+                Collection<JdbcSourceSplit> jdbcSourceSplits =
+                        splitter.generateSplits(jdbcSourceTable);
+
+                LOG.info(
+                        "Split results for column {}: {} splits",
+                        charColumn,
+                        jdbcSourceSplits.size());
+                int splitIndex = 0;
+                for (JdbcSourceSplit split : jdbcSourceSplits) {
+                    LOG.info(
+                            "Split {}: key={}, start={}, end={}",
+                            splitIndex++,
+                            split.getSplitKeyName(),
+                            split.getSplitStart(),
+                            split.getSplitEnd());
+                }
+            } catch (Exception e) {
+                LOG.error("Error splitting on column {}: {}", charColumn, e.getMessage(), e);
+            }
+        }
+
+        mySqlCatalog.close();
+    }
+
+    private void printCharSplitBoundaries(JdbcSourceSplit[] splitArray) {
+        LOG.info("Character column split boundaries:");
+        for (int i = 0; i < splitArray.length; i++) {
+            Object start = splitArray[i].getSplitStart();
+            Object end = splitArray[i].getSplitEnd();
+
+            LOG.info(
+                    "Split {}: start={}, end={}",
+                    i,
+                    start == null ? "NULL" : "'" + start.toString() + "'",
+                    end == null ? "NULL" : "'" + end.toString() + "'");
+
+            if (i == 0) {
+                Assertions.assertNull(start, "First split should start with NULL");
+            }
+
+            if (i == splitArray.length - 1) {
+                Assertions.assertNull(end, "Last split should end with NULL");
+            }
+
+            if (i > 0 && i < splitArray.length - 1) {
+                Assertions.assertNotNull(start, "Middle split should have non-null start");
+                Assertions.assertNotNull(end, "Middle split should have non-null end");
+            }
         }
     }
 }

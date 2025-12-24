@@ -23,32 +23,49 @@ import org.apache.seatunnel.api.sink.SinkCommitter;
 import org.apache.seatunnel.api.sink.SinkWriter;
 import org.apache.seatunnel.api.table.catalog.CatalogTable;
 import org.apache.seatunnel.api.table.type.SeaTunnelRow;
+import org.apache.seatunnel.translation.spark.execution.MultiTableManager;
 
 import org.apache.spark.sql.catalyst.InternalRow;
 import org.apache.spark.sql.sources.v2.writer.DataWriter;
 import org.apache.spark.sql.sources.v2.writer.DataWriterFactory;
 
 import java.io.IOException;
+import java.sql.DriverManager;
 
 public class SparkDataWriterFactory<CommitInfoT, StateT> implements DataWriterFactory<InternalRow> {
 
+    static {
+        // Load DriverManager first to avoid deadlock between DriverManager's
+        // static initialization block and specific driver class's static
+        // initialization block when two different driver classes are loading
+        // concurrently using Class.forName while DriverManager is uninitialized
+        // before.
+        //
+        // This could happen in JDK 8 but not above as driver loading has been
+        // moved out of DriverManager's static initialization block since JDK 9.
+        DriverManager.getDrivers();
+    }
+
     private final SeaTunnelSink<SeaTunnelRow, StateT, CommitInfoT, ?> sink;
-    private final CatalogTable catalogTable;
+    private final CatalogTable[] catalogTables;
     private final String jobId;
+    private final int parallelism;
 
     SparkDataWriterFactory(
             SeaTunnelSink<SeaTunnelRow, StateT, CommitInfoT, ?> sink,
-            CatalogTable catalogTable,
-            String jobId) {
+            CatalogTable[] catalogTables,
+            String jobId,
+            int parallelism) {
         this.sink = sink;
-        this.catalogTable = catalogTable;
+        this.catalogTables = catalogTables;
         this.jobId = jobId;
+        this.parallelism = parallelism;
     }
 
     @Override
     public DataWriter<InternalRow> createDataWriter(int partitionId, long taskId, long epochId) {
         org.apache.seatunnel.api.sink.SinkWriter.Context context =
-                new DefaultSinkWriterContext(jobId, (int) taskId);
+                new DefaultSinkWriterContext(jobId, (int) taskId, parallelism);
         SinkWriter<SeaTunnelRow, CommitInfoT, StateT> writer;
         SinkCommitter<CommitInfoT> committer;
         try {
@@ -62,6 +79,6 @@ public class SparkDataWriterFactory<CommitInfoT, StateT> implements DataWriterFa
             throw new RuntimeException("Failed to create SinkCommitter.", e);
         }
         return new SparkDataWriter<>(
-                writer, committer, catalogTable.getSeaTunnelRowType(), epochId);
+                writer, committer, new MultiTableManager(catalogTables), epochId, context);
     }
 }

@@ -17,12 +17,13 @@
 
 package org.apache.seatunnel.engine.server.dag.physical;
 
-import org.apache.seatunnel.api.env.EnvCommonOptions;
+import org.apache.seatunnel.api.options.EnvCommonOptions;
 import org.apache.seatunnel.common.utils.ExceptionUtils;
 import org.apache.seatunnel.common.utils.RetryUtils;
 import org.apache.seatunnel.engine.common.Constant;
 import org.apache.seatunnel.engine.common.utils.ExceptionUtil;
 import org.apache.seatunnel.engine.common.utils.PassiveCompletableFuture;
+import org.apache.seatunnel.engine.common.utils.concurrent.CompletableFuture;
 import org.apache.seatunnel.engine.core.job.JobImmutableInformation;
 import org.apache.seatunnel.engine.core.job.PipelineExecutionState;
 import org.apache.seatunnel.engine.core.job.PipelineStatus;
@@ -41,7 +42,6 @@ import lombok.extern.slf4j.Slf4j;
 
 import java.util.List;
 import java.util.Map;
-import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.concurrent.atomic.AtomicInteger;
@@ -53,6 +53,8 @@ public class SubPlan {
 
     /** The max num pipeline can restore. */
     private final int pipelineMaxRestoreNum;
+
+    private final int pipelineRestoreIntervalSeconds;
 
     private final List<PhysicalVertex> physicalVertexList;
 
@@ -69,6 +71,7 @@ public class SubPlan {
     private final String pipelineFullName;
 
     private final IMap<Object, Object> runningJobStateIMap;
+    private final Map<String, String> tags;
 
     /**
      * Timestamps (in milliseconds) as returned by {@code System.currentTimeMillis()} when the
@@ -95,7 +98,7 @@ public class SubPlan {
 
     private PassiveCompletableFuture<Void> reSchedulerPipelineFuture;
 
-    private Integer pipelineRestoreNum;
+    private AtomicInteger pipelineRestoreNum;
 
     private final Object restoreLock = new Object();
 
@@ -114,14 +117,15 @@ public class SubPlan {
             @NonNull JobImmutableInformation jobImmutableInformation,
             @NonNull ExecutorService executorService,
             @NonNull IMap runningJobStateIMap,
-            @NonNull IMap runningJobStateTimestampsIMap) {
+            @NonNull IMap runningJobStateTimestampsIMap,
+            Map<String, String> tags) {
         this.pipelineId = pipelineId;
         this.pipelineLocation =
                 new PipelineLocation(jobImmutableInformation.getJobId(), pipelineId);
         this.pipelineFuture = new CompletableFuture<>();
         this.physicalVertexList = physicalVertexList;
         this.coordinatorVertexList = coordinatorVertexList;
-        pipelineRestoreNum = 0;
+        pipelineRestoreNum = new AtomicInteger();
         pipelineMaxRestoreNum =
                 Integer.parseInt(
                         jobImmutableInformation
@@ -130,6 +134,17 @@ public class SubPlan {
                                 .computeIfAbsent(
                                         EnvCommonOptions.JOB_RETRY_TIMES.key(),
                                         key -> EnvCommonOptions.JOB_RETRY_TIMES.defaultValue())
+                                .toString());
+        pipelineRestoreIntervalSeconds =
+                Integer.parseInt(
+                        jobImmutableInformation
+                                .getJobConfig()
+                                .getEnvOptions()
+                                .computeIfAbsent(
+                                        EnvCommonOptions.JOB_RETRY_INTERVAL_SECONDS.key(),
+                                        key ->
+                                                EnvCommonOptions.JOB_RETRY_INTERVAL_SECONDS
+                                                        .defaultValue())
                                 .toString());
         Long[] stateTimestamps = new Long[PipelineStatus.values().length];
         if (runningJobStateTimestampsIMap.get(pipelineLocation) == null) {
@@ -158,6 +173,7 @@ public class SubPlan {
         this.runningJobStateIMap = runningJobStateIMap;
         this.runningJobStateTimestampsIMap = runningJobStateTimestampsIMap;
         this.executorService = executorService;
+        this.tags = tags;
     }
 
     public synchronized PassiveCompletableFuture<PipelineExecutionState> initStateFuture() {
@@ -292,7 +308,14 @@ public class SubPlan {
             RetryUtils.retryWithException(
                     () -> {
                         jobMaster.savePipelineMetricsToHistory(getPipelineLocation());
-                        jobMaster.removeMetricsContext(getPipelineLocation(), pipelineStatus);
+                        try {
+                            jobMaster.removeMetricsContext(getPipelineLocation(), pipelineStatus);
+                        } catch (Throwable e) {
+                            log.error(
+                                    "Remove metrics context for pipeline {} failed, with exception: {}",
+                                    pipelineFullName,
+                                    ExceptionUtils.getMessage(e));
+                        }
                         notifyCheckpointManagerPipelineEnd(pipelineStatus);
                         jobMaster.releasePipelineResource(this);
                         return null;
@@ -439,7 +462,7 @@ public class SubPlan {
     private boolean prepareRestorePipeline() {
         synchronized (restoreLock) {
             try {
-                pipelineRestoreNum++;
+                pipelineRestoreNum.getAndIncrement();
                 log.info(
                         String.format(
                                 "Restore time %s, pipeline %s",
@@ -447,6 +470,11 @@ public class SubPlan {
                 reset();
                 jobMaster.getCheckpointManager().reportedPipelineRunning(pipelineId, false);
                 jobMaster.getPhysicalPlan().addPipelineEndCallback(this);
+                log.info(
+                        "Wait {}s and then restore the pipeline {}",
+                        pipelineRestoreIntervalSeconds,
+                        getPipelineFullName());
+                Thread.sleep(pipelineRestoreIntervalSeconds * 1000);
                 return true;
             } catch (Throwable e) {
                 if (this.currPipelineStatus.isEndState()) {
@@ -562,7 +590,7 @@ public class SubPlan {
     }
 
     public int getPipelineRestoreNum() {
-        return pipelineRestoreNum;
+        return pipelineRestoreNum.get();
     }
 
     public void handleCheckpointError() {
@@ -597,15 +625,33 @@ public class SubPlan {
                 break;
             case SCHEDULED:
                 try {
-                    slotProfiles =
-                            ResourceUtils.applyResourceForPipeline(
-                                    jobMaster.getResourceManager(), this);
+                    Map<TaskGroupLocation, SlotProfile> slotProfiles =
+                            ResourceUtils.applyResourceForPipeline(jobMaster, this);
                     log.debug(
                             "slotProfiles: {}, PipelineLocation: {}",
                             slotProfiles,
                             this.getPipelineLocation());
-                    // sead slot information to JobMaster
-                    jobMaster.setOwnedSlotProfiles(pipelineLocation, slotProfiles);
+
+                    // Log task execution locations for the entire pipeline
+                    if (slotProfiles != null && !slotProfiles.isEmpty()) {
+                        log.info(
+                                "Resource allocation for pipeline {} completed. Task execution locations:",
+                                getPipelineFullName());
+                        slotProfiles.forEach(
+                                (taskLocation, slotProfile) -> {
+                                    if (slotProfile != null) {
+                                        log.info(
+                                                "  Task [{}] will be executed on worker [{}], slotID [{}], resourceProfile [{}], sequence [{}], assigned [{}]",
+                                                taskLocation,
+                                                slotProfile.getWorker(),
+                                                slotProfile.getSlotID(),
+                                                slotProfile.getResourceProfile(),
+                                                slotProfile.getSequence(),
+                                                slotProfile.getOwnerJobID());
+                                    }
+                                });
+                    }
+
                     updatePipelineState(PipelineStatus.DEPLOYING);
                 } catch (Exception e) {
                     makePipelineFailing(e);
@@ -649,6 +695,7 @@ public class SubPlan {
             case CANCELED:
                 if (checkNeedRestore(state) && prepareRestorePipeline()) {
                     jobMaster.releasePipelineResource(this);
+                    jobMaster.preApplyResources(this);
                     restorePipeline();
                     return;
                 }

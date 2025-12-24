@@ -19,9 +19,7 @@ package org.apache.seatunnel.connectors.seatunnel.clickhouse;
 
 import org.apache.seatunnel.e2e.common.TestResource;
 import org.apache.seatunnel.e2e.common.TestSuiteBase;
-import org.apache.seatunnel.e2e.common.container.EngineType;
 import org.apache.seatunnel.e2e.common.container.TestContainer;
-import org.apache.seatunnel.e2e.common.junit.DisabledOnContainer;
 
 import org.awaitility.Awaitility;
 import org.junit.jupiter.api.AfterAll;
@@ -50,10 +48,6 @@ import java.util.concurrent.TimeUnit;
 import java.util.stream.Collectors;
 import java.util.stream.Stream;
 
-@DisabledOnContainer(
-        value = {},
-        type = {EngineType.SPARK},
-        disabledReason = "Spark engine will lose the row kind of record")
 @Slf4j
 public class ClickhouseSinkCDCChangelogIT extends TestSuiteBase implements TestResource {
     private static final String CLICKHOUSE_DOCKER_IMAGE = "clickhouse/clickhouse-server:23.3.13.6";
@@ -150,6 +144,29 @@ public class ClickhouseSinkCDCChangelogIT extends TestSuiteBase implements TestR
         dropSinkTable();
     }
 
+    @TestTemplate
+    public void testClickhouseCompositePrimary(TestContainer container) throws Exception {
+        initializeClickhouseCompositePrimary();
+
+        Container.ExecResult execResult = container.executeJob("/fake_to_clickhouse.conf");
+        Assertions.assertEquals(0, execResult.getExitCode());
+
+        checkSinkTableRows();
+        dropSinkTable();
+    }
+
+    @TestTemplate
+    public void testClickhouseLogEngineTable(TestContainer container) throws Exception {
+        initializeClickhouseLogEngineTable();
+
+        Container.ExecResult execResult =
+                container.executeJob("/clickhouse_sink_cdc_changelog_log_engine.conf");
+        Assertions.assertEquals(0, execResult.getExitCode());
+
+        checkLogEngineTableRows();
+        dropSinkTable();
+    }
+
     private void initConnection() throws Exception {
         final Properties info = new Properties();
         info.put("user", this.container.getUsername());
@@ -176,6 +193,23 @@ public class ClickhouseSinkCDCChangelogIT extends TestSuiteBase implements TestR
         }
     }
 
+    private void initializeClickhouseCompositePrimary() {
+        try {
+            Statement statement = this.connection.createStatement();
+            String sql =
+                    String.format(
+                            "create table if not exists %s.%s(\n"
+                                    + "    `pk_id`         Int64,\n"
+                                    + "    `name`          String,\n"
+                                    + "    `score`         Int32\n"
+                                    + ")engine=MergeTree ORDER BY(pk_id, name) PRIMARY KEY(pk_id, name)",
+                            DATABASE, SINK_TABLE);
+            statement.execute(sql);
+        } catch (SQLException e) {
+            throw new RuntimeException("Initializing Clickhouse table failed!", e);
+        }
+    }
+
     private void initializeClickhouseReplacingMergeTreeTable() {
         try {
             Statement statement = this.connection.createStatement();
@@ -193,12 +227,29 @@ public class ClickhouseSinkCDCChangelogIT extends TestSuiteBase implements TestR
         }
     }
 
+    private void initializeClickhouseLogEngineTable() {
+        try {
+            Statement statement = this.connection.createStatement();
+            String sql =
+                    String.format(
+                            "create table if not exists %s.%s(\n"
+                                    + "    `pk_id`         Int64,\n"
+                                    + "    `name`          String,\n"
+                                    + "    `score`         Int32\n"
+                                    + ")engine=Log",
+                            DATABASE, SINK_TABLE);
+            statement.execute(sql);
+        } catch (SQLException e) {
+            throw new RuntimeException("Initializing Clickhouse Log table failed!", e);
+        }
+    }
+
     private void checkSinkTableRows() throws SQLException {
         Set<List<Object>> actual = new HashSet<>();
-        try (Statement statement = connection.createStatement()) {
-            ResultSet resultSet =
-                    statement.executeQuery(
-                            String.format("select * from %s.%s", DATABASE, SINK_TABLE));
+        try (Statement statement = connection.createStatement();
+                ResultSet resultSet =
+                        statement.executeQuery(
+                                String.format("select * from %s.%s", DATABASE, SINK_TABLE))) {
             while (resultSet.next()) {
                 List<Object> row =
                         Arrays.asList(
@@ -217,6 +268,61 @@ public class ClickhouseSinkCDCChangelogIT extends TestSuiteBase implements TestR
                             "Actual results %s not equal expected results %s",
                             Arrays.toString(actual.toArray()),
                             Arrays.toString(expected.toArray())));
+        }
+    }
+
+    private void checkLogEngineTableRows() throws SQLException {
+        int actualCount = 0;
+        try (Statement statement = connection.createStatement();
+                ResultSet resultSet =
+                        statement.executeQuery(
+                                String.format(
+                                        "select count(*) as cnt from %s.%s",
+                                        DATABASE, SINK_TABLE))) {
+            if (resultSet.next()) {
+                actualCount = resultSet.getInt("cnt");
+            }
+        }
+        // Expected: 3 initial  + 3 duplicate  + 1 UPDATE_BEFORE + 1 UPDATE_AFTER + 1 DELETE = 9
+        // records
+        int expectedCount = 9;
+        Assertions.assertEquals(
+                expectedCount,
+                actualCount,
+                String.format(
+                        "Expected %d records in Log engine table, but got %d",
+                        expectedCount, actualCount));
+
+        Set<List<Object>> actual = new HashSet<>();
+        try (Statement statement = connection.createStatement();
+                ResultSet resultSet =
+                        statement.executeQuery(
+                                String.format("select * from %s.%s", DATABASE, SINK_TABLE))) {
+            while (resultSet.next()) {
+                List<Object> row =
+                        Arrays.asList(
+                                resultSet.getLong("pk_id"),
+                                resultSet.getString("name"),
+                                resultSet.getInt("score"));
+                actual.add(row);
+            }
+        }
+
+        Set<List<Object>> expectedUniqueRows =
+                Stream.<List<Object>>of(
+                                Arrays.asList(1L, "A", 100),
+                                Arrays.asList(1L, "A_1", 100),
+                                Arrays.asList(2L, "B", 100),
+                                Arrays.asList(3L, "C", 100))
+                        .collect(Collectors.toSet());
+
+        for (List<Object> expectedRow : expectedUniqueRows) {
+            if (!actual.contains(expectedRow)) {
+                throw new IllegalStateException(
+                        String.format(
+                                "Expected row %s not found in actual results %s",
+                                expectedRow, Arrays.toString(actual.toArray())));
+            }
         }
     }
 

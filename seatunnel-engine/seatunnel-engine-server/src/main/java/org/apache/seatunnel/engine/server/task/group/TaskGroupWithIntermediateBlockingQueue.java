@@ -17,9 +17,14 @@
 
 package org.apache.seatunnel.engine.server.task.group;
 
+import org.apache.seatunnel.shade.org.apache.commons.lang3.tuple.Pair;
+
+import org.apache.seatunnel.api.common.metrics.Counter;
+import org.apache.seatunnel.api.common.metrics.MetricsContext;
 import org.apache.seatunnel.api.table.type.Record;
 import org.apache.seatunnel.engine.server.execution.Task;
 import org.apache.seatunnel.engine.server.execution.TaskGroupLocation;
+import org.apache.seatunnel.engine.server.execution.TaskGroupType;
 import org.apache.seatunnel.engine.server.task.SeaTunnelTask;
 import org.apache.seatunnel.engine.server.task.group.queue.AbstractIntermediateQueue;
 import org.apache.seatunnel.engine.server.task.group.queue.IntermediateBlockingQueue;
@@ -30,6 +35,8 @@ import java.util.concurrent.ArrayBlockingQueue;
 import java.util.concurrent.BlockingQueue;
 import java.util.concurrent.ConcurrentHashMap;
 
+import static org.apache.seatunnel.api.common.metrics.MetricNames.INTERMEDIATE_QUEUE_SIZE;
+
 public class TaskGroupWithIntermediateBlockingQueue extends AbstractTaskGroupWithIntermediateQueue {
 
     public static final int QUEUE_SIZE = 2048;
@@ -39,7 +46,7 @@ public class TaskGroupWithIntermediateBlockingQueue extends AbstractTaskGroupWit
         super(taskGroupLocation, taskGroupName, tasks);
     }
 
-    private Map<Long, BlockingQueue<Record<?>>> blockingQueueCache = null;
+    private Map<Long, Pair<BlockingQueue<Record<?>>, Counter>> blockingQueueCache = null;
 
     @Override
     public void init() {
@@ -51,8 +58,19 @@ public class TaskGroupWithIntermediateBlockingQueue extends AbstractTaskGroupWit
     }
 
     @Override
-    public AbstractIntermediateQueue<?> getQueueCache(long id) {
-        blockingQueueCache.computeIfAbsent(id, i -> new ArrayBlockingQueue<>(QUEUE_SIZE));
-        return new IntermediateBlockingQueue(blockingQueueCache.get(id));
+    public AbstractIntermediateQueue<?> getQueueCache(long id, MetricsContext metricsContext) {
+        blockingQueueCache.computeIfAbsent(
+                id,
+                i ->
+                        Pair.of(
+                                new ArrayBlockingQueue<>(QUEUE_SIZE),
+                                metricsContext.counter(INTERMEDIATE_QUEUE_SIZE)));
+        Pair<BlockingQueue<Record<?>>, Counter> cache = blockingQueueCache.get(id);
+        return new IntermediateBlockingQueue(cache.getLeft(), cache.getRight());
+    }
+
+    @Override
+    public TaskGroupType getTaskGroupType() {
+        return TaskGroupType.INTERMEDIATE_BLOCKING_QUEUE;
     }
 }

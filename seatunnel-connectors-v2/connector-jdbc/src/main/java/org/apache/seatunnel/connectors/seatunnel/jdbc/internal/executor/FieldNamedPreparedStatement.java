@@ -17,6 +17,8 @@
 
 package org.apache.seatunnel.connectors.seatunnel.jdbc.internal.executor;
 
+import org.apache.seatunnel.shade.com.google.common.annotations.VisibleForTesting;
+
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 
@@ -42,10 +44,13 @@ import java.sql.SQLXML;
 import java.sql.Time;
 import java.sql.Timestamp;
 import java.util.ArrayList;
+import java.util.Arrays;
 import java.util.Calendar;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.regex.Matcher;
+import java.util.regex.Pattern;
 
 import static org.apache.seatunnel.shade.com.google.common.base.Preconditions.checkArgument;
 import static org.apache.seatunnel.shade.com.google.common.base.Preconditions.checkNotNull;
@@ -335,7 +340,9 @@ public class FieldNamedPreparedStatement implements PreparedStatement {
 
     @Override
     public void setBinaryStream(int parameterIndex, InputStream x) throws SQLException {
-        throw new UnsupportedOperationException();
+        for (int index : indexMapping[parameterIndex - 1]) {
+            statement.setBinaryStream(index, x);
+        }
     }
 
     @Override
@@ -636,13 +643,29 @@ public class FieldNamedPreparedStatement implements PreparedStatement {
             HashMap<String, List<Integer>> parameterMap = new HashMap<>();
             parsedSQL = parseNamedStatement(sql, parameterMap);
             // currently, the statements must contain all the field parameters
-            checkArgument(parameterMap.size() == fieldNames.length);
+            parameterMap
+                    .keySet()
+                    .forEach(
+                            namedParameter -> {
+                                boolean namedParameterExist =
+                                        Arrays.asList(fieldNames).stream()
+                                                .anyMatch(field -> field.equals(namedParameter));
+                                checkArgument(
+                                        namedParameterExist,
+                                        String.format(
+                                                "Named parameters [%s] not in source columns, check SQL: %s",
+                                                namedParameter, sql));
+                            });
+
             for (int i = 0; i < fieldNames.length; i++) {
                 String fieldName = fieldNames[i];
-                checkArgument(
-                        parameterMap.containsKey(fieldName),
-                        fieldName + " doesn't exist in the parameters of SQL statement: " + sql);
-                indexMapping[i] = parameterMap.get(fieldName).stream().mapToInt(v -> v).toArray();
+                boolean parameterExist =
+                        parameterMap.keySet().stream()
+                                .anyMatch(parameter -> parameter.equals(fieldName));
+                indexMapping[i] =
+                        parameterExist
+                                ? parameterMap.get(fieldName).stream().mapToInt(v -> v).toArray()
+                                : new int[0];
             }
         }
         log.info("PrepareStatement sql is:\n{}\n", parsedSQL);
@@ -650,29 +673,26 @@ public class FieldNamedPreparedStatement implements PreparedStatement {
                 connection.prepareStatement(parsedSQL), indexMapping);
     }
 
-    private static String parseNamedStatement(String sql, Map<String, List<Integer>> paramMap) {
-        StringBuilder parsedSql = new StringBuilder();
-        int fieldIndex = 1; // SQL statement parameter index starts from 1
-        int length = sql.length();
-        for (int i = 0; i < length; i++) {
-            char c = sql.charAt(i);
-            if (':' == c) {
-                int j = i + 1;
-                while (j < length && Character.isJavaIdentifierPart(sql.charAt(j))) {
-                    j++;
-                }
-                String parameterName = sql.substring(i + 1, j);
-                checkArgument(
-                        !parameterName.isEmpty(),
-                        "Named parameters in SQL statement must not be empty.");
-                paramMap.computeIfAbsent(parameterName, n -> new ArrayList<>()).add(fieldIndex);
-                fieldIndex++;
-                i = j - 1;
-                parsedSql.append('?');
-            } else {
-                parsedSql.append(c);
-            }
+    @VisibleForTesting
+    public static String parseNamedStatement(String sql, Map<String, List<Integer>> paramMap) {
+        Pattern pattern =
+                Pattern.compile(":([\\p{L}\\p{Nl}\\p{Nd}\\p{Pc}\\$\\-\\.@%&*#~!?^+=<>|]+)");
+        Matcher matcher = pattern.matcher(sql);
+
+        StringBuffer result = new StringBuffer();
+        int fieldIndex = 1;
+
+        while (matcher.find()) {
+            String parameterName = matcher.group(1);
+            checkArgument(
+                    !parameterName.isEmpty(),
+                    "Named parameters in SQL statement must not be empty.");
+            paramMap.computeIfAbsent(parameterName, n -> new ArrayList<>()).add(fieldIndex++);
+            matcher.appendReplacement(result, "?");
         }
-        return parsedSql.toString();
+
+        matcher.appendTail(result);
+
+        return result.toString();
     }
 }

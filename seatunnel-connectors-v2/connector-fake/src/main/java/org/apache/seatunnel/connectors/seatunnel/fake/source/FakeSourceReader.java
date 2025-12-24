@@ -20,8 +20,6 @@ package org.apache.seatunnel.connectors.seatunnel.fake.source;
 import org.apache.seatunnel.api.source.Boundedness;
 import org.apache.seatunnel.api.source.Collector;
 import org.apache.seatunnel.api.source.SourceReader;
-import org.apache.seatunnel.api.source.event.ReaderCloseEvent;
-import org.apache.seatunnel.api.source.event.ReaderOpenEvent;
 import org.apache.seatunnel.api.table.type.SeaTunnelRow;
 import org.apache.seatunnel.connectors.seatunnel.fake.config.FakeConfig;
 import org.apache.seatunnel.connectors.seatunnel.fake.config.MultipleTableFakeSourceConfig;
@@ -50,8 +48,9 @@ public class FakeSourceReader implements SourceReader<SeaTunnelRow, FakeSourceSp
     private volatile long latestTimestamp = 0;
 
     public FakeSourceReader(
-            SourceReader.Context context,
-            MultipleTableFakeSourceConfig multipleTableFakeSourceConfig) {
+            Context context,
+            MultipleTableFakeSourceConfig multipleTableFakeSourceConfig,
+            String jobId) {
         this.context = context;
         this.multipleTableFakeSourceConfig = multipleTableFakeSourceConfig;
         this.fakeDataGeneratorMap =
@@ -64,7 +63,7 @@ public class FakeSourceReader implements SourceReader<SeaTunnelRow, FakeSourceSp
                                                         .getTableId()
                                                         .toTablePath()
                                                         .toString(),
-                                        FakeDataGenerator::new));
+                                        fakeConfig -> new FakeDataGenerator(fakeConfig, jobId)));
         this.minSplitReadInterval =
                 multipleTableFakeSourceConfig.getFakeConfigs().stream()
                         .map(FakeConfig::getSplitReadInterval)
@@ -73,14 +72,10 @@ public class FakeSourceReader implements SourceReader<SeaTunnelRow, FakeSourceSp
     }
 
     @Override
-    public void open() {
-        context.getEventListener().onEvent(new ReaderOpenEvent());
-    }
+    public void open() {}
 
     @Override
-    public void close() {
-        context.getEventListener().onEvent(new ReaderCloseEvent());
-    }
+    public void close() {}
 
     @Override
     @SuppressWarnings("MagicNumber")
@@ -95,12 +90,11 @@ public class FakeSourceReader implements SourceReader<SeaTunnelRow, FakeSourceSp
             if (null != split) {
                 FakeDataGenerator fakeDataGenerator = fakeDataGeneratorMap.get(split.getTableId());
                 // Randomly generated data are sent directly to the downstream operator
-                List<SeaTunnelRow> seaTunnelRows =
-                        fakeDataGenerator.generateFakedRows(split.getRowNum());
-                seaTunnelRows.forEach(output::collect);
+                long rowCount =
+                        fakeDataGenerator.generateFakedRows(split.getRowNum(), output::collect);
                 log.info(
                         "{} rows of data have been generated in split({}) for table {}. Generation time: {}",
-                        seaTunnelRows.size(),
+                        rowCount,
                         split.splitId(),
                         split.getTableId(),
                         latestTimestamp);

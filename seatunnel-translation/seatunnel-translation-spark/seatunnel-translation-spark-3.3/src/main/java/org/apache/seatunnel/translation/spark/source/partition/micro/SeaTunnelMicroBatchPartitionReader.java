@@ -34,7 +34,11 @@ public class SeaTunnelMicroBatchPartitionReader implements PartitionReader<Inter
 
     @Override
     public boolean next() throws IOException {
-        return partitionReader.next();
+        try {
+            return partitionReader.next();
+        } catch (Exception e) {
+            throw new RuntimeException(e);
+        }
     }
 
     @Override

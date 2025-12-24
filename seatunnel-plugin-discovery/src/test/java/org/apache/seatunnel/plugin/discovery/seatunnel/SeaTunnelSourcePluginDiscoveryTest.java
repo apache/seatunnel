@@ -17,37 +17,88 @@
 
 package org.apache.seatunnel.plugin.discovery.seatunnel;
 
+import org.apache.seatunnel.shade.com.google.common.collect.Lists;
+
+import org.apache.seatunnel.api.common.PluginIdentifier;
 import org.apache.seatunnel.common.config.Common;
 import org.apache.seatunnel.common.config.DeployMode;
 import org.apache.seatunnel.common.constants.PluginType;
-import org.apache.seatunnel.plugin.discovery.PluginIdentifier;
+import org.apache.seatunnel.common.utils.FileUtils;
+import org.apache.seatunnel.common.utils.SeaTunnelException;
 
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
-import org.junit.jupiter.api.condition.DisabledOnOs;
-import org.junit.jupiter.api.condition.OS;
 
-import com.google.common.collect.Lists;
-
+import java.io.File;
 import java.io.IOException;
+import java.net.MalformedURLException;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.nio.file.Paths;
+import java.util.Collections;
 import java.util.List;
+import java.util.stream.Collectors;
+import java.util.stream.Stream;
 
-@DisabledOnOs(OS.WINDOWS)
 class SeaTunnelSourcePluginDiscoveryTest {
+
+    private static final String seatunnelHome;
+
+    static {
+        String rootModuleDir = "seatunnel-plugin-discovery";
+        Path path = Paths.get(System.getProperty("user.dir"));
+        while (!path.endsWith(Paths.get(rootModuleDir))) {
+            path = path.getParent();
+        }
+        seatunnelHome =
+                Paths.get(
+                                path.getParent().toString(),
+                                rootModuleDir,
+                                "target",
+                                "test-classes",
+                                "duplicate")
+                        .toString();
+    }
 
     private String originSeatunnelHome = null;
     private DeployMode originMode = null;
-    private static final String seatunnelHome =
-            SeaTunnelSourcePluginDiscoveryTest.class.getResource("/duplicate").getPath();
     private static final List<Path> pluginJars =
             Lists.newArrayList(
                     Paths.get(seatunnelHome, "connectors", "connector-http-jira.jar"),
-                    Paths.get(seatunnelHome, "connectors", "connector-http.jar"));
+                    Paths.get(seatunnelHome, "connectors", "connector-http.jar"),
+                    Paths.get(seatunnelHome, "connectors", "connector-clickhouse.jar"),
+                    Paths.get(
+                            seatunnelHome,
+                            "plugins",
+                            "connector-clickhouse",
+                            "clickhouse-jdbc-driver.jar"),
+                    Paths.get(
+                            seatunnelHome,
+                            "plugins",
+                            "connector-clickhouse",
+                            "clickhouse-jdbc-driver2.jar"),
+                    Paths.get(seatunnelHome, "plugins", "connector-jdbc", "mysql-jdbc-driver.jar"),
+                    Paths.get(seatunnelHome, "plugins", "connector-jdbc", "mysql-jdbc-driver2.jar"),
+                    Paths.get(seatunnelHome, "plugins", "other", "common-dependency.jar"),
+                    Paths.get(seatunnelHome, "plugins", "other", "common-dependency2.jar"),
+                    Paths.get(seatunnelHome, "plugins", "common-dependency3.jar"),
+                    Paths.get(
+                            seatunnelHome,
+                            "plugins",
+                            "otherWithLib",
+                            "lib",
+                            "common-dependency3.jar"),
+                    Paths.get(seatunnelHome, "connectors", "connector-kafka.jar"),
+                    Paths.get(seatunnelHome, "connectors", "connector-kafka-alcs.jar"),
+                    Paths.get(seatunnelHome, "connectors", "connector-kafka-blcs.jar"),
+                    Paths.get(seatunnelHome, "connectors", "connector-jdbc-release-1.1.jar"),
+                    Paths.get(seatunnelHome, "connectors", "connector-jdbc-hive1.jar"),
+                    Paths.get(seatunnelHome, "connectors", "connector-odbc-baidu-v1.jar"),
+                    Paths.get(seatunnelHome, "connectors", "connector-odbc-baidu-release-1.1.jar"),
+                    Paths.get(seatunnelHome, "connectors", "seatunnel-transforms-v2.jar"),
+                    Paths.get(seatunnelHome, "connectors", "seatunnel-transforms-v1.jar"));
 
     @BeforeEach
     public void before() throws IOException {
@@ -58,7 +109,7 @@ class SeaTunnelSourcePluginDiscoveryTest {
 
         // The file is created under target directory.
         for (Path pluginJar : pluginJars) {
-            Files.createFile(pluginJar);
+            FileUtils.createNewFile(pluginJar.toString());
         }
     }
 
@@ -67,12 +118,201 @@ class SeaTunnelSourcePluginDiscoveryTest {
         List<PluginIdentifier> pluginIdentifiers =
                 Lists.newArrayList(
                         PluginIdentifier.of("seatunnel", PluginType.SOURCE.getType(), "HttpJira"),
-                        PluginIdentifier.of("seatunnel", PluginType.SOURCE.getType(), "HttpBase"));
+                        PluginIdentifier.of("seatunnel", PluginType.SOURCE.getType(), "HttpBase"),
+                        PluginIdentifier.of("seatunnel", PluginType.SOURCE.getType(), "Kafka"),
+                        PluginIdentifier.of("seatunnel", PluginType.SINK.getType(), "Kafka-Blcs"),
+                        PluginIdentifier.of("seatunnel", PluginType.SINK.getType(), "Jdbc"));
         SeaTunnelSourcePluginDiscovery seaTunnelSourcePluginDiscovery =
                 new SeaTunnelSourcePluginDiscovery();
-        Assertions.assertThrows(
-                IllegalArgumentException.class,
-                () -> seaTunnelSourcePluginDiscovery.getPluginJarPaths(pluginIdentifiers));
+        Assertions.assertIterableEquals(
+                Stream.of(
+                                Paths.get(seatunnelHome, "connectors", "connector-http-jira.jar")
+                                        .toString(),
+                                Paths.get(seatunnelHome, "connectors", "connector-http.jar")
+                                        .toString(),
+                                Paths.get(seatunnelHome, "connectors", "connector-kafka.jar")
+                                        .toString(),
+                                Paths.get(seatunnelHome, "connectors", "connector-kafka-blcs.jar")
+                                        .toString(),
+                                Paths.get(
+                                                seatunnelHome,
+                                                "connectors",
+                                                "connector-jdbc-release-1.1.jar")
+                                        .toString())
+                        .collect(Collectors.toList()),
+                seaTunnelSourcePluginDiscovery.getPluginJarPaths(pluginIdentifiers).stream()
+                        .map(
+                                url -> {
+                                    try {
+                                        return new File(url.toURI()).getPath();
+                                    } catch (Exception e) {
+                                        throw new RuntimeException(e);
+                                    }
+                                })
+                        .collect(Collectors.toList()));
+    }
+
+    @Test
+    void getPluginBaseClassFailureScenario() {
+        List<PluginIdentifier> pluginIdentifiers =
+                Lists.newArrayList(
+                        PluginIdentifier.of("seatunnel", PluginType.SOURCE.getType(), "Odbc"));
+        SeaTunnelSourcePluginDiscovery seaTunnelSourcePluginDiscovery =
+                new SeaTunnelSourcePluginDiscovery();
+        Exception exception =
+                Assertions.assertThrows(
+                        SeaTunnelException.class,
+                        () -> seaTunnelSourcePluginDiscovery.getPluginJarPaths(pluginIdentifiers));
+        System.out.println(exception.getMessage());
+        Assertions.assertTrue(
+                exception
+                        .getMessage()
+                        .matches(
+                                "Cannot find unique plugin jar for pluginIdentifier: odbc -> connector-odbc. "
+                                        + "Possible impact jar: \\[.*.jar, .*.jar]"));
+    }
+
+    @Test
+    void getTransformClass() {
+        List<PluginIdentifier> pluginIdentifiers =
+                Lists.newArrayList(
+                        PluginIdentifier.of("seatunnel", PluginType.TRANSFORM.getType(), "Sql"),
+                        PluginIdentifier.of("seatunnel", PluginType.TRANSFORM.getType(), "Filter"));
+        SeaTunnelSourcePluginDiscovery seaTunnelSourcePluginDiscovery =
+                new SeaTunnelSourcePluginDiscovery();
+        Assertions.assertIterableEquals(
+                Stream.of(
+                                Paths.get(
+                                                seatunnelHome,
+                                                "connectors",
+                                                "seatunnel-transforms-v2.jar")
+                                        .toString(),
+                                Paths.get(
+                                                seatunnelHome,
+                                                "connectors",
+                                                "seatunnel-transforms-v1.jar")
+                                        .toString())
+                        .collect(Collectors.toList()),
+                seaTunnelSourcePluginDiscovery.getPluginJarPaths(pluginIdentifiers).stream()
+                        .map(
+                                url -> {
+                                    try {
+                                        return new File(url.toURI()).getPath();
+                                    } catch (Exception e) {
+                                        throw new RuntimeException(e);
+                                    }
+                                })
+                        .collect(Collectors.toList()));
+    }
+
+    @Test
+    public void testGetPluginDependencies() throws MalformedURLException {
+        PluginIdentifier jdbc =
+                PluginIdentifier.of("seatunnel", PluginType.SOURCE.getType(), "JDBC");
+        PluginIdentifier clickhouse =
+                PluginIdentifier.of("seatunnel", PluginType.SOURCE.getType(), "ClickHouse");
+        SeaTunnelSourcePluginDiscovery discovery = new SeaTunnelSourcePluginDiscovery();
+        List<String> jdbcAndClickHouseJars =
+                discovery.getPluginJarAndDependencyPaths(Lists.newArrayList(jdbc, clickhouse))
+                        .stream()
+                        .map(
+                                url -> {
+                                    try {
+                                        return new File(url.toURI()).getPath();
+                                    } catch (Exception e) {
+                                        throw new RuntimeException(e);
+                                    }
+                                })
+                        .collect(Collectors.toList());
+        Assertions.assertIterableEquals(
+                Lists.newArrayList(
+                        Paths.get(seatunnelHome, "/connectors/connector-clickhouse.jar").toString(),
+                        Paths.get(seatunnelHome, "/connectors/connector-jdbc-release-1.1.jar")
+                                .toString(),
+                        Paths.get(seatunnelHome, "/plugins/common-dependency3.jar").toString(),
+                        Paths.get(
+                                        seatunnelHome,
+                                        "/plugins/connector-clickhouse/clickhouse-jdbc-driver.jar")
+                                .toString(),
+                        Paths.get(
+                                        seatunnelHome,
+                                        "/plugins/connector-clickhouse/clickhouse-jdbc-driver2.jar")
+                                .toString(),
+                        Paths.get(seatunnelHome, "/plugins/connector-jdbc/mysql-jdbc-driver.jar")
+                                .toString(),
+                        Paths.get(seatunnelHome, "/plugins/connector-jdbc/mysql-jdbc-driver2.jar")
+                                .toString(),
+                        Paths.get(seatunnelHome, "/plugins/other/common-dependency.jar").toString(),
+                        Paths.get(seatunnelHome, "/plugins/other/common-dependency2.jar")
+                                .toString(),
+                        Paths.get(seatunnelHome, "/plugins/otherWithLib/lib/common-dependency3.jar")
+                                .toString()),
+                jdbcAndClickHouseJars);
+        List<String> jdbcJars =
+                discovery.getPluginJarAndDependencyPaths(Lists.newArrayList(jdbc)).stream()
+                        .map(
+                                url -> {
+                                    try {
+                                        return new File(url.toURI()).getPath();
+                                    } catch (Exception e) {
+                                        throw new RuntimeException(e);
+                                    }
+                                })
+                        .collect(Collectors.toList());
+        Assertions.assertIterableEquals(
+                Lists.newArrayList(
+                        Paths.get(seatunnelHome, "/connectors/connector-jdbc-release-1.1.jar")
+                                .toString(),
+                        Paths.get(seatunnelHome, "/plugins/common-dependency3.jar").toString(),
+                        Paths.get(seatunnelHome, "/plugins/connector-jdbc/mysql-jdbc-driver.jar")
+                                .toString(),
+                        Paths.get(seatunnelHome, "/plugins/connector-jdbc/mysql-jdbc-driver2.jar")
+                                .toString(),
+                        Paths.get(seatunnelHome, "/plugins/other/common-dependency.jar").toString(),
+                        Paths.get(seatunnelHome, "/plugins/other/common-dependency2.jar")
+                                .toString(),
+                        Paths.get(seatunnelHome, "/plugins/otherWithLib/lib/common-dependency3.jar")
+                                .toString()),
+                jdbcJars);
+        List<String> clickhouseJars =
+                discovery.getPluginJarAndDependencyPaths(Lists.newArrayList(clickhouse)).stream()
+                        .map(
+                                url -> {
+                                    try {
+                                        return new File(url.toURI()).getPath();
+                                    } catch (Exception e) {
+                                        throw new RuntimeException(e);
+                                    }
+                                })
+                        .collect(Collectors.toList());
+        Assertions.assertIterableEquals(
+                Lists.newArrayList(
+                        Paths.get(seatunnelHome, "/connectors/connector-clickhouse.jar").toString(),
+                        Paths.get(seatunnelHome, "/plugins/common-dependency3.jar").toString(),
+                        Paths.get(
+                                        seatunnelHome,
+                                        "/plugins/connector-clickhouse/clickhouse-jdbc-driver.jar")
+                                .toString(),
+                        Paths.get(
+                                        seatunnelHome,
+                                        "/plugins/connector-clickhouse/clickhouse-jdbc-driver2.jar")
+                                .toString(),
+                        Paths.get(seatunnelHome, "/plugins/other/common-dependency.jar").toString(),
+                        Paths.get(seatunnelHome, "/plugins/other/common-dependency2.jar")
+                                .toString(),
+                        Paths.get(seatunnelHome, "/plugins/otherWithLib/lib/common-dependency3.jar")
+                                .toString()),
+                clickhouseJars);
+    }
+
+    @Test
+    public void testGetPluginsJarDependenciesWithoutConnectorDependency() {
+        List<Path> paths = Common.getPluginsJarDependenciesWithoutConnectorDependency();
+        Assertions.assertIterableEquals(
+                Collections.singletonList(
+                        Paths.get(
+                                seatunnelHome, "/plugins/otherWithLib/lib/common-dependency3.jar")),
+                paths);
     }
 
     @AfterEach

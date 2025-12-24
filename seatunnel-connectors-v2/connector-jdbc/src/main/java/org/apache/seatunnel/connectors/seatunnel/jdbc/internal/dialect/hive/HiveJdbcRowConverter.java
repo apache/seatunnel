@@ -24,6 +24,8 @@ import org.apache.seatunnel.connectors.seatunnel.jdbc.exception.JdbcConnectorExc
 import org.apache.seatunnel.connectors.seatunnel.jdbc.internal.converter.AbstractJdbcRowConverter;
 import org.apache.seatunnel.connectors.seatunnel.jdbc.internal.dialect.DatabaseIdentifier;
 
+import javax.annotation.Nullable;
+
 import java.sql.PreparedStatement;
 
 public class HiveJdbcRowConverter extends AbstractJdbcRowConverter {
@@ -35,7 +37,10 @@ public class HiveJdbcRowConverter extends AbstractJdbcRowConverter {
 
     @Override
     public PreparedStatement toExternal(
-            TableSchema tableSchema, SeaTunnelRow row, PreparedStatement statement) {
+            TableSchema tableSchema,
+            @Nullable TableSchema databaseTableSchema,
+            SeaTunnelRow row,
+            PreparedStatement statement) {
         throw new JdbcConnectorException(
                 JdbcConnectorErrorCode.DONT_SUPPORT_SINK,
                 "The Hive jdbc connector don't support sink");

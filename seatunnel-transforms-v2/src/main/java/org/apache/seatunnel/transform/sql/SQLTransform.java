@@ -17,10 +17,10 @@
 
 package org.apache.seatunnel.transform.sql;
 
-import org.apache.seatunnel.api.common.CommonOptions;
 import org.apache.seatunnel.api.configuration.Option;
 import org.apache.seatunnel.api.configuration.Options;
 import org.apache.seatunnel.api.configuration.ReadonlyConfig;
+import org.apache.seatunnel.api.options.ConnectorCommonOptions;
 import org.apache.seatunnel.api.table.catalog.CatalogTable;
 import org.apache.seatunnel.api.table.catalog.Column;
 import org.apache.seatunnel.api.table.catalog.ConstraintKey;
@@ -30,7 +30,7 @@ import org.apache.seatunnel.api.table.catalog.TableSchema;
 import org.apache.seatunnel.api.table.type.SeaTunnelDataType;
 import org.apache.seatunnel.api.table.type.SeaTunnelRow;
 import org.apache.seatunnel.api.table.type.SeaTunnelRowType;
-import org.apache.seatunnel.transform.common.AbstractCatalogSupportTransform;
+import org.apache.seatunnel.transform.common.AbstractCatalogSupportFlatMapTransform;
 import org.apache.seatunnel.transform.sql.SQLEngineFactory.EngineType;
 
 import lombok.NonNull;
@@ -44,7 +44,7 @@ import java.util.stream.Collectors;
 import static org.apache.seatunnel.transform.sql.SQLEngineFactory.EngineType.ZETA;
 
 @Slf4j
-public class SQLTransform extends AbstractCatalogSupportTransform {
+public class SQLTransform extends AbstractCatalogSupportFlatMapTransform {
     public static final String PLUGIN_NAME = "Sql";
 
     public static final Option<String> KEY_QUERY =
@@ -60,7 +60,11 @@ public class SQLTransform extends AbstractCatalogSupportTransform {
 
     private final EngineType engineType;
 
+    private SeaTunnelRowType outRowType;
+
     private transient SQLEngine sqlEngine;
+
+    private final String inputTableName;
 
     public SQLTransform(@NonNull ReadonlyConfig config, @NonNull CatalogTable catalogTable) {
         super(catalogTable);
@@ -71,21 +75,12 @@ public class SQLTransform extends AbstractCatalogSupportTransform {
             this.engineType = ZETA;
         }
 
-        List<String> sourceTableNames = config.get(CommonOptions.SOURCE_TABLE_NAME);
-        if (sourceTableNames != null && !sourceTableNames.isEmpty()) {
-            this.inputTableName = sourceTableNames.get(0);
+        List<String> pluginInputIdentifiers = config.get(ConnectorCommonOptions.PLUGIN_INPUT);
+        if (pluginInputIdentifiers != null && !pluginInputIdentifiers.isEmpty()) {
+            this.inputTableName = pluginInputIdentifiers.get(0);
         } else {
             this.inputTableName = catalogTable.getTableId().getTableName();
         }
-        List<Column> columns = catalogTable.getTableSchema().getColumns();
-        String[] fieldNames = new String[columns.size()];
-        SeaTunnelDataType<?>[] fieldTypes = new SeaTunnelDataType<?>[columns.size()];
-        for (int i = 0; i < columns.size(); i++) {
-            Column column = columns.get(i);
-            fieldNames[i] = column.getName();
-            fieldTypes[i] = column.getDataType();
-        }
-        this.inputRowType = new SeaTunnelRowType(fieldNames, fieldTypes);
     }
 
     @Override
@@ -98,8 +93,8 @@ public class SQLTransform extends AbstractCatalogSupportTransform {
         sqlEngine = SQLEngineFactory.getSQLEngine(engineType);
         sqlEngine.init(
                 inputTableName,
-                inputCatalogTable != null ? inputCatalogTable.getTableId().getTableName() : null,
-                inputRowType,
+                inputCatalogTable.getTableId().getTableName(),
+                inputCatalogTable.getSeaTunnelRowType(),
                 query);
     }
 
@@ -110,16 +105,16 @@ public class SQLTransform extends AbstractCatalogSupportTransform {
     }
 
     @Override
-    protected SeaTunnelRow transformRow(SeaTunnelRow inputRow) {
+    protected List<SeaTunnelRow> transformRow(SeaTunnelRow inputRow) {
         tryOpen();
-        return sqlEngine.transformBySQL(inputRow);
+        return sqlEngine.transformBySQL(inputRow, outRowType);
     }
 
     @Override
     protected TableSchema transformTableSchema() {
         tryOpen();
         List<String> inputColumnsMapping = new ArrayList<>();
-        SeaTunnelRowType outRowType = sqlEngine.typeMapping(inputColumnsMapping);
+        outRowType = sqlEngine.typeMapping(inputColumnsMapping);
         List<String> outputColumns = Arrays.asList(outRowType.getFieldNames());
 
         TableSchema.Builder builder = TableSchema.builder();
@@ -163,14 +158,16 @@ public class SQLTransform extends AbstractCatalogSupportTransform {
             Column column;
             if (simpleColumn != null) {
                 column =
-                        PhysicalColumn.of(
+                        new PhysicalColumn(
                                 fieldNames[i],
                                 fieldTypes[i],
                                 simpleColumn.getColumnLength(),
                                 simpleColumn.getScale(),
                                 simpleColumn.isNullable(),
                                 simpleColumn.getDefaultValue(),
-                                simpleColumn.getComment());
+                                simpleColumn.getComment(),
+                                simpleColumn.getSourceType(),
+                                simpleColumn.getOptions());
             } else {
                 column = PhysicalColumn.of(fieldNames[i], fieldTypes[i], 0, true, null, null);
             }

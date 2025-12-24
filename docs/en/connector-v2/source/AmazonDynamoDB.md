@@ -1,3 +1,5 @@
+import ChangeLog from '../changelog/connector-amazondynamodb.md';
+
 # AmazonDynamoDB
 
 > AmazonDynamoDB source connector
@@ -37,11 +39,11 @@ The URL to read to Amazon Dynamodb.
 
 The region of Amazon Dynamodb.
 
-### accessKeyId [string]
+### access_key_id [string]
 
 The access id of Amazon DynamoDB.
 
-### secretAccessKey [string]
+### secret_access_key [string]
 
 The access secret of Amazon DynamoDB.
 
@@ -69,7 +71,7 @@ schema {
 
 ### common options
 
-Source Plugin common parameters, refer to [Source Plugin](common-options.md) for details
+Source Plugin common parameters, refer to [Source Plugin](../source-common-options.md) for details
 
 ### scan_item_limit
 
@@ -85,8 +87,8 @@ number of logical segments for parallel scan
 Amazondynamodb {
   url = "http://127.0.0.1:8000"
   region = "us-east-1"
-  accessKeyId = "dummy-key"
-  secretAccessKey = "dummy-secret"
+  access_key_id = "dummy-key"
+  secret_access_key = "dummy-secret"
   table = "TableName"
   schema = {
     fields {
@@ -113,8 +115,4 @@ Amazondynamodb {
 
 ## Changelog
 
-### next version
-
-- Add Amazon DynamoDB Source Connector
-- Add source  split to Amazondynamodb Connectors
-
+<ChangeLog />

@@ -22,15 +22,13 @@ import org.apache.seatunnel.api.table.catalog.Column;
 import org.apache.seatunnel.api.table.catalog.ConstraintKey;
 import org.apache.seatunnel.api.table.catalog.TablePath;
 import org.apache.seatunnel.api.table.catalog.exception.CatalogException;
-import org.apache.seatunnel.api.table.catalog.exception.DatabaseNotExistException;
 import org.apache.seatunnel.api.table.converter.BasicTypeDefine;
 import org.apache.seatunnel.common.utils.JdbcUrlUtil;
 import org.apache.seatunnel.connectors.seatunnel.jdbc.catalog.AbstractJdbcCatalog;
 import org.apache.seatunnel.connectors.seatunnel.jdbc.catalog.utils.CatalogUtils;
+import org.apache.seatunnel.connectors.seatunnel.jdbc.config.JdbcCommonOptions;
 import org.apache.seatunnel.connectors.seatunnel.jdbc.internal.dialect.oracle.OracleTypeConverter;
 import org.apache.seatunnel.connectors.seatunnel.jdbc.internal.dialect.oracle.OracleTypeMapper;
-
-import org.apache.commons.lang3.StringUtils;
 
 import lombok.extern.slf4j.Slf4j;
 
@@ -39,36 +37,11 @@ import java.sql.DatabaseMetaData;
 import java.sql.ResultSet;
 import java.sql.SQLException;
 import java.util.ArrayList;
-import java.util.Arrays;
 import java.util.Collections;
 import java.util.List;
 
 @Slf4j
 public class OracleCatalog extends AbstractJdbcCatalog {
-
-    protected static List<String> EXCLUDED_SCHEMAS =
-            Collections.unmodifiableList(
-                    Arrays.asList(
-                            "APPQOSSYS",
-                            "AUDSYS",
-                            "CTXSYS",
-                            "DVSYS",
-                            "DBSFWUSER",
-                            "DBSNMP",
-                            "GSMADMIN_INTERNAL",
-                            "LBACSYS",
-                            "MDSYS",
-                            "OJVMSYS",
-                            "OLAPSYS",
-                            "ORDDATA",
-                            "ORDSYS",
-                            "OUTLN",
-                            "SYS",
-                            "SYSTEM",
-                            "WMSYS",
-                            "XDB",
-                            "EXFSYS",
-                            "SYSMAN"));
 
     private static final String SELECT_COLUMNS_SQL_TEMPLATE =
             "SELECT\n"
@@ -101,23 +74,70 @@ public class OracleCatalog extends AbstractJdbcCatalog {
                     + "ORDER BY \n"
                     + "    cols.column_id \n";
 
+    private boolean decimalTypeNarrowing;
+    private boolean handleBlobAsString;
+
     public OracleCatalog(
             String catalogName,
             String username,
             String pwd,
             JdbcUrlUtil.UrlInfo urlInfo,
-            String defaultSchema) {
-        super(catalogName, username, pwd, urlInfo, defaultSchema);
+            String defaultSchema,
+            String driverClass) {
+        this(
+                catalogName,
+                username,
+                pwd,
+                urlInfo,
+                defaultSchema,
+                JdbcCommonOptions.DECIMAL_TYPE_NARROWING.defaultValue(),
+                driverClass,
+                false);
+    }
+
+    public OracleCatalog(
+            String catalogName,
+            String username,
+            String pwd,
+            JdbcUrlUtil.UrlInfo urlInfo,
+            String defaultSchema,
+            boolean decimalTypeNarrowing,
+            String driverClass,
+            boolean handleBlobAsString) {
+        super(catalogName, username, pwd, urlInfo, defaultSchema, driverClass);
+        this.decimalTypeNarrowing = decimalTypeNarrowing;
+        this.handleBlobAsString = handleBlobAsString;
     }
 
     @Override
-    protected String getListDatabaseSql() {
-        return "SELECT name FROM v$database";
+    protected String getTableWithConditionSql(TablePath tablePath) {
+        return getListTableSql(tablePath.getDatabaseName())
+                + "  and  OWNER = '"
+                + tablePath.getSchemaName()
+                + "' and table_name = '"
+                + tablePath.getTableName()
+                + "'";
     }
 
     @Override
-    protected String getCreateTableSql(TablePath tablePath, CatalogTable table) {
-        return new OracleCreateTableSqlBuilder(table).build(tablePath);
+    public boolean databaseExists(String databaseName) throws CatalogException {
+        return true;
+    }
+
+    @Override
+    public List<String> listDatabases() throws CatalogException {
+        return new ArrayList<>(Collections.singletonList("default"));
+    }
+
+    @Override
+    protected String getCreateTableSql(
+            TablePath tablePath, CatalogTable table, boolean createIndex) {
+        return getCreateTableSqls(tablePath, table, createIndex).get(0);
+    }
+
+    protected List<String> getCreateTableSqls(
+            TablePath tablePath, CatalogTable table, boolean createIndex) {
+        return new OracleCreateTableSqlBuilder(table, createIndex).build(tablePath);
     }
 
     @Override
@@ -136,9 +156,6 @@ public class OracleCatalog extends AbstractJdbcCatalog {
 
     @Override
     protected String getTableName(ResultSet rs) throws SQLException {
-        if (EXCLUDED_SCHEMAS.contains(rs.getString(1))) {
-            return null;
-        }
         return rs.getString(1) + "." + rs.getString(2);
     }
 
@@ -174,7 +191,8 @@ public class OracleCatalog extends AbstractJdbcCatalog {
                         .defaultValue(defaultValue)
                         .comment(columnComment)
                         .build();
-        return OracleTypeConverter.INSTANCE.convert(typeDefine);
+        return new OracleTypeConverter(decimalTypeNarrowing, handleBlobAsString)
+                .convert(typeDefine);
     }
 
     @Override
@@ -188,28 +206,12 @@ public class OracleCatalog extends AbstractJdbcCatalog {
     }
 
     @Override
-    public boolean tableExists(TablePath tablePath) throws CatalogException {
-        try {
-            if (StringUtils.isNotBlank(tablePath.getDatabaseName())) {
-                return databaseExists(tablePath.getDatabaseName())
-                        && listTables(tablePath.getDatabaseName())
-                                .contains(tablePath.getSchemaAndTableName());
-            }
-            return listTables().contains(tablePath.getSchemaAndTableName());
-        } catch (DatabaseNotExistException e) {
-            return false;
-        }
-    }
-
-    private List<String> listTables() {
-        List<String> databases = listDatabases();
-        return listTables(databases.get(0));
-    }
-
-    @Override
     public CatalogTable getTable(String sqlQuery) throws SQLException {
         Connection defaultConnection = getConnection(defaultUrl);
-        return CatalogUtils.getCatalogTable(defaultConnection, sqlQuery, new OracleTypeMapper());
+        return CatalogUtils.getCatalogTable(
+                defaultConnection,
+                sqlQuery,
+                new OracleTypeMapper(decimalTypeNarrowing, handleBlobAsString));
     }
 
     @Override

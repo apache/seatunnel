@@ -1,7 +1,6 @@
 ---
-
 sidebar_position: 7
--------------------
+---
 
 # 检查点存储
 
@@ -11,16 +10,14 @@ sidebar_position: 7
 
 ### 检查点存储
 
-检查点存储是一种存储检查点数据的存储机制。
-
 SeaTunnel Engine支持以下检查点存储类型:
 
-- HDFS (OSS,S3,HDFS,LocalFile)
-- LocalFile (本地)，(已弃用: 使用Hdfs(LocalFile)替代).
+- HDFS (OSS,COS,S3,HDFS,LocalFile)
+- LocalFile (本地)，(已弃用: 使用HDFS(LocalFile)替代).
 
 我们使用微内核设计模式将检查点存储模块从引擎中分离出来。这允许用户实现他们自己的检查点存储模块。
 
-`checkpoint-storage-api`是检查点存储模块API，它定义了检查点存储模块的接口。
+`checkpoint-storage-api`是检查点   存储模块API，它定义了检查点存储模块的接口。
 
 如果你想实现你自己的检查点存储模块，你需要实现`CheckpointStorage`并提供相应的`CheckpointStorageFactory`实现。
 
@@ -46,9 +43,9 @@ seatunnel:
 
 #### OSS
 
-阿里云oss是基于hdfs-file，所以你可以参考[hadoop oss文档](https://hadoop.apache.org/docs/stable/hadoop-aliyun/tools/hadoop-aliyun/index.html)来配置oss.
+阿里云OSS是基于hdfs-file，所以你可以参考[Hadoop OSS文档](https://hadoop.apache.org/docs/stable/hadoop-aliyun/tools/hadoop-aliyun/index.html)来配置oss.
 
-除了与oss buckets交互外，oss客户端需要与buckets交互所需的凭据。
+OSS buckets交互外，oss客户端需要与buckets交互所需的凭据。
 客户端支持多种身份验证机制，并且可以配置使用哪种机制及其使用顺序。也可以使用of org.apache.hadoop.fs.aliyun.oss.AliyunCredentialsProvider的自定义实现。
 如果您使用AliyunCredentialsProvider(可以从阿里云访问密钥管理中获得)，它们包括一个access key和一个secret key。
 你可以这样配置:
@@ -68,16 +65,51 @@ seatunnel:
           fs.oss.accessKeyId: your-access-key
           fs.oss.accessKeySecret: your-secret-key
           fs.oss.endpoint: endpoint address
-          fs.oss.credentials.provider: org.apache.hadoop.fs.aliyun.oss.AliyunCredentialsProvider
 ```
 
 有关Hadoop Credential Provider API的更多信息，请参见: [Credential Provider API](https://hadoop.apache.org/docs/stable/hadoop-project-dist/hadoop-common/CredentialProviderAPI.html).
 
-阿里云oss凭证提供程序实现见: [验证凭证提供](https://github.com/aliyun/aliyun-oss-java-sdk/tree/master/src/main/java/com/aliyun/oss/common/auth)
+阿里云OSS凭证提供程序实现见: [验证凭证提供](https://github.com/aliyun/aliyun-oss-java-sdk/tree/master/src/main/java/com/aliyun/oss/common/auth)
+
+#### COS
+
+腾讯云COS基于hdfs-file，所以你可以参考[Hadoop COS文档](https://hadoop.apache.org/docs/stable/hadoop-cos/cloud-storage/)来配置COS.
+
+除了与公共COS buckets交互之外，COS客户端需要与buckets交互所需的凭据。
+客户端支持多种身份验证机制，并且可以配置使用哪种机制及其使用顺序。也可以使用com.qcloud.cos.auth.COSCredentialsProvider的自定义实现。
+如果您使用SimpleCredentialsProvider(可以从腾讯云API密钥管理中获得)，它们包括一个secretId和一个secretKey。
+您可以这样配置:
+
+```yaml
+seatunnel:
+  engine:
+    checkpoint:
+      interval: 6000
+      timeout: 7000
+      storage:
+        type: hdfs
+        max-retained: 3
+        plugin-config:
+          storage.type: cos
+          cos.bucket: cosn://your-bucket
+          fs.cosn.credentials.provider: org.apache.hadoop.fs.cosn.auth.SimpleCredentialsProvider
+          fs.cosn.userinfo.secretId: your-secretId
+          fs.cosn.userinfo.secretKey: your-secretKey
+          fs.cosn.bucket.region: your-region
+```
+
+有关Hadoop Credential Provider API的更多信息，请参见: [Credential Provider API](https://hadoop.apache.org/docs/stable/hadoop-project-dist/hadoop-common/CredentialProviderAPI.html).
+
+腾讯云COS相关配置可参考：[Tencent Hadoop-COS文档](https://doc.fincloud.tencent.cn/tcloud/Storage/COS/846365/hadoop)
+
+使用前请将如下jar添加到lib目录下：
+- [hadoop-cos-3.4.1.jar](https://mvnrepository.com/artifact/org.apache.hadoop/hadoop-cos/3.4.1)
+- [cos_api-bundle-5.6.69.jar](https://mvnrepository.com/artifact/com.qcloud/cos_api-bundle/5.6.69)
+- [hadoop-shaded-guava-1.1.1.jar](https://mvnrepository.com/artifact/org.apache.hadoop.thirdparty/hadoop-shaded-guava/1.1.1)
 
 #### S3
 
-S3基于hdfs-file，所以你可以参考[hadoop s3文档](https://hadoop.apache.org/docs/stable/hadoop-aws/tools/hadoop-aws/index.html)来配置s3。
+S3基于hdfs-file，所以你可以参考[Hadoop s3文档](https://hadoop.apache.org/docs/stable/hadoop-aws/tools/hadoop-aws/index.html)来配置s3。
 
 除了与公共S3 buckets交互之外，S3A客户端需要与buckets交互所需的凭据。
 客户端支持多种身份验证机制，并且可以配置使用哪种机制及其使用顺序。也可以使用com.amazonaws.auth.AWSCredentialsProvider的自定义实现。
@@ -184,3 +216,38 @@ seatunnel:
 
 ```
 
+### 开启高速缓存
+
+当storage:type为hdfs时，默认关闭cache。如果您想启用它，请设置为`disable.cache: false`。
+
+```yaml
+seatunnel:
+  engine:
+    checkpoint:
+      interval: 6000
+      timeout: 7000
+      storage:
+        type: hdfs
+        max-retained: 3
+        plugin-config:
+          storage.type: hdfs
+          disable.cache: false
+          fs.defaultFS: hdfs:/// # Ensure that the directory has written permission
+```
+
+or
+
+```yaml
+seatunnel:
+  engine:
+    checkpoint:
+      interval: 6000
+      timeout: 7000
+      storage:
+        type: hdfs
+        max-retained: 3
+        plugin-config:
+          storage.type: hdfs
+          disable.cache: false
+          fs.defaultFS: file:/// 
+```

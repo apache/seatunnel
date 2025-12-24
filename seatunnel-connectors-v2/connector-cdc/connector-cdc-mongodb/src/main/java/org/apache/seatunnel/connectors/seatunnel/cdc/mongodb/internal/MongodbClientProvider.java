@@ -28,18 +28,13 @@ import lombok.extern.slf4j.Slf4j;
 public enum MongodbClientProvider {
     INSTANCE;
 
-    private volatile MongoClient mongoClient;
-
-    public MongoClient getOrCreateMongoClient(MongodbSourceConfig sourceConfig) {
-        if (mongoClient == null) {
-            ConnectionString connectionString =
-                    new ConnectionString(sourceConfig.getConnectionString());
-            log.info(
-                    "Create and register mongo client {}@{}",
-                    connectionString.getUsername(),
-                    connectionString.getHosts());
-            mongoClient = MongoClients.create(connectionString);
-        }
-        return mongoClient;
+    public MongoClient createMongoClient(MongodbSourceConfig sourceConfig) {
+        ConnectionString connectionString =
+                new ConnectionString(sourceConfig.getConnectionString());
+        log.info(
+                "Creating new mongo client {}@{}",
+                connectionString.getUsername(),
+                connectionString.getHosts());
+        return MongoClients.create(connectionString);
     }
 }

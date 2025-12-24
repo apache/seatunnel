@@ -1,3 +1,5 @@
+import ChangeLog from '../changelog/connector-socket.md';
+
 # Socket
 
 > Socket source connector
@@ -44,11 +46,11 @@ The File does not have a specific type list, and we can indicate which SeaTunnel
 
 ## Options
 
-|      Name      |  Type   | Required | Default |                                               Description                                                |
-|----------------|---------|----------|---------|----------------------------------------------------------------------------------------------------------|
-| host           | String  | Yes      | _       | socket server host                                                                                       |
-| port           | Integer | Yes      | _       | socket server port                                                                                       |
-| common-options |         | no       | -       | Source plugin common parameters, please refer to [Source Common Options](common-options.md) for details. |
+|      Name      |  Type   | Required | Default |                                                    Description                                                     |
+|----------------|---------|----------|---------|--------------------------------------------------------------------------------------------------------------------|
+| host           | String  | Yes      | _       | socket server host                                                                                                 |
+| port           | Integer | Yes      | _       | socket server port                                                                                                 |
+| common-options |         | no       | -       | Source plugin common parameters, please refer to [Source Common Options](../source-common-options.md) for details. |
 
 ## How to Create a Socket Data Synchronization Jobs
 
@@ -106,3 +108,6 @@ spark
 [spark]
 ```
 
+## Changelog
+
+<ChangeLog />

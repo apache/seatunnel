@@ -17,34 +17,68 @@
 
 package org.apache.seatunnel.connectors.seatunnel.paimon.source;
 
+import org.apache.seatunnel.api.configuration.ReadonlyConfig;
 import org.apache.seatunnel.api.configuration.util.OptionRule;
 import org.apache.seatunnel.api.source.SeaTunnelSource;
+import org.apache.seatunnel.api.source.SourceSplit;
+import org.apache.seatunnel.api.table.connector.TableSource;
 import org.apache.seatunnel.api.table.factory.Factory;
 import org.apache.seatunnel.api.table.factory.TableSourceFactory;
-import org.apache.seatunnel.connectors.seatunnel.paimon.config.PaimonConfig;
+import org.apache.seatunnel.api.table.factory.TableSourceFactoryContext;
+import org.apache.seatunnel.connectors.seatunnel.paimon.catalog.PaimonCatalog;
+import org.apache.seatunnel.connectors.seatunnel.paimon.catalog.PaimonCatalogEnum;
+import org.apache.seatunnel.connectors.seatunnel.paimon.catalog.PaimonCatalogFactory;
+import org.apache.seatunnel.connectors.seatunnel.paimon.config.PaimonSinkOptions;
+import org.apache.seatunnel.connectors.seatunnel.paimon.config.PaimonSourceOptions;
 
 import com.google.auto.service.AutoService;
+
+import java.io.Serializable;
 
 @AutoService(Factory.class)
 public class PaimonSourceFactory implements TableSourceFactory {
 
     @Override
     public String factoryIdentifier() {
-        return "Paimon";
+        return PaimonSinkOptions.CONNECTOR_IDENTITY;
     }
 
     @Override
     public OptionRule optionRule() {
         return OptionRule.builder()
-                .required(PaimonConfig.WAREHOUSE)
-                .required(PaimonConfig.DATABASE)
-                .required(PaimonConfig.TABLE)
-                .optional(PaimonConfig.HDFS_SITE_PATH)
+                .required(PaimonSourceOptions.WAREHOUSE)
+                .optional(
+                        PaimonSourceOptions.DATABASE,
+                        PaimonSourceOptions.CATALOG_TYPE,
+                        PaimonSourceOptions.HDFS_SITE_PATH,
+                        PaimonSourceOptions.QUERY_SQL,
+                        PaimonSourceOptions.HADOOP_CONF,
+                        PaimonSourceOptions.HADOOP_CONF_PATH)
+                .exclusive(PaimonSourceOptions.TABLE, PaimonSourceOptions.TABLE_LIST)
+                .conditional(
+                        PaimonSourceOptions.CATALOG_TYPE,
+                        PaimonCatalogEnum.HIVE,
+                        PaimonSourceOptions.CATALOG_URI)
                 .build();
     }
 
     @Override
     public Class<? extends SeaTunnelSource> getSourceClass() {
         return PaimonSource.class;
+    }
+
+    @Override
+    public <T, SplitT extends SourceSplit, StateT extends Serializable>
+            TableSource<T, SplitT, StateT> createSource(TableSourceFactoryContext context) {
+        ReadonlyConfig readonlyConfig = context.getOptions();
+        PaimonCatalogFactory paimonCatalogFactory = new PaimonCatalogFactory();
+        try (PaimonCatalog paimonCatalog =
+                (PaimonCatalog)
+                        paimonCatalogFactory.createCatalog(factoryIdentifier(), readonlyConfig)) {
+            paimonCatalog.open();
+            return () ->
+                    (SeaTunnelSource<T, SplitT, StateT>)
+                            new PaimonSource(readonlyConfig, paimonCatalog);
+        }
     }
 }

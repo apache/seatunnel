@@ -21,11 +21,15 @@ import org.apache.seatunnel.api.source.SourceSplit;
 
 import lombok.Getter;
 
+import java.util.Objects;
+
 public class FileSourceSplit implements SourceSplit {
     private static final long serialVersionUID = 1L;
 
     @Getter private final String tableId;
     @Getter private final String filePath;
+    @Getter private long start = 0;
+    @Getter private long length = -1;
 
     public FileSourceSplit(String splitId) {
         this.filePath = splitId;
@@ -37,6 +41,13 @@ public class FileSourceSplit implements SourceSplit {
         this.filePath = filePath;
     }
 
+    public FileSourceSplit(String tableId, String filePath, long start, long length) {
+        this.tableId = tableId;
+        this.filePath = filePath;
+        this.start = start;
+        this.length = length;
+    }
+
     @Override
     public String splitId() {
         // In order to be compatible with the split before the upgrade, when tableId is null,
@@ -44,6 +55,26 @@ public class FileSourceSplit implements SourceSplit {
         if (tableId == null) {
             return filePath;
         }
-        return tableId + "_" + filePath;
+        return tableId + "_" + filePath + "_" + start;
+    }
+
+    @Override
+    public boolean equals(Object o) {
+        if (this == o) {
+            return true;
+        }
+        if (o == null || getClass() != o.getClass()) {
+            return false;
+        }
+        FileSourceSplit that = (FileSourceSplit) o;
+        return Objects.equals(tableId, that.tableId)
+                && Objects.equals(filePath, that.filePath)
+                && Objects.equals(start, that.start)
+                && Objects.equals(length, that.length);
+    }
+
+    @Override
+    public int hashCode() {
+        return Objects.hash(tableId, filePath, start, length);
     }
 }

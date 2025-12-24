@@ -39,5 +39,17 @@ public class TestFilterRowKindIT extends TestSuiteBase {
         Container.ExecResult execResult3 =
                 container.executeJob("/filter_row_kind_include_insert.conf");
         Assertions.assertEquals(0, execResult3.getExitCode());
+
+        Container.ExecResult execResult4 =
+                container.executeJob("/filter_row_to_next_transform.json");
+        Assertions.assertEquals(0, execResult4.getExitCode());
+    }
+
+    @TestTemplate
+    public void testFilterRowKindMultiTable(TestContainer container)
+            throws IOException, InterruptedException {
+        Container.ExecResult execResult =
+                container.executeJob("/filter_row_kind_exclude_insert_multi_table.conf");
+        Assertions.assertEquals(0, execResult.getExitCode());
     }
 }

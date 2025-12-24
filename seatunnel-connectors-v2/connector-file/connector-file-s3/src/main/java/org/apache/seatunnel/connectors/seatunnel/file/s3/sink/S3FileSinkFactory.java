@@ -17,27 +17,22 @@
 
 package org.apache.seatunnel.connectors.seatunnel.file.s3.sink;
 
-import org.apache.seatunnel.shade.com.typesafe.config.Config;
-import org.apache.seatunnel.shade.com.typesafe.config.ConfigValueFactory;
-
 import org.apache.seatunnel.api.configuration.ReadonlyConfig;
 import org.apache.seatunnel.api.configuration.util.OptionRule;
+import org.apache.seatunnel.api.options.SinkConnectorCommonOptions;
 import org.apache.seatunnel.api.table.catalog.CatalogTable;
-import org.apache.seatunnel.api.table.catalog.TableIdentifier;
 import org.apache.seatunnel.api.table.connector.TableSink;
 import org.apache.seatunnel.api.table.factory.Factory;
 import org.apache.seatunnel.api.table.factory.TableSinkFactory;
 import org.apache.seatunnel.api.table.factory.TableSinkFactoryContext;
-import org.apache.seatunnel.connectors.seatunnel.file.config.BaseSinkConfig;
+import org.apache.seatunnel.connectors.seatunnel.file.config.FileBaseSinkOptions;
 import org.apache.seatunnel.connectors.seatunnel.file.config.FileFormat;
 import org.apache.seatunnel.connectors.seatunnel.file.config.FileSystemType;
-import org.apache.seatunnel.connectors.seatunnel.file.s3.config.S3ConfigOptions;
+import org.apache.seatunnel.connectors.seatunnel.file.s3.config.S3FileSinkOptions;
 
 import com.google.auto.service.AutoService;
 
-import static org.apache.seatunnel.api.sink.SinkReplaceNameConstant.REPLACE_DATABASE_NAME_KEY;
-import static org.apache.seatunnel.api.sink.SinkReplaceNameConstant.REPLACE_SCHEMA_NAME_KEY;
-import static org.apache.seatunnel.api.sink.SinkReplaceNameConstant.REPLACE_TABLE_NAME_KEY;
+import java.util.Arrays;
 
 @AutoService(Factory.class)
 public class S3FileSinkFactory implements TableSinkFactory {
@@ -49,90 +44,89 @@ public class S3FileSinkFactory implements TableSinkFactory {
     @Override
     public OptionRule optionRule() {
         return OptionRule.builder()
-                .required(S3ConfigOptions.FILE_PATH)
-                .required(S3ConfigOptions.S3_BUCKET)
-                .required(S3ConfigOptions.FS_S3A_ENDPOINT)
-                .required(S3ConfigOptions.S3A_AWS_CREDENTIALS_PROVIDER)
-                .required(S3ConfigOptions.SCHEMA_SAVE_MODE)
-                .required(S3ConfigOptions.DATA_SAVE_MODE)
+                .required(S3FileSinkOptions.FILE_PATH)
+                .required(S3FileSinkOptions.S3_BUCKET)
+                .required(S3FileSinkOptions.FS_S3A_ENDPOINT)
+                .required(S3FileSinkOptions.S3A_AWS_CREDENTIALS_PROVIDER)
+                .optional(FileBaseSinkOptions.SCHEMA_SAVE_MODE)
+                .optional(FileBaseSinkOptions.DATA_SAVE_MODE)
                 .conditional(
-                        S3ConfigOptions.S3A_AWS_CREDENTIALS_PROVIDER,
-                        S3ConfigOptions.S3aAwsCredentialsProvider.SimpleAWSCredentialsProvider,
-                        S3ConfigOptions.S3_ACCESS_KEY,
-                        S3ConfigOptions.S3_SECRET_KEY)
-                .optional(S3ConfigOptions.S3_PROPERTIES)
-                .optional(BaseSinkConfig.FILE_FORMAT_TYPE)
+                        S3FileSinkOptions.S3A_AWS_CREDENTIALS_PROVIDER,
+                        S3FileSinkOptions.S3aAwsCredentialsProvider.SimpleAWSCredentialsProvider,
+                        S3FileSinkOptions.S3_ACCESS_KEY,
+                        S3FileSinkOptions.S3_SECRET_KEY)
+                .optional(S3FileSinkOptions.S3_PROPERTIES)
+                .optional(FileBaseSinkOptions.FILE_FORMAT_TYPE)
                 .conditional(
-                        BaseSinkConfig.FILE_FORMAT_TYPE,
+                        FileBaseSinkOptions.FILE_FORMAT_TYPE,
                         FileFormat.TEXT,
-                        BaseSinkConfig.ROW_DELIMITER,
-                        BaseSinkConfig.FIELD_DELIMITER,
-                        BaseSinkConfig.TXT_COMPRESS,
-                        BaseSinkConfig.ENABLE_HEADER_WRITE)
+                        FileBaseSinkOptions.ROW_DELIMITER,
+                        FileBaseSinkOptions.FIELD_DELIMITER,
+                        FileBaseSinkOptions.TXT_COMPRESS,
+                        FileBaseSinkOptions.ENABLE_HEADER_WRITE)
                 .conditional(
-                        BaseSinkConfig.FILE_FORMAT_TYPE,
+                        FileBaseSinkOptions.FILE_FORMAT_TYPE,
                         FileFormat.CSV,
-                        BaseSinkConfig.TXT_COMPRESS,
-                        BaseSinkConfig.ENABLE_HEADER_WRITE)
+                        FileBaseSinkOptions.ROW_DELIMITER,
+                        FileBaseSinkOptions.TXT_COMPRESS,
+                        FileBaseSinkOptions.ENABLE_HEADER_WRITE)
                 .conditional(
-                        BaseSinkConfig.FILE_FORMAT_TYPE,
+                        FileBaseSinkOptions.FILE_FORMAT_TYPE,
                         FileFormat.JSON,
-                        BaseSinkConfig.TXT_COMPRESS)
+                        FileBaseSinkOptions.ROW_DELIMITER,
+                        FileBaseSinkOptions.TXT_COMPRESS)
                 .conditional(
-                        BaseSinkConfig.FILE_FORMAT_TYPE,
+                        FileBaseSinkOptions.FILE_FORMAT_TYPE,
                         FileFormat.ORC,
-                        BaseSinkConfig.ORC_COMPRESS)
+                        FileBaseSinkOptions.ORC_COMPRESS)
                 .conditional(
-                        BaseSinkConfig.FILE_FORMAT_TYPE,
+                        FileBaseSinkOptions.FILE_FORMAT_TYPE,
                         FileFormat.PARQUET,
-                        BaseSinkConfig.PARQUET_COMPRESS)
+                        FileBaseSinkOptions.PARQUET_COMPRESS,
+                        FileBaseSinkOptions.PARQUET_AVRO_WRITE_FIXED_AS_INT96,
+                        FileBaseSinkOptions.PARQUET_AVRO_WRITE_TIMESTAMP_AS_INT96)
                 .conditional(
-                        BaseSinkConfig.FILE_FORMAT_TYPE,
+                        FileBaseSinkOptions.FILE_FORMAT_TYPE,
                         FileFormat.XML,
-                        BaseSinkConfig.XML_USE_ATTR_FORMAT)
-                .optional(BaseSinkConfig.CUSTOM_FILENAME)
+                        FileBaseSinkOptions.XML_USE_ATTR_FORMAT,
+                        FileBaseSinkOptions.XML_ROOT_TAG,
+                        FileBaseSinkOptions.XML_ROW_TAG)
+                .optional(FileBaseSinkOptions.CUSTOM_FILENAME)
                 .conditional(
-                        BaseSinkConfig.CUSTOM_FILENAME,
+                        FileBaseSinkOptions.CUSTOM_FILENAME,
                         true,
-                        BaseSinkConfig.FILE_NAME_EXPRESSION,
-                        BaseSinkConfig.FILENAME_TIME_FORMAT)
-                .optional(BaseSinkConfig.HAVE_PARTITION)
+                        FileBaseSinkOptions.FILE_NAME_EXPRESSION,
+                        FileBaseSinkOptions.FILENAME_TIME_FORMAT)
+                .optional(FileBaseSinkOptions.HAVE_PARTITION)
                 .conditional(
-                        BaseSinkConfig.HAVE_PARTITION,
+                        FileBaseSinkOptions.HAVE_PARTITION,
                         true,
-                        BaseSinkConfig.PARTITION_BY,
-                        BaseSinkConfig.PARTITION_DIR_EXPRESSION,
-                        BaseSinkConfig.IS_PARTITION_FIELD_WRITE_IN_FILE)
-                .optional(BaseSinkConfig.SINK_COLUMNS)
-                .optional(BaseSinkConfig.IS_ENABLE_TRANSACTION)
-                .optional(BaseSinkConfig.DATE_FORMAT)
-                .optional(BaseSinkConfig.DATETIME_FORMAT)
-                .optional(BaseSinkConfig.TIME_FORMAT)
+                        FileBaseSinkOptions.PARTITION_BY,
+                        FileBaseSinkOptions.PARTITION_DIR_EXPRESSION,
+                        FileBaseSinkOptions.IS_PARTITION_FIELD_WRITE_IN_FILE)
+                .conditional(
+                        FileBaseSinkOptions.FILE_FORMAT_TYPE,
+                        Arrays.asList(
+                                FileFormat.TEXT, FileFormat.JSON, FileFormat.CSV, FileFormat.XML),
+                        FileBaseSinkOptions.ENCODING)
+                .optional(FileBaseSinkOptions.SINK_COLUMNS)
+                .optional(FileBaseSinkOptions.IS_ENABLE_TRANSACTION)
+                .optional(FileBaseSinkOptions.DATE_FORMAT_LEGACY)
+                .optional(FileBaseSinkOptions.DATETIME_FORMAT_LEGACY)
+                .optional(FileBaseSinkOptions.TIME_FORMAT_LEGACY)
+                .optional(FileBaseSinkOptions.SINGLE_FILE_MODE)
+                .optional(FileBaseSinkOptions.BATCH_SIZE)
+                .optional(FileBaseSinkOptions.CREATE_EMPTY_FILE_WHEN_NO_DATA)
+                .optional(SinkConnectorCommonOptions.MULTI_TABLE_SINK_REPLICA)
+                .optional(FileBaseSinkOptions.FILENAME_EXTENSION)
+                .optional(FileBaseSinkOptions.TMP_PATH)
                 .build();
     }
 
     @Override
     public TableSink createSink(TableSinkFactoryContext context) {
         final CatalogTable catalogTable = context.getCatalogTable();
-        final ReadonlyConfig options = context.getOptions();
-        // get source table relevant information
-        TableIdentifier tableId = catalogTable.getTableId();
-        String sourceDatabaseName =
-                tableId.getDatabaseName() == null ? "" : tableId.getDatabaseName();
-        String sourceSchemaName = tableId.getSchemaName() == null ? "" : tableId.getSchemaName();
-        String sourceTableName = tableId.getTableName() == null ? "" : tableId.getTableName();
-        // get sink path
-        String path = options.get(S3ConfigOptions.FILE_PATH);
-        // to replace
-        path = path.replace(REPLACE_DATABASE_NAME_KEY, sourceDatabaseName);
-        path = path.replace(REPLACE_SCHEMA_NAME_KEY, sourceSchemaName);
-        path = path.replace(REPLACE_TABLE_NAME_KEY, sourceTableName);
-        // rebuild
-        Config config = options.toConfig();
-        config =
-                config.withValue(
-                        S3ConfigOptions.FILE_PATH.key(), ConfigValueFactory.fromAnyRef(path));
-        ReadonlyConfig finalConfig = ReadonlyConfig.fromConfig(config);
+        final ReadonlyConfig finalConfig = context.getOptions();
         return () -> new S3FileSink(catalogTable, finalConfig);
     }
 }

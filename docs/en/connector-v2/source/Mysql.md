@@ -1,3 +1,5 @@
+import ChangeLog from '../changelog/connector-jdbc.md';
+
 # MySQL
 
 > JDBC Mysql Source Connector
@@ -8,7 +10,7 @@ Read external data source data through JDBC.
 
 ## Support Mysql Version
 
-- 5.5/5.6/5.7/8.0
+- 5.5/5.6/5.7/8.0/8.1/8.2/8.3/8.4
 
 ## Support Those Engines
 
@@ -44,39 +46,34 @@ Read external data source data through JDBC.
 |------------|----------------------------------------------------------|--------------------------|---------------------------------------|---------------------------------------------------------------------------|
 | Mysql      | Different dependency version has different driver class. | com.mysql.cj.jdbc.Driver | jdbc:mysql://localhost:3306:3306/test | [Download](https://mvnrepository.com/artifact/mysql/mysql-connector-java) |
 
-## Database Dependency
-
-> Please download the support list corresponding to 'Maven' and copy it to the '$SEATNUNNEL_HOME/plugins/jdbc/lib/' working directory<br/>
-> For example Mysql datasource: cp mysql-connector-java-xxx.jar $SEATNUNNEL_HOME/plugins/jdbc/lib/
-
 ## Data Type Mapping
 
-|                                        Mysql Data Type                                        |                                                                 SeaTunnel Data Type                                                                 |
-|-----------------------------------------------------------------------------------------------|-----------------------------------------------------------------------------------------------------------------------------------------------------|
-| BIT(1)<br/>TINYINT(1)                                                                         | BOOLEAN                                                                                                                                             |
-| TINYINT                                                                                       | BYTE                                                                                                                                                |
-| TINYINT UNSIGNED<br/>SMALLINT                                                                 | SMALLINT                                                                                                                                            |
-| SMALLINT UNSIGNED<br/>MEDIUMINT<br/>MEDIUMINT UNSIGNED<br/>INT<br/>INTEGER<br/>YEAR           | INT                                                                                                                                                 |
-| INT UNSIGNED<br/>INTEGER UNSIGNED<br/>BIGINT                                                  | BIGINT                                                                                                                                              |
-| BIGINT UNSIGNED                                                                               | DECIMAL(20,0)                                                                                                                                       |
-| DECIMAL(x,y)(Get the designated column's specified column size.<38)                           | DECIMAL(x,y)                                                                                                                                        |
-| DECIMAL(x,y)(Get the designated column's specified column size.>38)                           | DECIMAL(38,18)                                                                                                                                      |
-| DECIMAL UNSIGNED                                                                              | DECIMAL((Get the designated column's specified column size)+1,<br/>(Gets the designated column's number of digits to right of the decimal point.))) |
-| FLOAT<br/>FLOAT UNSIGNED                                                                      | FLOAT                                                                                                                                               |
-| DOUBLE<br/>DOUBLE UNSIGNED                                                                    | DOUBLE                                                                                                                                              |
-| CHAR<br/>VARCHAR<br/>TINYTEXT<br/>MEDIUMTEXT<br/>TEXT<br/>LONGTEXT<br/>JSON<br/>ENUM          | STRING                                                                                                                                              |
-| DATE                                                                                          | DATE                                                                                                                                                |
-| TIME(s)                                                                                       | TIME(s)                                                                                                                                             |
-| DATETIME<br/>TIMESTAMP(s)                                                                     | TIMESTAMP(s)                                                                                                                                        |
-| TINYBLOB<br/>MEDIUMBLOB<br/>BLOB<br/>LONGBLOB<br/>BINARY<br/>VARBINAR<br/>BIT(n)<br/>GEOMETRY | BYTES                                                                                                                                               |
+|                                        Mysql Data Type                                        |                                                                 SeaTunnel Data Type                                                                |
+|-----------------------------------------------------------------------------------------------|----------------------------------------------------------------------------------------------------------------------------------------------------|
+| BIT(1)<br/>TINYINT(1)                                                                         | BOOLEAN                                                                                                                                            |
+| TINYINT                                                                                       | BYTE                                                                                                                                               |
+| TINYINT UNSIGNED<br/>SMALLINT                                                                 | SMALLINT                                                                                                                                           |
+| SMALLINT UNSIGNED<br/>MEDIUMINT<br/>MEDIUMINT UNSIGNED<br/>INT<br/>INTEGER<br/>YEAR           | INT                                                                                                                                                |
+| INT UNSIGNED<br/>INTEGER UNSIGNED<br/>BIGINT                                                  | BIGINT                                                                                                                                             |
+| BIGINT UNSIGNED                                                                               | DECIMAL(20,0)                                                                                                                                      |
+| DECIMAL(x,y)(Get the designated column's specified column size.<38)                           | DECIMAL(x,y)                                                                                                                                       |
+| DECIMAL(x,y)(Get the designated column's specified column size.>38)                           | DECIMAL(38,18)                                                                                                                                     |
+| DECIMAL UNSIGNED                                                                              | DECIMAL((Get the designated column's specified column size)+1,<br/>(Gets the designated column's number of digits to right of the decimal point.)) |
+| FLOAT<br/>FLOAT UNSIGNED                                                                      | FLOAT                                                                                                                                              |
+| DOUBLE<br/>DOUBLE UNSIGNED                                                                    | DOUBLE                                                                                                                                             |
+| CHAR<br/>VARCHAR<br/>TINYTEXT<br/>MEDIUMTEXT<br/>TEXT<br/>LONGTEXT<br/>JSON<br/>ENUM          | STRING                                                                                                                                             |
+| DATE                                                                                          | DATE                                                                                                                                               |
+| TIME(s)                                                                                       | TIME(s)                                                                                                                                            |
+| DATETIME<br/>TIMESTAMP(s)                                                                     | TIMESTAMP(s)                                                                                                                                       |
+| TINYBLOB<br/>MEDIUMBLOB<br/>BLOB<br/>LONGBLOB<br/>BINARY<br/>VARBINAR<br/>BIT(n)<br/>GEOMETRY | BYTES                                                                                                                                              |
 
 ## Source Options
 
-|                    Name                    |    Type    | Required |     Default     |                                                                                                                                                                                                                                                                                                     Description                                                                                                                                                                                                                                                                                                      |
+| Name                                       | Type       | Required | Default         | Description                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                          |
 |--------------------------------------------|------------|----------|-----------------|----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------|
 | url                                        | String     | Yes      | -               | The URL of the JDBC connection. Refer to a case: jdbc:mysql://localhost:3306:3306/test                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                               |
 | driver                                     | String     | Yes      | -               | The jdbc class name used to connect to the remote data source,<br/> if you use MySQL the value is `com.mysql.cj.jdbc.Driver`.                                                                                                                                                                                                                                                                                                                                                                                                                                                                                        |
-| user                                       | String     | No       | -               | Connection instance user name                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                        |
+| username                                       | String     | No       | -               | Connection instance user name                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                        |
 | password                                   | String     | No       | -               | Connection instance password                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                         |
 | query                                      | String     | Yes      | -               | Query statement                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                      |
 | connection_check_timeout_sec               | Int        | No       | 30              | The time in seconds to wait for the database operation used to validate the connection to complete                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                   |
@@ -86,15 +83,35 @@ Read external data source data through JDBC.
 | partition_num                              | Int        | No       | job parallelism | The number of partition count, only support positive integer. default value is job parallelism                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                       |
 | fetch_size                                 | Int        | No       | 0               | For queries that return a large number of objects,you can configure<br/> the row fetch size used in the query toimprove performance by<br/> reducing the number database hits required to satisfy the selection criteria.<br/> Zero means use jdbc default value.                                                                                                                                                                                                                                                                                                                                                    |
 | properties                                 | Map        | No       | -               | Additional connection configuration parameters,when properties and URL have the same parameters, the priority is determined by the <br/>specific implementation of the driver. For example, in MySQL, properties take precedence over the URL.                                                                                                                                                                                                                                                                                                                                                                       |
-| table_path                                 | Int        | No       | 0               | The path to the full path of table, you can use this configuration instead of `query`. <br/>examples: <br/>mysql: "testdb.table1" <br/>oracle: "test_schema.table1" <br/>sqlserver: "testdb.test_schema.table1" <br/>postgresql: "testdb.test_schema.table1"                                                                                                                                                                                                                                                                                                                                                         |
-| table_list                                 | Array      | No       | 0               | The list of tables to be read, you can use this configuration instead of `table_path` example: ```[{ table_path = "testdb.table1"}, {table_path = "testdb.table2", query = "select * id, name from testdb.table2"}]```                                                                                                                                                                                                                                                                                                                                                                                               |
+| use_regex                                  | Boolean    | No       | false           | Control regular expression matching for table_path. When set to `true`, the table_path will be treated as a regular expression pattern. When set to `false` or not specified, the table_path will be treated as an exact path (no regex matching).                                                                                                                                                                                                                                                                                                                                                                   |
+| table_path                                 | String     | No       | -               | The path to the full path of table, you can use this configuration instead of `query`. <br/>example: <br/>"testdb.table1"                                                                                                                                                                                                                                                                                                                                                                                                                                                         |
+| table_list                                 | Array      | No       | -               | The list of tables to be read, you can use this configuration instead of `table_path` example: ```[{ table_path = "testdb.table1"}, {table_path = "testdb.table2", query = "select * id, name from testdb.table2"}]```                                                                                                                                                                                                                                                                                                                                                                                               |
 | where_condition                            | String     | No       | -               | Common row filter conditions for all tables/queries, must start with `where`. for example `where id > 100`                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                           |
 | split.size                                 | Int        | No       | 8096            | The split size (number of rows) of table, captured tables are split into multiple splits when read of table.                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                         |
 | split.even-distribution.factor.lower-bound | Double     | No       | 0.05            | The lower bound of the chunk key distribution factor. This factor is used to determine whether the table data is evenly distributed. If the distribution factor is calculated to be greater than or equal to this lower bound (i.e., (MAX(id) - MIN(id) + 1) / row count), the table chunks would be optimized for even distribution. Otherwise, if the distribution factor is less, the table will be considered as unevenly distributed and the sampling-based sharding strategy will be used if the estimated shard count exceeds the value specified by `sample-sharding.threshold`. The default value is 0.05.  |
 | split.even-distribution.factor.upper-bound | Double     | No       | 100             | The upper bound of the chunk key distribution factor. This factor is used to determine whether the table data is evenly distributed. If the distribution factor is calculated to be less than or equal to this upper bound (i.e., (MAX(id) - MIN(id) + 1) / row count), the table chunks would be optimized for even distribution. Otherwise, if the distribution factor is greater, the table will be considered as unevenly distributed and the sampling-based sharding strategy will be used if the estimated shard count exceeds the value specified by `sample-sharding.threshold`. The default value is 100.0. |
 | split.sample-sharding.threshold            | Int        | No       | 10000           | This configuration specifies the threshold of estimated shard count to trigger the sample sharding strategy. When the distribution factor is outside the bounds specified by `chunk-key.even-distribution.factor.upper-bound` and `chunk-key.even-distribution.factor.lower-bound`, and the estimated shard count (calculated as approximate row count / chunk size) exceeds this threshold, the sample sharding strategy will be used. This can help to handle large datasets more efficiently. The default value is 1000 shards.                                                                                   |
 | split.inverse-sampling.rate                | Int        | No       | 1000            | The inverse of the sampling rate used in the sample sharding strategy. For example, if this value is set to 1000, it means a 1/1000 sampling rate is applied during the sampling process. This option provides flexibility in controlling the granularity of the sampling, thus affecting the final number of shards. It's especially useful when dealing with very large datasets where a lower sampling rate is preferred. The default value is 1000.                                                                                                                                                              |
-| common-options                             |            | No       | -               | Source plugin common parameters, please refer to [Source Common Options](common-options.md) for details                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                              |
+| int_type_narrowing                         | Boolean    | No       | true            | Int type narrowing, if true, the tinyint(1) type will be narrowed to the boolean type if without loss of precision. Support for MySQL at now. Please refer to `int_type_narrowing` below                                                                                                                                                                                                                                                                                                                                                                                                                             |
+| common-options                             |            | No       | -               | Source plugin common parameters, please refer to [Source Common Options](../source-common-options.md) for details                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                    |
+
+### int_type_narrowing
+
+Int type narrowing, if true, the tinyint(1) type will be narrowed to the boolean type if without loss of precision. Support for MySQL at now.
+
+eg:
+
+int_type_narrowing = true
+
+| MySQL      | SeaTunnel |
+|------------|-----------|
+| TINYINT(1) | Boolean   |
+
+int_type_narrowing = false
+
+| MySQL      | SeaTunnel |
+|------------|-----------|
+| TINYINT(1) | TINYINT   |
 
 ## Parallel Reader
 
@@ -159,10 +176,12 @@ How many splits do we need to split into, only support positive integer. default
 > If the table can not be split(for example, table have no Primary Key or Unique Index, and `partition_column` is not set), it will run in single concurrency.
 >
 > Use `table_path` to replace `query` for single table reading. If you need to read multiple tables, use `table_list`.
+>
+> When inferring a primary key based on a `query`, the key is inherited from the underlying table where the first column in the result set is located, and its strictness for the overall join result set is not guaranteed (for example, when the query contains joins or reads from multiple tables).
 
 ## Task Example
 
-### Simple:
+### Simple
 
 > This example queries type_bin 'table' 16 data in your test "database" in single parallel and queries all of its fields. You can also specify which fields to query for final output to the console.
 
@@ -177,7 +196,7 @@ source{
         url = "jdbc:mysql://localhost:3306/test?serverTimezone=GMT%2b8&useUnicode=true&characterEncoding=UTF-8&rewriteBatchedStatements=true"
         driver = "com.mysql.cj.jdbc.Driver"
         connection_check_timeout_sec = 100
-        user = "root"
+        username = "root"
         password = "123456"
         query = "select * from type_bin limit 16"
     }
@@ -205,7 +224,7 @@ source {
         url = "jdbc:mysql://localhost/test?serverTimezone=GMT%2b8"
         driver = "com.mysql.cj.jdbc.Driver"
         connection_check_timeout_sec = 100
-        user = "root"
+        username = "root"
         password = "123456"
         query = "select * from type_bin"
         partition_column = "id"
@@ -236,7 +255,7 @@ source {
         url = "jdbc:mysql://localhost/test?serverTimezone=GMT%2b8"
         driver = "com.mysql.cj.jdbc.Driver"
         connection_check_timeout_sec = 100
-        user = "root"
+        username = "root"
         password = "123456"
         table_path = "testdb.table1"
         query = "select * from testdb.table1"
@@ -249,7 +268,7 @@ sink {
 }
 ```
 
-### Parallel Boundary:
+### Parallel Boundary
 
 > It is more efficient to specify the data within the upper and lower bounds of the query It is more efficient to read your data source according to the upper and lower boundaries you configured
 
@@ -259,7 +278,7 @@ source {
         url = "jdbc:mysql://localhost:3306/test?serverTimezone=GMT%2b8&useUnicode=true&characterEncoding=UTF-8&rewriteBatchedStatements=true"
         driver = "com.mysql.cj.jdbc.Driver"
         connection_check_timeout_sec = 100
-        user = "root"
+        username = "root"
         password = "123456"
         # Define query logic as required
         query = "select * from type_bin"
@@ -276,7 +295,7 @@ source {
 }
 ```
 
-### Multiple table read:
+### Multiple table read
 
 ***Configuring `table_list` will turn on auto split, you can configure `split.*` to adjust the split strategy***
 
@@ -290,7 +309,7 @@ source {
     url = "jdbc:mysql://localhost/test?serverTimezone=GMT%2b8"
     driver = "com.mysql.cj.jdbc.Driver"
     connection_check_timeout_sec = 100
-    user = "root"
+    username = "root"
     password = "123456"
 
     table_list = [
@@ -317,3 +336,6 @@ sink {
 }
 ```
 
+## Changelog
+
+<ChangeLog />

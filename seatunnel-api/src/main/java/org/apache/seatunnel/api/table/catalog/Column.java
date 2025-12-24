@@ -60,7 +60,8 @@ public abstract class Column implements Serializable {
      * Number of digits to right of the decimal point.
      *
      * <p>For decimal data, this is the maximum scale. For time/timestamp data, this is the maximum
-     * allowed precision of the fractional seconds component.
+     * allowed precision of the fractional seconds component. For vector data, this is the vector
+     * dimension.
      *
      * <p>Null is returned for data types where the scale is not applicable.
      */
@@ -80,6 +81,12 @@ public abstract class Column implements Serializable {
      * int is int Each database can customize the sourceType according to its own characteristics*
      */
     protected final String sourceType;
+
+    /**
+     * The data type used to store the target database, typically specified in transform or sink
+     * scenarios.
+     */
+    protected String sinkType;
 
     /** your options * */
     protected final Map<String, Object> options;
@@ -102,6 +109,34 @@ public abstract class Column implements Serializable {
             Object defaultValue,
             String comment) {
         this(name, dataType, columnLength, null, nullable, defaultValue, comment, null, null);
+    }
+
+    protected Column(
+            String name,
+            SeaTunnelDataType<?> dataType,
+            Long columnLength,
+            Integer scale,
+            boolean nullable,
+            Object defaultValue,
+            String comment,
+            String sinkType,
+            String sourceType,
+            Map<String, Object> options) {
+        this.name = name;
+        this.dataType = dataType;
+        this.columnLength = columnLength;
+        this.scale = scale;
+        this.nullable = nullable;
+        this.defaultValue = defaultValue;
+        this.comment = comment;
+        this.sourceType = sourceType;
+        this.sinkType = sinkType;
+        this.options = options;
+
+        this.bitLen = columnLength != null ? columnLength * 8 : 0;
+        this.longColumnLength = columnLength;
+        this.isUnsigned = false;
+        this.isZeroFill = false;
     }
 
     protected Column(
@@ -191,4 +226,7 @@ public abstract class Column implements Serializable {
 
     /** Returns a copy of the column with a replaced name. */
     public abstract Column rename(String newColumnName);
+
+    /** Returns a copy of the column with a replaced sourceType. */
+    public abstract Column reSourceType(String sourceType);
 }

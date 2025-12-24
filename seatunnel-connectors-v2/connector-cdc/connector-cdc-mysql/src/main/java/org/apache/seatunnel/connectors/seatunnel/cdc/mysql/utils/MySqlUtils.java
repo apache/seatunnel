@@ -24,18 +24,11 @@ import org.apache.seatunnel.connectors.seatunnel.cdc.mysql.source.offset.BinlogO
 
 import org.apache.kafka.connect.source.SourceRecord;
 
-import io.debezium.connector.mysql.MySqlConnectorConfig;
-import io.debezium.connector.mysql.MySqlDatabaseSchema;
-import io.debezium.connector.mysql.MySqlTopicSelector;
-import io.debezium.connector.mysql.MySqlValueConverters;
 import io.debezium.jdbc.JdbcConnection;
-import io.debezium.jdbc.JdbcValueConverters;
-import io.debezium.jdbc.TemporalPrecisionMode;
 import io.debezium.relational.Column;
+import io.debezium.relational.RelationalDatabaseConnectorConfig;
 import io.debezium.relational.Table;
 import io.debezium.relational.TableId;
-import io.debezium.schema.TopicSelector;
-import io.debezium.util.SchemaNameAdjuster;
 import lombok.extern.slf4j.Slf4j;
 
 import java.sql.Connection;
@@ -85,7 +78,9 @@ public class MySqlUtils {
         // accurate than COUNT(*), but is more efficient for large table.
         final String useDatabaseStatement = String.format("USE %s;", quote(tableId.catalog()));
         final String rowCountQuery = String.format("SHOW TABLE STATUS LIKE '%s';", tableId.table());
-        jdbc.executeWithoutCommitting(useDatabaseStatement);
+        // Otherwise will case this error: Cannot execute without committing because auto-commit is
+        // enabled
+        jdbc.execute(useDatabaseStatement);
         return jdbc.queryAndMap(
                 rowCountQuery,
                 rs -> {
@@ -146,7 +141,7 @@ public class MySqlUtils {
 
     public static Object[] skipReadAndSortSampleData(
             JdbcConnection jdbc, TableId tableId, String columnName, int inverseSamplingRate)
-            throws SQLException {
+            throws Exception {
         final String sampleQuery =
                 String.format("SELECT %s FROM %s", quote(columnName), quote(tableId));
 
@@ -171,6 +166,9 @@ public class MySqlUtils {
                 }
                 if (count % inverseSamplingRate == 0) {
                     results.add(rs.getObject(1));
+                }
+                if (Thread.currentThread().isInterrupted()) {
+                    throw new InterruptedException("Thread interrupted");
                 }
             }
         } finally {
@@ -321,7 +319,8 @@ public class MySqlUtils {
         }
     }
 
-    public static SeaTunnelRowType getSplitType(Table table) {
+    public static SeaTunnelRowType getSplitType(
+            Table table, RelationalDatabaseConnectorConfig dbzConnectorConfig) {
         List<Column> primaryKeys = table.primaryKeyColumns();
         if (primaryKeys.isEmpty()) {
             throw new SeaTunnelException(
@@ -332,45 +331,7 @@ public class MySqlUtils {
         }
 
         // use first field in primary key as the split key
-        return getSplitType(primaryKeys.get(0));
-    }
-
-    /** Creates a new {@link MySqlDatabaseSchema} to monitor the latest MySql database schemas. */
-    public static MySqlDatabaseSchema createMySqlDatabaseSchema(
-            MySqlConnectorConfig dbzMySqlConfig, boolean isTableIdCaseSensitive) {
-        TopicSelector<TableId> topicSelector = MySqlTopicSelector.defaultSelector(dbzMySqlConfig);
-        SchemaNameAdjuster schemaNameAdjuster = SchemaNameAdjuster.create();
-        MySqlValueConverters valueConverters = getValueConverters(dbzMySqlConfig);
-        return new MySqlDatabaseSchema(
-                dbzMySqlConfig,
-                valueConverters,
-                topicSelector,
-                schemaNameAdjuster,
-                isTableIdCaseSensitive);
-    }
-
-    private static MySqlValueConverters getValueConverters(MySqlConnectorConfig dbzMySqlConfig) {
-        TemporalPrecisionMode timePrecisionMode = dbzMySqlConfig.getTemporalPrecisionMode();
-        JdbcValueConverters.DecimalMode decimalMode = dbzMySqlConfig.getDecimalMode();
-        String bigIntUnsignedHandlingModeStr =
-                dbzMySqlConfig
-                        .getConfig()
-                        .getString(MySqlConnectorConfig.BIGINT_UNSIGNED_HANDLING_MODE);
-        MySqlConnectorConfig.BigIntUnsignedHandlingMode bigIntUnsignedHandlingMode =
-                MySqlConnectorConfig.BigIntUnsignedHandlingMode.parse(
-                        bigIntUnsignedHandlingModeStr);
-        JdbcValueConverters.BigIntUnsignedMode bigIntUnsignedMode =
-                bigIntUnsignedHandlingMode.asBigIntUnsignedMode();
-
-        boolean timeAdjusterEnabled =
-                dbzMySqlConfig.getConfig().getBoolean(MySqlConnectorConfig.ENABLE_TIME_ADJUSTER);
-        return new MySqlValueConverters(
-                decimalMode,
-                timePrecisionMode,
-                bigIntUnsignedMode,
-                dbzMySqlConfig.binaryHandlingMode(),
-                timeAdjusterEnabled ? MySqlValueConverters::adjustTemporal : x -> x,
-                MySqlValueConverters::defaultParsingErrorHandler);
+        return getSplitType(primaryKeys.get(0), dbzConnectorConfig);
     }
 
     public static BinlogOffset getBinlogPosition(SourceRecord dataRecord) {
@@ -386,10 +347,13 @@ public class MySqlUtils {
         return new BinlogOffset(offsetStrMap);
     }
 
-    public static SeaTunnelRowType getSplitType(Column splitColumn) {
+    public static SeaTunnelRowType getSplitType(
+            Column splitColumn, RelationalDatabaseConnectorConfig dbzConnectorConfig) {
         return new SeaTunnelRowType(
                 new String[] {splitColumn.name()},
-                new SeaTunnelDataType<?>[] {MySqlTypeUtils.convertFromColumn(splitColumn)});
+                new SeaTunnelDataType<?>[] {
+                    MySqlTypeUtils.convertFromColumn(splitColumn, dbzConnectorConfig)
+                });
     }
 
     public static Column getSplitColumn(Table table) {

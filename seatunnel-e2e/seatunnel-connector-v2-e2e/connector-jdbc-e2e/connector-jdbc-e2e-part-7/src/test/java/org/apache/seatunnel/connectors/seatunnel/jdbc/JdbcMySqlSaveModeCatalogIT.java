@@ -17,7 +17,10 @@
 
 package org.apache.seatunnel.connectors.seatunnel.jdbc;
 
+import org.apache.seatunnel.shade.com.google.common.collect.Lists;
+
 import org.apache.seatunnel.api.table.catalog.CatalogTable;
+import org.apache.seatunnel.api.table.catalog.Column;
 import org.apache.seatunnel.api.table.catalog.TablePath;
 import org.apache.seatunnel.common.utils.JdbcUrlUtil;
 import org.apache.seatunnel.connectors.seatunnel.jdbc.catalog.mysql.MySqlCatalog;
@@ -33,17 +36,18 @@ import org.testcontainers.containers.Container;
 import org.testcontainers.containers.MySQLContainer;
 import org.testcontainers.containers.output.Slf4jLogConsumer;
 import org.testcontainers.containers.wait.strategy.Wait;
+import org.testcontainers.images.PullPolicy;
 import org.testcontainers.lifecycle.Startables;
 import org.testcontainers.utility.DockerImageName;
 import org.testcontainers.utility.DockerLoggerFactory;
 
-import com.google.common.collect.Lists;
 import lombok.extern.slf4j.Slf4j;
 
 import java.sql.Connection;
 import java.sql.DriverManager;
 import java.sql.SQLException;
 import java.sql.Statement;
+import java.time.Duration;
 import java.util.stream.Stream;
 
 @Slf4j
@@ -52,7 +56,7 @@ public class JdbcMySqlSaveModeCatalogIT extends TestSuiteBase implements TestRes
     private static final String MYSQL_DRIVER_JAR =
             "https://repo1.maven.org/maven2/com/mysql/mysql-connector-j/8.0.32/mysql-connector-j-8.0.32.jar";
 
-    private static final String MYSQL_IMAGE = "mysql:8.0";
+    private static final String MYSQL_IMAGE = "mysql:8.0.43";
     private static final String MYSQL_CONTAINER_HOST = "mysql-e2e";
     private static final String MYSQL_DATABASE = "auto";
 
@@ -66,7 +70,7 @@ public class JdbcMySqlSaveModeCatalogIT extends TestSuiteBase implements TestRes
             "CREATE TABLE IF NOT EXISTS mysql_auto_create\n"
                     + "(\n  "
                     + "`id` int(11) NOT NULL AUTO_INCREMENT,\n"
-                    + "  `f_binary` binary(64) DEFAULT NULL,\n"
+                    + "  `f_binary` binary(64) DEFAULT NULL COMMENT '\"#¥%……&*（）;;'',,..``````//''@特殊注释''\\\\''\"',\n"
                     + "  `f_smallint` smallint(6) DEFAULT NULL,\n"
                     + "  `f_smallint_unsigned` smallint(5) unsigned DEFAULT NULL,\n"
                     + "  `f_mediumint` mediumint(9) DEFAULT NULL,\n"
@@ -98,12 +102,12 @@ public class JdbcMySqlSaveModeCatalogIT extends TestSuiteBase implements TestRes
                     + "  PRIMARY KEY (`id`)\n"
                     + ");";
 
-    private String getInsertSql =
+    private final String getInsertSql =
             "INSERT INTO mysql_auto_create"
                     + "(id, f_binary, f_smallint, f_smallint_unsigned, f_mediumint, f_mediumint_unsigned, f_int, f_int_unsigned, f_integer, f_integer_unsigned, f_bigint, f_bigint_unsigned, f_numeric, f_decimal, f_float, f_double, f_double_precision, f_tinytext, f_varchar, f_datetime, f_timestamp, f_bit1, f_bit64, f_char, f_enum, f_real, f_tinyint, f_bigint8, f_bigint1, f_data)\n"
                     + "VALUES(575, 0x654458436C70336B7357000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000, 194, 549, 633, 835, 719, 253, 742, 265, 806, 736, 474, 254, 120.8, 476.42, 264.95, 'In other words, Navicat provides the ability for data in different databases and/or schemas to be kept up-to-date so that each repository contains the same information.', 'jF9X70ZqH4', '2011-10-20 23:10:08', '2017-09-10 19:33:51', 1, b'0001001101100000001010010100010111000010010110110101110011111100', 'u', 'enum2', 876.55, 25, 503, 1, '2011-03-06');\n";
 
-    private String customSql =
+    private final String customSql =
             "INSERT INTO mysql_auto_create_sink"
                     + "(id, f_binary, f_smallint, f_smallint_unsigned, f_mediumint, f_mediumint_unsigned, f_int, f_int_unsigned, f_integer, f_integer_unsigned, f_bigint, f_bigint_unsigned, f_numeric, f_decimal, f_float, f_double, f_double_precision, f_tinytext, f_varchar, f_datetime, f_timestamp, f_bit1, f_bit64, f_char, f_enum, f_real, f_tinyint, f_bigint8, f_bigint1, f_data)\n"
                     + "VALUES(575, 0x654458436C70336B7357000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000, 194, 549, 633, 835, 719, 253, 742, 265, 806, 736, 474, 254, 120.8, 476.42, 264.95, 'In other words, Navicat provides the ability for data in different databases and/or schemas to be kept up-to-date so that each repository contains the same information.', 'jF9X70ZqH4', '2011-10-20 23:10:08', '2017-09-10 19:33:51', 1, b'0001001101100000001010010100010111000010010110110101110011111100', 'u', 'enum2', 876.55, 25, 503, 1, '2011-03-06');\n";
@@ -125,6 +129,7 @@ public class JdbcMySqlSaveModeCatalogIT extends TestSuiteBase implements TestRes
         DockerImageName imageName = DockerImageName.parse(MYSQL_IMAGE);
         mysql_container =
                 new MySQLContainer<>(imageName)
+                        .withImagePullPolicy(PullPolicy.ageBased(Duration.ofDays(7)))
                         .withUsername(MYSQL_USERNAME)
                         .withPassword(MYSQL_PASSWORD)
                         .withDatabaseName(MYSQL_DATABASE)
@@ -153,30 +158,39 @@ public class JdbcMySqlSaveModeCatalogIT extends TestSuiteBase implements TestRes
     @Test
     public void testCatalog() {
         TablePath tablePathMySql = TablePath.of("auto", "mysql_auto_create");
-        TablePath tablePathMySql_Sink = TablePath.of("auto", "mysql_auto_create_sink");
-        MySqlCatalog mySqlCatalog = new MySqlCatalog("mysql", "root", MYSQL_PASSWORD, MysqlUrlInfo);
+        TablePath tablePathMySqlSink = TablePath.of("auto", "mysql_auto_create_sink");
+        MySqlCatalog mySqlCatalog =
+                new MySqlCatalog("mysql", "root", MYSQL_PASSWORD, MysqlUrlInfo, null);
         mySqlCatalog.open();
         CatalogTable catalogTable = mySqlCatalog.getTable(tablePathMySql);
+        // source comment
+        Assertions.assertEquals(
+                "\"#¥%……&*（）;;',,..``````//'@特殊注释'\\'\"",
+                catalogTable.getTableSchema().getColumns().get(1).getComment());
         // sink tableExists ?
-        boolean tableExistsBefore = mySqlCatalog.tableExists(tablePathMySql_Sink);
+        boolean tableExistsBefore = mySqlCatalog.tableExists(tablePathMySqlSink);
         Assertions.assertFalse(tableExistsBefore);
         // create table
-        mySqlCatalog.createTable(tablePathMySql_Sink, catalogTable, true);
-        boolean tableExistsAfter = mySqlCatalog.tableExists(tablePathMySql_Sink);
+        mySqlCatalog.createTable(tablePathMySqlSink, catalogTable, true);
+        boolean tableExistsAfter = mySqlCatalog.tableExists(tablePathMySqlSink);
         Assertions.assertTrue(tableExistsAfter);
+        // comment
+        final CatalogTable sinkTable = mySqlCatalog.getTable(tablePathMySqlSink);
+        final Column column = sinkTable.getTableSchema().getColumns().get(1);
+        Assertions.assertEquals("\"#¥%……&*（）;;',,..``````//'@特殊注释'\\'\"", column.getComment());
         // isExistsData ?
-        boolean existsDataBefore = mySqlCatalog.isExistsData(tablePathMySql_Sink);
+        boolean existsDataBefore = mySqlCatalog.isExistsData(tablePathMySqlSink);
         Assertions.assertFalse(existsDataBefore);
         // insert one data
-        mySqlCatalog.executeSql(tablePathMySql_Sink, customSql);
-        boolean existsDataAfter = mySqlCatalog.isExistsData(tablePathMySql_Sink);
+        mySqlCatalog.executeSql(tablePathMySqlSink, customSql);
+        boolean existsDataAfter = mySqlCatalog.isExistsData(tablePathMySqlSink);
         Assertions.assertTrue(existsDataAfter);
         // truncateTable
-        mySqlCatalog.truncateTable(tablePathMySql_Sink, true);
-        Assertions.assertFalse(mySqlCatalog.isExistsData(tablePathMySql_Sink));
+        mySqlCatalog.truncateTable(tablePathMySqlSink, true);
+        Assertions.assertFalse(mySqlCatalog.isExistsData(tablePathMySqlSink));
         // drop table
-        mySqlCatalog.dropTable(tablePathMySql_Sink, true);
-        Assertions.assertFalse(mySqlCatalog.tableExists(tablePathMySql_Sink));
+        mySqlCatalog.dropTable(tablePathMySqlSink, true);
+        Assertions.assertFalse(mySqlCatalog.tableExists(tablePathMySqlSink));
         mySqlCatalog.close();
     }
 
@@ -184,7 +198,6 @@ public class JdbcMySqlSaveModeCatalogIT extends TestSuiteBase implements TestRes
     public void tearDown() throws Exception {
         if (mysql_container != null) {
             mysql_container.close();
-            dockerClient.removeContainerCmd(mysql_container.getContainerId()).exec();
         }
     }
 

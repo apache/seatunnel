@@ -36,7 +36,6 @@ public class SourceOptions {
                     .defaultValue(8096)
                     .withDescription(
                             "The split size (number of rows) of table snapshot, captured tables are split into multiple splits when read the snapshot of table.");
-
     public static final Option<Integer> SNAPSHOT_FETCH_SIZE =
             Options.key("snapshot.fetch.size")
                     .intType()
@@ -107,6 +106,13 @@ public class SourceOptions {
                     .booleanType()
                     .defaultValue(false)
                     .withDescription("Enable exactly once semantic.");
+
+    public static final Option<Boolean> SCHEMA_CHANGES_ENABLED =
+            Options.key("schema-changes.enabled")
+                    .booleanType()
+                    .defaultValue(false)
+                    .withDescription(
+                            "Enable send schema change events, by default is false. If set to true, the schema changes will be sent to downstream.");
 
     public static OptionRule.Builder getBaseRule() {
         return OptionRule.builder()

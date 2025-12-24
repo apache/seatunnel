@@ -23,6 +23,8 @@ import org.apache.seatunnel.connectors.seatunnel.jdbc.internal.dialect.oracle.Or
 
 import io.debezium.relational.Column;
 
+import java.util.Optional;
+
 /** Utilities for converting from oracle types to SeaTunnel types. */
 public class OracleTypeUtils {
 
@@ -39,5 +41,34 @@ public class OracleTypeUtils {
         org.apache.seatunnel.api.table.catalog.Column seaTunnelColumn =
                 OracleTypeConverter.INSTANCE.convert(typeDefine);
         return seaTunnelColumn.getDataType();
+    }
+
+    public static org.apache.seatunnel.api.table.catalog.Column convertToSeaTunnelColumn(
+            io.debezium.relational.Column column) {
+
+        Optional<String> defaultValueExpression = column.defaultValueExpression();
+        Object defaultValue = defaultValueExpression.orElse(null);
+
+        BasicTypeDefine.BasicTypeDefineBuilder<Object> builder =
+                BasicTypeDefine.builder()
+                        .name(column.name())
+                        .columnType(column.typeName())
+                        .dataType(column.typeName())
+                        .scale(column.scale().orElse(0))
+                        .nullable(column.isOptional())
+                        .defaultValue(defaultValue);
+
+        // The default value of length in column is -1 if it is not set
+        if (column.length() >= 0) {
+            builder.length((long) column.length()).precision((long) column.length());
+        }
+
+        // TIMESTAMP or TIMESTAMP WITH TIME ZONE
+        // This is useful for OracleTypeConverter.convert()
+        if (column.typeName() != null && column.typeName().toUpperCase().startsWith("TIMESTAMP")) {
+            builder.scale(column.length());
+        }
+
+        return new OracleTypeConverter(false, false).convert(builder.build());
     }
 }

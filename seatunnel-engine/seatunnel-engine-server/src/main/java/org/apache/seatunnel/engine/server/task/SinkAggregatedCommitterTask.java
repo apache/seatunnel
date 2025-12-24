@@ -18,9 +18,8 @@
 package org.apache.seatunnel.engine.server.task;
 
 import org.apache.seatunnel.api.serialization.Serializer;
-import org.apache.seatunnel.api.sink.MultiTableResourceManager;
 import org.apache.seatunnel.api.sink.SinkAggregatedCommitter;
-import org.apache.seatunnel.api.sink.SupportResourceShare;
+import org.apache.seatunnel.engine.common.utils.concurrent.CompletableFuture;
 import org.apache.seatunnel.engine.core.dag.actions.SinkAction;
 import org.apache.seatunnel.engine.core.job.ConnectorJarIdentifier;
 import org.apache.seatunnel.engine.server.checkpoint.ActionStateKey;
@@ -51,7 +50,6 @@ import java.util.List;
 import java.util.Map;
 import java.util.Objects;
 import java.util.Set;
-import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.ConcurrentMap;
 import java.util.concurrent.CopyOnWriteArrayList;
@@ -91,7 +89,6 @@ public class SinkAggregatedCommitterTask<CommandInfoT, AggregatedCommitInfoT>
     private Map<Long, Integer> checkpointBarrierCounter;
     private CompletableFuture<Void> completableFuture;
 
-    private MultiTableResourceManager resourceManager;
     private volatile boolean receivedSinkWriter;
 
     public SinkAggregatedCommitterTask(
@@ -118,16 +115,7 @@ public class SinkAggregatedCommitterTask<CommandInfoT, AggregatedCommitInfoT>
         this.commitInfoSerializer = sink.getSink().getCommitInfoSerializer().get();
         this.aggregatedCommitInfoSerializer =
                 sink.getSink().getAggregatedCommitInfoSerializer().get();
-        if (this.aggregatedCommitter instanceof SupportResourceShare) {
-            resourceManager =
-                    ((SupportResourceShare) this.aggregatedCommitter)
-                            .initMultiTableResourceManager(1, 1);
-        }
         aggregatedCommitter.init();
-        if (resourceManager != null) {
-            ((SupportResourceShare) this.aggregatedCommitter)
-                    .setMultiTableResourceManager(resourceManager, 0);
-        }
         log.debug(
                 "starting seatunnel sink aggregated committer task, sink name[{}] ",
                 sink.getName());
@@ -207,13 +195,12 @@ public class SinkAggregatedCommitterTask<CommandInfoT, AggregatedCommitInfoT>
         aggregatedCommitter.close();
         progress.done();
         completableFuture.complete(null);
-        try {
-            if (resourceManager != null) {
-                resourceManager.close();
-            }
-        } catch (Throwable e) {
-            log.error("close resourceManager error", e);
-        }
+    }
+
+    private long getClosedWriters(Barrier barrier) {
+        return barrier.closedTasks().stream()
+                .filter(task -> writerAddressMap.containsKey(task.getTaskID()))
+                .count();
     }
 
     @Override
@@ -224,10 +211,11 @@ public class SinkAggregatedCommitterTask<CommandInfoT, AggregatedCommitInfoT>
         Integer count =
                 checkpointBarrierCounter.compute(
                         barrier.getId(), (id, num) -> num == null ? 1 : ++num);
-        if (count != maxWriterSize) {
+
+        if (count != (maxWriterSize - getClosedWriters(barrier))) {
             return;
         }
-        if (barrier.prepareClose()) {
+        if (barrier.prepareClose(this.taskLocation)) {
             this.prepareCloseStatus = true;
             this.prepareCloseBarrierId.set(barrier.getId());
         }
@@ -322,6 +310,8 @@ public class SinkAggregatedCommitterTask<CommandInfoT, AggregatedCommitInfoT>
                     }
                     aggregatedCommitInfo.addAll(value);
                     checkpointCommitInfoMap.remove(key);
+                    commitInfoCache.remove(key);
+                    checkpointBarrierCounter.remove(key);
                 });
         List<AggregatedCommitInfoT> commit = aggregatedCommitter.commit(aggregatedCommitInfo);
         tryClose(checkpointId);
@@ -335,6 +325,8 @@ public class SinkAggregatedCommitterTask<CommandInfoT, AggregatedCommitInfoT>
     public void notifyCheckpointAborted(long checkpointId) throws Exception {
         aggregatedCommitter.abort(checkpointCommitInfoMap.get(checkpointId));
         checkpointCommitInfoMap.remove(checkpointId);
+        commitInfoCache.remove(checkpointId);
+        checkpointBarrierCounter.remove(checkpointId);
         tryClose(checkpointId);
     }
 }

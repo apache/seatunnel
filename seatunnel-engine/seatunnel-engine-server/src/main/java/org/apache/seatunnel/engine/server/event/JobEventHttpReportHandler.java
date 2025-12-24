@@ -33,6 +33,7 @@ import com.squareup.okhttp.OkHttpClient;
 import com.squareup.okhttp.Request;
 import com.squareup.okhttp.RequestBody;
 import com.squareup.okhttp.Response;
+import com.squareup.okhttp.ResponseBody;
 import lombok.extern.slf4j.Slf4j;
 
 import java.io.IOException;
@@ -130,10 +131,12 @@ public class JobEventHttpReportHandler implements EventHandler {
                         .post(RequestBody.create(httpMediaType, events));
         httpHeaders.forEach(requestBuilder::header);
         Response response = httpClient.newCall(requestBuilder.build()).execute();
-        if (response.isSuccessful()) {
-            committedEventIndex += resultSet.readCount();
-        } else {
-            log.error("Failed to request http server: {}", response);
+        try (ResponseBody closeable = response.body()) {
+            if (response.isSuccessful()) {
+                committedEventIndex += resultSet.readCount();
+            } else {
+                log.error("Failed to request http server: {}", response);
+            }
         }
     }
 

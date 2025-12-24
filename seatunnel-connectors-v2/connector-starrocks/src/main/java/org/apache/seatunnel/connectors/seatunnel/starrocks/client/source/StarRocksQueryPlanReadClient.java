@@ -17,6 +17,8 @@
 
 package org.apache.seatunnel.connectors.seatunnel.starrocks.client.source;
 
+import org.apache.seatunnel.shade.org.apache.commons.lang3.StringUtils;
+
 import org.apache.seatunnel.api.table.type.SeaTunnelRowType;
 import org.apache.seatunnel.common.utils.JsonUtils;
 import org.apache.seatunnel.common.utils.RetryUtils;
@@ -24,54 +26,55 @@ import org.apache.seatunnel.connectors.seatunnel.starrocks.client.HttpHelper;
 import org.apache.seatunnel.connectors.seatunnel.starrocks.client.source.model.QueryPartition;
 import org.apache.seatunnel.connectors.seatunnel.starrocks.client.source.model.QueryPlan;
 import org.apache.seatunnel.connectors.seatunnel.starrocks.config.SourceConfig;
+import org.apache.seatunnel.connectors.seatunnel.starrocks.config.StarRocksSourceTableConfig;
 import org.apache.seatunnel.connectors.seatunnel.starrocks.exception.StarRocksConnectorErrorCode;
 import org.apache.seatunnel.connectors.seatunnel.starrocks.exception.StarRocksConnectorException;
 
 import org.apache.commons.codec.binary.Base64;
-import org.apache.commons.lang3.StringUtils;
 
 import lombok.extern.slf4j.Slf4j;
 
 import java.nio.charset.StandardCharsets;
 import java.util.ArrayList;
+import java.util.Collections;
 import java.util.HashMap;
 import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
-import java.util.Random;
 import java.util.Set;
+import java.util.function.Function;
+import java.util.stream.Collectors;
 
 @Slf4j
 public class StarRocksQueryPlanReadClient {
     private RetryUtils.RetryMaterial retryMaterial;
     private SourceConfig sourceConfig;
-    private SeaTunnelRowType seaTunnelRowType;
     private final HttpHelper httpHelper = new HttpHelper();
+    private final Map<String, StarRocksSourceTableConfig> tables;
 
     private static final long DEFAULT_SLEEP_TIME_MS = 1000L;
 
-    public StarRocksQueryPlanReadClient(
-            SourceConfig sourceConfig, SeaTunnelRowType seaTunnelRowType) {
+    public StarRocksQueryPlanReadClient(SourceConfig sourceConfig) {
         this.sourceConfig = sourceConfig;
-        this.seaTunnelRowType = seaTunnelRowType;
         this.retryMaterial =
                 new RetryUtils.RetryMaterial(
                         sourceConfig.getMaxRetries(),
                         true,
                         exception -> true,
                         DEFAULT_SLEEP_TIME_MS);
+
+        this.tables =
+                sourceConfig.getTableConfigList().stream()
+                        .collect(
+                                Collectors.toMap(
+                                        StarRocksSourceTableConfig::getTable, Function.identity()));
     }
 
-    public List<QueryPartition> findPartitions() {
-        List<String> nodeUrls = sourceConfig.getNodeUrls();
-        QueryPlan queryPlan =
-                getQueryPlan(genQuerySql(), nodeUrls.get(new Random().nextInt(nodeUrls.size())));
+    public List<QueryPartition> findPartitions(String table) {
+        QueryPlan queryPlan = getQueryPlan(genQuerySql(table), table);
         Map<String, List<Long>> be2Tablets = selectBeForTablet(queryPlan);
         return tabletsMapToPartition(
-                be2Tablets,
-                queryPlan.getQueryPlan(),
-                sourceConfig.getDatabase(),
-                sourceConfig.getTable());
+                be2Tablets, queryPlan.getQueryPlan(), sourceConfig.getDatabase(), table);
     }
 
     private List<QueryPartition> tabletsMapToPartition(
@@ -136,37 +139,41 @@ public class StarRocksQueryPlanReadClient {
         return beXTablets;
     }
 
-    private QueryPlan getQueryPlan(String querySQL, String httpNode) {
-        String url =
-                new StringBuilder("http://")
-                        .append(httpNode)
-                        .append("/api/")
-                        .append(sourceConfig.getDatabase())
-                        .append("/")
-                        .append(sourceConfig.getTable())
-                        .append("/_query_plan")
-                        .toString();
+    private QueryPlan getQueryPlan(String querySQL, String table) {
 
+        List<String> nodeUrls = sourceConfig.getNodeUrls();
+        // shuffle nodeUrls to ensure support for both random selection and high availability
+        Collections.shuffle(nodeUrls);
         Map<String, Object> bodyMap = new HashMap<>();
         bodyMap.put("sql", querySQL);
         String body = JsonUtils.toJsonString(bodyMap);
-        String respString;
-        try {
-            respString =
-                    RetryUtils.retryWithException(
-                            () -> httpHelper.doHttpPost(url, getQueryPlanHttpHeader(), body),
-                            retryMaterial);
-        } catch (Exception e) {
-            throw new StarRocksConnectorException(
-                    StarRocksConnectorErrorCode.QUEST_QUERY_PLAN_FAILED, e);
+        String respString = "";
+        for (String feNode : nodeUrls) {
+            String url =
+                    new StringBuilder("http://")
+                            .append(feNode)
+                            .append("/api/")
+                            .append(sourceConfig.getDatabase())
+                            .append("/")
+                            .append(table)
+                            .append("/_query_plan")
+                            .toString();
+            try {
+                respString =
+                        RetryUtils.retryWithException(
+                                () -> httpHelper.doHttpPost(url, getQueryPlanHttpHeader(), body),
+                                retryMaterial);
+                if (StringUtils.isNoneEmpty(respString)) {
+                    return JsonUtils.parseObject(respString, QueryPlan.class);
+                }
+            } catch (Exception e) {
+                log.error("Request query Plan From {} failed: {}", feNode, e.getMessage());
+            }
         }
 
-        if (StringUtils.isEmpty(respString)) {
-            throw new StarRocksConnectorException(
-                    StarRocksConnectorErrorCode.QUEST_QUERY_PLAN_FAILED,
-                    "query failed with empty response");
-        }
-        return JsonUtils.parseObject(respString, QueryPlan.class);
+        throw new StarRocksConnectorException(
+                StarRocksConnectorErrorCode.QUEST_QUERY_PLAN_FAILED,
+                "query failed with empty response");
     }
 
     private String getBasicAuthHeader(String username, String password) {
@@ -184,15 +191,17 @@ public class StarRocksQueryPlanReadClient {
         return headerMap;
     }
 
-    private String genQuerySql() {
+    private String genQuerySql(String table) {
+
+        StarRocksSourceTableConfig starRocksSourceTableConfig = tables.get(table);
+        SeaTunnelRowType seaTunnelRowType =
+                starRocksSourceTableConfig.getCatalogTable().getSeaTunnelRowType();
         String columns =
                 seaTunnelRowType.getFieldNames().length != 0
                         ? String.join(",", seaTunnelRowType.getFieldNames())
                         : "*";
-        String filter =
-                sourceConfig.getScanFilter().isEmpty()
-                        ? ""
-                        : " where " + sourceConfig.getScanFilter();
+        String scanFilter = starRocksSourceTableConfig.getScanFilter();
+        String filter = scanFilter.isEmpty() ? "" : " where " + scanFilter;
 
         String sql =
                 "select "
@@ -203,7 +212,7 @@ public class StarRocksQueryPlanReadClient {
                         + "`"
                         + "."
                         + "`"
-                        + sourceConfig.getTable()
+                        + table
                         + "`"
                         + filter;
         log.debug("Generate query sql '{}'.", sql);

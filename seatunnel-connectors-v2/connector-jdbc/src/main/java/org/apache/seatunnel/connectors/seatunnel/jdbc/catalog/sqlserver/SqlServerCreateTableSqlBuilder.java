@@ -17,6 +17,8 @@
 
 package org.apache.seatunnel.connectors.seatunnel.jdbc.catalog.sqlserver;
 
+import org.apache.seatunnel.shade.org.apache.commons.lang3.StringUtils;
+
 import org.apache.seatunnel.api.table.catalog.CatalogTable;
 import org.apache.seatunnel.api.table.catalog.Column;
 import org.apache.seatunnel.api.table.catalog.ConstraintKey;
@@ -28,7 +30,6 @@ import org.apache.seatunnel.connectors.seatunnel.jdbc.internal.dialect.DatabaseI
 import org.apache.seatunnel.connectors.seatunnel.jdbc.internal.dialect.sqlserver.SqlServerTypeConverter;
 
 import org.apache.commons.collections4.CollectionUtils;
-import org.apache.commons.lang3.StringUtils;
 
 import java.util.ArrayList;
 import java.util.HashMap;
@@ -55,21 +56,23 @@ public class SqlServerCreateTableSqlBuilder {
     private List<ConstraintKey> constraintKeys;
 
     private String fieldIde;
+    private boolean createIndex;
 
-    private SqlServerCreateTableSqlBuilder(String tableName) {
+    private SqlServerCreateTableSqlBuilder(String tableName, boolean createIndex) {
         checkNotNull(tableName, "tableName must not be null");
         this.tableName = tableName;
+        this.createIndex = createIndex;
     }
 
     public static SqlServerCreateTableSqlBuilder builder(
-            TablePath tablePath, CatalogTable catalogTable) {
+            TablePath tablePath, CatalogTable catalogTable, boolean createIndex) {
         checkNotNull(tablePath, "tablePath must not be null");
         checkNotNull(catalogTable, "catalogTable must not be null");
 
         TableSchema tableSchema = catalogTable.getTableSchema();
         checkNotNull(tableSchema, "tableSchema must not be null");
 
-        return new SqlServerCreateTableSqlBuilder(tablePath.getTableName())
+        return new SqlServerCreateTableSqlBuilder(tablePath.getTableName(), createIndex)
                 .comment(catalogTable.getComment())
                 // todo: set charset and collate
                 .engine(null)
@@ -150,7 +153,7 @@ public class SqlServerCreateTableSqlBuilder {
             tableAndColumnComment.append(
                     String.format(
                             "EXEC %s.sys.sp_addextendedproperty 'MS_Description', N'%s', 'schema', N'%s', 'table', N'%s';\n",
-                            tablePath.getDatabaseName(),
+                            "[" + tablePath.getDatabaseName() + "]",
                             comment,
                             tablePath.getSchemaName(),
                             tablePath.getTableName()));
@@ -162,7 +165,7 @@ public class SqlServerCreateTableSqlBuilder {
                     tableAndColumnComment.append(
                             String.format(
                                     columnComment,
-                                    tablePath.getDatabaseName(),
+                                    "[" + tablePath.getDatabaseName() + "]",
                                     com,
                                     tablePath.getSchemaName(),
                                     tablePath.getTableName(),
@@ -176,10 +179,10 @@ public class SqlServerCreateTableSqlBuilder {
         for (Column column : columns) {
             columnSqls.add("\t" + buildColumnIdentifySql(column, catalogName, columnComments));
         }
-        if (primaryKey != null) {
+        if (createIndex && primaryKey != null) {
             columnSqls.add("\t" + buildPrimaryKeySql());
         }
-        if (CollectionUtils.isNotEmpty(constraintKeys)) {
+        if (createIndex && CollectionUtils.isNotEmpty(constraintKeys)) {
             for (ConstraintKey constraintKey : constraintKeys) {
                 if (StringUtils.isBlank(constraintKey.getConstraintName())) {
                     continue;
@@ -189,25 +192,33 @@ public class SqlServerCreateTableSqlBuilder {
         return String.join(", \n", columnSqls);
     }
 
-    private String buildColumnIdentifySql(
+    String buildColumnIdentifySql(
             Column column, String catalogName, Map<String, String> columnComments) {
         final List<String> columnSqls = new ArrayList<>();
         columnSqls.add("[" + column.getName() + "]");
-        if (StringUtils.equals(catalogName, DatabaseIdentifier.SQLSERVER)) {
-            columnSqls.add(column.getSourceType());
+
+        String columnType;
+        if (column.getSinkType() != null) {
+            columnType = column.getSinkType();
+        } else if (StringUtils.equals(catalogName, DatabaseIdentifier.SQLSERVER)
+                && StringUtils.isNotBlank(column.getSourceType())) {
+            columnType = column.getSourceType();
         } else {
-            columnSqls.add(SqlServerTypeConverter.INSTANCE.reconvert(column).getColumnType());
+            columnType = SqlServerTypeConverter.INSTANCE.reconvert(column).getColumnType();
         }
+        columnSqls.add(columnType);
+
         // nullable
-        if (column.isNullable()) {
-            columnSqls.add("NULL");
-        } else {
-            columnSqls.add("NOT NULL");
-        }
+        boolean isPrimaryKeyColumn =
+                createIndex
+                        && primaryKey != null
+                        && primaryKey.getColumnNames().contains(column.getName());
+        String nullability = (column.isNullable() && !isPrimaryKeyColumn) ? "NULL" : "NOT NULL";
+        columnSqls.add(nullability);
 
         // comment
         if (column.getComment() != null) {
-            columnComments.put(column.getName(), column.getComment());
+            columnComments.put(column.getName(), column.getComment().replace("'", "''"));
         }
 
         return String.join(" ", columnSqls);

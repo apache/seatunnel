@@ -17,12 +17,12 @@
 
 package org.apache.seatunnel.connectors.seatunnel.mongodb.source.split;
 
+import org.apache.seatunnel.shade.com.google.common.annotations.VisibleForTesting;
 import org.apache.seatunnel.shade.com.google.common.base.Preconditions;
 import org.apache.seatunnel.shade.com.google.common.collect.Lists;
+import org.apache.seatunnel.shade.org.apache.commons.lang3.tuple.ImmutablePair;
 
 import org.apache.seatunnel.connectors.seatunnel.mongodb.internal.MongodbClientProvider;
-
-import org.apache.commons.lang3.tuple.ImmutablePair;
 
 import org.bson.BsonDocument;
 import org.bson.BsonString;
@@ -33,6 +33,7 @@ import com.mongodb.client.model.Projections;
 import com.mongodb.client.model.Sorts;
 
 import java.io.Serializable;
+import java.math.BigDecimal;
 import java.util.Collections;
 import java.util.List;
 import java.util.Optional;
@@ -74,6 +75,19 @@ public class SamplingSplitStrategy implements MongoSplitStrategy, Serializable {
         long count = numAndAvgSize.getLeft();
         long avgSize = numAndAvgSize.getRight();
 
+        // Handle the case when avgSize is 0 to prevent division by zero
+        if (avgSize <= 0) {
+            // If there are documents in the collection, return a single split
+            if (count > 0) {
+                return Lists.newArrayList(
+                        MongoSplitUtils.createMongoSplit(
+                                0, matchQuery, projection, splitKey, null, null));
+            } else {
+                // If there are no documents, return an empty list
+                return Lists.newArrayList();
+            }
+        }
+
         long numDocumentsPerSplit = sizePerSplit / avgSize;
         int numSplits = (int) Math.ceil((double) count / numDocumentsPerSplit);
         int numSamples = (int) Math.floor(samplesPerSplit * numSplits);
@@ -103,12 +117,18 @@ public class SamplingSplitStrategy implements MongoSplitStrategy, Serializable {
         return createSplits(splitKey, rightBoundaries);
     }
 
-    private ImmutablePair<Long, Long> getDocumentNumAndAvgSize() {
+    @VisibleForTesting
+    protected ImmutablePair<Long, Long> getDocumentNumAndAvgSize() {
         String collectionName =
                 clientProvider.getDefaultCollection().getNamespace().getCollectionName();
         BsonDocument statsCmd = new BsonDocument("collStats", new BsonString(collectionName));
         Document res = clientProvider.getDefaultDatabase().runCommand(statsCmd);
-        long total = res.getInteger("count");
+        Object count = res.get("count");
+        // fix issue https://github.com/apache/seatunnel/issues/7575
+        long total =
+                Optional.ofNullable(count)
+                        .map(v -> new BigDecimal(String.valueOf(count)).longValue())
+                        .orElse(0L);
         Object avgDocumentBytes = res.get("avgObjSize");
         long avgObjSize =
                 Optional.ofNullable(avgDocumentBytes)

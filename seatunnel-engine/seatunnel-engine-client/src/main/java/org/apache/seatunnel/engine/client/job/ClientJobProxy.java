@@ -22,12 +22,12 @@ import org.apache.seatunnel.common.utils.RetryUtils;
 import org.apache.seatunnel.engine.client.SeaTunnelHazelcastClient;
 import org.apache.seatunnel.engine.common.Constant;
 import org.apache.seatunnel.engine.common.exception.SeaTunnelEngineException;
+import org.apache.seatunnel.engine.common.job.JobResult;
+import org.apache.seatunnel.engine.common.job.JobStatus;
 import org.apache.seatunnel.engine.common.utils.ExceptionUtil;
 import org.apache.seatunnel.engine.common.utils.PassiveCompletableFuture;
 import org.apache.seatunnel.engine.core.job.Job;
 import org.apache.seatunnel.engine.core.job.JobImmutableInformation;
-import org.apache.seatunnel.engine.core.job.JobResult;
-import org.apache.seatunnel.engine.core.job.JobStatus;
 import org.apache.seatunnel.engine.core.protocol.codec.SeaTunnelCancelJobCodec;
 import org.apache.seatunnel.engine.core.protocol.codec.SeaTunnelGetJobStatusCodec;
 import org.apache.seatunnel.engine.core.protocol.codec.SeaTunnelSubmitJobCodec;
@@ -73,7 +73,8 @@ public class ClientJobProxy implements Job {
                         jobImmutableInformation.getJobId(),
                         seaTunnelHazelcastClient
                                 .getSerializationService()
-                                .toData(jobImmutableInformation));
+                                .toData(jobImmutableInformation),
+                        jobImmutableInformation.isStartWithSavePoint());
         PassiveCompletableFuture<Void> submitJobFuture =
                 seaTunnelHazelcastClient.requestOnMasterAndGetCompletableFuture(request);
         submitJobFuture.join();
@@ -101,14 +102,13 @@ public class ClientJobProxy implements Job {
                             new RetryUtils.RetryMaterial(
                                     100000,
                                     true,
-                                    exception ->
-                                            ExceptionUtil.isOperationNeedRetryException(exception),
+                                    ExceptionUtil::isOperationNeedRetryException,
                                     Constant.OPERATION_RETRY_SLEEP));
             if (jobResult == null) {
                 throw new SeaTunnelEngineException("failed to fetch job result");
             }
         } catch (Exception e) {
-            LOGGER.info(
+            LOGGER.severe(
                     String.format(
                             "Job (%s) end with unknown state, and throw Exception: %s",
                             jobId, ExceptionUtils.getMessage(e)));

@@ -53,7 +53,7 @@ public final class Constants {
                     + "\\____/  \\___| \\__,_|  \\_/   \\__,_||_| |_||_| |_| \\___||_|\n"
                     + "                                                         \n";
     public static final String COPYRIGHT_LINE =
-            "Copyright © 2021-2022 The Apache Software Foundation. Apache SeaTunnel, SeaTunnel, and its feather logo are trademarks of The Apache Software Foundation.";
+            "Copyright © 2021-2024 The Apache Software Foundation. Apache SeaTunnel, SeaTunnel, and its feather logo are trademarks of The Apache Software Foundation.";
 
     private Constants() {}
 }

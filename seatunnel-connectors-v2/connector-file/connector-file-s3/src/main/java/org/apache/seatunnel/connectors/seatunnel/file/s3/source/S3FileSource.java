@@ -17,111 +17,19 @@
 
 package org.apache.seatunnel.connectors.seatunnel.file.s3.source;
 
-import org.apache.seatunnel.shade.com.typesafe.config.Config;
-
-import org.apache.seatunnel.api.common.PrepareFailException;
-import org.apache.seatunnel.api.common.SeaTunnelAPIErrorCode;
-import org.apache.seatunnel.api.source.SeaTunnelSource;
-import org.apache.seatunnel.api.table.catalog.CatalogTableUtil;
-import org.apache.seatunnel.api.table.catalog.schema.TableSchemaOptions;
-import org.apache.seatunnel.api.table.type.SeaTunnelRowType;
-import org.apache.seatunnel.common.config.CheckConfigUtil;
-import org.apache.seatunnel.common.config.CheckResult;
-import org.apache.seatunnel.common.constants.PluginType;
-import org.apache.seatunnel.common.exception.CommonErrorCodeDeprecated;
-import org.apache.seatunnel.connectors.seatunnel.file.config.FileFormat;
+import org.apache.seatunnel.api.configuration.ReadonlyConfig;
 import org.apache.seatunnel.connectors.seatunnel.file.config.FileSystemType;
-import org.apache.seatunnel.connectors.seatunnel.file.exception.FileConnectorErrorCode;
-import org.apache.seatunnel.connectors.seatunnel.file.exception.FileConnectorException;
-import org.apache.seatunnel.connectors.seatunnel.file.s3.config.S3Conf;
-import org.apache.seatunnel.connectors.seatunnel.file.s3.config.S3ConfigOptions;
-import org.apache.seatunnel.connectors.seatunnel.file.source.BaseFileSource;
-import org.apache.seatunnel.connectors.seatunnel.file.source.reader.ReadStrategyFactory;
+import org.apache.seatunnel.connectors.seatunnel.file.s3.source.config.MultipleTableS3FileSourceConfig;
+import org.apache.seatunnel.connectors.seatunnel.file.source.BaseMultipleTableFileSource;
 
-import com.google.auto.service.AutoService;
+public class S3FileSource extends BaseMultipleTableFileSource {
 
-import java.io.IOException;
-
-@AutoService(SeaTunnelSource.class)
-public class S3FileSource extends BaseFileSource {
-    @Override
-    public String getPluginName() {
-        return FileSystemType.S3.getFileSystemPluginName();
+    public S3FileSource(ReadonlyConfig readonlyConfig) {
+        super(new MultipleTableS3FileSourceConfig(readonlyConfig));
     }
 
     @Override
-    public void prepare(Config pluginConfig) throws PrepareFailException {
-        CheckResult result =
-                CheckConfigUtil.checkAllExists(
-                        pluginConfig,
-                        S3ConfigOptions.FILE_PATH.key(),
-                        S3ConfigOptions.FILE_FORMAT_TYPE.key(),
-                        S3ConfigOptions.S3_BUCKET.key());
-        if (!result.isSuccess()) {
-            throw new FileConnectorException(
-                    SeaTunnelAPIErrorCode.CONFIG_VALIDATION_FAILED,
-                    String.format(
-                            "PluginName: %s, PluginType: %s, Message: %s",
-                            getPluginName(), PluginType.SOURCE, result.getMsg()));
-        }
-        String path = pluginConfig.getString(S3ConfigOptions.FILE_PATH.key());
-        hadoopConf = S3Conf.buildWithConfig(pluginConfig);
-        readStrategy =
-                ReadStrategyFactory.of(
-                        pluginConfig.getString(S3ConfigOptions.FILE_FORMAT_TYPE.key()));
-        readStrategy.setPluginConfig(pluginConfig);
-        readStrategy.init(hadoopConf);
-        try {
-            filePaths = readStrategy.getFileNamesByPath(path);
-        } catch (IOException e) {
-            String errorMsg = String.format("Get file list from this path [%s] failed", path);
-            throw new FileConnectorException(
-                    FileConnectorErrorCode.FILE_LIST_GET_FAILED, errorMsg, e);
-        }
-        // support user-defined schema
-        FileFormat fileFormat =
-                FileFormat.valueOf(
-                        pluginConfig
-                                .getString(S3ConfigOptions.FILE_FORMAT_TYPE.key())
-                                .toUpperCase());
-        // only json text csv type support user-defined schema now
-        if (pluginConfig.hasPath(TableSchemaOptions.SCHEMA.key())) {
-            switch (fileFormat) {
-                case CSV:
-                case TEXT:
-                case JSON:
-                case EXCEL:
-                case XML:
-                    SeaTunnelRowType userDefinedSchema =
-                            CatalogTableUtil.buildWithConfig(pluginConfig).getSeaTunnelRowType();
-                    readStrategy.setSeaTunnelRowTypeInfo(userDefinedSchema);
-                    rowType = readStrategy.getActualSeaTunnelRowTypeInfo();
-                    break;
-                case ORC:
-                case PARQUET:
-                    throw new FileConnectorException(
-                            CommonErrorCodeDeprecated.UNSUPPORTED_OPERATION,
-                            "SeaTunnel does not support user-defined schema for [parquet, orc] files");
-                default:
-                    // never got in there
-                    throw new FileConnectorException(
-                            CommonErrorCodeDeprecated.ILLEGAL_ARGUMENT,
-                            "SeaTunnel does not supported this file format");
-            }
-        } else {
-            if (filePaths.isEmpty()) {
-                // When the directory is empty, distribute default behavior schema
-                rowType = CatalogTableUtil.buildSimpleTextSchema();
-                return;
-            }
-            try {
-                rowType = readStrategy.getSeaTunnelRowTypeInfo(filePaths.get(0));
-            } catch (FileConnectorException e) {
-                String errorMsg =
-                        String.format("Get table schema from file [%s] failed", filePaths.get(0));
-                throw new FileConnectorException(
-                        CommonErrorCodeDeprecated.TABLE_SCHEMA_GET_FAILED, errorMsg, e);
-            }
-        }
+    public String getPluginName() {
+        return FileSystemType.S3.getFileSystemPluginName();
     }
 }

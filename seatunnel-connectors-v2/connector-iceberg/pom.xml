@@ -30,11 +30,11 @@
     <name>SeaTunnel : Connectors V2 : Iceberg</name>
 
     <properties>
-        <iceberg.version>1.4.2</iceberg.version>
+        <iceberg.version>1.6.1</iceberg.version>
         <parquet-avro.version>1.13.1</parquet-avro.version>
         <avro.version>1.11.3</avro.version>
         <hive.version>2.3.9</hive.version>
-        <connector.name>connector-iceberg</connector.name>
+        <connector.name>connector.iceberg</connector.name>
     </properties>
 
     <dependencyManagement>
@@ -53,19 +53,43 @@
             <artifactId>connector-common</artifactId>
             <version>${project.version}</version>
         </dependency>
+        <dependency>
+            <groupId>com.github.jsqlparser</groupId>
+            <artifactId>jsqlparser</artifactId>
+            <version>${jsqlparser.version}</version>
+        </dependency>
+        <dependency>
+            <groupId>org.apache.iceberg</groupId>
+            <artifactId>iceberg-aws</artifactId>
+            <version>${iceberg.version}</version>
+        </dependency>
+        <dependency>
+            <groupId>software.amazon.awssdk</groupId>
+            <artifactId>glue</artifactId>
+            <version>${software.amazon.awssdk.version}</version>
+        </dependency>
+        <dependency>
+            <groupId>software.amazon.awssdk</groupId>
+            <artifactId>s3</artifactId>
+            <version>${software.amazon.awssdk.version}</version>
+        </dependency>
+
+        <dependency>
+            <groupId>software.amazon.awssdk</groupId>
+            <artifactId>sts</artifactId>
+            <version>${software.amazon.awssdk.version}</version>
+        </dependency>
 
         <dependency>
             <groupId>org.apache.iceberg</groupId>
             <artifactId>iceberg-core</artifactId>
             <version>${iceberg.version}</version>
         </dependency>
-
         <dependency>
             <groupId>org.apache.iceberg</groupId>
             <artifactId>iceberg-common</artifactId>
             <version>${iceberg.version}</version>
         </dependency>
-
         <dependency>
             <groupId>org.apache.iceberg</groupId>
             <artifactId>iceberg-api</artifactId>
@@ -224,6 +248,7 @@
                         </goals>
                         <phase>package</phase>
                         <configuration>
+                            <minimizeJar>false</minimizeJar>
                             <relocations>
                                 <relocation>
                                     <pattern>org.apache.avro</pattern>
@@ -243,6 +268,11 @@
                                     <pattern>shaded.parquet</pattern>
                                     <!--suppress UnresolvedMavenProperty -->
                                     <shadedPattern>${seatunnel.shade.package}.${connector.name}.shaded.parquet</shadedPattern>
+                                </relocation>
+                                <relocation>
+                                    <pattern>net.sf.jsqlparser</pattern>
+                                    <!--suppress UnresolvedMavenProperty -->
+                                    <shadedPattern>${seatunnel.shade.package}.${connector.name}.net.sf.jsqlparser</shadedPattern>
                                 </relocation>
                             </relocations>
                         </configuration>

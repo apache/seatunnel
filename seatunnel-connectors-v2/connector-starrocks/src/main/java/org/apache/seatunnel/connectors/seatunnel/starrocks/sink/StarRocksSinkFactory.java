@@ -17,6 +17,8 @@
 
 package org.apache.seatunnel.connectors.seatunnel.starrocks.sink;
 
+import org.apache.seatunnel.shade.org.apache.commons.lang3.StringUtils;
+
 import org.apache.seatunnel.api.configuration.util.OptionRule;
 import org.apache.seatunnel.api.sink.DataSaveMode;
 import org.apache.seatunnel.api.table.catalog.CatalogTable;
@@ -25,32 +27,30 @@ import org.apache.seatunnel.api.table.connector.TableSink;
 import org.apache.seatunnel.api.table.factory.Factory;
 import org.apache.seatunnel.api.table.factory.TableSinkFactory;
 import org.apache.seatunnel.api.table.factory.TableSinkFactoryContext;
-import org.apache.seatunnel.connectors.seatunnel.starrocks.config.CommonConfig;
 import org.apache.seatunnel.connectors.seatunnel.starrocks.config.SinkConfig;
-import org.apache.seatunnel.connectors.seatunnel.starrocks.config.StarRocksOptions;
+import org.apache.seatunnel.connectors.seatunnel.starrocks.config.StarRocksBaseOptions;
 import org.apache.seatunnel.connectors.seatunnel.starrocks.config.StarRocksSinkOptions;
-
-import org.apache.commons.lang3.StringUtils;
 
 import com.google.auto.service.AutoService;
 
-import static org.apache.seatunnel.api.sink.SinkReplaceNameConstant.REPLACE_DATABASE_NAME_KEY;
-import static org.apache.seatunnel.api.sink.SinkReplaceNameConstant.REPLACE_SCHEMA_NAME_KEY;
-import static org.apache.seatunnel.api.sink.SinkReplaceNameConstant.REPLACE_TABLE_NAME_KEY;
+import java.util.Arrays;
+import java.util.List;
+
+import static org.apache.seatunnel.api.options.SinkConnectorCommonOptions.MULTI_TABLE_SINK_REPLICA;
 import static org.apache.seatunnel.connectors.seatunnel.starrocks.config.StarRocksSinkOptions.DATA_SAVE_MODE;
 
 @AutoService(Factory.class)
 public class StarRocksSinkFactory implements TableSinkFactory {
     @Override
     public String factoryIdentifier() {
-        return CommonConfig.CONNECTOR_IDENTITY;
+        return StarRocksBaseOptions.CONNECTOR_IDENTITY;
     }
 
     @Override
     public OptionRule optionRule() {
         return OptionRule.builder()
-                .required(StarRocksOptions.USERNAME, StarRocksOptions.PASSWORD)
-                .required(StarRocksSinkOptions.DATABASE, StarRocksOptions.BASE_URL)
+                .required(StarRocksSinkOptions.USERNAME, StarRocksSinkOptions.PASSWORD)
+                .required(StarRocksSinkOptions.DATABASE, StarRocksSinkOptions.BASE_URL)
                 .required(StarRocksSinkOptions.NODE_URLS)
                 .optional(
                         StarRocksSinkOptions.TABLE,
@@ -63,7 +63,8 @@ public class StarRocksSinkFactory implements TableSinkFactory {
                         StarRocksSinkOptions.STARROCKS_CONFIG,
                         StarRocksSinkOptions.ENABLE_UPSERT_DELETE,
                         StarRocksSinkOptions.SCHEMA_SAVE_MODE,
-                        StarRocksSinkOptions.DATA_SAVE_MODE,
+                        DATA_SAVE_MODE,
+                        MULTI_TABLE_SINK_REPLICA,
                         StarRocksSinkOptions.SAVE_MODE_CREATE_TEMPLATE,
                         StarRocksSinkOptions.HTTP_SOCKET_TIMEOUT_MS)
                 .conditional(
@@ -74,55 +75,32 @@ public class StarRocksSinkFactory implements TableSinkFactory {
     }
 
     @Override
+    public List<String> excludeTablePlaceholderReplaceKeys() {
+        return Arrays.asList(StarRocksSinkOptions.SAVE_MODE_CREATE_TEMPLATE.key());
+    }
+
+    @Override
     public TableSink createSink(TableSinkFactoryContext context) {
-        SinkConfig sinkConfig = SinkConfig.of(context.getOptions());
         CatalogTable catalogTable = context.getCatalogTable();
+        SinkConfig sinkConfig = SinkConfig.of(context.getOptions());
         if (StringUtils.isBlank(sinkConfig.getTable())) {
             sinkConfig.setTable(catalogTable.getTableId().getTableName());
         }
-        // get source table relevant information
-        TableIdentifier tableId = catalogTable.getTableId();
-        String sourceDatabaseName = tableId.getDatabaseName();
-        String sourceSchemaName = tableId.getSchemaName();
-        String sourceTableName = tableId.getTableName();
-        // get sink table relevant information
-        String sinkDatabaseName = sinkConfig.getDatabase();
-        String sinkTableName = sinkConfig.getTable();
-        // to replace
-        sinkDatabaseName =
-                sinkDatabaseName.replace(
-                        REPLACE_DATABASE_NAME_KEY,
-                        sourceDatabaseName != null ? sourceDatabaseName : "");
-        String finalTableName = this.replaceFullTableName(sinkTableName, tableId);
-        // rebuild TableIdentifier and catalogTable
-        TableIdentifier newTableId =
+
+        TableIdentifier rewriteTableId =
                 TableIdentifier.of(
-                        tableId.getCatalogName(), sinkDatabaseName, null, finalTableName);
-        catalogTable =
+                        catalogTable.getTableId().getCatalogName(),
+                        sinkConfig.getDatabase(),
+                        null,
+                        sinkConfig.getTable());
+        CatalogTable finalCatalogTable =
                 CatalogTable.of(
-                        newTableId,
+                        rewriteTableId,
                         catalogTable.getTableSchema(),
                         catalogTable.getOptions(),
                         catalogTable.getPartitionKeys(),
-                        catalogTable.getCatalogName());
+                        catalogTable.getComment());
 
-        CatalogTable finalCatalogTable = catalogTable;
-        // reset
-        sinkConfig.setTable(finalTableName);
-        sinkConfig.setDatabase(sinkDatabaseName);
-        return () -> new StarRocksSink(sinkConfig, finalCatalogTable, context.getOptions());
-    }
-
-    private String replaceFullTableName(String original, TableIdentifier tableId) {
-        if (StringUtils.isNotBlank(tableId.getDatabaseName())) {
-            original = original.replace(REPLACE_DATABASE_NAME_KEY, tableId.getDatabaseName());
-        }
-        if (StringUtils.isNotBlank(tableId.getSchemaName())) {
-            original = original.replace(REPLACE_SCHEMA_NAME_KEY, tableId.getSchemaName());
-        }
-        if (StringUtils.isNotBlank(tableId.getTableName())) {
-            original = original.replace(REPLACE_TABLE_NAME_KEY, tableId.getTableName());
-        }
-        return original;
+        return () -> new StarRocksSink(sinkConfig, finalCatalogTable);
     }
 }

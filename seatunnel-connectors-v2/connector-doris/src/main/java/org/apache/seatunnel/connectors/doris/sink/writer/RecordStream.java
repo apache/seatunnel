@@ -57,4 +57,8 @@ public class RecordStream extends InputStream {
             throw new RuntimeException(e);
         }
     }
+
+    public void setErrorMessageByStreamLoad(String errorMessageByStreamLoad) {
+        recordBuffer.setErrorMessageByStreamLoad(errorMessageByStreamLoad);
+    }
 }

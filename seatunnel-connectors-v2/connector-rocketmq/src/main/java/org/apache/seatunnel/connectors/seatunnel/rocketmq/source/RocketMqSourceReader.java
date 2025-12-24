@@ -98,7 +98,7 @@ public class RocketMqSourceReader implements SourceReader<SeaTunnelRow, RocketMq
             Thread.sleep(THREAD_WAIT_TIME);
             return;
         }
-        while (pendingPartitionsQueue.size() != 0) {
+        while (!pendingPartitionsQueue.isEmpty()) {
             sourceSplits.add(pendingPartitionsQueue.poll());
         }
         sourceSplits.forEach(
@@ -146,9 +146,20 @@ public class RocketMqSourceReader implements SourceReader<SeaTunnelRow, RocketMq
                                                                 .collect(Collectors.toList());
                                                 long lastOffset = -1;
                                                 for (MessageExt record : messages) {
-                                                    deserializationSchema.deserialize(
-                                                            record.getBody(), output);
-                                                    lastOffset = record.getQueueOffset();
+                                                    // Check if the tags are specified and match the
+                                                    // record's tag
+                                                    boolean shouldProcess =
+                                                            metadata.getTags() == null
+                                                                    || metadata.getTags().isEmpty()
+                                                                    || metadata.getTags()
+                                                                            .contains(
+                                                                                    record
+                                                                                            .getTags());
+                                                    if (shouldProcess) {
+                                                        deserializationSchema.deserialize(
+                                                                record.getBody(), output);
+                                                        lastOffset = record.getQueueOffset();
+                                                    }
                                                     if (Boundedness.BOUNDED.equals(
                                                                     context.getBoundedness())
                                                             && record.getQueueOffset()
@@ -166,7 +177,7 @@ public class RocketMqSourceReader implements SourceReader<SeaTunnelRow, RocketMq
                                                     // just for bounded mode
                                                     sourceSplit.setEndOffset(lastOffset);
                                                 }
-                                            } catch (Exception e) {
+                                            } catch (Throwable e) {
                                                 completableFuture.completeExceptionally(e);
                                             }
                                             completableFuture.complete(null);

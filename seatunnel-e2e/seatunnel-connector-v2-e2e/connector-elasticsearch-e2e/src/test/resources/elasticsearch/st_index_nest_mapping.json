@@ -1,0 +1,23 @@
+{
+  "mappings": {
+    "properties": {
+      "name": {
+        "type": "text"
+      },
+      "address": {
+        "type": "nested",
+        "properties": {
+          "street": {
+            "type": "text"
+          },
+          "city": {
+            "type": "keyword"
+          },
+          "zipcode": {
+            "type": "keyword"
+          }
+        }
+      }
+    }
+  }
+}

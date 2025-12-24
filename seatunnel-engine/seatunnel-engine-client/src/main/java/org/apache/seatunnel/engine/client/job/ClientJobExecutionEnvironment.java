@@ -17,6 +17,9 @@
 
 package org.apache.seatunnel.engine.client.job;
 
+import org.apache.seatunnel.shade.com.google.common.annotations.VisibleForTesting;
+import org.apache.seatunnel.shade.org.apache.commons.lang3.tuple.ImmutablePair;
+
 import org.apache.seatunnel.api.common.JobContext;
 import org.apache.seatunnel.engine.client.SeaTunnelHazelcastClient;
 import org.apache.seatunnel.engine.common.config.JobConfig;
@@ -26,9 +29,8 @@ import org.apache.seatunnel.engine.core.dag.logical.LogicalDag;
 import org.apache.seatunnel.engine.core.job.AbstractJobEnvironment;
 import org.apache.seatunnel.engine.core.job.ConnectorJarIdentifier;
 import org.apache.seatunnel.engine.core.job.JobImmutableInformation;
+import org.apache.seatunnel.engine.core.job.JobPipelineCheckpointData;
 import org.apache.seatunnel.engine.core.parse.MultipleTableJobConfigParser;
-
-import org.apache.commons.lang3.tuple.ImmutablePair;
 
 import java.net.URL;
 import java.util.ArrayList;
@@ -42,6 +44,8 @@ public class ClientJobExecutionEnvironment extends AbstractJobEnvironment {
 
     private final String jobFilePath;
 
+    private final List<String> variables;
+
     private final SeaTunnelHazelcastClient seaTunnelHazelcastClient;
 
     private final JobClient jobClient;
@@ -54,37 +58,67 @@ public class ClientJobExecutionEnvironment extends AbstractJobEnvironment {
     public ClientJobExecutionEnvironment(
             JobConfig jobConfig,
             String jobFilePath,
+            List<String> variables,
             SeaTunnelHazelcastClient seaTunnelHazelcastClient,
             SeaTunnelConfig seaTunnelConfig,
             boolean isStartWithSavePoint,
             Long jobId) {
         super(jobConfig, isStartWithSavePoint);
         this.jobFilePath = jobFilePath;
+        this.variables = variables;
         this.seaTunnelHazelcastClient = seaTunnelHazelcastClient;
         this.jobClient = new JobClient(seaTunnelHazelcastClient);
         this.seaTunnelConfig = seaTunnelConfig;
-        this.jobConfig.setJobContext(
-                new JobContext(isStartWithSavePoint ? jobId : jobClient.getNewJobId()));
+        Long finalJobId;
+        if (isStartWithSavePoint || jobId != null) {
+            finalJobId = jobId;
+        } else {
+            finalJobId = jobClient.getNewJobId();
+        }
+        this.jobConfig.setJobContext(new JobContext(finalJobId));
         this.connectorPackageClient = new ConnectorPackageClient(seaTunnelHazelcastClient);
     }
 
     public ClientJobExecutionEnvironment(
             JobConfig jobConfig,
             String jobFilePath,
+            List<String> variables,
             SeaTunnelHazelcastClient seaTunnelHazelcastClient,
-            SeaTunnelConfig seaTunnelConfig) {
-        this(jobConfig, jobFilePath, seaTunnelHazelcastClient, seaTunnelConfig, false, null);
+            SeaTunnelConfig seaTunnelConfig,
+            Long jobId) {
+        this(
+                jobConfig,
+                jobFilePath,
+                variables,
+                seaTunnelHazelcastClient,
+                seaTunnelConfig,
+                false,
+                jobId);
     }
 
     /** Search all jars in SEATUNNEL_HOME/plugins */
     @Override
     protected MultipleTableJobConfigParser getJobConfigParser() {
+        List<JobPipelineCheckpointData> pipelineCheckpoints = Collections.emptyList();
+        if (isStartWithSavePoint) {
+            LOGGER.info("Start with savepoint, load checkpoint state from job client");
+            pipelineCheckpoints =
+                    jobClient.getCheckpointData(
+                            Long.parseLong(jobConfig.getJobContext().getJobId()));
+        }
         return new MultipleTableJobConfigParser(
-                jobFilePath, idGenerator, jobConfig, commonPluginJars, isStartWithSavePoint);
+                jobFilePath,
+                variables,
+                idGenerator,
+                jobConfig,
+                commonPluginJars,
+                isStartWithSavePoint,
+                pipelineCheckpoints);
     }
 
+    @VisibleForTesting
     @Override
-    protected LogicalDag getLogicalDag() {
+    public LogicalDag getLogicalDag() {
         ImmutablePair<List<Action>, Set<URL>> immutablePair = getJobConfigParser().parse(null);
         actions.addAll(immutablePair.getLeft());
         // Enable upload connector jar package to engine server, automatically upload connector Jar
@@ -159,8 +193,8 @@ public class ClientJobExecutionEnvironment extends AbstractJobEnvironment {
                         Long.parseLong(jobConfig.getJobContext().getJobId()),
                         jobConfig.getName(),
                         isStartWithSavePoint,
-                        seaTunnelHazelcastClient.getSerializationService().toData(logicalDag),
-                        jobConfig,
+                        seaTunnelHazelcastClient.getSerializationService(),
+                        logicalDag,
                         new ArrayList<>(jarUrls),
                         new ArrayList<>(connectorJarIdentifiers));
 

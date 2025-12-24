@@ -17,6 +17,8 @@
 
 package org.apache.seatunnel.engine.server.dag.physical;
 
+import org.apache.seatunnel.shade.com.google.common.annotations.VisibleForTesting;
+
 import org.apache.seatunnel.common.utils.ExceptionUtils;
 import org.apache.seatunnel.common.utils.RetryUtils;
 import org.apache.seatunnel.engine.common.Constant;
@@ -24,6 +26,7 @@ import org.apache.seatunnel.engine.common.exception.SeaTunnelEngineException;
 import org.apache.seatunnel.engine.common.exception.TaskGroupDeployException;
 import org.apache.seatunnel.engine.common.utils.ExceptionUtil;
 import org.apache.seatunnel.engine.common.utils.PassiveCompletableFuture;
+import org.apache.seatunnel.engine.common.utils.concurrent.CompletableFuture;
 import org.apache.seatunnel.engine.core.job.ConnectorJarIdentifier;
 import org.apache.seatunnel.engine.core.job.JobImmutableInformation;
 import org.apache.seatunnel.engine.server.SeaTunnelServer;
@@ -31,6 +34,7 @@ import org.apache.seatunnel.engine.server.dag.execution.ExecutionVertex;
 import org.apache.seatunnel.engine.server.execution.ExecutionState;
 import org.apache.seatunnel.engine.server.execution.TaskDeployState;
 import org.apache.seatunnel.engine.server.execution.TaskExecutionState;
+import org.apache.seatunnel.engine.server.execution.TaskGroup;
 import org.apache.seatunnel.engine.server.execution.TaskGroupDefaultImpl;
 import org.apache.seatunnel.engine.server.execution.TaskGroupLocation;
 import org.apache.seatunnel.engine.server.master.JobMaster;
@@ -44,6 +48,7 @@ import org.apache.seatunnel.engine.server.utils.NodeEngineUtil;
 import com.hazelcast.cluster.Address;
 import com.hazelcast.cluster.Member;
 import com.hazelcast.flakeidgen.FlakeIdGenerator;
+import com.hazelcast.internal.serialization.Data;
 import com.hazelcast.map.IMap;
 import com.hazelcast.spi.impl.NodeEngine;
 import com.hazelcast.spi.impl.operationservice.impl.InvocationFuture;
@@ -54,9 +59,7 @@ import java.net.URL;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
-import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ExecutionException;
-import java.util.concurrent.ExecutorService;
 import java.util.concurrent.atomic.AtomicReference;
 import java.util.function.Function;
 import java.util.stream.Collectors;
@@ -76,13 +79,12 @@ public class PhysicalVertex {
 
     private final TaskGroupDefaultImpl taskGroup;
 
-    private final ExecutorService executorService;
-
     private final FlakeIdGenerator flakeIdGenerator;
 
-    private final Set<URL> pluginJarsUrls;
+    private final List<Set<URL>> pluginJarsUrls;
 
-    // Set<URL> pluginJarsUrls is a collection of paths stored on the engine for all connector Jar
+    // List<Set<URL>> pluginJarsUrls is a collection of paths stored on the engine for all connector
+    // Jar
     // packages and third-party Jar packages that the connector relies on.
     // All storage paths come from the unique identifier obtained after uploading the Jar package
     // through the client.
@@ -90,9 +92,10 @@ public class PhysicalVertex {
     // file,
     // which contains more information about the Jar package file, including the name of the
     // connector plugin using the current Jar, the type of the current Jar package, and so on.
-    // TODO: Only use Set<ConnectorJarIdentifier>to save more information about the Jar package,
+    // TODO: Only use List<Set<ConnectorJarIdentifier>>to save more information about the Jar
+    // package,
     // including the storage path of the Jar package on the server.
-    private final Set<ConnectorJarIdentifier> connectorJarIdentifiers;
+    private final List<Set<ConnectorJarIdentifier>> connectorJarIdentifiers;
 
     private final IMap<Object, Object> runningJobStateIMap;
 
@@ -114,7 +117,7 @@ public class PhysicalVertex {
 
     private JobMaster jobMaster;
 
-    private volatile ExecutionState currExecutionState = ExecutionState.CREATED;
+    private volatile ExecutionState currExecutionState;
 
     public volatile boolean isRunning = false;
 
@@ -123,21 +126,19 @@ public class PhysicalVertex {
 
     public PhysicalVertex(
             int subTaskGroupIndex,
-            @NonNull ExecutorService executorService,
             int parallelism,
             @NonNull TaskGroupDefaultImpl taskGroup,
             @NonNull FlakeIdGenerator flakeIdGenerator,
             int pipelineId,
             int totalPipelineNum,
-            Set<URL> pluginJarsUrls,
-            Set<ConnectorJarIdentifier> connectorJarIdentifiers,
+            List<Set<URL>> pluginJarsUrls,
+            List<Set<ConnectorJarIdentifier>> connectorJarIdentifiers,
             @NonNull JobImmutableInformation jobImmutableInformation,
             long initializationTimestamp,
             @NonNull NodeEngine nodeEngine,
             @NonNull IMap runningJobStateIMap,
             @NonNull IMap runningJobStateTimestampsIMap) {
         this.taskGroupLocation = taskGroup.getTaskGroupLocation();
-        this.executorService = executorService;
         this.taskGroup = taskGroup;
         this.flakeIdGenerator = flakeIdGenerator;
         this.pluginJarsUrls = pluginJarsUrls;
@@ -161,30 +162,16 @@ public class PhysicalVertex {
         this.currExecutionState = (ExecutionState) runningJobStateIMap.get(taskGroupLocation);
 
         this.nodeEngine = nodeEngine;
-        if (log.isDebugEnabled() || log.isTraceEnabled()) {
-            this.taskFullName =
-                    String.format(
-                            "Job %s (%s), Pipeline: [(%d/%d)], task: [%s (%d/%d)], taskGroupLocation: [%s]",
-                            jobImmutableInformation.getJobConfig().getName(),
-                            jobImmutableInformation.getJobId(),
-                            pipelineId,
-                            totalPipelineNum,
-                            taskGroup.getTaskGroupName(),
-                            subTaskGroupIndex + 1,
-                            parallelism,
-                            taskGroupLocation);
-        } else {
-            this.taskFullName =
-                    String.format(
-                            "Job %s (%s), Pipeline: [(%d/%d)], task: [%s (%d/%d)]",
-                            jobImmutableInformation.getJobConfig().getName(),
-                            jobImmutableInformation.getJobId(),
-                            pipelineId,
-                            totalPipelineNum,
-                            taskGroup.getTaskGroupName(),
-                            subTaskGroupIndex + 1,
-                            parallelism);
-        }
+        this.taskFullName =
+                String.format(
+                        "Job (%s), Pipeline: [(%d/%d)], task: [%s (%d/%d)], taskGroupLocation: [%s]",
+                        jobImmutableInformation.getJobId(),
+                        pipelineId,
+                        totalPipelineNum,
+                        taskGroup.getTaskGroupName(),
+                        subTaskGroupIndex + 1,
+                        parallelism,
+                        taskGroupLocation);
 
         this.taskFuture = new CompletableFuture<>();
 
@@ -211,7 +198,7 @@ public class PhysicalVertex {
             }
         } else if (ExecutionState.DEPLOYING.equals(currExecutionState)) {
             if (!checkTaskGroupIsExecuting(taskGroupLocation)) {
-                updateTaskState(ExecutionState.RUNNING);
+                updateTaskState(ExecutionState.FAILING);
             }
         }
         return new PassiveCompletableFuture<>(this.taskFuture);
@@ -235,11 +222,9 @@ public class PhysicalVertex {
                             .collect(Collectors.toList());
             if (!members.contains(worker)) {
                 log.warn(
-                        "The node:"
-                                + worker.toString()
-                                + " running the taskGroup "
-                                + taskGroupLocation
-                                + " no longer exists, return false.");
+                        "The node:{} running the taskGroup {} no longer exists, return false.",
+                        worker.toString(),
+                        taskGroupLocation);
                 return false;
             }
             InvocationFuture<Object> invoke =
@@ -253,10 +238,10 @@ public class PhysicalVertex {
             try {
                 return (Boolean) invoke.get();
             } catch (InterruptedException | ExecutionException e) {
-                log.warn(
-                        "Execution of CheckTaskGroupIsExecutingOperation "
-                                + taskGroupLocation
-                                + " failed, checkTaskGroupIsExecuting return false. ",
+                log.error(
+                        String.format(
+                                "Execution of CheckTaskGroupIsExecutingOperation %s failed, checkTaskGroupIsExecuting return false. ",
+                                taskGroupLocation),
                         e);
             }
         }
@@ -341,13 +326,26 @@ public class PhysicalVertex {
         return state;
     }
 
-    private TaskGroupImmutableInformation getTaskGroupImmutableInformation() {
+    @VisibleForTesting
+    public TaskGroupImmutableInformation getTaskGroupImmutableInformation() {
+        List<Data> tasksData =
+                this.taskGroup.getTasks().stream()
+                        .map(task -> (Data) nodeEngine.getSerializationService().toData(task))
+                        .collect(Collectors.toList());
         return new TaskGroupImmutableInformation(
                 this.taskGroup.getTaskGroupLocation().getJobId(),
                 flakeIdGenerator.newId(),
-                nodeEngine.getSerializationService().toData(this.taskGroup),
+                this.taskGroup.getTaskGroupType(),
+                this.taskGroup.getTaskGroupLocation(),
+                this.taskGroup.getTaskGroupName(),
+                tasksData,
                 this.pluginJarsUrls,
                 this.connectorJarIdentifiers);
+    }
+
+    @VisibleForTesting
+    public TaskGroup getTaskGroup() {
+        return taskGroup;
     }
 
     public synchronized void updateTaskState(@NonNull ExecutionState targetState) {
@@ -383,7 +381,7 @@ public class PhysicalVertex {
                     new RetryUtils.RetryMaterial(
                             Constant.OPERATION_RETRY_TIME,
                             true,
-                            exception -> ExceptionUtil.isOperationNeedRetryException(exception),
+                            ExceptionUtil::isOperationNeedRetryException,
                             Constant.OPERATION_RETRY_SLEEP));
             this.currExecutionState = targetState;
             log.info(
@@ -477,12 +475,14 @@ public class PhysicalVertex {
                         () -> {
                             updateStateTimestamps(ExecutionState.CREATED);
                             runningJobStateIMap.set(taskGroupLocation, ExecutionState.CREATED);
+                            // reset the errorByPhysicalVertex
+                            errorByPhysicalVertex = new AtomicReference<>();
                             return null;
                         },
                         new RetryUtils.RetryMaterial(
                                 Constant.OPERATION_RETRY_TIME,
                                 true,
-                                exception -> ExceptionUtil.isOperationNeedRetryException(exception),
+                                ExceptionUtil::isOperationNeedRetryException,
                                 Constant.OPERATION_RETRY_SLEEP));
             } catch (Exception e) {
                 log.warn(ExceptionUtils.getMessage(e));

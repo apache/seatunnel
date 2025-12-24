@@ -17,8 +17,9 @@
 
 package org.apache.seatunnel.connectors.doris.rest.models;
 
-import com.fasterxml.jackson.annotation.JsonIgnoreProperties;
-import com.fasterxml.jackson.annotation.JsonProperty;
+import org.apache.seatunnel.shade.com.fasterxml.jackson.annotation.JsonIgnoreProperties;
+import org.apache.seatunnel.shade.com.fasterxml.jackson.annotation.JsonProperty;
+
 import lombok.Getter;
 import lombok.Setter;
 import lombok.ToString;

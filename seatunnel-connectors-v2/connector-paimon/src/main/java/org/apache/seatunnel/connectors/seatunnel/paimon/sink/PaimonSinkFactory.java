@@ -17,48 +17,54 @@
 
 package org.apache.seatunnel.connectors.seatunnel.paimon.sink;
 
+import org.apache.seatunnel.shade.org.apache.commons.lang3.StringUtils;
+
 import org.apache.seatunnel.api.configuration.ReadonlyConfig;
 import org.apache.seatunnel.api.configuration.util.OptionRule;
+import org.apache.seatunnel.api.options.SinkConnectorCommonOptions;
 import org.apache.seatunnel.api.table.catalog.CatalogTable;
 import org.apache.seatunnel.api.table.catalog.TableIdentifier;
 import org.apache.seatunnel.api.table.connector.TableSink;
 import org.apache.seatunnel.api.table.factory.Factory;
 import org.apache.seatunnel.api.table.factory.TableSinkFactory;
 import org.apache.seatunnel.api.table.factory.TableSinkFactoryContext;
-import org.apache.seatunnel.connectors.seatunnel.paimon.config.PaimonConfig;
+import org.apache.seatunnel.connectors.seatunnel.paimon.catalog.PaimonCatalogEnum;
 import org.apache.seatunnel.connectors.seatunnel.paimon.config.PaimonSinkConfig;
-
-import org.apache.commons.lang3.StringUtils;
+import org.apache.seatunnel.connectors.seatunnel.paimon.config.PaimonSinkOptions;
 
 import com.google.auto.service.AutoService;
 
 @AutoService(Factory.class)
 public class PaimonSinkFactory implements TableSinkFactory {
 
-    public static final String REPLACE_TABLE_NAME_KEY = "${table_name}";
-
-    public static final String REPLACE_SCHEMA_NAME_KEY = "${schema_name}";
-
-    public static final String REPLACE_DATABASE_NAME_KEY = "${database_name}";
-
     @Override
     public String factoryIdentifier() {
-        return "Paimon";
+        return PaimonSinkOptions.CONNECTOR_IDENTITY;
     }
 
     @Override
     public OptionRule optionRule() {
         return OptionRule.builder()
-                .required(PaimonConfig.WAREHOUSE, PaimonConfig.DATABASE, PaimonConfig.TABLE)
+                .required(
+                        PaimonSinkOptions.WAREHOUSE,
+                        PaimonSinkOptions.DATABASE,
+                        PaimonSinkOptions.TABLE)
                 .optional(
-                        PaimonConfig.HDFS_SITE_PATH,
-                        PaimonSinkConfig.SCHEMA_SAVE_MODE,
-                        PaimonSinkConfig.DATA_SAVE_MODE,
-                        PaimonSinkConfig.PRIMARY_KEYS,
-                        PaimonSinkConfig.PARTITION_KEYS,
-                        PaimonSinkConfig.WRITE_PROPS,
-                        PaimonConfig.HADOOP_CONF,
-                        PaimonConfig.HADOOP_CONF_PATH)
+                        PaimonSinkOptions.HDFS_SITE_PATH,
+                        PaimonSinkOptions.HADOOP_CONF,
+                        PaimonSinkOptions.HADOOP_CONF_PATH,
+                        PaimonSinkOptions.CATALOG_TYPE,
+                        PaimonSinkOptions.SCHEMA_SAVE_MODE,
+                        PaimonSinkOptions.DATA_SAVE_MODE,
+                        PaimonSinkOptions.PRIMARY_KEYS,
+                        PaimonSinkOptions.PARTITION_KEYS,
+                        PaimonSinkOptions.WRITE_PROPS,
+                        PaimonSinkOptions.BRANCH,
+                        SinkConnectorCommonOptions.MULTI_TABLE_SINK_REPLICA)
+                .conditional(
+                        PaimonSinkOptions.CATALOG_TYPE,
+                        PaimonCatalogEnum.HIVE,
+                        PaimonSinkOptions.CATALOG_URI)
                 .build();
     }
 
@@ -76,13 +82,13 @@ public class PaimonSinkFactory implements TableSinkFactory {
         String tableName;
         String namespace;
         if (StringUtils.isNotEmpty(paimonSinkConfig.getTable())) {
-            tableName = replaceName(paimonSinkConfig.getTable(), tableId);
+            tableName = paimonSinkConfig.getTable();
         } else {
             tableName = tableId.getTableName();
         }
 
         if (StringUtils.isNotEmpty(paimonSinkConfig.getNamespace())) {
-            namespace = replaceName(paimonSinkConfig.getNamespace(), tableId);
+            namespace = paimonSinkConfig.getNamespace();
         } else {
             namespace = tableId.getSchemaName();
         }
@@ -92,18 +98,5 @@ public class PaimonSinkFactory implements TableSinkFactory {
                         tableId.getCatalogName(), namespace, tableId.getSchemaName(), tableName);
 
         return CatalogTable.of(newTableId, catalogTable);
-    }
-
-    private String replaceName(String original, TableIdentifier tableId) {
-        if (tableId.getTableName() != null) {
-            original = original.replace(REPLACE_TABLE_NAME_KEY, tableId.getTableName());
-        }
-        if (tableId.getSchemaName() != null) {
-            original = original.replace(REPLACE_SCHEMA_NAME_KEY, tableId.getSchemaName());
-        }
-        if (tableId.getDatabaseName() != null) {
-            original = original.replace(REPLACE_DATABASE_NAME_KEY, tableId.getDatabaseName());
-        }
-        return original;
     }
 }

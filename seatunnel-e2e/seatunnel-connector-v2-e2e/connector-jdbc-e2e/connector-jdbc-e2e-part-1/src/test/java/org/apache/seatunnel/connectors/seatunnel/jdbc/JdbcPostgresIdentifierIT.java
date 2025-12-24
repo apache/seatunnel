@@ -17,13 +17,14 @@
 
 package org.apache.seatunnel.connectors.seatunnel.jdbc;
 
+import org.apache.seatunnel.shade.com.google.common.collect.Lists;
+
 import org.apache.seatunnel.e2e.common.TestResource;
 import org.apache.seatunnel.e2e.common.TestSuiteBase;
 import org.apache.seatunnel.e2e.common.container.ContainerExtendedFactory;
-import org.apache.seatunnel.e2e.common.container.EngineType;
 import org.apache.seatunnel.e2e.common.container.TestContainer;
-import org.apache.seatunnel.e2e.common.junit.DisabledOnContainer;
 import org.apache.seatunnel.e2e.common.junit.TestContainerExtension;
+import org.apache.seatunnel.e2e.common.util.JdbcUtil;
 
 import org.junit.jupiter.api.AfterAll;
 import org.junit.jupiter.api.Assertions;
@@ -36,16 +37,13 @@ import org.testcontainers.lifecycle.Startables;
 import org.testcontainers.utility.DockerImageName;
 import org.testcontainers.utility.DockerLoggerFactory;
 
-import com.google.common.collect.Lists;
 import lombok.extern.slf4j.Slf4j;
 
 import java.io.IOException;
 import java.sql.Connection;
 import java.sql.DriverManager;
-import java.sql.ResultSet;
 import java.sql.SQLException;
 import java.sql.Statement;
-import java.util.ArrayList;
 import java.util.List;
 import java.util.concurrent.TimeUnit;
 import java.util.stream.Stream;
@@ -53,10 +51,6 @@ import java.util.stream.Stream;
 import static org.awaitility.Awaitility.given;
 
 @Slf4j
-@DisabledOnContainer(
-        value = {},
-        type = {EngineType.SPARK, EngineType.FLINK},
-        disabledReason = "Currently SPARK and FLINK do not support cdc")
 public class JdbcPostgresIdentifierIT extends TestSuiteBase implements TestResource {
     private static final String PG_IMAGE = "postgis/postgis";
     private static final String PG_DRIVER_JAR =
@@ -97,7 +91,9 @@ public class JdbcPostgresIdentifierIT extends TestSuiteBase implements TestResou
                     + "  multilinestring geometry(MULTILINESTRING, 4326),\n"
                     + "  multipolygon geometry(MULTIPOLYGON, 4326),\n"
                     + "  geometrycollection geometry(GEOMETRYCOLLECTION, 4326),\n"
-                    + "  geog geography(POINT, 4326)\n"
+                    + "  geog geography(POINT, 4326),\n"
+                    + "  inet_col INET,\n"
+                    + "  char_one_col CHAR(1)\n"
                     + ")";
     private static final String PG_SINK_DDL =
             "CREATE TABLE IF NOT EXISTS test.public.\"PG_IDE_SINK_TABLE\" (\n"
@@ -128,7 +124,9 @@ public class JdbcPostgresIdentifierIT extends TestSuiteBase implements TestResou
                     + "    \"MULTILINESTRING\" varchar(2000) NULL,\n"
                     + "    \"MULTIPOLYGON\" varchar(2000) NULL,\n"
                     + "    \"GEOMETRYCOLLECTION\" varchar(2000) NULL,\n"
-                    + "    \"GEOG\" varchar(2000) NULL\n"
+                    + "    \"GEOG\" varchar(2000) NULL,\n"
+                    + "    \"INET_COL\" INET NULL,\n"
+                    + "    \"CHAR_ONE_COL\" CHAR(1) NULL\n"
                     + "  )";
 
     private static final String SOURCE_SQL =
@@ -160,7 +158,9 @@ public class JdbcPostgresIdentifierIT extends TestSuiteBase implements TestResou
                     + "multilinestring,\n"
                     + "multipolygon,\n"
                     + "geometrycollection,\n"
-                    + "geog\n"
+                    + "geog,\n"
+                    + "inet_col,\n"
+                    + "char_one_col\n"
                     + " from pg_ide_source_table";
     private static final String SINK_SQL =
             "SELECT\n"
@@ -191,7 +191,9 @@ public class JdbcPostgresIdentifierIT extends TestSuiteBase implements TestResou
                     + "  CAST(\"MULTILINESTRING\" AS GEOMETRY) AS MULTILINESTRING,\n"
                     + "  CAST(\"MULTIPOLYGON\" AS GEOMETRY) AS MULTILINESTRING,\n"
                     + "  CAST(\"GEOMETRYCOLLECTION\" AS GEOMETRY) AS GEOMETRYCOLLECTION,\n"
-                    + "  CAST(\"GEOG\" AS GEOGRAPHY) AS GEOG\n"
+                    + "  CAST(\"GEOG\" AS GEOGRAPHY) AS GEOG,\n"
+                    + "  \"INET_COL\",\n"
+                    + "  \"CHAR_ONE_COL\"\n"
                     + "FROM\n"
                     + "  \"PG_IDE_SINK_TABLE\";";
 
@@ -282,7 +284,9 @@ public class JdbcPostgresIdentifierIT extends TestSuiteBase implements TestResou
                                 + "    multilinestring,\n"
                                 + "    multipolygon,\n"
                                 + "    geometrycollection,\n"
-                                + "    geog\n"
+                                + "    geog,\n"
+                                + "    inet_col,\n"
+                                + "    char_one_col\n"
                                 + "  )\n"
                                 + "VALUES\n"
                                 + "  (\n"
@@ -333,7 +337,9 @@ public class JdbcPostgresIdentifierIT extends TestSuiteBase implements TestResou
                                 + "      'GEOMETRYCOLLECTION(POINT(-122.3462 47.5921), LINESTRING(-122.3460 47.5924, -122.3457 47.5924))',\n"
                                 + "      4326\n"
                                 + "    ),\n"
-                                + "    ST_GeographyFromText('POINT(-122.3452 47.5925)')\n"
+                                + "    ST_GeographyFromText('POINT(-122.3452 47.5925)'),\n"
+                                + "    '192.168.1.1',\n"
+                                + "    'T'\n"
                                 + "  )");
             }
 
@@ -351,21 +357,15 @@ public class JdbcPostgresIdentifierIT extends TestSuiteBase implements TestResou
     }
 
     private List<List<Object>> querySql(String sql) {
-        try (Connection connection = getJdbcConnection()) {
-            ResultSet resultSet = connection.createStatement().executeQuery(sql);
-            List<List<Object>> result = new ArrayList<>();
-            int columnCount = resultSet.getMetaData().getColumnCount();
-            while (resultSet.next()) {
-                ArrayList<Object> objects = new ArrayList<>();
-                for (int i = 1; i <= columnCount; i++) {
-                    objects.add(resultSet.getObject(i));
-                }
-                result.add(objects);
-            }
-            return result;
-        } catch (SQLException e) {
-            throw new RuntimeException(e);
-        }
+        return JdbcUtil.querySql(
+                sql,
+                () -> {
+                    try {
+                        return this.getJdbcConnection();
+                    } catch (SQLException e) {
+                        throw new RuntimeException(e);
+                    }
+                });
     }
 
     private void executeSQL(String sql) {

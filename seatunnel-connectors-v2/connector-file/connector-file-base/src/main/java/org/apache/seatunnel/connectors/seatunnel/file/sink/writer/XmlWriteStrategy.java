@@ -35,7 +35,7 @@ import java.util.LinkedHashMap;
  * ensures that each file is written to only once. It writes the data by passing the data row to the
  * corresponding XmlWriter instance.
  */
-public class XmlWriteStrategy extends AbstractWriteStrategy {
+public class XmlWriteStrategy extends AbstractWriteStrategy<XmlWriter> {
 
     private final LinkedHashMap<String, XmlWriter> beingWrittenWriter;
 
@@ -48,7 +48,7 @@ public class XmlWriteStrategy extends AbstractWriteStrategy {
     public void write(SeaTunnelRow seaTunnelRow) throws FileConnectorException {
         super.write(seaTunnelRow);
         String filePath = getOrCreateFilePathBeingWritten(seaTunnelRow);
-        XmlWriter xmlDocWriter = getOrCreateXmlWriter(filePath);
+        XmlWriter xmlDocWriter = getOrCreateOutputStream(filePath);
         xmlDocWriter.writeData(seaTunnelRow);
     }
 
@@ -70,7 +70,8 @@ public class XmlWriteStrategy extends AbstractWriteStrategy {
         this.beingWrittenWriter.clear();
     }
 
-    private XmlWriter getOrCreateXmlWriter(String filePath) {
+    @Override
+    public XmlWriter getOrCreateOutputStream(String filePath) {
         return beingWrittenWriter.computeIfAbsent(
                 filePath,
                 k -> new XmlWriter(fileSinkConfig, sinkColumnsIndexInRow, seaTunnelRowType));

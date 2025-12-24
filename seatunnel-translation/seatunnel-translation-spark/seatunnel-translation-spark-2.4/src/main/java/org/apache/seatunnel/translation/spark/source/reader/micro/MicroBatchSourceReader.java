@@ -21,9 +21,9 @@ import org.apache.seatunnel.api.source.SeaTunnelSource;
 import org.apache.seatunnel.api.source.SupportCoordinate;
 import org.apache.seatunnel.api.table.type.SeaTunnelRow;
 import org.apache.seatunnel.common.utils.SerializationUtils;
+import org.apache.seatunnel.translation.spark.execution.MultiTableManager;
 import org.apache.seatunnel.translation.spark.source.partition.micro.MicroBatchPartition;
 import org.apache.seatunnel.translation.spark.source.state.MicroBatchState;
-import org.apache.seatunnel.translation.spark.utils.TypeConverterUtils;
 
 import org.apache.spark.sql.catalyst.InternalRow;
 import org.apache.spark.sql.sources.v2.reader.InputPartition;
@@ -50,6 +50,7 @@ public class MicroBatchSourceReader implements MicroBatchReader {
     protected MicroBatchState startOffset;
     protected MicroBatchState endOffset;
     private Map<String, String> envOptions;
+    private final MultiTableManager multiTableManager;
 
     public MicroBatchSourceReader(
             SeaTunnelSource<SeaTunnelRow, ?, ?> source,
@@ -60,7 +61,8 @@ public class MicroBatchSourceReader implements MicroBatchReader {
             String checkpointPath,
             String hdfsRoot,
             String hdfsUser,
-            Map<String, String> envOptions) {
+            Map<String, String> envOptions,
+            MultiTableManager multiTableManager) {
         this.source = source;
         this.parallelism = parallelism;
         this.jobId = jobId;
@@ -70,6 +72,7 @@ public class MicroBatchSourceReader implements MicroBatchReader {
         this.hdfsRoot = hdfsRoot;
         this.hdfsUser = hdfsUser;
         this.envOptions = envOptions;
+        this.multiTableManager = multiTableManager;
     }
 
     @Override
@@ -108,7 +111,7 @@ public class MicroBatchSourceReader implements MicroBatchReader {
 
     @Override
     public StructType readSchema() {
-        return (StructType) TypeConverterUtils.convert(source.getProducedType());
+        return multiTableManager.getTableSchema();
     }
 
     @Override
@@ -127,7 +130,8 @@ public class MicroBatchSourceReader implements MicroBatchReader {
                             checkpointPath,
                             hdfsRoot,
                             hdfsUser,
-                            envOptions));
+                            envOptions,
+                            multiTableManager));
         } else {
             virtualPartitions = new ArrayList<>(parallelism);
             for (int subtaskId = 0; subtaskId < parallelism; subtaskId++) {
@@ -142,7 +146,8 @@ public class MicroBatchSourceReader implements MicroBatchReader {
                                 checkpointPath,
                                 hdfsRoot,
                                 hdfsUser,
-                                envOptions));
+                                envOptions,
+                                multiTableManager));
             }
         }
         checkpointId++;

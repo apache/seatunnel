@@ -17,35 +17,29 @@
 
 package org.apache.seatunnel.connectors.doris.source;
 
-import org.apache.seatunnel.api.configuration.ReadonlyConfig;
+import org.apache.seatunnel.shade.org.apache.commons.lang3.StringUtils;
+
 import org.apache.seatunnel.api.configuration.util.OptionRule;
 import org.apache.seatunnel.api.source.SeaTunnelSource;
 import org.apache.seatunnel.api.source.SourceSplit;
 import org.apache.seatunnel.api.table.catalog.CatalogTable;
-import org.apache.seatunnel.api.table.catalog.Column;
-import org.apache.seatunnel.api.table.catalog.ConstraintKey;
-import org.apache.seatunnel.api.table.catalog.PrimaryKey;
-import org.apache.seatunnel.api.table.catalog.TableIdentifier;
 import org.apache.seatunnel.api.table.catalog.TablePath;
-import org.apache.seatunnel.api.table.catalog.TableSchema;
 import org.apache.seatunnel.api.table.connector.TableSource;
 import org.apache.seatunnel.api.table.factory.Factory;
 import org.apache.seatunnel.api.table.factory.TableSourceFactory;
 import org.apache.seatunnel.api.table.factory.TableSourceFactoryContext;
 import org.apache.seatunnel.connectors.doris.catalog.DorisCatalog;
 import org.apache.seatunnel.connectors.doris.catalog.DorisCatalogFactory;
-import org.apache.seatunnel.connectors.doris.config.DorisOptions;
-import org.apache.seatunnel.connectors.doris.exception.DorisConnectorErrorCode;
-import org.apache.seatunnel.connectors.doris.exception.DorisConnectorException;
-
-import org.apache.commons.lang3.StringUtils;
+import org.apache.seatunnel.connectors.doris.config.DorisSourceConfig;
+import org.apache.seatunnel.connectors.doris.config.DorisSourceOptions;
+import org.apache.seatunnel.connectors.doris.config.DorisTableConfig;
 
 import com.google.auto.service.AutoService;
 import lombok.extern.slf4j.Slf4j;
 
 import java.io.Serializable;
 import java.util.Arrays;
-import java.util.Collections;
+import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.stream.Collectors;
@@ -55,130 +49,85 @@ import java.util.stream.Collectors;
 public class DorisSourceFactory implements TableSourceFactory {
     @Override
     public String factoryIdentifier() {
-        return "Doris";
+        return DorisSourceOptions.IDENTIFIER;
     }
 
     @Override
     public OptionRule optionRule() {
         return OptionRule.builder()
                 .required(
-                        DorisOptions.FENODES,
-                        DorisOptions.USERNAME,
-                        DorisOptions.PASSWORD,
-                        DorisOptions.DATABASE,
-                        DorisOptions.TABLE)
-                .optional(DorisOptions.DORIS_FILTER_QUERY)
-                .optional(DorisOptions.DORIS_READ_FIELD)
+                        DorisSourceOptions.FENODES,
+                        DorisSourceOptions.USERNAME,
+                        DorisSourceOptions.PASSWORD)
+                .optional(DorisSourceOptions.TABLE_LIST)
+                .optional(DorisSourceOptions.DATABASE)
+                .optional(DorisSourceOptions.TABLE)
+                .optional(DorisSourceOptions.DORIS_FILTER_QUERY)
+                .optional(DorisSourceOptions.DORIS_TABLET_SIZE)
+                .optional(DorisSourceOptions.DORIS_REQUEST_CONNECT_TIMEOUT_MS)
+                .optional(DorisSourceOptions.DORIS_REQUEST_READ_TIMEOUT_MS)
+                .optional(DorisSourceOptions.DORIS_REQUEST_QUERY_TIMEOUT_S)
+                .optional(DorisSourceOptions.DORIS_REQUEST_RETRIES)
+                .optional(DorisSourceOptions.DORIS_DESERIALIZE_ARROW_ASYNC)
+                .optional(DorisSourceOptions.DORIS_DESERIALIZE_QUEUE_SIZE)
+                .optional(DorisSourceOptions.DORIS_READ_FIELD)
+                .optional(DorisSourceOptions.QUERY_PORT)
+                .optional(DorisSourceOptions.DORIS_BATCH_SIZE)
+                .optional(DorisSourceOptions.DORIS_EXEC_MEM_LIMIT)
                 .build();
     }
 
     @Override
     public <T, SplitT extends SourceSplit, StateT extends Serializable>
             TableSource<T, SplitT, StateT> createSource(TableSourceFactoryContext context) {
-        ReadonlyConfig options = context.getOptions();
-        CatalogTable table;
-        DorisCatalogFactory dorisCatalogFactory = new DorisCatalogFactory();
-        DorisCatalog catalog = (DorisCatalog) dorisCatalogFactory.createCatalog("doris", options);
-        catalog.open();
-        String tableIdentifier =
-                options.get(DorisOptions.DATABASE) + "." + options.get(DorisOptions.TABLE);
-        TablePath tablePath = TablePath.of(tableIdentifier);
-        table = catalog.getTable(tablePath);
+        // Load the JDBC driver in to DriverManager
         try {
-            String read_fields = options.get(DorisOptions.DORIS_READ_FIELD);
-            if (StringUtils.isNotBlank(read_fields)) {
-                List<String> readFiledList =
-                        Arrays.stream(read_fields.split(","))
-                                .map(String::trim)
-                                .collect(Collectors.toList());
-                List<Column> tableColumns = table.getTableSchema().getColumns();
-                Map<String, Column> tableColumnsMap =
-                        tableColumns.stream()
-                                .collect(Collectors.toMap(Column::getName, column -> column));
-                List<String> matchingFieldNames =
-                        getMatchingFieldNames(readFiledList, tableColumnsMap);
-
-                table =
-                        reconstructCatalogTable(
-                                matchingFieldNames, tableColumnsMap, table, tablePath);
-            }
+            Class.forName("com.mysql.cj.jdbc.Driver");
         } catch (Exception e) {
-            log.error("create source error");
-            throw e;
+            log.warn("Failed to load JDBC driver com.mysql.cj.jdbc.Driver ", e);
         }
-        CatalogTable finalTable = table;
-        return () -> (SeaTunnelSource<T, SplitT, StateT>) new DorisSource(options, finalTable);
-    }
+        DorisSourceConfig dorisSourceConfig = DorisSourceConfig.of(context.getOptions());
+        List<DorisTableConfig> dorisTableConfigList = dorisSourceConfig.getTableConfigList();
+        Map<TablePath, DorisSourceTable> dorisSourceTables = new HashMap<>();
 
-    private static CatalogTable reconstructCatalogTable(
-            List<String> matchingFieldNames,
-            Map<String, Column> tableColumnsMap,
-            CatalogTable table,
-            TablePath tablePath) {
-        // reconstruct CatalogTable
-        TableSchema.Builder builder = TableSchema.builder();
-        for (String field : matchingFieldNames) {
-            Column column = tableColumnsMap.get(field);
-            builder.column(column);
-        }
-        if (table.getTableSchema().getPrimaryKey() != null) {
-            List<String> columns =
-                    table.getTableSchema().getPrimaryKey().getColumnNames().stream()
-                            .filter(matchingFieldNames::contains)
-                            .collect(Collectors.toList());
-            if (!columns.isEmpty()) {
-                builder.primaryKey(
-                        new PrimaryKey(
-                                table.getTableSchema().getPrimaryKey().getPrimaryKey(), columns));
+        DorisCatalogFactory dorisCatalogFactory = new DorisCatalogFactory();
+        try (DorisCatalog catalog =
+                (DorisCatalog) dorisCatalogFactory.createCatalog("doris", context.getOptions())) {
+            catalog.open();
+            for (DorisTableConfig dorisTableConfig : dorisTableConfigList) {
+                CatalogTable table;
+                TablePath tablePath = TablePath.of(dorisTableConfig.getTableIdentifier());
+                String readFields = dorisTableConfig.getReadField();
+                try {
+                    List<String> readFiledList = null;
+                    if (StringUtils.isNotBlank(readFields)) {
+                        readFiledList =
+                                Arrays.stream(readFields.split(","))
+                                        .map(String::trim)
+                                        .collect(Collectors.toList());
+                    }
+
+                    table = catalog.getTable(tablePath, readFiledList);
+                } catch (Exception e) {
+                    log.error("create source error");
+                    throw e;
+                }
+                dorisSourceTables.put(
+                        tablePath,
+                        DorisSourceTable.builder()
+                                .catalogTable(table)
+                                .tablePath(tablePath)
+                                .readField(readFields)
+                                .filterQuery(dorisTableConfig.getFilterQuery())
+                                .batchSize(dorisTableConfig.getBatchSize())
+                                .tabletSize(dorisTableConfig.getTabletSize())
+                                .execMemLimit(dorisTableConfig.getExecMemLimit())
+                                .build());
             }
         }
-
-        if (table.getTableSchema().getConstraintKeys() != null) {
-            List<ConstraintKey> keys =
-                    table.getTableSchema().getConstraintKeys().stream()
-                            .filter(
-                                    k ->
-                                            k.getColumnNames().stream()
-                                                    .map(
-                                                            ConstraintKey.ConstraintKeyColumn
-                                                                    ::getColumnName)
-                                                    .allMatch(matchingFieldNames::contains))
-                            .collect(Collectors.toList());
-            if (!keys.isEmpty()) {
-                builder.constraintKey(keys);
-            }
-        }
-
-        table =
-                CatalogTable.of(
-                        TableIdentifier.of(
-                                "Doris", tablePath.getDatabaseName(), tablePath.getTableName()),
-                        builder.build(),
-                        table.getOptions(),
-                        Collections.emptyList(),
-                        StringUtils.EMPTY);
-        return table;
-    }
-
-    public static List<String> getMatchingFieldNames(
-            List<String> readFieldList, Map<String, Column> tableColumnsMap) {
-        List<String> matchingFieldNames =
-                readFieldList.stream()
-                        .filter(tableColumnsMap::containsKey)
-                        .collect(Collectors.toList());
-
-        if (matchingFieldNames.size() != readFieldList.size()) {
-            List<String> nonMatchingFields =
-                    readFieldList.stream()
-                            .filter(field -> !matchingFieldNames.contains(field))
-                            .collect(Collectors.toList());
-            throw new DorisConnectorException(
-                    DorisConnectorErrorCode.SCHEMA_FAILED,
-                    "The following fields are not present in the table columns: "
-                            + nonMatchingFields);
-        }
-
-        return matchingFieldNames;
+        return () ->
+                (SeaTunnelSource<T, SplitT, StateT>)
+                        new DorisSource(dorisSourceConfig, dorisSourceTables);
     }
 
     @Override

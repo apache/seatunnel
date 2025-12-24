@@ -17,10 +17,15 @@
 
 package org.apache.seatunnel.e2e.common.container.flink;
 
+import org.apache.seatunnel.shade.com.google.common.collect.Lists;
+
+import org.apache.seatunnel.common.utils.FileUtils;
 import org.apache.seatunnel.e2e.common.container.AbstractTestContainer;
 import org.apache.seatunnel.e2e.common.container.ContainerExtendedFactory;
 import org.apache.seatunnel.e2e.common.container.TestContainer;
+import org.apache.seatunnel.e2e.common.util.ContainerUtil;
 
+import org.testcontainers.containers.BindMode;
 import org.testcontainers.containers.Container;
 import org.testcontainers.containers.GenericContainer;
 import org.testcontainers.containers.output.Slf4jLogConsumer;
@@ -28,11 +33,11 @@ import org.testcontainers.containers.wait.strategy.LogMessageWaitStrategy;
 import org.testcontainers.lifecycle.Startables;
 import org.testcontainers.utility.DockerLoggerFactory;
 
-import com.google.common.collect.Lists;
 import lombok.NoArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 
 import java.io.IOException;
+import java.nio.file.Paths;
 import java.time.Duration;
 import java.util.Arrays;
 import java.util.Collections;
@@ -53,7 +58,11 @@ public abstract class AbstractTestFlinkContainer extends AbstractTestContainer {
                     "jobmanager.rpc.address: jobmanager",
                     "taskmanager.numberOfTaskSlots: 10",
                     "parallelism.default: 4",
-                    "env.java.opts: -Doracle.jdbc.timezoneAsRegion=false");
+                    "env.java.opts: -Doracle.jdbc.timezoneAsRegion=false",
+                    // limit restart attempts in e2e to avoid infinite retries
+                    "restart-strategy: fixed-delay",
+                    "restart-strategy.fixed-delay.attempts: 2",
+                    "restart-strategy.fixed-delay.delay: 1000");
 
     protected static final String DEFAULT_DOCKER_IMAGE = "flink:1.13.6-scala_2.11";
 
@@ -67,6 +76,7 @@ public abstract class AbstractTestFlinkContainer extends AbstractTestContainer {
 
     @Override
     public void startUp() throws Exception {
+        FileUtils.createNewDir(HOST_VOLUME_MOUNT_PATH);
         final String dockerImage = getDockerImage();
         final String properties = String.join("\n", getFlinkProperties());
         jobManager =
@@ -82,10 +92,13 @@ public abstract class AbstractTestFlinkContainer extends AbstractTestContainer {
                         .waitingFor(
                                 new LogMessageWaitStrategy()
                                         .withRegEx(".*Starting the resource manager.*")
-                                        .withStartupTimeout(Duration.ofMinutes(2)));
+                                        .withStartupTimeout(Duration.ofMinutes(2)))
+                        .withFileSystemBind(
+                                HOST_VOLUME_MOUNT_PATH,
+                                CONTAINER_VOLUME_MOUNT_PATH,
+                                BindMode.READ_WRITE);
         copySeaTunnelStarterToContainer(jobManager);
         copySeaTunnelStarterLoggingToContainer(jobManager);
-
         jobManager.setPortBindings(Lists.newArrayList(String.format("%s:%s", 8081, 8081)));
 
         taskManager =
@@ -103,11 +116,14 @@ public abstract class AbstractTestFlinkContainer extends AbstractTestContainer {
                                 new LogMessageWaitStrategy()
                                         .withRegEx(
                                                 ".*Successful registration at resource manager.*")
-                                        .withStartupTimeout(Duration.ofMinutes(2)));
+                                        .withStartupTimeout(Duration.ofMinutes(2)))
+                        .withFileSystemBind(
+                                HOST_VOLUME_MOUNT_PATH,
+                                CONTAINER_VOLUME_MOUNT_PATH,
+                                BindMode.READ_WRITE);
 
         Startables.deepStart(Stream.of(jobManager)).join();
         Startables.deepStart(Stream.of(taskManager)).join();
-        // execute extra commands
         executeExtraCommands(jobManager);
     }
 
@@ -118,15 +134,25 @@ public abstract class AbstractTestFlinkContainer extends AbstractTestContainer {
     @Override
     public void tearDown() throws Exception {
         if (taskManager != null) {
+            // delete the volume
+            taskManager.execInContainer("rm", "-rf", CONTAINER_VOLUME_MOUNT_PATH);
             taskManager.stop();
         }
         if (jobManager != null) {
+            // delete the volume
+            jobManager.execInContainer("rm", "-rf", CONTAINER_VOLUME_MOUNT_PATH);
             jobManager.stop();
         }
+        FileUtils.deleteFile(HOST_VOLUME_MOUNT_PATH);
     }
 
     @Override
     protected String getSavePointCommand() {
+        throw new UnsupportedOperationException("Not implemented");
+    }
+
+    @Override
+    protected String getCancelJobCommand() {
         throw new UnsupportedOperationException("Not implemented");
     }
 
@@ -149,8 +175,14 @@ public abstract class AbstractTestFlinkContainer extends AbstractTestContainer {
     @Override
     public Container.ExecResult executeJob(String confFile)
             throws IOException, InterruptedException {
+        return executeJob(confFile, Collections.emptyList());
+    }
+
+    @Override
+    public Container.ExecResult executeJob(String confFile, List<String> variables)
+            throws IOException, InterruptedException {
         log.info("test in container: {}", identifier());
-        return executeJob(jobManager, confFile);
+        return executeJob(jobManager, confFile, null, variables);
     }
 
     @Override
@@ -161,5 +193,16 @@ public abstract class AbstractTestFlinkContainer extends AbstractTestContainer {
     public String executeJobManagerInnerCommand(String command)
             throws IOException, InterruptedException {
         return jobManager.execInContainer("bash", "-c", command).getStdout();
+    }
+
+    @Override
+    public void copyFileToContainer(String path, String targetPath) {
+        ContainerUtil.copyFileIntoContainers(
+                ContainerUtil.getResourcesFile(path).toPath(), targetPath, jobManager);
+    }
+
+    @Override
+    public void copyAbsolutePathToContainer(String path, String targetPath) {
+        ContainerUtil.copyFileIntoContainers(Paths.get(path), targetPath, jobManager);
     }
 }

@@ -28,6 +28,7 @@ import io.debezium.connector.AbstractSourceInfo;
 import io.debezium.data.Envelope;
 import io.debezium.document.DocumentReader;
 import io.debezium.relational.TableId;
+import io.debezium.relational.history.HistoryRecord;
 import io.debezium.util.SchemaNameAdjuster;
 
 import java.math.BigDecimal;
@@ -35,6 +36,7 @@ import java.math.BigInteger;
 import java.sql.ResultSet;
 import java.sql.SQLException;
 import java.util.Arrays;
+import java.util.List;
 
 import static io.debezium.connector.AbstractSourceInfo.DATABASE_NAME_KEY;
 import static io.debezium.connector.AbstractSourceInfo.SCHEMA_NAME_KEY;
@@ -45,8 +47,12 @@ public class SourceRecordUtils {
 
     private SourceRecordUtils() {}
 
-    public static final String SCHEMA_CHANGE_EVENT_KEY_NAME =
-            "io.debezium.connector.mysql.SchemaChangeKey";
+    /** Todo: Support more schema change event key name, currently only support MySQL and Oracle. */
+    public static final List<String> SUPPORT_SCHEMA_CHANGE_EVENT_KEY_NAME =
+            Arrays.asList(
+                    "io.debezium.connector.mysql.SchemaChangeKey",
+                    "io.debezium.connector.oracle.SchemaChangeKey");
+
     public static final String HEARTBEAT_VALUE_SCHEMA_KEY_NAME =
             "io.debezium.connector.common.Heartbeat";
     private static final DocumentReader DOCUMENT_READER = DocumentReader.defaultReader();
@@ -61,10 +67,9 @@ public class SourceRecordUtils {
     }
 
     /**
-     * Return the timestamp when the change event is produced in MySQL.
-     *
-     * <p>The field `source.ts_ms` in {@link SourceRecord} data struct is the time when the change
-     * event is operated in MySQL.
+     * In the source object, ts_ms indicates the time that the change was made in the database. By
+     * comparing the value for payload.source.ts_ms with the value for payload.ts_ms, you can
+     * determine the lag between the source database update and Debezium.
      */
     public static Long getMessageTimestamp(SourceRecord record) {
         Schema schema = record.valueSchema();
@@ -96,7 +101,9 @@ public class SourceRecordUtils {
 
     public static boolean isSchemaChangeEvent(SourceRecord sourceRecord) {
         Schema keySchema = sourceRecord.keySchema();
-        return keySchema != null && SCHEMA_CHANGE_EVENT_KEY_NAME.equalsIgnoreCase(keySchema.name());
+        return keySchema != null
+                && SUPPORT_SCHEMA_CHANGE_EVENT_KEY_NAME.stream()
+                        .anyMatch(name -> name.equalsIgnoreCase(keySchema.name()));
     }
 
     public static boolean isDataChangeRecord(SourceRecord record) {
@@ -213,5 +220,10 @@ public class SourceRecordUtils {
             schemaName = sourceStruct.getString(AbstractSourceInfo.SCHEMA_NAME_KEY);
         }
         return TablePath.of(databaseName, schemaName, tableName);
+    }
+
+    public static String getDdl(SourceRecord record) {
+        Struct schemaChangeStruct = (Struct) record.value();
+        return schemaChangeStruct.getString(HistoryRecord.Fields.DDL_STATEMENTS);
     }
 }

@@ -32,4 +32,12 @@ public class TestReplaceIT extends TestSuiteBase {
         Container.ExecResult execResult = container.executeJob("/replace_transform.conf");
         Assertions.assertEquals(0, execResult.getExitCode());
     }
+
+    @TestTemplate
+    public void testReplaceMultiTable(TestContainer container)
+            throws IOException, InterruptedException {
+        Container.ExecResult execResult =
+                container.executeJob("/replace_transform_multi_table.conf");
+        Assertions.assertEquals(0, execResult.getExitCode());
+    }
 }

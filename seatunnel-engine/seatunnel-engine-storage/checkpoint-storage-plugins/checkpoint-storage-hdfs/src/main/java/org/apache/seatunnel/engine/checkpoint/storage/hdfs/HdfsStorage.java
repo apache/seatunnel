@@ -20,13 +20,14 @@
 
 package org.apache.seatunnel.engine.checkpoint.storage.hdfs;
 
+import org.apache.seatunnel.shade.org.apache.commons.lang3.StringUtils;
+
 import org.apache.seatunnel.engine.checkpoint.storage.PipelineState;
 import org.apache.seatunnel.engine.checkpoint.storage.api.AbstractCheckpointStorage;
 import org.apache.seatunnel.engine.checkpoint.storage.exception.CheckpointStorageException;
 import org.apache.seatunnel.engine.checkpoint.storage.hdfs.common.AbstractConfiguration;
 import org.apache.seatunnel.engine.checkpoint.storage.hdfs.common.FileConfiguration;
 
-import org.apache.commons.lang3.StringUtils;
 import org.apache.hadoop.conf.Configuration;
 import org.apache.hadoop.fs.FSDataInputStream;
 import org.apache.hadoop.fs.FSDataOutputStream;
@@ -77,7 +78,7 @@ public class HdfsStorage extends AbstractCheckpointStorage {
                 config.getOrDefault(STORAGE_TYPE_KEY, FileConfiguration.LOCAL.toString());
         config.remove(STORAGE_TYPE_KEY);
         AbstractConfiguration configuration =
-                FileConfiguration.valueOf(storageType.toUpperCase()).getConfiguration(storageType);
+                FileConfiguration.valueOf(storageType.toUpperCase()).getConfiguration();
         return configuration.buildConfiguration(config);
     }
 
@@ -179,7 +180,7 @@ public class HdfsStorage extends AbstractCheckpointStorage {
                 });
 
         if (latestPipelineStates.isEmpty()) {
-            log.info("No checkpoint found for this job,  the job id:{} " + jobId);
+            log.info("No checkpoint found for this job, the job id:{} ", jobId);
         }
         return latestPipelineStates;
     }
@@ -331,7 +332,7 @@ public class HdfsStorage extends AbstractCheckpointStorage {
                 });
     }
 
-    private List<String> getFileNames(String path) throws CheckpointStorageException {
+    public List<String> getFileNames(String path) throws CheckpointStorageException {
         try {
             Path parentPath = new Path(path);
             if (!fs.exists(parentPath)) {

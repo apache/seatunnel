@@ -25,6 +25,7 @@ import org.apache.seatunnel.connectors.seatunnel.jdbc.catalog.sqlserver.SqlServe
 import org.apache.seatunnel.connectors.seatunnel.jdbc.catalog.sqlserver.SqlServerURLParser;
 
 import org.junit.jupiter.api.AfterAll;
+import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.BeforeAll;
 import org.junit.jupiter.api.Disabled;
 import org.junit.jupiter.api.MethodOrderer;
@@ -39,7 +40,8 @@ class MySqlCatalogTest {
     static JdbcUrlUtil.UrlInfo sqlParse =
             SqlServerURLParser.parse("jdbc:sqlserver://127.0.0.1:1434;database=TestDB");
     static JdbcUrlUtil.UrlInfo MysqlUrlInfo =
-            JdbcUrlUtil.getUrlInfo("jdbc:mysql://127.0.0.1:33061/liuliTest?useSSL=false");
+            JdbcUrlUtil.getUrlInfo(
+                    "jdbc:mysql://127.0.0.1:3306/test?useSSL=false&allowPublicKeyRetrieval=true");
     static JdbcUrlUtil.UrlInfo pg =
             JdbcUrlUtil.getUrlInfo("jdbc:postgresql://127.0.0.1:5432/liulitest");
     static TablePath tablePathSQL;
@@ -73,12 +75,22 @@ class MySqlCatalogTest {
         tablePathMySql = TablePath.of(databaseName, "mysql_to_mysql");
         tablePathPG = TablePath.of(databaseName, "pg_to_mysql");
         tablePathOracle = TablePath.of(databaseName, "oracle_to_mysql");
-        sqlServerCatalog = new SqlServerCatalog("sqlserver", "sa", "root@123", sqlParse, null);
-        mySqlCatalog = new MySqlCatalog("mysql", "root", "root@123", MysqlUrlInfo);
-        postgresCatalog = new PostgresCatalog("postgres", "postgres", "postgres", pg, null);
+        sqlServerCatalog =
+                new SqlServerCatalog("sqlserver", "sa", "root@123", sqlParse, null, null);
+        mySqlCatalog = new MySqlCatalog("mysql", "root", "123456", MysqlUrlInfo, null);
+        postgresCatalog = new PostgresCatalog("postgres", "postgres", "postgres", pg, null, null);
         mySqlCatalog.open();
         sqlServerCatalog.open();
         postgresCatalog.open();
+    }
+
+    @Test
+    void exists() {
+        Assertions.assertTrue(mySqlCatalog.databaseExists("test"));
+        Assertions.assertTrue(mySqlCatalog.tableExists(TablePath.of("test", "MY_TABLE")));
+        Assertions.assertTrue(mySqlCatalog.tableExists(TablePath.of("test", "my_table")));
+        Assertions.assertFalse(mySqlCatalog.tableExists(TablePath.of("test", "test")));
+        Assertions.assertFalse(mySqlCatalog.databaseExists("mysql"));
     }
 
     @Test

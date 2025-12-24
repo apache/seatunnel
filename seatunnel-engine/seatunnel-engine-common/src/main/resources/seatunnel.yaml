@@ -20,6 +20,7 @@ seatunnel:
         backup-count: 1
         queue-type: blockingqueue
         print-execution-info-interval: 60
+        print-job-metrics-info-interval: 60
         slot-service:
             dynamic-slot: true
         checkpoint:
@@ -38,3 +39,9 @@ seatunnel:
             connector-jar-storage-path: ""
             connector-jar-cleanup-task-interval: 3600
             connector-jar-expiry-time: 600
+        telemetry:
+            metric:
+                enabled: false
+        http:
+            enable-http: true
+            port: 8080

@@ -19,9 +19,11 @@ package org.apache.seatunnel.translation.spark.sink;
 
 import org.apache.seatunnel.api.sink.SeaTunnelSink;
 import org.apache.seatunnel.api.sink.SinkWriter;
+import org.apache.seatunnel.api.table.catalog.CatalogTable;
 import org.apache.seatunnel.api.table.type.SeaTunnelRow;
 
 import java.io.IOException;
+import java.util.Optional;
 
 public class SeaTunnelSinkWithBuffer implements SeaTunnelSink<SeaTunnelRow, Void, Void, Void> {
 
@@ -34,5 +36,10 @@ public class SeaTunnelSinkWithBuffer implements SeaTunnelSink<SeaTunnelRow, Void
     public SinkWriter<SeaTunnelRow, Void, Void> createWriter(SinkWriter.Context context)
             throws IOException {
         return new SeaTunnelSinkWithBufferWriter();
+    }
+
+    @Override
+    public Optional<CatalogTable> getWriteCatalogTable() {
+        return SeaTunnelSink.super.getWriteCatalogTable();
     }
 }

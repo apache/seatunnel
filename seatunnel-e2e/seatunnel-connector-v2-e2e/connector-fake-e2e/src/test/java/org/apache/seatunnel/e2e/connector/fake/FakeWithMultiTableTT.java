@@ -30,7 +30,7 @@ import java.io.IOException;
 
 @DisabledOnContainer(
         value = {},
-        type = {EngineType.SPARK, EngineType.FLINK},
+        type = {EngineType.FLINK},
         disabledReason = "Currently SPARK and FLINK do not support multi-table")
 public class FakeWithMultiTableTT extends TestSuiteBase {
     @TestTemplate

@@ -35,6 +35,7 @@ public class LocalFileCheckPointTest extends AbstractFileCheckPointTest {
     public static void setup() throws CheckpointStorageException {
         HashMap config = new HashMap();
         config.put("namespace", "/tmp/");
+        config.put("disable.cache", "false");
         STORAGE = new HdfsStorage(config);
         initStorageData();
     }

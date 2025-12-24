@@ -18,13 +18,9 @@
 package org.apache.seatunnel.engine.server.master;
 
 import org.apache.seatunnel.api.common.metrics.JobMetrics;
-import org.apache.seatunnel.engine.common.utils.PassiveCompletableFuture;
-import org.apache.seatunnel.engine.core.dag.logical.LogicalDag;
-import org.apache.seatunnel.engine.core.job.JobImmutableInformation;
-import org.apache.seatunnel.engine.core.job.JobStatus;
+import org.apache.seatunnel.engine.common.job.JobStatus;
 import org.apache.seatunnel.engine.server.AbstractSeaTunnelServerTest;
 import org.apache.seatunnel.engine.server.CoordinatorService;
-import org.apache.seatunnel.engine.server.TestUtils;
 
 import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.Test;
@@ -32,12 +28,11 @@ import org.junit.jupiter.api.TestInstance;
 import org.junit.jupiter.api.condition.DisabledOnOs;
 import org.junit.jupiter.api.condition.OS;
 
-import com.hazelcast.internal.serialization.Data;
 import lombok.extern.slf4j.Slf4j;
 
-import java.util.Collections;
 import java.util.concurrent.TimeUnit;
 
+import static org.apache.seatunnel.api.common.metrics.MetricNames.INTERMEDIATE_QUEUE_SIZE;
 import static org.apache.seatunnel.api.common.metrics.MetricNames.SINK_WRITE_COUNT;
 import static org.apache.seatunnel.api.common.metrics.MetricNames.SINK_WRITE_QPS;
 import static org.apache.seatunnel.api.common.metrics.MetricNames.SOURCE_RECEIVED_COUNT;
@@ -95,6 +90,22 @@ class JobMetricsTest extends AbstractSeaTunnelServerTest {
         assertEquals(30, (Long) jobMetrics.get(SOURCE_RECEIVED_COUNT).get(0).value());
         assertTrue((Double) jobMetrics.get(SOURCE_RECEIVED_QPS).get(0).value() > 0);
         assertTrue((Double) jobMetrics.get(SINK_WRITE_QPS).get(0).value() > 0);
+        assertEquals(0, (Long) jobMetrics.get(INTERMEDIATE_QUEUE_SIZE).get(0).value());
+    }
+
+    @Test
+    public void testMetricsWhenJobFailed() {
+        long jobId = System.currentTimeMillis();
+        startJob(jobId, "stream_fake_to_inmemory_with_error.conf", false);
+        await().atMost(120000, TimeUnit.MILLISECONDS)
+                .untilAsserted(
+                        () ->
+                                Assertions.assertEquals(
+                                        JobStatus.FAILED,
+                                        server.getCoordinatorService().getJobStatus(jobId)));
+
+        JobMetrics jobMetrics = server.getCoordinatorService().getJobMetrics(jobId);
+        assertTrue((Long) jobMetrics.get(INTERMEDIATE_QUEUE_SIZE).get(0).value() > 0);
     }
 
     @Test
@@ -137,47 +148,29 @@ class JobMetricsTest extends AbstractSeaTunnelServerTest {
                                         server.getCoordinatorService().getJobStatus(jobId3)));
 
         // check metrics
-        await().atMost(600000, TimeUnit.MILLISECONDS)
+        await().atMost(300000, TimeUnit.MILLISECONDS)
                 .untilAsserted(
                         () -> {
                             JobMetrics jobMetrics = coordinatorService.getJobMetrics(jobId3);
-                            assertTrue(40 < (Long) jobMetrics.get(SINK_WRITE_COUNT).get(0).value());
-                            assertTrue(40 < (Long) jobMetrics.get(SINK_WRITE_COUNT).get(1).value());
                             assertTrue(
-                                    40
-                                            < (Long)
+                                    100 <= (Long) jobMetrics.get(SINK_WRITE_COUNT).get(0).value());
+                            assertTrue(
+                                    100 <= (Long) jobMetrics.get(SINK_WRITE_COUNT).get(1).value());
+                            assertTrue(
+                                    100
+                                            <= (Long)
                                                     jobMetrics
                                                             .get(SOURCE_RECEIVED_COUNT)
                                                             .get(0)
                                                             .value());
                             assertTrue(
-                                    40
-                                            < (Long)
+                                    100
+                                            <= (Long)
                                                     jobMetrics
                                                             .get(SOURCE_RECEIVED_COUNT)
                                                             .get(1)
                                                             .value());
                         });
         server.getCoordinatorService().cancelJob(jobId3);
-    }
-
-    private void startJob(Long jobId, String path, boolean isStartWithSavePoint) {
-        LogicalDag testLogicalDag = TestUtils.createTestLogicalPlan(path, jobId.toString(), jobId);
-
-        JobImmutableInformation jobImmutableInformation =
-                new JobImmutableInformation(
-                        jobId,
-                        "Test",
-                        isStartWithSavePoint,
-                        nodeEngine.getSerializationService().toData(testLogicalDag),
-                        testLogicalDag.getJobConfig(),
-                        Collections.emptyList(),
-                        Collections.emptyList());
-
-        Data data = nodeEngine.getSerializationService().toData(jobImmutableInformation);
-
-        PassiveCompletableFuture<Void> voidPassiveCompletableFuture =
-                server.getCoordinatorService().submitJob(jobId, data);
-        voidPassiveCompletableFuture.join();
     }
 }

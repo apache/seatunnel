@@ -1,3 +1,5 @@
+import ChangeLog from '../changelog/connector-http-feishu.md';
+
 # 飞书
 
 > 飞书 数据接收器
@@ -10,8 +12,8 @@
 
 ## 主要特性
 
-- [ ] [精确一次](../../../en/concept/connector-v2-features.md)
-- [ ] [变更数据捕获](../../../en/concept/connector-v2-features.md)
+- [ ] [精确一次](../../concept/connector-v2-features.md)
+- [ ] [变更数据捕获](../../concept/connector-v2-features.md)
 
 ## 描述
 
@@ -42,15 +44,15 @@
 
 ## 接收器选项
 
-|       名称       |   类型   | 是否必需 | 默认值 |                                         描述                                         |
-|----------------|--------|------|-----|------------------------------------------------------------------------------------|
-| url            | String | 是    | -   | 飞书web hook URL                                                                     |
-| headers        | Map    | 否    | -   | HTTP 请求头                                                                           |
-| common-options |        | 否    | -   | 接收器插件常见参数，请参阅 [接收器通用选项](../../../en/connector-v2/source/common-options.md) 以获取详细信息 |
+|       名称       |   类型   | 是否必需 | 默认值 |                             描述                             |
+|----------------|--------|------|-----|------------------------------------------------------------|
+| url            | String | 是    | -   | 飞书web hook URL                                             |
+| headers        | Map    | 否    | -   | HTTP 请求头                                                   |
+| common-options |        | 否    | -   | 接收器插件常见参数，请参阅 [接收器通用选项](../sink-common-options.md) 以获取详细信息 |
 
 ## 任务示例
 
-### 简单示例:
+### 简单示例
 
 ```hocon
 Feishu {
@@ -58,9 +60,6 @@ Feishu {
     }
 ```
 
-## 更新日志
+## 变更日志
 
-### 2.2.0-beta 2022-09-26
-
-- 添加飞书接收器
-
+<ChangeLog />

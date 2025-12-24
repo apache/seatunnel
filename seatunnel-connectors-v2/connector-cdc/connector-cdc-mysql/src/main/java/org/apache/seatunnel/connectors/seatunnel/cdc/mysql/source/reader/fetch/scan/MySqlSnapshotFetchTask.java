@@ -23,12 +23,14 @@ import org.apache.seatunnel.connectors.cdc.base.source.split.IncrementalSplit;
 import org.apache.seatunnel.connectors.cdc.base.source.split.SnapshotSplit;
 import org.apache.seatunnel.connectors.cdc.base.source.split.SourceSplitBase;
 import org.apache.seatunnel.connectors.cdc.base.source.split.wartermark.WatermarkKind;
+import org.apache.seatunnel.connectors.seatunnel.cdc.mysql.config.MySqlSourceConfigFactory;
 import org.apache.seatunnel.connectors.seatunnel.cdc.mysql.source.reader.fetch.MySqlSourceFetchTaskContext;
 import org.apache.seatunnel.connectors.seatunnel.cdc.mysql.source.reader.fetch.binlog.MySqlBinlogFetchTask;
 
 import io.debezium.config.Configuration;
 import io.debezium.connector.mysql.MySqlConnectorConfig;
 import io.debezium.connector.mysql.MySqlOffsetContext;
+import io.debezium.connector.mysql.MySqlPartition;
 import io.debezium.heartbeat.Heartbeat;
 import io.debezium.pipeline.source.spi.ChangeEventSource;
 import io.debezium.pipeline.spi.SnapshotResult;
@@ -66,9 +68,11 @@ public class MySqlSnapshotFetchTask implements FetchTask<SourceSplitBase> {
                         split);
         SnapshotSplitChangeEventSourceContext changeEventSourceContext =
                 new SnapshotSplitChangeEventSourceContext();
-        SnapshotResult snapshotResult =
+        SnapshotResult<MySqlOffsetContext> snapshotResult =
                 snapshotSplitReadTask.execute(
-                        changeEventSourceContext, sourceFetchContext.getOffsetContext());
+                        changeEventSourceContext,
+                        sourceFetchContext.getPartition(),
+                        sourceFetchContext.getOffsetContext());
         if (!snapshotResult.isCompletedOrSkipped()) {
             taskRunning = false;
             throw new IllegalStateException(
@@ -79,7 +83,7 @@ public class MySqlSnapshotFetchTask implements FetchTask<SourceSplitBase> {
                 changeEventSourceContext
                         .getHighWatermark()
                         .isAfter(changeEventSourceContext.getLowWatermark());
-        if (!context.isExactlyOnce()) {
+        if (!sourceFetchContext.isExactlyOnce()) {
             taskRunning = false;
             if (changed) {
                 log.debug("Skip merge changelog(exactly-once) for snapshot split {}", split);
@@ -93,8 +97,8 @@ public class MySqlSnapshotFetchTask implements FetchTask<SourceSplitBase> {
         if (!changed) {
             dispatchBinlogEndEvent(
                     backfillSplit,
-                    ((MySqlSourceFetchTaskContext) context).getOffsetContext().getPartition(),
-                    ((MySqlSourceFetchTaskContext) context).getDispatcher());
+                    sourceFetchContext.getPartition().getSourcePartition(),
+                    sourceFetchContext.getDispatcher());
             taskRunning = false;
             return;
         }
@@ -107,6 +111,7 @@ public class MySqlSnapshotFetchTask implements FetchTask<SourceSplitBase> {
                 backfillSplit.getStopOffset());
         backfillReadTask.execute(
                 new SnapshotBinlogSplitChangeEventSourceContext(),
+                sourceFetchContext.getPartition(),
                 sourceFetchContext.getOffsetContext());
         log.info("backfillReadTask execute end");
 
@@ -126,7 +131,7 @@ public class MySqlSnapshotFetchTask implements FetchTask<SourceSplitBase> {
     private void dispatchBinlogEndEvent(
             IncrementalSplit backFillBinlogSplit,
             Map<String, ?> sourcePartition,
-            JdbcSourceEventDispatcher eventDispatcher)
+            JdbcSourceEventDispatcher<MySqlPartition> eventDispatcher)
             throws InterruptedException {
         eventDispatcher.dispatchWatermarkEvent(
                 sourcePartition,
@@ -148,6 +153,7 @@ public class MySqlSnapshotFetchTask implements FetchTask<SourceSplitBase> {
                 context.getSourceConfig()
                         .getDbzConfiguration()
                         .edit()
+                        .with(MySqlSourceConfigFactory.SCHEMA_CHANGE_KEY, "false")
                         .with("table.include.list", split.getTableId().toString())
                         // Disable heartbeat event in snapshot split fetcher
                         .with(Heartbeat.HEARTBEAT_INTERVAL, 0)

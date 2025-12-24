@@ -18,11 +18,11 @@
 package org.apache.seatunnel.api.table.catalog;
 
 import org.apache.seatunnel.shade.com.typesafe.config.Config;
+import org.apache.seatunnel.shade.org.apache.commons.lang3.StringUtils;
 
-import org.apache.seatunnel.api.common.CommonOptions;
 import org.apache.seatunnel.api.configuration.ReadonlyConfig;
+import org.apache.seatunnel.api.options.ConnectorCommonOptions;
 import org.apache.seatunnel.api.table.catalog.schema.ReadonlyConfigParser;
-import org.apache.seatunnel.api.table.catalog.schema.TableSchemaOptions;
 import org.apache.seatunnel.api.table.factory.FactoryUtil;
 import org.apache.seatunnel.api.table.type.BasicType;
 import org.apache.seatunnel.api.table.type.MultipleRowType;
@@ -30,8 +30,6 @@ import org.apache.seatunnel.api.table.type.SeaTunnelDataType;
 import org.apache.seatunnel.api.table.type.SeaTunnelRow;
 import org.apache.seatunnel.api.table.type.SeaTunnelRowType;
 import org.apache.seatunnel.common.utils.SeaTunnelException;
-
-import org.apache.commons.lang3.StringUtils;
 
 import lombok.extern.slf4j.Slf4j;
 
@@ -42,6 +40,8 @@ import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
+import java.util.function.Function;
+import java.util.stream.Collectors;
 
 /** Utils contains some common methods for construct CatalogTable. */
 @Slf4j
@@ -92,7 +92,8 @@ public class CatalogTableUtil implements Serializable {
             ReadonlyConfig readonlyConfig, ClassLoader classLoader) {
 
         // We use plugin_name as factoryId, so MySQL-CDC should be MySQL
-        String factoryId = readonlyConfig.get(CommonOptions.PLUGIN_NAME).replace("-CDC", "");
+        String factoryId =
+                readonlyConfig.get(ConnectorCommonOptions.PLUGIN_NAME).replace("-CDC", "");
         return getCatalogTables(factoryId, readonlyConfig, classLoader);
     }
 
@@ -100,7 +101,7 @@ public class CatalogTableUtil implements Serializable {
     public static List<CatalogTable> getCatalogTables(
             String factoryId, ReadonlyConfig readonlyConfig, ClassLoader classLoader) {
         // Highest priority: specified schema
-        Map<String, Object> schemaMap = readonlyConfig.get(TableSchemaOptions.SCHEMA);
+        Map<String, Object> schemaMap = readonlyConfig.get(ConnectorCommonOptions.SCHEMA);
         if (schemaMap != null) {
             if (schemaMap.isEmpty()) {
                 throw new SeaTunnelException("Schema config can not be empty");
@@ -155,7 +156,8 @@ public class CatalogTableUtil implements Serializable {
         }
     }
 
-    public static MultipleRowType convertToMultipleRowType(List<CatalogTable> catalogTables) {
+    @Deprecated
+    private static MultipleRowType convertToMultipleRowType(List<CatalogTable> catalogTables) {
         Map<String, SeaTunnelRowType> rowTypeMap = new HashMap<>();
         for (CatalogTable catalogTable : catalogTables) {
             String tableId = catalogTable.getTableId().toTablePath().toString();
@@ -191,7 +193,7 @@ public class CatalogTableUtil implements Serializable {
     }
 
     public static CatalogTable buildWithConfig(String catalogName, ReadonlyConfig readonlyConfig) {
-        if (readonlyConfig.get(TableSchemaOptions.SCHEMA) == null) {
+        if (readonlyConfig.get(ConnectorCommonOptions.SCHEMA) == null) {
             throw new RuntimeException(
                     "Schema config need option [schema], please correct your config first");
         }
@@ -199,23 +201,21 @@ public class CatalogTableUtil implements Serializable {
 
         ReadonlyConfig schemaConfig =
                 readonlyConfig
-                        .getOptional(TableSchemaOptions.SCHEMA)
+                        .getOptional(ConnectorCommonOptions.SCHEMA)
                         .map(ReadonlyConfig::fromMap)
                         .orElseThrow(
                                 () -> new IllegalArgumentException("Schema config can't be null"));
 
         TablePath tablePath;
-        if (StringUtils.isNotEmpty(
-                schemaConfig.get(TableSchemaOptions.TableIdentifierOptions.TABLE))) {
+        if (StringUtils.isNotEmpty(schemaConfig.get(ConnectorCommonOptions.TABLE))) {
             tablePath =
                     TablePath.of(
-                            schemaConfig.get(TableSchemaOptions.TableIdentifierOptions.TABLE),
-                            schemaConfig.get(
-                                    TableSchemaOptions.TableIdentifierOptions.SCHEMA_FIRST));
+                            schemaConfig.get(ConnectorCommonOptions.TABLE),
+                            schemaConfig.get(ConnectorCommonOptions.SCHEMA_FIRST));
         } else {
-            Optional<String> resultTableNameOptional =
-                    readonlyConfig.getOptional(CommonOptions.RESULT_TABLE_NAME);
-            tablePath = resultTableNameOptional.map(TablePath::of).orElse(TablePath.DEFAULT);
+            Optional<String> pluginOutputIdentifierOptional =
+                    readonlyConfig.getOptional(ConnectorCommonOptions.PLUGIN_OUTPUT);
+            tablePath = pluginOutputIdentifierOptional.map(TablePath::of).orElse(TablePath.DEFAULT);
         }
 
         return CatalogTable.of(
@@ -224,7 +224,7 @@ public class CatalogTableUtil implements Serializable {
                 new HashMap<>(),
                 // todo: add partitionKeys?
                 new ArrayList<>(),
-                readonlyConfig.get(TableSchemaOptions.TableIdentifierOptions.COMMENT));
+                readonlyConfig.get(ConnectorCommonOptions.TABLE_COMMENT));
     }
 
     public static SeaTunnelRowType buildSimpleTextSchema() {
@@ -233,5 +233,42 @@ public class CatalogTableUtil implements Serializable {
 
     public static CatalogTable buildSimpleTextTable() {
         return getCatalogTable("default", buildSimpleTextSchema());
+    }
+
+    public static CatalogTable newCatalogTable(
+            CatalogTable catalogTable, SeaTunnelRowType seaTunnelRowType) {
+        TableSchema tableSchema = catalogTable.getTableSchema();
+
+        Map<String, Column> columnMap =
+                tableSchema.getColumns().stream()
+                        .collect(Collectors.toMap(Column::getName, Function.identity()));
+        String[] fieldNames = seaTunnelRowType.getFieldNames();
+        SeaTunnelDataType<?>[] fieldTypes = seaTunnelRowType.getFieldTypes();
+
+        List<Column> finalColumns = new ArrayList<>();
+        for (int i = 0; i < fieldNames.length; i++) {
+            Column column = columnMap.get(fieldNames[i]);
+            if (column != null) {
+                finalColumns.add(column);
+            } else {
+                finalColumns.add(
+                        PhysicalColumn.of(fieldNames[i], fieldTypes[i], 0, true, null, null));
+            }
+        }
+
+        TableSchema finalSchema =
+                TableSchema.builder()
+                        .columns(finalColumns)
+                        .primaryKey(tableSchema.getPrimaryKey())
+                        .constraintKey(tableSchema.getConstraintKeys())
+                        .build();
+
+        return CatalogTable.of(
+                catalogTable.getTableId(),
+                finalSchema,
+                catalogTable.getOptions(),
+                catalogTable.getPartitionKeys(),
+                catalogTable.getComment(),
+                catalogTable.getCatalogName());
     }
 }

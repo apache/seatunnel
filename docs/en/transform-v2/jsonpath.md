@@ -8,24 +8,33 @@
 
 ## Options
 
-|  name   | type  | required | default value |
-|---------|-------|----------|---------------|
-| Columns | Array | Yes      |               |
+| name                 | type  | required | default value |
+|----------------------|-------|----------|---------------|
+| columns              | Array | Yes      |               |
+| row_error_handle_way | Enum  | No       | FAIL          |
 
 ### common options [string]
 
 Transform plugin common parameters, please refer to [Transform Plugin](common-options.md) for details
 
-### fields[array]
+### row_error_handle_way [Enum]
+
+This option is used to specify the processing method when an error occurs in the row, the default value is `FAIL`.
+
+- FAIL: When `FAIL` is selected, data format error will block and an exception will be thrown.
+- SKIP: When `SKIP` is selected, data format error will skip this row data.
+
+### columns [array]
 
 #### option
 
-|    name    |  type  | required | default value |
-|------------|--------|----------|---------------|
-| src_field  | String | Yes      |               |
-| dest_field | String | Yes      |               |
-| path       | String | Yes      |               |
-| dest_type  | String | No       | String        |
+| name                    | type   | required | default value |
+|-------------------------|--------|----------|---------------|
+| src_field               | String | Yes      |               |
+| dest_field              | String | Yes      |               |
+| path                    | String | Yes      |               |
+| dest_type               | String | No       | String        |
+| column_error_handle_way | Enum   | No       |               |
 
 #### src_field
 
@@ -51,6 +60,14 @@ Support SeatunnelDateType
 
 > Jsonpath
 
+#### column_error_handle_way [Enum]
+
+This option is used to specify the processing method when an error occurs in the column.
+
+- FAIL: When `FAIL` is selected, data format error will block and an exception will be thrown.
+- SKIP: When `SKIP` is selected, data format error will skip this column data.
+- SKIP_ROW: When `SKIP_ROW` is selected, data format error will skip this row data.
+
 ## Read Json Example
 
 The data read from source is a table like this json:
@@ -66,7 +83,8 @@ The data read from source is a table like this json:
     "c_decimal": 10.55,
     "c_date": "2023-10-29",
     "c_datetime": "16:12:43.459",
-    "c_array":["item1", "item2", "item3"]
+    "c_array":["item1", "item2", "item3"],
+    "c_map_array": [{"c_string_1":"c_string_1","c_string_2":"c_string_2","c_string_3":"c_string_3"},{"c_string_1":"c_string_1","c_string_2":"c_string_2","c_string_3":"c_string_3"}]
   }
 }
 ```
@@ -76,8 +94,8 @@ Assuming we want to use JsonPath to extract properties.
 ```json
 transform {
   JsonPath {
-    source_table_name = "fake"
-    result_table_name = "fake1"
+    plugin_input = "fake"
+    plugin_output = "fake1"
     columns = [
      {
         "src_field" = "data"
@@ -126,16 +144,43 @@ transform {
          "dest_field" = "c1_datetime"
          "dest_type" = "time"
       },
-			{
+      {
          "src_field" = "data"
          "path" = "$.data.c_array"
          "dest_field" = "c1_array"
          "dest_type" = "array<string>"        
+      },
+      {
+        "src_field" = "data"
+        "path" = "$.data.c_map_array"
+        "dest_field" = "c1_map_array"
+        "dest_type" = "array<map<string, string>>"
       }
     ]
   }
 }
 ```
+
+The same result can be achieved with much simpler configuration using batch field extraction with array format:
+
+```hocon
+transform {
+  JsonPath {
+    plugin_input = "fake"
+    plugin_output = "fake1"
+    columns = [
+     {
+        "src_field" = "data"
+        "path" = ["$.data.c_string", "$.data.c_boolean", "$.data.c_integer", "$.data.c_float", "$.data.c_double", "$.data.c_decimal", "$.data.c_date", "$.data.c_datetime", "$.data.c_array", "$.data.c_map_array"]
+        "dest_field" = ["c1_string", "c1_boolean", "c1_integer", "c1_float", "c1_double", "c1_decimal", "c1_date", "c1_datetime", "c1_array", "c1_map_array"]
+        "dest_type" = ["string", "boolean", "int", "float", "double", "decimal(4,2)", "date", "time", "array<string>", "array<map<string, string>>"]
+     }
+    ]
+  }
+}
+```
+
+**Important:** When using batch field extraction (multiple paths, dest_fields, and dest_types), the `dest_type` parameter is **required** and cannot be omitted. Each extracted field must have a corresponding type specified. The array format provides better readability and is less error-prone than string-based configurations.
 
 Then the data result table `fake1` will like this
 
@@ -155,23 +200,25 @@ Suppose a column in a row of data is of type SeatunnelRow and that the name of t
 
 The JsonPath transform converts the values of seatunnel into an array,
 
-```json
+```hocon
 transform {
   JsonPath {
-    source_table_name = "fake"
-    result_table_name = "fake1"
+    plugin_input = "fake"
+    plugin_output = "fake1"
+  
+    row_error_handle_way = FAIL
     columns = [
      {
         "src_field" = "col"
         "path" = "$[0]"
         "dest_field" = "name"
-  			"dest_type" = "string"
+        "dest_type" = "string"
      },
-		{
+     {
         "src_field" = "col"
         "path" = "$[1]"
         "dest_field" = "age"
-  			"dest_type" = "int"
+        "dest_type" = "int"
      }
     ]
   }
@@ -183,6 +230,97 @@ Then the data result table `fake1` will like this
 | name | age |   col    | other |
 |------|-----|----------|-------|
 | a    | 18  | ["a",18] | ...   |
+
+
+## Configure error data handle way
+
+You can configure `row_error_handle_way` and `column_error_handle_way` to handle abnormal data. Both are optional.
+
+`row_error_handle_way` is used to handle all data anomalies in the row data, while `column_error_handle_way` is used to handle data anomalies in a column. It has a higher priority than `row_error_handle_way`.
+
+### Skip error data rows
+
+Configure to skip row data with exceptions in any column
+
+```hocon
+transform {
+  JsonPath {
+
+    row_error_handle_way = SKIP
+    
+    columns = [
+     {
+        "src_field" = "json_data"
+        "path" = "$.f1"
+        "dest_field" = "json_data_f1"
+     },
+     {
+        "src_field" = "json_data"
+        "path" = "$.f2"
+        "dest_field" = "json_data_f2"
+     }
+    ]
+  }
+}
+```
+
+### Skip error data column
+
+Configure only `json_data_f1` column data exceptions to skip and fill in null values, other column data exceptions will continue to throw exception interrupt handlers
+
+
+```hocon
+transform {
+  JsonPath {
+
+    row_error_handle_way = FAIL
+    
+    columns = [
+     {
+        "src_field" = "json_data"
+        "path" = "$.f1"
+        "dest_field" = "json_data_f1"
+        
+        "column_error_handle_way" = "SKIP"
+     },
+     {
+        "src_field" = "json_data"
+        "path" = "$.f2"
+        "dest_field" = "json_data_f2"
+     }
+    ]
+  }
+}
+```
+
+### Skip the row for specified column error
+
+Configure to skip the row of data only for `json_data_f1` column data exceptions, and continue to throw exceptions to interrupt the handler for other column data exceptions
+
+
+```hocon
+transform {
+  JsonPath {
+
+    row_error_handle_way = FAIL
+    
+    columns = [
+     {
+        "src_field" = "json_data"
+        "path" = "$.f1"
+        "dest_field" = "json_data_f1"
+        
+        "column_error_handle_way" = "SKIP_ROW"
+     },
+     {
+        "src_field" = "json_data"
+        "path" = "$.f2"
+        "dest_field" = "json_data_f2"
+     }
+    ]
+  }
+}
+```
 
 ## Changelog
 

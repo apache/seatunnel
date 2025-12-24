@@ -1,3 +1,5 @@
+import ChangeLog from '../changelog/connector-amazonsqs.md';
+
 # AmazonSqs
 
 > Amazon SQS sink connector
@@ -70,7 +72,7 @@ source {
         }
       }
     }
-    result_table_name = "fake"
+    plugin_output = "fake"
   }
 }
 
@@ -85,3 +87,6 @@ sink {
 }
 ```
 
+## Changelog
+
+<ChangeLog />

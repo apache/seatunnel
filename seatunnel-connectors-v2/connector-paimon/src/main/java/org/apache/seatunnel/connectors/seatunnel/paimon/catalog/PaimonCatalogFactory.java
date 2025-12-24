@@ -22,7 +22,8 @@ import org.apache.seatunnel.api.configuration.util.OptionRule;
 import org.apache.seatunnel.api.table.catalog.Catalog;
 import org.apache.seatunnel.api.table.factory.CatalogFactory;
 import org.apache.seatunnel.api.table.factory.Factory;
-import org.apache.seatunnel.connectors.seatunnel.paimon.config.PaimonSinkConfig;
+import org.apache.seatunnel.connectors.seatunnel.paimon.config.PaimonBaseOptions;
+import org.apache.seatunnel.connectors.seatunnel.paimon.config.PaimonSinkOptions;
 
 import com.google.auto.service.AutoService;
 
@@ -30,7 +31,7 @@ import com.google.auto.service.AutoService;
 public class PaimonCatalogFactory implements CatalogFactory {
     @Override
     public Catalog createCatalog(String catalogName, ReadonlyConfig readonlyConfig) {
-        return new PaimonCatalog(catalogName, new PaimonSinkConfig(readonlyConfig));
+        return new PaimonCatalog(catalogName, readonlyConfig);
     }
 
     @Override
@@ -42,18 +43,24 @@ public class PaimonCatalogFactory implements CatalogFactory {
     public OptionRule optionRule() {
         return OptionRule.builder()
                 .required(
-                        PaimonSinkConfig.WAREHOUSE,
-                        PaimonSinkConfig.DATABASE,
-                        PaimonSinkConfig.TABLE)
+                        PaimonBaseOptions.WAREHOUSE,
+                        PaimonBaseOptions.DATABASE,
+                        PaimonBaseOptions.TABLE)
                 .optional(
-                        PaimonSinkConfig.HDFS_SITE_PATH,
-                        PaimonSinkConfig.SCHEMA_SAVE_MODE,
-                        PaimonSinkConfig.DATA_SAVE_MODE,
-                        PaimonSinkConfig.PRIMARY_KEYS,
-                        PaimonSinkConfig.PARTITION_KEYS,
-                        PaimonSinkConfig.WRITE_PROPS,
-                        PaimonSinkConfig.HADOOP_CONF,
-                        PaimonSinkConfig.HADOOP_CONF_PATH)
+                        PaimonBaseOptions.HDFS_SITE_PATH,
+                        PaimonBaseOptions.HADOOP_CONF,
+                        PaimonBaseOptions.HADOOP_CONF_PATH,
+                        PaimonBaseOptions.CATALOG_TYPE,
+                        PaimonSinkOptions.SCHEMA_SAVE_MODE,
+                        PaimonSinkOptions.DATA_SAVE_MODE,
+                        PaimonSinkOptions.PRIMARY_KEYS,
+                        PaimonSinkOptions.PARTITION_KEYS,
+                        PaimonSinkOptions.WRITE_PROPS,
+                        PaimonSinkOptions.BRANCH)
+                .conditional(
+                        PaimonBaseOptions.CATALOG_TYPE,
+                        PaimonCatalogEnum.HIVE,
+                        PaimonBaseOptions.CATALOG_URI)
                 .build();
     }
 }

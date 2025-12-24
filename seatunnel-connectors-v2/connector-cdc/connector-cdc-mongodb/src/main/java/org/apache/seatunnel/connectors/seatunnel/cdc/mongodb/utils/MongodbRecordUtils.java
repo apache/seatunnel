@@ -17,7 +17,8 @@
 
 package org.apache.seatunnel.connectors.seatunnel.cdc.mongodb.utils;
 
-import org.apache.commons.lang3.StringUtils;
+import org.apache.seatunnel.shade.org.apache.commons.lang3.StringUtils;
+
 import org.apache.kafka.connect.data.Schema;
 import org.apache.kafka.connect.data.SchemaAndValue;
 import org.apache.kafka.connect.data.Struct;
@@ -44,8 +45,10 @@ import static com.mongodb.kafka.connect.source.schema.AvroSchema.fromJson;
 import static io.debezium.connector.AbstractSourceInfo.TABLE_NAME_KEY;
 import static org.apache.seatunnel.connectors.cdc.base.source.split.wartermark.WatermarkEvent.isWatermarkEvent;
 import static org.apache.seatunnel.connectors.seatunnel.cdc.mongodb.config.MongodbSourceOptions.COLL_FIELD;
+import static org.apache.seatunnel.connectors.seatunnel.cdc.mongodb.config.MongodbSourceOptions.COPY_KEY_FIELD;
 import static org.apache.seatunnel.connectors.seatunnel.cdc.mongodb.config.MongodbSourceOptions.DB_FIELD;
 import static org.apache.seatunnel.connectors.seatunnel.cdc.mongodb.config.MongodbSourceOptions.DOCUMENT_KEY;
+import static org.apache.seatunnel.connectors.seatunnel.cdc.mongodb.config.MongodbSourceOptions.HEARTBEAT_KEY_FIELD;
 import static org.apache.seatunnel.connectors.seatunnel.cdc.mongodb.config.MongodbSourceOptions.ID_FIELD;
 import static org.apache.seatunnel.connectors.seatunnel.cdc.mongodb.config.MongodbSourceOptions.NS_FIELD;
 import static org.apache.seatunnel.connectors.seatunnel.cdc.mongodb.config.MongodbSourceOptions.OUTPUT_SCHEMA;
@@ -53,8 +56,14 @@ import static org.apache.seatunnel.connectors.seatunnel.cdc.mongodb.config.Mongo
 
 public class MongodbRecordUtils {
 
+    /** Check the sourceRecord is snapshot record. */
+    public static boolean isSnapshotRecord(SourceRecord sourceRecord) {
+        return "true".equals(getOffsetValue(sourceRecord, COPY_KEY_FIELD));
+    }
+
+    /** Check the sourceRecord is heartbeat event. */
     public static boolean isHeartbeatEvent(SourceRecord sourceRecord) {
-        return "true".equals(getOffsetValue(sourceRecord, "copy"));
+        return "true".equals(getOffsetValue(sourceRecord, HEARTBEAT_KEY_FIELD));
     }
 
     public static boolean isDataChangeRecord(SourceRecord sourceRecord) {
@@ -179,7 +188,7 @@ public class MongodbRecordUtils {
             @Nonnull BsonDocument idDocument, boolean isSnapshotRecord) {
         Map<String, String> sourceOffset = new HashMap<>();
         sourceOffset.put(ID_FIELD, idDocument.toJson());
-        sourceOffset.put("copy", String.valueOf(isSnapshotRecord));
+        sourceOffset.put(COPY_KEY_FIELD, String.valueOf(isSnapshotRecord));
         return sourceOffset;
     }
 

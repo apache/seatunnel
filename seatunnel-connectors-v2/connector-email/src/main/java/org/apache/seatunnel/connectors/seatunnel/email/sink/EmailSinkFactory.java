@@ -18,25 +18,35 @@
 package org.apache.seatunnel.connectors.seatunnel.email.sink;
 
 import org.apache.seatunnel.api.configuration.util.OptionRule;
+import org.apache.seatunnel.api.options.SinkConnectorCommonOptions;
+import org.apache.seatunnel.api.table.catalog.CatalogTable;
+import org.apache.seatunnel.api.table.connector.TableSink;
 import org.apache.seatunnel.api.table.factory.Factory;
 import org.apache.seatunnel.api.table.factory.TableSinkFactory;
+import org.apache.seatunnel.api.table.factory.TableSinkFactoryContext;
 
 import com.google.auto.service.AutoService;
 
-import static org.apache.seatunnel.connectors.seatunnel.email.config.EmailConfig.EMAIL_AUTHORIZATION_CODE;
-import static org.apache.seatunnel.connectors.seatunnel.email.config.EmailConfig.EMAIL_FROM_ADDRESS;
-import static org.apache.seatunnel.connectors.seatunnel.email.config.EmailConfig.EMAIL_HOST;
-import static org.apache.seatunnel.connectors.seatunnel.email.config.EmailConfig.EMAIL_MESSAGE_CONTENT;
-import static org.apache.seatunnel.connectors.seatunnel.email.config.EmailConfig.EMAIL_MESSAGE_HEADLINE;
-import static org.apache.seatunnel.connectors.seatunnel.email.config.EmailConfig.EMAIL_SMTP_AUTH;
-import static org.apache.seatunnel.connectors.seatunnel.email.config.EmailConfig.EMAIL_TO_ADDRESS;
-import static org.apache.seatunnel.connectors.seatunnel.email.config.EmailConfig.EMAIL_TRANSPORT_PROTOCOL;
+import static org.apache.seatunnel.connectors.seatunnel.email.config.EmailSinkOptions.EMAIL_AUTHORIZATION_CODE;
+import static org.apache.seatunnel.connectors.seatunnel.email.config.EmailSinkOptions.EMAIL_FROM_ADDRESS;
+import static org.apache.seatunnel.connectors.seatunnel.email.config.EmailSinkOptions.EMAIL_HOST;
+import static org.apache.seatunnel.connectors.seatunnel.email.config.EmailSinkOptions.EMAIL_MESSAGE_CONTENT;
+import static org.apache.seatunnel.connectors.seatunnel.email.config.EmailSinkOptions.EMAIL_MESSAGE_HEADLINE;
+import static org.apache.seatunnel.connectors.seatunnel.email.config.EmailSinkOptions.EMAIL_SMTP_AUTH;
+import static org.apache.seatunnel.connectors.seatunnel.email.config.EmailSinkOptions.EMAIL_TO_ADDRESS;
+import static org.apache.seatunnel.connectors.seatunnel.email.config.EmailSinkOptions.EMAIL_TRANSPORT_PROTOCOL;
 
 @AutoService(Factory.class)
 public class EmailSinkFactory implements TableSinkFactory {
     @Override
     public String factoryIdentifier() {
         return "EmailSink";
+    }
+
+    @Override
+    public TableSink createSink(TableSinkFactoryContext context) {
+        CatalogTable catalogTable = context.getCatalogTable();
+        return () -> new EmailSink(context.getOptions(), catalogTable);
     }
 
     @Override
@@ -51,6 +61,7 @@ public class EmailSinkFactory implements TableSinkFactory {
                         EMAIL_AUTHORIZATION_CODE,
                         EMAIL_MESSAGE_HEADLINE,
                         EMAIL_MESSAGE_CONTENT)
+                .optional(SinkConnectorCommonOptions.MULTI_TABLE_SINK_REPLICA)
                 .build();
     }
 }

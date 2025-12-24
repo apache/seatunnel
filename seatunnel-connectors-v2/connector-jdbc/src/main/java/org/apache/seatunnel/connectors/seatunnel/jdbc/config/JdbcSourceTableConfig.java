@@ -27,7 +27,6 @@ import lombok.Data;
 import lombok.experimental.Tolerate;
 
 import java.io.Serializable;
-import java.math.BigDecimal;
 import java.util.Collections;
 import java.util.HashSet;
 import java.util.List;
@@ -53,10 +52,19 @@ public class JdbcSourceTableConfig implements Serializable {
     private Integer partitionNumber;
 
     @JsonProperty("partition_lower_bound")
-    private BigDecimal partitionStart;
+    private String partitionStart;
 
     @JsonProperty("partition_upper_bound")
-    private BigDecimal partitionEnd;
+    private String partitionEnd;
+
+    @JsonProperty("use_select_count")
+    private Boolean useSelectCount;
+
+    @JsonProperty("skip_analyze")
+    private Boolean skipAnalyze;
+
+    @JsonProperty("use_regex")
+    private Boolean useRegex;
 
     @Tolerate
     public JdbcSourceTableConfig() {}
@@ -64,7 +72,7 @@ public class JdbcSourceTableConfig implements Serializable {
     public static List<JdbcSourceTableConfig> of(ReadonlyConfig connectorConfig) {
         List<JdbcSourceTableConfig> tableList;
         if (connectorConfig.getOptional(JdbcSourceOptions.TABLE_LIST).isPresent()) {
-            if (connectorConfig.getOptional(JdbcOptions.QUERY).isPresent()
+            if (connectorConfig.getOptional(JdbcSourceOptions.QUERY).isPresent()
                     || connectorConfig.getOptional(JdbcSourceOptions.TABLE_PATH).isPresent()) {
                 throw new IllegalArgumentException(
                         "Please configure either `table_list` or `table_path`/`query`, not both");
@@ -74,11 +82,15 @@ public class JdbcSourceTableConfig implements Serializable {
             JdbcSourceTableConfig tableProperty =
                     JdbcSourceTableConfig.builder()
                             .tablePath(connectorConfig.get(JdbcSourceOptions.TABLE_PATH))
-                            .query(connectorConfig.get(JdbcOptions.QUERY))
-                            .partitionColumn(connectorConfig.get(JdbcOptions.PARTITION_COLUMN))
-                            .partitionNumber(connectorConfig.get(JdbcOptions.PARTITION_NUM))
-                            .partitionStart(connectorConfig.get(JdbcOptions.PARTITION_LOWER_BOUND))
-                            .partitionEnd(connectorConfig.get(JdbcOptions.PARTITION_UPPER_BOUND))
+                            .query(connectorConfig.get(JdbcSourceOptions.QUERY))
+                            .partitionColumn(
+                                    connectorConfig.get(JdbcSourceOptions.PARTITION_COLUMN))
+                            .partitionNumber(connectorConfig.get(JdbcSourceOptions.PARTITION_NUM))
+                            .partitionStart(
+                                    connectorConfig.get(JdbcSourceOptions.PARTITION_LOWER_BOUND))
+                            .partitionEnd(
+                                    connectorConfig.get(JdbcSourceOptions.PARTITION_UPPER_BOUND))
+                            .useRegex(connectorConfig.get(JdbcSourceOptions.USE_REGEX))
                             .build();
             tableList = Collections.singletonList(tableProperty);
         }
@@ -88,11 +100,19 @@ public class JdbcSourceTableConfig implements Serializable {
                     if (tableConfig.getPartitionNumber() == null) {
                         tableConfig.setPartitionNumber(DEFAULT_PARTITION_NUMBER);
                     }
+                    tableConfig.setUseSelectCount(
+                            connectorConfig.get(JdbcSourceOptions.USE_SELECT_COUNT));
+                    tableConfig.setSkipAnalyze(connectorConfig.get(JdbcSourceOptions.SKIP_ANALYZE));
+                    if (tableConfig.getUseRegex() == null) {
+                        tableConfig.setUseRegex(connectorConfig.get(JdbcSourceOptions.USE_REGEX));
+                    }
                 });
 
         if (tableList.size() > 1) {
             List<String> tableIds =
-                    tableList.stream().map(e -> e.getTablePath()).collect(Collectors.toList());
+                    tableList.stream()
+                            .map(JdbcSourceTableConfig::getTablePath)
+                            .collect(Collectors.toList());
             Set<String> tableIdSet = new HashSet<>(tableIds);
             if (tableIdSet.size() < tableList.size() - 1) {
                 throw new IllegalArgumentException(

@@ -142,14 +142,23 @@ def get_deleted_modules(files):
 
 
 def get_sub_it_modules(modules, total_num, current_num):
-    modules_arr = modules.split(",")
+    modules_arr = list(dict.fromkeys(modules.split(",")))
     modules_arr.remove("connector-jdbc-e2e")
     modules_arr.remove("connector-kafka-e2e")
     modules_arr.remove("connector-rocketmq-e2e")
     modules_arr.remove("connector-kudu-e2e")
     modules_arr.remove("connector-amazonsqs-e2e")
     modules_arr.remove("connector-doris-e2e")
+    modules_arr.remove("connector-paimon-e2e")
     modules_arr.remove("connector-cdc-oracle-e2e")
+    modules_arr.remove("connector-file-local-e2e")
+    modules_arr.remove("connector-file-sftp-e2e")
+    modules_arr.remove("connector-redis-e2e")
+    modules_arr.remove("connector-sensorsdata-e2e")
+    if "connector-seatunnel-e2e-base" in modules_arr:
+        modules_arr.remove("connector-seatunnel-e2e-base")
+    if "connector-console-seatunnel-e2e" in modules_arr:
+        modules_arr.remove("connector-console-seatunnel-e2e")
     output = ""
     for i, module in enumerate(modules_arr):
         if len(module) > 0 and i % int(total_num) == int(current_num):
@@ -164,17 +173,37 @@ def get_sub_update_it_modules(modules, total_num, current_num):
     # :connector-jdbc-e2e-common,:connector-jdbc-e2e-part-1 --> connector-jdbc-e2e-common,:connector-jdbc-e2e-part-1
     modules = modules[1:]
     # connector-jdbc-e2e-common,:connector-jdbc-e2e-part-1 --> [connector-jdbc-e2e-common, connector-jdbc-e2e-part-1]
-    module_list = modules.split(",:")
+    module_list = list(dict.fromkeys(modules.split(",:")))
     if "connector-kudu-e2e" in module_list:
         module_list.remove("connector-kudu-e2e")
     if "connector-amazonsqs-e2e" in module_list:
         module_list.remove("connector-amazonsqs-e2e")
+    if "connector-kafka-e2e" in module_list:
+        module_list.remove("connector-kafka-e2e")
+    if "connector-rocketmq-e2e" in module_list:
+        module_list.remove("connector-rocketmq-e2e")
     if "seatunnel-engine-k8s-e2e" in module_list:
         module_list.remove("seatunnel-engine-k8s-e2e")
+    if "connector-seatunnel-e2e-base" in module_list:
+        module_list.remove("connector-seatunnel-e2e-base")
+    if "connector-console-seatunnel-e2e" in module_list:
+        module_list.remove("connector-console-seatunnel-e2e")
     if "connector-doris-e2e" in module_list:
         module_list.remove("connector-doris-e2e")
+    if "connector-paimon-e2e" in module_list:
+        module_list.remove("connector-paimon-e2e")
     if "connector-cdc-oracle-e2e" in module_list:
         module_list.remove("connector-cdc-oracle-e2e")
+    if "connector-file-local-e2e" in module_list:
+        module_list.remove("connector-file-local-e2e")
+    if "connector-file-sftp-e2e" in module_list:
+        module_list.remove("connector-file-sftp-e2e")
+    if "connector-redis-e2e" in module_list:
+        module_list.remove("connector-redis-e2e")
+    if "connector-seatunnel-e2e-base" in module_list:
+        module_list.remove("connector-seatunnel-e2e-base")
+    if "connector-console-seatunnel-e2e" in module_list:
+        module_list.remove("connector-console-seatunnel-e2e")
     for i, module in enumerate(module_list):
         if len(module) > 0 and i % int(total_num) == int(current_num):
             final_modules.append(":" + module)

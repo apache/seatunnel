@@ -22,6 +22,7 @@ import org.apache.seatunnel.shade.com.typesafe.config.ConfigFactory;
 import org.apache.seatunnel.shade.com.typesafe.config.ConfigValueFactory;
 
 import org.apache.seatunnel.api.configuration.ReadonlyConfig;
+import org.apache.seatunnel.api.options.ConnectorCommonOptions;
 import org.apache.seatunnel.api.table.type.ArrayType;
 import org.apache.seatunnel.api.table.type.BasicType;
 import org.apache.seatunnel.api.table.type.DecimalType;
@@ -43,7 +44,6 @@ import java.nio.file.Paths;
 import java.util.ArrayList;
 import java.util.List;
 
-import static org.apache.seatunnel.api.table.catalog.CatalogOptions.TABLE_NAMES;
 import static org.apache.seatunnel.common.constants.CollectionConstants.PLUGIN_NAME;
 
 public class CatalogTableUtilTest {
@@ -117,7 +117,8 @@ public class CatalogTableUtilTest {
         // test empty tables
         Config emptyTableSource =
                 source.withValue(
-                        TABLE_NAMES.key(), ConfigValueFactory.fromIterable(new ArrayList<>()));
+                        ConnectorCommonOptions.TABLE_NAMES.key(),
+                        ConfigValueFactory.fromIterable(new ArrayList<>()));
         ReadonlyConfig emptyReadonlyConfig = ReadonlyConfig.fromConfig(emptyTableSource);
         Assertions.assertThrows(
                 SeaTunnelException.class,

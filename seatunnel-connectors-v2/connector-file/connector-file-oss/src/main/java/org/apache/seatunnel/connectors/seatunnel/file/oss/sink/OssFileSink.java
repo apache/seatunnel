@@ -23,13 +23,24 @@ import org.apache.seatunnel.connectors.seatunnel.file.config.FileSystemType;
 import org.apache.seatunnel.connectors.seatunnel.file.oss.config.OssHadoopConf;
 import org.apache.seatunnel.connectors.seatunnel.file.sink.BaseMultipleTableFileSink;
 
+import java.util.Optional;
+
 public class OssFileSink extends BaseMultipleTableFileSink {
+
+    private final CatalogTable catalogTable;
+
     public OssFileSink(ReadonlyConfig readonlyConfig, CatalogTable catalogTable) {
         super(OssHadoopConf.buildWithConfig(readonlyConfig), readonlyConfig, catalogTable);
+        this.catalogTable = catalogTable;
     }
 
     @Override
     public String getPluginName() {
         return FileSystemType.OSS.getFileSystemPluginName();
+    }
+
+    @Override
+    public Optional<CatalogTable> getWriteCatalogTable() {
+        return Optional.ofNullable(catalogTable);
     }
 }

@@ -17,6 +17,9 @@
 
 package org.apache.seatunnel.connectors.seatunnel.jdbc.internal.dialect.vertica;
 
+import org.apache.seatunnel.shade.org.apache.commons.lang3.StringUtils;
+
+import org.apache.seatunnel.api.table.catalog.TableSchema;
 import org.apache.seatunnel.connectors.seatunnel.jdbc.internal.converter.JdbcRowConverter;
 import org.apache.seatunnel.connectors.seatunnel.jdbc.internal.dialect.DatabaseIdentifier;
 import org.apache.seatunnel.connectors.seatunnel.jdbc.internal.dialect.JdbcDialect;
@@ -51,16 +54,36 @@ public class VerticaDialect implements JdbcDialect {
     @Override
     public Optional<String> getUpsertStatement(
             String database, String tableName, String[] fieldNames, String[] uniqueKeyFields) {
+        return Optional.empty();
+    }
+
+    @Override
+    public Optional<String> getUpsertStatementByTableSchema(
+            String database, String tableName, TableSchema tableSchema, String[] uniqueKeyFields) {
+        String[] fieldNames = tableSchema.getFieldNames();
         List<String> nonUniqueKeyFields =
                 Arrays.stream(fieldNames)
                         .filter(fieldName -> !Arrays.asList(uniqueKeyFields).contains(fieldName))
                         .collect(Collectors.toList());
+        // Vertica JDBC currently requires explicitly specifying the data type
         String valuesBinding =
-                Arrays.stream(fieldNames)
-                        .map(fieldName -> ":" + fieldName + " " + quoteIdentifier(fieldName))
+                tableSchema.getColumns().stream()
+                        .map(
+                                column -> {
+                                    String fieldName = column.getName();
+                                    String sourceType = column.getSourceType();
+                                    return "CAST("
+                                            + ":"
+                                            + fieldName
+                                            + " AS "
+                                            + sourceType
+                                            + ")"
+                                            + " AS "
+                                            + quoteIdentifier(fieldName);
+                                })
                         .collect(Collectors.joining(", "));
 
-        String usingClause = String.format("SELECT %s FROM DUAL", valuesBinding);
+        String usingClause = String.format("SELECT %s ", valuesBinding);
         String onConditions =
                 Arrays.stream(uniqueKeyFields)
                         .map(
@@ -75,7 +98,7 @@ public class VerticaDialect implements JdbcDialect {
                         .map(
                                 fieldName ->
                                         String.format(
-                                                "TARGET.%s=SOURCE.%s",
+                                                "%s=SOURCE.%s",
                                                 quoteIdentifier(fieldName),
                                                 quoteIdentifier(fieldName)))
                         .collect(Collectors.joining(", "));
@@ -97,8 +120,8 @@ public class VerticaDialect implements JdbcDialect {
                                 + " UPDATE SET %s"
                                 + " WHEN NOT MATCHED THEN"
                                 + " INSERT (%s) VALUES (%s)",
-                        database,
-                        tableName,
+                        quoteDatabaseIdentifier(database),
+                        quoteIdentifier(tableName),
                         usingClause,
                         onConditions,
                         updateSetClause,
@@ -106,5 +129,23 @@ public class VerticaDialect implements JdbcDialect {
                         insertValues);
 
         return Optional.of(upsertSQL);
+    }
+
+    /**
+     * <a
+     * href="https://docs.vertica.com/23.4.x/en/sql-reference/functions/data-type-specific-functions/string-functions/collation/">vertica-collation</a>
+     *
+     * @param collate
+     * @return
+     */
+    @Override
+    public String getCollateSql(String collate) {
+        if (StringUtils.isNotBlank(collate)) {
+            StringBuilder sql = new StringBuilder();
+            sql.append("COLLATION(").append("char_val").append(", '").append(collate).append("')");
+            return sql.toString();
+        } else {
+            return "char_val";
+        }
     }
 }

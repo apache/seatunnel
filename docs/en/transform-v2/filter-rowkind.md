@@ -39,7 +39,7 @@ env {
 
 source {
   FakeSource {
-    result_table_name = "fake"
+    plugin_output = "fake"
     row.num = 100
     schema = {
       fields {
@@ -53,15 +53,15 @@ source {
 
 transform {
   FilterRowKind {
-    source_table_name = "fake"
-    result_table_name = "fake1"
+    plugin_input = "fake"
+    plugin_output = "fake1"
     exclude_kinds = ["INSERT"]
   }
 }
 
 sink {
   Console {
-    source_table_name = "fake1"
+    plugin_input = "fake1"
   }
 }
 ```

@@ -23,6 +23,7 @@ import org.apache.seatunnel.e2e.common.junit.ContainerTestingExtension;
 import org.apache.seatunnel.e2e.common.junit.TestCaseInvocationContextProvider;
 import org.apache.seatunnel.e2e.common.junit.TestContainers;
 import org.apache.seatunnel.e2e.common.junit.TestLoggerExtension;
+import org.apache.seatunnel.e2e.common.junit.TimingExtension;
 import org.apache.seatunnel.e2e.common.util.ContainerUtil;
 
 import org.junit.jupiter.api.TestInstance;
@@ -32,7 +33,8 @@ import org.testcontainers.containers.Network;
 @ExtendWith({
     ContainerTestingExtension.class,
     TestLoggerExtension.class,
-    TestCaseInvocationContextProvider.class
+    TestCaseInvocationContextProvider.class,
+    TimingExtension.class
 })
 @TestInstance(TestInstance.Lifecycle.PER_CLASS)
 public abstract class TestSuiteBase {

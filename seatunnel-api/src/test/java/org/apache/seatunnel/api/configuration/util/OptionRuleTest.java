@@ -31,6 +31,7 @@ import java.util.List;
 
 import static org.apache.seatunnel.api.configuration.OptionTest.TEST_MODE;
 import static org.apache.seatunnel.api.configuration.OptionTest.TEST_NUM;
+import static org.junit.jupiter.api.Assertions.assertDoesNotThrow;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 
@@ -154,6 +155,32 @@ public class OptionRuleTest {
         // test parameter can only be controlled by one other parameter
         assertEquals(
                 "ErrorCode:[API-02], ErrorDescription:[Option item validate failed] - ConditionalRequiredOptions 'option.timestamp' duplicate in ConditionalRequiredOptions options.",
+                assertThrows(OptionValidationException.class, executable).getMessage());
+
+        // Test conditional only does not conflict with optional options
+        // Test option TEST_TIMESTAMP
+        executable =
+                () -> {
+                    OptionRule.builder()
+                            .optional(TEST_NUM, TEST_MODE, TEST_TIMESTAMP)
+                            .exclusive(TEST_TOPIC_PATTERN, TEST_TOPIC)
+                            .required(TEST_PORTS)
+                            .conditional(TEST_MODE, OptionTest.TestMode.TIMESTAMP, TEST_TIMESTAMP)
+                            .conditional(TEST_MODE, OptionTest.TestMode.LATEST, TEST_TIMESTAMP)
+                            .build();
+                };
+        assertDoesNotThrow(executable);
+        executable =
+                () -> {
+                    OptionRule.builder()
+                            .optional(TEST_NUM, TEST_MODE)
+                            .exclusive(TEST_TOPIC_PATTERN, TEST_TOPIC, TEST_TIMESTAMP)
+                            .required(TEST_PORTS)
+                            .conditional(TEST_MODE, OptionTest.TestMode.TIMESTAMP, TEST_TIMESTAMP)
+                            .build();
+                };
+        assertEquals(
+                "ErrorCode:[API-02], ErrorDescription:[Option item validate failed] - ConditionalRequiredOptions 'option.timestamp' duplicate in ExclusiveRequiredOptions options.",
                 assertThrows(OptionValidationException.class, executable).getMessage());
     }
 

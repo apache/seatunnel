@@ -17,15 +17,18 @@
 
 package org.apache.seatunnel.format.compatible.kafka.connect.json;
 
-import org.apache.seatunnel.shade.com.fasterxml.jackson.databind.ObjectMapper;
-
 import org.apache.seatunnel.api.serialization.DeserializationSchema;
 import org.apache.seatunnel.api.source.Collector;
+import org.apache.seatunnel.api.table.catalog.CatalogTable;
+import org.apache.seatunnel.api.table.catalog.TablePath;
+import org.apache.seatunnel.api.table.type.CommonOptions;
+import org.apache.seatunnel.api.table.type.MetadataUtil;
 import org.apache.seatunnel.api.table.type.RowKind;
 import org.apache.seatunnel.api.table.type.SeaTunnelDataType;
 import org.apache.seatunnel.api.table.type.SeaTunnelRow;
 import org.apache.seatunnel.api.table.type.SeaTunnelRowType;
 import org.apache.seatunnel.common.exception.CommonError;
+import org.apache.seatunnel.common.utils.JsonUtils;
 import org.apache.seatunnel.common.utils.ReflectionUtils;
 import org.apache.seatunnel.format.json.JsonToRowConverters;
 
@@ -37,17 +40,18 @@ import org.apache.kafka.connect.json.JsonConverterConfig;
 import org.apache.kafka.connect.sink.SinkRecord;
 
 import com.fasterxml.jackson.databind.JsonNode;
+import com.fasterxml.jackson.databind.ObjectMapper;
 import com.fasterxml.jackson.databind.node.ArrayNode;
 import lombok.NonNull;
 import lombok.RequiredArgsConstructor;
 
 import java.io.IOException;
-import java.io.UnsupportedEncodingException;
 import java.lang.reflect.InvocationTargetException;
 import java.lang.reflect.Method;
 import java.util.Collections;
+import java.util.Optional;
 
-import static com.google.common.base.Preconditions.checkNotNull;
+import static org.apache.seatunnel.shade.com.google.common.base.Preconditions.checkNotNull;
 
 /** Compatible kafka connect deserialization schema */
 @RequiredArgsConstructor
@@ -69,17 +73,18 @@ public class CompatibleKafkaConnectDeserializationSchema
     /** Object mapper for parsing the JSON. */
     private final ObjectMapper objectMapper = new ObjectMapper();
 
+    private final CatalogTable catalogTable;
+
     public CompatibleKafkaConnectDeserializationSchema(
-            @NonNull SeaTunnelRowType seaTunnelRowType,
+            @NonNull CatalogTable catalogTable,
             boolean keySchemaEnable,
             boolean valueSchemaEnable,
             boolean failOnMissingField,
             boolean ignoreParseErrors) {
-
-        this.seaTunnelRowType = seaTunnelRowType;
+        this.catalogTable = catalogTable;
+        this.seaTunnelRowType = catalogTable.getSeaTunnelRowType();
         this.keySchemaEnable = keySchemaEnable;
         this.valueSchemaEnable = valueSchemaEnable;
-
         // Runtime converter
         this.runtimeConverter =
                 new JsonToRowConverters(failOnMissingField, ignoreParseErrors)
@@ -88,7 +93,8 @@ public class CompatibleKafkaConnectDeserializationSchema
 
     @Override
     public SeaTunnelRow deserialize(byte[] message) throws IOException {
-        throw new UnsupportedEncodingException();
+        throw new UnsupportedOperationException(
+                "Please invoke DeserializationSchema#deserialize(byte[], Collector<SeaTunnelRow>) instead.");
     }
 
     /**
@@ -101,6 +107,9 @@ public class CompatibleKafkaConnectDeserializationSchema
     public void deserialize(ConsumerRecord<byte[], byte[]> msg, Collector<SeaTunnelRow> out)
             throws InvocationTargetException, IllegalAccessException {
         tryInitConverter();
+        if (msg == null) {
+            return;
+        }
         SinkRecord record = convertToSinkRecord(msg);
         RowKind rowKind = RowKind.INSERT;
         JsonNode jsonNode =
@@ -108,16 +117,26 @@ public class CompatibleKafkaConnectDeserializationSchema
                         valueConverterMethod.invoke(
                                 valueConverter, record.valueSchema(), record.value());
         JsonNode payload = jsonNode.get(KAFKA_CONNECT_SINK_RECORD_PAYLOAD);
+        Optional<TablePath> tablePath =
+                Optional.ofNullable(catalogTable).map(CatalogTable::getTablePath);
         if (payload.isArray()) {
             ArrayNode arrayNode = (ArrayNode) payload;
             for (int i = 0; i < arrayNode.size(); i++) {
                 SeaTunnelRow row = convertJsonNode(arrayNode.get(i));
                 row.setRowKind(rowKind);
+                attachEventTime(row, msg.timestamp());
+                if (tablePath.isPresent()) {
+                    row.setTableId(tablePath.toString());
+                }
                 out.collect(row);
             }
         } else {
             SeaTunnelRow row = convertJsonNode(payload);
             row.setRowKind(rowKind);
+            attachEventTime(row, msg.timestamp());
+            if (tablePath.isPresent()) {
+                row.setTableId(tablePath.toString());
+            }
             out.collect(row);
         }
     }
@@ -129,7 +148,7 @@ public class CompatibleKafkaConnectDeserializationSchema
 
         try {
             org.apache.seatunnel.shade.com.fasterxml.jackson.databind.JsonNode jsonData =
-                    objectMapper.readTree(jsonNode.toString());
+                    JsonUtils.stringToJsonNode(jsonNode.toString());
             return (SeaTunnelRow) runtimeConverter.convert(jsonData, null);
         } catch (Throwable t) {
             throw CommonError.jsonOperationError(FORMAT, jsonNode.toString(), t);
@@ -159,6 +178,16 @@ public class CompatibleKafkaConnectDeserializationSchema
     @Override
     public SeaTunnelDataType<SeaTunnelRow> getProducedType() {
         return seaTunnelRowType;
+    }
+
+    private void attachEventTime(SeaTunnelRow row, long timestamp) {
+        if (row == null || timestamp < 0) {
+            return;
+        }
+        Object existing = row.getOptions().get(CommonOptions.EVENT_TIME.getName());
+        if (existing == null) {
+            MetadataUtil.setEventTime(row, timestamp);
+        }
     }
 
     private void tryInitConverter() {

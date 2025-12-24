@@ -17,9 +17,9 @@ env {
 
 source {
   MySQL-CDC {
-    result_table_name = "table1"
+    plugin_output = "table1"
 
-    base-url="jdbc:mysql://localhost:3306/test"
+    url="jdbc:mysql://localhost:3306/test"
     "startup.mode"=INITIAL
     table-names=[
         "database1.t1",
@@ -33,8 +33,6 @@ source {
         # include schema into kafka message
         key.converter.schemas.enable = false
         value.converter.schemas.enable = false
-        # include ddl
-        include.schema.changes = true
         # topic prefix
         database.server.name =  "mysql_cdc_1"
     }
@@ -43,9 +41,10 @@ source {
 
 sink {
   Kafka {
-    source_table_name = "table1"
+    plugin_input = "table1"
 
     bootstrap.servers = "localhost:9092"
+    topic = "${topic}"
 
     # compatible_debezium_json options
     format = compatible_debezium_json

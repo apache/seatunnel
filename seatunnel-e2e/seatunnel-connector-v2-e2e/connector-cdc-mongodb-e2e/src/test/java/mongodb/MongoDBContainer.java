@@ -17,7 +17,7 @@
 
 package mongodb;
 
-import org.apache.commons.lang3.StringUtils;
+import org.apache.seatunnel.shade.org.apache.commons.lang3.StringUtils;
 
 import org.testcontainers.containers.GenericContainer;
 import org.testcontainers.containers.Network;
@@ -87,12 +87,21 @@ public class MongoDBContainer extends GenericContainer<MongoDBContainer> {
         withEnv("TZ", "Asia/Shanghai");
     }
 
+    public String executeCommandInDatabase(String command, String databaseName) {
+        try {
+            executeCommand(String.format("db = db.getSiblingDB('%s');\n", databaseName) + command);
+            return databaseName;
+        } catch (Exception e) {
+            throw new RuntimeException(e);
+        }
+    }
+
     public void executeCommand(String command) {
         try {
             log.info("Executing mongo command: {}", command);
             ExecResult execResult =
                     execInContainer(
-                            "mongo",
+                            "mongosh",
                             "-u",
                             MONGO_SUPER_USER,
                             "-p",

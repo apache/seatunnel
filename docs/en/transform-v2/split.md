@@ -18,11 +18,11 @@ Split a field to more than one field.
 
 The list of fields that need to be kept. Fields not in the list will be deleted
 
-### split_field[string]
+### split_field [string]
 
 The field to be split
 
-### output_fields[array]
+### output_fields [array]
 
 The result fields after split
 
@@ -46,8 +46,8 @@ We want split `name` field to `first_name` and `second name`, we can add `Split`
 ```
 transform {
   Split {
-    source_table_name = "fake"
-    result_table_name = "fake1"
+    plugin_input = "fake"
+    plugin_output = "fake1"
     separator = " "
     split_field = "name"
     output_fields = [first_name, second_name]

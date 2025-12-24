@@ -17,6 +17,8 @@
 
 package org.apache.seatunnel.e2e.connector.amazondynamodb;
 
+import org.apache.seatunnel.shade.com.google.common.collect.Lists;
+
 import org.apache.seatunnel.api.table.type.ArrayType;
 import org.apache.seatunnel.api.table.type.BasicType;
 import org.apache.seatunnel.api.table.type.DecimalType;
@@ -40,7 +42,6 @@ import org.testcontainers.containers.output.Slf4jLogConsumer;
 import org.testcontainers.lifecycle.Startables;
 import org.testcontainers.utility.DockerLoggerFactory;
 
-import com.google.common.collect.Lists;
 import lombok.extern.slf4j.Slf4j;
 import software.amazon.awssdk.auth.credentials.AwsBasicCredentials;
 import software.amazon.awssdk.auth.credentials.StaticCredentialsProvider;
@@ -369,7 +370,7 @@ public class AmazondynamodbIT extends TestSuiteBase implements TestResource {
                 return AttributeValue.builder().m(resultMap).build();
             case L:
                 ArrayType<?, ?> arrayType = (ArrayType<?, ?>) seaTunnelDataType;
-                BasicType<?> elementType = arrayType.getElementType();
+                SeaTunnelDataType<?> elementType = arrayType.getElementType();
                 Object[] l = (Object[]) value;
                 return AttributeValue.builder()
                         .l(

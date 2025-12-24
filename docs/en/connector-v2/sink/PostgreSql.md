@@ -1,3 +1,5 @@
+import ChangeLog from '../changelog/connector-jdbc.md';
+
 # PostgreSql
 
 > JDBC PostgreSql Sink Connector
@@ -40,9 +42,9 @@ semantics (using XA transaction guarantee).
 
 ## Database Dependency
 
-> Please download the support list corresponding to 'Maven' and copy it to the '$SEATNUNNEL_HOME/plugins/jdbc/lib/' working directory<br/>
-> For example PostgreSQL datasource: cp postgresql-xxx.jar $SEATNUNNEL_HOME/plugins/jdbc/lib/<br/>
-> If you want to manipulate the GEOMETRY type in PostgreSQL, add postgresql-xxx.jar and postgis-jdbc-xxx.jar to $SEATNUNNEL_HOME/plugins/jdbc/lib/
+> Please download the support list corresponding to 'Maven' and copy it to the '$SEATUNNEL_HOME/plugins/jdbc/lib/' working directory<br/>
+> For example PostgreSQL datasource: cp postgresql-xxx.jar $SEATUNNEL_HOME/plugins/jdbc/lib/<br/>
+> If you want to manipulate the GEOMETRY type in PostgreSQL, add postgresql-xxx.jar and postgis-jdbc-xxx.jar to $SEATUNNEL_HOME/plugins/jdbc/lib/
 
 ## Data Type Mapping
 
@@ -75,13 +77,12 @@ semantics (using XA transaction guarantee).
 |-------------------------------------------|---------|----------|------------------------------|-----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------|
 | url                                       | String  | Yes      | -                            | The URL of the JDBC connection. Refer to a case: jdbc:postgresql://localhost:5432/test <br/>  if you would use json or jsonb type insert please add jdbc url stringtype=unspecified option                                                                                                                                                                                                                                                                                                                                                                                        |
 | driver                                    | String  | Yes      | -                            | The jdbc class name used to connect to the remote data source,<br/> if you use PostgreSQL the value is `org.postgresql.Driver`.                                                                                                                                                                                                                                                                                                                                                                                                                                                   |
-| user                                      | String  | No       | -                            | Connection instance user name                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                     |
+| username                                      | String  | No       | -                            | Connection instance user name                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                     |
 | password                                  | String  | No       | -                            | Connection instance password                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                      |
 | query                                     | String  | No       | -                            | Use this sql write upstream input datas to database. e.g `INSERT ...`,`query` have the higher priority                                                                                                                                                                                                                                                                                                                                                                                                                                                                            |
 | database                                  | String  | No       | -                            | Use this `database` and `table-name` auto-generate sql and receive upstream input datas write to database.<br/>This option is mutually exclusive with `query` and has a higher priority.                                                                                                                                                                                                                                                                                                                                                                                          |
 | table                                     | String  | No       | -                            | Use database and this table-name auto-generate sql and receive upstream input datas write to database.<br/>This option is mutually exclusive with `query` and has a higher priority.The table parameter can fill in the name of an unwilling table, which will eventually be used as the table name of the creation table, and supports variables (`${table_name}`, `${schema_name}`). Replacement rules: `${schema_name}` will replace the SCHEMA name passed to the target side, and `${table_name}` will replace the name of the table passed to the table at the target side. |
 | primary_keys                              | Array   | No       | -                            | This option is used to support operations such as `insert`, `delete`, and `update` when automatically generate sql.                                                                                                                                                                                                                                                                                                                                                                                                                                                               |
-| support_upsert_by_query_primary_key_exist | Boolean | No       | false                        | Choose to use INSERT sql, UPDATE sql to process update events(INSERT, UPDATE_AFTER) based on query primary key exists. This configuration is only used when database unsupport upsert syntax. **Note**: that this method has low performance                                                                                                                                                                                                                                                                                                                                      |
 | connection_check_timeout_sec              | Int     | No       | 30                           | The time in seconds to wait for the database operation used to validate the connection to complete.                                                                                                                                                                                                                                                                                                                                                                                                                                                                               |
 | max_retries                               | Int     | No       | 0                            | The number of retries to submit failed (executeBatch)                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                             |
 | batch_size                                | Int     | No       | 1000                         | For batch writing, when the number of buffered records reaches the number of `batch_size` or the time reaches `checkpoint.interval`<br/>, the data will be flushed into the database                                                                                                                                                                                                                                                                                                                                                                                              |
@@ -93,7 +94,7 @@ semantics (using XA transaction guarantee).
 | auto_commit                               | Boolean | No       | true                         | Automatic transaction commit is enabled by default                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                |
 | field_ide                                 | String  | No       | -                            | Identify whether the field needs to be converted when synchronizing from the source to the sink. `ORIGINAL` indicates no conversion is needed;`UPPERCASE` indicates conversion to uppercase;`LOWERCASE` indicates conversion to lowercase.                                                                                                                                                                                                                                                                                                                                        |
 | properties                                | Map     | No       | -                            | Additional connection configuration parameters,when properties and URL have the same parameters, the priority is determined by the <br/>specific implementation of the driver. For example, in MySQL, properties take precedence over the URL.                                                                                                                                                                                                                                                                                                                                    |
-| common-options                            |         | no       | -                            | Sink plugin common parameters, please refer to [Sink Common Options](common-options.md) for details                                                                                                                                                                                                                                                                                                                                                                                                                                                                               |
+| common-options                            |         | no       | -                            | Sink plugin common parameters, please refer to [Sink Common Options](../sink-common-options.md) for details                                                                                                                                                                                                                                                                                                                                                                                                                                                                       |
 | schema_save_mode                          | Enum    | no       | CREATE_SCHEMA_WHEN_NOT_EXIST | Before the synchronous task is turned on, different treatment schemes are selected for the existing surface structure of the target side.                                                                                                                                                                                                                                                                                                                                                                                                                                         |
 | data_save_mode                            | Enum    | no       | APPEND_DATA                  | Before the synchronous task is turned on, different processing schemes are selected for data existing data on the target side.                                                                                                                                                                                                                                                                                                                                                                                                                                                    |
 | custom_sql                                | String  | no       | -                            | When data_save_mode selects CUSTOM_PROCESSING, you should fill in the CUSTOM_SQL parameter. This parameter usually fills in a SQL that can be executed. SQL will be executed before synchronization tasks.                                                                                                                                                                                                                                                                                                                                                                        |
@@ -108,19 +109,20 @@ This option is mutually exclusive with `query` and has a higher priority.
 The table parameter can fill in the name of an unwilling table, which will eventually be used as the table name of the creation table, and supports variables (`${table_name}`, `${schema_name}`). Replacement rules: `${schema_name}` will replace the SCHEMA name passed to the target side, and `${table_name}` will replace the name of the table passed to the table at the target side.
 
 for example:
-1. ${schema_name}.${table_name} _test
-2. dbo.tt_${table_name} _sink
+1. ${schema_name}.${table_name}_test
+2. dbo.tt_${table_name}_sink
 3. public.sink_table
 
-### schema_save_mode[Enum]
+### schema_save_mode [Enum]
 
 Before the synchronous task is turned on, different treatment schemes are selected for the existing surface structure of the target side.  
 Option introduction：  
 `RECREATE_SCHEMA` ：Will create when the table does not exist, delete and rebuild when the table is saved        
 `CREATE_SCHEMA_WHEN_NOT_EXIST` ：Will Created when the table does not exist, skipped when the table is saved        
-`ERROR_WHEN_SCHEMA_NOT_EXIST` ：Error will be reported when the table does not exist
+`ERROR_WHEN_SCHEMA_NOT_EXIST` ：Error will be reported when the table does not exist  
+`IGNORE` ：Ignore the treatment of the table
 
-### data_save_mode[Enum]
+### data_save_mode [Enum]
 
 Before the synchronous task is turned on, different processing schemes are selected for data existing data on the target side.  
 Option introduction：  
@@ -129,7 +131,7 @@ Option introduction：
 `CUSTOM_PROCESSING`：User defined processing  
 `ERROR_WHEN_DATA_EXISTS`：When there is data, an error is reported
 
-### custom_sql[String]
+### custom_sql [String]
 
 When data_save_mode selects CUSTOM_PROCESSING, you should fill in the CUSTOM_SQL parameter. This parameter usually fills in a SQL that can be executed. SQL will be executed before synchronization tasks.
 
@@ -139,7 +141,7 @@ When data_save_mode selects CUSTOM_PROCESSING, you should fill in the CUSTOM_SQL
 
 ## Task Example
 
-### Simple:
+### Simple
 
 > This example defines a SeaTunnel synchronization task that automatically generates data through FakeSource and sends it to JDBC Sink. FakeSource generates a total of 16 rows of data (row.num=16), with each row having two fields, name (string type) and age (int type). The final target table is test_table will also be 16 rows of data in the table. Before run this job, you need create database test and table test_table in your PostgreSQL. And if you have not yet installed and deployed SeaTunnel, you need to follow the instructions in [Install SeaTunnel](../../start-v2/locally/deployment.md) to install and deploy SeaTunnel. And then follow the instructions in [Quick Start With SeaTunnel Engine](../../start-v2/locally/quick-start-seatunnel-engine.md) to run this job.
 
@@ -153,7 +155,7 @@ env {
 source {
   FakeSource {
     parallelism = 1
-    result_table_name = "fake"
+    plugin_output = "fake"
     row.num = 16
     schema = {
       fields {
@@ -163,12 +165,12 @@ source {
     }
   }
   # If you would like to get more information about how to configure seatunnel and see full list of source plugins,
-  # please go to https://seatunnel.apache.org/docs/category/source-v2
+  # please go to https://seatunnel.apache.org/docs/connector-v2/source
 }
 
 transform {
   # If you would like to get more information about how to configure seatunnel and see full list of transform plugins,
-    # please go to https://seatunnel.apache.org/docs/category/transform-v2
+    # please go to https://seatunnel.apache.org/docs/transform-v2
 }
 
 sink {
@@ -176,12 +178,12 @@ sink {
        # if you would use json or jsonb type insert please add jdbc url stringtype=unspecified option
         url = "jdbc:postgresql://localhost:5432/test"
         driver = "org.postgresql.Driver"
-        user = root
+        username = root
         password = 123456
         query = "insert into test_table(name,age) values(?,?)"
      }
   # If you would like to get more information about how to configure seatunnel and see full list of sink plugins,
-  # please go to https://seatunnel.apache.org/docs/category/sink-v2
+  # please go to https://seatunnel.apache.org/docs/connector-v2/sink
 }
 ```
 
@@ -195,7 +197,7 @@ sink {
         # if you would use json or jsonb type insert please add jdbc url stringtype=unspecified option
         url = "jdbc:postgresql://localhost:5432/test"
         driver = org.postgresql.Driver
-        user = root
+        username = root
         password = 123456
         
         generate_sink_sql = true
@@ -205,7 +207,7 @@ sink {
 }
 ```
 
-### Exactly-once :
+### Exactly-once
 
 > For accurate write scene we guarantee accurate once
 
@@ -217,7 +219,7 @@ sink {
         driver = "org.postgresql.Driver"
     
         max_retries = 0
-        user = root
+        username = root
         password = 123456
         query = "insert into test_table(name,age) values(?,?)"
     
@@ -238,7 +240,7 @@ sink {
         # if you would use json or jsonb type insert please add jdbc url stringtype=unspecified option
         url = "jdbc:postgresql://localhost:5432/test"
         driver = "org.postgresql.Driver"
-        user = root
+        username = root
         password = 123456
         
         generate_sink_sql = true
@@ -259,7 +261,7 @@ sink {
         # if you would use json or jsonb type insert please add jdbc url stringtype=unspecified option
         url = "jdbc:postgresql://localhost:5432/test"
         driver = org.postgresql.Driver
-        user = root
+        username = root
         password = 123456
         
         generate_sink_sql = true
@@ -271,3 +273,6 @@ sink {
 }
 ```
 
+## Changelog
+
+<ChangeLog />

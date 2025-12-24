@@ -17,9 +17,8 @@
 
 package org.apache.seatunnel.common.config;
 
-import org.apache.commons.lang3.StringUtils;
-
-import com.google.common.annotations.VisibleForTesting;
+import org.apache.seatunnel.shade.com.google.common.annotations.VisibleForTesting;
+import org.apache.seatunnel.shade.org.apache.commons.lang3.StringUtils;
 
 import java.io.File;
 import java.io.IOException;
@@ -38,6 +37,8 @@ import java.util.stream.Stream;
 import static java.nio.file.FileVisitOption.FOLLOW_LINKS;
 
 public class Common {
+
+    private static final String FLINK_YARN_APPLICATION_PATH = "runtime.tar.gz";
 
     private Common() {
         throw new IllegalStateException("Utility class");
@@ -113,8 +114,10 @@ public class Common {
             } catch (URISyntaxException e) {
                 throw new RuntimeException(e);
             }
-        } else if (DeployMode.CLUSTER == MODE || DeployMode.RUN_APPLICATION == MODE) {
+        } else if (DeployMode.CLUSTER == MODE) {
             return Paths.get("");
+        } else if (DeployMode.RUN_APPLICATION == MODE) {
+            return Paths.get(FLINK_YARN_APPLICATION_PATH);
         } else {
             throw new IllegalStateException("deploy mode not support : " + MODE);
         }
@@ -169,7 +172,7 @@ public class Common {
     }
 
     /** return plugin's dependent jars, which located in 'plugins/${pluginName}/lib/*'. */
-    public static List<Path> getPluginsJarDependencies() {
+    public static List<Path> getPluginsJarDependenciesWithoutConnectorDependency() {
         Path pluginRootDir = Common.pluginRootDir();
         if (!Files.exists(pluginRootDir) || !Files.isDirectory(pluginRootDir)) {
             return Collections.emptyList();
@@ -179,6 +182,12 @@ public class Common {
                             it ->
                                     pluginRootDir.relativize(it).getNameCount()
                                             == PLUGIN_LIB_DIR_DEPTH)
+                    .filter(
+                            it ->
+                                    !it.getParent()
+                                            .getParent()
+                                            .getName(it.getParent().getParent().getNameCount() - 1)
+                                            .startsWith("connector-"))
                     .filter(it -> it.getParent().endsWith("lib"))
                     .filter(it -> it.getFileName().toString().endsWith(".jar"))
                     .collect(Collectors.toList());

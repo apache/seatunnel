@@ -38,7 +38,7 @@ public class PostgresSourceOptions {
                             .defaultValue(StartupMode.INITIAL)
                             .withDescription(
                                     "Optional startup mode for CDC source, valid enumerations are "
-                                            + "\"initial\", \"earliest\", \"latest\", \"timestamp\"\n or \"specific\"");
+                                            + "\"initial\", \"earliest\", \"latest\"");
 
     public static final SingleChoiceOption<StopMode> STOP_MODE =
             (SingleChoiceOption)
@@ -47,5 +47,5 @@ public class PostgresSourceOptions {
                             .defaultValue(StopMode.NEVER)
                             .withDescription(
                                     "Optional stop mode for CDC source, valid enumerations are "
-                                            + "\"never\", \"latest\", \"timestamp\"\n or \"specific\"");
+                                            + "\"never\"");
 }

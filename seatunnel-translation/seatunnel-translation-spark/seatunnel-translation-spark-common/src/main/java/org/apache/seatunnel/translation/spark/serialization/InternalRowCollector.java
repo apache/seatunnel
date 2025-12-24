@@ -18,7 +18,6 @@
 package org.apache.seatunnel.translation.spark.serialization;
 
 import org.apache.seatunnel.api.source.Collector;
-import org.apache.seatunnel.api.table.type.SeaTunnelDataType;
 import org.apache.seatunnel.api.table.type.SeaTunnelRow;
 import org.apache.seatunnel.common.Handover;
 import org.apache.seatunnel.core.starter.flowcontrol.FlowControlGate;
@@ -30,22 +29,22 @@ import java.util.Map;
 import java.util.concurrent.atomic.AtomicLong;
 
 public class InternalRowCollector implements Collector<SeaTunnelRow> {
-    private final Handover<InternalRow> handover;
-    private final Object checkpointLock;
+    protected final Handover<InternalRow> handover;
+    protected final Object checkpointLock;
     private final InternalRowConverter rowSerialization;
-    private final AtomicLong collectTotalCount;
+    protected final AtomicLong collectTotalCount;
     private Map<String, Object> envOptions;
-    private FlowControlGate flowControlGate;
-    private volatile boolean emptyThisPollNext;
+    protected FlowControlGate flowControlGate;
+    protected volatile boolean emptyThisPollNext;
 
     public InternalRowCollector(
             Handover<InternalRow> handover,
             Object checkpointLock,
-            SeaTunnelDataType<?> dataType,
+            InternalRowConverter rowSerialization,
             Map<String, String> envOptionsInfo) {
         this.handover = handover;
         this.checkpointLock = checkpointLock;
-        this.rowSerialization = new InternalRowConverter(dataType);
+        this.rowSerialization = rowSerialization;
         this.collectTotalCount = new AtomicLong(0);
         this.envOptions = (Map) envOptionsInfo;
         this.flowControlGate = FlowControlGate.create(FlowControlStrategy.fromMap(envOptions));
@@ -82,5 +81,9 @@ public class InternalRowCollector implements Collector<SeaTunnelRow> {
     @Override
     public void resetEmptyThisPollNext() {
         this.emptyThisPollNext = true;
+    }
+
+    public InternalRowConverter getRowSerialization() {
+        return rowSerialization;
     }
 }

@@ -17,7 +17,10 @@
 
 package org.apache.seatunnel.api.table.catalog;
 
+import org.apache.seatunnel.shade.org.apache.commons.lang3.StringUtils;
+
 import org.apache.seatunnel.api.configuration.ReadonlyConfig;
+import org.apache.seatunnel.api.options.ConnectorCommonOptions;
 import org.apache.seatunnel.api.table.catalog.exception.CatalogException;
 import org.apache.seatunnel.api.table.catalog.exception.DatabaseAlreadyExistException;
 import org.apache.seatunnel.api.table.catalog.exception.DatabaseNotExistException;
@@ -28,8 +31,6 @@ import org.apache.seatunnel.common.exception.CommonError;
 import org.apache.seatunnel.common.exception.CommonErrorCode;
 import org.apache.seatunnel.common.exception.SeaTunnelRuntimeException;
 
-import org.apache.commons.lang3.StringUtils;
-
 import java.util.ArrayList;
 import java.util.Collections;
 import java.util.Iterator;
@@ -39,6 +40,7 @@ import java.util.Map;
 import java.util.Optional;
 import java.util.function.Function;
 import java.util.regex.Pattern;
+import java.util.stream.Collectors;
 
 /**
  * Interface for reading and writing table metadata from SeaTunnel. Each connector need to contain
@@ -131,9 +133,24 @@ public interface Catalog extends AutoCloseable {
      */
     CatalogTable getTable(TablePath tablePath) throws CatalogException, TableNotExistException;
 
+    /**
+     * Return a {@link CatalogTable} identified by the given {@link TablePath} and field names. The
+     * framework will resolve the metadata objects when necessary.
+     *
+     * @param tablePath Path of the table
+     * @param fieldNames The field names need read
+     * @return The requested table
+     * @throws CatalogException in case of any runtime exception
+     */
+    default CatalogTable getTable(TablePath tablePath, List<String> fieldNames)
+            throws CatalogException, TableNotExistException {
+        throw CommonError.unsupportedOperation(
+                name(), "get table with tablePath " + tablePath + ", fieldNames: " + fieldNames);
+    }
+
     default List<CatalogTable> getTables(ReadonlyConfig config) throws CatalogException {
         // Get the list of specified tables
-        List<String> tableNames = config.get(CatalogOptions.TABLE_NAMES);
+        List<String> tableNames = config.get(ConnectorCommonOptions.TABLE_NAMES);
         if (tableNames != null && !tableNames.isEmpty()) {
             Iterator<TablePath> tablePaths =
                     tableNames.stream().map(TablePath::of).filter(this::tableExists).iterator();
@@ -141,25 +158,49 @@ public interface Catalog extends AutoCloseable {
         }
 
         // Get the list of table pattern
-        String tablePatternStr = config.get(CatalogOptions.TABLE_PATTERN);
+        String tablePatternStr = config.get(ConnectorCommonOptions.TABLE_PATTERN);
         if (StringUtils.isBlank(tablePatternStr)) {
             return Collections.emptyList();
         }
-        Pattern databasePattern = Pattern.compile(config.get(CatalogOptions.DATABASE_PATTERN));
-        Pattern tablePattern = Pattern.compile(config.get(CatalogOptions.TABLE_PATTERN));
+        Pattern databasePattern =
+                Pattern.compile(config.get(ConnectorCommonOptions.DATABASE_PATTERN));
+        Pattern tablePattern = Pattern.compile(config.get(ConnectorCommonOptions.TABLE_PATTERN));
+
         List<String> allDatabase = this.listDatabases();
         allDatabase.removeIf(s -> !databasePattern.matcher(s).matches());
         List<TablePath> tablePaths = new ArrayList<>();
+
         for (String databaseName : allDatabase) {
-            tableNames = this.listTables(databaseName);
-            tableNames.forEach(
-                    tableName -> {
-                        if (tablePattern.matcher(databaseName + "." + tableName).matches()) {
-                            tablePaths.add(TablePath.of(databaseName, tableName));
-                        }
-                    });
+            List<TablePath> paths = this.listTablePaths(databaseName);
+            tablePaths.addAll(
+                    paths.stream()
+                            .filter(
+                                    path ->
+                                            tablePattern
+                                                    .matcher(
+                                                            path.getDatabaseName()
+                                                                    + "."
+                                                                    + path.getSchemaAndTableName())
+                                                    .matches())
+                            .collect(Collectors.toList()));
         }
         return buildCatalogTablesWithErrorCheck(tablePaths.iterator());
+    }
+
+    default List<TablePath> listTablePaths(String databaseName)
+            throws CatalogException, DatabaseNotExistException {
+        List<String> tableNames = listTables(databaseName);
+        return tableNames.stream()
+                .map(
+                        tableName -> {
+                            String[] parts = tableName.split("\\.");
+                            if (parts.length > 1) {
+                                return TablePath.of(databaseName, parts[0], parts[1]);
+                            } else {
+                                return TablePath.of(databaseName, null, tableName);
+                            }
+                        })
+                .collect(Collectors.toList());
     }
 
     default List<CatalogTable> buildCatalogTablesWithErrorCheck(Iterator<TablePath> tablePaths) {
@@ -223,6 +264,25 @@ public interface Catalog extends AutoCloseable {
      */
     void createTable(TablePath tablePath, CatalogTable table, boolean ignoreIfExists)
             throws TableAlreadyExistException, DatabaseNotExistException, CatalogException;
+
+    /**
+     * Create a new table in this catalog.
+     *
+     * @param tablePath Path of the table
+     * @param table The table definition
+     * @param ignoreIfExists Flag to specify behavior when a table with the given name already exist
+     * @param createIndex If you want to create index or not
+     * @throws TableAlreadyExistException thrown if the table already exists in the catalog and
+     *     ignoreIfExists is false
+     * @throws DatabaseNotExistException thrown if the database in tablePath doesn't exist in the
+     *     catalog
+     * @throws CatalogException in case of any runtime exception
+     */
+    default void createTable(
+            TablePath tablePath, CatalogTable table, boolean ignoreIfExists, boolean createIndex)
+            throws TableAlreadyExistException, DatabaseNotExistException, CatalogException {
+        createTable(tablePath, table, ignoreIfExists);
+    }
 
     /**
      * Drop an existing table in this catalog.

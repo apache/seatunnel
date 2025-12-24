@@ -1,3 +1,5 @@
+import ChangeLog from '../changelog/connector-jdbc.md';
+
 # SQL Server
 
 > JDBC SQL Server Source Connector
@@ -45,8 +47,8 @@ Read external data source data through JDBC.
 
 ## Database dependency
 
-> Please download the support list corresponding to 'Maven' and copy it to the '$SEATNUNNEL_HOME/plugins/jdbc/lib/' working directory<br/>
-> For example SQL Server datasource: cp mssql-jdbc-xxx.jar $SEATNUNNEL_HOME/plugins/jdbc/lib/
+> Please download the support list corresponding to 'Maven' and copy it to the '$SEATUNNEL_HOME/plugins/jdbc/lib/' working directory<br/>
+> For example SQL Server datasource: cp mssql-jdbc-xxx.jar $SEATUNNEL_HOME/plugins/jdbc/lib/
 
 ## Data Type Mapping
 
@@ -67,11 +69,11 @@ Read external data source data through JDBC.
 
 ## Source Options
 
-|                    name                    |  type  | required |     default     |                                                                                                                                                                                                                                                                                                     Description                                                                                                                                                                                                                                                                                                      |
+|                    name                    | type   | required | default         |                                                                                                                                                                                                                                                                                                     Description                                                                                                                                                                                                                                                                                                      |
 |--------------------------------------------|--------|----------|-----------------|----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------|
 | url                                        | String | Yes      | -               | The URL of the JDBC connection. Refer to a case: jdbc:sqlserver://127.0.0.1:1434;database=TestDB                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                     |
 | driver                                     | String | Yes      | -               | The jdbc class name used to connect to the remote data source,<br/> if you use SQLserver the value is `com.microsoft.sqlserver.jdbc.SQLServerDriver`.                                                                                                                                                                                                                                                                                                                                                                                                                                                                |
-| user                                       | String | No       | -               | Connection instance user name                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                        |
+| username                                       | String | No       | -               | Connection instance user name                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                        |
 | password                                   | String | No       | -               | Connection instance password                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                         |
 | query                                      | String | Yes      | -               | Query statement                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                      |
 | connection_check_timeout_sec               | Int    | No       | 30              | The time in seconds to wait for the database operation used to validate the connection to complete                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                   |
@@ -81,15 +83,16 @@ Read external data source data through JDBC.
 | partition_num                              | Int    | No       | job parallelism | The number of partition count, only support positive integer. default value is job parallelism                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                       |
 | fetch_size                                 | Int    | No       | 0               | For queries that return a large number of objects,you can configure<br/> the row fetch size used in the query toimprove performance by<br/> reducing the number database hits required to satisfy the selection criteria.<br/> Zero means use jdbc default value.                                                                                                                                                                                                                                                                                                                                                    |
 | properties                                 | Map    | No       | -               | Additional connection configuration parameters,when properties and URL have the same parameters, the priority is determined by the <br/>specific implementation of the driver. For example, in MySQL, properties take precedence over the URL.                                                                                                                                                                                                                                                                                                                                                                       |
-| table_path                                 | Int    | No       | 0               | The path to the full path of table, you can use this configuration instead of `query`. <br/>examples: <br/>mysql: "testdb.table1" <br/>oracle: "test_schema.table1" <br/>sqlserver: "testdb.test_schema.table1" <br/>postgresql: "testdb.test_schema.table1"                                                                                                                                                                                                                                                                                                                                                         |
-| table_list                                 | Array  | No       | 0               | The list of tables to be read, you can use this configuration instead of `table_path` example: ```[{ table_path = "testdb.table1"}, {table_path = "testdb.table2", query = "select * id, name from testdb.table2"}]```                                                                                                                                                                                                                                                                                                                                                                                               |
+| use_regex                                  | Boolean| No       | false           | Control regular expression matching for table_path. When set to `true`, the table_path will be treated as a regular expression pattern. When set to `false` or not specified, the table_path will be treated as an exact path (no regex matching).                                                                                                                                                                                                                                                                                                                                                                   |
+| table_path                                 | String | No       | -               | The path to the full path of table, you can use this configuration instead of `query`. <br/>example: <br/>"testdb.test_schema.table1"                                                                                                                                                                                                                                                                                                                                                                                                                                         |
+| table_list                                 | Array  | No       | -               | The list of tables to be read, you can use this configuration instead of `table_path` example: ```[{ table_path = "testdb.table1"}, {table_path = "testdb.table2", query = "select * id, name from testdb.table2"}]```                                                                                                                                                                                                                                                                                                                                                                                               |
 | where_condition                            | String | No       | -               | Common row filter conditions for all tables/queries, must start with `where`. for example `where id > 100`                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                           |
 | split.size                                 | Int    | No       | 8096            | The split size (number of rows) of table, captured tables are split into multiple splits when read of table.                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                         |
 | split.even-distribution.factor.lower-bound | Double | No       | 0.05            | The lower bound of the chunk key distribution factor. This factor is used to determine whether the table data is evenly distributed. If the distribution factor is calculated to be greater than or equal to this lower bound (i.e., (MAX(id) - MIN(id) + 1) / row count), the table chunks would be optimized for even distribution. Otherwise, if the distribution factor is less, the table will be considered as unevenly distributed and the sampling-based sharding strategy will be used if the estimated shard count exceeds the value specified by `sample-sharding.threshold`. The default value is 0.05.  |
 | split.even-distribution.factor.upper-bound | Double | No       | 100             | The upper bound of the chunk key distribution factor. This factor is used to determine whether the table data is evenly distributed. If the distribution factor is calculated to be less than or equal to this upper bound (i.e., (MAX(id) - MIN(id) + 1) / row count), the table chunks would be optimized for even distribution. Otherwise, if the distribution factor is greater, the table will be considered as unevenly distributed and the sampling-based sharding strategy will be used if the estimated shard count exceeds the value specified by `sample-sharding.threshold`. The default value is 100.0. |
 | split.sample-sharding.threshold            | Int    | No       | 10000           | This configuration specifies the threshold of estimated shard count to trigger the sample sharding strategy. When the distribution factor is outside the bounds specified by `chunk-key.even-distribution.factor.upper-bound` and `chunk-key.even-distribution.factor.lower-bound`, and the estimated shard count (calculated as approximate row count / chunk size) exceeds this threshold, the sample sharding strategy will be used. This can help to handle large datasets more efficiently. The default value is 1000 shards.                                                                                   |
 | split.inverse-sampling.rate                | Int    | No       | 1000            | The inverse of the sampling rate used in the sample sharding strategy. For example, if this value is set to 1000, it means a 1/1000 sampling rate is applied during the sampling process. This option provides flexibility in controlling the granularity of the sampling, thus affecting the final number of shards. It's especially useful when dealing with very large datasets where a lower sampling rate is preferred. The default value is 1000.                                                                                                                                                              |
-| common-options                             |        | No       | -               | Source plugin common parameters, please refer to [Source Common Options](common-options.md) for details                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                              |
+| common-options                             |        | No       | -               | Source plugin common parameters, please refer to [Source Common Options](../source-common-options.md) for details                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                    |
 
 ## Parallel Reader
 
@@ -157,7 +160,7 @@ How many splits do we need to split into, only support positive integer. default
 
 ## Task Example
 
-### Simple:
+### Simple
 
 > Simple single task to read the data table
 
@@ -171,7 +174,7 @@ source{
     Jdbc {
         driver = com.microsoft.sqlserver.jdbc.SQLServerDriver
         url = "jdbc:sqlserver://localhost:1433;databaseName=column_type_test"
-        user = SA
+        username = SA
         password = "Y.sa123456"
         query = "select * from full_types_jdbc"
     }
@@ -187,7 +190,7 @@ sink {
 }
 ```
 
-### Parallel:
+### Parallel
 
 > Read your query table in parallel with the shard field you configured and the shard data You can do this if you want to read the whole table
 
@@ -201,7 +204,7 @@ source {
     Jdbc {
         driver = com.microsoft.sqlserver.jdbc.SQLServerDriver
         url = "jdbc:sqlserver://localhost:1433;databaseName=column_type_test"
-        user = SA
+        username = SA
         password = "Y.sa123456"
         # Define query logic as required
         query = "select * from full_types_jdbc"
@@ -223,7 +226,7 @@ sink {
 
 ```
 
-### Fragmented Parallel Read Simple:
+### Fragmented Parallel Read Simple
 
 > It is a shard that reads data in parallel fast
 
@@ -238,7 +241,7 @@ source {
   Jdbc {
     driver = com.microsoft.sqlserver.jdbc.SQLServerDriver
     url = "jdbc:sqlserver://localhost:1433;databaseName=column_type_test"
-    user = SA
+    username = SA
     password = "Y.sa123456"
     query = "select * from column_type_test.dbo.full_types_jdbc"
     # Parallel sharding reads fields
@@ -264,3 +267,6 @@ sink {
 }
 ```
 
+## Changelog
+
+<ChangeLog />

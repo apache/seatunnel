@@ -17,9 +17,8 @@
 
 package org.apache.seatunnel.connectors.seatunnel.jdbc.catalog.sqlserver;
 
-import org.apache.commons.lang3.tuple.Pair;
-
-import com.google.common.collect.ImmutableMap;
+import org.apache.seatunnel.shade.com.google.common.collect.ImmutableMap;
+import org.apache.seatunnel.shade.org.apache.commons.lang3.tuple.Pair;
 
 import java.math.BigDecimal;
 import java.sql.SQLType;

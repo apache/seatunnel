@@ -92,11 +92,7 @@ public class RowDataToBsonConverters implements Serializable {
             @Override
             public BsonValue apply(Object value) {
                 if (value == null || NULL.equals(type.getSqlType())) {
-                    throw new MongodbConnectorException(
-                            UNSUPPORTED_DATA_TYPE,
-                            "The column type is <"
-                                    + type
-                                    + ">, but a null value is being written into it");
+                    return new BsonNull();
                 } else {
                     return internalConverter.apply(value);
                 }

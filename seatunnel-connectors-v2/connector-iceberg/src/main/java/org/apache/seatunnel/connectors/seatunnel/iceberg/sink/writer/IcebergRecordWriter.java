@@ -22,14 +22,16 @@ package org.apache.seatunnel.connectors.seatunnel.iceberg.sink.writer;
 import org.apache.seatunnel.shade.com.google.common.collect.Lists;
 
 import org.apache.seatunnel.api.table.catalog.Column;
-import org.apache.seatunnel.api.table.event.AlterTableAddColumnEvent;
-import org.apache.seatunnel.api.table.event.AlterTableChangeColumnEvent;
-import org.apache.seatunnel.api.table.event.AlterTableDropColumnEvent;
-import org.apache.seatunnel.api.table.event.AlterTableModifyColumnEvent;
-import org.apache.seatunnel.api.table.event.SchemaChangeEvent;
+import org.apache.seatunnel.api.table.schema.event.AlterTableAddColumnEvent;
+import org.apache.seatunnel.api.table.schema.event.AlterTableChangeColumnEvent;
+import org.apache.seatunnel.api.table.schema.event.AlterTableColumnEvent;
+import org.apache.seatunnel.api.table.schema.event.AlterTableColumnsEvent;
+import org.apache.seatunnel.api.table.schema.event.AlterTableDropColumnEvent;
+import org.apache.seatunnel.api.table.schema.event.AlterTableModifyColumnEvent;
+import org.apache.seatunnel.api.table.schema.event.SchemaChangeEvent;
 import org.apache.seatunnel.api.table.type.SeaTunnelRow;
 import org.apache.seatunnel.api.table.type.SeaTunnelRowType;
-import org.apache.seatunnel.connectors.seatunnel.iceberg.config.SinkConfig;
+import org.apache.seatunnel.connectors.seatunnel.iceberg.config.IcebergSinkConfig;
 import org.apache.seatunnel.connectors.seatunnel.iceberg.data.RowConverter;
 import org.apache.seatunnel.connectors.seatunnel.iceberg.sink.schema.SchemaChangeWrapper;
 import org.apache.seatunnel.connectors.seatunnel.iceberg.utils.SchemaUtils;
@@ -38,6 +40,7 @@ import org.apache.iceberg.Schema;
 import org.apache.iceberg.Table;
 import org.apache.iceberg.data.Record;
 import org.apache.iceberg.io.TaskWriter;
+import org.apache.iceberg.types.Type;
 import org.apache.iceberg.types.Types;
 
 import lombok.extern.slf4j.Slf4j;
@@ -50,19 +53,19 @@ import java.util.List;
 @Slf4j
 public class IcebergRecordWriter implements RecordWriter {
     private final Table table;
-    private final SinkConfig config;
+    private final IcebergSinkConfig config;
     private final List<WriteResult> writerResults;
-    private TaskWriter<Record> writer;
+    private volatile TaskWriter<Record> writer;
     private RowConverter recordConverter;
-    private IcebergWriterFactory writerFactory;
+    private final IcebergWriterFactory writerFactory;
 
-    public IcebergRecordWriter(Table table, IcebergWriterFactory writerFactory, SinkConfig config) {
+    public IcebergRecordWriter(
+            Table table, IcebergWriterFactory writerFactory, IcebergSinkConfig config) {
         this.config = config;
         this.table = table;
         this.writerResults = Lists.newArrayList();
         this.recordConverter = new RowConverter(table, config);
         this.writerFactory = writerFactory;
-        this.writer = createTaskWriter();
     }
 
     private TaskWriter<Record> createTaskWriter() {
@@ -71,6 +74,9 @@ public class IcebergRecordWriter implements RecordWriter {
 
     @Override
     public void write(SeaTunnelRow seaTunnelRow, SeaTunnelRowType rowType) {
+        if (writer == null) {
+            resetWriter();
+        }
         SchemaChangeWrapper updates = new SchemaChangeWrapper();
         Record record = recordConverter.convert(seaTunnelRow, rowType, updates);
         if (!updates.empty()) {
@@ -89,16 +95,40 @@ public class IcebergRecordWriter implements RecordWriter {
 
     @Override
     public void applySchemaChange(SeaTunnelRowType afterRowType, SchemaChangeEvent event) {
-        log.info("Apply schema change start.");
+        log.info("Apply schema change start. Event type: {}", event.getEventType());
         SchemaChangeWrapper updates = new SchemaChangeWrapper();
+        // get the latest schema in case another process updated it
+        table.refresh();
         Schema schema = table.schema();
-        if (event instanceof AlterTableDropColumnEvent) {
+        if (event instanceof AlterTableColumnsEvent) {
+            AlterTableColumnsEvent columnsEvent = (AlterTableColumnsEvent) event;
+            log.info(
+                    "Processing AlterTableColumnsEvent with {} events",
+                    columnsEvent.getEvents().size());
+            for (AlterTableColumnEvent columnEvent : columnsEvent.getEvents()) {
+                applySchemaChange(afterRowType, columnEvent);
+            }
+            return;
+        } else if (event instanceof AlterTableDropColumnEvent) {
             AlterTableDropColumnEvent dropColumnEvent = (AlterTableDropColumnEvent) event;
             updates.deleteColumn(dropColumnEvent.getColumn());
         } else if (event instanceof AlterTableAddColumnEvent) {
-            // Update column , during data consumption process
+            AlterTableAddColumnEvent addColumnEvent = (AlterTableAddColumnEvent) event;
+            Column column = addColumnEvent.getColumn();
+            Type columnType = SchemaUtils.toIcebergType(column.getDataType());
+            updates.addColumn(null, column.getName(), columnType);
         } else if (event instanceof AlterTableModifyColumnEvent) {
-            // Update type , during data consumption process
+            AlterTableModifyColumnEvent modifyColumnEvent = (AlterTableModifyColumnEvent) event;
+            Column column = modifyColumnEvent.getColumn();
+            Type columnType = SchemaUtils.toIcebergType(column.getDataType());
+            if (columnType instanceof Type.PrimitiveType) {
+                updates.modifyColumn(column.getName(), (Type.PrimitiveType) columnType);
+            } else {
+                log.warn(
+                        "Cannot modify column {} to non-primitive type {}",
+                        column.getName(),
+                        columnType);
+            }
         } else if (event instanceof AlterTableChangeColumnEvent) {
             // rename
             AlterTableChangeColumnEvent changeColumnEvent = (AlterTableChangeColumnEvent) event;
@@ -121,13 +151,7 @@ public class IcebergRecordWriter implements RecordWriter {
             updates.changeColumn(oldColumn, column.getName());
         }
     }
-
-    /**
-     * apply schema update
-     *
-     * @param updates
-     * @return
-     */
+    /** apply schema update */
     private void applySchemaUpdate(SchemaChangeWrapper updates) {
         // complete the current file
         flush();
@@ -142,7 +166,6 @@ public class IcebergRecordWriter implements RecordWriter {
         flush();
         List<WriteResult> result = Lists.newArrayList(writerResults);
         writerResults.clear();
-        resetWriter();
         return result;
     }
 
@@ -169,7 +192,4 @@ public class IcebergRecordWriter implements RecordWriter {
                         table.spec().partitionType()));
         writer = null;
     }
-
-    @Override
-    public void close() {}
 }

@@ -17,27 +17,21 @@
 
 package org.apache.seatunnel.api.common;
 
-import org.apache.seatunnel.api.table.catalog.TableSchema;
-import org.apache.seatunnel.common.config.Common;
 import org.apache.seatunnel.common.constants.JobMode;
 
-import java.io.Serializable;
-import java.util.Map;
-import java.util.Optional;
-import java.util.UUID;
-import java.util.concurrent.ConcurrentHashMap;
+import lombok.Getter;
 
-/** This class is used to store the context of the job. e.g. the table schema, catalog...etc. */
+import java.io.Serializable;
+import java.util.UUID;
+
+/** This class is used to store the context of the job. e.g. the job id, job mode ...etc. */
+@Getter
 public final class JobContext implements Serializable {
 
     private static final long serialVersionUID = -1L;
 
-    // tableName -> tableSchema
-    private final Map<String, TableSchema> tableSchemaMap =
-            new ConcurrentHashMap<>(Common.COLLECTION_SIZE);
-
     private JobMode jobMode;
-
+    private boolean enableCheckpoint;
     private final String jobId;
 
     public JobContext() {
@@ -48,36 +42,13 @@ public final class JobContext implements Serializable {
         this.jobId = jobId + "";
     }
 
-    /**
-     * Put table schema.
-     *
-     * @param tableName table name
-     * @param tableSchema table schema
-     */
-    public void addSchema(String tableName, TableSchema tableSchema) {
-        tableSchemaMap.put(tableName, tableSchema);
-    }
-
-    /**
-     * Get table schema.
-     *
-     * @param tableName table name.
-     * @return table schema.
-     */
-    public Optional<TableSchema> getSchema(String tableName) {
-        return Optional.ofNullable(tableSchemaMap.get(tableName));
-    }
-
     public JobContext setJobMode(JobMode jobMode) {
         this.jobMode = jobMode;
         return this;
     }
 
-    public JobMode getJobMode() {
-        return jobMode;
-    }
-
-    public String getJobId() {
-        return this.jobId;
+    public JobContext setEnableCheckpoint(boolean enableCheckpoint) {
+        this.enableCheckpoint = enableCheckpoint;
+        return this;
     }
 }

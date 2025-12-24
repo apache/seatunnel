@@ -18,6 +18,8 @@
 package org.apache.seatunnel.format.avro;
 
 import org.apache.seatunnel.api.serialization.DeserializationSchema;
+import org.apache.seatunnel.api.table.catalog.CatalogTable;
+import org.apache.seatunnel.api.table.catalog.TablePath;
 import org.apache.seatunnel.api.table.type.SeaTunnelDataType;
 import org.apache.seatunnel.api.table.type.SeaTunnelRow;
 import org.apache.seatunnel.api.table.type.SeaTunnelRowType;
@@ -27,6 +29,7 @@ import org.apache.avro.io.BinaryDecoder;
 import org.apache.avro.io.DecoderFactory;
 
 import java.io.IOException;
+import java.util.Optional;
 
 public class AvroDeserializationSchema implements DeserializationSchema<SeaTunnelRow> {
 
@@ -34,9 +37,11 @@ public class AvroDeserializationSchema implements DeserializationSchema<SeaTunne
 
     private final SeaTunnelRowType rowType;
     private final AvroToRowConverter converter;
+    private final CatalogTable catalogTable;
 
-    public AvroDeserializationSchema(SeaTunnelRowType rowType) {
-        this.rowType = rowType;
+    public AvroDeserializationSchema(CatalogTable catalogTable) {
+        this.catalogTable = catalogTable;
+        this.rowType = catalogTable.getSeaTunnelRowType();
         this.converter = new AvroToRowConverter(rowType);
     }
 
@@ -44,7 +49,13 @@ public class AvroDeserializationSchema implements DeserializationSchema<SeaTunne
     public SeaTunnelRow deserialize(byte[] message) throws IOException {
         BinaryDecoder decoder = DecoderFactory.get().binaryDecoder(message, null);
         GenericRecord record = this.converter.getReader().read(null, decoder);
-        return converter.converter(record, rowType);
+        SeaTunnelRow seaTunnelRow = converter.converter(record, rowType);
+        Optional<TablePath> tablePath =
+                Optional.ofNullable(catalogTable).map(CatalogTable::getTablePath);
+        if (tablePath.isPresent()) {
+            seaTunnelRow.setTableId(tablePath.toString());
+        }
+        return seaTunnelRow;
     }
 
     @Override

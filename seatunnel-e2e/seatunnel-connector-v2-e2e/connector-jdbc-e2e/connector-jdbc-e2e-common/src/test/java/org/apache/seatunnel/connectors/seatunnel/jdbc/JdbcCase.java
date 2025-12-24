@@ -17,9 +17,9 @@
 
 package org.apache.seatunnel.connectors.seatunnel.jdbc;
 
-import org.apache.seatunnel.api.table.type.SeaTunnelRow;
+import org.apache.seatunnel.shade.org.apache.commons.lang3.tuple.Pair;
 
-import org.apache.commons.lang3.tuple.Pair;
+import org.apache.seatunnel.api.table.type.SeaTunnelRow;
 
 import lombok.Builder;
 import lombok.Getter;
@@ -48,12 +48,19 @@ public class JdbcCase {
     private String jdbcUrl;
     private String createSql;
     private String sinkCreateSql;
+    private String additionalSqlOnSource;
+    private String additionalSqlOnSink;
     private String insertSql;
     private List<String> configFile;
     private Pair<String[], List<SeaTunnelRow>> testData;
     private Map<String, String> containerEnv;
+    private boolean useSaveModeCreateTable;
 
     private String catalogDatabase;
     private String catalogSchema;
     private String catalogTable;
+
+    // The full path of the table created when initializing data
+    // According to whether jdbc api supports setting
+    private String tablePathFullName;
 }

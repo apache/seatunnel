@@ -17,11 +17,12 @@
 
 package org.apache.seatunnel.engine.core.dag.actions;
 
+import org.apache.seatunnel.shade.com.google.common.collect.Lists;
+
 import org.apache.seatunnel.api.source.SeaTunnelSource;
 import org.apache.seatunnel.api.source.SourceSplit;
 import org.apache.seatunnel.engine.core.job.ConnectorJarIdentifier;
 
-import com.google.common.collect.Lists;
 import lombok.NonNull;
 
 import java.io.Serializable;

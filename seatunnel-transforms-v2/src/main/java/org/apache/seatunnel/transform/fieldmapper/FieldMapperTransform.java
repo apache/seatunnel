@@ -17,6 +17,8 @@
 
 package org.apache.seatunnel.transform.fieldmapper;
 
+import org.apache.seatunnel.shade.com.google.common.collect.Lists;
+
 import org.apache.seatunnel.api.table.catalog.CatalogTable;
 import org.apache.seatunnel.api.table.catalog.Column;
 import org.apache.seatunnel.api.table.catalog.ConstraintKey;
@@ -26,22 +28,22 @@ import org.apache.seatunnel.api.table.catalog.TableIdentifier;
 import org.apache.seatunnel.api.table.catalog.TableSchema;
 import org.apache.seatunnel.api.table.type.SeaTunnelRow;
 import org.apache.seatunnel.api.table.type.SeaTunnelRowType;
-import org.apache.seatunnel.transform.common.AbstractCatalogSupportTransform;
+import org.apache.seatunnel.transform.common.AbstractCatalogSupportMapTransform;
 import org.apache.seatunnel.transform.exception.TransformCommonError;
 
 import org.apache.commons.collections4.CollectionUtils;
 
-import com.google.common.collect.Lists;
 import lombok.NonNull;
 import lombok.extern.slf4j.Slf4j;
 
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
+import java.util.Set;
 import java.util.stream.Collectors;
 
 @Slf4j
-public class FieldMapperTransform extends AbstractCatalogSupportTransform {
+public class FieldMapperTransform extends AbstractCatalogSupportMapTransform {
     public static String PLUGIN_NAME = "FieldMapper";
     private final FieldMapperTransformConfig config;
     private List<Integer> needReaderColIndex;
@@ -84,6 +86,7 @@ public class FieldMapperTransform extends AbstractCatalogSupportTransform {
         SeaTunnelRow outputRow = new SeaTunnelRow(outputDataArray);
         outputRow.setRowKind(inputRow.getRowKind());
         outputRow.setTableId(inputRow.getTableId());
+        outputRow.setOptions(inputRow.getOptions());
         return outputRow;
     }
 
@@ -110,13 +113,19 @@ public class FieldMapperTransform extends AbstractCatalogSupportTransform {
                                     value,
                                     oldColumn.getDataType(),
                                     oldColumn.getColumnLength(),
+                                    oldColumn.getScale(),
                                     oldColumn.isNullable(),
                                     oldColumn.getDefaultValue(),
-                                    oldColumn.getComment());
+                                    oldColumn.getComment(),
+                                    oldColumn.getSourceType(),
+                                    oldColumn.getOptions());
+
                     outputColumns.add(outputColumn);
                     outputFieldNames.add(outputColumn.getName());
                     needReaderColIndex.add(fieldIndex);
                 });
+
+        final Set<String> originalColumnNames = fieldMapper.keySet();
 
         List<ConstraintKey> outputConstraintKeys =
                 inputCatalogTable.getTableSchema().getConstraintKeys().stream()
@@ -128,20 +137,43 @@ public class FieldMapperTransform extends AbstractCatalogSupportTransform {
                                                             ConstraintKey.ConstraintKeyColumn
                                                                     ::getColumnName)
                                                     .collect(Collectors.toList());
-                                    return outputFieldNames.containsAll(constraintColumnNames);
+                                    return originalColumnNames.containsAll(constraintColumnNames);
                                 })
-                        .map(ConstraintKey::copy)
+                        .map(
+                                (it) -> {
+                                    List<ConstraintKey.ConstraintKeyColumn> mapperKeyColumns =
+                                            it.getColumnNames().stream()
+                                                    .map(
+                                                            (column) ->
+                                                                    ConstraintKey
+                                                                            .ConstraintKeyColumn.of(
+                                                                            fieldMapper.get(
+                                                                                    column
+                                                                                            .getColumnName()),
+                                                                            column.getSortType()))
+                                                    .collect(Collectors.toList());
+                                    return ConstraintKey.of(
+                                            it.getConstraintType(),
+                                            it.getConstraintName(),
+                                            mapperKeyColumns);
+                                })
                         .collect(Collectors.toList());
 
-        PrimaryKey copiedPrimaryKey = null;
-        if (inputCatalogTable.getTableSchema().getPrimaryKey() != null
-                && outputFieldNames.containsAll(
-                        inputCatalogTable.getTableSchema().getPrimaryKey().getColumnNames())) {
-            copiedPrimaryKey = inputCatalogTable.getTableSchema().getPrimaryKey().copy();
+        PrimaryKey newSchemaPrimaryKey = null;
+        if (inputCatalogTable.getTableSchema().getPrimaryKey() != null) {
+            PrimaryKey originalPrimaryKey = inputCatalogTable.getTableSchema().getPrimaryKey();
+            if (originalColumnNames.containsAll(originalPrimaryKey.getColumnNames())) {
+                newSchemaPrimaryKey =
+                        PrimaryKey.of(
+                                originalPrimaryKey.getPrimaryKey(),
+                                originalPrimaryKey.getColumnNames().stream()
+                                        .map(fieldMapper::get)
+                                        .collect(Collectors.toList()));
+            }
         }
 
         return TableSchema.builder()
-                .primaryKey(copiedPrimaryKey)
+                .primaryKey(newSchemaPrimaryKey)
                 .columns(outputColumns)
                 .constraintKey(outputConstraintKeys)
                 .build();

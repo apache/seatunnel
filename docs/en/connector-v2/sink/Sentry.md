@@ -1,3 +1,5 @@
+import ChangeLog from '../changelog/connector-sentry.md';
+
 # Sentry
 
 ## Description
@@ -56,7 +58,7 @@ Max queue size before flushing events/envelopes to the disk
 
 ### common options
 
-Sink plugin common parameters, please refer to [Sink Common Options](common-options.md) for details
+Sink plugin common parameters, please refer to [Sink Common Options](../sink-common-options.md) for details
 
 ## Example
 
@@ -72,7 +74,5 @@ Sink plugin common parameters, please refer to [Sink Common Options](common-opti
 
 ## Changelog
 
-### 2.2.0-beta 2022-09-26
-
-- Add Sentry Sink Connector
+<ChangeLog />
 

@@ -24,7 +24,7 @@ SeaTunnel also supports to encode the INSERT/UPDATE/DELETE messages in SeaTunnel
 
 # How to use
 
-## Kafka uses example
+## Kafka Uses Example
 
 Canal provides a unified format for changelog, here is a simple example for an update operation captured from a MySQL products table:
 
@@ -85,7 +85,7 @@ source {
   Kafka {
     bootstrap.servers = "kafkaCluster:9092"
     topic = "products_binlog"
-    result_table_name = "kafka_name"
+    plugin_output = "kafka_name"
     start_mode = earliest
     schema = {
       fields {

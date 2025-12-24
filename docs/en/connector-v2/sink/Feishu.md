@@ -1,3 +1,5 @@
+import ChangeLog from '../changelog/connector-http-feishu.md';
+
 # Feishu
 
 > Feishu sink connector
@@ -42,15 +44,15 @@ Used to launch Feishu web hooks using data.
 
 ## Sink Options
 
-|      Name      |  Type  | Required | Default |                                             Description                                             |
-|----------------|--------|----------|---------|-----------------------------------------------------------------------------------------------------|
-| url            | String | Yes      | -       | Feishu webhook url                                                                                  |
-| headers        | Map    | No       | -       | Http request headers                                                                                |
-| common-options |        | no       | -       | Sink plugin common parameters, please refer to [Sink Common Options](common-options.md) for details |
+|      Name      |  Type  | Required | Default |                                                 Description                                                 |
+|----------------|--------|----------|---------|-------------------------------------------------------------------------------------------------------------|
+| url            | String | Yes      | -       | Feishu webhook url                                                                                          |
+| headers        | Map    | No       | -       | Http request headers                                                                                        |
+| common-options |        | no       | -       | Sink plugin common parameters, please refer to [Sink Common Options](../sink-common-options.md) for details |
 
 ## Task Example
 
-### Simple:
+### Simple
 
 ```hocon
 Feishu {
@@ -60,7 +62,6 @@ Feishu {
 
 ## Changelog
 
-### 2.2.0-beta 2022-09-26
+<ChangeLog />
 
-- Add Feishu Sink Connector
 

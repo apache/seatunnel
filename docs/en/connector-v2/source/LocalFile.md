@@ -1,3 +1,5 @@
+import ChangeLog from '../changelog/connector-file-local.md';
+
 # LocalFile
 
 > Local file source connector
@@ -12,9 +14,13 @@
 
 - [x] [batch](../../concept/connector-v2-features.md)
 - [ ] [stream](../../concept/connector-v2-features.md)
+- [x] [multimodal](../../concept/connector-v2-features.md#multimodal)
+
+  Use binary file format to read and write files in any format, such as videos, pictures, etc. In short, any files can be synchronized to the target place.
+
 - [x] [exactly-once](../../concept/connector-v2-features.md)
 
-Read all the data in a split in a pollNext call. What splits are read will be saved in snapshot.
+  Read all the data in a split in a pollNext call. What splits are read will be saved in snapshot.
 
 - [ ] [column projection](../../concept/connector-v2-features.md)
 - [x] [parallelism](../../concept/connector-v2-features.md)
@@ -27,6 +33,8 @@ Read all the data in a split in a pollNext call. What splits are read will be sa
   - [x] json
   - [x] excel
   - [x] xml
+  - [x] binary
+  - [x] markdown
 
 ## Description
 
@@ -42,26 +50,38 @@ If you use SeaTunnel Engine, It automatically integrated the hadoop jar when you
 
 ## Options
 
-|           name            |  type   | required |            default value             |
-|---------------------------|---------|----------|--------------------------------------|
-| path                      | string  | yes      | -                                    |
-| file_format_type          | string  | yes      | -                                    |
-| read_columns              | list    | no       | -                                    |
-| delimiter/field_delimiter | string  | no       | \001                                 |
-| parse_partition_from_path | boolean | no       | true                                 |
-| date_format               | string  | no       | yyyy-MM-dd                           |
-| datetime_format           | string  | no       | yyyy-MM-dd HH:mm:ss                  |
-| time_format               | string  | no       | HH:mm:ss                             |
-| skip_header_row_number    | long    | no       | 0                                    |
-| schema                    | config  | no       | -                                    |
-| sheet_name                | string  | no       | -                                    |
-| xml_row_tag               | string  | no       | -                                    |
-| xml_use_attr_format       | boolean | no       | -                                    |
-| file_filter_pattern       | string  | no       | -                                    |
-| compress_codec            | string  | no       | none                                 |
-| encoding                  | string  | no       | UTF-8                                |
-| common-options            |         | no       | -                                    |
-| tables_configs            | list    | no       | used to define a multiple table task |
+| name                       | type    | required | default value                        |
+|----------------------------|---------|----------|--------------------------------------|
+| path                       | string  | yes      | -                                    |
+| file_format_type           | string  | yes      | -                                    |
+| read_columns               | list    | no       | -                                    |
+| delimiter/field_delimiter  | string  | no       | \001 for text and , for csv          |
+| row_delimiter              | string  | no       | \n                                   |
+| parse_partition_from_path  | boolean | no       | true                                 |
+| date_format                | string  | no       | yyyy-MM-dd                           |
+| datetime_format            | string  | no       | yyyy-MM-dd HH:mm:ss                  |
+| time_format                | string  | no       | HH:mm:ss                             |
+| skip_header_row_number     | long    | no       | 0                                    |
+| schema                     | config  | no       | -                                    |
+| sheet_name                 | string  | no       | -                                    |
+| excel_engine               | string  | no       | POI                                  |
+| xml_row_tag                | string  | no       | -                                    |
+| xml_use_attr_format        | boolean | no       | -                                    |
+| csv_use_header_line        | boolean | no       | false                                |
+| file_filter_pattern        | string  | no       | -                                    |
+| filename_extension         | string  | no       | -                                    |
+| compress_codec             | string  | no       | none                                 |
+| archive_compress_codec     | string  | no       | none                                 |
+| encoding                   | string  | no       | UTF-8                                |
+| null_format                | string  | no       | -                                    |
+| binary_chunk_size          | int     | no       | 1024                                 |
+| binary_complete_file_mode  | boolean | no       | false                                |
+| common-options             |         | no       | -                                    |
+| tables_configs             | list    | no       | used to define a multiple table task |
+| file_filter_modified_start | string  | no       | -                                    |
+| file_filter_modified_end   | string  | no       | -                                    | 
+| enable_file_split          | boolean | no       | false                                | 
+| file_split_size            | long    | no       | 134217728                            | 
 
 ### path [string]
 
@@ -71,7 +91,7 @@ The source file path.
 
 File type, supported as the following file types:
 
-`text` `csv` `parquet` `orc` `json` `excel` `xml`
+`text` `csv` `parquet` `orc` `json` `excel` `xml` `binary` `markdown`
 
 If you assign file type to `json`, you should also assign schema option to tell connector how to parse data to the row you want.
 
@@ -155,6 +175,25 @@ connector will generate data as the following:
 |---------------|-----|--------|
 | tyrantlucifer | 26  | male   |
 
+If you assign file type to `binary`, SeaTunnel can synchronize files in any format,
+such as compressed packages, pictures, etc. In short, any files can be synchronized to the target place.
+Under this requirement, you need to ensure that the source and sink use `binary` format for file synchronization
+at the same time. You can find the specific usage in the example below.
+
+If you assign file type to `markdown`, SeaTunnel can parse markdown files and extract structured data.
+The markdown parser extracts various elements including headings, paragraphs, lists, code blocks, tables, and more.
+Each element is converted to a row with the following schema:
+- `element_id`: Unique identifier for the element
+- `element_type`: Type of the element (Heading, Paragraph, ListItem, etc.)
+- `heading_level`: Level of heading (1-6, null for non-heading elements)
+- `text`: Text content of the element
+- `page_number`: Page number (default: 1)
+- `position_index`: Position index within the document
+- `parent_id`: ID of the parent element
+- `child_ids`: Comma-separated list of child element IDs
+
+Note: Markdown format only supports reading, not writing.
+
 ### read_columns [list]
 
 The read column list of the data source, user can use it to implement field projection.
@@ -168,6 +207,14 @@ Only need to be configured when file_format is text.
 Field delimiter, used to tell connector how to slice and dice fields.
 
 default `\001`, the same as hive's default delimiter
+
+### row_delimiter [string]
+
+Only need to be configured when file_format is text
+
+Row delimiter, used to tell connector how to slice and dice rows
+
+default `\n`
 
 ### parse_partition_from_path [boolean]
 
@@ -231,6 +278,16 @@ Only need to be configured when file_format is excel.
 
 Reader the sheet of the workbook.
 
+### excel_engine [string]
+
+Only need to be configured when file_format is excel.
+
+supported as the following file types:
+`POI` `EasyExcel`
+
+The default excel reading engine is POI, but POI can easily cause memory overflow when reading Excel with more than 65,000 rows, so you can switch to EasyExcel as the reading engine.
+
+
 ### xml_row_tag [string]
 
 Only need to be configured when file_format is xml.
@@ -243,9 +300,66 @@ Only need to be configured when file_format is xml.
 
 Specifies Whether to process data using the tag attribute format.
 
+### csv_use_header_line [boolean]
+
+Whether to use the header line to parse the file, only used when the file_format is `csv` and the file contains the header line that match RFC 4180
+
 ### file_filter_pattern [string]
 
-Filter pattern, which used for filtering files.
+Filter pattern, which used for filtering files.  If you only want to filter based on file names, simply write the regular file names; If you want to filter based on the file directory at the same time, the expression needs to start with `path`.
+
+The pattern follows standard regular expressions. For details, please refer to https://en.wikipedia.org/wiki/Regular_expression.
+There are some examples.
+
+If the `path` is `/data/seatunnel`, and the file structure example is:
+```
+/data/seatunnel/20241001/report.txt
+/data/seatunnel/20241007/abch202410.csv
+/data/seatunnel/20241002/abcg202410.csv
+/data/seatunnel/20241005/old_data.csv
+/data/seatunnel/20241012/logo.png
+```
+Matching Rules Example:
+
+**Example 1**: *Match all .txt files*，Regular Expression:
+```
+.*.txt
+```
+The result of this example matching is:
+```
+/data/seatunnel/20241001/report.txt
+```
+**Example 2**: *Match all file starting with abc*，Regular Expression:
+```
+abc.*
+```
+The result of this example matching is:
+```
+/data/seatunnel/20241007/abch202410.csv
+/data/seatunnel/20241002/abcg202410.csv
+```
+**Example 3**: *Match all files starting with abc in folder 20241007，And the fourth character is either h or g*, the Regular Expression:
+```
+/data/seatunnel/20241007/abc[h,g].*
+```
+The result of this example matching is:
+```
+/data/seatunnel/20241007/abch202410.csv
+```
+**Example 4**: *Match third level folders starting with 202410 and files ending with .csv*, the Regular Expression:
+```
+/data/seatunnel/202410\d*/.*.csv
+```
+The result of this example matching is:
+```
+/data/seatunnel/20241007/abch202410.csv
+/data/seatunnel/20241002/abcg202410.csv
+/data/seatunnel/20241005/old_data.csv
+```
+
+### filename_extension [string]
+
+Filter filename extension, which used for filtering files with specific extension. Example: `csv` `.txt` `json` `.xml`.
 
 ### compress_codec [string]
 
@@ -257,14 +371,63 @@ The compress codec of files and the details that supported as the following show
 - orc/parquet:  
   automatically recognizes the compression type, no additional settings required.
 
+### archive_compress_codec [string]
+
+The compress codec of archive files and the details that supported as the following shown:
+
+| archive_compress_codec | file_format        | archive_compress_suffix |
+|------------------------|--------------------|-------------------------|
+| ZIP                    | txt,json,excel,xml | .zip                    |
+| TAR                    | txt,json,excel,xml | .tar                    |
+| TAR_GZ                 | txt,json,excel,xml | .tar.gz                 |
+| GZ                     | txt,json,excel,xml | .gz                     |
+| NONE                   | all                | .*                      |
+
+Note: gz compressed excel file needs to compress the original file or specify the file suffix, such as e2e.xls ->e2e_test.xls.gz
+
 ### encoding [string]
 
 Only used when file_format_type is json,text,csv,xml.
 The encoding of the file to read. This param will be parsed by `Charset.forName(encoding)`.
 
+### null_format [string]
+
+Only used when file_format_type is text.
+null_format to define which strings can be represented as null.
+
+e.g: `\N`
+
+### binary_chunk_size [int]
+
+Only used when file_format_type is binary.
+
+The chunk size (in bytes) for reading binary files. Default is 1024 bytes. Larger values may improve performance for large files but use more memory.
+
+### binary_complete_file_mode [boolean]
+
+Only used when file_format_type is binary.
+
+Whether to read the complete file as a single chunk instead of splitting into chunks. When enabled, the entire file content will be read into memory at once. Default is false.
+
+### file_filter_modified_start [string]
+
+File modification time filter. The connector will filter some files base on the last modification start time (include start time). The default data format is `yyyy-MM-dd HH:mm:ss`.
+
+### file_filter_modified_end [string]
+
+File modification time filter. The connector will filter some files base on the last modification end time (not include end time). The default data format is `yyyy-MM-dd HH:mm:ss`.
+
+### enable_file_split [string]
+
+Turn on the file splitting function, the default is false。It can be selected when the file type is csv, text, json and non-compressed format.
+
+### file_split_size [long]
+
+File split size, which can be filled in when the enable_file_split parameter is true. The unit is the number of bytes. The default value is the number of bytes of 128MB, which is 134217728.
+
 ### common options
 
-Source plugin common parameters, please refer to [Source Common Options](common-options.md) for details
+Source plugin common parameters, please refer to [Source Common Options](../source-common-options.md) for details
 
 ### tables_configs
 
@@ -363,15 +526,57 @@ LocalFile {
 
 ```
 
+### Transfer Binary File
+
+```hocon
+
+env {
+  parallelism = 1
+  job.mode = "BATCH"
+}
+
+source {
+  LocalFile {
+    path = "/seatunnel/read/binary/"
+    file_format_type = "binary"
+    binary_chunk_size = 2048
+    binary_complete_file_mode = false
+  }
+}
+sink {
+  // you can transfer local file to s3/hdfs/oss etc.
+  LocalFile {
+    path = "/seatunnel/read/binary2/"
+    file_format_type = "binary"
+  }
+}
+
+```
+
+### Filter File
+
+```hocon
+env {
+  parallelism = 1
+  job.mode = "BATCH"
+}
+
+source {
+  LocalFile {
+    path = "/data/seatunnel/"
+    file_format_type = "csv"
+    skip_header_row_number = 1
+    // file example abcD2024.csv
+    file_filter_pattern = "abc[DX]*.*"
+  }
+}
+
+sink {
+  Console {
+  }
+}
+```
+
 ## Changelog
 
-### 2.2.0-beta 2022-09-26
-
-- Add Local File Source Connector
-
-### 2.3.0-beta 2022-10-20
-
-- [BugFix] Fix the bug of incorrect path in windows environment ([2980](https://github.com/apache/seatunnel/pull/2980))
-- [Improve] Support extract partition from SeaTunnelRow fields ([3085](https://github.com/apache/seatunnel/pull/3085))
-- [Improve] Support parse field from file path ([2985](https://github.com/apache/seatunnel/pull/2985))
-
+<ChangeLog />

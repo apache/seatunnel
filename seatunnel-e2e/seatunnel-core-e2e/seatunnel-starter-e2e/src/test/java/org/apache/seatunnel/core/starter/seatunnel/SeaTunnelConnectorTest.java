@@ -17,6 +17,8 @@
 
 package org.apache.seatunnel.core.starter.seatunnel;
 
+import org.apache.seatunnel.shade.org.apache.commons.lang3.StringUtils;
+
 import org.apache.seatunnel.api.configuration.Option;
 import org.apache.seatunnel.api.configuration.util.OptionRule;
 import org.apache.seatunnel.api.table.factory.Factory;
@@ -30,8 +32,6 @@ import org.apache.seatunnel.e2e.common.container.TestContainer;
 import org.apache.seatunnel.e2e.common.junit.DisabledOnContainer;
 import org.apache.seatunnel.e2e.common.util.ContainerUtil;
 import org.apache.seatunnel.transform.sql.SQLTransformFactory;
-
-import org.apache.commons.lang3.StringUtils;
 
 import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.TestTemplate;
@@ -64,13 +64,7 @@ public class SeaTunnelConnectorTest extends TestSuiteBase implements TestResourc
      * be discovered by seatunnel-plugin-discovery todo: If these connectors implement the Factory
      * interface in the future, it should be removed from here
      */
-    private static final Set<String> EXCLUDE_CONNECTOR =
-            new HashSet() {
-                {
-                    add("TDengine");
-                    add("SelectDBCloud");
-                }
-            };
+    private static final Set<String> EXCLUDE_CONNECTOR = new HashSet();
 
     /** All supported transforms. */
     private static final Set<String> TRANSFORMS =
@@ -88,11 +82,11 @@ public class SeaTunnelConnectorTest extends TestSuiteBase implements TestResourc
             };
 
     // Match paimon source and paimon sink
-    private static final Pattern pattern1 =
+    private static final Pattern PATTERN1 =
             Pattern.compile(
                     "(Paimon (source|sink))(.*?)(?=(Paimon (source|sink)|$))", Pattern.DOTALL);
     // Match required options and optional options
-    private static final Pattern pattern2 =
+    private static final Pattern PATTERN2 =
             Pattern.compile("Required Options:(.*?)(?:Optional Options: (.*?))?$", Pattern.DOTALL);
 
     @Override
@@ -132,7 +126,7 @@ public class SeaTunnelConnectorTest extends TestSuiteBase implements TestResourc
     }
 
     private void checkStdOutForOptionRule(String stdout) {
-        Matcher matcher1 = pattern1.matcher(stdout.trim());
+        Matcher matcher1 = PATTERN1.matcher(stdout.trim());
         String paimonSourceContent = StringUtils.EMPTY;
         String paimonSinkContent = StringUtils.EMPTY;
         Assertions.assertTrue(matcher1.groupCount() >= 3);
@@ -153,7 +147,7 @@ public class SeaTunnelConnectorTest extends TestSuiteBase implements TestResourc
 
     private void checkStdOutForOptionRuleOfSinglePluginTypeWithTransform(
             String stdout, Factory factory) {
-        Matcher matcher2 = pattern2.matcher(stdout.trim());
+        Matcher matcher2 = PATTERN2.matcher(stdout.trim());
         Assertions.assertTrue(matcher2.find());
         Assertions.assertTrue(matcher2.groupCount() >= 2);
         OptionRule optionRule = factory.optionRule();
@@ -164,16 +158,22 @@ public class SeaTunnelConnectorTest extends TestSuiteBase implements TestResourc
         String requiredOptions = matcher2.group(1).trim();
         String optionalOptions = matcher2.group(2);
         Assertions.assertEquals(
-                exceptRequiredOptions.size(), requiredOptions.split(StringUtils.LF).length);
+                exceptRequiredOptions.size(),
+                (int)
+                        Arrays.stream(requiredOptions.split(StringUtils.LF))
+                                .map(String::trim)
+                                // remove empty string with time
+                                .filter(s -> !s.isEmpty())
+                                .count());
         Assertions.assertEquals(
                 optionRule.getOptionalOptions().size(),
                 StringUtils.isBlank(optionalOptions)
                         ? 0
-                        : optionalOptions.split(StringUtils.LF).length);
+                        : optionalOptions.trim().split(StringUtils.LF).length);
     }
 
     private void checkStdOutForOptionRuleOfSinglePluginTypeWithConnector(String stdout) {
-        Matcher matcher1 = pattern1.matcher(stdout.trim());
+        Matcher matcher1 = PATTERN1.matcher(stdout.trim());
         Assertions.assertTrue(matcher1.find());
         Assertions.assertTrue(matcher1.groupCount() >= 3);
         String paimonPluginContent = matcher1.group(3).trim();
@@ -187,7 +187,7 @@ public class SeaTunnelConnectorTest extends TestSuiteBase implements TestResourc
     }
 
     private void checkOptionRuleOfSinglePluginType(Factory factory, String optionRules) {
-        Matcher matcher2 = pattern2.matcher(optionRules);
+        Matcher matcher2 = PATTERN2.matcher(optionRules);
         Assertions.assertTrue(matcher2.find());
         Assertions.assertTrue(matcher2.groupCount() >= 2);
         String requiredOptions = matcher2.group(1).trim();
@@ -205,7 +205,7 @@ public class SeaTunnelConnectorTest extends TestSuiteBase implements TestResourc
                 optionRule.getOptionalOptions().size(),
                 StringUtils.isBlank(optionalOptions)
                         ? 0
-                        : optionalOptions.split(StringUtils.LF).length);
+                        : optionalOptions.trim().split(StringUtils.LF).length);
     }
 
     private void checkResultForCase1(Container.ExecResult execResult) {

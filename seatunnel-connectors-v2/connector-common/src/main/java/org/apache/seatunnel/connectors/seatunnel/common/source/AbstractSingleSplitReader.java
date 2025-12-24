@@ -26,13 +26,11 @@ import java.util.List;
 
 public abstract class AbstractSingleSplitReader<T> implements SourceReader<T, SingleSplit> {
 
-    protected final Object lock = new Object();
-
     protected volatile boolean noMoreSplits = false;
 
     @Override
     public void pollNext(Collector<T> output) throws Exception {
-        synchronized (lock) {
+        synchronized (output.getCheckpointLock()) {
             if (noMoreSplits) {
                 return;
             }

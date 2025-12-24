@@ -17,7 +17,11 @@
 
 package org.apache.seatunnel.connectors.seatunnel.jdbc.internal.dialect.mysql;
 
+import org.apache.seatunnel.shade.org.apache.commons.lang3.StringUtils;
+
 import org.apache.seatunnel.api.table.catalog.TablePath;
+import org.apache.seatunnel.api.table.converter.BasicTypeDefine;
+import org.apache.seatunnel.api.table.converter.TypeConverter;
 import org.apache.seatunnel.connectors.seatunnel.jdbc.internal.converter.JdbcRowConverter;
 import org.apache.seatunnel.connectors.seatunnel.jdbc.internal.dialect.DatabaseIdentifier;
 import org.apache.seatunnel.connectors.seatunnel.jdbc.internal.dialect.JdbcDialect;
@@ -26,8 +30,7 @@ import org.apache.seatunnel.connectors.seatunnel.jdbc.internal.dialect.SQLUtils;
 import org.apache.seatunnel.connectors.seatunnel.jdbc.internal.dialect.dialectenum.FieldIdeEnum;
 import org.apache.seatunnel.connectors.seatunnel.jdbc.source.JdbcSourceTable;
 
-import org.apache.commons.lang3.StringUtils;
-
+import com.mysql.cj.MysqlType;
 import lombok.extern.slf4j.Slf4j;
 
 import java.sql.Connection;
@@ -45,6 +48,10 @@ import java.util.stream.Collectors;
 
 @Slf4j
 public class MysqlDialect implements JdbcDialect {
+
+    private static final List NOT_SUPPORTED_DEFAULT_VALUES =
+            Arrays.asList(MysqlType.BLOB, MysqlType.TEXT, MysqlType.JSON, MysqlType.GEOMETRY);
+
     public String fieldIde = FieldIdeEnum.ORIGINAL.getValue();
 
     public MysqlDialect() {}
@@ -64,6 +71,12 @@ public class MysqlDialect implements JdbcDialect {
     }
 
     @Override
+    public TypeConverter<BasicTypeDefine> getTypeConverter() {
+        TypeConverter typeConverter = MySqlTypeConverter.DEFAULT_INSTANCE;
+        return typeConverter;
+    }
+
+    @Override
     public JdbcDialectTypeMapper getJdbcDialectTypeMapper() {
         return new MySqlTypeMapper();
     }
@@ -76,6 +89,11 @@ public class MysqlDialect implements JdbcDialect {
     @Override
     public String quoteDatabaseIdentifier(String identifier) {
         return "`" + identifier + "`";
+    }
+
+    @Override
+    public String tableIdentifier(TablePath tablePath) {
+        return tableIdentifier(tablePath.getDatabaseName(), tablePath.getTableName());
     }
 
     @Override
@@ -120,6 +138,11 @@ public class MysqlDialect implements JdbcDialect {
     }
 
     @Override
+    public String hashModForField(String fieldName, int mod) {
+        return "ABS(CRC32(" + quoteIdentifier(fieldName) + ") % " + mod + ")";
+    }
+
+    @Override
     public TablePath parse(String tablePath) {
         return TablePath.of(tablePath, false);
     }
@@ -131,7 +154,7 @@ public class MysqlDialect implements JdbcDialect {
             String columnName,
             int samplingRate,
             int fetchSize)
-            throws SQLException {
+            throws Exception {
         String sampleQuery;
         if (StringUtils.isNotBlank(table.getQuery())) {
             sampleQuery =
@@ -157,6 +180,9 @@ public class MysqlDialect implements JdbcDialect {
                     count++;
                     if (count % samplingRate == 0) {
                         results.add(rs.getObject(1));
+                    }
+                    if (Thread.currentThread().isInterrupted()) {
+                        throw new InterruptedException("Thread interrupted");
                     }
                 }
                 Object[] resultsArray = results.toArray();
@@ -210,5 +236,38 @@ public class MysqlDialect implements JdbcDialect {
         }
 
         return SQLUtils.countForSubquery(connection, table.getQuery());
+    }
+
+    @Override
+    public boolean supportDefaultValue(BasicTypeDefine typeBasicTypeDefine) {
+        MysqlType nativeType = (MysqlType) typeBasicTypeDefine.getNativeType();
+        return !(NOT_SUPPORTED_DEFAULT_VALUES.contains(nativeType));
+    }
+
+    @Override
+    public boolean needsQuotesWithDefaultValue(BasicTypeDefine columnDefine) {
+        MysqlType mysqlType = MysqlType.getByName(columnDefine.getColumnType());
+        switch (mysqlType) {
+            case CHAR:
+            case VARCHAR:
+            case TEXT:
+            case TINYTEXT:
+            case MEDIUMTEXT:
+            case LONGTEXT:
+            case ENUM:
+            case SET:
+            case BLOB:
+            case TINYBLOB:
+            case MEDIUMBLOB:
+            case LONGBLOB:
+            case DATE:
+            case DATETIME:
+            case TIMESTAMP:
+            case TIME:
+            case YEAR:
+                return true;
+            default:
+                return false;
+        }
     }
 }

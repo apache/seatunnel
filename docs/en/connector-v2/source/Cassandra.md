@@ -1,3 +1,5 @@
+import ChangeLog from '../changelog/connector-cassandra.md';
+
 # Cassandra
 
 > Cassandra source connector
@@ -67,14 +69,11 @@ source {
      datacenter = "datacenter1"
      keyspace = "test"
      cql = "select * from source_table"
-     result_table_name = "source_table"
+     plugin_output = "source_table"
     }
 }
 ```
 
 ## Changelog
 
-### next version
-
-- Add Cassandra Source Connector
-
+<ChangeLog />

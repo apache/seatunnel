@@ -17,6 +17,8 @@
 
 package org.apache.seatunnel.e2e.connector.doris;
 
+import org.apache.seatunnel.common.utils.JsonUtils;
+
 import java.math.BigDecimal;
 import java.math.BigInteger;
 import java.math.RoundingMode;
@@ -25,6 +27,8 @@ import java.time.LocalDate;
 import java.time.LocalDateTime;
 import java.time.ZoneOffset;
 import java.time.format.DateTimeFormatter;
+import java.util.HashMap;
+import java.util.Map;
 import java.util.concurrent.ThreadLocalRandom;
 
 public class GenerateTestData {
@@ -92,6 +96,14 @@ public class GenerateTestData {
         return randomDate.format(DateTimeFormatter.ofPattern("yyyy-MM-dd"));
     }
 
+    public static String genJsonString() {
+        Map<String, String> testMap = new HashMap<>();
+        testMap.put("1", "hai");
+        testMap.put("2", "ti");
+        String s = JsonUtils.toJsonString(testMap);
+        return s;
+    }
+
     public static byte genTinyint() {
         return (byte) ThreadLocalRandom.current().nextInt(Byte.MIN_VALUE, Byte.MAX_VALUE);
     }
@@ -116,11 +128,5 @@ public class GenerateTestData {
         BigDecimal decimal = BigDecimal.valueOf(decimalPart, decimalDigits);
 
         return integer.add(decimal).setScale(decimalDigits, RoundingMode.HALF_UP);
-    }
-
-    public static void main(String[] args) {
-        for (int i = 0; i < 1000; i++) {
-            System.out.println(genFloat(0, 1000));
-        }
     }
 }

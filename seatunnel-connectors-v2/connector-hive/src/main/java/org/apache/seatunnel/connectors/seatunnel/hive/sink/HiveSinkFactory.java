@@ -17,19 +17,28 @@
 
 package org.apache.seatunnel.connectors.seatunnel.hive.sink;
 
+import org.apache.seatunnel.api.configuration.ReadonlyConfig;
 import org.apache.seatunnel.api.configuration.util.OptionRule;
+import org.apache.seatunnel.api.sink.DataSaveMode;
+import org.apache.seatunnel.api.table.catalog.CatalogTable;
+import org.apache.seatunnel.api.table.connector.TableSink;
 import org.apache.seatunnel.api.table.factory.Factory;
 import org.apache.seatunnel.api.table.factory.TableSinkFactory;
+import org.apache.seatunnel.api.table.factory.TableSinkFactoryContext;
+import org.apache.seatunnel.api.table.type.SeaTunnelRow;
+import org.apache.seatunnel.connectors.seatunnel.file.config.FileBaseSinkOptions;
+import org.apache.seatunnel.connectors.seatunnel.file.sink.commit.FileAggregatedCommitInfo;
+import org.apache.seatunnel.connectors.seatunnel.file.sink.commit.FileCommitInfo;
+import org.apache.seatunnel.connectors.seatunnel.file.sink.state.FileSinkState;
 import org.apache.seatunnel.connectors.seatunnel.hive.config.HiveConfig;
+import org.apache.seatunnel.connectors.seatunnel.hive.config.HiveConstants;
 
 import com.google.auto.service.AutoService;
 
 @AutoService(Factory.class)
-public class HiveSinkFactory implements TableSinkFactory {
-    @Override
-    public String factoryIdentifier() {
-        return "Hive";
-    }
+public class HiveSinkFactory
+        implements TableSinkFactory<
+                SeaTunnelRow, FileSinkState, FileCommitInfo, FileAggregatedCommitInfo> {
 
     @Override
     public OptionRule optionRule() {
@@ -37,8 +46,41 @@ public class HiveSinkFactory implements TableSinkFactory {
                 .required(HiveConfig.TABLE_NAME)
                 .required(HiveConfig.METASTORE_URI)
                 .optional(HiveConfig.ABORT_DROP_PARTITION_METADATA)
+                .optional(FileBaseSinkOptions.KERBEROS_PRINCIPAL)
+                .optional(FileBaseSinkOptions.KERBEROS_KEYTAB_PATH)
+                .optional(FileBaseSinkOptions.REMOTE_USER)
                 .optional(HiveConfig.HADOOP_CONF)
                 .optional(HiveConfig.HADOOP_CONF_PATH)
+                .optional(FileBaseSinkOptions.PARQUET_AVRO_WRITE_TIMESTAMP_AS_INT96)
+                // SaveMode related options
+                .optional(HiveSinkOptions.SCHEMA_SAVE_MODE)
+                .optional(HiveSinkOptions.DATA_SAVE_MODE)
+                .optional(HiveSinkOptions.OVERWRITE)
+                .optional(HiveSinkOptions.SAVE_MODE_CREATE_TEMPLATE)
                 .build();
+    }
+
+    @Override
+    public TableSink<SeaTunnelRow, FileSinkState, FileCommitInfo, FileAggregatedCommitInfo>
+            createSink(TableSinkFactoryContext context) {
+        ReadonlyConfig readonlyConfig = context.getOptions();
+        CatalogTable catalogTable = context.getCatalogTable();
+
+        return () -> {
+            java.util.Map<String, Object> conf =
+                    new java.util.LinkedHashMap<>(readonlyConfig.getSourceMap());
+            java.util.Optional<Boolean> overwriteOptional =
+                    readonlyConfig.getOptional(HiveSinkOptions.OVERWRITE);
+            if (overwriteOptional.isPresent() && overwriteOptional.get()) {
+                conf.put(HiveSinkOptions.DATA_SAVE_MODE.key(), DataSaveMode.DROP_DATA.name());
+            }
+            ReadonlyConfig adjusted = ReadonlyConfig.fromMap(conf);
+            return new HiveSink(adjusted, catalogTable);
+        };
+    }
+
+    @Override
+    public String factoryIdentifier() {
+        return HiveConstants.CONNECTOR_NAME;
     }
 }

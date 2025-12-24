@@ -1,3 +1,5 @@
+import ChangeLog from '../changelog/connector-jdbc.md';
+
 # HiveJdbc
 
 > JDBC Hive Source Connector
@@ -35,9 +37,9 @@ Read external data source data through JDBC.
 
 ## Database Dependency
 
-> Please download the support list corresponding to 'Maven' and copy it to the '$SEATNUNNEL_HOME/plugins/jdbc/lib/'
+> Please download the support list corresponding to 'Maven' and copy it to the '$SEATUNNEL_HOME/plugins/jdbc/lib/'
 > working directory<br/>
-> For example Hive datasource: cp hive-jdbc-xxx.jar $SEATNUNNEL_HOME/plugins/jdbc/lib/
+> For example Hive datasource: cp hive-jdbc-xxx.jar $SEATUNNEL_HOME/plugins/jdbc/lib/
 
 ## Data Type Mapping
 
@@ -62,7 +64,7 @@ Read external data source data through JDBC.
 |------------------------------|------------|----------|-----------------|-------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------|
 | url                          | String     | Yes      | -               | The URL of the JDBC connection. Refer to a case: jdbc:hive2://localhost:10000/default                                                                                                                                                                             |
 | driver                       | String     | Yes      | -               | The jdbc class name used to connect to the remote data source,<br/> if you use Hive the value is `org.apache.hive.jdbc.HiveDriver`.                                                                                                                               |
-| user                         | String     | No       | -               | Connection instance user name                                                                                                                                                                                                                                     |
+| username                         | String     | No       | -               | Connection instance user name                                                                                                                                                                                                                                     |
 | password                     | String     | No       | -               | Connection instance password                                                                                                                                                                                                                                      |
 | query                        | String     | Yes      | -               | Query statement                                                                                                                                                                                                                                                   |
 | connection_check_timeout_sec | Int        | No       | 30              | The time in seconds to wait for the database operation used to validate the connection to complete                                                                                                                                                                |
@@ -71,8 +73,8 @@ Read external data source data through JDBC.
 | partition_upper_bound        | BigDecimal | No       | -               | The partition_column max value for scan, if not set SeaTunnel will query database get max value.                                                                                                                                                                  |
 | partition_num                | Int        | No       | job parallelism | The number of partition count, only support positive integer. default value is job parallelism                                                                                                                                                                    |
 | fetch_size                   | Int        | No       | 0               | For queries that return a large number of objects,you can configure<br/> the row fetch size used in the query toimprove performance by<br/> reducing the number database hits required to satisfy the selection criteria.<br/> Zero means use jdbc default value. |
-| common-options               |            | No       | -               | Source plugin common parameters, please refer to [Source Common Options](common-options.md) for details                                                                                                                                                           |
-| useKerberos                  | Boolean    | No       | no              | Whether to enable Kerberos, default is false                                                                                                                                                                                                                      |
+| common-options               |            | No       | -               | Source plugin common parameters, please refer to [Source Common Options](../source-common-options.md) for details                                                                                                                                                 |
+| use_kerberos                  | Boolean    | No       | no              | Whether to enable Kerberos, default is false                                                                                                                                                                                                                      |
 | kerberos_principal           | String     | No       | -               | When use kerberos, we should set kerberos principal such as 'test_user@xxx'.                                                                                                                                                                                      |
 | kerberos_keytab_path         | String     | No       | -               | When use kerberos, we should set kerberos principal file path such as '/home/test/test_user.keytab' .                                                                                                                                                             |
 | krb5_path                    | String     | No       | /etc/krb5.conf  | When use kerberos, we should set krb5 path file path such as '/seatunnel/krb5.conf' or use the default path '/etc/krb5.conf '.                                                                                                                                    |
@@ -87,7 +89,7 @@ Read external data source data through JDBC.
 
 ## Task Example
 
-### Simple:
+### Simple
 
 > This example queries type_bin 'table' 16 data in your test "database" in single parallel and queries all of its
 > fields. You can also specify which fields to query for final output to the console.
@@ -117,7 +119,7 @@ sink {
 }
 ```
 
-### Parallel:
+### Parallel
 
 > Read your query table in parallel with the shard field you configured and the shard data You can do this if you want
 > to read the whole table
@@ -138,7 +140,7 @@ source {
 }
 ```
 
-### Parallel Boundary:
+### Parallel Boundary
 
 > It is more efficient to specify the data within the upper and lower bounds of the query It is more efficient to read
 > your data source according to the upper and lower boundaries you configured
@@ -161,3 +163,6 @@ source {
 }
 ```
 
+## Changelog
+
+<ChangeLog />

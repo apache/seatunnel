@@ -33,6 +33,11 @@
         </dependency>
         <dependency>
             <groupId>org.apache.seatunnel</groupId>
+            <artifactId>seatunnel-config-sql</artifactId>
+            <version>${project.version}</version>
+        </dependency>
+        <dependency>
+            <groupId>org.apache.seatunnel</groupId>
             <artifactId>seatunnel-transforms-v2</artifactId>
             <version>${project.version}</version>
             <scope>test</scope>

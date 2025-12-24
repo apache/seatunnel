@@ -22,8 +22,10 @@ import org.apache.seatunnel.core.starter.exception.CommandException;
 import org.apache.seatunnel.core.starter.flink.args.FlinkCommandArgs;
 import org.apache.seatunnel.e2e.sink.inmemory.InMemoryAggregatedCommitter;
 import org.apache.seatunnel.e2e.sink.inmemory.InMemorySinkWriter;
+import org.apache.seatunnel.e2e.source.inmemory.InMemorySourceSplitEnumerator;
 
 import org.junit.jupiter.api.Assertions;
+import org.junit.jupiter.api.Order;
 import org.junit.jupiter.api.Test;
 
 import java.io.FileNotFoundException;
@@ -34,12 +36,13 @@ import java.util.Arrays;
 import java.util.Collections;
 import java.util.List;
 
+@Order(1)
 public class MultiTableSinkTest {
 
     @Test
     public void testMultiTableSink()
             throws FileNotFoundException, URISyntaxException, CommandException {
-        String configurePath = "/config/fake_to_inmemory_multi_table.conf";
+        String configurePath = "/config/inmemory_to_inmemory_multi_table.conf";
         String configFile = getTestConfigFile(configurePath);
         FlinkCommandArgs flinkCommandArgs = new FlinkCommandArgs();
         flinkCommandArgs.setConfigFile(configFile);
@@ -71,6 +74,10 @@ public class MultiTableSinkTest {
         //        Assertions.assertIterableEquals(
         //                Collections.singletonList("InMemoryMultiTableResourceManager::close"),
         //                committerResourceManagersEvents);
+
+        Assertions.assertIterableEquals(
+                Arrays.asList("registerReader_0", "run"),
+                InMemorySourceSplitEnumerator.getMethodInvoked());
     }
 
     public static String getTestConfigFile(String configFile)

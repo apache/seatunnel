@@ -1,3 +1,5 @@
+import ChangeLog from '../changelog/connector-http-wechat.md';
+
 # Enterprise WeChat
 
 > Enterprise WeChat sink connector
@@ -43,7 +45,7 @@ Mobile phone number list, remind the group member corresponding to the mobile ph
 
 ### common options
 
-Sink plugin common parameters, please refer to [Sink Common Options](common-options.md) for details
+Sink plugin common parameters, please refer to [Sink Common Options](../sink-common-options.md) for details
 
 ## Example
 
@@ -65,11 +67,6 @@ WeChat {
 
 ## Changelog
 
-### 2.2.0-beta 2022-09-26
+<ChangeLog />
 
-- Add Enterprise-WeChat Sink Connector
-
-### 2.3.0-beta 2022-10-20
-
-- [BugFix] Fix Enterprise-WeChat Sink data serialization ([2856](https://github.com/apache/seatunnel/pull/2856))
 

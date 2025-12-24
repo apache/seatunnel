@@ -48,10 +48,6 @@
             <version>${hadoop-aliyun.version}</version>
             <scope>provided</scope>
         </dependency>
-        <dependency>
-            <groupId>org.apache.commons</groupId>
-            <artifactId>commons-lang3</artifactId>
-        </dependency>
         <!-- hadoop jar -->
         <dependency>
             <groupId>org.apache.hadoop</groupId>
@@ -63,6 +59,12 @@
             <groupId>com.amazonaws</groupId>
             <artifactId>aws-java-sdk-bundle</artifactId>
             <version>1.11.271</version>
+            <scope>provided</scope>
+        </dependency>
+        <dependency>
+            <groupId>org.apache.hadoop</groupId>
+            <artifactId>hadoop-cos</artifactId>
+            <version>3.4.1</version>
             <scope>provided</scope>
         </dependency>
     </dependencies>

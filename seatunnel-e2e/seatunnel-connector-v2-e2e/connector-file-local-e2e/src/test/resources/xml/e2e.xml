@@ -1,0 +1,24 @@
+<?xml version="1.0" encoding="UTF-8"?>
+
+<!--
+
+    Licensed to the Apache Software Foundation (ASF) under one or more
+    contributor license agreements.  See the NOTICE file distributed with
+    this work for additional information regarding copyright ownership.
+    The ASF licenses this file to You under the Apache License, Version 2.0
+    (the "License"); you may not use this file except in compliance with
+    the License.  You may obtain a copy of the License at
+
+       http://www.apache.org/licenses/LICENSE-2.0
+
+    Unless required by applicable law or agreed to in writing, software
+    distributed under the License is distributed on an "AS IS" BASIS,
+    WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+    See the License for the specific language governing permissions and
+    limitations under the License.
+
+-->
+
+<RECORDS>
+    <RECORD c_bytes="1" c_short="22" c_int="333" c_bigint="4444" c_string="DusayI" c_double="5.555" c_float="6.666" c_decimal="7.78" c_boolean="false" c_map="{&quot;age&quot;: &quot;26&quot;, &quot;name&quot;: &quot;Ivan&quot;}" c_array="[&quot;Ivan&quot;, &quot;Dusayi&quot;]" c_date="2024-01-31" c_datetime="2024-01-31 16:00:48" c_time="16:00:48"/>
+</RECORDS>

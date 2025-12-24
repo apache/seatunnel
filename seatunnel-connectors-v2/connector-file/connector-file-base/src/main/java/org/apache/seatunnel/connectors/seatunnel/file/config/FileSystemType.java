@@ -27,7 +27,8 @@ public enum FileSystemType implements Serializable {
     COS("CosFile"),
     FTP("FtpFile"),
     SFTP("SftpFile"),
-    S3("S3File");
+    S3("S3File"),
+    OBS("ObsFile");
 
     private final String fileSystemPluginName;
 

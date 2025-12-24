@@ -17,6 +17,8 @@
 
 package org.apache.seatunnel.e2e.connector.kudu;
 
+import org.apache.seatunnel.shade.com.google.common.collect.ImmutableList;
+
 import org.apache.seatunnel.e2e.common.TestResource;
 import org.apache.seatunnel.e2e.common.TestSuiteBase;
 import org.apache.seatunnel.e2e.common.container.EngineType;
@@ -53,7 +55,6 @@ import org.testcontainers.lifecycle.Startables;
 import org.testcontainers.shaded.org.awaitility.Awaitility;
 import org.testcontainers.utility.DockerLoggerFactory;
 
-import com.google.common.collect.ImmutableList;
 import lombok.extern.slf4j.Slf4j;
 
 import java.io.IOException;
@@ -74,9 +75,6 @@ import static java.lang.String.format;
 import static org.awaitility.Awaitility.await;
 
 @Slf4j
-@DisabledOnContainer(
-        value = {},
-        disabledReason = "Override TestSuiteBase @DisabledOnContainer")
 public class KuduIT extends TestSuiteBase implements TestResource {
 
     private static final String IMAGE = "apache/kudu:1.15.0";
@@ -342,6 +340,20 @@ public class KuduIT extends TestSuiteBase implements TestResource {
         kuduClient.deleteTable(KUDU_SINK_TABLE);
     }
 
+    @TestTemplate
+    public void testKuduFilter(TestContainer container) throws IOException, InterruptedException {
+        initializeKuduTable();
+        batchInsertData();
+        Container.ExecResult execResult = container.executeJob("/kudu_to_assert.conf");
+        Assertions.assertEquals(0, execResult.getExitCode());
+        Container.ExecResult execResultRange = container.executeJob("/kudu_to_assert_range.conf");
+        Assertions.assertEquals(0, execResultRange.getExitCode());
+        Container.ExecResult execResultEqual = container.executeJob("/kudu_to_assert_equal.conf");
+        Assertions.assertEquals(0, execResultEqual.getExitCode());
+        kuduClient.deleteTable(KUDU_SOURCE_TABLE);
+        kuduClient.deleteTable(KUDU_SINK_TABLE);
+    }
+
     @DisabledOnContainer(
             value = {},
             type = {EngineType.SPARK},
@@ -388,10 +400,6 @@ public class KuduIT extends TestSuiteBase implements TestResource {
         kuduClient.deleteTable("kudu_cdc_sink_table");
     }
 
-    @DisabledOnContainer(
-            value = {},
-            type = {EngineType.SPARK, EngineType.FLINK},
-            disabledReason = "Currently SPARK/FLINK do not support multiple table read")
     @TestTemplate
     public void testKuduMultipleRead(TestContainer container)
             throws IOException, InterruptedException {
@@ -406,10 +414,55 @@ public class KuduIT extends TestSuiteBase implements TestResource {
         kuduClient.deleteTable("kudu_source_table_2");
     }
 
+    @TestTemplate
+    public void testKuduMultipleReadWithRegex(TestContainer container)
+            throws IOException, InterruptedException {
+        initializeKuduTable("kudu_source_table_1");
+        initializeKuduTable("kudu_source_table_2");
+        batchInsertData("kudu_source_table_1");
+        batchInsertData("kudu_source_table_2");
+        Container.ExecResult execResult =
+                container.executeJob("/kudu_to_assert_with_pattern_tables.conf");
+        Assertions.assertEquals(0, execResult.getExitCode());
+        kuduClient.deleteTable("kudu_source_table_1");
+        kuduClient.deleteTable("kudu_source_table_2");
+    }
+
+    @TestTemplate
+    public void testKuduWholeDatabaseRead(TestContainer container)
+            throws IOException, InterruptedException {
+        initializeKuduTable("kudu_source_table_1");
+        initializeKuduTable("kudu_source_table_2");
+        batchInsertData("kudu_source_table_1");
+        batchInsertData("kudu_source_table_2");
+        Container.ExecResult execResult =
+                container.executeJob("/kudu_to_assert_with_all_tables.conf");
+        Assertions.assertEquals(0, execResult.getExitCode());
+        kuduClient.deleteTable("kudu_source_table_1");
+        kuduClient.deleteTable("kudu_source_table_2");
+    }
+
+    @TestTemplate
+    public void testKuduTableListWithRegex(TestContainer container)
+            throws IOException, InterruptedException {
+        initializeKuduTable("kudu_source_table_1");
+        initializeKuduTable("kudu_source_table_2");
+        initializeKuduTable("kudu_extra_1");
+        batchInsertData("kudu_source_table_1");
+        batchInsertData("kudu_source_table_2");
+        batchInsertData("kudu_extra_1");
+        Container.ExecResult execResult =
+                container.executeJob("/kudu_to_assert_with_table_list_pattern.conf");
+        Assertions.assertEquals(0, execResult.getExitCode());
+        kuduClient.deleteTable("kudu_source_table_1");
+        kuduClient.deleteTable("kudu_source_table_2");
+        kuduClient.deleteTable("kudu_extra_1");
+    }
+
     @DisabledOnContainer(
             value = {},
-            type = {EngineType.SPARK, EngineType.FLINK},
-            disabledReason = "Currently SPARK/FLINK do not support multiple table read")
+            type = {EngineType.FLINK},
+            disabledReason = "Currently FLINK do not support multiple table read")
     @TestTemplate
     public void testKuduMultipleWrite(TestContainer container)
             throws IOException, InterruptedException {

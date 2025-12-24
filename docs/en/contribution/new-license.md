@@ -6,9 +6,9 @@ You have to pay attention to the following open-source software protocols which 
 
 [ASF 3RD PARTY LICENSE POLICY](https://apache.org/legal/resolved.html)
 
-If the 3rd party software is not present at the above policy, we could't that accept your code.
+If the 3rd party software is not present at the above policy, we wouldn't accept your code.
 
-### How to Legally Use 3rd Party Open-source Software in the SeaTunnel
+### How to Legally Use 3rd Party Open-source Software In The SeaTunnel
 
 Moreover, when we intend to refer a new software ( not limited to 3rd party jar, text, CSS, js, pics, icons, audios etc and modifications based on 3rd party files) to our project, we need to use them legally in addition to the permission of ASF. Refer to the following article:
 
@@ -27,7 +27,7 @@ We need to follow the following steps when we need to add new jars or external r
 * Add the name and the version of the jar file in the known-dependencies.txt
 * Add relevant maven repository address under 'seatunnel-dist/release-docs/LICENSE' directory
 * Append relevant NOTICE files under 'seatunnel-dist/release-docs/NOTICE' directory and make sure they are no different to the original repository
-* Add relevant source code protocols under 'seatunnel-dist/release-docs/licenses' directory and the file name should be named as license+filename.txt. Eg: license-zk.txt
+* Add relevant source code protocols under 'seatunnel-dist/release-docs/licenses' directory and the file name should be named as license+filename.txt. e.g.: license-zk.txt
 * check dependency license fail
 
 ```

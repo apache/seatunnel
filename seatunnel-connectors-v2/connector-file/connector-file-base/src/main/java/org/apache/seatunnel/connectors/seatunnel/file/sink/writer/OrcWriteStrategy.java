@@ -18,7 +18,6 @@
 package org.apache.seatunnel.connectors.seatunnel.file.sink.writer;
 
 import org.apache.seatunnel.api.table.type.ArrayType;
-import org.apache.seatunnel.api.table.type.BasicType;
 import org.apache.seatunnel.api.table.type.DecimalType;
 import org.apache.seatunnel.api.table.type.MapType;
 import org.apache.seatunnel.api.table.type.SeaTunnelDataType;
@@ -60,21 +59,23 @@ import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
 
-public class OrcWriteStrategy extends AbstractWriteStrategy {
+public class OrcWriteStrategy extends AbstractWriteStrategy<Writer> {
     private final LinkedHashMap<String, Writer> beingWrittenWriter;
+    private final LinkedHashMap<String, VectorizedRowBatch> vectorizedRowBatches;
 
     public OrcWriteStrategy(FileSinkConfig fileSinkConfig) {
         super(fileSinkConfig);
         this.beingWrittenWriter = new LinkedHashMap<>();
+        this.vectorizedRowBatches = new LinkedHashMap<>();
     }
 
     @Override
     public void write(@NonNull SeaTunnelRow seaTunnelRow) {
         super.write(seaTunnelRow);
         String filePath = getOrCreateFilePathBeingWritten(seaTunnelRow);
-        Writer writer = getOrCreateWriter(filePath);
-        TypeDescription schema = buildSchemaWithRowType();
-        VectorizedRowBatch rowBatch = schema.createRowBatch();
+        Writer writer = getOrCreateOutputStream(filePath);
+        VectorizedRowBatch rowBatch = getOrCreateVectorizedRowBatch(filePath);
+
         int i = 0;
         int row = rowBatch.size++;
         for (Integer index : sinkColumnsIndexInRow) {
@@ -84,8 +85,11 @@ public class OrcWriteStrategy extends AbstractWriteStrategy {
             i++;
         }
         try {
-            writer.addRowBatch(rowBatch);
-            rowBatch.reset();
+            if (rowBatch.size == rowBatch.getMaxSize()) {
+                writer.addRowBatch(rowBatch);
+                rowBatch.reset();
+            }
+
         } catch (IOException e) {
             throw CommonError.fileOperationFailed("OrcFile", "write", filePath, e);
         }
@@ -96,6 +100,11 @@ public class OrcWriteStrategy extends AbstractWriteStrategy {
         this.beingWrittenWriter.forEach(
                 (k, v) -> {
                     try {
+                        VectorizedRowBatch rowBatch = getOrCreateVectorizedRowBatch(k);
+                        if (rowBatch.size > 0) {
+                            v.addRowBatch(rowBatch);
+                            rowBatch.reset();
+                        }
                         v.close();
                     } catch (IOException e) {
                         String errorMsg =
@@ -107,10 +116,23 @@ public class OrcWriteStrategy extends AbstractWriteStrategy {
                     }
                     needMoveFiles.put(k, getTargetLocation(k));
                 });
+        this.vectorizedRowBatches.clear();
         this.beingWrittenWriter.clear();
     }
 
-    private Writer getOrCreateWriter(@NonNull String filePath) {
+    private VectorizedRowBatch getOrCreateVectorizedRowBatch(@NonNull String filePath) {
+        VectorizedRowBatch vectorizedRowBatch = this.vectorizedRowBatches.get(filePath);
+        if (vectorizedRowBatch == null) {
+            TypeDescription schema = buildSchemaWithRowType();
+            VectorizedRowBatch rowBatch = schema.createRowBatch();
+            this.vectorizedRowBatches.put(filePath, rowBatch);
+            return rowBatch;
+        }
+        return vectorizedRowBatch;
+    }
+
+    @Override
+    public Writer getOrCreateOutputStream(@NonNull String filePath) {
         Writer writer = this.beingWrittenWriter.get(filePath);
         if (writer == null) {
             TypeDescription schema = buildSchemaWithRowType();
@@ -139,7 +161,7 @@ public class OrcWriteStrategy extends AbstractWriteStrategy {
     public static TypeDescription buildFieldWithRowType(SeaTunnelDataType<?> type) {
         switch (type.getSqlType()) {
             case ARRAY:
-                BasicType<?> elementType = ((ArrayType<?, ?>) type).getElementType();
+                SeaTunnelDataType<?> elementType = ((ArrayType<?, ?>) type).getElementType();
                 return TypeDescription.createList(buildFieldWithRowType(elementType));
             case MAP:
                 SeaTunnelDataType<?> keyType = ((MapType<?, ?>) type).getKeyType();

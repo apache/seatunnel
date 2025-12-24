@@ -1,5 +1,5 @@
 Apache SeaTunnel
-Copyright 2021-2023 The Apache Software Foundation
+Copyright 2021-2024 The Apache Software Foundation
 
 This product includes software developed at
 The Apache Software Foundation (http://www.apache.org/).
@@ -806,4 +806,40 @@ LongAdder), which was released with the following comments:
 
 =========================================================================
 
+Prometheus NOTICE
 
+=========================================================================
+Prometheus instrumentation library for JVM applications
+Copyright 2012-2015 The Prometheus Authors
+
+This product includes software developed at
+Boxever Ltd. (http://www.boxever.com/).
+
+This product includes software developed at
+SoundCloud Ltd. (http://soundcloud.com/).
+
+This product includes software developed as part of the
+Ocelli project by Netflix Inc. (https://github.com/Netflix/ocelli/).
+
+=========================================================================
+
+Apache HugeGraph NOTICE
+
+=========================================================================
+
+Apache HugeGraph(incubating)
+Copyright 2022-2024 The Apache Software Foundation
+
+This product includes software developed at
+The Apache Software Foundation (http://www.apache.org/).
+
+The initial codebase was donated to the ASF by HugeGraph Authors, copyright 2017-2021.
+
+=========================================================================
+
+ +===============================================================================
+ + Third-party dependencies for Aerospike connector:
+ +===============================================================================
+ + com.aerospike:aerospike-client (https://github.com/aerospike/aerospike-client-java)
+ + Copyright 2012-2023 Aerospike, Inc.
+ + Licensed under the Apache License, Version 2.0

@@ -17,6 +17,9 @@
 
 package org.apache.seatunnel.connectors.seatunnel.influxdb.serialize;
 
+import org.apache.seatunnel.shade.com.google.common.base.Strings;
+import org.apache.seatunnel.shade.org.apache.commons.lang3.StringUtils;
+
 import org.apache.seatunnel.api.table.type.SeaTunnelDataType;
 import org.apache.seatunnel.api.table.type.SeaTunnelRow;
 import org.apache.seatunnel.api.table.type.SeaTunnelRowType;
@@ -24,11 +27,8 @@ import org.apache.seatunnel.common.exception.CommonErrorCodeDeprecated;
 import org.apache.seatunnel.connectors.seatunnel.influxdb.exception.InfluxdbConnectorException;
 
 import org.apache.commons.collections4.CollectionUtils;
-import org.apache.commons.lang3.StringUtils;
 
 import org.influxdb.dto.Point;
-
-import com.google.common.base.Strings;
 
 import java.time.LocalDateTime;
 import java.time.ZoneOffset;

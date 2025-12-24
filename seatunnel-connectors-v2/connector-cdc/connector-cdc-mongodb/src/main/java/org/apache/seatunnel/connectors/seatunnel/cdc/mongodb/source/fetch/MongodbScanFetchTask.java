@@ -65,7 +65,6 @@ import static org.apache.seatunnel.connectors.seatunnel.cdc.mongodb.config.Mongo
 import static org.apache.seatunnel.connectors.seatunnel.cdc.mongodb.utils.MongodbRecordUtils.createPartitionMap;
 import static org.apache.seatunnel.connectors.seatunnel.cdc.mongodb.utils.MongodbRecordUtils.createSourceOffsetMap;
 import static org.apache.seatunnel.connectors.seatunnel.cdc.mongodb.utils.MongodbRecordUtils.createWatermarkPartitionMap;
-import static org.apache.seatunnel.connectors.seatunnel.cdc.mongodb.utils.MongodbUtils.createMongoClient;
 import static org.apache.seatunnel.connectors.seatunnel.cdc.mongodb.utils.MongodbUtils.getMongoCollection;
 
 @Slf4j
@@ -102,7 +101,9 @@ public class MongodbScanFetchTask implements FetchTask<SourceSplitBase> {
                                 lowWatermark)));
 
         log.info("Snapshot step 2 - Snapshotting data");
-        try (MongoCursor<RawBsonDocument> cursor = getSnapshotCursor(snapshotSplit, sourceConfig)) {
+        MongoClient mongoClient = taskContext.getMongoClient();
+        try (MongoCursor<RawBsonDocument> cursor =
+                getSnapshotCursor(snapshotSplit, sourceConfig, mongoClient)) {
             while (cursor.hasNext()) {
                 checkTaskRunning();
                 BsonDocument valueDocument = normalizeSnapshotDocument(collectionId, cursor.next());
@@ -163,8 +164,9 @@ public class MongodbScanFetchTask implements FetchTask<SourceSplitBase> {
 
     @Nonnull
     private MongoCursor<RawBsonDocument> getSnapshotCursor(
-            @Nonnull SnapshotSplit snapshotSplit, MongodbSourceConfig sourceConfig) {
-        MongoClient mongoClient = createMongoClient(sourceConfig);
+            @Nonnull SnapshotSplit snapshotSplit,
+            MongodbSourceConfig sourceConfig,
+            MongoClient mongoClient) {
         MongoCollection<RawBsonDocument> collection =
                 getMongoCollection(mongoClient, snapshotSplit.getTableId(), RawBsonDocument.class);
         BsonDocument startKey = (BsonDocument) snapshotSplit.getSplitStart()[1];
@@ -176,6 +178,7 @@ public class MongodbScanFetchTask implements FetchTask<SourceSplitBase> {
                 startKey,
                 endKey,
                 hint);
+
         return collection
                 .find()
                 .min(startKey)

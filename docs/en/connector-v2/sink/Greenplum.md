@@ -1,3 +1,5 @@
+import ChangeLog from '../changelog/connector-jdbc.md';
+
 # Greenplum
 
 > Greenplum sink connector
@@ -24,7 +26,7 @@ Optional jdbc drivers:
 - `org.postgresql.Driver`
 - `com.pivotal.jdbc.GreenplumDriver`
 
-Warn: for license compliance, if you use `GreenplumDriver` the have to provide Greenplum JDBC driver yourself, e.g. copy greenplum-xxx.jar to $SEATNUNNEL_HOME/lib for Standalone.
+Warn: for license compliance, if you use `GreenplumDriver` the have to provide Greenplum JDBC driver yourself, e.g. copy greenplum-xxx.jar to $SEATUNNEL_HOME/lib for Standalone.
 
 ### url [string]
 
@@ -32,11 +34,8 @@ The URL of the JDBC connection. if you use postgresql driver the value is `jdbc:
 
 ### common options
 
-Sink plugin common parameters, please refer to [Sink Common Options](common-options.md) for details
+Sink plugin common parameters, please refer to [Sink Common Options](../sink-common-options.md) for details
 
 ## Changelog
 
-### 2.2.0-beta 2022-09-26
-
-- Add Greenplum Sink Connector
-
+<ChangeLog />

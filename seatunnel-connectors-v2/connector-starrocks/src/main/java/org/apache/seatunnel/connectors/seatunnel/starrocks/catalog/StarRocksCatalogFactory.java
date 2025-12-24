@@ -22,23 +22,22 @@ import org.apache.seatunnel.api.configuration.util.OptionRule;
 import org.apache.seatunnel.api.table.catalog.Catalog;
 import org.apache.seatunnel.api.table.factory.CatalogFactory;
 import org.apache.seatunnel.api.table.factory.Factory;
-import org.apache.seatunnel.connectors.seatunnel.starrocks.config.CommonConfig;
-import org.apache.seatunnel.connectors.seatunnel.starrocks.config.StarRocksOptions;
 import org.apache.seatunnel.connectors.seatunnel.starrocks.config.StarRocksSinkOptions;
+import org.apache.seatunnel.connectors.seatunnel.starrocks.config.StarRocksSourceOptions;
 
 import com.google.auto.service.AutoService;
 
 @AutoService(Factory.class)
 public class StarRocksCatalogFactory implements CatalogFactory {
-    public static final String IDENTIFIER = CommonConfig.CONNECTOR_IDENTITY;
+    public static final String IDENTIFIER = StarRocksSinkOptions.CONNECTOR_IDENTITY;
 
     @Override
     public Catalog createCatalog(String catalogName, ReadonlyConfig options) {
         return new StarRocksCatalog(
                 catalogName,
-                options.get(StarRocksOptions.USERNAME),
-                options.get(StarRocksOptions.PASSWORD),
-                options.get(StarRocksOptions.BASE_URL),
+                options.get(StarRocksSourceOptions.USERNAME),
+                options.get(StarRocksSourceOptions.PASSWORD),
+                options.get(StarRocksSinkOptions.BASE_URL),
                 options.get(StarRocksSinkOptions.SAVE_MODE_CREATE_TEMPLATE));
     }
 
@@ -50,9 +49,9 @@ public class StarRocksCatalogFactory implements CatalogFactory {
     @Override
     public OptionRule optionRule() {
         return OptionRule.builder()
-                .required(StarRocksOptions.BASE_URL)
-                .required(StarRocksOptions.USERNAME)
-                .required(StarRocksOptions.PASSWORD)
+                .required(StarRocksSinkOptions.BASE_URL)
+                .required(StarRocksSourceOptions.USERNAME)
+                .required(StarRocksSourceOptions.PASSWORD)
                 .build();
     }
 }

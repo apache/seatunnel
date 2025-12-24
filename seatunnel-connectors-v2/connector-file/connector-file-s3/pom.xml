@@ -29,21 +29,6 @@
     <artifactId>connector-file-s3</artifactId>
     <name>SeaTunnel : Connectors V2 : File : S3</name>
 
-    <properties>
-        <hadoop-aws.version>2.6.5</hadoop-aws.version>
-        <guava.version>27.0-jre</guava.version>
-    </properties>
-
-    <dependencyManagement>
-        <dependencies>
-            <dependency>
-                <groupId>com.google.guava</groupId>
-                <artifactId>guava</artifactId>
-                <version>${guava.version}</version>
-            </dependency>
-        </dependencies>
-    </dependencyManagement>
-
     <dependencies>
 
         <dependency>
@@ -67,14 +52,10 @@
         </dependency>
 
         <dependency>
-            <groupId>com.google.guava</groupId>
-            <artifactId>guava</artifactId>
-        </dependency>
-
-        <dependency>
-            <groupId>org.apache.hadoop</groupId>
-            <artifactId>hadoop-aws</artifactId>
-            <version>${hadoop-aws.version}</version>
+            <groupId>org.apache.seatunnel</groupId>
+            <artifactId>seatunnel-hadoop-aws</artifactId>
+            <version>${project.version}</version>
+            <classifier>optional</classifier>
             <scope>provided</scope>
             <exclusions>
                 <exclusion>

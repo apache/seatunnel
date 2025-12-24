@@ -20,6 +20,7 @@ package org.apache.seatunnel.format.compatible.debezium.json;
 import org.apache.seatunnel.shade.com.fasterxml.jackson.core.JsonProcessingException;
 
 import org.apache.kafka.connect.data.Decimal;
+import org.apache.kafka.connect.data.Schema;
 import org.apache.kafka.connect.data.SchemaBuilder;
 import org.apache.kafka.connect.data.Struct;
 import org.apache.kafka.connect.source.SourceRecord;
@@ -58,5 +59,27 @@ public class TestDebeziumJsonConverter {
         DebeziumJsonConverter converter = new DebeziumJsonConverter(false, false);
         Assertions.assertEquals("{\"k\":11.01}", converter.serializeKey(sourceRecord));
         Assertions.assertEquals("{\"v\":11.01}", converter.serializeValue(sourceRecord));
+    }
+
+    @Test
+    public void testDebeziumSerializeKeyIsNull()
+            throws InvocationTargetException, IllegalAccessException, JsonProcessingException {
+        String value = "v";
+        Struct valueStruct = new Struct(SchemaBuilder.struct().field(value, Schema.STRING_SCHEMA));
+        valueStruct.put(value, "DebeziumTest");
+
+        SourceRecord sourceRecord =
+                new SourceRecord(
+                        Collections.emptyMap(),
+                        Collections.emptyMap(),
+                        null,
+                        null,
+                        null,
+                        valueStruct.schema(),
+                        valueStruct);
+
+        DebeziumJsonConverter converter = new DebeziumJsonConverter(false, false);
+        Assertions.assertEquals(null, converter.serializeKey(sourceRecord));
+        Assertions.assertEquals("{\"v\":\"DebeziumTest\"}", converter.serializeValue(sourceRecord));
     }
 }

@@ -19,18 +19,17 @@ package org.apache.seatunnel.connectors.seatunnel.tdengine.state;
 
 import org.apache.seatunnel.connectors.seatunnel.tdengine.source.TDengineSourceSplit;
 
+import lombok.AllArgsConstructor;
+import lombok.Getter;
+
 import java.io.Serializable;
-import java.util.Set;
+import java.util.List;
+import java.util.Map;
 
+@AllArgsConstructor
+@Getter
 public class TDengineSourceState implements Serializable {
-
-    private final Set<TDengineSourceSplit> assignedSplit;
-
-    public TDengineSourceState(Set<TDengineSourceSplit> assignedSplit) {
-        this.assignedSplit = assignedSplit;
-    }
-
-    public Set<TDengineSourceSplit> getAssignedSplit() {
-        return assignedSplit;
-    }
+    private static final long serialVersionUID = 6915087497958523069L;
+    private boolean shouldEnumerate;
+    private final Map<Integer, List<TDengineSourceSplit>> pendingSplits;
 }

@@ -31,6 +31,7 @@ public class ConfigKeyName {
     @Deprecated public static final String CHECKPOINT_INTERVAL = "execution.checkpoint.interval";
     @Deprecated public static final String CHECKPOINT_MODE = "execution.checkpoint.mode";
     @Deprecated public static final String CHECKPOINT_TIMEOUT = "execution.checkpoint.timeout";
+    @Deprecated public static final String CHECKPOINT_MIN_PAUSE = "execution.checkpoint.min-pause";
     @Deprecated public static final String CHECKPOINT_DATA_URI = "execution.checkpoint.data-uri";
 
     @Deprecated

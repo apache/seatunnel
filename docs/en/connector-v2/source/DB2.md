@@ -1,3 +1,5 @@
+import ChangeLog from '../changelog/connector-jdbc.md';
+
 # DB2
 
 > JDBC DB2 Source Connector
@@ -41,13 +43,13 @@ Read external data source data through JDBC.
 
 ## Database Dependency
 
-> Please download the support list corresponding to 'Maven' and copy it to the '$SEATNUNNEL_HOME/plugins/jdbc/lib/' working directory<br/>
-> For example DB2 datasource: cp db2-connector-java-xxx.jar $SEATNUNNEL_HOME/plugins/jdbc/lib/
+> Please download the support list corresponding to 'Maven' and copy it to the '$SEATUNNEL_HOME/plugins/jdbc/lib/' working directory<br/>
+> For example DB2 datasource: cp db2-connector-java-xxx.jar $SEATUNNEL_HOME/plugins/jdbc/lib/
 
 ## Data Type Mapping
 
 |                                            DB2 Data Type                                             | SeaTunnel Data Type |
-|------------------------------------------------------------------------------------------------------|---------------------|---|
+|------------------------------------------------------------------------------------------------------|---------------------|
 | BOOLEAN                                                                                              | BOOLEAN             |
 | SMALLINT                                                                                             | SHORT               |
 | INT<br/>INTEGER<br/>                                                                                 | INTEGER             |
@@ -68,7 +70,7 @@ Read external data source data through JDBC.
 |------------------------------|------------|----------|-----------------|-------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------|
 | url                          | String     | Yes      | -               | The URL of the JDBC connection. Refer to a case: jdbc:db2://127.0.0.1:50000/dbname                                                                                                                                                                                |
 | driver                       | String     | Yes      | -               | The jdbc class name used to connect to the remote data source,<br/> if you use db2 the value is `com.ibm.db2.jdbc.app.DB2Driver`.                                                                                                                                 |
-| user                         | String     | No       | -               | Connection instance user name                                                                                                                                                                                                                                     |
+| username                         | String     | No       | -               | Connection instance user name                                                                                                                                                                                                                                     |
 | password                     | String     | No       | -               | Connection instance password                                                                                                                                                                                                                                      |
 | query                        | String     | Yes      | -               | Query statement                                                                                                                                                                                                                                                   |
 | connection_check_timeout_sec | Int        | No       | 30              | The time in seconds to wait for the database operation used to validate the connection to complete                                                                                                                                                                |
@@ -78,7 +80,7 @@ Read external data source data through JDBC.
 | partition_num                | Int        | No       | job parallelism | The number of partition count, only support positive integer. default value is job parallelism                                                                                                                                                                    |
 | fetch_size                   | Int        | No       | 0               | For queries that return a large number of objects,you can configure<br/> the row fetch size used in the query toimprove performance by<br/> reducing the number database hits required to satisfy the selection criteria.<br/> Zero means use jdbc default value. |
 | properties                   | Map        | No       | -               | Additional connection configuration parameters,when properties and URL have the same parameters, the priority is determined by the <br/>specific implementation of the driver. For example, in MySQL, properties take precedence over the URL.                    |
-| common-options               |            | No       | -               | Source plugin common parameters, please refer to [Source Common Options](common-options.md) for details                                                                                                                                                           |
+| common-options               |            | No       | -               | Source plugin common parameters, please refer to [Source Common Options](../source-common-options.md) for details                                                                                                                                                 |
 
 ### Tips
 
@@ -86,7 +88,7 @@ Read external data source data through JDBC.
 
 ## Task Example
 
-### Simple:
+### Simple
 
 > This example queries type_bin 'table' 16 data in your test "database" in single parallel and queries all of its fields. You can also specify which fields to query for final output to the console.
 
@@ -101,7 +103,7 @@ source{
         url = "jdbc:db2://127.0.0.1:50000/dbname"
         driver = "com.ibm.db2.jdbc.app.DB2Driver"
         connection_check_timeout_sec = 100
-        user = "root"
+        username = "root"
         password = "123456"
         query = "select * from table_xxx"
     }
@@ -117,7 +119,7 @@ sink {
 }
 ```
 
-### Parallel:
+### Parallel
 
 > Read your query table in parallel with the shard field you configured and the shard data  You can do this if you want to read the whole table
 
@@ -127,7 +129,7 @@ source {
         url = "jdbc:db2://127.0.0.1:50000/dbname"
         driver = "com.ibm.db2.jdbc.app.DB2Driver"
         connection_check_timeout_sec = 100
-        user = "root"
+        username = "root"
         password = "123456"
         # Define query logic as required
         query = "select * from type_bin"
@@ -139,7 +141,7 @@ source {
 }
 ```
 
-### Parallel Boundary:
+### Parallel Boundary
 
 > It is more efficient to specify the data within the upper and lower bounds of the query It is more efficient to read your data source according to the upper and lower boundaries you configured
 
@@ -149,7 +151,7 @@ source {
         url = "jdbc:db2://127.0.0.1:50000/dbname"
         driver = "com.ibm.db2.jdbc.app.DB2Driver"
         connection_check_timeout_sec = 100
-        user = "root"
+        username = "root"
         password = "123456"
         # Define query logic as required
         query = "select * from type_bin"
@@ -162,4 +164,8 @@ source {
     }
 }
 ```
+
+## Changelog
+
+<ChangeLog />
 

@@ -1,3 +1,5 @@
+import ChangeLog from '../changelog/connector-jdbc.md';
+
 # Kingbase
 
 > JDBC Kingbase Source Connector
@@ -33,8 +35,8 @@ Read external data source data through JDBC.
 
 ## Database Dependency
 
-> Please download the support list corresponding to 'Maven' and copy it to the '$SEATNUNNEL_HOME/plugins/jdbc/lib/' working directory<br/>
-> For example: cp kingbase8-8.6.0.jar $SEATNUNNEL_HOME/plugins/jdbc/lib/
+> Please download the support list corresponding to 'Maven' and copy it to the '$SEATUNNEL_HOME/plugins/jdbc/lib/' working directory<br/>
+> For example: cp kingbase8-8.6.0.jar $SEATUNNEL_HOME/plugins/jdbc/lib/
 
 ## Data Type Mapping
 
@@ -59,7 +61,7 @@ Read external data source data through JDBC.
 |------------------------------|------------|----------|-----------------|-----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------|
 | url                          | String     | Yes      | -               | The URL of the JDBC connection. Refer to a case: jdbc:kingbase8://localhost:54321/test                                                                                                                                                                                |
 | driver                       | String     | Yes      | -               | The jdbc class name used to connect to the remote data source, should be `com.kingbase8.Driver`.                                                                                                                                                                      |
-| user                         | String     | No       | -               | Connection instance user name                                                                                                                                                                                                                                         |
+| username                         | String     | No       | -               | Connection instance user name                                                                                                                                                                                                                                         |
 | password                     | String     | No       | -               | Connection instance password                                                                                                                                                                                                                                          |
 | query                        | String     | Yes      | -               | Query statement                                                                                                                                                                                                                                                       |
 | connection_check_timeout_sec | Int        | No       | 30              | The time in seconds to wait for the database operation used to validate the connection to complete                                                                                                                                                                    |
@@ -68,7 +70,7 @@ Read external data source data through JDBC.
 | partition_upper_bound        | BigDecimal | No       | -               | The partition_column max value for scan, if not set SeaTunnel will query database get max value.                                                                                                                                                                      |
 | partition_num                | Int        | No       | job parallelism | The number of partition count, only support positive integer. Default value is job parallelism.                                                                                                                                                                       |
 | fetch_size                   | Int        | No       | 0               | For queries that return a large number of objects, you can configure <br/> the row fetch size used in the query to improve performance by <br/> reducing the number database hits required to satisfy the selection criteria.<br/> Zero means use jdbc default value. |
-| common-options               |            | No       | -               | Source plugin common parameters, please refer to [Source Common Options](common-options.md) for details                                                                                                                                                               |
+| common-options               |            | No       | -               | Source plugin common parameters, please refer to [Source Common Options](../source-common-options.md) for details                                                                                                                                                     |
 
 ### Tips
 
@@ -76,7 +78,7 @@ Read external data source data through JDBC.
 
 ## Task Example
 
-### Simple:
+### Simple
 
 ```
 env {
@@ -88,7 +90,7 @@ source {
   Jdbc {
     driver = "com.kingbase8.Driver"
     url = "jdbc:kingbase8://localhost:54321/db_test"
-    user = "root"
+    username = "root"
     password = ""
     query = "select * from source"
   }
@@ -104,7 +106,7 @@ sink {
 }
 ```
 
-### Parallel:
+### Parallel
 
 > Read your query table in parallel with the shard field you configured and the shard data. You can do this if you want to read the whole table
 
@@ -113,7 +115,7 @@ source {
   Jdbc {
     driver = "com.kingbase8.Driver"
     url = "jdbc:kingbase8://localhost:54321/db_test"
-    user = "root"
+    username = "root"
     password = ""
     query = "select * from source"
     # Parallel sharding reads fields
@@ -124,7 +126,7 @@ source {
 }
 ```
 
-### Parallel Boundary:
+### Parallel Boundary
 
 > It is more efficient to read your data source according to the upper and lower boundaries you configured
 
@@ -133,7 +135,7 @@ source {
   Jdbc {
     driver = "com.kingbase8.Driver"
     url = "jdbc:kingbase8://localhost:54321/db_test"
-    user = "root"
+    username = "root"
     password = ""
     query = "select * from source"
     partition_column = "id"
@@ -146,3 +148,6 @@ source {
 }
 ```
 
+## Changelog
+
+<ChangeLog />

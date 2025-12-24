@@ -17,6 +17,7 @@
 
 package org.apache.seatunnel.flink.assertion;
 
+import org.apache.seatunnel.shade.com.google.common.collect.Lists;
 import org.apache.seatunnel.shade.com.typesafe.config.ConfigFactory;
 import org.apache.seatunnel.shade.com.typesafe.config.ConfigValue;
 
@@ -34,8 +35,6 @@ import org.apache.seatunnel.connectors.seatunnel.assertion.rule.AssertFieldRule;
 import org.apache.seatunnel.format.json.JsonToRowConverters;
 
 import org.junit.jupiter.api.Test;
-
-import com.google.common.collect.Lists;
 
 import java.io.IOException;
 import java.math.BigDecimal;

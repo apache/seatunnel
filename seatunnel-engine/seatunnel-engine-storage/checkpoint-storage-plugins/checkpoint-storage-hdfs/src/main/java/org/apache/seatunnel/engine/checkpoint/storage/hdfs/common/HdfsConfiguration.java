@@ -20,9 +20,10 @@
 
 package org.apache.seatunnel.engine.checkpoint.storage.hdfs.common;
 
+import org.apache.seatunnel.shade.org.apache.commons.lang3.StringUtils;
+
 import org.apache.seatunnel.engine.checkpoint.storage.exception.CheckpointStorageException;
 
-import org.apache.commons.lang3.StringUtils;
 import org.apache.hadoop.conf.Configuration;
 import org.apache.hadoop.fs.Path;
 import org.apache.hadoop.security.UserGroupInformation;
@@ -77,6 +78,10 @@ public class HdfsConfiguration extends AbstractConfiguration {
         if (config.containsKey(HDFS_SITE_PATH)) {
             hadoopConf.addResource(new Path(config.get(HDFS_SITE_PATH)));
         }
+        hadoopConf.setBoolean(
+                String.format(COMMON_DISABLE_CACHE, HDFS_IMPL_KEY),
+                Boolean.parseBoolean(
+                        config.getOrDefault(DISABLE_CACHE_KEY, DISABLE_CACHE_DEFAULT_VALUE)));
         //  support other hdfs optional config keys
         config.entrySet().stream()
                 .filter(entry -> entry.getKey().startsWith(SEATUNNEL_HADOOP_PREFIX))

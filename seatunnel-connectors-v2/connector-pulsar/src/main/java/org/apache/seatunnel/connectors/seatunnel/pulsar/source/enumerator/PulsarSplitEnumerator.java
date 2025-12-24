@@ -61,6 +61,7 @@ public class PulsarSplitEnumerator
     private final long partitionDiscoveryIntervalMs;
     private final StartCursor startCursor;
     private final StopCursor stopCursor;
+    private final Object stateLock = new Object();
 
     /** The consumer group id used for this PulsarSource. */
     private final String subscriptionName;
@@ -152,9 +153,11 @@ public class PulsarSplitEnumerator
     }
 
     private void discoverySplits() {
-        Set<TopicPartition> subscribedTopicPartitions =
-                partitionDiscoverer.getSubscribedTopicPartitions(pulsarAdmin);
-        checkPartitionChanges(subscribedTopicPartitions);
+        synchronized (stateLock) {
+            Set<TopicPartition> subscribedTopicPartitions =
+                    partitionDiscoverer.getSubscribedTopicPartitions(pulsarAdmin);
+            checkPartitionChanges(subscribedTopicPartitions);
+        }
     }
 
     private void checkPartitionChanges(Set<TopicPartition> fetchedPartitions) {
@@ -299,7 +302,9 @@ public class PulsarSplitEnumerator
 
     @Override
     public PulsarSplitEnumeratorState snapshotState(long checkpointId) throws Exception {
-        return new PulsarSplitEnumeratorState(assignedPartitions);
+        synchronized (stateLock) {
+            return new PulsarSplitEnumeratorState(assignedPartitions);
+        }
     }
 
     @Override

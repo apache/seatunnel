@@ -23,16 +23,17 @@ import org.apache.seatunnel.api.table.catalog.CatalogTable;
 import org.apache.seatunnel.api.table.type.SeaTunnelRow;
 import org.apache.seatunnel.api.table.type.SeaTunnelRowType;
 import org.apache.seatunnel.connectors.seatunnel.common.sink.AbstractSimpleSink;
-import org.apache.seatunnel.connectors.seatunnel.common.sink.AbstractSinkWriter;
 import org.apache.seatunnel.connectors.seatunnel.influxdb.config.SinkConfig;
 
 import java.io.IOException;
+import java.util.Optional;
 
 public class InfluxDBSink extends AbstractSimpleSink<SeaTunnelRow, Void>
         implements SupportMultiTableSink {
 
-    private SeaTunnelRowType seaTunnelRowType;
-    private SinkConfig sinkConfig;
+    private final SeaTunnelRowType seaTunnelRowType;
+    private final SinkConfig sinkConfig;
+    private final CatalogTable catalogTable;
 
     @Override
     public String getPluginName() {
@@ -42,11 +43,16 @@ public class InfluxDBSink extends AbstractSimpleSink<SeaTunnelRow, Void>
     public InfluxDBSink(SinkConfig sinkConfig, CatalogTable catalogTable) {
         this.sinkConfig = sinkConfig;
         this.seaTunnelRowType = catalogTable.getTableSchema().toPhysicalRowDataType();
+        this.catalogTable = catalogTable;
     }
 
     @Override
-    public AbstractSinkWriter<SeaTunnelRow, Void> createWriter(SinkWriter.Context context)
-            throws IOException {
+    public InfluxDBSinkWriter createWriter(SinkWriter.Context context) throws IOException {
         return new InfluxDBSinkWriter(sinkConfig, seaTunnelRowType);
+    }
+
+    @Override
+    public Optional<CatalogTable> getWriteCatalogTable() {
+        return Optional.ofNullable(catalogTable);
     }
 }

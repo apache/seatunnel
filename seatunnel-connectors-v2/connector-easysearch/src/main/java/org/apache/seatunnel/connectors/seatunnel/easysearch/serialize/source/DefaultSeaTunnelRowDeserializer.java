@@ -25,7 +25,6 @@ import org.apache.seatunnel.shade.com.fasterxml.jackson.databind.node.ObjectNode
 import org.apache.seatunnel.shade.com.fasterxml.jackson.databind.node.TextNode;
 
 import org.apache.seatunnel.api.table.type.ArrayType;
-import org.apache.seatunnel.api.table.type.BasicType;
 import org.apache.seatunnel.api.table.type.DecimalType;
 import org.apache.seatunnel.api.table.type.LocalTimeType;
 import org.apache.seatunnel.api.table.type.MapType;
@@ -167,7 +166,7 @@ public class DefaultSeaTunnelRowDeserializer implements SeaTunnelRowDeserializer
             return new BigDecimal(fieldValue);
         } else if (fieldType instanceof ArrayType) {
             ArrayType<?, ?> arrayType = (ArrayType<?, ?>) fieldType;
-            BasicType<?> elementType = arrayType.getElementType();
+            SeaTunnelDataType<?> elementType = arrayType.getElementType();
             List<String> stringList = JsonUtils.toList(fieldValue, String.class);
             Object arr = Array.newInstance(elementType.getTypeClass(), stringList.size());
             for (int i = 0; i < stringList.size(); i++) {

@@ -36,6 +36,7 @@ import lombok.NonNull;
 import java.util.Arrays;
 import java.util.HashMap;
 import java.util.LinkedHashMap;
+import java.util.List;
 import java.util.Map;
 import java.util.Set;
 
@@ -53,8 +54,28 @@ public class SeaTunnelClient implements SeaTunnelClientInstance, AutoCloseable {
             @NonNull String filePath,
             @NonNull JobConfig jobConfig,
             @NonNull SeaTunnelConfig seaTunnelConfig) {
+        return createExecutionContext(filePath, null, jobConfig, seaTunnelConfig);
+    }
+
+    @Override
+    public ClientJobExecutionEnvironment createExecutionContext(
+            @NonNull String filePath,
+            List<String> variables,
+            @NonNull JobConfig jobConfig,
+            @NonNull SeaTunnelConfig seaTunnelConfig) {
         return new ClientJobExecutionEnvironment(
-                jobConfig, filePath, hazelcastClient, seaTunnelConfig);
+                jobConfig, filePath, variables, hazelcastClient, seaTunnelConfig, null);
+    }
+
+    @Override
+    public ClientJobExecutionEnvironment createExecutionContext(
+            @NonNull String filePath,
+            List<String> variables,
+            @NonNull JobConfig jobConfig,
+            @NonNull SeaTunnelConfig seaTunnelConfig,
+            Long jobId) {
+        return new ClientJobExecutionEnvironment(
+                jobConfig, filePath, variables, hazelcastClient, seaTunnelConfig, jobId);
     }
 
     @Override
@@ -63,8 +84,18 @@ public class SeaTunnelClient implements SeaTunnelClientInstance, AutoCloseable {
             @NonNull JobConfig jobConfig,
             @NonNull SeaTunnelConfig seaTunnelConfig,
             @NonNull Long jobId) {
+        return restoreExecutionContext(filePath, null, jobConfig, seaTunnelConfig, jobId);
+    }
+
+    @Override
+    public ClientJobExecutionEnvironment restoreExecutionContext(
+            @NonNull String filePath,
+            List<String> variables,
+            @NonNull JobConfig jobConfig,
+            @NonNull SeaTunnelConfig seaTunnelConfig,
+            @NonNull Long jobId) {
         return new ClientJobExecutionEnvironment(
-                jobConfig, filePath, hazelcastClient, seaTunnelConfig, true, jobId);
+                jobConfig, filePath, variables, hazelcastClient, seaTunnelConfig, true, jobId);
     }
 
     @Override
@@ -139,25 +170,24 @@ public class SeaTunnelClient implements SeaTunnelClientInstance, AutoCloseable {
     public Map<String, String> getClusterHealthMetrics() {
         Set<Member> members = hazelcastClient.getHazelcastInstance().getCluster().getMembers();
         Map<String, String> healthMetricsMap = new HashMap<>();
-        members.stream()
-                .forEach(
-                        member -> {
-                            String metrics =
-                                    hazelcastClient.requestAndDecodeResponse(
-                                            member.getUuid(),
-                                            SeaTunnelGetClusterHealthMetricsCodec.encodeRequest(),
-                                            SeaTunnelGetClusterHealthMetricsCodec::decodeResponse);
-                            String[] split = metrics.split(",");
-                            Map<String, String> kvMap = new LinkedHashMap<>();
-                            Arrays.stream(split)
-                                    .forEach(
-                                            kv -> {
-                                                String[] kvArr = kv.split("=");
-                                                kvMap.put(kvArr[0], kvArr[1]);
-                                            });
-                            healthMetricsMap.put(
-                                    member.getAddress().toString(), JsonUtils.toJsonString(kvMap));
-                        });
+        members.forEach(
+                member -> {
+                    String metrics =
+                            hazelcastClient.requestAndDecodeResponse(
+                                    member.getUuid(),
+                                    SeaTunnelGetClusterHealthMetricsCodec.encodeRequest(),
+                                    SeaTunnelGetClusterHealthMetricsCodec::decodeResponse);
+                    String[] split = metrics.split(",");
+                    Map<String, String> kvMap = new LinkedHashMap<>();
+                    Arrays.stream(split)
+                            .forEach(
+                                    kv -> {
+                                        String[] kvArr = kv.split("=");
+                                        kvMap.put(kvArr[0], kvArr[1]);
+                                    });
+                    healthMetricsMap.put(
+                            member.getAddress().toString(), JsonUtils.toJsonString(kvMap));
+                });
 
         return healthMetricsMap;
     }

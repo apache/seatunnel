@@ -19,11 +19,11 @@ package org.apache.seatunnel.engine.server.task.flow;
 
 import org.apache.seatunnel.api.table.type.Record;
 import org.apache.seatunnel.api.transform.Collector;
+import org.apache.seatunnel.engine.common.utils.concurrent.CompletableFuture;
 import org.apache.seatunnel.engine.server.task.SeaTunnelTask;
 import org.apache.seatunnel.engine.server.task.group.queue.AbstractIntermediateQueue;
 
 import java.io.IOException;
-import java.util.concurrent.CompletableFuture;
 
 public class IntermediateQueueFlowLifeCycle<T extends AbstractIntermediateQueue<?>>
         extends AbstractFlowLifeCycle

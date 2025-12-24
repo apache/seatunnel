@@ -24,7 +24,8 @@ public enum FileConfiguration {
     LOCAL("local", new LocalConfiguration()),
     HDFS("hdfs", new HdfsConfiguration()),
     S3("s3", new S3Configuration()),
-    OSS("oss", new OssConfiguration());
+    OSS("oss", new OssConfiguration()),
+    COS("cos", new CosConfiguration());
 
     /** file system type */
     private final String name;
@@ -37,7 +38,7 @@ public enum FileConfiguration {
         this.configuration = configuration;
     }
 
-    public AbstractConfiguration getConfiguration(String name) {
+    public AbstractConfiguration getConfiguration() {
         return configuration;
     }
 

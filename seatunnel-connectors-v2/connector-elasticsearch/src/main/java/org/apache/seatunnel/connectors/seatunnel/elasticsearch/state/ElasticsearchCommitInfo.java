@@ -17,18 +17,8 @@
 
 package org.apache.seatunnel.connectors.seatunnel.elasticsearch.state;
 
-import lombok.AllArgsConstructor;
-import lombok.Data;
-
 import java.io.Serializable;
-import java.util.Properties;
 
-@Data
-@AllArgsConstructor
 public class ElasticsearchCommitInfo implements Serializable {
-
-    private final String transactionId;
-    private final Properties kafkaProperties;
-    private final long producerId;
-    private final short epoch;
+    private static final long serialVersionUID = 4512769768158989809L;
 }

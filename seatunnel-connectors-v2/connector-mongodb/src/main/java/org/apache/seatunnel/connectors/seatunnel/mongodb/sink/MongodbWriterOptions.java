@@ -17,6 +17,8 @@
 
 package org.apache.seatunnel.connectors.seatunnel.mongodb.sink;
 
+import org.apache.seatunnel.api.sink.DataSaveMode;
+
 import lombok.Getter;
 
 import java.io.Serializable;
@@ -46,6 +48,8 @@ public class MongodbWriterOptions implements Serializable {
 
     protected final boolean transaction;
 
+    protected final DataSaveMode dataSaveMode;
+
     public MongodbWriterOptions(
             String connectString,
             String database,
@@ -56,7 +60,8 @@ public class MongodbWriterOptions implements Serializable {
             String[] primaryKey,
             int retryMax,
             long retryInterval,
-            boolean transaction) {
+            boolean transaction,
+            DataSaveMode dataSaveMode) {
         this.connectString = connectString;
         this.database = database;
         this.collection = collection;
@@ -67,6 +72,7 @@ public class MongodbWriterOptions implements Serializable {
         this.retryMax = retryMax;
         this.retryInterval = retryInterval;
         this.transaction = transaction;
+        this.dataSaveMode = dataSaveMode;
     }
 
     public static Builder builder() {
@@ -94,6 +100,8 @@ public class MongodbWriterOptions implements Serializable {
         protected long retryInterval;
 
         protected boolean transaction;
+
+        protected DataSaveMode dataSaveMode;
 
         public Builder withConnectString(String connectString) {
             this.connectString = connectString;
@@ -145,6 +153,11 @@ public class MongodbWriterOptions implements Serializable {
             return this;
         }
 
+        public Builder withDataSaveMode(DataSaveMode dataSaveMode) {
+            this.dataSaveMode = dataSaveMode;
+            return this;
+        }
+
         public MongodbWriterOptions build() {
             return new MongodbWriterOptions(
                     connectString,
@@ -156,7 +169,8 @@ public class MongodbWriterOptions implements Serializable {
                     primaryKey,
                     retryMax,
                     retryInterval,
-                    transaction);
+                    transaction,
+                    dataSaveMode);
         }
     }
 }

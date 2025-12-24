@@ -21,6 +21,7 @@ import org.apache.seatunnel.api.serialization.SerializationSchema;
 import org.apache.seatunnel.api.table.type.SeaTunnelRow;
 import org.apache.seatunnel.api.table.type.SeaTunnelRowType;
 import org.apache.seatunnel.connectors.seatunnel.wechat.sink.config.WeChatSinkConfig;
+import org.apache.seatunnel.connectors.seatunnel.wechat.sink.config.WeChatSinkOptions;
 import org.apache.seatunnel.format.json.JsonSerializationSchema;
 
 import org.apache.commons.collections4.CollectionUtils;
@@ -45,24 +46,29 @@ public class WeChatBotMessageSerializationSchema implements SerializationSchema 
     @SneakyThrows
     @Override
     public byte[] serialize(SeaTunnelRow row) {
-        StringBuffer stringBuffer = new StringBuffer();
+        StringBuilder stringBuilder = new StringBuilder();
         int totalFields = rowType.getTotalFields();
         for (int i = 0; i < totalFields; i++) {
-            stringBuffer.append(rowType.getFieldName(i) + ": " + row.getField(i) + "\\n");
+            stringBuilder
+                    .append(rowType.getFieldName(i))
+                    .append(": ")
+                    .append(row.getField(i))
+                    .append("\\n");
         }
         if (totalFields > 0) {
             // remove last empty line
-            stringBuffer.delete(stringBuffer.length() - 2, stringBuffer.length());
+            stringBuilder.delete(stringBuilder.length() - 2, stringBuilder.length());
         }
 
         HashMap<Object, Object> content = new HashMap<>();
-        content.put(WeChatSinkConfig.WECHAT_SEND_MSG_CONTENT_KEY, stringBuffer.toString());
+        content.put(WeChatSinkConfig.WECHAT_SEND_MSG_CONTENT_KEY, stringBuilder.toString());
         if (!CollectionUtils.isEmpty(weChatSinkConfig.getMentionedList())) {
-            content.put(WeChatSinkConfig.MENTIONED_LIST, weChatSinkConfig.getMentionedList());
+            content.put(
+                    WeChatSinkOptions.MENTIONED_LIST.key(), weChatSinkConfig.getMentionedList());
         }
         if (!CollectionUtils.isEmpty(weChatSinkConfig.getMentionedMobileList())) {
             content.put(
-                    WeChatSinkConfig.MENTIONED_MOBILE_LIST,
+                    WeChatSinkOptions.MENTIONED_MOBILE_LIST.key(),
                     weChatSinkConfig.getMentionedMobileList());
         }
 

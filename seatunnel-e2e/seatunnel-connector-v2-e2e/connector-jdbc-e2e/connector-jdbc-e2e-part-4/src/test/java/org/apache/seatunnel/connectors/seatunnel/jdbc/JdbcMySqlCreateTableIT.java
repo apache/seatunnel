@@ -17,7 +17,11 @@
 
 package org.apache.seatunnel.connectors.seatunnel.jdbc;
 
+import org.apache.seatunnel.shade.com.google.common.collect.Lists;
+
 import org.apache.seatunnel.api.table.catalog.CatalogTable;
+import org.apache.seatunnel.api.table.catalog.Column;
+import org.apache.seatunnel.api.table.catalog.PrimaryKey;
 import org.apache.seatunnel.api.table.catalog.TablePath;
 import org.apache.seatunnel.common.exception.SeaTunnelRuntimeException;
 import org.apache.seatunnel.common.utils.JdbcUrlUtil;
@@ -25,6 +29,8 @@ import org.apache.seatunnel.connectors.seatunnel.jdbc.catalog.mysql.MySqlCatalog
 import org.apache.seatunnel.connectors.seatunnel.jdbc.catalog.psql.PostgresCatalog;
 import org.apache.seatunnel.connectors.seatunnel.jdbc.catalog.sqlserver.SqlServerCatalog;
 import org.apache.seatunnel.connectors.seatunnel.jdbc.catalog.sqlserver.SqlServerURLParser;
+import org.apache.seatunnel.connectors.seatunnel.jdbc.catalog.utils.CatalogUtils;
+import org.apache.seatunnel.connectors.seatunnel.jdbc.internal.dialect.JdbcDialectTypeMapper;
 import org.apache.seatunnel.e2e.common.TestResource;
 import org.apache.seatunnel.e2e.common.TestSuiteBase;
 import org.apache.seatunnel.e2e.common.container.ContainerExtendedFactory;
@@ -45,7 +51,6 @@ import org.testcontainers.lifecycle.Startables;
 import org.testcontainers.utility.DockerImageName;
 import org.testcontainers.utility.DockerLoggerFactory;
 
-import com.google.common.collect.Lists;
 import lombok.extern.slf4j.Slf4j;
 
 import java.sql.Connection;
@@ -53,13 +58,16 @@ import java.sql.DriverManager;
 import java.sql.ResultSet;
 import java.sql.SQLException;
 import java.sql.Statement;
+import java.util.Set;
+import java.util.stream.Collectors;
 import java.util.stream.Stream;
 
 @Slf4j
 @DisabledOnContainer(
         value = {},
         type = {EngineType.SPARK, EngineType.FLINK},
-        disabledReason = "Currently SPARK and FLINK do not support cdc")
+        disabledReason =
+                "Currently testcase does not depend on a specific engine, but needs to be started with the engine")
 public class JdbcMySqlCreateTableIT extends TestSuiteBase implements TestResource {
     private static final String SQLSERVER_IMAGE = "mcr.microsoft.com/mssql/server:2022-latest";
     private static final String SQLSERVER_CONTAINER_HOST = "sqlserver";
@@ -72,7 +80,7 @@ public class JdbcMySqlCreateTableIT extends TestSuiteBase implements TestResourc
     private static final String PG_GEOMETRY_JAR =
             "https://repo1.maven.org/maven2/net/postgis/postgis-geometry/2.5.1/postgis-geometry-2.5.1.jar";
 
-    private static final String MYSQL_IMAGE = "mysql:8.0";
+    private static final String MYSQL_IMAGE = "mysql:8.0.43";
     private static final String MYSQL_CONTAINER_HOST = "mysql-e2e";
     private static final String MYSQL_DATABASE = "auto";
 
@@ -268,10 +276,10 @@ public class JdbcMySqlCreateTableIT extends TestSuiteBase implements TestResourc
         TablePath tablePathPG = TablePath.of("pg", "public", "mysql_auto_create_pg");
 
         SqlServerCatalog sqlServerCatalog =
-                new SqlServerCatalog("sqlserver", "sa", PASSWORD, sqlParse, "dbo");
-        MySqlCatalog mySqlCatalog = new MySqlCatalog("mysql", "root", PASSWORD, MysqlUrlInfo);
+                new SqlServerCatalog("sqlserver", "sa", PASSWORD, sqlParse, "dbo", null);
+        MySqlCatalog mySqlCatalog = new MySqlCatalog("mysql", "root", PASSWORD, MysqlUrlInfo, null);
         PostgresCatalog postgresCatalog =
-                new PostgresCatalog("postgres", "testUser", PASSWORD, pg, "public");
+                new PostgresCatalog("postgres", "testUser", PASSWORD, pg, "public", null);
 
         mySqlCatalog.open();
         sqlServerCatalog.open();
@@ -300,15 +308,188 @@ public class JdbcMySqlCreateTableIT extends TestSuiteBase implements TestResourc
         // delete table
     }
 
+    @Test
+    public void testGetCatalogTablePrimaryKeyFromQuery() throws SQLException {
+        try (Connection connection = getJdbcMySqlConnection()) {
+            try (Statement statement = connection.createStatement()) {
+                statement.execute(
+                        "CREATE TABLE IF NOT EXISTS mysql_pk_e2e(\n"
+                                + "id int NOT NULL PRIMARY KEY,\n"
+                                + "name varchar(100) NULL\n"
+                                + ");");
+            }
+
+            JdbcDialectTypeMapper typeMapper =
+                    new JdbcDialectTypeMapper() {
+                        @Override
+                        public org.apache.seatunnel.api.table.catalog.Column mappingColumn(
+                                org.apache.seatunnel.api.table.converter.BasicTypeDefine
+                                        typeDefine) {
+                            return org.apache.seatunnel.api.table.catalog.PhysicalColumn.of(
+                                    typeDefine.getName(),
+                                    org.apache.seatunnel.api.table.type.BasicType.VOID_TYPE,
+                                    typeDefine.getLength(),
+                                    typeDefine.isNullable(),
+                                    typeDefine.getScale(),
+                                    typeDefine.getComment());
+                        }
+                    };
+
+            CatalogTable catalogTable =
+                    CatalogUtils.getCatalogTable(
+                            connection,
+                            "select id, name from mysql_pk_e2e where id >= 0",
+                            typeMapper);
+
+            PrimaryKey primaryKey = catalogTable.getTableSchema().getPrimaryKey();
+            Assertions.assertNotNull(primaryKey);
+            Assertions.assertTrue(primaryKey.getColumnNames().contains("id"));
+
+            Set<String> columnNames =
+                    catalogTable.getTableSchema().getColumns().stream()
+                            .map(Column::getName)
+                            .collect(Collectors.toSet());
+            Assertions.assertTrue(columnNames.contains("id"));
+            Assertions.assertTrue(columnNames.contains("name"));
+        }
+    }
+
+    @Test
+    public void testGetCatalogTablePrimaryKeyFromGroupByQuery() throws SQLException {
+        try (Connection connection = getJdbcMySqlConnection()) {
+            try (Statement statement = connection.createStatement()) {
+                statement.execute(
+                        "CREATE TABLE IF NOT EXISTS orders_group_by_e2e("
+                                + "id INT NOT NULL PRIMARY KEY,"
+                                + "order_date DATE,"
+                                + "total_amount DECIMAL(10,2)"
+                                + ")");
+                statement.execute(
+                        "INSERT INTO orders_group_by_e2e(id, order_date, total_amount) VALUES "
+                                + "(1,'2023-01-01',100.00),"
+                                + "(2,'2023-01-02',50.00),"
+                                + "(3,'2023-02-01',30.00)");
+            }
+
+            JdbcDialectTypeMapper typeMapper =
+                    new JdbcDialectTypeMapper() {
+                        @Override
+                        public org.apache.seatunnel.api.table.catalog.Column mappingColumn(
+                                org.apache.seatunnel.api.table.converter.BasicTypeDefine
+                                        typeDefine) {
+                            return org.apache.seatunnel.api.table.catalog.PhysicalColumn.of(
+                                    typeDefine.getName(),
+                                    org.apache.seatunnel.api.table.type.BasicType.VOID_TYPE,
+                                    typeDefine.getLength(),
+                                    typeDefine.isNullable(),
+                                    typeDefine.getScale(),
+                                    typeDefine.getComment());
+                        }
+                    };
+
+            String sql =
+                    "SELECT id, COUNT(*) AS order_cnt "
+                            + "FROM orders_group_by_e2e "
+                            + "WHERE order_date >= '2023-01-01' "
+                            + "GROUP BY id";
+
+            CatalogTable catalogTable = CatalogUtils.getCatalogTable(connection, sql, typeMapper);
+
+            PrimaryKey primaryKey = catalogTable.getTableSchema().getPrimaryKey();
+            Assertions.assertNotNull(primaryKey);
+            Assertions.assertEquals(1, primaryKey.getColumnNames().size());
+            Assertions.assertEquals("id", primaryKey.getColumnNames().get(0));
+
+            Set<String> columnNames =
+                    catalogTable.getTableSchema().getColumns().stream()
+                            .map(Column::getName)
+                            .collect(Collectors.toSet());
+            Assertions.assertTrue(columnNames.contains("id"));
+            Assertions.assertTrue(columnNames.contains("order_cnt"));
+        }
+    }
+
+    @Test
+    public void testGetCatalogTablePrimaryKeyFromJoinQuery() throws SQLException {
+        try (Connection connection = getJdbcMySqlConnection()) {
+            try (Statement statement = connection.createStatement()) {
+                statement.execute(
+                        "CREATE TABLE IF NOT EXISTS users_join_e2e("
+                                + "id INT NOT NULL PRIMARY KEY,"
+                                + "user_name VARCHAR(100),"
+                                + "city VARCHAR(100)"
+                                + ")");
+                statement.execute(
+                        "CREATE TABLE IF NOT EXISTS orders_join_e2e("
+                                + "order_id INT NOT NULL PRIMARY KEY,"
+                                + "user_id INT,"
+                                + "order_date DATE,"
+                                + "total_amount DECIMAL(10,2)"
+                                + ")");
+                statement.execute(
+                        "INSERT INTO users_join_e2e(id, user_name, city) VALUES "
+                                + "(1,'user1','Beijing'),"
+                                + "(2,'user2','Shanghai')");
+                statement.execute(
+                        "INSERT INTO orders_join_e2e(order_id, user_id, order_date, total_amount) VALUES "
+                                + "(100,1,'2023-01-01',100.00)");
+            }
+
+            JdbcDialectTypeMapper typeMapper =
+                    new JdbcDialectTypeMapper() {
+                        @Override
+                        public org.apache.seatunnel.api.table.catalog.Column mappingColumn(
+                                org.apache.seatunnel.api.table.converter.BasicTypeDefine
+                                        typeDefine) {
+                            return org.apache.seatunnel.api.table.catalog.PhysicalColumn.of(
+                                    typeDefine.getName(),
+                                    org.apache.seatunnel.api.table.type.BasicType.VOID_TYPE,
+                                    typeDefine.getLength(),
+                                    typeDefine.isNullable(),
+                                    typeDefine.getScale(),
+                                    typeDefine.getComment());
+                        }
+                    };
+
+            String sql =
+                    "SELECT o.order_id, u.id, u.user_name, u.city "
+                            + "FROM orders_join_e2e o "
+                            + "INNER JOIN users_join_e2e u ON o.user_id = u.id "
+                            + "WHERE o.order_date >= '2023-01-01'";
+
+            CatalogTable catalogTable = CatalogUtils.getCatalogTable(connection, sql, typeMapper);
+
+            PrimaryKey primaryKey = catalogTable.getTableSchema().getPrimaryKey();
+            // complex join query should still infer primary key from main table
+            Assertions.assertNotNull(primaryKey);
+            Assertions.assertEquals(1, primaryKey.getColumnNames().size());
+            Assertions.assertEquals("order_id", primaryKey.getColumnNames().get(0));
+
+            Set<String> columnNames =
+                    catalogTable.getTableSchema().getColumns().stream()
+                            .map(Column::getName)
+                            .collect(Collectors.toSet());
+            Assertions.assertTrue(columnNames.contains("order_id"));
+            Assertions.assertTrue(columnNames.contains("id"));
+            Assertions.assertTrue(columnNames.contains("user_name"));
+            Assertions.assertTrue(columnNames.contains("city"));
+        }
+    }
+
     @Override
     public void tearDown() throws Exception {
-
-        sqlserver_container.close();
-        mysql_container.close();
-        POSTGRESQL_CONTAINER.close();
-        dockerClient.removeContainerCmd(sqlserver_container.getContainerId()).exec();
-        dockerClient.removeContainerCmd(mysql_container.getContainerId()).exec();
-        dockerClient.removeContainerCmd(POSTGRESQL_CONTAINER.getContainerId()).exec();
+        if (sqlserver_container != null) {
+            sqlserver_container.close();
+            dockerClient.removeContainerCmd(sqlserver_container.getContainerId()).exec();
+        }
+        if (mysql_container != null) {
+            mysql_container.close();
+            dockerClient.removeContainerCmd(mysql_container.getContainerId()).exec();
+        }
+        if (POSTGRESQL_CONTAINER != null) {
+            POSTGRESQL_CONTAINER.close();
+            dockerClient.removeContainerCmd(POSTGRESQL_CONTAINER.getContainerId()).exec();
+        }
     }
 
     private Connection getJdbcSqlServerConnection() throws SQLException {
@@ -355,8 +536,9 @@ public class JdbcMySqlCreateTableIT extends TestSuiteBase implements TestResourc
     }
 
     private boolean checkMysql(String sql) {
-        try (Connection connection = getJdbcMySqlConnection()) {
-            ResultSet resultSet = connection.createStatement().executeQuery(sql);
+        try (Connection connection = getJdbcMySqlConnection();
+                Statement statement = connection.createStatement();
+                ResultSet resultSet = statement.executeQuery(sql)) {
             boolean tableExists = false;
             if (resultSet.next()) {
                 tableExists = resultSet.getBoolean(1);
@@ -368,8 +550,9 @@ public class JdbcMySqlCreateTableIT extends TestSuiteBase implements TestResourc
     }
 
     private boolean checkPG(String sql) {
-        try (Connection connection = getJdbcPgConnection()) {
-            ResultSet resultSet = connection.createStatement().executeQuery(sql);
+        try (Connection connection = getJdbcPgConnection();
+                Statement statement = connection.createStatement();
+                ResultSet resultSet = statement.executeQuery(sql)) {
             boolean tableExists = false;
             if (resultSet.next()) {
                 tableExists = resultSet.getBoolean(1);
@@ -381,8 +564,9 @@ public class JdbcMySqlCreateTableIT extends TestSuiteBase implements TestResourc
     }
 
     private boolean checkSqlServer(String sql) {
-        try (Connection connection = getJdbcSqlServerConnection()) {
-            ResultSet resultSet = connection.createStatement().executeQuery(sql);
+        try (Connection connection = getJdbcSqlServerConnection();
+                Statement statement = connection.createStatement();
+                ResultSet resultSet = statement.executeQuery(sql)) {
             boolean tableExists = false;
             if (resultSet.next()) {
                 tableExists = resultSet.getInt(1) == 1;

@@ -18,8 +18,8 @@
 package org.apache.seatunnel.connectors.seatunnel.file.sink.writer;
 
 import org.apache.seatunnel.api.serialization.SerializationSchema;
+import org.apache.seatunnel.api.table.catalog.CatalogTable;
 import org.apache.seatunnel.api.table.type.SeaTunnelRow;
-import org.apache.seatunnel.api.table.type.SeaTunnelRowType;
 import org.apache.seatunnel.common.exception.CommonError;
 import org.apache.seatunnel.common.exception.CommonErrorCodeDeprecated;
 import org.apache.seatunnel.common.utils.DateTimeUtils;
@@ -43,7 +43,7 @@ import java.util.HashMap;
 import java.util.LinkedHashMap;
 import java.util.Map;
 
-public class TextWriteStrategy extends AbstractWriteStrategy {
+public class TextWriteStrategy extends AbstractWriteStrategy<FSDataOutputStream> {
     private final LinkedHashMap<String, FSDataOutputStream> beingWrittenOutputStream;
     private final Map<String, Boolean> isFirstWrite;
     private final String fieldDelimiter;
@@ -71,12 +71,13 @@ public class TextWriteStrategy extends AbstractWriteStrategy {
     }
 
     @Override
-    public void setSeaTunnelRowTypeInfo(SeaTunnelRowType seaTunnelRowType) {
-        super.setSeaTunnelRowTypeInfo(seaTunnelRowType);
+    public void setCatalogTable(CatalogTable catalogTable) {
+        super.setCatalogTable(catalogTable);
         this.serializationSchema =
                 TextSerializationSchema.builder()
                         .seaTunnelRowType(
-                                buildSchemaWithRowType(seaTunnelRowType, sinkColumnsIndexInRow))
+                                buildSchemaWithRowType(
+                                        catalogTable.getSeaTunnelRowType(), sinkColumnsIndexInRow))
                         .delimiter(fieldDelimiter)
                         .dateFormatter(dateFormat)
                         .dateTimeFormatter(dateTimeFormat)
@@ -131,7 +132,8 @@ public class TextWriteStrategy extends AbstractWriteStrategy {
         isFirstWrite.clear();
     }
 
-    private FSDataOutputStream getOrCreateOutputStream(@NonNull String filePath) {
+    @Override
+    public FSDataOutputStream getOrCreateOutputStream(@NonNull String filePath) {
         FSDataOutputStream fsDataOutputStream = beingWrittenOutputStream.get(filePath);
         if (fsDataOutputStream == null) {
             try {
@@ -168,10 +170,7 @@ public class TextWriteStrategy extends AbstractWriteStrategy {
     private void enableWriteHeader(FSDataOutputStream fsDataOutputStream) throws IOException {
         if (enableHeaderWriter) {
             fsDataOutputStream.write(
-                    String.join(
-                                    FileFormat.CSV.equals(fileFormat) ? "," : fieldDelimiter,
-                                    seaTunnelRowType.getFieldNames())
-                            .getBytes());
+                    String.join(fieldDelimiter, seaTunnelRowType.getFieldNames()).getBytes());
             fsDataOutputStream.write(rowDelimiter.getBytes());
         }
     }

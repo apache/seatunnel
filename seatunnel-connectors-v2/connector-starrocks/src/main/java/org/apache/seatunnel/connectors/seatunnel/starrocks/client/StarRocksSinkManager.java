@@ -17,11 +17,14 @@
 
 package org.apache.seatunnel.connectors.seatunnel.starrocks.client;
 
+import org.apache.seatunnel.shade.com.google.common.base.Strings;
+
+import org.apache.seatunnel.api.table.catalog.TableSchema;
+import org.apache.seatunnel.common.utils.ExceptionUtils;
 import org.apache.seatunnel.connectors.seatunnel.starrocks.config.SinkConfig;
 import org.apache.seatunnel.connectors.seatunnel.starrocks.exception.StarRocksConnectorErrorCode;
 import org.apache.seatunnel.connectors.seatunnel.starrocks.exception.StarRocksConnectorException;
 
-import com.google.common.base.Strings;
 import lombok.extern.slf4j.Slf4j;
 
 import java.io.IOException;
@@ -42,10 +45,17 @@ public class StarRocksSinkManager {
     private int batchRowCount = 0;
     private long batchBytesSize = 0;
 
-    public StarRocksSinkManager(SinkConfig sinkConfig, List<String> fileNames) {
+    public StarRocksSinkManager(SinkConfig sinkConfig, TableSchema tableSchema) {
+        this(sinkConfig, tableSchema, new StarRocksStreamLoadVisitor(sinkConfig, tableSchema));
+    }
+
+    StarRocksSinkManager(
+            SinkConfig sinkConfig,
+            TableSchema tableSchema,
+            StarRocksStreamLoadVisitor streamLoadVisitor) {
         this.sinkConfig = sinkConfig;
         this.batchList = new ArrayList<>();
-        starrocksStreamLoadVisitor = new StarRocksStreamLoadVisitor(sinkConfig, fileNames);
+        starrocksStreamLoadVisitor = streamLoadVisitor;
     }
 
     private void tryInit() throws IOException {
@@ -88,6 +98,13 @@ public class StarRocksSinkManager {
                 }
             } catch (Exception e) {
                 log.warn("Writing records to StarRocks failed, retry times = {}", i, e);
+
+                String labelAlreadyMessage =
+                        String.format("Label [%s] has already been used", label);
+                if (ExceptionUtils.getMessage(e).contains(labelAlreadyMessage)) {
+                    log.warn("Label [{}] has already been used, Skipping this batch", label);
+                    break;
+                }
                 if (i >= sinkConfig.getMaxRetries()) {
                     throw new StarRocksConnectorException(
                             StarRocksConnectorErrorCode.WRITE_RECORDS_FAILED,

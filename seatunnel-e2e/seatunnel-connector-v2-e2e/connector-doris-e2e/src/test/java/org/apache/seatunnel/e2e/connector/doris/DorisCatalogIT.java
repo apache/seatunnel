@@ -18,6 +18,7 @@
 package org.apache.seatunnel.e2e.connector.doris;
 
 import org.apache.seatunnel.api.configuration.ReadonlyConfig;
+import org.apache.seatunnel.api.sink.SaveModeHandler;
 import org.apache.seatunnel.api.sink.SupportSaveMode;
 import org.apache.seatunnel.api.source.SeaTunnelSource;
 import org.apache.seatunnel.api.table.catalog.CatalogTable;
@@ -33,7 +34,9 @@ import org.apache.seatunnel.api.table.type.BasicType;
 import org.apache.seatunnel.api.table.type.DecimalType;
 import org.apache.seatunnel.connectors.doris.catalog.DorisCatalog;
 import org.apache.seatunnel.connectors.doris.catalog.DorisCatalogFactory;
-import org.apache.seatunnel.connectors.doris.config.DorisOptions;
+import org.apache.seatunnel.connectors.doris.config.DorisBaseOptions;
+import org.apache.seatunnel.connectors.doris.config.DorisSinkOptions;
+import org.apache.seatunnel.connectors.doris.config.DorisSourceOptions;
 import org.apache.seatunnel.connectors.doris.sink.DorisSinkFactory;
 import org.apache.seatunnel.connectors.doris.source.DorisSourceFactory;
 
@@ -48,6 +51,7 @@ import java.util.Arrays;
 import java.util.Collections;
 import java.util.HashMap;
 import java.util.List;
+import java.util.Locale;
 import java.util.Map;
 import java.util.stream.Collectors;
 
@@ -63,7 +67,7 @@ public class DorisCatalogIT extends AbstractDorisIT {
         TableSchema.Builder builder = TableSchema.builder();
         builder.column(PhysicalColumn.of("k1", BasicType.INT_TYPE, 10, false, 0, "k1"));
         builder.column(PhysicalColumn.of("k2", BasicType.STRING_TYPE, 64, false, "", "k2"));
-        builder.column(PhysicalColumn.of("v1", BasicType.DOUBLE_TYPE, 10, true, null, "v1"));
+        builder.column(PhysicalColumn.of("v1", BasicType.DOUBLE_TYPE, 10, true, null, "v1-'v1'"));
         builder.column(PhysicalColumn.of("v2", new DecimalType(10, 2), 0, false, 0.1, "v2"));
         builder.primaryKey(PrimaryKey.of("pk", Arrays.asList("k1", "k2")));
         catalogTable =
@@ -72,7 +76,7 @@ public class DorisCatalogIT extends AbstractDorisIT {
                         builder.build(),
                         Collections.emptyMap(),
                         Collections.emptyList(),
-                        "test");
+                        "test - \\ 'test'");
     }
 
     private DorisCatalogFactory factory;
@@ -93,18 +97,18 @@ public class DorisCatalogIT extends AbstractDorisIT {
     private void initCatalog() {
         String catalogName = "doris";
         String frontEndNodes = container.getHost() + ":" + HTTP_PORT;
-
         factory = new DorisCatalogFactory();
 
         Map<String, Object> map = new HashMap<>();
-        map.put(DorisOptions.FENODES.key(), frontEndNodes);
-        map.put(DorisOptions.QUERY_PORT.key(), QUERY_PORT);
-        map.put(DorisOptions.USERNAME.key(), USERNAME);
-        map.put(DorisOptions.PASSWORD.key(), PASSWORD);
+        map.put(DorisBaseOptions.FENODES.key(), frontEndNodes);
+        map.put(DorisBaseOptions.QUERY_PORT.key(), QUERY_PORT);
+        map.put(DorisBaseOptions.USERNAME.key(), USERNAME);
+        map.put(DorisBaseOptions.PASSWORD.key(), PASSWORD);
 
         catalog = (DorisCatalog) factory.createCatalog(catalogName, ReadonlyConfig.fromMap(map));
 
         catalog.open();
+        catalog.createDatabase(tablePath, false);
     }
 
     @Test
@@ -160,10 +164,10 @@ public class DorisCatalogIT extends AbstractDorisIT {
                         new HashMap<String, Object>() {
                             {
                                 put(
-                                        DorisOptions.FENODES.key(),
+                                        DorisBaseOptions.FENODES.key(),
                                         container.getHost() + ":" + HTTP_PORT);
-                                put(DorisOptions.USERNAME.key(), USERNAME);
-                                put(DorisOptions.PASSWORD.key(), PASSWORD);
+                                put(DorisBaseOptions.USERNAME.key(), USERNAME);
+                                put(DorisBaseOptions.PASSWORD.key(), PASSWORD);
                             }
                         });
         assertCreateTable(upstreamTable, config, "test.test");
@@ -173,12 +177,12 @@ public class DorisCatalogIT extends AbstractDorisIT {
                         new HashMap<String, Object>() {
                             {
                                 put(
-                                        DorisOptions.FENODES.key(),
+                                        DorisBaseOptions.FENODES.key(),
                                         container.getHost() + ":" + HTTP_PORT);
-                                put(DorisOptions.DATABASE.key(), "test2");
-                                put(DorisOptions.TABLE.key(), "test2");
-                                put(DorisOptions.USERNAME.key(), USERNAME);
-                                put(DorisOptions.PASSWORD.key(), PASSWORD);
+                                put(DorisBaseOptions.DATABASE.key(), "test2");
+                                put(DorisBaseOptions.TABLE.key(), "test2");
+                                put(DorisBaseOptions.USERNAME.key(), USERNAME);
+                                put(DorisBaseOptions.PASSWORD.key(), PASSWORD);
                             }
                         });
         assertCreateTable(upstreamTable, config2, "test2.test2");
@@ -188,11 +192,11 @@ public class DorisCatalogIT extends AbstractDorisIT {
                         new HashMap<String, Object>() {
                             {
                                 put(
-                                        DorisOptions.FENODES.key(),
+                                        DorisBaseOptions.FENODES.key(),
                                         container.getHost() + ":" + HTTP_PORT);
-                                put(DorisOptions.TABLE_IDENTIFIER.key(), "test3.test3");
-                                put(DorisOptions.USERNAME.key(), USERNAME);
-                                put(DorisOptions.PASSWORD.key(), PASSWORD);
+                                put(DorisSinkOptions.TABLE_IDENTIFIER.key(), "test3.test3");
+                                put(DorisBaseOptions.USERNAME.key(), USERNAME);
+                                put(DorisBaseOptions.PASSWORD.key(), PASSWORD);
                             }
                         });
         assertCreateTable(upstreamTable, config3, "test3.test3");
@@ -202,12 +206,12 @@ public class DorisCatalogIT extends AbstractDorisIT {
                         new HashMap<String, Object>() {
                             {
                                 put(
-                                        DorisOptions.FENODES.key(),
+                                        DorisBaseOptions.FENODES.key(),
                                         container.getHost() + ":" + HTTP_PORT);
-                                put(DorisOptions.DATABASE.key(), "test5");
-                                put(DorisOptions.TABLE.key(), "${table_name}");
-                                put(DorisOptions.USERNAME.key(), USERNAME);
-                                put(DorisOptions.PASSWORD.key(), PASSWORD);
+                                put(DorisBaseOptions.DATABASE.key(), "test5");
+                                put(DorisBaseOptions.TABLE.key(), "${table_name}");
+                                put(DorisBaseOptions.USERNAME.key(), USERNAME);
+                                put(DorisBaseOptions.PASSWORD.key(), PASSWORD);
                             }
                         });
         assertCreateTable(upstreamTable, config4, "test5.test");
@@ -217,32 +221,101 @@ public class DorisCatalogIT extends AbstractDorisIT {
                         new HashMap<String, Object>() {
                             {
                                 put(
-                                        DorisOptions.FENODES.key(),
+                                        DorisBaseOptions.FENODES.key(),
                                         container.getHost() + ":" + HTTP_PORT);
-                                put(DorisOptions.DATABASE.key(), "test4");
-                                put(DorisOptions.TABLE.key(), "test4");
-                                put(DorisOptions.USERNAME.key(), USERNAME);
-                                put(DorisOptions.PASSWORD.key(), PASSWORD);
-                                put(DorisOptions.NEEDS_UNSUPPORTED_TYPE_CASTING.key(), true);
+                                put(DorisBaseOptions.DATABASE.key(), "test4");
+                                put(DorisBaseOptions.TABLE.key(), "test4");
+                                put(DorisBaseOptions.USERNAME.key(), USERNAME);
+                                put(DorisBaseOptions.PASSWORD.key(), PASSWORD);
+                                put(DorisSinkOptions.NEEDS_UNSUPPORTED_TYPE_CASTING.key(), true);
                             }
                         });
-        upstreamTable
-                .getTableSchema()
-                .getColumns()
-                .add(PhysicalColumn.of("v3", new DecimalType(66, 22), 66, false, null, "v3"));
+
+        upstreamTable =
+                CatalogTable.of(
+                        upstreamTable.getTableId(),
+                        TableSchema.builder()
+                                .columns(upstreamTable.getTableSchema().getColumns())
+                                .column(
+                                        PhysicalColumn.of(
+                                                "v3",
+                                                new DecimalType(66, 22),
+                                                66,
+                                                false,
+                                                null,
+                                                "v3"))
+                                .primaryKey(upstreamTable.getTableSchema().getPrimaryKey())
+                                .constraintKey(upstreamTable.getTableSchema().getConstraintKeys())
+                                .build(),
+                        upstreamTable.getOptions(),
+                        upstreamTable.getPartitionKeys(),
+                        upstreamTable.getComment());
         CatalogTable newTable = assertCreateTable(upstreamTable, config5, "test4.test4");
         Assertions.assertEquals(
                 BasicType.DOUBLE_TYPE, newTable.getTableSchema().getColumns().get(4).getDataType());
+    }
+
+    @Test
+    void testCreateTableWithUnboundedStringColumn() {
+        TableSchema.Builder builder = TableSchema.builder();
+        builder.column(PhysicalColumn.of("k1", BasicType.INT_TYPE, 10L, false, 0, "k1"));
+        // Simulate upstream catalog (such as KuduCatalog) where string column has no logical
+        // length, so Doris should create it as STRING instead of CHAR(16).
+        builder.column(
+                PhysicalColumn.of(
+                        "k2",
+                        BasicType.STRING_TYPE,
+                        (Long) null,
+                        false,
+                        null,
+                        "k2 without length"));
+        builder.primaryKey(PrimaryKey.of("pk_k1", Collections.singletonList("k1")));
+
+        CatalogTable upstreamTable =
+                CatalogTable.of(
+                        TableIdentifier.of("doris", TablePath.of("test.unbounded_string")),
+                        builder.build(),
+                        Collections.emptyMap(),
+                        Collections.emptyList(),
+                        null);
+
+        ReadonlyConfig config =
+                ReadonlyConfig.fromMap(
+                        new HashMap<String, Object>() {
+                            {
+                                put(
+                                        DorisBaseOptions.FENODES.key(),
+                                        container.getHost() + ":" + HTTP_PORT);
+                                put(DorisBaseOptions.DATABASE.key(), "test");
+                                put(DorisBaseOptions.TABLE.key(), "unbounded_string");
+                                put(DorisBaseOptions.USERNAME.key(), USERNAME);
+                                put(DorisBaseOptions.PASSWORD.key(), PASSWORD);
+                            }
+                        });
+
+        CatalogTable createdTable =
+                assertCreateTable(upstreamTable, config, "test.unbounded_string");
+        Column createdStringColumn = createdTable.getTableSchema().getColumns().get(1);
+        Assertions.assertEquals("k2", createdStringColumn.getName());
+        // Ensure that the target column is mapped to Doris STRING type
+        Assertions.assertEquals(BasicType.STRING_TYPE, createdStringColumn.getDataType());
+        Assertions.assertEquals(
+                "string", createdStringColumn.getSourceType().toLowerCase(Locale.ROOT));
     }
 
     private CatalogTable assertCreateTable(
             CatalogTable upstreamTable, ReadonlyConfig config, String fullName) {
         DorisSinkFactory dorisSinkFactory = new DorisSinkFactory();
         TableSinkFactoryContext context =
-                new TableSinkFactoryContext(
-                        upstreamTable, config, Thread.currentThread().getContextClassLoader());
+                TableSinkFactoryContext.replacePlaceholderAndCreate(
+                        upstreamTable,
+                        config,
+                        Thread.currentThread().getContextClassLoader(),
+                        Collections.emptyList());
         SupportSaveMode sink = (SupportSaveMode) dorisSinkFactory.createSink(context).createSink();
-        sink.getSaveModeHandler().get().handleSaveMode();
+        SaveModeHandler handler = sink.getSaveModeHandler().get();
+        handler.open();
+        handler.handleSaveMode();
         CatalogTable createdTable = catalog.getTable(TablePath.of(fullName));
         Assertions.assertEquals(
                 upstreamTable.getTableSchema().getColumns().size(),
@@ -254,6 +327,9 @@ public class DorisCatalogIT extends AbstractDorisIT {
                 createdTable.getTableSchema().getColumns().stream()
                         .map(Column::getName)
                         .collect(Collectors.toList()));
+        Assertions.assertEquals(
+                "k1", createdTable.getTableSchema().getColumns().get(0).getComment());
+        ;
         return createdTable;
     }
 
@@ -268,20 +344,29 @@ public class DorisCatalogIT extends AbstractDorisIT {
                                         ReadonlyConfig.fromMap(
                                                 new HashMap<String, Object>() {
                                                     {
-                                                        put(DorisOptions.DATABASE.key(), DATABASE);
-                                                        put(DorisOptions.TABLE.key(), SINK_TABLE);
-                                                        put(DorisOptions.USERNAME.key(), USERNAME);
-                                                        put(DorisOptions.PASSWORD.key(), PASSWORD);
                                                         put(
-                                                                DorisOptions.DORIS_READ_FIELD.key(),
+                                                                DorisBaseOptions.DATABASE.key(),
+                                                                DATABASE);
+                                                        put(
+                                                                DorisBaseOptions.TABLE.key(),
+                                                                SINK_TABLE);
+                                                        put(
+                                                                DorisBaseOptions.USERNAME.key(),
+                                                                USERNAME);
+                                                        put(
+                                                                DorisBaseOptions.PASSWORD.key(),
+                                                                PASSWORD);
+                                                        put(
+                                                                DorisSourceOptions.DORIS_READ_FIELD
+                                                                        .key(),
                                                                 "k1,k2");
                                                         put(
-                                                                DorisOptions.FENODES.key(),
+                                                                DorisBaseOptions.FENODES.key(),
                                                                 container.getHost()
                                                                         + ":"
                                                                         + HTTP_PORT);
                                                         put(
-                                                                DorisOptions.QUERY_PORT.key(),
+                                                                DorisBaseOptions.QUERY_PORT.key(),
                                                                 QUERY_PORT);
                                                     }
                                                 }),

@@ -24,7 +24,7 @@ import org.apache.seatunnel.api.table.connector.TableSource;
 import org.apache.seatunnel.api.table.factory.Factory;
 import org.apache.seatunnel.api.table.factory.TableSourceFactoryContext;
 import org.apache.seatunnel.connectors.seatunnel.http.source.HttpSourceFactory;
-import org.apache.seatunnel.connectors.seatunnel.notion.source.config.NotionSourceConfig;
+import org.apache.seatunnel.connectors.seatunnel.notion.source.config.NotionSourceOptions;
 
 import com.google.auto.service.AutoService;
 
@@ -40,16 +40,14 @@ public class NotionSourceFactory extends HttpSourceFactory {
     @Override
     public <T, SplitT extends SourceSplit, StateT extends Serializable>
             TableSource<T, SplitT, StateT> createSource(TableSourceFactoryContext context) {
-        return () ->
-                (SeaTunnelSource<T, SplitT, StateT>)
-                        new NotionSource(context.getOptions().toConfig());
+        return () -> (SeaTunnelSource<T, SplitT, StateT>) new NotionSource(context.getOptions());
     }
 
     @Override
     public OptionRule optionRule() {
         return getHttpBuilder()
-                .required(NotionSourceConfig.PASSWORD)
-                .required(NotionSourceConfig.VERSION)
+                .required(NotionSourceOptions.PASSWORD)
+                .required(NotionSourceOptions.VERSION)
                 .build();
     }
 }

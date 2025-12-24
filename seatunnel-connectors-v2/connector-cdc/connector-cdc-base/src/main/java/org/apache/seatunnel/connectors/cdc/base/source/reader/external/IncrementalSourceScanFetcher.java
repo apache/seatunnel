@@ -17,6 +17,8 @@
 
 package org.apache.seatunnel.connectors.cdc.base.source.reader.external;
 
+import org.apache.seatunnel.shade.com.google.common.util.concurrent.ThreadFactoryBuilder;
+
 import org.apache.seatunnel.common.utils.SeaTunnelException;
 import org.apache.seatunnel.connectors.cdc.base.source.split.SnapshotSplit;
 import org.apache.seatunnel.connectors.cdc.base.source.split.SourceRecords;
@@ -25,7 +27,6 @@ import org.apache.seatunnel.connectors.cdc.base.source.split.SourceSplitBase;
 import org.apache.kafka.connect.data.Struct;
 import org.apache.kafka.connect.source.SourceRecord;
 
-import com.google.common.util.concurrent.ThreadFactoryBuilder;
 import io.debezium.connector.base.ChangeEventQueue;
 import io.debezium.pipeline.DataChangeEvent;
 import lombok.extern.slf4j.Slf4j;
@@ -41,10 +42,10 @@ import java.util.concurrent.ThreadFactory;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicBoolean;
 
-import static com.google.common.base.Preconditions.checkState;
 import static org.apache.seatunnel.connectors.cdc.base.source.split.wartermark.WatermarkEvent.isEndWatermarkEvent;
 import static org.apache.seatunnel.connectors.cdc.base.source.split.wartermark.WatermarkEvent.isHighWatermarkEvent;
 import static org.apache.seatunnel.connectors.cdc.base.source.split.wartermark.WatermarkEvent.isLowWatermarkEvent;
+import static org.apache.seatunnel.shade.com.google.common.base.Preconditions.checkState;
 
 /**
  * Fetcher to fetch data from table split, the split is the snapshot split {@link SnapshotSplit}.
@@ -93,7 +94,7 @@ public class IncrementalSourceScanFetcher implements Fetcher<SourceRecords, Sour
                                 currentSnapshotSplit,
                                 taskContext.isExactlyOnce());
                         snapshotSplitReadTask.execute(taskContext);
-                    } catch (Exception e) {
+                    } catch (Throwable e) {
                         log.error(
                                 String.format(
                                         "Execute snapshot read task for snapshot split %s fail",
@@ -222,12 +223,15 @@ public class IncrementalSourceScanFetcher implements Fetcher<SourceRecords, Sour
     @Override
     public void close() {
         try {
-            if (taskContext != null) {
-                taskContext.close();
-            }
+            // 1. try close the split task
             if (snapshotSplitReadTask != null) {
-                snapshotSplitReadTask.shutdown();
+                try {
+                    snapshotSplitReadTask.shutdown();
+                } catch (Exception e) {
+                    log.error("Close snapshot split read task error", e);
+                }
             }
+            // 2. close the fetcher thread
             if (executorService != null) {
                 executorService.shutdown();
                 if (!executorService.awaitTermination(
@@ -240,6 +244,11 @@ public class IncrementalSourceScanFetcher implements Fetcher<SourceRecords, Sour
             }
         } catch (Exception e) {
             log.error("Close scan fetcher error", e);
+        } finally {
+            // 3. close the task context
+            if (taskContext != null) {
+                taskContext.close();
+            }
         }
     }
 

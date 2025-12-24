@@ -17,25 +17,27 @@
 
 package org.apache.seatunnel.connectors.seatunnel.jdbc.sink;
 
+import org.apache.seatunnel.shade.com.zaxxer.hikari.HikariDataSource;
+
 import org.apache.seatunnel.api.sink.MultiTableResourceManager;
-import org.apache.seatunnel.api.sink.SinkWriter;
-import org.apache.seatunnel.api.sink.SupportMultiTableSinkWriter;
+import org.apache.seatunnel.api.table.catalog.TablePath;
 import org.apache.seatunnel.api.table.catalog.TableSchema;
+import org.apache.seatunnel.api.table.coordinator.SchemaCoordinator;
+import org.apache.seatunnel.api.table.schema.event.FlushEvent;
+import org.apache.seatunnel.api.table.schema.exception.SinkWriterSchemaException;
 import org.apache.seatunnel.api.table.type.SeaTunnelRow;
 import org.apache.seatunnel.common.exception.CommonErrorCodeDeprecated;
 import org.apache.seatunnel.connectors.seatunnel.jdbc.config.JdbcSinkConfig;
 import org.apache.seatunnel.connectors.seatunnel.jdbc.exception.JdbcConnectorErrorCode;
 import org.apache.seatunnel.connectors.seatunnel.jdbc.exception.JdbcConnectorException;
-import org.apache.seatunnel.connectors.seatunnel.jdbc.internal.JdbcOutputFormat;
 import org.apache.seatunnel.connectors.seatunnel.jdbc.internal.JdbcOutputFormatBuilder;
-import org.apache.seatunnel.connectors.seatunnel.jdbc.internal.connection.JdbcConnectionProvider;
 import org.apache.seatunnel.connectors.seatunnel.jdbc.internal.connection.SimpleJdbcConnectionPoolProviderProxy;
+import org.apache.seatunnel.connectors.seatunnel.jdbc.internal.dialect.DatabaseIdentifier;
 import org.apache.seatunnel.connectors.seatunnel.jdbc.internal.dialect.JdbcDialect;
-import org.apache.seatunnel.connectors.seatunnel.jdbc.internal.executor.JdbcBatchStatementExecutor;
+import org.apache.seatunnel.connectors.seatunnel.jdbc.internal.dialect.dsql.DdsqlJdbcConnectionPoolProviderProxy;
 import org.apache.seatunnel.connectors.seatunnel.jdbc.state.JdbcSinkState;
 import org.apache.seatunnel.connectors.seatunnel.jdbc.state.XidInfo;
 
-import com.zaxxer.hikari.HikariDataSource;
 import lombok.extern.slf4j.Slf4j;
 
 import java.io.IOException;
@@ -45,31 +47,32 @@ import java.util.List;
 import java.util.Optional;
 
 @Slf4j
-public class JdbcSinkWriter
-        implements SinkWriter<SeaTunnelRow, XidInfo, JdbcSinkState>,
-                SupportMultiTableSinkWriter<ConnectionPoolManager> {
-    private JdbcOutputFormat<SeaTunnelRow, JdbcBatchStatementExecutor<SeaTunnelRow>> outputFormat;
-    private final JdbcDialect dialect;
-    private final TableSchema tableSchema;
-    private JdbcConnectionProvider connectionProvider;
-    private transient boolean isOpen;
+public class JdbcSinkWriter extends AbstractJdbcSinkWriter<ConnectionPoolManager> {
     private final Integer primaryKeyIndex;
-    private final JdbcSinkConfig jdbcSinkConfig;
+    private SchemaCoordinator schemaCoordinator;
 
     public JdbcSinkWriter(
+            TablePath sinkTablePath,
             JdbcDialect dialect,
             JdbcSinkConfig jdbcSinkConfig,
             TableSchema tableSchema,
+            TableSchema databaseTableSchema,
             Integer primaryKeyIndex) {
-        this.jdbcSinkConfig = jdbcSinkConfig;
+        this.sinkTablePath = sinkTablePath;
         this.dialect = dialect;
         this.tableSchema = tableSchema;
+        this.databaseTableSchema = databaseTableSchema;
+        this.jdbcSinkConfig = jdbcSinkConfig;
         this.primaryKeyIndex = primaryKeyIndex;
         this.connectionProvider =
                 dialect.getJdbcConnectionProvider(jdbcSinkConfig.getJdbcConnectionConfig());
         this.outputFormat =
                 new JdbcOutputFormatBuilder(
-                                dialect, connectionProvider, jdbcSinkConfig, tableSchema)
+                                dialect,
+                                connectionProvider,
+                                jdbcSinkConfig,
+                                tableSchema,
+                                databaseTableSchema)
                         .build();
     }
 
@@ -77,9 +80,18 @@ public class JdbcSinkWriter
     public MultiTableResourceManager<ConnectionPoolManager> initMultiTableResourceManager(
             int tableSize, int queueSize) {
         HikariDataSource ds = new HikariDataSource();
+        try {
+            Class.forName(jdbcSinkConfig.getJdbcConnectionConfig().getDriverName());
+        } catch (Exception e) {
+            log.warn(
+                    "Failed to load JDBC driver {}",
+                    jdbcSinkConfig.getJdbcConnectionConfig().getDriverName(),
+                    e);
+        }
         ds.setIdleTimeout(30 * 1000);
         ds.setMaximumPoolSize(queueSize);
         ds.setJdbcUrl(jdbcSinkConfig.getJdbcConnectionConfig().getUrl());
+        ds.setDriverClassName(jdbcSinkConfig.getJdbcConnectionConfig().getDriverName());
         if (jdbcSinkConfig.getJdbcConnectionConfig().getUsername().isPresent()) {
             ds.setUsername(jdbcSinkConfig.getJdbcConnectionConfig().getUsername().get());
         }
@@ -87,6 +99,7 @@ public class JdbcSinkWriter
             ds.setPassword(jdbcSinkConfig.getJdbcConnectionConfig().getPassword().get());
         }
         ds.setAutoCommit(jdbcSinkConfig.getJdbcConnectionConfig().isAutoCommit());
+        jdbcSinkConfig.getJdbcConnectionConfig().getProperties().forEach(ds::addDataSourceProperty);
         return new JdbcMultiTableResourceManager(new ConnectionPoolManager(ds));
     }
 
@@ -95,14 +108,24 @@ public class JdbcSinkWriter
             MultiTableResourceManager<ConnectionPoolManager> multiTableResourceManager,
             int queueIndex) {
         connectionProvider.closeConnection();
-        this.connectionProvider =
-                new SimpleJdbcConnectionPoolProviderProxy(
-                        multiTableResourceManager.getSharedResource().get(),
-                        jdbcSinkConfig.getJdbcConnectionConfig(),
-                        queueIndex);
+        if (this.dialect.dialectName().equals(DatabaseIdentifier.DSQL)) {
+            this.connectionProvider =
+                    new DdsqlJdbcConnectionPoolProviderProxy(
+                            jdbcSinkConfig.getJdbcConnectionConfig(), queueIndex);
+        } else {
+            this.connectionProvider =
+                    new SimpleJdbcConnectionPoolProviderProxy(
+                            multiTableResourceManager.getSharedResource().get(),
+                            jdbcSinkConfig.getJdbcConnectionConfig(),
+                            queueIndex);
+        }
         this.outputFormat =
                 new JdbcOutputFormatBuilder(
-                                dialect, connectionProvider, jdbcSinkConfig, tableSchema)
+                                dialect,
+                                connectionProvider,
+                                jdbcSinkConfig,
+                                tableSchema,
+                                databaseTableSchema)
                         .build();
     }
 
@@ -125,8 +148,42 @@ public class JdbcSinkWriter
 
     @Override
     public void write(SeaTunnelRow element) throws IOException {
+        if (element != null && element.getOptions() != null) {
+            if (element.getOptions().containsKey("flush_event")
+                    || element.getOptions().containsKey("schema_change_event")) {
+                log.debug("Skipping schema change event row: {}", element.getOptions().keySet());
+                return;
+            }
+        }
+
         tryOpen();
         outputFormat.writeRecord(element);
+    }
+
+    @Override
+    public void handleFlushEvent(FlushEvent event) throws IOException {
+        log.info("JdbcSinkWriter handling FlushEvent for table: {}", event.tableIdentifier());
+        try {
+            flushData();
+            log.info("JdbcSinkWriter flush completed for table: {}", event.tableIdentifier());
+            sendFlushSuccessful(event);
+        } catch (Exception e) {
+            log.error("JdbcSinkWriter flush failed for table: {}", event.tableIdentifier(), e);
+            throw SinkWriterSchemaException.flushFailed(
+                    event.tableIdentifier(), event.getJobId(), "JDBC flush operation failed", e);
+        }
+    }
+
+    @Override
+    public void flushData() throws IOException {
+        tryOpen();
+        outputFormat.checkFlushException();
+        outputFormat.flush();
+    }
+
+    @Override
+    public SchemaCoordinator getSchemaCoordinator() {
+        return schemaCoordinator;
     }
 
     @Override
@@ -163,7 +220,8 @@ public class JdbcSinkWriter
                     CommonErrorCodeDeprecated.WRITER_OPERATION_FAILED,
                     "unable to close JDBC sink write",
                     e);
+        } finally {
+            outputFormat.close();
         }
-        outputFormat.close();
     }
 }

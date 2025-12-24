@@ -19,10 +19,15 @@ package org.apache.seatunnel.connectors.seatunnel.hudi.exception;
 
 import org.apache.seatunnel.common.exception.SeaTunnelErrorCode;
 
-enum HudiErrorCode implements SeaTunnelErrorCode {
+public enum HudiErrorCode implements SeaTunnelErrorCode {
     CANNOT_FIND_PARQUET_FILE(
             "HUDI-01",
-            "Hudi connector can not find parquet file in table path '<tablePath>', please check!");
+            "Hudi connector can not find parquet file in table path '<tablePath>', please check!"),
+    FLUSH_DATA_FAILED("HUDI-02", "Flush data operation that in hudi sink connector failed"),
+    UNSUPPORTED_OPERATION("HUDI-03", "Unsupported operation"),
+    TABLE_CONFIG_NOT_FOUND("HUDI-04", "Table configuration not set."),
+    INITIALIZE_TABLE_FAILED("HUDI-05", "Initialize table failed"),
+    ;
 
     private final String code;
     private final String description;

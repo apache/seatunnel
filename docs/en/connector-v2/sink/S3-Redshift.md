@@ -1,3 +1,5 @@
+import ChangeLog from '../changelog/connector-s3-redshift.md';
+
 # S3Redshift
 
 > The way of S3Redshift is to write data into S3, and then use Redshift's COPY command to import data from S3 to Redshift.
@@ -184,7 +186,7 @@ The maximum number of rows in a file. For SeaTunnel Engine, the number of lines 
 
 ### common options
 
-Sink plugin common parameters, please refer to [Sink Common Options](common-options.md) for details.
+Sink plugin common parameters, please refer to [Sink Common Options](../sink-common-options.md) for details.
 
 ## Example
 
@@ -274,5 +276,5 @@ For orc file format
 
 ## Changelog
 
-### 2.3.0-beta 2022-10-20
+<ChangeLog />
 

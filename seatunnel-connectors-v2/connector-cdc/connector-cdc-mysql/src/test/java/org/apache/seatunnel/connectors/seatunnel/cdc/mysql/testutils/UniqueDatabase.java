@@ -55,7 +55,7 @@ public class UniqueDatabase {
 
     private final MySqlContainer container;
     private final String databaseName;
-    private final String templateName;
+    private String templateName;
     private final String username;
     private final String password;
 
@@ -121,6 +121,11 @@ public class UniqueDatabase {
 
     public String getPassword() {
         return password;
+    }
+
+    public UniqueDatabase setTemplateName(String templateName) {
+        this.templateName = templateName;
+        return this;
     }
 
     /** @return Fully qualified table name <code>&lt;databaseName&gt;.&lt;tableName&gt;</code> */

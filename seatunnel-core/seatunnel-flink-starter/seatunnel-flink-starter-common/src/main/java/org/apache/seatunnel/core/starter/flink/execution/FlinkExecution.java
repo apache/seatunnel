@@ -22,7 +22,7 @@ import org.apache.seatunnel.shade.com.typesafe.config.ConfigUtil;
 import org.apache.seatunnel.shade.com.typesafe.config.ConfigValueFactory;
 
 import org.apache.seatunnel.api.common.JobContext;
-import org.apache.seatunnel.api.env.EnvCommonOptions;
+import org.apache.seatunnel.api.options.EnvCommonOptions;
 import org.apache.seatunnel.common.Constants;
 import org.apache.seatunnel.common.config.Common;
 import org.apache.seatunnel.common.config.TypesafeConfigUtils;
@@ -45,16 +45,32 @@ import java.io.File;
 import java.net.MalformedURLException;
 import java.net.URL;
 import java.nio.file.Path;
+import java.sql.DriverManager;
 import java.util.ArrayList;
 import java.util.Arrays;
+import java.util.Collection;
 import java.util.Collections;
+import java.util.HashSet;
 import java.util.List;
+import java.util.OptionalLong;
 import java.util.Set;
 import java.util.stream.Collectors;
 import java.util.stream.Stream;
 
 /** Used to execute a SeaTunnelTask. */
 public class FlinkExecution implements TaskExecution {
+
+    static {
+        // Load DriverManager first to avoid deadlock between DriverManager's
+        // static initialization block and specific driver class's static
+        // initialization block when two different driver classes are loading
+        // concurrently using Class.forName while DriverManager is uninitialized
+        // before.
+        //
+        // This could happen in JDK 8 but not above as driver loading has been
+        // moved out of DriverManager's static initialization block since JDK 9.
+        DriverManager.getDrivers();
+    }
 
     private static final Logger LOGGER = LoggerFactory.getLogger(FlinkExecution.class);
 
@@ -85,6 +101,7 @@ public class FlinkExecution implements TaskExecution {
         registerPlugin(envConfig);
         JobContext jobContext = new JobContext();
         jobContext.setJobMode(RuntimeEnvironment.getJobMode(config));
+        jobContext.setEnableCheckpoint(RuntimeEnvironment.getEnableCheckpoint(config));
 
         this.sourcePluginExecuteProcessor =
                 new SourceExecuteProcessor(
@@ -101,7 +118,8 @@ public class FlinkExecution implements TaskExecution {
                         jarPaths, envConfig, config.getConfigList(Constants.SINK), jobContext);
 
         this.flinkRuntimeEnvironment =
-                FlinkRuntimeEnvironment.getInstance(this.registerPlugin(config, jarPaths));
+                FlinkRuntimeEnvironment.getInstance(
+                        this.registerPlugin(config, new HashSet<>(jarPaths)));
 
         this.sourcePluginExecuteProcessor.setRuntimeEnvironment(flinkRuntimeEnvironment);
         this.transformPluginExecuteProcessor.setRuntimeEnvironment(flinkRuntimeEnvironment);
@@ -118,11 +136,17 @@ public class FlinkExecution implements TaskExecution {
                 "Flink Execution Plan: {}",
                 flinkRuntimeEnvironment.getStreamExecutionEnvironment().getExecutionPlan());
         LOGGER.info("Flink job name: {}", flinkRuntimeEnvironment.getJobName());
-        if (!flinkRuntimeEnvironment.isStreaming()) {
-            flinkRuntimeEnvironment
-                    .getStreamExecutionEnvironment()
-                    .setRuntimeMode(RuntimeExecutionMode.BATCH);
-            LOGGER.info("Flink job Mode: {}", JobMode.BATCH);
+        if (flinkRuntimeEnvironment.getJobMode() == JobMode.BATCH) {
+            OptionalLong checkpointInterval =
+                    flinkRuntimeEnvironment.resolveCheckpointInterval(false);
+            boolean enableCheckpointForBatch =
+                    checkpointInterval.isPresent() && checkpointInterval.getAsLong() > 0;
+            if (!enableCheckpointForBatch) {
+                flinkRuntimeEnvironment
+                        .getStreamExecutionEnvironment()
+                        .setRuntimeMode(RuntimeExecutionMode.BATCH);
+                LOGGER.info("Flink job Mode: {}", JobMode.BATCH);
+            }
         }
         try {
             final long jobStartTime = System.currentTimeMillis();
@@ -153,7 +177,7 @@ public class FlinkExecution implements TaskExecution {
                             Common.getThirdPartyJars(
                                     envConfig.getString(EnvCommonOptions.JARS.key())));
         }
-        thirdPartyJars.addAll(Common.getPluginsJarDependencies());
+        thirdPartyJars.addAll(Common.getPluginsJarDependenciesWithoutConnectorDependency());
         List<URL> jarDependencies =
                 Stream.concat(thirdPartyJars.stream(), Common.getLibJars().stream())
                         .map(Path::toUri)
@@ -167,14 +191,12 @@ public class FlinkExecution implements TaskExecution {
                                     }
                                 })
                         .collect(Collectors.toList());
-        jarDependencies.forEach(
-                url ->
-                        FlinkAbstractPluginExecuteProcessor.ADD_URL_TO_CLASSLOADER.accept(
-                                Thread.currentThread().getContextClassLoader(), url));
+        FlinkAbstractPluginExecuteProcessor.ADD_URL_TO_CLASSLOADER.accept(
+                Thread.currentThread().getContextClassLoader(), jarDependencies);
         jarPaths.addAll(jarDependencies);
     }
 
-    private Config registerPlugin(Config config, List<URL> jars) {
+    private Config registerPlugin(Config config, Collection<URL> jars) {
         config =
                 this.injectJarsToConfig(
                         config, ConfigUtil.joinPath("env", "pipeline", "jars"), jars);
@@ -182,7 +204,7 @@ public class FlinkExecution implements TaskExecution {
                 config, ConfigUtil.joinPath("env", "pipeline", "classpaths"), jars);
     }
 
-    private Config injectJarsToConfig(Config config, String path, List<URL> jars) {
+    private Config injectJarsToConfig(Config config, String path, Collection<URL> jars) {
         List<URL> validJars = new ArrayList<>();
         for (URL jarUrl : jars) {
             if (new File(jarUrl.getFile()).exists()) {

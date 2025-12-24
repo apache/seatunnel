@@ -29,18 +29,28 @@ import org.apache.kafka.connect.source.SourceRecord;
 
 import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.Test;
+import org.mockito.stubbing.Answer;
 
+import io.debezium.config.CommonConnectorConfig;
+import io.debezium.config.Configuration;
+import io.debezium.connector.SourceInfoStructMaker;
 import io.debezium.data.Envelope;
 import io.debezium.heartbeat.Heartbeat;
+import io.debezium.heartbeat.HeartbeatFactory;
+import io.debezium.jdbc.JdbcConfiguration;
 import io.debezium.pipeline.DataChangeEvent;
+import io.debezium.relational.TableId;
+import io.debezium.schema.TopicSelector;
+import io.debezium.util.SchemaNameAdjuster;
 
-import java.time.Duration;
 import java.util.ArrayList;
 import java.util.Collections;
 import java.util.Iterator;
 import java.util.List;
 import java.util.concurrent.atomic.AtomicReference;
 
+import static io.debezium.config.CommonConnectorConfig.TRANSACTION_TOPIC;
+import static io.debezium.connector.AbstractSourceInfo.DEBEZIUM_CONNECTOR_KEY;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.Mockito.doReturn;
 import static org.mockito.Mockito.mock;
@@ -48,6 +58,12 @@ import static org.mockito.Mockito.spy;
 import static org.mockito.Mockito.when;
 
 public class IncrementalSourceStreamFetcherTest {
+    private static final Configuration dezConf =
+            JdbcConfiguration.create()
+                    .with(Heartbeat.HEARTBEAT_INTERVAL, 1)
+                    .with(TRANSACTION_TOPIC, "test")
+                    .build();
+    private static final String UNKNOWN_SCHEMA_KEY = "UNKNOWN";
 
     @Test
     public void testSplitSchemaChangeStream() throws Exception {
@@ -94,6 +110,7 @@ public class IncrementalSourceStreamFetcherTest {
         inputEvents.add(new DataChangeEvent(createDataEvent()));
         inputEvents.add(new DataChangeEvent(createSchemaChangeEvent()));
         inputEvents.add(new DataChangeEvent(createSchemaChangeEvent()));
+        inputEvents.add(new DataChangeEvent(createSchemaChangeUnknownEvent()));
         outputEvents = fetcher.splitSchemaChangeStream(inputEvents);
         outputEvents.forEachRemaining(records::add);
 
@@ -121,6 +138,7 @@ public class IncrementalSourceStreamFetcherTest {
         inputEvents.add(new DataChangeEvent(createSchemaChangeEvent()));
         inputEvents.add(new DataChangeEvent(createDataEvent()));
         inputEvents.add(new DataChangeEvent(createDataEvent()));
+        inputEvents.add(new DataChangeEvent(createSchemaChangeUnknownEvent()));
         outputEvents = fetcher.splitSchemaChangeStream(inputEvents);
         outputEvents.forEachRemaining(records::add);
 
@@ -310,17 +328,40 @@ public class IncrementalSourceStreamFetcherTest {
     }
 
     static SourceRecord createSchemaChangeEvent() {
+        return createSchemaChangeEvent("SCHEMA_CHANGE_TOPIC");
+    }
+
+    static SourceRecord createSchemaChangeUnknownEvent() {
+        return createSchemaChangeEvent(UNKNOWN_SCHEMA_KEY);
+    }
+
+    static SourceRecord createSchemaChangeEvent(String topic) {
         Schema keySchema =
-                SchemaBuilder.struct().name(SourceRecordUtils.SCHEMA_CHANGE_EVENT_KEY_NAME).build();
+                SchemaBuilder.struct().name("io.debezium.connector.mysql.SchemaChangeKey").build();
+        Schema valueKeySchema =
+                SchemaBuilder.struct()
+                        .name("io.debezium.connector.mysql.Source")
+                        .field(DEBEZIUM_CONNECTOR_KEY, Schema.STRING_SCHEMA)
+                        .build();
+        Struct valueValues = new Struct(valueKeySchema);
+        valueValues.put(DEBEZIUM_CONNECTOR_KEY, "mysql");
+
+        Schema valueSchema =
+                SchemaBuilder.struct()
+                        .field(Envelope.FieldName.SOURCE, valueKeySchema)
+                        .name("")
+                        .build();
+        Struct value = new Struct(valueSchema);
+        value.put(valueSchema.field(Envelope.FieldName.SOURCE), valueValues);
         SourceRecord record =
                 new SourceRecord(
                         Collections.emptyMap(),
                         Collections.emptyMap(),
-                        null,
+                        topic,
                         keySchema,
                         null,
-                        null,
-                        null);
+                        valueSchema,
+                        value);
         Assertions.assertTrue(SourceRecordUtils.isSchemaChangeEvent(record));
         return record;
     }
@@ -346,7 +387,14 @@ public class IncrementalSourceStreamFetcherTest {
     }
 
     static SourceRecord createHeartbeatEvent() throws InterruptedException {
-        Heartbeat heartbeat = Heartbeat.create(Duration.ofNanos(1), "test", "test");
+        TestConnectorConfig testConnectorConfig = new TestConnectorConfig(dezConf, "test", 1000);
+        HeartbeatFactory<TableId> heartbeatFactory =
+                new HeartbeatFactory<>(
+                        testConnectorConfig,
+                        TopicSelector.defaultSelector(
+                                testConnectorConfig, (id, prefix, delimiter) -> "test"),
+                        SchemaNameAdjuster.create());
+        Heartbeat heartbeat = heartbeatFactory.createHeartbeat();
         AtomicReference<SourceRecord> eventRef = new AtomicReference<>();
         heartbeat.forcedBeat(
                 Collections.singletonMap("heartbeat", "heartbeat"),
@@ -357,11 +405,41 @@ public class IncrementalSourceStreamFetcherTest {
 
     static IncrementalSourceStreamFetcher createFetcher() {
         SchemaChangeResolver schemaChangeResolver = mock(SchemaChangeResolver.class);
-        when(schemaChangeResolver.support(any())).thenReturn(true);
+        when(schemaChangeResolver.support(any()))
+                .thenAnswer(
+                        (Answer<Boolean>)
+                                invocationOnMock -> {
+                                    SourceRecord record = invocationOnMock.getArgument(0);
+                                    return record.topic() == null
+                                            || !record.topic().equalsIgnoreCase(UNKNOWN_SCHEMA_KEY);
+                                });
         IncrementalSourceStreamFetcher fetcher =
                 new IncrementalSourceStreamFetcher(null, 0, schemaChangeResolver);
         IncrementalSourceStreamFetcher spy = spy(fetcher);
         doReturn(true).when(spy).shouldEmit(any());
         return spy;
+    }
+
+    public static class TestConnectorConfig extends CommonConnectorConfig {
+
+        protected TestConnectorConfig(
+                Configuration config, String logicalName, int defaultSnapshotFetchSize) {
+            super(config, logicalName, defaultSnapshotFetchSize);
+        }
+
+        @Override
+        public String getContextName() {
+            return null;
+        }
+
+        @Override
+        public String getConnectorName() {
+            return null;
+        }
+
+        @Override
+        protected SourceInfoStructMaker<?> getSourceInfoStructMaker(Version version) {
+            return null;
+        }
     }
 }

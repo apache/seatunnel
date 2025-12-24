@@ -17,7 +17,7 @@
 
 package org.apache.seatunnel.connectors.seatunnel.clickhouse.sink.file;
 
-import org.apache.seatunnel.connectors.seatunnel.clickhouse.sink.DistributedEngine;
+import org.apache.seatunnel.connectors.seatunnel.clickhouse.util.DistributedEngine;
 
 import lombok.Getter;
 import lombok.Setter;
@@ -66,6 +66,22 @@ public class ClickhouseTable implements Serializable {
             return distributedEngine.getTable();
         } else {
             return tableName;
+        }
+    }
+
+    public String getLocalDatabase() {
+        if (distributedEngine != null) {
+            return distributedEngine.getDatabase();
+        } else {
+            return database;
+        }
+    }
+
+    public String getLocalTableIdentifier() {
+        if (distributedEngine != null) {
+            return String.format("%s.%s", getLocalDatabase(), getLocalTableName());
+        } else {
+            return String.format("%s.%s", database, tableName);
         }
     }
 }

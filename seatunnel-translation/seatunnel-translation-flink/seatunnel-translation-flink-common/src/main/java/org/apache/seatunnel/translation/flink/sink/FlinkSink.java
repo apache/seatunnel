@@ -31,6 +31,7 @@ import org.apache.flink.api.connector.sink.SinkWriter;
 import org.apache.flink.core.io.SimpleVersionedSerializer;
 
 import java.io.IOException;
+import java.sql.DriverManager;
 import java.util.List;
 import java.util.Optional;
 import java.util.stream.Collectors;
@@ -46,15 +47,31 @@ import java.util.stream.Collectors;
 public class FlinkSink<InputT, CommT, WriterStateT, GlobalCommT>
         implements Sink<InputT, CommitWrapper<CommT>, FlinkWriterState<WriterStateT>, GlobalCommT> {
 
+    static {
+        // Load DriverManager first to avoid deadlock between DriverManager's
+        // static initialization block and specific driver class's static
+        // initialization block when two different driver classes are loading
+        // concurrently using Class.forName while DriverManager is uninitialized
+        // before.
+        //
+        // This could happen in JDK 8 but not above as driver loading has been
+        // moved out of DriverManager's static initialization block since JDK 9.
+        DriverManager.getDrivers();
+    }
+
     private final SeaTunnelSink<SeaTunnelRow, WriterStateT, CommT, GlobalCommT> sink;
 
-    private final CatalogTable catalogTable;
+    private final List<CatalogTable> catalogTables;
+
+    private final int parallelism;
 
     public FlinkSink(
             SeaTunnelSink<SeaTunnelRow, WriterStateT, CommT, GlobalCommT> sink,
-            CatalogTable catalogTable) {
+            List<CatalogTable> catalogTables,
+            int parallelism) {
         this.sink = sink;
-        this.catalogTable = catalogTable;
+        this.catalogTables = catalogTables;
+        this.parallelism = parallelism;
     }
 
     @Override
@@ -62,22 +79,16 @@ public class FlinkSink<InputT, CommT, WriterStateT, GlobalCommT>
             Sink.InitContext context, List<FlinkWriterState<WriterStateT>> states)
             throws IOException {
         org.apache.seatunnel.api.sink.SinkWriter.Context stContext =
-                new FlinkSinkWriterContext(context);
-
+                new FlinkSinkWriterContext(context, parallelism);
         if (states == null || states.isEmpty()) {
-            return new FlinkSinkWriter<>(
-                    sink.createWriter(stContext),
-                    1,
-                    catalogTable.getSeaTunnelRowType(),
-                    stContext.getMetricsContext());
+            return new FlinkSinkWriter<>(sink.createWriter(stContext), 1, stContext);
         } else {
             List<WriterStateT> restoredState =
                     states.stream().map(FlinkWriterState::getState).collect(Collectors.toList());
             return new FlinkSinkWriter<>(
                     sink.restoreWriter(stContext, restoredState),
                     states.get(0).getCheckpointId() + 1,
-                    catalogTable.getSeaTunnelRowType(),
-                    stContext.getMetricsContext());
+                    stContext);
         }
     }
 
@@ -94,12 +105,30 @@ public class FlinkSink<InputT, CommT, WriterStateT, GlobalCommT>
 
     @Override
     public Optional<SimpleVersionedSerializer<CommitWrapper<CommT>>> getCommittableSerializer() {
-        return sink.getCommitInfoSerializer().map(CommitWrapperSerializer::new);
+        try {
+            if (sink.createCommitter().isPresent()
+                    || sink.createAggregatedCommitter().isPresent()) {
+                return sink.getCommitInfoSerializer().map(CommitWrapperSerializer::new);
+            } else {
+                return Optional.empty();
+            }
+        } catch (IOException e) {
+            throw new RuntimeException("Failed to create Committer or AggregatedCommitter", e);
+        }
     }
 
     @Override
     public Optional<SimpleVersionedSerializer<GlobalCommT>> getGlobalCommittableSerializer() {
-        return sink.getAggregatedCommitInfoSerializer().map(FlinkSimpleVersionedSerializer::new);
+        try {
+            if (sink.createAggregatedCommitter().isPresent()) {
+                return sink.getAggregatedCommitInfoSerializer()
+                        .map(FlinkSimpleVersionedSerializer::new);
+            } else {
+                return Optional.empty();
+            }
+        } catch (IOException e) {
+            throw new RuntimeException("Failed to create AggregatedCommitter", e);
+        }
     }
 
     @Override

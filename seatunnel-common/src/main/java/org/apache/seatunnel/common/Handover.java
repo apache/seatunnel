@@ -21,7 +21,7 @@ import java.io.Closeable;
 import java.util.Optional;
 import java.util.concurrent.LinkedBlockingQueue;
 
-import static com.google.common.base.Preconditions.checkNotNull;
+import static org.apache.seatunnel.shade.com.google.common.base.Preconditions.checkNotNull;
 
 public final class Handover<T> implements Closeable {
     private static final int DEFAULT_QUEUE_SIZE = 10000;
@@ -30,7 +30,10 @@ public final class Handover<T> implements Closeable {
             new LinkedBlockingQueue<>(DEFAULT_QUEUE_SIZE);
     private Throwable error;
 
-    public boolean isEmpty() {
+    public boolean isEmpty() throws Exception {
+        if (error != null) {
+            rethrowException(error, error.getMessage());
+        }
         return blockingQueue.isEmpty();
     }
 

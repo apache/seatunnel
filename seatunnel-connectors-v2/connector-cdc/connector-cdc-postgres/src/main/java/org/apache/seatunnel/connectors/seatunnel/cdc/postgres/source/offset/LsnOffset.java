@@ -21,7 +21,9 @@ import org.apache.seatunnel.connectors.cdc.base.source.offset.Offset;
 
 import io.debezium.connector.postgresql.SourceInfo;
 import io.debezium.connector.postgresql.connection.Lsn;
+import io.debezium.time.Conversions;
 
+import java.time.Instant;
 import java.util.HashMap;
 import java.util.Map;
 
@@ -29,8 +31,10 @@ public class LsnOffset extends Offset {
 
     private static final long serialVersionUID = 1L;
 
-    public static final LsnOffset INITIAL_OFFSET = new LsnOffset(Lsn.valueOf(Long.MIN_VALUE));
-    public static final LsnOffset NO_STOPPING_OFFSET = new LsnOffset(Lsn.valueOf(Long.MAX_VALUE));
+    public static final LsnOffset INITIAL_OFFSET =
+            new LsnOffset(Lsn.INVALID_LSN.asLong(), null, Instant.MIN);
+    public static final LsnOffset NO_STOPPING_OFFSET =
+            new LsnOffset(Lsn.valueOf("FFFFFFFF/FFFFFFFF").asLong(), null, Instant.MAX);
 
     /**
      * the position in the server WAL for a particular event; may be null indicating that this
@@ -51,24 +55,29 @@ public class LsnOffset extends Offset {
         this.offset = offset;
     }
 
-    public LsnOffset(Lsn lsn) {
-        this(lsn, null, null);
+    public LsnOffset(Long lsn, Long txId, Instant lastCommitTs) {
+        Map<String, String> offsetMap = new HashMap<>();
+        // keys are from io.debezium.connector.postgresql.PostgresOffsetContext.Loader.load
+        offsetMap.put(SourceInfo.LSN_KEY, lsn.toString());
+        if (txId != null) {
+            offsetMap.put(SourceInfo.TXID_KEY, txId.toString());
+        }
+        if (lastCommitTs != null) {
+            offsetMap.put(
+                    SourceInfo.TIMESTAMP_USEC_KEY,
+                    String.valueOf(Conversions.toEpochMicros(lastCommitTs)));
+        }
+        this.offset = offsetMap;
     }
 
-    public LsnOffset(Lsn lsn, Long txId, Long xmin) {
-        Map<String, String> offsetMap = new HashMap<>();
-
-        if (lsn != null && lsn.isValid()) {
-            offsetMap.put(SourceInfo.LSN_KEY, String.valueOf(lsn.asLong()));
-        }
-        if (txId != null) {
-            offsetMap.put(SourceInfo.TXID_KEY, String.valueOf(txId));
-        }
-        if (xmin != null) {
-            offsetMap.put(SourceInfo.XMIN_KEY, String.valueOf(xmin));
+    public static LsnOffset of(Map<String, ?> offsetMap) {
+        Map<String, String> offsetStrMap = new HashMap<>();
+        for (Map.Entry<String, ?> entry : offsetMap.entrySet()) {
+            offsetStrMap.put(
+                    entry.getKey(), entry.getValue() == null ? null : entry.getValue().toString());
         }
 
-        this.offset = offsetMap;
+        return new LsnOffset(offsetStrMap);
     }
 
     public Lsn getLsn() {

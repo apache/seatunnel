@@ -23,7 +23,7 @@ import org.apache.seatunnel.api.table.catalog.TableSchema;
 
 import lombok.NonNull;
 
-public abstract class FilterRowTransform extends AbstractCatalogSupportTransform {
+public abstract class FilterRowTransform extends AbstractCatalogSupportMapTransform {
 
     public FilterRowTransform(@NonNull CatalogTable inputCatalogTable) {
         super(inputCatalogTable);

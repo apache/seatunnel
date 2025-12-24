@@ -39,11 +39,15 @@ public class SqlServerTypeConverter implements TypeConverter<BasicTypeDefine> {
     // -------------------------number----------------------------
     public static final String SQLSERVER_BIT = "BIT";
     public static final String SQLSERVER_TINYINT = "TINYINT";
+    public static final String SQLSERVER_TINYINT_IDENTITY = "TINYINT IDENTITY";
     public static final String SQLSERVER_SMALLINT = "SMALLINT";
+    public static final String SQLSERVER_SMALLINT_IDENTITY = "SMALLINT IDENTITY";
     public static final String SQLSERVER_INTEGER = "INTEGER";
+    public static final String SQLSERVER_INTEGER_IDENTITY = "INTEGER IDENTITY";
     public static final String SQLSERVER_INT = "INT";
     private static final String SQLSERVER_INT_IDENTITY = "INT IDENTITY";
     public static final String SQLSERVER_BIGINT = "BIGINT";
+    public static final String SQLSERVER_BIGINT_IDENTITY = "BIGINT IDENTITY";
     public static final String SQLSERVER_DECIMAL = "DECIMAL";
     public static final String SQLSERVER_FLOAT = "FLOAT";
     public static final String SQLSERVER_REAL = "REAL";
@@ -79,6 +83,7 @@ public class SqlServerTypeConverter implements TypeConverter<BasicTypeDefine> {
     public static final int MAX_SCALE = MAX_PRECISION - 1;
     public static final int DEFAULT_SCALE = 18;
     public static final int MAX_CHAR_LENGTH = 8000;
+    public static final int MAX_NVARCHAR_LENGTH = 4000;
     public static final int MAX_BINARY_LENGTH = 8000;
     public static final int MAX_TIME_SCALE = 7;
     public static final int MAX_TIMESTAMP_SCALE = 7;
@@ -111,20 +116,24 @@ public class SqlServerTypeConverter implements TypeConverter<BasicTypeDefine> {
                 builder.dataType(BasicType.BOOLEAN_TYPE);
                 break;
             case SQLSERVER_TINYINT:
+            case SQLSERVER_TINYINT_IDENTITY:
                 builder.sourceType(SQLSERVER_TINYINT);
                 builder.dataType(BasicType.SHORT_TYPE);
                 break;
             case SQLSERVER_SMALLINT:
+            case SQLSERVER_SMALLINT_IDENTITY:
                 builder.sourceType(SQLSERVER_SMALLINT);
                 builder.dataType(BasicType.SHORT_TYPE);
                 break;
             case SQLSERVER_INTEGER:
+            case SQLSERVER_INTEGER_IDENTITY:
             case SQLSERVER_INT:
             case SQLSERVER_INT_IDENTITY:
                 builder.sourceType(SQLSERVER_INT);
                 builder.dataType(BasicType.INT_TYPE);
                 break;
             case SQLSERVER_BIGINT:
+            case SQLSERVER_BIGINT_IDENTITY:
                 builder.sourceType(SQLSERVER_BIGINT);
                 builder.dataType(BasicType.LONG_TYPE);
                 break;
@@ -395,16 +404,16 @@ public class SqlServerTypeConverter implements TypeConverter<BasicTypeDefine> {
                 break;
             case STRING:
                 if (column.getColumnLength() == null || column.getColumnLength() <= 0) {
-                    builder.columnType(SQLSERVER_TEXT);
-                    builder.dataType(SQLSERVER_TEXT);
-                } else if (column.getColumnLength() <= MAX_CHAR_LENGTH) {
+                    builder.columnType(MAX_NVARCHAR);
+                    builder.dataType(MAX_NVARCHAR);
+                } else if (column.getColumnLength() <= MAX_NVARCHAR_LENGTH) {
                     builder.columnType(
-                            String.format("%s(%s)", SQLSERVER_VARCHAR, column.getColumnLength()));
-                    builder.dataType(SQLSERVER_VARCHAR);
+                            String.format("%s(%s)", SQLSERVER_NVARCHAR, column.getColumnLength()));
+                    builder.dataType(SQLSERVER_NVARCHAR);
                     builder.length(column.getColumnLength());
                 } else {
-                    builder.columnType(SQLSERVER_TEXT);
-                    builder.dataType(SQLSERVER_TEXT);
+                    builder.columnType(MAX_NVARCHAR);
+                    builder.dataType(MAX_NVARCHAR);
                     builder.length(column.getColumnLength());
                 }
                 break;

@@ -17,22 +17,27 @@
 
 package org.apache.seatunnel.connectors.seatunnel.email.config;
 
-import org.apache.seatunnel.shade.com.typesafe.config.Config;
+import org.apache.seatunnel.api.configuration.ReadonlyConfig;
 
 import lombok.Data;
 import lombok.NonNull;
 
-import static org.apache.seatunnel.connectors.seatunnel.email.config.EmailConfig.EMAIL_AUTHORIZATION_CODE;
-import static org.apache.seatunnel.connectors.seatunnel.email.config.EmailConfig.EMAIL_FROM_ADDRESS;
-import static org.apache.seatunnel.connectors.seatunnel.email.config.EmailConfig.EMAIL_HOST;
-import static org.apache.seatunnel.connectors.seatunnel.email.config.EmailConfig.EMAIL_MESSAGE_CONTENT;
-import static org.apache.seatunnel.connectors.seatunnel.email.config.EmailConfig.EMAIL_MESSAGE_HEADLINE;
-import static org.apache.seatunnel.connectors.seatunnel.email.config.EmailConfig.EMAIL_SMTP_AUTH;
-import static org.apache.seatunnel.connectors.seatunnel.email.config.EmailConfig.EMAIL_TO_ADDRESS;
-import static org.apache.seatunnel.connectors.seatunnel.email.config.EmailConfig.EMAIL_TRANSPORT_PROTOCOL;
+import java.io.Serializable;
+
+import static org.apache.seatunnel.connectors.seatunnel.email.config.EmailSinkOptions.EMAIL_ATTACHMENT_NAME;
+import static org.apache.seatunnel.connectors.seatunnel.email.config.EmailSinkOptions.EMAIL_AUTHORIZATION_CODE;
+import static org.apache.seatunnel.connectors.seatunnel.email.config.EmailSinkOptions.EMAIL_FIELD_DELIMITER;
+import static org.apache.seatunnel.connectors.seatunnel.email.config.EmailSinkOptions.EMAIL_FROM_ADDRESS;
+import static org.apache.seatunnel.connectors.seatunnel.email.config.EmailSinkOptions.EMAIL_HOST;
+import static org.apache.seatunnel.connectors.seatunnel.email.config.EmailSinkOptions.EMAIL_MESSAGE_CONTENT;
+import static org.apache.seatunnel.connectors.seatunnel.email.config.EmailSinkOptions.EMAIL_MESSAGE_HEADLINE;
+import static org.apache.seatunnel.connectors.seatunnel.email.config.EmailSinkOptions.EMAIL_SMTP_AUTH;
+import static org.apache.seatunnel.connectors.seatunnel.email.config.EmailSinkOptions.EMAIL_SMTP_PORT;
+import static org.apache.seatunnel.connectors.seatunnel.email.config.EmailSinkOptions.EMAIL_TO_ADDRESS;
+import static org.apache.seatunnel.connectors.seatunnel.email.config.EmailSinkOptions.EMAIL_TRANSPORT_PROTOCOL;
 
 @Data
-public class EmailSinkConfig {
+public class EmailSinkConfig implements Serializable {
     private String emailFromAddress;
     private String emailToAddress;
     private String emailAuthorizationCode;
@@ -40,32 +45,23 @@ public class EmailSinkConfig {
     private String emailMessageContent;
     private String emailHost;
     private String emailTransportProtocol;
-    private String emailSmtpAuth;
+    private Boolean emailSmtpAuth;
+    private Integer emailSmtpPort;
+    private String emailAttachmentName;
+    private String emailFieldDelimiter;
 
-    public EmailSinkConfig(@NonNull Config pluginConfig) {
-        if (pluginConfig.hasPath(EMAIL_FROM_ADDRESS.key())) {
-            this.emailFromAddress = pluginConfig.getString(EMAIL_FROM_ADDRESS.key());
-        }
-        if (pluginConfig.hasPath(EMAIL_TO_ADDRESS.key())) {
-            this.emailToAddress = pluginConfig.getString(EMAIL_TO_ADDRESS.key());
-        }
-        if (pluginConfig.hasPath(EMAIL_AUTHORIZATION_CODE.key())) {
-            this.emailAuthorizationCode = pluginConfig.getString(EMAIL_AUTHORIZATION_CODE.key());
-        }
-        if (pluginConfig.hasPath(EMAIL_MESSAGE_HEADLINE.key())) {
-            this.emailMessageHeadline = pluginConfig.getString(EMAIL_MESSAGE_HEADLINE.key());
-        }
-        if (pluginConfig.hasPath(EMAIL_MESSAGE_CONTENT.key())) {
-            this.emailMessageContent = pluginConfig.getString(EMAIL_MESSAGE_CONTENT.key());
-        }
-        if (pluginConfig.hasPath(EMAIL_HOST.key())) {
-            this.emailHost = pluginConfig.getString(EMAIL_HOST.key());
-        }
-        if (pluginConfig.hasPath(EMAIL_TRANSPORT_PROTOCOL.key())) {
-            this.emailTransportProtocol = pluginConfig.getString(EMAIL_TRANSPORT_PROTOCOL.key());
-        }
-        if (pluginConfig.hasPath(EMAIL_SMTP_AUTH.key())) {
-            this.emailSmtpAuth = pluginConfig.getString(EMAIL_SMTP_AUTH.key());
-        }
+    public EmailSinkConfig(@NonNull ReadonlyConfig pluginConfig) {
+        super();
+        this.emailFromAddress = pluginConfig.get(EMAIL_FROM_ADDRESS);
+        this.emailToAddress = pluginConfig.get(EMAIL_TO_ADDRESS);
+        this.emailAuthorizationCode = pluginConfig.get(EMAIL_AUTHORIZATION_CODE);
+        this.emailMessageHeadline = pluginConfig.get(EMAIL_MESSAGE_HEADLINE);
+        this.emailMessageContent = pluginConfig.get(EMAIL_MESSAGE_CONTENT);
+        this.emailHost = pluginConfig.get(EMAIL_HOST);
+        this.emailTransportProtocol = pluginConfig.get(EMAIL_TRANSPORT_PROTOCOL);
+        this.emailSmtpAuth = pluginConfig.get(EMAIL_SMTP_AUTH);
+        this.emailSmtpPort = pluginConfig.get(EMAIL_SMTP_PORT);
+        this.emailAttachmentName = pluginConfig.get(EMAIL_ATTACHMENT_NAME);
+        this.emailFieldDelimiter = pluginConfig.get(EMAIL_FIELD_DELIMITER);
     }
 }

@@ -24,6 +24,7 @@ import org.apache.seatunnel.api.table.type.SeaTunnelRow;
 import org.apache.seatunnel.api.table.type.SeaTunnelRowType;
 import org.apache.seatunnel.common.exception.CommonError;
 import org.apache.seatunnel.common.exception.CommonErrorCodeDeprecated;
+import org.apache.seatunnel.common.utils.VectorUtils;
 import org.apache.seatunnel.connectors.seatunnel.elasticsearch.dto.ElasticsearchClusterInfo;
 import org.apache.seatunnel.connectors.seatunnel.elasticsearch.dto.IndexInfo;
 import org.apache.seatunnel.connectors.seatunnel.elasticsearch.exception.ElasticsearchConnectorException;
@@ -34,7 +35,9 @@ import org.apache.seatunnel.connectors.seatunnel.elasticsearch.serialize.type.In
 
 import lombok.NonNull;
 
+import java.nio.ByteBuffer;
 import java.time.temporal.Temporal;
+import java.util.Collections;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
@@ -42,6 +45,7 @@ import java.util.function.Function;
 
 /** use in elasticsearch version >= 2.x and <= 8.x */
 public class ElasticsearchRowSerializer implements SeaTunnelRowSerializer {
+
     private final SeaTunnelRowType seaTunnelRowType;
     private final ObjectMapper objectMapper = new ObjectMapper();
 
@@ -50,10 +54,23 @@ public class ElasticsearchRowSerializer implements SeaTunnelRowSerializer {
     private final IndexTypeSerializer indexTypeSerializer;
     private final Function<SeaTunnelRow, String> keyExtractor;
 
+    // Configuration for vectorization fields
+    private final List<String> vectorizationFields;
+    private final int vectorDimension;
+
     public ElasticsearchRowSerializer(
             ElasticsearchClusterInfo elasticsearchClusterInfo,
             IndexInfo indexInfo,
             SeaTunnelRowType seaTunnelRowType) {
+        this(elasticsearchClusterInfo, indexInfo, seaTunnelRowType, Collections.emptyList(), 0);
+    }
+
+    public ElasticsearchRowSerializer(
+            ElasticsearchClusterInfo elasticsearchClusterInfo,
+            IndexInfo indexInfo,
+            SeaTunnelRowType seaTunnelRowType,
+            List<String> vectorizationFields,
+            int vectorDimension) {
         this.indexTypeSerializer =
                 IndexTypeSerializerFactory.getIndexTypeSerializer(
                         elasticsearchClusterInfo, indexInfo.getType());
@@ -63,6 +80,8 @@ public class ElasticsearchRowSerializer implements SeaTunnelRowSerializer {
         this.keyExtractor =
                 KeyExtractor.createKeyExtractor(
                         seaTunnelRowType, indexInfo.getPrimaryKeys(), indexInfo.getKeyDelimiter());
+        this.vectorizationFields = vectorizationFields;
+        this.vectorDimension = vectorDimension;
     }
 
     @Override
@@ -169,35 +188,63 @@ public class ElasticsearchRowSerializer implements SeaTunnelRowSerializer {
         for (int i = 0; i < fieldNames.length; i++) {
             Object value = fields[i];
             if (value == null) {
+                doc.put(fieldNames[i], null);
             } else if (value instanceof SeaTunnelRow) {
                 doc.put(
                         fieldNames[i],
                         toDocumentMap(
                                 (SeaTunnelRow) value, (SeaTunnelRowType) rowType.getFieldType(i)));
             } else {
-                doc.put(fieldNames[i], convertValue(value));
+                doc.put(fieldNames[i], convertValue(fieldNames[i], value));
             }
         }
         return doc;
     }
 
-    private Object convertValue(Object value) {
+    private Object convertValue(String fieldName, Object value) {
+        if (value == null) {
+            return null;
+        }
+
         if (value instanceof Temporal) {
             // jackson not support jdk8 new time api
             return value.toString();
-        } else if (value instanceof Map) {
+        }
+
+        if (value instanceof Map) {
             for (Map.Entry<?, ?> entry : ((Map<?, ?>) value).entrySet()) {
-                ((Map) value).put(entry.getKey(), convertValue(entry.getValue()));
+                ((Map) value).put(entry.getKey(), convertValue(fieldName, entry.getValue()));
             }
-            return value;
-        } else if (value instanceof List) {
-            for (int i = 0; i < ((List) value).size(); i++) {
-                ((List) value).set(i, convertValue(((List) value).get(i)));
-            }
-            return value;
-        } else {
             return value;
         }
+
+        if (value instanceof List) {
+            for (int i = 0; i < ((List) value).size(); i++) {
+                ((List) value).set(i, convertValue(fieldName, ((List) value).get(i)));
+            }
+            return value;
+        }
+
+        if (value instanceof ByteBuffer) {
+            ByteBuffer buffer = (ByteBuffer) value;
+            Float[] floats = VectorUtils.toFloatArray(buffer);
+
+            // Use configured dimension for vectorization fields, otherwise calculate from buffer
+            int dimension =
+                    (vectorizationFields != null
+                                    && vectorizationFields.contains(fieldName)
+                                    && vectorDimension > 0)
+                            ? vectorDimension
+                            : buffer.remaining() / 4;
+
+            for (int i = 0; i < dimension && buffer.remaining() >= 4; i++) {
+                floats[i] = buffer.getFloat();
+            }
+
+            return floats;
+        }
+
+        return value;
     }
 
     private Map<String, String> createMetadata(@NonNull SeaTunnelRow row, @NonNull String key) {

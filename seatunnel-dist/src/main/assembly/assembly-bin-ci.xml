@@ -60,6 +60,11 @@
             <fileMode>0755</fileMode>
         </fileSet>
         <fileSet>
+            <directory>../seatunnel-core/seatunnel-flink-starter/seatunnel-flink-20-starter/src/main/bin</directory>
+            <outputDirectory>/bin</outputDirectory>
+            <fileMode>0755</fileMode>
+        </fileSet>
+        <fileSet>
             <directory>../seatunnel-core/seatunnel-spark-starter/seatunnel-spark-2-starter/src/main/bin</directory>
             <outputDirectory>/bin</outputDirectory>
             <fileMode>0755</fileMode>
@@ -129,6 +134,7 @@
                 <!-- Flink V2 starter -->
                 <include>org.apache.seatunnel:seatunnel-flink-13-starter:jar</include>
                 <include>org.apache.seatunnel:seatunnel-flink-15-starter:jar</include>
+                <include>org.apache.seatunnel:seatunnel-flink-20-starter:jar</include>
                 <!-- Spark V2 starter -->
                 <include>org.apache.seatunnel:seatunnel-spark-2-starter:jar</include>
                 <include>org.apache.seatunnel:seatunnel-spark-3-starter:jar</include>
@@ -140,7 +146,7 @@
             <scope>provided</scope>
         </dependencySet>
 
-        <!-- ============ Connectors Jars ============  -->
+        <!-- ============ Connectors Jars And Transforms V2 Jar ============  -->
         <!-- SeaTunnel connectors -->
         <dependencySet>
             <useProjectArtifact>false</useProjectArtifact>
@@ -154,38 +160,12 @@
                 <!-- Don't exclude connector-http-base, because it contains SPI files -->
                 <exclude>org.apache.seatunnel:connector-file-base</exclude>
                 <exclude>org.apache.seatunnel:connector-file-base-hadoop</exclude>
-                <exclude>org.apache.seatunnel:connector-cdc-base</exclude>
             </excludes>
             <outputDirectory>/connectors</outputDirectory>
             <scope>provided</scope>
         </dependencySet>
 
-        <!-- ============ SeaTunnel Transforms V2 Jars And SeaTunnel Hadoop3 Uber Jar ============  -->
-        <dependencySet>
-            <useProjectArtifact>false</useProjectArtifact>
-            <useTransitiveDependencies>true</useTransitiveDependencies>
-            <unpack>false</unpack>
-            <includes>
-                <include>org.apache.seatunnel:seatunnel-transforms-v2:jar</include>
-                <include>org.apache.hadoop:hadoop-aws:jar</include>
-                <include>com.amazonaws:aws-java-sdk-bundle:jar</include>
-                <include>org.apache.seatunnel:seatunnel-hadoop3-3.1.4-uber:jar:*:optional</include>
-                <!--Add hadoop aliyun jar -->
-                <include>org.apache.hadoop:hadoop-aliyun:jar</include>
-                <include>com.aliyun.oss:aliyun-sdk-oss:jar</include>
-                <include>org.jdom:jdom:jar</include>
-
-                <!--Add netty buffer jar -->
-                <include>io.netty:netty-buffer:jar</include>
-                <include>io.netty:netty-common:jar</include>
-
-            </includes>
-            <outputFileNameMapping>${artifact.file.name}</outputFileNameMapping>
-            <outputDirectory>/lib</outputDirectory>
-            <scope>provided</scope>
-        </dependencySet>
-
-        <!-- =================== JDBC Connector Drivers ===================  -->
+        <!-- =================== JDBC Connector Drivers, SeaTunnel Hadoop3 Uber Jar And SeaTunnel Hadoop AWS Uber Jar ===================  -->
         <dependencySet>
             <useProjectArtifact>false</useProjectArtifact>
             <useTransitiveDependencies>true</useTransitiveDependencies>
@@ -200,10 +180,30 @@
                 <include>org.xerial:sqlite-jdbc:jar</include>
                 <include>com.ibm.db2.jcc:db2jcc:jar</include>
                 <include>com.aliyun.openservices:tablestore-jdbc:jar</include>
+                <include>com.sap.cloud.db.jdbc:ngdbc:jar</include>
                 <include>com.teradata.jdbc:terajdbc4:jar</include>
                 <include>com.amazon.redshift:redshift-jdbc42:jar</include>
                 <include>net.snowflake.snowflake-jdbc:jar</include>
                 <include>com.xugudb:xugu-jdbc:jar</include>
+                <include>org.tikv:tikv-client-java:jar</include>
+                <include>org.opengauss:opengauss-jdbc:jar</include>
+                <include>com.amazonaws:aws-java-sdk-bundle:jar</include>
+                <include>org.apache.seatunnel:seatunnel-hadoop3-3.1.4-uber:jar:*:optional</include>
+                <include>org.apache.seatunnel:seatunnel-hadoop-aws:jar:*:optional</include>
+                <!--Add hadoop aliyun jar -->
+                <include>org.apache.hadoop:hadoop-aliyun:jar</include>
+                <include>com.aliyun.oss:aliyun-sdk-oss:jar</include>
+                <include>org.jdom:jdom:jar</include>
+                <!--Add netty buffer jar -->
+                <include>io.netty:netty-buffer:jar</include>
+                <include>io.netty:netty-common:jar</include>
+                <!--Add hive exec jar -->
+                <include>org.apache.hive:hive-exec:jar</include>
+                <include>org.apache.hive:hive-service:jar</include>
+                <include>org.apache.thrift:libfb303:jar</include>
+                <include>com.facebook.presto:presto-jdbc:jar</include>
+                <include>io.trino:trino-jdbc:jar</include>
+                <include>org.apache.seatunnel:seatunnel-transforms-v2:jar</include>
             </includes>
             <outputFileNameMapping>${artifact.file.name}</outputFileNameMapping>
             <outputDirectory>/lib</outputDirectory>

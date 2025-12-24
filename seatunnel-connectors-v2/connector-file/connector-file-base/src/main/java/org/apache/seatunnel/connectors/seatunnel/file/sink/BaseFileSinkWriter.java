@@ -17,6 +17,8 @@
 
 package org.apache.seatunnel.connectors.seatunnel.file.sink;
 
+import org.apache.seatunnel.shade.org.apache.commons.lang3.StringUtils;
+
 import org.apache.seatunnel.api.sink.SinkWriter;
 import org.apache.seatunnel.api.sink.SupportMultiTableSinkWriter;
 import org.apache.seatunnel.api.table.type.SeaTunnelRow;
@@ -42,6 +44,9 @@ import java.util.List;
 import java.util.Optional;
 import java.util.UUID;
 import java.util.stream.Collectors;
+
+import static org.apache.seatunnel.connectors.seatunnel.file.config.FileBaseSinkOptions.DEFAULT_FILE_NAME_EXPRESSION;
+import static org.apache.seatunnel.connectors.seatunnel.file.config.FileBaseSinkOptions.FILE_NAME_EXPRESSION;
 
 public class BaseFileSinkWriter
         implements SinkWriter<SeaTunnelRow, FileCommitInfo, FileSinkState>,
@@ -104,6 +109,25 @@ public class BaseFileSinkWriter
             writeStrategy.beginTransaction(fileSinkStates.get(0).getCheckpointId() + 1);
         } else {
             writeStrategy.beginTransaction(1L);
+        }
+        preCheckConfig(context);
+    }
+
+    private void preCheckConfig(SinkWriter.Context context) {
+        if (writeStrategy.getFileSinkConfig().isSingleFileMode()
+                && context.getNumberOfParallelSubtasks() > 1) {
+            if (StringUtils.isNotEmpty(writeStrategy.getFileSinkConfig().getFileNameExpression())
+                    && !writeStrategy
+                            .getFileSinkConfig()
+                            .getFileNameExpression()
+                            .contains(DEFAULT_FILE_NAME_EXPRESSION)) {
+                throw new IllegalArgumentException(
+                        "Single file mode is not supported when "
+                                + FILE_NAME_EXPRESSION.key()
+                                + " not contains "
+                                + DEFAULT_FILE_NAME_EXPRESSION
+                                + " but has parallel subtasks.");
+            }
         }
     }
 

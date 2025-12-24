@@ -25,8 +25,8 @@ import org.apache.seatunnel.engine.client.job.ClientJobProxy;
 import org.apache.seatunnel.engine.common.config.ConfigProvider;
 import org.apache.seatunnel.engine.common.config.JobConfig;
 import org.apache.seatunnel.engine.common.config.SeaTunnelConfig;
-import org.apache.seatunnel.engine.core.job.JobResult;
-import org.apache.seatunnel.engine.core.job.JobStatus;
+import org.apache.seatunnel.engine.common.job.JobResult;
+import org.apache.seatunnel.engine.common.job.JobStatus;
 import org.apache.seatunnel.engine.server.SeaTunnelServerStarter;
 
 import org.junit.jupiter.api.AfterEach;
@@ -73,11 +73,17 @@ public class JobExecutionIT {
 
     @Test
     public void testExecuteJob() throws Exception {
-        Common.setDeployMode(DeployMode.CLIENT);
-        String filePath = TestUtils.getResource("batch_fakesource_to_file.conf");
-        JobConfig jobConfig = new JobConfig();
-        jobConfig.setName("fake_to_file");
+        runJobFileWithAssertEndStatus(
+                "batch_fakesource_to_file.conf", "fake_to_file", JobStatus.FINISHED);
+    }
 
+    private static void runJobFileWithAssertEndStatus(
+            String confFile, String name, JobStatus finished)
+            throws ExecutionException, InterruptedException {
+        Common.setDeployMode(DeployMode.CLIENT);
+        String filePath = TestUtils.getResource(confFile);
+        JobConfig jobConfig = new JobConfig();
+        jobConfig.setName(name);
         ClientConfig clientConfig = ConfigProvider.locateAndGetClientConfig();
         clientConfig.setClusterName(TestUtils.getClusterName("JobExecutionIT"));
         try (SeaTunnelClient engineClient = new SeaTunnelClient(clientConfig)) {
@@ -85,16 +91,15 @@ public class JobExecutionIT {
                     engineClient.createExecutionContext(filePath, jobConfig, SEATUNNEL_CONFIG);
 
             final ClientJobProxy clientJobProxy = jobExecutionEnv.execute();
-
             CompletableFuture<JobStatus> objectCompletableFuture =
                     CompletableFuture.supplyAsync(clientJobProxy::waitForJobComplete);
 
-            await().atMost(600000, TimeUnit.MILLISECONDS)
+            await().atMost(300000, TimeUnit.MILLISECONDS)
                     .untilAsserted(
                             () ->
                                     Assertions.assertTrue(
                                             objectCompletableFuture.isDone()
-                                                    && JobStatus.FINISHED.equals(
+                                                    && finished.equals(
                                                             objectCompletableFuture.get())));
         }
     }
@@ -113,8 +118,10 @@ public class JobExecutionIT {
                     engineClient.createExecutionContext(filePath, jobConfig, SEATUNNEL_CONFIG);
 
             final ClientJobProxy clientJobProxy = jobExecutionEnv.execute();
-            JobStatus jobStatus1 = clientJobProxy.getJobStatus();
-            Assertions.assertFalse(jobStatus1.isEndState());
+            JobStatus jobStatus = clientJobProxy.getJobStatus();
+            Assertions.assertFalse(
+                    jobStatus.isEndState(), "Job should not be in end state: " + jobStatus);
+
             CompletableFuture<JobStatus> objectCompletableFuture =
                     CompletableFuture.supplyAsync(clientJobProxy::waitForJobComplete);
             Thread.sleep(1000);
@@ -122,11 +129,11 @@ public class JobExecutionIT {
 
             await().atMost(20000, TimeUnit.MILLISECONDS)
                     .untilAsserted(
-                            () ->
-                                    Assertions.assertTrue(
-                                            objectCompletableFuture.isDone()
-                                                    && JobStatus.CANCELED.equals(
-                                                            objectCompletableFuture.get())));
+                            () -> {
+                                Assertions.assertTrue(objectCompletableFuture.isDone());
+                                Assertions.assertEquals(
+                                        JobStatus.CANCELED, objectCompletableFuture.get());
+                            });
         }
     }
 
@@ -144,12 +151,12 @@ public class JobExecutionIT {
             final ClientJobProxy clientJobProxy = jobExecutionEnv.execute();
             CompletableFuture<JobStatus> completableFuture =
                     CompletableFuture.supplyAsync(clientJobProxy::waitForJobComplete);
-            await().atMost(600000, TimeUnit.MILLISECONDS)
+            await().atMost(300000, TimeUnit.MILLISECONDS)
                     .untilAsserted(() -> Assertions.assertTrue(completableFuture.isDone()));
 
             JobResult result = clientJobProxy.getJobResultCache();
             Assertions.assertEquals(result.getStatus(), JobStatus.FAILED);
-            Assertions.assertTrue(result.getError().startsWith("java.lang.NumberFormatException"));
+            Assertions.assertTrue(result.getError().contains("java.lang.NumberFormatException"));
         }
     }
 
@@ -166,7 +173,7 @@ public class JobExecutionIT {
             final ClientJobProxy clientJobProxy = jobExecutionEnv.execute();
             CompletableFuture<JobStatus> completableFuture =
                     CompletableFuture.supplyAsync(clientJobProxy::waitForJobComplete);
-            await().atMost(600000, TimeUnit.MILLISECONDS)
+            await().atMost(300000, TimeUnit.MILLISECONDS)
                     .untilAsserted(() -> Assertions.assertTrue(completableFuture.isDone()));
             String value = engineClient.getJobClient().listJobStatus(false);
             Assertions.assertTrue(value.contains("\"jobName\":\"valid_job_name\""));
@@ -210,7 +217,6 @@ public class JobExecutionIT {
                     engineClient.createExecutionContext(filePath, jobConfig, SEATUNNEL_CONFIG);
 
             final ClientJobProxy clientJobProxy = jobExecutionEnv.execute();
-
             Assertions.assertEquals(clientJobProxy.waitForJobComplete(), JobStatus.FINISHED);
             await().atMost(65, TimeUnit.SECONDS)
                     .untilAsserted(
@@ -229,29 +235,9 @@ public class JobExecutionIT {
 
     @Test
     public void testLastCheckpointErrorJob() throws Exception {
-        Common.setDeployMode(DeployMode.CLIENT);
-        String filePath = TestUtils.getResource("batch_last_checkpoint_error.conf");
-        JobConfig jobConfig = new JobConfig();
-        jobConfig.setName("batch_last_checkpoint_error");
-
-        ClientConfig clientConfig = ConfigProvider.locateAndGetClientConfig();
-        clientConfig.setClusterName(TestUtils.getClusterName("JobExecutionIT"));
-        try (SeaTunnelClient engineClient = new SeaTunnelClient(clientConfig)) {
-            ClientJobExecutionEnvironment jobExecutionEnv =
-                    engineClient.createExecutionContext(filePath, jobConfig, SEATUNNEL_CONFIG);
-
-            final ClientJobProxy clientJobProxy = jobExecutionEnv.execute();
-
-            CompletableFuture<JobStatus> objectCompletableFuture =
-                    CompletableFuture.supplyAsync(clientJobProxy::waitForJobComplete);
-
-            await().atMost(600000, TimeUnit.MILLISECONDS)
-                    .untilAsserted(
-                            () ->
-                                    Assertions.assertTrue(
-                                            objectCompletableFuture.isDone()
-                                                    && JobStatus.FAILED.equals(
-                                                            objectCompletableFuture.get())));
-        }
+        runJobFileWithAssertEndStatus(
+                "batch_last_checkpoint_error.conf",
+                "batch_last_checkpoint_error",
+                JobStatus.FAILED);
     }
 }

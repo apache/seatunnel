@@ -24,6 +24,8 @@ public class Constant {
 
     public static final String DEFAULT_SEATUNNEL_CLUSTER_NAME = "seatunnel";
 
+    public static final String REST_SUBMIT_JOBS_PARAMS = "params";
+
     /**
      * The default port number for the cluster auto-discovery mechanism's multicast communication.
      */
@@ -57,7 +59,7 @@ public class Constant {
 
     public static final String IMAP_RUNNING_JOB_METRICS = "engine_runningJobMetrics";
 
-    public static final Long IMAP_RUNNING_JOB_METRICS_KEY = 1L;
-
     public static final String IMAP_CONNECTOR_JAR_REF_COUNTERS = "engine_connectorJarRefCounters";
+
+    public static final String PROP_FILE = "zeta.version.properties";
 }

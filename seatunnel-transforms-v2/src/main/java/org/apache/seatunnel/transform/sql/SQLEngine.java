@@ -31,7 +31,7 @@ public interface SQLEngine {
 
     SeaTunnelRowType typeMapping(List<String> inputColumnsMapping);
 
-    SeaTunnelRow transformBySQL(SeaTunnelRow inputRow);
+    List<SeaTunnelRow> transformBySQL(SeaTunnelRow inputRow, SeaTunnelRowType outputRowType);
 
     default void close() {}
 }

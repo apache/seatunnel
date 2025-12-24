@@ -18,7 +18,7 @@
 
 package org.apache.seatunnel.engine.server.checkpoint;
 
-import static com.google.common.base.Preconditions.checkNotNull;
+import static org.apache.seatunnel.shade.com.google.common.base.Preconditions.checkNotNull;
 
 /** Base class for checkpoint related exceptions. */
 public class CheckpointException extends Exception {

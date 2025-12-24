@@ -19,13 +19,13 @@ package org.apache.seatunnel.connectors.seatunnel.hive.storage;
 
 import org.apache.seatunnel.shade.com.typesafe.config.Config;
 import org.apache.seatunnel.shade.com.typesafe.config.ConfigValueFactory;
+import org.apache.seatunnel.shade.org.apache.commons.lang3.StringUtils;
 
 import org.apache.seatunnel.api.configuration.ReadonlyConfig;
 import org.apache.seatunnel.connectors.seatunnel.file.config.HadoopConf;
 import org.apache.seatunnel.connectors.seatunnel.file.cos.config.CosConf;
-import org.apache.seatunnel.connectors.seatunnel.file.cos.config.CosConfigOptions;
+import org.apache.seatunnel.connectors.seatunnel.file.cos.config.CosFileBaseOptions;
 
-import org.apache.commons.lang3.StringUtils;
 import org.apache.hadoop.conf.Configuration;
 
 import java.util.Map;
@@ -37,19 +37,19 @@ public class COSStorage extends AbstractStorage {
         Config config = fillBucket(readonlyConfig, configuration);
         config =
                 config.withValue(
-                        CosConfigOptions.SECRET_ID.key(),
+                        CosFileBaseOptions.SECRET_ID.key(),
                         ConfigValueFactory.fromAnyRef(
-                                configuration.get(CosConfigOptions.SECRET_ID.key())));
+                                configuration.get(CosFileBaseOptions.SECRET_ID.key())));
         config =
                 config.withValue(
-                        CosConfigOptions.SECRET_KEY.key(),
+                        CosFileBaseOptions.SECRET_KEY.key(),
                         ConfigValueFactory.fromAnyRef(
-                                configuration.get(CosConfigOptions.SECRET_KEY.key())));
+                                configuration.get(CosFileBaseOptions.SECRET_KEY.key())));
         config =
                 config.withValue(
-                        CosConfigOptions.REGION.key(),
+                        CosFileBaseOptions.REGION.key(),
                         ConfigValueFactory.fromAnyRef(
-                                configuration.get(CosConfigOptions.REGION.key())));
+                                configuration.get(CosFileBaseOptions.REGION.key())));
         HadoopConf hadoopConf = CosConf.buildWithConfig(config);
         Map<String, String> propsInConfiguration =
                 configuration.getPropsWithPrefix(StringUtils.EMPTY);

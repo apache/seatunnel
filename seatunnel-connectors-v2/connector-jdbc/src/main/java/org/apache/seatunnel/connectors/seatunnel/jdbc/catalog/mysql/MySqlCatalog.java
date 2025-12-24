@@ -18,6 +18,8 @@
 
 package org.apache.seatunnel.connectors.seatunnel.jdbc.catalog.mysql;
 
+import org.apache.seatunnel.shade.com.google.common.base.Preconditions;
+
 import org.apache.seatunnel.api.table.catalog.CatalogTable;
 import org.apache.seatunnel.api.table.catalog.Column;
 import org.apache.seatunnel.api.table.catalog.ConstraintKey;
@@ -28,20 +30,24 @@ import org.apache.seatunnel.api.table.converter.BasicTypeDefine;
 import org.apache.seatunnel.common.utils.JdbcUrlUtil;
 import org.apache.seatunnel.connectors.seatunnel.jdbc.catalog.AbstractJdbcCatalog;
 import org.apache.seatunnel.connectors.seatunnel.jdbc.catalog.utils.CatalogUtils;
+import org.apache.seatunnel.connectors.seatunnel.jdbc.config.JdbcCommonOptions;
 import org.apache.seatunnel.connectors.seatunnel.jdbc.internal.dialect.mysql.MySqlTypeConverter;
 import org.apache.seatunnel.connectors.seatunnel.jdbc.internal.dialect.mysql.MySqlTypeMapper;
+import org.apache.seatunnel.connectors.seatunnel.jdbc.internal.dialect.mysql.MySqlVersion;
 
-import com.google.common.base.Preconditions;
 import com.mysql.cj.MysqlType;
+import lombok.NonNull;
 import lombok.extern.slf4j.Slf4j;
 
 import java.sql.Connection;
 import java.sql.DatabaseMetaData;
 import java.sql.ResultSet;
 import java.sql.SQLException;
+import java.sql.Statement;
 import java.util.Iterator;
 import java.util.List;
 import java.util.Locale;
+import java.util.Properties;
 
 @Slf4j
 public class MySqlCatalog extends AbstractJdbcCatalog {
@@ -49,16 +55,49 @@ public class MySqlCatalog extends AbstractJdbcCatalog {
     private static final String SELECT_COLUMNS_SQL_TEMPLATE =
             "SELECT * FROM INFORMATION_SCHEMA.COLUMNS WHERE TABLE_SCHEMA = '%s' AND TABLE_NAME ='%s' ORDER BY ORDINAL_POSITION ASC";
 
-    static {
-        SYS_DATABASES.add("information_schema");
-        SYS_DATABASES.add("mysql");
-        SYS_DATABASES.add("performance_schema");
-        SYS_DATABASES.add("sys");
+    private static final String SELECT_DATABASE_EXISTS =
+            "SELECT SCHEMA_NAME FROM information_schema.schemata WHERE SCHEMA_NAME = '%s'";
+
+    private static final String SELECT_TABLE_EXISTS =
+            "SELECT TABLE_SCHEMA,TABLE_NAME FROM information_schema.tables WHERE table_schema = '%s' AND table_name = '%s'";
+
+    private MySqlVersion version;
+    private MySqlTypeConverter typeConverter;
+    private boolean intTypeNarrowing = JdbcCommonOptions.INT_TYPE_NARROWING.defaultValue();
+
+    public MySqlCatalog(
+            String catalogName,
+            String username,
+            String pwd,
+            JdbcUrlUtil.UrlInfo urlInfo,
+            String driverClass) {
+        super(catalogName, username, pwd, urlInfo, null, driverClass);
+        this.version = resolveVersion();
+        this.typeConverter = new MySqlTypeConverter(version, intTypeNarrowing);
     }
 
     public MySqlCatalog(
-            String catalogName, String username, String pwd, JdbcUrlUtil.UrlInfo urlInfo) {
-        super(catalogName, username, pwd, urlInfo, null);
+            String catalogName,
+            String username,
+            String pwd,
+            JdbcUrlUtil.UrlInfo urlInfo,
+            String driverClass,
+            boolean intTypeNarrowing) {
+        super(catalogName, username, pwd, urlInfo, null, driverClass);
+        this.intTypeNarrowing = intTypeNarrowing;
+        this.version = resolveVersion();
+        this.typeConverter = new MySqlTypeConverter(version, intTypeNarrowing);
+    }
+
+    @Override
+    protected String getDatabaseWithConditionSql(String databaseName) {
+        return String.format(SELECT_DATABASE_EXISTS, databaseName);
+    }
+
+    @Override
+    protected String getTableWithConditionSql(TablePath tablePath) {
+        return String.format(
+                SELECT_TABLE_EXISTS, tablePath.getDatabaseName(), tablePath.getTableName());
     }
 
     @Override
@@ -130,7 +169,8 @@ public class MySqlCatalog extends AbstractJdbcCatalog {
         // e.g. `varchar(10)` is 40
         long charOctetLength = resultSet.getLong("CHARACTER_OCTET_LENGTH");
         // e.g. `timestamp(3)` is 3
-        int timePrecision = resultSet.getInt("DATETIME_PRECISION");
+        int timePrecision =
+                MySqlVersion.V_5_5.equals(version) ? 0 : resultSet.getInt("DATETIME_PRECISION");
 
         Preconditions.checkArgument(!(numberPrecision > 0 && charOctetLength > 0));
         Preconditions.checkArgument(!(numberScale > 0 && timePrecision > 0));
@@ -152,12 +192,14 @@ public class MySqlCatalog extends AbstractJdbcCatalog {
                         .defaultValue(defaultValue)
                         .comment(comment)
                         .build();
-        return MySqlTypeConverter.INSTANCE.convert(typeDefine);
+        return typeConverter.convert(typeDefine);
     }
 
     @Override
-    protected String getCreateTableSql(TablePath tablePath, CatalogTable table) {
-        return MysqlCreateTableSqlBuilder.builder(tablePath, table).build(table.getCatalogName());
+    protected String getCreateTableSql(
+            TablePath tablePath, CatalogTable table, boolean createIndex) {
+        return MysqlCreateTableSqlBuilder.builder(tablePath, table, typeConverter, createIndex)
+                .build(table.getCatalogName());
     }
 
     @Override
@@ -179,7 +221,19 @@ public class MySqlCatalog extends AbstractJdbcCatalog {
     @Override
     public CatalogTable getTable(String sqlQuery) throws SQLException {
         Connection defaultConnection = getConnection(defaultUrl);
-        return CatalogUtils.getCatalogTable(defaultConnection, sqlQuery, new MySqlTypeMapper());
+        return CatalogUtils.getCatalogTable(
+                defaultConnection, sqlQuery, new MySqlTypeMapper(typeConverter));
+    }
+
+    @Override
+    protected @NonNull Properties getConnectionProperties() {
+        Properties info = super.getConnectionProperties();
+        if (!intTypeNarrowing) {
+            // we should not use tinyint(1) as boolean type when intTypeNarrowing is false, so
+            // cannot convert tinyint(1) to bit
+            info.put("tinyInt1isBit", "false");
+        }
+        return info;
     }
 
     @Override
@@ -192,5 +246,19 @@ public class MySqlCatalog extends AbstractJdbcCatalog {
         return String.format(
                 "SELECT * FROM `%s`.`%s` LIMIT 1;",
                 tablePath.getDatabaseName(), tablePath.getTableName());
+    }
+
+    private MySqlVersion resolveVersion() {
+        try (Statement statement = getConnection(defaultUrl).createStatement();
+                ResultSet resultSet = statement.executeQuery("SELECT VERSION()")) {
+            resultSet.next();
+            return MySqlVersion.parse(resultSet.getString(1));
+        } catch (Exception e) {
+            log.info(
+                    "Failed to get mysql version, fallback to default version: {}",
+                    MySqlVersion.V_5_7,
+                    e);
+            return MySqlVersion.V_5_7;
+        }
     }
 }

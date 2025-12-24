@@ -17,33 +17,48 @@
 
 package org.apache.seatunnel.engine.server;
 
+import org.apache.seatunnel.shade.com.google.common.collect.Lists;
+
+import org.apache.seatunnel.engine.common.utils.PassiveCompletableFuture;
+import org.apache.seatunnel.engine.common.utils.concurrent.CompletableFuture;
 import org.apache.seatunnel.engine.server.execution.BlockTask;
 import org.apache.seatunnel.engine.server.execution.ExceptionTestTask;
 import org.apache.seatunnel.engine.server.execution.FixedCallTestTimeTask;
 import org.apache.seatunnel.engine.server.execution.StopTimeTestTask;
 import org.apache.seatunnel.engine.server.execution.Task;
+import org.apache.seatunnel.engine.server.execution.TaskDeployState;
 import org.apache.seatunnel.engine.server.execution.TaskExecutionState;
+import org.apache.seatunnel.engine.server.execution.TaskGroup;
+import org.apache.seatunnel.engine.server.execution.TaskGroupContext;
 import org.apache.seatunnel.engine.server.execution.TaskGroupDefaultImpl;
 import org.apache.seatunnel.engine.server.execution.TaskGroupLocation;
+import org.apache.seatunnel.engine.server.execution.TaskGroupType;
 import org.apache.seatunnel.engine.server.execution.TestTask;
+import org.apache.seatunnel.engine.server.task.TaskGroupImmutableInformation;
 
+import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.BeforeAll;
-import org.junit.jupiter.api.Disabled;
 import org.junit.jupiter.api.RepeatedTest;
 import org.junit.jupiter.api.Test;
 
-import com.google.common.collect.Lists;
 import com.hazelcast.flakeidgen.FlakeIdGenerator;
+import com.hazelcast.internal.serialization.Data;
+import lombok.NonNull;
 
+import java.io.File;
 import java.io.IOException;
+import java.net.URL;
+import java.net.URLClassLoader;
 import java.util.ArrayList;
+import java.util.Arrays;
 import java.util.Collections;
 import java.util.List;
-import java.util.concurrent.CompletableFuture;
+import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.CopyOnWriteArrayList;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicBoolean;
 
+import static java.util.Collections.emptySet;
 import static org.apache.seatunnel.engine.server.execution.ExecutionState.CANCELED;
 import static org.apache.seatunnel.engine.server.execution.ExecutionState.FAILED;
 import static org.apache.seatunnel.engine.server.execution.ExecutionState.FINISHED;
@@ -64,17 +79,24 @@ public class TaskExecutionServiceTest extends AbstractSeaTunnelServerTest {
         FLAKE_ID_GENERATOR = instance.getFlakeIdGenerator("test");
     }
 
+    private PassiveCompletableFuture<TaskExecutionState> deployLocalTask(
+            TaskExecutionService taskExecutionService, @NonNull TaskGroup taskGroup) {
+        Long taskId = taskGroup.getTasks().iterator().next().getTaskID();
+        ConcurrentHashMap<Long, ClassLoader> classLoaders = new ConcurrentHashMap<>();
+        classLoaders.put(taskId, Thread.currentThread().getContextClassLoader());
+        return taskExecutionService.deployLocalTask(
+                taskGroup, classLoaders, new ConcurrentHashMap<>());
+    }
+
     @Test
-    @Disabled(
-            "As we have more and more test cases the test the load of the test container will up, the test case may failed")
     public void testCancel() {
         TaskExecutionService taskExecutionService = server.getTaskExecutionService();
 
         long sleepTime = 300;
 
         AtomicBoolean stop = new AtomicBoolean(false);
-        TestTask testTask1 = new TestTask(stop, LOGGER, sleepTime, true);
-        TestTask testTask2 = new TestTask(stop, LOGGER, sleepTime, false);
+        TestTask testTask1 = new TestTask(stop, sleepTime, true);
+        TestTask testTask2 = new TestTask(stop, sleepTime, false);
 
         TaskGroupDefaultImpl ts =
                 new TaskGroupDefaultImpl(
@@ -82,7 +104,7 @@ public class TaskExecutionServiceTest extends AbstractSeaTunnelServerTest {
                         "ts",
                         Lists.newArrayList(testTask1, testTask2));
         CompletableFuture<TaskExecutionState> completableFuture =
-                taskExecutionService.deployLocalTask(ts);
+                deployLocalTask(taskExecutionService, ts);
 
         taskExecutionService.cancelTaskGroup(ts.getTaskGroupLocation());
 
@@ -92,8 +114,6 @@ public class TaskExecutionServiceTest extends AbstractSeaTunnelServerTest {
     }
 
     @Test
-    @Disabled(
-            "As we have more and more test cases the test the load of the test container will up, the test case may failed")
     public void testCancelBlockTask() throws InterruptedException {
         TaskExecutionService taskExecutionService = server.getTaskExecutionService();
 
@@ -106,7 +126,7 @@ public class TaskExecutionServiceTest extends AbstractSeaTunnelServerTest {
                         "ts",
                         Lists.newArrayList(testTask1, testTask2));
         CompletableFuture<TaskExecutionState> completableFuture =
-                taskExecutionService.deployLocalTask(ts);
+                deployLocalTask(taskExecutionService, ts);
 
         Thread.sleep(5000);
 
@@ -118,8 +138,6 @@ public class TaskExecutionServiceTest extends AbstractSeaTunnelServerTest {
     }
 
     @Test
-    @Disabled(
-            "As we have more and more test cases the test the load of the test container will up, the test case may failed")
     public void testFinish() {
         TaskExecutionService taskExecutionService = server.getTaskExecutionService();
 
@@ -127,11 +145,12 @@ public class TaskExecutionServiceTest extends AbstractSeaTunnelServerTest {
 
         AtomicBoolean stop = new AtomicBoolean(false);
         AtomicBoolean futureMark = new AtomicBoolean(false);
-        TestTask testTask1 = new TestTask(stop, LOGGER, sleepTime, true);
-        TestTask testTask2 = new TestTask(stop, LOGGER, sleepTime, false);
+        TestTask testTask1 = new TestTask(stop, sleepTime, true);
+        TestTask testTask2 = new TestTask(stop, sleepTime, false);
 
         final CompletableFuture<TaskExecutionState> completableFuture =
-                taskExecutionService.deployLocalTask(
+                deployLocalTask(
+                        taskExecutionService,
                         new TaskGroupDefaultImpl(
                                 new TaskGroupLocation(
                                         jobId, pipeLineId, FLAKE_ID_GENERATOR.newId()),
@@ -148,10 +167,73 @@ public class TaskExecutionServiceTest extends AbstractSeaTunnelServerTest {
         assertTrue(futureMark.get());
     }
 
+    @Test
+    public void testClassloaderSplit() throws IOException {
+        File console = File.createTempFile("console", ".jar");
+        File fake = File.createTempFile("fake", ".jar");
+        String consoleFile = console.toURI().toURL().toString();
+        String fakeFile = fake.toURI().toURL().toString();
+
+        TaskExecutionService taskExecutionService = server.getTaskExecutionService();
+
+        long sleepTime = 300;
+
+        AtomicBoolean stop = new AtomicBoolean(false);
+        TestTask testTask1 = new TestTask(stop, sleepTime, true);
+        TestTask testTask2 = new TestTask(stop, sleepTime, false);
+
+        long jobId = System.currentTimeMillis();
+
+        TaskGroupLocation location = new TaskGroupLocation(jobId, 1, 1);
+        TaskGroupImmutableInformation taskGroupImmutableInformation =
+                new TaskGroupImmutableInformation(
+                        jobId,
+                        1,
+                        TaskGroupType.INTERMEDIATE_BLOCKING_QUEUE,
+                        location,
+                        "testClassloaderSplit",
+                        Arrays.asList(
+                                nodeEngine.getSerializationService().toData(testTask1),
+                                nodeEngine.getSerializationService().toData(testTask2)),
+                        Arrays.asList(
+                                Collections.singleton(new URL(fakeFile)),
+                                Collections.singleton(new URL(consoleFile))),
+                        Arrays.asList(emptySet(), emptySet()));
+
+        Data data = nodeEngine.getSerializationService().toData(taskGroupImmutableInformation);
+
+        final TaskDeployState taskDeployState = taskExecutionService.deployTask(data);
+
+        Assertions.assertEquals(TaskDeployState.success(), taskDeployState);
+
+        TaskGroupContext taskGroupContext =
+                taskExecutionService.getActiveExecutionContext(location);
+        Assertions.assertIterableEquals(
+                Collections.singleton(new URL(fakeFile)),
+                taskGroupContext.getJars().get(testTask1.getTaskID()));
+        Assertions.assertIterableEquals(
+                Collections.singleton(new URL(consoleFile)),
+                taskGroupContext.getJars().get(testTask2.getTaskID()));
+
+        Assertions.assertIterableEquals(
+                Collections.singletonList(new URL(fakeFile)),
+                Arrays.asList(
+                        ((URLClassLoader) taskGroupContext.getClassLoader(testTask1.getTaskID()))
+                                .getURLs()));
+        Assertions.assertIterableEquals(
+                Collections.singletonList(new URL(consoleFile)),
+                Arrays.asList(
+                        ((URLClassLoader) taskGroupContext.getClassLoader(testTask2.getTaskID()))
+                                .getURLs()));
+
+        taskExecutionService.cancelTaskGroup(location);
+
+        fake.delete();
+        console.delete();
+    }
+
     /** Test task execution time is the same as the timer timeout */
     @Test
-    @Disabled(
-            "As we have more and more test cases the test the load of the test container will up, the test case may failed")
     public void testCriticalCallTime() throws InterruptedException {
         AtomicBoolean stopMark = new AtomicBoolean(false);
         CopyOnWriteArrayList<Long> stopTime = new CopyOnWriteArrayList<>();
@@ -167,7 +249,8 @@ public class TaskExecutionServiceTest extends AbstractSeaTunnelServerTest {
         TaskExecutionService taskExecutionService = server.getTaskExecutionService();
 
         CompletableFuture<TaskExecutionState> taskCts =
-                taskExecutionService.deployLocalTask(
+                deployLocalTask(
+                        taskExecutionService,
                         new TaskGroupDefaultImpl(
                                 new TaskGroupLocation(
                                         jobId, pipeLineId, FLAKE_ID_GENERATOR.newId()),
@@ -189,8 +272,6 @@ public class TaskExecutionServiceTest extends AbstractSeaTunnelServerTest {
     }
 
     @Test
-    @Disabled(
-            "As we have more and more test cases the test the load of the test container will up, the test case may failed")
     public void testThrowException() throws InterruptedException {
         TaskExecutionService taskExecutionService = server.getTaskExecutionService();
 
@@ -222,7 +303,8 @@ public class TaskExecutionServiceTest extends AbstractSeaTunnelServerTest {
         Collections.shuffle(tasks);
 
         CompletableFuture<TaskExecutionState> taskCts =
-                taskExecutionService.deployLocalTask(
+                deployLocalTask(
+                        taskExecutionService,
                         new TaskGroupDefaultImpl(
                                 new TaskGroupLocation(
                                         jobId, pipeLineId, FLAKE_ID_GENERATOR.newId()),
@@ -230,7 +312,8 @@ public class TaskExecutionServiceTest extends AbstractSeaTunnelServerTest {
                                 Lists.newArrayList(tasks)));
 
         CompletableFuture<TaskExecutionState> t1c =
-                taskExecutionService.deployLocalTask(
+                deployLocalTask(
+                        taskExecutionService,
                         new TaskGroupDefaultImpl(
                                 new TaskGroupLocation(
                                         jobId, pipeLineId, FLAKE_ID_GENERATOR.newId()),
@@ -238,7 +321,8 @@ public class TaskExecutionServiceTest extends AbstractSeaTunnelServerTest {
                                 Lists.newArrayList(t1)));
 
         CompletableFuture<TaskExecutionState> t2c =
-                taskExecutionService.deployLocalTask(
+                deployLocalTask(
+                        taskExecutionService,
                         new TaskGroupDefaultImpl(
                                 new TaskGroupLocation(
                                         jobId, pipeLineId, FLAKE_ID_GENERATOR.newId()),
@@ -264,8 +348,6 @@ public class TaskExecutionServiceTest extends AbstractSeaTunnelServerTest {
     }
 
     @RepeatedTest(2)
-    @Disabled(
-            "As we have more and more test cases the test the load of the test container will up, the test case may failed")
     public void testDelay() throws InterruptedException {
 
         long lowLagSleep = 10;
@@ -298,7 +380,7 @@ public class TaskExecutionServiceTest extends AbstractSeaTunnelServerTest {
         TaskExecutionService taskExecutionService = server.getTaskExecutionService();
 
         CompletableFuture<TaskExecutionState> completableFuture =
-                taskExecutionService.deployLocalTask(taskGroup);
+                deployLocalTask(taskExecutionService, taskGroup);
 
         // stop tasks
         Thread.sleep(taskRunTime);

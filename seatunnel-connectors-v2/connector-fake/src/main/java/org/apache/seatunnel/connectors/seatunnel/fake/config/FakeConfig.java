@@ -27,56 +27,67 @@ import org.apache.seatunnel.connectors.seatunnel.fake.exception.FakeConnectorExc
 import lombok.AllArgsConstructor;
 import lombok.Builder;
 import lombok.Getter;
+import lombok.Setter;
 
 import java.io.Serializable;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
 
-import static org.apache.seatunnel.connectors.seatunnel.fake.config.FakeOption.ARRAY_SIZE;
-import static org.apache.seatunnel.connectors.seatunnel.fake.config.FakeOption.BIGINT_FAKE_MODE;
-import static org.apache.seatunnel.connectors.seatunnel.fake.config.FakeOption.BIGINT_MAX;
-import static org.apache.seatunnel.connectors.seatunnel.fake.config.FakeOption.BIGINT_MIN;
-import static org.apache.seatunnel.connectors.seatunnel.fake.config.FakeOption.BIGINT_TEMPLATE;
-import static org.apache.seatunnel.connectors.seatunnel.fake.config.FakeOption.BYTES_LENGTH;
-import static org.apache.seatunnel.connectors.seatunnel.fake.config.FakeOption.DATE_DAY_TEMPLATE;
-import static org.apache.seatunnel.connectors.seatunnel.fake.config.FakeOption.DATE_MONTH_TEMPLATE;
-import static org.apache.seatunnel.connectors.seatunnel.fake.config.FakeOption.DATE_YEAR_TEMPLATE;
-import static org.apache.seatunnel.connectors.seatunnel.fake.config.FakeOption.DOUBLE_FAKE_MODE;
-import static org.apache.seatunnel.connectors.seatunnel.fake.config.FakeOption.DOUBLE_MAX;
-import static org.apache.seatunnel.connectors.seatunnel.fake.config.FakeOption.DOUBLE_MIN;
-import static org.apache.seatunnel.connectors.seatunnel.fake.config.FakeOption.DOUBLE_TEMPLATE;
-import static org.apache.seatunnel.connectors.seatunnel.fake.config.FakeOption.FLOAT_FAKE_MODE;
-import static org.apache.seatunnel.connectors.seatunnel.fake.config.FakeOption.FLOAT_MAX;
-import static org.apache.seatunnel.connectors.seatunnel.fake.config.FakeOption.FLOAT_MIN;
-import static org.apache.seatunnel.connectors.seatunnel.fake.config.FakeOption.FLOAT_TEMPLATE;
-import static org.apache.seatunnel.connectors.seatunnel.fake.config.FakeOption.INT_FAKE_MODE;
-import static org.apache.seatunnel.connectors.seatunnel.fake.config.FakeOption.INT_MAX;
-import static org.apache.seatunnel.connectors.seatunnel.fake.config.FakeOption.INT_MIN;
-import static org.apache.seatunnel.connectors.seatunnel.fake.config.FakeOption.INT_TEMPLATE;
-import static org.apache.seatunnel.connectors.seatunnel.fake.config.FakeOption.MAP_SIZE;
-import static org.apache.seatunnel.connectors.seatunnel.fake.config.FakeOption.ROWS;
-import static org.apache.seatunnel.connectors.seatunnel.fake.config.FakeOption.ROW_NUM;
-import static org.apache.seatunnel.connectors.seatunnel.fake.config.FakeOption.SMALLINT_FAKE_MODE;
-import static org.apache.seatunnel.connectors.seatunnel.fake.config.FakeOption.SMALLINT_MAX;
-import static org.apache.seatunnel.connectors.seatunnel.fake.config.FakeOption.SMALLINT_MIN;
-import static org.apache.seatunnel.connectors.seatunnel.fake.config.FakeOption.SMALLINT_TEMPLATE;
-import static org.apache.seatunnel.connectors.seatunnel.fake.config.FakeOption.SPLIT_NUM;
-import static org.apache.seatunnel.connectors.seatunnel.fake.config.FakeOption.SPLIT_READ_INTERVAL;
-import static org.apache.seatunnel.connectors.seatunnel.fake.config.FakeOption.STRING_FAKE_MODE;
-import static org.apache.seatunnel.connectors.seatunnel.fake.config.FakeOption.STRING_LENGTH;
-import static org.apache.seatunnel.connectors.seatunnel.fake.config.FakeOption.STRING_TEMPLATE;
-import static org.apache.seatunnel.connectors.seatunnel.fake.config.FakeOption.TIME_HOUR_TEMPLATE;
-import static org.apache.seatunnel.connectors.seatunnel.fake.config.FakeOption.TIME_MINUTE_TEMPLATE;
-import static org.apache.seatunnel.connectors.seatunnel.fake.config.FakeOption.TIME_SECOND_TEMPLATE;
-import static org.apache.seatunnel.connectors.seatunnel.fake.config.FakeOption.TINYINT_FAKE_MODE;
-import static org.apache.seatunnel.connectors.seatunnel.fake.config.FakeOption.TINYINT_MAX;
-import static org.apache.seatunnel.connectors.seatunnel.fake.config.FakeOption.TINYINT_MIN;
-import static org.apache.seatunnel.connectors.seatunnel.fake.config.FakeOption.TINYINT_TEMPLATE;
+import static org.apache.seatunnel.api.options.EnvCommonOptions.PARALLELISM;
+import static org.apache.seatunnel.connectors.seatunnel.fake.config.FakeSourceOptions.ARRAY_SIZE;
+import static org.apache.seatunnel.connectors.seatunnel.fake.config.FakeSourceOptions.AUTO_INCREMENT_ENABLED;
+import static org.apache.seatunnel.connectors.seatunnel.fake.config.FakeSourceOptions.AUTO_INCREMENT_START;
+import static org.apache.seatunnel.connectors.seatunnel.fake.config.FakeSourceOptions.BIGINT_FAKE_MODE;
+import static org.apache.seatunnel.connectors.seatunnel.fake.config.FakeSourceOptions.BIGINT_MAX;
+import static org.apache.seatunnel.connectors.seatunnel.fake.config.FakeSourceOptions.BIGINT_MIN;
+import static org.apache.seatunnel.connectors.seatunnel.fake.config.FakeSourceOptions.BIGINT_TEMPLATE;
+import static org.apache.seatunnel.connectors.seatunnel.fake.config.FakeSourceOptions.BINARY_VECTOR_DIMENSION;
+import static org.apache.seatunnel.connectors.seatunnel.fake.config.FakeSourceOptions.BYTES_LENGTH;
+import static org.apache.seatunnel.connectors.seatunnel.fake.config.FakeSourceOptions.DATE_DAY_TEMPLATE;
+import static org.apache.seatunnel.connectors.seatunnel.fake.config.FakeSourceOptions.DATE_MONTH_TEMPLATE;
+import static org.apache.seatunnel.connectors.seatunnel.fake.config.FakeSourceOptions.DATE_YEAR_TEMPLATE;
+import static org.apache.seatunnel.connectors.seatunnel.fake.config.FakeSourceOptions.DOUBLE_FAKE_MODE;
+import static org.apache.seatunnel.connectors.seatunnel.fake.config.FakeSourceOptions.DOUBLE_MAX;
+import static org.apache.seatunnel.connectors.seatunnel.fake.config.FakeSourceOptions.DOUBLE_MIN;
+import static org.apache.seatunnel.connectors.seatunnel.fake.config.FakeSourceOptions.DOUBLE_TEMPLATE;
+import static org.apache.seatunnel.connectors.seatunnel.fake.config.FakeSourceOptions.FLOAT_FAKE_MODE;
+import static org.apache.seatunnel.connectors.seatunnel.fake.config.FakeSourceOptions.FLOAT_MAX;
+import static org.apache.seatunnel.connectors.seatunnel.fake.config.FakeSourceOptions.FLOAT_MIN;
+import static org.apache.seatunnel.connectors.seatunnel.fake.config.FakeSourceOptions.FLOAT_TEMPLATE;
+import static org.apache.seatunnel.connectors.seatunnel.fake.config.FakeSourceOptions.INT_FAKE_MODE;
+import static org.apache.seatunnel.connectors.seatunnel.fake.config.FakeSourceOptions.INT_MAX;
+import static org.apache.seatunnel.connectors.seatunnel.fake.config.FakeSourceOptions.INT_MIN;
+import static org.apache.seatunnel.connectors.seatunnel.fake.config.FakeSourceOptions.INT_TEMPLATE;
+import static org.apache.seatunnel.connectors.seatunnel.fake.config.FakeSourceOptions.MAP_SIZE;
+import static org.apache.seatunnel.connectors.seatunnel.fake.config.FakeSourceOptions.ROWS;
+import static org.apache.seatunnel.connectors.seatunnel.fake.config.FakeSourceOptions.ROW_NUM;
+import static org.apache.seatunnel.connectors.seatunnel.fake.config.FakeSourceOptions.SMALLINT_FAKE_MODE;
+import static org.apache.seatunnel.connectors.seatunnel.fake.config.FakeSourceOptions.SMALLINT_MAX;
+import static org.apache.seatunnel.connectors.seatunnel.fake.config.FakeSourceOptions.SMALLINT_MIN;
+import static org.apache.seatunnel.connectors.seatunnel.fake.config.FakeSourceOptions.SMALLINT_TEMPLATE;
+import static org.apache.seatunnel.connectors.seatunnel.fake.config.FakeSourceOptions.SPLIT_NUM;
+import static org.apache.seatunnel.connectors.seatunnel.fake.config.FakeSourceOptions.SPLIT_READ_INTERVAL;
+import static org.apache.seatunnel.connectors.seatunnel.fake.config.FakeSourceOptions.STRING_FAKE_MODE;
+import static org.apache.seatunnel.connectors.seatunnel.fake.config.FakeSourceOptions.STRING_LENGTH;
+import static org.apache.seatunnel.connectors.seatunnel.fake.config.FakeSourceOptions.STRING_TEMPLATE;
+import static org.apache.seatunnel.connectors.seatunnel.fake.config.FakeSourceOptions.TIME_HOUR_TEMPLATE;
+import static org.apache.seatunnel.connectors.seatunnel.fake.config.FakeSourceOptions.TIME_MINUTE_TEMPLATE;
+import static org.apache.seatunnel.connectors.seatunnel.fake.config.FakeSourceOptions.TIME_SECOND_TEMPLATE;
+import static org.apache.seatunnel.connectors.seatunnel.fake.config.FakeSourceOptions.TINYINT_FAKE_MODE;
+import static org.apache.seatunnel.connectors.seatunnel.fake.config.FakeSourceOptions.TINYINT_MAX;
+import static org.apache.seatunnel.connectors.seatunnel.fake.config.FakeSourceOptions.TINYINT_MIN;
+import static org.apache.seatunnel.connectors.seatunnel.fake.config.FakeSourceOptions.TINYINT_TEMPLATE;
+import static org.apache.seatunnel.connectors.seatunnel.fake.config.FakeSourceOptions.VECTOR_DIMENSION;
+import static org.apache.seatunnel.connectors.seatunnel.fake.config.FakeSourceOptions.VECTOR_FLOAT_MAX;
+import static org.apache.seatunnel.connectors.seatunnel.fake.config.FakeSourceOptions.VECTOR_FLOAT_MIN;
 
 @Builder
 @Getter
 public class FakeConfig implements Serializable {
+
+    @Builder.Default private int parallelism = PARALLELISM.defaultValue();
+
     @Builder.Default private int rowNum = ROW_NUM.defaultValue();
 
     @Builder.Default private int splitNum = SPLIT_NUM.defaultValue();
@@ -115,20 +126,37 @@ public class FakeConfig implements Serializable {
 
     @Builder.Default private double doubleMax = DOUBLE_MAX.defaultValue();
 
-    @Builder.Default private FakeOption.FakeMode stringFakeMode = STRING_FAKE_MODE.defaultValue();
+    @Builder.Default private float vectorFloatMin = VECTOR_FLOAT_MIN.defaultValue();
 
-    @Builder.Default private FakeOption.FakeMode tinyintFakeMode = TINYINT_FAKE_MODE.defaultValue();
+    @Builder.Default private float vectorFloatMax = VECTOR_FLOAT_MAX.defaultValue();
+
+    @Builder.Default private int vectorDimension = VECTOR_DIMENSION.defaultValue();
+
+    @Builder.Default private int binaryVectorDimension = BINARY_VECTOR_DIMENSION.defaultValue();
 
     @Builder.Default
-    private FakeOption.FakeMode smallintFakeMode = SMALLINT_FAKE_MODE.defaultValue();
+    private FakeSourceOptions.FakeMode stringFakeMode = STRING_FAKE_MODE.defaultValue();
 
-    @Builder.Default private FakeOption.FakeMode intFakeMode = INT_FAKE_MODE.defaultValue();
+    @Builder.Default
+    private FakeSourceOptions.FakeMode tinyintFakeMode = TINYINT_FAKE_MODE.defaultValue();
 
-    @Builder.Default private FakeOption.FakeMode bigintFakeMode = BIGINT_FAKE_MODE.defaultValue();
+    @Builder.Default
+    private FakeSourceOptions.FakeMode smallintFakeMode = SMALLINT_FAKE_MODE.defaultValue();
 
-    @Builder.Default private FakeOption.FakeMode floatFakeMode = FLOAT_FAKE_MODE.defaultValue();
+    @Builder.Default private FakeSourceOptions.FakeMode intFakeMode = INT_FAKE_MODE.defaultValue();
 
-    @Builder.Default private FakeOption.FakeMode doubleFakeMode = DOUBLE_FAKE_MODE.defaultValue();
+    @Builder.Default
+    private FakeSourceOptions.FakeMode bigintFakeMode = BIGINT_FAKE_MODE.defaultValue();
+
+    @Builder.Default
+    private FakeSourceOptions.FakeMode floatFakeMode = FLOAT_FAKE_MODE.defaultValue();
+
+    @Builder.Default
+    private FakeSourceOptions.FakeMode doubleFakeMode = DOUBLE_FAKE_MODE.defaultValue();
+
+    @Builder.Default private Boolean autoIncrementEnabled = AUTO_INCREMENT_ENABLED.defaultValue();
+
+    @Builder.Default private Long autoIncrementStart = AUTO_INCREMENT_START.defaultValue();
 
     private List<String> stringTemplate;
     private List<Integer> tinyintTemplate;
@@ -152,11 +180,14 @@ public class FakeConfig implements Serializable {
 
     public static FakeConfig buildWithConfig(ReadonlyConfig readonlyConfig) {
         FakeConfigBuilder builder = FakeConfig.builder();
+        readonlyConfig.getOptional(PARALLELISM).ifPresent(builder::parallelism);
         builder.rowNum(readonlyConfig.get(ROW_NUM));
         builder.splitNum(readonlyConfig.get(SPLIT_NUM));
         builder.splitReadInterval(readonlyConfig.get(SPLIT_READ_INTERVAL));
         builder.mapSize(readonlyConfig.get(MAP_SIZE));
         builder.arraySize(readonlyConfig.get(ARRAY_SIZE));
+        builder.vectorDimension(readonlyConfig.get(VECTOR_DIMENSION));
+        builder.binaryVectorDimension(readonlyConfig.get(BINARY_VECTOR_DIMENSION));
         builder.bytesLength(readonlyConfig.get(BYTES_LENGTH));
         builder.stringLength(readonlyConfig.get(STRING_LENGTH));
 
@@ -184,6 +215,8 @@ public class FakeConfig implements Serializable {
         readonlyConfig.getOptional(TIME_HOUR_TEMPLATE).ifPresent(builder::timeHourTemplate);
         readonlyConfig.getOptional(TIME_MINUTE_TEMPLATE).ifPresent(builder::timeMinuteTemplate);
         readonlyConfig.getOptional(TIME_SECOND_TEMPLATE).ifPresent(builder::timeSecondTemplate);
+        readonlyConfig.getOptional(AUTO_INCREMENT_ENABLED).ifPresent(builder::autoIncrementEnabled);
+        readonlyConfig.getOptional(AUTO_INCREMENT_START).ifPresent(builder::autoIncrementStart);
 
         readonlyConfig
                 .getOptional(TINYINT_MIN)
@@ -389,6 +422,40 @@ public class FakeConfig implements Serializable {
                             builder.doubleMax(doubleMax);
                         });
 
+        readonlyConfig
+                .getOptional(VECTOR_FLOAT_MIN)
+                .ifPresent(
+                        vectorFloatMin -> {
+                            if (vectorFloatMin < VECTOR_FLOAT_MIN.defaultValue()
+                                    || vectorFloatMin > VECTOR_FLOAT_MAX.defaultValue()) {
+                                throw new FakeConnectorException(
+                                        CommonErrorCodeDeprecated.ILLEGAL_ARGUMENT,
+                                        VECTOR_FLOAT_MIN.key()
+                                                + " should >= "
+                                                + VECTOR_FLOAT_MIN.defaultValue()
+                                                + " and <= "
+                                                + VECTOR_FLOAT_MAX.defaultValue());
+                            }
+                            builder.vectorFloatMin(vectorFloatMin);
+                        });
+
+        readonlyConfig
+                .getOptional(VECTOR_FLOAT_MAX)
+                .ifPresent(
+                        vectorFloatMax -> {
+                            if (vectorFloatMax < VECTOR_FLOAT_MIN.defaultValue()
+                                    || vectorFloatMax > VECTOR_FLOAT_MAX.defaultValue()) {
+                                throw new FakeConnectorException(
+                                        CommonErrorCodeDeprecated.ILLEGAL_ARGUMENT,
+                                        VECTOR_FLOAT_MAX.key()
+                                                + " should >= "
+                                                + VECTOR_FLOAT_MIN.defaultValue()
+                                                + " and <= "
+                                                + VECTOR_FLOAT_MAX.defaultValue());
+                            }
+                            builder.vectorFloatMax(vectorFloatMax);
+                        });
+
         readonlyConfig.getOptional(STRING_FAKE_MODE).ifPresent(builder::stringFakeMode);
         readonlyConfig.getOptional(TINYINT_FAKE_MODE).ifPresent(builder::tinyintFakeMode);
         readonlyConfig.getOptional(SMALLINT_FAKE_MODE).ifPresent(builder::smallintFakeMode);
@@ -403,6 +470,7 @@ public class FakeConfig implements Serializable {
     }
 
     @Getter
+    @Setter
     @AllArgsConstructor
     public static class RowData implements Serializable {
         static final String KEY_KIND = "kind";

@@ -23,6 +23,7 @@ import org.apache.seatunnel.api.table.type.SeaTunnelRow;
 import lombok.AllArgsConstructor;
 
 @AllArgsConstructor
+@Deprecated
 public class SeaTunnelRowAccessor {
     private final SeaTunnelRow row;
 
@@ -40,5 +41,9 @@ public class SeaTunnelRowAccessor {
 
     public Object getField(int pos) {
         return row.getField(pos);
+    }
+
+    public Object[] getFields() {
+        return row.getFields();
     }
 }

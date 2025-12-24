@@ -1,14 +1,15 @@
 # Intro To Connector V2 Features
 
-## Differences Between Connector V2 And Connector v1
+## Differences Between Connector V2 And V1
 
 Since https://github.com/apache/seatunnel/issues/1608 We Added Connector V2 Features.
-Connector V2 is a connector defined based on the SeaTunnel Connector API interface. Unlike Connector V1, Connector V2 supports the following features.
+Connector V2 is a connector defined based on the SeaTunnel Connector API interface. Unlike Connector V1, V2 supports the following features:
 
 * **Multi Engine Support** SeaTunnel Connector API is an engine independent API. The connectors developed based on this API can run in multiple engines. Currently, Flink and Spark are supported, and we will support other engines in the future.
 * **Multi Engine Version Support** Decoupling the connector from the engine through the translation layer solves the problem that most connectors need to modify the code in order to support a new version of the underlying engine.
 * **Unified Batch And Stream** Connector V2 can perform batch processing or streaming processing. We do not need to develop connectors for batch and stream separately.
 * **Multiplexing JDBC/Log connection.** Connector V2 supports JDBC resource reuse and sharing database log parsing.
+* **Multimodal Data Integration** Connector V2 supports multimodal data integration, including structured and unstructured text data, video, images, binary files, etc.
 
 ## Source Connector Features
 
@@ -18,23 +19,23 @@ Source connectors have some common core features, and each source connector supp
 
 If each piece of data in the data source will only be sent downstream by the source once, we think this source connector supports exactly once.
 
-In SeaTunnel, we can save the read **Split** and its **offset**(The position of the read data in split at that time,
-such as line number, byte size, offset, etc) as **StateSnapshot** when checkpoint. If the task restarted, we will get the last **StateSnapshot**
+In SeaTunnel, we can save the read **Split** and its **offset** (The position of the read data in split at that time,
+such as line number, byte size, offset, etc.) as **StateSnapshot** when checkpointing. If the task restarted, we will get the last **StateSnapshot**
 and then locate the **Split** and **offset** read last time and continue to send data downstream.
 
 For example `File`, `Kafka`.
 
 ### column projection
 
-If the connector supports reading only specified columns from the data source (note that if you read all columns first and then filter unnecessary columns through the schema, this method is not a real column projection)
+If the connector supports reading only specified columns from the data source (Note that if you read all columns first and then filter unnecessary columns through the schema, this method is not a real column projection)
 
-For example `JDBCSource` can use sql define read columns.
+For example `JDBCSource` can use sql to define reading columns.
 
 `KafkaSource` will read all content from topic and then use `schema` to filter unnecessary columns, This is not `column projection`.
 
 ### batch
 
-Batch Job Mode, The data read is bounded and the job will stop when all data read complete.
+Batch Job Mode, The data read is bounded and the job will stop after completing all data read.
 
 ### stream
 
@@ -44,6 +45,10 @@ Streaming Job Mode, The data read is unbounded and the job never stop.
 
 Parallelism Source Connector support config `parallelism`, every parallelism will create a task to read the data.
 In the **Parallelism Source Connector**, the source will be split into multiple splits, and then the enumerator will allocate the splits to the SourceReader for processing.
+
+### multimodal
+
+Support multimodal data integration, including structured and unstructured text data, video, images, binary files, etc.
 
 ### support user-defined split
 
@@ -69,3 +74,11 @@ For sink connector, the sink connector supports exactly-once if any piece of dat
 ### cdc(change data capture)
 
 If a sink connector supports writing row kinds(INSERT/UPDATE_BEFORE/UPDATE_AFTER/DELETE) based on primary key, we think it supports cdc(change data capture).
+
+### support multiple table write
+
+Supports write multiple tables in one SeaTunnel job, users can dynamically specify the table's identifier by [configuring placeholders](./sink-options-placeholders.md).
+
+### multimodal
+
+Support multimodal data integration, including structured and unstructured text data, video, images, binary files, etc.

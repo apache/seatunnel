@@ -1,3 +1,5 @@
+import ChangeLog from '../changelog/connector-jdbc.md';
+
 # JDBC
 
 > JDBC sink connector
@@ -25,21 +27,22 @@ Use `Xa transactions` to ensure `exactly-once`. So only support `exactly-once` f
 support `Xa transactions`. You can set `is_exactly_once=true` to enable it.
 
 - [x] [cdc](../../concept/connector-v2-features.md)
+- [x] [support multiple table write](../../concept/connector-v2-features.md)
 
 ## Options
 
-|                   Name                    |  Type   | Required |           Default            |
+| Name                                      | Type    | Required | Default                      |
 |-------------------------------------------|---------|----------|------------------------------|
 | url                                       | String  | Yes      | -                            |
 | driver                                    | String  | Yes      | -                            |
-| user                                      | String  | No       | -                            |
+| username                                      | String  | No       | -                            |
 | password                                  | String  | No       | -                            |
 | query                                     | String  | No       | -                            |
 | compatible_mode                           | String  | No       | -                            |
+| dialect                                   | String  | No       | -                            | 
 | database                                  | String  | No       | -                            |
 | table                                     | String  | No       | -                            |
 | primary_keys                              | Array   | No       | -                            |
-| support_upsert_by_query_primary_key_exist | Boolean | No       | false                        |
 | connection_check_timeout_sec              | Int     | No       | 30                           |
 | max_retries                               | Int     | No       | 0                            |
 | batch_size                                | Int     | No       | 1000                         |
@@ -57,6 +60,10 @@ support `Xa transactions`. You can set `is_exactly_once=true` to enable it.
 | custom_sql                                | String  | No       | -                            |
 | enable_upsert                             | Boolean | No       | true                         |
 | use_copy_statement                        | Boolean | No       | false                        |
+| create_index                              | Boolean | No       | true                         |
+| access_key_id                             | String  | No       |                              |
+| secret_access_key                         | String  | No       |                              |
+| region                                    | String  | No       |                              |
 
 ### driver [string]
 
@@ -80,10 +87,31 @@ Use this sql write upstream input datas to database. e.g `INSERT ...`
 
 ### compatible_mode [string]
 
-The compatible mode of database, required when the database supports multiple compatible modes. For example, when using OceanBase database, you need to set it to 'mysql' or 'oracle'.
+The compatible mode of database, required when the database supports multiple compatible modes.
+
+For example, when using OceanBase database, you need to set it to 'mysql' or 'oracle'. when using StarRocks, you need set it to `starrocks`.
 
 Postgres 9.5 version or below,please set it to `postgresLow` to support cdc
 
+### dialect [string]
+
+The appointed dialect, if it does not exist, is still obtained according to the url, and the priority is higher than the url. For example,when using starrocks, you need set it to `starrocks`. Similarly, when using mysql, you need to set its value to `mysql`.
+
+If one dialect not supported by SeaTunnel, it will use the default dialect `GenericDialect`. Just make sure the driver you provided support the database you want to connect.
+
+#### dialect list
+
+|           | Dialect Name |          |
+|-----------|--------------|----------|
+| Greenplum | DB2          | Dameng   |
+| Gbase8a   | HIVE         | KingBase |
+| MySQL     | StarRocks    | Oracle   |
+| Phoenix   | Postgres     | Redshift |
+| SapHana   | Snowflake    | Sqlite   |
+| SqlServer | Tablestore   | Teradata |
+| Vertica   | OceanBase    | XUGU     |
+| IRIS      | Inceptor     | Highgo   |
+| DSQL      |              |          |
 ### database [string]
 
 Use this `database` and `table-name` auto-generate sql and receive upstream input datas write to database.
@@ -99,13 +127,15 @@ This option is mutually exclusive with `query` and has a higher priority.
 The table parameter can fill in the name of an unwilling table, which will eventually be used as the table name of the creation table, and supports variables (`${table_name}`, `${schema_name}`). Replacement rules: `${schema_name}` will replace the SCHEMA name passed to the target side, and `${table_name}` will replace the name of the table passed to the table at the target side.
 
 mysql sink for example:
+
 1. test_${schema_name}_${table_name}_test
 2. sink_sinktable
 3. ss_${table_name}
 
 pgsql (Oracle Sqlserver ...) Sink for example:
-1. ${schema_name}.${table_name} _test
-2. dbo.tt_${table_name} _sink
+
+1. ${schema_name}.${table_name}_test
+2. dbo.tt_${table_name}_sink
 3. public.sink_table
 
 Tip: If the target database has the concept of SCHEMA, the table parameter must be written as `xxx.xxx`
@@ -114,43 +144,38 @@ Tip: If the target database has the concept of SCHEMA, the table parameter must 
 
 This option is used to support operations such as `insert`, `delete`, and `update` when automatically generate sql.
 
-### support_upsert_by_query_primary_key_exist [boolean]
-
-Choose to use INSERT sql, UPDATE sql to process update events(INSERT, UPDATE_AFTER) based on query primary key exists. This configuration is only used when database unsupported upsert syntax.
-**Note**: that this method has low performance
-
 ### connection_check_timeout_sec [int]
 
 The time in seconds to wait for the database operation used to validate the connection to complete.
 
-### max_retries[int]
+### max_retries [int]
 
 The number of retries to submit failed (executeBatch)
 
-### batch_size[int]
+### batch_size [int]
 
 For batch writing, when the number of buffered records reaches the number of `batch_size` or the time reaches `checkpoint.interval`
 , the data will be flushed into the database
 
-### is_exactly_once[boolean]
+### is_exactly_once [boolean]
 
 Whether to enable exactly-once semantics, which will use Xa transactions. If on, you need to
 set `xa_data_source_class_name`.
 
-### generate_sink_sql[boolean]
+### generate_sink_sql [boolean]
 
 Generate sql statements based on the database table you want to write to
 
-### xa_data_source_class_name[string]
+### xa_data_source_class_name [string]
 
 The xa data source class name of the database Driver, for example, mysql is `com.mysql.cj.jdbc.MysqlXADataSource`, and
 please refer to appendix for other data sources
 
-### max_commit_attempts[int]
+### max_commit_attempts [int]
 
 The number of retries for transaction commit failures
 
-### transaction_timeout_sec[int]
+### transaction_timeout_sec [int]
 
 The timeout after the transaction is opened, the default is -1 (never timeout). Note that setting the timeout may affect
 exactly-once semantics
@@ -171,7 +196,7 @@ Additional connection configuration parameters,when properties and URL have the 
 
 ### common options
 
-Sink plugin common parameters, please refer to [Sink Common Options](common-options.md) for details
+Sink plugin common parameters, please refer to [Sink Common Options](../sink-common-options.md) for details
 
 ### schema_save_mode [Enum]
 
@@ -179,7 +204,8 @@ Before the synchronous task is turned on, different treatment schemes are select
 Option introduction：  
 `RECREATE_SCHEMA` ：Will create when the table does not exist, delete and rebuild when the table is saved        
 `CREATE_SCHEMA_WHEN_NOT_EXIST` ：Will Created when the table does not exist, skipped when the table is saved        
-`ERROR_WHEN_SCHEMA_NOT_EXIST` ：Error will be reported when the table does not exist
+`ERROR_WHEN_SCHEMA_NOT_EXIST` ：Error will be reported when the table does not exist  
+`IGNORE` ：Ignore the treatment of the table
 
 ### data_save_mode [Enum]
 
@@ -204,6 +230,22 @@ Use `COPY ${table} FROM STDIN` statement to import data. Only drivers with `getC
 
 NOTICE: `MAP`, `ARRAY`, `ROW` types are not supported.
 
+### create_index [boolean]
+
+Create the index(contains primary key and any other indexes) or not when auto-create table. You can use this option to improve the performance of jdbc writes when migrating large tables.
+
+Notice: Note that this will sacrifice read performance, so you'll need to manually create indexes after the table migration to improve read performance
+
+### access_key_id [String]
+The access_key_id in AWS authentication. Only valid for dialect="dsql"
+
+### secret_access_key [String]
+The secret_access_key in AWS authentication. Only valid for dialect="dsql"
+
+### region [String]
+The area where Amazon Aurora DSQL is located. Only valid for dialect="dsql"
+
+
 ## tips
 
 In the case of is_exactly_once = "true", Xa transactions are used. This requires database support, and some databases require some setup :
@@ -215,27 +257,31 @@ In the case of is_exactly_once = "true", Xa transactions are used. This requires
 
 there are some reference value for params above.
 
-| datasource |                    driver                    |                                url                                 |             xa_data_source_class_name              |                                                    maven                                                    |
-|------------|----------------------------------------------|--------------------------------------------------------------------|----------------------------------------------------|-------------------------------------------------------------------------------------------------------------|
-| MySQL      | com.mysql.cj.jdbc.Driver                     | jdbc:mysql://localhost:3306/test                                   | com.mysql.cj.jdbc.MysqlXADataSource                | https://mvnrepository.com/artifact/mysql/mysql-connector-java                                               |
-| PostgreSQL | org.postgresql.Driver                        | jdbc:postgresql://localhost:5432/postgres                          | org.postgresql.xa.PGXADataSource                   | https://mvnrepository.com/artifact/org.postgresql/postgresql                                                |
-| DM         | dm.jdbc.driver.DmDriver                      | jdbc:dm://localhost:5236                                           | dm.jdbc.driver.DmdbXADataSource                    | https://mvnrepository.com/artifact/com.dameng/DmJdbcDriver18                                                |
-| Phoenix    | org.apache.phoenix.queryserver.client.Driver | jdbc:phoenix:thin:url=http://localhost:8765;serialization=PROTOBUF | /                                                  | https://mvnrepository.com/artifact/com.aliyun.phoenix/ali-phoenix-shaded-thin-client                        |
-| SQL Server | com.microsoft.sqlserver.jdbc.SQLServerDriver | jdbc:sqlserver://localhost:1433                                    | com.microsoft.sqlserver.jdbc.SQLServerXADataSource | https://mvnrepository.com/artifact/com.microsoft.sqlserver/mssql-jdbc                                       |
-| Oracle     | oracle.jdbc.OracleDriver                     | jdbc:oracle:thin:@localhost:1521/xepdb1                            | oracle.jdbc.xa.OracleXADataSource                  | https://mvnrepository.com/artifact/com.oracle.database.jdbc/ojdbc8                                          |
-| sqlite     | org.sqlite.JDBC                              | jdbc:sqlite:test.db                                                | /                                                  | https://mvnrepository.com/artifact/org.xerial/sqlite-jdbc                                                   |
-| GBase8a    | com.gbase.jdbc.Driver                        | jdbc:gbase://e2e_gbase8aDb:5258/test                               | /                                                  | https://www.gbase8.cn/wp-content/uploads/2020/10/gbase-connector-java-8.3.81.53-build55.5.7-bin_min_mix.jar |
-| StarRocks  | com.mysql.cj.jdbc.Driver                     | jdbc:mysql://localhost:3306/test                                   | /                                                  | https://mvnrepository.com/artifact/mysql/mysql-connector-java                                               |
-| db2        | com.ibm.db2.jcc.DB2Driver                    | jdbc:db2://localhost:50000/testdb                                  | com.ibm.db2.jcc.DB2XADataSource                    | https://mvnrepository.com/artifact/com.ibm.db2.jcc/db2jcc/db2jcc4                                           |
-| saphana    | com.sap.db.jdbc.Driver                       | jdbc:sap://localhost:39015                                         | /                                                  | https://mvnrepository.com/artifact/com.sap.cloud.db.jdbc/ngdbc                                              |
-| Doris      | com.mysql.cj.jdbc.Driver                     | jdbc:mysql://localhost:3306/test                                   | /                                                  | https://mvnrepository.com/artifact/mysql/mysql-connector-java                                               |
-| teradata   | com.teradata.jdbc.TeraDriver                 | jdbc:teradata://localhost/DBS_PORT=1025,DATABASE=test              | /                                                  | https://mvnrepository.com/artifact/com.teradata.jdbc/terajdbc                                               |
-| Redshift   | com.amazon.redshift.jdbc42.Driver            | jdbc:redshift://localhost:5439/testdb                              | com.amazon.redshift.xa.RedshiftXADataSource        | https://mvnrepository.com/artifact/com.amazon.redshift/redshift-jdbc42                                      |
-| Snowflake  | net.snowflake.client.jdbc.SnowflakeDriver    | jdbc:snowflake://<account_name>.snowflakecomputing.com             | /                                                  | https://mvnrepository.com/artifact/net.snowflake/snowflake-jdbc                                             |
-| Vertica    | com.vertica.jdbc.Driver                      | jdbc:vertica://localhost:5433                                      | /                                                  | https://repo1.maven.org/maven2/com/vertica/jdbc/vertica-jdbc/12.0.3-0/vertica-jdbc-12.0.3-0.jar             |
-| Kingbase   | com.kingbase8.Driver                         | jdbc:kingbase8://localhost:54321/db_test                           | /                                                  | https://repo1.maven.org/maven2/cn/com/kingbase/kingbase8/8.6.0/kingbase8-8.6.0.jar                          |
-| OceanBase  | com.oceanbase.jdbc.Driver                    | jdbc:oceanbase://localhost:2881                                    | /                                                  | https://repo1.maven.org/maven2/com/oceanbase/oceanbase-client/2.4.3/oceanbase-client-2.4.3.jar              |
-| xugu       | com.xugu.cloudjdbc.Driver                    | jdbc:xugu://localhost:5138                                         | /                                                  | https://repo1.maven.org/maven2/com/xugudb/xugu-jdbc/12.2.0/xugu-jdbc-12.2.0.jar                             |
+| datasource        |                    driver                    | url                                                                 | xa_data_source_class_name                          | maven                                                                                                                         |
+|-------------------|----------------------------------------------|---------------------------------------------------------------------|----------------------------------------------------|-------------------------------------------------------------------------------------------------------------------------------|
+| MySQL             | com.mysql.cj.jdbc.Driver                     | jdbc:mysql://localhost:3306/test                                    | com.mysql.cj.jdbc.MysqlXADataSource                | https://mvnrepository.com/artifact/mysql/mysql-connector-java                                                                 |
+| PostgreSQL        | org.postgresql.Driver                        | jdbc:postgresql://localhost:5432/postgres                           | org.postgresql.xa.PGXADataSource                   | https://mvnrepository.com/artifact/org.postgresql/postgresql                                                                  |
+| DM                | dm.jdbc.driver.DmDriver                      | jdbc:dm://localhost:5236                                            | dm.jdbc.driver.DmdbXADataSource                    | https://mvnrepository.com/artifact/com.dameng/DmJdbcDriver18                                                                  |
+| Phoenix           | org.apache.phoenix.queryserver.client.Driver | jdbc:phoenix:thin:url=http://localhost:8765;serialization=PROTOBUF  | /                                                  | https://mvnrepository.com/artifact/com.aliyun.phoenix/ali-phoenix-shaded-thin-client                                          |
+| SQL Server        | com.microsoft.sqlserver.jdbc.SQLServerDriver | jdbc:sqlserver://localhost:1433                                     | com.microsoft.sqlserver.jdbc.SQLServerXADataSource | https://mvnrepository.com/artifact/com.microsoft.sqlserver/mssql-jdbc                                                         |
+| Oracle            | oracle.jdbc.OracleDriver                     | jdbc:oracle:thin:@localhost:1521/xepdb1                             | oracle.jdbc.xa.OracleXADataSource                  | https://mvnrepository.com/artifact/com.oracle.database.jdbc/ojdbc8                                                            |
+| sqlite            | org.sqlite.JDBC                              | jdbc:sqlite:test.db                                                 | /                                                  | https://mvnrepository.com/artifact/org.xerial/sqlite-jdbc                                                                     |
+| GBase8a           | com.gbase.jdbc.Driver                        | jdbc:gbase://e2e_gbase8aDb:5258/test                                | /                                                  | https://cdn.gbase.cn/products/30/p5CiVwXBKQYIUGN8ecHvk/gbase-connector-java-9.5.0.7-build1-bin.jar                            |
+| StarRocks         | com.mysql.cj.jdbc.Driver                     | jdbc:mysql://localhost:3306/test                                    | /                                                  | https://mvnrepository.com/artifact/mysql/mysql-connector-java                                                                 |
+| db2               | com.ibm.db2.jcc.DB2Driver                    | jdbc:db2://localhost:50000/testdb                                   | com.ibm.db2.jcc.DB2XADataSource                    | https://mvnrepository.com/artifact/com.ibm.db2.jcc/db2jcc/db2jcc4                                                             |
+| saphana           | com.sap.db.jdbc.Driver                       | jdbc:sap://localhost:39015                                          | /                                                  | https://mvnrepository.com/artifact/com.sap.cloud.db.jdbc/ngdbc                                                                |
+| Doris             | com.mysql.cj.jdbc.Driver                     | jdbc:mysql://localhost:3306/test                                    | /                                                  | https://mvnrepository.com/artifact/mysql/mysql-connector-java                                                                 |
+| teradata          | com.teradata.jdbc.TeraDriver                 | jdbc:teradata://localhost/DBS_PORT=1025,DATABASE=test               | /                                                  | https://mvnrepository.com/artifact/com.teradata.jdbc/terajdbc                                                                 |
+| Redshift          | com.amazon.redshift.jdbc42.Driver            | jdbc:redshift://localhost:5439/testdb                               | com.amazon.redshift.xa.RedshiftXADataSource        | https://mvnrepository.com/artifact/com.amazon.redshift/redshift-jdbc42                                                        |
+| Snowflake         | net.snowflake.client.jdbc.SnowflakeDriver    | jdbc&#58;snowflake://<account_name>.snowflakecomputing.com          | /                                                  | https://mvnrepository.com/artifact/net.snowflake/snowflake-jdbc                                                               |
+| Vertica           | com.vertica.jdbc.Driver                      | jdbc:vertica://localhost:5433                                       | /                                                  | https://repo1.maven.org/maven2/com/vertica/jdbc/vertica-jdbc/12.0.3-0/vertica-jdbc-12.0.3-0.jar                               |
+| Kingbase          | com.kingbase8.Driver                         | jdbc:kingbase8://localhost:54321/db_test                            | /                                                  | https://repo1.maven.org/maven2/cn/com/kingbase/kingbase8/8.6.0/kingbase8-8.6.0.jar                                            |
+| OceanBase         | com.oceanbase.jdbc.Driver                    | jdbc:oceanbase://localhost:2881                                     | /                                                  | https://repo1.maven.org/maven2/com/oceanbase/oceanbase-client/2.4.12/oceanbase-client-2.4.12.jar                              |
+| xugu              | com.xugu.cloudjdbc.Driver                    | jdbc:xugu://localhost:5138                                          | /                                                  | https://repo1.maven.org/maven2/com/xugudb/xugu-jdbc/12.2.0/xugu-jdbc-12.2.0.jar                                               |
+| InterSystems IRIS | com.intersystems.jdbc.IRISDriver             | jdbc:IRIS://localhost:1972/%SYS                                     | /                                                  | https://raw.githubusercontent.com/intersystems-community/iris-driver-distribution/main/JDBC/JDK18/intersystems-jdbc-3.8.4.jar |
+| opengauss         | org.opengauss.Driver                         | jdbc:opengauss://localhost:5432/postgres                            | /                                                  | https://repo1.maven.org/maven2/org/opengauss/opengauss-jdbc/5.1.0-og/opengauss-jdbc-5.1.0-og.jar                              |
+| Highgo            | com.highgo.jdbc.Driver                       | jdbc:highgo://localhost:5866/highgo                                 | /                                                  | https://repo1.maven.org/maven2/com/highgo/HgdbJdbc/6.2.3/HgdbJdbc-6.2.3.jar                                                   |
+| Dsql              | org.postgresql.Driver                        | jdbc:postgresql://Amazon Aurora DSQL Cluster Endpoint:5432/postgres | org.postgresql.xa.PGXADataSource                   | https://mvnrepository.com/artifact/org.postgresql/postgresql                                                                  |
 
 ## Example
 
@@ -253,6 +299,8 @@ jdbc {
 ```
 
 Exactly-once
+
+Turn on exact one-time semantics by setting `is_exactly_once`
 
 ```
 jdbc {
@@ -273,6 +321,8 @@ jdbc {
 
 CDC(Change data capture) event
 
+jdbc receive CDC example
+
 ```
 sink {
     jdbc {
@@ -290,6 +340,8 @@ sink {
 
 Add saveMode function
 
+To facilitate the creation of tables when they do not already exist, set the `schema_save_mode`  to `CREATE_SCHEMA_WHEN_NOT_EXIST`.
+
 ```
 sink {
     jdbc {
@@ -297,7 +349,7 @@ sink {
         driver = "com.mysql.cj.jdbc.Driver"
         user = "root"
         password = "123456"
-        
+        generate_sink_sql = "true"
         database = "sink_database"
         table = "sink_table"
         primary_keys = ["key1", "key2", ...]
@@ -309,6 +361,8 @@ sink {
 
 Postgresql 9.5 version below support CDC(Change data capture) event
 
+For PostgreSQL versions 9.5 and below, setting `compatible_mode` to `postgresLow` to enable support for PostgreSQL Change Data Capture (CDC) operations.
+
 ```
 sink {
     jdbc {
@@ -319,7 +373,6 @@ sink {
         compatible_mode="postgresLow"
         database = "sink_database"
         table = "sink_table"
-        support_upsert_by_query_primary_key_exist = true
         generate_sink_sql = true
         primary_keys = ["key1", "key2", ...]
     }
@@ -327,30 +380,138 @@ sink {
 
 ```
 
+### Multiple table
+
+#### example1
+
+```hocon
+env {
+  parallelism = 1
+  job.mode = "STREAMING"
+  checkpoint.interval = 5000
+}
+
+source {
+  Mysql-CDC {
+    url = "jdbc:mysql://127.0.0.1:3306/seatunnel"
+    username = "root"
+    password = "******"
+    
+    table-names = ["seatunnel.role","seatunnel.user","galileo.Bucket"]
+  }
+}
+
+transform {
+}
+
+sink {
+  jdbc {
+    url = "jdbc:mysql://localhost:3306"
+    driver = "com.mysql.cj.jdbc.Driver"
+    user = "root"
+    password = "123456"
+    generate_sink_sql = true
+    
+    database = "${database_name}_test"
+    table = "${table_name}_test"
+    primary_keys = ["${primary_key}"]
+  }
+}
+```
+
+#### example2
+
+```hocon
+env {
+  parallelism = 1
+  job.mode = "BATCH"
+}
+
+source {
+  Jdbc {
+    driver = oracle.jdbc.driver.OracleDriver
+    url = "jdbc:oracle:thin:@localhost:1521/XE"
+    user = testUser
+    password = testPassword
+
+    table_list = [
+      {
+        table_path = "TESTSCHEMA.TABLE_1"
+      },
+      {
+        table_path = "TESTSCHEMA.TABLE_2"
+      }
+    ]
+  }
+}
+
+transform {
+}
+
+sink {
+  jdbc {
+    url = "jdbc:mysql://localhost:3306"
+    driver = "com.mysql.cj.jdbc.Driver"
+    user = "root"
+    password = "123456"
+    generate_sink_sql = true
+
+    database = "${schema_name}_test"
+    table = "${table_name}_test"
+    primary_keys = ["${primary_key}"]
+  }
+}
+```
+
+#### Dsql example
+
+```hocon
+env {
+  parallelism = 1
+  job.mode = "BATCH"
+}
+
+source {
+  Jdbc {
+    driver = oracle.jdbc.driver.OracleDriver
+    url = "jdbc:oracle:thin:@localhost:1521/XE"
+    user = testUser
+    password = testPassword
+
+    table_list = [
+      {
+        table_path = "TESTSCHEMA.TABLE_1"
+      },
+      {
+        table_path = "TESTSCHEMA.TABLE_2"
+      }
+    ]
+  }
+}
+
+transform {
+}
+
+sink {
+    Jdbc {
+        dialect="Dsql"
+        driver = "org.postgresql.Driver"
+        url="jdbc:postgresql://ixxxxxxxxxxxxx.dsql.us-east-1.on.aws:5432/postgres"
+        username = "admin"
+        access_key_id = "ACCESSKEYIDEXAMPLE"
+        secret_access_key = "SECRETACCESSKEYEXAMPLE"
+        region = "us-east-1"
+        database = "postgres"
+        generate_sink_sql = true
+        primary_keys = ["id"]
+        max_retries = 3
+        batch_size = 1000
+
+    }
+}
+```
+
 ## Changelog
 
-### 2.2.0-beta 2022-09-26
-
-- Add Console Sink Connector
-
-### 2.3.0-beta 2022-10-20
-
-- [BugFix] Fix JDBC split exception ([2904](https://github.com/apache/seatunnel/pull/2904))
-- [Feature] Support Phoenix JDBC Sink ([2499](https://github.com/apache/seatunnel/pull/2499))
-- [Feature] Support SQL Server JDBC Sink ([2646](https://github.com/apache/seatunnel/pull/2646))
-- [Feature] Support Oracle JDBC Sink ([2550](https://github.com/apache/seatunnel/pull/2550))
-- [Feature] Support StarRocks JDBC Sink ([3060](https://github.com/apache/seatunnel/pull/3060))
-- [Feature] Support DB2 JDBC Sink ([2410](https://github.com/apache/seatunnel/pull/2410))
-
-### next version
-
-- [Feature] Support CDC write DELETE/UPDATE/INSERT events ([3378](https://github.com/apache/seatunnel/issues/3378))
-- [Feature] Support Teradata JDBC　Sink ([3362](https://github.com/apache/seatunnel/pull/3362))
-- [Feature] Support Sqlite JDBC Sink ([3089](https://github.com/apache/seatunnel/pull/3089))
-- [Feature] Support CDC write DELETE/UPDATE/INSERT events ([3378](https://github.com/apache/seatunnel/issues/3378))
-- [Feature] Support Doris JDBC Sink
-- [Feature] Support Redshift JDBC Sink([#3615](https://github.com/apache/seatunnel/pull/3615))
-- [Improve] Add config item enable upsert by query([#3708](https://github.com/apache/seatunnel/pull/3708))
-- [Improve] Add database field to sink config([#4199](https://github.com/apache/seatunnel/pull/4199))
-- [Improve] Add Vertica connector([#4303](https://github.com/apache/seatunnel/pull/4303))
+<ChangeLog />
 

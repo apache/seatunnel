@@ -20,6 +20,7 @@ package org.apache.seatunnel.connectors.seatunnel.file.source.reader;
 import org.apache.seatunnel.shade.com.typesafe.config.Config;
 
 import org.apache.seatunnel.api.source.Collector;
+import org.apache.seatunnel.api.table.catalog.CatalogTable;
 import org.apache.seatunnel.api.table.catalog.TablePath;
 import org.apache.seatunnel.api.table.type.SeaTunnelRow;
 import org.apache.seatunnel.api.table.type.SeaTunnelRowType;
@@ -28,6 +29,7 @@ import org.apache.seatunnel.common.exception.CommonErrorCode;
 import org.apache.seatunnel.common.exception.SeaTunnelRuntimeException;
 import org.apache.seatunnel.connectors.seatunnel.file.config.HadoopConf;
 import org.apache.seatunnel.connectors.seatunnel.file.exception.FileConnectorException;
+import org.apache.seatunnel.connectors.seatunnel.file.source.split.FileSourceSplit;
 
 import java.io.Closeable;
 import java.io.IOException;
@@ -44,6 +46,11 @@ public interface ReadStrategy extends Serializable, Closeable {
     void read(String path, String tableId, Collector<SeaTunnelRow> output)
             throws IOException, FileConnectorException;
 
+    default void read(FileSourceSplit split, Collector<SeaTunnelRow> output)
+            throws IOException, FileConnectorException {
+        read(split.getFilePath(), split.getTableId(), output);
+    }
+
     SeaTunnelRowType getSeaTunnelRowTypeInfo(String path) throws FileConnectorException;
 
     default SeaTunnelRowType getSeaTunnelRowTypeInfo(TablePath tablePath, String path)
@@ -56,8 +63,7 @@ public interface ReadStrategy extends Serializable, Closeable {
         return getSeaTunnelRowTypeInfo(path);
     }
 
-    // todo: use CatalogTable
-    void setSeaTunnelRowTypeInfo(SeaTunnelRowType seaTunnelRowType);
+    void setCatalogTable(CatalogTable catalogTable);
 
     List<String> getFileNamesByPath(String path) throws IOException;
 

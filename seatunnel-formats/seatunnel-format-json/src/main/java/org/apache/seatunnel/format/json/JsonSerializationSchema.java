@@ -18,6 +18,7 @@
 
 package org.apache.seatunnel.format.json;
 
+import org.apache.seatunnel.shade.com.fasterxml.jackson.core.JsonGenerator;
 import org.apache.seatunnel.shade.com.fasterxml.jackson.databind.ObjectMapper;
 import org.apache.seatunnel.shade.com.fasterxml.jackson.databind.node.ObjectNode;
 
@@ -31,7 +32,7 @@ import lombok.Getter;
 import java.nio.charset.Charset;
 import java.nio.charset.StandardCharsets;
 
-import static com.google.common.base.Preconditions.checkNotNull;
+import static org.apache.seatunnel.shade.com.google.common.base.Preconditions.checkNotNull;
 
 public class JsonSerializationSchema implements SerializationSchema {
 
@@ -57,6 +58,17 @@ public class JsonSerializationSchema implements SerializationSchema {
         this.rowType = rowType;
         this.runtimeConverter = new RowToJsonConverters().createConverter(checkNotNull(rowType));
         this.charset = charset;
+    }
+
+    public JsonSerializationSchema(SeaTunnelRowType rowType, String nullValue) {
+        this.rowType = rowType;
+        this.runtimeConverter =
+                new RowToJsonConverters().createConverter(checkNotNull(rowType), nullValue);
+        this.charset = StandardCharsets.UTF_8;
+    }
+
+    {
+        mapper.configure(JsonGenerator.Feature.WRITE_BIGDECIMAL_AS_PLAIN, true);
     }
 
     @Override

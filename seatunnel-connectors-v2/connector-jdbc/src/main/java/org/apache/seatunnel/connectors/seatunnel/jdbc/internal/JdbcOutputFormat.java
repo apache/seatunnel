@@ -33,7 +33,7 @@ import java.io.Serializable;
 import java.sql.SQLException;
 import java.util.function.Supplier;
 
-import static com.google.common.base.Preconditions.checkNotNull;
+import static org.apache.seatunnel.shade.com.google.common.base.Preconditions.checkNotNull;
 
 /** A JDBC outputFormat */
 public class JdbcOutputFormat<I, E extends JdbcBatchStatementExecutor<I>> implements Serializable {
@@ -194,7 +194,7 @@ public class JdbcOutputFormat<I, E extends JdbcBatchStatementExecutor<I>> implem
                 if (jdbcStatementExecutor != null) {
                     jdbcStatementExecutor.closeStatements();
                 }
-            } catch (SQLException e) {
+            } catch (SQLException | JdbcConnectorException e) {
                 LOG.warn("Close JDBC writer failed.", e);
             }
         }
@@ -205,7 +205,7 @@ public class JdbcOutputFormat<I, E extends JdbcBatchStatementExecutor<I>> implem
     public void updateExecutor(boolean reconnect) throws SQLException, ClassNotFoundException {
         try {
             jdbcStatementExecutor.closeStatements();
-        } catch (SQLException e) {
+        } catch (SQLException | JdbcConnectorException e) {
             if (!reconnect) {
                 throw e;
             }

@@ -18,7 +18,6 @@
 package org.apache.seatunnel.format.avro;
 
 import org.apache.seatunnel.api.table.type.ArrayType;
-import org.apache.seatunnel.api.table.type.BasicType;
 import org.apache.seatunnel.api.table.type.MapType;
 import org.apache.seatunnel.api.table.type.SeaTunnelDataType;
 import org.apache.seatunnel.api.table.type.SeaTunnelRow;
@@ -39,6 +38,7 @@ import java.nio.ByteBuffer;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.Objects;
 
 public class AvroToRowConverter implements Serializable {
 
@@ -83,6 +83,9 @@ public class AvroToRowConverter implements Serializable {
     }
 
     private Object convertField(SeaTunnelDataType<?> dataType, Object val) {
+        if (Objects.isNull(val)) {
+            return null;
+        }
         switch (dataType.getSqlType()) {
             case STRING:
                 return val.toString();
@@ -118,7 +121,7 @@ public class AvroToRowConverter implements Serializable {
                 }
                 return res;
             case ARRAY:
-                BasicType<?> basicType = ((ArrayType<?, ?>) dataType).getElementType();
+                SeaTunnelDataType<?> basicType = ((ArrayType<?, ?>) dataType).getElementType();
                 List<Object> list = (List<Object>) val;
                 return convertArray(list, basicType);
             case ROW:

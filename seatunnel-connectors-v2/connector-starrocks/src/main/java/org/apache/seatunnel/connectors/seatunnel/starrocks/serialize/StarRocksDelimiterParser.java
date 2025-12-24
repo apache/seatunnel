@@ -17,10 +17,10 @@
 
 package org.apache.seatunnel.connectors.seatunnel.starrocks.serialize;
 
+import org.apache.seatunnel.shade.com.google.common.base.Strings;
+
 import org.apache.seatunnel.common.exception.CommonErrorCodeDeprecated;
 import org.apache.seatunnel.connectors.seatunnel.starrocks.exception.StarRocksConnectorException;
-
-import com.google.common.base.Strings;
 
 import java.io.StringWriter;
 

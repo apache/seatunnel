@@ -17,6 +17,8 @@
 
 package org.apache.seatunnel.connectors.seatunnel.file.source.reader;
 
+import org.apache.seatunnel.shade.org.apache.commons.lang3.tuple.Pair;
+
 import org.apache.seatunnel.api.configuration.ReadonlyConfig;
 import org.apache.seatunnel.api.source.Collector;
 import org.apache.seatunnel.api.table.type.ArrayType;
@@ -30,11 +32,10 @@ import org.apache.seatunnel.api.table.type.SeaTunnelRow;
 import org.apache.seatunnel.api.table.type.SeaTunnelRowType;
 import org.apache.seatunnel.api.table.type.SqlType;
 import org.apache.seatunnel.common.exception.CommonErrorCodeDeprecated;
-import org.apache.seatunnel.connectors.seatunnel.file.config.BaseSourceConfigOptions;
+import org.apache.seatunnel.connectors.seatunnel.file.config.FileBaseSourceOptions;
 import org.apache.seatunnel.connectors.seatunnel.file.exception.FileConnectorErrorCode;
 import org.apache.seatunnel.connectors.seatunnel.file.exception.FileConnectorException;
 
-import org.apache.commons.lang3.tuple.Pair;
 import org.apache.hadoop.fs.FSDataInputStream;
 import org.apache.hadoop.fs.Path;
 import org.apache.hadoop.io.Text;
@@ -188,7 +189,7 @@ public class OrcReadStrategy extends AbstractReadStrategy {
         } catch (IOException e) {
             String errorMsg = String.format("Create orc reader for this file [%s] failed", path);
             throw new FileConnectorException(
-                    CommonErrorCodeDeprecated.READER_OPERATION_FAILED, errorMsg);
+                    CommonErrorCodeDeprecated.READER_OPERATION_FAILED, errorMsg, e);
         }
     }
 
@@ -439,7 +440,7 @@ public class OrcReadStrategy extends AbstractReadStrategy {
         if (pluginConfig != null) {
             charset =
                     ReadonlyConfig.fromConfig(pluginConfig)
-                            .getOptional(BaseSourceConfigOptions.ENCODING)
+                            .getOptional(FileBaseSourceOptions.ENCODING)
                             .map(Charset::forName)
                             .orElse(StandardCharsets.UTF_8);
         }
