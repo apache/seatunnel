@@ -33,6 +33,7 @@ semantics (using XA transaction guarantee).
 
 - [x] [exactly-once](../../concept/connector-v2-features.md)
 - [x] [cdc](../../concept/connector-v2-features.md)
+- [x] [support multiple table write](../../concept/connector-v2-features.md)
 
 > Use `Xa transactions` to ensure `exactly-once`. So only support `exactly-once` for the database which is
 > support `Xa transactions`. You can set `is_exactly_once=true` to enable it.
@@ -206,6 +207,93 @@ sink {
         schema_save_mode = "CREATE_SCHEMA_WHEN_NOT_EXIST"
         data_save_mode="APPEND_DATA"
     }
+}
+```
+
+### Multiple Table Sync
+
+#### Example 1: MySQL CDC Multiple Table Sync
+
+> Sync multiple tables from MySQL CDC to target MySQL database, using placeholders for dynamic table name mapping
+
+```
+env {
+  parallelism = 1
+  job.mode = "STREAMING"
+  checkpoint.interval = 5000
+}
+
+source {
+  Mysql-CDC {
+    url = "jdbc:mysql://127.0.0.1:3306/seatunnel"
+    username = "root"
+    password = "******"
+    
+    table-names = ["seatunnel.role","seatunnel.user","galileo.Bucket"]
+  }
+}
+
+transform {
+}
+
+sink {
+  Mysql {
+    url = "jdbc:mysql://localhost:3306?useUnicode=true&characterEncoding=UTF-8&rewriteBatchedStatements=true"
+    driver = "com.mysql.cj.jdbc.Driver"
+    username = "root"
+    password = "123456"
+    generate_sink_sql = true
+    
+    database = "${database_name}_test"
+    table = "${table_name}_test"
+    primary_keys = ["${primary_key}"]
+  }
+}
+```
+
+#### Example 2: JDBC Source Multiple Table Sync to MySQL
+
+> Batch sync multiple tables from MySQL using JDBC Source to another MySQL database
+
+```
+env {
+  parallelism = 1
+  job.mode = "BATCH"
+}
+
+source {
+  Jdbc {
+    driver = com.mysql.cj.jdbc.Driver
+    url = "jdbc:mysql://localhost:3306/source_db"
+    username = "root"
+    password = "123456"
+
+    table_list = [
+      {
+        table_path = "source_db.table_1"
+      },
+      {
+        table_path = "source_db.table_2"
+      }
+    ]
+  }
+}
+
+transform {
+}
+
+sink {
+  Mysql {
+    url = "jdbc:mysql://localhost:3306?useUnicode=true&characterEncoding=UTF-8&rewriteBatchedStatements=true"
+    driver = "com.mysql.cj.jdbc.Driver"
+    username = "root"
+    password = "123456"
+    generate_sink_sql = true
+
+    database = "${database_name}_target"
+    table = "${table_name}_copy"
+    primary_keys = ["${primary_key}"]
+  }
 }
 ```
 
