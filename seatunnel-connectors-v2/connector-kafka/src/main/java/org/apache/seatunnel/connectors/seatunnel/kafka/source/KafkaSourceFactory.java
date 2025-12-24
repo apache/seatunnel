@@ -59,7 +59,8 @@ public class KafkaSourceFactory implements TableSourceFactory {
                         KafkaSourceOptions.DEBEZIUM_RECORD_TABLE_FILTER,
                         KafkaSourceOptions.KEY_PARTITION_DISCOVERY_INTERVAL_MILLIS,
                         KafkaSourceOptions.READER_CACHE_QUEUE_SIZE,
-                        KafkaSourceOptions.IGNORE_NO_LEADER_PARTITION)
+                        KafkaSourceOptions.IGNORE_NO_LEADER_PARTITION,
+                        KafkaSourceOptions.STRIP_SCHEMA_REGISTRY_HEADER)
                 .conditional(
                         KafkaSourceOptions.START_MODE,
                         StartMode.TIMESTAMP,
