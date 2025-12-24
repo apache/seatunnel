@@ -80,6 +80,8 @@ import ChangeLog from '../changelog/connector-file-local.md';
 | tables_configs             | list    | 否    | 用于定义多表任务            |
 | file_filter_modified_start | string  | 否    | -                   | 
 | file_filter_modified_end   | string  | 否    | -                   |
+| enable_file_split          | boolean | 否    | false               | 
+| file_split_size            | long    | 否    | 134217728           | 
 
 ### path [string]
 
@@ -414,6 +416,14 @@ null_format 定义哪些字符串可以表示为 null。
 ### file_filter_modified_end
 
 按照最后修改时间过滤文件。 要过滤的结束时间(不包括改时间),时间格式是：`yyyy-MM-dd HH:mm:ss`。
+
+### enable_file_split [boolean]
+
+开启文件分割功能，默认为false。文件类型为csv、text、json、非压缩格式时可选择。
+
+### file_split_size [long]
+
+文件分割大小，enable_file_split参数为true时可以填写。单位是字节数。默认值为128MB的字节数，即134217728。
 
 ### 通用选项
 

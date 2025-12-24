@@ -29,7 +29,7 @@ public class LsnOffset extends Offset {
 
     private static final long serialVersionUID = 1L;
 
-    public static final LsnOffset INITIAL_OFFSET = valueOf(Lsn.valueOf(new byte[] {0}).toString());
+    public static final LsnOffset INITIAL_OFFSET = new LsnOffset(null, null, null);
     public static final LsnOffset NO_STOPPING_OFFSET =
             valueOf(Lsn.valueOf(new byte[] {Byte.MAX_VALUE}).toString());
 

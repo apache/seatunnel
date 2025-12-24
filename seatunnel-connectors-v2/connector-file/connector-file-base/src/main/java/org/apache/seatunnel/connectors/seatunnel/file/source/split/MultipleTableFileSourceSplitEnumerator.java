@@ -47,10 +47,12 @@ public class MultipleTableFileSourceSplitEnumerator
     private final Map<String, List<String>> filePathMap;
     private final AtomicInteger assignCount = new AtomicInteger(0);
     private final Object lock = new Object();
+    private final FileSplitStrategy fileSplitStrategy;
 
     public MultipleTableFileSourceSplitEnumerator(
             Context<FileSourceSplit> context,
-            BaseMultipleTableFileSourceConfig multipleTableFileSourceConfig) {
+            BaseMultipleTableFileSourceConfig multipleTableFileSourceConfig,
+            FileSplitStrategy fileSplitStrategy) {
         this.context = context;
         this.filePathMap =
                 multipleTableFileSourceConfig.getFileSourceConfigs().stream()
@@ -65,13 +67,14 @@ public class MultipleTableFileSourceSplitEnumerator
                                         BaseFileSourceConfig::getFilePaths));
         this.assignedSplit = new HashSet<>();
         this.allSplit = new TreeSet<>(Comparator.comparing(FileSourceSplit::splitId));
+        this.fileSplitStrategy = fileSplitStrategy;
     }
 
     public MultipleTableFileSourceSplitEnumerator(
             Context<FileSourceSplit> context,
             BaseMultipleTableFileSourceConfig multipleTableFileSourceConfig,
             FileSourceState fileSourceState) {
-        this(context, multipleTableFileSourceConfig);
+        this(context, multipleTableFileSourceConfig, new DefaultFileSplitStrategy());
         this.assignedSplit.addAll(fileSourceState.getAssignedSplit());
     }
 
@@ -81,7 +84,7 @@ public class MultipleTableFileSourceSplitEnumerator
             String tableId = filePathEntry.getKey();
             List<String> filePaths = filePathEntry.getValue();
             for (String filePath : filePaths) {
-                allSplit.add(new FileSourceSplit(tableId, filePath));
+                allSplit.addAll(fileSplitStrategy.split(tableId, filePath));
             }
         }
     }
