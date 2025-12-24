@@ -66,5 +66,5 @@ public class MaxcomputeSinkOptions extends MaxcomputeBaseOptions {
             Options.key("insert_strategy")
                     .stringType()
                     .defaultValue("upload")
-                    .withDescription("Whether to use insert strategy to write data");
+                    .withDescription("Insert strategy used for writing data (upload or upsert).");
 }
