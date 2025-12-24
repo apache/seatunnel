@@ -375,7 +375,7 @@ public class PhysicalPlan {
                                     jobImmutableInformation.getJobConfig().getName(),
                                     jobStatus));
         } catch (Exception e) {
-            log.warn("Report job {} state event failed", jobId, e);
+            log.warn("Failed to report job {} state event", jobId, e);
         }
     }
 
