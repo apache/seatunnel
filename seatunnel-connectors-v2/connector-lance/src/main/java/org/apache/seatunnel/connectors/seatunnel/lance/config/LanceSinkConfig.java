@@ -41,7 +41,7 @@ public class LanceSinkConfig extends LanceCommonConfig {
 
     public LanceSinkConfig(ReadonlyConfig pluginConfig) {
         super(pluginConfig);
-        this.namespaceId = pluginConfig.get(LanceSinkOptions.KEY_NAMESPACE_ID);
+        this.namespaceId = pluginConfig.get(LanceCommonOptions.KEY_NAMESPACE_ID);
         this.maxBytesPerFile = pluginConfig.get(LanceSinkOptions.WRITE_MAX_BYTES_PER_FILE);
         this.maxRowsPerGroup = pluginConfig.get(LanceSinkOptions.WRITE_MAX_ROWS_PER_GROUP);
         this.maxRowsPerFile = pluginConfig.get(LanceSinkOptions.WRITE_MAX_ROWS_PER_FILE);

@@ -22,7 +22,11 @@ public enum LanceConnectorErrorCode implements SeaTunnelErrorCode {
     TABLE_EXISTS_EXCEPTION("LANCE-01", "Table Exists response exception"),
 
     TABLE_JSON_ARROW_SCHEMA_CONVERT_EXCEPTION(
-            "LANCE-02", "Table JsonArrowSchema convert exception");
+            "LANCE-02", "Table JsonArrowSchema convert exception"),
+
+    TABLE_DATASET_PATH_OPEN_EXCEPTION("LANCE-03", "DataSet path open exception"),
+
+    TABLE_DATASET_WRITE_ST_ROW_EXCEPTION("LANCE-04", "Dataset write seatunnelRow exception");
 
     private final String code;
     private final String description;

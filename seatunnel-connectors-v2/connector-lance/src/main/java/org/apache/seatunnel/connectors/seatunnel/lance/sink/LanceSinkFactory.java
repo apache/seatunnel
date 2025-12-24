@@ -55,10 +55,9 @@ public class LanceSinkFactory implements TableSinkFactory {
     public OptionRule optionRule() {
         return OptionRule.builder()
                 .required(
-                        LanceCommonOptions.KEY_DATASET_PATH,
-                        LanceCommonOptions.KEY_NAMESPACE_TYPE,
-                        LanceCommonOptions.KEY_NAMESPACE_ID)
+                        LanceCommonOptions.KEY_DATASET_PATH, LanceCommonOptions.KEY_NAMESPACE_TYPE)
                 .optional(
+                        LanceCommonOptions.KEY_NAMESPACE_ID,
                         LanceSinkOptions.WRITE_MAX_ROWS_PER_FILE,
                         LanceSinkOptions.WRITE_MAX_ROWS_PER_GROUP,
                         LanceSinkOptions.WRITE_MAX_BYTES_PER_FILE,

@@ -25,6 +25,11 @@
     <artifactId>connector-lance-e2e</artifactId>
     <name>SeaTunnel : E2E : Connector V2 : Lance</name>
 
+    <properties>
+        <!-- Only add add-opens for Java 9+, default for Java 8 -->
+        <surefire.jvm.args>-Dfile.encoding=UTF-8</surefire.jvm.args>
+    </properties>
+
     <dependencyManagement>
         <dependencies>
             <dependency>
@@ -78,5 +83,62 @@
             <scope>test</scope>
         </dependency>
     </dependencies>
+
+    <build>
+        <plugins>
+            <plugin>
+                <groupId>org.apache.maven.plugins</groupId>
+                <artifactId>maven-surefire-plugin</artifactId>
+                <version>${maven-surefire-plugin.version}</version>
+                <configuration>
+                    <argLine>${surefire.jvm.args}</argLine>
+                </configuration>
+            </plugin>
+        </plugins>
+        <extensions>
+            <extension>
+                <groupId>kr.motd.maven</groupId>
+                <artifactId>os-maven-plugin</artifactId>
+                <version>1.7.0</version>
+            </extension>
+        </extensions>
+    </build>
+
+    <profiles>
+        <profile>
+            <id>java9+</id>
+            <activation>
+                <jdk>[9,)</jdk>
+            </activation>
+            <properties>
+                <surefire.jvm.args>-Dfile.encoding=UTF-8 --add-opens=java.base/java.nio=ALL-UNNAMED</surefire.jvm.args>
+            </properties>
+        </profile>
+        <profile>
+            <id>darwin-aarch64</id>
+            <activation>
+                <os>
+                    <family>mac</family>
+                    <arch>aarch64</arch>
+                </os>
+            </activation>
+            <properties>
+                <surefire.jvm.args>-Dfile.encoding=UTF-8 -Dos.arch=aarch64 -Dos.name=Mac OS X</surefire.jvm.args>
+            </properties>
+        </profile>
+        <profile>
+            <id>darwin-aarch64-java9+</id>
+            <activation>
+                <jdk>[9,)</jdk>
+                <os>
+                    <family>mac</family>
+                    <arch>aarch64</arch>
+                </os>
+            </activation>
+            <properties>
+                <surefire.jvm.args>-Dfile.encoding=UTF-8 --add-opens=java.base/java.nio=ALL-UNNAMED -Dos.arch=aarch64 -Dos.name=Mac OS X</surefire.jvm.args>
+            </properties>
+        </profile>
+    </profiles>
 
 </project>

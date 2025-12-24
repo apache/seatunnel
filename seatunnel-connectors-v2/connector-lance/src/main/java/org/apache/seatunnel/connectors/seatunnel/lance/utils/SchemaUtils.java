@@ -21,6 +21,7 @@ import org.apache.seatunnel.shade.com.google.common.collect.Lists;
 
 import org.apache.seatunnel.api.table.catalog.Column;
 import org.apache.seatunnel.api.table.catalog.TableSchema;
+import org.apache.seatunnel.api.table.type.DecimalType;
 import org.apache.seatunnel.api.table.type.SeaTunnelDataType;
 import org.apache.seatunnel.api.table.type.SeaTunnelRow;
 import org.apache.seatunnel.api.table.type.SeaTunnelRowType;
@@ -89,7 +90,18 @@ public class SchemaUtils {
                         fieldList.add(field);
                         break;
                     case DECIMAL:
-                        field = Field.nullable(fieldName, new ArrowType.Decimal(8, 16, 32));
+                        int precision = 38;
+                        int scale = 10;
+                        if (fieldTypes[i] instanceof DecimalType) {
+                            DecimalType decimalType = (DecimalType) fieldTypes[i];
+                            precision = decimalType.getPrecision();
+                            scale = decimalType.getScale();
+                        }
+                        // Arrow Decimal128 supports up to 38 digits precision
+                        // Use Decimal128 (bitWidth=128) for better compatibility
+                        field =
+                                Field.nullable(
+                                        fieldName, new ArrowType.Decimal(precision, scale, 128));
                         fieldList.add(field);
                         break;
                     case BYTES:

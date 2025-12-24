@@ -140,6 +140,31 @@
                 <surefire.jvm.args>-Dfile.encoding=UTF-8 --add-opens=java.base/java.nio=ALL-UNNAMED</surefire.jvm.args>
             </properties>
         </profile>
+        <profile>
+            <id>darwin-aarch64</id>
+            <activation>
+                <os>
+                    <family>mac</family>
+                    <arch>aarch64</arch>
+                </os>
+            </activation>
+            <properties>
+                <surefire.jvm.args>-Dfile.encoding=UTF-8 -Dos.arch=aarch64 -Dos.name=Mac OS X</surefire.jvm.args>
+            </properties>
+        </profile>
+        <profile>
+            <id>darwin-aarch64-java9+</id>
+            <activation>
+                <jdk>[9,)</jdk>
+                <os>
+                    <family>mac</family>
+                    <arch>aarch64</arch>
+                </os>
+            </activation>
+            <properties>
+                <surefire.jvm.args>-Dfile.encoding=UTF-8 --add-opens=java.base/java.nio=ALL-UNNAMED -Dos.arch=aarch64 -Dos.name=Mac OS X</surefire.jvm.args>
+            </properties>
+        </profile>
     </profiles>
 
 </project>
