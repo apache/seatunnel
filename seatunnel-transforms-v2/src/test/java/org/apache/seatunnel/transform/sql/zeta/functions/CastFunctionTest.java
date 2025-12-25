@@ -133,6 +133,33 @@ public class CastFunctionTest {
     }
 
     @Test
+    public void testCastWithNestedFunctions() {
+        SQLEngine sqlEngine = SQLEngineFactory.getSQLEngine(SQLEngineFactory.EngineType.ZETA);
+
+        SeaTunnelRowType rowType =
+                new SeaTunnelRowType(
+                        new String[] {"text", "int_field"},
+                        new SeaTunnelDataType[] {BasicType.STRING_TYPE, BasicType.INT_TYPE});
+
+        SeaTunnelRow inputRow = new SeaTunnelRow(new Object[] {"12345", 456});
+
+        String sql =
+                "select CAST(LEFT(text, 2) AS INT) as cast_left,"
+                        + " CONCAT_WS('-', LEFT(text, 3), CAST(int_field AS STRING)) as concat_ws_cast,"
+                        + " CAST(CONCAT_WS('', LEFT(text, 1), RIGHT(text, 1)) AS INT) as cast_concat_ws"
+                        + " from test";
+
+        sqlEngine.init("test", null, rowType, sql);
+
+        SeaTunnelRowType outRowType = sqlEngine.typeMapping(null);
+        SeaTunnelRow outRow = sqlEngine.transformBySQL(inputRow, outRowType).get(0);
+
+        Assertions.assertEquals(12, outRow.getField(0));
+        Assertions.assertEquals("123-456", outRow.getField(1));
+        Assertions.assertEquals(15, outRow.getField(2));
+    }
+
+    @Test
     public void testNestedRowFieldAccess() {
         SQLEngine sqlEngine = SQLEngineFactory.getSQLEngine(SQLEngineFactory.EngineType.ZETA);
 
