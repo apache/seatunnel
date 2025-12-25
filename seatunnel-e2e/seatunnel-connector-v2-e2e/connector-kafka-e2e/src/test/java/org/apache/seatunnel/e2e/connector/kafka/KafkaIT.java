@@ -40,7 +40,9 @@ import org.apache.seatunnel.api.table.type.SeaTunnelRowType;
 import org.apache.seatunnel.common.utils.JsonUtils;
 import org.apache.seatunnel.connectors.seatunnel.kafka.config.KafkaBaseConstants;
 import org.apache.seatunnel.connectors.seatunnel.kafka.config.KafkaBaseOptions;
+import org.apache.seatunnel.connectors.seatunnel.kafka.config.KafkaSourceOptions;
 import org.apache.seatunnel.connectors.seatunnel.kafka.config.MessageFormat;
+import org.apache.seatunnel.connectors.seatunnel.kafka.config.StartMode;
 import org.apache.seatunnel.connectors.seatunnel.kafka.serialize.DefaultSeaTunnelRowSerializer;
 import org.apache.seatunnel.connectors.seatunnel.kafka.sink.KafkaSinkFactory;
 import org.apache.seatunnel.connectors.seatunnel.kafka.source.KafkaSourceFactory;
@@ -2174,6 +2176,10 @@ public class KafkaIT extends TestSuiteBase implements TestResource {
                 "protobuf_message_name",
                 readonlyConfig.get(KafkaBaseOptions.PROTOBUF_MESSAGE_NAME));
         sourceOptions.put("protobuf_schema", readonlyConfig.get(KafkaBaseOptions.PROTOBUF_SCHEMA));
+        sourceOptions.put(KafkaSourceOptions.START_MODE.key(), StartMode.EARLIEST);
+        sourceOptions.put(
+                KafkaSourceOptions.CONSUMER_GROUP.key(),
+                "test_protobuf_case_sensitive_toassert_" + topicName);
 
         List<SeaTunnelRow> readRows =
                 SourceFlowTestUtils.runBatchWithCheckpointDisabled(
