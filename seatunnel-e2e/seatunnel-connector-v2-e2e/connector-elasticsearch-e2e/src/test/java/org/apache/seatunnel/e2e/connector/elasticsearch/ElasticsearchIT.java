@@ -1140,7 +1140,6 @@ public class ElasticsearchIT extends TestSuiteBase implements TestResource {
     private List<String> generateRuntimeTestData() throws IOException {
         List<String> testData = new ArrayList<>();
 
-        // Use a fixed date: 2024-01-15 (Monday) for predictable day_of_week
         Map<String, Object> doc = new HashMap<>();
         doc.put("c_string", "test_1");
         doc.put("c_int", 10);
