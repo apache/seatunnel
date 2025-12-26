@@ -67,6 +67,16 @@ class JdbcSourceChunkSplitterTest {
         Column splitColumn =
                 testJdbcSourceChunkSplitter.getSplitColumn(
                         null, new TestSourceDialectWithUniqueKey(), new TableId("", "", ""));
+        Assertions.assertEquals("bigint", splitColumn.typeName());
+    }
+
+    @Test
+    void splitColumnTestWithUniqueKey_2() throws SQLException {
+        TestJdbcSourceChunkSplitter testJdbcSourceChunkSplitter =
+                new TestJdbcSourceChunkSplitter(null, new TestSourceDialectWithUniqueKey_2());
+        Column splitColumn =
+                testJdbcSourceChunkSplitter.getSplitColumn(
+                        null, new TestSourceDialectWithUniqueKey_2(), new TableId("", "", ""));
         Assertions.assertEquals("int", splitColumn.typeName());
     }
 
@@ -258,89 +268,34 @@ class JdbcSourceChunkSplitterTest {
         }
     }
 
-    private class TestSourceDialectWithUniqueKey implements JdbcDataSourceDialect {
+    private class TestSourceDialectWithUniqueKey extends TestSourceDialect {
 
         @Override
-        public String getName() {
-            return null;
+        public Optional<PrimaryKey> getPrimaryKey(JdbcConnection jdbcConnection, TableId tableId)
+                throws SQLException {
+            return Optional.of(PrimaryKey.of("pkName", Arrays.asList("bigint_col")));
         }
 
         @Override
-        public boolean isDataCollectionIdCaseSensitive(JdbcSourceConfig sourceConfig) {
-            return false;
-        }
+        public List<ConstraintKey> getUniqueKeys(JdbcConnection jdbcConnection, TableId tableId)
+                throws SQLException {
+            List<ConstraintKey> keys = new ArrayList<>();
 
-        @Override
-        public ChunkSplitter createChunkSplitter(JdbcSourceConfig sourceConfig) {
-            return null;
-        }
+            keys.add(
+                    ConstraintKey.of(
+                            ConstraintKey.ConstraintType.UNIQUE_KEY,
+                            "uk_1",
+                            Arrays.asList(
+                                    ConstraintKey.ConstraintKeyColumn.of(
+                                            "string_col", ConstraintKey.ColumnSortType.ASC),
+                                    ConstraintKey.ConstraintKeyColumn.of(
+                                            "int", ConstraintKey.ColumnSortType.ASC))));
 
-        @Override
-        public List<TableId> discoverDataCollections(JdbcSourceConfig sourceConfig) {
-            return null;
+            return keys;
         }
+    }
 
-        @Override
-        public JdbcConnection openJdbcConnection(JdbcSourceConfig sourceConfig) {
-            return null;
-        }
-
-        @Override
-        public JdbcConnectionPoolFactory getPooledDataSourceFactory() {
-            return null;
-        }
-
-        @Override
-        public TableChanges.TableChange queryTableSchema(JdbcConnection jdbc, TableId tableId) {
-
-            Table table =
-                    Table.editor()
-                            .tableId(tableId)
-                            .addColumns(
-                                    Column.editor()
-                                            .name("string_col")
-                                            .jdbcType(Types.VARCHAR)
-                                            .type("varchar")
-                                            .create(),
-                                    Column.editor()
-                                            .name("smallint")
-                                            .jdbcType(Types.SMALLINT)
-                                            .type("smallint")
-                                            .create(),
-                                    Column.editor()
-                                            .name("int")
-                                            .jdbcType(Types.INTEGER)
-                                            .type("int")
-                                            .create(),
-                                    Column.editor()
-                                            .name("decimal")
-                                            .jdbcType(Types.DECIMAL)
-                                            .type("decimal")
-                                            .create(),
-                                    Column.editor()
-                                            .name("tinyint_col")
-                                            .jdbcType(Types.TINYINT)
-                                            .type("tinyint")
-                                            .create(),
-                                    Column.editor()
-                                            .name("bigint_col")
-                                            .jdbcType(Types.BIGINT)
-                                            .type("bigint")
-                                            .create())
-                            .create();
-            return new TableChanges.TableChange(TableChanges.TableChangeType.CREATE, table);
-        }
-
-        @Override
-        public FetchTask<SourceSplitBase> createFetchTask(SourceSplitBase sourceSplitBase) {
-            return null;
-        }
-
-        @Override
-        public JdbcSourceFetchTaskContext createFetchTaskContext(
-                SourceSplitBase sourceSplitBase, JdbcSourceConfig taskSourceConfig) {
-            return null;
-        }
+    private class TestSourceDialectWithUniqueKey_2 extends TestSourceDialect {
 
         @Override
         public Optional<PrimaryKey> getPrimaryKey(JdbcConnection jdbcConnection, TableId tableId)
