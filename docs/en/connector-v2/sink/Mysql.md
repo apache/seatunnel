@@ -173,14 +173,11 @@ sink {
     jdbc {
         url = "jdbc:mysql://localhost:3306/test?useUnicode=true&characterEncoding=UTF-8&rewriteBatchedStatements=true"
         driver = "com.mysql.cj.jdbc.Driver"
-    
         max_retries = 0
         username = "root"
         password = "123456"
         query = "insert into test_table(name,age) values(?,?)"
-    
         is_exactly_once = "true"
-    
         xa_data_source_class_name = "com.mysql.cj.jdbc.MysqlXADataSource"
     }
 }
@@ -197,7 +194,6 @@ sink {
         driver = "com.mysql.cj.jdbc.Driver"
         username = "root"
         password = "123456"
-        
         generate_sink_sql = true
         # You need to configure both database and table
         database = test
@@ -228,7 +224,6 @@ source {
     url = "jdbc:mysql://127.0.0.1:3306/seatunnel"
     username = "root"
     password = "******"
-    
     table-names = ["seatunnel.role","seatunnel.user","galileo.Bucket"]
   }
 }
@@ -243,7 +238,6 @@ sink {
     username = "root"
     password = "123456"
     generate_sink_sql = true
-    
     database = "${database_name}_test"
     table = "${table_name}_test"
     primary_keys = ["${primary_key}"]
@@ -267,7 +261,6 @@ source {
     url = "jdbc:mysql://localhost:3306/source_db"
     username = "root"
     password = "123456"
-
     table_list = [
       {
         table_path = "source_db.table_1"
@@ -289,7 +282,6 @@ sink {
     username = "root"
     password = "123456"
     generate_sink_sql = true
-
     database = "${database_name}_target"
     table = "${table_name}_copy"
     primary_keys = ["${primary_key}"]
