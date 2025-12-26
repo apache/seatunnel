@@ -117,17 +117,12 @@ public class CsvReadStrategy extends AbstractReadStrategy {
         if (enableSplitFile && split.getLength() > -1) {
             actualInputStream = safeSlice(inputStream, split.getStart(), split.getLength());
         }
-        Builder builder =
-                CSVFormat.EXCEL.builder().setIgnoreEmptyLines(true).setDelimiter(getDelimiter());
-        CSVFormat csvFormat = builder.build();
+        CSVFormat csvFormat = getCSVFormat();
         // if enableSplitFile is true,no need to skip
         if (!enableSplitFile) {
             if (firstLineAsHeader) {
                 csvFormat = csvFormat.withFirstRecordAsHeader();
             }
-        CSVFormat csvFormat = getCSVFormat();
-        if (firstLineAsHeader) {
-            csvFormat = csvFormat.withFirstRecordAsHeader();
         }
         try (BufferedReader reader =
                         new BufferedReader(new InputStreamReader(actualInputStream, encoding));
@@ -236,7 +231,6 @@ public class CsvReadStrategy extends AbstractReadStrategy {
                     "When reading csv files, if user has not specified schema information, "
                             + "SeaTunnel will not support column projection");
         }
-        ReadonlyConfig readonlyConfig = ReadonlyConfig.fromConfig(pluginConfig);
         CsvDeserializationSchema.Builder builder =
                 CsvDeserializationSchema.builder()
                         .delimiter(getDelimiter())
