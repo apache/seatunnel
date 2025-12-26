@@ -41,7 +41,7 @@ support version >= 2.x and <= 8.x.
 | scroll_time             | string  | no       | 1m                                                             |
 | scroll_size             | int     | no       | 100                                                            |
 | tls_verify_certificate  | boolean | no       | true                                                           |
-| tls_verify_hostnames    | boolean | no       | true                                                           |
+| tls_verify_hostname    | boolean | no       | true                                                           |
 | array_column            | map     | no       |                                                                |
 | tls_keystore_path       | string  | no       | -                                                              |
 | tls_keystore_password   | string  | no       | -                                                              |

@@ -46,24 +46,24 @@ import ChangeLog from '../changelog/connector-easysearch.md';
 ## 接收器选项
 
 |          名称           |  类型  | 必需 | 默认值 |
-|-------------------------|---------|----|---------------|
-| hosts                   | array   | 是  | -             |
-| index                   | string  | 是  | -             |
-| primary_keys            | list    | 否  |               |
-| key_delimiter           | string  | 否 | `_`           |
-| username                | string  | 否 |               |
-| password                | string  | 否 |               |
-| max_retry_count         | int     | 否 | 3             |
-| max_batch_size          | int     | 否 | 10            |
-| tls_verify_certificate  | boolean | 否 | true          |
-| tls_verify_hostnames    | boolean | 否 | true          |
-| tls_keystore_path       | string  | 否 | -             |
-| tls_keystore_password   | string  | 否 | -             |
-| tls_truststore_path     | string  | 否 | -             |
+|------------------------|---------|----|---------------|
+| hosts                  | array   | 是  | -             |
+| index                  | string  | 是  | -             |
+| primary_keys           | list    | 否  |               |
+| key_delimiter          | string  | 否 | `_`           |
+| username               | string  | 否 |               |
+| password               | string  | 否 |               |
+| max_retry_count        | int     | 否 | 3             |
+| max_batch_size         | int     | 否 | 10            |
+| tls_verify_certificate | boolean | 否 | true          |
+| tls_verify_hostname    | boolean | 否 | true          |
+| tls_keystore_path      | string  | 否 | -             |
+| tls_keystore_password  | string  | 否 | -             |
+| tls_truststore_path    | string  | 否 | -             |
 | tls_truststore_password | string  | 否 | -             |
-| schema_save_mode        | enum    | 否 | CREATE_SCHEMA_WHEN_NOT_EXIST |
-| data_save_mode          | enum    | 否 | APPEND_DATA   |
-| common-options          |         | 否 | -             |
+| schema_save_mode       | enum    | 否 | CREATE_SCHEMA_WHEN_NOT_EXIST |
+| data_save_mode         | enum    | 否 | APPEND_DATA   |
+| common-options         |         | 否 | -             |
 
 ### hosts [array]
 
