@@ -2181,6 +2181,28 @@ public class KafkaIT extends TestSuiteBase implements TestResource {
                 KafkaSourceOptions.CONSUMER_GROUP.key(),
                 "test_protobuf_case_sensitive_toassert_" + topicName);
 
+        // Add schema configuration to match the Protobuf schema
+        Map<String, Object> schemaConfig = new HashMap<>();
+        Map<String, String> nestedObjectFields = new HashMap<>();
+        nestedObjectFields.put("NestedField", "string");
+        nestedObjectFields.put("AnotherField", "int");
+
+        List<Map<String, Object>> fields = new ArrayList<>();
+        fields.add(createFieldConfig("MyIntField", "int"));
+        fields.add(createFieldConfig("CamelCaseString", "string"));
+        fields.add(createFieldConfig("snake_case_field", "string"));
+
+        Map<String, Object> nestedObjectConfig = new HashMap<>();
+        nestedObjectConfig.put("name", "nestedObject");
+        nestedObjectConfig.put("type", "row");
+        nestedObjectConfig.put("fields", nestedObjectFields);
+        fields.add(nestedObjectConfig);
+
+        fields.add(createFieldConfig("MyMapField", "map<string,int>"));
+
+        schemaConfig.put("fields", fields);
+        sourceOptions.put("schema", schemaConfig);
+
         List<SeaTunnelRow> readRows =
                 SourceFlowTestUtils.runBatchWithCheckpointDisabled(
                         ReadonlyConfig.fromMap(sourceOptions), new KafkaSourceFactory());
@@ -2195,6 +2217,13 @@ public class KafkaIT extends TestSuiteBase implements TestResource {
                             () -> Assertions.assertNotNull(row.getField(1)), // CamelCaseString
                             () -> Assertions.assertNotNull(row.getField(2))); // snake_case_field
                 });
+    }
+
+    private Map<String, Object> createFieldConfig(String name, String type) {
+        Map<String, Object> fieldConfig = new HashMap<>();
+        fieldConfig.put("name", name);
+        fieldConfig.put("type", type);
+        return fieldConfig;
     }
 
     private SeaTunnelRowType buildCaseSensitiveSeaTunnelRowType() {
