@@ -17,15 +17,17 @@
 
 package org.apache.seatunnel.connectors.seatunnel.hive.config;
 
-import org.apache.seatunnel.api.configuration.Option;
-import org.apache.seatunnel.connectors.seatunnel.file.config.FileBaseSourceOptions;
+import org.junit.jupiter.api.Test;
 
-/** Compatibility layer for Hive options and inherited file source options. */
-public class HiveOptions extends FileBaseSourceOptions {
+import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertSame;
 
-    public static final Option<String> TABLE_NAME = HiveConfig.TABLE_NAME;
+public class HiveOptionsAliasTest {
 
-    public static final Option<String> METASTORE_URI = HiveConfig.METASTORE_URI;
-
-    public static final Option<String> HIVE_SITE_PATH = HiveConfig.HIVE_SITE_PATH;
+    @Test
+    void testTableNameOptionIsAliasedToHiveConfig() {
+        assertSame(HiveConfig.TABLE_NAME, HiveOptions.TABLE_NAME);
+        assertEquals("table_name", HiveOptions.TABLE_NAME.key());
+    }
 }
+

@@ -23,6 +23,7 @@ import org.apache.seatunnel.api.configuration.Options;
 import java.util.HashMap;
 import java.util.Map;
 
+/** Hive connector options (single source of truth). */
 public class HiveConfig {
     public static final Option<String> TABLE_NAME =
             Options.key("table_name")
