@@ -176,6 +176,9 @@ public final class FactoryUtil {
                     TableSourceFactory factory, ReadonlyConfig options, ClassLoader classLoader) {
         TableSourceFactoryContext context = new TableSourceFactoryContext(options, classLoader);
         ConfigValidator.of(context.getOptions()).validate(factory.optionRule());
+        if (factory.enhancedConfigurationValidator().isPresent()) {
+            factory.enhancedConfigurationValidator().get().validate(context.getOptions());
+        }
         TableSource<T, SplitT, StateT> tableSource = factory.createSource(context);
         return tableSource.createSource();
     }
