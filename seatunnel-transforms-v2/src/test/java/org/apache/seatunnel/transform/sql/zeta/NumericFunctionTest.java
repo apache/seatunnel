@@ -30,6 +30,7 @@ import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.Test;
 
 import java.math.BigDecimal;
+import java.util.Arrays;
 import java.util.Collections;
 
 public class NumericFunctionTest {
@@ -77,5 +78,19 @@ public class NumericFunctionTest {
                 NumericFunction.trimScale(Collections.singletonList(new BigDecimal("0.1000"))));
         Assertions.assertEquals("0", NumericFunction.trimScale(Collections.singletonList(0)));
         Assertions.assertNull(NumericFunction.trimScale(Collections.singletonList((Object) null)));
+    }
+
+    @Test
+    public void testRoundShortNegativeScale() {
+        short shortValue = 123;
+
+        Number result = NumericFunction.round(Arrays.asList(shortValue, -1));
+
+        Assertions.assertEquals(120, result.intValue());
+    }
+
+    @Test
+    public void testSignNullReturnsNull() {
+        Assertions.assertNull(NumericFunction.sign(Collections.singletonList(null)));
     }
 }

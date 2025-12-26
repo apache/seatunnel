@@ -107,9 +107,6 @@ public class SystemFunction {
         if (v1 == null) {
             return null;
         }
-        if (v1.equals(v2)) {
-            return null;
-        }
         switch (v2) {
             case "VARCHAR":
             case "STRING":

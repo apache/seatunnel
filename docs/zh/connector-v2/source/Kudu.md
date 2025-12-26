@@ -57,9 +57,10 @@ import ChangeLog from '../changelog/connector-kudu.md';
 | kerberos_krb5conf | String | 否 | - | Kerberos krb5 conf。注意所有 zeta 节点都需要有此文件。 |
 | scan_token_query_timeout | Long | 否 | 30000 | 连接扫描令牌的超时时间。如果未设置，将与 operationTimeout 相同。 |
 | scan_token_batch_size_bytes | Int | 否 | 1024 * 1024 | Kudu 扫描字节数。一次读取的最大字节数，默认为 1MB。 |
+| use_regex | Bool | 否 | false | 控制 `table_name` 的正则匹配。当设置为 `true` 时，`table_name` 将被视为正则表达式模式，可以匹配多张表。当设置为 `false` 或未指定时，`table_name` 将被视为精确表名（不进行正则匹配）。 |
 | filter | String | 否 | - | Kudu 扫描过滤表达式，例如 id > 100 AND id < 200。 |
 | schema | Map | 否 | 1024 * 1024 | SeaTunnel Schema。 |
-| table_list | Array | 否 | - | 要读取的表列表。您可以使用此配置代替 `table_path`，例如：```table_list = [{ table_name = "kudu_source_table_1"},{ table_name = "kudu_source_table_2"}] ``` |
+| table_list | Array | 否 | - | 要读取的表列表。您可以使用此配置代替 `table_name`，例如：```table_list = [{ table_name = "kudu_source_table_1"},{ table_name = "kudu_source_table_2"}] ```。也可以在每个 entry 中配置 `use_regex = true` 来对 `table_name` 启用正则匹配。 |
 | common-options | | 否 | - | 源插件通用参数，请参考 [源通用选项](../source-common-options.md) 详见。 |
 
 ## 任务示例
@@ -139,6 +140,76 @@ sink {
     rules {
       table-names = ["kudu_source_table_1", "kudu_source_table_2"]
     }
+  }
+}
+```
+
+### 使用正则表达式匹配表
+
+Kudu Source 支持在 `table_name` 上使用正则表达式来匹配多张表（由于 Kudu 逻辑上只有一个 database，因此也可以用来实现“整库表”同步）。
+
+#### 精确表名
+
+使用 `table_name` 指定单个 Kudu 表的精确名称：
+
+```hocon
+source {
+  kudu {
+    kudu_masters = "kudu-master:7051"
+    table_name = "kudu_source_table_1"
+  }
+}
+```
+
+#### 正则匹配
+
+将 `table_name` 视为正则表达式，并开启 `use_regex`，即可用一条配置匹配多张表：
+
+```hocon
+source {
+  kudu {
+    kudu_masters = "kudu-master:7051"
+    # 匹配 kudu_source_table_1、kudu_source_table_2 等
+    table_name = "kudu_source_table_\\d+"
+    use_regex = true
+  }
+}
+```
+
+也可以在 `table_list` 中组合精确表和正则表：
+
+```hocon
+source {
+  kudu {
+    kudu_masters = "kudu-master:7051"
+    table_list = [
+      {
+        table_name = "kudu_source_table_1"
+      },
+      {
+        table_name = "kudu_source_table_2"
+      },
+      {
+        # 使用正则匹配，以 prefix_ 开头、以数字结尾的所有表
+        table_name = "prefix_\\d+"
+        use_regex = true
+      }
+    ]
+  }
+}
+```
+
+#### 整库匹配
+
+如果当前 Kudu 实例中只有业务表，或者你希望“一次性同步所有表”，可以使用一个全匹配的正则：
+
+```hocon
+source {
+  kudu {
+    kudu_masters = "kudu-master:7051"
+    # 匹配当前 Kudu 实例中的所有表
+    table_name = ".*"
+    use_regex = true
   }
 }
 ```

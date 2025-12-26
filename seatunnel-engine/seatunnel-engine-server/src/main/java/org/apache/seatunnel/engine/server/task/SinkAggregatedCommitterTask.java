@@ -310,6 +310,8 @@ public class SinkAggregatedCommitterTask<CommandInfoT, AggregatedCommitInfoT>
                     }
                     aggregatedCommitInfo.addAll(value);
                     checkpointCommitInfoMap.remove(key);
+                    commitInfoCache.remove(key);
+                    checkpointBarrierCounter.remove(key);
                 });
         List<AggregatedCommitInfoT> commit = aggregatedCommitter.commit(aggregatedCommitInfo);
         tryClose(checkpointId);
@@ -323,6 +325,8 @@ public class SinkAggregatedCommitterTask<CommandInfoT, AggregatedCommitInfoT>
     public void notifyCheckpointAborted(long checkpointId) throws Exception {
         aggregatedCommitter.abort(checkpointCommitInfoMap.get(checkpointId));
         checkpointCommitInfoMap.remove(checkpointId);
+        commitInfoCache.remove(checkpointId);
+        checkpointBarrierCounter.remove(checkpointId);
         tryClose(checkpointId);
     }
 }

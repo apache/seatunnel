@@ -57,9 +57,10 @@ The tested kudu version is 1.11.1.
 | kerberos_krb5conf                         | String | No       | -                                              | Kerberos krb5 conf. Note that all zeta nodes require have this file.                                                                                                                             |
 | scan_token_query_timeout                  | Long   | No       | 30000                                          | The timeout for connecting scan token. If not set, it will be the same as operationTimeout.                                                                                                      |
 | scan_token_batch_size_bytes               | Int    | No       | 1024 * 1024                                    | Kudu scan bytes. The maximum number of bytes read at a time, the default is 1MB.                                                                                                                 |
+| use_regex                                 | Bool   | No       | false                                          | Control regular expression matching for `table_name`. When set to `true`, the `table_name` will be treated as a regular expression pattern and can match multiple tables. When set to `false` or not specified, the `table_name` will be treated as an exact table name (no regex matching). |
 | filter                                    | String | No       | -                                              | Kudu scan filter expressions,example id > 100 AND id < 200.                                                                                                                                      |
 | schema                                    | Map    | No       | 1024 * 1024                                    | SeaTunnel Schema.                                                                                                                                                                                |
-| table_list                                | Array  | No       | -                                              | The list of tables to be read. you can use this configuration instead of `table_path` example: ```table_list = [{ table_name = "kudu_source_table_1"},{ table_name = "kudu_source_table_2"}] ``` |
+| table_list                                | Array  | No       | -                                              | The list of tables to be read. you can use this configuration instead of `table_name`, for example: ```table_list = [{ table_name = "kudu_source_table_1"},{ table_name = "kudu_source_table_2"}] ```. You can also configure `use_regex = true` inside each entry to enable regex matching for `table_name`. |
 | common-options                            |        | No       | -                                              | Source plugin common parameters, please refer to [Source Common Options](../source-common-options.md) for details.                                                                               |
 
 ## Task Example
@@ -139,6 +140,76 @@ sink {
     rules {
       table-names = ["kudu_source_table_1", "kudu_source_table_2"]
     }
+  }
+}
+```
+
+### Table Matching With Regex
+
+The Kudu Source supports using regular expressions on `table_name` to match multiple tables (including whole-database style synchronization, since Kudu tables are in a single logical database).
+
+#### Exact Table Name
+
+Use `table_name` to specify a single Kudu table with an exact name:
+
+```hocon
+source {
+  kudu {
+    kudu_masters = "kudu-master:7051"
+    table_name = "kudu_source_table_1"
+  }
+}
+```
+
+#### Regex Matching
+
+Use `table_name` as a regex pattern and enable `use_regex` to read multiple tables with one configuration:
+
+```hocon
+source {
+  kudu {
+    kudu_masters = "kudu-master:7051"
+    # Match tables like kudu_source_table_1, kudu_source_table_2, etc.
+    table_name = "kudu_source_table_\\d+"
+    use_regex = true
+  }
+}
+```
+
+You can also combine regex entries in `table_list`:
+
+```hocon
+source {
+  kudu {
+    kudu_masters = "kudu-master:7051"
+    table_list = [
+      {
+        table_name = "kudu_source_table_1"
+      },
+      {
+        table_name = "kudu_source_table_2"
+      },
+      {
+        # Regex matching - any table whose name starts with prefix_ and ends with digits
+        table_name = "prefix_\\d+"
+        use_regex = true
+      }
+    ]
+  }
+}
+```
+
+#### Whole-Database Matching
+
+You can also synchronize all tables in the current Kudu cluster (or all business tables in the current instance, if there are no system tables) by using a catch-all regex:
+
+```hocon
+source {
+  kudu {
+    kudu_masters = "kudu-master:7051"
+    # Match all tables in the current Kudu cluster
+    table_name = ".*"
+    use_regex = true
   }
 }
 ```
