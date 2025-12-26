@@ -60,16 +60,16 @@ public class MaxcomputeOutputFormat {
         this.formatterContext =
                 new FormatterContext(readonlyConfig.get(FormatOptions.DATETIME_FORMAT));
 
-        if (UPLOAD_SESSION.equals(readonlyConfig.get(MaxcomputeSinkOptions.INSERT_STRATEGY))) {
+        String insertStrategy = readonlyConfig.get(MaxcomputeSinkOptions.INSERT_STRATEGY);
+        if (UPLOAD_SESSION.equals(insertStrategy)) {
             isUploadSession = true;
-        } else if (UPSERT_SESSION.equals(
-                readonlyConfig.get(MaxcomputeSinkOptions.INSERT_STRATEGY))) {
+        } else if (UPSERT_SESSION.equals(insertStrategy)) {
             isUploadSession = false;
         } else {
-            throw CommonError.unsupportedDataType(
-                    MaxcomputeBaseOptions.PLUGIN_NAME,
-                    "insert_strategy",
-                    readonlyConfig.get(MaxcomputeSinkOptions.INSERT_STRATEGY));
+            throw new IllegalArgumentException(
+                    String.format(
+                            "Cannot resolve insert strategy: [%s]. Supported values are: '%s', '%s'",
+                            insertStrategy, UPLOAD_SESSION, UPSERT_SESSION));
         }
     }
 

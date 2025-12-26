@@ -23,6 +23,7 @@ import ChangeLog from '../changelog/connector-maxcompute.md';
 | table_name     | string  | 是   | -      |
 | partition_spec | string  | 否   | -      |
 | overwrite      | boolean | 否   | false  |
+| insert_strategy| string  | no   | upload |
 | common-options | string  | 否   |        |
 
 ### accessId [string]
@@ -148,6 +149,15 @@ CREATE TABLE IF NOT EXISTS `${table}`
 - `http://maxcompute:8080`
 
 默认值：未设置（从区域自动推断）
+
+### insert_strategy [string]
+
+如果将 `insert_strategy` 设置为 `upload`，插入操作将使用 upload 会话。
+如果设置为 `upsert`，插入操作将使用 upsert 会话。Upsert 会话 需要主键。
+
+注意：
+在同时存在更新或删除操作的情况下，使用 upload 会话进行插入操作，可能会导致插入的记录 比预期更晚出现在表中。
+当表中存在主键时，建议将 `insert_strategy` 设置为 `upsert`，以确保一致的 upsert 行为。
 
 ### 通用选项
 
