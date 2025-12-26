@@ -21,6 +21,7 @@ import org.apache.seatunnel.api.common.JobContext;
 import org.apache.seatunnel.api.common.PluginIdentifier;
 import org.apache.seatunnel.api.configuration.ReadonlyConfig;
 import org.apache.seatunnel.api.configuration.util.ConfigValidator;
+import org.apache.seatunnel.api.configuration.util.ConfigurationVerificationResult;
 import org.apache.seatunnel.api.configuration.util.OptionRule;
 import org.apache.seatunnel.api.env.ParsingMode;
 import org.apache.seatunnel.api.options.ConnectorCommonOptions;
@@ -42,7 +43,10 @@ import org.apache.seatunnel.api.transform.SeaTunnelTransform;
 import org.apache.seatunnel.common.constants.EngineType;
 import org.apache.seatunnel.common.constants.JobMode;
 import org.apache.seatunnel.common.constants.PluginType;
+import org.apache.seatunnel.common.exception.SeaTunnelRuntimeException;
 import org.apache.seatunnel.common.utils.ExceptionUtils;
+
+import org.apache.commons.collections4.CollectionUtils;
 
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -64,6 +68,7 @@ import java.util.function.Function;
 import java.util.stream.Collectors;
 
 import static org.apache.seatunnel.api.options.ConnectorCommonOptions.PLUGIN_NAME;
+import static org.apache.seatunnel.common.exception.CommonErrorCode.SEATUNNEL_TASK_CONFIG_ERROR;
 
 /**
  * Use SPI to create {@link TableSourceFactory}, {@link TableSinkFactory} and {@link
@@ -176,9 +181,7 @@ public final class FactoryUtil {
                     TableSourceFactory factory, ReadonlyConfig options, ClassLoader classLoader) {
         TableSourceFactoryContext context = new TableSourceFactoryContext(options, classLoader);
         ConfigValidator.of(context.getOptions()).validate(factory.optionRule());
-        if (factory.enhancedConfigurationValidator().isPresent()) {
-            factory.enhancedConfigurationValidator().get().validate(context.getOptions());
-        }
+        validateConfiguration(factory, context);
         TableSource<T, SplitT, StateT> tableSource = factory.createSource(context);
         return tableSource.createSource();
     }
@@ -191,9 +194,31 @@ public final class FactoryUtil {
                     ChangeStreamTableSourceState state) {
         TableSourceFactoryContext context = new TableSourceFactoryContext(options, classLoader);
         ConfigValidator.of(context.getOptions()).validate(factory.optionRule());
+        validateConfiguration(factory, context);
         LOG.info("Restore create source from checkpoint state: {}", state);
         TableSource<T, SplitT, StateT> tableSource = factory.restoreSource(context, state);
         return tableSource.createSource();
+    }
+
+    private static void validateConfiguration(Factory factory, TableFactoryContext context) {
+        if (factory.enhancedConfigurationValidator().isPresent()) {
+            final List<ConfigurationVerificationResult> verificationResults =
+                    factory.enhancedConfigurationValidator().get().validate(context.getOptions());
+            if (CollectionUtils.isNotEmpty(verificationResults)) {
+                verificationResults.forEach(ConfigurationVerificationResult::log);
+            }
+            List<ConfigurationVerificationResult> errorResults =
+                    verificationResults.stream()
+                            .filter(
+                                    result ->
+                                            result.getLevel()
+                                                    == ConfigurationVerificationResult.Level.ERROR)
+                            .collect(Collectors.toList());
+            if (CollectionUtils.isNotEmpty(errorResults)) {
+                throw new SeaTunnelRuntimeException(
+                        SEATUNNEL_TASK_CONFIG_ERROR, "Please check the configuration!");
+            }
+        }
     }
 
     public static <IN, StateT, CommitInfoT, AggregatedCommitInfoT>
@@ -267,6 +292,7 @@ public final class FactoryUtil {
             MultiTableFactoryContext context =
                     new MultiTableFactoryContext(options, classLoader, sinks);
             ConfigValidator.of(context.getOptions()).validate(factory.optionRule());
+            validateConfiguration(factory, context);
             return factory.createSink(context).createSink();
         } catch (Throwable t) {
             throw new FactoryException(

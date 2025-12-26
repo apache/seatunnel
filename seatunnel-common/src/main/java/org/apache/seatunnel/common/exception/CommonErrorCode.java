@@ -81,6 +81,9 @@ public enum CommonErrorCode implements SeaTunnelErrorCode {
     KERBEROS_AUTHORIZED_FAILED("COMMON-35", "Kerberos authorized failed"),
     CLOSE_FAILED("COMMON-36", "'<identifier>' close failed."),
     SEATUNNEL_ROW_SERIALIZE_FAILED("COMMON-37", "Seatunnel row serialize failed. Row={ '<row>' }"),
+    SEATUNNEL_TASK_CONFIG_ERROR(
+            "COMMON-38",
+            "There is an error in the task configuration file. Please check the configuration according to the log details."),
     ;
 
     private final String code;
