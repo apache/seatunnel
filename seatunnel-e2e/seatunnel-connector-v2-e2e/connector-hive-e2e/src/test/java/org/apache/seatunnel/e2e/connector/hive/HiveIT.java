@@ -60,6 +60,14 @@ public class HiveIT extends TestSuiteBase implements TestResource {
                     + "    score  INT"
                     + ")";
 
+    private static final String CREATE_FAILOVER_SQL =
+            "CREATE TABLE test_hive_sink_on_hdfs_failover"
+                    + "("
+                    + "    pk_id  BIGINT,"
+                    + "    name   STRING,"
+                    + "    score  INT"
+                    + ")";
+
     private static final String HMS_HOST = "metastore";
     private static final String HIVE_SERVER_HOST = "hiveserver2";
 
@@ -208,6 +216,7 @@ public class HiveIT extends TestSuiteBase implements TestResource {
         // Avoid fragile HMS list calls; rely on default database existing in test images
         try (Statement statement = this.hiveConnection.createStatement()) {
             statement.execute(CREATE_SQL);
+            statement.execute(CREATE_FAILOVER_SQL);
         } catch (Exception exception) {
             log.error(ExceptionUtils.getMessage(exception));
             throw exception;
@@ -227,6 +236,14 @@ public class HiveIT extends TestSuiteBase implements TestResource {
     @TestTemplate
     public void testFakeSinkHive(TestContainer container) throws Exception {
         executeJob(container, "/fake_to_hive.conf", "/hive_to_assert.conf");
+    }
+
+    @TestTemplate
+    public void testFakeSinkHiveWithMetastoreFailover(TestContainer container) throws Exception {
+        executeJob(
+                container,
+                "/fake_to_hive_metastore_uri_failover.conf",
+                "/hive_to_assert_metastore_uri_failover.conf");
     }
 
     @TestTemplate
