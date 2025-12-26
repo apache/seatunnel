@@ -30,4 +30,3 @@ public class HiveOptionsAliasTest {
         assertEquals("table_name", HiveOptions.TABLE_NAME.key());
     }
 }
-
