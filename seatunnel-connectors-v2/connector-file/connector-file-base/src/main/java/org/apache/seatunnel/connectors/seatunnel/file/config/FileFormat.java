@@ -207,4 +207,24 @@ public enum FileFormat implements Serializable {
     public WriteStrategy getWriteStrategy(FileSinkConfig fileSinkConfig) {
         return null;
     }
+
+    public boolean supportFileSplit() {
+        switch (this) {
+            case CSV:
+            case TEXT:
+            case JSON:
+            case PARQUET:
+                return true;
+            case XML:
+            case MARKDOWN:
+            case ORC:
+            case EXCEL:
+            case BINARY:
+            case CANAL_JSON:
+            case DEBEZIUM_JSON:
+            case MAXWELL_JSON:
+            default:
+                return false;
+        }
+    }
 }
