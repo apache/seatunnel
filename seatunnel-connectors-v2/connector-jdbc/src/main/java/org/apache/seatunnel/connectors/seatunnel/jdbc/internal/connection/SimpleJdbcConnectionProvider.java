@@ -108,17 +108,7 @@ public class SimpleJdbcConnectionProvider implements JdbcConnectionProvider, Ser
         if (jdbcConfig.getPassword().isPresent()) {
             info.setProperty("password", jdbcConfig.getPassword().get());
         }
-        // Apply server time zone for MySQL if user configured it and did not override
-        // serverTimezone
-        String serverTimeZone = jdbcConfig.getServerTimeZone();
         String url = jdbcConfig.getUrl();
-        if (serverTimeZone != null
-                && !serverTimeZone.isEmpty()
-                && url != null
-                && url.startsWith("jdbc:mysql:")
-                && !jdbcConfig.getProperties().containsKey("serverTimezone")) {
-            info.setProperty("serverTimezone", serverTimeZone);
-        }
         info.putAll(jdbcConfig.getProperties());
         connection = driver.connect(url, info);
         if (connection == null) {
@@ -126,7 +116,7 @@ public class SimpleJdbcConnectionProvider implements JdbcConnectionProvider, Ser
             // caller expectation.
             throw new JdbcConnectorException(
                     JdbcConnectorErrorCode.NO_SUITABLE_DRIVER,
-                    "No suitable driver found for " + jdbcConfig.getUrl());
+                    "No suitable driver found for " + url);
         }
 
         connection.setAutoCommit(jdbcConfig.isAutoCommit());

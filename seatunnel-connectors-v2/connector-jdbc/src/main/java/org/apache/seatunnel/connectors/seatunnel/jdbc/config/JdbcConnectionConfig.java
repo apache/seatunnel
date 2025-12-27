@@ -310,8 +310,16 @@ public class JdbcConnectionConfig implements Serializable {
             jdbcConnectionConfig.kerberosKeytabPath = this.kerberosKeytabPath;
             jdbcConnectionConfig.krb5Path = this.krb5Path;
             jdbcConnectionConfig.dialect = this.dialect;
-            jdbcConnectionConfig.properties =
-                    this.properties == null ? new HashMap<>() : this.properties;
+            Map<String, String> resolvedProperties =
+                    this.properties == null ? new HashMap<>() : new HashMap<>(this.properties);
+            if (this.serverTimeZone != null
+                    && !this.serverTimeZone.isEmpty()
+                    && this.url != null
+                    && this.url.startsWith("jdbc:mysql:")
+                    && !resolvedProperties.containsKey("serverTimezone")) {
+                resolvedProperties.put("serverTimezone", this.serverTimeZone);
+            }
+            jdbcConnectionConfig.properties = resolvedProperties;
 
             jdbcConnectionConfig.region = this.region;
             jdbcConnectionConfig.accessKeyId = this.accessKeyId;

@@ -45,6 +45,7 @@ import java.time.LocalDate;
 import java.time.LocalDateTime;
 import java.time.LocalTime;
 import java.time.OffsetDateTime;
+import java.time.ZoneId;
 import java.util.Arrays;
 import java.util.List;
 import java.util.Optional;
@@ -120,6 +121,9 @@ public abstract class AbstractJdbcRowConverter implements JdbcRowConverter {
                                     .map(e -> e.toLocalDateTime())
                                     .orElse(null);
                     break;
+                case TIMESTAMP_TZ:
+                    fields[fieldIndex] = readTimestampWithTimeZone(rs, resultSetIndex);
+                    break;
                 case BYTES:
                     fields[fieldIndex] = JdbcFieldTypeUtils.getBytes(rs, resultSetIndex);
                     break;
@@ -143,6 +147,14 @@ public abstract class AbstractJdbcRowConverter implements JdbcRowConverter {
     protected LocalTime readTime(ResultSet rs, int resultSetIndex) throws SQLException {
         Time sqlTime = JdbcFieldTypeUtils.getTime(rs, resultSetIndex);
         return Optional.ofNullable(sqlTime).map(e -> e.toLocalTime()).orElse(null);
+    }
+
+    protected OffsetDateTime readTimestampWithTimeZone(ResultSet rs, int resultSetIndex)
+            throws SQLException {
+        Timestamp sqlTimestamp = JdbcFieldTypeUtils.getTimestamp(rs, resultSetIndex);
+        return Optional.ofNullable(sqlTimestamp)
+                .map(e -> e.toInstant().atZone(ZoneId.systemDefault()).toOffsetDateTime())
+                .orElse(null);
     }
 
     public Object[] convertToArray(

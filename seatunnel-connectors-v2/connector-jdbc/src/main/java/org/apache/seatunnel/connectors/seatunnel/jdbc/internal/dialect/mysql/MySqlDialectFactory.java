@@ -66,18 +66,17 @@ public class MySqlDialectFactory implements JdbcDialectFactory {
         if (DatabaseIdentifier.STARROCKS.equalsIgnoreCase(compatibleMode)) {
             return new StarRocksDialect(fieldIde);
         }
-        ZoneId zoneId = null;
-        boolean timestampWithTimeZone = false;
-        if (jdbcConnectionConfig != null
-                && jdbcConnectionConfig.getServerTimeZone() != null
-                && !jdbcConnectionConfig.getServerTimeZone().isEmpty()) {
-            timestampWithTimeZone = true;
+        ZoneId zoneId = ZoneId.systemDefault();
+        String serverTimeZone =
+                jdbcConnectionConfig == null ? null : jdbcConnectionConfig.getServerTimeZone();
+        boolean timestampWithTimeZone = serverTimeZone != null && !serverTimeZone.isEmpty();
+        if (timestampWithTimeZone) {
             try {
-                zoneId = ZoneId.of(jdbcConnectionConfig.getServerTimeZone());
+                zoneId = ZoneId.of(serverTimeZone);
             } catch (Exception e) {
                 log.warn(
                         "Invalid server_time_zone '{}', fallback to system default.",
-                        jdbcConnectionConfig.getServerTimeZone());
+                        serverTimeZone);
             }
         }
         String resolvedFieldIde = fieldIde == null ? FieldIdeEnum.ORIGINAL.getValue() : fieldIde;
