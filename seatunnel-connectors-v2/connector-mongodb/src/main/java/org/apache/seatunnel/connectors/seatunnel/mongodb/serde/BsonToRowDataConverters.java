@@ -24,6 +24,7 @@ import org.apache.seatunnel.api.table.type.SeaTunnelDataType;
 import org.apache.seatunnel.api.table.type.SeaTunnelRow;
 import org.apache.seatunnel.api.table.type.SeaTunnelRowType;
 import org.apache.seatunnel.api.table.type.SqlType;
+import org.apache.seatunnel.connectors.seatunnel.mongodb.config.MongodbBaseOptions;
 import org.apache.seatunnel.connectors.seatunnel.mongodb.exception.MongodbConnectorException;
 
 import org.bson.BsonDocument;
@@ -48,8 +49,6 @@ import java.util.Map;
 import static org.apache.seatunnel.common.exception.CommonErrorCodeDeprecated.ILLEGAL_ARGUMENT;
 import static org.apache.seatunnel.common.exception.CommonErrorCodeDeprecated.UNSUPPORTED_DATA_TYPE;
 import static org.apache.seatunnel.common.exception.CommonErrorCodeDeprecated.UNSUPPORTED_OPERATION;
-import static org.apache.seatunnel.connectors.seatunnel.mongodb.config.MongodbConfig.DEFAULT_JSON_WRITER_SETTINGS;
-import static org.apache.seatunnel.connectors.seatunnel.mongodb.config.MongodbConfig.ENCODE_VALUE_FIELD;
 
 public class BsonToRowDataConverters implements Serializable {
 
@@ -408,7 +407,8 @@ public class BsonToRowDataConverters implements Serializable {
                     .asDocument()
                     .toJson(JsonWriterSettings.builder().outputMode(JsonMode.RELAXED).build());
         }
-        return new BsonDocument(ENCODE_VALUE_FIELD, bsonValue).toJson(DEFAULT_JSON_WRITER_SETTINGS);
+        return new BsonDocument(MongodbBaseOptions.ENCODE_VALUE_FIELD, bsonValue)
+                .toJson(MongodbBaseOptions.DEFAULT_JSON_WRITER_SETTINGS);
     }
 
     private static byte[] convertToBinary(BsonValue bsonValue) {
