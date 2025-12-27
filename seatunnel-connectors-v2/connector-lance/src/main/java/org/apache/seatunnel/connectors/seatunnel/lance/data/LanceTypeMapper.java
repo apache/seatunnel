@@ -17,15 +17,20 @@
 
 package org.apache.seatunnel.connectors.seatunnel.lance.data;
 
+import org.apache.seatunnel.shade.com.google.common.collect.Lists;
+
 import org.apache.seatunnel.api.table.converter.TypeConverter;
+import org.apache.seatunnel.api.table.type.ArrayType;
 import org.apache.seatunnel.api.table.type.BasicType;
 import org.apache.seatunnel.api.table.type.DecimalType;
 import org.apache.seatunnel.api.table.type.LocalTimeType;
+import org.apache.seatunnel.api.table.type.MapType;
 import org.apache.seatunnel.api.table.type.SeaTunnelDataType;
 import org.apache.seatunnel.common.exception.CommonError;
 
 import com.google.auto.service.AutoService;
 import com.lancedb.lance.namespace.model.JsonArrowDataType;
+import com.lancedb.lance.namespace.model.JsonArrowField;
 import lombok.NonNull;
 import lombok.extern.slf4j.Slf4j;
 
@@ -98,10 +103,42 @@ public class LanceTypeMapper {
             case MAP:
                 JsonArrowDataType mapType = new JsonArrowDataType();
                 mapType.setType("map");
+                if (type instanceof MapType) {
+                    MapType<?, ?> mapTypeInfo = (MapType<?, ?>) type;
+                    JsonArrowField keyField = new JsonArrowField();
+                    keyField.setName("key");
+                    keyField.setType(convertJsonArrowType("key", mapTypeInfo.getKeyType()));
+                    keyField.setNullable(false);
+
+                    JsonArrowField valueField = new JsonArrowField();
+                    valueField.setName("value");
+                    valueField.setType(convertJsonArrowType("value", mapTypeInfo.getValueType()));
+                    valueField.setNullable(true);
+
+                    JsonArrowDataType structType = new JsonArrowDataType();
+                    structType.setType("struct");
+                    structType.setFields(Lists.newArrayList(keyField, valueField));
+
+                    JsonArrowField entriesField = new JsonArrowField();
+                    entriesField.setName("entries");
+                    entriesField.setType(structType);
+                    entriesField.setNullable(false);
+
+                    mapType.setFields(Lists.newArrayList(entriesField));
+                }
                 return mapType;
             case ARRAY:
                 JsonArrowDataType listType = new JsonArrowDataType();
                 listType.setType("list");
+                if (type instanceof ArrayType) {
+                    ArrayType<?, ?> arrayType = (ArrayType<?, ?>) type;
+                    JsonArrowField elementField = new JsonArrowField();
+                    elementField.setName("element");
+                    elementField.setType(
+                            convertJsonArrowType("element", arrayType.getElementType()));
+                    elementField.setNullable(true);
+                    listType.setFields(Lists.newArrayList(elementField));
+                }
                 return listType;
             case BOOLEAN:
                 JsonArrowDataType booleanType = new JsonArrowDataType();

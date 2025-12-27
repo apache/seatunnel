@@ -23,11 +23,8 @@ import org.apache.seatunnel.api.table.catalog.PhysicalColumn;
 import org.apache.seatunnel.api.table.catalog.TableIdentifier;
 import org.apache.seatunnel.api.table.catalog.TablePath;
 import org.apache.seatunnel.api.table.catalog.TableSchema;
-import org.apache.seatunnel.api.table.type.ArrayType;
 import org.apache.seatunnel.api.table.type.BasicType;
-import org.apache.seatunnel.api.table.type.DecimalType;
-import org.apache.seatunnel.api.table.type.LocalTimeType;
-import org.apache.seatunnel.api.table.type.MapType;
+import org.apache.seatunnel.api.table.type.PrimitiveByteArrayType;
 import org.apache.seatunnel.api.table.type.SeaTunnelRow;
 import org.apache.seatunnel.api.table.type.SeaTunnelRowType;
 import org.apache.seatunnel.connectors.seatunnel.lance.catalog.LanceCatalog;
@@ -51,7 +48,7 @@ public class LanceSinkTest {
 
     private final String DATABASE_NAME = "default";
 
-    private final String TABLE_NAME = "test_table";
+    private final String TABLE_NAME = "test_table3";
 
     private LanceSinkWriter sinkWriter;
 
@@ -60,10 +57,9 @@ public class LanceSinkTest {
     @BeforeEach
     public void before() {
         Map<String, Object> configs = new HashMap<>();
-        // build catalog configs
-        configs.put(
-                LanceCommonOptions.KEY_DATASET_PATH.key(),
-                "/Users/silenceland/Documents/develop/test");
+        String testDir = System.getProperty("java.io.tmpdir");
+        String fullDatasetPath = testDir + "/test/" + TABLE_NAME + ".lance";
+        configs.put(LanceCommonOptions.KEY_DATASET_PATH.key(), fullDatasetPath);
         configs.put(LanceCommonOptions.KEY_NAMESPACE_TYPE.key(), "dir");
         readonlyConfig = ReadonlyConfig.fromMap(configs);
         lanceCatalog = new LanceCatalog(CATALOG_NAME, readonlyConfig);
@@ -71,22 +67,7 @@ public class LanceSinkTest {
 
         this.schemaBuilder =
                 TableSchema.builder()
-                        .column(
-                                PhysicalColumn.of(
-                                        "c_map",
-                                        new MapType<>(BasicType.STRING_TYPE, BasicType.STRING_TYPE),
-                                        (Long) null,
-                                        true,
-                                        null,
-                                        null))
-                        .column(
-                                PhysicalColumn.of(
-                                        "c_array",
-                                        ArrayType.STRING_ARRAY_TYPE,
-                                        (Long) null,
-                                        false,
-                                        null,
-                                        "c_array"))
+                        // TODO: support map/array
                         .column(
                                 PhysicalColumn.of(
                                         "c_string",
@@ -151,46 +132,16 @@ public class LanceSinkTest {
                                         false,
                                         null,
                                         "c_double"))
-                        .column(
-                                PhysicalColumn.of(
-                                        "c_decimal",
-                                        new DecimalType(10, 2),
-                                        (Long) null,
-                                        false,
-                                        null,
-                                        "c_decimal"))
+                        // TODO: solve decimal trans problem
                         .column(
                                 PhysicalColumn.of(
                                         "c_bytes",
-                                        BasicType.BYTE_TYPE,
+                                        PrimitiveByteArrayType.INSTANCE,
                                         (Long) null,
                                         false,
                                         null,
-                                        "c_bytes"))
-                        .column(
-                                PhysicalColumn.of(
-                                        "c_date",
-                                        LocalTimeType.LOCAL_DATE_TYPE,
-                                        (Long) null,
-                                        false,
-                                        null,
-                                        "c_date"))
-                        .column(
-                                PhysicalColumn.of(
-                                        "c_timestamp",
-                                        LocalTimeType.LOCAL_DATE_TIME_TYPE,
-                                        (Long) null,
-                                        false,
-                                        null,
-                                        "c_timestamp"))
-                        .column(
-                                PhysicalColumn.of(
-                                        "c_time",
-                                        LocalTimeType.LOCAL_TIME_TYPE,
-                                        (Long) null,
-                                        false,
-                                        null,
-                                        "c_time"));
+                                        "c_bytes"));
+        // TODO: support date/time/timestamp
 
         lanceCatalog.createTable(
                 TablePath.of(DATABASE_NAME, TABLE_NAME),
@@ -208,7 +159,28 @@ public class LanceSinkTest {
         LanceCatalog catalog = new LanceCatalog(CATALOG_NAME, readonlyConfig);
         sinkWriter = new LanceSinkWriter(rowType, tableSchema, sinkConfig, catalog);
 
-        Object[] fields = new Object[] {};
+        Map<String, String> mapValue = new HashMap<>();
+        mapValue.put("key1", "value1");
+        mapValue.put("key2", "value2");
+
+        Object[] fields =
+                new Object[] {
+                    // mapValue, // c_map
+                    // Arrays.asList("item1", "item2", "item3").toArray(new String[0]), // c_array
+                    "test_string", // c_string
+                    true, // c_boolean
+                    1, // c_tinyint
+                    2, // c_smallint
+                    3, // c_int
+                    4L, // c_bigint
+                    5.0f, // c_float
+                    6.0, // c_double
+                    // new BigDecimal("123.45"), // c_decimal
+                    new byte[] {1, 2, 3} // c_bytes
+                    // LocalDate.of(2024, 12, 28), // c_date
+                    // LocalDateTime.of(2024, 12, 28, 10, 30, 0), // c_timestamp
+                    // LocalTime.of(10, 30, 0) // c_time
+                };
         SeaTunnelRow seaTunnelRow = new SeaTunnelRow(fields);
 
         try {

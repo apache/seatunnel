@@ -36,8 +36,6 @@ import org.apache.seatunnel.connectors.seatunnel.lance.exception.LanceConnectorE
 import org.apache.seatunnel.connectors.seatunnel.lance.exception.LanceConnectorException;
 import org.apache.seatunnel.connectors.seatunnel.lance.utils.SchemaUtils;
 
-import org.apache.arrow.memory.BufferAllocator;
-import org.apache.arrow.memory.RootAllocator;
 import org.apache.arrow.vector.types.DateUnit;
 import org.apache.arrow.vector.types.FloatingPointPrecision;
 import org.apache.arrow.vector.types.TimeUnit;
@@ -47,7 +45,6 @@ import org.apache.arrow.vector.types.pojo.Schema;
 import org.apache.commons.collections4.CollectionUtils;
 
 import com.lancedb.lance.Dataset;
-import com.lancedb.lance.WriteParams;
 import com.lancedb.lance.namespace.LanceNamespace;
 import com.lancedb.lance.namespace.model.CreateTableRequest;
 import com.lancedb.lance.namespace.model.DescribeTableRequest;
@@ -222,7 +219,6 @@ public class LanceCatalog implements Catalog {
     @Override
     public void createTable(TablePath tablePath, CatalogTable table, boolean ignoreIfExists)
             throws TableAlreadyExistException, DatabaseNotExistException, CatalogException {
-
         CreateTableRequest request = new CreateTableRequest();
         List<String> ids = Lists.newArrayList(tablePath.getTableName());
         request.setId(ids);
@@ -234,85 +230,8 @@ public class LanceCatalog implements Catalog {
                     LanceConnectorErrorCode.TABLE_JSON_ARROW_SCHEMA_CONVERT_EXCEPTION,
                     e.getMessage());
         }
+
         namespace.createTable(request, requestData);
-
-        try {
-            String datasetPath = getDatasetPath(tablePath);
-            if (datasetPath != null) {
-                JsonArrowSchema jsonArrowSchema =
-                        SchemaUtils.convertJsonArrowSchema(table.getTableSchema());
-                Schema arrowSchema = convertJsonArrowSchemaToArrowSchema(jsonArrowSchema);
-                if (arrowSchema != null) {
-                    java.util.Map<String, String> metadata = new java.util.HashMap<>();
-                    if (arrowSchema.getCustomMetadata() != null) {
-                        metadata.putAll(arrowSchema.getCustomMetadata());
-                    }
-
-                    if (table.getTableSchema().getPrimaryKey() != null) {
-                        org.apache.seatunnel.api.table.catalog.PrimaryKey pk =
-                                table.getTableSchema().getPrimaryKey();
-                        metadata.put("seatunnel.primaryKey.name", pk.getPrimaryKey());
-                        metadata.put(
-                                "seatunnel.primaryKey.columns",
-                                String.join(",", pk.getColumnNames()));
-                    }
-
-                    if (table.getComment() != null) {
-                        metadata.put("seatunnel.comment", table.getComment());
-                    }
-
-                    if (table.getOptions() != null && !table.getOptions().isEmpty()) {
-                        for (java.util.Map.Entry<String, String> entry :
-                                table.getOptions().entrySet()) {
-                            metadata.put("seatunnel.option." + entry.getKey(), entry.getValue());
-                        }
-                    }
-
-                    Schema schemaWithMetadata = new Schema(arrowSchema.getFields(), metadata);
-                    try (BufferAllocator allocator = new RootAllocator(Long.MAX_VALUE)) {
-                        try {
-                            Dataset dataset = Dataset.open(datasetPath);
-                            dataset.close();
-                            java.nio.file.Path path = java.nio.file.Paths.get(datasetPath);
-                            if (java.nio.file.Files.exists(path)) {
-                                java.nio.file.Files.walk(path)
-                                        .sorted(java.util.Comparator.reverseOrder())
-                                        .forEach(
-                                                p -> {
-                                                    try {
-                                                        java.nio.file.Files.delete(p);
-                                                    } catch (IOException ex) {
-                                                        log.warn(
-                                                                "Failed to delete existing dataset file: {}",
-                                                                p);
-                                                    }
-                                                });
-                            }
-                        } catch (Exception ignored) {
-                            // Dataset doesn't exist yet, that's fine
-                        }
-                        Dataset.create(
-                                allocator,
-                                datasetPath,
-                                schemaWithMetadata,
-                                new WriteParams.Builder().build());
-                        log.debug(
-                                "Created empty dataset file at {} with schema and metadata",
-                                datasetPath);
-                    } catch (Exception e) {
-                        log.warn(
-                                "Failed to create dataset file at {}: {}",
-                                datasetPath,
-                                e.getMessage());
-                    }
-                }
-            }
-        } catch (Exception e) {
-            log.warn(
-                    "Failed to create dataset file for table {}: {}",
-                    tablePath.getTableName(),
-                    e.getMessage());
-        }
     }
 
     @Override
