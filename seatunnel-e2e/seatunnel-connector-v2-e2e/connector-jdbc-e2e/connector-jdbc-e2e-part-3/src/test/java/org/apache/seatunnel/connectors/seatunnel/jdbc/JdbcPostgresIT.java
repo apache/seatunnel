@@ -36,11 +36,7 @@ import org.apache.seatunnel.e2e.common.container.TestContainer;
 import org.apache.seatunnel.e2e.common.junit.TestContainerExtension;
 import org.apache.seatunnel.e2e.common.util.JdbcUtil;
 
-import org.junit.jupiter.api.AfterAll;
-import org.junit.jupiter.api.Assertions;
-import org.junit.jupiter.api.BeforeAll;
-import org.junit.jupiter.api.Test;
-import org.junit.jupiter.api.TestTemplate;
+import org.junit.jupiter.api.*;
 import org.testcontainers.containers.Container;
 import org.testcontainers.containers.PostgreSQLContainer;
 import org.testcontainers.containers.output.Slf4jLogConsumer;
@@ -61,6 +57,24 @@ import java.util.stream.Stream;
 
 import static org.awaitility.Awaitility.given;
 
+/**
+ * Legacy PostgreSQL JDBC integration tests.
+ *
+ * @deprecated Since SeaTunnel 2.3.12 - Migrated to Testcontainers-based tests.
+ *
+ * New container-based test classes:
+ * • PostgresCatalogTest
+ * • PostgresDialectContainerTest
+ *
+ * Located in package: org.apache.seatunnel.connectors.seatunnel.jdbc.internal.dialect.psql.container
+ *
+ * This class is scheduled for removal in SeaTunnel 2.4.0.
+ *
+ * @see <a href="https://github.com/apache/seatunnel/issues/10213">Issue #10213</a>
+ */
+
+@Deprecated
+@Disabled("Migrated to Testcontainers - See PostgresCatalogTest and PostgresDialectContainerTest")
 @Slf4j
 public class JdbcPostgresIT extends TestSuiteBase implements TestResource {
     private static final String PG_IMAGE = "postgis/postgis";
@@ -249,8 +263,8 @@ public class JdbcPostgresIT extends TestSuiteBase implements TestResource {
     public void startUp() throws Exception {
         POSTGRESQL_CONTAINER =
                 new PostgreSQLContainer<>(
-                                DockerImageName.parse(PG_IMAGE)
-                                        .asCompatibleSubstituteFor("postgres"))
+                        DockerImageName.parse(PG_IMAGE)
+                                .asCompatibleSubstituteFor("postgres"))
                         .withNetwork(TestSuiteBase.NETWORK)
                         .withNetworkAliases("postgresql")
                         .withCommand("postgres -c max_prepared_transactions=100")
@@ -673,3 +687,5 @@ public class JdbcPostgresIT extends TestSuiteBase implements TestResource {
         postgresCatalog.close();
     }
 }
+
+

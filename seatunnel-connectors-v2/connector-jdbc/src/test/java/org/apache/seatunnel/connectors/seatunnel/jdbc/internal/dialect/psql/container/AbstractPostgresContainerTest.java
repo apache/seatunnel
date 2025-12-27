@@ -115,4 +115,12 @@ public abstract class AbstractPostgresContainerTest {
     protected void dropTableIfExists(String tableName) throws SQLException {
         executeSql(String.format("DROP TABLE IF EXISTS %s", tableName));
     }
+
+    /** Gets the jdbc connection fot the dialectConteinerTests */
+    protected Connection getJdbcConnection() throws SQLException {
+        return DriverManager.getConnection(
+                POSTGRES_CONTAINER.getJdbcUrl(),
+                POSTGRES_CONTAINER.getUsername(),
+                POSTGRES_CONTAINER.getPassword());
+    }
 }

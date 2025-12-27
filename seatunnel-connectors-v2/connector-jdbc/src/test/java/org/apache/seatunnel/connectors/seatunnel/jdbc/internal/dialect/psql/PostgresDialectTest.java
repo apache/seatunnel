@@ -18,8 +18,21 @@
 package org.apache.seatunnel.connectors.seatunnel.jdbc.internal.dialect.psql;
 
 import org.junit.jupiter.api.Assertions;
+import org.junit.jupiter.api.Disabled;
 import org.junit.jupiter.api.Test;
 
+/**
+ * Legacy PostgreSQL JDBC integration tests.
+ *
+ * @deprecated Since SeaTunnel 2.3.12 - Migrated to Testcontainers-based tests.
+ *     <p>New container-based test classes: • PostgresCatalogTest • PostgresDialectContainerTest
+ *     <p>Located in package:
+ *     org.apache.seatunnel.connectors.seatunnel.jdbc.internal.dialect.psql.container
+ *     <p>This class is scheduled for removal in SeaTunnel 2.4.0.
+ * @see <a href="https://github.com/apache/seatunnel/issues/10213">Issue #10213</a>
+ */
+@Deprecated
+@Disabled("Migrated to Testcontainers - See PostgresCatalogTest and PostgresDialectContainerTest")
 public class PostgresDialectTest {
 
     @Test
