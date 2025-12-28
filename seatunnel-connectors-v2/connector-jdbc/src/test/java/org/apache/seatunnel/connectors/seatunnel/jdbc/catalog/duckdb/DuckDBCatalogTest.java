@@ -67,7 +67,7 @@ public class DuckDBCatalogTest {
 
         // Create catalog instance
         JdbcUrlUtil.UrlInfo urlInfo = JdbcUrlUtil.getUrlInfo(jdbcUrl);
-        catalog = new DuckDBCatalog(CATALOG_NAME, "duckdb", "", urlInfo, DATABASE_NAME);
+        catalog = new DuckDBCatalog(CATALOG_NAME, urlInfo, "main");
 
         // Create test database and table
         try (Connection conn = DriverManager.getConnection(jdbcUrl);

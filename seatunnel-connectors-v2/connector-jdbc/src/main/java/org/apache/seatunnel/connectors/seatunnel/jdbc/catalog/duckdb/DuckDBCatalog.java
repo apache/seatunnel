@@ -17,8 +17,6 @@
 
 package org.apache.seatunnel.connectors.seatunnel.jdbc.catalog.duckdb;
 
-import org.apache.seatunnel.shade.org.apache.commons.lang3.StringUtils;
-
 import org.apache.seatunnel.api.table.catalog.CatalogTable;
 import org.apache.seatunnel.api.table.catalog.Column;
 import org.apache.seatunnel.api.table.catalog.ConstraintKey;
@@ -85,50 +83,11 @@ public class DuckDBCatalog extends AbstractJdbcCatalog {
      * Constructor for DuckDB catalog with default driver.
      *
      * @param catalogName the name of the catalog
-     * @param username the username for database connection
-     * @param pwd the password for database connection
      * @param urlInfo the JDBC URL information
-     * @param defaultSchema the default schema name, defaults to "main" if not specified
      */
-    public DuckDBCatalog(
-            String catalogName,
-            String username,
-            String pwd,
-            JdbcUrlUtil.UrlInfo urlInfo,
-            String defaultSchema) {
-        super(
-                catalogName,
-                username,
-                pwd,
-                urlInfo,
-                StringUtils.isNotBlank(defaultSchema) ? defaultSchema : "main",
-                "org.duckdb.DuckDBDriver");
-    }
-
-    /**
-     * Constructor for DuckDB catalog with custom driver class.
-     *
-     * @param catalogName the name of the catalog
-     * @param username the username for database connection
-     * @param pwd the password for database connection
-     * @param urlInfo the JDBC URL information
-     * @param defaultSchema the default schema name, defaults to "main" if not specified
-     * @param driverClass the JDBC driver class name
-     */
-    public DuckDBCatalog(
-            String catalogName,
-            String username,
-            String pwd,
-            JdbcUrlUtil.UrlInfo urlInfo,
-            String defaultSchema,
-            String driverClass) {
-        super(
-                catalogName,
-                username,
-                pwd,
-                urlInfo,
-                StringUtils.isNotBlank(defaultSchema) ? defaultSchema : "main",
-                driverClass);
+    public DuckDBCatalog(String catalogName, JdbcUrlUtil.UrlInfo urlInfo, String defaultSchema) {
+        super(catalogName, "", "", urlInfo, defaultSchema, "org.duckdb.DuckDBDriver");
+        final Class<String> stringClass = String.class;
     }
 
     /**

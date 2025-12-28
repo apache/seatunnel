@@ -32,6 +32,8 @@ import com.google.auto.service.AutoService;
 @AutoService(Factory.class)
 public class DuckDBCatalogFactory implements CatalogFactory {
 
+    private static final String DEFAULT_SCHEMA_NAME = "main";
+
     @Override
     public String factoryIdentifier() {
         return DatabaseIdentifier.DUCKDB;
@@ -40,13 +42,10 @@ public class DuckDBCatalogFactory implements CatalogFactory {
     @Override
     public Catalog createCatalog(String catalogName, ReadonlyConfig config) {
         String url = config.get(JdbcCommonOptions.URL);
-        String username = config.get(JdbcCommonOptions.USERNAME);
-        String password = config.get(JdbcCommonOptions.PASSWORD);
-        String defaultSchema = config.getOptional(JdbcCommonOptions.SCHEMA).orElse("main");
-
-        JdbcUrlUtil.UrlInfo urlInfo = JdbcUrlUtil.getUrlInfo(url);
-
-        return new DuckDBCatalog(catalogName, username, password, urlInfo, defaultSchema);
+        String defaultSchema =
+                config.getOptional(JdbcCommonOptions.SCHEMA).orElse(DEFAULT_SCHEMA_NAME);
+        JdbcUrlUtil.UrlInfo urlInfo = DuckDBURLParser.parse(url);
+        return new DuckDBCatalog(catalogName, urlInfo, defaultSchema);
     }
 
     @Override
