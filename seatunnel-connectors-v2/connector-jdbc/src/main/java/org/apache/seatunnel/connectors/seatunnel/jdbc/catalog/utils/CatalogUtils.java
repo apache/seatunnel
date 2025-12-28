@@ -191,7 +191,7 @@ public class CatalogUtils {
                                     });
 
                     ConstraintKey.ColumnSortType sortType =
-                            "A".equals(resultSet.getString("ASC_OR_DESC"))
+                            "A".equalsIgnoreCase(resultSet.getString("ASC_OR_DESC"))
                                     ? ConstraintKey.ColumnSortType.ASC
                                     : ConstraintKey.ColumnSortType.DESC;
                     ConstraintKey.ConstraintKeyColumn constraintKeyColumn =
