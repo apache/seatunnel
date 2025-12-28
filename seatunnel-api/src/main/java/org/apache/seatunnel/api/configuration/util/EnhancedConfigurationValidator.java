@@ -1,6 +1,7 @@
 package org.apache.seatunnel.api.configuration.util;
 
 import org.apache.seatunnel.api.configuration.ReadonlyConfig;
+import org.apache.seatunnel.api.configuration.util.issue.ConfigurationVerificationIssue;
 
 import java.util.ArrayList;
 import java.util.Collections;
@@ -36,8 +37,8 @@ public interface EnhancedConfigurationValidator {
      * @return a combined list of configuration verification results from all validation rules; an
      *     empty list if no issues are detected
      */
-    default List<ConfigurationVerificationResult> validate(ReadonlyConfig context) {
-        List<ConfigurationVerificationResult> results = new ArrayList<>();
+    default List<ConfigurationVerificationIssue> validate(ReadonlyConfig context) {
+        List<ConfigurationVerificationIssue> results = new ArrayList<>();
         results.addAll(validateDeprecatedRules(context));
         results.addAll(validateConflictRules(context));
         results.addAll(validateVersionCompatibilityRules(context));
@@ -53,7 +54,7 @@ public interface EnhancedConfigurationValidator {
      * @return a list of verification results describing deprecated parameters and suggested
      *     alternatives; empty if none found
      */
-    default List<ConfigurationVerificationResult> validateDeprecatedRules(ReadonlyConfig context) {
+    default List<ConfigurationVerificationIssue> validateDeprecatedRules(ReadonlyConfig context) {
         return Collections.emptyList();
     }
 
@@ -69,7 +70,7 @@ public interface EnhancedConfigurationValidator {
      * @return a list of verification results describing configuration conflicts; empty if no
      *     conflicts are detected
      */
-    default List<ConfigurationVerificationResult> validateConflictRules(ReadonlyConfig context) {
+    default List<ConfigurationVerificationIssue> validateConflictRules(ReadonlyConfig context) {
         return Collections.emptyList();
     }
 
@@ -85,7 +86,7 @@ public interface EnhancedConfigurationValidator {
      * @return a list of verification results describing version incompatibilities or constraints;
      *     empty if all parameters are version-compatible
      */
-    default List<ConfigurationVerificationResult> validateVersionCompatibilityRules(
+    default List<ConfigurationVerificationIssue> validateVersionCompatibilityRules(
             ReadonlyConfig context) {
         return Collections.emptyList();
     }

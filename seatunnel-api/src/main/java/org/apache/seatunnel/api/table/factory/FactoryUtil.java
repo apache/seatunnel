@@ -21,8 +21,8 @@ import org.apache.seatunnel.api.common.JobContext;
 import org.apache.seatunnel.api.common.PluginIdentifier;
 import org.apache.seatunnel.api.configuration.ReadonlyConfig;
 import org.apache.seatunnel.api.configuration.util.ConfigValidator;
-import org.apache.seatunnel.api.configuration.util.ConfigurationVerificationResult;
 import org.apache.seatunnel.api.configuration.util.OptionRule;
+import org.apache.seatunnel.api.configuration.util.issue.ConfigurationVerificationIssue;
 import org.apache.seatunnel.api.env.ParsingMode;
 import org.apache.seatunnel.api.options.ConnectorCommonOptions;
 import org.apache.seatunnel.api.options.EnvCommonOptions;
@@ -202,17 +202,17 @@ public final class FactoryUtil {
 
     private static void validateConfiguration(Factory factory, TableFactoryContext context) {
         if (factory.enhancedConfigurationValidator().isPresent()) {
-            final List<ConfigurationVerificationResult> verificationResults =
+            final List<ConfigurationVerificationIssue> verificationResults =
                     factory.enhancedConfigurationValidator().get().validate(context.getOptions());
             if (CollectionUtils.isNotEmpty(verificationResults)) {
-                verificationResults.forEach(ConfigurationVerificationResult::log);
+                verificationResults.forEach(ConfigurationVerificationIssue::log);
             }
-            List<ConfigurationVerificationResult> errorResults =
+            List<ConfigurationVerificationIssue> errorResults =
                     verificationResults.stream()
                             .filter(
                                     result ->
                                             result.getLevel()
-                                                    == ConfigurationVerificationResult.Level.ERROR)
+                                                    == ConfigurationVerificationIssue.Level.ERROR)
                             .collect(Collectors.toList());
             if (CollectionUtils.isNotEmpty(errorResults)) {
                 throw new SeaTunnelRuntimeException(
