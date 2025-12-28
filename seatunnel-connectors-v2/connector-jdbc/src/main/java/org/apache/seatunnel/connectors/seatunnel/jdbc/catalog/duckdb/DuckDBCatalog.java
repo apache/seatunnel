@@ -79,48 +79,16 @@ public class DuckDBCatalog extends AbstractJdbcCatalog {
                     + "AND tc.constraint_type IN ('UNIQUE', 'FOREIGN KEY') "
                     + "ORDER BY kcu.ordinal_position";
 
-    /**
-     * Constructor for DuckDB catalog with default driver.
-     *
-     * @param catalogName the name of the catalog
-     * @param urlInfo the JDBC URL information
-     */
     public DuckDBCatalog(String catalogName, JdbcUrlUtil.UrlInfo urlInfo, String defaultSchema) {
         super(catalogName, "", "", urlInfo, defaultSchema, "org.duckdb.DuckDBDriver");
         final Class<String> stringClass = String.class;
     }
 
-    /**
-     * Check if a database (schema) exists in DuckDB.
-     *
-     * @param databaseName the name of the database to check
-     * @return true if the database exists, false otherwise
-     * @throws CatalogException if failed to check database existence
-     */
     @Override
     public boolean databaseExists(String databaseName) throws CatalogException {
-        try (Connection conn = getConnection(defaultUrl)) {
-            try (PreparedStatement ps =
-                    conn.prepareStatement(
-                            "SELECT schema_name FROM information_schema.schemata WHERE schema_name = ?")) {
-                ps.setString(1, databaseName);
-                try (ResultSet rs = ps.executeQuery()) {
-                    return rs.next();
-                }
-            }
-        } catch (SQLException e) {
-            throw new CatalogException(
-                    String.format("Failed to check if database %s exists", databaseName), e);
-        }
+        return true;
     }
 
-    /**
-     * Check if a table exists in DuckDB.
-     *
-     * @param tablePath the path of the table to check
-     * @return true if the table exists, false otherwise
-     * @throws CatalogException if failed to check table existence
-     */
     @Override
     public boolean tableExists(TablePath tablePath) throws CatalogException {
         try (Connection conn = getConnection(defaultUrl)) {
@@ -132,21 +100,12 @@ public class DuckDBCatalog extends AbstractJdbcCatalog {
         }
     }
 
-    /**
-     * Internal method to check if a table exists using an existing connection.
-     *
-     * @param connection the database connection
-     * @param tablePath the path of the table to check
-     * @return true if the table exists, false otherwise
-     * @throws SQLException if a database access error occurs
-     */
     private boolean tableExists(Connection connection, TablePath tablePath) throws SQLException {
         // Use the schema name from tablePath, fallback to 'main' if not specified
         String schemaName = tablePath.getSchemaName();
         if (schemaName == null || schemaName.trim().isEmpty()) {
             schemaName = "main";
         }
-
         try (PreparedStatement ps =
                 connection.prepareStatement(
                         "SELECT table_name FROM information_schema.tables "
@@ -159,23 +118,12 @@ public class DuckDBCatalog extends AbstractJdbcCatalog {
         }
     }
 
-    /**
-     * Create a new table in DuckDB.
-     *
-     * @param tablePath the path of the table to create
-     * @param table the catalog table definition
-     * @param ignoreIfExists if true, ignore the operation if table already exists
-     * @throws TableNotExistException if the table does not exist
-     * @throws DatabaseNotExistException if the database does not exist
-     * @throws CatalogException if failed to create the table
-     */
     @Override
     public void createTable(TablePath tablePath, CatalogTable table, boolean ignoreIfExists)
             throws TableNotExistException, DatabaseNotExistException, CatalogException {
         if (!databaseExists(tablePath.getDatabaseName())) {
             throw new DatabaseNotExistException(catalogName, tablePath.getDatabaseName());
         }
-
         if (tableExists(tablePath)) {
             if (ignoreIfExists) {
                 return;
@@ -183,7 +131,6 @@ public class DuckDBCatalog extends AbstractJdbcCatalog {
             throw new CatalogException(
                     String.format("Table %s already exists", tablePath.getFullName()));
         }
-
         String createTableSql = buildCreateTableSql(tablePath, table);
         try (Connection conn = getConnection(defaultUrl);
                 PreparedStatement ps = conn.prepareStatement(createTableSql)) {
@@ -194,13 +141,6 @@ public class DuckDBCatalog extends AbstractJdbcCatalog {
         }
     }
 
-    /**
-     * Build CREATE TABLE SQL statement for DuckDB.
-     *
-     * @param tablePath the path of the table
-     * @param table the catalog table definition
-     * @return the CREATE TABLE SQL statement
-     */
     private String buildCreateTableSql(TablePath tablePath, CatalogTable table) {
         StringBuilder sb = new StringBuilder();
         // Build full table name with schema if specified
@@ -225,15 +165,8 @@ public class DuckDBCatalog extends AbstractJdbcCatalog {
             if (column.getDefaultValue() != null) {
                 columnSql.append(" DEFAULT ").append(column.getDefaultValue());
             }
-            /*
-             * DuckDB does not support COMMENT syntax in CREATE TABLE
-             * if (column.getComment() != null) {
-             *     columnSql.append(" COMMENT '").append(column.getComment()).append("'");
-             * }
-             */
             columnSqls.add(columnSql.toString());
         }
-
         // Add primary key
         PrimaryKey primaryKey = table.getTableSchema().getPrimaryKey();
         if (primaryKey != null && !primaryKey.getColumnNames().isEmpty()) {
@@ -251,29 +184,12 @@ public class DuckDBCatalog extends AbstractJdbcCatalog {
 
         return sb.toString();
     }
-
-    /**
-     * Get the CREATE TABLE SQL statement.
-     *
-     * @param tablePath the path of the table
-     * @param table the catalog table definition
-     * @param createIndex whether to create indexes (not used in DuckDB implementation)
-     * @return the CREATE TABLE SQL statement
-     */
     @Override
     protected String getCreateTableSql(
             TablePath tablePath, CatalogTable table, boolean createIndex) {
         return buildCreateTableSql(tablePath, table);
     }
 
-    /**
-     * Get table metadata from DuckDB.
-     *
-     * @param tablePath the path of the table
-     * @return the catalog table with complete metadata
-     * @throws TableNotExistException if the table does not exist
-     * @throws CatalogException if failed to get table metadata
-     */
     @Override
     public CatalogTable getTable(TablePath tablePath)
             throws TableNotExistException, CatalogException {
@@ -314,14 +230,6 @@ public class DuckDBCatalog extends AbstractJdbcCatalog {
         }
     }
 
-    /**
-     * Retrieve column metadata for a table.
-     *
-     * @param conn the database connection
-     * @param tablePath the path of the table
-     * @return list of columns with metadata
-     * @throws SQLException if a database access error occurs
-     */
     private List<Column> getColumns(Connection conn, TablePath tablePath) throws SQLException {
         List<Column> columns = new ArrayList<>();
         try (PreparedStatement ps = conn.prepareStatement(SELECT_COLUMNS_SQL)) {
@@ -347,14 +255,6 @@ public class DuckDBCatalog extends AbstractJdbcCatalog {
         return columns;
     }
 
-    /**
-     * Retrieve primary key information for a table.
-     *
-     * @param conn the database connection
-     * @param tablePath the path of the table
-     * @return optional primary key if exists
-     * @throws SQLException if a database access error occurs
-     */
     private Optional<PrimaryKey> getPrimaryKey(Connection conn, TablePath tablePath)
             throws SQLException {
         List<String> pkColumns = new ArrayList<>();
@@ -379,14 +279,6 @@ public class DuckDBCatalog extends AbstractJdbcCatalog {
         return Optional.of(PrimaryKey.of("pk_" + tablePath.getTableName(), pkColumns));
     }
 
-    /**
-     * Get table metadata from a SQL query result. This method creates a new connection to avoid
-     * connection closure issues with pooled connections.
-     *
-     * @param sqlQuery the SQL query to execute
-     * @return the catalog table derived from query result
-     * @throws SQLException if failed to execute the query or get table metadata
-     */
     @Override
     public CatalogTable getTable(String sqlQuery) throws SQLException {
         /*

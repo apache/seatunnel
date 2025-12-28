@@ -61,32 +61,12 @@ public class DuckDBCatalogTest {
         if (dbFile.exists()) {
             dbFile.delete();
         }
-
         // Setup JDBC connection
         jdbcUrl = "jdbc:duckdb:" + DB_FILE;
-
         // Create catalog instance
-        JdbcUrlUtil.UrlInfo urlInfo = JdbcUrlUtil.getUrlInfo(jdbcUrl);
+
         catalog = new DuckDBCatalog(CATALOG_NAME, urlInfo, "main");
 
-        // Create test database and table
-        try (Connection conn = DriverManager.getConnection(jdbcUrl);
-                Statement stmt = conn.createStatement()) {
-            stmt.execute("CREATE SCHEMA IF NOT EXISTS " + DATABASE_NAME);
-            stmt.execute(
-                    "CREATE TABLE IF NOT EXISTS "
-                            + DATABASE_NAME
-                            + "."
-                            + TABLE_NAME
-                            + " ("
-                            + "id INTEGER PRIMARY KEY,"
-                            + "name VARCHAR(255),"
-                            + "age INTEGER,"
-                            + "salary DECIMAL(10,2),"
-                            + "is_active BOOLEAN,"
-                            + "created_at TIMESTAMP"
-                            + ")");
-        }
     }
 
     @AfterEach
