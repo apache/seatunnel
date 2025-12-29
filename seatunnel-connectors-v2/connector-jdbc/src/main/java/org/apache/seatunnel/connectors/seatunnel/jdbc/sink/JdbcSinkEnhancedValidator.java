@@ -19,12 +19,20 @@ package org.apache.seatunnel.connectors.seatunnel.jdbc.sink;
 import org.apache.seatunnel.api.configuration.Option;
 import org.apache.seatunnel.api.configuration.ReadonlyConfig;
 import org.apache.seatunnel.api.configuration.util.DefaultEnhancedConfigurationValidator;
+import org.apache.seatunnel.api.table.catalog.Catalog;
 import org.apache.seatunnel.common.constants.PluginType;
+import org.apache.seatunnel.connectors.seatunnel.jdbc.config.JdbcConnectionConfig;
+import org.apache.seatunnel.connectors.seatunnel.jdbc.internal.dialect.JdbcDialect;
+import org.apache.seatunnel.connectors.seatunnel.jdbc.internal.dialect.JdbcDialectLoader;
+import org.apache.seatunnel.connectors.seatunnel.jdbc.utils.JdbcCatalogUtils;
+
+import lombok.extern.slf4j.Slf4j;
 
 import java.util.Collections;
 import java.util.List;
 import java.util.Optional;
 
+@Slf4j
 public class JdbcSinkEnhancedValidator extends DefaultEnhancedConfigurationValidator {
     public JdbcSinkEnhancedValidator(String identifier, PluginType pluginType) {
         super(identifier, pluginType);
@@ -47,6 +55,25 @@ public class JdbcSinkEnhancedValidator extends DefaultEnhancedConfigurationValid
 
     @Override
     protected Optional<String> detectCurrentServiceVersion(ReadonlyConfig context) {
-        return Optional.empty();
+        try {
+            JdbcConnectionConfig connectionConfig = JdbcConnectionConfig.of(context);
+            JdbcDialect dialect =
+                    JdbcDialectLoader.load(
+                            connectionConfig.getUrl(),
+                            connectionConfig.getDialect(),
+                            connectionConfig.getCompatibleMode());
+            Optional<Catalog> catalogOptional =
+                    JdbcCatalogUtils.findCatalog(connectionConfig, dialect);
+            if (!catalogOptional.isPresent()) {
+                return Optional.empty();
+            }
+            try (Catalog catalog = catalogOptional.get()) {
+                catalog.open();
+                return catalog.getServiceVersion();
+            }
+        } catch (Exception e) {
+            log.warn("Failed to detect service version via catalog", e);
+            return Optional.empty();
+        }
     }
 }

@@ -70,6 +70,11 @@ public interface Catalog extends AutoCloseable {
     /** Get the name of the catalog. */
     String name();
 
+    /** The version of the service the connector is connected to */
+    default Optional<String> getServiceVersion() {
+        return Optional.empty();
+    }
+
     // --------------------------------------------------------------------------------------------
     // database
     // --------------------------------------------------------------------------------------------
