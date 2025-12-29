@@ -14,11 +14,11 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package org.apache.seatunnel.api.configuration.util.issue;
+package org.apache.seatunnel.api.configuration.util;
 
 import org.apache.seatunnel.api.configuration.Option;
 import org.apache.seatunnel.api.configuration.ReadonlyConfig;
-import org.apache.seatunnel.api.configuration.util.EnhancedConfigurationValidator;
+import org.apache.seatunnel.api.configuration.util.issue.ConfigurationVerificationIssue;
 import org.apache.seatunnel.common.constants.PluginType;
 
 import lombok.AllArgsConstructor;

@@ -21,36 +21,38 @@ import org.apache.seatunnel.common.constants.PluginType;
 
 import lombok.extern.slf4j.Slf4j;
 
+import java.util.Optional;
+
 @Slf4j
-public class ConflictConfigurationIssue extends ConfigurationVerificationIssue {
+public class VersionCompatibilityConfigurationIssue extends ConfigurationVerificationIssue {
 
     private final Option<?> option;
-    private final Object value;
-    private final Option<?> conflictOption;
+    private final String needVersion;
+    private final Optional<String> currentVersion;
 
-    private ConflictConfigurationIssue(
+    private VersionCompatibilityConfigurationIssue(
             Level level,
             String identifier,
             PluginType pluginType,
             Option<?> option,
-            Object value,
-            Option<?> conflictOption) {
+            String needVersion,
+            Optional<String> currentVersion) {
         super(level, identifier, pluginType);
         this.option = option;
-        this.value = value;
-        this.conflictOption = conflictOption;
+        this.needVersion = needVersion;
+        this.currentVersion = currentVersion;
     }
 
     @Override
     public void log() {
+        String versionInfo =
+                currentVersion
+                        .map(version -> String.format("current version '%s'", version))
+                        .orElse("current version is unknown");
         String message =
                 String.format(
-                        "Configuration option '%s' with value '%s' conflicts with option '%s' in %s plugin '%s'",
-                        option.key(),
-                        value,
-                        conflictOption.key(),
-                        pluginType.getType(),
-                        identifier);
+                        "Configuration option '%s' requires version '%s' (%s) in %s plugin '%s'",
+                        option.key(), needVersion, versionInfo, pluginType.getType(), identifier);
 
         if (Level.ERROR.equals(level)) {
             log.error(message);
@@ -59,23 +61,23 @@ public class ConflictConfigurationIssue extends ConfigurationVerificationIssue {
         log.warn(message);
     }
 
-    public static ConflictConfigurationIssue errorOf(
+    public static VersionCompatibilityConfigurationIssue errorOf(
             String identifier,
             PluginType pluginType,
             Option<?> option,
-            Object value,
-            Option<?> conflictOption) {
-        return new ConflictConfigurationIssue(
-                Level.ERROR, identifier, pluginType, option, value, conflictOption);
+            String needVersion,
+            Optional<String> currentVersion) {
+        return new VersionCompatibilityConfigurationIssue(
+                Level.ERROR, identifier, pluginType, option, needVersion, currentVersion);
     }
 
-    public static ConflictConfigurationIssue warnOf(
+    public static VersionCompatibilityConfigurationIssue warnOf(
             String identifier,
             PluginType pluginType,
             Option<?> option,
-            Object value,
-            Option<?> conflictOption) {
-        return new ConflictConfigurationIssue(
-                Level.WARNING, identifier, pluginType, option, value, conflictOption);
+            String needVersion,
+            Optional<String> currentVersion) {
+        return new VersionCompatibilityConfigurationIssue(
+                Level.WARNING, identifier, pluginType, option, needVersion, currentVersion);
     }
 }

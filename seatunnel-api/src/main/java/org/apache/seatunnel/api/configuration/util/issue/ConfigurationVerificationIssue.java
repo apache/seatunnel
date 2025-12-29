@@ -16,7 +16,6 @@
  */
 package org.apache.seatunnel.api.configuration.util.issue;
 
-import org.apache.seatunnel.api.configuration.Option;
 import org.apache.seatunnel.common.constants.PluginType;
 
 import lombok.Getter;
@@ -35,14 +34,11 @@ public abstract class ConfigurationVerificationIssue {
     protected final Level level;
     protected final String identifier;
     protected final PluginType pluginType;
-    protected final Option<?> option;
 
-    public ConfigurationVerificationIssue(
-            Level level, String identifier, PluginType pluginType, Option<?> option) {
+    public ConfigurationVerificationIssue(Level level, String identifier, PluginType pluginType) {
         this.level = level;
         this.identifier = identifier;
         this.pluginType = pluginType;
-        this.option = option;
     }
 
     public abstract void log();

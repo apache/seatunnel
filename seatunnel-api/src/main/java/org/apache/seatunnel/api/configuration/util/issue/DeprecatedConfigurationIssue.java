@@ -24,6 +24,7 @@ import lombok.extern.slf4j.Slf4j;
 @Slf4j
 public class DeprecatedConfigurationIssue extends ConfigurationVerificationIssue {
 
+    private final Option<?> option;
     private final Option<?>[] referToOptions;
 
     private DeprecatedConfigurationIssue(
@@ -31,7 +32,8 @@ public class DeprecatedConfigurationIssue extends ConfigurationVerificationIssue
             PluginType pluginType,
             Option<?> option,
             Option<?>[] referToOptions) {
-        super(Level.WARNING, identifier, pluginType, option);
+        super(Level.WARNING, identifier, pluginType);
+        this.option = option;
         this.referToOptions = referToOptions;
     }
 
