@@ -122,7 +122,7 @@ public abstract class AbstractJdbcCatalog implements Catalog {
             DatabaseMetaData metaData = connection.getMetaData();
             return Optional.ofNullable(metaData.getDatabaseProductVersion());
         } catch (Exception e) {
-            LOG.warn("Failed to detect database version for catalog {}", catalogName, e);
+            log.warn("Failed to detect database version for catalog {}", catalogName, e);
             return Optional.empty();
         }
     }
