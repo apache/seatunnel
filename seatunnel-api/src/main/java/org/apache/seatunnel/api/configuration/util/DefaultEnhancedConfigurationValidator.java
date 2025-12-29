@@ -92,26 +92,34 @@ public abstract class DefaultEnhancedConfigurationValidator
         return compatibilityOptions.stream()
                 .map(
                         option -> {
+                            Optional<String> currentVersion = detectCurrentServiceVersion(context);
                             if (Level.ERROR.equals(option.level)) {
                                 return VersionCompatibilityConfigurationIssue.errorOf(
                                         identifier,
                                         pluginType,
                                         option.option,
                                         option.needVersion,
-                                        option.currentVersion);
+                                        currentVersion);
                             }
                             return VersionCompatibilityConfigurationIssue.warnOf(
                                     identifier,
                                     pluginType,
                                     option.option,
                                     option.needVersion,
-                                    option.currentVersion);
+                                    currentVersion);
                         })
                 .collect(Collectors.toList());
     }
 
     protected abstract List<VersionCompatibilityOption> versionCompatibilityOptions(
             ReadonlyConfig context);
+
+    /**
+     * Detect the version of the external service used by the connector.
+     *
+     * <p>Implementations may return {@link Optional#empty()} if detection is not supported.
+     */
+    protected abstract Optional<String> detectCurrentServiceVersion(ReadonlyConfig context);
 
     protected static class ConflictOption {
         private final Level level;
@@ -132,7 +140,6 @@ public abstract class DefaultEnhancedConfigurationValidator
         private final Level level;
         private final Option<?> option;
         private final String needVersion;
-        private final Optional<String> currentVersion;
 
         public VersionCompatibilityOption(
                 Level level,
@@ -142,7 +149,6 @@ public abstract class DefaultEnhancedConfigurationValidator
             this.level = level;
             this.option = option;
             this.needVersion = needVersion;
-            this.currentVersion = currentVersion;
         }
     }
 }

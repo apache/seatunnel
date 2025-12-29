@@ -36,6 +36,7 @@ import org.apache.seatunnel.api.table.connector.TableSink;
 import org.apache.seatunnel.api.table.factory.Factory;
 import org.apache.seatunnel.api.table.factory.TableSinkFactory;
 import org.apache.seatunnel.api.table.factory.TableSinkFactoryContext;
+import org.apache.seatunnel.common.constants.PluginType;
 import org.apache.seatunnel.connectors.seatunnel.jdbc.config.JdbcSinkConfig;
 import org.apache.seatunnel.connectors.seatunnel.jdbc.config.JdbcSinkOptions;
 import org.apache.seatunnel.connectors.seatunnel.jdbc.internal.dialect.JdbcDialect;
@@ -283,6 +284,6 @@ public class JdbcSinkFactory implements TableSinkFactory {
 
     @Override
     public Optional<EnhancedConfigurationValidator> enhancedConfigurationValidator() {
-        return Optional.of(new JdbcSinkEnhancedValidator());
+        return Optional.of(new JdbcSinkEnhancedValidator(factoryIdentifier(), PluginType.SINK));
     }
 }
