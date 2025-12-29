@@ -44,16 +44,22 @@ public abstract class DefaultEnhancedConfigurationValidator
 
     @Override
     public List<DeprecatedConfigurationIssue> validateDeprecatedRules(ReadonlyConfig context) {
-        final List<Option<?>> deprecateOptions = deprecatedOptions(context);
+        final List<DeprecatedOption> deprecateOptions = deprecatedOptions(context);
         if (deprecateOptions.isEmpty()) {
             return Collections.emptyList();
         }
         return deprecateOptions.stream()
-                .map(option -> DeprecatedConfigurationIssue.of(identifier, pluginType, option))
+                .map(
+                        deprecatedOption ->
+                                DeprecatedConfigurationIssue.of(
+                                        identifier,
+                                        pluginType,
+                                        deprecatedOption.option,
+                                        deprecatedOption.referToOption))
                 .collect(Collectors.toList());
     }
 
-    protected abstract List<Option<?>> deprecatedOptions(ReadonlyConfig context);
+    protected abstract List<DeprecatedOption> deprecatedOptions(ReadonlyConfig context);
 
     @Override
     public List<ConfigurationVerificationIssue> validateConflictRules(ReadonlyConfig context) {
@@ -134,6 +140,16 @@ public abstract class DefaultEnhancedConfigurationValidator
     }
 
     protected abstract Optional<Catalog> getCatalog(ReadonlyConfig context);
+
+    protected static class DeprecatedOption {
+        private final Option<?> option;
+        private final Option<?>[] referToOption;
+
+        public DeprecatedOption(Option<?> option, Option<?>[] referToOptions) {
+            this.option = option;
+            this.referToOption = referToOptions;
+        }
+    }
 
     protected static class ConflictOption {
         private final Level level;

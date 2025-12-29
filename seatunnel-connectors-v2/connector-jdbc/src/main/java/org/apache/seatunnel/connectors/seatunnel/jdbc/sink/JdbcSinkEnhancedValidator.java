@@ -16,7 +16,6 @@
  */
 package org.apache.seatunnel.connectors.seatunnel.jdbc.sink;
 
-import org.apache.seatunnel.api.configuration.Option;
 import org.apache.seatunnel.api.configuration.ReadonlyConfig;
 import org.apache.seatunnel.api.configuration.util.DefaultEnhancedConfigurationValidator;
 import org.apache.seatunnel.api.table.catalog.Catalog;
@@ -39,7 +38,7 @@ public class JdbcSinkEnhancedValidator extends DefaultEnhancedConfigurationValid
     }
 
     @Override
-    protected List<Option<?>> deprecatedOptions(ReadonlyConfig context) {
+    protected List<DeprecatedOption> deprecatedOptions(ReadonlyConfig context) {
         return Collections.emptyList();
     }
 
