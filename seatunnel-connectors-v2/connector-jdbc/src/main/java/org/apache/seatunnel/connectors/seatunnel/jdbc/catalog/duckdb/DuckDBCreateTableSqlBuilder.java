@@ -17,6 +17,9 @@
 
 package org.apache.seatunnel.connectors.seatunnel.jdbc.catalog.duckdb;
 
+import org.apache.seatunnel.api.table.catalog.TableSchema;
+import org.apache.seatunnel.connectors.seatunnel.jdbc.catalog.mysql.MysqlCreateTableSqlBuilder;
+import org.apache.seatunnel.connectors.seatunnel.jdbc.internal.dialect.mysql.MySqlTypeConverter;
 import org.apache.seatunnel.shade.org.apache.commons.lang3.StringUtils;
 
 import org.apache.seatunnel.api.table.catalog.CatalogTable;
@@ -35,6 +38,8 @@ import java.util.ArrayList;
 import java.util.List;
 import java.util.stream.Collectors;
 
+import static org.apache.seatunnel.shade.com.google.common.base.Preconditions.checkNotNull;
+
 @Slf4j
 public class DuckDBCreateTableSqlBuilder extends AbstractJdbcCreateTableSqlBuilder {
 
@@ -46,6 +51,28 @@ public class DuckDBCreateTableSqlBuilder extends AbstractJdbcCreateTableSqlBuild
         this.columns = catalogTable.getTableSchema().getColumns();
         this.primaryKey = catalogTable.getTableSchema().getPrimaryKey();
         this.constraintKeys = catalogTable.getTableSchema().getConstraintKeys();
+    }
+
+    public static DuckDBCreateTableSqlBuilder builder(
+            TablePath tablePath,
+            CatalogTable catalogTable,
+            DuckDBTypeConverter typeConverter,
+            boolean createIndex) {
+        checkNotNull(tablePath, "tablePath must not be null");
+        checkNotNull(catalogTable, "catalogTable must not be null");
+
+        TableSchema tableSchema = catalogTable.getTableSchema();
+        checkNotNull(tableSchema, "tableSchema must not be null");
+
+        return new DuckDBCreateTableSqlBuilder(tablePath.getTableName(), typeConverter, createIndex)
+                .comment(catalogTable.getComment())
+                // todo: set charset and collate
+                .engine(null)
+                .charset(null)
+                .primaryKey(tableSchema.getPrimaryKey())
+                .constraintKeys(tableSchema.getConstraintKeys())
+                .addColumn(tableSchema.getColumns())
+                .fieldIde(catalogTable.getOptions().get("fieldIde"));
     }
 
     public List<String> build(TablePath tablePath) {

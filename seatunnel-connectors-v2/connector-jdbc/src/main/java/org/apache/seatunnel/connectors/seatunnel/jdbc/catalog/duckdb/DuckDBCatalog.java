@@ -27,12 +27,16 @@ import org.apache.seatunnel.api.table.catalog.TableSchema;
 import org.apache.seatunnel.api.table.catalog.exception.CatalogException;
 import org.apache.seatunnel.api.table.catalog.exception.DatabaseNotExistException;
 import org.apache.seatunnel.api.table.catalog.exception.TableNotExistException;
+import org.apache.seatunnel.api.table.converter.TypeConverter;
 import org.apache.seatunnel.common.utils.JdbcUrlUtil;
 import org.apache.seatunnel.connectors.seatunnel.jdbc.catalog.AbstractJdbcCatalog;
+import org.apache.seatunnel.connectors.seatunnel.jdbc.catalog.mysql.MysqlCreateTableSqlBuilder;
 import org.apache.seatunnel.connectors.seatunnel.jdbc.catalog.utils.CatalogUtils;
+import org.apache.seatunnel.connectors.seatunnel.jdbc.internal.dialect.duckdb.DuckDBTypeConverter;
 import org.apache.seatunnel.connectors.seatunnel.jdbc.internal.dialect.duckdb.DuckDBTypeMapper;
 
 import lombok.extern.slf4j.Slf4j;
+import org.apache.seatunnel.connectors.seatunnel.jdbc.internal.dialect.mysql.MySqlTypeConverter;
 
 import java.sql.Connection;
 import java.sql.DatabaseMetaData;
@@ -79,9 +83,11 @@ public class DuckDBCatalog extends AbstractJdbcCatalog {
                     + "AND tc.constraint_type IN ('UNIQUE', 'FOREIGN KEY') "
                     + "ORDER BY kcu.ordinal_position";
 
+    private final DuckDBTypeConverter typeConverter;
+
     public DuckDBCatalog(String catalogName, JdbcUrlUtil.UrlInfo urlInfo, String defaultSchema) {
         super(catalogName, "", "", urlInfo, defaultSchema, "org.duckdb.DuckDBDriver");
-        final Class<String> stringClass = String.class;
+        this.typeConverter = new DuckDBTypeConverter();
     }
 
     @Override
@@ -90,147 +96,20 @@ public class DuckDBCatalog extends AbstractJdbcCatalog {
     }
 
     @Override
-    public boolean tableExists(TablePath tablePath) throws CatalogException {
-        try (Connection conn = getConnection(defaultUrl)) {
-            return tableExists(conn, tablePath);
-        } catch (SQLException e) {
-            throw new CatalogException(
-                    String.format("Failed to check if table %s exists", tablePath.getFullName()),
-                    e);
-        }
-    }
-
-    private boolean tableExists(Connection connection, TablePath tablePath) throws SQLException {
-        // Use the schema name from tablePath, fallback to 'main' if not specified
-        String schemaName = tablePath.getSchemaName();
-        if (schemaName == null || schemaName.trim().isEmpty()) {
-            schemaName = "main";
-        }
-        try (PreparedStatement ps =
-                connection.prepareStatement(
-                        "SELECT table_name FROM information_schema.tables "
-                                + "WHERE table_schema = ? AND table_name = ?")) {
-            ps.setString(1, schemaName);
-            ps.setString(2, tablePath.getTableName());
-            try (ResultSet rs = ps.executeQuery()) {
-                return rs.next();
-            }
-        }
+    public String getTableWithConditionSql(TablePath tablePath){
+        return String.format("SELECT table_schema, table_name FROM information_schema.tables WHERE table_schema = '%s' AND table_name = '%s'",tablePath.getSchemaName(),tablePath.getTableName());
     }
 
     @Override
-    public void createTable(TablePath tablePath, CatalogTable table, boolean ignoreIfExists)
-            throws TableNotExistException, DatabaseNotExistException, CatalogException {
-        if (!databaseExists(tablePath.getDatabaseName())) {
-            throw new DatabaseNotExistException(catalogName, tablePath.getDatabaseName());
-        }
-        if (tableExists(tablePath)) {
-            if (ignoreIfExists) {
-                return;
-            }
-            throw new CatalogException(
-                    String.format("Table %s already exists", tablePath.getFullName()));
-        }
-        String createTableSql = buildCreateTableSql(tablePath, table);
-        try (Connection conn = getConnection(defaultUrl);
-                PreparedStatement ps = conn.prepareStatement(createTableSql)) {
-            ps.executeUpdate();
-        } catch (SQLException e) {
-            throw new CatalogException(
-                    String.format("Failed to create table %s", tablePath.getFullName()), e);
-        }
-    }
-
-    private String buildCreateTableSql(TablePath tablePath, CatalogTable table) {
-        StringBuilder sb = new StringBuilder();
-        // Build full table name with schema if specified
-        String schemaName = tablePath.getSchemaName();
-        String tableName;
-        if (schemaName != null && !schemaName.trim().isEmpty() && !"main".equals(schemaName)) {
-            tableName = "\"" + schemaName + "\".\"" + tablePath.getTableName() + "\"";
-        } else {
-            tableName = "\"" + tablePath.getTableName() + "\"";
-        }
-        sb.append("CREATE TABLE ").append(tableName).append(" (\n");
-
-        // Add columns
-        List<String> columnSqls = new ArrayList<>();
-        for (Column column : table.getTableSchema().getColumns()) {
-            StringBuilder columnSql = new StringBuilder();
-            columnSql.append("\"").append(column.getName()).append("\" ");
-            columnSql.append(column.getSourceType());
-            if (!column.isNullable()) {
-                columnSql.append(" NOT NULL");
-            }
-            if (column.getDefaultValue() != null) {
-                columnSql.append(" DEFAULT ").append(column.getDefaultValue());
-            }
-            columnSqls.add(columnSql.toString());
-        }
-        // Add primary key
-        PrimaryKey primaryKey = table.getTableSchema().getPrimaryKey();
-        if (primaryKey != null && !primaryKey.getColumnNames().isEmpty()) {
-            String pkColumns =
-                    String.join(
-                            ", ",
-                            primaryKey.getColumnNames().stream()
-                                    .map(name -> "\"" + name + "\"")
-                                    .toArray(String[]::new));
-            columnSqls.add("PRIMARY KEY (" + pkColumns + ")");
-        }
-
-        sb.append(String.join(",\n", columnSqls));
-        sb.append("\n)");
-
-        return sb.toString();
-    }
-    @Override
-    protected String getCreateTableSql(
+    protected List<String> getCreateTableSqls(
             TablePath tablePath, CatalogTable table, boolean createIndex) {
-        return buildCreateTableSql(tablePath, table);
+        return DuckDBCreateTableSqlBuilder.builder(tablePath, table, typeConverter, createIndex)
+                .build(tablePath);
     }
+
 
     @Override
-    public CatalogTable getTable(TablePath tablePath)
-            throws TableNotExistException, CatalogException {
-        if (!tableExists(tablePath)) {
-            throw new TableNotExistException(catalogName, tablePath);
-        }
-
-        // Do not use try-with-resources as the connection is managed by connection pool
-        Connection conn = getConnection(defaultUrl);
-        try {
-            // Get table columns
-            List<Column> columns = getColumns(conn, tablePath);
-
-            // Get primary key
-            Optional<PrimaryKey> primaryKey = getPrimaryKey(conn, tablePath);
-
-            // Get other constraints
-            List<ConstraintKey> constraintKeys = getConstraintKeys(conn, tablePath);
-
-            // Build table schema
-            TableSchema.Builder schemaBuilder = TableSchema.builder().columns(columns);
-            primaryKey.ifPresent(schemaBuilder::primaryKey);
-            constraintKeys.forEach(schemaBuilder::constraintKey);
-
-            // Build catalog table
-            return CatalogTable.of(
-                    TableIdentifier.of(
-                            catalogName, tablePath.getDatabaseName(), tablePath.getTableName()),
-                    schemaBuilder.build(),
-                    buildConnectorOptions(tablePath),
-                    Collections.emptyList(),
-                    getTableComment(conn.getMetaData(), tablePath).orElse(null),
-                    catalogName);
-
-        } catch (SQLException e) {
-            throw new CatalogException(
-                    String.format("Failed to get table %s", tablePath.getFullName()), e);
-        }
-    }
-
-    private List<Column> getColumns(Connection conn, TablePath tablePath) throws SQLException {
+    protected List<Column> getColumns(Connection conn, TablePath tablePath) throws SQLException {
         List<Column> columns = new ArrayList<>();
         try (PreparedStatement ps = conn.prepareStatement(SELECT_COLUMNS_SQL)) {
             String schemaName = tablePath.getSchemaName();
@@ -255,7 +134,8 @@ public class DuckDBCatalog extends AbstractJdbcCatalog {
         return columns;
     }
 
-    private Optional<PrimaryKey> getPrimaryKey(Connection conn, TablePath tablePath)
+    @Override
+    protected Optional<PrimaryKey> getPrimaryKey(Connection conn, TablePath tablePath)
             throws SQLException {
         List<String> pkColumns = new ArrayList<>();
         try (PreparedStatement ps = conn.prepareStatement(SELECT_PK_SQL)) {
@@ -271,59 +151,14 @@ public class DuckDBCatalog extends AbstractJdbcCatalog {
                 }
             }
         }
-
         if (pkColumns.isEmpty()) {
             return Optional.empty();
         }
-
         return Optional.of(PrimaryKey.of("pk_" + tablePath.getTableName(), pkColumns));
     }
 
     @Override
-    public CatalogTable getTable(String sqlQuery) throws SQLException {
-        /*
-         * Use synchronized block to ensure thread safety and create new connection to avoid
-         * connection closure issues
-         */
-        synchronized (this) {
-            Connection conn = null;
-            try {
-                // Always create a new connection to avoid unexpected closure of pooled connections
-                conn = DriverManager.getConnection(defaultUrl, username, pwd);
-
-                // Validate connection is valid
-                if (conn.isClosed() || !conn.isValid(5)) {
-                    throw new SQLException("Failed to establish valid connection");
-                }
-
-                log.info("Successfully created new connection for SQL query: {}", sqlQuery);
-                return CatalogUtils.getCatalogTable(conn, sqlQuery);
-
-            } catch (SQLException e) {
-                log.error("Failed to execute SQL query: {}", sqlQuery, e);
-                throw new SQLException("Failed to get table from SQL query: " + sqlQuery, e);
-            } finally {
-                // Ensure connection is properly closed
-                if (conn != null) {
-                    try {
-                        conn.close();
-                    } catch (SQLException e) {
-                        log.warn("Failed to close connection", e);
-                    }
-                }
-            }
-        }
-    }
-
-    /**
-     * Retrieve constraint keys (UNIQUE and FOREIGN KEY) for a table.
-     *
-     * @param conn the database connection
-     * @param tablePath the path of the table
-     * @return list of constraint keys
-     * @throws SQLException if a database access error occurs
-     */
-    private List<ConstraintKey> getConstraintKeys(Connection conn, TablePath tablePath)
+    protected List<ConstraintKey> getConstraintKeys(Connection conn, TablePath tablePath)
             throws SQLException {
         HashMap<String, ConstraintKey> constraintKeys = new HashMap<>();
         try (PreparedStatement ps = conn.prepareStatement(SELECT_CONSTRAINTS_SQL)) {
@@ -347,7 +182,6 @@ public class DuckDBCatalog extends AbstractJdbcCatalog {
                     } else {
                         continue;
                     }
-
                     constraintKeys
                             .computeIfAbsent(
                                     constraintName,
