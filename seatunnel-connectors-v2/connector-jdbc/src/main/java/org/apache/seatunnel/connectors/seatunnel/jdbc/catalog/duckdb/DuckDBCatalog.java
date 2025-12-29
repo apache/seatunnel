@@ -55,34 +55,6 @@ import java.util.Optional;
 @Slf4j
 public class DuckDBCatalog extends AbstractJdbcCatalog {
 
-    /** SQL query to retrieve column metadata from information_schema */
-    private static final String SELECT_COLUMNS_SQL =
-            "SELECT column_name, data_type, is_nullable, column_default, numeric_precision, numeric_scale, "
-                    + "character_maximum_length "
-                    + "FROM information_schema.columns "
-                    + "WHERE table_schema = ? AND table_name = ? "
-                    + "ORDER BY ordinal_position";
-
-    /** SQL query to retrieve primary key columns from information_schema */
-    private static final String SELECT_PK_SQL =
-            "SELECT column_name "
-                    + "FROM information_schema.table_constraints tc "
-                    + "JOIN information_schema.key_column_usage kcu "
-                    + "ON tc.constraint_name = kcu.constraint_name "
-                    + "WHERE tc.table_schema = ? AND tc.table_name = ? "
-                    + "AND tc.constraint_type = 'PRIMARY KEY' "
-                    + "ORDER BY kcu.ordinal_position";
-
-    /** SQL query to retrieve constraint keys (UNIQUE and FOREIGN KEY) from information_schema */
-    private static final String SELECT_CONSTRAINTS_SQL =
-            "SELECT tc.constraint_name, tc.constraint_type, kcu.column_name "
-                    + "FROM information_schema.table_constraints tc "
-                    + "JOIN information_schema.key_column_usage kcu "
-                    + "ON tc.constraint_name = kcu.constraint_name "
-                    + "WHERE tc.table_schema = ? AND tc.table_name = ? "
-                    + "AND tc.constraint_type IN ('UNIQUE', 'FOREIGN KEY') "
-                    + "ORDER BY kcu.ordinal_position";
-
     private final DuckDBTypeConverter typeConverter;
 
     public DuckDBCatalog(String catalogName, JdbcUrlUtil.UrlInfo urlInfo, String defaultSchema) {
@@ -107,111 +79,11 @@ public class DuckDBCatalog extends AbstractJdbcCatalog {
                 .build(tablePath);
     }
 
-
-    @Override
-    protected List<Column> getColumns(Connection conn, TablePath tablePath) throws SQLException {
-        List<Column> columns = new ArrayList<>();
-        try (PreparedStatement ps = conn.prepareStatement(SELECT_COLUMNS_SQL)) {
-            String schemaName = tablePath.getSchemaName();
-            if (schemaName == null || schemaName.trim().isEmpty()) {
-                schemaName = "main";
-            }
-            ps.setString(1, schemaName);
-            ps.setString(2, tablePath.getTableName());
-            try (ResultSet rs = ps.executeQuery()) {
-                DuckDBTypeMapper typeMapper = new DuckDBTypeMapper();
-                ResultSetMetaData metaData = rs.getMetaData();
-                int columnCount = metaData.getColumnCount();
-
-                // Only need to read the first row to get column metadata
-                if (rs.next()) {
-                    for (int i = 1; i <= columnCount; i++) {
-                        columns.add(typeMapper.mappingColumn(metaData, i));
-                    }
-                }
-            }
-        }
-        return columns;
-    }
-
-    @Override
-    protected Optional<PrimaryKey> getPrimaryKey(Connection conn, TablePath tablePath)
-            throws SQLException {
-        List<String> pkColumns = new ArrayList<>();
-        try (PreparedStatement ps = conn.prepareStatement(SELECT_PK_SQL)) {
-            String schemaName = tablePath.getSchemaName();
-            if (schemaName == null || schemaName.trim().isEmpty()) {
-                schemaName = "main";
-            }
-            ps.setString(1, schemaName);
-            ps.setString(2, tablePath.getTableName());
-            try (ResultSet rs = ps.executeQuery()) {
-                while (rs.next()) {
-                    pkColumns.add(rs.getString("column_name"));
-                }
-            }
-        }
-        if (pkColumns.isEmpty()) {
-            return Optional.empty();
-        }
-        return Optional.of(PrimaryKey.of("pk_" + tablePath.getTableName(), pkColumns));
-    }
-
-    @Override
-    protected List<ConstraintKey> getConstraintKeys(Connection conn, TablePath tablePath)
-            throws SQLException {
-        HashMap<String, ConstraintKey> constraintKeys = new HashMap<>();
-        try (PreparedStatement ps = conn.prepareStatement(SELECT_CONSTRAINTS_SQL)) {
-            String schemaName = tablePath.getSchemaName();
-            if (schemaName == null || schemaName.trim().isEmpty()) {
-                schemaName = "main";
-            }
-            ps.setString(1, schemaName);
-            ps.setString(2, tablePath.getTableName());
-            try (ResultSet rs = ps.executeQuery()) {
-                while (rs.next()) {
-                    String constraintName = rs.getString("constraint_name");
-                    String constraintType = rs.getString("constraint_type");
-                    String columnName = rs.getString("column_name");
-
-                    ConstraintKey.ConstraintType type;
-                    if ("UNIQUE".equals(constraintType)) {
-                        type = ConstraintKey.ConstraintType.UNIQUE_KEY;
-                    } else if ("FOREIGN KEY".equals(constraintType)) {
-                        type = ConstraintKey.ConstraintType.FOREIGN_KEY;
-                    } else {
-                        continue;
-                    }
-                    constraintKeys
-                            .computeIfAbsent(
-                                    constraintName,
-                                    k -> ConstraintKey.of(type, constraintName, new ArrayList<>()))
-                            .getColumnNames()
-                            .add(
-                                    ConstraintKey.ConstraintKeyColumn.of(
-                                            columnName, ConstraintKey.ColumnSortType.ASC));
-                }
-            }
-        }
-        return new ArrayList<>(constraintKeys.values());
-    }
-
-    /**
-     * Get SQL query to list all databases (schemas) in DuckDB.
-     *
-     * @return SQL query string
-     */
     @Override
     protected String getListDatabaseSql() {
         return "SELECT schema_name FROM information_schema.schemata WHERE schema_name != 'information_schema'";
     }
 
-    /**
-     * Get SQL query to list all tables in a specific database (schema).
-     *
-     * @param databaseName the name of the database
-     * @return SQL query string
-     */
     @Override
     protected String getListTableSql(String databaseName) {
         return String.format(
@@ -219,84 +91,22 @@ public class DuckDBCatalog extends AbstractJdbcCatalog {
                 databaseName);
     }
 
-    /**
-     * Extract table name from result set.
-     *
-     * @param rs the result set
-     * @return the table name
-     * @throws SQLException if a database access error occurs
-     */
     @Override
     protected String getTableName(ResultSet rs) throws SQLException {
         return rs.getString(1);
     }
 
-    /**
-     * Get JDBC URL for a specific database name. In DuckDB, all schemas share the same connection
-     * URL.
-     *
-     * @param databaseName the name of the database
-     * @return the JDBC URL
-     */
     @Override
     protected String getUrlFromDatabaseName(String databaseName) {
         return defaultUrl;
     }
 
-    /**
-     * Get the table name format for connector options.
-     *
-     * @param tablePath the path of the table
-     * @return the formatted table name with schema
-     */
+
     @Override
     protected String getOptionTableName(TablePath tablePath) {
         return tablePath.getSchemaAndTableName();
     }
 
-    /**
-     * Get table comment from database metadata. DuckDB has limited support for table comments.
-     *
-     * @param metaData the database metadata
-     * @param tablePath the path of the table
-     * @return optional table comment if available
-     * @throws SQLException if a database access error occurs
-     */
-    @Override
-    protected Optional<String> getTableComment(DatabaseMetaData metaData, TablePath tablePath)
-            throws SQLException {
-        /*
-         * DuckDB doesn't support PostgreSQL-style table comments
-         * For now, return empty comment to avoid NullPointerException
-         */
-        try {
-            // Try to get table comment using standard JDBC metadata
-            String schemaName = tablePath.getSchemaName();
-            if (schemaName == null || schemaName.trim().isEmpty()) {
-                schemaName = "main";
-            }
-            try (ResultSet rs =
-                    metaData.getTables(
-                            null, schemaName, tablePath.getTableName(), new String[] {"TABLE"})) {
-                if (rs.next()) {
-                    String comment = rs.getString("REMARKS");
-                    return Optional.ofNullable(comment);
-                }
-            }
-        } catch (SQLException e) {
-            log.warn("Failed to get table comment for table: {}", tablePath.getFullName(), e);
-        }
-        return Optional.empty();
-    }
-
-    /**
-     * Drop a table from DuckDB.
-     *
-     * @param tablePath the path of the table to drop
-     * @param ignoreIfNotExists if true, ignore the operation if table does not exist
-     * @throws TableNotExistException if the table does not exist and ignoreIfNotExists is false
-     * @throws CatalogException if failed to drop the table
-     */
     @Override
     public void dropTable(TablePath tablePath, boolean ignoreIfNotExists)
             throws TableNotExistException, CatalogException {
@@ -319,13 +129,6 @@ public class DuckDBCatalog extends AbstractJdbcCatalog {
         }
     }
 
-    /**
-     * Create a new database (schema) in DuckDB.
-     *
-     * @param tablePath the table path containing the database name
-     * @param ignoreIfExists if true, ignore the operation if database already exists
-     * @throws CatalogException if failed to create the database
-     */
     @Override
     public void createDatabase(TablePath tablePath, boolean ignoreIfExists)
             throws CatalogException {
@@ -348,16 +151,6 @@ public class DuckDBCatalog extends AbstractJdbcCatalog {
         }
     }
 
-    /**
-     * Drop a database (schema) from DuckDB. This operation will cascade and drop all tables in the
-     * schema.
-     *
-     * @param tablePath the table path containing the database name
-     * @param ignoreIfNotExists if true, ignore the operation if database does not exist
-     * @throws DatabaseNotExistException if the database does not exist and ignoreIfNotExists is
-     *     false
-     * @throws CatalogException if failed to drop the database
-     */
     @Override
     public void dropDatabase(TablePath tablePath, boolean ignoreIfNotExists)
             throws DatabaseNotExistException, CatalogException {
