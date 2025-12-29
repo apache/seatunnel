@@ -200,7 +200,9 @@ public class LanceCatalog implements Catalog {
                 throw new TableNotExistException(
                         catalogName,
                         tablePath,
-                        new CatalogException("Table schema is null or empty"));
+                        new CatalogException(
+                                "Table schema is null or empty. DescribeTable returned: "
+                                        + (arrowSchema != null ? arrowSchema : "null schema")));
             }
             return catalogTable;
         } catch (Exception e) {
@@ -232,6 +234,68 @@ public class LanceCatalog implements Catalog {
         }
 
         namespace.createTable(request, requestData);
+
+        String datasetPath = getDatasetPath(tablePath);
+        if (datasetPath != null) {
+            try {
+                java.io.File datasetDir = new java.io.File(datasetPath);
+                if (!datasetDir.exists()) {
+                    Schema arrowSchema =
+                            convertJsonArrowSchemaToArrowSchema(
+                                    SchemaUtils.convertJsonArrowSchema(table.getTableSchema()));
+                    if (arrowSchema != null) {
+                        java.util.Map<String, String> metadata = new java.util.HashMap<>();
+                        if (table.getTableSchema().getPrimaryKey() != null) {
+                            metadata.put(
+                                    "seatunnel.primaryKey.name",
+                                    table.getTableSchema().getPrimaryKey().getPrimaryKey());
+                            metadata.put(
+                                    "seatunnel.primaryKey.columns",
+                                    String.join(
+                                            ",",
+                                            table.getTableSchema()
+                                                    .getPrimaryKey()
+                                                    .getColumnNames()));
+                        }
+                        if (table.getComment() != null) {
+                            metadata.put("seatunnel.comment", table.getComment());
+                        }
+                        if (table.getOptions() != null) {
+                            for (java.util.Map.Entry<String, String> entry :
+                                    table.getOptions().entrySet()) {
+                                metadata.put(
+                                        "seatunnel.option." + entry.getKey(), entry.getValue());
+                            }
+                        }
+
+                        for (org.apache.seatunnel.api.table.catalog.Column column :
+                                table.getTableSchema().getColumns()) {
+                            if (column.getComment() != null && !column.getComment().isEmpty()) {
+                                metadata.put(
+                                        "seatunnel.column." + column.getName() + ".comment",
+                                        column.getComment());
+                            }
+                        }
+
+                        Schema schemaWithMetadata = new Schema(arrowSchema.getFields(), metadata);
+
+                        org.apache.arrow.memory.BufferAllocator allocator =
+                                new org.apache.arrow.memory.RootAllocator();
+                        try {
+                            com.lancedb.lance.WriteParams writeParams =
+                                    new com.lancedb.lance.WriteParams.Builder().build();
+                            com.lancedb.lance.Dataset.create(
+                                    allocator, datasetPath, schemaWithMetadata, writeParams);
+                            log.debug("Created empty dataset at {}", datasetPath);
+                        } finally {
+                            allocator.close();
+                        }
+                    }
+                }
+            } catch (Exception e) {
+                throw new CatalogException("Failed to create empty dataset at " + datasetPath, e);
+            }
+        }
     }
 
     @Override
@@ -277,23 +341,6 @@ public class LanceCatalog implements Catalog {
             return null;
         }
 
-        TableSchema.Builder builder = TableSchema.builder();
-        fields.forEach(
-                field -> {
-                    SeaTunnelDataType<?> seaTunnelType =
-                            SchemaUtils.toSeaTunnelType(field.getName(), field.getType());
-                    PhysicalColumn physicalColumn =
-                            PhysicalColumn.of(
-                                    field.getName(),
-                                    seaTunnelType,
-                                    (Long) null,
-                                    field.getNullable(),
-                                    null,
-                                    null);
-
-                    builder.column(physicalColumn);
-                });
-
         java.util.Map<String, String> metadataMap = new java.util.HashMap<>();
         if (arrowSchema.getMetadata() != null) {
             metadataMap.putAll(arrowSchema.getMetadata());
@@ -304,13 +351,29 @@ public class LanceCatalog implements Catalog {
                     arrowSchemaFromDataset.getCustomMetadata();
             if (customMetadata != null && !customMetadata.isEmpty()) {
                 metadataMap.putAll(customMetadata);
-                log.debug("Found metadata in dataset: {}", customMetadata.keySet());
-            } else {
-                log.debug("Dataset schema metadata is null or empty");
             }
-        } else {
-            log.debug("arrowSchemaFromDataset is null, cannot read metadata");
         }
+
+        final java.util.Map<String, String> columnMetadata = metadataMap;
+
+        TableSchema.Builder builder = TableSchema.builder();
+        fields.forEach(
+                field -> {
+                    SeaTunnelDataType<?> seaTunnelType =
+                            SchemaUtils.toSeaTunnelType(field.getName(), field.getType());
+                    String columnComment =
+                            columnMetadata.get("seatunnel.column." + field.getName() + ".comment");
+                    PhysicalColumn physicalColumn =
+                            PhysicalColumn.of(
+                                    field.getName(),
+                                    seaTunnelType,
+                                    (Long) null,
+                                    field.getNullable(),
+                                    null,
+                                    columnComment);
+
+                    builder.column(physicalColumn);
+                });
 
         String pkName = metadataMap.get("seatunnel.primaryKey.name");
         String pkColumns = metadataMap.get("seatunnel.primaryKey.columns");
