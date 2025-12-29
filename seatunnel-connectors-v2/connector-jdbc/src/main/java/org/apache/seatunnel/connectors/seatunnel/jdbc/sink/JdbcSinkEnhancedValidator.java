@@ -54,26 +54,13 @@ public class JdbcSinkEnhancedValidator extends DefaultEnhancedConfigurationValid
     }
 
     @Override
-    protected Optional<String> detectCurrentServiceVersion(ReadonlyConfig context) {
-        try {
-            JdbcConnectionConfig connectionConfig = JdbcConnectionConfig.of(context);
-            JdbcDialect dialect =
-                    JdbcDialectLoader.load(
-                            connectionConfig.getUrl(),
-                            connectionConfig.getDialect(),
-                            connectionConfig.getCompatibleMode());
-            Optional<Catalog> catalogOptional =
-                    JdbcCatalogUtils.findCatalog(connectionConfig, dialect);
-            if (!catalogOptional.isPresent()) {
-                return Optional.empty();
-            }
-            try (Catalog catalog = catalogOptional.get()) {
-                catalog.open();
-                return catalog.getServiceVersion();
-            }
-        } catch (Exception e) {
-            log.warn("Failed to detect service version via catalog", e);
-            return Optional.empty();
-        }
+    protected Optional<Catalog> getCatalog(ReadonlyConfig context) {
+        JdbcConnectionConfig connectionConfig = JdbcConnectionConfig.of(context);
+        JdbcDialect dialect =
+                JdbcDialectLoader.load(
+                        connectionConfig.getUrl(),
+                        connectionConfig.getDialect(),
+                        connectionConfig.getCompatibleMode());
+        return JdbcCatalogUtils.findCatalog(connectionConfig, dialect);
     }
 }

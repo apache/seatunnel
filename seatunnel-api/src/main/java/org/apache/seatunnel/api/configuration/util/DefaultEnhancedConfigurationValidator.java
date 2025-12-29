@@ -23,15 +23,18 @@ import org.apache.seatunnel.api.configuration.util.issue.ConfigurationVerificati
 import org.apache.seatunnel.api.configuration.util.issue.ConflictConfigurationIssue;
 import org.apache.seatunnel.api.configuration.util.issue.DeprecatedConfigurationIssue;
 import org.apache.seatunnel.api.configuration.util.issue.VersionCompatibilityConfigurationIssue;
+import org.apache.seatunnel.api.table.catalog.Catalog;
 import org.apache.seatunnel.common.constants.PluginType;
 
 import lombok.AllArgsConstructor;
+import lombok.extern.slf4j.Slf4j;
 
 import java.util.Collections;
 import java.util.List;
 import java.util.Optional;
 import java.util.stream.Collectors;
 
+@Slf4j
 @AllArgsConstructor
 public abstract class DefaultEnhancedConfigurationValidator
         implements EnhancedConfigurationValidator {
@@ -114,12 +117,23 @@ public abstract class DefaultEnhancedConfigurationValidator
     protected abstract List<VersionCompatibilityOption> versionCompatibilityOptions(
             ReadonlyConfig context);
 
-    /**
-     * Detect the version of the external service used by the connector.
-     *
-     * <p>Implementations may return {@link Optional#empty()} if detection is not supported.
-     */
-    protected abstract Optional<String> detectCurrentServiceVersion(ReadonlyConfig context);
+    protected Optional<String> detectCurrentServiceVersion(ReadonlyConfig context) {
+        try {
+            Optional<Catalog> catalogOptional = getCatalog(context);
+            if (!catalogOptional.isPresent()) {
+                return Optional.empty();
+            }
+            try (Catalog catalog = catalogOptional.get()) {
+                catalog.open();
+                return catalog.getServiceVersion();
+            }
+        } catch (Exception e) {
+            log.warn("Failed to detect service version via catalog", e);
+            return Optional.empty();
+        }
+    }
+
+    protected abstract Optional<Catalog> getCatalog(ReadonlyConfig context);
 
     protected static class ConflictOption {
         private final Level level;
@@ -141,11 +155,7 @@ public abstract class DefaultEnhancedConfigurationValidator
         private final Option<?> option;
         private final String needVersion;
 
-        public VersionCompatibilityOption(
-                Level level,
-                Option<?> option,
-                String needVersion,
-                Optional<String> currentVersion) {
+        public VersionCompatibilityOption(Level level, Option<?> option, String needVersion) {
             this.level = level;
             this.option = option;
             this.needVersion = needVersion;
