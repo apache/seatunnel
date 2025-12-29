@@ -118,12 +118,14 @@ public class JdbcSinkOptions extends JdbcCommonOptions {
                     .defaultValue(false)
                     .withDescription("support copy in statement (postgresql)");
 
+    @Deprecated
     public static final Option<FieldIdeEnum> FIELD_IDE =
             Options.key("field_ide")
                     .enumType(FieldIdeEnum.class)
                     .noDefaultValue()
                     .withDescription("Whether case conversion is required");
 
+    @Deprecated
     public static final Option<String> TABLE_PREFIX =
             Options.key("tablePrefix")
                     .stringType()
@@ -131,6 +133,7 @@ public class JdbcSinkOptions extends JdbcCommonOptions {
                     .withDescription(
                             "The table prefix name added when the table is automatically created");
 
+    @Deprecated
     public static final Option<String> TABLE_SUFFIX =
             Options.key("tableSuffix")
                     .stringType()
