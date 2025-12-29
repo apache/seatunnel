@@ -19,12 +19,18 @@ package org.apache.seatunnel.api.configuration.util;
 import org.apache.seatunnel.api.configuration.Option;
 import org.apache.seatunnel.api.configuration.ReadonlyConfig;
 import org.apache.seatunnel.api.configuration.util.issue.ConfigurationVerificationIssue;
+import org.apache.seatunnel.api.configuration.util.issue.ConfigurationVerificationIssue.Level;
+import org.apache.seatunnel.api.configuration.util.issue.ConflictConfigurationIssue;
+import org.apache.seatunnel.api.configuration.util.issue.DeprecatedConfigurationIssue;
+import org.apache.seatunnel.api.configuration.util.issue.VersionCompatibilityConfigurationIssue;
 import org.apache.seatunnel.common.constants.PluginType;
 
 import lombok.AllArgsConstructor;
 
 import java.util.Collections;
 import java.util.List;
+import java.util.Optional;
+import java.util.stream.Collectors;
 
 @AllArgsConstructor
 public abstract class DefaultEnhancedConfigurationValidator
@@ -34,20 +40,109 @@ public abstract class DefaultEnhancedConfigurationValidator
     protected final PluginType pluginType;
 
     @Override
-    public List<ConfigurationVerificationIssue> validateDeprecatedRules(ReadonlyConfig context) {
+    public List<DeprecatedConfigurationIssue> validateDeprecatedRules(ReadonlyConfig context) {
         final List<Option<?>> deprecateOptions = deprecatedOptions(context);
         if (deprecateOptions.isEmpty()) {
             return Collections.emptyList();
         }
-        deprecateOptions.forEach(option -> {});
+        return deprecateOptions.stream()
+                .map(option -> DeprecatedConfigurationIssue.of(identifier, pluginType, option))
+                .collect(Collectors.toList());
     }
 
     protected abstract List<Option<?>> deprecatedOptions(ReadonlyConfig context);
 
     @Override
-    public List<ConfigurationVerificationIssue> validateConflictRules(ReadonlyConfig context) {}
+    public List<ConfigurationVerificationIssue> validateConflictRules(ReadonlyConfig context) {
+        List<ConflictOption> conflictOptions = conflictOptions(context);
+        if (conflictOptions == null || conflictOptions.isEmpty()) {
+            return Collections.emptyList();
+        }
+        return conflictOptions.stream()
+                .map(
+                        conflict -> {
+                            if (Level.ERROR.equals(conflict.level)) {
+                                return ConflictConfigurationIssue.errorOf(
+                                        identifier,
+                                        pluginType,
+                                        conflict.option,
+                                        conflict.value,
+                                        conflict.conflictOption);
+                            }
+                            return ConflictConfigurationIssue.warnOf(
+                                    identifier,
+                                    pluginType,
+                                    conflict.option,
+                                    conflict.value,
+                                    conflict.conflictOption);
+                        })
+                .collect(Collectors.toList());
+    }
+
+    protected abstract List<ConflictOption> conflictOptions(ReadonlyConfig context);
 
     @Override
-    public List<ConfigurationVerificationIssue> validateVersionCompatibilityRules(
-            ReadonlyConfig context) {}
+    public List<VersionCompatibilityConfigurationIssue> validateVersionCompatibilityRules(
+            ReadonlyConfig context) {
+        List<VersionCompatibilityOption> compatibilityOptions =
+                versionCompatibilityOptions(context);
+        if (compatibilityOptions == null || compatibilityOptions.isEmpty()) {
+            return Collections.emptyList();
+        }
+        return compatibilityOptions.stream()
+                .map(
+                        option -> {
+                            if (Level.ERROR.equals(option.level)) {
+                                return VersionCompatibilityConfigurationIssue.errorOf(
+                                        identifier,
+                                        pluginType,
+                                        option.option,
+                                        option.needVersion,
+                                        option.currentVersion);
+                            }
+                            return VersionCompatibilityConfigurationIssue.warnOf(
+                                    identifier,
+                                    pluginType,
+                                    option.option,
+                                    option.needVersion,
+                                    option.currentVersion);
+                        })
+                .collect(Collectors.toList());
+    }
+
+    protected abstract List<VersionCompatibilityOption> versionCompatibilityOptions(
+            ReadonlyConfig context);
+
+    protected static class ConflictOption {
+        private final Level level;
+        private final Option<?> option;
+        private final Object value;
+        private final Option<?> conflictOption;
+
+        public ConflictOption(
+                Level level, Option<?> option, Object value, Option<?> conflictOption) {
+            this.level = level;
+            this.option = option;
+            this.value = value;
+            this.conflictOption = conflictOption;
+        }
+    }
+
+    protected static class VersionCompatibilityOption {
+        private final Level level;
+        private final Option<?> option;
+        private final String needVersion;
+        private final Optional<String> currentVersion;
+
+        public VersionCompatibilityOption(
+                Level level,
+                Option<?> option,
+                String needVersion,
+                Optional<String> currentVersion) {
+            this.level = level;
+            this.option = option;
+            this.needVersion = needVersion;
+            this.currentVersion = currentVersion;
+        }
+    }
 }

@@ -2,6 +2,8 @@ package org.apache.seatunnel.api.configuration.util;
 
 import org.apache.seatunnel.api.configuration.ReadonlyConfig;
 import org.apache.seatunnel.api.configuration.util.issue.ConfigurationVerificationIssue;
+import org.apache.seatunnel.api.configuration.util.issue.DeprecatedConfigurationIssue;
+import org.apache.seatunnel.api.configuration.util.issue.VersionCompatibilityConfigurationIssue;
 
 import java.util.ArrayList;
 import java.util.Collections;
@@ -54,7 +56,7 @@ public interface EnhancedConfigurationValidator {
      * @return a list of verification results describing deprecated parameters and suggested
      *     alternatives; empty if none found
      */
-    default List<ConfigurationVerificationIssue> validateDeprecatedRules(ReadonlyConfig context) {
+    default List<DeprecatedConfigurationIssue> validateDeprecatedRules(ReadonlyConfig context) {
         return Collections.emptyList();
     }
 
@@ -86,7 +88,7 @@ public interface EnhancedConfigurationValidator {
      * @return a list of verification results describing version incompatibilities or constraints;
      *     empty if all parameters are version-compatible
      */
-    default List<ConfigurationVerificationIssue> validateVersionCompatibilityRules(
+    default List<VersionCompatibilityConfigurationIssue> validateVersionCompatibilityRules(
             ReadonlyConfig context) {
         return Collections.emptyList();
     }
