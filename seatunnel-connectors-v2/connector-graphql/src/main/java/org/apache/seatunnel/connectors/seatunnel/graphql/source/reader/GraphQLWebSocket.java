@@ -98,8 +98,7 @@ public class GraphQLWebSocket {
         @Override
         public void onFailure(
                 @NotNull WebSocket webSocket, @NotNull Throwable t, @Nullable Response response) {
-            log.error("WebSocket connection failed: " + t.getMessage());
-            t.printStackTrace();
+            log.error("WebSocket connection failed", t);
             scheduleReconnect();
         }
 
@@ -108,7 +107,8 @@ public class GraphQLWebSocket {
             try {
                 buffer.put(text);
             } catch (InterruptedException e) {
-                e.printStackTrace();
+                log.error("Failed to put message into buffer", e);
+                Thread.currentThread().interrupt();
             }
         }
 
@@ -139,7 +139,8 @@ public class GraphQLWebSocket {
                                         Thread.sleep(RETRY_DELAY_MS);
                                         connect();
                                     } catch (InterruptedException e) {
-                                        e.printStackTrace();
+                                        log.error("Reconnection attempt interrupted", e);
+                                        Thread.currentThread().interrupt();
                                     }
                                 })
                         .start();

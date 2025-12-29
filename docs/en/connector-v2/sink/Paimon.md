@@ -78,6 +78,7 @@ libfb303-xxx.jar
 | paimon.hadoop.conf           | Map     | No       | -                            | Properties in hadoop conf                                                                                                                                        |
 | paimon.hadoop.conf-path      | String  | No       | -                            | The specified loading path for the 'core-site.xml', 'hdfs-site.xml', 'hive-site.xml' files                                                                       |
 | paimon.table.non-primary-key | Boolean | false    | -                            | Switch to create `table with PK` or `table without PK`. true : `table without PK`, false : `table with PK`                                                       |
+| branch                       | String  | No       | main                         | The branch name of Paimon table to write data to. If the branch does not exist, an exception will be thrown.                                                     |
 
 
 ## Checkpoint in batch mode

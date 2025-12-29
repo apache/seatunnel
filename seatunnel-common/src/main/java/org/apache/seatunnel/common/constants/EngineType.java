@@ -23,6 +23,7 @@ public enum EngineType {
     SPARK3("spark", "seatunnel-spark-3-starter.jar", "start-seatunnel-spark-3-connector-v2.sh"),
     FLINK13("flink", "seatunnel-flink-13-starter.jar", "start-seatunnel-flink-13-connector-v2.sh"),
     FLINK15("flink", "seatunnel-flink-15-starter.jar", "start-seatunnel-flink-15-connector-v2.sh"),
+    FLINK20("flink", "seatunnel-flink-20-starter.jar", "start-seatunnel-flink-20-connector-v2.sh"),
     SEATUNNEL("seatunnel", "seatunnel-starter.jar", "seatunnel.sh");
 
     private final String engine;

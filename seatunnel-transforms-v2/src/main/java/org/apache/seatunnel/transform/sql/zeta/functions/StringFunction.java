@@ -50,7 +50,7 @@ public class StringFunction {
 
     public static Integer ascii(List<Object> args) {
         String arg = (String) args.get(0);
-        if (arg == null) {
+        if (arg == null || arg.isEmpty()) {
             return null;
         } else {
             return (int) arg.charAt(0);
@@ -231,6 +231,9 @@ public class StringFunction {
             return null;
         }
         int count = ((Number) args.get(1)).intValue();
+        if (count < 0) {
+            return "";
+        }
         if (count > arg.length()) {
             count = arg.length();
         }
@@ -243,6 +246,9 @@ public class StringFunction {
             return null;
         }
         int count = ((Number) args.get(1)).intValue();
+        if (count < 0) {
+            return "";
+        }
         int length = arg.length();
         if (count > length) {
             count = length;

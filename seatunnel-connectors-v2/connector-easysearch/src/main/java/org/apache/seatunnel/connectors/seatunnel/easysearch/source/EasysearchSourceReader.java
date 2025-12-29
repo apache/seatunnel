@@ -74,19 +74,33 @@ public class EasysearchSourceReader implements SourceReader<SeaTunnelRow, Easyse
             EasysearchSourceSplit split = splits.poll();
             if (split != null) {
                 SourceIndexInfo sourceIndexInfo = split.getSourceIndexInfo();
-                ScrollResult scrollResult =
-                        ezsClient.searchByScroll(
-                                sourceIndexInfo.getIndex(),
-                                sourceIndexInfo.getSource(),
-                                sourceIndexInfo.getQuery(),
-                                sourceIndexInfo.getScrollTime(),
-                                sourceIndexInfo.getScrollSize());
-                outputFromScrollResult(scrollResult, sourceIndexInfo.getSource(), output);
-                while (scrollResult.getDocs() != null && scrollResult.getDocs().size() > 0) {
-                    scrollResult =
-                            ezsClient.searchWithScrollId(
-                                    scrollResult.getScrollId(), sourceIndexInfo.getScrollTime());
+                String scrollId = null;
+                try {
+                    ScrollResult scrollResult =
+                            ezsClient.searchByScroll(
+                                    sourceIndexInfo.getIndex(),
+                                    sourceIndexInfo.getSource(),
+                                    sourceIndexInfo.getQuery(),
+                                    sourceIndexInfo.getScrollTime(),
+                                    sourceIndexInfo.getScrollSize());
+                    scrollId = scrollResult.getScrollId();
                     outputFromScrollResult(scrollResult, sourceIndexInfo.getSource(), output);
+                    while (scrollResult.getDocs() != null && scrollResult.getDocs().size() > 0) {
+                        scrollResult =
+                                ezsClient.searchWithScrollId(
+                                        scrollResult.getScrollId(),
+                                        sourceIndexInfo.getScrollTime());
+                        scrollId = scrollResult.getScrollId();
+                        outputFromScrollResult(scrollResult, sourceIndexInfo.getSource(), output);
+                    }
+                } finally {
+                    if (scrollId != null && !scrollId.isEmpty()) {
+                        try {
+                            ezsClient.clearScroll(scrollId);
+                        } catch (Exception e) {
+                            log.warn("Failed to clear Easysearch scrollId: " + scrollId, e);
+                        }
+                    }
                 }
             } else if (noMoreSplit) {
                 // signal to the source that we have reached the end of the data.
