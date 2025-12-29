@@ -188,7 +188,7 @@ public abstract class RedisTemplateTest {
     }
 
     @Test
-    public void testFakeToToRedisDeleteZSetTest() throws IOException {
+    public void testFakeToRedisDeleteZSetTest() throws IOException {
         String key = "zset_check";
         SinkFlowTestUtils.runBatchWithCheckpointDisabled(
                 getCatalogTable(0, key),
