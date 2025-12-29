@@ -151,22 +151,19 @@ public class HiveMetaStoreCatalog implements Catalog, Closeable, Serializable {
     private IMetaStoreClient tryCreateRetryingClient(HiveConf hiveConf) {
         try {
             Class<?> clazz = Class.forName(RETRYING_METASTORE_CLIENT_CLASS_NAME);
-            for (Method method : clazz.getMethods()) {
-                if (!"getProxy".equals(method.getName())) {
-                    continue;
-                }
-                Class<?>[] parameterTypes = method.getParameterTypes();
-                if (parameterTypes.length == 2
-                        && parameterTypes[1] == boolean.class
-                        && parameterTypes[0].isInstance(hiveConf)) {
-                    Object proxy = method.invoke(null, hiveConf, true);
-                    if (proxy instanceof IMetaStoreClient) {
-                        log.info(
-                                "Using RetryingMetaStoreClient for Hive metastore connection [uris={}]",
-                                hiveConf.get("hive.metastore.uris"));
-                        return (IMetaStoreClient) proxy;
-                    }
-                }
+            Method getProxyMethod = getProxyMethod(clazz);
+            if (getProxyMethod == null) {
+                log.warn(
+                        "RetryingMetaStoreClient found but no compatible getProxy method, falling back to HiveMetaStoreClient");
+                return null;
+            }
+
+            Object proxy = getProxyMethod.invoke(null, hiveConf, true);
+            if (proxy instanceof IMetaStoreClient) {
+                log.info(
+                        "Using RetryingMetaStoreClient for Hive metastore connection [uris={}]",
+                        hiveConf.get("hive.metastore.uris"));
+                return (IMetaStoreClient) proxy;
             }
             log.warn(
                     "RetryingMetaStoreClient found but no compatible getProxy method, falling back to HiveMetaStoreClient");
@@ -180,6 +177,26 @@ public class HiveMetaStoreCatalog implements Catalog, Closeable, Serializable {
                     e);
             return null;
         }
+    }
+
+    private static Method getProxyMethod(Class<?> clazz) {
+        // Hive 2.x: getProxy(HiveConf, boolean)
+        // Hive 3.x: getProxy(Configuration, boolean)
+        Method method = null;
+        try {
+            method = clazz.getDeclaredMethod("getProxy", HiveConf.class, boolean.class);
+        } catch (NoSuchMethodException ignored) {
+        }
+        if (method == null) {
+            try {
+                method = clazz.getDeclaredMethod("getProxy", Configuration.class, boolean.class);
+            } catch (NoSuchMethodException ignored) {
+            }
+        }
+        if (method != null) {
+            method.setAccessible(true);
+        }
+        return method;
     }
 
     /**

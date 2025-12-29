@@ -60,7 +60,7 @@ Target Hive table name eg: db1.table1, and if the source is multiple mode, you c
 
 ### metastore_uri [string]
 
-Hive metastore uri
+Hive metastore uri. Supports comma-separated multiple URIs for HA/failover (whitespace is ignored). SeaTunnel passes this value to Hive `hive.metastore.uris` and uses Hive `RetryingMetaStoreClient` (if available) to retry/failover between URIs. This is client-side endpoint failover; make sure your metastores share/replicate the same backend to keep metadata consistent.
 
 ### hdfs_site_path [string]
 
@@ -154,6 +154,15 @@ Sink plugin common parameters, please refer to [Sink Common Options](../sink-com
     metastore_uri = "thrift://namenode001:9083"
   }
 
+```
+
+Metastore URI failover example (multiple URIs):
+
+```bash
+  Hive {
+    table_name = "default.seatunnel_orc"
+    metastore_uri = "thrift://metastore-1:9083,thrift://metastore-2:9083"
+  }
 ```
 
 ### example 1
