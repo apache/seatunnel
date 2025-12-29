@@ -106,9 +106,42 @@ class ArrayFunctionTest {
     void testArrayMaxAndMinWithEmptyOrNullArray() {
         Object[] empty = new Object[] {};
         Assertions.assertNull(
+                ArrayFunction.arrayMax(java.util.Collections.singletonList((Object) empty)));
+        Assertions.assertNull(
+                ArrayFunction.arrayMin(java.util.Collections.singletonList((Object) empty)));
+        Assertions.assertNull(
                 ArrayFunction.arrayMax(java.util.Collections.singletonList((Object) null)));
         Assertions.assertNull(
                 ArrayFunction.arrayMin(java.util.Collections.singletonList((Object) null)));
+    }
+
+    @Test
+    void testArrayMaxAndMinWithNullElements() {
+        Object[] values = new Object[] {null, 3, 2, null, 5};
+        Object max = ArrayFunction.arrayMax(java.util.Collections.singletonList((Object) values));
+        Object min = ArrayFunction.arrayMin(java.util.Collections.singletonList((Object) values));
+
+        Assertions.assertEquals(5, max);
+        Assertions.assertEquals(2, min);
+    }
+
+    @Test
+    void testArrayMaxAndMinWithAllNullElements() {
+        Object[] values = new Object[] {null, null};
+        Assertions.assertNull(
+                ArrayFunction.arrayMax(java.util.Collections.singletonList((Object) values)));
+        Assertions.assertNull(
+                ArrayFunction.arrayMin(java.util.Collections.singletonList((Object) values)));
+    }
+
+    @Test
+    void testArrayMaxAndMinWithNullElementsString() {
+        Object[] values = new Object[] {null, "b", null, "a"};
+        Object max = ArrayFunction.arrayMax(java.util.Collections.singletonList((Object) values));
+        Object min = ArrayFunction.arrayMin(java.util.Collections.singletonList((Object) values));
+
+        Assertions.assertEquals("b", max);
+        Assertions.assertEquals("a", min);
     }
 
     @Test

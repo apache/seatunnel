@@ -32,6 +32,7 @@ import java.util.Comparator;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.Objects;
 
 public class ArrayFunction {
 
@@ -43,20 +44,27 @@ public class ArrayFunction {
         if (dataList == null || dataList.length == 0) {
             return null;
         }
-        if (dataList[0] instanceof String) {
+        Object firstNonNullValue =
+                Arrays.stream(dataList).filter(Objects::nonNull).findFirst().orElse(null);
+        if (firstNonNullValue == null) {
+            return null;
+        }
+        if (firstNonNullValue instanceof String) {
             return Arrays.stream(dataList)
+                    .filter(Objects::nonNull)
                     .map(String.class::cast)
                     .max(String::compareTo)
                     .orElse(null);
-        } else if (dataList[0] instanceof Number) {
+        } else if (firstNonNullValue instanceof Number) {
             return Arrays.stream(dataList)
+                    .filter(Objects::nonNull)
                     .map(Number.class::cast)
                     .max(Comparator.comparingDouble(Number::doubleValue))
                     .orElse(null);
         }
         Map<String, String> params = new HashMap<>();
         params.put("identifier", "ArrayFunction");
-        params.put("dataType", dataList[0].getClass().getName());
+        params.put("dataType", firstNonNullValue.getClass().getName());
         params.put("field", "ARRAY_MAX");
         throw new TransformException(CommonErrorCode.UNSUPPORTED_DATA_TYPE, params);
     }
@@ -69,20 +77,27 @@ public class ArrayFunction {
         if (dataList == null || dataList.length == 0) {
             return null;
         }
-        if (dataList[0] instanceof String) {
+        Object firstNonNullValue =
+                Arrays.stream(dataList).filter(Objects::nonNull).findFirst().orElse(null);
+        if (firstNonNullValue == null) {
+            return null;
+        }
+        if (firstNonNullValue instanceof String) {
             return Arrays.stream(dataList)
+                    .filter(Objects::nonNull)
                     .map(String.class::cast)
                     .min(String::compareTo)
                     .orElse(null);
-        } else if (dataList[0] instanceof Number) {
+        } else if (firstNonNullValue instanceof Number) {
             return Arrays.stream(dataList)
+                    .filter(Objects::nonNull)
                     .map(Number.class::cast)
                     .min(Comparator.comparingDouble(Number::doubleValue))
                     .orElse(null);
         }
         Map<String, String> params = new HashMap<>();
         params.put("identifier", "ArrayFunction");
-        params.put("dataType", dataList[0].getClass().getName());
+        params.put("dataType", firstNonNullValue.getClass().getName());
         params.put("field", "ARRAY_MIN");
         throw new TransformException(CommonErrorCode.UNSUPPORTED_DATA_TYPE, params);
     }
