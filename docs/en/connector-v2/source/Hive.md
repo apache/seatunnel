@@ -76,7 +76,7 @@ Whether to treat `table_name` as a regular expression pattern for matching multi
 Regex syntax notes:
 - The dot (`.`) is treated as the separator between database and table patterns (Hive only supports `database.table`).
 - Only one unescaped dot is allowed (as the database/table separator). If you need to use dot (`.`) in a regular expression (e.g. `.*`), you must escape it as `\.` (in a HOCON string, write `\\.`).
-- Examples: `db0.\.*`, `db1.user_table_[0-9]+`, `db[1-2].[app|web]order_\.*`.
+- Examples: `db0.\.*`, `db1.user_table_[0-9]+`, `db[1-2].(app|web)order_\.*`.
 - In SeaTunnel job config (HOCON string), backslashes need escaping. For example, the regex `db0.\.*` should be configured as `db0.\\.*`.
 - `db0.\.*` matches all tables in database `db0` (whole database synchronization).
 - `\.*.\.*` matches all tables in all databases (whole Hive synchronization).
