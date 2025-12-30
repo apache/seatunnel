@@ -46,7 +46,7 @@ public abstract class DefaultEnhancedConfigurationValidator
 
     @Override
     public List<DeprecatedConfigurationIssue> validateDeprecatedRules(ReadonlyConfig context) {
-        final List<DeprecatedRule> deprecateOptions = deprecatedRules(context);
+        final List<DeprecatedRule> deprecateOptions = deprecatedRules();
         if (deprecateOptions == null || deprecateOptions.isEmpty()) {
             return Collections.emptyList();
         }
@@ -62,11 +62,11 @@ public abstract class DefaultEnhancedConfigurationValidator
                 .collect(Collectors.toList());
     }
 
-    protected abstract List<DeprecatedRule> deprecatedRules(ReadonlyConfig context);
+    protected abstract List<DeprecatedRule> deprecatedRules();
 
     @Override
     public List<ConfigurationVerificationIssue> validateConflictRules(ReadonlyConfig context) {
-        List<ConflictRule> conflictOptions = conflictRules(context);
+        List<ConflictRule> conflictOptions = conflictRules();
         if (conflictOptions == null || conflictOptions.isEmpty()) {
             return Collections.emptyList();
         }
@@ -106,12 +106,12 @@ public abstract class DefaultEnhancedConfigurationValidator
                         conflict.conflictOption));
     }
 
-    protected abstract List<ConflictRule> conflictRules(ReadonlyConfig context);
+    protected abstract List<ConflictRule> conflictRules();
 
     @Override
     public List<VersionCompatibilityConfigurationIssue> validateVersionCompatibilityRules(
             ReadonlyConfig context) {
-        List<VersionCompatibilityRule> compatibilityOptions = versionCompatibilityRules(context);
+        List<VersionCompatibilityRule> compatibilityOptions = versionCompatibilityRules();
         if (compatibilityOptions == null || compatibilityOptions.isEmpty()) {
             return Collections.emptyList();
         }
@@ -147,8 +147,7 @@ public abstract class DefaultEnhancedConfigurationValidator
                         identifier, pluginType, option.option, option.needVersion, currentVersion));
     }
 
-    protected abstract List<VersionCompatibilityRule> versionCompatibilityRules(
-            ReadonlyConfig context);
+    protected abstract List<VersionCompatibilityRule> versionCompatibilityRules();
 
     protected Optional<String> detectCurrentServiceVersion(ReadonlyConfig context) {
         try {

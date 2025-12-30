@@ -16,7 +16,6 @@
  */
 package org.apache.seatunnel.connectors.seatunnel.jdbc.sink;
 
-import org.apache.seatunnel.api.configuration.ReadonlyConfig;
 import org.apache.seatunnel.api.configuration.util.DefaultEnhancedConfigurationValidator;
 import org.apache.seatunnel.common.constants.PluginType;
 
@@ -39,7 +38,7 @@ public class JdbcSinkEnhancedValidator extends DefaultEnhancedConfigurationValid
     }
 
     @Override
-    protected List<DeprecatedRule> deprecatedRules(ReadonlyConfig context) {
+    protected List<DeprecatedRule> deprecatedRules() {
         List<DeprecatedRule> deprecatedRules = new ArrayList<>();
         deprecatedRules.add(DeprecatedRule.warning(FIELD_IDE));
         deprecatedRules.add(DeprecatedRule.warning(TABLE_PREFIX));
@@ -48,26 +47,23 @@ public class JdbcSinkEnhancedValidator extends DefaultEnhancedConfigurationValid
     }
 
     @Override
-    protected List<ConflictRule> conflictRules(ReadonlyConfig context) {
+    protected List<ConflictRule> conflictRules() {
         List<ConflictRule> conflictRules = new ArrayList<>();
         conflictRules.add(
                 ConflictRule.error(
                         URL,
                         (url, useCopy) ->
-                                Boolean.TRUE.equals(useCopy)
-                                        && !isPostgresFamily(url == null ? "" : url.toString()),
+                                Boolean.TRUE.equals(useCopy) && !isPostgresFamily(url.toString()),
                         USE_COPY_STATEMENT));
         return conflictRules;
     }
 
     @Override
-    protected List<VersionCompatibilityRule> versionCompatibilityRules(ReadonlyConfig context) {
+    protected List<VersionCompatibilityRule> versionCompatibilityRules() {
         return Collections.emptyList();
     }
 
     private boolean isPostgresFamily(String url) {
-        String normalizedUrl = url == null ? "" : url.toLowerCase();
-        return normalizedUrl.startsWith("jdbc:postgresql:")
-                || normalizedUrl.startsWith("jdbc:pivotal:greenplum:");
+        return url.startsWith("jdbc:postgresql:") || url.startsWith("jdbc:pivotal:greenplum:");
     }
 }
