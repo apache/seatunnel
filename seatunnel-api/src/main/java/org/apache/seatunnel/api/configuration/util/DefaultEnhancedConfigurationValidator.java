@@ -48,6 +48,7 @@ public abstract class DefaultEnhancedConfigurationValidator
         if (deprecateOptions == null || deprecateOptions.isEmpty()) {
             return Collections.emptyList();
         }
+        // todo deprecatedOptions() 只负责添加，validateDeprecatedRules()这里筛选context里是否有这个option
         return deprecateOptions.stream()
                 .map(
                         deprecatedOption ->
@@ -67,6 +68,7 @@ public abstract class DefaultEnhancedConfigurationValidator
         if (conflictOptions == null || conflictOptions.isEmpty()) {
             return Collections.emptyList();
         }
+        // todo ConflictOption再重构下，判断值 1、bool类型 2、正则表达 3、非判断
         return conflictOptions.stream()
                 .map(
                         conflict -> {

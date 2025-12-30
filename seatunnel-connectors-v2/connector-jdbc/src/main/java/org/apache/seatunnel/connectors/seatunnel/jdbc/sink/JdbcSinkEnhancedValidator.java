@@ -22,8 +22,11 @@ import org.apache.seatunnel.common.constants.PluginType;
 
 import lombok.extern.slf4j.Slf4j;
 
+import java.util.ArrayList;
 import java.util.Collections;
 import java.util.List;
+
+import static org.apache.seatunnel.connectors.seatunnel.jdbc.config.JdbcSinkOptions.FIELD_IDE;
 
 @Slf4j
 public class JdbcSinkEnhancedValidator extends DefaultEnhancedConfigurationValidator {
@@ -33,7 +36,9 @@ public class JdbcSinkEnhancedValidator extends DefaultEnhancedConfigurationValid
 
     @Override
     protected List<DeprecatedOption> deprecatedOptions(ReadonlyConfig context) {
-        return Collections.emptyList();
+        List<DeprecatedOption> deprecatedOptions = new ArrayList<>();
+        deprecatedOptions.add(DeprecatedOption.warning(FIELD_IDE));
+        return deprecatedOptions;
     }
 
     @Override
