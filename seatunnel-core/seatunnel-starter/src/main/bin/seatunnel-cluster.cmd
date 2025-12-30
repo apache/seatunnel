@@ -110,6 +110,30 @@ for %%I in (%*) do (
     )
 )
 
+REM Ensure HeapDumpPath directory exists to avoid OOM dump failures.
+set "HEAP_DUMP_PATH="
+for %%I in (!JAVA_OPTS!) do (
+    set "opt=%%I"
+    if "!opt:~0,18!"=="-XX:HeapDumpPath=" (
+        set "HEAP_DUMP_PATH=!opt:~18!"
+    )
+)
+if defined HEAP_DUMP_PATH (
+    set "HEAP_DUMP_DIR=!HEAP_DUMP_PATH!"
+    if "!HEAP_DUMP_PATH:~-1!"=="/" set "HEAP_DUMP_DIR=!HEAP_DUMP_PATH:~0,-1!"
+    if "!HEAP_DUMP_PATH:~-1!"=="\\" set "HEAP_DUMP_DIR=!HEAP_DUMP_PATH:~0,-1!"
+    if /I "!HEAP_DUMP_PATH:~-6!"==".hprof" (
+        for %%D in ("!HEAP_DUMP_PATH!") do set "HEAP_DUMP_DIR=%%~dpD"
+    ) else if /I "!HEAP_DUMP_PATH:~-4!"==".phd" (
+        for %%D in ("!HEAP_DUMP_PATH!") do set "HEAP_DUMP_DIR=%%~dpD"
+    ) else (
+        for %%D in ("!HEAP_DUMP_PATH!") do (
+            if not "%%~xD"=="" set "HEAP_DUMP_DIR=%%~dpD"
+        )
+    )
+    if defined HEAP_DUMP_DIR if not exist "!HEAP_DUMP_DIR!" mkdir "!HEAP_DUMP_DIR!"
+)
+
 IF NOT EXIST "%HAZELCAST_CONFIG%" (
     echo Error: File %HAZELCAST_CONFIG% does not exist.
     exit /b 1

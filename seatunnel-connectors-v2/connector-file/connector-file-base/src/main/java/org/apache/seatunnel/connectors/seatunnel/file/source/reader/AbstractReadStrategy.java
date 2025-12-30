@@ -26,16 +26,19 @@ import org.apache.seatunnel.api.table.type.BasicType;
 import org.apache.seatunnel.api.table.type.SeaTunnelDataType;
 import org.apache.seatunnel.api.table.type.SeaTunnelRow;
 import org.apache.seatunnel.api.table.type.SeaTunnelRowType;
+import org.apache.seatunnel.common.utils.SeaTunnelException;
 import org.apache.seatunnel.connectors.seatunnel.file.config.ArchiveCompressFormat;
 import org.apache.seatunnel.connectors.seatunnel.file.config.FileBaseSourceOptions;
 import org.apache.seatunnel.connectors.seatunnel.file.config.FileFormat;
 import org.apache.seatunnel.connectors.seatunnel.file.config.HadoopConf;
 import org.apache.seatunnel.connectors.seatunnel.file.hadoop.HadoopFileSystemProxy;
+import org.apache.seatunnel.connectors.seatunnel.file.source.split.FileSourceSplit;
 
 import org.apache.commons.compress.archivers.tar.TarArchiveEntry;
 import org.apache.commons.compress.archivers.tar.TarArchiveInputStream;
 import org.apache.commons.compress.compressors.gzip.GzipCompressorInputStream;
 import org.apache.commons.compress.compressors.gzip.GzipParameters;
+import org.apache.commons.io.input.BoundedInputStream;
 import org.apache.hadoop.fs.FileStatus;
 
 import lombok.extern.slf4j.Slf4j;
@@ -92,6 +95,9 @@ public abstract class AbstractReadStrategy implements ReadStrategy {
     protected Pattern pattern;
     protected Date fileModifiedStartDate;
     protected Date fileModifiedEndDate;
+    protected String fileBasePath;
+
+    protected boolean enableSplitFile;
 
     @Override
     public void init(HadoopConf conf) {
@@ -223,6 +229,11 @@ public abstract class AbstractReadStrategy implements ReadStrategy {
             String filterPattern =
                     pluginConfig.getString(FileBaseSourceOptions.FILE_FILTER_PATTERN.key());
             this.pattern = Pattern.compile(filterPattern);
+            // because 'ConfigFactory.systemProperties()' has a 'path' parameter, it is necessary to
+            // obtain 'path' under the premise of 'FILE_FILTER_PATTERN'
+            if (pluginConfig.hasPath(FileBaseSourceOptions.FILE_PATH.key())) {
+                fileBasePath = pluginConfig.getString(FileBaseSourceOptions.FILE_PATH.key());
+            }
         }
         if (pluginConfig.hasPath(FileBaseSourceOptions.FILE_FILTER_MODIFIED_START.key())) {
             fileModifiedStartDate =
@@ -236,6 +247,10 @@ public abstract class AbstractReadStrategy implements ReadStrategy {
                             pluginConfig.getString(
                                     FileBaseSourceOptions.FILE_FILTER_MODIFIED_END.key()));
         }
+        if (pluginConfig.hasPath(FileBaseSourceOptions.ENABLE_FILE_SPLIT.key())) {
+            enableSplitFile =
+                    pluginConfig.getBoolean(FileBaseSourceOptions.ENABLE_FILE_SPLIT.key());
+        }
     }
 
     @Override
@@ -244,12 +259,13 @@ public abstract class AbstractReadStrategy implements ReadStrategy {
     }
 
     protected void resolveArchiveCompressedInputStream(
-            String path,
-            String tableId,
+            FileSourceSplit split,
             Collector<SeaTunnelRow> output,
             Map<String, String> partitionsMap,
             FileFormat fileFormat)
             throws IOException {
+        String path = split.getFilePath();
+        String tableId = split.getTableId();
         switch (archiveCompressFormat) {
             case ZIP:
                 try (ZipInputStream zis =
@@ -258,8 +274,7 @@ public abstract class AbstractReadStrategy implements ReadStrategy {
                     while ((entry = zis.getNextEntry()) != null) {
                         if (!entry.isDirectory() && checkFileType(entry.getName(), fileFormat)) {
                             readProcess(
-                                    path,
-                                    tableId,
+                                    split,
                                     output,
                                     copyInputStream(zis),
                                     partitionsMap,
@@ -276,8 +291,7 @@ public abstract class AbstractReadStrategy implements ReadStrategy {
                     while ((entry = tarInput.getNextTarEntry()) != null) {
                         if (!entry.isDirectory() && checkFileType(entry.getName(), fileFormat)) {
                             readProcess(
-                                    path,
-                                    tableId,
+                                    split,
                                     output,
                                     copyInputStream(tarInput),
                                     partitionsMap,
@@ -296,8 +310,7 @@ public abstract class AbstractReadStrategy implements ReadStrategy {
                     while ((entry = tarIn.getNextTarEntry()) != null) {
                         if (!entry.isDirectory() && checkFileType(entry.getName(), fileFormat)) {
                             readProcess(
-                                    path,
-                                    tableId,
+                                    split,
                                     output,
                                     copyInputStream(tarIn),
                                     partitionsMap,
@@ -325,13 +338,11 @@ public abstract class AbstractReadStrategy implements ReadStrategy {
                         fileName = path;
                     }
                 }
-                readProcess(
-                        path, tableId, output, copyInputStream(gzipIn), partitionsMap, fileName);
+                readProcess(split, output, copyInputStream(gzipIn), partitionsMap, fileName);
                 break;
             case NONE:
                 readProcess(
-                        path,
-                        tableId,
+                        split,
                         output,
                         hadoopFileSystemProxy.getInputStream(path),
                         partitionsMap,
@@ -342,8 +353,7 @@ public abstract class AbstractReadStrategy implements ReadStrategy {
                         "The file does not support this archive compress type: {}",
                         archiveCompressFormat);
                 readProcess(
-                        path,
-                        tableId,
+                        split,
                         output,
                         hadoopFileSystemProxy.getInputStream(path),
                         partitionsMap,
@@ -352,8 +362,7 @@ public abstract class AbstractReadStrategy implements ReadStrategy {
     }
 
     protected void readProcess(
-            String path,
-            String tableId,
+            FileSourceSplit split,
             Collector<SeaTunnelRow> output,
             InputStream inputStream,
             Map<String, String> partitionsMap,
@@ -406,7 +415,15 @@ public abstract class AbstractReadStrategy implements ReadStrategy {
     }
 
     protected boolean filterFileByPattern(FileStatus fileStatus) {
-        if (Objects.nonNull(pattern)) {
+        if (Objects.nonNull(pattern) && Objects.nonNull(fileBasePath)) {
+            if (pattern.pattern().startsWith(fileBasePath)) {
+                // filter based on the file directory at the same time
+                String absPath = fileStatus.getPath().toUri().getPath();
+                // absPath.substring(absPath.indexOf(fileBasePath), It is to be compatible with
+                // scenarios where fileBasePath is a relative path
+                return pattern.matcher(absPath.substring(absPath.indexOf(fileBasePath))).matches();
+            }
+            // filter based on file names
             return pattern.matcher(fileStatus.getPath().getName()).matches();
         }
         return true;
@@ -435,6 +452,19 @@ public abstract class AbstractReadStrategy implements ReadStrategy {
                 "The {} file format is incorrect. Please check the format in the compressed file.",
                 fileName);
         return false;
+    }
+
+    protected static InputStream safeSlice(InputStream in, long start, long length)
+            throws IOException {
+        long toSkip = start;
+        while (toSkip > 0) {
+            long skipped = in.skip(toSkip);
+            if (skipped <= 0) {
+                throw new SeaTunnelException("skipped error");
+            }
+            toSkip -= skipped;
+        }
+        return new BoundedInputStream(in, length);
     }
 
     @Override

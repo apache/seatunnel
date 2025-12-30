@@ -284,4 +284,19 @@ public class JdbcHanaIT extends AbstractJdbcIT {
         Assertions.assertEquals(1, columnNames.size());
         Assertions.assertEquals(25, catalogTable.getTableSchema().getColumns().size());
     }
+
+    @SneakyThrows
+    @Test
+    public void testCatalogWithQuery() {
+        String query =
+                String.format("SELECT * FROM %s", buildTableInfoWithSchema(DATABASE, SOURCE_TABLE));
+
+        CatalogTable catalogTable =
+                CatalogUtils.getCatalogTable(connection, query, new SapHanaTypeMapper());
+
+        Assertions.assertNotNull(catalogTable.getTableSchema().getPrimaryKey());
+        Assertions.assertEquals(
+                1, catalogTable.getTableSchema().getPrimaryKey().getColumnNames().size());
+        Assertions.assertEquals(25, catalogTable.getTableSchema().getColumns().size());
+    }
 }

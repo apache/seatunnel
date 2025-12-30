@@ -340,6 +340,9 @@ public class ZetaSQLFunction {
                     }
                     parDataType = ((SeaTunnelRowType) parDataType).getFieldType(idx);
                     res = parRowValues.getFields()[idx];
+                    if (res == null) {
+                        return null;
+                    }
                 }
                 return res;
             }

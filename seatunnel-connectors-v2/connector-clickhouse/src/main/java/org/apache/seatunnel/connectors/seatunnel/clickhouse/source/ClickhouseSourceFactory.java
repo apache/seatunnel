@@ -25,6 +25,7 @@ import org.apache.seatunnel.api.source.SeaTunnelSource;
 import org.apache.seatunnel.api.source.SourceSplit;
 import org.apache.seatunnel.api.table.catalog.CatalogTable;
 import org.apache.seatunnel.api.table.catalog.PhysicalColumn;
+import org.apache.seatunnel.api.table.catalog.PrimaryKey;
 import org.apache.seatunnel.api.table.catalog.TableIdentifier;
 import org.apache.seatunnel.api.table.catalog.TablePath;
 import org.apache.seatunnel.api.table.catalog.TableSchema;
@@ -46,12 +47,15 @@ import com.clickhouse.client.ClickHouseException;
 import com.clickhouse.client.ClickHouseNode;
 import com.clickhouse.client.ClickHouseResponse;
 import com.google.auto.service.AutoService;
+import lombok.extern.slf4j.Slf4j;
 
 import java.io.Serializable;
+import java.sql.SQLException;
 import java.util.Collections;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.Optional;
 import java.util.concurrent.ThreadLocalRandom;
 
 import static org.apache.seatunnel.connectors.seatunnel.clickhouse.config.ClickhouseBaseOptions.CLICKHOUSE_CONFIG;
@@ -66,6 +70,7 @@ import static org.apache.seatunnel.connectors.seatunnel.clickhouse.config.Clickh
 import static org.apache.seatunnel.connectors.seatunnel.clickhouse.config.ClickhouseSourceOptions.CLICKHOUSE_SPLIT_SIZE;
 import static org.apache.seatunnel.connectors.seatunnel.clickhouse.config.ClickhouseSourceOptions.SQL;
 
+@Slf4j
 @AutoService(Factory.class)
 public class ClickhouseSourceFactory implements TableSourceFactory {
     @Override
@@ -111,7 +116,38 @@ public class ClickhouseSourceFactory implements TableSourceFactory {
                                                     tablePath.getTableName()))
                                     .executeAndWait()) {
 
+                // Query primary key
+                Optional<PrimaryKey> primaryKey = Optional.empty();
+                try {
+                    primaryKey =
+                            proxy.getPrimaryKey(
+                                    tablePath.getDatabaseName(), tablePath.getTableName());
+                    log.info(
+                            "ClickhouseSourceFactory: queried primary key for table {}.{}: {}",
+                            tablePath.getDatabaseName(),
+                            tablePath.getTableName(),
+                            primaryKey.isPresent()
+                                    ? primaryKey.get().getColumnNames()
+                                    : "NOT FOUND");
+                } catch (SQLException e) {
+                    log.warn(
+                            "Failed to get primary key for table {}.{}, will create table without primary key",
+                            tablePath.getDatabaseName(),
+                            tablePath.getTableName(),
+                            e);
+                }
+
                 TableSchema.Builder builder = TableSchema.builder();
+
+                // Add primary key if exists
+                primaryKey.ifPresent(
+                        pk -> {
+                            builder.primaryKey(pk);
+                            log.debug(
+                                    "ClickhouseSourceFactory: added primary key to TableSchema: {}",
+                                    pk.getColumnNames());
+                        });
+
                 List<ClickHouseColumn> columns = response.getColumns();
 
                 columns.forEach(

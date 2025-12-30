@@ -24,14 +24,15 @@ The Metadata transform plugin is used to extract metadata information from data 
 | Database  |  string  |  Name of the database containing the data  | All connectors |
 |   Table   |  string  |  Name of the table containing the data  | All connectors |
 |  RowKind  |  string  |  Row change type, values: +I (insert), -U (update before), +U (update after), -D (delete)  | All connectors |
-| EventTime |   long   |  Event timestamp of data change (milliseconds)  | CDC connectors |
+| EventTime |   long   |  Event timestamp of data change (milliseconds)  | CDC connectors; Kafka source (ConsumerRecord.timestamp) |
 |   Delay   |   long   |  Data collection delay time (milliseconds), i.e., the difference between data extraction time and database change time  | CDC connectors |
 | Partition |  string  |  Partition information of the data, multiple partition fields separated by commas  | Connectors supporting partitions |
 
 ### Important Notes
 
 1. **Metadata field names are case-sensitive**: Configuration must strictly follow the Key names in the table above (e.g., `Database`, `Table`, `RowKind`, etc.)
-2. **CDC-specific fields**: `EventTime` and `Delay` are only valid when using CDC connectors (except TiDB-CDC)
+2. **Time fields**: `Delay` is only valid when using CDC connectors (except TiDB-CDC). `EventTime` is provided by CDC connectors and also by the Kafka source via `ConsumerRecord.timestamp` when available.
+3. **Kafka event time**: The Kafka source writes `ConsumerRecord.timestamp` (milliseconds) into `EventTime` when it is non-negative, so you can surface it with the `Metadata` transform.
 
 ## Options
 
@@ -171,3 +172,71 @@ sink {
   }
 }
 ```
+
+### Example 3: Kafka record time for partitioning
+
+Expose Kafka `ConsumerRecord.timestamp` (injected into `EventTime`) as `kafka_ts`, convert it to a partition field, and write to Hive. This pattern is useful when replaying Kafka data and aligning partitions by the original record time.
+
+```hocon
+env {
+  execution.parallelism = 4
+  job.mode = "STREAMING"
+  checkpoint.interval = 60000
+}
+
+source {
+  Kafka {
+    plugin_output = "kafka_raw"
+    schema = {
+      fields {
+        id = bigint
+        customer_type = string
+        data = string
+      }
+    }
+    format = text
+    field_delimiter = "|"
+    topic = "push_report_event"
+    bootstrap.servers = "kafka-broker-1:9092,kafka-broker-2:9092"
+    consumer.group = "seatunnel_event_backfill"
+    kafka.config = {
+      max.poll.records = 100
+      auto.offset.reset = "earliest"
+      enable.auto.commit = "false"
+    }
+  }
+}
+
+transform {
+  Metadata {
+    plugin_input = "kafka_raw"
+    plugin_output = "kafka_with_meta"
+    metadata_fields = {
+      EventTime = "kafka_ts"
+    }
+  }
+
+  Sql {
+    plugin_input = "kafka_with_meta"
+    plugin_output = "source_table"
+    query = "select id, customer_type, data, FROM_UNIXTIME(kafka_ts/1000, 'yyyy-MM-dd', 'Asia/Shanghai') as pt from kafka_with_meta where kafka_ts >= 0"
+  }
+}
+
+sink {
+  Hive {
+    table_name = "example_db.ods_sys_event_report"
+    metastore_uri = "thrift://metastore-1:9083,thrift://metastore-2:9083"
+    hdfs_site_path = "/path/to/hdfs-site.xml"
+    hive_site_path = "/path/to/hive-site.xml"
+    krb5_path = "/path/to/krb5.conf"
+    kerberos_principal = "hive/metastore-1@EXAMPLE.COM"
+    kerberos_keytab_path = "/path/to/hive.keytab"
+    overwrite = false
+    plugin_input = "source_table"
+    # compress_codec = "SNAPPY"
+  }
+}
+```
+
+Here `pt` is derived from the Kafka event time and can be used as a Hive partition column.

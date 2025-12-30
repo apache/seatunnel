@@ -282,7 +282,7 @@ networks:
 运行 `docker-compose up`命令来启动集群，该配置会启动一个master节点，2个worker节点
 
 
-启动完成后，可以运行`docker logs -f seatunne_master`, `docker logs -f seatunnel_worker_1`来查看节点的日志  
+启动完成后，可以运行`docker logs -f seatunnel_master`, `docker logs -f seatunnel_worker_1`来查看节点的日志  
 当你访问`http://localhost:5801/hazelcast/rest/maps/system-monitoring-information` 时，可以看到集群的状态为1个master节点，2个worker节点.
 
 #### 集群扩容
