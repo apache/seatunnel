@@ -55,6 +55,7 @@ public class ClickhouseCatalogUtil extends CatalogUtil {
                     template, database, table, tableSchema, comment, optionsKey);
         } finally {
             pkColumns.clear();
+            PRIMARY_KEY_COLUMNS.remove();
         }
     }
 
