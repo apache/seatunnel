@@ -44,21 +44,14 @@ public class VersionCompatibilityConfigurationIssue extends ConfigurationVerific
     }
 
     @Override
-    public void log() {
+    protected String getLog() {
         String versionInfo =
                 currentVersion
                         .map(version -> String.format("current version '%s'", version))
                         .orElse("current version is unknown");
-        String message =
-                String.format(
-                        "Configuration option '%s' requires version '%s' (%s) in %s plugin '%s'",
-                        option.key(), needVersion, versionInfo, pluginType.getType(), identifier);
-
-        if (Level.ERROR.equals(level)) {
-            log.error(message);
-            return;
-        }
-        log.warn(message);
+        return String.format(
+                "Configuration option '%s' requires version '%s' (%s) in %s plugin '%s'",
+                option.key(), needVersion, versionInfo, pluginType.getType(), identifier);
     }
 
     public static VersionCompatibilityConfigurationIssue errorOf(

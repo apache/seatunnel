@@ -41,7 +41,15 @@ public abstract class ConfigurationVerificationIssue {
         this.pluginType = pluginType;
     }
 
-    public abstract void log();
+    public void log() {
+        if (level == Level.ERROR) {
+            log.error(getLog());
+        } else {
+            log.warn(getLog());
+        }
+    }
+
+    protected abstract String getLog();
 
     public enum Level {
         ERROR,

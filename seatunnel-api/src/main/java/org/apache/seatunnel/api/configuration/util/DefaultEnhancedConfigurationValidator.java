@@ -145,9 +145,17 @@ public abstract class DefaultEnhancedConfigurationValidator
         private final Option<?> option;
         private final Option<?>[] referToOption;
 
-        public DeprecatedOption(Option<?> option, Option<?>[] referToOptions) {
+        private DeprecatedOption(Option<?> option, Option<?>[] referToOptions) {
             this.option = option;
             this.referToOption = referToOptions;
+        }
+
+        public static DeprecatedOption warning(Option<?> option, Option<?>[] referToOptions) {
+            return new DeprecatedOption(option, referToOptions);
+        }
+
+        public static DeprecatedOption warning(Option<?> option) {
+            return new DeprecatedOption(option, null);
         }
     }
 
@@ -157,12 +165,22 @@ public abstract class DefaultEnhancedConfigurationValidator
         private final Object value;
         private final Option<?> conflictOption;
 
-        public ConflictOption(
+        private ConflictOption(
                 Level level, Option<?> option, Object value, Option<?> conflictOption) {
             this.level = level;
             this.option = option;
             this.value = value;
             this.conflictOption = conflictOption;
+        }
+
+        public static ConflictOption warning(
+                Option<?> option, Object value, Option<?> conflictOption) {
+            return new ConflictOption(Level.WARNING, option, value, conflictOption);
+        }
+
+        public static ConflictOption error(
+                Option<?> option, Object value, Option<?> conflictOption) {
+            return new ConflictOption(Level.ERROR, option, value, conflictOption);
         }
     }
 
@@ -171,10 +189,18 @@ public abstract class DefaultEnhancedConfigurationValidator
         private final Option<?> option;
         private final String needVersion;
 
-        public VersionCompatibilityOption(Level level, Option<?> option, String needVersion) {
+        private VersionCompatibilityOption(Level level, Option<?> option, String needVersion) {
             this.level = level;
             this.option = option;
             this.needVersion = needVersion;
+        }
+
+        public static VersionCompatibilityOption warning(Option<?> option, String needVersion) {
+            return new VersionCompatibilityOption(Level.WARNING, option, needVersion);
+        }
+
+        public static VersionCompatibilityOption error(Option<?> option, String needVersion) {
+            return new VersionCompatibilityOption(Level.ERROR, option, needVersion);
         }
     }
 }

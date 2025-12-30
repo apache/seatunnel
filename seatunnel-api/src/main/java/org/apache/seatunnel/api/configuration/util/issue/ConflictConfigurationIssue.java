@@ -42,21 +42,10 @@ public class ConflictConfigurationIssue extends ConfigurationVerificationIssue {
     }
 
     @Override
-    public void log() {
-        String message =
-                String.format(
-                        "Configuration option '%s' with value '%s' conflicts with option '%s' in %s plugin '%s'",
-                        option.key(),
-                        value,
-                        conflictOption.key(),
-                        pluginType.getType(),
-                        identifier);
-
-        if (Level.ERROR.equals(level)) {
-            log.error(message);
-            return;
-        }
-        log.warn(message);
+    protected String getLog() {
+        return String.format(
+                "Configuration option '%s' with value '%s' conflicts with option '%s' in %s plugin '%s'",
+                option.key(), value, conflictOption.key(), pluginType.getType(), identifier);
     }
 
     public static ConflictConfigurationIssue errorOf(
