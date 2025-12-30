@@ -73,10 +73,10 @@ seatunnel:
 
 ------------------------------------------------------------------------------------------
 
-### 返回所有作业及其当前状态的概览
+### 查询作业及其当前状态的概览
 
 <details>
- <summary><code>GET</code> <code><b>/running-jobs?page=1&rows=10</b></code> <code>(返回所有作业及其当前状态的概览。)</code></summary>
+ <summary><code>GET</code> <code><b>/running-jobs?page=1&rows=10</b></code> <code>(查询作业及其当前状态的概览。)</code></summary>
 
 #### 参数
 
@@ -449,10 +449,10 @@ seatunnel:
 
 ------------------------------------------------------------------------------------------
 
-### 返回所有已完成的作业信息
+### 查询已完成的作业信息
 
 <details>
- <summary><code>GET</code> <code><b>/finished-jobs/:state?page=1&rows=10</b></code> <code>(返回所有已完成的作业信息。)</code></summary>
+ <summary><code>GET</code> <code><b>/finished-jobs/:state?page=1&rows=10</b></code> <code>(查询已完成的作业信息。)</code></summary>
 
 #### 参数
 
