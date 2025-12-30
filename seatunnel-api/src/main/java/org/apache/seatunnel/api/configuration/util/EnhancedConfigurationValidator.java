@@ -21,91 +21,57 @@ import org.apache.seatunnel.api.configuration.util.issue.ConfigurationVerificati
 import org.apache.seatunnel.api.configuration.util.issue.DeprecatedConfigurationIssue;
 import org.apache.seatunnel.api.configuration.util.issue.VersionCompatibilityConfigurationIssue;
 
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
+
 import java.util.ArrayList;
 import java.util.Collections;
 import java.util.List;
+import java.util.function.Supplier;
 
-/**
- * An enhanced configuration validator used to perform rule-based verification on connector or
- * component configurations.
- *
- * <p>This validator focuses on non-fatal configuration issues such as deprecations, conflicts, and
- * version compatibility. Validation results are returned as structured verification outputs rather
- * than throwing exceptions directly, allowing the caller to aggregate and classify errors and
- * warnings.
- */
+/** Rule-based configuration checker that reports issues instead of throwing immediately. */
 public interface EnhancedConfigurationValidator {
 
-    /**
-     * Execute all configuration validation rules and aggregate the results.
-     *
-     * <p>This method serves as a unified entry point for configuration verification. It
-     * sequentially executes all supported validation categories, including:
-     *
-     * <ul>
-     *   <li>Deprecated parameter validation
-     *   <li>Conflicting parameter validation
-     *   <li>Version compatibility validation
-     * </ul>
-     *
-     * <p>The method aggregates results from each rule category into a single list. All rule methods
-     * must return non-null lists; defaults use {@link Collections#emptyList()} to avoid
-     * boilerplate.
-     *
-     * @return a combined list of configuration verification results from all validation rules; an
-     *     empty list if no issues are detected
-     */
+    Logger LOG = LoggerFactory.getLogger(EnhancedConfigurationValidator.class);
+
+    /** Run all rule categories and merge the results. */
     default List<ConfigurationVerificationIssue> validate(ReadonlyConfig context) {
         List<ConfigurationVerificationIssue> results = new ArrayList<>();
-        results.addAll(validateDeprecatedRules(context));
-        results.addAll(validateConflictRules(context));
-        results.addAll(validateVersionCompatibilityRules(context));
+        results.addAll(
+                runRule(
+                        "deprecated configuration validation",
+                        () -> validateDeprecatedRules(context),
+                        Collections.emptyList()));
+        results.addAll(
+                runRule(
+                        "conflict configuration validation",
+                        () -> validateConflictRules(context),
+                        Collections.emptyList()));
+        results.addAll(
+                runRule(
+                        "version compatibility configuration validation",
+                        () -> validateVersionCompatibilityRules(context),
+                        Collections.emptyList()));
         return results;
     }
 
-    /**
-     * Validate rules related to deprecated configuration parameters.
-     *
-     * <p>This validation checks whether any configuration parameters have been marked as deprecated
-     * and provides guidance or suggestions for recommended replacements. Defaults to no findings.
-     *
-     * @return a list of verification results describing deprecated parameters and suggested
-     *     alternatives; empty if none found
-     */
-    default List<DeprecatedConfigurationIssue> validateDeprecatedRules(ReadonlyConfig context) {
-        return Collections.emptyList();
-    }
+    /** Report deprecated options and suggested replacements. */
+    List<DeprecatedConfigurationIssue> validateDeprecatedRules(ReadonlyConfig context);
 
-    /**
-     * Validate rules related to conflicting configuration parameters.
-     *
-     * <p>This validation detects mutually exclusive, logically conflicting, or incompatible
-     * configuration options. Defaults to no findings.
-     *
-     * <p>Examples include parameters that cannot be enabled at the same time or options whose
-     * semantics override each other.
-     *
-     * @return a list of verification results describing configuration conflicts; empty if no
-     *     conflicts are detected
-     */
-    default List<ConfigurationVerificationIssue> validateConflictRules(ReadonlyConfig context) {
-        return Collections.emptyList();
-    }
+    /** Report conflicts between configuration options. */
+    List<ConfigurationVerificationIssue> validateConflictRules(ReadonlyConfig context);
 
-    /**
-     * Validate rules related to version compatibility and constraints.
-     *
-     * <p>This validation ensures that configuration parameters are compatible with the runtime
-     * environment, connector version, or external system version. Defaults to no findings.
-     *
-     * <p>Examples include parameters introduced in specific versions, options removed in later
-     * versions, or features only supported by certain engine or service versions.
-     *
-     * @return a list of verification results describing version incompatibilities or constraints;
-     *     empty if all parameters are version-compatible
-     */
-    default List<VersionCompatibilityConfigurationIssue> validateVersionCompatibilityRules(
-            ReadonlyConfig context) {
-        return Collections.emptyList();
+    /** Report options that are incompatible with the current/required version. */
+    List<VersionCompatibilityConfigurationIssue> validateVersionCompatibilityRules(
+            ReadonlyConfig context);
+
+    static <T> List<T> runRule(String ruleName, Supplier<List<T>> rule, List<T> defaultOnFailure) {
+        try {
+            List<T> result = rule.get();
+            return result == null ? defaultOnFailure : result;
+        } catch (Exception e) {
+            LOG.warn("Enhanced configuration {} failed, skip with default", ruleName, e);
+            return defaultOnFailure;
+        }
     }
 }

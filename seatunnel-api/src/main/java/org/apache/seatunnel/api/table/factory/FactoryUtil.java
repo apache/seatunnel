@@ -21,6 +21,7 @@ import org.apache.seatunnel.api.common.JobContext;
 import org.apache.seatunnel.api.common.PluginIdentifier;
 import org.apache.seatunnel.api.configuration.ReadonlyConfig;
 import org.apache.seatunnel.api.configuration.util.ConfigValidator;
+import org.apache.seatunnel.api.configuration.util.EnhancedConfigurationValidator;
 import org.apache.seatunnel.api.configuration.util.OptionRule;
 import org.apache.seatunnel.api.configuration.util.issue.ConfigurationVerificationIssue;
 import org.apache.seatunnel.api.env.ParsingMode;
@@ -201,9 +202,11 @@ public final class FactoryUtil {
     }
 
     private static void validateConfiguration(Factory factory, TableFactoryContext context) {
-        if (factory.enhancedConfigurationValidator().isPresent()) {
+        Optional<EnhancedConfigurationValidator> enhancedValidator =
+                factory.enhancedConfigurationValidator();
+        if (enhancedValidator.isPresent()) {
             final List<ConfigurationVerificationIssue> verificationResults =
-                    factory.enhancedConfigurationValidator().get().validate(context.getOptions());
+                    enhancedValidator.get().validate(context.getOptions());
             if (CollectionUtils.isNotEmpty(verificationResults)) {
                 verificationResults.forEach(ConfigurationVerificationIssue::log);
             }

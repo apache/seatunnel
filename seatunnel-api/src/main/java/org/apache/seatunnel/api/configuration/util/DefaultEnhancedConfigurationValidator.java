@@ -45,7 +45,7 @@ public abstract class DefaultEnhancedConfigurationValidator
     @Override
     public List<DeprecatedConfigurationIssue> validateDeprecatedRules(ReadonlyConfig context) {
         final List<DeprecatedOption> deprecateOptions = deprecatedOptions(context);
-        if (deprecateOptions.isEmpty()) {
+        if (deprecateOptions == null || deprecateOptions.isEmpty()) {
             return Collections.emptyList();
         }
         return deprecateOptions.stream()
@@ -98,10 +98,10 @@ public abstract class DefaultEnhancedConfigurationValidator
         if (compatibilityOptions == null || compatibilityOptions.isEmpty()) {
             return Collections.emptyList();
         }
+        Optional<String> currentVersion = detectCurrentServiceVersion(context);
         return compatibilityOptions.stream()
                 .map(
                         option -> {
-                            Optional<String> currentVersion = detectCurrentServiceVersion(context);
                             if (Level.ERROR.equals(option.level)) {
                                 return VersionCompatibilityConfigurationIssue.errorOf(
                                         identifier,
