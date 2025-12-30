@@ -26,7 +26,6 @@ import java.util.Collections;
 import java.util.List;
 
 import static org.apache.seatunnel.connectors.seatunnel.jdbc.config.JdbcCommonOptions.URL;
-import static org.apache.seatunnel.connectors.seatunnel.jdbc.config.JdbcSinkOptions.FIELD_IDE;
 import static org.apache.seatunnel.connectors.seatunnel.jdbc.config.JdbcSinkOptions.TABLE_PREFIX;
 import static org.apache.seatunnel.connectors.seatunnel.jdbc.config.JdbcSinkOptions.TABLE_SUFFIX;
 import static org.apache.seatunnel.connectors.seatunnel.jdbc.config.JdbcSinkOptions.USE_COPY_STATEMENT;
@@ -40,7 +39,6 @@ public class JdbcSinkEnhancedValidator extends DefaultEnhancedConfigurationValid
     @Override
     protected List<DeprecatedRule> deprecatedRules() {
         List<DeprecatedRule> deprecatedRules = new ArrayList<>();
-        deprecatedRules.add(DeprecatedRule.warning(FIELD_IDE));
         deprecatedRules.add(DeprecatedRule.warning(TABLE_PREFIX));
         deprecatedRules.add(DeprecatedRule.warning(TABLE_SUFFIX));
         return deprecatedRules;
@@ -49,6 +47,7 @@ public class JdbcSinkEnhancedValidator extends DefaultEnhancedConfigurationValid
     @Override
     protected List<ConflictRule> conflictRules() {
         List<ConflictRule> conflictRules = new ArrayList<>();
+        // check use_copy_statement
         conflictRules.add(
                 ConflictRule.error(
                         URL,

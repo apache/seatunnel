@@ -118,7 +118,6 @@ public class JdbcSinkOptions extends JdbcCommonOptions {
                     .defaultValue(false)
                     .withDescription("support copy in statement (postgresql)");
 
-    @Deprecated
     public static final Option<FieldIdeEnum> FIELD_IDE =
             Options.key("field_ide")
                     .enumType(FieldIdeEnum.class)
