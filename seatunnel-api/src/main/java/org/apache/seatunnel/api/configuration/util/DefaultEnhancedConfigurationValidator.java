@@ -32,6 +32,8 @@ import lombok.extern.slf4j.Slf4j;
 import java.util.Collections;
 import java.util.List;
 import java.util.Optional;
+import java.util.function.BiPredicate;
+import java.util.function.Predicate;
 import java.util.stream.Collectors;
 
 @Slf4j
@@ -44,12 +46,12 @@ public abstract class DefaultEnhancedConfigurationValidator
 
     @Override
     public List<DeprecatedConfigurationIssue> validateDeprecatedRules(ReadonlyConfig context) {
-        final List<DeprecatedOption> deprecateOptions = deprecatedOptions(context);
+        final List<DeprecatedRule> deprecateOptions = deprecatedRules(context);
         if (deprecateOptions == null || deprecateOptions.isEmpty()) {
             return Collections.emptyList();
         }
-        // todo deprecatedOptions() 只负责添加，validateDeprecatedRules()这里筛选context里是否有这个option
         return deprecateOptions.stream()
+                .filter(option -> context.getOptional(option.option).isPresent())
                 .map(
                         deprecatedOption ->
                                 DeprecatedConfigurationIssue.of(
@@ -60,69 +62,92 @@ public abstract class DefaultEnhancedConfigurationValidator
                 .collect(Collectors.toList());
     }
 
-    protected abstract List<DeprecatedOption> deprecatedOptions(ReadonlyConfig context);
+    protected abstract List<DeprecatedRule> deprecatedRules(ReadonlyConfig context);
 
     @Override
     public List<ConfigurationVerificationIssue> validateConflictRules(ReadonlyConfig context) {
-        List<ConflictOption> conflictOptions = conflictOptions(context);
+        List<ConflictRule> conflictOptions = conflictRules(context);
         if (conflictOptions == null || conflictOptions.isEmpty()) {
             return Collections.emptyList();
         }
-        // todo ConflictOption再重构下，判断值 1、bool类型 2、正则表达 3、非判断
         return conflictOptions.stream()
-                .map(
-                        conflict -> {
-                            if (Level.ERROR.equals(conflict.level)) {
-                                return ConflictConfigurationIssue.errorOf(
-                                        identifier,
-                                        pluginType,
-                                        conflict.option,
-                                        conflict.value,
-                                        conflict.conflictOption);
-                            }
-                            return ConflictConfigurationIssue.warnOf(
-                                    identifier,
-                                    pluginType,
-                                    conflict.option,
-                                    conflict.value,
-                                    conflict.conflictOption);
-                        })
+                .map(conflict -> validateConflict(context, conflict))
+                .filter(Optional::isPresent)
+                .map(Optional::get)
                 .collect(Collectors.toList());
     }
 
-    protected abstract List<ConflictOption> conflictOptions(ReadonlyConfig context);
+    private Optional<ConfigurationVerificationIssue> validateConflict(
+            ReadonlyConfig context, ConflictRule conflict) {
+        Optional<?> optionValue = context.getOptional(conflict.option);
+        Optional<?> conflictOptionValue = context.getOptional(conflict.conflictOption);
+        if (!optionValue.isPresent() || !conflictOptionValue.isPresent()) {
+            return Optional.empty();
+        }
+        if (!conflict.conflictingValidationRules.test(
+                optionValue.get(), conflictOptionValue.get())) {
+            return Optional.empty();
+        }
+        if (Level.ERROR.equals(conflict.level)) {
+            return Optional.of(
+                    ConflictConfigurationIssue.errorOf(
+                            identifier,
+                            pluginType,
+                            conflict.option,
+                            optionValue.get(),
+                            conflict.conflictOption));
+        }
+        return Optional.of(
+                ConflictConfigurationIssue.warnOf(
+                        identifier,
+                        pluginType,
+                        conflict.option,
+                        optionValue.get(),
+                        conflict.conflictOption));
+    }
+
+    protected abstract List<ConflictRule> conflictRules(ReadonlyConfig context);
 
     @Override
     public List<VersionCompatibilityConfigurationIssue> validateVersionCompatibilityRules(
             ReadonlyConfig context) {
-        List<VersionCompatibilityOption> compatibilityOptions =
-                versionCompatibilityOptions(context);
+        List<VersionCompatibilityRule> compatibilityOptions = versionCompatibilityRules(context);
         if (compatibilityOptions == null || compatibilityOptions.isEmpty()) {
             return Collections.emptyList();
         }
         Optional<String> currentVersion = detectCurrentServiceVersion(context);
         return compatibilityOptions.stream()
-                .map(
-                        option -> {
-                            if (Level.ERROR.equals(option.level)) {
-                                return VersionCompatibilityConfigurationIssue.errorOf(
-                                        identifier,
-                                        pluginType,
-                                        option.option,
-                                        option.needVersion,
-                                        currentVersion);
-                            }
-                            return VersionCompatibilityConfigurationIssue.warnOf(
-                                    identifier,
-                                    pluginType,
-                                    option.option,
-                                    option.needVersion,
-                                    currentVersion);
-                        })
+                .map(option -> validateCompatibility(context, currentVersion, option))
+                .filter(Optional::isPresent)
+                .map(Optional::get)
                 .collect(Collectors.toList());
     }
 
-    protected abstract List<VersionCompatibilityOption> versionCompatibilityOptions(
+    private Optional<VersionCompatibilityConfigurationIssue> validateCompatibility(
+            ReadonlyConfig context,
+            Optional<String> currentVersion,
+            VersionCompatibilityRule option) {
+        if (!context.getOptional(option.option).isPresent()) {
+            return Optional.empty();
+        }
+        if (option.isCompatible(currentVersion)) {
+            return Optional.empty();
+        }
+        if (Level.ERROR.equals(option.level)) {
+            return Optional.of(
+                    VersionCompatibilityConfigurationIssue.errorOf(
+                            identifier,
+                            pluginType,
+                            option.option,
+                            option.needVersion,
+                            currentVersion));
+        }
+        return Optional.of(
+                VersionCompatibilityConfigurationIssue.warnOf(
+                        identifier, pluginType, option.option, option.needVersion, currentVersion));
+    }
+
+    protected abstract List<VersionCompatibilityRule> versionCompatibilityRules(
             ReadonlyConfig context);
 
     protected Optional<String> detectCurrentServiceVersion(ReadonlyConfig context) {
@@ -145,69 +170,104 @@ public abstract class DefaultEnhancedConfigurationValidator
         return Optional.empty();
     }
 
-    /** Defines a deprecated option and its suggested replacements. */
-    protected static class DeprecatedOption {
+    /** Rule describing a deprecated option and its suggested replacements. */
+    protected static class DeprecatedRule {
         private final Option<?> option;
         private final Option<?>[] referToOption;
 
-        private DeprecatedOption(Option<?> option, Option<?>[] referToOptions) {
+        private DeprecatedRule(Option<?> option, Option<?>[] referToOptions) {
             this.option = option;
             this.referToOption = referToOptions;
         }
 
-        public static DeprecatedOption warning(Option<?> option, Option<?>[] referToOptions) {
-            return new DeprecatedOption(option, referToOptions);
+        public static DeprecatedRule warning(Option<?> option, Option<?>[] referToOptions) {
+            return new DeprecatedRule(option, referToOptions);
         }
 
-        public static DeprecatedOption warning(Option<?> option) {
-            return new DeprecatedOption(option, null);
+        public static DeprecatedRule warning(Option<?> option) {
+            return new DeprecatedRule(option, null);
         }
     }
 
-    /** Represents a conflicting option pair and severity. */
-    protected static class ConflictOption {
+    /** Rule describing conflicting option pairs and severity. */
+    protected static class ConflictRule {
         private final Level level;
         private final Option<?> option;
-        private final Object value;
         private final Option<?> conflictOption;
+        private final BiPredicate<Object, Object> conflictingValidationRules;
 
-        private ConflictOption(
-                Level level, Option<?> option, Object value, Option<?> conflictOption) {
+        private ConflictRule(
+                Level level,
+                Option<?> option,
+                BiPredicate<Object, Object> conflictingValidationRules,
+                Option<?> conflictOption) {
             this.level = level;
             this.option = option;
-            this.value = value;
+            this.conflictingValidationRules =
+                    conflictingValidationRules == null
+                            ? (value, conflictValue) -> true
+                            : conflictingValidationRules;
             this.conflictOption = conflictOption;
         }
 
-        public static ConflictOption warning(
-                Option<?> option, Object value, Option<?> conflictOption) {
-            return new ConflictOption(Level.WARNING, option, value, conflictOption);
+        public static ConflictRule warning(Option<?> option, Option<?> conflictOption) {
+            return new ConflictRule(Level.WARNING, option, null, conflictOption);
         }
 
-        public static ConflictOption error(
-                Option<?> option, Object value, Option<?> conflictOption) {
-            return new ConflictOption(Level.ERROR, option, value, conflictOption);
+        public static ConflictRule warning(
+                Option<?> option, BiPredicate<Object, Object> rules, Option<?> conflictOption) {
+            return new ConflictRule(Level.WARNING, option, rules, conflictOption);
+        }
+
+        public static ConflictRule error(Option<?> option, Option<?> conflictOption) {
+            return new ConflictRule(Level.ERROR, option, null, conflictOption);
+        }
+
+        public static ConflictRule error(
+                Option<?> option, BiPredicate<Object, Object> rules, Option<?> conflictOption) {
+            return new ConflictRule(Level.ERROR, option, rules, conflictOption);
         }
     }
 
-    /** Captures version requirements for an option and severity. */
-    protected static class VersionCompatibilityOption {
+    /** Rule capturing version requirements for an option and severity. */
+    protected static class VersionCompatibilityRule {
         private final Level level;
         private final Option<?> option;
         private final String needVersion;
+        private final Predicate<String> compatibilityValidationRules;
 
-        private VersionCompatibilityOption(Level level, Option<?> option, String needVersion) {
+        private VersionCompatibilityRule(
+                Level level,
+                Option<?> option,
+                String needVersion,
+                Predicate<String> compatibilityValidationRules) {
             this.level = level;
             this.option = option;
             this.needVersion = needVersion;
+            this.compatibilityValidationRules =
+                    compatibilityValidationRules == null
+                            ? version -> version.equals(needVersion)
+                            : compatibilityValidationRules;
         }
 
-        public static VersionCompatibilityOption warning(Option<?> option, String needVersion) {
-            return new VersionCompatibilityOption(Level.WARNING, option, needVersion);
+        public static VersionCompatibilityRule warning(
+                Option<?> option,
+                Predicate<String> compatibilityValidationRules,
+                String needVersion) {
+            return new VersionCompatibilityRule(
+                    Level.WARNING, option, needVersion, compatibilityValidationRules);
         }
 
-        public static VersionCompatibilityOption error(Option<?> option, String needVersion) {
-            return new VersionCompatibilityOption(Level.ERROR, option, needVersion);
+        public static VersionCompatibilityRule error(
+                Option<?> option,
+                Predicate<String> compatibilityValidationRules,
+                String needVersion) {
+            return new VersionCompatibilityRule(
+                    Level.ERROR, option, needVersion, compatibilityValidationRules);
+        }
+
+        private boolean isCompatible(Optional<String> currentVersion) {
+            return currentVersion.map(compatibilityValidationRules::test).orElse(false);
         }
     }
 }

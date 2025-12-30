@@ -26,7 +26,11 @@ import java.util.ArrayList;
 import java.util.Collections;
 import java.util.List;
 
+import static org.apache.seatunnel.connectors.seatunnel.jdbc.config.JdbcCommonOptions.URL;
 import static org.apache.seatunnel.connectors.seatunnel.jdbc.config.JdbcSinkOptions.FIELD_IDE;
+import static org.apache.seatunnel.connectors.seatunnel.jdbc.config.JdbcSinkOptions.TABLE_PREFIX;
+import static org.apache.seatunnel.connectors.seatunnel.jdbc.config.JdbcSinkOptions.TABLE_SUFFIX;
+import static org.apache.seatunnel.connectors.seatunnel.jdbc.config.JdbcSinkOptions.USE_COPY_STATEMENT;
 
 @Slf4j
 public class JdbcSinkEnhancedValidator extends DefaultEnhancedConfigurationValidator {
@@ -35,19 +39,35 @@ public class JdbcSinkEnhancedValidator extends DefaultEnhancedConfigurationValid
     }
 
     @Override
-    protected List<DeprecatedOption> deprecatedOptions(ReadonlyConfig context) {
-        List<DeprecatedOption> deprecatedOptions = new ArrayList<>();
-        deprecatedOptions.add(DeprecatedOption.warning(FIELD_IDE));
-        return deprecatedOptions;
+    protected List<DeprecatedRule> deprecatedRules(ReadonlyConfig context) {
+        List<DeprecatedRule> deprecatedRules = new ArrayList<>();
+        deprecatedRules.add(DeprecatedRule.warning(FIELD_IDE));
+        deprecatedRules.add(DeprecatedRule.warning(TABLE_PREFIX));
+        deprecatedRules.add(DeprecatedRule.warning(TABLE_SUFFIX));
+        return deprecatedRules;
     }
 
     @Override
-    protected List<ConflictOption> conflictOptions(ReadonlyConfig context) {
-        return Collections.emptyList();
+    protected List<ConflictRule> conflictRules(ReadonlyConfig context) {
+        List<ConflictRule> conflictRules = new ArrayList<>();
+        conflictRules.add(
+                ConflictRule.error(
+                        URL,
+                        (url, useCopy) ->
+                                Boolean.TRUE.equals(useCopy)
+                                        && !isPostgresFamily(url == null ? "" : url.toString()),
+                        USE_COPY_STATEMENT));
+        return conflictRules;
     }
 
     @Override
-    protected List<VersionCompatibilityOption> versionCompatibilityOptions(ReadonlyConfig context) {
+    protected List<VersionCompatibilityRule> versionCompatibilityRules(ReadonlyConfig context) {
         return Collections.emptyList();
+    }
+
+    private boolean isPostgresFamily(String url) {
+        String normalizedUrl = url == null ? "" : url.toLowerCase();
+        return normalizedUrl.startsWith("jdbc:postgresql:")
+                || normalizedUrl.startsWith("jdbc:pivotal:greenplum:");
     }
 }
