@@ -141,6 +141,7 @@ public abstract class DefaultEnhancedConfigurationValidator
 
     protected abstract Optional<Catalog> getCatalog(ReadonlyConfig context);
 
+    /** Defines a deprecated option and its suggested replacements. */
     protected static class DeprecatedOption {
         private final Option<?> option;
         private final Option<?>[] referToOption;
@@ -159,6 +160,7 @@ public abstract class DefaultEnhancedConfigurationValidator
         }
     }
 
+    /** Represents a conflicting option pair and severity. */
     protected static class ConflictOption {
         private final Level level;
         private final Option<?> option;
@@ -184,6 +186,7 @@ public abstract class DefaultEnhancedConfigurationValidator
         }
     }
 
+    /** Captures version requirements for an option and severity. */
     protected static class VersionCompatibilityOption {
         private final Level level;
         private final Option<?> option;
