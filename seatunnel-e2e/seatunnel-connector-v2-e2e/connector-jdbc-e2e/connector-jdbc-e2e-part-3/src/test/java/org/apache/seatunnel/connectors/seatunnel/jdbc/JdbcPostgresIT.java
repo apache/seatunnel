@@ -38,7 +38,6 @@ import org.apache.seatunnel.e2e.common.util.JdbcUtil;
 import org.junit.jupiter.api.AfterAll;
 import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.BeforeAll;
-import org.junit.jupiter.api.Disabled;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.TestTemplate;
 import org.testcontainers.containers.Container;
@@ -61,18 +60,6 @@ import java.util.stream.Stream;
 
 import static org.awaitility.Awaitility.given;
 
-/**
- * Legacy PostgreSQL JDBC integration tests.
- *
- * @deprecated Since SeaTunnel 2.3.12 - Migrated to Testcontainers-based tests.
- *     <p>New container-based test classes: • PostgresCatalogTest • PostgresDialectContainerTest
- *     <p>Located in package:
- *     org.apache.seatunnel.connectors.seatunnel.jdbc.internal.dialect.psql.container
- *     <p>This class is scheduled for removal in SeaTunnel 2.4.0.
- * @see <a href="https://github.com/apache/seatunnel/issues/10213">Issue #10213</a>
- */
-@Deprecated
-@Disabled("Migrated to Testcontainers - See PostgresCatalogTest and PostgresDialectContainerTest")
 @Slf4j
 public class JdbcPostgresIT extends TestSuiteBase implements TestResource {
     private static final String PG_IMAGE = "postgis/postgis";
