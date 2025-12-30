@@ -165,17 +165,23 @@ public class BroadcastSchemaSinkOperator extends AbstractStreamOperator<SeaTunne
                     tableId,
                     epoch,
                     event.getClass().getSimpleName());
-            emitApplySchemaEventToSink(event, epoch);
-            lastProcessedEpoch.put(tableId, epoch);
 
-            // send ACK to coordinator indicating this subtask has processed the schema change
-            coordinator.notifySchemaChangeApplied(tableId, epoch, subtaskId, true);
+            try {
+                emitApplySchemaEventToSink(event, epoch);
+                lastProcessedEpoch.put(tableId, epoch);
 
-            log.info(
-                    "Subtask {} processed schema change for table {} (epoch {}) and sent ACK to coordinator.",
-                    subtaskId,
-                    tableId,
-                    epoch);
+                // send ACK to coordinator indicating this subtask has processed the schema change
+                coordinator.notifySchemaChangeApplied(tableId, epoch, subtaskId, true);
+
+                log.info(
+                        "Subtask {} processed schema change for table {} (epoch {}) and sent ACK to coordinator.",
+                        subtaskId,
+                        tableId,
+                        epoch);
+            } catch (Exception e) {
+                coordinator.notifySchemaChangeApplied(tableId, epoch, subtaskId, false);
+                throw e;
+            }
         } catch (SchemaValidationException | SchemaCoordinationException e) {
             log.error("Schema broadcast or coordination error", e);
             throw e;

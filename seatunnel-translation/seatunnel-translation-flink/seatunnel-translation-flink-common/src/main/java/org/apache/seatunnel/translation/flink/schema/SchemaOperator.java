@@ -53,6 +53,8 @@ import java.util.concurrent.ConcurrentHashMap;
 @Slf4j
 public class SchemaOperator extends AbstractStreamOperator<SeaTunnelRow>
         implements OneInputStreamOperator<SeaTunnelRow, SeaTunnelRow> {
+
+    private static final int MAX_BUFFERED_ROWS_PER_KEY = 100000;
     private final Map<TableIdentifier, CatalogTable> localSchemaState;
     private String jobId;
     private final SupportSchemaEvolution source;
@@ -64,7 +66,6 @@ public class SchemaOperator extends AbstractStreamOperator<SeaTunnelRow>
     private volatile CompletableFuture<Boolean> pendingSchemaFuture = null;
     private volatile boolean stateDirty = false;
 
-    // Use operator state instead of keyed state to work on non-keyed streams
     private transient ListState<SchemaStateEntry> localSchemaStateStore;
     private transient ListState<Long> lastProcessedEventTimeState;
     private transient ListState<Boolean> schemaChangePendingState;
@@ -104,8 +105,8 @@ public class SchemaOperator extends AbstractStreamOperator<SeaTunnelRow>
     public void processElement(StreamRecord<SeaTunnelRow> streamRecord) {
         SeaTunnelRow element = streamRecord.getValue();
 
-        if (pluginConfig.hasPath("schema-changes.enabled")) {
-            output.collect(new StreamRecord<>(element, streamRecord.getTimestamp()));
+        if (!isSchemaEvolutionEnabled(pluginConfig)) {
+            output.collect(streamRecord);
             return;
         }
 
@@ -118,7 +119,7 @@ public class SchemaOperator extends AbstractStreamOperator<SeaTunnelRow>
             }
         }
 
-        if (schemaChangePending && pendingSchemaFuture != null) {
+        if (schemaChangePending) {
             String tableId = element.getTableId();
             if (tableId != null && lastProcessedEventTime != null) {
                 String key = createKey(tableId, lastProcessedEventTime);
@@ -127,7 +128,15 @@ public class SchemaOperator extends AbstractStreamOperator<SeaTunnelRow>
             }
         }
 
-        output.collect(new StreamRecord<>(element, streamRecord.getTimestamp()));
+        output.collect(streamRecord);
+    }
+
+    private boolean isSchemaEvolutionEnabled(Config pluginConfig) {
+        if (pluginConfig.hasPath("schema-changes.enabled")) {
+            return pluginConfig.getBoolean("schema-changes.enabled");
+        }
+
+        return false;
     }
 
     private String createKey(String tableId, Long eventTime) {
@@ -141,8 +150,17 @@ public class SchemaOperator extends AbstractStreamOperator<SeaTunnelRow>
             synchronized (this) {
                 List<BufferedDataRow> bufferedList =
                         bufferedDataRows.computeIfAbsent(key, k -> new ArrayList<>());
+
+                if (bufferedList.size() >= MAX_BUFFERED_ROWS_PER_KEY) {
+                    log.warn(
+                            "Buffer for key {} exceeded max size {}, dropping oldest row",
+                            key,
+                            MAX_BUFFERED_ROWS_PER_KEY);
+                    bufferedList.remove(0);
+                }
+
                 bufferedList.add(bufferedRow);
-                stateDirty = true; // Mark state as dirty for batch sync
+                stateDirty = true;
 
                 log.debug(
                         "buffered data row for key: {}, total buffered: {}",
@@ -150,10 +168,7 @@ public class SchemaOperator extends AbstractStreamOperator<SeaTunnelRow>
                         bufferedList.size());
             }
         } catch (Exception e) {
-            log.error(
-                    "Failed to buffer data for key: {}, dropping this data row to avoid inconsistency",
-                    key,
-                    e);
+            log.error("Failed to buffer data for key: {}, dropping this data row", key, e);
         }
     }
 
@@ -215,7 +230,7 @@ public class SchemaOperator extends AbstractStreamOperator<SeaTunnelRow>
             }
 
             log.info(
-                    "Starting async schema change processing for table: {}, job: {}, event time: {}",
+                    "Starting schema change processing for table: {}, job: {}, event time: {}",
                     tableId,
                     jobId,
                     eventTime);
@@ -239,68 +254,51 @@ public class SchemaOperator extends AbstractStreamOperator<SeaTunnelRow>
             }
             lastProcessedEventTime = eventTime;
 
-            pendingSchemaFuture =
-                    CompletableFuture.supplyAsync(
-                            () -> {
-                                try {
-                                    log.info(
-                                            "Waiting for schema change confirmation for table {} (epoch {}). Business data buffered, checkpoint barriers can pass.",
-                                            tableId,
-                                            eventTime);
-                                    long timeoutMs = 300_000L;
-                                    boolean success =
-                                            coordinator.requestSchemaChange(
-                                                    tableId, eventTime, timeoutMs);
+            try {
+                log.info(
+                        "Synchronously processing schema change for table {} (epoch {}). Business data buffered.",
+                        tableId,
+                        eventTime);
+                long timeoutMs = 300_000L;
+                boolean success = coordinator.requestSchemaChange(tableId, eventTime, timeoutMs);
 
-                                    if (success) {
-                                        log.info(
-                                                "Schema change for table {} (epoch {}) confirmed successfully by all sink subtasks via checkpoint completion.",
-                                                tableId,
-                                                eventTime);
-                                    } else {
-                                        log.error(
-                                                "Schema change for table {} (epoch {}) failed or timed out.",
-                                                tableId,
-                                                eventTime);
-                                    }
+                if (success) {
+                    if (schemaChangeEvent.getChangeAfter() != null) {
+                        localSchemaState.put(tableId, schemaChangeEvent.getChangeAfter());
+                    }
+                    lastProcessedEventTime = eventTime;
+                    log.info(
+                            "Schema change for table {} (epoch {}) confirmed successfully by all sink subtasks.",
+                            tableId,
+                            eventTime);
+                } else {
+                    log.error(
+                            "Schema change for table {} (epoch {}) failed or timed out.",
+                            tableId,
+                            eventTime);
+                }
 
-                                    return success;
-                                } catch (Exception e) {
-                                    log.error(
-                                            "Error during async schema change processing for table {} (epoch {})",
-                                            tableId,
-                                            eventTime,
-                                            e);
-                                    return false;
-                                }
-                            });
-            pendingSchemaFuture.whenComplete(
-                    (success, throwable) -> {
-                        try {
-                            if (throwable != null) {
-                                log.error(
-                                        "Schema change future completed with exception", throwable);
-                            }
+            } catch (Exception e) {
+                log.error(
+                        "Error during synchronous schema change processing for table {} (epoch {})",
+                        tableId,
+                        eventTime,
+                        e);
+            } finally {
+                schemaChangePending = false;
+                pendingSchemaFuture = null;
+                releaseBufferedData(key, tableId);
 
-                            releaseBufferedData(key, tableId);
-                            schemaChangePending = false;
-                            pendingSchemaFuture = null;
-
-                            log.info(
-                                    "Async schema change processing completed for table {}, data flow resumed",
-                                    tableId);
-
-                        } catch (Exception e) {
-                            log.error("Error during schema change completion handling", e);
-                        }
-                    });
+                log.info(
+                        "Synchronous schema change processing completed for table {}, data flow resumed",
+                        tableId);
+            }
 
             log.info(
-                    "Async schema change processing initiated for table {}. Checkpoint barriers can propagate normally.",
+                    "Synchronous schema change processing completed for table {}. Checkpoint barriers can propagate normally.",
                     tableId);
-
         } catch (Exception e) {
-            log.error("Error starting async schema change processing", e);
+            log.error("Error starting schema change processing", e);
             schemaChangePending = false;
             try {
                 schemaChangePendingState.clear();
@@ -377,8 +375,8 @@ public class SchemaOperator extends AbstractStreamOperator<SeaTunnelRow>
                 bufferedDataRows.size());
 
         try {
-            // wait a moment for sink operators to register their state providers
-            Thread.sleep(1000);
+            // wait for sink operators to register their state providers with retry mechanism
+            waitForSinkStateProviders(10, 500);
 
             boolean allDataReleased = true;
             int totalReleased = 0;
@@ -483,6 +481,22 @@ public class SchemaOperator extends AbstractStreamOperator<SeaTunnelRow>
         }
     }
 
+    private void waitForSinkStateProviders(int maxRetries, long retryIntervalMs)
+            throws InterruptedException {
+        for (int i = 0; i < maxRetries; i++) {
+            if (coordinator.querySchemaProcessingStatus(
+                            TableIdentifier.of("test", "test", "test"), 0L)
+                    != null) {
+                log.info("Sink state providers registered after {} retries", i);
+                return;
+            }
+            Thread.sleep(retryIntervalMs);
+        }
+        log.warn(
+                "Sink state providers not fully registered after {} retries, proceeding anyway",
+                maxRetries);
+    }
+
     private void releaseBufferedDataForKey(String key, List<BufferedDataRow> bufferedRows) {
         try {
             for (BufferedDataRow buffered : bufferedRows) {
@@ -544,7 +558,7 @@ public class SchemaOperator extends AbstractStreamOperator<SeaTunnelRow>
                                         throwable);
                             }
 
-                            // release the buffered data for this specific key
+                            // release the buffered data
                             List<BufferedDataRow> bufferedRows = bufferedDataRows.get(key);
                             if (bufferedRows != null) {
                                 releaseBufferedDataForKey(key, bufferedRows);

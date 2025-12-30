@@ -284,16 +284,17 @@ public class LocalSchemaCoordinator {
         }
 
         // if all subtasks have applied, complete the future
-        if (appliedSubtasks.size() >= request.expectedAcks && !request.appliedPhaseComplete) {
-            request.appliedPhaseComplete = true;
-            boolean allSuccess = request.allSuccess.get();
-            request.future.complete(allSuccess);
-            log.info(
-                    "All {} subtasks have applied schema change for table {} (epoch {}). Completing request with result: {}",
-                    request.expectedAcks,
-                    tableId,
-                    epoch,
-                    allSuccess);
+        if (appliedSubtasks.size() >= request.expectedAcks) {
+            if (request.appliedPhaseCompleteAtomic.compareAndSet(false, true)) {
+                boolean allSuccess = request.allSuccess.get();
+                request.future.complete(allSuccess);
+                log.info(
+                        "All {} subtasks have applied schema change for table {} (epoch {}). Completing request with result: {}",
+                        request.expectedAcks,
+                        tableId,
+                        epoch,
+                        allSuccess);
+            }
         }
     }
 
@@ -307,8 +308,7 @@ public class LocalSchemaCoordinator {
                             pendingRequests.entrySet().iterator();
                     iterator.hasNext(); ) {
                 Map.Entry<String, TimestampedPendingRequest> entry = iterator.next();
-                if (entry.getValue().isExpired()) {
-                    entry.getValue().future.cancel(true);
+                if (entry.getValue().isExpired() && entry.getValue().future.isDone()) {
                     iterator.remove();
                     cleanedRequests++;
                 }
@@ -347,7 +347,7 @@ public class LocalSchemaCoordinator {
         final long ttlMs;
         CompletableFuture<Boolean> future;
         final AtomicBoolean allSuccess;
-        volatile boolean appliedPhaseComplete = false;
+        final AtomicBoolean appliedPhaseCompleteAtomic = new AtomicBoolean(false);
 
         TimestampedPendingRequest(
                 TableIdentifier tableId,
