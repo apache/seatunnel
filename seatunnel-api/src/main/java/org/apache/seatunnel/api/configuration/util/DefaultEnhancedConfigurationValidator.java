@@ -139,7 +139,9 @@ public abstract class DefaultEnhancedConfigurationValidator
         }
     }
 
-    protected abstract Optional<Catalog> getCatalog(ReadonlyConfig context);
+    protected Optional<Catalog> getCatalog(ReadonlyConfig context) {
+        return Optional.empty();
+    }
 
     /** Defines a deprecated option and its suggested replacements. */
     protected static class DeprecatedOption {

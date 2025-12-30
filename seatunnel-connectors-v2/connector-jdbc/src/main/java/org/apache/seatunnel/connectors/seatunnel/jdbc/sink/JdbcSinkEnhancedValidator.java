@@ -18,18 +18,12 @@ package org.apache.seatunnel.connectors.seatunnel.jdbc.sink;
 
 import org.apache.seatunnel.api.configuration.ReadonlyConfig;
 import org.apache.seatunnel.api.configuration.util.DefaultEnhancedConfigurationValidator;
-import org.apache.seatunnel.api.table.catalog.Catalog;
 import org.apache.seatunnel.common.constants.PluginType;
-import org.apache.seatunnel.connectors.seatunnel.jdbc.config.JdbcConnectionConfig;
-import org.apache.seatunnel.connectors.seatunnel.jdbc.internal.dialect.JdbcDialect;
-import org.apache.seatunnel.connectors.seatunnel.jdbc.internal.dialect.JdbcDialectLoader;
-import org.apache.seatunnel.connectors.seatunnel.jdbc.utils.JdbcCatalogUtils;
 
 import lombok.extern.slf4j.Slf4j;
 
 import java.util.Collections;
 import java.util.List;
-import java.util.Optional;
 
 @Slf4j
 public class JdbcSinkEnhancedValidator extends DefaultEnhancedConfigurationValidator {
@@ -50,16 +44,5 @@ public class JdbcSinkEnhancedValidator extends DefaultEnhancedConfigurationValid
     @Override
     protected List<VersionCompatibilityOption> versionCompatibilityOptions(ReadonlyConfig context) {
         return Collections.emptyList();
-    }
-
-    @Override
-    protected Optional<Catalog> getCatalog(ReadonlyConfig context) {
-        JdbcConnectionConfig connectionConfig = JdbcConnectionConfig.of(context);
-        JdbcDialect dialect =
-                JdbcDialectLoader.load(
-                        connectionConfig.getUrl(),
-                        connectionConfig.getDialect(),
-                        connectionConfig.getCompatibleMode());
-        return JdbcCatalogUtils.findCatalog(connectionConfig, dialect);
     }
 }

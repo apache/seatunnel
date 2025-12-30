@@ -116,18 +116,6 @@ public abstract class AbstractJdbcCatalog implements Catalog {
     }
 
     @Override
-    public Optional<String> getServiceVersion() {
-        try {
-            Connection connection = getConnection(defaultUrl);
-            DatabaseMetaData metaData = connection.getMetaData();
-            return Optional.ofNullable(metaData.getDatabaseProductVersion());
-        } catch (Exception e) {
-            log.warn("Failed to detect database version for catalog {}", catalogName, e);
-            return Optional.empty();
-        }
-    }
-
-    @Override
     public String getDefaultDatabase() {
         return defaultDatabase;
     }
