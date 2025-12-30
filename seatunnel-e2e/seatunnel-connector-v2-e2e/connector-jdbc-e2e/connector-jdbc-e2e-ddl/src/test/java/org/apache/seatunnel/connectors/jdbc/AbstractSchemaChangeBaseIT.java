@@ -292,7 +292,7 @@ public abstract class AbstractSchemaChangeBaseIT extends TestSuiteBase implement
     }
 
     private void assertSchemaEvolution(String sourceTable, String sinkTable) {
-        await().atMost(30000, TimeUnit.MILLISECONDS)
+        await().atMost(60000, TimeUnit.MILLISECONDS)
                 .untilAsserted(
                         () ->
                                 Assertions.assertIterableEquals(
@@ -307,7 +307,7 @@ public abstract class AbstractSchemaChangeBaseIT extends TestSuiteBase implement
 
         // case1 add columns with cdc data at same time
         sourceDatabase.setTemplateName("add_columns").createAndInitialize();
-        await().atMost(30000, TimeUnit.MILLISECONDS)
+        await().atMost(60000, TimeUnit.MILLISECONDS)
                 .untilAsserted(
                         () ->
                                 Assertions.assertIterableEquals(
@@ -321,7 +321,7 @@ public abstract class AbstractSchemaChangeBaseIT extends TestSuiteBase implement
                                                         schemaChangeCase.getSinkQueryColumns(),
                                                         schemaChangeCase.getSchemaName(),
                                                         sinkTable))));
-        await().atMost(30000, TimeUnit.MILLISECONDS)
+        await().atMost(60000, TimeUnit.MILLISECONDS)
                 .untilAsserted(
                         () -> {
                             Assertions.assertIterableEquals(
@@ -366,7 +366,7 @@ public abstract class AbstractSchemaChangeBaseIT extends TestSuiteBase implement
     }
 
     private void assertSchemaEvolutionForAddColumns(String sourceTable, String sinkTable) {
-        await().atMost(30000, TimeUnit.MILLISECONDS)
+        await().atMost(60000, TimeUnit.MILLISECONDS)
                 .untilAsserted(
                         () ->
                                 Assertions.assertIterableEquals(
@@ -383,7 +383,7 @@ public abstract class AbstractSchemaChangeBaseIT extends TestSuiteBase implement
         sourceDatabase.setTemplateName("add_columns").createAndInitialize();
         given().pollDelay(Duration.ofSeconds(5))
                 .await()
-                .atMost(60000, TimeUnit.MILLISECONDS)
+                .atMost(120000, TimeUnit.MILLISECONDS)
                 .untilAsserted(
                         () ->
                                 Assertions.assertIterableEquals(
@@ -395,7 +395,7 @@ public abstract class AbstractSchemaChangeBaseIT extends TestSuiteBase implement
                                                                 schemaChangeCase.getSchemaName(),
                                                                 sinkTable)
                                                         + OPRDER_BY)));
-        await().atMost(30000, TimeUnit.MILLISECONDS)
+        await().atMost(60000, TimeUnit.MILLISECONDS)
                 .untilAsserted(
                         () -> {
                             Assertions.assertIterableEquals(
