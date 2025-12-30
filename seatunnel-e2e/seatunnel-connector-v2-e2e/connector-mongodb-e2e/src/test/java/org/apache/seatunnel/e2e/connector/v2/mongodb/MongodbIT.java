@@ -30,8 +30,8 @@ import org.apache.seatunnel.api.table.type.BasicType;
 import org.apache.seatunnel.api.table.type.RowKind;
 import org.apache.seatunnel.api.table.type.SeaTunnelRow;
 import org.apache.seatunnel.common.exception.SeaTunnelRuntimeException;
-import org.apache.seatunnel.connectors.seatunnel.mongodb.config.MongodbConfig;
 import org.apache.seatunnel.connectors.seatunnel.mongodb.config.MongodbBaseOptions;
+import org.apache.seatunnel.connectors.seatunnel.mongodb.config.MongodbSinkOptions;
 import org.apache.seatunnel.connectors.seatunnel.mongodb.serde.RowDataDocumentSerializer;
 import org.apache.seatunnel.connectors.seatunnel.mongodb.serde.RowDataToBsonConverters;
 import org.apache.seatunnel.connectors.seatunnel.mongodb.sink.MongoKeyExtractor;
@@ -470,15 +470,15 @@ public class MongodbIT extends AbstractMongodbIT {
         int port = mongodbContainer.getFirstMappedPort();
         String uri = String.format("mongodb://%s:%d", host, port);
         HashMap<String, Object> config = new HashMap<>();
-        config.put(MongodbConfig.URI.key(), uri);
-        config.put(MongodbConfig.DATABASE.key(), MONGODB_DATABASE);
-        config.put(MongodbConfig.COLLECTION.key(), collection);
-        config.put(MongodbConfig.TRANSACTION.key(), true);
-        config.put(MongodbConfig.DATA_SAVE_MODE.key(), DataSaveMode.APPEND_DATA);
-        config.put(MongodbConfig.BUFFER_FLUSH_MAX_ROWS.key(), 2);
+        config.put(MongodbSinkOptions.URI.key(), uri);
+        config.put(MongodbSinkOptions.DATABASE.key(), MONGODB_DATABASE);
+        config.put(MongodbSinkOptions.COLLECTION.key(), collection);
+        config.put(MongodbSinkOptions.TRANSACTION.key(), true);
+        config.put(MongodbSinkOptions.DATA_SAVE_MODE.key(), DataSaveMode.APPEND_DATA);
+        config.put(MongodbSinkOptions.BUFFER_FLUSH_MAX_ROWS.key(), 2);
         if (upsert) {
-            config.put(MongodbConfig.UPSERT_ENABLE.key(), true);
-            config.put(MongodbConfig.PRIMARY_KEY.key(), Arrays.asList("c_int"));
+            config.put(MongodbSinkOptions.UPSERT_ENABLE.key(), true);
+            config.put(MongodbSinkOptions.PRIMARY_KEY.key(), Arrays.asList("c_int"));
         }
         return ReadonlyConfig.fromMap(config);
     }
