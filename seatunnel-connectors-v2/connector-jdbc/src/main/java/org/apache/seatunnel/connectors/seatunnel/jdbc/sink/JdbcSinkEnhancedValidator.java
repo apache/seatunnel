@@ -27,8 +27,8 @@ import java.util.List;
 
 @Slf4j
 public class JdbcSinkEnhancedValidator extends DefaultEnhancedConfigurationValidator {
-    public JdbcSinkEnhancedValidator(String identifier, PluginType pluginType) {
-        super(identifier, pluginType);
+    public JdbcSinkEnhancedValidator(String identifier) {
+        super(identifier, PluginType.SINK);
     }
 
     @Override
