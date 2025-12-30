@@ -44,7 +44,7 @@ Sink connector for Lance format. It can support create and write dataset 、lanc
 ## Data Type Mapping
 The data type of lance depends on the Arrow data type system 
 
-| StarRocks Data type | Lance Data type |
+| SeaTunnel Data type | Lance Data type |
 |---------------------|-----------------|
 | BOOLEAN             | bool/boolean    |
 | TINYINT             | int8            |
