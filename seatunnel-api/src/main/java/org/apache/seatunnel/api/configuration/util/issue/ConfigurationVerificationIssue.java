@@ -51,7 +51,7 @@ public abstract class ConfigurationVerificationIssue {
         }
     }
 
-    protected abstract String getLog();
+    public abstract String getLog();
 
     protected String prefixMessage(String message) {
         return SEATUNNEL_VALIDATION_PREFIX + message;

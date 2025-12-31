@@ -44,7 +44,7 @@ public class VersionCompatibilityConfigurationIssue extends ConfigurationVerific
     }
 
     @Override
-    protected String getLog() {
+    public String getLog() {
         String versionInfo =
                 currentVersion
                         .map(version -> String.format("current version '%s'", version))

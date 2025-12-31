@@ -45,7 +45,7 @@ public class ConflictConfigurationIssue extends ConfigurationVerificationIssue {
     }
 
     @Override
-    protected String getLog() {
+    public String getLog() {
         return prefixMessage(
                 String.format(
                         "Configuration option '%s' with value '%s' conflicts with option '%s' (value '%s') in %s plugin '%s'",

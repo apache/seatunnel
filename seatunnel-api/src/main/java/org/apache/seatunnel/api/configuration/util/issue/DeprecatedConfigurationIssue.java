@@ -38,7 +38,7 @@ public class DeprecatedConfigurationIssue extends ConfigurationVerificationIssue
     }
 
     @Override
-    protected String getLog() {
+    public String getLog() {
         if (referToOptions == null || referToOptions.length == 0) {
             return prefixMessage(
                     String.format(

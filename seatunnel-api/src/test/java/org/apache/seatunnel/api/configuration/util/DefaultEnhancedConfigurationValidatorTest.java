@@ -14,15 +14,18 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package org.apache.seatunnel.api.configuration.util.issue;
+package org.apache.seatunnel.api.configuration.util;
 
 import org.apache.seatunnel.shade.com.fasterxml.jackson.core.type.TypeReference;
 
 import org.apache.seatunnel.api.configuration.Option;
 import org.apache.seatunnel.api.configuration.Options;
 import org.apache.seatunnel.api.configuration.ReadonlyConfig;
-import org.apache.seatunnel.api.configuration.util.DefaultEnhancedConfigurationValidator;
+import org.apache.seatunnel.api.configuration.util.issue.ConfigurationVerificationIssue;
 import org.apache.seatunnel.api.configuration.util.issue.ConfigurationVerificationIssue.Level;
+import org.apache.seatunnel.api.configuration.util.issue.ConflictConfigurationIssue;
+import org.apache.seatunnel.api.configuration.util.issue.DeprecatedConfigurationIssue;
+import org.apache.seatunnel.api.configuration.util.issue.VersionCompatibilityConfigurationIssue;
 import org.apache.seatunnel.api.table.catalog.Catalog;
 import org.apache.seatunnel.api.table.catalog.CatalogTable;
 import org.apache.seatunnel.api.table.catalog.TablePath;
