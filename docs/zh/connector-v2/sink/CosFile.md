@@ -47,6 +47,7 @@ import ChangeLog from '../changelog/connector-file-cos.md';
 |---------------------------------------|---------|----|--------------------------------------------|-----------------------------------------------------------------|
 | path                                  | string  | 是  | -                                          |                                                                 |
 | tmp_path                              | string  | 否  | /tmp/seatunnel                             | 结果文件将首先写入tmp路径，然后使用“mv”将tmp目录提交到目标目录。需要一个COS目录.                 |
+| file_exists_mode                      | enum    | 否  | OVERWRITE                                  | 提交阶段（临时文件重命名到目标文件）当目标文件已存在时的处理策略：SKIP / OVERWRITE / FAIL。SKIP 会保留目标文件并删除临时文件。 |
 | bucket                                | string  | 是  | -                                          |                                                                 |
 | secret_id                             | string  | 是  | -                                          |                                                                 |
 | secret_key                            | string  | 是  | -                                          |                                                                 |
@@ -242,6 +243,16 @@ Tips: excel 类型不支持任何压缩格式
 
 仅当file_format_type为json、text、csv、xml时使用.
 要写入的文件的编码。此参数将由`Charset.forName(encoding)` 解析.
+
+### file_exists_mode [enum]
+
+当提交阶段将 `tmp_path` 下的临时文件移动/重命名到 `path` 时，如果目标文件已存在，将按如下策略处理：
+
+- `OVERWRITE`（默认）：删除目标文件，再将临时文件重命名到目标路径。
+- `SKIP`：保留目标文件，删除临时文件，并认为本次提交成功（避免重复写/避免 tmp 堆积）。
+- `FAIL`：直接抛错，任务失败。
+
+该参数仅针对单个文件生效，不对目录进行覆盖/删除操作。
 
 ### merge_update_event [boolean]
 

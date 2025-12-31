@@ -51,6 +51,7 @@ It only supports hadoop version **2.9.X+**.
 |---------------------------------------|---------|----------|--------------------------------------------|---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------|
 | path                                  | string  | yes      | -                                          |                                                                                                                                                                                 |
 | tmp_path                              | string  | no       | /tmp/seatunnel                             | The result file will write to a tmp path first and then use `mv` to submit tmp dir to target dir. Need a OSS dir.                                                               |
+| file_exists_mode                      | enum    | no       | OVERWRITE                                  | When committing a single file and the target file already exists, choose the behavior: SKIP / OVERWRITE / FAIL. SKIP will keep the existing target file and delete the temp file. |
 | bucket                                | string  | yes      | -                                          |                                                                                                                                                                                 |
 | access_key                            | string  | yes      | -                                          |                                                                                                                                                                                 |
 | access_secret                         | string  | yes      | -                                          |                                                                                                                                                                                 |
@@ -252,6 +253,16 @@ Support writing Parquet INT96 from a 12-byte field, only valid for parquet files
 
 Only used when file_format_type is json,text,csv,xml.
 The encoding of the file to write. This param will be parsed by `Charset.forName(encoding)`.
+
+### file_exists_mode [enum]
+
+When committing a single file from `tmp_path` to `path`, this option controls what happens if the target file already exists:
+
+- `OVERWRITE` (default): delete the target file then rename the temp file to the target path.
+- `SKIP`: keep the target file, delete the temp file, and treat the commit as successful.
+- `FAIL`: throw an error and fail the job.
+
+This option only applies to a single file and does not operate on directories.
 
 ### merge_update_event [boolean]
 

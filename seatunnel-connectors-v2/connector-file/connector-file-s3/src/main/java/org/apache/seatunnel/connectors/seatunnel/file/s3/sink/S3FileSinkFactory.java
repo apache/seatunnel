@@ -120,6 +120,7 @@ public class S3FileSinkFactory implements TableSinkFactory {
                 .optional(SinkConnectorCommonOptions.MULTI_TABLE_SINK_REPLICA)
                 .optional(FileBaseSinkOptions.FILENAME_EXTENSION)
                 .optional(FileBaseSinkOptions.TMP_PATH)
+                .optional(FileBaseSinkOptions.FILE_EXISTS_MODE)
                 .build();
     }
 

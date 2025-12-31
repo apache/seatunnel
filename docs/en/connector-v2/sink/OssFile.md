@@ -134,6 +134,7 @@ If write to `csv`, `text`, `json` file type, All column will be string.
 | encoding                              | string  | no       | "UTF-8"                                    | Only used when file_format_type is json,text,csv,xml.                                                                                                                           |
 | schema_save_mode                      | Enum    | no       | CREATE_SCHEMA_WHEN_NOT_EXIST               | Before turning on the synchronous task, do different treatment of the target path                                                                                               |
 | data_save_mode                        | Enum    | no       | APPEND_DATA                                | Before opening the synchronous task, the data file in the target path is differently processed                                                                                  |
+| file_exists_mode                      | Enum    | no       | OVERWRITE                                  | When committing a single file and the target file already exists, choose the behavior: SKIP / OVERWRITE / FAIL. SKIP will keep the existing target file and delete the temp file. |
 | merge_update_event                    | boolean | no       | false                                      | Only used when file_format_type is canal_json,debezium_json or maxwell_json. When value is true, the UPDATE_AFTER and UPDATE_BEFORE event will be merged into UPDATE event data |
 
 ### path [string]
@@ -320,6 +321,16 @@ Option introduction：
 `DROP_DATA`： use the path but delete data files in the path.
 `APPEND_DATA`：use the path, and add new files in the path for write data.   
 `ERROR_WHEN_DATA_EXISTS`：When there are some data files in the path, an error will is reported.
+
+### file_exists_mode [Enum]
+
+When committing a single file from `tmp_path` to `path`, this option controls what happens if the target file already exists:
+
+- `OVERWRITE` (default): delete the target file then rename the temp file to the target path.
+- `SKIP`: keep the target file, delete the temp file, and treat the commit as successful.
+- `FAIL`: throw an error and fail the job.
+
+This option only applies to a single file and does not operate on directories.
 
 ### merge_update_event [boolean]
 

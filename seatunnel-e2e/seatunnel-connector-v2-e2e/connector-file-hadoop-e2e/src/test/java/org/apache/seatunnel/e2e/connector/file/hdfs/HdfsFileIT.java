@@ -128,4 +128,41 @@ public class HdfsFileIT extends TestSuiteBase implements TestResource {
                 container.executeJob("/hdfs_normal_to_assert.conf");
         Assertions.assertEquals(0, readResult.getExitCode());
     }
+
+    @TestTemplate
+    public void testHdfsWriteWithFileExistsModeSkip(TestContainer container)
+            throws IOException, InterruptedException {
+        org.testcontainers.containers.Container.ExecResult firstWriteResult =
+                container.executeJob("/fake_to_hdfs_file_exists_mode_skip_prepare.conf");
+        Assertions.assertEquals(0, firstWriteResult.getExitCode());
+
+        String targetFile = "/exists_mode/skip/output/file_exists_mode_0.txt";
+        org.testcontainers.containers.Container.ExecResult sizeBeforeResult =
+                nameNode.execInContainer("hdfs", "dfs", "-stat", "%b", targetFile);
+        Assertions.assertEquals(0, sizeBeforeResult.getExitCode());
+        String sizeBefore = sizeBeforeResult.getStdout().trim();
+
+        org.testcontainers.containers.Container.ExecResult secondWriteResult =
+                container.executeJob("/fake_to_hdfs_file_exists_mode_skip.conf");
+        Assertions.assertEquals(0, secondWriteResult.getExitCode());
+
+        org.testcontainers.containers.Container.ExecResult sizeAfterResult =
+                nameNode.execInContainer("hdfs", "dfs", "-stat", "%b", targetFile);
+        Assertions.assertEquals(0, sizeAfterResult.getExitCode());
+        String sizeAfter = sizeAfterResult.getStdout().trim();
+
+        Assertions.assertEquals(sizeBefore, sizeAfter);
+    }
+
+    @TestTemplate
+    public void testHdfsWriteWithFileExistsModeFail(TestContainer container)
+            throws IOException, InterruptedException {
+        org.testcontainers.containers.Container.ExecResult firstWriteResult =
+                container.executeJob("/fake_to_hdfs_file_exists_mode_fail_prepare.conf");
+        Assertions.assertEquals(0, firstWriteResult.getExitCode());
+
+        org.testcontainers.containers.Container.ExecResult secondWriteResult =
+                container.executeJob("/fake_to_hdfs_file_exists_mode_fail.conf");
+        Assertions.assertNotEquals(0, secondWriteResult.getExitCode());
+    }
 }

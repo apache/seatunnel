@@ -22,6 +22,7 @@ import org.apache.seatunnel.shade.org.apache.commons.lang3.tuple.Pair;
 
 import org.apache.seatunnel.common.exception.CommonError;
 import org.apache.seatunnel.common.exception.SeaTunnelRuntimeException;
+import org.apache.seatunnel.connectors.seatunnel.file.config.FileExistsMode;
 import org.apache.seatunnel.connectors.seatunnel.file.config.HadoopConf;
 
 import org.apache.hadoop.conf.Configuration;
@@ -97,6 +98,14 @@ public class HadoopFileSystemProxy implements Serializable, Closeable {
             @NonNull String newFilePath,
             boolean removeWhenNewFilePathExist)
             throws IOException {
+        FileExistsMode fileExistsMode =
+                removeWhenNewFilePathExist ? FileExistsMode.OVERWRITE : FileExistsMode.FAIL;
+        renameFile(oldFilePath, newFilePath, fileExistsMode);
+    }
+
+    public void renameFile(
+            @NonNull String oldFilePath, @NonNull String newFilePath, @NonNull FileExistsMode mode)
+            throws IOException {
         execute(
                 () -> {
                     Path oldPath = new Path(oldFilePath);
@@ -112,10 +121,50 @@ public class HadoopFileSystemProxy implements Serializable, Closeable {
                         return Void.class;
                     }
 
-                    if (removeWhenNewFilePathExist) {
-                        if (fileExist(newFilePath)) {
-                            getFileSystem().delete(newPath, true);
-                            log.info("Delete already file: {}", newPath);
+                    if (fileExist(newFilePath)) {
+                        if (!isFile(newFilePath)) {
+                            throw CommonError.fileOperationFailed(
+                                    "SeaTunnel",
+                                    "rename",
+                                    oldFilePath
+                                            + " -> "
+                                            + newFilePath
+                                            + " failed, target path exists but is not a file");
+                        }
+                        switch (mode) {
+                            case OVERWRITE:
+                                if (!getFileSystem().delete(newPath, true)) {
+                                    throw CommonError.fileOperationFailed(
+                                            "SeaTunnel",
+                                            "delete",
+                                            newFilePath + " failed, can not overwrite target file");
+                                }
+                                log.info("Delete already file: {}", newPath);
+                                break;
+                            case SKIP:
+                                if (!getFileSystem().delete(oldPath, true)) {
+                                    throw CommonError.fileOperationFailed(
+                                            "SeaTunnel",
+                                            "delete",
+                                            oldFilePath
+                                                    + " failed, can not remove temp file when skipping");
+                                }
+                                log.info(
+                                        "Target file already exists, skip rename file :[{}] to [{}]",
+                                        oldPath,
+                                        newPath);
+                                return Void.class;
+                            case FAIL:
+                                throw CommonError.fileOperationFailed(
+                                        "SeaTunnel",
+                                        "rename",
+                                        oldFilePath
+                                                + " -> "
+                                                + newFilePath
+                                                + " failed, target file already exists");
+                            default:
+                                throw new IllegalArgumentException(
+                                        "Unknown FileExistsMode: " + mode);
                         }
                     }
                     if (!fileExist(newPath.getParent().toString())) {

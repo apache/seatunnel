@@ -24,6 +24,7 @@ import org.apache.seatunnel.api.table.type.SeaTunnelRowType;
 import org.apache.seatunnel.common.exception.CommonErrorCodeDeprecated;
 import org.apache.seatunnel.connectors.seatunnel.file.config.BaseFileSinkConfig;
 import org.apache.seatunnel.connectors.seatunnel.file.config.FileBaseSinkOptions;
+import org.apache.seatunnel.connectors.seatunnel.file.config.FileExistsMode;
 import org.apache.seatunnel.connectors.seatunnel.file.config.FileFormat;
 import org.apache.seatunnel.connectors.seatunnel.file.config.PartitionConfig;
 import org.apache.seatunnel.connectors.seatunnel.file.exception.FileConnectorException;
@@ -40,6 +41,7 @@ import java.util.Collections;
 import java.util.HashMap;
 import java.util.HashSet;
 import java.util.List;
+import java.util.Locale;
 import java.util.Map;
 import java.util.stream.Collectors;
 
@@ -62,6 +64,8 @@ public class FileSinkConfig extends BaseFileSinkConfig implements PartitionConfi
     private String fileNameTimeFormat = FileBaseSinkOptions.FILENAME_TIME_FORMAT.defaultValue();
 
     private boolean isEnableTransaction = FileBaseSinkOptions.IS_ENABLE_TRANSACTION.defaultValue();
+
+    private FileExistsMode fileExistsMode = FileBaseSinkOptions.FILE_EXISTS_MODE.defaultValue();
 
     private String encoding = FileBaseSinkOptions.ENCODING.defaultValue();
 
@@ -144,6 +148,13 @@ public class FileSinkConfig extends BaseFileSinkConfig implements PartitionConfi
         if (config.hasPath(FileBaseSinkOptions.IS_ENABLE_TRANSACTION.key())) {
             this.isEnableTransaction =
                     config.getBoolean(FileBaseSinkOptions.IS_ENABLE_TRANSACTION.key());
+        }
+
+        if (config.hasPath(FileBaseSinkOptions.FILE_EXISTS_MODE.key())) {
+            this.fileExistsMode =
+                    FileExistsMode.valueOf(
+                            config.getString(FileBaseSinkOptions.FILE_EXISTS_MODE.key())
+                                    .toUpperCase(Locale.ROOT));
         }
 
         if (config.hasPath(FileBaseSinkOptions.ENCODING.key())) {

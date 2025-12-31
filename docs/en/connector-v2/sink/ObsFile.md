@@ -62,6 +62,7 @@ It only supports hadoop version **2.9.X+**.
 | name                             | type    | required | default                                    | description                                                                                                                                                                     |
 |----------------------------------|---------|----------|--------------------------------------------|---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------|
 | path                             | string  | yes      | -                                          | The target dir path.                                                                                                                                                            |
+| file_exists_mode                 | enum    | no       | OVERWRITE                                  | When committing a single file and the target file already exists, choose the behavior: SKIP / OVERWRITE / FAIL. SKIP will keep the existing target file and delete the temp file. [Tips](#file_exists_mode)                           |
 | bucket                           | string  | yes      | -                                          | The bucket address of obs file system, for example: `obs://obs-bucket-name`.                                                                                                    |
 | access_key                       | string  | yes      | -                                          | The access key of obs file system.                                                                                                                                              |
 | access_secret                    | string  | yes      | -                                          | The access secret of obs file system.                                                                                                                                           |
@@ -151,6 +152,16 @@ Please note that, The final file name will end with the file_format's suffix, th
 > If `is_enable_transaction` is true, we will ensure that data will not be lost or duplicated when it is written to the target directory.
 >
 > Please note that, If `is_enable_transaction` is `true`, we will auto add `${transactionId}_` in the head of the file. Only support `true` now.
+
+#### <span id="file_exists_mode"> file_exists_mode </span>
+
+> When committing a single file, this option controls what happens if the target file already exists:
+>
+> - `OVERWRITE` (default): delete the target file then rename the temp file to the target path.
+> - `SKIP`: keep the target file, delete the temp file, and treat the commit as successful.
+> - `FAIL`: throw an error and fail the job.
+>
+> This option only applies to a single file and does not operate on directories.
 
 #### <span id="batch_size"> batch_size </span>
 

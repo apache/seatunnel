@@ -25,6 +25,7 @@ import org.apache.seatunnel.api.table.type.SeaTunnelRow;
 import org.apache.seatunnel.common.exception.CommonError;
 import org.apache.seatunnel.common.exception.CommonErrorCodeDeprecated;
 import org.apache.seatunnel.common.exception.SeaTunnelRuntimeException;
+import org.apache.seatunnel.connectors.seatunnel.file.config.FileExistsMode;
 import org.apache.seatunnel.connectors.seatunnel.file.config.HadoopConf;
 import org.apache.seatunnel.connectors.seatunnel.file.exception.FileConnectorException;
 import org.apache.seatunnel.connectors.seatunnel.file.hadoop.HadoopFileSystemProxy;
@@ -75,8 +76,10 @@ public class BaseFileSinkWriter
             try {
                 List<String> transactions =
                         findTransactionList(jobId, uuidPrefix, hadoopFileSystemProxy);
+                FileExistsMode fileExistsMode =
+                        writeStrategy.getFileSinkConfig().getFileExistsMode();
                 FileSinkAggregatedCommitter fileSinkAggregatedCommitter =
-                        new FileSinkAggregatedCommitter(hadoopConf);
+                        new FileSinkAggregatedCommitter(hadoopConf, fileExistsMode);
                 fileSinkAggregatedCommitter.init();
                 LinkedHashMap<String, FileSinkState> fileStatesMap = new LinkedHashMap<>();
                 fileSinkStates.forEach(

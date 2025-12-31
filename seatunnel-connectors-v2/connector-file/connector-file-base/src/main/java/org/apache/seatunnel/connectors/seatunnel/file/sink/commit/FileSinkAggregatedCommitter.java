@@ -18,6 +18,7 @@
 package org.apache.seatunnel.connectors.seatunnel.file.sink.commit;
 
 import org.apache.seatunnel.api.sink.SinkAggregatedCommitter;
+import org.apache.seatunnel.connectors.seatunnel.file.config.FileExistsMode;
 import org.apache.seatunnel.connectors.seatunnel.file.config.HadoopConf;
 import org.apache.seatunnel.connectors.seatunnel.file.hadoop.HadoopFileSystemProxy;
 
@@ -34,9 +35,15 @@ public class FileSinkAggregatedCommitter
         implements SinkAggregatedCommitter<FileCommitInfo, FileAggregatedCommitInfo> {
     protected HadoopFileSystemProxy hadoopFileSystemProxy;
     private final HadoopConf hadoopConf;
+    private final FileExistsMode fileExistsMode;
 
     public FileSinkAggregatedCommitter(HadoopConf hadoopConf) {
+        this(hadoopConf, FileExistsMode.OVERWRITE);
+    }
+
+    public FileSinkAggregatedCommitter(HadoopConf hadoopConf, FileExistsMode fileExistsMode) {
         this.hadoopConf = hadoopConf;
+        this.fileExistsMode = fileExistsMode == null ? FileExistsMode.OVERWRITE : fileExistsMode;
     }
 
     @Override
@@ -57,7 +64,9 @@ public class FileSinkAggregatedCommitter
                                     entry.getValue().entrySet()) {
                                 // first rename temp file
                                 hadoopFileSystemProxy.renameFile(
-                                        mvFileEntry.getKey(), mvFileEntry.getValue(), true);
+                                        mvFileEntry.getKey(),
+                                        mvFileEntry.getValue(),
+                                        fileExistsMode);
                             }
                             // second delete transaction directory
                             hadoopFileSystemProxy.deleteFile(entry.getKey());

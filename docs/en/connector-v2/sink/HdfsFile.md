@@ -53,6 +53,7 @@ Output data to hdfs file
 | fs.defaultFS                          | string  | yes      | -                                          | Hadoop cluster address. Supports the following formats:<br/>- Standard HDFS: `hdfs://hadoopcluster` or `hdfs://namenode:9000`<br/>- ViewFS (Federated HDFS): `viewfs://mycluster`<br/>See ViewFS configuration example below.                                                                                                                                                                                                                                                            |
 | path                                  | string  | yes      | -                                          | The target dir path is required.                                                                                                                                                                                                                                                                                                                                                                                                                                                         |
 | tmp_path                              | string  | yes      | /tmp/seatunnel                             | The result file will write to a tmp path first and then use `mv` to submit tmp dir to target dir. Need a hdfs path.                                                                                                                                                                                                                                                                                                                                                                      |
+| file_exists_mode                      | enum    | no       | OVERWRITE                                  | When committing a single file and the target file already exists, choose the behavior: SKIP / OVERWRITE / FAIL. SKIP will keep the existing target file and delete the temp file. |
 | hdfs_site_path                        | string  | no       | -                                          | The path of `hdfs-site.xml`, used to load ha configuration of namenodes                                                                                                                                                                                                                                                                                                                                                                                                                  |
 | custom_filename                       | boolean | no       | false                                      | Whether you need custom the filename                                                                                                                                                                                                                                                                                                                                                                                                                                                     |
 | file_name_expression                  | string  | no       | "${transactionId}"                         | Only used when `custom_filename` is `true`.`file_name_expression` describes the file expression which will be created into the `path`. We can add the variable `${now}` or `${uuid}` in the `file_name_expression`, like `test_${uuid}_${now}`,`${now}` represents the current time, and its format can be defined by specifying the option `filename_time_format`.Please note that, If `is_enable_transaction` is `true`, we will auto add `${transactionId}_` in the head of the file. |
@@ -93,6 +94,16 @@ Output data to hdfs file
 ### Tips
 
 > If you use spark/flink, In order to use this connector, You must ensure your spark/flink cluster already integrated hadoop. The tested hadoop version is 2.x. If you use SeaTunnel Engine, It automatically integrated the hadoop jar when you download and install SeaTunnel Engine. You can check the jar package under ${SEATUNNEL_HOME}/lib to confirm this.
+
+### file_exists_mode [enum]
+
+When committing a single file from `tmp_path` to `path`, this option controls what happens if the target file already exists:
+
+- `OVERWRITE` (default): delete the target file then rename the temp file to the target path.
+- `SKIP`: keep the target file, delete the temp file, and treat the commit as successful.
+- `FAIL`: throw an error and fail the job.
+
+This option only applies to a single file and does not operate on directories.
 
 ### merge_update_event [boolean]
 

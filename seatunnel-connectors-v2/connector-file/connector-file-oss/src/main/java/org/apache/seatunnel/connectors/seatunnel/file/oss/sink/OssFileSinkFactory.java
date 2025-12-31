@@ -123,6 +123,7 @@ public class OssFileSinkFactory extends BaseMultipleTableFileSinkFactory {
                 .optional(SinkConnectorCommonOptions.MULTI_TABLE_SINK_REPLICA)
                 .optional(FileBaseSinkOptions.FILENAME_EXTENSION)
                 .optional(FileBaseSinkOptions.TMP_PATH)
+                .optional(FileBaseSinkOptions.FILE_EXISTS_MODE)
                 .build();
     }
 }

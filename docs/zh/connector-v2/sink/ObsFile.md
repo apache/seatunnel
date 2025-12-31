@@ -62,6 +62,7 @@ import ChangeLog from '../changelog/connector-file-obs.md';
 | 名称                               | 类型      | 是否必填 | 默认值                                        | 描述                                                                      |
 |----------------------------------|---------|------|--------------------------------------------|-------------------------------------------------------------------------|
 | path                             | string  | 是    | -                                          | 目标目录路径。                                                                 |
+| file_exists_mode                 | enum    | 否    | OVERWRITE                                  | 提交阶段（临时文件重命名到目标文件）当目标文件已存在时的处理策略：SKIP / OVERWRITE / FAIL。SKIP 会保留目标文件并删除临时文件。[提示](#file_exists_mode) |
 | bucket                           | string  | 是    | -                                          | obs文件系统的bucket地址，例如：`obs://obs-bucket-name`.                            |
 | access_key                       | string  | 是    | -                                          | obs文件系统的访问密钥。                                                           |
 | access_secret                    | string  | 是    | -                                          | obs文件系统的访问私钥。                                                           |
@@ -149,6 +150,16 @@ import ChangeLog from '../changelog/connector-file-obs.md';
 >如果`is_enable_transaction`为`true`，我们将确保数据在写入目标目录时不会丢失或重复。
 >
 >请注意，如果`is_enable_transaction`为`true`，我们将自动添加`${transactionId}_`在文件的开头。现在只支持“true”。
+
+#### <span id="file_exists_mode"> file_exists_mode </span>
+
+>当提交阶段写入单个文件时，如果目标文件已存在，将按如下策略处理：
+>
+> - `OVERWRITE`（默认）：删除目标文件，再将临时文件重命名到目标路径。
+> - `SKIP`：保留目标文件，删除临时文件，并认为本次提交成功（避免重复写/避免 tmp 堆积）。
+> - `FAIL`：直接抛错，任务失败。
+>
+>该参数仅针对单个文件生效，不对目录进行覆盖/删除操作。
 
 #### <span id="batch_size"> batch_size </span>
 

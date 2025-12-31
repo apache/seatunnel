@@ -129,6 +129,7 @@ public class HdfsFileSinkFactory extends BaseMultipleTableFileSinkFactory {
                 .optional(FileBaseSinkOptions.CREATE_EMPTY_FILE_WHEN_NO_DATA)
                 .optional(FileBaseSinkOptions.FILENAME_EXTENSION)
                 .optional(FileBaseSinkOptions.TMP_PATH)
+                .optional(FileBaseSinkOptions.FILE_EXISTS_MODE)
                 .build();
     }
 

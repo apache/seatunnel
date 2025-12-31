@@ -134,6 +134,7 @@ import ChangeLog from '../changelog/connector-file-oss.md';
 | encoding                              | string  | 否  | "UTF-8"                                    | 仅当file_format_type为json、text、csv、xml时使用。                          |
 | schema_save_mode                      | Enum    | 否  | CREATE_SCHEMA_WHEN_NOT_EXIST               | 在开启同步任务之前，对目标路径进行不同的处理                                            |
 | data_save_mode                        | Enum    | 否  | APPEND_DATA                                | 在开启同步任务之前，对目标路径中的数据文件进行不同的处理                                      |
+| file_exists_mode                      | Enum    | 否  | OVERWRITE                                  | 提交阶段（临时文件重命名到目标文件）当目标文件已存在时的处理策略：SKIP / OVERWRITE / FAIL。SKIP 会保留目标文件并删除临时文件。 |
 | merge_update_event                    | boolean | 否  | false                                      | 仅当file_format_type为canal_json、debezium_json、maxwell_json.         |
 
 ### path [string]
@@ -315,6 +316,16 @@ Sink插件常用参数，请参考[Sink common Options]（../Sink common Options
 `DROP_DATA`：使用路径但删除路径中的数据文件。
 `APPEND_DATA`：使用路径，并在路径中添加新文件以写入数据。   
 `ERROR_WHEN_DATA_EXISTS`：当路径中存在数据文件时，将报错。
+
+### file_exists_mode [Enum]
+
+当提交阶段将 `tmp_path` 下的临时文件移动/重命名到 `path` 时，如果目标文件已存在，将按如下策略处理：
+
+- `OVERWRITE`（默认）：删除目标文件，再将临时文件重命名到目标路径。
+- `SKIP`：保留目标文件，删除临时文件，并认为本次提交成功（避免重复写/避免 tmp 堆积）。
+- `FAIL`：直接抛错，任务失败。
+
+该参数仅针对单个文件生效，不对目录进行覆盖/删除操作。
 
 ### merge_update_event [boolean]
 

@@ -305,6 +305,16 @@ public class FileBaseSinkOptions extends FileBaseOptions {
                     .withDescription(
                             "Before the synchronization task begins, different processing of data files that already exist in the directory");
 
+    public static final Option<FileExistsMode> FILE_EXISTS_MODE =
+            Options.key("file_exists_mode")
+                    .enumType(FileExistsMode.class)
+                    .defaultValue(FileExistsMode.OVERWRITE)
+                    .withDescription(
+                            "When committing a single file to the target path and the target file already exists, choose how to handle it. "
+                                    + "OVERWRITE (default): overwrite the target file. "
+                                    + "SKIP: skip writing and keep the existing target file. "
+                                    + "FAIL: fail the job.");
+
     public static final Option<CsvStringQuoteMode> CSV_STRING_QUOTE_MODE =
             Options.key("csv_string_quote_mode")
                     .enumType(CsvStringQuoteMode.class)
