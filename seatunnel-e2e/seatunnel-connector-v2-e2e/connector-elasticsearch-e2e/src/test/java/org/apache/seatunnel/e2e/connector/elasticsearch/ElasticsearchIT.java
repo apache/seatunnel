@@ -76,6 +76,7 @@ import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
 import java.util.Objects;
+import java.util.Optional;
 import java.util.Set;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.TimeUnit;
@@ -1067,7 +1068,10 @@ public class ElasticsearchIT extends TestSuiteBase implements TestResource {
         Assertions.assertThrows(
                 DatabaseNotExistException.class,
                 () -> elasticSearchCatalog.dropDatabase(TablePath.of("", "tmp_index"), false));
-
+        // test getServiceVersion
+        final Optional<String> serviceVersion = elasticSearchCatalog.getServiceVersion();
+        Assertions.assertTrue(serviceVersion.isPresent());
+        Assertions.assertEquals("8.9.0", serviceVersion.get());
         elasticSearchCatalog.close();
     }
 
