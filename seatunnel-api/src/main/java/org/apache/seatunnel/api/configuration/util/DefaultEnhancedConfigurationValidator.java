@@ -97,7 +97,8 @@ public abstract class DefaultEnhancedConfigurationValidator
                             pluginType,
                             conflict.option,
                             optionValue.get(),
-                            conflict.conflictOption));
+                            conflict.conflictOption,
+                            conflictOptionValue.get()));
         }
         return Optional.of(
                 ConflictConfigurationIssue.warnOf(
@@ -105,7 +106,8 @@ public abstract class DefaultEnhancedConfigurationValidator
                         pluginType,
                         conflict.option,
                         optionValue.get(),
-                        conflict.conflictOption));
+                        conflict.conflictOption,
+                        conflictOptionValue.get()));
     }
 
     protected List<ConflictRule> conflictRules() {

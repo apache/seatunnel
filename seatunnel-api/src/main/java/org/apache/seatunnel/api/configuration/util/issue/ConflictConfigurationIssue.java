@@ -27,6 +27,7 @@ public class ConflictConfigurationIssue extends ConfigurationVerificationIssue {
     private final Option<?> option;
     private final Object value;
     private final Option<?> conflictOption;
+    private final Object conflictValue;
 
     private ConflictConfigurationIssue(
             Level level,
@@ -34,18 +35,25 @@ public class ConflictConfigurationIssue extends ConfigurationVerificationIssue {
             PluginType pluginType,
             Option<?> option,
             Object value,
-            Option<?> conflictOption) {
+            Option<?> conflictOption,
+            Object conflictValue) {
         super(level, identifier, pluginType);
         this.option = option;
         this.value = value;
         this.conflictOption = conflictOption;
+        this.conflictValue = conflictValue;
     }
 
     @Override
     protected String getLog() {
         return String.format(
-                "Configuration option '%s' with value '%s' conflicts with option '%s' in %s plugin '%s'",
-                option.key(), value, conflictOption.key(), pluginType.getType(), identifier);
+                "Configuration option '%s' with value '%s' conflicts with option '%s' (value '%s') in %s plugin '%s'",
+                option.key(),
+                value,
+                conflictOption.key(),
+                conflictValue,
+                pluginType.getType(),
+                identifier);
     }
 
     public static ConflictConfigurationIssue errorOf(
@@ -53,9 +61,10 @@ public class ConflictConfigurationIssue extends ConfigurationVerificationIssue {
             PluginType pluginType,
             Option<?> option,
             Object value,
-            Option<?> conflictOption) {
+            Option<?> conflictOption,
+            Object conflictValue) {
         return new ConflictConfigurationIssue(
-                Level.ERROR, identifier, pluginType, option, value, conflictOption);
+                Level.ERROR, identifier, pluginType, option, value, conflictOption, conflictValue);
     }
 
     public static ConflictConfigurationIssue warnOf(
@@ -63,8 +72,15 @@ public class ConflictConfigurationIssue extends ConfigurationVerificationIssue {
             PluginType pluginType,
             Option<?> option,
             Object value,
-            Option<?> conflictOption) {
+            Option<?> conflictOption,
+            Object conflictValue) {
         return new ConflictConfigurationIssue(
-                Level.WARNING, identifier, pluginType, option, value, conflictOption);
+                Level.WARNING,
+                identifier,
+                pluginType,
+                option,
+                value,
+                conflictOption,
+                conflictValue);
     }
 }
