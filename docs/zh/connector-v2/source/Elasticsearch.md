@@ -21,9 +21,13 @@ import ChangeLog from '../changelog/connector-elasticsearch.md';
 
 | 参数名称                | 类型    | 是否必须 | 默认值或者描述                             |
 | ----------------------- | ------- | -------- |-------------------------------------|
-| hosts                   | 数组    |          | -                                   |
+| hosts                   | 数组    | yes      | -                                   |
+| auth_type               | string  | no       | basic                               |
 | username                | string  | no       | -                                   |
 | password                | string  | no       | -                                   |
+| auth.api_key_id         | string  | no       | -                                   |
+| auth.api_key            | string  | no       | -                                   |
+| auth.api_key_encoded    | string  | no       | -                                   |
 | index                   | string  | No       | 单索引同步配置，如果index_list没有配置，则必须配置index |
 | index_list              | array   | no       | 用来定义多索引同步任务                         |
 | source                  | array   | no       | -                                   |
@@ -34,7 +38,7 @@ import ChangeLog from '../changelog/connector-elasticsearch.md';
 | scroll_time             | string  | no       | 1m                                  |
 | scroll_size             | int     | no       | 100                                 |
 | tls_verify_certificate  | boolean | no       | true                                |
-| tls_verify_hostnames    | boolean | no       | true                                |
+| tls_verify_hostname     | boolean | no       | true                                |
 | array_column            | map     | no       |                                     |
 | tls_keystore_path       | string  | no       | -                                   |
 | tls_keystore_password   | string  | no       | -                                   |
@@ -48,13 +52,82 @@ import ChangeLog from '../changelog/connector-elasticsearch.md';
 
 Elasticsearch 集群的 HTTP 地址，格式为 `host:port`，允许指定多个主机。例如：`["host1:9200", "host2:9200"]`。
 
-### username [string]
+## 认证
 
-用户名
+Elasticsearch 连接器支持多种认证方式，可根据集群的安全配置进行选择。
 
-### password [string]
+### auth_type [enum]
 
-密码
+指定认证方式，支持：
+- `basic`（默认）：使用用户名 + 密码的 HTTP 基本认证
+- `api_key`：使用 API Key 的 ID + key 认证
+- `api_key_encoded`：使用 Base64 编码后的 API Key 认证
+
+如果未指定，默认使用 `basic` 以兼容旧版本。
+
+### 基本认证
+
+#### username [string]
+
+基本认证的用户名（x-pack 用户名）。
+
+#### password [string]
+
+基本认证的密码（x-pack 密码）。
+
+**示例：**
+```hocon
+source {
+    Elasticsearch {
+        hosts = ["https://localhost:9200"]
+        auth_type = "basic"
+        username = "elastic"
+        password = "your_password"
+        index = "my_index"
+    }
+}
+```
+
+### API Key 认证
+
+#### auth.api_key_id [string]
+
+Elasticsearch 生成的 API Key ID。
+
+#### auth.api_key [string]
+
+Elasticsearch 生成的 API Key 密钥。
+
+#### auth.api_key_encoded [string]
+
+`base64(id:api_key)` 形式的 Base64 编码 API Key，可替代单独提供 ID 与 key。
+
+**注意：** `auth.api_key_id` + `auth.api_key` 与 `auth.api_key_encoded` 只能二选一。
+
+**示例（分开配置 ID 和 key）：**
+```hocon
+source {
+    Elasticsearch {
+        hosts = ["https://localhost:9200"]
+        auth_type = "api_key"
+        auth.api_key_id = "your_api_key_id"
+        auth.api_key = "your_api_key_secret"
+        index = "my_index"
+    }
+}
+```
+
+**示例（使用编码 key）：**
+```hocon
+source {
+    Elasticsearch {
+        hosts = ["https://localhost:9200"]
+        auth_type = "api_key_encoded"
+        auth.api_key_encoded = "eW91cl9hcGlfa2V5X2lkOnlvdXJfYXBpX2tleV9zZWNyZXQ="
+        index = "my_index"
+    }
+}
+```
 
 ### index [string]
 
@@ -68,7 +141,7 @@ Elasticsearch 索引名称，支持 * 模糊匹配。比如存在索引index1,in
 
 如果你没有配置 `source`，它将自动从索引的映射中获取。
 
-### array_column [array]
+### array_column [map]
 
 由于 Elasticsearch 中没有数组索引，因此需要指定数组类型。
 
@@ -80,7 +153,7 @@ array_column = {tags = "array<string>",phones = "array<string>"}
 
 ### query [json]
 
-ElasticsSearch的原生查询语句，用于控制读取哪些数据写入到其他数据源。
+Elasticsearch 的原生查询语句，用于控制读取哪些数据写入到其他数据源。
 
 ### scroll_time [String]
 
@@ -131,7 +204,7 @@ PEM 或 JKS 信任库的路径。该文件必须对运行 SeaTunnel 的操作系
 ### pit_keep_alive [long]
 PIT 应保持活动的时间量（以毫秒为单位）
 
-### pit_batch_size  [long]
+### pit_batch_size  [int]
 每次 PIT 搜索请求返回的最大数量
 
 ### common options
@@ -156,7 +229,7 @@ Elasticsearch {
 
 案例二：多索引同步
 
-> 此示例演示了如何从 `read_index1` 和 `read_index2` 中读取不同的数据数据，并将其分别写入 `read_index1_copy`,`read_index12_copy` 索引。
+> 此示例演示了如何从 `read_index1` 和 `read_index2` 中读取不同的数据，并将其分别写入 `read_index1_copy`,`read_index2_copy` 索引。
 > 在 `read_index1` 中，我使用 `source` 来指定要读取的字段，并使用`array_column`指明哪些字段是数组字段。
 
 ```hocon
@@ -304,6 +377,8 @@ source {
     search_api_type = PIT
     pit_keep_alive = 60000  # 1 minute in milliseconds
     pit_batch_size = 100
+  }
+}
 ```
 
 ## 变更日志
