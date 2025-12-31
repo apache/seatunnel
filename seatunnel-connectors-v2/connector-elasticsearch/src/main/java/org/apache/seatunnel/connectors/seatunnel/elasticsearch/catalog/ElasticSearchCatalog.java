@@ -103,6 +103,19 @@ public class ElasticSearchCatalog implements Catalog {
     }
 
     @Override
+    public Optional<String> getServiceVersion() {
+        try {
+            if (esRestClient == null) {
+                esRestClient = EsRestClient.createInstance(config);
+            }
+            return Optional.ofNullable(esRestClient.getClusterInfo().getClusterVersion());
+        } catch (Exception e) {
+            LOGGER.warn("Failed to detect elasticsearch service version", e);
+            return Optional.empty();
+        }
+    }
+
+    @Override
     public String getDefaultDatabase() throws CatalogException {
         return defaultDatabase;
     }
