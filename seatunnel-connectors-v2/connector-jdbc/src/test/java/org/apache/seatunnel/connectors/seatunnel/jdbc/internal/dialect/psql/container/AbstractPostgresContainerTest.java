@@ -22,6 +22,8 @@ import org.apache.seatunnel.connectors.seatunnel.jdbc.internal.dialect.DatabaseI
 
 import org.junit.jupiter.api.AfterAll;
 import org.junit.jupiter.api.BeforeAll;
+import org.junit.jupiter.api.condition.DisabledOnOs;
+import org.junit.jupiter.api.condition.OS;
 import org.testcontainers.containers.PostgreSQLContainer;
 import org.testcontainers.junit.jupiter.Testcontainers;
 import org.testcontainers.utility.DockerImageName;
@@ -34,6 +36,7 @@ import java.sql.SQLException;
  * Base class for PostgreSQL tests using Testcontainers. Provides a shared PostgreSQL container for
  * all tests in the same test suite.
  */
+@DisabledOnOs(OS.WINDOWS)
 @Testcontainers
 public abstract class AbstractPostgresContainerTest {
 
