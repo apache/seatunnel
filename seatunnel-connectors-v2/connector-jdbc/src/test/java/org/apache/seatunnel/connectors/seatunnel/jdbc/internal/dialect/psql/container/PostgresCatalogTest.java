@@ -28,6 +28,8 @@ import org.apache.seatunnel.connectors.seatunnel.jdbc.catalog.psql.PostgresCatal
 
 import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.Test;
+import org.junit.jupiter.api.condition.DisabledOnOs;
+import org.junit.jupiter.api.condition.OS;
 
 import java.sql.Connection;
 import java.sql.ResultSet;
@@ -44,6 +46,7 @@ import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertNotNull;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
+@DisabledOnOs(OS.WINDOWS)
 public class PostgresCatalogTest extends AbstractPostgresContainerTest {
 
     @Test
