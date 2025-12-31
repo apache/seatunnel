@@ -89,6 +89,7 @@
         <module>connector-graphql</module>
         <module>connector-aerospike</module>
         <module>connector-sensorsdata</module>
+        <module>connector-fluss</module>
     </modules>
 
     <dependencyManagement>
