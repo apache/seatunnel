@@ -27,6 +27,7 @@ import org.junit.jupiter.api.Test;
 import org.mockito.Mockito;
 
 import java.lang.reflect.Field;
+import java.lang.reflect.InvocationTargetException;
 import java.lang.reflect.Method;
 
 import static org.mockito.Mockito.when;
@@ -53,10 +54,16 @@ class HiveMetaStoreCatalogMetastoreUrisTest {
     }
 
     @Test
-    void testNormalizeMetastoreUrisNull() throws Exception {
-        Assertions.assertNull(
-                invokeStatic(
-                        "normalizeMetastoreUris", new Class<?>[] {String.class}, (Object) null));
+    void testNormalizeMetastoreUrisNullThrows() {
+        InvocationTargetException ex =
+                Assertions.assertThrows(
+                        InvocationTargetException.class,
+                        () ->
+                                invokeStatic(
+                                        "normalizeMetastoreUris",
+                                        new Class<?>[] {String.class},
+                                        (Object) null));
+        Assertions.assertInstanceOf(NullPointerException.class, ex.getCause());
     }
 
     @Test
@@ -68,9 +75,16 @@ class HiveMetaStoreCatalogMetastoreUrisTest {
     }
 
     @Test
-    void testGetFirstMetastoreUriNull() throws Exception {
-        Assertions.assertNull(
-                invokeStatic("getFirstMetastoreUri", new Class<?>[] {String.class}, (Object) null));
+    void testGetFirstMetastoreUriNullThrows() {
+        InvocationTargetException ex =
+                Assertions.assertThrows(
+                        InvocationTargetException.class,
+                        () ->
+                                invokeStatic(
+                                        "getFirstMetastoreUri",
+                                        new Class<?>[] {String.class},
+                                        (Object) null));
+        Assertions.assertInstanceOf(NullPointerException.class, ex.getCause());
     }
 
     @Test
@@ -79,6 +93,14 @@ class HiveMetaStoreCatalogMetastoreUrisTest {
         String out =
                 (String) invokeStatic("getFirstMetastoreUri", new Class<?>[] {String.class}, in);
         Assertions.assertEquals("thrift://hms-1:9083", out);
+    }
+
+    @Test
+    void testGetFirstMetastoreUriSkipsBlankEntries() throws Exception {
+        String in = " , thrift://a:9083, thrift://b:9083";
+        String out =
+                (String) invokeStatic("getFirstMetastoreUri", new Class<?>[] {String.class}, in);
+        Assertions.assertEquals("thrift://a:9083", out);
     }
 
     @Test

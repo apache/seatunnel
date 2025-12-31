@@ -74,6 +74,8 @@ public class HiveMetaStoreCatalog implements Catalog, Closeable, Serializable {
     private static final List<String> HADOOP_CONF_FILES = ImmutableList.of("hive-site.xml");
     private static final String RETRYING_METASTORE_CLIENT_CLASS_NAME =
             "org.apache.hadoop.hive.metastore.RetryingMetaStoreClient";
+    private static final String RETRYING_METASTORE_CLIENT_NO_COMPATIBLE_GET_PROXY_MESSAGE =
+            "RetryingMetaStoreClient found but no compatible getProxy method, falling back to HiveMetaStoreClient";
 
     private final String metastoreUri;
     private final String hadoopConfDir;
@@ -153,8 +155,7 @@ public class HiveMetaStoreCatalog implements Catalog, Closeable, Serializable {
             Class<?> clazz = Class.forName(RETRYING_METASTORE_CLIENT_CLASS_NAME);
             Method getProxyMethod = getProxyMethod(clazz);
             if (getProxyMethod == null) {
-                log.warn(
-                        "RetryingMetaStoreClient found but no compatible getProxy method, falling back to HiveMetaStoreClient");
+                log.warn(RETRYING_METASTORE_CLIENT_NO_COMPATIBLE_GET_PROXY_MESSAGE);
                 return null;
             }
 
@@ -165,8 +166,7 @@ public class HiveMetaStoreCatalog implements Catalog, Closeable, Serializable {
                         hiveConf.get("hive.metastore.uris"));
                 return (IMetaStoreClient) proxy;
             }
-            log.warn(
-                    "RetryingMetaStoreClient found but no compatible getProxy method, falling back to HiveMetaStoreClient");
+            log.warn(RETRYING_METASTORE_CLIENT_NO_COMPATIBLE_GET_PROXY_MESSAGE);
             return null;
         } catch (ClassNotFoundException e) {
             log.debug("RetryingMetaStoreClient not found, falling back to HiveMetaStoreClient", e);
@@ -260,9 +260,12 @@ public class HiveMetaStoreCatalog implements Catalog, Closeable, Serializable {
         // Try to derive from metastore URI
         // metastore URI format: thrift://host:9083
         // HiveServer2 JDBC URL format: jdbc:hive2://host:10000/default
+        if (StringUtils.isBlank(metastoreUri)) {
+            return null;
+        }
         try {
             String firstUri = getFirstMetastoreUri(metastoreUri);
-            if (firstUri != null && firstUri.startsWith("thrift://")) {
+            if (firstUri.startsWith("thrift://")) {
                 URI uri = new URI(firstUri);
                 String host = uri.getHost();
                 if (host != null) {
@@ -278,7 +281,12 @@ public class HiveMetaStoreCatalog implements Catalog, Closeable, Serializable {
 
     private HiveConf buildHiveConf() {
         HiveConf hiveConf = new HiveConf();
-        hiveConf.set("hive.metastore.uris", normalizeMetastoreUris(metastoreUri));
+        if (StringUtils.isNotBlank(metastoreUri)) {
+            String normalizedMetastoreUris = normalizeMetastoreUris(metastoreUri);
+            if (StringUtils.isNotBlank(normalizedMetastoreUris)) {
+                hiveConf.set("hive.metastore.uris", normalizedMetastoreUris);
+            }
+        }
         hiveConf.setBoolVar(HiveConf.ConfVars.METASTORE_EXECUTE_SET_UGI, false);
         hiveConf.setBoolean("hive.metastore.client.capability.check", false);
         hiveConf.setBoolean("hive.metastore.client.filter.enabled", false);
@@ -328,10 +336,7 @@ public class HiveMetaStoreCatalog implements Catalog, Closeable, Serializable {
                 new Configuration(), remoteUser, (conf, ugi) -> createClient(hiveConf));
     }
 
-    private static String normalizeMetastoreUris(String metastoreUri) {
-        if (metastoreUri == null) {
-            return null;
-        }
+    private static String normalizeMetastoreUris(@NonNull String metastoreUri) {
         String[] uris = metastoreUri.split(",");
         List<String> cleaned = new ArrayList<>(uris.length);
         for (String uri : uris) {
@@ -343,15 +348,15 @@ public class HiveMetaStoreCatalog implements Catalog, Closeable, Serializable {
         return String.join(",", cleaned);
     }
 
-    private static String getFirstMetastoreUri(String metastoreUri) {
-        if (metastoreUri == null) {
-            return null;
+    private static String getFirstMetastoreUri(@NonNull String metastoreUri) {
+        String[] uris = metastoreUri.split(",");
+        for (String uri : uris) {
+            String trimmed = uri.trim();
+            if (!trimmed.isEmpty()) {
+                return trimmed;
+            }
         }
-        int commaIndex = metastoreUri.indexOf(',');
-        if (commaIndex < 0) {
-            return metastoreUri.trim();
-        }
-        return metastoreUri.substring(0, commaIndex).trim();
+        return "";
     }
 
     public Table getTable(@NonNull String dbName, @NonNull String tableName) {
