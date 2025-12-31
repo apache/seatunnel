@@ -62,7 +62,9 @@ public abstract class DefaultEnhancedConfigurationValidator
                 .collect(Collectors.toList());
     }
 
-    protected abstract List<DeprecatedRule> deprecatedRules();
+    protected List<DeprecatedRule> deprecatedRules() {
+        return Collections.emptyList();
+    }
 
     @Override
     public List<ConfigurationVerificationIssue> validateConflictRules(ReadonlyConfig context) {
@@ -106,7 +108,9 @@ public abstract class DefaultEnhancedConfigurationValidator
                         conflict.conflictOption));
     }
 
-    protected abstract List<ConflictRule> conflictRules();
+    protected List<ConflictRule> conflictRules() {
+        return Collections.emptyList();
+    }
 
     @Override
     public List<VersionCompatibilityConfigurationIssue> validateVersionCompatibilityRules(
@@ -147,7 +151,9 @@ public abstract class DefaultEnhancedConfigurationValidator
                         identifier, pluginType, option.option, option.needVersion, currentVersion));
     }
 
-    protected abstract List<VersionCompatibilityRule> versionCompatibilityRules();
+    protected List<VersionCompatibilityRule> versionCompatibilityRules() {
+        return Collections.emptyList();
+    }
 
     protected Optional<String> detectCurrentServiceVersion(ReadonlyConfig context) {
         try {
@@ -209,17 +215,9 @@ public abstract class DefaultEnhancedConfigurationValidator
             this.conflictOption = conflictOption;
         }
 
-        public static ConflictRule warning(Option<?> option, Option<?> conflictOption) {
-            return new ConflictRule(Level.WARNING, option, null, conflictOption);
-        }
-
         public static ConflictRule warning(
                 Option<?> option, BiPredicate<Object, Object> rules, Option<?> conflictOption) {
             return new ConflictRule(Level.WARNING, option, rules, conflictOption);
-        }
-
-        public static ConflictRule error(Option<?> option, Option<?> conflictOption) {
-            return new ConflictRule(Level.ERROR, option, null, conflictOption);
         }
 
         public static ConflictRule error(

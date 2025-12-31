@@ -22,10 +22,11 @@ import org.apache.seatunnel.common.constants.PluginType;
 import lombok.extern.slf4j.Slf4j;
 
 import java.util.ArrayList;
-import java.util.Collections;
 import java.util.List;
 
 import static org.apache.seatunnel.connectors.seatunnel.jdbc.config.JdbcCommonOptions.URL;
+import static org.apache.seatunnel.connectors.seatunnel.jdbc.config.JdbcSinkOptions.AUTO_COMMIT;
+import static org.apache.seatunnel.connectors.seatunnel.jdbc.config.JdbcSinkOptions.IS_EXACTLY_ONCE;
 import static org.apache.seatunnel.connectors.seatunnel.jdbc.config.JdbcSinkOptions.TABLE_PREFIX;
 import static org.apache.seatunnel.connectors.seatunnel.jdbc.config.JdbcSinkOptions.TABLE_SUFFIX;
 import static org.apache.seatunnel.connectors.seatunnel.jdbc.config.JdbcSinkOptions.USE_COPY_STATEMENT;
@@ -47,19 +48,22 @@ public class JdbcSinkEnhancedValidator extends DefaultEnhancedConfigurationValid
     @Override
     protected List<ConflictRule> conflictRules() {
         List<ConflictRule> conflictRules = new ArrayList<>();
-        // check use_copy_statement
+        // check use_copy_statement, error
         conflictRules.add(
                 ConflictRule.error(
                         URL,
                         (url, useCopy) ->
                                 Boolean.TRUE.equals(useCopy) && !isPostgresFamily(url.toString()),
                         USE_COPY_STATEMENT));
+        // check is_exactly_once, warn
+        conflictRules.add(
+                ConflictRule.warning(
+                        IS_EXACTLY_ONCE,
+                        (isExactlyOnce, autoCommit) ->
+                                Boolean.TRUE.equals(isExactlyOnce)
+                                        && Boolean.TRUE.equals(autoCommit),
+                        AUTO_COMMIT));
         return conflictRules;
-    }
-
-    @Override
-    protected List<VersionCompatibilityRule> versionCompatibilityRules() {
-        return Collections.emptyList();
     }
 
     private boolean isPostgresFamily(String url) {
