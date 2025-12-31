@@ -49,9 +49,10 @@ public class VersionCompatibilityConfigurationIssue extends ConfigurationVerific
                 currentVersion
                         .map(version -> String.format("current version '%s'", version))
                         .orElse("current version is unknown");
-        return String.format(
-                "Configuration option '%s' requires version '%s' (%s) in %s plugin '%s'",
-                option.key(), needVersion, versionInfo, pluginType.getType(), identifier);
+        return prefixMessage(
+                String.format(
+                        "Configuration option '%s' requires version '%s' (%s) in %s plugin '%s'",
+                        option.key(), needVersion, versionInfo, pluginType.getType(), identifier));
     }
 
     public static VersionCompatibilityConfigurationIssue errorOf(

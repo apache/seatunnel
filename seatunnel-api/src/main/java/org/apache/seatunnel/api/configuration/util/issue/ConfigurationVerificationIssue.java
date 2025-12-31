@@ -31,6 +31,8 @@ import lombok.extern.slf4j.Slf4j;
 @Getter
 public abstract class ConfigurationVerificationIssue {
 
+    protected static final String SEATUNNEL_VALIDATION_PREFIX = "[SeaTunnel Config Validation] ";
+
     protected final Level level;
     protected final String identifier;
     protected final PluginType pluginType;
@@ -50,6 +52,10 @@ public abstract class ConfigurationVerificationIssue {
     }
 
     protected abstract String getLog();
+
+    protected String prefixMessage(String message) {
+        return SEATUNNEL_VALIDATION_PREFIX + message;
+    }
 
     public enum Level {
         ERROR,

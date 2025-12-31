@@ -30,7 +30,7 @@ import java.util.Optional;
 public class VersionCompatibilityConfigurationIssueTest {
 
     @Test
-    public void shouldBuildErrorIssueWithKnownCurrentVersion() {
+    void shouldBuildErrorIssueWithKnownCurrentVersion() {
         Option<String> option =
                 new Option<>("compatibility.key", new TypeReference<String>() {}, "default");
 
@@ -40,12 +40,12 @@ public class VersionCompatibilityConfigurationIssueTest {
 
         Assertions.assertEquals(ConfigurationVerificationIssue.Level.ERROR, issue.getLevel());
         Assertions.assertEquals(
-                "Configuration option 'compatibility.key' requires version '2.0' (current version '1.5') in sink plugin 'sink-id'",
+                "[SeaTunnel Config Validation] Configuration option 'compatibility.key' requires version '2.0' (current version '1.5') in sink plugin 'sink-id'",
                 issue.getLog());
     }
 
     @Test
-    public void shouldBuildWarningIssueWithUnknownCurrentVersion() {
+    void shouldBuildWarningIssueWithUnknownCurrentVersion() {
         Option<String> option =
                 new Option<>("compatibility.key", new TypeReference<String>() {}, "default");
 
@@ -55,7 +55,7 @@ public class VersionCompatibilityConfigurationIssueTest {
 
         Assertions.assertEquals(ConfigurationVerificationIssue.Level.WARNING, issue.getLevel());
         Assertions.assertEquals(
-                "Configuration option 'compatibility.key' requires version '3.1' (current version is unknown) in source plugin 'source-id'",
+                "[SeaTunnel Config Validation] Configuration option 'compatibility.key' requires version '3.1' (current version is unknown) in source plugin 'source-id'",
                 issue.getLog());
     }
 }

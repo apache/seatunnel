@@ -40,9 +40,10 @@ public class DeprecatedConfigurationIssue extends ConfigurationVerificationIssue
     @Override
     protected String getLog() {
         if (referToOptions == null || referToOptions.length == 0) {
-            return String.format(
-                    "Deprecated configuration option '%s' detected in %s plugin '%s'",
-                    option.key(), pluginType.getType(), identifier);
+            return prefixMessage(
+                    String.format(
+                            "Deprecated configuration option '%s' detected in %s plugin '%s'",
+                            option.key(), pluginType.getType(), identifier));
         }
         StringBuilder suggestionMessage = new StringBuilder();
         for (int i = 0; i < referToOptions.length; i++) {
@@ -51,9 +52,10 @@ public class DeprecatedConfigurationIssue extends ConfigurationVerificationIssue
             }
             suggestionMessage.append(referToOptions[i].key());
         }
-        return String.format(
-                "Deprecated configuration option '%s' detected in %s plugin '%s', please refer to %s",
-                option.key(), pluginType.getType(), identifier, suggestionMessage);
+        return prefixMessage(
+                String.format(
+                        "Deprecated configuration option '%s' detected in %s plugin '%s', please refer to %s",
+                        option.key(), pluginType.getType(), identifier, suggestionMessage));
     }
 
     public static DeprecatedConfigurationIssue of(

@@ -28,7 +28,7 @@ import org.junit.jupiter.api.Test;
 public class ConflictConfigurationIssueTest {
 
     @Test
-    public void shouldBuildErrorIssueWithExpectedMessage() {
+    void shouldBuildErrorIssueWithExpectedMessage() {
         Option<String> option =
                 new Option<>("first.key", new TypeReference<String>() {}, "first-value");
         Option<String> conflictOption =
@@ -47,12 +47,12 @@ public class ConflictConfigurationIssueTest {
         Assertions.assertEquals("test-identifier", issue.getIdentifier());
         Assertions.assertEquals(PluginType.SOURCE, issue.getPluginType());
         Assertions.assertEquals(
-                "Configuration option 'first.key' with value 'provided-first' conflicts with option 'conflict.key' (value 'provided-conflict') in source plugin 'test-identifier'",
+                "[SeaTunnel Config Validation] Configuration option 'first.key' with value 'provided-first' conflicts with option 'conflict.key' (value 'provided-conflict') in source plugin 'test-identifier'",
                 issue.getLog());
     }
 
     @Test
-    public void shouldBuildWarningIssueWithExpectedMessage() {
+    void shouldBuildWarningIssueWithExpectedMessage() {
         Option<String> option =
                 new Option<>("first.key", new TypeReference<String>() {}, "first-value");
         Option<String> conflictOption =
@@ -64,7 +64,7 @@ public class ConflictConfigurationIssueTest {
 
         Assertions.assertEquals(ConfigurationVerificationIssue.Level.WARNING, issue.getLevel());
         Assertions.assertEquals(
-                "Configuration option 'first.key' with value 'value-a' conflicts with option 'conflict.key' (value 'value-b') in sink plugin 'test-sink'",
+                "[SeaTunnel Config Validation] Configuration option 'first.key' with value 'value-a' conflicts with option 'conflict.key' (value 'value-b') in sink plugin 'test-sink'",
                 issue.getLog());
     }
 }

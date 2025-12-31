@@ -28,7 +28,7 @@ import org.junit.jupiter.api.Test;
 public class DeprecatedConfigurationIssueTest {
 
     @Test
-    public void shouldBuildWarningWithoutSuggestion() {
+    void shouldBuildWarningWithoutSuggestion() {
         Option<String> deprecatedOption =
                 new Option<>("deprecated.key", new TypeReference<String>() {}, "old");
 
@@ -38,12 +38,12 @@ public class DeprecatedConfigurationIssueTest {
 
         Assertions.assertEquals(ConfigurationVerificationIssue.Level.WARNING, issue.getLevel());
         Assertions.assertEquals(
-                "Deprecated configuration option 'deprecated.key' detected in transform plugin 'transform-id'",
+                "[SeaTunnel Config Validation] Deprecated configuration option 'deprecated.key' detected in transform plugin 'transform-id'",
                 issue.getLog());
     }
 
     @Test
-    public void shouldBuildWarningWithSuggestions() {
+    void shouldBuildWarningWithSuggestions() {
         Option<String> deprecatedOption =
                 new Option<>("deprecated.key", new TypeReference<String>() {}, "old");
         Option<String> referOne =
@@ -60,7 +60,7 @@ public class DeprecatedConfigurationIssueTest {
 
         Assertions.assertEquals(ConfigurationVerificationIssue.Level.WARNING, issue.getLevel());
         Assertions.assertEquals(
-                "Deprecated configuration option 'deprecated.key' detected in source plugin 'source-id', please refer to suggest.one, suggest.two",
+                "[SeaTunnel Config Validation] Deprecated configuration option 'deprecated.key' detected in source plugin 'source-id', please refer to suggest.one, suggest.two",
                 issue.getLog());
     }
 }

@@ -46,14 +46,15 @@ public class ConflictConfigurationIssue extends ConfigurationVerificationIssue {
 
     @Override
     protected String getLog() {
-        return String.format(
-                "Configuration option '%s' with value '%s' conflicts with option '%s' (value '%s') in %s plugin '%s'",
-                option.key(),
-                value,
-                conflictOption.key(),
-                conflictValue,
-                pluginType.getType(),
-                identifier);
+        return prefixMessage(
+                String.format(
+                        "Configuration option '%s' with value '%s' conflicts with option '%s' (value '%s') in %s plugin '%s'",
+                        option.key(),
+                        value,
+                        conflictOption.key(),
+                        conflictValue,
+                        pluginType.getType(),
+                        identifier));
     }
 
     public static ConflictConfigurationIssue errorOf(
