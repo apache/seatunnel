@@ -33,7 +33,7 @@ import ChangeLog from '../changelog/connector-jdbc.md';
 
 - [x] [精确一次](../../concept/connector-v2-features.md)
 - [x] [cdc](../../concept/connector-v2-features.md)
-
+- [x] [x] [支持多表写入](../../concept/connector-v2-features.md)
 >使用“Xa事务”来确保“精确一次”。因此，数据库只支持“精确一次”，即
 >支持“Xa事务”。您可以设置`is_exactly_once=true `来启用它。
 
@@ -173,14 +173,11 @@ sink {
     jdbc {
         url = "jdbc:mysql://localhost:3306/test?useUnicode=true&characterEncoding=UTF-8&rewriteBatchedStatements=true"
         driver = "com.mysql.cj.jdbc.Driver"
-    
         max_retries = 0
         username = "root"
         password = "123456"
         query = "insert into test_table(name,age) values(?,?)"
-    
         is_exactly_once = "true"
-    
         xa_data_source_class_name = "com.mysql.cj.jdbc.MysqlXADataSource"
     }
 }
@@ -197,7 +194,6 @@ sink {
         driver = "com.mysql.cj.jdbc.Driver"
         username = "root"
         password = "123456"
-        
         generate_sink_sql = true
         # You need to configure both database and table
         database = test
@@ -207,6 +203,89 @@ sink {
         schema_save_mode = "CREATE_SCHEMA_WHEN_NOT_EXIST"
         data_save_mode="APPEND_DATA"
     }
+}
+```
+
+### 多表同步
+
+#### 示例1：MySQL CDC 多表同步
+
+> 通过 MySQL CDC 同步多张表到目标 MySQL 数据库，使用占位符实现动态表名映射
+
+```
+env {
+  parallelism = 1
+  job.mode = "STREAMING"
+  checkpoint.interval = 5000
+}
+
+source {
+  Mysql-CDC {
+    url = "jdbc:mysql://127.0.0.1:3306/seatunnel"
+    username = "root"
+    password = "******"
+    table-names = ["seatunnel.role","seatunnel.user","galileo.Bucket"]
+  }
+}
+
+transform {
+}
+
+sink {
+  Mysql {
+    url = "jdbc:mysql://localhost:3306?useUnicode=true&characterEncoding=UTF-8&rewriteBatchedStatements=true"
+    driver = "com.mysql.cj.jdbc.Driver"
+    username = "root"
+    password = "123456"
+    generate_sink_sql = true
+    database = "${database_name}_test"
+    table = "${table_name}_test"
+    primary_keys = ["${primary_key}"]
+  }
+}
+```
+
+#### 示例2：JDBC Source 多表同步到 MySQL
+
+> 从 MySQL 使用 JDBC Source 批量同步多张表到另一个 MySQL 数据库
+
+```
+env {
+  parallelism = 1
+  job.mode = "BATCH"
+}
+
+source {
+  Jdbc {
+    driver = com.mysql.cj.jdbc.Driver
+    url = "jdbc:mysql://localhost:3306/source_db"
+    username = "root"
+    password = "123456"
+    table_list = [
+      {
+        table_path = "source_db.table_1"
+      },
+      {
+        table_path = "source_db.table_2"
+      }
+    ]
+  }
+}
+
+transform {
+}
+
+sink {
+  Mysql {
+    url = "jdbc:mysql://localhost:3306?useUnicode=true&characterEncoding=UTF-8&rewriteBatchedStatements=true"
+    driver = "com.mysql.cj.jdbc.Driver"
+    username = "root"
+    password = "123456"
+    generate_sink_sql = true
+    database = "${database_name}_target"
+    table = "${table_name}_copy"
+    primary_keys = ["${primary_key}"]
+  }
 }
 ```
 

@@ -26,6 +26,19 @@ public class HiveOptions extends FileBaseSourceOptions {
     public static final Option<String> TABLE_NAME = HiveConfig.TABLE_NAME;
 
     public static final Option<String> METASTORE_URI = HiveConfig.METASTORE_URI;
+    public static final Option<Boolean> USE_REGEX =
+            Options.key("use_regex")
+                    .booleanType()
+                    .defaultValue(false)
+                    .withDescription(
+                            "Use regular expression for `table_name` matching. "
+                                    + "When set to true, the `table_name` will be treated as a regex pattern and can match multiple tables.");
+
+    public static final Option<String> METASTORE_URI =
+            Options.key("metastore_uri")
+                    .stringType()
+                    .noDefaultValue()
+                    .withDescription("Hive metastore uri");
 
     public static final Option<String> HIVE_SITE_PATH = HiveConfig.HIVE_SITE_PATH;
 }
