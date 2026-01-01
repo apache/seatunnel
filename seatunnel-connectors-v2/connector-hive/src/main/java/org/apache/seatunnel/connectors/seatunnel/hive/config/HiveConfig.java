@@ -30,6 +30,14 @@ public class HiveConfig {
                     .stringType()
                     .noDefaultValue()
                     .withDescription("Hive table name");
+
+    public static final Option<Boolean> USE_REGEX =
+            Options.key("use_regex")
+                    .booleanType()
+                    .defaultValue(false)
+                    .withDescription(
+                            "Use regular expression for `table_name` matching. "
+                                    + "When set to true, the `table_name` will be treated as a regex pattern and can match multiple tables.");
     public static final Option<String> METASTORE_URI =
             Options.key("metastore_uri")
                     .stringType()
