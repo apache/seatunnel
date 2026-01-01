@@ -293,7 +293,7 @@ public class HiveIT extends TestSuiteBase implements TestResource {
                 "/fake_to_hive_metastore_uri_failover.conf",
                 "/hive_to_assert_metastore_uri_failover.conf");
     }
-  
+
     @TestTemplate
     public void testHiveSourceWholeDatabaseUseRegex(TestContainer container) throws Exception {
         Container.ExecResult exec1 = container.executeJob("/regex/fake_to_hive_regex_1.conf");
