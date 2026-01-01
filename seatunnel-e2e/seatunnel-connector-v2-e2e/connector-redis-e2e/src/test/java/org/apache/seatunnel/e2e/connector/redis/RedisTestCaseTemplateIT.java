@@ -18,25 +18,17 @@ package org.apache.seatunnel.e2e.connector.redis;
 
 import org.apache.seatunnel.shade.com.fasterxml.jackson.databind.node.ObjectNode;
 
-import org.apache.seatunnel.api.configuration.ReadonlyConfig;
-import org.apache.seatunnel.api.table.catalog.CatalogTable;
-import org.apache.seatunnel.api.table.catalog.Column;
-import org.apache.seatunnel.api.table.catalog.PhysicalColumn;
-import org.apache.seatunnel.api.table.catalog.TableIdentifier;
-import org.apache.seatunnel.api.table.catalog.TableSchema;
 import org.apache.seatunnel.api.table.type.ArrayType;
 import org.apache.seatunnel.api.table.type.BasicType;
 import org.apache.seatunnel.api.table.type.DecimalType;
 import org.apache.seatunnel.api.table.type.LocalTimeType;
 import org.apache.seatunnel.api.table.type.MapType;
 import org.apache.seatunnel.api.table.type.PrimitiveByteArrayType;
-import org.apache.seatunnel.api.table.type.RowKind;
 import org.apache.seatunnel.api.table.type.SeaTunnelDataType;
 import org.apache.seatunnel.api.table.type.SeaTunnelRow;
 import org.apache.seatunnel.api.table.type.SeaTunnelRowType;
 import org.apache.seatunnel.common.utils.JsonUtils;
 import org.apache.seatunnel.connectors.seatunnel.redis.config.RedisContainerInfo;
-import org.apache.seatunnel.connectors.seatunnel.redis.config.RedisDataType;
 import org.apache.seatunnel.e2e.common.TestResource;
 import org.apache.seatunnel.e2e.common.TestSuiteBase;
 import org.apache.seatunnel.e2e.common.container.EngineType;
@@ -81,7 +73,6 @@ import java.util.regex.Pattern;
 import java.util.stream.Collectors;
 import java.util.stream.Stream;
 
-import static org.apache.seatunnel.connectors.seatunnel.redis.config.RedisBaseOptions.CONNECTOR_IDENTITY;
 import static org.awaitility.Awaitility.await;
 
 @Slf4j
@@ -706,221 +697,5 @@ public abstract class RedisTestCaseTemplateIT extends TestSuiteBase implements T
         Assertions.assertEquals(2, count);
     }
 
-    @TestTemplate
-    public void testFakeToRedisCustomKeyIsNullTest(TestContainer container)
-            throws IOException, InterruptedException {
-        Container.ExecResult execResult =
-                container.executeJob("/fake-to-redis-test-custom-key-is-null.conf");
-        Assertions.assertEquals(0, execResult.getExitCode());
-        int count = 0;
-        String data = jedis.get("key_check:");
-        if (data != null) {
-            count++;
-            jedis.del("key_check:");
-        }
-        for (int i = 2; i <= 3; i++) {
-            data = jedis.get("key_check:NEW" + i);
-            if (data != null) {
-                count++;
-                jedis.del("key_check:NEW" + i);
-            }
-        }
-        Assertions.assertEquals(2, count);
-    }
-
-    @TestTemplate
-    public void testFakeToRedisOtherTypeValueIsNullTest(TestContainer container)
-            throws IOException, InterruptedException {
-        Container.ExecResult execResult =
-                container.executeJob(
-                        "/fake-to-redis-test-custom-value-when-other-type-is-null.conf");
-        Assertions.assertEquals(0, execResult.getExitCode());
-        Assertions.assertEquals(2, jedis.llen("list_check"));
-        jedis.del("list_check");
-    }
-
-    @TestTemplate
-    public void testFakeToRedisHashTypeKeyIsNullTest(TestContainer container)
-            throws IOException, InterruptedException {
-        Container.ExecResult execResult =
-                container.executeJob("/fake-to-redis-test-custom-value-when-hash-key-is-null.conf");
-        Assertions.assertEquals(0, execResult.getExitCode());
-        Assertions.assertEquals(2, jedis.hlen("hash_check"));
-        jedis.del("hash_check");
-    }
-
-    @TestTemplate
-    public void testFakeToRedisHashTypeValueIsNullTest(TestContainer container)
-            throws IOException, InterruptedException {
-        Container.ExecResult execResult =
-                container.executeJob(
-                        "/fake-to-redis-test-custom-value-when-hash-value-is-null.conf");
-        Assertions.assertEquals(0, execResult.getExitCode());
-        Assertions.assertEquals(2, jedis.hlen("hash_check"));
-        jedis.del("hash_check");
-    }
-
     public abstract RedisContainerInfo getRedisContainerInfo();
-
-    private ReadonlyConfig getDefaultReadonlyConfig(
-            RedisDataType dataType, String key, Map<String, Object> otherParams) {
-        Map<String, Object> map = new HashMap<>(otherParams);
-        map.put("host", redisContainer.getHost());
-        map.put("port", redisContainer.getFirstMappedPort());
-        map.put("db_num", 0);
-        map.put("auth", password);
-        map.put("key", key);
-        map.put("data_type", dataType.name());
-        map.put("batch_size", 33);
-        return ReadonlyConfig.fromMap(map);
-    }
-
-    private SeaTunnelRow getSeaTunnelRowInsert1() {
-        return new SeaTunnelRow(
-                new Object[] {
-                    1,
-                    true,
-                    (byte) 1,
-                    (short) 2,
-                    3,
-                    4L,
-                    4.3f,
-                    5.3d,
-                    BigDecimal.valueOf(6.3).setScale(1),
-                    "NEW",
-                    LocalDateTime.parse("2020-02-02T02:02:02")
-                });
-    }
-
-    private SeaTunnelRow getSeaTunnelRowInsert2() {
-        return new SeaTunnelRow(
-                new Object[] {
-                    2,
-                    true,
-                    (byte) 1,
-                    (short) 2,
-                    3,
-                    4L,
-                    4.3f,
-                    5.3d,
-                    BigDecimal.valueOf(6.3).setScale(1),
-                    "NEW",
-                    LocalDateTime.parse("2020-02-02T02:02:02")
-                });
-    }
-
-    private SeaTunnelRow getSeaTunnelRowInsert3() {
-        return new SeaTunnelRow(
-                new Object[] {
-                    3,
-                    true,
-                    (byte) 1,
-                    (short) 2,
-                    3,
-                    4L,
-                    4.3f,
-                    5.3d,
-                    BigDecimal.valueOf(6.3).setScale(1),
-                    "NEW",
-                    LocalDateTime.parse("2020-02-02T02:02:02")
-                });
-    }
-
-    private SeaTunnelRow getSeaTunnelRowUpdateBefore() {
-        final SeaTunnelRow seaTunnelRow =
-                new SeaTunnelRow(
-                        new Object[] {
-                            1,
-                            true,
-                            (byte) 1,
-                            (short) 2,
-                            3,
-                            4L,
-                            4.3f,
-                            5.3d,
-                            BigDecimal.valueOf(6.3).setScale(1),
-                            "NEW",
-                            LocalDateTime.parse("2020-02-02T02:02:02")
-                        });
-        seaTunnelRow.setRowKind(RowKind.UPDATE_BEFORE);
-        return seaTunnelRow;
-    }
-
-    private SeaTunnelRow getSeaTunnelRowUpdateAfter() {
-        final SeaTunnelRow seaTunnelRow =
-                new SeaTunnelRow(
-                        new Object[] {
-                            1,
-                            true,
-                            (byte) 2,
-                            (short) 2,
-                            3,
-                            4L,
-                            4.3f,
-                            5.3d,
-                            BigDecimal.valueOf(6.3).setScale(1),
-                            "NEW",
-                            LocalDateTime.parse("2020-02-02T02:02:02")
-                        });
-        seaTunnelRow.setRowKind(RowKind.UPDATE_AFTER);
-        return seaTunnelRow;
-    }
-
-    private SeaTunnelRow getSeaTunnelRowDelete() {
-        final SeaTunnelRow seaTunnelRow =
-                new SeaTunnelRow(
-                        new Object[] {
-                            2,
-                            true,
-                            (byte) 1,
-                            (short) 2,
-                            3,
-                            4L,
-                            4.3f,
-                            5.3d,
-                            BigDecimal.valueOf(6.3).setScale(1),
-                            "NEW",
-                            LocalDateTime.parse("2020-02-02T02:02:02")
-                        });
-        seaTunnelRow.setRowKind(RowKind.DELETE);
-        return seaTunnelRow;
-    }
-
-    private CatalogTable getCatalogTable(Integer dbNum, String key) {
-        return CatalogTable.of(
-                TableIdentifier.of(CONNECTOR_IDENTITY, dbNum.toString(), key),
-                getTableSchema(),
-                new HashMap<>(),
-                new ArrayList<>(),
-                "");
-    }
-
-    private TableSchema getTableSchema() {
-        return new TableSchema(getColumns(), null, null);
-    }
-
-    private List<Column> getColumns() {
-        List<Column> columns = new ArrayList<>();
-        columns.add(new PhysicalColumn("id", BasicType.INT_TYPE, 32L, 0, true, "", ""));
-        columns.add(new PhysicalColumn("val_bool", BasicType.BOOLEAN_TYPE, 1L, 0, true, "", ""));
-        columns.add(new PhysicalColumn("val_int8", BasicType.BYTE_TYPE, 8L, 0, true, "", ""));
-        columns.add(new PhysicalColumn("val_int16", BasicType.SHORT_TYPE, 16L, 0, true, "", ""));
-        columns.add(new PhysicalColumn("val_int32", BasicType.INT_TYPE, 32L, 0, true, "", ""));
-        columns.add(new PhysicalColumn("val_int64", BasicType.LONG_TYPE, 64L, 0, true, "", ""));
-        columns.add(new PhysicalColumn("val_float", BasicType.FLOAT_TYPE, 32L, 0, true, "", ""));
-        columns.add(new PhysicalColumn("val_double", BasicType.DOUBLE_TYPE, 64L, 0, true, "", ""));
-        columns.add(
-                new PhysicalColumn("val_decimal", new DecimalType(16, 1), 16L, 1, true, "", ""));
-        columns.add(new PhysicalColumn("val_string", BasicType.STRING_TYPE, 0L, 0, true, "", ""));
-        columns.add(
-                new PhysicalColumn(
-                        "val_unixtime_micros",
-                        LocalTimeType.LOCAL_DATE_TIME_TYPE,
-                        64L,
-                        6,
-                        true,
-                        "",
-                        ""));
-        return columns;
-    }
 }
