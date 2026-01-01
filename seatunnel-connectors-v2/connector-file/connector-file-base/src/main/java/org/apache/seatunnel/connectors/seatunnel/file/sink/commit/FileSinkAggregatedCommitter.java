@@ -55,30 +55,35 @@ public class FileSinkAggregatedCommitter
     public List<FileAggregatedCommitInfo> commit(
             List<FileAggregatedCommitInfo> aggregatedCommitInfos) throws IOException {
         List<FileAggregatedCommitInfo> errorAggregatedCommitInfoList = new ArrayList<>();
-        aggregatedCommitInfos.forEach(
-                aggregatedCommitInfo -> {
-                    try {
-                        for (Map.Entry<String, LinkedHashMap<String, String>> entry :
-                                aggregatedCommitInfo.getTransactionMap().entrySet()) {
-                            for (Map.Entry<String, String> mvFileEntry :
-                                    entry.getValue().entrySet()) {
-                                // first rename temp file
-                                hadoopFileSystemProxy.renameFile(
-                                        mvFileEntry.getKey(),
-                                        mvFileEntry.getValue(),
-                                        fileExistsMode);
-                            }
-                            // second delete transaction directory
-                            hadoopFileSystemProxy.deleteFile(entry.getKey());
-                        }
-                    } catch (Throwable e) {
-                        log.error(
-                                "commit aggregatedCommitInfo error, aggregatedCommitInfo = {} ",
-                                aggregatedCommitInfo,
-                                e);
-                        errorAggregatedCommitInfoList.add(aggregatedCommitInfo);
+        for (FileAggregatedCommitInfo aggregatedCommitInfo : aggregatedCommitInfos) {
+            try {
+                for (Map.Entry<String, LinkedHashMap<String, String>> entry :
+                        aggregatedCommitInfo.getTransactionMap().entrySet()) {
+                    for (Map.Entry<String, String> mvFileEntry : entry.getValue().entrySet()) {
+                        // first rename temp file
+                        hadoopFileSystemProxy.renameFile(
+                                mvFileEntry.getKey(), mvFileEntry.getValue(), fileExistsMode);
                     }
-                });
+                    // second delete transaction directory
+                    hadoopFileSystemProxy.deleteFile(entry.getKey());
+                }
+            } catch (Throwable e) {
+                log.error(
+                        "commit aggregatedCommitInfo error, aggregatedCommitInfo = {} ",
+                        aggregatedCommitInfo,
+                        e);
+                if (FileExistsMode.FAIL.equals(fileExistsMode)) {
+                    if (e instanceof IOException) {
+                        throw (IOException) e;
+                    }
+                    throw new IOException(
+                            "commit aggregatedCommitInfo failed, aggregatedCommitInfo = "
+                                    + aggregatedCommitInfo,
+                            e);
+                }
+                errorAggregatedCommitInfoList.add(aggregatedCommitInfo);
+            }
+        }
         return errorAggregatedCommitInfoList;
     }
 

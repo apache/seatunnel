@@ -26,6 +26,7 @@ import org.junit.jupiter.api.condition.DisabledOnOs;
 import org.junit.jupiter.api.condition.OS;
 import org.junit.jupiter.api.io.TempDir;
 
+import java.io.IOException;
 import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
 import java.nio.file.Path;
@@ -116,9 +117,9 @@ class FileSinkAggregatedCommitterFileExistsModeTest {
                 new FileSinkAggregatedCommitter(new HadoopConf("file:///"), FileExistsMode.FAIL);
         committer.init();
         try {
-            List<FileAggregatedCommitInfo> errors =
-                    committer.commit(Collections.singletonList(commitInfo));
-            Assertions.assertEquals(1, errors.size());
+            Assertions.assertThrows(
+                    IOException.class,
+                    () -> committer.commit(Collections.singletonList(commitInfo)));
         } finally {
             committer.close();
         }
