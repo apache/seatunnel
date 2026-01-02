@@ -23,6 +23,7 @@ import org.apache.seatunnel.api.table.type.SeaTunnelRow;
 import org.apache.seatunnel.api.transform.SeaTunnelFlatMapTransform;
 import org.apache.seatunnel.api.transform.SeaTunnelTransform;
 import org.apache.seatunnel.transform.common.AbstractMultiCatalogFlatMapTransform;
+import org.apache.seatunnel.transform.common.IdentityFlatMapTransform;
 
 import java.util.List;
 

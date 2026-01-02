@@ -15,37 +15,41 @@
  * limitations under the License.
  */
 
-package org.apache.seatunnel.transform.regexextract;
+package org.apache.seatunnel.transform.common;
 
-import org.apache.seatunnel.api.configuration.ReadonlyConfig;
 import org.apache.seatunnel.api.table.catalog.CatalogTable;
+import org.apache.seatunnel.api.table.catalog.TableIdentifier;
+import org.apache.seatunnel.api.table.catalog.TableSchema;
 import org.apache.seatunnel.api.table.type.SeaTunnelRow;
-import org.apache.seatunnel.api.transform.SeaTunnelTransform;
-import org.apache.seatunnel.transform.common.AbstractMultiCatalogMapTransform;
-import org.apache.seatunnel.transform.common.IdentityMapTransform;
 
+import java.util.Collections;
 import java.util.List;
 
-public class RegexExtractMultiCatalogTransform extends AbstractMultiCatalogMapTransform {
+public class IdentityFlatMapTransform extends AbstractCatalogSupportFlatMapTransform {
+    private final CatalogTable catalogTable;
 
-    public RegexExtractMultiCatalogTransform(
-            List<CatalogTable> inputCatalogTables, ReadonlyConfig config) {
-        super(inputCatalogTables, config);
+    public IdentityFlatMapTransform(CatalogTable catalogTable) {
+        super(catalogTable);
+        this.catalogTable = catalogTable;
     }
 
     @Override
     public String getPluginName() {
-        return RegexExtractTransform.PLUGIN_NAME;
+        return "Identity";
     }
 
     @Override
-    protected SeaTunnelTransform<SeaTunnelRow> buildTransform(
-            CatalogTable inputCatalogTable, ReadonlyConfig config) {
-        return new RegexExtractTransform(RegexExtractTransformConfig.of(config), inputCatalogTable);
+    protected List<SeaTunnelRow> transformRow(SeaTunnelRow row) {
+        return Collections.singletonList(row);
     }
 
     @Override
-    protected SeaTunnelTransform<SeaTunnelRow> createIdentityTransform(CatalogTable catalogTable) {
-        return new IdentityMapTransform(catalogTable);
+    protected TableSchema transformTableSchema() {
+        return catalogTable.getTableSchema();
+    }
+
+    @Override
+    protected TableIdentifier transformTableIdentifier() {
+        return catalogTable.getTableId();
     }
 }

@@ -19,13 +19,10 @@ package org.apache.seatunnel.transform.common;
 
 import org.apache.seatunnel.api.configuration.ReadonlyConfig;
 import org.apache.seatunnel.api.table.catalog.CatalogTable;
-import org.apache.seatunnel.api.table.catalog.TableIdentifier;
-import org.apache.seatunnel.api.table.catalog.TableSchema;
 import org.apache.seatunnel.api.table.type.SeaTunnelDataType;
 import org.apache.seatunnel.api.table.type.SeaTunnelRow;
 import org.apache.seatunnel.api.transform.SeaTunnelTransform;
 
-import java.util.Collections;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
@@ -107,65 +104,4 @@ public abstract class AbstractMultiCatalogTransform implements SeaTunnelTransfor
 
     @Override
     public void setTypeInfo(SeaTunnelDataType<SeaTunnelRow> inputDataType) {}
-
-    public static class IdentityMapTransform extends AbstractCatalogSupportMapTransform {
-        private final CatalogTable catalogTable;
-
-        public IdentityMapTransform(CatalogTable catalogTable) {
-            super(catalogTable);
-            this.catalogTable = catalogTable;
-        }
-
-        @Override
-        public String getPluginName() {
-            return "Identity";
-        }
-
-        @Override
-        protected SeaTunnelRow transformRow(SeaTunnelRow row) {
-            return row;
-        }
-
-        @Override
-        protected TableSchema transformTableSchema() {
-            return catalogTable.getTableSchema();
-        }
-
-        @Override
-        protected TableIdentifier transformTableIdentifier() {
-            return catalogTable.getTableId();
-        }
-
-        @Override
-        public void setTypeInfo(SeaTunnelDataType<SeaTunnelRow> inputDataType) {}
-    }
-
-    public static class IdentityFlatMapTransform extends AbstractCatalogSupportFlatMapTransform {
-        private final CatalogTable catalogTable;
-
-        public IdentityFlatMapTransform(CatalogTable catalogTable) {
-            super(catalogTable);
-            this.catalogTable = catalogTable;
-        }
-
-        @Override
-        public String getPluginName() {
-            return "Identity";
-        }
-
-        @Override
-        protected List<SeaTunnelRow> transformRow(SeaTunnelRow row) {
-            return Collections.singletonList(row);
-        }
-
-        @Override
-        protected TableSchema transformTableSchema() {
-            return catalogTable.getTableSchema();
-        }
-
-        @Override
-        protected TableIdentifier transformTableIdentifier() {
-            return catalogTable.getTableId();
-        }
-    }
 }

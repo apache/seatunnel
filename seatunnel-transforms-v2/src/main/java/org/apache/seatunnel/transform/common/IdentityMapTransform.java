@@ -15,37 +15,38 @@
  * limitations under the License.
  */
 
-package org.apache.seatunnel.transform.replace;
+package org.apache.seatunnel.transform.common;
 
-import org.apache.seatunnel.api.configuration.ReadonlyConfig;
 import org.apache.seatunnel.api.table.catalog.CatalogTable;
+import org.apache.seatunnel.api.table.catalog.TableIdentifier;
+import org.apache.seatunnel.api.table.catalog.TableSchema;
 import org.apache.seatunnel.api.table.type.SeaTunnelRow;
-import org.apache.seatunnel.api.transform.SeaTunnelTransform;
-import org.apache.seatunnel.transform.common.AbstractMultiCatalogMapTransform;
-import org.apache.seatunnel.transform.common.IdentityMapTransform;
 
-import java.util.List;
+public class IdentityMapTransform extends AbstractCatalogSupportMapTransform {
+    private final CatalogTable catalogTable;
 
-public class ReplaceMultiCatalogTransform extends AbstractMultiCatalogMapTransform {
-
-    public ReplaceMultiCatalogTransform(
-            List<CatalogTable> inputCatalogTables, ReadonlyConfig config) {
-        super(inputCatalogTables, config);
+    public IdentityMapTransform(CatalogTable catalogTable) {
+        super(catalogTable);
+        this.catalogTable = catalogTable;
     }
 
     @Override
     public String getPluginName() {
-        return "Replace";
+        return "Identity";
     }
 
     @Override
-    protected SeaTunnelTransform<SeaTunnelRow> buildTransform(
-            CatalogTable inputCatalogTable, ReadonlyConfig config) {
-        return new ReplaceTransform(config, inputCatalogTable);
+    protected SeaTunnelRow transformRow(SeaTunnelRow row) {
+        return row;
     }
 
     @Override
-    protected SeaTunnelTransform<SeaTunnelRow> createIdentityTransform(CatalogTable catalogTable) {
-        return new IdentityMapTransform(catalogTable);
+    protected TableSchema transformTableSchema() {
+        return catalogTable.getTableSchema();
+    }
+
+    @Override
+    protected TableIdentifier transformTableIdentifier() {
+        return catalogTable.getTableId();
     }
 }
