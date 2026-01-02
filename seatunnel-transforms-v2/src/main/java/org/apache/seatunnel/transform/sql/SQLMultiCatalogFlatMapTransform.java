@@ -21,6 +21,7 @@ import org.apache.seatunnel.api.configuration.ReadonlyConfig;
 import org.apache.seatunnel.api.table.catalog.CatalogTable;
 import org.apache.seatunnel.api.table.type.SeaTunnelRow;
 import org.apache.seatunnel.api.transform.SeaTunnelFlatMapTransform;
+import org.apache.seatunnel.api.transform.SeaTunnelTransform;
 import org.apache.seatunnel.transform.common.AbstractMultiCatalogFlatMapTransform;
 
 import java.util.List;
@@ -41,5 +42,10 @@ public class SQLMultiCatalogFlatMapTransform extends AbstractMultiCatalogFlatMap
     protected SeaTunnelFlatMapTransform<SeaTunnelRow> buildTransform(
             CatalogTable inputCatalogTable, ReadonlyConfig config) {
         return new SQLTransform(config, inputCatalogTable);
+    }
+
+    @Override
+    protected SeaTunnelTransform<SeaTunnelRow> createIdentityTransform(CatalogTable catalogTable) {
+        return new IdentityFlatMapTransform(catalogTable);
     }
 }

@@ -42,4 +42,9 @@ public class SplitMultiCatalogTransform extends AbstractMultiCatalogMapTransform
             CatalogTable inputCatalogTable, ReadonlyConfig config) {
         return new SplitTransform(SplitTransformConfig.of(config), inputCatalogTable);
     }
+
+    @Override
+    protected SeaTunnelTransform<SeaTunnelRow> createIdentityTransform(CatalogTable catalogTable) {
+        return new IdentityTransform(catalogTable);
+    }
 }

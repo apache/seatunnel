@@ -32,6 +32,11 @@ public class JsonPathMultiCatalogTransform extends AbstractMultiCatalogMapTransf
     }
 
     @Override
+    public String getPluginName() {
+        return "JsonPath";
+    }
+
+    @Override
     protected SeaTunnelTransform<SeaTunnelRow> buildTransform(
             CatalogTable inputCatalogTable, ReadonlyConfig config) {
         return new JsonPathTransform(
@@ -39,7 +44,7 @@ public class JsonPathMultiCatalogTransform extends AbstractMultiCatalogMapTransf
     }
 
     @Override
-    public String getPluginName() {
-        return "JsonPath";
+    protected SeaTunnelTransform<SeaTunnelRow> createIdentityTransform(CatalogTable catalogTable) {
+        return new IdentityTransform(catalogTable);
     }
 }

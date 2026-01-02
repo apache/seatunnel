@@ -33,13 +33,18 @@ public class RegexExtractMultiCatalogTransform extends AbstractMultiCatalogMapTr
     }
 
     @Override
+    public String getPluginName() {
+        return RegexExtractTransform.PLUGIN_NAME;
+    }
+
+    @Override
     protected SeaTunnelTransform<SeaTunnelRow> buildTransform(
             CatalogTable inputCatalogTable, ReadonlyConfig config) {
         return new RegexExtractTransform(RegexExtractTransformConfig.of(config), inputCatalogTable);
     }
 
     @Override
-    public String getPluginName() {
-        return RegexExtractTransform.PLUGIN_NAME;
+    protected SeaTunnelTransform<SeaTunnelRow> createIdentityTransform(CatalogTable catalogTable) {
+        return new IdentityTransform(catalogTable);
     }
 }

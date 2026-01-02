@@ -42,4 +42,9 @@ public class FieldRowKindMultiCatalogTransform extends AbstractMultiCatalogMapTr
             CatalogTable inputCatalogTable, ReadonlyConfig config) {
         return new FilterRowKindTransform(config, inputCatalogTable);
     }
+
+    @Override
+    protected SeaTunnelTransform<SeaTunnelRow> createIdentityTransform(CatalogTable catalogTable) {
+        return new IdentityTransform(catalogTable);
+    }
 }

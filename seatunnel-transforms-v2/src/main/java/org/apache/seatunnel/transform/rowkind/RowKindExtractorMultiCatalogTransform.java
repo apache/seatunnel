@@ -42,4 +42,9 @@ public class RowKindExtractorMultiCatalogTransform extends AbstractMultiCatalogM
             CatalogTable inputCatalogTable, ReadonlyConfig config) {
         return new RowKindExtractorTransform(config, inputCatalogTable);
     }
+
+    @Override
+    protected SeaTunnelTransform<SeaTunnelRow> createIdentityTransform(CatalogTable catalogTable) {
+        return new IdentityTransform(catalogTable);
+    }
 }

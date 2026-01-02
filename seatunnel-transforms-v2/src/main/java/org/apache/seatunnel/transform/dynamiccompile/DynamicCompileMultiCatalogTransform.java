@@ -33,13 +33,18 @@ public class DynamicCompileMultiCatalogTransform extends AbstractMultiCatalogMap
     }
 
     @Override
+    public String getPluginName() {
+        return DynamicCompileTransform.PLUGIN_NAME;
+    }
+
+    @Override
     protected SeaTunnelTransform<SeaTunnelRow> buildTransform(
             CatalogTable inputCatalogTable, ReadonlyConfig config) {
         return new DynamicCompileTransform(config, inputCatalogTable);
     }
 
     @Override
-    public String getPluginName() {
-        return DynamicCompileTransform.PLUGIN_NAME;
+    protected SeaTunnelTransform<SeaTunnelRow> createIdentityTransform(CatalogTable catalogTable) {
+        return new IdentityTransform(catalogTable);
     }
 }

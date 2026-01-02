@@ -42,4 +42,9 @@ public class TableRenameMultiCatalogTransform extends AbstractMultiCatalogMapTra
             CatalogTable table, ReadonlyConfig config) {
         return new TableRenameTransform(TableRenameConfig.of(config), table);
     }
+
+    @Override
+    protected SeaTunnelTransform<SeaTunnelRow> createIdentityTransform(CatalogTable catalogTable) {
+        return new IdentityTransform(catalogTable);
+    }
 }

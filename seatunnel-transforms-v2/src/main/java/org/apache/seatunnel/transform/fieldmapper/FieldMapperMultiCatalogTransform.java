@@ -42,4 +42,9 @@ public class FieldMapperMultiCatalogTransform extends AbstractMultiCatalogMapTra
             CatalogTable inputCatalogTable, ReadonlyConfig config) {
         return new FieldMapperTransform(FieldMapperTransformConfig.of(config), inputCatalogTable);
     }
+
+    @Override
+    protected SeaTunnelTransform<SeaTunnelRow> createIdentityTransform(CatalogTable catalogTable) {
+        return new IdentityTransform(catalogTable);
+    }
 }

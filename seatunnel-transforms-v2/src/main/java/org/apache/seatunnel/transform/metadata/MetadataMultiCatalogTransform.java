@@ -42,4 +42,9 @@ public class MetadataMultiCatalogTransform extends AbstractMultiCatalogMapTransf
             CatalogTable inputCatalogTable, ReadonlyConfig config) {
         return new MetadataTransform(config, inputCatalogTable);
     }
+
+    @Override
+    protected SeaTunnelTransform<SeaTunnelRow> createIdentityTransform(CatalogTable catalogTable) {
+        return new IdentityTransform(catalogTable);
+    }
 }

@@ -32,13 +32,18 @@ public class EmbeddingMultiCatalogTransform extends AbstractMultiCatalogMapTrans
     }
 
     @Override
+    public String getPluginName() {
+        return "Embedding";
+    }
+
+    @Override
     protected SeaTunnelTransform<SeaTunnelRow> buildTransform(
             CatalogTable inputCatalogTable, ReadonlyConfig config) {
         return new EmbeddingTransform(config, inputCatalogTable);
     }
 
     @Override
-    public String getPluginName() {
-        return "Embedding";
+    protected SeaTunnelTransform<SeaTunnelRow> createIdentityTransform(CatalogTable catalogTable) {
+        return new IdentityTransform(catalogTable);
     }
 }

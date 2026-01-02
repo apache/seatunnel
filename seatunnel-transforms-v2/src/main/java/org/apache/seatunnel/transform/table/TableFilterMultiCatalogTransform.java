@@ -62,6 +62,11 @@ public class TableFilterMultiCatalogTransform extends AbstractMultiCatalogMapTra
     }
 
     @Override
+    protected SeaTunnelTransform<SeaTunnelRow> createIdentityTransform(CatalogTable catalogTable) {
+        return new IdentityTransform(catalogTable);
+    }
+
+    @Override
     public List<CatalogTable> getProducedCatalogTables() {
         List<CatalogTable> outputTables = new ArrayList<>();
         for (CatalogTable catalogTable : inputCatalogTables) {

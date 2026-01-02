@@ -45,4 +45,9 @@ public class DefineSinkTypeMultiCatalogTransform extends AbstractMultiCatalogMap
             CatalogTable table, ReadonlyConfig config) {
         return new DefineSinkTypeTransform(DefineSinkTypeTransformConfig.of(config), table);
     }
+
+    @Override
+    protected SeaTunnelTransform<SeaTunnelRow> createIdentityTransform(CatalogTable catalogTable) {
+        return new IdentityTransform(catalogTable);
+    }
 }

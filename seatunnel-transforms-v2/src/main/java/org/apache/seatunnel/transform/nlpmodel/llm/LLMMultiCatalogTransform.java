@@ -31,13 +31,18 @@ public class LLMMultiCatalogTransform extends AbstractMultiCatalogMapTransform {
     }
 
     @Override
+    public String getPluginName() {
+        return "LLM";
+    }
+
+    @Override
     protected SeaTunnelTransform<SeaTunnelRow> buildTransform(
             CatalogTable inputCatalogTable, ReadonlyConfig config) {
         return new LLMTransform(config, inputCatalogTable);
     }
 
     @Override
-    public String getPluginName() {
-        return "LLM";
+    protected SeaTunnelTransform<SeaTunnelRow> createIdentityTransform(CatalogTable catalogTable) {
+        return new IdentityTransform(catalogTable);
     }
 }

@@ -25,6 +25,7 @@ import org.apache.seatunnel.api.table.type.SeaTunnelDataType;
 import org.apache.seatunnel.api.table.type.SeaTunnelRow;
 import org.apache.seatunnel.api.transform.SeaTunnelTransform;
 
+import java.util.Collections;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
@@ -73,7 +74,7 @@ public abstract class AbstractMultiCatalogTransform implements SeaTunnelTransfor
                     if (tableConfig != null) {
                         transformMap.put(tableId, buildTransform(inputCatalogTable, tableConfig));
                     } else {
-                        transformMap.put(tableId, new IdentityTransform(inputCatalogTable));
+                        transformMap.put(tableId, createIdentityTransform(inputCatalogTable));
                     }
                 });
 
@@ -91,6 +92,9 @@ public abstract class AbstractMultiCatalogTransform implements SeaTunnelTransfor
     protected abstract SeaTunnelTransform<SeaTunnelRow> buildTransform(
             CatalogTable inputCatalogTable, ReadonlyConfig config);
 
+    protected abstract SeaTunnelTransform<SeaTunnelRow> createIdentityTransform(
+            CatalogTable catalogTable);
+
     @Override
     public List<CatalogTable> getProducedCatalogTables() {
         return outputCatalogTables;
@@ -107,14 +111,14 @@ public abstract class AbstractMultiCatalogTransform implements SeaTunnelTransfor
     public static class IdentityTransform extends AbstractCatalogSupportMapTransform {
         private final CatalogTable catalogTable;
 
-        @Override
-        public String getPluginName() {
-            return "Identity";
-        }
-
         public IdentityTransform(CatalogTable catalogTable) {
             super(catalogTable);
             this.catalogTable = catalogTable;
+        }
+
+        @Override
+        public String getPluginName() {
+            return "Identity";
         }
 
         @Override
@@ -134,5 +138,34 @@ public abstract class AbstractMultiCatalogTransform implements SeaTunnelTransfor
 
         @Override
         public void setTypeInfo(SeaTunnelDataType<SeaTunnelRow> inputDataType) {}
+    }
+
+    public static class IdentityFlatMapTransform extends AbstractCatalogSupportFlatMapTransform {
+        private final CatalogTable catalogTable;
+
+        public IdentityFlatMapTransform(CatalogTable catalogTable) {
+            super(catalogTable);
+            this.catalogTable = catalogTable;
+        }
+
+        @Override
+        public String getPluginName() {
+            return "Identity";
+        }
+
+        @Override
+        protected List<SeaTunnelRow> transformRow(SeaTunnelRow row) {
+            return Collections.singletonList(row);
+        }
+
+        @Override
+        protected TableSchema transformTableSchema() {
+            return catalogTable.getTableSchema();
+        }
+
+        @Override
+        protected TableIdentifier transformTableIdentifier() {
+            return catalogTable.getTableId();
+        }
     }
 }
