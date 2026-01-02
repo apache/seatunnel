@@ -45,6 +45,6 @@ public class CopyFieldMultiCatalogTransform extends AbstractMultiCatalogMapTrans
 
     @Override
     protected SeaTunnelTransform<SeaTunnelRow> createIdentityTransform(CatalogTable catalogTable) {
-        return new IdentityTransform(catalogTable);
+        return new IdentityMapTransform(catalogTable);
     }
 }

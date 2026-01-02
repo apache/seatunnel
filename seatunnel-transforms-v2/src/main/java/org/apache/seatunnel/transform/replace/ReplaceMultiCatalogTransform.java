@@ -45,6 +45,6 @@ public class ReplaceMultiCatalogTransform extends AbstractMultiCatalogMapTransfo
 
     @Override
     protected SeaTunnelTransform<SeaTunnelRow> createIdentityTransform(CatalogTable catalogTable) {
-        return new IdentityTransform(catalogTable);
+        return new IdentityMapTransform(catalogTable);
     }
 }

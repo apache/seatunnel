@@ -108,10 +108,10 @@ public abstract class AbstractMultiCatalogTransform implements SeaTunnelTransfor
     @Override
     public void setTypeInfo(SeaTunnelDataType<SeaTunnelRow> inputDataType) {}
 
-    public static class IdentityTransform extends AbstractCatalogSupportMapTransform {
+    public static class IdentityMapTransform extends AbstractCatalogSupportMapTransform {
         private final CatalogTable catalogTable;
 
-        public IdentityTransform(CatalogTable catalogTable) {
+        public IdentityMapTransform(CatalogTable catalogTable) {
             super(catalogTable);
             this.catalogTable = catalogTable;
         }

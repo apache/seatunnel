@@ -53,7 +53,7 @@ public class TableMergeMultiCatalogTransform extends AbstractMultiCatalogMapTran
 
     @Override
     protected SeaTunnelTransform<SeaTunnelRow> createIdentityTransform(CatalogTable catalogTable) {
-        return new IdentityTransform(catalogTable);
+        return new IdentityMapTransform(catalogTable);
     }
 
     @Override
@@ -67,7 +67,7 @@ public class TableMergeMultiCatalogTransform extends AbstractMultiCatalogMapTran
 
             String tableId = outputTable.getTablePath().getFullName();
             SeaTunnelTransform<SeaTunnelRow> transform = transformMap.get(tableId);
-            if (transform instanceof IdentityTransform) {
+            if (transform instanceof IdentityMapTransform) {
                 outputTables.add(outputTable);
             } else {
                 if (!mergeTables.containsKey(tableId)) {

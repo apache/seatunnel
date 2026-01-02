@@ -45,6 +45,6 @@ public class DynamicCompileMultiCatalogTransform extends AbstractMultiCatalogMap
 
     @Override
     protected SeaTunnelTransform<SeaTunnelRow> createIdentityTransform(CatalogTable catalogTable) {
-        return new IdentityTransform(catalogTable);
+        return new IdentityMapTransform(catalogTable);
     }
 }
