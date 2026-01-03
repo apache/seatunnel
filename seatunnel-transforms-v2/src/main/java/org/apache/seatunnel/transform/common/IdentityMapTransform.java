@@ -32,7 +32,7 @@ public class IdentityMapTransform extends AbstractCatalogSupportMapTransform {
 
     @Override
     public String getPluginName() {
-        return "Identity";
+        return "IdentityMap";
     }
 
     @Override

@@ -35,7 +35,7 @@ public class IdentityFlatMapTransform extends AbstractCatalogSupportFlatMapTrans
 
     @Override
     public String getPluginName() {
-        return "Identity";
+        return "IdentityFlatMap";
     }
 
     @Override
