@@ -44,6 +44,7 @@ import com.lancedb.lance.operation.Append;
 import lombok.extern.slf4j.Slf4j;
 
 import java.io.IOException;
+import java.util.ArrayList;
 import java.util.List;
 import java.util.Optional;
 
@@ -53,15 +54,20 @@ public class LanceSinkWriter
                 SupportMultiTableSinkWriter<Void>,
                 SupportSchemaEvolutionSinkWriter {
 
-    private SeaTunnelRowType seaTunnelRowType;
+    private static final int DEFAULT_BATCH_SIZE = 1000;
 
-    private TableSchema sourceTableSchema;
+    private final SeaTunnelRowType seaTunnelRowType;
+    private final TableSchema sourceTableSchema;
+    private final LanceSinkConfig config;
+    private final LanceCatalog catalog;
+    private final int batchSize;
 
+    private BufferAllocator allocator;
     private org.apache.arrow.vector.types.pojo.Schema schema;
+    private Dataset dataset;
+    private boolean datasetInitialized = false;
 
-    private LanceSinkConfig config;
-
-    private LanceCatalog catalog;
+    private final List<SeaTunnelRow> batchBuffer;
 
     public LanceSinkWriter(
             SeaTunnelRowType seaTunnelRowType,
@@ -72,85 +78,100 @@ public class LanceSinkWriter
         this.sourceTableSchema = sourceTableSchema;
         this.config = config;
         this.catalog = catalog;
+        this.batchSize = DEFAULT_BATCH_SIZE;
+        this.batchBuffer = new ArrayList<>(batchSize);
+        this.allocator = new RootAllocator(Long.MAX_VALUE);
+    }
+
+    private void initializeDataset(SeaTunnelRow firstElement) {
+        if (datasetInitialized) {
+            return;
+        }
+
+        try {
+            Dataset existingDataset = Dataset.open(config.getDatasetPath(), allocator);
+            this.schema = existingDataset.getSchema();
+            this.dataset = existingDataset;
+            datasetInitialized = true;
+        } catch (Exception e) {
+            this.schema = SchemaUtils.convertSchema(firstElement, seaTunnelRowType);
+
+            try {
+                Dataset.create(
+                        allocator,
+                        config.getDatasetPath(),
+                        schema,
+                        new WriteParams.Builder()
+                                .withMaxBytesPerFile(config.getMaxBytesPerFile())
+                                .withMaxRowsPerFile(config.getMaxRowsPerFile())
+                                .withMode(config.getMode())
+                                .withStorageOptions(config.getStorageOptions())
+                                .build());
+
+                this.dataset = Dataset.open(config.getDatasetPath(), allocator);
+                datasetInitialized = true;
+            } catch (Exception createEx) {
+                throw new LanceConnectorException(
+                        LanceConnectorErrorCode.TABLE_DATASET_PATH_OPEN_EXCEPTION,
+                        "Failed to create dataset: " + createEx.getMessage(),
+                        createEx);
+            }
+        }
     }
 
     @Override
     public void write(SeaTunnelRow element) throws IOException {
+        if (!datasetInitialized) {
+            initializeDataset(element);
+        }
 
-        try (BufferAllocator allocator = new RootAllocator(Long.MAX_VALUE)) {
-            org.apache.arrow.vector.types.pojo.Schema datasetSchema = null;
-            try {
-                Dataset existingDataset = Dataset.open(config.getDatasetPath(), allocator);
-                datasetSchema = existingDataset.getSchema();
-                existingDataset.close();
-            } catch (Exception e) {
-                log.debug("Dataset does not exist, will create new schema: {}", e.getMessage());
+        batchBuffer.add(element);
+
+        if (batchBuffer.size() >= batchSize) {
+            flushBatch();
+        }
+    }
+
+    private void flushBatch() {
+        if (batchBuffer.isEmpty()) {
+            return;
+        }
+
+        try {
+            List<FragmentMetadata> allFragments = new ArrayList<>();
+
+            for (SeaTunnelRow row : batchBuffer) {
+                List<FragmentMetadata> fragmentMetadata =
+                        FragmentConverter.reconvert(
+                                row, seaTunnelRowType, schema, allocator, config.getDatasetPath());
+                allFragments.addAll(fragmentMetadata);
             }
 
-            if (datasetSchema != null
-                    && datasetSchema.getFields() != null
-                    && !datasetSchema.getFields().isEmpty()) {
-                this.schema = datasetSchema;
-            } else {
-                this.schema = SchemaUtils.convertSchema(element, seaTunnelRowType);
-            }
-
-            List<FragmentMetadata> fragmentMetadata =
-                    FragmentConverter.reconvert(
-                            element, seaTunnelRowType, schema, allocator, config.getDatasetPath());
-
-            boolean datasetExists = false;
-            try {
-                Dataset testDataset = Dataset.open(config.getDatasetPath(), allocator);
-                testDataset.close();
-                datasetExists = true;
-            } catch (Exception e) {
-                log.debug(
-                        "Dataset does not exist at {}, will create it: {}",
-                        config.getDatasetPath(),
-                        e.getMessage());
-            }
-
-            if (!datasetExists) {
-                try {
-                    Dataset.create(
-                            allocator,
-                            config.getDatasetPath(),
-                            schema,
-                            new WriteParams.Builder()
-                                    .withMaxBytesPerFile(config.getMaxBytesPerFile())
-                                    .withMaxRowsPerFile(config.getMaxRowsPerFile())
-                                    .withMode(config.getMode())
-                                    .withStorageOptions(config.getStorageOptions())
-                                    .build());
-                    log.debug("Created new dataset at {}", config.getDatasetPath());
-                } catch (Exception e) {
-                    throw new LanceConnectorException(
-                            LanceConnectorErrorCode.TABLE_DATASET_PATH_OPEN_EXCEPTION,
-                            "Failed to create dataset: " + e.getMessage(),
-                            e);
-                }
-            }
-
-            try {
-                Dataset dataset = Dataset.open(config.getDatasetPath(), allocator);
+            if (!allFragments.isEmpty()) {
                 Transaction transaction =
                         dataset.newTransactionBuilder()
-                                .operation(Append.builder().fragments(fragmentMetadata).build())
+                                .operation(Append.builder().fragments(allFragments).build())
                                 .build();
+
                 try (Dataset appendedDataset = transaction.commit()) {
                     log.debug(
-                            "LanceSinkWriter commit SeatunnelRow with lance dataset version: "
-                                    + appendedDataset.version());
+                            "Flushed {} rows to lance dataset, new version: {}",
+                            batchBuffer.size(),
+                            appendedDataset.version());
                 }
-                dataset.close();
-            } catch (Exception e) {
-                throw new LanceConnectorException(
-                        LanceConnectorErrorCode.TABLE_DATASET_PATH_OPEN_EXCEPTION, e.getMessage());
+
+                if (dataset != null) {
+                    dataset.close();
+                }
+                dataset = Dataset.open(config.getDatasetPath(), allocator);
             }
+
+            batchBuffer.clear();
         } catch (Exception e) {
             throw new LanceConnectorException(
-                    LanceConnectorErrorCode.TABLE_DATASET_WRITE_ST_ROW_EXCEPTION, e.getMessage());
+                    LanceConnectorErrorCode.TABLE_DATASET_WRITE_ST_ROW_EXCEPTION,
+                    "Failed to flush batch: " + e.getMessage(),
+                    e);
         }
     }
 
@@ -161,12 +182,37 @@ public class LanceSinkWriter
 
     @Override
     public Optional<LanceCommitInfo> prepareCommit() throws IOException {
+        flushBatch();
         return Optional.empty();
     }
 
     @Override
-    public void abortPrepare() {}
+    public void abortPrepare() {
+        batchBuffer.clear();
+    }
 
     @Override
-    public void close() throws IOException {}
+    public void close() throws IOException {
+        try {
+            flushBatch();
+        } finally {
+            if (dataset != null) {
+                try {
+                    dataset.close();
+                } catch (Exception e) {
+                    log.warn("Failed to close dataset: {}", e.getMessage());
+                }
+                dataset = null;
+            }
+
+            if (allocator != null) {
+                try {
+                    allocator.close();
+                } catch (Exception e) {
+                    log.warn("Failed to close allocator: {}", e.getMessage());
+                }
+                allocator = null;
+            }
+        }
+    }
 }
