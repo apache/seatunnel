@@ -36,7 +36,6 @@ Engine Supported
 | auth.api_key_id         | string  | no       | -                            |
 | auth.api_key            | string  | no       | -                            |
 | auth.api_key_encoded    | string  | no       | -                            |
-
 | max_retry_count         | int     | no       | 3                            |
 | max_batch_size          | int     | no       | 10                           |
 | tls_verify_certificate  | boolean | no       | true                         |
@@ -93,6 +92,12 @@ Username for basic authentication (x-pack username).
 #### password [string]
 
 Password for basic authentication (x-pack password).
+
+### vectorization_fields [array]
+Field names that require vector conversion, supported by Elasticsearch 7.3 and later versions
+
+### vector_dimensions [int]
+Vector dimension, supported by Elasticsearch 7.3 and later versions
 
 **Example:**
 ```hocon
