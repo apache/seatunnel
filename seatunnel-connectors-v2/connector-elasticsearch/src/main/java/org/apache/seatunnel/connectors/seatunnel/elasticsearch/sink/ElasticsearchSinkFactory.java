@@ -18,7 +18,6 @@
 package org.apache.seatunnel.connectors.seatunnel.elasticsearch.sink;
 
 import org.apache.seatunnel.api.configuration.ReadonlyConfig;
-import org.apache.seatunnel.api.configuration.util.EnhancedConfigurationValidator;
 import org.apache.seatunnel.api.configuration.util.OptionRule;
 import org.apache.seatunnel.api.options.SinkConnectorCommonOptions;
 import org.apache.seatunnel.api.table.catalog.CatalogTable;
@@ -31,8 +30,6 @@ import org.apache.seatunnel.connectors.seatunnel.elasticsearch.config.AuthTypeEn
 import org.apache.seatunnel.connectors.seatunnel.elasticsearch.config.ElasticsearchSinkOptions;
 
 import com.google.auto.service.AutoService;
-
-import java.util.Optional;
 
 import static org.apache.seatunnel.connectors.seatunnel.elasticsearch.config.ElasticsearchBaseOptions.API_KEY;
 import static org.apache.seatunnel.connectors.seatunnel.elasticsearch.config.ElasticsearchBaseOptions.API_KEY_ENCODED;
@@ -102,10 +99,5 @@ public class ElasticsearchSinkFactory implements TableSinkFactory {
                                 original),
                         context.getCatalogTable());
         return () -> new ElasticsearchSink(readonlyConfig, newTable);
-    }
-
-    @Override
-    public Optional<EnhancedConfigurationValidator> enhancedConfigurationValidator() {
-        return Optional.of(new ElasticsearchSinkEnhancedValidator(factoryIdentifier()));
     }
 }

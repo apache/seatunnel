@@ -19,6 +19,7 @@ package org.apache.seatunnel.api.source;
 
 import org.apache.seatunnel.api.common.PluginIdentifierInterface;
 import org.apache.seatunnel.api.common.SeaTunnelPluginLifeCycle;
+import org.apache.seatunnel.api.configuration.util.EnhancedConfigurationValidator;
 import org.apache.seatunnel.api.serialization.DefaultSerializer;
 import org.apache.seatunnel.api.serialization.Serializer;
 import org.apache.seatunnel.api.table.catalog.CatalogTable;
@@ -26,6 +27,7 @@ import org.apache.seatunnel.api.table.type.SeaTunnelDataType;
 
 import java.io.Serializable;
 import java.util.List;
+import java.util.Optional;
 
 /**
  * The interface for Source. It acts like a factory class that helps construct the {@link
@@ -119,5 +121,17 @@ public interface SeaTunnelSource<T, SplitT extends SourceSplit, StateT extends S
      */
     default Serializer<StateT> getEnumeratorStateSerializer() {
         return new DefaultSerializer<>();
+    }
+
+    /**
+     * Return an optional enhanced configuration validator.
+     *
+     * <p>The enhanced validator can be used to perform additional rule-based configuration checks
+     * such as deprecation, conflicts, and version compatibility.
+     *
+     * @return an optional enhanced configuration validator; empty if not supported
+     */
+    default Optional<EnhancedConfigurationValidator> enhancedConfigurationValidator() {
+        return Optional.empty();
     }
 }

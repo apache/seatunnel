@@ -19,6 +19,7 @@ package org.apache.seatunnel.api.sink;
 
 import org.apache.seatunnel.api.common.PluginIdentifierInterface;
 import org.apache.seatunnel.api.common.SeaTunnelPluginLifeCycle;
+import org.apache.seatunnel.api.configuration.util.EnhancedConfigurationValidator;
 import org.apache.seatunnel.api.serialization.Serializer;
 import org.apache.seatunnel.api.source.SeaTunnelJobAware;
 import org.apache.seatunnel.api.table.catalog.CatalogTable;
@@ -143,6 +144,18 @@ public interface SeaTunnelSink<IN, StateT, CommitInfoT, AggregatedCommitInfoT>
      * @return Optional of catalog table.
      */
     default Optional<CatalogTable> getWriteCatalogTable() {
+        return Optional.empty();
+    }
+
+    /**
+     * Return an optional enhanced configuration validator.
+     *
+     * <p>The enhanced validator can be used to perform additional rule-based configuration checks
+     * such as deprecation, conflicts, and version compatibility.
+     *
+     * @return an optional enhanced configuration validator; empty if not supported
+     */
+    default Optional<EnhancedConfigurationValidator> enhancedConfigurationValidator() {
         return Optional.empty();
     }
 }

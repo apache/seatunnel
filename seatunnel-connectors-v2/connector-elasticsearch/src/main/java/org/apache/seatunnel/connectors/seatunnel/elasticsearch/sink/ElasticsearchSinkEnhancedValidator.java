@@ -16,24 +16,19 @@
  */
 package org.apache.seatunnel.connectors.seatunnel.elasticsearch.sink;
 
-import org.apache.seatunnel.api.configuration.ReadonlyConfig;
-import org.apache.seatunnel.api.configuration.util.DefaultEnhancedConfigurationValidator;
-import org.apache.seatunnel.api.table.catalog.Catalog;
-import org.apache.seatunnel.common.constants.PluginType;
-import org.apache.seatunnel.connectors.seatunnel.elasticsearch.catalog.ElasticSearchCatalogFactory;
+import org.apache.seatunnel.api.configuration.util.SinkEnhancedConfigurationValidator;
 
 import java.util.ArrayList;
 import java.util.List;
-import java.util.Optional;
 import java.util.function.Predicate;
 
 import static org.apache.seatunnel.connectors.seatunnel.elasticsearch.config.ElasticsearchSinkOptions.VECTORIZATION_FIELDS;
 import static org.apache.seatunnel.connectors.seatunnel.elasticsearch.config.ElasticsearchSinkOptions.VECTOR_DIMENSIONS;
 
-public class ElasticsearchSinkEnhancedValidator extends DefaultEnhancedConfigurationValidator {
+public class ElasticsearchSinkEnhancedValidator extends SinkEnhancedConfigurationValidator {
 
     public ElasticsearchSinkEnhancedValidator(String identifier) {
-        super(identifier, PluginType.SINK);
+        super(identifier);
     }
 
     @Override
@@ -58,11 +53,5 @@ public class ElasticsearchSinkEnhancedValidator extends DefaultEnhancedConfigura
         compatibilityRules.add(
                 VersionCompatibilityRule.warning(VECTOR_DIMENSIONS, isEs73OrAbove, "7.3+"));
         return compatibilityRules;
-    }
-
-    @Override
-    protected Optional<Catalog> getCatalog(ReadonlyConfig context) {
-        ElasticSearchCatalogFactory factory = new ElasticSearchCatalogFactory();
-        return Optional.of(factory.createCatalog(identifier, context));
     }
 }

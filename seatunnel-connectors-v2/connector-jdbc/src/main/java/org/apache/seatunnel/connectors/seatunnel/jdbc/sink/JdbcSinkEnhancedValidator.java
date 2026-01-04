@@ -16,8 +16,7 @@
  */
 package org.apache.seatunnel.connectors.seatunnel.jdbc.sink;
 
-import org.apache.seatunnel.api.configuration.util.DefaultEnhancedConfigurationValidator;
-import org.apache.seatunnel.common.constants.PluginType;
+import org.apache.seatunnel.api.configuration.util.SinkEnhancedConfigurationValidator;
 
 import lombok.extern.slf4j.Slf4j;
 
@@ -32,9 +31,9 @@ import static org.apache.seatunnel.connectors.seatunnel.jdbc.config.JdbcSinkOpti
 import static org.apache.seatunnel.connectors.seatunnel.jdbc.config.JdbcSinkOptions.USE_COPY_STATEMENT;
 
 @Slf4j
-public class JdbcSinkEnhancedValidator extends DefaultEnhancedConfigurationValidator {
+public class JdbcSinkEnhancedValidator extends SinkEnhancedConfigurationValidator {
     public JdbcSinkEnhancedValidator(String identifier) {
-        super(identifier, PluginType.SINK);
+        super(identifier);
     }
 
     @Override

@@ -20,7 +20,6 @@ package org.apache.seatunnel.connectors.seatunnel.jdbc.sink;
 import org.apache.seatunnel.shade.org.apache.commons.lang3.StringUtils;
 
 import org.apache.seatunnel.api.configuration.ReadonlyConfig;
-import org.apache.seatunnel.api.configuration.util.EnhancedConfigurationValidator;
 import org.apache.seatunnel.api.configuration.util.OptionRule;
 import org.apache.seatunnel.api.options.ConnectorCommonOptions;
 import org.apache.seatunnel.api.options.SinkConnectorCommonOptions;
@@ -279,10 +278,5 @@ public class JdbcSinkFactory implements TableSinkFactory {
                         DataSaveMode.CUSTOM_PROCESSING,
                         JdbcSinkOptions.CUSTOM_SQL)
                 .build();
-    }
-
-    @Override
-    public Optional<EnhancedConfigurationValidator> enhancedConfigurationValidator() {
-        return Optional.of(new JdbcSinkEnhancedValidator(factoryIdentifier()));
     }
 }

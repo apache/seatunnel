@@ -17,10 +17,7 @@
 
 package org.apache.seatunnel.api.table.factory;
 
-import org.apache.seatunnel.api.configuration.util.EnhancedConfigurationValidator;
 import org.apache.seatunnel.api.configuration.util.OptionRule;
-
-import java.util.Optional;
 
 /** todo: use PluginIdentifier. This is the SPI interface. */
 public interface Factory {
@@ -43,16 +40,4 @@ public interface Factory {
      * <p>2. Used for Web-UI to prompt user to configure option value;
      */
     OptionRule optionRule();
-
-    /**
-     * Return an optional enhanced configuration validator.
-     *
-     * <p>The enhanced validator can be used to perform additional rule-based configuration checks
-     * such as deprecation, conflicts, and version compatibility.
-     *
-     * @return an optional enhanced configuration validator; empty if not supported
-     */
-    default Optional<EnhancedConfigurationValidator> enhancedConfigurationValidator() {
-        return Optional.empty();
-    }
 }
