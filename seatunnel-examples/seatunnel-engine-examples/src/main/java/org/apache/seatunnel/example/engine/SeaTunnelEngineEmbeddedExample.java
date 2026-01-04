@@ -54,7 +54,10 @@ import java.util.stream.Collectors;
 import java.util.stream.Stream;
 import java.util.stream.StreamSupport;
 
-/** Embed the Zeta engine as a tool in the project. Start a local cluster instance in Cluster mode and use it to submit tasks, manage tasks, and query task metrics, etc. */
+/**
+ * Embed the Zeta engine as a tool in the project. Start a local cluster instance in Cluster mode
+ * and use it to submit tasks, manage tasks, and query task metrics, etc.
+ */
 public class SeaTunnelEngineEmbeddedExample implements AutoCloseable {
 
     public static void main(String[] args) {
