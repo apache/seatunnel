@@ -8,6 +8,10 @@ import ChangeLog from '../changelog/connector-jdbc.md';
 
 - 确定支持3.1.3和3.1.2，其他版本需要测试。
 
+## 超时参数支持
+
+`socket_timeout_ms` 和 `connect_timeout_ms` 参数已在 **Hive 3.2.0+** 版本上测试验证。对于更早的版本(包括 3.1.x)，这些参数暂未验证。参数会被传递给 JDBC 驱动,但实际效果取决于使用的 Hive 版本。
+
 ## 支持这些引擎
 
 > Spark<br/>
@@ -68,6 +72,8 @@ import ChangeLog from '../changelog/connector-jdbc.md';
 | password                     | String     | 否  | -               | 连接实例密码                                                                                                                      |
 | query                        | String     | 是  | -               | 查询sql                                                                                                                       |
 | connection_check_timeout_sec | Int        | 否  | 30              | 等待用于验证连接的数据库操作完成的时间（秒）                                                                                                      |
+| socket_timeout_ms            | Int        | 否  | 86400000        | 从服务器读取数据的 Socket 超时时间(毫秒)。设置为 0 表示无超时。注意：已在 Hive 3.2.0+ 测试,更早版本暂未验证。                                                         |
+| connect_timeout_ms           | Int        | 否  | 86400000        | 建立到服务器的连接超时时间(毫秒)。设置为 0 表示无超时。注意：已在 Hive 3.2.0+ 测试,更早版本暂未验证。                                                            |
 | partition_column             | String     | 否  | -               | 并行分区的列名，只支持数值类型，只支持数字类型主键，只能配置一列。                                                                                           |
 | partition_lower_bound        | BigDecimal | 否  | -               | 扫描的分区列最小值，如果未设置，SeaTunnel将查询数据库获取最小值。                                                                                       |
 | partition_upper_bound        | BigDecimal | 否  | -               | 扫描的分区列最大值，如果没有设置，SeaTunnel将查询数据库获取最大值。                                                                                      |
