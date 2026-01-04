@@ -348,6 +348,8 @@ public class PdfReadStrategy extends AbstractReadStrategy {
 
             String paragraphText = extractParagraphUsingCoordinates(document, heading, nextHeading);
 
+            paragraphText = cleanParagraphText(paragraphText);
+
             if (StringUtils.isNotBlank(paragraphText)) {
                 DocumentElement paragraph = new DocumentElement("paragraph", paragraphText.trim());
                 paragraph.setParentId(heading.getElementId());
@@ -854,6 +856,10 @@ public class PdfReadStrategy extends AbstractReadStrategy {
         mergeResult.forEach(element -> element.setPositionIndex(mergeResult.indexOf(element)));
 
         return mergeResult;
+    }
+
+    private String cleanParagraphText(String paragraphText) {
+        return paragraphText.replace("\r\n", "\n");
     }
 
     /** Coordinate information for PDF elements */
