@@ -77,10 +77,10 @@ x-pack 密码
 批次批量请求最大尝试大小
 
 ### vectorization_fields [array]
-需要向量转换的字段名
+需要向量转换的字段名，Elasticsearch 7.3及以后的版本支持
 
 ### vector_dimensions [int]
-向量维度
+向量维度，Elasticsearch 7.3及以后的版本支持
 
 ### max_batch_size [int]
 

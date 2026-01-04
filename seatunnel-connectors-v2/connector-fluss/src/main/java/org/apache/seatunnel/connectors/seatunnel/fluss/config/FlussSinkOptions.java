@@ -15,15 +15,6 @@
  * limitations under the License.
  */
 
-package org.apache.seatunnel.api.sink;
+package org.apache.seatunnel.connectors.seatunnel.fluss.config;
 
-/** @deprecated instead by {@link TablePlaceholder} todo remove this class */
-@Deprecated
-public final class SinkReplaceNameConstant {
-
-    public static final String REPLACE_TABLE_NAME_KEY = "${table_name}";
-
-    public static final String REPLACE_SCHEMA_NAME_KEY = "${schema_name}";
-
-    public static final String REPLACE_DATABASE_NAME_KEY = "${database_name}";
-}
+public class FlussSinkOptions extends FlussBaseOptions {}
