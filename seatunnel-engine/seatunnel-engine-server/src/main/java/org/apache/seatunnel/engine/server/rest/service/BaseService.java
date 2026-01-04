@@ -27,6 +27,7 @@ import org.apache.seatunnel.shade.org.apache.commons.lang3.StringUtils;
 import org.apache.seatunnel.api.configuration.ReadonlyConfig;
 import org.apache.seatunnel.api.options.EnvCommonOptions;
 import org.apache.seatunnel.api.table.catalog.TablePath;
+import org.apache.seatunnel.common.constants.PluginType;
 import org.apache.seatunnel.common.utils.DateTimeUtils;
 import org.apache.seatunnel.engine.common.Constant;
 import org.apache.seatunnel.engine.common.config.JobConfig;
@@ -38,6 +39,7 @@ import org.apache.seatunnel.engine.core.job.ExecutionAddress;
 import org.apache.seatunnel.engine.core.job.JobDAGInfo;
 import org.apache.seatunnel.engine.core.job.JobImmutableInformation;
 import org.apache.seatunnel.engine.core.job.JobInfo;
+import org.apache.seatunnel.engine.core.job.VertexInfo;
 import org.apache.seatunnel.engine.server.CoordinatorService;
 import org.apache.seatunnel.engine.server.SeaTunnelServer;
 import org.apache.seatunnel.engine.server.dag.DAGUtils;
@@ -67,12 +69,16 @@ import com.hazelcast.spi.impl.NodeEngineImpl;
 import lombok.extern.slf4j.Slf4j;
 
 import java.io.IOException;
+import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.HashMap;
 import java.util.HashSet;
+import java.util.List;
 import java.util.Map;
 import java.util.Set;
 import java.util.concurrent.ExecutionException;
+import java.util.regex.Matcher;
+import java.util.regex.Pattern;
 import java.util.stream.Collectors;
 import java.util.stream.Stream;
 import java.util.stream.StreamSupport;
@@ -205,7 +211,9 @@ public abstract class BaseService {
                 .add(
                         RestConstant.IS_START_WITH_SAVE_POINT,
                         jobImmutableInformation.isStartWithSavePoint())
-                .add(RestConstant.METRICS, metricsToJsonObject(getJobMetrics(jobMetrics)));
+                .add(
+                        RestConstant.METRICS,
+                        metricsToJsonObject(getJobMetrics(jobMetrics, jobDAGInfo)));
 
         return jobInfoJson;
     }
@@ -248,11 +256,40 @@ public abstract class BaseService {
                                 DateTimeUtils.Formatter.YYYY_MM_DD_HH_MM_SS))
                 .add(RestConstant.JOB_DAG, jobDAGInfo.toJsonObject())
                 .add(RestConstant.PLUGIN_JARS_URLS, new JsonArray())
-                .add(RestConstant.METRICS, metricsToJsonObject(getJobMetrics(jobMetrics)));
+                .add(
+                        RestConstant.METRICS,
+                        metricsToJsonObject(getJobMetrics(jobMetrics, jobDAGInfo)));
     }
 
-    private Map<String, Object> getJobMetrics(String jobMetrics) {
+    private Map<String, Object> getJobMetrics(String jobMetrics, JobDAGInfo jobDAGInfo) {
         Map<String, Object> metricsMap = new HashMap<>();
+
+        Map<String, List<String>> tableToSourceIdentifiersMap = new HashMap<>();
+        Map<String, List<String>> tableToSinkIdentifiersMap = new HashMap<>();
+        if (jobDAGInfo != null && jobDAGInfo.getVertexInfoMap() != null) {
+            for (VertexInfo vertexInfo : jobDAGInfo.getVertexInfoMap().values()) {
+                String identifier = extractSinkIdentifier(vertexInfo.getConnectorType());
+                if (vertexInfo.getTablePaths() == null
+                        || identifier.equals(vertexInfo.getConnectorType())) {
+                    continue;
+                }
+                Map<String, List<String>> targetMap = null;
+                if (vertexInfo.getType() == PluginType.SOURCE) {
+                    targetMap = tableToSourceIdentifiersMap;
+                } else if (vertexInfo.getType() == PluginType.SINK) {
+                    targetMap = tableToSinkIdentifiersMap;
+                }
+
+                if (targetMap != null) {
+                    for (TablePath tablePath : vertexInfo.getTablePaths()) {
+                        targetMap
+                                .computeIfAbsent(tablePath.getFullName(), k -> new ArrayList<>())
+                                .add(identifier);
+                    }
+                }
+            }
+        }
+
         // To add metrics, populate the corresponding array,
         String[] countMetricsNames = {
             SOURCE_RECEIVED_COUNT,
@@ -320,8 +357,22 @@ public abstract class BaseService {
                                     String tableName =
                                             TablePath.of(metricName.split("#")[1]).getFullName();
                                     JsonNode metricNode = jobMetricsStr.get(metricName);
+
+                                    Map<String, java.util.List<String>> identifiersMap = null;
+                                    if (metricName.startsWith("TableSource")
+                                            || metricName.startsWith("Source")) {
+                                        identifiersMap = tableToSourceIdentifiersMap;
+                                    } else if (metricName.startsWith("TableSink")
+                                            || metricName.startsWith("Sink")) {
+                                        identifiersMap = tableToSinkIdentifiersMap;
+                                    }
+
                                     processMetric(
-                                            metricName, tableName, metricNode, tableMetricsMaps);
+                                            metricName,
+                                            tableName,
+                                            metricNode,
+                                            tableMetricsMaps,
+                                            identifiersMap);
                                 }
                             });
 
@@ -355,10 +406,51 @@ public abstract class BaseService {
             String metricName,
             String tableName,
             JsonNode metricNode,
-            Map<String, JsonNode>[] tableMetricsMaps) {
+            Map<String, JsonNode>[] tableMetricsMaps,
+            Map<String, java.util.List<String>> tableToSinkIdentifiersMap) {
         if (metricNode == null) {
             return;
         }
+
+        java.util.List<String> sinkIdentifiers = tableToSinkIdentifiersMap.get(tableName);
+
+        if (sinkIdentifiers != null
+                && !sinkIdentifiers.isEmpty()
+                && metricNode.isArray()
+                && sinkIdentifiers.size() > 1) {
+            int arraySize = metricNode.size();
+
+            if (arraySize == sinkIdentifiers.size()) {
+                ObjectMapper mapper = new ObjectMapper();
+                for (int i = 0; i < arraySize; i++) {
+                    String sinkIdentifier = sinkIdentifiers.get(i);
+                    String metricKey = sinkIdentifier + "." + tableName;
+
+                    try {
+                        String json = "[" + mapper.writeValueAsString(metricNode.get(i)) + "]";
+                        JsonNode arrayNode = mapper.readTree(json);
+                        putMetricToMap(metricName, metricKey, arrayNode, tableMetricsMaps);
+                    } catch (JsonProcessingException e) {
+                        putMetricToMap(metricName, metricKey, metricNode.get(i), tableMetricsMaps);
+                    }
+                }
+                return;
+            }
+        }
+
+        String metricKey = tableName;
+        if (sinkIdentifiers != null && !sinkIdentifiers.isEmpty()) {
+            metricKey = sinkIdentifiers.get(0) + "." + tableName;
+        }
+
+        putMetricToMap(metricName, metricKey, metricNode, tableMetricsMaps);
+    }
+
+    private void putMetricToMap(
+            String metricName,
+            String metricKey,
+            JsonNode metricNode,
+            Map<String, JsonNode>[] tableMetricsMaps) {
 
         // Define index constant
         final int SOURCE_COUNT_IDX = 0,
@@ -374,30 +466,43 @@ public abstract class BaseService {
                 SINK_BYTES_SEC_IDX = 10,
                 SINK_COMMITTED_BYTES_SEC_IDX = 11;
         if (metricName.startsWith(SOURCE_RECEIVED_COUNT + "#")) {
-            tableMetricsMaps[SOURCE_COUNT_IDX].put(tableName, metricNode);
+            tableMetricsMaps[SOURCE_COUNT_IDX].put(metricKey, metricNode);
         } else if (metricName.startsWith(SINK_WRITE_COUNT + "#")) {
-            tableMetricsMaps[SINK_COUNT_IDX].put(tableName, metricNode);
+            tableMetricsMaps[SINK_COUNT_IDX].put(metricKey, metricNode);
         } else if (metricName.startsWith(SINK_COMMITTED_COUNT + "#")) {
-            tableMetricsMaps[SINK_COMMITTED_COUNT_IDX].put(tableName, metricNode);
+            tableMetricsMaps[SINK_COMMITTED_COUNT_IDX].put(metricKey, metricNode);
         } else if (metricName.startsWith(SOURCE_RECEIVED_BYTES + "#")) {
-            tableMetricsMaps[SOURCE_BYTES_IDX].put(tableName, metricNode);
+            tableMetricsMaps[SOURCE_BYTES_IDX].put(metricKey, metricNode);
         } else if (metricName.startsWith(SINK_WRITE_BYTES + "#")) {
-            tableMetricsMaps[SINK_BYTES_IDX].put(tableName, metricNode);
+            tableMetricsMaps[SINK_BYTES_IDX].put(metricKey, metricNode);
         } else if (metricName.startsWith(SINK_COMMITTED_BYTES + "#")) {
-            tableMetricsMaps[SINK_COMMITTED_BYTES_IDX].put(tableName, metricNode);
+            tableMetricsMaps[SINK_COMMITTED_BYTES_IDX].put(metricKey, metricNode);
         } else if (metricName.startsWith(SOURCE_RECEIVED_QPS + "#")) {
-            tableMetricsMaps[SOURCE_QPS_IDX].put(tableName, metricNode);
+            tableMetricsMaps[SOURCE_QPS_IDX].put(metricKey, metricNode);
         } else if (metricName.startsWith(SINK_WRITE_QPS + "#")) {
-            tableMetricsMaps[SINK_QPS_IDX].put(tableName, metricNode);
+            tableMetricsMaps[SINK_QPS_IDX].put(metricKey, metricNode);
         } else if (metricName.startsWith(SINK_COMMITTED_QPS + "#")) {
-            tableMetricsMaps[SINK_COMMITTED_QPS_IDX].put(tableName, metricNode);
+            tableMetricsMaps[SINK_COMMITTED_QPS_IDX].put(metricKey, metricNode);
         } else if (metricName.startsWith(SOURCE_RECEIVED_BYTES_PER_SECONDS + "#")) {
-            tableMetricsMaps[SOURCE_BYTES_SEC_IDX].put(tableName, metricNode);
+            tableMetricsMaps[SOURCE_BYTES_SEC_IDX].put(metricKey, metricNode);
         } else if (metricName.startsWith(SINK_WRITE_BYTES_PER_SECONDS + "#")) {
-            tableMetricsMaps[SINK_BYTES_SEC_IDX].put(tableName, metricNode);
+            tableMetricsMaps[SINK_BYTES_SEC_IDX].put(metricKey, metricNode);
         } else if (metricName.startsWith(SINK_COMMITTED_BYTES_PER_SECONDS + "#")) {
-            tableMetricsMaps[SINK_COMMITTED_BYTES_SEC_IDX].put(tableName, metricNode);
+            tableMetricsMaps[SINK_COMMITTED_BYTES_SEC_IDX].put(metricKey, metricNode);
         }
+    }
+
+    private String extractSinkIdentifier(String vertexName) {
+        if (vertexName == null) {
+            return "";
+        }
+
+        Pattern pattern = Pattern.compile("((?:Sink|Source|Transform)\\[\\d+\\])");
+        Matcher matcher = pattern.matcher(vertexName);
+        if (matcher.find()) {
+            return matcher.group(1);
+        }
+        return vertexName;
     }
 
     private void aggregateMetrics(

@@ -17,6 +17,12 @@
 
 package org.apache.seatunnel.engine.server.rest.service;
 
+import org.apache.seatunnel.api.table.catalog.TablePath;
+import org.apache.seatunnel.common.constants.PluginType;
+import org.apache.seatunnel.engine.core.job.JobDAGInfo;
+import org.apache.seatunnel.engine.core.job.VertexInfo;
+import org.apache.seatunnel.engine.core.parse.JobConfigParser;
+
 import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
@@ -24,6 +30,8 @@ import org.junit.jupiter.api.Test;
 import com.hazelcast.spi.impl.NodeEngineImpl;
 
 import java.lang.reflect.Method;
+import java.util.Arrays;
+import java.util.HashMap;
 import java.util.Map;
 
 public class BaseServiceTableMetricsTest {
@@ -37,7 +45,9 @@ public class BaseServiceTableMetricsTest {
 
         jobInfoService = new JobInfoService(nodeEngine);
 
-        getJobMetricsMethod = BaseService.class.getDeclaredMethod("getJobMetrics", String.class);
+        getJobMetricsMethod =
+                BaseService.class.getDeclaredMethod(
+                        "getJobMetrics", String.class, JobDAGInfo.class);
         getJobMetricsMethod.setAccessible(true);
     }
 
@@ -84,7 +94,7 @@ public class BaseServiceTableMetricsTest {
                         + "}";
 
         Map<String, Object> result =
-                (Map<String, Object>) getJobMetricsMethod.invoke(jobInfoService, jobMetrics);
+                (Map<String, Object>) getJobMetricsMethod.invoke(jobInfoService, jobMetrics, null);
 
         Map<String, Object> tableSourceQPS =
                 (Map<String, Object>) result.get("TableSourceReceivedQPS");
@@ -140,7 +150,7 @@ public class BaseServiceTableMetricsTest {
                         + "}";
 
         Map<String, Object> result =
-                (Map<String, Object>) getJobMetricsMethod.invoke(jobInfoService, jobMetrics);
+                (Map<String, Object>) getJobMetricsMethod.invoke(jobInfoService, jobMetrics, null);
 
         Map<String, Object> tableSourceCount =
                 (Map<String, Object>) result.get("TableSourceReceivedCount");
@@ -174,7 +184,7 @@ public class BaseServiceTableMetricsTest {
                         + "}";
 
         Map<String, Object> result =
-                (Map<String, Object>) getJobMetricsMethod.invoke(jobInfoService, jobMetrics);
+                (Map<String, Object>) getJobMetricsMethod.invoke(jobInfoService, jobMetrics, null);
 
         Map<String, Object> tableSourceQPS =
                 (Map<String, Object>) result.get("TableSourceReceivedQPS");
@@ -187,5 +197,90 @@ public class BaseServiceTableMetricsTest {
         Assertions.assertNotNull(tableSinkCommittedQPS);
         Assertions.assertEquals(10.8, (Double) tableSinkCommittedQPS.get("fake.table1"), 0.01);
         Assertions.assertEquals(22.5, (Double) tableSinkCommittedQPS.get("fake.table2"), 0.01);
+    }
+
+    @Test
+    public void testMultipleSinksWithSameTableName() throws Exception {
+        String jobMetrics =
+                "{"
+                        + "\"SinkWriteCount#fake.user_table\": [{\"value\": 5}, {\"value\": 5}],"
+                        + "\"SinkCommittedCount#fake.user_table\": [{\"value\": 5}, {\"value\": 5}],"
+                        + "\"SourceReceivedCount#fake.user_table\": [{\"value\": 10}],"
+                        + "\"SinkWriteCount\": [{\"value\": 10}],"
+                        + "\"SinkCommittedCount\": [{\"value\": 10}],"
+                        + "\"SourceReceivedCount\": [{\"value\": 10}]"
+                        + "}";
+
+        JobDAGInfo dagInfo = createDAGInfoWithMultipleSinks();
+
+        Map<String, Object> result =
+                (Map<String, Object>)
+                        getJobMetricsMethod.invoke(jobInfoService, jobMetrics, dagInfo);
+
+        Map<String, Object> tableSinkCount =
+                (Map<String, Object>) result.get("TableSinkWriteCount");
+        Assertions.assertNotNull(tableSinkCount);
+
+        Assertions.assertTrue(
+                tableSinkCount.containsKey("Sink[0].fake.user_table"),
+                "Should contain Sink[0].fake.user_table");
+        Assertions.assertTrue(
+                tableSinkCount.containsKey("Sink[1].fake.user_table"),
+                "Should contain Sink[1].fake.user_table");
+
+        Assertions.assertEquals(5L, tableSinkCount.get("Sink[0].fake.user_table"));
+        Assertions.assertEquals(5L, tableSinkCount.get("Sink[1].fake.user_table"));
+
+        Assertions.assertFalse(
+                tableSinkCount.containsKey("fake.user_table"),
+                "Should not contain raw table name key 'fake.user_table'");
+
+        Map<String, Object> tableSinkCommittedCount =
+                (Map<String, Object>) result.get("TableSinkCommittedCount");
+        Assertions.assertNotNull(tableSinkCommittedCount);
+        Assertions.assertEquals(5L, tableSinkCommittedCount.get("Sink[0].fake.user_table"));
+        Assertions.assertEquals(5L, tableSinkCommittedCount.get("Sink[1].fake.user_table"));
+
+        Map<String, Object> tableSourceCount =
+                (Map<String, Object>) result.get("TableSourceReceivedCount");
+        Assertions.assertNotNull(tableSourceCount);
+
+        Assertions.assertTrue(
+                tableSourceCount.containsKey("Source[0].fake.user_table"),
+                "Should contain Source[0].fake.user_table");
+        Assertions.assertEquals(10L, tableSourceCount.get("Source[0].fake.user_table"));
+    }
+
+    private JobDAGInfo createDAGInfoWithMultipleSinks() {
+        Map<Long, VertexInfo> vertexInfoMap = new HashMap<>();
+
+        VertexInfo sourceVertex = new VertexInfo();
+        sourceVertex.setVertexId(1L);
+        sourceVertex.setType(PluginType.SOURCE);
+        String sourceName = JobConfigParser.createSourceActionName(0, "FakeSource");
+        sourceVertex.setConnectorType("pipeline-1 [" + sourceName + "]");
+        sourceVertex.setTablePaths(Arrays.asList(TablePath.of("fake.user_table")));
+        vertexInfoMap.put(1L, sourceVertex);
+
+        VertexInfo sink0Vertex = new VertexInfo();
+        sink0Vertex.setVertexId(2L);
+        sink0Vertex.setType(PluginType.SINK);
+        String sink0Name = JobConfigParser.createSinkActionName(0, "console", "MultiTableSink");
+        sink0Vertex.setConnectorType("pipeline-1 [" + sink0Name + "]");
+        sink0Vertex.setTablePaths(Arrays.asList(TablePath.of("fake.user_table")));
+        vertexInfoMap.put(2L, sink0Vertex);
+
+        VertexInfo sink1Vertex = new VertexInfo();
+        sink1Vertex.setVertexId(3L);
+        sink1Vertex.setType(PluginType.SINK);
+        String sink1Name = JobConfigParser.createSinkActionName(1, "console", "MultiTableSink");
+        sink1Vertex.setConnectorType("pipeline-1 [" + sink1Name + "]");
+        sink1Vertex.setTablePaths(Arrays.asList(TablePath.of("fake.user_table")));
+        vertexInfoMap.put(3L, sink1Vertex);
+
+        JobDAGInfo dagInfo = new JobDAGInfo();
+        dagInfo.setVertexInfoMap(vertexInfoMap);
+
+        return dagInfo;
     }
 }
