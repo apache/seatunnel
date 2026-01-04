@@ -2,4 +2,4 @@
 title: Catalog API
 ---
 
-<!-- TODO: Document catalog-related APIs. -->
+# TODO: Document catalog-related APIs.

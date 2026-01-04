@@ -2,4 +2,4 @@
 title: Deployment Architecture - Cluster HA
 ---
 
-<!-- TODO: Describe HA cluster deployment patterns. -->
+# TODO: Describe HA cluster deployment patterns.

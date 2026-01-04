@@ -2,4 +2,4 @@
 title: Authentication
 ---
 
-<!-- TODO: Describe authentication strategies and integrations. -->
+# Describe authentication strategies and integrations.

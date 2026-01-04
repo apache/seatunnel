@@ -2,4 +2,4 @@
 title: Deployment Architecture - Standalone
 ---
 
-<!-- TODO: Describe standalone deployment patterns. -->
+# TODO: Describe standalone deployment patterns.

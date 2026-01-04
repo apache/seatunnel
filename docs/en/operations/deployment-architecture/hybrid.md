@@ -2,4 +2,4 @@
 title: Deployment Architecture - Hybrid
 ---
 
-<!-- TODO: Describe hybrid deployment patterns. -->
+# TODO: Describe hybrid deployment patterns.

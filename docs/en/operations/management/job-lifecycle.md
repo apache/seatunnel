@@ -2,4 +2,4 @@
 title: Job Lifecycle
 ---
 
-<!-- TODO: Describe job submission, scheduling, stopping, and savepoint strategies. -->
+# TODO: Describe job submission, scheduling, stopping, and savepoint strategies.
