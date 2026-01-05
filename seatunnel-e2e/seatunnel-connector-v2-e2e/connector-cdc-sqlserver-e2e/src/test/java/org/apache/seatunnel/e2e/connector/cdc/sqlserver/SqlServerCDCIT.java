@@ -92,12 +92,14 @@ public class SqlServerCDCIT extends TestSuiteBase implements TestResource {
     private static final String DISABLE_DB_CDC =
             "IF EXISTS(select 1 from sys.databases where name='#' AND is_cdc_enabled=1)\n"
                     + "EXEC sys.sp_cdc_disable_db";
-    private static final String SOURCE_TABLE = DATABASE_NAME + "." + SCHEMA_NAME + "full_types";
+    private static final String SOURCE_TABLE =
+            DATABASE_NAME + "." + SCHEMA_NAME + "." + "full_types";
     private static final String SOURCE_TABLE_NO_PRIMARY_KEY =
-            DATABASE_NAME + "." + SCHEMA_NAME + "full_types_no_primary_key";
+            DATABASE_NAME + "." + SCHEMA_NAME + "." + "full_types_no_primary_key";
     private static final String SOURCE_TABLE_CUSTOM_PRIMARY_KEY =
-            DATABASE_NAME + "." + SCHEMA_NAME + "full_types_custom_primary_key";
-    private static final String SINK_TABLE = DATABASE_NAME + "." + SCHEMA_NAME + "full_types_sink";
+            DATABASE_NAME + "." + SCHEMA_NAME + "." + "full_types_custom_primary_key";
+    private static final String SINK_TABLE =
+            DATABASE_NAME + "." + SCHEMA_NAME + "." + "full_types_sink";
 
     private static final String SELECT_SOURCE_SQL =
             "select\n"
