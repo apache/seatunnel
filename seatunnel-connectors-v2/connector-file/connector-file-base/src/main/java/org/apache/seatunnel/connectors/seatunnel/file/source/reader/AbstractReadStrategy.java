@@ -19,6 +19,7 @@ package org.apache.seatunnel.connectors.seatunnel.file.source.reader;
 
 import org.apache.seatunnel.shade.com.typesafe.config.Config;
 import org.apache.seatunnel.shade.com.typesafe.config.ConfigObject;
+import org.apache.seatunnel.shade.com.typesafe.config.ConfigValueType;
 import org.apache.seatunnel.shade.org.apache.commons.lang3.StringUtils;
 
 import org.apache.seatunnel.api.common.SeaTunnelAPIErrorCode;
@@ -259,7 +260,9 @@ public abstract class AbstractReadStrategy implements ReadStrategy {
             this.pattern = Pattern.compile(filterPattern);
             // because 'ConfigFactory.systemProperties()' has a 'path' parameter, it is necessary to
             // obtain 'path' under the premise of 'FILE_FILTER_PATTERN'
-            if (pluginConfig.hasPath(FileBaseSourceOptions.FILE_PATH.key())) {
+            if (pluginConfig.hasPath(FileBaseSourceOptions.FILE_PATH.key())
+                    && pluginConfig.getValue(FileBaseSourceOptions.FILE_PATH.key()).valueType()
+                            == ConfigValueType.STRING) {
                 fileBasePath = pluginConfig.getString(FileBaseSourceOptions.FILE_PATH.key());
             }
         }
@@ -280,7 +283,9 @@ public abstract class AbstractReadStrategy implements ReadStrategy {
                     pluginConfig.getBoolean(FileBaseSourceOptions.ENABLE_FILE_SPLIT.key());
         }
 
-        if (pluginConfig.hasPath(FileBaseSourceOptions.FILE_PATH.key())) {
+        if (pluginConfig.hasPath(FileBaseSourceOptions.FILE_PATH.key())
+                && pluginConfig.getValue(FileBaseSourceOptions.FILE_PATH.key()).valueType()
+                        == ConfigValueType.STRING) {
             sourceRootPath = pluginConfig.getString(FileBaseSourceOptions.FILE_PATH.key());
         }
 
@@ -694,12 +699,21 @@ public abstract class AbstractReadStrategy implements ReadStrategy {
                 if (sourceChecksum == null || targetChecksum == null) {
                     if (!checksumUnavailableWarned) {
                         log.warn(
-                                "File checksum is not available, fallback to COPY. source={}, target={}",
+                                "File checksum is not available, fallback to content comparison. source={}, target={}",
                                 sourceFilePath,
                                 targetFilePath);
                         checksumUnavailableWarned = true;
                     }
-                    return true;
+                    try {
+                        return !fileContentEquals(sourceFilePath, targetFilePath);
+                    } catch (Exception e) {
+                        log.warn(
+                                "Fallback content comparison failed, fallback to COPY. source={}, target={}",
+                                sourceFilePath,
+                                targetFilePath,
+                                e);
+                        return true;
+                    }
                 }
                 return !checksumEquals(sourceChecksum, targetChecksum);
             }
@@ -715,6 +729,31 @@ public abstract class AbstractReadStrategy implements ReadStrategy {
         return Objects.equals(source.getAlgorithmName(), target.getAlgorithmName())
                 && source.getLength() == target.getLength()
                 && Arrays.equals(source.getBytes(), target.getBytes());
+    }
+
+    private boolean fileContentEquals(String sourceFilePath, String targetFilePath)
+            throws IOException {
+        try (InputStream sourceIn = hadoopFileSystemProxy.getInputStream(sourceFilePath);
+                InputStream targetIn = targetHadoopFileSystemProxy.getInputStream(targetFilePath)) {
+            byte[] sourceBuffer = new byte[8 * 1024];
+            byte[] targetBuffer = new byte[8 * 1024];
+
+            while (true) {
+                int sourceRead = sourceIn.read(sourceBuffer);
+                int targetRead = targetIn.read(targetBuffer);
+                if (sourceRead != targetRead) {
+                    return false;
+                }
+                if (sourceRead == -1) {
+                    return true;
+                }
+                for (int i = 0; i < sourceRead; i++) {
+                    if (sourceBuffer[i] != targetBuffer[i]) {
+                        return false;
+                    }
+                }
+            }
+        }
     }
 
     private static String buildTargetFilePath(String targetBasePath, String relativePath) {
