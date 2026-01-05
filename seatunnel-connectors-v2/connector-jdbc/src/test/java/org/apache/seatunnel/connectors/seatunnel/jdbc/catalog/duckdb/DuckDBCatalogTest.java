@@ -56,7 +56,7 @@ public class DuckDBCatalogTest {
     private static final String TABLE_NAME = "test_Table";
     private static final String TABLE_NAME_COPY = "test_Table_copy";
     private static final String CATALOG_NAME = "duckdb";
-    private static final String DB_FILE = "test.db";
+    private static final String DB_FILE = "/Users/wangxuepeng/duckdb/test.db";
 
     private static DuckDBCatalog catalog;
     private static String jdbcUrl;

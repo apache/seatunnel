@@ -25,58 +25,24 @@ import com.google.auto.service.AutoService;
 
 import javax.annotation.Nonnull;
 
-/**
- * Factory for creating {@link DuckDBDialect} instances.
- *
- * <p>This factory is automatically registered via Java SPI (Service Provider Interface) using the
- * AutoService annotation. It creates DuckDB dialect instances when JDBC URLs match the DuckDB
- * pattern.
- */
 @AutoService(JdbcDialectFactory.class)
 public class DuckDBDialectFactory implements JdbcDialectFactory {
 
-    /**
-     * Get the factory name identifier.
-     *
-     * @return the database identifier for DuckDB
-     */
     @Override
     public String dialectFactoryName() {
         return DatabaseIdentifier.DUCKDB;
     }
 
-    /**
-     * Check if this factory accepts the given JDBC URL.
-     *
-     * <p>Accepts URLs starting with "jdbc:duckdb:" prefix.
-     *
-     * @param url the JDBC URL to check
-     * @return true if URL is a DuckDB JDBC URL, false otherwise
-     */
     @Override
     public boolean acceptsURL(String url) {
         return url.startsWith("jdbc:duckdb:");
     }
 
-    /**
-     * Create a new DuckDB dialect instance.
-     *
-     * @return new DuckDBDialect instance
-     */
     @Override
     public JdbcDialect create() {
         return new DuckDBDialect();
     }
 
-    /**
-     * Create a new DuckDB dialect instance with compatibility mode.
-     *
-     * <p>DuckDB dialect currently ignores compatibility mode and field identifier settings.
-     *
-     * @param compatibleMode the compatibility mode (not used)
-     * @param fieldIde the field identifier style (not used)
-     * @return new DuckDBDialect instance
-     */
     @Override
     public JdbcDialect create(@Nonnull String compatibleMode, String fieldIde) {
         return new DuckDBDialect();

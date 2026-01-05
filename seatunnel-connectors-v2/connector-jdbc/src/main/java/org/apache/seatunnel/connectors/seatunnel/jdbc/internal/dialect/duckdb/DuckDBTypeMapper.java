@@ -25,38 +25,13 @@ import java.sql.ResultSet;
 import java.sql.ResultSetMetaData;
 import java.sql.SQLException;
 
-/**
- * Type mapper for DuckDB JDBC operations.
- *
- * <p>Maps DuckDB JDBC metadata to SeaTunnel columns using the DuckDB type converter. Extracts type
- * information from ResultSetMetaData and converts it to SeaTunnel's internal representation.
- */
 public class DuckDBTypeMapper implements JdbcDialectTypeMapper {
 
-    /**
-     * Map DuckDB type definition to SeaTunnel column.
-     *
-     * <p>Delegates to DuckDBTypeConverter for actual type conversion.
-     *
-     * @param typeDefine the DuckDB type definition
-     * @return SeaTunnel column with mapped data type
-     */
     @Override
     public Column mappingColumn(BasicTypeDefine typeDefine) {
         return new DuckDBTypeConverter().convert(typeDefine);
     }
 
-    /**
-     * Map DuckDB column from ResultSet metadata to SeaTunnel column.
-     *
-     * <p>Extracts column metadata including name, type, nullability, precision, and scale from JDBC
-     * ResultSetMetaData and converts to SeaTunnel column.
-     *
-     * @param metadata the ResultSet metadata
-     * @param colIndex the column index (1-based)
-     * @return SeaTunnel column with mapped data type
-     * @throws SQLException if metadata extraction fails
-     */
     @Override
     public Column mappingColumn(ResultSetMetaData metadata, int colIndex) throws SQLException {
         String columnName = metadata.getColumnLabel(colIndex);
@@ -64,7 +39,6 @@ public class DuckDBTypeMapper implements JdbcDialectTypeMapper {
         int isNullable = metadata.isNullable(colIndex);
         long precision = metadata.getPrecision(colIndex);
         int scale = metadata.getScale(colIndex);
-
         BasicTypeDefine typeDefine =
                 BasicTypeDefine.builder()
                         .name(columnName)
@@ -75,21 +49,9 @@ public class DuckDBTypeMapper implements JdbcDialectTypeMapper {
                         .precision(precision)
                         .scale(scale)
                         .build();
-
         return mappingColumn(typeDefine);
     }
 
-    /**
-     * Map DuckDB column directly from ResultSet.
-     *
-     * <p>Convenience method that extracts metadata from ResultSet and delegates to the metadata-
-     * based mapping method.
-     *
-     * @param rs the ResultSet
-     * @param colIndex the column index (1-based)
-     * @return SeaTunnel column with mapped data type
-     * @throws SQLException if metadata extraction fails
-     */
     public Column mappingColumn(ResultSet rs, int colIndex) throws SQLException {
         return mappingColumn(rs.getMetaData(), colIndex);
     }

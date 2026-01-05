@@ -31,13 +31,6 @@ import org.apache.seatunnel.connectors.seatunnel.jdbc.internal.dialect.DatabaseI
 import com.google.auto.service.AutoService;
 import lombok.extern.slf4j.Slf4j;
 
-/**
- * Type converter for DuckDB database types.
- *
- * <p>Handles bidirectional conversion between DuckDB native types and SeaTunnel data types.
- * Supports standard SQL types as well as DuckDB-specific types like HUGEINT, UUID, JSON, and
- * complex types (ARRAY, STRUCT, MAP).
- */
 @Slf4j
 @AutoService(TypeConverter.class)
 public class DuckDBTypeConverter implements TypeConverter<BasicTypeDefine> {
@@ -135,25 +128,11 @@ public class DuckDBTypeConverter implements TypeConverter<BasicTypeDefine> {
     /** Singleton instance of DuckDB type converter */
     public static final DuckDBTypeConverter INSTANCE = new DuckDBTypeConverter();
 
-    /**
-     * Get the converter identifier.
-     *
-     * @return the database identifier for DuckDB
-     */
     @Override
     public String identifier() {
         return DatabaseIdentifier.DUCKDB;
     }
 
-    /**
-     * Convert DuckDB type definition to SeaTunnel column.
-     *
-     * <p>Maps DuckDB native types to corresponding SeaTunnel data types. Handles standard SQL types
-     * as well as DuckDB-specific types like HUGEINT, UUID, JSON, and complex types.
-     *
-     * @param typeDefine the DuckDB type definition
-     * @return SeaTunnel column with mapped data type
-     */
     @Override
     public Column convert(BasicTypeDefine typeDefine) {
         PhysicalColumn.PhysicalColumnBuilder builder =
@@ -163,7 +142,6 @@ public class DuckDBTypeConverter implements TypeConverter<BasicTypeDefine> {
                         .nullable(typeDefine.isNullable())
                         .defaultValue(typeDefine.getDefaultValue())
                         .comment(typeDefine.getComment());
-
         String duckDBType = typeDefine.getDataType().toUpperCase();
         switch (duckDBType) {
             case DUCKDB_BOOLEAN:
@@ -215,36 +193,20 @@ public class DuckDBTypeConverter implements TypeConverter<BasicTypeDefine> {
                 break;
             case DUCKDB_UUID:
             case DUCKDB_JSON:
-                /*
-                 * Treat UUID and JSON as string types for compatibility.
-                 * UUID is stored as 36-character string, JSON as text.
-                 */
                 builder.dataType(BasicType.STRING_TYPE);
                 builder.columnLength(typeDefine.getLength() > 0 ? typeDefine.getLength() : 255);
                 break;
             case DUCKDB_HUGEINT:
-                /*
-                 * DuckDB HUGEINT is 128-bit signed integer.
-                 * Map to DECIMAL(38,0) for precision preservation.
-                 */
                 builder.dataType(new DecimalType(38, 0));
                 builder.columnLength(38L);
                 break;
             case DUCKDB_INTERVAL:
-                /*
-                 * Map INTERVAL to STRING as SeaTunnel doesn't have native interval type.
-                 * Interval is stored in ISO 8601 duration format.
-                 */
                 builder.dataType(BasicType.STRING_TYPE);
                 builder.columnLength(50L);
                 break;
             case DUCKDB_ARRAY:
             case DUCKDB_STRUCT:
             case DUCKDB_MAP:
-                /*
-                 * Complex types mapped to STRING for JSON representation.
-                 * Consider using JSON serialization for these types.
-                 */
                 log.warn(
                         "Complex type {} mapped to STRING, consider using JSON serialization",
                         duckDBType);
@@ -259,15 +221,6 @@ public class DuckDBTypeConverter implements TypeConverter<BasicTypeDefine> {
         return builder.build();
     }
 
-    /**
-     * Handle DECIMAL type conversion with precision and scale validation.
-     *
-     * <p>Ensures precision and scale are within DuckDB's supported range (max 38 for both). Applies
-     * truncation and validation with warning logs.
-     *
-     * @param builder the column builder to configure
-     * @param typeDefine the type definition containing precision and scale
-     */
     private void handleDecimalType(
             PhysicalColumn.PhysicalColumnBuilder builder, BasicTypeDefine typeDefine) {
         long precision =
@@ -303,17 +256,6 @@ public class DuckDBTypeConverter implements TypeConverter<BasicTypeDefine> {
         builder.scale(scale);
     }
 
-    /**
-     * Reconvert SeaTunnel column back to DuckDB type definition.
-     *
-     * <p>Maps SeaTunnel data types back to DuckDB native types for table creation and schema
-     * operations.
-     *
-     * @param column the SeaTunnel column to convert
-     * @return DuckDB type definition
-     * @throws org.apache.seatunnel.common.exception.SeaTunnelException if type conversion is not
-     *     supported
-     */
     @Override
     public BasicTypeDefine reconvert(Column column) {
         BasicTypeDefine.BasicTypeDefineBuilder builder =
@@ -386,22 +328,12 @@ public class DuckDBTypeConverter implements TypeConverter<BasicTypeDefine> {
         return builder.build();
     }
 
-    /**
-     * Reconvert DECIMAL type with precision and scale validation.
-     *
-     * <p>Ensures precision and scale are within DuckDB's supported range. Applies truncation with
-     * warning logs if values exceed limits.
-     *
-     * @param column the SeaTunnel column with DECIMAL type
-     * @param builder the type definition builder to configure
-     */
     private void reconvertDecimalType(
             Column column, BasicTypeDefine.BasicTypeDefineBuilder builder) {
         DecimalType decimalType = (DecimalType) column.getDataType();
         long precision =
                 decimalType.getPrecision() > 0 ? decimalType.getPrecision() : DEFAULT_PRECISION;
         int scale = decimalType.getScale();
-
         if (precision > MAX_PRECISION) {
             log.warn(
                     "DECIMAL precision {} exceeds maximum {}, truncating to {}",
@@ -421,7 +353,6 @@ public class DuckDBTypeConverter implements TypeConverter<BasicTypeDefine> {
                     MAX_SCALE);
             scale = MAX_SCALE;
         }
-
         builder.columnType(String.format("%s(%d,%d)", DUCKDB_DECIMAL, precision, scale));
         builder.dataType(DUCKDB_DECIMAL);
         builder.precision(precision);
