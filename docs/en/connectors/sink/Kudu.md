@@ -16,9 +16,9 @@ import ChangeLog from '../changelog/connector-kudu.md';
 
 ## Key Features
 
-- [ ] [exactly-once](../../concept/connector-v2-features.md)
-- [x] [cdc](../../concept/connector-v2-features.md)
-- [x] [support multiple table write](../../concept/connector-v2-features.md)
+- [ ] [exactly-once](../../introduction/concepts/connector-v2-features.md)
+- [x] [cdc](../../introduction/concepts/connector-v2-features.md)
+- [x] [support multiple table write](../../introduction/concepts/connector-v2-features.md)
 
 ## Data Type Mapping
 
@@ -53,7 +53,7 @@ import ChangeLog from '../changelog/connector-kudu.md';
 | buffer_flush_interval                     | Int    | No       | 10000                                          | The flush interval mills, over this time, asynchronous threads will flush data.                                                             |
 | ignore_not_found                          | Bool   | No       | false                                          | If true, ignore all not found rows.                                                                                                         |
 | ignore_not_duplicate                      | Bool   | No       | false                                          | If true, ignore all dulicate rows.                                                                                                          |
-| common-options                            |        | No       | -                                              | Source plugin common parameters, please refer to [Source Common Options](../sink-common-options.md) for details.                            |
+| common-options                            |        | No       | -                                              | Sink plugin common parameters, please refer to [Sink Common Options](../common-options/sink-common-options.md) for details.                            |
 
 ## Task Example
 

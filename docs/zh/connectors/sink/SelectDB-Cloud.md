@@ -12,8 +12,8 @@ import ChangeLog from '../changelog/connector-selectdb-cloud.md';
 
 ## 主要特性
 
-- [x] [精确一次](../../concept/connector-v2-features.md)
-- [x] [cdc](../../concept/connector-v2-features.md)
+- [x] [精确一次](../../introduction/concepts/connector-v2-features.md)
+- [x] [cdc](../../introduction/concepts/connector-v2-features.md)
 
 ## 描述
 

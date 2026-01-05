@@ -16,12 +16,12 @@ import ChangeLog from '../changelog/connector-amazonsqs.md';
 
 ## 关键特性
 
-- [x] [批处理](../../concept/connector-v2-features.md)
-- [x] [流处理](../../concept/connector-v2-features.md)
-- [x] [精确一次](../../concept/connector-v2-features.md)
-- [ ] [列映射](../../concept/connector-v2-features.md)
-- [ ] [并行性](../../concept/connector-v2-features.md)
-- [ ] [支持用户定义的拆分](../../concept/connector-v2-features.md)
+- [x] [批处理](../../introduction/concepts/connector-v2-features.md)
+- [x] [流处理](../../introduction/concepts/connector-v2-features.md)
+- [x] [精确一次](../../introduction/concepts/connector-v2-features.md)
+- [ ] [列映射](../../introduction/concepts/connector-v2-features.md)
+- [ ] [并行性](../../introduction/concepts/connector-v2-features.md)
+- [ ] [支持用户定义的拆分](../../introduction/concepts/connector-v2-features.md)
 
 ## 参数和选项
 

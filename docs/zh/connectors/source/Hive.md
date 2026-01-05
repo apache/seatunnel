@@ -29,15 +29,15 @@ import ChangeLog from '../changelog/connector-hive.md';
 
 ## 关键特性
 
-- [x] [批处理](../../concept/connector-v2-features.md)
-- [ ] [流处理](../../concept/connector-v2-features.md)
-- [x] [精确一次](../../concept/connector-v2-features.md)
+- [x] [批处理](../../introduction/concepts/connector-v2-features.md)
+- [ ] [流处理](../../introduction/concepts/connector-v2-features.md)
+- [x] [精确一次](../../introduction/concepts/connector-v2-features.md)
 
 在 `pollNext` 调用中读取分片中的所有数据。读取的分片将保存在快照中。
 
-- [x] [schema 投影](../../concept/connector-v2-features.md)
-- [x] [并行度](../../concept/connector-v2-features.md)
-- [ ] [支持用户定义的分片](../../concept/connector-v2-features.md)
+- [x] [schema 投影](../../introduction/concepts/connector-v2-features.md)
+- [x] [并行度](../../introduction/concepts/connector-v2-features.md)
+- [ ] [支持用户定义的分片](../../introduction/concepts/connector-v2-features.md)
 - [x] 文件格式
     - [x] 文本
     - [x] CSV

@@ -1,4 +1,4 @@
-import ChangeLog from '../changelog/connector-jdbc.md';
+// import ChangeLog from '../changelog/connector-kingbase.md'  // Changelog file not found;
 
 # Kingbase
 
@@ -16,12 +16,12 @@ import ChangeLog from '../changelog/connector-jdbc.md';
 
 ## Key Features
 
-- [x] [batch](../../concept/connector-v2-features.md)
-- [ ] [stream](../../concept/connector-v2-features.md)
-- [ ] [exactly-once](../../concept/connector-v2-features.md)
-- [x] [column projection](../../concept/connector-v2-features.md)
-- [x] [parallelism](../../concept/connector-v2-features.md)
-- [x] [support user-defined split](../../concept/connector-v2-features.md)
+- [x] [batch](../../introduction/concepts/connector-v2-features.md)
+- [ ] [stream](../../introduction/concepts/connector-v2-features.md)
+- [ ] [exactly-once](../../introduction/concepts/connector-v2-features.md)
+- [x] [column projection](../../introduction/concepts/connector-v2-features.md)
+- [x] [parallelism](../../introduction/concepts/connector-v2-features.md)
+- [x] [support user-defined split](../../introduction/concepts/connector-v2-features.md)
 
 ## Description
 
@@ -70,7 +70,7 @@ Read external data source data through JDBC.
 | partition_upper_bound        | BigDecimal | No       | -               | The partition_column max value for scan, if not set SeaTunnel will query database get max value.                                                                                                                                                                      |
 | partition_num                | Int        | No       | job parallelism | The number of partition count, only support positive integer. Default value is job parallelism.                                                                                                                                                                       |
 | fetch_size                   | Int        | No       | 0               | For queries that return a large number of objects, you can configure <br/> the row fetch size used in the query to improve performance by <br/> reducing the number database hits required to satisfy the selection criteria.<br/> Zero means use jdbc default value. |
-| common-options               |            | No       | -               | Source plugin common parameters, please refer to [Source Common Options](../source-common-options.md) for details                                                                                                                                                     |
+| common-options               |            | No       | -               | Source plugin common parameters, please refer to [Source Common Options](../common-options/source-common-options.md) for details                                                                                                                                                     |
 
 ### Tips
 
@@ -150,4 +150,4 @@ source {
 
 ## Changelog
 
-<ChangeLog />
+// <ChangeLog />  // Changelog file not found

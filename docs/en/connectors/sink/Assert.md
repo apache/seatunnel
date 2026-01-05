@@ -10,7 +10,7 @@ A sink plugin which can assert illegal data by user defined rules
 
 ## Key Features
 
-- [ ] [exactly-once](../../concept/connector-v2-features.md)
+- [ ] [exactly-once](../../introduction/concepts/connector-v2-features.md)
 
 ## Options
 
@@ -63,7 +63,7 @@ field name（string）
 
 ### field_type [string | ConfigMap]
 
-Field type declarations should adhere to this [guide](../../concept/schema-feature.md#how-to-declare-type-supported).
+Field type declarations should adhere to this [guide](../../introduction/concepts/schema-feature.md#how-to-declare-type-supported).
 
 ### field_value [ConfigList]
 
@@ -87,7 +87,7 @@ The value related to rule type. When the `rule_type` is `MIN`, `MAX`, `MIN_LENGT
 
 ### equals_to [boolean | numeric | string | ConfigList | ConfigMap]
 
-`equals_to` is used to compare whether the field value is equal to the configured expected value. You can assign values of all types to `equals_to`. These types are detailed [here](../../concept/schema-feature.md#what-type-supported-at-now). For instance, if one field is a row with three fields, and the declaration of row type is `{a = array<string>, b = map<string, decimal(30, 2)>, c={c_0 = int, b = string}}`, users can assign the value `[["a", "b"], { k0 = 9999.99, k1 = 111.11 }, [123, "abcd"]]` to `equals_to`.
+`equals_to` is used to compare whether the field value is equal to the configured expected value. You can assign values of all types to `equals_to`. These types are detailed [here](../../introduction/concepts/schema-feature.md#what-type-supported-at-now). For instance, if one field is a row with three fields, and the declaration of row type is `{a = array<string>, b = map<string, decimal(30, 2)>, c={c_0 = int, b = string}}`, users can assign the value `[["a", "b"], { k0 = 9999.99, k1 = 111.11 }, [123, "abcd"]]` to `equals_to`.
 
 > The way of defining field values is consistent with [FakeSource](../source/FakeSource.md#customize-the-data-content-simple).
 >
@@ -111,7 +111,7 @@ The path of the table.
 
 ### common options
 
-Sink plugin common parameters, please refer to [Sink Common Options](../sink-common-options.md) for details
+Sink plugin common parameters, please refer to [Sink Common Options](../common-options/sink-common-options.md) for details
 
 ## Example
 

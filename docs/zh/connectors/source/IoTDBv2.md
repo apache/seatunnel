@@ -16,13 +16,13 @@ import ChangeLog from '../changelog/connector-iotdb.md';
 
 ## 主要特性
 
-- [x] [批处理](../../concept/connector-v2-features.md)
-- [x] [流处理](../../concept/connector-v2-features.md)
-- [x] [精确一次](../../concept/connector-v2-features.md)
-- [x] [列投影](../../concept/connector-v2-features.md) 
+- [x] [批处理](../../introduction/concepts/connector-v2-features.md)
+- [x] [流处理](../../introduction/concepts/connector-v2-features.md)
+- [x] [精确一次](../../introduction/concepts/connector-v2-features.md)
+- [x] [列投影](../../introduction/concepts/connector-v2-features.md) 
   > IoTDB 通过 SQL 查询支持列投影功能。
-- [x] [并行度](../../concept/connector-v2-features.md)
-- [ ] [支持用户自定义分片](../../concept/connector-v2-features.md)
+- [x] [并行度](../../introduction/concepts/connector-v2-features.md)
+- [ ] [支持用户自定义分片](../../introduction/concepts/connector-v2-features.md)
 
 ## 支持的数据源信息
 
@@ -66,7 +66,7 @@ import ChangeLog from '../changelog/connector-iotdb.md';
 | default_thrift_buffer_size | Integer | 否    | -    | Thrift 协议缓冲区大小                                                                   |
 | max_thrift_frame_size      | Integer | 否    | -    | Thrift 最大帧尺寸                                                                     |
 | enable_cache_leader        | Boolean | 否    | -    | 是否启用 Leader 节点缓存                                                                 |
-| common-options             |         | 否    | -    | Source 插件常用参数，详见 [Source common Options](../Source common Options.md)            |
+| common-options             |         | 否    | -    | Source 插件常用参数，详见 [Source common Options](../common-options/source-common-options.md)            |
 
 我们可以使用时间列进行分区查询。
 

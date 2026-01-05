@@ -12,11 +12,11 @@ import ChangeLog from '../changelog/connector-clickhouse.md';
 
 ## 核心特性
 
-- [ ] [精准一次](../../concept/connector-v2-features.md)
-- [x] [cdc](../../concept/connector-v2-features.md)
+- [ ] [精准一次](../../introduction/concepts/connector-v2-features.md)
+- [x] [cdc](../../introduction/concepts/connector-v2-features.md)
 
 > Clickhouse sink 插件通过实现幂等写入可以达到精准一次，需要配合 aggregating merge tree 支持重复数据删除的引擎。
-- [x] [支持多表写入](../../concept/connector-v2-features.md)
+- [x] [支持多表写入](../../introduction/concepts/connector-v2-features.md)
 
 
 ## 描述
@@ -66,7 +66,7 @@ import ChangeLog from '../changelog/connector-clickhouse.md';
 | data_save_mode                 | Enum    | no       | APPEND_DATA                  | 数据保存模式，请参考下面的`data_save_mode`。                                                                                                                         |
 | custom_sql                  | String  | no   | -                            | 当data_save_mode设置为CUSTOM_PROCESSING时，必须同时设置CUSTOM_SQL参数。CUSTOM_SQL的值为可执行的SQL语句，在同步任务开启前SQL将会被执行                     |
 | save_mode_create_template      | string  | no       | see below                    | 见下文。                                                                                                                                                   |
-| common-options                        |         | No   | -     | Sink插件查用参数,详见[Sink常用选项](../sink-common-options.md).                                                                                                                              |
+| common-options                        |         | No   | -     | Sink插件查用参数,详见[Sink常用选项](../common-options/sink-common-options.md).                                                                                                                              |
 
 ### schema_save_mode [Enum]
 

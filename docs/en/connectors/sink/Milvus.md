@@ -13,9 +13,9 @@ This Milvus sink connector write data to Milvus or Zilliz Cloud, it has the foll
 - retry automatically to bypass ratelimit and grpc limit
 ## Key Features
 
-- [x] [batch](../../concept/connector-v2-features.md)
-- [x] [exactly-once](../../concept/connector-v2-features.md)
-- [ ] [column projection](../../concept/connector-v2-features.md)
+- [x] [batch](../../introduction/concepts/connector-v2-features.md)
+- [x] [exactly-once](../../introduction/concepts/connector-v2-features.md)
+- [ ] [column projection](../../introduction/concepts/connector-v2-features.md)
 
 ## Data Type Mapping
 

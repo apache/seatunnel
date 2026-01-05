@@ -13,11 +13,11 @@ import ChangeLog from '../changelog/connector-databend.md';
 
 ## Key Features
 
-- [x] [Batch Processing](../../concept/connector-v2-features.md)
-- [ ] [Stream Processing](../../concept/connector-v2-features.md)
-- [x] [Parallelism](../../concept/connector-v2-features.md)
-- [ ] [Support User-defined Sharding](../../concept/connector-v2-features.md)
-- [ ] [Support Multi-table Reading](../../concept/connector-v2-features.md)
+- [x] [Batch Processing](../../introduction/concepts/connector-v2-features.md)
+- [ ] [Stream Processing](../../introduction/concepts/connector-v2-features.md)
+- [x] [Parallelism](../../introduction/concepts/connector-v2-features.md)
+- [ ] [Support User-defined Sharding](../../introduction/concepts/connector-v2-features.md)
+- [ ] [Support Multi-table Reading](../../introduction/concepts/connector-v2-features.md)
 
 ## Description
 

@@ -16,7 +16,7 @@ import ChangeLog from '../changelog/connector-jdbc.md';
 
 ## 主要特性
 
-- [ ] [精准一次](../../concept/connector-v2-features.md)
+- [ ] [精准一次](../../introduction/concepts/connector-v2-features.md)
 
 ## 接收器选项
 
@@ -32,7 +32,7 @@ phoenix（thin）驱动：`jdbc:phoenix:thin:url=http://localhost:8765;serializa
 
 ### common options
 
-Sink插件常用参数，请参考[Sink常用选项](../sink-common-options.md)获取更多细节信息。
+Sink插件常用参数，请参考[Sink常用选项](../common-options/sink-common-options.md)获取更多细节信息。
 
 ## 示例
 

@@ -18,9 +18,9 @@ import ChangeLog from '../changelog/connector-doris.md';
 
 ## Key Features
 
-- [x] [exactly-once](../../concept/connector-v2-features.md)
-- [x] [cdc](../../concept/connector-v2-features.md)
-- [x] [support multiple table write](../../concept/connector-v2-features.md)
+- [x] [exactly-once](../../introduction/concepts/connector-v2-features.md)
+- [x] [cdc](../../introduction/concepts/connector-v2-features.md)
+- [x] [support multiple table write](../../introduction/concepts/connector-v2-features.md)
 
 ## Description
 

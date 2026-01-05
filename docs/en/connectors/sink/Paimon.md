@@ -55,8 +55,8 @@ libfb303-xxx.jar
 
 ## Key features
 
-- [x] [exactly-once](../../concept/connector-v2-features.md)
-- [x] [support multiple table write](../../concept/connector-v2-features.md)
+- [x] [exactly-once](../../introduction/concepts/connector-v2-features.md)
+- [x] [support multiple table write](../../introduction/concepts/connector-v2-features.md)
 
 ## Options
 

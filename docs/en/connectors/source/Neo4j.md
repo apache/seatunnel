@@ -12,12 +12,12 @@ Read data from Neo4j.
 
 ## Key features
 
-- [x] [batch](../../concept/connector-v2-features.md)
-- [ ] [stream](../../concept/connector-v2-features.md)
-- [ ] [exactly-once](../../concept/connector-v2-features.md)
-- [x] [column projection](../../concept/connector-v2-features.md)
-- [ ] [parallelism](../../concept/connector-v2-features.md)
-- [ ] [support user-defined split](../../concept/connector-v2-features.md)
+- [x] [batch](../../introduction/concepts/connector-v2-features.md)
+- [ ] [stream](../../introduction/concepts/connector-v2-features.md)
+- [ ] [exactly-once](../../introduction/concepts/connector-v2-features.md)
+- [x] [column projection](../../introduction/concepts/connector-v2-features.md)
+- [ ] [parallelism](../../introduction/concepts/connector-v2-features.md)
+- [ ] [support user-defined split](../../introduction/concepts/connector-v2-features.md)
 
 ## Options
 
@@ -66,7 +66,7 @@ Query statement.
 
 returned fields of `query`
 
-see [column projection](../../concept/connector-v2-features.md)
+see [column projection](../../introduction/concepts/connector-v2-features.md)
 
 ### max_transaction_retry_time [long]
 

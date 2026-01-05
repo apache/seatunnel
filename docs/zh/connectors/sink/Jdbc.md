@@ -20,12 +20,12 @@ import ChangeLog from '../changelog/connector-jdbc.md';
 
 ## 主要特性
 
-- [x] [精确一次](../../concept/connector-v2-features.md)
+- [x] [精确一次](../../introduction/concepts/connector-v2-features.md)
 
 使用 `Xa transactions` 来确保 `exactly-once`。所以仅对于支持 `Xa transactions` 的数据库支持 `exactly-once`
 。你可以设置 `is_exactly_once=true` 来启用它。
 
-- [x] [cdc](../../concept/connector-v2-features.md)
+- [x] [cdc](../../introduction/concepts/connector-v2-features.md)
 
 ## Options
 
@@ -190,7 +190,7 @@ Tip: 如果目标数据库有 SCHEMA 的概念，则表参数必须写成 `xxx.x
 
 ### common options
 
-Sink插件常用参数，请参考 [Sink常用选项](../sink-common-options.md) 了解详情
+Sink插件常用参数，请参考 [Sink常用选项](../common-options/sink-common-options.md) 了解详情
 
 ### schema_save_mode [Enum]
 

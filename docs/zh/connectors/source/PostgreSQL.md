@@ -22,12 +22,12 @@ import ChangeLog from '../changelog/connector-jdbc.md';
 
 ## 主要特性
 
-- [x] [批处理](../../concept/connector-v2-features.md)
-- [ ] [流处理](../../concept/connector-v2-features.md)
-- [x] [严格一次性](../../concept/connector-v2-features.md)
-- [x] [列投影](../../concept/connector-v2-features.md)
-- [x] [并行性](../../concept/connector-v2-features.md)
-- [x] [支持用户定义的拆分](../../concept/connector-v2-features.md)
+- [x] [批处理](../../introduction/concepts/connector-v2-features.md)
+- [ ] [流处理](../../introduction/concepts/connector-v2-features.md)
+- [x] [严格一次性](../../introduction/concepts/connector-v2-features.md)
+- [x] [列投影](../../introduction/concepts/connector-v2-features.md)
+- [x] [并行性](../../introduction/concepts/connector-v2-features.md)
+- [x] [支持用户定义的拆分](../../introduction/concepts/connector-v2-features.md)
 
 > 支持查询 SQL，并可以实现投影效果。
 

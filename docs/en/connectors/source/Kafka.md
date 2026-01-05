@@ -12,12 +12,12 @@ import ChangeLog from '../changelog/connector-kafka.md';
 
 ## Key Features
 
-- [x] [batch](../../concept/connector-v2-features.md)
-- [x] [stream](../../concept/connector-v2-features.md)
-- [x] [exactly-once](../../concept/connector-v2-features.md)
-- [ ] [column projection](../../concept/connector-v2-features.md)
-- [x] [parallelism](../../concept/connector-v2-features.md)
-- [ ] [support user-defined split](../../concept/connector-v2-features.md)
+- [x] [batch](../../introduction/concepts/connector-v2-features.md)
+- [x] [stream](../../introduction/concepts/connector-v2-features.md)
+- [x] [exactly-once](../../introduction/concepts/connector-v2-features.md)
+- [ ] [column projection](../../introduction/concepts/connector-v2-features.md)
+- [x] [parallelism](../../introduction/concepts/connector-v2-features.md)
+- [ ] [support user-defined split](../../introduction/concepts/connector-v2-features.md)
 
 ## Description
 
@@ -55,7 +55,7 @@ They can be downloaded via install-plugin.sh or from the Maven central repositor
 | start_mode.end_timestamp             | Long                                                                       | No       | -                        | The end time required for consumption mode to be "timestamp" in batch mode
 | partition-discovery.interval-millis | Long                                                                       | No       | -1                       | The interval for dynamically discovering topics and partitions.                                                                                                                                                                                                                                                                                                                                                                                                                                                                              |
 | ignore_no_leader_partition          | Boolean                                                                    | No       | false                    | Whether to ignore partitions that have no leader. If set to true, partitions without a leader will be skipped during partition discovery. If set to false (default), the connector will include all partitions regardless of leader status. This is useful when dealing with Kafka clusters that may have temporary leadership issues.                                                                                                                                                                                                      |
-| common-options                      |                                                                            | No       | -                        | Source plugin common parameters, please refer to [Source Common Options](../source-common-options.md) for details                                                                                                                                                                                                                                                                                                                                                                                                                            |
+| common-options                      |                                                                            | No       | -                        | Source plugin common parameters, please refer to [Source Common Options](../common-options/source-common-options.md) for details                                                                                                                                                                                                                                                                                                                                                                                                                            |
 | protobuf_message_name               | String                                                                     | No       | -                        | Effective when the format is set to protobuf, specifies the Message name                                                                                                                                                                                                                                                                                                                                                                                                                                                                     |
 | protobuf_schema                     | String                                                                     | No       | -                        | Effective when the format is set to protobuf, specifies the Schema definition                                                                                                                                                                                                                                                                                                                                                                                                                                                                |
 | reader_cache_queue_size             | Integer                                                                     | No       | 1024                     | The reader shard cache queue is used to cache the data corresponding to the shards. The size of the shard cache depends on the number of shards obtained by each reader, rather than the amount of data in each shard.                                                                                                                                                                                                                                                                                            |
@@ -77,7 +77,7 @@ Only the data of the `test.public.products` table will be consumed.
 
 ## Metadata Support
 
-The Kafka source automatically injects `ConsumerRecord.timestamp` into the SeaTunnel `EventTime` metadata when the value is non-negative. You can expose it as a normal field through the [Metadata transform](../../transform-v2/metadata.md) for downstream SQL or partitioning.
+The Kafka source automatically injects `ConsumerRecord.timestamp` into the SeaTunnel `EventTime` metadata when the value is non-negative. You can expose it as a normal field through the [Metadata transform](../../transforms/metadata.md) for downstream SQL or partitioning.
 
 ```hocon
 source {
@@ -109,7 +109,7 @@ transform {
 
 ### Simple
 
-> This example reads the data of kafka's topic_1, topic_2, topic_3 and prints it to the client.And if you have not yet installed and deployed SeaTunnel, you need to follow the instructions in Install SeaTunnel to install and deploy SeaTunnel. And if you have not yet installed and deployed SeaTunnel, you need to follow the instructions in [Install SeaTunnel](../../start-v2/locally/deployment.md) to install and deploy SeaTunnel. And then follow the instructions in [Quick Start With SeaTunnel Engine](../../start-v2/locally/quick-start-seatunnel-engine.md) to run this job.
+> This example reads the data of kafka's topic_1, topic_2, topic_3 and prints it to the client.And if you have not yet installed and deployed SeaTunnel, you need to follow the instructions in Install SeaTunnel to install and deploy SeaTunnel. And if you have not yet installed and deployed SeaTunnel, you need to follow the instructions in [Install SeaTunnel](../../getting-started/locally/deployment.md) to install and deploy SeaTunnel. And then follow the instructions in [Quick Start With SeaTunnel Engine](../../getting-started/locally/quick-start-seatunnel-engine.md) to run this job.
 > In batch mode, during the enumerator sharding process, it will fetch the latest offset for each partition and use it as the stopping point.
 
 ```hocon

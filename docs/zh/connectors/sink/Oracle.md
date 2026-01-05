@@ -27,8 +27,8 @@ import ChangeLog from '../changelog/connector-jdbc.md';
 
 ## 主要特性
 
-- [x] [精确一次](../../concept/connector-v2-features.md)
-- [x] [cdc](../../concept/connector-v2-features.md)
+- [x] [精确一次](../../introduction/concepts/connector-v2-features.md)
+- [x] [cdc](../../introduction/concepts/connector-v2-features.md)
 
 >使用“Xa事务”来确保“精确一次”。因此，数据库只支持“精确一次”，即
 >支持“Xa事务”。您可以设置`is_exactly_once=true `来启用它。
@@ -85,7 +85,7 @@ import ChangeLog from '../changelog/connector-jdbc.md';
 | transaction_timeout_sec      | Int     | 否       | -1                           | 事务打开后的超时，默认值为-1（永不超时）。请注意，设置超时可能会影响＜br/＞精确一次语义                                                                                            |
 | auto_commit                  | Boolean | 否       | true                         | 默认情况下启用自动事务提交                                                                                                                                                                                              |
 | properties                   | Map     | 否       | -                            | 其他连接配置参数，当属性和URL具有相同的参数时，优先级由驱动程序的特定实现决定。例如，在MySQL中，属性优先于URL。 |
-| common-options               |         | 否       | -                            | Sink插件常用参数，请参考 [Sink Common Options](../sink-common-options.md)                                                                                                                                     |
+| common-options               |         | 否       | -                            | Sink插件常用参数，请参考 [Sink Common Options](../common-options/sink-common-options.md)                                                                                                                                     |
 | schema_save_mode             | Enum    | 否       | CREATE_SCHEMA_WHEN_NOT_EXIST | 在启动同步任务之前，对目标侧的现有表面结构选择不同的处理方案。                                                                                                      |
 | data_save_mode               | Enum    | 否       | APPEND_DATA                  | 在启动同步任务之前，对目标端的现有数据选择不同的处理方案。                                                                                                                 |
 | custom_sql                   | String  | 否       | -                            | 当data_save_mode选择CUSTOM_PROCESSING时，您应该填写CUSTOM_SQL参数。此参数通常填充可以执行的SQL。SQL将在同步任务之前执行。                                       |

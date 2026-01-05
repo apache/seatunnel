@@ -12,10 +12,10 @@ import ChangeLog from '../changelog/connector-databend.md';
 
 ## Key Features
 
-- [ ] [Support Multi-table Writing](../../concept/connector-v2-features.md)
-- [x] [Exactly-Once](../../concept/connector-v2-features.md)
-- [x] [CDC](../../concept/connector-v2-features.md)
-- [x] [Parallelism](../../concept/connector-v2-features.md)
+- [ ] [Support Multi-table Writing](../../introduction/concepts/connector-v2-features.md)
+- [x] [Exactly-Once](../../introduction/concepts/connector-v2-features.md)
+- [x] [CDC](../../introduction/concepts/connector-v2-features.md)
+- [x] [Parallelism](../../introduction/concepts/connector-v2-features.md)
 
 ## Description
 

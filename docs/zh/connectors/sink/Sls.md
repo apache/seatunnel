@@ -12,8 +12,8 @@ import ChangeLog from '../changelog/connector-sls.md';
 
 ## 主要特性
 
-- [ ] [exactly-once](../../concept/connector-v2-features.md)
-- [ ] [cdc](../../concept/connector-v2-features.md)
+- [ ] [exactly-once](../../introduction/concepts/connector-v2-features.md)
+- [ ] [cdc](../../introduction/concepts/connector-v2-features.md)
 
 ## 描述
 

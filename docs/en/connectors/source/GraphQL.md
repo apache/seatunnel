@@ -10,9 +10,9 @@ Used to read data from GraphQL.
 
 ## Key features
 
-- [x] [batch](../../concept/connector-v2-features.md)
-- [x] [stream](../../concept/connector-v2-features.md)
-- [ ] [parallelism](../../concept/connector-v2-features.md)
+- [x] [batch](../../introduction/concepts/connector-v2-features.md)
+- [x] [stream](../../introduction/concepts/connector-v2-features.md)
+- [ ] [parallelism](../../introduction/concepts/connector-v2-features.md)
 
 ## Options
 
@@ -112,7 +112,7 @@ the schema fields of upstream data
 
 ### common options
 
-Source plugin common parameters, please refer to [Source Common Options](../source-common-options.md) for details
+Source plugin common parameters, please refer to [Source Common Options](../common-options/source-common-options.md) for details
 
 ## Example
 

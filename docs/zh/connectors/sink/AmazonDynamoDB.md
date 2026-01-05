@@ -10,7 +10,7 @@ import ChangeLog from '../changelog/connector-amazondynamodb.md';
 
 ## 关键特性
 
-- [ ] [精确一次](../../concept/connector-v2-features.md)
+- [ ] [精确一次](../../introduction/concepts/connector-v2-features.md)
 
 ## 选项
 
@@ -46,7 +46,7 @@ Amazon DynamoDB 的表名.
 
 ### 常见选项
 
-Sink插件常用参数，请参考 [Sink Common Options](../sink-common-options.md) 了解详细信息.
+Sink插件常用参数，请参考 [Sink Common Options](../common-options/sink-common-options.md) 了解详细信息.
 
 ## 示例
 

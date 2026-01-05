@@ -12,8 +12,8 @@ import ChangeLog from '../changelog/connector-starrocks.md';
 
 ## 主要特性
 
-- [ ] [精准一次](../../concept/connector-v2-features.md)
-- [x] [cdc](../../concept/connector-v2-features.md)
+- [ ] [精准一次](../../introduction/concepts/connector-v2-features.md)
+- [x] [cdc](../../introduction/concepts/connector-v2-features.md)
 
 ## 描述
 

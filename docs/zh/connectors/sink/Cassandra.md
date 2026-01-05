@@ -10,7 +10,7 @@ import ChangeLog from '../changelog/connector-cassandra.md';
 
 ## 关键特性
 
-- [ ] [精确一次](../../concept/connector-v2-features.md)
+- [ ] [精确一次](../../introduction/concepts/connector-v2-features.md)
 
 ## 选项
 

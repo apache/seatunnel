@@ -12,12 +12,12 @@ import ChangeLog from '../changelog/connector-http.md';
 
 ## Key Features
 
-- [x] [batch](../../concept/connector-v2-features.md)
-- [x] [stream](../../concept/connector-v2-features.md)
-- [ ] [exactly-once](../../concept/connector-v2-features.md)
-- [ ] [column projection](../../concept/connector-v2-features.md)
-- [ ] [parallelism](../../concept/connector-v2-features.md)
-- [ ] [support user-defined split](../../concept/connector-v2-features.md)
+- [x] [batch](../../introduction/concepts/connector-v2-features.md)
+- [x] [stream](../../introduction/concepts/connector-v2-features.md)
+- [ ] [exactly-once](../../introduction/concepts/connector-v2-features.md)
+- [ ] [column projection](../../introduction/concepts/connector-v2-features.md)
+- [ ] [parallelism](../../introduction/concepts/connector-v2-features.md)
+- [ ] [support user-defined split](../../introduction/concepts/connector-v2-features.md)
 
 ## Description
 
@@ -25,12 +25,12 @@ Used to read data from Http.
 
 ## Key features
 
-- [x] [batch](../../concept/connector-v2-features.md)
-- [x] [stream](../../concept/connector-v2-features.md)
-- [ ] [exactly-once](../../concept/connector-v2-features.md)
-- [ ] [column projection](../../concept/connector-v2-features.md)
-- [ ] [parallelism](../../concept/connector-v2-features.md)
-- [ ] [support user-defined split](../../concept/connector-v2-features.md)
+- [x] [batch](../../introduction/concepts/connector-v2-features.md)
+- [x] [stream](../../introduction/concepts/connector-v2-features.md)
+- [ ] [exactly-once](../../introduction/concepts/connector-v2-features.md)
+- [ ] [column projection](../../introduction/concepts/connector-v2-features.md)
+- [ ] [parallelism](../../introduction/concepts/connector-v2-features.md)
+- [ ] [support user-defined split](../../introduction/concepts/connector-v2-features.md)
 
 Supported DataSource Info
 -------------------------
@@ -72,7 +72,7 @@ They can be downloaded via install-plugin.sh or from the Maven central repositor
 | enable_multi_lines            | Boolean | No       | false       |                                                                                                                                                                               |
 | connect_timeout_ms            | Int     | No       | 12000       | Connection timeout setting, default 12s.                                                                                                                                      |
 | socket_timeout_ms             | Int     | No       | 60000       | Socket timeout setting, default 60s.                                                                                                                                          |
-| common-options                |         | No       | -           | Source plugin common parameters, please refer to [Source Common Options](../source-common-options.md) for details                                                             |
+| common-options                |         | No       | -           | Source plugin common parameters, please refer to [Source Common Options](../common-options/source-common-options.md) for details                                                             |
 | keep_params_as_form           |    Boolean  | No       | false       | Whether the params are submitted according to the form, used for compatibility with legacy behaviors. When true, the value of the params parameter is submitted through the form. |
 | keep_page_param_as_http_param |    Boolean  | No       | false       | Whether to set the paging parameters to params. For compatibility with legacy behaviors.|
 | json_filed_missed_return_null         |    Boolean     | No       | false       | When the json field is missing, set true return null else error.|
@@ -303,8 +303,8 @@ Http {
 
 Here is an example:
 
-- Test data can be found at this link [mockserver-config.json](seatunnel-e2e/seatunnel-connector-v2-e2e/connector-http-e2e/src/test/resources/mockserver-config.json)
-- See this link for task configuration [http_contentjson_to_assert.conf](seatunnel-e2e/seatunnel-connector-v2-e2e/connector-http-e2e/src/test/resources/http_contentjson_to_assert.conf).
+- Test data can be found at this link [mockserver-config.json](https://github.com/apache/seatunnel/blob/dev/seatunnel-e2e/seatunnel-connector-v2-e2e/connector-http-e2e/src/test/resources/mockserver-config.json)
+- See this link for task configuration [http_contentjson_to_assert.conf](https://github.com/apache/seatunnel/blob/dev/seatunnel-e2e/seatunnel-connector-v2-e2e/connector-http-e2e/src/test/resources/http_contentjson_to_assert.conf).
 
 ### json_field
 
@@ -364,8 +364,8 @@ source {
 }
 ```
 
-- Test data can be found at this link [mockserver-config.json](seatunnel-e2e/seatunnel-connector-v2-e2e/connector-http-e2e/src/test/resources/mockserver-config.json)
-- See this link for task configuration [http_jsonpath_to_assert.conf](seatunnel-e2e/seatunnel-connector-v2-e2e/connector-http-e2e/src/test/resources/http_jsonpath_to_assert.conf).
+- Test data can be found at this link [mockserver-config.json](https://github.com/apache/seatunnel/blob/dev/seatunnel-e2e/seatunnel-connector-v2-e2e/connector-http-e2e/src/test/resources/mockserver-config.json)
+- See this link for task configuration [http_jsonpath_to_assert.conf](https://github.com/apache/seatunnel/blob/dev/seatunnel-e2e/seatunnel-connector-v2-e2e/connector-http-e2e/src/test/resources/http_jsonpath_to_assert.conf).
 
 ### pageing
 The current supported pagination type are `PageNumber` and `Cursor`.

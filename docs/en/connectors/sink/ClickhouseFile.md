@@ -12,7 +12,7 @@ should be `true`. Supports Batch and Streaming mode.
 
 ## Key features
 
-- [ ] [exactly-once](../../concept/connector-v2-features.md)
+- [ ] [exactly-once](../../introduction/concepts/connector-v2-features.md)
 
 :::tip
 
@@ -120,7 +120,7 @@ The path of the private key file used for scp or rsync to connect to the ClickHo
 
 ### common options
 
-Sink plugin common parameters, please refer to [Sink Common Options](../sink-common-options.md) for details
+Sink plugin common parameters, please refer to [Sink Common Options](../common-options/sink-common-options.md) for details
 
 ## Examples
 

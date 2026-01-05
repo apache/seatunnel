@@ -8,8 +8,8 @@ Output data to `Elasticsearch`.
 
 ## Key features
 
-- [ ] [exactly-once](../../concept/connector-v2-features.md)
-- [x] [cdc](../../concept/connector-v2-features.md)
+- [ ] [exactly-once](../../introduction/concepts/connector-v2-features.md)
+- [x] [cdc](../../introduction/concepts/connector-v2-features.md)
 
 :::tip
 
@@ -197,7 +197,7 @@ The key password for the trust store specified
 
 ### common options
 
-Sink plugin common parameters, please refer to [Sink Common Options](../sink-common-options.md) for details
+Sink plugin common parameters, please refer to [Sink Common Options](../common-options/sink-common-options.md) for details
 
 ### schema_save_mode
 

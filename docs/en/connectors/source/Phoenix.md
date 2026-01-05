@@ -1,12 +1,4 @@
-import ChangeLog from '../changelog/connector-jdbc.md';
-
-# Phoenix
-
-> Phoenix source connector
-
-## Description
-
-Read Phoenix data through [Jdbc connector](Jdbc.md).
+import ChangeLog from '../changelog/connector-phoenix.md).
 Support Batch mode and Streaming mode. The tested Phoenix version is 4.xx and 5.xx
 On the underlying implementation, through the jdbc driver of Phoenix, execute the upsert statement to write data to HBase.
 Two ways of connecting Phoenix with Java JDBC. One is to connect to zookeeper through JDBC, and the other is to connect to queryserver through JDBC thin client.
@@ -15,15 +7,15 @@ Two ways of connecting Phoenix with Java JDBC. One is to connect to zookeeper th
 
 ## Key features
 
-- [x] [batch](../../concept/connector-v2-features.md)
-- [x] [stream](../../concept/connector-v2-features.md)
-- [ ] [exactly-once](../../concept/connector-v2-features.md)
-- [x] [column projection](../../concept/connector-v2-features.md)
+- [x] [batch](../../introduction/concepts/connector-v2-features.md)
+- [x] [stream](../../introduction/concepts/connector-v2-features.md)
+- [ ] [exactly-once](../../introduction/concepts/connector-v2-features.md)
+- [x] [column projection](../../introduction/concepts/connector-v2-features.md)
 
 supports query SQL and can achieve projection effect.
 
-- [ ] [parallelism](../../concept/connector-v2-features.md)
-- [ ] [support user-defined split](../../concept/connector-v2-features.md)
+- [ ] [parallelism](../../introduction/concepts/connector-v2-features.md)
+- [ ] [support user-defined split](../../introduction/concepts/connector-v2-features.md)
 
 ## Options
 
@@ -37,7 +29,7 @@ if you use phoenix (thick) driver the value is `jdbc:phoenix:localhost:2182/hbas
 
 ### common options
 
-Source plugin common parameters, please refer to [Source Common Options](../source-common-options.md) for details
+Source plugin common parameters, please refer to [Source Common Options](../common-options/source-common-options.md) for details
 
 ## Example
 

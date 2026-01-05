@@ -16,13 +16,13 @@ Used to read data from IoTDB.
 
 ## Key features
 
-- [x] [batch](../../concept/connector-v2-features.md)
-- [x] [stream](../../concept/connector-v2-features.md)
-- [x] [exactly-once](../../concept/connector-v2-features.md)
-- [x] [column projection](../../concept/connector-v2-features.md)
+- [x] [batch](../../introduction/concepts/connector-v2-features.md)
+- [x] [stream](../../introduction/concepts/connector-v2-features.md)
+- [x] [exactly-once](../../introduction/concepts/connector-v2-features.md)
+- [x] [column projection](../../introduction/concepts/connector-v2-features.md)
     > IoTDB allows column projection using SQL query.
-- [x] [parallelism](../../concept/connector-v2-features.md)
-- [ ] [support user-defined split](../../concept/connector-v2-features.md)
+- [x] [parallelism](../../introduction/concepts/connector-v2-features.md)
+- [ ] [support user-defined split](../../introduction/concepts/connector-v2-features.md)
 
 ## Supported DataSource Info
 
@@ -66,7 +66,7 @@ Used to read data from IoTDB.
 | default_thrift_buffer_size | Integer | No       | -             | The thrift_default_buffer_size of the IoTDB when you select                                                       |
 | max_thrift_frame_size      | Integer | No       | -             | The thrift max frame size                                                                                         |
 | enable_cache_leader        | Boolean | No       | -             | Enable_cache_leader of the IoTDB when you select                                                                  |
-| common-options             |         | no       | -             | Source plugin common parameters, please refer to [Source Common Options](../source-common-options.md) for details |
+| common-options             |         | no       | -             | Source plugin common parameters, please refer to [Source Common Options](../common-options/source-common-options.md) for details |
 
 We can use time column as a partition key in SQL queries.
 

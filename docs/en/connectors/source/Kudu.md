@@ -16,11 +16,11 @@ import ChangeLog from '../changelog/connector-kudu.md';
 
 ## Key features
 
-- [x] [batch](../../concept/connector-v2-features.md)
-- [ ] [exactly-once](../../concept/connector-v2-features.md)
-- [x] [column projection](../../concept/connector-v2-features.md)
-- [x] [parallelism](../../concept/connector-v2-features.md)
-- [ ] [support user-defined split](../../concept/connector-v2-features.md)
+- [x] [batch](../../introduction/concepts/connector-v2-features.md)
+- [ ] [exactly-once](../../introduction/concepts/connector-v2-features.md)
+- [x] [column projection](../../introduction/concepts/connector-v2-features.md)
+- [x] [parallelism](../../introduction/concepts/connector-v2-features.md)
+- [ ] [support user-defined split](../../introduction/concepts/connector-v2-features.md)
 
 ## Description
 
@@ -61,7 +61,7 @@ The tested kudu version is 1.11.1.
 | filter                                    | String | No       | -                                              | Kudu scan filter expressions,example id > 100 AND id < 200.                                                                                                                                      |
 | schema                                    | Map    | No       | 1024 * 1024                                    | SeaTunnel Schema.                                                                                                                                                                                |
 | table_list                                | Array  | No       | -                                              | The list of tables to be read. you can use this configuration instead of `table_name`, for example: ```table_list = [{ table_name = "kudu_source_table_1"},{ table_name = "kudu_source_table_2"}] ```. You can also configure `use_regex = true` inside each entry to enable regex matching for `table_name`. |
-| common-options                            |        | No       | -                                              | Source plugin common parameters, please refer to [Source Common Options](../source-common-options.md) for details.                                                                               |
+| common-options                            |        | No       | -                                              | Source plugin common parameters, please refer to [Source Common Options](../common-options/source-common-options.md) for details.                                                                               |
 
 ## Task Example
 

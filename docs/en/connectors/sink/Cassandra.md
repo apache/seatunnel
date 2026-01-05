@@ -10,7 +10,7 @@ Write data to Apache Cassandra.
 
 ## Key features
 
-- [ ] [exactly-once](../../concept/connector-v2-features.md)
+- [ ] [exactly-once](../../introduction/concepts/connector-v2-features.md)
 
 ## Options
 

@@ -10,15 +10,15 @@ import ChangeLog from '../changelog/connector-tdengine.md';
 
 ## 主要特性
 
-- [x] [批处理](../../concept/connector-v2-features.md)
-- [ ] [流式](../../concept/connector-v2-features.md)
-- [x] [精确一次](../../concept/connector-v2-features.md)
-- [ ] [列投影](../../concept/connector-v2-features.md)
+- [x] [批处理](../../introduction/concepts/connector-v2-features.md)
+- [ ] [流式](../../introduction/concepts/connector-v2-features.md)
+- [x] [精确一次](../../introduction/concepts/connector-v2-features.md)
+- [ ] [列投影](../../introduction/concepts/connector-v2-features.md)
 
 支持查询 SQL，并可实现投影效果。
 
-- [x] [并行度](../../concept/connector-v2-features.md)
-- [ ] [支持用户自定义分片](../../concept/connector-v2-features.md)
+- [x] [并行度](../../introduction/concepts/connector-v2-features.md)
+- [ ] [支持用户自定义分片](../../introduction/concepts/connector-v2-features.md)
 
 ## 配置项
 

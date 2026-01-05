@@ -14,9 +14,9 @@ import ChangeLog from '../changelog/connector-milvus.md';
 
 ## 关键特性
 
-- [x] [批处理](../../concept/connector-v2-features.md)
-- [x] [精确一次](../../concept/connector-v2-features.md)
-- [ ] [列投影](../../concept/connector-v2-features.md)
+- [x] [批处理](../../introduction/concepts/connector-v2-features.md)
+- [x] [精确一次](../../introduction/concepts/connector-v2-features.md)
+- [ ] [列投影](../../introduction/concepts/connector-v2-features.md)
 
 ## 数据类型映射
 

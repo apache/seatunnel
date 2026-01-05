@@ -10,7 +10,7 @@ Used to read data from Maxcompute.
 
 ## Key features
 
-- [ ] [exactly-once](../../concept/connector-v2-features.md)
+- [ ] [exactly-once](../../introduction/concepts/connector-v2-features.md)
 
 ## Options
 
@@ -152,7 +152,7 @@ Default: Not set (auto-inferred from region)
 
 ### common options
 
-Sink plugin common parameters, please refer to [Sink Common Options](../sink-common-options.md) for details.
+Sink plugin common parameters, please refer to [Sink Common Options](../common-options/sink-common-options.md) for details.
 
 ## Examples
 

@@ -26,8 +26,8 @@ import ChangeLog from '../changelog/connector-jdbc.md';
 
 ## 主要特性
 
-- [x] [精确一次](../../concept/connector-v2-features.md)
-- [ ] [cdc](../../concept/connector-v2-features.md)
+- [x] [精确一次](../../introduction/concepts/connector-v2-features.md)
+- [ ] [cdc](../../introduction/concepts/connector-v2-features.md)
 
 > 使用 `Xa 事务` 来保证 `精确一次`。因此仅支持支持 `Xa 事务` 的数据库。可以通过设置 `is_exactly_once=true` 来启用。
 
@@ -84,7 +84,7 @@ import ChangeLog from '../changelog/connector-jdbc.md';
 | transaction_timeout_sec      | Int    | 否       | -1      | 事务打开后的超时时间，默认为 -1（永不超时）。注意：设置超时可能会影响精确一次语义。                                                                                                                  |
 | auto_commit                  | Boolean  | 否       | true    | 默认启用自动事务提交。                                                                                                                                                                               |
 | properties                   | Map    | 否       | -       | 额外的连接配置参数，当 properties 和 URL 中有相同的参数时，优先级由驱动的具体实现决定。例如，在 MySQL 中，properties 优先于 URL。                                                                     |
-| common-options               |         | 否       | -       | 接收器插件通用参数，详情请参考 [Sink Common Options](../sink-common-options.md)。                                                                                                                    |
+| common-options               |         | 否       | -       | 接收器插件通用参数，详情请参考 [Sink Common Options](../common-options/sink-common-options.md)。                                                                                                                    |
 | enable_upsert                | Boolean  | 否       | true    | 通过主键存在启用 upsert。如果任务中没有键重复数据，将此参数设置为 `false` 可以加快数据导入速度。                                                                                                     |
 
 ### 提示

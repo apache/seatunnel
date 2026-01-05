@@ -16,12 +16,12 @@ import ChangeLog from '../changelog/connector-rocketmq.md';
 
 ## 关键特性
 
-- [x] [批](../../concept/connector-v2-features.md)
-- [x] [流](../../concept/connector-v2-features.md)
-- [x] [精确一次](../../concept/connector-v2-features.md)
-- [ ] [列投影](../../concept/connector-v2-features.md)
-- [x] [并行性](../../concept/connector-v2-features.md)
-- [ ] [支持用户自定义split](../../concept/connector-v2-features.md)
+- [x] [批](../../introduction/concepts/connector-v2-features.md)
+- [x] [流](../../introduction/concepts/connector-v2-features.md)
+- [x] [精确一次](../../introduction/concepts/connector-v2-features.md)
+- [ ] [列投影](../../introduction/concepts/connector-v2-features.md)
+- [x] [并行性](../../introduction/concepts/connector-v2-features.md)
+- [ ] [支持用户自定义split](../../introduction/concepts/connector-v2-features.md)
 
 ## 描述
 

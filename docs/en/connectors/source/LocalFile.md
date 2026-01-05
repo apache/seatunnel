@@ -12,19 +12,19 @@ import ChangeLog from '../changelog/connector-file-local.md';
 
 ## Key features
 
-- [x] [batch](../../concept/connector-v2-features.md)
-- [ ] [stream](../../concept/connector-v2-features.md)
-- [x] [multimodal](../../concept/connector-v2-features.md#multimodal)
+- [x] [batch](../../introduction/concepts/connector-v2-features.md)
+- [ ] [stream](../../introduction/concepts/connector-v2-features.md)
+- [x] [multimodal](../../introduction/concepts/connector-v2-features.md#multimodal)
 
   Use binary file format to read and write files in any format, such as videos, pictures, etc. In short, any files can be synchronized to the target place.
 
-- [x] [exactly-once](../../concept/connector-v2-features.md)
+- [x] [exactly-once](../../introduction/concepts/connector-v2-features.md)
 
   Read all the data in a split in a pollNext call. What splits are read will be saved in snapshot.
 
-- [ ] [column projection](../../concept/connector-v2-features.md)
-- [x] [parallelism](../../concept/connector-v2-features.md)
-- [ ] [support user-defined split](../../concept/connector-v2-features.md)
+- [ ] [column projection](../../introduction/concepts/connector-v2-features.md)
+- [x] [parallelism](../../introduction/concepts/connector-v2-features.md)
+- [ ] [support user-defined split](../../introduction/concepts/connector-v2-features.md)
 - [x] file format type
   - [x] text
   - [x] csv
@@ -427,7 +427,7 @@ File split size, which can be filled in when the enable_file_split parameter is 
 
 ### common options
 
-Source plugin common parameters, please refer to [Source Common Options](../source-common-options.md) for details
+Source plugin common parameters, please refer to [Source Common Options](../common-options/source-common-options.md) for details
 
 ### tables_configs
 

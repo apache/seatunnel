@@ -29,15 +29,15 @@ If you use SeaTunnel Engine, You need put seatunnel-hadoop3-3.1.4-uber.jar and h
 
 ## Key features
 
-- [x] [batch](../../concept/connector-v2-features.md)
-- [ ] [stream](../../concept/connector-v2-features.md)
-- [x] [exactly-once](../../concept/connector-v2-features.md)
+- [x] [batch](../../introduction/concepts/connector-v2-features.md)
+- [ ] [stream](../../introduction/concepts/connector-v2-features.md)
+- [x] [exactly-once](../../introduction/concepts/connector-v2-features.md)
 
 Read all the data in a split in a pollNext call. What splits are read will be saved in snapshot.
 
-- [x] [schema projection](../../concept/connector-v2-features.md)
-- [x] [parallelism](../../concept/connector-v2-features.md)
-- [ ] [support user-defined split](../../concept/connector-v2-features.md)
+- [x] [schema projection](../../introduction/concepts/connector-v2-features.md)
+- [x] [parallelism](../../introduction/concepts/connector-v2-features.md)
+- [ ] [support user-defined split](../../introduction/concepts/connector-v2-features.md)
 - [x] file format
   - [x] text
   - [x] csv
@@ -132,7 +132,7 @@ The compress codec of files and the details that supported as the following show
 
 ### common options
 
-Source plugin common parameters, please refer to [Source Common Options](../source-common-options.md) for details
+Source plugin common parameters, please refer to [Source Common Options](../common-options/source-common-options.md) for details
 
 ## Example
 

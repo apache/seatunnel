@@ -12,10 +12,10 @@ import ChangeLog from '../changelog/connector-databend.md';
 
 ## 主要特性
 
-- [ ] [支持多表写入](../../concept/connector-v2-features.md)
-- [x] [精确一次](../../concept/connector-v2-features.md)
-- [x] [cdc](../../concept/connector-v2-features.md)
-- [x] [并行度](../../concept/connector-v2-features.md)
+- [ ] [支持多表写入](../../introduction/concepts/connector-v2-features.md)
+- [x] [精确一次](../../introduction/concepts/connector-v2-features.md)
+- [x] [cdc](../../introduction/concepts/connector-v2-features.md)
+- [x] [并行度](../../introduction/concepts/connector-v2-features.md)
 
 ## 描述
 

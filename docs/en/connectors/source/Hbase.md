@@ -10,12 +10,12 @@ Reads data from Apache Hbase.
 
 ## Key Features
 
-- [x] [batch](../../concept/connector-v2-features.md)
-- [ ] [stream](../../concept/connector-v2-features.md)
-- [ ] [exactly-once](../../concept/connector-v2-features.md)
-- [x] [schema projection](../../concept/connector-v2-features.md)
-- [x] [parallelism](../../concept/connector-v2-features.md)
-- [ ] [support user-defined split](../../concept/connector-v2-features.md)
+- [x] [batch](../../introduction/concepts/connector-v2-features.md)
+- [ ] [stream](../../introduction/concepts/connector-v2-features.md)
+- [ ] [exactly-once](../../introduction/concepts/connector-v2-features.md)
+- [x] [schema projection](../../introduction/concepts/connector-v2-features.md)
+- [x] [parallelism](../../introduction/concepts/connector-v2-features.md)
+- [ ] [support user-defined split](../../introduction/concepts/connector-v2-features.md)
 
 ## Options
 
@@ -45,7 +45,7 @@ The name of the table to write to, e.g., "seatunnel".
 
 ### schema [config]
 
-Hbase stores data in byte arrays. Therefore, you need to configure the data types for each column in the table. For more information, see: [guide](../../concept/schema-feature.md#how-to-declare-type-supported).
+Hbase stores data in byte arrays. Therefore, you need to configure the data types for each column in the table. For more information, see: [guide](../../introduction/concepts/schema-feature.md#how-to-declare-type-supported).
 
 ### hbase_extra_config [config]
 
@@ -94,7 +94,7 @@ Whether to include the end row in the scan range. When set to false, the end row
 
 ### common-options
 
-Common parameters for Source plugins, refer to [Common Source Options](../source-common-options.md).
+Common parameters for Source plugins, refer to [Common Source Options](../common-options/source-common-options.md).
 
 ## Example
 

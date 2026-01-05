@@ -10,7 +10,7 @@ Write data to Greenplum using [Jdbc connector](Jdbc.md).
 
 ## Key Features
 
-- [ ] [exactly-once](../../concept/connector-v2-features.md)
+- [ ] [exactly-once](../../introduction/concepts/connector-v2-features.md)
 
 :::tip
 
@@ -34,7 +34,7 @@ The URL of the JDBC connection. if you use postgresql driver the value is `jdbc:
 
 ### common options
 
-Sink plugin common parameters, please refer to [Sink Common Options](../sink-common-options.md) for details
+Sink plugin common parameters, please refer to [Sink Common Options](../common-options/sink-common-options.md) for details
 
 ## Changelog
 

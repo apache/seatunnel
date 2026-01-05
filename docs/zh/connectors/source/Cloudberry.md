@@ -22,12 +22,12 @@ import ChangeLog from '../changelog/connector-cloudberry.md';
 
 ## 关键特性
 
-- [x] [批处理](../../concept/connector-v2-features.md)
-- [ ] [流处理](../../concept/connector-v2-features.md)
-- [x] [精确一次](../../concept/connector-v2-features.md)
-- [x] [列映射](../../concept/connector-v2-features.md)
-- [x] [并行度](../../concept/connector-v2-features.md)
-- [x] [支持用户自定义拆分](../../concept/connector-v2-features.md)
+- [x] [批处理](../../introduction/concepts/connector-v2-features.md)
+- [ ] [流处理](../../introduction/concepts/connector-v2-features.md)
+- [x] [精确一次](../../introduction/concepts/connector-v2-features.md)
+- [x] [列映射](../../introduction/concepts/connector-v2-features.md)
+- [x] [并行度](../../introduction/concepts/connector-v2-features.md)
+- [x] [支持用户自定义拆分](../../introduction/concepts/connector-v2-features.md)
 
 > 支持查询SQL，可以实现映射效果。
 

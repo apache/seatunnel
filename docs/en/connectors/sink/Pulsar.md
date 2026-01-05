@@ -12,7 +12,7 @@ import ChangeLog from '../changelog/connector-pulsar.md';
 
 ## Key features
 
-- [x] [exactly-once](../../concept/connector-v2-features.md)
+- [x] [exactly-once](../../introduction/concepts/connector-v2-features.md)
 
 ## Description
 
@@ -40,7 +40,7 @@ Sink connector for Apache Pulsar.
 | pulsar.config        | Map    | No       | -                   | In addition to the above parameters that must be specified by the Pulsar producer client.                        |
 | message.routing.mode | Enum   | No       | RoundRobinPartition | Default routing mode for messages to partition.                                                                  |
 | partition_key_fields | array  | No       | -                   | Configure which fields are used as the key of the pulsar message.                                                |
-| common-options       | config | no       | -                   | Source plugin common parameters, please refer to [Source Common Options](../sink-common-options.md) for details. |
+| common-options       | config | no       | -                   | Sink plugin common parameters, please refer to [Sink Common Options](../common-options/sink-common-options.md) for details. |
 
 ## Parameter Interpretation
 
@@ -128,7 +128,7 @@ The selected field must be an existing field in the upstream.
 
 ### common options
 
-Source plugin common parameters, please refer to [Source Common Options](../sink-common-options.md) for details.
+Sink plugin common parameters, please refer to [Sink Common Options](../common-options/sink-common-options.md) for details.
 
 ## Task Example
 

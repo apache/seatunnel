@@ -1,4 +1,4 @@
-import ChangeLog from '../changelog/connector-jdbc.md';
+import ChangeLog from '../changelog/connector-s3-redshift.md';
 
 # Redshift
 
@@ -24,11 +24,11 @@ Read external data source data through JDBC.
 
 ## Key features
 
-- [x] [batch](../../concept/connector-v2-features.md)
-- [x] [exactly-once](../../concept/connector-v2-features.md)
-- [x] [column projection](../../concept/connector-v2-features.md)
-- [x] [parallelism](../../concept/connector-v2-features.md)
-- [x] [support user-defined split](../../concept/connector-v2-features.md)
+- [x] [batch](../../introduction/concepts/connector-v2-features.md)
+- [x] [exactly-once](../../introduction/concepts/connector-v2-features.md)
+- [x] [column projection](../../introduction/concepts/connector-v2-features.md)
+- [x] [parallelism](../../introduction/concepts/connector-v2-features.md)
+- [x] [support user-defined split](../../introduction/concepts/connector-v2-features.md)
 
 > supports query SQL and can achieve projection effect.
 

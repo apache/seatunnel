@@ -12,9 +12,9 @@ import ChangeLog from '../changelog/connector-jdbc.md';
 
 ## 关键特性
 
-- [x] [批处理](../../concept/connector-v2-features.md)
-- [x] [精确一次](../../concept/connector-v2-features.md)
-- [x] [更改数据捕获](../../concept/connector-v2-features.md)
+- [x] [批处理](../../introduction/concepts/connector-v2-features.md)
+- [x] [精确一次](../../introduction/concepts/connector-v2-features.md)
+- [x] [更改数据捕获](../../introduction/concepts/connector-v2-features.md)
 
 > 使用 `Xa transactions` 确保 `exactly-once`. 因此，数据库只支持 `exactly-once` 
 > 即支持 `Xa transactions`. 您可以设置 `is_exactly_once=true` 来启用它.

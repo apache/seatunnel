@@ -12,9 +12,9 @@ import ChangeLog from '../changelog/connector-http.md';
 
 ## Key Features
 
-- [ ] [exactly-once](../../concept/connector-v2-features.md)
-- [ ] [cdc](../../concept/connector-v2-features.md)
-- [x] [support multiple table write](../../concept/connector-v2-features.md)
+- [ ] [exactly-once](../../introduction/concepts/connector-v2-features.md)
+- [ ] [cdc](../../introduction/concepts/connector-v2-features.md)
+- [x] [support multiple table write](../../introduction/concepts/connector-v2-features.md)
 
 ## Description
 
@@ -47,7 +47,7 @@ They can be downloaded via install-plugin.sh or from the Maven central repositor
 | array_mode                  | Boolean| No       | false   | Send data as a JSON array when true, or as a single JSON object when false (default)                        |
 | batch_size                  | Int    | No       | 1       | The batch size of records to send in one HTTP request. Only works when array_mode is true.                  |
 | request_interval_ms         | Int    | No       | 0       | The interval milliseconds between two HTTP requests, to avoid sending requests too frequently.              |
-| common-options              |        | No       | -       | Sink plugin common parameters, please refer to [Sink Common Options](../sink-common-options.md) for details |
+| common-options              |        | No       | -       | Sink plugin common parameters, please refer to [Sink Common Options](../common-options/sink-common-options.md) for details |
 
 ## Example
 

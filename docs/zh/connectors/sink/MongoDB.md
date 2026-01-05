@@ -12,9 +12,9 @@ import ChangeLog from '../changelog/connector-mongodb.md';
 
 ## 关键特性
 
-- [x] [exactly-once 精准一次写入](../../concept/connector-v2-features.md)
-- [x] [CDC（变更数据捕获）](../../concept/connector-v2-features.md)
-- [x] [支持多表写入](../../concept/connector-v2-features.md)
+- [x] [exactly-once 精准一次写入](../../introduction/concepts/connector-v2-features.md)
+- [x] [CDC（变更数据捕获）](../../introduction/concepts/connector-v2-features.md)
+- [x] [支持多表写入](../../introduction/concepts/connector-v2-features.md)
 
 **提示**
 
@@ -75,7 +75,7 @@ MongoDB 连接器提供从 MongoDB 读取数据以及向 MongoDB 写入数据的
 | upsert-enable         | Boolean  | 否       | false  | 是否启用 upsert 模式进行写入。 |
 | primary-key           | List     | 否       | -      | 用于 upsert 或更新操作的主键，格式为 `["id","name",...]`。 |
 | transaction           | Boolean  | 否       | false  | 是否在 MongoSink 中使用事务（需要 MongoDB 4.2+）。 |
-| common-options        | -        | 否       | -      | 通用 Sink 插件参数，详见 [Sink Common Options](../sink-common-options.md)。 |
+| common-options        | -        | 否       | -      | 通用 Sink 插件参数，详见 [Sink Common Options](../common-options/sink-common-options.md)。 |
 | data_save_mode        | String   | 否       | APPEND_DATA | 数据写入模式：<br/>- `DROP_DATA`: 插入数据前清空集合；<br/>- `APPEND_DATA`: 追加数据；<br/>- `ERROR_WHEN_DATA_EXISTS`: 如果集合已有数据则报错。 |
 
 ### 提示

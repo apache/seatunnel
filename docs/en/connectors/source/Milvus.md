@@ -14,9 +14,9 @@ This Milvus source connector reads data from Milvus or Zilliz Cloud, it has the 
 
 ## Key Features
 
-- [x] [batch](../../concept/connector-v2-features.md)
-- [x] [exactly-once](../../concept/connector-v2-features.md)
-- [ ] [column projection](../../concept/connector-v2-features.md)
+- [x] [batch](../../introduction/concepts/connector-v2-features.md)
+- [x] [exactly-once](../../introduction/concepts/connector-v2-features.md)
+- [ ] [column projection](../../introduction/concepts/connector-v2-features.md)
 
 ## Data Type Mapping
 

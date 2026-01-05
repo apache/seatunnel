@@ -10,12 +10,12 @@ Read data from Amazon DynamoDB.
 
 ## Key features
 
-- [x] [batch](../../concept/connector-v2-features.md)
-- [ ] [stream](../../concept/connector-v2-features.md)
-- [ ] [exactly-once](../../concept/connector-v2-features.md)
-- [ ] [column projection](../../concept/connector-v2-features.md)
-- [x] [parallelism](../../concept/connector-v2-features.md)
-- [ ] [support user-defined split](../../concept/connector-v2-features.md)
+- [x] [batch](../../introduction/concepts/connector-v2-features.md)
+- [ ] [stream](../../introduction/concepts/connector-v2-features.md)
+- [ ] [exactly-once](../../introduction/concepts/connector-v2-features.md)
+- [ ] [column projection](../../introduction/concepts/connector-v2-features.md)
+- [x] [parallelism](../../introduction/concepts/connector-v2-features.md)
+- [ ] [support user-defined split](../../introduction/concepts/connector-v2-features.md)
 
 ## Options
 
@@ -71,7 +71,7 @@ schema {
 
 ### common options
 
-Source Plugin common parameters, refer to [Source Plugin](../source-common-options.md) for details
+Source Plugin common parameters, refer to [Source Plugin](../common-options/source-common-options.md) for details
 
 ### scan_item_limit
 

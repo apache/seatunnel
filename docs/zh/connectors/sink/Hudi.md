@@ -10,9 +10,9 @@ import ChangeLog from '../changelog/connector-hudi.md';
 
 ## 主要特点
 
-- [ ] [exactly-once](../../concept/connector-v2-features.md)
-- [x] [cdc](../../concept/connector-v2-features.md)
-- [x] [support multiple table write](../../concept/connector-v2-features.md)
+- [ ] [exactly-once](../../introduction/concepts/connector-v2-features.md)
+- [x] [cdc](../../introduction/concepts/connector-v2-features.md)
+- [x] [support multiple table write](../../introduction/concepts/connector-v2-features.md)
 
 ## 选项
 
@@ -137,7 +137,7 @@ import ChangeLog from '../changelog/connector-hudi.md';
 
 ### 通用选项
 
-数据源插件的通用参数，请参考 [Source Common Options](../sink-common-options.md) 了解详细信息。
+数据源插件的通用参数，请参考 [Source Common Options](../common-options/sink-common-options.md) 了解详细信息。
 
 ## 示例
 

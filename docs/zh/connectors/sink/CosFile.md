@@ -20,11 +20,11 @@ import ChangeLog from '../changelog/connector-file-cos.md';
 
 ## 关键特性
 
-- [x] [多模态](../../concept/connector-v2-features.md#多模态multimodal)
+- [x] [多模态](../../introduction/concepts/connector-v2-features.md#多模态multimodal)
 
   使用二进制文件格式读取和写入任何格式的文件，例如视频、图片等。简而言之，任何文件都可以同步到目标位置。
 
-- [x] [精确一次](../../concept/connector-v2-features.md)
+- [x] [精确一次](../../introduction/concepts/connector-v2-features.md)
 
 默认情况下，我们使用2PC commit来确保 `精确一次`
 
@@ -200,7 +200,7 @@ Tips: excel 类型不支持任何压缩格式
 
 ### common options
 
-接收器写入插件常用参数，请参考 [Sink Common Options](../sink-common-options.md) 了解详细信息.
+接收器写入插件常用参数，请参考 [Sink Common Options](../common-options/sink-common-options.md) 了解详细信息.
 
 ### max_rows_in_memory [int]
 

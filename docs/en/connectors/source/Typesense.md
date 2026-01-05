@@ -10,12 +10,12 @@ Reads data from Typesense.
 
 ## Key Features
 
-- [x] [Batch Processing](../../concept/connector-v2-features.md)
-- [ ] [Stream Processing](../../concept/connector-v2-features.md)
-- [ ] [Exactly-Once](../../concept/connector-v2-features.md)
-- [x] [Schema](../../concept/connector-v2-features.md)
-- [x] [Parallelism](../../concept/connector-v2-features.md)
-- [ ] [User-Defined Splits Support](../../concept/connector-v2-features.md)
+- [x] [Batch Processing](../../introduction/concepts/connector-v2-features.md)
+- [ ] [Stream Processing](../../introduction/concepts/connector-v2-features.md)
+- [ ] [Exactly-Once](../../introduction/concepts/connector-v2-features.md)
+- [x] [Schema](../../introduction/concepts/connector-v2-features.md)
+- [x] [Parallelism](../../introduction/concepts/connector-v2-features.md)
+- [ ] [User-Defined Splits Support](../../introduction/concepts/connector-v2-features.md)
 
 ## Options
 
@@ -38,7 +38,7 @@ The name of the collection to write to, for example: `"seatunnel"`.
 
 ### schema [config]
 
-The columns to be read from Typesense. For more information, please refer to the [guide](../../concept/schema-feature.md#how-to-declare-type-supported).
+The columns to be read from Typesense. For more information, please refer to the [guide](../../introduction/concepts/schema-feature.md#how-to-declare-type-supported).
 
 ### api_key [config]
 
@@ -50,7 +50,7 @@ The number of records to query per batch when reading data.
 
 ### Common Options
 
-For common parameters of Source plugins, please refer to [Source Common Options](../source-common-options.md).
+For common parameters of Source plugins, please refer to [Source Common Options](../common-options/source-common-options.md).
 
 ## Example
 

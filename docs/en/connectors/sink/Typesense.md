@@ -8,8 +8,8 @@ Outputs data to `Typesense`.
 
 ## Key Features
 
-- [ ] [Exactly Once](../../concept/connector-v2-features.md)
-- [x] [CDC](../../concept/connector-v2-features.md)
+- [ ] [Exactly Once](../../introduction/concepts/connector-v2-features.md)
+- [x] [CDC](../../introduction/concepts/connector-v2-features.md)
 
 ## Options
 

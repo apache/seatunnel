@@ -10,8 +10,8 @@ import ChangeLog from '../changelog/connector-tdengine.md';
 
 ## 主要特性
 
-- [x] [exactly-once](../../concept/connector-v2-features.md)
-- [ ] [cdc](../../concept/connector-v2-features.md)
+- [x] [exactly-once](../../introduction/concepts/connector-v2-features.md)
+- [ ] [cdc](../../introduction/concepts/connector-v2-features.md)
 
 ## 选项
 

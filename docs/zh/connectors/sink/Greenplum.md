@@ -10,7 +10,7 @@ import ChangeLog from '../changelog/connector-jdbc.md';
 
 ## 关键特性
 
-- [ ] [精确一次](../../concept/connector-v2-features.md)
+- [ ] [精确一次](../../introduction/concepts/connector-v2-features.md)
 
 :::tip
 
@@ -34,7 +34,7 @@ JDBC 连接的 URL。如果使用 PostgreSQL 驱动程序，值为 `jdbc:postgre
 
 ### 通用选项
 
-Sink 插件通用参数，请参考 [Sink 通用选项](../sink-common-options.md) 详见。
+Sink 插件通用参数，请参考 [Sink 通用选项](../common-options/sink-common-options.md) 详见。
 
 ## 变更日志
 

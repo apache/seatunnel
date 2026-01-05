@@ -10,7 +10,7 @@ import ChangeLog from '../changelog/connector-redis.md';
 
 ## 主要功能
 
-- [ ] [exactly-once](../../concept/connector-v2-features.md)
+- [ ] [exactly-once](../../introduction/concepts/connector-v2-features.md)
 
 ## 选项
 
@@ -202,7 +202,7 @@ Redis键名可以由固定部分和变化部分组成，通过Redis分组符号:
 
 ### common options
 
-Sink 插件通用参数，请参考 [Sink Common Options](../sink-common-options.md) 获取详情
+Sink 插件通用参数，请参考 [Sink Common Options](../common-options/sink-common-options.md) 获取详情
 
 ## 示例
 

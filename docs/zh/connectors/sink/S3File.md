@@ -12,16 +12,16 @@ import ChangeLog from '../changelog/connector-file-s3.md';
 
 ## 主要特性
 
-- [x] [多模态](../../concept/connector-v2-features.md#多模态multimodal)
+- [x] [多模态](../../introduction/concepts/connector-v2-features.md#多模态multimodal)
 
   使用二进制文件格式读取和写入任何格式的文件，例如视频、图片等。简而言之，任何文件都可以同步到目标位置。
 
-- [x] [精确一次](../../concept/connector-v2-features.md)
+- [x] [精确一次](../../introduction/concepts/connector-v2-features.md)
 
   默认情况下，我们使用 2PC 提交来确保 `精确一次`。
 
-- [ ] [cdc](../../concept/connector-v2-features.md)
-- [x] [支持多表写入](../../concept/connector-v2-features.md)
+- [ ] [cdc](../../introduction/concepts/connector-v2-features.md)
+- [x] [支持多表写入](../../introduction/concepts/connector-v2-features.md)
 - [x] 文件格式类型
   - [x] text
   - [x] csv
@@ -259,7 +259,7 @@ hadoop_s3_properties {
 
 ### common options
 
-Sink 插件通用参数，请参考 [Sink 通用选项](../sink-common-options.md) 获取详细信息。
+Sink 插件通用参数，请参考 [Sink 通用选项](../common-options/sink-common-options.md) 获取详细信息。
 
 ### max_rows_in_memory [int]
 

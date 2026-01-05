@@ -17,8 +17,8 @@ import ChangeLog from '../changelog/connector-aerospike.md';
 
 ## 主要特性
 
-- [ ] [精确一次](../../concept/connector-v2-features.md)
-- [ ] [CDC](../../concept/connector-v2-features.md)
+- [ ] [精确一次](../../introduction/concepts/connector-v2-features.md)
+- [ ] [CDC](../../introduction/concepts/connector-v2-features.md)
 
 ## 描述
 

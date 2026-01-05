@@ -12,7 +12,7 @@ import ChangeLog from '../changelog/connector-neo4j.md';
 
 ## 主要功能
 
-- [ ] [精确一次](../../concept/connector-v2-features.md)
+- [ ] [精确一次](../../introduction/concepts/connector-v2-features.md)
 
 ## 配置选项
 
@@ -92,7 +92,7 @@ unwind $ttt as row create (n:Label) set n.name = row.name,n.age = rw.age
 
 ### common options
 
-Sink插件常用参数， 详细信息请参考 [Sink公共配置](../sink-common-options.md)
+Sink插件常用参数， 详细信息请参考 [Sink公共配置](../common-options/sink-common-options.md)
 
 ## OneByOne模式写示例
 

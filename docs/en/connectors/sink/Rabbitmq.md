@@ -10,7 +10,7 @@ Used to write data to Rabbitmq.
 
 ## Key features
 
-- [ ] [exactly-once](../../concept/connector-v2-features.md)
+- [ ] [exactly-once](../../introduction/concepts/connector-v2-features.md)
 
 ## Options
 
@@ -109,7 +109,7 @@ In addition to the above parameters that must be specified by the RabbitMQ clien
 
 ### common options
 
-Sink plugin common parameters, please refer to [Sink Common Options](../sink-common-options.md) for details
+Sink plugin common parameters, please refer to [Sink Common Options](../common-options/sink-common-options.md) for details
 
 ### durable
 

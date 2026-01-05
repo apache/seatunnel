@@ -12,7 +12,7 @@ import ChangeLog from '../changelog/connector-socket.md';
 
 ## Key features
 
-- [ ] [exactly-once](../../concept/connector-v2-features.md)
+- [ ] [exactly-once](../../introduction/concepts/connector-v2-features.md)
 
 ## Description
 
@@ -27,7 +27,7 @@ Used to send data to Socket Server. Both support streaming and batch mode.
 | host           | String  | Yes      |         | socket server host                                                                                              |
 | port           | Integer | Yes      |         | socket server port                                                                                              |
 | max_retries    | Integer | No       | 3       | The number of retries to send record failed                                                                     |
-| common-options |         | No       | -       | Source plugin common parameters, please refer to [Source Common Options](../sink-common-options.md) for details |
+| common-options |         | No       | -       | Sink plugin common parameters, please refer to [Sink Common Options](../common-options/sink-common-options.md) for details |
 
 ## Task Example
 

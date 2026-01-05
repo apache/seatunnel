@@ -10,9 +10,9 @@ Used to read data from Prometheus.
 
 ## Key features
 
-- [x] [batch](../../concept/connector-v2-features.md)
-- [ ] [stream](../../concept/connector-v2-features.md)
-- [ ] [parallelism](../../concept/connector-v2-features.md)
+- [x] [batch](../../introduction/concepts/connector-v2-features.md)
+- [ ] [stream](../../introduction/concepts/connector-v2-features.md)
+- [ ] [parallelism](../../introduction/concepts/connector-v2-features.md)
 
 ## Options
 
@@ -94,7 +94,7 @@ the schema fields of upstream data
 
 ### common options
 
-Source plugin common parameters, please refer to [Source Common Options](../source-common-options.md) for details
+Source plugin common parameters, please refer to [Source Common Options](../common-options/source-common-options.md) for details
 
 ## Example
 

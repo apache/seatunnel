@@ -12,12 +12,12 @@ import ChangeLog from '../changelog/connector-clickhouse.md';
 
 ## Key Features
 
-- [ ] [exactly-once](../../concept/connector-v2-features.md)
-- [x] [cdc](../../concept/connector-v2-features.md)
+- [ ] [exactly-once](../../introduction/concepts/connector-v2-features.md)
+- [x] [cdc](../../introduction/concepts/connector-v2-features.md)
 
 > The Clickhouse sink plug-in can achieve accuracy once by implementing idempotent writing, and needs to cooperate with aggregatingmergetree and other engines that support deduplication.
 
-- [x] [support multiple table sink](../../concept/connector-v2-features.md)
+- [x] [support multiple table sink](../../introduction/concepts/connector-v2-features.md)
 
 ## Description
 
@@ -67,7 +67,7 @@ They can be downloaded via install-plugin.sh or from the Maven central repositor
 | data_save_mode                 | Enum    | no       | APPEND_DATA                  | Data save mode. Please refer to the `data_save_mode` section below.                                                                                         |
 | custom_sql                  | String  | no       | -                            | When data_save_mode selects CUSTOM_PROCESSING, you should fill in the CUSTOM_SQL parameter. This parameter usually fills in a SQL that can be executed. SQL will be executed before synchronization tasks.        |
 | save_mode_create_template      | string  | no       | see below                    | See below.                                                                                                                                                  |
-| common-options                        |         | No       | -       | Sink plugin common parameters, please refer to [Sink Common Options](../sink-common-options.md) for details.                                                                                                                                                                                                |
+| common-options                        |         | No       | -       | Sink plugin common parameters, please refer to [Sink Common Options](../common-options/sink-common-options.md) for details.                                                                                                                                                                                                |
 
 ### schema_save_mode [Enum]
 
@@ -172,7 +172,7 @@ sink {
 
 > Tips:
 >
-> 1.[SeaTunnel Deployment Document](../../start-v2/locally/deployment.md). <br/>
+> 1.[SeaTunnel Deployment Document](../../getting-started/locally/deployment.md). <br/>
 > 2.The table to be written to needs to be created in advance before synchronization.<br/>
 > 3.When sink is writing to the ClickHouse table, you don't need to set its schema because the connector will query ClickHouse for the current table's schema information before writing.<br/>
 

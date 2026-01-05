@@ -18,8 +18,8 @@ import ChangeLog from '../changelog/connector-easysearch.md';
 >
   ## 关键特性
 
-- [ ] [精确一次](../../concept/connector-v2-features.md)
-- [x] [cdc](../../concept/connector-v2-features.md)
+- [ ] [精确一次](../../introduction/concepts/connector-v2-features.md)
+- [x] [cdc](../../introduction/concepts/connector-v2-features.md)
 
 :::提示
 
@@ -139,7 +139,7 @@ PEM或JKS信任存储的路径。运行SeaTunnel的操作系统用户必须能�
 
 ### common options
 
-接收器插件常用参数，详见 [Sink Common Options](../sink-common-options.md)
+接收器插件常用参数，详见 [Sink Common Options](../common-options/sink-common-options.md)
 
 ## 示例
 

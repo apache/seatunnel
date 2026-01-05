@@ -12,8 +12,8 @@ import ChangeLog from '../changelog/connector-slack.md';
 
 ## Key features
 
-- [ ] [exactly-once](../../concept/connector-v2-features.md)
-- [ ] [cdc](../../concept/connector-v2-features.md)
+- [ ] [exactly-once](../../introduction/concepts/connector-v2-features.md)
+- [ ] [cdc](../../introduction/concepts/connector-v2-features.md)
 
 ## Description
 
@@ -32,7 +32,7 @@ All data types are mapped to string.
 | webhooks_url   | String | Yes      | -       | Slack webhook url                                                                                           |
 | oauth_token    | String | Yes      | -       | Slack oauth token used for the actual authentication                                                        |
 | slack_channel  | String | Yes      | -       | slack channel for data write                                                                                |
-| common-options |        | no       | -       | Sink plugin common parameters, please refer to [Sink Common Options](../sink-common-options.md) for details |
+| common-options |        | no       | -       | Sink plugin common parameters, please refer to [Sink Common Options](../common-options/sink-common-options.md) for details |
 
 ## Task Example
 

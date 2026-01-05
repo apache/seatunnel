@@ -12,12 +12,12 @@ import ChangeLog from '../changelog/connector-starrocks.md';
 
 ## 主要功能
 
-- [x] [批处理](../../concept/connector-v2-features.md)
-- [ ] [流处理](../../concept/connector-v2-features.md)
-- [ ] [精确一次](../../concept/connector-v2-features.md)
-- [x] [列投影](../../concept/connector-v2-features.md)
-- [x] [并行度](../../concept/connector-v2-features.md)
-- [x] [支持用户定义拆分](../../concept/connector-v2-features.md)
+- [x] [批处理](../../introduction/concepts/connector-v2-features.md)
+- [ ] [流处理](../../introduction/concepts/connector-v2-features.md)
+- [ ] [精确一次](../../introduction/concepts/connector-v2-features.md)
+- [x] [列投影](../../introduction/concepts/connector-v2-features.md)
+- [x] [并行度](../../introduction/concepts/connector-v2-features.md)
+- [x] [支持用户定义拆分](../../introduction/concepts/connector-v2-features.md)
 
 ## 配置选项
 

@@ -10,7 +10,7 @@ Assert 数据接收器是一个用于断言数据是否符合用户定义规则�
 
 ## 核心特性
 
-- [ ] [精准一次](../../concept/connector-v2-features.md)
+- [ ] [精准一次](../../introduction/concepts/connector-v2-features.md)
 
 ## 配置
 
@@ -112,7 +112,7 @@ catalog_table_rule用于断言Catalog表是否与用户定义的表相同。
 
 ### common options
 
-Sink 插件的通用参数，请参考 [Sink Common Options](../sink-common-options.md) 了解详情
+Sink 插件的通用参数，请参考 [Sink Common Options](../common-options/sink-common-options.md) 了解详情
 
 ## 示例
 

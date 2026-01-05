@@ -12,12 +12,12 @@ import ChangeLog from '../changelog/connector-file-hadoop.md';
 
 ## 主要特性
 
-- [x] [多模态](../../concept/connector-v2-features.md#多模态multimodal)
+- [x] [多模态](../../introduction/concepts/connector-v2-features.md#多模态multimodal)
 
   使用二进制文件格式读取和写入任何格式的文件，例如视频、图片等。简而言之，任何文件都可以同步到目标位置。
 
-- [x] [精确一次](../../concept/connector-v2-features.md)
-- [x] [支持多表写入](../../concept/connector-v2-features.md)
+- [x] [精确一次](../../introduction/concepts/connector-v2-features.md)
+- [x] [支持多表写入](../../introduction/concepts/connector-v2-features.md)
 
   默认情况下，我们使用2PC提交来确保"精确一次"
 
@@ -73,7 +73,7 @@ import ChangeLog from '../changelog/connector-file-hadoop.md';
 | kerberos_principal               | string  | 否    | -                                          | kerberos 的主体                                                                                                                                                                                                                                                                                     |
 | kerberos_keytab_path             | string  | 否    | -                                          | kerberos 的 keytab 路径                                                                                                                                                                                                                                                                             |
 | compress_codec                   | string  | 否    | none                                       | 压缩编解码器                                                                                                                                                                                                                                                                                           |
-| common-options                   | object  | 否    | -                                          | 接收器插件通用参数，请参阅 [接收器通用选项](../sink-common-options.md) 了解详情                                                                                                                                                                                                                                          |
+| common-options                   | object  | 否    | -                                          | 接收器插件通用参数，请参阅 [接收器通用选项](../common-options/sink-common-options.md) 了解详情                                                                                                                                                                                                                                          |
 | csv_string_quote_mode            | enum    | 否    | MINIMAL                                    | 仅在文件格式为 CSV 时使用。                                                                                                                                                                                                                                                                                 |
 | enable_header_write              | boolean | 否    | false                                      | 仅在 file_format_type 为 text,csv 时使用。<br/> false:不写入表头,true:写入表头。                                                                                                                                                                                                                                  |
 | max_rows_in_memory               | int     | 否    | -                                          | 仅当 file_format 为 excel 时使用。当文件格式为 Excel 时，可以缓存在内存中的最大数据项数。                                                                                                                                                                                                                                       |

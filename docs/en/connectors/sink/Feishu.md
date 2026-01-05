@@ -12,8 +12,8 @@ import ChangeLog from '../changelog/connector-http-feishu.md';
 
 ## Key Features
 
-- [ ] [exactly-once](../../concept/connector-v2-features.md)
-- [ ] [cdc](../../concept/connector-v2-features.md)
+- [ ] [exactly-once](../../introduction/concepts/connector-v2-features.md)
+- [ ] [cdc](../../introduction/concepts/connector-v2-features.md)
 
 ## Description
 
@@ -48,7 +48,7 @@ Used to launch Feishu web hooks using data.
 |----------------|--------|----------|---------|-------------------------------------------------------------------------------------------------------------|
 | url            | String | Yes      | -       | Feishu webhook url                                                                                          |
 | headers        | Map    | No       | -       | Http request headers                                                                                        |
-| common-options |        | no       | -       | Sink plugin common parameters, please refer to [Sink Common Options](../sink-common-options.md) for details |
+| common-options |        | no       | -       | Sink plugin common parameters, please refer to [Sink Common Options](../common-options/sink-common-options.md) for details |
 
 ## Task Example
 

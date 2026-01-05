@@ -12,8 +12,8 @@ import ChangeLog from '../changelog/connector-selectdb-cloud.md';
 
 ## Key Features
 
-- [x] [exactly-once](../../concept/connector-v2-features.md)
-- [x] [cdc](../../concept/connector-v2-features.md)
+- [x] [exactly-once](../../introduction/concepts/connector-v2-features.md)
+- [x] [cdc](../../introduction/concepts/connector-v2-features.md)
 
 ## Description
 

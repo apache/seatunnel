@@ -8,7 +8,7 @@ import ChangeLog from '../changelog/connector-sentry.md';
 
 ## 关键特性
 
-- [ ] [精确一次](../../concept/connector-v2-features.md)
+- [ ] [精确一次](../../introduction/concepts/connector-v2-features.md)
 
 ## 选项
 
@@ -58,7 +58,7 @@ DSN告诉SDK将事件发送到何处.
 
 ### common options
 
-接收器插件常用参数，详见 [Sink 常见选项](../sink-common-options.md) 
+接收器插件常用参数，详见 [Sink 常见选项](../common-options/sink-common-options.md) 
 
 ## 示例
 

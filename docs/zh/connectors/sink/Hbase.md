@@ -10,7 +10,7 @@ import ChangeLog from '../changelog/connector-hbase.md';
 
 ## 主要特性
 
-- [ ] [精准一次](../../concept/connector-v2-features.md)
+- [ ] [精准一次](../../introduction/concepts/connector-v2-features.md)
 
 ## 选项
 
@@ -104,7 +104,7 @@ hbase 写入数据 TTL 时间，默认以表设置的TTL为准，单位毫秒
 
 ### 常见选项
 
-Sink 插件常用参数，详见 Sink 常用选项 [Sink Common Options](../sink-common-options.md)
+Sink 插件常用参数，详见 Sink 常用选项 [Sink Common Options](../common-options/sink-common-options.md)
 
 ## 案例
 

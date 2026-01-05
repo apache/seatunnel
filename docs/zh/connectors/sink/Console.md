@@ -22,13 +22,13 @@ import ChangeLog from '../changelog/connector-console.md';
 
 ## 主要特性
 
-- [ ] [精确一次](../../concept/connector-v2-features.md)
+- [ ] [精确一次](../../introduction/concepts/connector-v2-features.md)
 
 ## 接收器选项
 
 |         名称         |   类型    | 是否必须 | 默认值 |                            描述                             |
 |--------------------|---------|------|-----|-----------------------------------------------------------|
-| common-options     |         | 否    | -   | Sink插件常用参数，请参考 [Sink常用选项](../sink-common-options.md) 了解详情 |
+| common-options     |         | 否    | -   | Sink插件常用参数，请参考 [Sink常用选项](../common-options/sink-common-options.md) 了解详情 |
 | log.print.data     | boolean | 否    | -   | 确定是否应在日志中打印数据的标志。默认值为`true`                               |
 | log.print.delay.ms | int     | 否    | -   | 将每个数据项打印到日志之间的延迟(以毫秒为单位)。默认值为`0`                          |
 

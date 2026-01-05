@@ -14,11 +14,11 @@ import ChangeLog from '../changelog/connector-file-obs.md';
 
 ## Key features
 
-- [x] [multimodal](../../concept/connector-v2-features.md#multimodal)
+- [x] [multimodal](../../introduction/concepts/connector-v2-features.md#multimodal)
 
   Use binary file format to read and write files in any format, such as videos, pictures, etc. In short, any files can be synchronized to the target place.
 
-- [x] [exactly-once](../../concept/connector-v2-features.md)
+- [x] [exactly-once](../../introduction/concepts/connector-v2-features.md)
 
 By default, we use 2PC commit to ensure `exactly-once`
 
@@ -175,7 +175,7 @@ Please note that excel type does not support any compression format
 
 #### <span id="common_options"> common options </span>
 
-> Sink plugin common parameters, please refer to [Sink Common Options](../sink-common-options.md) for details.
+> Sink plugin common parameters, please refer to [Sink Common Options](../common-options/sink-common-options.md) for details.
 
 ## Task Example
 

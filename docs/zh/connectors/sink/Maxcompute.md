@@ -10,7 +10,7 @@ import ChangeLog from '../changelog/connector-maxcompute.md';
 
 ## 关键特性
 
-- [ ] [精确一次](../../concept/connector-v2-features.md)
+- [ ] [精确一次](../../introduction/concepts/connector-v2-features.md)
 
 ## 选项
 
@@ -151,7 +151,7 @@ CREATE TABLE IF NOT EXISTS `${table}`
 
 ### 通用选项
 
-Sink 插件通用参数，请参考 [Sink 通用选项](../sink-common-options.md) 详见。
+Sink 插件通用参数，请参考 [Sink 通用选项](../common-options/sink-common-options.md) 详见。
 
 ## 示例
 

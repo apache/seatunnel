@@ -12,12 +12,12 @@ import ChangeLog from '../changelog/connector-http.md';
 
 ## 主要特性
 
-- [x] [批处理](../../concept/connector-v2-features.md)
-- [x] [流处理](../../concept/connector-v2-features.md)
-- [ ] [精确一次](../../concept/connector-v2-features.md)
-- [ ] [列投影](../../concept/connector-v2-features.md)
-- [ ] [并行度](../../concept/connector-v2-features.md)
-- [ ] [支持用户自定义分片](../../concept/connector-v2-features.md)
+- [x] [批处理](../../introduction/concepts/connector-v2-features.md)
+- [x] [流处理](../../introduction/concepts/connector-v2-features.md)
+- [ ] [精确一次](../../introduction/concepts/connector-v2-features.md)
+- [ ] [列投影](../../introduction/concepts/connector-v2-features.md)
+- [ ] [并行度](../../introduction/concepts/connector-v2-features.md)
+- [ ] [支持用户自定义分片](../../introduction/concepts/connector-v2-features.md)
 
 ## 描述
 

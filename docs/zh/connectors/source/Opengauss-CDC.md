@@ -11,12 +11,12 @@ import ChangeLog from '../changelog/connector-cdc-opengauss.md';
 
 ## 主要功能
 
-- [ ] [批处理](../../concept/connector-v2-features.md)
-- [x] [流处理](../../concept/connector-v2-features.md)
-- [x] [精确一次](../../concept/connector-v2-features.md)
-- [ ] [列投影](../../concept/connector-v2-features.md)
-- [x] [并行度](../../concept/connector-v2-features.md)
-- [x] [支持用户定义的拆分](../../concept/connector-v2-features.md)
+- [ ] [批处理](../../introduction/concepts/connector-v2-features.md)
+- [x] [流处理](../../introduction/concepts/connector-v2-features.md)
+- [x] [精确一次](../../introduction/concepts/connector-v2-features.md)
+- [ ] [列投影](../../introduction/concepts/connector-v2-features.md)
+- [x] [并行度](../../introduction/concepts/connector-v2-features.md)
+- [x] [支持用户定义的拆分](../../introduction/concepts/connector-v2-features.md)
 
 ## 描述
 

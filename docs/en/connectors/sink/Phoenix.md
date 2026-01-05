@@ -17,7 +17,7 @@ Two ways of connecting Phoenix with Java JDBC. One is to connect to zookeeper th
 
 ## Key features
 
-- [ ] [exactly-once](../../concept/connector-v2-features.md)
+- [ ] [exactly-once](../../introduction/concepts/connector-v2-features.md)
 
 ## Options
 
@@ -31,7 +31,7 @@ if you use phoenix (thick) driver the value is `jdbc:phoenix:localhost:2182/hbas
 
 ### common options
 
-Sink plugin common parameters, please refer to [Sink Common Options](../sink-common-options.md) for details
+Sink plugin common parameters, please refer to [Sink Common Options](../common-options/sink-common-options.md) for details
 
 ## Example
 

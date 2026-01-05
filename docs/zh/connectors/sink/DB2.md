@@ -27,8 +27,8 @@ import ChangeLog from '../changelog/connector-jdbc.md';
 
 ## 关键特性
 
-- [x] [精确一次](../../concept/connector-v2-features.md)
-- [ ] [cdc](../../concept/connector-v2-features.md)
+- [x] [精确一次](../../introduction/concepts/connector-v2-features.md)
+- [ ] [cdc](../../introduction/concepts/connector-v2-features.md)
 
 > 使用 `Xa transactions` 来确保 `精确一次`. 因此，数据库只支持 `exactly-once` 即
 > 支持 `Xa transactions`. 您可以设置 `is_exactly_once=true` 来启用它.
@@ -79,7 +79,7 @@ import ChangeLog from '../changelog/connector-jdbc.md';
 | transaction_timeout_sec      | Int     | No       | -1      | 事务打开后的超时，默认值为-1（永不超时）. 请注意，设置超时可能会影响＜br/＞精确一次语义                                                                                            |
 | auto_commit                  | Boolean | No       | true    | 默认情况下启用自动事务提交                                                                                                                                                                                             |
 | properties                   | Map     | No       | -       | 附加连接配置参数，当属性和URL具有相同的参数时，优先级由驱动程序的特定实现决定. 例如，在MySQL中，属性优先于URL. |
-| common-options               |         | no       | -       | Sink插件常用参数，详见 [Sink Common Options](../sink-common-options.md)                                                                                                                                     |
+| common-options               |         | no       | -       | Sink插件常用参数，详见 [Sink Common Options](../common-options/sink-common-options.md)                                                                                                                                     |
 
 ### 小贴士
 

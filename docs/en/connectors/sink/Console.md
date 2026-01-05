@@ -22,13 +22,13 @@ Used to send data to Console. Both support streaming and batch mode.
 
 ## Key Features
 
-- [ ] [exactly-once](../../concept/connector-v2-features.md)
+- [ ] [exactly-once](../../introduction/concepts/connector-v2-features.md)
 
 ## Options
 
 |        Name        |  Type   | Required | Default |                                                 Description                                                 |
 |--------------------|---------|----------|---------|-------------------------------------------------------------------------------------------------------------|
-| common-options     |         | No       | -       | Sink plugin common parameters, please refer to [Sink Common Options](../sink-common-options.md) for details |
+| common-options     |         | No       | -       | Sink plugin common parameters, please refer to [Sink Common Options](../common-options/sink-common-options.md) for details |
 | log.print.data     | boolean | No       | -       | Flag to determine whether data should be printed in the logs. The default value is `true`                   |
 | log.print.delay.ms | int     | No       | -       | Delay in milliseconds between printing each data item to the logs. The default value is `0`.                |
 

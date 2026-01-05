@@ -10,8 +10,8 @@ import ChangeLog from '../changelog/connector-influxdb.md';
 
 ## 关键特性
 
-- [ ] [精确一次](../../concept/connector-v2-features.md)
-- [x] [支持多表写入](../../concept/connector-v2-features.md)
+- [ ] [精确一次](../../introduction/concepts/connector-v2-features.md)
+- [x] [支持多表写入](../../introduction/concepts/connector-v2-features.md)
 
 ## 选项
 
@@ -85,7 +85,7 @@ http://influxdb-host:8086
 
 ### 通用选项
 
-Sink 插件通用参数，请参考 [Sink 通用选项](../sink-common-options.md) 详见
+Sink 插件通用参数，请参考 [Sink 通用选项](../common-options/sink-common-options.md) 详见
 
 ## 示例
 

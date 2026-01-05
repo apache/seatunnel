@@ -12,8 +12,8 @@ import ChangeLog from '../changelog/connector-http-feishu.md';
 
 ## 主要特性
 
-- [ ] [精确一次](../../concept/connector-v2-features.md)
-- [ ] [变更数据捕获](../../concept/connector-v2-features.md)
+- [ ] [精确一次](../../introduction/concepts/connector-v2-features.md)
+- [ ] [变更数据捕获](../../introduction/concepts/connector-v2-features.md)
 
 ## 描述
 
@@ -48,7 +48,7 @@ import ChangeLog from '../changelog/connector-http-feishu.md';
 |----------------|--------|------|-----|------------------------------------------------------------|
 | url            | String | 是    | -   | 飞书web hook URL                                             |
 | headers        | Map    | 否    | -   | HTTP 请求头                                                   |
-| common-options |        | 否    | -   | 接收器插件常见参数，请参阅 [接收器通用选项](../sink-common-options.md) 以获取详细信息 |
+| common-options |        | 否    | -   | 接收器插件常见参数，请参阅 [接收器通用选项](../common-options/sink-common-options.md) 以获取详细信息 |
 
 ## 任务示例
 

@@ -12,7 +12,7 @@ Write data to Neo4j.
 
 ## Key features
 
-- [ ] [exactly-once](../../concept/connector-v2-features.md)
+- [ ] [exactly-once](../../introduction/concepts/connector-v2-features.md)
 
 ## Options
 
@@ -92,7 +92,7 @@ The maximum amount of time to wait for a TCP connection to be established (secon
 
 ### common options
 
-Sink plugin common parameters, please refer to [Sink Common Options](../sink-common-options.md) for details
+Sink plugin common parameters, please refer to [Sink Common Options](../common-options/sink-common-options.md) for details
 
 ## WriteOneByOneExample
 

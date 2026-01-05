@@ -17,12 +17,12 @@ just for some test cases such as type conversion or connector new feature testin
 
 ## Key Features
 
-- [x] [batch](../../concept/connector-v2-features.md)
-- [x] [stream](../../concept/connector-v2-features.md)
-- [ ] [exactly-once](../../concept/connector-v2-features.md)
-- [x] [column projection](../../concept/connector-v2-features.md)
-- [ ] [parallelism](../../concept/connector-v2-features.md)
-- [ ] [support user-defined split](../../concept/connector-v2-features.md)
+- [x] [batch](../../introduction/concepts/connector-v2-features.md)
+- [x] [stream](../../introduction/concepts/connector-v2-features.md)
+- [ ] [exactly-once](../../introduction/concepts/connector-v2-features.md)
+- [x] [column projection](../../introduction/concepts/connector-v2-features.md)
+- [ ] [parallelism](../../introduction/concepts/connector-v2-features.md)
+- [ ] [support user-defined split](../../introduction/concepts/connector-v2-features.md)
 
 ## Source Options
 
@@ -70,13 +70,13 @@ just for some test cases such as type conversion or connector new feature testin
 | binary.vector.dimension | int      | no       | 8                       | Dimension of the generated binary vector                                                                                                                                              |
 | vector.float.min        | float    | no       | 0                       | The min value of float data in vector that connector generated                                                                                                                        |
 | vector.float.max        | float    | no       | 0x1.fffffeP+127         | The max value of float data in vector that connector generated                                                                                                                        |
-| common-options          |          | no       | -                       | Source plugin common parameters, please refer to [Source Common Options](../source-common-options.md) for details                                                                     |
+| common-options          |          | no       | -                       | Source plugin common parameters, please refer to [Source Common Options](../common-options/source-common-options.md) for details                                                                     |
 
 ## Task Example
 
 ### Simple
 
-> This example Randomly generates data of a specified type. If you want to learn how to declare field types, click [here](../../concept/schema-feature.md#how-to-declare-type-supported).
+> This example Randomly generates data of a specified type. If you want to learn how to declare field types, click [here](../../introduction/concepts/schema-feature.md#how-to-declare-type-supported).
 
 ```hocon
 schema = {

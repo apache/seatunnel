@@ -21,13 +21,13 @@ semantics (using XA transaction guarantee).
 
 ## Key Features
 
-- [x] [exactly-once](../../concept/connector-v2-features.md)
+- [x] [exactly-once](../../introduction/concepts/connector-v2-features.md)
 
 Use `Xa transactions` to ensure `exactly-once`. So only support `exactly-once` for the database which is
 support `Xa transactions`. You can set `is_exactly_once=true` to enable it.
 
-- [x] [cdc](../../concept/connector-v2-features.md)
-- [x] [support multiple table write](../../concept/connector-v2-features.md)
+- [x] [cdc](../../introduction/concepts/connector-v2-features.md)
+- [x] [support multiple table write](../../introduction/concepts/connector-v2-features.md)
 
 ## Options
 
@@ -196,7 +196,7 @@ Additional connection configuration parameters,when properties and URL have the 
 
 ### common options
 
-Sink plugin common parameters, please refer to [Sink Common Options](../sink-common-options.md) for details
+Sink plugin common parameters, please refer to [Sink Common Options](../common-options/sink-common-options.md) for details
 
 ### schema_save_mode [Enum]
 

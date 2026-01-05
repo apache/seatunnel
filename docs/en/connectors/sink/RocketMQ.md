@@ -16,7 +16,7 @@ import ChangeLog from '../changelog/connector-rocketmq.md';
 
 ## Key Features
 
-- [x] [exactly-once](../../concept/connector-v2-features.md)
+- [x] [exactly-once](../../introduction/concepts/connector-v2-features.md)
 
 By default, we will use 2pc to guarantee the message is sent to RocketMQ exactly once.
 
@@ -39,7 +39,7 @@ Write Rows to a Apache RocketMQ topic.
 | format               | String  | no       | json                     | Data format. The default format is json. Optional text format. The default field separator is ",".If you customize the delimiter, add the "field_delimiter" option. |
 | field.delimiter      | String  | no       | ,                        | Customize the field delimiter for data format.                                                                                                                      |
 | producer.send.sync   | Boolean | no       | false                    | If true, the message will be sync sent.                                                                                                                             |
-| common-options       | config  | no       | -                        | Sink plugin common parameters, please refer to [Sink Common Options](../sink-common-options.md) for details.                                                        |
+| common-options       | config  | no       | -                        | Sink plugin common parameters, please refer to [Sink Common Options](../common-options/sink-common-options.md) for details.                                                        |
 
 ### partition.key.fields [array]
 

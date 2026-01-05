@@ -13,9 +13,9 @@ Milvus sink连接器将数据写入Milvus或Zilliz Cloud，它具有以下功能
 - 自动重试以绕过 ratelimit 限制 和 grpc 限制
 ## 主要特性
 
-- [x] [batch](../../concept/connector-v2-features.md)
-- [x] [exactly-once](../../concept/connector-v2-features.md)
-- [ ] [column projection](../../concept/connector-v2-features.md)
+- [x] [batch](../../introduction/concepts/connector-v2-features.md)
+- [x] [exactly-once](../../introduction/concepts/connector-v2-features.md)
+- [ ] [column projection](../../introduction/concepts/connector-v2-features.md)
 
 ##数据类型映射
 

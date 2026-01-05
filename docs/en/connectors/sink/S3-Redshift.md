@@ -15,7 +15,7 @@ Output data to AWS Redshift.
 
 ## Key features
 
-- [x] [exactly-once](../../concept/connector-v2-features.md)
+- [x] [exactly-once](../../introduction/concepts/connector-v2-features.md)
 
 By default, we use 2PC commit to ensure `exactly-once`
 
@@ -186,7 +186,7 @@ The maximum number of rows in a file. For SeaTunnel Engine, the number of lines 
 
 ### common options
 
-Sink plugin common parameters, please refer to [Sink Common Options](../sink-common-options.md) for details.
+Sink plugin common parameters, please refer to [Sink Common Options](../common-options/sink-common-options.md) for details.
 
 ## Example
 

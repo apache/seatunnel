@@ -10,8 +10,8 @@ import ChangeLog from '../changelog/connector-druid.md';
 
 ## 关键特性
 
-- [ ] [精确一次](../../concept/connector-v2-features.md)
-- [x] [支持多表写入](../../concept/connector-v2-features.md)
+- [ ] [精确一次](../../introduction/concepts/connector-v2-features.md)
+- [x] [支持多表写入](../../introduction/concepts/connector-v2-features.md)
 
 ## 数据类型映射
 
@@ -51,7 +51,7 @@ Druid的协调器URL主机和端口，示例: "myHost:8888"
 
 ### common options
 
-Sink插件常用参数，详见 [Sink Common Options](../sink-common-options.md) for details
+Sink插件常用参数，详见 [Sink Common Options](../common-options/sink-common-options.md) for details
 
 ## 示例
 

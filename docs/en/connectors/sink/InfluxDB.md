@@ -10,8 +10,8 @@ Write data to InfluxDB.
 
 ## Key features
 
-- [ ] [exactly-once](../../concept/connector-v2-features.md)
-- [x] [support multiple table write](../../concept/connector-v2-features.md)
+- [ ] [exactly-once](../../introduction/concepts/connector-v2-features.md)
+- [x] [support multiple table write](../../introduction/concepts/connector-v2-features.md)
 
 ## Options
 
@@ -85,7 +85,7 @@ the timeout for connecting to InfluxDB, in milliseconds
 
 ### common options
 
-Sink plugin common parameters, please refer to [Sink Common Options](../sink-common-options.md) for details
+Sink plugin common parameters, please refer to [Sink Common Options](../common-options/sink-common-options.md) for details
 
 ## Examples
 

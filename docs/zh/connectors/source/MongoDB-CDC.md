@@ -11,12 +11,12 @@ import ChangeLog from '../changelog/connector-cdc-mongodb.md';
 
 ## 关键特性
 
-- [ ] [批](../../concept/connector-v2-features.md)
-- [x] [流](../../concept/connector-v2-features.md)
-- [x] [精确一次](../../concept/connector-v2-features.md)
-- [ ] [列投影](../../concept/connector-v2-features.md)
-- [x] [并行性](../../concept/connector-v2-features.md)
-- [x] [支持用户自定义split](../../concept/connector-v2-features.md)
+- [ ] [批](../../introduction/concepts/connector-v2-features.md)
+- [x] [流](../../introduction/concepts/connector-v2-features.md)
+- [x] [精确一次](../../introduction/concepts/connector-v2-features.md)
+- [ ] [列投影](../../introduction/concepts/connector-v2-features.md)
+- [x] [并行性](../../introduction/concepts/connector-v2-features.md)
+- [x] [支持用户自定义split](../../introduction/concepts/connector-v2-features.md)
 
 ## 描述
 

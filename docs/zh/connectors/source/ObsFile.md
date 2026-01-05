@@ -14,19 +14,19 @@ import ChangeLog from '../changelog/connector-file-obs.md';
 
 ## 关键特性
 
-- [x] [批](../../concept/connector-v2-features.md)
-- [ ] [流](../../concept/connector-v2-features.md)
-- [x] [多模态](../../concept/connector-v2-features.md#multimodal)
+- [x] [批](../../introduction/concepts/connector-v2-features.md)
+- [ ] [流](../../introduction/concepts/connector-v2-features.md)
+- [x] [多模态](../../introduction/concepts/connector-v2-features.md#multimodal)
 
   使用二进制文件格式读写任何格式的文件，例如视频、图片等。简而言之，任何文件都可以同步到目标位置。
 
-- [x] [精确一次](../../concept/connector-v2-features.md)
+- [x] [精确一次](../../introduction/concepts/connector-v2-features.md)
 
   在一次 pollNext 调用中读取分割中的所有数据。读取哪些分割将保存在快照中。
 
-- [x] [列投影](../../concept/connector-v2-features.md)
-- [x] [并行性](../../concept/connector-v2-features.md)
-- [ ] [支持用户自定义split](../../concept/connector-v2-features.md)
+- [x] [列投影](../../introduction/concepts/connector-v2-features.md)
+- [x] [并行性](../../introduction/concepts/connector-v2-features.md)
+- [ ] [支持用户自定义split](../../introduction/concepts/connector-v2-features.md)
 - [x] 文件格式类型
   - [x] text
   - [x] csv

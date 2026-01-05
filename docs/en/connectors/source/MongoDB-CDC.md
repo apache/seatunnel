@@ -11,12 +11,12 @@ import ChangeLog from '../changelog/connector-cdc-mongodb.md';
 
 ## Key Features
 
-- [ ] [batch](../../concept/connector-v2-features.md)
-- [x] [stream](../../concept/connector-v2-features.md)
-- [x] [exactly-once](../../concept/connector-v2-features.md)
-- [ ] [column projection](../../concept/connector-v2-features.md)
-- [x] [parallelism](../../concept/connector-v2-features.md)
-- [x] [support user-defined split](../../concept/connector-v2-features.md)
+- [ ] [batch](../../introduction/concepts/connector-v2-features.md)
+- [x] [stream](../../introduction/concepts/connector-v2-features.md)
+- [x] [exactly-once](../../introduction/concepts/connector-v2-features.md)
+- [ ] [column projection](../../introduction/concepts/connector-v2-features.md)
+- [x] [parallelism](../../introduction/concepts/connector-v2-features.md)
+- [x] [support user-defined split](../../introduction/concepts/connector-v2-features.md)
 
 ## Description
 
@@ -123,7 +123,7 @@ For specific types in MongoDB, we use Extended JSON format to map them to Seatun
 | heartbeat.interval.ms              | String | No       | 0       | The length of time in milliseconds between sending heartbeat messages. Use 0 to disable.                                                                                                                                                                                    |
 | incremental.snapshot.chunk.size.mb | Long   | No       | 64      | The chunk size mb of incremental snapshot.                                                                                                                                                                                                                                  |
 | exactly_once                       | Boolean| No       | false   | Enable exactly once semantic. Enabling this may cause an out-of-memory risk during the large table snapshot stage in recovery.                                                                                                                                              |
-| common-options                     |        | No       | -       | Source plugin common parameters, please refer to [Source Common Options](../source-common-options.md) for details.                                                                                                                                                          |
+| common-options                     |        | No       | -       | Source plugin common parameters, please refer to [Source Common Options](../common-options/source-common-options.md) for details.                                                                                                                                                          |
 
 ### Tips
 

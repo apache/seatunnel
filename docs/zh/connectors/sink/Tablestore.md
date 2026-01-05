@@ -10,7 +10,7 @@ import ChangeLog from '../changelog/connector-tablestore.md';
 
 ## 主要特性
 
-- [ ] [exactly-once](../../concept/connector-v2-features.md)
+- [ ] [exactly-once](../../introduction/concepts/connector-v2-features.md)
 
 ## 选项
 
@@ -51,7 +51,7 @@ Tablestore 的主键。
 
 ### common 选项 [ config ]
 
-Sink插件常用参数，请参考[Sink common Options]（../sink-common-options.md）了解详细信息。
+Sink插件常用参数，请参考[Sink common Options]（../common-options/sink-common-options.md）了解详细信息。
 
 ## 示例
 

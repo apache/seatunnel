@@ -18,11 +18,11 @@ import ChangeLog from '../changelog/connector-file-ftp.md';
 
 ## 主要特性
 
-- [x] [多模态](../../concept/connector-v2-features.md#多模态multimodal)
+- [x] [多模态](../../introduction/concepts/connector-v2-features.md#多模态multimodal)
 
   使用二进制文件格式读取和写入任何格式的文件，例如视频、图片等。简而言之，任何文件都可以同步到目标位置。
 
-- [x] [精确一次](../../concept/connector-v2-features.md)
+- [x] [精确一次](../../introduction/concepts/connector-v2-features.md)
 
   默认情况下，我们使用两阶段提交（2PC）来确保`精确一次`
 
@@ -218,7 +218,7 @@ import ChangeLog from '../changelog/connector-file-ftp.md';
 
 ### common options
 
-Sink 插件的通用参数，请参考[Sink通用选项](../sink-common-options.md)了解详细信息。 
+Sink 插件的通用参数，请参考[Sink通用选项](../common-options/sink-common-options.md)了解详细信息。 
 
 ### max_rows_in_memory [int]
 

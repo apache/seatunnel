@@ -17,8 +17,8 @@ import ChangeLog from '../changelog/connector-hive.md';
 
 ## 关键特性
 
-- [x] [支持多表写入](../../concept/connector-v2-features.md)
-- [x] [精确一次](../../concept/connector-v2-features.md)
+- [x] [支持多表写入](../../introduction/concepts/connector-v2-features.md)
+- [x] [精确一次](../../introduction/concepts/connector-v2-features.md)
 
 默认情况下，我们使用 2PC 提交来确保“精确一次”。
 
@@ -139,7 +139,7 @@ LOCATION '${table_location}'
 
 ### 通用选项
 
-Sink 插件的通用参数，请参阅 [Sink Common Options](../sink-common-options.md) 了解详细信息。
+Sink 插件的通用参数，请参阅 [Sink Common Options](../common-options/sink-common-options.md) 了解详细信息。
 
 ## 示例
 

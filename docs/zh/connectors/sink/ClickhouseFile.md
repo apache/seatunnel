@@ -10,7 +10,7 @@ import ChangeLog from '../changelog/connector-clickhouse.md';
 
 ## 主要特性
 
-- [ ] [精准一次](../../concept/connector-v2-features.md)
+- [ ] [精准一次](../../introduction/concepts/connector-v2-features.md)
 
 :::tip 提示
 
@@ -111,7 +111,7 @@ ClickhouseFile本地存储临时文件的目录。
 
 ### common options
 
-Sink插件常用参数，请参考[Sink常用选项](../sink-common-options.md)获取更多细节信息。
+Sink插件常用参数，请参考[Sink常用选项](../common-options/sink-common-options.md)获取更多细节信息。
 
 ## 示例
 

@@ -424,8 +424,8 @@ SeaTunnel 提供了一套全面的连接器，使您能够从各种数据源读�
 ## 贡献
 
 想要添加新连接器或改进现有连接器？请查看：
-- [贡献者指南](../contributing.md)
-- [连接器开发指南](../development/connector-development.md)
+- [贡献者指南](../developer/contribution-guide.md)
+- [连接器开发指南](../developer/connector-development)
 - [社区论坛](https://github.com/apache/seatunnel/discussions)
 
 ---

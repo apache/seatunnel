@@ -10,12 +10,12 @@ Source connector for Apache Pulsar.
 
 ## Key features
 
-- [x] [batch](../../concept/connector-v2-features.md)
-- [x] [stream](../../concept/connector-v2-features.md)
-- [x] [exactly-once](../../concept/connector-v2-features.md)
-- [ ] [column projection](../../concept/connector-v2-features.md)
-- [x] [parallelism](../../concept/connector-v2-features.md)
-- [ ] [support user-defined split](../../concept/connector-v2-features.md)
+- [x] [batch](../../introduction/concepts/connector-v2-features.md)
+- [x] [stream](../../introduction/concepts/connector-v2-features.md)
+- [x] [exactly-once](../../introduction/concepts/connector-v2-features.md)
+- [ ] [column projection](../../introduction/concepts/connector-v2-features.md)
+- [x] [parallelism](../../introduction/concepts/connector-v2-features.md)
+- [ ] [support user-defined split](../../introduction/concepts/connector-v2-features.md)
 
 ## Options
 
@@ -130,7 +130,7 @@ Stop from the specified epoch timestamp (in milliseconds).
 ### schema [Config]
 
 The structure of the data, including field names and field types.
-reference to [Schema-Feature](../../concept/schema-feature.md)
+reference to [Schema-Feature](../../introduction/concepts/schema-feature.md)
 
 ## format [String]
 
@@ -138,7 +138,7 @@ Data format. The default format is json, reference [formats](../formats).
 
 ### common options
 
-Source plugin common parameters, please refer to [Source Common Options](../source-common-options.md) for details.
+Source plugin common parameters, please refer to [Source Common Options](../common-options/source-common-options.md) for details.
 
 ## Example
 

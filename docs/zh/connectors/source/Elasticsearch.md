@@ -10,12 +10,12 @@ import ChangeLog from '../changelog/connector-elasticsearch.md';
 
 ## Key features
 
-- [x] [批处理](../../concept/connector-v2-features.md)
-- [ ] [流处理](../../concept/connector-v2-features.md)
-- [ ] [精准一次](../../concept/connector-v2-features.md)
-- [x] [column projection](../../concept/connector-v2-features.md)
-- [ ] [并行度](../../concept/connector-v2-features.md)
-- [ ] [支持用户自定义的分片](../../concept/connector-v2-features.md)
+- [x] [批处理](../../introduction/concepts/connector-v2-features.md)
+- [ ] [流处理](../../introduction/concepts/connector-v2-features.md)
+- [ ] [精准一次](../../introduction/concepts/connector-v2-features.md)
+- [x] [column projection](../../introduction/concepts/connector-v2-features.md)
+- [ ] [并行度](../../introduction/concepts/connector-v2-features.md)
+- [ ] [支持用户自定义的分片](../../introduction/concepts/connector-v2-features.md)
 
 ## 配置参数选项
 
