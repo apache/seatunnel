@@ -17,6 +17,7 @@
 
 package org.apache.seatunnel.connectors.seatunnel.starrocks.client.source;
 
+import org.apache.seatunnel.shade.org.apache.commons.lang3.StringUtils;
 import org.apache.seatunnel.shade.org.apache.commons.lang3.tuple.Pair;
 
 import org.apache.seatunnel.api.table.type.SeaTunnelRow;
@@ -66,7 +67,7 @@ public class StarRocksBeReadClient implements Serializable {
 
     public StarRocksBeReadClient(String beNodeInfo, SourceConfig sourceConfig) {
         this.sourceConfig = sourceConfig;
-        log.debug("Parse StarRocks BE address: '{}'.", beNodeInfo);
+        log.info("Parse StarRocks BE address: '{}'.", beNodeInfo);
         String[] hostPort = beNodeInfo.split(":");
         if (hostPort.length != 2) {
             throw new StarRocksConnectorException(
@@ -75,12 +76,17 @@ public class StarRocksBeReadClient implements Serializable {
         }
 
         // If the user has configured beHostPortMapping, we need to parse it
-        Map<String, Pair<String, String>> beHostPortMapping = formatBeHostPortMapping(sourceConfig);
+        Map<String, Pair<String, Integer>> beHostPortMapping =
+                formatBeHostPortMapping(sourceConfig);
 
         if (beHostPortMapping.containsKey(hostPort[0].trim())) {
-            Pair<String, String> accessIpPort = beHostPortMapping.get(hostPort[0].trim());
+            Pair<String, Integer> accessIpPort = beHostPortMapping.get(hostPort[0].trim());
             this.ip = accessIpPort.getKey();
-            this.port = Integer.parseInt(accessIpPort.getValue());
+            this.port = accessIpPort.getValue();
+            log.info(
+                    "The be host and be_port is configured by user with config 'be_host_port_mapping', the be host is '{}', the be port is '{}'.",
+                    accessIpPort.getKey(),
+                    accessIpPort.getValue());
         } else {
             this.ip = hostPort[0].trim();
             this.port = Integer.parseInt(hostPort[1].trim());
@@ -112,20 +118,45 @@ public class StarRocksBeReadClient implements Serializable {
      * @param sourceConfig sourceConfig
      * @return <host, Pair<ip, port>>
      */
-    private static Map<String, Pair<String, String>> formatBeHostPortMapping(
+    private static Map<String, Pair<String, Integer>> formatBeHostPortMapping(
             SourceConfig sourceConfig) {
         return sourceConfig.getBeHostPortMapping().stream()
                 .collect(
                         Collectors.toMap(
                                 mapping -> {
                                     // host:be_port
-                                    String[] hostInfo = mapping.getHost_port().split(":");
+                                    String[] hostInfo;
+                                    if (StringUtils.isBlank(mapping.getHostPort())
+                                            || (hostInfo = mapping.getHostPort().split(":")).length
+                                                    != 2) {
+                                        log.error("The be host and be_port can't be null");
+                                        throw new StarRocksConnectorException(
+                                                StarRocksConnectorErrorCode.HOST_MAPPING_ILLEGAL,
+                                                "The be host and be_port can't be null");
+                                    }
                                     return hostInfo[0];
                                 },
                                 mapping -> {
                                     // accessible ip and be_port
-                                    String[] accessIpInfo = mapping.getIp_port().split(":");
-                                    return Pair.of(accessIpInfo[0], accessIpInfo[1]);
+                                    String[] accessIpInfo;
+                                    if (StringUtils.isBlank(mapping.getIpPort())
+                                            || (accessIpInfo = mapping.getIpPort().split(":"))
+                                                            .length
+                                                    != 2) {
+                                        log.error("The accessible ip and be_port can't be null");
+                                        throw new StarRocksConnectorException(
+                                                StarRocksConnectorErrorCode.HOST_MAPPING_ILLEGAL,
+                                                "The accessible ip and be_port can't be null");
+                                    }
+                                    try {
+                                        int port = Integer.parseInt(accessIpInfo[1]);
+                                        return Pair.of(accessIpInfo[0], port);
+                                    } catch (NumberFormatException e) {
+                                        log.error("The accessible be_port is not a numeric type");
+                                        throw new StarRocksConnectorException(
+                                                StarRocksConnectorErrorCode.HOST_MAPPING_ILLEGAL,
+                                                "The accessible be_port is not a numeric type");
+                                    }
                                 }));
     }
 

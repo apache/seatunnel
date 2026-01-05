@@ -152,7 +152,17 @@ The parameter of the scan data from be
 
 The mapping relationship between the `host:be_port` of `StarRocks` cluster `BE` and the accessible `ip:be_port`.
 This configuration is optional, mainly to solve the scenario where the computing cluster cannot directly access the host and `be_port` of `BE`, such as `StarRocks` deployed in k8s, but `Flink` cannot directly access the `host` and `be_port` of `BE`. With this configuration, Flink can access `BE` and `be_port`.
-For example, `[{"pingt-7f5cf4cfdc-cn-0.headless.olap:9060"="xx.xx.xx.xx:31088"}]`.
+
+such as:
+
+```
+be_host_port_mapping = [
+  {
+    host_port = "be_host_1:9060"
+    ip_port = "xx.xx.xx.xx:31088"
+  }
+]
+```
 
 ## Example
 
@@ -283,7 +293,7 @@ source {
     scan.params.scanner_thread_pool_thread_num = "3"
     be_host_port_mapping = [
       {
-        host_port = "pingt-7f5cf4cfdc-cn-0.headless.olap:9060:9060"
+        host_port = "be_host_1:9060"
         ip_port = "xx.xx.xx.xx:31088"
       }
     ]

@@ -151,7 +151,17 @@ partition[5] 从 be_node_3 读取 tablet 数据：tablet[14,15]
 
 `StarRocks`集群`BE`的host:be_port与能够访问的ip:be_port映射关系。
 该配置可选的，主要是解决计算集群不能够直接访问`BE`的`host`以及`be_port`的场景，如`StarRocks`部署在k8s中，但是flink不能直接访问`BE`的`host`以及`be_port`，利用此配置，`flink`可以能够访问`BE`以及`be_port`。
-例如 `[{"pingt-7f5cf4cfdc-cn-0.headless.olap:9060"="xx.xx.xx.xx:31088"}]`。
+
+例如:
+
+```
+be_host_port_mapping = [
+  {
+    host_port = "be_host_1:9060"
+    ip_port = "xx.xx.xx.xx:31088"
+  }
+]
+```
 
 ## 示例 1
 
@@ -282,7 +292,7 @@ source {
     scan.params.scanner_thread_pool_thread_num = "3"
     be_host_port_mapping = [
       {
-        host_port = "pingt-7f5cf4cfdc-cn-0.headless.olap:9060:9060"
+        host_port = "be_host_1:9060"
         ip_port = "xx.xx.xx.xx:31088"
       }
     ]

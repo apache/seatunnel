@@ -17,6 +17,8 @@
 
 package org.apache.seatunnel.connectors.seatunnel.starrocks.config;
 
+import org.apache.seatunnel.shade.com.fasterxml.jackson.annotation.JsonProperty;
+
 import org.apache.seatunnel.api.configuration.util.OptionMark;
 
 import lombok.AllArgsConstructor;
@@ -32,8 +34,10 @@ public class BeHostPortMapping implements Serializable {
     private static final long serialVersionUID = -1L;
 
     @OptionMark(description = "The be host and be_port")
-    private String host_port;
+    @JsonProperty("host_port")
+    private String hostPort;
 
     @OptionMark(description = "The accessible ip and be_port")
-    private String ip_port;
+    @JsonProperty("ip_port")
+    private String ipPort;
 }
