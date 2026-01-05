@@ -32,7 +32,6 @@ import com.google.auto.service.AutoService;
 @AutoService(Factory.class)
 public class DuckDBCatalogFactory implements CatalogFactory {
 
-    private static final String DATABASE_NAME = "main";
     private static final String DEFAULT_SCHEMA_NAME = "main";
 
     @Override

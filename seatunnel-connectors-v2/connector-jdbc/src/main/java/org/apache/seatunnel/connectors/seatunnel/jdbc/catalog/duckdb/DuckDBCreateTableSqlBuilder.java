@@ -17,9 +17,6 @@
 
 package org.apache.seatunnel.connectors.seatunnel.jdbc.catalog.duckdb;
 
-import org.apache.seatunnel.api.table.catalog.TableSchema;
-import org.apache.seatunnel.connectors.seatunnel.jdbc.catalog.mysql.MysqlCreateTableSqlBuilder;
-import org.apache.seatunnel.connectors.seatunnel.jdbc.internal.dialect.mysql.MySqlTypeConverter;
 import org.apache.seatunnel.shade.org.apache.commons.lang3.StringUtils;
 
 import org.apache.seatunnel.api.table.catalog.CatalogTable;
@@ -27,12 +24,12 @@ import org.apache.seatunnel.api.table.catalog.Column;
 import org.apache.seatunnel.api.table.catalog.ConstraintKey;
 import org.apache.seatunnel.api.table.catalog.PrimaryKey;
 import org.apache.seatunnel.api.table.catalog.TablePath;
+import org.apache.seatunnel.api.table.catalog.TableSchema;
 import org.apache.seatunnel.connectors.seatunnel.jdbc.catalog.AbstractJdbcCreateTableSqlBuilder;
+import org.apache.seatunnel.connectors.seatunnel.jdbc.catalog.utils.CatalogUtils;
 import org.apache.seatunnel.connectors.seatunnel.jdbc.internal.dialect.duckdb.DuckDBTypeConverter;
 
 import org.apache.commons.collections4.CollectionUtils;
-
-import lombok.extern.slf4j.Slf4j;
 
 import java.util.ArrayList;
 import java.util.List;
@@ -40,17 +37,22 @@ import java.util.stream.Collectors;
 
 import static org.apache.seatunnel.shade.com.google.common.base.Preconditions.checkNotNull;
 
-@Slf4j
 public class DuckDBCreateTableSqlBuilder extends AbstractJdbcCreateTableSqlBuilder {
 
-    private final List<Column> columns;
-    private final PrimaryKey primaryKey;
-    private final List<ConstraintKey> constraintKeys;
+    private List<Column> columns;
+    private PrimaryKey primaryKey;
+    private List<ConstraintKey> constraintKeys;
+    private String fieldIde;
+    private String comment;
+    private String sourceCatalogName;
+    private final DuckDBTypeConverter typeConverter;
+    private final boolean createIndex;
 
-    public DuckDBCreateTableSqlBuilder(CatalogTable catalogTable) {
-        this.columns = catalogTable.getTableSchema().getColumns();
-        this.primaryKey = catalogTable.getTableSchema().getPrimaryKey();
-        this.constraintKeys = catalogTable.getTableSchema().getConstraintKeys();
+    private DuckDBCreateTableSqlBuilder(
+            String tableName, DuckDBTypeConverter typeConverter, boolean createIndex) {
+        checkNotNull(tableName, "tableName must not be null");
+        this.typeConverter = typeConverter;
+        this.createIndex = createIndex;
     }
 
     public static DuckDBCreateTableSqlBuilder builder(
@@ -60,41 +62,64 @@ public class DuckDBCreateTableSqlBuilder extends AbstractJdbcCreateTableSqlBuild
             boolean createIndex) {
         checkNotNull(tablePath, "tablePath must not be null");
         checkNotNull(catalogTable, "catalogTable must not be null");
-
         TableSchema tableSchema = catalogTable.getTableSchema();
         checkNotNull(tableSchema, "tableSchema must not be null");
-
         return new DuckDBCreateTableSqlBuilder(tablePath.getTableName(), typeConverter, createIndex)
                 .comment(catalogTable.getComment())
-                // todo: set charset and collate
-                .engine(null)
-                .charset(null)
                 .primaryKey(tableSchema.getPrimaryKey())
                 .constraintKeys(tableSchema.getConstraintKeys())
                 .addColumn(tableSchema.getColumns())
-                .fieldIde(catalogTable.getOptions().get("fieldIde"));
+                .fieldIde(catalogTable.getOptions().get("fieldIde"))
+                .sourceCatalogName(catalogTable.getCatalogName());
+    }
+
+    public DuckDBCreateTableSqlBuilder addColumn(List<Column> columns) {
+        this.columns = columns;
+        return this;
+    }
+
+    public DuckDBCreateTableSqlBuilder primaryKey(PrimaryKey primaryKey) {
+        this.primaryKey = primaryKey;
+        return this;
+    }
+
+    public DuckDBCreateTableSqlBuilder fieldIde(String fieldIde) {
+        this.fieldIde = fieldIde;
+        return this;
+    }
+
+    public DuckDBCreateTableSqlBuilder constraintKeys(List<ConstraintKey> constraintKeys) {
+        this.constraintKeys = constraintKeys;
+        return this;
+    }
+
+    public DuckDBCreateTableSqlBuilder comment(String comment) {
+        this.comment = comment;
+        return this;
+    }
+
+    public DuckDBCreateTableSqlBuilder sourceCatalogName(String sourceCatalogName) {
+        this.sourceCatalogName = sourceCatalogName;
+        return this;
     }
 
     public List<String> build(TablePath tablePath) {
         List<String> sqls = new ArrayList<>();
-
         // Build CREATE TABLE SQL
         StringBuilder createTableSql = new StringBuilder();
-        createTableSql.append("CREATE TABLE ").append(tablePath.getFullName()).append(" (\n");
-
+        createTableSql.append("CREATE TABLE ").append(buildTableName(tablePath)).append(" (\n");
         // Build all column definitions
         List<String> columnSqls =
                 columns.stream().map(this::buildColumnSql).collect(Collectors.toList());
-
         // Add primary key definition
-        if (primaryKey != null
+        if (createIndex
+                && primaryKey != null
                 && primaryKey.getColumnNames() != null
                 && !primaryKey.getColumnNames().isEmpty()) {
             columnSqls.add(buildPrimaryKeySql(primaryKey));
         }
-
         // Add constraint definitions
-        if (CollectionUtils.isNotEmpty(constraintKeys)) {
+        if (createIndex && CollectionUtils.isNotEmpty(constraintKeys)) {
             for (ConstraintKey constraintKey : constraintKeys) {
                 if (StringUtils.isBlank(constraintKey.getConstraintName())
                         || (primaryKey != null
@@ -105,7 +130,6 @@ public class DuckDBCreateTableSqlBuilder extends AbstractJdbcCreateTableSqlBuild
                                                 primaryKey, constraintKey)))) {
                     continue;
                 }
-
                 switch (constraintKey.getConstraintType()) {
                     case UNIQUE_KEY:
                         columnSqls.add(buildUniqueKeySql(constraintKey));
@@ -126,9 +150,14 @@ public class DuckDBCreateTableSqlBuilder extends AbstractJdbcCreateTableSqlBuild
         createTableSql.append(String.join(",\n", columnSqls));
         createTableSql.append("\n)");
         sqls.add(createTableSql.toString());
-
+        if (StringUtils.isNotBlank(comment)) {
+            sqls.add(
+                    String.format(
+                            "COMMENT ON TABLE %s IS '%s'",
+                            buildTableName(tablePath), comment.replace("'", "''")));
+        }
         // Create indexes for constraints (after table creation)
-        if (CollectionUtils.isNotEmpty(constraintKeys)) {
+        if (createIndex && CollectionUtils.isNotEmpty(constraintKeys)) {
             for (ConstraintKey constraintKey : constraintKeys) {
                 if (constraintKey.getConstraintType() == ConstraintKey.ConstraintType.INDEX_KEY
                         && StringUtils.isNotBlank(constraintKey.getConstraintName())) {
@@ -136,46 +165,46 @@ public class DuckDBCreateTableSqlBuilder extends AbstractJdbcCreateTableSqlBuild
                 }
             }
         }
-
         return sqls;
     }
 
     private String buildColumnSql(Column column) {
         StringBuilder columnSql = new StringBuilder();
-        columnSql.append("    \"").append(column.getName()).append("\" ");
-
-        // Get corresponding DuckDB column type
-        String columnType = DuckDBTypeConverter.INSTANCE.reconvert(column).getColumnType();
+        columnSql.append("    ").append(quoteIdentifier(column.getName())).append(" ");
+        String columnType;
+        if (column.getSinkType() != null) {
+            columnType = column.getSinkType();
+        } else if (StringUtils.equalsIgnoreCase(sourceCatalogName, typeConverter.identifier())
+                && StringUtils.isNotBlank(column.getSourceType())) {
+            columnType = column.getSourceType();
+        } else {
+            columnType = typeConverter.reconvert(column).getColumnType();
+        }
         columnSql.append(columnType);
-
         // Add NOT NULL constraint
         if (!column.isNullable()) {
             columnSql.append(" NOT NULL");
         }
-
         // Add default value
         if (column.getDefaultValue() != null) {
             columnSql.append(" DEFAULT ").append(column.getDefaultValue());
         }
-
         return columnSql.toString();
     }
 
     private String buildPrimaryKeySql(PrimaryKey primaryKey) {
         String columnNamesString =
                 primaryKey.getColumnNames().stream()
-                        .map(columnName -> "\"" + columnName + "\"")
+                        .map(this::quoteIdentifier)
                         .collect(Collectors.joining(", "));
-
         return String.format("    PRIMARY KEY (%s)", columnNamesString);
     }
 
     private String buildUniqueKeySql(ConstraintKey constraintKey) {
         String columnNamesString =
                 constraintKey.getColumnNames().stream()
-                        .map(column -> "\"" + column.getColumnName() + "\"")
+                        .map(column -> quoteIdentifier(column.getColumnName()))
                         .collect(Collectors.joining(", "));
-
         return String.format(
                 "    CONSTRAINT \"%s\" UNIQUE (%s)",
                 constraintKey.getConstraintName(), columnNamesString);
@@ -184,11 +213,24 @@ public class DuckDBCreateTableSqlBuilder extends AbstractJdbcCreateTableSqlBuild
     private String buildIndexSql(TablePath tablePath, ConstraintKey constraintKey) {
         String columnNamesString =
                 constraintKey.getColumnNames().stream()
-                        .map(column -> "\"" + column.getColumnName() + "\"")
+                        .map(column -> quoteIdentifier(column.getColumnName()))
                         .collect(Collectors.joining(", "));
-
         return String.format(
                 "CREATE INDEX \"%s\" ON %s (%s)",
-                constraintKey.getConstraintName(), tablePath.getFullName(), columnNamesString);
+                constraintKey.getConstraintName(), buildTableName(tablePath), columnNamesString);
+    }
+
+    private String quoteIdentifier(String identifier) {
+        return "\"" + CatalogUtils.getFieldIde(identifier, fieldIde) + "\"";
+    }
+
+    private String buildTableName(TablePath tablePath) {
+        if (StringUtils.isNotBlank(tablePath.getSchemaName())) {
+            return String.format(
+                    "%s.%s",
+                    quoteIdentifier(tablePath.getSchemaName()),
+                    quoteIdentifier(tablePath.getTableName()));
+        }
+        return quoteIdentifier(tablePath.getTableName());
     }
 }

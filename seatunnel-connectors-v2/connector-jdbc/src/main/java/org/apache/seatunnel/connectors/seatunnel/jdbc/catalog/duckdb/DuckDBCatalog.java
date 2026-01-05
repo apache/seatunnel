@@ -17,49 +17,205 @@
 
 package org.apache.seatunnel.connectors.seatunnel.jdbc.catalog.duckdb;
 
+import org.apache.seatunnel.shade.org.apache.commons.lang3.StringUtils;
+
+import org.apache.seatunnel.api.configuration.ReadonlyConfig;
+import org.apache.seatunnel.api.options.ConnectorCommonOptions;
 import org.apache.seatunnel.api.table.catalog.CatalogTable;
 import org.apache.seatunnel.api.table.catalog.Column;
-import org.apache.seatunnel.api.table.catalog.ConstraintKey;
-import org.apache.seatunnel.api.table.catalog.PrimaryKey;
-import org.apache.seatunnel.api.table.catalog.TableIdentifier;
 import org.apache.seatunnel.api.table.catalog.TablePath;
-import org.apache.seatunnel.api.table.catalog.TableSchema;
 import org.apache.seatunnel.api.table.catalog.exception.CatalogException;
-import org.apache.seatunnel.api.table.catalog.exception.DatabaseNotExistException;
-import org.apache.seatunnel.api.table.catalog.exception.TableNotExistException;
-import org.apache.seatunnel.api.table.converter.TypeConverter;
+import org.apache.seatunnel.api.table.converter.BasicTypeDefine;
 import org.apache.seatunnel.common.utils.JdbcUrlUtil;
 import org.apache.seatunnel.connectors.seatunnel.jdbc.catalog.AbstractJdbcCatalog;
-import org.apache.seatunnel.connectors.seatunnel.jdbc.catalog.mysql.MysqlCreateTableSqlBuilder;
-import org.apache.seatunnel.connectors.seatunnel.jdbc.catalog.utils.CatalogUtils;
 import org.apache.seatunnel.connectors.seatunnel.jdbc.internal.dialect.duckdb.DuckDBTypeConverter;
-import org.apache.seatunnel.connectors.seatunnel.jdbc.internal.dialect.duckdb.DuckDBTypeMapper;
 
 import lombok.extern.slf4j.Slf4j;
-import org.apache.seatunnel.connectors.seatunnel.jdbc.internal.dialect.mysql.MySqlTypeConverter;
 
 import java.sql.Connection;
-import java.sql.DatabaseMetaData;
+import java.sql.Driver;
 import java.sql.DriverManager;
-import java.sql.PreparedStatement;
 import java.sql.ResultSet;
-import java.sql.ResultSetMetaData;
 import java.sql.SQLException;
 import java.util.ArrayList;
 import java.util.Collections;
-import java.util.HashMap;
+import java.util.Enumeration;
+import java.util.Iterator;
 import java.util.List;
-import java.util.Optional;
+import java.util.Properties;
+import java.util.regex.Pattern;
 
-/** DuckDB catalog implementation. */
+/**
+ * Catalog implementation for DuckDB.
+ *
+ * <p>Note: DuckDB is an embedded database with a single-connection-per-database constraint in the
+ * JVM. This catalog manages and owns the JDBC connection, which may be exposed to subclasses or
+ * tests for controlled reuse.
+ */
 @Slf4j
 public class DuckDBCatalog extends AbstractJdbcCatalog {
 
     private final DuckDBTypeConverter typeConverter;
+    private static final String DEFAULT_DATABASE_NAME = "default";
+    private static final String SELECT_COLUMNS_SQL_TEMPLATE =
+            "SELECT\n"
+                    + "    c.column_name AS column_name,\n"
+                    + "    c.data_type   AS type_name,\n"
+                    + "    CASE\n"
+                    + "        WHEN c.character_maximum_length IS NOT NULL THEN\n"
+                    + "            c.data_type || '(' || c.character_maximum_length || ')'\n"
+                    + "        WHEN c.data_type ILIKE 'DECIMAL%%' \n"
+                    + "          OR c.data_type ILIKE 'NUMERIC%%' THEN\n"
+                    + "            c.data_type\n"
+                    + "        WHEN c.datetime_precision IS NOT NULL THEN\n"
+                    + "            c.data_type || '(' || c.datetime_precision || ')'\n"
+                    + "        ELSE\n"
+                    + "            c.data_type\n"
+                    + "    END AS full_type_name,\n"
+                    + "    c.character_maximum_length AS column_length,\n"
+                    + "    c.numeric_scale            AS column_scale,\n"
+                    + "    dc.comment                 AS column_comment,\n"
+                    + "    c.column_default           AS default_value,\n"
+                    + "    c.is_nullable              AS is_nullable\n"
+                    + "FROM information_schema.columns c\n"
+                    + "LEFT JOIN duckdb_columns dc\n"
+                    + "       ON dc.schema_name = c.table_schema\n"
+                    + "      AND dc.table_name  = c.table_name\n"
+                    + "      AND dc.column_name = c.column_name\n"
+                    + "WHERE c.table_schema = '%s'\n"
+                    + "  AND c.table_name   = '%s'\n"
+                    + "ORDER BY c.ordinal_position;\n";
 
     public DuckDBCatalog(String catalogName, JdbcUrlUtil.UrlInfo urlInfo, String defaultSchema) {
-        super(catalogName, "", "", urlInfo, defaultSchema, "org.duckdb.DuckDBDriver");
+        super(catalogName, "duckdb", "", urlInfo, defaultSchema, "org.duckdb.DuckDBDriver");
         this.typeConverter = new DuckDBTypeConverter();
+    }
+
+    @Override
+    public Connection getConnection(String url) {
+        if (connectionMap.containsKey(url)) {
+            return connectionMap.get(url);
+        }
+        Properties info = getConnectionProperties();
+        if (driverClass != null) {
+            log.info("try to find driver {}", driverClass);
+            Enumeration<Driver> drivers = DriverManager.getDrivers();
+            try {
+                // Driver Manager may load the wrong driver, prioritize finding the driver by class
+                // name
+                while (drivers.hasMoreElements()) {
+                    Driver driver = drivers.nextElement();
+                    if (StringUtils.equals(driver.getClass().getName(), driverClass)) {
+                        try {
+                            Connection connection = driver.connect(url, info);
+                            connectionMap.put(url, connection);
+                            return connection;
+                        } catch (Exception e) {
+                            log.info("try connector failed", e);
+                        }
+                    }
+                }
+            } catch (Exception e) {
+                log.info("find driver error, back to DriverManager.getConnection", e);
+            }
+        }
+        try {
+            Connection connection = DriverManager.getConnection(url, info);
+            connectionMap.put(url, connection);
+            return connection;
+        } catch (SQLException e) {
+            throw new CatalogException(String.format("Failed connecting to %s via JDBC.", url), e);
+        }
+    }
+
+    @Override
+    public List<CatalogTable> getTables(ReadonlyConfig config) throws CatalogException {
+        // Get the list of specified tables
+        List<String> tableNames = config.get(ConnectorCommonOptions.TABLE_NAMES);
+        if (tableNames != null && !tableNames.isEmpty()) {
+            Iterator<TablePath> tablePaths =
+                    tableNames.stream().map(TablePath::of).filter(this::tableExists).iterator();
+            return buildCatalogTablesWithErrorCheck(tablePaths);
+        }
+        // Get the list of table pattern
+        String tablePatternStr = config.get(ConnectorCommonOptions.TABLE_PATTERN);
+        if (StringUtils.isBlank(tablePatternStr)) {
+            return Collections.emptyList();
+        }
+        Pattern tablePattern = Pattern.compile(tablePatternStr);
+        List<TablePath> tablePaths = new ArrayList<>();
+        final List<String> strings = listTables(DEFAULT_DATABASE_NAME);
+        for (String tableName : strings) {
+            if (StringUtils.isBlank(tableName)) {
+                continue;
+            }
+            TablePath tablePath = TablePath.of(DEFAULT_DATABASE_NAME + "." + tableName);
+            if (tablePattern.matcher(tablePath.getSchemaAndTableName()).matches()) {
+                tablePaths.add(tablePath);
+            }
+        }
+        return buildCatalogTablesWithErrorCheck(tablePaths.iterator());
+    }
+
+    protected String getSelectColumnsSql(TablePath tablePath) {
+        return String.format(
+                SELECT_COLUMNS_SQL_TEMPLATE, tablePath.getSchemaName(), tablePath.getTableName());
+    }
+
+    @Override
+    protected Column buildColumn(ResultSet resultSet) throws SQLException {
+        // 1. Read column metadata from DuckDB system views
+        String columnName = resultSet.getString("column_name");
+        String typeName = resultSet.getString("type_name");
+        String fullTypeName = resultSet.getString("full_type_name");
+        long columnLength = resultSet.getLong("column_length");
+        int columnScale = resultSet.getInt("column_scale");
+        String columnComment = resultSet.getString("column_comment");
+        Object defaultValue = resultSet.getObject("default_value");
+        boolean isNullable = "YES".equalsIgnoreCase(resultSet.getString("is_nullable"));
+        // 2. Normalize DECIMAL / NUMERIC definitions for DuckDB
+        // DuckDB allows DECIMAL/NUMERIC types without explicit precision/scale.
+        // For schema introspection, we must provide a deterministic definition.
+        // DuckDB supports up to DECIMAL(38, scale).
+        if (isDuckDBDecimal(typeName)) {
+            typeName = DuckDBTypeConverter.DUCKDB_DECIMAL;
+            if (columnLength <= 0) {
+                // DuckDB maximum supported precision
+                columnLength = 38;
+            }
+            if (columnScale < 0) {
+                columnScale = 0;
+            }
+            // Rebuild full type name if precision/scale is not explicitly defined
+            if (fullTypeName == null || !fullTypeName.contains("(")) {
+                fullTypeName = String.format("%s(%d,%d)", typeName, columnLength, columnScale);
+            }
+        }
+        // 3. Sanitize default values
+        // Unlike PostgreSQL, DuckDB does not use regclass or system OIDs.
+        // Default values may be expressions (e.g. CURRENT_TIMESTAMP).
+        // Empty defaults are treated as null.
+        if (defaultValue instanceof String) {
+            String dv = ((String) defaultValue).trim();
+            if (dv.isEmpty()) {
+                defaultValue = null;
+            }
+        }
+        // 4. Build a unified type definition used by the catalog abstraction
+        BasicTypeDefine typeDefine =
+                BasicTypeDefine.builder()
+                        .name(columnName)
+                        .columnType(fullTypeName)
+                        .dataType(typeName)
+                        .length(columnLength)
+                        .precision(columnLength)
+                        .scale(columnScale)
+                        .nullable(isNullable)
+                        .defaultValue(defaultValue)
+                        .comment(columnComment)
+                        .build();
+        // 5. Convert to internal Column representation using DuckDB semantics
+        return DuckDBTypeConverter.INSTANCE.convert(typeDefine);
     }
 
     @Override
@@ -68,8 +224,11 @@ public class DuckDBCatalog extends AbstractJdbcCatalog {
     }
 
     @Override
-    public String getTableWithConditionSql(TablePath tablePath){
-        return String.format("SELECT table_schema, table_name FROM information_schema.tables WHERE table_schema = '%s' AND table_name = '%s'",tablePath.getSchemaName(),tablePath.getTableName());
+    public String getTableWithConditionSql(TablePath tablePath) {
+        return String.format(
+                "SELECT table_schema, table_name FROM information_schema.tables "
+                        + "WHERE table_schema = '%s' AND table_name = '%s'",
+                tablePath.getSchemaName(), tablePath.getTableName());
     }
 
     @Override
@@ -80,20 +239,8 @@ public class DuckDBCatalog extends AbstractJdbcCatalog {
     }
 
     @Override
-    protected String getListDatabaseSql() {
-        return "SELECT schema_name FROM information_schema.schemata WHERE schema_name != 'information_schema'";
-    }
-
-    @Override
     protected String getListTableSql(String databaseName) {
-        return String.format(
-                "SELECT table_name FROM information_schema.tables WHERE table_schema = '%s'",
-                databaseName);
-    }
-
-    @Override
-    protected String getTableName(ResultSet rs) throws SQLException {
-        return rs.getString(1);
+        return "SELECT table_schema, table_name FROM information_schema.tables";
     }
 
     @Override
@@ -101,75 +248,12 @@ public class DuckDBCatalog extends AbstractJdbcCatalog {
         return defaultUrl;
     }
 
-
     @Override
     protected String getOptionTableName(TablePath tablePath) {
         return tablePath.getSchemaAndTableName();
     }
 
-    @Override
-    public void dropTable(TablePath tablePath, boolean ignoreIfNotExists)
-            throws TableNotExistException, CatalogException {
-        if (!tableExists(tablePath)) {
-            if (ignoreIfNotExists) {
-                return;
-            }
-            throw new TableNotExistException(catalogName, tablePath);
-        }
-
-        try (Connection conn = getConnection(defaultUrl);
-                PreparedStatement ps =
-                        conn.prepareStatement(
-                                String.format(
-                                        "DROP TABLE %s", tablePath.getSchemaAndTableName("\"")))) {
-            ps.executeUpdate();
-        } catch (SQLException e) {
-            throw new CatalogException(
-                    String.format("Failed to drop table %s", tablePath.getFullName()), e);
-        }
-    }
-
-    @Override
-    public void createDatabase(TablePath tablePath, boolean ignoreIfExists)
-            throws CatalogException {
-        String databaseName = tablePath.getDatabaseName();
-        if (databaseExists(databaseName)) {
-            if (ignoreIfExists) {
-                return;
-            }
-            throw new CatalogException(String.format("Database %s already exists", databaseName));
-        }
-
-        try (Connection conn = getConnection(defaultUrl);
-                PreparedStatement ps =
-                        conn.prepareStatement(
-                                String.format("CREATE SCHEMA \"%s\"", databaseName))) {
-            ps.executeUpdate();
-        } catch (SQLException e) {
-            throw new CatalogException(
-                    String.format("Failed to create database %s", databaseName), e);
-        }
-    }
-
-    @Override
-    public void dropDatabase(TablePath tablePath, boolean ignoreIfNotExists)
-            throws DatabaseNotExistException, CatalogException {
-        String databaseName = tablePath.getDatabaseName();
-        if (!databaseExists(databaseName)) {
-            if (ignoreIfNotExists) {
-                return;
-            }
-            throw new DatabaseNotExistException(catalogName, databaseName);
-        }
-
-        try (Connection conn = getConnection(defaultUrl);
-                PreparedStatement ps =
-                        conn.prepareStatement(
-                                String.format("DROP SCHEMA \"%s\" CASCADE", databaseName))) {
-            ps.executeUpdate();
-        } catch (SQLException e) {
-            throw new CatalogException(
-                    String.format("Failed to drop database %s", databaseName), e);
-        }
+    private boolean isDuckDBDecimal(String typeName) {
+        return typeName.toUpperCase().startsWith(DuckDBTypeConverter.DUCKDB_DECIMAL);
     }
 }
