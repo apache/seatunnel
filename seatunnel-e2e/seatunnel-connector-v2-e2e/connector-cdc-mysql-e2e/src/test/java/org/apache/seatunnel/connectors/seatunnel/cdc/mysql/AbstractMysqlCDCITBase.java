@@ -198,11 +198,7 @@ public abstract class AbstractMysqlCDCITBase extends TestSuiteBase implements Te
         CompletableFuture.supplyAsync(
                 () -> {
                     try {
-                        Container.ExecResult execResult =
-                                container.executeJob(
-                                        "/mysqlcdc_to_mysql_with_heartbeat_action_query.conf");
-                        System.out.println("=== STDERR ===");
-                        System.out.println(execResult.getStderr());
+                        container.executeJob("/mysqlcdc_to_mysql_with_heartbeat_action_query.conf");
                     } catch (Exception e) {
                         log.error("Commit task exception :" + e.getMessage());
                         throw new RuntimeException(e);
