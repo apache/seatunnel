@@ -107,13 +107,13 @@ public class MultiTableMetricsIT {
                                             "metrics.TableSourceReceivedCount.'Source[0].fake.table1'",
                                             equalTo("10"))
                                     .body(
-                                            "metrics.TableSourceReceivedCount.'Source[0].fake.public.table2'",
+                                            "metrics.TableSourceReceivedCount.'Source[1].fake.public.table2'",
                                             equalTo("5"))
                                     .body(
                                             "metrics.TableSinkWriteCount.'Sink[0].fake.table1'",
                                             equalTo("10"))
                                     .body(
-                                            "metrics.TableSinkWriteCount.'Sink[0].fake.public.table2'",
+                                            "metrics.TableSinkWriteCount.'Sink[1].fake.public.table2'",
                                             equalTo("5"))
                                     .body(
                                             "metrics.SourceReceivedBytes",
@@ -125,13 +125,13 @@ public class MultiTableMetricsIT {
                                             "metrics.TableSourceReceivedBytes.'Source[0].fake.table1'",
                                             equalTo(String.valueOf(dataSize * 10)))
                                     .body(
-                                            "metrics.TableSourceReceivedBytes.'Source[0].fake.public.table2'",
+                                            "metrics.TableSourceReceivedBytes.'Source[1].fake.public.table2'",
                                             equalTo(String.valueOf(dataSize * 5)))
                                     .body(
                                             "metrics.TableSinkWriteBytes.'Sink[0].fake.table1'",
                                             equalTo(String.valueOf(dataSize * 10)))
                                     .body(
-                                            "metrics.TableSinkWriteBytes.'Sink[0].fake.public.table2'",
+                                            "metrics.TableSinkWriteBytes.'Sink[1].fake.public.table2'",
                                             equalTo(String.valueOf(dataSize * 5)));
                             Assertions.assertTrue(
                                     Double.parseDouble(response.path("metrics.SourceReceivedQPS"))
@@ -142,7 +142,7 @@ public class MultiTableMetricsIT {
                                                     > 0
                                             && Double.parseDouble(
                                                             response.path(
-                                                                    "metrics.TableSourceReceivedQPS.'Source[0].fake.public.table2'"))
+                                                                    "metrics.TableSourceReceivedQPS.'Source[1].fake.public.table2'"))
                                                     > 0
                                             && Double.parseDouble(
                                                             response.path("metrics.SinkWriteQPS"))
@@ -153,7 +153,7 @@ public class MultiTableMetricsIT {
                                                     > 0
                                             && Double.parseDouble(
                                                             response.path(
-                                                                    "metrics.TableSinkWriteQPS.'Sink[0].fake.public.table2'"))
+                                                                    "metrics.TableSinkWriteQPS.'Sink[1].fake.public.table2'"))
                                                     > 0
                                             && Double.parseDouble(
                                                             response.path(
@@ -165,7 +165,7 @@ public class MultiTableMetricsIT {
                                                     > 0
                                             && Double.parseDouble(
                                                             response.path(
-                                                                    "metrics.TableSourceReceivedBytesPerSeconds.'Source[0].fake.public.table2'"))
+                                                                    "metrics.TableSourceReceivedBytesPerSeconds.'Source[1].fake.public.table2'"))
                                                     > 0
                                             && Double.parseDouble(
                                                             response.path(
@@ -177,7 +177,7 @@ public class MultiTableMetricsIT {
                                                     > 0
                                             && Double.parseDouble(
                                                             response.path(
-                                                                    "metrics.TableSinkWriteBytesPerSeconds.'Sink[0].fake.public.table2'"))
+                                                                    "metrics.TableSinkWriteBytesPerSeconds.'Sink[1].fake.public.table2'"))
                                                     > 0);
                         });
     }

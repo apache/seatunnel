@@ -213,7 +213,7 @@ public class CommittedMetricsIT {
         String table1CommittedCount =
                 responseFinal.path("metrics.TableSinkCommittedCount.'Sink[0].fake.table1'");
         String table2CommittedCount =
-                responseFinal.path("metrics.TableSinkCommittedCount.'Sink[0].fake.public.table2'");
+                responseFinal.path("metrics.TableSinkCommittedCount.'Sink[1].fake.public.table2'");
         Assertions.assertNotNull(table1CommittedCount);
         Assertions.assertNotNull(table2CommittedCount);
 
@@ -227,7 +227,7 @@ public class CommittedMetricsIT {
         String table1CommittedBytes =
                 responseFinal.path("metrics.TableSinkCommittedBytes.'Sink[0].fake.table1'");
         String table2CommittedBytes =
-                responseFinal.path("metrics.TableSinkCommittedBytes.'Sink[0].fake.public.table2'");
+                responseFinal.path("metrics.TableSinkCommittedBytes.'Sink[1].fake.public.table2'");
         Assertions.assertNotNull(table1CommittedBytes);
         Assertions.assertNotNull(table2CommittedBytes);
 
@@ -240,7 +240,7 @@ public class CommittedMetricsIT {
         Double table2CommittedQPS =
                 Double.parseDouble(
                         responseFinal.path(
-                                "metrics.TableSinkCommittedQPS.'Sink[0].fake.public.table2'"));
+                                "metrics.TableSinkCommittedQPS.'Sink[1].fake.public.table2'"));
         Assertions.assertTrue(table1CommittedQPS > 0);
         Assertions.assertTrue(table2CommittedQPS > 0);
 
@@ -251,7 +251,7 @@ public class CommittedMetricsIT {
         Double table2CommittedBytesPerSec =
                 Double.parseDouble(
                         responseFinal.path(
-                                "metrics.TableSinkCommittedBytesPerSeconds.'Sink[0].fake.public.table2'"));
+                                "metrics.TableSinkCommittedBytesPerSeconds.'Sink[1].fake.public.table2'"));
         Assertions.assertTrue(table1CommittedBytesPerSec > 0);
         Assertions.assertTrue(table2CommittedBytesPerSec > 0);
 
