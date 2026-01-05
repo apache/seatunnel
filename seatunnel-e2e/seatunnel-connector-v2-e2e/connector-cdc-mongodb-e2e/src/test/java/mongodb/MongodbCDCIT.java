@@ -252,6 +252,54 @@ public class MongodbCDCIT extends TestSuiteBase implements TestResource {
     }
 
     @TestTemplate
+    public void testMongodbCdcMultiTaskConcurrentSubmission(TestContainer container)
+            throws InterruptedException {
+        cleanSourceTable();
+
+        // Submit two independent CDC tasks concurrently, each reading from different collections
+        CompletableFuture<Void> task1 =
+                CompletableFuture.supplyAsync(
+                        () -> {
+                            try {
+                                container.executeJob("/mongodbcdc_to_mysql.conf");
+                            } catch (Exception e) {
+                                log.error("Task 1 (products) exception: " + e.getMessage());
+                                throw new RuntimeException(e);
+                            }
+                            return null;
+                        });
+
+        CompletableFuture<Void> task2 =
+                CompletableFuture.supplyAsync(
+                        () -> {
+                            try {
+                                container.executeJob("/mongodbcdc_to_mysql_orders.conf");
+                            } catch (Exception e) {
+                                log.error("Task 2 (orders) exception: " + e.getMessage());
+                                throw new RuntimeException(e);
+                            }
+                            return null;
+                        });
+
+        TimeUnit.SECONDS.sleep(20);
+
+        // insert update delete operations
+        upsertDeleteSourceTable();
+
+        TimeUnit.SECONDS.sleep(20);
+
+        // Verify both tasks work correctly without cache interference
+        assertionsSourceAndSink(MONGODB_COLLECTION_1, SINK_SQL_PRODUCTS);
+        assertionsSourceAndSink(MONGODB_COLLECTION_2, SINK_SQL_ORDERS);
+
+        // Clean and verify again to ensure CDC continues to work
+        cleanSourceTable();
+        TimeUnit.SECONDS.sleep(20);
+        assertionsSourceAndSink(MONGODB_COLLECTION_1, SINK_SQL_PRODUCTS);
+        assertionsSourceAndSink(MONGODB_COLLECTION_2, SINK_SQL_ORDERS);
+    }
+
+    @TestTemplate
     @DisabledOnContainer(
             value = {},
             type = {EngineType.SPARK, EngineType.FLINK},
