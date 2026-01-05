@@ -46,7 +46,7 @@ Amazon DynamoDB 的表名.
 
 ### 常见选项
 
-Sink插件常用参数，请参考 [Sink Common Options](../common-options/sink-common-options.md) 了解详细信息.
+Sink插件常用参数，请参考 [Sink Common Options](../sink-common-options.md) 了解详细信息.
 
 ## 示例
 

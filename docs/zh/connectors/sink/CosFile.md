@@ -200,7 +200,7 @@ Tips: excel 类型不支持任何压缩格式
 
 ### common options
 
-接收器写入插件常用参数，请参考 [Sink Common Options](../common-options/sink-common-options.md) 了解详细信息.
+接收器写入插件常用参数，请参考 [Sink Common Options](../sink-common-options.md) 了解详细信息.
 
 ### max_rows_in_memory [int]
 

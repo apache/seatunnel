@@ -45,7 +45,7 @@ import ChangeLog from '../changelog/connector-http-wechat.md';
 
 ### common options
 
-接收器插件常用参数，详见 [Sink Common Options](../common-options/sink-common-options.md) 
+接收器插件常用参数，详见 [Sink Common Options](../sink-common-options.md) 
 
 ## 示例
 

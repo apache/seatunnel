@@ -32,7 +32,7 @@ import ChangeLog from '../changelog/connector-slack.md';
 | webhooks_url   | String | Yes      | -       | Slack webhook 的 url                                            |
 | oauth_token    | String | Yes      | -       | 用于实际身份验证的Slack oauth令牌                                         |
 | slack_channel  | String | Yes      | -       | 用于数据写入的slack channel                                           |
-| common-options |        | no       | -       | 接收器插件常用参数, 详见 [Sink 常见选项](../common-options/sink-common-options.md) |
+| common-options |        | no       | -       | 接收器插件常用参数, 详见 [Sink 常见选项](../sink-common-options.md) |
 
 ## 任务示例
 

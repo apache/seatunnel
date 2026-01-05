@@ -92,7 +92,7 @@ unwind $ttt as row create (n:Label) set n.name = row.name,n.age = rw.age
 
 ### common options
 
-Sink插件常用参数， 详细信息请参考 [Sink公共配置](../common-options/sink-common-options.md)
+Sink插件常用参数， 详细信息请参考 [Sink公共配置](../sink-common-options.md)
 
 ## OneByOne模式写示例
 

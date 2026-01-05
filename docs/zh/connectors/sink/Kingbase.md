@@ -73,7 +73,7 @@ import ChangeLog from '../changelog/connector-jdbc.md';
 | max_commit_attempts                       | Int     | 否   | 3       | 事务提交失败的重试次数                                                                                                                                                                                        |
 | transaction_timeout_sec                   | Int     | 否   | -1      | 事务打开后的超时时间，默认为 -1（永不超时）。请注意，设置超时可能会影响<br/>精确一次语义                                                                                          |
 | auto_commit                               | Boolean | 否   | true    | 默认启用自动事务提交                                                                                                                                                                           |
-| common-options                            |         | 否   | -       | Sink 插件通用参数，请参考 [Sink 通用选项](../common-options/sink-common-options.md) 详见                                                                                                                                  |
+| common-options                            |         | 否   | -       | Sink 插件通用参数，请参考 [Sink 通用选项](../sink-common-options.md) 详见                                                                                                                                  |
 | enable_upsert                             | Boolean | 否   | true    | 如果存在 primary_keys，启用 upsert。如果任务没有重复数据，将此参数设置为 `false` 可以加快数据导入                                                                                                       |
 
 ### 提示
@@ -85,7 +85,7 @@ import ChangeLog from '../changelog/connector-jdbc.md';
 ### 简单
 
 > 此示例定义了一个 SeaTunnel 同步任务，通过 FakeSource 自动生成数据并将其发送到 JDBC Sink。FakeSource 生成总共 16 行数据 (row.num=16)，每行有 12 个字段。最终目标表 test_table 也将有 16 行数据。
-> 在运行此作业之前，您需要在 Kingbase 中创建数据库 test 和表 test_table。如果您还没有安装和部署 SeaTunnel，您需要按照 [安装 SeaTunnel](../../getting-started/locally/deployment.md) 中的说明进行安装和部署。然后按照 [使用 SeaTunnel 引擎快速开始](../../getting-started/locally/quick-start-seatunnel-engine.md) 中的说明运行此作业。
+> 在运行此作业之前，您需要在 Kingbase 中创建数据库 test 和表 test_table。如果您还没有安装和部署 SeaTunnel，您需要按照 [安装 SeaTunnel](../../start-v2/locally/deployment.md) 中的说明进行安装和部署。然后按照 [使用 SeaTunnel 引擎快速开始](../../start-v2/locally/quick-start-seatunnel-engine.md) 中的说明运行此作业。
 
 ```
 # 定义运行时环境

@@ -58,7 +58,7 @@ DSN告诉SDK将事件发送到何处.
 
 ### common options
 
-接收器插件常用参数，详见 [Sink 常见选项](../common-options/sink-common-options.md) 
+接收器插件常用参数，详见 [Sink 常见选项](../sink-common-options.md) 
 
 ## 示例
 

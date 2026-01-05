@@ -67,7 +67,7 @@ import ChangeLog from '../changelog/connector-jdbc.md';
 | transaction_timeout_sec      | Int    | 否   | -1     | 事务打开后的超时时间，默认为-1（永不超时）。注意，设置超时可能会影响<br/>精确一次语义                                                                                                                |
 | auto_commit                  | Boolean  | 否   | true   | 默认启用自动事务提交                                                                                                                                                                                 |
 | properties                   | Map    | 否   | -      | 额外的连接配置参数，当properties和URL中有相同参数时，优先级由驱动程序的<br/>具体实现决定。例如，在MySQL中，properties优先于URL。                                                                     |
-| common-options               |         | 否   | -      | 接收器插件通用参数，详情请参考[接收器通用选项](../common-options/sink-common-options.md)                                                                                                                           |
+| common-options               |         | 否   | -      | 接收器插件通用参数，详情请参考[接收器通用选项](../sink-common-options.md)                                                                                                                           |
 | enable_upsert                | Boolean  | 否   | true   | 通过主键存在启用upsert，如果任务没有键重复数据，将此参数设置为`false`可以加快数据导入速度                                                                                                             |
 
 ## 提示
@@ -78,7 +78,7 @@ import ChangeLog from '../changelog/connector-jdbc.md';
 
 ### 简单示例
 
-> 此示例定义了一个SeaTunnel同步任务，通过FakeSource自动生成数据并发送到JDBC Sink。FakeSource总共生成16行数据（row.num=16），每行有两个字段，name（字符串类型）和age（int类型）。最终目标表`test_table`中也将有16行数据。在运行此作业之前，您需要在Snowflake数据库中创建数据库`test`和表`test_table`。如果您尚未安装和部署SeaTunnel，请按照[安装SeaTunnel](../../getting-started/locally/deployment.md)中的说明进行安装和部署。然后按照[使用SeaTunnel Engine快速入门](../../getting-started/locally/quick-start-seatunnel-engine.md)中的说明运行此作业。
+> 此示例定义了一个SeaTunnel同步任务，通过FakeSource自动生成数据并发送到JDBC Sink。FakeSource总共生成16行数据（row.num=16），每行有两个字段，name（字符串类型）和age（int类型）。最终目标表`test_table`中也将有16行数据。在运行此作业之前，您需要在Snowflake数据库中创建数据库`test`和表`test_table`。如果您尚未安装和部署SeaTunnel，请按照[安装SeaTunnel](../../start-v2/locally/deployment.md)中的说明进行安装和部署。然后按照[使用SeaTunnel Engine快速入门](../../start-v2/locally/quick-start-seatunnel-engine.md)中的说明运行此作业。
 
 ```
 # 定义运行时环境

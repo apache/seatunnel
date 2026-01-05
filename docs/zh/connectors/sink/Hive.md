@@ -139,7 +139,7 @@ LOCATION '${table_location}'
 
 ### 通用选项
 
-Sink 插件的通用参数，请参阅 [Sink Common Options](../common-options/sink-common-options.md) 了解详细信息。
+Sink 插件的通用参数，请参阅 [Sink Common Options](../sink-common-options.md) 了解详细信息。
 
 ## 示例
 

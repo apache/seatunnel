@@ -79,7 +79,7 @@ import ChangeLog from '../changelog/connector-jdbc.md';
 | transaction_timeout_sec      | Int     | No       | -1      | 事务打开后的超时，默认值为-1（永不超时）. 请注意，设置超时可能会影响＜br/＞精确一次语义                                                                                            |
 | auto_commit                  | Boolean | No       | true    | 默认情况下启用自动事务提交                                                                                                                                                                                             |
 | properties                   | Map     | No       | -       | 附加连接配置参数，当属性和URL具有相同的参数时，优先级由驱动程序的特定实现决定. 例如，在MySQL中，属性优先于URL. |
-| common-options               |         | no       | -       | Sink插件常用参数，详见 [Sink Common Options](../common-options/sink-common-options.md)                                                                                                                                     |
+| common-options               |         | no       | -       | Sink插件常用参数，详见 [Sink Common Options](../sink-common-options.md)                                                                                                                                     |
 
 ### 小贴士
 
@@ -89,7 +89,7 @@ import ChangeLog from '../changelog/connector-jdbc.md';
 
 ### 简单
 
-> 此示例定义了一个SeaTunnel同步任务，该任务通过FakeSource自动生成数据并将其发送到JDBC Sink。FakeSource总共生成16行数据（row.num=16），每行有两个字段，name（字符串类型）和age（int类型）。最终的目标表是test_table，表中也将有16行数据。在运行此作业之前，您需要在DB2中创建数据库测试和表test_table。如果您尚未安装和部署SeaTunnel，则需要按照[Install SeaTunnel](../../getting-started/locally/deployment.md)中的说明安装和部署SeaTunnel。然后按照[Quick Start With SeaTunnel Engine](../../getting-started/locally/quick-start-seatunnel-engine.md) 中的说明运行此作业.
+> 此示例定义了一个SeaTunnel同步任务，该任务通过FakeSource自动生成数据并将其发送到JDBC Sink。FakeSource总共生成16行数据（row.num=16），每行有两个字段，name（字符串类型）和age（int类型）。最终的目标表是test_table，表中也将有16行数据。在运行此作业之前，您需要在DB2中创建数据库测试和表test_table。如果您尚未安装和部署SeaTunnel，则需要按照[Install SeaTunnel](../../start-v2/locally/deployment.md)中的说明安装和部署SeaTunnel。然后按照[Quick Start With SeaTunnel Engine](../../start-v2/locally/quick-start-seatunnel-engine.md) 中的说明运行此作业.
 
 ```
 # 定义运行时环境

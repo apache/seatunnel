@@ -34,7 +34,7 @@ Google Cloud 服务账户的凭证，使用 base64 编码。如果未设置，�
 
 ### 通用选项
 
-汇插件通用参数，请参考 [Sink Common Options](../common-options/sink-common-options.md) 了解详情。
+汇插件通用参数，请参考 [Sink Common Options](../sink-common-options.md) 了解详情。
 
 ## 示例
 

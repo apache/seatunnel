@@ -44,7 +44,7 @@ import ChangeLog from '../changelog/connector-kafka.md';
 | transaction_prefix   | String | 否    | -    | 如果语义指定为EXACTLY_ONCE，生产者将把所有消息写入一个 Kafka 事务中，kafka 通过不同的 transactionId 来区分不同的事务。该参数是kafka transactionId的前缀，确保不同的作业使用不同的前缀                                                                                                                                           |
 | format               | String | 否    | json | 数据格式。默认格式是json。可选文本格式，canal-json、debezium-json 、 avro 、  protobuf 和native。如果使用 json 或文本格式。默认字段分隔符是`,`。如果自定义分隔符，请添加`field_delimiter`选项。如果使用canal格式，请参考[canal-json](../formats/canal-json.md)。如果使用debezium格式，请参阅 [debezium-json](../formats/debezium-json.md) 了解详细信息 |
 | field_delimiter      | String | 否    | ,    | 自定义数据格式的字段分隔符                                                                                                                                                                                                                                                      |
-| common-options       |        | 否    | -    | Sink插件常用参数，请参考 [Sink常用选项 ](../common-options/sink-common-options.md) 了解详情                                                                                                                                                                                                         |
+| common-options       |        | 否    | -    | Sink插件常用参数，请参考 [Sink常用选项 ](../sink-common-options.md) 了解详情                                                                                                                                                                                                         |
 |protobuf_message_name|String|否|-| format配置为protobuf时生效，取Message名称                                                                                                                                                                                                                                    |
 |protobuf_schema|String|否|-| format配置为protobuf时生效取Schema名称                                                                                                                                                                                                                                      |
 
@@ -102,7 +102,7 @@ assign_partitions = ["shoe", "clothing"]
 ### 简单
 
 > 此示例展示了如何定义一个 SeaTunnel 同步任务，该任务能够通过 FakeSource 自动产生数据并将其发送到 Kafka Sink。在这个例子中，FakeSource 会生成总共 16 行数据（`row.num=16`），每一行都包含两个字段，即 `name`（字符串类型）和 `age`（整型）。最终，这些数据将被发送到名为 test_topic 的 topic 中，因此该 topic 也将包含 16 行数据。
-> 如果你还未安装和部署 SeaTunnel，你需要参照 [安装SeaTunnel](../../getting-started/locally/deployment.md) 的指南来进行安装和部署。完成安装和部署后，你可以按照 [快速开始使用 SeaTunnel 引擎](../../getting-started/locally/quick-start-seatunnel-engine.md) 的指南来运行任务。
+> 如果你还未安装和部署 SeaTunnel，你需要参照 [安装SeaTunnel](../../start-v2/locally/deployment.md) 的指南来进行安装和部署。完成安装和部署后，你可以按照 [快速开始使用 SeaTunnel 引擎](../../start-v2/locally/quick-start-seatunnel-engine.md) 的指南来运行任务。
 
 ```hocon
 # Defining the runtime environment

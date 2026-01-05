@@ -66,7 +66,7 @@ import ChangeLog from '../changelog/connector-clickhouse.md';
 | data_save_mode                 | Enum    | no       | APPEND_DATA                  | 数据保存模式，请参考下面的`data_save_mode`。                                                                                                                         |
 | custom_sql                  | String  | no   | -                            | 当data_save_mode设置为CUSTOM_PROCESSING时，必须同时设置CUSTOM_SQL参数。CUSTOM_SQL的值为可执行的SQL语句，在同步任务开启前SQL将会被执行                     |
 | save_mode_create_template      | string  | no       | see below                    | 见下文。                                                                                                                                                   |
-| common-options                        |         | No   | -     | Sink插件查用参数,详见[Sink常用选项](../common-options/sink-common-options.md).                                                                                                                              |
+| common-options                        |         | No   | -     | Sink插件查用参数,详见[Sink常用选项](../sink-common-options.md).                                                                                                                              |
 
 ### schema_save_mode [Enum]
 
@@ -173,7 +173,7 @@ sink {
 
 > 小提示：
 >
-> 1.[SeaTunnel 部署文档](../../getting-started/locally/deployment.md). <br/>
+> 1.[SeaTunnel 部署文档](../../start-v2/locally/deployment.md). <br/>
 > 2.需要在同步前提前创建要写入的表.<br/>
 > 3.当写入 ClickHouse 表,无需设置其结构，因为连接器会在写入前向 ClickHouse 查询当前表的结构信息.<br/>
 

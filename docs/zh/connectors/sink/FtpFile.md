@@ -218,7 +218,7 @@ import ChangeLog from '../changelog/connector-file-ftp.md';
 
 ### common options
 
-Sink 插件的通用参数，请参考[Sink通用选项](../common-options/sink-common-options.md)了解详细信息。 
+Sink 插件的通用参数，请参考[Sink通用选项](../sink-common-options.md)了解详细信息。 
 
 ### max_rows_in_memory [int]
 

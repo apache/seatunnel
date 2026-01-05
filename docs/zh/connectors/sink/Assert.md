@@ -90,7 +90,7 @@ Assert 数据接收器是一个用于断言数据是否符合用户定义规则�
 `equals_to`用于比较字段值是否等于配置的预期值。用户可以将所有类型的值分配给`equals_to`。这些类型在[这里](../../concept/schema-feature.md#目前支持哪些类型)有详细说明。
 例如，如果一个字段是一个包含三个字段的行，行类型的声明是`{a = array<string>, b = map<string, decimal(30, 2)>, c={c_0 = int, b = string}}`，用户可以将值`[["a", "b"], { k0 = 9999.99, k1 = 111.11 }, [123, "abcd"]]`分配给`equals_to`。
 
-> 定义字段值的方式与[FakeSource](../source定义数据内容简单示例)一致。
+> 定义字段值的方式与[FakeSource](../../connector-v2/source/FakeSource.md#自定义数据内容简单示例)一致。
 > 
 > `equals_to`不能应用于`null`类型字段。但是，用户可以使用规则类型`NULL`进行验证，例如`{rule_type = NULL}`。
 
@@ -112,7 +112,7 @@ catalog_table_rule用于断言Catalog表是否与用户定义的表相同。
 
 ### common options
 
-Sink 插件的通用参数，请参考 [Sink Common Options](../common-options/sink-common-options.md) 了解详情
+Sink 插件的通用参数，请参考 [Sink Common Options](../sink-common-options.md) 了解详情
 
 ## 示例
 

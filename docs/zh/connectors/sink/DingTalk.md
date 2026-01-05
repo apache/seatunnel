@@ -36,7 +36,7 @@ import ChangeLog from '../changelog/connector-dingtalk.md';
 
 ### common options
 
-Sink插件的通用参数，请参考 [Sink Common Options](../common-options/sink-common-options.md) 了解详情
+Sink插件的通用参数，请参考 [Sink Common Options](../sink-common-options.md) 了解详情
 
 ## 任务示例
 

@@ -40,7 +40,7 @@ Apache Pulsar 的接收连接器。
 | pulsar.config        | Map    | No   | -                   | 除了上述必须由 Pulsar 生产者客户端指定的参数外.                    |
 | message.routing.mode | Enum   | No   | RoundRobinPartition | 要分区的消息的默认路由模式.                                  |
 | partition_key_fields | array  | No   | -                   | 配置哪些字段用作 pulsar 消息的键.                           |
-| common-options       | config | no   | -                   | 源插件常用参数，详见源码 [常用选项](../common-options/sink-common-options.md). |
+| common-options       | config | no   | -                   | 源插件常用参数，详见源码 [常用选项](../sink-common-options.md). |
 
 ## 参数解释
 
@@ -119,13 +119,13 @@ Pulsar 服务的 Service URL 提供程序。要使用客户端库连接到 Pulsa
 
 ### 常见选项
 
-源插件常用参数，详见源码[常用选项](../common-options/sink-common-options.md) .
+源插件常用参数，详见源码[常用选项](../sink-common-options.md) .
 
 ## 任务示例
 
 ### 简单
 
-> 该示例定义了一个 SeaTunnel 同步任务，该任务通过 FakeSource 自动生成数据并将其发送到 Pulsar Sink。FakeSource 总共生成 16 行数据 （row.num=16），每行有两个字段，name（字符串类型）和 age（int 类型）。最终目标主题是test_topic主题中还将有 16 行数据。 如果您尚未安装和部署 SeaTunnel，则需要按照[安装Seatunnel](../../getting-started/locally/deployment.md) SeaTunnel 中的说明安装和部署 SeaTunnel。然后按照 [SeaTunnel 引擎快速入门](../../getting-started/locally/quick-start-seatunnel-engine.md)中的说明运行此作业。
+> 该示例定义了一个 SeaTunnel 同步任务，该任务通过 FakeSource 自动生成数据并将其发送到 Pulsar Sink。FakeSource 总共生成 16 行数据 （row.num=16），每行有两个字段，name（字符串类型）和 age（int 类型）。最终目标主题是test_topic主题中还将有 16 行数据。 如果您尚未安装和部署 SeaTunnel，则需要按照[安装Seatunnel](../../start-v2/locally/deployment.md) SeaTunnel 中的说明安装和部署 SeaTunnel。然后按照 [SeaTunnel 引擎快速入门](../../start-v2/locally/quick-start-seatunnel-engine.md)中的说明运行此作业。
 
 ```hocon
 # Defining the runtime environment

@@ -51,7 +51,7 @@ import ChangeLog from '../changelog/connector-graphql.md';
 | key_value                   | Double | yes      | -       | prometheus value                                                                                            |
 | batch_size                  | Int    | false    | 1024       | prometheus batch size write                                                                                 |
 | flush_interval              | Long   | false      | 300000L  | prometheus flush commit interval                                                     |
-| common-options              |        | No       | -       | Sink plugin common parameters, please refer to [Sink Common Options](../common-options/sink-common-options.md) for details |
+| common-options              |        | No       | -       | Sink plugin common parameters, please refer to [Sink Common Options](../sink-common-options.md) for details |
 
 ## 示例
 

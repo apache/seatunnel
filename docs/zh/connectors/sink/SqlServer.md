@@ -84,7 +84,7 @@ import ChangeLog from '../changelog/connector-jdbc.md';
 | max_commit_attempts          | Int    | 否       | 3       | 事务提交失败的重试次数。                                                                                                                                                                             |
 | transaction_timeout_sec      | Int    | 否       | -1      | 事务打开后的超时时间，默认为 -1（永不超时）。注意：设置超时可能会影响精确一次语义。                                                                                                                  |
 | auto_commit                  | Boolean  | 否       | true    | 默认启用自动事务提交。                                                                                                                                                                               |
-| common-options               |         | 否       | -       | 接收器插件通用参数，详情请参考 [Sink Common Options](../common-options/sink-common-options.md)。                                                                                                                    |
+| common-options               |         | 否       | -       | 接收器插件通用参数，详情请参考 [Sink Common Options](../sink-common-options.md)。                                                                                                                    |
 | enable_upsert                | Boolean  | 否       | true    | 通过主键存在启用 upsert。如果任务中没有键重复数据，将此参数设置为 `false` 可以加快数据导入速度。                                                                                                     |
 
 ## 提示

@@ -48,7 +48,7 @@ import ChangeLog from '../changelog/connector-prometheus.md';
 | key_value                   | Double | yes      | -       | prometheus值的key                                                   |
 | batch_size                  | Int    | false    | 1024       | prometheus批量写入大小                                                  |
 | flush_interval              | Long   | false      | 300000L  | prometheus定时写入  |
-| common-options              |        | No       | -       | Sink插件常用参数，请参考 [Sink常用选项 ](../common-options/sink-common-options.md) 了解详情        |
+| common-options              |        | No       | -       | Sink插件常用参数，请参考 [Sink常用选项 ](../sink-common-options.md) 了解详情        |
 
 ## 示例
 

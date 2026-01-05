@@ -51,7 +51,7 @@ Druid的协调器URL主机和端口，示例: "myHost:8888"
 
 ### common options
 
-Sink插件常用参数，详见 [Sink Common Options](../common-options/sink-common-options.md) for details
+Sink插件常用参数，详见 [Sink Common Options](../sink-common-options.md) for details
 
 ## 示例
 
