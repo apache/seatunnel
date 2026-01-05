@@ -183,7 +183,7 @@ public abstract class AbstractMysqlCDCITBase extends TestSuiteBase implements Te
             type = {EngineType.SPARK, EngineType.FLINK},
             disabledReason =
                     "Heartbeat action query is currently only supported by the zeta engine.")
-    public void testMysqlCdcCheckDataE2eWithHeartbeatActionQuery(TestContainer container)
+    public void testMysqlCdcCheckDataE2eWithHeartbeat(TestContainer container)
             throws InterruptedException {
         // Clear related content to ensure that multiple operations are not affected
         clearTable(MYSQL_DATABASE, SOURCE_TABLE_1);
@@ -200,7 +200,7 @@ public abstract class AbstractMysqlCDCITBase extends TestSuiteBase implements Te
         CompletableFuture.supplyAsync(
                 () -> {
                     try {
-                        container.executeJob("/mysqlcdc_to_mysql_with_heartbeat_action_query.conf");
+                        container.executeJob("/mysqlcdc_to_mysql_with_heartbeat.conf");
                     } catch (Exception e) {
                         log.error("Commit task exception :" + e.getMessage());
                         throw new RuntimeException(e);

@@ -267,6 +267,12 @@ public class PostgresSourceFetchTaskContext extends JdbcSourceFetchTaskContext {
                             connectorConfig.getTableFilters().dataCollectionFilter(),
                             DataChangeEvent::new,
                             metadataProvider,
+                            new HeartbeatFactory<>(
+                                    connectorConfig,
+                                    topicSelector,
+                                    schemaNameAdjuster,
+                                    new DefaultHeartbeatConnectionProvider(dataConnection),
+                                    null),
                             schemaNameAdjuster);
 
             this.snapshotChangeEventSourceMetrics =
