@@ -1,4 +1,12 @@
-import ChangeLog from '../changelog/connector-phoenix.md).
+import ChangeLog from '../changelog/connector-jdbc.md';
+
+# Phoenix
+
+> Phoenix source connector
+
+## Description
+
+Read Phoenix data through [Jdbc connector](Jdbc.md).
 Support Batch mode and Streaming mode. The tested Phoenix version is 4.xx and 5.xx
 On the underlying implementation, through the jdbc driver of Phoenix, execute the upsert statement to write data to HBase.
 Two ways of connecting Phoenix with Java JDBC. One is to connect to zookeeper through JDBC, and the other is to connect to queryserver through JDBC thin client.

@@ -1,4 +1,4 @@
-// import ChangeLog from '../changelog/connector-vertica.md'  // Changelog file not found;
+import ChangeLog from '../changelog/connector-jdbc.md';
 
 # Vertica
 
@@ -164,4 +164,4 @@ source {
 
 ## Changelog
 
-// <ChangeLog />  // Changelog file not found
+<ChangeLog />

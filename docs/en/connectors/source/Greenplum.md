@@ -1,4 +1,12 @@
-import ChangeLog from '../changelog/connector-greenplum.md).
+import ChangeLog from '../changelog/connector-jdbc.md';
+
+# Greenplum
+
+> Greenplum source connector
+
+## Description
+
+Read Greenplum data through [Jdbc connector](Jdbc.md).
 
 ## Key features
 

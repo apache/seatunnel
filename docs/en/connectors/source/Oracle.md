@@ -1,4 +1,4 @@
-// import ChangeLog from '../changelog/connector-oracle.md'  // Changelog file not found;
+import ChangeLog from '../changelog/connector-jdbc.md';
 
 # Oracle
 
@@ -329,4 +329,4 @@ sink {
 
 ## Changelog
 
-// <ChangeLog />  // Changelog file not found
+<ChangeLog />

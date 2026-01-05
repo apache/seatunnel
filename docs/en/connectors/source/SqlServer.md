@@ -1,4 +1,4 @@
-// import ChangeLog from '../changelog/connector-sqlserver.md'  // Changelog file not found;
+import ChangeLog from '../changelog/connector-jdbc.md';
 
 # SQL Server
 
@@ -269,4 +269,4 @@ sink {
 
 ## Changelog
 
-// <ChangeLog />  // Changelog file not found
+<ChangeLog />

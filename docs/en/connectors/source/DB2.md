@@ -1,4 +1,4 @@
-// import ChangeLog from '../changelog/connector-db2.md'  // Changelog file not found;
+import ChangeLog from '../changelog/connector-jdbc.md';
 
 # DB2
 
@@ -167,5 +167,5 @@ source {
 
 ## Changelog
 
-// <ChangeLog />  // Changelog file not found
+<ChangeLog />
 

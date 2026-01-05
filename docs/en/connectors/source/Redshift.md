@@ -1,4 +1,4 @@
-import ChangeLog from '../changelog/connector-s3-redshift.md';
+import ChangeLog from '../changelog/connector-jdbc.md';
 
 # Redshift
 

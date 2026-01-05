@@ -1,4 +1,4 @@
-import ChangeLog from '../changelog/connector-hive.md';
+import ChangeLog from '../changelog/connector-jdbc.md';
 
 # HiveJdbc
 

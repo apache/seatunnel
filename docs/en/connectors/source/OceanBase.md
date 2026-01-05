@@ -1,4 +1,4 @@
-// import ChangeLog from '../changelog/connector-oceanbase.md'  // Changelog file not found;
+import ChangeLog from '../changelog/connector-jdbc.md';
 
 # OceanBase
 
@@ -182,4 +182,4 @@ source {
 
 ## Changelog
 
-// <ChangeLog />  // Changelog file not found
+<ChangeLog />

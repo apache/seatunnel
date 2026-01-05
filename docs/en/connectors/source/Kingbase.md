@@ -1,4 +1,4 @@
-// import ChangeLog from '../changelog/connector-kingbase.md'  // Changelog file not found;
+import ChangeLog from '../changelog/connector-jdbc.md';
 
 # Kingbase
 
@@ -150,4 +150,4 @@ source {
 
 ## Changelog
 
-// <ChangeLog />  // Changelog file not found
+<ChangeLog />
