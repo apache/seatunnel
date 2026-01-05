@@ -178,10 +178,22 @@ public abstract class AbstractMysqlCDCITBase extends TestSuiteBase implements Te
     }
 
     @TestTemplate
+    @DisabledOnContainer(
+            value = {},
+            type = {EngineType.SPARK, EngineType.FLINK},
+            disabledReason =
+                    "Heartbeat action query is currently only supported by the zeta engine.")
     public void testMysqlCdcCheckDataE2eWithHeartbeatActionQuery(TestContainer container) {
         // Clear related content to ensure that multiple operations are not affected
         clearTable(MYSQL_DATABASE, SOURCE_TABLE_1);
         clearTable(MYSQL_DATABASE, SINK_TABLE);
+
+        executeSql(
+                "CREATE TABLE IF NOT EXISTS "
+                        + MYSQL_DATABASE
+                        + ".heartbeat ("
+                        + "  ts TIMESTAMP DEFAULT CURRENT_TIMESTAMP"
+                        + ");");
 
         CompletableFuture.supplyAsync(
                 () -> {
@@ -189,6 +201,7 @@ public abstract class AbstractMysqlCDCITBase extends TestSuiteBase implements Te
                         Container.ExecResult execResult =
                                 container.executeJob(
                                         "/mysqlcdc_to_mysql_with_heartbeat_action_query.conf");
+                        System.out.println("=== STDERR ===");
                         System.out.println(execResult.getStderr());
                     } catch (Exception e) {
                         log.error("Commit task exception :" + e.getMessage());
