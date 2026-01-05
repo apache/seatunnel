@@ -8,6 +8,10 @@ import ChangeLog from '../changelog/connector-jdbc.md';
 
 - Definitely supports 3.1.3 and 3.1.2, other versions need to be tested.
 
+## Timeout Parameter Support
+
+The `socket_timeout_ms` and `connect_timeout_ms` parameters are tested with **Hive 3.2.0+**. For earlier versions (including 3.1.x), these parameters have not been verified yet. The parameters will be passed to the JDBC driver, but their effectiveness depends on the Hive version being used.
+
 ## Support Those Engines
 
 > Spark<br/>
@@ -68,6 +72,8 @@ Read external data source data through JDBC.
 | password                     | String     | No       | -               | Connection instance password                                                                                                                                                                                                                                      |
 | query                        | String     | Yes      | -               | Query statement                                                                                                                                                                                                                                                   |
 | connection_check_timeout_sec | Int        | No       | 30              | The time in seconds to wait for the database operation used to validate the connection to complete                                                                                                                                                                |
+| socket_timeout_ms            | Int        | No       | 86400000        | Socket timeout in milliseconds for reading data from the server. Set to 0 for no timeout. Note: Tested with Hive 3.2.0+. For earlier versions, not yet verified.                                                                                                              |
+| connect_timeout_ms           | Int        | No       | 86400000        | Connection timeout in milliseconds for establishing connection to the server. Set to 0 for no timeout. Note: Tested with Hive 3.2.0+. For earlier versions, not yet verified.                                                                                                   |
 | partition_column             | String     | No       | -               | The column name for parallelism's partition, only support numeric type,Only support numeric type primary key, and only can config one column.                                                                                                                     |
 | partition_lower_bound        | BigDecimal | No       | -               | The partition_column min value for scan, if not set SeaTunnel will query database get min value.                                                                                                                                                                  |
 | partition_upper_bound        | BigDecimal | No       | -               | The partition_column max value for scan, if not set SeaTunnel will query database get max value.                                                                                                                                                                  |
