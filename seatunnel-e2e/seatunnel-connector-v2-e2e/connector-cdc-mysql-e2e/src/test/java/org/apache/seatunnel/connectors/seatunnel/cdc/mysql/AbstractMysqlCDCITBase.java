@@ -183,7 +183,8 @@ public abstract class AbstractMysqlCDCITBase extends TestSuiteBase implements Te
             type = {EngineType.SPARK, EngineType.FLINK},
             disabledReason =
                     "Heartbeat action query is currently only supported by the zeta engine.")
-    public void testMysqlCdcCheckDataE2eWithHeartbeatActionQuery(TestContainer container) {
+    public void testMysqlCdcCheckDataE2eWithHeartbeatActionQuery(TestContainer container)
+            throws InterruptedException {
         // Clear related content to ensure that multiple operations are not affected
         clearTable(MYSQL_DATABASE, SOURCE_TABLE_1);
         clearTable(MYSQL_DATABASE, SINK_TABLE);
@@ -194,6 +195,7 @@ public abstract class AbstractMysqlCDCITBase extends TestSuiteBase implements Te
                         + ".heartbeat ("
                         + "  ts TIMESTAMP DEFAULT CURRENT_TIMESTAMP"
                         + ");");
+        clearTable(MYSQL_DATABASE, "heartbeat");
 
         CompletableFuture.supplyAsync(
                 () -> {
@@ -224,6 +226,14 @@ public abstract class AbstractMysqlCDCITBase extends TestSuiteBase implements Te
                             Assertions.assertIterableEquals(
                                     query(getSourceQuerySQL(MYSQL_DATABASE, SOURCE_TABLE_1)),
                                     query(getSinkQuerySQL(MYSQL_DATABASE, SINK_TABLE)));
+                        });
+
+        await().atMost(10000, TimeUnit.MILLISECONDS)
+                .untilAsserted(
+                        () -> {
+                            List<List<Object>> query =
+                                    query("SELECT * FROM " + MYSQL_DATABASE + ".heartbeat");
+                            Assertions.assertFalse(query.isEmpty());
                         });
     }
 
