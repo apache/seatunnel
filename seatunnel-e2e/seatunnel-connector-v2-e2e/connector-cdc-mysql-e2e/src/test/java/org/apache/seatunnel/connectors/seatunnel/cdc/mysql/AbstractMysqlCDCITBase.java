@@ -178,6 +178,47 @@ public abstract class AbstractMysqlCDCITBase extends TestSuiteBase implements Te
     }
 
     @TestTemplate
+    public void testMysqlCdcCheckDataE2eWithHeartbeatActionQuery(TestContainer container) {
+        // Clear related content to ensure that multiple operations are not affected
+        clearTable(MYSQL_DATABASE, SOURCE_TABLE_1);
+        clearTable(MYSQL_DATABASE, SINK_TABLE);
+
+        CompletableFuture.supplyAsync(
+                () -> {
+                    try {
+                        Container.ExecResult execResult =
+                                container.executeJob(
+                                        "/mysqlcdc_to_mysql_with_heartbeat_action_query.conf");
+                        System.out.println(execResult.getStderr());
+                    } catch (Exception e) {
+                        log.error("Commit task exception :" + e.getMessage());
+                        throw new RuntimeException(e);
+                    }
+                    return null;
+                });
+        await().atMost(60000, TimeUnit.MILLISECONDS)
+                .untilAsserted(
+                        () -> {
+                            log.info(query(getSinkQuerySQL(MYSQL_DATABASE, SINK_TABLE)).toString());
+                            Assertions.assertIterableEquals(
+                                    query(getSourceQuerySQL(MYSQL_DATABASE, SOURCE_TABLE_1)),
+                                    query(getSinkQuerySQL(MYSQL_DATABASE, SINK_TABLE)));
+                        });
+
+        // insert update delete
+        upsertDeleteSourceTable(MYSQL_DATABASE, SOURCE_TABLE_1);
+
+        // stream stage
+        await().atMost(60000, TimeUnit.MILLISECONDS)
+                .untilAsserted(
+                        () -> {
+                            Assertions.assertIterableEquals(
+                                    query(getSourceQuerySQL(MYSQL_DATABASE, SOURCE_TABLE_1)),
+                                    query(getSinkQuerySQL(MYSQL_DATABASE, SINK_TABLE)));
+                        });
+    }
+
+    @TestTemplate
     @DisabledOnContainer(
             value = {},
             type = {EngineType.SPARK, EngineType.FLINK},
