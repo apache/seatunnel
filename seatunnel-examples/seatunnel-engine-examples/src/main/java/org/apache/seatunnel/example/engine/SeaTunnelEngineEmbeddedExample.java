@@ -45,6 +45,7 @@ import org.apache.seatunnel.engine.server.rest.RestJobExecutionEnvironment;
 
 import com.hazelcast.instance.impl.HazelcastInstanceImpl;
 import com.hazelcast.internal.serialization.Data;
+import lombok.extern.slf4j.Slf4j;
 
 import java.util.Arrays;
 import java.util.HashMap;
@@ -58,6 +59,7 @@ import java.util.stream.StreamSupport;
  * Embed the Zeta engine as a tool in the project. Start a local cluster instance in Cluster mode
  * and use it to submit tasks, manage tasks, and query task metrics, etc.
  */
+@Slf4j
 public class SeaTunnelEngineEmbeddedExample implements AutoCloseable {
 
     public static void main(String[] args) {
@@ -92,16 +94,16 @@ public class SeaTunnelEngineEmbeddedExample implements AutoCloseable {
                             + "    ]\r\n"
                             + "}";
             long jobId = server.submitJob("demo", json);
-            System.err.println("jobId: " + jobId);
+            log.info("jobId:{}", jobId);
 
             JobResult jobResult = server.waitForJobComplete(jobId);
-            System.err.println("------------jobResult-------------");
-            System.err.println("jobStatus: " + jobResult.getStatus());
-            System.err.println("jobError: " + jobResult.getError());
+            log.info("------------jobResult-------------");
+            log.info("jobStatus: {}", jobResult.getStatus());
+            log.info("jobError: {}", jobResult.getError());
 
             Map<String, Object> jobMetricsSummary = server.getJobMetricsSummary(jobId);
-            System.err.println("------------jobMetricsSummary-------------");
-            System.err.println(JsonUtils.toJsonString(jobMetricsSummary));
+            log.info("------------jobMetricsSummary-------------");
+            log.info(JsonUtils.toJsonString(jobMetricsSummary));
         }
     }
 
