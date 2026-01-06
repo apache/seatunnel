@@ -105,7 +105,7 @@ Kerberos 的 keytab 文件路径
 是否以覆盖写入（Overwrite）方式写入 Hive。
 
 - 批模式（BATCH）：在提交前删除目标路径中已有数据（非分区表删除表目录；分区表删除本次提交涉及的分区目录），再写入新数据。
-- 流模式（STREAMING）：Flink 会在每个 checkpoint 完成后触发一次 commit。为避免每个 checkpoint 都重复删除导致数据丢失，SeaTunnel 会对每个目标目录（表目录/分区目录）最多删除一次（空提交会跳过删除）。恢复（recovery）场景下为避免误删已提交数据，删除行为为 best-effort，可能会被跳过，因此不保证严格的“全量覆盖”语义。
+- 流模式（STREAMING）：在启用 checkpoint 的流式运行时，commit 会在每个 checkpoint 完成后触发一次。为避免每个 checkpoint 都重复删除导致数据丢失，SeaTunnel 会对每个目标目录（表目录/分区目录）最多删除一次（空提交会跳过删除）。恢复（recovery）场景下为避免误删已提交数据，删除行为为 best-effort，可能会被跳过，因此不保证严格的“全量覆盖”语义。
 
 ### data_save_mode [enum]
 
