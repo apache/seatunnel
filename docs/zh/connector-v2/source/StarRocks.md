@@ -146,6 +146,21 @@ partition[5] 从 be_node_3 读取 tablet 数据：tablet[14,15]
 
 从 `BE` 节点扫描数据相关的参数。
 
+
+### wrap_json_as_array [Boolean]
+
+是否将json作为数组处理。因为默认会将接收到的数据封装为数组形式，如果本身数据就是数组形式，此时可以设置为true。
+
+例如：
+
+```
+String[] records = new String[]{
+        "[{\"id\":400, \"name\":\"400\"}]",
+        "[{\"id\":500, \"name\":\"500\"}]"
+};
+```
+此时如果想将这条数据直接作为json数组，可以设置为true。
+
 ## 示例 1
 
 ```

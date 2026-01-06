@@ -130,6 +130,11 @@ public class StarRocksSinkOptions extends StarRocksBaseOptions {
                     .enumType(StreamLoadFormat.class)
                     .defaultValue(StreamLoadFormat.JSON)
                     .withDescription("");
+    public static final Option<Boolean> SINK_WRAP_JSON_AS_ARRAY =
+            Options.key("wrap_json_as_array")
+                    .booleanType()
+                    .defaultValue(false)
+                    .withDescription("Whether wrap json data as array or not.");
     public static final Option<SchemaSaveMode> SCHEMA_SAVE_MODE =
             Options.key("schema_save_mode")
                     .enumType(SchemaSaveMode.class)

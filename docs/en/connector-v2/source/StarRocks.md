@@ -39,6 +39,7 @@ delivers the query plan as a parameter to BE nodes, and then obtains data result
 | scan_mem_limit          | long    | no       | 2147483648        |
 | max_retries             | int     | no       | 3                 |
 | scan.params.*           | string  | no       | -                 |
+| wrap_json_as_array      | Boolean  | no       | false                |
 
 ### nodeUrls [list]
 
@@ -147,6 +148,20 @@ number of retry requests sent to StarRocks
 ### scan.params. [string]
 
 The parameter of the scan data from be
+
+### wrap_json_as_array [Boolean]
+
+Whether wrap json data as array or not. Because the received data is encapsulated into an array format by default, if the data itself is already in an array format, you can set it to `true`
+
+such as：
+
+```
+String[] records = new String[]{
+        "[{\"id\":400, \"name\":\"400\"}]",
+        "[{\"id\":500, \"name\":\"500\"}]"
+};
+```
+If you want to treat this data directly as a JSON array, you can set it to `true`.
 
 ## Example
 

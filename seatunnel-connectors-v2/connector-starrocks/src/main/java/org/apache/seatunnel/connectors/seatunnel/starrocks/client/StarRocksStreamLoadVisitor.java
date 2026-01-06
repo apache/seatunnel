@@ -153,21 +153,20 @@ public class StarRocksStreamLoadVisitor {
 
     private byte[] joinRows(List<byte[]> rows, Long totalBytes) {
         checkBatchMaxBytes(totalBytes, rows.size());
-        if (SinkConfig.StreamLoadFormat.CSV.equals(sinkConfig.getLoadFormat())) {
-            Map<String, Object> props = sinkConfig.getStreamLoadProps();
-            byte[] lineDelimiter =
-                    StarRocksDelimiterParser.parse((String) props.get("row_delimiter"), "\n")
-                            .getBytes(StandardCharsets.UTF_8);
-            ByteBuffer bos =
-                    ByteBuffer.allocate(totalBytes.intValue() + rows.size() * lineDelimiter.length);
-            for (byte[] row : rows) {
-                bos.put(row);
-                bos.put(lineDelimiter);
-            }
-            return bos.array();
+        switch (sinkConfig.getLoadFormat()) {
+            case CSV:
+                return joinCsvRows(rows, totalBytes);
+            case JSON:
+                return joinJsonRows(rows, totalBytes);
+            default:
+                throw new StarRocksConnectorException(
+                        StarRocksConnectorErrorCode.FLUSH_DATA_FAILED,
+                        "Failed to join rows data, unsupported `format` from stream load properties:");
         }
+    }
 
-        if (SinkConfig.StreamLoadFormat.JSON.equals(sinkConfig.getLoadFormat())) {
+    private byte[] joinJsonRows(List<byte[]> rows, Long totalBytes) {
+        if (!sinkConfig.isSinkWrapJsonAsArray()) {
             ByteBuffer bos =
                     ByteBuffer.allocate(
                             totalBytes.intValue() + (rows.isEmpty() ? 2 : rows.size() + 1));
@@ -184,9 +183,25 @@ public class StarRocksStreamLoadVisitor {
             bos.put("]".getBytes(StandardCharsets.UTF_8));
             return bos.array();
         }
-        throw new StarRocksConnectorException(
-                StarRocksConnectorErrorCode.FLUSH_DATA_FAILED,
-                "Failed to join rows data, unsupported `format` from stream load properties:");
+        ByteBuffer bos = ByteBuffer.allocate(totalBytes.intValue());
+        for (byte[] row : rows) {
+            bos.put(row);
+        }
+        return bos.array();
+    }
+
+    private byte[] joinCsvRows(List<byte[]> rows, Long totalBytes) {
+        Map<String, Object> props = sinkConfig.getStreamLoadProps();
+        byte[] lineDelimiter =
+                StarRocksDelimiterParser.parse((String) props.get("row_delimiter"), "\n")
+                        .getBytes(StandardCharsets.UTF_8);
+        ByteBuffer bos =
+                ByteBuffer.allocate(totalBytes.intValue() + rows.size() * lineDelimiter.length);
+        for (byte[] row : rows) {
+            bos.put(row);
+            bos.put(lineDelimiter);
+        }
+        return bos.array();
     }
 
     @SuppressWarnings("unchecked")
