@@ -492,7 +492,7 @@ public class SqlServerCDCIT extends TestSuiteBase implements TestResource {
                                             connection,
                                             Collections.singletonList(TableId.parse(SINK_TABLE))));
             Assertions.assertEquals(
-                    "Table"
+                    "Table "
                             + DATABASE_NAME
                             + "."
                             + SCHEMA_NAME
