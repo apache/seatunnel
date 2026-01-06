@@ -23,6 +23,9 @@ import org.apache.seatunnel.api.table.type.SeaTunnelDataType;
 import org.apache.seatunnel.api.table.type.SeaTunnelRow;
 import org.apache.seatunnel.api.table.type.SeaTunnelRowType;
 import org.apache.seatunnel.common.exception.CommonErrorCodeDeprecated;
+import org.apache.seatunnel.common.utils.DateTimeUtils;
+import org.apache.seatunnel.common.utils.DateUtils;
+import org.apache.seatunnel.common.utils.TimeUtils;
 import org.apache.seatunnel.connectors.seatunnel.hbase.client.HbaseClient;
 import org.apache.seatunnel.connectors.seatunnel.hbase.config.HbaseParameters;
 import org.apache.seatunnel.connectors.seatunnel.hbase.exception.HbaseConnectorException;
@@ -35,7 +38,11 @@ import org.apache.hadoop.hbase.client.Put;
 import org.apache.hadoop.hbase.util.Bytes;
 
 import java.io.IOException;
+import java.math.BigDecimal;
 import java.nio.charset.Charset;
+import java.time.LocalDate;
+import java.time.LocalDateTime;
+import java.time.LocalTime;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
@@ -65,6 +72,15 @@ public class HbaseSinkWriter
             HbaseParameters hbaseParameters,
             List<Integer> rowkeyColumnIndexes,
             int versionColumnIndex) {
+        this(seaTunnelRowType, hbaseParameters, rowkeyColumnIndexes, versionColumnIndex, null);
+    }
+
+    HbaseSinkWriter(
+            SeaTunnelRowType seaTunnelRowType,
+            HbaseParameters hbaseParameters,
+            List<Integer> rowkeyColumnIndexes,
+            int versionColumnIndex,
+            HbaseClient hbaseClient) {
         this.seaTunnelRowType = seaTunnelRowType;
         this.hbaseParameters = hbaseParameters;
         this.rowkeyColumnIndexes = rowkeyColumnIndexes;
@@ -75,7 +91,8 @@ public class HbaseSinkWriter
                     hbaseParameters.getFamilyNames().getOrDefault(ALL_COLUMNS, defaultFamilyName);
         }
 
-        this.hbaseClient = HbaseClient.createInstance(hbaseParameters);
+        this.hbaseClient =
+                hbaseClient == null ? HbaseClient.createInstance(hbaseParameters) : hbaseClient;
     }
 
     @Override
@@ -157,6 +174,7 @@ public class HbaseSinkWriter
             return null;
         }
         SeaTunnelDataType<?> fieldType = seaTunnelRowType.getFieldType(index);
+        Charset charset = Charset.forName(hbaseParameters.getEnCoding().toString());
         switch (fieldType.getSqlType()) {
             case TINYINT:
                 return Bytes.toBytes((Byte) field);
@@ -172,13 +190,39 @@ public class HbaseSinkWriter
                 return Bytes.toBytes((Double) field);
             case BOOLEAN:
                 return Bytes.toBytes((Boolean) field);
+            case BYTES:
+                return (byte[]) field;
+            case DECIMAL:
+                BigDecimal decimal =
+                        field instanceof BigDecimal
+                                ? (BigDecimal) field
+                                : new BigDecimal(field.toString());
+                return decimal.toPlainString().getBytes(charset);
+            case DATE:
+                LocalDate date =
+                        field instanceof LocalDate
+                                ? (LocalDate) field
+                                : DateUtils.parse(field.toString());
+                return DateUtils.toString(date, DateUtils.Formatter.YYYY_MM_DD).getBytes(charset);
+            case TIME:
+                LocalTime time =
+                        field instanceof LocalTime
+                                ? (LocalTime) field
+                                : TimeUtils.parse(field.toString());
+                return TimeUtils.toString(time, TimeUtils.Formatter.HH_MM_SS).getBytes(charset);
+            case TIMESTAMP:
+                LocalDateTime timestamp =
+                        field instanceof LocalDateTime
+                                ? (LocalDateTime) field
+                                : DateTimeUtils.parse(field.toString());
+                return DateTimeUtils.toString(
+                                timestamp, DateTimeUtils.Formatter.YYYY_MM_DD_HH_MM_SS)
+                        .getBytes(charset);
             case ARRAY:
                 String arrayAsString = field.toString().replaceAll("\\[|\\]|\\s", "");
-                return arrayAsString.getBytes(
-                        Charset.forName(hbaseParameters.getEnCoding().toString()));
+                return arrayAsString.getBytes(charset);
             case STRING:
-                return field.toString()
-                        .getBytes(Charset.forName(hbaseParameters.getEnCoding().toString()));
+                return field.toString().getBytes(charset);
             default:
                 String errorMsg =
                         String.format(
