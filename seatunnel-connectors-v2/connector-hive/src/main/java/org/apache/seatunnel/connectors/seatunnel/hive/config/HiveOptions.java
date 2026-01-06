@@ -18,34 +18,16 @@
 package org.apache.seatunnel.connectors.seatunnel.hive.config;
 
 import org.apache.seatunnel.api.configuration.Option;
-import org.apache.seatunnel.api.configuration.Options;
 import org.apache.seatunnel.connectors.seatunnel.file.config.FileBaseSourceOptions;
 
+/** Compatibility layer for Hive options and inherited file source options. */
 public class HiveOptions extends FileBaseSourceOptions {
 
-    public static final Option<String> TABLE_NAME =
-            Options.key("table_name")
-                    .stringType()
-                    .noDefaultValue()
-                    .withDescription("Hive table name");
+    public static final Option<String> TABLE_NAME = HiveConfig.TABLE_NAME;
 
-    public static final Option<Boolean> USE_REGEX =
-            Options.key("use_regex")
-                    .booleanType()
-                    .defaultValue(false)
-                    .withDescription(
-                            "Use regular expression for `table_name` matching. "
-                                    + "When set to true, the `table_name` will be treated as a regex pattern and can match multiple tables.");
+    public static final Option<String> METASTORE_URI = HiveConfig.METASTORE_URI;
 
-    public static final Option<String> METASTORE_URI =
-            Options.key("metastore_uri")
-                    .stringType()
-                    .noDefaultValue()
-                    .withDescription("Hive metastore uri");
+    public static final Option<Boolean> USE_REGEX = HiveConfig.USE_REGEX;
 
-    public static final Option<String> HIVE_SITE_PATH =
-            Options.key("hive_site_path")
-                    .stringType()
-                    .noDefaultValue()
-                    .withDescription("The path of hive-site.xml");
+    public static final Option<String> HIVE_SITE_PATH = HiveConfig.HIVE_SITE_PATH;
 }
