@@ -143,6 +143,8 @@ public class DuckDBTypeConverter implements TypeConverter<BasicTypeDefine> {
                         .defaultValue(typeDefine.getDefaultValue())
                         .comment(typeDefine.getComment());
         String duckDBType = typeDefine.getDataType().toUpperCase();
+        Long length = typeDefine.getLength();
+        long lengthValue = length == null ? 0L : length;
         switch (duckDBType) {
             case DUCKDB_BOOLEAN:
                 builder.dataType(BasicType.BOOLEAN_TYPE);
@@ -175,7 +177,7 @@ public class DuckDBTypeConverter implements TypeConverter<BasicTypeDefine> {
             case DUCKDB_VARCHAR:
             case DUCKDB_TEXT:
                 builder.dataType(BasicType.STRING_TYPE);
-                builder.columnLength(typeDefine.getLength());
+                builder.columnLength(length);
                 break;
             case DUCKDB_DATE:
                 builder.dataType(LocalTimeType.LOCAL_DATE_TYPE);
@@ -189,12 +191,12 @@ public class DuckDBTypeConverter implements TypeConverter<BasicTypeDefine> {
                 break;
             case DUCKDB_BLOB:
                 builder.dataType(PrimitiveByteArrayType.INSTANCE);
-                builder.columnLength(typeDefine.getLength());
+                builder.columnLength(length);
                 break;
             case DUCKDB_UUID:
             case DUCKDB_JSON:
                 builder.dataType(BasicType.STRING_TYPE);
-                builder.columnLength(typeDefine.getLength() > 0 ? typeDefine.getLength() : 255);
+                builder.columnLength(lengthValue > 0 ? lengthValue : 255);
                 break;
             case DUCKDB_HUGEINT:
                 builder.dataType(new DecimalType(38, 0));
@@ -211,12 +213,12 @@ public class DuckDBTypeConverter implements TypeConverter<BasicTypeDefine> {
                         "Complex type {} mapped to STRING, consider using JSON serialization",
                         duckDBType);
                 builder.dataType(BasicType.STRING_TYPE);
-                builder.columnLength(typeDefine.getLength() > 0 ? typeDefine.getLength() : 65535);
+                builder.columnLength(lengthValue > 0 ? lengthValue : 65535);
                 break;
             default:
                 log.warn("Unsupported DuckDB type: {}, falling back to STRING", duckDBType);
                 builder.dataType(BasicType.STRING_TYPE);
-                builder.columnLength(typeDefine.getLength() > 0 ? typeDefine.getLength() : 255);
+                builder.columnLength(lengthValue > 0 ? lengthValue : 255);
         }
         return builder.build();
     }
