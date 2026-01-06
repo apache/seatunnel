@@ -102,6 +102,11 @@ Support writing Parquet INT96 from a timestamp, only valid for parquet files.
 
 ### overwrite [boolean]
 
+Flag to decide whether to use overwrite mode when inserting data into Hive. If set to true, for non-partitioned tables, the existing data in the table will be deleted before inserting new data. For partitioned tables, the data in the relevant partition will be deleted before inserting new data.
+
+- Batch mode (BATCH): Delete existing data in the target path before commit (for non-partitioned tables, delete the table directory; for partitioned tables, delete the related partition directories), then write new data.
+- Streaming mode (STREAMING): In Flink streaming, `commit()` is invoked after each completed checkpoint. To avoid deleting on every checkpoint (which would wipe previously committed files), SeaTunnel deletes each target directory (table directory / partition directory) at most once (empty commits will skip deletion). On recovery, the delete step is best-effort and may be skipped to avoid deleting already committed data, so streaming overwrite is not a strict snapshot overwrite.
+
 ### data_save_mode [enum]
 
 Select how to handle existing data on the target before writing new data.
@@ -111,8 +116,6 @@ Select how to handle existing data on the target before writing new data.
 - CUSTOM_PROCESSING / ERROR_WHEN_DATA_EXISTS: Currently not recommended for Hive sink unless you have specific requirements.
 
 Note: overwrite=true and data_save_mode=DROP_DATA are equivalent. Use either one; do not set both.
-
-Flag to decide whether to use overwrite mode when inserting data into Hive. If set to true, for non-partitioned tables, the existing data in the table will be deleted before inserting new data. For partitioned tables, the data in the relevant partition will be deleted before inserting new data.
 
 ### schema_save_mode [enum]
 
