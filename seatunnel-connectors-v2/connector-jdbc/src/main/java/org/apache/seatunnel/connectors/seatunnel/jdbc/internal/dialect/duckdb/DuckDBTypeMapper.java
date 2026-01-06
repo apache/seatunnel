@@ -21,38 +21,10 @@ import org.apache.seatunnel.api.table.catalog.Column;
 import org.apache.seatunnel.api.table.converter.BasicTypeDefine;
 import org.apache.seatunnel.connectors.seatunnel.jdbc.internal.dialect.JdbcDialectTypeMapper;
 
-import java.sql.ResultSet;
-import java.sql.ResultSetMetaData;
-import java.sql.SQLException;
-
 public class DuckDBTypeMapper implements JdbcDialectTypeMapper {
 
     @Override
     public Column mappingColumn(BasicTypeDefine typeDefine) {
         return new DuckDBTypeConverter().convert(typeDefine);
-    }
-
-    @Override
-    public Column mappingColumn(ResultSetMetaData metadata, int colIndex) throws SQLException {
-        String columnName = metadata.getColumnLabel(colIndex);
-        String nativeType = metadata.getColumnTypeName(colIndex);
-        int isNullable = metadata.isNullable(colIndex);
-        long precision = metadata.getPrecision(colIndex);
-        int scale = metadata.getScale(colIndex);
-        BasicTypeDefine typeDefine =
-                BasicTypeDefine.builder()
-                        .name(columnName)
-                        .columnType(nativeType)
-                        .dataType(nativeType)
-                        .nullable(isNullable == ResultSetMetaData.columnNullable)
-                        .length(precision)
-                        .precision(precision)
-                        .scale(scale)
-                        .build();
-        return mappingColumn(typeDefine);
-    }
-
-    public Column mappingColumn(ResultSet rs, int colIndex) throws SQLException {
-        return mappingColumn(rs.getMetaData(), colIndex);
     }
 }

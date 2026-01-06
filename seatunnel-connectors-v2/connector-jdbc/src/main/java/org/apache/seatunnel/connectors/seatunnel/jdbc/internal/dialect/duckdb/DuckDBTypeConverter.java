@@ -35,97 +35,53 @@ import lombok.extern.slf4j.Slf4j;
 @AutoService(TypeConverter.class)
 public class DuckDBTypeConverter implements TypeConverter<BasicTypeDefine> {
 
-    /** DuckDB BOOLEAN type */
+    // Boolean
     public static final String DUCKDB_BOOLEAN = "BOOLEAN";
 
-    /** DuckDB TINYINT type (8-bit signed integer) */
+    // Numeric
     public static final String DUCKDB_TINYINT = "TINYINT";
-
-    /** DuckDB SMALLINT type (16-bit signed integer) */
     public static final String DUCKDB_SMALLINT = "SMALLINT";
-
-    /** DuckDB INTEGER type (32-bit signed integer) */
     public static final String DUCKDB_INTEGER = "INTEGER";
-
-    /** DuckDB BIGINT type (64-bit signed integer) */
     public static final String DUCKDB_BIGINT = "BIGINT";
-
-    /** DuckDB UTINYINT type (8-bit unsigned integer) */
+    public static final String DUCKDB_HUGEINT = "HUGEINT";
+    public static final String DUCKDB_BIGNUM = "BIGNUM";
+    public static final String DUCKDB_UHUGEINT = "UHUGEINT";
     public static final String DUCKDB_UTINYINT = "UTINYINT";
-
-    /** DuckDB USMALLINT type (16-bit unsigned integer) */
     public static final String DUCKDB_USMALLINT = "USMALLINT";
-
-    /** DuckDB UINTEGER type (32-bit unsigned integer) */
     public static final String DUCKDB_UINTEGER = "UINTEGER";
-
-    /** DuckDB UBIGINT type (64-bit unsigned integer) */
     public static final String DUCKDB_UBIGINT = "UBIGINT";
-
-    /** DuckDB FLOAT type (32-bit floating point) */
+    public static final String DUCKDB_DECIMAL = "DECIMAL";
     public static final String DUCKDB_FLOAT = "FLOAT";
-
-    /** DuckDB DOUBLE type (64-bit floating point) */
     public static final String DUCKDB_DOUBLE = "DOUBLE";
 
-    /** DuckDB DECIMAL type (arbitrary precision decimal) */
-    public static final String DUCKDB_DECIMAL = "DECIMAL";
-
-    /** DuckDB VARCHAR type (variable-length string) */
+    // String / binary
+    public static final String DUCKDB_BIT = "BIT";
     public static final String DUCKDB_VARCHAR = "VARCHAR";
-
-    /** DuckDB TEXT type (unlimited-length string) */
+    public static final String DUCKDB_CHAR = "CHAR";
+    public static final String DUCKDB_BPCHAR = "BPCHAR";
+    public static final String DUCKDB_STRING = "STRING";
     public static final String DUCKDB_TEXT = "TEXT";
-
-    /** DuckDB DATE type */
-    public static final String DUCKDB_DATE = "DATE";
-
-    /** DuckDB TIME type */
-    public static final String DUCKDB_TIME = "TIME";
-
-    /** DuckDB TIMESTAMP type */
-    public static final String DUCKDB_TIMESTAMP = "TIMESTAMP";
-
-    /** DuckDB TIMESTAMP WITH TIME ZONE type */
-    public static final String DUCKDB_TIMESTAMP_WITH_TZ = "TIMESTAMP WITH TIME ZONE";
-
-    /** DuckDB BLOB type (binary large object) */
     public static final String DUCKDB_BLOB = "BLOB";
-
-    /** DuckDB UUID type (universally unique identifier) */
     public static final String DUCKDB_UUID = "UUID";
-
-    /** DuckDB JSON type */
     public static final String DUCKDB_JSON = "JSON";
 
-    /** DuckDB INTERVAL type (time interval) */
+    // Temporal
+    public static final String DUCKDB_DATE = "DATE";
+    public static final String DUCKDB_TIME = "TIME";
+    public static final String DUCKDB_TIMESTAMP = "TIMESTAMP";
+    public static final String DUCKDB_TIMESTAMP_WITH_TZ = "TIMESTAMP WITH TIME ZONE";
+
+    // Other
     public static final String DUCKDB_INTERVAL = "INTERVAL";
-
-    /** DuckDB HUGEINT type (128-bit signed integer) */
-    public static final String DUCKDB_HUGEINT = "HUGEINT";
-
-    /** DuckDB ARRAY type (ordered list of elements) */
     public static final String DUCKDB_ARRAY = "ARRAY";
-
-    /** DuckDB STRUCT type (named fields with types) */
     public static final String DUCKDB_STRUCT = "STRUCT";
-
-    /** DuckDB MAP type (key-value pairs) */
     public static final String DUCKDB_MAP = "MAP";
 
-    /** Maximum precision for DECIMAL type */
     public static final int MAX_PRECISION = 38;
-
-    /** Default precision for DECIMAL type when not specified */
-    public static final int DEFAULT_PRECISION = 38;
-
-    /** Maximum scale for DECIMAL type */
+    public static final int DEFAULT_PRECISION = 18;
     public static final int MAX_SCALE = 38;
+    public static final int DEFAULT_SCALE = 3;
 
-    /** Default scale for DECIMAL type when not specified */
-    public static final int DEFAULT_SCALE = 0;
-
-    /** Singleton instance of DuckDB type converter */
     public static final DuckDBTypeConverter INSTANCE = new DuckDBTypeConverter();
 
     @Override
@@ -165,6 +121,12 @@ public class DuckDBTypeConverter implements TypeConverter<BasicTypeDefine> {
             case DUCKDB_UBIGINT:
                 builder.dataType(BasicType.LONG_TYPE);
                 break;
+            case DUCKDB_HUGEINT:
+            case DUCKDB_UHUGEINT:
+            case DUCKDB_BIGNUM:
+                builder.dataType(new DecimalType(MAX_PRECISION, 0));
+                builder.columnLength((long) MAX_PRECISION);
+                break;
             case DUCKDB_FLOAT:
                 builder.dataType(BasicType.FLOAT_TYPE);
                 break;
@@ -176,7 +138,23 @@ public class DuckDBTypeConverter implements TypeConverter<BasicTypeDefine> {
                 break;
             case DUCKDB_VARCHAR:
             case DUCKDB_TEXT:
+            case DUCKDB_CHAR:
+            case DUCKDB_BPCHAR:
+            case DUCKDB_STRING:
                 builder.dataType(BasicType.STRING_TYPE);
+                builder.columnLength(length);
+                break;
+            case DUCKDB_BIT:
+                builder.dataType(BasicType.STRING_TYPE);
+                builder.columnLength(lengthValue > 0 ? lengthValue : 1L);
+                break;
+            case DUCKDB_UUID:
+            case DUCKDB_JSON:
+                builder.dataType(BasicType.STRING_TYPE);
+                builder.columnLength(lengthValue > 0 ? lengthValue : 255);
+                break;
+            case DUCKDB_BLOB:
+                builder.dataType(PrimitiveByteArrayType.INSTANCE);
                 builder.columnLength(length);
                 break;
             case DUCKDB_DATE:
@@ -188,19 +166,6 @@ public class DuckDBTypeConverter implements TypeConverter<BasicTypeDefine> {
             case DUCKDB_TIMESTAMP:
             case DUCKDB_TIMESTAMP_WITH_TZ:
                 builder.dataType(LocalTimeType.LOCAL_DATE_TIME_TYPE);
-                break;
-            case DUCKDB_BLOB:
-                builder.dataType(PrimitiveByteArrayType.INSTANCE);
-                builder.columnLength(length);
-                break;
-            case DUCKDB_UUID:
-            case DUCKDB_JSON:
-                builder.dataType(BasicType.STRING_TYPE);
-                builder.columnLength(lengthValue > 0 ? lengthValue : 255);
-                break;
-            case DUCKDB_HUGEINT:
-                builder.dataType(new DecimalType(38, 0));
-                builder.columnLength(38L);
                 break;
             case DUCKDB_INTERVAL:
                 builder.dataType(BasicType.STRING_TYPE);

@@ -27,52 +27,25 @@ import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 
 public final class JdbcUrlUtil {
-    // Standard network database URL pattern (e.g., MySQL, PostgreSQL, etc.)
-    private static final Pattern NETWORK_URL_PATTERN =
+    private static final Pattern URL_PATTERN =
             Pattern.compile(
                     "^(?<url>jdbc:.+?//(?<host>.+?):(?<port>\\d+?))(/(?<database>.*?))*(?<suffix>\\?.*)*$");
-
-    // File database URL pattern (e.g., DuckDB, SQLite, etc.)
-    private static final Pattern FILE_URL_PATTERN =
-            Pattern.compile("^jdbc:(?<dbtype>duckdb|sqlite|h2):(?<filepath>.*?)(?<suffix>\\?.*)*$");
 
     private JdbcUrlUtil() {}
 
     public static JdbcUrlUtil.UrlInfo getUrlInfo(String url) {
-        // First try network database pattern
-        Matcher networkMatcher = NETWORK_URL_PATTERN.matcher(url);
-        if (networkMatcher.find()) {
-            String urlWithoutDatabase = networkMatcher.group("url");
-            String database = networkMatcher.group("database");
+        Matcher matcher = URL_PATTERN.matcher(url);
+        if (matcher.find()) {
+            String urlWithoutDatabase = matcher.group("url");
+            String database = matcher.group("database");
             return new JdbcUrlUtil.UrlInfo(
                     url,
                     urlWithoutDatabase,
-                    networkMatcher.group("host"),
-                    Integer.valueOf(networkMatcher.group("port")),
+                    matcher.group("host"),
+                    Integer.valueOf(matcher.group("port")),
                     database,
-                    networkMatcher.group("suffix"));
+                    matcher.group("suffix"));
         }
-
-        // Then try file database pattern
-        Matcher fileMatcher = FILE_URL_PATTERN.matcher(url);
-        if (fileMatcher.find()) {
-            String dbType = fileMatcher.group("dbtype");
-            String filePath = fileMatcher.group("filepath");
-            String suffix = fileMatcher.group("suffix");
-
-            // For file databases, use file path as database name
-            String urlWithoutDatabase = "jdbc:" + dbType + ":";
-            String database = filePath.replaceAll("^/+", ""); // Remove leading slashes
-
-            return new JdbcUrlUtil.UrlInfo(
-                    url,
-                    urlWithoutDatabase,
-                    "localhost", // File databases use localhost
-                    0, // File databases don't use ports
-                    database,
-                    suffix);
-        }
-
         throw new IllegalArgumentException("The jdbc url format is incorrect: " + url);
     }
 
@@ -102,30 +75,18 @@ public final class JdbcUrlUtil {
         }
 
         public Optional<String> getUrlWithDatabase() {
-            // For file databases, return original URL directly
-            if (port == 0 && "localhost".equals(host)) {
-                return Optional.of(origin);
-            }
             return StringUtils.isBlank(defaultDatabase)
                     ? Optional.empty()
                     : Optional.of(urlWithoutDatabase + "/" + defaultDatabase + suffix);
         }
 
         public Optional<String> getDefaultDatabase() {
-            // For file databases, always return present (even if empty for in-memory)
-            if (port == 0 && "localhost".equals(host)) {
-                return Optional.of(defaultDatabase != null ? defaultDatabase : "");
-            }
             return StringUtils.isBlank(defaultDatabase)
                     ? Optional.empty()
                     : Optional.of(defaultDatabase);
         }
 
         public String getUrlWithDatabase(String database) {
-            // For file databases, return basic URL + new database path
-            if (port == 0 && "localhost".equals(host)) {
-                return urlWithoutDatabase + database + (suffix != null ? suffix : "");
-            }
             return urlWithoutDatabase + "/" + database + suffix;
         }
     }
