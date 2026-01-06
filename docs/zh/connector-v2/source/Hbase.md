@@ -24,7 +24,7 @@ import ChangeLog from '../changelog/connector-hbase.md';
 | zookeeper_quorum     | string   | 是  | -     |
 | table                | string   | 是  | -     |
 | schema               | config   | 是  | -     |
-| hbase_extra_config   | string   | 否  | -     |
+| hbase_extra_config   | config   | 否  | -     |
 | caching              | int      | 否  | -1    |
 | batch                | int      | 否  | -1    |
 | cache_blocks         | boolean  | 否  | false |
@@ -127,6 +127,44 @@ source {
           name = "columnFamily2:column1"
           type = bigint
         }
+      ]
+    }
+  }
+}
+```
+
+## Kerberos 示例
+
+备注：
+
+- `connector-hbase` 不会解析 `krb5_path` / `kerberos_principal` / `kerberos_keytab_path`。
+- 需要在运行环境中提前完成 Kerberos 登录并保证 `krb5.conf` 可被 JVM 访问（例如 `kinit -kt ...` 或 JVM `-Djava.security.krb5.conf=...`），同时将 HBase/Hadoop 的安全配置写入 `hbase_extra_config`。
+
+```hocon
+source {
+  Hbase {
+    zookeeper_quorum = "zk1:2181,zk2:2181,zk3:2181"
+    table = "source_table"
+    caching = 1000
+    batch = 200
+    cache_blocks = false
+    is_binary_rowkey = false
+
+    # HBase安全配置
+    hbase_extra_config = {
+      "hbase.security.authentication" = "kerberos"
+      "hadoop.security.authentication" = "kerberos"
+      "hbase.master.kerberos.principal" = "hbase/_HOST@REALM"
+      "hbase.regionserver.kerberos.principal" = "hbase/_HOST@REALM"
+      "hbase.rpc.protection" = "authentication"
+      "hbase.zookeeper.useSasl" = "false"
+    }
+
+    schema = {
+      columns = [
+        { name = "rowkey", type = string },
+        { name = "info:name", type = string },
+        { name = "info:score", type = string }
       ]
     }
   }
