@@ -51,6 +51,9 @@ import ChangeLog from '../changelog/connector-file-hadoop.md';
 | fs.defaultFS                     | string  | 是    | -                                          | Hadoop 集群地址。支持以下格式：<br/>- 标准 HDFS：`hdfs://hadoopcluster` 或 `hdfs://namenode:9000`<br/>- ViewFS（联邦 HDFS）：`viewfs://mycluster`<br/>详见下方 ViewFS 配置示例。                                                                                                                                                      |
 | path                             | string  | 是    | -                                          | 目标目录路径是必需的。                                                                                                                                                                                                                                                                                      |
 | tmp_path                         | string  | 是    | /tmp/seatunnel                             | 结果文件将首先写入临时路径，然后使用 `mv` 命令将临时目录提交到目标目录。需要一个Hdfs路径。                                                                                                                                                                                                                                               |
+| file_exists_mode                 | enum    | 否    | OVERWRITE                                  | 提交阶段（临时文件重命名到目标文件）当目标文件已存在时的处理策略：SKIP / OVERWRITE / FAIL。SKIP 会保留目标文件并删除临时文件。                                                                                                                                                                                                                                         |
+| schema_save_mode                      | enum    | 否    | CREATE_SCHEMA_WHEN_NOT_EXIST               | 现有的目录处理方法。                                                                                                                                                  |
+| data_save_mode                        | enum    | 否    | APPEND_DATA                                | 现有的数据处理方法。                                                                                                                                                 |
 | hdfs_site_path                   | string  | 否    | -                                          | `hdfs-site.xml` 的路径，用于加载 namenodes 的 ha 配置。                                                                                                                                                                                                                                                      |
 | custom_filename                  | boolean | 否    | false                                      | 是否需要自定义文件名                                                                                                                                                                                                                                                                                       |
 | file_name_expression             | string  | 否    | "${transactionId}"                         | 仅在 `custom_filename` 为 `true` 时使用。`file_name_expression` 描述将创建到 `path` 中的文件表达式。我们可以在 `file_name_expression` 中添加变量 `${now}` 或 `${uuid}`，例如 `test_${uuid}_${now}`，`${now}` 表示当前时间，其格式可以通过指定选项 `filename_time_format` 来定义。请注意，如果 `is_enable_transaction` 为 `true`，我们将在文件头部自动添加 `${transactionId}_`。 |
@@ -86,6 +89,16 @@ import ChangeLog from '../changelog/connector-file-hadoop.md';
 > 如果您使用 spark/flink，为了使用此连接器，您必须确保您的 spark/flink 集群已经集成了 hadoop。测试过的 hadoop 版本是
 > 2.x。如果您使用 SeaTunnel Engine，则在下载和安装 SeaTunnel Engine 时会自动集成 hadoop
 > jar。您可以检查 `${SEATUNNEL_HOME}/lib` 下的 jar 包来确认这一点。
+
+### file_exists_mode [enum]
+
+当提交阶段将 `tmp_path` 下的临时文件移动/重命名到 `path` 时，如果目标文件已存在，将按如下策略处理：
+
+- `OVERWRITE`（默认）：删除目标文件，再将临时文件重命名到目标路径。
+- `SKIP`：保留目标文件，删除临时文件，并认为本次提交成功（避免重复写/避免 tmp 堆积）。
+- `FAIL`：直接抛错，任务失败。
+
+该参数仅针对单个文件生效，不对目录进行覆盖/删除操作。
 
 ### merge_update_event [boolean]
 

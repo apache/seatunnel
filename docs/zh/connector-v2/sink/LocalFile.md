@@ -45,6 +45,9 @@ import ChangeLog from '../changelog/connector-file-local.md';
 |---------------------------------------|---------|------|--------------------------------------------|-----------------------------------------------------------------|
 | path                                  | string  | 是    | -                                          | 目标目录路径                                                          |
 | tmp_path                              | string  | 否    | /tmp/seatunnel                             | 结果文件将首先写入临时路径，然后使用 `mv` 将临时目录提交到目标目录。                           |
+| file_exists_mode                      | enum    | 否    | OVERWRITE                                  | 提交阶段（临时文件重命名到目标文件）当目标文件已存在时的处理策略：SKIP / OVERWRITE / FAIL。SKIP 会保留目标文件并删除临时文件。 |
+| schema_save_mode                      | string  | 否    | CREATE_SCHEMA_WHEN_NOT_EXIST               | 现有的目录处理方法。                                                      |
+| data_save_mode                        | string  | 否    | APPEND_DATA                                | 现有的数据处理方法。                                                      |
 | custom_filename                       | boolean | 否    | false                                      | 是否需要自定义文件名                                                      |
 | file_name_expression                  | string  | 否    | "${transactionId}"                         | 仅在 custom_filename 为 true 时使用                                   |
 | filename_time_format                  | string  | 否    | "yyyy.MM.dd"                               | 仅在 custom_filename 为 true 时使用                                   |
@@ -225,6 +228,16 @@ _root_tag [string]
 ### encoding [string]
 
 仅在 file_format_type 为 json,text,csv,xml 时使用。文件写入的编码。该参数将通过 `Charset.forName(encoding)` 解析。
+
+### file_exists_mode [enum]
+
+当提交阶段将 `tmp_path` 下的临时文件移动/重命名到 `path` 时，如果目标文件已存在，将按如下策略处理：
+
+- `OVERWRITE`（默认）：删除目标文件，再将临时文件重命名到目标路径。
+- `SKIP`：保留目标文件，删除临时文件，并认为本次提交成功（避免重复写/避免 tmp 堆积）。
+- `FAIL`：直接抛错，任务失败。
+
+该参数仅针对单个文件生效，不对目录进行覆盖/删除操作。
 
 ### merge_update_event [boolean]
 
