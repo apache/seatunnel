@@ -18,6 +18,7 @@
 
 package org.apache.seatunnel.connectors.seatunnel.hbase.source;
 
+import org.apache.seatunnel.shade.com.google.common.annotations.VisibleForTesting;
 import org.apache.seatunnel.shade.com.google.common.base.Preconditions;
 import org.apache.seatunnel.shade.com.google.common.collect.Maps;
 
@@ -66,6 +67,19 @@ public class HbaseSourceReader implements SourceReader<SeaTunnelRow, HbaseSource
 
     public HbaseSourceReader(
             HbaseParameters hbaseParameters, Context context, SeaTunnelRowType seaTunnelRowType) {
+        this(
+                hbaseParameters,
+                context,
+                seaTunnelRowType,
+                HbaseClient.createInstance(hbaseParameters));
+    }
+
+    @VisibleForTesting
+    HbaseSourceReader(
+            HbaseParameters hbaseParameters,
+            Context context,
+            SeaTunnelRowType seaTunnelRowType,
+            HbaseClient hbaseClient) {
         this.hbaseParameters = hbaseParameters;
         this.context = context;
         this.seaTunnelRowType = seaTunnelRowType;
@@ -82,7 +96,7 @@ public class HbaseSourceReader implements SourceReader<SeaTunnelRow, HbaseSource
                                 Preconditions.checkArgument(
                                         column.contains(":") && column.split(":").length == 2,
                                         "Invalid column names, it should be [ColumnFamily:Column] format"));
-        hbaseClient = HbaseClient.createInstance(hbaseParameters);
+        this.hbaseClient = hbaseClient;
     }
 
     @Override
@@ -115,14 +129,17 @@ public class HbaseSourceReader implements SourceReader<SeaTunnelRow, HbaseSource
             final HbaseSourceSplit split = sourceSplits.poll();
             if (Objects.nonNull(split)) {
                 // read logic
-                if (currentScanner == null) {
-                    currentScanner = hbaseClient.scan(split, hbaseParameters, this.columnNames);
-                }
-                for (Result result : currentScanner) {
-                    SeaTunnelRow seaTunnelRow =
-                            hbaseDeserializationFormat.deserialize(
-                                    convertRawRow(result), seaTunnelRowType);
-                    output.collect(seaTunnelRow);
+                try (ResultScanner scanner =
+                        hbaseClient.scan(split, hbaseParameters, this.columnNames)) {
+                    currentScanner = scanner;
+                    for (Result result : scanner) {
+                        SeaTunnelRow seaTunnelRow =
+                                hbaseDeserializationFormat.deserialize(
+                                        convertRawRow(result), seaTunnelRowType);
+                        output.collect(seaTunnelRow);
+                    }
+                } finally {
+                    currentScanner = null;
                 }
             } else if (noMoreSplit && sourceSplits.isEmpty()) {
                 // signal to the source that we have reached the end of the data.
