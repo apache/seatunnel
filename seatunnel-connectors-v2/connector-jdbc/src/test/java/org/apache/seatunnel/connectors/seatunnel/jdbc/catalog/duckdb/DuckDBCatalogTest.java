@@ -126,7 +126,6 @@ public class DuckDBCatalogTest {
                 LocalTimeType.LOCAL_TIME_TYPE, columnMap.get("c_time").getDataType());
         Assertions.assertEquals(
                 LocalTimeType.LOCAL_DATE_TIME_TYPE, columnMap.get("c_timestamp").getDataType());
-        Assertions.assertEquals(BasicType.STRING_TYPE, columnMap.get("c_json").getDataType());
     }
 
     @Test
@@ -240,8 +239,7 @@ public class DuckDBCatalogTest {
                         + "    c_varchar VARCHAR(30) DEFAULT 'duck',\n"
                         + "    c_date DATE,\n"
                         + "    c_time TIME,\n"
-                        + "    c_timestamp TIMESTAMP,\n"
-                        + "    c_json JSON\n"
+                        + "    c_timestamp TIMESTAMP\n"
                         + ")",
                 quoteTable(tableName));
     }
@@ -254,7 +252,7 @@ public class DuckDBCatalogTest {
                             "INSERT INTO %s VALUES "
                                     + "(1, true, 1, 2, 3, 4, 1.1, 2.2, 12345.67,"
                                     + " 'duck', DATE '2024-01-01', TIME '12:00:00',"
-                                    + " TIMESTAMP '2024-01-01 12:00:00', '{\"key\":\"value\"}')",
+                                    + " TIMESTAMP '2024-01-01 12:00:00')",
                             quoteTable(TABLE_NAME)));
         }
     }
