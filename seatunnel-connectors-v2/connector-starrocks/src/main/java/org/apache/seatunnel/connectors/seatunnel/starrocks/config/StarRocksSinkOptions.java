@@ -155,4 +155,10 @@ public class StarRocksSinkOptions extends StarRocksBaseOptions {
                     .stringType()
                     .noDefaultValue()
                     .withDescription("when data_save_mode selects CUSTOM_PROCESSING custom SQL");
+
+    public static final Option<String> WAREHOUSE_NAME =
+            Options.key("warehouse_name")
+                    .stringType()
+                    .noDefaultValue()
+                    .withDescription("Warehouse name");
 }

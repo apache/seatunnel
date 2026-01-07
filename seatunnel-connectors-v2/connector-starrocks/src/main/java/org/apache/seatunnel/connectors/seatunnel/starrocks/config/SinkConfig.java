@@ -65,6 +65,8 @@ public class SinkConfig implements Serializable {
 
     private int httpSocketTimeout;
 
+    private String warehouseName;
+
     @Getter private final Map<String, Object> streamLoadProps = new HashMap<>();
 
     public static SinkConfig of(ReadonlyConfig config) {
@@ -98,6 +100,7 @@ public class SinkConfig implements Serializable {
         sinkConfig.setDataSaveMode(config.get(StarRocksSinkOptions.DATA_SAVE_MODE));
         sinkConfig.setCustomSql(config.get(StarRocksSinkOptions.CUSTOM_SQL));
         sinkConfig.setHttpSocketTimeout(config.get(StarRocksSinkOptions.HTTP_SOCKET_TIMEOUT_MS));
+        sinkConfig.setWarehouseName(config.get(StarRocksSinkOptions.WAREHOUSE_NAME));
         return sinkConfig;
     }
 }

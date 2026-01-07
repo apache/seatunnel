@@ -54,6 +54,7 @@ The internal implementation of StarRocks sink connector is cached and imported b
 | schema_save_mode            | Enum    | no       | CREATE_SCHEMA_WHEN_NOT_EXIST | Before the synchronous task is turned on, different treatment schemes are selected for the existing surface structure of the target side.                                                                         |
 | data_save_mode              | Enum    | no       | APPEND_DATA                  | Before the synchronous task is turned on, different processing schemes are selected for data existing data on the target side.                                                                                    |
 | custom_sql                  | String  | no       | -                            | When data_save_mode selects CUSTOM_PROCESSING, you should fill in the CUSTOM_SQL parameter. This parameter usually fills in a SQL that can be executed. SQL will be executed before synchronization tasks.        |
+| warehouse_name              | String  | no       | -                            | Name of the Warehouse to which CN belongs                                                                                                                                                                         |       
 
 ### save_mode_create_template
 
@@ -300,6 +301,30 @@ sink {
       column_separator = "\\x01"
       row_delimiter = "\\x02"
     }
+  }
+}
+```
+
+### Use warehouse_name
+
+```
+sink {
+  StarRocks {
+    nodeUrls = ["e2e_starRocksdb:8030"]
+    base-url = "jdbc:mysql://e2e_starRocksdb:9030/"
+    username = root
+    password = ""
+    database = "test"
+    table = "test_${schema_name}_${table_name}"
+    schema_save_mode = "CREATE_SCHEMA_WHEN_NOT_EXIST"
+    data_save_mode="APPEND_DATA"
+    batch_max_rows = 10
+    starrocks.config = {
+      format = "CSV"
+      column_separator = "\\x01"
+      row_delimiter = "\\x02"
+    }
+    warehouse_name = "default_warehouse"
   }
 }
 ```

@@ -37,6 +37,7 @@ import java.nio.charset.StandardCharsets;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.Optional;
 import java.util.concurrent.TimeUnit;
 import java.util.stream.Collectors;
 
@@ -293,6 +294,8 @@ public class StarRocksStreamLoadVisitor {
         headerMap.put(
                 "Authorization",
                 getBasicAuthHeader(sinkConfig.getUsername(), sinkConfig.getPassword()));
+        Optional.ofNullable(sinkConfig.getWarehouseName())
+                .ifPresent(warehouse -> headerMap.put("warehouse", warehouse));
         return headerMap;
     }
 

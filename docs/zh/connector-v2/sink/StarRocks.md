@@ -53,6 +53,7 @@ StarRocks数据接收器内部实现采用了缓存，通过stream load将数据
 | schema_save_mode            | Enum    | no   | CREATE_SCHEMA_WHEN_NOT_EXIST | 在同步任务打开之前，针对目标端已存在的表结构选择不同的处理方法                                                                                     |
 | data_save_mode              | Enum    | no   | APPEND_DATA                  | 在同步任务打开之前，针对目标端已存在的数据选择不同的处理方法                                                                                      |
 | custom_sql                  | String  | no   | -                            | 当data_save_mode设置为CUSTOM_PROCESSING时，必须同时设置CUSTOM_SQL参数。CUSTOM_SQL的值为可执行的SQL语句，在同步任务开启前SQL将会被执行                     |
+| warehouse_name              | String  | no   | -                            | CN 所属的 Warehouse 名                                                                                                                                                                         |       
 
 ### save_mode_create_template
 
@@ -296,6 +297,30 @@ sink {
       column_separator = "\\x01"
       row_delimiter = "\\x02"
     }
+  }
+}
+```
+
+### 使用warehouse_name
+
+```
+sink {
+  StarRocks {
+    nodeUrls = ["e2e_starRocksdb:8030"]
+    base-url = "jdbc:mysql://e2e_starRocksdb:9030/"
+    username = root
+    password = ""
+    database = "test"
+    table = "test_${schema_name}_${table_name}"
+    schema_save_mode = "CREATE_SCHEMA_WHEN_NOT_EXIST"
+    data_save_mode="APPEND_DATA"
+    batch_max_rows = 10
+    starrocks.config = {
+      format = "CSV"
+      column_separator = "\\x01"
+      row_delimiter = "\\x02"
+    }
+    warehouse_name = "default_warehouse"
   }
 }
 ```
