@@ -104,7 +104,6 @@ env {
 source {
   FakeSource {
     parallelism = 1
-    result_table_name = "fake"
     row_num = 1000
     schema = {
       fields {
@@ -173,7 +172,6 @@ env {
 source {
   FakeSource {
     parallelism = 1
-    result_table_name = "fake"
     row_num = 1000
     schema = {
       fields {
