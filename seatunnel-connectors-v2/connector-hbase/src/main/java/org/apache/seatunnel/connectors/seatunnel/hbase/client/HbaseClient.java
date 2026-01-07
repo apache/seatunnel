@@ -379,7 +379,7 @@ public class HbaseClient {
         }
         String namespace =
                 StringUtils.isBlank(hbaseParameters.getNamespace())
-                        ? NamespaceDescriptor.DEFAULT_NAMESPACE_NAME_STR
+                        ? HbaseParameters.DEFAULT_NAMESPACE
                         : hbaseParameters.getNamespace();
         return this.connection
                 .getTable(TableName.valueOf(namespace, hbaseParameters.getTable()))
@@ -399,9 +399,7 @@ public class HbaseClient {
 
     public RegionLocator getRegionLocator(String namespace, String tableName) throws IOException {
         String actualNamespace =
-                StringUtils.isBlank(namespace)
-                        ? NamespaceDescriptor.DEFAULT_NAMESPACE_NAME_STR
-                        : namespace;
+                StringUtils.isBlank(namespace) ? HbaseParameters.DEFAULT_NAMESPACE : namespace;
         return this.connection.getRegionLocator(TableName.valueOf(actualNamespace, tableName));
     }
 }

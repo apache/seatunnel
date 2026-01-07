@@ -35,7 +35,7 @@ public class HbaseParametersTest {
         ReadonlyConfig readonlyConfig = ReadonlyConfig.fromMap(configMap);
 
         HbaseParameters parameters = HbaseParameters.buildWithSourceConfig(readonlyConfig);
-        Assertions.assertEquals("default", parameters.getNamespace());
+        Assertions.assertEquals(HbaseParameters.DEFAULT_NAMESPACE, parameters.getNamespace());
         Assertions.assertEquals("tbl", parameters.getTable());
     }
 
@@ -51,4 +51,3 @@ public class HbaseParametersTest {
         Assertions.assertEquals("tbl", parameters.getTable());
     }
 }
-

@@ -40,6 +40,8 @@ import static org.junit.jupiter.api.Assertions.assertNotNull;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 import static org.mockito.ArgumentMatchers.anyString;
+import static org.mockito.Mockito.times;
+import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
 public class HbaseSourceSplitEnumeratorTest {
@@ -58,7 +60,7 @@ public class HbaseSourceSplitEnumeratorTest {
     void setUp() throws IOException {
         MockitoAnnotations.openMocks(this);
 
-        when(hbaseParameters.getNamespace()).thenReturn("default");
+        when(hbaseParameters.getNamespace()).thenReturn(HbaseParameters.DEFAULT_NAMESPACE);
         when(hbaseParameters.getTable()).thenReturn("test_table");
         when(hbaseParameters.getZookeeperQuorum()).thenReturn("127.0.0.1:2801");
         when(hbaseParameters.isBinaryRowkey()).thenReturn(false);
@@ -66,7 +68,8 @@ public class HbaseSourceSplitEnumeratorTest {
         when(hbaseParameters.getEndRowkey()).thenReturn("");
         enumerator = new HbaseSourceSplitEnumerator(context, hbaseParameters, hbaseClient);
         when(hbaseClient.tableExists(anyString())).thenReturn(true);
-        when(hbaseClient.getRegionLocator("default", "test_table")).thenReturn(regionLocator);
+        when(hbaseClient.getRegionLocator(HbaseParameters.DEFAULT_NAMESPACE, "test_table"))
+                .thenReturn(regionLocator);
     }
 
     @Test
@@ -86,6 +89,27 @@ public class HbaseSourceSplitEnumeratorTest {
         assertEquals("hbase_source_split_0", split.splitId());
         assertArrayEquals(HConstants.EMPTY_BYTE_ARRAY, split.getStartRow());
         assertArrayEquals(HConstants.EMPTY_BYTE_ARRAY, split.getEndRow());
+    }
+
+    @Test
+    void testGetTableSplitsWithBlankNamespaceUsesDefault() throws IOException {
+        when(hbaseParameters.getNamespace()).thenReturn("");
+        when(hbaseClient.tableExists(anyString())).thenReturn(true);
+        when(hbaseClient.getRegionLocator(HbaseParameters.DEFAULT_NAMESPACE, "test_table"))
+                .thenReturn(regionLocator);
+        byte[][] startKeys = {HConstants.EMPTY_BYTE_ARRAY};
+        byte[][] endKeys = {HConstants.EMPTY_BYTE_ARRAY};
+        when(regionLocator.getStartKeys()).thenReturn(startKeys);
+        when(regionLocator.getEndKeys()).thenReturn(endKeys);
+
+        HbaseSourceSplitEnumerator enumeratorWithBlankNamespace =
+                new HbaseSourceSplitEnumerator(context, hbaseParameters, hbaseClient);
+        Set<HbaseSourceSplit> splits = enumeratorWithBlankNamespace.getTableSplits();
+
+        assertNotNull(splits);
+        assertEquals(1, splits.size());
+        verify(hbaseClient, times(1))
+                .getRegionLocator(HbaseParameters.DEFAULT_NAMESPACE, "test_table");
     }
 
     @Test

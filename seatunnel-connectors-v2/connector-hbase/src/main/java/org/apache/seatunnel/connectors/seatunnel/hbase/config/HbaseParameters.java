@@ -19,6 +19,8 @@ package org.apache.seatunnel.connectors.seatunnel.hbase.config;
 
 import org.apache.seatunnel.api.configuration.ReadonlyConfig;
 
+import org.apache.hadoop.hbase.NamespaceDescriptor;
+
 import lombok.Builder;
 import lombok.Getter;
 
@@ -29,6 +31,8 @@ import java.util.Map;
 @Builder
 @Getter
 public class HbaseParameters implements Serializable {
+
+    public static final String DEFAULT_NAMESPACE = NamespaceDescriptor.DEFAULT_NAMESPACE_NAME_STR;
 
     private String zookeeperQuorum;
 
@@ -91,7 +95,7 @@ public class HbaseParameters implements Serializable {
             builder.table(table.substring(colonIndex + 1));
         } else {
             builder.table(table);
-            builder.namespace("default");
+            builder.namespace(DEFAULT_NAMESPACE);
         }
 
         // required parameters
@@ -125,7 +129,7 @@ public class HbaseParameters implements Serializable {
             builder.table(table.substring(colonIndex + 1));
         } else {
             builder.table(table);
-            builder.namespace("default");
+            builder.namespace(DEFAULT_NAMESPACE);
         }
 
         if (pluginConfig.getOptional(HbaseSinkOptions.HBASE_EXTRA_CONFIG).isPresent()) {

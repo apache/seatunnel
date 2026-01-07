@@ -28,7 +28,6 @@ import org.apache.seatunnel.connectors.seatunnel.hbase.exception.HbaseConnectorE
 import org.apache.seatunnel.connectors.seatunnel.hbase.util.HBaseUtil;
 
 import org.apache.hadoop.hbase.HConstants;
-import org.apache.hadoop.hbase.NamespaceDescriptor;
 import org.apache.hadoop.hbase.TableName;
 import org.apache.hadoop.hbase.client.RegionLocator;
 import org.apache.hadoop.hbase.util.Bytes;
@@ -190,7 +189,7 @@ public class HbaseSourceSplitEnumerator
         try {
             String namespace = hbaseParameters.getNamespace();
             if (namespace == null || namespace.isEmpty()) {
-                namespace = NamespaceDescriptor.DEFAULT_NAMESPACE_NAME_STR;
+                namespace = HbaseParameters.DEFAULT_NAMESPACE;
             }
             TableName tableName = TableName.valueOf(namespace, hbaseParameters.getTable());
             log.info("Enumerating HBase source splits for table [{}]", tableName.getNameAsString());
@@ -203,71 +202,73 @@ public class HbaseSourceSplitEnumerator
                         HbaseConnectorErrorCode.TABLE_QUERY_EXCEPTION, errorMsg);
             }
 
-            RegionLocator regionLocator =
-                    hbaseClient.getRegionLocator(
-                            namespace, hbaseParameters.getTable());
-            byte[][] startKeys = regionLocator.getStartKeys();
-            byte[][] endKeys = regionLocator.getEndKeys();
-            if (startKeys.length == 0 || endKeys.length == 0) {
-                String errorMsg =
-                        String.format(
-                                "No region information found for HBase table [%s], please check whether the table exists "
-                                        + "and current user has permission to access it",
-                                tableName.getNameAsString());
-                log.error(errorMsg);
-                throw new HbaseConnectorException(
-                        HbaseConnectorErrorCode.TABLE_QUERY_EXCEPTION, errorMsg);
-            }
-            List<HbaseSourceSplit> splits = new ArrayList<>();
-            boolean isBinaryRowkey = hbaseParameters.isBinaryRowkey();
-            byte[] userStartRowkey =
-                    HBaseUtil.convertRowKey(hbaseParameters.getStartRowkey(), isBinaryRowkey);
-            byte[] userEndRowkey =
-                    HBaseUtil.convertRowKey(hbaseParameters.getEndRowkey(), isBinaryRowkey);
-            HBaseUtil.validateRowKeyRange(userStartRowkey, userEndRowkey);
-
-            int i = 0;
-            while (i < startKeys.length) {
-                byte[] regionStartKey = startKeys[i];
-                byte[] regionEndKey = endKeys[i];
-                if (userEndRowkey.length > 0
-                        && Bytes.compareTo(userEndRowkey, regionStartKey) <= 0
-                        && Bytes.compareTo(regionStartKey, HConstants.EMPTY_BYTE_ARRAY) != 0) {
-                    i++;
-                    continue;
+            try (RegionLocator regionLocator =
+                    hbaseClient.getRegionLocator(namespace, hbaseParameters.getTable())) {
+                byte[][] startKeys = regionLocator.getStartKeys();
+                byte[][] endKeys = regionLocator.getEndKeys();
+                if (startKeys.length == 0 || endKeys.length == 0) {
+                    String errorMsg =
+                            String.format(
+                                    "No region information found for HBase table [%s], please check whether the table exists "
+                                            + "and current user has permission to access it",
+                                    tableName.getNameAsString());
+                    log.error(errorMsg);
+                    throw new HbaseConnectorException(
+                            HbaseConnectorErrorCode.TABLE_QUERY_EXCEPTION, errorMsg);
                 }
+                List<HbaseSourceSplit> splits = new ArrayList<>();
+                boolean isBinaryRowkey = hbaseParameters.isBinaryRowkey();
+                byte[] userStartRowkey =
+                        HBaseUtil.convertRowKey(hbaseParameters.getStartRowkey(), isBinaryRowkey);
+                byte[] userEndRowkey =
+                        HBaseUtil.convertRowKey(hbaseParameters.getEndRowkey(), isBinaryRowkey);
+                HBaseUtil.validateRowKeyRange(userStartRowkey, userEndRowkey);
 
-                if (userStartRowkey.length > 0
-                        && Bytes.compareTo(userStartRowkey, regionEndKey) >= 0
-                        && Bytes.compareTo(regionEndKey, HConstants.EMPTY_BYTE_ARRAY) != 0) {
+                int i = 0;
+                while (i < startKeys.length) {
+                    byte[] regionStartKey = startKeys[i];
+                    byte[] regionEndKey = endKeys[i];
+                    if (userEndRowkey.length > 0
+                            && Bytes.compareTo(userEndRowkey, regionStartKey) <= 0
+                            && Bytes.compareTo(regionStartKey, HConstants.EMPTY_BYTE_ARRAY) != 0) {
+                        i++;
+                        continue;
+                    }
+
+                    if (userStartRowkey.length > 0
+                            && Bytes.compareTo(userStartRowkey, regionEndKey) >= 0
+                            && Bytes.compareTo(regionEndKey, HConstants.EMPTY_BYTE_ARRAY) != 0) {
+                        i++;
+                        continue;
+                    }
+                    byte[] splitStartKey =
+                            userStartRowkey.length > 0
+                                            && (Bytes.compareTo(
+                                                                    regionStartKey,
+                                                                    HConstants.EMPTY_BYTE_ARRAY)
+                                                            == 0
+                                                    || Bytes.compareTo(
+                                                                    userStartRowkey, regionStartKey)
+                                                            > 0)
+                                    ? userStartRowkey
+                                    : regionStartKey;
+
+                    byte[] splitEndKey =
+                            userEndRowkey.length > 0
+                                            && (Bytes.compareTo(
+                                                                    regionEndKey,
+                                                                    HConstants.EMPTY_BYTE_ARRAY)
+                                                            == 0
+                                                    || Bytes.compareTo(userEndRowkey, regionEndKey)
+                                                            < 0)
+                                    ? userEndRowkey
+                                    : regionEndKey;
+
+                    splits.add(new HbaseSourceSplit(i, splitStartKey, splitEndKey));
                     i++;
-                    continue;
                 }
-                byte[] splitStartKey =
-                        userStartRowkey.length > 0
-                                        && (Bytes.compareTo(
-                                                                regionStartKey,
-                                                                HConstants.EMPTY_BYTE_ARRAY)
-                                                        == 0
-                                                || Bytes.compareTo(userStartRowkey, regionStartKey)
-                                                        > 0)
-                                ? userStartRowkey
-                                : regionStartKey;
-
-                byte[] splitEndKey =
-                        userEndRowkey.length > 0
-                                        && (Bytes.compareTo(
-                                                                regionEndKey,
-                                                                HConstants.EMPTY_BYTE_ARRAY)
-                                                        == 0
-                                                || Bytes.compareTo(userEndRowkey, regionEndKey) < 0)
-                                ? userEndRowkey
-                                : regionEndKey;
-
-                splits.add(new HbaseSourceSplit(i, splitStartKey, splitEndKey));
-                i++;
+                return new HashSet<>(splits);
             }
-            return new HashSet<>(splits);
         } catch (IOException e) {
             throw new RuntimeException(e);
         }

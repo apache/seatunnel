@@ -37,6 +37,7 @@ The zookeeper cluster host of hbase, example: "hadoop001:2181,hadoop002:2181,had
 ### table [string]
 
 The table name you want to write, example: "seatunnel"
+If your table is under a custom namespace, use `namespace:table` (for example, `ns1:seatunnel_test`); if omitted, SeaTunnel will write to HBase's default namespace (`default`).
 
 ### rowkey_column [list]
 
