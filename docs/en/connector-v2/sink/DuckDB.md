@@ -1,3 +1,5 @@
+import ChangeLog from '../changelog/connector-jdbc.md';
+
 # DuckDB
 
 > JDBC DuckDB Sink Connector
@@ -37,26 +39,26 @@ semantics (using XA transaction guarantee).
 
 ## Supported DataSource Info
 
-| Datasource |                    Supported Versions                    |          Driver          |                  Url                  |                                   Maven                                   |
-|------------|----------------------------------------------------------|--------------------------|---------------------------------------|---------------------------------------------------------------------------|
+| Datasource | Supported Versions                                       | Driver                  | Url                              | Maven                                                                 |
+|------------|----------------------------------------------------------|-------------------------|----------------------------------|-----------------------------------------------------------------------|
 | DuckDB     | Different dependency version has different driver class. | org.duckdb.DuckDBDriver | jdbc:duckdb:/path/to/database.db | [Download](https://mvnrepository.com/artifact/org.duckdb/duckdb_jdbc) |
 
 ## Data Type Mapping
 
-|                                                          SeaTunnel Data Type                                                          |                                                                 DuckDB Data Type                                                                 |
-|-----------------------------------------------------------------------------------------------------------------------------------|-----------------------------------------------------------------------------------------------------------------------------------------------------|
-| BOOLEAN                                                                                                                           | BOOLEAN                                                                                                                                             |
-| TINYINT<br/>SMALLINT<br/>INT                                                                                                      | INTEGER                                                                                                                                             |
-| BIGINT                                                                                                                            | BIGINT                                                                                                                                              |
-| DECIMAL(x,y)(Get the designated column's specified column size.<38)                                                               | DECIMAL(x,y)                                                                                                                                        |
-| DECIMAL(x,y)(Get the designated column's specified column size.>38)                                                               | DECIMAL(38,18)                                                                                                                                      |
-| FLOAT                                                                                                                             | FLOAT                                                                                                                                               |
-| DOUBLE                                                                                                                            | DOUBLE                                                                                                                                              |
-| STRING                                                                                                                            | VARCHAR                                                                                                                                             |
-| DATE                                                                                                                              | DATE                                                                                                                                                |
-| TIME                                                                                                                              | TIME                                                                                                                                                |
-| TIMESTAMP                                                                                                                         | TIMESTAMP                                                                                                                                           |
-| BYTES<br/>ARRAY<br/>ROW<br/>MAP                                                                                                   | BLOB                                                                                                                                                |
+| SeaTunnel Data Type                                                 | DuckDB Data Type |
+|---------------------------------------------------------------------|------------------|
+| BOOLEAN                                                             | BOOLEAN          |
+| TINYINT<br/>SMALLINT<br/>INT                                        | INTEGER          |
+| BIGINT                                                              | BIGINT           |
+| DECIMAL(x,y)(Get the designated column's specified column size.<38) | DECIMAL(x,y)     |
+| DECIMAL(x,y)(Get the designated column's specified column size.>38) | DECIMAL(38,18)   |
+| FLOAT                                                               | FLOAT            |
+| DOUBLE                                                              | DOUBLE           |
+| STRING                                                              | VARCHAR          |
+| DATE                                                                | DATE             |
+| TIME                                                                | TIME             |
+| TIMESTAMP                                                           | TIMESTAMP        |
+| BYTES<br/>ARRAY<br/>ROW<br/>MAP                                     | BLOB             |
 
 ## Sink Options
 
