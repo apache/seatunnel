@@ -197,12 +197,17 @@ public class StarRocksBeReadClient implements Serializable {
                 this.client.close_scanner(tScanCloseParams);
                 break;
             } catch (Exception e) {
-                log.error("Failed to close reader {}:{} with context id {}", ip, port, contextId, e);
+                log.error(
+                        "Failed to close reader {}:{} with context id {}", ip, port, contextId, e);
             }
             try {
                 Thread.sleep(1000);
             } catch (InterruptedException e) {
-                log.error("Waiting for closing is interrupted, reader {}:{} with context id {}", ip, port, contextId);
+                log.error(
+                        "Waiting for closing is interrupted, reader {}:{} with context id {}",
+                        ip,
+                        port,
+                        contextId);
                 throw new StarRocksConnectorException(CLOSE_BE_READER_FAILED, e);
             }
         }
