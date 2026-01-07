@@ -20,6 +20,7 @@ package org.apache.seatunnel.connectors.seatunnel.hbase.source;
 import org.apache.seatunnel.api.source.SourceSplitEnumerator;
 import org.apache.seatunnel.connectors.seatunnel.hbase.client.HbaseClient;
 import org.apache.seatunnel.connectors.seatunnel.hbase.config.HbaseParameters;
+import org.apache.seatunnel.connectors.seatunnel.hbase.exception.HbaseConnectorException;
 
 import org.apache.hadoop.hbase.HConstants;
 import org.apache.hadoop.hbase.client.RegionLocator;
@@ -36,7 +37,9 @@ import java.util.Set;
 import static org.junit.jupiter.api.Assertions.assertArrayEquals;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertNotNull;
+import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
+import static org.mockito.ArgumentMatchers.anyString;
 import static org.mockito.Mockito.when;
 
 public class HbaseSourceSplitEnumeratorTest {
@@ -55,13 +58,15 @@ public class HbaseSourceSplitEnumeratorTest {
     void setUp() throws IOException {
         MockitoAnnotations.openMocks(this);
 
+        when(hbaseParameters.getNamespace()).thenReturn("default");
         when(hbaseParameters.getTable()).thenReturn("test_table");
         when(hbaseParameters.getZookeeperQuorum()).thenReturn("127.0.0.1:2801");
         when(hbaseParameters.isBinaryRowkey()).thenReturn(false);
         when(hbaseParameters.getStartRowkey()).thenReturn("");
         when(hbaseParameters.getEndRowkey()).thenReturn("");
         enumerator = new HbaseSourceSplitEnumerator(context, hbaseParameters, hbaseClient);
-        when(hbaseClient.getRegionLocator("test_table")).thenReturn(regionLocator);
+        when(hbaseClient.tableExists(anyString())).thenReturn(true);
+        when(hbaseClient.getRegionLocator("default", "test_table")).thenReturn(regionLocator);
     }
 
     @Test
@@ -81,6 +86,21 @@ public class HbaseSourceSplitEnumeratorTest {
         assertEquals("hbase_source_split_0", split.splitId());
         assertArrayEquals(HConstants.EMPTY_BYTE_ARRAY, split.getStartRow());
         assertArrayEquals(HConstants.EMPTY_BYTE_ARRAY, split.getEndRow());
+    }
+
+    @Test
+    void testGetTableSplitsWithTableNotExists() {
+        when(hbaseClient.tableExists(anyString())).thenReturn(false);
+
+        assertThrows(HbaseConnectorException.class, () -> enumerator.getTableSplits());
+    }
+
+    @Test
+    void testGetTableSplitsWithNoRegionInfo() throws IOException {
+        when(regionLocator.getStartKeys()).thenReturn(new byte[0][]);
+        when(regionLocator.getEndKeys()).thenReturn(new byte[0][]);
+
+        assertThrows(HbaseConnectorException.class, () -> enumerator.getTableSplits());
     }
 
     @Test

@@ -23,9 +23,13 @@ import org.apache.seatunnel.shade.com.google.common.annotations.VisibleForTestin
 import org.apache.seatunnel.api.source.SourceSplitEnumerator;
 import org.apache.seatunnel.connectors.seatunnel.hbase.client.HbaseClient;
 import org.apache.seatunnel.connectors.seatunnel.hbase.config.HbaseParameters;
+import org.apache.seatunnel.connectors.seatunnel.hbase.exception.HbaseConnectorErrorCode;
+import org.apache.seatunnel.connectors.seatunnel.hbase.exception.HbaseConnectorException;
 import org.apache.seatunnel.connectors.seatunnel.hbase.util.HBaseUtil;
 
 import org.apache.hadoop.hbase.HConstants;
+import org.apache.hadoop.hbase.NamespaceDescriptor;
+import org.apache.hadoop.hbase.TableName;
 import org.apache.hadoop.hbase.client.RegionLocator;
 import org.apache.hadoop.hbase.util.Bytes;
 
@@ -56,14 +60,22 @@ public class HbaseSourceSplitEnumerator
 
     public HbaseSourceSplitEnumerator(
             Context<HbaseSourceSplit> context, HbaseParameters hbaseParameters) {
-        this(context, hbaseParameters, new HashSet<>());
+        this(
+                context,
+                hbaseParameters,
+                new HashSet<>(),
+                HbaseClient.createInstance(hbaseParameters));
     }
 
     public HbaseSourceSplitEnumerator(
             Context<HbaseSourceSplit> context,
             HbaseParameters hbaseParameters,
             HbaseSourceState sourceState) {
-        this(context, hbaseParameters, sourceState.getAssignedSplits());
+        this(
+                context,
+                hbaseParameters,
+                sourceState.getAssignedSplits(),
+                HbaseClient.createInstance(hbaseParameters));
     }
 
     @VisibleForTesting
@@ -71,18 +83,18 @@ public class HbaseSourceSplitEnumerator
             Context<HbaseSourceSplit> context,
             HbaseParameters hbaseParameters,
             HbaseClient hbaseClient) {
-        this(context, hbaseParameters, new HashSet<>());
-        this.hbaseClient = hbaseClient;
+        this(context, hbaseParameters, new HashSet<>(), hbaseClient);
     }
 
     private HbaseSourceSplitEnumerator(
             Context<HbaseSourceSplit> context,
             HbaseParameters hbaseParameters,
-            Set<HbaseSourceSplit> assignedSplit) {
+            Set<HbaseSourceSplit> assignedSplit,
+            HbaseClient hbaseClient) {
         this.context = context;
         this.hbaseParameters = hbaseParameters;
         this.assignedSplit = assignedSplit;
-        this.hbaseClient = HbaseClient.createInstance(hbaseParameters);
+        this.hbaseClient = hbaseClient;
     }
 
     @Override
@@ -176,9 +188,36 @@ public class HbaseSourceSplitEnumerator
     public Set<HbaseSourceSplit> getTableSplits() {
 
         try {
-            RegionLocator regionLocator = hbaseClient.getRegionLocator(hbaseParameters.getTable());
+            String namespace = hbaseParameters.getNamespace();
+            if (namespace == null || namespace.isEmpty()) {
+                namespace = NamespaceDescriptor.DEFAULT_NAMESPACE_NAME_STR;
+            }
+            TableName tableName = TableName.valueOf(namespace, hbaseParameters.getTable());
+            log.info("Enumerating HBase source splits for table [{}]", tableName.getNameAsString());
+            if (!hbaseClient.tableExists(tableName.getNameAsString())) {
+                String errorMsg =
+                        String.format(
+                                "HBase table [%s] does not exist", tableName.getNameAsString());
+                log.error(errorMsg);
+                throw new HbaseConnectorException(
+                        HbaseConnectorErrorCode.TABLE_QUERY_EXCEPTION, errorMsg);
+            }
+
+            RegionLocator regionLocator =
+                    hbaseClient.getRegionLocator(
+                            namespace, hbaseParameters.getTable());
             byte[][] startKeys = regionLocator.getStartKeys();
             byte[][] endKeys = regionLocator.getEndKeys();
+            if (startKeys.length == 0 || endKeys.length == 0) {
+                String errorMsg =
+                        String.format(
+                                "No region information found for HBase table [%s], please check whether the table exists "
+                                        + "and current user has permission to access it",
+                                tableName.getNameAsString());
+                log.error(errorMsg);
+                throw new HbaseConnectorException(
+                        HbaseConnectorErrorCode.TABLE_QUERY_EXCEPTION, errorMsg);
+            }
             List<HbaseSourceSplit> splits = new ArrayList<>();
             boolean isBinaryRowkey = hbaseParameters.isBinaryRowkey();
             byte[] userStartRowkey =
