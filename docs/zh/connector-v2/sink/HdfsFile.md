@@ -100,9 +100,9 @@ import ChangeLog from '../changelog/connector-file-hadoop.md';
 ### data_save_mode [string]
 
 现有的数据处理方法。
--DROP_DATA:保留目录并删除数据文件
--APPEND_DATA：保留目录，保留数据文件
--ERROR_WHEN_DATA_EXISTS：当有数据文件时，会报告错误
+- DROP_DATA：保留目录并删除数据文件
+- APPEND_DATA：保留目录，保留数据文件
+- ERROR_WHEN_DATA_EXISTS：当有数据文件时，会报告错误
 
 ### merge_update_event [boolean]
 
