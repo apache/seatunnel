@@ -309,9 +309,11 @@ public abstract class AbstractJdbcIT extends TestSuiteBase implements TestResour
     @BeforeAll
     @Override
     public void startUp() {
-        dbServer = initContainer().withImagePullPolicy(PullPolicy.alwaysPull());
-
-        Startables.deepStart(Stream.of(dbServer)).join();
+        GenericContainer<?> container = initContainer();
+        if (container != null) {
+            dbServer = container.withImagePullPolicy(PullPolicy.alwaysPull());
+            Startables.deepStart(Stream.of(dbServer)).join();
+        }
 
         jdbcCase = getJdbcCase();
         beforeStartUP();

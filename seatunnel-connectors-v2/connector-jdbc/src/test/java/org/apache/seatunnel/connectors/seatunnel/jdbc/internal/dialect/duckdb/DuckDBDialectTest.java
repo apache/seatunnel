@@ -26,9 +26,7 @@ import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.BeforeAll;
 import org.junit.jupiter.api.Test;
 
-import java.nio.file.Files;
-import java.nio.file.Path;
-import java.nio.file.Paths;
+import java.io.File;
 import java.sql.Connection;
 import java.sql.DriverManager;
 import java.sql.ResultSet;
@@ -48,15 +46,16 @@ public class DuckDBDialectTest {
     private static TablePath tablePath;
     private static JdbcSourceTable sourceTable;
     private static String insertTemplate;
-    private static Path dbFile;
+    private static final String DB_FILE = "DuckDBDialectTest.db";
 
     @BeforeAll
     static void setUp() throws Exception {
         dialect = new DuckDBDialect();
-        Path tempDir = Paths.get("target", "duckdb");
-        Files.createDirectories(tempDir);
-        dbFile = tempDir.resolve("duckdb-dialect-" + System.nanoTime() + ".db");
-        connection = DriverManager.getConnection("jdbc:duckdb:" + dbFile.toAbsolutePath());
+        File dbFile = new File(DB_FILE);
+        if (dbFile.exists()) {
+            dbFile.delete();
+        }
+        connection = DriverManager.getConnection("jdbc:duckdb:" + dbFile.getAbsolutePath());
         tablePath = TablePath.of("main", "main", TABLE_NAME);
         sourceTable = JdbcSourceTable.builder().tablePath(tablePath).build();
         insertTemplate =
@@ -79,8 +78,9 @@ public class DuckDBDialectTest {
         if (connection != null) {
             connection.close();
         }
-        if (dbFile != null) {
-            Files.deleteIfExists(dbFile);
+        File dbFile = new File(DB_FILE);
+        if (dbFile.exists()) {
+            dbFile.delete();
         }
     }
 
