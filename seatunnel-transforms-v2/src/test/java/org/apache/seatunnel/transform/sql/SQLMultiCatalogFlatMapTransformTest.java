@@ -79,8 +79,8 @@ class SQLMultiCatalogFlatMapTransformTest {
                         Collections.singletonMap(
                                 TransformCommonOptions.TABLE_MATCH_REGEX.key(), ".exclude"));
 
-        FakeSQLMultiCatalogFlatMapTransform transform =
-                new FakeSQLMultiCatalogFlatMapTransform(tables, config);
+        TestSQLMultiCatalogFlatMapTransform transform =
+                new TestSQLMultiCatalogFlatMapTransform(tables, config);
 
         Assertions.assertInstanceOf(
                 IdentityFlatMapTransform.class,
@@ -89,10 +89,10 @@ class SQLMultiCatalogFlatMapTransformTest {
                         .get(tables.get(0).getTableId().toTablePath().toString()));
     }
 
-    private static class FakeSQLMultiCatalogFlatMapTransform
+    private static class TestSQLMultiCatalogFlatMapTransform
             extends SQLMultiCatalogFlatMapTransform {
 
-        private FakeSQLMultiCatalogFlatMapTransform(
+        private TestSQLMultiCatalogFlatMapTransform(
                 List<CatalogTable> inputCatalogTables, ReadonlyConfig config) {
             super(inputCatalogTables, config);
         }

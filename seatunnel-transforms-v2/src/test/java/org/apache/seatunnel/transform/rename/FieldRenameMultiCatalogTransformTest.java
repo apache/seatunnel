@@ -52,8 +52,8 @@ class FieldRenameMultiCatalogTransformTest {
                         Collections.singletonMap(
                                 TransformCommonOptions.TABLE_MATCH_REGEX.key(), ".exclude"));
 
-        FakeRenameMultiCatalogTransform transform =
-                new FakeRenameMultiCatalogTransform(tables, config);
+        TestRenameMultiCatalogTransform transform =
+                new TestRenameMultiCatalogTransform(tables, config);
 
         Assertions.assertInstanceOf(
                 IdentityMapTransform.class,
@@ -62,9 +62,9 @@ class FieldRenameMultiCatalogTransformTest {
                         .get(tables.get(0).getTableId().toTablePath().toString()));
     }
 
-    private static class FakeRenameMultiCatalogTransform extends FieldRenameMultiCatalogTransform {
+    private static class TestRenameMultiCatalogTransform extends FieldRenameMultiCatalogTransform {
 
-        private FakeRenameMultiCatalogTransform(
+        private TestRenameMultiCatalogTransform(
                 List<CatalogTable> inputCatalogTables, ReadonlyConfig config) {
             super(inputCatalogTables, config);
         }
