@@ -21,7 +21,6 @@ import org.apache.seatunnel.api.configuration.ReadonlyConfig;
 import org.apache.seatunnel.api.table.catalog.CatalogTable;
 import org.apache.seatunnel.api.table.catalog.CatalogTableUtil;
 import org.apache.seatunnel.api.table.type.BasicType;
-import org.apache.seatunnel.api.table.type.SeaTunnelDataType;
 import org.apache.seatunnel.api.table.type.SeaTunnelRow;
 import org.apache.seatunnel.api.table.type.SeaTunnelRowType;
 import org.apache.seatunnel.api.transform.SeaTunnelFlatMapTransform;
@@ -61,35 +60,33 @@ class SQLMultiCatalogFlatMapTransformTest {
         Assertions.assertEquals(SQLTransform.PLUGIN_NAME, transform.getPluginName());
 
         SeaTunnelFlatMapTransform<?> inner = transform.buildTransform(catalogTable, config);
-        Assertions.assertTrue(inner instanceof SQLTransform);
+        Assertions.assertInstanceOf(SQLTransform.class, inner);
     }
 
     @Test
     void testCreateIdentityTransform() {
-        String tableName = "test";
-        String[] fields = new String[] {"id", "int", "string"};
-        CatalogTable table =
-                CatalogTableUtil.getCatalogTable(
-                        tableName,
-                        "test",
-                        "test",
-                        "test",
-                        new SeaTunnelRowType(
-                                fields,
-                                new SeaTunnelDataType[] {
-                                    BasicType.INT_TYPE, BasicType.INT_TYPE, BasicType.STRING_TYPE
-                                }));
+        SeaTunnelRowType rowType =
+                new SeaTunnelRowType(
+                        new String[] {"id", "name"},
+                        new org.apache.seatunnel.api.table.type.SeaTunnelDataType[] {
+                            BasicType.INT_TYPE, BasicType.STRING_TYPE
+                        });
+        CatalogTable catalogTable =
+                CatalogTableUtil.getCatalogTable("test", "test", "test", "test", rowType);
+        List<CatalogTable> tables = Collections.singletonList(catalogTable);
         ReadonlyConfig config =
                 ReadonlyConfig.fromMap(
                         Collections.singletonMap(
                                 TransformCommonOptions.TABLE_MATCH_REGEX.key(), ".exclude"));
 
         FakeSQLMultiCatalogFlatMapTransform transform =
-                new FakeSQLMultiCatalogFlatMapTransform(Collections.singletonList(table), config);
+                new FakeSQLMultiCatalogFlatMapTransform(tables, config);
 
         Assertions.assertInstanceOf(
                 IdentityFlatMapTransform.class,
-                transform.getTransformMap().get(table.getTableId().toTablePath().toString()));
+                transform
+                        .getTransformMap()
+                        .get(tables.get(0).getTableId().toTablePath().toString()));
     }
 
     private static class FakeSQLMultiCatalogFlatMapTransform
