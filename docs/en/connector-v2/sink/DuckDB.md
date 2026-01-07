@@ -200,3 +200,7 @@ sink {
   }
 }
 ```
+
+## Changelog
+
+<ChangeLog />

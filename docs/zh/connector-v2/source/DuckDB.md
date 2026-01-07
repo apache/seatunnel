@@ -285,3 +285,7 @@ sink {
   Console {}
 }
 ```
+
+## Changelog
+
+<ChangeLog />
