@@ -24,6 +24,7 @@ import org.apache.seatunnel.api.table.type.BasicType;
 import org.apache.seatunnel.api.table.type.SeaTunnelDataType;
 import org.apache.seatunnel.api.table.type.SeaTunnelRow;
 import org.apache.seatunnel.api.table.type.SeaTunnelRowType;
+import org.apache.seatunnel.api.transform.SeaTunnelFlatMapTransform;
 import org.apache.seatunnel.api.transform.SeaTunnelTransform;
 import org.apache.seatunnel.transform.common.IdentityFlatMapTransform;
 import org.apache.seatunnel.transform.common.TransformCommonOptions;
@@ -36,6 +37,32 @@ import java.util.List;
 import java.util.Map;
 
 class SQLMultiCatalogFlatMapTransformTest {
+
+    @Test
+    void testGetPluginNameAndBuildTransform() {
+        SeaTunnelRowType rowType =
+                new SeaTunnelRowType(
+                        new String[] {"id", "name"},
+                        new org.apache.seatunnel.api.table.type.SeaTunnelDataType[] {
+                            BasicType.INT_TYPE, BasicType.STRING_TYPE
+                        });
+        CatalogTable catalogTable =
+                CatalogTableUtil.getCatalogTable("test", "test", "test", "test", rowType);
+        List<CatalogTable> tables = Collections.singletonList(catalogTable);
+
+        ReadonlyConfig config =
+                ReadonlyConfig.fromMap(
+                        Collections.singletonMap(
+                                SQLTransform.KEY_QUERY.key(), "select * from dual"));
+
+        SQLMultiCatalogFlatMapTransform transform =
+                new SQLMultiCatalogFlatMapTransform(tables, config);
+
+        Assertions.assertEquals(SQLTransform.PLUGIN_NAME, transform.getPluginName());
+
+        SeaTunnelFlatMapTransform<?> inner = transform.buildTransform(catalogTable, config);
+        Assertions.assertTrue(inner instanceof SQLTransform);
+    }
 
     @Test
     void testCreateIdentityTransform() {
