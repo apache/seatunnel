@@ -20,6 +20,7 @@ package org.apache.seatunnel.connectors.seatunnel.file.source.reader;
 import org.apache.seatunnel.shade.com.typesafe.config.Config;
 import org.apache.seatunnel.shade.org.apache.commons.lang3.StringUtils;
 
+import org.apache.seatunnel.api.configuration.ReadonlyConfig;
 import org.apache.seatunnel.api.source.Collector;
 import org.apache.seatunnel.api.table.catalog.CatalogTable;
 import org.apache.seatunnel.api.table.type.BasicType;
@@ -81,6 +82,7 @@ public abstract class AbstractReadStrategy implements ReadStrategy {
     protected SeaTunnelRowType seaTunnelRowType;
     protected SeaTunnelRowType seaTunnelRowTypeWithPartition;
     protected Config pluginConfig;
+    protected ReadonlyConfig readonlyConfig;
     protected List<String> fileNames = new ArrayList<>();
     protected List<String> readPartitions = new ArrayList<>();
     protected List<String> readColumns = new ArrayList<>();
@@ -198,6 +200,7 @@ public abstract class AbstractReadStrategy implements ReadStrategy {
     @Override
     public void setPluginConfig(Config pluginConfig) {
         this.pluginConfig = pluginConfig;
+        this.readonlyConfig = ReadonlyConfig.fromConfig(pluginConfig);
         // Determine whether it is a compressed file
         if (pluginConfig.hasPath(FileBaseSourceOptions.ARCHIVE_COMPRESS_CODEC.key())) {
             String archiveCompressCodec =

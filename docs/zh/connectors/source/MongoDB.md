@@ -79,7 +79,7 @@ MongoDB连接器提供了从MongoDB读取数据和向MongoDB写入数据的能�
 | partition.split-size | Long    | 否 | 64 * 1024 * 1024 | 分片大小。                                                                                                                                                                                                                                                                                              |
 | cursor.no-timeout    | Boolean | 否 | true             | MongoDB服务器通常在非活动期（10分钟）后超时空闲游标，以防止过度使用内存。将此选项设置为true以防止这种情况发生。但是，如果应用程序处理当前一批文档的时间超过30分钟，则会话将标记为已过期并关闭。 |
 | fetch.size           | Int     | 否 | 2048             | 设置每批从服务器获取的文档数量。设置适当的批大小可以提高查询性能，避免一次获取大量数据造成的内存压力。                                                                                    |
-| max.time-min         | Long    | 否 | 600              | 此参数是一个MongoDB查询选项，用于限制查询操作的最大执行时间。maxTimeMin的值以分钟为单位。如果查询的执行时间超过指定的时间限制，MongoDB将终止操作并返回错误。                                     |
+| max.time-min         | Long    | 否 | 10               | 此参数是一个MongoDB查询选项，用于限制查询操作的最大执行时间。maxTimeMin的值以分钟为单位。如果查询的执行时间超过指定的时间限制，MongoDB将终止操作并返回错误。                                     |
 | flat.sync-string     | Boolean | 否 | true             | 通过使用flatSyncString，只能设置一个字段属性值，字段类型必须是String。此操作将对单个MongoDB数据条目执行字符串映射。                                                                                                                      |
 | common-options       |         | 否 | -                | 源插件常用参数，请参考 [源通用选项](../common-options/source-common-options.md)                                                                                                                                                                                              |
 

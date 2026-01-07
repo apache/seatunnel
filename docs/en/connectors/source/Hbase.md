@@ -24,7 +24,7 @@ Reads data from Apache Hbase.
 | zookeeper_quorum     | string    | Yes       | -       |
 | table                | string    | Yes       | -       |
 | schema               | config    | Yes       | -       |
-| hbase_extra_config   | string    | No        | -       |
+| hbase_extra_config   | config    | No        | -       |
 | caching              | int       | No        | -1      |
 | batch                | int       | No        | -1      |
 | cache_blocks         | boolean   | No        | false   |
@@ -127,6 +127,44 @@ source {
           name = "columnFamily2:column1"
           type = bigint
         }
+      ]
+    }
+  }
+}
+```
+
+## Kerberos Example
+
+Note:
+
+- `connector-hbase` does not parse `krb5_path`, `kerberos_principal`, or `kerberos_keytab_path`.
+- Prepare Kerberos credentials and `krb5.conf` in the runtime environment (for example, `kinit -kt ...` or JVM `-Djava.security.krb5.conf=...`), and put HBase/Hadoop security settings into `hbase_extra_config`.
+
+```hocon
+source {
+  Hbase {
+    zookeeper_quorum = "zk1:2181,zk2:2181,zk3:2181"
+    table = "source_table"
+    caching = 1000
+    batch = 200
+    cache_blocks = false
+    is_binary_rowkey = false
+
+    # HBase security config
+    hbase_extra_config = {
+      "hbase.security.authentication" = "kerberos"
+      "hadoop.security.authentication" = "kerberos"
+      "hbase.master.kerberos.principal" = "hbase/_HOST@REALM"
+      "hbase.regionserver.kerberos.principal" = "hbase/_HOST@REALM"
+      "hbase.rpc.protection" = "authentication"
+      "hbase.zookeeper.useSasl" = "false"
+    }
+
+    schema = {
+      columns = [
+        { name = "rowkey", type = string },
+        { name = "info:name", type = string },
+        { name = "info:score", type = string }
       ]
     }
   }

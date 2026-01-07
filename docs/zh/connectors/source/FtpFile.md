@@ -75,6 +75,8 @@ import ChangeLog from '../changelog/connector-file-ftp.md';
 | common-options              |         | 否    | -                   |
 | file_filter_modified_start  | string  | 否    | -                   | 
 | file_filter_modified_end    | string  | 否    | -                   | 
+| quote_char                  | string  | 否    | "                   | 
+| escape_char                 | string  | 否    | -                   |
 
 ### host [string]
 
@@ -409,6 +411,14 @@ SeaTunnel 将从源文件中跳过前 2 行。
 ### file_filter_modified_end
 
 按照最后修改时间过滤文件。 要过滤的结束时间(不包括改时间),时间格式是：`yyyy-MM-dd HH:mm:ss`。
+
+### quote_char [string]
+
+用于包裹 CSV 字段的单字符，可保证包含逗号、换行符或引号的字段被正确解析。
+
+### escape_char [string]
+
+用于在 CSV 字段内转义引号或其他特殊字符，使其不会结束字段。
 
 ### 通用选项
 
