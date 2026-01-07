@@ -63,7 +63,6 @@ public class HbaseSourceReader implements SourceReader<SeaTunnelRow, HbaseSource
 
     private HBaseDeserializationFormat hbaseDeserializationFormat =
             new HBaseDeserializationFormat();
-    private ResultScanner currentScanner;
 
     public HbaseSourceReader(
             HbaseParameters hbaseParameters, Context context, SeaTunnelRowType seaTunnelRowType) {
@@ -106,13 +105,6 @@ public class HbaseSourceReader implements SourceReader<SeaTunnelRow, HbaseSource
 
     @Override
     public void close() throws IOException {
-        if (this.currentScanner != null) {
-            try {
-                this.currentScanner.close();
-            } catch (Exception e) {
-                throw new IOException("Failed to close HBase Scanner.", e);
-            }
-        }
         if (this.hbaseClient != null) {
             try {
                 this.hbaseClient.close();
@@ -131,15 +123,12 @@ public class HbaseSourceReader implements SourceReader<SeaTunnelRow, HbaseSource
                 // read logic
                 try (ResultScanner scanner =
                         hbaseClient.scan(split, hbaseParameters, this.columnNames)) {
-                    currentScanner = scanner;
                     for (Result result : scanner) {
                         SeaTunnelRow seaTunnelRow =
                                 hbaseDeserializationFormat.deserialize(
                                         convertRawRow(result), seaTunnelRowType);
                         output.collect(seaTunnelRow);
                     }
-                } finally {
-                    currentScanner = null;
                 }
             } else if (noMoreSplit && sourceSplits.isEmpty()) {
                 // signal to the source that we have reached the end of the data.
