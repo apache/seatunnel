@@ -232,7 +232,6 @@ const sidebars = {
                                 "engines/zeta/separated-cluster-deployment"
                             ]
                         },
-                        "engines/zeta/savepoint",
                         "engines/zeta/checkpoint-storage",
                         "engines/zeta/engine-jar-storage-mode",
                         "engines/zeta/tcp",
