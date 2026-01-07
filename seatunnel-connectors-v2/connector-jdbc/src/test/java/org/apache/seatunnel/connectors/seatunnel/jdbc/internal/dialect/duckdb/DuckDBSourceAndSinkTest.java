@@ -88,9 +88,7 @@ public class DuckDBSourceAndSinkTest {
         Map<String, Object> sourceOptions = new HashMap<>();
         sourceOptions.put("url", jdbcUrl);
         sourceOptions.put("driver", "org.duckdb.DuckDBDriver");
-        sourceOptions.put(
-                "table_path",
-                String.format("%s.%s.%s", DATABASE_NAME, SCHEMA_NAME, SOURCE_TABLE_NAME));
+        sourceOptions.put("table_path", String.format("%s.%s", SCHEMA_NAME, SOURCE_TABLE_NAME));
         List<SeaTunnelRow> rows =
                 SourceFlowTestUtils.runBatchWithCheckpointDisabled(
                         ReadonlyConfig.fromMap(sourceOptions), new JdbcSourceFactory());

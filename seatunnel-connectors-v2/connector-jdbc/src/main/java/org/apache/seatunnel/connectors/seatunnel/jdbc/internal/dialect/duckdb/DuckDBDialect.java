@@ -30,6 +30,9 @@ import java.util.Optional;
 @Slf4j
 public class DuckDBDialect implements JdbcDialect {
 
+    private static final String DEFAULT_DATABASE_NAME = "default";
+    private static final String DEFAULT_SCHEMA_NAME = "main";
+
     @Override
     public String dialectName() {
         return DatabaseIdentifier.DUCKDB;
@@ -48,6 +51,17 @@ public class DuckDBDialect implements JdbcDialect {
     @Override
     public JdbcDialectTypeMapper getJdbcDialectTypeMapper() {
         return new DuckDBTypeMapper();
+    }
+
+    @Override
+    public TablePath parse(String tablePath) {
+        final String[] split = tablePath.split("\\.");
+        if (split.length == 2) {
+            return TablePath.of(DEFAULT_DATABASE_NAME, split[0], split[1]);
+        } else if (split.length == 1) {
+            return TablePath.of(DEFAULT_DATABASE_NAME, DEFAULT_SCHEMA_NAME, split[0]);
+        }
+        return TablePath.of(tablePath);
     }
 
     @Override
