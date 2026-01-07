@@ -17,33 +17,51 @@
 
 package org.apache.seatunnel.connectors.seatunnel.jdbc.internal.dialect.duckdb;
 
+import org.apache.seatunnel.api.configuration.ReadonlyConfig;
+import org.apache.seatunnel.api.sink.DataSaveMode;
+import org.apache.seatunnel.api.sink.SchemaSaveMode;
+import org.apache.seatunnel.api.table.catalog.CatalogTable;
+import org.apache.seatunnel.api.table.catalog.TablePath;
+import org.apache.seatunnel.api.table.type.SeaTunnelRow;
 import org.apache.seatunnel.common.utils.JdbcUrlUtil;
 import org.apache.seatunnel.connectors.seatunnel.jdbc.catalog.duckdb.DuckDBCatalog;
 import org.apache.seatunnel.connectors.seatunnel.jdbc.catalog.duckdb.DuckDBURLParser;
+import org.apache.seatunnel.connectors.seatunnel.jdbc.sink.JdbcSinkFactory;
+import org.apache.seatunnel.connectors.seatunnel.jdbc.source.JdbcSourceFactory;
+import org.apache.seatunnel.connectors.seatunnel.sink.SinkFlowTestUtils;
+import org.apache.seatunnel.connectors.seatunnel.source.SourceFlowTestUtils;
 
 import org.junit.jupiter.api.AfterAll;
+import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.BeforeAll;
+import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.TestInstance;
 
+import lombok.SneakyThrows;
+
 import java.io.File;
+import java.sql.Connection;
+import java.sql.DriverManager;
+import java.sql.ResultSet;
+import java.sql.Statement;
 import java.util.ArrayList;
+import java.util.HashMap;
 import java.util.List;
+import java.util.Map;
 
 @TestInstance(TestInstance.Lifecycle.PER_CLASS)
 public class DuckDBSourceAndSinkTest {
 
     private static final String DATABASE_NAME = "default";
     private static final String SCHEMA_NAME = "main";
-    private static final String TABLE_NAME = "test_Table";
-    private static final String TABLE_NAME_COPY = "test_Table_copy";
+    private static final String SOURCE_TABLE_NAME = "source";
+    private static final String SINK_TABLE_NAME = "sink";
     private static final String CATALOG_NAME = "duckdb";
     private static final String DB_FILE = "DuckDBSourceAndSinkTest.db";
-
-    private static DuckDBCatalog catalog;
     private static String jdbcUrl;
 
     @BeforeAll
-    public static void setUp() throws Exception {
+    public void setUp() throws Exception {
         // Delete existing database file if it exists
         File dbFile = new File(DB_FILE);
         if (dbFile.exists()) {
@@ -51,20 +69,60 @@ public class DuckDBSourceAndSinkTest {
         }
         // Setup JDBC connection
         jdbcUrl = "jdbc:duckdb:" + dbFile.getAbsolutePath();
-        // Create catalog instance
+        try (Connection connection = DriverManager.getConnection(jdbcUrl);
+                Statement statement = connection.createStatement()) {
+            statement.execute(
+                    String.format(getCreateTableTemplate(), SCHEMA_NAME, SOURCE_TABLE_NAME));
+            statement.execute(
+                    String.format(getCreateTableTemplate(), SCHEMA_NAME, SINK_TABLE_NAME));
+            for (String insertSql : getInsertRowSql(SCHEMA_NAME, SOURCE_TABLE_NAME)) {
+                statement.execute(insertSql);
+            }
+        }
+    }
+
+    @SneakyThrows
+    @Test
+    public void testFlow() {
+        // test source
+        Map<String, Object> sourceOptions = new HashMap<>();
+        sourceOptions.put("url", jdbcUrl);
+        sourceOptions.put("driver", "org.duckdb.DuckDBDriver");
+        sourceOptions.put(
+                "table_path",
+                String.format("%s.%s.%s", DATABASE_NAME, SCHEMA_NAME, SOURCE_TABLE_NAME));
+        List<SeaTunnelRow> rows =
+                SourceFlowTestUtils.runBatchWithCheckpointDisabled(
+                        ReadonlyConfig.fromMap(sourceOptions), new JdbcSourceFactory());
+        Assertions.assertEquals(2, rows.size());
+        // test sink
+        Map<String, Object> sinkOptions = new HashMap<>();
+        sinkOptions.put("url", jdbcUrl);
+        sinkOptions.put("driver", "org.duckdb.DuckDBDriver");
+        sinkOptions.put("schema_save_mode", SchemaSaveMode.CREATE_SCHEMA_WHEN_NOT_EXIST);
+        sinkOptions.put("data_save_mode", DataSaveMode.APPEND_DATA);
+        sinkOptions.put("database", SCHEMA_NAME);
+        sinkOptions.put("table", SINK_TABLE_NAME);
+        sinkOptions.put("query", "");
         JdbcUrlUtil.UrlInfo urlInfo = DuckDBURLParser.parse(jdbcUrl);
-        catalog = new DuckDBCatalog(CATALOG_NAME, urlInfo, SCHEMA_NAME);
+        DuckDBCatalog catalog = new DuckDBCatalog(CATALOG_NAME, urlInfo, SCHEMA_NAME);
         catalog.open();
+        CatalogTable catalogTable =
+                catalog.getTable(TablePath.of(DATABASE_NAME, SCHEMA_NAME, SINK_TABLE_NAME));
+        catalog.close();
+        SinkFlowTestUtils.runBatchWithCheckpointDisabled(
+                catalogTable, ReadonlyConfig.fromMap(sinkOptions), new JdbcSinkFactory(), rows);
+        Assertions.assertEquals(
+                2, countRows(TablePath.of(DATABASE_NAME, SCHEMA_NAME, SINK_TABLE_NAME)));
     }
 
     @AfterAll
-    public static void tearDown() {
+    public void tearDown() {
         // Delete database file
         File dbFile = new File(DB_FILE);
         if (dbFile.exists()) {
             dbFile.delete();
         }
-        catalog.close();
     }
 
     private String getCreateTableTemplate() {
@@ -163,5 +221,20 @@ public class DuckDBSourceAndSinkTest {
                                 + ");",
                         schemaName, tableName));
         return insertSqls;
+    }
+
+    private int countRows(TablePath tablePath) {
+        try (Connection connection = DriverManager.getConnection(jdbcUrl);
+                Statement statement = connection.createStatement();
+                ResultSet resultSet =
+                        statement.executeQuery(
+                                String.format(
+                                        "SELECT COUNT(*) FROM \"%s\".\"%s\"",
+                                        tablePath.getSchemaName(), tablePath.getTableName()))) {
+            resultSet.next();
+            return resultSet.getInt(1);
+        } catch (Exception e) {
+            throw new RuntimeException("Failed to count rows for " + tablePath, e);
+        }
     }
 }
