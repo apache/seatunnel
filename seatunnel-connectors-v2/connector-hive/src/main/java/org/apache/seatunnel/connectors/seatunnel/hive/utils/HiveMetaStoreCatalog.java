@@ -31,7 +31,6 @@ import org.apache.seatunnel.api.table.catalog.exception.TableNotExistException;
 import org.apache.seatunnel.connectors.seatunnel.file.hadoop.HadoopLoginFactory;
 import org.apache.seatunnel.connectors.seatunnel.file.hdfs.source.config.HdfsSourceConfigOptions;
 import org.apache.seatunnel.connectors.seatunnel.hive.config.HiveConfig;
-import org.apache.seatunnel.connectors.seatunnel.hive.config.HiveOptions;
 import org.apache.seatunnel.connectors.seatunnel.hive.exception.HiveConnectorErrorCode;
 import org.apache.seatunnel.connectors.seatunnel.hive.exception.HiveConnectorException;
 
@@ -87,7 +86,7 @@ public class HiveMetaStoreCatalog implements Catalog, Closeable, Serializable {
     private transient UserGroupInformation userGroupInformation;
 
     public HiveMetaStoreCatalog(ReadonlyConfig config) {
-        this.metastoreUri = config.get(HiveOptions.METASTORE_URI);
+        this.metastoreUri = config.get(HiveConfig.METASTORE_URI);
         this.hadoopConfDir = config.get(HiveConfig.HADOOP_CONF_PATH);
         this.hiveSitePath = config.get(HiveConfig.HIVE_SITE_PATH);
         this.kerberosEnabled = HiveMetaStoreProxyUtils.enableKerberos(config);

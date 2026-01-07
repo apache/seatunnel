@@ -83,6 +83,8 @@ To use this connector you need put hadoop-cos-{hadoop.version}-{version}.jar and
 | common-options             |         | no       | -                           |
 | file_filter_modified_start | string  | no       | -                           | 
 | file_filter_modified_end   | string  | no       | -                           | 
+| quote_char                 | string  | no       | "                           |
+| escape_char                | string  | no       | -                           |
 
 ### path [string]
 
@@ -416,6 +418,14 @@ File modification time filter. The connector will filter some files base on the 
 ### file_filter_modified_end [string]
 
 File modification time filter. The connector will filter some files base on the last modification end time (not include end time). The default data format is `yyyy-MM-dd HH:mm:ss`.
+
+### quote_char [string]
+
+A single character that encloses CSV fields, allowing fields with commas, line breaks, or quotes to be read correctly.
+
+### escape_char [string]
+
+A single character that allows the quote or other special characters to appear inside a CSV field without ending the field.
 
 ### common options
 
