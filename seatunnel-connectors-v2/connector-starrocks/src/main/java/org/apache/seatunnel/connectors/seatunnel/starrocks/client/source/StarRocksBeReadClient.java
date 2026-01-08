@@ -44,8 +44,6 @@ import java.util.ArrayList;
 import java.util.Set;
 import java.util.concurrent.atomic.AtomicBoolean;
 
-import static org.apache.seatunnel.connectors.seatunnel.starrocks.exception.StarRocksConnectorErrorCode.CLOSE_BE_READER_FAILED;
-
 @Slf4j
 public class StarRocksBeReadClient implements Serializable {
     private static final String DEFAULT_CLUSTER_NAME = "default_cluster";
