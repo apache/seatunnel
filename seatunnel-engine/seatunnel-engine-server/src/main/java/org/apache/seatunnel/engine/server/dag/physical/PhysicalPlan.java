@@ -204,6 +204,7 @@ public class PhysicalPlan {
             // Tasks with the status 'INITIALIZING', 'CREATED', 'PENDING' need to be set directly to
             // the 'CANCELLED' state because it has not yet started running
             updateJobState(JobStatus.CANCELED);
+            completeJobEndFuture(new JobResult(JobStatus.CANCELED, null));
         } else {
             updateJobState(JobStatus.CANCELING);
         }
@@ -231,6 +232,7 @@ public class PhysicalPlan {
             // Tasks with the status 'INITIALIZING', 'CREATED', 'PENDING' need to be set directly to
             // the 'CANCELLED' state because it has not yet started running
             updateJobState(JobStatus.CANCELED);
+            completeJobEndFuture(new JobResult(JobStatus.CANCELED, null));
         } else if (jobStatus == JobStatus.DOING_SAVEPOINT) {
             this.pipelineList.forEach(SubPlan::stopPipelineWithCheckpointFallback);
         } else {
