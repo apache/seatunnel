@@ -216,6 +216,7 @@ const sidebars = {
             "type": "category",
             "label": "Engines",
             "items": [
+                "engines/overview",
                 {
                     "type": "category",
                     "label": "Zeta Engine",
@@ -253,14 +254,15 @@ const sidebars = {
                         "engines/zeta/tuning-guide"
                     ]
                 },
-                {
-                    "type": "category",
-                    "label": "Other Engines",
-                    "items": [
-                        "engines/flink",
-                        "engines/spark"
-                    ]
-                }
+                "engines/flink",
+                "engines/spark"
+            ]
+        },
+        {
+            "type": "category",
+            "label": "Best Practices",
+            "items": [
+                "best-practices/cdc-sync"
             ]
         },
         {
