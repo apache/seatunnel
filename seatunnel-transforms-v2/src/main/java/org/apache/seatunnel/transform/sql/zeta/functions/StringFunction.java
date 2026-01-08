@@ -19,7 +19,7 @@ package org.apache.seatunnel.transform.sql.zeta.functions;
 
 import org.apache.seatunnel.shade.com.google.common.hash.Hashing;
 
-import org.apache.seatunnel.common.exception.CommonErrorCodeDeprecated;
+import org.apache.seatunnel.common.exception.CommonErrorCode;
 import org.apache.seatunnel.common.utils.DateTimeUtils;
 import org.apache.seatunnel.common.utils.DateUtils;
 import org.apache.seatunnel.transform.exception.TransformException;
@@ -37,7 +37,9 @@ import java.time.temporal.Temporal;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.Date;
+import java.util.HashMap;
 import java.util.List;
+import java.util.Map;
 import java.util.Objects;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
@@ -145,9 +147,10 @@ public class StringFunction {
         }
         int len = arg.length();
         if (len % 4 != 0) {
-            throw new TransformException(
-                    CommonErrorCodeDeprecated.UNSUPPORTED_OPERATION,
-                    String.format("Unsupported arg for function: %s", ZetaSQLFunction.HEXTORAW));
+            Map<String, String> params = new HashMap<>();
+            params.put("argument", arg);
+            params.put("operation", ZetaSQLFunction.HEXTORAW);
+            throw new TransformException(CommonErrorCode.ILLEGAL_ARGUMENT, params);
         }
         StringBuilder builder = new StringBuilder(len / 4);
         for (int i = 0; i < len; i += 4) {
@@ -418,7 +421,7 @@ public class StringFunction {
             int position,
             int occurrence,
             String regexpMode) {
-        int flags = makeRegexpFlags(regexpMode, false);
+        int flags = makeRegexpFlags(regexpMode, false, ZetaSQLFunction.REGEXP_REPLACE);
         Matcher matcher =
                 Pattern.compile(regexp, flags).matcher(input).region(position - 1, input.length());
         if (occurrence == 0) {
@@ -448,11 +451,12 @@ public class StringFunction {
         if (args.size() >= 3) {
             regexpMode = (String) args.get(2);
         }
-        int flags = makeRegexpFlags(regexpMode, false);
+        int flags = makeRegexpFlags(regexpMode, false, ZetaSQLFunction.REGEXP_LIKE);
         return Pattern.compile(regexp, flags).matcher(input).find();
     }
 
-    private static int makeRegexpFlags(String stringFlags, boolean ignoreGlobalFlag) {
+    private static int makeRegexpFlags(
+            String stringFlags, boolean ignoreGlobalFlag, String functionName) {
         int flags = Pattern.UNICODE_CASE;
         if (stringFlags != null) {
             for (int i = 0; i < stringFlags.length(); ++i) {
@@ -475,11 +479,10 @@ public class StringFunction {
                         }
                         // $FALL-THROUGH$
                     default:
-                        throw new TransformException(
-                                CommonErrorCodeDeprecated.UNSUPPORTED_OPERATION,
-                                String.format(
-                                        "Unsupported regexpMode arg: %s for function: %s",
-                                        flags, ZetaSQLFunction.HEXTORAW));
+                        Map<String, String> params = new HashMap<>();
+                        params.put("argument", stringFlags);
+                        params.put("operation", functionName);
+                        throw new TransformException(CommonErrorCode.ILLEGAL_ARGUMENT, params);
                 }
             }
         }
@@ -526,7 +529,7 @@ public class StringFunction {
         int position = positionArg != null ? positionArg - 1 : 0;
         int requestedOccurrence = occurrenceArg != null ? occurrenceArg : 1;
         int subexpression = subexpressionArg != null ? subexpressionArg : 0;
-        int flags = makeRegexpFlags(regexpMode, false);
+        int flags = makeRegexpFlags(regexpMode, false, ZetaSQLFunction.REGEXP_SUBSTR);
         Matcher m = Pattern.compile(regexp, flags).matcher(input);
 
         boolean found = m.find(position);
