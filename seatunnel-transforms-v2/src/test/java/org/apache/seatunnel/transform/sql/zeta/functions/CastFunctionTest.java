@@ -15,7 +15,7 @@
  * limitations under the License.
  */
 
-package org.apache.seatunnel.transform.sql.zeta;
+package org.apache.seatunnel.transform.sql.zeta.functions;
 
 import org.apache.seatunnel.api.table.type.BasicType;
 import org.apache.seatunnel.api.table.type.MapType;
@@ -85,13 +85,11 @@ public class CastFunctionTest {
     public void testCastFunctionWithNestedField() {
         SQLEngine sqlEngine = SQLEngineFactory.getSQLEngine(SQLEngineFactory.EngineType.ZETA);
 
-        // Create a map with nested data
         MapType<String, String> mapType =
                 new MapType<>(BasicType.STRING_TYPE, BasicType.STRING_TYPE);
         SeaTunnelRowType rowType =
                 new SeaTunnelRowType(new String[] {"user"}, new SeaTunnelDataType[] {mapType});
 
-        // Create input data with nested fields
         java.util.Map<String, String> userData = new java.util.HashMap<>();
         userData.put("address", "123 Main St");
         userData.put("age", "25");
@@ -106,9 +104,8 @@ public class CastFunctionTest {
         SeaTunnelRowType outRowType = sqlEngine.typeMapping(null);
         SeaTunnelRow outRow = sqlEngine.transformBySQL(inputRow, outRowType).get(0);
 
-        // Check nested field access
-        Assertions.assertEquals("123 Main St", outRow.getField(0)); // Direct access
-        Assertions.assertEquals(25, outRow.getField(1)); // Cast from nested field
+        Assertions.assertEquals("123 Main St", outRow.getField(0));
+        Assertions.assertEquals(25, outRow.getField(1));
     }
 
     @Test
@@ -120,41 +117,60 @@ public class CastFunctionTest {
                         new String[] {"str_field", "int_field"},
                         new SeaTunnelDataType[] {BasicType.STRING_TYPE, BasicType.INT_TYPE});
 
-        SeaTunnelRow inputRow = new SeaTunnelRow(new Object[] {"123", 456});
+        SeaTunnelRow inputRow = new SeaTunnelRow(new Object[] {"42", 100});
 
         sqlEngine.init(
                 "test",
                 null,
                 rowType,
-                "select str_field, cast(str_field as INT) as int_from_str, "
-                        + "int_field, cast(int_field as STRING) as str_from_int from test");
+                "select cast(str_field as INT) as cast_to_int, cast(int_field as STRING) as cast_to_str from test");
 
         SeaTunnelRowType outRowType = sqlEngine.typeMapping(null);
         SeaTunnelRow outRow = sqlEngine.transformBySQL(inputRow, outRowType).get(0);
 
-        // Original values should remain unchanged
-        Assertions.assertEquals("123", outRow.getField(0));
-        Assertions.assertEquals(456, outRow.getField(2));
-
-        // Cast conversions
-        Assertions.assertEquals(123, outRow.getField(1)); // String to Int
-        Assertions.assertEquals("456", outRow.getField(3)); // Int to String
+        Assertions.assertEquals(42, outRow.getField(0));
+        Assertions.assertEquals("100", outRow.getField(1));
     }
 
     @Test
-    public void testNormalNestedRowFieldAccess() {
+    public void testCastWithNestedFunctions() {
         SQLEngine sqlEngine = SQLEngineFactory.getSQLEngine(SQLEngineFactory.EngineType.ZETA);
 
-        // Create nested row type structure
-        SeaTunnelRowType innerRowType =
+        SeaTunnelRowType rowType =
+                new SeaTunnelRowType(
+                        new String[] {"text", "int_field"},
+                        new SeaTunnelDataType[] {BasicType.STRING_TYPE, BasicType.INT_TYPE});
+
+        SeaTunnelRow inputRow = new SeaTunnelRow(new Object[] {"12345", 456});
+
+        String sql =
+                "select CAST(LEFT(text, 2) AS INT) as cast_left,"
+                        + " CONCAT_WS('-', LEFT(text, 3), CAST(int_field AS STRING)) as concat_ws_cast,"
+                        + " CAST(CONCAT_WS('', LEFT(text, 1), RIGHT(text, 1)) AS INT) as cast_concat_ws"
+                        + " from test";
+
+        sqlEngine.init("test", null, rowType, sql);
+
+        SeaTunnelRowType outRowType = sqlEngine.typeMapping(null);
+        SeaTunnelRow outRow = sqlEngine.transformBySQL(inputRow, outRowType).get(0);
+
+        Assertions.assertEquals(12, outRow.getField(0));
+        Assertions.assertEquals("123-456", outRow.getField(1));
+        Assertions.assertEquals(15, outRow.getField(2));
+    }
+
+    @Test
+    public void testNestedRowFieldAccess() {
+        SQLEngine sqlEngine = SQLEngineFactory.getSQLEngine(SQLEngineFactory.EngineType.ZETA);
+
+        SeaTunnelRowType userRowType =
                 new SeaTunnelRowType(
                         new String[] {"street", "city"},
                         new SeaTunnelDataType[] {BasicType.STRING_TYPE, BasicType.STRING_TYPE});
 
         SeaTunnelRowType rowType =
-                new SeaTunnelRowType(new String[] {"user"}, new SeaTunnelDataType[] {innerRowType});
+                new SeaTunnelRowType(new String[] {"user"}, new SeaTunnelDataType[] {userRowType});
 
-        // Create nested row data
         SeaTunnelRow innerRow = new SeaTunnelRow(new Object[] {"123 Main St", "New York"});
         SeaTunnelRow inputRow = new SeaTunnelRow(new Object[] {innerRow});
 
@@ -164,7 +180,6 @@ public class CastFunctionTest {
         SeaTunnelRowType outRowType = sqlEngine.typeMapping(null);
         SeaTunnelRow outRow = sqlEngine.transformBySQL(inputRow, outRowType).get(0);
 
-        // Verify normal nested field access (testing lines 343-345 in ZetaSQLFunction)
         Assertions.assertEquals("123 Main St", outRow.getField(0));
         Assertions.assertEquals("New York", outRow.getField(1));
     }
@@ -173,7 +188,6 @@ public class CastFunctionTest {
     public void testMultiLevelNestedRowFieldAccess() {
         SQLEngine sqlEngine = SQLEngineFactory.getSQLEngine(SQLEngineFactory.EngineType.ZETA);
 
-        // Create multi-level nested row type structure
         SeaTunnelRowType addressRowType =
                 new SeaTunnelRowType(
                         new String[] {"street", "zipcode"},
@@ -187,7 +201,6 @@ public class CastFunctionTest {
         SeaTunnelRowType rowType =
                 new SeaTunnelRowType(new String[] {"user"}, new SeaTunnelDataType[] {userRowType});
 
-        // Create multi-level nested row data
         SeaTunnelRow addressRow = new SeaTunnelRow(new Object[] {"123 Main St", "10001"});
         SeaTunnelRow userRow = new SeaTunnelRow(new Object[] {"John Doe", addressRow});
         SeaTunnelRow inputRow = new SeaTunnelRow(new Object[] {userRow});
@@ -201,7 +214,6 @@ public class CastFunctionTest {
         SeaTunnelRowType outRowType = sqlEngine.typeMapping(null);
         SeaTunnelRow outRow = sqlEngine.transformBySQL(inputRow, outRowType).get(0);
 
-        // Verify multi-level nested field access (testing lines 343-345 in ZetaSQLFunction)
         Assertions.assertEquals("123 Main St", outRow.getField(0));
         Assertions.assertEquals("John Doe", outRow.getField(1));
     }
@@ -217,7 +229,6 @@ public class CastFunctionTest {
                             new MapType<>(BasicType.STRING_TYPE, BasicType.STRING_TYPE)
                         });
 
-        // Create map data with actual values (testing normal access scenario)
         java.util.Map<String, String> userData = new java.util.HashMap<>();
         userData.put("name", "John Doe");
         userData.put("email", "john@example.com");
@@ -229,7 +240,6 @@ public class CastFunctionTest {
         SeaTunnelRowType outRowType = sqlEngine.typeMapping(null);
         SeaTunnelRow outRow = sqlEngine.transformBySQL(inputRow, outRowType).get(0);
 
-        // Verify map field access (testing normal access scenario for lines 343-345)
         Assertions.assertEquals("John Doe", outRow.getField(0));
         Assertions.assertEquals("john@example.com", outRow.getField(1));
     }
@@ -238,7 +248,6 @@ public class CastFunctionTest {
     public void testNestedFieldWithNullIntermediateValue() {
         SQLEngine sqlEngine = SQLEngineFactory.getSQLEngine(SQLEngineFactory.EngineType.ZETA);
 
-        // Create multi-level nested row type structure: user -> address -> street
         SeaTunnelRowType addressRowType =
                 new SeaTunnelRowType(
                         new String[] {"street", "zipcode"},
@@ -252,7 +261,6 @@ public class CastFunctionTest {
         SeaTunnelRowType rowType =
                 new SeaTunnelRowType(new String[] {"user"}, new SeaTunnelDataType[] {userRowType});
 
-        // Test case 1: Normal nested access (user.address.street should return "beijing")
         SeaTunnelRow addressRow1 = new SeaTunnelRow(new Object[] {"beijing", "10001"});
         SeaTunnelRow userRow1 = new SeaTunnelRow(new Object[] {"zhangsan", addressRow1});
         SeaTunnelRow inputRow1 = new SeaTunnelRow(new Object[] {userRow1});
@@ -266,18 +274,14 @@ public class CastFunctionTest {
         SeaTunnelRowType outRowType = sqlEngine.typeMapping(null);
         SeaTunnelRow outRow1 = sqlEngine.transformBySQL(inputRow1, outRowType).get(0);
 
-        // Verify normal nested field access
         Assertions.assertEquals("beijing", outRow1.getField(0));
         Assertions.assertEquals("zhangsan", outRow1.getField(1));
 
-        // Test case 2: Null intermediate value (user.address is null, user.address.street should
-        // return null)
         SeaTunnelRow userRow2 = new SeaTunnelRow(new Object[] {"lisi", null});
         SeaTunnelRow inputRow2 = new SeaTunnelRow(new Object[] {userRow2});
 
         SeaTunnelRow outRow2 = sqlEngine.transformBySQL(inputRow2, outRowType).get(0);
 
-        // Verify that when intermediate value is null, the result should be null
         Assertions.assertNull(
                 outRow2.getField(0),
                 "When accessing nested field where intermediate value is null, result should be null");
