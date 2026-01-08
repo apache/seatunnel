@@ -38,6 +38,7 @@ import java.util.Arrays;
 import java.util.Collections;
 import java.util.List;
 import java.util.Map;
+import java.util.Objects;
 import java.util.Optional;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.ConcurrentMap;
@@ -134,8 +135,20 @@ public class ResourceRequestHandler {
                                                 if (resourceManager.supportDynamicWorker()) {
                                                     applyByDynamicWorker(tags);
                                                 } else {
+                                                    int failedIndex =
+                                                            findNullIndexInResultSlotProfiles();
                                                     completeRequestWithException(
-                                                            requestSlotWithRetryError);
+                                                            new NoEnoughResourceException(
+                                                                    String.format(
+                                                                            "Can't apply enough resources for job %d, required: %d slots, obtained: %d slots, "
+                                                                                    + "first unassigned resource at index %d: %s",
+                                                                            jobId,
+                                                                            resourceProfile.size(),
+                                                                            resultSlotProfiles
+                                                                                    .size(),
+                                                                            failedIndex,
+                                                                            resourceProfile.get(
+                                                                                    failedIndex))));
                                                 }
                                             }
                                         }
@@ -151,6 +164,15 @@ public class ResourceRequestHandler {
             }
         }
         return needRequestResource;
+    }
+
+    private int findNullIndexInResultSlotProfiles() {
+        for (int i = 0; i < resourceProfile.size(); i++) {
+            if (!resultSlotProfiles.containsKey(i)) {
+                return i;
+            }
+        }
+        return 0;
     }
 
     private List<CompletableFuture<SlotAndWorkerProfile>> requestSlots(
@@ -285,14 +307,32 @@ public class ResourceRequestHandler {
     }
 
     private void releaseAllResourceInternal() {
-        LOGGER.warning("apply resource not success, release all already applied resource");
-        new ArrayList<>(resultSlotProfiles.keySet())
+        int appliedCount = resultSlotProfiles.size();
+        int requiredCount = resourceProfile.size();
+
+        String slotIds =
+                resultSlotProfiles.values().stream()
+                        .map(
+                                slot ->
+                                        String.format(
+                                                "Slot-%d@%s", slot.getSlotID(), slot.getWorker()))
+                        .collect(Collectors.joining(", "));
+
+        LOGGER.warning(
+                String.format(
+                        "Apply resource not success for job: %d, required: %d slots, applied: %d slots, "
+                                + "releasing slots: [%s], remaining: %d slots not assigned",
+                        jobId, requiredCount, appliedCount, slotIds, requiredCount - appliedCount));
+
+        resultSlotProfiles.values().stream()
+                .filter(Objects::nonNull)
                 .forEach(
-                        index -> {
-                            SlotProfile profile = resultSlotProfiles.remove(index);
-                            if (profile != null) {
-                                resourceManager.releaseResource(jobId, profile);
-                            }
+                        profile -> {
+                            LOGGER.fine(
+                                    String.format(
+                                            "Releasing slot %d for job %d from worker %s",
+                                            profile.getSlotID(), jobId, profile.getWorker()));
+                            resourceManager.releaseResource(jobId, profile);
                         });
     }
 
