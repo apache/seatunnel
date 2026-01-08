@@ -59,8 +59,10 @@ import java.io.IOException;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.HashMap;
+import java.util.HashSet;
 import java.util.Map;
 import java.util.Objects;
+import java.util.Set;
 import java.util.UUID;
 
 @Slf4j
@@ -78,6 +80,8 @@ public class HbaseIT extends TestSuiteBase implements TestResource {
 
     private static final String MULTI_TABLE_TWO_NAME = "hbase_sink_2";
 
+    private static final String BINARY_ROWKEY_TABLE_NAME = "seatunnel_test_binary_rowkey";
+
     private static final String FAMILY_NAME = "info";
 
     private Connection hbaseConnection;
@@ -86,6 +90,7 @@ public class HbaseIT extends TestSuiteBase implements TestResource {
 
     private TableName table;
     private TableName tableAssign;
+    private TableName binaryRowkeyTable;
 
     private HbaseCluster hbaseCluster;
 
@@ -104,6 +109,9 @@ public class HbaseIT extends TestSuiteBase implements TestResource {
         hbaseCluster.createTable(ASSIGN_CF_TABLE_NAME, Arrays.asList("cf1", "cf2"));
         table = TableName.valueOf(TABLE_NAME);
         tableAssign = TableName.valueOf(ASSIGN_CF_TABLE_NAME);
+        // Create table for hbase binary rowkey sink test
+        hbaseCluster.createTable(BINARY_ROWKEY_TABLE_NAME, Arrays.asList(FAMILY_NAME));
+        binaryRowkeyTable = TableName.valueOf(BINARY_ROWKEY_TABLE_NAME);
 
         // Create table for hbase multi-table sink test
         hbaseCluster.createTable(MULTI_TABLE_ONE_NAME, Arrays.asList(FAMILY_NAME));
@@ -254,6 +262,28 @@ public class HbaseIT extends TestSuiteBase implements TestResource {
         }
         Assertions.assertEquals(results.size(), 3);
         scanner.close();
+    }
+
+    @TestTemplate
+    public void testHbaseSinkWithBinaryRowkey(TestContainer container)
+            throws IOException, InterruptedException {
+        deleteData(binaryRowkeyTable);
+        Container.ExecResult execResult = container.executeJob("/fake-to-hbase-binary-rowkey.conf");
+        Assertions.assertEquals(0, execResult.getExitCode());
+        ArrayList<Result> results = readData(binaryRowkeyTable);
+        Assertions.assertEquals(3, results.size());
+        Set<String> actualRowKeys = new HashSet<>();
+        for (Result result : results) {
+            actualRowKeys.add(Bytes.toStringBinary(result.getRow()));
+        }
+        Set<String> expectedRowKeys =
+                new HashSet<>(
+                        Arrays.asList(
+                                Bytes.toStringBinary(new byte[] {0x00, 0x01, 0x02, 0x03}),
+                                Bytes.toStringBinary(
+                                        new byte[] {(byte) 0xFF, (byte) 0xFE, 0x0A, 0x0B}),
+                                Bytes.toStringBinary(new byte[] {0x10, 0x20, 0x30, 0x40, 0x50})));
+        Assertions.assertEquals(expectedRowKeys, actualRowKeys);
     }
 
     @TestTemplate

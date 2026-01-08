@@ -22,6 +22,7 @@ import org.apache.seatunnel.api.sink.SupportMultiTableSinkWriter;
 import org.apache.seatunnel.api.table.type.SeaTunnelDataType;
 import org.apache.seatunnel.api.table.type.SeaTunnelRow;
 import org.apache.seatunnel.api.table.type.SeaTunnelRowType;
+import org.apache.seatunnel.api.table.type.SqlType;
 import org.apache.seatunnel.common.exception.CommonErrorCodeDeprecated;
 import org.apache.seatunnel.connectors.seatunnel.hbase.client.HbaseClient;
 import org.apache.seatunnel.connectors.seatunnel.hbase.config.HbaseParameters;
@@ -34,6 +35,7 @@ import org.apache.hadoop.hbase.client.Durability;
 import org.apache.hadoop.hbase.client.Put;
 import org.apache.hadoop.hbase.util.Bytes;
 
+import java.io.ByteArrayOutputStream;
 import java.io.IOException;
 import java.nio.charset.Charset;
 import java.util.List;
@@ -144,11 +146,48 @@ public class HbaseSinkWriter
     }
 
     private byte[] getRowkeyFromRow(SeaTunnelRow row) {
-        String[] rowkeyValues = new String[rowkeyColumnIndexes.size()];
-        for (int i = 0; i < rowkeyColumnIndexes.size(); i++) {
-            rowkeyValues[i] = row.getField(rowkeyColumnIndexes.get(i)).toString();
+        int rowkeySize = rowkeyColumnIndexes.size();
+        int firstRowkeyIndex = rowkeyColumnIndexes.get(0);
+        if (rowkeySize == 1 && isBinaryRowkeyColumn(firstRowkeyIndex)) {
+            return (byte[]) row.getField(firstRowkeyIndex);
         }
-        return Bytes.toBytes(String.join(hbaseParameters.getRowkeyDelimiter(), rowkeyValues));
+        if (!hasBinaryRowkeyColumn()) {
+            String[] rowkeyValues = new String[rowkeySize];
+            for (int i = 0; i < rowkeySize; i++) {
+                rowkeyValues[i] = row.getField(rowkeyColumnIndexes.get(i)).toString();
+            }
+            return Bytes.toBytes(String.join(hbaseParameters.getRowkeyDelimiter(), rowkeyValues));
+        }
+        byte[] delimiter = Bytes.toBytes(hbaseParameters.getRowkeyDelimiter());
+        ByteArrayOutputStream output = new ByteArrayOutputStream();
+        for (int i = 0; i < rowkeySize; i++) {
+            if (i > 0 && delimiter.length > 0) {
+                output.write(delimiter, 0, delimiter.length);
+            }
+            byte[] bytes = rowkeyFieldToBytes(rowkeyColumnIndexes.get(i), row);
+            output.write(bytes, 0, bytes.length);
+        }
+        return output.toByteArray();
+    }
+
+    private boolean hasBinaryRowkeyColumn() {
+        for (Integer index : rowkeyColumnIndexes) {
+            if (isBinaryRowkeyColumn(index)) {
+                return true;
+            }
+        }
+        return false;
+    }
+
+    private boolean isBinaryRowkeyColumn(int index) {
+        return seaTunnelRowType.getFieldType(index).getSqlType() == SqlType.BYTES;
+    }
+
+    private byte[] rowkeyFieldToBytes(int index, SeaTunnelRow row) {
+        if (isBinaryRowkeyColumn(index)) {
+            return (byte[]) row.getField(index);
+        }
+        return Bytes.toBytes(row.getField(index).toString());
     }
 
     private byte[] convertColumnToBytes(SeaTunnelRow row, int index) {
