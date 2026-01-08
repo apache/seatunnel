@@ -128,3 +128,4 @@ netty-resolver-4.1.118.Final.jar
 eventstream-1.0.1.jar
 java-diff-utils-4.12.jar
 jline-3.22.0.jar
+jsch-0.2.20.jar
