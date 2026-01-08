@@ -33,6 +33,7 @@ public class MultiTableWriterRunnable implements Runnable {
     private final BlockingQueue<SeaTunnelRow> queue;
     private volatile Throwable throwable;
     private volatile String currentTableId;
+    private volatile MultiTableRowErrorHandler rowErrorHandler;
 
     public MultiTableWriterRunnable(
             Map<String, SinkWriter<SeaTunnelRow, ?, ?>> tableIdWriterMap,
@@ -41,16 +42,21 @@ public class MultiTableWriterRunnable implements Runnable {
         this.queue = queue;
     }
 
+    public void setRowErrorHandler(MultiTableRowErrorHandler rowErrorHandler) {
+        this.rowErrorHandler = rowErrorHandler;
+    }
+
     @Override
     public void run() {
         while (true) {
             SeaTunnelRow row = null;
+            SinkWriter<SeaTunnelRow, ?, ?> writer = null;
             try {
                 row = queue.poll(100, TimeUnit.MILLISECONDS);
                 if (row == null) {
                     continue;
                 }
-                SinkWriter<SeaTunnelRow, ?, ?> writer = tableIdWriterMap.get(row.getTableId());
+                writer = tableIdWriterMap.get(row.getTableId());
                 if (writer == null) {
                     if (tableIdWriterMap.size() == 1) {
                         writer = tableIdWriterMap.values().stream().findFirst().get();
@@ -67,13 +73,32 @@ public class MultiTableWriterRunnable implements Runnable {
                     writer.write(row);
                 }
             } catch (InterruptedException e) {
-                // When the job finished, the thread will be interrupted, so we ignore this
-                // exception.
-                throwable = e;
+                Thread.currentThread().interrupt();
                 break;
             } catch (Throwable e) {
                 log.error(
                         String.format("MultiTableWriterRunnable error when write row %s", row), e);
+
+                if (row != null && rowErrorHandler != null && writer != null) {
+                    try {
+                        boolean handled =
+                                rowErrorHandler.handleRowError(writer, currentTableId, row, e);
+                        if (handled) {
+                            // Error handled, continue processing.
+                            continue;
+                        }
+                    } catch (Throwable handlerEx) {
+                        log.error(
+                                String.format(
+                                        "RowErrorHandler threw exception when handling row %s",
+                                        row),
+                                handlerEx);
+                        handlerEx.addSuppressed(e);
+                        throwable = handlerEx;
+                        break;
+                    }
+                }
+
                 throwable = e;
                 break;
             }

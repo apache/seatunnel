@@ -207,6 +207,10 @@ public class TaskExecutionService implements DynamicMetricsProvider {
         return taskGroupContext;
     }
 
+    public ClassLoaderService getClassLoaderService() {
+        return classLoaderService;
+    }
+
     private void submitThreadShareTask(
             TaskGroupExecutionTracker taskGroupExecutionTracker, List<Task> tasks) {
         Stream<TaskTracker> taskTrackerStream =

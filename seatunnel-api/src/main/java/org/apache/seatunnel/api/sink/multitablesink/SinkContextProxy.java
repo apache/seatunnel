@@ -20,6 +20,9 @@ package org.apache.seatunnel.api.sink.multitablesink;
 import org.apache.seatunnel.api.common.metrics.MetricsContext;
 import org.apache.seatunnel.api.event.EventListener;
 import org.apache.seatunnel.api.sink.SinkWriter;
+import org.apache.seatunnel.api.sink.error.RowErrorCollector;
+
+import java.util.Optional;
 
 public class SinkContextProxy implements SinkWriter.Context {
 
@@ -53,5 +56,10 @@ public class SinkContextProxy implements SinkWriter.Context {
     @Override
     public EventListener getEventListener() {
         return context.getEventListener();
+    }
+
+    @Override
+    public Optional<RowErrorCollector> getRowErrorCollector() {
+        return context.getRowErrorCollector();
     }
 }

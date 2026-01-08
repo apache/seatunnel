@@ -81,6 +81,10 @@ public class TaskExecutionContext {
         return taskExecutionService;
     }
 
+    public org.apache.seatunnel.engine.core.classloader.ClassLoaderService getClassLoaderService() {
+        return taskExecutionService.getClassLoaderService();
+    }
+
     public HazelcastInstance getInstance() {
         return nodeEngine.getHazelcastInstance();
     }

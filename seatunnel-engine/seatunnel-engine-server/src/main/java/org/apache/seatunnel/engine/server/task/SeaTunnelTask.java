@@ -92,6 +92,7 @@ public abstract class SeaTunnelTask extends AbstractTask {
 
     protected volatile SeaTunnelTaskState currState;
     private final Flow executionFlow;
+    private final Map<String, Object> envOptions;
 
     protected FlowLifeCycle startFlowLifeCycle;
 
@@ -112,11 +113,21 @@ public abstract class SeaTunnelTask extends AbstractTask {
 
     private SeaTunnelMetricsContext metricsContext;
 
-    public SeaTunnelTask(long jobID, TaskLocation taskID, int indexID, Flow executionFlow) {
+    public SeaTunnelTask(
+            long jobID,
+            TaskLocation taskID,
+            int indexID,
+            Flow executionFlow,
+            Map<String, Object> envOptions) {
         super(jobID, taskID);
         this.indexID = indexID;
         this.executionFlow = executionFlow;
+        this.envOptions = envOptions;
         this.currState = SeaTunnelTaskState.CREATED;
+    }
+
+    public Map<String, Object> getEnvOptions() {
+        return envOptions;
     }
 
     @Override

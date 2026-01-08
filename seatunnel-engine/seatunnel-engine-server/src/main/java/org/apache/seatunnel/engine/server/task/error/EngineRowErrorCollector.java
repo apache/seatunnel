@@ -1,0 +1,48 @@
+/*
+ * Licensed to the Apache Software Foundation (ASF) under one or more
+ * contributor license agreements.  See the NOTICE file distributed with
+ * this work for additional information regarding copyright ownership.
+ * The ASF licenses this file to You under the Apache License, Version 2.0
+ * (the "License"); you may not use this file except in compliance with
+ * the License.  You may obtain a copy of the License at
+ *
+ *    http://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an "AS IS" BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
+ */
+
+package org.apache.seatunnel.engine.server.task.error;
+
+import org.apache.seatunnel.api.sink.error.RowErrorCollector;
+import org.apache.seatunnel.api.sink.error.RowErrorEvent;
+import org.apache.seatunnel.api.table.type.SeaTunnelRow;
+
+import java.util.Objects;
+
+/** Routes connector-reported row errors to the shared ErrorHandler. */
+public final class EngineRowErrorCollector implements RowErrorCollector {
+
+    private final ErrorHandler<SeaTunnelRow> errorHandler;
+    private final String pluginName;
+
+    public EngineRowErrorCollector(ErrorHandler<SeaTunnelRow> errorHandler, String pluginName) {
+        this.errorHandler = Objects.requireNonNull(errorHandler, "errorHandler must not be null");
+        this.pluginName = Objects.requireNonNull(pluginName, "pluginName must not be null");
+    }
+
+    @Override
+    public void collect(RowErrorEvent event) {
+        Objects.requireNonNull(event, "event must not be null");
+        SeaTunnelRow row = event.getRow();
+        Throwable error = event.getError();
+
+        String tableId = row.getTableId();
+        RowErrorContext ctx =
+                new RowErrorContext("SINK", "SINK", pluginName, tableId == null ? "" : tableId);
+        errorHandler.onError(ctx, row, error);
+    }
+}

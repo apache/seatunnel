@@ -29,6 +29,19 @@ import org.apache.seatunnel.engine.server.checkpoint.ActionStateKey;
 import org.apache.seatunnel.engine.server.checkpoint.ActionSubtaskState;
 import org.apache.seatunnel.engine.server.checkpoint.CheckpointBarrier;
 import org.apache.seatunnel.engine.server.task.SeaTunnelTask;
+import org.apache.seatunnel.engine.server.task.error.DefaultErrorSinkWriter;
+import org.apache.seatunnel.engine.server.task.error.DefaultRowErrorClassifier;
+import org.apache.seatunnel.engine.server.task.error.ErrorHandler;
+import org.apache.seatunnel.engine.server.task.error.ErrorHandlerConfigUtil;
+import org.apache.seatunnel.engine.server.task.error.ErrorHandlerConfigUtil.StageType;
+import org.apache.seatunnel.engine.server.task.error.ErrorHandlerMode;
+import org.apache.seatunnel.engine.server.task.error.ErrorHandlingFlatMapTransform;
+import org.apache.seatunnel.engine.server.task.error.ErrorHandlingMapTransform;
+import org.apache.seatunnel.engine.server.task.error.ErrorSinkConfig;
+import org.apache.seatunnel.engine.server.task.error.ErrorSinkRowWriter;
+import org.apache.seatunnel.engine.server.task.error.RowErrorClassifier;
+import org.apache.seatunnel.engine.server.task.error.StageErrorConfig;
+import org.apache.seatunnel.engine.server.task.error.SynchronizedErrorSinkRowWriter;
 import org.apache.seatunnel.engine.server.task.record.Barrier;
 
 import org.apache.commons.collections4.CollectionUtils;
@@ -39,6 +52,7 @@ import java.io.IOException;
 import java.util.ArrayList;
 import java.util.Collections;
 import java.util.List;
+import java.util.Map;
 
 @Slf4j
 public class TransformFlowLifeCycle<T> extends ActionFlowLifeCycle
@@ -49,6 +63,8 @@ public class TransformFlowLifeCycle<T> extends ActionFlowLifeCycle
     private final List<SeaTunnelTransform<T>> transform;
 
     private final Collector<Record<?>> collector;
+
+    private ErrorHandler<T> errorHandler;
 
     public TransformFlowLifeCycle(
             TransformChainAction<T> action,
@@ -64,6 +80,7 @@ public class TransformFlowLifeCycle<T> extends ActionFlowLifeCycle
     @Override
     public void open() throws Exception {
         super.open();
+        initErrorHandlingTransforms();
         for (SeaTunnelTransform<T> t : transform) {
             try {
                 t.open();
@@ -195,6 +212,70 @@ public class TransformFlowLifeCycle<T> extends ActionFlowLifeCycle
                         e);
             }
         }
+        if (errorHandler != null) {
+            try {
+                errorHandler.close();
+            } catch (Exception e) {
+                log.error("Close ErrorHandler for transform stage failed", e);
+            }
+        }
         super.close();
+    }
+
+    private void initErrorHandlingTransforms() {
+        if (!(runningTask instanceof SeaTunnelTask)) {
+            return;
+        }
+        SeaTunnelTask seaTunnelTask = (SeaTunnelTask) runningTask;
+        Map<String, Object> envOptions = seaTunnelTask.getEnvOptions();
+
+        StageErrorConfig stageConfig =
+                ErrorHandlerConfigUtil.buildStageConfig(
+                        envOptions,
+                        StageType.TRANSFORM,
+                        seaTunnelTask.getTaskLocation().getJobId());
+
+        if (stageConfig.getMode() == ErrorHandlerMode.DISABLE) {
+            return;
+        }
+        ErrorSinkRowWriter<T> errorSinkWriter = createErrorSinkWriter(seaTunnelTask, stageConfig);
+        ErrorHandler<T> handler = new ErrorHandler<>(stageConfig, errorSinkWriter);
+        this.errorHandler = handler;
+        RowErrorClassifier<T> classifier = new DefaultRowErrorClassifier<>();
+
+        for (int i = 0; i < transform.size(); i++) {
+            SeaTunnelTransform<T> t = transform.get(i);
+            if (t instanceof SeaTunnelFlatMapTransform) {
+                transform.set(
+                        i,
+                        new ErrorHandlingFlatMapTransform<>(
+                                (SeaTunnelFlatMapTransform<T>) t, handler, classifier));
+            } else if (t instanceof SeaTunnelMapTransform) {
+                transform.set(
+                        i,
+                        new ErrorHandlingMapTransform<>(
+                                (SeaTunnelMapTransform<T>) t, handler, classifier));
+            }
+        }
+    }
+
+    @SuppressWarnings("unchecked")
+    private ErrorSinkRowWriter<T> createErrorSinkWriter(
+            SeaTunnelTask seaTunnelTask, StageErrorConfig stageConfig) {
+        if (stageConfig.getMode() != ErrorHandlerMode.ROUTE) {
+            return null;
+        }
+        ErrorSinkConfig sinkConfig = stageConfig.getSink();
+        if (sinkConfig == null || !sinkConfig.isConfigured()) {
+            return null;
+        }
+        return (ErrorSinkRowWriter<T>)
+                new SynchronizedErrorSinkRowWriter<>(
+                        new DefaultErrorSinkWriter<>(
+                                stageConfig,
+                                sinkConfig,
+                                seaTunnelTask.getTaskLocation().getJobId(),
+                                seaTunnelTask.getTaskLocation().getTaskIndex(),
+                                seaTunnelTask.getExecutionContext().getClassLoaderService()));
     }
 }

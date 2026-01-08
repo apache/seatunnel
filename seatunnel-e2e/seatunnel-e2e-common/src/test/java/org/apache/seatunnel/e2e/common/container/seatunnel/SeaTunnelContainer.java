@@ -426,7 +426,11 @@ public class SeaTunnelContainer extends AbstractTestContainer {
                 || s.startsWith("org.apache.hadoop.hdfs.PeerCache")
                 || s.startsWith("java-sdk-progress-listener-callback-thread")
                 // redis pool evictor daemon thread
-                || s.startsWith("commons-pool-evictor");
+                || s.startsWith("commons-pool-evictor")
+                // MySQL JDBC driver abandoned connection cleanup thread
+                || s.startsWith("mysql-cj-abandoned-connection-cleanup")
+                // Error sink worker threads
+                || s.startsWith("seatunnel-error-sink-");
     }
 
     private void classLoaderObjectCheck(Integer maxSize) throws IOException, InterruptedException {

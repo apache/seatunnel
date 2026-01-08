@@ -31,6 +31,9 @@ import org.slf4j.LoggerFactory;
 import java.io.IOException;
 import java.io.Serializable;
 import java.sql.SQLException;
+import java.util.Collections;
+import java.util.IdentityHashMap;
+import java.util.Set;
 import java.util.function.Supplier;
 
 import static org.apache.seatunnel.shade.com.google.common.base.Preconditions.checkNotNull;
@@ -117,6 +120,20 @@ public class JdbcOutputFormat<I, E extends JdbcBatchStatementExecutor<I>> implem
         jdbcStatementExecutor.addToBatch(record);
     }
 
+    /**
+     * Clears pending batched statements without executing them. Used for row-level error handling
+     * to discard failed batches.
+     */
+    public synchronized void clearBatchSilently() {
+        try {
+            jdbcStatementExecutor.clearBatch();
+        } catch (SQLException e) {
+            LOG.warn("Failed to clear JDBC batch after row-level error", e);
+        } finally {
+            batchCount = 0;
+        }
+    }
+
     public synchronized void flush() throws IOException {
         if (flushException != null) {
             LOG.warn(
@@ -138,6 +155,11 @@ public class JdbcOutputFormat<I, E extends JdbcBatchStatementExecutor<I>> implem
                 break;
             } catch (SQLException e) {
                 LOG.error("JDBC executeBatch error, retry times = {}", i, e);
+                // Data/constraint violations (22XXX/23XXX) are not recoverable by retrying.
+                if (isRowLevelSqlState(e)) {
+                    throw new JdbcConnectorException(
+                            CommonErrorCodeDeprecated.FLUSH_DATA_FAILED, e);
+                }
                 if (i >= jdbcConnectionConfig.getMaxRetries()) {
                     throw new JdbcConnectorException(
                             CommonErrorCodeDeprecated.FLUSH_DATA_FAILED, e);
@@ -170,6 +192,19 @@ public class JdbcOutputFormat<I, E extends JdbcBatchStatementExecutor<I>> implem
 
     protected void attemptFlush() throws SQLException {
         jdbcStatementExecutor.executeBatch();
+    }
+
+    private boolean isRowLevelSqlState(SQLException sqlException) {
+        Set<SQLException> visited = Collections.newSetFromMap(new IdentityHashMap<>());
+        SQLException current = sqlException;
+        while (current != null && visited.add(current)) {
+            String sqlState = current.getSQLState();
+            if (sqlState != null && (sqlState.startsWith("22") || sqlState.startsWith("23"))) {
+                return true;
+            }
+            current = current.getNextException();
+        }
+        return false;
     }
 
     /** Executes prepared statement and closes all resources of this instance. */

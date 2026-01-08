@@ -60,6 +60,7 @@ public class MultiTableSinkWriter
     private final List<BlockingQueue<SeaTunnelRow>> blockingQueues = new ArrayList<>();
     private final ExecutorService executorService;
     private MultiTableResourceManager resourceManager;
+    private volatile MultiTableRowErrorHandler rowErrorHandler;
     private volatile boolean submitted = false;
 
     public MultiTableSinkWriter(
@@ -108,6 +109,13 @@ public class MultiTableSinkWriter
         }
         log.info("init multi table sink writer, queue size: {}", queueSize);
         initResourceManager(queueSize);
+    }
+
+    public void setRowErrorHandler(MultiTableRowErrorHandler rowErrorHandler) {
+        this.rowErrorHandler = rowErrorHandler;
+        for (MultiTableWriterRunnable writerRunnable : runnable) {
+            writerRunnable.setRowErrorHandler(rowErrorHandler);
+        }
     }
 
     private void initResourceManager(int queueSize) {

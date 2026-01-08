@@ -146,6 +146,7 @@ public class JdbcSink
                 if (index > -1) {
                     return new JdbcSinkWriter(
                             sinkTablePath,
+                            context,
                             dialect,
                             jdbcSinkConfig,
                             tableSchema,
@@ -156,6 +157,7 @@ public class JdbcSink
             sinkWriter =
                     new JdbcSinkWriter(
                             sinkTablePath,
+                            context,
                             dialect,
                             jdbcSinkConfig,
                             tableSchema,

@@ -19,6 +19,7 @@ package org.apache.seatunnel.api.sink;
 
 import org.apache.seatunnel.api.common.metrics.MetricsContext;
 import org.apache.seatunnel.api.event.EventListener;
+import org.apache.seatunnel.api.sink.error.RowErrorCollector;
 import org.apache.seatunnel.api.table.schema.event.SchemaChangeEvent;
 
 import java.io.IOException;
@@ -117,5 +118,12 @@ public interface SinkWriter<T, CommitInfoT, StateT> {
          * @return
          */
         EventListener getEventListener();
+
+        /**
+         * Row-level error collector provided by the engine for reporting errors outside write().
+         */
+        default Optional<RowErrorCollector> getRowErrorCollector() {
+            return Optional.empty();
+        }
     }
 }

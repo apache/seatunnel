@@ -26,6 +26,7 @@ import org.apache.seatunnel.api.sink.SinkWriter.Context;
 import org.apache.seatunnel.api.sink.SupportSchemaEvolutionSinkWriter;
 import org.apache.seatunnel.api.sink.event.WriterCloseEvent;
 import org.apache.seatunnel.api.sink.multitablesink.MultiTableSink;
+import org.apache.seatunnel.api.sink.multitablesink.MultiTableSinkWriter;
 import org.apache.seatunnel.api.table.catalog.CatalogTable;
 import org.apache.seatunnel.api.table.catalog.TablePath;
 import org.apache.seatunnel.api.table.schema.event.SchemaChangeEvent;
@@ -42,6 +43,20 @@ import org.apache.seatunnel.engine.server.execution.TaskLocation;
 import org.apache.seatunnel.engine.server.metrics.ConnectorMetricsCalcContext;
 import org.apache.seatunnel.engine.server.task.SeaTunnelTask;
 import org.apache.seatunnel.engine.server.task.context.SinkWriterContext;
+import org.apache.seatunnel.engine.server.task.error.DefaultErrorSinkWriter;
+import org.apache.seatunnel.engine.server.task.error.DefaultRowErrorClassifier;
+import org.apache.seatunnel.engine.server.task.error.EngineMultiTableRowErrorHandler;
+import org.apache.seatunnel.engine.server.task.error.EngineRowErrorCollector;
+import org.apache.seatunnel.engine.server.task.error.ErrorHandler;
+import org.apache.seatunnel.engine.server.task.error.ErrorHandlerConfigUtil;
+import org.apache.seatunnel.engine.server.task.error.ErrorHandlerConfigUtil.StageType;
+import org.apache.seatunnel.engine.server.task.error.ErrorHandlerMode;
+import org.apache.seatunnel.engine.server.task.error.ErrorHandlingSinkWriter;
+import org.apache.seatunnel.engine.server.task.error.ErrorSinkConfig;
+import org.apache.seatunnel.engine.server.task.error.ErrorSinkRowWriter;
+import org.apache.seatunnel.engine.server.task.error.RowErrorClassifier;
+import org.apache.seatunnel.engine.server.task.error.StageErrorConfig;
+import org.apache.seatunnel.engine.server.task.error.SynchronizedErrorSinkRowWriter;
 import org.apache.seatunnel.engine.server.task.operation.GetTaskGroupAddressOperation;
 import org.apache.seatunnel.engine.server.task.operation.checkpoint.BarrierFlowOperation;
 import org.apache.seatunnel.engine.server.task.operation.sink.SinkPrepareCommitOperation;
@@ -98,6 +113,11 @@ public class SinkFlowLifeCycle<T, CommitInfoT extends Serializable, AggregatedCo
     private final boolean containAggCommitter;
 
     private final EventListener eventListener;
+
+    private transient StageErrorConfig stageErrorConfig;
+    private transient ErrorHandler<T> stageErrorHandler;
+    private transient RowErrorClassifier<T> stageRowErrorClassifier;
+    private transient org.apache.seatunnel.api.sink.error.RowErrorCollector stageRowErrorCollector;
 
     /** Mapping relationship between upstream TablePath and downstream TablePath. */
     private final Map<TablePath, TablePath> tablesMaps = new HashMap<>();
@@ -267,19 +287,18 @@ public class SinkFlowLifeCycle<T, CommitInfoT extends Serializable, AggregatedCo
                     return;
                 }
                 String tableId;
-                writer.write((T) record.getData());
-                if (record.getData() instanceof SeaTunnelRow) {
+                Object data = record.getData();
+                writer.write((T) data);
+                if (data instanceof SeaTunnelRow) {
                     if (this.sinkAction.getSink() instanceof MultiTableSink) {
-                        if (((SeaTunnelRow) record.getData()).getTableId() == null
-                                || ((SeaTunnelRow) record.getData()).getTableId().isEmpty()) {
-                            tableId = ((SeaTunnelRow) record.getData()).getTableId();
+                        if (((SeaTunnelRow) data).getTableId() == null
+                                || ((SeaTunnelRow) data).getTableId().isEmpty()) {
+                            tableId = ((SeaTunnelRow) data).getTableId();
                         } else {
 
                             TablePath tablePath =
                                     tablesMaps.get(
-                                            TablePath.of(
-                                                    ((SeaTunnelRow) record.getData())
-                                                            .getTableId()));
+                                            TablePath.of(((SeaTunnelRow) data).getTableId()));
                             tableId =
                                     tablePath != null
                                             ? tablePath.getFullName()
@@ -297,7 +316,7 @@ public class SinkFlowLifeCycle<T, CommitInfoT extends Serializable, AggregatedCo
                                         .orElseGet(TablePath.DEFAULT::getFullName);
                     }
 
-                    connectorMetricsCalcContext.updateMetrics(record.getData(), tableId);
+                    connectorMetricsCalcContext.updateMetrics(data, tableId);
                 }
             }
         } catch (Exception e) {
@@ -339,13 +358,113 @@ public class SinkFlowLifeCycle<T, CommitInfoT extends Serializable, AggregatedCo
                                                                     .deserialize(bytes)))
                             .collect(Collectors.toList());
         }
+        initRowErrorCollectorIfNeed();
         this.writerContext =
                 new SinkWriterContext(
-                        sinkAction.getParallelism(), indexID, metricsContext, eventListener);
+                        sinkAction.getParallelism(),
+                        indexID,
+                        metricsContext,
+                        eventListener,
+                        stageRowErrorCollector);
         if (states.isEmpty()) {
             this.writer = sinkAction.getSink().createWriter(writerContext);
         } else {
             this.writer = sinkAction.getSink().restoreWriter(writerContext, states);
         }
+        wrapWriterIfNeed();
+    }
+
+    @SuppressWarnings("unchecked")
+    private void initRowErrorCollectorIfNeed() {
+        if (!(runningTask instanceof SeaTunnelTask)) {
+            return;
+        }
+        SeaTunnelTask seaTunnelTask = (SeaTunnelTask) runningTask;
+        StageErrorConfig stageConfig =
+                ErrorHandlerConfigUtil.buildStageConfig(
+                        seaTunnelTask.getEnvOptions(),
+                        StageType.SINK,
+                        seaTunnelTask.getTaskLocation().getJobId());
+        this.stageErrorConfig = stageConfig;
+        if (stageConfig.getMode() == ErrorHandlerMode.DISABLE) {
+            return;
+        }
+
+        ErrorSinkRowWriter<T> errorSinkWriter = createErrorSinkWriter(seaTunnelTask, stageConfig);
+        ErrorHandler<T> handler = new ErrorHandler<>(stageConfig, errorSinkWriter);
+        RowErrorClassifier<T> classifier = new DefaultRowErrorClassifier<>();
+
+        this.stageErrorHandler = handler;
+        this.stageRowErrorClassifier = classifier;
+
+        // Expose collector for row-level errors during flush/commit/close.
+        String pluginName = sinkAction.getSink().getPluginName();
+        ErrorHandler<SeaTunnelRow> rowHandler = (ErrorHandler<SeaTunnelRow>) handler;
+        this.stageRowErrorCollector = new EngineRowErrorCollector(rowHandler, pluginName);
+    }
+
+    private void wrapWriterIfNeed() {
+        if (!(runningTask instanceof SeaTunnelTask)) {
+            return;
+        }
+        SeaTunnelTask seaTunnelTask = (SeaTunnelTask) runningTask;
+        StageErrorConfig stageConfig = stageErrorConfig;
+        if (stageConfig == null) {
+            stageConfig =
+                    ErrorHandlerConfigUtil.buildStageConfig(
+                            seaTunnelTask.getEnvOptions(),
+                            StageType.SINK,
+                            seaTunnelTask.getTaskLocation().getJobId());
+            stageErrorConfig = stageConfig;
+        }
+        if (stageConfig.getMode() == ErrorHandlerMode.DISABLE) {
+            return;
+        }
+
+        ErrorHandler<T> handler = stageErrorHandler;
+        RowErrorClassifier<T> classifier = stageRowErrorClassifier;
+        if (handler == null || classifier == null) {
+            ErrorSinkRowWriter<T> errorSinkWriter =
+                    createErrorSinkWriter(seaTunnelTask, stageConfig);
+            handler = new ErrorHandler<>(stageConfig, errorSinkWriter);
+            classifier = new DefaultRowErrorClassifier<>();
+            stageErrorHandler = handler;
+            stageRowErrorClassifier = classifier;
+        }
+        String pluginName = sinkAction.getSink().getPluginName();
+
+        if (this.writer instanceof MultiTableSinkWriter) {
+            @SuppressWarnings("unchecked")
+            MultiTableSinkWriter multiTableSinkWriter = (MultiTableSinkWriter) this.writer;
+            @SuppressWarnings("unchecked")
+            ErrorHandler<SeaTunnelRow> rowHandler = (ErrorHandler<SeaTunnelRow>) handler;
+            @SuppressWarnings("unchecked")
+            RowErrorClassifier<SeaTunnelRow> rowClassifier =
+                    (RowErrorClassifier<SeaTunnelRow>) classifier;
+            multiTableSinkWriter.setRowErrorHandler(
+                    new EngineMultiTableRowErrorHandler(rowHandler, rowClassifier, pluginName));
+        }
+
+        this.writer = new ErrorHandlingSinkWriter<>(this.writer, handler, classifier, pluginName);
+    }
+
+    @SuppressWarnings("unchecked")
+    private ErrorSinkRowWriter<T> createErrorSinkWriter(
+            SeaTunnelTask seaTunnelTask, StageErrorConfig stageConfig) {
+        if (stageConfig.getMode() != ErrorHandlerMode.ROUTE) {
+            return null;
+        }
+        ErrorSinkConfig sinkConfig = stageConfig.getSink();
+        if (sinkConfig == null || !sinkConfig.isConfigured()) {
+            return null;
+        }
+        return (ErrorSinkRowWriter<T>)
+                new SynchronizedErrorSinkRowWriter<>(
+                        new DefaultErrorSinkWriter<>(
+                                stageConfig,
+                                sinkConfig,
+                                seaTunnelTask.getTaskLocation().getJobId(),
+                                seaTunnelTask.getTaskLocation().getTaskIndex(),
+                                seaTunnelTask.getExecutionContext().getClassLoaderService()));
     }
 }
