@@ -38,7 +38,7 @@ semantics (using XA transaction guarantee).
 | Datasource |                     Supported Versions                     |        Driver         |                  Url                  |                                  Maven                                   |
 |------------|------------------------------------------------------------|-----------------------|---------------------------------------|--------------------------------------------------------------------------|
 | PostgreSQL | Different dependency version has different driver class.   | org.postgresql.Driver | jdbc:postgresql://localhost:5432/test | [Download](https://mvnrepository.com/artifact/org.postgresql/postgresql) |
-| PostgreSQL | If you want to manipulate the GEOMETRY type in PostgreSQL. | org.postgresql.Driver | jdbc:postgresql://localhost:5432/test | [Download](https://mvnrepository.com/artifact/net.postgis/postgis-jdbc)  |
+| PostgreSQL | If you want to manipulate the GEOMETRY/GEOGRAPHY type in PostgreSQL. | org.postgresql.Driver | jdbc:postgresql://localhost:5432/test | [Download](https://mvnrepository.com/artifact/net.postgis/postgis-jdbc)  |
 
 ## Database Dependency
 

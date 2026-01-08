@@ -110,4 +110,41 @@ do
   fi
 done
 
+# Ensure HeapDumpPath directory exists to avoid OOM dump failures.
+HEAP_DUMP_PATH=""
+for opt in $JAVA_OPTS; do
+  if [[ "$opt" == -XX:HeapDumpPath=* ]]; then
+    HEAP_DUMP_PATH="${opt#-XX:HeapDumpPath=}"
+  fi
+done
+if [[ -n "$HEAP_DUMP_PATH" ]]; then
+  HEAP_DUMP_DIR="$HEAP_DUMP_PATH"
+  if [[ "$HEAP_DUMP_PATH" == */ ]]; then
+    HEAP_DUMP_DIR="${HEAP_DUMP_PATH%/}"
+  elif [[ "$HEAP_DUMP_PATH" == *.hprof || "$HEAP_DUMP_PATH" == *.phd ]]; then
+    HEAP_DUMP_DIR="$(dirname "$HEAP_DUMP_PATH")"
+  elif [[ -e "$HEAP_DUMP_PATH" && ! -d "$HEAP_DUMP_PATH" ]]; then
+    HEAP_DUMP_DIR="$(dirname "$HEAP_DUMP_PATH")"
+  elif [[ "${HEAP_DUMP_PATH##*/}" == *.* ]]; then
+    HEAP_DUMP_DIR="$(dirname "$HEAP_DUMP_PATH")"
+  fi
+  if [[ -n "$HEAP_DUMP_DIR" && ! -d "$HEAP_DUMP_DIR" ]]; then
+    mkdir -p "$HEAP_DUMP_DIR"
+  fi
+fi
+
+# Ensure Xloggc directory exists to avoid GC logging failures.
+GC_LOG_PATH=""
+for opt in $JAVA_OPTS; do
+  if [[ "$opt" == -Xloggc:* ]]; then
+    GC_LOG_PATH="${opt#-Xloggc:}"
+  fi
+done
+if [[ -n "$GC_LOG_PATH" ]]; then
+  GC_LOG_DIR="$(dirname "$GC_LOG_PATH")"
+  if [[ -n "$GC_LOG_DIR" && ! -d "$GC_LOG_DIR" ]]; then
+    mkdir -p "$GC_LOG_DIR"
+  fi
+fi
+
 java ${JAVA_OPTS} -cp ${CLASS_PATH} ${APP_MAIN} ${args}

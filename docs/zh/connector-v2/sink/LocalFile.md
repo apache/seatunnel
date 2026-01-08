@@ -72,8 +72,10 @@ import ChangeLog from '../changelog/connector-file-local.md';
 | parquet_avro_write_timestamp_as_int96 | boolean | 否    | false                                      | 仅在 file_format 为 parquet 时使用                                    |
 | parquet_avro_write_fixed_as_int96     | array   | 否    | -                                          | 仅在 file_format 为 parquet 时使用                                    |
 | enable_header_write                   | boolean | 否    | false                                      | 仅在 file_format_type 为 text,csv 时使用。<br/> false:不写入表头,true:写入表头。 |
-| encoding                              | string  | 否    | "UTF-8"                                    | 仅在 file_format_type 为 json,text,csv,xml 时使用                     |
-| merge_update_event                    | boolean | 否    | false                                      | 仅当file_format_type为canal_json、debezium_json、maxwell_json.       |
+| encoding                              | string  | 否    | "UTF-8"                                    | 仅在 file_format_type 为 json,text,csv,xml 时使用                    |
+| schema_save_mode                      | string  | 否    | CREATE_SCHEMA_WHEN_NOT_EXIST               | 现有目录处理方式                                                       |
+| data_save_mode                        | string  | 否    | APPEND_DATA                                | 现有数据处理方式                                                       |
+| merge_update_event                    | boolean | 否    | false                                      | 仅当file_format_type为canal_json、debezium_json、maxwell_json.      |
 
 ### path [string]
 
@@ -225,6 +227,21 @@ _root_tag [string]
 ### encoding [string]
 
 仅在 file_format_type 为 json,text,csv,xml 时使用。文件写入的编码。该参数将通过 `Charset.forName(encoding)` 解析。
+
+### schema_save_mode [string]
+
+现有的目录处理方法。
+- RECREATE_SCHEMA：当目录不存在时创建，当目录存在时删除并重新创建
+- CREATE_SCHEMA_WHEN_NOT_EXIST：当目录不存在时创建，当目录存在时跳过
+- ERROR_WHEN_SCHEMA_NOT_EXIST：当目录不存在时，将报告错误
+- IGNORE：忽略对表的处理
+
+### data_save_mode [string]
+
+现有的数据处理方法。
+- DROP_DATA：保留目录并删除数据文件
+- APPEND_DATA：保留目录，保留数据文件
+- ERROR_WHEN_DATA_EXISTS：当有数据文件时，会报告错误
 
 ### merge_update_event [boolean]
 

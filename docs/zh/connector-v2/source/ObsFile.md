@@ -62,22 +62,25 @@ import ChangeLog from '../changelog/connector-file-obs.md';
 
 ## 选项
 
-| 参数名 | 类型 | 必须 | 默认值 | 描述 |
-|--------|------|------|--------|------|
-| path | string | 是 | - | 目标目录路径 |
-| file_format_type | string | 是 | - | 文件类型 |
-| bucket | string | 是 | - | OBS 文件系统的桶地址，例如：`obs://obs-bucket-name` |
-| access_key | string | 是 | - | OBS 文件系统的访问密钥 |
-| access_secret | string | 是 | - | OBS 文件系统的访问密钥 |
-| endpoint | string | 是 | - | OBS 文件系统的端点 |
-| read_columns | list | 是 | - | 数据源的读取列列表 |
-| delimiter | string | 否 | \001 | 字段分隔符 |
-| row_delimiter | string | 否 | \n | 行分隔符 |
-| parse_partition_from_path | boolean | 否 | true | 控制是否从文件路径解析分区键和值 |
-| skip_header_row_number | long | 否 | 0 | 跳过前几行，但仅适用于 txt 和 csv。 |
-| date_format | string | 否 | yyyy-MM-dd | 日期类型格式 |
-| datetime_format | string | 否 | yyyy-MM-dd HH:mm:ss | 日期时间类型格式 |
-| time_format | string | 否 | HH:mm:ss | 时间类型格式 |
+| 参数名                       | 类型      | 必须 | 默认值                 | 描述                                      |
+|---------------------------|---------|----|---------------------|-----------------------------------------|
+| path                      | string  | 是  | -                   | 目标目录路径                                  |
+| file_format_type          | string  | 是  | -                   | 文件类型                                    |
+| bucket                    | string  | 是  | -                   | OBS 文件系统的桶地址，例如：`obs://obs-bucket-name` |
+| access_key                | string  | 是  | -                   | OBS 文件系统的访问密钥                           |
+| access_secret             | string  | 是  | -                   | OBS 文件系统的访问密钥                           |
+| endpoint                  | string  | 是  | -                   | OBS 文件系统的端点                             |
+| read_columns              | list    | 是  | -                   | 数据源的读取列列表                               |
+| delimiter                 | string  | 否  | \001                | 字段分隔符                                   |
+| row_delimiter             | string  | 否  | \n                  | 行分隔符                                    |
+| parse_partition_from_path | boolean | 否  | true                | 控制是否从文件路径解析分区键和值                        |
+| skip_header_row_number    | long    | 否  | 0                   | 跳过前几行，但仅适用于 txt 和 csv。                  |
+| date_format               | string  | 否  | yyyy-MM-dd          | 日期类型格式                                  |
+| datetime_format           | string  | 否  | yyyy-MM-dd HH:mm:ss | 日期时间类型格式                                |
+| time_format               | string  | 否  | HH:mm:ss            | 时间类型格式                                  |
+| quote_char                | string  | 否  | "                   | 用于包裹 CSV 字段的单字符，可保证包含逗号、换行符或引号的字段被正确解析。 |
+| escape_char               | string  | 否  | -                   | 用于在 CSV 字段内转义引号或其他特殊字符，使其不会结束字段。        |
+
 
 ## 变更日志
 

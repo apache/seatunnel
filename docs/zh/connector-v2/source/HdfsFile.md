@@ -75,7 +75,7 @@ import ChangeLog from '../changelog/connector-file-hadoop.md';
 | file_filter_pattern        | string  | 否    |                     | 过滤模式，用于过滤文件。                                                                                                                                                                     |
 | filename_extension         | string  | 否    | -                   | 过滤文件扩展名，用于过滤具有特定扩展名的文件。示例：`csv` `.txt` `json` `.xml`。                                                                                                                            |
 | compress_codec             | string  | 否    | none                | 文件的压缩编解码器                                                                                                                                                                        |
-| archive_compress_codec     | string  | 否    | none                |
+| archive_compress_codec     | string  | 否    | none                |                                                                                                                                                                                  |
 | encoding                   | string  | 否    | UTF-8               |                                                                                                                                                                                  |
 | null_format                | string  | 否    | -                   | 仅在 file_format_type 为 text 时使用。null_format 定义哪些字符串可以表示为 null。例如：`\N`                                                                                                             |
 | binary_chunk_size          | int     | 否    | 1024                | 仅在 file_format_type 为 binary 时使用。读取二进制文件的块大小（以字节为单位）。默认为 1024 字节。较大的值可能会提高大文件的性能，但会使用更多内存。                                                                                       |
@@ -83,6 +83,8 @@ import ChangeLog from '../changelog/connector-file-hadoop.md';
 | common-options             |         | 否    | -                   | 数据源插件通用参数，请参阅 [数据源通用选项](../source-common-options.md) 了解详情。                                                                                                                       |
 | file_filter_modified_start | string  | 否    | -                   | 按照最后修改时间过滤文件。 要过滤的开始时间(包括改时间),时间格式是：`yyyy-MM-dd HH:mm:ss`                                                                                                                        |
 | file_filter_modified_end   | string  | 否    | -                   | 按照最后修改时间过滤文件。 要过滤的结束时间(不包括改时间),时间格式是：`yyyy-MM-dd HH:mm:ss`                                                                                                                       |
+| quote_char                 | string  | 否    | "                   | 用于包裹 CSV 字段的单字符，可保证包含逗号、换行符或引号的字段被正确解析。                                                                                                                                          |
+| escape_char                | string  | 否    | -                   | 用于在 CSV 字段内转义引号或其他特殊字符，使其不会结束字段。                                                                                                                                                 |
 
 ### file_format_type [string]
 
@@ -210,6 +212,14 @@ abc.*
 仅在 file_format_type 为 binary 时使用。
 
 是否将完整文件作为单个块读取，而不是分割成块。启用时，整个文件内容将一次性读入内存。默认为 false。
+
+### quote_char [string]
+
+用于包裹 CSV 字段的单字符，可保证包含逗号、换行符或引号的字段被正确解析。
+
+### escape_char [string]
+
+用于在 CSV 字段内转义引号或其他特殊字符，使其不会结束字段。
 
 ### 提示
 

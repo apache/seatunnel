@@ -59,6 +59,43 @@ public class HiveIT extends TestSuiteBase implements TestResource {
                     + "    name   STRING,"
                     + "    score  INT"
                     + ")";
+    private static final String CREATE_REGEX_DB_A_SQL = "CREATE DATABASE IF NOT EXISTS a";
+    private static final String CREATE_REGEX_DB_ABC_SQL = "CREATE DATABASE IF NOT EXISTS abc";
+    private static final String CREATE_REGEX_TABLE_1_SQL =
+            "CREATE TABLE IF NOT EXISTS a.test_hive_regex_1"
+                    + "("
+                    + "    pk_id  BIGINT,"
+                    + "    name   STRING,"
+                    + "    score  INT"
+                    + ")";
+    private static final String CREATE_REGEX_TABLE_2_SQL =
+            "CREATE TABLE IF NOT EXISTS a.test_hive_regex_2"
+                    + "("
+                    + "    pk_id  BIGINT,"
+                    + "    name   STRING,"
+                    + "    score  INT"
+                    + ")";
+    private static final String CREATE_REGEX_TABLE_OTHER_SQL =
+            "CREATE TABLE IF NOT EXISTS a.test_hive_regex_other"
+                    + "("
+                    + "    pk_id  BIGINT,"
+                    + "    name   STRING,"
+                    + "    score  INT"
+                    + ")";
+    private static final String CREATE_REGEX_TABLE_NO_MATCH_SQL =
+            "CREATE TABLE IF NOT EXISTS a.test_hive_no_match"
+                    + "("
+                    + "    pk_id  BIGINT,"
+                    + "    name   STRING,"
+                    + "    score  INT"
+                    + ")";
+    private static final String CREATE_REGEX_TABLE_IGNORE_SQL =
+            "CREATE TABLE IF NOT EXISTS abc.test_hive_regex_ignore"
+                    + "("
+                    + "    pk_id  BIGINT,"
+                    + "    name   STRING,"
+                    + "    score  INT"
+                    + ")";
 
     private static final String HMS_HOST = "metastore";
     private static final String HIVE_SERVER_HOST = "hiveserver2";
@@ -169,7 +206,11 @@ public class HiveIT extends TestSuiteBase implements TestResource {
                         .withCreateContainerCmdModifier(cmd -> cmd.withName(HIVE_SERVER_HOST))
                         .withNetworkAliases(HIVE_SERVER_HOST)
                         .withFileSystemBind("/tmp/data", "/opt/hive/data")
-                        .withEnv("SERVICE_OPTS", "-Dhive.metastore.uris=thrift://metastore:9083")
+                        .withEnv(
+                                "SERVICE_OPTS",
+                                "-Dhive.metastore.uris=thrift://metastore:9083"
+                                        + " -Dhive.metastore.warehouse.dir=/opt/hive/data/warehouse"
+                                        + " -Dmetastore.warehouse.dir=/opt/hive/data/warehouse")
                         .withEnv("IS_RESUME", "true")
                         .dependsOn(hmsContainer);
         hiveServerContainer.setPortBindings(Collections.singletonList("10000:10000"));
@@ -208,6 +249,13 @@ public class HiveIT extends TestSuiteBase implements TestResource {
         // Avoid fragile HMS list calls; rely on default database existing in test images
         try (Statement statement = this.hiveConnection.createStatement()) {
             statement.execute(CREATE_SQL);
+            statement.execute(CREATE_REGEX_DB_A_SQL);
+            statement.execute(CREATE_REGEX_DB_ABC_SQL);
+            statement.execute(CREATE_REGEX_TABLE_1_SQL);
+            statement.execute(CREATE_REGEX_TABLE_2_SQL);
+            statement.execute(CREATE_REGEX_TABLE_OTHER_SQL);
+            statement.execute(CREATE_REGEX_TABLE_NO_MATCH_SQL);
+            statement.execute(CREATE_REGEX_TABLE_IGNORE_SQL);
         } catch (Exception exception) {
             log.error(ExceptionUtils.getMessage(exception));
             throw exception;
@@ -227,6 +275,40 @@ public class HiveIT extends TestSuiteBase implements TestResource {
     @TestTemplate
     public void testFakeSinkHive(TestContainer container) throws Exception {
         executeJob(container, "/fake_to_hive.conf", "/hive_to_assert.conf");
+    }
+
+    @TestTemplate
+    public void testHiveSourceWholeDatabaseUseRegex(TestContainer container) throws Exception {
+        Container.ExecResult exec1 = container.executeJob("/regex/fake_to_hive_regex_1.conf");
+        Assertions.assertEquals(0, exec1.getExitCode());
+        Container.ExecResult exec2 = container.executeJob("/regex/fake_to_hive_regex_2.conf");
+        Assertions.assertEquals(0, exec2.getExitCode());
+        Container.ExecResult execOther =
+                container.executeJob("/regex/fake_to_hive_regex_other.conf");
+        Assertions.assertEquals(0, execOther.getExitCode());
+        Container.ExecResult execNoMatch =
+                container.executeJob("/regex/fake_to_hive_regex_no_match.conf");
+        Assertions.assertEquals(0, execNoMatch.getExitCode());
+        Container.ExecResult exec3 = container.executeJob("/regex/fake_to_hive_regex_ignore.conf");
+        Assertions.assertEquals(0, exec3.getExitCode());
+
+        Container.ExecResult readResult =
+                container.executeJob("/regex/hive_regex_db_to_assert.conf");
+        Assertions.assertEquals(0, readResult.getExitCode());
+        // Verify root-level regex discovery also works
+        Container.ExecResult readResultRoot =
+                container.executeJob("/regex/hive_regex_db_to_assert_root.conf");
+        Assertions.assertEquals(0, readResultRoot.getExitCode());
+
+        // Verify regex pattern matching a subset of tables in the same database
+        Container.ExecResult readResultPattern =
+                container.executeJob("/regex/hive_regex_table_pattern_to_assert.conf");
+        Assertions.assertEquals(0, readResultPattern.getExitCode());
+
+        // Verify regex matching with escaped dot wildcard (e.g. "test_hive_regex_.*")
+        Container.ExecResult readResultPrefix =
+                container.executeJob("/regex/hive_regex_table_prefix_to_assert.conf");
+        Assertions.assertEquals(0, readResultPrefix.getExitCode());
     }
 
     @TestTemplate

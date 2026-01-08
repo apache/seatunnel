@@ -53,6 +53,10 @@ public class JdbcConnectionConfig implements Serializable {
 
     private int transactionTimeoutSec = JdbcSinkOptions.TRANSACTION_TIMEOUT_SEC.defaultValue();
 
+    private int socketTimeoutMs = JdbcCommonOptions.SOCKET_TIMEOUT_MS.defaultValue();
+
+    private int connectTimeoutMs = JdbcCommonOptions.CONNECT_TIMEOUT_MS.defaultValue();
+
     private boolean useKerberos = JdbcCommonOptions.USE_KERBEROS.defaultValue();
 
     private String kerberosPrincipal;
@@ -79,6 +83,8 @@ public class JdbcConnectionConfig implements Serializable {
         builder.maxRetries(config.get(JdbcSinkOptions.MAX_RETRIES));
         builder.connectionCheckTimeoutSeconds(
                 config.get(JdbcCommonOptions.CONNECTION_CHECK_TIMEOUT_SEC));
+        builder.socketTimeoutMs(config.get(JdbcCommonOptions.SOCKET_TIMEOUT_MS));
+        builder.connectTimeoutMs(config.get(JdbcCommonOptions.CONNECT_TIMEOUT_MS));
         builder.batchSize(config.get(JdbcSinkOptions.BATCH_SIZE));
         builder.handleBlobAsString(config.get(JdbcCommonOptions.HANDLE_BLOB_AS_STRING));
         if (config.get(JdbcSinkOptions.IS_EXACTLY_ONCE)) {
@@ -143,6 +149,8 @@ public class JdbcConnectionConfig implements Serializable {
         private boolean handleBlobAsString = JdbcCommonOptions.HANDLE_BLOB_AS_STRING.defaultValue();
         private int maxCommitAttempts = JdbcSinkOptions.MAX_COMMIT_ATTEMPTS.defaultValue();
         private int transactionTimeoutSec = JdbcSinkOptions.TRANSACTION_TIMEOUT_SEC.defaultValue();
+        private int socketTimeoutMs = JdbcCommonOptions.SOCKET_TIMEOUT_MS.defaultValue();
+        private int connectTimeoutMs = JdbcCommonOptions.CONNECT_TIMEOUT_MS.defaultValue();
         private Map<String, String> properties;
         public boolean useKerberos = JdbcCommonOptions.USE_KERBEROS.defaultValue();
         public String kerberosPrincipal;
@@ -230,6 +238,16 @@ public class JdbcConnectionConfig implements Serializable {
             return this;
         }
 
+        public Builder socketTimeoutMs(int socketTimeoutMs) {
+            this.socketTimeoutMs = socketTimeoutMs;
+            return this;
+        }
+
+        public Builder connectTimeoutMs(int connectTimeoutMs) {
+            this.connectTimeoutMs = connectTimeoutMs;
+            return this;
+        }
+
         public Builder useKerberos(boolean useKerberos) {
             this.useKerberos = useKerberos;
             return this;
@@ -292,6 +310,8 @@ public class JdbcConnectionConfig implements Serializable {
             jdbcConnectionConfig.autoCommit = this.autoCommit;
             jdbcConnectionConfig.username = this.username;
             jdbcConnectionConfig.transactionTimeoutSec = this.transactionTimeoutSec;
+            jdbcConnectionConfig.socketTimeoutMs = this.socketTimeoutMs;
+            jdbcConnectionConfig.connectTimeoutMs = this.connectTimeoutMs;
             jdbcConnectionConfig.maxCommitAttempts = this.maxCommitAttempts;
             jdbcConnectionConfig.xaDataSourceClassName = this.xaDataSourceClassName;
             jdbcConnectionConfig.decimalTypeNarrowing = this.decimalTypeNarrowing;

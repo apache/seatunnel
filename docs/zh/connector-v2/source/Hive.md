@@ -51,6 +51,7 @@ import ChangeLog from '../changelog/connector-hive.md';
 |         名称          |  类型  | 必需 | 默认值  |
 |-----------------------|--------|------|---------|
 | table_name            | string | 是   | -       |
+| use_regex             | boolean| 否   | false   |
 | metastore_uri         | string | 是   | -       |
 | krb5_path             | string | 否   | /etc/krb5.conf |
 | kerberos_principal    | string | 否   | -       |
@@ -66,7 +67,19 @@ import ChangeLog from '../changelog/connector-hive.md';
 
 ### table_name [string]
 
-目标 Hive 表名，例如：`db1.table1`
+目标 Hive 表名，例如：`db1.table1`。当 `use_regex = true` 时，该字段支持 `数据库正则.表正则`（Hive 没有 schema）来匹配 Hive 元存储中的多张表。
+
+### use_regex [boolean]
+
+是否将 `table_name` 视为正则表达式进行匹配。开启后，`table_name` 可用于整库/多表同步；同样也支持在 `table_list` / `tables_configs` 的每个表配置里单独开启。
+
+语法说明：
+- 点号（`.`）被视为数据库与表之间的分隔符（Hive 仅支持 `database.table`）。
+- 只允许出现 1 个未转义的点号（`.`）（作为数据库/表分隔符）。如果需要在正则表达式中使用点号（`.`）（例如 `.*`），必须写成 `\.`（HOCON 字符串里需要写成 `\\.`）。
+- 例如：`db0.\.*`、`db1.user_table_[0-9]+`、`db[1-2].(app|web)order_\.*`。
+- 在 SeaTunnel 作业配置（HOCON 字符串）中，反斜杠需要再次转义。例如正则 `db0.\.*` 在配置中应写成 `db0.\\.*`。
+- `db0.\.*` 表示同步 `db0` 库下的所有表（整库同步）。
+- `\.*.\.*` 表示同步所有库下的所有表（整 Hive 同步）。
 
 ### metastore_uri [string]
 
@@ -134,6 +147,7 @@ Kerberos 认证的 keytab 文件路径
 
 ### 示例 2：多表
 > 注意：Hive 是结构化数据源，应使用 `table_list`，`tables_configs` 将在未来移除。
+> 也支持在每个表配置中设置 `use_regex = true` 来按正则匹配多表。
 
 ```bash
   Hive {
@@ -165,7 +179,40 @@ Kerberos 认证的 keytab 文件路径
   }
 ```
 
-### 示例 3：Kerberos
+### 示例 3：正则匹配多表（整库/整库子集）
+
+```bash
+  Hive {
+    metastore_uri = "thrift://namenode001:9083"
+
+    # 1) 整库同步：同步 `a` 库下的所有表
+    table_name = "a.\\.*"
+    use_regex = true
+  }
+```
+
+```bash
+  Hive {
+    metastore_uri = "thrift://namenode001:9083"
+
+    # 2) 整 Hive 同步：同步所有库下的所有表
+    table_name = "\\.*.\\.*"
+    use_regex = true
+  }
+```
+
+```bash
+  Hive {
+    metastore_uri = "thrift://namenode001:9083"
+
+    # 3) 整库子集：同步 `a` 库下，表名匹配 `tmp_.*` 的表
+    #    注意：`.*` 里的点号（`.`）必须写成 `\.`（HOCON 字符串里写 `\\.`），因为未转义的点号会被当作分隔符
+    table_name = "a.tmp_\\.*"
+    use_regex = true
+  }
+```
+
+### 示例 4：Kerberos
 
 ```bash
 source {
