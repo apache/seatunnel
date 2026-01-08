@@ -15,13 +15,15 @@
  * limitations under the License.
  */
 
-package org.apache.seatunnel.transform.sql.zeta;
+package org.apache.seatunnel.transform.sql;
 
 import org.apache.seatunnel.api.table.type.ArrayType;
 import org.apache.seatunnel.api.table.type.BasicType;
 import org.apache.seatunnel.api.table.type.MapType;
 import org.apache.seatunnel.api.table.type.SeaTunnelDataType;
+import org.apache.seatunnel.api.table.type.SeaTunnelRow;
 import org.apache.seatunnel.api.table.type.SeaTunnelRowType;
+import org.apache.seatunnel.transform.sql.zeta.ZetaSQLType;
 
 import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.Test;
@@ -34,8 +36,11 @@ import net.sf.jsqlparser.expression.operators.relational.ExpressionList;
 
 import java.util.Arrays;
 import java.util.Collections;
+import java.util.List;
+import java.util.Map;
 
-class ZetaSQLTypeNestedTypeTest {
+/** Tests for nested Array and Map type handling */
+public class SQLNestedTypeTest {
 
     private static Function arr(Expression... expressions) {
         Function function = new Function();
@@ -58,9 +63,23 @@ class ZetaSQLTypeNestedTypeTest {
         return new ZetaSQLType(rowType, Collections.emptyList());
     }
 
+    private SQLEngine zetaEngine() {
+        return SQLEngineFactory.getSQLEngine(SQLEngineFactory.EngineType.ZETA);
+    }
+
+    private SeaTunnelRowType dummyInputType() {
+        return new SeaTunnelRowType(
+                new String[] {"dummy"}, new SeaTunnelDataType[] {BasicType.INT_TYPE});
+    }
+
+    private SeaTunnelRow dummyRow() {
+        return new SeaTunnelRow(new Object[] {1});
+    }
+
+    // ==================== Type Inference Tests ====================
+
     @Test
     void testArrayOfArrayTypePreserved() {
-        // ARRAY(ARRAY(1,2), ARRAY(3,4))
         Function inner1 = arr(new LongValue(1), new LongValue(2));
         Function inner2 = arr(new LongValue(3), new LongValue(4));
         Function outer = arr(inner1, inner2);
@@ -71,7 +90,6 @@ class ZetaSQLTypeNestedTypeTest {
 
     @Test
     void testArrayOfMapTypePreserved() {
-        // ARRAY(MAP('k',1), MAP('k2',2))
         Function map1 = map(new StringValue("k"), new LongValue(1));
         Function map2 = map(new StringValue("k2"), new LongValue(2));
         Function outer = arr(map1, map2);
@@ -83,18 +101,16 @@ class ZetaSQLTypeNestedTypeTest {
 
     @Test
     void testMapOfArrayTypePreserved() {
-        // MAP('k', ARRAY(1,2))
         Function valueArr = arr(new LongValue(1), new LongValue(2));
-        Function map = map(new StringValue("k"), valueArr);
+        Function mapFunc = map(new StringValue("k"), valueArr);
 
-        SeaTunnelDataType type = zeta().getExpressionType(map);
+        SeaTunnelDataType type = zeta().getExpressionType(mapFunc);
         Assertions.assertEquals(
                 new MapType<>(BasicType.STRING_TYPE, ArrayType.INT_ARRAY_TYPE), type);
     }
 
     @Test
     void testMapOfMapTypePreserved() {
-        // MAP('k', Map('k',2))
         Function innerMap = map(new StringValue("k"), new LongValue(2));
         Function outerMap = map(new StringValue("k"), innerMap);
 
@@ -104,5 +120,44 @@ class ZetaSQLTypeNestedTypeTest {
                         BasicType.STRING_TYPE,
                         new MapType<>(BasicType.STRING_TYPE, BasicType.INT_TYPE)),
                 type);
+    }
+
+    // ==================== SQL Evaluation Tests ====================
+
+    @Test
+    void testNestedArrayEvaluate() {
+        SQLEngine sql = zetaEngine();
+        SeaTunnelRowType inType = dummyInputType();
+
+        sql.init("test", null, inType, "select ARRAY(ARRAY(1,2), ARRAY(3,4)) as a from test");
+        List<SeaTunnelRow> out = sql.transformBySQL(dummyRow(), inType);
+
+        Assertions.assertEquals(1, out.size());
+        Object[] outer = (Object[]) out.get(0).getField(0);
+        Assertions.assertEquals(2, outer.length);
+
+        Object[] inner1 = (Object[]) outer[0];
+        Object[] inner2 = (Object[]) outer[1];
+        Assertions.assertEquals(1, ((Number) inner1[0]).intValue());
+        Assertions.assertEquals(4, ((Number) inner2[1]).intValue());
+    }
+
+    @Test
+    void testNestedMapEvaluate() {
+        SQLEngine sql = zetaEngine();
+        SeaTunnelRowType inType = dummyInputType();
+
+        sql.init(
+                "test",
+                null,
+                inType,
+                "select MAP('k1', MAP('a', 1, 'b', 2), 'k2', MAP('c', 3)) as m from test");
+        List<SeaTunnelRow> out = sql.transformBySQL(dummyRow(), inType);
+
+        Assertions.assertEquals(1, out.size());
+        Map m = (Map) out.get(0).getField(0);
+        Map k1 = (Map) m.get("k1");
+        Assertions.assertEquals(1, ((Number) k1.get("a")).intValue());
+        Assertions.assertEquals(2, ((Number) k1.get("b")).intValue());
     }
 }
