@@ -26,7 +26,7 @@ Output data to Hbase
 | wal_write          | boolean | yes      | false           |
 | write_buffer_size  | string  | no       | 8 * 1024 * 1024 |
 | encoding           | string  | no       | utf8            |
-| hbase_extra_config | string  | no       | -               |
+| hbase_extra_config | config  | no       | -               |
 | common-options     |         | no       | -               |
 | ttl                | long    | no       | -               |
 
@@ -119,6 +119,36 @@ Hbase {
   }
 }
 
+```
+
+## Kerberos Example
+
+Note:
+
+- `connector-hbase` does not parse `krb5_path`, `kerberos_principal`, or `kerberos_keytab_path`.
+- Prepare Kerberos credentials and `krb5.conf` in the runtime environment (for example, `kinit -kt ...` or JVM `-Djava.security.krb5.conf=...`), and put HBase/Hadoop security settings into `hbase_extra_config`.
+
+```hocon
+sink {
+  Hbase {
+    zookeeper_quorum = "zk1:2181,zk2:2181,zk3:2181"
+    table = "target_table"
+    rowkey_column = ["rowkey"]
+    family_name {
+      all_columns = "info"
+    }
+
+    # HBase security config
+    hbase_extra_config = {
+      "hbase.security.authentication" = "kerberos"
+      "hadoop.security.authentication" = "kerberos"
+      "hbase.master.kerberos.principal" = "hbase/_HOST@REALM"
+      "hbase.regionserver.kerberos.principal" = "hbase/_HOST@REALM"
+      "hbase.rpc.protection" = "authentication"
+      "hbase.zookeeper.useSasl" = "false"
+    }
+  }
+}
 ```
 
 ### Multiple Table

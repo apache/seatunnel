@@ -175,4 +175,17 @@ public class FileBaseSourceOptions extends FileBaseOptions {
                     .withDescription(
                             "Compare mode when sync_mode=update. Supported values: len_mtime, checksum. "
                                     + "checksum uses Hadoop FileSystem#getFileChecksum, only valid when update_strategy=strict.");
+    public static final Option<String> QUOTE_CHAR =
+            Options.key("quote_char")
+                    .stringType()
+                    .defaultValue("\"")
+                    .withDescription(
+                            "A single character that encloses CSV fields, allowing fields with commas, line breaks, or quotes to be read correctly.");
+
+    public static final Option<String> ESCAPE_CHAR =
+            Options.key("escape_char")
+                    .stringType()
+                    .noDefaultValue()
+                    .withDescription(
+                            "A single character that allows the quote or other special characters to appear inside a CSV field without ending the field.");
 }

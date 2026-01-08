@@ -79,6 +79,8 @@ import ChangeLog from '../changelog/connector-file-hadoop.md';
 | max_rows_in_memory               | int     | 否    | -                                          | 仅当 file_format 为 excel 时使用。当文件格式为 Excel 时，可以缓存在内存中的最大数据项数。                                                                                                                                                                                                                                       |
 | sheet_name                       | string  | 否    | Sheet${Random number}                      | 仅当 file_format 为 excel 时使用。将工作簿的表写入指定的表名                                                                                                                                                                                                                                                         |
 | remote_user                      | string  | 否    | -                                          | Hdfs的远端用户名。                                                                                                                                                                                                                                                                                      |
+| schema_save_mode                 | string  | 否    | CREATE_SCHEMA_WHEN_NOT_EXIST               | 现有目录处理方式                                                                                                                                                                                                                                                                                         |
+| data_save_mode                   | string  | 否    | APPEND_DATA                                | 现有数据处理方式                                                                                                                                                                                                                                                                                         |
 | merge_update_event               | boolean | 否    | false                                      | 仅当file_format_type为canal_json、debezium_json、maxwell_json.                                                                                                                                                                                                                                        |
 
 ### 提示
@@ -86,6 +88,21 @@ import ChangeLog from '../changelog/connector-file-hadoop.md';
 > 如果您使用 spark/flink，为了使用此连接器，您必须确保您的 spark/flink 集群已经集成了 hadoop。测试过的 hadoop 版本是
 > 2.x。如果您使用 SeaTunnel Engine，则在下载和安装 SeaTunnel Engine 时会自动集成 hadoop
 > jar。您可以检查 `${SEATUNNEL_HOME}/lib` 下的 jar 包来确认这一点。
+
+### schema_save_mode [string]
+
+现有的目录处理方法。
+- RECREATE_SCHEMA：当目录不存在时创建，当目录存在时删除并重新创建
+- CREATE_SCHEMA_WHEN_NOT_EXIST：当目录不存在时创建，当目录存在时跳过
+- ERROR_WHEN_SCHEMA_NOT_EXIST：当目录不存在时，将报告错误
+- IGNORE：忽略对表的处理
+
+### data_save_mode [string]
+
+现有的数据处理方法。
+- DROP_DATA：保留目录并删除数据文件
+- APPEND_DATA：保留目录，保留数据文件
+- ERROR_WHEN_DATA_EXISTS：当有数据文件时，会报告错误
 
 ### merge_update_event [boolean]
 
