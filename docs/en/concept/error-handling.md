@@ -289,4 +289,22 @@ env {
 }
 ```
 
+### MySQL Error Table Structure
+
+If you use MySQL as the error sink, you need to create the table manually with the following structure:
+
+```sql
+CREATE TABLE sink_error_basic (
+    error_stage VARCHAR(50),
+    plugin_type VARCHAR(50),
+    plugin_name VARCHAR(100),
+    source_table_path VARCHAR(255),
+    error_message TEXT,
+    exception_class VARCHAR(255),
+    stacktrace TEXT,
+    original_data TEXT,
+    occur_time TIMESTAMP
+);
+```
+
 For the Transform stage, similar configuration can be made through `transform_error_handler`.

@@ -289,4 +289,22 @@ env {
 }
 ```
 
+### MySQL 错误表结构
+
+如果您使用 MySQL 作为错误 Sink，需要手动创建如下结构的表：
+
+```sql
+CREATE TABLE sink_error_basic (
+    error_stage VARCHAR(50),
+    plugin_type VARCHAR(50),
+    plugin_name VARCHAR(100),
+    source_table_path VARCHAR(255),
+    error_message TEXT,
+    exception_class VARCHAR(255),
+    stacktrace TEXT,
+    original_data TEXT,
+    occur_time TIMESTAMP
+);
+```
+
 对于 Transform 阶段，可以通过 `transform_error_handler` 进行类似配置。
