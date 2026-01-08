@@ -59,7 +59,7 @@ public class CommonFunction {
         }
         if (expression instanceof Column) {
             Column c = (Column) expression;
-            int idx = rowType.indexOf(c.getColumnName());
+            int idx = rowType.indexOf(c.getColumnName(), false);
             if (idx < 0) {
                 throw CommonError.illegalArgument(
                         "column not found: " + c.getColumnName(), "derive expression type");
