@@ -25,7 +25,6 @@ import ChangeLog from '../changelog/connector-graphql.md';
 | timeout                     | Long    | No       | -                       |
 | content_field               | String  | Yes      | $.data.{query_object}.* |
 | schema.fields               | Config  | Yes      | -                       |
-| format                      | String  | No       | json                    |
 | params                      | Map     | Yes      | -                       |
 | poll_interval_millis        | int     | No       | -                       |
 | retry                       | int     | No       | -                       |
@@ -87,10 +86,6 @@ HTTP请求参数
 
 如果http请求失败，最大重试回退时间（毫秒）
 
-### format [String]
-
-上游数据的格式，默认为json。
-
 ### schema [Config]
 
 填写一个固定值
@@ -122,7 +117,6 @@ HTTP请求参数
 source {
     GraphQL {
         url = "http://192.168.1.103:9081/v1/graphql"
-        format = "json"
         content_field = "$.data.source"
         query = """
             query MyQuery($limit: Int) {
@@ -155,7 +149,6 @@ source {
 source {
     GraphQL {
         url = "http://192.168.1.103:9081/v1/graphql"
-        format = "json"
         content_field = "$.data.source"
         query = """
             query MyQuery($limit: Int) {
