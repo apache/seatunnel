@@ -31,8 +31,8 @@ seatunnel:
     engine:
         checkpoint:
             storage:
-                type: hdfs #检查点存储的插件名称，支持hdfs(S3, local, hdfs), 默认为localfile (本地文件), 但这种方式已弃用
-              # 插件配置
+                type: hdfs # 检查点存储的插件名称，支持hdfs(S3, local, hdfs), 默认为localfile (本地文件), 但这种方式已弃用
+                # 插件配置
                 plugin-config: 
                   namespace: #检查点存储父路径，默认值为/seatunnel/checkpoint/
                   K1: V1 # 插件其它配置
@@ -60,7 +60,7 @@ seatunnel:
         type: hdfs
         max-retained: 3
         plugin-config:
-          namespace: #检查点存储父路径，默认值为/seatunnel/checkpoint/
+          namespace: # 检查点存储父路径，默认值为/seatunnel/checkpoint/
           storage.type: oss
           oss.bucket: your-bucket
           fs.oss.accessKeyId: your-access-key
@@ -91,7 +91,7 @@ seatunnel:
         type: hdfs
         max-retained: 3
         plugin-config:
-          namespace: #检查点存储父路径，默认值为/seatunnel/checkpoint/
+          namespace: # 检查点存储父路径，默认值为/seatunnel/checkpoint/
           storage.type: cos
           cos.bucket: cosn://your-bucket
           fs.cosn.credentials.provider: org.apache.hadoop.fs.cosn.auth.SimpleCredentialsProvider
@@ -129,7 +129,7 @@ seatunnel:
                 type: hdfs
                 max-retained: 3
                 plugin-config:
-                  namespace: #检查点存储父路径，默认值为/seatunnel/checkpoint/
+                  namespace: # 检查点存储父路径，默认值为/seatunnel/checkpoint/
                   storage.type: s3
                   s3.bucket: your-bucket
                   fs.s3a.access.key: your-access-key
@@ -153,7 +153,7 @@ seatunnel:
         type: hdfs
         max-retained: 3
         plugin-config:
-          namespace: #检查点存储父路径，默认值为/seatunnel/checkpoint/
+          namespace: # 检查点存储父路径，默认值为/seatunnel/checkpoint/
           storage.type: s3
           s3.bucket: your-bucket
           fs.s3a.endpoint: your-endpoint
@@ -174,7 +174,7 @@ seatunnel:
         type: hdfs
         max-retained: 3
         plugin-config:
-          namespace: #检查点存储父路径，默认值为/seatunnel/checkpoint/
+          namespace: # 检查点存储父路径，默认值为/seatunnel/checkpoint/
           storage.type: hdfs
           fs.defaultFS: hdfs://localhost:9000
           // 如果您使用kerberos，您可以这样配置:
@@ -192,7 +192,7 @@ seatunnel:
         type: hdfs
         max-retained: 3
         plugin-config:
-          namespace: #检查点存储父路径，默认值为/seatunnel/checkpoint/
+          namespace: # 检查点存储父路径，默认值为/seatunnel/checkpoint/
           storage.type: hdfs
           fs.defaultFS: hdfs://usdp-bing
           seatunnel.hadoop.dfs.nameservices: usdp-bing
@@ -217,7 +217,7 @@ seatunnel:
         type: hdfs
         max-retained: 3
         plugin-config:
-          namespace: #检查点存储父路径，默认值为/seatunnel/checkpoint/
+          namespace: # 检查点存储父路径，默认值为/seatunnel/checkpoint/
           storage.type: hdfs
           fs.defaultFS: file:/// # 请确保该目录具有写权限
 
@@ -237,7 +237,7 @@ seatunnel:
         type: hdfs
         max-retained: 3
         plugin-config:
-          namespace: #检查点存储父路径，默认值为/seatunnel/checkpoint/
+          namespace: # 检查点存储父路径，默认值为/seatunnel/checkpoint/
           storage.type: hdfs
           disable.cache: false
           fs.defaultFS: hdfs:/// # Ensure that the directory has written permission
@@ -255,7 +255,7 @@ seatunnel:
         type: hdfs
         max-retained: 3
         plugin-config:
-          namespace: #检查点存储父路径，默认值为/seatunnel/checkpoint/
+          namespace: # 检查点存储父路径，默认值为/seatunnel/checkpoint/
           storage.type: hdfs
           disable.cache: false
           fs.defaultFS: file:/// 
