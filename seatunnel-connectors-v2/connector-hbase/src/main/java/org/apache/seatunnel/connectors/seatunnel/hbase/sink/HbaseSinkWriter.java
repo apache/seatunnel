@@ -61,6 +61,8 @@ public class HbaseSinkWriter
 
     private final HbaseParameters hbaseParameters;
 
+    private final Charset charset;
+
     private List<Integer> rowkeyColumnIndexes;
 
     private int versionColumnIndex;
@@ -83,6 +85,7 @@ public class HbaseSinkWriter
             HbaseClient hbaseClient) {
         this.seaTunnelRowType = seaTunnelRowType;
         this.hbaseParameters = hbaseParameters;
+        this.charset = Charset.forName(hbaseParameters.getEnCoding().toString());
         this.rowkeyColumnIndexes = rowkeyColumnIndexes;
         this.versionColumnIndex = versionColumnIndex;
 
@@ -174,7 +177,6 @@ public class HbaseSinkWriter
             return null;
         }
         SeaTunnelDataType<?> fieldType = seaTunnelRowType.getFieldType(index);
-        Charset charset = Charset.forName(hbaseParameters.getEnCoding().toString());
         switch (fieldType.getSqlType()) {
             case TINYINT:
                 return Bytes.toBytes((Byte) field);
