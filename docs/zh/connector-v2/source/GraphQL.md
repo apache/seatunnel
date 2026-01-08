@@ -11,7 +11,7 @@ import ChangeLog from '../changelog/connector-graphql.md';
 ## 主要特性
 
 - [x] [批处理](../../concept/connector-v2-features.md)
-- [ ] [流处理](../../concept/connector-v2-features.md)
+- [x] [流处理](../../concept/connector-v2-features.md)
 - [ ] [并行](../../concept/connector-v2-features.md)
 
 ## 源选项
@@ -56,8 +56,8 @@ variables = {
 
 ### enable_subscription [boolean]
 
-1. true :  构建一个套接字读取器来订阅GraphQL服务
-2. false :  构建GraphQL服务的http阅读器订阅
+1. true :  开启流式订阅模式（WebSocket）
+2. false :  开启批处理查询模式（HTTP）
 
 ### timeout [Long]
 

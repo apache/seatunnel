@@ -56,8 +56,8 @@ variables = {
 
 ### enable_subscription [boolean]
 
-1. true :  Build a socket reader to subscribe to the GraphQL service
-2. false :  Build an http reader subscription to the GraphQL service
+1. true :  Enable streaming subscription mode (WebSocket)
+2. false :  Enable batch query mode (HTTP)
 
 ### timeout [Long]
 
