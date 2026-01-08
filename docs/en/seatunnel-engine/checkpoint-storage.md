@@ -33,10 +33,10 @@ seatunnel:
     engine:
         checkpoint:
             storage:
-                type: hdfs #plugin name of checkpoint storage, we support hdfs(S3, local, hdfs), localfile (native local file) is the default, but this plugin is de
-              # plugin configuration
+                type: hdfs # plugin name of checkpoint storage, we support hdfs(S3, local, hdfs), localfile (native local file) is the default, but this plugin is deprecated
+                # plugin configuration
                 plugin-config: 
-                  namespace: #checkpoint storage parent path, the default value is /seatunnel/checkpoint/
+                  namespace: # checkpoint storage parent path, the default value is /seatunnel/checkpoint/
                   K1: V1 # plugin other configuration
                   K2: V2 # plugin other configuration   
 ```
@@ -62,7 +62,7 @@ seatunnel:
         type: hdfs
         max-retained: 3
         plugin-config:
-          namespace: #checkpoint storage parent path, the default value is /seatunnel/checkpoint/
+          namespace: # checkpoint storage parent path, the default value is /seatunnel/checkpoint/
           storage.type: oss
           oss.bucket: your-bucket
           fs.oss.accessKeyId: your-access-key
@@ -93,7 +93,7 @@ seatunnel:
         type: hdfs
         max-retained: 3
         plugin-config:
-          namespace: #checkpoint storage parent path, the default value is /seatunnel/checkpoint/
+          namespace: # checkpoint storage parent path, the default value is /seatunnel/checkpoint/
           storage.type: cos
           cos.bucket: cosn://your-bucket
           fs.cosn.credentials.provider: org.apache.hadoop.fs.cosn.auth.SimpleCredentialsProvider
@@ -131,7 +131,7 @@ seatunnel:
                 type: hdfs
                 max-retained: 3
                 plugin-config:
-                  namespace: #checkpoint storage parent path, the default value is /seatunnel/checkpoint/
+                  namespace: # checkpoint storage parent path, the default value is /seatunnel/checkpoint/
                   storage.type: s3
                   s3.bucket: your-bucket
                   fs.s3a.access.key: your-access-key
@@ -155,7 +155,7 @@ seatunnel:
         type: hdfs
         max-retained: 3
         plugin-config:
-          namespace: #checkpoint storage parent path, the default value is /seatunnel/checkpoint/
+          namespace: # checkpoint storage parent path, the default value is /seatunnel/checkpoint/
           storage.type: s3
           s3.bucket: your-bucket
           fs.s3a.endpoint: your-endpoint
@@ -175,7 +175,7 @@ seatunnel:
         type: hdfs
         max-retained: 3
         plugin-config:
-          namespace: #checkpoint storage parent path, the default value is /seatunnel/checkpoint/
+          namespace: # checkpoint storage parent path, the default value is /seatunnel/checkpoint/
           storage.type: s3
           fs.s3a.access.key: xxxxxxxxx # Access Key  of MinIO
           fs.s3a.secret.key: xxxxxxxxxxxxxxxxxxxxx # Secret Key of MinIO
@@ -199,7 +199,7 @@ seatunnel:
         type: hdfs
         max-retained: 3
         plugin-config:
-          namespace: #checkpoint storage parent path, the default value is /seatunnel/checkpoint/
+          namespace: # checkpoint storage parent path, the default value is /seatunnel/checkpoint/
           storage.type: hdfs
           fs.defaultFS: hdfs://localhost:9000
           // if you used kerberos, you can config like this:
@@ -219,7 +219,7 @@ seatunnel:
         type: hdfs
         max-retained: 3
         plugin-config:
-          namespace: #checkpoint storage parent path, the default value is /seatunnel/checkpoint/
+          namespace: # checkpoint storage parent path, the default value is /seatunnel/checkpoint/
           storage.type: hdfs
           fs.defaultFS: hdfs://usdp-bing
           seatunnel.hadoop.dfs.nameservices: usdp-bing
@@ -244,7 +244,7 @@ seatunnel:
         type: hdfs
         max-retained: 3
         plugin-config:
-          namespace: #checkpoint storage parent path, the default value is /seatunnel/checkpoint/
+          namespace: # checkpoint storage parent path, the default value is /seatunnel/checkpoint/
           storage.type: hdfs
           fs.defaultFS: file:/// # Ensure that the directory has written permission 
 
@@ -264,7 +264,7 @@ seatunnel:
         type: hdfs
         max-retained: 3
         plugin-config:
-          namespace: #checkpoint storage parent path, the default value is /seatunnel/checkpoint/
+          namespace: # checkpoint storage parent path, the default value is /seatunnel/checkpoint/
           storage.type: hdfs
           disable.cache: false
           fs.defaultFS: hdfs:///
@@ -283,7 +283,7 @@ seatunnel:
         type: hdfs
         max-retained: 3
         plugin-config:
-          namespace: #checkpoint storage parent path, the default value is /seatunnel/checkpoint/
+          namespace: # checkpoint storage parent path, the default value is /seatunnel/checkpoint/
           storage.type: hdfs
           disable.cache: false
           fs.defaultFS: file:///
