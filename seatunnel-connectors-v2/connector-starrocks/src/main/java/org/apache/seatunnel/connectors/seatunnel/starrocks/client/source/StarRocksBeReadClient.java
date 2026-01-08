@@ -208,7 +208,6 @@ public class StarRocksBeReadClient implements Serializable {
                         ip,
                         port,
                         contextId);
-                throw new StarRocksConnectorException(CLOSE_BE_READER_FAILED, e);
             }
         }
     }
