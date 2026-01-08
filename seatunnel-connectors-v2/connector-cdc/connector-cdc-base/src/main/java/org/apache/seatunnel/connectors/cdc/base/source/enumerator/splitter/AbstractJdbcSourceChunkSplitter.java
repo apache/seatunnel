@@ -67,6 +67,7 @@ public abstract class AbstractJdbcSourceChunkSplitter implements JdbcSourceChunk
             long start = System.currentTimeMillis();
 
             Column splitColumn = getSplitColumn(jdbc, dialect, tableId);
+            log.info("Chosen split column {} for table {}", splitColumn.name(), tableId);
             List<SnapshotSplit> splits = new ArrayList<>();
             if (splitColumn == null) {
                 if (sourceConfig.isExactlyOnce()) {
