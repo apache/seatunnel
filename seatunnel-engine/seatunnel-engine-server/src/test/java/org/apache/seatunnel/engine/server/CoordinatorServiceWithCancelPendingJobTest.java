@@ -139,7 +139,8 @@ public class CoordinatorServiceWithCancelPendingJobTest extends AbstractSeaTunne
                 .untilAsserted(
                         () ->
                                 Assertions.assertEquals(
-                                        JobStatus.CANCELED, jobMaster.getJobStatus()));
+                                        JobStatus.CANCELED,
+                                        server.getCoordinatorService().getJobStatus(jobId)));
     }
 
     private JobMaster newJobInstanceWithRunningState(long jobId) throws InterruptedException {
