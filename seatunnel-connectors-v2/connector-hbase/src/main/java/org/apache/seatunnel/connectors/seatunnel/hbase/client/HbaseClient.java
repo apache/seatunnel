@@ -377,10 +377,7 @@ public class HbaseClient {
             String[] columnNameSplit = columnName.split(":");
             scan.addColumn(Bytes.toBytes(columnNameSplit[0]), Bytes.toBytes(columnNameSplit[1]));
         }
-        String namespace =
-                StringUtils.isBlank(hbaseParameters.getNamespace())
-                        ? HbaseParameters.DEFAULT_NAMESPACE
-                        : hbaseParameters.getNamespace();
+        String namespace = hbaseParameters.getNamespace();
         return this.connection
                 .getTable(TableName.valueOf(namespace, hbaseParameters.getTable()))
                 .getScanner(scan);
@@ -398,8 +395,6 @@ public class HbaseClient {
     }
 
     public RegionLocator getRegionLocator(String namespace, String tableName) throws IOException {
-        String actualNamespace =
-                StringUtils.isBlank(namespace) ? HbaseParameters.DEFAULT_NAMESPACE : namespace;
-        return this.connection.getRegionLocator(TableName.valueOf(actualNamespace, tableName));
+        return this.connection.getRegionLocator(TableName.valueOf(namespace, tableName));
     }
 }

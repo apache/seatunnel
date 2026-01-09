@@ -188,9 +188,6 @@ public class HbaseSourceSplitEnumerator
 
         try {
             String namespace = hbaseParameters.getNamespace();
-            if (namespace == null || namespace.isEmpty()) {
-                namespace = HbaseParameters.DEFAULT_NAMESPACE;
-            }
             TableName tableName = TableName.valueOf(namespace, hbaseParameters.getTable());
             log.info("Enumerating HBase source splits for table [{}]", tableName.getNameAsString());
             if (!hbaseClient.tableExists(tableName.getNameAsString())) {

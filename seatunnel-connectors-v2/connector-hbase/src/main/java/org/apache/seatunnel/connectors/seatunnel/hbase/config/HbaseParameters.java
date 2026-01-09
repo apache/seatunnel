@@ -162,4 +162,11 @@ public class HbaseParameters implements Serializable {
         }
         return builder.build();
     }
+
+    public String getNamespace() {
+        if (namespace == null || namespace.trim().isEmpty()) {
+            return DEFAULT_NAMESPACE;
+        }
+        return namespace;
+    }
 }

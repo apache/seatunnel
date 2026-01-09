@@ -52,7 +52,7 @@ public class HbaseSourceSplitEnumeratorTest {
 
     @Mock private RegionLocator regionLocator;
 
-    @Mock private HbaseParameters hbaseParameters;
+    private HbaseParameters hbaseParameters;
 
     private HbaseSourceSplitEnumerator enumerator;
 
@@ -60,16 +60,23 @@ public class HbaseSourceSplitEnumeratorTest {
     void setUp() throws IOException {
         MockitoAnnotations.openMocks(this);
 
-        when(hbaseParameters.getNamespace()).thenReturn(HbaseParameters.DEFAULT_NAMESPACE);
-        when(hbaseParameters.getTable()).thenReturn("test_table");
-        when(hbaseParameters.getZookeeperQuorum()).thenReturn("127.0.0.1:2801");
-        when(hbaseParameters.isBinaryRowkey()).thenReturn(false);
-        when(hbaseParameters.getStartRowkey()).thenReturn("");
-        when(hbaseParameters.getEndRowkey()).thenReturn("");
+        hbaseParameters = createParameters(HbaseParameters.DEFAULT_NAMESPACE, false, "", "");
         enumerator = new HbaseSourceSplitEnumerator(context, hbaseParameters, hbaseClient);
         when(hbaseClient.tableExists(anyString())).thenReturn(true);
         when(hbaseClient.getRegionLocator(HbaseParameters.DEFAULT_NAMESPACE, "test_table"))
                 .thenReturn(regionLocator);
+    }
+
+    private HbaseParameters createParameters(
+            String namespace, boolean isBinaryRowkey, String startRowkey, String endRowkey) {
+        return HbaseParameters.builder()
+                .namespace(namespace)
+                .table("test_table")
+                .zookeeperQuorum("127.0.0.1:2801")
+                .isBinaryRowkey(isBinaryRowkey)
+                .startRowkey(startRowkey)
+                .endRowkey(endRowkey)
+                .build();
     }
 
     @Test
@@ -93,17 +100,14 @@ public class HbaseSourceSplitEnumeratorTest {
 
     @Test
     void testGetTableSplitsWithBlankNamespaceUsesDefault() throws IOException {
-        when(hbaseParameters.getNamespace()).thenReturn("");
-        when(hbaseClient.tableExists(anyString())).thenReturn(true);
-        when(hbaseClient.getRegionLocator(HbaseParameters.DEFAULT_NAMESPACE, "test_table"))
-                .thenReturn(regionLocator);
+        HbaseParameters blankNamespaceParameters = createParameters("", false, "", "");
         byte[][] startKeys = {HConstants.EMPTY_BYTE_ARRAY};
         byte[][] endKeys = {HConstants.EMPTY_BYTE_ARRAY};
         when(regionLocator.getStartKeys()).thenReturn(startKeys);
         when(regionLocator.getEndKeys()).thenReturn(endKeys);
 
         HbaseSourceSplitEnumerator enumeratorWithBlankNamespace =
-                new HbaseSourceSplitEnumerator(context, hbaseParameters, hbaseClient);
+                new HbaseSourceSplitEnumerator(context, blankNamespaceParameters, hbaseClient);
         Set<HbaseSourceSplit> splits = enumeratorWithBlankNamespace.getTableSplits();
 
         assertNotNull(splits);
@@ -145,10 +149,12 @@ public class HbaseSourceSplitEnumeratorTest {
 
         when(regionLocator.getStartKeys()).thenReturn(startKeys);
         when(regionLocator.getEndKeys()).thenReturn(endKeys);
-        when(hbaseParameters.getStartRowkey()).thenReturn("row100");
-        when(hbaseParameters.getEndRowkey()).thenReturn("row300");
+        HbaseParameters parametersWithRowkeyRange =
+                createParameters(HbaseParameters.DEFAULT_NAMESPACE, false, "row100", "row300");
+        HbaseSourceSplitEnumerator enumeratorWithRowkeyRange =
+                new HbaseSourceSplitEnumerator(context, parametersWithRowkeyRange, hbaseClient);
 
-        Set<HbaseSourceSplit> splits = enumerator.getTableSplits();
+        Set<HbaseSourceSplit> splits = enumeratorWithRowkeyRange.getTableSplits();
 
         assertNotNull(splits);
         assertEquals(2, splits.size()); // Should only include regions 1 and 2
@@ -179,11 +185,16 @@ public class HbaseSourceSplitEnumeratorTest {
 
         when(regionLocator.getStartKeys()).thenReturn(startKeys);
         when(regionLocator.getEndKeys()).thenReturn(endKeys);
-        when(hbaseParameters.isBinaryRowkey()).thenReturn(true);
-        when(hbaseParameters.getStartRowkey()).thenReturn("\\x01\\x01\\x01");
-        when(hbaseParameters.getEndRowkey()).thenReturn("\\x02\\x02\\x02");
+        HbaseParameters binaryRowkeyParameters =
+                createParameters(
+                        HbaseParameters.DEFAULT_NAMESPACE,
+                        true,
+                        "\\x01\\x01\\x01",
+                        "\\x02\\x02\\x02");
+        HbaseSourceSplitEnumerator enumeratorWithBinaryRowkey =
+                new HbaseSourceSplitEnumerator(context, binaryRowkeyParameters, hbaseClient);
 
-        Set<HbaseSourceSplit> splits = enumerator.getTableSplits();
+        Set<HbaseSourceSplit> splits = enumeratorWithBinaryRowkey.getTableSplits();
 
         assertNotNull(splits);
         assertEquals(2, splits.size());
@@ -200,10 +211,12 @@ public class HbaseSourceSplitEnumeratorTest {
 
         when(regionLocator.getStartKeys()).thenReturn(startKeys);
         when(regionLocator.getEndKeys()).thenReturn(endKeys);
-        when(hbaseParameters.getStartRowkey()).thenReturn("row10");
-        when(hbaseParameters.getEndRowkey()).thenReturn("row15");
+        HbaseParameters parametersWithRowkeyRange =
+                createParameters(HbaseParameters.DEFAULT_NAMESPACE, false, "row10", "row15");
+        HbaseSourceSplitEnumerator enumeratorWithRowkeyRange =
+                new HbaseSourceSplitEnumerator(context, parametersWithRowkeyRange, hbaseClient);
 
-        Set<HbaseSourceSplit> splits = enumerator.getTableSplits();
+        Set<HbaseSourceSplit> splits = enumeratorWithRowkeyRange.getTableSplits();
 
         assertNotNull(splits);
         assertEquals(1, splits.size()); // Should include the first region
@@ -225,10 +238,12 @@ public class HbaseSourceSplitEnumeratorTest {
 
         when(regionLocator.getStartKeys()).thenReturn(startKeys);
         when(regionLocator.getEndKeys()).thenReturn(endKeys);
-        when(hbaseParameters.getStartRowkey()).thenReturn("row500");
-        when(hbaseParameters.getEndRowkey()).thenReturn("row600");
+        HbaseParameters parametersWithRowkeyRange =
+                createParameters(HbaseParameters.DEFAULT_NAMESPACE, false, "row500", "row600");
+        HbaseSourceSplitEnumerator enumeratorWithRowkeyRange =
+                new HbaseSourceSplitEnumerator(context, parametersWithRowkeyRange, hbaseClient);
 
-        Set<HbaseSourceSplit> splits = enumerator.getTableSplits();
+        Set<HbaseSourceSplit> splits = enumeratorWithRowkeyRange.getTableSplits();
 
         assertNotNull(splits);
         assertEquals(1, splits.size()); // Should include the last region
@@ -250,9 +265,12 @@ public class HbaseSourceSplitEnumeratorTest {
 
         when(regionLocator.getStartKeys()).thenReturn(startKeys);
         when(regionLocator.getEndKeys()).thenReturn(endKeys);
-        when(hbaseParameters.getStartRowkey()).thenReturn("row150");
+        HbaseParameters parametersWithStartRowkey =
+                createParameters(HbaseParameters.DEFAULT_NAMESPACE, false, "row150", "");
+        HbaseSourceSplitEnumerator enumeratorWithStartRowkey =
+                new HbaseSourceSplitEnumerator(context, parametersWithStartRowkey, hbaseClient);
 
-        Set<HbaseSourceSplit> splits = enumerator.getTableSplits();
+        Set<HbaseSourceSplit> splits = enumeratorWithStartRowkey.getTableSplits();
 
         assertNotNull(splits);
         assertEquals(2, splits.size()); // Should include regions 1 and 2
@@ -285,9 +303,12 @@ public class HbaseSourceSplitEnumeratorTest {
 
         when(regionLocator.getStartKeys()).thenReturn(startKeys);
         when(regionLocator.getEndKeys()).thenReturn(endKeys);
-        when(hbaseParameters.getEndRowkey()).thenReturn("row150");
+        HbaseParameters parametersWithEndRowkey =
+                createParameters(HbaseParameters.DEFAULT_NAMESPACE, false, "", "row150");
+        HbaseSourceSplitEnumerator enumeratorWithEndRowkey =
+                new HbaseSourceSplitEnumerator(context, parametersWithEndRowkey, hbaseClient);
 
-        Set<HbaseSourceSplit> splits = enumerator.getTableSplits();
+        Set<HbaseSourceSplit> splits = enumeratorWithEndRowkey.getTableSplits();
 
         assertNotNull(splits);
         assertEquals(2, splits.size()); // Should include regions 0 and 1
@@ -325,9 +346,12 @@ public class HbaseSourceSplitEnumeratorTest {
 
         when(regionLocator.getStartKeys()).thenReturn(startKeys);
         when(regionLocator.getEndKeys()).thenReturn(endKeys);
-        when(hbaseParameters.getStartRowkey()).thenReturn("row100");
+        HbaseParameters parametersWithStartRowkey =
+                createParameters(HbaseParameters.DEFAULT_NAMESPACE, false, "row100", "");
+        HbaseSourceSplitEnumerator enumeratorWithStartRowkey =
+                new HbaseSourceSplitEnumerator(context, parametersWithStartRowkey, hbaseClient);
 
-        Set<HbaseSourceSplit> splits = enumerator.getTableSplits();
+        Set<HbaseSourceSplit> splits = enumeratorWithStartRowkey.getTableSplits();
 
         assertNotNull(splits);
         assertEquals(3, splits.size());
@@ -368,9 +392,12 @@ public class HbaseSourceSplitEnumeratorTest {
 
         when(regionLocator.getStartKeys()).thenReturn(startKeys);
         when(regionLocator.getEndKeys()).thenReturn(endKeys);
-        when(hbaseParameters.getEndRowkey()).thenReturn("row200");
+        HbaseParameters parametersWithEndRowkey =
+                createParameters(HbaseParameters.DEFAULT_NAMESPACE, false, "", "row200");
+        HbaseSourceSplitEnumerator enumeratorWithEndRowkey =
+                new HbaseSourceSplitEnumerator(context, parametersWithEndRowkey, hbaseClient);
 
-        Set<HbaseSourceSplit> splits = enumerator.getTableSplits();
+        Set<HbaseSourceSplit> splits = enumeratorWithEndRowkey.getTableSplits();
 
         assertNotNull(splits);
         assertEquals(2, splits.size());
@@ -407,10 +434,12 @@ public class HbaseSourceSplitEnumeratorTest {
 
         when(regionLocator.getStartKeys()).thenReturn(startKeys);
         when(regionLocator.getEndKeys()).thenReturn(endKeys);
-        when(hbaseParameters.getStartRowkey()).thenReturn("row100");
-        when(hbaseParameters.getEndRowkey()).thenReturn("row200");
+        HbaseParameters parametersWithRowkeyRange =
+                createParameters(HbaseParameters.DEFAULT_NAMESPACE, false, "row100", "row200");
+        HbaseSourceSplitEnumerator enumeratorWithRowkeyRange =
+                new HbaseSourceSplitEnumerator(context, parametersWithRowkeyRange, hbaseClient);
 
-        Set<HbaseSourceSplit> splits = enumerator.getTableSplits();
+        Set<HbaseSourceSplit> splits = enumeratorWithRowkeyRange.getTableSplits();
 
         assertNotNull(splits);
         assertEquals(1, splits.size());
