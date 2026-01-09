@@ -24,10 +24,8 @@ import org.apache.seatunnel.api.configuration.util.issue.ConflictConfigurationIs
 import org.apache.seatunnel.api.configuration.util.issue.DeprecatedConfigurationIssue;
 import org.apache.seatunnel.api.configuration.util.issue.VersionCompatibilityConfigurationIssue;
 import org.apache.seatunnel.api.table.catalog.Catalog;
-import org.apache.seatunnel.api.table.factory.CatalogFactory;
 import org.apache.seatunnel.common.constants.PluginType;
 
-import lombok.AllArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 
 import java.util.Collections;
@@ -37,15 +35,20 @@ import java.util.function.BiPredicate;
 import java.util.function.Predicate;
 import java.util.stream.Collectors;
 
-import static org.apache.seatunnel.api.table.factory.FactoryUtil.discoverFactory;
-
 @Slf4j
-@AllArgsConstructor
 public abstract class DefaultEnhancedConfigurationValidator
         implements EnhancedConfigurationValidator {
 
     protected final String identifier;
     protected final PluginType pluginType;
+    protected final Optional<Catalog> catalogOptional;
+
+    public DefaultEnhancedConfigurationValidator(
+            String identifier, PluginType pluginType, Optional<Catalog> catalogOptional) {
+        this.identifier = identifier;
+        this.pluginType = pluginType;
+        this.catalogOptional = catalogOptional;
+    }
 
     @Override
     public List<DeprecatedConfigurationIssue> validateDeprecatedRules(ReadonlyConfig context) {
@@ -162,7 +165,6 @@ public abstract class DefaultEnhancedConfigurationValidator
 
     protected Optional<String> detectCurrentServiceVersion(ReadonlyConfig context) {
         try {
-            Optional<Catalog> catalogOptional = getCatalog(context);
             if (!catalogOptional.isPresent()) {
                 return Optional.empty();
             }
@@ -174,19 +176,6 @@ public abstract class DefaultEnhancedConfigurationValidator
             log.warn("Failed to detect service version via catalog", e);
             return Optional.empty();
         }
-    }
-
-    protected Optional<Catalog> getCatalog(ReadonlyConfig context) {
-        CatalogFactory catalogFactory =
-                discoverFactory(
-                        Thread.currentThread().getContextClassLoader(),
-                        CatalogFactory.class,
-                        identifier);
-        if (catalogFactory == null) {
-            return Optional.empty();
-        }
-        Catalog catalog = catalogFactory.createCatalog(catalogFactory.factoryIdentifier(), context);
-        return Optional.of(catalog);
     }
 
     /** Rule describing a deprecated option and its suggested replacements. */

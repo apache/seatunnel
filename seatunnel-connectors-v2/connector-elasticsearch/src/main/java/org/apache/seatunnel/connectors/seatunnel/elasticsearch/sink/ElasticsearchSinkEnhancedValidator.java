@@ -17,9 +17,11 @@
 package org.apache.seatunnel.connectors.seatunnel.elasticsearch.sink;
 
 import org.apache.seatunnel.api.configuration.util.SinkEnhancedConfigurationValidator;
+import org.apache.seatunnel.api.table.catalog.Catalog;
 
 import java.util.ArrayList;
 import java.util.List;
+import java.util.Optional;
 import java.util.function.Predicate;
 
 import static org.apache.seatunnel.connectors.seatunnel.elasticsearch.config.ElasticsearchSinkOptions.VECTORIZATION_FIELDS;
@@ -27,8 +29,9 @@ import static org.apache.seatunnel.connectors.seatunnel.elasticsearch.config.Ela
 
 public class ElasticsearchSinkEnhancedValidator extends SinkEnhancedConfigurationValidator {
 
-    public ElasticsearchSinkEnhancedValidator(String identifier) {
-        super(identifier);
+    public ElasticsearchSinkEnhancedValidator(
+            String identifier, Optional<Catalog> catalogOptional) {
+        super(identifier, catalogOptional);
     }
 
     @Override

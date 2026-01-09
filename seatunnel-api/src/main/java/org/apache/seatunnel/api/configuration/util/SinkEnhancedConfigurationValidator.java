@@ -16,11 +16,15 @@
  */
 package org.apache.seatunnel.api.configuration.util;
 
+import org.apache.seatunnel.api.table.catalog.Catalog;
 import org.apache.seatunnel.common.constants.PluginType;
+
+import java.util.Optional;
 
 public class SinkEnhancedConfigurationValidator extends DefaultEnhancedConfigurationValidator {
 
-    public SinkEnhancedConfigurationValidator(String identifier) {
-        super(identifier, PluginType.SINK);
+    public SinkEnhancedConfigurationValidator(
+            String identifier, Optional<Catalog> catalogOptional) {
+        super(identifier, PluginType.SINK, catalogOptional);
     }
 }

@@ -114,13 +114,8 @@ public class ElasticsearchSinkEnhancedValidatorTest {
         private final String version;
 
         private TestElasticsearchValidator(String identifier, String version) {
-            super(identifier);
+            super(identifier, Optional.of(new FakeCatalog(version)));
             this.version = version;
-        }
-
-        @Override
-        protected Optional<Catalog> getCatalog(ReadonlyConfig context) {
-            return Optional.of(new FakeCatalog(version));
         }
     }
 

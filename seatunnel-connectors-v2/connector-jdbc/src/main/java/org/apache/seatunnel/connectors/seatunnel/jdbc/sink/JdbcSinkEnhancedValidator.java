@@ -22,6 +22,7 @@ import lombok.extern.slf4j.Slf4j;
 
 import java.util.ArrayList;
 import java.util.List;
+import java.util.Optional;
 
 import static org.apache.seatunnel.connectors.seatunnel.jdbc.config.JdbcCommonOptions.URL;
 import static org.apache.seatunnel.connectors.seatunnel.jdbc.config.JdbcSinkOptions.AUTO_COMMIT;
@@ -33,7 +34,7 @@ import static org.apache.seatunnel.connectors.seatunnel.jdbc.config.JdbcSinkOpti
 @Slf4j
 public class JdbcSinkEnhancedValidator extends SinkEnhancedConfigurationValidator {
     public JdbcSinkEnhancedValidator(String identifier) {
-        super(identifier);
+        super(identifier, Optional.empty());
     }
 
     @Override

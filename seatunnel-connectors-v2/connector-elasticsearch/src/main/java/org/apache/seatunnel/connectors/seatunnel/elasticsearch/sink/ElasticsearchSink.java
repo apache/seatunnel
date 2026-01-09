@@ -18,6 +18,7 @@
 package org.apache.seatunnel.connectors.seatunnel.elasticsearch.sink;
 
 import org.apache.seatunnel.api.configuration.ReadonlyConfig;
+import org.apache.seatunnel.api.configuration.util.EnhancedConfigurationValidator;
 import org.apache.seatunnel.api.sink.DataSaveMode;
 import org.apache.seatunnel.api.sink.DefaultSaveModeHandler;
 import org.apache.seatunnel.api.sink.SaveModeHandler;
@@ -83,6 +84,28 @@ public class ElasticsearchSink
 
     @Override
     public Optional<SaveModeHandler> getSaveModeHandler() {
+        final Optional<Catalog> catalogOptional = getCatalog();
+        if (!catalogOptional.isPresent()) {
+            return Optional.empty();
+        }
+        SchemaSaveMode schemaSaveMode = config.get(ElasticsearchSinkOptions.SCHEMA_SAVE_MODE);
+        DataSaveMode dataSaveMode = config.get(ElasticsearchSinkOptions.DATA_SAVE_MODE);
+        TablePath tablePath = TablePath.of("", catalogTable.getTableId().getTableName());
+        return Optional.of(
+                new DefaultSaveModeHandler(
+                        schemaSaveMode,
+                        dataSaveMode,
+                        catalogOptional.get(),
+                        tablePath,
+                        null,
+                        null));
+    }
+
+    public Optional<EnhancedConfigurationValidator> enhancedConfigurationValidator() {
+        return Optional.of(new ElasticsearchSinkEnhancedValidator(getPluginName(), getCatalog()));
+    }
+
+    private Optional<Catalog> getCatalog() {
         CatalogFactory catalogFactory =
                 discoverFactory(
                         Thread.currentThread().getContextClassLoader(),
@@ -92,13 +115,7 @@ public class ElasticsearchSink
             return Optional.empty();
         }
         Catalog catalog = catalogFactory.createCatalog(catalogFactory.factoryIdentifier(), config);
-        SchemaSaveMode schemaSaveMode = config.get(ElasticsearchSinkOptions.SCHEMA_SAVE_MODE);
-        DataSaveMode dataSaveMode = config.get(ElasticsearchSinkOptions.DATA_SAVE_MODE);
-
-        TablePath tablePath = TablePath.of("", catalogTable.getTableId().getTableName());
-        return Optional.of(
-                new DefaultSaveModeHandler(
-                        schemaSaveMode, dataSaveMode, catalog, tablePath, null, null));
+        return Optional.of(catalog);
     }
 
     @Override
