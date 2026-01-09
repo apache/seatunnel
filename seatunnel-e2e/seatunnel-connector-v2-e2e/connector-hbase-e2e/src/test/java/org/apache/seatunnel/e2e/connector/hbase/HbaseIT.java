@@ -275,7 +275,7 @@ public class HbaseIT extends TestSuiteBase implements TestResource {
                 container.executeJob("/hbase-to-assert-with-date-time-decimal.conf");
         Assertions.assertEquals(0, sourceExecResult.getExitCode());
     }
-  
+
     @TestTemplate
     public void testHbaseSinkWithBinaryRowkey(TestContainer container)
             throws IOException, InterruptedException {
