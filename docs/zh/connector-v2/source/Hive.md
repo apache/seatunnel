@@ -83,7 +83,7 @@ import ChangeLog from '../changelog/connector-hive.md';
 
 ### metastore_uri [string]
 
-Hive 元存储 URI
+Hive 元存储 URI。支持通过逗号分隔配置多个 URI 用于高可用/故障切换（会自动去除空格）。SeaTunnel 会将该值写入 Hive 的 `hive.metastore.uris`，并在运行时优先使用 Hive 的 `RetryingMetaStoreClient` 实现重试/切换。注意：该能力仅做客户端连接端点切换，元数据一致性需要由 metastore 部署保证。
 
 ### hdfs_site_path [string]
 
@@ -145,7 +145,16 @@ Kerberos 认证的 keytab 文件路径
   }
 ```
 
-### 示例 2：多表
+### 示例 2：metastore_uri 故障切换（多 URI）
+
+```bash
+  Hive {
+    table_name = "default.seatunnel_orc"
+    metastore_uri = "thrift://metastore-1:9083,thrift://metastore-2:9083"
+  }
+```
+
+### 示例 3：多表
 > 注意：Hive 是结构化数据源，应使用 `table_list`，`tables_configs` 将在未来移除。
 > 也支持在每个表配置中设置 `use_regex = true` 来按正则匹配多表。
 
