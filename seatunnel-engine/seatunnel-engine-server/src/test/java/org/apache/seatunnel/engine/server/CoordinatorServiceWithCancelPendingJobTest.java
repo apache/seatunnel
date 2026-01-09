@@ -17,6 +17,7 @@
 
 package org.apache.seatunnel.engine.server;
 
+import org.apache.seatunnel.engine.common.Constant;
 import org.apache.seatunnel.engine.common.config.EngineConfig;
 import org.apache.seatunnel.engine.common.config.SeaTunnelConfig;
 import org.apache.seatunnel.engine.common.config.server.ScheduleStrategy;
@@ -132,6 +133,14 @@ public class CoordinatorServiceWithCancelPendingJobTest extends AbstractSeaTunne
 
         // Verify if the task has been deleted in pending
         Assertions.assertFalse(server.getCoordinatorService().getPendingJobQueue().contains(jobId));
+
+        IMap<Object, Object> runningJobInfoImap =
+                nodeEngine.getHazelcastInstance().getMap(Constant.IMAP_RUNNING_JOB_INFO);
+        IMap<Object, Object> runningJobStateImap =
+                nodeEngine.getHazelcastInstance().getMap(Constant.IMAP_RUNNING_JOB_STATE);
+        IMap<Object, Object> runningStateTimestampsImap =
+                nodeEngine.getHazelcastInstance().getMap(Constant.IMAP_STATE_TIMESTAMPS);
+
         // Verify if the final status of the task is cancelled
         await().pollDelay(3, TimeUnit.SECONDS)
                 .atMost(120, TimeUnit.SECONDS)
@@ -140,7 +149,10 @@ public class CoordinatorServiceWithCancelPendingJobTest extends AbstractSeaTunne
                             Assertions.assertEquals(
                                     JobStatus.CANCELED,
                                     server.getCoordinatorService().getJobStatus(jobId));
-                            Assertions.assertTrue(jobMaster.getRunningJobStateIMap().isEmpty());
+
+                            Assertions.assertTrue(runningJobInfoImap.isEmpty());
+                            Assertions.assertTrue(runningJobStateImap.isEmpty());
+                            Assertions.assertTrue(runningStateTimestampsImap.isEmpty());
                         });
     }
 
