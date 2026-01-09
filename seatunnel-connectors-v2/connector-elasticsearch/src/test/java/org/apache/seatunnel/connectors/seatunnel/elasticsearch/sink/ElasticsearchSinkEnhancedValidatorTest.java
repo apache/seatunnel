@@ -111,11 +111,8 @@ public class ElasticsearchSinkEnhancedValidatorTest {
 
     private static class TestElasticsearchValidator extends ElasticsearchSinkEnhancedValidator {
 
-        private final String version;
-
         private TestElasticsearchValidator(String identifier, String version) {
             super(identifier, Optional.of(new FakeCatalog(version)));
-            this.version = version;
         }
     }
 

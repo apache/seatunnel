@@ -151,7 +151,7 @@ public class DefaultEnhancedConfigurationValidatorTest {
     private static class TestValidator extends DefaultEnhancedConfigurationValidator {
 
         private TestValidator() {
-            super("demo-id", PluginType.SOURCE);
+            super("demo-id", PluginType.SOURCE, Optional.of(new FakeCatalog()));
         }
 
         @Override
@@ -183,11 +183,6 @@ public class DefaultEnhancedConfigurationValidatorTest {
                     VersionCompatibilityRule.warning(
                             RELAXED_VERSION_OPTION, versionStartsWithOne, "1.x"));
             return versionCompatibilityRules;
-        }
-
-        @Override
-        protected Optional<Catalog> getCatalog(ReadonlyConfig context) {
-            return Optional.of(new FakeCatalog());
         }
     }
 
