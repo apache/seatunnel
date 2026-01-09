@@ -132,15 +132,16 @@ public class CoordinatorServiceWithCancelPendingJobTest extends AbstractSeaTunne
 
         // Verify if the task has been deleted in pending
         Assertions.assertFalse(server.getCoordinatorService().getPendingJobQueue().contains(jobId));
-
         // Verify if the final status of the task is cancelled
         await().pollDelay(3, TimeUnit.SECONDS)
                 .atMost(120, TimeUnit.SECONDS)
                 .untilAsserted(
-                        () ->
-                                Assertions.assertEquals(
-                                        JobStatus.CANCELED,
-                                        server.getCoordinatorService().getJobStatus(jobId)));
+                        () -> {
+                            Assertions.assertEquals(
+                                    JobStatus.CANCELED,
+                                    server.getCoordinatorService().getJobStatus(jobId));
+                            Assertions.assertTrue(jobMaster.getRunningJobStateIMap().isEmpty());
+                        });
     }
 
     private JobMaster newJobInstanceWithRunningState(long jobId) throws InterruptedException {
