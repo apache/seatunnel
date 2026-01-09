@@ -383,6 +383,15 @@ public class HbaseIT extends TestSuiteBase implements TestResource {
         Assertions.assertEquals(0, sourceExecResult.getExitCode());
     }
 
+    @TestTemplate
+    public void testHbaseSourceWithTimeRange(TestContainer container)
+            throws IOException, InterruptedException {
+        fakeToHbaseWithTimestamp(container);
+        Container.ExecResult sourceExecResult =
+                container.executeJob("/hbase-source-with-time-range.conf");
+        Assertions.assertEquals(0, sourceExecResult.getExitCode());
+    }
+
     private void fakeToHbase(TestContainer container) throws IOException, InterruptedException {
         deleteData(table);
         Container.ExecResult sinkExecResult = container.executeJob("/fake-to-hbase.conf");
@@ -444,6 +453,15 @@ public class HbaseIT extends TestSuiteBase implements TestResource {
         }
         Assertions.assertEquals(results.size(), 3);
         scanner.close();
+    }
+
+    private void fakeToHbaseWithTimestamp(TestContainer container)
+            throws IOException, InterruptedException {
+        deleteData(table);
+        Container.ExecResult sinkExecResult =
+                container.executeJob("/fake-to-hbase-with-timestamp.conf");
+        Assertions.assertEquals(0, sinkExecResult.getExitCode());
+        Assertions.assertEquals(3, countData(table));
     }
 
     private int countData(TableName table) throws IOException {

@@ -33,6 +33,8 @@ Reads data from Apache Hbase.
 | end_rowkey           | string    | No        | -       |
 | start_row_inclusive | boolean | No       | true    |
 | end_row_inclusive   | boolean | No       | false   |
+| min_timestamp       | long      | No        | -       |
+| max_timestamp       | long      | No        | -       |
 | common-options       |           | No        | -       |
 
 ### zookeeper_quorum [string]
@@ -91,6 +93,14 @@ Whether to include the end row in the scan range. When set to false, the end row
 - **Default (start_row_inclusive=true, end_row_inclusive=false)**: This is the recommended configuration that ensures no data loss or duplication across splits. Each split follows the [start, end) convention.
 - **Both false (start_row_inclusive=false, end_row_inclusive=false)**: This may cause **data loss** at split boundaries, as the boundary rows will be excluded from all splits.
 - **Both true (start_row_inclusive=true, end_row_inclusive=true)**: This may cause **duplicate data** at split boundaries, as the boundary rows will be included in multiple adjacent splits.
+
+### min_timestamp
+
+Minimum timestamp (inclusive) for scan time range. Unit: milliseconds since epoch. The time range follows [min, max). If only min_timestamp is set, the max is treated as open-ended.
+
+### max_timestamp
+
+Maximum timestamp (exclusive) for scan time range. Unit: milliseconds since epoch. The time range follows [min, max). If only max_timestamp is set, the min is treated as open-ended.
 
 ### common-options
 

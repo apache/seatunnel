@@ -17,6 +17,7 @@
 
 package org.apache.seatunnel.connectors.seatunnel.hbase.client;
 
+import org.apache.seatunnel.shade.com.google.common.annotations.VisibleForTesting;
 import org.apache.seatunnel.shade.org.apache.commons.lang3.StringUtils;
 
 import org.apache.seatunnel.connectors.seatunnel.hbase.config.HbaseParameters;
@@ -367,7 +368,18 @@ public class HbaseClient {
     public ResultScanner scan(
             HbaseSourceSplit split, HbaseParameters hbaseParameters, List<String> columnNames)
             throws IOException {
+        Scan scan = buildScan(split, hbaseParameters, columnNames);
+        return this.connection
+                .getTable(TableName.valueOf(hbaseParameters.getTable()))
+                .getScanner(scan);
+    }
+
+    @VisibleForTesting
+    static Scan buildScan(
+            HbaseSourceSplit split, HbaseParameters hbaseParameters, List<String> columnNames)
+            throws IOException {
         Scan scan = new Scan();
+        applyTimeRange(scan, hbaseParameters);
         scan.withStartRow(split.getStartRow(), hbaseParameters.isStartRowInclusive());
         scan.withStopRow(split.getEndRow(), hbaseParameters.isEndRowInclusive());
         scan.setCacheBlocks(hbaseParameters.isCacheBlocks());
@@ -377,9 +389,22 @@ public class HbaseClient {
             String[] columnNameSplit = columnName.split(":");
             scan.addColumn(Bytes.toBytes(columnNameSplit[0]), Bytes.toBytes(columnNameSplit[1]));
         }
-        return this.connection
-                .getTable(TableName.valueOf(hbaseParameters.getTable()))
-                .getScanner(scan);
+        return scan;
+    }
+
+    private static void applyTimeRange(Scan scan, HbaseParameters hbaseParameters)
+            throws IOException {
+        Long minTimestamp = hbaseParameters.getMinTimestamp();
+        Long maxTimestamp = hbaseParameters.getMaxTimestamp();
+        if (minTimestamp != null || maxTimestamp != null) {
+            long min = minTimestamp == null ? 0L : minTimestamp;
+            long max = maxTimestamp == null ? Long.MAX_VALUE : maxTimestamp;
+            if (min > max) {
+                throw new IllegalArgumentException(
+                        "min_timestamp can't be larger than max_timestamp");
+            }
+            scan.setTimeRange(min, max);
+        }
     }
 
     /**

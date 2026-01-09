@@ -33,6 +33,8 @@ import ChangeLog from '../changelog/connector-hbase.md';
 | end_rowkey           | string   | 否  | -     |
 | start_row_inclusive | boolean | 否  | true  |
 | end_row_inclusive   | boolean | 否  | false |
+| min_timestamp       | long    | 否  | -     |
+| max_timestamp       | long    | 否  | -     |
 | common-options       |          | 否  | -     |
 
 ### zookeeper_quorum [string]
@@ -91,6 +93,14 @@ HBase 的行键既可以是文本字符串，也可以是二进制数据。在 S
 - **默认配置 (start_row_inclusive=true, end_row_inclusive=false)**: 这是推荐的配置,可以确保跨 split 时不会丢失数据或产生重复数据。每个 split 遵循 [start, end) 左闭右开区间约定。
 - **都设置为 false (start_row_inclusive=false, end_row_inclusive=false)**: 这可能会导致**数据丢失**,因为边界行会被所有 split 排除在外。
 - **都设置为 true (start_row_inclusive=true, end_row_inclusive=true)**: 这可能会导致**数据重复**,因为边界行会被相邻的多个 split 重复包含。
+
+### min_timestamp
+
+时间范围扫描的最小时间戳(包含)。单位为毫秒(epoch)。时间范围遵循 [min, max) 左闭右开约定。如果只设置 min_timestamp，则最大值视为无限上界。
+
+### max_timestamp
+
+时间范围扫描的最大时间戳(不包含)。单位为毫秒(epoch)。时间范围遵循 [min, max) 左闭右开约定。如果只设置 max_timestamp，则最小值视为无限下界。
 
 ### 常用选项
 
