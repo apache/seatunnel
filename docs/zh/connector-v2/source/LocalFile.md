@@ -421,7 +421,7 @@ null_format 定义哪些字符串可以表示为 null。
 
 ### enable_file_split [boolean]
 
-开启文件分割功能，默认为false。文件类型为csv、text、json、非压缩格式时可选择。
+开启文件分割功能，默认为false。文件类型为csv、text、json、parquet非压缩格式时可选择。
 
 ### file_split_size [long]
 

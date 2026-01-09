@@ -37,6 +37,7 @@ import org.apache.seatunnel.connectors.seatunnel.hive.exception.HiveConnectorExc
 import org.apache.hadoop.conf.Configuration;
 import org.apache.hadoop.hive.conf.HiveConf;
 import org.apache.hadoop.hive.metastore.HiveMetaStoreClient;
+import org.apache.hadoop.hive.metastore.IMetaStoreClient;
 import org.apache.hadoop.hive.metastore.api.AlreadyExistsException;
 import org.apache.hadoop.hive.metastore.api.Database;
 import org.apache.hadoop.hive.metastore.api.Table;
@@ -50,6 +51,7 @@ import java.io.Closeable;
 import java.io.File;
 import java.io.IOException;
 import java.io.Serializable;
+import java.lang.reflect.Method;
 import java.net.MalformedURLException;
 import java.net.URI;
 import java.nio.file.Files;
@@ -69,6 +71,10 @@ import java.util.Objects;
 @Slf4j
 public class HiveMetaStoreCatalog implements Catalog, Closeable, Serializable {
     private static final List<String> HADOOP_CONF_FILES = ImmutableList.of("hive-site.xml");
+    private static final String RETRYING_METASTORE_CLIENT_CLASS_NAME =
+            "org.apache.hadoop.hive.metastore.RetryingMetaStoreClient";
+    private static final String RETRYING_METASTORE_CLIENT_NO_COMPATIBLE_GET_PROXY_MESSAGE =
+            "RetryingMetaStoreClient found but no compatible getProxy method, falling back to HiveMetaStoreClient";
 
     private final String metastoreUri;
     private final String hadoopConfDir;
@@ -81,7 +87,7 @@ public class HiveMetaStoreCatalog implements Catalog, Closeable, Serializable {
     private final String keytabPath;
     private final String remoteUser;
 
-    private transient HiveMetaStoreClient hiveClient;
+    private transient IMetaStoreClient hiveClient;
     private transient HiveConf hiveConf;
     private transient UserGroupInformation userGroupInformation;
 
@@ -105,7 +111,7 @@ public class HiveMetaStoreCatalog implements Catalog, Closeable, Serializable {
         return create(config);
     }
 
-    private synchronized HiveMetaStoreClient getClient() {
+    private synchronized IMetaStoreClient getClient() {
         if (hiveClient == null) {
             hiveClient = initializeClient();
         }
@@ -115,7 +121,7 @@ public class HiveMetaStoreCatalog implements Catalog, Closeable, Serializable {
         return hiveClient;
     }
 
-    private HiveMetaStoreClient initializeClient() {
+    private IMetaStoreClient initializeClient() {
         this.hiveConf = buildHiveConf();
         try {
             if (kerberosEnabled) {
@@ -124,7 +130,7 @@ public class HiveMetaStoreCatalog implements Catalog, Closeable, Serializable {
             if (remoteUserEnabled) {
                 return loginWithRemoteUser(hiveConf);
             }
-            return new HiveMetaStoreClient(hiveConf);
+            return createClient(hiveConf);
         } catch (Exception e) {
             String errMsg =
                     String.format(
@@ -133,6 +139,63 @@ public class HiveMetaStoreCatalog implements Catalog, Closeable, Serializable {
             throw new HiveConnectorException(
                     HiveConnectorErrorCode.INITIALIZE_HIVE_METASTORE_CLIENT_FAILED, errMsg, e);
         }
+    }
+
+    private IMetaStoreClient createClient(HiveConf hiveConf) throws Exception {
+        IMetaStoreClient retryingClient = tryCreateRetryingClient(hiveConf);
+        if (retryingClient != null) {
+            return retryingClient;
+        }
+        return new HiveMetaStoreClient(hiveConf);
+    }
+
+    private IMetaStoreClient tryCreateRetryingClient(HiveConf hiveConf) {
+        try {
+            Class<?> clazz = Class.forName(RETRYING_METASTORE_CLIENT_CLASS_NAME);
+            Method getProxyMethod = getProxyMethod(clazz);
+            if (getProxyMethod == null) {
+                log.warn(RETRYING_METASTORE_CLIENT_NO_COMPATIBLE_GET_PROXY_MESSAGE);
+                return null;
+            }
+
+            Object proxy = getProxyMethod.invoke(null, hiveConf, true);
+            if (proxy instanceof IMetaStoreClient) {
+                log.info(
+                        "Using RetryingMetaStoreClient for Hive metastore connection [uris={}]",
+                        hiveConf.get("hive.metastore.uris"));
+                return (IMetaStoreClient) proxy;
+            }
+            log.warn(RETRYING_METASTORE_CLIENT_NO_COMPATIBLE_GET_PROXY_MESSAGE);
+            return null;
+        } catch (ClassNotFoundException e) {
+            log.debug("RetryingMetaStoreClient not found, falling back to HiveMetaStoreClient", e);
+            return null;
+        } catch (Exception e) {
+            log.warn(
+                    "Failed to create RetryingMetaStoreClient proxy, falling back to HiveMetaStoreClient",
+                    e);
+            return null;
+        }
+    }
+
+    private static Method getProxyMethod(Class<?> clazz) {
+        // Hive 2.x: getProxy(HiveConf, boolean)
+        // Hive 3.x: getProxy(Configuration, boolean)
+        Method method = null;
+        try {
+            method = clazz.getDeclaredMethod("getProxy", HiveConf.class, boolean.class);
+        } catch (NoSuchMethodException ignored) {
+        }
+        if (method == null) {
+            try {
+                method = clazz.getDeclaredMethod("getProxy", Configuration.class, boolean.class);
+            } catch (NoSuchMethodException ignored) {
+            }
+        }
+        if (method != null) {
+            method.setAccessible(true);
+        }
+        return method;
     }
 
     /**
@@ -196,9 +259,13 @@ public class HiveMetaStoreCatalog implements Catalog, Closeable, Serializable {
         // Try to derive from metastore URI
         // metastore URI format: thrift://host:9083
         // HiveServer2 JDBC URL format: jdbc:hive2://host:10000/default
+        if (StringUtils.isBlank(metastoreUri)) {
+            return null;
+        }
         try {
-            if (metastoreUri != null && metastoreUri.startsWith("thrift://")) {
-                URI uri = new URI(metastoreUri);
+            String firstUri = getFirstMetastoreUri(metastoreUri);
+            if (firstUri.startsWith("thrift://")) {
+                URI uri = new URI(firstUri);
                 String host = uri.getHost();
                 if (host != null) {
                     return String.format("jdbc:hive2://%s:10000/default", host);
@@ -213,7 +280,12 @@ public class HiveMetaStoreCatalog implements Catalog, Closeable, Serializable {
 
     private HiveConf buildHiveConf() {
         HiveConf hiveConf = new HiveConf();
-        hiveConf.set("hive.metastore.uris", metastoreUri);
+        if (StringUtils.isNotBlank(metastoreUri)) {
+            String normalizedMetastoreUris = normalizeMetastoreUris(metastoreUri);
+            if (StringUtils.isNotBlank(normalizedMetastoreUris)) {
+                hiveConf.set("hive.metastore.uris", normalizedMetastoreUris);
+            }
+        }
         hiveConf.setBoolVar(HiveConf.ConfVars.METASTORE_EXECUTE_SET_UGI, false);
         hiveConf.setBoolean("hive.metastore.client.capability.check", false);
         hiveConf.setBoolean("hive.metastore.client.filter.enabled", false);
@@ -244,7 +316,7 @@ public class HiveMetaStoreCatalog implements Catalog, Closeable, Serializable {
         return hiveConf;
     }
 
-    private HiveMetaStoreClient loginWithKerberos(HiveConf hiveConf) throws Exception {
+    private IMetaStoreClient loginWithKerberos(HiveConf hiveConf) throws Exception {
         Configuration authConf = new Configuration();
         authConf.set("hadoop.security.authentication", "kerberos");
         return HadoopLoginFactory.loginWithKerberos(
@@ -254,13 +326,36 @@ public class HiveMetaStoreCatalog implements Catalog, Closeable, Serializable {
                 keytabPath,
                 (conf, ugi) -> {
                     this.userGroupInformation = ugi;
-                    return new HiveMetaStoreClient(hiveConf);
+                    return createClient(hiveConf);
                 });
     }
 
-    private HiveMetaStoreClient loginWithRemoteUser(HiveConf hiveConf) throws Exception {
+    private IMetaStoreClient loginWithRemoteUser(HiveConf hiveConf) throws Exception {
         return HadoopLoginFactory.loginWithRemoteUser(
-                new Configuration(), remoteUser, (conf, ugi) -> new HiveMetaStoreClient(hiveConf));
+                new Configuration(), remoteUser, (conf, ugi) -> createClient(hiveConf));
+    }
+
+    private static String normalizeMetastoreUris(@NonNull String metastoreUri) {
+        String[] uris = metastoreUri.split(",");
+        List<String> cleaned = new ArrayList<>(uris.length);
+        for (String uri : uris) {
+            String trimmed = uri.trim();
+            if (!trimmed.isEmpty()) {
+                cleaned.add(trimmed);
+            }
+        }
+        return String.join(",", cleaned);
+    }
+
+    private static String getFirstMetastoreUri(@NonNull String metastoreUri) {
+        String[] uris = metastoreUri.split(",");
+        for (String uri : uris) {
+            String trimmed = uri.trim();
+            if (!trimmed.isEmpty()) {
+                return trimmed;
+            }
+        }
+        return "";
     }
 
     public Table getTable(@NonNull String dbName, @NonNull String tableName) {

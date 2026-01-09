@@ -420,7 +420,7 @@ File modification time filter. The connector will filter some files base on the 
 
 ### enable_file_split [string]
 
-Turn on the file splitting function, the default is false。It can be selected when the file type is csv, text, json and non-compressed format.
+Turn on the file splitting function, the default is false.It can be selected when the file type is csv, text, json, parquet and non-compressed format.
 
 ### file_split_size [long]
 

@@ -83,7 +83,7 @@ Regex syntax notes:
 
 ### metastore_uri [string]
 
-Hive metastore uri
+Hive metastore uri. Supports comma-separated multiple URIs for HA/failover (whitespace is ignored). SeaTunnel passes this value to Hive `hive.metastore.uris` and uses Hive `RetryingMetaStoreClient` (if available) to retry/failover between URIs. This is client-side endpoint failover; make sure your metastores share/replicate the same backend to keep metadata consistent.
 
 ### hdfs_site_path [string]
 
@@ -147,7 +147,16 @@ Source plugin common parameters, please refer to [Source Common Options](../sour
 
 ```
 
-### Example 2: Multiple tables
+### Example 2: Metastore URI failover
+
+```bash
+  Hive {
+    table_name = "default.seatunnel_orc"
+    metastore_uri = "thrift://metastore-1:9083,thrift://metastore-2:9083"
+  }
+```
+
+### Example 3: Multiple tables
 > Note: Hive is a structured data source and should be use 'table_list', and 'tables_configs' will be removed in the future.
 > You can also set `use_regex = true` in each table config to match multiple tables.
 
