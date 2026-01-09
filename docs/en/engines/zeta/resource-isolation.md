@@ -80,7 +80,7 @@ sink {
    - If not set `tag_filter` in job config, it will random choose the node in all active nodes.
    - When you add multiple tag in `tag_filter`, it need all key exist and value match. if all node not match, you will get `NoEnoughResourceException` exception.
 
-    ![img.png](../../images/resource-isolation.png)
+    ![img.png](../../../images/resource-isolation.png)
 
 3. update running node tags by rest api (optional)
 

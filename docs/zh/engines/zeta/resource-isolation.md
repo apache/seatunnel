@@ -80,7 +80,7 @@ sink {
    - 当在任务的配置中, 没有添加`tag_filter`时, 会从所有节点中随机选择节点来运行任务.
    - 当`tag_filter`中存在多个过滤条件时, 会根据key存在以及value相等的全部匹配的节点, 当没有找到匹配的节点时, 会抛出 `NoEnoughResourceException`异常.
 
-    ![img.png](../../images/resource-isolation.png)
+    ![img.png](../../../images/resource-isolation.png)
 
 3. 更新运行中node的tags （可选）
 
