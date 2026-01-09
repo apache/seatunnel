@@ -152,18 +152,18 @@ public class HbaseSourceSplitEnumerator
             return;
         }
         Set<HbaseSourceSplit> tableSplits = getTableSplits();
-        if (assignedSplit.isEmpty()) {
-            pendingSplit.addAll(tableSplits);
-        } else {
-            Set<String> assignedSplitIds =
+        Set<String> existedSplitIds =
+                pendingSplit.stream().map(HbaseSourceSplit::splitId).collect(Collectors.toSet());
+        if (!assignedSplit.isEmpty()) {
+            existedSplitIds.addAll(
                     assignedSplit.stream()
                             .map(HbaseSourceSplit::splitId)
-                            .collect(Collectors.toSet());
-            pendingSplit.addAll(
-                    tableSplits.stream()
-                            .filter(split -> !assignedSplitIds.contains(split.splitId()))
                             .collect(Collectors.toSet()));
         }
+        pendingSplit.addAll(
+                tableSplits.stream()
+                        .filter(split -> !existedSplitIds.contains(split.splitId()))
+                        .collect(Collectors.toSet()));
         initialized = true;
     }
 
