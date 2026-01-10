@@ -386,7 +386,7 @@ public class HbaseIT extends TestSuiteBase implements TestResource {
     @TestTemplate
     public void testHbaseSourceWithTimeRange(TestContainer container)
             throws IOException, InterruptedException {
-        fakeToHbaseWithTimestamp(container);
+        fakeToHbaseWithTimestamp();
         Container.ExecResult sourceExecResult =
                 container.executeJob("/hbase-source-with-time-range.conf");
         Assertions.assertEquals(0, sourceExecResult.getExitCode());
@@ -455,12 +455,31 @@ public class HbaseIT extends TestSuiteBase implements TestResource {
         scanner.close();
     }
 
-    private void fakeToHbaseWithTimestamp(TestContainer container)
-            throws IOException, InterruptedException {
+    private void fakeToHbaseWithTimestamp() throws IOException {
         deleteData(table);
-        Container.ExecResult sinkExecResult =
-                container.executeJob("/fake-to-hbase-with-timestamp.conf");
-        Assertions.assertEquals(0, sinkExecResult.getExitCode());
+        Table hbaseTable = hbaseConnection.getTable(table);
+        Put putA =
+                new Put(Bytes.toBytes("A"))
+                        .addColumn(
+                                Bytes.toBytes(FAMILY_NAME),
+                                Bytes.toBytes("score"),
+                                1000L,
+                                Bytes.toBytes(100));
+        Put putB =
+                new Put(Bytes.toBytes("B"))
+                        .addColumn(
+                                Bytes.toBytes(FAMILY_NAME),
+                                Bytes.toBytes("score"),
+                                2000L,
+                                Bytes.toBytes(200));
+        Put putC =
+                new Put(Bytes.toBytes("C"))
+                        .addColumn(
+                                Bytes.toBytes(FAMILY_NAME),
+                                Bytes.toBytes("score"),
+                                3000L,
+                                Bytes.toBytes(300));
+        hbaseTable.put(Arrays.asList(putA, putB, putC));
         Assertions.assertEquals(3, countData(table));
     }
 
