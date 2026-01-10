@@ -386,9 +386,14 @@ public class HbaseIT extends TestSuiteBase implements TestResource {
     @TestTemplate
     public void testHbaseSourceWithTimeRange(TestContainer container)
             throws IOException, InterruptedException {
-        fakeToHbaseWithTimestamp();
+        long baseTimestamp = System.currentTimeMillis() - 10000L;
+        long minTimestamp = baseTimestamp + 1000L;
+        long maxTimestamp = baseTimestamp + 3000L;
+        fakeToHbaseWithTimestamp(minTimestamp, maxTimestamp);
         Container.ExecResult sourceExecResult =
-                container.executeJob("/hbase-source-with-time-range.conf");
+                container.executeJob(
+                        "/hbase-source-with-time-range.conf",
+                        Arrays.asList("min_ts=" + minTimestamp, "max_ts=" + maxTimestamp));
         Assertions.assertEquals(0, sourceExecResult.getExitCode());
     }
 
@@ -455,7 +460,7 @@ public class HbaseIT extends TestSuiteBase implements TestResource {
         scanner.close();
     }
 
-    private void fakeToHbaseWithTimestamp() throws IOException {
+    private void fakeToHbaseWithTimestamp(long minTimestamp, long maxTimestamp) throws IOException {
         deleteData(table);
         Table hbaseTable = hbaseConnection.getTable(table);
         Put putA =
@@ -463,21 +468,21 @@ public class HbaseIT extends TestSuiteBase implements TestResource {
                         .addColumn(
                                 Bytes.toBytes(FAMILY_NAME),
                                 Bytes.toBytes("score"),
-                                1000L,
+                                minTimestamp,
                                 Bytes.toBytes(100));
         Put putB =
                 new Put(Bytes.toBytes("B"))
                         .addColumn(
                                 Bytes.toBytes(FAMILY_NAME),
                                 Bytes.toBytes("score"),
-                                2000L,
+                                minTimestamp + 1000L,
                                 Bytes.toBytes(200));
         Put putC =
                 new Put(Bytes.toBytes("C"))
                         .addColumn(
                                 Bytes.toBytes(FAMILY_NAME),
                                 Bytes.toBytes("score"),
-                                3000L,
+                                maxTimestamp,
                                 Bytes.toBytes(300));
         hbaseTable.put(Arrays.asList(putA, putB, putC));
         Assertions.assertEquals(3, countData(table));
