@@ -78,8 +78,6 @@ archive log list;
 
 3. 以管理员身份登录并创建一个名为 logminer_user 的帐户，密码为 "oracle"，并授予其读取表和日志的权限。
 
-## 变更日志
-
 ```sql
 CREATE TABLESPACE logminer_tbs DATAFILE '/opt/oracle/oradata/ORCLCDB/logminer_tbs.dbf' SIZE 25M REUSE AUTOEXTEND ON MAXSIZE UNLIMITED;
 CREATE USER logminer_user IDENTIFIED BY oracle DEFAULT TABLESPACE logminer_tbs QUOTA UNLIMITED ON logminer_tbs;
