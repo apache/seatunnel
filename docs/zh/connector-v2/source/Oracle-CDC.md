@@ -361,6 +361,6 @@ source {
 
 > 一定是使用kafka作为sink, 详见 [compatible debezium format](../formats/cdc-compatible-debezium-json.md)
 
-## Changelog
+## 变更日志
 
 <ChangeLog />
