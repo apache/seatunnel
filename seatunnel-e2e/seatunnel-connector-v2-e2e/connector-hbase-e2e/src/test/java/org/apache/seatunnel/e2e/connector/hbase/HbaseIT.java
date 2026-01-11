@@ -386,7 +386,11 @@ public class HbaseIT extends TestSuiteBase implements TestResource {
     @TestTemplate
     public void testHbaseSourceWithTimeRange(TestContainer container)
             throws IOException, InterruptedException {
-        long baseTimestamp = System.currentTimeMillis() - 10000L;
+        // The deleteData() uses Delete without timestamp, which will create a tombstone with "now"
+        // timestamp.
+        // To avoid the tombstone masking our test data, we write the test versions with a newer
+        // timestamp.
+        long baseTimestamp = System.currentTimeMillis() + 10000L;
         long minTimestamp = baseTimestamp + 1000L;
         long maxTimestamp = baseTimestamp + 3000L;
         fakeToHbaseWithTimestamp(minTimestamp, maxTimestamp);
