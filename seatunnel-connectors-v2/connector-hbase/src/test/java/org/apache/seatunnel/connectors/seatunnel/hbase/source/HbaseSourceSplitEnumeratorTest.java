@@ -530,7 +530,8 @@ public class HbaseSourceSplitEnumeratorTest {
         enumerator.registerReader(0);
         enumerator.registerReader(1);
 
-        verify(hbaseClient, times(1)).getRegionLocator("test_table");
+        verify(hbaseClient, times(1))
+                .getRegionLocator(HbaseParameters.DEFAULT_NAMESPACE, "test_table");
         assertEquals(0, enumerator.currentUnassignedSplitSize());
     }
 }

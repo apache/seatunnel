@@ -84,6 +84,14 @@ public class HbaseSourceSplitEnumerator
     public HbaseSourceSplitEnumerator(
             Context<HbaseSourceSplit> context,
             HbaseParameters hbaseParameters,
+            HbaseClient hbaseClient) {
+        this(context, hbaseParameters, new HashSet<>(), hbaseClient);
+    }
+
+    @VisibleForTesting
+    public HbaseSourceSplitEnumerator(
+            Context<HbaseSourceSplit> context,
+            HbaseParameters hbaseParameters,
             HbaseSourceState sourceState,
             HbaseClient hbaseClient) {
         this(context, hbaseParameters, sourceState.getAssignedSplits(), hbaseClient);
