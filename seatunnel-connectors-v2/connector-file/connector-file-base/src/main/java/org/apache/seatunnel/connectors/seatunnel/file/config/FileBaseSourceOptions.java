@@ -21,7 +21,9 @@ import org.apache.seatunnel.api.configuration.Option;
 import org.apache.seatunnel.api.configuration.Options;
 import org.apache.seatunnel.format.text.constant.TextFormatConstant;
 
+import java.util.Arrays;
 import java.util.List;
+import java.util.Map;
 
 public class FileBaseSourceOptions extends FileBaseOptions {
     public static final String DEFAULT_ROW_DELIMITER = "\n";
@@ -128,6 +130,51 @@ public class FileBaseSourceOptions extends FileBaseOptions {
                             "Whether to read the complete file as a single chunk instead of splitting into chunks. "
                                     + "When enabled, the entire file content will be read into memory at once.Only valid when file_format_type is binary.");
 
+    public static final Option<FileSyncMode> SYNC_MODE =
+            Options.key("sync_mode")
+                    .singleChoice(
+                            FileSyncMode.class,
+                            Arrays.asList(FileSyncMode.FULL, FileSyncMode.UPDATE))
+                    .defaultValue(FileSyncMode.FULL)
+                    .withDescription(
+                            "File sync mode. Supported values: full, update. "
+                                    + "When set to update, the source will compare with target and only read new/changed files. "
+                                    + "Currently, update mode only supports file_format_type=binary.");
+
+    public static final Option<String> TARGET_PATH =
+            Options.key("target_path")
+                    .stringType()
+                    .noDefaultValue()
+                    .withDescription("Target base path for sync_mode=update comparison.");
+
+    public static final Option<Map<String, String>> TARGET_HADOOP_CONF =
+            Options.key("target_hadoop_conf")
+                    .mapType()
+                    .noDefaultValue()
+                    .withDescription(
+                            "Extra Hadoop configuration for target filesystem in sync_mode=update. "
+                                    + "Use key 'fs.defaultFS' to override target defaultFS if needed.");
+
+    public static final Option<FileUpdateStrategy> UPDATE_STRATEGY =
+            Options.key("update_strategy")
+                    .singleChoice(
+                            FileUpdateStrategy.class,
+                            Arrays.asList(FileUpdateStrategy.DISTCP, FileUpdateStrategy.STRICT))
+                    .defaultValue(FileUpdateStrategy.DISTCP)
+                    .withDescription(
+                            "Update strategy when sync_mode=update. Supported values: distcp, strict. "
+                                    + "distcp behaves like 'distcp -update' (len+mtime, and does not require equal mtime). "
+                                    + "strict requires exact consistency depending on compare_mode.");
+
+    public static final Option<FileCompareMode> COMPARE_MODE =
+            Options.key("compare_mode")
+                    .singleChoice(
+                            FileCompareMode.class,
+                            Arrays.asList(FileCompareMode.LEN_MTIME, FileCompareMode.CHECKSUM))
+                    .defaultValue(FileCompareMode.LEN_MTIME)
+                    .withDescription(
+                            "Compare mode when sync_mode=update. Supported values: len_mtime, checksum. "
+                                    + "checksum uses Hadoop FileSystem#getFileChecksum, only valid when update_strategy=strict.");
     public static final Option<String> QUOTE_CHAR =
             Options.key("quote_char")
                     .stringType()

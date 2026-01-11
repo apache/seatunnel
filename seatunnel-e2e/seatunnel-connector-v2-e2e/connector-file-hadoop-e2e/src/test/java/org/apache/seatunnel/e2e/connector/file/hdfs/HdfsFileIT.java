@@ -128,4 +128,72 @@ public class HdfsFileIT extends TestSuiteBase implements TestResource {
                 container.executeJob("/hdfs_normal_to_assert.conf");
         Assertions.assertEquals(0, readResult.getExitCode());
     }
+
+    @TestTemplate
+    public void testHdfsBinaryUpdateModeDistcp(TestContainer container)
+            throws IOException, InterruptedException {
+        resetUpdateTestPath();
+        putHdfsFile("/update/src/test.bin", "abc");
+
+        org.testcontainers.containers.Container.ExecResult firstRun =
+                container.executeJob("/hdfs_binary_update_distcp.conf");
+        Assertions.assertEquals(0, firstRun.getExitCode());
+        Assertions.assertEquals("abc", readHdfsFile("/update/dst/test.bin"));
+
+        // Make target newer with same length, distcp strategy should SKIP overwrite.
+        putHdfsFile("/update/dst/test.bin", "zzz");
+        org.testcontainers.containers.Container.ExecResult secondRun =
+                container.executeJob("/hdfs_binary_update_distcp.conf");
+        Assertions.assertEquals(0, secondRun.getExitCode());
+        Assertions.assertEquals("zzz", readHdfsFile("/update/dst/test.bin"));
+
+        // Change source length, distcp strategy should COPY overwrite.
+        putHdfsFile("/update/src/test.bin", "abcd");
+        org.testcontainers.containers.Container.ExecResult thirdRun =
+                container.executeJob("/hdfs_binary_update_distcp.conf");
+        Assertions.assertEquals(0, thirdRun.getExitCode());
+        Assertions.assertEquals("abcd", readHdfsFile("/update/dst/test.bin"));
+    }
+
+    @TestTemplate
+    public void testHdfsBinaryUpdateModeStrictChecksum(TestContainer container)
+            throws IOException, InterruptedException {
+        resetUpdateTestPath();
+        putHdfsFile("/update/src/test.bin", "abc");
+
+        org.testcontainers.containers.Container.ExecResult firstRun =
+                container.executeJob("/hdfs_binary_update_strict_checksum.conf");
+        Assertions.assertEquals(0, firstRun.getExitCode());
+        Assertions.assertEquals("abc", readHdfsFile("/update/dst/test.bin"));
+
+        // Same length but different content, strict+checksum should COPY overwrite.
+        putHdfsFile("/update/dst/test.bin", "zzz");
+        org.testcontainers.containers.Container.ExecResult secondRun =
+                container.executeJob("/hdfs_binary_update_strict_checksum.conf");
+        Assertions.assertEquals(0, secondRun.getExitCode());
+        Assertions.assertEquals("abc", readHdfsFile("/update/dst/test.bin"));
+    }
+
+    private void resetUpdateTestPath() throws IOException, InterruptedException {
+        nameNode.execInContainer("bash", "-c", "hdfs dfs -rm -r -f /update || true");
+        org.testcontainers.containers.Container.ExecResult mkdirResult =
+                nameNode.execInContainer(
+                        "hdfs", "dfs", "-mkdir", "-p", "/update/src", "/update/dst", "/update/tmp");
+        Assertions.assertEquals(0, mkdirResult.getExitCode());
+    }
+
+    private void putHdfsFile(String hdfsPath, String content)
+            throws IOException, InterruptedException {
+        String command = "printf '" + content + "' | hdfs dfs -put -f - " + hdfsPath;
+        org.testcontainers.containers.Container.ExecResult putResult =
+                nameNode.execInContainer("bash", "-c", command);
+        Assertions.assertEquals(0, putResult.getExitCode());
+    }
+
+    private String readHdfsFile(String hdfsPath) throws IOException, InterruptedException {
+        org.testcontainers.containers.Container.ExecResult catResult =
+                nameNode.execInContainer("hdfs", "dfs", "-cat", hdfsPath);
+        Assertions.assertEquals(0, catResult.getExitCode());
+        return catResult.getStdout() == null ? "" : catResult.getStdout().trim();
+    }
 }

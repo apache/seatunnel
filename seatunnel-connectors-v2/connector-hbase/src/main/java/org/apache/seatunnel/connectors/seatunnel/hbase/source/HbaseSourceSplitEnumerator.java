@@ -53,6 +53,9 @@ public class HbaseSourceSplitEnumerator
     /** The splits that have not assigned */
     private Set<HbaseSourceSplit> pendingSplit;
 
+    /** Whether the pending splits have been initialized */
+    private boolean initialized = false;
+
     private HbaseParameters hbaseParameters;
 
     private HbaseClient hbaseClient;
@@ -81,8 +84,16 @@ public class HbaseSourceSplitEnumerator
     public HbaseSourceSplitEnumerator(
             Context<HbaseSourceSplit> context,
             HbaseParameters hbaseParameters,
+            HbaseSourceState sourceState,
             HbaseClient hbaseClient) {
-        this(context, hbaseParameters, new HashSet<>(), hbaseClient);
+        this(context, hbaseParameters, sourceState.getAssignedSplits(), hbaseClient);
+    }
+
+    private HbaseSourceSplitEnumerator(
+            Context<HbaseSourceSplit> context,
+            HbaseParameters hbaseParameters,
+            Set<HbaseSourceSplit> assignedSplit) {
+        this(context, hbaseParameters, assignedSplit, HbaseClient.createInstance(hbaseParameters));
     }
 
     private HbaseSourceSplitEnumerator(
@@ -99,6 +110,7 @@ public class HbaseSourceSplitEnumerator
     @Override
     public void open() {
         this.pendingSplit = new HashSet<>();
+        this.initialized = false;
     }
 
     @Override
@@ -121,7 +133,9 @@ public class HbaseSourceSplitEnumerator
     public void addSplitsBack(List<HbaseSourceSplit> splits, int subtaskId) {
         if (!splits.isEmpty()) {
             pendingSplit.addAll(splits);
-            assignSplit(subtaskId);
+            if (context.registeredReaders().contains(subtaskId)) {
+                assignSplit(subtaskId);
+            }
         }
     }
 
@@ -132,8 +146,28 @@ public class HbaseSourceSplitEnumerator
 
     @Override
     public void registerReader(int subtaskId) {
-        pendingSplit = getTableSplits();
+        initializePendingSplits();
         assignSplit(subtaskId);
+    }
+
+    private void initializePendingSplits() {
+        if (initialized) {
+            return;
+        }
+        Set<HbaseSourceSplit> tableSplits = getTableSplits();
+        Set<String> existedSplitIds =
+                pendingSplit.stream().map(HbaseSourceSplit::splitId).collect(Collectors.toSet());
+        if (!assignedSplit.isEmpty()) {
+            existedSplitIds.addAll(
+                    assignedSplit.stream()
+                            .map(HbaseSourceSplit::splitId)
+                            .collect(Collectors.toSet()));
+        }
+        pendingSplit.addAll(
+                tableSplits.stream()
+                        .filter(split -> !existedSplitIds.contains(split.splitId()))
+                        .collect(Collectors.toSet()));
+        initialized = true;
     }
 
     @Override

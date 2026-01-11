@@ -80,6 +80,11 @@ import ChangeLog from '../changelog/connector-file-hadoop.md';
 | null_format                | string  | 否    | -                   | 仅在 file_format_type 为 text 时使用。null_format 定义哪些字符串可以表示为 null。例如：`\N`                                                                                                             |
 | binary_chunk_size          | int     | 否    | 1024                | 仅在 file_format_type 为 binary 时使用。读取二进制文件的块大小（以字节为单位）。默认为 1024 字节。较大的值可能会提高大文件的性能，但会使用更多内存。                                                                                       |
 | binary_complete_file_mode  | boolean | 否    | false               | 仅在 file_format_type 为 binary 时使用。是否将完整文件作为单个块读取，而不是分割成块。启用时，整个文件内容将一次性读入内存。默认为 false。                                                                                            |
+| sync_mode                  | string  | 否    | full                | 文件同步模式，支持：`full`（默认）、`update`。当 `update` 时，对源/目标进行对比，只读取新增/变更文件（目前仅支持 `file_format_type=binary`）。                                                                                                          |
+| target_path                | string  | 否    | -                   | 仅在 `sync_mode=update` 时使用。目标端基础路径（通常应与 sink 的 `path` 一致），用于对比同相对路径文件。                                                                                                                     |
+| target_hadoop_conf         | map     | 否    | -                   | 仅在 `sync_mode=update` 时使用。目标端 Hadoop 配置（可选），可在其中设置 `fs.defaultFS` 覆盖目标 defaultFS。                                                                                                                 |
+| update_strategy            | string  | 否    | distcp              | 仅在 `sync_mode=update` 时使用。支持：`distcp`（默认）、`strict`。                                                                                                                                                 |
+| compare_mode               | string  | 否    | len_mtime           | 仅在 `sync_mode=update` 时使用。支持：`len_mtime`（默认）、`checksum`（仅在 `update_strategy=strict` 时可用）。                                                                                                             |
 | common-options             |         | 否    | -                   | 数据源插件通用参数，请参阅 [数据源通用选项](../source-common-options.md) 了解详情。                                                                                                                       |
 | file_filter_modified_start | string  | 否    | -                   | 按照最后修改时间过滤文件。 要过滤的开始时间(包括改时间),时间格式是：`yyyy-MM-dd HH:mm:ss`                                                                                                                        |
 | file_filter_modified_end   | string  | 否    | -                   | 按照最后修改时间过滤文件。 要过滤的结束时间(不包括改时间),时间格式是：`yyyy-MM-dd HH:mm:ss`                                                                                                                       |
@@ -213,6 +218,43 @@ abc.*
 
 是否将完整文件作为单个块读取，而不是分割成块。启用时，整个文件内容将一次性读入内存。默认为 false。
 
+### sync_mode [string]
+
+文件同步模式，支持：`full`（默认）`update`。
+
+当 `sync_mode=update` 时，会在读取端对源/目标进行对比，只读取新增/变更文件（目前仅支持 `file_format_type=binary`）。
+
+### target_path [string]
+
+仅在 `sync_mode=update` 时使用。
+
+目标端基础路径（通常应与 sink 的 `path` 保持一致），用于对比同相对路径的目标文件是否存在/是否需要更新。
+
+### target_hadoop_conf [map]
+
+仅在 `sync_mode=update` 时使用。
+
+用于访问目标文件系统的 Hadoop 配置（可选）。当不配置时默认复用 source 端的文件系统配置。
+
+可在该 map 中指定 `fs.defaultFS` 来覆盖目标端 defaultFS，例如：`"fs.defaultFS" = "hdfs://nn2:9000"`。
+
+### update_strategy [string]
+
+仅在 `sync_mode=update` 时使用。支持：`distcp`（默认）`strict`。
+
+- `distcp`：更接近 `distcp -update` 的语义：
+  - 目标文件不存在 → COPY
+  - 长度不同 → COPY
+  - `mtime(source) > mtime(target)` → COPY
+  - 否则 → SKIP
+- `strict`：严格一致性，配合 `compare_mode` 判断是否 SKIP。
+
+### compare_mode [string]
+
+仅在 `sync_mode=update` 时使用。支持：`len_mtime`（默认）`checksum`。
+
+- `len_mtime`：`len` 与 `mtime` 都相同才 SKIP，否则 COPY。
+- `checksum`：要求 `len` 相同且 Hadoop `getFileChecksum` 相同才 SKIP，否则 COPY（仅在 `update_strategy=strict` 时生效）。
 ### quote_char [string]
 
 用于包裹 CSV 字段的单字符，可保证包含逗号、换行符或引号的字段被正确解析。
