@@ -67,6 +67,7 @@ public abstract class AbstractJdbcSourceChunkSplitter implements JdbcSourceChunk
             long start = System.currentTimeMillis();
 
             Column splitColumn = getSplitColumn(jdbc, dialect, tableId);
+            log.info("Chosen split column {} for table {}", splitColumn.name(), tableId);
             List<SnapshotSplit> splits = new ArrayList<>();
             if (splitColumn == null) {
                 if (sourceConfig.isExactlyOnce()) {
@@ -429,15 +430,11 @@ public abstract class AbstractJdbcSourceChunkSplitter implements JdbcSourceChunk
 
         Optional<PrimaryKey> primaryKey = dialect.getPrimaryKey(jdbc, tableId);
         if (primaryKey.isPresent()) {
-            List<String> pkColumns = primaryKey.get().getColumnNames();
-
-            for (String pkColumn : pkColumns) {
-                Column column = table.columnWithName(pkColumn);
-                if (isEvenlySplitColumn(column)) {
-                    splitColumn = columnComparable(splitColumn, column);
-                    if (sqlTypePriority(splitColumn) == 1) {
-                        return splitColumn;
-                    }
+            Column firstColumn = table.columnWithName(primaryKey.get().getColumnNames().get(0));
+            if (isEvenlySplitColumn(firstColumn)) {
+                splitColumn = columnComparable(splitColumn, firstColumn);
+                if (sqlTypePriority(splitColumn) == 1) {
+                    return splitColumn;
                 }
             }
         } else {
@@ -447,15 +444,12 @@ public abstract class AbstractJdbcSourceChunkSplitter implements JdbcSourceChunk
         List<ConstraintKey> uniqueKeys = dialect.getUniqueKeys(jdbc, tableId);
         if (!uniqueKeys.isEmpty()) {
             for (ConstraintKey uniqueKey : uniqueKeys) {
-                List<ConstraintKey.ConstraintKeyColumn> uniqueKeyColumns =
-                        uniqueKey.getColumnNames();
-                for (ConstraintKey.ConstraintKeyColumn uniqueKeyColumn : uniqueKeyColumns) {
-                    Column column = table.columnWithName(uniqueKeyColumn.getColumnName());
-                    if (isEvenlySplitColumn(column)) {
-                        splitColumn = columnComparable(splitColumn, column);
-                        if (sqlTypePriority(splitColumn) == 1) {
-                            return splitColumn;
-                        }
+                Column firstColumn =
+                        table.columnWithName(uniqueKey.getColumnNames().get(0).getColumnName());
+                if (isEvenlySplitColumn(firstColumn)) {
+                    splitColumn = columnComparable(splitColumn, firstColumn);
+                    if (sqlTypePriority(splitColumn) == 1) {
+                        return splitColumn;
                     }
                 }
             }
