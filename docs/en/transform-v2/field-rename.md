@@ -13,7 +13,8 @@ FieldRename transform plugin for rename field name.
 |      convert_case       | string | no       |               | The case conversion type. The options can be `UPPER`, `LOWER`                                                         |
 |         prefix          | string | no       |               | The prefix to be added to the field name                                                                              |
 |         suffix          | string | no       |               | The suffix to be added to the field name                                                                              |
-| replacements_with_regex | array  | no       |               | The array of replacement rules with regex. The replacement rule is a map with `replace_from` and `replace_to` fields. |
+| replacements_with_regex | array  | no       |               | The array of replacement rules. Each rule is a map with `replace_from`, `replace_to`, and optional `is_regex` (default `true`). When `is_regex=false`, `replace_from` is treated as an exact field name (full match). |
+|        specific         | array  | no       |               | Specific rename rules. Each rule is a map with `field_name` and `target_name`. When matched, it will rename the field directly and skip other rename rules. |
 
 ## Examples
 
@@ -69,6 +70,21 @@ sink {
     
     schema_save_mode = "CREATE_SCHEMA_WHEN_NOT_EXIST"
     data_save_mode = "APPEND_DATA"
+  }
+}
+```
+
+### Rename specific fields
+
+```
+transform {
+  FieldRename {
+    plugin_input = "input"
+    plugin_output = "output"
+
+    specific = [
+      { field_name = "InvoiceNum", target_name = "invoice_num" }
+    ]
   }
 }
 ```
