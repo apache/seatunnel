@@ -99,13 +99,12 @@ public class SchemaRegistryAwareProtobufDeserializationSchemaTest {
     }
 
     @Test
-    void testDeserializeNullMessage() throws IOException {
+    void testDeserializeNullMessage() {
         CatalogTable catalogTable = createCatalogTable();
         SchemaRegistryAwareProtobufDeserializationSchema schema =
                 new SchemaRegistryAwareProtobufDeserializationSchema(catalogTable);
 
-        SeaTunnelRow result = schema.deserialize(null);
-        Assertions.assertNull(result);
+        Assertions.assertThrows(NullPointerException.class, () -> schema.deserialize(null));
     }
 
     @Test
@@ -114,20 +113,24 @@ public class SchemaRegistryAwareProtobufDeserializationSchemaTest {
         SchemaRegistryAwareProtobufDeserializationSchema schema =
                 new SchemaRegistryAwareProtobufDeserializationSchema(catalogTable);
 
+        // Empty message may return a row with default values
         SeaTunnelRow result = schema.deserialize(new byte[0]);
-        Assertions.assertNull(result);
+        // After fallback tries, the inner schema returns a row with default values
+        Assertions.assertNotNull(result);
+        Assertions.assertEquals(0, result.getField(0));
+        Assertions.assertEquals("", result.getField(1));
     }
 
     @Test
-    void testDeserializeShortMessage() throws IOException {
+    void testDeserializeInvalidMessage() throws IOException {
         CatalogTable catalogTable = createCatalogTable();
         SchemaRegistryAwareProtobufDeserializationSchema schema =
                 new SchemaRegistryAwareProtobufDeserializationSchema(catalogTable);
 
-        byte[] shortMessage = new byte[] {0, 1, 2, 3, 4};
+        // Invalid protobuf message without magic byte - should throw exception
+        byte[] invalidMessage = new byte[] {0, 1, 2, 3, 4};
 
-        SeaTunnelRow result = schema.deserialize(shortMessage);
-        Assertions.assertNull(result);
+        Assertions.assertThrows(IOException.class, () -> schema.deserialize(invalidMessage));
     }
 
     @Test
@@ -166,10 +169,12 @@ public class SchemaRegistryAwareProtobufDeserializationSchemaTest {
         SchemaRegistryAwareProtobufDeserializationSchema schema =
                 new SchemaRegistryAwareProtobufDeserializationSchema(catalogTable);
 
+        // Message with magic byte but invalid protobuf content
         byte[] message = new byte[] {0, 1, 2, 3, 4, 5};
 
-        SeaTunnelRow result = schema.deserialize(message);
-        Assertions.assertNull(result);
+        // Should try to strip header, fail on all offsets, then fallback to original
+        // Original message is also invalid, so throws exception
+        Assertions.assertThrows(IOException.class, () -> schema.deserialize(message));
     }
 
     @Test
