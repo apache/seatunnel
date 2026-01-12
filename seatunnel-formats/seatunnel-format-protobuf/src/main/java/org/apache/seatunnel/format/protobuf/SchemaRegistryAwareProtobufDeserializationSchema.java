@@ -26,8 +26,8 @@ import org.apache.seatunnel.api.table.type.SeaTunnelRowType;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
+import java.io.ByteArrayInputStream;
 import java.io.IOException;
-import java.util.Arrays;
 
 /**
  * A Protobuf deserialization schema that is aware of Confluent Schema Registry's wire format.
@@ -71,31 +71,49 @@ public class SchemaRegistryAwareProtobufDeserializationSchema
         // Confluent Schema Registry Protobuf wire format:
         // 1 byte magic (0), 4 bytes schema id, N bytes message indexes (varints), then protobuf.
         if (length >= 6 && message[0] == 0) {
-            int candidateStart = 6;
-            if (candidateStart < length) {
-                try {
-                    return inner.deserialize(Arrays.copyOfRange(message, candidateStart, length));
-                } catch (IOException | RuntimeException ignored) {
-                    LOG.warn("Protobuf message not recognized at candidate offset 6, falling back");
-                }
+            // Try candidateStart = 6 first (common case: single message index)
+            SeaTunnelRow result = tryDeserialize(message, 6, length);
+            if (result != null) {
+                return result;
             }
 
+            // Probe other offsets (5 to 5 + MAX_ADDITIONAL_HEADER_BYTES)
             int maxProbeStart = Math.min(5 + MAX_ADDITIONAL_HEADER_BYTES, length - 1);
             for (int start = 5; start <= maxProbeStart; start++) {
-                if (start == candidateStart) {
-                    continue;
+                if (start == 6) {
+                    continue; // Already tried
                 }
-                try {
-                    return inner.deserialize(Arrays.copyOfRange(message, start, length));
-                } catch (IOException | RuntimeException ignored) {
-                    LOG.warn(
-                            "Protobuf message not recognized at candidate offset {}, falling back",
-                            start);
+                result = tryDeserialize(message, start, length);
+                if (result != null) {
+                    return result;
                 }
             }
         }
 
+        // Fallback: try original message (no Schema Registry header)
         return inner.deserialize(message);
+    }
+
+    /**
+     * Try to deserialize message starting from the given offset. Uses ByteArrayInputStream to avoid
+     * copying the byte array.
+     *
+     * @param message the original message byte array
+     * @param offset the starting offset in the array
+     * @param length the total length of the array
+     * @return deserialized SeaTunnelRow, or null if parsing fails
+     */
+    private SeaTunnelRow tryDeserialize(byte[] message, int offset, int length) {
+        try (ByteArrayInputStream inputStream =
+                new ByteArrayInputStream(message, offset, length - offset)) {
+            return inner.deserialize(inputStream);
+        } catch (IOException | RuntimeException e) {
+            LOG.warn(
+                    "Protobuf message not recognized at candidate offset {}, falling back",
+                    offset,
+                    e);
+            return null;
+        }
     }
 
     @Override

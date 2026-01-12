@@ -25,6 +25,7 @@ import org.apache.seatunnel.api.table.factory.Factory;
 import org.apache.seatunnel.api.table.factory.TableSourceFactory;
 import org.apache.seatunnel.api.table.factory.TableSourceFactoryContext;
 import org.apache.seatunnel.connectors.seatunnel.kafka.config.KafkaSourceOptions;
+import org.apache.seatunnel.connectors.seatunnel.kafka.config.MessageFormat;
 import org.apache.seatunnel.connectors.seatunnel.kafka.config.StartMode;
 
 import com.google.auto.service.AutoService;
@@ -59,8 +60,7 @@ public class KafkaSourceFactory implements TableSourceFactory {
                         KafkaSourceOptions.DEBEZIUM_RECORD_TABLE_FILTER,
                         KafkaSourceOptions.KEY_PARTITION_DISCOVERY_INTERVAL_MILLIS,
                         KafkaSourceOptions.READER_CACHE_QUEUE_SIZE,
-                        KafkaSourceOptions.IGNORE_NO_LEADER_PARTITION,
-                        KafkaSourceOptions.STRIP_SCHEMA_REGISTRY_HEADER)
+                        KafkaSourceOptions.IGNORE_NO_LEADER_PARTITION)
                 .conditional(
                         KafkaSourceOptions.START_MODE,
                         StartMode.TIMESTAMP,
@@ -73,6 +73,10 @@ public class KafkaSourceFactory implements TableSourceFactory {
                         KafkaSourceOptions.START_MODE,
                         StartMode.SPECIFIC_OFFSETS,
                         KafkaSourceOptions.START_MODE_OFFSETS)
+                .conditional(
+                        KafkaSourceOptions.FORMAT,
+                        MessageFormat.PROTOBUF,
+                        KafkaSourceOptions.STRIP_SCHEMA_REGISTRY_HEADER)
                 .build();
     }
 
