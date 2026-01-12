@@ -31,28 +31,22 @@ import java.util.Map;
 /**
  * Test S3 checkpoint storage using Kubernetes IRSA (IAM Roles for Service Accounts).
  *
- * <p>This test uses DefaultAWSCredentialsProviderChain which supports:
- * 1. Environment variables (AWS_ACCESS_KEY_ID, AWS_SECRET_ACCESS_KEY)
- * 2. Java system properties
- * 3. Web Identity Token (Kubernetes IRSA) - reads from AWS_WEB_IDENTITY_TOKEN_FILE
- * 4. EC2 instance profile credentials
- * 5. ECS container credentials
+ * <p>This test uses DefaultAWSCredentialsProviderChain which supports: 1. Environment variables
+ * (AWS_ACCESS_KEY_ID, AWS_SECRET_ACCESS_KEY) 2. Java system properties 3. Web Identity Token
+ * (Kubernetes IRSA) - reads from AWS_WEB_IDENTITY_TOKEN_FILE 4. EC2 instance profile credentials 5.
+ * ECS container credentials
  *
- * <p>To run this test in Kubernetes with IRSA:
- * 1. Create a Kubernetes service account with IRSA annotation:
- *    kubectl create serviceaccount seatunnel-sa
- *    kubectl annotate serviceaccount seatunnel-sa \
- *      eks.amazonaws.com/role-arn=arn:aws:iam::YOUR_ACCOUNT:role/YOUR_ROLE
+ * <p>To run this test in Kubernetes with IRSA: 1. Create a Kubernetes service account with IRSA
+ * annotation: kubectl create serviceaccount seatunnel-sa kubectl annotate serviceaccount
+ * seatunnel-sa \ eks.amazonaws.com/role-arn=arn:aws:iam::YOUR_ACCOUNT:role/YOUR_ROLE
  *
- * 2. Deploy the test pod with this service account
+ * <p>2. Deploy the test pod with this service account
  *
- * 3. The AWS_WEB_IDENTITY_TOKEN_FILE and AWS_ROLE_ARN environment variables
- *    will be automatically set by EKS
+ * <p>3. The AWS_WEB_IDENTITY_TOKEN_FILE and AWS_ROLE_ARN environment variables will be
+ * automatically set by EKS
  *
- * <p>Alternatively, for local testing with environment variables:
- * export AWS_ACCESS_KEY_ID=your-key
- * export AWS_SECRET_ACCESS_KEY=your-secret
- * export AWS_REGION=your-region
+ * <p>Alternatively, for local testing with environment variables: export AWS_ACCESS_KEY_ID=your-key
+ * export AWS_SECRET_ACCESS_KEY=your-secret export AWS_REGION=your-region
  */
 @Disabled(
         "IRSA requires Kubernetes environment with proper IAM role setup. "
