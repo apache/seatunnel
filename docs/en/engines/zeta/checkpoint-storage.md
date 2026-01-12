@@ -162,6 +162,83 @@ seatunnel:
           fs.s3a.aws.credentials.provider: org.apache.hadoop.fs.s3a.InstanceProfileCredentialsProvider
 ```
 
+If you are running SeaTunnel in **Kubernetes with IRSA (IAM Roles for Service Accounts)**, you can use `WebIdentityTokenCredentialsProvider` which automatically uses the service account token to assume an IAM role. You can check [eks-iam-roles-for-service-accounts](https://docs.aws.amazon.com/eks/latest/userguide/iam-roles-for-service-accounts.html).
+
+**Prerequisites for IRSA:**
+1. SeaTunnel version 2.3.13+ (which includes hadoop-aws 3.3.6+)
+2. Your Kubernetes service account must be annotated with the IAM role ARN
+3. The pod must have the AWS_WEB_IDENTITY_TOKEN_FILE and AWS_ROLE_ARN environment variables set (typically done automatically by EKS)
+
+You can config like this:
+
+```yaml
+
+seatunnel:
+  engine:
+    checkpoint:
+      interval: 6000
+      timeout: 7000
+      storage:
+        type: hdfs
+        max-retained: 3
+        plugin-config:
+          storage.type: s3
+          s3.bucket: s3a://your-bucket
+          fs.s3a.endpoint: your-endpoint  # optional, omit for standard AWS S3
+          fs.s3a.aws.credentials.provider: com.amazonaws.auth.WebIdentityTokenCredentialsProvider
+```
+
+Alternatively, you can use `DefaultAWSCredentialsProviderChain` which is **recommended** as it automatically detects the best credential provider based on your environment (environment variables, web identity tokens for IRSA, EC2 instance profiles, etc.):
+
+```yaml
+
+seatunnel:
+  engine:
+    checkpoint:
+      interval: 6000
+      timeout: 7000
+      storage:
+        type: hdfs
+        max-retained: 3
+        plugin-config:
+          storage.type: s3
+          s3.bucket: s3a://your-bucket
+          fs.s3a.endpoint: your-endpoint  # optional, omit for standard AWS S3
+          fs.s3a.aws.credentials.provider: com.amazonaws.auth.DefaultAWSCredentialsProviderChain
+```
+
+The `DefaultAWSCredentialsProviderChain` checks credentials in this order:
+1. Environment variables (AWS_ACCESS_KEY_ID, AWS_SECRET_ACCESS_KEY)
+2. Java system properties
+3. Web Identity Token (Kubernetes IRSA)
+4. EC2 instance profile credentials
+5. ECS container credentials
+
+**Example Kubernetes Service Account setup for IRSA:**
+```yaml
+apiVersion: v1
+kind: ServiceAccount
+metadata:
+  name: seatunnel-sa
+  namespace: default
+  annotations:
+    eks.amazonaws.com/role-arn: arn:aws:iam::YOUR_ACCOUNT_ID:role/YOUR_ROLE_NAME
+```
+
+Then reference this service account in your SeaTunnel pod spec:
+```yaml
+apiVersion: v1
+kind: Pod
+metadata:
+  name: seatunnel-pod
+spec:
+  serviceAccountName: seatunnel-sa
+  containers:
+  - name: seatunnel
+    image: your-seatunnel-image
+    # ... rest of your container config
+```
+
 If you want to use Minio that supports the S3 protocol as checkpoint storage, you should configure it this way:
 
 ```yaml

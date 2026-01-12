@@ -65,7 +65,25 @@ public class S3FileBaseOptions extends FileBaseSourceOptions {
     public enum S3aAwsCredentialsProvider {
         SimpleAWSCredentialsProvider("org.apache.hadoop.fs.s3a.SimpleAWSCredentialsProvider"),
 
-        InstanceProfileCredentialsProvider("com.amazonaws.auth.InstanceProfileCredentialsProvider");
+        InstanceProfileCredentialsProvider("com.amazonaws.auth.InstanceProfileCredentialsProvider"),
+
+        /**
+         * Use WebIdentityTokenCredentialsProvider for Kubernetes IRSA (IAM Roles for Service Accounts).
+         * This provider reads the web identity token from AWS_WEB_IDENTITY_TOKEN_FILE environment variable
+         * and assumes the role specified in AWS_ROLE_ARN.
+         */
+        WebIdentityTokenCredentialsProvider("com.amazonaws.auth.WebIdentityTokenCredentialsProvider"),
+
+        /**
+         * Use DefaultAWSCredentialsProviderChain for automatic credential detection.
+         * This is the recommended option as it supports multiple credential sources in order:
+         * 1. Environment variables (AWS_ACCESS_KEY_ID, AWS_SECRET_ACCESS_KEY)
+         * 2. Java system properties
+         * 3. Web Identity Token (Kubernetes IRSA)
+         * 4. EC2 instance profile credentials
+         * 5. ECS container credentials
+         */
+        DefaultAWSCredentialsProviderChain("com.amazonaws.auth.DefaultAWSCredentialsProviderChain");
 
         private String provider;
 
