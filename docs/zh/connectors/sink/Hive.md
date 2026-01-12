@@ -60,7 +60,7 @@ import ChangeLog from '../changelog/connector-hive.md';
 
 ### metastore_uri [string]
 
-Hive 元存储 URI
+Hive 元存储 URI。支持通过逗号分隔配置多个 URI 用于高可用/故障切换（会自动去除空格）。SeaTunnel 会将该值写入 Hive 的 `hive.metastore.uris`，并在运行时优先使用 Hive 的 `RetryingMetaStoreClient` 实现重试/切换。注意：该能力仅做客户端连接端点切换，元数据一致性需要由 metastore 部署保证。
 
 ### hdfs_site_path [string]
 
@@ -100,7 +100,12 @@ Kerberos 的 keytab 文件路径
 
 支持从时间戳写入 Parquet INT96，仅对 parquet 文件有效。
 
-### schema_save_mode [枚举]
+### overwrite [boolean]
+
+是否以覆盖写入（Overwrite）方式写入 Hive。
+
+- 批模式（BATCH）：在提交前删除目标路径中已有数据（非分区表删除表目录；分区表删除本次提交涉及的分区目录），再写入新数据。
+- 流模式（STREAMING）：在启用 checkpoint 的流式运行时，commit 会在每个 checkpoint 完成后触发一次。为避免每个 checkpoint 都重复删除导致数据丢失，SeaTunnel 会对每个目标目录（表目录/分区目录）最多删除一次（空提交会跳过删除）。恢复（recovery）场景下为避免误删已提交数据，删除行为为 best-effort，可能会被跳过，因此不保证严格的“全量覆盖”语义。
 
 ### data_save_mode [enum]
 
@@ -111,6 +116,8 @@ Kerberos 的 keytab 文件路径
 - CUSTOM_PROCESSING / ERROR_WHEN_DATA_EXISTS：如无特殊需求，不建议在 Hive sink 下使用
 
 注意：overwrite=true 与 data_save_mode=DROP_DATA 行为等价，二者择一配置即可，勿同时设置。
+
+### schema_save_mode [枚举]
 
 在开始同步任务之前，针对目标端已存在的表结构选择不同的处理方案。
 
@@ -147,6 +154,15 @@ Sink 插件的通用参数，请参阅 [Sink Common Options](../common-options/s
   Hive {
     table_name = "default.seatunnel_orc"
     metastore_uri = "thrift://namenode001:9083"
+  }
+```
+
+metastore_uri 故障切换示例（多 URI）：
+
+```bash
+  Hive {
+    table_name = "default.seatunnel_orc"
+    metastore_uri = "thrift://metastore-1:9083,thrift://metastore-2:9083"
   }
 ```
 

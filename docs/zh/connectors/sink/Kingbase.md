@@ -85,7 +85,7 @@ import ChangeLog from '../changelog/connector-jdbc.md';
 ### 简单
 
 > 此示例定义了一个 SeaTunnel 同步任务，通过 FakeSource 自动生成数据并将其发送到 JDBC Sink。FakeSource 生成总共 16 行数据 (row.num=16)，每行有 12 个字段。最终目标表 test_table 也将有 16 行数据。
-> 在运行此作业之前，您需要在 Kingbase 中创建数据库 test 和表 test_table。如果您还没有安装和部署 SeaTunnel，您需要按照 [安装 SeaTunnel](../../start-v2/locally/deployment.md) 中的说明进行安装和部署。然后按照 [使用 SeaTunnel 引擎快速开始](../../start-v2/locally/quick-start-seatunnel-engine.md) 中的说明运行此作业。
+> 在运行此作业之前，您需要在 Kingbase 中创建数据库 test 和表 test_table。如果您还没有安装和部署 SeaTunnel，您需要按照 [安装 SeaTunnel](../../getting-started/locally/deployment.md) 中的说明进行安装和部署。然后按照 [使用 SeaTunnel 引擎快速开始](../../getting-started/locally/quick-start-seatunnel-engine.md) 中的说明运行此作业。
 
 ```
 # 定义运行时环境

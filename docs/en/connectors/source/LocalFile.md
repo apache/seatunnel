@@ -14,7 +14,7 @@ import ChangeLog from '../changelog/connector-file-local.md';
 
 - [x] [batch](../../introduction/concepts/connector-v2-features.md)
 - [ ] [stream](../../introduction/concepts/connector-v2-features.md)
-- [x] [multimodal](../../concept/connector-v2-features.md#multimodal)
+- [x] [multimodal](../../introduction/concepts/connector-v2-features.md#multimodal)
 
   Use binary file format to read and write files in any format, such as videos, pictures, etc. In short, any files can be synchronized to the target place.
 
@@ -420,7 +420,7 @@ File modification time filter. The connector will filter some files base on the 
 
 ### enable_file_split [string]
 
-Turn on the file splitting function, the default is false。It can be selected when the file type is csv, text, json and non-compressed format.
+Turn on the file splitting function, the default is false.It can be selected when the file type is csv, text, json, parquet and non-compressed format.
 
 ### file_split_size [long]
 

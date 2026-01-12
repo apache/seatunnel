@@ -40,7 +40,7 @@ Sink connector for Apache Pulsar.
 | pulsar.config        | Map    | No       | -                   | In addition to the above parameters that must be specified by the Pulsar producer client.                        |
 | message.routing.mode | Enum   | No       | RoundRobinPartition | Default routing mode for messages to partition.                                                                  |
 | partition_key_fields | array  | No       | -                   | Configure which fields are used as the key of the pulsar message.                                                |
-| common-options       | config | no       | -                   | Sink plugin common parameters, please refer to [Sink Common Options](../common-options/sink-common-options.md) for details. |
+| common-options       | config | no       | -                   | Source plugin common parameters, please refer to [Source Common Options](../common-options/sink-common-options.md) for details. |
 
 ## Parameter Interpretation
 
@@ -128,13 +128,13 @@ The selected field must be an existing field in the upstream.
 
 ### common options
 
-Sink plugin common parameters, please refer to [Sink Common Options](../common-options/sink-common-options.md) for details.
+Source plugin common parameters, please refer to [Source Common Options](../common-options/sink-common-options.md) for details.
 
 ## Task Example
 
 ### Simple
 
-> This example defines a SeaTunnel synchronization task that automatically generates data through FakeSource and sends it to Pulsar Sink. FakeSource generates a total of 16 rows of data (row.num=16), with each row having two fields, name (string type) and age (int type). The final target topic is test_topic will also be 16 rows of data in the topic. And if you have not yet installed and deployed SeaTunnel, you need to follow the instructions in [Install SeaTunnel](../../start-v2/locally/deployment.md) to install and deploy SeaTunnel. And then follow the instructions in [Quick Start With SeaTunnel Engine](../../start-v2/locally/quick-start-seatunnel-engine.md) to run this job.
+> This example defines a SeaTunnel synchronization task that automatically generates data through FakeSource and sends it to Pulsar Sink. FakeSource generates a total of 16 rows of data (row.num=16), with each row having two fields, name (string type) and age (int type). The final target topic is test_topic will also be 16 rows of data in the topic. And if you have not yet installed and deployed SeaTunnel, you need to follow the instructions in [Install SeaTunnel](../../getting-started/locally/deployment.md) to install and deploy SeaTunnel. And then follow the instructions in [Quick Start With SeaTunnel Engine](../../getting-started/locally/quick-start-seatunnel-engine.md) to run this job.
 
 ```hocon
 # Defining the runtime environment

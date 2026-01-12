@@ -174,7 +174,7 @@ import ChangeLog from '../changelog/connector-file-obs.md';
 
 #### <span id="common_options"> common options </span>
 
->Sink插件常用参数，请参考[Sink common Options]（../Sink-common-Options.md）了解详细信息。
+>Sink插件常用参数，请参考[Sink common Options]（../common-options/sink-common-options.md）了解详细信息。
 
 ## 任务示例
 

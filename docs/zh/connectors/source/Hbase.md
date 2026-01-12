@@ -45,7 +45,7 @@ hbase的zookeeper集群主机，例如：“hadoop001:2181,hadoop002:2181,hadoop
 
 ### schema [config]
 
-Hbase 使用字节数组进行存储。因此，您需要为表中的每一列配置数据类型。有关更多信息，请参阅：[guide](../../concept/schema-feature.md#how-to-declare-type-supported)。
+Hbase 使用字节数组进行存储。因此，您需要为表中的每一列配置数据类型。有关更多信息，请参阅：[guide](../../introduction/concepts/schema-feature.md#how-to-declare-type-supported)。
 
 ### hbase_extra_config [config]
 

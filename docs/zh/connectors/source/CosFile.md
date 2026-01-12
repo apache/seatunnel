@@ -423,7 +423,7 @@ abc.*
 
 ### common options
 
-源插件常用参数，详见[源端通用选项]（../Source-common-Options.md）。
+源插件常用参数，详见[源端通用选项]（../common-options/source-common-options.md）。
 
 ## 例如
 

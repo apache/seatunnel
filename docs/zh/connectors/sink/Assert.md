@@ -63,7 +63,7 @@ Assert 数据接收器是一个用于断言数据是否符合用户定义规则�
 
 ### field_type [string | ConfigMap]
 
-字段类型。字段类型应符合此[指南](../../concept/schema-feature.md#如何声明支持的类型)。
+字段类型。字段类型应符合此[指南](../../introduction/concepts/schema-feature.md#如何声明支持的类型)。
 
 ### field_value [ConfigList]
 
@@ -87,7 +87,7 @@ Assert 数据接收器是一个用于断言数据是否符合用户定义规则�
 
 ### equals_to [boolean | numeric | string | ConfigList | ConfigMap]
 
-`equals_to`用于比较字段值是否等于配置的预期值。用户可以将所有类型的值分配给`equals_to`。这些类型在[这里](../../concept/schema-feature.md#目前支持哪些类型)有详细说明。
+`equals_to`用于比较字段值是否等于配置的预期值。用户可以将所有类型的值分配给`equals_to`。这些类型在[这里](../../introduction/concepts/schema-feature.md#目前支持哪些类型)有详细说明。
 例如，如果一个字段是一个包含三个字段的行，行类型的声明是`{a = array<string>, b = map<string, decimal(30, 2)>, c={c_0 = int, b = string}}`，用户可以将值`[["a", "b"], { k0 = 9999.99, k1 = 111.11 }, [123, "abcd"]]`分配给`equals_to`。
 
 > 定义字段值的方式与[FakeSource](../../connector-v2/source/FakeSource.md#自定义数据内容简单示例)一致。

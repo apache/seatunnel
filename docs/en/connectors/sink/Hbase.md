@@ -92,7 +92,14 @@ The write buffer size of hbase client, default `8 * 1024 * 1024`
 
 ### encoding [string]
 
-The encoding of string field, support [`utf8`, `gbk`], default `utf8`
+The encoding used for STRING/DECIMAL/DATE/TIME/TIMESTAMP/ARRAY fields, support [`utf8`, `gbk`], default `utf8`
+
+### Data types
+
+Hbase stores bytes. The connector supports:
+
+- TINYINT/SMALLINT/INT/BIGINT/FLOAT/DOUBLE/BOOLEAN/BYTES
+- STRING/DECIMAL/DATE/TIME/TIMESTAMP/ARRAY (serialized as strings using `encoding`)
 
 ### hbase_extra_config [config]
 

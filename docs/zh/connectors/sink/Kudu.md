@@ -53,7 +53,7 @@ import ChangeLog from '../changelog/connector-kudu.md';
 | buffer_flush_interval                     | Int    | 否       | 10000                                          | 刷新间隔期间，异步线程将刷新数据。                                                             |
 | ignore_not_found                          | Bool   | 否       | false                                          | 如果为true，则忽略所有未找到的行。                                                                                                         |
 | ignore_not_duplicate                      | Bool   | 否       | false                                          | 如果为true，则忽略所有dulicate行。                                                                                                          |
-| common-options                            |        | 否       | -                                              |源插件常用参数，详见[Sink common Options](../common-options/sink-common-options.md）。                           |
+| common-options                            |        | 否       | -                                              |源插件常用参数，详见[Source common Options]（../sink common-Options.md）。                           |
 
 ## 任务示例
 

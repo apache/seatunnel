@@ -12,19 +12,19 @@ import ChangeLog from '../changelog/connector-file-s3.md';
 
 ## 主要特性
 
-- [x] [多模态](../../concept/connector-v2-features.md#多模态multimodal)
+- [x] [多模态](../../introduction/concepts/connector-v2-features.md#多模态multimodal)
 
   使用二进制文件格式读取和写入任何格式的文件，例如视频、图片等。简而言之，任何文件都可以同步到目标位置。
 
-- [x] [批处理](../../concept/connector-v2-features.md)
-- [ ] [流处理](../../concept/connector-v2-features.md)
-- [x] [精确一次](../../concept/connector-v2-features.md)
+- [x] [批处理](../../introduction/concepts/connector-v2-features.md)
+- [ ] [流处理](../../introduction/concepts/connector-v2-features.md)
+- [x] [精确一次](../../introduction/concepts/connector-v2-features.md)
 
   在一次pollNext调用中读取分片中的所有数据。将读取的分片保存在快照中。
 
-- [x] [列投影](../../concept/connector-v2-features.md)
-- [x] [并行度](../../concept/connector-v2-features.md)
-- [ ] [支持用户定义的分片](../../concept/connector-v2-features.md)
+- [x] [列投影](../../introduction/concepts/connector-v2-features.md)
+- [x] [并行度](../../introduction/concepts/connector-v2-features.md)
+- [ ] [支持用户定义的分片](../../introduction/concepts/connector-v2-features.md)
 - [x] 文件格式类型
     - [x] text
     - [x] csv
@@ -220,7 +220,7 @@ schema {
 | binary_complete_file_mode       | boolean | 否    | false                                                 | 仅在file_format_type为binary时使用。是否将完整文件作为单个块读取，而不是分割成块。启用时，整个文件内容将一次性读入内存。默认为false。                                                                                                                                                                                                                                      |
 | file_filter_pattern             | string  | 否    |                                                       | 过滤模式，用于过滤文件。                                                                                                                                                                                                                                                                                                          |
 | filename_extension              | string  | 否    | -                                                     | 过滤文件名扩展名，用于过滤具有特定扩展名的文件。例如：`csv` `.txt` `json` `.xml`。                                                                                                                                                                                                                                                                |
-| common-options                  |         | 否    | -                                                     | 数据源插件通用参数，请参考[数据源通用选项](../source-common-options.md)了解详情。                                                                                                                                                                                                                                                              |
+| common-options                  |         | 否    | -                                                     | 数据源插件通用参数，请参考[数据源通用选项](../common-options/source-common-options.md)了解详情。                                                                                                                                                                                                                                                              |
 | quote_char                      | string  | 否    | "                                                     | 用于包裹 CSV 字段的单字符，可保证包含逗号、换行符或引号的字段被正确解析。                                                                                                                                                                                                                                                                               |
 | escape_char                     | string  | 否    | -                                                     | 用于在 CSV 字段内转义引号或其他特殊字符，使其不会结束字段。                                                                                                                                                                                                                                                                                      |
 

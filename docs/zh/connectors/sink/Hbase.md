@@ -92,7 +92,14 @@ hbase 客户端的写入缓冲区大小，默认 8 * 1024 * 1024
 
 ### encoding [string]
 
-字符串字段的编码，支持[ utf8 ， gbk]，默认 utf8
+字符串类字段的编码（STRING/DECIMAL/DATE/TIME/TIMESTAMP/ARRAY），支持 [utf8, gbk]，默认 utf8
+
+### 数据类型
+
+Hbase 存储字节，连接器支持：
+
+- TINYINT/SMALLINT/INT/BIGINT/FLOAT/DOUBLE/BOOLEAN/BYTES
+- STRING/DECIMAL/DATE/TIME/TIMESTAMP/ARRAY（使用 encoding 序列化为字符串后写入）
 
 ### hbase_extra_config [config]
 

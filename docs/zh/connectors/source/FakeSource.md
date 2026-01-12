@@ -74,7 +74,7 @@ FakeSource 是一个虚拟数据源，它根据用户定义的 schema 数据结�
 
 ### 简单示例
 
-> 此示例随机生成指定类型的数据。如果您想了解如何声明字段类型，请点击 [这里](../../concept/schema-feature.md#how-to-declare-type-supported)。
+> 此示例随机生成指定类型的数据。如果您想了解如何声明字段类型，请点击 [这里](../../introduction/concepts/schema-feature.md#how-to-declare-type-supported)。
 
 ```hocon
 schema = {

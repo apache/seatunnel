@@ -51,6 +51,7 @@ Read all the data in a split in a pollNext call. What splits are read will be sa
 |         name          |  type  | required | default value  |
 |-----------------------|--------|----------|----------------|
 | table_name            | string | yes      | -              |
+| use_regex             | boolean| no       | false          |
 | metastore_uri         | string | yes      | -              |
 | krb5_path             | string | no       | /etc/krb5.conf |
 | kerberos_principal    | string | no       | -              |
@@ -66,11 +67,23 @@ Read all the data in a split in a pollNext call. What splits are read will be sa
 
 ### table_name [string]
 
-Target Hive table name eg: db1.table1
+Target Hive table name eg: `db1.table1`. When `use_regex = true`, this field uses `databasePattern.tablePattern` (Hive has no schema) to match multiple tables from Hive metastore.
+
+### use_regex [boolean]
+
+Whether to treat `table_name` as a regular expression pattern for matching multiple tables (whole database / subset). This also works inside each entry of `table_list` / `tables_configs`.
+
+Regex syntax notes:
+- The dot (`.`) is treated as the separator between database and table patterns (Hive only supports `database.table`).
+- Only one unescaped dot is allowed (as the database/table separator). If you need to use dot (`.`) in a regular expression (e.g. `.*`), you must escape it as `\.` (in a HOCON string, write `\\.`).
+- Examples: `db0.\.*`, `db1.user_table_[0-9]+`, `db[1-2].(app|web)order_\.*`.
+- In SeaTunnel job config (HOCON string), backslashes need escaping. For example, the regex `db0.\.*` should be configured as `db0.\\.*`.
+- `db0.\.*` matches all tables in database `db0` (whole database synchronization).
+- `\.*.\.*` matches all tables in all databases (whole Hive synchronization).
 
 ### metastore_uri [string]
 
-Hive metastore uri
+Hive metastore uri. Supports comma-separated multiple URIs for HA/failover (whitespace is ignored). SeaTunnel passes this value to Hive `hive.metastore.uris` and uses Hive `RetryingMetaStoreClient` (if available) to retry/failover between URIs. This is client-side endpoint failover; make sure your metastores share/replicate the same backend to keep metadata consistent.
 
 ### hdfs_site_path [string]
 
@@ -134,8 +147,18 @@ Source plugin common parameters, please refer to [Source Common Options](../comm
 
 ```
 
-### Example 2: Multiple tables
+### Example 2: Metastore URI failover
+
+```bash
+  Hive {
+    table_name = "default.seatunnel_orc"
+    metastore_uri = "thrift://metastore-1:9083,thrift://metastore-2:9083"
+  }
+```
+
+### Example 3: Multiple tables
 > Note: Hive is a structured data source and should be use 'table_list', and 'tables_configs' will be removed in the future.
+> You can also set `use_regex = true` in each table config to match multiple tables.
 
 ```bash
 
@@ -171,7 +194,40 @@ Source plugin common parameters, please refer to [Source Common Options](../comm
 
 ```
 
-### Example3 : Kerberos
+### Example 3: Regex matching (whole database / subset)
+
+```bash
+  Hive {
+    metastore_uri = "thrift://namenode001:9083"
+
+    # 1) Whole database: all tables in database `a`
+    table_name = "a.\\.*"
+    use_regex = true
+  }
+```
+
+```bash
+  Hive {
+    metastore_uri = "thrift://namenode001:9083"
+
+    # 2) Whole Hive: all tables in all databases
+    table_name = "\\.*.\\.*"
+    use_regex = true
+  }
+```
+
+```bash
+  Hive {
+    metastore_uri = "thrift://namenode001:9083"
+
+    # 3) Subset: tables matching `tmp_.*` in database `a`
+    #    Note: escape the dot wildcard as `\.` (in HOCON string, write `\\.`) because unescaped dots are treated as separators
+    table_name = "a.tmp_\\.*"
+    use_regex = true
+  }
+```
+
+### Example 4 : Kerberos
 
 ```bash
 source {

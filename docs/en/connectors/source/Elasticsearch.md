@@ -30,7 +30,6 @@ support version >= 2.x and <= 8.x.
 | auth.api_key_id         | string  | no       | -                                                              |
 | auth.api_key            | string  | no       | -                                                              |
 | auth.api_key_encoded    | string  | no       | -                                                              |
-
 | index                   | string  | no       | If the index list does not exist, the index must be configured |
 | index_list              | array   | no       | used to define a multiple table task                           |
 | source                  | array   | no       | -                                                              |
@@ -41,7 +40,7 @@ support version >= 2.x and <= 8.x.
 | scroll_time             | string  | no       | 1m                                                             |
 | scroll_size             | int     | no       | 100                                                            |
 | tls_verify_certificate  | boolean | no       | true                                                           |
-| tls_verify_hostnames    | boolean | no       | true                                                           |
+| tls_verify_hostname     | boolean | no       | true                                                           |
 | array_column            | map     | no       |                                                                |
 | tls_keystore_path       | string  | no       | -                                                              |
 | tls_keystore_password   | string  | no       | -                                                              |
@@ -150,7 +149,7 @@ The fields of index.
 You can get the document id by specifying the field `_id`.If sink _id to other index,you need specify an alias for _id due to the Elasticsearch limit.
 If you don't config source, it is automatically retrieved from the mapping of the index.
 
-### array_column [array]
+### array_column [map]
 
 The fields of array type.
 Since there is no array index in es,so need assign array type,just like `{c_array = "array<tinyint>"}`.
@@ -209,7 +208,7 @@ Pagination API type, available values:
 ### pit_keep_alive [long]
 The amount of time (in milliseconds) for which the PIT should be keep alive
 
-### pit_batch_size  [long]
+### pit_batch_size  [int]
 Maximum number of hits to be returned with each PIT search request
 
 ### common options
@@ -383,6 +382,8 @@ source {
     search_api_type = PIT
     pit_keep_alive = 60000  # 1 minute in milliseconds
     pit_batch_size = 100
+  }
+}
 ```
 
 ## Changelog

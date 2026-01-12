@@ -127,7 +127,7 @@ Pulsar 消费者的停止模式，有效值为 `'NEVER'`、`'LATEST'` 和 `'TIME
 
 ### schema [Config]
 
-数据的结构，包括字段名称和字段类型。参考 [Schema-Feature](../../concept/schema-feature.md)
+数据的结构，包括字段名称和字段类型。参考 [Schema-Feature](../../introduction/concepts/schema-feature.md)
 
 ## format [String]
 

@@ -576,7 +576,7 @@ sink {
 
 ### 提示
 
-> 1.[SeaTunnel部署方案](../../start-v2/locally/deployment.md).
+> 1.[SeaTunnel部署方案](../../getting-started/locally/deployment.md).
 
 ## 变更日志
 
