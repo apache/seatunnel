@@ -12,20 +12,20 @@ import ChangeLog from '../changelog/connector-file-hadoop.md';
 
 ## Key Features
 
-- [x] [batch](../../introduction/concepts/connector-v2-features.md)
-- [ ] [stream](../../introduction/concepts/connector-v2-features.md)
-- [x] [multimodal](../../introduction/concepts/connector-v2-features.md#multimodal)
+- [x] [batch](../../concept/connector-v2-features.md)
+- [ ] [stream](../../concept/connector-v2-features.md)
+- [x] [multimodal](../../concept/connector-v2-features.md#multimodal)
 
   Use binary file format to read and write files in any format, such as videos, pictures, etc. In short, any files can be synchronized to the target place.
 
-- [x] [exactly-once](../../introduction/concepts/connector-v2-features.md)
+- [x] [exactly-once](../../concept/connector-v2-features.md)
 
   Read all the data in a split in a pollNext call. What splits are read will be saved in snapshot.
 
-- [x] [column projection](../../introduction/concepts/connector-v2-features.md)
-- [x] [parallelism](../../introduction/concepts/connector-v2-features.md)
-- [ ] [support user-defined split](../../introduction/concepts/connector-v2-features.md)
-- [x] [support multiple table read](../../introduction/concepts/connector-v2-features.md)
+- [x] [column projection](../../concept/connector-v2-features.md)
+- [x] [parallelism](../../concept/connector-v2-features.md)
+- [ ] [support user-defined split](../../concept/connector-v2-features.md)
+- [x] [support multiple table read](../../concept/connector-v2-features.md)
 - [x] file format file
   - [x] text
   - [x] csv
@@ -85,7 +85,7 @@ Read data from hdfs file system.
 | target_hadoop_conf         | map     | no       | -                           | Only used when `sync_mode=update`. Extra Hadoop configuration for target filesystem. You can set `fs.defaultFS` in this map to override target defaultFS.                                                                                                                                                                                   |
 | update_strategy            | string  | no       | distcp                      | Only used when `sync_mode=update`. Supported values: `distcp` (default), `strict`.                                                                                                                                                                                                                                                           |
 | compare_mode               | string  | no       | len_mtime                   | Only used when `sync_mode=update`. Supported values: `len_mtime` (default), `checksum` (only valid when `update_strategy=strict`).                                                                                                                                                                                                          |
-| common-options             |         | no       | -                           | Source plugin common parameters, please refer to [Source Common Options](../common-options/source-common-options.md) for details.                                                                                                                                                                                                                            |
+| common-options             |         | no       | -                           | Source plugin common parameters, please refer to [Source Common Options](../source-common-options.md) for details.                                                                                                                                                                                                                            |
 | file_filter_modified_start | string  | no       | -                           | File modification time filter. The connector will filter some files base on the last modification start time (include start time). The default data format is `yyyy-MM-dd HH:mm:ss`.                                                                                                                                                          |
 | file_filter_modified_end   | string  | no       | -                           | File modification time filter. The connector will filter some files base on the last modification end time (not include end time). The default data format is `yyyy-MM-dd HH:mm:ss`.                                                                                                                                                          |
 | quote_char                 | string  | no       | "                           | A single character that encloses CSV fields, allowing fields with commas, line breaks, or quotes to be read correctly.                                                                                                                                                                                                                        |

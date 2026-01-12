@@ -27,16 +27,26 @@ import org.apache.hadoop.hbase.util.Bytes;
 
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
+import org.mockito.ArgumentCaptor;
 import org.mockito.Mock;
 import org.mockito.MockitoAnnotations;
 
 import java.io.IOException;
+import java.util.Arrays;
+import java.util.Collections;
+import java.util.HashSet;
+import java.util.List;
 import java.util.Set;
+import java.util.stream.Collectors;
 
 import static org.junit.jupiter.api.Assertions.assertArrayEquals;
 import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertNotNull;
 import static org.junit.jupiter.api.Assertions.assertTrue;
+import static org.mockito.ArgumentMatchers.eq;
+import static org.mockito.Mockito.times;
+import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
 public class HbaseSourceSplitEnumeratorTest {
@@ -375,5 +385,81 @@ public class HbaseSourceSplitEnumeratorTest {
         assertEquals("hbase_source_split_1", split.splitId());
         assertArrayEquals(Bytes.toBytes("row100"), split.getStartRow());
         assertArrayEquals(Bytes.toBytes("row200"), split.getEndRow());
+    }
+
+    @Test
+    void testRestoreOnlyAssignReturnedSplits() throws Exception {
+        when(context.currentParallelism()).thenReturn(1);
+        when(context.registeredReaders()).thenReturn(Collections.emptySet());
+
+        byte[][] startKeys = {
+            HConstants.EMPTY_BYTE_ARRAY, Bytes.toBytes("row100"), Bytes.toBytes("row200")
+        };
+        byte[][] endKeys = {
+            Bytes.toBytes("row100"), Bytes.toBytes("row200"), HConstants.EMPTY_BYTE_ARRAY
+        };
+        when(regionLocator.getStartKeys()).thenReturn(startKeys);
+        when(regionLocator.getEndKeys()).thenReturn(endKeys);
+
+        Set<HbaseSourceSplit> assignedSplits = new HashSet<>();
+        assignedSplits.add(new HbaseSourceSplit(0, startKeys[0], endKeys[0]));
+        assignedSplits.add(new HbaseSourceSplit(1, startKeys[1], endKeys[1]));
+        assignedSplits.add(new HbaseSourceSplit(2, startKeys[2], endKeys[2]));
+
+        HbaseSourceSplitEnumerator restoredEnumerator =
+                new HbaseSourceSplitEnumerator(
+                        context,
+                        hbaseParameters,
+                        new HbaseSourceState(assignedSplits),
+                        hbaseClient);
+
+        restoredEnumerator.open();
+
+        List<HbaseSourceSplit> returnedSplits =
+                Arrays.asList(
+                        new HbaseSourceSplit(1, startKeys[1], endKeys[1]),
+                        new HbaseSourceSplit(2, startKeys[2], endKeys[2]));
+        restoredEnumerator.addSplitsBack(returnedSplits, 0);
+
+        ArgumentCaptor<List<HbaseSourceSplit>> assignedCaptor = ArgumentCaptor.forClass(List.class);
+        restoredEnumerator.registerReader(0);
+
+        verify(context, times(1)).assignSplit(eq(0), assignedCaptor.capture());
+        Set<String> assignedSplitIds =
+                assignedCaptor.getValue().stream()
+                        .map(HbaseSourceSplit::splitId)
+                        .collect(Collectors.toSet());
+        assertEquals(2, assignedSplitIds.size());
+        assertTrue(assignedSplitIds.contains("hbase_source_split_1"));
+        assertTrue(assignedSplitIds.contains("hbase_source_split_2"));
+        assertFalse(assignedSplitIds.contains("hbase_source_split_0"));
+    }
+
+    @Test
+    void testRegisterReaderInitializePendingSplitOnlyOnceWhenParallelismMoreThanOne()
+            throws Exception {
+        when(context.currentParallelism()).thenReturn(2);
+
+        byte[][] startKeys = {
+            HConstants.EMPTY_BYTE_ARRAY,
+            Bytes.toBytes("row100"),
+            Bytes.toBytes("row200"),
+            Bytes.toBytes("row300")
+        };
+        byte[][] endKeys = {
+            Bytes.toBytes("row100"),
+            Bytes.toBytes("row200"),
+            Bytes.toBytes("row300"),
+            HConstants.EMPTY_BYTE_ARRAY
+        };
+        when(regionLocator.getStartKeys()).thenReturn(startKeys);
+        when(regionLocator.getEndKeys()).thenReturn(endKeys);
+
+        enumerator.open();
+        enumerator.registerReader(0);
+        enumerator.registerReader(1);
+
+        verify(hbaseClient, times(1)).getRegionLocator("test_table");
+        assertEquals(0, enumerator.currentUnassignedSplitSize());
     }
 }

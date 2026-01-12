@@ -12,20 +12,20 @@ import ChangeLog from '../changelog/connector-file-hadoop.md';
 
 ## 主要特性
 
-- [x] [多模态](../../introduction/concepts/connector-v2-features.md#多模态multimodal)
+- [x] [多模态](../../concept/connector-v2-features.md#多模态multimodal)
 
   使用二进制文件格式读取和写入任何格式的文件，例如视频、图片等。简而言之，任何文件都可以同步到目标位置。
 
-- [x] [批处理](../../introduction/concepts/connector-v2-features.md)
-- [ ] [流处理](../../introduction/concepts/connector-v2-features.md)
-- [x] [精确一次](../../introduction/concepts/connector-v2-features.md)
+- [x] [批处理](../../concept/connector-v2-features.md)
+- [ ] [流处理](../../concept/connector-v2-features.md)
+- [x] [精确一次](../../concept/connector-v2-features.md)
 
   在 pollNext 调用中读取分片中的所有数据。读取的分片将保存在快照中。
 
-- [x] [列投影](../../introduction/concepts/connector-v2-features.md)
-- [x] [并行度](../../introduction/concepts/connector-v2-features.md)
-- [ ] [支持用户定义分片](../../introduction/concepts/connector-v2-features.md)
-- [x] [支持多表读](../../introduction/concepts/connector-v2-features.md)
+- [x] [列投影](../../concept/connector-v2-features.md)
+- [x] [并行度](../../concept/connector-v2-features.md)
+- [ ] [支持用户定义分片](../../concept/connector-v2-features.md)
+- [x] [支持多表读](../../concept/connector-v2-features.md)
 - [x] 文件格式类型
   - [x] text
   - [x] csv
@@ -85,7 +85,7 @@ import ChangeLog from '../changelog/connector-file-hadoop.md';
 | target_hadoop_conf         | map     | 否    | -                   | 仅在 `sync_mode=update` 时使用。目标端 Hadoop 配置（可选），可在其中设置 `fs.defaultFS` 覆盖目标 defaultFS。                                                                                                                 |
 | update_strategy            | string  | 否    | distcp              | 仅在 `sync_mode=update` 时使用。支持：`distcp`（默认）、`strict`。                                                                                                                                                 |
 | compare_mode               | string  | 否    | len_mtime           | 仅在 `sync_mode=update` 时使用。支持：`len_mtime`（默认）、`checksum`（仅在 `update_strategy=strict` 时可用）。                                                                                                             |
-| common-options             |         | 否    | -                   | 数据源插件通用参数，请参阅 [数据源通用选项](../common-options/source-common-options.md) 了解详情。                                                                                                                       |
+| common-options             |         | 否    | -                   | 数据源插件通用参数，请参阅 [数据源通用选项](../source-common-options.md) 了解详情。                                                                                                                       |
 | file_filter_modified_start | string  | 否    | -                   | 按照最后修改时间过滤文件。 要过滤的开始时间(包括改时间),时间格式是：`yyyy-MM-dd HH:mm:ss`                                                                                                                        |
 | file_filter_modified_end   | string  | 否    | -                   | 按照最后修改时间过滤文件。 要过滤的结束时间(不包括改时间),时间格式是：`yyyy-MM-dd HH:mm:ss`                                                                                                                       |
 | quote_char                 | string  | 否    | "                   | 用于包裹 CSV 字段的单字符，可保证包含逗号、换行符或引号的字段被正确解析。                                                                                                                                          |
