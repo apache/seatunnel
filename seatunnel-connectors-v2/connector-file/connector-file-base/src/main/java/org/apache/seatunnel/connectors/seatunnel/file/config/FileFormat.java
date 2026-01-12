@@ -217,6 +217,7 @@ public enum FileFormat implements Serializable {
             case TEXT:
             case JSON:
             case PARQUET:
+            case ORC:
                 return true;
             default:
                 log.info("The {} file type does not support file split", this);

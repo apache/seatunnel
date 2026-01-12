@@ -23,6 +23,7 @@ import org.apache.seatunnel.connectors.seatunnel.file.config.FileBaseSourceOptio
 import org.apache.seatunnel.connectors.seatunnel.file.config.FileFormat;
 import org.apache.seatunnel.connectors.seatunnel.file.source.split.DefaultFileSplitStrategy;
 import org.apache.seatunnel.connectors.seatunnel.file.source.split.FileSplitStrategy;
+import org.apache.seatunnel.connectors.seatunnel.file.source.split.OrcFileSplitStrategy;
 import org.apache.seatunnel.connectors.seatunnel.file.source.split.ParquetFileSplitStrategy;
 
 import static org.apache.seatunnel.connectors.seatunnel.file.config.FileBaseSourceOptions.DEFAULT_ROW_DELIMITER;
@@ -44,6 +45,9 @@ public class LocalFileSplitStrategyFactory {
         long fileSplitSize = readonlyConfig.get(FileBaseSourceOptions.FILE_SPLIT_SIZE);
         if (FileFormat.PARQUET == readonlyConfig.get(FileBaseSourceOptions.FILE_FORMAT_TYPE)) {
             return new ParquetFileSplitStrategy(fileSplitSize);
+        }
+        if (FileFormat.CSV == readonlyConfig.get(FileBaseSourceOptions.FILE_FORMAT_TYPE)) {
+            return new OrcFileSplitStrategy(fileSplitSize);
         }
         String rowDelimiter =
                 !readonlyConfig.getOptional(FileBaseSourceOptions.ROW_DELIMITER).isPresent()
