@@ -587,4 +587,42 @@ public class SqlServerCDCIT extends TestSuiteBase implements TestResource {
         Objects.requireNonNull(name);
         connection.createStatement().execute(DISABLE_DB_CDC.replace(STATEMENTS_PLACEHOLDER, name));
     }
+
+    @TestTemplate
+    public void testDatabaseNameWithSpecialCharacters(TestContainer container) {
+        initializeSqlServerTable("test_db_name");
+
+        CompletableFuture<Void> executeJobFuture =
+                CompletableFuture.supplyAsync(
+                        () -> {
+                            try {
+                                container.executeJob("/sqlservercdc_special_db_name.conf");
+                            } catch (Exception e) {
+                                throw new RuntimeException(e);
+                            }
+                            return null;
+                        });
+
+        String sourceTable = "[test-db-name].dbo.simple_table";
+        String sinkTable = "[test-db-name].dbo.simple_table_sink";
+        String selectSql = "select id, name, value from %s order by id asc";
+
+        await().atMost(60000, TimeUnit.MILLISECONDS)
+                .untilAsserted(
+                        () -> {
+                            Assertions.assertIterableEquals(
+                                    querySql(selectSql, sourceTable),
+                                    querySql(selectSql, sinkTable));
+                        });
+
+        executeSql("INSERT INTO [test-db-name].dbo.simple_table VALUES (4, 'test4', 400)");
+
+        await().atMost(60000, TimeUnit.MILLISECONDS)
+                .untilAsserted(
+                        () -> {
+                            Assertions.assertIterableEquals(
+                                    querySql(selectSql, sourceTable),
+                                    querySql(selectSql, sinkTable));
+                        });
+    }
 }
