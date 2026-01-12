@@ -77,7 +77,7 @@ import ChangeLog from '../changelog/connector-jdbc.md';
 | fetch_size | Int | 否 | 0 | 对于返回大量对象的查询，您可以配置查询中使用的行提取大小，以通过减少满足选择条件所需的数据库命中次数来提高性能。零表示使用 jdbc 默认值。 |
 | properties | Map | 否 | - | 其他连接配置参数，当 properties 和 URL 具有相同参数时，优先级由驱动程序的具体实现确定。例如，在 Oracle 中，properties 优先于 URL。 |
 | use_regex | Boolean | 否 | false | 控制 table_path 的正则表达式匹配。设置为 `true` 时，table_path 将被视为正则表达式模式。设置为 `false` 或未指定时，table_path 将被视为精确路径（无正则表达式匹配）。 |
-| table_path | String | 否 | - | 表的完整路径，您可以使用此配置代替 `query`。 |
+| table_path | String | 否 | - | 表的完整路径，您可以使用此配置代替 `query`。<br/>示例：<br/>"test_schema.table1" |
 | table_list | Array | 否 | - | 要读取的表列表，您可以使用此配置代替 `table_path`。 |
 | where_condition | String | 否 | - | 所有表/查询的通用行过滤条件，必须以 `where` 开头。 |
 | split.size | Int | 否 | 8096 | 一个分割中有多少行。 |

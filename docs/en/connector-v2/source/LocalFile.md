@@ -64,7 +64,7 @@ If you use SeaTunnel Engine, It automatically integrated the hadoop jar when you
 | skip_header_row_number     | long    | no       | 0                                    |
 | schema                     | config  | no       | -                                    |
 | sheet_name                 | string  | no       | -                                    |
-| excel_engine               | string  | no       | POI                                  |                                             
+| excel_engine               | string  | no       | POI                                  |
 | xml_row_tag                | string  | no       | -                                    |
 | xml_use_attr_format        | boolean | no       | -                                    |
 | csv_use_header_line        | boolean | no       | false                                |
@@ -80,7 +80,10 @@ If you use SeaTunnel Engine, It automatically integrated the hadoop jar when you
 | tables_configs             | list    | no       | used to define a multiple table task |
 | file_filter_modified_start | string  | no       | -                                    |
 | file_filter_modified_end   | string  | no       | -                                    | 
-
+| enable_file_split          | boolean | no       | false                                | 
+| file_split_size            | long    | no       | 134217728                            |
+| quote_char                 | string  | no       | "                                    |
+| escape_char                | string  | no       | -                                    |
 ### path [string]
 
 The source file path.
@@ -414,6 +417,22 @@ File modification time filter. The connector will filter some files base on the 
 ### file_filter_modified_end [string]
 
 File modification time filter. The connector will filter some files base on the last modification end time (not include end time). The default data format is `yyyy-MM-dd HH:mm:ss`.
+
+### enable_file_split [string]
+
+Turn on the file splitting function, the default is false.It can be selected when the file type is csv, text, json, parquet and non-compressed format.
+
+### file_split_size [long]
+
+File split size, which can be filled in when the enable_file_split parameter is true. The unit is the number of bytes. The default value is the number of bytes of 128MB, which is 134217728.
+
+### quote_char [string]
+
+A single character that encloses CSV fields, allowing fields with commas, line breaks, or quotes to be read correctly.
+
+### escape_char [string]
+
+A single character that allows the quote or other special characters to appear inside a CSV field without ending the field.
 
 ### common options
 

@@ -58,6 +58,8 @@ import java.util.Locale;
 import java.util.Optional;
 
 import static org.apache.seatunnel.connectors.seatunnel.jdbc.internal.dialect.psql.PostgresTypeConverter.PG_CIDR;
+import static org.apache.seatunnel.connectors.seatunnel.jdbc.internal.dialect.psql.PostgresTypeConverter.PG_GEOGRAPHY;
+import static org.apache.seatunnel.connectors.seatunnel.jdbc.internal.dialect.psql.PostgresTypeConverter.PG_GEOMETRY;
 import static org.apache.seatunnel.connectors.seatunnel.jdbc.internal.dialect.psql.PostgresTypeConverter.PG_INET;
 import static org.apache.seatunnel.connectors.seatunnel.jdbc.internal.dialect.psql.PostgresTypeConverter.PG_INTERVAL;
 import static org.apache.seatunnel.connectors.seatunnel.jdbc.internal.dialect.psql.PostgresTypeConverter.PG_MAC_ADDR;
@@ -65,9 +67,6 @@ import static org.apache.seatunnel.connectors.seatunnel.jdbc.internal.dialect.ps
 
 @Slf4j
 public class PostgresJdbcRowConverter extends AbstractJdbcRowConverter {
-
-    private static final String PG_GEOMETRY = "GEOMETRY";
-    private static final String PG_GEOGRAPHY = "GEOGRAPHY";
 
     @Override
     public String converterName() {
@@ -108,8 +107,8 @@ public class PostgresJdbcRowConverter extends AbstractJdbcRowConverter {
                     rs.getMetaData().getColumnTypeName(resultSetIndex).toUpperCase(Locale.ROOT);
             switch (seaTunnelDataType.getSqlType()) {
                 case STRING:
-                    if (metaDataColumnType.equals(PG_GEOMETRY)
-                            || metaDataColumnType.equals(PG_GEOGRAPHY)) {
+                    if (PG_GEOMETRY.equalsIgnoreCase(metaDataColumnType)
+                            || PG_GEOGRAPHY.equalsIgnoreCase(metaDataColumnType)) {
                         Object geoObj = rs.getObject(resultSetIndex);
                         fields[fieldIndex] = geoObj == null ? null : geoObj.toString();
                     } else {
@@ -221,8 +220,18 @@ public class PostgresJdbcRowConverter extends AbstractJdbcRowConverter {
 
                 switch (seaTunnelDataType.getSqlType()) {
                     case STRING:
-                        String sourceType = sourceTypes[fieldIndex];
-                        if (PG_INET.equalsIgnoreCase(sourceType)
+                        String sourceType =
+                                resolveSourceType(
+                                        rowType, fieldIndex, databaseTableSchema, sourceTypes);
+                        if (sourceType != null
+                                && (PG_GEOMETRY.equalsIgnoreCase(sourceType)
+                                        || PG_GEOGRAPHY.equalsIgnoreCase(sourceType))) {
+                            // handle PostGIS geometry/geography when represented as string
+                            PGobject geometryObject = new PGobject();
+                            geometryObject.setType(sourceType.toLowerCase(Locale.ROOT));
+                            geometryObject.setValue((String) row.getField(fieldIndex));
+                            statement.setObject(statementIndex, geometryObject);
+                        } else if (PG_INET.equalsIgnoreCase(sourceType)
                                 || PG_CIDR.equalsIgnoreCase(sourceType)
                                 || PG_MAC_ADDR.equalsIgnoreCase(sourceType)
                                 || PG_MAC_ADDR8.equalsIgnoreCase(sourceType)) {
@@ -290,7 +299,8 @@ public class PostgresJdbcRowConverter extends AbstractJdbcRowConverter {
                                 statement,
                                 seaTunnelDataType,
                                 statementIndex,
-                                sourceTypes[fieldIndex]);
+                                resolveSourceType(
+                                        rowType, fieldIndex, databaseTableSchema, sourceTypes));
                         break;
                     case BYTES:
                         statement.setBytes(statementIndex, (byte[]) row.getField(fieldIndex));
@@ -331,6 +341,23 @@ public class PostgresJdbcRowConverter extends AbstractJdbcRowConverter {
             }
         }
         return statement;
+    }
+
+    @Nullable private String resolveSourceType(
+            SeaTunnelRowType rowType,
+            int fieldIndex,
+            @Nullable TableSchema databaseTableSchema,
+            String[] sourceTypes) {
+        if (databaseTableSchema != null) {
+            String fieldName = rowType.getFieldName(fieldIndex);
+            if (databaseTableSchema.contains(fieldName)) {
+                return databaseTableSchema.getColumn(fieldName).getSourceType();
+            }
+        }
+        if (fieldIndex < sourceTypes.length) {
+            return sourceTypes[fieldIndex];
+        }
+        return null;
     }
 
     public String microsecondsToIntervalFormatVal(String intervalVal) {

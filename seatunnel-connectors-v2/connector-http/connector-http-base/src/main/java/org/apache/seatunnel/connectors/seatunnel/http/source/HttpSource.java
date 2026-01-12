@@ -197,7 +197,7 @@ public class HttpSource extends AbstractSingleSplitSource<SeaTunnelRow> {
                 pageInfo);
     }
 
-    private JsonField getJsonField(Config jsonFieldConf) {
+    protected JsonField getJsonField(Config jsonFieldConf) {
         ConfigRenderOptions options = ConfigRenderOptions.concise();
         return JsonField.builder()
                 .fields(JsonUtils.toMap(jsonFieldConf.root().render(options)))

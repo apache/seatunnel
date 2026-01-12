@@ -26,7 +26,7 @@ import ChangeLog from '../changelog/connector-hbase.md';
 | wal_write          | boolean | yes  | false           |
 | write_buffer_size  | string  | no   | 8 * 1024 * 1024 |
 | encoding           | string  | no   | utf8            |
-| hbase_extra_config | string  | no   | -               |
+| hbase_extra_config | config  | no   | -               |
 | common-options     |         | no   | -               |
 | ttl                | long    | no   | -               |
 
@@ -92,7 +92,14 @@ hbase 客户端的写入缓冲区大小，默认 8 * 1024 * 1024
 
 ### encoding [string]
 
-字符串字段的编码，支持[ utf8 ， gbk]，默认 utf8
+字符串类字段的编码（STRING/DECIMAL/DATE/TIME/TIMESTAMP/ARRAY），支持 [utf8, gbk]，默认 utf8
+
+### 数据类型
+
+Hbase 存储字节，连接器支持：
+
+- TINYINT/SMALLINT/INT/BIGINT/FLOAT/DOUBLE/BOOLEAN/BYTES
+- STRING/DECIMAL/DATE/TIME/TIMESTAMP/ARRAY（使用 encoding 序列化为字符串后写入）
 
 ### hbase_extra_config [config]
 
@@ -119,6 +126,36 @@ Hbase {
   }
 }
 
+```
+
+## Kerberos 示例
+
+备注：
+
+- `connector-hbase` 不会解析 `krb5_path` / `kerberos_principal` / `kerberos_keytab_path`。
+- 需要在运行环境中提前完成 Kerberos 登录并保证 `krb5.conf` 可被 JVM 访问（例如 `kinit -kt ...` 或 JVM `-Djava.security.krb5.conf=...`），同时将 HBase/Hadoop 的安全配置写入 `hbase_extra_config`。
+
+```hocon
+sink {
+  Hbase {
+    zookeeper_quorum = "zk1:2181,zk2:2181,zk3:2181"
+    table = "target_table"
+    rowkey_column = ["rowkey"]
+    family_name {
+      all_columns = "info"
+    }
+
+    # HBase安全配置
+    hbase_extra_config = {
+      "hbase.security.authentication" = "kerberos"
+      "hadoop.security.authentication" = "kerberos"
+      "hbase.master.kerberos.principal" = "hbase/_HOST@REALM"
+      "hbase.regionserver.kerberos.principal" = "hbase/_HOST@REALM"
+      "hbase.rpc.protection" = "authentication"
+      "hbase.zookeeper.useSasl" = "false"
+    }
+  }
+}
 ```
 
 ### 写入多表

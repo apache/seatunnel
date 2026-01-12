@@ -26,31 +26,32 @@ import org.apache.seatunnel.api.table.connector.TableSink;
 import org.apache.seatunnel.api.table.factory.Factory;
 import org.apache.seatunnel.api.table.factory.TableSinkFactory;
 import org.apache.seatunnel.api.table.factory.TableSinkFactoryContext;
-import org.apache.seatunnel.connectors.seatunnel.mongodb.config.MongodbConfig;
+import org.apache.seatunnel.connectors.seatunnel.mongodb.config.MongodbSinkOptions;
 
 import com.google.auto.service.AutoService;
-
-import static org.apache.seatunnel.connectors.seatunnel.mongodb.config.MongodbConfig.CONNECTOR_IDENTITY;
 
 @AutoService(Factory.class)
 public class MongodbSinkFactory implements TableSinkFactory {
     @Override
     public String factoryIdentifier() {
-        return CONNECTOR_IDENTITY;
+        return MongodbSinkOptions.CONNECTOR_IDENTITY;
     }
 
     @Override
     public OptionRule optionRule() {
         return OptionRule.builder()
-                .required(MongodbConfig.URI, MongodbConfig.DATABASE, MongodbConfig.COLLECTION)
+                .required(
+                        MongodbSinkOptions.URI,
+                        MongodbSinkOptions.DATABASE,
+                        MongodbSinkOptions.COLLECTION)
                 .optional(
-                        MongodbConfig.BUFFER_FLUSH_INTERVAL,
-                        MongodbConfig.BUFFER_FLUSH_MAX_ROWS,
-                        MongodbConfig.RETRY_MAX,
-                        MongodbConfig.RETRY_INTERVAL,
-                        MongodbConfig.UPSERT_ENABLE,
-                        MongodbConfig.PRIMARY_KEY,
-                        MongodbConfig.DATA_SAVE_MODE,
+                        MongodbSinkOptions.BUFFER_FLUSH_INTERVAL,
+                        MongodbSinkOptions.BUFFER_FLUSH_MAX_ROWS,
+                        MongodbSinkOptions.RETRY_MAX,
+                        MongodbSinkOptions.RETRY_INTERVAL,
+                        MongodbSinkOptions.UPSERT_ENABLE,
+                        MongodbSinkOptions.PRIMARY_KEY,
+                        MongodbSinkOptions.DATA_SAVE_MODE,
                         SinkConnectorCommonOptions.MULTI_TABLE_SINK_REPLICA)
                 .build();
     }
@@ -58,42 +59,43 @@ public class MongodbSinkFactory implements TableSinkFactory {
     @Override
     public TableSink createSink(TableSinkFactoryContext context) {
         ReadonlyConfig readonlyConfig = context.getOptions();
-        String connection = readonlyConfig.get(MongodbConfig.URI);
-        String database = readonlyConfig.get(MongodbConfig.DATABASE);
-        String collection = readonlyConfig.get(MongodbConfig.COLLECTION);
+        String connection = readonlyConfig.get(MongodbSinkOptions.URI);
+        String database = readonlyConfig.get(MongodbSinkOptions.DATABASE);
+        String collection = readonlyConfig.get(MongodbSinkOptions.COLLECTION);
         MongodbWriterOptions.Builder builder =
                 MongodbWriterOptions.builder()
                         .withConnectString(connection)
                         .withDatabase(database)
                         .withCollection(collection);
-        if (readonlyConfig.getOptional(MongodbConfig.BUFFER_FLUSH_MAX_ROWS).isPresent()) {
-            builder.withFlushSize(readonlyConfig.get(MongodbConfig.BUFFER_FLUSH_MAX_ROWS));
+        if (readonlyConfig.getOptional(MongodbSinkOptions.BUFFER_FLUSH_MAX_ROWS).isPresent()) {
+            builder.withFlushSize(readonlyConfig.get(MongodbSinkOptions.BUFFER_FLUSH_MAX_ROWS));
         }
-        if (readonlyConfig.getOptional(MongodbConfig.BUFFER_FLUSH_INTERVAL).isPresent()) {
-            builder.withBatchIntervalMs(readonlyConfig.get(MongodbConfig.BUFFER_FLUSH_INTERVAL));
+        if (readonlyConfig.getOptional(MongodbSinkOptions.BUFFER_FLUSH_INTERVAL).isPresent()) {
+            builder.withBatchIntervalMs(
+                    readonlyConfig.get(MongodbSinkOptions.BUFFER_FLUSH_INTERVAL));
         }
-        if (readonlyConfig.getOptional(MongodbConfig.PRIMARY_KEY).isPresent()) {
+        if (readonlyConfig.getOptional(MongodbSinkOptions.PRIMARY_KEY).isPresent()) {
             builder.withPrimaryKey(
-                    readonlyConfig.get(MongodbConfig.PRIMARY_KEY).toArray(new String[0]));
+                    readonlyConfig.get(MongodbSinkOptions.PRIMARY_KEY).toArray(new String[0]));
         }
-        if (readonlyConfig.getOptional(MongodbConfig.UPSERT_ENABLE).isPresent()) {
-            builder.withUpsertEnable(readonlyConfig.get(MongodbConfig.UPSERT_ENABLE));
+        if (readonlyConfig.getOptional(MongodbSinkOptions.UPSERT_ENABLE).isPresent()) {
+            builder.withUpsertEnable(readonlyConfig.get(MongodbSinkOptions.UPSERT_ENABLE));
         }
-        if (readonlyConfig.getOptional(MongodbConfig.RETRY_MAX).isPresent()) {
-            builder.withRetryMax(readonlyConfig.get(MongodbConfig.RETRY_MAX));
+        if (readonlyConfig.getOptional(MongodbSinkOptions.RETRY_MAX).isPresent()) {
+            builder.withRetryMax(readonlyConfig.get(MongodbSinkOptions.RETRY_MAX));
         }
-        if (readonlyConfig.getOptional(MongodbConfig.RETRY_INTERVAL).isPresent()) {
-            builder.withRetryInterval(readonlyConfig.get(MongodbConfig.RETRY_INTERVAL));
+        if (readonlyConfig.getOptional(MongodbSinkOptions.RETRY_INTERVAL).isPresent()) {
+            builder.withRetryInterval(readonlyConfig.get(MongodbSinkOptions.RETRY_INTERVAL));
         }
 
-        if (readonlyConfig.getOptional(MongodbConfig.TRANSACTION).isPresent()) {
-            builder.withTransaction(readonlyConfig.get(MongodbConfig.TRANSACTION));
+        if (readonlyConfig.getOptional(MongodbSinkOptions.TRANSACTION).isPresent()) {
+            builder.withTransaction(readonlyConfig.get(MongodbSinkOptions.TRANSACTION));
         }
-        builder.withDataSaveMode(readonlyConfig.get(MongodbConfig.DATA_SAVE_MODE));
+        builder.withDataSaveMode(readonlyConfig.get(MongodbSinkOptions.DATA_SAVE_MODE));
         CatalogTable catalogTable = context.getCatalogTable();
         // sourceCatalogTable to sinkCatalogTable
         TableIdentifier tableIdentifier =
-                TableIdentifier.of(CONNECTOR_IDENTITY, database, collection);
+                TableIdentifier.of(MongodbSinkOptions.CONNECTOR_IDENTITY, database, collection);
         CatalogTable sinkCatalogTable = CatalogTable.of(tableIdentifier, catalogTable);
         return () -> new MongodbSink(builder.build(), sinkCatalogTable);
     }
