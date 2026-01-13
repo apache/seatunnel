@@ -310,15 +310,13 @@ public class HbaseClient {
      * @return true if the table has data, false otherwise
      */
     public boolean isExistsData(String databaseName, String tableName) {
-        try {
-            Table table = connection.getTable(TableName.valueOf(databaseName, tableName));
-            Scan scan = new Scan();
-            scan.setCaching(1);
-            scan.setLimit(1);
-            try (ResultScanner scanner = table.getScanner(scan)) {
-                Result result = scanner.next();
-                return !result.isEmpty();
-            }
+        Scan scan = new Scan();
+        scan.setCaching(1);
+        scan.setLimit(1);
+        try (Table table = connection.getTable(TableName.valueOf(databaseName, tableName));
+                ResultScanner scanner = table.getScanner(scan)) {
+            Result result = scanner.next();
+            return result != null && !result.isEmpty();
         } catch (IOException e) {
             throw new HbaseConnectorException(
                     HbaseConnectorErrorCode.TABLE_QUERY_EXCEPTION,
