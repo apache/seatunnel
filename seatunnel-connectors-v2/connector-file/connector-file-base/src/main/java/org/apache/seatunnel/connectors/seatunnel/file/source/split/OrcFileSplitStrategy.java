@@ -26,6 +26,8 @@ import org.apache.orc.OrcFile;
 import org.apache.orc.Reader;
 import org.apache.orc.StripeInformation;
 
+import lombok.extern.slf4j.Slf4j;
+
 import java.io.IOException;
 import java.util.ArrayList;
 import java.util.List;
@@ -41,6 +43,7 @@ import java.util.List;
  * complete stripes. The actual row-level reading and decoding are delegated to the ORC reader
  * implementation.
  */
+@Slf4j
 public class OrcFileSplitStrategy implements FileSplitStrategy {
 
     private final long splitSizeBytes;
@@ -93,6 +96,7 @@ public class OrcFileSplitStrategy implements FileSplitStrategy {
         if (hasOpenSplit && currentLength > 0) {
             splits.add(new FileSourceSplit(tableId, filePath, currentStart, currentLength));
         }
+        log.info("Split orc file {} into {} splits.", filePath, splits.size());
         return splits;
     }
 

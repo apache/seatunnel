@@ -35,6 +35,7 @@ import org.apache.seatunnel.common.exception.CommonErrorCodeDeprecated;
 import org.apache.seatunnel.connectors.seatunnel.file.config.FileBaseSourceOptions;
 import org.apache.seatunnel.connectors.seatunnel.file.exception.FileConnectorErrorCode;
 import org.apache.seatunnel.connectors.seatunnel.file.exception.FileConnectorException;
+import org.apache.seatunnel.connectors.seatunnel.file.source.split.FileSourceSplit;
 
 import org.apache.hadoop.fs.FSDataInputStream;
 import org.apache.hadoop.fs.Path;
@@ -84,6 +85,14 @@ public class OrcReadStrategy extends AbstractReadStrategy {
     @Override
     public void read(String path, String tableId, Collector<SeaTunnelRow> output)
             throws FileConnectorException, IOException {
+        this.read(new FileSourceSplit(path), output);
+    }
+
+    @Override
+    public void read(FileSourceSplit split, Collector<SeaTunnelRow> output)
+            throws FileConnectorException, IOException {
+        String tableId = split.getTableId();
+        String path = split.getFilePath();
         if (Boolean.FALSE.equals(checkFileType(path))) {
             String errorMsg =
                     String.format(
@@ -91,14 +100,18 @@ public class OrcReadStrategy extends AbstractReadStrategy {
                             path);
             throw new FileConnectorException(FileConnectorErrorCode.FILE_TYPE_INVALID, errorMsg);
         }
+        final boolean useSplitRange =
+                enableSplitFile && split.getStart() >= 0 && split.getLength() > 0;
         Map<String, String> partitionsMap = parsePartitionsByPath(path);
         try (Reader reader =
                 hadoopFileSystemProxy.doWithHadoopAuth(
                         (configuration, userGroupInformation) -> {
                             OrcFile.ReaderOptions readerOptions =
                                     OrcFile.readerOptions(configuration);
+
                             return OrcFile.createReader(new Path(path), readerOptions);
                         })) {
+
             TypeDescription schema = TypeDescription.createStruct();
             for (int i = 0; i < seaTunnelRowType.getTotalFields(); i++) {
                 TypeDescription typeDescription =
@@ -107,6 +120,12 @@ public class OrcReadStrategy extends AbstractReadStrategy {
             }
             List<TypeDescription> children = schema.getChildren();
             RecordReader rows = reader.rows(reader.options().schema(schema));
+            if (useSplitRange) {
+                long start = split.getStart();
+                long length = split.getLength();
+                Reader.Options options = new Reader.Options().range(start, length);
+                rows = reader.rows(options);
+            }
             VectorizedRowBatch rowBatch = schema.createRowBatch();
             while (rows.nextBatch(rowBatch)) {
                 int num = 0;

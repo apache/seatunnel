@@ -55,7 +55,7 @@ public class FileSourceSplit implements SourceSplit {
         if (tableId == null) {
             return filePath;
         }
-        return tableId + "_" + filePath + "_" + start;
+        return tableId + "_" + filePath + "_" + start + "_" + length;
     }
 
     @Override

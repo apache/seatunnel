@@ -26,6 +26,8 @@ import org.apache.parquet.hadoop.ParquetFileReader;
 import org.apache.parquet.hadoop.metadata.BlockMetaData;
 import org.apache.parquet.hadoop.util.HadoopInputFile;
 
+import lombok.extern.slf4j.Slf4j;
+
 import java.io.IOException;
 import java.util.ArrayList;
 import java.util.List;
@@ -46,6 +48,7 @@ import java.util.List;
  * <p>This design enables efficient parallel reading of Parquet files while preserving Parquet
  * format semantics and avoiding invalid byte-level splits.
  */
+@Slf4j
 public class ParquetFileSplitStrategy implements FileSplitStrategy {
 
     private final long splitSizeBytes;
@@ -104,6 +107,7 @@ public class ParquetFileSplitStrategy implements FileSplitStrategy {
         if (hasOpenSplit && currentLength > 0) {
             splits.add(new FileSourceSplit(tableId, filePath, currentStart, currentLength));
         }
+        log.info("Split parquet file {} into {} splits.", filePath, splits.size());
         return splits;
     }
 

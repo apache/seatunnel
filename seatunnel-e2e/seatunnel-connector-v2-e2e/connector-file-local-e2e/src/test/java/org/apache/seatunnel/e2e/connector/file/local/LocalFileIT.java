@@ -362,6 +362,7 @@ public class LocalFileIT extends TestSuiteBase {
         helper.execute("/orc/fake_to_local_file_orc.conf");
         // test read local orc file
         helper.execute("/orc/local_file_orc_to_assert.conf");
+        helper.execute("/orc/local_file_orc_enable_split_to_assert.conf");
         // test read local orc file with projection
         helper.execute("/orc/local_file_orc_projection_to_assert.conf");
         // test read local orc file with projection and type cast

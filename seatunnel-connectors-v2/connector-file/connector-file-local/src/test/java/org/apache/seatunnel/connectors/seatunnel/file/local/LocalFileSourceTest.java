@@ -25,6 +25,7 @@ import org.apache.seatunnel.connectors.seatunnel.file.local.source.split.LocalFi
 import org.apache.seatunnel.connectors.seatunnel.file.local.source.split.LocalFileSplitStrategyFactory;
 import org.apache.seatunnel.connectors.seatunnel.file.source.split.DefaultFileSplitStrategy;
 import org.apache.seatunnel.connectors.seatunnel.file.source.split.FileSplitStrategy;
+import org.apache.seatunnel.connectors.seatunnel.file.source.split.OrcFileSplitStrategy;
 import org.apache.seatunnel.connectors.seatunnel.file.source.split.ParquetFileSplitStrategy;
 
 import org.junit.jupiter.api.Assertions;
@@ -43,7 +44,7 @@ public class LocalFileSourceTest {
         map.put(FileBaseSourceOptions.ENABLE_FILE_SPLIT.key(), true);
         FileSplitStrategy fileSplitStrategy =
                 LocalFileSplitStrategyFactory.initFileSplitStrategy(ReadonlyConfig.fromMap(map));
-        Assertions.assertInstanceOf(DefaultFileSplitStrategy.class, fileSplitStrategy);
+        Assertions.assertInstanceOf(OrcFileSplitStrategy.class, fileSplitStrategy);
         // test text, no split
         Map<String, Object> map1 = new HashMap<>();
         map1.put(FileBaseSourceOptions.FILE_FORMAT_TYPE.key(), FileFormat.TEXT);
@@ -99,5 +100,12 @@ public class LocalFileSourceTest {
         fileSplitStrategy =
                 LocalFileSplitStrategyFactory.initFileSplitStrategy(ReadonlyConfig.fromMap(map7));
         Assertions.assertInstanceOf(ParquetFileSplitStrategy.class, fileSplitStrategy);
+        // test BINARY
+        Map<String, Object> map8 = new HashMap<>();
+        map8.put(FileBaseSourceOptions.FILE_FORMAT_TYPE.key(), FileFormat.BINARY);
+        map8.put(FileBaseSourceOptions.ENABLE_FILE_SPLIT.key(), true);
+        fileSplitStrategy =
+                LocalFileSplitStrategyFactory.initFileSplitStrategy(ReadonlyConfig.fromMap(map8));
+        Assertions.assertInstanceOf(DefaultFileSplitStrategy.class, fileSplitStrategy);
     }
 }

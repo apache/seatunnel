@@ -19,12 +19,15 @@ package org.apache.seatunnel.connectors.seatunnel.file.source.split;
 import org.apache.seatunnel.common.exception.SeaTunnelRuntimeException;
 import org.apache.seatunnel.connectors.seatunnel.file.exception.FileConnectorErrorCode;
 
+import lombok.extern.slf4j.Slf4j;
+
 import java.io.IOException;
 import java.io.InputStream;
 import java.nio.charset.Charset;
 import java.util.ArrayList;
 import java.util.List;
 
+@Slf4j
 public abstract class AccordingToSplitSizeSplitStrategy implements FileSplitStrategy {
 
     private final long skipHeaderRowNumber;
@@ -66,6 +69,7 @@ public abstract class AccordingToSplitSizeSplitStrategy implements FileSplitStra
                     new FileSourceSplit(tableId, filePath, currentStart, actualEnd - currentStart));
             currentStart = actualEnd;
         }
+        log.info("Split file {} into {} splits.", filePath, splits.size());
         return splits;
     }
 

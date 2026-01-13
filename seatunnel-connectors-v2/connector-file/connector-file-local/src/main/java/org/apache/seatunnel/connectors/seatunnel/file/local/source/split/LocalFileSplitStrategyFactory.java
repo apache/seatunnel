@@ -46,7 +46,7 @@ public class LocalFileSplitStrategyFactory {
         if (FileFormat.PARQUET == readonlyConfig.get(FileBaseSourceOptions.FILE_FORMAT_TYPE)) {
             return new ParquetFileSplitStrategy(fileSplitSize);
         }
-        if (FileFormat.CSV == readonlyConfig.get(FileBaseSourceOptions.FILE_FORMAT_TYPE)) {
+        if (FileFormat.ORC == readonlyConfig.get(FileBaseSourceOptions.FILE_FORMAT_TYPE)) {
             return new OrcFileSplitStrategy(fileSplitSize);
         }
         String rowDelimiter =
