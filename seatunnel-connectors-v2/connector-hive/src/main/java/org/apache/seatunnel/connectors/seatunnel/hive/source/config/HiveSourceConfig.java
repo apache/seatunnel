@@ -55,11 +55,13 @@ import org.apache.hadoop.hive.metastore.api.Table;
 import lombok.Getter;
 import lombok.SneakyThrows;
 
+import java.io.FileNotFoundException;
 import java.io.Serializable;
 import java.net.URI;
 import java.net.URISyntaxException;
 import java.util.ArrayList;
 import java.util.Arrays;
+import java.util.Collections;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
@@ -219,10 +221,25 @@ public class HiveSourceConfig implements Serializable {
         try {
             return readStrategy.getFileNamesByPath(hdfsPath);
         } catch (Exception e) {
+            if (isFileNotFound(e)) {
+                return Collections.emptyList();
+            }
             String errorMsg = String.format("Get file list from this path [%s] failed", hdfsPath);
             throw new FileConnectorException(
                     FileConnectorErrorCode.FILE_LIST_GET_FAILED, errorMsg, e);
         }
+    }
+
+    private static boolean isFileNotFound(Throwable throwable) {
+        Throwable current = throwable;
+        while (current != null) {
+            if (current instanceof FileNotFoundException
+                    || current instanceof org.apache.hadoop.fs.FileNotFoundException) {
+                return true;
+            }
+            current = current.getCause();
+        }
+        return false;
     }
 
     private String parseFsDefaultName(Table table) {
