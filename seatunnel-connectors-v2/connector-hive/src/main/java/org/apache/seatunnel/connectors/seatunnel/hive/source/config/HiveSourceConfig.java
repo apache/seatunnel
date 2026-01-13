@@ -29,6 +29,7 @@ import org.apache.seatunnel.api.table.catalog.CatalogTableUtil;
 import org.apache.seatunnel.api.table.catalog.TableIdentifier;
 import org.apache.seatunnel.api.table.catalog.TablePath;
 import org.apache.seatunnel.api.table.catalog.TableSchema;
+import org.apache.seatunnel.api.table.type.BasicType;
 import org.apache.seatunnel.api.table.type.SeaTunnelDataType;
 import org.apache.seatunnel.api.table.type.SeaTunnelRowType;
 import org.apache.seatunnel.common.exception.CommonErrorCodeDeprecated;
@@ -58,6 +59,7 @@ import java.io.Serializable;
 import java.net.URI;
 import java.net.URISyntaxException;
 import java.util.ArrayList;
+import java.util.Arrays;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
@@ -66,6 +68,8 @@ import static org.apache.seatunnel.connectors.seatunnel.file.config.FileBaseSink
 import static org.apache.seatunnel.connectors.seatunnel.file.config.FileBaseSinkOptions.FILE_FORMAT_TYPE;
 import static org.apache.seatunnel.connectors.seatunnel.file.config.FileBaseSinkOptions.ROW_DELIMITER;
 import static org.apache.seatunnel.connectors.seatunnel.file.config.FileBaseSourceOptions.NULL_FORMAT;
+import static org.apache.seatunnel.connectors.seatunnel.file.config.FileBaseSourceOptions.PARSE_PARTITION_FROM_PATH;
+import static org.apache.seatunnel.connectors.seatunnel.file.config.FileBaseSourceOptions.READ_COLUMNS;
 
 @Getter
 public class HiveSourceConfig implements Serializable {
@@ -261,6 +265,10 @@ public class HiveSourceConfig implements Serializable {
             HadoopConf hadoopConf,
             List<String> filePaths,
             Table table) {
+        if (CollectionUtils.isEmpty(filePaths)) {
+            // Keep a stable schema even when directory is empty.
+            return buildCatalogTableFromHiveMeta(readonlyConfig, table);
+        }
         switch (fileFormat) {
             case PARQUET:
             case ORC:
@@ -280,10 +288,6 @@ public class HiveSourceConfig implements Serializable {
             HadoopConf hadoopConf,
             List<String> filePaths,
             Table table) {
-        if (CollectionUtils.isEmpty(filePaths)) {
-            // When the directory is empty, distribute default behavior schema
-            return buildEmptyCatalogTable(readonlyConfig, table);
-        }
         CatalogTable catalogTable = buildEmptyCatalogTable(readonlyConfig, table);
         try {
             SeaTunnelRowType seaTunnelRowTypeInfo =
@@ -299,17 +303,7 @@ public class HiveSourceConfig implements Serializable {
 
     private CatalogTable parseCatalogTableFromTable(
             ReadonlyConfig readonlyConfig, ReadStrategy readStrategy, Table table) {
-        List<FieldSchema> cols = table.getSd().getCols();
-        String[] fieldNames = new String[cols.size()];
-        SeaTunnelDataType<?>[] fieldTypes = new SeaTunnelDataType[cols.size()];
-        for (int i = 0; i < cols.size(); i++) {
-            FieldSchema col = cols.get(i);
-            fieldNames[i] = col.getName();
-            fieldTypes[i] =
-                    HiveTypeConvertor.covertHiveTypeToSeaTunnelType(col.getName(), col.getType());
-        }
-
-        SeaTunnelRowType seaTunnelRowType = new SeaTunnelRowType(fieldNames, fieldTypes);
+        SeaTunnelRowType seaTunnelRowType = buildRowTypeFromHiveMeta(table);
         readStrategy.setCatalogTable(
                 CatalogTableUtil.getCatalogTable(
                         "hive", table.getDbName(), null, table.getTableName(), seaTunnelRowType));
@@ -319,13 +313,103 @@ public class HiveSourceConfig implements Serializable {
         return CatalogTableUtil.newCatalogTable(catalogTable, finalSeatunnelRowType);
     }
 
-    private CatalogTable buildEmptyCatalogTable(ReadonlyConfig readonlyConfig, Table table) {
+    /**
+     * Build a {@link CatalogTable} based on Hive metastore schema (table columns + optional
+     * partition columns). This is used as a fallback when there are no data files to infer schema
+     * from.
+     */
+    static CatalogTable buildCatalogTableFromHiveMeta(ReadonlyConfig readonlyConfig, Table table) {
+        SeaTunnelRowType rowType = buildRowTypeFromHiveMeta(table);
+        rowType = applyColumnProjectionIfPresent(readonlyConfig, rowType);
+        if (shouldParsePartitionFromPath(readonlyConfig)) {
+            rowType = appendPartitionColumnsAsString(table, rowType);
+        }
+        return CatalogTableUtil.newCatalogTable(
+                buildEmptyCatalogTable(readonlyConfig, table), rowType);
+    }
+
+    private static SeaTunnelRowType buildRowTypeFromHiveMeta(Table table) {
+        List<FieldSchema> cols = table.getSd().getCols();
+        String[] fieldNames = new String[cols.size()];
+        SeaTunnelDataType<?>[] fieldTypes = new SeaTunnelDataType[cols.size()];
+        for (int i = 0; i < cols.size(); i++) {
+            FieldSchema col = cols.get(i);
+            fieldNames[i] = col.getName();
+            fieldTypes[i] =
+                    HiveTypeConvertor.covertHiveTypeToSeaTunnelType(col.getName(), col.getType());
+        }
+        return new SeaTunnelRowType(fieldNames, fieldTypes);
+    }
+
+    private static SeaTunnelRowType applyColumnProjectionIfPresent(
+            ReadonlyConfig readonlyConfig, SeaTunnelRowType rowType) {
+        List<String> readColumns = readonlyConfig.getOptional(READ_COLUMNS).orElse(null);
+        if (CollectionUtils.isEmpty(readColumns)) {
+            return rowType;
+        }
+        String[] fieldNames = new String[readColumns.size()];
+        SeaTunnelDataType<?>[] fieldTypes = new SeaTunnelDataType[readColumns.size()];
+        for (int i = 0; i < readColumns.size(); i++) {
+            String colName = readColumns.get(i);
+            int index = rowType.indexOf(colName, false);
+            if (index < 0) {
+                throw new HiveConnectorException(
+                        SeaTunnelAPIErrorCode.CONFIG_VALIDATION_FAILED,
+                        String.format("read_columns contains non-existent column '%s'", colName));
+            }
+            fieldNames[i] = rowType.getFieldName(index);
+            fieldTypes[i] = rowType.getFieldType(index);
+        }
+        return new SeaTunnelRowType(fieldNames, fieldTypes);
+    }
+
+    private static boolean shouldParsePartitionFromPath(ReadonlyConfig readonlyConfig) {
+        return readonlyConfig
+                .getOptional(PARSE_PARTITION_FROM_PATH)
+                .orElse(PARSE_PARTITION_FROM_PATH.defaultValue());
+    }
+
+    private static SeaTunnelRowType appendPartitionColumnsAsString(
+            Table table, SeaTunnelRowType rowType) {
+        List<String> partitionKeys = extractPartitionKeyNames(table);
+        if (CollectionUtils.isEmpty(partitionKeys)) {
+            return rowType;
+        }
+        String[] baseFieldNames = rowType.getFieldNames();
+        SeaTunnelDataType<?>[] baseFieldTypes = rowType.getFieldTypes();
+        String[] newFieldNames =
+                Arrays.copyOf(baseFieldNames, baseFieldNames.length + partitionKeys.size());
+        SeaTunnelDataType<?>[] newFieldTypes =
+                Arrays.copyOf(baseFieldTypes, baseFieldTypes.length + partitionKeys.size());
+        int offset = baseFieldNames.length;
+        for (int i = 0; i < partitionKeys.size(); i++) {
+            newFieldNames[offset + i] = partitionKeys.get(i);
+            newFieldTypes[offset + i] = BasicType.STRING_TYPE;
+        }
+        return new SeaTunnelRowType(newFieldNames, newFieldTypes);
+    }
+
+    private static List<String> extractPartitionKeyNames(Table table) {
+        List<FieldSchema> partitionKeys = table.getPartitionKeys();
+        if (CollectionUtils.isEmpty(partitionKeys)) {
+            return new ArrayList<>();
+        }
+        List<String> names = new ArrayList<>(partitionKeys.size());
+        for (FieldSchema key : partitionKeys) {
+            if (key != null && StringUtils.isNotBlank(key.getName())) {
+                names.add(key.getName());
+            }
+        }
+        return names;
+    }
+
+    private static CatalogTable buildEmptyCatalogTable(ReadonlyConfig readonlyConfig, Table table) {
         TablePath tablePath = TablePath.of(table.getDbName(), table.getTableName());
         return CatalogTable.of(
                 TableIdentifier.of(HiveConstants.CONNECTOR_NAME, tablePath),
                 TableSchema.builder().build(),
                 new HashMap<>(),
-                new ArrayList<>(),
+                extractPartitionKeyNames(table),
                 readonlyConfig.get(ConnectorCommonOptions.TABLE_COMMENT));
     }
 }
