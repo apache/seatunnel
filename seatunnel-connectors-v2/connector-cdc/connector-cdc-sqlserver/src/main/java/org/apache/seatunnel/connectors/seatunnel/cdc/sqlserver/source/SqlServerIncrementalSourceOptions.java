@@ -19,12 +19,13 @@ package org.apache.seatunnel.connectors.seatunnel.cdc.sqlserver.source;
 
 import org.apache.seatunnel.api.configuration.Options;
 import org.apache.seatunnel.api.configuration.SingleChoiceOption;
+import org.apache.seatunnel.connectors.cdc.base.option.JdbcSourceOptions;
 import org.apache.seatunnel.connectors.cdc.base.option.StartupMode;
 import org.apache.seatunnel.connectors.cdc.base.option.StopMode;
 
 import java.util.Arrays;
 
-public class SqlServerSourceOptions {
+public class SqlServerIncrementalSourceOptions extends JdbcSourceOptions {
     public static final SingleChoiceOption<StartupMode> STARTUP_MODE =
             (SingleChoiceOption)
                     Options.key("startup.mode")

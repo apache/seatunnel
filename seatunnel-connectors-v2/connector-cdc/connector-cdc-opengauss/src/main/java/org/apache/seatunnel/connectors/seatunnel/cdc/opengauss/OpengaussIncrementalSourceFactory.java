@@ -32,7 +32,7 @@ import org.apache.seatunnel.connectors.cdc.base.config.JdbcSourceTableConfig;
 import org.apache.seatunnel.connectors.cdc.base.option.JdbcSourceOptions;
 import org.apache.seatunnel.connectors.cdc.base.option.StartupMode;
 import org.apache.seatunnel.connectors.cdc.base.utils.CatalogTableUtils;
-import org.apache.seatunnel.connectors.seatunnel.cdc.postgres.config.PostgresIncrementalSource;
+import org.apache.seatunnel.connectors.seatunnel.cdc.postgres.config.PostgresIncrementalSourceOptions;
 import org.apache.seatunnel.connectors.seatunnel.cdc.postgres.source.PostgresSourceOptions;
 import org.apache.seatunnel.connectors.seatunnel.jdbc.config.JdbcCommonOptions;
 
@@ -67,8 +67,8 @@ public class OpengaussIncrementalSourceFactory implements TableSourceFactory {
                         JdbcSourceOptions.CONNECT_TIMEOUT_MS,
                         JdbcSourceOptions.CONNECT_MAX_RETRIES,
                         JdbcSourceOptions.CONNECTION_POOL_SIZE,
-                        PostgresIncrementalSource.DECODING_PLUGIN_NAME,
-                        PostgresIncrementalSource.SLOT_NAME,
+                        PostgresIncrementalSourceOptions.DECODING_PLUGIN_NAME,
+                        PostgresIncrementalSourceOptions.SLOT_NAME,
                         JdbcSourceOptions.CHUNK_KEY_EVEN_DISTRIBUTION_FACTOR_LOWER_BOUND,
                         JdbcSourceOptions.CHUNK_KEY_EVEN_DISTRIBUTION_FACTOR_UPPER_BOUND,
                         JdbcSourceOptions.SAMPLE_SHARDING_THRESHOLD,
@@ -83,7 +83,8 @@ public class OpengaussIncrementalSourceFactory implements TableSourceFactory {
 
     @Override
     public Class<? extends SeaTunnelSource> getSourceClass() {
-        return org.apache.seatunnel.connectors.seatunnel.cdc.postgres.source.PostgresIncrementalSource.class;
+        return org.apache.seatunnel.connectors.seatunnel.cdc.postgres.source
+                .PostgresIncrementalSource.class;
     }
 
     @Override
@@ -107,7 +108,8 @@ public class OpengaussIncrementalSourceFactory implements TableSourceFactory {
                                 catalogTables, tableConfigs.get(), s -> TablePath.of(s, true));
             }
             return (SeaTunnelSource<T, SplitT, StateT>)
-                    new org.apache.seatunnel.connectors.seatunnel.cdc.postgres.source.PostgresIncrementalSource<>(context.getOptions(), catalogTables);
+                    new org.apache.seatunnel.connectors.seatunnel.cdc.postgres.source
+                            .PostgresIncrementalSource<>(context.getOptions(), catalogTables);
         };
     }
 }

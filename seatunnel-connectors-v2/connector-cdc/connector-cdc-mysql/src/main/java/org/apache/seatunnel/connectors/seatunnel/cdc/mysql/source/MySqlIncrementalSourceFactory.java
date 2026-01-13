@@ -19,7 +19,6 @@ package org.apache.seatunnel.connectors.seatunnel.cdc.mysql.source;
 
 import org.apache.seatunnel.api.configuration.ReadonlyConfig;
 import org.apache.seatunnel.api.configuration.util.OptionRule;
-import org.apache.seatunnel.api.options.ConnectorCommonOptions;
 import org.apache.seatunnel.api.source.SeaTunnelSource;
 import org.apache.seatunnel.api.source.SourceSplit;
 import org.apache.seatunnel.api.table.catalog.CatalogTable;
@@ -35,9 +34,8 @@ import org.apache.seatunnel.connectors.cdc.base.option.StartupMode;
 import org.apache.seatunnel.connectors.cdc.base.option.StopMode;
 import org.apache.seatunnel.connectors.cdc.base.source.BaseChangeStreamTableSourceFactory;
 import org.apache.seatunnel.connectors.cdc.base.utils.CatalogTableUtils;
-import org.apache.seatunnel.connectors.seatunnel.cdc.mysql.config.MySqlSourceConfigFactory;
 import org.apache.seatunnel.connectors.seatunnel.cdc.mysql.config.MySqlIncrementalSourceOptions;
-import org.apache.seatunnel.connectors.seatunnel.jdbc.config.JdbcCommonOptions;
+import org.apache.seatunnel.connectors.seatunnel.cdc.mysql.config.MySqlSourceConfigFactory;
 
 import com.google.auto.service.AutoService;
 import lombok.extern.slf4j.Slf4j;
@@ -61,7 +59,9 @@ public class MySqlIncrementalSourceFactory extends BaseChangeStreamTableSourceFa
                         MySqlIncrementalSourceOptions.USERNAME,
                         MySqlIncrementalSourceOptions.PASSWORD,
                         MySqlIncrementalSourceOptions.URL)
-                .exclusive(MySqlIncrementalSourceOptions.TABLE_NAMES, MySqlIncrementalSourceOptions.TABLE_PATTERN)
+                .exclusive(
+                        MySqlIncrementalSourceOptions.TABLE_NAMES,
+                        MySqlIncrementalSourceOptions.TABLE_PATTERN)
                 .optional(
                         MySqlIncrementalSourceOptions.DATABASE_NAMES,
                         MySqlIncrementalSourceOptions.SERVER_ID,
@@ -69,14 +69,18 @@ public class MySqlIncrementalSourceFactory extends BaseChangeStreamTableSourceFa
                         MySqlIncrementalSourceOptions.CONNECT_TIMEOUT_MS,
                         MySqlIncrementalSourceOptions.CONNECT_MAX_RETRIES,
                         MySqlIncrementalSourceOptions.CONNECTION_POOL_SIZE,
-                        MySqlIncrementalSourceOptions.CHUNK_KEY_EVEN_DISTRIBUTION_FACTOR_LOWER_BOUND,
-                        MySqlIncrementalSourceOptions.CHUNK_KEY_EVEN_DISTRIBUTION_FACTOR_UPPER_BOUND,
+                        MySqlIncrementalSourceOptions
+                                .CHUNK_KEY_EVEN_DISTRIBUTION_FACTOR_LOWER_BOUND,
+                        MySqlIncrementalSourceOptions
+                                .CHUNK_KEY_EVEN_DISTRIBUTION_FACTOR_UPPER_BOUND,
                         MySqlIncrementalSourceOptions.SAMPLE_SHARDING_THRESHOLD,
                         MySqlIncrementalSourceOptions.INVERSE_SAMPLING_RATE,
                         MySqlIncrementalSourceOptions.TABLE_NAMES_CONFIG,
                         MySqlIncrementalSourceOptions.SCHEMA_CHANGES_ENABLED,
                         MySqlIncrementalSourceOptions.INT_TYPE_NARROWING)
-                .optional(MySqlIncrementalSourceOptions.STARTUP_MODE, MySqlIncrementalSourceOptions.STOP_MODE)
+                .optional(
+                        MySqlIncrementalSourceOptions.STARTUP_MODE,
+                        MySqlIncrementalSourceOptions.STOP_MODE)
                 .conditional(
                         MySqlIncrementalSourceOptions.STARTUP_MODE,
                         StartupMode.INITIAL,

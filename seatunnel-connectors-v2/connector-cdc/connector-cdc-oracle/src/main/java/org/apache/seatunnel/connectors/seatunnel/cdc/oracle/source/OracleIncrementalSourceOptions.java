@@ -20,6 +20,7 @@ package org.apache.seatunnel.connectors.seatunnel.cdc.oracle.source;
 import org.apache.seatunnel.api.configuration.Option;
 import org.apache.seatunnel.api.configuration.Options;
 import org.apache.seatunnel.api.configuration.SingleChoiceOption;
+import org.apache.seatunnel.connectors.cdc.base.option.JdbcSourceOptions;
 import org.apache.seatunnel.connectors.cdc.base.option.SourceOptions;
 import org.apache.seatunnel.connectors.cdc.base.option.StartupMode;
 import org.apache.seatunnel.connectors.cdc.base.option.StopMode;
@@ -27,7 +28,7 @@ import org.apache.seatunnel.connectors.cdc.base.option.StopMode;
 import java.util.Arrays;
 import java.util.List;
 
-public class OracleSourceOptions {
+public class OracleIncrementalSourceOptions extends JdbcSourceOptions {
     public static final SingleChoiceOption<StartupMode> STARTUP_MODE =
             (SingleChoiceOption)
                     Options.key(SourceOptions.STARTUP_MODE_KEY)

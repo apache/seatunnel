@@ -38,28 +38,27 @@ public class MySqlIncrementalSourceOptions extends JdbcSourceOptions implements 
                             "int type narrowing, if true, the tinyint(1) type will be narrowed to the boolean type if without loss of precision. Support for MySQL at now.");
 
     public static final SingleChoiceOption<StartupMode> STARTUP_MODE =
-                    Options.key(SourceOptions.STARTUP_MODE_KEY)
-                            .singleChoice(
-                                    StartupMode.class,
-                                    Arrays.asList(
-                                            StartupMode.INITIAL,
-                                            StartupMode.EARLIEST,
-                                            StartupMode.LATEST,
-                                            StartupMode.SPECIFIC,
-                                            StartupMode.TIMESTAMP))
-                            .defaultValue(StartupMode.INITIAL)
-                            .withDescription(
-                                    "Optional startup mode for CDC source, valid enumerations are "
-                                            + "\"initial\", \"earliest\", \"latest\" , \"specific\" or \"timestamp\"");
+            Options.key(SourceOptions.STARTUP_MODE_KEY)
+                    .singleChoice(
+                            StartupMode.class,
+                            Arrays.asList(
+                                    StartupMode.INITIAL,
+                                    StartupMode.EARLIEST,
+                                    StartupMode.LATEST,
+                                    StartupMode.SPECIFIC,
+                                    StartupMode.TIMESTAMP))
+                    .defaultValue(StartupMode.INITIAL)
+                    .withDescription(
+                            "Optional startup mode for CDC source, valid enumerations are "
+                                    + "\"initial\", \"earliest\", \"latest\" , \"specific\" or \"timestamp\"");
 
     public static final SingleChoiceOption<StopMode> STOP_MODE =
-                    Options.key(SourceOptions.STOP_MODE_KEY)
-                            .singleChoice(
-                                    StopMode.class,
-                                    Arrays.asList(
-                                            StopMode.LATEST, StopMode.SPECIFIC, StopMode.NEVER))
-                            .defaultValue(StopMode.NEVER)
-                            .withDescription(
-                                    "Optional stop mode for CDC source, valid enumerations are "
-                                            + "\"never\", \"latest\" or \"specific\"");
+            Options.key(SourceOptions.STOP_MODE_KEY)
+                    .singleChoice(
+                            StopMode.class,
+                            Arrays.asList(StopMode.LATEST, StopMode.SPECIFIC, StopMode.NEVER))
+                    .defaultValue(StopMode.NEVER)
+                    .withDescription(
+                            "Optional stop mode for CDC source, valid enumerations are "
+                                    + "\"never\", \"latest\" or \"specific\"");
 }

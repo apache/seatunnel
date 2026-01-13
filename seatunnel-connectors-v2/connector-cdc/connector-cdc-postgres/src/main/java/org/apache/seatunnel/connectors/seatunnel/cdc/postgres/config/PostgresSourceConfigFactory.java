@@ -36,18 +36,19 @@ public class PostgresSourceConfigFactory extends JdbcSourceConfigFactory {
 
     private static final String DRIVER_CLASS_NAME = "org.postgresql.Driver";
 
-    private String decodingPluginName = PostgresIncrementalSource.DECODING_PLUGIN_NAME.defaultValue();
+    private String decodingPluginName =
+            PostgresIncrementalSourceOptions.DECODING_PLUGIN_NAME.defaultValue();
 
-    private String slotName = PostgresIncrementalSource.SLOT_NAME.defaultValue();
+    private String slotName = PostgresIncrementalSourceOptions.SLOT_NAME.defaultValue();
 
     private List<String> schemaList;
 
     @Override
     public JdbcSourceConfigFactory fromReadonlyConfig(ReadonlyConfig config) {
         super.fromReadonlyConfig(config);
-        this.decodingPluginName = config.get(PostgresIncrementalSource.DECODING_PLUGIN_NAME);
-        this.slotName = config.get(PostgresIncrementalSource.SLOT_NAME);
-        this.schemaList = config.get(PostgresIncrementalSource.SCHEMA_NAME);
+        this.decodingPluginName = config.get(PostgresIncrementalSourceOptions.DECODING_PLUGIN_NAME);
+        this.slotName = config.get(PostgresIncrementalSourceOptions.SLOT_NAME);
+        this.schemaList = config.get(PostgresIncrementalSourceOptions.SCHEMA_NAME);
         return this;
     }
 

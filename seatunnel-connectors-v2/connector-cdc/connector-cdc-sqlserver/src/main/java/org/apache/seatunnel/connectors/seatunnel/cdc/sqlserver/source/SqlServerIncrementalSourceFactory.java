@@ -29,12 +29,10 @@ import org.apache.seatunnel.api.table.factory.Factory;
 import org.apache.seatunnel.api.table.factory.TableSourceFactory;
 import org.apache.seatunnel.api.table.factory.TableSourceFactoryContext;
 import org.apache.seatunnel.connectors.cdc.base.config.JdbcSourceTableConfig;
-import org.apache.seatunnel.connectors.cdc.base.option.JdbcSourceOptions;
 import org.apache.seatunnel.connectors.cdc.base.option.SourceOptions;
 import org.apache.seatunnel.connectors.cdc.base.option.StartupMode;
 import org.apache.seatunnel.connectors.cdc.base.option.StopMode;
 import org.apache.seatunnel.connectors.cdc.base.utils.CatalogTableUtils;
-import org.apache.seatunnel.connectors.seatunnel.jdbc.config.JdbcCommonOptions;
 
 import com.google.auto.service.AutoService;
 import lombok.extern.slf4j.Slf4j;
@@ -54,41 +52,45 @@ public class SqlServerIncrementalSourceFactory implements TableSourceFactory {
 
     @Override
     public OptionRule optionRule() {
-        return JdbcSourceOptions.getBaseRule()
+        return SqlServerIncrementalSourceOptions.getBaseRule()
                 .required(
-                        JdbcSourceOptions.USERNAME,
-                        JdbcSourceOptions.PASSWORD,
-                        JdbcCommonOptions.URL)
+                        SqlServerIncrementalSourceOptions.USERNAME,
+                        SqlServerIncrementalSourceOptions.PASSWORD,
+                        SqlServerIncrementalSourceOptions.URL)
                 .exclusive(ConnectorCommonOptions.TABLE_NAMES, ConnectorCommonOptions.TABLE_PATTERN)
                 .optional(
-                        JdbcSourceOptions.DATABASE_NAMES,
-                        JdbcSourceOptions.SERVER_TIME_ZONE,
-                        JdbcSourceOptions.CONNECT_TIMEOUT_MS,
-                        JdbcSourceOptions.CONNECT_MAX_RETRIES,
-                        JdbcSourceOptions.CONNECTION_POOL_SIZE,
-                        JdbcSourceOptions.CHUNK_KEY_EVEN_DISTRIBUTION_FACTOR_LOWER_BOUND,
-                        JdbcSourceOptions.CHUNK_KEY_EVEN_DISTRIBUTION_FACTOR_UPPER_BOUND,
-                        JdbcSourceOptions.SAMPLE_SHARDING_THRESHOLD,
-                        JdbcSourceOptions.TABLE_NAMES_CONFIG)
-                .optional(SqlServerSourceOptions.STARTUP_MODE, SqlServerSourceOptions.STOP_MODE)
+                        SqlServerIncrementalSourceOptions.DATABASE_NAMES,
+                        SqlServerIncrementalSourceOptions.SERVER_TIME_ZONE,
+                        SqlServerIncrementalSourceOptions.CONNECT_TIMEOUT_MS,
+                        SqlServerIncrementalSourceOptions.CONNECT_MAX_RETRIES,
+                        SqlServerIncrementalSourceOptions.CONNECTION_POOL_SIZE,
+                        SqlServerIncrementalSourceOptions
+                                .CHUNK_KEY_EVEN_DISTRIBUTION_FACTOR_LOWER_BOUND,
+                        SqlServerIncrementalSourceOptions
+                                .CHUNK_KEY_EVEN_DISTRIBUTION_FACTOR_UPPER_BOUND,
+                        SqlServerIncrementalSourceOptions.SAMPLE_SHARDING_THRESHOLD,
+                        SqlServerIncrementalSourceOptions.TABLE_NAMES_CONFIG)
+                .optional(
+                        SqlServerIncrementalSourceOptions.STARTUP_MODE,
+                        SqlServerIncrementalSourceOptions.STOP_MODE)
                 .conditional(
-                        SqlServerSourceOptions.STARTUP_MODE,
+                        SqlServerIncrementalSourceOptions.STARTUP_MODE,
                         StartupMode.SPECIFIC,
                         SourceOptions.STARTUP_SPECIFIC_OFFSET_POS)
                 .conditional(
-                        SqlServerSourceOptions.STOP_MODE,
+                        SqlServerIncrementalSourceOptions.STOP_MODE,
                         StopMode.SPECIFIC,
                         SourceOptions.STOP_SPECIFIC_OFFSET_POS)
                 .conditional(
-                        SqlServerSourceOptions.STARTUP_MODE,
+                        SqlServerIncrementalSourceOptions.STARTUP_MODE,
                         StartupMode.TIMESTAMP,
                         SourceOptions.STARTUP_TIMESTAMP)
                 .conditional(
-                        SqlServerSourceOptions.STOP_MODE,
+                        SqlServerIncrementalSourceOptions.STOP_MODE,
                         StopMode.TIMESTAMP,
                         SourceOptions.STOP_TIMESTAMP)
                 .conditional(
-                        SqlServerSourceOptions.STARTUP_MODE,
+                        SqlServerIncrementalSourceOptions.STARTUP_MODE,
                         StartupMode.INITIAL,
                         SourceOptions.EXACTLY_ONCE)
                 .build();
@@ -116,7 +118,8 @@ public class SqlServerIncrementalSourceFactory implements TableSourceFactory {
                     CatalogTableUtil.getCatalogTables(
                             context.getOptions(), context.getClassLoader());
             Optional<List<JdbcSourceTableConfig>> tableConfigs =
-                    context.getOptions().getOptional(JdbcSourceOptions.TABLE_NAMES_CONFIG);
+                    context.getOptions()
+                            .getOptional(SqlServerIncrementalSourceOptions.TABLE_NAMES_CONFIG);
             if (tableConfigs.isPresent()) {
                 catalogTables =
                         CatalogTableUtils.mergeCatalogTableConfig(
