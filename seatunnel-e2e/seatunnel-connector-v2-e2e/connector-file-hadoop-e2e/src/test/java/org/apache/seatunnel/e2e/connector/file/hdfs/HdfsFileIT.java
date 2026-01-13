@@ -130,6 +130,17 @@ public class HdfsFileIT extends TestSuiteBase implements TestResource {
     }
 
     @TestTemplate
+    public void testHdfsTextReadWithFileSplit(TestContainer container)
+            throws IOException, InterruptedException {
+        resetSplitTestPath();
+        putHdfsSequentialLinesFile("/split/input/test.txt", 1000);
+
+        org.testcontainers.containers.Container.ExecResult readResult =
+                container.executeJob("/hdfs_text_split_to_assert.conf");
+        Assertions.assertEquals(0, readResult.getExitCode());
+    }
+
+    @TestTemplate
     public void testHdfsBinaryUpdateModeDistcp(TestContainer container)
             throws IOException, InterruptedException {
         resetUpdateTestPath();
@@ -182,9 +193,28 @@ public class HdfsFileIT extends TestSuiteBase implements TestResource {
         Assertions.assertEquals(0, mkdirResult.getExitCode());
     }
 
+    private void resetSplitTestPath() throws IOException, InterruptedException {
+        nameNode.execInContainer("bash", "-c", "hdfs dfs -rm -r -f /split || true");
+        org.testcontainers.containers.Container.ExecResult mkdirResult =
+                nameNode.execInContainer("hdfs", "dfs", "-mkdir", "-p", "/split/input");
+        Assertions.assertEquals(0, mkdirResult.getExitCode());
+    }
+
     private void putHdfsFile(String hdfsPath, String content)
             throws IOException, InterruptedException {
         String command = "printf '" + content + "' | hdfs dfs -put -f - " + hdfsPath;
+        org.testcontainers.containers.Container.ExecResult putResult =
+                nameNode.execInContainer("bash", "-c", command);
+        Assertions.assertEquals(0, putResult.getExitCode());
+    }
+
+    private void putHdfsSequentialLinesFile(String hdfsPath, int lineCount)
+            throws IOException, InterruptedException {
+        String command =
+                "i=1; while [ $i -le "
+                        + lineCount
+                        + " ]; do echo $i; i=$((i+1)); done | hdfs dfs -put -f - "
+                        + hdfsPath;
         org.testcontainers.containers.Container.ExecResult putResult =
                 nameNode.execInContainer("bash", "-c", command);
         Assertions.assertEquals(0, putResult.getExitCode());

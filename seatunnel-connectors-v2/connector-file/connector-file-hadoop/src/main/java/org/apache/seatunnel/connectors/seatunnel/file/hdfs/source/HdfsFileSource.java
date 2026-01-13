@@ -18,18 +18,51 @@
 package org.apache.seatunnel.connectors.seatunnel.file.hdfs.source;
 
 import org.apache.seatunnel.api.configuration.ReadonlyConfig;
+import org.apache.seatunnel.api.source.SourceSplitEnumerator;
 import org.apache.seatunnel.connectors.seatunnel.file.config.FileSystemType;
 import org.apache.seatunnel.connectors.seatunnel.file.hdfs.config.MultipleTableHdfsFileSourceConfig;
+import org.apache.seatunnel.connectors.seatunnel.file.hdfs.source.split.HdfsFileSplitStrategyFactory;
+import org.apache.seatunnel.connectors.seatunnel.file.hdfs.source.split.HdfsMultipleTableFileSourceSplitEnumerator;
 import org.apache.seatunnel.connectors.seatunnel.file.source.BaseMultipleTableFileSource;
+import org.apache.seatunnel.connectors.seatunnel.file.source.split.FileSourceSplit;
+import org.apache.seatunnel.connectors.seatunnel.file.source.split.FileSplitStrategy;
+import org.apache.seatunnel.connectors.seatunnel.file.source.state.FileSourceState;
 
 public class HdfsFileSource extends BaseMultipleTableFileSource {
 
+    private final MultipleTableHdfsFileSourceConfig sourceConfig;
+    private final FileSplitStrategy fileSplitStrategy;
+
     public HdfsFileSource(ReadonlyConfig readonlyConfig) {
-        super(new MultipleTableHdfsFileSourceConfig(readonlyConfig));
+        this(
+                new MultipleTableHdfsFileSourceConfig(readonlyConfig),
+                HdfsFileSplitStrategyFactory.initFileSplitStrategy(readonlyConfig));
+    }
+
+    private HdfsFileSource(
+            MultipleTableHdfsFileSourceConfig sourceConfig, FileSplitStrategy fileSplitStrategy) {
+        super(sourceConfig, fileSplitStrategy);
+        this.sourceConfig = sourceConfig;
+        this.fileSplitStrategy = fileSplitStrategy;
     }
 
     @Override
     public String getPluginName() {
         return FileSystemType.HDFS.getFileSystemPluginName();
+    }
+
+    @Override
+    public SourceSplitEnumerator<FileSourceSplit, FileSourceState> createEnumerator(
+            SourceSplitEnumerator.Context<FileSourceSplit> enumeratorContext) {
+        return new HdfsMultipleTableFileSourceSplitEnumerator(
+                enumeratorContext, sourceConfig, fileSplitStrategy);
+    }
+
+    @Override
+    public SourceSplitEnumerator<FileSourceSplit, FileSourceState> restoreEnumerator(
+            SourceSplitEnumerator.Context<FileSourceSplit> enumeratorContext,
+            FileSourceState checkpointState) {
+        return new HdfsMultipleTableFileSourceSplitEnumerator(
+                enumeratorContext, sourceConfig, fileSplitStrategy, checkpointState);
     }
 }
