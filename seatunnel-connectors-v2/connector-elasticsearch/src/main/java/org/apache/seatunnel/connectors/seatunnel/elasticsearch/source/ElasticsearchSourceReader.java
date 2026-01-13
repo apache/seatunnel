@@ -17,8 +17,7 @@
 
 package org.apache.seatunnel.connectors.seatunnel.elasticsearch.source;
 
-import org.apache.seatunnel.shade.org.apache.commons.lang3.StringUtils;
-
+import lombok.extern.slf4j.Slf4j;
 import org.apache.seatunnel.api.configuration.ReadonlyConfig;
 import org.apache.seatunnel.api.source.Collector;
 import org.apache.seatunnel.api.source.SourceReader;
@@ -33,8 +32,7 @@ import org.apache.seatunnel.connectors.seatunnel.elasticsearch.dto.source.Scroll
 import org.apache.seatunnel.connectors.seatunnel.elasticsearch.serialize.source.DefaultSeaTunnelRowDeserializer;
 import org.apache.seatunnel.connectors.seatunnel.elasticsearch.serialize.source.ElasticsearchRecord;
 import org.apache.seatunnel.connectors.seatunnel.elasticsearch.serialize.source.SeaTunnelRowDeserializer;
-
-import lombok.extern.slf4j.Slf4j;
+import org.apache.seatunnel.shade.org.apache.commons.lang3.StringUtils;
 
 import java.io.IOException;
 import java.util.ArrayList;
@@ -128,7 +126,8 @@ public class ElasticsearchSourceReader
                                     sourceIndexInfo.getSource(),
                                     sourceIndexInfo.getQuery(),
                                     sourceIndexInfo.getScrollTime(),
-                                    sourceIndexInfo.getScrollSize());
+                                    sourceIndexInfo.getScrollSize(),
+                                    sourceIndexInfo.getRuntimeFields());
                     scrollId = scrollResult.getScrollId();
 
                     outputFromScrollResult(scrollResult, sourceIndexInfo, output, deserializer);
@@ -157,8 +156,8 @@ public class ElasticsearchSourceReader
      * Search using Point-in-Time API.
      *
      * @param sourceIndexInfo The Elasticsearch configuration
-     * @param output The collector to output rows
-     * @param deserializer The deserializer to convert Elasticsearch records to SeaTunnel rows
+     * @param output          The collector to output rows
+     * @param deserializer    The deserializer to convert Elasticsearch records to SeaTunnel rows
      */
     private void searchWithPointInTime(
             ElasticsearchConfig sourceIndexInfo,
@@ -239,10 +238,10 @@ public class ElasticsearchSourceReader
     /**
      * Output rows from a Point-in-Time search result.
      *
-     * @param pitResult The Point-in-Time search result
+     * @param pitResult           The Point-in-Time search result
      * @param elasticsearchConfig The Elasticsearch configuration
-     * @param output The collector to output rows
-     * @param deserializer The deserializer to convert Elasticsearch records to SeaTunnel rows
+     * @param output              The collector to output rows
+     * @param deserializer        The deserializer to convert Elasticsearch records to SeaTunnel rows
      */
     private void outputFromPitResult(
             PointInTimeResult pitResult,
@@ -274,5 +273,6 @@ public class ElasticsearchSourceReader
     }
 
     @Override
-    public void notifyCheckpointComplete(long checkpointId) throws Exception {}
+    public void notifyCheckpointComplete(long checkpointId) throws Exception {
+    }
 }
