@@ -48,19 +48,19 @@ public class HbaseSourceOptions extends HbaseBaseOptions {
                     .withDescription(
                             "Whether to include the end row in the scan. Default is false (exclusive), following the left-closed-right-open convention.");
 
-    public static final Option<Long> MIN_TIMESTAMP =
-            Options.key("min_timestamp")
+    public static final Option<Long> START_TIMESTAMP =
+            Options.key("start_timestamp")
                     .longType()
                     .noDefaultValue()
                     .withDescription(
-                            "Minimum timestamp (inclusive) for scan time range in milliseconds since epoch.");
+                            "Start timestamp (inclusive) for scan time range in milliseconds since epoch.");
 
-    public static final Option<Long> MAX_TIMESTAMP =
-            Options.key("max_timestamp")
+    public static final Option<Long> END_TIMESTAMP =
+            Options.key("end_timestamp")
                     .longType()
                     .noDefaultValue()
                     .withDescription(
-                            "Maximum timestamp (exclusive) for scan time range in milliseconds since epoch.");
+                            "End timestamp (exclusive) for scan time range in milliseconds since epoch.");
 
     public static final Option<Boolean> IS_BINARY_ROW_KEY =
             Options.key("is_binary_rowkey")

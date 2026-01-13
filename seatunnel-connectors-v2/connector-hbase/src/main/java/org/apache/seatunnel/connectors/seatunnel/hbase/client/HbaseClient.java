@@ -394,17 +394,25 @@ public class HbaseClient {
 
     private static void applyTimeRange(Scan scan, HbaseParameters hbaseParameters)
             throws IOException {
-        Long minTimestamp = hbaseParameters.getMinTimestamp();
-        Long maxTimestamp = hbaseParameters.getMaxTimestamp();
-        if (minTimestamp != null || maxTimestamp != null) {
-            long min = minTimestamp == null ? 0L : minTimestamp;
-            long max = maxTimestamp == null ? Long.MAX_VALUE : maxTimestamp;
-            if (min > max) {
-                throw new IllegalArgumentException(
-                        "min_timestamp can't be larger than max_timestamp");
-            }
-            scan.setTimeRange(min, max);
+        Long startTimestamp = hbaseParameters.getStartTimestamp();
+        Long endTimestamp = hbaseParameters.getEndTimestamp();
+        if (startTimestamp == null && endTimestamp == null) {
+            return;
         }
+
+        if (startTimestamp != null && startTimestamp < 0) {
+            throw new IllegalArgumentException("start_timestamp can't be negative");
+        }
+        if (endTimestamp != null && endTimestamp < 0) {
+            throw new IllegalArgumentException("end_timestamp can't be negative");
+        }
+
+        long min = startTimestamp == null ? 0L : startTimestamp;
+        long max = endTimestamp == null ? Long.MAX_VALUE : endTimestamp;
+        if (min >= max) {
+            throw new IllegalArgumentException("start_timestamp must be less than end_timestamp");
+        }
+        scan.setTimeRange(min, max);
     }
 
     /**

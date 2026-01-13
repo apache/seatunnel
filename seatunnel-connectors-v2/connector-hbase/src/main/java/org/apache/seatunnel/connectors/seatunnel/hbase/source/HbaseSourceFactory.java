@@ -57,8 +57,8 @@ public class HbaseSourceFactory implements TableSourceFactory {
                         HbaseSourceOptions.END_ROW_KEY,
                         HbaseSourceOptions.START_ROW_INCLUSIVE,
                         HbaseSourceOptions.END_ROW_INCLUSIVE,
-                        HbaseSourceOptions.MIN_TIMESTAMP,
-                        HbaseSourceOptions.MAX_TIMESTAMP)
+                        HbaseSourceOptions.START_TIMESTAMP,
+                        HbaseSourceOptions.END_TIMESTAMP)
                 .build();
     }
 

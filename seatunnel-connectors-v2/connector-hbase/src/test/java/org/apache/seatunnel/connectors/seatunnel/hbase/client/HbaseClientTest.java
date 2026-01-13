@@ -36,7 +36,7 @@ public class HbaseClientTest {
     @Test
     void testBuildScanWithTimeRange() throws Exception {
         HbaseParameters hbaseParameters =
-                HbaseParameters.builder().minTimestamp(1000L).maxTimestamp(3000L).build();
+                HbaseParameters.builder().startTimestamp(1000L).endTimestamp(3000L).build();
         HbaseSourceSplit split = new HbaseSourceSplit(0, Bytes.toBytes("a"), Bytes.toBytes("b"));
 
         Scan scan = HbaseClient.buildScan(split, hbaseParameters, Arrays.asList("info:score"));
@@ -47,8 +47,8 @@ public class HbaseClientTest {
     }
 
     @Test
-    void testBuildScanWithOnlyMinTimestamp() throws Exception {
-        HbaseParameters hbaseParameters = HbaseParameters.builder().minTimestamp(1000L).build();
+    void testBuildScanWithOnlyStartTimestamp() throws Exception {
+        HbaseParameters hbaseParameters = HbaseParameters.builder().startTimestamp(1000L).build();
         HbaseSourceSplit split = new HbaseSourceSplit(0, Bytes.toBytes("a"), Bytes.toBytes("b"));
 
         Scan scan = HbaseClient.buildScan(split, hbaseParameters, Arrays.asList("info:score"));
@@ -59,8 +59,8 @@ public class HbaseClientTest {
     }
 
     @Test
-    void testBuildScanWithOnlyMaxTimestamp() throws Exception {
-        HbaseParameters hbaseParameters = HbaseParameters.builder().maxTimestamp(2000L).build();
+    void testBuildScanWithOnlyEndTimestamp() throws Exception {
+        HbaseParameters hbaseParameters = HbaseParameters.builder().endTimestamp(2000L).build();
         HbaseSourceSplit split = new HbaseSourceSplit(0, Bytes.toBytes("a"), Bytes.toBytes("b"));
 
         Scan scan = HbaseClient.buildScan(split, hbaseParameters, Arrays.asList("info:score"));
@@ -73,7 +73,39 @@ public class HbaseClientTest {
     @Test
     void testBuildScanWithInvalidTimeRange() {
         HbaseParameters hbaseParameters =
-                HbaseParameters.builder().minTimestamp(3000L).maxTimestamp(1000L).build();
+                HbaseParameters.builder().startTimestamp(3000L).endTimestamp(1000L).build();
+        HbaseSourceSplit split = new HbaseSourceSplit(0, Bytes.toBytes("a"), Bytes.toBytes("b"));
+
+        assertThrows(
+                IllegalArgumentException.class,
+                () -> HbaseClient.buildScan(split, hbaseParameters, Arrays.asList("info:score")));
+    }
+
+    @Test
+    void testBuildScanWithNegativeMinTimestamp() {
+        HbaseParameters hbaseParameters =
+                HbaseParameters.builder().startTimestamp(-1L).endTimestamp(1000L).build();
+        HbaseSourceSplit split = new HbaseSourceSplit(0, Bytes.toBytes("a"), Bytes.toBytes("b"));
+
+        assertThrows(
+                IllegalArgumentException.class,
+                () -> HbaseClient.buildScan(split, hbaseParameters, Arrays.asList("info:score")));
+    }
+
+    @Test
+    void testBuildScanWithNegativeMaxTimestamp() {
+        HbaseParameters hbaseParameters = HbaseParameters.builder().endTimestamp(-1L).build();
+        HbaseSourceSplit split = new HbaseSourceSplit(0, Bytes.toBytes("a"), Bytes.toBytes("b"));
+
+        assertThrows(
+                IllegalArgumentException.class,
+                () -> HbaseClient.buildScan(split, hbaseParameters, Arrays.asList("info:score")));
+    }
+
+    @Test
+    void testBuildScanWithEqualTimeRange() {
+        HbaseParameters hbaseParameters =
+                HbaseParameters.builder().startTimestamp(1000L).endTimestamp(1000L).build();
         HbaseSourceSplit split = new HbaseSourceSplit(0, Bytes.toBytes("a"), Bytes.toBytes("b"));
 
         assertThrows(

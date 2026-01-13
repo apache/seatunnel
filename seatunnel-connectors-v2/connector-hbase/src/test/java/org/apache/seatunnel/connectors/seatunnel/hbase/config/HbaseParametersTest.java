@@ -33,13 +33,13 @@ public class HbaseParametersTest {
         Map<String, Object> config = new HashMap<>();
         config.put(HbaseBaseOptions.ZOOKEEPER_QUORUM.key(), "127.0.0.1:2181");
         config.put(HbaseBaseOptions.TABLE.key(), "test_table");
-        config.put(HbaseSourceOptions.MIN_TIMESTAMP.key(), 1000L);
-        config.put(HbaseSourceOptions.MAX_TIMESTAMP.key(), 2000L);
+        config.put(HbaseSourceOptions.START_TIMESTAMP.key(), 1000L);
+        config.put(HbaseSourceOptions.END_TIMESTAMP.key(), 2000L);
 
         HbaseParameters parameters =
                 HbaseParameters.buildWithSourceConfig(ReadonlyConfig.fromMap(config));
 
-        assertEquals(1000L, parameters.getMinTimestamp());
-        assertEquals(2000L, parameters.getMaxTimestamp());
+        assertEquals(1000L, parameters.getStartTimestamp());
+        assertEquals(2000L, parameters.getEndTimestamp());
     }
 }
