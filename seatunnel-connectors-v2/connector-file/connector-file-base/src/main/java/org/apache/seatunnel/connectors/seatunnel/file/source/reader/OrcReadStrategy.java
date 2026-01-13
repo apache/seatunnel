@@ -108,10 +108,8 @@ public class OrcReadStrategy extends AbstractReadStrategy {
                         (configuration, userGroupInformation) -> {
                             OrcFile.ReaderOptions readerOptions =
                                     OrcFile.readerOptions(configuration);
-
                             return OrcFile.createReader(new Path(path), readerOptions);
                         })) {
-
             TypeDescription schema = TypeDescription.createStruct();
             for (int i = 0; i < seaTunnelRowType.getTotalFields(); i++) {
                 TypeDescription typeDescription =
