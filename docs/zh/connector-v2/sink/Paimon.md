@@ -50,6 +50,13 @@ Apache Paimon数据连接器。支持cdc写以及自动建表。
 hive-exec-xxx.jar
 libfb303-xxx.jar
 ```
+> 如果您使用的是Flink引擎，您还需要将oss相关的[jindo sdk](https://aliyun.github.io/alibabacloud-jindodata/jindosdk/jindosdk_download/)依赖添加到<SEATUNNEL_HOME>/lib目录下，
+> 除此之外，还需要paimon-flink-1.18-1.1.1.jar and paimon-oss-1.1.1.jar
+```
+jindo-core-6.2.0.jar
+jindo-flink-6.2.0-full.jar
+jindo-sdk-6.2.0.jar
+```
 
 > 有些版本的hive-exec包没有libfb303-xxx.jar，所以您还需要手动导入Jar包。
 
@@ -99,9 +106,10 @@ Paimon表的changelog产生模式有[四种](https://paimon.apache.org/docs/mast
 > 当你使用流模式去读paimon表的数据时，不同模式将会产生[不同的结果](https://github.com/apache/seatunnel/blob/dev/docs/en/connector-v2/source/Paimon.md#changelog)。
 
 ## 文件系统
-Paimon连接器支持向多文件系统写入数据。目前支持的文件系统有hdfs和s3。
-如果您使用s3文件系统。您可以配置`fs.s3a.access-key `， `fs.s3a.secret-key`， `fs.s3a.endpoint`， `fs.s3a.path.style.access`， `fs.s3a.aws.credentials`。在`paimon.hadoop.conf`选项中设置提供程序的属性。
-除此之外，warehouse应该以`s3a://`开头。
+Paimon连接器支持向多文件系统写入数据。目前支持的文件系统有hdfs、s3和oss。
+- 如果您使用s3文件系统。您可以配置`fs.s3a.access-key `， `fs.s3a.secret-key`， `fs.s3a.endpoint`， `fs.s3a.path.style.access`， `fs.s3a.aws.credentials`。在`paimon.hadoop.conf`选项中设置提供程序的属性。
+- 如果您使用oss文件系统。您可以配置`fs.oss.accessKeyId`， `fs.oss.accessKeySecret`， `fs.oss.endpoint`， `fs.oss.impl`， `fs.AbstractFileSystem.oss.impl`。  
+在`paimon.hadoop.conf`选项中设置属性。 除此之外，warehouse应该以`s3a://`或`oss://`开头。
 
 ## 模式演变
 Cdc采集支持有限数量的模式更改。目前支持的模式更改包括：
