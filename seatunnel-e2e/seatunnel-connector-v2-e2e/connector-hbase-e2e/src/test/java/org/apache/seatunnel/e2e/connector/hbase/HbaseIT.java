@@ -265,6 +265,18 @@ public class HbaseIT extends TestSuiteBase implements TestResource {
     }
 
     @TestTemplate
+    public void testHbaseSinkWithDateTimeDecimal(TestContainer container)
+            throws IOException, InterruptedException {
+        deleteData(table);
+        Container.ExecResult sinkExecResult =
+                container.executeJob("/fake-to-hbase-with-date-time-decimal.conf");
+        Assertions.assertEquals(0, sinkExecResult.getExitCode());
+        Container.ExecResult sourceExecResult =
+                container.executeJob("/hbase-to-assert-with-date-time-decimal.conf");
+        Assertions.assertEquals(0, sourceExecResult.getExitCode());
+    }
+
+    @TestTemplate
     public void testHbaseSinkWithBinaryRowkey(TestContainer container)
             throws IOException, InterruptedException {
         deleteData(binaryRowkeyTable);

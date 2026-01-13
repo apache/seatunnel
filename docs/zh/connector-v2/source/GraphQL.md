@@ -11,7 +11,7 @@ import ChangeLog from '../changelog/connector-graphql.md';
 ## 主要特性
 
 - [x] [批处理](../../concept/connector-v2-features.md)
-- [ ] [流处理](../../concept/connector-v2-features.md)
+- [x] [流处理](../../concept/connector-v2-features.md)
 - [ ] [并行](../../concept/connector-v2-features.md)
 
 ## 源选项
@@ -25,7 +25,6 @@ import ChangeLog from '../changelog/connector-graphql.md';
 | timeout                     | Long    | No       | -                       |
 | content_field               | String  | Yes      | $.data.{query_object}.* |
 | schema.fields               | Config  | Yes      | -                       |
-| format                      | String  | No       | json                    |
 | params                      | Map     | Yes      | -                       |
 | poll_interval_millis        | int     | No       | -                       |
 | retry                       | int     | No       | -                       |
@@ -56,8 +55,8 @@ variables = {
 
 ### enable_subscription [boolean]
 
-1. true :  构建一个套接字读取器来订阅GraphQL服务
-2. false :  构建GraphQL服务的http阅读器订阅
+1. true :  开启流式订阅模式（WebSocket）
+2. false :  开启批处理查询模式（HTTP）
 
 ### timeout [Long]
 
@@ -86,10 +85,6 @@ HTTP请求参数
 ### retry_backoff_max_ms [int]
 
 如果http请求失败，最大重试回退时间（毫秒）
-
-### format [String]
-
-上游数据的格式，默认为json。
 
 ### schema [Config]
 
@@ -122,7 +117,6 @@ HTTP请求参数
 source {
     GraphQL {
         url = "http://192.168.1.103:9081/v1/graphql"
-        format = "json"
         content_field = "$.data.source"
         query = """
             query MyQuery($limit: Int) {
@@ -155,7 +149,6 @@ source {
 source {
     GraphQL {
         url = "http://192.168.1.103:9081/v1/graphql"
-        format = "json"
         content_field = "$.data.source"
         query = """
             query MyQuery($limit: Int) {

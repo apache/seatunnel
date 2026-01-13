@@ -25,7 +25,6 @@ Used to read data from GraphQL.
 | timeout                     | Long    | No       | -                       |
 | content_field               | String  | Yes      | $.data.{query_object}.* |
 | schema.fields               | Config  | Yes      | -                       |
-| format                      | String  | No       | json                    |
 | params                      | Map     | Yes      | -                       |
 | poll_interval_millis        | int     | No       | -                       |
 | retry                       | int     | No       | -                       |
@@ -56,8 +55,8 @@ variables = {
 
 ### enable_subscription [boolean]
 
-1. true :  Build a socket reader to subscribe to the GraphQL service
-2. false :  Build an http reader subscription to the GraphQL service
+1. true :  Enable streaming subscription mode (WebSocket)
+2. false :  Enable batch query mode (HTTP)
 
 ### timeout [Long]
 
@@ -86,10 +85,6 @@ The retry-backoff times(millis) multiplier if request http failed
 ### retry_backoff_max_ms [int]
 
 The maximum retry-backoff times(millis) if request http failed
-
-### format [String]
-
-the format of upstream data, default `json`.
 
 ### schema [Config]
 
@@ -122,7 +117,6 @@ Source plugin common parameters, please refer to [Source Common Options](../sour
 source {
     GraphQL {
         url = "http://192.168.1.103:9081/v1/graphql"
-        format = "json"
         content_field = "$.data.source"
         query = """
             query MyQuery($limit: Int) {
@@ -155,7 +149,6 @@ source {
 source {
     GraphQL {
         url = "http://192.168.1.103:9081/v1/graphql"
-        format = "json"
         content_field = "$.data.source"
         query = """
             query MyQuery($limit: Int) {

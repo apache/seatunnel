@@ -18,8 +18,11 @@
 package org.apache.seatunnel.connectors.seatunnel.file.source.reader;
 
 import org.apache.seatunnel.shade.com.typesafe.config.Config;
+import org.apache.seatunnel.shade.com.typesafe.config.ConfigObject;
+import org.apache.seatunnel.shade.com.typesafe.config.ConfigValueType;
 import org.apache.seatunnel.shade.org.apache.commons.lang3.StringUtils;
 
+import org.apache.seatunnel.api.common.SeaTunnelAPIErrorCode;
 import org.apache.seatunnel.api.configuration.ReadonlyConfig;
 import org.apache.seatunnel.api.source.Collector;
 import org.apache.seatunnel.api.table.catalog.CatalogTable;
@@ -30,8 +33,12 @@ import org.apache.seatunnel.api.table.type.SeaTunnelRowType;
 import org.apache.seatunnel.common.utils.SeaTunnelException;
 import org.apache.seatunnel.connectors.seatunnel.file.config.ArchiveCompressFormat;
 import org.apache.seatunnel.connectors.seatunnel.file.config.FileBaseSourceOptions;
+import org.apache.seatunnel.connectors.seatunnel.file.config.FileCompareMode;
 import org.apache.seatunnel.connectors.seatunnel.file.config.FileFormat;
+import org.apache.seatunnel.connectors.seatunnel.file.config.FileSyncMode;
+import org.apache.seatunnel.connectors.seatunnel.file.config.FileUpdateStrategy;
 import org.apache.seatunnel.connectors.seatunnel.file.config.HadoopConf;
+import org.apache.seatunnel.connectors.seatunnel.file.exception.FileConnectorException;
 import org.apache.seatunnel.connectors.seatunnel.file.hadoop.HadoopFileSystemProxy;
 import org.apache.seatunnel.connectors.seatunnel.file.source.split.FileSourceSplit;
 
@@ -40,12 +47,15 @@ import org.apache.commons.compress.archivers.tar.TarArchiveInputStream;
 import org.apache.commons.compress.compressors.gzip.GzipCompressorInputStream;
 import org.apache.commons.compress.compressors.gzip.GzipParameters;
 import org.apache.commons.io.input.BoundedInputStream;
+import org.apache.hadoop.fs.FileChecksum;
 import org.apache.hadoop.fs.FileStatus;
+import org.apache.hadoop.fs.Path;
 
 import lombok.extern.slf4j.Slf4j;
 
 import java.io.ByteArrayInputStream;
 import java.io.ByteArrayOutputStream;
+import java.io.FileNotFoundException;
 import java.io.IOException;
 import java.io.InputStream;
 import java.math.BigDecimal;
@@ -58,6 +68,7 @@ import java.util.Arrays;
 import java.util.Date;
 import java.util.LinkedHashMap;
 import java.util.List;
+import java.util.Locale;
 import java.util.Map;
 import java.util.Objects;
 import java.util.regex.Pattern;
@@ -101,10 +112,24 @@ public abstract class AbstractReadStrategy implements ReadStrategy {
 
     protected boolean enableSplitFile;
 
+    protected String sourceRootPath;
+    protected boolean enableUpdateSync;
+    protected String targetPath;
+    protected FileUpdateStrategy updateStrategy =
+            FileBaseSourceOptions.UPDATE_STRATEGY.defaultValue();
+    protected FileCompareMode compareMode = FileBaseSourceOptions.COMPARE_MODE.defaultValue();
+    protected Map<String, String> targetHadoopConf;
+    protected transient HadoopFileSystemProxy targetHadoopFileSystemProxy;
+    protected transient boolean shareTargetFileSystemProxy;
+    protected transient boolean checksumUnavailableWarned;
+
     @Override
     public void init(HadoopConf conf) {
         this.hadoopConf = conf;
         this.hadoopFileSystemProxy = new HadoopFileSystemProxy(hadoopConf);
+        if (enableUpdateSync) {
+            initTargetHadoopFileSystemProxy();
+        }
     }
 
     @Override
@@ -140,14 +165,18 @@ public abstract class AbstractReadStrategy implements ReadStrategy {
                     if (!readPartitions.isEmpty()) {
                         for (String readPartition : readPartitions) {
                             if (filePath.contains(readPartition)) {
-                                fileNames.add(filePath);
-                                this.fileNames.add(filePath);
+                                if (shouldSyncFileInUpdateMode(fileStatus)) {
+                                    fileNames.add(filePath);
+                                    this.fileNames.add(filePath);
+                                }
                                 break;
                             }
                         }
                     } else {
-                        fileNames.add(filePath);
-                        this.fileNames.add(filePath);
+                        if (shouldSyncFileInUpdateMode(fileStatus)) {
+                            fileNames.add(filePath);
+                            this.fileNames.add(filePath);
+                        }
                     }
                 }
             }
@@ -234,7 +263,9 @@ public abstract class AbstractReadStrategy implements ReadStrategy {
             this.pattern = Pattern.compile(filterPattern);
             // because 'ConfigFactory.systemProperties()' has a 'path' parameter, it is necessary to
             // obtain 'path' under the premise of 'FILE_FILTER_PATTERN'
-            if (pluginConfig.hasPath(FileBaseSourceOptions.FILE_PATH.key())) {
+            if (pluginConfig.hasPath(FileBaseSourceOptions.FILE_PATH.key())
+                    && pluginConfig.getValue(FileBaseSourceOptions.FILE_PATH.key()).valueType()
+                            == ConfigValueType.STRING) {
                 fileBasePath = pluginConfig.getString(FileBaseSourceOptions.FILE_PATH.key());
             }
         }
@@ -253,6 +284,25 @@ public abstract class AbstractReadStrategy implements ReadStrategy {
         if (pluginConfig.hasPath(FileBaseSourceOptions.ENABLE_FILE_SPLIT.key())) {
             enableSplitFile =
                     pluginConfig.getBoolean(FileBaseSourceOptions.ENABLE_FILE_SPLIT.key());
+        }
+
+        if (pluginConfig.hasPath(FileBaseSourceOptions.FILE_PATH.key())
+                && pluginConfig.getValue(FileBaseSourceOptions.FILE_PATH.key()).valueType()
+                        == ConfigValueType.STRING) {
+            sourceRootPath = pluginConfig.getString(FileBaseSourceOptions.FILE_PATH.key());
+        }
+
+        FileSyncMode syncMode = FileBaseSourceOptions.SYNC_MODE.defaultValue();
+        if (pluginConfig.hasPath(FileBaseSourceOptions.SYNC_MODE.key())) {
+            syncMode =
+                    parseEnumValue(
+                            FileSyncMode.class,
+                            pluginConfig.getString(FileBaseSourceOptions.SYNC_MODE.key()),
+                            FileBaseSourceOptions.SYNC_MODE.key());
+        }
+        enableUpdateSync = syncMode == FileSyncMode.UPDATE;
+        if (enableUpdateSync) {
+            validateUpdateSyncConfig(pluginConfig);
         }
     }
 
@@ -473,10 +523,304 @@ public abstract class AbstractReadStrategy implements ReadStrategy {
     @Override
     public void close() throws IOException {
         try {
+            if (targetHadoopFileSystemProxy != null && !shareTargetFileSystemProxy) {
+                targetHadoopFileSystemProxy.close();
+            }
             if (hadoopFileSystemProxy != null) {
                 hadoopFileSystemProxy.close();
             }
         } catch (Exception ignore) {
         }
+    }
+
+    private void validateUpdateSyncConfig(Config pluginConfig) {
+        if (!pluginConfig.hasPath(FileBaseSourceOptions.FILE_FORMAT_TYPE.key())) {
+            throw new FileConnectorException(
+                    SeaTunnelAPIErrorCode.CONFIG_VALIDATION_FAILED,
+                    "When sync_mode=update, file_format_type must be set.");
+        }
+        FileFormat fileFormat =
+                FileFormat.valueOf(
+                        pluginConfig
+                                .getString(FileBaseSourceOptions.FILE_FORMAT_TYPE.key())
+                                .toUpperCase());
+        if (fileFormat != FileFormat.BINARY) {
+            throw new FileConnectorException(
+                    SeaTunnelAPIErrorCode.CONFIG_VALIDATION_FAILED,
+                    "sync_mode=update currently only supports file_format_type=binary.");
+        }
+
+        if (!pluginConfig.hasPath(FileBaseSourceOptions.TARGET_PATH.key())
+                || StringUtils.isBlank(
+                        pluginConfig.getString(FileBaseSourceOptions.TARGET_PATH.key()))) {
+            throw new FileConnectorException(
+                    SeaTunnelAPIErrorCode.CONFIG_VALIDATION_FAILED,
+                    "When sync_mode=update, target_path must be set.");
+        }
+        targetPath = pluginConfig.getString(FileBaseSourceOptions.TARGET_PATH.key()).trim();
+
+        updateStrategy = FileBaseSourceOptions.UPDATE_STRATEGY.defaultValue();
+        if (pluginConfig.hasPath(FileBaseSourceOptions.UPDATE_STRATEGY.key())) {
+            updateStrategy =
+                    parseEnumValue(
+                            FileUpdateStrategy.class,
+                            pluginConfig.getString(FileBaseSourceOptions.UPDATE_STRATEGY.key()),
+                            FileBaseSourceOptions.UPDATE_STRATEGY.key());
+        }
+
+        compareMode = FileBaseSourceOptions.COMPARE_MODE.defaultValue();
+        if (pluginConfig.hasPath(FileBaseSourceOptions.COMPARE_MODE.key())) {
+            compareMode =
+                    parseEnumValue(
+                            FileCompareMode.class,
+                            pluginConfig.getString(FileBaseSourceOptions.COMPARE_MODE.key()),
+                            FileBaseSourceOptions.COMPARE_MODE.key());
+        }
+        if (updateStrategy == FileUpdateStrategy.DISTCP
+                && compareMode != FileCompareMode.LEN_MTIME) {
+            throw new FileConnectorException(
+                    SeaTunnelAPIErrorCode.CONFIG_VALIDATION_FAILED,
+                    "compare_mode="
+                            + compareMode.name().toLowerCase(Locale.ROOT)
+                            + " is not supported when update_strategy=distcp.");
+        }
+
+        if (pluginConfig.hasPath(FileBaseSourceOptions.TARGET_HADOOP_CONF.key())) {
+            ConfigObject configObject =
+                    pluginConfig.getObject(FileBaseSourceOptions.TARGET_HADOOP_CONF.key());
+            Map<String, Object> raw = configObject.unwrapped();
+            Map<String, String> conf = new LinkedHashMap<>(raw.size());
+            raw.forEach((k, v) -> conf.put(k, v == null ? null : String.valueOf(v)));
+            targetHadoopConf = conf;
+        }
+    }
+
+    private void initTargetHadoopFileSystemProxy() {
+        HadoopConf targetConf = buildTargetHadoopConf();
+        if (targetConf == this.hadoopConf) {
+            targetHadoopFileSystemProxy = this.hadoopFileSystemProxy;
+            shareTargetFileSystemProxy = true;
+        } else {
+            targetHadoopFileSystemProxy = new HadoopFileSystemProxy(targetConf);
+            shareTargetFileSystemProxy = false;
+        }
+    }
+
+    private HadoopConf buildTargetHadoopConf() {
+        if (!enableUpdateSync) {
+            return this.hadoopConf;
+        }
+        Map<String, String> extraOptions =
+                targetHadoopConf == null
+                        ? new LinkedHashMap<>()
+                        : new LinkedHashMap<>(targetHadoopConf);
+
+        String fsDefaultNameKey = hadoopConf.getFsDefaultNameKey();
+        String targetDefaultFs = extraOptions.remove(fsDefaultNameKey);
+
+        if (StringUtils.isBlank(targetDefaultFs)) {
+            targetDefaultFs = tryDeriveDefaultFsFromPath(targetPath);
+        }
+        if (StringUtils.isBlank(targetDefaultFs)) {
+            targetDefaultFs = hadoopConf.getHdfsNameKey();
+        }
+
+        boolean needNewConf =
+                !extraOptions.isEmpty()
+                        || !Objects.equals(targetDefaultFs, hadoopConf.getHdfsNameKey());
+        if (!needNewConf) {
+            return this.hadoopConf;
+        }
+
+        HadoopConf conf = new HadoopConf(targetDefaultFs);
+        conf.setHdfsSitePath(hadoopConf.getHdfsSitePath());
+        conf.setRemoteUser(hadoopConf.getRemoteUser());
+        conf.setKrb5Path(hadoopConf.getKrb5Path());
+        conf.setKerberosPrincipal(hadoopConf.getKerberosPrincipal());
+        conf.setKerberosKeytabPath(hadoopConf.getKerberosKeytabPath());
+        conf.setExtraOptions(extraOptions);
+        return conf;
+    }
+
+    private static String tryDeriveDefaultFsFromPath(String basePath) {
+        if (StringUtils.isBlank(basePath)) {
+            return null;
+        }
+        try {
+            Path path = new Path(basePath);
+            if (path.toUri().getScheme() == null) {
+                return null;
+            }
+            if (path.toUri().getAuthority() == null) {
+                return null;
+            }
+            return path.toUri().getScheme() + "://" + path.toUri().getAuthority();
+        } catch (Exception e) {
+            return null;
+        }
+    }
+
+    private boolean shouldSyncFileInUpdateMode(FileStatus sourceFileStatus) throws IOException {
+        if (!enableUpdateSync) {
+            return true;
+        }
+        if (targetHadoopFileSystemProxy == null) {
+            initTargetHadoopFileSystemProxy();
+        }
+        String sourceFilePath = sourceFileStatus.getPath().toString();
+        String relativePath = resolveRelativePath(sourceRootPath, sourceFilePath);
+        String targetFilePath = buildTargetFilePath(targetPath, relativePath);
+
+        FileStatus targetFileStatus;
+        try {
+            targetFileStatus = targetHadoopFileSystemProxy.getFileStatus(targetFilePath);
+        } catch (FileNotFoundException e) {
+            return true;
+        }
+
+        long sourceLen = sourceFileStatus.getLen();
+        long targetLen = targetFileStatus.getLen();
+        if (sourceLen != targetLen) {
+            return true;
+        }
+
+        long sourceMtime = sourceFileStatus.getModificationTime();
+        long targetMtime = targetFileStatus.getModificationTime();
+
+        if (updateStrategy == FileUpdateStrategy.DISTCP) {
+            return sourceMtime > targetMtime;
+        }
+
+        if (updateStrategy == FileUpdateStrategy.STRICT) {
+            if (compareMode == FileCompareMode.LEN_MTIME) {
+                return sourceMtime != targetMtime;
+            }
+            if (compareMode == FileCompareMode.CHECKSUM) {
+                FileChecksum sourceChecksum = hadoopFileSystemProxy.getFileChecksum(sourceFilePath);
+                FileChecksum targetChecksum =
+                        targetHadoopFileSystemProxy.getFileChecksum(targetFilePath);
+                if (sourceChecksum == null || targetChecksum == null) {
+                    if (!checksumUnavailableWarned) {
+                        log.warn(
+                                "File checksum is not available, fallback to content comparison. source={}, target={}",
+                                sourceFilePath,
+                                targetFilePath);
+                        checksumUnavailableWarned = true;
+                    }
+                    try {
+                        return !fileContentEquals(sourceFilePath, targetFilePath);
+                    } catch (Exception e) {
+                        log.warn(
+                                "Fallback content comparison failed, fallback to COPY. source={}, target={}",
+                                sourceFilePath,
+                                targetFilePath,
+                                e);
+                        return true;
+                    }
+                }
+                return !checksumEquals(sourceChecksum, targetChecksum);
+            }
+        }
+
+        return true;
+    }
+
+    private static boolean checksumEquals(FileChecksum source, FileChecksum target) {
+        if (source == null || target == null) {
+            return false;
+        }
+        return Objects.equals(source.getAlgorithmName(), target.getAlgorithmName())
+                && source.getLength() == target.getLength()
+                && Arrays.equals(source.getBytes(), target.getBytes());
+    }
+
+    private boolean fileContentEquals(String sourceFilePath, String targetFilePath)
+            throws IOException {
+        try (InputStream sourceIn = hadoopFileSystemProxy.getInputStream(sourceFilePath);
+                InputStream targetIn = targetHadoopFileSystemProxy.getInputStream(targetFilePath)) {
+            byte[] sourceBuffer = new byte[8 * 1024];
+            byte[] targetBuffer = new byte[8 * 1024];
+
+            while (true) {
+                int sourceRead = sourceIn.read(sourceBuffer);
+                int targetRead = targetIn.read(targetBuffer);
+                if (sourceRead != targetRead) {
+                    return false;
+                }
+                if (sourceRead == -1) {
+                    return true;
+                }
+                for (int i = 0; i < sourceRead; i++) {
+                    if (sourceBuffer[i] != targetBuffer[i]) {
+                        return false;
+                    }
+                }
+            }
+        }
+    }
+
+    private static String buildTargetFilePath(String targetBasePath, String relativePath) {
+        String cleanRelativePath =
+                StringUtils.isBlank(relativePath)
+                        ? ""
+                        : (relativePath.startsWith("/") ? relativePath.substring(1) : relativePath);
+        return new Path(targetBasePath, cleanRelativePath).toString();
+    }
+
+    private static String resolveRelativePath(String basePath, String fullFilePath) {
+        String base = normalizePathPart(basePath);
+        String file = normalizePathPart(fullFilePath);
+        if (StringUtils.isBlank(file)) {
+            return "";
+        }
+        if (StringUtils.isBlank(base)) {
+            return new Path(file).getName();
+        }
+        if (Objects.equals(base, file)) {
+            return new Path(file).getName();
+        }
+        String basePrefix = base.endsWith("/") ? base : base + "/";
+        if (file.startsWith(basePrefix)) {
+            return file.substring(basePrefix.length());
+        }
+        int idx = file.indexOf(basePrefix);
+        if (idx >= 0) {
+            return file.substring(idx + basePrefix.length());
+        }
+        return new Path(file).getName();
+    }
+
+    private static String normalizePathPart(String path) {
+        if (StringUtils.isBlank(path)) {
+            return path;
+        }
+        try {
+            return new Path(path).toUri().getPath();
+        } catch (Exception e) {
+            return path;
+        }
+    }
+
+    private static <E extends Enum<E>> E parseEnumValue(
+            Class<E> enumClass, String rawValue, String optionKey) {
+        if (StringUtils.isBlank(rawValue)) {
+            throw new FileConnectorException(
+                    SeaTunnelAPIErrorCode.CONFIG_VALIDATION_FAILED,
+                    "Option '" + optionKey + "' must not be blank.");
+        }
+        String normalized = rawValue.trim().toUpperCase(Locale.ROOT);
+        for (E v : enumClass.getEnumConstants()) {
+            if (v.name().equalsIgnoreCase(normalized)) {
+                return v;
+            }
+        }
+        String supported =
+                Arrays.stream(enumClass.getEnumConstants())
+                        .map(e -> e.name().toLowerCase(Locale.ROOT))
+                        .reduce((a, b) -> a + ", " + b)
+                        .orElse("");
+        throw new FileConnectorException(
+                SeaTunnelAPIErrorCode.CONFIG_VALIDATION_FAILED,
+                "Unsupported " + optionKey + ": [" + rawValue + "], supported: " + supported + ".");
     }
 }
