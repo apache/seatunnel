@@ -233,8 +233,12 @@ public class HiveSourceConfig implements Serializable {
     private static boolean isFileNotFound(Throwable throwable) {
         Throwable current = throwable;
         while (current != null) {
-            if (current instanceof FileNotFoundException
-                    || current instanceof org.apache.hadoop.fs.FileNotFoundException) {
+            if (current instanceof FileNotFoundException) {
+                return true;
+            }
+            String exceptionClass = current.getClass().getName();
+            if ("org.apache.hadoop.fs.FileNotFoundException".equals(exceptionClass)
+                    || "org.apache.hadoop.fs.PathNotFoundException".equals(exceptionClass)) {
                 return true;
             }
             current = current.getCause();
