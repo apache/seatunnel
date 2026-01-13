@@ -80,6 +80,10 @@ import ChangeLog from '../changelog/connector-file-local.md';
 | tables_configs             | list    | 否    | 用于定义多表任务            |
 | file_filter_modified_start | string  | 否    | -                   | 
 | file_filter_modified_end   | string  | 否    | -                   |
+| enable_file_split          | boolean | 否    | false               | 
+| file_split_size            | long    | 否    | 134217728           | 
+| quote_char                 | string  | 否    | -                   | 
+| escape_char                | string  | 否    | -                   |
 
 ### path [string]
 
@@ -414,6 +418,22 @@ null_format 定义哪些字符串可以表示为 null。
 ### file_filter_modified_end
 
 按照最后修改时间过滤文件。 要过滤的结束时间(不包括改时间),时间格式是：`yyyy-MM-dd HH:mm:ss`。
+
+### enable_file_split [boolean]
+
+开启文件分割功能，默认为false。文件类型为csv、text、json、parquet非压缩格式时可选择。
+
+### file_split_size [long]
+
+文件分割大小，enable_file_split参数为true时可以填写。单位是字节数。默认值为128MB的字节数，即134217728。
+
+### quote_char [string]
+
+用于包裹 CSV 字段的单字符，可保证包含逗号、换行符或引号的字段被正确解析。
+
+### escape_char [string]
+
+用于在 CSV 字段内转义引号或其他特殊字符，使其不会结束字段。
 
 ### 通用选项
 

@@ -133,59 +133,59 @@ schema {
 
 如果您将文件类型指定为`parquet` `orc`，则不需要schema选项，连接器可以自动找到上游数据的schema。
 
-|          Orc数据类型           |                      SeaTunnel数据类型                       |
-|----------------------------------|----------------------------------------------------------------|
-| BOOLEAN                          | BOOLEAN                                                        |
-| INT                              | INT                                                            |
-| BYTE                             | BYTE                                                           |
-| SHORT                            | SHORT                                                          |
-| LONG                             | LONG                                                           |
-| FLOAT                            | FLOAT                                                          |
-| DOUBLE                           | DOUBLE                                                         |
-| BINARY                           | BINARY                                                         |
-| STRING<br/>VARCHAR<br/>CHAR<br/> | STRING                                                         |
-| DATE                             | LOCAL_DATE_TYPE                                                |
-| TIMESTAMP                        | LOCAL_DATE_TIME_TYPE                                           |
-| DECIMAL                          | DECIMAL                                                        |
-| LIST(STRING)                     | STRING_ARRAY_TYPE                                              |
-| LIST(BOOLEAN)                    | BOOLEAN_ARRAY_TYPE                                             |
-| LIST(TINYINT)                    | BYTE_ARRAY_TYPE                                                |
-| LIST(SMALLINT)                   | SHORT_ARRAY_TYPE                                               |
-| LIST(INT)                        | INT_ARRAY_TYPE                                                 |
-| LIST(BIGINT)                     | LONG_ARRAY_TYPE                                                |
-| LIST(FLOAT)                      | FLOAT_ARRAY_TYPE                                               |
-| LIST(DOUBLE)                     | DOUBLE_ARRAY_TYPE                                              |
+| Orc数据类型                          | SeaTunnel数据类型                 |
+|----------------------------------|-------------------------------|
+| BOOLEAN                          | BOOLEAN                       |
+| INT                              | INT                           |
+| BYTE                             | BYTE                          |
+| SHORT                            | SHORT                         |
+| LONG                             | LONG                          |
+| FLOAT                            | FLOAT                         |
+| DOUBLE                           | DOUBLE                        |
+| BINARY                           | BINARY                        |
+| STRING<br/>VARCHAR<br/>CHAR<br/> | STRING                        |
+| DATE                             | LOCAL_DATE_TYPE               |
+| TIMESTAMP                        | LOCAL_DATE_TIME_TYPE          |
+| DECIMAL                          | DECIMAL                       |
+| LIST(STRING)                     | STRING_ARRAY_TYPE             |
+| LIST(BOOLEAN)                    | BOOLEAN_ARRAY_TYPE            |
+| LIST(TINYINT)                    | BYTE_ARRAY_TYPE               |
+| LIST(SMALLINT)                   | SHORT_ARRAY_TYPE              |
+| LIST(INT)                        | INT_ARRAY_TYPE                |
+| LIST(BIGINT)                     | LONG_ARRAY_TYPE               |
+| LIST(FLOAT)                      | FLOAT_ARRAY_TYPE              |
+| LIST(DOUBLE)                     | DOUBLE_ARRAY_TYPE             |
 | Map<K,V>                         | MapType，K和V的类型将转换为SeaTunnel类型 |
-| STRUCT                           | SeaTunnelRowType                                               |
+| STRUCT                           | SeaTunnelRowType              |
 
 ### Parquet文件类型
 
 如果您将文件类型指定为`parquet` `orc`，则不需要schema选项，连接器可以自动找到上游数据的schema。
 
-| Parquet数据类型    | SeaTunnel数据类型                                            |
-|----------------------|----------------------------------------------------------------|
-| INT_8                | BYTE                                                           |
-| INT_16               | SHORT                                                          |
-| DATE                 | DATE                                                           |
-| TIMESTAMP_MILLIS     | TIMESTAMP                                                      |
-| INT64                | LONG                                                           |
-| INT96                | TIMESTAMP                                                      |
-| BINARY               | BYTES                                                          |
-| FLOAT                | FLOAT                                                          |
-| DOUBLE               | DOUBLE                                                         |
-| BOOLEAN              | BOOLEAN                                                        |
-| FIXED_LEN_BYTE_ARRAY | TIMESTAMP<br/> DECIMAL                                         |
-| DECIMAL              | DECIMAL                                                        |
-| LIST(STRING)         | STRING_ARRAY_TYPE                                              |
-| LIST(BOOLEAN)        | BOOLEAN_ARRAY_TYPE                                             |
-| LIST(TINYINT)        | BYTE_ARRAY_TYPE                                                |
-| LIST(SMALLINT)       | SHORT_ARRAY_TYPE                                               |
-| LIST(INT)            | INT_ARRAY_TYPE                                                 |
-| LIST(BIGINT)         | LONG_ARRAY_TYPE                                                |
-| LIST(FLOAT)          | FLOAT_ARRAY_TYPE                                               |
-| LIST(DOUBLE)         | DOUBLE_ARRAY_TYPE                                              |
+| Parquet数据类型          | SeaTunnel数据类型                 |
+|----------------------|-------------------------------|
+| INT_8                | BYTE                          |
+| INT_16               | SHORT                         |
+| DATE                 | DATE                          |
+| TIMESTAMP_MILLIS     | TIMESTAMP                     |
+| INT64                | LONG                          |
+| INT96                | TIMESTAMP                     |
+| BINARY               | BYTES                         |
+| FLOAT                | FLOAT                         |
+| DOUBLE               | DOUBLE                        |
+| BOOLEAN              | BOOLEAN                       |
+| FIXED_LEN_BYTE_ARRAY | TIMESTAMP<br/> DECIMAL        |
+| DECIMAL              | DECIMAL                       |
+| LIST(STRING)         | STRING_ARRAY_TYPE             |
+| LIST(BOOLEAN)        | BOOLEAN_ARRAY_TYPE            |
+| LIST(TINYINT)        | BYTE_ARRAY_TYPE               |
+| LIST(SMALLINT)       | SHORT_ARRAY_TYPE              |
+| LIST(INT)            | INT_ARRAY_TYPE                |
+| LIST(BIGINT)         | LONG_ARRAY_TYPE               |
+| LIST(FLOAT)          | FLOAT_ARRAY_TYPE              |
+| LIST(DOUBLE)         | DOUBLE_ARRAY_TYPE             |
 | Map<K,V>             | MapType，K和V的类型将转换为SeaTunnel类型 |
-| STRUCT               | SeaTunnelRowType                                               |
+| STRUCT               | SeaTunnelRowType              |
 
 ## 选项
 
@@ -221,6 +221,8 @@ schema {
 | file_filter_pattern             | string  | 否    |                                                       | 过滤模式，用于过滤文件。                                                                                                                                                                                                                                                                                                          |
 | filename_extension              | string  | 否    | -                                                     | 过滤文件名扩展名，用于过滤具有特定扩展名的文件。例如：`csv` `.txt` `json` `.xml`。                                                                                                                                                                                                                                                                |
 | common-options                  |         | 否    | -                                                     | 数据源插件通用参数，请参考[数据源通用选项](../source-common-options.md)了解详情。                                                                                                                                                                                                                                                              |
+| quote_char                      | string  | 否    | "                                                     | 用于包裹 CSV 字段的单字符，可保证包含逗号、换行符或引号的字段被正确解析。                                                                                                                                                                                                                                                                               |
+| escape_char                     | string  | 否    | -                                                     | 用于在 CSV 字段内转义引号或其他特殊字符，使其不会结束字段。                                                                                                                                                                                                                                                                                      |
 
 ### delimiter/field_delimiter [string]
 
@@ -233,6 +235,14 @@ schema {
 行分隔符，用于告诉连接器如何分割行。
 
 默认 `\n`。
+
+### quote_char [string]
+
+用于包裹 CSV 字段的单字符，可保证包含逗号、换行符或引号的字段被正确解析。
+
+### escape_char [string]
+
+用于在 CSV 字段内转义引号或其他特殊字符，使其不会结束字段。
 
 ### file_filter_pattern [string]
 

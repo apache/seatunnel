@@ -26,11 +26,11 @@ import ChangeLog from '../changelog/connector-graphql.md';
 
 ## 支持的数据源信息
 
-想使用 Prometheus 连接器，需要安装以下必要的依赖。可以通过运行 install-plugin.sh 脚本或者从 Maven 中央仓库下载这些依赖
+想使用 GraphQL 连接器，需要安装以下必要的依赖。可以通过运行 install-plugin.sh 脚本或者从 Maven 中央仓库下载这些依赖
 
 | 数据源 | 支持版本  | 依赖                                                         |
 | ------ | --------- | ------------------------------------------------------------ |
-| Http   | universal | [Download](https://mvnrepository.com/artifact/org.apache.seatunnel/seatunnel-connectors-v2/connector-prometheus) |
+| Http   | universal | [Download](https://mvnrepository.com/artifact/org.apache.seatunnel/seatunnel-connectors-v2/connector-http) |
 
 ## 接收器选项
 
@@ -46,11 +46,6 @@ import ChangeLog from '../changelog/connector-graphql.md';
 | retry_backoff_max_ms        | Int    | No       | 10000   | The maximum retry-backoff times(millis) if request http failed                                              |
 | connect_timeout_ms          | Int    | No       | 12000   | Connection timeout setting, default 12s.                                                                    |
 | socket_timeout_ms           | Int    | No       | 60000   | Socket timeout setting, default 60s.                                                                        |
-| key_timestamp               | Int    | NO       | -       | prometheus timestamp  key .                                                                                 |
-| key_label                   | String | yes      | -       | prometheus label key                                                                                        |
-| key_value                   | Double | yes      | -       | prometheus value                                                                                            |
-| batch_size                  | Int    | false    | 1024       | prometheus batch size write                                                                                 |
-| flush_interval              | Long   | false      | 300000L  | prometheus flush commit interval                                                     |
 | common-options              |        | No       | -       | Sink plugin common parameters, please refer to [Sink Common Options](../sink-common-options.md) for details |
 
 ## 示例
