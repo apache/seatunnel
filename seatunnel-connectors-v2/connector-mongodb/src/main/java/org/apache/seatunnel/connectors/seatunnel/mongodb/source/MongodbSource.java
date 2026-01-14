@@ -26,7 +26,7 @@ import org.apache.seatunnel.api.source.SupportColumnProjection;
 import org.apache.seatunnel.api.table.catalog.CatalogTable;
 import org.apache.seatunnel.api.table.type.SeaTunnelRow;
 import org.apache.seatunnel.api.table.type.SeaTunnelRowType;
-import org.apache.seatunnel.connectors.seatunnel.mongodb.config.MongodbConfig;
+import org.apache.seatunnel.connectors.seatunnel.mongodb.config.MongodbSourceOptions;
 import org.apache.seatunnel.connectors.seatunnel.mongodb.internal.MongodbClientProvider;
 import org.apache.seatunnel.connectors.seatunnel.mongodb.internal.MongodbCollectionProvider;
 import org.apache.seatunnel.connectors.seatunnel.mongodb.serde.DocumentRowDataDeserializer;
@@ -42,8 +42,6 @@ import org.bson.BsonDocument;
 import java.util.ArrayList;
 import java.util.Collections;
 import java.util.List;
-
-import static org.apache.seatunnel.connectors.seatunnel.mongodb.config.MongodbConfig.CONNECTOR_IDENTITY;
 
 public class MongodbSource
         implements SeaTunnelSource<SeaTunnelRow, MongoSplit, ArrayList<MongoSplit>>,
@@ -61,7 +59,7 @@ public class MongodbSource
 
     @Override
     public String getPluginName() {
-        return CONNECTOR_IDENTITY;
+        return MongodbSourceOptions.CONNECTOR_IDENTITY;
     }
 
     @Override
@@ -105,26 +103,28 @@ public class MongodbSource
 
     private MongodbClientProvider crateClientProvider(ReadonlyConfig config) {
         return MongodbCollectionProvider.builder()
-                .connectionString(config.get(MongodbConfig.URI))
-                .database(config.get(MongodbConfig.DATABASE))
-                .collection(config.get(MongodbConfig.COLLECTION))
+                .connectionString(config.get(MongodbSourceOptions.URI))
+                .database(config.get(MongodbSourceOptions.DATABASE))
+                .collection(config.get(MongodbSourceOptions.COLLECTION))
                 .build();
     }
 
     private DocumentRowDataDeserializer createDeserializer(
             ReadonlyConfig config, SeaTunnelRowType rowType) {
         return new DocumentRowDataDeserializer(
-                rowType.getFieldNames(), rowType, config.get(MongodbConfig.FLAT_SYNC_STRING));
+                rowType.getFieldNames(),
+                rowType,
+                config.get(MongodbSourceOptions.FLAT_SYNC_STRING));
     }
 
     private MongoSplitStrategy createSplitStrategy(
             ReadonlyConfig config, MongodbClientProvider clientProvider) {
         SamplingSplitStrategy.Builder splitStrategyBuilder = SamplingSplitStrategy.builder();
-        splitStrategyBuilder.setSplitKey(config.get(MongodbConfig.SPLIT_KEY));
-        splitStrategyBuilder.setSizePerSplit(config.get(MongodbConfig.SPLIT_SIZE));
-        config.getOptional(MongodbConfig.MATCH_QUERY)
+        splitStrategyBuilder.setSplitKey(config.get(MongodbSourceOptions.SPLIT_KEY));
+        splitStrategyBuilder.setSizePerSplit(config.get(MongodbSourceOptions.SPLIT_SIZE));
+        config.getOptional(MongodbSourceOptions.MATCH_QUERY)
                 .ifPresent(s -> splitStrategyBuilder.setMatchQuery(BsonDocument.parse(s)));
-        config.getOptional(MongodbConfig.PROJECTION)
+        config.getOptional(MongodbSourceOptions.PROJECTION)
                 .ifPresent(s -> splitStrategyBuilder.setProjection(BsonDocument.parse(s)));
         return splitStrategyBuilder.setClientProvider(clientProvider).build();
     }
@@ -132,9 +132,10 @@ public class MongodbSource
     private MongodbReadOptions createMongodbReadOptions(ReadonlyConfig config) {
         MongodbReadOptions.MongoReadOptionsBuilder mongoReadOptionsBuilder =
                 MongodbReadOptions.builder();
-        mongoReadOptionsBuilder.setMaxTimeMS(config.get(MongodbConfig.MAX_TIME_MIN));
-        mongoReadOptionsBuilder.setFetchSize(config.get(MongodbConfig.FETCH_SIZE));
-        mongoReadOptionsBuilder.setNoCursorTimeout(config.get(MongodbConfig.CURSOR_NO_TIMEOUT));
+        mongoReadOptionsBuilder.setMaxTimeMin(config.get(MongodbSourceOptions.MAX_TIME_MIN));
+        mongoReadOptionsBuilder.setFetchSize(config.get(MongodbSourceOptions.FETCH_SIZE));
+        mongoReadOptionsBuilder.setNoCursorTimeout(
+                config.get(MongodbSourceOptions.CURSOR_NO_TIMEOUT));
         return mongoReadOptionsBuilder.build();
     }
 }

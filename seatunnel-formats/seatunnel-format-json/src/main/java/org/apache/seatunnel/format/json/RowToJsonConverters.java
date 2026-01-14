@@ -37,6 +37,7 @@ import java.math.BigDecimal;
 import java.time.LocalDate;
 import java.time.LocalDateTime;
 import java.time.LocalTime;
+import java.time.OffsetDateTime;
 import java.util.Arrays;
 import java.util.Map;
 import java.util.function.Function;
@@ -44,6 +45,7 @@ import java.util.function.IntFunction;
 
 import static java.time.format.DateTimeFormatter.ISO_LOCAL_DATE;
 import static java.time.format.DateTimeFormatter.ISO_LOCAL_DATE_TIME;
+import static java.time.format.DateTimeFormatter.ISO_OFFSET_DATE_TIME;
 
 public class RowToJsonConverters implements Serializable {
 
@@ -181,6 +183,14 @@ public class RowToJsonConverters implements Serializable {
                     public JsonNode convert(ObjectMapper mapper, JsonNode reuse, Object value) {
                         return mapper.getNodeFactory()
                                 .textNode(ISO_LOCAL_DATE_TIME.format((LocalDateTime) value));
+                    }
+                };
+            case TIMESTAMP_TZ:
+                return new RowToJsonConverter() {
+                    @Override
+                    public JsonNode convert(ObjectMapper mapper, JsonNode reuse, Object value) {
+                        return mapper.getNodeFactory()
+                                .textNode(ISO_OFFSET_DATE_TIME.format((OffsetDateTime) value));
                     }
                 };
             case ARRAY:
