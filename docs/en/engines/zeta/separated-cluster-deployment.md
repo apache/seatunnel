@@ -287,6 +287,29 @@ netty-common-4.1.89.Final.jar
 seatunnel-hadoop3-3.1.4-uber.jar
 ```
 
+If you would like to use S3 Compatable storage such as Minio, you can configure it like this:
+
+```yaml
+map:
+   engine*:
+     map-store:
+       enabled: true
+       initial-mode: EAGER
+       factory-class-name: org.apache.seatunnel.engine.server.persistence.FileMapStoreFactory
+       properties:
+         type: hdfs
+         namespace: /seatunnel/engine
+         clusterName: seatunnel
+         storage.type: s3
+         s3.bucket: s3a://your-bucket
+         fs.defaultFS: s3a://your-bucket
+         fs.s3a.endpoint: http[s]://your-s3-endpoint:port
+         fs.s3a.path.style.access: "true"
+         fs.s3a.access.key: s3_access_key
+         fs.s3a.secret.key: s3_secret_key
+         fs.s3a.aws.credentials.provider: org.apache.hadoop.fs.s3a.SimpleAWSCredentialsProvider
+```
+
 ### 4.7 Job Scheduling Strategy
 
 When resources are insufficient, the job scheduling strategy can be configured in the following two modes:
