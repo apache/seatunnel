@@ -24,13 +24,16 @@ import org.apache.seatunnel.api.table.type.SeaTunnelRow;
 import org.apache.seatunnel.api.table.type.SeaTunnelRowType;
 import org.apache.seatunnel.transform.sql.SQLEngine;
 import org.apache.seatunnel.transform.sql.SQLEngineFactory;
+import org.apache.seatunnel.transform.sql.zeta.functions.DateTimeFunction;
 
 import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.Test;
 
+import java.time.LocalDate;
 import java.time.LocalDateTime;
 import java.time.ZoneId;
 import java.util.ArrayList;
+import java.util.Arrays;
 
 public class DateTimeFunctionTest {
 
@@ -175,5 +178,15 @@ public class DateTimeFunctionTest {
 
         // Both Integer and Long inputs should produce the same result
         Assertions.assertEquals(fieldInt.toString(), fieldLong.toString());
+    }
+
+    @Test
+    public void testDateDiffMonthAcrossYearUsesTotalMonths() {
+        LocalDate start = LocalDate.of(2023, 1, 1);
+        LocalDate end = LocalDate.of(2024, 3, 1);
+
+        Long months = DateTimeFunction.datediff(Arrays.asList(start, end, "MONTH"));
+
+        Assertions.assertEquals(14L, months);
     }
 }

@@ -28,6 +28,7 @@ import org.apache.seatunnel.api.table.catalog.TableSchema;
 import org.apache.seatunnel.api.table.type.BasicType;
 import org.apache.seatunnel.api.table.type.SeaTunnelRow;
 import org.apache.seatunnel.common.exception.SeaTunnelRuntimeException;
+import org.apache.seatunnel.connectors.seatunnel.mongodb.config.MongodbBaseOptions;
 import org.apache.seatunnel.connectors.seatunnel.mongodb.serde.RowDataDocumentSerializer;
 import org.apache.seatunnel.connectors.seatunnel.mongodb.serde.RowDataToBsonConverters;
 import org.apache.seatunnel.connectors.seatunnel.mongodb.sink.MongoKeyExtractor;
@@ -56,8 +57,6 @@ import java.util.HashMap;
 import java.util.List;
 import java.util.Optional;
 import java.util.stream.Collectors;
-
-import static org.apache.seatunnel.connectors.seatunnel.mongodb.config.MongodbConfig.CONNECTOR_IDENTITY;
 
 @Slf4j
 public class MongodbIT extends AbstractMongodbIT {
@@ -424,7 +423,8 @@ public class MongodbIT extends AbstractMongodbIT {
 
     private CatalogTable getCatalogTable(String collection) {
         return CatalogTable.of(
-                TableIdentifier.of(CONNECTOR_IDENTITY, MONGODB_DATABASE, collection),
+                TableIdentifier.of(
+                        MongodbBaseOptions.CONNECTOR_IDENTITY, MONGODB_DATABASE, collection),
                 getTableSchema(),
                 new HashMap<>(),
                 new ArrayList<>(),

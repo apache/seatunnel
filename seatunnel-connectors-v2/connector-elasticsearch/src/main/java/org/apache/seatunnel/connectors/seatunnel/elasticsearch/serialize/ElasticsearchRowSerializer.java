@@ -45,6 +45,7 @@ import java.util.function.Function;
 
 /** use in elasticsearch version >= 2.x and <= 8.x */
 public class ElasticsearchRowSerializer implements SeaTunnelRowSerializer {
+
     private final SeaTunnelRowType seaTunnelRowType;
     private final ObjectMapper objectMapper = new ObjectMapper();
 
@@ -201,49 +202,49 @@ public class ElasticsearchRowSerializer implements SeaTunnelRowSerializer {
     }
 
     private Object convertValue(String fieldName, Object value) {
+        if (value == null) {
+            return null;
+        }
+
         if (value instanceof Temporal) {
             // jackson not support jdk8 new time api
             return value.toString();
-        } else if (value instanceof Map) {
+        }
+
+        if (value instanceof Map) {
             for (Map.Entry<?, ?> entry : ((Map<?, ?>) value).entrySet()) {
                 ((Map) value).put(entry.getKey(), convertValue(fieldName, entry.getValue()));
             }
             return value;
-        } else if (value instanceof List) {
+        }
+
+        if (value instanceof List) {
             for (int i = 0; i < ((List) value).size(); i++) {
                 ((List) value).set(i, convertValue(fieldName, ((List) value).get(i)));
             }
             return value;
-        } else if (value instanceof ByteBuffer) {
-            // Check if this field is configured as a vectorization field
-            if (vectorizationFields != null && vectorizationFields.contains(fieldName)) {
-                ByteBuffer buffer = (ByteBuffer) value;
-                Float[] floats = VectorUtils.toFloatArray(buffer);
-
-                // Use the configured dimension or calculate it from the buffer size
-                int dimension = vectorDimension > 0 ? vectorDimension : buffer.remaining() / 4;
-
-                // Read the floats from the buffer
-                for (int i = 0; i < dimension && buffer.remaining() >= 4; i++) {
-                    floats[i] = buffer.getFloat();
-                }
-
-                return floats;
-            } else {
-                // Default behavior for ByteBuffer fields not specified as vectorization fields
-                ByteBuffer buffer = (ByteBuffer) value;
-                Float[] floats = VectorUtils.toFloatArray(buffer);
-                int floatCount = buffer.remaining() / 4;
-
-                for (int i = 0; i < floatCount; i++) {
-                    floats[i] = buffer.getFloat();
-                }
-
-                return floats;
-            }
-        } else {
-            return value;
         }
+
+        if (value instanceof ByteBuffer) {
+            ByteBuffer buffer = (ByteBuffer) value;
+            Float[] floats = VectorUtils.toFloatArray(buffer);
+
+            // Use configured dimension for vectorization fields, otherwise calculate from buffer
+            int dimension =
+                    (vectorizationFields != null
+                                    && vectorizationFields.contains(fieldName)
+                                    && vectorDimension > 0)
+                            ? vectorDimension
+                            : buffer.remaining() / 4;
+
+            for (int i = 0; i < dimension && buffer.remaining() >= 4; i++) {
+                floats[i] = buffer.getFloat();
+            }
+
+            return floats;
+        }
+
+        return value;
     }
 
     private Map<String, String> createMetadata(@NonNull SeaTunnelRow row, @NonNull String key) {
