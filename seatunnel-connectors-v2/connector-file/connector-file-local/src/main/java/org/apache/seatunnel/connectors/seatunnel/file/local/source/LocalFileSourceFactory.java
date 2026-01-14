@@ -86,7 +86,11 @@ public class LocalFileSourceFactory implements TableSourceFactory {
                         FileBaseSourceOptions.ENCODING)
                 .conditional(
                         FileBaseSourceOptions.FILE_FORMAT_TYPE,
-                        Arrays.asList(FileFormat.TEXT, FileFormat.JSON, FileFormat.CSV),
+                        Arrays.asList(
+                                FileFormat.TEXT,
+                                FileFormat.JSON,
+                                FileFormat.CSV,
+                                FileFormat.PARQUET),
                         FileBaseSourceOptions.ENABLE_FILE_SPLIT)
                 .conditional(
                         FileBaseSourceOptions.ENABLE_FILE_SPLIT,
@@ -102,6 +106,8 @@ public class LocalFileSourceFactory implements TableSourceFactory {
                 .optional(FileBaseSourceOptions.NULL_FORMAT)
                 .optional(FileBaseSourceOptions.FILENAME_EXTENSION)
                 .optional(FileBaseSourceOptions.READ_COLUMNS)
+                .optional(FileBaseSourceOptions.QUOTE_CHAR)
+                .optional(FileBaseSourceOptions.ESCAPE_CHAR)
                 .build();
     }
 

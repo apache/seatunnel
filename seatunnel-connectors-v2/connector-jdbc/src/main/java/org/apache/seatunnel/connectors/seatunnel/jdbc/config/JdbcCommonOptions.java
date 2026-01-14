@@ -48,6 +48,20 @@ public class JdbcCommonOptions {
                     .defaultValue(30)
                     .withDescription("connection check time second");
 
+    public static final Option<Integer> SOCKET_TIMEOUT_MS =
+            Options.key("socket_timeout_ms")
+                    .intType()
+                    .defaultValue(1000 * 60 * 60 * 24)
+                    .withDescription(
+                            "Socket timeout in milliseconds for reading data from the server. Default is 24h. Set to 0 for no timeout.");
+
+    public static final Option<Integer> CONNECT_TIMEOUT_MS =
+            Options.key("connect_timeout_ms")
+                    .intType()
+                    .defaultValue(1000 * 60 * 60 * 24)
+                    .withDescription(
+                            "Connection timeout in milliseconds for establishing connection to the server. Default is 24h. Set to 0 for no timeout.");
+
     public static final Option<String> COMPATIBLE_MODE =
             Options.key("compatible_mode")
                     .stringType()

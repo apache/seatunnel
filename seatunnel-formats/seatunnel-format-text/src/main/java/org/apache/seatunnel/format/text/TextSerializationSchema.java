@@ -32,6 +32,7 @@ import org.apache.seatunnel.format.text.exception.SeaTunnelTextFormatException;
 
 import lombok.NonNull;
 
+import java.math.BigDecimal;
 import java.nio.charset.Charset;
 import java.nio.charset.StandardCharsets;
 import java.time.LocalDate;
@@ -161,8 +162,10 @@ public class TextSerializationSchema implements SerializationSchema {
             case TINYINT:
             case SMALLINT:
             case BIGINT:
-            case DECIMAL:
                 return field.toString();
+            case DECIMAL:
+                BigDecimal bd = (BigDecimal) field;
+                return bd.stripTrailingZeros().toPlainString();
             case STRING:
                 byte[] bytes = field.toString().getBytes(StandardCharsets.UTF_8);
                 return new String(bytes, StandardCharsets.UTF_8);

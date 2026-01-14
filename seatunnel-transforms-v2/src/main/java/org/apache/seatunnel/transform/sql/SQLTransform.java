@@ -105,7 +105,7 @@ public class SQLTransform extends AbstractCatalogSupportFlatMapTransform {
     }
 
     @Override
-    protected List<SeaTunnelRow> transformRow(SeaTunnelRow inputRow) {
+    public List<SeaTunnelRow> transformRow(SeaTunnelRow inputRow) {
         tryOpen();
         return sqlEngine.transformBySQL(inputRow, outRowType);
     }
