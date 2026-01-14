@@ -26,6 +26,8 @@ import org.apache.seatunnel.shade.org.apache.commons.lang3.tuple.ImmutablePair;
 import org.apache.seatunnel.api.common.PluginIdentifier;
 import org.apache.seatunnel.api.configuration.ReadonlyConfig;
 import org.apache.seatunnel.api.configuration.util.ConfigValidator;
+import org.apache.seatunnel.api.configuration.util.EnhancedConfigurationValidator;
+import org.apache.seatunnel.api.configuration.util.issue.ConfigurationVerificationIssue;
 import org.apache.seatunnel.api.metalake.MetalakeConfigUtils;
 import org.apache.seatunnel.api.options.ConnectorCommonOptions;
 import org.apache.seatunnel.api.options.EnvCommonOptions;
@@ -405,6 +407,8 @@ public class MultipleTableJobConfigParser {
         long id = idGenerator.getNextId();
         String actionName = JobConfigParser.createSourceActionName(configIndex, factoryId);
         SeaTunnelSource<Object, SourceSplit, Serializable> source = tuple2._1();
+        // Verify source configuration
+        validate(source.enhancedConfigurationValidator(), readonlyConfig);
         source.setJobContext(jobConfig.getJobContext());
         FactoryUtil.ensureJobModeMatch(jobConfig.getJobContext(), source);
         SourceAction<Object, SourceSplit, Serializable> action =
@@ -694,6 +698,8 @@ public class MultipleTableJobConfigParser {
                         factoryId,
                         fallbackCreateSink,
                         null);
+        // Verify sink configuration
+        validate(sink.enhancedConfigurationValidator(), readonlyConfig);
         sink.setJobContext(jobConfig.getJobContext());
         SinkConfig actionConfig = new SinkConfig(catalogTable.getTableId().toTablePath());
         long id = idGenerator.getNextId();
@@ -833,5 +839,31 @@ public class MultipleTableJobConfigParser {
                                                         : Stream.of(state.getState()))
                         .collect(Collectors.toList());
         return new ChangeStreamTableSourceCheckpoint(coordinatorState, subtaskState);
+    }
+
+    private void validate(
+            Optional<EnhancedConfigurationValidator> validatorOptional,
+            ReadonlyConfig readonlyConfig) {
+        if (!validatorOptional.isPresent()) {
+            return;
+        }
+        final List<ConfigurationVerificationIssue> issues =
+                validatorOptional.get().validate(readonlyConfig);
+        if (CollectionUtils.isEmpty(issues)) {
+            return;
+        }
+        // Log all issues
+        issues.forEach(ConfigurationVerificationIssue::log);
+        // Throw exception if there are error level issues
+        boolean hasError =
+                issues.stream()
+                        .anyMatch(
+                                issue ->
+                                        issue.getLevel()
+                                                == ConfigurationVerificationIssue.Level.ERROR);
+        if (hasError) {
+            throw new JobDefineCheckException(
+                    "Configuration validation failed. Please check the error messages above for details.");
+        }
     }
 }
