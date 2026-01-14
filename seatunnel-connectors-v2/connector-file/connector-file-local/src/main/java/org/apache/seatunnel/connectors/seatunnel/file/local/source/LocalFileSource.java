@@ -18,21 +18,44 @@
 package org.apache.seatunnel.connectors.seatunnel.file.local.source;
 
 import org.apache.seatunnel.api.configuration.ReadonlyConfig;
+import org.apache.seatunnel.connectors.seatunnel.file.config.BaseFileSourceConfig;
 import org.apache.seatunnel.connectors.seatunnel.file.config.FileSystemType;
 import org.apache.seatunnel.connectors.seatunnel.file.local.source.config.MultipleTableLocalFileSourceConfig;
-import org.apache.seatunnel.connectors.seatunnel.file.local.source.split.LocalFileSplitStrategyFactory;
 import org.apache.seatunnel.connectors.seatunnel.file.source.BaseMultipleTableFileSource;
+import org.apache.seatunnel.connectors.seatunnel.file.source.split.FileSplitStrategy;
+import org.apache.seatunnel.connectors.seatunnel.file.source.split.FileSplitStrategyFactory;
+import org.apache.seatunnel.connectors.seatunnel.file.source.split.MultipleTableFileSplitStrategy;
+
+import java.util.HashMap;
+import java.util.Map;
 
 public class LocalFileSource extends BaseMultipleTableFileSource {
 
     public LocalFileSource(ReadonlyConfig readonlyConfig) {
-        super(
-                new MultipleTableLocalFileSourceConfig(readonlyConfig),
-                LocalFileSplitStrategyFactory.initFileSplitStrategy(readonlyConfig));
+        this(new MultipleTableLocalFileSourceConfig(readonlyConfig));
+    }
+
+    private LocalFileSource(MultipleTableLocalFileSourceConfig sourceConfig) {
+        super(sourceConfig, initFileSplitStrategy(sourceConfig));
     }
 
     @Override
     public String getPluginName() {
         return FileSystemType.LOCAL.getFileSystemPluginName();
+    }
+
+    private static FileSplitStrategy initFileSplitStrategy(
+            MultipleTableLocalFileSourceConfig sourceConfig) {
+        Map<String, FileSplitStrategy> splitStrategies = new HashMap<>();
+        for (BaseFileSourceConfig fileSourceConfig : sourceConfig.getFileSourceConfigs()) {
+            String tableId =
+                    fileSourceConfig.getCatalogTable().getTableId().toTablePath().toString();
+            splitStrategies.put(
+                    tableId,
+                    FileSplitStrategyFactory.initFileSplitStrategy(
+                            fileSourceConfig.getBaseFileSourceConfig(),
+                            fileSourceConfig.getHadoopConfig()));
+        }
+        return new MultipleTableFileSplitStrategy(splitStrategies);
     }
 }

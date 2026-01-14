@@ -14,7 +14,7 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package org.apache.seatunnel.connectors.seatunnel.file.hdfs.source.split;
+package org.apache.seatunnel.connectors.seatunnel.file.source.split;
 
 import org.apache.seatunnel.api.configuration.ReadonlyConfig;
 import org.apache.seatunnel.connectors.seatunnel.file.config.ArchiveCompressFormat;
@@ -22,16 +22,15 @@ import org.apache.seatunnel.connectors.seatunnel.file.config.CompressFormat;
 import org.apache.seatunnel.connectors.seatunnel.file.config.FileBaseSourceOptions;
 import org.apache.seatunnel.connectors.seatunnel.file.config.FileFormat;
 import org.apache.seatunnel.connectors.seatunnel.file.config.HadoopConf;
-import org.apache.seatunnel.connectors.seatunnel.file.hdfs.config.HdfsFileHadoopConfig;
-import org.apache.seatunnel.connectors.seatunnel.file.hdfs.source.config.HdfsSourceConfigOptions;
-import org.apache.seatunnel.connectors.seatunnel.file.source.split.DefaultFileSplitStrategy;
-import org.apache.seatunnel.connectors.seatunnel.file.source.split.FileSplitStrategy;
+
+import java.util.Objects;
 
 import static org.apache.seatunnel.connectors.seatunnel.file.config.FileBaseSourceOptions.DEFAULT_ROW_DELIMITER;
 
-public class HdfsFileSplitStrategyFactory {
+public class FileSplitStrategyFactory {
 
-    public static FileSplitStrategy initFileSplitStrategy(ReadonlyConfig readonlyConfig) {
+    public static FileSplitStrategy initFileSplitStrategy(
+            ReadonlyConfig readonlyConfig, HadoopConf hadoopConf) {
         if (!readonlyConfig.get(FileBaseSourceOptions.ENABLE_FILE_SPLIT)) {
             return new DefaultFileSplitStrategy();
         }
@@ -43,10 +42,13 @@ public class HdfsFileSplitStrategyFactory {
                         != ArchiveCompressFormat.NONE) {
             return new DefaultFileSplitStrategy();
         }
+
+        Objects.requireNonNull(
+                hadoopConf, "hadoopConf must not be null when file split is enabled");
+
         long fileSplitSize = readonlyConfig.get(FileBaseSourceOptions.FILE_SPLIT_SIZE);
-        HadoopConf hadoopConf = buildHadoopConf(readonlyConfig);
         if (FileFormat.PARQUET == readonlyConfig.get(FileBaseSourceOptions.FILE_FORMAT_TYPE)) {
-            return new HdfsParquetFileSplitStrategy(fileSplitSize, hadoopConf);
+            return new ParquetFileSplitStrategy(fileSplitSize, hadoopConf);
         }
         String rowDelimiter =
                 !readonlyConfig.getOptional(FileBaseSourceOptions.ROW_DELIMITER).isPresent()
@@ -57,30 +59,7 @@ public class HdfsFileSplitStrategyFactory {
                         ? 1L
                         : readonlyConfig.get(FileBaseSourceOptions.SKIP_HEADER_ROW_NUMBER);
         String encodingName = readonlyConfig.get(FileBaseSourceOptions.ENCODING);
-        return new HdfsFileAccordingToSplitSizeSplitStrategy(
+        return new AccordingToSplitSizeSplitStrategy(
                 hadoopConf, rowDelimiter, skipHeaderRowNumber, encodingName, fileSplitSize);
-    }
-
-    private static HadoopConf buildHadoopConf(ReadonlyConfig readonlyConfig) {
-        HdfsFileHadoopConfig hadoopConf =
-                new HdfsFileHadoopConfig(readonlyConfig.get(HdfsSourceConfigOptions.DEFAULT_FS));
-        if (readonlyConfig.getOptional(HdfsSourceConfigOptions.HDFS_SITE_PATH).isPresent()) {
-            hadoopConf.setHdfsSitePath(readonlyConfig.get(HdfsSourceConfigOptions.HDFS_SITE_PATH));
-        }
-        if (readonlyConfig.getOptional(HdfsSourceConfigOptions.REMOTE_USER).isPresent()) {
-            hadoopConf.setRemoteUser(readonlyConfig.get(HdfsSourceConfigOptions.REMOTE_USER));
-        }
-        if (readonlyConfig.getOptional(HdfsSourceConfigOptions.KRB5_PATH).isPresent()) {
-            hadoopConf.setKrb5Path(readonlyConfig.get(HdfsSourceConfigOptions.KRB5_PATH));
-        }
-        if (readonlyConfig.getOptional(HdfsSourceConfigOptions.KERBEROS_PRINCIPAL).isPresent()) {
-            hadoopConf.setKerberosPrincipal(
-                    readonlyConfig.get(HdfsSourceConfigOptions.KERBEROS_PRINCIPAL));
-        }
-        if (readonlyConfig.getOptional(HdfsSourceConfigOptions.KERBEROS_KEYTAB_PATH).isPresent()) {
-            hadoopConf.setKerberosKeytabPath(
-                    readonlyConfig.get(HdfsSourceConfigOptions.KERBEROS_KEYTAB_PATH));
-        }
-        return hadoopConf;
     }
 }

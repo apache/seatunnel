@@ -21,9 +21,13 @@ import org.apache.seatunnel.connectors.seatunnel.file.config.ArchiveCompressForm
 import org.apache.seatunnel.connectors.seatunnel.file.config.CompressFormat;
 import org.apache.seatunnel.connectors.seatunnel.file.config.FileBaseSourceOptions;
 import org.apache.seatunnel.connectors.seatunnel.file.config.FileFormat;
+import org.apache.seatunnel.connectors.seatunnel.file.hdfs.config.HdfsFileHadoopConfig;
 import org.apache.seatunnel.connectors.seatunnel.file.hdfs.source.config.HdfsSourceConfigOptions;
+import org.apache.seatunnel.connectors.seatunnel.file.source.split.AccordingToSplitSizeSplitStrategy;
 import org.apache.seatunnel.connectors.seatunnel.file.source.split.DefaultFileSplitStrategy;
 import org.apache.seatunnel.connectors.seatunnel.file.source.split.FileSplitStrategy;
+import org.apache.seatunnel.connectors.seatunnel.file.source.split.FileSplitStrategyFactory;
+import org.apache.seatunnel.connectors.seatunnel.file.source.split.ParquetFileSplitStrategy;
 
 import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.Test;
@@ -36,48 +40,53 @@ public class HdfsFileSplitStrategyFactoryTest {
 
     @Test
     void testInitFileSplitStrategy() {
+        HdfsFileHadoopConfig hadoopConf = new HdfsFileHadoopConfig("file:///");
+
         Map<String, Object> map = baseConfig(FileFormat.ORC);
         map.put(FileBaseSourceOptions.ENABLE_FILE_SPLIT.key(), true);
         FileSplitStrategy fileSplitStrategy =
-                HdfsFileSplitStrategyFactory.initFileSplitStrategy(ReadonlyConfig.fromMap(map));
+                FileSplitStrategyFactory.initFileSplitStrategy(
+                        ReadonlyConfig.fromMap(map), hadoopConf);
         Assertions.assertInstanceOf(DefaultFileSplitStrategy.class, fileSplitStrategy);
         closeQuietly(fileSplitStrategy);
 
         Map<String, Object> map1 = baseConfig(FileFormat.TEXT);
         fileSplitStrategy =
-                HdfsFileSplitStrategyFactory.initFileSplitStrategy(ReadonlyConfig.fromMap(map1));
+                FileSplitStrategyFactory.initFileSplitStrategy(
+                        ReadonlyConfig.fromMap(map1), hadoopConf);
         Assertions.assertInstanceOf(DefaultFileSplitStrategy.class, fileSplitStrategy);
         closeQuietly(fileSplitStrategy);
 
         Map<String, Object> map2 = baseConfig(FileFormat.TEXT);
         map2.put(FileBaseSourceOptions.ENABLE_FILE_SPLIT.key(), true);
         fileSplitStrategy =
-                HdfsFileSplitStrategyFactory.initFileSplitStrategy(ReadonlyConfig.fromMap(map2));
-        Assertions.assertInstanceOf(
-                HdfsFileAccordingToSplitSizeSplitStrategy.class, fileSplitStrategy);
+                FileSplitStrategyFactory.initFileSplitStrategy(
+                        ReadonlyConfig.fromMap(map2), hadoopConf);
+        Assertions.assertInstanceOf(AccordingToSplitSizeSplitStrategy.class, fileSplitStrategy);
         closeQuietly(fileSplitStrategy);
 
         Map<String, Object> map3 = baseConfig(FileFormat.CSV);
         map3.put(FileBaseSourceOptions.ENABLE_FILE_SPLIT.key(), true);
         fileSplitStrategy =
-                HdfsFileSplitStrategyFactory.initFileSplitStrategy(ReadonlyConfig.fromMap(map3));
-        Assertions.assertInstanceOf(
-                HdfsFileAccordingToSplitSizeSplitStrategy.class, fileSplitStrategy);
+                FileSplitStrategyFactory.initFileSplitStrategy(
+                        ReadonlyConfig.fromMap(map3), hadoopConf);
+        Assertions.assertInstanceOf(AccordingToSplitSizeSplitStrategy.class, fileSplitStrategy);
         closeQuietly(fileSplitStrategy);
 
         Map<String, Object> map4 = baseConfig(FileFormat.JSON);
         map4.put(FileBaseSourceOptions.ENABLE_FILE_SPLIT.key(), true);
         fileSplitStrategy =
-                HdfsFileSplitStrategyFactory.initFileSplitStrategy(ReadonlyConfig.fromMap(map4));
-        Assertions.assertInstanceOf(
-                HdfsFileAccordingToSplitSizeSplitStrategy.class, fileSplitStrategy);
+                FileSplitStrategyFactory.initFileSplitStrategy(
+                        ReadonlyConfig.fromMap(map4), hadoopConf);
+        Assertions.assertInstanceOf(AccordingToSplitSizeSplitStrategy.class, fileSplitStrategy);
         closeQuietly(fileSplitStrategy);
 
         Map<String, Object> map5 = baseConfig(FileFormat.PARQUET);
         map5.put(FileBaseSourceOptions.ENABLE_FILE_SPLIT.key(), true);
         fileSplitStrategy =
-                HdfsFileSplitStrategyFactory.initFileSplitStrategy(ReadonlyConfig.fromMap(map5));
-        Assertions.assertInstanceOf(HdfsParquetFileSplitStrategy.class, fileSplitStrategy);
+                FileSplitStrategyFactory.initFileSplitStrategy(
+                        ReadonlyConfig.fromMap(map5), hadoopConf);
+        Assertions.assertInstanceOf(ParquetFileSplitStrategy.class, fileSplitStrategy);
         closeQuietly(fileSplitStrategy);
 
         Map<String, Object> map6 = baseConfig(FileFormat.PARQUET);
@@ -85,7 +94,8 @@ public class HdfsFileSplitStrategyFactoryTest {
         map6.put(FileBaseSourceOptions.COMPRESS_CODEC.key(), CompressFormat.LZO);
         map6.put(FileBaseSourceOptions.ARCHIVE_COMPRESS_CODEC.key(), ArchiveCompressFormat.NONE);
         fileSplitStrategy =
-                HdfsFileSplitStrategyFactory.initFileSplitStrategy(ReadonlyConfig.fromMap(map6));
+                FileSplitStrategyFactory.initFileSplitStrategy(
+                        ReadonlyConfig.fromMap(map6), hadoopConf);
         Assertions.assertInstanceOf(DefaultFileSplitStrategy.class, fileSplitStrategy);
         closeQuietly(fileSplitStrategy);
     }

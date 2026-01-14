@@ -91,6 +91,9 @@ public abstract class BaseMultipleTableFileSource
             SourceSplitEnumerator.Context<FileSourceSplit> enumeratorContext,
             FileSourceState checkpointState) {
         return new MultipleTableFileSourceSplitEnumerator(
-                enumeratorContext, baseMultipleTableFileSourceConfig, checkpointState);
+                enumeratorContext,
+                baseMultipleTableFileSourceConfig,
+                fileSplitStrategy,
+                checkpointState);
     }
 }

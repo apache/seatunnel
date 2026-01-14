@@ -26,6 +26,7 @@ import org.apache.seatunnel.api.table.type.SeaTunnelRow;
 import org.apache.seatunnel.connectors.seatunnel.file.config.FileBaseSourceOptions;
 import org.apache.seatunnel.connectors.seatunnel.file.hdfs.config.HdfsFileHadoopConfig;
 import org.apache.seatunnel.connectors.seatunnel.file.source.reader.TextReadStrategy;
+import org.apache.seatunnel.connectors.seatunnel.file.source.split.AccordingToSplitSizeSplitStrategy;
 import org.apache.seatunnel.connectors.seatunnel.file.source.split.FileSourceSplit;
 
 import org.junit.jupiter.api.Assertions;
@@ -50,8 +51,8 @@ public class HdfsFileAccordingToSplitSizeSplitStrategyTest {
         Files.write(filePath, "abc\nabc\nabc\nabc\nabc\n".getBytes(StandardCharsets.UTF_8));
 
         String fileUri = filePath.toUri().toString();
-        try (HdfsFileAccordingToSplitSizeSplitStrategy strategy =
-                new HdfsFileAccordingToSplitSizeSplitStrategy(
+        try (AccordingToSplitSizeSplitStrategy strategy =
+                new AccordingToSplitSizeSplitStrategy(
                         new HdfsFileHadoopConfig("file:///"), "\n", 0, "UTF-8", 6)) {
             List<FileSourceSplit> splits = strategy.split("t", fileUri);
             Assertions.assertEquals(3, splits.size());
@@ -73,8 +74,8 @@ public class HdfsFileAccordingToSplitSizeSplitStrategyTest {
         Files.write(filePath, "header\nabc\nabc\nabc\nabc\n".getBytes(StandardCharsets.UTF_8));
 
         String fileUri = filePath.toUri().toString();
-        try (HdfsFileAccordingToSplitSizeSplitStrategy strategy =
-                new HdfsFileAccordingToSplitSizeSplitStrategy(
+        try (AccordingToSplitSizeSplitStrategy strategy =
+                new AccordingToSplitSizeSplitStrategy(
                         new HdfsFileHadoopConfig("file:///"), "\n", 1, "UTF-8", 6)) {
             List<FileSourceSplit> splits = strategy.split("t", fileUri);
             Assertions.assertEquals(2, splits.size());
@@ -93,8 +94,8 @@ public class HdfsFileAccordingToSplitSizeSplitStrategyTest {
         Files.write(filePath, "a\r\nb\r\nc\r\n".getBytes(StandardCharsets.UTF_8));
 
         String fileUri = filePath.toUri().toString();
-        try (HdfsFileAccordingToSplitSizeSplitStrategy strategy =
-                new HdfsFileAccordingToSplitSizeSplitStrategy(
+        try (AccordingToSplitSizeSplitStrategy strategy =
+                new AccordingToSplitSizeSplitStrategy(
                         new HdfsFileHadoopConfig("file:///"), "\r\n", 0, "UTF-8", 2)) {
             List<FileSourceSplit> splits = strategy.split("t", fileUri);
             Assertions.assertEquals(3, splits.size());
@@ -137,8 +138,8 @@ public class HdfsFileAccordingToSplitSizeSplitStrategyTest {
         Assertions.assertEquals("value-1", fullReadResult.get(0));
 
         List<FileSourceSplit> splits;
-        try (HdfsFileAccordingToSplitSizeSplitStrategy splitStrategy =
-                new HdfsFileAccordingToSplitSizeSplitStrategy(hadoopConf, "\n", 1, "UTF-8", 64)) {
+        try (AccordingToSplitSizeSplitStrategy splitStrategy =
+                new AccordingToSplitSizeSplitStrategy(hadoopConf, "\n", 1, "UTF-8", 64)) {
             splits = splitStrategy.split(tableId, fileUri);
         }
         Assertions.assertTrue(splits.size() > 1);

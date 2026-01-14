@@ -18,32 +18,25 @@
 package org.apache.seatunnel.connectors.seatunnel.file.hdfs.source;
 
 import org.apache.seatunnel.api.configuration.ReadonlyConfig;
-import org.apache.seatunnel.api.source.SourceSplitEnumerator;
+import org.apache.seatunnel.connectors.seatunnel.file.config.BaseFileSourceConfig;
 import org.apache.seatunnel.connectors.seatunnel.file.config.FileSystemType;
 import org.apache.seatunnel.connectors.seatunnel.file.hdfs.config.MultipleTableHdfsFileSourceConfig;
-import org.apache.seatunnel.connectors.seatunnel.file.hdfs.source.split.HdfsFileSplitStrategyFactory;
-import org.apache.seatunnel.connectors.seatunnel.file.hdfs.source.split.HdfsMultipleTableFileSourceSplitEnumerator;
 import org.apache.seatunnel.connectors.seatunnel.file.source.BaseMultipleTableFileSource;
-import org.apache.seatunnel.connectors.seatunnel.file.source.split.FileSourceSplit;
 import org.apache.seatunnel.connectors.seatunnel.file.source.split.FileSplitStrategy;
-import org.apache.seatunnel.connectors.seatunnel.file.source.state.FileSourceState;
+import org.apache.seatunnel.connectors.seatunnel.file.source.split.FileSplitStrategyFactory;
+import org.apache.seatunnel.connectors.seatunnel.file.source.split.MultipleTableFileSplitStrategy;
+
+import java.util.HashMap;
+import java.util.Map;
 
 public class HdfsFileSource extends BaseMultipleTableFileSource {
 
-    private final MultipleTableHdfsFileSourceConfig sourceConfig;
-    private final FileSplitStrategy fileSplitStrategy;
-
     public HdfsFileSource(ReadonlyConfig readonlyConfig) {
-        this(
-                new MultipleTableHdfsFileSourceConfig(readonlyConfig),
-                HdfsFileSplitStrategyFactory.initFileSplitStrategy(readonlyConfig));
+        this(new MultipleTableHdfsFileSourceConfig(readonlyConfig));
     }
 
-    private HdfsFileSource(
-            MultipleTableHdfsFileSourceConfig sourceConfig, FileSplitStrategy fileSplitStrategy) {
-        super(sourceConfig, fileSplitStrategy);
-        this.sourceConfig = sourceConfig;
-        this.fileSplitStrategy = fileSplitStrategy;
+    private HdfsFileSource(MultipleTableHdfsFileSourceConfig sourceConfig) {
+        super(sourceConfig, initFileSplitStrategy(sourceConfig));
     }
 
     @Override
@@ -51,18 +44,18 @@ public class HdfsFileSource extends BaseMultipleTableFileSource {
         return FileSystemType.HDFS.getFileSystemPluginName();
     }
 
-    @Override
-    public SourceSplitEnumerator<FileSourceSplit, FileSourceState> createEnumerator(
-            SourceSplitEnumerator.Context<FileSourceSplit> enumeratorContext) {
-        return new HdfsMultipleTableFileSourceSplitEnumerator(
-                enumeratorContext, sourceConfig, fileSplitStrategy);
-    }
-
-    @Override
-    public SourceSplitEnumerator<FileSourceSplit, FileSourceState> restoreEnumerator(
-            SourceSplitEnumerator.Context<FileSourceSplit> enumeratorContext,
-            FileSourceState checkpointState) {
-        return new HdfsMultipleTableFileSourceSplitEnumerator(
-                enumeratorContext, sourceConfig, fileSplitStrategy, checkpointState);
+    private static FileSplitStrategy initFileSplitStrategy(
+            MultipleTableHdfsFileSourceConfig config) {
+        Map<String, FileSplitStrategy> splitStrategies = new HashMap<>();
+        for (BaseFileSourceConfig fileSourceConfig : config.getFileSourceConfigs()) {
+            String tableId =
+                    fileSourceConfig.getCatalogTable().getTableId().toTablePath().toString();
+            splitStrategies.put(
+                    tableId,
+                    FileSplitStrategyFactory.initFileSplitStrategy(
+                            fileSourceConfig.getBaseFileSourceConfig(),
+                            fileSourceConfig.getHadoopConfig()));
+        }
+        return new MultipleTableFileSplitStrategy(splitStrategies);
     }
 }
