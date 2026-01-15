@@ -56,6 +56,7 @@ import lombok.Getter;
 import lombok.SneakyThrows;
 
 import java.io.FileNotFoundException;
+import java.io.IOException;
 import java.io.Serializable;
 import java.net.URI;
 import java.net.URISyntaxException;
@@ -220,14 +221,25 @@ public class HiveSourceConfig implements Serializable {
         String hdfsPath = parseHdfsPath(table);
         try {
             return readStrategy.getFileNamesByPath(hdfsPath);
-        } catch (Exception e) {
+        } catch (IOException e) {
             if (isFileNotFound(e)) {
                 return Collections.emptyList();
             }
-            String errorMsg = String.format("Get file list from this path [%s] failed", hdfsPath);
+            String errorMsg =
+                    String.format(
+                            "Get file list from this path [%s] failed, caused by: %s",
+                            hdfsPath, getExceptionSummary(e));
             throw new FileConnectorException(
                     FileConnectorErrorCode.FILE_LIST_GET_FAILED, errorMsg, e);
         }
+    }
+
+    private static String getExceptionSummary(Throwable throwable) {
+        String message = throwable.getMessage();
+        if (StringUtils.isBlank(message)) {
+            return throwable.getClass().getName();
+        }
+        return throwable.getClass().getName() + ": " + message;
     }
 
     private static boolean isFileNotFound(Throwable throwable) {
