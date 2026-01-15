@@ -59,6 +59,7 @@ public class DatabendSinkAggregatedCommitter
 
     private Connection connection;
     private boolean isCdcMode;
+    private boolean aborted;
     // Store catalog table to access schema information
     private CatalogTable catalogTable;
 
@@ -214,6 +215,7 @@ public class DatabendSinkAggregatedCommitter
     @Override
     public void abort(List<DatabendSinkAggregatedCommitInfo> aggregatedCommitInfos)
             throws IOException {
+        aborted = true;
         // In case of abort, we might want to clean up the raw table and stream
         log.info("[Instance {}] Aborting Databend sink operations", instanceId);
         try {
@@ -236,6 +238,10 @@ public class DatabendSinkAggregatedCommitter
     @Override
     public void close() throws IOException {
         try {
+            if (!aborted && isCdcMode && connection != null && !connection.isClosed()) {
+                log.info("[Instance {}] Performing final merge before closing", instanceId);
+                performMerge(new ArrayList<>());
+            }
             if (connection != null && !connection.isClosed()) {
                 connection.close();
             }
