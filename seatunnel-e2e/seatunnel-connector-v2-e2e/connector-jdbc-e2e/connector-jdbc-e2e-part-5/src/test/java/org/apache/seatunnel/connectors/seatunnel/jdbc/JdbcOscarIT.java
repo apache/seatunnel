@@ -207,6 +207,7 @@ public class JdbcOscarIT extends AbstractJdbcIT {
                 new GenericContainer<>(OSCAR_IMAGE)
                         .withNetwork(NETWORK)
                         .withNetworkAliases(OSCAR_CONTAINER_HOST)
+                        .withExposedPorts(2003)
                         .withLogConsumer(
                                 new Slf4jLogConsumer(DockerLoggerFactory.getLogger(OSCAR_IMAGE)));
         container.setPortBindings(Lists.newArrayList(String.format("%s:%s", 2003, 2003)));
