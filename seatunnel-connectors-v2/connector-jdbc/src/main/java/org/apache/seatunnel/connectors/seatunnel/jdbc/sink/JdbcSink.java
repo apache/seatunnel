@@ -21,6 +21,7 @@ import org.apache.seatunnel.shade.org.apache.commons.lang3.StringUtils;
 
 import org.apache.seatunnel.api.common.JobContext;
 import org.apache.seatunnel.api.configuration.ReadonlyConfig;
+import org.apache.seatunnel.api.configuration.util.EnhancedConfigurationValidator;
 import org.apache.seatunnel.api.serialization.DefaultSerializer;
 import org.apache.seatunnel.api.serialization.Serializer;
 import org.apache.seatunnel.api.sink.DataSaveMode;
@@ -336,5 +337,10 @@ public class JdbcSink
                 SchemaChangeType.DROP_COLUMN,
                 SchemaChangeType.RENAME_COLUMN,
                 SchemaChangeType.UPDATE_COLUMN);
+    }
+
+    @Override
+    public Optional<EnhancedConfigurationValidator> enhancedConfigurationValidator() {
+        return Optional.of(new JdbcSinkEnhancedValidator(getPluginName()));
     }
 }
