@@ -127,7 +127,7 @@ public class EnvCommonOptions {
             Options.key("metalake_type")
                     .enumType(MetaLakeType.class)
                     .defaultValue(MetaLakeType.GRAVITINO)
-                    .withDescription("Metadata lake type, for example: 'gravitino'");
+                    .withDescription("Metadata lake type, for example: gravitino");
 
     public static Option<String> METALAKE_URL =
             Options.key("metalake_url")
