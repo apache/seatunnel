@@ -130,6 +130,17 @@ public class HdfsFileIT extends TestSuiteBase implements TestResource {
     }
 
     @TestTemplate
+    public void testHdfsParquetReadWithFileSplit(TestContainer container)
+            throws IOException, InterruptedException {
+        org.testcontainers.containers.Container.ExecResult writeResult =
+                container.executeJob("/fake_to_hdfs_normal.conf");
+        Assertions.assertEquals(0, writeResult.getExitCode());
+        org.testcontainers.containers.Container.ExecResult readResult =
+                container.executeJob("/hdfs_parquet_split_to_assert.conf");
+        Assertions.assertEquals(0, readResult.getExitCode());
+    }
+
+    @TestTemplate
     public void testHdfsTextReadWithFileSplit(TestContainer container)
             throws IOException, InterruptedException {
         resetSplitTestPath();

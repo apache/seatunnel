@@ -149,6 +149,9 @@ public class ParquetFileSplitStrategy implements FileSplitStrategy, Closeable {
             if (e instanceof IOException) {
                 throw (IOException) e;
             }
+            if (e instanceof RuntimeException) {
+                throw (RuntimeException) e;
+            }
             throw new IOException(e);
         }
     }
