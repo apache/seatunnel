@@ -17,6 +17,8 @@
 
 package org.apache.seatunnel.connectors.seatunnel.file.source.reader;
 
+import org.apache.seatunnel.shade.org.apache.commons.lang3.StringUtils;
+
 import org.apache.seatunnel.api.common.SeaTunnelAPIErrorCode;
 import org.apache.seatunnel.api.configuration.ReadonlyConfig;
 import org.apache.seatunnel.api.source.Collector;
@@ -115,9 +117,7 @@ public class CsvReadStrategy extends AbstractReadStrategy {
         if (enableSplitFile && split.getLength() > -1) {
             actualInputStream = safeSlice(inputStream, split.getStart(), split.getLength());
         }
-        Builder builder =
-                CSVFormat.EXCEL.builder().setIgnoreEmptyLines(true).setDelimiter(getDelimiter());
-        CSVFormat csvFormat = builder.build();
+        CSVFormat csvFormat = getCSVFormat();
         // if enableSplitFile is true,no need to skip
         if (!enableSplitFile) {
             if (firstLineAsHeader) {
@@ -192,6 +192,20 @@ public class CsvReadStrategy extends AbstractReadStrategy {
         }
     }
 
+    private CSVFormat getCSVFormat() {
+        String quoteChar = readonlyConfig.get(FileBaseSourceOptions.QUOTE_CHAR);
+        String escapeChar = readonlyConfig.get(FileBaseSourceOptions.ESCAPE_CHAR);
+        Builder builder =
+                CSVFormat.EXCEL.builder().setIgnoreEmptyLines(true).setDelimiter(getDelimiter());
+        if (StringUtils.isNotEmpty(quoteChar)) {
+            builder.setQuote(quoteChar.charAt(0));
+        }
+        if (StringUtils.isNotEmpty(escapeChar)) {
+            builder.setEscape(escapeChar.charAt(0));
+        }
+        return builder.build();
+    }
+
     private List<String> getHeaders(CSVParser csvParser) {
         List<String> headers;
         if (firstLineAsHeader) {
@@ -217,7 +231,6 @@ public class CsvReadStrategy extends AbstractReadStrategy {
                     "When reading csv files, if user has not specified schema information, "
                             + "SeaTunnel will not support column projection");
         }
-        ReadonlyConfig readonlyConfig = ReadonlyConfig.fromConfig(pluginConfig);
         CsvDeserializationSchema.Builder builder =
                 CsvDeserializationSchema.builder()
                         .delimiter(getDelimiter())
@@ -236,7 +249,6 @@ public class CsvReadStrategy extends AbstractReadStrategy {
     }
 
     private String getDelimiter() {
-        ReadonlyConfig readonlyConfig = ReadonlyConfig.fromConfig(pluginConfig);
         return readonlyConfig.getOptional(FileBaseSourceOptions.FIELD_DELIMITER).orElse(",");
     }
 

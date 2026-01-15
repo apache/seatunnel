@@ -136,8 +136,14 @@ public abstract class BaseHdfsFileSource extends BaseFileSource {
             }
         } else {
             if (filePaths.isEmpty()) {
-                // When the directory is empty, distribute default behavior schema
-                rowType = CatalogTableUtil.buildSimpleTextSchema();
+                // When there are no files (including sync_mode=update filtered all files), choose a
+                // compatible schema so that downstream can initialize correctly.
+                if (fileFormat == FileFormat.BINARY) {
+                    rowType = readStrategy.getSeaTunnelRowTypeInfo(path);
+                } else {
+                    // fallback schema when schema cannot be inferred from files
+                    rowType = CatalogTableUtil.buildSimpleTextSchema();
+                }
                 return;
             }
             try {
