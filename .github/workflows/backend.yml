@@ -24,6 +24,10 @@ on:
         required: false
         type: string
         default: 'true'
+      ALL_CONNECTORS_IT_PART:
+        required: false
+        type: string
+        default: 'all'
 
 concurrency:
   group: backend-${{ github.event.pull_request.number || github.ref }}
@@ -31,6 +35,7 @@ concurrency:
 
 env:
   TEST_IN_PR: ${{ inputs.TEST_IN_PR }}
+  ALL_CONNECTORS_IT_PART: ${{ inputs.ALL_CONNECTORS_IT_PART }}
 
 jobs:
   license-header:
@@ -762,7 +767,7 @@ jobs:
 
   all-connectors-it-1:
     needs: [ changes, sanity-check ]
-    if: needs.changes.outputs.api == 'true' || needs.changes.outputs.engine == 'true'
+    if: (needs.changes.outputs.api == 'true' || needs.changes.outputs.engine == 'true') && (env.ALL_CONNECTORS_IT_PART == 'all' || env.ALL_CONNECTORS_IT_PART == '1')
     runs-on: ${{ matrix.os }}
     env:
       RUN_ALL_CONTAINER: ${{ needs.changes.outputs.api }}
@@ -793,7 +798,7 @@ jobs:
 
   all-connectors-it-2:
     needs: [ changes, sanity-check ]
-    if: needs.changes.outputs.api == 'true' || needs.changes.outputs.engine == 'true'
+    if: (needs.changes.outputs.api == 'true' || needs.changes.outputs.engine == 'true') && (env.ALL_CONNECTORS_IT_PART == 'all' || env.ALL_CONNECTORS_IT_PART == '2')
     runs-on: ${{ matrix.os }}
     env:
       RUN_ALL_CONTAINER: ${{ needs.changes.outputs.api }}
@@ -824,7 +829,7 @@ jobs:
 
   all-connectors-it-3:
     needs: [ changes, sanity-check ]
-    if: needs.changes.outputs.api == 'true' || needs.changes.outputs.engine == 'true'
+    if: (needs.changes.outputs.api == 'true' || needs.changes.outputs.engine == 'true') && (env.ALL_CONNECTORS_IT_PART == 'all' || env.ALL_CONNECTORS_IT_PART == '3')
     runs-on: ${{ matrix.os }}
     env:
       RUN_ALL_CONTAINER: ${{ needs.changes.outputs.api }}
@@ -855,7 +860,7 @@ jobs:
 
   all-connectors-it-4:
     needs: [ changes, sanity-check ]
-    if: needs.changes.outputs.api == 'true' || needs.changes.outputs.engine == 'true'
+    if: (needs.changes.outputs.api == 'true' || needs.changes.outputs.engine == 'true') && (env.ALL_CONNECTORS_IT_PART == 'all' || env.ALL_CONNECTORS_IT_PART == '4')
     runs-on: ${{ matrix.os }}
     env:
       RUN_ALL_CONTAINER: ${{ needs.changes.outputs.api }}
@@ -886,7 +891,7 @@ jobs:
 
   all-connectors-it-5:
     needs: [ changes, sanity-check ]
-    if: needs.changes.outputs.api == 'true' || needs.changes.outputs.engine == 'true'
+    if: (needs.changes.outputs.api == 'true' || needs.changes.outputs.engine == 'true') && (env.ALL_CONNECTORS_IT_PART == 'all' || env.ALL_CONNECTORS_IT_PART == '5')
     runs-on: ${{ matrix.os }}
     env:
       RUN_ALL_CONTAINER: ${{ needs.changes.outputs.api }}
@@ -917,7 +922,7 @@ jobs:
 
   all-connectors-it-6:
     needs: [ changes, sanity-check ]
-    if: needs.changes.outputs.api == 'true' || needs.changes.outputs.engine == 'true'
+    if: (needs.changes.outputs.api == 'true' || needs.changes.outputs.engine == 'true') && (env.ALL_CONNECTORS_IT_PART == 'all' || env.ALL_CONNECTORS_IT_PART == '6')
     runs-on: ${{ matrix.os }}
     env:
       RUN_ALL_CONTAINER: ${{ needs.changes.outputs.api }}
@@ -948,7 +953,7 @@ jobs:
 
   all-connectors-it-7:
     needs: [ changes, sanity-check ]
-    if: needs.changes.outputs.api == 'true' || needs.changes.outputs.engine == 'true'
+    if: (needs.changes.outputs.api == 'true' || needs.changes.outputs.engine == 'true') && (env.ALL_CONNECTORS_IT_PART == 'all' || env.ALL_CONNECTORS_IT_PART == '7')
     runs-on: ${{ matrix.os }}
     env:
       RUN_ALL_CONTAINER: ${{ needs.changes.outputs.api }}

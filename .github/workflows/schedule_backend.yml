@@ -32,3 +32,4 @@ jobs:
     uses: ./.github/workflows/backend.yml
     with:
       TEST_IN_PR: false
+      ALL_CONNECTORS_IT_PART: '5'
