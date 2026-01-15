@@ -137,18 +137,18 @@ public class ResourceRequestHandler {
                                                 } else {
                                                     int failedIndex =
                                                             findNullIndexInResultSlotProfiles();
+                                                    LOGGER.warning(
+                                                            String.format(
+                                                                    "Apply resource not success for job: %d, required: %d slots, obtained: %d slots, "
+                                                                            + "first unassigned resource at index %d: %s",
+                                                                    jobId,
+                                                                    resourceProfile.size(),
+                                                                    resultSlotProfiles.size(),
+                                                                    failedIndex,
+                                                                    resourceProfile.get(
+                                                                            failedIndex)));
                                                     completeRequestWithException(
-                                                            new NoEnoughResourceException(
-                                                                    String.format(
-                                                                            "Can't apply enough resources for job %d, required: %d slots, obtained: %d slots, "
-                                                                                    + "first unassigned resource at index %d: %s",
-                                                                            jobId,
-                                                                            resourceProfile.size(),
-                                                                            resultSlotProfiles
-                                                                                    .size(),
-                                                                            failedIndex,
-                                                                            resourceProfile.get(
-                                                                                    failedIndex))));
+                                                            requestSlotWithRetryError);
                                                 }
                                             }
                                         }
