@@ -31,6 +31,7 @@ import com.hazelcast.spi.impl.AllowedDuringPassiveState;
 import com.hazelcast.spi.impl.operationservice.Operation;
 
 import java.io.IOException;
+import java.util.Collections;
 import java.util.List;
 
 public class GetCheckpointHistoryOperation extends Operation
@@ -59,7 +60,7 @@ public class GetCheckpointHistoryOperation extends Operation
         CheckpointMonitorService monitorService = service.getCheckpointMonitorService();
         List<CheckpointHistoryEntry> entries =
                 monitorService == null
-                        ? java.util.Collections.emptyList()
+                        ? Collections.emptyList()
                         : monitorService.getHistory(
                                 jobId,
                                 pipelineId,
