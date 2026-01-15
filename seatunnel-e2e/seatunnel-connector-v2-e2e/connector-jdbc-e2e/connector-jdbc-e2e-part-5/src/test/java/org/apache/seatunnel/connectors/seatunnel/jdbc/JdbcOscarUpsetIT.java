@@ -18,15 +18,18 @@
 
 package org.apache.seatunnel.connectors.seatunnel.jdbc;
 
-import lombok.extern.slf4j.Slf4j;
-import org.apache.seatunnel.api.table.type.SeaTunnelRow;
-import org.apache.seatunnel.common.exception.SeaTunnelRuntimeException;
 import org.apache.seatunnel.shade.com.google.common.collect.Lists;
 import org.apache.seatunnel.shade.org.apache.commons.lang3.StringUtils;
 import org.apache.seatunnel.shade.org.apache.commons.lang3.tuple.Pair;
+
+import org.apache.seatunnel.api.table.type.SeaTunnelRow;
+import org.apache.seatunnel.common.exception.SeaTunnelRuntimeException;
+
 import org.testcontainers.containers.GenericContainer;
 import org.testcontainers.containers.output.Slf4jLogConsumer;
 import org.testcontainers.utility.DockerLoggerFactory;
+
+import lombok.extern.slf4j.Slf4j;
 
 import java.math.BigDecimal;
 import java.net.URL;
@@ -47,8 +50,7 @@ import java.util.Properties;
 @Slf4j
 public class JdbcOscarUpsetIT extends AbstractJdbcIT {
 
-    private static final String OSCAR_IMAGE = "shentongdata/" +
-            "oscar";
+    private static final String OSCAR_IMAGE = "shentongdata/" + "oscar";
     private static final String OSCAR_CONTAINER_HOST = "e2e_oscardb_upset";
 
     private static final String OSCAR_DATABASE = "OSRDB";

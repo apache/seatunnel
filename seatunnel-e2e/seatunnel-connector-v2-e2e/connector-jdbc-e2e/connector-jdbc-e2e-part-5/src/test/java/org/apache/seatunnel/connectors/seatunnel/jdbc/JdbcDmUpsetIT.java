@@ -50,8 +50,7 @@ import java.util.Properties;
 @Slf4j
 public class JdbcDmUpsetIT extends AbstractJdbcIT {
 
-    private static final String DM_IMAGE = "laglangyue/" +
-            "dmdb8";
+    private static final String DM_IMAGE = "laglangyue/" + "dmdb8";
     private static final String DM_CONTAINER_HOST = "e2e_dmdb_upset";
 
     private static final String DM_DATABASE = "SYSDBA2";
