@@ -30,5 +30,3 @@ jobs:
       packages: write
     name: Run
     uses: ./.github/workflows/backend.yml
-    with:
-      ALL_CONNECTORS_IT_PART: '5'
