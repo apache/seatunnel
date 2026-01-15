@@ -16,7 +16,7 @@ Sink connector for Lance format. It can support create and write dataset 、lanc
 
 ## Key features
 
-- [] [exactly-once](../../concept/connector-v2-features.md)
+- [] [exactly-once](../../introduction/concepts/connector-v2-features.md)
 
 ## Using Dependency
         <dependency>

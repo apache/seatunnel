@@ -1,433 +1,255 @@
 ---
-title: Connectors Overview
+sidebar_position: 1
 ---
 
-# SeaTunnel Connectors Capability Overview
+# Connectors Overview
 
-SeaTunnel provides a comprehensive set of connectors that enable you to read from various data sources and write to different data sinks. This document provides a detailed capability matrix for all available connectors based on the [Connector V2 Features](../introduction/concepts/connector-v2-features.md).
+SeaTunnel provides a comprehensive set of connectors for data integration.
 
-## Quick Facts
+## Quick Stats
 
-- **Total Source Connectors**: 79
-- **Total Sink Connectors**: 78
-- **Total Connectors**: 157
-- **Supported Engines**: Spark, Flink, SeaTunnel Zeta
-- **Supported Data Types**: Structured, Unstructured, Multimodal
+| Metric | Count |
+|--------|-------|
+| Source Connectors | 79 |
+| Sink Connectors | 78 |
+| CDC Connectors | 7 |
+| Supported Engines | SeaTunnel Zeta, Flink, Spark |
+
+## All Connectors
+
+> **Maintenance Guide**: When adding a new connector, simply add a row to the appropriate table below. The tables are sorted alphabetically for easy lookup.
+
+### Legend
+
+| Symbol | Meaning |
+|--------|---------|
+| ✅ | Supported |
+| ❌ | Not Supported |
+| S | Source |
+| K | Sink |
+
+---
+
+## Database Connectors
+
+| Connector | S | K | CDC | Batch | Stream | Exactly-Once | Multi-Table | Doc |
+|-----------|---|---|-----|-------|--------|--------------|-------------|-----|
+| Clickhouse | ✅ | ✅ | ❌ | ✅ | ❌ | ❌ | ✅ | [Source](source/Clickhouse.md) / [Sink](sink/Clickhouse.md) |
+| Cloudberry | ✅ | ✅ | ❌ | ✅ | ❌ | ✅ | ❌ | [Source](source/Cloudberry.md) / [Sink](sink/Cloudberry.md) |
+| Databend | ✅ | ✅ | ❌ | ✅ | ❌ | ❌ | ❌ | [Source](source/Databend.md) / [Sink](sink/Databend.md) |
+| DB2 | ✅ | ✅ | ❌ | ✅ | ❌ | ✅ | ✅ | [Source](source/DB2.md) / [Sink](sink/DB2.md) |
+| Doris | ✅ | ✅ | ❌ | ✅ | ❌ | ✅ | ✅ | [Source](source/Doris.md) / [Sink](sink/Doris.md) |
+| Druid | ❌ | ✅ | ❌ | - | - | ❌ | ❌ | [Sink](sink/Druid.md) |
+| Greenplum | ✅ | ✅ | ❌ | ✅ | ❌ | ❌ | ❌ | [Source](source/Greenplum.md) / [Sink](sink/Greenplum.md) |
+| Hive | ✅ | ✅ | ❌ | ✅ | ❌ | ❌ | ❌ | [Source](source/Hive.md) / [Sink](sink/Hive.md) |
+| HiveJdbc | ✅ | ❌ | ❌ | ✅ | ❌ | ✅ | ✅ | [Source](source/HiveJdbc.md) |
+| Jdbc | ✅ | ✅ | ❌ | ✅ | ❌ | ✅ | ✅ | [Source](source/Jdbc.md) / [Sink](sink/Jdbc.md) |
+| Kingbase | ✅ | ✅ | ❌ | ✅ | ❌ | ✅ | ✅ | [Source](source/Kingbase.md) / [Sink](sink/Kingbase.md) |
+| Maxcompute | ✅ | ✅ | ❌ | ✅ | ❌ | ❌ | ❌ | [Source](source/Maxcompute.md) / [Sink](sink/Maxcompute.md) |
+| MySQL | ✅ | ✅ | ❌ | ✅ | ❌ | ✅ | ✅ | [Source](source/Mysql.md) / [Sink](sink/Mysql.md) |
+| OceanBase | ✅ | ✅ | ❌ | ✅ | ❌ | ✅ | ✅ | [Source](source/OceanBase.md) / [Sink](sink/OceanBase.md) |
+| Oracle | ✅ | ✅ | ❌ | ✅ | ❌ | ✅ | ✅ | [Source](source/Oracle.md) / [Sink](sink/Oracle.md) |
+| Phoenix | ✅ | ✅ | ❌ | ✅ | ❌ | ❌ | ❌ | [Source](source/Phoenix.md) / [Sink](sink/Phoenix.md) |
+| PostgreSQL | ✅ | ✅ | ❌ | ✅ | ❌ | ✅ | ✅ | [Source](source/PostgreSQL.md) / [Sink](sink/PostgreSql.md) |
+| Redshift | ✅ | ✅ | ❌ | ✅ | ❌ | ✅ | ❌ | [Source](source/Redshift.md) / [Sink](sink/Redshift.md) |
+| SelectDB-Cloud | ❌ | ✅ | ❌ | - | - | ✅ | ✅ | [Sink](sink/SelectDB-Cloud.md) |
+| Snowflake | ✅ | ✅ | ❌ | ✅ | ❌ | ❌ | ❌ | [Source](source/Snowflake.md) / [Sink](sink/Snowflake.md) |
+| SqlServer | ✅ | ✅ | ❌ | ✅ | ❌ | ✅ | ✅ | [Source](source/SqlServer.md) / [Sink](sink/SqlServer.md) |
+| StarRocks | ✅ | ✅ | ❌ | ✅ | ❌ | ❌ | ✅ | [Source](source/StarRocks.md) / [Sink](sink/StarRocks.md) |
+| Vertica | ✅ | ✅ | ❌ | ✅ | ❌ | ✅ | ❌ | [Source](source/Vertica.md) / [Sink](sink/Vertica.md) |
+
+---
+
+## CDC Connectors
+
+> CDC connectors capture real-time data changes. **Note**: CDC connectors are not supported on Spark engine.
+
+| Connector | Exactly-Once | Parallelism | Multi-Table | Schema Evolution | Doc |
+|-----------|--------------|-------------|-------------|------------------|-----|
+| MongoDB-CDC | ✅ | ✅ | ✅ | ❌ | [Source](source/MongoDB-CDC.md) |
+| MySQL-CDC | ✅ | ✅ | ✅ | ✅ | [Source](source/MySQL-CDC.md) |
+| Opengauss-CDC | ✅ | ✅ | ✅ | ❌ | [Source](source/Opengauss-CDC.md) |
+| Oracle-CDC | ✅ | ✅ | ✅ | ✅ | [Source](source/Oracle-CDC.md) |
+| PostgreSQL-CDC | ✅ | ✅ | ✅ | ✅ | [Source](source/PostgreSQL-CDC.md) |
+| SqlServer-CDC | ✅ | ✅ | ✅ | ❌ | [Source](source/SqlServer-CDC.md) |
+| TiDB-CDC | ✅ | ✅ | ❌ | ❌ | [Source](source/TiDB-CDC.md) |
+
+---
+
+## NoSQL Connectors
+
+| Connector | S | K | Batch | Stream | Exactly-Once | Doc |
+|-----------|---|---|-------|--------|--------------|-----|
+| Aerospike | ❌ | ✅ | - | - | ❌ | [Sink](sink/Aerospike.md) |
+| AmazonDynamoDB | ✅ | ✅ | ✅ | ❌ | ❌ | [Source](source/AmazonDynamoDB.md) / [Sink](sink/AmazonDynamoDB.md) |
+| Cassandra | ✅ | ✅ | ✅ | ❌ | ❌ | [Source](source/Cassandra.md) / [Sink](sink/Cassandra.md) |
+| GoogleFirestore | ❌ | ✅ | - | - | ❌ | [Sink](sink/GoogleFirestore.md) |
+| Hbase | ✅ | ✅ | ✅ | ❌ | ❌ | [Source](source/Hbase.md) / [Sink](sink/Hbase.md) |
+| HugeGraph | ❌ | ✅ | - | - | ❌ | [Sink](sink/HugeGraph.md) |
+| MongoDB | ✅ | ✅ | ✅ | ❌ | ❌ | [Source](source/MongoDB.md) / [Sink](sink/MongoDB.md) |
+| Neo4j | ✅ | ✅ | ✅ | ❌ | ❌ | [Source](source/Neo4j.md) / [Sink](sink/Neo4j.md) |
+| Redis | ✅ | ✅ | ✅ | ❌ | ❌ | [Source](source/Redis.md) / [Sink](sink/Redis.md) |
+
+---
+
+## Data Lake Connectors
+
+| Connector | S | K | Exactly-Once | CDC Support | Multi-Table | Doc |
+|-----------|---|---|--------------|-------------|-------------|-----|
+| Fluss | ❌ | ✅ | ❌ | ✅ | ✅ | [Sink](sink/Fluss.md) |
+| Hudi | ❌ | ✅ | ❌ | ✅ | ❌ | [Sink](sink/Hudi.md) |
+| Iceberg | ✅ | ✅ | ✅ | ❌ | ✅ | [Source](source/Iceberg.md) / [Sink](sink/Iceberg.md) |
+| Paimon | ✅ | ✅ | ✅ | ✅ | ✅ | [Source](source/Paimon.md) / [Sink](sink/Paimon.md) |
+
+---
+
+## Message Queue Connectors
+
+| Connector | S | K | Batch | Stream | Exactly-Once | Doc |
+|-----------|---|---|-------|--------|--------------|-----|
+| Activemq | ❌ | ✅ | - | - | ❌ | [Sink](sink/Activemq.md) |
+| AmazonSqs | ✅ | ✅ | ❌ | ✅ | ❌ | [Source](source/AmazonSqs.md) / [Sink](sink/AmazonSqs.md) |
+| Kafka | ✅ | ✅ | ✅ | ✅ | ✅ | [Source](source/Kafka.md) / [Sink](sink/Kafka.md) |
+| Pulsar | ✅ | ✅ | ❌ | ✅ | ✅ | [Source](source/Pulsar.md) / [Sink](sink/Pulsar.md) |
+| Rabbitmq | ✅ | ✅ | ❌ | ✅ | ❌ | [Source](source/Rabbitmq.md) / [Sink](sink/Rabbitmq.md) |
+| RocketMQ | ✅ | ✅ | ✅ | ✅ | ✅ | [Source](source/RocketMQ.md) / [Sink](sink/RocketMQ.md) |
+
+---
+
+## File System Connectors
+
+> All file connectors support formats: JSON, CSV, Parquet, ORC, Text, XML, Excel, Binary
+
+| Connector | S | K | Exactly-Once | Multi-Table | Multimodal | Doc |
+|-----------|---|---|--------------|-------------|------------|-----|
+| CosFile | ✅ | ✅ | ✅ | ❌ | ✅ | [Source](source/CosFile.md) / [Sink](sink/CosFile.md) |
+| FtpFile | ✅ | ✅ | ✅ | ❌ | ✅ | [Source](source/FtpFile.md) / [Sink](sink/FtpFile.md) |
+| HdfsFile | ✅ | ✅ | ✅ | ✅ | ✅ | [Source](source/HdfsFile.md) / [Sink](sink/HdfsFile.md) |
+| LocalFile | ✅ | ✅ | ✅ | ✅ | ✅ | [Source](source/LocalFile.md) / [Sink](sink/LocalFile.md) |
+| ObsFile | ✅ | ✅ | ✅ | ❌ | ✅ | [Source](source/ObsFile.md) / [Sink](sink/ObsFile.md) |
+| OssFile | ✅ | ✅ | ✅ | ✅ | ✅ | [Source](source/OssFile.md) / [Sink](sink/OssFile.md) |
+| OssJindoFile | ✅ | ✅ | ✅ | ❌ | ✅ | [Source](source/OssJindoFile.md) / [Sink](sink/OssJindoFile.md) |
+| S3File | ✅ | ✅ | ✅ | ✅ | ✅ | [Source](source/S3File.md) / [Sink](sink/S3File.md) |
+| SftpFile | ✅ | ✅ | ✅ | ❌ | ✅ | [Source](source/SftpFile.md) / [Sink](sink/SftpFile.md) |
+
+---
+
+## Search Engine Connectors
+
+| Connector | S | K | Batch | Stream | CDC Support | Doc |
+|-----------|---|---|-------|--------|-------------|-----|
+| Easysearch | ✅ | ✅ | ✅ | ❌ | ✅ | [Source](source/Easysearch.md) / [Sink](sink/Easysearch.md) |
+| Elasticsearch | ✅ | ✅ | ✅ | ❌ | ✅ | [Source](source/Elasticsearch.md) / [Sink](sink/Elasticsearch.md) |
+| Typesense | ✅ | ✅ | ✅ | ❌ | ✅ | [Source](source/Typesense.md) / [Sink](sink/Typesense.md) |
+
+---
+
+## Time Series Connectors
+
+| Connector | S | K | Batch | Stream | Exactly-Once | Doc |
+|-----------|---|---|-------|--------|--------------|-----|
+| InfluxDB | ✅ | ✅ | ✅ | ❌ | ❌ | [Source](source/InfluxDB.md) / [Sink](sink/InfluxDB.md) |
+| IoTDB | ✅ | ✅ | ✅ | ❌ | ❌ | [Source](source/IoTDB.md) / [Sink](sink/IoTDB.md) |
+| IoTDBv2 | ✅ | ✅ | ✅ | ❌ | ❌ | [Source](source/IoTDBv2.md) / [Sink](sink/IoTDBv2.md) |
+| Prometheus | ✅ | ✅ | ✅ | ❌ | ❌ | [Source](source/Prometheus.md) / [Sink](sink/Prometheus.md) |
+| TDengine | ✅ | ✅ | ✅ | ❌ | ✅ | [Source](source/TDengine.md) / [Sink](sink/TDengine.md) |
+
+---
+
+## Vector Database Connectors
+
+| Connector | S | K | Batch | Stream | Doc |
+|-----------|---|---|-------|--------|-----|
+| Milvus | ✅ | ✅ | ✅ | ❌ | [Source](source/Milvus.md) / [Sink](sink/Milvus.md) |
+| Qdrant | ✅ | ✅ | ✅ | ❌ | [Source](source/Qdrant.md) / [Sink](sink/Qdrant.md) |
+
+---
+
+## API & HTTP Connectors
+
+| Connector | S | K | Batch | Stream | Doc |
+|-----------|---|---|-------|--------|-----|
+| Github | ✅ | ❌ | ✅ | ❌ | [Source](source/Github.md) |
+| Gitlab | ✅ | ❌ | ✅ | ❌ | [Source](source/Gitlab.md) |
+| GoogleSheets | ✅ | ❌ | ✅ | ❌ | [Source](source/GoogleSheets.md) |
+| GraphQL | ✅ | ✅ | ✅ | ✅ | [Source](source/GraphQL.md) / [Sink](sink/GraphQL.md) |
+| Http | ✅ | ✅ | ✅ | ✅ | [Source](source/Http.md) / [Sink](sink/Http.md) |
+| Jira | ✅ | ❌ | ✅ | ❌ | [Source](source/Jira.md) |
+| Klaviyo | ✅ | ❌ | ✅ | ❌ | [Source](source/Klaviyo.md) |
+| Lemlist | ✅ | ❌ | ✅ | ❌ | [Source](source/Lemlist.md) |
+| MyHours | ✅ | ❌ | ✅ | ❌ | [Source](source/MyHours.md) |
+| Notion | ✅ | ❌ | ✅ | ❌ | [Source](source/Notion.md) |
+| OneSignal | ✅ | ❌ | ✅ | ❌ | [Source](source/OneSignal.md) |
+| Persistiq | ✅ | ❌ | ✅ | ❌ | [Source](source/Persistiq.md) |
+| Socket | ✅ | ✅ | ✅ | ✅ | [Source](source/Socket.md) / [Sink](sink/Socket.md) |
+| Web3j | ✅ | ❌ | ✅ | ✅ | [Source](source/Web3j.md) |
+
+---
+
+## Cloud Service Connectors
+
+| Connector | S | K | Description | Doc |
+|-----------|---|---|-------------|-----|
+| Datahub | ❌ | ✅ | LinkedIn DataHub | [Sink](sink/Datahub.md) |
+| S3-Redshift | ❌ | ✅ | S3 staging to Redshift | [Sink](sink/S3-Redshift.md) |
+| Sls | ✅ | ✅ | Alibaba Cloud Log Service | [Source](source/Sls.md) / [Sink](sink/Sls.md) |
+| Tablestore | ✅ | ✅ | Alibaba Cloud Tablestore | [Source](source/Tablestore.md) / [Sink](sink/Tablestore.md) |
+
+---
+
+## Notification Connectors
+
+| Connector | Description | Doc |
+|-----------|-------------|-----|
+| DingTalk | DingTalk robot | [Sink](sink/DingTalk.md) |
+| Email | Send emails | [Sink](sink/Email.md) |
+| Enterprise-WeChat | WeChat Work robot | [Sink](sink/Enterprise-WeChat.md) |
+| Feishu | Feishu/Lark robot | [Sink](sink/Feishu.md) |
+| Sentry | Sentry events | [Sink](sink/Sentry.md) |
+| Slack | Slack messages | [Sink](sink/Slack.md) |
+
+---
+
+## Utility Connectors
+
+| Connector | Type | Description | Doc |
+|-----------|------|-------------|-----|
+| Assert | Sink | Data validation for testing | [Sink](sink/Assert.md) |
+| Console | Sink | Print to console | [Sink](sink/Console.md) |
+| FakeSource | Source | Generate test data | [Source](source/FakeSource.md) |
+
+---
+
+## Other Connectors
+
+| Connector | S | K | Description | Doc |
+|-----------|---|---|-------------|-----|
+| ClickhouseFile | ❌ | ✅ | Write Clickhouse local files | [Sink](sink/ClickhouseFile.md) |
+| Kudu | ✅ | ✅ | Apache Kudu | [Source](source/Kudu.md) / [Sink](sink/Kudu.md) |
+| OpenMldb | ✅ | ❌ | OpenMLDB feature platform | [Source](source/OpenMldb.md) |
+| SensorsData | ❌ | ✅ | Sensors Analytics | [Sink](sink/SensorsData.md) |
+
+---
 
 ## Feature Definitions
 
-### Source Connector Features
-
 | Feature | Description |
 |---------|-------------|
-| **exactly-once** | Each piece of data is sent downstream only once, with state snapshots and offsets for reliability |
-| **column projection** | Read only specified columns from data source efficiently |
-| **batch** | Supports bounded data processing (job stops after completing all data) |
-| **stream** | Supports unbounded data processing (continuous streaming) |
-| **parallelism** | Supports parallel execution with multiple tasks reading different splits |
-| **multimodal** | Supports structured and unstructured data (text, video, images, binary files) |
-| **support user-defined split** | Users can configure custom split rules |
-| **support multiple table read** | Read multiple tables in one SeaTunnel job |
-
-### Sink Connector Features
-
-| Feature | Description |
-|---------|-------------|
-| **exactly-once** | Each piece of data is written to target only once via key deduplication or XA transactions |
-| **cdc** | Supports change data capture with INSERT/UPDATE/DELETE operations based on primary key |
-| **support multiple table write** | Write to multiple tables in one SeaTunnel job with dynamic table identifiers |
-| **multimodal** | Supports structured and unstructured data (text, video, images, binary files) |
-
-## Source Connectors Capability Matrix
-
-### Database & CDC Connectors
-
-| Connector | Spark | Flink | SeaTunnel Zeta | exactly-once | column projection | batch | stream | parallelism | multimodal | user-defined split | multiple table |
-|-----------|-------|-------|----------------|--------------|------------------|-------|--------|-------------|------------|------------------|-----------------|
-| **Jdbc** | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ❌ | ❌ | ✅ |
-| MySQL | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ❌ | ❌ | ✅ |
-| PostgreSQL | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ❌ | ❌ | ✅ |
-| Oracle | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ❌ | ❌ | ✅ |
-| SQLServer | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ❌ | ❌ | ✅ |
-| DB2 | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ❌ | ❌ | ✅ |
-| Kingbase | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ❌ | ❌ | ✅ |
-| Hive | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ❌ | ❌ | ✅ |
-| HiveJdbc | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ❌ | ❌ | ✅ |
-| Clickhouse | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ❌ | ❌ | ✅ |
-| Doris | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ❌ | ❌ | ✅ |
-| StarRocks | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ❌ | ❌ | ✅ |
-| Phoenix | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ❌ | ❌ | ✅ |
-| Greenplum | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ❌ | ❌ | ✅ |
-| Redshift | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ❌ | ❌ | ✅ |
-| Vertica | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ❌ | ❌ | ✅ |
-| **MySQL-CDC** | ❌ | ✅ | ✅ | ✅ | ❌ | ❌ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ |
-| **PostgreSQL-CDC** | ❌ | ✅ | ✅ | ✅ | ❌ | ❌ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ |
-| **Oracle-CDC** | ❌ | ✅ | ✅ | ✅ | ❌ | ❌ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ |
-| **SQLServer-CDC** | ❌ | ✅ | ✅ | ✅ | ❌ | ❌ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ |
-| **TiDB-CDC** | ❌ | ✅ | ✅ | ✅ | ❌ | ❌ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ |
-| **MongoDB-CDC** | ❌ | ✅ | ✅ | ✅ | ❌ | ❌ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ |
-| **Opengauss-CDC** | ❌ | ✅ | ✅ | ✅ | ❌ | ❌ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ |
-
-### NoSQL Databases
-
-| Connector | Spark | Flink | SeaTunnel Zeta | exactly-once | column projection | batch | stream | parallelism | multimodal | user-defined split | multiple table |
-|-----------|-------|-------|----------------|--------------|------------------|-------|--------|-------------|------------|------------------|-----------------|
-| MongoDB | ✅ | ✅ | ✅ | ✅ | ❌ | ✅ | ✅ | ✅ | ❌ | ❌ | ❌ |
-| Cassandra | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ❌ | ❌ | ❌ |
-| Hbase | ✅ | ✅ | ✅ | ✅ | ❌ | ✅ | ✅ | ✅ | ❌ | ❌ | ❌ |
-| Redis | ✅ | ✅ | ✅ | ✅ | ❌ | ✅ | ✅ | ✅ | ❌ | ❌ | ❌ |
-| Neo4j | ✅ | ✅ | ✅ | ✅ | ❌ | ✅ | ✅ | ✅ | ❌ | ❌ | ❌ |
-
-### Data Lake & Warehouse
-
-| Connector | Spark | Flink | SeaTunnel Zeta | exactly-once | column projection | batch | stream | parallelism | multimodal | user-defined split | multiple table |
-|-----------|-------|-------|----------------|--------------|------------------|-------|--------|-------------|------------|------------------|-----------------|
-| Iceberg | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ❌ | ❌ | ✅ |
-| Hudi | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ❌ | ❌ | ✅ |
-| Paimon | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ❌ | ❌ | ✅ |
-| Databend | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ❌ | ❌ | ✅ |
-| Maxcompute | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ❌ | ❌ | ✅ |
-| OceanBase | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ❌ | ❌ | ✅ |
-
-### Message Queues
-
-| Connector | Spark | Flink | SeaTunnel Zeta | exactly-once | column projection | batch | stream | parallelism | multimodal | user-defined split | multiple table |
-|-----------|-------|-------|----------------|--------------|------------------|-------|--------|-------------|------------|------------------|-----------------|
-| Kafka | ✅ | ✅ | ✅ | ✅ | ❌ | ✅ | ✅ | ✅ | ❌ | ❌ | ✅ |
-| Pulsar | ✅ | ✅ | ✅ | ✅ | ❌ | ✅ | ✅ | ✅ | ❌ | ❌ | ✅ |
-| Rabbitmq | ✅ | ✅ | ✅ | ✅ | ❌ | ✅ | ✅ | ✅ | ❌ | ❌ | ✅ |
-| RocketMQ | ✅ | ✅ | ✅ | ✅ | ❌ | ✅ | ✅ | ✅ | ❌ | ❌ | ✅ |
-| AmazonSqs | ✅ | ✅ | ✅ | ✅ | ❌ | ✅ | ✅ | ✅ | ❌ | ❌ | ✅ |
-
-### File Systems
-
-| Connector | Spark | Flink | SeaTunnel Zeta | exactly-once | column projection | batch | stream | parallelism | multimodal | user-defined split | multiple table |
-|-----------|-------|-------|----------------|--------------|------------------|-------|--------|-------------|------------|------------------|-----------------|
-| LocalFile | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ |
-| HdfsFile | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ |
-| S3File | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ |
-| OssFile | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ |
-| OssJindoFile | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ |
-| ObsFile | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ |
-| CosFile | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ |
-| FtpFile | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ |
-| SftpFile | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ |
-
-### Time Series & Search Engines
-
-| Connector | Spark | Flink | SeaTunnel Zeta | exactly-once | column projection | batch | stream | parallelism | multimodal | user-defined split | multiple table |
-|-----------|-------|-------|----------------|--------------|------------------|-------|--------|-------------|------------|------------------|-----------------|
-| InfluxDB | ✅ | ✅ | ✅ | ✅ | ❌ | ✅ | ✅ | ✅ | ❌ | ❌ | ❌ |
-| IoTDB | ✅ | ✅ | ✅ | ✅ | ❌ | ✅ | ✅ | ✅ | ❌ | ❌ | ❌ |
-| IoTDBv2 | ✅ | ✅ | ✅ | ✅ | ❌ | ✅ | ✅ | ✅ | ❌ | ❌ | ❌ |
-| TDengine | ✅ | ✅ | ✅ | ✅ | ❌ | ✅ | ✅ | ✅ | ❌ | ❌ | ❌ |
-| Elasticsearch | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ❌ | ❌ | ✅ |
-| Easysearch | ✅ | ✅ | ✅ | ✅ | ❌ | ✅ | ✅ | ✅ | ❌ | ❌ | ❌ |
-| Typesense | ✅ | ✅ | ✅ | ✅ | ❌ | ✅ | ✅ | ✅ | ❌ | ❌ | ❌ |
-| Prometheus | ✅ | ✅ | ✅ | ✅ | ❌ | ✅ | ✅ | ✅ | ❌ | ❌ | ❌ |
-
-### Vector Databases
-
-| Connector | Spark | Flink | SeaTunnel Zeta | exactly-once | column projection | batch | stream | parallelism | multimodal | user-defined split | multiple table |
-|-----------|-------|-------|----------------|--------------|------------------|-------|--------|-------------|------------|------------------|-----------------|
-| Milvus | ✅ | ✅ | ✅ | ✅ | ❌ | ✅ | ✅ | ✅ | ❌ | ❌ | ❌ |
-| Qdrant | ✅ | ✅ | ✅ | ✅ | ❌ | ✅ | ✅ | ✅ | ❌ | ❌ | ❌ |
-
-### APIs & Cloud Services
-
-| Connector | Spark | Flink | SeaTunnel Zeta | exactly-once | column projection | batch | stream | parallelism | multimodal | user-defined split | multiple table |
-|-----------|-------|-------|----------------|--------------|------------------|-------|--------|-------------|------------|------------------|-----------------|
-| Http | ✅ | ✅ | ✅ | ✅ | ❌ | ✅ | ✅ | ✅ | ❌ | ❌ | ❌ |
-| Socket | ✅ | ✅ | ✅ | ✅ | ❌ | ✅ | ✅ | ✅ | ❌ | ❌ | ❌ |
-| Github | ✅ | ✅ | ✅ | ✅ | ❌ | ✅ | ✅ | ✅ | ❌ | ❌ | ❌ |
-| Gitlab | ✅ | ✅ | ✅ | ✅ | ❌ | ✅ | ✅ | ✅ | ❌ | ❌ | ❌ |
-| Jira | ✅ | ✅ | ✅ | ✅ | ❌ | ✅ | ✅ | ✅ | ❌ | ❌ | ❌ |
-| Notion | ✅ | ✅ | ✅ | ✅ | ❌ | ✅ | ✅ | ✅ | ❌ | ❌ | ❌ |
-| GoogleSheets | ✅ | ✅ | ✅ | ✅ | ❌ | ✅ | ✅ | ✅ | ❌ | ❌ | ❌ |
-| GraphQL | ✅ | ✅ | ✅ | ✅ | ❌ | ✅ | ✅ | ✅ | ❌ | ❌ | ❌ |
-| AmazonDynamoDB | ✅ | ✅ | ✅ | ✅ | ❌ | ✅ | ✅ | ✅ | ❌ | ❌ | ❌ |
-| Klaviyo | ✅ | ✅ | ✅ | ✅ | ❌ | ✅ | ✅ | ✅ | ❌ | ❌ | ❌ |
-| Lemlist | ✅ | ✅ | ✅ | ✅ | ❌ | ✅ | ✅ | ✅ | ❌ | ❌ | ❌ |
-| MyHours | ✅ | ✅ | ✅ | ✅ | ❌ | ✅ | ✅ | ✅ | ❌ | ❌ | ❌ |
-| OneSignal | ✅ | ✅ | ✅ | ✅ | ❌ | ✅ | ✅ | ✅ | ❌ | ❌ | ❌ |
-| Persistiq | ✅ | ✅ | ✅ | ✅ | ❌ | ✅ | ✅ | ✅ | ❌ | ❌ | ❌ |
-| Web3j | ✅ | ✅ | ✅ | ✅ | ❌ | ✅ | ✅ | ✅ | ❌ | ❌ | ❌ |
-
-### Special & Test Connectors
-
-| Connector | Spark | Flink | SeaTunnel Zeta | exactly-once | column projection | batch | stream | parallelism | multimodal | user-defined split | multiple table |
-|-----------|-------|-------|----------------|--------------|------------------|-------|--------|-------------|------------|------------------|-----------------|
-| FakeSource | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ❌ | ❌ | ❌ |
-| Cloudberry | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ❌ | ❌ | ❌ |
-| Kudu | ✅ | ✅ | ✅ | ✅ | ❌ | ✅ | ✅ | ✅ | ❌ | ❌ | ❌ |
-| OpenMldb | ✅ | ✅ | ✅ | ✅ | ❌ | ✅ | ✅ | ✅ | ❌ | ❌ | ❌ |
-| Tablestore | ✅ | ✅ | ✅ | ✅ | ❌ | ✅ | ✅ | ✅ | ❌ | ❌ | ❌ |
-
-## Sink Connectors Capability Matrix
-
-### Database Sinks
-
-| Connector | Spark | Flink | SeaTunnel Zeta | exactly-once | cdc | multiple table | multimodal |
-|-----------|-------|-------|----------------|--------------|-----|----------------|------------|
-| **Jdbc** | ✅ | ✅ | ✅ | ✅ | ❌ | ✅ | ❌ |
-| **MySQL** | ✅ | ✅ | ✅ | ✅ | ❌ | ❌ | ✅ | ❌ |
-| **PostgreSQL** | ✅ | ✅ | ✅ | ✅ | ❌ | ❌ | ✅ | ❌ |
-| **Oracle** | ✅ | ✅ | ✅ | ✅ | ❌ | ❌ | ✅ | ❌ |
-| **SQLServer** | ✅ | ✅ | ✅ | ✅ | ❌ | ❌ | ✅ | ❌ |
-| **DB2** | ✅ | ✅ | ✅ | ✅ | ❌ | ❌ | ✅ | ❌ |
-| **Kingbase** | ✅ | ✅ | ✅ | ✅ | ❌ | ❌ | ✅ | ❌ |
-| **Hive** | ✅ | ✅ | ✅ | ✅ | ❌ | ❌ | ✅ | ❌ |
-| **Phoenix** | ✅ | ✅ | ✅ | ✅ | ❌ | ❌ | ✅ | ❌ |
-| **Greenplum** | ✅ | ✅ | ✅ | ✅ | ❌ | ❌ | ✅ | ❌ |
-
-### NoSQL & Graph Databases
-
-| Connector | Spark | Flink | SeaTunnel Zeta | exactly-once | cdc | multiple table | multimodal |
-|-----------|-------|-------|----------------|--------------|-----|----------------|------------|
-| **MongoDB** | ✅ | ✅ | ✅ | ✅ | ❌ | ❌ | ❌ |
-| **Cassandra** | ✅ | ✅ | ✅ | ✅ | ❌ | ❌ | ❌ |
-| **Hbase** | ✅ | ✅ | ✅ | ✅ | ❌ | ❌ | ❌ |
-| **Redis** | ✅ | ✅ | ✅ | ✅ | ❌ | ❌ | ❌ |
-| **Neo4j** | ✅ | ✅ | ✅ | ✅ | ❌ | ❌ | ❌ |
-| **Aerospike** | ✅ | ✅ | ✅ | ✅ | ❌ | ❌ | ❌ |
-| **AmazonDynamoDB** | ✅ | ✅ | ✅ | ✅ | ❌ | ❌ | ❌ |
-| **GoogleFirestore** | ✅ | ✅ | ✅ | ✅ | ❌ | ❌ | ❌ |
-| **HugeGraph** | ✅ | ✅ | ✅ | ✅ | ❌ | ❌ | ❌ |
-
-### Data Warehouse & Analytical Databases
-
-| Connector | Spark | Flink | SeaTunnel Zeta | exactly-once | cdc | multiple table | multimodal |
-|-----------|-------|-------|----------------|--------------|-----|----------------|------------|
-| **Clickhouse** | ✅ | ✅ | ✅ | ✅ | ❌ | ❌ | ❌ |
-| **Doris** | ✅ | ✅ | ✅ | ✅ | ❌ | ❌ | ❌ |
-| **StarRocks** | ✅ | ✅ | ✅ | ✅ | ❌ | ❌ | ❌ |
-| **Redshift** | ✅ | ✅ | ✅ | ✅ | ❌ | ❌ | ❌ |
-| **Snowflake** | ✅ | ✅ | ✅ | ✅ | ❌ | ❌ | ❌ |
-| **Databend** | ✅ | ✅ | ✅ | ✅ | ❌ | ❌ | ❌ |
-| **Vertica** | ✅ | ✅ | ✅ | ✅ | ❌ | ❌ | ❌ |
-| **Druid** | ✅ | ✅ | ✅ | ✅ | ❌ | ❌ | ❌ |
-
-### Message Queue Sinks
-
-| Connector | Spark | Flink | SeaTunnel Zeta | exactly-once | cdc | multiple table | multimodal |
-|-----------|-------|-------|----------------|--------------|-----|----------------|------------|
-| **Kafka** | ✅ | ✅ | ✅ | ✅ | ❌ | ❌ | ❌ |
-| **Pulsar** | ✅ | ✅ | ✅ | ✅ | ❌ | ❌ | ❌ |
-| **Rabbitmq** | ✅ | ✅ | ✅ | ✅ | ❌ | ❌ | ❌ |
-| **RocketMQ** | ✅ | ✅ | ✅ | ✅ | ❌ | ❌ | ❌ |
-| **AmazonSqs** | ✅ | ✅ | ✅ | ✅ | ❌ | ❌ | ❌ |
-| **Activemq** | ✅ | ✅ | ✅ | ✅ | ❌ | ❌ | ❌ |
-
-### File System Sinks
-
-| Connector | Spark | Flink | SeaTunnel Zeta | exactly-once | cdc | multiple table | multimodal |
-|-----------|-------|-------|----------------|--------------|-----|----------------|------------|
-| **LocalFile** | ✅ | ✅ | ✅ | ✅ | ❌ | ❌ | ❌ |
-| **HdfsFile** | ✅ | ✅ | ✅ | ✅ | ❌ | ❌ | ❌ |
-| **S3File** | ✅ | ✅ | ✅ | ✅ | ❌ | ❌ | ❌ |
-| **OssFile** | ✅ | ✅ | ✅ | ✅ | ❌ | ❌ | ❌ |
-| **OssJindoFile** | ✅ | ✅ | ✅ | ✅ | ❌ | ❌ | ❌ |
-| **ObsFile** | ✅ | ✅ | ✅ | ✅ | ❌ | ❌ | ❌ |
-| **CosFile** | ✅ | ✅ | ✅ | ✅ | ❌ | ❌ | ❌ |
-| **FtpFile** | ✅ | ✅ | ✅ | ✅ | ❌ | ❌ | ❌ |
-| **SftpFile** | ✅ | ✅ | ✅ | ✅ | ❌ | ❌ | ❌ |
-| **ClickhouseFile** | ✅ | ✅ | ✅ | ✅ | ❌ | ❌ | ❌ |
-
-### Data Lake Sinks
-
-| Connector | Spark | Flink | SeaTunnel Zeta | exactly-once | cdc | multiple table | multimodal |
-|-----------|-------|-------|----------------|--------------|-----|----------------|------------|
-| **Iceberg** | ✅ | ✅ | ✅ | ✅ | ❌ | ❌ | ❌ |
-| **Hudi** | ✅ | ✅ | ✅ | ✅ | ❌ | ❌ | ❌ |
-| **Paimon** | ✅ | ✅ | ✅ | ✅ | ❌ | ❌ | ❌ |
-
-### Search & Time Series Sinks
-
-| Connector | Spark | Flink | SeaTunnel Zeta | exactly-once | cdc | multiple table | multimodal |
-|-----------|-------|-------|----------------|--------------|-----|----------------|------------|
-| **Elasticsearch** | ✅ | ✅ | ✅ | ✅ | ❌ | ❌ | ❌ |
-| **Easysearch** | ✅ | ✅ | ✅ | ✅ | ❌ | ❌ | ❌ |
-| **Typesense** | ✅ | ✅ | ✅ | ✅ | ❌ | ❌ | ❌ |
-| **InfluxDB** | ✅ | ✅ | ✅ | ✅ | ❌ | ❌ | ❌ |
-| **IoTDB** | ✅ | ✅ | ✅ | ✅ | ❌ | ❌ | ❌ |
-| **IoTDBv2** | ✅ | ✅ | ✅ | ✅ | ❌ | ❌ | ❌ |
-| **TDengine** | ✅ | ✅ | ✅ | ✅ | ❌ | ❌ | ❌ |
-| **Prometheus** | ✅ | ✅ | ✅ | ✅ | ❌ | ❌ | ❌ |
-
-### Vector Database Sinks
-
-| Connector | Spark | Flink | SeaTunnel Zeta | exactly-once | cdc | multiple table | multimodal |
-|-----------|-------|-------|----------------|--------------|-----|----------------|------------|
-| **Milvus** | ✅ | ✅ | ✅ | ✅ | ❌ | ❌ | ❌ |
-| **Qdrant** | ✅ | ✅ | ✅ | ✅ | ❌ | ❌ | ❌ |
-
-### API & Cloud Service Sinks
-
-| Connector | Spark | Flink | SeaTunnel Zeta | exactly-once | cdc | multiple table | multimodal |
-|-----------|-------|-------|----------------|--------------|-----|----------------|------------|
-| **Http** | ✅ | ✅ | ✅ | ✅ | ❌ | ❌ | ❌ |
-| **GraphQL** | ✅ | ✅ | ✅ | ✅ | ❌ | ❌ | ❌ |
-| **Socket** | ✅ | ✅ | ✅ | ✅ | ❌ | ❌ | ❌ |
-| **Datahub** | ✅ | ✅ | ✅ | ✅ | ❌ | ❌ | ❌ |
-| **Maxcompute** | ✅ | ✅ | ✅ | ✅ | ❌ | ❌ | ❌ |
-
-### Specialized Sinks
-
-| Connector | Spark | Flink | SeaTunnel Zeta | exactly-once | cdc | multiple table | multimodal |
-|-----------|-------|-------|----------------|--------------|-----|----------------|------------|
-| **Console** | ✅ | ✅ | ✅ | ❌ | ❌ | ❌ | ❌ |
-| **Assert** | ✅ | ✅ | ✅ | ❌ | ❌ | ❌ | ❌ |
-| **Email** | ✅ | ✅ | ✅ | ❌ | ❌ | ❌ | ❌ |
-| **Slack** | ✅ | ✅ | ✅ | ❌ | ❌ | ❌ | ❌ |
-| **DingTalk** | ✅ | ✅ | ✅ | ❌ | ❌ | ❌ | ❌ |
-| **Feishu** | ✅ | ✅ | ✅ | ❌ | ❌ | ❌ | ❌ |
-| **Enterprise-WeChat** | ✅ | ✅ | ✅ | ❌ | ❌ | ❌ | ❌ |
-| **Sentry** | ✅ | ✅ | ✅ | ❌ | ❌ | ❌ | ❌ |
-| **SensorsData** | ✅ | ✅ | ✅ | ❌ | ❌ | ❌ | ❌ |
-
-### Other Sinks
-
-| Connector | Spark | Flink | SeaTunnel Zeta | exactly-once | cdc | multiple table | multimodal |
-|-----------|-------|-------|----------------|--------------|-----|----------------|------------|
-| **S3-Redshift** | ✅ | ✅ | ✅ | ✅ | ❌ | ❌ | ❌ |
-| **SelectDB-Cloud** | ✅ | ✅ | ✅ | ✅ | ❌ | ❌ | ❌ |
-| **Tablestore** | ✅ | ✅ | ✅ | ✅ | ❌ | ❌ | ❌ |
-| **Kudu** | ✅ | ✅ | ✅ | ✅ | ❌ | ❌ | ❌ |
-| **Cloudberry** | ✅ | ✅ | ✅ | ✅ | ❌ | ❌ | ❌ |
-| **Fluss** | ✅ | ✅ | ✅ | ✅ | ❌ | ❌ | ❌ |
-| **OceanBase** | ✅ | ✅ | ✅ | ✅ | ❌ | ❌ | ❌ |
-
-## Feature Support Summary
-
-### Source Connectors Feature Distribution
-
-| Feature | Count | Percentage | Examples |
-|--------|-------|------------|----------|
-| **Engine Support** | | | |
-| All Three Engines | ~65 | 82% | Most database, file, and message queue connectors |
-| Spark + Flink Only | ~8 | 10% | Some specialized API connectors |
-| Flink + Zeta Only | ~4 | 5% | CDC connectors |
-| **Processing Mode** | | | |
-| Batch Support | ~60 | 76% | Most database and file connectors |
-| Stream Support | ~70 | 89% | Most connectors, especially CDC and messaging |
-| **Reliability** | | | |
-| Exactly-Once | ~45 | 57% | File connectors, JDBC, Kafka |
-| **Performance** | | | |
-| Parallelism | ~55 | 70% | Most database and file connectors |
-| Column Projection | ~25 | 32% | JDBC, File, some specialized connectors |
-| **Advanced Features** | | | |
-| User-Defined Split | ~15 | 19% | CDC, some file connectors |
-| Multiple Table Read | ~25 | 32% | JDBC and some database connectors |
-| Multimodal Support | ~10 | 13% | File and some specialized connectors |
-
-### Sink Connectors Feature Distribution
-
-| Feature | Count | Percentage | Examples |
-|--------|-------|------------|----------|
-| **Engine Support** | | | |
-| All Three Engines | ~70 | 90% | Most database and file connectors |
-| Spark + Flink Only | ~6 | 8% | Some specialized connectors |
-| Flink + Zeta Only | ~2 | 3% | Specialized cases |
-| **Reliability** | | | |
-| Exactly-Once | ~40 | 51% | JDBC, Kafka, File connectors |
-| **Data Capabilities** | | | |
-| CDC Support | ~5 | 6% | Limited to specialized database sinks |
-| Multiple Table Write | ~15 | 19% | JDBC and some database sinks |
-| Multimodal Support | ~10 | 13% | File and specialized connectors |
-
-## Connector Selection Guide
-
-### Use Case-Based Recommendations
-
-#### For High Throughput Batch Processing
-- **Recommended Sources**: Jdbc, File connectors (LocalFile, HdfsFile, S3File)
-- **Recommended Sinks**: Jdbc, File connectors, Data Lake formats (Iceberg, Hudi)
-- **Key Features**: Batch support, parallelism, column projection
-
-#### For Real-time Stream Processing
-- **Recommended Sources**: CDC connectors, Kafka, File connectors (stream mode)
-- **Recommended Sinks**: Kafka, Jdbc (with transactions), Real-time databases
-- **Key Features**: Stream support, exactly-once, low latency
-
-#### For Exactly-Once Guarantees
-- **Recommended Sources**: File connectors, JDBC, Kafka
-- **Recommended Sinks**: JDBC (XA transactions), Kafka (2PC), File connectors
-- **Key Features**: Exactly-once, transaction support, state management
-
-#### For Multi-Table Operations
-- **Recommended Sources**: JDBC connectors with multi-table support
-- **Recommended Sinks**: JDBC with dynamic table identifiers
-- **Key Features**: Multiple table read/write, placeholder support
-
-#### For Cloud Integration
-- **Recommended Sources**: Native cloud connectors, File connectors with cloud storage
-- **Recommended Sinks**: Cloud-specific connectors, File connectors
-- **Examples**: S3File, OSSFile, Snowflake, Redshift, MaxCompute
-
-#### For Advanced Analytics
-- **Recommended Sources**: Data lake formats, Analytical databases
-- **Recommended Sinks**: Data lake formats (Iceberg, Hudi, Paimon), OLAP databases
-- **Examples**: Clickhouse, Doris, StarRocks, Druid
-
-## Engine Compatibility Notes
-
-### SeaTunnel Zeta (Recommended)
-- **Advantages**: Best performance, most features, unified API
-- **Connector Coverage**: ~82% source, ~90% sink
-- **Use Cases**: Production deployments, performance-critical workloads
-
-### Apache Flink
-- **Advantages**: Stream processing excellence, fault tolerance
-- **Connector Coverage**: ~95% source, ~98% sink
-- **Use Cases**: Complex streaming, stateful processing
-
-### Apache Spark
-- **Advantages**: Batch processing, ecosystem integration
-- **Connector Coverage**: ~90% source, ~98% sink
-- **Use Cases**: Large-scale batch processing, ETL workflows
-
-## Data Format Support
-
-| Data Format | Source Support | Sink Support | Primary Connectors |
-|-------------|----------------|---------------|------------------|
-| **JSON** | ✅ Most | ✅ Most | Universal default format |
-| **CSV** | ✅ File | ✅ File | LocalFile, HdfsFile, S3File |
-| **Avro** | ✅ Kafka/File | ✅ Kafka/File | Kafka, File connectors |
-| **Parquet** | ✅ File/Hive | ✅ File/Hive | LocalFile, HdfsFile, Hive |
-| **ORC** | ✅ File/Hive | ✅ File/Hive | LocalFile, HdfsFile, Hive |
-| **Text** | ✅ File/Kafka | ✅ File/Kafka | File connectors, Kafka |
-| **XML** | ✅ File | ✅ File | File connectors |
-| **Protobuf** | ✅ Kafka | ✅ Kafka | Kafka |
-| **Canal-JSON** | ✅ Kafka | ✅ Kafka | Kafka |
-| **Debezium-JSON** | ✅ Kafka | ✅ Kafka | Kafka |
-| **Maxwell-JSON** | ✅ Kafka | ✅ Kafka | Kafka |
-| **OGG-JSON** | ✅ Kafka | ✅ Kafka | Kafka |
-
-## Getting Started
-
-### Quick Setup
-
-1. **Choose Engine**: Select SeaTunnel Zeta for best performance
-2. **Select Connectors**: Use the matrices above to choose appropriate source/sink
-3. **Install Plugins**: Download required connector JAR files
-4. **Configure Job**: Create configuration based on feature requirements
-5. **Test & Deploy**: Validate configuration and run production jobs
-
-### Best Practices
-
-1. **Feature Matching**: Choose connectors that support your required features
-2. **Engine Selection**: Use SeaTunnel Zeta when possible for maximum compatibility
-3. **Performance**: Enable parallelism and batch processing where supported
-4. **Reliability**: Prioritize exactly-once support for critical workloads
-5. **Monitoring**: Monitor connector performance and adjust configurations
-
-## Contributing
-
-Want to add new connectors or improve existing ones? Check our:
-- [Contributor Guide](../contributing.md)
-- [Connector Development Guidelines](../development/connector-development.md)
-- [Community Forums](https://github.com/apache/seatunnel/discussions)
-
----
-
-*This matrix represents the current state of SeaTunnel connectors based on official documentation. For the most up-to-date information, refer to individual connector documentation pages. Feature availability may vary between versions.*
+| **S** | Source connector available |
+| **K** | Sink connector available |
+| **Batch** | Bounded data processing |
+| **Stream** | Unbounded continuous processing |
+| **Exactly-Once** | Each record processed exactly once |
+| **CDC Support** | Handle INSERT/UPDATE/DELETE operations |
+| **Multi-Table** | Process multiple tables in one job |
+| **Multimodal** | Support binary/unstructured data |
+| **Schema Evolution** | Handle schema changes automatically |
+
+For detailed feature definitions, see [Connector V2 Features](../introduction/concepts/connector-v2-features.md).
+
+## Related Documentation
+
+- [Source Common Options](common-options/source-common-options.md)
+- [Sink Common Options](common-options/sink-common-options.md)
+- [Data Formats](formats/avro.md)
+- [Connector Changelog](changelog/connector-common.md)
