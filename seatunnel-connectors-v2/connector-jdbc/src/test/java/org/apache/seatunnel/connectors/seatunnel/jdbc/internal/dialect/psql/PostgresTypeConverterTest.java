@@ -374,7 +374,7 @@ public class PostgresTypeConverterTest {
                         .build();
         column = PostgresTypeConverter.INSTANCE.convert(typeDefine);
         Assertions.assertEquals(typeDefine.getName(), column.getName());
-        Assertions.assertEquals(LocalTimeType.LOCAL_DATE_TIME_TYPE, column.getDataType());
+        Assertions.assertEquals(LocalTimeType.OFFSET_DATE_TIME_TYPE, column.getDataType());
         Assertions.assertEquals(typeDefine.getScale(), column.getScale());
         Assertions.assertEquals(typeDefine.getColumnType(), column.getSourceType().toLowerCase());
 
@@ -387,7 +387,7 @@ public class PostgresTypeConverterTest {
                         .build();
         column = PostgresTypeConverter.INSTANCE.convert(typeDefine);
         Assertions.assertEquals(typeDefine.getName(), column.getName());
-        Assertions.assertEquals(LocalTimeType.LOCAL_DATE_TIME_TYPE, column.getDataType());
+        Assertions.assertEquals(LocalTimeType.OFFSET_DATE_TIME_TYPE, column.getDataType());
         Assertions.assertEquals(typeDefine.getScale(), column.getScale());
         Assertions.assertEquals(typeDefine.getColumnType(), column.getSourceType().toLowerCase());
     }
@@ -741,6 +741,76 @@ public class PostgresTypeConverterTest {
         Assertions.assertEquals(column.getName(), typeDefine.getName());
         Assertions.assertEquals(
                 String.format("%s(%s)", PostgresTypeConverter.PG_TIMESTAMP, 6),
+                typeDefine.getColumnType());
+    }
+
+    @Test
+    public void testConvertTimestampTz() {
+        BasicTypeDefine<Object> typeDefine =
+                BasicTypeDefine.builder()
+                        .name("test")
+                        .columnType("timestamptz")
+                        .dataType("timestamptz")
+                        .build();
+        Column column = PostgresTypeConverter.INSTANCE.convert(typeDefine);
+        Assertions.assertEquals(typeDefine.getName(), column.getName());
+        Assertions.assertEquals(LocalTimeType.OFFSET_DATE_TIME_TYPE, column.getDataType());
+        Assertions.assertEquals(typeDefine.getScale(), column.getScale());
+        Assertions.assertEquals(typeDefine.getColumnType(), column.getSourceType().toLowerCase());
+
+        typeDefine =
+                BasicTypeDefine.builder()
+                        .name("test")
+                        .columnType("timestamptz(6)")
+                        .dataType("timestamptz")
+                        .scale(6)
+                        .build();
+        column = PostgresTypeConverter.INSTANCE.convert(typeDefine);
+        Assertions.assertEquals(typeDefine.getName(), column.getName());
+        Assertions.assertEquals(LocalTimeType.OFFSET_DATE_TIME_TYPE, column.getDataType());
+        Assertions.assertEquals(typeDefine.getScale(), column.getScale());
+        Assertions.assertEquals(typeDefine.getColumnType(), column.getSourceType().toLowerCase());
+    }
+
+    @Test
+    public void testReconvertTimestampTz() {
+        Column column =
+                PhysicalColumn.builder()
+                        .name("test")
+                        .dataType(LocalTimeType.OFFSET_DATE_TIME_TYPE)
+                        .build();
+
+        BasicTypeDefine<Object> typeDefine = PostgresTypeConverter.INSTANCE.reconvert(column);
+        Assertions.assertEquals(column.getName(), typeDefine.getName());
+        Assertions.assertEquals(PostgresTypeConverter.PG_TIMESTAMP_TZ, typeDefine.getColumnType());
+        Assertions.assertEquals(PostgresTypeConverter.PG_TIMESTAMP_TZ, typeDefine.getDataType());
+
+        column =
+                PhysicalColumn.builder()
+                        .name("test")
+                        .dataType(LocalTimeType.OFFSET_DATE_TIME_TYPE)
+                        .scale(3)
+                        .build();
+
+        typeDefine = PostgresTypeConverter.INSTANCE.reconvert(column);
+        Assertions.assertEquals(column.getName(), typeDefine.getName());
+        Assertions.assertEquals(
+                String.format("%s(%s)", PostgresTypeConverter.PG_TIMESTAMP_TZ, column.getScale()),
+                typeDefine.getColumnType());
+        Assertions.assertEquals(PostgresTypeConverter.PG_TIMESTAMP_TZ, typeDefine.getDataType());
+        Assertions.assertEquals(column.getScale(), typeDefine.getScale());
+
+        column =
+                PhysicalColumn.builder()
+                        .name("test")
+                        .dataType(LocalTimeType.OFFSET_DATE_TIME_TYPE)
+                        .scale(9)
+                        .build();
+
+        typeDefine = PostgresTypeConverter.INSTANCE.reconvert(column);
+        Assertions.assertEquals(column.getName(), typeDefine.getName());
+        Assertions.assertEquals(
+                String.format("%s(%s)", PostgresTypeConverter.PG_TIMESTAMP_TZ, 6),
                 typeDefine.getColumnType());
     }
 

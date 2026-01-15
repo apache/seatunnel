@@ -94,6 +94,46 @@ public class OssFileIT extends TestSuiteBase {
                 Assertions.assertEquals(0, extraCommands.getExitCode());
             };
 
+    @TestTemplate
+    public void testOssToAccessForJsonFilter(TestContainer container)
+            throws IOException, InterruptedException {
+        // Copy test files to OSS
+        OssUtils ossUtils = new OssUtils();
+        try {
+            ossUtils.uploadTestFiles(
+                    "/json/e2e.json",
+                    "test/seatunnel/read/filter/json/name=tyrantlucifer/hobby=coding/e2e.json",
+                    true);
+
+            ossUtils.uploadTestFiles(
+                    "/json/e2e.json",
+                    "test/seatunnel/read/filter/json2025/name=tyrantlucifer/hobby=coding/e2e_2025.json",
+                    true);
+            ossUtils.uploadTestFiles(
+                    "/text/e2e.txt",
+                    "test/seatunnel/read/filter/json2025/name=tyrantlucifer/hobby=coding/e2e_2025.txt",
+                    true);
+            ossUtils.uploadTestFiles(
+                    "/json/e2e.json",
+                    "test/seatunnel/read/filter/json2024/name=tyrantlucifer/hobby=coding/e2e_2024.json",
+                    true);
+
+            ossUtils.uploadTestFiles(
+                    "/text/e2e.txt",
+                    "test/seatunnel/read/filter/text/name=tyrantlucifer/hobby=coding/e2e.txt",
+                    true);
+        } finally {
+            ossUtils.close();
+        }
+
+        TestHelper helper = new TestHelper(container);
+        // -----filter based on the file directory at the same time, the expression needs to start
+        // with `path`--------
+        helper.execute("oss_to_access_for_json_path_filter.conf");
+        // -------filter based on file names, just simply write the regular file names--------
+        helper.execute("oss_to_access_for_json_name_filter.conf");
+    }
+
     /** Copy data files to oss */
     @TestTemplate
     public void testOssFileReadAndWrite(TestContainer container)

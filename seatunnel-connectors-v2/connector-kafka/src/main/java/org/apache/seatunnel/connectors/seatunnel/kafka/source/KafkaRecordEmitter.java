@@ -61,6 +61,10 @@ public class KafkaRecordEmitter
         // todo there is an additional loss in this place for non-multi-table scenarios
         DeserializationSchema<SeaTunnelRow> deserializationSchema =
                 mapMetadata.get(splitState.getTablePath()).getDeserializationSchema();
+        if (deserializationSchema instanceof KafkaEventTimeDeserializationSchema) {
+            ((KafkaEventTimeDeserializationSchema) deserializationSchema)
+                    .setCurrentRecordTimestamp(consumerRecord.timestamp());
+        }
         try {
             if (deserializationSchema instanceof CompatibleKafkaConnectDeserializationSchema) {
                 ((CompatibleKafkaConnectDeserializationSchema) deserializationSchema)

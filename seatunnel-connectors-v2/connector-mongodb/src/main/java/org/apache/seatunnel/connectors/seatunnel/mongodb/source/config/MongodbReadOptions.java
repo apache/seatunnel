@@ -17,14 +17,13 @@
 
 package org.apache.seatunnel.connectors.seatunnel.mongodb.source.config;
 
+import org.apache.seatunnel.connectors.seatunnel.mongodb.config.MongodbSourceOptions;
+
 import lombok.EqualsAndHashCode;
 import lombok.Getter;
 
 import java.io.Serializable;
 
-import static org.apache.seatunnel.connectors.seatunnel.mongodb.config.MongodbConfig.CURSOR_NO_TIMEOUT;
-import static org.apache.seatunnel.connectors.seatunnel.mongodb.config.MongodbConfig.FETCH_SIZE;
-import static org.apache.seatunnel.connectors.seatunnel.mongodb.config.MongodbConfig.MAX_TIME_MIN;
 import static org.apache.seatunnel.shade.com.google.common.base.Preconditions.checkArgument;
 
 /** The configuration class for MongoDB source. */
@@ -38,12 +37,12 @@ public class MongodbReadOptions implements Serializable {
 
     private final boolean noCursorTimeout;
 
-    private final long maxTimeMS;
+    private final long maxTimeMin;
 
-    private MongodbReadOptions(int fetchSize, boolean noCursorTimeout, long maxTimeMS) {
+    private MongodbReadOptions(int fetchSize, boolean noCursorTimeout, long maxTimeMin) {
         this.fetchSize = fetchSize;
         this.noCursorTimeout = noCursorTimeout;
-        this.maxTimeMS = maxTimeMS;
+        this.maxTimeMin = maxTimeMin;
     }
 
     public static MongoReadOptionsBuilder builder() {
@@ -53,11 +52,11 @@ public class MongodbReadOptions implements Serializable {
     /** Builder for {@link MongodbReadOptions}. */
     public static class MongoReadOptionsBuilder {
 
-        private int fetchSize = FETCH_SIZE.defaultValue();
+        private int fetchSize = MongodbSourceOptions.FETCH_SIZE.defaultValue();
 
-        private boolean noCursorTimeout = CURSOR_NO_TIMEOUT.defaultValue();
+        private boolean noCursorTimeout = MongodbSourceOptions.CURSOR_NO_TIMEOUT.defaultValue();
 
-        private long maxTimeMin = MAX_TIME_MIN.defaultValue();
+        private long maxTimeMin = MongodbSourceOptions.MAX_TIME_MIN.defaultValue();
 
         private MongoReadOptionsBuilder() {}
 
@@ -72,8 +71,8 @@ public class MongodbReadOptions implements Serializable {
             return this;
         }
 
-        public MongoReadOptionsBuilder setMaxTimeMS(long maxTimeMS) {
-            this.maxTimeMin = maxTimeMS;
+        public MongoReadOptionsBuilder setMaxTimeMin(long maxTimeMin) {
+            this.maxTimeMin = maxTimeMin;
             return this;
         }
 

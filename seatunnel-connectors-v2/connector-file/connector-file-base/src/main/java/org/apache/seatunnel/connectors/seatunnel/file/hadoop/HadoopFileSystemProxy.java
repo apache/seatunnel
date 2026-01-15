@@ -27,6 +27,7 @@ import org.apache.seatunnel.connectors.seatunnel.file.config.HadoopConf;
 import org.apache.hadoop.conf.Configuration;
 import org.apache.hadoop.fs.FSDataInputStream;
 import org.apache.hadoop.fs.FSDataOutputStream;
+import org.apache.hadoop.fs.FileChecksum;
 import org.apache.hadoop.fs.FileStatus;
 import org.apache.hadoop.fs.FileSystem;
 import org.apache.hadoop.fs.LocatedFileStatus;
@@ -186,6 +187,10 @@ public class HadoopFileSystemProxy implements Serializable, Closeable {
 
     public FileStatus getFileStatus(String filePath) throws IOException {
         return execute(() -> getFileSystem().getFileStatus(new Path(filePath)));
+    }
+
+    public FileChecksum getFileChecksum(String filePath) throws IOException {
+        return execute(() -> getFileSystem().getFileChecksum(new Path(filePath)));
     }
 
     public FSDataOutputStream getOutputStream(String filePath) throws IOException {

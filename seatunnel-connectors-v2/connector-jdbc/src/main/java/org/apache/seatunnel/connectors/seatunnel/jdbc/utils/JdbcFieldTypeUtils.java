@@ -22,6 +22,11 @@ import java.sql.ResultSet;
 import java.sql.SQLException;
 import java.sql.Time;
 import java.sql.Timestamp;
+import java.time.Instant;
+import java.time.OffsetDateTime;
+import java.time.ZoneOffset;
+import java.time.ZonedDateTime;
+import java.time.format.DateTimeParseException;
 
 public final class JdbcFieldTypeUtils {
 
@@ -95,12 +100,126 @@ public final class JdbcFieldTypeUtils {
         return resultSet.getBytes(columnIndex);
     }
 
+    public static OffsetDateTime getOffsetDateTime(ResultSet resultSet, int columnIndex)
+            throws SQLException {
+        final Object obj = resultSet.getObject(columnIndex);
+        if (obj == null) {
+            return null;
+        }
+
+        // Handle OffsetDateTime directly
+        if (obj instanceof OffsetDateTime) {
+            return (OffsetDateTime) obj;
+        }
+
+        // Handle ZonedDateTime
+        if (obj instanceof ZonedDateTime) {
+            return ((ZonedDateTime) obj).toOffsetDateTime();
+        }
+
+        // Handle Instant
+        if (obj instanceof Instant) {
+            return ((Instant) obj).atOffset(ZoneOffset.UTC);
+        }
+
+        // Handle java.sql.Timestamp
+        if (obj instanceof Timestamp) {
+            return ((Timestamp) obj).toInstant().atOffset(ZoneOffset.UTC);
+        }
+
+        // Handle java.util.Date
+        if (obj instanceof java.util.Date) {
+            return ((java.util.Date) obj).toInstant().atOffset(ZoneOffset.UTC);
+        }
+
+        // Handle Long (epoch milliseconds)
+        if (obj instanceof Long) {
+            return Instant.ofEpochMilli((Long) obj).atOffset(ZoneOffset.UTC);
+        }
+
+        // Try to parse as string
+        String str = obj.toString();
+        try {
+            return parseOffsetDateTimeFromString(str);
+        } catch (Exception e) {
+            throw new SQLException(
+                    "Failed to parse OffsetDateTime value: "
+                            + str
+                            + " (class: "
+                            + obj.getClass().getName()
+                            + ")",
+                    e);
+        }
+    }
+
+    public static OffsetDateTime parseOffsetDateTimeFromString(String str)
+            throws DateTimeParseException {
+        String trimmed = str.trim();
+        // Treat empty string as "no value"
+        if (trimmed.isEmpty()) {
+            return null;
+        }
+        // Try parsing as standard ISO-8601 OffsetDateTime
+        OffsetDateTime directParsed = tryParseOffsetDateTime(trimmed);
+        if (directParsed != null) {
+            return directParsed;
+        }
+        // Normalize common relaxed forms and try again
+        String normalized = normalizeOffsetDateTimeString(trimmed);
+        OffsetDateTime normalizedParsed = tryParseOffsetDateTime(normalized);
+        if (normalizedParsed != null) {
+            return normalizedParsed;
+        }
+        // Finally, try parsing as ZonedDateTime and convert to OffsetDateTime
+        OffsetDateTime zonedParsed = tryParseZonedDateTime(trimmed);
+        if (zonedParsed != null) {
+            return zonedParsed;
+        }
+
+        throw new DateTimeParseException(
+                "Unable to parse OffsetDateTime from string: " + str, trimmed, 0);
+    }
+
+    private static OffsetDateTime tryParseOffsetDateTime(String value) {
+        try {
+            return OffsetDateTime.parse(value);
+        } catch (DateTimeParseException ignore) {
+            return null;
+        }
+    }
+
+    private static OffsetDateTime tryParseZonedDateTime(String value) {
+        try {
+            return ZonedDateTime.parse(value).toOffsetDateTime();
+        } catch (DateTimeParseException ignore) {
+            return null;
+        }
+    }
+
+    private static String normalizeOffsetDateTimeString(String value) {
+        String normalized = value;
+        if (normalized.endsWith(" UTC")) {
+            normalized = normalized.substring(0, normalized.length() - 4) + "Z";
+        }
+        normalized = normalized.replace(' ', 'T');
+        if (normalized.matches(".*[+-]\\d{2}$")) {
+            normalized = normalized + ":00";
+        } else if (normalized.matches(".*[+-]\\d{4}$")) {
+            normalized =
+                    normalized.substring(0, normalized.length() - 2)
+                            + ":"
+                            + normalized.substring(normalized.length() - 2);
+        }
+        return normalized;
+    }
+
     private static <T> T getNullableValue(
             ResultSet resultSet,
             int columnIndex,
             ThrowingFunction<ResultSet, T, SQLException> getter)
             throws SQLException {
-        if (resultSet.getObject(columnIndex) == null) {
+        final Object obj = resultSet.getObject(columnIndex);
+        if (obj == null) {
             return null;
         }
         return getter.apply(resultSet, columnIndex);

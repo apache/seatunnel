@@ -38,6 +38,16 @@ public class KuduSourceOptions extends KuduBaseOptions {
                     .withDescription(
                             "Kudu scan bytes. The maximum number of bytes read at a time, the default is 1MB");
 
+    public static final Option<Boolean> USE_REGEX =
+            Options.key("use_regex")
+                    .booleanType()
+                    .defaultValue(false)
+                    .withDescription(
+                            "Control regular expression matching for table_name. When set to true, "
+                                    + "the table_name will be treated as a regular expression pattern. "
+                                    + "When set to false or not specified, the table_name will be treated "
+                                    + "as an exact table name (no regex matching).");
+
     public static final Option<String> FILTER =
             Options.key("filter")
                     .stringType()

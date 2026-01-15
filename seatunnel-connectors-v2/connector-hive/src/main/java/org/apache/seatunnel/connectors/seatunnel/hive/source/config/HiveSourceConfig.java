@@ -40,6 +40,7 @@ import org.apache.seatunnel.connectors.seatunnel.file.hdfs.source.config.HdfsSou
 import org.apache.seatunnel.connectors.seatunnel.file.source.reader.ReadStrategy;
 import org.apache.seatunnel.connectors.seatunnel.file.source.reader.ReadStrategyFactory;
 import org.apache.seatunnel.connectors.seatunnel.hive.config.HiveConstants;
+import org.apache.seatunnel.connectors.seatunnel.hive.config.HiveOptions;
 import org.apache.seatunnel.connectors.seatunnel.hive.exception.HiveConnectorErrorCode;
 import org.apache.seatunnel.connectors.seatunnel.hive.exception.HiveConnectorException;
 import org.apache.seatunnel.connectors.seatunnel.hive.storage.StorageFactory;
@@ -86,9 +87,13 @@ public class HiveSourceConfig implements Serializable {
         try {
             table = HiveTableUtils.getTableInfo(readonlyConfig);
         } catch (Exception e) {
+            String tableName =
+                    readonlyConfig.getOptional(HiveOptions.TABLE_NAME).orElse("<missing>");
             throw new HiveConnectorException(
                     HiveConnectorErrorCode.GET_HIVE_TABLE_INFORMATION_FAILED,
-                    "Hive metastore not reachable while initializing HiveSource. Please ensure metastore is available or provide explicit file path-based config.",
+                    "Failed to get Hive table information for table_name='"
+                            + tableName
+                            + "'. Please ensure metastore is reachable and the table exists.",
                     e);
         }
         this.hadoopConf = parseHiveHadoopConfig(readonlyConfig, table);
