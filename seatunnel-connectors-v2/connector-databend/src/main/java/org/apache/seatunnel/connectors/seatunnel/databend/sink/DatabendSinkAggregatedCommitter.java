@@ -59,7 +59,7 @@ public class DatabendSinkAggregatedCommitter
 
     private Connection connection;
     private boolean isCdcMode;
-    private boolean aborted;
+    private volatile boolean aborted;
     // Store catalog table to access schema information
     private CatalogTable catalogTable;
 
@@ -139,6 +139,9 @@ public class DatabendSinkAggregatedCommitter
     }
 
     private void performMerge(List<DatabendSinkAggregatedCommitInfo> aggregatedCommitInfos) {
+        if (aggregatedCommitInfos == null) {
+            aggregatedCommitInfos = new ArrayList<>();
+        }
         // Merge all the data from raw table to target table
         String mergeSql = generateMergeSql();
         log.info("[Instance {}] Executing MERGE INTO statement: {}", instanceId, mergeSql);
@@ -237,20 +240,46 @@ public class DatabendSinkAggregatedCommitter
 
     @Override
     public void close() throws IOException {
+        SQLException closeException = null;
         try {
             if (!aborted && isCdcMode && connection != null && !connection.isClosed()) {
-                log.info("[Instance {}] Performing final merge before closing", instanceId);
-                performMerge(new ArrayList<>());
-            }
-            if (connection != null && !connection.isClosed()) {
-                connection.close();
+                try {
+                    log.info("[Instance {}] Performing final merge before closing", instanceId);
+                    performMerge(new ArrayList<>());
+                } catch (Exception mergeEx) {
+                    log.error(
+                            "[Instance {}] Final merge failed, will still close connection: {}",
+                            instanceId,
+                            mergeEx.getMessage(),
+                            mergeEx);
+                }
             }
         } catch (SQLException e) {
+            closeException = e;
+        } finally {
+            if (connection != null) {
+                try {
+                    if (!connection.isClosed()) {
+                        connection.close();
+                    }
+                } catch (SQLException e) {
+                    if (closeException != null) {
+                        closeException.addSuppressed(e);
+                    } else {
+                        closeException = e;
+                    }
+                }
+            }
+        }
+
+        if (closeException != null) {
             throw new DatabendConnectorException(
                     DatabendConnectorErrorCode.CONNECT_FAILED,
-                    "[Instance {}] Failed to close connection in DatabendSinkAggregatedCommitter: "
-                            + e.getMessage(),
-                    e);
+                    "[Instance "
+                            + instanceId
+                            + "] Failed to close connection in DatabendSinkAggregatedCommitter: "
+                            + closeException.getMessage(),
+                    closeException);
         }
     }
 }
