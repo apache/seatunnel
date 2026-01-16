@@ -82,7 +82,6 @@ const sidebars = {
             "type": "category",
             "label": "Connectors",
             "items": [
-                "connectors/overview",
                 {
                     "type": "category",
                     "label": "Source",
