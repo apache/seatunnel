@@ -160,7 +160,7 @@ The `custom_request_body` option supports placeholders:
 
 ### common options [string]
 
-Transform plugin common parameters, please refer to [Transform Plugin](common-options.md) for details
+Transform plugin common parameters, please refer to [Transform Plugin](common-options/common-options.md) for details
 
 ## tips
 The API interface usually has a rate limit, which can be configured with Seatunnel's speed limit to ensure smooth operation of the task.

@@ -31,7 +31,9 @@ const sidebars = {
                     "label": "Concepts",
                     "items": [
                         "introduction/concepts/config",
+                        "introduction/concepts/config-encryption-decryption",
                         "introduction/concepts/connector-v2-features",
+                        "introduction/concepts/connector-isolated-dependency",
                         "introduction/concepts/schema-feature",
                         "introduction/concepts/JobEnvConfig",
                         "introduction/concepts/sink-options-placeholders",
@@ -175,7 +177,13 @@ const sidebars = {
                 "image": "/img/favicon.ico"
             },
             "items": [
-                "transforms/common-options",
+                 {
+                    "type": "category",
+                    "label": "Common Options",
+                    "items": [
+                        "transforms/common-options/common-options"
+                    ]
+                },
                 "transforms/copy",
                 "transforms/data-validator",
                 "transforms/define-sink-type",
