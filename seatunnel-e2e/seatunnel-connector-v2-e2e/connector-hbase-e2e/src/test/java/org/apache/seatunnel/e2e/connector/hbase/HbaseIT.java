@@ -167,6 +167,17 @@ public class HbaseIT extends TestSuiteBase implements TestResource {
     }
 
     @TestTemplate
+    public void testHbaseSinkWithErrorWhenDataExistsOnEmptyTable(TestContainer container)
+            throws IOException, InterruptedException {
+        deleteData(table);
+        Assertions.assertEquals(0, countData(table));
+        Container.ExecResult execResult =
+                container.executeJob("/fake_to_hbase_with_error_when_data_exists.conf");
+        Assertions.assertEquals(0, execResult.getExitCode());
+        Assertions.assertEquals(5, countData(table));
+    }
+
+    @TestTemplate
     public void testHbaseSinkWithRecreateSchema(TestContainer container)
             throws IOException, InterruptedException {
         String tableName = "seatunnel_test_with_recreate_schema";
