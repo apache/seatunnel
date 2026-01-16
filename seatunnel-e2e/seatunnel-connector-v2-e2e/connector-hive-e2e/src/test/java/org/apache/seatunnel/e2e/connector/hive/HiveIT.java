@@ -122,6 +122,14 @@ public class HiveIT extends TestSuiteBase implements TestResource {
                     + "    score  INT"
                     + ") STORED AS PARQUET";
 
+    private static final String CREATE_EMPTY_ORC_SQL =
+            "CREATE TABLE IF NOT EXISTS default.test_hive_empty_orc"
+                    + "("
+                    + "    pk_id  BIGINT,"
+                    + "    name   STRING,"
+                    + "    score  INT"
+                    + ") STORED AS ORC";
+
     private static final String CREATE_EMPTY_PARQUET_TARGET_SQL =
             "CREATE TABLE IF NOT EXISTS default.test_hive_empty_parquet_target"
                     + "("
@@ -285,6 +293,7 @@ public class HiveIT extends TestSuiteBase implements TestResource {
             statement.execute(CREATE_FAILOVER_SQL);
             statement.execute(CREATE_EMPTY_TEXT_SQL);
             statement.execute(CREATE_EMPTY_PARQUET_SQL);
+            statement.execute(CREATE_EMPTY_ORC_SQL);
             statement.execute(CREATE_EMPTY_PARQUET_TARGET_SQL);
             statement.execute(CREATE_REGEX_DB_A_SQL);
             statement.execute(CREATE_REGEX_DB_ABC_SQL);
@@ -325,6 +334,12 @@ public class HiveIT extends TestSuiteBase implements TestResource {
     @TestTemplate
     public void testHiveSourceEmptyTextTable(TestContainer container) throws Exception {
         Container.ExecResult execResult = container.executeJob("/hive_empty_text_to_assert.conf");
+        Assertions.assertEquals(0, execResult.getExitCode(), execResult.getStderr());
+    }
+
+    @TestTemplate
+    public void testHiveSourceEmptyOrcTable(TestContainer container) throws Exception {
+        Container.ExecResult execResult = container.executeJob("/hive_empty_orc_to_assert.conf");
         Assertions.assertEquals(0, execResult.getExitCode(), execResult.getStderr());
     }
 

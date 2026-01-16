@@ -299,8 +299,7 @@ public class HiveSourceConfig implements Serializable {
             List<String> filePaths,
             Table table) {
         if (CollectionUtils.isEmpty(filePaths)) {
-            // Keep a stable schema even when directory is empty.
-            return buildCatalogTableFromHiveMeta(readonlyConfig, table);
+            return handleEmptyFilesFallback(readonlyConfig, table);
         }
         switch (fileFormat) {
             case PARQUET:
@@ -314,6 +313,12 @@ public class HiveSourceConfig implements Serializable {
                         CommonErrorCodeDeprecated.ILLEGAL_ARGUMENT,
                         "Hive connector only support [text parquet orc] table now");
         }
+    }
+
+    private static CatalogTable handleEmptyFilesFallback(
+            ReadonlyConfig readonlyConfig, Table table) {
+        // Keep a stable schema even when directory is empty.
+        return buildCatalogTableFromHiveMeta(readonlyConfig, table);
     }
 
     private CatalogTable parseCatalogTableFromRemotePath(
