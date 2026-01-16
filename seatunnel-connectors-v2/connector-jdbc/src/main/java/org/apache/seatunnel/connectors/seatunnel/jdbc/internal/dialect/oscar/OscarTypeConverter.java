@@ -441,7 +441,7 @@ public class OscarTypeConverter implements TypeConverter<BasicTypeDefine> {
                                         + "it will be converted to time({})",
                                 column.getName(),
                                 column.getScale(),
-                                MAX_SCALE,
+                                MAX_TIME_SCALE,
                                 timeScale);
                     }
                     builder.columnType(String.format("%s(%s)", OSCAR_TIME, timeScale));

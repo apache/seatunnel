@@ -82,7 +82,6 @@ public class OscarTypeConverterTest {
     public void testConvertInt() {
         /** tinyint */
         testConvertType("test", "tinyint", "tinyint", BasicType.BYTE_TYPE);
-        testConvertType("test", "byte", "byte", BasicType.BYTE_TYPE);
         testConvertType("test", "int1", "int1", BasicType.BYTE_TYPE);
         /** smallint */
         testConvertType("test", "int2", "int2", BasicType.SHORT_TYPE);

@@ -17,6 +17,7 @@
 
 package org.apache.seatunnel.connectors.seatunnel.jdbc.catalog.oscar;
 
+import org.apache.commons.collections4.CollectionUtils;
 import org.apache.seatunnel.shade.org.apache.commons.lang3.StringUtils;
 
 import org.apache.seatunnel.api.table.catalog.CatalogTable;
@@ -230,6 +231,9 @@ public class OscarCatalog extends AbstractJdbcCatalog {
 
     private List<String> listTables() {
         List<String> databases = listDatabases();
+        if (CollectionUtils.isEmpty(databases)) {
+            return new ArrayList<>();
+        }
         return listTables(databases.get(0));
     }
 
