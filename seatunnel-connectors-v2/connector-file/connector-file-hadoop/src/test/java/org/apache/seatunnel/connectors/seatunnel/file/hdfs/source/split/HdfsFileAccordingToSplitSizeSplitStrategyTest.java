@@ -23,7 +23,9 @@ import org.apache.seatunnel.shade.com.typesafe.config.ConfigValueFactory;
 import org.apache.seatunnel.api.source.Collector;
 import org.apache.seatunnel.api.table.catalog.CatalogTableUtil;
 import org.apache.seatunnel.api.table.type.SeaTunnelRow;
+import org.apache.seatunnel.common.exception.SeaTunnelRuntimeException;
 import org.apache.seatunnel.connectors.seatunnel.file.config.FileBaseSourceOptions;
+import org.apache.seatunnel.connectors.seatunnel.file.exception.FileConnectorErrorCode;
 import org.apache.seatunnel.connectors.seatunnel.file.hdfs.config.HdfsFileHadoopConfig;
 import org.apache.seatunnel.connectors.seatunnel.file.source.reader.TextReadStrategy;
 import org.apache.seatunnel.connectors.seatunnel.file.source.split.AccordingToSplitSizeSplitStrategy;
@@ -44,6 +46,20 @@ import java.util.List;
 public class HdfsFileAccordingToSplitSizeSplitStrategyTest {
 
     @TempDir private Path tempDir;
+
+    @Test
+    void testSplitNonExistingFileShouldThrowFileNotFound() throws Exception {
+        String fileUri = tempDir.resolve("not_exist.txt").toUri().toString();
+        try (AccordingToSplitSizeSplitStrategy strategy =
+                new AccordingToSplitSizeSplitStrategy(
+                        new HdfsFileHadoopConfig("file:///"), "\n", 0, "UTF-8", 6)) {
+            SeaTunnelRuntimeException ex =
+                    Assertions.assertThrows(
+                            SeaTunnelRuntimeException.class, () -> strategy.split("t", fileUri));
+            Assertions.assertEquals(
+                    FileConnectorErrorCode.FILE_NOT_FOUND, ex.getSeaTunnelErrorCode());
+        }
+    }
 
     @Test
     void testSplitByDelimiterSeek() throws IOException {

@@ -22,10 +22,17 @@ import org.apache.seatunnel.connectors.seatunnel.file.exception.FileConnectorErr
 import org.apache.seatunnel.connectors.seatunnel.file.hadoop.HadoopFileSystemProxy;
 
 import org.apache.hadoop.fs.FSDataInputStream;
+import org.apache.hadoop.ipc.RemoteException;
+import org.apache.hadoop.security.AccessControlException;
 
 import java.io.Closeable;
+import java.io.FileNotFoundException;
 import java.io.IOException;
+import java.io.InterruptedIOException;
+import java.net.SocketTimeoutException;
 import java.nio.charset.Charset;
+import java.nio.file.AccessDeniedException;
+import java.nio.file.NoSuchFileException;
 import java.nio.file.Paths;
 import java.util.ArrayList;
 import java.util.List;
@@ -105,7 +112,7 @@ public class AccordingToSplitSizeSplitStrategy implements FileSplitStrategy, Clo
             }
             return splits;
         } catch (IOException e) {
-            throw new SeaTunnelRuntimeException(FileConnectorErrorCode.FILE_READ_FAILED, e);
+            throw mapToRuntimeException(normalizedPath, "Split file", e);
         }
     }
 
@@ -113,8 +120,61 @@ public class AccordingToSplitSizeSplitStrategy implements FileSplitStrategy, Clo
         try {
             return hadoopFileSystemProxy.getFileStatus(filePath).getLen();
         } catch (IOException e) {
-            throw new SeaTunnelRuntimeException(FileConnectorErrorCode.FILE_READ_FAILED, e);
+            throw mapToRuntimeException(filePath, "Get file status", e);
         }
+    }
+
+    private static SeaTunnelRuntimeException mapToRuntimeException(
+            String filePath, String operation, IOException e) {
+        IOException unwrapped = unwrapRemoteException(e);
+        FileConnectorErrorCode errorCode = mapIOExceptionToErrorCode(unwrapped);
+        String message =
+                String.format(
+                        "%s for [%s] failed, cause=%s: %s",
+                        operation,
+                        filePath,
+                        unwrapped.getClass().getSimpleName(),
+                        unwrapped.getMessage());
+        return new SeaTunnelRuntimeException(errorCode, message, unwrapped);
+    }
+
+    private static FileConnectorErrorCode mapIOExceptionToErrorCode(IOException e) {
+        if (hasCause(e, FileNotFoundException.class) || hasCause(e, NoSuchFileException.class)) {
+            return FileConnectorErrorCode.FILE_NOT_FOUND;
+        }
+        if (hasCause(e, AccessDeniedException.class) || hasCause(e, AccessControlException.class)) {
+            return FileConnectorErrorCode.FILE_ACCESS_DENIED;
+        }
+        if (hasCause(e, SocketTimeoutException.class)
+                || hasCause(e, InterruptedIOException.class)) {
+            return FileConnectorErrorCode.FILE_IO_TIMEOUT;
+        }
+        return FileConnectorErrorCode.FILE_READ_FAILED;
+    }
+
+    private static boolean hasCause(Throwable throwable, Class<? extends Throwable> type) {
+        Throwable current = throwable;
+        while (current != null) {
+            if (type.isInstance(current)) {
+                return true;
+            }
+            current = current.getCause();
+        }
+        return false;
+    }
+
+    private static IOException unwrapRemoteException(IOException e) {
+        if (e instanceof RemoteException) {
+            return ((RemoteException) e)
+                    .unwrapRemoteException(
+                            FileNotFoundException.class,
+                            NoSuchFileException.class,
+                            AccessControlException.class,
+                            AccessDeniedException.class,
+                            SocketTimeoutException.class,
+                            InterruptedIOException.class);
+        }
+        return e;
     }
 
     private long skipLinesUsingBuffer(FSDataInputStream input, long skipLines) throws IOException {
