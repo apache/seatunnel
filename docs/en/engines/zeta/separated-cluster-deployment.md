@@ -287,7 +287,11 @@ netty-common-4.1.89.Final.jar
 seatunnel-hadoop3-3.1.4-uber.jar
 ```
 
-If you would like to use S3 Compatable storage such as Minio, you can configure it like this:
+It is possible to utilize S3 for IMAP storage. 
+
+The S3 configuration properties follow the Hadoop S3A filesystem (Native S3) standard. Specifically, we utilize the fs.s3a.access.key and fs.s3a.secret.key properties to ensure compatibility with existing Hadoop-based ecosystems.
+
+If you would like to use S3 compatible storage such as Minio, you can configure it like this:
 
 ```yaml
 map:
@@ -303,11 +307,18 @@ map:
          storage.type: s3
          s3.bucket: s3a://your-bucket
          fs.defaultFS: s3a://your-bucket
-         fs.s3a.endpoint: http[s]://your-s3-endpoint:port
-         fs.s3a.path.style.access: "true"
-         fs.s3a.access.key: s3_access_key
-         fs.s3a.secret.key: s3_secret_key
+         fs.s3a.endpoint: http://your-minio-endpoint:port
+         fs.s3a.path.style.access: true
+         fs.s3a.access.key: YOUR_ACCESS_KEY
+         fs.s3a.secret.key: YOUR_SECRET_KEY
          fs.s3a.aws.credentials.provider: org.apache.hadoop.fs.s3a.SimpleAWSCredentialsProvider
+```
+
+Notice: When using S3, make sure that the following jars are in the lib directory.
+
+```
+seatunnel-hadoop3-3.1.4-uber.jar
+seatunnel-hadoop-aws.jar
 ```
 
 ### 4.7 Job Scheduling Strategy
