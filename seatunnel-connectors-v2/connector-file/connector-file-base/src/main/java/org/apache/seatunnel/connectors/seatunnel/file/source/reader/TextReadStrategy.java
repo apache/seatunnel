@@ -34,6 +34,7 @@ import org.apache.seatunnel.connectors.seatunnel.file.config.FileBaseSourceOptio
 import org.apache.seatunnel.connectors.seatunnel.file.config.FileFormat;
 import org.apache.seatunnel.connectors.seatunnel.file.exception.FileConnectorErrorCode;
 import org.apache.seatunnel.connectors.seatunnel.file.exception.FileConnectorException;
+import org.apache.seatunnel.connectors.seatunnel.file.source.split.FileSourceSplit;
 import org.apache.seatunnel.format.text.TextDeserializationSchema;
 import org.apache.seatunnel.format.text.constant.TextFormatConstant;
 import org.apache.seatunnel.format.text.splitor.DefaultTextLineSplitor;
@@ -168,13 +169,20 @@ public class TextReadStrategy extends AbstractReadStrategy {
     public void read(String path, String tableId, Collector<SeaTunnelRow> output)
             throws FileConnectorException, IOException {
         Map<String, String> partitionsMap = parsePartitionsByPath(path);
-        resolveArchiveCompressedInputStream(path, tableId, output, partitionsMap, FileFormat.TEXT);
+        resolveArchiveCompressedInputStream(
+                new FileSourceSplit(tableId, path), output, partitionsMap, FileFormat.TEXT);
+    }
+
+    @Override
+    public void read(FileSourceSplit split, Collector<SeaTunnelRow> output)
+            throws IOException, FileConnectorException {
+        Map<String, String> partitionsMap = parsePartitionsByPath(split.getFilePath());
+        resolveArchiveCompressedInputStream(split, output, partitionsMap, FileFormat.TEXT);
     }
 
     @Override
     public void readProcess(
-            String path,
-            String tableId,
+            FileSourceSplit split,
             Collector<SeaTunnelRow> output,
             InputStream inputStream,
             Map<String, String> partitionsMap,
@@ -196,21 +204,27 @@ public class TextReadStrategy extends AbstractReadStrategy {
                 actualInputStream = inputStream;
                 break;
         }
-
+        // rebuild inputStream
+        if (enableSplitFile && split.getLength() > -1) {
+            actualInputStream = safeSlice(inputStream, split.getStart(), split.getLength());
+        }
         try (BufferedReader reader =
                 new BufferedReader(new InputStreamReader(actualInputStream, encoding))) {
 
             LineProcessor lineProcessor =
                     line -> {
                         try {
-                            processLineData(line, tableId, output, partitionsMap);
+                            processLineData(line, split.getTableId(), output, partitionsMap);
                         } catch (FileConnectorException e) {
                             throw new IOException(e);
                         }
                     };
-
-            StreamLineSplitter splitter =
-                    new StreamLineSplitter(rowDelimiter, skipHeaderNumber, lineProcessor);
+            StreamLineSplitter splitter;
+            if (enableSplitFile) {
+                splitter = new StreamLineSplitter(rowDelimiter, 0, lineProcessor);
+            } else {
+                splitter = new StreamLineSplitter(rowDelimiter, skipHeaderNumber, lineProcessor);
+            }
             splitter.processStream(reader);
         }
     }

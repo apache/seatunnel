@@ -45,10 +45,10 @@ public class MarkdownTest {
     public static void setup() {
         docsDirectories.add(Paths.get("..", "docs", "en"));
         docsDirectories.add(Paths.get("..", "docs", "zh"));
-        connectorsDirectories.add(Paths.get("..", "docs", "en", "connector-v2", "source"));
-        connectorsDirectories.add(Paths.get("..", "docs", "en", "connector-v2", "sink"));
-        connectorsDirectories.add(Paths.get("..", "docs", "zh", "connector-v2", "source"));
-        connectorsDirectories.add(Paths.get("..", "docs", "zh", "connector-v2", "sink"));
+        connectorsDirectories.add(Paths.get("..", "docs", "en", "connectors", "source"));
+        connectorsDirectories.add(Paths.get("..", "docs", "en", "connectors", "sink"));
+        connectorsDirectories.add(Paths.get("..", "docs", "zh", "connectors", "source"));
+        connectorsDirectories.add(Paths.get("..", "docs", "zh", "connectors", "sink"));
     }
 
     @Test
@@ -227,7 +227,7 @@ public class MarkdownTest {
                                                         "..",
                                                         "docs",
                                                         "en",
-                                                        "connector-v2",
+                                                        "connectors",
                                                         "changelog",
                                                         connector + ".md")),
                                         "The change log file for "
@@ -241,7 +241,7 @@ public class MarkdownTest {
                                                         "..",
                                                         "docs",
                                                         "zh",
-                                                        "connector-v2",
+                                                        "connectors",
                                                         "changelog",
                                                         connector + ".md")),
                                         "The change log file for "

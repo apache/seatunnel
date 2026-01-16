@@ -88,6 +88,13 @@ public abstract class BaseFileSourceConfig implements Serializable {
             catalogTable = CatalogTableUtil.buildSimpleTextTable();
         }
         if (CollectionUtils.isEmpty(filePaths)) {
+            // When there are no files (including sync_mode=update filtered all files), choose a
+            // compatible schema so that downstream can initialize correctly.
+            if (fileFormat == FileFormat.BINARY) {
+                String rootPath = readonlyConfig.get(FileBaseSourceOptions.FILE_PATH);
+                return newCatalogTable(
+                        catalogTable, readStrategy.getSeaTunnelRowTypeInfo(rootPath));
+            }
             return catalogTable;
         }
         switch (fileFormat) {
