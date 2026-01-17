@@ -19,6 +19,7 @@ package org.apache.seatunnel.transform.sql.zeta.functions;
 
 import org.apache.seatunnel.common.exception.CommonErrorCodeDeprecated;
 import org.apache.seatunnel.transform.exception.TransformException;
+import org.apache.seatunnel.transform.sql.zeta.ZetaDateTimeFormat;
 import org.apache.seatunnel.transform.sql.zeta.ZetaSQLFunction;
 
 import java.text.DateFormatSymbols;
@@ -32,6 +33,7 @@ import java.time.Period;
 import java.time.ZoneId;
 import java.time.ZoneOffset;
 import java.time.format.DateTimeFormatter;
+import java.time.format.DateTimeParseException;
 import java.time.temporal.Temporal;
 import java.time.temporal.TemporalAccessor;
 import java.time.temporal.WeekFields;
@@ -633,23 +635,43 @@ public class DateTimeFunction {
             return null;
         }
         String format = (String) args.get(1);
-        if (format.contains("yy") && format.contains("mm")) {
-            DateTimeFormatter df = DateTimeFormatter.ofPattern(format);
-            return LocalDateTime.parse(str, df);
+        if (format == null) {
+            throw new TransformException(
+                    CommonErrorCodeDeprecated.ILLEGAL_ARGUMENT, "Format pattern cannot be null");
         }
-        if (format.contains("yy")) {
-            DateTimeFormatter df = DateTimeFormatter.ofPattern(format);
-            return LocalDate.parse(str, df);
+
+        ZetaDateTimeFormat dateTimeFormat =
+                ZetaDateTimeFormat.fromPattern(format)
+                        .orElseThrow(
+                                () ->
+                                        new TransformException(
+                                                CommonErrorCodeDeprecated.UNSUPPORTED_OPERATION,
+                                                String.format(
+                                                        "Unsupported datetime format: '%s'.",
+                                                        format)));
+
+        try {
+            DateTimeFormatter formatter = DateTimeFormatter.ofPattern(dateTimeFormat.getPattern());
+
+            switch (dateTimeFormat.getType()) {
+                case DATETIME:
+                    return LocalDateTime.parse(str, formatter);
+                case DATE:
+                    return LocalDate.parse(str, formatter);
+                case TIME:
+                    return LocalTime.parse(str, formatter);
+                default:
+                    throw new TransformException(
+                            CommonErrorCodeDeprecated.UNSUPPORTED_OPERATION,
+                            "Unknown format type: " + dateTimeFormat.getType());
+            }
+        } catch (DateTimeParseException e) {
+            throw new TransformException(
+                    CommonErrorCodeDeprecated.ILLEGAL_ARGUMENT,
+                    String.format(
+                            "Failed to parse '%s' with format '%s': %s",
+                            str, format, e.getMessage()));
         }
-        if (format.contains("mm")) {
-            DateTimeFormatter df = DateTimeFormatter.ofPattern(format);
-            return LocalTime.parse(str, df);
-        }
-        throw new TransformException(
-                CommonErrorCodeDeprecated.UNSUPPORTED_OPERATION,
-                String.format(
-                        "Unknown pattern letter %s for function: %s",
-                        format, ZetaSQLFunction.PARSEDATETIME));
     }
 
     public static Integer quarter(List<Object> args) {

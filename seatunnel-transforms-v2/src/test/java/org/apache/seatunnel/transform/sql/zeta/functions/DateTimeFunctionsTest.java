@@ -326,4 +326,143 @@ public class DateTimeFunctionsTest {
                                 rowType,
                                 LocalDate.of(2024, 6, 15)));
     }
+
+    @Test
+    public void testParseDateTimeWithAllDateTimeFormats() {
+        SeaTunnelRowType rowType =
+                new SeaTunnelRowType(
+                        new String[] {"dummy"},
+                        new SeaTunnelDataType[] {LocalTimeType.LOCAL_DATE_TIME_TYPE});
+
+        // DATETIME_STANDARD: yyyy-MM-dd HH:mm:ss
+        SeaTunnelRow row1 =
+                runSql(
+                        "select PARSEDATETIME('2024-06-15 14:30:45', 'yyyy-MM-dd HH:mm:ss') as dt from dual",
+                        rowType,
+                        LocalDateTime.now());
+        Assertions.assertEquals(LocalDateTime.of(2024, 6, 15, 14, 30, 45), row1.getField(0));
+
+        // DATETIME_WITH_MILLIS: yyyy-MM-dd HH:mm:ss.SSS
+        SeaTunnelRow row2 =
+                runSql(
+                        "select PARSEDATETIME('2024-06-15 14:30:45.123', 'yyyy-MM-dd HH:mm:ss.SSS') as dt from dual",
+                        rowType,
+                        LocalDateTime.now());
+        Assertions.assertEquals(
+                LocalDateTime.of(2024, 6, 15, 14, 30, 45, 123000000), row2.getField(0));
+
+        // DATETIME_ISO8601: yyyy-MM-dd'T'HH:mm:ss
+        SeaTunnelRow row3 =
+                runSql(
+                        "select PARSEDATETIME('2024-06-15T14:30:45', 'yyyy-MM-dd''T''HH:mm:ss') as dt from dual",
+                        rowType,
+                        LocalDateTime.now());
+        Assertions.assertEquals(LocalDateTime.of(2024, 6, 15, 14, 30, 45), row3.getField(0));
+
+        // DATETIME_ISO8601_WITH_MILLIS: yyyy-MM-dd'T'HH:mm:ss.SSS
+        SeaTunnelRow row4 =
+                runSql(
+                        "select PARSEDATETIME('2024-06-15T14:30:45.987', 'yyyy-MM-dd''T''HH:mm:ss.SSS') as dt from dual",
+                        rowType,
+                        LocalDateTime.now());
+        Assertions.assertEquals(
+                LocalDateTime.of(2024, 6, 15, 14, 30, 45, 987000000), row4.getField(0));
+    }
+
+    @Test
+    public void testParseDateTimeWithAllDateFormats() {
+        SeaTunnelRowType rowType =
+                new SeaTunnelRowType(
+                        new String[] {"dummy"},
+                        new SeaTunnelDataType[] {LocalTimeType.LOCAL_DATE_TIME_TYPE});
+
+        // DATE_ISO8601: yyyy-MM-dd
+        SeaTunnelRow row1 =
+                runSql(
+                        "select PARSEDATETIME('2024-06-15', 'yyyy-MM-dd') as dt from dual",
+                        rowType,
+                        LocalDateTime.now());
+        Assertions.assertEquals(LocalDate.of(2024, 6, 15), row1.getField(0));
+    }
+
+    @Test
+    public void testParseDateTimeWithAllTimeFormats() {
+        SeaTunnelRowType rowType =
+                new SeaTunnelRowType(
+                        new String[] {"dummy"},
+                        new SeaTunnelDataType[] {LocalTimeType.LOCAL_DATE_TIME_TYPE});
+
+        // TIME_STANDARD: HH:mm:ss
+        SeaTunnelRow row1 =
+                runSql(
+                        "select PARSEDATETIME('14:30:45', 'HH:mm:ss') as dt from dual",
+                        rowType,
+                        LocalDateTime.now());
+        Assertions.assertEquals(java.time.LocalTime.of(14, 30, 45), row1.getField(0));
+
+        // TIME_WITH_MILLIS: HH:mm:ss.SSS
+        SeaTunnelRow row2 =
+                runSql(
+                        "select PARSEDATETIME('14:30:45.123', 'HH:mm:ss.SSS') as dt from dual",
+                        rowType,
+                        LocalDateTime.now());
+        Assertions.assertEquals(java.time.LocalTime.of(14, 30, 45, 123000000), row2.getField(0));
+    }
+
+    @Test
+    public void testParseDateTimeWithUnsupportedFormat() {
+        SeaTunnelRowType rowType =
+                new SeaTunnelRowType(
+                        new String[] {"dummy"},
+                        new SeaTunnelDataType[] {LocalTimeType.LOCAL_DATE_TIME_TYPE});
+
+        // Test with completely unsupported format
+        Assertions.assertThrows(
+                TransformException.class,
+                () ->
+                        runSql(
+                                "select PARSEDATETIME('2024-06-15', 'dd/MM/yyyy') as dt from dual",
+                                rowType,
+                                LocalDateTime.now()));
+    }
+
+    @Test
+    public void testParseDateTimeWithMalformedInput() {
+        SeaTunnelRowType rowType =
+                new SeaTunnelRowType(
+                        new String[] {"dummy"},
+                        new SeaTunnelDataType[] {LocalTimeType.LOCAL_DATE_TIME_TYPE});
+
+        // Test with malformed input string
+        Assertions.assertThrows(
+                TransformException.class,
+                () ->
+                        runSql(
+                                "select PARSEDATETIME('not-a-date', 'yyyy-MM-dd') as dt from dual",
+                                rowType,
+                                LocalDateTime.now()));
+    }
+
+    @Test
+    public void testToDateWithVariousFormats() {
+        SeaTunnelRowType rowType =
+                new SeaTunnelRowType(
+                        new String[] {"dummy"},
+                        new SeaTunnelDataType[] {LocalTimeType.LOCAL_DATE_TIME_TYPE});
+
+        // TO_DATE is an alias for PARSEDATETIME
+        SeaTunnelRow row1 =
+                runSql(
+                        "select TO_DATE('2024-06-15', 'yyyy-MM-dd') as dt from dual",
+                        rowType,
+                        LocalDateTime.now());
+        Assertions.assertEquals(LocalDate.of(2024, 6, 15), row1.getField(0));
+
+        SeaTunnelRow row2 =
+                runSql(
+                        "select TO_DATE('2024-06-15 14:30:45', 'yyyy-MM-dd HH:mm:ss') as dt from dual",
+                        rowType,
+                        LocalDateTime.now());
+        Assertions.assertEquals(LocalDateTime.of(2024, 6, 15, 14, 30, 45), row2.getField(0));
+    }
 }

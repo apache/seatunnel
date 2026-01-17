@@ -431,20 +431,35 @@ public class ZetaSQLType {
             case ZetaSQLFunction.TO_DATE:
                 {
                     String format = function.getParameters().getExpressions().get(1).toString();
-                    if (format.contains("yy") && format.contains("mm")) {
-                        return LocalTimeType.LOCAL_DATE_TIME_TYPE;
+
+                    format = format.replaceAll("^'|'$", "");
+                    format = format.replace("''", "'");
+
+                    String finalFormatForLogging = format;
+                    ZetaDateTimeFormat dateTimeFormat =
+                            ZetaDateTimeFormat.fromPattern(format)
+                                    .orElseThrow(
+                                            () ->
+                                                    new TransformException(
+                                                            CommonErrorCodeDeprecated
+                                                                    .UNSUPPORTED_OPERATION,
+                                                            String.format(
+                                                                    "Unknown pattern letter %s for function: %s",
+                                                                    finalFormatForLogging,
+                                                                    function.getName())));
+
+                    switch (dateTimeFormat.getType()) {
+                        case DATETIME:
+                            return LocalTimeType.LOCAL_DATE_TIME_TYPE;
+                        case DATE:
+                            return LocalTimeType.LOCAL_DATE_TYPE;
+                        case TIME:
+                            return LocalTimeType.LOCAL_TIME_TYPE;
+                        default:
+                            throw new TransformException(
+                                    CommonErrorCodeDeprecated.UNSUPPORTED_OPERATION,
+                                    "Unknown format type: " + dateTimeFormat.getType());
                     }
-                    if (format.contains("yy")) {
-                        return LocalTimeType.LOCAL_DATE_TYPE;
-                    }
-                    if (format.contains("mm")) {
-                        return LocalTimeType.LOCAL_TIME_TYPE;
-                    }
-                    throw new TransformException(
-                            CommonErrorCodeDeprecated.UNSUPPORTED_OPERATION,
-                            String.format(
-                                    "Unknown pattern letter %s for function: %s",
-                                    format, function.getName()));
                 }
             case ZetaSQLFunction.ABS:
             case ZetaSQLFunction.DATEADD:
