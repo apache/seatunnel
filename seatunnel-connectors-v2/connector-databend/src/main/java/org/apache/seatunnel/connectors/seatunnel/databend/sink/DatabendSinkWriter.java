@@ -808,6 +808,12 @@ public class DatabendSinkWriter
                 executeBatch();
             }
 
+            // Perform final merge in CDC mode
+            if (isCdcMode) {
+                log.info("Performing final merge before closing");
+                performMerge();
+            }
+
             // Close prepared statements
             if (preparedStatement != null) {
                 log.info("Closing PreparedStatement");
