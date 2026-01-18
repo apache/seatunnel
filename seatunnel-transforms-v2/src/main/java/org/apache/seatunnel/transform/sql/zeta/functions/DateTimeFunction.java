@@ -635,10 +635,6 @@ public class DateTimeFunction {
             return null;
         }
         String format = (String) args.get(1);
-        if (format == null) {
-            throw new TransformException(
-                    CommonErrorCodeDeprecated.ILLEGAL_ARGUMENT, "Format pattern cannot be null");
-        }
 
         ZetaDateTimeFormat dateTimeFormat =
                 ZetaDateTimeFormat.fromPattern(format)
