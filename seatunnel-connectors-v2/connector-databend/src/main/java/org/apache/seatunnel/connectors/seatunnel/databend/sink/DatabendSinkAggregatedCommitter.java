@@ -59,13 +59,6 @@ public class DatabendSinkAggregatedCommitter
 
     private Connection connection;
     private boolean isCdcMode;
-    /**
-     * Indicates that this committer has been aborted (for example, due to a checkpoint abort).
-     *
-     * <p>This flag is set in {@link #abort(List)} and checked in {@link #close()} to prevent
-     * running the final merge after an abort. It is {@code volatile} to guarantee visibility if
-     * abort and close are invoked from different threads during shutdown.
-     */
     private volatile boolean aborted;
     // Store catalog table to access schema information
     private CatalogTable catalogTable;
