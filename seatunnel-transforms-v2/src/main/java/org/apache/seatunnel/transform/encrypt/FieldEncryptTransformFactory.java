@@ -37,8 +37,8 @@ public class FieldEncryptTransformFactory implements TableTransformFactory {
     @Override
     public OptionRule optionRule() {
         return OptionRule.builder()
+                .required(FieldEncryptTransformConfig.FIELDS)
                 .required(FieldEncryptTransformConfig.KEY)
-                .optional(FieldEncryptTransformConfig.FIELDS)
                 .optional(FieldEncryptTransformConfig.ALGORITHM)
                 .optional(FieldEncryptTransformConfig.MODE)
                 .build();
