@@ -37,9 +37,10 @@ import java.util.List;
 import java.util.Map;
 
 class FieldEncryptTransformTest {
-    private List<String> encryptFields = Arrays.asList("key3", "key2");
+    private List<String> encryptFields = Arrays.asList("key2", "key3");
     private static CatalogTable catalogTable;
     private static Object[] values;
+    private static Object[] original;
 
     @BeforeAll
     static void setUp() {
@@ -92,13 +93,19 @@ class FieldEncryptTransformTest {
                         new ArrayList<>(),
                         "comment");
         values = new Object[] {"value1", "value2", "value3", "value4", "value5"};
+        original = Arrays.copyOf(values, values.length);
     }
 
     @Test
     void testEncryption() {
         SeaTunnelRow output = encryption();
-        Assertions.assertNotNull(output);
-        Assertions.assertNotEquals("value2", output.getField(1));
+        for (int i = 0; i < original.length; i++) {
+            if (i == 1 || i == 2) {
+                Assertions.assertNotEquals(original[i], output.getField(i));
+            } else {
+                Assertions.assertEquals(original[i], output.getField(i));
+            }
+        }
     }
 
     @Test
@@ -106,7 +113,7 @@ class FieldEncryptTransformTest {
         SeaTunnelRow output = encryption();
         Map<String, Object> configMap = new HashMap<>();
         configMap.put(FieldEncryptTransformConfig.FIELDS.key(), encryptFields);
-        configMap.put(FieldEncryptTransformConfig.KEY.key(), "base64:U29tZVNlY3JldEt==");
+        configMap.put(FieldEncryptTransformConfig.KEY.key(), "base64:AAAAAAAAAAAAAAAAAAAAAA==");
         configMap.put(FieldEncryptTransformConfig.MODE.key(), "decrypt");
 
         FieldEncryptTransform fieldEncryptTransform =
@@ -116,6 +123,7 @@ class FieldEncryptTransformTest {
         SeaTunnelRow decryptedRow = fieldEncryptTransform.transformRow(input);
         Assertions.assertNotNull(decryptedRow);
         Assertions.assertEquals("value2", decryptedRow.getField(1));
+        Assertions.assertEquals("value3", decryptedRow.getField(2));
     }
 
     private SeaTunnelRow encryption() {
