@@ -151,6 +151,7 @@ public class DatabendSinkAggregatedCommitter
         return new ArrayList<>();
     }
 
+    /** Perform merge from CDC stream to target table. */
     private void performMerge() {
         // Merge all the data from raw table to target table
         String mergeSql = generateMergeSql();
@@ -269,9 +270,7 @@ public class DatabendSinkAggregatedCommitter
         } finally {
             if (connection != null) {
                 try {
-                    if (!connection.isClosed()) {
-                        connection.close();
-                    }
+                    connection.close();
                 } catch (SQLException e) {
                     if (closeException != null) {
                         closeException.addSuppressed(e);
