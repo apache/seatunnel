@@ -25,9 +25,9 @@ import org.apache.seatunnel.transform.common.AbstractMultiCatalogMapTransform;
 
 import java.util.List;
 
-public class FieldFieldMultiCatalogTransform extends AbstractMultiCatalogMapTransform {
+public class FilterFieldMultiCatalogTransform extends AbstractMultiCatalogMapTransform {
 
-    public FieldFieldMultiCatalogTransform(
+    public FilterFieldMultiCatalogTransform(
             List<CatalogTable> inputCatalogTables, ReadonlyConfig config) {
         super(inputCatalogTables, config);
     }

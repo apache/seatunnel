@@ -15,21 +15,20 @@
  * limitations under the License.
  */
 
-package org.apache.seatunnel.transform.filter;
+package org.apache.seatunnel.transform.encrypt;
 
 import org.apache.seatunnel.api.configuration.util.OptionRule;
 import org.apache.seatunnel.api.table.connector.TableTransform;
 import org.apache.seatunnel.api.table.factory.Factory;
 import org.apache.seatunnel.api.table.factory.TableTransformFactory;
 import org.apache.seatunnel.api.table.factory.TableTransformFactoryContext;
-import org.apache.seatunnel.transform.common.TransformCommonOptions;
 
 import com.google.auto.service.AutoService;
 
-import static org.apache.seatunnel.transform.filter.FilterFieldTransform.PLUGIN_NAME;
+import static org.apache.seatunnel.transform.encrypt.FieldEncryptTransform.PLUGIN_NAME;
 
 @AutoService(Factory.class)
-public class FilterFieldTransformFactory implements TableTransformFactory {
+public class FieldEncryptTransformFactory implements TableTransformFactory {
     @Override
     public String factoryIdentifier() {
         return PLUGIN_NAME;
@@ -38,18 +37,17 @@ public class FilterFieldTransformFactory implements TableTransformFactory {
     @Override
     public OptionRule optionRule() {
         return OptionRule.builder()
-                .optional(
-                        FilterFieldTransformConfig.INCLUDE_FIELDS,
-                        FilterFieldTransformConfig.EXCLUDE_FIELDS)
-                .optional(TransformCommonOptions.MULTI_TABLES)
-                .optional(TransformCommonOptions.TABLE_MATCH_REGEX)
+                .required(FieldEncryptTransformConfig.KEY)
+                .optional(FieldEncryptTransformConfig.FIELDS)
+                .optional(FieldEncryptTransformConfig.ALGORITHM)
+                .optional(FieldEncryptTransformConfig.MODE)
                 .build();
     }
 
     @Override
     public TableTransform createTransform(TableTransformFactoryContext context) {
         return () ->
-                new FilterFieldMultiCatalogTransform(
+                new FieldEncryptMultiCatalogTransform(
                         context.getCatalogTables(), context.getOptions());
     }
 }
