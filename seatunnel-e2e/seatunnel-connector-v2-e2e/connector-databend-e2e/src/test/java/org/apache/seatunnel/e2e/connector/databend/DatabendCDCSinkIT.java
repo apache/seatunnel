@@ -26,6 +26,7 @@ import org.apache.seatunnel.e2e.common.util.JobIdGenerator;
 
 import org.awaitility.Awaitility;
 import org.junit.jupiter.api.AfterAll;
+import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.BeforeAll;
 import org.junit.jupiter.api.TestTemplate;
@@ -226,6 +227,19 @@ public class DatabendCDCSinkIT extends TestSuiteBase implements TestResource {
                 .ignoreExceptions()
                 .until(() -> getTableRowCount(DATABASE, rawTableName) > 0);
 
+        // Ensure a checkpoint is in progress so the cancel triggers checkpoint abort (abort() will
+        // be invoked), instead of letting the job close normally and performing the final merge.
+        Awaitility.await()
+                .atMost(2, TimeUnit.MINUTES)
+                .pollInterval(200, TimeUnit.MILLISECONDS)
+                .ignoreExceptions()
+                .until(
+                        () -> {
+                            String logs = container.getServerLogs();
+                            return logs.contains("[" + jobId + "]")
+                                    && logs.contains("wait checkpoint completed:");
+                        });
+
         Container.ExecResult cancelJobResult = container.cancelJob(jobId);
         Assertions.assertEquals(0, cancelJobResult.getExitCode(), cancelJobResult.getStderr());
 
@@ -251,6 +265,13 @@ public class DatabendCDCSinkIT extends TestSuiteBase implements TestResource {
         }
 
         clearSinkTable();
+    }
+
+    @AfterEach
+    public void cleanUpAfterEach() throws SQLException {
+        if (connection != null) {
+            clearSinkTable();
+        }
     }
 
     private void clearSinkTable() throws SQLException {
