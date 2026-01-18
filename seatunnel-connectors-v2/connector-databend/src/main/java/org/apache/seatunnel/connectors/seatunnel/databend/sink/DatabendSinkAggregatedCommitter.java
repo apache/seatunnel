@@ -59,6 +59,13 @@ public class DatabendSinkAggregatedCommitter
 
     private Connection connection;
     private boolean isCdcMode;
+    /**
+     * Indicates that this committer has been aborted (for example, due to a checkpoint abort).
+     *
+     * <p>This flag is set in {@link #abort(List)} and checked in {@link #close()} to prevent
+     * running the final merge after an abort. It is {@code volatile} to guarantee visibility if
+     * abort and close are invoked from different threads during shutdown.
+     */
     private volatile boolean aborted;
     // Store catalog table to access schema information
     private CatalogTable catalogTable;
@@ -131,17 +138,20 @@ public class DatabendSinkAggregatedCommitter
             List<DatabendSinkAggregatedCommitInfo> aggregatedCommitInfos) throws IOException {
         // Perform final merge operation in CDC mode only when necessary
         if (isCdcMode) {
-            performMerge(aggregatedCommitInfos);
+            if (log.isDebugEnabled()) {
+                log.debug(
+                        "[Instance {}] Committing aggregatedCommitInfos size: {}",
+                        instanceId,
+                        aggregatedCommitInfos == null ? 0 : aggregatedCommitInfos.size());
+            }
+            performMerge();
         }
 
         // Return empty list as there's no need to retry
         return new ArrayList<>();
     }
 
-    private void performMerge(List<DatabendSinkAggregatedCommitInfo> aggregatedCommitInfos) {
-        if (aggregatedCommitInfos == null) {
-            aggregatedCommitInfos = new ArrayList<>();
-        }
+    private void performMerge() {
         // Merge all the data from raw table to target table
         String mergeSql = generateMergeSql();
         log.info("[Instance {}] Executing MERGE INTO statement: {}", instanceId, mergeSql);
@@ -240,12 +250,12 @@ public class DatabendSinkAggregatedCommitter
 
     @Override
     public void close() throws IOException {
-        SQLException closeException = null;
+        Exception closeException = null;
         try {
             if (!aborted && isCdcMode && connection != null && !connection.isClosed()) {
                 try {
                     log.info("[Instance {}] Performing final merge before closing", instanceId);
-                    performMerge(new ArrayList<>());
+                    performMerge();
                 } catch (Exception mergeEx) {
                     log.error(
                             "[Instance {}] Final merge failed, will still close connection: {}",
@@ -254,7 +264,7 @@ public class DatabendSinkAggregatedCommitter
                             mergeEx);
                 }
             }
-        } catch (SQLException e) {
+        } catch (Exception e) {
             closeException = e;
         } finally {
             if (connection != null) {

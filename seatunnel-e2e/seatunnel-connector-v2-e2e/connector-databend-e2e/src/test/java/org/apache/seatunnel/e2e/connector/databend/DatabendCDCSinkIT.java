@@ -19,7 +19,10 @@ package org.apache.seatunnel.e2e.connector.databend;
 
 import org.apache.seatunnel.e2e.common.TestResource;
 import org.apache.seatunnel.e2e.common.TestSuiteBase;
+import org.apache.seatunnel.e2e.common.container.EngineType;
 import org.apache.seatunnel.e2e.common.container.TestContainer;
+import org.apache.seatunnel.e2e.common.junit.DisabledOnContainer;
+import org.apache.seatunnel.e2e.common.util.JobIdGenerator;
 
 import org.awaitility.Awaitility;
 import org.junit.jupiter.api.AfterAll;
@@ -53,7 +56,9 @@ import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.List;
 import java.util.Properties;
+import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.TimeUnit;
+import java.util.stream.Collectors;
 import java.util.stream.Stream;
 
 public class DatabendCDCSinkIT extends TestSuiteBase implements TestResource {
@@ -164,9 +169,132 @@ public class DatabendCDCSinkIT extends TestSuiteBase implements TestResource {
         clearSinkTable();
     }
 
+    @TestTemplate
+    @DisabledOnContainer(
+            value = {},
+            type = {EngineType.SPARK, EngineType.FLINK},
+            disabledReason =
+                    "This case requires triggering checkpoint abort and canceling the job, which is currently only supported by the zeta engine.")
+    public void testDatabendSinkCDCAbort(TestContainer container) throws Exception {
+        clearSinkTable();
+        String jobId = String.valueOf(JobIdGenerator.newJobId());
+
+        List<String> rawTablesBefore = listDatabendTablesLike("sink_table_raw_%");
+
+        CompletableFuture<Container.ExecResult> jobFuture =
+                CompletableFuture.supplyAsync(
+                        () -> {
+                            try {
+                                return container.executeJob(
+                                        "/databend/fake_to_databend_cdc_abort.conf", jobId);
+                            } catch (Exception e) {
+                                throw new RuntimeException(e);
+                            }
+                        });
+
+        Awaitility.await()
+                .atMost(2, TimeUnit.MINUTES)
+                .pollInterval(1, TimeUnit.SECONDS)
+                .ignoreExceptions()
+                .untilAsserted(
+                        () -> {
+                            String jobStatus = container.getJobStatus(jobId);
+                            Assertions.assertEquals("RUNNING", jobStatus);
+                        });
+
+        Awaitility.await()
+                .atMost(2, TimeUnit.MINUTES)
+                .pollInterval(1, TimeUnit.SECONDS)
+                .ignoreExceptions()
+                .until(
+                        () ->
+                                listDatabendTablesLike("sink_table_raw_%").size()
+                                        > rawTablesBefore.size());
+
+        List<String> rawTablesAfter = listDatabendTablesLike("sink_table_raw_%");
+        List<String> newRawTables =
+                rawTablesAfter.stream()
+                        .filter(t -> !rawTablesBefore.contains(t))
+                        .collect(Collectors.toList());
+        Assertions.assertFalse(
+                newRawTables.isEmpty(), "Expected a new CDC raw table to be created");
+        String rawTableName = newRawTables.get(0);
+
+        Awaitility.await()
+                .atMost(2, TimeUnit.MINUTES)
+                .pollInterval(1, TimeUnit.SECONDS)
+                .ignoreExceptions()
+                .until(() -> getTableRowCount(DATABASE, rawTableName) > 0);
+
+        Container.ExecResult cancelJobResult = container.cancelJob(jobId);
+        Assertions.assertEquals(0, cancelJobResult.getExitCode(), cancelJobResult.getStderr());
+
+        try {
+            Container.ExecResult execResult = jobFuture.get(3, TimeUnit.MINUTES);
+            LOG.info(
+                    "Abort test job exited. exitCode={}, stdout={}, stderr={}",
+                    execResult.getExitCode(),
+                    execResult.getStdout(),
+                    execResult.getStderr());
+        } catch (Exception e) {
+            LOG.warn("Abort test job future completed exceptionally", e);
+        }
+
+        try (Statement stmt = connection.createStatement();
+                ResultSet rs = stmt.executeQuery("SELECT COUNT(*) as count FROM sink_table")) {
+            Assertions.assertTrue(rs.next());
+            int count = rs.getInt("count");
+            Assertions.assertEquals(
+                    0,
+                    count,
+                    "Expected sink_table to remain empty when checkpoint abort triggers abort() and close() skips final merge");
+        }
+
+        clearSinkTable();
+    }
+
     private void clearSinkTable() throws SQLException {
         try (Statement statement = connection.createStatement()) {
             statement.execute("TRUNCATE TABLE sink_table");
+        }
+    }
+
+    private long getTableRowCount(String database, String tableName) throws SQLException {
+        try (Statement statement = connection.createStatement();
+                ResultSet rs =
+                        statement.executeQuery(
+                                String.format(
+                                        "SELECT COUNT(*) as count FROM %s.%s",
+                                        database, tableName))) {
+            if (rs.next()) {
+                return rs.getLong("count");
+            }
+        }
+        return 0;
+    }
+
+    private List<String> listDatabendTablesLike(String likePattern) throws SQLException {
+        String showTablesSql = String.format("SHOW TABLES LIKE '%s'", likePattern);
+        try (Statement statement = connection.createStatement();
+                ResultSet rs = statement.executeQuery(showTablesSql)) {
+            List<String> tables = new ArrayList<>();
+            while (rs.next()) {
+                tables.add(rs.getString(1));
+            }
+            return tables;
+        } catch (SQLException e) {
+            String systemTablesSql =
+                    String.format(
+                            "SELECT name FROM system.tables WHERE database = '%s' AND name LIKE '%s'",
+                            DATABASE, likePattern);
+            try (Statement statement = connection.createStatement();
+                    ResultSet rs = statement.executeQuery(systemTablesSql)) {
+                List<String> tables = new ArrayList<>();
+                while (rs.next()) {
+                    tables.add(rs.getString(1));
+                }
+                return tables;
+            }
         }
     }
 
