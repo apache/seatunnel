@@ -442,7 +442,6 @@ public class ZetaSQLType {
                                         function.getName()));
                     }
 
-                    String finalFormatForLogging = format;
                     ZetaDateTimeFormat dateTimeFormat =
                             ZetaDateTimeFormat.fromPattern(format)
                                     .orElseThrow(
@@ -451,9 +450,8 @@ public class ZetaSQLType {
                                                             CommonErrorCodeDeprecated
                                                                     .UNSUPPORTED_OPERATION,
                                                             String.format(
-                                                                    "Unknown pattern letter %s for function: %s",
-                                                                    finalFormatForLogging,
-                                                                    function.getName())));
+                                                                    "Unsupported datetime format: '%s'.",
+                                                                    format)));
 
                     switch (dateTimeFormat.getType()) {
                         case DATETIME:
