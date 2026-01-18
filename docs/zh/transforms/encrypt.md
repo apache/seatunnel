@@ -13,7 +13,7 @@ Encrypt Transform 插件用于使用对称加密算法，对记录中指定的�
 | `fields`    | List<String> | 是    | -         | 需要加密或解密的字段列表               |
 | `algorithm` | Enum         | 否    | `AES_CBC` | 加密算法                       |
 | `key`       | String       | 是    | -         | Base64 编码的加密密钥             |
-| `mode`      | Enum         | 否    | `ENCRYPT` | 操作模式：`ENCRYPT` 或 `DECRYPT` |
+| `mode`      | String       | 否    | `ENCRYPT` | 操作模式：`ENCRYPT` 或 `DECRYPT` |
 
 ### algorithm [enum]
 
