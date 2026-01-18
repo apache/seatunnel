@@ -430,10 +430,17 @@ public class ZetaSQLType {
             case ZetaSQLFunction.PARSEDATETIME:
             case ZetaSQLFunction.TO_DATE:
                 {
-                    String format = function.getParameters().getExpressions().get(1).toString();
-
-                    format = format.replaceAll("^'|'$", "");
-                    format = format.replace("''", "'");
+                    Expression formatExpr = function.getParameters().getExpressions().get(1);
+                    String format;
+                    if (formatExpr instanceof StringValue) {
+                        format = ((StringValue) formatExpr).getNotExcapedValue();
+                    } else {
+                        throw new TransformException(
+                                CommonErrorCodeDeprecated.UNSUPPORTED_OPERATION,
+                                String.format(
+                                        "Format parameter must be a string literal for function: %s",
+                                        function.getName()));
+                    }
 
                     String finalFormatForLogging = format;
                     ZetaDateTimeFormat dateTimeFormat =
