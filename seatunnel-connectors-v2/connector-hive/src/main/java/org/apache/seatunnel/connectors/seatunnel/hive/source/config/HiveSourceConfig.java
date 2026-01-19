@@ -49,6 +49,7 @@ import org.apache.seatunnel.connectors.seatunnel.hive.utils.HiveTableUtils;
 import org.apache.seatunnel.connectors.seatunnel.hive.utils.HiveTypeConvertor;
 
 import org.apache.commons.collections4.CollectionUtils;
+import org.apache.hadoop.fs.PathNotFoundException;
 import org.apache.hadoop.hive.metastore.api.FieldSchema;
 import org.apache.hadoop.hive.metastore.api.Table;
 
@@ -60,6 +61,7 @@ import java.io.IOException;
 import java.io.Serializable;
 import java.net.URI;
 import java.net.URISyntaxException;
+import java.nio.file.NoSuchFileException;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.Collections;
@@ -245,12 +247,9 @@ public class HiveSourceConfig implements Serializable {
     private static boolean isFileNotFound(Throwable throwable) {
         Throwable current = throwable;
         while (current != null) {
-            if (current instanceof FileNotFoundException) {
-                return true;
-            }
-            String exceptionClass = current.getClass().getName();
-            if ("org.apache.hadoop.fs.FileNotFoundException".equals(exceptionClass)
-                    || "org.apache.hadoop.fs.PathNotFoundException".equals(exceptionClass)) {
+            if (current instanceof FileNotFoundException
+                    || current instanceof NoSuchFileException
+                    || current instanceof PathNotFoundException) {
                 return true;
             }
             current = current.getCause();
