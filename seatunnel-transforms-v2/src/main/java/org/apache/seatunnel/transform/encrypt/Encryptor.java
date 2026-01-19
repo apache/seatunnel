@@ -17,9 +17,7 @@
 
 package org.apache.seatunnel.transform.encrypt;
 
-import java.io.Serializable;
-
-public interface Encryptor extends Serializable {
+public interface Encryptor {
     String encrypt(String plainText);
 
     String decrypt(String cipherText);

@@ -42,9 +42,10 @@ public class FieldEncryptTransform extends AbstractCatalogSupportMapTransform {
 
     private final List<String> fields = new ArrayList<>();
     private final String key;
-    private final Encryptor encryptor;
+    private final EncryptAlgorithm encryptAlgorithm;
     private final String mode;
 
+    private transient volatile Encryptor encryptor;
     private int[] encryptFieldIndexes;
 
     public FieldEncryptTransform(
@@ -53,24 +54,25 @@ public class FieldEncryptTransform extends AbstractCatalogSupportMapTransform {
 
         this.fields.addAll(config.get(FieldEncryptTransformConfig.FIELDS));
         this.key = config.get(FieldEncryptTransformConfig.KEY);
+        this.encryptAlgorithm = config.get(FieldEncryptTransformConfig.ALGORITHM);
         this.mode = config.get(FieldEncryptTransformConfig.MODE);
-
-        EncryptAlgorithm encryptAlgorithm = config.get(FieldEncryptTransformConfig.ALGORITHM);
-        switch (encryptAlgorithm) {
-                // TODO: support more algorithms
-            case AES_CBC:
-                this.encryptor = new AesCbcEncryptor(key);
-                break;
-            default:
-                throw CommonError.unsupportedOperation(
-                        PLUGIN_NAME, "Unsupported encrypt algorithm");
-        }
 
         initializeFieldIndexes();
     }
 
     @Override
     protected SeaTunnelRow transformRow(SeaTunnelRow inputRow) {
+        if (encryptor == null) {
+            switch (encryptAlgorithm) {
+                    // TODO: support more algorithms
+                case AES_CBC:
+                    this.encryptor = new AesCbcEncryptor(key);
+                    break;
+                default:
+                    throw CommonError.unsupportedOperation(
+                            PLUGIN_NAME, "Unsupported encrypt algorithm");
+            }
+        }
         if (ENCRYPT.equalsIgnoreCase(mode)) {
             for (int index : encryptFieldIndexes) {
                 Object field = inputRow.getField(index);
