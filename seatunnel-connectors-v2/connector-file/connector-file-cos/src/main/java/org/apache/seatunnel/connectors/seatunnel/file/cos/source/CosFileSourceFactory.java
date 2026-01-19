@@ -91,6 +91,8 @@ public class CosFileSourceFactory implements TableSourceFactory {
                 .optional(FileBaseSourceOptions.NULL_FORMAT)
                 .optional(FileBaseSourceOptions.FILENAME_EXTENSION)
                 .optional(FileBaseSourceOptions.READ_COLUMNS)
+                .optional(FileBaseSourceOptions.QUOTE_CHAR)
+                .optional(FileBaseSourceOptions.ESCAPE_CHAR)
                 .build();
     }
 
