@@ -181,7 +181,8 @@ public class PhysicalPlan {
                             // start next pipeline
                             int currentRunning = runningPipelineCount.decrementAndGet();
                             int completed =
-                                    finishedPipelineNum.incrementAndGet(); // Will be incremented below
+                                    finishedPipelineNum
+                                            .incrementAndGet(); // Will be incremented below
                             int total = pipelineList.size();
                             int queued = total - completed - currentRunning;
 
