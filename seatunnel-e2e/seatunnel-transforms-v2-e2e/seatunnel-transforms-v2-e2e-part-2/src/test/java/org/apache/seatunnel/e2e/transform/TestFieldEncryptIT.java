@@ -17,10 +17,8 @@
 
 package org.apache.seatunnel.e2e.transform;
 
-import org.apache.seatunnel.e2e.common.container.EngineType;
 import org.apache.seatunnel.e2e.common.container.TestContainer;
 
-import org.apache.seatunnel.e2e.common.junit.DisabledOnContainer;
 import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.TestTemplate;
 import org.testcontainers.containers.Container;
@@ -30,11 +28,6 @@ import java.io.IOException;
 public class TestFieldEncryptIT extends TestSuiteBase {
 
     @TestTemplate
-    @DisabledOnContainer(
-            value = {},
-            type = {EngineType.SEATUNNEL, EngineType.FLINK},
-            disabledReason =
-                    "Heartbeat action query is currently only supported by the zeta engine.")
     public void testEncryption(TestContainer container) throws IOException, InterruptedException {
         Container.ExecResult execResult = container.executeJob("/field_encrypt_transform.conf");
         Assertions.assertEquals(0, execResult.getExitCode());
