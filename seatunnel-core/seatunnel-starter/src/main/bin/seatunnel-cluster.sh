@@ -172,6 +172,20 @@ if [[ -n "$HEAP_DUMP_PATH" ]]; then
   fi
 fi
 
+# Ensure Xloggc directory exists to avoid GC logging failures.
+GC_LOG_PATH=""
+for opt in $JAVA_OPTS; do
+  if [[ "$opt" == -Xloggc:* ]]; then
+    GC_LOG_PATH="${opt#-Xloggc:}"
+  fi
+done
+if [[ -n "$GC_LOG_PATH" ]]; then
+  GC_LOG_DIR="$(dirname "$GC_LOG_PATH")"
+  if [[ -n "$GC_LOG_DIR" && ! -d "$GC_LOG_DIR" ]]; then
+    mkdir -p "$GC_LOG_DIR"
+  fi
+fi
+
 CLASS_PATH=${APP_DIR}/lib/*:${APP_JAR}
 
 echo "start ${NODE_ROLE} node"

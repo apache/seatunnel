@@ -90,6 +90,7 @@
         <module>connector-aerospike</module>
         <module>connector-sensorsdata</module>
         <module>connector-fluss</module>
+        <module>connector-lance</module>
     </modules>
 
     <dependencyManagement>

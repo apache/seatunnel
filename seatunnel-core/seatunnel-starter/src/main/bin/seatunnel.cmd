@@ -136,4 +136,17 @@ if defined HEAP_DUMP_PATH (
     if defined HEAP_DUMP_DIR if not exist "!HEAP_DUMP_DIR!" mkdir "!HEAP_DUMP_DIR!"
 )
 
+REM Ensure Xloggc directory exists to avoid GC logging failures.
+set "GC_LOG_PATH="
+for %%I in (!JAVA_OPTS!) do (
+    set "opt=%%I"
+    if "!opt:~0,8!"=="-Xloggc:" (
+        set "GC_LOG_PATH=!opt:~8!"
+    )
+)
+if defined GC_LOG_PATH (
+    for %%D in ("!GC_LOG_PATH!") do set "GC_LOG_DIR=%%~dpD"
+    if defined GC_LOG_DIR if not exist "!GC_LOG_DIR!" mkdir "!GC_LOG_DIR!"
+)
+
 java !JAVA_OPTS! -cp %CLASS_PATH% %APP_MAIN% %args%
