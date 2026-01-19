@@ -17,6 +17,8 @@
 
 package org.apache.seatunnel.connectors.seatunnel.file.source.reader;
 
+import org.apache.seatunnel.shade.org.apache.commons.lang3.StringUtils;
+
 import org.apache.seatunnel.api.common.SeaTunnelAPIErrorCode;
 import org.apache.seatunnel.api.configuration.ReadonlyConfig;
 import org.apache.seatunnel.api.source.Collector;
@@ -33,6 +35,7 @@ import org.apache.seatunnel.connectors.seatunnel.file.config.FileBaseSourceOptio
 import org.apache.seatunnel.connectors.seatunnel.file.config.FileFormat;
 import org.apache.seatunnel.connectors.seatunnel.file.exception.FileConnectorErrorCode;
 import org.apache.seatunnel.connectors.seatunnel.file.exception.FileConnectorException;
+import org.apache.seatunnel.connectors.seatunnel.file.source.split.FileSourceSplit;
 import org.apache.seatunnel.format.csv.CsvDeserializationSchema;
 import org.apache.seatunnel.format.csv.processor.CsvLineProcessor;
 import org.apache.seatunnel.format.csv.processor.DefaultCsvLineProcessor;
@@ -75,13 +78,20 @@ public class CsvReadStrategy extends AbstractReadStrategy {
     public void read(String path, String tableId, Collector<SeaTunnelRow> output)
             throws FileConnectorException, IOException {
         Map<String, String> partitionsMap = parsePartitionsByPath(path);
-        resolveArchiveCompressedInputStream(path, tableId, output, partitionsMap, FileFormat.CSV);
+        resolveArchiveCompressedInputStream(
+                new FileSourceSplit(tableId, path), output, partitionsMap, FileFormat.CSV);
+    }
+
+    @Override
+    public void read(FileSourceSplit split, Collector<SeaTunnelRow> output)
+            throws IOException, FileConnectorException {
+        Map<String, String> partitionsMap = parsePartitionsByPath(split.getFilePath());
+        resolveArchiveCompressedInputStream(split, output, partitionsMap, FileFormat.CSV);
     }
 
     @Override
     public void readProcess(
-            String path,
-            String tableId,
+            FileSourceSplit split,
             Collector<SeaTunnelRow> output,
             InputStream inputStream,
             Map<String, String> partitionsMap,
@@ -103,11 +113,16 @@ public class CsvReadStrategy extends AbstractReadStrategy {
                 actualInputStream = inputStream;
                 break;
         }
-        Builder builder =
-                CSVFormat.EXCEL.builder().setIgnoreEmptyLines(true).setDelimiter(getDelimiter());
-        CSVFormat csvFormat = builder.build();
-        if (firstLineAsHeader) {
-            csvFormat = csvFormat.withFirstRecordAsHeader();
+        // rebuild inputStream
+        if (enableSplitFile && split.getLength() > -1) {
+            actualInputStream = safeSlice(inputStream, split.getStart(), split.getLength());
+        }
+        CSVFormat csvFormat = getCSVFormat();
+        // if enableSplitFile is true,no need to skip
+        if (!enableSplitFile) {
+            if (firstLineAsHeader) {
+                csvFormat = csvFormat.withFirstRecordAsHeader();
+            }
         }
         try (BufferedReader reader =
                         new BufferedReader(new InputStreamReader(actualInputStream, encoding));
@@ -119,12 +134,15 @@ public class CsvReadStrategy extends AbstractReadStrategy {
                 reader.reset();
             }
             // skip lines
-            for (int i = 0; i < skipHeaderNumber; i++) {
-                if (reader.readLine() == null) {
-                    throw new IOException(
-                            String.format(
-                                    "File [%s] has fewer lines than expected to skip.",
-                                    currentFileName));
+            // if enableSplitFile is true,no need to skip
+            if (!enableSplitFile) {
+                for (int i = 0; i < skipHeaderNumber; i++) {
+                    if (reader.readLine() == null) {
+                        throw new IOException(
+                                String.format(
+                                        "File [%s] has fewer lines than expected to skip.",
+                                        currentFileName));
+                    }
                 }
             }
             // read lines
@@ -161,7 +179,7 @@ public class CsvReadStrategy extends AbstractReadStrategy {
                         seaTunnelRow.setField(index++, value);
                     }
                 }
-                seaTunnelRow.setTableId(tableId);
+                seaTunnelRow.setTableId(split.getTableId());
                 output.collect(seaTunnelRow);
             }
         } catch (IOException e) {
@@ -172,6 +190,20 @@ public class CsvReadStrategy extends AbstractReadStrategy {
             throw new FileConnectorException(
                     FileConnectorErrorCode.DATA_DESERIALIZE_FAILED, errorMsg, e);
         }
+    }
+
+    private CSVFormat getCSVFormat() {
+        String quoteChar = readonlyConfig.get(FileBaseSourceOptions.QUOTE_CHAR);
+        String escapeChar = readonlyConfig.get(FileBaseSourceOptions.ESCAPE_CHAR);
+        Builder builder =
+                CSVFormat.EXCEL.builder().setIgnoreEmptyLines(true).setDelimiter(getDelimiter());
+        if (StringUtils.isNotEmpty(quoteChar)) {
+            builder.setQuote(quoteChar.charAt(0));
+        }
+        if (StringUtils.isNotEmpty(escapeChar)) {
+            builder.setEscape(escapeChar.charAt(0));
+        }
+        return builder.build();
     }
 
     private List<String> getHeaders(CSVParser csvParser) {
@@ -199,7 +231,6 @@ public class CsvReadStrategy extends AbstractReadStrategy {
                     "When reading csv files, if user has not specified schema information, "
                             + "SeaTunnel will not support column projection");
         }
-        ReadonlyConfig readonlyConfig = ReadonlyConfig.fromConfig(pluginConfig);
         CsvDeserializationSchema.Builder builder =
                 CsvDeserializationSchema.builder()
                         .delimiter(getDelimiter())
@@ -218,7 +249,6 @@ public class CsvReadStrategy extends AbstractReadStrategy {
     }
 
     private String getDelimiter() {
-        ReadonlyConfig readonlyConfig = ReadonlyConfig.fromConfig(pluginConfig);
         return readonlyConfig.getOptional(FileBaseSourceOptions.FIELD_DELIMITER).orElse(",");
     }
 

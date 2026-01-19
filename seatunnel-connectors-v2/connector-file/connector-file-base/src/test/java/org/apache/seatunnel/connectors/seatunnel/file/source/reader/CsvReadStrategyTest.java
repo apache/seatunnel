@@ -25,6 +25,7 @@ import org.apache.seatunnel.api.table.type.BasicType;
 import org.apache.seatunnel.api.table.type.SeaTunnelDataType;
 import org.apache.seatunnel.api.table.type.SeaTunnelRow;
 import org.apache.seatunnel.api.table.type.SeaTunnelRowType;
+import org.apache.seatunnel.connectors.seatunnel.file.config.FileBaseSourceOptions;
 import org.apache.seatunnel.connectors.seatunnel.file.config.HadoopConf;
 
 import org.junit.jupiter.api.Assertions;
@@ -35,7 +36,9 @@ import lombok.extern.slf4j.Slf4j;
 import java.net.URL;
 import java.nio.file.Paths;
 import java.util.ArrayList;
+import java.util.HashMap;
 import java.util.List;
+import java.util.Map;
 
 import static org.apache.hadoop.fs.CommonConfigurationKeysPublic.FS_DEFAULT_NAME_DEFAULT;
 
@@ -100,6 +103,53 @@ public class CsvReadStrategyTest {
         Assertions.assertEquals(2, testCollector.getRows().get(1).getField(0));
         Assertions.assertEquals("b", testCollector.getRows().get(1).getField(1));
         Assertions.assertEquals(100, testCollector.getRows().get(1).getField(2));
+    }
+
+    @Test
+    public void testSpecialQuoteCharForCsvRead() throws Exception {
+        URL resource =
+                CsvReadStrategyTest.class.getResource("/csv/special_quote_char_break_line.csv");
+        String path = Paths.get(resource.toURI()).toString();
+        CsvReadStrategy csvReadStrategy = new CsvReadStrategy();
+        LocalConf localConf = new LocalConf(FS_DEFAULT_NAME_DEFAULT);
+        csvReadStrategy.init(localConf);
+        csvReadStrategy.getFileNamesByPath(path);
+        csvReadStrategy.setPluginConfig(ConfigFactory.parseMap(getOptionsForSpecialQuoteChar()));
+        csvReadStrategy.setCatalogTable(
+                CatalogTableUtil.getCatalogTable(
+                        "test",
+                        new SeaTunnelRowType(
+                                new String[] {"id", "name", "age"},
+                                new SeaTunnelDataType[] {
+                                    BasicType.INT_TYPE, BasicType.STRING_TYPE, BasicType.INT_TYPE
+                                })));
+        TestCollector testCollector = new TestCollector();
+        csvReadStrategy.read(path, "", testCollector);
+        final List<SeaTunnelRow> rows = testCollector.getRows();
+        Assertions.assertEquals(4, rows.size());
+        if (isWindows()) {
+            Assertions.assertEquals("harry\r\n potter", rows.get(0).getField(1));
+        } else {
+            Assertions.assertEquals("harry\n potter", rows.get(0).getField(1));
+        }
+        Assertions.assertEquals("tom", rows.get(1).getField(1));
+        Assertions.assertEquals("Rose`Wang", rows.get(2).getField(1));
+        if (isWindows()) {
+            Assertions.assertEquals("Jock\r\nLi`Li", rows.get(3).getField(1));
+        } else {
+            Assertions.assertEquals("Jock\nLi`Li", rows.get(3).getField(1));
+        }
+    }
+
+    private boolean isWindows() {
+        return System.getProperty("os.name").toLowerCase().contains("win");
+    }
+
+    private Map<String, Object> getOptionsForSpecialQuoteChar() {
+        Map<String, Object> map = new HashMap<>();
+        map.put(FileBaseSourceOptions.QUOTE_CHAR.key(), "`");
+        map.put(FileBaseSourceOptions.ESCAPE_CHAR.key(), "\"");
+        return map;
     }
 
     public static class TestCollector implements Collector<SeaTunnelRow> {

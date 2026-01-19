@@ -47,6 +47,7 @@ import java.sql.Timestamp;
 import java.time.LocalDate;
 import java.time.LocalDateTime;
 import java.time.LocalTime;
+import java.time.OffsetDateTime;
 import java.time.format.DateTimeFormatter;
 import java.time.temporal.TemporalQueries;
 import java.util.HashMap;
@@ -76,6 +77,7 @@ public class JsonRowDataSerDeSchemaTest {
         String name = "asdlkjasjkdla998y1122";
         LocalDate date = LocalDate.parse("1990-10-14");
         LocalTime time = LocalTime.parse("12:12:43");
+        OffsetDateTime offsetDateTime = OffsetDateTime.parse("2025-09-12T23:46:25+08:00");
         Timestamp timestamp3 = Timestamp.valueOf("1990-10-14 12:12:43.123");
         Timestamp timestamp9 = Timestamp.valueOf("1990-10-14 12:12:43.123456789");
         Map<String, Long> map = new HashMap<>();
@@ -100,6 +102,7 @@ public class JsonRowDataSerDeSchemaTest {
         root.put("name", name);
         root.put("date", "1990-10-14");
         root.put("time", "12:12:43");
+        root.put("timestamp_tz", "2025-09-12T23:46:25+08:00");
         root.put("timestamp3", "1990-10-14T12:12:43.123");
         root.put("timestamp9", "1990-10-14T12:12:43.123456789");
         root.putObject("map").put("element", 123);
@@ -121,6 +124,7 @@ public class JsonRowDataSerDeSchemaTest {
                             "name",
                             "date",
                             "time",
+                            "timestamp_tz",
                             "timestamp3",
                             "timestamp9",
                             "map",
@@ -136,6 +140,7 @@ public class JsonRowDataSerDeSchemaTest {
                             STRING_TYPE,
                             LocalTimeType.LOCAL_DATE_TYPE,
                             LocalTimeType.LOCAL_TIME_TYPE,
+                            LocalTimeType.OFFSET_DATE_TIME_TYPE,
                             LocalTimeType.LOCAL_DATE_TIME_TYPE,
                             LocalTimeType.LOCAL_DATE_TIME_TYPE,
                             new MapType(STRING_TYPE, LONG_TYPE),
@@ -150,6 +155,7 @@ public class JsonRowDataSerDeSchemaTest {
                                         "name",
                                         "date",
                                         "time",
+                                        "timestamp_tz",
                                         "timestamp3",
                                         "timestamp9",
                                         "map",
@@ -164,6 +170,7 @@ public class JsonRowDataSerDeSchemaTest {
                                         STRING_TYPE,
                                         LocalTimeType.LOCAL_DATE_TIME_TYPE,
                                         LocalTimeType.LOCAL_TIME_TYPE,
+                                        LocalTimeType.OFFSET_DATE_TIME_TYPE,
                                         LocalTimeType.LOCAL_DATE_TIME_TYPE,
                                         LocalTimeType.LOCAL_DATE_TIME_TYPE,
                                         new MapType(STRING_TYPE, LONG_TYPE),
@@ -175,7 +182,7 @@ public class JsonRowDataSerDeSchemaTest {
         JsonDeserializationSchema deserializationSchema =
                 new JsonDeserializationSchema(catalogTables, false, false);
 
-        SeaTunnelRow expected = new SeaTunnelRow(13);
+        SeaTunnelRow expected = new SeaTunnelRow(14);
         expected.setField(0, true);
         expected.setField(1, intValue);
         expected.setField(2, longValue);
@@ -183,13 +190,14 @@ public class JsonRowDataSerDeSchemaTest {
         expected.setField(4, name);
         expected.setField(5, date);
         expected.setField(6, time);
-        expected.setField(7, timestamp3.toLocalDateTime());
-        expected.setField(8, timestamp9.toLocalDateTime());
-        expected.setField(9, map);
-        expected.setField(10, multiSet);
-        expected.setField(11, nestedMap);
+        expected.setField(7, offsetDateTime);
+        expected.setField(8, timestamp3.toLocalDateTime());
+        expected.setField(9, timestamp9.toLocalDateTime());
+        expected.setField(10, map);
+        expected.setField(11, multiSet);
+        expected.setField(12, nestedMap);
 
-        SeaTunnelRow rowFieldRow = new SeaTunnelRow(12);
+        SeaTunnelRow rowFieldRow = new SeaTunnelRow(13);
         rowFieldRow.setField(0, true);
         rowFieldRow.setField(1, intValue);
         rowFieldRow.setField(2, longValue);
@@ -197,13 +205,14 @@ public class JsonRowDataSerDeSchemaTest {
         rowFieldRow.setField(4, name);
         rowFieldRow.setField(5, timestamp3.toLocalDateTime());
         rowFieldRow.setField(6, time);
-        rowFieldRow.setField(7, timestamp3.toLocalDateTime());
-        rowFieldRow.setField(8, timestamp9.toLocalDateTime());
-        rowFieldRow.setField(9, map);
-        rowFieldRow.setField(10, multiSet);
-        rowFieldRow.setField(11, nestedMap);
+        rowFieldRow.setField(7, offsetDateTime);
+        rowFieldRow.setField(8, timestamp3.toLocalDateTime());
+        rowFieldRow.setField(9, timestamp9.toLocalDateTime());
+        rowFieldRow.setField(10, map);
+        rowFieldRow.setField(11, multiSet);
+        rowFieldRow.setField(12, nestedMap);
 
-        expected.setField(12, rowFieldRow);
+        expected.setField(13, rowFieldRow);
 
         SeaTunnelRow seaTunnelRow = deserializationSchema.deserialize(serializedJson);
         assertEquals(expected, seaTunnelRow);
@@ -677,6 +686,16 @@ public class JsonRowDataSerDeSchemaTest {
         row = new SeaTunnelRow(new Object[] {timestamp});
         assertEquals(
                 "{\"timestamp\":\"2022-09-24T22:45:00.000123456\"}",
+                new String(new JsonSerializationSchema(schema, "\\N").serialize(row)));
+
+        schema =
+                new SeaTunnelRowType(
+                        new String[] {"timestamp_tz"},
+                        new SeaTunnelDataType[] {LocalTimeType.OFFSET_DATE_TIME_TYPE});
+        OffsetDateTime offsetDateTime = OffsetDateTime.parse("2025-09-12T23:46:25+08:00");
+        row = new SeaTunnelRow(new Object[] {offsetDateTime});
+        assertEquals(
+                "{\"timestamp_tz\":\"2025-09-12T23:46:25+08:00\"}",
                 new String(new JsonSerializationSchema(schema, "\\N").serialize(row)));
     }
 
