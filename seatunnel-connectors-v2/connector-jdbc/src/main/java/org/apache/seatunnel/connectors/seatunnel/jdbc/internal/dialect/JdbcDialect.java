@@ -238,7 +238,7 @@ public interface JdbcDialect extends Serializable {
      * @return the dialects {@code UPSERT} statement or {@link Optional#empty()}.
      */
     Optional<String> getUpsertStatement(
-            String database, String tableName, String[] fieldNames, String[] uniqueKeyFields);
+            String database, String tableName, String[] fieldNames, String[] pkNames);
 
     /**
      * Constructs the dialects upsert statement if supported; such as MySQL's {@code DUPLICATE KEY
@@ -254,9 +254,8 @@ public interface JdbcDialect extends Serializable {
      * @return the dialects {@code UPSERT} statement or {@link Optional#empty()}.
      */
     default Optional<String> getUpsertStatementByTableSchema(
-            String database, String tableName, TableSchema tableSchema, String[] uniqueKeyFields) {
-        return getUpsertStatement(
-                database, tableName, tableSchema.getFieldNames(), uniqueKeyFields);
+            String database, String tableName, TableSchema tableSchema, String[] pkNames) {
+        return getUpsertStatement(database, tableName, tableSchema.getFieldNames(), pkNames);
     }
 
     /**
