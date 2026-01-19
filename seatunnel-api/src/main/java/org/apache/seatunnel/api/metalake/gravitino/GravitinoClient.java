@@ -15,8 +15,9 @@
  * limitations under the License.
  */
 
-package org.apache.seatunnel.api.metalake;
+package org.apache.seatunnel.api.metalake.gravitino;
 
+import org.apache.seatunnel.api.metalake.MetalakeClient;
 import org.apache.seatunnel.shade.com.fasterxml.jackson.databind.JsonNode;
 
 import org.apache.seatunnel.common.constants.MetaLakeType;

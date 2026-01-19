@@ -65,7 +65,7 @@ public class MetalakeConfigUtils {
                 envConfig.hasPath(EnvCommonOptions.METALAKE_URL.key())
                         ? envConfig.getString(EnvCommonOptions.METALAKE_URL.key())
                         : System.getenv(EnvCommonOptions.METALAKE_URL.key().toUpperCase());
-        MetalakeClient metalakeClient = MetalakeClientFactory.create(metalakeType, metalakeUrl);
+        MetalakeClient metalakeClient = MetaLakeFactory.create(metalakeType, metalakeUrl);
         update = replaceConfigList(update, PluginType.SOURCE.getType(), metalakeClient);
         update = replaceConfigList(update, PluginType.SINK.getType(), metalakeClient);
         update = replaceConfigList(update, PluginType.TRANSFORM.getType(), metalakeClient);

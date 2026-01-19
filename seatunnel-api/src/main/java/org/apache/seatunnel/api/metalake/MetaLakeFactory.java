@@ -18,26 +18,30 @@
 package org.apache.seatunnel.api.metalake;
 
 import org.apache.seatunnel.common.constants.MetaLakeType;
+import org.apache.seatunnel.api.metalake.gravitino.GravitinoClient;
 
 import java.util.HashMap;
 import java.util.Map;
 import java.util.function.Function;
+import java.util.function.Supplier;
 
-public class MetalakeClientFactory {
-    private static final Map<String, Function<String, MetalakeClient>> REGISTRY = new HashMap<>();
+
+public class MetaLakeFactory {
+    private static final Map<String, Function<String, MetalakeClient>> CLIENT_REGISTRY = new HashMap<>();
+    private static final Map<String, Supplier<MetaLakeTypeMapper>> MAPPER_REGISTRY = new HashMap<>();
 
     static {
         register(MetaLakeType.GRAVITINO.getType(), GravitinoClient::new);
     }
 
-    private MetalakeClientFactory() {}
+    private MetaLakeFactory() {}
 
     public static void register(String type, Function<String, MetalakeClient> constructor) {
-        REGISTRY.put(type.toLowerCase(), constructor);
+        CLIENT_REGISTRY.put(type.toLowerCase(), constructor);
     }
 
     public static MetalakeClient create(String type, String metalakeUrl) {
-        Function<String, MetalakeClient> constructor = REGISTRY.get(type.toLowerCase());
+        Function<String, MetalakeClient> constructor = CLIENT_REGISTRY.get(type.toLowerCase());
         if (constructor == null) {
             throw new IllegalArgumentException("Unknown MetalakeClient type: " + type);
         }
