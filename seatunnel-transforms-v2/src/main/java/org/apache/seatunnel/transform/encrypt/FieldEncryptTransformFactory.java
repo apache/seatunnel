@@ -22,6 +22,7 @@ import org.apache.seatunnel.api.table.connector.TableTransform;
 import org.apache.seatunnel.api.table.factory.Factory;
 import org.apache.seatunnel.api.table.factory.TableTransformFactory;
 import org.apache.seatunnel.api.table.factory.TableTransformFactoryContext;
+import org.apache.seatunnel.transform.common.TransformCommonOptions;
 
 import com.google.auto.service.AutoService;
 
@@ -41,6 +42,8 @@ public class FieldEncryptTransformFactory implements TableTransformFactory {
                 .required(FieldEncryptTransformConfig.KEY)
                 .optional(FieldEncryptTransformConfig.ALGORITHM)
                 .optional(FieldEncryptTransformConfig.MODE)
+                .optional(TransformCommonOptions.MULTI_TABLES)
+                .optional(TransformCommonOptions.TABLE_MATCH_REGEX)
                 .build();
     }
 
