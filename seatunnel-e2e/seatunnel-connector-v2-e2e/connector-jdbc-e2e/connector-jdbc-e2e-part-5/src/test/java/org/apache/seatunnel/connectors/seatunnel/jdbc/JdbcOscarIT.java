@@ -30,6 +30,7 @@ import org.testcontainers.utility.DockerLoggerFactory;
 import java.math.BigDecimal;
 import java.sql.Date;
 import java.sql.Timestamp;
+import java.time.Duration;
 import java.time.LocalDate;
 import java.time.LocalDateTime;
 import java.util.ArrayList;
@@ -208,6 +209,7 @@ public class JdbcOscarIT extends AbstractJdbcIT {
                         .withNetwork(NETWORK)
                         .withNetworkAliases(OSCAR_CONTAINER_HOST)
                         .withExposedPorts(2003)
+                        .withStartupTimeout(Duration.ofSeconds(3600))
                         .withLogConsumer(
                                 new Slf4jLogConsumer(DockerLoggerFactory.getLogger(OSCAR_IMAGE)));
         container.setPortBindings(Lists.newArrayList(String.format("%s:%s", 2003, 2003)));

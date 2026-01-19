@@ -39,6 +39,7 @@ import java.sql.Date;
 import java.sql.Driver;
 import java.sql.Statement;
 import java.sql.Timestamp;
+import java.time.Duration;
 import java.time.LocalDate;
 import java.time.LocalDateTime;
 import java.util.ArrayList;
@@ -50,14 +51,15 @@ import java.util.Properties;
 @Slf4j
 public class JdbcOscarUpsetIT extends AbstractJdbcIT {
 
-    private static final String OSCAR_IMAGE = "shentongdata/" + "oscar";
-    private static final String OSCAR_CONTAINER_HOST = "e2e_oscardb_upset";
+    private static final String OSCAR_IMAGE = "shentongdata/shentongdb:251217-825.2-linux64";
+    private static final String OSCAR_CONTAINER_HOST = "e2e_shentongdb_upset";
 
     private static final String OSCAR_DATABASE = "OSRDB";
+    private static final String OSCAR_SCHEMA = "SYSDBA2";
     private static final String OSCAR_SOURCE = "E2E_TABLE_SOURCE_UPSET";
     private static final String OSCAR_SINK = "E2E_TABLE_SINK_UPSET";
-    private static final String OSCAR_USERNAME = "SYSDBA";
-    private static final String OSCAR_PASSWORD = "szoscar55";
+    private static final String OSCAR_USERNAME = "SYSDBA2";
+    private static final String OSCAR_PASSWORD = "testPassword";
     private static final int DOCKET_PORT = 2003;
     private static final int JDBC_PORT = 2003;
     private static final String OSCAR_URL = "jdbc:oscar://" + HOST + ":%s";
@@ -84,8 +86,8 @@ public class JdbcOscarUpsetIT extends AbstractJdbcIT {
                     + "    OSCAR_DOUBLE           DOUBLE,\n"
                     + "\n"
                     + "    OSCAR_CHAR             CHAR,\n"
-                    + "    OSCAR_VARCHAR          VARCHAR,\n"
-                    + "    OSCAR_VARCHAR2         VARCHAR2,\n"
+                    + "    OSCAR_VARCHAR          VARCHAR(10),\n"
+                    + "    OSCAR_VARCHAR2         VARCHAR(10),\n"
                     + "    OSCAR_TEXT             TEXT,\n"
                     + "    OSCAR_LONG             LONG,\n"
                     + "\n"
@@ -129,7 +131,7 @@ public class JdbcOscarUpsetIT extends AbstractJdbcIT {
         Pair<String[], List<SeaTunnelRow>> testDataSet = initTestData();
         String[] fieldNames = testDataSet.getKey();
 
-        String insertSql = insertTable(OSCAR_DATABASE, OSCAR_SOURCE, fieldNames);
+        String insertSql = insertTable(OSCAR_SCHEMA, OSCAR_SOURCE, fieldNames);
 
         return JdbcCase.builder()
                 .dockerImage(OSCAR_IMAGE)
@@ -144,6 +146,7 @@ public class JdbcOscarUpsetIT extends AbstractJdbcIT {
                 .userName(OSCAR_USERNAME)
                 .password(OSCAR_PASSWORD)
                 .database(OSCAR_DATABASE)
+                .schema(OSCAR_SCHEMA)
                 .sourceTable(OSCAR_SOURCE)
                 .sinkTable(OSCAR_SINK)
                 .createSql(CREATE_SQL)
@@ -162,12 +165,12 @@ public class JdbcOscarUpsetIT extends AbstractJdbcIT {
                     String.format(
                             createTemplate,
                             buildTableInfoWithSchema(
-                                    jdbcCase.getDatabase(), jdbcCase.getSourceTable()));
+                                    jdbcCase.getSchema(), jdbcCase.getSourceTable()));
             String createSink =
                     String.format(
                             CREATE_SINKTABLE_SQL,
                             buildTableInfoWithSchema(
-                                    jdbcCase.getDatabase(), jdbcCase.getSinkTable()));
+                                    jdbcCase.getSchema(), jdbcCase.getSinkTable()));
 
             statement.execute(createSource);
             statement.execute(createSink);
@@ -212,12 +215,11 @@ public class JdbcOscarUpsetIT extends AbstractJdbcIT {
             SeaTunnelRow row =
                     new SeaTunnelRow(
                             new Object[] {
-                                i % 2 == 0 ? (byte) 1 : (byte) 0,
+                                i % 2 == 0,
                                 i,
                                 i,
                                 Short.valueOf("1"),
                                 Byte.valueOf("1"),
-                                i,
                                 Long.parseLong("1"),
                                 BigDecimal.valueOf(i, 18),
                                 BigDecimal.valueOf(i, 18),
@@ -246,6 +248,7 @@ public class JdbcOscarUpsetIT extends AbstractJdbcIT {
                         .withNetwork(NETWORK)
                         .withNetworkAliases(OSCAR_CONTAINER_HOST)
                         .withExposedPorts(JDBC_PORT)
+                        .withStartupTimeout(Duration.ofSeconds(3600))
                         .withLogConsumer(
                                 new Slf4jLogConsumer(DockerLoggerFactory.getLogger(OSCAR_IMAGE)));
         container.setPortBindings(
@@ -292,8 +295,9 @@ public class JdbcOscarUpsetIT extends AbstractJdbcIT {
     protected void createDBAUser(Connection dnCon) {
         try (Statement statement = dnCon.createStatement()) {
 
-            String createUser = "CREATE USER SYSDBA2 IDENTIFIED BY testPassword;";
-            String updateUserDBA = "GRANT DBA TO SYSDBA2;";
+            String createUser =
+                    "CREATE USER SYSDBA2 WITH  DEFAULT TABLESPACE USERS PASSWORD 'testPassword';";
+            String updateUserDBA = "GRANT ROLE SYSDBA TO USER SYSDBA2;";
             statement.execute(createUser);
             statement.execute(updateUserDBA);
 
