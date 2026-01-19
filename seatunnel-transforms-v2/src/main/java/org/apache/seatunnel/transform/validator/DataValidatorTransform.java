@@ -22,6 +22,7 @@ import org.apache.seatunnel.api.table.catalog.CatalogTable;
 import org.apache.seatunnel.api.table.catalog.Column;
 import org.apache.seatunnel.api.table.catalog.PhysicalColumn;
 import org.apache.seatunnel.api.table.catalog.TableIdentifier;
+import org.apache.seatunnel.api.table.catalog.TablePath;
 import org.apache.seatunnel.api.table.catalog.TableSchema;
 import org.apache.seatunnel.api.table.type.BasicType;
 import org.apache.seatunnel.api.table.type.LocalTimeType;
@@ -59,6 +60,7 @@ public class DataValidatorTransform extends AbstractCatalogSupportMapTransform {
     private final ValidationResultHandler resultHandler;
     private final ErrorHandleWay errorHandleWay;
     private final String errorTable;
+    private final TablePath errorTablePath;
 
     public DataValidatorTransform(ReadonlyConfig readonlyConfig, CatalogTable catalogTable) {
         super(catalogTable);
@@ -67,15 +69,15 @@ public class DataValidatorTransform extends AbstractCatalogSupportMapTransform {
                 readonlyConfig
                         .getOptional(TransformCommonOptions.ROW_ERROR_HANDLE_WAY_OPTION)
                         .orElse(ErrorHandleWay.FAIL);
-        // For ROUTE_TO_TABLE mode, use row_error_handle_way.error_table, otherwise fallback to
-        // error_table
         this.errorTable =
-                readonlyConfig
-                        .getOptional(TransformCommonOptions.ERROR_TABLE_OPTION)
-                        .orElse(
-                                readonlyConfig
-                                        .getOptional(TransformCommonOptions.ERROR_TABLE_OPTION)
-                                        .orElse(null));
+                readonlyConfig.getOptional(TransformCommonOptions.ERROR_TABLE_OPTION).orElse(null);
+        this.errorTablePath =
+                errorTable == null || errorTable.isEmpty()
+                        ? null
+                        : TablePath.of(
+                                inputCatalogTable.getTablePath().getDatabaseName(),
+                                inputCatalogTable.getTablePath().getSchemaName(),
+                                errorTable);
         this.resultHandler = new ValidationResultHandler();
         this.fieldValidators = initializeFieldValidators();
     }
@@ -126,7 +128,7 @@ public class DataValidatorTransform extends AbstractCatalogSupportMapTransform {
                 return null; // Skip this row
             } else if (errorHandleWay.allowRouteToTable()) {
                 // Route invalid data to error table by setting tableId
-                if (errorTable != null && !errorTable.isEmpty()) {
+                if (errorTablePath != null) {
                     String sourceTableId = inputCatalogTable.getTableId().toString();
                     String sourceTablePath = inputCatalogTable.getTablePath().toString();
                     SeaTunnelRow errorRow =
@@ -135,10 +137,10 @@ public class DataValidatorTransform extends AbstractCatalogSupportMapTransform {
                                     inputCatalogTable.getTableSchema().toPhysicalRowDataType(),
                                     sourceTableId,
                                     sourceTablePath,
-                                    fieldResults,
-                                    errorTable);
-                    errorRow.setTableId(errorTable);
-                    log.debug("Routing invalid data to unified error table: {}", errorTable);
+                                    fieldResults);
+                    String errorTableId = errorTablePath.toString();
+                    errorRow.setTableId(errorTableId);
+                    log.debug("Routing invalid data to unified error table: {}", errorTableId);
                     return errorRow;
                 } else {
                     log.warn("Error table not configured, skipping invalid row");
@@ -154,12 +156,10 @@ public class DataValidatorTransform extends AbstractCatalogSupportMapTransform {
         List<CatalogTable> outputTables = new ArrayList<>();
 
         outputTables.add(getProducedCatalogTable());
-        if (errorHandleWay.allowRouteToTable() && errorTable != null && !errorTable.isEmpty()) {
+        if (errorHandleWay.allowRouteToTable() && errorTablePath != null) {
             TableIdentifier errorTableId =
                     TableIdentifier.of(
-                            inputCatalogTable.getTableId().getCatalogName(),
-                            inputCatalogTable.getTableId().getDatabaseName(),
-                            errorTable);
+                            inputCatalogTable.getTableId().getCatalogName(), errorTablePath);
             CatalogTable errorCatalogTable =
                     CatalogTable.of(
                             errorTableId,
@@ -216,8 +216,7 @@ public class DataValidatorTransform extends AbstractCatalogSupportMapTransform {
             SeaTunnelRowType originalRowType,
             String sourceTableId,
             String sourceTablePath,
-            Map<String, List<ValidationResult>> fieldResults,
-            String errorTable) {
+            Map<String, List<ValidationResult>> fieldResults) {
 
         try {
             String validationErrorsJson = generateValidationErrorsJson(fieldResults);
@@ -228,7 +227,6 @@ public class DataValidatorTransform extends AbstractCatalogSupportMapTransform {
             errorRow.setField(2, originalDataJson);
             errorRow.setField(3, validationErrorsJson);
             errorRow.setField(4, LocalDateTime.now());
-            errorRow.setTableId(errorTable);
 
             return errorRow;
 
