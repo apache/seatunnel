@@ -77,8 +77,7 @@ public class SlsSinkWriter implements SinkWriter<SeaTunnelRow, SlsCommitInfo, Sl
         try {
             this.client.PutLogs(plr);
         } catch (Throwable e) {
-            log.error("write logs failed", e);
-            e.printStackTrace();
+            log.error("Failed to write logs to SLS", e);
             throw new IOException(e);
         }
     }

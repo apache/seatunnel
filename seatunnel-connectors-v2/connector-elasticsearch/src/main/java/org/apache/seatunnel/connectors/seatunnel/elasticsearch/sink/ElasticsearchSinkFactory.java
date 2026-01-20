@@ -50,6 +50,8 @@ import static org.apache.seatunnel.connectors.seatunnel.elasticsearch.config.Ela
 import static org.apache.seatunnel.connectors.seatunnel.elasticsearch.config.ElasticsearchSinkOptions.MAX_BATCH_SIZE;
 import static org.apache.seatunnel.connectors.seatunnel.elasticsearch.config.ElasticsearchSinkOptions.MAX_RETRY_COUNT;
 import static org.apache.seatunnel.connectors.seatunnel.elasticsearch.config.ElasticsearchSinkOptions.PRIMARY_KEYS;
+import static org.apache.seatunnel.connectors.seatunnel.elasticsearch.config.ElasticsearchSinkOptions.VECTORIZATION_FIELDS;
+import static org.apache.seatunnel.connectors.seatunnel.elasticsearch.config.ElasticsearchSinkOptions.VECTOR_DIMENSIONS;
 
 @AutoService(Factory.class)
 public class ElasticsearchSinkFactory implements TableSinkFactory {
@@ -80,7 +82,9 @@ public class ElasticsearchSinkFactory implements TableSinkFactory {
                         TLS_KEY_STORE_PASSWORD,
                         TLS_TRUST_STORE_PATH,
                         TLS_TRUST_STORE_PASSWORD,
-                        SinkConnectorCommonOptions.MULTI_TABLE_SINK_REPLICA)
+                        SinkConnectorCommonOptions.MULTI_TABLE_SINK_REPLICA,
+                        VECTORIZATION_FIELDS,
+                        VECTOR_DIMENSIONS)
                 .optional(AUTH_TYPE)
                 .conditional(AUTH_TYPE, AuthTypeEnum.API_KEY, API_KEY_ID, API_KEY)
                 .conditional(AUTH_TYPE, AuthTypeEnum.API_KEY_ENCODED, API_KEY_ENCODED)

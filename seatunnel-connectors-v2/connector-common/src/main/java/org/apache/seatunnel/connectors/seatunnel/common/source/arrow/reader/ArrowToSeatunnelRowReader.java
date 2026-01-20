@@ -37,6 +37,7 @@ import lombok.extern.slf4j.Slf4j;
 
 import java.io.ByteArrayInputStream;
 import java.io.IOException;
+import java.lang.reflect.Array;
 import java.math.BigDecimal;
 import java.time.Instant;
 import java.time.LocalDate;
@@ -262,8 +263,8 @@ public class ArrowToSeatunnelRowReader implements AutoCloseable {
 
     private Object convertMap(
             int rowIndex, Converter converter, FieldVector fieldVector, MapType mapType) {
-        SqlType keyType = mapType.getKeyType().getSqlType();
-        SqlType valueType = mapType.getValueType().getSqlType();
+        SeaTunnelDataType keyType = mapType.getKeyType();
+        SeaTunnelDataType valueType = mapType.getValueType();
         Map<String, Function> fieldConverters = new HashMap<>();
         fieldConverters.put(Converter.MAP_KEY, genericsConvert(keyType));
         fieldConverters.put(Converter.MAP_VALUE, genericsConvert(valueType));
@@ -272,10 +273,20 @@ public class ArrowToSeatunnelRowReader implements AutoCloseable {
 
     private Object convertArray(
             int rowIndex, Converter converter, FieldVector fieldVector, ArrayType arrayType) {
-        SqlType elementType = arrayType.getElementType().getSqlType();
+        SeaTunnelDataType elementType = arrayType.getElementType();
         Map<String, Function> fieldConverters = new HashMap<>();
         fieldConverters.put(Converter.ARRAY_KEY, genericsConvert(elementType));
-        return converter.convert(rowIndex, fieldVector, fieldConverters);
+        Object convertedValue = converter.convert(rowIndex, fieldVector, fieldConverters);
+        if (convertedValue instanceof List) {
+            List<?> list = (List<?>) convertedValue;
+            Class<?> componentType = arrayType.getElementType().getTypeClass();
+            Object array = Array.newInstance(componentType, list.size());
+            for (int i = 0; i < list.size(); i++) {
+                Array.set(array, i, list.get(i));
+            }
+            return array;
+        }
+        return convertedValue;
     }
 
     private Object convertRow(
@@ -284,13 +295,26 @@ public class ArrowToSeatunnelRowReader implements AutoCloseable {
         List<SeaTunnelDataType<?>> fieldTypes = rowType.getChildren();
         Map<String, Function> fieldConverters = new HashMap<>();
         for (int i = 0; i < fieldTypes.size(); i++) {
-            fieldConverters.put(fieldNames[i], genericsConvert(fieldTypes.get(i).getSqlType()));
+            fieldConverters.put(fieldNames[i], genericsConvert(fieldTypes.get(i)));
         }
         return converter.convert(rowIndex, fieldVector, fieldConverters);
     }
 
-    private Function<Object, Object> genericsConvert(SqlType sqlType) {
-        return value -> convertSeatunnelRowValue(sqlType, null, value);
+    private Function<Object, Object> genericsConvert(SeaTunnelDataType dataType) {
+        return value -> {
+            if (dataType instanceof ArrayType) {
+                if (value instanceof List) {
+                    List<?> list = (List<?>) value;
+                    Class<?> componentType = ((ArrayType) dataType).getElementType().getTypeClass();
+                    Object array = Array.newInstance(componentType, list.size());
+                    for (int i = 0; i < list.size(); i++) {
+                        Array.set(array, i, list.get(i));
+                    }
+                    return array;
+                }
+            }
+            return convertSeatunnelRowValue(dataType.getSqlType(), null, value);
+        };
     }
 
     @Override

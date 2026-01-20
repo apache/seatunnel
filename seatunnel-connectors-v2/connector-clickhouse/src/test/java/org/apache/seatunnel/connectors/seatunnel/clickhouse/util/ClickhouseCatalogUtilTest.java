@@ -24,6 +24,7 @@ import org.apache.seatunnel.api.table.type.SeaTunnelDataType;
 import org.junit.jupiter.api.Test;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.when;
 
@@ -33,6 +34,8 @@ public class ClickhouseCatalogUtilTest {
         Column column = mock(Column.class);
         when(column.getName()).thenReturn("col1");
         when(column.getSinkType()).thenReturn("String");
+        when(column.isNullable()).thenReturn(false);
+        when(column.getComment()).thenReturn("");
 
         String result = ClickhouseCatalogUtil.INSTANCE.columnToConnectorType(column);
 
@@ -44,6 +47,8 @@ public class ClickhouseCatalogUtilTest {
         Column column = mock(Column.class);
         when(column.getName()).thenReturn("col1");
         when(column.getDataType()).thenReturn((SeaTunnelDataType) BasicType.INT_TYPE);
+        when(column.isNullable()).thenReturn(false);
+        when(column.getComment()).thenReturn("");
 
         String result = ClickhouseCatalogUtil.INSTANCE.columnToConnectorType(column);
 
@@ -56,9 +61,44 @@ public class ClickhouseCatalogUtilTest {
         when(column.getName()).thenReturn("col1");
         when(column.getDataType()).thenReturn((SeaTunnelDataType) BasicType.INT_TYPE);
         when(column.getSinkType()).thenReturn("String");
+        when(column.isNullable()).thenReturn(false);
+        when(column.getComment()).thenReturn("");
 
         String result = ClickhouseCatalogUtil.INSTANCE.columnToConnectorType(column);
 
         assertEquals("`col1` String ", result);
+    }
+
+    @Test
+    void wrapsTypeWithNullableWhenColumnIsNullable() {
+        Column column = mock(Column.class);
+        when(column.getName()).thenReturn("col1");
+        when(column.getSinkType()).thenReturn("String");
+        when(column.isNullable()).thenReturn(true);
+        when(column.getComment()).thenReturn("");
+
+        String result = ClickhouseCatalogUtil.INSTANCE.columnToConnectorType(column);
+
+        assertEquals("`col1` Nullable(String) ", result);
+    }
+
+    @Test
+    void escapesSingleQuoteAndBackslashInComment() {
+        Column column = mock(Column.class);
+        when(column.getName()).thenReturn("col1");
+        when(column.getSinkType()).thenReturn("String");
+        when(column.isNullable()).thenReturn(false);
+        when(column.getComment()).thenReturn("O'Reilly \\ path");
+
+        String result = ClickhouseCatalogUtil.INSTANCE.columnToConnectorType(column);
+
+        assertEquals("`col1` String COMMENT 'O''Reilly \\\\ path'", result);
+    }
+
+    @Test
+    void throwsExceptionWhenColumnIsNull() {
+        assertThrows(
+                NullPointerException.class,
+                () -> ClickhouseCatalogUtil.INSTANCE.columnToConnectorType(null));
     }
 }

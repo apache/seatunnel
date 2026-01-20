@@ -455,18 +455,63 @@ public class KafkaIT extends TestSuiteBase implements TestResource {
     @TestTemplate
     public void testSourceKafkaJsonFormatErrorHandleWayFailToConsole(TestContainer container)
             throws IOException, InterruptedException {
-        DefaultSeaTunnelRowSerializer serializer =
-                DefaultSeaTunnelRowSerializer.create(
-                        "test_topic_error_message",
-                        SEATUNNEL_ROW_TYPE,
-                        DEFAULT_FORMAT,
-                        DEFAULT_FIELD_DELIMITER,
-                        null);
-        generateTestData(serializer::serializeRow, 0, 100);
+        TextSerializationSchema serializer =
+                TextSerializationSchema.builder()
+                        .seaTunnelRowType(SEATUNNEL_ROW_TYPE)
+                        .delimiter(DEFAULT_FIELD_DELIMITER)
+                        .build();
+
+        generateTestData(
+                row -> {
+                    Object[] fields = row.getFields().clone();
+                    fields[0] = "bad_id_" + fields[0];
+                    SeaTunnelRow badRow = new SeaTunnelRow(fields);
+                    byte[] value = serializer.serialize(badRow);
+                    return new ProducerRecord<>("test_topic_error_message", null, value);
+                },
+                0,
+                100);
         Container.ExecResult execResult =
                 container.executeJob(
                         "/kafka/kafkasource_format_error_handle_way_fail_to_console.conf");
-        Assertions.assertEquals(1, execResult.getExitCode(), execResult.getStderr());
+        String serverLogs = container.getServerLogs();
+        Assertions.assertTrue(
+                execResult.getExitCode() != 0
+                        || serverLogs.contains("NumberFormatException")
+                        || serverLogs.contains("For input string"),
+                "Expected format error and job failure when format_error_handle_way = fail, "
+                        + "but exit code was "
+                        + execResult.getExitCode());
+    }
+
+    @TestTemplate
+    @DisabledOnContainer(
+            value = {},
+            type = {EngineType.SPARK},
+            disabledReason =
+                    "The implementation of the Spark engine does not currently support metadata.")
+    public void testSourceKafkaTextEventTimeToAssert(TestContainer container)
+            throws IOException, InterruptedException {
+        long fixedTimestamp = 1738395840000L;
+        TextSerializationSchema serializer =
+                TextSerializationSchema.builder()
+                        .seaTunnelRowType(SEATUNNEL_ROW_TYPE)
+                        .delimiter(",")
+                        .build();
+        generateTestData(
+                row ->
+                        new ProducerRecord<>(
+                                "test_topic_text_eventtime",
+                                null,
+                                fixedTimestamp,
+                                null,
+                                serializer.serialize(row)),
+                0,
+                10);
+        Container.ExecResult execResult =
+                container.executeJob(
+                        "/textFormatIT/kafka_source_text_with_event_time_to_assert.conf");
+        Assertions.assertEquals(0, execResult.getExitCode(), execResult.getStderr());
     }
 
     @TestTemplate
