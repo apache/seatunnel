@@ -94,4 +94,50 @@ public class DataValidatorTransformTest {
         assertEquals("db1.schema1.source", producedTables.get(0).getTablePath().toString());
         assertEquals("db1.schema1.ffp", producedTables.get(1).getTablePath().toString());
     }
+
+    @Test
+    void routeToTableShouldWorkWithoutDatabaseAndSchemaPrefix() {
+        SeaTunnelRowType inputRowType =
+                new SeaTunnelRowType(
+                        new String[] {"id", "name"},
+                        new SeaTunnelDataType[] {BasicType.INT_TYPE, BasicType.STRING_TYPE});
+        CatalogTable inputCatalogTable =
+                CatalogTableUtil.getCatalogTable("catalog", null, null, "source", inputRowType);
+
+        DataValidatorTransform transform =
+                new DataValidatorTransform(routeToTableConfig("ffp"), inputCatalogTable);
+
+        SeaTunnelRow invalidRow = new SeaTunnelRow(new Object[] {1, null});
+        SeaTunnelRow routedRow = transform.map(invalidRow);
+
+        assertEquals("ffp", routedRow.getTableId());
+
+        List<CatalogTable> producedTables = transform.getProducedCatalogTables();
+        assertEquals(2, producedTables.size());
+        assertEquals("source", producedTables.get(0).getTablePath().toString());
+        assertEquals("ffp", producedTables.get(1).getTablePath().toString());
+    }
+
+    @Test
+    void routeToTableShouldRespectQualifiedErrorTablePath() {
+        SeaTunnelRowType inputRowType =
+                new SeaTunnelRowType(
+                        new String[] {"id", "name"},
+                        new SeaTunnelDataType[] {BasicType.INT_TYPE, BasicType.STRING_TYPE});
+        CatalogTable inputCatalogTable =
+                CatalogTableUtil.getCatalogTable("catalog", "db1", null, "source", inputRowType);
+
+        DataValidatorTransform transform =
+                new DataValidatorTransform(routeToTableConfig("db2.ffp"), inputCatalogTable);
+
+        SeaTunnelRow invalidRow = new SeaTunnelRow(new Object[] {1, null});
+        SeaTunnelRow routedRow = transform.map(invalidRow);
+
+        assertEquals("db2.ffp", routedRow.getTableId());
+
+        List<CatalogTable> producedTables = transform.getProducedCatalogTables();
+        assertEquals(2, producedTables.size());
+        assertEquals("db1.source", producedTables.get(0).getTablePath().toString());
+        assertEquals("db2.ffp", producedTables.get(1).getTablePath().toString());
+    }
 }

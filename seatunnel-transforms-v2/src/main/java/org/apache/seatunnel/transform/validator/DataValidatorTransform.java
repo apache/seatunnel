@@ -71,13 +71,7 @@ public class DataValidatorTransform extends AbstractCatalogSupportMapTransform {
                         .orElse(ErrorHandleWay.FAIL);
         this.errorTable =
                 readonlyConfig.getOptional(TransformCommonOptions.ERROR_TABLE_OPTION).orElse(null);
-        this.errorTablePath =
-                errorTable == null || errorTable.isEmpty()
-                        ? null
-                        : TablePath.of(
-                                inputCatalogTable.getTablePath().getDatabaseName(),
-                                inputCatalogTable.getTablePath().getSchemaName(),
-                                errorTable);
+        this.errorTablePath = resolveErrorTablePath(errorTable, inputCatalogTable.getTablePath());
         this.resultHandler = new ValidationResultHandler();
         this.fieldValidators = initializeFieldValidators();
     }
@@ -129,7 +123,7 @@ public class DataValidatorTransform extends AbstractCatalogSupportMapTransform {
             } else if (errorHandleWay.allowRouteToTable()) {
                 // Route invalid data to error table by setting tableId
                 if (errorTablePath != null) {
-                    String sourceTableId = inputCatalogTable.getTableId().toString();
+                    String sourceTableId = formatTableIdentifier(inputCatalogTable.getTableId());
                     String sourceTablePath = inputCatalogTable.getTablePath().toString();
                     SeaTunnelRow errorRow =
                             generateErrorRow(
@@ -149,6 +143,39 @@ public class DataValidatorTransform extends AbstractCatalogSupportMapTransform {
             }
         }
         return inputRow;
+    }
+
+    private static TablePath resolveErrorTablePath(String errorTable, TablePath inputTablePath) {
+        if (errorTable == null) {
+            return null;
+        }
+        String trimmed = errorTable.trim();
+        if (trimmed.isEmpty()) {
+            return null;
+        }
+        if (trimmed.contains(".")) {
+            boolean schemaFirst =
+                    inputTablePath.getDatabaseName() == null
+                            && inputTablePath.getSchemaName() != null;
+            return TablePath.of(trimmed, schemaFirst);
+        }
+        return TablePath.of(
+                inputTablePath.getDatabaseName(), inputTablePath.getSchemaName(), trimmed);
+    }
+
+    private static String formatTableIdentifier(TableIdentifier tableIdentifier) {
+        List<String> parts = new ArrayList<>();
+        if (tableIdentifier.getCatalogName() != null) {
+            parts.add(tableIdentifier.getCatalogName());
+        }
+        if (tableIdentifier.getDatabaseName() != null) {
+            parts.add(tableIdentifier.getDatabaseName());
+        }
+        if (tableIdentifier.getSchemaName() != null) {
+            parts.add(tableIdentifier.getSchemaName());
+        }
+        parts.add(tableIdentifier.getTableName());
+        return String.join(".", parts);
     }
 
     @Override
