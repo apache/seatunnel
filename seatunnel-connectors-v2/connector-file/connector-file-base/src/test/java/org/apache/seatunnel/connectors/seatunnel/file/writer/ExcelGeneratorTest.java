@@ -196,8 +196,8 @@ public class ExcelGeneratorTest {
                 new ExcelGenerator(reorderedColumnsIndexInRow, rowType, fileSinkConfig);
 
         SeaTunnelRow[] testData = {
-                new SeaTunnelRow(new Object[]{1, "Alice", 25, "alice@test.com"}),
-                new SeaTunnelRow(new Object[]{2, "Bob", 30, "bob@test.com"})
+            new SeaTunnelRow(new Object[] {1, "Alice", 25, "alice@test.com"}),
+            new SeaTunnelRow(new Object[] {2, "Bob", 30, "bob@test.com"})
         };
 
         for (SeaTunnelRow row : testData) {
@@ -225,7 +225,8 @@ public class ExcelGeneratorTest {
                             @Override
                             public void invoke(Map<Integer, String> data, AnalysisContext context) {
                                 rowCount.incrementAndGet();
-                                // For reordered columns [3, 1, 2, 0], the values should be in this order
+                                // For reordered columns [3, 1, 2, 0], the values should be in this
+                                // order
 
                                 // Check that first column is email (index 3 in original row)
                                 // Second column is name (index 1 in original row)
@@ -253,7 +254,8 @@ public class ExcelGeneratorTest {
                             @Override
                             public void invokeHeadMap(
                                     Map<Integer, String> headMap, AnalysisContext context) {
-                                // For reordered columns [3, 1, 2, 0], headers should be in this order
+                                // For reordered columns [3, 1, 2, 0], headers should be in this
+                                // order
                                 headerValid.set(
                                         "email".equals(headMap.get(0))
                                                 && "name".equals(headMap.get(1))
