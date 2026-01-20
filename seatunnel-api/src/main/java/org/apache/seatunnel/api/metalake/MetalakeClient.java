@@ -24,5 +24,7 @@ import java.io.IOException;
 public interface MetalakeClient {
     String getType();
 
-    JsonNode getMetaInfo(String sourceId) throws IOException;
+    JsonNode getMetaInfo(String sourceId, String metalakeUrl) throws IOException;
+
+    JsonNode getSchema(String schemaHttpUrl);
 }

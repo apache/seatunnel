@@ -17,9 +17,9 @@
 
 package org.apache.seatunnel.api.metalake.gravitino;
 
-import org.apache.seatunnel.api.metalake.MetalakeClient;
 import org.apache.seatunnel.shade.com.fasterxml.jackson.databind.JsonNode;
 
+import org.apache.seatunnel.api.metalake.MetalakeClient;
 import org.apache.seatunnel.common.constants.MetaLakeType;
 import org.apache.seatunnel.common.utils.JsonUtils;
 
@@ -33,11 +33,6 @@ import org.apache.http.util.EntityUtils;
 import java.io.IOException;
 
 public class GravitinoClient implements MetalakeClient {
-    private final String metalakeUrl;
-
-    public GravitinoClient(String metalakeUrl) {
-        this.metalakeUrl = metalakeUrl;
-    }
 
     @Override
     public String getType() {
@@ -45,9 +40,9 @@ public class GravitinoClient implements MetalakeClient {
     }
 
     @Override
-    public JsonNode getMetaInfo(String sourceId) throws IOException {
+    public JsonNode getMetaInfo(String sourceId, String metalakeUrl) throws IOException {
         try (CloseableHttpClient client = HttpClients.createDefault()) {
-            HttpGet request = new HttpGet(this.metalakeUrl + sourceId);
+            HttpGet request = new HttpGet(metalakeUrl + sourceId);
             request.addHeader("Accept", "application/vnd.gravitino.v1+json");
             try (CloseableHttpResponse response = client.execute(request)) {
                 HttpEntity entity = response.getEntity();
@@ -64,5 +59,10 @@ public class GravitinoClient implements MetalakeClient {
                 return propertiesNode;
             }
         }
+    }
+
+    @Override
+    public JsonNode getSchema(String schemaHttpUrl) {
+        return null;
     }
 }

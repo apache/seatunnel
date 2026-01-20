@@ -22,12 +22,10 @@ import org.apache.seatunnel.api.common.SeaTunnelPluginLifeCycle;
 import org.apache.seatunnel.api.serialization.DefaultSerializer;
 import org.apache.seatunnel.api.serialization.Serializer;
 import org.apache.seatunnel.api.table.catalog.CatalogTable;
-import org.apache.seatunnel.api.table.catalog.TablePath;
 import org.apache.seatunnel.api.table.type.SeaTunnelDataType;
 
 import java.io.Serializable;
 import java.util.List;
-import java.util.Map;
 
 /**
  * The interface for Source. It acts like a factory class that helps construct the {@link
@@ -122,6 +120,4 @@ public interface SeaTunnelSource<T, SplitT extends SourceSplit, StateT extends S
     default Serializer<StateT> getEnumeratorStateSerializer() {
         return new DefaultSerializer<>();
     }
-
-
 }

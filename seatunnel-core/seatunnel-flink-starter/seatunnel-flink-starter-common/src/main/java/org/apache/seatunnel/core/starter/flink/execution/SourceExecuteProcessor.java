@@ -152,7 +152,8 @@ public class SourceExecuteProcessor extends FlinkAbstractPluginExecuteProcessor<
                             (TableSourceFactory)
                                     factoryDiscovery
                                             .createOptionalPluginInstance(pluginIdentifier)
-                                            .orElse(null));
+                                            .orElse(null),
+                            ReadonlyConfig.fromConfig(envConfig));
 
             source._1().setJobContext(jobContext);
             ensureJobModeMatch(jobContext, source._1());

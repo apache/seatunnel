@@ -17,18 +17,14 @@
 
 package org.apache.seatunnel.api.table.factory;
 
-import org.apache.seatunnel.api.configuration.ReadonlyConfig;
 import org.apache.seatunnel.api.metalake.MetaLakeSchemaDiscoverer;
 import org.apache.seatunnel.api.source.SeaTunnelSource;
 import org.apache.seatunnel.api.source.SourceSplit;
 import org.apache.seatunnel.api.table.catalog.CatalogTable;
-import org.apache.seatunnel.api.table.catalog.TablePath;
 import org.apache.seatunnel.api.table.connector.TableSource;
 
 import java.io.Serializable;
-import java.util.Collections;
 import java.util.List;
-import java.util.Map;
 
 /**
  * This is an SPI interface, used to create {@link TableSource}. Each plugin need to have it own
@@ -47,8 +43,10 @@ public interface TableSourceFactory extends Factory {
                 "The Factory has not been implemented and the deprecated Plugin will be used.");
     }
 
-    default List<CatalogTable> discoverCatalogTablesFromMetaLake(TableSourceFactoryContext context){
-        final MetaLakeSchemaDiscoverer metaLakeSchemaDiscoverer = new MetaLakeSchemaDiscoverer();
+    default List<CatalogTable> discoverCatalogTablesFromMetaLake(
+            TableSourceFactoryContext context) {
+        final MetaLakeSchemaDiscoverer metaLakeSchemaDiscoverer =
+                new MetaLakeSchemaDiscoverer(context);
         return metaLakeSchemaDiscoverer.discoverCatalogTables();
     }
 

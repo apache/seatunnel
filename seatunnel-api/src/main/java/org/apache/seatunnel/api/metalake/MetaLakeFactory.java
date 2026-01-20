@@ -17,34 +17,46 @@
 
 package org.apache.seatunnel.api.metalake;
 
-import org.apache.seatunnel.common.constants.MetaLakeType;
 import org.apache.seatunnel.api.metalake.gravitino.GravitinoClient;
+import org.apache.seatunnel.api.metalake.gravitino.GravitinoTypeMapper;
+import org.apache.seatunnel.common.constants.MetaLakeType;
 
 import java.util.HashMap;
 import java.util.Map;
-import java.util.function.Function;
 import java.util.function.Supplier;
 
-
 public class MetaLakeFactory {
-    private static final Map<String, Function<String, MetalakeClient>> CLIENT_REGISTRY = new HashMap<>();
-    private static final Map<String, Supplier<MetaLakeTypeMapper>> MAPPER_REGISTRY = new HashMap<>();
+
+    private static final Map<String, Supplier<MetalakeClient>> CLIENT_REGISTRY = new HashMap<>();
+    private static final Map<String, Supplier<MetaLakeTypeMapper>> MAPPER_REGISTRY =
+            new HashMap<>();
 
     static {
-        register(MetaLakeType.GRAVITINO.getType(), GravitinoClient::new);
+        register(MetaLakeType.GRAVITINO.getType());
     }
 
     private MetaLakeFactory() {}
 
-    public static void register(String type, Function<String, MetalakeClient> constructor) {
-        CLIENT_REGISTRY.put(type.toLowerCase(), constructor);
+    public static void register(String type) {
+        CLIENT_REGISTRY.put(type.toLowerCase(), GravitinoClient::new);
+        MAPPER_REGISTRY.put(type.toLowerCase(), GravitinoTypeMapper::new);
     }
 
-    public static MetalakeClient create(String type, String metalakeUrl) {
-        Function<String, MetalakeClient> constructor = CLIENT_REGISTRY.get(type.toLowerCase());
+    public static MetalakeClient createClient(MetaLakeType metaLakeType) {
+        String type = metaLakeType.name().toLowerCase();
+        Supplier<MetalakeClient> constructor = CLIENT_REGISTRY.get(type.toLowerCase());
         if (constructor == null) {
             throw new IllegalArgumentException("Unknown MetalakeClient type: " + type);
         }
-        return constructor.apply(metalakeUrl);
+        return constructor.get();
+    }
+
+    public static MetaLakeTypeMapper createTypeMapper(MetaLakeType metaLakeType) {
+        String type = metaLakeType.name().toLowerCase();
+        Supplier<MetaLakeTypeMapper> constructor = MAPPER_REGISTRY.get(type.toLowerCase());
+        if (constructor == null) {
+            throw new IllegalArgumentException("Unknown MetaLakeTypeMapper type: " + type);
+        }
+        return constructor.get();
     }
 }

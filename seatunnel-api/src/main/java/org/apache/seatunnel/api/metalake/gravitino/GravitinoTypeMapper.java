@@ -14,25 +14,18 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
+package org.apache.seatunnel.api.metalake.gravitino;
 
-package org.apache.seatunnel.api.table.factory;
+import org.apache.seatunnel.shade.com.fasterxml.jackson.databind.JsonNode;
 
-import org.apache.seatunnel.api.configuration.ReadonlyConfig;
+import org.apache.seatunnel.api.metalake.MetaLakeTypeMapper;
+import org.apache.seatunnel.api.table.catalog.CatalogTable;
 
-import lombok.Getter;
+import java.io.IOException;
 
-@Getter
-public class TableSourceFactoryContext extends TableFactoryContext {
-
-    private ReadonlyConfig envOptions;
-
-    public TableSourceFactoryContext(ReadonlyConfig options, ClassLoader classLoader) {
-        super(options, classLoader);
-    }
-
-    public TableSourceFactoryContext(
-            ReadonlyConfig options, ClassLoader classLoader, ReadonlyConfig envOptions) {
-        super(options, classLoader);
-        this.envOptions = envOptions;
+public class GravitinoTypeMapper implements MetaLakeTypeMapper {
+    @Override
+    public CatalogTable convertor(JsonNode metaInfo) throws IOException {
+        return null;
     }
 }

@@ -15,24 +15,24 @@
  * limitations under the License.
  */
 
-package org.apache.seatunnel.api.table.factory;
+package org.apache.seatunnel.api.metalake.gravitino.schema;
 
-import org.apache.seatunnel.api.configuration.ReadonlyConfig;
+import lombok.Data;
+import lombok.NoArgsConstructor;
 
-import lombok.Getter;
+import java.util.List;
 
-@Getter
-public class TableSourceFactoryContext extends TableFactoryContext {
+@Data
+@NoArgsConstructor
+public class GravitinoTable {
 
-    private ReadonlyConfig envOptions;
+    private String name;
+    private List<Column> columns;
 
-    public TableSourceFactoryContext(ReadonlyConfig options, ClassLoader classLoader) {
-        super(options, classLoader);
-    }
-
-    public TableSourceFactoryContext(
-            ReadonlyConfig options, ClassLoader classLoader, ReadonlyConfig envOptions) {
-        super(options, classLoader);
-        this.envOptions = envOptions;
+    @Data
+    @NoArgsConstructor
+    public static class Column {
+        private String name;
+        private String type;
     }
 }
