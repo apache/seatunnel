@@ -432,10 +432,13 @@ public class SqlServerCDCIT extends TestSuiteBase implements TestResource {
         Assertions.assertNotNull(ddlTestFile, "Cannot locate " + ddlFile);
         try (Connection connection = getJdbcConnection();
                 Statement statement = connection.createStatement()) {
-            dropTestDatabase(connection, sqlFile);
+            List<String> ddlLines = Files.readAllLines(Paths.get(ddlTestFile.toURI()));
+            String ddlContent = String.join("\n", ddlLines);
+            String actualDatabaseName = extractDatabaseName(ddlContent);
+            dropTestDatabase(connection, actualDatabaseName);
             final List<String> statements =
                     Arrays.stream(
-                                    Files.readAllLines(Paths.get(ddlTestFile.toURI())).stream()
+                                    ddlLines.stream()
                                             .map(String::trim)
                                             .filter(x -> !x.startsWith("--") && !x.isEmpty())
                                             .map(
@@ -453,6 +456,17 @@ public class SqlServerCDCIT extends TestSuiteBase implements TestResource {
         } catch (Exception e) {
             throw new RuntimeException(e);
         }
+    }
+
+    private String extractDatabaseName(String ddlContent) {
+        Pattern createDbPattern =
+                Pattern.compile(
+                        "CREATE\\s+DATABASE\\s+\\[?([^\\s\\];]+)\\]?", Pattern.CASE_INSENSITIVE);
+        Matcher matcher = createDbPattern.matcher(ddlContent);
+        if (matcher.find()) {
+            return matcher.group(1);
+        }
+        return null;
     }
 
     private void updateSourceTable(String table) {
