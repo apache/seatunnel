@@ -21,6 +21,7 @@ import org.apache.seatunnel.shade.com.typesafe.config.Config;
 import org.apache.seatunnel.common.config.Common;
 import org.apache.seatunnel.common.config.DeployMode;
 import org.apache.seatunnel.core.starter.flink.args.FlinkCommandArgs;
+import org.apache.seatunnel.core.starter.flink.multitable.MultiTableSinkTest;
 import org.apache.seatunnel.core.starter.flink.utils.EnvironmentUtil;
 import org.apache.seatunnel.core.starter.utils.ConfigBuilder;
 import org.apache.seatunnel.core.starter.utils.FileUtils;
@@ -55,7 +56,9 @@ public class TestFlinkParameter {
         flinkCommandArgs.setEncrypt(false);
         flinkCommandArgs.setDecrypt(false);
         flinkCommandArgs.setHelp(false);
-        flinkCommandArgs.setConfigFile("src/test/java/resources/test_flink_run_parameter.conf");
+
+        flinkCommandArgs.setConfigFile(
+                MultiTableSinkTest.getTestConfigFile("/test_flink_run_parameter.conf"));
         flinkCommandArgs.setVariables(null);
         Path configFile = FileUtils.getConfigPath(flinkCommandArgs);
         Config config = ConfigBuilder.of(configFile).getConfig("env");

@@ -60,9 +60,9 @@ public abstract class AbstractFlinkStarter implements Starter {
         // set deploy mode, run or run-application
         command.add(flinkCommandArgs.getDeployMode().getDeployMode());
         // set restore checkpoint
-        if (StringUtils.isNoneBlank(flinkCommandArgs.getFromCheckpoint())) {
+        if (StringUtils.isNoneBlank(flinkCommandArgs.getFromSavepoint())) {
             command.add("-s");
-            command.add(flinkCommandArgs.getFromCheckpoint());
+            command.add(flinkCommandArgs.getFromSavepoint());
         }
         // set submitted target master
         if (flinkCommandArgs.getMasterType() != null) {

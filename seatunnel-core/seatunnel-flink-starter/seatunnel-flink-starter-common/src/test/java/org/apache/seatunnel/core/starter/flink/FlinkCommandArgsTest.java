@@ -28,6 +28,7 @@ import org.junit.jupiter.api.Test;
 
 import java.io.FileNotFoundException;
 import java.net.URISyntaxException;
+import java.util.List;
 
 import static org.apache.seatunnel.api.options.ConnectorCommonOptions.PLUGIN_NAME;
 
@@ -62,5 +63,37 @@ public class FlinkCommandArgsTest {
         flinkCommandArgs.setCheckConfig(false);
         flinkCommandArgs.setVariables(null);
         return flinkCommandArgs;
+    }
+
+    @Test
+    public void testBuildFlinkCommandArgsWithSavePoint() {
+        FlinkStarter flinkStarter =
+                new FlinkStarter(
+                        new String[] {
+                            "--target", "local",
+                            "--deploy-mode ", "run",
+                            "--config ", "/config/fake_to_inmemory1.json",
+                            "--fromCheckpoint ",
+                                    "hdfs:///flink/checkpoints/3c298a925d9a2a7837bbf5a8e4966b4f/chk-7902"
+                        });
+        List<String> commands = flinkStarter.buildCommands();
+        Assertions.assertTrue(
+                commands.contains("-s") || commands.contains("--fromSavepoint"),
+                "The flink commands should include either `-s` or `--fromSavepoint`");
+    }
+
+    @Test
+    public void testBuildFlinkCommandArgsWithoutSavePoint() {
+        FlinkStarter flinkStarter =
+                new FlinkStarter(
+                        new String[] {
+                            "--target", "local",
+                            "--deploy-mode ", "run",
+                            "--config ", "/config/fake_to_inmemory1.json",
+                        });
+        List<String> commands = flinkStarter.buildCommands();
+        Assertions.assertTrue(
+                !commands.contains("-s") && !commands.contains("--fromSavepoint"),
+                "The flink commands should not include either `-s` or `--fromSavepoint`");
     }
 }

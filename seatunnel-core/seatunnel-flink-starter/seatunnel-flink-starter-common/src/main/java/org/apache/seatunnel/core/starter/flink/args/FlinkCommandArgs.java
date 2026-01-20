@@ -53,12 +53,12 @@ public class FlinkCommandArgs extends AbstractCommandArgs {
                             + "kubernetes-session, yarn-application, kubernetes-application]")
     private MasterType masterType;
 
-    /** restore checkpoint path */
+    /** restore savepoint/checkpoint path */
     @Parameter(
-            names = {"-s", "--fromCheckpoint"},
+            names = {"-s", "--fromSavepoint", "--fromCheckpoint"},
             description =
-                    "Path to a checkpoint to restore the job from (for example, flink run -s hdfs:///flink/checkpoints/3c298a925d9a2a7837bbf5a8e4966b4f/chk-7902).")
-    protected String fromCheckpoint;
+                    "Path to a savepoint (or an externalized checkpoint) to restore the job from (equivalent to flink run -s ).")
+    protected String fromSavepoint;
 
     @Override
     public Command<?> buildCommand() {
@@ -82,8 +82,8 @@ public class FlinkCommandArgs extends AbstractCommandArgs {
                 + deployMode
                 + ", masterType="
                 + masterType
-                + ", fromCheckpoint="
-                + fromCheckpoint
+                + ", fromSavepoint="
+                + fromSavepoint
                 + ", configFile='"
                 + configFile
                 + '\''
