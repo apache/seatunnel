@@ -58,7 +58,11 @@ public abstract class AbstractTestFlinkContainer extends AbstractTestContainer {
                     "jobmanager.rpc.address: jobmanager",
                     "taskmanager.numberOfTaskSlots: 10",
                     "parallelism.default: 4",
-                    "env.java.opts: -Doracle.jdbc.timezoneAsRegion=false");
+                    "env.java.opts: -Doracle.jdbc.timezoneAsRegion=false",
+                    // limit restart attempts in e2e to avoid infinite retries
+                    "restart-strategy: fixed-delay",
+                    "restart-strategy.fixed-delay.attempts: 2",
+                    "restart-strategy.fixed-delay.delay: 1000");
 
     protected static final String DEFAULT_DOCKER_IMAGE = "flink:1.13.6-scala_2.11";
 

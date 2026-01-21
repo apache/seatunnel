@@ -32,6 +32,7 @@ import org.apache.seatunnel.api.table.catalog.CatalogTable;
 import org.apache.seatunnel.api.table.type.SeaTunnelRow;
 import org.apache.seatunnel.common.exception.SeaTunnelRuntimeException;
 import org.apache.seatunnel.connectors.seatunnel.mongodb.catalog.MongodbCatalog;
+import org.apache.seatunnel.connectors.seatunnel.mongodb.config.MongodbSinkOptions;
 import org.apache.seatunnel.connectors.seatunnel.mongodb.serde.RowDataDocumentSerializer;
 import org.apache.seatunnel.connectors.seatunnel.mongodb.serde.RowDataToBsonConverters;
 import org.apache.seatunnel.connectors.seatunnel.mongodb.sink.commit.MongodbSinkAggregatedCommitter;
@@ -43,7 +44,6 @@ import org.apache.seatunnel.connectors.seatunnel.mongodb.sink.state.MongodbCommi
 import java.util.Optional;
 
 import static org.apache.seatunnel.api.common.SeaTunnelAPIErrorCode.HANDLE_SAVE_MODE_FAILED;
-import static org.apache.seatunnel.connectors.seatunnel.mongodb.config.MongodbConfig.CONNECTOR_IDENTITY;
 
 public class MongodbSink
         implements SeaTunnelSink<
@@ -62,7 +62,7 @@ public class MongodbSink
 
     @Override
     public String getPluginName() {
-        return CONNECTOR_IDENTITY;
+        return MongodbSinkOptions.CONNECTOR_IDENTITY;
     }
 
     @Override
@@ -110,7 +110,9 @@ public class MongodbSink
         String database = options.getDatabase();
         if (catalogTable != null) {
             Optional<Catalog> catalogOptional =
-                    Optional.of(new MongodbCatalog(CONNECTOR_IDENTITY, url, database));
+                    Optional.of(
+                            new MongodbCatalog(
+                                    MongodbSinkOptions.CONNECTOR_IDENTITY, url, database));
             try {
                 DataSaveMode dataSaveMode = options.getDataSaveMode();
                 Catalog catalog = catalogOptional.get();

@@ -209,6 +209,7 @@ public class EasysearchIT extends TestSuiteBase implements TestResource {
         query.put("range", range);
         ScrollResult scrollResult =
                 easysearchClient.searchByScroll(indexName, source, query, "1m", 1000);
+        String scrollId = scrollResult.getScrollId();
         scrollResult
                 .getDocs()
                 .forEach(
@@ -231,6 +232,12 @@ public class EasysearchIT extends TestSuiteBase implements TestResource {
                                         o -> Integer.valueOf(o.get("c_int").toString())))
                         .map(JsonUtils::toJsonString)
                         .collect(Collectors.toList());
+
+        if (scrollId != null && !scrollId.isEmpty()) {
+            boolean cleared = easysearchClient.clearScroll(scrollId);
+            Assertions.assertTrue(cleared);
+        }
+
         return docs;
     }
 
@@ -344,6 +351,7 @@ public class EasysearchIT extends TestSuiteBase implements TestResource {
         query.put("range", range);
         ScrollResult scrollResult =
                 easysearchClient.searchByScroll("st_index2", source, query, "1m", 1000);
+        String scrollId = scrollResult.getScrollId();
         scrollResult
                 .getDocs()
                 .forEach(
@@ -366,6 +374,12 @@ public class EasysearchIT extends TestSuiteBase implements TestResource {
                                         o -> Integer.valueOf(o.get("c_int").toString())))
                         .map(JsonUtils::toJsonString)
                         .collect(Collectors.toList());
+
+        if (scrollId != null && !scrollId.isEmpty()) {
+            boolean cleared = easysearchClient.clearScroll(scrollId);
+            Assertions.assertTrue(cleared);
+        }
+
         return docs;
     }
 

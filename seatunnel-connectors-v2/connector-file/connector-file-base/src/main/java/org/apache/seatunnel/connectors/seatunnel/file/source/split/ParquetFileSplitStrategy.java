@@ -1,0 +1,118 @@
+/*
+ * Licensed to the Apache Software Foundation (ASF) under one or more
+ * contributor license agreements.  See the NOTICE file distributed with
+ * this work for additional information regarding copyright ownership.
+ * The ASF licenses this file to You under the Apache License, Version 2.0
+ * (the "License"); you may not use this file except in compliance with
+ * the License.  You may obtain a copy of the License at
+ *
+ *    http://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an "AS IS" BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
+ */
+
+package org.apache.seatunnel.connectors.seatunnel.file.source.split;
+
+import org.apache.seatunnel.common.exception.SeaTunnelRuntimeException;
+import org.apache.seatunnel.connectors.seatunnel.file.exception.FileConnectorErrorCode;
+
+import org.apache.hadoop.conf.Configuration;
+import org.apache.hadoop.fs.Path;
+import org.apache.parquet.hadoop.ParquetFileReader;
+import org.apache.parquet.hadoop.metadata.BlockMetaData;
+import org.apache.parquet.hadoop.util.HadoopInputFile;
+
+import java.io.IOException;
+import java.util.ArrayList;
+import java.util.List;
+
+/**
+ * {@link ParquetFileSplitStrategy} defines a split strategy for Parquet files based on Parquet
+ * physical storage units (RowGroups).
+ *
+ * <p>This strategy uses {@code RowGroup} as the minimum indivisible split unit and generates {@link
+ * FileSourceSplit}s by merging one or more contiguous RowGroups according to the configured split
+ * size. A split will never break a RowGroup, ensuring correctness and compatibility with Parquet
+ * readers.
+ *
+ * <p>The generated split range ({@code start}, {@code length}) represents a byte range covering
+ * complete RowGroups. The actual row-level reading and decoding are delegated to the Parquet reader
+ * implementation.
+ *
+ * <p>This design enables efficient parallel reading of Parquet files while preserving Parquet
+ * format semantics and avoiding invalid byte-level splits.
+ */
+public class ParquetFileSplitStrategy implements FileSplitStrategy {
+
+    private final long splitSizeBytes;
+
+    public ParquetFileSplitStrategy(long splitSizeBytes) {
+        if (splitSizeBytes <= 0) {
+            throw new SeaTunnelRuntimeException(
+                    FileConnectorErrorCode.FILE_SPLIT_SIZE_ILLEGAL,
+                    "SplitSizeBytes must be greater than 0");
+        }
+        this.splitSizeBytes = splitSizeBytes;
+    }
+
+    @Override
+    public List<FileSourceSplit> split(String tableId, String filePath) {
+        try {
+            return splitByRowGroups(tableId, filePath, readRowGroups(filePath));
+        } catch (IOException e) {
+            throw new SeaTunnelRuntimeException(FileConnectorErrorCode.FILE_SPLIT_FAIL, e);
+        }
+    }
+
+    /**
+     * Core split logic based on row group metadata. This method is IO-free and unit-test friendly.
+     */
+    List<FileSourceSplit> splitByRowGroups(
+            String tableId, String filePath, List<BlockMetaData> rowGroups) {
+        List<FileSourceSplit> splits = new ArrayList<>();
+        if (rowGroups == null || rowGroups.isEmpty()) {
+            return splits;
+        }
+        long currentStart = 0;
+        long currentLength = 0;
+        boolean hasOpenSplit = false;
+        for (BlockMetaData block : rowGroups) {
+            long rgStart = block.getStartingPos();
+            long rgSize = block.getCompressedSize();
+            // start a new split
+            if (!hasOpenSplit) {
+                currentStart = rgStart;
+                currentLength = rgSize;
+                hasOpenSplit = true;
+                continue;
+            }
+            // exceeds threshold, close current split
+            if (currentLength + rgSize > splitSizeBytes) {
+                splits.add(new FileSourceSplit(tableId, filePath, currentStart, currentLength));
+                // start next split
+                currentStart = rgStart;
+                currentLength = rgSize;
+            } else {
+                currentLength += rgSize;
+            }
+        }
+        // last split
+        if (hasOpenSplit && currentLength > 0) {
+            splits.add(new FileSourceSplit(tableId, filePath, currentStart, currentLength));
+        }
+        return splits;
+    }
+
+    private List<BlockMetaData> readRowGroups(String filePath) throws IOException {
+        Path path = new Path(filePath);
+        Configuration conf = new Configuration();
+        try (ParquetFileReader reader =
+                ParquetFileReader.open(HadoopInputFile.fromPath(path, conf))) {
+            return reader.getFooter().getBlocks();
+        }
+    }
+}
