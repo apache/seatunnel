@@ -104,8 +104,14 @@ public class SchemaRegistryAwareProtobufDeserializationSchema
      * @return deserialized SeaTunnelRow, or null if parsing fails
      */
     private SeaTunnelRow tryDeserialize(byte[] message, int offset, int length) {
+        int remaining = length - offset;
+        // A valid protobuf message must have at least 2 bytes (tag + value for a small field)
+        if (remaining < 2) {
+            return null;
+        }
+
         try (ByteArrayInputStream inputStream =
-                new ByteArrayInputStream(message, offset, length - offset)) {
+                new ByteArrayInputStream(message, offset, remaining)) {
             return inner.deserialize(inputStream);
         } catch (IOException | RuntimeException e) {
             LOG.warn(
