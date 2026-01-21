@@ -183,7 +183,9 @@ public class JobClient {
             if (sinkCommitteds != null) {
                 for (int i = 0; i < sinkCommitteds.size(); i++) {
                     JsonNode sinkCommitted = sinkCommitteds.get(i);
-                    sinkCommittedCount += sinkCommitted.get("value").asLong();
+                    if (sinkCommitted != null) {
+                        sinkCommittedCount += sinkCommitted.get("value").asLong();
+                    }
                 }
             }
 
