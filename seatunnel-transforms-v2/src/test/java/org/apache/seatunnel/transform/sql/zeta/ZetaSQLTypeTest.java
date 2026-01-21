@@ -26,7 +26,7 @@ import org.apache.seatunnel.api.table.type.SeaTunnelDataType;
 import org.apache.seatunnel.api.table.type.SeaTunnelRowType;
 import org.apache.seatunnel.api.table.type.SqlType;
 import org.apache.seatunnel.api.table.type.VectorType;
-import org.apache.seatunnel.transform.exception.TransformException;
+import org.apache.seatunnel.common.exception.SeaTunnelRuntimeException;
 import org.apache.seatunnel.transform.sql.zeta.functions.udf.DesEncrypt;
 
 import org.junit.jupiter.api.Assertions;
@@ -271,7 +271,8 @@ public class ZetaSQLTypeTest {
         badPattern.setParameters(
                 new ExpressionList<>(
                         Arrays.asList(new StringValue("data"), new StringValue("invalid"))));
-        Assertions.assertThrows(TransformException.class, () -> type.getExpressionType(badPattern));
+        Assertions.assertThrows(
+                SeaTunnelRuntimeException.class, () -> type.getExpressionType(badPattern));
 
         Assertions.assertEquals(
                 LocalTimeType.LOCAL_DATE_TYPE,
@@ -338,7 +339,7 @@ public class ZetaSQLTypeTest {
         Function badCoalesce = new Function();
         badCoalesce.setName(ZetaSQLFunction.COALESCE);
         Assertions.assertThrows(
-                TransformException.class, () -> type.getExpressionType(badCoalesce));
+                SeaTunnelRuntimeException.class, () -> type.getExpressionType(badCoalesce));
 
         Function multiIf = new Function();
         multiIf.setName(ZetaSQLFunction.MULTI_IF);
@@ -355,14 +356,14 @@ public class ZetaSQLTypeTest {
         Function multiIfNoParams = new Function();
         multiIfNoParams.setName(ZetaSQLFunction.MULTI_IF);
         Assertions.assertThrows(
-                TransformException.class, () -> type.getExpressionType(multiIfNoParams));
+                SeaTunnelRuntimeException.class, () -> type.getExpressionType(multiIfNoParams));
 
         Function multiIfEvenArgs = new Function();
         multiIfEvenArgs.setName(ZetaSQLFunction.MULTI_IF);
         multiIfEvenArgs.setParameters(
                 new ExpressionList<>(Arrays.asList(new LongValue(1), new LongValue(1))));
         Assertions.assertThrows(
-                TransformException.class, () -> type.getExpressionType(multiIfEvenArgs));
+                SeaTunnelRuntimeException.class, () -> type.getExpressionType(multiIfEvenArgs));
 
         Function modFunc = new Function();
         modFunc.setName(ZetaSQLFunction.MOD);
@@ -388,7 +389,7 @@ public class ZetaSQLTypeTest {
         unknownFunc.setParameters(
                 new ExpressionList<>(Collections.singletonList(new LongValue(1))));
         Assertions.assertThrows(
-                TransformException.class, () -> udfType.getExpressionType(unknownFunc));
+                SeaTunnelRuntimeException.class, () -> udfType.getExpressionType(unknownFunc));
     }
 
     @Test
@@ -420,7 +421,7 @@ public class ZetaSQLTypeTest {
         Assertions.assertEquals(intType, type.getMaxType(intType, null));
 
         Assertions.assertThrows(
-                TransformException.class,
+                SeaTunnelRuntimeException.class,
                 () -> type.getMaxType(BasicType.STRING_TYPE, BasicType.INT_TYPE));
     }
 
@@ -437,6 +438,6 @@ public class ZetaSQLTypeTest {
         Assertions.assertEquals(BasicType.DOUBLE_TYPE, result);
 
         Assertions.assertThrows(
-                TransformException.class, () -> type.getMaxType(Collections.emptyList()));
+                SeaTunnelRuntimeException.class, () -> type.getMaxType(Collections.emptyList()));
     }
 }
