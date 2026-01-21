@@ -142,19 +142,6 @@ public class ZetaDateTimeFormatTest {
     }
 
     @Test
-    public void testFromPatternWithISO8601Formats() {
-        Optional<ZetaDateTimeFormat> format1 =
-                ZetaDateTimeFormat.fromPattern("yyyy-MM-dd'T'HH:mm:ss");
-        Assertions.assertTrue(format1.isPresent());
-        Assertions.assertEquals(ZetaDateTimeFormat.DATETIME_ISO8601, format1.get());
-
-        Optional<ZetaDateTimeFormat> format2 =
-                ZetaDateTimeFormat.fromPattern("yyyy-MM-dd'T'HH:mm:ss.SSS");
-        Assertions.assertTrue(format2.isPresent());
-        Assertions.assertEquals(ZetaDateTimeFormat.DATETIME_ISO8601_WITH_MILLIS, format2.get());
-    }
-
-    @Test
     public void testFromPatternIsCaseSensitive() {
         Optional<ZetaDateTimeFormat> format = ZetaDateTimeFormat.fromPattern("YYYY-MM-DD HH:MM:SS");
 

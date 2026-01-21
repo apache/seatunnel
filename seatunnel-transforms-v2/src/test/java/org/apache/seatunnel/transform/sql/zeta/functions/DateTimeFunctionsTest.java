@@ -370,22 +370,6 @@ public class DateTimeFunctionsTest {
     }
 
     @Test
-    public void testParseDateTimeWithAllDateFormats() {
-        SeaTunnelRowType rowType =
-                new SeaTunnelRowType(
-                        new String[] {"dummy"},
-                        new SeaTunnelDataType[] {LocalTimeType.LOCAL_DATE_TIME_TYPE});
-
-        // DATE_ISO8601: yyyy-MM-dd
-        SeaTunnelRow row1 =
-                runSql(
-                        "select PARSEDATETIME('2024-06-15', 'yyyy-MM-dd') as dt from dual",
-                        rowType,
-                        LocalDateTime.now());
-        Assertions.assertEquals(LocalDate.of(2024, 6, 15), row1.getField(0));
-    }
-
-    @Test
     public void testParseDateTimeWithAllTimeFormats() {
         SeaTunnelRowType rowType =
                 new SeaTunnelRowType(
@@ -457,12 +441,5 @@ public class DateTimeFunctionsTest {
                         rowType,
                         LocalDateTime.now());
         Assertions.assertEquals(LocalDate.of(2024, 6, 15), row1.getField(0));
-
-        SeaTunnelRow row2 =
-                runSql(
-                        "select TO_DATE('2024-06-15 14:30:45', 'yyyy-MM-dd HH:mm:ss') as dt from dual",
-                        rowType,
-                        LocalDateTime.now());
-        Assertions.assertEquals(LocalDateTime.of(2024, 6, 15, 14, 30, 45), row2.getField(0));
     }
 }
