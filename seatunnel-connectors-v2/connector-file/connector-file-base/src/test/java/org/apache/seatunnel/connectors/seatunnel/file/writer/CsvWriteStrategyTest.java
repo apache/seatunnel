@@ -29,6 +29,7 @@ import org.apache.seatunnel.connectors.seatunnel.file.config.FileFormat;
 import org.apache.seatunnel.connectors.seatunnel.file.sink.config.FileSinkConfig;
 import org.apache.seatunnel.connectors.seatunnel.file.sink.writer.CsvWriteStrategy;
 import org.apache.seatunnel.connectors.seatunnel.file.source.reader.CsvReadStrategy;
+import org.apache.seatunnel.connectors.seatunnel.file.source.reader.ParquetReadStrategyTest;
 
 import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.Test;
