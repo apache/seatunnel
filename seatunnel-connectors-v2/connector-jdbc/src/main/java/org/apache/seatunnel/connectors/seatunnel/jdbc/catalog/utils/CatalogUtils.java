@@ -44,6 +44,7 @@ import java.sql.ResultSet;
 import java.sql.ResultSetMetaData;
 import java.sql.SQLException;
 import java.util.ArrayList;
+import java.util.Collections;
 import java.util.Comparator;
 import java.util.HashMap;
 import java.util.LinkedHashMap;
@@ -156,46 +157,57 @@ public class CatalogUtils {
 
     public static List<ConstraintKey> getConstraintKeys(
             DatabaseMetaData metadata, TablePath tablePath) throws SQLException {
-        // We set approximate to true to avoid querying the statistics table, which is slow.
-        try (ResultSet resultSet =
-                metadata.getIndexInfo(
-                        tablePath.getDatabaseName(),
-                        tablePath.getSchemaName(),
-                        tablePath.getTableName(),
-                        false,
-                        true)) {
-            // index name -> index
-            Map<String, ConstraintKey> constraintKeyMap = new HashMap<>();
-            while (resultSet.next()) {
-                String columnName = resultSet.getString("COLUMN_NAME");
-                if (columnName == null) {
-                    continue;
+        try {
+            // We set approximate to true to avoid querying the statistics table, which is slow.
+            try (ResultSet resultSet =
+                    metadata.getIndexInfo(
+                            tablePath.getDatabaseName(),
+                            tablePath.getSchemaName(),
+                            tablePath.getTableName(),
+                            false,
+                            true)) {
+                // index name -> index
+                Map<String, ConstraintKey> constraintKeyMap = new HashMap<>();
+                while (resultSet.next()) {
+                    String columnName = resultSet.getString("COLUMN_NAME");
+                    if (columnName == null) {
+                        continue;
+                    }
+                    String indexName = cleanKeyName(resultSet.getString("INDEX_NAME"));
+                    boolean noUnique = resultSet.getBoolean("NON_UNIQUE");
+
+                    ConstraintKey constraintKey =
+                            constraintKeyMap.computeIfAbsent(
+                                    indexName,
+                                    s -> {
+                                        ConstraintKey.ConstraintType constraintType =
+                                                ConstraintKey.ConstraintType.INDEX_KEY;
+                                        if (!noUnique) {
+                                            constraintType =
+                                                    ConstraintKey.ConstraintType.UNIQUE_KEY;
+                                        }
+                                        return ConstraintKey.of(
+                                                constraintType, indexName, new ArrayList<>());
+                                    });
+
+                    ConstraintKey.ColumnSortType sortType =
+                            "A".equalsIgnoreCase(resultSet.getString("ASC_OR_DESC"))
+                                    ? ConstraintKey.ColumnSortType.ASC
+                                    : ConstraintKey.ColumnSortType.DESC;
+                    ConstraintKey.ConstraintKeyColumn constraintKeyColumn =
+                            new ConstraintKey.ConstraintKeyColumn(columnName, sortType);
+                    constraintKey.getColumnNames().add(constraintKeyColumn);
                 }
-                String indexName = cleanKeyName(resultSet.getString("INDEX_NAME"));
-                boolean noUnique = resultSet.getBoolean("NON_UNIQUE");
-
-                ConstraintKey constraintKey =
-                        constraintKeyMap.computeIfAbsent(
-                                indexName,
-                                s -> {
-                                    ConstraintKey.ConstraintType constraintType =
-                                            ConstraintKey.ConstraintType.INDEX_KEY;
-                                    if (!noUnique) {
-                                        constraintType = ConstraintKey.ConstraintType.UNIQUE_KEY;
-                                    }
-                                    return ConstraintKey.of(
-                                            constraintType, indexName, new ArrayList<>());
-                                });
-
-                ConstraintKey.ColumnSortType sortType =
-                        "A".equals(resultSet.getString("ASC_OR_DESC"))
-                                ? ConstraintKey.ColumnSortType.ASC
-                                : ConstraintKey.ColumnSortType.DESC;
-                ConstraintKey.ConstraintKeyColumn constraintKeyColumn =
-                        new ConstraintKey.ConstraintKeyColumn(columnName, sortType);
-                constraintKey.getColumnNames().add(constraintKeyColumn);
+                return new ArrayList<>(constraintKeyMap.values());
             }
-            return new ArrayList<>(constraintKeyMap.values());
+        } catch (SQLException e) {
+            // Some JDBC drivers (e.g., Hive/Inceptor) do not fully support getIndexInfo()
+            // Return empty list as index information is not mandatory for table schema
+            log.warn(
+                    "Failed to get index info for table {}, returning empty constraint keys. Error: {}",
+                    tablePath,
+                    e.getMessage());
+            return Collections.emptyList();
         }
     }
 
