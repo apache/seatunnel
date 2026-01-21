@@ -133,7 +133,7 @@ public class JobClientTest {
                         + "  {\"value\": 290, \"name\": \"sink3\"},"
                         + "  {\"value\": 290, \"name\": \"sink4\"}"
                         + "]"
-                        + "}"; 
+                        + "}";
 
         when(hazelcastClient.requestOnMasterAndDecodeResponse(any(), any()))
                 .thenReturn(metricsJson);
