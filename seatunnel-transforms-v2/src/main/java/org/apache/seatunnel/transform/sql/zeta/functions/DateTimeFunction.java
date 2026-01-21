@@ -17,6 +17,7 @@
 
 package org.apache.seatunnel.transform.sql.zeta.functions;
 
+import org.apache.seatunnel.common.exception.CommonError;
 import org.apache.seatunnel.common.exception.CommonErrorCodeDeprecated;
 import org.apache.seatunnel.transform.exception.TransformException;
 import org.apache.seatunnel.transform.sql.zeta.ZetaDateTimeFormat;
@@ -640,11 +641,8 @@ public class DateTimeFunction {
                 ZetaDateTimeFormat.fromPattern(format)
                         .orElseThrow(
                                 () ->
-                                        new TransformException(
-                                                CommonErrorCodeDeprecated.UNSUPPORTED_OPERATION,
-                                                String.format(
-                                                        "Unsupported datetime format: '%s'.",
-                                                        format)));
+                                        CommonError.illegalArgument(
+                                                format, "unsupported datetime format"));
 
         try {
             DateTimeFormatter formatter = DateTimeFormatter.ofPattern(dateTimeFormat.getPattern());
@@ -657,16 +655,12 @@ public class DateTimeFunction {
                 case TIME:
                     return LocalTime.parse(str, formatter);
                 default:
-                    throw new TransformException(
-                            CommonErrorCodeDeprecated.UNSUPPORTED_OPERATION,
-                            "Unknown format type: " + dateTimeFormat.getType());
+                    throw CommonError.illegalArgument(
+                            dateTimeFormat.getType().toString(),
+                            "unsupported datetime format type");
             }
         } catch (DateTimeParseException e) {
-            throw new TransformException(
-                    CommonErrorCodeDeprecated.ILLEGAL_ARGUMENT,
-                    String.format(
-                            "Failed to parse '%s' with format '%s': %s",
-                            str, format, e.getMessage()));
+            throw CommonError.illegalArgument(str, "parsing datetime with format: " + format);
         }
     }
 

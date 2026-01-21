@@ -26,6 +26,7 @@ import org.apache.seatunnel.api.table.type.SeaTunnelDataType;
 import org.apache.seatunnel.api.table.type.SeaTunnelRowType;
 import org.apache.seatunnel.api.table.type.SqlType;
 import org.apache.seatunnel.api.table.type.VectorType;
+import org.apache.seatunnel.common.exception.CommonError;
 import org.apache.seatunnel.common.exception.CommonErrorCodeDeprecated;
 import org.apache.seatunnel.transform.exception.TransformException;
 import org.apache.seatunnel.transform.sql.zeta.functions.ArrayFunction;
@@ -435,23 +436,16 @@ public class ZetaSQLType {
                     if (formatExpr instanceof StringValue) {
                         format = ((StringValue) formatExpr).getNotExcapedValue();
                     } else {
-                        throw new TransformException(
-                                CommonErrorCodeDeprecated.UNSUPPORTED_OPERATION,
-                                String.format(
-                                        "Format parameter must be a string literal for function: %s",
-                                        function.getName()));
+                        throw CommonError.unsupportedOperation(
+                                function.getName(), "non-literal format parameter");
                     }
 
                     ZetaDateTimeFormat dateTimeFormat =
                             ZetaDateTimeFormat.fromPattern(format)
                                     .orElseThrow(
                                             () ->
-                                                    new TransformException(
-                                                            CommonErrorCodeDeprecated
-                                                                    .UNSUPPORTED_OPERATION,
-                                                            String.format(
-                                                                    "Unsupported datetime format: '%s'.",
-                                                                    format)));
+                                                    CommonError.illegalArgument(
+                                                            format, "unsupported datetime format"));
 
                     switch (dateTimeFormat.getType()) {
                         case DATETIME:
@@ -461,9 +455,9 @@ public class ZetaSQLType {
                         case TIME:
                             return LocalTimeType.LOCAL_TIME_TYPE;
                         default:
-                            throw new TransformException(
-                                    CommonErrorCodeDeprecated.UNSUPPORTED_OPERATION,
-                                    "Unknown format type: " + dateTimeFormat.getType());
+                            throw CommonError.illegalArgument(
+                                    dateTimeFormat.getType().toString(),
+                                    "unsupported datetime format type");
                     }
                 }
             case ZetaSQLFunction.ABS:
