@@ -17,8 +17,6 @@
 
 package org.apache.seatunnel.connectors.seatunnel.file.source.reader;
 
-import org.apache.seatunnel.connectors.seatunnel.file.writer.ParquetReadStrategyTest;
-
 import org.apache.avro.Schema;
 import org.apache.avro.generic.GenericArray;
 import org.apache.avro.generic.GenericData;

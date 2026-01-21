@@ -31,6 +31,7 @@ import org.apache.seatunnel.connectors.seatunnel.file.config.FileFormat;
 import org.apache.seatunnel.connectors.seatunnel.file.sink.config.FileSinkConfig;
 import org.apache.seatunnel.connectors.seatunnel.file.sink.writer.ParquetWriteStrategy;
 import org.apache.seatunnel.connectors.seatunnel.file.source.reader.ParquetReadStrategy;
+import org.apache.seatunnel.connectors.seatunnel.file.source.reader.ParquetReadStrategyTest;
 
 import org.apache.hadoop.conf.Configuration;
 import org.apache.parquet.hadoop.ParquetFileReader;

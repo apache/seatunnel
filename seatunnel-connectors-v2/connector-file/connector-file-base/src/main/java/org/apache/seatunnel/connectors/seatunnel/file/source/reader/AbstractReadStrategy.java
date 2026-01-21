@@ -35,6 +35,7 @@ import org.apache.seatunnel.connectors.seatunnel.file.config.ArchiveCompressForm
 import org.apache.seatunnel.connectors.seatunnel.file.config.FileBaseSourceOptions;
 import org.apache.seatunnel.connectors.seatunnel.file.config.FileCompareMode;
 import org.apache.seatunnel.connectors.seatunnel.file.config.FileFormat;
+import org.apache.seatunnel.connectors.seatunnel.file.config.FileInfo;
 import org.apache.seatunnel.connectors.seatunnel.file.config.FileSyncMode;
 import org.apache.seatunnel.connectors.seatunnel.file.config.FileUpdateStrategy;
 import org.apache.seatunnel.connectors.seatunnel.file.config.HadoopConf;
@@ -65,6 +66,7 @@ import java.time.LocalDate;
 import java.time.LocalDateTime;
 import java.util.ArrayList;
 import java.util.Arrays;
+import java.util.Comparator;
 import java.util.Date;
 import java.util.LinkedHashMap;
 import java.util.List;
@@ -72,6 +74,7 @@ import java.util.Locale;
 import java.util.Map;
 import java.util.Objects;
 import java.util.regex.Pattern;
+import java.util.stream.Collectors;
 import java.util.zip.ZipEntry;
 import java.util.zip.ZipInputStream;
 
@@ -145,13 +148,20 @@ public abstract class AbstractReadStrategy implements ReadStrategy {
 
     @Override
     public List<String> getFileNamesByPath(String path) throws IOException {
-        ArrayList<String> fileNames = new ArrayList<>();
+        List<FileInfo> fileInfoList = getFileInfoListByPath(path);
+
+        return fileInfoList.stream().map(FileInfo::getFileName).collect(Collectors.toList());
+    }
+
+    private List<FileInfo> getFileInfoListByPath(String path) throws IOException {
+        List<FileInfo> fileInfoList = new ArrayList<>();
+
         FileStatus[] stats = hadoopFileSystemProxy.listStatus(path);
         for (FileStatus fileStatus : stats) {
             if (fileStatus.isDirectory()) {
                 // skip hidden tmp directory, such as .hive-staging_hive
                 if (!fileStatus.getPath().getName().startsWith(".")) {
-                    fileNames.addAll(getFileNamesByPath(fileStatus.getPath().toString()));
+                    fileInfoList.addAll(getFileInfoListByPath(fileStatus.getPath().toString()));
                 }
                 continue;
             }
@@ -166,26 +176,37 @@ public abstract class AbstractReadStrategy implements ReadStrategy {
                         for (String readPartition : readPartitions) {
                             if (filePath.contains(readPartition)) {
                                 if (shouldSyncFileInUpdateMode(fileStatus)) {
-                                    fileNames.add(filePath);
-                                    this.fileNames.add(filePath);
+                                    FileInfo fileInfo =
+                                            new FileInfo(
+                                                    filePath, fileStatus.getModificationTime());
+                                    fileInfoList.add(fileInfo);
                                 }
                                 break;
                             }
                         }
                     } else {
                         if (shouldSyncFileInUpdateMode(fileStatus)) {
-                            fileNames.add(filePath);
-                            this.fileNames.add(filePath);
+                            FileInfo fileInfo =
+                                    new FileInfo(filePath, fileStatus.getModificationTime());
+                            fileInfoList.add(fileInfo);
                         }
                     }
                 }
             }
         }
+
         if (StringUtils.isNotEmpty(filenameExtension)) {
-            this.fileNames.removeIf(fileName -> !fileName.endsWith(filenameExtension));
-            fileNames.removeIf(fileName -> !fileName.endsWith(filenameExtension));
+            fileInfoList.removeIf(fileInfo -> !fileInfo.getFileName().endsWith(filenameExtension));
         }
-        return fileNames;
+
+        // Sort by modification time in descending order
+        fileInfoList.sort(Comparator.comparingLong(FileInfo::getModifyTime).reversed());
+
+        for (FileInfo fileInfo : fileInfoList) {
+            this.fileNames.add(fileInfo.getFileName());
+        }
+
+        return fileInfoList;
     }
 
     private Date getFileModifiedDate(String modifiedDate) {

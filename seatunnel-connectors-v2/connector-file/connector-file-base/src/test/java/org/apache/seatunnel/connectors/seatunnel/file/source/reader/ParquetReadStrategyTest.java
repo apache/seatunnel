@@ -15,11 +15,12 @@
  * limitations under the License.
  */
 
-package org.apache.seatunnel.connectors.seatunnel.file.writer;
+package org.apache.seatunnel.connectors.seatunnel.file.source.reader;
 
 import org.apache.seatunnel.shade.com.typesafe.config.Config;
 import org.apache.seatunnel.shade.com.typesafe.config.ConfigFactory;
 
+import org.apache.seatunnel.api.configuration.ReadonlyConfig;
 import org.apache.seatunnel.api.source.Collector;
 import org.apache.seatunnel.api.table.catalog.CatalogTable;
 import org.apache.seatunnel.api.table.catalog.CatalogTableUtil;
@@ -27,8 +28,8 @@ import org.apache.seatunnel.api.table.type.ArrayType;
 import org.apache.seatunnel.api.table.type.SeaTunnelRow;
 import org.apache.seatunnel.api.table.type.SeaTunnelRowType;
 import org.apache.seatunnel.common.exception.SeaTunnelRuntimeException;
+import org.apache.seatunnel.connectors.seatunnel.file.config.FileBaseSourceOptions;
 import org.apache.seatunnel.connectors.seatunnel.file.config.HadoopConf;
-import org.apache.seatunnel.connectors.seatunnel.file.source.reader.ParquetReadStrategy;
 
 import org.apache.avro.Conversions;
 import org.apache.avro.Schema;
@@ -578,6 +579,125 @@ public class ParquetReadStrategyTest {
             File parquetFile = new File(DATA_FILE_PATH);
             if (parquetFile.exists()) {
                 parquetFile.delete();
+            }
+        }
+    }
+
+    @DisabledOnOs(OS.WINDOWS)
+    @Test
+    public void testParquetSchemaMerge() throws Exception {
+        AutoGenerateParquetDataWithSchemaMerge.generateOldFileWithFourFields();
+        AutoGenerateParquetDataWithSchemaMerge.generateNewFileWithFiveFields();
+
+        ParquetReadStrategy parquetReadStrategy = new ParquetReadStrategy();
+        LocalConf localConf = new LocalConf(FS_DEFAULT_NAME_DEFAULT);
+        parquetReadStrategy.init(localConf);
+
+        Map<String, Object> props = new HashMap<>();
+        props.put(FileBaseSourceOptions.FILENAME_EXTENSION.key(), "parquet");
+
+        ReadonlyConfig readonlyConfig = ReadonlyConfig.fromMap(props);
+
+        parquetReadStrategy.setPluginConfig(readonlyConfig.toConfig());
+
+        List<String> fileNames = parquetReadStrategy.getFileNamesByPath("/tmp");
+        Assertions.assertNotNull(fileNames);
+        Assertions.assertEquals(2, fileNames.size());
+
+        String firstFileName = fileNames.get(0);
+        Assertions.assertNotNull(firstFileName);
+
+        SeaTunnelRowType firstFileRowType =
+                parquetReadStrategy.getSeaTunnelRowTypeInfoWithUserConfigRowType(
+                        firstFileName, null);
+        Assertions.assertNotNull(firstFileRowType);
+        String[] fieldNames = firstFileRowType.getFieldNames();
+        Assertions.assertNotNull(fieldNames);
+        Assertions.assertEquals(5, fieldNames.length);
+        Assertions.assertEquals("id", fieldNames[0]);
+        Assertions.assertEquals("name", fieldNames[1]);
+        Assertions.assertEquals("age", fieldNames[2]);
+        Assertions.assertEquals("salary", fieldNames[3]);
+        Assertions.assertEquals("department", fieldNames[4]);
+
+        AutoGenerateParquetDataWithSchemaMerge.deleteFiles();
+    }
+
+    public static class AutoGenerateParquetDataWithSchemaMerge {
+
+        public static final String OLD_FILE_PATH = "/tmp/old_data.parquet";
+        public static final String NEW_FILE_PATH = "/tmp/new_data.parquet";
+
+        public static void generateOldFileWithFourFields() throws IOException {
+            String schemaString =
+                    "{\"type\":\"record\",\"name\":\"User\",\"fields\":["
+                            + "{\"name\":\"id\",\"type\":\"int\"},"
+                            + "{\"name\":\"name\",\"type\":\"string\"},"
+                            + "{\"name\":\"age\",\"type\":\"int\"},"
+                            + "{\"name\":\"salary\",\"type\":\"float\"}"
+                            + "]}";
+            Schema schema = new Schema.Parser().parse(schemaString);
+
+            Configuration conf = new Configuration();
+            Path file = new Path(OLD_FILE_PATH);
+
+            ParquetWriter<GenericRecord> writer =
+                    AvroParquetWriter.<GenericRecord>builder(file)
+                            .withSchema(schema)
+                            .withConf(conf)
+                            .withCompressionCodec(CompressionCodecName.SNAPPY)
+                            .build();
+
+            GenericRecord record = new GenericData.Record(schema);
+            record.put("id", 1);
+            record.put("name", "Alice");
+            record.put("age", 30);
+            record.put("salary", 50000.0f);
+
+            writer.write(record);
+            writer.close();
+        }
+
+        public static void generateNewFileWithFiveFields() throws IOException {
+            String schemaString =
+                    "{\"type\":\"record\",\"name\":\"User\",\"fields\":["
+                            + "{\"name\":\"id\",\"type\":\"int\"},"
+                            + "{\"name\":\"name\",\"type\":\"string\"},"
+                            + "{\"name\":\"age\",\"type\":\"int\"},"
+                            + "{\"name\":\"salary\",\"type\":\"float\"},"
+                            + "{\"name\":\"department\",\"type\":\"string\"}"
+                            + "]}";
+            Schema schema = new Schema.Parser().parse(schemaString);
+
+            Configuration conf = new Configuration();
+            Path file = new Path(NEW_FILE_PATH);
+
+            ParquetWriter<GenericRecord> writer =
+                    AvroParquetWriter.<GenericRecord>builder(file)
+                            .withSchema(schema)
+                            .withConf(conf)
+                            .withCompressionCodec(CompressionCodecName.SNAPPY)
+                            .build();
+
+            GenericRecord record = new GenericData.Record(schema);
+            record.put("id", 2);
+            record.put("name", "Bob");
+            record.put("age", 35);
+            record.put("salary", 60000.0f);
+            record.put("department", "Engineering");
+
+            writer.write(record);
+            writer.close();
+        }
+
+        public static void deleteFiles() {
+            File oldFile = new File(OLD_FILE_PATH);
+            if (oldFile.exists()) {
+                oldFile.delete();
+            }
+            File newFile = new File(NEW_FILE_PATH);
+            if (newFile.exists()) {
+                newFile.delete();
             }
         }
     }

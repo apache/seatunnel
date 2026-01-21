@@ -24,6 +24,7 @@ import org.apache.seatunnel.api.table.type.BasicType;
 import org.apache.seatunnel.api.table.type.SeaTunnelDataType;
 import org.apache.seatunnel.api.table.type.SeaTunnelRowType;
 import org.apache.seatunnel.connectors.seatunnel.file.sink.config.FileSinkConfig;
+import org.apache.seatunnel.connectors.seatunnel.file.source.reader.OrcReadStrategyTest;
 
 import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.Test;
