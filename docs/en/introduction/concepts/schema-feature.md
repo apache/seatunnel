@@ -14,6 +14,7 @@ schema = {
     table = "database.schema.table"
     schema_first = false
     comment = "comment"
+    partition_keys = ["dt"]
     columns = [
     ...
     ]
@@ -40,6 +41,11 @@ If the schema_first is true, the schema will be used first, this means if we set
 ### comment
 
 The comment of the CatalogTable which the schema belongs to.
+
+### partition_keys
+
+The partition keys of the CatalogTable which the schema belongs to.
+This metadata can be used by sink options placeholders such as `${partition_keys}` (for example, to create partitioned Iceberg tables in multi-table sync jobs).
 
 ### Columns
 
