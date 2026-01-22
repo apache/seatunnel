@@ -626,7 +626,7 @@ public class ParquetReadStrategyTest {
 
     public static class AutoGenerateParquetDataWithSchemaMerge {
 
-        public static final String TMP_PATH = "/tmp/seatunnel/parquet";
+        public static final String TMP_PATH = "/tmp/seatunnel/parquet/schemaMerge/";
         public static final String OLD_FILE_PATH = TMP_PATH + "/old_data.parquet";
         public static final String NEW_FILE_PATH = TMP_PATH + "/new_data.parquet";
 
