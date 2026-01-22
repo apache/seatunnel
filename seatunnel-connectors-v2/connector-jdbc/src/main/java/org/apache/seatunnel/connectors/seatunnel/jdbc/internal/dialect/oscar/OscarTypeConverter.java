@@ -91,7 +91,7 @@ public class OscarTypeConverter implements TypeConverter<BasicTypeDefine> {
     public static final String OSCAR_DATETIME = "DATETIME";
 
     public static final int DEFAULT_PRECISION = 38;
-    public static final int MAX_PRECISION = 1000;
+    public static final int MAX_PRECISION = DEFAULT_PRECISION;
     public static final int DEFAULT_SCALE = 18;
     public static final int MAX_SCALE = MAX_PRECISION;
     public static final int MAX_TIME_SCALE = 6;
