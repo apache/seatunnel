@@ -29,7 +29,7 @@ import org.apache.seatunnel.connectors.seatunnel.file.config.FileFormat;
 import org.apache.seatunnel.connectors.seatunnel.file.sink.config.FileSinkConfig;
 import org.apache.seatunnel.connectors.seatunnel.file.sink.writer.OrcWriteStrategy;
 import org.apache.seatunnel.connectors.seatunnel.file.source.reader.OrcReadStrategy;
-import org.apache.seatunnel.connectors.seatunnel.file.source.reader.OrcReadStrategyTest;
+import org.apache.seatunnel.connectors.seatunnel.file.util.LocalFileSystemConf;
 
 import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.Test;
@@ -68,8 +68,8 @@ public class OrcWriteStrategyTest {
                 new FileSinkConfig(ConfigFactory.parseMap(writeConfig), writeRowType);
         OrcWriteStrategy writeStrategy = new OrcWriteStrategy(writeSinkConfig);
 
-        OrcReadStrategyTest.LocalConf hadoopConf =
-                new OrcReadStrategyTest.LocalConf(FS_DEFAULT_NAME_DEFAULT);
+        LocalFileSystemConf.LocalConf hadoopConf =
+                new LocalFileSystemConf.LocalConf(FS_DEFAULT_NAME_DEFAULT);
         writeStrategy.setCatalogTable(
                 CatalogTableUtil.getCatalogTable("test", null, null, "test", writeRowType));
         writeStrategy.init(hadoopConf, "test1", "test1", 0);

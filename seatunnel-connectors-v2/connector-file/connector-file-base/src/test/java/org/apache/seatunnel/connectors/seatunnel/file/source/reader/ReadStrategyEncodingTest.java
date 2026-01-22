@@ -25,7 +25,7 @@ import org.apache.seatunnel.api.source.Collector;
 import org.apache.seatunnel.api.table.catalog.CatalogTable;
 import org.apache.seatunnel.api.table.catalog.CatalogTableUtil;
 import org.apache.seatunnel.api.table.type.SeaTunnelRow;
-import org.apache.seatunnel.connectors.seatunnel.file.config.HadoopConf;
+import org.apache.seatunnel.connectors.seatunnel.file.util.LocalFileSystemConf;
 
 import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.BeforeAll;
@@ -110,7 +110,8 @@ public class ReadStrategyEncodingTest {
         String sourceFilePath = Paths.get(sourceFile.toURI()).toString();
         String confPath = Paths.get(conf.toURI()).toString();
         TestCollector testCollector;
-        LocalConf localConf = new LocalConf(FS_DEFAULT_NAME_DEFAULT);
+        LocalFileSystemConf.LocalConf localConf =
+                new LocalFileSystemConf.LocalConf(FS_DEFAULT_NAME_DEFAULT);
         Config pluginConfig = ConfigFactory.parseFile(new File(confPath));
         readStrategy.setPluginConfig(pluginConfig);
         readStrategy.init(localConf);
@@ -162,25 +163,6 @@ public class ReadStrategyEncodingTest {
         @Override
         public Object getCheckpointLock() {
             return null;
-        }
-    }
-
-    public static class LocalConf extends HadoopConf {
-        private static final String HDFS_IMPL = "org.apache.hadoop.fs.LocalFileSystem";
-        private static final String SCHEMA = "file";
-
-        public LocalConf(String hdfsNameKey) {
-            super(hdfsNameKey);
-        }
-
-        @Override
-        public String getFsHdfsImpl() {
-            return HDFS_IMPL;
-        }
-
-        @Override
-        public String getSchema() {
-            return SCHEMA;
         }
     }
 }

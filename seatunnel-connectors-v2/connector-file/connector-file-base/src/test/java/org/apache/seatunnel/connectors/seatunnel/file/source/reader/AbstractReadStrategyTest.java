@@ -17,6 +17,8 @@
 
 package org.apache.seatunnel.connectors.seatunnel.file.source.reader;
 
+import org.apache.seatunnel.connectors.seatunnel.file.util.LocalFileSystemConf;
+
 import org.apache.avro.Schema;
 import org.apache.avro.generic.GenericArray;
 import org.apache.avro.generic.GenericData;
@@ -49,8 +51,8 @@ public class AbstractReadStrategyTest {
     public void testReadDirectorySkipHiddenDirectories() throws Exception {
         AutoGenerateParquetData.generateTestData();
         try (ParquetReadStrategy parquetReadStrategy = new ParquetReadStrategy(); ) {
-            ParquetReadStrategyTest.LocalConf localConf =
-                    new ParquetReadStrategyTest.LocalConf(FS_DEFAULT_NAME_DEFAULT);
+            LocalFileSystemConf.LocalConf localConf =
+                    new LocalFileSystemConf.LocalConf(FS_DEFAULT_NAME_DEFAULT);
             parquetReadStrategy.init(localConf);
             List<String> list =
                     parquetReadStrategy.getFileNamesByPath(AutoGenerateParquetData.DATA_FILE_PATH);

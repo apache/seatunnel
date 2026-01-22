@@ -29,7 +29,7 @@ import org.apache.seatunnel.api.table.type.SeaTunnelRow;
 import org.apache.seatunnel.api.table.type.SeaTunnelRowType;
 import org.apache.seatunnel.common.exception.SeaTunnelRuntimeException;
 import org.apache.seatunnel.connectors.seatunnel.file.config.FileBaseSourceOptions;
-import org.apache.seatunnel.connectors.seatunnel.file.config.HadoopConf;
+import org.apache.seatunnel.connectors.seatunnel.file.util.LocalFileSystemConf;
 
 import org.apache.avro.Conversions;
 import org.apache.avro.Schema;
@@ -86,7 +86,8 @@ public class ParquetReadStrategyTest {
         Assertions.assertNotNull(resource);
         String path = Paths.get(resource.toURI()).toString();
         ParquetReadStrategy parquetReadStrategy = new ParquetReadStrategy();
-        LocalConf localConf = new LocalConf(FS_DEFAULT_NAME_DEFAULT);
+        LocalFileSystemConf.LocalConf localConf =
+                new LocalFileSystemConf.LocalConf(FS_DEFAULT_NAME_DEFAULT);
         parquetReadStrategy.init(localConf);
         SeaTunnelRowType seaTunnelRowTypeInfo = parquetReadStrategy.getSeaTunnelRowTypeInfo(path);
         Assertions.assertNotNull(seaTunnelRowTypeInfo);
@@ -101,7 +102,8 @@ public class ParquetReadStrategyTest {
         Assertions.assertNotNull(resource);
         String path = Paths.get(resource.toURI()).toString();
         ParquetReadStrategy parquetReadStrategy = new ParquetReadStrategy();
-        LocalConf localConf = new LocalConf(FS_DEFAULT_NAME_DEFAULT);
+        LocalFileSystemConf.LocalConf localConf =
+                new LocalFileSystemConf.LocalConf(FS_DEFAULT_NAME_DEFAULT);
         parquetReadStrategy.init(localConf);
         SeaTunnelRowType seaTunnelRowTypeInfo = parquetReadStrategy.getSeaTunnelRowTypeInfo(path);
         Assertions.assertNotNull(seaTunnelRowTypeInfo);
@@ -116,7 +118,8 @@ public class ParquetReadStrategyTest {
         Assertions.assertNotNull(resource);
         String path = Paths.get(resource.toURI()).toString();
         ParquetReadStrategy parquetReadStrategy = new ParquetReadStrategy();
-        LocalConf localConf = new LocalConf(FS_DEFAULT_NAME_DEFAULT);
+        LocalFileSystemConf.LocalConf localConf =
+                new LocalFileSystemConf.LocalConf(FS_DEFAULT_NAME_DEFAULT);
         parquetReadStrategy.init(localConf);
         SeaTunnelRowType seaTunnelRowTypeInfo = parquetReadStrategy.getSeaTunnelRowTypeInfo(path);
         Assertions.assertNotNull(seaTunnelRowTypeInfo);
@@ -150,7 +153,8 @@ public class ParquetReadStrategyTest {
         String confPath = Paths.get(conf.toURI()).toString();
         Config pluginConfig = ConfigFactory.parseFile(new File(confPath));
         ParquetReadStrategy parquetReadStrategy = new ParquetReadStrategy();
-        LocalConf localConf = new LocalConf(FS_DEFAULT_NAME_DEFAULT);
+        LocalFileSystemConf.LocalConf localConf =
+                new LocalFileSystemConf.LocalConf(FS_DEFAULT_NAME_DEFAULT);
         parquetReadStrategy.init(localConf);
         parquetReadStrategy.setPluginConfig(pluginConfig);
         SeaTunnelRowType seaTunnelRowTypeInfo = parquetReadStrategy.getSeaTunnelRowTypeInfo(path);
@@ -179,7 +183,8 @@ public class ParquetReadStrategyTest {
         String confPath = Paths.get(conf.toURI()).toString();
         Config pluginConfig = ConfigFactory.parseFile(new File(confPath));
         ParquetReadStrategy parquetReadStrategy = new ParquetReadStrategy();
-        LocalConf localConf = new LocalConf(FS_DEFAULT_NAME_DEFAULT);
+        LocalFileSystemConf.LocalConf localConf =
+                new LocalFileSystemConf.LocalConf(FS_DEFAULT_NAME_DEFAULT);
         parquetReadStrategy.init(localConf);
         parquetReadStrategy.setPluginConfig(pluginConfig);
         SeaTunnelRowType seaTunnelRowTypeInfo = parquetReadStrategy.getSeaTunnelRowTypeInfo(path);
@@ -194,7 +199,8 @@ public class ParquetReadStrategyTest {
     public void testParquetReadArray() throws Exception {
         AutoGenerateParquetData.generateTestData();
         ParquetReadStrategy parquetReadStrategy = new ParquetReadStrategy();
-        LocalConf localConf = new LocalConf(FS_DEFAULT_NAME_DEFAULT);
+        LocalFileSystemConf.LocalConf localConf =
+                new LocalFileSystemConf.LocalConf(FS_DEFAULT_NAME_DEFAULT);
         parquetReadStrategy.init(localConf);
         SeaTunnelRowType seaTunnelRowTypeInfo =
                 parquetReadStrategy.getSeaTunnelRowTypeInfo(AutoGenerateParquetData.DATA_FILE_PATH);
@@ -216,7 +222,8 @@ public class ParquetReadStrategyTest {
     public void testParquetReadUnsupportedType() throws Exception {
         AutoGenerateParquetDataWithUnsupportedType.generateTestData();
         ParquetReadStrategy parquetReadStrategy = new ParquetReadStrategy();
-        LocalConf localConf = new LocalConf(FS_DEFAULT_NAME_DEFAULT);
+        LocalFileSystemConf.LocalConf localConf =
+                new LocalFileSystemConf.LocalConf(FS_DEFAULT_NAME_DEFAULT);
         parquetReadStrategy.init(localConf);
         SeaTunnelRuntimeException exception =
                 Assertions.assertThrows(
@@ -250,7 +257,8 @@ public class ParquetReadStrategyTest {
         }
 
         ParquetReadStrategy parquetReadStrategy = new ParquetReadStrategy();
-        LocalConf localConf = new LocalConf(FS_DEFAULT_NAME_DEFAULT);
+        LocalFileSystemConf.LocalConf localConf =
+                new LocalFileSystemConf.LocalConf(FS_DEFAULT_NAME_DEFAULT);
         parquetReadStrategy.init(localConf);
         SeaTunnelRowType seaTunnelRowTypeInfo =
                 parquetReadStrategy.getSeaTunnelRowTypeInfo(NativeParquetWriter.DATA_FILE_PATH);
@@ -273,7 +281,8 @@ public class ParquetReadStrategyTest {
         CatalogTable catalogTable = CatalogTableUtil.buildWithConfig(pluginConfig);
 
         ParquetReadStrategy parquetReadStrategy = new ParquetReadStrategy();
-        LocalConf localConf = new LocalConf(FS_DEFAULT_NAME_DEFAULT);
+        LocalFileSystemConf.LocalConf localConf =
+                new LocalFileSystemConf.LocalConf(FS_DEFAULT_NAME_DEFAULT);
         parquetReadStrategy.init(localConf);
 
         SeaTunnelRowType configRowType = catalogTable.getSeaTunnelRowType();
@@ -342,25 +351,6 @@ public class ParquetReadStrategyTest {
         @Override
         public Object getCheckpointLock() {
             return null;
-        }
-    }
-
-    public static class LocalConf extends HadoopConf {
-        private static final String HDFS_IMPL = "org.apache.hadoop.fs.LocalFileSystem";
-        private static final String SCHEMA = "file";
-
-        public LocalConf(String hdfsNameKey) {
-            super(hdfsNameKey);
-        }
-
-        @Override
-        public String getFsHdfsImpl() {
-            return HDFS_IMPL;
-        }
-
-        @Override
-        public String getSchema() {
-            return SCHEMA;
         }
     }
 
@@ -589,7 +579,8 @@ public class ParquetReadStrategyTest {
         AutoGenerateParquetDataWithSchemaMerge.generateTestData();
 
         ParquetReadStrategy parquetReadStrategy = new ParquetReadStrategy();
-        LocalConf localConf = new LocalConf(FS_DEFAULT_NAME_DEFAULT);
+        LocalFileSystemConf.LocalConf localConf =
+                new LocalFileSystemConf.LocalConf(FS_DEFAULT_NAME_DEFAULT);
         parquetReadStrategy.init(localConf);
 
         Map<String, Object> props = new HashMap<>();
