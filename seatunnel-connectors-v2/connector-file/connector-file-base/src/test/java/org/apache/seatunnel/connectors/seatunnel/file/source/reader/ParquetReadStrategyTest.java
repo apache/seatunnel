@@ -586,8 +586,7 @@ public class ParquetReadStrategyTest {
     @DisabledOnOs(OS.WINDOWS)
     @Test
     public void testParquetSchemaMerge() throws Exception {
-        AutoGenerateParquetDataWithSchemaMerge.generateOldFileWithFourFields();
-        AutoGenerateParquetDataWithSchemaMerge.generateNewFileWithFiveFields();
+        AutoGenerateParquetDataWithSchemaMerge.generateTestData();
 
         ParquetReadStrategy parquetReadStrategy = new ParquetReadStrategy();
         LocalConf localConf = new LocalConf(FS_DEFAULT_NAME_DEFAULT);
@@ -600,7 +599,9 @@ public class ParquetReadStrategyTest {
 
         parquetReadStrategy.setPluginConfig(readonlyConfig.toConfig());
 
-        List<String> fileNames = parquetReadStrategy.getFileNamesByPath("/tmp");
+        List<String> fileNames =
+                parquetReadStrategy.getFileNamesByPath(
+                        AutoGenerateParquetDataWithSchemaMerge.TMP_PATH);
         Assertions.assertNotNull(fileNames);
         Assertions.assertEquals(2, fileNames.size());
 
@@ -625,10 +626,18 @@ public class ParquetReadStrategyTest {
 
     public static class AutoGenerateParquetDataWithSchemaMerge {
 
-        public static final String OLD_FILE_PATH = "/tmp/old_data.parquet";
-        public static final String NEW_FILE_PATH = "/tmp/new_data.parquet";
+        public static final String TMP_PATH = "/tmp/seatunnel/parquet";
+        public static final String OLD_FILE_PATH = TMP_PATH + "/old_data.parquet";
+        public static final String NEW_FILE_PATH = TMP_PATH + "/new_data.parquet";
 
-        public static void generateOldFileWithFourFields() throws IOException {
+        public static void generateTestData() throws IOException {
+            deleteFiles();
+
+            generateOldParquetFile();
+            generateNewParquetFile();
+        }
+
+        public static void generateOldParquetFile() throws IOException {
             String schemaString =
                     "{\"type\":\"record\",\"name\":\"User\",\"fields\":["
                             + "{\"name\":\"id\",\"type\":\"int\"},"
@@ -658,7 +667,7 @@ public class ParquetReadStrategyTest {
             writer.close();
         }
 
-        public static void generateNewFileWithFiveFields() throws IOException {
+        public static void generateNewParquetFile() throws IOException {
             String schemaString =
                     "{\"type\":\"record\",\"name\":\"User\",\"fields\":["
                             + "{\"name\":\"id\",\"type\":\"int\"},"
