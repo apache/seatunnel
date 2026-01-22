@@ -426,7 +426,7 @@ public class DateTimeFunctionsTest {
     }
 
     @Test
-    public void testToDateWithVariousFormats() {
+    public void testToDateWithDateFormat() {
         SeaTunnelRowType rowType =
                 new SeaTunnelRowType(
                         new String[] {"dummy"},
