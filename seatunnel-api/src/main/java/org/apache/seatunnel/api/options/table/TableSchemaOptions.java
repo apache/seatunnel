@@ -17,6 +17,7 @@
 
 package org.apache.seatunnel.api.options.table;
 
+import org.apache.seatunnel.common.constants.MetaLakeType;
 import org.apache.seatunnel.shade.com.fasterxml.jackson.core.type.TypeReference;
 
 import org.apache.seatunnel.api.configuration.Option;
@@ -40,4 +41,31 @@ public interface TableSchemaOptions {
                     .withDescription(
                             "SeaTunnel Multi Table Schema, acts on unstructed data sources. "
                                     + "such as file, assert, mongodb, etc");
+
+    Option<MetaLakeType> METALAKE_TYPE =
+            Options.key("metalake_type")
+                    .enumType(MetaLakeType.class)
+                    .defaultValue(MetaLakeType.GRAVITINO)
+                    .withDescription("Metadata lake type, for example: gravitino");
+
+    Option<String> METALAKE_URL =
+            Options.key("metalake_url")
+                    .stringType()
+                    .noDefaultValue()
+                    .withDescription(
+                            "The http path of the metadata lake, for example: http://localhost:8090/api/metalakes/laowang_test/catalogs/");
+
+    Option<String> SCHEMA_URL =
+            Options.key("metalake_url")
+                    .stringType()
+                    .noDefaultValue()
+                    .withDescription(
+                            "The http path of the metadata lake, for example: http://localhost:8090/api/metalakes/laowang_test/catalogs/");
+
+    Option<String> SCHEMA_PATH =
+            Options.key("metalake_url")
+                    .stringType()
+                    .noDefaultValue()
+                    .withDescription(
+                            "The http path of the metadata lake, for example: http://localhost:8090/api/metalakes/laowang_test/catalogs/");
 }

@@ -49,7 +49,8 @@ public interface TableSourceFactory extends Factory {
     // 如过哪个schema id值是正则表达式，不会处理，而是原原本本交还给source
     // 也要处理单独是schema的情况
     // 如果多表情况下，schema和restApi掺着用，该怎么返回？建议都返回 ，准备都返回。
-    default Map<String, TableSchema> discoverTableSchemasFromMetaLake(
+    // schema_path参数去掉，避免歧义
+    default Map<String, TableSchema> discoverTableSchemas(
             TableSourceFactoryContext context) {
         final MetaLakeSchemaDiscoverer metaLakeSchemaDiscoverer =
                 new MetaLakeSchemaDiscoverer(context, schemaKey());
