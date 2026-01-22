@@ -243,7 +243,7 @@ schema {
 
 ##### fields
 
-> The schema of upstream data.
+> The schema of upstream data. For more details, please refer to [Schema Feature](../../introduction/concepts/schema-feature.md).
 
 #### <span id="schema"> read_columns </span>
 

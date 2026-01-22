@@ -57,6 +57,9 @@ API endpoint revision (format: YYYY-MM-DD)
 
 http request method, only supports GET, POST method
 
+### schema [Config]
+The structure of the data, including field names and field types. For more details, please refer to [Schema Feature](../../introduction/concepts/schema-feature.md).
+
 ### params [Map]
 
 http params
