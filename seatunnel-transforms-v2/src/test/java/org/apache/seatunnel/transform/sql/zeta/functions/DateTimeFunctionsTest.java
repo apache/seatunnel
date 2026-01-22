@@ -24,7 +24,7 @@ import org.apache.seatunnel.api.table.type.LocalTimeType;
 import org.apache.seatunnel.api.table.type.SeaTunnelDataType;
 import org.apache.seatunnel.api.table.type.SeaTunnelRow;
 import org.apache.seatunnel.api.table.type.SeaTunnelRowType;
-import org.apache.seatunnel.common.exception.SeaTunnelRuntimeException;
+import org.apache.seatunnel.transform.exception.TransformException;
 import org.apache.seatunnel.transform.sql.SQLTransform;
 
 import org.junit.jupiter.api.Assertions;
@@ -303,7 +303,7 @@ public class DateTimeFunctionsTest {
                         new SeaTunnelDataType[] {LocalTimeType.LOCAL_DATE_TIME_TYPE});
 
         Assertions.assertThrows(
-                SeaTunnelRuntimeException.class,
+                TransformException.class,
                 () ->
                         runSql(
                                 "select PARSEDATETIME('2021-04-08', 'invalid_pattern') as parsed from dual",
@@ -319,7 +319,7 @@ public class DateTimeFunctionsTest {
                         new SeaTunnelDataType[] {LocalTimeType.LOCAL_DATE_TYPE});
 
         Assertions.assertThrows(
-                SeaTunnelRuntimeException.class,
+                TransformException.class,
                 () ->
                         runSql(
                                 "select DATEADD(dt, 1, 'UNSUPPORTED') as d from dual",
@@ -400,9 +400,8 @@ public class DateTimeFunctionsTest {
                         new String[] {"dummy"},
                         new SeaTunnelDataType[] {LocalTimeType.LOCAL_DATE_TIME_TYPE});
 
-        // Test with completely unsupported format
         Assertions.assertThrows(
-                SeaTunnelRuntimeException.class,
+                TransformException.class,
                 () ->
                         runSql(
                                 "select PARSEDATETIME('2024-06-15', 'dd/MM/yyyy') as dt from dual",
@@ -417,9 +416,8 @@ public class DateTimeFunctionsTest {
                         new String[] {"dummy"},
                         new SeaTunnelDataType[] {LocalTimeType.LOCAL_DATE_TIME_TYPE});
 
-        // Test with malformed input string
         Assertions.assertThrows(
-                SeaTunnelRuntimeException.class,
+                TransformException.class,
                 () ->
                         runSql(
                                 "select PARSEDATETIME('not-a-date', 'yyyy-MM-dd') as dt from dual",
@@ -434,7 +432,6 @@ public class DateTimeFunctionsTest {
                         new String[] {"dummy"},
                         new SeaTunnelDataType[] {LocalTimeType.LOCAL_DATE_TIME_TYPE});
 
-        // TO_DATE is an alias for PARSEDATETIME
         SeaTunnelRow row1 =
                 runSql(
                         "select TO_DATE('2024-06-15', 'yyyy-MM-dd') as dt from dual",
