@@ -24,6 +24,7 @@ import org.apache.seatunnel.api.table.type.LocalTimeType;
 import org.apache.seatunnel.api.table.type.SeaTunnelDataType;
 import org.apache.seatunnel.api.table.type.SeaTunnelRow;
 import org.apache.seatunnel.api.table.type.SeaTunnelRowType;
+import org.apache.seatunnel.common.exception.SeaTunnelRuntimeException;
 import org.apache.seatunnel.transform.exception.TransformException;
 import org.apache.seatunnel.transform.sql.SQLTransform;
 
@@ -303,7 +304,7 @@ public class DateTimeFunctionsTest {
                         new SeaTunnelDataType[] {LocalTimeType.LOCAL_DATE_TIME_TYPE});
 
         Assertions.assertThrows(
-                TransformException.class,
+                SeaTunnelRuntimeException.class,
                 () ->
                         runSql(
                                 "select PARSEDATETIME('2021-04-08', 'invalid_pattern') as parsed from dual",
@@ -401,7 +402,7 @@ public class DateTimeFunctionsTest {
                         new SeaTunnelDataType[] {LocalTimeType.LOCAL_DATE_TIME_TYPE});
 
         Assertions.assertThrows(
-                TransformException.class,
+                SeaTunnelRuntimeException.class,
                 () ->
                         runSql(
                                 "select PARSEDATETIME('2024-06-15', 'dd/MM/yyyy') as dt from dual",
@@ -417,7 +418,7 @@ public class DateTimeFunctionsTest {
                         new SeaTunnelDataType[] {LocalTimeType.LOCAL_DATE_TIME_TYPE});
 
         Assertions.assertThrows(
-                TransformException.class,
+                SeaTunnelRuntimeException.class,
                 () ->
                         runSql(
                                 "select PARSEDATETIME('not-a-date', 'yyyy-MM-dd') as dt from dual",
