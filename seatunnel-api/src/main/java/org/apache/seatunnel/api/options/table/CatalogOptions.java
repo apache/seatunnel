@@ -69,6 +69,6 @@ public interface CatalogOptions {
                     .type(new TypeReference<List<Map<String, Object>>>() {})
                     .noDefaultValue()
                     .withDescription(
-                            "This parameter is deprecated, please use parameter: TableSchemaOptions.TABLE_CONFIGS. SeaTunnel Multi Table Schema, acts on structed data sources. "
+                            "This parameter is deprecated, please use parameter: TableSchemaOptions.TABLE_CONFIGS. SeaTunnel Multi Table Schema, acts on structured and unstructured data sources. "
                                     + "such as jdbc, paimon, doris, etc");
 }
