@@ -86,7 +86,7 @@ public abstract class AbstractJdbcCatalog implements Catalog {
 
     protected final Map<String, Connection> connectionMap;
 
-    private final String driverClass;
+    protected final String driverClass;
 
     public AbstractJdbcCatalog(
             String catalogName,
