@@ -43,11 +43,9 @@ public interface TableSourceFactory extends Factory {
                 "The Factory has not been implemented and the deprecated Plugin will be used.");
     }
 
-
-    default List<CatalogTable> discoverTableSchemas(
-            TableSourceFactoryContext context) {
+    default List<CatalogTable> discoverTableSchemas(TableSourceFactoryContext context) {
         final MetaLakeSchemaDiscoverer metaLakeSchemaDiscoverer =
-                new MetaLakeSchemaDiscoverer(context,factoryIdentifier());
+                new MetaLakeSchemaDiscoverer(context, factoryIdentifier());
         return metaLakeSchemaDiscoverer.discoverTableSchemas();
     }
 

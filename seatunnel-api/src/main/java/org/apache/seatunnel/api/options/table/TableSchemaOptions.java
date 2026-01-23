@@ -17,11 +17,11 @@
 
 package org.apache.seatunnel.api.options.table;
 
-import org.apache.seatunnel.common.constants.MetaLakeType;
 import org.apache.seatunnel.shade.com.fasterxml.jackson.core.type.TypeReference;
 
 import org.apache.seatunnel.api.configuration.Option;
 import org.apache.seatunnel.api.configuration.Options;
+import org.apache.seatunnel.common.constants.MetaLakeType;
 
 import java.util.List;
 import java.util.Map;

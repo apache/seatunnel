@@ -26,5 +26,5 @@ public interface MetalakeClient {
 
     JsonNode getMetaInfo(String sourceId, String metalakeUrl) throws IOException;
 
-    JsonNode getSchema(String schemaHttpUrl);
+    JsonNode getTableSchema(String schemaHttpUrl) throws IOException;
 }

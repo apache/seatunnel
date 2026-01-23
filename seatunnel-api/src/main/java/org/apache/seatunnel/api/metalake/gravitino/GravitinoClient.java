@@ -34,6 +34,16 @@ import java.io.IOException;
 
 public class GravitinoClient implements MetalakeClient {
 
+    private static final String HEADER_ACCEPT = "Accept";
+    private static final String MEDIA_TYPE_GRAVITINO_V1 = "application/vnd.gravitino.v1+json";
+    private static final String JSON_FIELD_CATALOG = "catalog";
+    private static final String JSON_FIELD_TABLE = "table";
+    private static final String JSON_FIELD_PROPERTIES = "properties";
+    private static final String ERROR_NO_RESPONSE_ENTITY = "No response entity";
+    private static final String ERROR_MISSING_FIELD_TEMPLATE = "Response JSON has no '%s' field";
+
+    private static volatile CloseableHttpClient httpClient;
+
     @Override
     public String getType() {
         return MetaLakeType.GRAVITINO.getType();
@@ -41,28 +51,70 @@ public class GravitinoClient implements MetalakeClient {
 
     @Override
     public JsonNode getMetaInfo(String sourceId, String metalakeUrl) throws IOException {
-        try (CloseableHttpClient client = HttpClients.createDefault()) {
-            HttpGet request = new HttpGet(metalakeUrl + sourceId);
-            request.addHeader("Accept", "application/vnd.gravitino.v1+json");
-            try (CloseableHttpResponse response = client.execute(request)) {
-                HttpEntity entity = response.getEntity();
-                if (entity == null) {
-                    throw new RuntimeException("No response entity");
-                }
-                JsonNode rootNode = JsonUtils.readTree(entity.getContent());
+        JsonNode rootNode = executeGetRequest(metalakeUrl + sourceId);
+        JsonNode catalogNode = getRequiredNode(rootNode, JSON_FIELD_CATALOG);
+        return getRequiredNode(catalogNode, JSON_FIELD_PROPERTIES);
+    }
+
+    @Override
+    public JsonNode getTableSchema(String schemaHttpUrl) throws IOException {
+        JsonNode rootNode = executeGetRequest(schemaHttpUrl);
+        return getRequiredNode(rootNode, JSON_FIELD_TABLE);
+    }
+
+    /**
+     * Execute HTTP GET request and return parsed JSON response.
+     *
+     * @param url the request URL
+     * @return parsed JSON root node
+     * @throws IOException if network or parsing error occurs
+     */
+    private JsonNode executeGetRequest(String url) throws IOException {
+        HttpGet request = new HttpGet(url);
+        request.addHeader(HEADER_ACCEPT, MEDIA_TYPE_GRAVITINO_V1);
+
+        try (CloseableHttpResponse response = getHttpClient().execute(request)) {
+            HttpEntity entity = response.getEntity();
+            if (entity == null) {
+                throw new RuntimeException(ERROR_NO_RESPONSE_ENTITY);
+            }
+            try {
+                return JsonUtils.readTree(entity.getContent());
+            } finally {
                 EntityUtils.consume(entity);
-                JsonNode catalogNode = rootNode.get("catalog");
-                if (catalogNode == null) {
-                    throw new RuntimeException("Response JSON has no 'catalog' field");
-                }
-                JsonNode propertiesNode = catalogNode.get("properties");
-                return propertiesNode;
             }
         }
     }
 
-    @Override
-    public JsonNode getSchema(String schemaHttpUrl) {
-        return null;
+    /**
+     * Get a required child node from parent node, throw exception if not found.
+     *
+     * @param parentNode the parent JSON node
+     * @param fieldName the field name to retrieve
+     * @return the child node
+     * @throws RuntimeException if the field is not present
+     */
+    private JsonNode getRequiredNode(JsonNode parentNode, String fieldName) {
+        JsonNode node = parentNode.get(fieldName);
+        if (node == null) {
+            throw new RuntimeException(String.format(ERROR_MISSING_FIELD_TEMPLATE, fieldName));
+        }
+        return node;
+    }
+
+    /**
+     * Get or create a singleton HttpClient instance.
+     *
+     * @return the shared HttpClient
+     */
+    private CloseableHttpClient getHttpClient() {
+        if (httpClient == null) {
+            synchronized (GravitinoClient.class) {
+                if (httpClient == null) {
+                    httpClient = HttpClients.createDefault();
+                }
+            }
+        }
+        return httpClient;
     }
 }

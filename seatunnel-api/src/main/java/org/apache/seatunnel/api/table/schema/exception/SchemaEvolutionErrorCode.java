@@ -33,6 +33,7 @@ public enum SchemaEvolutionErrorCode implements SeaTunnelErrorCode {
     SCHEMA_INCOMPATIBLE("SE-06", "Schema change is incompatible with current schema"),
     OUTDATED_SCHEMA_EVENT("SE-07", "Schema change event is outdated"),
     UNSUPPORTED_SCHEMA_CHANGE_TYPE("SE-08", "Schema change type is not supported"),
+    GET_META_LAKE_TABLE_SCHEMA_FAILED("SE-09", "Get meta lake table schema failed"),
 
     // Sink Writer Errors
     SCHEMA_CHANGE_APPLICATION_FAILED("SE-09", "Failed to apply schema change to sink writer"),
