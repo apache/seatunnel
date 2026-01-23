@@ -207,7 +207,10 @@ public class TablePlaceholderProcessor {
                                         + TablePlaceholder.REPLACE_PARTITION_KEYS_KEY
                                                 .getPlaceholder()
                                         + "}")) {
-                            listValue = new ArrayList<>(table.getPartitionKeys());
+                            List<String> partitionKeys = table.getPartitionKeys();
+                            if (partitionKeys != null && !partitionKeys.isEmpty()) {
+                                listValue = new ArrayList<>(partitionKeys);
+                            }
                         }
                         copyOnWriteData.put(key, listValue);
                     }

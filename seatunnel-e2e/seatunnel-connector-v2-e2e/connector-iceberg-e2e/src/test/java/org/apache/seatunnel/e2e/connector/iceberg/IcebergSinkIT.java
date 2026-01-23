@@ -142,7 +142,7 @@ public class IcebergSinkIT extends TestSuiteBase {
                                         && transform.equals(field.transform().toString()));
     }
 
-    private Table loadIcebergTableObject() {
+    private Table loadIcebergTableObject() throws IOException {
         Map<String, Object> configs = new HashMap<>();
         Map<String, Object> catalogProps = new HashMap<>();
         catalogProps.put("type", HADOOP.getType());
@@ -151,10 +151,12 @@ public class IcebergSinkIT extends TestSuiteBase {
         configs.put(IcebergCommonOptions.KEY_NAMESPACE.key(), "seatunnel_namespace");
         configs.put(IcebergCommonOptions.KEY_TABLE.key(), "iceberg_sink_table");
         configs.put(IcebergCommonOptions.CATALOG_PROPS.key(), catalogProps);
-        IcebergTableLoader tableLoader =
-                IcebergTableLoader.create(new IcebergSourceConfig(ReadonlyConfig.fromMap(configs)));
-        tableLoader.open();
-        return tableLoader.loadTable();
+        try (IcebergTableLoader tableLoader =
+                IcebergTableLoader.create(
+                        new IcebergSourceConfig(ReadonlyConfig.fromMap(configs)))) {
+            tableLoader.open();
+            return tableLoader.loadTable();
+        }
     }
 
     private List<Record> loadIcebergTable() {

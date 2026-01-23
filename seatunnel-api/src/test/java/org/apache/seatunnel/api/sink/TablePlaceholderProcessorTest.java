@@ -82,6 +82,18 @@ public class TablePlaceholderProcessorTest {
     }
 
     @Test
+    public void testPartitionKeysPlaceholderWithEmptyPartitionKeys() {
+        ReadonlyConfig config = createConfig();
+        CatalogTable table = createTestTable();
+        table.getPartitionKeys().clear();
+        ReadonlyConfig newConfig = TablePlaceholderProcessor.replaceTablePlaceholder(config, table);
+
+        Assertions.assertEquals("${partition_keys}", newConfig.get(PARTITION_KEYS));
+        Assertions.assertEquals(
+                Arrays.asList("${partition_keys}"), newConfig.get(PARTITION_KEYS_ARRAY));
+    }
+
+    @Test
     public void testSinkOptionsWithNoTablePath() {
         ReadonlyConfig config = createConfig();
         CatalogTable table = createTestTableWithNoDatabaseAndSchemaName();
