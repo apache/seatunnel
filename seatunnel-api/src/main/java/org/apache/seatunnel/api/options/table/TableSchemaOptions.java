@@ -47,25 +47,4 @@ public interface TableSchemaOptions {
                     .enumType(MetaLakeType.class)
                     .defaultValue(MetaLakeType.GRAVITINO)
                     .withDescription("Metadata lake type, for example: gravitino");
-
-    Option<String> METALAKE_URL =
-            Options.key("metalake_url")
-                    .stringType()
-                    .noDefaultValue()
-                    .withDescription(
-                            "The http path of the metadata lake, for example: http://localhost:8090/api/metalakes/laowang_test/catalogs/");
-
-    Option<String> SCHEMA_URL =
-            Options.key("metalake_url")
-                    .stringType()
-                    .noDefaultValue()
-                    .withDescription(
-                            "The http path of the metadata lake, for example: http://localhost:8090/api/metalakes/laowang_test/catalogs/");
-
-    Option<String> SCHEMA_PATH =
-            Options.key("metalake_url")
-                    .stringType()
-                    .noDefaultValue()
-                    .withDescription(
-                            "The http path of the metadata lake, for example: http://localhost:8090/api/metalakes/laowang_test/catalogs/");
 }

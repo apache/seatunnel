@@ -21,6 +21,7 @@ import org.apache.seatunnel.api.configuration.Option;
 import org.apache.seatunnel.api.metalake.MetaLakeSchemaDiscoverer;
 import org.apache.seatunnel.api.source.SeaTunnelSource;
 import org.apache.seatunnel.api.source.SourceSplit;
+import org.apache.seatunnel.api.table.catalog.CatalogTable;
 import org.apache.seatunnel.api.table.catalog.TableSchema;
 import org.apache.seatunnel.api.table.connector.TableSource;
 
@@ -50,7 +51,7 @@ public interface TableSourceFactory extends Factory {
     // 也要处理单独是schema的情况
     // 如果多表情况下，schema和restApi掺着用，该怎么返回？建议都返回 ，准备都返回。
     // schema_path参数去掉，避免歧义
-    default Map<String, TableSchema> discoverTableSchemas(
+    default Map<String, CatalogTable> discoverTableSchemas(
             TableSourceFactoryContext context) {
         final MetaLakeSchemaDiscoverer metaLakeSchemaDiscoverer =
                 new MetaLakeSchemaDiscoverer(context, schemaKey());

@@ -57,4 +57,11 @@ public interface TableIdentifierOptions {
                     .stringType()
                     .noDefaultValue()
                     .withDescription("SeaTunnel Schema Table Name");
+
+    Option<String> SCHEMA_URL =
+            Options.key("schema_url")
+                    .stringType()
+                    .noDefaultValue()
+                    .withDescription(
+                            "The http path of the schema, for example: http://localhost:8090/api/metalakes/laowang_test/catalogs/221-pgsql/schemas/ykw/tables/all_type");
 }
