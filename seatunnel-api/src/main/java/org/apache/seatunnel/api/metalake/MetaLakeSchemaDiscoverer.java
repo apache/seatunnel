@@ -10,12 +10,15 @@ import org.apache.seatunnel.api.table.catalog.CatalogTable;
 import org.apache.seatunnel.api.table.catalog.CatalogTableUtil;
 import org.apache.seatunnel.api.table.factory.TableSourceFactoryContext;
 import org.apache.seatunnel.common.constants.MetaLakeType;
+import org.apache.seatunnel.common.exception.SeaTunnelRuntimeException;
 import org.apache.seatunnel.shade.com.fasterxml.jackson.databind.JsonNode;
 
 import java.io.IOException;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
+
+import static org.apache.seatunnel.api.table.schema.exception.SchemaEvolutionErrorCode.INVALID_SCHEMA_STRUCTURE;
 
 @Slf4j
 public class MetaLakeSchemaDiscoverer {
@@ -49,7 +52,7 @@ public class MetaLakeSchemaDiscoverer {
     }
 
     private CatalogTable discoverTableSchema(ReadonlyConfig readonlyConfig) {
-        // 里边有field属性
+        // 里边有field 或者 columns属性
         if (){
             return discoverTableSchemaFromConfig(readonlyConfig);
         }
@@ -57,7 +60,8 @@ public class MetaLakeSchemaDiscoverer {
         if (){
             return discoverTableSchemaFromMetaLake();
         }
-        // 什么都没有就返回默认
+        throw new SeaTunnelRuntimeException(INVALID_SCHEMA_STRUCTURE,
+                "Schema config need option [schema], please correct your config first");
     }
 
     private CatalogTable discoverTableSchemaFromConfig(ReadonlyConfig readonlyConfig) {

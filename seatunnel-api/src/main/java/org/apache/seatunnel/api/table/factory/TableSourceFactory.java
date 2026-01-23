@@ -17,18 +17,14 @@
 
 package org.apache.seatunnel.api.table.factory;
 
-import org.apache.seatunnel.api.configuration.Option;
 import org.apache.seatunnel.api.metalake.MetaLakeSchemaDiscoverer;
 import org.apache.seatunnel.api.source.SeaTunnelSource;
 import org.apache.seatunnel.api.source.SourceSplit;
 import org.apache.seatunnel.api.table.catalog.CatalogTable;
-import org.apache.seatunnel.api.table.catalog.TableSchema;
 import org.apache.seatunnel.api.table.connector.TableSource;
 
 import java.io.Serializable;
 import java.util.List;
-import java.util.Map;
-import java.util.Optional;
 
 /**
  * This is an SPI interface, used to create {@link TableSource}. Each plugin need to have it own
@@ -47,11 +43,7 @@ public interface TableSourceFactory extends Factory {
                 "The Factory has not been implemented and the deprecated Plugin will be used.");
     }
 
-    // 返回一个map，其中key是连接器的schema id值，比如文件类型的是path,kafka的是topic值。其中value是 TableSchema
-    // 如过哪个schema id值是正则表达式，不会处理，而是原原本本交还给source
-    // 也要处理单独是schema的情况
-    // 如果多表情况下，schema和restApi掺着用，该怎么返回？建议都返回 ，准备都返回。
-    // schema_path参数去掉，避免歧义
+
     default List<CatalogTable> discoverTableSchemas(
             TableSourceFactoryContext context) {
         final MetaLakeSchemaDiscoverer metaLakeSchemaDiscoverer =
