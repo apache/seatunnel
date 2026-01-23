@@ -41,6 +41,7 @@ public class GravitinoClient implements MetalakeClient {
     private static final String JSON_FIELD_PROPERTIES = "properties";
     private static final String ERROR_NO_RESPONSE_ENTITY = "No response entity";
     private static final String ERROR_MISSING_FIELD_TEMPLATE = "Response JSON has no '%s' field";
+    private static final int MAX_RETRY_ATTEMPTS = 2;
 
     private static volatile CloseableHttpClient httpClient;
 
@@ -70,20 +71,28 @@ public class GravitinoClient implements MetalakeClient {
      * @throws IOException if network or parsing error occurs
      */
     private JsonNode executeGetRequest(String url) throws IOException {
-        HttpGet request = new HttpGet(url);
-        request.addHeader(HEADER_ACCEPT, MEDIA_TYPE_GRAVITINO_V1);
+        IOException lastException = null;
 
-        try (CloseableHttpResponse response = getHttpClient().execute(request)) {
-            HttpEntity entity = response.getEntity();
-            if (entity == null) {
-                throw new RuntimeException(ERROR_NO_RESPONSE_ENTITY);
-            }
-            try {
-                return JsonUtils.readTree(entity.getContent());
-            } finally {
-                EntityUtils.consume(entity);
+        for (int attempt = 1; attempt <= MAX_RETRY_ATTEMPTS; attempt++) {
+            HttpGet request = new HttpGet(url);
+            request.addHeader(HEADER_ACCEPT, MEDIA_TYPE_GRAVITINO_V1);
+
+            try (CloseableHttpResponse response = getHttpClient().execute(request)) {
+                HttpEntity entity = response.getEntity();
+                if (entity == null) {
+                    throw new RuntimeException(ERROR_NO_RESPONSE_ENTITY);
+                }
+                try {
+                    return JsonUtils.readTree(entity.getContent());
+                } finally {
+                    EntityUtils.consume(entity);
+                }
+            } catch (IOException e) {
+                lastException = e;
             }
         }
+
+        throw lastException;
     }
 
     /**
