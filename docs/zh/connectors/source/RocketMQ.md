@@ -29,26 +29,26 @@ Apache RocketMQ 的源连接器。
 
 ## 源选项
 
-| 参数名 | 类型 | 必须 | 默认值 | 描述 |
-|--------|------|------|--------|------|
-| topics | String | 是 | - | RocketMQ 主题名称。如果有多个主题，使用 `,` 分隔，例如：`"tpc1,tpc2"`。 |
-| name.srv.addr | String | 是 | - | RocketMQ 名称服务器集群地址。 |
-| tags | String | 否 | - | RocketMQ 标签名称。如果有多个标签，使用 `,` 分隔，例如：`"tag1,tag2"`。 |
-| acl.enabled | Boolean | 否 | false | 如果为 true，启用访问控制，需要配置访问密钥和秘密密钥。 |
-| access.key | String | 否 | | 访问密钥 |
-| secret.key | String | 否 | | 当 ACL_ENABLED 为 true 时，秘密密钥不能为空。 |
-| batch.size | int | 否 | 100 | RocketMQ 消费者拉取批大小 |
-| consumer.group | String | 否 | SeaTunnel-Consumer-Group | RocketMQ 消费者组 ID，用于区分不同的消费者组。 |
-| commit.on.checkpoint | Boolean | 否 | true | 如果为 true，消费者的偏移量将在后台定期提交。 |
-| schema | | 否 | - | 数据的结构，包括字段名称和字段类型。 |
-| format | String | 否 | json | 数据格式。默认格式是 json。可选 text 格式。默认字段分隔符是 ","。如果自定义分隔符，添加 "field.delimiter" 选项。 |
-| field.delimiter | String | 否 | , | 自定义数据格式的字段分隔符 |
-| start.mode | String | 否 | CONSUME_FROM_GROUP_OFFSETS | 消费者的初始消费模式，有几种类型：[CONSUME_FROM_LAST_OFFSET],[CONSUME_FROM_FIRST_OFFSET],[CONSUME_FROM_GROUP_OFFSETS],[CONSUME_FROM_TIMESTAMP],[CONSUME_FROM_SPECIFIC_OFFSETS] |
-| start.mode.offsets | | 否 | | 消费模式为 "CONSUME_FROM_SPECIFIC_OFFSETS" 所需的偏移量 |
-| start.mode.timestamp | Long | 否 | | 消费模式为 "CONSUME_FROM_TIMESTAMP" 所需的时间。 |
-| partition.discovery.interval.millis | long | 否 | -1 | 动态发现主题和分区的间隔。 |
-| ignore_parse_errors | Boolean | 否 | false | 可选标志，跳过解析错误而不是失败。 |
-| common-options | config | 否 | - | 源插件通用参数，请参考 [源通用选项](../common-options/source-common-options.md) 详见。 |
+| 参数名                                 | 类型      | 必须 | 默认值                        | 描述                                                                                                                                                            |
+|-------------------------------------|---------|----|----------------------------|---------------------------------------------------------------------------------------------------------------------------------------------------------------|
+| topics                              | String  | 是  | -                          | RocketMQ 主题名称。如果有多个主题，使用 `,` 分隔，例如：`"tpc1,tpc2"`。                                                                                                             |
+| name.srv.addr                       | String  | 是  | -                          | RocketMQ 名称服务器集群地址。                                                                                                                                           |
+| tags                                | String  | 否  | -                          | RocketMQ 标签名称。如果有多个标签，使用 `,` 分隔，例如：`"tag1,tag2"`。                                                                                                             |
+| acl.enabled                         | Boolean | 否  | false                      | 如果为 true，启用访问控制，需要配置访问密钥和秘密密钥。                                                                                                                                |
+| access.key                          | String  | 否  |                            | 访问密钥                                                                                                                                                          |
+| secret.key                          | String  | 否  |                            | 当 ACL_ENABLED 为 true 时，秘密密钥不能为空。                                                                                                                              |
+| batch.size                          | int     | 否  | 100                        | RocketMQ 消费者拉取批大小                                                                                                                                             |
+| consumer.group                      | String  | 否  | SeaTunnel-Consumer-Group   | RocketMQ 消费者组 ID，用于区分不同的消费者组。                                                                                                                                 |
+| commit.on.checkpoint                | Boolean | 否  | true                       | 如果为 true，消费者的偏移量将在后台定期提交。                                                                                                                                     |
+| schema                              |         | 否  | -                          | 数据的结构，包括字段名称和字段类型。更多详情请参考 [Schema 特性](../../introduction/concepts/schema-feature.md)。                                                                         |
+| format                              | String  | 否  | json                       | 数据格式。默认格式是 json。可选 text 格式。默认字段分隔符是 ","。如果自定义分隔符，添加 "field.delimiter" 选项。                                                                                     |
+| field.delimiter                     | String  | 否  | ,                          | 自定义数据格式的字段分隔符                                                                                                                                                 |
+| start.mode                          | String  | 否  | CONSUME_FROM_GROUP_OFFSETS | 消费者的初始消费模式，有几种类型：[CONSUME_FROM_LAST_OFFSET],[CONSUME_FROM_FIRST_OFFSET],[CONSUME_FROM_GROUP_OFFSETS],[CONSUME_FROM_TIMESTAMP],[CONSUME_FROM_SPECIFIC_OFFSETS] |
+| start.mode.offsets                  |         | 否  |                            | 消费模式为 "CONSUME_FROM_SPECIFIC_OFFSETS" 所需的偏移量                                                                                                                  |
+| start.mode.timestamp                | Long    | 否  |                            | 消费模式为 "CONSUME_FROM_TIMESTAMP" 所需的时间。                                                                                                                         |
+| partition.discovery.interval.millis | long    | 否  | -1                         | 动态发现主题和分区的间隔。                                                                                                                                                 |
+| ignore_parse_errors                 | Boolean | 否  | false                      | 可选标志，跳过解析错误而不是失败。                                                                                                                                             |
+| common-options                      | config  | 否  | -                          | 源插件通用参数，请参考 [源通用选项](../common-options/source-common-options.md) 详见。                                                                                           |
 
 ### start.mode.offsets
 

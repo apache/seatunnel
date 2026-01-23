@@ -38,7 +38,7 @@ Whether replace the first match string. Only used when `is_regex = true`.
 
 ### common options [string]
 
-Transform plugin common parameters, please refer to [Transform Plugin](common-options.md) for details
+Transform plugin common parameters, please refer to [Transform Plugin](common-options/common-options.md) for details
 
 ## Example
 

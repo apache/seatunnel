@@ -51,7 +51,7 @@ Used to read data from IoTDB.
 | username                   | string  | yes      | -             | IoTDB user username                                                                                               |
 | password                   | string  | yes      | -             | IoTDB user password                                                                                               |
 | sql                        | string  | yes      | -             | execute sql statement                                                                                             |
-| schema                     | config  | yes      | -             | the data schema                                                                                                   |
+| schema                     | config  | yes      | -             | The data schema. For more details, please refer to [Schema Feature](../../introduction/concepts/schema-feature.md).                                                                                                   |
 | fetch_size                 | int     | no       | -             | the fetch_size of the IoTDB when you select                                                                       |
 | lower_bound                | long    | no       | -             | the lower_bound of the IoTDB when you select                                                                      |
 | upper_bound                | long    | no       | -             | the upper_bound of the IoTDB when you select                                                                      |

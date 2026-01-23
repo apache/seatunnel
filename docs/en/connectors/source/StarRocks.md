@@ -74,7 +74,7 @@ e.g.
 
 #### fields [Config]
 
-The schema of the starRocks that you want to generate
+The schema of the starRocks that you want to generate. For more details, please refer to [Schema Feature](../../introduction/concepts/schema-feature.md).
 
 e.g.
 
