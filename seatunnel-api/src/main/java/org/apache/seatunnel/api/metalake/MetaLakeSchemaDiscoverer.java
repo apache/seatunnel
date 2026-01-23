@@ -1,89 +1,91 @@
 package org.apache.seatunnel.api.metalake;
 
+import lombok.extern.slf4j.Slf4j;
 import org.apache.commons.lang3.StringUtils;
-import org.apache.seatunnel.api.configuration.Option;
 import org.apache.seatunnel.api.configuration.ReadonlyConfig;
 import org.apache.seatunnel.api.options.ConnectorCommonOptions;
 import org.apache.seatunnel.api.options.EnvCommonOptions;
 import org.apache.seatunnel.api.options.table.TableSchemaOptions;
 import org.apache.seatunnel.api.table.catalog.CatalogTable;
 import org.apache.seatunnel.api.table.catalog.CatalogTableUtil;
-import org.apache.seatunnel.api.table.catalog.TableSchema;
-import org.apache.seatunnel.api.table.catalog.schema.ReadonlyConfigParser;
 import org.apache.seatunnel.api.table.factory.TableSourceFactoryContext;
 import org.apache.seatunnel.common.constants.MetaLakeType;
+import org.apache.seatunnel.shade.com.fasterxml.jackson.databind.JsonNode;
 
-import java.util.HashMap;
-import java.util.LinkedHashMap;
+import java.io.IOException;
+import java.util.ArrayList;
+import java.util.List;
 import java.util.Map;
-import java.util.Optional;
 
+@Slf4j
 public class MetaLakeSchemaDiscoverer {
 
     private ReadonlyConfig envOptions;
     private ReadonlyConfig sourceOptions;
-    private Optional<Option<String>> schemaKeyOptional;
+    private String catalogName;
     private MetalakeClient metalakeClient;
     private MetaLakeTypeMapper metaLakeTypeMapper;
 
     public MetaLakeSchemaDiscoverer(
-            TableSourceFactoryContext context, Optional<Option<String>> schemaKeyOptional) {
+            TableSourceFactoryContext context,String catalogName) {
         this.envOptions = context.getEnvOptions();
         this.sourceOptions = context.getOptions();
-        this.schemaKeyOptional = schemaKeyOptional;
+        this.catalogName = catalogName;
         this.metalakeClient = MetaLakeFactory.createClient(getMetaLakeType());
         this.metaLakeTypeMapper = MetaLakeFactory.createTypeMapper(getMetaLakeType());
     }
 
-    // 改成 List<CatalogTable> ?
-    public Map<String, CatalogTable> discoverTableSchemas() {
-        final Map<String,CatalogTable> tableSchemaMap = new LinkedHashMap<>();
+
+    public List<CatalogTable> discoverTableSchemas() {
+        List<CatalogTable> catalogTables = new ArrayList<>();
         // 单表 schema
         if(sourceOptions.getOptional(ConnectorCommonOptions.SCHEMA).isPresent()){
-            CatalogTable catalogTable = CatalogTableUtil.buildWithConfig(sourceOptions);
-            if (!schemaKeyOptional.isPresent()) {
-                tableSchemaMap.put("",catalogTable);
-                return tableSchemaMap;
-            }
-            Optional<String> optional = sourceOptions.getOptional(schemaKeyOptional.get());
-            if (!optional.isPresent()){
-                tableSchemaMap.put("",catalogTable);
-                return tableSchemaMap;
-            } else {
-                tableSchemaMap.put(optional.get(),catalogTable);
-                return tableSchemaMap;
-            }
+            catalogTables.add(discoverTableSchema(sourceOptions));
+            return catalogTables;
         }
-        //
+        // table_config and table_list
 
-        return tableSchemaMap;
+        return catalogTables;
     }
 
-    /*private CatalogTable discoverTableSchema(ReadonlyConfig readonlyConfig) {
-
+    private CatalogTable discoverTableSchema(ReadonlyConfig readonlyConfig) {
+        // 里边有field属性
+        if (){
+            return discoverTableSchemaFromConfig(readonlyConfig);
+        }
+        // 里边有schema_url属性
+        if (){
+            return discoverTableSchemaFromMetaLake();
+        }
+        // 什么都没有就返回默认
     }
 
     private CatalogTable discoverTableSchemaFromConfig(ReadonlyConfig readonlyConfig) {
-
+        return CatalogTableUtil.buildWithConfig(catalogName,readonlyConfig);
     }
 
-    private CatalogTable discoverTableSchemaFromMetaLake(ReadonlyConfig readonlyConfig) {
-
-    }*/
+    private CatalogTable discoverTableSchemaFromMetaLake(String schemaUrl) {
+        try {
+            JsonNode schemaNode = metalakeClient.getSchema(schemaUrl);
+            return metaLakeTypeMapper.convertor(schemaNode);
+        } catch (IOException e) {
+            // 返回默认
+            log.error("", e);
+        }
+    }
 
     private MetaLakeType getMetaLakeType() {
-        // 应该就近原则 优先级分别是 source配置 env配置 环境变量配置
-        // first evn
+        // first source
+        if (sourceOptions.getOptional(TableSchemaOptions.METALAKE_TYPE).isPresent()){
+            return sourceOptions.get(TableSchemaOptions.METALAKE_TYPE);
+        }
+        // second env
         if (envOptions.getOptional(EnvCommonOptions.METALAKE_TYPE).isPresent()){
             return envOptions.get(EnvCommonOptions.METALAKE_TYPE);
         }
-        // second system
+        // third system
         if(StringUtils.isNotEmpty(System.getenv(EnvCommonOptions.METALAKE_TYPE.key().toUpperCase()))){
             return MetaLakeType.valueOf(System.getenv(EnvCommonOptions.METALAKE_TYPE.key().toUpperCase()));
-        }
-        // third source config
-        if (sourceOptions.getOptional(TableSchemaOptions.METALAKE_TYPE).isPresent()){
-            return sourceOptions.get(TableSchemaOptions.METALAKE_TYPE);
         }
         // default
         return MetaLakeType.GRAVITINO;

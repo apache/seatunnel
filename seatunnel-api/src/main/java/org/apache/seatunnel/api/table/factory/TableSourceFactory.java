@@ -26,6 +26,7 @@ import org.apache.seatunnel.api.table.catalog.TableSchema;
 import org.apache.seatunnel.api.table.connector.TableSource;
 
 import java.io.Serializable;
+import java.util.List;
 import java.util.Map;
 import java.util.Optional;
 
@@ -51,19 +52,13 @@ public interface TableSourceFactory extends Factory {
     // 也要处理单独是schema的情况
     // 如果多表情况下，schema和restApi掺着用，该怎么返回？建议都返回 ，准备都返回。
     // schema_path参数去掉，避免歧义
-    default Map<String, CatalogTable> discoverTableSchemas(
+    default List<CatalogTable> discoverTableSchemas(
             TableSourceFactoryContext context) {
         final MetaLakeSchemaDiscoverer metaLakeSchemaDiscoverer =
-                new MetaLakeSchemaDiscoverer(context, schemaKey());
+                new MetaLakeSchemaDiscoverer(context,factoryIdentifier());
         return metaLakeSchemaDiscoverer.discoverTableSchemas();
     }
 
-    // 返回schema的id 文件类型的是path，kafka的是topic，mongodb的是collection,starrocks的是table
-    default Optional<Option<String>> schemaKey() {
-        String message =
-                String.format("The %s has not been implemented yet.", getSourceClass().getName());
-        throw new UnsupportedOperationException(message);
-    }
     /**
      * TODO: Implement SupportParallelism in the TableSourceFactory instead of the SeaTunnelSource,
      * Then deprecated the method
