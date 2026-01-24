@@ -163,7 +163,7 @@ public class HdfsFileIT extends TestSuiteBase implements TestResource {
                 container.executeJob("/hdfs_empty_text_to_assert.conf");
         Assertions.assertEquals(0, readResult.getExitCode());
     }
-  
+
     @TestTemplate
     public void testHdfsBinaryUpdateModeDistcp(TestContainer container)
             throws IOException, InterruptedException {
