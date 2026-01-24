@@ -22,22 +22,22 @@ import ChangeLog from '../changelog/connector-influxdb.md';
 
 ## 选项
 
-| 参数名 | 类型 | 必须 | 默认值 | 描述 |
-|--------|------|------|--------|------|
-| url | string | 是 | - | InfluxDB 连接 URL |
-| sql | string | 是 | - | 用于搜索数据的查询 SQL |
-| schema | config | 是 | - | 上游数据的模式信息 |
-| database | string | 是 | - | InfluxDB 数据库 |
-| username | string | 否 | - | InfluxDB 用户名 |
-| password | string | 否 | - | InfluxDB 密码 |
-| lower_bound | long | 否 | - | split_column 的下界 |
-| upper_bound | long | 否 | - | split_column 的上界 |
-| partition_num | int | 否 | - | 分区数量 |
-| split_column | string | 否 | - | 分割列 |
-| epoch | string | 否 | n | 返回的时间精度 |
-| connect_timeout_ms | long | 否 | 15000 | 连接 InfluxDB 的超时时间（毫秒） |
-| query_timeout_sec | int | 否 | 3 | 查询超时时间（秒） |
-| common-options | config | 否 | - | 源插件通用参数 |
+| 参数名                | 类型     | 必须 | 默认值   | 描述                                                                            |
+|--------------------|--------|----|-------|-------------------------------------------------------------------------------|
+| url                | string | 是  | -     | InfluxDB 连接 URL                                                               |
+| sql                | string | 是  | -     | 用于搜索数据的查询 SQL                                                                 |
+| schema             | config | 是  | -     | 上游数据的模式信息。更多详情请参考 [Schema 特性](../../introduction/concepts/schema-feature.md)。 |
+| database           | string | 是  | -     | InfluxDB 数据库                                                                  |
+| username           | string | 否  | -     | InfluxDB 用户名                                                                  |
+| password           | string | 否  | -     | InfluxDB 密码                                                                   |
+| lower_bound        | long   | 否  | -     | split_column 的下界                                                              |
+| upper_bound        | long   | 否  | -     | split_column 的上界                                                              |
+| partition_num      | int    | 否  | -     | 分区数量                                                                          |
+| split_column       | string | 否  | -     | 分割列                                                                           |
+| epoch              | string | 否  | n     | 返回的时间精度                                                                       |
+| connect_timeout_ms | long   | 否  | 15000 | 连接 InfluxDB 的超时时间（毫秒）                                                         |
+| query_timeout_sec  | int    | 否  | 3     | 查询超时时间（秒）                                                                     |
+| common-options     | config | 否  | -     | 源插件通用参数                                                                       |
 
 ### url
 

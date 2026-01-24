@@ -12,6 +12,7 @@
 
 ### 转换变更
 
+- DataValidator 转换：当 `row_error_handle_way = ROUTE_TO_TABLE` 时，路由到错误表的行 `table_id` 现在会携带上游的 database/schema 前缀（例如从 `ffp` 变为 `db1.ffp` / `db1.schema1.ffp`）。
 ### 引擎行为变更
 
 ### 依赖升级

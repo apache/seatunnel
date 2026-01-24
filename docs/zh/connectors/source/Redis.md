@@ -246,7 +246,7 @@ schema {
 
 #### fields [config]
 
-Redis 数据的 schema 字段列表
+Redis 数据的 schema 字段列表。更多详情请参考 [Schema 特性](../../introduction/concepts/schema-feature.md)。
 
 ### common options
 

@@ -19,27 +19,27 @@ Apache Pulsar 的源连接器。
 
 ## 选项
 
-| 参数名 | 类型 | 必须 | 默认值 | 描述 |
-|--------|------|------|--------|------|
-| topic | String | 否 | - | 主题名称 |
-| topic-pattern | String | 否 | - | 主题名称的正则表达式模式 |
-| topic-discovery.interval | Long | 否 | -1 | 发现新主题分区的间隔（毫秒） |
-| subscription.name | String | 是 | - | 订阅名称 |
-| client.service-url | String | 是 | - | Pulsar 服务 URL |
-| admin.service-url | String | 是 | - | Pulsar 管理端点的 HTTP URL |
-| auth.plugin-class | String | 否 | - | 认证插件的名称 |
-| auth.params | String | 否 | - | 认证插件的参数 |
-| poll.timeout | Integer | 否 | 100 | 获取记录时的最大等待时间（毫秒） |
-| poll.interval | Long | 否 | 50 | 获取记录时的间隔时间（毫秒） |
-| poll.batch.size | Integer | 否 | 500 | 轮询时要获取的最大记录数 |
-| cursor.startup.mode | Enum | 否 | LATEST | 启动模式 |
-| cursor.startup.timestamp | Long | 否 | - | 启动时间戳（毫秒） |
-| cursor.reset.mode | Enum | 否 | LATEST | 游标重置策略 |
-| cursor.stop.mode | Enum | 否 | NEVER | 停止模式 |
-| cursor.stop.timestamp | Long | 否 | - | 停止时间戳（毫秒） |
-| schema | config | 否 | - | 数据结构 |
-| common-options | | 否 | - | 源插件通用参数 |
-| format | String | 否 | json | 数据格式 |
+| 参数名                      | 类型      | 必须 | 默认值    | 描述                                                                                   |
+|--------------------------|---------|----|--------|--------------------------------------------------------------------------------------|
+| topic                    | String  | 否  | -      | 主题名称                                                                                 |
+| topic-pattern            | String  | 否  | -      | 主题名称的正则表达式模式                                                                         |
+| topic-discovery.interval | Long    | 否  | -1     | 发现新主题分区的间隔（毫秒）                                                                       |
+| subscription.name        | String  | 是  | -      | 订阅名称                                                                                 |
+| client.service-url       | String  | 是  | -      | Pulsar 服务 URL                                                                        |
+| admin.service-url        | String  | 是  | -      | Pulsar 管理端点的 HTTP URL                                                                |
+| auth.plugin-class        | String  | 否  | -      | 认证插件的名称                                                                              |
+| auth.params              | String  | 否  | -      | 认证插件的参数                                                                              |
+| poll.timeout             | Integer | 否  | 100    | 获取记录时的最大等待时间（毫秒）                                                                     |
+| poll.interval            | Long    | 否  | 50     | 获取记录时的间隔时间（毫秒）                                                                       |
+| poll.batch.size          | Integer | 否  | 500    | 轮询时要获取的最大记录数                                                                         |
+| cursor.startup.mode      | Enum    | 否  | LATEST | 启动模式                                                                                 |
+| cursor.startup.timestamp | Long    | 否  | -      | 启动时间戳（毫秒）                                                                            |
+| cursor.reset.mode        | Enum    | 否  | LATEST | 游标重置策略                                                                               |
+| cursor.stop.mode         | Enum    | 否  | NEVER  | 停止模式                                                                                 |
+| cursor.stop.timestamp    | Long    | 否  | -      | 停止时间戳（毫秒）                                                                            |
+| schema                   | config  | 否  | -      | 数据结构，包括字段名称和字段类型。更多详情请参考 [Schema 特性](../../introduction/concepts/schema-feature.md)。 |
+| common-options           |         | 否  | -      | 源插件通用参数                                                                              |
+| format                   | String  | 否  | json   | 数据格式                                                                                 |
 
 ### topic [String]
 
