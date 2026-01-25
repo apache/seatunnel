@@ -258,6 +258,11 @@ public class JsonToRowConverters implements Serializable {
 
     private LocalDate convertToLocalDate(JsonNode jsonNode, String fieldName) {
         String dateStr = jsonNode.asText();
+
+        if (dateStr == null || dateStr.trim().isEmpty()) {
+            return null;
+        }
+
         DateTimeFormatter dateFormatter = fieldFormatterMap.get(fieldName);
         if (dateFormatter == null) {
             dateFormatter = DateUtils.matchDateFormatter(dateStr);
@@ -277,6 +282,11 @@ public class JsonToRowConverters implements Serializable {
 
     private LocalDateTime convertToLocalDateTime(JsonNode jsonNode, String fieldName) {
         String datetimeStr = jsonNode.asText();
+
+        if (datetimeStr == null || datetimeStr.trim().isEmpty()) {
+            return null;
+        }
+
         DateTimeFormatter dateTimeFormatter = fieldFormatterMap.get(fieldName);
         if (dateTimeFormatter == null) {
             dateTimeFormatter = DateTimeUtils.matchDateTimeFormatter(datetimeStr);
