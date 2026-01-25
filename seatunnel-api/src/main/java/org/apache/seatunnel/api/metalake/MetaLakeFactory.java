@@ -18,7 +18,7 @@
 package org.apache.seatunnel.api.metalake;
 
 import org.apache.seatunnel.api.metalake.gravitino.GravitinoClient;
-import org.apache.seatunnel.api.metalake.gravitino.GravitinoTypeMapper;
+import org.apache.seatunnel.api.metalake.gravitino.GravitinoTableSchemaConvertor;
 import org.apache.seatunnel.common.constants.MetaLakeType;
 
 import java.util.HashMap;
@@ -28,7 +28,7 @@ import java.util.function.Supplier;
 public class MetaLakeFactory {
 
     private static final Map<String, Supplier<MetalakeClient>> CLIENT_REGISTRY = new HashMap<>();
-    private static final Map<String, Supplier<MetaLakeTypeMapper>> MAPPER_REGISTRY =
+    private static final Map<String, Supplier<MetaLakeTableSchemaConvertor>> MAPPER_REGISTRY =
             new HashMap<>();
 
     static {
@@ -39,7 +39,7 @@ public class MetaLakeFactory {
 
     public static void register(String type) {
         CLIENT_REGISTRY.put(type.toLowerCase(), GravitinoClient::new);
-        MAPPER_REGISTRY.put(type.toLowerCase(), GravitinoTypeMapper::new);
+        MAPPER_REGISTRY.put(type.toLowerCase(), GravitinoTableSchemaConvertor::new);
     }
 
     public static MetalakeClient createClient(MetaLakeType metaLakeType) {
@@ -51,9 +51,10 @@ public class MetaLakeFactory {
         return constructor.get();
     }
 
-    public static MetaLakeTypeMapper createTypeMapper(MetaLakeType metaLakeType) {
+    public static MetaLakeTableSchemaConvertor createTypeMapper(MetaLakeType metaLakeType) {
         String type = metaLakeType.name().toLowerCase();
-        Supplier<MetaLakeTypeMapper> constructor = MAPPER_REGISTRY.get(type.toLowerCase());
+        Supplier<MetaLakeTableSchemaConvertor> constructor =
+                MAPPER_REGISTRY.get(type.toLowerCase());
         if (constructor == null) {
             throw new IllegalArgumentException("Unknown MetaLakeTypeMapper type: " + type);
         }

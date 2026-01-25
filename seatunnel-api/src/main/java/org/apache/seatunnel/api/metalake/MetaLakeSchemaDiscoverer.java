@@ -51,14 +51,14 @@ public class MetaLakeSchemaDiscoverer {
     private final ReadonlyConfig sourceOptions;
     private final String catalogName;
     private final MetalakeClient metalakeClient;
-    private final MetaLakeTypeMapper metaLakeTypeMapper;
+    private final MetaLakeTableSchemaConvertor metaLakeTableSchemaConvertor;
 
     public MetaLakeSchemaDiscoverer(TableSourceFactoryContext context, String catalogName) {
         this.envOptions = context.getEnvOptions();
         this.sourceOptions = context.getOptions();
         this.catalogName = catalogName;
         this.metalakeClient = MetaLakeFactory.createClient(getMetaLakeType());
-        this.metaLakeTypeMapper = MetaLakeFactory.createTypeMapper(getMetaLakeType());
+        this.metaLakeTableSchemaConvertor = MetaLakeFactory.createTypeMapper(getMetaLakeType());
     }
 
     public List<CatalogTable> discoverTableSchemas() {
@@ -105,7 +105,8 @@ public class MetaLakeSchemaDiscoverer {
     private CatalogTable discoverTableSchemaFromMetaLake(String schemaUrl) {
         try {
             JsonNode schemaNode = metalakeClient.getTableSchema(schemaUrl);
-            return metaLakeTypeMapper.convertor(schemaNode);
+            return metaLakeTableSchemaConvertor.convertor(
+                    schemaNode, metalakeClient.getTableSchemaPath(schemaUrl));
         } catch (IOException e) {
             throw new SeaTunnelRuntimeException(GET_META_LAKE_TABLE_SCHEMA_FAILED, e);
         }

@@ -20,7 +20,9 @@ package org.apache.seatunnel.api.metalake.gravitino;
 import org.apache.seatunnel.shade.com.fasterxml.jackson.databind.JsonNode;
 
 import org.apache.seatunnel.api.metalake.MetalakeClient;
+import org.apache.seatunnel.api.table.catalog.TablePath;
 import org.apache.seatunnel.common.constants.MetaLakeType;
+import org.apache.seatunnel.common.exception.SeaTunnelRuntimeException;
 import org.apache.seatunnel.common.utils.JsonUtils;
 
 import org.apache.http.HttpEntity;
@@ -31,6 +33,10 @@ import org.apache.http.impl.client.HttpClients;
 import org.apache.http.util.EntityUtils;
 
 import java.io.IOException;
+import java.util.regex.Matcher;
+import java.util.regex.Pattern;
+
+import static org.apache.seatunnel.api.table.schema.exception.SchemaEvolutionErrorCode.ERROR_INVALID_TABLE_URL;
 
 public class GravitinoClient implements MetalakeClient {
 
@@ -42,6 +48,8 @@ public class GravitinoClient implements MetalakeClient {
     private static final String ERROR_NO_RESPONSE_ENTITY = "No response entity";
     private static final String ERROR_MISSING_FIELD_TEMPLATE = "Response JSON has no '%s' field";
     private static final int MAX_RETRY_ATTEMPTS = 2;
+    private static final Pattern TABLE_URL_PATTERN =
+            Pattern.compile("/catalogs/([^/]+)/schemas/([^/]+)/tables/([^/]+)");
 
     private static volatile CloseableHttpClient httpClient;
 
@@ -61,6 +69,20 @@ public class GravitinoClient implements MetalakeClient {
     public JsonNode getTableSchema(String schemaHttpUrl) throws IOException {
         JsonNode rootNode = executeGetRequest(schemaHttpUrl);
         return getRequiredNode(rootNode, JSON_FIELD_TABLE);
+    }
+
+    @Override
+    public TablePath getTableSchemaPath(String schemaHttpUrl) {
+        Matcher matcher = TABLE_URL_PATTERN.matcher(schemaHttpUrl);
+        if (!matcher.find()) {
+            throw new SeaTunnelRuntimeException(
+                    ERROR_INVALID_TABLE_URL,
+                    "Invalid table URL format, expected: /catalogs/{catalog}/schemas/{schema}/tables/{table}");
+        }
+        String catalogName = matcher.group(1);
+        String schemaName = matcher.group(2);
+        String tableName = matcher.group(3);
+        return TablePath.of(catalogName, schemaName, tableName);
     }
 
     /**

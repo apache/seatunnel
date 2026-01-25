@@ -14,18 +14,16 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package org.apache.seatunnel.api.metalake.gravitino;
+package org.apache.seatunnel.api.metalake;
 
 import org.apache.seatunnel.shade.com.fasterxml.jackson.databind.JsonNode;
 
-import org.apache.seatunnel.api.metalake.MetaLakeTypeMapper;
 import org.apache.seatunnel.api.table.catalog.CatalogTable;
+import org.apache.seatunnel.api.table.catalog.TablePath;
 
 import java.io.IOException;
 
-public class GravitinoTypeMapper implements MetaLakeTypeMapper {
-    @Override
-    public CatalogTable convertor(JsonNode metaInfo) throws IOException {
-        return null;
-    }
+public interface MetaLakeTableSchemaConvertor {
+
+    CatalogTable convertor(JsonNode metaInfo, TablePath tablePath) throws IOException;
 }
