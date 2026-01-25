@@ -39,6 +39,7 @@ import ChangeLog from '../changelog/connector-kafka.md';
 | kafka.config         | Map    | 否    | -    | 除了上述 Kafka Producer 客户端必须指定的参数外，用户还可以为 Producer 客户端指定多个非强制参数，涵盖 [Kafka官方文档中指定的所有生产者参数](https://kafka.apache.org/documentation.html#producerconfigs)                                                                                                                |
 | semantics            | String | 否    | NON  | 可以选择的语义是 EXACTLY_ONCE/AT_LEAST_ONCE/NON，默认 NON。                                                                                                                                                                                                                    |
 | partition_key_fields | Array  | 否    | -    | 配置字段用作 kafka 消息的key                                                                                                                                                                                                                                                |
+| kafka_headers_fields | Array  | 否    | -    | 配置字段用作 kafka 消息的headers。字段值将被转换为字符串并用作 header 值                                                                                                                                                                                                                   |
 | partition            | Int    | 否    | -    | 可以指定分区，所有消息都会发送到此分区                                                                                                                                                                                                                                                |
 | assign_partitions    | Array  | 否    | -    | 可以根据消息的内容决定发送哪个分区,该参数的作用是分发信息                                                                                                                                                                                                                                      |
 | transaction_prefix   | String | 否    | -    | 如果语义指定为EXACTLY_ONCE，生产者将把所有消息写入一个 Kafka 事务中，kafka 通过不同的 transactionId 来区分不同的事务。该参数是kafka transactionId的前缀，确保不同的作业使用不同的前缀                                                                                                                                           |
@@ -88,6 +89,25 @@ NON 不提供任何保证：如果 Kafka 代理出现问题，消息可能会丢
 如果没有设置分区键字段，则将发送空消息键。
 消息 key 的格式为 json，如果设置 name 为 key，例如 `{"name":"Jack"}`。
 所选的字段必须是上游数据中已存在的字段。
+
+### Kafka Headers 字段
+
+例如，如果你想使用上游数据中的字段值作为 kafka 消息的 headers，可以将这些字段名指定给此属性。
+
+上游数据如下所示：
+
+| name | age |     data      | source | traceId   |
+|------|-----|---------------|--------|-----------|
+| Jack | 16  | data-example1 | web    | trace-123 |
+| Mary | 23  | data-example2 | mobile | trace-456 |
+
+如果将 source 和 traceId 设置为 kafka headers 字段，那么这些字段值将作为 headers 添加到 kafka 消息中。
+例如，第一行将具有 headers：`source=web` 和 `traceId=trace-123`。
+字段值将被转换为字符串并用作 header 值。
+所选的字段必须是上游数据中已存在的字段。
+
+注意：
+配置为 Kafka headers 的字段将不会包含在消息的 value（payload）中，而只会存在于 Kafka 消息的 headers 中。
 
 ### 分区分配
 
