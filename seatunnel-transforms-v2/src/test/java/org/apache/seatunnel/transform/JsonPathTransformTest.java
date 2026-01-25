@@ -551,58 +551,58 @@ public class JsonPathTransformTest {
     public void testMultipleDateColumnsWithDifferentFormats() {
         Map<String, Object> configMap = new HashMap<>();
         configMap.put(
-            JsonPathTransformConfig.COLUMNS.key(),
-            Arrays.asList(
-                ImmutableMap.of(
-                    JsonPathTransformConfig.SRC_FIELD.key(), "data",
-                    JsonPathTransformConfig.PATH.key(), "$.birth",
-                    JsonPathTransformConfig.DEST_FIELD.key(), "birth_date",
-                    JsonPathTransformConfig.DEST_TYPE.key(), "date"),
-                ImmutableMap.of(
-                    JsonPathTransformConfig.SRC_FIELD.key(), "data",
-                    JsonPathTransformConfig.PATH.key(), "$.hired",
-                    JsonPathTransformConfig.DEST_FIELD.key(), "hire_date",
-                    JsonPathTransformConfig.DEST_TYPE.key(), "date"),
-                ImmutableMap.of(
-                    JsonPathTransformConfig.SRC_FIELD.key(), "data",
-                    JsonPathTransformConfig.PATH.key(), "$.created",
-                    JsonPathTransformConfig.DEST_FIELD.key(), "created_at",
-                    JsonPathTransformConfig.DEST_TYPE.key(), "timestamp"),
-                ImmutableMap.of(
-                    JsonPathTransformConfig.SRC_FIELD.key(), "data",
-                    JsonPathTransformConfig.PATH.key(), "$.updated",
-                    JsonPathTransformConfig.DEST_FIELD.key(), "updated_at",
-                    JsonPathTransformConfig.DEST_TYPE.key(), "timestamp")));
+                JsonPathTransformConfig.COLUMNS.key(),
+                Arrays.asList(
+                        ImmutableMap.of(
+                                JsonPathTransformConfig.SRC_FIELD.key(), "data",
+                                JsonPathTransformConfig.PATH.key(), "$.birth",
+                                JsonPathTransformConfig.DEST_FIELD.key(), "birth_date",
+                                JsonPathTransformConfig.DEST_TYPE.key(), "date"),
+                        ImmutableMap.of(
+                                JsonPathTransformConfig.SRC_FIELD.key(), "data",
+                                JsonPathTransformConfig.PATH.key(), "$.hired",
+                                JsonPathTransformConfig.DEST_FIELD.key(), "hire_date",
+                                JsonPathTransformConfig.DEST_TYPE.key(), "date"),
+                        ImmutableMap.of(
+                                JsonPathTransformConfig.SRC_FIELD.key(), "data",
+                                JsonPathTransformConfig.PATH.key(), "$.created",
+                                JsonPathTransformConfig.DEST_FIELD.key(), "created_at",
+                                JsonPathTransformConfig.DEST_TYPE.key(), "timestamp"),
+                        ImmutableMap.of(
+                                JsonPathTransformConfig.SRC_FIELD.key(), "data",
+                                JsonPathTransformConfig.PATH.key(), "$.updated",
+                                JsonPathTransformConfig.DEST_FIELD.key(), "updated_at",
+                                JsonPathTransformConfig.DEST_TYPE.key(), "timestamp")));
         ReadonlyConfig config = ReadonlyConfig.fromMap(configMap);
         CatalogTable table =
-            CatalogTableUtil.getCatalogTable(
-                "test",
-                new SeaTunnelRowType(
-                    new String[] {"data"},
-                    new SeaTunnelDataType[] {BasicType.STRING_TYPE}));
+                CatalogTableUtil.getCatalogTable(
+                        "test",
+                        new SeaTunnelRowType(
+                                new String[] {"data"},
+                                new SeaTunnelDataType[] {BasicType.STRING_TYPE}));
         JsonPathTransform transform =
-            new JsonPathTransform(JsonPathTransformConfig.of(config, table), table);
+                new JsonPathTransform(JsonPathTransformConfig.of(config, table), table);
 
         CatalogTable outputTable = transform.getProducedCatalogTable();
         String jsonData =
-            "{\"birth\": \"1990/05/20\","
-                + " \"hired\": \"2024-01-15\","
-                + " \"created\": \"2024/01/15 10:30:00\","
-                + " \"updated\": \"2024-03-20 14:00:00\"}";
+                "{\"birth\": \"1990/05/20\","
+                        + " \"hired\": \"2024-01-15\","
+                        + " \"created\": \"2024/01/15 10:30:00\","
+                        + " \"updated\": \"2024-03-20 14:00:00\"}";
         SeaTunnelRow outputRow = transform.map(new SeaTunnelRow(new Object[] {jsonData}));
 
         Assertions.assertEquals(
-            LocalDate.of(1990, 5, 20),
-            outputRow.getField(outputTable.getSeaTunnelRowType().indexOf("birth_date")));
+                LocalDate.of(1990, 5, 20),
+                outputRow.getField(outputTable.getSeaTunnelRowType().indexOf("birth_date")));
         Assertions.assertEquals(
-            LocalDate.of(2024, 1, 15),
-            outputRow.getField(outputTable.getSeaTunnelRowType().indexOf("hire_date")));
+                LocalDate.of(2024, 1, 15),
+                outputRow.getField(outputTable.getSeaTunnelRowType().indexOf("hire_date")));
         Assertions.assertEquals(
-            LocalDateTime.of(2024, 1, 15, 10, 30, 0),
-            outputRow.getField(outputTable.getSeaTunnelRowType().indexOf("created_at")));
+                LocalDateTime.of(2024, 1, 15, 10, 30, 0),
+                outputRow.getField(outputTable.getSeaTunnelRowType().indexOf("created_at")));
         Assertions.assertEquals(
-            LocalDateTime.of(2024, 3, 20, 14, 0, 0),
-            outputRow.getField(outputTable.getSeaTunnelRowType().indexOf("updated_at")));
+                LocalDateTime.of(2024, 3, 20, 14, 0, 0),
+                outputRow.getField(outputTable.getSeaTunnelRowType().indexOf("updated_at")));
     }
 
     @Test
