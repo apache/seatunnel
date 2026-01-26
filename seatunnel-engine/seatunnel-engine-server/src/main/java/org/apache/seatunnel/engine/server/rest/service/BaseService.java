@@ -412,7 +412,7 @@ public abstract class BaseService {
             return;
         }
 
-        java.util.List<String> sinkIdentifiers = tableToSinkIdentifiersMap.get(tableName);
+        List<String> sinkIdentifiers = tableToSinkIdentifiersMap.get(tableName);
 
         if (sinkIdentifiers != null
                 && !sinkIdentifiers.isEmpty()
