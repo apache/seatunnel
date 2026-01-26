@@ -653,4 +653,202 @@ public class JsonPathTransformTest {
                 LocalDateTime.of(2024, 1, 15, 10, 30, 0),
                 outputRow.getField(outputTable.getSeaTunnelRowType().indexOf("created_at")));
     }
+
+    @Test
+    public void testSingleDateColumn() {
+        // Verify that the behavior of a single date column remains consistent with the
+        // modifications
+        Map<String, Object> configMap = new HashMap<>();
+        configMap.put(
+                JsonPathTransformConfig.COLUMNS.key(),
+                Arrays.asList(
+                        ImmutableMap.of(
+                                JsonPathTransformConfig.SRC_FIELD.key(), "data",
+                                JsonPathTransformConfig.PATH.key(), "$.birth",
+                                JsonPathTransformConfig.DEST_FIELD.key(), "birth_date",
+                                JsonPathTransformConfig.DEST_TYPE.key(), "date")));
+        ReadonlyConfig config = ReadonlyConfig.fromMap(configMap);
+        CatalogTable table =
+                CatalogTableUtil.getCatalogTable(
+                        "test",
+                        new SeaTunnelRowType(
+                                new String[] {"data"},
+                                new SeaTunnelDataType[] {BasicType.STRING_TYPE}));
+        JsonPathTransform transform =
+                new JsonPathTransform(JsonPathTransformConfig.of(config, table), table);
+
+        CatalogTable outputTable = transform.getProducedCatalogTable();
+        String jsonData = "{\"birth\": \"2024-01-15\"}";
+        SeaTunnelRow outputRow = transform.map(new SeaTunnelRow(new Object[] {jsonData}));
+
+        Assertions.assertEquals(
+                LocalDate.of(2024, 1, 15),
+                outputRow.getField(outputTable.getSeaTunnelRowType().indexOf("birth_date")));
+    }
+
+    @Test
+    public void testMultipleDateColumnsWithSameFormat() {
+        // Verify that multiple date columns with the same format can share cache
+        Map<String, Object> configMap = new HashMap<>();
+        configMap.put(
+                JsonPathTransformConfig.COLUMNS.key(),
+                Arrays.asList(
+                        ImmutableMap.of(
+                                JsonPathTransformConfig.SRC_FIELD.key(), "data",
+                                JsonPathTransformConfig.PATH.key(), "$.birth",
+                                JsonPathTransformConfig.DEST_FIELD.key(), "birth_date",
+                                JsonPathTransformConfig.DEST_TYPE.key(), "date"),
+                        ImmutableMap.of(
+                                JsonPathTransformConfig.SRC_FIELD.key(), "data",
+                                JsonPathTransformConfig.PATH.key(), "$.hired",
+                                JsonPathTransformConfig.DEST_FIELD.key(), "hire_date",
+                                JsonPathTransformConfig.DEST_TYPE.key(), "date")));
+        ReadonlyConfig config = ReadonlyConfig.fromMap(configMap);
+        CatalogTable table =
+                CatalogTableUtil.getCatalogTable(
+                        "test",
+                        new SeaTunnelRowType(
+                                new String[] {"data"},
+                                new SeaTunnelDataType[] {BasicType.STRING_TYPE}));
+        JsonPathTransform transform =
+                new JsonPathTransform(JsonPathTransformConfig.of(config, table), table);
+
+        CatalogTable outputTable = transform.getProducedCatalogTable();
+        String jsonData = "{\"birth\": \"2024-01-15\", \"hired\": \"2024-02-20\"}";
+        SeaTunnelRow outputRow = transform.map(new SeaTunnelRow(new Object[] {jsonData}));
+
+        Assertions.assertEquals(
+                LocalDate.of(2024, 1, 15),
+                outputRow.getField(outputTable.getSeaTunnelRowType().indexOf("birth_date")));
+        Assertions.assertEquals(
+                LocalDate.of(2024, 2, 20),
+                outputRow.getField(outputTable.getSeaTunnelRowType().indexOf("hire_date")));
+    }
+
+    @Test
+    public void testMixedTypeColumns() {
+        // Verify mixed configuration of date columns with string and integer columns
+        Map<String, Object> configMap = new HashMap<>();
+        configMap.put(
+                JsonPathTransformConfig.COLUMNS.key(),
+                Arrays.asList(
+                        ImmutableMap.of(
+                                JsonPathTransformConfig.SRC_FIELD.key(), "data",
+                                JsonPathTransformConfig.PATH.key(), "$.name",
+                                JsonPathTransformConfig.DEST_FIELD.key(), "user_name",
+                                JsonPathTransformConfig.DEST_TYPE.key(), "string"),
+                        ImmutableMap.of(
+                                JsonPathTransformConfig.SRC_FIELD.key(), "data",
+                                JsonPathTransformConfig.PATH.key(), "$.age",
+                                JsonPathTransformConfig.DEST_FIELD.key(), "user_age",
+                                JsonPathTransformConfig.DEST_TYPE.key(), "int"),
+                        ImmutableMap.of(
+                                JsonPathTransformConfig.SRC_FIELD.key(), "data",
+                                JsonPathTransformConfig.PATH.key(), "$.birth",
+                                JsonPathTransformConfig.DEST_FIELD.key(), "birth_date",
+                                JsonPathTransformConfig.DEST_TYPE.key(), "date")));
+        ReadonlyConfig config = ReadonlyConfig.fromMap(configMap);
+        CatalogTable table =
+                CatalogTableUtil.getCatalogTable(
+                        "test",
+                        new SeaTunnelRowType(
+                                new String[] {"data"},
+                                new SeaTunnelDataType[] {BasicType.STRING_TYPE}));
+        JsonPathTransform transform =
+                new JsonPathTransform(JsonPathTransformConfig.of(config, table), table);
+
+        CatalogTable outputTable = transform.getProducedCatalogTable();
+        String jsonData = "{\"name\": \"John\", \"age\": 30, \"birth\": \"2024-01-15\"}";
+        SeaTunnelRow outputRow = transform.map(new SeaTunnelRow(new Object[] {jsonData}));
+
+        Assertions.assertEquals(
+                "John", outputRow.getField(outputTable.getSeaTunnelRowType().indexOf("user_name")));
+        Assertions.assertEquals(
+                30, outputRow.getField(outputTable.getSeaTunnelRowType().indexOf("user_age")));
+        Assertions.assertEquals(
+                LocalDate.of(2024, 1, 15),
+                outputRow.getField(outputTable.getSeaTunnelRowType().indexOf("birth_date")));
+    }
+
+    @Test
+    public void testInvalidDateFormat() {
+        Map<String, Object> configMap = new HashMap<>();
+        configMap.put(
+                JsonPathTransformConfig.COLUMNS.key(),
+                Arrays.asList(
+                        ImmutableMap.of(
+                                JsonPathTransformConfig.SRC_FIELD.key(), "data",
+                                JsonPathTransformConfig.PATH.key(), "$.birth",
+                                JsonPathTransformConfig.DEST_FIELD.key(), "birth_date",
+                                JsonPathTransformConfig.DEST_TYPE.key(), "date")));
+        ReadonlyConfig config = ReadonlyConfig.fromMap(configMap);
+        CatalogTable table =
+                CatalogTableUtil.getCatalogTable(
+                        "test",
+                        new SeaTunnelRowType(
+                                new String[] {"data"},
+                                new SeaTunnelDataType[] {BasicType.STRING_TYPE}));
+        JsonPathTransform transform =
+                new JsonPathTransform(JsonPathTransformConfig.of(config, table), table);
+
+        String jsonData = "{\"birth\": \"invalid-date\"}";
+        Assertions.assertThrows(
+                Exception.class, () -> transform.map(new SeaTunnelRow(new Object[] {jsonData})));
+    }
+
+    @Test
+    public void testEmptyStringDateValue() {
+        Map<String, Object> configMap = new HashMap<>();
+        configMap.put(
+                JsonPathTransformConfig.COLUMNS.key(),
+                Arrays.asList(
+                        ImmutableMap.of(
+                                JsonPathTransformConfig.SRC_FIELD.key(), "data",
+                                JsonPathTransformConfig.PATH.key(), "$.birth",
+                                JsonPathTransformConfig.DEST_FIELD.key(), "birth_date",
+                                JsonPathTransformConfig.DEST_TYPE.key(), "date")));
+        ReadonlyConfig config = ReadonlyConfig.fromMap(configMap);
+        CatalogTable table =
+                CatalogTableUtil.getCatalogTable(
+                        "test",
+                        new SeaTunnelRowType(
+                                new String[] {"data"},
+                                new SeaTunnelDataType[] {BasicType.STRING_TYPE}));
+        JsonPathTransform transform =
+                new JsonPathTransform(JsonPathTransformConfig.of(config, table), table);
+
+        String jsonData = "{\"birth\": \"\"}";
+        Assertions.assertThrows(
+                Exception.class, () -> transform.map(new SeaTunnelRow(new Object[] {jsonData})));
+    }
+
+    @Test
+    public void testLeapYearDate() {
+        Map<String, Object> configMap = new HashMap<>();
+        configMap.put(
+                JsonPathTransformConfig.COLUMNS.key(),
+                Arrays.asList(
+                        ImmutableMap.of(
+                                JsonPathTransformConfig.SRC_FIELD.key(), "data",
+                                JsonPathTransformConfig.PATH.key(), "$.birth",
+                                JsonPathTransformConfig.DEST_FIELD.key(), "birth_date",
+                                JsonPathTransformConfig.DEST_TYPE.key(), "date")));
+        ReadonlyConfig config = ReadonlyConfig.fromMap(configMap);
+        CatalogTable table =
+                CatalogTableUtil.getCatalogTable(
+                        "test",
+                        new SeaTunnelRowType(
+                                new String[] {"data"},
+                                new SeaTunnelDataType[] {BasicType.STRING_TYPE}));
+        JsonPathTransform transform =
+                new JsonPathTransform(JsonPathTransformConfig.of(config, table), table);
+
+        CatalogTable outputTable = transform.getProducedCatalogTable();
+        String jsonData = "{\"birth\": \"2024-02-29\"}";
+        SeaTunnelRow outputRow = transform.map(new SeaTunnelRow(new Object[] {jsonData}));
+
+        Assertions.assertEquals(
+                LocalDate.of(2024, 2, 29),
+                outputRow.getField(outputTable.getSeaTunnelRowType().indexOf("birth_date")));
+    }
 }
