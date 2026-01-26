@@ -131,7 +131,7 @@ public abstract class AbstractLSMWriter implements IFileWriter<IMapFileData> {
         sortFlush(null);
     }
 
-    protected final void sortFlush(Path tmpPath) throws IOException {
+    protected final synchronized void sortFlush(Path tmpPath) throws IOException {
         if (writeBatch.isEmpty()) {
             return;
         }
@@ -182,7 +182,7 @@ public abstract class AbstractLSMWriter implements IFileWriter<IMapFileData> {
                     new Path(parentPath, "compaction_" + compactionIndex++ + "_" + FILE_NAME);
             long written = compactTwoFiles(f1.getPath(), f2.getPath(), outPath);
 
-            totalBytes.set(totalBytes.get() + (written - totalSize));
+            totalBytes.addAndGet(written - totalSize);
             batchSize += totalSize;
             fileNames.add(new CompactionFile(outPath, written));
 

@@ -35,7 +35,7 @@ import org.apache.hadoop.fs.Path;
 
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.Assertions;
-import org.junit.jupiter.api.BeforeAll;
+import org.junit.jupiter.api.condition.EnabledOnOs;
 import org.junit.jupiter.params.ParameterizedTest;
 import org.junit.jupiter.params.provider.MethodSource;
 
@@ -44,8 +44,13 @@ import java.util.ArrayList;
 import java.util.Collections;
 import java.util.List;
 import java.util.Map;
+import java.util.concurrent.CompletableFuture;
 import java.util.stream.Stream;
 
+import static org.junit.jupiter.api.condition.OS.LINUX;
+import static org.junit.jupiter.api.condition.OS.MAC;
+
+@EnabledOnOs({LINUX, MAC})
 class LSMWriterTest {
     interface WriterFactory {
         IFileWriter create() throws Exception;
@@ -77,11 +82,6 @@ class LSMWriterTest {
                         return "hdfs";
                     }
                 });
-    }
-
-    @BeforeAll
-    static void setupHadoopHome() {
-        System.setProperty("hadoop.home.dir", "/tmp");
     }
 
     @AfterEach
@@ -298,6 +298,73 @@ class LSMWriterTest {
         Assertions.assertEquals(2, result.size());
         Assertions.assertEquals("a", new String(result.get(0).getKey()));
         Assertions.assertEquals("b", new String(result.get(1).getKey()));
+    }
+
+    @ParameterizedTest
+    @MethodSource("writerFactories")
+    void testAsync(WriterFactory factory) throws Exception {
+        // test concurrent write and compaction (write (1 thread) + compaction (1 thread))
+        FileSystem fs = FileSystem.getLocal(new Configuration());
+        Path baseDir = new Path("target/test-writer/write-" + factory.identifier());
+        fs.delete(baseDir, true);
+        fs.mkdirs(baseDir);
+
+        IFileWriter writer = factory.create();
+        writer.initialize(fs, baseDir, new ProtoStuffSerializer());
+
+        CompletableFuture<Void> future1 =
+                CompletableFuture.runAsync(
+                        () -> {
+                            try {
+                                for (int i = 0; i < 100; i++) {
+                                    String key = String.format("%02d", i);
+                                    writer.write(
+                                            new IMapFileData(
+                                                    false,
+                                                    key.getBytes(),
+                                                    "Integer",
+                                                    key.getBytes(),
+                                                    "Integer",
+                                                    20260101000001L),
+                                            true);
+                                }
+                            } catch (IOException e) {
+                                throw new RuntimeException(e);
+                            }
+                        });
+        CompletableFuture<Void> future2 =
+                CompletableFuture.runAsync(
+                        () -> {
+                            try {
+                                for (int i = 0; i < 100; i++) {
+                                    writer.compaction(true);
+                                }
+                            } catch (IOException e) {
+                                throw new RuntimeException(e);
+                            }
+                        });
+
+        future1.get();
+        future2.get();
+
+        FileStatus[] files = fs.listStatus(baseDir, path -> path.getName().startsWith("data"));
+        int size = files.length;
+        for (int i = 0; i < size; i++) {
+            writer.compaction(true);
+        }
+
+        FileStatus[] compactionFiles =
+                fs.listStatus(baseDir, path -> path.getName().startsWith("compaction"));
+        Assertions.assertEquals(1, compactionFiles.length);
+        List<IMapFileData> result = readAll(fs, compactionFiles[0].getPath());
+
+        for (int i = 0; i < 100; i++) {
+            int actualKey = Integer.parseInt(new String(result.get(i).getKey()));
+            Assertions.assertEquals(i, actualKey);
+
+            int actualValue = Integer.parseInt(new String(result.get(i).getValue()));
+            Assertions.assertEquals(i, actualValue);
+        }
     }
 
     private static void write(FSDataOutputStream out, String key, String value) throws IOException {
