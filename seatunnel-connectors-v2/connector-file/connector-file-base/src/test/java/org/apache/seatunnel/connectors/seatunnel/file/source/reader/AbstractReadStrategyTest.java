@@ -46,6 +46,7 @@ import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.condition.DisabledOnOs;
 import org.junit.jupiter.api.condition.OS;
 
+import java.io.ByteArrayOutputStream;
 import java.io.File;
 import java.io.IOException;
 import java.io.InputStream;
@@ -70,6 +71,23 @@ public class AbstractReadStrategyTest {
             int n = sliced.read(buffer);
             Assertions.assertEquals(3, n);
             Assertions.assertEquals("567", new String(buffer, 0, n, StandardCharsets.UTF_8));
+            Assertions.assertTrue(in.seekCalled);
+        }
+    }
+
+    @Test
+    void testSafeSliceReadsToEndWhenLengthIsNegative() throws Exception {
+        byte[] data = "0123456789".getBytes(StandardCharsets.UTF_8);
+        TrackingSeekableInputStream in = new TrackingSeekableInputStream(data);
+
+        try (InputStream sliced = AbstractReadStrategy.safeSlice(in, 5, -1)) {
+            ByteArrayOutputStream out = new ByteArrayOutputStream();
+            byte[] buffer = new byte[4];
+            int n;
+            while ((n = sliced.read(buffer)) != -1) {
+                out.write(buffer, 0, n);
+            }
+            Assertions.assertEquals("56789", new String(out.toByteArray(), StandardCharsets.UTF_8));
             Assertions.assertTrue(in.seekCalled);
         }
     }

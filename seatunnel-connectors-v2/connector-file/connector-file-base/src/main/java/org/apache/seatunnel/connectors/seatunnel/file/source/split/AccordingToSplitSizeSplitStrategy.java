@@ -75,6 +75,11 @@ public class AccordingToSplitSizeSplitStrategy implements FileSplitStrategy, Clo
         this.skipHeaderRowNumber = skipHeaderRowNumber;
         this.splitSize = splitSize;
         this.delimiterBytes = rowDelimiter.getBytes(Charset.forName(encodingName));
+        if (delimiterBytes.length == 0) {
+            throw new SeaTunnelRuntimeException(
+                    FileConnectorErrorCode.FILE_SPLIT_FAIL,
+                    "rowDelimiter must not be empty after encoding");
+        }
     }
 
     @Override

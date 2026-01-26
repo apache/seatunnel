@@ -537,6 +537,9 @@ public abstract class AbstractReadStrategy implements ReadStrategy {
                 }
             }
         }
+        if (length < 0) {
+            return in;
+        }
         return new BoundedInputStream(in, length);
     }
 

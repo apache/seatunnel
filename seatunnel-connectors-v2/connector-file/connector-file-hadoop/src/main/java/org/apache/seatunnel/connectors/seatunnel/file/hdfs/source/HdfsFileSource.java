@@ -18,16 +18,9 @@
 package org.apache.seatunnel.connectors.seatunnel.file.hdfs.source;
 
 import org.apache.seatunnel.api.configuration.ReadonlyConfig;
-import org.apache.seatunnel.connectors.seatunnel.file.config.BaseFileSourceConfig;
 import org.apache.seatunnel.connectors.seatunnel.file.config.FileSystemType;
 import org.apache.seatunnel.connectors.seatunnel.file.hdfs.config.MultipleTableHdfsFileSourceConfig;
 import org.apache.seatunnel.connectors.seatunnel.file.source.BaseMultipleTableFileSource;
-import org.apache.seatunnel.connectors.seatunnel.file.source.split.FileSplitStrategy;
-import org.apache.seatunnel.connectors.seatunnel.file.source.split.FileSplitStrategyFactory;
-import org.apache.seatunnel.connectors.seatunnel.file.source.split.MultipleTableFileSplitStrategy;
-
-import java.util.HashMap;
-import java.util.Map;
 
 public class HdfsFileSource extends BaseMultipleTableFileSource {
 
@@ -42,20 +35,5 @@ public class HdfsFileSource extends BaseMultipleTableFileSource {
     @Override
     public String getPluginName() {
         return FileSystemType.HDFS.getFileSystemPluginName();
-    }
-
-    private static FileSplitStrategy initFileSplitStrategy(
-            MultipleTableHdfsFileSourceConfig config) {
-        Map<String, FileSplitStrategy> splitStrategies = new HashMap<>();
-        for (BaseFileSourceConfig fileSourceConfig : config.getFileSourceConfigs()) {
-            String tableId =
-                    fileSourceConfig.getCatalogTable().getTableId().toTablePath().toString();
-            splitStrategies.put(
-                    tableId,
-                    FileSplitStrategyFactory.initFileSplitStrategy(
-                            fileSourceConfig.getBaseFileSourceConfig(),
-                            fileSourceConfig.getHadoopConfig()));
-        }
-        return new MultipleTableFileSplitStrategy(splitStrategies);
     }
 }
