@@ -75,12 +75,6 @@ public class GravitinoTableSchemaConvertor implements MetaLakeTableSchemaConvert
             Pattern.compile("char\\s*\\(\\s*(\\d+)\\s*\\)", Pattern.CASE_INSENSITIVE);
     private static final Pattern FIXED_PATTERN =
             Pattern.compile("fixed\\s*\\(\\s*(\\d+)\\s*\\)", Pattern.CASE_INSENSITIVE);
-    private static final Pattern MAP_PATTERN =
-            Pattern.compile("map\\s*<\\s*([^,]+)\\s*,\\s*([^>]+)\\s*>", Pattern.CASE_INSENSITIVE);
-    private static final Pattern ARRAY_PATTERN =
-            Pattern.compile("array\\s*<\\s*([^>]+)\\s*>", Pattern.CASE_INSENSITIVE);
-    private static final Pattern LIST_PATTERN =
-            Pattern.compile("list\\s*<\\s*([^>]+)\\s*>", Pattern.CASE_INSENSITIVE);
 
     private static final String JSON_FIELD_COLUMNS = "columns";
     private static final String JSON_FIELD_INDEXES = "indexes";
@@ -89,6 +83,13 @@ public class GravitinoTableSchemaConvertor implements MetaLakeTableSchemaConvert
     private static final String JSON_FIELD_NULLABLE = "nullable";
     private static final String JSON_FIELD_INDEX_TYPE = "indexType";
     private static final String JSON_FIELD_FIELD_NAMES = "fieldNames";
+
+    // Complex type JSON fields
+    private static final String JSON_FIELD_ELEMENT_TYPE = "elementType";
+    private static final String JSON_FIELD_KEY_TYPE = "keyType";
+    private static final String JSON_FIELD_VALUE_TYPE = "valueType";
+    private static final String JSON_FIELD_FIELDS = "fields";
+    private static final String JSON_FIELD_TYPES = "types";
 
     private static final String INDEX_TYPE_PRIMARY_KEY = "PRIMARY_KEY";
     private static final String INDEX_TYPE_UNIQUE_KEY = "UNIQUE_KEY";
@@ -147,13 +148,21 @@ public class GravitinoTableSchemaConvertor implements MetaLakeTableSchemaConvert
     /** Parse a column node from Gravitino JSON. */
     private Column parseColumn(JsonNode columnNode) {
         String name = getTextValue(columnNode, JSON_FIELD_NAME);
-        String type = getTextValue(columnNode, JSON_FIELD_TYPE);
         boolean nullable =
                 columnNode.has(JSON_FIELD_NULLABLE)
                         && columnNode.get(JSON_FIELD_NULLABLE).asBoolean();
-        SeaTunnelDataType<?> dataType = convertGravitinoType(name, type);
-        Long columnLength = extractColumnLength(type);
-        Integer scale = extractScale(type);
+
+        JsonNode typeNode = columnNode.get(JSON_FIELD_TYPE);
+        if (typeNode == null) {
+            throw CommonError.convertToSeaTunnelTypeError(
+                    MetaLakeType.GRAVITINO.getType(), "null", name);
+        }
+
+        SeaTunnelDataType<?> dataType = convertGravitinoType(name, typeNode);
+
+        String typeStrForLength = typeNode.isTextual() ? typeNode.asText() : null;
+        Long columnLength = extractColumnLength(typeStrForLength);
+        Integer scale = extractScale(typeStrForLength);
 
         return PhysicalColumn.builder()
                 .name(name)
@@ -165,35 +174,105 @@ public class GravitinoTableSchemaConvertor implements MetaLakeTableSchemaConvert
     }
 
     /**
-     * Convert Gravitino type string to SeaTunnel DataType.
+     * Convert Gravitino type to SeaTunnel DataType.
      *
-     * @param gravitinoType the Gravitino type string
+     * <p>Handles both simple types (string) and complex types (JSON object):
+     *
+     * <ul>
+     *   <li>Simple types: "integer", "varchar(100)", "decimal(10,2)", "map<string,int>",
+     *       "array<int>"
+     *   <li>Complex types:
+     *       <ul>
+     *         <li>list: {"type": "list", "containsNull": boolean, "elementType": type JSON}
+     *         <li>map: {"type": "map", "keyType": type JSON, "valueType": type JSON,
+     *             "valueContainsNull": boolean}
+     *         <li>struct: {"type": "struct", "fields": [{"name": string, "type": type JSON,
+     *             "nullable": boolean, "comment": string}]}
+     *         <li>union: {"type": "union", "types": [type JSON, ...]}
+     *       </ul>
+     * </ul>
+     *
+     * @param fieldName the field name for error reporting
+     * @param typeNode the JSON node representing the type (string or object)
      * @return the corresponding SeaTunnel data type
-     * @see <a
-     *     href="https://gravitino.apache.org/docs/1.1.0/manage-relational-metadata-using-gravitino/#apache-gravitino-table-column-type">Gravitino
-     *     Column Types</a>
      */
-    private SeaTunnelDataType<?> convertGravitinoType(String fieldName, String gravitinoType) {
+    private SeaTunnelDataType<?> convertGravitinoType(String fieldName, JsonNode typeNode) {
+        // Handle complex type (JSON object)
+        if (typeNode.isObject()) {
+            JsonNode typeField = typeNode.get(JSON_FIELD_TYPE);
+            if (typeField == null || !typeField.isTextual()) {
+                throw CommonError.convertToSeaTunnelTypeError(
+                        MetaLakeType.GRAVITINO.getType(), typeNode.toString(), fieldName);
+            }
+            String type = typeField.asText().toLowerCase();
+            switch (type) {
+                case "list":
+                    JsonNode elementType = typeNode.get(JSON_FIELD_ELEMENT_TYPE);
+                    if (elementType == null) {
+                        throw CommonError.convertToSeaTunnelTypeError(
+                                MetaLakeType.GRAVITINO.getType(),
+                                "list without elementType",
+                                fieldName);
+                    }
+                    return ArrayType.of(convertGravitinoType(fieldName, elementType));
+
+                case "map":
+                    JsonNode keyType = typeNode.get(JSON_FIELD_KEY_TYPE);
+                    JsonNode valueType = typeNode.get(JSON_FIELD_VALUE_TYPE);
+                    if (keyType == null || valueType == null) {
+                        throw CommonError.convertToSeaTunnelTypeError(
+                                MetaLakeType.GRAVITINO.getType(),
+                                "map without keyType or valueType",
+                                fieldName);
+                    }
+                    return new MapType<>(
+                            convertGravitinoType(fieldName, keyType),
+                            convertGravitinoType(fieldName, valueType));
+
+                case "struct":
+                    JsonNode fields = typeNode.get(JSON_FIELD_FIELDS);
+                    if (fields == null || !fields.isArray()) {
+                        throw CommonError.convertToSeaTunnelTypeError(
+                                MetaLakeType.GRAVITINO.getType(),
+                                "struct without valid fields array",
+                                fieldName);
+                    }
+                    // SeaTunnel doesn't have a native struct type, convert to string
+                    return BasicType.STRING_TYPE;
+
+                case "union":
+                    JsonNode types = typeNode.get(JSON_FIELD_TYPES);
+                    if (types == null || !types.isArray() || types.isEmpty()) {
+                        throw CommonError.convertToSeaTunnelTypeError(
+                                MetaLakeType.GRAVITINO.getType(),
+                                "union without valid types array",
+                                fieldName);
+                    }
+                    // Use the first successfully converted type from the union
+                    for (JsonNode unionType : types) {
+                        if (unionType != null) {
+                            try {
+                                return convertGravitinoType(fieldName, unionType);
+                            } catch (Exception e) {
+                                // Continue to next type
+                            }
+                        }
+                    }
+                    // Fallback to string
+                    return BasicType.STRING_TYPE;
+                default:
+                    throw CommonError.convertToSeaTunnelTypeError(
+                            MetaLakeType.GRAVITINO.getType(), type, fieldName);
+            }
+        }
+
+        // Handle simple type (string)
+        if (!typeNode.isTextual()) {
+            throw CommonError.convertToSeaTunnelTypeError(
+                    MetaLakeType.GRAVITINO.getType(), typeNode.toString(), fieldName);
+        }
+        String gravitinoType = typeNode.asText();
         String normalizedType = gravitinoType.trim().toLowerCase();
-        // Handle map type: map<key_type, value_type>
-        Matcher mapMatcher = MAP_PATTERN.matcher(gravitinoType);
-        if (mapMatcher.find()) {
-            String keyTypeStr = mapMatcher.group(1).trim();
-            String valueTypeStr = mapMatcher.group(2).trim();
-            SeaTunnelDataType<?> keyType = convertGravitinoType(fieldName, keyTypeStr);
-            SeaTunnelDataType<?> valueType = convertGravitinoType(fieldName, valueTypeStr);
-            return new MapType<>(keyType, valueType);
-        }
-        // Handle array/list type: array<element_type> or list<element_type>
-        Matcher arrayMatcher = ARRAY_PATTERN.matcher(gravitinoType);
-        if (!arrayMatcher.find()) {
-            arrayMatcher = LIST_PATTERN.matcher(gravitinoType);
-        }
-        if (arrayMatcher.find()) {
-            String elementTypeStr = arrayMatcher.group(1).trim();
-            SeaTunnelDataType<?> elementType = convertGravitinoType(fieldName, elementTypeStr);
-            return ArrayType.of(elementType);
-        }
         // Handle decimal type: decimal(precision, scale)
         Matcher decimalMatcher = DECIMAL_PATTERN.matcher(gravitinoType);
         if (decimalMatcher.find()) {
@@ -207,12 +286,16 @@ public class GravitinoTableSchemaConvertor implements MetaLakeTableSchemaConvert
             case "boolean":
                 return BasicType.BOOLEAN_TYPE;
             case "byte":
+            case "byte unsigned":
                 return BasicType.BYTE_TYPE;
             case "short":
+            case "short unsigned":
                 return BasicType.SHORT_TYPE;
             case "integer":
+            case "integer unsigned":
                 return BasicType.INT_TYPE;
             case "long":
+            case "long unsigned":
                 return BasicType.LONG_TYPE;
             case "float":
                 return BasicType.FLOAT_TYPE;
@@ -222,6 +305,8 @@ public class GravitinoTableSchemaConvertor implements MetaLakeTableSchemaConvert
             case "varchar":
             case "char":
             case "uuid":
+            case "interval_year":
+            case "interval_day":
                 return BasicType.STRING_TYPE;
             case "date":
                 return LocalTimeType.LOCAL_DATE_TYPE;
@@ -234,10 +319,6 @@ public class GravitinoTableSchemaConvertor implements MetaLakeTableSchemaConvert
             case "binary":
             case "fixed":
                 return PrimitiveByteArrayType.INSTANCE;
-            case "interval_year":
-                return BasicType.STRING_TYPE;
-            case "interval_day":
-                return BasicType.STRING_TYPE;
             default:
                 throw CommonError.convertToSeaTunnelTypeError(
                         MetaLakeType.GRAVITINO.getType(), baseType, fieldName);
@@ -274,7 +355,6 @@ public class GravitinoTableSchemaConvertor implements MetaLakeTableSchemaConvert
     private PrimaryKey parsePrimaryKey(JsonNode indexNode) {
         String indexName = getTextValue(indexNode, JSON_FIELD_NAME);
         List<String> columnNames = new ArrayList<>();
-
         JsonNode fieldNamesNode = indexNode.get(JSON_FIELD_FIELD_NAMES);
         if (fieldNamesNode != null && fieldNamesNode.isArray()) {
             for (JsonNode fieldNameArray : fieldNamesNode) {
@@ -291,7 +371,6 @@ public class GravitinoTableSchemaConvertor implements MetaLakeTableSchemaConvert
     private ConstraintKey parseUniqueKey(JsonNode indexNode) {
         String indexName = getTextValue(indexNode, JSON_FIELD_NAME);
         List<ConstraintKey.ConstraintKeyColumn> columns = new ArrayList<>();
-
         JsonNode fieldNamesNode = indexNode.get(JSON_FIELD_FIELD_NAMES);
         if (fieldNamesNode != null && fieldNamesNode.isArray()) {
             for (JsonNode fieldNameArray : fieldNamesNode) {
@@ -305,6 +384,20 @@ public class GravitinoTableSchemaConvertor implements MetaLakeTableSchemaConvert
         }
 
         return ConstraintKey.of(ConstraintKey.ConstraintType.UNIQUE_KEY, indexName, columns);
+    }
+
+    /**
+     * Helper method to convert type string to SeaTunnel DataType. This is used for recursive calls
+     * when parsing nested types in string format.
+     */
+    private SeaTunnelDataType<?> convertTypeFromString(String fieldName, String typeStr) {
+        // Delegate to the main method by creating a text node
+        return convertGravitinoType(fieldName, getTextNode(typeStr));
+    }
+
+    /** Create a text node from string for type conversion. */
+    private JsonNode getTextNode(String value) {
+        return new org.apache.seatunnel.shade.com.fasterxml.jackson.databind.node.TextNode(value);
     }
 
     /** Get text value from JSON node field. */
