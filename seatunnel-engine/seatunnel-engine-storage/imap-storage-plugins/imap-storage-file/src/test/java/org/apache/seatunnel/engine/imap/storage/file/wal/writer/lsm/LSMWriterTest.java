@@ -21,6 +21,7 @@
 package org.apache.seatunnel.engine.imap.storage.file.wal.writer.lsm;
 
 import org.apache.seatunnel.engine.imap.storage.file.bean.IMapFileData;
+import org.apache.seatunnel.engine.imap.storage.file.common.FileConstants;
 import org.apache.seatunnel.engine.imap.storage.file.common.WALDataUtils;
 import org.apache.seatunnel.engine.imap.storage.file.wal.IMapFileIterator;
 import org.apache.seatunnel.engine.imap.storage.file.wal.WALFileIterator;
@@ -35,6 +36,7 @@ import org.apache.hadoop.fs.Path;
 
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.Assertions;
+import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.condition.EnabledOnOs;
 import org.junit.jupiter.params.ParameterizedTest;
 import org.junit.jupiter.params.provider.MethodSource;
@@ -42,6 +44,7 @@ import org.junit.jupiter.params.provider.MethodSource;
 import java.io.IOException;
 import java.util.ArrayList;
 import java.util.Collections;
+import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.concurrent.CompletableFuture;
@@ -90,6 +93,23 @@ class LSMWriterTest {
         Path baseDir = new Path("target/test-writer");
         fs.delete(baseDir, true);
         fs.close();
+    }
+
+    @Test
+    void testConfigAppliedCorrectly() {
+        Map<String, Object> config = new HashMap<>();
+        config.put(FileConstants.FileInitProperties.COMPACTION_THRESHOLD, 100L);
+        config.put(FileConstants.FileInitProperties.MAX_SINGLE_FILE_SIZE, 200L);
+        config.put(FileConstants.FileInitProperties.COMPACTION_BATCH_SIZE, 300L);
+        config.put(FileConstants.FileInitProperties.COMPACTION_INTERVAL, 400L);
+
+        AbstractLSMWriter writer =
+                new HdfsLSMWriter(config); // can be any AbstractLSMWriter implementation
+
+        Assertions.assertEquals(100L, writer.compactionThreshold);
+        Assertions.assertEquals(200L, writer.maxSingleFileSize);
+        Assertions.assertEquals(300L, writer.compactionBatchSize);
+        Assertions.assertEquals(400L, writer.compactionInterval);
     }
 
     @ParameterizedTest
