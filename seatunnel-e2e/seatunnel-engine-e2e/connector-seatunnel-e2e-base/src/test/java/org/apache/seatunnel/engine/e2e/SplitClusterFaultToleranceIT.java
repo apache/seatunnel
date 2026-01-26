@@ -882,6 +882,7 @@ public class SplitClusterFaultToleranceIT {
                         + testClusterName
                         + "\n"
                         + "          fs.defaultFS: file:///\n"
+                        + "          compactionImap: '[\"engine_runningJobMetrics\", \"engine_runningJobState\", \"engine_stateTimestamps\"]'\n"
                         + "\n"
                         + "  properties:\n"
                         + "    hazelcast.invocation.max.retry.count: 200\n"
