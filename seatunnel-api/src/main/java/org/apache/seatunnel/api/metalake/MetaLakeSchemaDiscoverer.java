@@ -29,6 +29,8 @@ import org.apache.seatunnel.api.options.table.FieldOptions;
 import org.apache.seatunnel.api.options.table.TableSchemaOptions;
 import org.apache.seatunnel.api.table.catalog.CatalogTable;
 import org.apache.seatunnel.api.table.catalog.CatalogTableUtil;
+import org.apache.seatunnel.api.table.catalog.TablePath;
+import org.apache.seatunnel.api.table.catalog.TableSchema;
 import org.apache.seatunnel.api.table.factory.TableSourceFactoryContext;
 import org.apache.seatunnel.common.constants.MetaLakeType;
 import org.apache.seatunnel.common.exception.SeaTunnelRuntimeException;
@@ -105,8 +107,10 @@ public class MetaLakeSchemaDiscoverer {
     private CatalogTable discoverTableSchemaFromMetaLake(String schemaUrl) {
         try {
             JsonNode schemaNode = metalakeClient.getTableSchema(schemaUrl);
-            return metaLakeTableSchemaConvertor.convertor(
-                    schemaNode, metalakeClient.getTableSchemaPath(schemaUrl));
+            final TablePath tableSchemaPath = metalakeClient.getTableSchemaPath(schemaUrl);
+            final TableSchema tableSchema = metaLakeTableSchemaConvertor.convertor(schemaNode);
+            return metaLakeTableSchemaConvertor.buildCatalogTable(
+                    catalogName, tableSchemaPath, tableSchema);
         } catch (IOException e) {
             throw new SeaTunnelRuntimeException(GET_META_LAKE_TABLE_SCHEMA_FAILED, e);
         }

@@ -20,10 +20,14 @@ import org.apache.seatunnel.shade.com.fasterxml.jackson.databind.JsonNode;
 
 import org.apache.seatunnel.api.table.catalog.CatalogTable;
 import org.apache.seatunnel.api.table.catalog.TablePath;
+import org.apache.seatunnel.api.table.catalog.TableSchema;
 
 import java.io.IOException;
 
 public interface MetaLakeTableSchemaConvertor {
 
-    CatalogTable convertor(JsonNode metaInfo, TablePath tablePath) throws IOException;
+    TableSchema convertor(JsonNode metaInfo) throws IOException;
+
+    CatalogTable buildCatalogTable(
+            String catalogName, TablePath tablePath, TableSchema tableSchema);
 }

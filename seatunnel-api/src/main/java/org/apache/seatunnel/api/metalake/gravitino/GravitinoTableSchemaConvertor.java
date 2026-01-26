@@ -83,11 +83,10 @@ public class GravitinoTableSchemaConvertor implements MetaLakeTableSchemaConvert
     private static final String INDEX_TYPE_UNIQUE_KEY = "UNIQUE_KEY";
 
     @Override
-    public CatalogTable convertor(JsonNode metaInfo, TablePath tablePath) throws IOException {
+    public TableSchema convertor(JsonNode metaInfo) throws IOException {
         List<Column> columns = new ArrayList<>();
         PrimaryKey primaryKey = null;
         List<ConstraintKey> constraintKeys = new ArrayList<>();
-
         // Parse columns
         JsonNode columnsNode = metaInfo.get(JSON_FIELD_COLUMNS);
         if (columnsNode != null && columnsNode.isArray()) {
@@ -95,7 +94,6 @@ public class GravitinoTableSchemaConvertor implements MetaLakeTableSchemaConvert
                 columns.add(parseColumn(columnNode));
             }
         }
-
         // Parse indexes
         JsonNode indexesNode = metaInfo.get(JSON_FIELD_INDEXES);
         if (indexesNode != null && indexesNode.isArray()) {
@@ -108,7 +106,6 @@ public class GravitinoTableSchemaConvertor implements MetaLakeTableSchemaConvert
                 }
             }
         }
-
         // Build table schema
         TableSchema.Builder schemaBuilder = TableSchema.builder().columns(columns);
         if (primaryKey != null) {
@@ -117,16 +114,15 @@ public class GravitinoTableSchemaConvertor implements MetaLakeTableSchemaConvert
         if (!constraintKeys.isEmpty()) {
             schemaBuilder.constraintKey(constraintKeys);
         }
-        TableSchema tableSchema = schemaBuilder.build();
+        return schemaBuilder.build();
+    }
 
-        // Build table identifier
-        // Note: In Gravitino context, TablePath.databaseName maps to catalog name
-        String catalogName =
-                tablePath.getDatabaseName() != null ? tablePath.getDatabaseName() : "gravitino";
+    @Override
+    public CatalogTable buildCatalogTable(
+            String catalogName, TablePath tablePath, TableSchema tableSchema) {
         TableIdentifier tableIdentifier =
                 TableIdentifier.of(
                         catalogName, tablePath.getSchemaName(), tablePath.getTableName());
-
         // Build catalog table
         return CatalogTable.of(
                 tableIdentifier,
@@ -172,9 +168,7 @@ public class GravitinoTableSchemaConvertor implements MetaLakeTableSchemaConvert
         if (gravitinoType == null) {
             throw new IOException("Gravitino type cannot be null");
         }
-
         String normalizedType = gravitinoType.trim().toLowerCase();
-
         // Handle complex types with parameters
         Matcher decimalMatcher = DECIMAL_PATTERN.matcher(gravitinoType);
         if (decimalMatcher.find()) {
@@ -182,10 +176,8 @@ public class GravitinoTableSchemaConvertor implements MetaLakeTableSchemaConvert
             int scale = Integer.parseInt(decimalMatcher.group(2));
             return new DecimalType(precision, scale);
         }
-
         // Remove parameters for simple type matching
         String baseType = normalizedType.split("\\(")[0].trim();
-
         switch (baseType) {
             case "boolean":
                 return BasicType.BOOLEAN_TYPE;
@@ -212,7 +204,7 @@ public class GravitinoTableSchemaConvertor implements MetaLakeTableSchemaConvert
             case "timestamp":
                 return LocalTimeType.LOCAL_DATE_TIME_TYPE;
             case "timestamp_tz":
-                return LocalTimeType.OFFSET_DATE_TIME_TYPE;
+                return BasicType.OFFSET_DATE_TIME_TYPE;
             case "binary":
             case "fixed":
                 // Binary types - use STRING_TYPE as placeholder
