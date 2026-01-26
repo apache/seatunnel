@@ -1,31 +1,14 @@
-/*
- * Licensed to the Apache Software Foundation (ASF) under one
- * or more contributor license agreements.  See the NOTICE file
- * distributed with this work for additional information
- * regarding copyright ownership.  The ASF licenses this file
- * to you under the Apache License, Version 2.0 (the
- * "License"); you may not use this file except in compliance
- * with the License.  You may obtain a copy of the License at
- *
- *   http://www.apache.org/licenses/LICENSE-2.0
- *
- * Unless required by applicable law or agreed to in writing,
- * software distributed under the License is distributed on an
- * "AS IS" BASIS, WITHOUT WARRANTIES OR CONDITIONS OF ANY
- * KIND, either express or implied.  See the License for the
- * specific language governing permissions and limitations
- * under the License.
- *
- */
-
 package org.apache.seatunnel.engine.imap.storage.file.disruptor;
 
 import org.apache.seatunnel.engine.imap.storage.api.exception.IMapStorageException;
 import org.apache.seatunnel.engine.imap.storage.file.bean.IMapFileData;
+import org.apache.seatunnel.engine.imap.storage.file.common.WALLSMWriter;
+import org.apache.seatunnel.engine.imap.storage.file.common.WALWriter;
 import org.apache.seatunnel.engine.imap.storage.file.config.FileConfiguration;
 import org.apache.seatunnel.engine.serializer.api.Serializer;
 
 import org.apache.hadoop.fs.FileSystem;
+import org.apache.hadoop.fs.Path;
 
 import com.lmax.disruptor.BlockingWaitStrategy;
 import com.lmax.disruptor.TimeoutException;
@@ -35,17 +18,21 @@ import com.lmax.disruptor.util.DaemonThreadFactory;
 import lombok.extern.slf4j.Slf4j;
 
 import java.io.IOException;
+import java.util.Map;
 import java.util.concurrent.ThreadFactory;
 import java.util.concurrent.TimeUnit;
 
 @Slf4j
-public class WALDisruptor extends AbstractWALDisruptor {
-    public WALDisruptor(
+public class WALCompactionDisruptor extends AbstractWALDisruptor {
+
+    private Disruptor<FileWALEvent> compactionDisruptor;
+
+    public WALCompactionDisruptor(
             FileSystem fs,
             FileConfiguration fileConfiguration,
             String parentPath,
-            Serializer serializer) {
-        // todo should support multi thread producer
+            Serializer serializer,
+            Map<String, Object> config) {
         ThreadFactory threadFactory = DaemonThreadFactory.INSTANCE;
         this.disruptor =
                 new Disruptor<>(
@@ -55,10 +42,32 @@ public class WALDisruptor extends AbstractWALDisruptor {
                         ProducerType.SINGLE,
                         new BlockingWaitStrategy());
 
-        disruptor.handleEventsWithWorkerPool(
-                new WALWorkHandler(fs, fileConfiguration, parentPath, serializer));
+        WALWriter writer;
+        try {
+            writer =
+                    new WALLSMWriter(
+                            fs, fileConfiguration, new Path(parentPath), serializer, config);
+        } catch (IOException e) {
+            throw new IMapStorageException(
+                    e, "create new current writer failed, parent path is %s", parentPath);
+        }
+
+        disruptor.handleEventsWithWorkerPool(new WALWorkHandler(writer));
 
         disruptor.start();
+
+        this.compactionDisruptor =
+                new Disruptor<>(
+                        FileWALEvent.FACTORY,
+                        DEFAULT_RING_BUFFER_SIZE,
+                        threadFactory,
+                        ProducerType.SINGLE,
+                        new BlockingWaitStrategy());
+
+        compactionDisruptor.handleEventsWithWorkerPool(
+                new WALCompactionWorkHandler((WALLSMWriter) writer));
+
+        compactionDisruptor.start();
     }
 
     @Override
@@ -67,6 +76,7 @@ public class WALDisruptor extends AbstractWALDisruptor {
             return false;
         }
         disruptor.getRingBuffer().publishEvent(TRANSLATOR, message, status, requestId);
+        compactionDisruptor.getRingBuffer().publishEvent(TRANSLATOR, message, status, requestId);
         return true;
     }
 
@@ -82,9 +92,10 @@ public class WALDisruptor extends AbstractWALDisruptor {
             tryPublish(null, WALEventType.CLOSED, 0L);
             isClosed = true;
             disruptor.shutdown(DEFAULT_CLOSE_WAIT_TIME_SECONDS, TimeUnit.SECONDS);
+            compactionDisruptor.shutdown(DEFAULT_CLOSE_WAIT_TIME_SECONDS, TimeUnit.SECONDS);
         } catch (TimeoutException e) {
-            log.error("WALDisruptor close timeout error", e);
-            throw new IMapStorageException("WALDisruptor close timeout error", e);
+            log.error("WALCompactionDisruptor close timeout error", e);
+            throw new IMapStorageException("WALCompactionDisruptor close timeout error", e);
         }
     }
 }

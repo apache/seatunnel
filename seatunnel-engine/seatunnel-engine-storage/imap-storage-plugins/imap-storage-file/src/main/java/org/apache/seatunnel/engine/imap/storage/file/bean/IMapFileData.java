@@ -27,6 +27,8 @@ import lombok.NoArgsConstructor;
 
 import java.io.Serializable;
 
+import static org.apache.hadoop.hdfs.DFSUtilClient.compareBytes;
+
 @Data
 @Builder
 @AllArgsConstructor
@@ -46,6 +48,11 @@ public class IMapFileData implements Serializable, Comparable<IMapFileData> {
 
     @Override
     public int compareTo(IMapFileData o) {
-        return o.timestamp - this.timestamp > 0 ? 1 : -1;
+        int keyCompare = compareBytes(this.key, o.key);
+        if (keyCompare != 0) {
+            return keyCompare;
+        }
+
+        return Long.compare(o.timestamp, this.timestamp);
     }
 }

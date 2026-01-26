@@ -20,6 +20,10 @@
 
 package org.apache.seatunnel.engine.imap.storage.file;
 
+import org.apache.seatunnel.shade.hadoop.com.fasterxml.jackson.core.JsonProcessingException;
+import org.apache.seatunnel.shade.hadoop.com.fasterxml.jackson.databind.ObjectMapper;
+import org.apache.seatunnel.shade.hadoop.com.fasterxml.jackson.databind.type.CollectionType;
+
 import org.apache.seatunnel.engine.imap.storage.api.IMapStorage;
 import org.apache.seatunnel.engine.imap.storage.api.exception.IMapStorageException;
 import org.apache.seatunnel.engine.imap.storage.file.bean.IMapFileData;
@@ -27,6 +31,8 @@ import org.apache.seatunnel.engine.imap.storage.file.common.FileConstants;
 import org.apache.seatunnel.engine.imap.storage.file.common.WALReader;
 import org.apache.seatunnel.engine.imap.storage.file.config.AbstractConfiguration;
 import org.apache.seatunnel.engine.imap.storage.file.config.FileConfiguration;
+import org.apache.seatunnel.engine.imap.storage.file.disruptor.AbstractWALDisruptor;
+import org.apache.seatunnel.engine.imap.storage.file.disruptor.WALCompactionDisruptor;
 import org.apache.seatunnel.engine.imap.storage.file.disruptor.WALDisruptor;
 import org.apache.seatunnel.engine.imap.storage.file.disruptor.WALEventType;
 import org.apache.seatunnel.engine.imap.storage.file.future.RequestFuture;
@@ -55,6 +61,7 @@ import static org.apache.seatunnel.engine.imap.storage.file.common.FileConstants
 import static org.apache.seatunnel.engine.imap.storage.file.common.FileConstants.DEFAULT_IMAP_NAMESPACE;
 import static org.apache.seatunnel.engine.imap.storage.file.common.FileConstants.FileInitProperties.BUSINESS_KEY;
 import static org.apache.seatunnel.engine.imap.storage.file.common.FileConstants.FileInitProperties.CLUSTER_NAME;
+import static org.apache.seatunnel.engine.imap.storage.file.common.FileConstants.FileInitProperties.COMPACTION_IMAP;
 import static org.apache.seatunnel.engine.imap.storage.file.common.FileConstants.FileInitProperties.NAMESPACE_KEY;
 import static org.apache.seatunnel.engine.imap.storage.file.common.FileConstants.FileInitProperties.WRITE_DATA_TIMEOUT_MILLISECONDS_KEY;
 
@@ -71,6 +78,8 @@ import static org.apache.seatunnel.engine.imap.storage.file.common.FileConstants
 public class IMapFileStorage implements IMapStorage {
 
     private static final String STORAGE_TYPE_KEY = "storage.type";
+
+    public static final ObjectMapper OBJECT_MAPPER = new ObjectMapper();
 
     public FileSystem fs;
 
@@ -94,7 +103,7 @@ public class IMapFileStorage implements IMapStorage {
     public long writDataTimeoutMilliseconds;
 
     /** We used disruptor to implement the asynchronous write. */
-    WALDisruptor walDisruptor;
+    AbstractWALDisruptor walDisruptor;
 
     /** serializer, default is ProtoStuffSerializer */
     Serializer serializer;
@@ -159,12 +168,33 @@ public class IMapFileStorage implements IMapStorage {
             throw new IMapStorageException("Failed to get file system", e);
         }
         this.serializer = new ProtoStuffSerializer();
-        this.walDisruptor =
-                new WALDisruptor(
-                        fs,
-                        FileConfiguration.valueOf(storageType.toUpperCase()),
-                        businessRootPath + region + DEFAULT_IMAP_FILE_PATH_SPLIT,
-                        serializer);
+
+        List<String> compactionIMaps;
+        CollectionType listType =
+                OBJECT_MAPPER.getTypeFactory().constructCollectionType(List.class, String.class);
+        try {
+            compactionIMaps =
+                    OBJECT_MAPPER.readValue((String) configuration.get(COMPACTION_IMAP), listType);
+        } catch (JsonProcessingException e) {
+            throw new IMapStorageException("parse compactionIMap config error", e);
+        }
+
+        if (compactionIMaps.contains(businessName)) {
+            this.walDisruptor =
+                    new WALCompactionDisruptor(
+                            fs,
+                            FileConfiguration.valueOf(storageType.toUpperCase()),
+                            businessRootPath + region + DEFAULT_IMAP_FILE_PATH_SPLIT,
+                            serializer,
+                            configuration);
+        } else {
+            this.walDisruptor =
+                    new WALDisruptor(
+                            fs,
+                            FileConfiguration.valueOf(storageType.toUpperCase()),
+                            businessRootPath + region + DEFAULT_IMAP_FILE_PATH_SPLIT,
+                            serializer);
+        }
     }
 
     @Override

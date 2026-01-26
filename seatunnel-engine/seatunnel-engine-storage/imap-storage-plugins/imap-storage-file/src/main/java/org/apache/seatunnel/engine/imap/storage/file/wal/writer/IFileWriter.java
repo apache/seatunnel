@@ -36,5 +36,7 @@ public interface IFileWriter<T> extends AutoCloseable {
 
     default void setBlockSize(Long blockSize) {}
 
-    void write(T data) throws IOException;
+    void write(T data, boolean flush) throws IOException;
+
+    void compaction(boolean force) throws IOException;
 }

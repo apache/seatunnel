@@ -54,6 +54,10 @@ public class WALWorkHandler implements WorkHandler<FileWALEvent> {
         }
     }
 
+    public WALWorkHandler(WALWriter writer) {
+        this.writer = writer;
+    }
+
     @Override
     public void onEvent(FileWALEvent fileWALEvent) throws Exception {
         log.debug("write data to orc file");

@@ -64,5 +64,16 @@ public class FileConstants {
 
         /** The maximum waiting time of write operations */
         String WRITE_DATA_TIMEOUT_MILLISECONDS_KEY = "writeDataTimeoutMilliseconds";
+
+        /** Compaction related configuration */
+        String COMPACTION_IMAP = "compactionIMap";
+
+        String COMPACTION_THRESHOLD = "compactionThreshold";
+
+        String MAX_SINGLE_FILE_SIZE = "maxSingleFileSize";
+
+        String COMPACTION_BATCH_SIZE = "compactionBatchSize";
+
+        String COMPACTION_INTERVAL = "compactionInterval";
     }
 }

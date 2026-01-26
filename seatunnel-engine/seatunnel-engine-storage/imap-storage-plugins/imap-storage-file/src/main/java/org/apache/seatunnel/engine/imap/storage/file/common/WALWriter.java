@@ -47,7 +47,7 @@ public class WALWriter implements AutoCloseable {
     }
 
     public void write(IMapFileData data) throws IOException {
-        this.writer.write(data);
+        this.writer.write(data, false);
     }
 
     @Override
