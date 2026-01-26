@@ -368,6 +368,31 @@ public class DateTimeFunctionsTest {
                         LocalDateTime.now());
         Assertions.assertEquals(
                 LocalDateTime.of(2024, 6, 15, 14, 30, 45, 987000000), row4.getField(0));
+
+        // DATETIME_SLASH: yyyy/MM/dd HH:mm:ss
+        SeaTunnelRow row5 =
+                runSql(
+                        "select PARSEDATETIME('2024/06/15 14:30:45', 'yyyy/MM/dd HH:mm:ss') as dt from dual",
+                        rowType,
+                        LocalDateTime.now());
+        Assertions.assertEquals(LocalDateTime.of(2024, 6, 15, 14, 30, 45), row5.getField(0));
+
+        // DATETIME_SLASH_WITH_MILLIS: yyyy/MM/dd HH:mm:ss.SSS
+        SeaTunnelRow row6 =
+                runSql(
+                        "select PARSEDATETIME('2024/06/15 14:30:45.123', 'yyyy/MM/dd HH:mm:ss.SSS') as dt from dual",
+                        rowType,
+                        LocalDateTime.now());
+        Assertions.assertEquals(
+                LocalDateTime.of(2024, 6, 15, 14, 30, 45, 123000000), row6.getField(0));
+
+        // DATETIME_COMPACT: yyyyMMddHHmmss
+        SeaTunnelRow row7 =
+                runSql(
+                        "select PARSEDATETIME('20240615143045', 'yyyyMMddHHmmss') as dt from dual",
+                        rowType,
+                        LocalDateTime.now());
+        Assertions.assertEquals(LocalDateTime.of(2024, 6, 15, 14, 30, 45), row7.getField(0));
     }
 
     @Test
@@ -392,6 +417,14 @@ public class DateTimeFunctionsTest {
                         rowType,
                         LocalDateTime.now());
         Assertions.assertEquals(java.time.LocalTime.of(14, 30, 45, 123000000), row2.getField(0));
+
+        // TIME_COMPACT: HHmmss
+        SeaTunnelRow row3 =
+                runSql(
+                        "select PARSEDATETIME('143045', 'HHmmss') as dt from dual",
+                        rowType,
+                        LocalDateTime.now());
+        Assertions.assertEquals(java.time.LocalTime.of(14, 30, 45), row3.getField(0));
     }
 
     @Test
@@ -427,17 +460,34 @@ public class DateTimeFunctionsTest {
     }
 
     @Test
-    public void testToDateWithDateFormat() {
+    public void testParseDateTimeWithAllDateFormats() {
         SeaTunnelRowType rowType =
                 new SeaTunnelRowType(
                         new String[] {"dummy"},
                         new SeaTunnelDataType[] {LocalTimeType.LOCAL_DATE_TIME_TYPE});
 
+        // DATE_ISO8601: yyyy-MM-dd
         SeaTunnelRow row1 =
                 runSql(
                         "select TO_DATE('2024-06-15', 'yyyy-MM-dd') as dt from dual",
                         rowType,
                         LocalDateTime.now());
         Assertions.assertEquals(LocalDate.of(2024, 6, 15), row1.getField(0));
+
+        // DATE_SLASH: yyyy/MM/dd
+        SeaTunnelRow row2 =
+                runSql(
+                        "select PARSEDATETIME('2024/06/15', 'yyyy/MM/dd') as dt from dual",
+                        rowType,
+                        LocalDateTime.now());
+        Assertions.assertEquals(LocalDate.of(2024, 6, 15), row2.getField(0));
+
+        // DATE_COMPACT: yyyyMMdd
+        SeaTunnelRow row3 =
+                runSql(
+                        "select PARSEDATETIME('20240615', 'yyyyMMdd') as dt from dual",
+                        rowType,
+                        LocalDateTime.now());
+        Assertions.assertEquals(LocalDate.of(2024, 6, 15), row3.getField(0));
     }
 }
