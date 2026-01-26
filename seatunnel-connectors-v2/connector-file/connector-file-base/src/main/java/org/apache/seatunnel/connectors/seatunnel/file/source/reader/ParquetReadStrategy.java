@@ -181,6 +181,20 @@ public class ParquetReadStrategy extends AbstractReadStrategy {
                         return origArray.toArray(TYPE_ARRAY_FLOAT);
                     case DOUBLE:
                         return origArray.toArray(TYPE_ARRAY_DOUBLE);
+                    case BYTES:
+                        byte[][] bytesArray = new byte[origArray.size()][];
+                        for (int i = 0; i < origArray.size(); i++) {
+                            Object element = origArray.get(i);
+                            if (element instanceof ByteBuffer) {
+                                ByteBuffer buffer = (ByteBuffer) element;
+                                byte[] bytes = new byte[buffer.remaining()];
+                                buffer.get(bytes, 0, bytes.length);
+                                bytesArray[i] = bytes;
+                            } else if (element instanceof byte[]) {
+                                bytesArray[i] = (byte[]) element;
+                            }
+                        }
+                        return bytesArray;
                     default:
                         String errorMsg =
                                 String.format(
@@ -479,6 +493,8 @@ public class ParquetReadStrategy extends AbstractReadStrategy {
                                 return ArrayType.FLOAT_ARRAY_TYPE;
                             case DOUBLE:
                                 return ArrayType.DOUBLE_ARRAY_TYPE;
+                            case BYTES:
+                                return ArrayType.of(PrimitiveByteArrayType.INSTANCE);
                             case ARRAY:
                             case MAP:
                                 return ArrayType.of(fieldType);
