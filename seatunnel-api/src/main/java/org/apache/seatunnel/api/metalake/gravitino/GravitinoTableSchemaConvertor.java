@@ -37,7 +37,6 @@ import org.apache.seatunnel.api.table.type.SeaTunnelDataType;
 import org.apache.seatunnel.common.constants.MetaLakeType;
 import org.apache.seatunnel.common.exception.CommonError;
 
-import java.io.IOException;
 import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.List;
@@ -60,12 +59,6 @@ import java.util.regex.Pattern;
  */
 public class GravitinoTableSchemaConvertor implements MetaLakeTableSchemaConvertor {
 
-    // 样例json：
-    // {"code":0,"table":{"name":"all_type","columns":[{"name":"id","type":"integer","nullable":false,"autoIncrement":false},{"name":"big_number","type":"long","nullable":true,"autoIncrement":false,"defaultValue":{"type":"literal","dataType":"null","value":"NULL"}},{"name":"small_number","type":"integer","nullable":true,"autoIncrement":false,"defaultValue":{"type":"literal","dataType":"null","value":"NULL"}},{"name":"tiny_number","type":"short","nullable":true,"autoIncrement":false,"defaultValue":{"type":"literal","dataType":"null","value":"NULL"}},{"name":"float_value","type":"float","nullable":true,"autoIncrement":false,"defaultValue":{"type":"literal","dataType":"null","value":"NULL"}},{"name":"double_value","type":"double","nullable":true,"autoIncrement":false,"defaultValue":{"type":"literal","dataType":"null","value":"NULL"}},{"name":"decimal_value","type":"decimal(10,2)","nullable":true,"autoIncrement":false,"defaultValue":{"type":"literal","dataType":"null","value":"NULL"}},{"name":"event_date","type":"date","nullable":true,"autoIncrement":false,"defaultValue":{"type":"literal","dataType":"null","value":"NULL"}},{"name":"user_name","type":"varchar(300)","nullable":true,"autoIncrement":false,"defaultValue":{"type":"literal","dataType":"null","value":"NULL"}},{"name":"code","type":"varchar(15)","nullable":true,"autoIncrement":false,"defaultValue":{"type":"literal","dataType":"null","value":"NULL"}},{"name":"description","type":"string","nullable":true,"autoIncrement":false,"defaultValue":{"type":"literal","dataType":"null","value":"NULL"}},{"name":"event_json","type":"string","nullable":true,"autoIncrement":false,"defaultValue":{"type":"literal","dataType":"null","value":"NULL"}}],"properties":{},"audit":{"lastModifier":"anonymous","lastModifiedTime":"2026-01-25T12:00:04.771957297Z"},"distribution":{"strategy":"none","number":0,"funcArgs":[]},"sortOrders":[],"partitioning":[],"indexes":[{"indexType":"PRIMARY_KEY","name":"all_type_pk","fieldNames":[["id"]]},{"indexType":"UNIQUE_KEY","name":"all_type_big_number_idx","fieldNames":[["big_number"]]}]}}
-    // 其中JsonNode metaInfo 是json中的table节点，我只关注columns和indexes
-    // columns中我只关注name type nullable
-    // https://gravitino.apache.org/docs/1.1.0/manage-relational-metadata-using-gravitino/#apache-gravitino-table-column-type 这是columns的规则
-    // https://gravitino.apache.org/docs/1.1.0/table-partitioning-distribution-sort-order-indexes#indexes 这是index的规则
     private static final Pattern DECIMAL_PATTERN =
             Pattern.compile(
                     "decimal\\s*\\(\\s*(\\d+)\\s*,\\s*(\\d+)\\s*\\)", Pattern.CASE_INSENSITIVE);
@@ -88,14 +81,12 @@ public class GravitinoTableSchemaConvertor implements MetaLakeTableSchemaConvert
     private static final String JSON_FIELD_ELEMENT_TYPE = "elementType";
     private static final String JSON_FIELD_KEY_TYPE = "keyType";
     private static final String JSON_FIELD_VALUE_TYPE = "valueType";
-    private static final String JSON_FIELD_FIELDS = "fields";
-    private static final String JSON_FIELD_TYPES = "types";
 
     private static final String INDEX_TYPE_PRIMARY_KEY = "PRIMARY_KEY";
     private static final String INDEX_TYPE_UNIQUE_KEY = "UNIQUE_KEY";
 
     @Override
-    public TableSchema convertor(JsonNode metaInfo) throws IOException {
+    public TableSchema convertor(JsonNode metaInfo) {
         List<Column> columns = new ArrayList<>();
         PrimaryKey primaryKey = null;
         List<ConstraintKey> constraintKeys = new ArrayList<>();
@@ -151,19 +142,15 @@ public class GravitinoTableSchemaConvertor implements MetaLakeTableSchemaConvert
         boolean nullable =
                 columnNode.has(JSON_FIELD_NULLABLE)
                         && columnNode.get(JSON_FIELD_NULLABLE).asBoolean();
-
         JsonNode typeNode = columnNode.get(JSON_FIELD_TYPE);
         if (typeNode == null) {
             throw CommonError.convertToSeaTunnelTypeError(
                     MetaLakeType.GRAVITINO.getType(), "null", name);
         }
-
         SeaTunnelDataType<?> dataType = convertGravitinoType(name, typeNode);
-
         String typeStrForLength = typeNode.isTextual() ? typeNode.asText() : null;
         Long columnLength = extractColumnLength(typeStrForLength);
         Integer scale = extractScale(typeStrForLength);
-
         return PhysicalColumn.builder()
                 .name(name)
                 .dataType(dataType)
@@ -186,9 +173,6 @@ public class GravitinoTableSchemaConvertor implements MetaLakeTableSchemaConvert
      *         <li>list: {"type": "list", "containsNull": boolean, "elementType": type JSON}
      *         <li>map: {"type": "map", "keyType": type JSON, "valueType": type JSON,
      *             "valueContainsNull": boolean}
-     *         <li>struct: {"type": "struct", "fields": [{"name": string, "type": type JSON,
-     *             "nullable": boolean, "comment": string}]}
-     *         <li>union: {"type": "union", "types": [type JSON, ...]}
      *       </ul>
      * </ul>
      *
@@ -228,44 +212,13 @@ public class GravitinoTableSchemaConvertor implements MetaLakeTableSchemaConvert
                     return new MapType<>(
                             convertGravitinoType(fieldName, keyType),
                             convertGravitinoType(fieldName, valueType));
-
                 case "struct":
-                    JsonNode fields = typeNode.get(JSON_FIELD_FIELDS);
-                    if (fields == null || !fields.isArray()) {
-                        throw CommonError.convertToSeaTunnelTypeError(
-                                MetaLakeType.GRAVITINO.getType(),
-                                "struct without valid fields array",
-                                fieldName);
-                    }
-                    // SeaTunnel doesn't have a native struct type, convert to string
-                    return BasicType.STRING_TYPE;
-
                 case "union":
-                    JsonNode types = typeNode.get(JSON_FIELD_TYPES);
-                    if (types == null || !types.isArray() || types.isEmpty()) {
-                        throw CommonError.convertToSeaTunnelTypeError(
-                                MetaLakeType.GRAVITINO.getType(),
-                                "union without valid types array",
-                                fieldName);
-                    }
-                    // Use the first successfully converted type from the union
-                    for (JsonNode unionType : types) {
-                        if (unionType != null) {
-                            try {
-                                return convertGravitinoType(fieldName, unionType);
-                            } catch (Exception e) {
-                                // Continue to next type
-                            }
-                        }
-                    }
-                    // Fallback to string
-                    return BasicType.STRING_TYPE;
                 default:
                     throw CommonError.convertToSeaTunnelTypeError(
                             MetaLakeType.GRAVITINO.getType(), type, fieldName);
             }
         }
-
         // Handle simple type (string)
         if (!typeNode.isTextual()) {
             throw CommonError.convertToSeaTunnelTypeError(
@@ -384,20 +337,6 @@ public class GravitinoTableSchemaConvertor implements MetaLakeTableSchemaConvert
         }
 
         return ConstraintKey.of(ConstraintKey.ConstraintType.UNIQUE_KEY, indexName, columns);
-    }
-
-    /**
-     * Helper method to convert type string to SeaTunnel DataType. This is used for recursive calls
-     * when parsing nested types in string format.
-     */
-    private SeaTunnelDataType<?> convertTypeFromString(String fieldName, String typeStr) {
-        // Delegate to the main method by creating a text node
-        return convertGravitinoType(fieldName, getTextNode(typeStr));
-    }
-
-    /** Create a text node from string for type conversion. */
-    private JsonNode getTextNode(String value) {
-        return new org.apache.seatunnel.shade.com.fasterxml.jackson.databind.node.TextNode(value);
     }
 
     /** Get text value from JSON node field. */

@@ -22,11 +22,9 @@ import org.apache.seatunnel.api.table.catalog.CatalogTable;
 import org.apache.seatunnel.api.table.catalog.TablePath;
 import org.apache.seatunnel.api.table.catalog.TableSchema;
 
-import java.io.IOException;
-
 public interface MetaLakeTableSchemaConvertor {
 
-    TableSchema convertor(JsonNode metaInfo) throws IOException;
+    TableSchema convertor(JsonNode metaInfo);
 
     CatalogTable buildCatalogTable(
             String catalogName, TablePath tablePath, TableSchema tableSchema);
