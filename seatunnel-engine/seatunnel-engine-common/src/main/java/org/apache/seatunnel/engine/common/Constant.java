@@ -59,6 +59,7 @@ public class Constant {
 
     public static final String IMAP_RUNNING_JOB_METRICS = "engine_runningJobMetrics";
 
+    public static final String IMAP_PENDING_PIPELINE_CLEANUP = "engine_pendingPipelineCleanup";
     public static final String IMAP_CONNECTOR_JAR_REF_COUNTERS = "engine_connectorJarRefCounters";
 
     public static final String PROP_FILE = "zeta.version.properties";
