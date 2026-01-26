@@ -124,7 +124,7 @@ DataValidator 转换插件根据配置的规则验证字段值，并基于指定
 
 ### 通用选项 [string]
 
-转换插件通用参数，请参考 [Transform Plugin](common-options.md) 了解详情
+转换插件通用参数，请参考 [Transform Plugin](common-options/common-options.md) 了解详情
 
 ## 示例
 

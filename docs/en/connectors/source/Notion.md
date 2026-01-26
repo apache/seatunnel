@@ -138,7 +138,7 @@ connector will generate data as the following:
 
 #### fields [Config]
 
-the schema fields of upstream data
+The schema fields of upstream data. For more details, please refer to [Schema Feature](../../introduction/concepts/schema-feature.md).
 
 ### content_json [String]
 

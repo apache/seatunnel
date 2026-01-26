@@ -56,30 +56,30 @@ import ChangeLog from '../changelog/connector-file-oss-jindo.md';
 
 ## 选项
 
-| 参数名                       | 类型      | 必须 | 默认值                         | 描述                                      |
-|---------------------------|---------|----|-----------------------------|-----------------------------------------|
-| path                      | string  | 是  | -                           | 目标目录路径                                  |
-| file_format_type          | string  | 是  | -                           | 文件类型                                    |
-| bucket                    | string  | 是  | -                           | OSS 文件系统的桶地址                            |
-| access_key                | string  | 是  | -                           | OSS 文件系统的访问密钥                           |
-| access_secret             | string  | 是  | -                           | OSS 文件系统的访问密钥                           |
-| endpoint                  | string  | 是  | -                           | OSS 文件系统的端点                             |
-| read_columns              | list    | 否  | -                           | 数据源的读取列列表                               |
-| delimiter/field_delimiter | string  | 否  | \001 for text and , for csv | 字段分隔符                                   |
-| row_delimiter             | string  | 否  | \n                          | 行分隔符                                    |
-| parse_partition_from_path | boolean | 否  | true                        | 控制是否从文件路径解析分区键和值                        |
-| date_format               | string  | 否  | yyyy-MM-dd                  | 日期类型格式                                  |
-| datetime_format           | string  | 否  | yyyy-MM-dd HH:mm:ss         | 日期时间类型格式                                |
-| time_format               | string  | 否  | HH:mm:ss                    | 时间类型格式                                  |
-| skip_header_row_number    | long    | 否  | 0                           | 跳过前几行                                   |
-| schema                    | config  | 否  | -                           | 数据模式                                    |
-| sheet_name                | string  | 否  | -                           | Excel 工作表名称                             |
-| xml_row_tag               | string  | 否  | -                           | XML 行标签                                 |
-| xml_use_attr_format       | boolean | 否  | -                           | 是否使用 XML 属性格式                           |
-| csv_use_header_line       | boolean | 否  | false                       | 是否使用 CSV 标题行                            |
-| file_filter_pattern       | string  | 否  | -                           | 文件过滤模式                                  |
-| quote_char                | string  | 否  | "                           | 用于包裹 CSV 字段的单字符，可保证包含逗号、换行符或引号的字段被正确解析。 |
-| escape_char               | string  | 否  | -                           | 用于在 CSV 字段内转义引号或其他特殊字符，使其不会结束字段。        |
+| 参数名                       | 类型      | 必须 | 默认值                         | 描述                                                                            |
+|---------------------------|---------|----|-----------------------------|-------------------------------------------------------------------------------|
+| path                      | string  | 是  | -                           | 目标目录路径                                                                        |
+| file_format_type          | string  | 是  | -                           | 文件类型                                                                          |
+| bucket                    | string  | 是  | -                           | OSS 文件系统的桶地址                                                                  |
+| access_key                | string  | 是  | -                           | OSS 文件系统的访问密钥                                                                 |
+| access_secret             | string  | 是  | -                           | OSS 文件系统的访问密钥                                                                 |
+| endpoint                  | string  | 是  | -                           | OSS 文件系统的端点                                                                   |
+| read_columns              | list    | 否  | -                           | 数据源的读取列列表                                                                     |
+| delimiter/field_delimiter | string  | 否  | \001 for text and , for csv | 字段分隔符                                                                         |
+| row_delimiter             | string  | 否  | \n                          | 行分隔符                                                                          |
+| parse_partition_from_path | boolean | 否  | true                        | 控制是否从文件路径解析分区键和值                                                              |
+| date_format               | string  | 否  | yyyy-MM-dd                  | 日期类型格式                                                                        |
+| datetime_format           | string  | 否  | yyyy-MM-dd HH:mm:ss         | 日期时间类型格式                                                                      |
+| time_format               | string  | 否  | HH:mm:ss                    | 时间类型格式                                                                        |
+| skip_header_row_number    | long    | 否  | 0                           | 跳过前几行                                                                         |
+| schema                    | config  | 否  | -                           | 上游数据的模式信息。更多详情请参考 [Schema 特性](../../introduction/concepts/schema-feature.md)。 |
+| sheet_name                | string  | 否  | -                           | Excel 工作表名称                                                                   |
+| xml_row_tag               | string  | 否  | -                           | XML 行标签                                                                       |
+| xml_use_attr_format       | boolean | 否  | -                           | 是否使用 XML 属性格式                                                                 |
+| csv_use_header_line       | boolean | 否  | false                       | 是否使用 CSV 标题行                                                                  |
+| file_filter_pattern       | string  | 否  | -                           | 文件过滤模式                                                                        |
+| quote_char                | string  | 否  | "                           | 用于包裹 CSV 字段的单字符，可保证包含逗号、换行符或引号的字段被正确解析。                                       |
+| escape_char               | string  | 否  | -                           | 用于在 CSV 字段内转义引号或其他特殊字符，使其不会结束字段。                                              |
 
 ## 变更日志
 

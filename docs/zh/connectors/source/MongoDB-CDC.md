@@ -114,7 +114,7 @@ db.createUser(
 | password                           | String | 否       | -     | 连接到MongoDB时使用的密码。                                                                     |
 | database                           | List   | 是      | -     | 要监视更改的数据库的名称。如果未设置，则将捕获所有数据库。该数据库还支持正则表达式，以监视与正则表达式匹配的多个数据库。例如db1、db2。                |
 | collection                         | List   | 是      | -     | 要监视更改的数据库中集合的名称。如果未设置，则将捕获所有集合。该集合还支持正则表达式来监视与完全限定的集合标识符匹配的多个集合。例如db1.coll1、db2.coll2。 |
-| schema                             |        | 否       | -     | 数据的结构，包括字段名和字段类型，使用单表cdc。                                                             |
+| schema                             |        | 否       | -     | 数据的结构，包括字段名和字段类型，使用单表cdc。更多详情请参考 [Schema 特性](../../introduction/concepts/schema-feature.md)。                                                             |
 | tables_configs                     |        | 否       | -     | 数据的结构，包括字段名和字段类型，使用多表cdc。                                                             |
 | connection.options                 | String | 否       | -     | 与号分隔了MongoDB的连接选项。如。 `replicaSet=test&connectTimeoutMS=300000`.                       |
 | batch.size                         | Long   | 否       | 1024  | 批量大小。                                                                                 |

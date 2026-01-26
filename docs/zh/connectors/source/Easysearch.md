@@ -85,7 +85,7 @@ Easysearch将为滚动请求保持搜索上下文活动的时间量。
 
 ### schema
 
-数据的结构，包括字段名和字段类型。
+数据的结构，包括字段名和字段类型。更多详情请参考 [Schema 特性](../../introduction/concepts/schema-feature.md)。
 如果不配置schema，则必须配置`source`。
 
 ### tls_verify_certificate [boolean]

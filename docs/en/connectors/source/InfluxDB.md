@@ -59,7 +59,7 @@ select name,age from test
 
 #### fields [Config]
 
-The schema information of upstream data.
+The schema information of upstream data. For more details, please refer to [Schema Feature](../../introduction/concepts/schema-feature.md).
 e.g.
 
 ```
