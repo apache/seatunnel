@@ -59,6 +59,7 @@
         <presto.version>0.279</presto.version>
         <trino.version>460</trino.version>
         <aws.sdk.version>2.31.30</aws.sdk.version>
+        <duckdb.version>1.3.1.0</duckdb.version>
     </properties>
 
     <dependencyManagement>
@@ -281,6 +282,10 @@
                 <artifactId>postgresql</artifactId>
                 <version>${testcontainer.version}</version>
                 <scope>test</scope>
+                <groupId>org.duckdb</groupId>
+                <artifactId>duckdb_jdbc</artifactId>
+                <version>${duckdb.version}</version>
+                <scope>provided</scope>
             </dependency>
         </dependencies>
     </dependencyManagement>
@@ -414,6 +419,11 @@
             <groupId>io.trino</groupId>
             <artifactId>trino-jdbc</artifactId>
         </dependency>
+        <dependency>
+            <groupId>org.duckdb</groupId>
+            <artifactId>duckdb_jdbc</artifactId>
+            <scope>provided</scope>
+        </dependency>
         <!-- AWS SDK for DSQL -->
         <dependency>
             <groupId>software.amazon.awssdk</groupId>
@@ -457,6 +467,12 @@
         <dependency>
             <groupId>org.junit.jupiter</groupId>
             <artifactId>junit-jupiter-api</artifactId>
+
+        <dependency>
+            <groupId>org.apache.seatunnel</groupId>
+            <artifactId>connector-common</artifactId>
+            <version>${project.version}</version>
+            <type>test-jar</type>
             <scope>test</scope>
         </dependency>
     </dependencies>

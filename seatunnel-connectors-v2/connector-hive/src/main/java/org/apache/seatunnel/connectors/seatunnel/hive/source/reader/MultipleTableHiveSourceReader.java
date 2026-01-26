@@ -83,7 +83,9 @@ public class MultipleTableHiveSourceReader implements SourceReader<SeaTunnelRow,
                     readStrategy.read(split.getFilePath(), split.getTableId(), output);
                 } catch (Exception e) {
                     String errorMsg =
-                            String.format("Read data from this file [%s] failed", split.splitId());
+                            String.format(
+                                    "Read data failed, tableId=[%s], file=[%s], splitId=[%s]",
+                                    split.getTableId(), split.getFilePath(), split.splitId());
                     throw new FileConnectorException(FILE_READ_FAILED, errorMsg, e);
                 }
             } else if (noMoreSplit && sourceSplits.isEmpty()) {
