@@ -47,7 +47,7 @@ import static org.apache.seatunnel.api.table.schema.exception.SchemaEvolutionErr
 import static org.apache.seatunnel.api.table.schema.exception.SchemaEvolutionErrorCode.INVALID_SCHEMA_STRUCTURE;
 
 @Slf4j
-public class MetaLakeSchemaDiscoverer {
+public class TableSchemaDiscoverer {
 
     private final ReadonlyConfig envOptions;
     private final ReadonlyConfig sourceOptions;
@@ -55,7 +55,7 @@ public class MetaLakeSchemaDiscoverer {
     private final MetalakeClient metalakeClient;
     private final MetaLakeTableSchemaConvertor metaLakeTableSchemaConvertor;
 
-    public MetaLakeSchemaDiscoverer(TableSourceFactoryContext context, String catalogName) {
+    public TableSchemaDiscoverer(TableSourceFactoryContext context, String catalogName) {
         this.envOptions = context.getEnvOptions();
         this.sourceOptions = context.getOptions();
         this.catalogName = catalogName;

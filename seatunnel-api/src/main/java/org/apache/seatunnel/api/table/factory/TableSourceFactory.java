@@ -17,7 +17,7 @@
 
 package org.apache.seatunnel.api.table.factory;
 
-import org.apache.seatunnel.api.metalake.MetaLakeSchemaDiscoverer;
+import org.apache.seatunnel.api.metalake.TableSchemaDiscoverer;
 import org.apache.seatunnel.api.source.SeaTunnelSource;
 import org.apache.seatunnel.api.source.SourceSplit;
 import org.apache.seatunnel.api.table.catalog.CatalogTable;
@@ -44,8 +44,8 @@ public interface TableSourceFactory extends Factory {
     }
 
     default List<CatalogTable> discoverTableSchemas(TableSourceFactoryContext context) {
-        final MetaLakeSchemaDiscoverer metaLakeSchemaDiscoverer =
-                new MetaLakeSchemaDiscoverer(context, factoryIdentifier());
+        final TableSchemaDiscoverer metaLakeSchemaDiscoverer =
+                new TableSchemaDiscoverer(context, factoryIdentifier());
         return metaLakeSchemaDiscoverer.discoverTableSchemas();
     }
 
