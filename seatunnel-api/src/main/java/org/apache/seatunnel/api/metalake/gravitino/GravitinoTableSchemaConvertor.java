@@ -27,10 +27,15 @@ import org.apache.seatunnel.api.table.catalog.PrimaryKey;
 import org.apache.seatunnel.api.table.catalog.TableIdentifier;
 import org.apache.seatunnel.api.table.catalog.TablePath;
 import org.apache.seatunnel.api.table.catalog.TableSchema;
+import org.apache.seatunnel.api.table.type.ArrayType;
 import org.apache.seatunnel.api.table.type.BasicType;
 import org.apache.seatunnel.api.table.type.DecimalType;
 import org.apache.seatunnel.api.table.type.LocalTimeType;
+import org.apache.seatunnel.api.table.type.MapType;
+import org.apache.seatunnel.api.table.type.PrimitiveByteArrayType;
 import org.apache.seatunnel.api.table.type.SeaTunnelDataType;
+import org.apache.seatunnel.common.constants.MetaLakeType;
+import org.apache.seatunnel.common.exception.CommonError;
 
 import java.io.IOException;
 import java.util.ArrayList;
@@ -70,6 +75,12 @@ public class GravitinoTableSchemaConvertor implements MetaLakeTableSchemaConvert
             Pattern.compile("char\\s*\\(\\s*(\\d+)\\s*\\)", Pattern.CASE_INSENSITIVE);
     private static final Pattern FIXED_PATTERN =
             Pattern.compile("fixed\\s*\\(\\s*(\\d+)\\s*\\)", Pattern.CASE_INSENSITIVE);
+    private static final Pattern MAP_PATTERN =
+            Pattern.compile("map\\s*<\\s*([^,]+)\\s*,\\s*([^>]+)\\s*>", Pattern.CASE_INSENSITIVE);
+    private static final Pattern ARRAY_PATTERN =
+            Pattern.compile("array\\s*<\\s*([^>]+)\\s*>", Pattern.CASE_INSENSITIVE);
+    private static final Pattern LIST_PATTERN =
+            Pattern.compile("list\\s*<\\s*([^>]+)\\s*>", Pattern.CASE_INSENSITIVE);
 
     private static final String JSON_FIELD_COLUMNS = "columns";
     private static final String JSON_FIELD_INDEXES = "indexes";
@@ -134,14 +145,13 @@ public class GravitinoTableSchemaConvertor implements MetaLakeTableSchemaConvert
     }
 
     /** Parse a column node from Gravitino JSON. */
-    private Column parseColumn(JsonNode columnNode) throws IOException {
+    private Column parseColumn(JsonNode columnNode) {
         String name = getTextValue(columnNode, JSON_FIELD_NAME);
         String type = getTextValue(columnNode, JSON_FIELD_TYPE);
         boolean nullable =
                 columnNode.has(JSON_FIELD_NULLABLE)
                         && columnNode.get(JSON_FIELD_NULLABLE).asBoolean();
-
-        SeaTunnelDataType<?> dataType = convertGravitinoType(type);
+        SeaTunnelDataType<?> dataType = convertGravitinoType(name, type);
         Long columnLength = extractColumnLength(type);
         Integer scale = extractScale(type);
 
@@ -159,17 +169,32 @@ public class GravitinoTableSchemaConvertor implements MetaLakeTableSchemaConvert
      *
      * @param gravitinoType the Gravitino type string
      * @return the corresponding SeaTunnel data type
-     * @throws IOException if the type is null or unsupported
      * @see <a
      *     href="https://gravitino.apache.org/docs/1.1.0/manage-relational-metadata-using-gravitino/#apache-gravitino-table-column-type">Gravitino
      *     Column Types</a>
      */
-    private SeaTunnelDataType<?> convertGravitinoType(String gravitinoType) throws IOException {
-        if (gravitinoType == null) {
-            throw new IOException("Gravitino type cannot be null");
-        }
+    private SeaTunnelDataType<?> convertGravitinoType(String fieldName, String gravitinoType) {
         String normalizedType = gravitinoType.trim().toLowerCase();
-        // Handle complex types with parameters
+        // Handle map type: map<key_type, value_type>
+        Matcher mapMatcher = MAP_PATTERN.matcher(gravitinoType);
+        if (mapMatcher.find()) {
+            String keyTypeStr = mapMatcher.group(1).trim();
+            String valueTypeStr = mapMatcher.group(2).trim();
+            SeaTunnelDataType<?> keyType = convertGravitinoType(fieldName, keyTypeStr);
+            SeaTunnelDataType<?> valueType = convertGravitinoType(fieldName, valueTypeStr);
+            return new MapType<>(keyType, valueType);
+        }
+        // Handle array/list type: array<element_type> or list<element_type>
+        Matcher arrayMatcher = ARRAY_PATTERN.matcher(gravitinoType);
+        if (!arrayMatcher.find()) {
+            arrayMatcher = LIST_PATTERN.matcher(gravitinoType);
+        }
+        if (arrayMatcher.find()) {
+            String elementTypeStr = arrayMatcher.group(1).trim();
+            SeaTunnelDataType<?> elementType = convertGravitinoType(fieldName, elementTypeStr);
+            return ArrayType.of(elementType);
+        }
+        // Handle decimal type: decimal(precision, scale)
         Matcher decimalMatcher = DECIMAL_PATTERN.matcher(gravitinoType);
         if (decimalMatcher.find()) {
             int precision = Integer.parseInt(decimalMatcher.group(1));
@@ -196,6 +221,7 @@ public class GravitinoTableSchemaConvertor implements MetaLakeTableSchemaConvert
             case "string":
             case "varchar":
             case "char":
+            case "uuid":
                 return BasicType.STRING_TYPE;
             case "date":
                 return LocalTimeType.LOCAL_DATE_TYPE;
@@ -204,24 +230,17 @@ public class GravitinoTableSchemaConvertor implements MetaLakeTableSchemaConvert
             case "timestamp":
                 return LocalTimeType.LOCAL_DATE_TIME_TYPE;
             case "timestamp_tz":
-                return BasicType.OFFSET_DATE_TIME_TYPE;
+                return LocalTimeType.OFFSET_DATE_TIME_TYPE;
             case "binary":
             case "fixed":
-                // Binary types - use STRING_TYPE as placeholder
-                // TODO: Add proper binary type support when needed
-                return BasicType.STRING_TYPE;
-            case "uuid":
-                // UUID - use STRING_TYPE
-                return BasicType.STRING_TYPE;
+                return PrimitiveByteArrayType.INSTANCE;
             case "interval_year":
+                return BasicType.STRING_TYPE;
             case "interval_day":
-                // Interval types - use STRING_TYPE as placeholder
-                // TODO: Add proper interval type support when needed
                 return BasicType.STRING_TYPE;
             default:
-                // Handle complex types (struct, list, map, union, external, unparsed)
-                // For now, return STRING_TYPE as fallback
-                return BasicType.STRING_TYPE;
+                throw CommonError.convertToSeaTunnelTypeError(
+                        MetaLakeType.GRAVITINO.getType(), baseType, fieldName);
         }
     }
 
