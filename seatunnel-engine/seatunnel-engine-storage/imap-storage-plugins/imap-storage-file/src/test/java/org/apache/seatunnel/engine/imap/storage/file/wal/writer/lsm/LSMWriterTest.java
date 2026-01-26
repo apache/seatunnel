@@ -35,6 +35,7 @@ import org.apache.hadoop.fs.Path;
 
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.Assertions;
+import org.junit.jupiter.api.BeforeAll;
 import org.junit.jupiter.params.ParameterizedTest;
 import org.junit.jupiter.params.provider.MethodSource;
 
@@ -76,6 +77,11 @@ class LSMWriterTest {
                         return "hdfs";
                     }
                 });
+    }
+
+    @BeforeAll
+    static void setupHadoopHome() {
+        System.setProperty("hadoop.home.dir", "/tmp");
     }
 
     @AfterEach
