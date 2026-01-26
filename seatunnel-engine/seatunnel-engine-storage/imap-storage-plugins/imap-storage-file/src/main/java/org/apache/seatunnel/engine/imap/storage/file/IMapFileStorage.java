@@ -114,7 +114,7 @@ public class IMapFileStorage implements IMapStorage {
 
     public static final int DEFAULT_QUERY_LIST_SIZE = 256;
 
-    public static final long DEFAULT_WRITE_DATA_TIMEOUT_MILLISECONDS = 1000 * 60;
+    public static final long DEFAULT_WRITE_DATA_TIMEOUT_MILLISECONDS = 1000 * 60L;
 
     private Configuration conf;
 
@@ -169,31 +169,31 @@ public class IMapFileStorage implements IMapStorage {
         }
         this.serializer = new ProtoStuffSerializer();
 
-        List<String> compactionIMaps;
-        CollectionType listType =
-                OBJECT_MAPPER.getTypeFactory().constructCollectionType(List.class, String.class);
-        try {
-            compactionIMaps =
-                    OBJECT_MAPPER.readValue((String) configuration.get(COMPACTION_IMAP), listType);
-        } catch (JsonProcessingException e) {
-            throw new IMapStorageException("parse compactionIMap config error", e);
+        boolean isCompactionEnabled = false;
+
+        String compactionConfig = (String) configuration.get(COMPACTION_IMAP);
+        if (compactionConfig != null) {
+            try {
+                CollectionType listType =
+                        OBJECT_MAPPER
+                                .getTypeFactory()
+                                .constructCollectionType(List.class, String.class);
+                List<String> compactionIMaps = OBJECT_MAPPER.readValue(compactionConfig, listType);
+                isCompactionEnabled = compactionIMaps.contains(businessName);
+            } catch (JsonProcessingException e) {
+                throw new IMapStorageException("parse compactionIMap config error", e);
+            }
         }
 
-        if (compactionIMaps.contains(businessName)) {
+        String storagePath = businessRootPath + region + DEFAULT_IMAP_FILE_PATH_SPLIT;
+        FileConfiguration fileConfig = FileConfiguration.valueOf(storageType.toUpperCase());
+
+        if (isCompactionEnabled) {
             this.walDisruptor =
                     new WALCompactionDisruptor(
-                            fs,
-                            FileConfiguration.valueOf(storageType.toUpperCase()),
-                            businessRootPath + region + DEFAULT_IMAP_FILE_PATH_SPLIT,
-                            serializer,
-                            configuration);
+                            fs, fileConfig, storagePath, serializer, configuration);
         } else {
-            this.walDisruptor =
-                    new WALDisruptor(
-                            fs,
-                            FileConfiguration.valueOf(storageType.toUpperCase()),
-                            businessRootPath + region + DEFAULT_IMAP_FILE_PATH_SPLIT,
-                            serializer);
+            this.walDisruptor = new WALDisruptor(fs, fileConfig, storagePath, serializer);
         }
     }
 
