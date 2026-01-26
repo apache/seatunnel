@@ -17,6 +17,7 @@
 
 package org.apache.seatunnel.transform.sql.zeta;
 
+import java.time.format.DateTimeFormatter;
 import java.util.Arrays;
 import java.util.Optional;
 
@@ -26,20 +27,28 @@ public enum ZetaDateTimeFormat {
     DATETIME_WITH_MILLIS("yyyy-MM-dd HH:mm:ss.SSS", FormatType.DATETIME),
     DATETIME_ISO8601("yyyy-MM-dd'T'HH:mm:ss", FormatType.DATETIME),
     DATETIME_ISO8601_WITH_MILLIS("yyyy-MM-dd'T'HH:mm:ss.SSS", FormatType.DATETIME),
+    DATETIME_SLASH("yyyy/MM/dd HH:mm:ss", FormatType.DATETIME),
+    DATETIME_SLASH_WITH_MILLIS("yyyy/MM/dd HH:mm:ss.SSS", FormatType.DATETIME),
+    DATETIME_COMPACT("yyyyMMddHHmmss", FormatType.DATETIME),
 
     // Date formats
     DATE_ISO8601("yyyy-MM-dd", FormatType.DATE),
+    DATE_SLASH("yyyy/MM/dd", FormatType.DATE),
+    DATE_COMPACT("yyyyMMdd", FormatType.DATE),
 
     // Time formats
     TIME_STANDARD("HH:mm:ss", FormatType.TIME),
-    TIME_WITH_MILLIS("HH:mm:ss.SSS", FormatType.TIME);
+    TIME_WITH_MILLIS("HH:mm:ss.SSS", FormatType.TIME),
+    TIME_COMPACT("HHmmss", FormatType.TIME);
 
     private final String pattern;
     private final FormatType type;
+    private final DateTimeFormatter formatter;
 
     ZetaDateTimeFormat(String pattern, FormatType type) {
         this.pattern = pattern;
         this.type = type;
+        this.formatter = DateTimeFormatter.ofPattern(pattern);
     }
 
     public String getPattern() {
@@ -48,6 +57,10 @@ public enum ZetaDateTimeFormat {
 
     public FormatType getType() {
         return type;
+    }
+
+    public DateTimeFormatter getFormatter() {
+        return formatter;
     }
 
     public static Optional<ZetaDateTimeFormat> fromPattern(String pattern) {

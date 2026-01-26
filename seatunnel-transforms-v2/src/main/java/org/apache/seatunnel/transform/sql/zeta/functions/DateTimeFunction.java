@@ -645,7 +645,7 @@ public class DateTimeFunction {
                                                 format, "unsupported datetime format"));
 
         try {
-            DateTimeFormatter formatter = DateTimeFormatter.ofPattern(dateTimeFormat.getPattern());
+            DateTimeFormatter formatter = dateTimeFormat.getFormatter();
 
             switch (dateTimeFormat.getType()) {
                 case DATETIME:
