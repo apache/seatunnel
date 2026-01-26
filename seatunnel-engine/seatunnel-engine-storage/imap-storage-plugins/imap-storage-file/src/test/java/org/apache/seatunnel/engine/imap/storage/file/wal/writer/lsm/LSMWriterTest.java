@@ -47,7 +47,9 @@ import java.util.Collections;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
-import java.util.concurrent.CompletableFuture;
+import java.util.concurrent.CountDownLatch;
+import java.util.concurrent.ExecutorService;
+import java.util.concurrent.Executors;
 import java.util.stream.Stream;
 
 import static org.junit.jupiter.api.condition.OS.LINUX;
@@ -332,40 +334,46 @@ class LSMWriterTest {
         IFileWriter writer = factory.create();
         writer.initialize(fs, baseDir, new ProtoStuffSerializer());
 
-        CompletableFuture<Void> future1 =
-                CompletableFuture.runAsync(
-                        () -> {
-                            try {
-                                for (int i = 0; i < 100; i++) {
-                                    String key = String.format("%02d", i);
-                                    writer.write(
-                                            new IMapFileData(
-                                                    false,
-                                                    key.getBytes(),
-                                                    "Integer",
-                                                    key.getBytes(),
-                                                    "Integer",
-                                                    20260101000001L),
-                                            true);
-                                }
-                            } catch (IOException e) {
-                                throw new RuntimeException(e);
-                            }
-                        });
-        CompletableFuture<Void> future2 =
-                CompletableFuture.runAsync(
-                        () -> {
-                            try {
-                                for (int i = 0; i < 100; i++) {
-                                    writer.compaction(true);
-                                }
-                            } catch (IOException e) {
-                                throw new RuntimeException(e);
-                            }
-                        });
+        ExecutorService executor = Executors.newFixedThreadPool(2);
+        CountDownLatch latch = new CountDownLatch(2);
 
-        future1.get();
-        future2.get();
+        executor.submit(
+                () -> {
+                    try {
+                        for (int i = 0; i < 100; i++) {
+                            String key = String.format("%02d", i);
+                            writer.write(
+                                    new IMapFileData(
+                                            false,
+                                            key.getBytes(),
+                                            "Integer",
+                                            key.getBytes(),
+                                            "Integer",
+                                            20260101000000L),
+                                    true);
+                        }
+                    } catch (Exception e) {
+                        throw new RuntimeException(e);
+                    } finally {
+                        latch.countDown();
+                    }
+                });
+
+        executor.submit(
+                () -> {
+                    try {
+                        for (int i = 0; i < 100; i++) {
+                            writer.compaction(true);
+                        }
+                    } catch (Exception e) {
+                        throw new RuntimeException(e);
+                    } finally {
+                        latch.countDown();
+                    }
+                });
+
+        latch.await();
+        executor.shutdown();
 
         FileStatus[] files = fs.listStatus(baseDir, path -> path.getName().startsWith("data"));
         int size = files.length;
