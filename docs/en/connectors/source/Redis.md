@@ -295,7 +295,7 @@ Currently, only need to be configured when format is text. default is ",".
 
 #### fields [config]
 
-the schema fields of redis data
+The schema fields of redis data. For more details, please refer to [Schema Feature](../../introduction/concepts/schema-feature.md).
 
 ### single_field_name [string]
 

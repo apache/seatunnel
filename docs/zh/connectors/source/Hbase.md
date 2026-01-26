@@ -33,6 +33,8 @@ import ChangeLog from '../changelog/connector-hbase.md';
 | end_rowkey           | string   | 否  | -     |
 | start_row_inclusive | boolean | 否  | true  |
 | end_row_inclusive   | boolean | 否  | false |
+| start_timestamp       | long    | 否  | -     |
+| end_timestamp       | long    | 否  | -     |
 | common-options       |          | 否  | -     |
 
 ### zookeeper_quorum [string]
@@ -92,6 +94,19 @@ HBase 的行键既可以是文本字符串，也可以是二进制数据。在 S
 - **都设置为 false (start_row_inclusive=false, end_row_inclusive=false)**: 这可能会导致**数据丢失**,因为边界行会被所有 split 排除在外。
 - **都设置为 true (start_row_inclusive=true, end_row_inclusive=true)**: 这可能会导致**数据重复**,因为边界行会被相邻的多个 split 重复包含。
 
+### start_timestamp
+
+时间范围扫描的起始时间戳(包含)。单位为毫秒(epoch)。时间范围遵循 [start, end) 左闭右开约定。如果只设置 start_timestamp，则最大值视为无限上界。
+
+### end_timestamp
+
+时间范围扫描的结束时间戳(不包含)。单位为毫秒(epoch)。时间范围遵循 [start, end) 左闭右开约定。如果只设置 end_timestamp，则最小值视为无限下界。
+
+**说明:**
+
+- `start_timestamp` / `end_timestamp` 必须大于等于 0；若两者同时配置，需要满足 `start_timestamp < end_timestamp`（遵循 [start, end) 约定，`start_timestamp == end_timestamp` 将导致空扫描）。
+- 当 `start_rowkey` / `end_rowkey` 与 `start_timestamp` / `end_timestamp` 同时配置时，会同时应用行键范围与时间范围限制，最终返回两者的交集。
+
 ### 常用选项
 
 Source 插件常用参数，具体请参考 [Source 常用选项](../common-options/source-common-options.md)
@@ -109,6 +124,8 @@ source {
     is_binary_rowkey = false
     start_rowkey = "B"
     end_rowkey = "C"
+    start_timestamp = 1700000000000
+    end_timestamp = 1700003600000
     schema = {
       columns = [
         { 

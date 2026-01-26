@@ -52,7 +52,6 @@ public class ConnectorOptionCheckTest {
     @Test
     public void checkConnectorOptionExist() {
         Set<String> connectorOptionFileNames = new HashSet<>();
-        Set<String> whiteListConnectorOptionFileNames = buildWhiteList();
         try (Stream<Path> paths = Files.walk(Paths.get(".."), FileVisitOption.FOLLOW_LINKS)) {
             List<Path> connectorClassPaths =
                     paths.filter(
@@ -164,15 +163,6 @@ public class ConnectorOptionCheckTest {
                         connectorOptionFileNames.remove(className);
                     });
 
-            whiteListConnectorOptionFileNames.forEach(
-                    whiteListConnectorOptionFileName -> {
-                        Assertions.assertTrue(
-                                connectorOptionFileNames.remove(whiteListConnectorOptionFileName),
-                                "This [Options] class is in white list, but not found related connector classes, please check: ["
-                                        + whiteListConnectorOptionFileName
-                                        + "]\n");
-                    });
-
             Assertions.assertEquals(
                     0,
                     connectorOptionFileNames.size(),
@@ -185,15 +175,5 @@ public class ConnectorOptionCheckTest {
         } catch (IOException e) {
             throw new RuntimeException(e);
         }
-    }
-
-    private Set<String> buildWhiteList() {
-        Set<String> whiteList = new HashSet<>();
-        whiteList.add("PostgresIncrementalSourceOptions");
-        whiteList.add("SqlServerIncrementalSourceOptions");
-        whiteList.add("OracleIncrementalSourceOptions");
-        whiteList.add("MySqlIncrementalSourceOptions");
-        whiteList.add("MongodbIncrementalSourceOptions");
-        return whiteList;
     }
 }

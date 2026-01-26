@@ -88,7 +88,7 @@ HTTP 请求失败时的最大重试退避时间（毫秒）
 
 #### fields [Config]
 
-上游数据的模式字段
+上游数据的模式字段。更多详情请参考 [Schema 特性](../../introduction/concepts/schema-feature.md)。
 
 ### content_json [String]
 

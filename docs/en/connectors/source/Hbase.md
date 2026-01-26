@@ -33,6 +33,8 @@ Reads data from Apache Hbase.
 | end_rowkey           | string    | No        | -       |
 | start_row_inclusive | boolean | No       | true    |
 | end_row_inclusive   | boolean | No       | false   |
+| start_timestamp       | long      | No        | -       |
+| end_timestamp       | long      | No        | -       |
 | common-options       |           | No        | -       |
 
 ### zookeeper_quorum [string]
@@ -92,6 +94,19 @@ Whether to include the end row in the scan range. When set to false, the end row
 - **Both false (start_row_inclusive=false, end_row_inclusive=false)**: This may cause **data loss** at split boundaries, as the boundary rows will be excluded from all splits.
 - **Both true (start_row_inclusive=true, end_row_inclusive=true)**: This may cause **duplicate data** at split boundaries, as the boundary rows will be included in multiple adjacent splits.
 
+### start_timestamp
+
+Start timestamp (inclusive) for scan time range. Unit: milliseconds since epoch. The time range follows [start, end). If only start_timestamp is set, the end is treated as open-ended.
+
+### end_timestamp
+
+End timestamp (exclusive) for scan time range. Unit: milliseconds since epoch. The time range follows [start, end). If only end_timestamp is set, the start is treated as open-ended.
+
+**Notes:**
+
+- `start_timestamp` / `end_timestamp` must be >= 0. If both are set, `start_timestamp` must be < `end_timestamp` (time range is [start, end), so `start_timestamp == end_timestamp` produces an empty scan).
+- When `start_rowkey` / `end_rowkey` and `start_timestamp` / `end_timestamp` are configured together, both the rowkey range and the time range constraints are applied (intersection).
+
 ### common-options
 
 Common parameters for Source plugins, refer to [Common Source Options](../common-options/source-common-options.md).
@@ -109,6 +124,8 @@ source {
     is_binary_rowkey = false
     start_rowkey = "B"
     end_rowkey = "C"
+    start_timestamp = 1700000000000
+    end_timestamp = 1700003600000
     schema = {
       columns = [
         { 
