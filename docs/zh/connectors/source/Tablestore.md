@@ -19,15 +19,15 @@ import ChangeLog from '../changelog/connector-tablestore.md';
 
 ## 选项
 
-| 参数名 | 类型 | 必须 | 默认值 | 描述 |
-|--------|------|------|--------|------|
-| end_point | string | 是 | - | Tablestore 的端点 |
-| instance_name | string | 是 | - | Tablestore 的实例名称 |
-| access_key_id | string | 是 | - | Tablestore 的访问 ID |
-| access_key_secret | string | 是 | - | Tablestore 的访问密钥 |
-| table | string | 是 | - | Tablestore 的表名 |
-| primary_keys | array | 是 | - | 表的主键，只需添加一个唯一的主键 |
-| schema | config | 是 | - | 数据的结构 |
+| 参数名               | 类型     | 必须 | 默认值 | 描述                                                                        |
+|-------------------|--------|----|-----|---------------------------------------------------------------------------|
+| end_point         | string | 是  | -   | Tablestore 的端点                                                            |
+| instance_name     | string | 是  | -   | Tablestore 的实例名称                                                          |
+| access_key_id     | string | 是  | -   | Tablestore 的访问 ID                                                         |
+| access_key_secret | string | 是  | -   | Tablestore 的访问密钥                                                          |
+| table             | string | 是  | -   | Tablestore 的表名                                                            |
+| primary_keys      | array  | 是  | -   | 表的主键，只需添加一个唯一的主键                                                          |
+| schema            | config | 是  | -   | 数据的结构。更多详情请参考 [Schema 特性](../../introduction/concepts/schema-feature.md)。 |
 
 ### end_point [string]
 
@@ -55,7 +55,7 @@ Tablestore 的表名。
 
 ### schema [Config]
 
-数据的结构。
+数据的结构。更多详情请参考 [Schema 特性](../../introduction/concepts/schema-feature.md)。
 
 ## 示例
 

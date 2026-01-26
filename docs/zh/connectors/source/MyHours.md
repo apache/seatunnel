@@ -34,26 +34,26 @@ import ChangeLog from '../changelog/connector-http-myhours.md';
 
 ## 源选项
 
-| 参数名 | 类型 | 必须 | 默认值 | 描述 |
-|--------|------|------|--------|------|
-| url | String | 是 | - | HTTP 请求 URL |
-| email | String | 是 | - | My Hours 登录电子邮件地址 |
-| password | String | 是 | - | My Hours 登录密码 |
-| schema | Config | 否 | - | HTTP 和 SeaTunnel 数据结构映射 |
-| schema.fields | Config | 否 | - | 上游数据的模式字段 |
-| json_field | Config | 否 | - | 此参数帮助您配置模式，因此此参数必须与 schema 一起使用。 |
-| content_json | String | 否 | - | 此参数可以获取一些 JSON 数据。 |
-| format | String | 否 | json | 上游数据的格式，现在仅支持 `json` `text`，默认 `json`。 |
-| method | String | 否 | get | HTTP 请求方法，仅支持 GET、POST 方法。 |
-| headers | Map | 否 | - | HTTP 请求头 |
-| params | Map | 否 | - | HTTP 参数 |
-| body | String | 否 | - | HTTP 请求体 |
-| poll_interval_millis | Int | 否 | - | 流模式下请求 HTTP API 的间隔（毫秒） |
-| retry | Int | 否 | - | 如果 HTTP 请求返回 `IOException` 的最大重试次数 |
-| retry_backoff_multiplier_ms | Int | 否 | 100 | HTTP 请求失败时的重试退避倍数（毫秒） |
-| retry_backoff_max_ms | Int | 否 | 10000 | HTTP 请求失败时的最大重试退避时间（毫秒） |
-| enable_multi_lines | Boolean | 否 | false | 是否启用多行模式 |
-| common-options | | 否 | - | 源插件通用参数 |
+| 参数名                         | 类型      | 必须 | 默认值   | 描述                                                                                          |
+|-----------------------------|---------|----|-------|---------------------------------------------------------------------------------------------|
+| url                         | String  | 是  | -     | HTTP 请求 URL                                                                                 |
+| email                       | String  | 是  | -     | My Hours 登录电子邮件地址                                                                           |
+| password                    | String  | 是  | -     | My Hours 登录密码                                                                               |
+| schema                      | Config  | 否  | -     | HTTP 和 SeaTunnel 数据结构映射。更多详情请参考 [Schema 特性](../../introduction/concepts/schema-feature.md)。 |
+| schema.fields               | Config  | 否  | -     | 上游数据的模式字段                                                                                   |
+| json_field                  | Config  | 否  | -     | 此参数帮助您配置模式，因此此参数必须与 schema 一起使用。                                                            |
+| content_json                | String  | 否  | -     | 此参数可以获取一些 JSON 数据。                                                                          |
+| format                      | String  | 否  | json  | 上游数据的格式，现在仅支持 `json` `text`，默认 `json`。                                                      |
+| method                      | String  | 否  | get   | HTTP 请求方法，仅支持 GET、POST 方法。                                                                  |
+| headers                     | Map     | 否  | -     | HTTP 请求头                                                                                    |
+| params                      | Map     | 否  | -     | HTTP 参数                                                                                     |
+| body                        | String  | 否  | -     | HTTP 请求体                                                                                    |
+| poll_interval_millis        | Int     | 否  | -     | 流模式下请求 HTTP API 的间隔（毫秒）                                                                     |
+| retry                       | Int     | 否  | -     | 如果 HTTP 请求返回 `IOException` 的最大重试次数                                                          |
+| retry_backoff_multiplier_ms | Int     | 否  | 100   | HTTP 请求失败时的重试退避倍数（毫秒）                                                                       |
+| retry_backoff_max_ms        | Int     | 否  | 10000 | HTTP 请求失败时的最大重试退避时间（毫秒）                                                                     |
+| enable_multi_lines          | Boolean | 否  | false | 是否启用多行模式                                                                                    |
+| common-options              |         | 否  | -     | 源插件通用参数                                                                                     |
 
 ## 如何创建 My Hours 数据同步作业
 

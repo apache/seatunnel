@@ -329,7 +329,7 @@ SeaTunnel 将从源文件中跳过前 2 行。
 
 仅在文件格式类型为 text、json、excel、xml 或 csv（或其他无法从元数据中读取 schema 的格式）时需要配置。
 
-上游数据的 schema 信息。
+上游数据的 schema 信息。更多详情请参考 [Schema 特性](../../introduction/concepts/schema-feature.md)。
 
 ### read_columns [list]
 

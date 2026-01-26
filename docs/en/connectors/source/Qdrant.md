@@ -28,7 +28,7 @@ The name of the Qdrant collection to read data from.
 
 ### schema [config]
 
-The schema of the table to read data into.
+The schema of the table to read data into. For more details, please refer to [Schema Feature](../../introduction/concepts/schema-feature.md).
 
 Eg:
 

@@ -25,7 +25,7 @@ You can only config one of `include_kinds` and `exclude_kinds`.
 
 ### common options [string]
 
-Transform plugin common parameters, please refer to [Transform Plugin](common-options.md) for details
+Transform plugin common parameters, please refer to [Transform Plugin](common-options/common-options.md) for details
 
 ## Examples
 

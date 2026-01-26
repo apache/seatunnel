@@ -181,6 +181,17 @@ public class HbaseIT extends TestSuiteBase implements TestResource {
     }
 
     @TestTemplate
+    public void testHbaseSinkWithErrorWhenDataExistsOnEmptyTable(TestContainer container)
+            throws IOException, InterruptedException {
+        deleteData(table);
+        Assertions.assertEquals(0, countData(table));
+        Container.ExecResult execResult =
+                container.executeJob("/fake_to_hbase_with_error_when_data_exists.conf");
+        Assertions.assertEquals(0, execResult.getExitCode());
+        Assertions.assertEquals(5, countData(table));
+    }
+
+    @TestTemplate
     public void testHbaseSinkWithRecreateSchema(TestContainer container)
             throws IOException, InterruptedException {
         String tableName = "seatunnel_test_with_recreate_schema";
@@ -449,6 +460,24 @@ public class HbaseIT extends TestSuiteBase implements TestResource {
         Assertions.assertEquals(0, sourceExecResult.getExitCode());
     }
 
+    @TestTemplate
+    public void testHbaseSourceWithTimeRange(TestContainer container)
+            throws IOException, InterruptedException {
+        // The deleteData() uses Delete without timestamp, which will create a tombstone with "now"
+        // timestamp.
+        // To avoid the tombstone masking our test data, we write the test versions with a newer
+        // timestamp.
+        long baseTimestamp = System.currentTimeMillis() + 10000L;
+        long minTimestamp = baseTimestamp + 1000L;
+        long maxTimestamp = baseTimestamp + 3000L;
+        fakeToHbaseWithTimestamp(minTimestamp, maxTimestamp);
+        Container.ExecResult sourceExecResult =
+                container.executeJob(
+                        "/hbase-source-with-time-range.conf",
+                        Arrays.asList("min_ts=" + minTimestamp, "max_ts=" + maxTimestamp));
+        Assertions.assertEquals(0, sourceExecResult.getExitCode());
+    }
+
     private void fakeToHbase(TestContainer container) throws IOException, InterruptedException {
         deleteData(table);
         Container.ExecResult sinkExecResult = container.executeJob("/fake-to-hbase.conf");
@@ -510,6 +539,34 @@ public class HbaseIT extends TestSuiteBase implements TestResource {
         }
         Assertions.assertEquals(results.size(), 3);
         scanner.close();
+    }
+
+    private void fakeToHbaseWithTimestamp(long minTimestamp, long maxTimestamp) throws IOException {
+        deleteData(table);
+        Table hbaseTable = hbaseConnection.getTable(table);
+        Put putA =
+                new Put(Bytes.toBytes("A"))
+                        .addColumn(
+                                Bytes.toBytes(FAMILY_NAME),
+                                Bytes.toBytes("score"),
+                                minTimestamp,
+                                Bytes.toBytes(100));
+        Put putB =
+                new Put(Bytes.toBytes("B"))
+                        .addColumn(
+                                Bytes.toBytes(FAMILY_NAME),
+                                Bytes.toBytes("score"),
+                                minTimestamp + 1000L,
+                                Bytes.toBytes(200));
+        Put putC =
+                new Put(Bytes.toBytes("C"))
+                        .addColumn(
+                                Bytes.toBytes(FAMILY_NAME),
+                                Bytes.toBytes("score"),
+                                maxTimestamp,
+                                Bytes.toBytes(300));
+        hbaseTable.put(Arrays.asList(putA, putB, putC));
+        Assertions.assertEquals(3, countData(table));
     }
 
     private int countData(TableName table) throws IOException {

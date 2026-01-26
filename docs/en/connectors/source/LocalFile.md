@@ -271,7 +271,7 @@ Only need to be configured when the file_format_type are text, json, excel, xml 
 
 #### fields [Config]
 
-The schema information of upstream data.
+The schema information of upstream data. For more details, please refer to [Schema Feature](../../introduction/concepts/schema-feature.md).
 
 ### sheet_name [string]
 

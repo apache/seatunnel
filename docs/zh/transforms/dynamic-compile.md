@@ -26,7 +26,7 @@
 
 ### common options [string]
 
-转换插件的常见参数, 请参考  [Transform Plugin](common-options.md) 了解详情。
+转换插件的常见参数, 请参考  [Transform Plugin](common-options/common-options.md) 了解详情。
 
 ### compile_language [Enum]
 

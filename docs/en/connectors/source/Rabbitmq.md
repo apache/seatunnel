@@ -91,7 +91,7 @@ the exchange to publish the message to
 
 #### fields [Config]
 
-the schema fields of upstream data.
+the schema fields of upstream data. For more details, please refer to [Schema Feature](../../introduction/concepts/schema-feature.md).
 
 ### network_recovery_interval [int]
 

@@ -19,35 +19,51 @@ package org.apache.seatunnel.connectors.seatunnel.hbase.config;
 
 import org.apache.seatunnel.api.configuration.ReadonlyConfig;
 
-import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.Test;
 
 import java.util.HashMap;
 import java.util.Map;
 
+import static org.junit.jupiter.api.Assertions.assertEquals;
+
 public class HbaseParametersTest {
 
     @Test
-    public void testBuildWithSourceConfigWithoutNamespace() {
+    void testBuildWithSourceConfigWithoutNamespace() {
         Map<String, Object> configMap = new HashMap<>();
         configMap.put(HbaseBaseOptions.ZOOKEEPER_QUORUM.key(), "127.0.0.1:2181");
         configMap.put(HbaseBaseOptions.TABLE.key(), "tbl");
         ReadonlyConfig readonlyConfig = ReadonlyConfig.fromMap(configMap);
 
         HbaseParameters parameters = HbaseParameters.buildWithSourceConfig(readonlyConfig);
-        Assertions.assertEquals(HbaseParameters.DEFAULT_NAMESPACE, parameters.getNamespace());
-        Assertions.assertEquals("tbl", parameters.getTable());
+        assertEquals(HbaseParameters.DEFAULT_NAMESPACE, parameters.getNamespace());
+        assertEquals("tbl", parameters.getTable());
     }
 
     @Test
-    public void testBuildWithSourceConfigWithNamespace() {
+    void testBuildWithSourceConfigWithNamespace() {
         Map<String, Object> configMap = new HashMap<>();
         configMap.put(HbaseBaseOptions.ZOOKEEPER_QUORUM.key(), "127.0.0.1:2181");
         configMap.put(HbaseBaseOptions.TABLE.key(), "test:tbl");
         ReadonlyConfig readonlyConfig = ReadonlyConfig.fromMap(configMap);
 
         HbaseParameters parameters = HbaseParameters.buildWithSourceConfig(readonlyConfig);
-        Assertions.assertEquals("test", parameters.getNamespace());
-        Assertions.assertEquals("tbl", parameters.getTable());
+        assertEquals("test", parameters.getNamespace());
+        assertEquals("tbl", parameters.getTable());
+    }
+
+    @Test
+    void testBuildWithSourceConfigReadsTimeRange() {
+        Map<String, Object> config = new HashMap<>();
+        config.put(HbaseBaseOptions.ZOOKEEPER_QUORUM.key(), "127.0.0.1:2181");
+        config.put(HbaseBaseOptions.TABLE.key(), "test_table");
+        config.put(HbaseSourceOptions.START_TIMESTAMP.key(), 1000L);
+        config.put(HbaseSourceOptions.END_TIMESTAMP.key(), 2000L);
+
+        HbaseParameters parameters =
+                HbaseParameters.buildWithSourceConfig(ReadonlyConfig.fromMap(config));
+
+        assertEquals(1000L, parameters.getStartTimestamp());
+        assertEquals(2000L, parameters.getEndTimestamp());
     }
 }

@@ -21,6 +21,7 @@ import org.apache.seatunnel.api.configuration.Option;
 import org.apache.seatunnel.api.configuration.Options;
 import org.apache.seatunnel.api.sink.SaveModeExecuteLocation;
 import org.apache.seatunnel.common.constants.JobMode;
+import org.apache.seatunnel.common.constants.MetaLakeType;
 
 import java.util.Map;
 
@@ -115,4 +116,23 @@ public class EnvCommonOptions {
                     .mapType()
                     .noDefaultValue()
                     .withDescription("Define the worker where the job runs by tag");
+
+    public static Option<Boolean> METALAKE_ENABLED =
+            Options.key("metalake_enabled")
+                    .booleanType()
+                    .defaultValue(false)
+                    .withDescription("Turn on metadata lake");
+
+    public static Option<MetaLakeType> METALAKE_TYPE =
+            Options.key("metalake_type")
+                    .enumType(MetaLakeType.class)
+                    .defaultValue(MetaLakeType.GRAVITINO)
+                    .withDescription("Metadata lake type, for example: gravitino");
+
+    public static Option<String> METALAKE_URL =
+            Options.key("metalake_url")
+                    .stringType()
+                    .noDefaultValue()
+                    .withDescription(
+                            "The http path of the metadata lake, for example: http://localhost:8090/api/metalakes/laowang_test/catalogs/");
 }
