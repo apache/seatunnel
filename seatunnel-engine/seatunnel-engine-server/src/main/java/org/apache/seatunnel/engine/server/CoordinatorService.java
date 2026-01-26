@@ -1350,6 +1350,11 @@ public class CoordinatorService {
     }
 
     @VisibleForTesting
+    void runPendingPipelineCleanupOnce() {
+        cleanupPendingPipelines();
+    }
+
+    @VisibleForTesting
     public PeekBlockingQueue<PendingJobInfo> getPendingJobQueue() {
         return pendingJobQueue;
     }
