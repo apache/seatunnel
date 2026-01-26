@@ -250,8 +250,29 @@ const sidebars = {
                         "engines/zeta/tuning-guide"
                     ]
                 },
+                {
+                    "type": "category",
+                    "label": "Command",
+                    "items": [
+                        "engines/command/usage",
+                        "engines/command/connector-check"
+                    ]
+                },
                 "engines/flink",
                 "engines/spark"
+            ]
+        },
+        {
+            "type": "category",
+            "label": "Developer",
+            "items": [
+                "developer/setup",
+                "developer/coding-guide",
+                "developer/how-to-create-your-connector",
+                "developer/contribute-plugin",
+                "developer/contribute-transform-v2-guide",
+                "developer/docs-format-specification",
+                "developer/new-license"
             ]
         },
         "faq"
