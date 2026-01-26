@@ -25,6 +25,9 @@
     <artifactId>connector-iceberg-e2e</artifactId>
     <name>SeaTunnel : E2E : Connector V2 : Iceberg</name>
 
+    <properties>
+        <parquet.version>1.12.2</parquet.version>
+    </properties>
     <dependencyManagement>
         <dependencies>
             <dependency>
@@ -105,6 +108,18 @@
             <scope>test</scope>
         </dependency>
 
+        <dependency>
+            <groupId>org.apache.parquet</groupId>
+            <artifactId>parquet-avro</artifactId>
+            <version>${parquet.version}</version>
+            <scope>test</scope>
+        </dependency>
+        <dependency>
+            <groupId>org.apache.parquet</groupId>
+            <artifactId>parquet-hadoop</artifactId>
+            <version>${parquet.version}</version>
+            <scope>test</scope>
+        </dependency>
     </dependencies>
 
 </project>

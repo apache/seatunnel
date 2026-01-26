@@ -198,6 +198,55 @@ source {
 }
 ```
 
+### Glue Compatible Catalog with Custom Endpoint and Static Credentials
+
+```hocon
+sink {
+  Iceberg {
+    catalog_name = "seatunnel_test"
+    iceberg.catalog.config = {
+      warehouse     = "s3://your-bucket/warehouse/"
+      catalog-impl  = "org.apache.iceberg.aws.glue.GlueCatalog"
+      io-impl       = "org.apache.iceberg.aws.s3.S3FileIO"
+      client.region = "your-region"
+      
+      # Properties below must be supplied when using custom glue endpoints and static credentials
+      # Class Name of the provider you want to use
+      # We provide a StaticAWSCredential provider that you may use.
+      # If you need a different authentication method, you will need to provide
+      # your custom implementation and ensure that it is available in SEATUNNEL_HOME/lib
+      
+      client.credentials-provider="org.apache.seatunnel.connectors.seatunnel.iceberg.aws.StaticAwsCredentialsProvider"
+      
+      # Provide you AWS Access Key Id and Secret Access Key in the properties below
+      client.credentials-provider.access-key-id = "YOUR_ACCESS_KEY"
+      client.credentials-provider.secret-access-key = "YOUR_SECRET_ACCESS_KEY"
+      
+      # These additional settings may need to be set for your glue compatable catalog
+      glue.endpoint = "https://hostname:port"
+      glue.id = "YOUR_GLUE_CATALOG_ID"
+      
+      
+      
+      
+      
+    }
+    namespace = "seatunnel_namespace"
+    table     = "iceberg_sink_table"
+    iceberg.table.write-props = {
+      write.format.default = "parquet"
+      write.target-file-size-bytes = 536870912
+    }
+    iceberg.table.primary-keys = "id"
+    iceberg.table.partition-keys = "f_datetime"
+    iceberg.table.upsert-mode-enabled = true
+    iceberg.table.schema-evolution-enabled = true
+    case_sensitive = true
+  }
+}
+
+```
+
 ### Column Projection
 
 ```hocon
