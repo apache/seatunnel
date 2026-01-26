@@ -140,6 +140,16 @@ public class HbaseSourceSplitEnumeratorTest {
     }
 
     @Test
+    void testGetTableSplitsWrapsIOExceptionAsHbaseConnectorException() throws IOException {
+        when(hbaseClient.getRegionLocator(HbaseParameters.DEFAULT_NAMESPACE, "test_table"))
+                .thenThrow(new IOException("region locator error"));
+
+        HbaseConnectorException exception =
+                assertThrows(HbaseConnectorException.class, () -> enumerator.getTableSplits());
+        assertTrue(exception.getCause() instanceof IOException);
+    }
+
+    @Test
     void testGetTableSplitsWithUserDefinedRowKeyRange() throws IOException {
         // Simulate a table with 4 regions but user only wants data from "row100" to "row300"
         byte[][] startKeys = {

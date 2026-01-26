@@ -418,10 +418,13 @@ public class HbaseClient {
     /**
      * Get a RegionLocator.
      *
-     * @param tableName table name
+     * @param tableName table name (preferably fully qualified as {@code namespace:table})
      * @return RegionLocator
      * @throws IOException exception
+     * @deprecated Use {@link #getRegionLocator(String, String)} instead to avoid relying on the
+     *     default namespace behavior.
      */
+    @Deprecated
     public RegionLocator getRegionLocator(String tableName) throws IOException {
         return this.connection.getRegionLocator(TableName.valueOf(tableName));
     }

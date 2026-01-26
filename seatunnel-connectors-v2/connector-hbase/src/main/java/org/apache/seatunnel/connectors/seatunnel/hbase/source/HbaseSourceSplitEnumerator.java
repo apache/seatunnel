@@ -62,22 +62,14 @@ public class HbaseSourceSplitEnumerator
 
     public HbaseSourceSplitEnumerator(
             Context<HbaseSourceSplit> context, HbaseParameters hbaseParameters) {
-        this(
-                context,
-                hbaseParameters,
-                new HashSet<>(),
-                HbaseClient.createInstance(hbaseParameters));
+        this(context, hbaseParameters, new HashSet<>(), null);
     }
 
     public HbaseSourceSplitEnumerator(
             Context<HbaseSourceSplit> context,
             HbaseParameters hbaseParameters,
             HbaseSourceState sourceState) {
-        this(
-                context,
-                hbaseParameters,
-                sourceState.getAssignedSplits(),
-                HbaseClient.createInstance(hbaseParameters));
+        this(context, hbaseParameters, sourceState.getAssignedSplits(), null);
     }
 
     @VisibleForTesting
@@ -101,7 +93,7 @@ public class HbaseSourceSplitEnumerator
             Context<HbaseSourceSplit> context,
             HbaseParameters hbaseParameters,
             Set<HbaseSourceSplit> assignedSplit) {
-        this(context, hbaseParameters, assignedSplit, HbaseClient.createInstance(hbaseParameters));
+        this(context, hbaseParameters, assignedSplit, null);
     }
 
     private HbaseSourceSplitEnumerator(
@@ -227,10 +219,10 @@ public class HbaseSourceSplitEnumerator
 
     @VisibleForTesting
     public Set<HbaseSourceSplit> getTableSplits() {
-
+        String namespace = hbaseParameters.getNamespace();
+        TableName tableName = TableName.valueOf(namespace, hbaseParameters.getTable());
         try {
-            String namespace = hbaseParameters.getNamespace();
-            TableName tableName = TableName.valueOf(namespace, hbaseParameters.getTable());
+            HbaseClient hbaseClient = getHbaseClient();
             log.info("Enumerating HBase source splits for table [{}]", tableName.getNameAsString());
             if (!hbaseClient.tableExists(tableName.getNameAsString())) {
                 String errorMsg =
@@ -309,8 +301,21 @@ public class HbaseSourceSplitEnumerator
                 return new HashSet<>(splits);
             }
         } catch (IOException e) {
-            throw new RuntimeException(e);
+            String errorMsg =
+                    String.format(
+                            "Failed to enumerate splits for HBase table [%s]",
+                            tableName.getNameAsString());
+            log.error(errorMsg, e);
+            throw new HbaseConnectorException(
+                    HbaseConnectorErrorCode.TABLE_QUERY_EXCEPTION, errorMsg, e);
         }
+    }
+
+    private synchronized HbaseClient getHbaseClient() {
+        if (hbaseClient == null) {
+            hbaseClient = HbaseClient.createInstance(hbaseParameters);
+        }
+        return hbaseClient;
     }
 
     /** Hash algorithm for assigning splits to readers */
