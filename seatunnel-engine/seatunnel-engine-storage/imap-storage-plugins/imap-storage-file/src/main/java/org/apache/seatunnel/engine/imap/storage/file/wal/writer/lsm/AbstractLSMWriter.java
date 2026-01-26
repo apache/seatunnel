@@ -26,11 +26,11 @@ import org.apache.seatunnel.engine.imap.storage.file.common.FileConstants;
 import org.apache.seatunnel.engine.imap.storage.file.common.WALDataUtils;
 import org.apache.seatunnel.engine.imap.storage.file.wal.IMapFileIterator;
 import org.apache.seatunnel.engine.imap.storage.file.wal.WALFileIterator;
+import org.apache.seatunnel.engine.imap.storage.file.wal.reader.DefaultReader;
 import org.apache.seatunnel.engine.imap.storage.file.wal.writer.CompactionFile;
 import org.apache.seatunnel.engine.imap.storage.file.wal.writer.IFileWriter;
 import org.apache.seatunnel.engine.serializer.api.Serializer;
 
-import org.apache.hadoop.fs.FSDataInputStream;
 import org.apache.hadoop.fs.FSDataOutputStream;
 import org.apache.hadoop.fs.FileStatus;
 import org.apache.hadoop.fs.FileSystem;
@@ -49,8 +49,6 @@ import java.util.Map;
 import java.util.concurrent.BlockingQueue;
 import java.util.concurrent.PriorityBlockingQueue;
 import java.util.concurrent.atomic.AtomicLong;
-
-import static org.apache.seatunnel.engine.imap.storage.file.common.WALDataUtils.WAL_DATA_METADATA_LENGTH;
 
 @Slf4j
 public abstract class AbstractLSMWriter implements IFileWriter<IMapFileData> {
@@ -139,11 +137,11 @@ public abstract class AbstractLSMWriter implements IFileWriter<IMapFileData> {
         Collections.sort(writeBatch);
 
         long written = writeWithBatch(finalPath);
-
         fileNames.add(new CompactionFile(finalPath, written));
         finalPath = createNewPath();
         totalBytes.addAndGet(written);
         writeBatch.clear();
+
         if (tmpPath == null) {
             fs.delete(currentTmpPath, false);
             currentTmpPath = createNewTmpPath();
@@ -155,7 +153,7 @@ public abstract class AbstractLSMWriter implements IFileWriter<IMapFileData> {
     protected abstract long writeWithBatch(Path path) throws IOException;
 
     protected Path createNewPath() {
-        return new Path(parentPath, "data_" + index.incrementAndGet());
+        return new Path(parentPath, "data_" + index.incrementAndGet() + "_" + FILE_NAME);
     }
 
     protected Path createNewTmpPath() {
@@ -261,24 +259,11 @@ public abstract class AbstractLSMWriter implements IFileWriter<IMapFileData> {
                 fs.delete(tmp, false);
                 continue;
             }
-            byte[] all = new byte[(int) len];
-            try (FSDataInputStream in = fs.open(tmp)) {
-                in.readFully(all);
-            }
-            int pos = 0;
-            List<IMapFileData> batch = new ArrayList<>();
-            while (pos + WAL_DATA_METADATA_LENGTH < all.length) {
-                byte[] meta = new byte[WAL_DATA_METADATA_LENGTH];
-                System.arraycopy(all, pos, meta, 0, WAL_DATA_METADATA_LENGTH);
-                int dataLen = WALDataUtils.byteArrayToInt(meta);
-                pos += WAL_DATA_METADATA_LENGTH;
-                if (pos + dataLen > all.length) break;
-                byte[] data = new byte[dataLen];
-                System.arraycopy(all, pos, data, 0, dataLen);
-                IMapFileData fileData = serializer.deserialize(data, IMapFileData.class);
-                batch.add(fileData);
-                pos += dataLen;
-            }
+
+            DefaultReader reader = new DefaultReader();
+            reader.initialize(fs, serializer);
+            List<IMapFileData> batch = reader.readData(tmp);
+
             if (!batch.isEmpty()) {
                 writeBatch.addAll(batch);
                 sortFlush(tmp);

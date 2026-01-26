@@ -29,6 +29,6 @@ public class S3LSMWriter extends CloudLSMWriter {
 
     @Override
     public String identifier() {
-        return "s3";
+        return "s3-lsm";
     }
 }

@@ -420,7 +420,7 @@ class LSMWriterTest {
 
         @Override
         public String identifier() {
-            return "cloud";
+            return "cloud-lsm-test";
         }
     }
 
@@ -431,7 +431,7 @@ class LSMWriterTest {
 
         @Override
         public String identifier() {
-            return "hdfs";
+            return "hdfs-lsm-test";
         }
     }
 }

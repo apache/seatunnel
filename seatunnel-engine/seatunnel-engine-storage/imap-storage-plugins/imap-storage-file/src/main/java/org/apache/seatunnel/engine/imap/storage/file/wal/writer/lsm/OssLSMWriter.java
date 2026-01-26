@@ -29,6 +29,6 @@ public class OssLSMWriter extends CloudLSMWriter {
 
     @Override
     public String identifier() {
-        return "oss";
+        return "oss-lsm";
     }
 }
