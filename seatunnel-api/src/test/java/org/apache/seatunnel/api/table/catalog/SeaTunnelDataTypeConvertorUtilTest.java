@@ -166,4 +166,66 @@ public class SeaTunnelDataTypeConvertorUtilTest {
                                 "c_byte_row", "{c = byte}");
         Assertions.assertEquals(BasicType.BYTE_TYPE, byteRow.getFieldType(0));
     }
+
+    @Test
+    public void testNestedArrayType() {
+        // Test array<array<string>>
+        ArrayType<?, ?> nestedStringArrayType =
+                (ArrayType<?, ?>)
+                        SeaTunnelDataTypeConvertorUtil.deserializeSeaTunnelDataType(
+                                "nested_string_array", "array<array<string>>");
+        Assertions.assertEquals(ArrayType.class, nestedStringArrayType.getElementType().getClass());
+        ArrayType<?, ?> innerStringArrayType =
+                (ArrayType<?, ?>) nestedStringArrayType.getElementType();
+        Assertions.assertEquals(BasicType.STRING_TYPE, innerStringArrayType.getElementType());
+
+        // Test array<map<string, string>>
+        ArrayType<?, ?> nestedMapArrayType =
+                (ArrayType<?, ?>)
+                        SeaTunnelDataTypeConvertorUtil.deserializeSeaTunnelDataType(
+                                "nested_map_array", "array<map<string, string>>");
+        Assertions.assertEquals(MapType.class, nestedMapArrayType.getElementType().getClass());
+        MapType<?, ?> innerMapype = (MapType<?, ?>) nestedMapArrayType.getElementType();
+        Assertions.assertEquals(BasicType.STRING_TYPE, innerMapype.getKeyType());
+        Assertions.assertEquals(BasicType.STRING_TYPE, innerMapype.getValueType());
+
+        // Test array<array<array<string>>> (triple nested)
+        ArrayType<?, ?> tripleNestedArrayType =
+                (ArrayType<?, ?>)
+                        SeaTunnelDataTypeConvertorUtil.deserializeSeaTunnelDataType(
+                                "triple_nested_array", "array<array<array<string>>>");
+        Assertions.assertEquals(ArrayType.class, tripleNestedArrayType.getElementType().getClass());
+        ArrayType<?, ?> middleArrayType = (ArrayType<?, ?>) tripleNestedArrayType.getElementType();
+        Assertions.assertEquals(ArrayType.class, middleArrayType.getElementType().getClass());
+        ArrayType<?, ?> innerMostArrayType = (ArrayType<?, ?>) middleArrayType.getElementType();
+        Assertions.assertEquals(BasicType.STRING_TYPE, innerMostArrayType.getElementType());
+    }
+
+    @Test
+    public void testNestedMapType() {
+        // Test map<string, map<string, string>>
+        MapType<?, ?> nestedStringMapType =
+                (MapType<?, ?>)
+                        SeaTunnelDataTypeConvertorUtil.deserializeSeaTunnelDataType(
+                                "nested_string_map", "map<string, map<string, string>>");
+        Assertions.assertEquals(BasicType.STRING_TYPE, nestedStringMapType.getKeyType());
+        Assertions.assertEquals(MapType.class, nestedStringMapType.getValueType().getClass());
+        MapType<?, ?> innerStringMapType = (MapType<?, ?>) nestedStringMapType.getValueType();
+        Assertions.assertEquals(BasicType.STRING_TYPE, innerStringMapType.getKeyType());
+        Assertions.assertEquals(BasicType.STRING_TYPE, innerStringMapType.getValueType());
+
+        // Test map<string, map<string, map<string, int>>> (triple nested)
+        MapType<?, ?> tripleNestedMapType =
+                (MapType<?, ?>)
+                        SeaTunnelDataTypeConvertorUtil.deserializeSeaTunnelDataType(
+                                "triple_nested_map", "map<string, map<string, map<string, int>>>");
+        Assertions.assertEquals(BasicType.STRING_TYPE, tripleNestedMapType.getKeyType());
+        Assertions.assertEquals(MapType.class, tripleNestedMapType.getValueType().getClass());
+        MapType<?, ?> middleMapType = (MapType<?, ?>) tripleNestedMapType.getValueType();
+        Assertions.assertEquals(BasicType.STRING_TYPE, middleMapType.getKeyType());
+        Assertions.assertEquals(MapType.class, middleMapType.getValueType().getClass());
+        MapType<?, ?> innerMostMapType = (MapType<?, ?>) middleMapType.getValueType();
+        Assertions.assertEquals(BasicType.STRING_TYPE, innerMostMapType.getKeyType());
+        Assertions.assertEquals(BasicType.INT_TYPE, innerMostMapType.getValueType());
+    }
 }
