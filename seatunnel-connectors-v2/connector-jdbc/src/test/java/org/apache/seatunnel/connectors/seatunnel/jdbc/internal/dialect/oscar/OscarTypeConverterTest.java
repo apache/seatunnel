@@ -405,13 +405,13 @@ public class OscarTypeConverterTest {
         testReconvertType(
                 "test",
                 new DecimalType(1005, 7),
-                String.format("%s(%s,%s)", OscarTypeConverter.OSCAR_DECIMAL, 1000, 2),
+                String.format("%s(%s,%s)", OscarTypeConverter.OSCAR_DECIMAL, 38, 0),
                 OscarTypeConverter.OSCAR_DECIMAL);
 
         testReconvertType(
                 "test",
                 new DecimalType(900, -7),
-                String.format("%s(%s,%s)", OscarTypeConverter.OSCAR_DECIMAL, 900, 0),
+                String.format("%s(%s,%s)", OscarTypeConverter.OSCAR_DECIMAL, 38, 0),
                 OscarTypeConverter.OSCAR_DECIMAL);
     }
 
