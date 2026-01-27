@@ -30,10 +30,6 @@
   }
   ```
 
-  **迁移指南**
-  1. 更新 Grafana 查询语句，使用 `{VertexIdentifier}.{tableName}` 形式的 key（例如 `Sink[0].fake.user_table`）。
-  2. 更新 Prometheus 告警规则以及任何解析这些 key 的脚本/程序。
-
 ### 配置变更
 
 ### 连接器变更
