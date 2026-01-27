@@ -114,7 +114,7 @@ public class TableSchemaDiscoverer {
         if (schemaConfig.getOptional(ColumnOptions.SCHEMA_URL).isPresent()) {
             return discoverTableSchemaFromMetaLake(
                     schemaConfig.get(ColumnOptions.SCHEMA_URL),
-                    sourceOptions.get(TableIdentifierOptions.TABLE));
+                    schemaConfig.get(TableIdentifierOptions.TABLE));
         }
         throw new SeaTunnelRuntimeException(
                 INVALID_SCHEMA_STRUCTURE,

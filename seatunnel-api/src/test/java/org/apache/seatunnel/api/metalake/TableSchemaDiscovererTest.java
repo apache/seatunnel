@@ -50,7 +50,7 @@ import java.util.Map;
 import static org.mockito.Mockito.when;
 
 @ExtendWith(MockitoExtension.class)
-class TableSchemaDiscovererTest {
+public class TableSchemaDiscovererTest {
 
     private static final String TEST_CATALOG_NAME = "test_catalog";
 
@@ -69,6 +69,9 @@ class TableSchemaDiscovererTest {
 
         Assertions.assertEquals(1, result.size());
         Assertions.assertEquals(TEST_CATALOG_NAME, result.get(0).getCatalogName());
+        Assertions.assertEquals(
+                TablePath.of("default", "default", "default"), result.get(0).getTablePath());
+        Assertions.assertEquals(3, result.get(0).getTableSchema().getColumns().size());
     }
 
     @Test
@@ -93,6 +96,10 @@ class TableSchemaDiscovererTest {
 
         Assertions.assertEquals(1, result.size());
         Assertions.assertEquals(TEST_CATALOG_NAME, result.get(0).getCatalogName());
+        Assertions.assertEquals(
+                TablePath.of("test_catalog", "test_schema", "test_table"),
+                result.get(0).getTablePath());
+        Assertions.assertEquals(2, result.get(0).getTableSchema().getColumns().size());
     }
 
     @Test
@@ -108,7 +115,11 @@ class TableSchemaDiscovererTest {
 
         Assertions.assertEquals(2, result.size());
         Assertions.assertEquals(TEST_CATALOG_NAME, result.get(0).getCatalogName());
+        Assertions.assertEquals(TablePath.of("db", null, "table1"), result.get(0).getTablePath());
+        Assertions.assertEquals(1, result.get(0).getTableSchema().getColumns().size());
         Assertions.assertEquals(TEST_CATALOG_NAME, result.get(1).getCatalogName());
+        Assertions.assertEquals(TablePath.of("db", null, "table2"), result.get(1).getTablePath());
+        Assertions.assertEquals(3, result.get(1).getTableSchema().getColumns().size());
     }
 
     @Test
@@ -126,8 +137,6 @@ class TableSchemaDiscovererTest {
         JsonNode schemaNode2 = createMockTableSchemaNode("table2");
         // json node
         when(metalakeClient.getTableSchema(schemaUrl1)).thenReturn(schemaNode1);
-        when(metalakeClient.getTableSchemaPath(schemaUrl1))
-                .thenReturn(TablePath.of("test_catalog", "test_schema", "table1"));
         when(metalakeClient.getTableSchema(schemaUrl2)).thenReturn(schemaNode2);
         when(metalakeClient.getTableSchemaPath(schemaUrl2))
                 .thenReturn(TablePath.of("test_catalog", "test_schema", "table2"));
@@ -138,7 +147,15 @@ class TableSchemaDiscovererTest {
         List<CatalogTable> result = discoverer.discoverTableSchemas();
         Assertions.assertEquals(2, result.size());
         Assertions.assertEquals(TEST_CATALOG_NAME, result.get(0).getCatalogName());
+        Assertions.assertEquals(
+                TablePath.of("test_database.test_schema.test_table1"),
+                result.get(0).getTablePath());
+        Assertions.assertEquals(2, result.get(0).getTableSchema().getColumns().size());
         Assertions.assertEquals(TEST_CATALOG_NAME, result.get(1).getCatalogName());
+        Assertions.assertEquals(
+                TablePath.of("test_catalog", "test_schema", "table2"),
+                result.get(1).getTablePath());
+        Assertions.assertEquals(2, result.get(1).getTableSchema().getColumns().size());
     }
 
     @Test
@@ -161,7 +178,12 @@ class TableSchemaDiscovererTest {
 
         Assertions.assertEquals(2, result.size());
         Assertions.assertEquals(TEST_CATALOG_NAME, result.get(0).getCatalogName());
+        Assertions.assertEquals(TablePath.of("db.table1"), result.get(0).getTablePath());
+        Assertions.assertEquals(2, result.get(0).getTableSchema().getColumns().size());
         Assertions.assertEquals(TEST_CATALOG_NAME, result.get(1).getCatalogName());
+        Assertions.assertEquals(
+                TablePath.of("test_catalog.test_schema.table2"), result.get(1).getTablePath());
+        Assertions.assertEquals(2, result.get(1).getTableSchema().getColumns().size());
     }
 
     @Test
