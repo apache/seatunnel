@@ -43,6 +43,11 @@ public interface TableSourceFactory extends Factory {
                 "The Factory has not been implemented and the deprecated Plugin will be used.");
     }
 
+    /**
+     * We can get the catalogTable list in the source configuration through this method
+     *
+     * @param context TableFactoryContext
+     */
     default List<CatalogTable> discoverTableSchemas(TableSourceFactoryContext context) {
         final TableSchemaDiscoverer metaLakeSchemaDiscoverer =
                 new TableSchemaDiscoverer(context, factoryIdentifier());

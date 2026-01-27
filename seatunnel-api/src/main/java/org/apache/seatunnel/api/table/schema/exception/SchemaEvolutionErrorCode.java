@@ -37,6 +37,7 @@ public enum SchemaEvolutionErrorCode implements SeaTunnelErrorCode {
     ERROR_INVALID_TABLE_URL(
             "SE-22",
             "Invalid table URL format, expected: /catalogs/{catalog}/schemas/{schema}/tables/{table}"),
+    CATALOG_TABLE_SIZE_IS_ERROR("SE-23", "Catalog table size is error"),
 
     // Sink Writer Errors
     SCHEMA_CHANGE_APPLICATION_FAILED("SE-09", "Failed to apply schema change to sink writer"),

@@ -40,7 +40,6 @@ import org.apache.seatunnel.common.exception.SeaTunnelRuntimeException;
 import lombok.extern.slf4j.Slf4j;
 
 import java.io.IOException;
-import java.util.ArrayList;
 import java.util.Collections;
 import java.util.List;
 import java.util.Map;
@@ -99,7 +98,7 @@ public class TableSchemaDiscoverer {
                     .map(this::discoverTableSchema)
                     .collect(Collectors.toList());
         }
-        return new ArrayList<>();
+        return Collections.singletonList(CatalogTableUtil.buildSimpleTextTable());
     }
 
     private CatalogTable discoverTableSchema(ReadonlyConfig sourceOptions) {
