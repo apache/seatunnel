@@ -149,8 +149,8 @@ public class GravitinoTableSchemaConvertor implements MetaLakeTableSchemaConvert
         }
         SeaTunnelDataType<?> dataType = convertGravitinoType(name, typeNode);
         String typeStrForLength = typeNode.isTextual() ? typeNode.asText() : null;
-        Long columnLength = extractColumnLength(typeStrForLength);
-        Integer scale = extractScale(typeStrForLength);
+        Long columnLength = typeStrForLength == null ? null : extractColumnLength(typeStrForLength);
+        Integer scale = typeStrForLength == null ? null : extractScale(typeStrForLength);
         return PhysicalColumn.builder()
                 .name(name)
                 .dataType(dataType)
