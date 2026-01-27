@@ -38,18 +38,23 @@ public class CompactionFile implements Comparable<CompactionFile> {
 
     @Override
     public int compareTo(CompactionFile o) {
-        return Long.compare(this.size, o.size);
+        int cmp = Long.compare(this.size, o.size);
+        if (cmp != 0) {
+            return cmp;
+        }
+        return this.path.toString().compareTo(o.path.toString());
     }
 
     @Override
     public boolean equals(Object object) {
+        if (this == object) return true;
         if (object == null || getClass() != object.getClass()) return false;
         CompactionFile that = (CompactionFile) object;
-        return this.size == that.size;
+        return this.size == that.size && Objects.equals(this.path, that.path);
     }
 
     @Override
     public int hashCode() {
-        return Objects.hashCode(size);
+        return Objects.hash(size, path);
     }
 }
