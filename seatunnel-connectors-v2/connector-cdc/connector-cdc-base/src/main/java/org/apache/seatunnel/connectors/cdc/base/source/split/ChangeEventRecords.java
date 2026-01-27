@@ -75,6 +75,9 @@ public final class ChangeEventRecords implements RecordsWithSplitIds<SourceRecor
     }
 
     public static ChangeEventRecords forFinishedSplit(final String splitId) {
+        if (splitId == null) {
+            throw new IllegalArgumentException("splitId must not be null");
+        }
         return new ChangeEventRecords(null, null, Collections.singleton(splitId));
     }
 }
