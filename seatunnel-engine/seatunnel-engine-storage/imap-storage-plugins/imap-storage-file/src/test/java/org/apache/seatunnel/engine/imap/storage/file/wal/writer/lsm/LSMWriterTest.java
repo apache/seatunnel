@@ -340,8 +340,8 @@ class LSMWriterTest {
         executor.submit(
                 () -> {
                     try {
-                        for (int i = 0; i < 100; i++) {
-                            String key = String.format("%02d", i);
+                        for (int i = 0; i < 1000; i++) {
+                            String key = String.format("%03d", i);
                             writer.write(
                                     new IMapFileData(
                                             false,
@@ -362,7 +362,7 @@ class LSMWriterTest {
         executor.submit(
                 () -> {
                     try {
-                        for (int i = 0; i < 100; i++) {
+                        for (int i = 0; i < 1000; i++) {
                             writer.compaction(true);
                         }
                     } catch (Exception e) {
@@ -386,7 +386,7 @@ class LSMWriterTest {
         Assertions.assertEquals(1, compactionFiles.length);
         List<IMapFileData> result = readAll(fs, compactionFiles[0].getPath());
 
-        for (int i = 0; i < 100; i++) {
+        for (int i = 0; i < 1000; i++) {
             int actualKey = Integer.parseInt(new String(result.get(i).getKey()));
             Assertions.assertEquals(i, actualKey);
 
