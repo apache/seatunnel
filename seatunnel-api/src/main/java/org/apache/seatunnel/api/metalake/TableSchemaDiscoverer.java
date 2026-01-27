@@ -18,6 +18,7 @@
 package org.apache.seatunnel.api.metalake;
 
 import org.apache.seatunnel.shade.com.fasterxml.jackson.databind.JsonNode;
+import org.apache.seatunnel.shade.com.google.common.annotations.VisibleForTesting;
 import org.apache.seatunnel.shade.org.apache.commons.lang3.StringUtils;
 
 import org.apache.seatunnel.api.configuration.ReadonlyConfig;
@@ -26,6 +27,7 @@ import org.apache.seatunnel.api.options.EnvCommonOptions;
 import org.apache.seatunnel.api.options.table.CatalogOptions;
 import org.apache.seatunnel.api.options.table.ColumnOptions;
 import org.apache.seatunnel.api.options.table.FieldOptions;
+import org.apache.seatunnel.api.options.table.TableIdentifierOptions;
 import org.apache.seatunnel.api.options.table.TableSchemaOptions;
 import org.apache.seatunnel.api.table.catalog.CatalogTable;
 import org.apache.seatunnel.api.table.catalog.CatalogTableUtil;
@@ -41,6 +43,7 @@ import java.io.IOException;
 import java.util.ArrayList;
 import java.util.Collections;
 import java.util.List;
+import java.util.Map;
 import java.util.stream.Collectors;
 
 import static org.apache.seatunnel.api.table.schema.exception.SchemaEvolutionErrorCode.GET_META_LAKE_TABLE_SCHEMA_FAILED;
@@ -61,6 +64,20 @@ public class TableSchemaDiscoverer {
         this.catalogName = catalogName;
         this.metalakeClient = MetaLakeFactory.createClient(getMetaLakeType());
         this.metaLakeTableSchemaConvertor = MetaLakeFactory.createTypeMapper(getMetaLakeType());
+    }
+
+    @VisibleForTesting
+    protected TableSchemaDiscoverer(
+            ReadonlyConfig envOptions,
+            ReadonlyConfig sourceOptions,
+            String catalogName,
+            MetalakeClient metalakeClient,
+            MetaLakeTableSchemaConvertor convertor) {
+        this.envOptions = envOptions;
+        this.sourceOptions = sourceOptions;
+        this.catalogName = catalogName;
+        this.metalakeClient = metalakeClient;
+        this.metaLakeTableSchemaConvertor = convertor;
     }
 
     public List<CatalogTable> discoverTableSchemas() {
@@ -85,15 +102,19 @@ public class TableSchemaDiscoverer {
         return new ArrayList<>();
     }
 
-    private CatalogTable discoverTableSchema(ReadonlyConfig schemaConfig) {
+    private CatalogTable discoverTableSchema(ReadonlyConfig sourceOptions) {
+        final Map<String, Object> schemaMap = sourceOptions.get(ConnectorCommonOptions.SCHEMA);
+        ReadonlyConfig schemaConfig = ReadonlyConfig.fromMap(schemaMap);
         // fields or columns
         if (schemaConfig.getOptional(ColumnOptions.COLUMNS).isPresent()
-                || schemaConfig.getOptional(FieldOptions.FIELDS).isPresent()) {
-            return discoverTableSchemaFromConfig(schemaConfig);
+                || sourceOptions.getOptional(FieldOptions.FIELDS).isPresent()) {
+            return discoverTableSchemaFromConfig(sourceOptions);
         }
         // schema_url
         if (schemaConfig.getOptional(ColumnOptions.SCHEMA_URL).isPresent()) {
-            return discoverTableSchemaFromMetaLake(schemaConfig.get(ColumnOptions.SCHEMA_URL));
+            return discoverTableSchemaFromMetaLake(
+                    schemaConfig.get(ColumnOptions.SCHEMA_URL),
+                    sourceOptions.get(TableIdentifierOptions.TABLE));
         }
         throw new SeaTunnelRuntimeException(
                 INVALID_SCHEMA_STRUCTURE,
@@ -104,10 +125,15 @@ public class TableSchemaDiscoverer {
         return CatalogTableUtil.buildWithConfig(catalogName, readonlyConfig);
     }
 
-    private CatalogTable discoverTableSchemaFromMetaLake(String schemaUrl) {
+    private CatalogTable discoverTableSchemaFromMetaLake(String schemaUrl, String configTablePath) {
         try {
             JsonNode schemaNode = metalakeClient.getTableSchema(schemaUrl);
-            final TablePath tableSchemaPath = metalakeClient.getTableSchemaPath(schemaUrl);
+            final TablePath tableSchemaPath;
+            if (StringUtils.isNotEmpty(configTablePath)) {
+                tableSchemaPath = TablePath.of(configTablePath);
+            } else {
+                tableSchemaPath = metalakeClient.getTableSchemaPath(schemaUrl);
+            }
             final TableSchema tableSchema = metaLakeTableSchemaConvertor.convertor(schemaNode);
             return metaLakeTableSchemaConvertor.buildCatalogTable(
                     catalogName, tableSchemaPath, tableSchema);
@@ -116,7 +142,8 @@ public class TableSchemaDiscoverer {
         }
     }
 
-    private MetaLakeType getMetaLakeType() {
+    @VisibleForTesting
+    protected MetaLakeType getMetaLakeType() {
         // first source
         if (sourceOptions.getOptional(TableSchemaOptions.METALAKE_TYPE).isPresent()) {
             return sourceOptions.get(TableSchemaOptions.METALAKE_TYPE);
