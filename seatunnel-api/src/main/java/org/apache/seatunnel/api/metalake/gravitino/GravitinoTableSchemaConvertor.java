@@ -123,9 +123,7 @@ public class GravitinoTableSchemaConvertor implements MetaLakeTableSchemaConvert
     @Override
     public CatalogTable buildCatalogTable(
             String catalogName, TablePath tablePath, TableSchema tableSchema) {
-        TableIdentifier tableIdentifier =
-                TableIdentifier.of(
-                        catalogName, tablePath.getSchemaName(), tablePath.getTableName());
+        TableIdentifier tableIdentifier = TableIdentifier.of(catalogName, tablePath);
         // Build catalog table
         return CatalogTable.of(
                 tableIdentifier,

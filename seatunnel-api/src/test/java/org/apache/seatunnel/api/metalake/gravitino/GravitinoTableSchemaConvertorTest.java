@@ -720,11 +720,12 @@ public class GravitinoTableSchemaConvertorTest {
                         + "\"indexes\":[{\"name\":\"pk\",\"indexType\":\"PRIMARY_KEY\",\"fieldNames\":[[\"id\"]]}]}";
         JsonNode metaInfo = OBJECT_MAPPER.readTree(json);
         TableSchema tableSchema = CONVERTOR.convertor(metaInfo);
-        TablePath tablePath = TablePath.of("test_schema", "test_table");
+        TablePath tablePath = TablePath.of("test_database", "test_schema", "test_table");
         CatalogTable catalogTable =
                 CONVERTOR.buildCatalogTable("test_catalog", tablePath, tableSchema);
         Assertions.assertEquals("test_catalog", catalogTable.getCatalogName());
         Assertions.assertEquals("test_catalog", catalogTable.getTableId().getCatalogName());
+        Assertions.assertEquals("test_database", catalogTable.getTableId().getDatabaseName());
         Assertions.assertEquals("test_schema", catalogTable.getTableId().getSchemaName());
         Assertions.assertEquals("test_table", catalogTable.getTableId().getTableName());
         Assertions.assertEquals(tableSchema, catalogTable.getTableSchema());
