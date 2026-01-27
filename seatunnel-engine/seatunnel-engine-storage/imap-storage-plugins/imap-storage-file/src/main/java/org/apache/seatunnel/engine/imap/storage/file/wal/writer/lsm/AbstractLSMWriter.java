@@ -36,8 +36,6 @@ import org.apache.hadoop.fs.FileStatus;
 import org.apache.hadoop.fs.FileSystem;
 import org.apache.hadoop.fs.Path;
 
-import io.netty.buffer.ByteBuf;
-import io.netty.buffer.Unpooled;
 import lombok.extern.slf4j.Slf4j;
 
 import java.io.IOException;
@@ -66,13 +64,14 @@ public abstract class AbstractLSMWriter implements IFileWriter<IMapFileData> {
     protected long compactionIndex = 0;
 
     protected List<IMapFileData> writeBatch = new ArrayList<>();
-    protected ByteBuf bf = Unpooled.buffer(1024);
 
     protected FileSystem fs;
     protected Path parentPath;
     protected Path finalPath;
     protected Path currentTmpPath;
     protected Serializer serializer;
+
+    protected volatile boolean isRunning = true;
 
     protected AbstractLSMWriter(Map<String, Object> config) {
         if (config.get(FileConstants.FileInitProperties.COMPACTION_THRESHOLD) != null) {
@@ -107,7 +106,7 @@ public abstract class AbstractLSMWriter implements IFileWriter<IMapFileData> {
     }
 
     @Override
-    public final void write(IMapFileData data, boolean flush) throws IOException {
+    public final synchronized void write(IMapFileData data, boolean flush) throws IOException {
         byte[] bytes = serializer.serialize(data);
         writeInternal(bytes, data, flush);
     }
@@ -165,7 +164,9 @@ public abstract class AbstractLSMWriter implements IFileWriter<IMapFileData> {
         if (totalBytes.get() < compactionThreshold && !force) return;
 
         long batchSize = 0;
-        while (fileNames.size() > 1 && (totalBytes.get() >= compactionThreshold || force)) {
+        while (isRunning
+                && fileNames.size() > 1
+                && (totalBytes.get() >= compactionThreshold || force)) {
             CompactionFile f1 = fileNames.poll();
             CompactionFile f2 = fileNames.poll();
 
@@ -199,7 +200,7 @@ public abstract class AbstractLSMWriter implements IFileWriter<IMapFileData> {
         }
     }
 
-    protected final long compactTwoFiles(Path p1, Path p2, Path out) {
+    private long compactTwoFiles(Path p1, Path p2, Path out) {
         long writtenBytes = 0L;
         try (IMapFileIterator it1 = openIterator(p1);
                 IMapFileIterator it2 = openIterator(p2);
@@ -246,7 +247,7 @@ public abstract class AbstractLSMWriter implements IFileWriter<IMapFileData> {
         return writtenBytes;
     }
 
-    protected final void recoverFromCrash() throws IOException, InterruptedException {
+    protected final synchronized void recoverFromCrash() throws IOException, InterruptedException {
         FileStatus[] tmpFiles =
                 fs.listStatus(parentPath, path -> path.getName().startsWith("tmp_"));
 
@@ -273,6 +274,14 @@ public abstract class AbstractLSMWriter implements IFileWriter<IMapFileData> {
                         batch.size());
                 writeBatch.clear();
             }
+        }
+    }
+
+    @Override
+    public void close() throws Exception {
+        isRunning = false;
+        if (!writeBatch.isEmpty()) {
+            sortFlush();
         }
     }
 

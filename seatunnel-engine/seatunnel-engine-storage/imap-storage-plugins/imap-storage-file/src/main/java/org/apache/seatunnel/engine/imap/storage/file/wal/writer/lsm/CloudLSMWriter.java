@@ -38,6 +38,7 @@ import java.util.Map;
 
 @Slf4j
 public abstract class CloudLSMWriter extends AbstractLSMWriter {
+    protected ByteBuf bf = Unpooled.buffer(1024);
 
     protected CloudLSMWriter(Map<String, Object> config) {
         super(config);
@@ -131,6 +132,7 @@ public abstract class CloudLSMWriter extends AbstractLSMWriter {
 
     @Override
     public void close() throws Exception {
+        isRunning = false;
         bf.clear();
         if (!writeBatch.isEmpty()) {
             sortFlush();

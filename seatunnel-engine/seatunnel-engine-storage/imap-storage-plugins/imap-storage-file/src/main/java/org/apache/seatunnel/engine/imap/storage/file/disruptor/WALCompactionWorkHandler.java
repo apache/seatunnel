@@ -20,7 +20,6 @@
 
 package org.apache.seatunnel.engine.imap.storage.file.disruptor;
 
-import org.apache.seatunnel.engine.imap.storage.file.bean.IMapFileData;
 import org.apache.seatunnel.engine.imap.storage.file.common.WALLSMWriter;
 
 import com.lmax.disruptor.WorkHandler;
@@ -31,7 +30,7 @@ import java.io.IOException;
 @Slf4j
 public class WALCompactionWorkHandler implements WorkHandler<FileWALEvent> {
 
-    private WALLSMWriter writer;
+    private final WALLSMWriter writer;
 
     public WALCompactionWorkHandler(WALLSMWriter writer) {
         this.writer = writer;
@@ -40,15 +39,15 @@ public class WALCompactionWorkHandler implements WorkHandler<FileWALEvent> {
     @Override
     public void onEvent(FileWALEvent fileWALEvent) {
         log.debug("write data to orc file");
-        walEvent(fileWALEvent.getData(), fileWALEvent.getType());
+        walEvent(fileWALEvent.getType());
     }
 
-    private void walEvent(IMapFileData iMapFileData, WALEventType type) {
+    private void walEvent(WALEventType type) {
         if (type == WALEventType.APPEND) {
             try {
                 writer.compaction();
             } catch (IOException e) {
-                log.warn("compact orc file error, walEventBean is {} ", iMapFileData, e);
+                log.warn("compact orc file error", e);
             }
         }
     }

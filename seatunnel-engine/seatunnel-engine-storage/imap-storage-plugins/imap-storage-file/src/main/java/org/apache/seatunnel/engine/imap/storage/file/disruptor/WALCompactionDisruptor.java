@@ -31,6 +31,7 @@ import org.apache.hadoop.fs.FileSystem;
 import org.apache.hadoop.fs.Path;
 
 import com.lmax.disruptor.BlockingWaitStrategy;
+import com.lmax.disruptor.EventTranslatorOneArg;
 import com.lmax.disruptor.TimeoutException;
 import com.lmax.disruptor.dsl.Disruptor;
 import com.lmax.disruptor.dsl.ProducerType;
@@ -44,6 +45,12 @@ import java.util.concurrent.TimeUnit;
 
 @Slf4j
 public class WALCompactionDisruptor extends AbstractWALDisruptor {
+    private static final EventTranslatorOneArg<FileWALEvent, WALEventType> COMPACTION_TRANSLATOR =
+            (event, sequence, status) -> {
+                event.setData(null);
+                event.setType(status);
+                event.setRequestId(0L);
+            };
 
     private Disruptor<FileWALEvent> compactionDisruptor;
 
@@ -96,7 +103,7 @@ public class WALCompactionDisruptor extends AbstractWALDisruptor {
             return false;
         }
         disruptor.getRingBuffer().publishEvent(TRANSLATOR, message, status, requestId);
-        compactionDisruptor.getRingBuffer().publishEvent(TRANSLATOR, message, status, requestId);
+        compactionDisruptor.getRingBuffer().publishEvent(COMPACTION_TRANSLATOR, status);
         return true;
     }
 

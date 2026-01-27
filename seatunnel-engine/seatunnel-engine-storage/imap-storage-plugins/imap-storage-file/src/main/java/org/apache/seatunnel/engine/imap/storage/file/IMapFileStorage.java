@@ -181,7 +181,9 @@ public class IMapFileStorage implements IMapStorage {
                 List<String> compactionIMaps = OBJECT_MAPPER.readValue(compactionConfig, listType);
                 isCompactionEnabled = compactionIMaps.contains(businessName);
             } catch (JsonProcessingException e) {
-                throw new IMapStorageException("parse compactionIMap config error", e);
+                throw new IMapStorageException(
+                        "Failed to parse compaction IMap config. Expected format: [\"engine_runningJobMetrics\"]",
+                        e);
             }
         }
 

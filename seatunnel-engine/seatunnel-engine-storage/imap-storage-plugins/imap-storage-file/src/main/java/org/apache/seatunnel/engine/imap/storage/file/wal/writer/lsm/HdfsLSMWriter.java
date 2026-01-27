@@ -137,6 +137,7 @@ public class HdfsLSMWriter extends AbstractLSMWriter {
 
     @Override
     public void close() throws Exception {
+        isRunning = false;
         try {
             if (out != null) {
                 out.close();
