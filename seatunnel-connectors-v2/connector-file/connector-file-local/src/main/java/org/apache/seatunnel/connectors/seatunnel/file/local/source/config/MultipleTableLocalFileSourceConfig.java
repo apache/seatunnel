@@ -33,7 +33,7 @@ public class MultipleTableLocalFileSourceConfig extends BaseMultipleTableFileSou
 
     @Override
     public BaseFileSourceConfig getBaseSourceConfig(
-            ReadonlyConfig readonlyConfig, CatalogTable catalogTableFromConfigr) {
-        return new LocalFileSourceConfig(readonlyConfig);
+            ReadonlyConfig readonlyConfig, CatalogTable catalogTableFromConfig) {
+        return new LocalFileSourceConfig(readonlyConfig, catalogTableFromConfig);
     }
 }
