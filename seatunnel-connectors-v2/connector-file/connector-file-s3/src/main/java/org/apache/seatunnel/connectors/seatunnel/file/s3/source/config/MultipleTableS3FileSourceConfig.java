@@ -34,6 +34,6 @@ public class MultipleTableS3FileSourceConfig extends BaseMultipleTableFileSource
     @Override
     public BaseFileSourceConfig getBaseSourceConfig(
             ReadonlyConfig readonlyConfig, CatalogTable catalogTableFromConfig) {
-        return new S3FileSourceConfig(readonlyConfig);
+        return new S3FileSourceConfig(readonlyConfig, catalogTableFromConfig);
     }
 }
