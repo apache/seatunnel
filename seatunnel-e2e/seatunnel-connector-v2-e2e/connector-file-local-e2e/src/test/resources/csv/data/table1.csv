@@ -1,0 +1,6 @@
+c_null,c_string,c_boolean,c_tinyint,c_smallint,c_int,c_bigint,c_float,c_double,c_decimal,c_date,c_timestamp,c_time,c_bytes,c_array,c_map,c_row
+,string1,false,1,10,100,1000,1.5,2.5,12345678.90,2023-01-01,2023-01-01T12:00:00,12:00:00,YnlWWA==,"[1,2,3]","{k1=v1,k2=v2}","{c_string=inner,c_int=999}"
+,string2,true,2,20,200,2000,2.5,3.5,23456789.01,2023-01-02,2023-01-02T13:00:00,13:00:00,YnlWWg==,"[4,5,6]","{k3=v3,k4=v4}","{c_string=inner2,c_int=888}"
+,string3,false,3,30,300,3000,3.5,4.5,34567890.12,2023-01-03,2023-01-03T14:00:00,14:00:00,YnlWWw==,"[7,8,9]","{k5=v5,k6=v6}","{c_string=inner3,c_int=777}"
+,string4,true,4,40,400,4000,4.5,5.5,45678901.23,2023-01-04,2023-01-04T15:00:00,15:00:00,YnlWWA==,"[10,11,12]","{k7=v7,k8=v8}","{c_string=inner4,c_int=666}"
+,string5,false,5,50,500,5000,5.5,6.5,56789012.34,2023-01-05,2023-01-05T16:00:00,16:00:00,YnlWXQ==,"[13,14,15]","{k9=v9,k10=v10}","{c_string=inner5,c_int=555}"
