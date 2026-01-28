@@ -23,12 +23,15 @@ import lombok.Getter;
 import lombok.Setter;
 import lombok.ToString;
 
+import java.io.Serializable;
 import java.util.Properties;
 
 @Setter
 @Getter
 @ToString
-public class SelectDBConfig {
+public class SelectDBConfig implements Serializable {
+
+    private static final long serialVersionUID = 1L;
 
     private String loadUrl;
     private String jdbcUrl;
