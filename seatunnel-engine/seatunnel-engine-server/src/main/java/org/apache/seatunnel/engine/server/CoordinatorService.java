@@ -108,6 +108,7 @@ import java.util.stream.Collectors;
 import static org.apache.seatunnel.engine.server.metrics.JobMetricsUtil.toJobMetricsMap;
 
 public class CoordinatorService {
+    private static final int PENDING_JOB_RESCHEDULE_THRESHOLD = 3;
     private final NodeEngineImpl nodeEngine;
     private final ILogger logger;
 
@@ -283,6 +284,12 @@ public class CoordinatorService {
                             "Current strategy is %s, and resources is not enough, skipping this schedule, JobID: %s",
                             scheduleStrategy, jobId));
             if (isWaitStrategy) {
+                int checkTimes = pendingJobInfo.getCheckTimes();
+                if (pendingJobQueue.size() > 1
+                        && checkTimes > 0
+                        && checkTimes % PENDING_JOB_RESCHEDULE_THRESHOLD == 0) {
+                    pendingJobQueue.moveToTail(jobId);
+                }
                 try {
                     Thread.sleep(3000);
                 } catch (InterruptedException e) {

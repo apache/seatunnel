@@ -124,6 +124,32 @@ public class PeekBlockingQueue<E> {
         }
     }
 
+    public boolean moveToTail(Long jobId) {
+        lock.lock();
+        try {
+            E element = jobIdMap.get(jobId);
+            if (element == null) {
+                return false;
+            }
+            E head = queue.peek();
+            if (head == null || !head.equals(element)) {
+                return false;
+            }
+            if (!queue.remove(element)) {
+                return false;
+            }
+            queue.put(element);
+            notEmpty.signalAll();
+            return true;
+        } catch (InterruptedException e) {
+            log.error("Move element to tail failed. {}", ExceptionUtils.getMessage(e));
+            Thread.currentThread().interrupt();
+            return false;
+        } finally {
+            lock.unlock();
+        }
+    }
+
     public boolean contains(Long jobId) {
         return jobIdMap.containsKey(jobId);
     }

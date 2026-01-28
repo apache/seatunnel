@@ -48,6 +48,9 @@ import com.hazelcast.instance.impl.HazelcastInstanceImpl;
 import lombok.SneakyThrows;
 import lombok.extern.slf4j.Slf4j;
 
+import java.nio.charset.StandardCharsets;
+import java.nio.file.Files;
+import java.nio.file.Path;
 import java.util.Map;
 import java.util.Set;
 import java.util.UUID;
@@ -321,6 +324,99 @@ public class SeaTunnelEngineClusterRoleTest {
         }
     }
 
+    @SneakyThrows
+    @Test
+    public void pendingQueueRescheduleAllowsLaterJobRun() {
+        HazelcastInstanceImpl masterNode = null;
+        HazelcastInstanceImpl workerNode = null;
+        String testClusterName = "Test_pendingQueueRescheduleAllowsLaterJobRun";
+        SeaTunnelClient seaTunnelClient = null;
+
+        SeaTunnelConfig seaTunnelConfig = ConfigProvider.locateAndGetSeaTunnelConfig();
+        EngineConfig engineConfig = seaTunnelConfig.getEngineConfig();
+        engineConfig.setScheduleStrategy(ScheduleStrategy.WAIT);
+        engineConfig.getSlotServiceConfig().setDynamicSlot(false);
+        engineConfig.getSlotServiceConfig().setSlotNum(3);
+        seaTunnelConfig
+                .getHazelcastConfig()
+                .setClusterName(ContentFormatUtilTest.getClusterName(testClusterName));
+
+        Common.setDeployMode(DeployMode.CLIENT);
+        String pendingJobFile = createTempJobConfig(4);
+        String smallJobFile = createTempJobConfig(1);
+        JobConfig pendingJobConfig = new JobConfig();
+        pendingJobConfig.setName("Test_pendingQueueRescheduleAllowsLaterJobRun_pending");
+        JobConfig smallJobConfig = new JobConfig();
+        smallJobConfig.setName("Test_pendingQueueRescheduleAllowsLaterJobRun_small");
+
+        try {
+            masterNode = SeaTunnelServerStarter.createMasterHazelcastInstance(seaTunnelConfig);
+
+            HazelcastInstanceImpl finalMasterNode = masterNode;
+            Awaitility.await()
+                    .atMost(10000, TimeUnit.MILLISECONDS)
+                    .untilAsserted(
+                            () ->
+                                    Assertions.assertEquals(
+                                            1, finalMasterNode.getCluster().getMembers().size()));
+
+            workerNode = SeaTunnelServerStarter.createWorkerHazelcastInstance(seaTunnelConfig);
+            HazelcastInstanceImpl finalWorkerNode = workerNode;
+            Awaitility.await()
+                    .atMost(10000, TimeUnit.MILLISECONDS)
+                    .untilAsserted(
+                            () ->
+                                    Assertions.assertEquals(
+                                            2, finalWorkerNode.getCluster().getMembers().size()));
+
+            seaTunnelClient = createSeaTunnelClient(testClusterName);
+            ClientJobProxy pendingJobProxy =
+                    seaTunnelClient
+                            .createExecutionContext(
+                                    pendingJobFile, pendingJobConfig, seaTunnelConfig)
+                            .execute();
+            ClientJobProxy smallJobProxy =
+                    seaTunnelClient
+                            .createExecutionContext(smallJobFile, smallJobConfig, seaTunnelConfig)
+                            .execute();
+
+            Awaitility.await()
+                    .atMost(10000, TimeUnit.MILLISECONDS)
+                    .untilAsserted(
+                            () ->
+                                    Assertions.assertEquals(
+                                            JobStatus.PENDING, pendingJobProxy.getJobStatus()));
+
+            Awaitility.await()
+                    .atMost(90000, TimeUnit.MILLISECONDS)
+                    .untilAsserted(
+                            () ->
+                                    Assertions.assertEquals(
+                                            JobStatus.FINISHED, smallJobProxy.getJobStatus()));
+
+            seaTunnelClient.getJobClient().cancelJob(pendingJobProxy.getJobId());
+            Awaitility.await()
+                    .atMost(60000, TimeUnit.MILLISECONDS)
+                    .untilAsserted(
+                            () ->
+                                    Assertions.assertEquals(
+                                            JobStatus.CANCELED, pendingJobProxy.getJobStatus()));
+
+        } catch (ExecutionException | InterruptedException e) {
+            throw new RuntimeException(e);
+        } finally {
+            if (seaTunnelClient != null) {
+                seaTunnelClient.close();
+            }
+            if (workerNode != null) {
+                workerNode.shutdown();
+            }
+            if (masterNode != null) {
+                masterNode.shutdown();
+            }
+        }
+    }
+
     @Test
     public void testStartMasterNodeWithTcpIp() {
         SeaTunnelConfig seaTunnelConfig = ConfigProvider.locateAndGetSeaTunnelConfig();
@@ -500,5 +596,42 @@ public class SeaTunnelEngineClusterRoleTest {
         ClientConfig clientConfig = ConfigProvider.locateAndGetClientConfig();
         clientConfig.setClusterName(ContentFormatUtilTest.getClusterName(clusterName));
         return new SeaTunnelClient(clientConfig);
+    }
+
+    private String createTempJobConfig(int parallelism) throws Exception {
+        String content =
+                "env {\n"
+                        + "  parallelism = "
+                        + parallelism
+                        + "\n"
+                        + "  job.mode = \"BATCH\"\n"
+                        + "}\n"
+                        + "\n"
+                        + "source {\n"
+                        + "  FakeSource {\n"
+                        + "    plugin_output = \"fake\"\n"
+                        + "    parallelism = "
+                        + parallelism
+                        + "\n"
+                        + "    schema = {\n"
+                        + "      fields {\n"
+                        + "        name = \"string\"\n"
+                        + "        age = \"int\"\n"
+                        + "      }\n"
+                        + "    }\n"
+                        + "  }\n"
+                        + "}\n"
+                        + "\n"
+                        + "transform {\n"
+                        + "}\n"
+                        + "\n"
+                        + "sink {\n"
+                        + "  console {\n"
+                        + "    plugin_input=\"fake\"\n"
+                        + "  }\n"
+                        + "}\n";
+        Path tempFile = Files.createTempFile("seatunnel_pending_job_", ".conf");
+        Files.write(tempFile, content.getBytes(StandardCharsets.UTF_8));
+        return tempFile.toString();
     }
 }

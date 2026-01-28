@@ -123,4 +123,16 @@ public class PeekBlockingQueueTest {
         queue.clear();
         Assertions.assertEquals(0, queue.size());
     }
+
+    @Test
+    public void testMoveToTail() throws InterruptedException {
+        queue.put("1");
+        queue.put("2");
+        queue.put("3");
+        Assertions.assertTrue(queue.moveToTail(1L));
+        Assertions.assertEquals("2", queue.peekBlocking());
+        Assertions.assertEquals("2", queue.take());
+        Assertions.assertEquals("3", queue.take());
+        Assertions.assertEquals("1", queue.take());
+    }
 }
