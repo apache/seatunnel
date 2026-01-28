@@ -17,6 +17,15 @@
 
 package org.apache.seatunnel.connectors.seatunnel.file.source.reader;
 
+import org.apache.seatunnel.shade.com.typesafe.config.Config;
+import org.apache.seatunnel.shade.com.typesafe.config.ConfigFactory;
+
+import org.apache.seatunnel.api.table.catalog.CatalogTable;
+import org.apache.seatunnel.api.table.catalog.CatalogTableUtil;
+import org.apache.seatunnel.api.table.type.BasicType;
+import org.apache.seatunnel.api.table.type.SeaTunnelDataType;
+import org.apache.seatunnel.api.table.type.SeaTunnelRowType;
+import org.apache.seatunnel.connectors.seatunnel.file.config.FileBaseSourceOptions;
 import org.apache.seatunnel.connectors.seatunnel.file.writer.ParquetReadStrategyTest;
 
 import org.apache.avro.Schema;
@@ -40,7 +49,9 @@ import java.io.File;
 import java.io.IOException;
 import java.text.SimpleDateFormat;
 import java.util.Date;
+import java.util.HashMap;
 import java.util.List;
+import java.util.Map;
 
 import static org.apache.hadoop.fs.CommonConfigurationKeysPublic.FS_DEFAULT_NAME_DEFAULT;
 
@@ -226,5 +237,87 @@ public class AbstractReadStrategyTest {
             boolean result = strategy.filterFileByModificationDate(fileStatus);
             Assertions.assertTrue(result);
         }
+    }
+
+    @Test
+    public void testSetCatalogTableShouldNotThrowWhenFileListIsEmpty() {
+        Config pluginConfig = ConfigFactory.parseMap(buildBasePluginConfigWithPartitions());
+        CatalogTable catalogTable = buildCatalogTable();
+
+        Assertions.assertAll(
+                () -> {
+                    try (ReadStrategy strategy = new TextReadStrategy()) {
+                        assertSetCatalogTableWithEmptyFileNames(
+                                strategy, pluginConfig, catalogTable);
+                    }
+                },
+                () -> {
+                    try (ReadStrategy strategy = new CsvReadStrategy()) {
+                        assertSetCatalogTableWithEmptyFileNames(
+                                strategy, pluginConfig, catalogTable);
+                    }
+                },
+                () -> {
+                    try (ReadStrategy strategy = new ExcelReadStrategy()) {
+                        assertSetCatalogTableWithEmptyFileNames(
+                                strategy, pluginConfig, catalogTable);
+                    }
+                },
+                () -> {
+                    try (ReadStrategy strategy = new XmlReadStrategy()) {
+                        assertSetCatalogTableWithEmptyFileNames(
+                                strategy, pluginConfig, catalogTable);
+                    }
+                },
+                () -> {
+                    try (ReadStrategy strategy = new JsonReadStrategy()) {
+                        assertSetCatalogTableWithEmptyFileNames(
+                                strategy, pluginConfig, catalogTable);
+                    }
+                });
+    }
+
+    @Test
+    public void testGetSeaTunnelRowTypeInfoShouldNotThrowWhenFileListIsEmpty() throws Exception {
+        Config pluginConfig = ConfigFactory.parseMap(buildBasePluginConfigWithPartitions());
+
+        try (TextReadStrategy textReadStrategy = new TextReadStrategy()) {
+            textReadStrategy.setPluginConfig(pluginConfig);
+            SeaTunnelRowType textRowType =
+                    Assertions.assertDoesNotThrow(
+                            () -> textReadStrategy.getSeaTunnelRowTypeInfo("/tmp/dt=2024-01-01"));
+            Assertions.assertEquals(
+                    "dt", textRowType.getFieldNames()[textRowType.getTotalFields() - 1]);
+        }
+
+        try (CsvReadStrategy csvReadStrategy = new CsvReadStrategy()) {
+            csvReadStrategy.setPluginConfig(pluginConfig);
+            SeaTunnelRowType csvRowType =
+                    Assertions.assertDoesNotThrow(
+                            () -> csvReadStrategy.getSeaTunnelRowTypeInfo("/tmp/dt=2024-01-01"));
+            Assertions.assertEquals(
+                    "dt", csvRowType.getFieldNames()[csvRowType.getTotalFields() - 1]);
+        }
+    }
+
+    private static Map<String, Object> buildBasePluginConfigWithPartitions() {
+        Map<String, Object> config = new HashMap<>();
+        config.put(FileBaseSourceOptions.FILE_PATH.key(), "/tmp/dt=2024-01-01");
+        return config;
+    }
+
+    private static CatalogTable buildCatalogTable() {
+        SeaTunnelRowType rowType =
+                new SeaTunnelRowType(
+                        new String[] {"id"}, new SeaTunnelDataType[] {BasicType.INT_TYPE});
+        return CatalogTableUtil.getCatalogTable("test", rowType);
+    }
+
+    private static void assertSetCatalogTableWithEmptyFileNames(
+            ReadStrategy readStrategy, Config pluginConfig, CatalogTable catalogTable) {
+        readStrategy.setPluginConfig(pluginConfig);
+        Assertions.assertDoesNotThrow(() -> readStrategy.setCatalogTable(catalogTable));
+        SeaTunnelRowType actualRowType = readStrategy.getActualSeaTunnelRowTypeInfo();
+        Assertions.assertArrayEquals(new String[] {"id", "dt"}, actualRowType.getFieldNames());
     }
 }

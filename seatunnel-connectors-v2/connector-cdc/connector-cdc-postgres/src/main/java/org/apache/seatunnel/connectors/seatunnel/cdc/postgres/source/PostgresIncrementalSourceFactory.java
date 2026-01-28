@@ -32,7 +32,7 @@ import org.apache.seatunnel.connectors.cdc.base.config.JdbcSourceTableConfig;
 import org.apache.seatunnel.connectors.cdc.base.option.JdbcSourceOptions;
 import org.apache.seatunnel.connectors.cdc.base.option.StartupMode;
 import org.apache.seatunnel.connectors.cdc.base.utils.CatalogTableUtils;
-import org.apache.seatunnel.connectors.seatunnel.cdc.postgres.option.PostgresOptions;
+import org.apache.seatunnel.connectors.seatunnel.cdc.postgres.config.PostgresIncrementalSourceOptions;
 import org.apache.seatunnel.connectors.seatunnel.jdbc.config.JdbcCommonOptions;
 
 import com.google.auto.service.AutoService;
@@ -47,7 +47,8 @@ import java.util.Optional;
 public class PostgresIncrementalSourceFactory implements TableSourceFactory {
     @Override
     public String factoryIdentifier() {
-        return PostgresIncrementalSource.IDENTIFIER;
+        return org.apache.seatunnel.connectors.seatunnel.cdc.postgres.source
+                .PostgresIncrementalSource.IDENTIFIER;
     }
 
     @Override
@@ -64,8 +65,8 @@ public class PostgresIncrementalSourceFactory implements TableSourceFactory {
                         JdbcSourceOptions.CONNECT_TIMEOUT_MS,
                         JdbcSourceOptions.CONNECT_MAX_RETRIES,
                         JdbcSourceOptions.CONNECTION_POOL_SIZE,
-                        PostgresOptions.DECODING_PLUGIN_NAME,
-                        PostgresOptions.SLOT_NAME,
+                        PostgresIncrementalSourceOptions.DECODING_PLUGIN_NAME,
+                        PostgresIncrementalSourceOptions.SLOT_NAME,
                         JdbcSourceOptions.CHUNK_KEY_EVEN_DISTRIBUTION_FACTOR_LOWER_BOUND,
                         JdbcSourceOptions.CHUNK_KEY_EVEN_DISTRIBUTION_FACTOR_UPPER_BOUND,
                         JdbcSourceOptions.SAMPLE_SHARDING_THRESHOLD,
@@ -80,7 +81,8 @@ public class PostgresIncrementalSourceFactory implements TableSourceFactory {
 
     @Override
     public Class<? extends SeaTunnelSource> getSourceClass() {
-        return PostgresIncrementalSource.class;
+        return org.apache.seatunnel.connectors.seatunnel.cdc.postgres.source
+                .PostgresIncrementalSource.class;
     }
 
     @Override
@@ -104,7 +106,8 @@ public class PostgresIncrementalSourceFactory implements TableSourceFactory {
                                 catalogTables, tableConfigs.get(), s -> TablePath.of(s, true));
             }
             return (SeaTunnelSource<T, SplitT, StateT>)
-                    new PostgresIncrementalSource<>(context.getOptions(), catalogTables);
+                    new org.apache.seatunnel.connectors.seatunnel.cdc.postgres.source
+                            .PostgresIncrementalSource<>(context.getOptions(), catalogTables);
         };
     }
 }

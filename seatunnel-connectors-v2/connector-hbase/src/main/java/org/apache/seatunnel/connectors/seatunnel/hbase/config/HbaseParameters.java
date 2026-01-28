@@ -46,6 +46,10 @@ public class HbaseParameters implements Serializable {
 
     private String endRowkey;
 
+    private Long startTimestamp;
+
+    private Long endTimestamp;
+
     private Map<String, String> familyNames;
 
     private String versionColumn;
@@ -154,6 +158,13 @@ public class HbaseParameters implements Serializable {
         }
         if (pluginConfig.getOptional(HbaseSourceOptions.END_ROW_INCLUSIVE).isPresent()) {
             builder.endRowInclusive(pluginConfig.get(HbaseSourceOptions.END_ROW_INCLUSIVE));
+        }
+
+        if (pluginConfig.getOptional(HbaseSourceOptions.START_TIMESTAMP).isPresent()) {
+            builder.startTimestamp(pluginConfig.get(HbaseSourceOptions.START_TIMESTAMP));
+        }
+        if (pluginConfig.getOptional(HbaseSourceOptions.END_TIMESTAMP).isPresent()) {
+            builder.endTimestamp(pluginConfig.get(HbaseSourceOptions.END_TIMESTAMP));
         }
         return builder.build();
     }

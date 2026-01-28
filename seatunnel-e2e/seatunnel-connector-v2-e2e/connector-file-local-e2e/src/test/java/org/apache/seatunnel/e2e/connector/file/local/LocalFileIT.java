@@ -370,6 +370,7 @@ public class LocalFileIT extends TestSuiteBase {
         helper.execute("/parquet/fake_to_local_file_parquet.conf");
         // test read local parquet file
         helper.execute("/parquet/local_file_parquet_to_assert.conf");
+        helper.execute("/parquet/local_file_parquet_enable_split_to_assert.conf");
         // test read local parquet file with projection
         helper.execute("/parquet/local_file_parquet_projection_to_assert.conf");
         // test read filtered local file

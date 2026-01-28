@@ -37,7 +37,7 @@ public class SqlServerUtilsTest {
                         false,
                         false);
         Assertions.assertEquals(
-                "SELECT * FROM [schema1].[table1] WHERE [id] >= ? AND NOT ([id] = ?) AND [id] <= ?",
+                "SELECT * FROM [db1].[schema1].[table1] WHERE [id] >= ? AND NOT ([id] = ?) AND [id] <= ?",
                 splitScanSQL);
 
         splitScanSQL =
@@ -47,7 +47,7 @@ public class SqlServerUtilsTest {
                                 new String[] {"id"}, new SeaTunnelDataType[] {BasicType.LONG_TYPE}),
                         true,
                         true);
-        Assertions.assertEquals("SELECT * FROM [schema1].[table1]", splitScanSQL);
+        Assertions.assertEquals("SELECT * FROM [db1].[schema1].[table1]", splitScanSQL);
 
         splitScanSQL =
                 SqlServerUtils.buildSplitScanQuery(
@@ -57,7 +57,7 @@ public class SqlServerUtilsTest {
                         true,
                         false);
         Assertions.assertEquals(
-                "SELECT * FROM [schema1].[table1] WHERE [id] <= ? AND NOT ([id] = ?)",
+                "SELECT * FROM [db1].[schema1].[table1] WHERE [id] <= ? AND NOT ([id] = ?)",
                 splitScanSQL);
 
         splitScanSQL =
@@ -67,6 +67,7 @@ public class SqlServerUtilsTest {
                                 new String[] {"id"}, new SeaTunnelDataType[] {BasicType.LONG_TYPE}),
                         false,
                         true);
-        Assertions.assertEquals("SELECT * FROM [schema1].[table1] WHERE [id] >= ?", splitScanSQL);
+        Assertions.assertEquals(
+                "SELECT * FROM [db1].[schema1].[table1] WHERE [id] >= ?", splitScanSQL);
     }
 }

@@ -22,8 +22,8 @@ import org.apache.seatunnel.api.table.catalog.TablePath;
 import org.apache.seatunnel.common.exception.CommonErrorCodeDeprecated;
 import org.apache.seatunnel.common.exception.SeaTunnelRuntimeException;
 import org.apache.seatunnel.connectors.seatunnel.file.config.FileFormat;
+import org.apache.seatunnel.connectors.seatunnel.hive.config.HiveConfig;
 import org.apache.seatunnel.connectors.seatunnel.hive.config.HiveConstants;
-import org.apache.seatunnel.connectors.seatunnel.hive.config.HiveOptions;
 import org.apache.seatunnel.connectors.seatunnel.hive.exception.HiveConnectorErrorCode;
 import org.apache.seatunnel.connectors.seatunnel.hive.exception.HiveConnectorException;
 
@@ -32,7 +32,7 @@ import org.apache.hadoop.hive.metastore.api.Table;
 public class HiveTableUtils {
 
     public static Table getTableInfo(ReadonlyConfig readonlyConfig) {
-        String table = readonlyConfig.get(HiveOptions.TABLE_NAME);
+        String table = readonlyConfig.get(HiveConfig.TABLE_NAME);
         TablePath tablePath = TablePath.of(table);
         if (tablePath.getDatabaseName() == null || tablePath.getTableName() == null) {
             throw new SeaTunnelRuntimeException(

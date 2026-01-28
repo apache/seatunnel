@@ -432,10 +432,13 @@ public class SqlServerCDCIT extends TestSuiteBase implements TestResource {
         Assertions.assertNotNull(ddlTestFile, "Cannot locate " + ddlFile);
         try (Connection connection = getJdbcConnection();
                 Statement statement = connection.createStatement()) {
-            dropTestDatabase(connection, sqlFile);
+            List<String> ddlLines = Files.readAllLines(Paths.get(ddlTestFile.toURI()));
+            String ddlContent = String.join("\n", ddlLines);
+            String actualDatabaseName = extractDatabaseName(ddlContent);
+            dropTestDatabase(connection, actualDatabaseName);
             final List<String> statements =
                     Arrays.stream(
-                                    Files.readAllLines(Paths.get(ddlTestFile.toURI())).stream()
+                                    ddlLines.stream()
                                             .map(String::trim)
                                             .filter(x -> !x.startsWith("--") && !x.isEmpty())
                                             .map(
@@ -453,6 +456,17 @@ public class SqlServerCDCIT extends TestSuiteBase implements TestResource {
         } catch (Exception e) {
             throw new RuntimeException(e);
         }
+    }
+
+    private String extractDatabaseName(String ddlContent) {
+        Pattern createDbPattern =
+                Pattern.compile(
+                        "CREATE\\s+DATABASE\\s+\\[?([^\\s\\];]+)\\]?", Pattern.CASE_INSENSITIVE);
+        Matcher matcher = createDbPattern.matcher(ddlContent);
+        if (matcher.find()) {
+            return matcher.group(1);
+        }
+        return null;
     }
 
     private void updateSourceTable(String table) {
@@ -586,5 +600,43 @@ public class SqlServerCDCIT extends TestSuiteBase implements TestResource {
     protected static void disableDbCdc(Connection connection, String name) throws SQLException {
         Objects.requireNonNull(name);
         connection.createStatement().execute(DISABLE_DB_CDC.replace(STATEMENTS_PLACEHOLDER, name));
+    }
+
+    @TestTemplate
+    public void testDatabaseNameWithSpecialCharacters(TestContainer container) {
+        initializeSqlServerTable("test_db_name");
+
+        CompletableFuture<Void> executeJobFuture =
+                CompletableFuture.supplyAsync(
+                        () -> {
+                            try {
+                                container.executeJob("/sqlservercdc_special_db_name.conf");
+                            } catch (Exception e) {
+                                throw new RuntimeException(e);
+                            }
+                            return null;
+                        });
+
+        String sourceTable = "[test-db-name].dbo.simple_table";
+        String sinkTable = "[test-db-name].dbo.simple_table_sink";
+        String selectSql = "select id, name, value from %s order by id asc";
+
+        await().atMost(60000, TimeUnit.MILLISECONDS)
+                .untilAsserted(
+                        () -> {
+                            Assertions.assertIterableEquals(
+                                    querySql(selectSql, sourceTable),
+                                    querySql(selectSql, sinkTable));
+                        });
+
+        executeSql("INSERT INTO [test-db-name].dbo.simple_table VALUES (4, 'test4', 400)");
+
+        await().atMost(60000, TimeUnit.MILLISECONDS)
+                .untilAsserted(
+                        () -> {
+                            Assertions.assertIterableEquals(
+                                    querySql(selectSql, sourceTable),
+                                    querySql(selectSql, sinkTable));
+                        });
     }
 }
