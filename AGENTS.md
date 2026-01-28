@@ -79,7 +79,6 @@ seatunnel/
 
 * **Formatting**: Google Java Format (AOSP style), enforced by Spotless
 * **Imports**:
-
     * No wildcard imports
     * Use shaded dependencies: `org.apache.seatunnel.shade.*`
 * **Nullability**: Avoid implicit null assumptions
@@ -119,6 +118,7 @@ Agents MUST treat backward compatibility as a **hard constraint**.
 Any incompatible change MUST:
 
 * Be explicitly documented
+* Be documented in `docs/en/introduction/concepts/incompatible-changes.md`
 * Include migration guidance
 * Be clearly explained in the PR description
 
@@ -127,7 +127,6 @@ Any incompatible change MUST:
 * DO NOT introduce new dependencies unless absolutely necessary
 * Prefer existing shaded dependencies under `org.apache.seatunnel.shade.*`
 * Any new dependency MUST:
-
     * Be justified in the PR description
     * Consider shading, size, and conflict risks
 
@@ -152,7 +151,6 @@ Respect task boundaries and lifecycle semantics.
 
 * All user-facing configs MUST be defined using `Option`
 * Each option MUST include:
-
     * name
     * type
     * default value (if applicable)
@@ -164,7 +162,6 @@ Respect task boundaries and lifecycle semantics.
 * Exceptions MUST include sufficient context (table, task, config key)
 * Avoid swallowing exceptions
 * Use proper log levels:
-
     * INFO  – lifecycle events
     * WARN  – recoverable issues
     * ERROR – task-failing errors
