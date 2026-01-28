@@ -117,11 +117,44 @@ class IncrementalSourceSplitReaderTest {
         Mockito.verify(fetcher, Mockito.times(2)).pollSplitRecords();
     }
 
+    @Test
+    void testCloseClearsState() throws Exception {
+        DataSourceDialect<SourceConfig> dialect = Mockito.mock(DataSourceDialect.class);
+        SourceConfig config = Mockito.mock(SourceConfig.class);
+        SchemaChangeResolver resolver = Mockito.mock(SchemaChangeResolver.class);
+
+        IncrementalSourceSplitReader<SourceConfig> reader =
+                new IncrementalSourceSplitReader<SourceConfig>(0, dialect, config, resolver) {
+                    @Override
+                    protected void checkSplitOrStartNext() {}
+                };
+
+        @SuppressWarnings("unchecked")
+        Fetcher<SourceRecords, SourceSplitBase> fetcher = Mockito.mock(Fetcher.class);
+
+        setField(reader, "currentFetcher", fetcher);
+        setField(reader, "currentSplitId", "split-1");
+        setField(reader, "emittedFinishedSplitId", "split-1");
+
+        reader.close();
+
+        Assertions.assertNull(getField(reader, "currentSplitId"));
+        Assertions.assertNull(getField(reader, "emittedFinishedSplitId"));
+        Mockito.verify(fetcher, Mockito.times(1)).close();
+    }
+
     private static void setField(
             IncrementalSourceSplitReader<?> reader, String fieldName, Object value)
             throws Exception {
         Field field = IncrementalSourceSplitReader.class.getDeclaredField(fieldName);
         field.setAccessible(true);
         field.set(reader, value);
+    }
+
+    private static Object getField(IncrementalSourceSplitReader<?> reader, String fieldName)
+            throws Exception {
+        Field field = IncrementalSourceSplitReader.class.getDeclaredField(fieldName);
+        field.setAccessible(true);
+        return field.get(reader);
     }
 }
