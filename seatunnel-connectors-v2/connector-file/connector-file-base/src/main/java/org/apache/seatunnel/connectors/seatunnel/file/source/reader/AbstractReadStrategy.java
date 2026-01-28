@@ -136,7 +136,7 @@ public abstract class AbstractReadStrategy implements ReadStrategy {
     public void setCatalogTable(CatalogTable catalogTable) {
         this.seaTunnelRowType = catalogTable.getSeaTunnelRowType();
         this.seaTunnelRowTypeWithPartition =
-                mergePartitionTypes(fileNames.get(0), catalogTable.getSeaTunnelRowType());
+                mergePartitionTypes(getPathForPartitionInference(null), this.seaTunnelRowType);
     }
 
     boolean checkFileType(String path) {
@@ -427,11 +427,24 @@ public abstract class AbstractReadStrategy implements ReadStrategy {
 
     protected Map<String, String> parsePartitionsByPath(String path) {
         LinkedHashMap<String, String> partitions = new LinkedHashMap<>();
+        if (StringUtils.isBlank(path)) {
+            return partitions;
+        }
         Arrays.stream(path.split("/", -1))
                 .filter(split -> split.contains("="))
                 .map(split -> split.split("=", -1))
                 .forEach(kv -> partitions.put(kv[0], kv[1]));
         return partitions;
+    }
+
+    protected String getPathForPartitionInference(String fallbackPath) {
+        if (!fileNames.isEmpty()) {
+            return fileNames.get(0);
+        }
+        if (StringUtils.isNotBlank(fallbackPath)) {
+            return fallbackPath;
+        }
+        return sourceRootPath;
     }
 
     protected SeaTunnelRowType mergePartitionTypes(String path, SeaTunnelRowType seaTunnelRowType) {

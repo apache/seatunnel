@@ -332,7 +332,7 @@ Only need to be configured when the file_format_type are text, json, excel, xml 
 
 #### fields [Config]
 
-The schema of upstream data.
+The schema of upstream data. For more details, please refer to [Schema Feature](../../introduction/concepts/schema-feature.md).
 
 ## How to Create a Oss Data Synchronization Jobs
 

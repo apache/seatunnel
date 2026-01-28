@@ -26,7 +26,7 @@ import ChangeLog from '../changelog/connector-qdrant.md';
 
 ### schema [config]
 
-要将数据读取到的表的模式。
+要将数据读取到的表的模式。更多详情请参考 [Schema 特性](../../introduction/concepts/schema-feature.md)。
 
 例如：
 

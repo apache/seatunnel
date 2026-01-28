@@ -42,6 +42,7 @@ import java.net.URISyntaxException;
 import java.net.URL;
 import java.nio.file.Paths;
 import java.util.ArrayList;
+import java.util.Arrays;
 import java.util.List;
 
 import static org.apache.seatunnel.common.constants.CollectionConstants.PLUGIN_NAME;
@@ -188,6 +189,15 @@ public class CatalogTableUtilTest {
         SeaTunnelRowType mapType1ValType =
                 (SeaTunnelRowType) ((SeaTunnelDataType<?>) mapType1.getValueType());
         Assertions.assertEquals(expectedVal, mapType1ValType);
+    }
+
+    @Test
+    public void testPartitionKeysInSchemaConfig() throws FileNotFoundException, URISyntaxException {
+        String path = getTestConfigFile("/conf/partition_keys.schema.conf");
+        Config config = ConfigFactory.parseFile(new File(path));
+        CatalogTable catalogTable = CatalogTableUtil.buildWithConfig(config);
+        Assertions.assertEquals(
+                Arrays.asList("bucket(id, 16)", "dt"), catalogTable.getPartitionKeys());
     }
 
     public static String getTestConfigFile(String configFile)

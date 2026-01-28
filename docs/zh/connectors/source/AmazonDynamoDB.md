@@ -55,7 +55,7 @@ Amazon DynamoDB 的表名.
 
 #### fields [config]
 
-Amazon Dynamodb是一个支持键值存储和文档数据结构的NOSQL数据库服务，无法获取数据类型。因此，我们必须配置模式.
+Amazon Dynamodb是一个支持键值存储和文档数据结构的NOSQL数据库服务，无法获取数据类型。因此，我们必须配置模式。更多详情请参考 [Schema 特性](../../introduction/concepts/schema-feature.md)。
 
 例如:
 
