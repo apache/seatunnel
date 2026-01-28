@@ -39,12 +39,13 @@ public interface TableSchemaOptions {
                     .type(new TypeReference<List<Map<String, Object>>>() {})
                     .noDefaultValue()
                     .withDescription(
-                            "SeaTunnel Multi Table Schema, acts on unstructed data sources. "
-                                    + "such as file, assert, mongodb, etc");
+                            "SeaTunnel Multi Table Schema, acts on structured and unstructured data sources. "
+                                    + "such as file, assert, mongodb, jdbc, paimon, doris, etc");
 
     Option<MetaLakeType> METALAKE_TYPE =
             Options.key("metalake_type")
                     .enumType(MetaLakeType.class)
                     .defaultValue(MetaLakeType.GRAVITINO)
                     .withDescription("Metadata lake type, for example: gravitino");
+
 }
