@@ -38,12 +38,11 @@ public class WALLSMWriter extends WALWriter {
             Serializer serializer,
             Map<String, Object> config)
             throws IOException {
-        super(fs, fileConfiguration, parentPath, serializer);
-        this.writer = DiscoveryWalFileFactory.getLSMWriter(fileConfiguration.getName(), config);
-        this.writer.setBlockSize(fileConfiguration.getConfiguration().getBlockSize());
-        this.writer.initialize(fs, parentPath, serializer);
+        super(DiscoveryWalFileFactory.getLSMWriter(fileConfiguration.getName(), config));
+        init(fs, fileConfiguration, parentPath, serializer);
     }
 
+    @Override
     public void compaction() throws IOException {
         this.writer.compaction(false);
     }

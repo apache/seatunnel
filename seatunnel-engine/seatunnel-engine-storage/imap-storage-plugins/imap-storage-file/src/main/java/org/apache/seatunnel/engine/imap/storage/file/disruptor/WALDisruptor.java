@@ -21,7 +21,6 @@
 package org.apache.seatunnel.engine.imap.storage.file.disruptor;
 
 import org.apache.seatunnel.engine.imap.storage.api.exception.IMapStorageException;
-import org.apache.seatunnel.engine.imap.storage.file.bean.IMapFileData;
 import org.apache.seatunnel.engine.imap.storage.file.config.FileConfiguration;
 import org.apache.seatunnel.engine.serializer.api.Serializer;
 
@@ -59,20 +58,6 @@ public class WALDisruptor extends AbstractWALDisruptor {
                 new WALWorkHandler(fs, fileConfiguration, parentPath, serializer));
 
         disruptor.start();
-    }
-
-    @Override
-    public boolean tryPublish(IMapFileData message, WALEventType status, long requestId) {
-        if (isClosed()) {
-            return false;
-        }
-        disruptor.getRingBuffer().publishEvent(TRANSLATOR, message, status, requestId);
-        return true;
-    }
-
-    @Override
-    public boolean tryAppendPublish(IMapFileData message, long requestId) {
-        return this.tryPublish(message, WALEventType.APPEND, requestId);
     }
 
     @Override

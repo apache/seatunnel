@@ -103,7 +103,6 @@ class LSMWriterTest {
         config.put(FileConstants.FileInitProperties.COMPACTION_THRESHOLD, 100L);
         config.put(FileConstants.FileInitProperties.MAX_SINGLE_FILE_SIZE, 200L);
         config.put(FileConstants.FileInitProperties.COMPACTION_BATCH_SIZE, 300L);
-        config.put(FileConstants.FileInitProperties.COMPACTION_INTERVAL, 400L);
 
         AbstractLSMWriter writer =
                 new HdfsLSMWriter(config); // can be any AbstractLSMWriter implementation
@@ -111,7 +110,6 @@ class LSMWriterTest {
         Assertions.assertEquals(100L, writer.compactionThreshold);
         Assertions.assertEquals(200L, writer.maxSingleFileSize);
         Assertions.assertEquals(300L, writer.compactionBatchSize);
-        Assertions.assertEquals(400L, writer.compactionInterval);
     }
 
     @ParameterizedTest

@@ -21,7 +21,7 @@
 package org.apache.seatunnel.engine.imap.storage.file.disruptor;
 
 import org.apache.seatunnel.engine.imap.storage.api.exception.IMapStorageException;
-import org.apache.seatunnel.engine.imap.storage.file.bean.IMapFileData;
+import org.apache.seatunnel.engine.imap.storage.file.common.FileConstants;
 import org.apache.seatunnel.engine.imap.storage.file.common.WALLSMWriter;
 import org.apache.seatunnel.engine.imap.storage.file.common.WALWriter;
 import org.apache.seatunnel.engine.imap.storage.file.config.FileConfiguration;
@@ -40,19 +40,25 @@ import lombok.extern.slf4j.Slf4j;
 
 import java.io.IOException;
 import java.util.Map;
+import java.util.concurrent.Executors;
+import java.util.concurrent.ScheduledExecutorService;
 import java.util.concurrent.ThreadFactory;
 import java.util.concurrent.TimeUnit;
 
+import static org.apache.seatunnel.engine.imap.storage.file.common.FileConstants.asLong;
+import static org.apache.seatunnel.engine.imap.storage.file.common.FileConstants.checkLongPositive;
+
 @Slf4j
 public class WALCompactionDisruptor extends AbstractWALDisruptor {
-    private static final EventTranslatorOneArg<FileWALEvent, WALEventType> COMPACTION_TRANSLATOR =
-            (event, sequence, status) -> {
-                event.setData(null);
-                event.setType(status);
-                event.setRequestId(0L);
-            };
+    private final ScheduledExecutorService compactionScheduler =
+            Executors.newSingleThreadScheduledExecutor(
+                    r -> {
+                        Thread t = new Thread(r, "wal-compaction");
+                        t.setDaemon(true);
+                        return t;
+                    });
 
-    private Disruptor<FileWALEvent> compactionDisruptor;
+    private long compactionInterval = 60L * 1000;
 
     public WALCompactionDisruptor(
             FileSystem fs,
@@ -83,43 +89,49 @@ public class WALCompactionDisruptor extends AbstractWALDisruptor {
 
         disruptor.start();
 
-        this.compactionDisruptor =
-                new Disruptor<>(
-                        FileWALEvent.FACTORY,
-                        DEFAULT_RING_BUFFER_SIZE,
-                        threadFactory,
-                        ProducerType.SINGLE,
-                        new BlockingWaitStrategy());
+        long interval =
+                asLong(
+                        config.get(FileConstants.FileInitProperties.COMPACTION_INTERVAL),
+                        this.compactionInterval);
+        checkLongPositive(FileConstants.FileInitProperties.COMPACTION_INTERVAL, interval);
+        this.compactionInterval = interval;
 
-        compactionDisruptor.handleEventsWithWorkerPool(
-                new WALCompactionWorkHandler((WALLSMWriter) writer));
-
-        compactionDisruptor.start();
-    }
-
-    @Override
-    public boolean tryPublish(IMapFileData message, WALEventType status, long requestId) {
-        if (isClosed()) {
-            return false;
-        }
-        disruptor.getRingBuffer().publishEvent(TRANSLATOR, message, status, requestId);
-        compactionDisruptor.getRingBuffer().publishEvent(COMPACTION_TRANSLATOR, status);
-        return true;
-    }
-
-    @Override
-    public boolean tryAppendPublish(IMapFileData message, long requestId) {
-        return this.tryPublish(message, WALEventType.APPEND, requestId);
+        compactionScheduler.scheduleWithFixedDelay(
+                () -> {
+                    try {
+                        writer.compaction();
+                    } catch (Exception e) {
+                        log.error("Compaction failed", e);
+                    }
+                },
+                compactionInterval,
+                compactionInterval,
+                TimeUnit.MILLISECONDS);
     }
 
     @Override
     public void close() throws IOException {
-        // we can wait for 5 seconds, so that backlog can be committed
+        // we can wait for 10 seconds, so that backlog can be committed
         try {
             tryPublish(null, WALEventType.CLOSED, 0L);
             isClosed = true;
+
             disruptor.shutdown(DEFAULT_CLOSE_WAIT_TIME_SECONDS, TimeUnit.SECONDS);
-            compactionDisruptor.shutdown(DEFAULT_CLOSE_WAIT_TIME_SECONDS, TimeUnit.SECONDS);
+
+            compactionScheduler.shutdown();
+            try {
+                if (!compactionScheduler.awaitTermination(
+                        DEFAULT_CLOSE_WAIT_TIME_SECONDS, TimeUnit.SECONDS)) {
+                    log.warn(
+                            "Compaction scheduler did not terminate in 5 seconds, forcing shutdown");
+                    compactionScheduler.shutdownNow();
+                }
+            } catch (InterruptedException ie) {
+                Thread.currentThread().interrupt();
+                log.warn("Compaction scheduler termination interrupted, forcing shutdown", ie);
+                compactionScheduler.shutdownNow();
+            }
+
         } catch (TimeoutException e) {
             log.error("WALCompactionDisruptor close timeout error", e);
             throw new IMapStorageException("WALCompactionDisruptor close timeout error", e);

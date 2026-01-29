@@ -41,13 +41,30 @@ public class WALWriter implements AutoCloseable {
             Path parentPath,
             Serializer serializer)
             throws IOException {
-        this.writer = DiscoveryWalFileFactory.getWriter(fileConfiguration.getName());
+        this(DiscoveryWalFileFactory.getWriter(fileConfiguration.getName()));
+        init(fs, fileConfiguration, parentPath, serializer);
+    }
+
+    protected WALWriter(IFileWriter writer) {
+        this.writer = writer;
+    }
+
+    protected void init(
+            FileSystem fs,
+            FileConfiguration fileConfiguration,
+            Path parentPath,
+            Serializer serializer)
+            throws IOException {
         this.writer.setBlockSize(fileConfiguration.getConfiguration().getBlockSize());
         this.writer.initialize(fs, parentPath, serializer);
     }
 
     public void write(IMapFileData data) throws IOException {
         this.writer.write(data, false);
+    }
+
+    public void compaction() throws IOException {
+        // default no-op
     }
 
     @Override

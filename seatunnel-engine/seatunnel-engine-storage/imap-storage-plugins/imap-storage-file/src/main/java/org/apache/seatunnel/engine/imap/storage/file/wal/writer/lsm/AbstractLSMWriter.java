@@ -48,6 +48,9 @@ import java.util.concurrent.BlockingQueue;
 import java.util.concurrent.PriorityBlockingQueue;
 import java.util.concurrent.atomic.AtomicLong;
 
+import static org.apache.seatunnel.engine.imap.storage.file.common.FileConstants.asLong;
+import static org.apache.seatunnel.engine.imap.storage.file.common.FileConstants.checkLongPositive;
+
 @Slf4j
 public abstract class AbstractLSMWriter implements IFileWriter<IMapFileData> {
 
@@ -57,7 +60,6 @@ public abstract class AbstractLSMWriter implements IFileWriter<IMapFileData> {
     protected long compactionThreshold = 512L * 1024 * 1024;
     protected long maxSingleFileSize = 16L * 1024 * 1024;
     protected long compactionBatchSize = 16L * 1024 * 1024;
-    protected long compactionInterval = 60L * 1000;
 
     protected final AtomicLong totalBytes = new AtomicLong(0);
     protected final BlockingQueue<CompactionFile> fileNames = new PriorityBlockingQueue<>();
@@ -74,35 +76,30 @@ public abstract class AbstractLSMWriter implements IFileWriter<IMapFileData> {
     protected volatile boolean isRunning = true;
 
     protected AbstractLSMWriter(Map<String, Object> config) {
-        if (config.get(FileConstants.FileInitProperties.COMPACTION_THRESHOLD) != null) {
-            long threshold =
-                    (long) config.get(FileConstants.FileInitProperties.COMPACTION_THRESHOLD);
-            if (threshold > 0) {
-                compactionThreshold = threshold;
-            }
+        long threshold =
+                asLong(
+                        config.get(FileConstants.FileInitProperties.COMPACTION_THRESHOLD),
+                        compactionThreshold);
+        checkLongPositive(FileConstants.FileInitProperties.COMPACTION_THRESHOLD, threshold);
+        this.compactionThreshold = threshold;
+
+        long maxSize =
+                asLong(
+                        config.get(FileConstants.FileInitProperties.MAX_SINGLE_FILE_SIZE),
+                        maxSingleFileSize);
+        checkLongPositive(FileConstants.FileInitProperties.MAX_SINGLE_FILE_SIZE, maxSize);
+        this.maxSingleFileSize = maxSize;
+
+        long batchSize =
+                asLong(
+                        config.get(FileConstants.FileInitProperties.COMPACTION_BATCH_SIZE),
+                        compactionBatchSize);
+        checkLongPositive(FileConstants.FileInitProperties.COMPACTION_BATCH_SIZE, batchSize);
+        if (batchSize < maxSize) {
+            throw new IllegalArgumentException(
+                    "compaction batch size must be >= max single file size");
         }
-        if (config.get(FileConstants.FileInitProperties.MAX_SINGLE_FILE_SIZE) != null) {
-            long maxSize = (long) config.get(FileConstants.FileInitProperties.MAX_SINGLE_FILE_SIZE);
-            if (maxSize > 0) {
-                maxSingleFileSize = maxSize;
-            }
-        }
-        if (config.get(FileConstants.FileInitProperties.COMPACTION_BATCH_SIZE) != null) {
-            long batchSize =
-                    (long) config.get(FileConstants.FileInitProperties.COMPACTION_BATCH_SIZE);
-            if (batchSize > 0 && batchSize >= maxSingleFileSize) {
-                compactionBatchSize = batchSize;
-            } else {
-                throw new IllegalArgumentException(
-                        "compaction batch size must be >= max single file size");
-            }
-        }
-        if (config.get(FileConstants.FileInitProperties.COMPACTION_INTERVAL) != null) {
-            long interval = (long) config.get(FileConstants.FileInitProperties.COMPACTION_INTERVAL);
-            if (interval > 0) {
-                compactionInterval = interval;
-            }
-        }
+        this.compactionBatchSize = batchSize;
     }
 
     @Override
@@ -190,12 +187,7 @@ public abstract class AbstractLSMWriter implements IFileWriter<IMapFileData> {
 
             force = false;
             if (batchSize >= compactionBatchSize) {
-                try {
-                    Thread.sleep(compactionInterval);
-                } catch (InterruptedException e) {
-                    Thread.currentThread().interrupt();
-                }
-                batchSize = 0;
+                break;
             }
         }
     }

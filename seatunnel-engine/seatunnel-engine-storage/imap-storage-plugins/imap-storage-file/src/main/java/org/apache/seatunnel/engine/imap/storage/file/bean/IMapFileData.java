@@ -20,14 +20,14 @@
 
 package org.apache.seatunnel.engine.imap.storage.file.bean;
 
+import org.apache.seatunnel.engine.imap.storage.file.common.WALDataUtils;
+
 import lombok.AllArgsConstructor;
 import lombok.Builder;
 import lombok.Data;
 import lombok.NoArgsConstructor;
 
 import java.io.Serializable;
-
-import static org.apache.hadoop.hdfs.DFSUtilClient.compareBytes;
 
 @Data
 @Builder
@@ -48,7 +48,7 @@ public class IMapFileData implements Serializable, Comparable<IMapFileData> {
 
     @Override
     public int compareTo(IMapFileData o) {
-        int keyCompare = compareBytes(this.key, o.key);
+        int keyCompare = WALDataUtils.compare(this.key, o.key);
         if (keyCompare != 0) {
             return keyCompare;
         }

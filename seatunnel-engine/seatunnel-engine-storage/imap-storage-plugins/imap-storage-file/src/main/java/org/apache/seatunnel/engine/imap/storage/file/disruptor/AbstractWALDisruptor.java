@@ -48,7 +48,15 @@ public abstract class AbstractWALDisruptor implements Closeable {
         return isClosed;
     }
 
-    public abstract boolean tryPublish(IMapFileData data, WALEventType type, long requestId);
+    public boolean tryPublish(IMapFileData message, WALEventType status, long requestId) {
+        if (isClosed()) {
+            return false;
+        }
+        disruptor.getRingBuffer().publishEvent(TRANSLATOR, message, status, requestId);
+        return true;
+    }
 
-    public abstract boolean tryAppendPublish(IMapFileData data, long requestId);
+    public boolean tryAppendPublish(IMapFileData message, long requestId) {
+        return this.tryPublish(message, WALEventType.APPEND, requestId);
+    }
 }

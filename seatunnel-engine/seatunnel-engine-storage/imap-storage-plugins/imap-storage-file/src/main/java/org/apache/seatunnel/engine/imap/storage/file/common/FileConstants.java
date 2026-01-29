@@ -76,4 +76,17 @@ public class FileConstants {
 
         String COMPACTION_INTERVAL = "compactionInterval";
     }
+
+    public static long asLong(Object v, long defaultValue) {
+        if (v == null) return defaultValue;
+        if (v instanceof Number) return ((Number) v).longValue();
+        if (v instanceof String) return Long.parseLong(((String) v).trim());
+        throw new IllegalArgumentException("Expect number or string, but got: " + v.getClass());
+    }
+
+    public static void checkLongPositive(String name, long value) {
+        if (value <= 0) {
+            throw new IllegalArgumentException(name + " must be positive, but got: " + value);
+        }
+    }
 }
