@@ -15,8 +15,14 @@
  * limitations under the License.
  */
 
-package org.apache.seatunnel.transform.encrypt;
+package org.apache.seatunnel.transform.encrypt.encryptor;
 
-public enum EncryptAlgorithm {
-    AES_CBC
+public interface Encryptor {
+    boolean support(String algorithm);
+
+    void init(String key);
+
+    String encrypt(String plainText);
+
+    String decrypt(String cipherText);
 }

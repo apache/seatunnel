@@ -15,10 +15,12 @@
  * limitations under the License.
  */
 
-package org.apache.seatunnel.transform.encrypt;
+package org.apache.seatunnel.transform.encrypt.encryptor;
 
 import org.apache.seatunnel.common.exception.CommonError;
 import org.apache.seatunnel.transform.exception.TransformCommonError;
+
+import com.google.auto.service.AutoService;
 
 import javax.crypto.Cipher;
 import javax.crypto.spec.IvParameterSpec;
@@ -28,14 +30,23 @@ import java.nio.charset.StandardCharsets;
 import java.security.SecureRandom;
 import java.util.Base64;
 
+@AutoService(Encryptor.class)
 public class AesCbcEncryptor implements Encryptor {
+    public static final String IDENTIFIER = "AES_CBC";
+
     private static final int IV_SIZE = 16;
     private static final SecureRandom SECURE_RANDOM = new SecureRandom();
     private static final String ALGORITHM = "AES/CBC/PKCS5Padding";
 
-    private final SecretKeySpec keySpec;
+    private SecretKeySpec keySpec;
 
-    public AesCbcEncryptor(String key) {
+    @Override
+    public boolean support(String algorithm) {
+        return IDENTIFIER.equals(algorithm);
+    }
+
+    @Override
+    public void init(String key) {
         this.keySpec = buildAesKey(key);
     }
 

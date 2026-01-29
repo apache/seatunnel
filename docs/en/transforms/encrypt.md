@@ -11,11 +11,11 @@ The Encrypt transform plugin is used to encrypt or decrypt specified fields in r
 | name        | type   | required | default value | description                       |
 |-------------|--------|----------|---------------|-----------------------------------|
 | `fields`    | Array  | Yes      | -             | List of fields to encrypt/decrypt |
-| `algorithm` | Enum   | No       | `AES_CBC`     | Encryption algorithm              |
+| `algorithm` | String | No       | `AES_CBC`     | Encryption algorithm              |
 | `key`       | String | Yes      | -             | Base64-encoded encryption key     |
 | `mode`      | String | No       | `ENCRYPT`     | `ENCRYPT`or `DECRYPT`             |
 
-### algorithm [enum]
+### algorithm [string]
 
 Encryption algorithm used by this transform.
 Currently, only `AES_CBC` is supported.

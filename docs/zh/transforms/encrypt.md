@@ -11,11 +11,11 @@ Encrypt Transform 插件用于使用对称加密算法，对记录中指定的�
 | 参数名         | 类型     | 是否必填 | 默认值       | 描述                         |
 |-------------|--------|------|-----------|----------------------------|
 | `fields`    | Array  | 是    | -         | 需要加密或解密的字段列表               |
-| `algorithm` | Enum   | 否    | `AES_CBC` | 加密算法                       |
+| `algorithm` | String | 否    | `AES_CBC` | 加密算法                       |
 | `key`       | String | 是    | -         | Base64 编码的加密密钥             |
 | `mode`      | String | 否    | `ENCRYPT` | 操作模式：`ENCRYPT` 或 `DECRYPT` |
 
-### algorithm [enum]
+### algorithm [string]
 
 本 Transform 使用的加密算法。
 目前仅支持 `AES_CBC`。

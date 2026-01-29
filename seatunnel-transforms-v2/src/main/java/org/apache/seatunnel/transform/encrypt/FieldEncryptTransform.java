@@ -28,11 +28,15 @@ import org.apache.seatunnel.api.table.type.BasicType;
 import org.apache.seatunnel.api.table.type.SeaTunnelRow;
 import org.apache.seatunnel.common.exception.CommonError;
 import org.apache.seatunnel.transform.common.AbstractCatalogSupportMapTransform;
+import org.apache.seatunnel.transform.encrypt.encryptor.Encryptor;
 
 import lombok.NonNull;
 
 import java.util.ArrayList;
 import java.util.List;
+import java.util.Optional;
+import java.util.ServiceLoader;
+import java.util.stream.StreamSupport;
 
 public class FieldEncryptTransform extends AbstractCatalogSupportMapTransform {
     public static final String PLUGIN_NAME = "FieldEncrypt";
@@ -42,7 +46,7 @@ public class FieldEncryptTransform extends AbstractCatalogSupportMapTransform {
 
     private final List<String> fields = new ArrayList<>();
     private final String key;
-    private final EncryptAlgorithm encryptAlgorithm;
+    private final String encryptAlgorithm;
     private final String mode;
 
     private transient volatile Encryptor encryptor;
@@ -63,16 +67,20 @@ public class FieldEncryptTransform extends AbstractCatalogSupportMapTransform {
     @Override
     protected SeaTunnelRow transformRow(SeaTunnelRow inputRow) {
         if (encryptor == null) {
-            switch (encryptAlgorithm) {
-                    // TODO: support more algorithms
-                case AES_CBC:
-                    this.encryptor = new AesCbcEncryptor(key);
-                    break;
-                default:
-                    throw CommonError.unsupportedOperation(
-                            PLUGIN_NAME, "Unsupported encrypt algorithm");
+            ServiceLoader<Encryptor> loader = ServiceLoader.load(Encryptor.class);
+            Optional<Encryptor> optionalEncryptor =
+                    StreamSupport.stream(loader.spliterator(), false)
+                            .filter(e -> e.support(encryptAlgorithm))
+                            .findFirst();
+
+            if (!optionalEncryptor.isPresent()) {
+                throw CommonError.unsupportedOperation(
+                        PLUGIN_NAME, "Unsupported encrypt algorithm");
             }
+            this.encryptor = optionalEncryptor.get();
+            this.encryptor.init(this.key);
         }
+
         if (ENCRYPT.equalsIgnoreCase(mode)) {
             for (int index : encryptFieldIndexes) {
                 Object field = inputRow.getField(index);
