@@ -227,7 +227,7 @@ Agents MUST consider performance implications:
 ### Install Connectors
 
 ```bash
-sh bin/install-plugin.sh 2.3.13
+sh bin/install-plugin.sh $current_version
 ```
 
 ### Run Job (Zeta)
