@@ -28,8 +28,7 @@ public class FieldEncryptTransformConfig {
             Options.key("fields")
                     .listType()
                     .noDefaultValue()
-                    .withDescription("The list of fields that need to be encrypted.")
-                    .withFallbackKeys("fields");
+                    .withDescription("The list of fields that need to be encrypted.");
 
     public static final Option<String> ALGORITHM =
             Options.key("algorithm")
