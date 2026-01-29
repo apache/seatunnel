@@ -187,7 +187,7 @@ public abstract class AbstractLSMWriter implements IFileWriter<IMapFileData> {
         return new Path(parentPath, "tmp_" + tmpIndex.incrementAndGet() + "_" + FILE_NAME);
     }
 
-    public void compaction(boolean force) throws IOException {
+    protected void compaction(boolean force) throws IOException {
         if (totalBytes.get() < compactionThreshold && !force) return;
 
         long batchSize = 0;
@@ -270,6 +270,9 @@ public abstract class AbstractLSMWriter implements IFileWriter<IMapFileData> {
     }
 
     protected final synchronized void recoverFromCrash() throws IOException, InterruptedException {
+        if (!fs.exists(parentPath)) {
+            return;
+        }
         FileStatus[] tmpFiles =
                 fs.listStatus(parentPath, path -> path.getName().startsWith("tmp_"));
 
