@@ -19,15 +19,11 @@ package org.apache.seatunnel.connectors.seatunnel.jdbc.internal.executor;
 
 import org.apache.seatunnel.shade.com.google.common.annotations.VisibleForTesting;
 
-import org.apache.commons.io.IOUtils;
-
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 
-import java.io.IOException;
 import java.io.InputStream;
 import java.io.Reader;
-import java.io.StringReader;
 import java.math.BigDecimal;
 import java.net.URL;
 import java.sql.Array;
@@ -361,40 +357,7 @@ public class FieldNamedPreparedStatement implements PreparedStatement {
 
     @Override
     public void setClob(int parameterIndex, Reader reader) throws SQLException {
-        setClob(parameterIndex, reader, false);
-    }
-
-    /**
-     * 设置CLOB参数值，支持普通CLOB和NCLOB类型 当只有一个索引位置需要设置值时，直接使用对应的setClob或setNClob方法
-     * 当有多个索引位置需要设置相同值时，为了确保所有流都能正确读取数据， 需要先将Reader转换为字符串，然后再为每个索引位置创建新的Reader进行设置
-     *
-     * @param parameterIndex 参数索引位置（从1开始）
-     * @param reader 读取CLOB数据的Reader对象
-     * @param isNClob 是否为NCLOB类型
-     * @throws SQLException SQL执行异常
-     */
-    private void setClob(int parameterIndex, Reader reader, boolean isNClob) throws SQLException {
-        int[] indexes = indexMapping[parameterIndex - 1];
-        if (indexes.length == 1) {
-            if (isNClob) {
-                statement.setNClob(indexes[0], reader);
-            } else {
-                statement.setClob(indexes[0], reader);
-            }
-        } else {
-            try {
-                String value = IOUtils.toString(reader);
-                for (int index : indexes) {
-                    if (isNClob) {
-                        statement.setNClob(index, new StringReader(value));
-                    } else {
-                        statement.setClob(index, new StringReader(value));
-                    }
-                }
-            } catch (IOException e) {
-                throw new SQLException(e.getLocalizedMessage(), e);
-            }
-        }
+        throw new UnsupportedOperationException();
     }
 
     @Override
@@ -404,7 +367,7 @@ public class FieldNamedPreparedStatement implements PreparedStatement {
 
     @Override
     public void setNClob(int parameterIndex, Reader reader) throws SQLException {
-        setClob(parameterIndex, reader, true);
+        throw new UnsupportedOperationException();
     }
 
     @Override

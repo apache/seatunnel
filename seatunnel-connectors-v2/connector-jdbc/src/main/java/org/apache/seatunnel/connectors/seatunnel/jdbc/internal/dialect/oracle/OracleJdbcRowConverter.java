@@ -25,13 +25,10 @@ import org.apache.seatunnel.connectors.seatunnel.jdbc.internal.dialect.DatabaseI
 import javax.annotation.Nullable;
 
 import java.io.ByteArrayInputStream;
-import java.io.StringReader;
 import java.sql.PreparedStatement;
 import java.sql.SQLException;
 
 import static org.apache.seatunnel.connectors.seatunnel.jdbc.internal.dialect.oracle.OracleTypeConverter.ORACLE_BLOB;
-import static org.apache.seatunnel.connectors.seatunnel.jdbc.internal.dialect.oracle.OracleTypeConverter.ORACLE_CLOB;
-import static org.apache.seatunnel.connectors.seatunnel.jdbc.internal.dialect.oracle.OracleTypeConverter.ORACLE_NCLOB;
 
 public class OracleJdbcRowConverter extends AbstractJdbcRowConverter {
 
@@ -53,14 +50,6 @@ public class OracleJdbcRowConverter extends AbstractJdbcRowConverter {
                 statement.setBinaryStream(statementIndex, new ByteArrayInputStream((byte[]) value));
             } else {
                 statement.setBytes(statementIndex, (byte[]) value);
-            }
-        } else if (seaTunnelDataType.getSqlType().equals(SqlType.STRING)) {
-            if (ORACLE_CLOB.equals(sourceType)) {
-                statement.setClob(statementIndex, new StringReader((String) value));
-            } else if (ORACLE_NCLOB.equals(sourceType)) {
-                statement.setNClob(statementIndex, new StringReader((String) value));
-            } else {
-                statement.setString(statementIndex, (String) value);
             }
         } else {
             super.setValueToStatementByDataType(
