@@ -295,7 +295,7 @@ public class PostgresSourceFetchTaskContext extends JdbcSourceFetchTaskContext {
     }
 
     public SnapshotChangeEventSourceMetrics<PostgresPartition>
-    getSnapshotChangeEventSourceMetrics() {
+            getSnapshotChangeEventSourceMetrics() {
         return snapshotChangeEventSourceMetrics;
     }
 
