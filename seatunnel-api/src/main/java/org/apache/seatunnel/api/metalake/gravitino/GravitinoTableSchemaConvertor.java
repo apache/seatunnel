@@ -250,29 +250,33 @@ public class GravitinoTableSchemaConvertor implements MetaLakeTableSchemaConvert
         }
         String gravitinoType = typeNode.asText();
         String normalizedType = gravitinoType.trim().toLowerCase();
-        // Handle decimal type: decimal(precision, scale)
-        Matcher decimalMatcher = DECIMAL_PATTERN.matcher(gravitinoType);
-        if (decimalMatcher.find()) {
-            int precision = Integer.parseInt(decimalMatcher.group(1));
-            int scale = Integer.parseInt(decimalMatcher.group(2));
-            return new DecimalType(precision, scale);
-        }
         // Remove parameters for simple type matching
         String baseType = normalizedType.split("\\(")[0].trim();
-        switch (baseType) {
+        // Handle decimal type: decimal(precision, scale) - only match regex for decimal type
+        if ("decimal".equals(baseType)) {
+            Matcher decimalMatcher = DECIMAL_PATTERN.matcher(gravitinoType);
+            if (decimalMatcher.find()) {
+                int precision = Integer.parseInt(decimalMatcher.group(1));
+                int scale = Integer.parseInt(decimalMatcher.group(2));
+                return new DecimalType(precision, scale);
+            }
+            // decimal without parameters or invalid format, throw error
+            throw CommonError.convertToSeaTunnelTypeError(
+                    MetaLakeType.GRAVITINO.getType(), gravitinoType, fieldName);
+        }
+        // Remove 'unsigned' suffix to simplify type matching
+        String cleanType = baseType.replaceAll("unsigned", "").trim();
+
+        switch (cleanType) {
             case "boolean":
                 return BasicType.BOOLEAN_TYPE;
             case "byte":
-            case "byte unsigned":
                 return BasicType.BYTE_TYPE;
             case "short":
-            case "short unsigned":
                 return BasicType.SHORT_TYPE;
             case "integer":
-            case "integer unsigned":
                 return BasicType.INT_TYPE;
             case "long":
-            case "long unsigned":
                 return BasicType.LONG_TYPE;
             case "float":
                 return BasicType.FLOAT_TYPE;
