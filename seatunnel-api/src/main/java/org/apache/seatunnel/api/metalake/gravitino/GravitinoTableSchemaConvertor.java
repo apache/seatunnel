@@ -34,6 +34,7 @@ import org.apache.seatunnel.api.table.type.LocalTimeType;
 import org.apache.seatunnel.api.table.type.MapType;
 import org.apache.seatunnel.api.table.type.PrimitiveByteArrayType;
 import org.apache.seatunnel.api.table.type.SeaTunnelDataType;
+import org.apache.seatunnel.api.table.type.SeaTunnelRowType;
 import org.apache.seatunnel.common.constants.MetaLakeType;
 import org.apache.seatunnel.common.exception.CommonError;
 
@@ -81,6 +82,7 @@ public class GravitinoTableSchemaConvertor implements MetaLakeTableSchemaConvert
     private static final String JSON_FIELD_ELEMENT_TYPE = "elementType";
     private static final String JSON_FIELD_KEY_TYPE = "keyType";
     private static final String JSON_FIELD_VALUE_TYPE = "valueType";
+    private static final String JSON_FIELD_FIELDS = "fields";
 
     private static final String INDEX_TYPE_PRIMARY_KEY = "PRIMARY_KEY";
     private static final String INDEX_TYPE_UNIQUE_KEY = "UNIQUE_KEY";
@@ -161,19 +163,6 @@ public class GravitinoTableSchemaConvertor implements MetaLakeTableSchemaConvert
     /**
      * Convert Gravitino type to SeaTunnel DataType.
      *
-     * <p>Handles both simple types (string) and complex types (JSON object):
-     *
-     * <ul>
-     *   <li>Simple types: "integer", "varchar(100)", "decimal(10,2)", "map<string,int>",
-     *       "array<int>"
-     *   <li>Complex types:
-     *       <ul>
-     *         <li>list: {"type": "list", "containsNull": boolean, "elementType": type JSON}
-     *         <li>map: {"type": "map", "keyType": type JSON, "valueType": type JSON,
-     *             "valueContainsNull": boolean}
-     *       </ul>
-     * </ul>
-     *
      * @param fieldName the field name for error reporting
      * @param typeNode the JSON node representing the type (string or object)
      * @return the corresponding SeaTunnel data type
@@ -211,6 +200,36 @@ public class GravitinoTableSchemaConvertor implements MetaLakeTableSchemaConvert
                             convertGravitinoType(fieldName, keyType),
                             convertGravitinoType(fieldName, valueType));
                 case "struct":
+                    JsonNode fields = typeNode.get(JSON_FIELD_FIELDS);
+                    if (fields == null || !fields.isArray()) {
+                        throw CommonError.convertToSeaTunnelTypeError(
+                                MetaLakeType.GRAVITINO.getType(),
+                                "struct without fields array",
+                                fieldName);
+                    }
+                    List<String> fieldNames = new ArrayList<>();
+                    List<SeaTunnelDataType<?>> fieldTypes = new ArrayList<>();
+                    for (JsonNode field : fields) {
+                        String fName = getTextValue(field, JSON_FIELD_NAME);
+                        if (fName == null) {
+                            throw CommonError.convertToSeaTunnelTypeError(
+                                    MetaLakeType.GRAVITINO.getType(),
+                                    "struct field without name",
+                                    fieldName);
+                        }
+                        JsonNode fType = field.get(JSON_FIELD_TYPE);
+                        if (fType == null) {
+                            throw CommonError.convertToSeaTunnelTypeError(
+                                    MetaLakeType.GRAVITINO.getType(),
+                                    "struct field '" + fName + "' without type",
+                                    fieldName);
+                        }
+                        fieldNames.add(fName);
+                        fieldTypes.add(convertGravitinoType(fieldName + "." + fName, fType));
+                    }
+                    return new SeaTunnelRowType(
+                            fieldNames.toArray(new String[0]),
+                            fieldTypes.toArray(new SeaTunnelDataType<?>[0]));
                 case "union":
                 default:
                     throw CommonError.convertToSeaTunnelTypeError(

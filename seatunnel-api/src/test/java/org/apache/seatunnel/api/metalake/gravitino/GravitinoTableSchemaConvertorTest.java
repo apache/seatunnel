@@ -799,4 +799,5 @@ public class GravitinoTableSchemaConvertorTest {
         Assertions.assertEquals(PrimitiveByteArrayType.INSTANCE, col4.getDataType());
         Assertions.assertEquals(Long.valueOf(8), col4.getColumnLength());
     }
+    // todo test json from file
 }

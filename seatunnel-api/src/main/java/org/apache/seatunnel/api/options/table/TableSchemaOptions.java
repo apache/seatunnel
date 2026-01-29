@@ -47,5 +47,4 @@ public interface TableSchemaOptions {
                     .enumType(MetaLakeType.class)
                     .defaultValue(MetaLakeType.GRAVITINO)
                     .withDescription("Metadata lake type, for example: gravitino");
-
 }
