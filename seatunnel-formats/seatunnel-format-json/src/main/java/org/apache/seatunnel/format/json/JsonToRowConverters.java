@@ -263,16 +263,24 @@ public class JsonToRowConverters implements Serializable {
             return null;
         }
 
-        DateTimeFormatter dateFormatter = fieldFormatterMap.get(fieldName);
+        DateTimeFormatter dateFormatter = null;
+
+        if (fieldName != null) {
+            dateFormatter = fieldFormatterMap.get(fieldName);
+        }
+
         if (dateFormatter == null) {
             dateFormatter = DateUtils.matchDateFormatter(dateStr);
-            fieldFormatterMap.put(fieldName, dateFormatter);
+            if (fieldName != null) {
+                fieldFormatterMap.put(fieldName, dateFormatter);
+            }
         }
+
         if (dateFormatter == null) {
             throw CommonError.formatDateError(dateStr, fieldName);
         }
 
-        return dateFormatter.parse(jsonNode.asText()).query(TemporalQueries.localDate());
+        return dateFormatter.parse(dateStr).query(TemporalQueries.localDate());
     }
 
     private LocalTime convertToLocalTime(JsonNode jsonNode) {
@@ -287,11 +295,19 @@ public class JsonToRowConverters implements Serializable {
             return null;
         }
 
-        DateTimeFormatter dateTimeFormatter = fieldFormatterMap.get(fieldName);
+        DateTimeFormatter dateTimeFormatter = null;
+
+        if (fieldName != null) {
+            dateTimeFormatter = fieldFormatterMap.get(fieldName);
+        }
+
         if (dateTimeFormatter == null) {
             dateTimeFormatter = DateTimeUtils.matchDateTimeFormatter(datetimeStr);
-            fieldFormatterMap.put(fieldName, dateTimeFormatter);
+            if (fieldName != null) {
+                fieldFormatterMap.put(fieldName, dateTimeFormatter);
+            }
         }
+
         if (dateTimeFormatter == null) {
             throw CommonError.formatDateTimeError(datetimeStr, fieldName);
         }
