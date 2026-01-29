@@ -205,11 +205,27 @@ public class PostgresSourceFetchTaskContext extends JdbcSourceFetchTaskContext {
                                     snapshotter.shouldSnapshot(),
                                     connectorConfig);
                     try {
-                        // initialize replication connection and create slot if needed
+                        // Initialize the replication connection. This method is preferred over createReplicationSlot()
+                        // because it handles the case where the replication slot already exists (e.g., after job
+                        // restart from checkpoint or manual slot creation). The initConnection() method is idempotent
+                        // and will skip slot creation if the slot already exists, avoiding the
+                        // "replication slot already exists" error.
+                        // See: https://github.com/debezium/debezium/blob/v1.9.8.Final/debezium-connector-postgres/src/main/java/io/debezium/connector/postgresql/connection/PostgresReplicationConnection.java#L359
                         replicationConnection.initConnection();
-                    } catch (SQLException | InterruptedException ex) {
+                    } catch (SQLException ex) {
                         String message = "ReplicationConnection init failed";
-                        throw new DebeziumException(message, ex);
+                        if (ex.getMessage() != null && ex.getMessage().contains("already exists")) {
+                            message += "; when setting up multiple connectors for the same database host, " +
+                                    "please make sure to use a distinct replication slot name for each.";
+
+                            log.warn(message);
+                        } else {
+                            throw new DebeziumException(message, ex);
+                        }
+                    } catch (InterruptedException ex) {
+                        // Restore the interrupted status
+                        Thread.currentThread().interrupt();
+                        throw new DebeziumException("ReplicationConnection init interrupted", ex);
                     }
                 }
             }
