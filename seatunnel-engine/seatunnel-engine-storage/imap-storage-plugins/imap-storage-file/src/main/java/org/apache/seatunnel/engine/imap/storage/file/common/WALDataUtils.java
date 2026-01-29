@@ -21,8 +21,7 @@
 package org.apache.seatunnel.engine.imap.storage.file.common;
 
 public class WALDataUtils {
-    private WALDataUtils() {
-    }
+    private WALDataUtils() {}
 
     public static final byte[] EMPTY_BYTES = new byte[0];
     public static final int WAL_DATA_METADATA_LENGTH = 12;
