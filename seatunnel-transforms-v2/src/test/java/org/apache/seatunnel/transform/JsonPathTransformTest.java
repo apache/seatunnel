@@ -819,10 +819,12 @@ public class JsonPathTransformTest {
         JsonPathTransform transform =
                 new JsonPathTransform(JsonPathTransformConfig.of(config, table), table);
 
+        CatalogTable outputTable = transform.getProducedCatalogTable();
         String jsonData = "{\"birth\": \"\"}";
-        Assertions.assertThrows(
-                SeaTunnelRuntimeException.class,
-                () -> transform.map(new SeaTunnelRow(new Object[] {jsonData})));
+        SeaTunnelRow outputRow = transform.map(new SeaTunnelRow(new Object[] {jsonData}));
+
+        Assertions.assertNull(
+                outputRow.getField(outputTable.getSeaTunnelRowType().indexOf("birth_date")));
     }
 
     @Test
