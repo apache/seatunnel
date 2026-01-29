@@ -29,6 +29,7 @@ import org.apache.seatunnel.api.table.type.BasicType;
 import org.apache.seatunnel.api.table.type.SeaTunnelDataType;
 import org.apache.seatunnel.api.table.type.SeaTunnelRow;
 import org.apache.seatunnel.api.table.type.SeaTunnelRowType;
+import org.apache.seatunnel.common.exception.SeaTunnelRuntimeException;
 import org.apache.seatunnel.transform.common.ErrorHandleWay;
 import org.apache.seatunnel.transform.common.TransformCommonOptions;
 import org.apache.seatunnel.transform.exception.ErrorDataTransformException;
@@ -793,7 +794,8 @@ public class JsonPathTransformTest {
 
         String jsonData = "{\"birth\": \"invalid-date\"}";
         Assertions.assertThrows(
-                Exception.class, () -> transform.map(new SeaTunnelRow(new Object[] {jsonData})));
+                SeaTunnelRuntimeException.class,
+                () -> transform.map(new SeaTunnelRow(new Object[] {jsonData})));
     }
 
     @Test
@@ -819,7 +821,8 @@ public class JsonPathTransformTest {
 
         String jsonData = "{\"birth\": \"\"}";
         Assertions.assertThrows(
-                Exception.class, () -> transform.map(new SeaTunnelRow(new Object[] {jsonData})));
+                SeaTunnelRuntimeException.class,
+                () -> transform.map(new SeaTunnelRow(new Object[] {jsonData})));
     }
 
     @Test
