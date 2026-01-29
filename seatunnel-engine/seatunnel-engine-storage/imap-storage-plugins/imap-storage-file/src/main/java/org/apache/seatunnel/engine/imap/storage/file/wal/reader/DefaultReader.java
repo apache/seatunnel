@@ -38,7 +38,7 @@ import java.util.List;
 import static org.apache.seatunnel.engine.imap.storage.file.common.WALDataUtils.WAL_DATA_METADATA_LENGTH;
 
 public class DefaultReader implements IFileReader<IMapFileData> {
-    public static final int DEFAULT_QUERY_LIST_SIZE = 1024;
+    private static final int DEFAULT_QUERY_LIST_SIZE = 1024;
     FileSystem fs;
     Serializer serializer;
 

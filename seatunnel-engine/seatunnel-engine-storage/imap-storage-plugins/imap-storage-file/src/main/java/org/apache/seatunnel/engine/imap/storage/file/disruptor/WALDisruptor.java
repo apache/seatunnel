@@ -96,6 +96,7 @@ public class WALDisruptor implements Closeable {
         return this.tryPublish(message, WALEventType.APPEND, requestId);
     }
 
+    @Override
     public void close() throws IOException {
         // we can wait for 5 seconds, so that backlog can be committed
         try {
@@ -104,7 +105,7 @@ public class WALDisruptor implements Closeable {
             disruptor.shutdown(DEFAULT_CLOSE_WAIT_TIME_SECONDS, TimeUnit.SECONDS);
         } catch (TimeoutException e) {
             log.error("WALDisruptor close timeout error", e);
-            throw new IMapStorageException("WALCompactionDisruptor close timeout error", e);
+            throw new IMapStorageException("WALDisruptor close timeout error", e);
         }
     }
 }

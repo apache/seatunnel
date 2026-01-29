@@ -35,7 +35,6 @@ import lombok.extern.slf4j.Slf4j;
 
 import java.io.IOException;
 import java.util.Map;
-import java.util.concurrent.TimeUnit;
 
 @Slf4j
 public abstract class CloudLSMWriter extends AbstractLSMWriter {
@@ -140,16 +139,6 @@ public abstract class CloudLSMWriter extends AbstractLSMWriter {
         }
         this.bf = null;
 
-        compactionScheduler.shutdown();
-        try {
-            if (!compactionScheduler.awaitTermination(5, TimeUnit.SECONDS)) {
-                log.warn("Compaction scheduler did not terminate in 5 seconds, forcing shutdown");
-                compactionScheduler.shutdownNow();
-            }
-        } catch (InterruptedException ie) {
-            Thread.currentThread().interrupt();
-            log.warn("Compaction scheduler termination interrupted, forcing shutdown", ie);
-            compactionScheduler.shutdownNow();
-        }
+        clearScheduler();
     }
 }

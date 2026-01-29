@@ -306,6 +306,10 @@ public abstract class AbstractLSMWriter implements IFileWriter<IMapFileData> {
             sortFlush();
         }
 
+        clearScheduler();
+    }
+
+    protected final void clearScheduler() {
         compactionScheduler.shutdown();
         try {
             if (!compactionScheduler.awaitTermination(5, TimeUnit.SECONDS)) {
