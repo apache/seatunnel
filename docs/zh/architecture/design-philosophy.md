@@ -1,0 +1,526 @@
+---
+sidebar_position: 2
+title: 设计理念
+---
+
+# SeaTunnel 设计理念
+
+## 1. 概述
+
+本文档阐述了塑造 SeaTunnel 架构的核心设计原则、理念和权衡。理解这些原则有助于贡献者做出一致的设计决策，并帮助用户了解系统的优势和局限性。
+
+## 2. 核心设计原则
+
+### 2.1 引擎独立性
+
+**原则**：将连接器逻辑与执行引擎解耦。
+
+**动机**：
+- 用户可能已有基础设施投资（Flink、Spark 集群）
+- 不同引擎适用于不同场景（批处理 vs 流处理、资源约束）
+- 连接器开发人员不应需要理解多个引擎 API
+
+**实现**：
+- 统一的 SeaTunnel API 层抽象引擎特定细节
+- 转换层将 SeaTunnel API 适配到引擎特定 API
+- 相同的连接器代码在任何支持的引擎上无需修改即可运行
+
+**权衡**：
+- **优点**：最大化可重用性 - 一次编写，到处运行
+- **优点**：更简单的连接器开发 - 只需学习单一 API
+- **缺点**：无法利用引擎特定的优化
+- **缺点**：额外的转换开销
+- **缓解措施**：转换层轻薄且优化；大部分开销在 I/O 而非转换
+
+**示例**：
+```java
+// 连接器开发人员只需实现 SeaTunnelSource
+public class JdbcSource implements SeaTunnelSource<SeaTunnelRow, JdbcSourceSplit, JdbcSourceState> {
+    // 此代码无需修改即可在 Zeta、Flink 和 Spark 上运行
+}
+
+// 转换层处理引擎适配
+FlinkSource<SeaTunnelRow> flinkSource = new FlinkSource<>(jdbcSource); // 用于 Flink
+SparkSource<SeaTunnelRow> sparkSource = new SparkSource<>(jdbcSource); // 用于 Spark
+```
+
+### 2.2 协调与执行分离
+
+**原则**：将控制平面（协调）与数据平面（执行）分离。
+
+**动机**：
+- 协调逻辑是单线程且轻量级的
+- 执行逻辑是并行且资源密集的
+- 容错需要为每个部分独立管理状态
+
+**实现**：
+
+**数据源**：
+- `SourceSplitEnumerator`（主节点）：生成分片、分配给读取器、处理注册
+- `SourceReader`（工作节点）：从分配的分片读取数据
+
+**数据汇**：
+- `SinkCommitter` / `SinkAggregatedCommitter`（主节点）：协调提交
+- `SinkWriter`（工作节点）：写入数据、准备提交信息
+
+**权衡**：
+- **优点**：清晰的关注点分离
+- **优点**：枚举器可以在失败时重新分配分片
+- **优点**：提交器实现全局事务协调
+- **缺点**：额外的通信开销
+- **缺点**：连接器开发人员的 API 更复杂
+- **缓解措施**：合理的默认值；简单连接器可以使用简单的枚举器/提交器
+
+**示例**：
+```java
+// 协调：主节点上的分片分配
+class JdbcSourceSplitEnumerator {
+    void handleSplitRequest(int subtaskId) {
+        JdbcSourceSplit split = pendingSplits.poll();
+        context.assignSplit(subtaskId, split); // 分配给特定读取器
+    }
+}
+
+// 执行：工作节点上的数据读取
+class JdbcSourceReader {
+    void pollNext(Collector<SeaTunnelRow> output) {
+        ResultSet rs = statement.executeQuery();
+        while (rs.next()) {
+            output.collect(convertToRow(rs)); // 并行数据处理
+        }
+    }
+}
+```
+
+### 2.3 基于分片的并行度
+
+**原则**：将数据源划分为可独立处理的分片。
+
+**动机**：
+- 实现无需紧密协调的并行处理
+- 支持动态负载均衡和故障恢复
+- 提供检查点粒度（每个分片的进度）
+
+**实现**：
+- 数据源划分为分片（文件块、DB 分区、Kafka 分区等）
+- 枚举器延迟或急切地生成分片
+- 读取器独立处理分片
+- 未处理的分片可以在失败时重新分配
+
+**权衡**：
+- **优点**：出色的可扩展性 - 添加工作节点以处理更多分片
+- **优点**：细粒度故障恢复 - 仅需要重新处理失败的分片
+- **优点**：动态负载均衡 - 将更多分片分配给空闲的工作节点
+- **缺点**：某些数据源的分片生成开销
+- **缺点**：需要跟踪每个分片的状态
+- **缓解措施**：延迟分片生成；分片状态轻量级
+
+**示例**：
+```java
+// JDBC 数据源：按分区或块分片
+class JdbcSourceSplit implements SourceSplit {
+    private final String splitId;
+    private final String query; // SELECT * FROM table WHERE id >= ? AND id < ?
+    private final long startOffset;
+    private final long endOffset;
+}
+
+// 文件数据源：按文件或字节范围分片
+class FileSplit implements SourceSplit {
+    private final String filePath;
+    private final long startOffset;
+    private final long length;
+}
+```
+
+### 2.4 通过两阶段提交实现精确一次语义
+
+**原则**：保证端到端精确一次数据传递。
+
+**动机**：
+- 数据集成不能丢失或重复数据
+- 失败可能在任何时候发生（网络、进程崩溃）
+- 外部系统需要事务保证
+
+**实现**：
+1. **准备阶段**：检查点期间，`SinkWriter.prepareCommit()` 返回提交信息但不产生副作用
+2. **提交阶段**：检查点成功后，`SinkCommitter.commit()` 原子性地应用变更
+3. **中止**：如果检查点失败，`SinkWriter.abortPrepare()` 回滚
+
+**权衡**：
+- **优点**：强一致性保证
+- **优点**：自动从失败中恢复
+- **缺点**：需要数据汇中的事务支持（或幂等操作）
+- **缺点**：增加延迟（数据仅在提交后可见）
+- **缺点**：提交信息的额外状态
+- **缓解措施**：可选特性；非事务性数据汇可使用至少一次模式
+
+**示例**：
+```java
+class JdbcExactlyOnceSinkWriter {
+    List<CommitInfoT> prepareCommit() {
+        // 启动 XA 事务但尚未提交
+        String xid = generateXid();
+        connection.prepareTransaction(xid);
+        return Collections.singletonList(new XidInfo(xid));
+    }
+}
+
+class JdbcSinkCommitter {
+    void commit(List<XidInfo> commitInfos) {
+        // 原子性地提交所有准备好的事务
+        for (XidInfo xid : commitInfos) {
+            connection.commitPreparedTransaction(xid);
+        }
+    }
+}
+```
+
+### 2.5 模式作为一等公民
+
+**原则**：将模式视为通过管道传播的显式、类型化的元数据。
+
+**动机**：
+- 数据集成需要模式转换和验证
+- 模式演化（DDL 变更）必须显式处理
+- 类型不匹配应该尽早捕获
+
+**实现**：
+- `CatalogTable` 封装完整的表元数据
+- `TableSchema` 定义结构（列、主键、约束）
+- 模式通过数据源 → 转换 → 数据汇传播
+- `SchemaChangeEvent` 表示 DDL 变更（ADD/DROP/MODIFY 列）
+
+**权衡**：
+- **优点**：类型安全 - 在作业提交时验证模式
+- **优点**：模式演化 - 在运行时处理 DDL 变更
+- **优点**：更好的错误消息 - 尽早检测模式不匹配
+- **缺点**：无模式数据源的额外复杂性
+- **缺点**：某些数据源的模式发现开销
+- **缓解措施**：模式推断助手；可选的模式覆盖
+
+**示例**：
+```java
+// 数据源产生类型化模式
+CatalogTable catalogTable = CatalogTable.of(
+    tableId,
+    TableSchema.builder()
+        .column("id", DataTypes.BIGINT())
+        .column("name", DataTypes.STRING())
+        .primaryKey("id")
+        .build()
+);
+
+// 转换验证和修改模式
+public CatalogTable getProducedCatalogTable() {
+    return inputCatalogTable.copy(
+        TableSchema.builder()
+            .column("id", DataTypes.BIGINT())
+            .column("name_upper", DataTypes.STRING()) // 已转换
+            .build()
+    );
+}
+```
+
+### 2.6 具有类加载器隔离的插件架构
+
+**原则**：连接器是动态加载的插件，具有隔离的依赖。
+
+**动机**：
+- 避免依赖冲突（例如，多个 JDBC 驱动程序版本）
+- 实现热插拔连接器，无需重新构建核心
+- 减少核心分发大小
+
+**实现**：
+- 用于连接器发现的 Java SPI
+- 每个连接器具有隔离的类加载器
+- 遮蔽插件依赖以避免冲突
+- 用于实例化的工厂模式
+
+**权衡**：
+- **优点**：依赖隔离 - 无版本冲突
+- **优点**：更小的核心分发
+- **优点**：易于添加第三方连接器
+- **缺点**：类加载器复杂性
+- **缺点**：某些共享库（如 Guava）可能存在问题
+- **缓解措施**：谨慎遮蔽；核心中的共享通用库
+
+**示例**：
+```
+seatunnel-engine/lib/              # 核心库
+connector-jdbc/lib/                # JDBC 驱动程序（隔离）
+connector-kafka/lib/               # Kafka 客户端（隔离）
+
+# 每个连接器由单独的 ClassLoader 加载
+ConnectorClassLoader(connector-jdbc) -> 加载 mysql-connector-java-8.0.26.jar
+ConnectorClassLoader(connector-kafka) -> 加载 kafka-clients-3.0.0.jar
+```
+
+### 2.7 具有检查点存储抽象的状态管理
+
+**原则**：将状态管理与存储实现解耦。
+
+**动机**：
+- 不同部署需要不同的存储（HDFS、S3、本地、OSS）
+- 状态大小差异很大（KB 到 TB）
+- 存储耐久性和性能要求不同
+
+**实现**：
+- `CheckpointStorage` 抽象（FileSystem、HDFS、S3、OSS）
+- 状态的可插拔序列化
+- 增量检查点支持
+- 自动状态清理
+
+**权衡**：
+- **优点**：灵活性 - 根据部署选择存储
+- **优点**：增量检查点减少开销
+- **缺点**：存储性能影响检查点延迟
+- **缺点**：生产环境需要分布式文件系统
+- **缓解措施**：异步检查点上传；可配置间隔
+
+### 2.8 多表同步
+
+**原则**：支持在单个作业中同步多个表。
+
+**动机**：
+- 数据库迁移通常涉及数百个表
+- 为每个表创建一个作业浪费资源
+- 模式演化必须应用于所有表
+
+**实现**：
+- `MultiTableSource` / `MultiTableSink` 包装单个表数据源/汇
+- `TablePath` 将记录路由到正确的表
+- 按表传播模式变更
+- 支持副本以提高吞吐量
+
+**权衡**：
+- **优点**：资源效率 - 一个作业而不是数百个
+- **优点**：跨表一致快照
+- **优点**：集中监控
+- **缺点**：一个表失败可能影响其他表
+- **缺点**：更复杂的错误处理
+- **缓解措施**：可配置的错误容忍度；按表的指标
+
+## 3. 架构权衡
+
+### 3.1 简单性 vs 性能
+
+**选择**：优先考虑简单性和正确性而非极端性能优化。
+
+**理由**：
+- 数据集成是 I/O 密集型的，而非 CPU 密集型
+- 正确的语义（精确一次）比原始速度更关键
+- 简单的代码易于维护和调试
+
+**证据**：
+- 网络和磁盘 I/O 主导处理时间（> 90%）
+- 转换层开销可以忽略不计（< 1%）
+- 代码可读性优先（例如，清晰的状态机，无微观优化）
+
+### 3.2 灵活性 vs 易用性
+
+**选择**：提供合理的默认值，同时允许高级定制。
+
+**理由**：
+- 大多数用户想要简单的配置
+- 高级用户需要细粒度控制
+- 两种需求可以通过分层 API 满足
+
+**实现**：
+- 常见情况的高级配置（例如，`jdbc://host:port/db`）
+- 专家的低级选项（例如，连接池调优）
+- 合理的默认值（并行度、检查点间隔、缓冲区大小）
+
+### 3.3 通用性 vs 专业化
+
+**选择**：通用 API 与专业化实现。
+
+**理由**：
+- 统一的 API 简化了学习和使用
+- 不同的数据源具有独特的特征（有界 vs 无界、可分片性）
+- 专业化发生在连接器实现中，而非 API 中
+
+**示例**：
+- `SourceSplitEnumerator` 足够通用，可用于文件、数据库和消息队列
+- 文件连接器使用基于文件的分片
+- Kafka 连接器使用基于分区的分片
+- JDBC 连接器使用基于查询的分片
+
+### 3.4 强一致性 vs 延迟
+
+**选择**：提供精确一次（高延迟）和至少一次（低延迟）模式。
+
+**理由**：
+- 某些应用需要强一致性（金融、计费）
+- 其他应用可以容忍重复以获得更低延迟（日志、指标）
+- 让用户根据需求选择
+
+**配置**：
+```hocon
+env {
+  checkpoint.mode = "EXACTLY_ONCE"  # 或 "AT_LEAST_ONCE"
+  checkpoint.interval = 60000       # 毫秒
+}
+```
+
+## 4. 从 V1 到 V2 的演进
+
+### 4.1 V1 的局限性
+
+SeaTunnel V1（2.3.0 之前）存在重大架构局限性：
+
+1. **引擎特定连接器**：Spark 和 Flink 的单独实现
+2. **无统一 API**：无抽象层，与引擎紧密耦合
+3. **有限的容错**：完全依赖引擎检查点
+4. **无模式管理**：模式隐式，无演化支持
+5. **仅单表**：不支持多表同步
+
+### 4.2 V2 改进
+
+SeaTunnel V2（2.3.0+）重新设计了架构：
+
+| 方面 | V1 | V2 |
+|-----|----|----|
+| **API** | 引擎特定 | 统一的 SeaTunnel API |
+| **连接器** | 重复代码 | 单一实现 |
+| **容错** | 依赖引擎 | 显式检查点协议 |
+| **模式** | 隐式 | 显式 CatalogTable |
+| **多表** | 不支持 | 原生支持 |
+| **引擎支持** | Spark、Flink | Spark、Flink、Zeta |
+| **精确一次** | 部分 | 端到端 2PC |
+
+### 4.3 迁移路径
+
+V1 和 V2 连接器共存但使用不同的 API：
+- V1 连接器：`seatunnel-connectors/`（已弃用）
+- V2 连接器：`seatunnel-connectors-v2/`（推荐）
+
+V2 是未来；V1 处于维护模式。
+
+## 5. 关键设计决策
+
+### 5.1 为什么分离枚举器和读取器？
+
+**替代方案**：单个组件同时处理分片生成和读取。
+
+**决策**：分离组件。
+
+**理由**：
+- 分片生成是协调逻辑（应在主节点上运行）
+- 数据读取是执行逻辑（应在工作节点上运行）
+- 一方的失败不应影响另一方
+- 允许在不重启读取器的情况下重新分配分片
+
+### 5.2 为什么三级数据汇提交（写入器 → 提交器 → 聚合提交器）？
+
+**替代方案**：两级（写入器 → 提交器）或直接写入器提交。
+
+**决策**：可选的三级提交。
+
+**理由**：
+- **写入器**：并行、有状态、每个任务
+- **提交器**：并行、无状态、聚合每个写入器的提交
+- **聚合提交器**：单线程、有状态、全局协调器
+
+许多数据汇只需要写入器 + 提交器；聚合提交器用于复杂情况（例如，需要单一全局操作的 Hive 表提交）。
+
+### 5.3 为什么 LogicalDag → PhysicalPlan 分离？
+
+**替代方案**：直接从配置生成物理执行计划。
+
+**决策**：两阶段规划。
+
+**理由**：
+- LogicalDag 表示用户意图（可移植、引擎独立）
+- PhysicalPlan 表示执行策略（引擎特定、优化）
+- 分离实现：
+  - 跨引擎可移植性（相同的 LogicalDag，不同的 PhysicalPlan）
+  - 优化传递（融合、分片重新分配）
+  - 测试（单独验证逻辑计划）
+
+### 5.4 为什么基于管道的执行？
+
+**替代方案**：单一全局任务图。
+
+**决策**：作业划分为管道。
+
+**理由**：
+- 每个管道独立的检查点协调
+- 更清晰的失败边界
+- 更容易推理数据流
+- 支持复杂的 DAG（多个数据源/汇）
+
+### 5.5 为什么不使用引擎原生检查点？
+
+**替代方案**：完全依赖 Flink/Spark 检查点机制。
+
+**决策**：显式 SeaTunnel 检查点协议。
+
+**理由**：
+- 引擎独立性 - 需要跨引擎的一致语义
+- Zeta 引擎否则将没有检查点
+- 更多对精确一次语义的控制
+- 统一的监控和可观测性
+
+但是，对于 Flink 转换，SeaTunnel 检查点与 Flink 检查点对齐以避免重复。
+
+## 6. 未来方向
+
+### 6.1 计划增强
+
+- **动态扩缩容**：在作业执行期间添加/移除工作节点
+- **自适应批量大小**：根据吞吐量自动调整批量大小
+- **查询下推**：将过滤器/投影下推到数据源
+- **向量化执行**：处理批量行（列式）
+- **推测执行**：缓解掉队者
+
+### 6.2 研究方向
+
+- **机器学习集成**：基于 ML 的优化（分片大小、并行度）
+- **统一批处理和流处理**：真正的统一处理模型
+- **全局查询优化**：跨管道优化
+
+## 7. 经验教训
+
+### 7.1 成功之处
+
+1. **引擎独立性**：通过成功添加 Zeta 引擎而无需 API 更改得到验证
+2. **基于分片的并行度**：扩展到 1000+ 并行任务
+3. **显式模式**：尽早捕获许多错误，实现模式演化
+4. **两阶段提交**：可靠的精确一次语义
+
+### 7.2 可以改进之处
+
+1. **API 复杂性**：枚举器/提交器增加了简单连接器的学习曲线
+2. **类加载器问题**：遮蔽依赖偶尔冲突
+3. **检查点延迟**：大状态导致检查点延迟
+4. **文档差距**：架构文档落后于代码
+
+### 7.3 如果重新开始
+
+1. **简化 API**：为简单的数据源/汇提供更高级的抽象
+2. **异步 I/O 支持**：非阻塞连接器的一等异步 API
+3. **内置指标**：API 中的标准化指标收集
+4. **模式注册表集成**：与外部模式注册表更紧密的集成
+
+## 8. 结论
+
+SeaTunnel 的架构反映了竞争关注点之间的仔细权衡：
+- 引擎独立性 vs 引擎特定优化
+- 简单性 vs 灵活性
+- 一致性 vs 延迟
+- 通用性 vs 专业化
+
+V2 重新设计解决了 V1 的主要局限性，同时建立了长期演进的原则。理解这些设计理念有助于贡献者做出一致的决策，并帮助用户了解 SeaTunnel 的优势和适用场景。
+
+## 9. 参考资料
+
+- [架构概览](overview.md)
+- [数据源架构](api-design/source-architecture.md)
+- [数据汇架构](api-design/sink-architecture.md)
+- [检查点机制](fault-tolerance/checkpoint-mechanism.md)
+
+### 学术论文
+
+- Chandy-Lamport：["Distributed Snapshots: Determining Global States of Distributed Systems"](https://lamport.azurewebsites.net/pubs/chandy.pdf)
+- Flink：["Apache Flink: Stream and Batch Processing in a Single Engine"](https://asterios.katsifodimos.com/assets/publications/flink-deb.pdf)

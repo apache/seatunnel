@@ -1,0 +1,783 @@
+---
+sidebar_position: 2
+title: DAG 执行模型
+---
+
+# DAG 执行模型
+
+## 1. 概述
+
+### 1.1 问题背景
+
+分布式数据处理需要将用户意图转换为可执行的分布式任务:
+
+- **抽象层次**: 如何分离逻辑意图与物理执行?
+- **优化**: 如何优化任务放置和数据混洗?
+- **流水线**: 如何执行具有多个数据源/目标端的复杂 DAG?
+- **并行度**: 如何确定任务并行度和分布?
+- **故障隔离**: 如何将故障影响限制在受影响的组件内?
+
+### 1.2 设计目标
+
+SeaTunnel 的 DAG 执行模型旨在:
+
+1. **关注点分离**: 逻辑规划(用户意图) vs 物理执行(运行时细节)
+2. **支持优化**: 任务融合、流水线分割、资源分配
+3. **支持复杂拓扑**: 多个数据源、目标端、分支、连接
+4. **促进容错**: 清晰的故障边界与独立检查点
+5. **最大化并行度**: 高效并行执行,最少协调开销
+
+### 1.3 执行模型概览
+
+```
+用户配置 (HOCON)
+    │
+    ▼
+┌─────────────────────┐
+│    LogicalDag       │  逻辑计划 (做什么)
+│  • LogicalVertex    │  - 数据源/转换器/目标端动作
+│  • LogicalEdge      │  - 数据依赖关系
+│  • Parallelism      │  - 逻辑并行度
+└─────────────────────┘
+    │ (计划生成)
+    ▼
+┌─────────────────────┐
+│   PhysicalPlan      │  物理计划 (如何执行)
+│  • SubPlan[]        │  - 多个流水线
+│  • Resources        │  - 资源需求
+│  • Scheduling       │  - 部署策略
+└─────────────────────┘
+    │ (流水线分割)
+    ▼
+┌─────────────────────┐
+│  SubPlan (Pipeline) │  独立执行单元
+│  • PhysicalVertex[] │  - 并行任务实例
+│  • CheckpointCoord  │  - 独立检查点
+│  • PipelineLocation │  - 唯一标识符
+└─────────────────────┘
+    │ (任务部署)
+    ▼
+┌─────────────────────┐
+│  PhysicalVertex     │  已部署任务组
+│  • TaskGroup        │  - 共址任务(融合)
+│  • SlotProfile      │  - 分配的资源槽位
+│  • ExecutionState   │  - 运行状态
+└─────────────────────┘
+    │ (执行)
+    ▼
+┌─────────────────────┐
+│   SeaTunnelTask     │  实际执行
+│  • Source/Transform │  - 数据处理
+│  • /Sink Logic     │  - 状态管理
+└─────────────────────┘
+```
+
+## 2. LogicalDag: 用户意图
+
+### 2.1 结构
+
+LogicalDag 以引擎无关的方式表示用户的作业配置。
+
+```java
+public class LogicalDag {
+    // 顶点: 数据源、转换器、目标端动作
+    private final Map<Long, LogicalVertex> logicalVertexMap;
+
+    // 边: 数据流依赖关系
+    private final Set<LogicalEdge> edges;
+
+    // 作业配置
+    private final JobConfig jobConfig;
+}
+```
+
+### 2.2 LogicalVertex
+
+表示单个动作(数据源/转换器/目标端)及其并行度。
+
+```java
+public class LogicalVertex {
+    private final long vertexId;
+    private final Action action; // SourceAction, TransformChainAction, SinkAction
+    private final int parallelism; // 并行实例数量
+}
+```
+
+**动作类型**:
+- **SourceAction**: 封装 `SeaTunnelSource`,生产 `CatalogTable`
+- **TransformChainAction**: `SeaTunnelTransform` 链,转换模式
+- **SinkAction**: 封装 `SeaTunnelSink`,消费 `CatalogTable`
+
+**示例**:
+```java
+// 来自配置:
+// source { JDBC { ... parallelism = 4 } }
+// transform { Sql { ... parallelism = 8 } }
+// sink { Elasticsearch { ... parallelism = 2 } }
+
+LogicalVertex sourceVertex = new LogicalVertex(
+    vertexId: 1,
+    action: new SourceAction(jdbcSource),
+    parallelism: 4
+);
+
+LogicalVertex transformVertex = new LogicalVertex(
+    vertexId: 2,
+    action: new TransformChainAction(sqlTransform),
+    parallelism: 8
+);
+
+LogicalVertex sinkVertex = new LogicalVertex(
+    vertexId: 3,
+    action: new SinkAction(esSink),
+    parallelism: 2
+);
+```
+
+### 2.3 LogicalEdge
+
+表示动作之间的数据流。
+
+```java
+public class LogicalEdge {
+    private final long inputVertexId;   // 上游顶点
+    private final long targetVertexId;  // 下游顶点
+}
+```
+
+**示例**:
+```java
+// 数据源 → 转换器边
+LogicalEdge edge1 = new LogicalEdge(
+    inputVertexId: 1,  // JDBC 数据源
+    targetVertexId: 2  // SQL 转换器
+);
+
+// 转换器 → 目标端边
+LogicalEdge edge2 = new LogicalEdge(
+    inputVertexId: 2,  // SQL 转换器
+    targetVertexId: 3  // Elasticsearch 目标端
+);
+```
+
+### 2.4 LogicalDag 创建
+
+从用户配置构建:
+
+```java
+// JobMaster 创建 LogicalDag
+LogicalDag logicalDag = LogicalDagGenerator.generate(jobConfig);
+```
+
+**过程**:
+1. 解析 HOCON 配置(source、transform、sink 部分)
+2. 为每个配置的组件创建 `Action` 对象
+3. 从配置结构推断数据流
+4. 验证模式兼容性
+5. 构建 `LogicalDag` 对象
+
+**示例配置 → LogicalDag**:
+```hocon
+env {
+  parallelism = 4
+}
+
+source {
+  JDBC {
+    url = "jdbc:mysql://..."
+    query = "SELECT * FROM orders"
+  }
+}
+
+transform {
+  Sql {
+    query = "SELECT order_id, SUM(amount) FROM this GROUP BY order_id"
+  }
+}
+
+sink {
+  Elasticsearch {
+    hosts = ["es-host:9200"]
+    index = "orders_summary"
+  }
+}
+```
+
+生成的 LogicalDag:
+```
+Vertex 1 (JDBC 数据源, parallelism=4)
+    │
+    ▼
+Vertex 2 (SQL 转换器, parallelism=4)
+    │
+    ▼
+Vertex 3 (Elasticsearch 目标端, parallelism=4)
+```
+
+## 3. PhysicalPlan: 执行策略
+
+### 3.1 结构
+
+PhysicalPlan 描述如何在分布式工作节点上执行 LogicalDag。
+
+```java
+public class PhysicalPlan {
+    // 多个流水线(SubPlans)
+    private final List<SubPlan> pipelineList;
+
+    // 不可变作业信息
+    private final JobImmutableInformation jobImmutableInformation;
+
+    // 分布式状态(Hazelcast IMap)
+    private final IMap<Long, JobStatus> runningJobStateIMap;
+    private final IMap<Long, Long> runningJobStateTimestampsIMap;
+
+    // 作业完成 future
+    private final CompletableFuture<JobResult> jobEndFuture;
+}
+```
+
+### 3.2 流水线分割
+
+LogicalDag 根据以下条件被分割为多个**流水线**(SubPlans):
+
+1. **自然边界**: 多个数据源或目标端
+2. **混洗需求**: 数据重分布点
+3. **检查点协调**: 独立检查点域
+
+**分割规则**:
+```
+规则 1: 每个数据源开始一个新流水线
+规则 2: 每个目标端结束一个流水线
+规则 3: 混洗操作创建流水线边界(未来特性)
+```
+
+**示例 1: 简单线性流水线**:
+```hocon
+source { JDBC { } }
+transform { Sql { } }
+sink { Elasticsearch { } }
+```
+
+生成: **1 个流水线**
+```
+流水线 1: [JDBC 数据源] → [SQL 转换器] → [Elasticsearch 目标端]
+```
+
+**示例 2: 多个数据源**:
+```hocon
+source {
+  JDBC { result_table_name = "orders" }
+  Kafka { result_table_name = "events" }
+}
+
+transform {
+  Sql { query = "SELECT * FROM orders UNION SELECT * FROM events" }
+}
+
+sink {
+  Elasticsearch { }
+}
+```
+
+生成: **2 个流水线**
+```
+流水线 1: [JDBC 数据源] → [SQL 转换器] → [Elasticsearch 目标端]
+流水线 2: [Kafka 数据源] → [SQL 转换器] → [Elasticsearch 目标端]
+```
+
+**示例 3: 多个目标端**:
+```hocon
+source {
+  MySQL-CDC { }
+}
+
+sink {
+  Elasticsearch { source_table_name = "MySQL-CDC" }
+  JDBC { source_table_name = "MySQL-CDC" }
+}
+```
+
+生成: **2 个流水线**
+```
+流水线 1: [MySQL-CDC 数据源] → [Elasticsearch 目标端]
+流水线 2: [MySQL-CDC 数据源] → [JDBC 目标端]
+```
+
+### 3.3 PhysicalPlan 生成
+
+```java
+// 在 JobMaster 中
+PhysicalPlan physicalPlan = new PhysicalPlanGenerator(logicalDag, resourceManager)
+    .generate();
+```
+
+**步骤**:
+1. **分析 LogicalDag**: 识别数据源、目标端和依赖关系
+2. **分割为流水线**: 为每个流水线创建 SubPlan
+3. **生成 PhysicalVertices**: 为每个动作创建并行实例
+4. **分配资源**: 从 ResourceManager 请求槽位
+5. **分配任务**: 将 PhysicalVertices 映射到槽位
+6. **创建协调器**: 为每个流水线设置 CheckpointCoordinator
+
+## 4. SubPlan (流水线)
+
+### 4.1 结构
+
+SubPlan 表示一个独立执行的流水线。
+
+```java
+public class SubPlan {
+    private final int pipelineId;
+    private final PipelineLocation pipelineLocation;
+
+    // 此流水线中的所有任务实例
+    private final List<PhysicalVertex> physicalVertexList;
+
+    // 协调器任务(枚举器、提交器)
+    private final List<PhysicalVertex> coordinatorVertexList;
+
+    // 此流水线的检查点协调器
+    private final CheckpointCoordinator checkpointCoordinator;
+
+    // 执行状态
+    private PipelineStatus pipelineStatus;
+}
+```
+
+### 4.2 PhysicalVertex 列表
+
+每个并行度为 N 的 LogicalVertex 生成 N 个 PhysicalVertices。
+
+**示例**:
+```
+LogicalVertex: JDBC 数据源 (parallelism = 4)
+    ↓
+PhysicalVertices:
+    - PhysicalVertex (子任务 0, 槽位 1)
+    - PhysicalVertex (子任务 1, 槽位 2)
+    - PhysicalVertex (子任务 2, 槽位 3)
+    - PhysicalVertex (子任务 3, 槽位 4)
+```
+
+### 4.3 协调器顶点
+
+用于协调任务的特殊顶点:
+
+- **SourceSplitEnumerator**: 在主节点上运行,分配分片给读取器
+- **SinkCommitter**: 在主节点上运行,协调提交
+- **SinkAggregatedCommitter**: 在主节点上运行,全局提交协调
+
+**示例**:
+```
+JDBC → Transform → Elasticsearch 的 SubPlan:
+    physicalVertexList:
+        - JdbcSourceTask (4 个实例)
+        - TransformTask (4 个实例)
+        - ElasticsearchSinkTask (4 个实例)
+
+    coordinatorVertexList:
+        - JdbcSourceSplitEnumerator (1 个实例, 主节点)
+        - ElasticsearchSinkCommitter (1 个实例, 主节点)
+```
+
+### 4.4 独立检查点
+
+每个流水线都有自己的 `CheckpointCoordinator`:
+
+**优势**:
+- 独立的检查点间隔
+- 隔离的故障域
+- 减少协调开销
+- 简化屏障对齐
+
+**示例**:
+```
+流水线 1 (JDBC → ES):
+    CheckpointCoordinator 每 60s 触发一次
+    仅管理 JDBC 和 ES 任务的检查点
+
+流水线 2 (Kafka → JDBC):
+    CheckpointCoordinator 每 30s 触发一次(不同间隔)
+    仅管理 Kafka 和 JDBC 任务的检查点
+```
+
+## 5. PhysicalVertex: 已部署任务
+
+### 5.1 结构
+
+PhysicalVertex 表示已部署的任务实例。
+
+```java
+public class PhysicalVertex {
+    private final TaskGroupLocation taskGroupLocation;
+    private final TaskGroupDefaultImpl taskGroup;
+
+    // 分配的资源槽位
+    private final SlotProfile slotProfile;
+
+    // 执行状态(CREATED, RUNNING, FAILED, 等)
+    private ExecutionState currentExecutionState;
+
+    // 插件 jar(用于类加载器隔离)
+    private final List<Set<URL>> pluginJarsUrls;
+}
+```
+
+### 5.2 TaskGroup: 任务融合
+
+多个任务可以融合到单个 `TaskGroup` 以提高效率。
+
+```java
+public class TaskGroupDefaultImpl implements TaskGroup {
+    private final TaskGroupLocation taskGroupLocation;
+
+    // 此组中的多个任务
+    private final Set<Task> tasks;
+
+    // 共享线程池
+    private final ExecutorService executorService;
+
+    // 共享网络缓冲区
+    private final Map<Long, BlockingQueue<Record<?>>> internalChannels;
+}
+```
+
+**融合条件**:
+1. 相同并行度
+2. 顺序依赖(A → B)
+3. 不需要数据混洗
+
+**示例(带融合)**:
+```
+LogicalDag:
+    Source (parallelism=4) → Transform (parallelism=4) → Sink (parallelism=4)
+
+不融合:
+    12 个独立任务(4 + 4 + 4)
+    Source → Transform 和 Transform → Sink 有网络开销
+
+融合后:
+    4 个 TaskGroups,每个包含:
+        [SourceTask → TransformTask → SinkTask] (单线程,共享内存)
+```
+
+**优势**:
+- 减少网络序列化/反序列化
+- 更好的 CPU 缓存局部性
+- 更低的内存占用
+- 简化部署
+
+### 5.3 槽位分配
+
+每个 PhysicalVertex 被分配一个 `SlotProfile`:
+
+```java
+public class SlotProfile {
+    private final long slotID;
+    private final Address workerAddress;
+    private final ResourceProfile resourceProfile; // CPU、内存
+}
+```
+
+**分配过程**:
+1. JobMaster 从 ResourceManager 请求槽位
+2. ResourceManager 根据策略选择工作节点(random、slot ratio、load)
+3. ResourceManager 分配槽位并返回 SlotProfiles
+4. JobMaster 将 SlotProfiles 分配给 PhysicalVertices
+5. JobMaster 通过 `DeployTaskOperation` 部署任务
+
+## 6. 任务部署和执行
+
+### 6.1 部署流程
+
+```mermaid
+sequenceDiagram
+    participant JM as JobMaster
+    participant RM as ResourceManager
+    participant Worker as Worker Node
+    participant Task as SeaTunnelTask
+
+    JM->>JM: Generate PhysicalPlan
+    JM->>RM: applyResources(resourceProfiles)
+    RM->>RM: Allocate slots
+    RM-->>JM: Return SlotProfiles
+
+    JM->>JM: Assign slots to PhysicalVertices
+
+    loop For each PhysicalVertex
+        JM->>Worker: DeployTaskOperation(taskGroup)
+        Worker->>Task: Create SeaTunnelTask
+        Task->>Task: INIT → WAITING_RESTORE
+        Task->>JM: Report ready
+    end
+
+    JM->>Worker: Start execution
+    Worker->>Task: READY_START → STARTING → RUNNING
+```
+
+### 6.2 任务执行
+
+每个 `SeaTunnelTask` 执行其分配的动作:
+
+**SourceSeaTunnelTask**:
+```java
+while (isRunning()) {
+    // 从 SourceReader 轮询数据
+    sourceReader.pollNext(collector);
+
+    // 处理检查点屏障
+    if (checkpointTriggered) {
+        triggerBarrier(checkpointId);
+    }
+}
+```
+
+**TransformSeaTunnelTask**:
+```java
+while (isRunning()) {
+    // 从输入队列读取
+    Record record = inputQueue.take();
+
+    // 应用转换
+    Record transformed = transform.map(record);
+
+    // 写入输出队列
+    outputQueue.put(transformed);
+}
+```
+
+**SinkSeaTunnelTask**:
+```java
+while (isRunning()) {
+    // 从输入队列读取
+    Record record = inputQueue.take();
+
+    // 写入目标端
+    sinkWriter.write(record);
+
+    // 处理检查点屏障
+    if (barrierReceived) {
+        commitInfo = sinkWriter.prepareCommit();
+        snapshotState(checkpointId);
+    }
+}
+```
+
+## 7. 优化策略
+
+### 7.1 任务融合
+
+**何时融合**:
+- 相同并行度
+- 顺序算子(无分支)
+- 无混洗边界
+
+**何时不融合**:
+- 不同并行度(例如 source=4, sink=8)
+- 分支 DAG(一个数据源,多个目标端)
+- 需要混洗(例如 GROUP BY、JOIN)
+
+**配置**:
+```hocon
+env {
+  # 禁用任务融合(用于调试)
+  job.mode = "UNBOUNDED_CHAIN" # FUSED_CHAIN (默认) / UNBOUNDED_CHAIN
+}
+```
+
+### 7.2 并行度推断
+
+如果未指定并行度,SeaTunnel 推断合理的默认值:
+
+**数据源并行度**:
+- 文件数据源: 文件数量或文件分片数
+- JDBC 数据源: 分区数量
+- Kafka 数据源: 分区数量
+- 默认: min(可用槽位, 1)
+
+**转换器并行度**:
+- 继承自上游(通常是数据源)
+
+**目标端并行度**:
+- 继承自上游
+- 如果目标端需要特定并行度则覆盖
+
+**示例**:
+```hocon
+source {
+  JDBC { parallelism = 4 }  # 显式
+}
+
+transform {
+  Sql { }  # 推断: 4 (来自数据源)
+}
+
+sink {
+  Elasticsearch { }  # 推断: 4 (来自转换器)
+}
+```
+
+### 7.3 资源分配
+
+**槽位计算**:
+```
+所需槽位 = 所有任务并行度之和
+
+示例:
+  Source (parallelism=4) + Transform (parallelism=4) + Sink (parallelism=2)
+  = 需要 10 个槽位
+
+融合后:
+  TaskGroup (parallelism=4, fusion[Source+Transform]) + Sink (parallelism=2)
+  = 需要 6 个槽位
+```
+
+**资源配置文件**:
+```java
+ResourceProfile profile = new ResourceProfile(
+    cpu: new CPU(1.0),           // 1 CPU 核心
+    heapMemory: new Memory(512), // 512MB 堆内存
+    offHeapMemory: new Memory(256) // 256MB 堆外内存
+);
+```
+
+## 8. 故障处理
+
+### 8.1 任务故障
+
+**检测**:
+- 任务抛出异常
+- 心跳超时
+
+**恢复**:
+1. 标记任务为 FAILED
+2. 使整个流水线失败(保守策略)
+3. 从最新检查点恢复
+4. 重新分配资源
+5. 重新部署和重启流水线
+
+### 8.2 流水线故障隔离
+
+**关键见解**: 流水线故障是隔离的。
+
+**示例**:
+```
+有 2 个流水线的作业:
+    流水线 1: JDBC → ES (RUNNING)
+    流水线 2: Kafka → JDBC (FAILED)
+
+结果:
+    流水线 2 从检查点重启
+    流水线 1 继续不受影响
+```
+
+**优势**:
+- 减少爆炸半径
+- 更快恢复(仅失败的流水线)
+- 更好的资源利用率
+
+## 9. 监控和可观测性
+
+### 9.1 关键指标
+
+**流水线级别**:
+- `pipeline.status`: CREATED / RUNNING / FINISHED / FAILED
+- `pipeline.tasks.total`: 任务总数
+- `pipeline.tasks.running`: 当前运行的任务数
+- `pipeline.checkpoint.latest_id`: 最新检查点 ID
+- `pipeline.checkpoint.duration`: 检查点持续时间
+
+**任务级别**:
+- `task.status`: 任务执行状态
+- `task.records_in`: 接收的记录数
+- `task.records_out`: 发出的记录数
+- `task.bytes_in`: 接收的字节数
+- `task.bytes_out`: 发出的字节数
+
+### 9.2 可视化
+
+```
+作业: mysql-to-es
+│
+├── 流水线 1 (mysql-cdc → elasticsearch)
+│   ├── PhysicalVertex 0 [RUNNING] @ worker-1:slot-1
+│   ├── PhysicalVertex 1 [RUNNING] @ worker-2:slot-1
+│   ├── PhysicalVertex 2 [RUNNING] @ worker-3:slot-1
+│   └── PhysicalVertex 3 [RUNNING] @ worker-4:slot-1
+│
+└── 流水线 2 (mysql-cdc → jdbc)
+    ├── PhysicalVertex 0 [RUNNING] @ worker-1:slot-2
+    └── PhysicalVertex 1 [RUNNING] @ worker-2:slot-2
+```
+
+## 10. 最佳实践
+
+### 10.1 并行度配置
+
+**经验法则**:
+```
+并行度 = min(
+    数据分区数,
+    可用槽位数,
+    目标吞吐量 / 单任务吞吐量
+)
+```
+
+**示例**:
+- **JDBC 数据源**: 设置为数据库分区数(例如 8 个分区 → parallelism=8)
+- **Kafka 数据源**: 设置为分区数(例如 32 个分区 → parallelism=32)
+- **文件数据源**: 设置为文件数或文件分片数
+- **CPU 密集型转换器**: 设置为 CPU 核心数
+- **I/O 密集型目标端**: 根据目标系统容量设置
+
+### 10.2 流水线设计
+
+**保持流水线简单**:
+- 优先使用线性流水线(数据源 → 转换器 → 目标端)
+- 尽可能避免复杂分支
+- 对完全独立的工作流使用多个作业
+
+**何时使用多个作业**:
+- 需要不同的检查点间隔
+- 需要不同的资源需求
+- 需要独立的故障域
+
+### 10.3 故障排除
+
+**问题**: 任务未启动
+
+**检查**:
+1. 是否有足够的可用槽位?(`required_slots <= available_slots`)
+2. 资源配置文件是否合理?(不要请求 100 个 CPU 核心)
+3. 标签过滤器是否正确?(如果使用基于标签的分配)
+
+**问题**: 低吞吐量
+
+**检查**:
+1. 并行度是否太低?(增加并行度)
+2. 任务融合是否被禁用?(启用以获得更好的性能)
+3. 检查点间隔是否太短?(增加间隔)
+
+## 11. 相关资源
+
+- [引擎架构](engine-architecture.md)
+- [资源管理](resource-management.md)
+- [检查点机制](../fault-tolerance/checkpoint-mechanism.md)
+- [架构概述](../overview.md)
+
+## 12. 参考资料
+
+### 关键源文件
+
+- [LogicalDag.java](../../../seatunnel-engine/seatunnel-engine-core/src/main/java/org/apache/seatunnel/engine/core/dag/logical/LogicalDag.java)
+- [PhysicalPlan.java](../../../seatunnel-engine/seatunnel-engine-server/src/main/java/org/apache/seatunnel/engine/server/dag/physical/PhysicalPlan.java)
+- [SubPlan.java](../../../seatunnel-engine/seatunnel-engine-server/src/main/java/org/apache/seatunnel/engine/server/dag/physical/SubPlan.java)
+- [PhysicalVertex.java](../../../seatunnel-engine/seatunnel-engine-server/src/main/java/org/apache/seatunnel/engine/server/dag/physical/PhysicalVertex.java)
+- [TaskGroupDefaultImpl.java](../../../seatunnel-engine/seatunnel-engine-server/src/main/java/org/apache/seatunnel/engine/server/task/group/TaskGroupDefaultImpl.java)
+
+### 进一步阅读
+
+- [Google Borg Paper](https://research.google/pubs/pub43438/) - 任务调度灵感
+- [Apache Flink JobGraph](https://nightlies.apache.org/flink/flink-docs-stable/docs/internals/job_scheduling/)
+- [Spark DAG Scheduler](https://spark.apache.org/docs/latest/job-scheduling.html)
