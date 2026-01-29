@@ -95,6 +95,10 @@ public class GravitinoTableSchemaConvertor implements MetaLakeTableSchemaConvert
         // Parse columns
         JsonNode columnsNode = metaInfo.get(JSON_FIELD_COLUMNS);
         if (columnsNode != null && columnsNode.isArray()) {
+            if (columnsNode.isEmpty()) {
+                throw CommonError.illegalArgument(
+                        "columns", "GravitinoTableSchemaConvertor.convertor");
+            }
             for (JsonNode columnNode : columnsNode) {
                 columns.add(parseColumn(columnNode));
             }
@@ -230,6 +234,9 @@ public class GravitinoTableSchemaConvertor implements MetaLakeTableSchemaConvert
                     return new SeaTunnelRowType(
                             fieldNames.toArray(new String[0]),
                             fieldTypes.toArray(new SeaTunnelDataType<?>[0]));
+                case "external":
+                    // External types like PostgreSQL jsonb are treated as string
+                    return BasicType.STRING_TYPE;
                 case "union":
                 default:
                     throw CommonError.convertToSeaTunnelTypeError(

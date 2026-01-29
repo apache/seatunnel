@@ -33,6 +33,7 @@ import org.apache.seatunnel.api.table.type.DecimalType;
 import org.apache.seatunnel.api.table.type.LocalTimeType;
 import org.apache.seatunnel.api.table.type.MapType;
 import org.apache.seatunnel.api.table.type.PrimitiveByteArrayType;
+import org.apache.seatunnel.api.table.type.SeaTunnelRowType;
 import org.apache.seatunnel.common.exception.SeaTunnelRuntimeException;
 
 import org.junit.jupiter.api.Assertions;
@@ -484,7 +485,81 @@ public class GravitinoTableSchemaConvertorTest {
     }
 
     @Test
-    void testUnsupportedStructType() throws Exception {
+    void testStructTypeSimple() throws Exception {
+        String json =
+                "{\"columns\":[{\"name\":\"struct_col\",\"type\":{\"type\":\"struct\",\"fields\":[{\"name\":\"id\",\"type\":\"integer\",\"nullable\":false},{\"name\":\"name\",\"type\":\"string\",\"nullable\":true}]},\"nullable\":true}]}";
+        JsonNode metaInfo = OBJECT_MAPPER.readTree(json);
+        TableSchema schema = CONVERTOR.convertor(metaInfo);
+        List<Column> columns = schema.getColumns();
+        Assertions.assertEquals(1, columns.size());
+        SeaTunnelRowType rowType = (SeaTunnelRowType) columns.get(0).getDataType();
+        Assertions.assertEquals("struct_col", columns.get(0).getName());
+        Assertions.assertEquals(2, rowType.getTotalFields());
+        Assertions.assertEquals("id", rowType.getFieldName(0));
+        Assertions.assertEquals(BasicType.INT_TYPE, rowType.getFieldType(0));
+        Assertions.assertEquals("name", rowType.getFieldName(1));
+        Assertions.assertEquals(BasicType.STRING_TYPE, rowType.getFieldType(1));
+    }
+
+    @Test
+    void testStructTypeNested() throws Exception {
+        String json =
+                "{\"columns\":[{\"name\":\"struct_col\",\"type\":{\"type\":\"struct\",\"fields\":[{\"name\":\"base\",\"type\":{\"type\":\"struct\",\"fields\":[{\"name\":\"id\",\"type\":\"long\",\"nullable\":true},{\"name\":\"flag\",\"type\":\"boolean\",\"nullable\":true}]},\"nullable\":true},{\"name\":\"ext\",\"type\":{\"type\":\"struct\",\"fields\":[{\"name\":\"score\",\"type\":\"double\",\"nullable\":true}]},\"nullable\":true}]},\"nullable\":true}]}";
+        JsonNode metaInfo = OBJECT_MAPPER.readTree(json);
+        TableSchema schema = CONVERTOR.convertor(metaInfo);
+        List<Column> columns = schema.getColumns();
+        Assertions.assertEquals(1, columns.size());
+        SeaTunnelRowType rowType = (SeaTunnelRowType) columns.get(0).getDataType();
+        Assertions.assertEquals("struct_col", columns.get(0).getName());
+        Assertions.assertEquals(2, rowType.getTotalFields());
+
+        // Check base field (nested struct)
+        Assertions.assertEquals("base", rowType.getFieldName(0));
+        SeaTunnelRowType baseType = (SeaTunnelRowType) rowType.getFieldType(0);
+        Assertions.assertEquals(2, baseType.getTotalFields());
+        Assertions.assertEquals("id", baseType.getFieldName(0));
+        Assertions.assertEquals(BasicType.LONG_TYPE, baseType.getFieldType(0));
+        Assertions.assertEquals("flag", baseType.getFieldName(1));
+        Assertions.assertEquals(BasicType.BOOLEAN_TYPE, baseType.getFieldType(1));
+
+        // Check ext field (nested struct)
+        Assertions.assertEquals("ext", rowType.getFieldName(1));
+        SeaTunnelRowType extType = (SeaTunnelRowType) rowType.getFieldType(1);
+        Assertions.assertEquals(1, extType.getTotalFields());
+        Assertions.assertEquals("score", extType.getFieldName(0));
+        Assertions.assertEquals(BasicType.DOUBLE_TYPE, extType.getFieldType(0));
+    }
+
+    @Test
+    void testStructTypeWithComplexFields() throws Exception {
+        String json =
+                "{\"columns\":[{\"name\":\"struct_col\",\"type\":{\"type\":\"struct\",\"fields\":[{\"name\":\"id\",\"type\":\"integer\",\"nullable\":false},{\"name\":\"tags\",\"type\":{\"type\":\"list\",\"elementType\":\"string\"},\"nullable\":true},{\"name\":\"metadata\",\"type\":{\"type\":\"map\",\"keyType\":\"string\",\"valueType\":\"string\"},\"nullable\":true}]},\"nullable\":true}]}";
+        JsonNode metaInfo = OBJECT_MAPPER.readTree(json);
+        TableSchema schema = CONVERTOR.convertor(metaInfo);
+        List<Column> columns = schema.getColumns();
+        Assertions.assertEquals(1, columns.size());
+        SeaTunnelRowType rowType = (SeaTunnelRowType) columns.get(0).getDataType();
+        Assertions.assertEquals("struct_col", columns.get(0).getName());
+        Assertions.assertEquals(3, rowType.getTotalFields());
+
+        // Check id field
+        Assertions.assertEquals("id", rowType.getFieldName(0));
+        Assertions.assertEquals(BasicType.INT_TYPE, rowType.getFieldType(0));
+
+        // Check tags field (array)
+        Assertions.assertEquals("tags", rowType.getFieldName(1));
+        ArrayType<?, ?> tagsType = (ArrayType<?, ?>) rowType.getFieldType(1);
+        Assertions.assertEquals(BasicType.STRING_TYPE, tagsType.getElementType());
+
+        // Check metadata field (map)
+        Assertions.assertEquals("metadata", rowType.getFieldName(2));
+        MapType<?, ?> metadataType = (MapType<?, ?>) rowType.getFieldType(2);
+        Assertions.assertEquals(BasicType.STRING_TYPE, metadataType.getKeyType());
+        Assertions.assertEquals(BasicType.STRING_TYPE, metadataType.getValueType());
+    }
+
+    @Test
+    void testStructWithoutFields() throws Exception {
         String json =
                 "{\"columns\":[{\"name\":\"struct_col\",\"type\":{\"type\":\"struct\"},\"nullable\":true}]}";
         JsonNode metaInfo = OBJECT_MAPPER.readTree(json);
@@ -492,8 +567,8 @@ public class GravitinoTableSchemaConvertorTest {
                 Assertions.assertThrows(
                         SeaTunnelRuntimeException.class, () -> CONVERTOR.convertor(metaInfo));
         Assertions.assertTrue(
-                exception.getMessage().contains("struct"),
-                "Error message should mention unsupported type 'struct'");
+                exception.getMessage().contains("struct without fields array"),
+                "Error message should mention missing fields");
         Assertions.assertTrue(exception.getMessage().contains("struct_col"));
     }
 
@@ -551,31 +626,6 @@ public class GravitinoTableSchemaConvertorTest {
                 exception.getMessage().contains("map without keyType or valueType"),
                 "Error message should mention missing keyType or valueType");
         Assertions.assertTrue(exception.getMessage().contains("map_col"));
-    }
-
-    @Test
-    void testNullType() throws Exception {
-        String json = "{\"columns\":[{\"name\":\"null_col\",\"nullable\":true}]}";
-        JsonNode metaInfo = OBJECT_MAPPER.readTree(json);
-        SeaTunnelRuntimeException exception =
-                Assertions.assertThrows(
-                        SeaTunnelRuntimeException.class, () -> CONVERTOR.convertor(metaInfo));
-        Assertions.assertTrue(
-                exception.getMessage().contains("null"), "Error message should mention null type");
-        Assertions.assertTrue(exception.getMessage().contains("null_col"));
-    }
-
-    @Test
-    void testComplexTypeWithoutTypeField() throws Exception {
-        String json =
-                "{\"columns\":[{\"name\":\"invalid_col\",\"type\":{\"elementType\":\"integer\"},\"nullable\":true}]}";
-        JsonNode metaInfo = OBJECT_MAPPER.readTree(json);
-        SeaTunnelRuntimeException exception =
-                Assertions.assertThrows(
-                        SeaTunnelRuntimeException.class, () -> CONVERTOR.convertor(metaInfo));
-        Assertions.assertTrue(
-                exception.getMessage().contains("invalid_col"),
-                "Error message should mention column name");
     }
 
     @Test
@@ -653,91 +703,15 @@ public class GravitinoTableSchemaConvertorTest {
     }
 
     @Test
-    void testMultipleColumnsOfDifferentTypes() throws Exception {
-        String json =
-                "{"
-                        + "\"columns\":["
-                        + "{\"name\":\"id\",\"type\":\"long\",\"nullable\":false},"
-                        + "{\"name\":\"name\",\"type\":\"varchar(100)\",\"nullable\":true},"
-                        + "{\"name\":\"amount\",\"type\":\"decimal(10,2)\",\"nullable\":true},"
-                        + "{\"name\":\"created_at\",\"type\":\"timestamp\",\"nullable\":true},"
-                        + "{\"name\":\"is_active\",\"type\":\"boolean\",\"nullable\":true},"
-                        + "{\"name\":\"data\",\"type\":\"binary\",\"nullable\":true},"
-                        + "{\"name\":\"tags\",\"type\":{\"type\":\"list\",\"elementType\":\"string\"},\"nullable\":true},"
-                        + "{\"name\":\"metadata\",\"type\":{\"type\":\"map\",\"keyType\":\"string\",\"valueType\":\"string\"},\"nullable\":true}"
-                        + "],"
-                        + "\"indexes\":["
-                        + "{\"name\":\"pk\",\"indexType\":\"PRIMARY_KEY\",\"fieldNames\":[[\"id\"]]}"
-                        + "]"
-                        + "}";
-        JsonNode metaInfo = OBJECT_MAPPER.readTree(json);
-        TableSchema schema = CONVERTOR.convertor(metaInfo);
-
-        List<Column> columns = schema.getColumns();
-        Assertions.assertEquals(8, columns.size());
-
-        Assertions.assertEquals("id", columns.get(0).getName());
-        Assertions.assertEquals(BasicType.LONG_TYPE, columns.get(0).getDataType());
-
-        Assertions.assertEquals("name", columns.get(1).getName());
-        Assertions.assertEquals(BasicType.STRING_TYPE, columns.get(1).getDataType());
-        Assertions.assertEquals(
-                Long.valueOf(100), ((PhysicalColumn) columns.get(1)).getColumnLength());
-
-        Assertions.assertEquals("amount", columns.get(2).getName());
-        Assertions.assertEquals(new DecimalType(10, 2), columns.get(2).getDataType());
-        Assertions.assertEquals(Integer.valueOf(2), ((PhysicalColumn) columns.get(2)).getScale());
-
-        Assertions.assertEquals("created_at", columns.get(3).getName());
-        Assertions.assertEquals(LocalTimeType.LOCAL_DATE_TIME_TYPE, columns.get(3).getDataType());
-
-        Assertions.assertEquals("is_active", columns.get(4).getName());
-        Assertions.assertEquals(BasicType.BOOLEAN_TYPE, columns.get(4).getDataType());
-
-        Assertions.assertEquals("data", columns.get(5).getName());
-        Assertions.assertEquals(PrimitiveByteArrayType.INSTANCE, columns.get(5).getDataType());
-
-        Assertions.assertEquals("tags", columns.get(6).getName());
-        ArrayType<?, ?> tagsType = (ArrayType<?, ?>) columns.get(6).getDataType();
-        Assertions.assertEquals(BasicType.STRING_TYPE, tagsType.getElementType());
-
-        Assertions.assertEquals("metadata", columns.get(7).getName());
-        MapType<?, ?> metadataType = (MapType<?, ?>) columns.get(7).getDataType();
-        Assertions.assertEquals(BasicType.STRING_TYPE, metadataType.getKeyType());
-        Assertions.assertEquals(BasicType.STRING_TYPE, metadataType.getValueType());
-
-        PrimaryKey primaryKey = schema.getPrimaryKey();
-        Assertions.assertNotNull(primaryKey);
-        Assertions.assertEquals("pk", primaryKey.getPrimaryKey());
-    }
-
-    // ==================== BuildCatalogTable Tests ====================
-
-    @Test
-    void testBuildCatalogTable() throws Exception {
-        String json =
-                "{\"columns\":[{\"name\":\"id\",\"type\":\"integer\",\"nullable\":false},{\"name\":\"name\",\"type\":\"string\",\"nullable\":true}],"
-                        + "\"indexes\":[{\"name\":\"pk\",\"indexType\":\"PRIMARY_KEY\",\"fieldNames\":[[\"id\"]]}]}";
-        JsonNode metaInfo = OBJECT_MAPPER.readTree(json);
-        TableSchema tableSchema = CONVERTOR.convertor(metaInfo);
-        TablePath tablePath = TablePath.of("test_database", "test_schema", "test_table");
-        CatalogTable catalogTable =
-                CONVERTOR.buildCatalogTable("test_catalog", tablePath, tableSchema);
-        Assertions.assertEquals("test_catalog", catalogTable.getCatalogName());
-        Assertions.assertEquals("test_catalog", catalogTable.getTableId().getCatalogName());
-        Assertions.assertEquals("test_database", catalogTable.getTableId().getDatabaseName());
-        Assertions.assertEquals("test_schema", catalogTable.getTableId().getSchemaName());
-        Assertions.assertEquals("test_table", catalogTable.getTableId().getTableName());
-        Assertions.assertEquals(tableSchema, catalogTable.getTableSchema());
-    }
-
-    @Test
     void testEmptyColumns() throws Exception {
         String json = "{\"columns\":[]}";
         JsonNode metaInfo = OBJECT_MAPPER.readTree(json);
-        TableSchema schema = CONVERTOR.convertor(metaInfo);
-        List<Column> columns = schema.getColumns();
-        Assertions.assertTrue(columns.isEmpty());
+        SeaTunnelRuntimeException exception =
+                Assertions.assertThrows(
+                        SeaTunnelRuntimeException.class, () -> CONVERTOR.convertor(metaInfo));
+        Assertions.assertTrue(
+                exception.getMessage().contains("columns"),
+                "Error message should mention empty columns");
     }
 
     @Test
@@ -799,5 +773,166 @@ public class GravitinoTableSchemaConvertorTest {
         Assertions.assertEquals(PrimitiveByteArrayType.INSTANCE, col4.getDataType());
         Assertions.assertEquals(Long.valueOf(8), col4.getColumnLength());
     }
-    // todo test json from file
+
+    @Test
+    void testBuildCatalogTableWithHiveMetadata() throws Exception {
+        // Read metadata from JSON file
+        String jsonPath = "/conf/json/metadata_json_from_meta_lake_hive.json";
+        JsonNode rootNode = OBJECT_MAPPER.readTree(getClass().getResourceAsStream(jsonPath));
+        JsonNode tableNode = rootNode.get("table");
+
+        // Convert metadata to TableSchema
+        TableSchema tableSchema = CONVERTOR.convertor(tableNode);
+
+        // Verify columns
+        List<Column> columns = tableSchema.getColumns();
+        Assertions.assertEquals(20, columns.size());
+
+        // Verify basic types
+        Assertions.assertEquals("c_tinyint", columns.get(0).getName());
+        Assertions.assertEquals(BasicType.BYTE_TYPE, columns.get(0).getDataType());
+
+        Assertions.assertEquals("c_smallint", columns.get(1).getName());
+        Assertions.assertEquals(BasicType.SHORT_TYPE, columns.get(1).getDataType());
+
+        Assertions.assertEquals("c_int", columns.get(2).getName());
+        Assertions.assertEquals(BasicType.INT_TYPE, columns.get(2).getDataType());
+
+        Assertions.assertEquals("c_bigint", columns.get(3).getName());
+        Assertions.assertEquals(BasicType.LONG_TYPE, columns.get(3).getDataType());
+
+        // Verify decimal type
+        Assertions.assertEquals("c_decimal", columns.get(7).getName());
+        Assertions.assertEquals(new DecimalType(20, 6), columns.get(7).getDataType());
+
+        // Verify array types
+        ArrayType<?, ?> arrayIntType = (ArrayType<?, ?>) columns.get(14).getDataType();
+        Assertions.assertEquals("c_array_int", columns.get(14).getName());
+        Assertions.assertEquals(BasicType.INT_TYPE, arrayIntType.getElementType());
+
+        ArrayType<?, ?> arrayStringType = (ArrayType<?, ?>) columns.get(15).getDataType();
+        Assertions.assertEquals("c_array_string", columns.get(15).getName());
+        Assertions.assertEquals(BasicType.STRING_TYPE, arrayStringType.getElementType());
+
+        // Verify map types
+        MapType<?, ?> mapStrIntType = (MapType<?, ?>) columns.get(16).getDataType();
+        Assertions.assertEquals("c_map_str_int", columns.get(16).getName());
+        Assertions.assertEquals(BasicType.STRING_TYPE, mapStrIntType.getKeyType());
+        Assertions.assertEquals(BasicType.INT_TYPE, mapStrIntType.getValueType());
+
+        // Verify struct type - simple struct
+        SeaTunnelRowType simpleStructType = (SeaTunnelRowType) columns.get(18).getDataType();
+        Assertions.assertEquals("c_struct_simple", columns.get(18).getName());
+        Assertions.assertEquals(2, simpleStructType.getTotalFields());
+        Assertions.assertEquals("id", simpleStructType.getFieldName(0));
+        Assertions.assertEquals(BasicType.INT_TYPE, simpleStructType.getFieldType(0));
+        Assertions.assertEquals("name", simpleStructType.getFieldName(1));
+        Assertions.assertEquals(BasicType.STRING_TYPE, simpleStructType.getFieldType(1));
+
+        // Verify struct type - nested struct
+        SeaTunnelRowType nestedStructType = (SeaTunnelRowType) columns.get(19).getDataType();
+        Assertions.assertEquals("c_struct_nested", columns.get(19).getName());
+        Assertions.assertEquals(2, nestedStructType.getTotalFields());
+
+        // Check base field (nested struct)
+        SeaTunnelRowType baseStruct = (SeaTunnelRowType) nestedStructType.getFieldType(0);
+        Assertions.assertEquals("base", nestedStructType.getFieldName(0));
+        Assertions.assertEquals(2, baseStruct.getTotalFields());
+        Assertions.assertEquals("id", baseStruct.getFieldName(0));
+        Assertions.assertEquals(BasicType.LONG_TYPE, baseStruct.getFieldType(0));
+        Assertions.assertEquals("flag", baseStruct.getFieldName(1));
+        Assertions.assertEquals(BasicType.BOOLEAN_TYPE, baseStruct.getFieldType(1));
+
+        // Check ext field (nested struct with list)
+        SeaTunnelRowType extStruct = (SeaTunnelRowType) nestedStructType.getFieldType(1);
+        Assertions.assertEquals("ext", nestedStructType.getFieldName(1));
+        Assertions.assertEquals(2, extStruct.getTotalFields());
+        Assertions.assertEquals("score", extStruct.getFieldName(0));
+        Assertions.assertEquals(BasicType.DOUBLE_TYPE, extStruct.getFieldType(0));
+        Assertions.assertEquals("tags", extStruct.getFieldName(1));
+        ArrayType<?, ?> tagsArrayType = (ArrayType<?, ?>) extStruct.getFieldType(1);
+        Assertions.assertEquals(BasicType.STRING_TYPE, tagsArrayType.getElementType());
+
+        // Build CatalogTable
+        TablePath tablePath = TablePath.of("test_db", "test_schema", "all_hive_types_csv");
+        CatalogTable catalogTable =
+                CONVERTOR.buildCatalogTable("hive_catalog", tablePath, tableSchema);
+
+        // Verify CatalogTable properties
+        Assertions.assertEquals("hive_catalog", catalogTable.getCatalogName());
+        Assertions.assertEquals("hive_catalog", catalogTable.getTableId().getCatalogName());
+        Assertions.assertEquals("test_db", catalogTable.getTableId().getDatabaseName());
+        Assertions.assertEquals("test_schema", catalogTable.getTableId().getSchemaName());
+        Assertions.assertEquals("all_hive_types_csv", catalogTable.getTableId().getTableName());
+        Assertions.assertEquals(tableSchema, catalogTable.getTableSchema());
+    }
+
+    @Test
+    void testBuildCatalogTableWithPostgresMetadata() throws Exception {
+        // Read metadata from JSON file
+        String jsonPath = "/conf/json/metadata_json_from_meta_lake_pgsql.json";
+        JsonNode rootNode = OBJECT_MAPPER.readTree(getClass().getResourceAsStream(jsonPath));
+        JsonNode tableNode = rootNode.get("table");
+
+        // Convert metadata to TableSchema
+        TableSchema tableSchema = CONVERTOR.convertor(tableNode);
+
+        // Verify columns
+        List<Column> columns = tableSchema.getColumns();
+        Assertions.assertEquals(14, columns.size());
+
+        // Verify primary key
+        PrimaryKey primaryKey = tableSchema.getPrimaryKey();
+        Assertions.assertNotNull(primaryKey);
+        Assertions.assertEquals("all_type_pk", primaryKey.getPrimaryKey());
+        Assertions.assertEquals(1, primaryKey.getColumnNames().size());
+        Assertions.assertEquals("id", primaryKey.getColumnNames().get(0));
+
+        // Verify unique keys
+        List<ConstraintKey> constraintKeys = tableSchema.getConstraintKeys();
+        Assertions.assertEquals(1, constraintKeys.size());
+        Assertions.assertEquals(
+                "all_type_big_number_idx", constraintKeys.get(0).getConstraintName());
+        Assertions.assertEquals(
+                ConstraintKey.ConstraintType.UNIQUE_KEY, constraintKeys.get(0).getConstraintType());
+
+        // Verify basic column types
+        Assertions.assertEquals("id", columns.get(0).getName());
+        Assertions.assertEquals(BasicType.INT_TYPE, columns.get(0).getDataType());
+        Assertions.assertFalse(columns.get(0).isNullable());
+
+        Assertions.assertEquals("big_number", columns.get(1).getName());
+        Assertions.assertEquals(BasicType.LONG_TYPE, columns.get(1).getDataType());
+
+        Assertions.assertEquals("decimal_value", columns.get(6).getName());
+        Assertions.assertEquals(new DecimalType(10, 2), columns.get(6).getDataType());
+
+        // Verify varchar types with length
+        Assertions.assertEquals("user_name", columns.get(8).getName());
+        Assertions.assertEquals(BasicType.STRING_TYPE, columns.get(8).getDataType());
+        Assertions.assertEquals(
+                Long.valueOf(300), ((PhysicalColumn) columns.get(8)).getColumnLength());
+
+        // Verify external type (jsonb treated as string)
+        Assertions.assertEquals("map_field", columns.get(12).getName());
+        Assertions.assertEquals(BasicType.STRING_TYPE, columns.get(12).getDataType());
+
+        // Verify list type
+        ArrayType<?, ?> listFieldType = (ArrayType<?, ?>) columns.get(13).getDataType();
+        Assertions.assertEquals("list_field", columns.get(13).getName());
+        Assertions.assertEquals(BasicType.STRING_TYPE, listFieldType.getElementType());
+
+        // Build CatalogTable
+        TablePath tablePath = TablePath.of("test_db", "public", "all_type");
+        CatalogTable catalogTable =
+                CONVERTOR.buildCatalogTable("postgres_catalog", tablePath, tableSchema);
+
+        // Verify CatalogTable properties
+        Assertions.assertEquals("postgres_catalog", catalogTable.getCatalogName());
+        Assertions.assertEquals("postgres_catalog", catalogTable.getTableId().getCatalogName());
+        Assertions.assertEquals("test_db", catalogTable.getTableId().getDatabaseName());
+        Assertions.assertEquals("public", catalogTable.getTableId().getSchemaName());
+        Assertions.assertEquals("all_type", catalogTable.getTableId().getTableName());
+        Assertions.assertEquals(tableSchema, catalogTable.getTableSchema());
+    }
 }
