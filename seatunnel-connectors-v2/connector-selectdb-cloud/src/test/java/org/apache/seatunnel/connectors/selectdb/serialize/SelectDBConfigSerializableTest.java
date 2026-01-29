@@ -50,20 +50,7 @@ public class SelectDBConfigSerializableTest {
         stageLoadProps.setProperty("file.type", "json");
         config.setStageLoadProps(stageLoadProps);
 
-        byte[] serialized;
-        try (ByteArrayOutputStream byteArrayOutputStream = new ByteArrayOutputStream();
-                ObjectOutputStream objectOutputStream =
-                        new ObjectOutputStream(byteArrayOutputStream)) {
-            objectOutputStream.writeObject(config);
-            objectOutputStream.flush();
-            serialized = byteArrayOutputStream.toByteArray();
-        }
-
-        SelectDBConfig deserialized;
-        try (ObjectInputStream objectInputStream =
-                new ObjectInputStream(new ByteArrayInputStream(serialized))) {
-            deserialized = (SelectDBConfig) objectInputStream.readObject();
-        }
+        SelectDBConfig deserialized = roundTrip(config);
 
         Assertions.assertEquals(config.getLoadUrl(), deserialized.getLoadUrl());
         Assertions.assertEquals(config.getJdbcUrl(), deserialized.getJdbcUrl());
@@ -81,5 +68,52 @@ public class SelectDBConfigSerializableTest {
         Assertions.assertEquals(
                 config.getStageLoadProps().getProperty("file.type"),
                 deserialized.getStageLoadProps().getProperty("file.type"));
+    }
+
+    @Test
+    void testSelectDBConfigSerializableWithNullStageLoadProps() throws Exception {
+        SelectDBConfig config = new SelectDBConfig();
+        config.setLoadUrl("localhost:8080");
+        config.setJdbcUrl("localhost:9030");
+        config.setUsername("user");
+        config.setPassword("pwd");
+        // stageLoadProps not set, keep it null
+
+        SelectDBConfig deserialized = roundTrip(config);
+
+        Assertions.assertEquals(config.getLoadUrl(), deserialized.getLoadUrl());
+        Assertions.assertEquals(config.getJdbcUrl(), deserialized.getJdbcUrl());
+        Assertions.assertEquals(config.getUsername(), deserialized.getUsername());
+        Assertions.assertEquals(config.getPassword(), deserialized.getPassword());
+        Assertions.assertNull(deserialized.getStageLoadProps());
+    }
+
+    @Test
+    void testSelectDBConfigSerializableWithEmptyStageLoadProps() throws Exception {
+        SelectDBConfig config = new SelectDBConfig();
+        config.setLoadUrl("localhost:8080");
+        config.setStageLoadProps(new Properties());
+
+        SelectDBConfig deserialized = roundTrip(config);
+
+        Assertions.assertEquals(config.getLoadUrl(), deserialized.getLoadUrl());
+        Assertions.assertNotNull(deserialized.getStageLoadProps());
+        Assertions.assertTrue(deserialized.getStageLoadProps().isEmpty());
+    }
+
+    private static SelectDBConfig roundTrip(SelectDBConfig config) throws Exception {
+        byte[] serialized;
+        try (ByteArrayOutputStream byteArrayOutputStream = new ByteArrayOutputStream();
+                ObjectOutputStream objectOutputStream =
+                        new ObjectOutputStream(byteArrayOutputStream)) {
+            objectOutputStream.writeObject(config);
+            objectOutputStream.flush();
+            serialized = byteArrayOutputStream.toByteArray();
+        }
+
+        try (ObjectInputStream objectInputStream =
+                new ObjectInputStream(new ByteArrayInputStream(serialized))) {
+            return (SelectDBConfig) objectInputStream.readObject();
+        }
     }
 }

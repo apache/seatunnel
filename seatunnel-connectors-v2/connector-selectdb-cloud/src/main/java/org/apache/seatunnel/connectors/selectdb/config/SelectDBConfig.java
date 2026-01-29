@@ -46,7 +46,7 @@ public class SelectDBConfig implements Serializable {
     private Integer bufferSize;
     private Integer bufferCount;
     private Integer flushQueueSize;
-    private Properties StageLoadProps;
+    private Properties stageLoadProps;
 
     public static SelectDBConfig loadConfig(ReadonlyConfig pluginConfig) {
         SelectDBConfig selectdbConfig = new SelectDBConfig();
