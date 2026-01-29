@@ -255,9 +255,7 @@ public class PdfReadStrategy extends AbstractReadStrategy {
             PDDocument document, PDOutlineItem item, String parentId, int level, int positionIndex)
             throws IOException {
 
-        if (item == null
-                || org.apache.seatunnel.shade.org.apache.commons.lang3.StringUtils.isBlank(
-                        item.getTitle())) {
+        if (item == null || StringUtils.isBlank(item.getTitle())) {
             return null;
         }
 
@@ -563,9 +561,7 @@ public class PdfReadStrategy extends AbstractReadStrategy {
 
     /** Check if a line contains a specific heading */
     private boolean lineContainsHeading(String line, String heading) {
-        if (StringUtils.isBlank(line)
-                || org.apache.seatunnel.shade.org.apache.commons.lang3.StringUtils.isBlank(
-                        heading)) {
+        if (StringUtils.isBlank(line) || StringUtils.isBlank(heading)) {
             return false;
         }
 

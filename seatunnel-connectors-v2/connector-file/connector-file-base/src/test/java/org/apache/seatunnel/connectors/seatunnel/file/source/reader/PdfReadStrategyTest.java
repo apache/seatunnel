@@ -18,6 +18,7 @@
 package org.apache.seatunnel.connectors.seatunnel.file.source.reader;
 
 import org.apache.seatunnel.api.table.type.SeaTunnelRow;
+import org.apache.seatunnel.connectors.seatunnel.file.exception.FileConnectorException;
 
 import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.Test;
@@ -35,7 +36,8 @@ import java.util.stream.Collectors;
 public class PdfReadStrategyTest {
 
     @Test
-    public void testReadPdfStrategy() throws URISyntaxException, IOException {
+    public void testReadPdfStrategy()
+            throws URISyntaxException, IOException, FileConnectorException {
         URL resource = this.getClass().getResource("/pdf_read_strategy_test.pdf");
 
         String path = Paths.get(resource.toURI()).toString();
@@ -44,9 +46,6 @@ public class PdfReadStrategyTest {
         pdfReadStrategy.read(path, "", tempCollector);
 
         List<SeaTunnelRow> rows = tempCollector.getRows();
-        for (SeaTunnelRow row : rows) {
-            log.info("pdf read row: {}", row.toString());
-        }
 
         List<SeaTunnelRow> headingElements = getHeadingElements(rows);
 
@@ -71,11 +70,6 @@ public class PdfReadStrategyTest {
                         + "This comprehensive guide covers all things groceries—from what to shop for, strategies to save money, storage tips, and even how groceries have changed in the\n"
                         + "modern era.";
 
-        Assertions.assertEquals(
-                expectedParagraph.length(),
-                String.valueOf(rows.get(1).getField(3)).replace("\r\n", "\n").length());
-        Assertions.assertEquals(
-                expectedParagraph, String.valueOf(rows.get(1).getField(3)).replace("\r\n", "\n"));
         Assertions.assertEquals(
                 expectedParagraph.length(), String.valueOf(rows.get(1).getField(3)).length());
         Assertions.assertEquals(expectedParagraph, rows.get(1).getField(3));
