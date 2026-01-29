@@ -108,11 +108,6 @@ public abstract class CloudWriter implements IFileWriter<IMapFileData> {
     }
 
     @Override
-    public void compaction(boolean force) throws IOException {
-        throw new UnsupportedOperationException("Cloud writer does not support compaction");
-    }
-
-    @Override
     public void close() throws Exception {
         bf.clear();
         this.bf = null;

@@ -30,6 +30,7 @@ import org.apache.hadoop.fs.FileSystem;
 import org.apache.hadoop.fs.Path;
 
 import java.io.IOException;
+import java.util.Map;
 
 public class WALWriter implements AutoCloseable {
 
@@ -39,9 +40,10 @@ public class WALWriter implements AutoCloseable {
             FileSystem fs,
             FileConfiguration fileConfiguration,
             Path parentPath,
-            Serializer serializer)
+            Serializer serializer,
+            Map<String, Object> config)
             throws IOException {
-        this(DiscoveryWalFileFactory.getWriter(fileConfiguration.getName()));
+        this(DiscoveryWalFileFactory.getWriter(fileConfiguration.getName(), config));
         init(fs, fileConfiguration, parentPath, serializer);
     }
 
@@ -61,10 +63,6 @@ public class WALWriter implements AutoCloseable {
 
     public void write(IMapFileData data) throws IOException {
         this.writer.write(data, false);
-    }
-
-    public void compaction() throws IOException {
-        // default no-op
     }
 
     @Override

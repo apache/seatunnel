@@ -61,7 +61,8 @@ public class WALDisruptorTest {
     void testProducerAndConsumer() throws IOException {
         FS = FileSystem.get(CONF);
         DISRUPTOR =
-                new WALDisruptor(FS, FileConfiguration.HDFS, FILEPATH, new ProtoStuffSerializer());
+                new WALDisruptor(
+                        FS, FileConfiguration.HDFS, FILEPATH, new ProtoStuffSerializer(), null);
         IMapFileData data;
         for (int i = 0; i < 100; i++) {
             data =

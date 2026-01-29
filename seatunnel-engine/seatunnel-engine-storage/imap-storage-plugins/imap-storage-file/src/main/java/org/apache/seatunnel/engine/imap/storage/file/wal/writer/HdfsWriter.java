@@ -58,11 +58,6 @@ public class HdfsWriter implements IFileWriter<IMapFileData> {
         this.write(bytes);
     }
 
-    @Override
-    public void compaction(boolean force) throws IOException {
-        throw new UnsupportedOperationException("HDFS writer does not support compaction");
-    }
-
     public void flush() throws IOException {
         // hsync to flag
         if (out instanceof HdfsDataOutputStream) {

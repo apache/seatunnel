@@ -21,29 +21,50 @@
 package org.apache.seatunnel.engine.imap.storage.file.disruptor;
 
 import org.apache.seatunnel.engine.imap.storage.api.exception.IMapStorageException;
+import org.apache.seatunnel.engine.imap.storage.file.bean.IMapFileData;
 import org.apache.seatunnel.engine.imap.storage.file.config.FileConfiguration;
 import org.apache.seatunnel.engine.serializer.api.Serializer;
 
 import org.apache.hadoop.fs.FileSystem;
 
 import com.lmax.disruptor.BlockingWaitStrategy;
+import com.lmax.disruptor.EventTranslatorThreeArg;
 import com.lmax.disruptor.TimeoutException;
 import com.lmax.disruptor.dsl.Disruptor;
 import com.lmax.disruptor.dsl.ProducerType;
 import com.lmax.disruptor.util.DaemonThreadFactory;
 import lombok.extern.slf4j.Slf4j;
 
+import java.io.Closeable;
 import java.io.IOException;
+import java.util.Map;
 import java.util.concurrent.ThreadFactory;
 import java.util.concurrent.TimeUnit;
 
 @Slf4j
-public class WALDisruptor extends AbstractWALDisruptor {
+public class WALDisruptor implements Closeable {
+    private static final int DEFAULT_RING_BUFFER_SIZE = 1024;
+
+    private static final int DEFAULT_CLOSE_WAIT_TIME_SECONDS = 5;
+
+    private Disruptor<FileWALEvent> disruptor;
+
+    private volatile boolean isClosed = false;
+
+    private static final EventTranslatorThreeArg<FileWALEvent, IMapFileData, WALEventType, Long>
+            TRANSLATOR =
+                    (event, sequence, data, walEventStatus, requestId) -> {
+                        event.setData(data);
+                        event.setType(walEventStatus);
+                        event.setRequestId(requestId);
+                    };
+
     public WALDisruptor(
             FileSystem fs,
             FileConfiguration fileConfiguration,
             String parentPath,
-            Serializer serializer) {
+            Serializer serializer,
+            Map<String, Object> config) {
         // todo should support multi thread producer
         ThreadFactory threadFactory = DaemonThreadFactory.INSTANCE;
         this.disruptor =
@@ -55,12 +76,26 @@ public class WALDisruptor extends AbstractWALDisruptor {
                         new BlockingWaitStrategy());
 
         disruptor.handleEventsWithWorkerPool(
-                new WALWorkHandler(fs, fileConfiguration, parentPath, serializer));
-
+                new WALWorkHandler(fs, fileConfiguration, parentPath, serializer, config));
         disruptor.start();
     }
 
-    @Override
+    public boolean isClosed() {
+        return isClosed;
+    }
+
+    public boolean tryPublish(IMapFileData message, WALEventType status, long requestId) {
+        if (isClosed()) {
+            return false;
+        }
+        disruptor.getRingBuffer().publishEvent(TRANSLATOR, message, status, requestId);
+        return true;
+    }
+
+    public boolean tryAppendPublish(IMapFileData message, long requestId) {
+        return this.tryPublish(message, WALEventType.APPEND, requestId);
+    }
+
     public void close() throws IOException {
         // we can wait for 5 seconds, so that backlog can be committed
         try {
@@ -69,7 +104,7 @@ public class WALDisruptor extends AbstractWALDisruptor {
             disruptor.shutdown(DEFAULT_CLOSE_WAIT_TIME_SECONDS, TimeUnit.SECONDS);
         } catch (TimeoutException e) {
             log.error("WALDisruptor close timeout error", e);
-            throw new IMapStorageException("WALDisruptor close timeout error", e);
+            throw new IMapStorageException("WALCompactionDisruptor close timeout error", e);
         }
     }
 }

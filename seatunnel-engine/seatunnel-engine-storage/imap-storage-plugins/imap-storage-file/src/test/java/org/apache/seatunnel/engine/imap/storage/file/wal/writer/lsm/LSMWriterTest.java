@@ -25,7 +25,6 @@ import org.apache.seatunnel.engine.imap.storage.file.common.FileConstants;
 import org.apache.seatunnel.engine.imap.storage.file.common.WALDataUtils;
 import org.apache.seatunnel.engine.imap.storage.file.wal.IMapFileIterator;
 import org.apache.seatunnel.engine.imap.storage.file.wal.WALFileIterator;
-import org.apache.seatunnel.engine.imap.storage.file.wal.writer.IFileWriter;
 import org.apache.seatunnel.engine.serializer.protobuf.ProtoStuffSerializer;
 
 import org.apache.hadoop.conf.Configuration;
@@ -58,7 +57,7 @@ import static org.junit.jupiter.api.condition.OS.MAC;
 @EnabledOnOs({LINUX, MAC})
 class LSMWriterTest {
     interface WriterFactory {
-        IFileWriter create() throws Exception;
+        AbstractLSMWriter create() throws Exception;
 
         String identifier();
     }
@@ -67,7 +66,7 @@ class LSMWriterTest {
         return Stream.of(
                 new WriterFactory() {
                     @Override
-                    public IFileWriter create() {
+                    public AbstractLSMWriter create() {
                         return new TestCloudWriter(Collections.emptyMap());
                     }
 
@@ -78,7 +77,7 @@ class LSMWriterTest {
                 },
                 new WriterFactory() {
                     @Override
-                    public IFileWriter create() {
+                    public AbstractLSMWriter create() {
                         return new TestHdfsWriter(Collections.emptyMap());
                     }
 
@@ -120,7 +119,7 @@ class LSMWriterTest {
         fs.delete(baseDir, true);
         fs.mkdirs(baseDir);
 
-        IFileWriter writer = factory.create();
+        AbstractLSMWriter writer = factory.create();
         writer.initialize(fs, baseDir, new ProtoStuffSerializer());
 
         writer.write(
@@ -159,7 +158,7 @@ class LSMWriterTest {
         fs.delete(baseDir, true);
         fs.mkdirs(baseDir);
 
-        IFileWriter writer = factory.create();
+        AbstractLSMWriter writer = factory.create();
         writer.initialize(fs, baseDir, new ProtoStuffSerializer());
 
         writer.write(
@@ -217,7 +216,7 @@ class LSMWriterTest {
         fs.delete(baseDir, true);
         fs.mkdirs(baseDir);
 
-        IFileWriter writer = factory.create();
+        AbstractLSMWriter writer = factory.create();
 
         Path tmp = new Path(baseDir, "tmp_10_wal");
         try (FSDataOutputStream out = fs.create(tmp)) {
@@ -271,7 +270,7 @@ class LSMWriterTest {
             out.write(wrapped2, 0, half);
         }
 
-        IFileWriter writer = factory.create();
+        AbstractLSMWriter writer = factory.create();
         writer.initialize(fs, baseDir, new ProtoStuffSerializer());
 
         FileStatus[] dataFiles = fs.listStatus(baseDir);
@@ -296,7 +295,7 @@ class LSMWriterTest {
         fs.delete(baseDir, true);
         fs.mkdirs(baseDir);
 
-        IFileWriter writer = factory.create();
+        AbstractLSMWriter writer = factory.create();
         writer.initialize(fs, baseDir, new ProtoStuffSerializer());
 
         // write entries without forcing flush
@@ -329,7 +328,7 @@ class LSMWriterTest {
         fs.delete(baseDir, true);
         fs.mkdirs(baseDir);
 
-        IFileWriter writer = factory.create();
+        AbstractLSMWriter writer = factory.create();
         writer.initialize(fs, baseDir, new ProtoStuffSerializer());
 
         ExecutorService executor = Executors.newFixedThreadPool(2);

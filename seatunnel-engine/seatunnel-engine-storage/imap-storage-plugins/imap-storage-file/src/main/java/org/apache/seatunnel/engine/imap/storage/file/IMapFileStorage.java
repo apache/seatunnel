@@ -31,8 +31,6 @@ import org.apache.seatunnel.engine.imap.storage.file.common.FileConstants;
 import org.apache.seatunnel.engine.imap.storage.file.common.WALReader;
 import org.apache.seatunnel.engine.imap.storage.file.config.AbstractConfiguration;
 import org.apache.seatunnel.engine.imap.storage.file.config.FileConfiguration;
-import org.apache.seatunnel.engine.imap.storage.file.disruptor.AbstractWALDisruptor;
-import org.apache.seatunnel.engine.imap.storage.file.disruptor.WALCompactionDisruptor;
 import org.apache.seatunnel.engine.imap.storage.file.disruptor.WALDisruptor;
 import org.apache.seatunnel.engine.imap.storage.file.disruptor.WALEventType;
 import org.apache.seatunnel.engine.imap.storage.file.future.RequestFuture;
@@ -103,7 +101,7 @@ public class IMapFileStorage implements IMapStorage {
     public long writDataTimeoutMilliseconds;
 
     /** We used disruptor to implement the asynchronous write. */
-    AbstractWALDisruptor walDisruptor;
+    WALDisruptor walDisruptor;
 
     /** serializer, default is ProtoStuffSerializer */
     Serializer serializer;
@@ -192,10 +190,9 @@ public class IMapFileStorage implements IMapStorage {
 
         if (isCompactionEnabled) {
             this.walDisruptor =
-                    new WALCompactionDisruptor(
-                            fs, fileConfig, storagePath, serializer, configuration);
+                    new WALDisruptor(fs, fileConfig, storagePath, serializer, configuration);
         } else {
-            this.walDisruptor = new WALDisruptor(fs, fileConfig, storagePath, serializer);
+            this.walDisruptor = new WALDisruptor(fs, fileConfig, storagePath, serializer, null);
         }
     }
 

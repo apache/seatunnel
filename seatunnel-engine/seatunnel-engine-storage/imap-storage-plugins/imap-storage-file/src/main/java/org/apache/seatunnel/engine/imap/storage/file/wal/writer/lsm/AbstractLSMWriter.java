@@ -45,7 +45,10 @@ import java.util.Collections;
 import java.util.List;
 import java.util.Map;
 import java.util.concurrent.BlockingQueue;
+import java.util.concurrent.Executors;
 import java.util.concurrent.PriorityBlockingQueue;
+import java.util.concurrent.ScheduledExecutorService;
+import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicLong;
 
 import static org.apache.seatunnel.engine.imap.storage.file.common.FileConstants.asLong;
@@ -60,6 +63,7 @@ public abstract class AbstractLSMWriter implements IFileWriter<IMapFileData> {
     protected long compactionThreshold = 512L * 1024 * 1024;
     protected long maxSingleFileSize = 16L * 1024 * 1024;
     protected long compactionBatchSize = 16L * 1024 * 1024;
+    private long compactionInterval = 60L * 1000;
 
     protected final AtomicLong totalBytes = new AtomicLong(0);
     protected final BlockingQueue<CompactionFile> fileNames = new PriorityBlockingQueue<>();
@@ -74,6 +78,14 @@ public abstract class AbstractLSMWriter implements IFileWriter<IMapFileData> {
     protected Serializer serializer;
 
     protected volatile boolean isRunning = true;
+
+    protected final ScheduledExecutorService compactionScheduler =
+            Executors.newSingleThreadScheduledExecutor(
+                    r -> {
+                        Thread t = new Thread(r, "wal-compaction");
+                        t.setDaemon(true);
+                        return t;
+                    });
 
     protected AbstractLSMWriter(Map<String, Object> config) {
         long threshold =
@@ -100,6 +112,25 @@ public abstract class AbstractLSMWriter implements IFileWriter<IMapFileData> {
                     "compaction batch size must be >= max single file size");
         }
         this.compactionBatchSize = batchSize;
+
+        long interval =
+                asLong(
+                        config.get(FileConstants.FileInitProperties.COMPACTION_INTERVAL),
+                        this.compactionInterval);
+        checkLongPositive(FileConstants.FileInitProperties.COMPACTION_INTERVAL, interval);
+        this.compactionInterval = interval;
+
+        compactionScheduler.scheduleWithFixedDelay(
+                () -> {
+                    try {
+                        compaction(false);
+                    } catch (Exception e) {
+                        log.error("Compaction failed", e);
+                    }
+                },
+                compactionInterval,
+                compactionInterval,
+                TimeUnit.MILLISECONDS);
     }
 
     @Override
@@ -156,7 +187,6 @@ public abstract class AbstractLSMWriter implements IFileWriter<IMapFileData> {
         return new Path(parentPath, "tmp_" + tmpIndex.incrementAndGet() + "_" + FILE_NAME);
     }
 
-    @Override
     public void compaction(boolean force) throws IOException {
         if (totalBytes.get() < compactionThreshold && !force) return;
 
@@ -274,6 +304,18 @@ public abstract class AbstractLSMWriter implements IFileWriter<IMapFileData> {
         isRunning = false;
         if (!writeBatch.isEmpty()) {
             sortFlush();
+        }
+
+        compactionScheduler.shutdown();
+        try {
+            if (!compactionScheduler.awaitTermination(5, TimeUnit.SECONDS)) {
+                log.warn("Compaction scheduler did not terminate in 5 seconds, forcing shutdown");
+                compactionScheduler.shutdownNow();
+            }
+        } catch (InterruptedException ie) {
+            Thread.currentThread().interrupt();
+            log.warn("Compaction scheduler termination interrupted, forcing shutdown", ie);
+            compactionScheduler.shutdownNow();
         }
     }
 
