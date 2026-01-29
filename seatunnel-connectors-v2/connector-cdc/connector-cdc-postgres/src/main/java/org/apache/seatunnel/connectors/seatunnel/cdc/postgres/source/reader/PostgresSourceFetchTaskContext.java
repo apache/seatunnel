@@ -205,18 +205,11 @@ public class PostgresSourceFetchTaskContext extends JdbcSourceFetchTaskContext {
                                     snapshotter.shouldSnapshot(),
                                     connectorConfig);
                     try {
-                        // create the slot if it doesn't exist, otherwise update slot to add new
-                        // table(job restore and add table)
-                        replicationConnection.createReplicationSlot().orElse(null);
-                    } catch (SQLException ex) {
-                        String message = "Creation of replication slot failed";
-                        if (ex.getMessage().contains("already exists")) {
-                            message +=
-                                    "; when setting up multiple connectors for the same database host, please make sure to use a distinct replication slot name for each.";
-                            log.warn(message);
-                        } else {
-                            throw new DebeziumException(message, ex);
-                        }
+                        // initialize replication connection and create slot if needed
+                        replicationConnection.initConnection();
+                    } catch (SQLException | InterruptedException ex) {
+                        String message = "ReplicationConnection init failed";
+                        throw new DebeziumException(message, ex);
                     }
                 }
             }
