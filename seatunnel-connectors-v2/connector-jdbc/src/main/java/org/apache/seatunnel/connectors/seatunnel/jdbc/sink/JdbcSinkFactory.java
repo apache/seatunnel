@@ -25,7 +25,6 @@ import org.apache.seatunnel.api.options.ConnectorCommonOptions;
 import org.apache.seatunnel.api.options.SinkConnectorCommonOptions;
 import org.apache.seatunnel.api.sink.DataSaveMode;
 import org.apache.seatunnel.api.sink.SchemaSaveMode;
-import org.apache.seatunnel.api.sink.SinkReplaceNameConstant;
 import org.apache.seatunnel.api.table.catalog.CatalogTable;
 import org.apache.seatunnel.api.table.catalog.ConstraintKey;
 import org.apache.seatunnel.api.table.catalog.PrimaryKey;
@@ -75,18 +74,13 @@ public class JdbcSinkFactory implements TableSinkFactory {
         ReadonlyConfig catalogOptions = getCatalogOptions(context);
         Optional<String> optionalTable = config.getOptional(JdbcSinkOptions.TABLE);
         Optional<String> optionalDatabase = config.getOptional(JdbcSinkOptions.DATABASE);
-        if (!optionalTable.isPresent()) {
-            optionalTable = Optional.of(SinkReplaceNameConstant.REPLACE_TABLE_NAME_KEY);
-        }
-        // get source table relevant information
+        // source table info
         TableIdentifier tableId = catalogTable.getTableId();
-        String sourceDatabaseName = tableId.getDatabaseName();
-        String sourceSchemaName = tableId.getSchemaName();
-        String pluginInputIdentifier = tableId.getTableName();
-        // get sink table relevant information
+        // sink table info
         String sinkDatabaseName =
-                optionalDatabase.orElse(SinkReplaceNameConstant.REPLACE_DATABASE_NAME_KEY);
-        String sinkTableNameBefore = optionalTable.get();
+                optionalDatabase.orElse(catalogTable.getTablePath().getDatabaseName());
+        String sinkTableNameBefore =
+                optionalTable.orElse(catalogTable.getTablePath().getTableName());
         String[] sinkTableSplitArray = sinkTableNameBefore.split("\\.");
         String sinkTableName = sinkTableSplitArray[sinkTableSplitArray.length - 1];
         String sinkSchemaName;
@@ -98,49 +92,24 @@ public class JdbcSinkFactory implements TableSinkFactory {
         if (StringUtils.isNotBlank(catalogOptions.get(JdbcSinkOptions.SCHEMA))) {
             sinkSchemaName = catalogOptions.get(JdbcSinkOptions.SCHEMA);
         }
-        // to add tablePrefix and tableSuffix
+        // prefix / suffix
         String tempTableName;
         String prefix = catalogOptions.get(JdbcSinkOptions.TABLE_PREFIX);
         String suffix = catalogOptions.get(JdbcSinkOptions.TABLE_SUFFIX);
         if (StringUtils.isNotEmpty(prefix) || StringUtils.isNotEmpty(suffix)) {
             tempTableName = StringUtils.isNotEmpty(prefix) ? prefix + sinkTableName : sinkTableName;
             tempTableName = StringUtils.isNotEmpty(suffix) ? tempTableName + suffix : tempTableName;
-
         } else {
             tempTableName = sinkTableName;
         }
-        // to replace
-        String finalDatabaseName = sinkDatabaseName;
-        if (StringUtils.isNotEmpty(sourceDatabaseName)) {
-            finalDatabaseName =
-                    sinkDatabaseName.replace(
-                            SinkReplaceNameConstant.REPLACE_DATABASE_NAME_KEY, sourceDatabaseName);
-        }
-
-        String finalSchemaName;
-        if (sinkSchemaName != null) {
-            if (sourceSchemaName == null) {
-                finalSchemaName = sinkSchemaName;
-            } else {
-                finalSchemaName =
-                        sinkSchemaName.replace(
-                                SinkReplaceNameConstant.REPLACE_SCHEMA_NAME_KEY, sourceSchemaName);
-            }
-        } else {
-            finalSchemaName = null;
-        }
-        String finalTableName = sinkTableName;
-        if (StringUtils.isNotEmpty(pluginInputIdentifier)) {
-            finalTableName =
-                    tempTableName.replace(
-                            SinkReplaceNameConstant.REPLACE_TABLE_NAME_KEY, pluginInputIdentifier);
-        }
-
-        // rebuild TableIdentifier and catalogTable
+        // without replace, keep original directly
+        String finalSchemaName = sinkSchemaName;
+        String finalTableName = tempTableName;
+        // rebuild identifier
         TableIdentifier newTableId =
                 TableIdentifier.of(
                         tableId.getCatalogName(),
-                        finalDatabaseName,
+                        sinkDatabaseName,
                         finalSchemaName,
                         finalTableName);
         catalogTable =
@@ -151,6 +120,7 @@ public class JdbcSinkFactory implements TableSinkFactory {
                         catalogTable.getPartitionKeys(),
                         catalogTable.getComment(),
                         catalogTable.getCatalogName());
+
         Map<String, String> map = config.toMap();
         if (catalogTable.getTableId().getSchemaName() != null) {
             map.put(
@@ -176,16 +146,17 @@ public class JdbcSinkFactory implements TableSinkFactory {
                                                 ConstraintKey.ConstraintType.UNIQUE_KEY.equals(
                                                         key.getConstraintType()))
                                 .findFirst();
-                if (keyOptional.isPresent()) {
-                    map.put(
-                            JdbcSinkOptions.PRIMARY_KEYS.key(),
-                            keyOptional.get().getColumnNames().stream()
-                                    .map(key -> key.getColumnName())
-                                    .collect(Collectors.joining(",")));
-                }
+                keyOptional.ifPresent(
+                        constraintKey ->
+                                map.put(
+                                        JdbcSinkOptions.PRIMARY_KEYS.key(),
+                                        constraintKey.getColumnNames().stream()
+                                                .map(
+                                                        ConstraintKey.ConstraintKeyColumn
+                                                                ::getColumnName)
+                                                .collect(Collectors.joining(","))));
             }
         } else {
-            // replace primary key to config
             PrimaryKey configPk =
                     PrimaryKey.of(
                             catalogTable.getTablePath().getTableName() + "_config_pk",
@@ -205,7 +176,6 @@ public class JdbcSinkFactory implements TableSinkFactory {
                             catalogTable.getCatalogName());
         }
         config = ReadonlyConfig.fromMap(new HashMap<>(map));
-        // always execute
         final ReadonlyConfig options = config;
         JdbcSinkConfig sinkConfig = JdbcSinkConfig.of(config);
         FieldIdeEnum fieldIdeEnum = config.get(JdbcSinkOptions.FIELD_IDE);
@@ -223,7 +193,6 @@ public class JdbcSinkFactory implements TableSinkFactory {
                 sinkConfig.getJdbcConnectionConfig().getProperties(),
                 dialect.defaultParameter());
         CatalogTable finalCatalogTable = catalogTable;
-        // get saveMode
         DataSaveMode dataSaveMode = config.get(JdbcSinkOptions.DATA_SAVE_MODE);
         SchemaSaveMode schemaSaveMode = config.get(JdbcSinkOptions.SCHEMA_SAVE_MODE);
         return () ->

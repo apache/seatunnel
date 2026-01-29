@@ -35,6 +35,7 @@ import org.apache.seatunnel.e2e.common.junit.DisabledOnContainer;
 import org.apache.groovy.util.Maps;
 import org.apache.hadoop.hbase.Cell;
 import org.apache.hadoop.hbase.CellUtil;
+import org.apache.hadoop.hbase.NamespaceDescriptor;
 import org.apache.hadoop.hbase.TableName;
 import org.apache.hadoop.hbase.client.Admin;
 import org.apache.hadoop.hbase.client.Connection;
@@ -59,8 +60,10 @@ import java.io.IOException;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.HashMap;
+import java.util.HashSet;
 import java.util.Map;
 import java.util.Objects;
+import java.util.Set;
 import java.util.UUID;
 
 @Slf4j
@@ -74,9 +77,15 @@ public class HbaseIT extends TestSuiteBase implements TestResource {
 
     private static final String ASSIGN_CF_TABLE_NAME = "assign_cf_table";
 
+    private static final String TEST_NAMESPACE = "test";
+
+    private static final String NAMESPACE_TABLE_NAME = "seatunnel_test_namespace";
+
     private static final String MULTI_TABLE_ONE_NAME = "hbase_sink_1";
 
     private static final String MULTI_TABLE_TWO_NAME = "hbase_sink_2";
+
+    private static final String BINARY_ROWKEY_TABLE_NAME = "seatunnel_test_binary_rowkey";
 
     private static final String FAMILY_NAME = "info";
 
@@ -86,6 +95,8 @@ public class HbaseIT extends TestSuiteBase implements TestResource {
 
     private TableName table;
     private TableName tableAssign;
+    private TableName namespaceTable;
+    private TableName binaryRowkeyTable;
 
     private HbaseCluster hbaseCluster;
 
@@ -104,6 +115,17 @@ public class HbaseIT extends TestSuiteBase implements TestResource {
         hbaseCluster.createTable(ASSIGN_CF_TABLE_NAME, Arrays.asList("cf1", "cf2"));
         table = TableName.valueOf(TABLE_NAME);
         tableAssign = TableName.valueOf(ASSIGN_CF_TABLE_NAME);
+        // Create table for hbase binary rowkey sink test
+        hbaseCluster.createTable(BINARY_ROWKEY_TABLE_NAME, Arrays.asList(FAMILY_NAME));
+        binaryRowkeyTable = TableName.valueOf(BINARY_ROWKEY_TABLE_NAME);
+
+        if (Arrays.stream(admin.listNamespaceDescriptors())
+                .noneMatch(descriptor -> TEST_NAMESPACE.equals(descriptor.getName()))) {
+            admin.createNamespace(NamespaceDescriptor.create(TEST_NAMESPACE).build());
+        }
+        namespaceTable = TableName.valueOf(TEST_NAMESPACE, NAMESPACE_TABLE_NAME);
+        dropTable(namespaceTable);
+        hbaseCluster.createTable(namespaceTable.getNameAsString(), Arrays.asList(FAMILY_NAME));
 
         // Create table for hbase multi-table sink test
         hbaseCluster.createTable(MULTI_TABLE_ONE_NAME, Arrays.asList(FAMILY_NAME));
@@ -156,6 +178,17 @@ public class HbaseIT extends TestSuiteBase implements TestResource {
         Container.ExecResult execResult =
                 container.executeJob("/fake_to_hbase_with_error_when_data_exists.conf");
         Assertions.assertEquals(1, execResult.getExitCode());
+    }
+
+    @TestTemplate
+    public void testHbaseSinkWithErrorWhenDataExistsOnEmptyTable(TestContainer container)
+            throws IOException, InterruptedException {
+        deleteData(table);
+        Assertions.assertEquals(0, countData(table));
+        Container.ExecResult execResult =
+                container.executeJob("/fake_to_hbase_with_error_when_data_exists.conf");
+        Assertions.assertEquals(0, execResult.getExitCode());
+        Assertions.assertEquals(5, countData(table));
     }
 
     @TestTemplate
@@ -254,6 +287,40 @@ public class HbaseIT extends TestSuiteBase implements TestResource {
         }
         Assertions.assertEquals(results.size(), 3);
         scanner.close();
+    }
+
+    @TestTemplate
+    public void testHbaseSinkWithDateTimeDecimal(TestContainer container)
+            throws IOException, InterruptedException {
+        deleteData(table);
+        Container.ExecResult sinkExecResult =
+                container.executeJob("/fake-to-hbase-with-date-time-decimal.conf");
+        Assertions.assertEquals(0, sinkExecResult.getExitCode());
+        Container.ExecResult sourceExecResult =
+                container.executeJob("/hbase-to-assert-with-date-time-decimal.conf");
+        Assertions.assertEquals(0, sourceExecResult.getExitCode());
+    }
+
+    @TestTemplate
+    public void testHbaseSinkWithBinaryRowkey(TestContainer container)
+            throws IOException, InterruptedException {
+        deleteData(binaryRowkeyTable);
+        Container.ExecResult execResult = container.executeJob("/fake-to-hbase-binary-rowkey.conf");
+        Assertions.assertEquals(0, execResult.getExitCode());
+        ArrayList<Result> results = readData(binaryRowkeyTable);
+        Assertions.assertEquals(3, results.size());
+        Set<String> actualRowKeys = new HashSet<>();
+        for (Result result : results) {
+            actualRowKeys.add(Bytes.toStringBinary(result.getRow()));
+        }
+        Set<String> expectedRowKeys =
+                new HashSet<>(
+                        Arrays.asList(
+                                Bytes.toStringBinary(new byte[] {0x00, 0x01, 0x02, 0x03}),
+                                Bytes.toStringBinary(
+                                        new byte[] {(byte) 0xFF, (byte) 0xFE, 0x0A, 0x0B}),
+                                Bytes.toStringBinary(new byte[] {0x10, 0x20, 0x30, 0x40, 0x50})));
+        Assertions.assertEquals(expectedRowKeys, actualRowKeys);
     }
 
     @TestTemplate
@@ -383,6 +450,34 @@ public class HbaseIT extends TestSuiteBase implements TestResource {
         Assertions.assertEquals(0, sourceExecResult.getExitCode());
     }
 
+    @TestTemplate
+    public void testHbaseSourceWithNamespace(TestContainer container)
+            throws IOException, InterruptedException {
+        deleteData(namespaceTable);
+        insertData(namespaceTable);
+        Container.ExecResult sourceExecResult =
+                container.executeJob("/hbase-source-with-namespace.conf");
+        Assertions.assertEquals(0, sourceExecResult.getExitCode());
+    }
+
+    @TestTemplate
+    public void testHbaseSourceWithTimeRange(TestContainer container)
+            throws IOException, InterruptedException {
+        // The deleteData() uses Delete without timestamp, which will create a tombstone with "now"
+        // timestamp.
+        // To avoid the tombstone masking our test data, we write the test versions with a newer
+        // timestamp.
+        long baseTimestamp = System.currentTimeMillis() + 10000L;
+        long minTimestamp = baseTimestamp + 1000L;
+        long maxTimestamp = baseTimestamp + 3000L;
+        fakeToHbaseWithTimestamp(minTimestamp, maxTimestamp);
+        Container.ExecResult sourceExecResult =
+                container.executeJob(
+                        "/hbase-source-with-time-range.conf",
+                        Arrays.asList("min_ts=" + minTimestamp, "max_ts=" + maxTimestamp));
+        Assertions.assertEquals(0, sourceExecResult.getExitCode());
+    }
+
     private void fakeToHbase(TestContainer container) throws IOException, InterruptedException {
         deleteData(table);
         Container.ExecResult sinkExecResult = container.executeJob("/fake-to-hbase.conf");
@@ -444,6 +539,34 @@ public class HbaseIT extends TestSuiteBase implements TestResource {
         }
         Assertions.assertEquals(results.size(), 3);
         scanner.close();
+    }
+
+    private void fakeToHbaseWithTimestamp(long minTimestamp, long maxTimestamp) throws IOException {
+        deleteData(table);
+        Table hbaseTable = hbaseConnection.getTable(table);
+        Put putA =
+                new Put(Bytes.toBytes("A"))
+                        .addColumn(
+                                Bytes.toBytes(FAMILY_NAME),
+                                Bytes.toBytes("score"),
+                                minTimestamp,
+                                Bytes.toBytes(100));
+        Put putB =
+                new Put(Bytes.toBytes("B"))
+                        .addColumn(
+                                Bytes.toBytes(FAMILY_NAME),
+                                Bytes.toBytes("score"),
+                                minTimestamp + 1000L,
+                                Bytes.toBytes(200));
+        Put putC =
+                new Put(Bytes.toBytes("C"))
+                        .addColumn(
+                                Bytes.toBytes(FAMILY_NAME),
+                                Bytes.toBytes("score"),
+                                maxTimestamp,
+                                Bytes.toBytes(300));
+        hbaseTable.put(Arrays.asList(putA, putB, putC));
+        Assertions.assertEquals(3, countData(table));
     }
 
     private int countData(TableName table) throws IOException {

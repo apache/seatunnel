@@ -78,7 +78,7 @@ public class MultipleTableFileSourceSplitEnumeratorTest {
         Mockito.when(context.currentParallelism()).thenReturn(parallelism);
         MultipleTableFileSourceSplitEnumerator enumerator =
                 new MultipleTableFileSourceSplitEnumerator(
-                        context, baseMultipleTableFileSourceConfig);
+                        context, baseMultipleTableFileSourceConfig, new DefaultFileSplitStrategy());
 
         enumerator.open();
         Assertions.assertEquals(50, enumerator.currentUnassignedSplitSize());

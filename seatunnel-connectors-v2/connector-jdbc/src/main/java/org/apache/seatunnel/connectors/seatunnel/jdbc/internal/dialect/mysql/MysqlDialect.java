@@ -138,6 +138,11 @@ public class MysqlDialect implements JdbcDialect {
     }
 
     @Override
+    public String hashModForField(String fieldName, int mod) {
+        return "ABS(CRC32(" + quoteIdentifier(fieldName) + ") % " + mod + ")";
+    }
+
+    @Override
     public TablePath parse(String tablePath) {
         return TablePath.of(tablePath, false);
     }

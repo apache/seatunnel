@@ -50,22 +50,21 @@ import java.util.ArrayList;
 import java.util.Collections;
 
 import static org.apache.seatunnel.common.exception.CommonErrorCodeDeprecated.ILLEGAL_ARGUMENT;
-import static org.apache.seatunnel.connectors.seatunnel.cdc.mongodb.config.MongodbSourceOptions.COLL_FIELD;
-import static org.apache.seatunnel.connectors.seatunnel.cdc.mongodb.config.MongodbSourceOptions.DB_FIELD;
-import static org.apache.seatunnel.connectors.seatunnel.cdc.mongodb.config.MongodbSourceOptions.DOCUMENT_KEY;
-import static org.apache.seatunnel.connectors.seatunnel.cdc.mongodb.config.MongodbSourceOptions.FULL_DOCUMENT;
-import static org.apache.seatunnel.connectors.seatunnel.cdc.mongodb.config.MongodbSourceOptions.ID_FIELD;
-import static org.apache.seatunnel.connectors.seatunnel.cdc.mongodb.config.MongodbSourceOptions.NS_FIELD;
-import static org.apache.seatunnel.connectors.seatunnel.cdc.mongodb.config.MongodbSourceOptions.OPERATION_TYPE;
-import static org.apache.seatunnel.connectors.seatunnel.cdc.mongodb.config.MongodbSourceOptions.OPERATION_TYPE_INSERT;
-import static org.apache.seatunnel.connectors.seatunnel.cdc.mongodb.config.MongodbSourceOptions.SNAPSHOT_FIELD;
-import static org.apache.seatunnel.connectors.seatunnel.cdc.mongodb.config.MongodbSourceOptions.SNAPSHOT_TRUE;
-import static org.apache.seatunnel.connectors.seatunnel.cdc.mongodb.config.MongodbSourceOptions.SOURCE_FIELD;
-import static org.apache.seatunnel.connectors.seatunnel.cdc.mongodb.config.MongodbSourceOptions.TS_MS_FIELD;
+import static org.apache.seatunnel.connectors.seatunnel.cdc.mongodb.config.MongodbSourceConstants.COLL_FIELD;
+import static org.apache.seatunnel.connectors.seatunnel.cdc.mongodb.config.MongodbSourceConstants.DB_FIELD;
+import static org.apache.seatunnel.connectors.seatunnel.cdc.mongodb.config.MongodbSourceConstants.DOCUMENT_KEY;
+import static org.apache.seatunnel.connectors.seatunnel.cdc.mongodb.config.MongodbSourceConstants.FULL_DOCUMENT;
+import static org.apache.seatunnel.connectors.seatunnel.cdc.mongodb.config.MongodbSourceConstants.ID_FIELD;
+import static org.apache.seatunnel.connectors.seatunnel.cdc.mongodb.config.MongodbSourceConstants.NS_FIELD;
+import static org.apache.seatunnel.connectors.seatunnel.cdc.mongodb.config.MongodbSourceConstants.OPERATION_TYPE;
+import static org.apache.seatunnel.connectors.seatunnel.cdc.mongodb.config.MongodbSourceConstants.OPERATION_TYPE_INSERT;
+import static org.apache.seatunnel.connectors.seatunnel.cdc.mongodb.config.MongodbSourceConstants.SNAPSHOT_FIELD;
+import static org.apache.seatunnel.connectors.seatunnel.cdc.mongodb.config.MongodbSourceConstants.SNAPSHOT_TRUE;
+import static org.apache.seatunnel.connectors.seatunnel.cdc.mongodb.config.MongodbSourceConstants.SOURCE_FIELD;
+import static org.apache.seatunnel.connectors.seatunnel.cdc.mongodb.config.MongodbSourceConstants.TS_MS_FIELD;
 import static org.apache.seatunnel.connectors.seatunnel.cdc.mongodb.utils.MongodbRecordUtils.createPartitionMap;
 import static org.apache.seatunnel.connectors.seatunnel.cdc.mongodb.utils.MongodbRecordUtils.createSourceOffsetMap;
 import static org.apache.seatunnel.connectors.seatunnel.cdc.mongodb.utils.MongodbRecordUtils.createWatermarkPartitionMap;
-import static org.apache.seatunnel.connectors.seatunnel.cdc.mongodb.utils.MongodbUtils.createMongoClient;
 import static org.apache.seatunnel.connectors.seatunnel.cdc.mongodb.utils.MongodbUtils.getMongoCollection;
 
 @Slf4j
@@ -102,7 +101,9 @@ public class MongodbScanFetchTask implements FetchTask<SourceSplitBase> {
                                 lowWatermark)));
 
         log.info("Snapshot step 2 - Snapshotting data");
-        try (MongoCursor<RawBsonDocument> cursor = getSnapshotCursor(snapshotSplit, sourceConfig)) {
+        MongoClient mongoClient = taskContext.getMongoClient();
+        try (MongoCursor<RawBsonDocument> cursor =
+                getSnapshotCursor(snapshotSplit, sourceConfig, mongoClient)) {
             while (cursor.hasNext()) {
                 checkTaskRunning();
                 BsonDocument valueDocument = normalizeSnapshotDocument(collectionId, cursor.next());
@@ -163,8 +164,9 @@ public class MongodbScanFetchTask implements FetchTask<SourceSplitBase> {
 
     @Nonnull
     private MongoCursor<RawBsonDocument> getSnapshotCursor(
-            @Nonnull SnapshotSplit snapshotSplit, MongodbSourceConfig sourceConfig) {
-        MongoClient mongoClient = createMongoClient(sourceConfig);
+            @Nonnull SnapshotSplit snapshotSplit,
+            MongodbSourceConfig sourceConfig,
+            MongoClient mongoClient) {
         MongoCollection<RawBsonDocument> collection =
                 getMongoCollection(mongoClient, snapshotSplit.getTableId(), RawBsonDocument.class);
         BsonDocument startKey = (BsonDocument) snapshotSplit.getSplitStart()[1];
@@ -176,6 +178,7 @@ public class MongodbScanFetchTask implements FetchTask<SourceSplitBase> {
                 startKey,
                 endKey,
                 hint);
+
         return collection
                 .find()
                 .min(startKey)

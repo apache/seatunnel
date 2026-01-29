@@ -321,6 +321,47 @@ public class SqlServerCDCIT extends TestSuiteBase implements TestResource {
             value = {},
             type = {EngineType.SPARK, EngineType.FLINK},
             disabledReason =
+                    "This case checks SqlServer CDC earliest startup mode only on Zeta engine.")
+    public void testEarliestStartupMode(TestContainer container) throws InterruptedException {
+        initializeSqlServerTable("column_type_test");
+
+        Long jobId = JobIdGenerator.newJobId();
+        CompletableFuture.runAsync(
+                () -> {
+                    try {
+                        container.executeJob(
+                                "/sqlservercdc_earliest_to_sqlserver.conf", String.valueOf(jobId));
+                    } catch (Exception e) {
+                        log.error("Execute earliest job exception: {}", e.getMessage());
+                        throw new RuntimeException(e);
+                    }
+                });
+
+        // give the job some time to start
+        TimeUnit.SECONDS.sleep(10);
+
+        // verify job stays running (i.e. no fatal exception like ArrayIndexOutOfBounds from
+        // Debezium)
+        await().atMost(2, TimeUnit.MINUTES)
+                .untilAsserted(
+                        () -> {
+                            String jobStatus = container.getJobStatus(String.valueOf(jobId));
+                            Assertions.assertEquals("RUNNING", jobStatus);
+                        });
+
+        try {
+            Container.ExecResult cancelJobResult = container.cancelJob(String.valueOf(jobId));
+            Assertions.assertEquals(0, cancelJobResult.getExitCode(), cancelJobResult.getStderr());
+        } catch (IOException | InterruptedException e) {
+            throw new RuntimeException(e);
+        }
+    }
+
+    @TestTemplate
+    @DisabledOnContainer(
+            value = {},
+            type = {EngineType.SPARK, EngineType.FLINK},
+            disabledReason =
                     "This case requires obtaining the task health status and manually canceling the canceled task, which is currently only supported by the zeta engine.")
     public void testSqlServerCDCMetadataTrans(TestContainer container) throws InterruptedException {
         initializeSqlServerTable("column_type_test");
@@ -391,10 +432,13 @@ public class SqlServerCDCIT extends TestSuiteBase implements TestResource {
         Assertions.assertNotNull(ddlTestFile, "Cannot locate " + ddlFile);
         try (Connection connection = getJdbcConnection();
                 Statement statement = connection.createStatement()) {
-            dropTestDatabase(connection, sqlFile);
+            List<String> ddlLines = Files.readAllLines(Paths.get(ddlTestFile.toURI()));
+            String ddlContent = String.join("\n", ddlLines);
+            String actualDatabaseName = extractDatabaseName(ddlContent);
+            dropTestDatabase(connection, actualDatabaseName);
             final List<String> statements =
                     Arrays.stream(
-                                    Files.readAllLines(Paths.get(ddlTestFile.toURI())).stream()
+                                    ddlLines.stream()
                                             .map(String::trim)
                                             .filter(x -> !x.startsWith("--") && !x.isEmpty())
                                             .map(
@@ -412,6 +456,17 @@ public class SqlServerCDCIT extends TestSuiteBase implements TestResource {
         } catch (Exception e) {
             throw new RuntimeException(e);
         }
+    }
+
+    private String extractDatabaseName(String ddlContent) {
+        Pattern createDbPattern =
+                Pattern.compile(
+                        "CREATE\\s+DATABASE\\s+\\[?([^\\s\\];]+)\\]?", Pattern.CASE_INSENSITIVE);
+        Matcher matcher = createDbPattern.matcher(ddlContent);
+        if (matcher.find()) {
+            return matcher.group(1);
+        }
+        return null;
     }
 
     private void updateSourceTable(String table) {
@@ -545,5 +600,43 @@ public class SqlServerCDCIT extends TestSuiteBase implements TestResource {
     protected static void disableDbCdc(Connection connection, String name) throws SQLException {
         Objects.requireNonNull(name);
         connection.createStatement().execute(DISABLE_DB_CDC.replace(STATEMENTS_PLACEHOLDER, name));
+    }
+
+    @TestTemplate
+    public void testDatabaseNameWithSpecialCharacters(TestContainer container) {
+        initializeSqlServerTable("test_db_name");
+
+        CompletableFuture<Void> executeJobFuture =
+                CompletableFuture.supplyAsync(
+                        () -> {
+                            try {
+                                container.executeJob("/sqlservercdc_special_db_name.conf");
+                            } catch (Exception e) {
+                                throw new RuntimeException(e);
+                            }
+                            return null;
+                        });
+
+        String sourceTable = "[test-db-name].dbo.simple_table";
+        String sinkTable = "[test-db-name].dbo.simple_table_sink";
+        String selectSql = "select id, name, value from %s order by id asc";
+
+        await().atMost(60000, TimeUnit.MILLISECONDS)
+                .untilAsserted(
+                        () -> {
+                            Assertions.assertIterableEquals(
+                                    querySql(selectSql, sourceTable),
+                                    querySql(selectSql, sinkTable));
+                        });
+
+        executeSql("INSERT INTO [test-db-name].dbo.simple_table VALUES (4, 'test4', 400)");
+
+        await().atMost(60000, TimeUnit.MILLISECONDS)
+                .untilAsserted(
+                        () -> {
+                            Assertions.assertIterableEquals(
+                                    querySql(selectSql, sourceTable),
+                                    querySql(selectSql, sinkTable));
+                        });
     }
 }

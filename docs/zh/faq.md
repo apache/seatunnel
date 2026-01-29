@@ -116,7 +116,7 @@ your string 1
 
 ## 如果想学习 SeaTunnel 的源代码，应该从哪里开始？
 SeaTunnel 拥有完全抽象、结构化的非常优秀的架构设计和代码实现，很多用户都选择 SeaTunnel 作为学习大数据架构的方式。 您可以从`seatunnel-examples`模块开始了解和调试源代码：SeaTunnelEngineLocalExample.java
-具体参考：https://seatunnel.apache.org/docs/contribution/setup
+具体参考：https://seatunnel.apache.org/docs/developer/setup
 针对中国用户，如果有伙伴想贡献自己的一份力量让 SeaTunnel 更好，特别欢迎加入社区贡献者种子群，欢迎添加微信：davidzollo，添加时请注明 "参与开源共建", 群仅仅用于技术交流, 重要的事情讨论还请发到 dev@seatunnel.apache.org 邮件里进行讨论。
 
 ## 如果想开发自己的 source、sink、transform 时，是否需要了解 SeaTunnel 所有源代码？

@@ -264,6 +264,49 @@ public class EsRestClient implements Closeable {
         return getDocsFromSqlResult(endpoint, JsonUtils.toJsonString(param), columnNodes);
     }
 
+    /**
+     * Clear scroll context to release server-side resources.
+     *
+     * @param scrollId The scroll ID to clear
+     * @return True if the scroll was successfully cleared
+     */
+    public boolean clearScroll(String scrollId) {
+        if (StringUtils.isEmpty(scrollId)) {
+            log.warn("Attempted to clear scroll with empty scroll ID");
+            return false;
+        }
+
+        String endpoint = "/_search/scroll";
+        Request request = new Request("DELETE", endpoint);
+        Map<String, String> requestBody = new HashMap<>();
+        requestBody.put("scroll_id", scrollId);
+        request.setJsonEntity(JsonUtils.toJsonString(requestBody));
+
+        try {
+            Response response = restClient.performRequest(request);
+            if (response == null) {
+                log.warn("DELETE {} response null for scroll ID: {}", endpoint, scrollId);
+                return false;
+            }
+            if (response.getStatusLine().getStatusCode() == HttpStatus.SC_OK) {
+                String entity = EntityUtils.toString(response.getEntity());
+                JsonNode jsonNode = JsonUtils.parseObject(entity);
+                boolean succeeded = jsonNode.get("succeeded").asBoolean();
+                return succeeded;
+            } else {
+                log.warn(
+                        "DELETE {} response status code={} for scroll ID: {}",
+                        endpoint,
+                        response.getStatusLine().getStatusCode(),
+                        scrollId);
+                return false;
+            }
+        } catch (Exception ex) {
+            log.warn("Failed to clear scroll ID: " + scrollId, ex);
+            return false;
+        }
+    }
+
     private ScrollResult getDocsFromSqlResult(
             String endpoint, String requestBody, JsonNode columnNodes) {
         Request request = new Request("POST", endpoint);

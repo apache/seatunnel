@@ -44,12 +44,14 @@ import java.sql.ResultSet;
 import java.sql.ResultSetMetaData;
 import java.sql.SQLException;
 import java.util.ArrayList;
+import java.util.Collections;
 import java.util.Comparator;
 import java.util.HashMap;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
+import java.util.Set;
 import java.util.function.BiFunction;
 import java.util.stream.Collectors;
 
@@ -155,46 +157,57 @@ public class CatalogUtils {
 
     public static List<ConstraintKey> getConstraintKeys(
             DatabaseMetaData metadata, TablePath tablePath) throws SQLException {
-        // We set approximate to true to avoid querying the statistics table, which is slow.
-        try (ResultSet resultSet =
-                metadata.getIndexInfo(
-                        tablePath.getDatabaseName(),
-                        tablePath.getSchemaName(),
-                        tablePath.getTableName(),
-                        false,
-                        true)) {
-            // index name -> index
-            Map<String, ConstraintKey> constraintKeyMap = new HashMap<>();
-            while (resultSet.next()) {
-                String columnName = resultSet.getString("COLUMN_NAME");
-                if (columnName == null) {
-                    continue;
+        try {
+            // We set approximate to true to avoid querying the statistics table, which is slow.
+            try (ResultSet resultSet =
+                    metadata.getIndexInfo(
+                            tablePath.getDatabaseName(),
+                            tablePath.getSchemaName(),
+                            tablePath.getTableName(),
+                            false,
+                            true)) {
+                // index name -> index
+                Map<String, ConstraintKey> constraintKeyMap = new HashMap<>();
+                while (resultSet.next()) {
+                    String columnName = resultSet.getString("COLUMN_NAME");
+                    if (columnName == null) {
+                        continue;
+                    }
+                    String indexName = cleanKeyName(resultSet.getString("INDEX_NAME"));
+                    boolean noUnique = resultSet.getBoolean("NON_UNIQUE");
+
+                    ConstraintKey constraintKey =
+                            constraintKeyMap.computeIfAbsent(
+                                    indexName,
+                                    s -> {
+                                        ConstraintKey.ConstraintType constraintType =
+                                                ConstraintKey.ConstraintType.INDEX_KEY;
+                                        if (!noUnique) {
+                                            constraintType =
+                                                    ConstraintKey.ConstraintType.UNIQUE_KEY;
+                                        }
+                                        return ConstraintKey.of(
+                                                constraintType, indexName, new ArrayList<>());
+                                    });
+
+                    ConstraintKey.ColumnSortType sortType =
+                            "A".equalsIgnoreCase(resultSet.getString("ASC_OR_DESC"))
+                                    ? ConstraintKey.ColumnSortType.ASC
+                                    : ConstraintKey.ColumnSortType.DESC;
+                    ConstraintKey.ConstraintKeyColumn constraintKeyColumn =
+                            new ConstraintKey.ConstraintKeyColumn(columnName, sortType);
+                    constraintKey.getColumnNames().add(constraintKeyColumn);
                 }
-                String indexName = cleanKeyName(resultSet.getString("INDEX_NAME"));
-                boolean noUnique = resultSet.getBoolean("NON_UNIQUE");
-
-                ConstraintKey constraintKey =
-                        constraintKeyMap.computeIfAbsent(
-                                indexName,
-                                s -> {
-                                    ConstraintKey.ConstraintType constraintType =
-                                            ConstraintKey.ConstraintType.INDEX_KEY;
-                                    if (!noUnique) {
-                                        constraintType = ConstraintKey.ConstraintType.UNIQUE_KEY;
-                                    }
-                                    return ConstraintKey.of(
-                                            constraintType, indexName, new ArrayList<>());
-                                });
-
-                ConstraintKey.ColumnSortType sortType =
-                        "A".equals(resultSet.getString("ASC_OR_DESC"))
-                                ? ConstraintKey.ColumnSortType.ASC
-                                : ConstraintKey.ColumnSortType.DESC;
-                ConstraintKey.ConstraintKeyColumn constraintKeyColumn =
-                        new ConstraintKey.ConstraintKeyColumn(columnName, sortType);
-                constraintKey.getColumnNames().add(constraintKeyColumn);
+                return new ArrayList<>(constraintKeyMap.values());
             }
-            return new ArrayList<>(constraintKeyMap.values());
+        } catch (SQLException e) {
+            // Some JDBC drivers (e.g., Hive/Inceptor) do not fully support getIndexInfo()
+            // Return empty list as index information is not mandatory for table schema
+            log.warn(
+                    "Failed to get index info for table {}, returning empty constraint keys. Error: {}",
+                    tablePath,
+                    e.getMessage());
+            return Collections.emptyList();
         }
     }
 
@@ -333,7 +346,36 @@ public class CatalogUtils {
             Connection connection, String sqlQuery, JdbcDialectTypeMapper typeMapper)
             throws SQLException {
         try (PreparedStatement ps = connection.prepareStatement(sqlQuery)) {
-            return getCatalogTable(ps.getMetaData(), typeMapper, sqlQuery);
+            ResultSetMetaData resultSetMetaData = ps.getMetaData();
+            CatalogTable catalogTable = getCatalogTable(resultSetMetaData, typeMapper, sqlQuery);
+
+            PrimaryKey primaryKey = extractPrimaryKey(connection, resultSetMetaData, sqlQuery);
+            if (primaryKey == null) {
+                return catalogTable;
+            }
+
+            Set<String> queryColumns =
+                    catalogTable.getTableSchema().getColumns().stream()
+                            .map(Column::getName)
+                            .collect(Collectors.toSet());
+            if (!queryColumns.containsAll(primaryKey.getColumnNames())) {
+                return catalogTable;
+            }
+
+            TableSchema newSchema =
+                    TableSchema.builder()
+                            .columns(catalogTable.getTableSchema().getColumns())
+                            .primaryKey(primaryKey)
+                            .constraintKey(catalogTable.getTableSchema().getConstraintKeys())
+                            .build();
+
+            return CatalogTable.of(
+                    catalogTable.getTableId(),
+                    newSchema,
+                    catalogTable.getOptions(),
+                    catalogTable.getPartitionKeys(),
+                    catalogTable.getComment(),
+                    catalogTable.getCatalogName());
         }
     }
 
@@ -351,6 +393,34 @@ public class CatalogUtils {
         try (PreparedStatement ps = connection.prepareStatement(sqlQuery)) {
             resultSetMetaData = ps.getMetaData();
             return getCatalogTable(resultSetMetaData, sqlQuery);
+        }
+    }
+
+    private static PrimaryKey extractPrimaryKey(
+            Connection connection, ResultSetMetaData resultSetMetaData, String sqlQuery) {
+        try {
+            String tableName = resultSetMetaData.getTableName(1);
+            if (StringUtils.isBlank(tableName)) {
+                return null;
+            }
+
+            String databaseName = resultSetMetaData.getCatalogName(1);
+            String schemaName = resultSetMetaData.getSchemaName(1);
+            DatabaseMetaData dbMetaData = connection.getMetaData();
+
+            TablePath tablePath =
+                    TablePath.of(
+                            StringUtils.isBlank(databaseName) ? null : databaseName,
+                            StringUtils.isBlank(schemaName) ? null : schemaName,
+                            tableName);
+
+            return getPrimaryKey(dbMetaData, tablePath).orElse(null);
+        } catch (SQLException e) {
+            log.debug(
+                    "Failed to extract primary key from database metadata for sql: {}",
+                    sqlQuery,
+                    e);
+            return null;
         }
     }
 }

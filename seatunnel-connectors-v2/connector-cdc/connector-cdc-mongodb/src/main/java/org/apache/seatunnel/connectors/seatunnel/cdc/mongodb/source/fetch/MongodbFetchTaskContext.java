@@ -37,12 +37,14 @@ import org.bson.BsonString;
 import org.bson.BsonType;
 import org.bson.BsonValue;
 
+import com.mongodb.client.MongoClient;
 import com.mongodb.client.model.changestream.OperationType;
 import io.debezium.connector.base.ChangeEventQueue;
 import io.debezium.pipeline.DataChangeEvent;
 import io.debezium.relational.TableId;
 import io.debezium.relational.Tables;
 import io.debezium.util.LoggingContext;
+import lombok.extern.slf4j.Slf4j;
 
 import javax.annotation.Nonnull;
 
@@ -53,18 +55,18 @@ import java.util.Map;
 import java.util.stream.Collectors;
 
 import static org.apache.seatunnel.common.exception.CommonErrorCodeDeprecated.ILLEGAL_ARGUMENT;
-import static org.apache.seatunnel.connectors.seatunnel.cdc.mongodb.config.MongodbSourceOptions.COLL_FIELD;
-import static org.apache.seatunnel.connectors.seatunnel.cdc.mongodb.config.MongodbSourceOptions.DB_FIELD;
-import static org.apache.seatunnel.connectors.seatunnel.cdc.mongodb.config.MongodbSourceOptions.DOCUMENT_KEY;
-import static org.apache.seatunnel.connectors.seatunnel.cdc.mongodb.config.MongodbSourceOptions.FULL_DOCUMENT;
-import static org.apache.seatunnel.connectors.seatunnel.cdc.mongodb.config.MongodbSourceOptions.ID_FIELD;
-import static org.apache.seatunnel.connectors.seatunnel.cdc.mongodb.config.MongodbSourceOptions.NS_FIELD;
-import static org.apache.seatunnel.connectors.seatunnel.cdc.mongodb.config.MongodbSourceOptions.OPERATION_TYPE;
-import static org.apache.seatunnel.connectors.seatunnel.cdc.mongodb.config.MongodbSourceOptions.OPERATION_TYPE_INSERT;
-import static org.apache.seatunnel.connectors.seatunnel.cdc.mongodb.config.MongodbSourceOptions.SNAPSHOT_FIELD;
-import static org.apache.seatunnel.connectors.seatunnel.cdc.mongodb.config.MongodbSourceOptions.SNAPSHOT_TRUE;
-import static org.apache.seatunnel.connectors.seatunnel.cdc.mongodb.config.MongodbSourceOptions.SOURCE_FIELD;
-import static org.apache.seatunnel.connectors.seatunnel.cdc.mongodb.config.MongodbSourceOptions.TS_MS_FIELD;
+import static org.apache.seatunnel.connectors.seatunnel.cdc.mongodb.config.MongodbSourceConstants.COLL_FIELD;
+import static org.apache.seatunnel.connectors.seatunnel.cdc.mongodb.config.MongodbSourceConstants.DB_FIELD;
+import static org.apache.seatunnel.connectors.seatunnel.cdc.mongodb.config.MongodbSourceConstants.DOCUMENT_KEY;
+import static org.apache.seatunnel.connectors.seatunnel.cdc.mongodb.config.MongodbSourceConstants.FULL_DOCUMENT;
+import static org.apache.seatunnel.connectors.seatunnel.cdc.mongodb.config.MongodbSourceConstants.ID_FIELD;
+import static org.apache.seatunnel.connectors.seatunnel.cdc.mongodb.config.MongodbSourceConstants.NS_FIELD;
+import static org.apache.seatunnel.connectors.seatunnel.cdc.mongodb.config.MongodbSourceConstants.OPERATION_TYPE;
+import static org.apache.seatunnel.connectors.seatunnel.cdc.mongodb.config.MongodbSourceConstants.OPERATION_TYPE_INSERT;
+import static org.apache.seatunnel.connectors.seatunnel.cdc.mongodb.config.MongodbSourceConstants.SNAPSHOT_FIELD;
+import static org.apache.seatunnel.connectors.seatunnel.cdc.mongodb.config.MongodbSourceConstants.SNAPSHOT_TRUE;
+import static org.apache.seatunnel.connectors.seatunnel.cdc.mongodb.config.MongodbSourceConstants.SOURCE_FIELD;
+import static org.apache.seatunnel.connectors.seatunnel.cdc.mongodb.config.MongodbSourceConstants.TS_MS_FIELD;
 import static org.apache.seatunnel.connectors.seatunnel.cdc.mongodb.utils.BsonUtils.compareBsonValue;
 import static org.apache.seatunnel.connectors.seatunnel.cdc.mongodb.utils.MongodbRecordUtils.buildSourceRecord;
 import static org.apache.seatunnel.connectors.seatunnel.cdc.mongodb.utils.MongodbRecordUtils.extractBsonDocument;
@@ -72,12 +74,15 @@ import static org.apache.seatunnel.connectors.seatunnel.cdc.mongodb.utils.Mongod
 import static org.apache.seatunnel.connectors.seatunnel.cdc.mongodb.utils.MongodbRecordUtils.getResumeToken;
 import static org.apache.seatunnel.connectors.seatunnel.cdc.mongodb.utils.MongodbUtils.createMongoClient;
 
+@Slf4j
 public class MongodbFetchTaskContext implements FetchTask.Context {
 
     private final MongodbDialect dialect;
     private final MongodbSourceConfig sourceConfig;
     private final ChangeStreamDescriptor changeStreamDescriptor;
     private ChangeEventQueue<DataChangeEvent> changeEventQueue;
+
+    private final MongoClient mongoClient;
 
     public MongodbFetchTaskContext(
             MongodbDialect dialect,
@@ -86,6 +91,7 @@ public class MongodbFetchTaskContext implements FetchTask.Context {
         this.dialect = dialect;
         this.sourceConfig = sourceConfig;
         this.changeStreamDescriptor = changeStreamDescriptor;
+        this.mongoClient = createMongoClient(sourceConfig);
     }
 
     public void configure(@Nonnull SourceSplitBase sourceSplitBase) {
@@ -124,6 +130,10 @@ public class MongodbFetchTaskContext implements FetchTask.Context {
 
     public ChangeEventQueue<DataChangeEvent> getQueue() {
         return changeEventQueue;
+    }
+
+    public MongoClient getMongoClient() {
+        return mongoClient;
     }
 
     @Override
@@ -263,7 +273,12 @@ public class MongodbFetchTaskContext implements FetchTask.Context {
 
     @Override
     public void close() {
-        Runtime.getRuntime()
-                .addShutdownHook(new Thread(() -> createMongoClient(sourceConfig).close()));
+        if (mongoClient != null) {
+            try {
+                mongoClient.close();
+            } catch (Exception e) {
+                log.error("Failed to close MongoClient", e);
+            }
+        }
     }
 }

@@ -39,6 +39,7 @@ import org.apache.seatunnel.connectors.seatunnel.file.config.FileFormat;
 import org.apache.seatunnel.connectors.seatunnel.file.config.HadoopConf;
 import org.apache.seatunnel.connectors.seatunnel.file.exception.FileConnectorErrorCode;
 import org.apache.seatunnel.connectors.seatunnel.file.exception.FileConnectorException;
+import org.apache.seatunnel.connectors.seatunnel.file.source.split.FileSourceSplit;
 
 import org.apache.commons.collections4.CollectionUtils;
 
@@ -91,13 +92,13 @@ public class XmlReadStrategy extends AbstractReadStrategy {
     public void read(String path, String tableId, Collector<SeaTunnelRow> output)
             throws IOException, FileConnectorException {
         Map<String, String> partitionsMap = parsePartitionsByPath(path);
-        resolveArchiveCompressedInputStream(path, tableId, output, partitionsMap, FileFormat.XML);
+        resolveArchiveCompressedInputStream(
+                new FileSourceSplit(tableId, path), output, partitionsMap, FileFormat.XML);
     }
 
     @Override
     public void readProcess(
-            String path,
-            String tableId,
+            FileSourceSplit split,
             Collector<SeaTunnelRow> output,
             InputStream inputStream,
             Map<String, String> partitionsMap,
@@ -109,7 +110,9 @@ public class XmlReadStrategy extends AbstractReadStrategy {
             document = saxReader.read(new InputStreamReader(inputStream, encoding));
         } catch (DocumentException e) {
             throw new FileConnectorException(
-                    FileConnectorErrorCode.FILE_READ_FAILED, "Failed to read xml file: " + path, e);
+                    FileConnectorErrorCode.FILE_READ_FAILED,
+                    "Failed to read xml file: " + split.getFilePath(),
+                    e);
         }
         Element rootElement = document.getRootElement();
 
@@ -161,7 +164,7 @@ public class XmlReadStrategy extends AbstractReadStrategy {
                                 }
                             }
 
-                            seaTunnelRow.setTableId(tableId);
+                            seaTunnelRow.setTableId(split.getTableId());
                             output.collect(seaTunnelRow);
                         });
     }
@@ -183,9 +186,10 @@ public class XmlReadStrategy extends AbstractReadStrategy {
                     "Schema information is undefined or misconfigured, please check your configuration file.");
         }
 
+        String partitionPath = getPathForPartitionInference(null);
         if (readColumns.isEmpty()) {
             this.seaTunnelRowType = rowType;
-            this.seaTunnelRowTypeWithPartition = mergePartitionTypes(fileNames.get(0), rowType);
+            this.seaTunnelRowTypeWithPartition = mergePartitionTypes(partitionPath, rowType);
         } else {
             if (readColumns.retainAll(Arrays.asList(rowType.getFieldNames()))) {
                 log.warn(
@@ -202,7 +206,7 @@ public class XmlReadStrategy extends AbstractReadStrategy {
             }
             this.seaTunnelRowType = new SeaTunnelRowType(fields, types);
             this.seaTunnelRowTypeWithPartition =
-                    mergePartitionTypes(fileNames.get(0), this.seaTunnelRowType);
+                    mergePartitionTypes(partitionPath, this.seaTunnelRowType);
         }
     }
 
