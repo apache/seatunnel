@@ -83,6 +83,7 @@ seatunnel/
     * Use shaded dependencies: `org.apache.seatunnel.shade.*`
 * **Nullability**: Avoid implicit null assumptions
 * **Visibility**: Keep APIs minimal; prefer package-private when possible
+* **Comments**: Add comments for important methods (public APIs, complex logic).
 
 ### Apache License Header (MANDATORY)
 
