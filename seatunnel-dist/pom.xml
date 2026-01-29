@@ -98,7 +98,7 @@
                 <tablestore.version>5.13.9</tablestore.version>
                 <saphana.version>2.23.10</saphana.version>
                 <teradata.version>17.20.00.12</teradata.version>
-                <redshift.version>2.1.0.9</redshift.version>
+                <redshift.version>2.1.0.30</redshift.version>
                 <snowflake.version>3.13.29</snowflake.version>
 
                 <!-- Imap storage dependency package  -->

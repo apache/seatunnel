@@ -55,6 +55,10 @@ public class TablePlaceholderProcessorTest {
             Options.key("field_names").stringType().noDefaultValue();
     private static final Option<List<String>> FIELD_NAMES_ARRAY =
             Options.key("field_names_array").listType(String.class).noDefaultValue();
+    private static final Option<String> PARTITION_KEYS =
+            Options.key("partition_keys").stringType().noDefaultValue();
+    private static final Option<List<String>> PARTITION_KEYS_ARRAY =
+            Options.key("partition_keys_array").listType(String.class).noDefaultValue();
 
     @Test
     public void testSinkOptions() {
@@ -68,10 +72,25 @@ public class TablePlaceholderProcessorTest {
         Assertions.assertEquals("f1,f2", newConfig.get(PRIMARY_KEY));
         Assertions.assertEquals("f3,f4", newConfig.get(UNIQUE_KEY));
         Assertions.assertEquals("f1,f2,f3,f4,f5", newConfig.get(FIELD_NAMES));
+        Assertions.assertEquals("bucket(f1, 16),dt", newConfig.get(PARTITION_KEYS));
         Assertions.assertEquals(Arrays.asList("f1", "f2"), newConfig.get(PRIMARY_KEY_ARRAY));
         Assertions.assertEquals(Arrays.asList("f3", "f4"), newConfig.get(UNIQUE_KEY_ARRAY));
         Assertions.assertEquals(
                 Arrays.asList("f1", "f2", "f3", "f4", "f5"), newConfig.get(FIELD_NAMES_ARRAY));
+        Assertions.assertEquals(
+                Arrays.asList("bucket(f1, 16)", "dt"), newConfig.get(PARTITION_KEYS_ARRAY));
+    }
+
+    @Test
+    public void testPartitionKeysPlaceholderWithEmptyPartitionKeys() {
+        ReadonlyConfig config = createConfig();
+        CatalogTable table = createTestTable();
+        table.getPartitionKeys().clear();
+        ReadonlyConfig newConfig = TablePlaceholderProcessor.replaceTablePlaceholder(config, table);
+
+        Assertions.assertEquals("${partition_keys}", newConfig.get(PARTITION_KEYS));
+        Assertions.assertEquals(
+                Arrays.asList("${partition_keys}"), newConfig.get(PARTITION_KEYS_ARRAY));
     }
 
     @Test
@@ -86,10 +105,13 @@ public class TablePlaceholderProcessorTest {
         Assertions.assertEquals("f1,f2", newConfig.get(PRIMARY_KEY));
         Assertions.assertEquals("f3,f4", newConfig.get(UNIQUE_KEY));
         Assertions.assertEquals("f1,f2,f3,f4,f5", newConfig.get(FIELD_NAMES));
+        Assertions.assertEquals("bucket(f1, 16),dt", newConfig.get(PARTITION_KEYS));
         Assertions.assertEquals(Arrays.asList("f1", "f2"), newConfig.get(PRIMARY_KEY_ARRAY));
         Assertions.assertEquals(Arrays.asList("f3", "f4"), newConfig.get(UNIQUE_KEY_ARRAY));
         Assertions.assertEquals(
                 Arrays.asList("f1", "f2", "f3", "f4", "f5"), newConfig.get(FIELD_NAMES_ARRAY));
+        Assertions.assertEquals(
+                Arrays.asList("bucket(f1, 16)", "dt"), newConfig.get(PARTITION_KEYS_ARRAY));
     }
 
     @Test
@@ -128,10 +150,13 @@ public class TablePlaceholderProcessorTest {
         Assertions.assertEquals("f1,f2", newConfig1.get(PRIMARY_KEY));
         Assertions.assertEquals("f3,f4", newConfig1.get(UNIQUE_KEY));
         Assertions.assertEquals("f1,f2,f3,f4,f5", newConfig1.get(FIELD_NAMES));
+        Assertions.assertEquals("bucket(f1, 16),dt", newConfig1.get(PARTITION_KEYS));
         Assertions.assertEquals(Arrays.asList("f1", "f2"), newConfig1.get(PRIMARY_KEY_ARRAY));
         Assertions.assertEquals(Arrays.asList("f3", "f4"), newConfig1.get(UNIQUE_KEY_ARRAY));
         Assertions.assertEquals(
                 Arrays.asList("f1", "f2", "f3", "f4", "f5"), newConfig1.get(FIELD_NAMES_ARRAY));
+        Assertions.assertEquals(
+                Arrays.asList("bucket(f1, 16)", "dt"), newConfig1.get(PARTITION_KEYS_ARRAY));
 
         Assertions.assertEquals("xyz_default_db_test", newConfig2.get(DATABASE));
         Assertions.assertEquals("xyz_default_schema_test", newConfig2.get(SCHEMA));
@@ -139,10 +164,13 @@ public class TablePlaceholderProcessorTest {
         Assertions.assertEquals("f1,f2", newConfig2.get(PRIMARY_KEY));
         Assertions.assertEquals("f3,f4", newConfig2.get(UNIQUE_KEY));
         Assertions.assertEquals("f1,f2,f3,f4,f5", newConfig2.get(FIELD_NAMES));
+        Assertions.assertEquals("bucket(f1, 16),dt", newConfig2.get(PARTITION_KEYS));
         Assertions.assertEquals(Arrays.asList("f1", "f2"), newConfig2.get(PRIMARY_KEY_ARRAY));
         Assertions.assertEquals(Arrays.asList("f3", "f4"), newConfig2.get(UNIQUE_KEY_ARRAY));
         Assertions.assertEquals(
                 Arrays.asList("f1", "f2", "f3", "f4", "f5"), newConfig2.get(FIELD_NAMES_ARRAY));
+        Assertions.assertEquals(
+                Arrays.asList("bucket(f1, 16)", "dt"), newConfig2.get(PARTITION_KEYS_ARRAY));
     }
 
     private static ReadonlyConfig createConfig() {
@@ -153,9 +181,11 @@ public class TablePlaceholderProcessorTest {
         configMap.put(PRIMARY_KEY.key(), "${primary_key}");
         configMap.put(UNIQUE_KEY.key(), "${unique_key}");
         configMap.put(FIELD_NAMES.key(), "${field_names}");
+        configMap.put(PARTITION_KEYS.key(), "${partition_keys}");
         configMap.put(PRIMARY_KEY_ARRAY.key(), Arrays.asList("${primary_key}"));
         configMap.put(UNIQUE_KEY_ARRAY.key(), Arrays.asList("${unique_key}"));
         configMap.put(FIELD_NAMES_ARRAY.key(), Arrays.asList("${field_names}"));
+        configMap.put(PARTITION_KEYS_ARRAY.key(), Arrays.asList("${partition_keys}"));
         return ReadonlyConfig.fromMap(configMap);
     }
 
@@ -200,7 +230,11 @@ public class TablePlaceholderProcessorTest {
                                         .build())
                         .build();
         return CatalogTable.of(
-                tableId, tableSchema, Collections.emptyMap(), Collections.emptyList(), null);
+                tableId,
+                tableSchema,
+                Collections.emptyMap(),
+                Arrays.asList("bucket(f1, 16)", "dt"),
+                null);
     }
 
     private static CatalogTable createTestTable() {
@@ -245,6 +279,10 @@ public class TablePlaceholderProcessorTest {
                                         .build())
                         .build();
         return CatalogTable.of(
-                tableId, tableSchema, Collections.emptyMap(), Collections.emptyList(), null);
+                tableId,
+                tableSchema,
+                Collections.emptyMap(),
+                Arrays.asList("bucket(f1, 16)", "dt"),
+                null);
     }
 }

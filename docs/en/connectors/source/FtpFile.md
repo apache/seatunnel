@@ -360,7 +360,7 @@ then SeaTunnel will skip the first 2 lines from source files
 
 Only need to be configured when the file_format_type are text, json, excel, xml or csv ( Or other format we can't read the schema from metadata).
 
-The schema information of upstream data.
+The schema information of upstream data. For more details, please refer to [Schema Feature](../../introduction/concepts/schema-feature.md).
 
 ### read_columns [list]
 

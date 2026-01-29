@@ -56,7 +56,7 @@ import ChangeLog from '../changelog/connector-iotdb.md';
 | username                   | string  | 是    | -   | IoTDB 用户名                                                                        |
 | password                   | string  | 是    | -   | IoTDB 用户密码                                                                       |
 | sql                        | string  | 是    | -   | 要执行的 SQL 查询语句                                                                    |
-| schema                     | config  | 是    | -   | 数据模式定义                                                                           |
+| schema                     | config  | 是    | -   | 数据模式定义。更多详情请参考 [Schema 特性](../../introduction/concepts/schema-feature.md)。                                                                           |
 | fetch_size                 | int     | 否    | -   | 单次获取数据量：查询时每次从 IoTDB 获取的数据量                                                      |
 | lower_bound                | long    | 否    | -   | 时间范围下界（通过时间列进行数据分片时使用）                                                           |
 | upper_bound                | long    | 否    | -   | 时间范围上界（通过时间列进行数据分片时使用）                                                           |

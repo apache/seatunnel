@@ -304,7 +304,7 @@ A single character that allows the quote or other special characters to appear i
 
 #### fields [Config]
 
-The schema of upstream data.
+The schema of upstream data. For more details, please refer to [Schema Feature](../../introduction/concepts/schema-feature.md).
 
 ## How to Create a Sftp Data Synchronization Jobs
 

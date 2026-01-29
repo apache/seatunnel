@@ -20,6 +20,8 @@ package org.apache.seatunnel.api.options.table;
 import org.apache.seatunnel.api.configuration.Option;
 import org.apache.seatunnel.api.configuration.Options;
 
+import java.util.List;
+
 public interface TableIdentifierOptions {
 
     Option<Boolean> SCHEMA_FIRST =
@@ -57,4 +59,11 @@ public interface TableIdentifierOptions {
                     .stringType()
                     .noDefaultValue()
                     .withDescription("SeaTunnel Schema Table Name");
+
+    Option<List<String>> PARTITION_KEYS =
+            Options.key("partition_keys")
+                    .listType()
+                    .noDefaultValue()
+                    .withDescription(
+                            "SeaTunnel Schema Partition Keys, used to specify partition keys for table creation");
 }

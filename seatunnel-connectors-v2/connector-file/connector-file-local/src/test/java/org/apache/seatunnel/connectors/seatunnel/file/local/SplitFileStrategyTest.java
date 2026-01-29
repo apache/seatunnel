@@ -16,7 +16,8 @@
  */
 package org.apache.seatunnel.connectors.seatunnel.file.local;
 
-import org.apache.seatunnel.connectors.seatunnel.file.local.source.split.LocalFileAccordingToSplitSizeSplitStrategy;
+import org.apache.seatunnel.connectors.seatunnel.file.local.config.LocalFileHadoopConf;
+import org.apache.seatunnel.connectors.seatunnel.file.source.split.AccordingToSplitSizeSplitStrategy;
 import org.apache.seatunnel.connectors.seatunnel.file.source.split.FileSourceSplit;
 
 import org.junit.jupiter.api.Assertions;
@@ -39,18 +40,21 @@ public class SplitFileStrategyTest {
     @SneakyThrows
     @Test
     public void testSplitNoSkipHeader() {
-        final LocalFileAccordingToSplitSizeSplitStrategy localFileSplitStrategy =
-                new LocalFileAccordingToSplitSizeSplitStrategy("\n", 0L, "utf-8", 100L);
         URL url = getClass().getClassLoader().getResource("test_split_csv_data.csv");
         String realPath = Paths.get(url.toURI()).toString();
-        final List<FileSourceSplit> splits = localFileSplitStrategy.split("test.table", realPath);
-        Assertions.assertEquals(2, splits.size());
-        // check split-1
-        Assertions.assertEquals(0, splits.get(0).getStart());
-        Assertions.assertEquals(105, splits.get(0).getLength());
-        // check split-2
-        Assertions.assertEquals(105, splits.get(1).getStart());
-        Assertions.assertEquals(85, splits.get(1).getLength());
+        try (AccordingToSplitSizeSplitStrategy localFileSplitStrategy =
+                new AccordingToSplitSizeSplitStrategy(
+                        new LocalFileHadoopConf(), "\n", 0L, "utf-8", 100L)) {
+            final List<FileSourceSplit> splits =
+                    localFileSplitStrategy.split("test.table", realPath);
+            Assertions.assertEquals(2, splits.size());
+            // check split-1
+            Assertions.assertEquals(0, splits.get(0).getStart());
+            Assertions.assertEquals(105, splits.get(0).getLength());
+            // check split-2
+            Assertions.assertEquals(105, splits.get(1).getStart());
+            Assertions.assertEquals(85, splits.get(1).getLength());
+        }
     }
 
     @DisabledOnOs(
@@ -60,24 +64,27 @@ public class SplitFileStrategyTest {
     @SneakyThrows
     @Test
     public void testSplitSkipHeader() {
-        final LocalFileAccordingToSplitSizeSplitStrategy localFileSplitStrategy =
-                new LocalFileAccordingToSplitSizeSplitStrategy("\n", 1L, "utf-8", 30L);
         URL url = getClass().getClassLoader().getResource("test_split_csv_data.csv");
         String realPath = Paths.get(url.toURI()).toString();
-        final List<FileSourceSplit> splits = localFileSplitStrategy.split("test.table", realPath);
-        Assertions.assertEquals(4, splits.size());
-        // check split-1
-        Assertions.assertEquals(21, splits.get(0).getStart());
-        Assertions.assertEquals(41, splits.get(0).getLength());
-        // check split-2
-        Assertions.assertEquals(62, splits.get(1).getStart());
-        Assertions.assertEquals(43, splits.get(1).getLength());
-        // check split-3
-        Assertions.assertEquals(105, splits.get(2).getStart());
-        Assertions.assertEquals(43, splits.get(2).getLength());
-        // check split-4
-        Assertions.assertEquals(148, splits.get(3).getStart());
-        Assertions.assertEquals(42, splits.get(3).getLength());
+        try (AccordingToSplitSizeSplitStrategy localFileSplitStrategy =
+                new AccordingToSplitSizeSplitStrategy(
+                        new LocalFileHadoopConf(), "\n", 1L, "utf-8", 30L)) {
+            final List<FileSourceSplit> splits =
+                    localFileSplitStrategy.split("test.table", realPath);
+            Assertions.assertEquals(4, splits.size());
+            // check split-1
+            Assertions.assertEquals(21, splits.get(0).getStart());
+            Assertions.assertEquals(41, splits.get(0).getLength());
+            // check split-2
+            Assertions.assertEquals(62, splits.get(1).getStart());
+            Assertions.assertEquals(43, splits.get(1).getLength());
+            // check split-3
+            Assertions.assertEquals(105, splits.get(2).getStart());
+            Assertions.assertEquals(43, splits.get(2).getLength());
+            // check split-4
+            Assertions.assertEquals(148, splits.get(3).getStart());
+            Assertions.assertEquals(42, splits.get(3).getLength());
+        }
     }
 
     @DisabledOnOs(
@@ -87,15 +94,18 @@ public class SplitFileStrategyTest {
     @SneakyThrows
     @Test
     public void testSplitSkipHeaderLargeSize() {
-        final LocalFileAccordingToSplitSizeSplitStrategy localFileSplitStrategy =
-                new LocalFileAccordingToSplitSizeSplitStrategy("\n", 1L, "utf-8", 300L);
         URL url = getClass().getClassLoader().getResource("test_split_csv_data.csv");
         String realPath = Paths.get(url.toURI()).toString();
-        final List<FileSourceSplit> splits = localFileSplitStrategy.split("test.table", realPath);
-        Assertions.assertEquals(1, splits.size());
-        // check split-1
-        Assertions.assertEquals(21, splits.get(0).getStart());
-        Assertions.assertEquals(169, splits.get(0).getLength());
+        try (AccordingToSplitSizeSplitStrategy localFileSplitStrategy =
+                new AccordingToSplitSizeSplitStrategy(
+                        new LocalFileHadoopConf(), "\n", 1L, "utf-8", 300L)) {
+            final List<FileSourceSplit> splits =
+                    localFileSplitStrategy.split("test.table", realPath);
+            Assertions.assertEquals(1, splits.size());
+            // check split-1
+            Assertions.assertEquals(21, splits.get(0).getStart());
+            Assertions.assertEquals(169, splits.get(0).getLength());
+        }
     }
 
     @DisabledOnOs(
@@ -105,51 +115,60 @@ public class SplitFileStrategyTest {
     @SneakyThrows
     @Test
     public void testSplitSkipHeaderSmallSize() {
-        final LocalFileAccordingToSplitSizeSplitStrategy localFileSplitStrategy =
-                new LocalFileAccordingToSplitSizeSplitStrategy("\n", 1L, "utf-8", 3L);
         URL url = getClass().getClassLoader().getResource("test_split_csv_data.csv");
         String realPath = Paths.get(url.toURI()).toString();
-        final List<FileSourceSplit> splits = localFileSplitStrategy.split("test.table", realPath);
-        Assertions.assertEquals(8, splits.size());
-        // check split
-        Assertions.assertEquals(21, splits.get(0).getStart());
-        Assertions.assertEquals(42, splits.get(1).getStart());
-        Assertions.assertEquals(62, splits.get(2).getStart());
-        Assertions.assertEquals(82, splits.get(3).getStart());
-        Assertions.assertEquals(105, splits.get(4).getStart());
-        Assertions.assertEquals(126, splits.get(5).getStart());
-        Assertions.assertEquals(148, splits.get(6).getStart());
-        Assertions.assertEquals(169, splits.get(7).getStart());
+        try (AccordingToSplitSizeSplitStrategy localFileSplitStrategy =
+                new AccordingToSplitSizeSplitStrategy(
+                        new LocalFileHadoopConf(), "\n", 1L, "utf-8", 3L)) {
+            final List<FileSourceSplit> splits =
+                    localFileSplitStrategy.split("test.table", realPath);
+            Assertions.assertEquals(8, splits.size());
+            // check split
+            Assertions.assertEquals(21, splits.get(0).getStart());
+            Assertions.assertEquals(42, splits.get(1).getStart());
+            Assertions.assertEquals(62, splits.get(2).getStart());
+            Assertions.assertEquals(82, splits.get(3).getStart());
+            Assertions.assertEquals(105, splits.get(4).getStart());
+            Assertions.assertEquals(126, splits.get(5).getStart());
+            Assertions.assertEquals(148, splits.get(6).getStart());
+            Assertions.assertEquals(169, splits.get(7).getStart());
+        }
     }
 
     @SneakyThrows
     @Test
     public void testSplitSkipHeaderSpecialRowDelimiter() {
-        final LocalFileAccordingToSplitSizeSplitStrategy localFileSplitStrategy =
-                new LocalFileAccordingToSplitSizeSplitStrategy("|^|", 1L, "utf-8", 80L);
         URL url =
                 getClass()
                         .getClassLoader()
                         .getResource("test_split_special_row_delimiter_data.txt");
         String realPath = Paths.get(url.toURI()).toString();
-        final List<FileSourceSplit> splits = localFileSplitStrategy.split("test.table", realPath);
-        Assertions.assertEquals(2, splits.size());
-        // check split-1
-        Assertions.assertEquals(23, splits.get(0).getStart());
-        Assertions.assertEquals(92, splits.get(0).getLength());
-        // check split-2
-        Assertions.assertEquals(115, splits.get(1).getStart());
-        Assertions.assertEquals(91, splits.get(1).getLength());
+        try (AccordingToSplitSizeSplitStrategy localFileSplitStrategy =
+                new AccordingToSplitSizeSplitStrategy(
+                        new LocalFileHadoopConf(), "|^|", 1L, "utf-8", 80L)) {
+            final List<FileSourceSplit> splits =
+                    localFileSplitStrategy.split("test.table", realPath);
+            Assertions.assertEquals(2, splits.size());
+            // check split-1
+            Assertions.assertEquals(23, splits.get(0).getStart());
+            Assertions.assertEquals(92, splits.get(0).getLength());
+            // check split-2
+            Assertions.assertEquals(115, splits.get(1).getStart());
+            Assertions.assertEquals(91, splits.get(1).getLength());
+        }
     }
 
     @SneakyThrows
     @Test
     public void testSplitEmpty() {
-        final LocalFileAccordingToSplitSizeSplitStrategy localFileSplitStrategy =
-                new LocalFileAccordingToSplitSizeSplitStrategy("\n", 1L, "utf-8", 300L);
         URL url = getClass().getClassLoader().getResource("test_split_empty_data.csv");
         String realPath = Paths.get(url.toURI()).toString();
-        final List<FileSourceSplit> splits = localFileSplitStrategy.split("test.table", realPath);
-        Assertions.assertEquals(0, splits.size());
+        try (AccordingToSplitSizeSplitStrategy localFileSplitStrategy =
+                new AccordingToSplitSizeSplitStrategy(
+                        new LocalFileHadoopConf(), "\n", 1L, "utf-8", 300L)) {
+            final List<FileSourceSplit> splits =
+                    localFileSplitStrategy.split("test.table", realPath);
+            Assertions.assertEquals(0, splits.size());
+        }
     }
 }

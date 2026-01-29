@@ -25,7 +25,7 @@ The list of fields that need to be deleted. Fields not in the list will be kept.
 
 ### common options [string]
 
-Transform plugin common parameters, please refer to [Transform Plugin](common-options.md) for details
+Transform plugin common parameters, please refer to [Transform Plugin](common-options/common-options.md) for details
 
 ## Example
 

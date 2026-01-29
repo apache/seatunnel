@@ -48,7 +48,7 @@ They can be downloaded via install-plugin.sh or from the Maven central repositor
 | url                         | String  | Yes      | -       | Http request url.                                                                                                                    |
 | email                       | String  | Yes      | -       | My hours login email address.                                                                                                        |
 | password                    | String  | Yes      | -       | My hours login password.                                                                                                             |
-| schema                      | Config  | No       | -       | Http and seatunnel data structure mapping                                                                                            |
+| schema                      | Config  | No       | -       | Http and seatunnel data structure mapping. For more details, please refer to [Schema Feature](../../introduction/concepts/schema-feature.md).                                                                                            |
 | schema.fields               | Config  | No       | -       | The schema fields of upstream data                                                                                                   |
 | json_field                  | Config  | No       | -       | This parameter helps you configure the schema,so this parameter must be used with schema.                                            |
 | content_json                | String  | No       | -       | This parameter can get some json data.If you only need the data in the 'book' section, configure `content_field = "$.store.book.*"`. |

@@ -58,7 +58,7 @@ import ChangeLog from '../changelog/connector-iotdb.md';
 | sql_dialect                | String  | 否    | tree | IoTDB 模型，tree：树模型；table：表模型                                                      |
 | database                   | String  | 否    | -    | 要查询的数据库名，只在表模型中生效                                                                |
 | sql                        | String  | 是    | -    | 要执行的 SQL 查询语句                                                                    |
-| schema                     | Config  | 是    | -    | 数据模式定义                                                                           |
+| schema                     | Config  | 是    | -    | 数据模式定义。更多详情请参考 [Schema 特性](../../introduction/concepts/schema-feature.md)。                                                                           |
 | fetch_size                 | Integer | 否    | -    | 单次获取数据量：查询时每次从 IoTDB 获取的数据量                                                      |
 | lower_bound                | Long    | 否    | -    | 时间范围下界（通过时间列进行数据分片时使用）                                                           |
 | upper_bound                | Long    | 否    | -    | 时间范围上界（通过时间列进行数据分片时使用）                                                           |

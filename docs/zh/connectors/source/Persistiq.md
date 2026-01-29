@@ -19,24 +19,24 @@ import ChangeLog from '../changelog/connector-http-persistiq.md';
 
 ## 选项
 
-| 参数名 | 类型 | 必须 | 默认值 | 描述 |
-|--------|------|------|--------|------|
-| url | String | 是 | - | HTTP 请求 URL |
-| password | String | 是 | - | API 密钥用于登录 |
-| method | String | 否 | get | HTTP 请求方法，仅支持 GET、POST 方法 |
-| schema | Config | 否 | - | HTTP 和 SeaTunnel 数据结构映射 |
-| schema.fields | Config | 否 | - | 上游数据的模式字段 |
-| format | String | 否 | json | 上游数据的格式，现在仅支持 `json` `text`，默认 `json`。 |
-| params | Map | 否 | - | HTTP 参数 |
-| body | String | 否 | - | HTTP 请求体 |
-| json_field | Config | 否 | - | JSON 字段配置 |
-| content_json | String | 否 | - | 内容 JSON 配置 |
-| poll_interval_millis | int | 否 | - | 流模式下请求 HTTP API 的间隔（毫秒） |
-| retry | int | 否 | - | 如果 HTTP 请求返回 `IOException` 的最大重试次数 |
-| retry_backoff_multiplier_ms | int | 否 | 100 | HTTP 请求失败时的重试退避倍数（毫秒） |
-| retry_backoff_max_ms | int | 否 | 10000 | HTTP 请求失败时的最大重试退避时间（毫秒） |
-| enable_multi_lines | boolean | 否 | false | 是否启用多行模式 |
-| common-options | config | 否 | - | 源插件通用参数 |
+| 参数名                         | 类型      | 必须 | 默认值   | 描述                                                                                          |
+|-----------------------------|---------|----|-------|---------------------------------------------------------------------------------------------|
+| url                         | String  | 是  | -     | HTTP 请求 URL                                                                                 |
+| password                    | String  | 是  | -     | API 密钥用于登录                                                                                  |
+| method                      | String  | 否  | get   | HTTP 请求方法，仅支持 GET、POST 方法                                                                   |
+| schema                      | Config  | 否  | -     | HTTP 和 SeaTunnel 数据结构映射。更多详情请参考 [Schema 特性](../../introduction/concepts/schema-feature.md)。 |
+| schema.fields               | Config  | 否  | -     | 上游数据的模式字段                                                                                   |
+| format                      | String  | 否  | json  | 上游数据的格式，现在仅支持 `json` `text`，默认 `json`。                                                      |
+| params                      | Map     | 否  | -     | HTTP 参数                                                                                     |
+| body                        | String  | 否  | -     | HTTP 请求体                                                                                    |
+| json_field                  | Config  | 否  | -     | JSON 字段配置                                                                                   |
+| content_json                | String  | 否  | -     | 内容 JSON 配置                                                                                  |
+| poll_interval_millis        | int     | 否  | -     | 流模式下请求 HTTP API 的间隔（毫秒）                                                                     |
+| retry                       | int     | 否  | -     | 如果 HTTP 请求返回 `IOException` 的最大重试次数                                                          |
+| retry_backoff_multiplier_ms | int     | 否  | 100   | HTTP 请求失败时的重试退避倍数（毫秒）                                                                       |
+| retry_backoff_max_ms        | int     | 否  | 10000 | HTTP 请求失败时的最大重试退避时间（毫秒）                                                                     |
+| enable_multi_lines          | boolean | 否  | false | 是否启用多行模式                                                                                    |
+| common-options              | config  | 否  | -     | 源插件通用参数                                                                                     |
 
 ### url [String]
 
@@ -82,7 +82,7 @@ HTTP 请求失败时的最大重试退避时间（毫秒）
 
 #### fields [Config]
 
-上游数据的模式字段
+上游数据的模式字段。更多详情请参考 [Schema 特性](../../introduction/concepts/schema-feature.md)。
 
 ### content_json [String]
 
