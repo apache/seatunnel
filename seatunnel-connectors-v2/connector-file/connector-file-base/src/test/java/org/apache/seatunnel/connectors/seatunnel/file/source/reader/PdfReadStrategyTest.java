@@ -70,11 +70,6 @@ public class PdfReadStrategyTest {
                 "Groceries play a vital role in daily life, touching every aspect of health, convenience, and enjoyment.\n"
                         + "This comprehensive guide covers all things groceries—from what to shop for, strategies to save money, storage tips, and even how groceries have changed in the\n"
                         + "modern era.";
-        System.out.println("expectedParagraph length: " + expectedParagraph.length());
-        String paragraphStr = String.valueOf(rows.get(1).getField(3));
-        System.out.println("paragraphStr length: " + paragraphStr.length());
-        System.out.println(
-                "paragraphStr replace length: " + paragraphStr.replace("\r\n", "\n").length());
 
         Assertions.assertEquals(
                 expectedParagraph.length(),

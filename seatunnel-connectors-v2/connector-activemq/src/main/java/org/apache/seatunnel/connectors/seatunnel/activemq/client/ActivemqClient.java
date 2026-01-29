@@ -63,10 +63,11 @@ public class ActivemqClient {
             log.info("connection created");
 
         } catch (Exception e) {
-            e.printStackTrace();
+            log.error("Error while creating AMQ client", e);
             throw new ActivemqConnectorException(
                     ActivemqConnectorErrorCode.CREATE_ACTIVEMQ_CLIENT_FAILED,
-                    "Error while create AMQ client ");
+                    "Error while create AMQ client ",
+                    e);
         }
     }
 

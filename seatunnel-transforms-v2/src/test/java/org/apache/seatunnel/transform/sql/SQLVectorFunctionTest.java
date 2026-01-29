@@ -232,4 +232,140 @@ public class SQLVectorFunctionTest {
             Assertions.assertNotNull(value);
         }
     }
+
+    // ==================== Distance Functions (from VectorFunctionTest) ====================
+
+    @Test
+    public void testCosineDistance() {
+        ReadonlyConfig config =
+                ReadonlyConfig.fromMap(
+                        Collections.singletonMap(
+                                "query",
+                                "SELECT COSINE_DISTANCE(vector_field, vector_field2) as distance FROM dual"));
+
+        SQLTransform sqlTransform = new SQLTransform(config, catalogTable);
+
+        Float[] v1 = new Float[] {1.0f, 2.0f, 3.0f};
+        Float[] v2 = new Float[] {1.0f, 2.0f, 3.0f};
+
+        SeaTunnelRow inputRow =
+                new SeaTunnelRow(
+                        new Object[] {
+                            1, VectorUtils.toByteBuffer(v1), VectorUtils.toByteBuffer(v2)
+                        });
+        List<SeaTunnelRow> result = sqlTransform.transformRow(inputRow);
+
+        Assertions.assertEquals(1, result.size());
+        Assertions.assertEquals(0.0, result.get(0).getField(0));
+    }
+
+    @Test
+    public void testL1Distance() {
+        ReadonlyConfig config =
+                ReadonlyConfig.fromMap(
+                        Collections.singletonMap(
+                                "query",
+                                "SELECT L1_DISTANCE(vector_field, vector_field2) as distance FROM dual"));
+
+        SQLTransform sqlTransform = new SQLTransform(config, catalogTable);
+
+        Float[] v1 = new Float[] {2.0f, 4.0f, 6.0f};
+        Float[] v2 = new Float[] {1.0f, 2.0f, 3.0f};
+
+        SeaTunnelRow inputRow =
+                new SeaTunnelRow(
+                        new Object[] {
+                            1, VectorUtils.toByteBuffer(v1), VectorUtils.toByteBuffer(v2)
+                        });
+        List<SeaTunnelRow> result = sqlTransform.transformRow(inputRow);
+
+        Assertions.assertEquals(1, result.size());
+        Assertions.assertEquals(6.0, result.get(0).getField(0));
+    }
+
+    @Test
+    public void testL2Distance() {
+        ReadonlyConfig config =
+                ReadonlyConfig.fromMap(
+                        Collections.singletonMap(
+                                "query",
+                                "SELECT L2_DISTANCE(vector_field, vector_field2) as distance FROM dual"));
+
+        SQLTransform sqlTransform = new SQLTransform(config, catalogTable);
+
+        Float[] v1 = new Float[] {2.0f, 4.0f, 4.0f};
+        Float[] v2 = new Float[] {1.0f, 2.0f, 2.0f};
+
+        SeaTunnelRow inputRow =
+                new SeaTunnelRow(
+                        new Object[] {
+                            1, VectorUtils.toByteBuffer(v1), VectorUtils.toByteBuffer(v2)
+                        });
+        List<SeaTunnelRow> result = sqlTransform.transformRow(inputRow);
+
+        Assertions.assertEquals(1, result.size());
+        Assertions.assertEquals(3.0, result.get(0).getField(0));
+    }
+
+    @Test
+    public void testVectorNorm() {
+        ReadonlyConfig config =
+                ReadonlyConfig.fromMap(
+                        Collections.singletonMap(
+                                "query", "SELECT VECTOR_NORM(vector_field) as norm FROM dual"));
+
+        SQLTransform sqlTransform = new SQLTransform(config, catalogTable);
+
+        Float[] v1 = new Float[] {1.0f, 2.0f, 2.0f};
+
+        SeaTunnelRow inputRow =
+                new SeaTunnelRow(new Object[] {1, VectorUtils.toByteBuffer(v1), null});
+        List<SeaTunnelRow> result = sqlTransform.transformRow(inputRow);
+
+        Assertions.assertEquals(1, result.size());
+        Assertions.assertEquals(3.0, result.get(0).getField(0));
+    }
+
+    @Test
+    public void testVectorDims() {
+        ReadonlyConfig config =
+                ReadonlyConfig.fromMap(
+                        Collections.singletonMap(
+                                "query", "SELECT VECTOR_DIMS(vector_field) as dim FROM dual"));
+
+        SQLTransform sqlTransform = new SQLTransform(config, catalogTable);
+
+        Float[] v1 = new Float[] {1.0f, 2.0f, 3.0f};
+
+        SeaTunnelRow inputRow =
+                new SeaTunnelRow(new Object[] {1, VectorUtils.toByteBuffer(v1), null});
+        List<SeaTunnelRow> result = sqlTransform.transformRow(inputRow);
+
+        Assertions.assertEquals(1, result.size());
+        Assertions.assertEquals(3, result.get(0).getField(0));
+    }
+
+    @Test
+    public void testInnerProduct() {
+        ReadonlyConfig config =
+                ReadonlyConfig.fromMap(
+                        Collections.singletonMap(
+                                "query",
+                                "SELECT INNER_PRODUCT(vector_field, vector_field2) as product FROM dual"));
+
+        SQLTransform sqlTransform = new SQLTransform(config, catalogTable);
+
+        Float[] v1 = new Float[] {1.0f, 2.0f, 3.0f};
+        Float[] v2 = new Float[] {7.0f, 8.0f, 9.0f};
+
+        SeaTunnelRow inputRow =
+                new SeaTunnelRow(
+                        new Object[] {
+                            1, VectorUtils.toByteBuffer(v1), VectorUtils.toByteBuffer(v2)
+                        });
+        List<SeaTunnelRow> result = sqlTransform.transformRow(inputRow);
+
+        Assertions.assertEquals(1, result.size());
+        Assertions.assertEquals(50.0, result.get(0).getField(0));
+    }
 }

@@ -36,6 +36,8 @@ import org.apache.kafka.connect.source.SourceRecord;
 
 import io.debezium.data.SpecialValueDecimal;
 import io.debezium.data.VariableScaleDecimal;
+import io.debezium.data.geometry.Geography;
+import io.debezium.data.geometry.Geometry;
 import io.debezium.time.MicroTime;
 import io.debezium.time.MicroTimestamp;
 import io.debezium.time.NanoTime;
@@ -458,9 +460,36 @@ public class SeaTunnelRowDebeziumDeserializationConverters implements Serializab
 
             @Override
             public Object convert(Object dbzObj, Schema schema) {
+                if (dbzObj == null) {
+                    return null;
+                }
+
+                if (schema != null && schema.name() != null && dbzObj instanceof Struct) {
+                    String logicalName = schema.name();
+                    if (Geometry.LOGICAL_NAME.equals(logicalName)
+                            || Geography.LOGICAL_NAME.equals(logicalName)) {
+                        return convertGeometryStructToHexWkb((Struct) dbzObj);
+                    }
+                }
+
                 return dbzObj.toString();
             }
         };
+    }
+
+    private static String convertGeometryStructToHexWkb(Struct struct) {
+        Object wkbField = struct.get(Geometry.WKB_FIELD);
+        if (!(wkbField instanceof byte[])) {
+            // Fallback to default string representation if the expected field is not present.
+            return struct.toString();
+        }
+
+        byte[] wkb = (byte[]) wkbField;
+        StringBuilder sb = new StringBuilder(wkb.length * 2);
+        for (byte b : wkb) {
+            sb.append(String.format("%02X", b));
+        }
+        return sb.toString();
     }
 
     private static DebeziumDeserializationConverter convertToBinary() {
