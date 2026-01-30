@@ -92,6 +92,22 @@ public interface JdbcDialectTypeMapper extends Serializable {
         try (ResultSet rs =
                 metadata.getColumns(catalog, schemaPattern, tableNamePattern, columnNamePattern)) {
             while (rs.next()) {
+                // `tableNamePattern` is treated as a SQL LIKE pattern by many drivers, so filter
+                // the ResultSet by exact table/schema to avoid mixing columns from other tables.
+                if (tableNamePattern != null) {
+                    String actualTableName = rs.getString("TABLE_NAME");
+                    if (actualTableName == null
+                            || !actualTableName.equalsIgnoreCase(tableNamePattern)) {
+                        continue;
+                    }
+                }
+                if (schemaPattern != null) {
+                    String actualSchemaName = rs.getString("TABLE_SCHEM");
+                    if (actualSchemaName == null
+                            || !actualSchemaName.equalsIgnoreCase(schemaPattern)) {
+                        continue;
+                    }
+                }
                 String columnName = rs.getString("COLUMN_NAME");
                 String nativeType = rs.getString("TYPE_NAME");
                 int sqlType = rs.getInt("DATA_TYPE");

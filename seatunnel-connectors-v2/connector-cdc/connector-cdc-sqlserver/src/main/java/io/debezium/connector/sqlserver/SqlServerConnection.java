@@ -705,6 +705,20 @@ public class SqlServerConnection extends JdbcConnection {
                         changeTable.getSourceTableId().table(),
                         null)) {
             while (rs.next()) {
+                // `tableNamePattern` is treated as a SQL LIKE pattern by many drivers, so filter
+                // the ResultSet by exact table/schema to avoid mixing columns from other tables.
+                String actualTableName = rs.getString("TABLE_NAME");
+                if (actualTableName == null
+                        || !actualTableName.equalsIgnoreCase(
+                                changeTable.getSourceTableId().table())) {
+                    continue;
+                }
+                String actualSchemaName = rs.getString("TABLE_SCHEM");
+                if (actualSchemaName == null
+                        || !actualSchemaName.equalsIgnoreCase(
+                                changeTable.getSourceTableId().schema())) {
+                    continue;
+                }
                 readTableColumn(rs, changeTable.getSourceTableId(), null)
                         .ifPresent(
                                 ce -> {

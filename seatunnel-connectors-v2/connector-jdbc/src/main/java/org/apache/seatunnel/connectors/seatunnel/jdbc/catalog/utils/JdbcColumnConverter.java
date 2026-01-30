@@ -82,6 +82,21 @@ public class JdbcColumnConverter {
                         null)) {
 
             while (columnsResultSet.next()) {
+                // `tableNamePattern` is treated as a SQL LIKE pattern by many drivers, so filter
+                // the ResultSet by exact table/schema to avoid mixing columns from other tables.
+                String actualTableName = columnsResultSet.getString("TABLE_NAME");
+                if (actualTableName == null
+                        || !actualTableName.equalsIgnoreCase(tablePath.getTableName())) {
+                    continue;
+                }
+                if (tablePath.getSchemaName() != null) {
+                    String actualSchemaName = columnsResultSet.getString("TABLE_SCHEM");
+                    if (actualSchemaName == null
+                            || !actualSchemaName.equalsIgnoreCase(tablePath.getSchemaName())) {
+                        continue;
+                    }
+                }
+
                 String columnName = columnsResultSet.getString("COLUMN_NAME");
                 int jdbcType = columnsResultSet.getInt("DATA_TYPE");
                 String nativeType = columnsResultSet.getString("TYPE_NAME");
