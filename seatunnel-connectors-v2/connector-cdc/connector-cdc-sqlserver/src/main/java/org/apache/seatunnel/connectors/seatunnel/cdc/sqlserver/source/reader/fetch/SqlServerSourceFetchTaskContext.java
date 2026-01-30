@@ -41,8 +41,9 @@ import io.debezium.connector.sqlserver.SqlServerOffsetContext;
 import io.debezium.connector.sqlserver.SqlServerPartition;
 import io.debezium.connector.sqlserver.SqlServerTaskContext;
 import io.debezium.connector.sqlserver.SqlServerTopicSelector;
-import io.debezium.connector.sqlserver.SqlServerValueConverters;
 import io.debezium.data.Envelope;
+import io.debezium.heartbeat.DefaultHeartbeatConnectionProvider;
+import io.debezium.heartbeat.HeartbeatFactory;
 import io.debezium.pipeline.DataChangeEvent;
 import io.debezium.pipeline.ErrorHandler;
 import io.debezium.pipeline.metrics.DefaultChangeEventSourceMetricsFactory;
@@ -98,12 +99,6 @@ public class SqlServerSourceFetchTaskContext extends JdbcSourceFetchTaskContext 
         // initial stateful objects
         final SqlServerConnectorConfig connectorConfig = getDbzConnectorConfig();
 
-        final SqlServerValueConverters valueConverters =
-                new SqlServerValueConverters(
-                        connectorConfig.getDecimalMode(),
-                        connectorConfig.getTemporalPrecisionMode(),
-                        connectorConfig.binaryHandlingMode());
-
         this.topicSelector = SqlServerTopicSelector.defaultSelector(connectorConfig);
 
         this.databaseSchema =
@@ -150,6 +145,12 @@ public class SqlServerSourceFetchTaskContext extends JdbcSourceFetchTaskContext 
                         connectorConfig.getTableFilters().dataCollectionFilter(),
                         DataChangeEvent::new,
                         metadataProvider,
+                        new HeartbeatFactory<>(
+                                connectorConfig,
+                                topicSelector,
+                                schemaNameAdjuster,
+                                new DefaultHeartbeatConnectionProvider(dataConnection),
+                                null),
                         schemaNameAdjuster);
 
         final DefaultChangeEventSourceMetricsFactory<SqlServerPartition>

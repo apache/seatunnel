@@ -423,9 +423,22 @@ null_format 定义哪些字符串可以表示为 null。
 
 开启文件分割功能，默认为false。文件类型为csv、text、json、parquet非压缩格式时可选择。
 
+**使用建议**
+- 适合：读取少量大文件，并希望通过更高并行度提升吞吐。
+- 不建议：读取大量小文件，或并行度较低的场景（拆分会带来额外的枚举/调度开销）。
+
+**限制说明**
+- 不支持压缩文件（`compress_codec` != `none`）或归档文件（`archive_compress_codec` != `none`），会自动回退为不拆分。
+- 对于 `text`/`csv`/`json`，实际 split 的大小可能略大于 `file_split_size`（因为需要对齐到下一个 `row_delimiter`）。
+- LocalFile 内部使用 Hadoop LocalFileSystem（`file:///`），通常不需要额外 Hadoop 配置。
+
 ### file_split_size [long]
 
 文件分割大小，enable_file_split参数为true时可以填写。单位是字节数。默认值为128MB的字节数，即134217728。
+
+**调优建议**
+- 建议从默认值（128MB）开始：如果并行度未充分利用可适当调小；如果 split 数量过多可适当调大。
+- 经验公式：`file_split_size ≈ file_size / 期望并行度`。
 
 ### quote_char [string]
 

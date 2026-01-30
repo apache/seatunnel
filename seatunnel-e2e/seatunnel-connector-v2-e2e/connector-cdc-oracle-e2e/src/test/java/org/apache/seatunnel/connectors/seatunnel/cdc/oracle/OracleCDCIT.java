@@ -138,6 +138,40 @@ public class OracleCDCIT extends AbstractOracleCDCIT implements TestResource {
     }
 
     @TestTemplate
+    @DisabledOnContainer(
+            value = {},
+            type = {EngineType.SPARK, EngineType.FLINK},
+            disabledReason =
+                    "Heartbeat action query is currently only supported by the zeta engine.")
+    public void testOracleCdcCheckDataE2eWithHeartbeat(TestContainer container) throws Exception {
+        String createHeartbeatTable =
+                "BEGIN "
+                        + "   EXECUTE IMMEDIATE 'CREATE TABLE "
+                        + SCEHMA_NAME
+                        + ".heartbeat ("
+                        + "       ts TIMESTAMP DEFAULT CURRENT_TIMESTAMP"
+                        + "   )'; "
+                        + "EXCEPTION "
+                        + "   WHEN OTHERS THEN "
+                        + "      IF SQLCODE != -955 THEN "
+                        + "         RAISE; "
+                        + "      END IF; "
+                        + "END;";
+        executeSql(createHeartbeatTable);
+        clearTable(SCEHMA_NAME, "heartbeat");
+
+        checkDataForTheJob(container, "/oraclecdc_to_oracle_with_heartbeat.conf", false);
+
+        await().atMost(10000, TimeUnit.MILLISECONDS)
+                .untilAsserted(
+                        () -> {
+                            List<List<Object>> query =
+                                    querySql("SELECT * FROM " + SCEHMA_NAME + ".heartbeat");
+                            Assertions.assertFalse(query.isEmpty());
+                        });
+    }
+
+    @TestTemplate
     public void testOracleCdcCheckDataE2eForUseSelectCount(TestContainer container)
             throws Exception {
         checkDataForTheJob(container, "/oraclecdc_to_oracle_use_select_count.conf", false);

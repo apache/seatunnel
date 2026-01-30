@@ -18,7 +18,9 @@
 package org.apache.seatunnel.connectors.seatunnel.file.source.split;
 
 import org.apache.seatunnel.common.exception.SeaTunnelRuntimeException;
+import org.apache.seatunnel.connectors.seatunnel.file.config.HadoopConf;
 import org.apache.seatunnel.connectors.seatunnel.file.exception.FileConnectorErrorCode;
+import org.apache.seatunnel.connectors.seatunnel.file.hadoop.HadoopFileSystemProxy;
 
 import org.apache.hadoop.conf.Configuration;
 import org.apache.hadoop.fs.Path;
@@ -26,6 +28,7 @@ import org.apache.parquet.hadoop.ParquetFileReader;
 import org.apache.parquet.hadoop.metadata.BlockMetaData;
 import org.apache.parquet.hadoop.util.HadoopInputFile;
 
+import java.io.Closeable;
 import java.io.IOException;
 import java.util.ArrayList;
 import java.util.List;
@@ -46,9 +49,10 @@ import java.util.List;
  * <p>This design enables efficient parallel reading of Parquet files while preserving Parquet
  * format semantics and avoiding invalid byte-level splits.
  */
-public class ParquetFileSplitStrategy implements FileSplitStrategy {
+public class ParquetFileSplitStrategy implements FileSplitStrategy, Closeable {
 
     private final long splitSizeBytes;
+    private final HadoopFileSystemProxy hadoopFileSystemProxy;
 
     public ParquetFileSplitStrategy(long splitSizeBytes) {
         if (splitSizeBytes <= 0) {
@@ -57,6 +61,17 @@ public class ParquetFileSplitStrategy implements FileSplitStrategy {
                     "SplitSizeBytes must be greater than 0");
         }
         this.splitSizeBytes = splitSizeBytes;
+        this.hadoopFileSystemProxy = null;
+    }
+
+    public ParquetFileSplitStrategy(long splitSizeBytes, HadoopConf hadoopConf) {
+        if (splitSizeBytes <= 0) {
+            throw new SeaTunnelRuntimeException(
+                    FileConnectorErrorCode.FILE_SPLIT_SIZE_ILLEGAL,
+                    "SplitSizeBytes must be greater than 0");
+        }
+        this.splitSizeBytes = splitSizeBytes;
+        this.hadoopFileSystemProxy = new HadoopFileSystemProxy(hadoopConf);
     }
 
     @Override
@@ -78,41 +93,74 @@ public class ParquetFileSplitStrategy implements FileSplitStrategy {
             return splits;
         }
         long currentStart = 0;
-        long currentLength = 0;
+        long currentEnd = 0;
         boolean hasOpenSplit = false;
         for (BlockMetaData block : rowGroups) {
             long rgStart = block.getStartingPos();
             long rgSize = block.getCompressedSize();
+            long rgEnd = rgStart + rgSize;
             // start a new split
             if (!hasOpenSplit) {
                 currentStart = rgStart;
-                currentLength = rgSize;
+                currentEnd = rgEnd;
                 hasOpenSplit = true;
                 continue;
             }
             // exceeds threshold, close current split
-            if (currentLength + rgSize > splitSizeBytes) {
-                splits.add(new FileSourceSplit(tableId, filePath, currentStart, currentLength));
+            if (rgEnd - currentStart > splitSizeBytes) {
+                splits.add(
+                        new FileSourceSplit(
+                                tableId, filePath, currentStart, currentEnd - currentStart));
                 // start next split
                 currentStart = rgStart;
-                currentLength = rgSize;
+                currentEnd = rgEnd;
             } else {
-                currentLength += rgSize;
+                currentEnd = rgEnd;
             }
         }
         // last split
-        if (hasOpenSplit && currentLength > 0) {
-            splits.add(new FileSourceSplit(tableId, filePath, currentStart, currentLength));
+        if (hasOpenSplit && currentEnd > currentStart) {
+            splits.add(
+                    new FileSourceSplit(
+                            tableId, filePath, currentStart, currentEnd - currentStart));
         }
         return splits;
     }
 
     private List<BlockMetaData> readRowGroups(String filePath) throws IOException {
         Path path = new Path(filePath);
-        Configuration conf = new Configuration();
-        try (ParquetFileReader reader =
-                ParquetFileReader.open(HadoopInputFile.fromPath(path, conf))) {
-            return reader.getFooter().getBlocks();
+        if (hadoopFileSystemProxy == null) {
+            Configuration conf = new Configuration();
+            try (ParquetFileReader reader =
+                    ParquetFileReader.open(HadoopInputFile.fromPath(path, conf))) {
+                return reader.getFooter().getBlocks();
+            }
         }
+        try {
+            return hadoopFileSystemProxy.doWithHadoopAuth(
+                    (configuration, userGroupInformation) -> {
+                        try (ParquetFileReader reader =
+                                ParquetFileReader.open(
+                                        HadoopInputFile.fromPath(path, configuration))) {
+                            return reader.getFooter().getBlocks();
+                        }
+                    });
+        } catch (Exception e) {
+            if (e instanceof IOException) {
+                throw (IOException) e;
+            }
+            if (e instanceof RuntimeException) {
+                throw (RuntimeException) e;
+            }
+            throw new IOException(e);
+        }
+    }
+
+    @Override
+    public void close() throws IOException {
+        if (hadoopFileSystemProxy == null) {
+            return;
+        }
+        hadoopFileSystemProxy.close();
     }
 }

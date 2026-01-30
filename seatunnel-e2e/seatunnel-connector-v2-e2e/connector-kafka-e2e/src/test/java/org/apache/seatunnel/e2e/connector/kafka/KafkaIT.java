@@ -1573,6 +1573,53 @@ public class KafkaIT extends TestSuiteBase implements TestResource {
         producer.flush();
     }
 
+    private byte[] wrapWithSchemaRegistryHeader(byte[] protobufBytes) {
+        // Confluent Schema Registry Protobuf wire format:
+        // magic byte (0) + 4 bytes schema id + 1 byte message index (varint for value 1)
+        byte magic = 0;
+        int schemaId = 1;
+        byte[] header = new byte[6];
+        header[0] = magic;
+        header[1] = (byte) ((schemaId >> 24) & 0xFF);
+        header[2] = (byte) ((schemaId >> 16) & 0xFF);
+        header[3] = (byte) ((schemaId >> 8) & 0xFF);
+        header[4] = (byte) (schemaId & 0xFF);
+        header[5] = 1; // single message index
+
+        byte[] result = new byte[header.length + protobufBytes.length];
+        System.arraycopy(header, 0, result, 0, header.length);
+        System.arraycopy(protobufBytes, 0, result, header.length, protobufBytes.length);
+        return result;
+    }
+
+    private void sendSchemaRegistryHeaderData(DefaultSeaTunnelRowSerializer serializer) {
+        // Produce Schema Registry wire-format records to Kafka
+        IntStream.range(0, 20)
+                .forEach(
+                        i -> {
+                            try {
+                                SeaTunnelRow originalRow = buildSeaTunnelRow();
+                                ProducerRecord<byte[], byte[]> originalRecord =
+                                        serializer.serializeRow(originalRow);
+                                byte[] wrappedValue =
+                                        wrapWithSchemaRegistryHeader(originalRecord.value());
+                                ProducerRecord<byte[], byte[]> wrappedRecord =
+                                        new ProducerRecord<>(
+                                                originalRecord.topic(),
+                                                originalRecord.partition(),
+                                                originalRecord.key(),
+                                                wrappedValue);
+                                producer.send(wrappedRecord).get();
+                            } catch (InterruptedException | ExecutionException e) {
+                                throw new RuntimeException(
+                                        "Error sending Kafka message with Schema Registry header",
+                                        e);
+                            }
+                        });
+
+        producer.flush();
+    }
+
     @TestTemplate
     public void testKafkaProtobufForTransformToAssert(TestContainer container)
             throws IOException, InterruptedException, URISyntaxException {
@@ -1604,6 +1651,59 @@ public class KafkaIT extends TestSuiteBase implements TestResource {
             Map<TopicPartition, Long> offsets =
                     consumer.endOffsets(
                             Arrays.asList(new TopicPartition("verify_protobuf_transform", 0)));
+            Long endOffset = offsets.entrySet().iterator().next().getValue();
+            Long lastProcessedOffset = -1L;
+
+            do {
+                ConsumerRecords<byte[], byte[]> records = consumer.poll(Duration.ofMillis(100));
+                for (ConsumerRecord<byte[], byte[]> record : records) {
+                    if (lastProcessedOffset < record.offset()) {
+                        String data = new String(record.value(), "UTF-8");
+                        ObjectNode jsonNodes = JsonUtils.parseObject(data);
+                        Assertions.assertEquals(jsonNodes.size(), 2);
+                        Assertions.assertEquals(jsonNodes.get("city").asText(), "city_value");
+                        Assertions.assertEquals(jsonNodes.get("c_string").asText(), "test data");
+                    }
+                    lastProcessedOffset = record.offset();
+                }
+            } while (lastProcessedOffset < endOffset - 1);
+        }
+    }
+
+    @TestTemplate
+    public void testKafkaProtobufSchemaRegistryHeaderForTransformToAssert(TestContainer container)
+            throws IOException, InterruptedException, URISyntaxException {
+
+        String confFile =
+                "/protobuf/kafka_protobuf_schema_registry_header_transform_to_assert.conf";
+        String path = getTestConfigFile(confFile);
+        Config config = ConfigFactory.parseFile(new File(path));
+        Config sinkConfig = config.getConfigList("source").get(0);
+        ReadonlyConfig readonlyConfig = ReadonlyConfig.fromConfig(sinkConfig);
+        SeaTunnelRowType seaTunnelRowType = buildSeaTunnelRowType();
+
+        // Create serializer
+        DefaultSeaTunnelRowSerializer serializer =
+                getDefaultSeaTunnelRowSerializer(
+                        "test_protobuf_schema_registry_topic_transform_fake_source",
+                        seaTunnelRowType,
+                        readonlyConfig);
+
+        // Produce Schema Registry wire-format records to Kafka
+        sendSchemaRegistryHeaderData(serializer);
+
+        // Execute the job and validate
+        Container.ExecResult execResult = container.executeJob(confFile);
+        Assertions.assertEquals(0, execResult.getExitCode(), execResult.getStderr());
+
+        try (KafkaConsumer<byte[], byte[]> consumer =
+                new KafkaConsumer<>(kafkaByteConsumerConfig())) {
+            consumer.subscribe(Arrays.asList("verify_protobuf_schema_registry_transform"));
+            Map<TopicPartition, Long> offsets =
+                    consumer.endOffsets(
+                            Arrays.asList(
+                                    new TopicPartition(
+                                            "verify_protobuf_schema_registry_transform", 0)));
             Long endOffset = offsets.entrySet().iterator().next().getValue();
             Long lastProcessedOffset = -1L;
 

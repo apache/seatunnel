@@ -21,6 +21,8 @@ import org.apache.seatunnel.api.source.SourceSplit;
 
 import lombok.Getter;
 
+import java.io.IOException;
+import java.io.ObjectInputStream;
 import java.util.Objects;
 
 public class FileSourceSplit implements SourceSplit {
@@ -48,12 +50,24 @@ public class FileSourceSplit implements SourceSplit {
         this.length = length;
     }
 
+    private void readObject(ObjectInputStream in) throws IOException, ClassNotFoundException {
+        in.defaultReadObject();
+        // Compatibility: old checkpoints (before file-split fields) deserialize with
+        // start=0/length=0.
+        if (start == 0L && length == 0L) {
+            length = -1L;
+        }
+    }
+
     @Override
     public String splitId() {
         // In order to be compatible with the split before the upgrade, when tableId is null,
         // filePath is directly returned
         if (tableId == null) {
             return filePath;
+        }
+        if (start == 0L && length < 0L) {
+            return tableId + "_" + filePath;
         }
         return tableId + "_" + filePath + "_" + start;
     }

@@ -162,17 +162,30 @@ public class JobClient {
             JsonNode sinkWriters = jsonNode.get("SinkWriteCount");
             JsonNode sinkCommitteds = jsonNode.get("SinkCommittedCount");
 
-            for (int i = 0; i < sourceReaders.size(); i++) {
-                JsonNode sourceReader = sourceReaders.get(i);
-                JsonNode sinkWriter = sinkWriters.get(i);
-                sourceReadCount += sourceReader.get("value").asLong();
-                sinkWriteCount += sinkWriter.get("value").asLong();
+            if (sourceReaders != null) {
+                for (int i = 0; i < sourceReaders.size(); i++) {
+                    JsonNode sourceReader = sourceReaders.get(i);
+                    if (sourceReader != null) {
+                        sourceReadCount += sourceReader.get("value").asLong();
+                    }
+                }
+            }
+
+            if (sinkWriters != null) {
+                for (int i = 0; i < sinkWriters.size(); i++) {
+                    JsonNode sinkWriter = sinkWriters.get(i);
+                    if (sinkWriter != null) {
+                        sinkWriteCount += sinkWriter.get("value").asLong();
+                    }
+                }
             }
 
             if (sinkCommitteds != null) {
                 for (int i = 0; i < sinkCommitteds.size(); i++) {
                     JsonNode sinkCommitted = sinkCommitteds.get(i);
-                    sinkCommittedCount += sinkCommitted.get("value").asLong();
+                    if (sinkCommitted != null) {
+                        sinkCommittedCount += sinkCommitted.get("value").asLong();
+                    }
                 }
             }
 
