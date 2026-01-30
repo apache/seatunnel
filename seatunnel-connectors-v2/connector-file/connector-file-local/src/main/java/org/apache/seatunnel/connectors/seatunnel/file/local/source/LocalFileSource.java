@@ -27,8 +27,9 @@ import java.util.List;
 
 public class LocalFileSource extends BaseMultipleTableFileSource {
 
-    public LocalFileSource(ReadonlyConfig readonlyConfig, List<CatalogTable> catalogTablesFromConfig) {
-        this(new MultipleTableLocalFileSourceConfig(readonlyConfig,catalogTablesFromConfig));
+    public LocalFileSource(
+            ReadonlyConfig readonlyConfig, List<CatalogTable> catalogTablesFromConfig) {
+        this(new MultipleTableLocalFileSourceConfig(readonlyConfig, catalogTablesFromConfig));
     }
 
     private LocalFileSource(MultipleTableLocalFileSourceConfig sourceConfig) {

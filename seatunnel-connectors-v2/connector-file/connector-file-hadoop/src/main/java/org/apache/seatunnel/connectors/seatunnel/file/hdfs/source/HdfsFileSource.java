@@ -27,8 +27,9 @@ import java.util.List;
 
 public class HdfsFileSource extends BaseMultipleTableFileSource {
 
-    public HdfsFileSource(ReadonlyConfig readonlyConfig, List<CatalogTable> catalogTablesFromConfig) {
-        this(new MultipleTableHdfsFileSourceConfig(readonlyConfig,catalogTablesFromConfig));
+    public HdfsFileSource(
+            ReadonlyConfig readonlyConfig, List<CatalogTable> catalogTablesFromConfig) {
+        this(new MultipleTableHdfsFileSourceConfig(readonlyConfig, catalogTablesFromConfig));
     }
 
     private HdfsFileSource(MultipleTableHdfsFileSourceConfig sourceConfig) {
