@@ -172,86 +172,101 @@ public class GravitinoTableSchemaConvertor implements MetaLakeTableSchemaConvert
      * @return the corresponding SeaTunnel data type
      */
     private SeaTunnelDataType<?> convertGravitinoType(String fieldName, JsonNode typeNode) {
-        // Handle complex type (JSON object)
         if (typeNode.isObject()) {
-            JsonNode typeField = typeNode.get(TYPE);
-            if (typeField == null || !typeField.isTextual()) {
-                throw CommonError.convertToSeaTunnelTypeError(
-                        MetaLakeType.GRAVITINO.getType(), typeNode.toString(), fieldName);
-            }
-            String type = typeField.asText().toLowerCase();
-            switch (type) {
-                case "list":
-                    JsonNode elementType = typeNode.get(ELEMENT_TYPE);
-                    if (elementType == null) {
-                        throw CommonError.convertToSeaTunnelTypeError(
-                                MetaLakeType.GRAVITINO.getType(),
-                                "list without elementType",
-                                fieldName);
-                    }
-                    return ArrayType.of(convertGravitinoType(fieldName, elementType));
-
-                case "map":
-                    JsonNode keyType = typeNode.get(KEY_TYPE);
-                    JsonNode valueType = typeNode.get(VALUE_TYPE);
-                    if (keyType == null || valueType == null) {
-                        throw CommonError.convertToSeaTunnelTypeError(
-                                MetaLakeType.GRAVITINO.getType(),
-                                "map without keyType or valueType",
-                                fieldName);
-                    }
-                    return new MapType<>(
-                            convertGravitinoType(fieldName, keyType),
-                            convertGravitinoType(fieldName, valueType));
-                case "struct":
-                    JsonNode fields = typeNode.get(FIELDS);
-                    if (fields == null || !fields.isArray()) {
-                        throw CommonError.convertToSeaTunnelTypeError(
-                                MetaLakeType.GRAVITINO.getType(),
-                                "struct without fields array",
-                                fieldName);
-                    }
-                    List<String> fieldNames = new ArrayList<>();
-                    List<SeaTunnelDataType<?>> fieldTypes = new ArrayList<>();
-                    for (JsonNode field : fields) {
-                        String fName = getTextValue(field, NAME);
-                        if (fName == null) {
-                            throw CommonError.convertToSeaTunnelTypeError(
-                                    MetaLakeType.GRAVITINO.getType(),
-                                    "struct field without name",
-                                    fieldName);
-                        }
-                        JsonNode fType = field.get(TYPE);
-                        if (fType == null) {
-                            throw CommonError.convertToSeaTunnelTypeError(
-                                    MetaLakeType.GRAVITINO.getType(),
-                                    "struct field '" + fName + "' without type",
-                                    fieldName);
-                        }
-                        fieldNames.add(fName);
-                        fieldTypes.add(convertGravitinoType(fieldName + "." + fName, fType));
-                    }
-                    return new SeaTunnelRowType(
-                            fieldNames.toArray(new String[0]),
-                            fieldTypes.toArray(new SeaTunnelDataType<?>[0]));
-                case "external":
-                    // External types like PostgreSQL jsonb are treated as string
-                    return BasicType.STRING_TYPE;
-                case "union":
-                default:
-                    throw CommonError.convertToSeaTunnelTypeError(
-                            MetaLakeType.GRAVITINO.getType(), type, fieldName);
-            }
-        }
-        // Handle simple type (string)
-        if (!typeNode.isTextual()) {
+            // Handle complex type (JSON object): list, map, struct, external, etc.
+            return convertComplexType(fieldName, typeNode);
+        } else if (typeNode.isTextual()) {
+            // Handle simple type (string): boolean, int, string, etc.
+            return convertSimpleType(fieldName, typeNode);
+        } else {
+            // Invalid type: neither Object nor Textual
             throw CommonError.convertToSeaTunnelTypeError(
                     MetaLakeType.GRAVITINO.getType(), typeNode.toString(), fieldName);
         }
+    }
+
+    /** Convert complex type (JSON object with type field). */
+    private SeaTunnelDataType<?> convertComplexType(String fieldName, JsonNode typeNode) {
+        JsonNode typeField = typeNode.get(TYPE);
+        if (typeField == null || !typeField.isTextual()) {
+            throw CommonError.convertToSeaTunnelTypeError(
+                    MetaLakeType.GRAVITINO.getType(), typeNode.toString(), fieldName);
+        }
+        String type = typeField.asText().toLowerCase();
+        switch (type) {
+            case "list":
+                JsonNode elementType = typeNode.get(ELEMENT_TYPE);
+                if (elementType == null) {
+                    throw CommonError.convertToSeaTunnelTypeError(
+                            MetaLakeType.GRAVITINO.getType(),
+                            "list without elementType",
+                            fieldName);
+                }
+                return ArrayType.of(convertGravitinoType(fieldName, elementType));
+
+            case "map":
+                JsonNode keyType = typeNode.get(KEY_TYPE);
+                JsonNode valueType = typeNode.get(VALUE_TYPE);
+                if (keyType == null || valueType == null) {
+                    throw CommonError.convertToSeaTunnelTypeError(
+                            MetaLakeType.GRAVITINO.getType(),
+                            "map without keyType or valueType",
+                            fieldName);
+                }
+                return new MapType<>(
+                        convertGravitinoType(fieldName, keyType),
+                        convertGravitinoType(fieldName, valueType));
+
+            case "struct":
+                JsonNode fields = typeNode.get(FIELDS);
+                if (fields == null || !fields.isArray()) {
+                    throw CommonError.convertToSeaTunnelTypeError(
+                            MetaLakeType.GRAVITINO.getType(),
+                            "struct without fields array",
+                            fieldName);
+                }
+                List<String> fieldNames = new ArrayList<>();
+                List<SeaTunnelDataType<?>> fieldTypes = new ArrayList<>();
+                for (JsonNode field : fields) {
+                    String fName = getTextValue(field, NAME);
+                    if (fName == null) {
+                        throw CommonError.convertToSeaTunnelTypeError(
+                                MetaLakeType.GRAVITINO.getType(),
+                                "struct field without name",
+                                fieldName);
+                    }
+                    JsonNode fType = field.get(TYPE);
+                    if (fType == null) {
+                        throw CommonError.convertToSeaTunnelTypeError(
+                                MetaLakeType.GRAVITINO.getType(),
+                                "struct field '" + fName + "' without type",
+                                fieldName);
+                    }
+                    fieldNames.add(fName);
+                    fieldTypes.add(convertGravitinoType(fieldName + "." + fName, fType));
+                }
+                return new SeaTunnelRowType(
+                        fieldNames.toArray(new String[0]),
+                        fieldTypes.toArray(new SeaTunnelDataType<?>[0]));
+
+            case "external":
+                // External types like PostgreSQL jsonb are treated as string
+                return BasicType.STRING_TYPE;
+
+            case "union":
+            default:
+                throw CommonError.convertToSeaTunnelTypeError(
+                        MetaLakeType.GRAVITINO.getType(), type, fieldName);
+        }
+    }
+
+    /** Convert simple type (string like "boolean", "integer", "decimal(10,2)", etc.). */
+    private SeaTunnelDataType<?> convertSimpleType(String fieldName, JsonNode typeNode) {
         String gravitinoType = typeNode.asText();
         String normalizedType = gravitinoType.trim().toLowerCase();
         // Remove parameters for simple type matching
         String baseType = normalizedType.split("\\(")[0].trim();
+
         // Handle decimal type: decimal(precision, scale) - only match regex for decimal type
         if ("decimal".equals(baseType)) {
             Matcher decimalMatcher = DECIMAL_PATTERN.matcher(gravitinoType);
@@ -264,6 +279,7 @@ public class GravitinoTableSchemaConvertor implements MetaLakeTableSchemaConvert
             throw CommonError.convertToSeaTunnelTypeError(
                     MetaLakeType.GRAVITINO.getType(), gravitinoType, fieldName);
         }
+
         // Remove 'unsigned' suffix to simplify type matching
         String cleanType = baseType.replaceAll("unsigned", "").trim();
 
