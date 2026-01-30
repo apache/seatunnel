@@ -20,6 +20,8 @@ package org.apache.seatunnel.engine.server.task.flow;
 import org.apache.seatunnel.api.common.metrics.MetricsContext;
 import org.apache.seatunnel.api.event.EventListener;
 import org.apache.seatunnel.api.serialization.Serializer;
+import org.apache.seatunnel.api.sink.DirtyRecordCollector;
+import org.apache.seatunnel.api.sink.NoOpDirtyRecordCollector;
 import org.apache.seatunnel.api.sink.SinkCommitter;
 import org.apache.seatunnel.api.sink.SinkWriter;
 import org.apache.seatunnel.api.sink.SinkWriter.Context;
@@ -180,6 +182,15 @@ public class SinkFlowLifeCycle<T, CommitInfoT extends Serializable, AggregatedCo
         }
     }
 
+    private DirtyRecordCollector createDirtyRecordCollector() {
+        DirtyRecordCollector collector = sinkAction.getDirtyRecordCollector();
+        if (collector != null) {
+            return collector;
+        }
+        log.debug("No pre-built dirty collector in SinkAction, using NoOp");
+        return NoOpDirtyRecordCollector.INSTANCE;
+    }
+
     @Override
     public void received(Record<?> record) {
         try {
@@ -332,9 +343,16 @@ public class SinkFlowLifeCycle<T, CommitInfoT extends Serializable, AggregatedCo
                                                                     .deserialize(bytes)))
                             .collect(Collectors.toList());
         }
+        // initialize dirty record collector
+        DirtyRecordCollector dirtyCollector = createDirtyRecordCollector();
+
         this.writerContext =
                 new SinkWriterContext(
-                        sinkAction.getParallelism(), indexID, metricsContext, eventListener);
+                        sinkAction.getParallelism(),
+                        indexID,
+                        metricsContext,
+                        eventListener,
+                        dirtyCollector);
         if (states.isEmpty()) {
             this.writer = sinkAction.getSink().createWriter(writerContext);
         } else {

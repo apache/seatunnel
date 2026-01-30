@@ -21,6 +21,8 @@ import org.apache.seatunnel.shade.com.google.common.base.Preconditions;
 
 import org.apache.seatunnel.api.common.metrics.MetricsContext;
 import org.apache.seatunnel.api.event.EventListener;
+import org.apache.seatunnel.api.sink.DirtyRecordCollector;
+import org.apache.seatunnel.api.sink.NoOpDirtyRecordCollector;
 import org.apache.seatunnel.api.sink.SinkWriter;
 
 public class SinkWriterContext implements SinkWriter.Context {
@@ -30,12 +32,27 @@ public class SinkWriterContext implements SinkWriter.Context {
     private final int numberOfParallelSubtasks;
     private final MetricsContext metricsContext;
     private final EventListener eventListener;
+    private final DirtyRecordCollector dirtyRecordCollector;
 
     public SinkWriterContext(
             int numberOfParallelSubtasks,
             int indexOfSubtask,
             MetricsContext metricsContext,
             EventListener eventListener) {
+        this(
+                numberOfParallelSubtasks,
+                indexOfSubtask,
+                metricsContext,
+                eventListener,
+                NoOpDirtyRecordCollector.INSTANCE);
+    }
+
+    public SinkWriterContext(
+            int numberOfParallelSubtasks,
+            int indexOfSubtask,
+            MetricsContext metricsContext,
+            EventListener eventListener,
+            DirtyRecordCollector dirtyRecordCollector) {
         Preconditions.checkArgument(
                 numberOfParallelSubtasks >= 1, "Parallelism must be a positive number.");
         Preconditions.checkArgument(
@@ -44,6 +61,7 @@ public class SinkWriterContext implements SinkWriter.Context {
         this.indexOfSubtask = indexOfSubtask;
         this.metricsContext = metricsContext;
         this.eventListener = eventListener;
+        this.dirtyRecordCollector = dirtyRecordCollector;
     }
 
     @Override
@@ -63,5 +81,10 @@ public class SinkWriterContext implements SinkWriter.Context {
     @Override
     public EventListener getEventListener() {
         return eventListener;
+    }
+
+    @Override
+    public DirtyRecordCollector getDirtyRecordCollector() {
+        return dirtyRecordCollector;
     }
 }

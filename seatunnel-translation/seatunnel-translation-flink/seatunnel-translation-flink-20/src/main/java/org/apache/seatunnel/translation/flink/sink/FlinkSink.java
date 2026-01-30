@@ -18,6 +18,8 @@
 package org.apache.seatunnel.translation.flink.sink;
 
 import org.apache.seatunnel.api.serialization.Serializer;
+import org.apache.seatunnel.api.sink.DirtyRecordCollector;
+import org.apache.seatunnel.api.sink.NoOpDirtyRecordCollector;
 import org.apache.seatunnel.api.sink.SeaTunnelSink;
 import org.apache.seatunnel.api.table.catalog.CatalogTable;
 import org.apache.seatunnel.api.table.type.SeaTunnelRow;
@@ -48,16 +50,26 @@ public class FlinkSink<CommT, WriterStateT, GlobalCommT>
     private final SeaTunnelSink<SeaTunnelRow, WriterStateT, CommT, GlobalCommT> seaTunnelSink;
     private final List<CatalogTable> catalogTables;
     private final int parallelism;
+    private final DirtyRecordCollector dirtyRecordCollector;
 
     @SuppressWarnings("unchecked")
     public FlinkSink(
             SeaTunnelSink<?, ?, ?, ?> seaTunnelSink,
             List<CatalogTable> catalogTables,
             int parallelism) {
+        this(seaTunnelSink, catalogTables, parallelism, NoOpDirtyRecordCollector.INSTANCE);
+    }
+
+    public FlinkSink(
+            SeaTunnelSink<?, ?, ?, ?> seaTunnelSink,
+            List<CatalogTable> catalogTables,
+            int parallelism,
+            DirtyRecordCollector dirtyRecordCollector) {
         this.seaTunnelSink =
                 (SeaTunnelSink<SeaTunnelRow, WriterStateT, CommT, GlobalCommT>) seaTunnelSink;
         this.catalogTables = catalogTables;
         this.parallelism = parallelism;
+        this.dirtyRecordCollector = dirtyRecordCollector;
     }
 
     @Override
@@ -74,7 +86,8 @@ public class FlinkSink<CommT, WriterStateT, GlobalCommT>
 
     @Override
     public SinkWriter<SeaTunnelRow> createWriter(WriterInitContext context) throws IOException {
-        FlinkSinkWriterContext writerContext = new FlinkSinkWriterContext(context, parallelism);
+        FlinkSinkWriterContext writerContext =
+                new FlinkSinkWriterContext(context, parallelism, dirtyRecordCollector);
 
         org.apache.seatunnel.api.sink.SinkWriter<SeaTunnelRow, CommT, WriterStateT>
                 seatunnelWriter = seaTunnelSink.createWriter(writerContext);

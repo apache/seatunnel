@@ -17,6 +17,8 @@
 
 package org.apache.seatunnel.translation.flink.sink;
 
+import org.apache.seatunnel.api.sink.DirtyRecordCollector;
+import org.apache.seatunnel.api.sink.NoOpDirtyRecordCollector;
 import org.apache.seatunnel.api.sink.SeaTunnelSink;
 import org.apache.seatunnel.api.table.catalog.CatalogTable;
 import org.apache.seatunnel.api.table.type.SeaTunnelRow;
@@ -29,6 +31,8 @@ import org.apache.flink.api.connector.sink.GlobalCommitter;
 import org.apache.flink.api.connector.sink.Sink;
 import org.apache.flink.api.connector.sink.SinkWriter;
 import org.apache.flink.core.io.SimpleVersionedSerializer;
+
+import lombok.extern.slf4j.Slf4j;
 
 import java.io.IOException;
 import java.sql.DriverManager;
@@ -44,6 +48,7 @@ import java.util.stream.Collectors;
  * @param <WriterStateT> The generic type of writer state
  * @param <GlobalCommT> The generic type of global commit message
  */
+@Slf4j
 public class FlinkSink<InputT, CommT, WriterStateT, GlobalCommT>
         implements Sink<InputT, CommitWrapper<CommT>, FlinkWriterState<WriterStateT>, GlobalCommT> {
 
@@ -65,13 +70,24 @@ public class FlinkSink<InputT, CommT, WriterStateT, GlobalCommT>
 
     private final int parallelism;
 
+    private final DirtyRecordCollector dirtyRecordCollector;
+
     public FlinkSink(
             SeaTunnelSink<SeaTunnelRow, WriterStateT, CommT, GlobalCommT> sink,
             List<CatalogTable> catalogTables,
             int parallelism) {
+        this(sink, catalogTables, parallelism, NoOpDirtyRecordCollector.INSTANCE);
+    }
+
+    public FlinkSink(
+            SeaTunnelSink<SeaTunnelRow, WriterStateT, CommT, GlobalCommT> sink,
+            List<CatalogTable> catalogTables,
+            int parallelism,
+            DirtyRecordCollector dirtyRecordCollector) {
         this.sink = sink;
         this.catalogTables = catalogTables;
         this.parallelism = parallelism;
+        this.dirtyRecordCollector = dirtyRecordCollector;
     }
 
     @Override
@@ -79,7 +95,7 @@ public class FlinkSink<InputT, CommT, WriterStateT, GlobalCommT>
             Sink.InitContext context, List<FlinkWriterState<WriterStateT>> states)
             throws IOException {
         org.apache.seatunnel.api.sink.SinkWriter.Context stContext =
-                new FlinkSinkWriterContext(context, parallelism);
+                new FlinkSinkWriterContext(context, parallelism, dirtyRecordCollector);
         if (states == null || states.isEmpty()) {
             return new FlinkSinkWriter<>(sink.createWriter(stContext), 1, stContext);
         } else {

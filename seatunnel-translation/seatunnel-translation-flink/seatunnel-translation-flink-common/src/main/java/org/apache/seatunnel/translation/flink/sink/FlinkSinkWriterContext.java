@@ -20,6 +20,8 @@ package org.apache.seatunnel.translation.flink.sink;
 import org.apache.seatunnel.api.common.metrics.MetricsContext;
 import org.apache.seatunnel.api.event.DefaultEventProcessor;
 import org.apache.seatunnel.api.event.EventListener;
+import org.apache.seatunnel.api.sink.DirtyRecordCollector;
+import org.apache.seatunnel.api.sink.NoOpDirtyRecordCollector;
 import org.apache.seatunnel.api.sink.SinkWriter;
 import org.apache.seatunnel.translation.flink.metric.FlinkMetricContext;
 
@@ -37,11 +39,18 @@ public class FlinkSinkWriterContext implements SinkWriter.Context {
     private final Sink.InitContext writerContext;
     private final EventListener eventListener;
     private final int parallelism;
+    private final DirtyRecordCollector dirtyRecordCollector;
 
     public FlinkSinkWriterContext(InitContext writerContext, int parallelism) {
+        this(writerContext, parallelism, NoOpDirtyRecordCollector.INSTANCE);
+    }
+
+    public FlinkSinkWriterContext(
+            InitContext writerContext, int parallelism, DirtyRecordCollector dirtyRecordCollector) {
         this.writerContext = writerContext;
         this.eventListener = new DefaultEventProcessor(getFlinkJobId(writerContext));
         this.parallelism = parallelism;
+        this.dirtyRecordCollector = dirtyRecordCollector;
     }
 
     @Override
@@ -62,6 +71,11 @@ public class FlinkSinkWriterContext implements SinkWriter.Context {
     @Override
     public EventListener getEventListener() {
         return eventListener;
+    }
+
+    @Override
+    public DirtyRecordCollector getDirtyRecordCollector() {
+        return dirtyRecordCollector;
     }
 
     private static String getFlinkJobId(Sink.InitContext writerContext) {

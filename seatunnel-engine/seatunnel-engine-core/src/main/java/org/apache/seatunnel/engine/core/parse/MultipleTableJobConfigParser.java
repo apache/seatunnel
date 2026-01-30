@@ -35,6 +35,8 @@ import org.apache.seatunnel.api.metalake.MetalakeConfigUtils;
 import org.apache.seatunnel.api.options.ConnectorCommonOptions;
 import org.apache.seatunnel.api.options.EnvCommonOptions;
 import org.apache.seatunnel.api.options.EnvOptionRule;
+import org.apache.seatunnel.api.sink.DirtyCollectorConfigProcessor;
+import org.apache.seatunnel.api.sink.DirtyRecordCollector;
 import org.apache.seatunnel.api.sink.SaveModeExecuteLocation;
 import org.apache.seatunnel.api.sink.SaveModeExecuteWrapper;
 import org.apache.seatunnel.api.sink.SaveModeHandler;
@@ -546,7 +548,11 @@ public class MultipleTableJobConfigParser {
             ClassLoader classLoader,
             LinkedHashMap<String, List<Tuple2<CatalogTable, Action>>> tableWithActionMap) {
 
-        ReadonlyConfig readonlyConfig = ReadonlyConfig.fromConfig(sinkConfig);
+        Config envConfig =
+                seaTunnelJobConfig.hasPath("env") ? seaTunnelJobConfig.getConfig("env") : null;
+        Config mergedSinkConfig =
+                DirtyCollectorConfigProcessor.getMergedSinkConfigForDirty(envConfig, sinkConfig);
+        ReadonlyConfig readonlyConfig = ReadonlyConfig.fromConfig(mergedSinkConfig);
         String factoryId = getFactoryId(readonlyConfig);
         List<String> inputIds = getInputIds(readonlyConfig);
 
@@ -699,6 +705,12 @@ public class MultipleTableJobConfigParser {
                         factoryUrls,
                         connectorJarIdentifiers,
                         actionConfig);
+        Config envConfig =
+                seaTunnelJobConfig.hasPath("env") ? seaTunnelJobConfig.getConfig("env") : null;
+        DirtyRecordCollector dirtyCollector =
+                DirtyCollectorConfigProcessor.processConfig(
+                        envConfig, readonlyConfig.toConfig(), catalogTable);
+        sinkAction.setDirtyRecordCollector(dirtyCollector);
         if (!isStartWithSavePoint) {
             handleSaveMode(sink);
         } else {

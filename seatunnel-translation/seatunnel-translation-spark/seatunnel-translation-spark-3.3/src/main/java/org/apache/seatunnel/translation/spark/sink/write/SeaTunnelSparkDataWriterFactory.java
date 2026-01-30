@@ -17,7 +17,10 @@
 
 package org.apache.seatunnel.translation.spark.sink.write;
 
+import org.apache.seatunnel.api.event.DefaultEventProcessor;
 import org.apache.seatunnel.api.sink.DefaultSinkWriterContext;
+import org.apache.seatunnel.api.sink.DirtyRecordCollector;
+import org.apache.seatunnel.api.sink.NoOpDirtyRecordCollector;
 import org.apache.seatunnel.api.sink.SeaTunnelSink;
 import org.apache.seatunnel.api.sink.SinkCommitter;
 import org.apache.seatunnel.api.sink.SinkWriter;
@@ -52,21 +55,32 @@ public class SeaTunnelSparkDataWriterFactory<CommitInfoT, StateT>
     private final CatalogTable[] catalogTables;
     private final String jobId;
     private final int parallelism;
+    private final DirtyRecordCollector dirtyRecordCollector;
 
     public SeaTunnelSparkDataWriterFactory(
             SeaTunnelSink<SeaTunnelRow, StateT, CommitInfoT, ?> sink,
             CatalogTable[] catalogTables,
             String jobId,
-            int parallelism) {
+            int parallelism,
+            DirtyRecordCollector dirtyRecordCollector) {
         this.sink = sink;
         this.catalogTables = catalogTables;
         this.jobId = jobId;
         this.parallelism = parallelism;
+        this.dirtyRecordCollector =
+                dirtyRecordCollector != null
+                        ? dirtyRecordCollector
+                        : NoOpDirtyRecordCollector.INSTANCE;
     }
 
     @Override
     public DataWriter<InternalRow> createWriter(int partitionId, long taskId) {
-        SinkWriter.Context context = new DefaultSinkWriterContext(jobId, (int) taskId, parallelism);
+        SinkWriter.Context context =
+                new DefaultSinkWriterContext(
+                        (int) taskId,
+                        parallelism,
+                        new DefaultEventProcessor(jobId),
+                        dirtyRecordCollector);
         SinkWriter<SeaTunnelRow, CommitInfoT, StateT> writer;
         SinkCommitter<CommitInfoT> committer;
         try {

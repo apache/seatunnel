@@ -17,30 +17,61 @@
 
 package org.apache.seatunnel.api.sink;
 
+import org.apache.seatunnel.shade.com.typesafe.config.Config;
+
 import org.apache.seatunnel.api.common.metrics.AbstractMetricsContext;
 import org.apache.seatunnel.api.common.metrics.MetricsContext;
 import org.apache.seatunnel.api.event.DefaultEventProcessor;
 import org.apache.seatunnel.api.event.EventListener;
+import org.apache.seatunnel.api.table.catalog.CatalogTable;
 
 /** The default {@link SinkWriter.Context} implement class. */
 public class DefaultSinkWriterContext implements SinkWriter.Context {
     private final int subtask;
     private final int numberOfParallelSubtasks;
     private final EventListener eventListener;
+    private final DirtyRecordCollector dirtyRecordCollector;
 
     public DefaultSinkWriterContext(int subtask, int parallelism) {
-        this(subtask, parallelism, new DefaultEventProcessor());
+        this(subtask, parallelism, new DefaultEventProcessor(), NoOpDirtyRecordCollector.INSTANCE);
     }
 
     public DefaultSinkWriterContext(String jobId, int subtask, int parallelism) {
-        this(subtask, parallelism, new DefaultEventProcessor(jobId));
+        this(
+                subtask,
+                parallelism,
+                new DefaultEventProcessor(jobId),
+                NoOpDirtyRecordCollector.INSTANCE);
     }
 
     public DefaultSinkWriterContext(
             int subtask, int numberOfParallelSubtasks, EventListener eventListener) {
+        this(subtask, numberOfParallelSubtasks, eventListener, NoOpDirtyRecordCollector.INSTANCE);
+    }
+
+    public DefaultSinkWriterContext(
+            int subtask,
+            int numberOfParallelSubtasks,
+            EventListener eventListener,
+            DirtyRecordCollector dirtyRecordCollector) {
         this.subtask = subtask;
         this.numberOfParallelSubtasks = numberOfParallelSubtasks;
         this.eventListener = eventListener;
+        this.dirtyRecordCollector = dirtyRecordCollector;
+    }
+
+    public DefaultSinkWriterContext(
+            int subtask,
+            int numberOfParallelSubtasks,
+            EventListener eventListener,
+            Config envConfig,
+            Config sinkConfig,
+            CatalogTable catalogTable) {
+        this.subtask = subtask;
+        this.numberOfParallelSubtasks = numberOfParallelSubtasks;
+        this.eventListener = eventListener;
+        this.dirtyRecordCollector =
+                DirtyCollectorConfigProcessor.processConfig(envConfig, sinkConfig, catalogTable);
     }
 
     @Override
@@ -62,5 +93,10 @@ public class DefaultSinkWriterContext implements SinkWriter.Context {
     @Override
     public EventListener getEventListener() {
         return eventListener;
+    }
+
+    @Override
+    public DirtyRecordCollector getDirtyRecordCollector() {
+        return dirtyRecordCollector;
     }
 }

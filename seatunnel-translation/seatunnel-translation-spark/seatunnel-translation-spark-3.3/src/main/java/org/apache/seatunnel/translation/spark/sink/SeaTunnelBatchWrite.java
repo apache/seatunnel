@@ -17,6 +17,7 @@
 
 package org.apache.seatunnel.translation.spark.sink;
 
+import org.apache.seatunnel.api.sink.DirtyRecordCollector;
 import org.apache.seatunnel.api.sink.MultiTableResourceManager;
 import org.apache.seatunnel.api.sink.SeaTunnelSink;
 import org.apache.seatunnel.api.sink.SinkAggregatedCommitter;
@@ -68,16 +69,21 @@ public class SeaTunnelBatchWrite<StateT, CommitInfoT, AggregatedCommitInfoT>
 
     private final int parallelism;
 
+    /** Pre-built collector passed from driver. */
+    private final DirtyRecordCollector dirtyRecordCollector;
+
     public SeaTunnelBatchWrite(
             SeaTunnelSink<SeaTunnelRow, StateT, CommitInfoT, AggregatedCommitInfoT> sink,
             CatalogTable[] catalogTables,
             String jobId,
-            int parallelism)
+            int parallelism,
+            DirtyRecordCollector dirtyRecordCollector)
             throws IOException {
         this.sink = sink;
         this.catalogTables = catalogTables;
         this.jobId = jobId;
         this.parallelism = parallelism;
+        this.dirtyRecordCollector = dirtyRecordCollector;
         this.aggregatedCommitter = sink.createAggregatedCommitter().orElse(null);
         if (aggregatedCommitter != null) {
             if (this.aggregatedCommitter instanceof SupportResourceShare) {
@@ -95,7 +101,8 @@ public class SeaTunnelBatchWrite<StateT, CommitInfoT, AggregatedCommitInfoT>
 
     @Override
     public DataWriterFactory createBatchWriterFactory(PhysicalWriteInfo info) {
-        return new SeaTunnelSparkDataWriterFactory<>(sink, catalogTables, jobId, parallelism);
+        return new SeaTunnelSparkDataWriterFactory<>(
+                sink, catalogTables, jobId, parallelism, dirtyRecordCollector);
     }
 
     @Override

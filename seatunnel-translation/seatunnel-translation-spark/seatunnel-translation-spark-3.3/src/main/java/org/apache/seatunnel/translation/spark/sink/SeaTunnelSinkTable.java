@@ -20,6 +20,7 @@ package org.apache.seatunnel.translation.spark.sink;
 import org.apache.seatunnel.shade.com.google.common.collect.Sets;
 import org.apache.seatunnel.shade.org.apache.commons.lang3.StringUtils;
 
+import org.apache.seatunnel.api.sink.DirtyRecordCollector;
 import org.apache.seatunnel.api.sink.SeaTunnelSink;
 import org.apache.seatunnel.api.table.catalog.CatalogTable;
 import org.apache.seatunnel.api.table.type.SeaTunnelRow;
@@ -50,6 +51,7 @@ public class SeaTunnelSinkTable implements Table, SupportsWrite {
     private final CatalogTable[] catalogTables;
     private final String jobId;
     private final int parallelism;
+    private final DirtyRecordCollector dirtyRecordCollector;
 
     public SeaTunnelSinkTable(Map<String, String> properties) {
         this.properties = properties;
@@ -74,11 +76,18 @@ public class SeaTunnelSinkTable implements Table, SupportsWrite {
                                         new IllegalArgumentException(
                                                 SparkSinkInjector.PARALLELISM
                                                         + " must be specified"));
+        String dirtyCollectorSerialization =
+                properties.getOrDefault(SparkSinkInjector.DIRTY_COLLECTOR, null);
+        this.dirtyRecordCollector =
+                dirtyCollectorSerialization != null
+                        ? SerializationUtils.stringToObject(dirtyCollectorSerialization)
+                        : null;
     }
 
     @Override
     public WriteBuilder newWriteBuilder(LogicalWriteInfo info) {
-        return new SeaTunnelWriteBuilder<>(sink, catalogTables, jobId, parallelism);
+        return new SeaTunnelWriteBuilder<>(
+                sink, catalogTables, jobId, parallelism, dirtyRecordCollector);
     }
 
     @Override

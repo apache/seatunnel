@@ -42,4 +42,13 @@ public interface SeaTunnelPluginLifeCycle {
     default void prepare(Config pluginConfig) throws PrepareFailException {
         throw new UnsupportedOperationException("prepare method is not supported");
     }
+
+    /**
+     * Get the config of plugin.
+     *
+     * @return the plugin configuration
+     */
+    default Config getPluginConfig() {
+        throw new UnsupportedOperationException("getPluginConfig method is not supported");
+    }
 }
