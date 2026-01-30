@@ -160,6 +160,106 @@ seatunnel:
           fs.s3a.aws.credentials.provider: org.apache.hadoop.fs.s3a.InstanceProfileCredentialsProvider
 ```
 
+如果您在**Kubernetes中使用IRSA（IAM Roles for Service Accounts）运行SeaTunnel**，可以使用`WebIdentityTokenCredentialsProvider`，它会自动使用服务账户令牌来承担IAM角色。您可以查看[eks-iam-roles-for-service-accounts](https://docs.aws.amazon.com/eks/latest/userguide/iam-roles-for-service-accounts.html)。
+
+**IRSA前提条件：**
+1. SeaTunnel版本2.3.13+（包含hadoop-aws 3.3.6+）
+2. 您的Kubernetes服务账户必须使用IAM角色ARN进行注释
+3. Pod必须设置AWS_WEB_IDENTITY_TOKEN_FILE和AWS_ROLE_ARN环境变量（通常由EKS自动完成）
+
+您可以这样配置：
+
+```yaml
+
+seatunnel:
+  engine:
+    checkpoint:
+      interval: 6000
+      timeout: 7000
+      storage:
+        type: hdfs
+        max-retained: 3
+        plugin-config:
+          storage.type: s3
+          s3.bucket: s3a://your-bucket
+          fs.s3a.endpoint: your-endpoint  # 可选，标准AWS S3可省略
+          fs.s3a.aws.credentials.provider: com.amazonaws.auth.WebIdentityTokenCredentialsProvider
+```
+
+或者，您可以使用**推荐**的`DefaultAWSCredentialsProviderChain`，它会根据您的环境自动检测最佳凭证提供程序（环境变量、IRSA的Web Identity令牌、EC2实例配置文件等）：
+
+```yaml
+
+seatunnel:
+  engine:
+    checkpoint:
+      interval: 6000
+      timeout: 7000
+      storage:
+        type: hdfs
+        max-retained: 3
+        plugin-config:
+          storage.type: s3
+          s3.bucket: s3a://your-bucket
+          fs.s3a.endpoint: your-endpoint  # 可选，标准AWS S3可省略
+          fs.s3a.aws.credentials.provider: com.amazonaws.auth.DefaultAWSCredentialsProviderChain
+```
+
+`DefaultAWSCredentialsProviderChain`按以下顺序检查凭证：
+1. 环境变量（AWS_ACCESS_KEY_ID、AWS_SECRET_ACCESS_KEY）
+2. Java系统属性
+3. Web Identity令牌（Kubernetes IRSA）
+4. EC2实例配置文件凭证
+5. ECS容器凭证
+
+**Kubernetes服务账户IRSA设置示例：**
+```yaml
+apiVersion: v1
+kind: ServiceAccount
+metadata:
+  name: seatunnel-sa
+  namespace: default
+  annotations:
+    eks.amazonaws.com/role-arn: arn:aws:iam::YOUR_ACCOUNT_ID:role/YOUR_ROLE_NAME
+```
+
+然后在SeaTunnel Pod规范中引用此服务账户：
+```yaml
+apiVersion: v1
+kind: Pod
+metadata:
+  name: seatunnel-pod
+spec:
+  serviceAccountName: seatunnel-sa
+  containers:
+  - name: seatunnel
+    image: your-seatunnel-image
+    # ... 其余容器配置
+```
+
+如果您想使用支持S3协议的MinIO作为检查点存储，您应该这样配置：
+
+```yaml
+
+seatunnel:
+  engine:
+    checkpoint:
+      interval: 10000
+      timeout: 60000
+      storage:
+        type: hdfs
+        max-retained: 3
+        plugin-config:
+          namespace: # 检查点存储父路径，默认值为/seatunnel/checkpoint/
+          storage.type: s3
+          fs.s3a.access.key: xxxxxxxxx # MinIO的Access Key
+          fs.s3a.secret.key: xxxxxxxxxxxxxxxxxxxxx # MinIO的Secret Key
+          fs.s3a.endpoint: http://127.0.0.1:9000 # MinIO HTTP服务访问地址
+          s3.bucket: s3a://test # test是存储检查点文件的bucket名称
+          fs.s3a.aws.credentials.provider: org.apache.hadoop.fs.s3a.SimpleAWSCredentialsProvider
+       # 重要：此密钥的用户需要对bucket具有写权限，否则将返回403异常
+```
+
 有关Hadoop Credential Provider API的更多信息，请参见: [Credential Provider API](https://hadoop.apache.org/docs/stable/hadoop-project-dist/hadoop-common/CredentialProviderAPI.html).
 
 #### HDFS
