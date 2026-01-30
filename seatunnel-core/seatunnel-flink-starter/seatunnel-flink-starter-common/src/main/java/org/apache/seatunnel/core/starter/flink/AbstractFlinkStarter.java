@@ -34,7 +34,6 @@ import java.util.Objects;
  */
 public abstract class AbstractFlinkStarter implements Starter {
     private static final String APP_NAME = SeaTunnelFlink.class.getName();
-    public static final String RUNTIME_FILE = "runtime.tar.gz";
     private final FlinkCommandArgs flinkCommandArgs;
     private final String appJar;
     private final String shellName;
@@ -65,7 +64,13 @@ public abstract class AbstractFlinkStarter implements Starter {
         if (flinkCommandArgs.getMasterType() == MasterType.YARN_APPLICATION) {
             command.add(
                     String.format("-Dyarn.ship-files=\"%s\"", flinkCommandArgs.getConfigFile()));
-            command.add(String.format("-Dyarn.ship-archives=%s", RUNTIME_FILE));
+            command.add(
+                    String.format(
+                            "-Dyarn.ship-archives=%s",
+                            String.format(
+                                    "%s/%s",
+                                    Common.getSeaTunnelHome(),
+                                    Common.FLINK_YARN_APPLICATION_PATH)));
         }
         // set yarn application name
         if (flinkCommandArgs.getMasterType() == MasterType.YARN_APPLICATION

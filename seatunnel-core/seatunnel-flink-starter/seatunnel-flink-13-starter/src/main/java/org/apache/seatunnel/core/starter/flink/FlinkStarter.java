@@ -23,7 +23,6 @@ import org.apache.seatunnel.common.constants.EngineType;
  * The SeaTunnel flink starter for Flink 1.13, used to generate the final flink job execute command.
  */
 public class FlinkStarter extends AbstractFlinkStarter {
-    public static final String APP_JAR_NAME = EngineType.FLINK13.getStarterJarName();
 
     FlinkStarter(String[] args) {
         super(args, EngineType.FLINK13);
