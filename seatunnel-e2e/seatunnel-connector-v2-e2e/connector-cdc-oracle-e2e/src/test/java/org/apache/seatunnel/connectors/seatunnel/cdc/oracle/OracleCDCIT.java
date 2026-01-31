@@ -16,9 +16,6 @@
  */
 package org.apache.seatunnel.connectors.seatunnel.cdc.oracle;
 
-import java.util.Arrays;
-
-
 import org.apache.seatunnel.shade.com.google.common.collect.Lists;
 
 import org.apache.seatunnel.e2e.common.TestResource;
@@ -44,6 +41,7 @@ import java.sql.Connection;
 import java.sql.DriverManager;
 import java.sql.SQLException;
 import java.sql.Statement;
+import java.util.Arrays;
 import java.util.List;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.TimeUnit;
@@ -686,12 +684,13 @@ public class OracleCDCIT extends AbstractOracleCDCIT implements TestResource {
                                                     + SINK_TABLE1
                                                     + " ORDER BY ID ASC");
                             Assertions.assertTrue(
-                                    sinkRows.stream().anyMatch(row -> row.get(0).toString().equals("2")));
+                                    sinkRows.stream()
+                                            .anyMatch(row -> row.get(0).toString().equals("2")));
                             Assertions.assertFalse(
-                                    sinkRows.stream().anyMatch(row -> row.get(0).toString().equals("1")));
+                                    sinkRows.stream()
+                                            .anyMatch(row -> row.get(0).toString().equals("1")));
                         });
     }
-
 
     private void insertSourceTable(String database, String tableName) {
         insertRow(1, database, tableName);
@@ -707,7 +706,6 @@ public class OracleCDCIT extends AbstractOracleCDCIT implements TestResource {
                         + id
                         + ", 'vc2', 'vc2', 'nvc2', 'c', 'nc',1.1, 2.22, 3.33, 8.888, 4.4444, 5.555, 6.66, 1234.567891, 1234.567891, 77.323,1, 22, 333, 4444, 5555, 1, 99, 1001, 999999999, 999999999999999999,94, 9949, 999999994, 999999999999999949, 99999999999999999999999999999999999949,TO_DATE('2022-10-30', 'yyyy-mm-dd'),TO_TIMESTAMP('2022-10-30 12:34:56.00789', 'yyyy-mm-dd HH24:MI:SS.FF5'),TO_TIMESTAMP('2022-10-30 12:34:56.12545', 'yyyy-mm-dd HH24:MI:SS.FF5'),TO_TIMESTAMP('2022-10-30 12:34:56.12545', 'yyyy-mm-dd HH24:MI:SS.FF5'),TO_TIMESTAMP('2022-10-30 12:34:56.125456789', 'yyyy-mm-dd HH24:MI:SS.FF9'),TO_TIMESTAMP_TZ('2022-10-30 01:34:56.00789', 'yyyy-mm-dd HH24:MI:SS.FF5'))");
     }
-
 
     private void updateSourceTable(String database, String tableName) {
         executeSql(

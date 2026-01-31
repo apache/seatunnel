@@ -727,8 +727,9 @@ public class SqlServerCDCIT extends TestSuiteBase implements TestResource {
     public void testTimestampStartupMode(TestContainer container) throws InterruptedException {
         initializeSqlServerTable(DATABASE_NAME);
         executeSql("TRUNCATE TABLE " + DATABASE_NAME + "." + SCHEMA_NAME + ".full_types_sink;");
-        
-        // Use full fields insert to avoid implicit conversion error for varbinary columns with null value
+
+        // Use full fields insert to avoid implicit conversion error for varbinary columns with null
+        // value
         executeSql(
                 "INSERT INTO "
                         + SOURCE_TABLE_CUSTOM_PRIMARY_KEY
@@ -766,9 +767,11 @@ public class SqlServerCDCIT extends TestSuiteBase implements TestResource {
                                                     + SCHEMA_NAME
                                                     + ".full_types_sink ORDER BY id ASC");
                             Assertions.assertTrue(
-                                    sinkRows.stream().anyMatch(row -> row.get(0).toString().equals("2")));
+                                    sinkRows.stream()
+                                            .anyMatch(row -> row.get(0).toString().equals("2")));
                             Assertions.assertFalse(
-                                    sinkRows.stream().anyMatch(row -> row.get(0).toString().equals("1")));
+                                    sinkRows.stream()
+                                            .anyMatch(row -> row.get(0).toString().equals("1")));
                         });
     }
 }
