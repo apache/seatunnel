@@ -122,7 +122,7 @@ LogicalDag 的核心组成:
 
 从用户配置构建:
 
-JobMaster 在作业提交/启动阶段根据 jobConfig 生成 LogicalDag。
+LogicalDag 在作业提交/启动阶段由作业执行环境解析配置生成（可能发生在客户端或服务端），随后作为作业不可变信息的一部分交由 JobMaster 管理执行。
 
 **过程**:
 1. 解析 HOCON 配置(source、transform、sink 部分)
@@ -183,18 +183,14 @@ PhysicalPlan 的核心信息通常包括:
 
 ### 3.2 流水线分割
 
-LogicalDag 根据以下条件被分割为多个**流水线**(SubPlans):
+LogicalDag 在生成 ExecutionPlan 时会被组织为一个或多个**流水线**(Pipeline/SubPlan)。以当前实现为准，主要规则是：
 
-1. **自然边界**: 多个数据源或目标端
-2. **混洗需求**: 数据重分布点
-3. **检查点协调**: 独立检查点域
+1. **按连通性拆分**：DAG 中互不相连的子图会被拆成不同流水线。
+2. **遇到多输入顶点时拆分**：当存在“多输入顶点”（某个顶点有多个上游输入，例如 UNION/JOIN/多流汇聚）时，当前实现会沿每条 source→…→sink 的路径拆成多条线性流水线，并对共享顶点做克隆，以降低多输入拓扑在同一流水线内的协调复杂度。
 
-**分割规则**:
-```
-规则 1: 每个数据源开始一个新流水线
-规则 2: 每个目标端结束一个流水线
-规则 3: 混洗操作创建流水线边界(未来特性)
-```
+说明：
+- 如果仅存在“一个 source 分叉到多个 sink”（多输出/分支），但没有任何多输入顶点，当前实现通常不会仅因为多个 sink 就拆分流水线；该分支拓扑仍可能在同一流水线内执行。
+- 更细粒度的切分（例如按并行度/可协调能力）在代码中仍保留 TODO，后续可能演进。
 
 **示例 1: 简单线性流水线**:
 ```hocon
@@ -242,10 +238,10 @@ sink {
 }
 ```
 
-生成: **2 个流水线**
+生成: **通常为 1 个流水线（包含分支）**
 ```
 流水线 1: [MySQL-CDC 数据源] → [Elasticsearch 目标端]
-流水线 2: [MySQL-CDC 数据源] → [JDBC 目标端]
+                      └──────→ [JDBC 目标端]
 ```
 
 ### 3.3 PhysicalPlan 生成
@@ -269,7 +265,7 @@ SubPlan 表示一个独立执行的流水线。
 SubPlan(流水线)通常包含:
 - **pipelineId/pipelineLocation**: 流水线的唯一标识
 - **physicalVertexList**: 此流水线中的并行任务实例列表
-- **coordinatorVertexList**: 协调器类任务(如 split enumerator、sink committer)
+- **coordinatorVertexList**: 协调器类任务(如 split enumerator、聚合提交等单实例协调任务)
 - **checkpointCoordinator**: 本流水线的检查点协调器(独立协调域)
 - **pipelineStatus**: 执行状态(如 CREATED/RUNNING/FAILED/FINISHED)
 
@@ -292,9 +288,10 @@ PhysicalVertices:
 
 用于协调任务的特殊顶点:
 
-- **SourceSplitEnumerator**: 在主节点上运行,分配分片给读取器
-- **SinkCommitter**: 在主节点上运行,协调提交
-- **SinkAggregatedCommitter**: 在主节点上运行,全局提交协调
+- **SourceSplitEnumerator**: 通常以单实例运行,分配分片给读取器（部署位置由引擎调度决定）
+- **SinkAggregatedCommitter**: 当 Sink 提供 aggregated committer 时，通常以单实例运行用于全局提交协调（部署位置由引擎调度决定）
+
+说明：`SinkCommitter` 的触发方式取决于引擎实现，并不一定体现为独立的协调器顶点；例如在 SeaTunnel Engine 中，committer 可能在 Sink 任务的 checkpoint 回调中被触发。
 
 **示例**:
 ```
@@ -305,8 +302,8 @@ JDBC → Transform → Elasticsearch 的 SubPlan:
         - ElasticsearchSinkTask (4 个实例)
 
     coordinatorVertexList:
-        - JdbcSourceSplitEnumerator (1 个实例, 主节点)
-        - ElasticsearchSinkCommitter (1 个实例, 主节点)
+      - JdbcSourceSplitEnumerator (1 个实例)
+      - ElasticsearchSinkAggregatedCommitter (1 个实例，可选)
 ```
 
 ### 4.4 独立检查点
@@ -322,11 +319,11 @@ JDBC → Transform → Elasticsearch 的 SubPlan:
 **示例**:
 ```
 流水线 1 (JDBC → ES):
-    CheckpointCoordinator 每 60s 触发一次
+  CheckpointCoordinator 按作业配置的间隔触发
     仅管理 JDBC 和 ES 任务的检查点
 
 流水线 2 (Kafka → JDBC):
-    CheckpointCoordinator 每 30s 触发一次(不同间隔)
+  CheckpointCoordinator 按作业配置的间隔触发
     仅管理 Kafka 和 JDBC 任务的检查点
 ```
 
@@ -385,7 +382,7 @@ SlotProfile 表达“这个任务实例运行在哪里、能用多少资源”�
 
 **分配过程**:
 1. JobMaster 从 ResourceManager 请求槽位
-2. ResourceManager 根据策略选择工作节点(random、slot ratio、load)
+2. ResourceManager 根据分配策略选择工作节点（例如 RANDOM / SLOT_RATIO / SYSTEM_LOAD）
 3. ResourceManager 分配槽位并返回 SlotProfiles
 4. JobMaster 将 SlotProfiles 分配给 PhysicalVertices
 5. JobMaster 通过 `DeployTaskOperation` 部署任务
@@ -440,7 +437,7 @@ sequenceDiagram
 
 执行要点:
 - 持续消费上游记录并调用 sinkWriter 写入目标端
-- 在 barrier 到达时切换到“快照边界”：准备提交信息(prepareCommit)、持久化 writer 状态并将提交信息交给 committer
+- 在 barrier 到达时切换到“快照边界”：准备提交信息(prepareCommit(checkpointId))、持久化 writer 状态并将提交信息交给 committer
 - 在 checkpoint 成功后由 committer 进行最终提交；失败时由恢复流程回滚/重试(取决于 sink 语义)
 
 ## 7. 优化策略
@@ -457,30 +454,14 @@ sequenceDiagram
 - 分支 DAG(一个数据源,多个目标端)
 - 需要混洗(例如 GROUP BY、JOIN)
 
-**配置**:
-```hocon
-env {
-  # 禁用任务融合(用于调试)
-  job.mode = "UNBOUNDED_CHAIN" # FUSED_CHAIN (默认) / UNBOUNDED_CHAIN
-}
-```
+说明：任务融合的具体策略与可配置项以当前引擎实现为准，文档不在此绑定某个固定的配置开关，避免与实际版本不一致。
 
 ### 7.2 并行度推断
 
-如果未指定并行度,SeaTunnel 推断合理的默认值:
-
-**数据源并行度**:
-- 文件数据源: 文件数量或文件分片数
-- JDBC 数据源: 分区数量
-- Kafka 数据源: 分区数量
-- 默认: min(可用槽位, 1)
-
-**转换器并行度**:
-- 继承自上游(通常是数据源)
-
-**目标端并行度**:
-- 继承自上游
-- 如果目标端需要特定并行度则覆盖
+并行度以配置为准：
+- 若连接器显式配置了 `parallelism`，则使用连接器配置。
+- 否则使用 `env.parallelism`（默认值为 1）。
+- 某些连接器/引擎可能会根据外部系统分区数等信息做额外推断，但这是实现细节，不能在架构文档里写成固定规则。
 
 **示例**:
 ```hocon
@@ -512,12 +493,7 @@ sink {
   = 需要 6 个槽位
 ```
 
-**资源配置文件**:
-
-资源配置文件通常通过配置表达，例如:
-- cpu.cores = 1.0
-- heap-memory.mb = 512
-- off-heap-memory.mb = 256
+说明：资源画像/槽位资源的具体字段、单位与配置路径以引擎侧配置与实现为准；文档不在此给出不存在或不稳定的配置项示例。
 
 ## 8. 故障处理
 

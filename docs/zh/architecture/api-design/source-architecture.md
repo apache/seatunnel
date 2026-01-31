@@ -41,12 +41,12 @@ SeaTunnel 的数据源 API 旨在：
 
 ```
 ┌──────────────────────────────────────────────────────────────┐
-│                       JobMaster（主节点侧）                   │
+│                    协调端（master/coordinator 侧）             │
 │                                                                │
 │   ┌────────────────────────────────────────────────────┐     │
 │   │         SourceSplitEnumerator<SplitT, StateT>      │     │
 │   │                                                      │     │
-│   │  • 生成分片（discoverSplits）                       │     │
+│   │  • 在 run() 中发现/生成分片（实现自定义）              │     │
 │   │  • 分配分片给读取器                                 │     │
 │   │  • 处理读取器注册                                   │     │
 │   │  • 处理分片请求                                     │     │
@@ -62,7 +62,7 @@ SeaTunnel 的数据源 API 旨在：
 │                  TaskExecutionService（工作节点侧）            │
 │                                                              │
 │   ┌────────────────────────────────────────────────────┐     │
-│   │          SourceReader<T, SplitT, StateT>           │     │
+│   │             SourceReader<T, SplitT>               │     │
 │   │                                                    │     │
 │   │  • 接收分配的分片                                    │     │
 │   │  • 从分片读取数据                                    │     │
@@ -120,19 +120,20 @@ SeaTunnel 的数据源 API 旨在：
 
 ```mermaid
 sequenceDiagram
-    participant JM as JobMaster
+    participant Coord as 框架（协调端）
     participant Enum as SourceSplitEnumerator
     participant Worker as TaskExecutionService
     participant Reader as SourceReader
 
-    JM->>Enum: createEnumerator(context)
-    Enum->>Enum: discoverSplits()
+    Coord->>Enum: createEnumerator(context)
+    Enum->>Enum: open()
+    Enum->>Enum: run()\n（内部完成分片发现/生成）
 
     Worker->>Reader: createReader(context)
-    Reader->>Enum: registerReader(readerInfo)
+    Coord->>Enum: registerReader(subtaskId)
 
-    Enum->>Enum: addReader(readerInfo)
-    Enum->>Enum: handleSplitRequest(readerId)
+    Reader->>Reader: context.sendSplitRequest()
+    Enum->>Enum: handleSplitRequest(subtaskId)
     Enum->>Reader: assignSplit(splits)
 
     Reader->>Reader: addSplits(splits)
@@ -164,18 +165,18 @@ sequenceDiagram
 
 ```mermaid
 sequenceDiagram
-    participant JM as JobMaster
+    participant Coord as 框架（协调端）
     participant Enum as SourceSplitEnumerator
     participant OldReader as 失败的读取器
     participant NewReader as 新读取器
 
     OldReader->>OldReader: [失败]
-    JM->>Enum: addSplitsBack(失败读取器的分片)
+    Coord->>Enum: addSplitsBack(失败读取器的分片)
     Enum->>Enum: 标记分片为待处理
 
-    JM->>NewReader: 在新工作节点上部署
+    Coord->>NewReader: 在新工作节点上部署
     NewReader->>NewReader: restoreState(checkpointedState)
-    NewReader->>Enum: registerReader(newReaderInfo)
+    Coord->>Enum: registerReader(subtaskId)
 
     Enum->>NewReader: assignSplit(恢复的分片)
     NewReader->>NewReader: 从检查点偏移量恢复
@@ -204,7 +205,7 @@ sequenceDiagram
 
 ```
 on run():
-    pendingSplits += discoverSplits()
+    pendingSplits += newlyDiscoveredSplits  # 分片发现/生成逻辑由实现决定
 
 on handleSplitRequest(subtaskId):
     if pendingSplits not empty:
@@ -289,7 +290,7 @@ snapshotState(checkpointId):
 - **优点**：更好的负载均衡，更快的恢复
 - **缺点**：更高的协调开销
 
-**最佳实践**：文件使用 ~128MB 的分片大小，数据库使用 ~1GB，消息队列使用分区级别。
+**经验建议（仅供参考）**：按数据源特性与作业目标在“负载均衡/协调开销/恢复耗时”之间权衡分片粒度；不要在文档里把某个固定大小当作必然最佳值。
 
 ### 4.2 性能考量
 
@@ -337,9 +338,9 @@ snapshotState(checkpointId):
 ### 5.1 使用建议
 
 **1. 分片大小**
-- 文件：每个分片 128MB - 256MB
-- 数据库：每个分片 1M - 10M 行
-- 消息队列：使用原生分区（Kafka 分区、RabbitMQ 队列）
+- 文件：按文件系统与下游吞吐能力合理切分（例如按 block/文件/分区等天然边界）
+- 数据库：按分片键范围/分页区间/分区等可独立读取的边界切分
+- 消息队列：通常使用原生分区（如 Kafka 分区）作为 split 边界
 
 **2. 状态管理**
 - 保持分片状态小（每个分片 < 1MB）

@@ -23,10 +23,10 @@ title: 设计理念
 **实现**：
 - 统一的 SeaTunnel API 层抽象引擎特定细节
 - 转换层将 SeaTunnel API 适配到引擎特定 API
-- 相同的连接器代码在任何支持的引擎上无需修改即可运行
+- 连接器逻辑尽量与执行引擎解耦；在转换层支持的前提下，同一套连接器实现可复用到不同引擎（具体可用性以连接器能力与引擎支持为准）
 
 **权衡**：
-- **优点**：最大化可重用性 - 一次编写，到处运行
+- **优点**：最大化可重用性 - 复用连接器逻辑，减少引擎适配重复开发
 - **优点**：更简单的连接器开发 - 只需学习单一 API
 - **缺点**：无法利用引擎特定的优化
 - **缺点**：额外的转换开销
@@ -46,11 +46,11 @@ title: 设计理念
 **实现**：
 
 **数据源**：
-- `SourceSplitEnumerator`（主节点）：生成分片、分配给读取器、处理注册
+- `SourceSplitEnumerator`（协调端）：生成分片、分配给读取器、处理注册
 - `SourceReader`（工作节点）：从分配的分片读取数据
 
 **数据汇**：
-- `SinkCommitter` / `SinkAggregatedCommitter`（主节点）：协调提交
+- `SinkCommitter` / `SinkAggregatedCommitter`（协调端）：协调提交
 - `SinkWriter`（工作节点）：写入数据、准备提交信息
 
 **权衡**：
@@ -189,7 +189,7 @@ ConnectorClassLoader(connector-kafka) -> 加载 kafka-clients-3.0.0.jar
 - 存储耐久性和性能要求不同
 
 **实现**：
-- `CheckpointStorage` 抽象（FileSystem、HDFS、S3、OSS）
+- 可插拔 checkpoint storage（例如 localfile/hdfs 等，取决于插件与配置）
 - 状态的可插拔序列化
 - 增量检查点支持
 - 自动状态清理

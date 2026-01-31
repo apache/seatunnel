@@ -41,7 +41,7 @@ CatalogTable 是 SeaTunnel 对“表及其元数据”的统一表示，通常�
 - **comment/catalogName**: 注释与归属 catalog 信息(可选)
 
 **关键组件**:
-- `TableIdentifier`: 唯一表标识(catalog.database.table)
+- `TableIdentifier`: 唯一表标识(catalog.database[.schema].table)
 - `TableSchema`: 包含列、主键、约束的模式
 - `options`: 连接器特定设置(例如 Kafka 主题、JDBC 表名)
 - `partitionKeys`: 分区表的分区列

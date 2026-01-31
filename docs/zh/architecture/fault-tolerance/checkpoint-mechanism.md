@@ -22,10 +22,10 @@ title: 检查点机制
 SeaTunnel 的检查点机制旨在：
 
 1. **保证精确一次语义**：一致性状态快照 + 两阶段提交
-2. **最小化开销**：异步检查点，不阻塞数据处理
-3. **快速恢复**：在数秒内从最新检查点恢复
+2. **最小化开销**：尽量降低 checkpoint 对数据处理的影响（同步/异步取决于具体实现）
+3. **快速恢复**：从最新成功 checkpoint 恢复（耗时取决于状态大小与存储后端）
 4. **分布式协调**：协调数百个任务的检查点
-5. **可插拔存储**：支持多种存储后端（HDFS、S3、本地、OSS）
+5. **可插拔存储**：支持可插拔的 checkpoint storage（具体后端取决于引擎插件与配置）
 
 ### 1.3 理论基础
 
@@ -46,7 +46,7 @@ SeaTunnel 的检查点基于 **Chandy-Lamport 分布式快照算法**：
 
 ```
 ┌─────────────────────────────────────────────────────────────────┐
-│                    JobMaster（每个管道）                         │
+│              JobMaster（每个作业一个，内部按 pipeline 管理）        │
 │                                                                   │
 │   ┌───────────────────────────────────────────────────────┐     │
 │   │         CheckpointCoordinator                         │     │
@@ -109,7 +109,7 @@ SeaTunnel 的检查点基于 **Chandy-Lamport 分布式快照算法**：
                              ▼
 ┌─────────────────────────────────────────────────────────────────┐
 │                    CheckpointStorage                             │
-│                  (HDFS / S3 / 本地 / OSS)                        │
+│            （例如 localfile/hdfs 等，取决于插件与配置）              │
 │                                                                   │
 │   CompletedCheckpoint {                                          │
 │     checkpointId: 123                                            │
@@ -135,7 +135,7 @@ SeaTunnel 的检查点基于 **Chandy-Lamport 分布式快照算法**：
 - `checkpointIdCounter`：生成 checkpointId
 - `pendingCheckpoints`：进行中的 checkpoint 集合
 - `checkpointStorage`：状态持久化后端
-- 调度参数：`checkpointInterval` / `checkpointTimeout` / `maxConcurrentCheckpoints` / `minPauseBetweenCheckpoints`
+- 调度参数：`checkpointInterval` / `checkpointTimeout` / `minPauseBetweenCheckpoints`
 
 #### PendingCheckpoint
 
@@ -167,10 +167,8 @@ SeaTunnel 的检查点基于 **Chandy-Lamport 分布式快照算法**：
 - 一致性：写入完成前不得对外可见“半成品”，避免恢复读到不完整快照
 
 **实现**：
-- `LocalFileCheckpointStorage`：本地文件系统（测试）
-- `HdfsCheckpointStorage`：HDFS
-- `S3CheckpointStorage`：AWS S3
-- `OssCheckpointStorage`：阿里云 OSS
+- `LocalFileStorage`：本地文件存储（localfile 插件）
+- `HdfsStorage`：基于 Hadoop FileSystem 的存储（hdfs 插件，可通过插件配置指向不同文件系统）
 
 ## 3. 检查点流程
 
@@ -182,7 +180,7 @@ sequenceDiagram
     participant Coord as CheckpointCoordinator
     participant Plan as CheckpointPlan
 
-    Timer->>Coord: 触发（每 60 秒）
+    Timer->>Coord: 触发（按配置 interval）
     Coord->>Coord: 生成 checkpointId（123）
 
     Coord->>Coord: 检查条件
@@ -195,14 +193,13 @@ sequenceDiagram
         Coord->>Task: 发送 CheckpointBarrierTriggerOperation(123)
     end
 
-    Coord->>Coord: 启动超时计时器（10 分钟）
+    Coord->>Coord: 启动超时计时器（按配置 timeout）
 ```
 
 **触发条件**：
-1. 检查点间隔已过（例如，60 秒）
-2. 检查点之间的最小暂停已过（例如，10 秒）
-3. 并发检查点数 < 最大值（例如，1）
-4. 没有检查点正在进行（对于单个并发）
+1. 检查点间隔已过（`checkpoint.interval` 或引擎默认值）
+2. 检查点之间的最小暂停已过（`min-pause` 或引擎默认值）
+3. 触发时机与并发行为以当前实现为准（文档不绑定固定“最大并发 checkpoint”配置项）
 
 ### 3.2 屏障传播
 
@@ -274,7 +271,6 @@ sequenceDiagram
     participant Coord as CheckpointCoordinator
     participant Pending as PendingCheckpoint
     participant Storage as CheckpointStorage
-    participant Committer as SinkCommitter
     participant Tasks as 所有任务
 
     Pending->>Pending: 所有任务已 ACK
@@ -285,8 +281,7 @@ sequenceDiagram
     Coord->>Storage: 持久化检查点
     Storage-->>Coord: 成功
 
-    Coord->>Committer: commit(commitInfos)
-    Committer-->>Coord: 成功
+    Note over Coord,Tasks: 持久化成功后，框架/引擎触发提交与清理回调（触发点取决于执行引擎实现）
 
     Coord->>Tasks: notifyCheckpointComplete(123)
     Tasks->>Tasks: 清理资源
@@ -312,7 +307,7 @@ sequenceDiagram
 - 是否触发 failover 取决于作业容错策略与失败类型（例如连续失败、关键任务不可用等）
 
 **超时处理**：
-- 默认超时：10 分钟
+- 默认超时以引擎配置为准（作业可通过 `checkpoint.timeout` 覆盖）
 - 如果超时，检查点失败
 - 作业继续使用先前的检查点
 - 下一个检查点将按计划触发
@@ -395,27 +390,30 @@ sequenceDiagram
 ### 5.1 检查点配置
 
 ```hocon
+# 作业级（env）：可覆盖 interval/timeout/min-pause
 env {
-  # 启用检查点
-  checkpoint.interval = 60000 # 每 60 秒触发一次
-
-  # 检查点超时
-  checkpoint.timeout = 600000 # 10 分钟
-
-  # 最大并发检查点
-  checkpoint.max-concurrent = 1 # 对于精确一次通常为 1
-
-  # 检查点之间的最小暂停
-  checkpoint.min-pause = 10000 # 10 秒
-
-  # 检查点存储
-  checkpoint.storage.type = "hdfs" # hdfs / s3 / local / oss
-  checkpoint.storage.path = "hdfs:///seatunnel/checkpoints"
-
-  # 保留
-  checkpoint.retention.max-retained-checkpoints = 3
+  checkpoint.interval = 60000
+  checkpoint.timeout = 600000
+  min-pause = 10000
 }
 ```
+
+引擎侧（`config/seatunnel.yaml`）配置 checkpoint storage（示意）：
+
+```yaml
+seatunnel:
+  engine:
+    checkpoint:
+      storage:
+        type: hdfs
+        max-retained: 3
+        plugin-config:
+          namespace: /tmp/seatunnel/checkpoint_snapshot
+```
+
+说明：
+- BATCH 模式下如果作业 env 未配置 `checkpoint.interval`，当前实现会禁用 checkpoint（以源码实现为准）。
+- checkpoint storage 主要由引擎侧配置管理；作业级配置不应假设可以随意指定 storage type/path。
 
 ### 5.2 调优指南
 
@@ -433,23 +431,20 @@ env {
 **检查点超时**：
 - 应该 >> 检查点间隔
 - 取决于状态大小和存储速度
-- 大多数情况下默认 10 分钟是合理的
+- 默认值以引擎配置为准；建议结合状态大小与存储后端能力设置
 
-**最大并发检查点**：
-- 对于精确一次设置为 1（推荐）
-- 对于低延迟的至少一次设置为 2+
+**并发行为**：
+- 并发 checkpoint 的能力与策略以当前实现为准；架构文档不绑定固定的“最大并发 checkpoint”配置项
 
 **存储选择**：
-- **本地**：仅测试，无 HA
-- **HDFS**：生产环境，适合大状态
-- **S3**：生产环境，云原生，延迟稍高
-- **OSS**：生产环境，阿里云
+- **localfile**：仅测试/单机场景，无 HA
+- **hdfs**：生产环境常用（hdfs 插件基于 Hadoop FileSystem，可通过插件配置对接不同文件系统后端）
 
 ## 6. 性能优化
 
 ### 6.1 异步检查点
 
-状态快照不阻塞数据处理：
+异步 checkpoint 能降低对数据处理主路径的阻塞（是否异步、异步程度取决于具体实现）：
 
 核心思路是把“生成快照引用/拷贝（快）”与“序列化 + 上传（慢）”解耦：
 - 任务线程快速冻结一份一致性快照（或引用）后立即继续处理
@@ -495,15 +490,14 @@ env {
 
 ### 7.2 监控
 
-**关键指标**：
-- `checkpoint_duration`：从触发到完成的时间
-- `checkpoint_size`：持久化检查点的大小
-- `checkpoint_failure_rate`：失败检查点的百分比
-- `checkpoint_alignment_duration`：屏障对齐所花费的时间
+**关键指标（示例，名称以实际 metrics 实现为准）**：
+- checkpoint_duration：从触发到完成的时间
+- checkpoint_size：持久化检查点的大小
+- checkpoint_failure_rate：失败检查点的比例
+- checkpoint_alignment_duration：屏障对齐所花费的时间
 
 **告警**：
-- 如果 `checkpoint_duration` > 阈值（例如，5 分钟）则告警
-- 如果 `checkpoint_failure_rate` > 10% 则告警
+- 告警阈值需结合业务可接受的恢复窗口与存储后端能力制定
 - 如果在 2x 间隔内没有完成检查点则告警
 
 ### 7.3 故障排除

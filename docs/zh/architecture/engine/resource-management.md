@@ -36,7 +36,7 @@ SeaTunnel 的资源管理系统旨在:
 │  ┌────────────────────────────────────────────────────┐      │
 │  │  请求资源                                            │      │
 │  │  • 计算所需槽位                                       │      │
-│  │  • 指定资源配置文件(CPU、内存)                         │      │
+│  │  • （可选）表达资源需求（以当前引擎实现为准）             │      │
 │  │  • 应用标签过滤器(可选)                               │      │
 │  └────────────────────────────────────────────────────┘      │
 └──────────────────────────────┬───────────────────────────────┘
@@ -56,9 +56,7 @@ SeaTunnel 的资源管理系统旨在:
 │                                                                │
 │  ┌────────────────────────────────────────────────────┐      │
 │  │  分配策略                                            │      │
-│  │  • RandomSlotAssignStrategy                        │      │
-│  │  • SlotRatioSlotAssignStrategy                     │      │
-│  │  • SystemLoadSlotAssignStrategy                    │      │
+│  │  • RandomStrategy / SlotRatioStrategy / SystemLoadStrategy│ │
 │  └────────────────────────────────────────────────────┘      │
 │                                                                │
 │  ┌────────────────────────────────────────────────────┐      │
@@ -92,31 +90,29 @@ SeaTunnel 的资源管理系统旨在:
 - **slotID**: 槽位唯一标识
 - **worker**: 槽位所在工作节点地址
 - **resourceProfile**: 槽位可提供的资源容量(CPU/内存等)
-- **tags**: 用于过滤/隔离/数据局部性的可选标签
 
 **关键属性**:
 - **粒度化**: 每个槽位可以托管一个或多个任务(任务融合)
 - **类型化**: 槽位具有资源配置文件(CPU、内存)
-- **标签化**: 槽位可以被标记用于专门分配
 - **有状态**: 槽位跟踪分配状态(已分配/未分配)
 
 **示例**:
 - slotID = 1001
 - worker = worker-1:5801
-- resourceProfile = 1.0 core / 512MB heap / 256MB off-heap
-- tags = zone=us-west-1a, type=compute
+- resourceProfile = cpu.cores / heapMemory.bytes（字段以引擎实现为准）
 
 ### 2.2 ResourceProfile
 
 描述资源需求或容量。
 
 一个资源配置文件(ResourceProfile)通常包括:
-- **cpu.cores**: CPU 核心数(可为小数)
-- **heap-memory.mb**: JVM 堆内存
-- **off-heap-memory.mb**: 堆外内存(如 direct memory)
+- **cpu.cores**: CPU 核心数（当前实现为整数 core）
+- **heap-memory.bytes**: JVM 堆内存（字节）
+
+说明：当前资源调度在很多场景下以“slot 是否可用”为主要约束；ResourceProfile 作为扩展点存在，但是否支持按 CPU/内存精细调度取决于具体版本实现。
 
 **用途**:
-- **任务需求**: JobMaster 指定每个任务所需的资源
+- **任务需求**: 引擎在申请槽位时携带资源需求（当前实现常为默认/空需求，更多能力视版本而定）
 - **槽位容量**: 每个槽位公布其可用资源
 - **匹配**: ResourceManager 将任务需求与槽位容量匹配
 
@@ -152,8 +148,8 @@ ResourceManager 对外暴露的关键能力可以概括为:
 
 典型实现会维护以下状态与策略:
 - **registerWorker**: 已注册工作节点到 WorkerProfile 的映射(由心跳持续刷新)
-- **slotAssignStrategy**: 槽位分配策略(随机/比例/系统负载等)
-- **heartbeatTimeout**: 心跳超时阈值，用于判定节点失联
+- **slotAllocationStrategy**: 选择 worker 的分配策略(随机/比例/系统负载等)
+- **故障检测**: 结合 worker 心跳上报与 Hazelcast 成员事件判定节点失联（具体阈值以配置/实现为准）
 
 申请资源的关键流程:
 1. 根据 tagFilters 过滤候选工作节点
@@ -167,7 +163,7 @@ ResourceManager 对外暴露的关键能力可以概括为:
 
 ## 4. 槽位分配策略
 
-### 4.1 RandomSlotAssignStrategy
+### 4.1 RandomStrategy
 
 随机选择具有可用槽位的工作节点。
 
@@ -185,7 +181,7 @@ ResourceManager 对外暴露的关键能力可以概括为:
 - 无负载均衡
 - 可能造成热点
 
-### 4.2 SlotRatioSlotAssignStrategy
+### 4.2 SlotRatioStrategy
 
 优先选择可用槽位比率更高的工作节点。
 
@@ -203,7 +199,7 @@ ResourceManager 对外暴露的关键能力可以概括为:
 - 计算稍多
 - 可能不考虑实际 CPU/内存负载
 
-### 4.3 SystemLoadSlotAssignStrategy
+### 4.3 SystemLoadStrategy
 
 选择系统负载(CPU/内存使用)最低的工作节点。
 
@@ -232,20 +228,19 @@ ResourceManager 对外暴露的关键能力可以概括为:
 
 **数据局部性**:
 ```hocon
-source {
-  JDBC {
-    url = "jdbc:mysql://db-west-1:3306/..."
-    tag = "zone:us-west-1" # 分配到同一区域的工作节点
+env {
+  # 作业级 worker 标签过滤（key/value 全量匹配）
+  tag_filter = {
+    zone = "us-west-1"
   }
 }
 ```
 
 **资源专业化**:
 ```hocon
-transform {
-  ML-Transform {
-    model = "..."
-    tag = "resource:gpu" # 分配到 GPU 工作节点
+env {
+  tag_filter = {
+    resource = "gpu"
   }
 }
 ```
@@ -254,14 +249,16 @@ transform {
 ```hocon
 env {
   job.name = "tenant-a-job"
-  tag = "tenant:a" # 仅分配到租户 A 的工作节点
+  tag_filter = {
+    tenant = "a"
+  }
 }
 ```
 
 ### 5.2 TagFilter
 
 TagFilter 可以视为一个简单的键值匹配条件:
-- key/value 需要同时匹配工作节点(或槽位)的 tags
+- key/value 需要同时匹配工作节点的 attributes（标签由集群部署侧维护）
 - 多个 TagFilter 之间通常按“与(AND)”组合：任一不匹配则该节点被过滤
 
 **过滤过程**:
@@ -347,7 +344,7 @@ sequenceDiagram
 ### 7.1 工作节点故障
 
 **检测**:
-- 心跳超时(默认: 60 秒)
+- worker 心跳/资源上报异常或停止（阈值以配置/实现为准）
 - Hazelcast 成员移除事件
 
 **恢复**:
@@ -383,14 +380,15 @@ ResourceManager 侧的典型处理步骤:
 ### 8.1 槽位配置
 
 ```hocon
-seatunnel.engine {
-  # 每个工作节点的槽位配置
-  slot-service {
-    # 每个工作节点的槽位数
-    number-of-slots = 2
+seatunnel {
+  engine {
+    slot-service {
+      # 是否启用动态槽位
+      dynamic-slot = true
 
-    # 动态槽位分配(未来特性)
-    dynamic-slot = false
+      # 固定槽位数（仅在 dynamic-slot = false 时生效）
+      slot-num = 2
+    }
   }
 }
 ```
@@ -398,33 +396,20 @@ seatunnel.engine {
 ### 8.2 资源策略
 
 ```hocon
-seatunnel.engine {
-  resource-manager {
-    # 槽位分配策略
-    # 选项: random, slot-ratio, system-load
-    slot-assign-strategy = "slot-ratio"
-
-    # 心跳配置
-    heartbeat.interval = 10000 # ms
-    heartbeat.timeout = 60000  # ms
-  }
-}
-```
-
-### 8.3 资源配置文件
-
-```hocon
-seatunnel.engine {
-  # 每个槽位的默认资源配置文件
-  slot-service {
-    default-resource-profile {
-      cpu.cores = 1.0
-      heap-memory.mb = 512
-      off-heap-memory.mb = 256
+seatunnel {
+  engine {
+    slot-service {
+      # worker 选择策略（取值需能映射到 AllocateStrategy 枚举）
+      # 选项: random / slot_ratio / system_load
+      slot-allocate-strategy = slot_ratio
     }
   }
 }
 ```
+
+### 8.3 资源配置说明
+
+资源相关的可配置项以 `config/seatunnel.yaml` 与当前引擎实现为准；在没有稳定对外能力前，不建议在文档中给出“每槽位 CPU/内存”等固定配置样例，避免与实际实现不一致。
 
 ## 9. 监控和指标
 
@@ -495,17 +480,17 @@ seatunnel.engine {
 
 ### 10.2 策略选择
 
-**使用 RandomSlotAssignStrategy 当**:
+**使用 RandomStrategy 当**:
 - 同构集群(所有工作节点相同)
 - 简单部署
 - 快速分配比完美平衡更重要
 
-**使用 SlotRatioSlotAssignStrategy 当**:
+**使用 SlotRatioStrategy 当**:
 - 需要良好的负载均衡
 - 混合作业大小
 - 中等集群规模(< 100 个工作节点)
 
-**使用 SystemLoadSlotAssignStrategy 当**:
+**使用 SystemLoadStrategy 当**:
 - 异构集群
 - 工作节点具有不同的 CPU/内存
 - 优化资源利用率至关重要
@@ -514,28 +499,29 @@ seatunnel.engine {
 
 **数据局部性**:
 ```hocon
-# 按区域/可用区标记工作节点
-worker-1: tag = "zone:us-west-1a"
-worker-2: tag = "zone:us-east-1b"
+# 按区域/可用区标记工作节点（部署侧：Hazelcast member attributes，示意）
+# worker-1.attributes.zone = "us-west-1a"
+# worker-2.attributes.zone = "us-east-1b"
 
-# 将数据源分配到与数据相同的区域
-source {
-  S3 {
-    path = "s3://bucket-us-west-1/..."
-    tag = "zone:us-west-1a" # 最小化跨区域流量
+# 将作业分配到与数据相同的区域（作业级过滤）
+env {
+  tag_filter = {
+    zone = "us-west-1a"
   }
 }
 ```
 
 **资源隔离**:
 ```hocon
-# 为关键作业分配专用工作节点
-worker-1,2,3: tag = "priority:high"
-worker-4,5,6: tag = "priority:normal"
+# 为关键作业分配专用工作节点（部署侧 attributes，示意）
+# worker-1.attributes.priority = "high"
+# worker-4.attributes.priority = "normal"
 
 env {
   job.name = "critical-job"
-  tag = "priority:high"
+  tag_filter = {
+    priority = "high"
+  }
 }
 ```
 
