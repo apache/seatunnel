@@ -326,31 +326,52 @@ public class SeaTunnelEngineClusterRoleTest {
 
     @SneakyThrows
     @Test
-    public void pendingQueueRescheduleAllowsLaterJobRun() {
+    public void pendingQueueRescheduleAllowsLaterJobRunMultiNode() {
         HazelcastInstanceImpl masterNode = null;
-        HazelcastInstanceImpl workerNode = null;
+        HazelcastInstanceImpl workerNode1 = null;
+        HazelcastInstanceImpl workerNode2 = null;
         String testClusterName = "Test_pendingQueueRescheduleAllowsLaterJobRun";
         SeaTunnelClient seaTunnelClient = null;
 
-        SeaTunnelConfig seaTunnelConfig = ConfigProvider.locateAndGetSeaTunnelConfig();
-        EngineConfig engineConfig = seaTunnelConfig.getEngineConfig();
-        engineConfig.setScheduleStrategy(ScheduleStrategy.WAIT);
-        engineConfig.getSlotServiceConfig().setDynamicSlot(false);
-        engineConfig.getSlotServiceConfig().setSlotNum(3);
-        seaTunnelConfig
+        SeaTunnelConfig masterConfig = ConfigProvider.locateAndGetSeaTunnelConfig();
+        EngineConfig masterEngineConfig = masterConfig.getEngineConfig();
+        masterEngineConfig.setScheduleStrategy(ScheduleStrategy.WAIT);
+        masterEngineConfig.getSlotServiceConfig().setDynamicSlot(false);
+        masterEngineConfig.getSlotServiceConfig().setSlotNum(1);
+        masterConfig
+                .getHazelcastConfig()
+                .setClusterName(ContentFormatUtilTest.getClusterName(testClusterName));
+
+        SeaTunnelConfig workerConfig1 = ConfigProvider.locateAndGetSeaTunnelConfig();
+        EngineConfig workerEngineConfig1 = workerConfig1.getEngineConfig();
+        workerEngineConfig1.setScheduleStrategy(ScheduleStrategy.WAIT);
+        workerEngineConfig1.getSlotServiceConfig().setDynamicSlot(false);
+        workerEngineConfig1.getSlotServiceConfig().setSlotNum(1);
+        workerConfig1
+                .getHazelcastConfig()
+                .setClusterName(ContentFormatUtilTest.getClusterName(testClusterName));
+
+        SeaTunnelConfig workerConfig2 = ConfigProvider.locateAndGetSeaTunnelConfig();
+        EngineConfig workerEngineConfig2 = workerConfig2.getEngineConfig();
+        workerEngineConfig2.setScheduleStrategy(ScheduleStrategy.WAIT);
+        workerEngineConfig2.getSlotServiceConfig().setDynamicSlot(false);
+        workerEngineConfig2.getSlotServiceConfig().setSlotNum(1);
+        workerConfig2
                 .getHazelcastConfig()
                 .setClusterName(ContentFormatUtilTest.getClusterName(testClusterName));
 
         Common.setDeployMode(DeployMode.CLIENT);
-        String pendingJobFile = createTempJobConfig(4);
-        String smallJobFile = createTempJobConfig(1);
+        String pendingJobFile = createTempJobConfig(3);
+        String smallJobFile1 = createTempJobConfig(1);
+        String smallJobFile2 = createTempJobConfig(1);
         JobConfig pendingJobConfig = new JobConfig();
         pendingJobConfig.setName("Test_pendingQueueRescheduleAllowsLaterJobRun_pending");
-        JobConfig smallJobConfig = new JobConfig();
-        smallJobConfig.setName("Test_pendingQueueRescheduleAllowsLaterJobRun_small");
-
+        JobConfig smallJobConfig1 = new JobConfig();
+        smallJobConfig1.setName("Test_pendingQueueRescheduleAllowsLaterJobRun_small1");
+        JobConfig smallJobConfig2 = new JobConfig();
+        smallJobConfig2.setName("Test_pendingQueueRescheduleAllowsLaterJobRun_small2");
         try {
-            masterNode = SeaTunnelServerStarter.createMasterHazelcastInstance(seaTunnelConfig);
+            masterNode = SeaTunnelServerStarter.createMasterHazelcastInstance(masterConfig);
 
             HazelcastInstanceImpl finalMasterNode = masterNode;
             Awaitility.await()
@@ -360,26 +381,25 @@ public class SeaTunnelEngineClusterRoleTest {
                                     Assertions.assertEquals(
                                             1, finalMasterNode.getCluster().getMembers().size()));
 
-            workerNode = SeaTunnelServerStarter.createWorkerHazelcastInstance(seaTunnelConfig);
-            HazelcastInstanceImpl finalWorkerNode = workerNode;
+            workerNode1 = SeaTunnelServerStarter.createWorkerHazelcastInstance(workerConfig1);
+            workerNode2 = SeaTunnelServerStarter.createWorkerHazelcastInstance(workerConfig2);
+            HazelcastInstanceImpl finalWorkerNode = workerNode1;
             Awaitility.await()
                     .atMost(10000, TimeUnit.MILLISECONDS)
                     .untilAsserted(
                             () ->
                                     Assertions.assertEquals(
-                                            2, finalWorkerNode.getCluster().getMembers().size()));
+                                            3, finalWorkerNode.getCluster().getMembers().size()));
 
             seaTunnelClient = createSeaTunnelClient(testClusterName);
             ClientJobProxy pendingJobProxy =
                     seaTunnelClient
-                            .createExecutionContext(
-                                    pendingJobFile, pendingJobConfig, seaTunnelConfig)
+                            .createExecutionContext(pendingJobFile, pendingJobConfig, masterConfig)
                             .execute();
-            ClientJobProxy smallJobProxy =
+            ClientJobProxy smallJobProxy1 =
                     seaTunnelClient
-                            .createExecutionContext(smallJobFile, smallJobConfig, seaTunnelConfig)
+                            .createExecutionContext(smallJobFile1, smallJobConfig1, masterConfig)
                             .execute();
-
             Awaitility.await()
                     .atMost(10000, TimeUnit.MILLISECONDS)
                     .untilAsserted(
@@ -392,7 +412,26 @@ public class SeaTunnelEngineClusterRoleTest {
                     .untilAsserted(
                             () ->
                                     Assertions.assertEquals(
-                                            JobStatus.FINISHED, smallJobProxy.getJobStatus()));
+                                            JobStatus.FINISHED, smallJobProxy1.getJobStatus()));
+
+            Awaitility.await()
+                    .atMost(10000, TimeUnit.MILLISECONDS)
+                    .untilAsserted(
+                            () ->
+                                    Assertions.assertEquals(
+                                            JobStatus.PENDING, pendingJobProxy.getJobStatus()));
+
+            ClientJobProxy smallJobProxy2 =
+                    seaTunnelClient
+                            .createExecutionContext(smallJobFile2, smallJobConfig2, masterConfig)
+                            .execute();
+
+            Awaitility.await()
+                    .atMost(90000, TimeUnit.MILLISECONDS)
+                    .untilAsserted(
+                            () ->
+                                    Assertions.assertEquals(
+                                            JobStatus.FINISHED, smallJobProxy2.getJobStatus()));
 
             seaTunnelClient.getJobClient().cancelJob(pendingJobProxy.getJobId());
             Awaitility.await()
@@ -408,8 +447,11 @@ public class SeaTunnelEngineClusterRoleTest {
             if (seaTunnelClient != null) {
                 seaTunnelClient.close();
             }
-            if (workerNode != null) {
-                workerNode.shutdown();
+            if (workerNode1 != null) {
+                workerNode1.shutdown();
+            }
+            if (workerNode2 != null) {
+                workerNode2.shutdown();
             }
             if (masterNode != null) {
                 masterNode.shutdown();
