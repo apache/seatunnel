@@ -21,7 +21,7 @@ Writing data to external systems in distributed environments presents critical c
 
 SeaTunnel's Sink API aims to:
 
-1. **Guarantee Exactly-Once Semantics**: End-to-end consistency through two-phase commit
+1. **Provide Verifiable Consistency Semantics**: With checkpoint boundaries + 2PC, achieve exactly-once when the external sink supports transactional/idempotent commit
 2. **Support Parallel Writes**: Scale throughput with multiple writer instances
 3. **Enable Global Coordination**: Coordinate commits across distributed writers
 4. **Ensure Fault Tolerance**: Recover from failures without data inconsistency
@@ -48,16 +48,16 @@ SeaTunnel's Sink API aims to:
 │   │                                                        │     │
 │   │  • Receive records from upstream                      │     │
 │   │  • Buffer and write data                              │     │
-│   │  • Prepare commit info (without side effects)         │     │
+│   │  • Produce commitInfo at checkpoint boundary          │     │
 │   │  • Snapshot writer state                              │     │
-│   │  • Abort on checkpoint failure                        │     │
+│   │  • Cleanup/rollback on failure (engine-dependent)     │     │
 │   └──────────────────────────────────────────────────────┘     │
 │                            │                                     │
 └────────────────────────────┼─────────────────────────────────────┘
                              │ (CommitInfo)
                              ▼
 ┌────────────────────────────────────────────────────────────────┐
-│                       JobMaster (Master Side)                   │
+│            Coordinator Side (control plane, engine-dependent)   │
 │                                                                  │
 │   ┌──────────────────────────────────────────────────────┐     │
 │   │         SinkCommitter<CommitInfoT> (Optional)        │     │
@@ -113,21 +113,28 @@ public interface SeaTunnelSink<IN, StateT, CommitInfoT, AggregatedCommitInfoT>
     }
 
     /**
-     * Create SinkCommitter (optional, called on master)
+     * Serializer for writer state (optional).
+     */
+    default Optional<Serializer<StateT>> getWriterStateSerializer() {
+        return Optional.empty();
+    }
+
+    /**
+     * Create SinkCommitter (optional, trigger location depends on execution engine)
      */
     default Optional<SinkCommitter<CommitInfoT>> createCommitter() throws IOException {
         return Optional.empty();
     }
 
     /**
-     * Restore SinkCommitter from checkpoint (optional, called on master)
+     * Serializer for commit info (optional).
      */
-    default Optional<SinkCommitter<CommitInfoT>> restoreCommitter() throws IOException {
-        return createCommitter();
+    default Optional<Serializer<CommitInfoT>> getCommitInfoSerializer() {
+        return Optional.empty();
     }
 
     /**
-     * Create SinkAggregatedCommitter (optional, called on master)
+     * Create SinkAggregatedCommitter (optional).
      */
     default Optional<SinkAggregatedCommitter<CommitInfoT, AggregatedCommitInfoT>>
         createAggregatedCommitter() throws IOException {
@@ -135,14 +142,18 @@ public interface SeaTunnelSink<IN, StateT, CommitInfoT, AggregatedCommitInfoT>
     }
 
     /**
-     * Get input schema
+     * Serializer for aggregated commit info (optional).
      */
-    CatalogTable getWriteCatalogTable();
+    default Optional<Serializer<AggregatedCommitInfoT>> getAggregatedCommitInfoSerializer() {
+        return Optional.empty();
+    }
 
     /**
-     * Set job context
+     * Get input schema.
      */
-    default void setJobContext(JobContext jobContext) {}
+    default Optional<CatalogTable> getWriteCatalogTable() {
+        return Optional.empty();
+    }
 }
 ```
 
@@ -169,9 +180,9 @@ sequenceDiagram
     CP->>Writer1: triggerBarrier(checkpointId)
     CP->>Writer2: triggerBarrier(checkpointId)
 
-    Writer1->>Writer1: prepareCommit()
+    Writer1->>Writer1: prepareCommit(checkpointId)
     Writer1->>CP: ack(commitInfo1)
-    Writer2->>Writer2: prepareCommit()
+    Writer2->>Writer2: prepareCommit(checkpointId)
     Writer2->>CP: ack(commitInfo2)
 
     CP->>CP: All writers acked
@@ -182,8 +193,7 @@ sequenceDiagram
     Committer->>Sink: Commit writer2 changes
     Committer->>CP: ack()
 
-    CP->>Writer1: notifyCheckpointComplete(checkpointId)
-    CP->>Writer2: notifyCheckpointComplete(checkpointId)
+    Note over Writer1,Writer2: Framework may notify checkpoint completion for cleanup (engine-dependent)
 ```
 
 #### Failure and Retry Flow
@@ -195,7 +205,7 @@ sequenceDiagram
     participant Committer as SinkCommitter
     participant Sink as External Sink
 
-    Writer->>Writer: prepareCommit()
+    Writer->>Writer: prepareCommit(checkpointId)
     Writer->>CP: ack(commitInfo)
 
     CP->>Writer: [Failure - writer crashes]
@@ -206,7 +216,7 @@ sequenceDiagram
     CP->>Writer: restoreWriter(previousState)
     Writer->>Writer: Replay records from checkpoint
 
-    Writer->>Writer: prepareCommit()
+    Writer->>Writer: prepareCommit(checkpointId)
     Writer->>CP: ack(commitInfo)
 
     CP->>Committer: commit([commitInfo])
@@ -216,7 +226,7 @@ sequenceDiagram
     Committer->>Sink: Commit (idempotent)
     Sink-->>Committer: Success
 
-    CP->>Writer: notifyCheckpointComplete()
+    Note over Writer,Committer: Framework may notify checkpoint completion for cleanup (engine-dependent)
 ```
 
 ## 3. Key Implementations
@@ -226,7 +236,7 @@ sequenceDiagram
 The writer runs on workers and performs actual data writing.
 
 ```java
-public interface SinkWriter<IN, CommitInfoT, StateT> extends Closeable {
+public interface SinkWriter<IN, CommitInfoT, StateT> {
 
     /**
      * Write single record
@@ -234,29 +244,21 @@ public interface SinkWriter<IN, CommitInfoT, StateT> extends Closeable {
     void write(IN element) throws IOException;
 
     /**
-     * Prepare commit info during checkpoint (MUST NOT have side effects)
+     * Prepare commit info during checkpoint.
+     *
+     * Guideline: do not make data externally visible in this phase.
      */
-    Optional<CommitInfoT> prepareCommit() throws IOException;
+    Optional<CommitInfoT> prepareCommit(long checkpointId) throws IOException;
 
     /**
      * Abort prepared commit if checkpoint fails
      */
-    default void abortPrepare() {}
+    void abortPrepare();
 
     /**
      * Snapshot writer state for checkpoint
      */
     List<StateT> snapshotState(long checkpointId) throws IOException;
-
-    /**
-     * Notify that checkpoint completed successfully
-     */
-    default void notifyCheckpointComplete(long checkpointId) throws IOException {}
-
-    /**
-     * Notify that checkpoint aborted
-     */
-    default void notifyCheckpointAborted(long checkpointId) throws IOException {}
 
     /**
      * Close writer
@@ -274,10 +276,10 @@ public interface SinkWriter<IN, CommitInfoT, StateT> extends Closeable {
 ```
 
 **Critical Requirements**:
-- `prepareCommit()` **MUST NOT** have side effects (no actual commits yet)
-- `prepareCommit()` returns commit info that will be passed to committer
+- `prepareCommit(checkpointId)` should not make data externally visible (commit is done in `SinkCommitter` / `SinkAggregatedCommitter`)
+- `prepareCommit(checkpointId)` returns commit info that will be passed to committer
 - State returned by `snapshotState()` must capture all uncommitted writes
-- `abortPrepare()` called if checkpoint fails after `prepareCommit()`
+- `abortPrepare()` is only used by Spark when `prepareCommit(...)` fails by throwing an exception
 
 **Implementation Example (JDBC with XA Transactions)**:
 
@@ -309,7 +311,7 @@ public class JdbcExactlyOnceSinkWriter implements SinkWriter<SeaTunnelRow, XidIn
     }
 
     @Override
-    public Optional<XidInfo> prepareCommit() throws IOException {
+    public Optional<XidInfo> prepareCommit(long checkpointId) throws IOException {
         if (currentXid == null) {
             return Optional.empty(); // No data written
         }
@@ -372,7 +374,7 @@ public class FileSinkWriter implements SinkWriter<SeaTunnelRow, FileCommitInfo, 
     }
 
     @Override
-    public Optional<FileCommitInfo> prepareCommit() throws IOException {
+    public Optional<FileCommitInfo> prepareCommit(long checkpointId) throws IOException {
         // Flush and close temp file (no rename yet!)
         outputStream.flush();
         outputStream.close();
@@ -700,7 +702,7 @@ public class AsyncSinkWriter {
     }
 
     @Override
-    public Optional<CommitInfo> prepareCommit() {
+    public Optional<CommitInfo> prepareCommit(long checkpointId) {
         // Wait for all pending writes to complete
         for (CompletableFuture<Void> future : pendingWrites) {
             future.join();
@@ -857,17 +859,17 @@ public void close() throws IOException {
 
 ### 5.2 Common Pitfalls
 
-**1. Side Effects in prepareCommit()**
+**1. Side Effects in prepareCommit(checkpointId)**
 
 ```java
-// ❌ BAD: Actual commit in prepareCommit()
-public Optional<CommitInfo> prepareCommit() {
+// ❌ BAD: Actual commit in prepareCommit(checkpointId)
+public Optional<CommitInfo> prepareCommit(long checkpointId) {
     connection.commit(); // WRONG! This is a side effect!
     return Optional.of(new CommitInfo());
 }
 
 // ✅ GOOD: Only prepare, no side effects
-public Optional<CommitInfo> prepareCommit() {
+public Optional<CommitInfo> prepareCommit(long checkpointId) {
     xaResource.end(xid, XAResource.TMSUCCESS);
     xaResource.prepare(xid); // Prepare only, no commit yet
     return Optional.of(new XidInfo(xid));
@@ -908,7 +910,7 @@ public class BadWriter {
 public class GoodWriter {
     private long lastCommittedOffset = 0;
 
-    public Optional<CommitInfo> prepareCommit() {
+    public Optional<CommitInfo> prepareCommit(long checkpointId) {
         flushBufferedRows(); // Write to external system
         return Optional.of(new CommitInfo(lastCommittedOffset));
     }
@@ -967,7 +969,7 @@ public void testCheckpointFailureRecovery() {
     writer.write(row2);
 
     // Prepare commit
-    Optional<CommitInfo> commitInfo = writer.prepareCommit();
+    Optional<CommitInfo> commitInfo = writer.prepareCommit(checkpointId);
 
     // Simulate checkpoint failure
     writer.abortPrepare();
@@ -978,7 +980,7 @@ public void testCheckpointFailureRecovery() {
     // Restore and retry
     writer.write(row1);
     writer.write(row2);
-    commitInfo = writer.prepareCommit();
+    commitInfo = writer.prepareCommit(checkpointId);
 
     // Commit should succeed
     committer.commit(Collections.singletonList(commitInfo.get()));

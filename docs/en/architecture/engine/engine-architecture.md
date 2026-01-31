@@ -35,8 +35,7 @@ SeaTunnel Engine (Zeta) is designed as a native execution engine with:
 | **Resource Model** | Slot-based | Slot-based | Executor-based |
 | **State Backend** | Pluggable (HDFS/S3/Local) | RocksDB/Heap | In-memory/Disk |
 | **Checkpoint** | Distributed snapshots | Chandy-Lamport | RDD lineage |
-| **Startup Time** | < 1s | ~5-10s | ~10-30s |
-| **Dependencies** | Minimal (~50MB) | Heavyweight (~500MB) | Very heavy (~200MB + Hadoop) |
+| **Operational Complexity** | Lower (engine-native) | Higher | Higher |
 
 ## 2. Overall Architecture
 
@@ -66,7 +65,7 @@ SeaTunnel Engine (Zeta) is designed as a native execution engine with:
 │           │ (Task Deploy)           │ (Resource Request)         │
 │           ▼                         ▼                            │
 │   ┌─────────────────┐      ┌────────────────────────────┐      │
-│   │ CheckpointMgr   │      │   ResourceManager          │      │
+│   │ CheckpointManager│     │   ResourceManager          │      │
 │   │ (per pipeline)  │      │   • Slot allocation        │      │
 │   └─────────────────┘      │   • Worker registration     │      │
 │                             │   • Load balancing          │      │
@@ -522,16 +521,14 @@ public class Barrier {
 **SlotProfile**:
 ```java
 public class SlotProfile {
-    private final long slotID;
+    private final int slotID;
     private final Address worker;
     private final ResourceProfile resourceProfile; // CPU, memory
-    private final Map<String, String> tags; // For tag-based filtering
 }
 
 public class ResourceProfile {
     private final CPU cpu;
     private final Memory heapMemory;
-    private final Memory offHeapMemory;
 }
 ```
 
@@ -539,10 +536,11 @@ public class ResourceProfile {
 ```java
 public class WorkerProfile {
     private final Address address;
-    private final ResourceProfile totalResourceProfile;
-    private final ResourceProfile availableResourceProfile;
-    private final List<SlotProfile> assignedSlots;
-    private final List<SlotProfile> unassignedSlots;
+    private final ResourceProfile profile;
+    private final ResourceProfile unassignedResource;
+    private final SlotProfile[] assignedSlots;
+    private final SlotProfile[] unassignedSlots;
+    private final Map<String, String> attributes;
 }
 ```
 
@@ -572,14 +570,9 @@ Assign tasks to specific worker groups:
 
 ```hocon
 env {
-  checkpoint.interval = 60000
-}
-
-source {
-  MySQL-CDC {
-    # This source assigned to workers with tag "db-zone"
-    tag = "db-zone"
-    ...
+  # Job-level worker attribute filter (key/value full match)
+  tag_filter = {
+    zone = "db-zone"
   }
 }
 ```

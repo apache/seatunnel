@@ -56,7 +56,7 @@ public class CatalogTable implements Serializable {
 ```
 
 **Key Components**:
-- `TableIdentifier`: Unique table identity (catalog.database.table)
+- `TableIdentifier`: Unique table identity (`catalog.database[.schema].table`)
 - `TableSchema`: Schema with columns, primary key, constraints
 - `options`: Connector-specific settings (e.g., Kafka topic, JDBC table name)
 - `partitionKeys`: Partition columns for partitioned tables
@@ -230,10 +230,11 @@ TableSchema schema = TableSchema.builder()
 ```java
 public class JdbcSource implements SeaTunnelSource<...> {
     @Override
-    public CatalogTable getProducedCatalogTable() {
+    public List<CatalogTable> getProducedCatalogTables() {
         // Read schema from database metadata
         DatabaseMetaData metaData = connection.getMetaData();
         ResultSet columns = metaData.getColumns(null, schema, table, null);
+        String database = "...";
 
         // Build schema
         TableSchema.Builder builder = TableSchema.builder();
@@ -245,9 +246,11 @@ public class JdbcSource implements SeaTunnelSource<...> {
             builder.column(columnName, type);
         }
 
-        return CatalogTable.of(
-            TableIdentifier.of(catalog, schema, table),
-            builder.build()
+        return Collections.singletonList(
+            CatalogTable.of(
+                TableIdentifier.of(catalog, database, schema, table),
+                builder.build()
+            )
         );
     }
 }
@@ -279,7 +282,7 @@ public class SqlTransform implements SeaTunnelTransform {
 ```java
 public class JdbcSink implements SeaTunnelSink<...> {
     @Override
-    public CatalogTable getWriteCatalogTable() {
+    public Optional<CatalogTable> getWriteCatalogTable() {
         // Validate input schema matches target table
         CatalogTable inputTable = getInputCatalogTable();
         CatalogTable targetTable = readTargetTableSchema();
@@ -296,7 +299,7 @@ public class JdbcSink implements SeaTunnelSink<...> {
             }
         }
 
-        return targetTable;
+        return Optional.of(targetTable);
     }
 }
 ```
@@ -587,7 +590,7 @@ TableSchema schema = TableSchema.builder()
 // In Source
 @Override
 public void open() {
-    CatalogTable catalogTable = getProducedCatalogTable();
+    CatalogTable catalogTable = getProducedCatalogTables().get(0);
     validateSchema(catalogTable); // Fail fast
 }
 
@@ -595,7 +598,7 @@ public void open() {
 @Override
 public void open() {
     CatalogTable inputTable = getInputCatalogTable();
-    CatalogTable targetTable = getWriteCatalogTable();
+    CatalogTable targetTable = getWriteCatalogTable().orElseThrow(IllegalStateException::new);
     validateCompatibility(inputTable, targetTable); // Fail fast
 }
 ```

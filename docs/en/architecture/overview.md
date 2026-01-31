@@ -14,7 +14,7 @@ SeaTunnel is designed as a distributed data integration platform with the follow
 - **Engine Independence**: Decouple connector logic from execution engines, enabling the same connectors to run on SeaTunnel Engine (Zeta), Apache Flink, or Apache Spark
 - **High Performance**: Support large-scale data synchronization with high throughput and low latency
 - **Fault Tolerance**: Provide exactly-once semantics through distributed snapshots and two-phase commit
-- **Ease of Use**: Offer simple configuration and rich connector ecosystem (200+ connectors)
+- **Ease of Use**: Offer simple configuration and a rich connector ecosystem
 - **Extensibility**: Plugin-based architecture allowing easy addition of new connectors and transforms
 
 ### 1.2 Target Use Cases
@@ -49,7 +49,7 @@ SeaTunnel adopts a layered architecture that separates concerns and enables flex
 │                    Connector Ecosystem                           │
 │                                                                   │
 │  [Jdbc] [Kafka] [MySQL-CDC] [Elasticsearch] [Iceberg] ...       │
-│                    (200+ Connectors)                             │
+│                    (Connector Ecosystem)                          │
 └─────────────────────────────────────────────────────────────────┘
                               │
                               ▼
@@ -79,7 +79,7 @@ SeaTunnel adopts a layered architecture that separates concerns and enables flex
 |-------|---------------|----------------|
 | **Configuration Layer** | Job definition, parameter configuration | HOCON parser, SQL parser, config validation |
 | **API Layer** | Unified abstraction for connectors | Source/Sink/Transform interfaces, CatalogTable |
-| **Connector Layer** | Data source/sink implementations | 200+ connectors (JDBC, Kafka, CDC, etc.) |
+| **Connector Layer** | Data source/sink implementations | Various connectors (JDBC, Kafka, CDC, etc.) |
 | **Translation Layer** | Engine-specific adaptation | Flink/Spark adapters, context wrappers |
 | **Engine Layer** | Job execution and resource management | Scheduling, fault tolerance, state management |
 
@@ -375,7 +375,7 @@ seatunnel/
 │   ├── connector-jdbc/            # JDBC connector
 │   ├── connector-kafka/           # Kafka connector
 │   ├── connector-cdc-mysql/       # MySQL CDC connector
-│   └── ...                        # 200+ connectors
+│   └── ...                        # connectors
 │
 ├── seatunnel-transforms-v2/       # Transform implementations
 │   ├── transform-sql/             # SQL transform

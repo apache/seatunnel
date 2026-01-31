@@ -239,18 +239,12 @@ public class PhysicalPlan {
 
 ### 3.2 Pipeline Splitting
 
-A LogicalDag is split into multiple **Pipelines** (SubPlans) based on:
+A LogicalDag is split into multiple **Pipelines** (SubPlans) by the current `PipelineGenerator` implementation:
 
-1. **Natural Boundaries**: Multiple sources or sinks
-2. **Shuffle Requirements**: Data redistribution points
-3. **Checkpoint Coordination**: Independent checkpoint domains
+1. **Unrelated Subgraphs**: Disconnected parts of the DAG become independent pipelines
+2. **Multiple-Input Vertices**: If a connected subgraph contains a vertex with multiple upstream inputs, the generator splits the subgraph into multiple linear pipelines along each source→sink path and clones vertices where needed
 
-**Splitting Rules**:
-```
-Rule 1: Each source starts a new pipeline
-Rule 2: Each sink ends a pipeline
-Rule 3: Shuffle operations create pipeline boundaries (future)
-```
+**Note**: Multiple sinks (branching) do not necessarily create multiple pipelines. When there is no multiple-input vertex, a branching graph is usually kept as a single pipeline.
 
 **Example 1: Simple Linear Pipeline**:
 ```hocon
@@ -298,10 +292,9 @@ sink {
 }
 ```
 
-Generated: **2 Pipelines**
+Generated: **1 Pipeline**
 ```
-Pipeline 1: [MySQL-CDC Source] → [Elasticsearch Sink]
-Pipeline 2: [MySQL-CDC Source] → [JDBC Sink]
+Pipeline 1: [MySQL-CDC Source] → ([Elasticsearch Sink], [JDBC Sink])
 ```
 
 ### 3.3 PhysicalPlan Generation
@@ -558,7 +551,7 @@ while (isRunning()) {
 
     // Handle checkpoint barriers
     if (barrierReceived) {
-        commitInfo = sinkWriter.prepareCommit();
+        commitInfo = sinkWriter.prepareCommit(checkpointId);
         snapshotState(checkpointId);
     }
 }
@@ -578,33 +571,19 @@ while (isRunning()) {
 - Branching DAG (one source, multiple sinks)
 - Shuffle required (e.g., GROUP BY, JOIN)
 
-**Configuration**:
-```hocon
-env {
-  # Disable task fusion (for debugging)
-  job.mode = "UNBOUNDED_CHAIN" # FUSED_CHAIN (default) / UNBOUNDED_CHAIN
-}
-```
+Task fusion behavior and controls are engine-implementation specific. Avoid relying on undocumented `env.job.mode` values in architecture examples.
 
 ### 7.2 Parallelism Inference
 
-If parallelism not specified, SeaTunnel infers reasonable defaults:
+Parallelism resolution (SeaTunnel Engine / Zeta):
 
-**Source Parallelism**:
-- File sources: Number of files or file splits
-- JDBC sources: Number of partitions
-- Kafka sources: Number of partitions
-- Default: min(available slots, 1)
-
-**Transform Parallelism**:
-- Inherits from upstream (usually source)
-
-**Sink Parallelism**:
-- Inherits from upstream
-- Override if sink requires specific parallelism
+- If an action/connector config specifies `parallelism`, it takes precedence
+- Otherwise use `env.parallelism` (default is `1`)
 
 **Example**:
 ```hocon
+env { parallelism = 1 }
+
 source {
   JDBC { parallelism = 4 }  # Explicit
 }
@@ -635,11 +614,11 @@ With Fusion:
 
 **Resource Profile**:
 ```java
-ResourceProfile profile = new ResourceProfile(
-    cpu: new CPU(1.0),           // 1 CPU core
-    heapMemory: new Memory(512), // 512MB heap
-    offHeapMemory: new Memory(256) // 256MB off-heap
-);
+ResourceProfile profile =
+    new ResourceProfile(
+        CPU.of(1),                // 1 CPU core
+        Memory.of(512 * 1024 * 1024L) // 512MB heap (bytes)
+    );
 ```
 
 ## 8. Failure Handling
@@ -682,18 +661,14 @@ Result:
 ### 9.1 Key Metrics
 
 **Pipeline-Level**:
-- `pipeline.status`: CREATED / RUNNING / FINISHED / FAILED
-- `pipeline.tasks.total`: Total number of tasks
-- `pipeline.tasks.running`: Currently running tasks
-- `pipeline.checkpoint.latest_id`: Latest checkpoint ID
-- `pipeline.checkpoint.duration`: Checkpoint duration
+- Pipeline status and lifecycle transitions (CREATED / RUNNING / FINISHED / FAILED)
+- Task counts and placement across workers/slots
+- Checkpoint progress (latest checkpoint id, duration, failures)
 
 **Task-Level**:
-- `task.status`: Task execution state
-- `task.records_in`: Records received
-- `task.records_out`: Records emitted
-- `task.bytes_in`: Bytes received
-- `task.bytes_out`: Bytes emitted
+- Task status and restart counters
+- Record/byte throughput (in/out)
+- Backpressure / queueing indicators (engine-dependent)
 
 ### 9.2 Visualization
 

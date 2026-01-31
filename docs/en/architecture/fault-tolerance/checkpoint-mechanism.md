@@ -46,10 +46,10 @@ Result: Globally consistent snapshot without pausing entire system.
 
 ```
 ┌─────────────────────────────────────────────────────────────────┐
-│                    JobMaster (per Pipeline)                      │
+│                      JobMaster (per job)                         │
 │                                                                   │
 │   ┌───────────────────────────────────────────────────────┐     │
-│   │         CheckpointCoordinator                         │     │
+│   │         CheckpointCoordinator (per pipeline)           │     │
 │   │                                                         │     │
 │   │  • Trigger checkpoint (periodic/manual)                │     │
 │   │  • Generate checkpoint ID                              │     │
@@ -149,7 +149,6 @@ public class CheckpointCoordinator {
     // Configuration
     private final long checkpointInterval;      // Trigger interval (ms)
     private final long checkpointTimeout;       // Timeout (ms)
-    private final int maxConcurrentCheckpoints; // Max concurrent
     private final int minPauseBetweenCheckpoints; // Min pause (ms)
 }
 ```
@@ -318,7 +317,7 @@ sequenceDiagram
     Transform->>Sink: Forward barrier(123)
 
     Sink->>Sink: Receive barrier
-    Sink->>Sink: prepareCommit() → commitInfo
+    Sink->>Sink: prepareCommit(checkpointId) → commitInfo
     Sink->>Sink: snapshotState() → writer state
     Sink->>Coord: ACK(commitInfo + state)
 
@@ -387,7 +386,7 @@ public void triggerBarrier(long checkpointId) {
 @Override
 public void triggerBarrier(long checkpointId) {
     // 1. Prepare commit (TWO-PHASE COMMIT)
-    Optional<CommitInfoT> commitInfo = sinkWriter.prepareCommit();
+    Optional<CommitInfoT> commitInfo = sinkWriter.prepareCommit(checkpointId);
 
     // 2. Snapshot writer state
     List<StateT> writerStates = sinkWriter.snapshotState(checkpointId);
@@ -565,27 +564,18 @@ env {
   # Checkpoint timeout
   checkpoint.timeout = 600000 # 10 minutes
 
-  # Max concurrent checkpoints
-  checkpoint.max-concurrent = 1 # Usually 1 for exactly-once
-
   # Min pause between checkpoints
-  checkpoint.min-pause = 10000 # 10 seconds
-
-  # Checkpoint storage
-  checkpoint.storage.type = "hdfs" # hdfs / s3 / local / oss
-  checkpoint.storage.path = "hdfs:///seatunnel/checkpoints"
-
-  # Retention
-  checkpoint.retention.max-retained-checkpoints = 3
+  min-pause = 10000 # 10 seconds
 }
 ```
+
+Checkpoint storage is configured on the engine side (e.g., `config/seatunnel.yaml` under `seatunnel.engine.checkpoint.storage`), rather than as job-level `env` options.
 
 ### 5.2 Tuning Guidelines
 
 **Checkpoint Interval**:
-- **Short interval (10-30s)**: Fast recovery, but higher overhead
-- **Medium interval (60-120s)**: Balanced (recommended)
-- **Long interval (300-600s)**: Low overhead, but slower recovery
+- **Shorter interval**: Faster recovery, higher overhead
+- **Longer interval**: Lower overhead, slower recovery
 
 **Trade-offs**:
 - Shorter interval → More frequent I/O → Higher storage cost
@@ -596,17 +586,11 @@ env {
 **Checkpoint Timeout**:
 - Should be >> checkpoint interval
 - Depends on state size and storage speed
-- Default 10 minutes is reasonable for most cases
+- Choose based on end-to-end latency, state size, and checkpoint storage throughput
 
-**Max Concurrent Checkpoints**:
-- Set to 1 for exactly-once (recommended)
-- Set to 2+ for at-least-once with lower latency
-
-**Storage Selection**:
-- **Local**: Testing only, no HA
-- **HDFS**: Production, good for large state
-- **S3**: Production, cloud-native, slightly higher latency
-- **OSS**: Production, Alibaba Cloud
+**Storage Selection (SeaTunnel Engine)**:
+- `localfile` (LocalFileStorage): local filesystem, non-HA
+- `hdfs` (HdfsStorage): Hadoop FileSystem-based backend; can work with HDFS/S3A/etc depending on Hadoop configuration
 
 ## 6. Performance Optimization
 

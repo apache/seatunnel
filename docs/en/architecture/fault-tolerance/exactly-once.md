@@ -30,11 +30,11 @@ Exactly-Once:
 
 SeaTunnel's exactly-once semantics aims to:
 
-1. **End-to-End Guarantee**: From source to sink, no data loss or duplication
+1. **Verifiable End-to-End Consistency**: With checkpoint boundaries + sink transactional/idempotent commits, avoid data loss/duplication under the documented failure model
 2. **Transparent Implementation**: Framework handles complexity, users configure minimally
 3. **Performance Efficiency**: Minimize overhead while maintaining guarantee
 4. **Failure Resilience**: Maintain guarantee across task/worker/master failures
-5. **Wide Applicability**: Support both transactional and non-transactional sinks
+5. **Broad Applicability**: Support transactional sinks and also provide practical semantics for non-transactional sinks (e.g., idempotent writes / at-least-once)
 
 ### 1.3 Consistency Levels
 
@@ -64,11 +64,11 @@ SeaTunnel's exactly-once semantics aims to:
 **Concept**: Atomic commitment across distributed participants.
 
 **Phases**:
-1. **Prepare Phase**: All participants prepare (no side effects yet)
+1. **Prepare Phase**: All participants prepare (avoid making changes externally visible)
 2. **Commit Phase**: Coordinator decides commit/abort, all participants execute
 
 **In SeaTunnel**:
-- **Prepare**: `SinkWriter.prepareCommit()` during checkpoint
+- **Prepare**: `SinkWriter.prepareCommit(checkpointId)` during checkpoint
 - **Commit**: `SinkCommitter.commit()` after checkpoint completes
 
 ## 3. Architecture for Exactly-Once
@@ -94,7 +94,7 @@ SeaTunnel's exactly-once semantics aims to:
 ┌──────────────────────────────────────────────────────────────┐
 │                     Sink Writer                               │
 │  • Buffer writes                                              │
-│  • prepareCommit() → Generate CommitInfo (PHASE 1)            │
+│  • prepareCommit(checkpointId) → Generate CommitInfo (PHASE 1)│
 │  • Snapshot writer state                                      │
 └──────────────────────────┬───────────────────────────────────┘
                            │
@@ -174,7 +174,7 @@ public class JdbcExactlyOnceSinkWriter {
     }
 
     @Override
-    public Optional<XidInfo> prepareCommit() {
+    public Optional<XidInfo> prepareCommit(long checkpointId) {
         if (currentXid == null) {
             return Optional.empty();
         }
@@ -266,7 +266,7 @@ public class ElasticsearchSinkWriter {
     }
 
     @Override
-    public Optional<CommitInfo> prepareCommit() {
+    public Optional<CommitInfo> prepareCommit(long checkpointId) {
         // Flush bulk processor
         bulkProcessor.flush();
 
@@ -316,7 +316,7 @@ public class KafkaSinkWriter {
     }
 
     @Override
-    public Optional<KafkaCommitInfo> prepareCommit() {
+    public Optional<KafkaCommitInfo> prepareCommit(long checkpointId) {
         // PHASE 1: Prepare (flush, but don't commit)
         producer.flush();
 
@@ -357,7 +357,7 @@ public class FileSinkWriter {
     }
 
     @Override
-    public Optional<FileCommitInfo> prepareCommit() {
+    public Optional<FileCommitInfo> prepareCommit(long checkpointId) {
         // PHASE 1: Close temp file (no rename yet)
         outputStream.close();
 
@@ -411,11 +411,11 @@ Result:
 ```
 Timeline:
   t0: Checkpoint N in progress
-  t1: SinkWriter.prepareCommit() → XID-123 prepared
+  t1: SinkWriter.prepareCommit(checkpointId) → XID-123 prepared
   t2: Task fails ❌ (before commit)
   t3: Restore from Checkpoint N-1
   t4: Reprocess records
-  t5: New prepareCommit() → XID-124 prepared
+  t5: New prepareCommit(checkpointId) → XID-124 prepared
   t6: Committer commits XID-124
 
 Result:

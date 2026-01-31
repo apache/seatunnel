@@ -23,10 +23,10 @@ This document explains the core design principles, philosophies, and trade-offs 
 **Implementation**:
 - Unified SeaTunnel API layer abstracts engine-specific details
 - Translation layer adapts SeaTunnel API to engine-specific APIs
-- Same connector code runs unmodified on any supported engine
+- Aim for maximum connector reuse across engines (some engine-specific adaptation may still be required via the translation layer)
 
 **Trade-offs**:
-- **Pro**: Maximum reusability - write once, run anywhere
+- **Pro**: High reusability - write once, run across engines via adapters
 - **Pro**: Easier connector development - single API to learn
 - **Con**: Cannot leverage engine-specific optimizations
 - **Con**: Additional translation overhead
@@ -143,7 +143,7 @@ class FileSplit implements SourceSplit {
 - External systems require transactional guarantees
 
 **Implementation**:
-1. **Prepare Phase**: During checkpoint, `SinkWriter.prepareCommit()` returns commit info without side effects
+1. **Prepare Phase**: During checkpoint, `SinkWriter.prepareCommit(checkpointId)` returns commit info without making changes externally visible
 2. **Commit Phase**: After checkpoint succeeds, `SinkCommitter.commit()` applies changes atomically
 3. **Abort**: If checkpoint fails, `SinkWriter.abortPrepare()` rolls back
 
@@ -158,7 +158,7 @@ class FileSplit implements SourceSplit {
 **Example**:
 ```java
 class JdbcExactlyOnceSinkWriter {
-    List<CommitInfoT> prepareCommit() {
+    List<CommitInfoT> prepareCommit(long checkpointId) {
         // Start XA transaction but don't commit yet
         String xid = generateXid();
         connection.prepareTransaction(xid);

@@ -278,25 +278,23 @@ public class MultiTableSinkWriter<IN, CommitInfoT, StateT>
     }
 
     private int selectReplica(TablePath tablePath, SeaTunnelRow row) {
-        // Strategy 1: Hash-based (consistent assignment)
-        if (row.getKind() == SeaTunnelRowKind.UPDATE_BEFORE ||
-            row.getKind() == SeaTunnelRowKind.UPDATE_AFTER) {
-            // Same replica for updates (maintain order)
-            Object primaryKey = extractPrimaryKey(row);
-            return Math.abs(primaryKey.hashCode()) % replicaNum;
+        // If primary key is available, route stably by primary key hash.
+        Optional<Object> primaryKey = extractPrimaryKeyIfPresent(row);
+        if (primaryKey.isPresent()) {
+            return Math.abs(primaryKey.get().hashCode()) % replicaNum;
         }
 
-        // Strategy 2: Round-robin (load balancing)
+        // Otherwise, distribute across replicas (no stable routing guarantee).
         return (int) (System.nanoTime() % replicaNum);
     }
 
     @Override
-    public Optional<CommitInfoT> prepareCommit() throws IOException {
+    public Optional<CommitInfoT> prepareCommit(long checkpointId) throws IOException {
         // Collect commit info from all writers
         List<CommitInfoT> allCommitInfos = new ArrayList<>();
 
         for (SinkWriter<IN, CommitInfoT, StateT> writer : writers.values()) {
-            Optional<CommitInfoT> commitInfo = writer.prepareCommit();
+            Optional<CommitInfoT> commitInfo = writer.prepareCommit(checkpointId);
             commitInfo.ifPresent(allCommitInfos::add);
         }
 
@@ -394,34 +392,23 @@ sink {
     url = "..."
 
     # Multi-table configuration
-    multi-table.replica = 4 # 4 replicas per table
+    multi_table_sink_replica = 4 # replicas per table (applies to all tables)
   }
 }
 ```
 
 ### 5.3 Replica Selection Strategies
 
-**Hash-Based (Consistent)**:
+**Hash-Based (when primary key is available)**:
 ```java
 // Ensures same primary key always goes to same replica (order preservation)
 int replica = Math.abs(primaryKey.hashCode()) % replicaNum;
 ```
 
-**Round-Robin (Load Balancing)**:
+**Random (when primary key is not available)**:
 ```java
-// Distributes load evenly across replicas
-int replica = (writeCounter.getAndIncrement()) % replicaNum;
-```
-
-**Hybrid (SeaTunnel Default)**:
-```java
-// Hash for updates/deletes (order), round-robin for inserts (load balance)
-if (row.getKind() == SeaTunnelRowKind.UPDATE_AFTER ||
-    row.getKind() == SeaTunnelRowKind.DELETE) {
-    return Math.abs(primaryKey.hashCode()) % replicaNum; // Consistent
-} else {
-    return (int) (System.nanoTime() % replicaNum); // Load balanced
-}
+// Distributes load across replicas (no stable routing guarantee)
+int replica = (int) (System.nanoTime() % replicaNum);
 ```
 
 ## 6. Schema Management in Multi-Table
@@ -485,7 +472,7 @@ public class MultiTableSinkWriter {
 ┌──────────────────────────────────────────────────────────────┐
 │                  MultiTableSinkWriter                         │
 │  • Extracts TablePath from row                                │
-│  • Selects replica (hash or round-robin)                      │
+│  • Selects replica (hash or random)                           │
 │  • Routes to correct writer                                   │
 └──────────────────────────┬───────────────────────────────────┘
                            │
@@ -541,13 +528,13 @@ sequenceDiagram
 
     CP->>Writer: triggerBarrier(checkpointId)
 
-    Writer->>W1: prepareCommit()
+    Writer->>W1: prepareCommit(checkpointId)
     W1-->>Writer: CommitInfo(orders, replica=0)
 
-    Writer->>W2: prepareCommit()
+    Writer->>W2: prepareCommit(checkpointId)
     W2-->>Writer: CommitInfo(orders, replica=1)
 
-    Writer->>W3: prepareCommit()
+    Writer->>W3: prepareCommit(checkpointId)
     W3-->>Writer: CommitInfo(users, replica=0)
 
     Writer->>CP: ACK([CommitInfo1, CommitInfo2, CommitInfo3])
@@ -648,18 +635,7 @@ Replica Distribution:
 
 ### 10.1 Table Selection
 
-**Use Regex Patterns**:
-```hocon
-source {
-  MySQL-CDC {
-    # Include specific patterns
-    table-name = "order_.*|user_.*"
-
-    # Exclude system tables
-    table-exclude = ".*_bak|.*_temp"
-  }
-}
-```
+Table include/exclude patterns are connector-specific. Please refer to the specific Source connector documentation for the supported option keys and formats.
 
 ### 10.2 Replica Configuration
 
@@ -668,7 +644,7 @@ source {
 sink {
   JDBC {
     # Start with 1 replica, increase if bottleneck
-    multi-table.replica = 1
+    multi_table_sink_replica = 1
   }
 }
 ```
@@ -677,7 +653,7 @@ sink {
 ```bash
 # Check if single replica is bottleneck
 # If write latency high → increase replicas
-multi-table.replica = 2  # Double capacity
+multi_table_sink_replica = 2  # Double capacity
 ```
 
 ### 10.3 Schema Management
@@ -705,16 +681,7 @@ sink {
 
 ### 10.4 Error Handling
 
-**Per-Table Error Tolerance**:
-```hocon
-sink {
-  JDBC {
-    # Continue even if some tables fail
-    multi-table.continue-on-error = true
-    multi-table.max-errors-per-table = 1000
-  }
-}
-```
+Error tolerance and retry policies are typically connector-specific. Avoid relying on undocumented `multi-table.*` option keys unless they are defined by the connector you use.
 
 ## 11. Limitations and Considerations
 
@@ -756,19 +723,7 @@ sink {
 
 ### 12.1 Dynamic Replicas
 
-```hocon
-# Planned: per-table replica configuration
-sink {
-  JDBC {
-    multi-table.replicas {
-      orders = 8      # High-throughput
-      users = 4       # Medium
-      config = 1      # Low
-      default = 2     # Others
-    }
-  }
-}
-```
+Per-table replica overrides are not supported by the current `multi_table_sink_replica` option (it applies to all tables). If you need per-table replicas, it requires additional connector/framework capabilities.
 
 ### 12.2 Adaptive Replicas
 

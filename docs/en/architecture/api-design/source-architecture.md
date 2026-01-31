@@ -41,12 +41,12 @@ SeaTunnel's Source API aims to:
 
 ```
 ┌──────────────────────────────────────────────────────────────┐
-│                       JobMaster (Master Side)                 │
+│                 Coordinator (master/coordinator side)         │
 │                                                                │
 │   ┌────────────────────────────────────────────────────┐     │
 │   │         SourceSplitEnumerator<SplitT, StateT>      │     │
 │   │                                                      │     │
-│   │  • Generate splits (discoverSplits)                 │     │
+│   │  • Discover/generate splits in run() (impl-defined) │     │
 │   │  • Assign splits to readers                         │     │
 │   │  • Handle reader registration                       │     │
 │   │  • Handle split requests                            │     │
@@ -62,7 +62,7 @@ SeaTunnel's Source API aims to:
 │                  TaskExecutionService (Worker Side)           │
 │                                                                │
 │   ┌────────────────────────────────────────────────────┐     │
-│   │          SourceReader<T, SplitT, StateT>           │     │
+│   │             SourceReader<T, SplitT>               │     │
 │   │                                                      │     │
 │   │  • Receive assigned splits                          │     │
 │   │  • Read data from splits                            │     │
@@ -100,6 +100,11 @@ public interface SeaTunnelSource<T, SplitT extends SourceSplit, StateT extends S
     SourceReader<T, SplitT> createReader(SourceReader.Context readerContext) throws Exception;
 
     /**
+     * Split serializer used for network transfer and checkpointing.
+     */
+    Serializer<SplitT> getSplitSerializer();
+
+    /**
      * Create SourceSplitEnumerator (called on master)
      */
     SourceSplitEnumerator<SplitT, StateT> createEnumerator(
@@ -113,9 +118,14 @@ public interface SeaTunnelSource<T, SplitT extends SourceSplit, StateT extends S
         StateT checkpointState) throws Exception;
 
     /**
-     * Get output schema (CatalogTable with TableSchema)
+     * Enumerator-state serializer used for checkpointing.
      */
-    CatalogTable getProducedCatalogTable();
+    Serializer<StateT> getEnumeratorStateSerializer();
+
+    /**
+     * Get output schema (CatalogTable list, supports multi-table)
+     */
+    List<CatalogTable> getProducedCatalogTables();
 }
 ```
 
@@ -124,7 +134,8 @@ public interface SeaTunnelSource<T, SplitT extends SourceSplit, StateT extends S
 - `createReader()`: Factory for reader instances (one per worker task)
 - `createEnumerator()`: Factory for enumerator (single instance on master)
 - `restoreEnumerator()`: Restore enumerator from checkpoint state
-- `getProducedCatalogTable()`: Defines output schema
+- `getProducedCatalogTables()`: Defines output schema (supports multi-table)
+- `getSplitSerializer()` / `getEnumeratorStateSerializer()`: Split/enumerator-state serializers for network transfer and checkpointing
 
 #### SourceSplit (Minimal Serializable Unit)
 
@@ -177,19 +188,22 @@ public class KafkaSourceSplit implements SourceSplit {
 
 ```mermaid
 sequenceDiagram
-    participant JM as JobMaster
+    participant Coord as Coordinator
     participant Enum as SourceSplitEnumerator
     participant Worker as TaskExecutionService
     participant Reader as SourceReader
 
-    JM->>Enum: createEnumerator(context)
-    Enum->>Enum: discoverSplits()
+    Coord->>Enum: createEnumerator(context)
+    Enum->>Enum: open()
 
     Worker->>Reader: createReader(context)
-    Reader->>Enum: registerReader(readerInfo)
+    Reader->>Reader: open()
 
-    Enum->>Enum: addReader(readerInfo)
-    Enum->>Enum: handleSplitRequest(readerId)
+    Coord->>Enum: registerReader(subtaskId)
+    Enum->>Enum: run() (discover/generate splits, impl-defined)
+
+    Reader->>Enum: context.sendSplitRequest()
+    Enum->>Enum: handleSplitRequest(subtaskId)
     Enum->>Reader: assignSplit(splits)
 
     Reader->>Reader: addSplits(splits)
@@ -221,18 +235,18 @@ sequenceDiagram
 
 ```mermaid
 sequenceDiagram
-    participant JM as JobMaster
+    participant Coord as Coordinator
     participant Enum as SourceSplitEnumerator
     participant OldReader as Failed Reader
     participant NewReader as New Reader
 
     OldReader->>OldReader: [Failure]
-    JM->>Enum: addSplitsBack(splits from failed reader)
+    Coord->>Enum: addSplitsBack(splits, subtaskId)
     Enum->>Enum: Mark splits as pending
 
-    JM->>NewReader: Deploy on new worker
-    NewReader->>NewReader: restoreState(checkpointedState)
-    NewReader->>Enum: registerReader(newReaderInfo)
+    Coord->>NewReader: Deploy on new worker
+    NewReader->>NewReader: Restore from checkpoint (reader state)
+    Coord->>Enum: registerReader(subtaskId)
 
     Enum->>NewReader: assignSplit(recovered splits)
     NewReader->>NewReader: Resume from checkpointed offset
@@ -245,7 +259,8 @@ sequenceDiagram
 The enumerator runs on the master side and coordinates split assignment.
 
 ```java
-public interface SourceSplitEnumerator<SplitT extends SourceSplit, StateT> {
+public interface SourceSplitEnumerator<SplitT extends SourceSplit, StateT>
+    extends AutoCloseable, CheckpointListener {
 
     /**
      * Called when enumerator starts
@@ -253,29 +268,31 @@ public interface SourceSplitEnumerator<SplitT extends SourceSplit, StateT> {
     void open();
 
     /**
-     * Called to discover splits (eager or lazy)
+     * Executes split discovery and background coordination logic.
+     *
+     * Note: run() and snapshotState() may be invoked concurrently by different threads.
      */
     void run() throws Exception;
 
     /**
-     * Called when a new reader registers
+     * Add a split back to the enumerator for reassignment (typically after reader failure).
      */
-    void addReader(int subtaskId);
+    void addSplitsBack(List<SplitT> splits, int subtaskId);
 
     /**
-     * Called when a reader requests splits
+     * Current number of unassigned splits.
+     */
+    int currentUnassignedSplitSize();
+
+    /**
+     * Called when a reader requests more splits.
      */
     void handleSplitRequest(int subtaskId);
 
     /**
-     * Called when reader reports split finished
+     * Called when a reader registers.
      */
-    void handleSplitFinished(int subtaskId, String finishedSplit);
-
-    /**
-     * Called when reader fails - reclaim its splits
-     */
-    void addSplitsBack(List<SplitT> splits, int subtaskId);
+    void registerReader(int subtaskId);
 
     /**
      * Snapshot enumerator state for checkpoint
@@ -285,12 +302,7 @@ public interface SourceSplitEnumerator<SplitT extends SourceSplit, StateT> {
     /**
      * Handle custom event from reader
      */
-    void handleSourceEvent(int subtaskId, SourceEvent sourceEvent);
-
-    /**
-     * Called when no more splits will be produced
-     */
-    void notifyCheckpointComplete(long checkpointId) throws Exception;
+    default void handleSourceEvent(int subtaskId, SourceEvent sourceEvent) {}
 
     /**
      * Close enumerator
@@ -364,7 +376,8 @@ public class JdbcSourceSplitEnumerator implements SourceSplitEnumerator<JdbcSour
 The reader runs on workers and performs actual data reading.
 
 ```java
-public interface SourceReader<T, SplitT extends SourceSplit> {
+public interface SourceReader<T, SplitT extends SourceSplit>
+    extends AutoCloseable, CheckpointListener {
 
     /**
      * Called when reader starts
@@ -377,29 +390,24 @@ public interface SourceReader<T, SplitT extends SourceSplit> {
     void pollNext(Collector<T> output) throws Exception;
 
     /**
-     * Add newly assigned splits
+     * Snapshot reader state for checkpoint (typically the current splits/positions).
+     */
+    List<SplitT> snapshotState(long checkpointId) throws Exception;
+
+    /**
+     * Add newly assigned splits.
      */
     void addSplits(List<SplitT> splits);
 
     /**
-     * Signal no more splits will be assigned
+     * Signal no more splits will be assigned.
      */
     void handleNoMoreSplits();
 
     /**
-     * Snapshot reader state for checkpoint
-     */
-    List<StateT> snapshotState(long checkpointId) throws Exception;
-
-    /**
      * Handle custom event from enumerator
      */
-    void handleSourceEvent(SourceEvent sourceEvent);
-
-    /**
-     * Notify checkpoint complete
-     */
-    void notifyCheckpointComplete(long checkpointId) throws Exception;
+    default void handleSourceEvent(SourceEvent sourceEvent) {}
 
     /**
      * Close reader
@@ -411,8 +419,10 @@ public interface SourceReader<T, SplitT extends SourceSplit> {
      */
     interface Context {
         int getIndexOfSubtask();
+        Boundedness getBoundedness();
+        void signalNoMoreElement();
         void sendSplitRequest();
-        void sendSourceEventToEnumerator(SourceEvent event);
+        void sendSourceEventToEnumerator(SourceEvent sourceEvent);
     }
 }
 ```
@@ -548,7 +558,7 @@ public class ConfigChangeEvent implements SourceEvent {
 - **Pro**: Better load balancing, faster recovery
 - **Con**: Higher coordination overhead
 
-**Best Practice**: Use split size ~128MB for files, ~1GB for databases, partition-level for message queues.
+**Guideline**: Choose split granularity based on source capabilities, expected parallelism, and checkpoint/recovery cost.
 
 ### 4.2 Performance Considerations
 
@@ -657,12 +667,12 @@ public class KafkaSourceSplitEnumerator {
 ### 5.1 Usage Recommendations
 
 **1. Split Sizing**
-- Files: 128MB - 256MB per split
-- Databases: 1M - 10M rows per split
-- Message queues: Use native partitions (Kafka partitions, RabbitMQ queues)
+- Files: split by file/offset ranges according to file format and I/O characteristics
+- Databases: split by primary key / partition key ranges (or other stable predicates)
+- Message queues: use native partitions (e.g., Kafka partitions)
 
 **2. State Management**
-- Keep split state small (< 1MB per split)
+- Keep split/reader state small and stable across versions
 - Use offsets/positions instead of buffered data
 - Serialize efficiently (Kryo, Protobuf)
 
@@ -785,7 +795,7 @@ public void testSplitReassignment() {
     enumerator.addSplitsBack(assignedSplits, 0);
 
     // New reader 1 should get those splits
-    enumerator.addReader(1);
+    enumerator.registerReader(1);
     enumerator.handleSplitRequest(1);
 
     // Verify splits were reassigned

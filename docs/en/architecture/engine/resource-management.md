@@ -56,9 +56,7 @@ SeaTunnel's resource management system aims to:
 │                                                                │
 │  ┌────────────────────────────────────────────────────┐      │
 │  │  Allocation Strategies                              │      │
-│  │  • RandomSlotAssignStrategy                        │      │
-│  │  • SlotRatioSlotAssignStrategy                     │      │
-│  │  • SystemLoadSlotAssignStrategy                    │      │
+│  │  • RandomStrategy / SlotRatioStrategy / SystemLoadStrategy │
 │  └────────────────────────────────────────────────────┘      │
 │                                                                │
 │  ┌────────────────────────────────────────────────────┐      │
@@ -91,37 +89,30 @@ A **Slot** is the fundamental unit of resource allocation.
 ```java
 public class SlotProfile {
     // Unique slot identifier
-    private final long slotID;
+    private final int slotID;
 
     // Worker address where this slot resides
     private final Address worker;
 
     // Resource capacity of this slot
     private final ResourceProfile resourceProfile;
-
-    // Optional tags for filtering
-    private final Map<String, String> tags;
 }
 ```
 
 **Key Properties**:
 - **Granular**: Each slot can host one or more tasks (task fusion)
 - **Typed**: Slots have resource profiles (CPU, memory)
-- **Tagged**: Slots can be labeled for specialized assignment
 - **Stateful**: Slots track assignment status (assigned/unassigned)
 
 **Example**:
 ```java
-SlotProfile slot = new SlotProfile(
-    slotID: 1001,
-    worker: new Address("worker-1", 5801),
-    resourceProfile: new ResourceProfile(
-        cpu: new CPU(1.0),           // 1 CPU core
-        heapMemory: new Memory(512), // 512MB heap
-        offHeapMemory: new Memory(256) // 256MB off-heap
-    ),
-    tags: Map.of("zone", "us-west-1a", "type", "compute")
-);
+SlotProfile slot =
+    new SlotProfile(
+        new Address("worker-1", 5801),
+        1001,
+        new ResourceProfile(CPU.of(1), Memory.of(512 * 1024 * 1024L)),
+        "seq-1"
+    );
 ```
 
 ### 2.2 ResourceProfile
@@ -132,15 +123,14 @@ Describes resource requirements or capacity.
 public class ResourceProfile {
     private final CPU cpu;
     private final Memory heapMemory;
-    private final Memory offHeapMemory;
 }
 
 public class CPU {
-    private final double cores; // Number of CPU cores
+    private final int core; // Number of CPU cores
 }
 
 public class Memory {
-    private final long megabytes; // Memory in MB
+    private final long bytes; // Heap memory in bytes
 }
 ```
 
@@ -159,19 +149,22 @@ public class WorkerProfile {
     private final Address address;
 
     // Total resources (all slots combined)
-    private final ResourceProfile totalResourceProfile;
+    private final ResourceProfile profile;
 
     // Currently available resources
-    private final ResourceProfile availableResourceProfile;
+    private final ResourceProfile unassignedResource;
 
     // Slots assigned to jobs
-    private final List<SlotProfile> assignedSlots;
+    private final SlotProfile[] assignedSlots;
 
     // Slots available for assignment
-    private final List<SlotProfile> unassignedSlots;
+    private final SlotProfile[] unassignedSlots;
 
-    // Worker metadata
-    private final Map<String, String> tags;
+    // Worker attributes (used by job-level tag_filter)
+    private final Map<String, String> attributes;
+
+    // Optional system load info (for SystemLoadStrategy)
+    private final SystemLoadInfo systemLoadInfo;
 }
 ```
 
@@ -194,13 +187,13 @@ public interface ResourceManager {
     CompletableFuture<List<SlotProfile>> applyResources(
         long jobId,
         List<ResourceProfile> resourceProfiles,
-        List<TagFilter> tagFilters
+        Map<String, String> tagFilter
     ) throws NoEnoughResourceException;
 
     /**
      * Release resources (called by JobMaster after task completion)
      */
-    void releaseResources(long jobId, List<SlotProfile> slots);
+    CompletableFuture<Void> releaseResources(long jobId, List<SlotProfile> slots);
 
     /**
      * Worker heartbeat (called by TaskExecutionService)
@@ -210,7 +203,7 @@ public interface ResourceManager {
     /**
      * Handle worker removal (failure or graceful shutdown)
      */
-    void memberRemoved(MembershipEvent event);
+    void memberRemoved(MembershipServiceEvent event);
 }
 ```
 
@@ -221,181 +214,52 @@ public abstract class AbstractResourceManager implements ResourceManager {
     // Registered workers
     protected final ConcurrentMap<Address, WorkerProfile> registerWorker;
 
-    // Slot assignment strategy
-    protected final SlotAssignStrategy slotAssignStrategy;
-
-    // Heartbeat timeout
-    protected final long heartbeatTimeout;
+    // Worker selection strategy (RandomStrategy / SlotRatioStrategy / SystemLoadStrategy)
+    protected final SlotAllocationStrategy slotAllocationStrategy;
 
     @Override
     public CompletableFuture<List<SlotProfile>> applyResources(
         long jobId,
         List<ResourceProfile> resourceProfiles,
-        List<TagFilter> tagFilters
-    ) {
-        // 1. Filter workers by tags
-        List<WorkerProfile> candidates = filterWorkersByTags(tagFilters);
+        Map<String, String> tagFilter
+    ) throws NoEnoughResourceException {
+        // 1. Filter workers by tagFilter (match worker attributes)
+        Map<Address, WorkerProfile> candidates = filterWorkerByTag(tagFilter);
 
-        // 2. Select workers using strategy
-        List<SlotProfile> allocatedSlots = new ArrayList<>();
-        for (ResourceProfile profile : resourceProfiles) {
-            SlotProfile slot = slotAssignStrategy.selectSlot(candidates, profile);
-            if (slot == null) {
-                throw new NoEnoughResourceException("No available slot for " + profile);
-            }
-            allocatedSlots.add(slot);
-
-            // Mark slot as assigned
-            markSlotAssigned(slot);
-        }
-
-        return CompletableFuture.completedFuture(allocatedSlots);
-    }
-
-    @Override
-    public void releaseResources(long jobId, List<SlotProfile> slots) {
-        for (SlotProfile slot : slots) {
-            // Mark slot as unassigned
-            markSlotUnassigned(slot);
-        }
+        // 2. For each requested profile, select a worker by strategy and pick an unassigned slot
+        // (actual slot selection/marking is implementation-defined)
+        return requestSlots(jobId, resourceProfiles, candidates, slotAllocationStrategy);
     }
 }
 ```
 
-## 4. Slot Assignment Strategies
+## 4. Slot Allocation Strategies
 
-### 4.1 RandomSlotAssignStrategy
+In SeaTunnel Engine / Zeta, allocation typically consists of:
+1. Select a candidate worker (strategy)
+2. Pick an unassigned slot from that worker
 
-Randomly selects a worker with available slots.
+### 4.1 RandomStrategy
+
+Randomly selects a worker from the available candidates.
 
 ```java
-public class RandomSlotAssignStrategy implements SlotAssignStrategy {
-    private final Random random = new Random();
-
+public class RandomStrategy implements SlotAllocationStrategy {
     @Override
-    public SlotProfile selectSlot(
-        List<WorkerProfile> workers,
-        ResourceProfile requiredProfile
-    ) {
-        // Filter workers with enough resources
-        List<WorkerProfile> eligible = workers.stream()
-            .filter(w -> hasEnoughResources(w, requiredProfile))
-            .collect(Collectors.toList());
-
-        if (eligible.isEmpty()) {
-            return null;
-        }
-
-        // Random selection
-        WorkerProfile selected = eligible.get(random.nextInt(eligible.size()));
-
-        // Return first available slot
-        return selected.getUnassignedSlots().stream()
-            .filter(s -> s.getResourceProfile().satisfies(requiredProfile))
-            .findFirst()
-            .orElse(null);
+    public Optional<WorkerProfile> selectWorker(List<WorkerProfile> availableWorkers) {
+        Collections.shuffle(availableWorkers);
+        return availableWorkers.stream().findFirst();
     }
 }
 ```
 
-**Pros**:
-- Simple and fast
-- No coordination overhead
-- Good for homogeneous clusters
+### 4.2 SlotRatioStrategy
 
-**Cons**:
-- No load balancing
-- May create hotspots
+Selects the worker with the lowest slot usage ratio (prefers workers with more available slots).
 
-### 4.2 SlotRatioSlotAssignStrategy
+### 4.3 SystemLoadStrategy
 
-Prefers workers with higher ratio of available slots.
-
-```java
-public class SlotRatioSlotAssignStrategy implements SlotAssignStrategy {
-    @Override
-    public SlotProfile selectSlot(
-        List<WorkerProfile> workers,
-        ResourceProfile requiredProfile
-    ) {
-        // Calculate slot ratio for each worker
-        WorkerProfile best = workers.stream()
-            .filter(w -> hasEnoughResources(w, requiredProfile))
-            .max(Comparator.comparingDouble(w ->
-                (double) w.getUnassignedSlots().size() /
-                (w.getAssignedSlots().size() + w.getUnassignedSlots().size())
-            ))
-            .orElse(null);
-
-        if (best == null) {
-            return null;
-        }
-
-        return best.getUnassignedSlots().stream()
-            .filter(s -> s.getResourceProfile().satisfies(requiredProfile))
-            .findFirst()
-            .orElse(null);
-    }
-}
-```
-
-**Pros**:
-- Better load balancing
-- Distributes tasks evenly
-- Prevents worker overload
-
-**Cons**:
-- Slightly more computation
-- May not consider actual CPU/memory load
-
-### 4.3 SystemLoadSlotAssignStrategy
-
-Selects worker with lowest system load (CPU/memory usage).
-
-```java
-public class SystemLoadSlotAssignStrategy implements SlotAssignStrategy {
-    @Override
-    public SlotProfile selectSlot(
-        List<WorkerProfile> workers,
-        ResourceProfile requiredProfile
-    ) {
-        // Find worker with lowest load
-        WorkerProfile best = workers.stream()
-            .filter(w -> hasEnoughResources(w, requiredProfile))
-            .min(Comparator.comparingDouble(w -> calculateLoad(w)))
-            .orElse(null);
-
-        if (best == null) {
-            return null;
-        }
-
-        return best.getUnassignedSlots().stream()
-            .filter(s -> s.getResourceProfile().satisfies(requiredProfile))
-            .findFirst()
-            .orElse(null);
-    }
-
-    private double calculateLoad(WorkerProfile worker) {
-        // CPU load + memory load (weighted average)
-        double cpuLoad = 1.0 - (worker.getAvailableResourceProfile().getCpu().getCores() /
-                                worker.getTotalResourceProfile().getCpu().getCores());
-        double memLoad = 1.0 - (worker.getAvailableResourceProfile().getHeapMemory().getMegabytes() /
-                                worker.getTotalResourceProfile().getHeapMemory().getMegabytes());
-
-        return 0.7 * cpuLoad + 0.3 * memLoad; // Weighted
-    }
-}
-```
-
-**Pros**:
-- Considers actual resource usage
-- Best for heterogeneous clusters
-- Optimizes cluster utilization
-
-**Cons**:
-- Requires real-time metrics
-- Higher computation cost
-- May thrash if loads change rapidly
+Selects the worker with the lowest system load (based on heartbeat-reported load information).
 
 ## 5. Tag-Based Slot Filtering
 
@@ -403,20 +267,19 @@ public class SystemLoadSlotAssignStrategy implements SlotAssignStrategy {
 
 **Data Locality**:
 ```hocon
-source {
-  JDBC {
-    url = "jdbc:mysql://db-west-1:3306/..."
-    tag = "zone:us-west-1" # Assign to workers in same zone
+env {
+  # Job-level worker attribute filter (full key/value match)
+  tag_filter = {
+    zone = "us-west-1"
   }
 }
 ```
 
 **Resource Specialization**:
 ```hocon
-transform {
-  ML-Transform {
-    model = "..."
-    tag = "resource:gpu" # Assign to GPU workers
+env {
+  tag_filter = {
+    resource = "gpu"
   }
 }
 ```
@@ -425,38 +288,15 @@ transform {
 ```hocon
 env {
   job.name = "tenant-a-job"
-  tag = "tenant:a" # Assign to tenant A's workers only
+  tag_filter = {
+    tenant = "a"
+  }
 }
 ```
 
-### 5.2 TagFilter
+### 5.2 Matching Semantics
 
-```java
-public class TagFilter {
-    private final String key;
-    private final String value;
-
-    public boolean matches(Map<String, String> tags) {
-        return value.equals(tags.get(key));
-    }
-}
-```
-
-**Filtering Process**:
-```java
-List<WorkerProfile> filterWorkersByTags(List<TagFilter> filters) {
-    return registerWorker.values().stream()
-        .filter(worker -> {
-            for (TagFilter filter : filters) {
-                if (!filter.matches(worker.getTags())) {
-                    return false;
-                }
-            }
-            return true;
-        })
-        .collect(Collectors.toList());
-}
-```
+The engine matches `env.tag_filter` against worker `attributes` (key/value full match). If no worker matches, resource allocation fails.
 
 ## 6. Resource Allocation Flow
 
@@ -572,66 +412,21 @@ public void memberRemoved(MembershipEvent event) {
 - Workers re-register via heartbeat mechanism
 
 **Recovery**:
-```java
-public void start() {
-    // Start accepting worker heartbeats
-    scheduledExecutor.scheduleAtFixedRate(() -> {
-        // Check for timed-out workers
-        long now = System.currentTimeMillis();
-        registerWorker.entrySet().removeIf(entry -> {
-            long lastHeartbeat = entry.getValue().getLastHeartbeat();
-            return (now - lastHeartbeat) > heartbeatTimeout;
-        });
-    }, heartbeatInterval, heartbeatInterval, TimeUnit.MILLISECONDS);
-}
-```
+- Worker liveness is determined by heartbeat updates and cluster membership events (exact timeout/threshold is implementation/config-dependent)
 
 ## 8. Configuration
 
 ### 8.1 Slot Configuration
 
-```hocon
-seatunnel.engine {
-  # Slot configuration per worker
-  slot-service {
-    # Number of slots per worker
-    number-of-slots = 2
+Example (`config/seatunnel.yaml`, SeaTunnel Engine / Zeta):
 
-    # Dynamic slot allocation (future)
-    dynamic-slot = false
-  }
-}
-```
-
-### 8.2 Resource Strategy
-
-```hocon
-seatunnel.engine {
-  resource-manager {
-    # Slot assignment strategy
-    # Options: random, slot-ratio, system-load
-    slot-assign-strategy = "slot-ratio"
-
-    # Heartbeat configuration
-    heartbeat.interval = 10000 # ms
-    heartbeat.timeout = 60000  # ms
-  }
-}
-```
-
-### 8.3 Resource Profile
-
-```hocon
-seatunnel.engine {
-  # Default resource profile per slot
-  slot-service {
-    default-resource-profile {
-      cpu.cores = 1.0
-      heap-memory.mb = 512
-      off-heap-memory.mb = 256
-    }
-  }
-}
+```yaml
+seatunnel:
+  engine:
+    slot-service:
+      dynamic-slot: true
+      slot-num: 16
+      slot-allocate-strategy: RANDOM # RANDOM / SLOT_RATIO / SYSTEM_LOAD
 ```
 
 ## 9. Monitoring and Metrics
@@ -639,23 +434,16 @@ seatunnel.engine {
 ### 9.1 Key Metrics
 
 **Cluster-Level**:
-- `cluster.workers.total`: Total number of registered workers
-- `cluster.workers.active`: Workers with recent heartbeat
-- `cluster.slots.total`: Total slots across all workers
-- `cluster.slots.available`: Unassigned slots
-- `cluster.slots.assigned`: Slots in use
+- Worker count and liveness (registered vs active)
+- Slot inventory and utilization (assigned vs unassigned)
 
 **Per-Worker**:
-- `worker.cpu.available`: Available CPU cores
-- `worker.memory.available`: Available memory (MB)
-- `worker.slots.total`: Total slots on worker
-- `worker.slots.assigned`: Assigned slots
-- `worker.heartbeat.last`: Last heartbeat timestamp
+- CPU/memory utilization (if reported)
+- Slots assigned/unassigned
 
 **Per-Job**:
-- `job.slots.requested`: Slots requested by job
-- `job.slots.allocated`: Slots successfully allocated
-- `job.resource.wait_time`: Time waiting for resources
+- Slots requested/allocated
+- Resource wait time (if available)
 
 ### 9.2 Observability
 
@@ -683,37 +471,21 @@ Worker Distribution:
 
 ### 10.1 Slot Sizing
 
-**General Guideline**:
-```
-Slots per Worker = CPU Cores - 1 (reserve 1 for OS)
-
-Example:
-  8-core machine → 6-7 slots
-  16-core machine → 14-15 slots
-```
-
-**Memory per Slot**:
-```
-Heap Memory = Total Memory * 0.7 / Number of Slots
-
-Example:
-  32GB machine, 6 slots
-  Heap per slot = 32GB * 0.7 / 6 ≈ 3.7GB
-```
+Slot sizing (slots per worker, heap per slot, etc.) depends on workload characteristics and deployment constraints. Avoid treating formulas in architecture docs as mandatory defaults.
 
 ### 10.2 Strategy Selection
 
-**Use RandomSlotAssignStrategy when**:
+**Use RandomStrategy when**:
 - Homogeneous cluster (all workers identical)
 - Simple deployments
 - Fast allocation more important than perfect balance
 
-**Use SlotRatioSlotAssignStrategy when**:
+**Use SlotRatioStrategy when**:
 - Need good load balancing
 - Mixed job sizes
 - Moderate cluster size (< 100 workers)
 
-**Use SystemLoadSlotAssignStrategy when**:
+**Use SystemLoadStrategy when**:
 - Heterogeneous cluster
 - Workers have varying CPU/memory
 - Optimizing resource utilization is critical
@@ -722,28 +494,21 @@ Example:
 
 **Data Locality**:
 ```hocon
-# Tag workers by region/zone
-worker-1: tag = "zone:us-west-1a"
-worker-2: tag = "zone:us-east-1b"
-
-# Assign source to same zone as data
-source {
-  S3 {
-    path = "s3://bucket-us-west-1/..."
-    tag = "zone:us-west-1a" # Minimize cross-region traffic
+env {
+  # Match worker attributes, e.g., zone=us-west-1a
+  tag_filter = {
+    zone = "us-west-1a"
   }
 }
 ```
 
 **Resource Isolation**:
 ```hocon
-# Dedicated workers for critical jobs
-worker-1,2,3: tag = "priority:high"
-worker-4,5,6: tag = "priority:normal"
-
 env {
   job.name = "critical-job"
-  tag = "priority:high"
+  tag_filter = {
+    priority = "high"
+  }
 }
 ```
 
@@ -759,8 +524,8 @@ env {
 
 - [ResourceManager.java](../../../seatunnel-engine/seatunnel-engine-server/src/main/java/org/apache/seatunnel/engine/server/resourcemanager/ResourceManager.java)
 - [AbstractResourceManager.java](../../../seatunnel-engine/seatunnel-engine-server/src/main/java/org/apache/seatunnel/engine/server/resourcemanager/AbstractResourceManager.java)
-- [SlotProfile.java](../../../seatunnel-engine/seatunnel-engine-common/src/main/java/org/apache/seatunnel/engine/common/runtime/SlotProfile.java)
-- [WorkerProfile.java](../../../seatunnel-engine/seatunnel-engine-common/src/main/java/org/apache/seatunnel/engine/common/runtime/WorkerProfile.java)
+- [SlotProfile.java](../../../seatunnel-engine/seatunnel-engine-server/src/main/java/org/apache/seatunnel/engine/server/resourcemanager/resource/SlotProfile.java)
+- [WorkerProfile.java](../../../seatunnel-engine/seatunnel-engine-server/src/main/java/org/apache/seatunnel/engine/server/resourcemanager/worker/WorkerProfile.java)
 
 ### Further Reading
 

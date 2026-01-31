@@ -24,7 +24,7 @@ SeaTunnel's translation layer aims to:
 1. **Enable Portability**: Same connector runs on any engine
 2. **Hide Complexity**: Connector developers only learn SeaTunnel API
 3. **Maintain Fidelity**: Preserve semantic guarantees across engines
-4. **Minimize Overhead**: Keep translation performance impact < 5%
+4. **Minimize Overhead**: Keep translation overhead low (depends on connectors and type conversions)
 5. **Support Evolution**: Isolate connectors from engine API changes
 
 ### 1.3 Architecture Overview
@@ -357,6 +357,7 @@ public class FlinkSinkWriter<IN, CommitInfoT, WriterStateT>
     implements SinkWriter<IN, CommitInfoT, WriterStateT> {
 
     private final org.apache.seatunnel.api.sink.SinkWriter<IN, CommitInfoT, WriterStateT> seaTunnelWriter;
+    private long checkpointId;
 
     @Override
     public void write(IN element, Context context) throws IOException {
@@ -366,7 +367,7 @@ public class FlinkSinkWriter<IN, CommitInfoT, WriterStateT>
 
     @Override
     public List<CommitInfoT> prepareCommit(boolean flush) throws IOException {
-        Optional<CommitInfoT> commitInfo = seaTunnelWriter.prepareCommit();
+        Optional<CommitInfoT> commitInfo = seaTunnelWriter.prepareCommit(checkpointId);
         return commitInfo.map(Collections::singletonList)
             .orElse(Collections.emptyList());
     }
@@ -385,6 +386,8 @@ public class FlinkSinkWriter<IN, CommitInfoT, WriterStateT>
 
 ## 3. Spark Translation Layer
 
+Note: Spark 2.4 and Spark 3.x use different datasource APIs. SeaTunnel maintains separate Spark translation modules/adapters per Spark major version, so the exact adapter types and lifecycle hooks may differ.
+
 ### 3.1 SparkSource Adapter
 
 Adapts `SeaTunnelSource` to Spark's `DataSourceReader` interface.
@@ -398,7 +401,7 @@ public class SparkSource<T, SplitT extends SourceSplit, StateT>
     @Override
     public StructType readSchema() {
         // Convert SeaTunnel schema to Spark schema
-        CatalogTable catalogTable = seaTunnelSource.getProducedCatalogTable();
+        CatalogTable catalogTable = seaTunnelSource.getProducedCatalogTables().get(0);
         return SparkTypeConverter.convert(catalogTable.getTableSchema());
     }
 
@@ -679,19 +682,7 @@ public class SparkTypeConverter {
 
 ### 6.1 Translation Overhead
 
-**Measured Overhead**:
-```
-Benchmark: 1M records/sec throughput
-
-Without Translation (Native):     1,000,000 records/sec
-With Flink Translation:             980,000 records/sec (-2%)
-With Spark Translation:             970,000 records/sec (-3%)
-```
-
-**Overhead Sources**:
-1. Context wrapping: ~1%
-2. Type conversion: ~1-2%
-3. Split wrapping/unwrapping: <1%
+Translation overhead depends on connector implementations, serialization, and type conversion complexity. Prefer measuring in your own workload rather than relying on fixed numbers.
 
 ### 6.2 Optimization Techniques
 
