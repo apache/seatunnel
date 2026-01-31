@@ -32,17 +32,7 @@ title: 设计理念
 - **缺点**：额外的转换开销
 - **缓解措施**：转换层轻薄且优化；大部分开销在 I/O 而非转换
 
-**示例**：
-```java
-// 连接器开发人员只需实现 SeaTunnelSource
-public class JdbcSource implements SeaTunnelSource<SeaTunnelRow, JdbcSourceSplit, JdbcSourceState> {
-    // 此代码无需修改即可在 Zeta、Flink 和 Spark 上运行
-}
-
-// 转换层处理引擎适配
-FlinkSource<SeaTunnelRow> flinkSource = new FlinkSource<>(jdbcSource); // 用于 Flink
-SparkSource<SeaTunnelRow> sparkSource = new SparkSource<>(jdbcSource); // 用于 Spark
-```
+**示例**：连接器仅实现 SeaTunnel API 的抽象（Source/Sink/Transform），不同执行引擎通过转换层完成适配；因此连接器逻辑与引擎 API 变更解耦。
 
 ### 2.2 协调与执行分离
 
@@ -72,25 +62,10 @@ SparkSource<SeaTunnelRow> sparkSource = new SparkSource<>(jdbcSource); // 用于
 - **缓解措施**：合理的默认值；简单连接器可以使用简单的枚举器/提交器
 
 **示例**：
-```java
-// 协调：主节点上的分片分配
-class JdbcSourceSplitEnumerator {
-    void handleSplitRequest(int subtaskId) {
-        JdbcSourceSplit split = pendingSplits.poll();
-        context.assignSplit(subtaskId, split); // 分配给特定读取器
-    }
-}
+- 主节点侧：负责“发现/生成工作单元（split）+ 分配 + 回收 + 快照状态”。
+- 工作节点侧：负责“执行读取/写入 + 汇报进度 + 参与 checkpoint”。
 
-// 执行：工作节点上的数据读取
-class JdbcSourceReader {
-    void pollNext(Collector<SeaTunnelRow> output) {
-        ResultSet rs = statement.executeQuery();
-        while (rs.next()) {
-            output.collect(convertToRow(rs)); // 并行数据处理
-        }
-    }
-}
-```
+这样设计的关键原因是：容错需要区分“控制状态”（分配/待处理 split）和“执行进度”（每个 split 的 offset/position），才能在失败后做到精准恢复与快速重分配。
 
 ### 2.3 基于分片的并行度
 
@@ -116,22 +91,10 @@ class JdbcSourceReader {
 - **缓解措施**：延迟分片生成；分片状态轻量级
 
 **示例**：
-```java
-// JDBC 数据源：按分区或块分片
-class JdbcSourceSplit implements SourceSplit {
-    private final String splitId;
-    private final String query; // SELECT * FROM table WHERE id >= ? AND id < ?
-    private final long startOffset;
-    private final long endOffset;
-}
+- 数据库场景：split 通常表达“分片键范围/分页区间/分区”一类可独立读取的范围。
+- 文件场景：split 通常表达“文件 + 起始偏移 + 长度”或“单文件”。
 
-// 文件数据源：按文件或字节范围分片
-class FileSplit implements SourceSplit {
-    private final String filePath;
-    private final long startOffset;
-    private final long length;
-}
-```
+这里不展示具体结构体代码，重点在于 split 的边界：必须能被独立处理、可序列化传输、可在失败后重新分配。
 
 ### 2.4 通过两阶段提交实现精确一次语义
 
@@ -155,26 +118,7 @@ class FileSplit implements SourceSplit {
 - **缺点**：提交信息的额外状态
 - **缓解措施**：可选特性；非事务性数据汇可使用至少一次模式
 
-**示例**：
-```java
-class JdbcExactlyOnceSinkWriter {
-    List<CommitInfoT> prepareCommit() {
-        // 启动 XA 事务但尚未提交
-        String xid = generateXid();
-        connection.prepareTransaction(xid);
-        return Collections.singletonList(new XidInfo(xid));
-    }
-}
-
-class JdbcSinkCommitter {
-    void commit(List<XidInfo> commitInfos) {
-        // 原子性地提交所有准备好的事务
-        for (XidInfo xid : commitInfos) {
-            connection.commitPreparedTransaction(xid);
-        }
-    }
-}
-```
+**示例**：典型的 Exactly-Once 落地方式是“写入端先生成可提交凭证（commit info），checkpoint 成功后再由协调端执行最终提交”。这样做的原因是：把副作用（对外部系统的可见变更）延后到 checkpoint 成功之后，避免失败重启时产生重复可见写入。
 
 ### 2.5 模式作为一等公民
 
@@ -199,28 +143,7 @@ class JdbcSinkCommitter {
 - **缺点**：某些数据源的模式发现开销
 - **缓解措施**：模式推断助手；可选的模式覆盖
 
-**示例**：
-```java
-// 数据源产生类型化模式
-CatalogTable catalogTable = CatalogTable.of(
-    tableId,
-    TableSchema.builder()
-        .column("id", DataTypes.BIGINT())
-        .column("name", DataTypes.STRING())
-        .primaryKey("id")
-        .build()
-);
-
-// 转换验证和修改模式
-public CatalogTable getProducedCatalogTable() {
-    return inputCatalogTable.copy(
-        TableSchema.builder()
-            .column("id", DataTypes.BIGINT())
-            .column("name_upper", DataTypes.STRING()) // 已转换
-            .build()
-    );
-}
-```
+**示例**：数据源产出“显式模式”（列、主键、约束、分区、选项等），转换对模式进行验证与映射，数据汇在接收端再次校验。这样做的原因是：把“类型不匹配/缺列/主键冲突”等问题尽早暴露在提交阶段，而不是让它们在运行时以隐式的脏数据形式出现。
 
 ### 2.6 具有类加载器隔离的插件架构
 

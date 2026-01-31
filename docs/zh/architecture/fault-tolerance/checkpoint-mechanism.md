@@ -126,137 +126,45 @@ SeaTunnel 的检查点基于 **Chandy-Lamport 分布式快照算法**：
 
 #### CheckpointCoordinator
 
-```java
-public class CheckpointCoordinator {
-    // 检查点 ID 生成器
-    private final CheckpointIDCounter checkpointIdCounter;
+**职责摘要**：
+- 触发 checkpoint（按 interval/并发/最小间隔约束）
+- 跟踪进行中的 `PendingCheckpoint`，收集各 task 的 ACK 与状态
+- 将 `CompletedCheckpoint` 持久化到 `CheckpointStorage`，并维护“最近成功 checkpoint”
 
-    // 检查点执行计划
-    private final CheckpointPlan checkpointPlan;
-
-    // 待处理的检查点（进行中）
-    private final Map<Long, PendingCheckpoint> pendingCheckpoints;
-
-    // 已完成的检查点（成功）
-    private final ArrayDeque<String> completedCheckpointIds;
-
-    // 最新完成的检查点
-    private CompletedCheckpoint latestCompletedCheckpoint;
-
-    // 检查点存储
-    private final CheckpointStorage checkpointStorage;
-
-    // 配置
-    private final long checkpointInterval;      // 触发间隔（毫秒）
-    private final long checkpointTimeout;       // 超时时间（毫秒）
-    private final int maxConcurrentCheckpoints; // 最大并发数
-    private final int minPauseBetweenCheckpoints; // 最小暂停时间（毫秒）
-}
-```
+**关键字段（概念级）**：
+- `checkpointIdCounter`：生成 checkpointId
+- `pendingCheckpoints`：进行中的 checkpoint 集合
+- `checkpointStorage`：状态持久化后端
+- 调度参数：`checkpointInterval` / `checkpointTimeout` / `maxConcurrentCheckpoints` / `minPauseBetweenCheckpoints`
 
 #### PendingCheckpoint
 
 表示进行中的检查点。
 
-```java
-public class PendingCheckpoint {
-    private final long checkpointId;
-    private final CheckpointType checkpointType; // CHECKPOINT 或 SAVEPOINT
-    private final long triggerTimestamp;
-
-    // 尚未确认的任务
-    private final Set<Long> notYetAcknowledgedTasks;
-
-    // 收集的操作状态（来自任务 ACK）
-    private final Map<ActionStateKey, ActionState> actionStates;
-
-    // 任务统计（已处理的记录、字节等）
-    private final Map<Long, TaskStatistics> taskStatistics;
-
-    // 当所有任务 ACK 时完成的 Future
-    private final CompletableFuture<CompletedCheckpoint> completableFuture;
-
-    /**
-     * 任务确认检查点时调用
-     */
-    public void acknowledgeTask(long taskId, List<ActionSubtaskState> states,
-                                TaskStatistics statistics) {
-        notYetAcknowledgedTasks.remove(taskId);
-
-        // 收集状态
-        for (ActionSubtaskState state : states) {
-            actionStates.computeIfAbsent(state.getKey(), k -> new ActionState())
-                        .putSubtaskState(state);
-        }
-
-        // 收集统计
-        taskStatistics.put(taskId, statistics);
-
-        // 检查是否所有任务都已确认
-        if (notYetAcknowledgedTasks.isEmpty()) {
-            completeCheckpoint();
-        }
-    }
-
-    private void completeCheckpoint() {
-        CompletedCheckpoint completed = new CompletedCheckpoint(
-            checkpointId, actionStates, taskStatistics, System.currentTimeMillis()
-        );
-        completableFuture.complete(completed);
-    }
-}
-```
+**职责摘要**：
+- 持有本次 checkpoint 的中间态（已 ACK/未 ACK 的 task、收集到的 action 状态与统计）
+- 在全部 task ACK 后组装 `CompletedCheckpoint`（或触发失败/超时处理）
 
 #### CompletedCheckpoint
 
 持久化的检查点数据。
 
-```java
-public class CompletedCheckpoint implements Serializable {
-    private final long checkpointId;
-    private final Map<ActionStateKey, ActionState> taskStates;
-    private final Map<Long, TaskStatistics> taskStatistics;
-    private final long completedTimestamp;
-}
+**职责摘要**：
+- 表示一次成功的 checkpoint 的“可恢复快照”，可被持久化并用于作业恢复
 
-public class ActionState implements Serializable {
-    private final ActionStateKey key; // (pipelineId, actionId)
-    private final Map<Integer, ActionSubtaskState> subtaskStates;
-}
-
-public class ActionSubtaskState implements Serializable {
-    private final int subtaskIndex;
-    private final byte[] state; // 序列化的状态
-}
-```
+**状态组织方式（概念级）**：
+- 以“算子/Action + subtask”作为索引维度收集状态
+- 每个 subtask 上报一份序列化状态（可能为空，取决于算子是否有状态）
 
 ### 2.3 CheckpointStorage
 
 检查点持久化的抽象。
 
-```java
-public interface CheckpointStorage {
-    /**
-     * 存储已完成的检查点
-     */
-    void storeCheckpoint(CompletedCheckpoint checkpoint) throws IOException;
-
-    /**
-     * 获取最新检查点
-     */
-    Optional<CompletedCheckpoint> getLatestCheckpoint() throws IOException;
-
-    /**
-     * 根据 ID 获取特定检查点
-     */
-    Optional<CompletedCheckpoint> getCheckpoint(long checkpointId) throws IOException;
-
-    /**
-     * 删除旧检查点
-     */
-    void deleteCheckpoint(long checkpointId) throws IOException;
-}
-```
+**能力要求（语义级）**：
+- 持久化：将一次成功 checkpoint 的快照写入外部存储
+- 读取：支持读取“最新成功 checkpoint”以及按 checkpointId 定位读取
+- 清理：支持按保留策略删除旧 checkpoint
+- 一致性：写入完成前不得对外可见“半成品”，避免恢复读到不完整快照
 
 **实现**：
 - `LocalFileCheckpointStorage`：本地文件系统（测试）
@@ -332,77 +240,32 @@ sequenceDiagram
 3. **数据汇任务**：管道终点，从上游接收，快照，不转发
 
 **屏障对齐**（对于具有多个输入的任务）：
-```java
-// 具有 2 个输入的任务
-输入 1: ──data──data──[barrier-123]──data──data──
-                         │ 等待！
-输入 2: ──data──data──data──data──[barrier-123]──
-                                     │
-                                     ▼
-                        两个屏障都已接收，快照状态
-```
+
+当一个任务有多个上游输入时，需要在本任务处形成一致性快照边界。典型做法是：
+- 先到达屏障的输入先“对齐等待”（短暂停止向下游发出该输入的后续数据）
+- 直到所有输入都收到同一 checkpointId 的屏障，才触发本地状态快照，并继续处理
+
+对齐带来的直接影响是：上游数据乱序/不均衡会放大等待时间，因此需要结合并行度、分区策略与 backpressure 做调优。
 
 ### 3.3 状态快照
 
 每种任务类型快照不同的状态：
 
 **SourceTask**：
-```java
-@Override
-public void triggerBarrier(long checkpointId) {
-    // 1. 快照 SourceReader 状态（分片 + 偏移量）
-    List<byte[]> states = sourceFlowLifeCycle.snapshotState(checkpointId);
 
-    // 2. 创建 ActionSubtaskState
-    ActionSubtaskState state = new ActionSubtaskState(subtaskIndex, states);
-
-    // 3. 向协调器发送 ACK
-    sendAcknowledgement(checkpointId, Collections.singletonList(state));
-
-    // 4. 向下游转发屏障
-    forwardBarrierToDownstream(checkpointId);
-}
-```
+- 快照内容：reader 的“分片分配 + 分片内进度（偏移量/游标/切分点）”
+- 交互行为：上报 ACK（携带状态）给协调器，并向下游转发屏障以推进全局一致性边界
 
 **TransformTask**：
-```java
-@Override
-public void triggerBarrier(long checkpointId) {
-    // 1. 快照转换状态（通常是无状态的，空状态）
-    List<byte[]> states = transformFlowLifeCycle.snapshotState(checkpointId);
 
-    // 2. 创建 ActionSubtaskState
-    ActionSubtaskState state = new ActionSubtaskState(subtaskIndex, states);
-
-    // 3. 发送 ACK
-    sendAcknowledgement(checkpointId, Collections.singletonList(state));
-
-    // 4. 转发屏障
-    forwardBarrierToDownstream(checkpointId);
-}
-```
+- 快照内容：算子状态（无状态算子通常为空状态）
+- 交互行为：上报 ACK，并转发屏障
 
 **SinkTask**：
-```java
-@Override
-public void triggerBarrier(long checkpointId) {
-    // 1. 准备提交（两阶段提交）
-    Optional<CommitInfoT> commitInfo = sinkWriter.prepareCommit();
 
-    // 2. 快照写入器状态
-    List<StateT> writerStates = sinkWriter.snapshotState(checkpointId);
-
-    // 3. 创建 ActionSubtaskState（包含提交信息和状态）
-    ActionSubtaskState state = new ActionSubtaskState(
-        subtaskIndex,
-        serialize(writerStates),
-        commitInfo.orElse(null)
-    );
-
-    // 4. 发送 ACK（无转发 - 管道终点）
-    sendAcknowledgement(checkpointId, Collections.singletonList(state));
-}
-```
+- 快照内容：writer 的内部状态（例如未刷新的 buffer、事务句柄等）
+- 提交准备：在 checkpoint 边界生成“可提交但未提交”的提交信息（2PC 的 prepare 阶段）
+- 交互行为：上报 ACK（携带 writer state + commitInfo），作为管道终点不再转发屏障
 
 ### 3.4 检查点完成
 
@@ -441,25 +304,12 @@ sequenceDiagram
 
 ### 3.5 检查点超时
 
-```java
-// CheckpointCoordinator
-private void startCheckpointTimeout(long checkpointId, long timeoutMs) {
-    scheduledExecutor.schedule(() -> {
-        PendingCheckpoint pending = pendingCheckpoints.get(checkpointId);
-        if (pending != null && !pending.isCompleted()) {
-            LOG.warn("Checkpoint {} timeout after {}ms, {} tasks not yet acknowledged",
-                     checkpointId, timeoutMs, pending.getNotYetAcknowledgedTasks());
+协调器为每个进行中的 checkpoint 启动超时计时。
 
-            // 失败检查点
-            pending.abort();
-            pendingCheckpoints.remove(checkpointId);
-
-            // 如果需要触发作业故障转移
-            handleCheckpointFailure(checkpointId);
-        }
-    }, timeoutMs, TimeUnit.MILLISECONDS);
-}
-```
+**超时触发后的语义**：
+- 将该次 checkpoint 标记为失败并清理其进行中状态
+- 作业继续运行（仍以“最近一次成功 checkpoint”作为可恢复点）
+- 是否触发 failover 取决于作业容错策略与失败类型（例如连续失败、关键任务不可用等）
 
 **超时处理**：
 - 默认超时：10 分钟
@@ -513,23 +363,10 @@ sequenceDiagram
 6. 作业恢复执行
 
 **示例：JDBC 数据源恢复**：
-```java
-public class JdbcSourceReader {
-    @Override
-    public void restoreState(List<JdbcSourceState> states) {
-        for (JdbcSourceState state : states) {
-            JdbcSourceSplit split = state.getSplit();
-            long offset = state.getCurrentOffset();
 
-            // 使用偏移量恢复分片
-            pendingSplits.add(split);
-
-            // 处理分片时，从偏移量开始
-            String query = split.getQuery() + " OFFSET " + offset;
-        }
-    }
-}
-```
+以 JDBC 为例，恢复需要满足两点：
+- 能把“分片 + 进度（offset/游标）”可靠序列化到 checkpoint
+- 能在恢复时把读取位置回放到该进度（例如通过主键范围、游标、时间戳或 connector 支持的 offset 语义）
 
 ### 4.2 精确一次恢复
 
@@ -614,37 +451,18 @@ env {
 
 状态快照不阻塞数据处理：
 
-```java
-public class AsyncSnapshotSupport {
-    @Override
-    public void snapshotState(long checkpointId) {
-        // 1. 创建当前状态的快照（快速，内存复制）
-        StateSnapshot snapshot = createSnapshot();
+核心思路是把“生成快照引用/拷贝（快）”与“序列化 + 上传（慢）”解耦：
+- 任务线程快速冻结一份一致性快照（或引用）后立即继续处理
+- 后台线程异步完成序列化与外部存储写入
 
-        // 2. 继续数据处理（不等待序列化/上传）
-        // ...
-
-        // 3. 异步序列化和上传
-        CompletableFuture.runAsync(() -> {
-            byte[] serialized = serialize(snapshot);
-            checkpointStorage.upload(checkpointId, serialized);
-        }, executorService);
-    }
-}
-```
+这样可以降低对数据处理主路径的阻塞，但也需要关注异步积压导致的内存压力。
 
 ### 6.2 增量检查点（未来）
 
 仅检查点更改的状态：
 
-```java
-// 完整检查点（第一次）
-检查点 1：状态 = 1GB → 上传 1GB
-
-// 增量检查点（后续）
-检查点 2：状态 = 1.1GB → 上传 100MB（增量）
-检查点 3：状态 = 1.05GB → 上传 0MB（删除不上传）
-```
+- 完整 checkpoint：第一次需要上传全量状态
+- 增量 checkpoint：后续只上传变化部分，并以链式/引用方式组织快照
 
 **好处**：
 - 减少检查点时间
@@ -660,48 +478,16 @@ public class AsyncSnapshotSupport {
 
 在本地存储热状态，仅检查点摘要：
 
-```java
-// RocksDB 本地状态后端
-class RocksDBStateBackend {
-    private final RocksDB rocksDB; // 快速本地 SSD
-
-    @Override
-    public void put(String key, byte[] value) {
-        rocksDB.put(key.getBytes(), value); // 本地写入（快速）
-    }
-
-    @Override
-    public byte[] snapshotState() {
-        // 仅检查点 RocksDB 快照引用
-        return rocksDB.createCheckpoint().getBytes();
-    }
-}
-```
+典型做法是把热状态存到本地（例如 RocksDB），checkpoint 时只上传“可恢复的快照引用/元数据”，从而降低远端存储压力。
 
 ## 7. 最佳实践
 
 ### 7.1 状态大小优化
 
 **1. 保持状态小**：
-```java
-// ❌ 错误：缓冲整个数据集
-class BadSourceReader {
-    private List<SeaTunnelRow> bufferedRows = new ArrayList<>(); // 可能很大！
 
-    List<State> snapshotState() {
-        return serialize(bufferedRows); // 大状态
-    }
-}
-
-// ✅ 正确：仅跟踪偏移量
-class GoodSourceReader {
-    private long currentOffset = 0;
-
-    List<State> snapshotState() {
-        return serialize(currentOffset); // 小状态
-    }
-}
-```
+- 避免把“可重放的数据本身”放进状态（会放大 checkpoint 体积与时延）
+- 只保存“可定位读取位置”的最小信息（offset/游标/分片进度），把数据重放交给上游存储或 connector 的读取语义
 
 **2. 使用高效的序列化**：
 - 优先使用 Protobuf、Kryo 而不是 Java 序列化
@@ -757,12 +543,6 @@ class GoodSourceReader {
 - [精确一次语义](exactly-once.md)
 
 ## 9. 参考资料
-
-### 关键源文件
-
-- [CheckpointCoordinator.java](../../../seatunnel-engine/seatunnel-engine-server/src/main/java/org/apache/seatunnel/engine/server/checkpoint/CheckpointCoordinator.java)
-- [PendingCheckpoint.java](../../../seatunnel-engine/seatunnel-engine-server/src/main/java/org/apache/seatunnel/engine/server/checkpoint/PendingCheckpoint.java)
-- [CheckpointStorage.java](../../../seatunnel-engine/seatunnel-engine-storage/checkpoint-storage-api/src/main/java/org/apache/seatunnel/engine/checkpoint/storage/api/CheckpointStorage.java)
 
 ### 学术论文
 

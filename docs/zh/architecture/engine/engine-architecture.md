@@ -125,18 +125,9 @@ SeaTunnel 引擎（Zeta）设计为原生执行引擎，具有：
 - 处理作业生命周期事件
 
 **关键数据结构**：
-```java
-// 运行中的作业状态（由 Hazelcast 支持的分布式 IMap）
-IMap<Long, JobInfo> runningJobInfoIMap;
-IMap<Long, JobStatus> runningJobStateIMap;
-IMap<Long, Long> runningJobStateTimestampsIMap;
 
-// 已完成作业历史
-IMap<Long, JobInfo> completedJobInfoIMap;
-```
-
-**代码参考**：
-- [CoordinatorService.java](../../../seatunnel-engine/seatunnel-engine-server/src/main/java/org/apache/seatunnel/engine/server/CoordinatorService.java)
+- 运行中作业元信息：作业基本信息、当前状态、状态变更时间戳（分布式存储，支持多节点一致读取）
+- 已完成作业历史：用于查询与审计的作业快照（通常包含最终状态与关键元数据）
 
 #### JobMaster
 
@@ -160,9 +151,6 @@ Created → Initialized → Scheduled → Running → Finished/Failed/Canceled
 2. `run()`：请求资源，部署任务，启动执行
 3. `handleFailure()`：重启失败的任务，从检查点恢复
 
-**代码参考**：
-- [JobMaster.java](../../../seatunnel-engine/seatunnel-engine-server/src/main/java/org/apache/seatunnel/engine/server/master/JobMaster.java)
-
 #### ResourceManager
 
 管理工作节点资源和槽位分配。
@@ -175,15 +163,10 @@ Created → Initialized → Scheduled → Running → Finished/Failed/Canceled
 - 处理工作节点失败
 
 **槽位分配策略**：
-```java
-// 1. Random：在可用工作节点中随机选择
-// 2. SlotRatio：优先选择拥有更多可用槽位的工作节点
-// 3. SystemLoad：优先选择 CPU/内存使用率较低的工作节点
-```
 
-**代码参考**：
-- [ResourceManager.java](../../../seatunnel-engine/seatunnel-engine-server/src/main/java/org/apache/seatunnel/engine/server/resourcemanager/ResourceManager.java)
-- [AbstractResourceManager.java](../../../seatunnel-engine/seatunnel-engine-server/src/main/java/org/apache/seatunnel/engine/server/resourcemanager/AbstractResourceManager.java)
+- Random：在可用工作节点中随机选择
+- SlotRatio：优先选择拥有更多可用槽位的工作节点
+- SystemLoad：优先选择 CPU/内存使用率较低的工作节点
 
 ## 3. DAG 执行模型
 
@@ -239,65 +222,30 @@ Created → Initialized → Scheduled → Running → Finished/Failed/Canceled
 
 以引擎独立的方式表示用户意图。
 
-```java
-public class LogicalDag {
-    private final Map<Long, LogicalVertex> logicalVertexMap;
-    private final Set<LogicalEdge> edges;
-    private final JobConfig jobConfig;
-}
-
-public class LogicalVertex {
-    private final long vertexId;
-    private final Action action; // SourceAction / TransformChainAction / SinkAction
-    private final int parallelism;
-}
-
-public class LogicalEdge {
-    private final long inputVertexId;
-    private final long targetVertexId;
-}
-```
+**核心元素（概念级）**：
+- LogicalVertex：一个逻辑算子节点（Source / TransformChain / Sink），包含并行度等执行提示
+- LogicalEdge：逻辑边，描述上游到下游的数据流向
+- JobConfig：作业级配置（并行度、容错、资源、插件等）
 
 **创建**：
-```java
-// 从用户配置
-LogicalDag logicalDag = LogicalDagBuilder.build(jobConfig);
-```
+
+由 `JobConfig`/用户配置构建：解析配置 → 生成顶点/边 → 生成可执行提示（并行度、资源等）。
 
 ### 3.3 PhysicalPlan
 
 表示带资源分配的实际执行计划。
 
-```java
-public class PhysicalPlan {
-    private final List<SubPlan> pipelineList;
-    private final JobImmutableInformation jobImmutableInformation;
-    private final CompletableFuture<JobResult> jobEndFuture;
-}
-
-public class SubPlan {
-    private final int pipelineId;
-    private final List<PhysicalVertex> physicalVertexList;
-    private final List<PhysicalVertex> coordinatorVertexList;
-    private final CheckpointCoordinator checkpointCoordinator;
-}
-
-public class PhysicalVertex {
-    private final TaskGroupLocation taskGroupLocation;
-    private final TaskGroupDefaultImpl taskGroup;
-    private final SlotProfile slotProfile; // 分配的槽位
-    private final ExecutionState currentExecutionState;
-}
-```
+**核心结构（概念级）**：
+- PhysicalPlan：由多个 `SubPlan`（管道）组成，并携带作业不可变元信息与终态结果句柄
+- SubPlan（Pipeline）：一个独立执行单元，包含本管道的任务顶点集合，以及本管道的 checkpoint 协调器
+- PhysicalVertex：一个可调度的并行实例，绑定到具体槽位/工作节点，并维护自身执行状态
 
 **生成**：
-```java
-PhysicalPlan physicalPlan = jobMaster.getPhysicalPlan();
-// JobMaster 内部：
-// 1. 将 LogicalDag 分割为管道
-// 2. 为每个并行实例生成 PhysicalVertex
-// 3. 每个管道创建 CheckpointCoordinator
-```
+
+由 JobMaster 完成：
+1. 将 LogicalDag 切分为管道
+2. 为每个顶点生成并行实例（PhysicalVertex）并计算资源需求
+3. 为每个管道创建独立的 checkpoint 协调器
 
 ### 3.4 管道执行
 
@@ -395,31 +343,12 @@ sink {
 
 ### 4.2 SeaTunnelTask 执行
 
-```java
-public abstract class SeaTunnelTask implements Runnable {
-    private final TaskLocation taskLocation;
-    private final TaskExecutionContext executionContext;
-    private ExecutionState executionState;
-
-    @Override
-    public void run() {
-        try {
-            init();
-            restoreState(); // 如果恢复中
-            open();
-
-            while (isRunning()) {
-                processData(); // 数据源：读取，转换：处理，数据汇：写入
-                handleBarrier(); // 检查点屏障
-            }
-
-            close();
-        } catch (Exception e) {
-            handleException(e);
-        }
-    }
-}
-```
+**执行骨架（语义级）**：
+1. `init`：初始化运行时资源
+2. `restoreState`：如果处于恢复路径，加载 checkpoint 状态
+3. `open`：打开 Source/Transform/Sink 生命周期
+4. 主循环：处理数据 + 处理 checkpoint 屏障/控制消息
+5. `close`：正常结束时清理资源；异常时进入失败处理与上报
 
 **任务类型**：
 - **SourceSeaTunnelTask**：运行 SourceReader，发送数据
@@ -430,39 +359,10 @@ public abstract class SeaTunnelTask implements Runnable {
 
 每个任务通过 FlowLifeCycle 管理组件生命周期：
 
-```java
-// 数据源任务
-public class SourceFlowLifeCycle<T> implements FlowLifeCycle {
-    private final SourceReader<T, ?> sourceReader;
-    private final SeaTunnelSourceCollector collector;
-
-    @Override
-    public void open() {
-        sourceReader.open();
-    }
-
-    @Override
-    public void collect() {
-        sourceReader.pollNext(collector); // 读取数据
-    }
-
-    @Override
-    public void close() {
-        sourceReader.close();
-    }
-}
-
-// 数据汇任务
-public class SinkFlowLifeCycle<T> implements FlowLifeCycle {
-    private final SinkWriter<T, ?, ?> sinkWriter;
-
-    @Override
-    public void collect() {
-        T record = inputQueue.poll();
-        sinkWriter.write(record); // 写入数据
-    }
-}
-```
+**生命周期语义**：
+- `open`：初始化 reader/transform chain/writer 等组件
+- `collect`：数据驱动的执行入口（source poll、transform 处理、sink write）
+- `close`：释放资源并保证幂等（可被重复调用）
 
 ## 5. 检查点协调
 
@@ -478,14 +378,11 @@ public class SinkFlowLifeCycle<T> implements FlowLifeCycle {
 - 清理旧检查点
 
 **关键数据结构**：
-```java
-public class CheckpointCoordinator {
-    private final CheckpointIDCounter checkpointIdCounter;
-    private final Map<Long, PendingCheckpoint> pendingCheckpoints;
-    private final ArrayDeque<String> completedCheckpointIds;
-    private final CheckpointStorage checkpointStorage;
-}
-```
+
+- checkpointId 生成器：单调递增生成 checkpointId
+- pendingCheckpoints：进行中的 checkpoint 集合（等待 task ACK）
+- completed checkpoints：最近成功的 checkpoint 列表（用于恢复与保留策略）
+- checkpointStorage：外部持久化后端
 
 **检查点流程**：
 1. 协调器触发检查点（定期或手动）
@@ -496,20 +393,15 @@ public class CheckpointCoordinator {
 6. 协调器等待所有 ACK
 7. 创建 CompletedCheckpoint，持久化到存储
 
-**代码参考**：
-- [CheckpointCoordinator.java](../../../seatunnel-engine/seatunnel-engine-server/src/main/java/org/apache/seatunnel/engine/server/checkpoint/CheckpointCoordinator.java)
 
 ### 5.2 检查点屏障
 
 与数据一起流动的特殊控制消息：
 
-```java
-public class Barrier {
-    private final long checkpointId;
-    private final long timestamp;
-    private final CheckpointType type; // CHECKPOINT 或 SAVEPOINT
-}
-```
+**屏障字段（概念级）**：
+- checkpointId：本次 checkpoint 的唯一标识
+- timestamp：触发时间
+- type：checkpoint/savepoint 等类型标识
 
 **屏障对齐**：
 - 具有多个输入的任务在快照前等待来自所有输入的屏障
@@ -520,31 +412,17 @@ public class Barrier {
 ### 6.1 槽位模型
 
 **SlotProfile**：
-```java
-public class SlotProfile {
-    private final long slotID;
-    private final Address worker;
-    private final ResourceProfile resourceProfile; // CPU、内存
-    private final Map<String, String> tags; // 用于基于标签的过滤
-}
 
-public class ResourceProfile {
-    private final CPU cpu;
-    private final Memory heapMemory;
-    private final Memory offHeapMemory;
-}
-```
+- slotId：槽位标识
+- worker：所属工作节点
+- resourceProfile：CPU/内存等资源画像
+- tags：用于标签过滤/数据局部性/资源隔离
 
 **WorkerProfile**：
-```java
-public class WorkerProfile {
-    private final Address address;
-    private final ResourceProfile totalResourceProfile;
-    private final ResourceProfile availableResourceProfile;
-    private final List<SlotProfile> assignedSlots;
-    private final List<SlotProfile> unassignedSlots;
-}
-```
+
+- address：工作节点地址
+- total/available：总资源与可用资源
+- assigned/unassigned：已分配与未分配槽位
 
 ### 6.2 资源分配流程
 
@@ -693,13 +571,6 @@ source {
 - [DAG 执行](dag-execution.md)
 
 ## 10. 参考资料
-
-### 关键源文件
-
-- 引擎核心：`seatunnel-engine/seatunnel-engine-server/src/main/java/org/apache/seatunnel/engine/server/`
-- DAG：`seatunnel-engine/seatunnel-engine-core/src/main/java/org/apache/seatunnel/engine/core/dag/`
-- 检查点：`seatunnel-engine/seatunnel-engine-server/src/main/java/org/apache/seatunnel/engine/server/checkpoint/`
-
 ### 进一步阅读
 
 - [Hazelcast IMDG](https://docs.hazelcast.com/imdg/latest/)

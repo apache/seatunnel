@@ -88,21 +88,11 @@ SeaTunnel 的资源管理系统旨在:
 
 **槽位**是资源分配的基本单位。
 
-```java
-public class SlotProfile {
-    // 唯一槽位标识符
-    private final long slotID;
-
-    // 此槽位所在的工作节点地址
-    private final Address worker;
-
-    // 此槽位的资源容量
-    private final ResourceProfile resourceProfile;
-
-    // 用于过滤的可选标签
-    private final Map<String, String> tags;
-}
-```
+一个槽位通常由以下信息描述:
+- **slotID**: 槽位唯一标识
+- **worker**: 槽位所在工作节点地址
+- **resourceProfile**: 槽位可提供的资源容量(CPU/内存等)
+- **tags**: 用于过滤/隔离/数据局部性的可选标签
 
 **关键属性**:
 - **粒度化**: 每个槽位可以托管一个或多个任务(任务融合)
@@ -111,38 +101,19 @@ public class SlotProfile {
 - **有状态**: 槽位跟踪分配状态(已分配/未分配)
 
 **示例**:
-```java
-SlotProfile slot = new SlotProfile(
-    slotID: 1001,
-    worker: new Address("worker-1", 5801),
-    resourceProfile: new ResourceProfile(
-        cpu: new CPU(1.0),           // 1 CPU 核心
-        heapMemory: new Memory(512), // 512MB 堆内存
-        offHeapMemory: new Memory(256) // 256MB 堆外内存
-    ),
-    tags: Map.of("zone", "us-west-1a", "type", "compute")
-);
-```
+- slotID = 1001
+- worker = worker-1:5801
+- resourceProfile = 1.0 core / 512MB heap / 256MB off-heap
+- tags = zone=us-west-1a, type=compute
 
 ### 2.2 ResourceProfile
 
 描述资源需求或容量。
 
-```java
-public class ResourceProfile {
-    private final CPU cpu;
-    private final Memory heapMemory;
-    private final Memory offHeapMemory;
-}
-
-public class CPU {
-    private final double cores; // CPU 核心数
-}
-
-public class Memory {
-    private final long megabytes; // 内存(MB)
-}
-```
+一个资源配置文件(ResourceProfile)通常包括:
+- **cpu.cores**: CPU 核心数(可为小数)
+- **heap-memory.mb**: JVM 堆内存
+- **off-heap-memory.mb**: 堆外内存(如 direct memory)
 
 **用途**:
 - **任务需求**: JobMaster 指定每个任务所需的资源
@@ -153,27 +124,12 @@ public class Memory {
 
 表示工作节点的资源和槽位清单。
 
-```java
-public class WorkerProfile {
-    // 工作节点地址
-    private final Address address;
-
-    // 总资源(所有槽位的总和)
-    private final ResourceProfile totalResourceProfile;
-
-    // 当前可用资源
-    private final ResourceProfile availableResourceProfile;
-
-    // 分配给作业的槽位
-    private final List<SlotProfile> assignedSlots;
-
-    // 可供分配的槽位
-    private final List<SlotProfile> unassignedSlots;
-
-    // 工作节点元数据
-    private final Map<String, String> tags;
-}
-```
+工作节点画像(WorkerProfile)通常包含:
+- **address**: 工作节点地址
+- **totalResourceProfile**: 节点总资源(常由槽位资源汇总得到)
+- **availableResourceProfile**: 当前可用资源
+- **assignedSlots/unassignedSlots**: 已分配/未分配槽位清单
+- **tags**: 节点标签(用于过滤、隔离、数据局部性)
 
 **生命周期**:
 1. **注册**: 工作节点启动时向 ResourceManager 注册
@@ -186,81 +142,28 @@ public class WorkerProfile {
 
 ### 3.1 接口
 
-```java
-public interface ResourceManager {
-    /**
-     * 申请资源(由 JobMaster 调用)
-     */
-    CompletableFuture<List<SlotProfile>> applyResources(
-        long jobId,
-        List<ResourceProfile> resourceProfiles,
-        List<TagFilter> tagFilters
-    ) throws NoEnoughResourceException;
-
-    /**
-     * 释放资源(由 JobMaster 在任务完成后调用)
-     */
-    void releaseResources(long jobId, List<SlotProfile> slots);
-
-    /**
-     * 工作节点心跳(由 TaskExecutionService 调用)
-     */
-    void heartbeat(WorkerProfile workerProfile);
-
-    /**
-     * 处理工作节点移除(故障或优雅关闭)
-     */
-    void memberRemoved(MembershipEvent event);
-}
-```
+ResourceManager 对外暴露的关键能力可以概括为:
+- **applyResources(jobId, resourceProfiles, tagFilters)**: 为作业申请一组满足资源需求的槽位；当资源不足时返回失败(例如抛出 NoEnoughResourceException 或以失败的 Future 表达)
+- **releaseResources(jobId, slots)**: 作业完成/失败后释放槽位，回收至可分配池
+- **heartbeat(workerProfile)**: 接收工作节点心跳并更新其资源/槽位信息
+- **memberRemoved(event)**: 处理成员移除事件(故障或优雅下线)，触发资源回收与作业侧重调度
 
 ### 3.2 实现: AbstractResourceManager
 
-```java
-public abstract class AbstractResourceManager implements ResourceManager {
-    // 已注册的工作节点
-    protected final ConcurrentMap<Address, WorkerProfile> registerWorker;
+典型实现会维护以下状态与策略:
+- **registerWorker**: 已注册工作节点到 WorkerProfile 的映射(由心跳持续刷新)
+- **slotAssignStrategy**: 槽位分配策略(随机/比例/系统负载等)
+- **heartbeatTimeout**: 心跳超时阈值，用于判定节点失联
 
-    // 槽位分配策略
-    protected final SlotAssignStrategy slotAssignStrategy;
+申请资源的关键流程:
+1. 根据 tagFilters 过滤候选工作节点
+2. 针对每个 ResourceProfile 需求，使用策略选择一个满足容量约束的未分配槽位
+3. 将槽位从“未分配池”标记为“已分配”，并同步更新 WorkerProfile
+4. 返回分配结果；如任一需求无法满足，则整体失败并由 JobMaster 决定重试/降级
 
-    // 心跳超时
-    protected final long heartbeatTimeout;
-
-    @Override
-    public CompletableFuture<List<SlotProfile>> applyResources(
-        long jobId,
-        List<ResourceProfile> resourceProfiles,
-        List<TagFilter> tagFilters
-    ) {
-        // 1. 按标签过滤工作节点
-        List<WorkerProfile> candidates = filterWorkersByTags(tagFilters);
-
-        // 2. 使用策略选择工作节点
-        List<SlotProfile> allocatedSlots = new ArrayList<>();
-        for (ResourceProfile profile : resourceProfiles) {
-            SlotProfile slot = slotAssignStrategy.selectSlot(candidates, profile);
-            if (slot == null) {
-                throw new NoEnoughResourceException("No available slot for " + profile);
-            }
-            allocatedSlots.add(slot);
-
-            // 标记槽位为已分配
-            markSlotAssigned(slot);
-        }
-
-        return CompletableFuture.completedFuture(allocatedSlots);
-    }
-
-    @Override
-    public void releaseResources(long jobId, List<SlotProfile> slots) {
-        for (SlotProfile slot : slots) {
-            // 标记槽位为未分配
-            markSlotUnassigned(slot);
-        }
-    }
-}
-```
+释放资源的关键流程:
+1. 将 slots 标记为未分配并回收到可分配池
+2. 更新工作节点可用资源与槽位统计
 
 ## 4. 槽位分配策略
 
@@ -268,35 +171,10 @@ public abstract class AbstractResourceManager implements ResourceManager {
 
 随机选择具有可用槽位的工作节点。
 
-```java
-public class RandomSlotAssignStrategy implements SlotAssignStrategy {
-    private final Random random = new Random();
-
-    @Override
-    public SlotProfile selectSlot(
-        List<WorkerProfile> workers,
-        ResourceProfile requiredProfile
-    ) {
-        // 过滤具有足够资源的工作节点
-        List<WorkerProfile> eligible = workers.stream()
-            .filter(w -> hasEnoughResources(w, requiredProfile))
-            .collect(Collectors.toList());
-
-        if (eligible.isEmpty()) {
-            return null;
-        }
-
-        // 随机选择
-        WorkerProfile selected = eligible.get(random.nextInt(eligible.size()));
-
-        // 返回第一个可用槽位
-        return selected.getUnassignedSlots().stream()
-            .filter(s -> s.getResourceProfile().satisfies(requiredProfile))
-            .findFirst()
-            .orElse(null);
-    }
-}
-```
+核心思路:
+1. 过滤出“资源满足 requiredProfile 且存在未分配槽位”的工作节点集合
+2. 在集合中随机选择一个工作节点
+3. 从该节点的未分配槽位中挑选一个满足容量约束的槽位返回
 
 **优点**:
 - 简单快速
@@ -311,33 +189,10 @@ public class RandomSlotAssignStrategy implements SlotAssignStrategy {
 
 优先选择可用槽位比率更高的工作节点。
 
-```java
-public class SlotRatioSlotAssignStrategy implements SlotAssignStrategy {
-    @Override
-    public SlotProfile selectSlot(
-        List<WorkerProfile> workers,
-        ResourceProfile requiredProfile
-    ) {
-        // 为每个工作节点计算槽位比率
-        WorkerProfile best = workers.stream()
-            .filter(w -> hasEnoughResources(w, requiredProfile))
-            .max(Comparator.comparingDouble(w ->
-                (double) w.getUnassignedSlots().size() /
-                (w.getAssignedSlots().size() + w.getUnassignedSlots().size())
-            ))
-            .orElse(null);
-
-        if (best == null) {
-            return null;
-        }
-
-        return best.getUnassignedSlots().stream()
-            .filter(s -> s.getResourceProfile().satisfies(requiredProfile))
-            .findFirst()
-            .orElse(null);
-    }
-}
-```
+核心思路:
+1. 过滤出资源满足 requiredProfile 的工作节点
+2. 计算并选择“可用槽位比率 = unassigned / (assigned + unassigned)”最高的节点
+3. 从该节点的未分配槽位中选择一个满足容量约束的槽位
 
 **优点**:
 - 更好的负载均衡
@@ -352,40 +207,14 @@ public class SlotRatioSlotAssignStrategy implements SlotAssignStrategy {
 
 选择系统负载(CPU/内存使用)最低的工作节点。
 
-```java
-public class SystemLoadSlotAssignStrategy implements SlotAssignStrategy {
-    @Override
-    public SlotProfile selectSlot(
-        List<WorkerProfile> workers,
-        ResourceProfile requiredProfile
-    ) {
-        // 找到负载最低的工作节点
-        WorkerProfile best = workers.stream()
-            .filter(w -> hasEnoughResources(w, requiredProfile))
-            .min(Comparator.comparingDouble(w -> calculateLoad(w)))
-            .orElse(null);
+核心思路:
+1. 基于心跳上报的资源使用情况计算节点负载(例如 CPU/内存利用率的加权)
+2. 在满足 requiredProfile 的候选节点中选择负载最低者
+3. 从该节点挑选一个满足容量约束的未分配槽位
 
-        if (best == null) {
-            return null;
-        }
-
-        return best.getUnassignedSlots().stream()
-            .filter(s -> s.getResourceProfile().satisfies(requiredProfile))
-            .findFirst()
-            .orElse(null);
-    }
-
-    private double calculateLoad(WorkerProfile worker) {
-        // CPU 负载 + 内存负载(加权平均)
-        double cpuLoad = 1.0 - (worker.getAvailableResourceProfile().getCpu().getCores() /
-                                worker.getTotalResourceProfile().getCpu().getCores());
-        double memLoad = 1.0 - (worker.getAvailableResourceProfile().getHeapMemory().getMegabytes() /
-                                worker.getTotalResourceProfile().getHeapMemory().getMegabytes());
-
-        return 0.7 * cpuLoad + 0.3 * memLoad; // 加权
-    }
-}
-```
+负载计算的关键在于:
+- 依赖指标的时效性与稳定性(过旧会导致误判，过抖会导致分配抖动)
+- 需要明确权重与采样窗口，避免频繁迁移/重分配
 
 **优点**:
 - 考虑实际资源使用
@@ -431,32 +260,16 @@ env {
 
 ### 5.2 TagFilter
 
-```java
-public class TagFilter {
-    private final String key;
-    private final String value;
-
-    public boolean matches(Map<String, String> tags) {
-        return value.equals(tags.get(key));
-    }
-}
-```
+TagFilter 可以视为一个简单的键值匹配条件:
+- key/value 需要同时匹配工作节点(或槽位)的 tags
+- 多个 TagFilter 之间通常按“与(AND)”组合：任一不匹配则该节点被过滤
 
 **过滤过程**:
-```java
-List<WorkerProfile> filterWorkersByTags(List<TagFilter> filters) {
-    return registerWorker.values().stream()
-        .filter(worker -> {
-            for (TagFilter filter : filters) {
-                if (!filter.matches(worker.getTags())) {
-                    return false;
-                }
-            }
-            return true;
-        })
-        .collect(Collectors.toList());
-}
-```
+
+过滤过程通常为:
+1. 枚举所有已注册工作节点
+2. 对每个节点依次校验 filters；全部匹配则保留
+3. 得到候选节点集合，交给槽位分配策略继续挑选
 
 ## 6. 资源分配流程
 
@@ -538,25 +351,12 @@ sequenceDiagram
 - Hazelcast 成员移除事件
 
 **恢复**:
-```java
-@Override
-public void memberRemoved(MembershipEvent event) {
-    Address failedWorker = event.getMember().getAddress();
 
-    // 1. 从注册表中移除工作节点
-    WorkerProfile failed = registerWorker.remove(failedWorker);
-
-    // 2. 通知 JobMasters 槽位丢失
-    List<SlotProfile> lostSlots = failed.getAssignedSlots();
-    for (SlotProfile slot : lostSlots) {
-        long jobId = getJobIdForSlot(slot);
-        JobMaster jobMaster = getJobMaster(jobId);
-
-        // 3. 触发作业故障转移
-        jobMaster.notifySlotLost(slot);
-    }
-}
-```
+ResourceManager 侧的典型处理步骤:
+1. 从注册表中移除失联/下线的工作节点
+2. 识别该节点上“已分配”的槽位集合(即可能承载了正在运行的任务)
+3. 将槽位丢失事件通知到对应的 JobMaster(或由 Coordinator 统一转发)
+4. 由作业侧触发 failover：标记任务失败、从检查点恢复、重新申请新槽位并重新部署
 
 **JobMaster 响应**:
 1. 标记失败槽位上的任务为 FAILED
@@ -572,19 +372,11 @@ public void memberRemoved(MembershipEvent event) {
 - 工作节点通过心跳机制重新注册
 
 **恢复**:
-```java
-public void start() {
-    // 开始接受工作节点心跳
-    scheduledExecutor.scheduleAtFixedRate(() -> {
-        // 检查超时的工作节点
-        long now = System.currentTimeMillis();
-        registerWorker.entrySet().removeIf(entry -> {
-            long lastHeartbeat = entry.getValue().getLastHeartbeat();
-            return (now - lastHeartbeat) > heartbeatTimeout;
-        });
-    }, heartbeatInterval, heartbeatInterval, TimeUnit.MILLISECONDS);
-}
-```
+
+恢复要点:
+- ResourceManager 需要能够重新建立“工作节点注册表”：工作节点通过心跳主动上报其 address、资源、槽位与标签
+- ResourceManager 需要定期清理超时心跳的节点，避免将任务分配给已失联节点
+- 由于注册表可由心跳重建，故障转移后的新实例可以在短时间内恢复资源视图(视心跳间隔与超时参数而定)
 
 ## 8. 配置
 
@@ -754,14 +546,6 @@ env {
 - [架构概述](../overview.md)
 
 ## 12. 参考资料
-
-### 关键源文件
-
-- [ResourceManager.java](../../../seatunnel-engine/seatunnel-engine-server/src/main/java/org/apache/seatunnel/engine/server/resourcemanager/ResourceManager.java)
-- [AbstractResourceManager.java](../../../seatunnel-engine/seatunnel-engine-server/src/main/java/org/apache/seatunnel/engine/server/resourcemanager/AbstractResourceManager.java)
-- [SlotProfile.java](../../../seatunnel-engine/seatunnel-engine-common/src/main/java/org/apache/seatunnel/engine/common/runtime/SlotProfile.java)
-- [WorkerProfile.java](../../../seatunnel-engine/seatunnel-engine-common/src/main/java/org/apache/seatunnel/engine/common/runtime/WorkerProfile.java)
-
 ### 进一步阅读
 
 - [Google Borg](https://research.google/pubs/pub43438/) - 大规模集群管理

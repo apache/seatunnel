@@ -1,15 +1,15 @@
 ---
 sidebar_position: 2
-title: 数据源架构
+title: 数据读取端 Source 架构
 ---
 
-# 数据源架构
+# 数据源端 Source 架构
 
 ## 1. 概述
 
 ### 1.1 问题背景
 
-分布式系统中的数据源面临几个挑战：
+分布式系统中的数据源读取端面临几个挑战：
 
 - **并行度**：如何从单个数据源并行读取数据？
 - **容错**：失败后如何从中断处恢复？
@@ -29,11 +29,11 @@ SeaTunnel 的数据源 API 旨在：
 
 ### 1.3 适用场景
 
-- 基于文件的数据源（本地文件、HDFS、S3、OSS）
-- 数据库数据源（MySQL、PostgreSQL、Oracle、JDBC 兼容）
-- 消息队列数据源（Kafka、Pulsar、RabbitMQ）
-- CDC 数据源（MySQL CDC、PostgreSQL CDC、Oracle CDC）
-- 流式数据源（Socket、HTTP、自定义协议）
+- 基于文件的数据源（本地文件、HDFS、S3、OSS）等
+- 数据库数据源（MySQL、PostgreSQL、Oracle、JDBC 兼容）等
+- 消息队列数据源（Kafka、Pulsar、RabbitMQ）等
+- CDC 数据源（MySQL CDC、PostgreSQL CDC、Oracle CDC）等
+- 流式数据源（Socket、HTTP、自定义协议）等
 
 ## 2. 架构设计
 
@@ -59,20 +59,20 @@ SeaTunnel 的数据源 API 旨在：
                              │ (分片分配)
                              ▼
 ┌──────────────────────────────────────────────────────────────┐
-│                  TaskExecutionService（工作节点侧）           │
-│                                                                │
+│                  TaskExecutionService（工作节点侧）            │
+│                                                              │
 │   ┌────────────────────────────────────────────────────┐     │
 │   │          SourceReader<T, SplitT, StateT>           │     │
-│   │                                                      │     │
-│   │  • 接收分配的分片                                   │     │
-│   │  • 从分片读取数据                                   │     │
-│   │  • 向下游发送记录                                   │     │
-│   │  • 快照读取器状态（分片进度）                       │     │
-│   │  • 处理分片完成                                     │     │
-│   │  • 发送/接收自定义事件                              │     │
+│   │                                                    │     │
+│   │  • 接收分配的分片                                    │     │
+│   │  • 从分片读取数据                                    │     │
+│   │  • 向下游发送记录                                    │     │
+│   │  • 快照读取器状态（分片进度）                          │     │
+│   │  • 处理分片完成                                      │     │
+│   │  • 发送/接收自定义事件                                │     │
 │   └────────────────────────────────────────────────────┘     │
-│                            │                                   │
-└────────────────────────────┼───────────────────────────────────┘
+│                            │                                 │
+└────────────────────────────┼─────────────────────────────────┘
                              │
                              ▼
                        SeaTunnelRow
@@ -85,86 +85,29 @@ SeaTunnel 的数据源 API 旨在：
 
 作为创建读取器和枚举器的工厂的顶层接口。
 
-```java
-public interface SeaTunnelSource<T, SplitT extends SourceSplit, StateT extends Serializable>
-    extends Serializable {
+为避免在文档中复制完整接口导致与源码漂移，本节仅保留核心契约说明，完整签名以源码为准：
 
-    /**
-     * 获取数据源有界性（批处理为 BOUNDED，流处理为 UNBOUNDED）
-     */
-    Boundedness getBoundedness();
-
-    /**
-     * 创建 SourceReader（在工作节点上调用）
-     */
-    SourceReader<T, SplitT> createReader(SourceReader.Context readerContext) throws Exception;
-
-    /**
-     * 创建 SourceSplitEnumerator（在主节点上调用）
-     */
-    SourceSplitEnumerator<SplitT, StateT> createEnumerator(
-        SourceSplitEnumerator.Context<SplitT> enumeratorContext) throws Exception;
-
-    /**
-     * 从检查点恢复 SourceSplitEnumerator（在主节点上调用）
-     */
-    SourceSplitEnumerator<SplitT, StateT> restoreEnumerator(
-        SourceSplitEnumerator.Context<SplitT> enumeratorContext,
-        StateT checkpointState) throws Exception;
-
-    /**
-     * 获取输出模式（带 TableSchema 的 CatalogTable）
-     */
-    CatalogTable getProducedCatalogTable();
-}
-```
-
-**关键方法**：
-- `getBoundedness()`：指示数据源是有界（批处理）还是无界（流处理）
-- `createReader()`：读取器实例的工厂（每个工作节点任务一个）
-- `createEnumerator()`：枚举器的工厂（主节点上的单个实例）
-- `restoreEnumerator()`：从检查点状态恢复枚举器
-- `getProducedCatalogTable()`：定义输出模式
+**关键契约**：
+- `getBoundedness()`：声明 BOUNDED/UNBOUNDED
+- `createReader()`：创建运行在工作节点侧的 `SourceReader`
+- `createEnumerator()` / `restoreEnumerator()`：创建/恢复运行在主节点侧的 `SourceSplitEnumerator`
+- `getProducedCatalogTables()`：声明输出的表元数据（`CatalogTable` 列表，支持多表/模式信息）
+- `getSplitSerializer()` / `getEnumeratorStateSerializer()`：split/枚举器状态序列化器（用于网络传输与 checkpoint）
 
 #### SourceSplit（最小可序列化单元）
 
 表示数据的可分区单元。
 
-```java
-public interface SourceSplit extends Serializable {
-    /**
-     * 此分片的唯一标识符
-     */
-    String splitId();
-}
-```
+**核心约束**：
+- **可独立处理**：split 表达一个可被单个 reader 独立读取的范围（例如文件片段、分区、主键范围）。
+- **可序列化传输**：split 需要能在主节点与工作节点之间传递。
+- **可重分配**：reader 失败时，未完成 split 必须可回收并分配给其他 reader。
 
 **实现示例**：
 
-```java
-// 基于文件的分片
-public class FileSplit implements SourceSplit {
-    private final String splitId;
-    private final String filePath;
-    private final long startOffset;
-    private final long length;
-}
-
-// 基于 JDBC 的分片（查询范围）
-public class JdbcSourceSplit implements SourceSplit {
-    private final String splitId;
-    private final String query;
-    private final Object[] queryParams;
-}
-
-// 基于 Kafka 的分片（分区）
-public class KafkaSourceSplit implements SourceSplit {
-    private final String splitId;
-    private final String topic;
-    private final int partition;
-    private final long startOffset;
-}
-```
+- 文件类：`(filePath, startOffset, length)` 或 “单文件一个 split”
+- JDBC 类：`(queryRange / shardKeyRange / partition)`
+- Kafka 类：`(topic, partition, startOffset)`
 
 **设计说明**：
 - 分片必须可序列化以进行网络传输
@@ -244,71 +187,12 @@ sequenceDiagram
 
 枚举器在主节点侧运行并协调分片分配。
 
-```java
-public interface SourceSplitEnumerator<SplitT extends SourceSplit, StateT> {
-
-    /**
-     * 枚举器启动时调用
-     */
-    void open();
-
-    /**
-     * 调用以发现分片（急切或延迟）
-     */
-    void run() throws Exception;
-
-    /**
-     * 新读取器注册时调用
-     */
-    void addReader(int subtaskId);
-
-    /**
-     * 读取器请求分片时调用
-     */
-    void handleSplitRequest(int subtaskId);
-
-    /**
-     * 读取器报告分片完成时调用
-     */
-    void handleSplitFinished(int subtaskId, String finishedSplit);
-
-    /**
-     * 读取器失败时调用 - 回收其分片
-     */
-    void addSplitsBack(List<SplitT> splits, int subtaskId);
-
-    /**
-     * 为检查点快照枚举器状态
-     */
-    StateT snapshotState(long checkpointId) throws Exception;
-
-    /**
-     * 处理来自读取器的自定义事件
-     */
-    void handleSourceEvent(int subtaskId, SourceEvent sourceEvent);
-
-    /**
-     * 检查点完成时调用
-     */
-    void notifyCheckpointComplete(long checkpointId) throws Exception;
-
-    /**
-     * 关闭枚举器
-     */
-    void close() throws IOException;
-
-    /**
-     * 与框架交互的上下文
-     */
-    interface Context<SplitT extends SourceSplit> {
-        int currentParallelism();
-        Set<Integer> registeredReaders();
-        void assignSplit(int subtaskId, List<SplitT> splits);
-        void signalNoMoreSplits(int subtaskId);
-        void sendEventToSourceReader(int subtaskId, SourceEvent event);
-    }
-}
-```
+**关键契约（摘要）**：
+- `run()`：枚举/发现分片并驱动分配逻辑
+- `registerReader(subtaskId)`：注册 reader（由引擎调用）
+- `handleSplitRequest(subtaskId)`：处理 reader 请求分片
+- `addSplitsBack(splits, subtaskId)`：reader 失败时回收未完成分片
+- `snapshotState(checkpointId)`：快照枚举器状态（注意与 `run()` 的并发调用约束）
 
 **关键职责**：
 - **分片发现**：从数据源生成分片（文件、分区、分片）
@@ -316,106 +200,32 @@ public interface SourceSplitEnumerator<SplitT extends SourceSplit, StateT> {
 - **动态处理**：处理读取器注册、分片请求、失败
 - **状态管理**：快照剩余分片和分配状态
 
-**实现示例**：
+**典型实现思路（伪代码示意）**：
 
-```java
-public class JdbcSourceSplitEnumerator implements SourceSplitEnumerator<JdbcSourceSplit, JdbcSourceState> {
+```
+on run():
+    pendingSplits += discoverSplits()
 
-    private final Queue<JdbcSourceSplit> pendingSplits = new LinkedList<>();
-    private final Set<String> assignedSplits = new HashSet<>();
-    private final Context<JdbcSourceSplit> context;
+on handleSplitRequest(subtaskId):
+    if pendingSplits not empty:
+        assignSplit(subtaskId, nextSplit)
+    else:
+        signalNoMoreSplits(subtaskId)
 
-    @Override
-    public void run() throws Exception {
-        // 通过查询数据库元数据发现分片
-        List<JdbcSourceSplit> splits = generateSplitsByPartition();
-        pendingSplits.addAll(splits);
-    }
-
-    @Override
-    public void handleSplitRequest(int subtaskId) {
-        // 分配下一个可用的分片
-        JdbcSourceSplit split = pendingSplits.poll();
-        if (split != null) {
-            context.assignSplit(subtaskId, Collections.singletonList(split));
-            assignedSplits.add(split.splitId());
-        } else {
-            context.signalNoMoreSplits(subtaskId);
-        }
-    }
-
-    @Override
-    public void addSplitsBack(List<JdbcSourceSplit> splits, int subtaskId) {
-        // 从失败的读取器回收分片
-        pendingSplits.addAll(splits);
-        splits.forEach(split -> assignedSplits.remove(split.splitId()));
-    }
-
-    @Override
-    public JdbcSourceState snapshotState(long checkpointId) {
-        // 保存剩余分片和分配信息
-        return new JdbcSourceState(new ArrayList<>(pendingSplits), assignedSplits);
-    }
-}
+on addSplitsBack(splits):
+    pendingSplits += splits
 ```
 
 ### 3.2 SourceReader 接口
 
 读取器在工作节点上运行并执行实际的数据读取。
 
-```java
-public interface SourceReader<T, SplitT extends SourceSplit> {
-
-    /**
-     * 读取器启动时调用
-     */
-    void open() throws Exception;
-
-    /**
-     * 轮询下一批记录（非阻塞或超时）
-     */
-    void pollNext(Collector<T> output) throws Exception;
-
-    /**
-     * 添加新分配的分片
-     */
-    void addSplits(List<SplitT> splits);
-
-    /**
-     * 信号不会再分配更多分片
-     */
-    void handleNoMoreSplits();
-
-    /**
-     * 为检查点快照读取器状态
-     */
-    List<StateT> snapshotState(long checkpointId) throws Exception;
-
-    /**
-     * 处理来自枚举器的自定义事件
-     */
-    void handleSourceEvent(SourceEvent sourceEvent);
-
-    /**
-     * 通知检查点完成
-     */
-    void notifyCheckpointComplete(long checkpointId) throws Exception;
-
-    /**
-     * 关闭读取器
-     */
-    void close() throws IOException;
-
-    /**
-     * 与框架交互的上下文
-     */
-    interface Context {
-        int getIndexOfSubtask();
-        void sendSplitRequest();
-        void sendSourceEventToEnumerator(SourceEvent event);
-    }
-}
-```
+**关键契约（摘要）**：
+- `pollNext(output)`：拉取下一批数据（建议非阻塞/可限时）
+- `addSplits(splits)`：接收枚举器分配的 splits
+- `snapshotState(checkpointId)`：返回 split checkpoint state（实际接口返回 `List<SplitT>`）
+- `handleNoMoreSplits()`：收到无更多 split 的信号
+- `CheckpointListener` 回调：由框架触发 checkpoint 完成/中止通知
 
 **关键职责**：
 - **数据读取**：从分配的分片拉取记录
@@ -423,98 +233,29 @@ public interface SourceReader<T, SplitT extends SourceSplit> {
 - **状态管理**：快照分片进度以进行恢复
 - **分片管理**：处理分片分配、完成和删除
 
-**实现示例**：
+**典型实现思路（伪代码示意）**：
 
-```java
-public class JdbcSourceReader implements SourceReader<SeaTunnelRow, JdbcSourceSplit> {
+```
+pollNext(output):
+  if no active split:
+    request split if queue empty
+    else activate next split
+  read batch records from active split into output
 
-    private final Queue<JdbcSourceSplit> pendingSplits = new LinkedList<>();
-    private JdbcSourceSplit currentSplit;
-    private ResultSet currentResultSet;
-
-    @Override
-    public void pollNext(Collector<SeaTunnelRow> output) throws Exception {
-        if (currentResultSet == null) {
-            // 获取下一个分片
-            currentSplit = pendingSplits.poll();
-            if (currentSplit == null) {
-                context.sendSplitRequest(); // 请求更多分片
-                return;
-            }
-            // 为当前分片执行查询
-            currentResultSet = executeQuery(currentSplit);
-        }
-
-        // 读取批量行
-        int count = 0;
-        while (currentResultSet.next() && count++ < BATCH_SIZE) {
-            SeaTunnelRow row = convertToRow(currentResultSet);
-            output.collect(row);
-        }
-
-        // 检查分片是否完成
-        if (!currentResultSet.next()) {
-            currentResultSet.close();
-            currentResultSet = null;
-            currentSplit = null;
-        }
-    }
-
-    @Override
-    public void addSplits(List<JdbcSourceSplit> splits) {
-        pendingSplits.addAll(splits);
-    }
-
-    @Override
-    public List<JdbcSourceState> snapshotState(long checkpointId) {
-        // 保存当前分片和偏移量
-        List<JdbcSourceState> states = new ArrayList<>();
-        if (currentSplit != null) {
-            states.add(new JdbcSourceState(currentSplit, currentRow));
-        }
-        pendingSplits.forEach(split ->
-            states.add(new JdbcSourceState(split, 0)));
-        return states;
-    }
-}
+snapshotState(checkpointId):
+  return remaining/unconsumed splits (and progress via split内部状态或外部offset映射)
 ```
 
 ### 3.3 SourceEvent（自定义通信）
 
 允许枚举器和读取器交换自定义消息。
 
-```java
-public interface SourceEvent extends Serializable {
-}
-
-// 示例：读取器通知枚举器发现的分区
-public class PartitionDiscoveredEvent implements SourceEvent {
-    private final List<String> newPartitions;
-}
-
-// 示例：枚举器通知读取器配置更改
-public class ConfigChangeEvent implements SourceEvent {
-    private final Map<String, String> newConfig;
-}
-```
+**核心约束**：事件需可序列化，用于 `SourceReader` 与 `SourceSplitEnumerator` 之间的自定义通信。
 
 **使用场景**：
 - 动态分区发现（Kafka、HDFS）
 - 运行时配置更改
 - 自定义协调逻辑
-
-### 3.4 代码参考
-
-**API 接口**：
-- [SeaTunnelSource.java](../../../seatunnel-api/src/main/java/org/apache/seatunnel/api/source/SeaTunnelSource.java)
-- [SourceSplitEnumerator.java](../../../seatunnel-api/src/main/java/org/apache/seatunnel/api/source/SourceSplitEnumerator.java)
-- [SourceReader.java](../../../seatunnel-api/src/main/java/org/apache/seatunnel/api/source/SourceReader.java)
-- [SourceSplit.java](../../../seatunnel-api/src/main/java/org/apache/seatunnel/api/source/SourceSplit.java)
-
-**示例实现**：
-- JDBC 数据源：`seatunnel-connectors-v2/connector-jdbc/src/main/java/org/apache/seatunnel/connectors/seatunnel/jdbc/source/`
-- Kafka 数据源：`seatunnel-connectors-v2/connector-kafka/src/main/java/org/apache/seatunnel/connectors/seatunnel/kafka/source/`
-- 文件数据源：`seatunnel-connectors-v2/connector-file/connector-file-base/src/main/java/org/apache/seatunnel/connectors/seatunnel/file/source/`
 
 ## 4. 设计考量
 
@@ -554,15 +295,7 @@ public class ConfigChangeEvent implements SourceEvent {
 
 #### 批量读取
 
-```java
-@Override
-public void pollNext(Collector<SeaTunnelRow> output) throws Exception {
-    // 读取批量而不是单条记录
-    for (int i = 0; i < BATCH_SIZE && hasNext(); i++) {
-        output.collect(readNextRow());
-    }
-}
-```
+建议批量读取而不是逐条读取，以摊销 I/O 与序列化开销。
 
 **好处**：
 - 摊销每条记录的开销
@@ -571,16 +304,7 @@ public void pollNext(Collector<SeaTunnelRow> output) throws Exception {
 
 #### 非阻塞轮询
 
-```java
-@Override
-public void pollNext(Collector<SeaTunnelRow> output) throws Exception {
-    // 如果没有可用数据立即返回
-    if (!hasNext()) {
-        return; // 框架稍后会再次调用
-    }
-    output.collect(readNextRow());
-}
-```
+建议在无可用数据时快速返回，由框架按调度节奏再次调用，避免阻塞工作线程。
 
 **好处**：
 - 避免阻塞工作线程
@@ -589,68 +313,24 @@ public void pollNext(Collector<SeaTunnelRow> output) throws Exception {
 
 #### 连接池
 
-```java
-public class JdbcSourceReader {
-    private final HikariDataSource dataSource; // 连接池
-
-    @Override
-    public void pollNext(Collector<SeaTunnelRow> output) {
-        try (Connection conn = dataSource.getConnection()) {
-            // 重用池化连接
-        }
-    }
-}
-```
+数据库类 Source 建议使用连接池并控制并发连接数，避免对源端造成压垮式压力。
 
 ### 4.3 可扩展性
 
 #### 自定义分片分配策略
 
-```java
-public class CustomEnumerator implements SourceSplitEnumerator<...> {
+自定义分配策略应基于可观测信号（负载、数据局部性、split 大小差异）并确保失败回收路径可用。
 
-    @Override
-    public void handleSplitRequest(int subtaskId) {
-        // 自定义逻辑：根据数据局部性分配分片
-        JdbcSourceSplit split = findClosestSplit(subtaskId);
-        context.assignSplit(subtaskId, Collections.singletonList(split));
-    }
-
-    private JdbcSourceSplit findClosestSplit(int subtaskId) {
-        // 检查工作节点位置并在同一机架/区域分配分片
-        WorkerLocation location = getWorkerLocation(subtaskId);
-        return pendingSplits.stream()
-            .filter(split -> split.location().equals(location))
-            .findFirst()
-            .orElse(pendingSplits.poll());
-    }
-}
-```
+典型策略包括：按 split 大小做负载均衡、按数据局部性优先分配、对热点 reader 做节流等。
 
 #### 动态分片发现
 
-```java
-public class KafkaSourceSplitEnumerator {
+动态分片发现通常用于“分区会随时间变化”的数据源（如 Kafka、目录新增文件等）。推荐的设计方式是：
 
-    @Override
-    public void run() throws Exception {
-        // 发现初始分区
-        discoverPartitions();
-
-        // 定期检查新分区
-        scheduledExecutor.scheduleAtFixedRate(
-            this::discoverPartitions,
-            60, 60, TimeUnit.SECONDS
-        );
-    }
-
-    private void discoverPartitions() {
-        List<TopicPartition> newPartitions = kafkaAdmin.listPartitions();
-        // 将新分区分配给读取器
-        assignNewPartitions(newPartitions);
-    }
-}
-```
+1. **周期性发现**：枚举器按固定周期扫描新分区/新文件，并将其转换为新的 split。
+2. **增量分配**：新 split 作为增量加入待分配队列，由分配策略按负载分发给 reader。
+3. **一致性边界**：对“发现时点”与“开始消费时点”的关系做明确约束（例如：从发现时刻开始消费；或支持从指定 offset/时间戳消费）。
+4. **与 checkpoint 的关系**：必须确保“新 split 的出现”在故障恢复后可重放（通过枚举器状态快照或外部可重复发现的元数据源实现）。
 
 ## 5. 最佳实践
 
@@ -667,131 +347,71 @@ public class KafkaSourceSplitEnumerator {
 - 高效序列化（Kryo、Protobuf）
 
 **3. 错误处理**
-```java
-@Override
-public void pollNext(Collector<SeaTunnelRow> output) throws Exception {
-    try {
-        // 读取数据
-    } catch (TransientException e) {
-        // 重试瞬态错误
-        Thread.sleep(1000);
-        retry();
-    } catch (FatalException e) {
-        // 致命错误应该传播
-        throw e;
-    }
-}
-```
+
+建议将错误分为两类并采用不同策略：
+- **瞬态错误**（网络抖动、临时超时、可重试的限流）：允许有限次数重试，并使用退避策略（exponential backoff + jitter），同时把重试次数/最后错误输出到指标与日志。
+- **致命错误**（配置错误、权限不足、协议不兼容、数据不可解析且无法跳过）：应快速失败并把异常向框架上抛，触发作业失败或按作业级策略处理。
+
+注意事项：
+- 避免在工作线程里进行长时间 sleep；如果必须退避，优先采用非阻塞式调度或由框架驱动下一次 poll。
+- 对“可跳过的坏数据”要显式配置并记录（计数、采样、落盘/死信），默认不建议静默吞掉。
 
 **4. 资源管理**
-```java
-@Override
-public void close() throws IOException {
-    // 始终关闭资源
-    if (resultSet != null) resultSet.close();
-    if (connection != null) connection.close();
-    if (dataSource != null) dataSource.close();
-}
-```
+
+资源管理建议：
+- 对所有外部资源（连接、游标/ResultSet、文件句柄、线程池、缓冲区）建立“创建-使用-关闭”的明确生命周期，并保证 close 在异常路径也能执行。
+- 优先使用连接池并设置上限，避免并发 reader 放大源端压力。
+- 释放顺序建议与依赖关系一致（先游标/会话，后连接/池）。
 
 ### 5.2 常见陷阱
 
 **1. 阻塞 pollNext()**
-```java
-// ❌ 错误：无限期阻塞
-public void pollNext(Collector<SeaTunnelRow> output) {
-    while (true) {
-        Record record = queue.take(); // 阻塞直到数据可用
-        output.collect(record);
-    }
-}
 
-// ✅ 正确：非阻塞或超时
-public void pollNext(Collector<SeaTunnelRow> output) {
-    Record record = queue.poll(100, TimeUnit.MILLISECONDS);
-    if (record != null) {
-        output.collect(record);
-    }
-}
-```
+反例：在 `pollNext()` 中无限期阻塞（例如等待队列/网络直到有数据），会占用工作线程并破坏框架调度。
+
+推荐：
+- 使用非阻塞或有超时的轮询，没数据时快速返回，让框架按节奏再次调用。
+- 把“等待数据”的职责交给外部组件（如有界队列 + 生产线程），但 reader 侧仍应遵循非阻塞/可中断原则。
 
 **2. 大状态**
-```java
-// ❌ 错误：在状态中缓冲整个分片
-public class BadReaderState {
-    private List<SeaTunnelRow> bufferedRows; // 可能很大！
-}
 
-// ✅ 正确：只跟踪偏移量
-public class GoodReaderState {
-    private long currentOffset; // 小且高效
-}
-```
+反例：把整段数据缓冲进 checkpoint state，会导致状态膨胀、checkpoint 变慢、恢复时间不可控。
+
+推荐：
+- 状态只保存“可重放位置”（offset、游标位置、文件 path+position、分区+时间戳等）。
+- 把缓存留在内存并可丢弃，让恢复依赖可重复读取（replay）而不是依赖大状态。
 
 **3. 忘记请求分片**
-```java
-// ❌ 错误：读取器永远不会获得分片
-public void pollNext(Collector<SeaTunnelRow> output) {
-    if (pendingSplits.isEmpty()) {
-        return; // 糟糕，应该请求更多分片！
-    }
-}
 
-// ✅ 正确：显式请求分片
-public void pollNext(Collector<SeaTunnelRow> output) {
-    if (pendingSplits.isEmpty()) {
-        context.sendSplitRequest();
-        return;
-    }
-}
-```
+反例：当本地没有可读 split 时直接返回，且没有向框架请求更多 split，会导致 reader 长期空转。
+
+推荐：
+- 当待处理 split 为空时，主动触发 split request（或进入“等待分片”的可调度状态）。
+- 同时输出指标（例如 pending split 数、空轮询次数），便于发现枚举器未分配/分配失衡问题。
 
 ### 5.3 调试技巧
 
 **1. 启用调试日志**
-```java
-private static final Logger LOG = LoggerFactory.getLogger(JdbcSourceReader.class);
 
-public void pollNext(Collector<SeaTunnelRow> output) {
-    LOG.debug("Polling split: {}, offset: {}", currentSplit.splitId(), currentOffset);
-    // ...
-}
-```
+建议输出“可定位”的调试日志（并可按配置开关）：
+- 当前 split 标识、消费位置（offset/position）、批大小
+- 上次 checkpoint 的 id/时间
+- 最近一次错误类型与重试次数
 
 **2. 跟踪指标**
-```java
-public class JdbcSourceReader {
-    private long recordsRead = 0;
-    private long bytesRead = 0;
 
-    public void pollNext(Collector<SeaTunnelRow> output) {
-        SeaTunnelRow row = readRow();
-        recordsRead++;
-        bytesRead += row.getBytesSize();
-        output.collect(row);
-    }
-}
-```
+建议最少暴露以下指标，便于容量规划与排障：
+- 吞吐：records/s、bytes/s
+- 延迟：端到端 lag（按时间戳/offset）
+- backlog：待处理 split 数、每个 split 的剩余量
+- 可靠性：重试次数、失败次数、坏数据计数
 
 **3. 测试分片重新分配**
-```java
-// 模拟读取器失败以测试分片恢复
-@Test
-public void testSplitReassignment() {
-    // 将分片分配给读取器 0
-    enumerator.handleSplitRequest(0);
 
-    // 模拟读取器 0 失败
-    enumerator.addSplitsBack(assignedSplits, 0);
-
-    // 新读取器 1 应该获得这些分片
-    enumerator.addReader(1);
-    enumerator.handleSplitRequest(1);
-
-    // 验证分片已重新分配
-    assertThat(assignedSplits).isNotEmpty();
-}
-```
+建议用“故障注入”的方式验证 split 回收与再分配：
+- reader 异常退出/超时心跳 -> enumerator 回收其已分配但未完成的 splits
+- 新 reader 加入 -> 能重新领取并从正确位置继续消费
+- 验证点：无重复消费（或重复可被幂等吸收）、无数据丢失、恢复耗时可接受
 
 ## 6. 相关资源
 

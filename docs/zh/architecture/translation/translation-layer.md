@@ -60,328 +60,58 @@ SeaTunnel 的转换层旨在:
 
 将 `SeaTunnelSource` 适配到 Flink 的 `Source` 接口。
 
-```java
-public class FlinkSource<T, SplitT extends SourceSplit, StateT>
-    implements Source<T, SplitWrapper<SplitT>, EnumeratorStateWrapper<StateT>> {
-
-    // 封装的 SeaTunnel 数据源
-    private final SeaTunnelSource<T, SplitT, StateT> seaTunnelSource;
-
-    @Override
-    public Boundedness getBoundedness() {
-        // 委托给 SeaTunnel 数据源
-        return seaTunnelSource.getBoundedness() == Boundedness.BOUNDED
-            ? Boundedness.BOUNDED
-            : Boundedness.CONTINUOUS_UNBOUNDED;
-    }
-
-    @Override
-    public SourceReader<T, SplitWrapper<SplitT>> createReader(
-        SourceReaderContext readerContext
-    ) {
-        // 使用适配的上下文创建 SeaTunnel 读取器
-        org.apache.seatunnel.api.source.SourceReader<T, SplitT> seaTunnelReader =
-            seaTunnelSource.createReader(new FlinkSourceReaderContext(readerContext));
-
-        // 包装在 Flink 适配器中
-        return new FlinkSourceReader<>(seaTunnelReader, readerContext);
-    }
-
-    @Override
-    public SplitEnumerator<SplitWrapper<SplitT>, EnumeratorStateWrapper<StateT>>
-        createEnumerator(SplitEnumeratorContext<SplitWrapper<SplitT>> context) {
-
-        // 使用适配的上下文创建 SeaTunnel 枚举器
-        SourceSplitEnumerator<SplitT, StateT> seaTunnelEnumerator =
-            seaTunnelSource.createEnumerator(
-                new FlinkSourceSplitEnumeratorContext<>(context)
-            );
-
-        // 包装在 Flink 适配器中
-        return new FlinkSourceEnumerator<>(seaTunnelEnumerator, context);
-    }
-
-    @Override
-    public SimpleVersionedSerializer<SplitWrapper<SplitT>> getSplitSerializer() {
-        // 将 SeaTunnel 序列化器适配到 Flink 序列化器
-        return new FlinkSimpleVersionedSerializer<>(
-            seaTunnelSource.getSplitSerializer()
-        );
-    }
-}
-```
+**适配点（语义级）**：
+- **有界/无界语义**：把 SeaTunnel 的 boundedness 映射到 Flink 的 `Boundedness`
+- **Reader 创建**：把 Flink `SourceReaderContext` 适配为 SeaTunnel reader context，并用 wrapper 把 SeaTunnel reader 包装成 Flink reader
+- **Enumerator 创建**：把 Flink `SplitEnumeratorContext` 适配为 SeaTunnel enumerator context，并包装成 Flink enumerator
+- **序列化器**：把 SeaTunnel 的 split/state 序列化器适配到 Flink 的 `SimpleVersionedSerializer`
 
 ### 2.2 FlinkSourceReader 适配器
 
-```java
-public class FlinkSourceReader<T, SplitT extends SourceSplit>
-    implements SourceReader<T, SplitWrapper<SplitT>> {
-
-    private final org.apache.seatunnel.api.source.SourceReader<T, SplitT> seaTunnelReader;
-    private final SourceReaderContext flinkContext;
-
-    @Override
-    public void start() {
-        // 委托给 SeaTunnel 读取器
-        try {
-            seaTunnelReader.open();
-        } catch (Exception e) {
-            throw new FlinkRuntimeException("Failed to open SeaTunnel reader", e);
-        }
-    }
-
-    @Override
-    public InputStatus pollNext(ReaderOutput<T> output) {
-        try {
-            // 适配输出收集器
-            CollectorAdapter<T> collector = new CollectorAdapter<>(output);
-
-            // 从 SeaTunnel 读取器轮询
-            seaTunnelReader.pollNext(collector);
-
-            if (collector.hasRecords()) {
-                return InputStatus.MORE_AVAILABLE;
-            } else {
-                return InputStatus.NOTHING_AVAILABLE;
-            }
-        } catch (Exception e) {
-            throw new FlinkRuntimeException("Failed to poll from SeaTunnel reader", e);
-        }
-    }
-
-    @Override
-    public void addSplits(List<SplitWrapper<SplitT>> splits) {
-        // 解包并委托
-        List<SplitT> unwrappedSplits = splits.stream()
-            .map(SplitWrapper::getSplit)
-            .collect(Collectors.toList());
-
-        seaTunnelReader.addSplits(unwrappedSplits);
-    }
-
-    @Override
-    public void notifyCheckpointComplete(long checkpointId) {
-        try {
-            seaTunnelReader.notifyCheckpointComplete(checkpointId);
-        } catch (Exception e) {
-            throw new FlinkRuntimeException("Failed to notify checkpoint complete", e);
-        }
-    }
-
-    @Override
-    public List<SplitWrapper<SplitT>> snapshotState(long checkpointId) {
-        try {
-            List<SplitT> state = seaTunnelReader.snapshotState(checkpointId);
-
-            // 为 Flink 包装分片
-            return state.stream()
-                .map(SplitWrapper::new)
-                .collect(Collectors.toList());
-        } catch (Exception e) {
-            throw new FlinkRuntimeException("Failed to snapshot state", e);
-        }
-    }
-}
-```
+**适配点（语义级）**：
+- `start/open`：把 Flink 的 reader 生命周期委托给 SeaTunnel reader
+- `pollNext`：把 Flink `ReaderOutput` 适配为 SeaTunnel collector，并映射“有无数据可读”的返回语义
+- `addSplits`：把 Flink 的 split wrapper 解包为 SeaTunnel split 再下发
+- `snapshotState`：把 SeaTunnel reader 的快照结果包装为 Flink 侧可序列化的 split/state
+- `notifyCheckpointComplete`：把 checkpoint 完成通知下沉到 SeaTunnel reader（用于清理/提交等）
 
 ### 2.3 FlinkSourceEnumerator 适配器
 
-```java
-public class FlinkSourceEnumerator<SplitT extends SourceSplit, StateT>
-    implements SplitEnumerator<SplitWrapper<SplitT>, EnumeratorStateWrapper<StateT>> {
-
-    private final SourceSplitEnumerator<SplitT, StateT> seaTunnelEnumerator;
-    private final SplitEnumeratorContext<SplitWrapper<SplitT>> flinkContext;
-
-    @Override
-    public void start() {
-        try {
-            seaTunnelEnumerator.open();
-            seaTunnelEnumerator.run();
-        } catch (Exception e) {
-            throw new FlinkRuntimeException("Failed to start enumerator", e);
-        }
-    }
-
-    @Override
-    public void handleSplitRequest(int subtaskId, @Nullable String requesterHostname) {
-        // 委托给 SeaTunnel 枚举器
-        seaTunnelEnumerator.handleSplitRequest(subtaskId);
-    }
-
-    @Override
-    public void addSplitsBack(List<SplitWrapper<SplitT>> splits, int subtaskId) {
-        // 解包并委托
-        List<SplitT> unwrappedSplits = splits.stream()
-            .map(SplitWrapper::getSplit)
-            .collect(Collectors.toList());
-
-        seaTunnelEnumerator.addSplitsBack(unwrappedSplits, subtaskId);
-    }
-
-    @Override
-    public void addReader(int subtaskId) {
-        seaTunnelEnumerator.addReader(subtaskId);
-    }
-
-    @Override
-    public EnumeratorStateWrapper<StateT> snapshotState(long checkpointId) {
-        try {
-            StateT state = seaTunnelEnumerator.snapshotState(checkpointId);
-            return new EnumeratorStateWrapper<>(state);
-        } catch (Exception e) {
-            throw new FlinkRuntimeException("Failed to snapshot enumerator state", e);
-        }
-    }
-}
-```
+**适配点（语义级）**：
+- 生命周期：Flink enumerator 的 `start` 驱动 SeaTunnel enumerator 的 open/run
+- 分片请求：Flink 的 split request 透传给 SeaTunnel enumerator 的分片分配逻辑
+- 分片回退：把回退 split 解包并回交给 SeaTunnel enumerator
+- 状态快照：把 enumerator state 包装成 Flink 可持久化的 wrapper，以参与 checkpoint
 
 ### 2.4 上下文适配器
 
 **FlinkSourceReaderContext**:
-```java
-public class FlinkSourceReaderContext
-    implements org.apache.seatunnel.api.source.SourceReader.Context {
 
-    private final SourceReaderContext flinkContext;
-
-    @Override
-    public int getIndexOfSubtask() {
-        return flinkContext.getIndexOfThisSubtask();
-    }
-
-    @Override
-    public void sendSplitRequest() {
-        // Flink 自动处理分片请求
-        // 不需要显式 API
-    }
-
-    @Override
-    public void sendSourceEventToEnumerator(SourceEvent event) {
-        flinkContext.sendSourceEventToCoordinator(
-            new SourceEventWrapper(event)
-        );
-    }
-}
-```
+- 下标与并行度：把 Flink 的 subtask index 映射为 SeaTunnel reader 的 index
+- 事件通道：把 SeaTunnel 的 SourceEvent 包装后发送到 Flink 的 coordinator/event channel
+- 分片请求：Flink 会在运行时自动触发 split request，SeaTunnel 侧通常不需要显式触发
 
 **FlinkSourceSplitEnumeratorContext**:
-```java
-public class FlinkSourceSplitEnumeratorContext<SplitT extends SourceSplit>
-    implements SourceSplitEnumerator.Context<SplitT> {
 
-    private final SplitEnumeratorContext<SplitWrapper<SplitT>> flinkContext;
-
-    @Override
-    public int currentParallelism() {
-        return flinkContext.currentParallelism();
-    }
-
-    @Override
-    public Set<Integer> registeredReaders() {
-        return flinkContext.registeredReaders().keySet();
-    }
-
-    @Override
-    public void assignSplit(int subtaskId, List<SplitT> splits) {
-        // 包装并委托
-        List<SplitWrapper<SplitT>> wrappedSplits = splits.stream()
-            .map(SplitWrapper::new)
-            .collect(Collectors.toList());
-
-        flinkContext.assignSplits(new SplitsAssignment<>(
-            Collections.singletonMap(subtaskId, wrappedSplits)
-        ));
-    }
-
-    @Override
-    public void signalNoMoreSplits(int subtaskId) {
-        flinkContext.signalNoMoreSplits(subtaskId);
-    }
-
-    @Override
-    public void sendEventToSourceReader(int subtaskId, SourceEvent event) {
-        flinkContext.sendEventToSourceReader(subtaskId, new SourceEventWrapper(event));
-    }
-}
-```
+- 并行度/注册 reader：把 Flink 的 runtime 信息暴露给 SeaTunnel enumerator
+- 分片分配：把 SeaTunnel split 包装为 Flink split 并通过 Flink 的 assignment API 下发
+- no-more-splits：在有界场景下通知 reader 结束
+- 事件下发：把 SeaTunnel event 包装为 Flink event 并发送给指定 reader
 
 ### 2.5 FlinkSink 适配器
 
-```java
-public class FlinkSink<IN, CommitInfoT, WriterStateT, AggregatedCommitInfoT>
-    implements Sink<IN, CommitInfoT, WriterStateT, AggregatedCommitInfoT> {
-
-    private final SeaTunnelSink<IN, WriterStateT, CommitInfoT, AggregatedCommitInfoT> seaTunnelSink;
-
-    @Override
-    public SinkWriter<IN, CommitInfoT, WriterStateT> createWriter(InitContext context) {
-        // 使用适配的上下文创建 SeaTunnel 写入器
-        org.apache.seatunnel.api.sink.SinkWriter<IN, CommitInfoT, WriterStateT> seaTunnelWriter =
-            seaTunnelSink.createWriter(new FlinkSinkWriterContext(context));
-
-        // 包装在 Flink 适配器中
-        return new FlinkSinkWriter<>(seaTunnelWriter);
-    }
-
-    @Override
-    public Optional<Committer<CommitInfoT>> createCommitter() {
-        return seaTunnelSink.createCommitter()
-            .map(FlinkCommitter::new);
-    }
-
-    @Override
-    public Optional<GlobalCommitter<CommitInfoT, AggregatedCommitInfoT>> createGlobalCommitter() {
-        return seaTunnelSink.createAggregatedCommitter()
-            .map(FlinkGlobalCommitter::new);
-    }
-
-    @Override
-    public Optional<SimpleVersionedSerializer<CommitInfoT>> getCommittableSerializer() {
-        return seaTunnelSink.getCommitInfoSerializer()
-            .map(FlinkSimpleVersionedSerializer::new);
-    }
-
-    @Override
-    public Optional<SimpleVersionedSerializer<WriterStateT>> getWriterStateSerializer() {
-        return seaTunnelSink.getWriterStateSerializer()
-            .map(FlinkSimpleVersionedSerializer::new);
-    }
-}
-```
+**适配点（语义级）**：
+- writer：把 Flink `InitContext` 适配为 SeaTunnel writer context 并创建 SeaTunnel `SinkWriter`
+- committer/global committer：把 SeaTunnel 的两阶段提交组件包装为 Flink 的 committer 体系
+- serializer：把 SeaTunnel 的 commitInfo / writerState 序列化器适配为 Flink `SimpleVersionedSerializer`
 
 ### 2.6 FlinkSinkWriter 适配器
 
-```java
-public class FlinkSinkWriter<IN, CommitInfoT, WriterStateT>
-    implements SinkWriter<IN, CommitInfoT, WriterStateT> {
-
-    private final org.apache.seatunnel.api.sink.SinkWriter<IN, CommitInfoT, WriterStateT> seaTunnelWriter;
-
-    @Override
-    public void write(IN element, Context context) throws IOException {
-        // 委托给 SeaTunnel 写入器
-        seaTunnelWriter.write(element);
-    }
-
-    @Override
-    public List<CommitInfoT> prepareCommit(boolean flush) throws IOException {
-        Optional<CommitInfoT> commitInfo = seaTunnelWriter.prepareCommit();
-        return commitInfo.map(Collections::singletonList)
-            .orElse(Collections.emptyList());
-    }
-
-    @Override
-    public List<WriterStateT> snapshotState(long checkpointId) throws IOException {
-        return seaTunnelWriter.snapshotState(checkpointId);
-    }
-
-    @Override
-    public void close() throws Exception {
-        seaTunnelWriter.close();
-    }
-}
-```
+**适配点（语义级）**：
+- `write`：把 Flink sink writer 的写入请求委托给 SeaTunnel `SinkWriter.write`
+- `prepareCommit`：把 SeaTunnel `prepareCommit()` 的可选 commitInfo 映射为 Flink 的 committable 列表
+- `snapshotState`：直接使用 SeaTunnel writer 的快照结果参与 Flink checkpoint
+- `close`：委托关闭，确保释放外部资源
 
 ## 3. Spark 转换层
 
@@ -389,291 +119,48 @@ public class FlinkSinkWriter<IN, CommitInfoT, WriterStateT>
 
 将 `SeaTunnelSource` 适配到 Spark 的 `DataSourceReader` 接口。
 
-```java
-public class SparkSource<T, SplitT extends SourceSplit, StateT>
-    implements DataSourceReader {
+**适配点（语义级）**：
+- `readSchema`：把 SeaTunnel `CatalogTable/TableSchema` 映射为 Spark `StructType`
+- `planInputPartitions`：在 Spark 的批处理模型下，通常一次性生成全部 splits，并为每个 split 构造一个 `InputPartition`
 
-    private final SeaTunnelSource<T, SplitT, StateT> seaTunnelSource;
-
-    @Override
-    public StructType readSchema() {
-        // 将 SeaTunnel 模式转换为 Spark 模式
-        CatalogTable catalogTable = seaTunnelSource.getProducedCatalogTable();
-        return SparkTypeConverter.convert(catalogTable.getTableSchema());
-    }
-
-    @Override
-    public List<InputPartition<InternalRow>> planInputPartitions() {
-        // 创建枚举器并生成分片
-        SourceSplitEnumerator<SplitT, StateT> enumerator =
-            seaTunnelSource.createEnumerator(new SparkEnumeratorContext());
-
-        try {
-            enumerator.open();
-            enumerator.run();
-
-            // 收集所有分片
-            List<SplitT> splits = collectAllSplits(enumerator);
-
-            // 将每个分片包装为 Spark InputPartition
-            return splits.stream()
-                .map(split -> new SparkInputPartition<>(seaTunnelSource, split))
-                .collect(Collectors.toList());
-
-        } catch (Exception e) {
-            throw new RuntimeException("Failed to plan input partitions", e);
-        }
-    }
-}
-```
+Spark 的执行模型偏“批式规划”，因此枚举器的职责更像是“规划阶段生成分片集合”，而不是长期运行的调度器。
 
 ### 3.2 SparkInputPartition
 
-```java
-public class SparkInputPartition<T, SplitT extends SourceSplit>
-    implements InputPartition<InternalRow> {
-
-    private final SeaTunnelSource<T, SplitT, ?> seaTunnelSource;
-    private final SplitT split;
-
-    @Override
-    public InputPartitionReader<InternalRow> createPartitionReader() {
-        // 创建 SeaTunnel 读取器
-        org.apache.seatunnel.api.source.SourceReader<T, SplitT> seaTunnelReader =
-            seaTunnelSource.createReader(new SparkReaderContext());
-
-        // 包装在 Spark 适配器中
-        return new SparkPartitionReader<>(seaTunnelReader, split);
-    }
-}
-```
+**适配点（语义级）**：
+- 每个 `InputPartition` 绑定一个 SeaTunnel split
+- `createPartitionReader` 创建 SeaTunnel reader，注入该 split，并把输出转换为 Spark `InternalRow`
 
 ### 3.3 SparkPartitionReader
 
-```java
-public class SparkPartitionReader<T, SplitT extends SourceSplit>
-    implements InputPartitionReader<InternalRow> {
-
-    private final org.apache.seatunnel.api.source.SourceReader<T, SplitT> seaTunnelReader;
-    private final Queue<InternalRow> buffer = new LinkedList<>();
-
-    public SparkPartitionReader(
-        org.apache.seatunnel.api.source.SourceReader<T, SplitT> reader,
-        SplitT split
-    ) {
-        this.seaTunnelReader = reader;
-
-        try {
-            seaTunnelReader.open();
-            seaTunnelReader.addSplits(Collections.singletonList(split));
-        } catch (Exception e) {
-            throw new RuntimeException("Failed to open reader", e);
-        }
-    }
-
-    @Override
-    public boolean next() throws IOException {
-        if (!buffer.isEmpty()) {
-            return true;
-        }
-
-        // 从 SeaTunnel 读取器轮询
-        try {
-            seaTunnelReader.pollNext(new Collector<T>() {
-                @Override
-                public void collect(T record) {
-                    // 转换为 Spark InternalRow
-                    InternalRow row = SparkTypeConverter.convert(record);
-                    buffer.offer(row);
-                }
-            });
-
-            return !buffer.isEmpty();
-
-        } catch (Exception e) {
-            throw new IOException("Failed to poll next", e);
-        }
-    }
-
-    @Override
-    public InternalRow get() {
-        return buffer.poll();
-    }
-
-    @Override
-    public void close() throws IOException {
-        try {
-            seaTunnelReader.close();
-        } catch (Exception e) {
-            throw new IOException("Failed to close reader", e);
-        }
-    }
-}
-```
+**适配点（语义级）**：
+- 初始化：创建并打开 SeaTunnel reader，下发 split
+- 读取循环：从 SeaTunnel reader 拉取记录并转换为 Spark `InternalRow`（必要时使用缓冲队列适配 pull-based API）
+- 资源释放：关闭 reader 并释放外部资源
 
 ### 3.4 SparkSink 适配器
 
-```java
-public class SparkSink<IN, WriterStateT, CommitInfoT>
-    implements DataSourceWriter {
-
-    private final SeaTunnelSink<IN, WriterStateT, CommitInfoT, ?> seaTunnelSink;
-
-    @Override
-    public DataWriterFactory<InternalRow> createWriterFactory() {
-        return new SparkDataWriterFactory<>(seaTunnelSink);
-    }
-
-    @Override
-    public boolean useCommitCoordinator() {
-        // 如果目标端有提交器则使用提交协调器
-        return seaTunnelSink.createCommitter().isPresent();
-    }
-
-    @Override
-    public void commit(WriterCommitMessage[] messages) {
-        Optional<SinkCommitter<CommitInfoT>> committerOpt = seaTunnelSink.createCommitter();
-
-        if (committerOpt.isPresent()) {
-            SinkCommitter<CommitInfoT> committer = committerOpt.get();
-
-            // 从消息中提取提交信息
-            List<CommitInfoT> commitInfos = Arrays.stream(messages)
-                .map(msg -> ((SparkCommitMessage<CommitInfoT>) msg).getCommitInfo())
-                .collect(Collectors.toList());
-
-            // 提交
-            try {
-                List<CommitInfoT> failed = committer.commit(commitInfos);
-                if (!failed.isEmpty()) {
-                    throw new IOException("Some commits failed: " + failed);
-                }
-            } catch (IOException e) {
-                throw new RuntimeException("Failed to commit", e);
-            }
-        }
-    }
-
-    @Override
-    public void abort(WriterCommitMessage[] messages) {
-        // 处理中止
-        Optional<SinkCommitter<CommitInfoT>> committerOpt = seaTunnelSink.createCommitter();
-
-        if (committerOpt.isPresent()) {
-            SinkCommitter<CommitInfoT> committer = committerOpt.get();
-
-            List<CommitInfoT> commitInfos = Arrays.stream(messages)
-                .map(msg -> ((SparkCommitMessage<CommitInfoT>) msg).getCommitInfo())
-                .collect(Collectors.toList());
-
-            try {
-                committer.abort(commitInfos);
-            } catch (IOException e) {
-                throw new RuntimeException("Failed to abort", e);
-            }
-        }
-    }
-}
-```
+**适配点（语义级）**：
+- writer factory：在 executor 侧创建写入器实例并接收 Spark `InternalRow`
+- commit coordinator：当目标端存在提交器时启用 Spark 的提交协调路径
+- commit/abort：把 Spark 的提交消息转换为 SeaTunnel 的 commitInfo 列表，并交由 SeaTunnel `SinkCommitter` 执行（要求幂等/可重试）
 
 ## 4. 序列化适配器
 
 ### 4.1 FlinkSimpleVersionedSerializer
 
-```java
-public class FlinkSimpleVersionedSerializer<T>
-    implements SimpleVersionedSerializer<T> {
-
-    private final org.apache.seatunnel.api.serialization.Serializer<T> seaTunnelSerializer;
-
-    @Override
-    public int getVersion() {
-        // 委托给 SeaTunnel 序列化器
-        return seaTunnelSerializer.getVersion();
-    }
-
-    @Override
-    public byte[] serialize(T obj) throws IOException {
-        return seaTunnelSerializer.serialize(obj);
-    }
-
-    @Override
-    public T deserialize(int version, byte[] serialized) throws IOException {
-        return seaTunnelSerializer.deserialize(serialized);
-    }
-}
-```
+**适配点（语义级）**：
+- 版本：将 SeaTunnel serializer 的版本号透传到 Flink 侧
+- 序列化/反序列化：直接委托给 SeaTunnel serializer，以保证跨引擎一致的状态编码
 
 ## 5. 类型转换
 
 ### 5.1 Spark 类型转换
 
-```java
-public class SparkTypeConverter {
-    public static StructType convert(TableSchema schema) {
-        List<StructField> fields = new ArrayList<>();
-
-        for (Column column : schema.getColumns()) {
-            StructField field = new StructField(
-                column.getName(),
-                convertDataType(column.getDataType()),
-                column.isNullable(),
-                Metadata.empty()
-            );
-            fields.add(field);
-        }
-
-        return new StructType(fields.toArray(new StructField[0]));
-    }
-
-    private static DataType convertDataType(SeaTunnelDataType<?> seaTunnelType) {
-        switch (seaTunnelType.getSqlType()) {
-            case TINYINT:
-                return DataTypes.ByteType;
-            case SMALLINT:
-                return DataTypes.ShortType;
-            case INT:
-                return DataTypes.IntegerType;
-            case BIGINT:
-                return DataTypes.LongType;
-            case FLOAT:
-                return DataTypes.FloatType;
-            case DOUBLE:
-                return DataTypes.DoubleType;
-            case DECIMAL:
-                DecimalType decimalType = (DecimalType) seaTunnelType;
-                return DataTypes.createDecimalType(
-                    decimalType.getPrecision(),
-                    decimalType.getScale()
-                );
-            case STRING:
-                return DataTypes.StringType;
-            case BOOLEAN:
-                return DataTypes.BooleanType;
-            case DATE:
-                return DataTypes.DateType;
-            case TIMESTAMP:
-                return DataTypes.TimestampType;
-            case BYTES:
-                return DataTypes.BinaryType;
-            case ARRAY:
-                ArrayType arrayType = (ArrayType) seaTunnelType;
-                return DataTypes.createArrayType(
-                    convertDataType(arrayType.getElementType())
-                );
-            case MAP:
-                MapType mapType = (MapType) seaTunnelType;
-                return DataTypes.createMapType(
-                    convertDataType(mapType.getKeyType()),
-                    convertDataType(mapType.getValueType())
-                );
-            default:
-                throw new UnsupportedOperationException(
-                    "Unsupported type: " + seaTunnelType);
-        }
-    }
-}
-```
+**适配点（语义级）**：
+- Schema：将 SeaTunnel `TableSchema` 映射为 Spark `StructType`
+- DataType：按 `SqlType` 做一一映射（整数/浮点/decimal/string/boolean/date/timestamp/bytes/array/map 等）
+- 兼容性：当引擎侧类型更细分时（例如 timestamp 语义差异），以 SeaTunnel 的“最小公分母”语义为准，并允许通过配置选择具体映射策略
 
 ## 6. 性能考虑
 
@@ -696,38 +183,14 @@ public class SparkTypeConverter {
 ### 6.2 优化技术
 
 **批量类型转换**:
-```java
-// ❌ 差: 每条记录转换
-public void collect(SeaTunnelRow record) {
-    InternalRow sparkRow = convertToSparkRow(record);
-    output.collect(sparkRow);
-}
 
-// ✅ 好: 批量转换(分摊开销)
-public void collect(List<SeaTunnelRow> records) {
-    InternalRow[] sparkRows = batchConvertToSparkRows(records);
-    for (InternalRow row : sparkRows) {
-        output.collect(row);
-    }
-}
-```
+- 优先批量转换（向量化/批处理）以摊销 per-row 转换成本
+- 在不改变语义的前提下减少对象创建与复制（降低 GC 压力）
 
 **避免不必要的包装**:
-```java
-// 如果分片已经可序列化,不要包装
-public class SplitWrapper<T> {
-    private final T split;
 
-    // 惰性包装: 仅在序列化需要时包装
-    public byte[] serialize() {
-        if (split instanceof Serializable) {
-            return directSerialize(split); // 无包装开销
-        } else {
-            return wrapAndSerialize(split); // 后备
-        }
-    }
-}
-```
+- 优先复用已有序列化能力，避免重复 wrapper 造成的额外拷贝
+- 在必须 wrapper 时采用惰性策略：仅在 checkpoint/网络传输时做包装
 
 ## 7. 限制和解决方法
 
@@ -736,11 +199,8 @@ public class SplitWrapper<T> {
 **问题**: 某些引擎功能在 SeaTunnel 中没有等效项。
 
 **示例**: Flink 的 `WatermarkStrategy`
-```java
-// Flink 特定的水印策略无法在 SeaTunnel API 中表达
-WatermarkStrategy<T> watermarkStrategy = WatermarkStrategy
-    .forBoundedOutOfOrderness(Duration.ofSeconds(5));
-```
+
+Flink 的 watermark/事件时间语义属于引擎特性，SeaTunnel 的连接器 API 默认不直接暴露该能力。
 
 **解决方法**: 提供引擎特定配置
 ```hocon
@@ -763,10 +223,8 @@ source {
 **示例**: Spark 有 `TimestampType`,Flink 有 `LocalZonedTimestampType` 和 `TimestampType`。
 
 **解决方法**: 使用最小公分母
-```java
-// SeaTunnel 使用通用 TIMESTAMP
-// 转换层根据配置映射到适当的引擎类型
-```
+
+SeaTunnel 侧使用统一抽象类型；转换层根据引擎能力与用户配置决定映射到哪一种引擎类型。
 
 ## 8. 最佳实践
 
@@ -785,26 +243,9 @@ source {
 ### 8.2 测试
 
 **在所有引擎上测试**:
-```java
-@RunWith(Parameterized.class)
-public class ConnectorTest {
-    @Parameters
-    public static Collection<Object[]> engines() {
-        return Arrays.asList(new Object[][]{
-            {"flink"},
-            {"spark"},
-            {"seatunnel"}
-        });
-    }
 
-    @Test
-    public void testExactlyOnce(String engine) {
-        // 在不同引擎上运行相同测试
-        runJobOnEngine(engine, jobConfig);
-        verifyResults();
-    }
-}
-```
+- 建议使用参数化/矩阵测试：同一套连接器用例在 Flink/Spark/Zeta 上跑
+- 覆盖语义一致性：exactly-once、checkpoint 恢复、schema 兼容、分片重新分配等
 
 ## 9. 相关资源
 
@@ -814,11 +255,7 @@ public class ConnectorTest {
 
 ## 10. 参考资料
 
-### 关键源文件
-
-- Flink 转换: `seatunnel-translation/seatunnel-translation-flink/`
-- Spark 转换: `seatunnel-translation/seatunnel-translation-spark/`
-- 基础接口: `seatunnel-api/src/main/java/org/apache/seatunnel/api/`
+本章节不维护“源码路径清单”，避免实现调整导致文档失真；如需从概念进一步落地，请从“相关资源”按主题继续阅读。
 
 ### 进一步阅读
 

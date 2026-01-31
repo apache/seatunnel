@@ -78,30 +78,19 @@ SeaTunnel 的 DAG 执行模型旨在:
 
 LogicalDag 以引擎无关的方式表示用户的作业配置。
 
-```java
-public class LogicalDag {
-    // 顶点: 数据源、转换器、目标端动作
-    private final Map<Long, LogicalVertex> logicalVertexMap;
-
-    // 边: 数据流依赖关系
-    private final Set<LogicalEdge> edges;
-
-    // 作业配置
-    private final JobConfig jobConfig;
-}
-```
+LogicalDag 的核心组成:
+- **logicalVertexMap**: 顶点集合(每个顶点对应一个 Source/Transform/Sink 动作)
+- **edges**: 边集合(描述数据流依赖关系)
+- **jobConfig**: 作业级配置(例如并行度默认值、容错/资源/运行参数)
 
 ### 2.2 LogicalVertex
 
 表示单个动作(数据源/转换器/目标端)及其并行度。
 
-```java
-public class LogicalVertex {
-    private final long vertexId;
-    private final Action action; // SourceAction, TransformChainAction, SinkAction
-    private final int parallelism; // 并行实例数量
-}
-```
+一个 LogicalVertex 通常包含:
+- **vertexId**: 顶点唯一标识
+- **action**: 动作类型(SourceAction / TransformChainAction / SinkAction)
+- **parallelism**: 并行实例数量(若未显式配置，可能由引擎推断)
 
 **动作类型**:
 - **SourceAction**: 封装 `SeaTunnelSource`,生产 `CatalogTable`
@@ -109,65 +98,31 @@ public class LogicalVertex {
 - **SinkAction**: 封装 `SeaTunnelSink`,消费 `CatalogTable`
 
 **示例**:
-```java
-// 来自配置:
-// source { JDBC { ... parallelism = 4 } }
-// transform { Sql { ... parallelism = 8 } }
-// sink { Elasticsearch { ... parallelism = 2 } }
 
-LogicalVertex sourceVertex = new LogicalVertex(
-    vertexId: 1,
-    action: new SourceAction(jdbcSource),
-    parallelism: 4
-);
-
-LogicalVertex transformVertex = new LogicalVertex(
-    vertexId: 2,
-    action: new TransformChainAction(sqlTransform),
-    parallelism: 8
-);
-
-LogicalVertex sinkVertex = new LogicalVertex(
-    vertexId: 3,
-    action: new SinkAction(esSink),
-    parallelism: 2
-);
-```
+来自配置的直观映射关系:
+- Vertex 1: JDBC Source，parallelism=4
+- Vertex 2: SQL Transform，parallelism=8
+- Vertex 3: Elasticsearch Sink，parallelism=2
 
 ### 2.3 LogicalEdge
 
 表示动作之间的数据流。
 
-```java
-public class LogicalEdge {
-    private final long inputVertexId;   // 上游顶点
-    private final long targetVertexId;  // 下游顶点
-}
-```
+一条 LogicalEdge 通常只需要描述:
+- **inputVertexId**: 上游顶点
+- **targetVertexId**: 下游顶点
 
 **示例**:
-```java
-// 数据源 → 转换器边
-LogicalEdge edge1 = new LogicalEdge(
-    inputVertexId: 1,  // JDBC 数据源
-    targetVertexId: 2  // SQL 转换器
-);
 
-// 转换器 → 目标端边
-LogicalEdge edge2 = new LogicalEdge(
-    inputVertexId: 2,  // SQL 转换器
-    targetVertexId: 3  // Elasticsearch 目标端
-);
-```
+典型线性拓扑中的边:
+- JDBC Source(1) → SQL Transform(2)
+- SQL Transform(2) → Elasticsearch Sink(3)
 
 ### 2.4 LogicalDag 创建
 
 从用户配置构建:
 
-```java
-// JobMaster 创建 LogicalDag
-LogicalDag logicalDag = LogicalDagGenerator.generate(jobConfig);
-```
+JobMaster 在作业提交/启动阶段根据 jobConfig 生成 LogicalDag。
 
 **过程**:
 1. 解析 HOCON 配置(source、transform、sink 部分)
@@ -220,22 +175,11 @@ Vertex 3 (Elasticsearch 目标端, parallelism=4)
 
 PhysicalPlan 描述如何在分布式工作节点上执行 LogicalDag。
 
-```java
-public class PhysicalPlan {
-    // 多个流水线(SubPlans)
-    private final List<SubPlan> pipelineList;
-
-    // 不可变作业信息
-    private final JobImmutableInformation jobImmutableInformation;
-
-    // 分布式状态(Hazelcast IMap)
-    private final IMap<Long, JobStatus> runningJobStateIMap;
-    private final IMap<Long, Long> runningJobStateTimestampsIMap;
-
-    // 作业完成 future
-    private final CompletableFuture<JobResult> jobEndFuture;
-}
-```
+PhysicalPlan 的核心信息通常包括:
+- **pipelineList(SubPlans)**: 由 LogicalDag 切分得到的多个流水线(独立执行单元)
+- **jobImmutableInformation**: 作业不可变信息(例如作业 ID、提交参数、依赖等)
+- **running state store**: 分布式状态存储(用于运行态状态、时间戳、元信息等)
+- **jobEndFuture**: 作业完成信号(用于协调退出、回收资源、返回结果)
 
 ### 3.2 流水线分割
 
@@ -306,11 +250,7 @@ sink {
 
 ### 3.3 PhysicalPlan 生成
 
-```java
-// 在 JobMaster 中
-PhysicalPlan physicalPlan = new PhysicalPlanGenerator(logicalDag, resourceManager)
-    .generate();
-```
+PhysicalPlan 通常由 JobMaster 在拿到 LogicalDag 后生成，并结合 ResourceManager 做资源申请与放置。
 
 **步骤**:
 1. **分析 LogicalDag**: 识别数据源、目标端和依赖关系
@@ -326,24 +266,12 @@ PhysicalPlan physicalPlan = new PhysicalPlanGenerator(logicalDag, resourceManage
 
 SubPlan 表示一个独立执行的流水线。
 
-```java
-public class SubPlan {
-    private final int pipelineId;
-    private final PipelineLocation pipelineLocation;
-
-    // 此流水线中的所有任务实例
-    private final List<PhysicalVertex> physicalVertexList;
-
-    // 协调器任务(枚举器、提交器)
-    private final List<PhysicalVertex> coordinatorVertexList;
-
-    // 此流水线的检查点协调器
-    private final CheckpointCoordinator checkpointCoordinator;
-
-    // 执行状态
-    private PipelineStatus pipelineStatus;
-}
-```
+SubPlan(流水线)通常包含:
+- **pipelineId/pipelineLocation**: 流水线的唯一标识
+- **physicalVertexList**: 此流水线中的并行任务实例列表
+- **coordinatorVertexList**: 协调器类任务(如 split enumerator、sink committer)
+- **checkpointCoordinator**: 本流水线的检查点协调器(独立协调域)
+- **pipelineStatus**: 执行状态(如 CREATED/RUNNING/FAILED/FINISHED)
 
 ### 4.2 PhysicalVertex 列表
 
@@ -408,40 +336,21 @@ JDBC → Transform → Elasticsearch 的 SubPlan:
 
 PhysicalVertex 表示已部署的任务实例。
 
-```java
-public class PhysicalVertex {
-    private final TaskGroupLocation taskGroupLocation;
-    private final TaskGroupDefaultImpl taskGroup;
-
-    // 分配的资源槽位
-    private final SlotProfile slotProfile;
-
-    // 执行状态(CREATED, RUNNING, FAILED, 等)
-    private ExecutionState currentExecutionState;
-
-    // 插件 jar(用于类加载器隔离)
-    private final List<Set<URL>> pluginJarsUrls;
-}
-```
+PhysicalVertex 关注“一个并行任务实例如何被部署与运行”:
+- **taskGroupLocation**: 任务实例定位信息(含并行子任务序号等)
+- **taskGroup**: 任务融合后的执行单元(见下节)
+- **slotProfile**: 该实例被分配到的槽位(资源容量与位置)
+- **currentExecutionState**: 当前执行状态(CREATED/RUNNING/FAILED 等)
+- **pluginJarsUrls**: 插件依赖(用于类加载隔离)
 
 ### 5.2 TaskGroup: 任务融合
 
 多个任务可以融合到单个 `TaskGroup` 以提高效率。
 
-```java
-public class TaskGroupDefaultImpl implements TaskGroup {
-    private final TaskGroupLocation taskGroupLocation;
-
-    // 此组中的多个任务
-    private final Set<Task> tasks;
-
-    // 共享线程池
-    private final ExecutorService executorService;
-
-    // 共享网络缓冲区
-    private final Map<Long, BlockingQueue<Record<?>>> internalChannels;
-}
-```
+TaskGroup 的关键点:
+- 将一段可融合的线性算子链(Source/Transform/Sink 的某些组合)放在同一执行单元内
+- 通过共享线程/队列/内存通道减少跨算子序列化与网络开销
+- 以并行度为单位生成多个 TaskGroup 实例(通常与上游并行度对齐)
 
 **融合条件**:
 1. 相同并行度
@@ -472,13 +381,7 @@ LogicalDag:
 
 每个 PhysicalVertex 被分配一个 `SlotProfile`:
 
-```java
-public class SlotProfile {
-    private final long slotID;
-    private final Address workerAddress;
-    private final ResourceProfile resourceProfile; // CPU、内存
-}
-```
+SlotProfile 表达“这个任务实例运行在哪里、能用多少资源”。具体字段与语义见资源管理文档。
 
 **分配过程**:
 1. JobMaster 从 ResourceManager 请求槽位
@@ -521,48 +424,24 @@ sequenceDiagram
 每个 `SeaTunnelTask` 执行其分配的动作:
 
 **SourceSeaTunnelTask**:
-```java
-while (isRunning()) {
-    // 从 SourceReader 轮询数据
-    sourceReader.pollNext(collector);
 
-    // 处理检查点屏障
-    if (checkpointTriggered) {
-        triggerBarrier(checkpointId);
-    }
-}
-```
+执行要点:
+- 持续从 SourceReader 拉取/接收数据并发出记录
+- 在检查点触发时生成并传播 barrier(屏障)，参与流水线级的一致性快照
 
 **TransformSeaTunnelTask**:
-```java
-while (isRunning()) {
-    // 从输入队列读取
-    Record record = inputQueue.take();
 
-    // 应用转换
-    Record transformed = transform.map(record);
-
-    // 写入输出队列
-    outputQueue.put(transformed);
-}
-```
+执行要点:
+- 从上游通道读取记录
+- 应用 transform 逻辑并输出到下游通道
+- 若 transform 有状态，需要参与 checkpoint 的状态快照与恢复
 
 **SinkSeaTunnelTask**:
-```java
-while (isRunning()) {
-    // 从输入队列读取
-    Record record = inputQueue.take();
 
-    // 写入目标端
-    sinkWriter.write(record);
-
-    // 处理检查点屏障
-    if (barrierReceived) {
-        commitInfo = sinkWriter.prepareCommit();
-        snapshotState(checkpointId);
-    }
-}
-```
+执行要点:
+- 持续消费上游记录并调用 sinkWriter 写入目标端
+- 在 barrier 到达时切换到“快照边界”：准备提交信息(prepareCommit)、持久化 writer 状态并将提交信息交给 committer
+- 在 checkpoint 成功后由 committer 进行最终提交；失败时由恢复流程回滚/重试(取决于 sink 语义)
 
 ## 7. 优化策略
 
@@ -634,13 +513,11 @@ sink {
 ```
 
 **资源配置文件**:
-```java
-ResourceProfile profile = new ResourceProfile(
-    cpu: new CPU(1.0),           // 1 CPU 核心
-    heapMemory: new Memory(512), // 512MB 堆内存
-    offHeapMemory: new Memory(256) // 256MB 堆外内存
-);
-```
+
+资源配置文件通常通过配置表达，例如:
+- cpu.cores = 1.0
+- heap-memory.mb = 512
+- off-heap-memory.mb = 256
 
 ## 8. 故障处理
 
@@ -767,15 +644,6 @@ ResourceProfile profile = new ResourceProfile(
 - [架构概述](../overview.md)
 
 ## 12. 参考资料
-
-### 关键源文件
-
-- [LogicalDag.java](../../../seatunnel-engine/seatunnel-engine-core/src/main/java/org/apache/seatunnel/engine/core/dag/logical/LogicalDag.java)
-- [PhysicalPlan.java](../../../seatunnel-engine/seatunnel-engine-server/src/main/java/org/apache/seatunnel/engine/server/dag/physical/PhysicalPlan.java)
-- [SubPlan.java](../../../seatunnel-engine/seatunnel-engine-server/src/main/java/org/apache/seatunnel/engine/server/dag/physical/SubPlan.java)
-- [PhysicalVertex.java](../../../seatunnel-engine/seatunnel-engine-server/src/main/java/org/apache/seatunnel/engine/server/dag/physical/PhysicalVertex.java)
-- [TaskGroupDefaultImpl.java](../../../seatunnel-engine/seatunnel-engine-server/src/main/java/org/apache/seatunnel/engine/server/task/group/TaskGroupDefaultImpl.java)
-
 ### 进一步阅读
 
 - [Google Borg Paper](https://research.google/pubs/pub43438/) - 任务调度灵感

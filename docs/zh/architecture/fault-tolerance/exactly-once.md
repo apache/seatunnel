@@ -122,97 +122,23 @@ SeaTunnel 的精确一次语义旨在:
 ### 3.2 关键组件
 
 **数据源偏移量管理**:
-```java
-public class KafkaSourceReader {
-    private Map<TopicPartition, Long> currentOffsets;
 
-    @Override
-    public void pollNext(Collector<SeaTunnelRow> output) {
-        ConsumerRecords<K, V> records = consumer.poll(timeout);
-        for (ConsumerRecord<K, V> record : records) {
-            // 处理记录
-            output.collect(convert(record));
-
-            // 跟踪偏移量
-            currentOffsets.put(
-                new TopicPartition(record.topic(), record.partition()),
-                record.offset()
-            );
-        }
-    }
-
-    @Override
-    public List<KafkaSourceState> snapshotState(long checkpointId) {
-        // 快照偏移量(将在检查点完成后提交)
-        return Collections.singletonList(new KafkaSourceState(currentOffsets));
-    }
-
-    @Override
-    public void notifyCheckpointComplete(long checkpointId) {
-        // 提交偏移量到 Kafka(幂等)
-        consumer.commitSync(currentOffsets);
-    }
-}
-```
+Source 侧要想参与端到端精确一次，通常需要满足:
+- **可追踪进度**: 读取过程持续维护“已处理到哪里”(如 Kafka offset、文件 position、CDC LSN 等)
+- **可快照**: 在 checkpoint 时将进度写入状态后端(属于检查点状态的一部分)
+- **可提交/可确认**: 在 checkpoint 成功后再将进度提交到外部系统(例如提交 offset)
+- **幂等提交**: 由于重试、故障转移可能触发重复提交，提交动作必须可重放且结果一致
 
 **目标端两阶段提交**:
-```java
-public class JdbcExactlyOnceSinkWriter {
-    private XAConnection xaConnection;
-    private Xid currentXid;
 
-    @Override
-    public void write(SeaTunnelRow element) {
-        if (currentXid == null) {
-            // 开始 XA 事务
-            currentXid = generateXid();
-            xaConnection.getXAResource().start(currentXid, XAResource.TMNOFLAGS);
-        }
-
-        // 执行 INSERT(在 XA 事务中缓冲)
-        statement.executeUpdate(toSQL(element));
-    }
-
-    @Override
-    public Optional<XidInfo> prepareCommit() {
-        if (currentXid == null) {
-            return Optional.empty();
-        }
-
-        // 阶段 1: 准备(无副作用)
-        xaConnection.getXAResource().end(currentXid, XAResource.TMSUCCESS);
-        xaConnection.getXAResource().prepare(currentXid);
-
-        // 返回 XID 给提交器
-        XidInfo xidInfo = new XidInfo(currentXid);
-        currentXid = null;
-        return Optional.of(xidInfo);
-    }
-}
-
-public class JdbcSinkCommitter {
-    @Override
-    public List<XidInfo> commit(List<XidInfo> commitInfos) {
-        List<XidInfo> failed = new ArrayList<>();
-
-        for (XidInfo xidInfo : commitInfos) {
-            try {
-                // 阶段 2: 提交(副作用现在可见)
-                xaConnection.getXAResource().commit(xidInfo.getXid(), false);
-            } catch (XAException e) {
-                if (e.errorCode == XAException.XAER_NOTA) {
-                    // 已提交(幂等)
-                    LOG.info("XID already committed: {}", xidInfo);
-                } else {
-                    failed.add(xidInfo);
-                }
-            }
-        }
-
-        return failed;
-    }
-}
-```
+Sink 侧两阶段提交(2PC)的语义拆分:
+- **Writer(阶段 1 / prepare)**
+  - 将写入先落到“暂不可见”的位置(事务缓冲、临时文件、暂存表/分区等)
+  - 在 barrier 到达时执行 prepare：封存本轮写入，并产出 CommitInfo(例如事务 ID、临时路径、批次号)
+  - 将 CommitInfo 上报给协调器并随 CompletedCheckpoint 一起持久化
+- **Committer(阶段 2 / commit)**
+  - 仅在 checkpoint 完成后运行 commit(CommitInfos)，使外部副作用“变得可见”(提交事务、原子重命名、发布 batch)
+  - **必须幂等**：重复提交同一 CommitInfo 不能产生重复数据；典型做法是利用外部系统的事务 ID / 唯一键 / 幂等 API
 
 ## 4. 实现模式
 
@@ -221,21 +147,11 @@ public class JdbcSinkCommitter {
 **支持的系统**: MySQL、PostgreSQL、Oracle、SQL Server
 
 **实现**:
-```java
-public class JdbcExactlyOnceSink implements SeaTunnelSink<...> {
-    @Override
-    public SinkWriter<...> createWriter(Context context) {
-        // 启用 XA 事务
-        XADataSource xaDataSource = createXADataSource();
-        return new JdbcExactlyOnceSinkWriter(xaDataSource);
-    }
 
-    @Override
-    public Optional<SinkCommitter<XidInfo>> createCommitter() {
-        return Optional.of(new JdbcSinkCommitter(xaDataSource));
-    }
-}
-```
+实现要点:
+- Writer 使用 XA/事务能力将写入暂存于事务中
+- 在 prepareCommit 阶段产出可被提交器识别的事务标识(CommitInfo)
+- Committer 在 checkpoint 完成后提交事务，并对重复 commit 做幂等处理
 
 **优点**:
 - 强一致性保证
@@ -251,30 +167,11 @@ public class JdbcExactlyOnceSink implements SeaTunnelSink<...> {
 **支持的系统**: 键值存储、Elasticsearch(带文档 ID)
 
 **实现**:
-```java
-public class ElasticsearchSinkWriter {
-    @Override
-    public void write(SeaTunnelRow element) {
-        // 使用确定性文档 ID
-        String docId = extractPrimaryKey(element);
 
-        IndexRequest request = new IndexRequest("my_index")
-            .id(docId) // 幂等键
-            .source(toJson(element));
-
-        bulkProcessor.add(request);
-    }
-
-    @Override
-    public Optional<CommitInfo> prepareCommit() {
-        // 刷新批处理处理器
-        bulkProcessor.flush();
-
-        // 不需要显式提交(操作是幂等的)
-        return Optional.empty();
-    }
-}
-```
+实现要点:
+- 为每条记录选择一个确定性的幂等键(通常来自主键/业务唯一键)
+- 外部系统使用“按键覆盖/更新”(Upsert)语义：同一幂等键多次写入，最终只保留一个结果
+- prepareCommit 只需要保证批次边界(例如 flush 缓冲)，不一定需要单独的 commit 阶段
 
 **关键**: 相同主键 → 相同文档 → 幂等更新
 
@@ -289,103 +186,22 @@ public class ElasticsearchSinkWriter {
 ### 4.3 基于日志的目标端(Kafka)
 
 **实现**:
-```java
-public class KafkaSinkWriter {
-    private KafkaProducer<K, V> producer;
-    private String transactionId;
 
-    public KafkaSinkWriter() {
-        // 启用 Kafka 事务
-        Properties props = new Properties();
-        props.put("transactional.id", generateTransactionalId());
-        props.put("enable.idempotence", "true");
-
-        producer = new KafkaProducer<>(props);
-        producer.initTransactions();
-    }
-
-    @Override
-    public void write(SeaTunnelRow element) {
-        if (!transactionStarted) {
-            producer.beginTransaction();
-            transactionStarted = true;
-        }
-
-        ProducerRecord<K, V> record = convert(element);
-        producer.send(record);
-    }
-
-    @Override
-    public Optional<KafkaCommitInfo> prepareCommit() {
-        // 阶段 1: 准备(刷新,但不提交)
-        producer.flush();
-
-        // 返回事务信息
-        return Optional.of(new KafkaCommitInfo(transactionId));
-    }
-}
-
-public class KafkaSinkCommitter {
-    @Override
-    public List<KafkaCommitInfo> commit(List<KafkaCommitInfo> commitInfos) {
-        for (KafkaCommitInfo info : commitInfos) {
-            // 阶段 2: 提交事务
-            producer.commitTransaction();
-
-            // 为下一个检查点开始新事务
-            producer.beginTransaction();
-        }
-        return Collections.emptyList();
-    }
-}
-```
+实现要点:
+- 使用 Kafka 事务能力将一个 checkpoint 边界内的写入纳入同一个事务
+- prepareCommit 阶段完成 flush 并产出事务标识(CommitInfo)
+- commit 阶段提交事务，使消息对下游消费者可见
+- 对故障恢复时的重复提交，需要依赖 Kafka 事务/幂等机制保证不会产生重复可见结果
 
 ### 4.4 文件目标端(原子重命名)
 
 **实现**:
-```java
-public class FileSinkWriter {
-    private String tempFilePath;
-    private String finalFilePath;
-    private OutputStream outputStream;
 
-    @Override
-    public void write(SeaTunnelRow element) {
-        // 写入临时文件
-        byte[] bytes = serialize(element);
-        outputStream.write(bytes);
-    }
-
-    @Override
-    public Optional<FileCommitInfo> prepareCommit() {
-        // 阶段 1: 关闭临时文件(尚未重命名)
-        outputStream.close();
-
-        return Optional.of(new FileCommitInfo(tempFilePath, finalFilePath));
-    }
-}
-
-public class FileSinkCommitter {
-    @Override
-    public List<FileCommitInfo> commit(List<FileCommitInfo> commitInfos) {
-        List<FileCommitInfo> failed = new ArrayList<>();
-
-        for (FileCommitInfo info : commitInfos) {
-            // 阶段 2: 原子重命名(文件变得可见)
-            boolean success = fileSystem.rename(
-                new Path(info.getTempFilePath()),
-                new Path(info.getFinalFilePath())
-            );
-
-            if (!success) {
-                failed.add(info);
-            }
-        }
-
-        return failed;
-    }
-}
-```
+实现要点:
+- Writer 将数据写入临时路径/临时文件(对外不可见)
+- prepareCommit 阶段封存临时文件并产出 CommitInfo(临时路径 + 目标路径)
+- Committer 只做“原子可见化”动作(例如原子重命名/原子移动)
+- 需要确认底层文件系统对 rename/move 的原子性语义；在对象存储上往往需要额外设计(否则不能直接宣称精确一次)
 
 **关键**: 原子重命名确保文件要么完全可见要么不可见。
 
@@ -465,65 +281,29 @@ public class FileSinkCommitter {
 
 **解决方案**: 提交器操作必须是幂等的。
 
-```java
-// ❌ 差: 非幂等(调用两次插入两次)
-void commit(CommitInfo info) {
-    statement.execute("INSERT INTO table VALUES (1, 'data')");
-}
-
-// ✅ 好: 幂等(调用两次与调用一次效果相同)
-void commit(CommitInfo info) {
-    statement.execute(
-        "INSERT INTO table VALUES (1, 'data') " +
-        "ON DUPLICATE KEY UPDATE data = VALUES(data)"
-    );
-}
-```
+典型对比:
+- **非幂等提交**: 重试一次就会额外插入一份数据(产生重复)
+- **幂等提交**: 重试多次与提交一次效果一致(例如使用唯一键约束/Upsert/事务 ID 去重)
 
 ### 6.2 实现幂等性
 
 **策略 1: 检查后执行**
-```java
-public List<XidInfo> commit(List<XidInfo> commitInfos) {
-    for (XidInfo xid : commitInfos) {
-        // 检查是否已提交
-        if (isCommitted(xid)) {
-            LOG.info("XID already committed: {}", xid);
-            continue; // 幂等
-        }
 
-        // 提交并记录
-        xaResource.commit(xid, false);
-        recordCommit(xid);
-    }
-}
-```
+要点:
+- 提交前先查询“该 CommitInfo 是否已完成提交”(通过事务表、元数据表、外部系统 API)
+- 已提交则直接返回成功；未提交则提交并记录结果
 
 **策略 2: 数据库级幂等性**
-```sql
--- 唯一约束确保幂等性
-CREATE TABLE commits (
-    xid VARCHAR(255) PRIMARY KEY,
-    committed_at TIMESTAMP
-);
 
--- 幂等插入
-INSERT IGNORE INTO commits (xid, committed_at)
-VALUES ('XID-123', NOW());
-```
+要点:
+- 使用唯一约束/唯一索引来承载“去重键”(事务 ID / 批次 ID / checkpointId)
+- 将“写入去重标记”和“应用外部副作用”放在同一事务或同一原子语义内，避免部分成功导致的不一致
 
 **策略 3: 自然幂等性(XA)**
-```java
-try {
-    xaResource.commit(xid, false);
-} catch (XAException e) {
-    if (e.errorCode == XAException.XAER_NOTA) {
-        // 找不到事务 = 已提交
-        return; // 幂等
-    }
-    throw e;
-}
-```
+
+要点:
+- 依赖 XA 协议本身对重复 commit 的处理语义
+- 对“已提交/不存在”的错误码进行兼容处理，将其视为幂等成功
 
 ## 7. 性能考虑
 
@@ -545,42 +325,18 @@ try {
 
 ### 7.2 批量大小优化
 
-```java
-public class OptimizedSinkWriter {
-    private static final int BATCH_SIZE = 1000;
-    private List<SeaTunnelRow> buffer = new ArrayList<>();
-
-    @Override
-    public void write(SeaTunnelRow element) {
-        buffer.add(element);
-
-        if (buffer.size() >= BATCH_SIZE) {
-            // 批量插入(分摊开销)
-            statement.executeBatch();
-            buffer.clear();
-        }
-    }
-}
-```
+优化思路:
+- 使用批量写入将外部系统交互的固定开销摊薄(例如每 1000 条 flush 一次)
+- 批量过大可能增加延迟与内存占用；批量过小会增加外部 I/O 次数
 
 **影响**: 1000x 批量 → ~10x 吞吐量提升
 
 ### 7.3 异步检查点
 
-```java
-public List<StateT> snapshotState(long checkpointId) {
-    // 快速: 复制状态快照(内存中)
-    StateSnapshot snapshot = state.copy();
-
-    // 异步: 序列化和上传
-    CompletableFuture.runAsync(() -> {
-        byte[] serialized = serialize(snapshot);
-        checkpointStorage.upload(checkpointId, serialized);
-    });
-
-    return snapshot;
-}
-```
+优化思路:
+- 在 barrier 到达时尽快做“轻量快照”(例如复制状态引用/增量快照元数据)
+- 将序列化与上传等重 I/O 工作放到异步线程执行，减少对主处理线程的阻塞
+- 需要权衡：异步快照会增加内存峰值(需要暂存 snapshot)，并要求正确处理并发可见性
 
 **影响**: 快照上传时数据处理继续
 
@@ -659,44 +415,24 @@ sink {
 
 ### 9.1 功能测试
 
-```java
-@Test
-public void testExactlyOnce() {
-    // 1. 插入 1000 条记录
-    insertRecords(1000);
-
-    // 2. 触发检查点
-    coordinator.triggerCheckpoint();
-
-    // 3. 模拟故障
-    task.fail();
-
-    // 4. 恢复并继续
-    task.restore(checkpointId);
-    insertRecords(1000); // 重新处理相同记录
-
-    // 5. 验证: 应该恰好有 1000 条记录(无重复)
-    assertEquals(1000, countRecordsInSink());
-}
-```
+建议的功能测试步骤:
+1. 向数据源注入固定集合的记录(可重复、可计数、最好带主键)
+2. 触发/等待至少一个 checkpoint 完成
+3. 在关键窗口注入故障(例如 prepareCommit 之后、commit 之前；或 barrier 对齐期间)
+4. 恢复后继续运行并结束作业
+5. 验证输出端：输入计数 = 输出计数，且基于主键/去重键无重复
 
 ### 9.2 混沌测试
 
-```java
-@Test
-public void testExactlyOnceUnderChaos() {
-    ChaosMonkey chaos = new ChaosMonkey()
-        .killTaskRandomly(probability = 0.1)
-        .injectNetworkDelay(maxDelayMs = 5000)
-        .pauseCheckpointRandomly(probability = 0.05);
+建议的混沌测试维度:
+- 随机杀任务/杀 worker/重启 master
+- 注入网络延迟、短暂网络分区、外部存储抖动
+- 暂停/延迟 checkpoint 触发，模拟对齐与上传压力
 
-    // 在混沌下运行 10 分钟
-    runJobWithChaos(duration = 10 * 60 * 1000, chaos);
-
-    // 验证: 输入计数 == 输出计数
-    assertEquals(countSource(), countSink());
-}
-```
+验收标准:
+- 输入计数与输出计数一致
+- 输出端无重复(主键/去重键唯一)
+- 对关键失败窗口(prepareCommit/commit)覆盖到位
 
 ### 9.3 监控验证
 
@@ -727,22 +463,10 @@ sink.records_committed = 1,000,000
 
 ### 10.2 处理有毒记录
 
-```java
-@Override
-public void write(SeaTunnelRow element) {
-    try {
-        statement.executeUpdate(toSQL(element));
-    } catch (SQLException e) {
-        // 记录有毒记录
-        LOG.error("Failed to write record: {}", element, e);
-
-        // 发送到死信队列
-        deadLetterQueue.send(element);
-
-        // 不要使整个检查点失败
-    }
-}
-```
+处理建议:
+- 明确“有毒记录”的判定范围(格式错误/约束冲突/不可恢复的业务异常)
+- 选择策略：写入死信队列(DLQ)并告警、跳过并计数、或触发失败(强一致场景)
+- 与精确一次语义的关系：跳过会破坏端到端“无丢失”，但可能是可接受的业务权衡；需在文档/配置中显式声明
 
 ### 10.3 监控检查点健康
 

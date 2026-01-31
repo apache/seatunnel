@@ -89,6 +89,8 @@ SeaTunnel 采用分层架构，实现关注点分离和灵活性：
 
 API 层提供引擎独立的抽象：
 
+> 说明：为降低维护成本并避免“文档代码/链接随重构漂移”，本文档不直接嵌入源码片段与源码链接；重点解释组件职责、交互流程与设计动机。
+
 #### 数据源 API
 - **SeaTunnelSource**：创建读取器和枚举器的工厂接口
 - **SourceSplitEnumerator**：主节点侧组件，负责分片生成和分配
@@ -96,10 +98,6 @@ API 层提供引擎独立的抽象：
 - **SourceSplit**：表示数据分区的最小可序列化单元
 
 **关键设计**：协调（枚举器）与执行（读取器）分离，实现高效的并行处理和容错。
-
-**代码参考**：
-- [seatunnel-api/.../SeaTunnelSource.java](../../seatunnel-api/src/main/java/org/apache/seatunnel/api/source/SeaTunnelSource.java)
-- [seatunnel-api/.../SourceSplitEnumerator.java](../../seatunnel-api/src/main/java/org/apache/seatunnel/api/source/SourceSplitEnumerator.java)
 
 #### 数据汇 API
 - **SeaTunnelSink**：创建写入器和提交器的工厂接口
@@ -109,25 +107,15 @@ API 层提供引擎独立的抽象：
 
 **关键设计**：两阶段提交协议（prepareCommit → commit）确保精确一次语义。
 
-**代码参考**：
-- [seatunnel-api/.../SeaTunnelSink.java](../../seatunnel-api/src/main/java/org/apache/seatunnel/api/sink/SeaTunnelSink.java)
-- [seatunnel-api/.../SinkWriter.java](../../seatunnel-api/src/main/java/org/apache/seatunnel/api/sink/SinkWriter.java)
-
 #### 转换 API
 - **SeaTunnelTransform**：数据转换接口
 - **SeaTunnelMapTransform**：1:1 转换
 - **SeaTunnelFlatMapTransform**：1:N 转换
 
-**代码参考**：
-- [seatunnel-api/.../SeaTunnelTransform.java](../../seatunnel-api/src/main/java/org/apache/seatunnel/api/transform/SeaTunnelTransform.java)
-
 #### 表 API
 - **CatalogTable**：完整的表元数据（模式、分区键、选项）
 - **TableSchema**：模式定义（列、主键、约束）
 - **SchemaChangeEvent**：表示模式演化的 DDL 变更
-
-**代码参考**：
-- [seatunnel-api/.../CatalogTable.java](../../seatunnel-api/src/main/java/org/apache/seatunnel/api/table/catalog/CatalogTable.java)
 
 ### 3.2 SeaTunnel Engine (Zeta)
 
@@ -149,10 +137,6 @@ API 层提供引擎独立的抽象：
 LogicalDag → PhysicalPlan → SubPlan (管道) → PhysicalVertex → TaskGroup → SeaTunnelTask
 ```
 
-**代码参考**：
-- [seatunnel-engine/.../server/CoordinatorService.java](../../seatunnel-engine/seatunnel-engine-server/src/main/java/org/apache/seatunnel/engine/server/CoordinatorService.java)
-- [seatunnel-engine/.../server/master/JobMaster.java](../../seatunnel-engine/seatunnel-engine-server/src/main/java/org/apache/seatunnel/engine/server/master/JobMaster.java)
-
 ### 3.3 转换层
 
 通过适配器模式实现引擎可移植性：
@@ -161,9 +145,6 @@ LogicalDag → PhysicalPlan → SubPlan (管道) → PhysicalVertex → TaskGrou
 - **SparkSource/SparkSink**：将 SeaTunnel API 适配到 Spark 的 RDD/Dataset 接口
 - **上下文适配器**：包装引擎特定的上下文（SourceReaderContext、SinkWriterContext）
 - **序列化适配器**：桥接 SeaTunnel 和引擎序列化机制
-
-**代码参考**：
-- [seatunnel-translation/.../flink/source/FlinkSource.java](../../seatunnel-translation/seatunnel-translation-flink/seatunnel-translation-flink-common/src/main/java/org/apache/seatunnel/translation/flink/source/FlinkSource.java)
 
 ### 3.4 连接器生态系统
 
@@ -449,13 +430,9 @@ seatunnel/
 
 ## 10. 参考资料
 
-### 10.1 关键源文件
+本章节刻意不罗列源码路径或文件清单，避免实现演进导致文档与代码产生漂移；如需深入，请优先通过“下一步”的主题化文档按概念继续阅读。
 
-- API 层：`seatunnel-api/src/main/java/org/apache/seatunnel/api/`
-- 引擎核心：`seatunnel-engine/seatunnel-engine-server/src/main/java/org/apache/seatunnel/engine/server/`
-- 示例连接器：`seatunnel-connectors-v2/connector-jdbc/`
-
-### 10.2 相关概念
+### 10.1 相关概念
 
 - [Apache Flink](https://flink.apache.org/) - 检查点和状态管理的灵感来源
 - [Apache Kafka](https://kafka.apache.org/) - 消费者组模型影响了分片分配

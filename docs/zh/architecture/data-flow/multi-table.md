@@ -68,304 +68,106 @@ sink {
 
 用于将记录路由到表的唯一标识符。
 
-```java
-public class TablePath implements Serializable {
-    private final String databaseName;
-    private final String schemaName;
-    private final String tableName;
+TablePath 由三段信息组成:
+- **databaseName**: 数据库名
+- **schemaName**: schema 名(对无 schema 的系统可为空或使用默认值)
+- **tableName**: 表名
 
-    // 唯一字符串表示
-    public String getFullName() {
-        return String.join(".", databaseName, schemaName, tableName);
-    }
-}
-```
+它需要满足两个要求:
+- **可稳定序列化**: 能被序列化为唯一字符串(例如 `db.schema.table`)并在链路上传播
+- **可逆**: 能从字符串/结构化字段反解析回 TablePath
 
 **示例**:
-```java
-TablePath orderTable = TablePath.of("my_db", "public", "orders");
-TablePath userTable = TablePath.of("my_db", "public", "users");
-```
+
+- my_db.public.orders
+- my_db.public.users
 
 ### 2.2 SeaTunnelRow 带 TableId
 
 记录携带表标识用于路由。
 
-```java
-public class SeaTunnelRow {
-    private final String tableId; // TablePath 序列化
-    private final SeaTunnelRowKind rowKind; // INSERT, UPDATE, DELETE
-    private final Object[] fields;
+多表场景中，一条记录除了字段本身，还必须携带:
+- **tableId**: 表标识(通常是 TablePath 的序列化形式)
+- **rowKind**: 变更类型(INSERT/UPDATE/DELETE 等)
 
-    public TablePath getTablePath() {
-        return TablePath.deserialize(tableId);
-    }
-}
-```
+路由侧通过 tableId 还原出 TablePath，再决定写入到哪个目标表/索引。
 
 ### 2.3 SinkIdentifier
 
 目标端写入器的唯一标识符(表 + 副本索引)。
 
-```java
-public class SinkIdentifier implements Serializable {
-    private final TableIdentifier tableIdentifier;
-    private final int index; // 副本索引
+SinkIdentifier 的作用是把“写入目标”精确到:
+- **表标识**: TablePath/TableIdentifier
+- **副本索引**: index(用于同一张表的多 writer 副本并行写入)
 
-    // 对于多表: 每张表每个副本一个标识符
-    // 示例: (orders, 0), (orders, 1), (users, 0), (users, 1)
-}
-```
+示例:
+- (orders, 0), (orders, 1)
+- (users, 0), (users, 1)
 
 ## 3. MultiTableSource 架构
 
 ### 3.1 结构
 
-```java
-public class MultiTableSource<T, SplitT, StateT>
-    implements SeaTunnelSource<T, SplitT, StateT> {
-
-    // 底层数据源(每张表一个)
-    private final Map<TablePath, SeaTunnelSource<T, SplitT, StateT>> sources;
-
-    // 生产的目录表
-    private final List<CatalogTable> catalogTables;
-}
-```
+MultiTableSource 可以理解为一个“按表聚合”的 Source:
+- 内部维护 **TablePath → SeaTunnelSource** 的映射(每张表一个底层 source)
+- 同时对外暴露该作业会产生的 CatalogTable 列表(用于下游 schema/路由)
 
 ### 3.2 创建
 
-```java
-// 从配置
-MultiTableSource<SeaTunnelRow, ?, ?> multiSource =
-    MultiTableSource.builder()
-        .addSource(orderTablePath, orderSource)
-        .addSource(userTablePath, userSource)
-        .addSource(productTablePath, productSource)
-        .build();
-```
+创建过程通常来自配置解析:
+1. 根据 table-name/正则/白名单枚举出表集合
+2. 为每张表构建对应的底层 Source(或共享同一个 Source 但按 TablePath 区分 split)
+3. 汇总各表的 CatalogTable，作为后续转换/落库的 schema 输入
 
 ### 3.3 枚举器: 统一分片分配
 
-```java
-public class MultiTableSourceSplitEnumerator {
-    private final Map<TablePath, SourceSplitEnumerator> enumerators;
-
-    @Override
-    public void handleSplitRequest(int subtaskId) {
-        // 在表枚举器之间轮询
-        for (Map.Entry<TablePath, SourceSplitEnumerator> entry : enumerators.entrySet()) {
-            TablePath tablePath = entry.getKey();
-            SourceSplitEnumerator enumerator = entry.getValue();
-
-            // 从表枚举器请求分片
-            enumerator.handleSplitRequest(subtaskId);
-        }
-    }
-
-    @Override
-    public void addReader(int subtaskId) {
-        // 向所有表枚举器注册读取器
-        for (SourceSplitEnumerator enumerator : enumerators.values()) {
-            enumerator.addReader(subtaskId);
-        }
-    }
-}
-```
+枚举器的核心责任是把“多表 split 生产”统一起来:
+- 将 reader 的注册事件分发到各表的 enumerator(让每张表都知道有哪些 reader 可用)
+- 在多个表之间做公平/权重分配，避免小表被大表“饿死”
+- 对 split request 做路由：既可以轮询所有表，也可以基于 backlog/速率进行调度
 
 ### 3.4 读取器: 多表数据读取
 
-```java
-public class MultiTableSourceReader {
-    private final Map<TablePath, SourceReader> readers;
-    private final Queue<TablePath> readOrder; // 轮询队列
-
-    @Override
-    public void pollNext(Collector<SeaTunnelRow> output) {
-        if (readOrder.isEmpty()) {
-            return;
-        }
-
-        // 从表中轮询读取
-        TablePath currentTable = readOrder.poll();
-        SourceReader reader = readers.get(currentTable);
-
-        // 从当前表读取
-        reader.pollNext(new Collector<SeaTunnelRow>() {
-            @Override
-            public void collect(SeaTunnelRow row) {
-                // 用表路径标记行
-                row.setTableId(currentTable.serialize());
-                output.collect(row);
-            }
-        });
-
-        // 重新添加到队列以进行下一轮
-        readOrder.offer(currentTable);
-    }
-
-    @Override
-    public void addSplits(List<SplitT> splits) {
-        // 将分片路由到正确的表读取器
-        for (SplitT split : splits) {
-            TablePath tablePath = extractTablePath(split);
-            SourceReader reader = readers.get(tablePath);
-            reader.addSplits(Collections.singletonList(split));
-
-            // 如果不存在,则添加表到读取顺序
-            if (!readOrder.contains(tablePath)) {
-                readOrder.offer(tablePath);
-            }
-        }
-    }
-}
-```
+读取器的核心责任是“按表读取并标记 tableId”:
+- 维护 **TablePath → SourceReader** 的映射
+- 当收到 splits 时，将其路由到对应表的 reader，并把该表加入轮询队列
+- pollNext 时按轮询/权重从各表 reader 拉取数据
+- 对每条输出记录补齐/覆盖 tableId，保证下游能正确路由
 
 ## 4. MultiTableSink 架构
 
 ### 4.1 结构
 
-```java
-public class MultiTableSink<IN, StateT, CommitInfoT, AggregatedCommitInfoT>
-    implements SeaTunnelSink<IN, StateT, CommitInfoT, AggregatedCommitInfoT> {
-
-    // 底层目标端(每张表一个)
-    private final Map<TablePath, SeaTunnelSink> sinks;
-
-    // 每张表的写入器副本数
-    private final int replicaNum;
-
-    // 输入目录表
-    private final List<CatalogTable> catalogTables;
-}
-```
+MultiTableSink 是一个“按表路由 + 可多副本并行写入”的 Sink:
+- 内部维护 **TablePath → SeaTunnelSink** 的映射(每张表一个底层 sink)
+- 通过 **replicaNum** 为每张表创建多个 writer 副本以提升写入吞吐
+- 依赖 catalogTables 提供各表 schema 信息(用于写入/类型转换/DDL 处理)
 
 ### 4.2 写入器: 带副本的多表写入
 
-```java
-public class MultiTableSinkWriter<IN, CommitInfoT, StateT>
-    implements SinkWriter<IN, CommitInfoT, StateT> {
+写入器的关键流程:
+1. 从输入记录中解析 TablePath(tableId)
+2. 为该表选择一个 writer 副本(replicaIndex)
+3. 路由到 (TablePath, replicaIndex) 对应的底层 writer 执行写入
 
-    // 每张表的写入器(每张表多个副本)
-    private final Map<SinkIdentifier, SinkWriter<IN, CommitInfoT, StateT>> writers;
+副本选择需要兼顾两类诉求:
+- **顺序性**: 对同一主键的 UPDATE/DELETE 需要尽量落到同一副本，避免乱序导致的写入冲突
+- **吞吐量**: 对 INSERT 等可并行写入的场景，尽量均匀分散到不同副本
 
-    // 每张表的副本数
-    private final int replicaNum;
-
-    // 上下文
-    private final int writerIndex; // 此写入器的全局索引
-
-    @Override
-    public void write(IN element) throws IOException {
-        SeaTunnelRow row = (SeaTunnelRow) element;
-
-        // 1. 确定目标表
-        TablePath tablePath = row.getTablePath();
-
-        // 2. 为此表选择副本(负载均衡)
-        int replicaIndex = selectReplica(tablePath, row);
-
-        // 3. 获取(表,副本)的写入器
-        SinkIdentifier identifier = new SinkIdentifier(
-            new TableIdentifier(tablePath),
-            replicaIndex
-        );
-
-        SinkWriter<IN, CommitInfoT, StateT> writer = writers.get(identifier);
-
-        // 4. 写入所选写入器
-        writer.write(element);
-    }
-
-    private int selectReplica(TablePath tablePath, SeaTunnelRow row) {
-        // 策略 1: 基于哈希(一致性分配)
-        if (row.getKind() == SeaTunnelRowKind.UPDATE_BEFORE ||
-            row.getKind() == SeaTunnelRowKind.UPDATE_AFTER) {
-            // 更新使用相同副本(维护顺序)
-            Object primaryKey = extractPrimaryKey(row);
-            return Math.abs(primaryKey.hashCode()) % replicaNum;
-        }
-
-        // 策略 2: 轮询(负载均衡)
-        return (int) (System.nanoTime() % replicaNum);
-    }
-
-    @Override
-    public Optional<CommitInfoT> prepareCommit() throws IOException {
-        // 从所有写入器收集提交信息
-        List<CommitInfoT> allCommitInfos = new ArrayList<>();
-
-        for (SinkWriter<IN, CommitInfoT, StateT> writer : writers.values()) {
-            Optional<CommitInfoT> commitInfo = writer.prepareCommit();
-            commitInfo.ifPresent(allCommitInfos::add);
-        }
-
-        // 包装在多表提交信息中
-        return Optional.of((CommitInfoT) new MultiTableCommitInfo(allCommitInfos));
-    }
-
-    @Override
-    public List<StateT> snapshotState(long checkpointId) throws IOException {
-        // 快照所有写入器
-        List<StateT> allStates = new ArrayList<>();
-
-        for (Map.Entry<SinkIdentifier, SinkWriter> entry : writers.entrySet()) {
-            List<StateT> states = entry.getValue().snapshotState(checkpointId);
-
-            // 用目标端标识符标记状态以便恢复
-            for (StateT state : states) {
-                allStates.add(wrapWithIdentifier(entry.getKey(), state));
-            }
-        }
-
-        return allStates;
-    }
-}
-```
+在 checkpoint 边界:
+- prepareCommit: 汇总所有表/所有副本的 CommitInfo，并打包为多表级提交信息
+- snapshotState: 快照所有 writer 状态；恢复时必须能通过 SinkIdentifier 将状态路由回正确的(表,副本)
 
 ### 4.3 提交器: 多表提交协调
 
-```java
-public class MultiTableSinkCommitter<CommitInfoT>
-    implements SinkCommitter<CommitInfoT> {
+提交器的核心责任是把多表提交信息“拆回每张表”，并委托给对应表的底层 committer:
+1. 解析 commitInfos，将其按 TablePath 分组
+2. 对每个表调用对应的 SinkCommitter.commit(tableCommitInfos)
+3. 汇总失败列表并按框架约定触发重试/回滚
 
-    // 每张表的提交器
-    private final Map<TablePath, SinkCommitter<CommitInfoT>> committers;
-
-    @Override
-    public List<CommitInfoT> commit(List<CommitInfoT> commitInfos) throws IOException {
-        List<CommitInfoT> failed = new ArrayList<>();
-
-        // 按表分组提交信息
-        Map<TablePath, List<CommitInfoT>> groupedInfos = groupByTable(commitInfos);
-
-        // 每张表提交
-        for (Map.Entry<TablePath, List<CommitInfoT>> entry : groupedInfos.entrySet()) {
-            TablePath tablePath = entry.getKey();
-            List<CommitInfoT> tableCommitInfos = entry.getValue();
-
-            SinkCommitter<CommitInfoT> committer = committers.get(tablePath);
-
-            // 为此表提交
-            List<CommitInfoT> tableFailed = committer.commit(tableCommitInfos);
-            failed.addAll(tableFailed);
-        }
-
-        return failed;
-    }
-
-    private Map<TablePath, List<CommitInfoT>> groupByTable(List<CommitInfoT> commitInfos) {
-        Map<TablePath, List<CommitInfoT>> grouped = new HashMap<>();
-
-        for (CommitInfoT commitInfo : commitInfos) {
-            TablePath tablePath = extractTablePath(commitInfo);
-            grouped.computeIfAbsent(tablePath, k -> new ArrayList<>()).add(commitInfo);
-        }
-
-        return grouped;
-    }
-}
-```
+注意事项:
+- commit 必须幂等(可能被重试)
+- 单表提交失败的处理策略需要明确：是整体失败(保守)还是允许部分表推进(取决于端到端一致性要求)
 
 ## 5. 副本机制
 
@@ -402,66 +204,39 @@ sink {
 ### 5.3 副本选择策略
 
 **基于哈希(一致性)**:
-```java
-// 确保相同的主键总是到达相同的副本(保持顺序)
-int replica = Math.abs(primaryKey.hashCode()) % replicaNum;
-```
+
+要点:
+- 以主键(或业务唯一键)做哈希，将同一键稳定映射到同一副本
+- 典型映射: $replica = hash(pk) \bmod replicaNum$
 
 **轮询(负载均衡)**:
-```java
-// 在副本之间均匀分配负载
-int replica = (writeCounter.getAndIncrement()) % replicaNum;
-```
+
+要点:
+- 按顺序在副本之间轮转，追求均匀分配
+- 适合 INSERT 等无顺序约束或可被幂等覆盖的写入
 
 **混合(SeaTunnel 默认)**:
-```java
-// 更新/删除使用哈希(顺序),插入使用轮询(负载均衡)
-if (row.getKind() == SeaTunnelRowKind.UPDATE_AFTER ||
-    row.getKind() == SeaTunnelRowKind.DELETE) {
-    return Math.abs(primaryKey.hashCode()) % replicaNum; // 一致性
-} else {
-    return (int) (System.nanoTime() % replicaNum); // 负载均衡
-}
-```
+
+要点:
+- UPDATE/DELETE 优先使用哈希策略，尽量保持同一键的顺序与写入落点一致
+- INSERT 可使用轮询/随机策略提高吞吐
+- 混合策略的核心是“顺序优先于均匀”与“吞吐优先于稳定”的权衡在不同 rowKind 下做切换
 
 ## 6. 多表中的模式管理
 
 ### 6.1 独立模式
 
-每张表维护自己的模式:
 
-```java
-public class MultiTableSink {
-    // 每张表的模式
-    private final Map<TablePath, CatalogTable> catalogTables;
-
-    public CatalogTable getCatalogTable(TablePath tablePath) {
-        return catalogTables.get(tablePath);
-    }
-}
-```
+每张表维护自己的 CatalogTable/Schema:
+- 运行时根据 TablePath 查询对应的 schema，用于类型转换与写入
+- 不同表之间 schema 互不影响，避免“全局 schema”导致的兼容性冲突
 
 ### 6.2 模式演化路由
 
-```java
-public class MultiTableSinkWriter {
-    public void handleSchemaChange(SchemaChangeEvent event) {
-        // 将模式变更路由到正确的表写入器
-        TablePath tablePath = event.getTableId().toTablePath();
-
-        // 应用到此表的所有副本
-        for (int i = 0; i < replicaNum; i++) {
-            SinkIdentifier identifier = new SinkIdentifier(
-                new TableIdentifier(tablePath),
-                i
-            );
-
-            SinkWriter writer = writers.get(identifier);
-            writer.applySchemaChange(event);
-        }
-    }
-}
-```
+模式演化需要被路由到“正确的表”，并应用到该表的所有 writer 副本:
+1. 从 SchemaChangeEvent 中解析出 TablePath
+2. 选择该表对应的 schema/元数据更新逻辑
+3. 将变更广播到该表的所有副本 writer，保证后续写入使用一致的 schema
 
 ## 7. 数据流示例
 
@@ -569,39 +344,16 @@ replicaNum = ceil(表写入速率 / 单个写入器吞吐量)
 
 ### 8.2 表特定副本
 
-```java
-// 未来增强: 每张表不同的副本数
-Map<TablePath, Integer> replicaConfig = Map.of(
-    TablePath.of("orders"), 4,      // 高吞吐量表
-    TablePath.of("users"), 2,       // 中等吞吐量
-    TablePath.of("config"), 1       // 低吞吐量
-);
-```
+优化思路:
+- 不同表的写入速率差异很大时，应允许按表配置不同的 replicaNum
+- 常见配置方式是提供 per-table 覆盖项，并提供 default 兜底
 
 ### 8.3 批量写入
 
-```java
-public class MultiTableSinkWriter {
-    private final Map<SinkIdentifier, List<SeaTunnelRow>> buffers;
-    private static final int BATCH_SIZE = 1000;
-
-    @Override
-    public void write(SeaTunnelRow row) {
-        SinkIdentifier identifier = selectWriter(row);
-
-        List<SeaTunnelRow> buffer = buffers.computeIfAbsent(
-            identifier,
-            k -> new ArrayList<>()
-        );
-
-        buffer.add(row);
-
-        if (buffer.size() >= BATCH_SIZE) {
-            flushBuffer(identifier, buffer);
-        }
-    }
-}
-```
+优化思路:
+- 为每个 (TablePath, replicaIndex) 维护独立缓冲区，避免不同表/不同副本相互干扰
+- 达到 batch-size 或超时阈值时触发 flush，将外部系统交互开销摊薄
+- 需要关注内存上限：多表 × 多副本 × 批次缓存会放大峰值占用
 
 ## 9. 监控和可观测性
 
@@ -772,14 +524,9 @@ sink {
 
 ### 12.2 自适应副本
 
-```java
-// 根据吞吐量自动调整副本
-if (table.getWriteRate() > threshold) {
-    increaseReplicas(table);
-} else if (table.getWriteRate() < lowThreshold) {
-    decreaseReplicas(table);
-}
-```
+设想方向:
+- 根据每张表的实时写入速率与延迟指标自动调整副本数
+- 需要考虑副本变更的副作用：重分配/热迁移成本、顺序性破坏风险、checkpoint 一致性边界等
 
 ## 13. 相关资源
 
@@ -790,13 +537,4 @@ if (table.getWriteRate() > threshold) {
 
 ## 14. 参考资料
 
-### 关键源文件
-
-- [MultiTableSink.java](../../../seatunnel-api/src/main/java/org/apache/seatunnel/api/sink/MultiTableSink.java)
-- [SinkIdentifier.java](../../../seatunnel-api/src/main/java/org/apache/seatunnel/api/sink/SinkIdentifier.java)
-- [TablePath.java](../../../seatunnel-api/src/main/java/org/apache/seatunnel/api/table/catalog/TablePath.java)
-
-### 示例实现
-
-- MySQL CDC 数据源: `seatunnel-connectors-v2/connector-cdc/connector-cdc-mysql/`
-- JDBC 目标端: `seatunnel-connectors-v2/connector-jdbc/`
+本主题更侧重“路由与执行语义”。如需进一步了解 Schema、Sink 语义与 DAG 执行，请从“相关资源”章节继续阅读。

@@ -93,58 +93,14 @@ SeaTunnel 的数据汇 API 旨在：
 
 作为创建写入器和提交器的工厂的顶层接口。
 
-```java
-public interface SeaTunnelSink<IN, StateT, CommitInfoT, AggregatedCommitInfoT>
-    extends Serializable {
+**契约要点（概念级）**：
+- 创建 writer：在工作节点（Task）侧创建 `SinkWriter`，负责接收记录并写入
+- 恢复 writer：在 failover 后用 checkpoint 中的 writerState 恢复未完成写入
+- 创建 committer（可选）：在主节点（JobMaster）侧创建 `SinkCommitter`，负责把多个 writer 的提交信息落到外部系统
+- 创建 aggregated committer（可选）：当外部系统需要“全局单点提交”（表级提交/单次元数据提交）时使用
+- 描述写入 schema：通过 `CatalogTable` 明确输入字段、投影与类型约束
 
-    /**
-     * 创建 SinkWriter（在工作节点上调用）
-     */
-    SinkWriter<IN, CommitInfoT, StateT> createWriter(SinkWriter.Context context)
-        throws IOException;
-
-    /**
-     * 从检查点恢复 SinkWriter（在工作节点上调用）
-     */
-    default SinkWriter<IN, CommitInfoT, StateT> restoreWriter(
-        SinkWriter.Context context,
-        List<StateT> states) throws IOException {
-        return createWriter(context);
-    }
-
-    /**
-     * 创建 SinkCommitter（可选，在主节点上调用）
-     */
-    default Optional<SinkCommitter<CommitInfoT>> createCommitter() throws IOException {
-        return Optional.empty();
-    }
-
-    /**
-     * 从检查点恢复 SinkCommitter（可选，在主节点上调用）
-     */
-    default Optional<SinkCommitter<CommitInfoT>> restoreCommitter() throws IOException {
-        return createCommitter();
-    }
-
-    /**
-     * 创建 SinkAggregatedCommitter（可选，在主节点上调用）
-     */
-    default Optional<SinkAggregatedCommitter<CommitInfoT, AggregatedCommitInfoT>>
-        createAggregatedCommitter() throws IOException {
-        return Optional.empty();
-    }
-
-    /**
-     * 获取输入模式
-     */
-    CatalogTable getWriteCatalogTable();
-
-    /**
-     * 设置作业上下文
-     */
-    default void setJobContext(JobContext jobContext) {}
-}
-```
+这组工厂方法的核心目的是把“写入（数据面）”与“提交（控制面）”解耦，使得 checkpoint 成为全局一致性边界。
 
 **关键设计点**：
 - 三层提交架构：写入器 → 提交器 → 聚合提交器
@@ -195,425 +151,78 @@ sequenceDiagram
     participant Committer as SinkCommitter
     participant Sink as 外部数据汇
 
+    Note over Writer: 写入进行中（事务/临时文件）
+
+    CP->>Writer: triggerBarrier(checkpointId)
     Writer->>Writer: prepareCommit()
     Writer->>CP: ack(commitInfo)
 
-    CP->>Writer: [失败 - 写入器崩溃]
+    alt Checkpoint 成功
+        CP->>Committer: commit([commitInfo])
+        Committer->>Sink: 提交变更（幂等）
+        Committer->>CP: ack()
+        CP->>Writer: notifyCheckpointComplete(checkpointId)
+    else Checkpoint 失败/中止
+        CP->>Writer: notifyCheckpointAborted(checkpointId)
+        Writer->>Writer: abortPrepare()\n回收临时资源/回滚事务
+    end
 
-    CP->>CP: 检查点失败
-    CP->>CP: 从先前检查点恢复
-
-    CP->>Writer: restoreWriter(previousState)
-    Writer->>Writer: 从检查点重放记录
-
-    Writer->>Writer: prepareCommit()
-    Writer->>CP: ack(commitInfo)
-
-    CP->>Committer: commit([commitInfo])
-    Committer->>Sink: 提交（幂等）
-    Committer-->>Sink: [由于网络提交失败]
-    Committer->>Committer: 重试
-    Committer->>Sink: 提交（幂等）
-    Sink-->>Committer: 成功
-
-    CP->>Writer: notifyCheckpointComplete()
+    Note over Committer: commit 失败由框架重试\n必须保证幂等
 ```
 
-## 3. 关键实现
-
-### 3.1 SinkWriter 接口
-
-写入器在工作节点上运行并执行实际的数据写入。
-
-```java
-public interface SinkWriter<IN, CommitInfoT, StateT> extends Closeable {
-
-    /**
-     * 写入单条记录
-     */
-    void write(IN element) throws IOException;
-
-    /**
-     * 在检查点期间准备提交信息（必须没有副作用）
-     */
-    Optional<CommitInfoT> prepareCommit() throws IOException;
-
-    /**
-     * 如果检查点失败则中止准备的提交
-     */
-    default void abortPrepare() {}
-
-    /**
-     * 为检查点快照写入器状态
-     */
-    List<StateT> snapshotState(long checkpointId) throws IOException;
-
-    /**
-     * 通知检查点成功完成
-     */
-    default void notifyCheckpointComplete(long checkpointId) throws IOException {}
-
-    /**
-     * 通知检查点已中止
-     */
-    default void notifyCheckpointAborted(long checkpointId) throws IOException {}
-
-    /**
-     * 关闭写入器
-     */
-    void close() throws IOException;
-
-    /**
-     * 与框架交互的上下文
-     */
-    interface Context {
-        int getIndexOfSubtask();
-        MetricsContext getMetricsContext();
-    }
-}
-```
+**核心职责**：
+- `write(element)`：接收上游记录并写入外部系统的“临时/事务内”区域（避免对外可见）
+- `prepareCommit()`：在 checkpoint 边界生成提交信息（commitInfo），要求“无副作用”（不让数据对外可见）
+- `snapshotState(checkpointId)`：把“已写入但未提交”的可恢复状态写入 checkpoint（事务句柄、文件清单、位点等）
+- `abortPrepare()` / `notifyCheckpointAborted()`：当 checkpoint 失败或中止时回滚/清理本次 prepare 产生的临时资源
+- `notifyCheckpointComplete()`：当 checkpoint 成功且提交完成后做清理（释放事务、删除临时文件/状态等）
 
 **关键要求**：
-- `prepareCommit()` **必须没有**副作用（尚未实际提交）
-- `prepareCommit()` 返回将传递给提交器的提交信息
-- `snapshotState()` 返回的状态必须捕获所有未提交的写入
-- 如果 `prepareCommit()` 后检查点失败，则调用 `abortPrepare()`
+- `prepareCommit()` 必须无副作用；真正让数据对外可见的动作应发生在 committer 的 `commit()` 阶段
+- `snapshotState()` 必须覆盖所有“已写入但未提交”的中间结果，否则恢复会丢数据或重复写
+- 清理路径必须可重试且幂等：同一 checkpoint 的 abort/cleanup 可能被调用多次
 
-**实现示例（JDBC 与 XA 事务）**：
-
-```java
-public class JdbcExactlyOnceSinkWriter implements SinkWriter<SeaTunnelRow, XidInfo, Void> {
-
-    private final XAConnection xaConnection;
-    private final XAResource xaResource;
-    private final Connection connection;
-    private final PreparedStatement statement;
-    private final List<Xid> pendingXids = new ArrayList<>();
-
-    @Override
-    public void write(SeaTunnelRow element) throws IOException {
-        try {
-            // 如果需要启动 XA 事务
-            if (currentXid == null) {
-                currentXid = generateXid();
-                xaResource.start(currentXid, XAResource.TMNOFLAGS);
-            }
-
-            // 执行 INSERT（缓冲在事务中）
-            setParameters(statement, element);
-            statement.executeUpdate();
-
-        } catch (SQLException e) {
-            throw new IOException("Failed to write record", e);
-        }
-    }
-
-    @Override
-    public Optional<XidInfo> prepareCommit() throws IOException {
-        if (currentXid == null) {
-            return Optional.empty(); // 没有写入数据
-        }
-
-        try {
-            // 结束 XA 事务
-            xaResource.end(currentXid, XAResource.TMSUCCESS);
-
-            // 准备 XA 事务（第一阶段 - 尚无副作用）
-            xaResource.prepare(currentXid);
-
-            // 返回 XID 给提交器
-            XidInfo xidInfo = new XidInfo(currentXid);
-            pendingXids.add(currentXid);
-            currentXid = null;
-
-            return Optional.of(xidInfo);
-
-        } catch (XAException e) {
-            throw new IOException("Failed to prepare XA transaction", e);
-        }
-    }
-
-    @Override
-    public void abortPrepare() {
-        // 回滚准备的事务
-        if (currentXid != null) {
-            try {
-                xaResource.rollback(currentXid);
-            } catch (XAException e) {
-                LOG.error("Failed to rollback XA transaction", e);
-            }
-        }
-    }
-
-    @Override
-    public List<Void> snapshotState(long checkpointId) {
-        // 对于 XA，状态由数据库管理
-        return Collections.emptyList();
-    }
-}
-```
-
-**实现示例（文件数据汇与原子重命名）**：
-
-```java
-public class FileSinkWriter implements SinkWriter<SeaTunnelRow, FileCommitInfo, FileWriterState> {
-
-    private final String tempFilePath;
-    private final String finalFilePath;
-    private final OutputStream outputStream;
-    private long bytesWritten = 0;
-
-    @Override
-    public void write(SeaTunnelRow element) throws IOException {
-        // 写入临时文件
-        byte[] bytes = serialize(element);
-        outputStream.write(bytes);
-        bytesWritten += bytes.length;
-    }
-
-    @Override
-    public Optional<FileCommitInfo> prepareCommit() throws IOException {
-        // 刷新并关闭临时文件（尚未重命名！）
-        outputStream.flush();
-        outputStream.close();
-
-        // 返回提交信息供提交器重命名文件
-        return Optional.of(new FileCommitInfo(tempFilePath, finalFilePath));
-    }
-
-    @Override
-    public void abortPrepare() {
-        // 删除临时文件
-        new File(tempFilePath).delete();
-    }
-
-    @Override
-    public List<FileWriterState> snapshotState(long checkpointId) {
-        // 保存当前写入位置
-        return Collections.singletonList(new FileWriterState(bytesWritten));
-    }
-}
-```
+**典型实现形态（不绑定具体源码）**：
+- 事务型数据汇：writer 在事务内写入，prepare 阶段产出事务句柄/提交 token，commit 阶段统一提交
+- 文件型数据汇：writer 写临时文件并产出“文件清单/元数据”，commit 阶段做原子 rename/元数据提交
 
 ### 3.2 SinkCommitter 接口
 
 提交器在主节点上运行并协调多个写入器的提交。
 
-```java
-public interface SinkCommitter<CommitInfoT> extends Closeable {
 
-    /**
-     * 提交多个提交信息（来自多个写入器或重试）
-     * 必须是幂等的 - 可能使用相同的 commitInfo 多次调用
-     */
-    List<CommitInfoT> commit(List<CommitInfoT> commitInfos) throws IOException;
-
-    /**
-     * 中止提交信息（可选）
-     */
-    default void abort(List<CommitInfoT> commitInfos) throws IOException {}
-
-    /**
-     * 关闭提交器
-     */
-    void close() throws IOException;
-}
-```
+**契约要点**：
+- `commit(commitInfos)`：对一批提交信息执行提交；必须支持重试，因此要求幂等
+- 返回值语义：返回“仍需重试/未完成”的提交信息集合（框架会在后续 checkpoint 或恢复路径中重试）
+- `abort(commitInfos)`（可选）：放弃提交并做资源清理（例如回滚事务、删除临时文件）
 
 **关键要求**：
 - `commit()` **必须**是幂等的（使用相同的 commitInfo 调用两次应该是安全的）
 - 返回**失败的** commitInfos 列表（将被重试）
 - 应优雅地处理部分失败
 
-**实现示例（JDBC XA 提交器）**：
-
-```java
-public class JdbcSinkCommitter implements SinkCommitter<XidInfo> {
-
-    private final XADataSource xaDataSource;
-
-    @Override
-    public List<XidInfo> commit(List<XidInfo> commitInfos) throws IOException {
-        List<XidInfo> failed = new ArrayList<>();
-
-        for (XidInfo xidInfo : commitInfos) {
-            try {
-                XAConnection xaConn = xaDataSource.getXAConnection();
-                XAResource xaResource = xaConn.getXAResource();
-
-                // 第二阶段：提交准备的事务
-                xaResource.commit(xidInfo.getXid(), false);
-
-                xaConn.close();
-
-            } catch (XAException e) {
-                if (e.errorCode == XAException.XAER_NOTA) {
-                    // 事务已提交（幂等）
-                    LOG.info("XA transaction already committed: {}", xidInfo.getXid());
-                } else {
-                    // 提交失败，将重试
-                    LOG.error("Failed to commit XA transaction: {}", xidInfo.getXid(), e);
-                    failed.add(xidInfo);
-                }
-            }
-        }
-
-        return failed; // 框架将重试失败的提交
-    }
-
-    @Override
-    public void abort(List<XidInfo> commitInfos) {
-        // 回滚准备的事务
-        for (XidInfo xidInfo : commitInfos) {
-            try {
-                XAConnection xaConn = xaDataSource.getXAConnection();
-                xaConn.getXAResource().rollback(xidInfo.getXid());
-                xaConn.close();
-            } catch (Exception e) {
-                LOG.error("Failed to rollback XA transaction", e);
-            }
-        }
-    }
-}
-```
-
-**实现示例（文件提交器与原子重命名）**：
-
-```java
-public class FileSinkCommitter implements SinkCommitter<FileCommitInfo> {
-
-    private final FileSystem fileSystem;
-
-    @Override
-    public List<FileCommitInfo> commit(List<FileCommitInfo> commitInfos) {
-        List<FileCommitInfo> failed = new ArrayList<>();
-
-        for (FileCommitInfo commitInfo : commitInfos) {
-            try {
-                Path tempPath = new Path(commitInfo.getTempFilePath());
-                Path finalPath = new Path(commitInfo.getFinalFilePath());
-
-                // 原子重命名（提交）
-                if (fileSystem.exists(finalPath)) {
-                    // 文件已提交（幂等）
-                    LOG.info("File already exists, skipping: {}", finalPath);
-                    fileSystem.delete(tempPath, false); // 清理临时文件
-                } else {
-                    boolean success = fileSystem.rename(tempPath, finalPath);
-                    if (!success) {
-                        failed.add(commitInfo);
-                    }
-                }
-
-            } catch (IOException e) {
-                LOG.error("Failed to commit file: {}", commitInfo, e);
-                failed.add(commitInfo);
-            }
-        }
-
-        return failed;
-    }
-}
-```
+**实现提示**：
+- 需要明确幂等键（例如事务 id、文件清单版本、外部系统的去重 key）
+- 需要能区分“可重试失败”（网络抖动）与“不可重试失败”（权限/数据非法），避免无意义重试
 
 ### 3.3 SinkAggregatedCommitter 接口
 
 聚合提交器为所有写入器执行单个全局提交。
 
-```java
-public interface SinkAggregatedCommitter<CommitInfoT, AggregatedCommitInfoT>
-    extends Closeable {
 
-    /**
-     * 将多个写入器的提交信息合并为单个聚合信息
-     */
-    AggregatedCommitInfoT combine(List<CommitInfoT> commitInfos);
-
-    /**
-     * 提交聚合信息（单个全局操作）
-     * 必须是幂等的
-     */
-    List<AggregatedCommitInfoT> commit(List<AggregatedCommitInfoT> aggregatedCommitInfos)
-        throws IOException;
-
-    /**
-     * 中止聚合提交信息
-     */
-    default void abort(List<AggregatedCommitInfoT> aggregatedCommitInfos) throws IOException {}
-
-    /**
-     * 从检查点恢复提交器状态
-     */
-    default void restoreCommit(List<AggregatedCommitInfoT> aggregatedCommitInfos)
-        throws IOException {}
-
-    /**
-     * 关闭提交器
-     */
-    void close() throws IOException;
-}
-```
+**契约要点**：
+- `combine(commitInfos)`：把多个 writer 的提交信息聚合成“全局一次提交”所需的元数据
+- `commit(aggregatedCommitInfos)`：对聚合后的信息做全局提交；同样必须幂等
+- `restoreCommit(...)`：恢复聚合提交器状态，确保 failover 后仍可完成/重试“全局提交”
 
 **使用场景**：
 - Hive 表提交（所有分区的单个 COMMIT TRANSACTION）
 - Iceberg 表提交（单个表快照）
 - 全局索引更新（为所有写入更新一次索引）
 
-**实现示例（Hive 数据汇）**：
-
-```java
-public class HiveAggregatedCommitter
-    implements SinkAggregatedCommitter<HiveWriteInfo, HiveCommitInfo> {
-
-    @Override
-    public HiveCommitInfo combine(List<HiveWriteInfo> commitInfos) {
-        // 收集所有写入器写入的文件
-        List<String> allFiles = new ArrayList<>();
-        for (HiveWriteInfo writeInfo : commitInfos) {
-            allFiles.addAll(writeInfo.getWrittenFiles());
-        }
-        return new HiveCommitInfo(allFiles);
-    }
-
-    @Override
-    public List<HiveCommitInfo> commit(List<HiveCommitInfo> aggregatedCommitInfos) {
-        List<HiveCommitInfo> failed = new ArrayList<>();
-
-        for (HiveCommitInfo commitInfo : aggregatedCommitInfos) {
-            try {
-                // 整个表的单个全局提交
-                hiveMetastore.beginTransaction();
-
-                for (String file : commitInfo.getAllFiles()) {
-                    hiveMetastore.addPartitionFile(tableName, file);
-                }
-
-                hiveMetastore.commitTransaction(); // 全局原子提交
-
-            } catch (Exception e) {
-                LOG.error("Failed to commit to Hive", e);
-                hiveMetastore.rollbackTransaction();
-                failed.add(commitInfo);
-            }
-        }
-
-        return failed;
-    }
-}
-```
-
-### 3.4 代码参考
-
-**API 接口**：
-- [SeaTunnelSink.java](../../../seatunnel-api/src/main/java/org/apache/seatunnel/api/sink/SeaTunnelSink.java)
-- [SinkWriter.java](../../../seatunnel-api/src/main/java/org/apache/seatunnel/api/sink/SinkWriter.java)
-- [SinkCommitter.java](../../../seatunnel-api/src/main/java/org/apache/seatunnel/api/sink/SinkCommitter.java)
-- [SinkAggregatedCommitter.java](../../../seatunnel-api/src/main/java/org/apache/seatunnel/api/sink/SinkAggregatedCommitter.java)
-
-**示例实现**：
-- JDBC 数据汇：`seatunnel-connectors-v2/connector-jdbc/src/main/java/org/apache/seatunnel/connectors/seatunnel/jdbc/sink/`
-- Kafka 数据汇：`seatunnel-connectors-v2/connector-kafka/src/main/java/org/apache/seatunnel/connectors/seatunnel/kafka/sink/`
-- 文件数据汇：`seatunnel-connectors-v2/connector-file/connector-file-base/src/main/java/org/apache/seatunnel/connectors/seatunnel/file/sink/`
+**实现示例（语义级，以 Hive 为例）**：
+- `combine`：汇总所有 writer 产生的文件/分区元数据，形成一次表级提交所需的“全量变更集”
+- `commit`：对外部 metastore/表事务执行一次全局原子提交；失败后需要可重试且不重复（幂等）
 
 ## 4. 设计考量
 
@@ -657,26 +266,7 @@ public class HiveAggregatedCommitter
 
 #### 批量写入
 
-```java
-public class BatchSinkWriter {
-    private final List<SeaTunnelRow> batch = new ArrayList<>();
-    private static final int BATCH_SIZE = 1000;
-
-    @Override
-    public void write(SeaTunnelRow element) {
-        batch.add(element);
-        if (batch.size() >= BATCH_SIZE) {
-            flushBatch();
-        }
-    }
-
-    private void flushBatch() {
-        // 在单个操作中写入整个批次
-        statement.executeBatch();
-        batch.clear();
-    }
-}
-```
+将多条记录合并为一次外部写入（JDBC batch / bulk API / multi-put）。
 
 **好处**：
 - 摊销每条记录的开销
@@ -685,109 +275,27 @@ public class BatchSinkWriter {
 
 #### 异步写入
 
-```java
-public class AsyncSinkWriter {
-    private final BlockingQueue<CompletableFuture<Void>> pendingWrites = new LinkedBlockingQueue<>();
-
-    @Override
-    public void write(SeaTunnelRow element) {
-        CompletableFuture<Void> future = CompletableFuture.runAsync(() -> {
-            // 异步写入操作
-            actualWrite(element);
-        }, executorService);
-
-        pendingWrites.add(future);
-    }
-
-    @Override
-    public Optional<CommitInfo> prepareCommit() {
-        // 等待所有待处理的写入完成
-        for (CompletableFuture<Void> future : pendingWrites) {
-            future.join();
-        }
-        pendingWrites.clear();
-
-        return Optional.of(createCommitInfo());
-    }
-}
-```
+将外部 I/O 下沉到后台线程/异步客户端，以降低 `write()` 的尾延迟。但需要明确：
+- `prepareCommit()` 必须等待所有“已接收记录”的异步写入完成，才能生成可靠的 commitInfo
+- 需要有背压/限流策略，避免异步积压导致 OOM
 
 #### 连接池
 
-```java
-public class JdbcSinkWriter {
-    private final HikariDataSource dataSource;
-
-    @Override
-    public void write(SeaTunnelRow element) {
-        try (Connection conn = dataSource.getConnection()) {
-            // 重用池化连接
-            PreparedStatement stmt = conn.prepareStatement(sql);
-            stmt.executeUpdate();
-        }
-    }
-}
-```
+对 JDBC/HTTP 等短连接成本高的外部系统，优先使用连接池/长连接以减少握手与认证开销。
 
 ### 4.3 幂等性模式
 
 #### 1. 自然幂等性（Upsert）
 
-```java
-// INSERT ON DUPLICATE KEY UPDATE (MySQL)
-String sql = "INSERT INTO table (id, name) VALUES (?, ?) " +
-             "ON DUPLICATE KEY UPDATE name = VALUES(name)";
-
-// MERGE INTO (Oracle, SQL Server)
-String sql = "MERGE INTO table USING (SELECT ? as id, ? as name FROM dual) src " +
-             "ON (table.id = src.id) " +
-             "WHEN MATCHED THEN UPDATE SET table.name = src.name " +
-             "WHEN NOT MATCHED THEN INSERT (id, name) VALUES (src.id, src.name)";
-```
+利用外部系统提供的 Upsert/Merge 语义，使“重复提交同一业务键”不会产生重复数据。
 
 #### 2. 去重键
 
-```java
-public class KafkaSinkWriter {
-    @Override
-    public void write(SeaTunnelRow element) {
-        ProducerRecord<String, String> record = new ProducerRecord<>(
-            topic,
-            element.getField(0).toString(), // 用于去重的键
-            element.toString()
-        );
-
-        // Kafka 基于（topic、partition、offset、幂等生产者）去重
-        producer.send(record);
-    }
-}
-```
+为每条写入生成可重复的幂等键（业务主键、事件 id、事务 id），并让外部系统/协议基于该键实现去重。
 
 #### 3. 外部去重表
 
-```java
-public class JdbcCommitter {
-    @Override
-    public List<XidInfo> commit(List<XidInfo> commitInfos) {
-        for (XidInfo xidInfo : commitInfos) {
-            String xidString = xidInfo.getXid().toString();
-
-            // 检查是否已提交
-            boolean exists = checkCommitTable(xidString);
-            if (exists) {
-                LOG.info("XID already committed: {}", xidString);
-                continue; // 幂等
-            }
-
-            // 提交事务
-            xaResource.commit(xidInfo.getXid(), false);
-
-            // 记录提交
-            insertCommitTable(xidString, System.currentTimeMillis());
-        }
-    }
-}
-```
+在外部系统维护“已提交记录表/去重索引”，提交前先检查是否已提交；这种方式通用但会引入额外写放大与一致性成本。
 
 ## 5. 最佳实践
 
@@ -795,196 +303,53 @@ public class JdbcCommitter {
 
 **1. 选择适当的提交级别**
 
-```java
-// 简单数据汇：仅写入器（至少一次）
-public class SimpleSink implements SeaTunnelSink<...> {
-    SinkWriter createWriter(...) { return new SimpleWriter(); }
-    // 无提交器 - 直接写入数据
-}
-
-// 事务性数据汇：写入器 + 提交器（精确一次）
-public class TransactionalSink implements SeaTunnelSink<...> {
-    SinkWriter createWriter(...) { return new TransactionalWriter(); }
-    Optional<SinkCommitter> createCommitter() { return Optional.of(new Committer()); }
-}
-
-// 表数据汇：写入器 + 提交器 + 聚合提交器
-public class TableSink implements SeaTunnelSink<...> {
-    SinkWriter createWriter(...) { return new TableWriter(); }
-    Optional<SinkCommitter> createCommitter() { return Optional.of(new Committer()); }
-    Optional<SinkAggregatedCommitter> createAggregatedCommitter() {
-        return Optional.of(new AggregatedCommitter());
-    }
-}
-```
+- 仅 writer：适合至少一次（数据写入立即可见，恢复会重放，需外部幂等）
+- writer + committer：适合精确一次（checkpoint 边界产出 commitInfo，主节点统一提交）
+- writer + committer + aggregated committer：适合表级事务/全局单点提交（一次提交涵盖所有 writer 的变更）
 
 **2. 正确的状态管理**
 
-```java
-public class StatefulSinkWriter {
-    private long recordsWritten = 0;
-    private long bytesWritten = 0;
-
-    @Override
-    public List<WriterState> snapshotState(long checkpointId) {
-        return Collections.singletonList(
-            new WriterState(recordsWritten, bytesWritten)
-        );
-    }
-
-    public StatefulSinkWriter restoreState(List<WriterState> states) {
-        if (!states.isEmpty()) {
-            WriterState state = states.get(0);
-            this.recordsWritten = state.getRecordsWritten();
-            this.bytesWritten = state.getBytesWritten();
-        }
-        return this;
-    }
-}
-```
+- 状态里只放“恢复必需信息”（事务句柄/临时文件清单/最后一致性偏移量等），避免把大批数据放进状态
+- 恢复时要能把状态回放到 writer 内部，并确保 prepare/commit 的幂等性仍成立
 
 **3. 资源管理**
 
-```java
-@Override
-public void close() throws IOException {
-    // 按创建的相反顺序关闭
-    if (statement != null) statement.close();
-    if (connection != null) connection.close();
-    if (dataSource != null) dataSource.close();
-}
-```
+- 明确资源生命周期：writer/committer 的 `close()` 必须可重复调用且不抛出不可恢复异常
+- 尽量做到“按创建逆序关闭”，并确保失败时也能释放外部资源（连接/事务/临时文件）
 
 ### 5.2 常见陷阱
 
 **1. prepareCommit() 中的副作用**
 
-```java
-// ❌ 错误：在 prepareCommit() 中实际提交
-public Optional<CommitInfo> prepareCommit() {
-    connection.commit(); // 错误！这是副作用！
-    return Optional.of(new CommitInfo());
-}
-
-// ✅ 正确：只准备，无副作用
-public Optional<CommitInfo> prepareCommit() {
-    xaResource.end(xid, XAResource.TMSUCCESS);
-    xaResource.prepare(xid); // 仅准备，尚未提交
-    return Optional.of(new XidInfo(xid));
-}
-```
+- `prepareCommit()` 只能生成“提交所需的凭据/元数据”，不能让数据对外可见
+- 一旦在 prepare 阶段产生外部副作用，failover 重放会导致重复写入
 
 **2. 非幂等提交**
 
-```java
-// ❌ 错误：直接 INSERT（非幂等）
-public List<CommitInfo> commit(List<CommitInfo> commitInfos) {
-    for (CommitInfo info : commitInfos) {
-        executeInsert(info); // 如果调用两次可能失败！
-    }
-}
-
-// ✅ 正确：UPSERT（幂等）
-public List<CommitInfo> commit(List<CommitInfo> commitInfos) {
-    for (CommitInfo info : commitInfos) {
-        executeUpsert(info); // 多次调用安全
-    }
-}
-```
+- `commit()` 需要支持相同 commitInfo 的重复调用（网络抖动/主节点重启会发生）
+- 优先依赖外部系统的幂等语义（upsert/merge/幂等事务 id），否则需要自建去重机制
 
 **3. 大状态**
 
-```java
-// ❌ 错误：在状态中缓冲所有记录
-public class BadWriter {
-    private List<SeaTunnelRow> bufferedRows = new ArrayList<>(); // 可能很大！
-
-    public List<State> snapshotState() {
-        return Collections.singletonList(new State(bufferedRows));
-    }
-}
-
-// ✅ 正确：检查点前刷新，仅跟踪元数据
-public class GoodWriter {
-    private long lastCommittedOffset = 0;
-
-    public Optional<CommitInfo> prepareCommit() {
-        flushBufferedRows(); // 写入外部系统
-        return Optional.of(new CommitInfo(lastCommittedOffset));
-    }
-}
-```
+- 避免把大量缓冲记录放进 checkpoint 状态，状态越大越容易导致 checkpoint 超时与恢复变慢
+- 把大数据留在外部系统（临时文件/事务日志），状态里只保留引用与必要元数据
 
 ### 5.3 调试技巧
 
 **1. 启用 XA 事务日志**
 
-```java
-// 记录 XA 操作以进行调试
-LOG.info("Starting XA transaction: {}", xid);
-xaResource.start(xid, XAResource.TMNOFLAGS);
-
-LOG.info("Preparing XA transaction: {}", xid);
-xaResource.prepare(xid);
-
-LOG.info("Committing XA transaction: {}", xid);
-xaResource.commit(xid, false);
-```
+- 记录关键生命周期事件：事务开始/prepare/commit/rollback、checkpointId、writerIndex
+- 避免记录敏感数据（凭据/明文 SQL/用户数据），以可追踪的事务 id 为主
 
 **2. 跟踪提交进度**
 
-```java
-public class MonitoredCommitter {
-    private final Counter commitAttempts = metricGroup.counter("commit_attempts");
-    private final Counter commitSuccesses = metricGroup.counter("commit_successes");
-    private final Counter commitFailures = metricGroup.counter("commit_failures");
-
-    public List<CommitInfo> commit(List<CommitInfo> commitInfos) {
-        commitAttempts.inc(commitInfos.size());
-
-        List<CommitInfo> failed = new ArrayList<>();
-        for (CommitInfo info : commitInfos) {
-            try {
-                doCommit(info);
-                commitSuccesses.inc();
-            } catch (Exception e) {
-                commitFailures.inc();
-                failed.add(info);
-            }
-        }
-        return failed;
-    }
-}
-```
+- 输出/采集提交指标：提交耗时、失败率、重试次数、单次提交大小
+- 重点关注“提交堆积”与“commitInfo 重试风暴”，它们通常意味着幂等设计或外部系统稳定性问题
 
 **3. 测试失败场景**
 
-```java
-@Test
-public void testCheckpointFailureRecovery() {
-    // 写入数据
-    writer.write(row1);
-    writer.write(row2);
-
-    // 准备提交
-    Optional<CommitInfo> commitInfo = writer.prepareCommit();
-
-    // 模拟检查点失败
-    writer.abortPrepare();
-
-    // 验证没有提交数据
-    assertFalse(dataExistsInSink());
-
-    // 恢复并重试
-    writer.write(row1);
-    writer.write(row2);
-    commitInfo = writer.prepareCommit();
-
-    // 提交应该成功
-    committer.commit(Collections.singletonList(commitInfo.get()));
-    assertTrue(dataExistsInSink());
-}
-```
+- 覆盖典型故障：writer 崩溃、committer 崩溃、commit 超时、重复提交、checkpoint 超时
+- 验证点：不丢数据、不重复可见（或重复可见但幂等）、恢复后可继续推进 checkpoint
 
 ## 6. 相关资源
 
