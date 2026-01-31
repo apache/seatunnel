@@ -16,10 +16,6 @@
 
 import httpx
 from .helpers.httpMethod import HttpMethod
-from .endpoints.cluster import ClusterApi
-from .endpoints.jobs import JobsApi
-from .endpoints.config import ConfigApi
-from .endpoints.system import SystemApi
 
 class Client:
     def __init__(self, base_url: str, timeout: float = 10):
@@ -28,12 +24,18 @@ class Client:
         self.session = httpx.Client(timeout=timeout)
 
     def request(self, method: HttpMethod, path: str, **kwargs):
-        resp = self.session.request(
-            method.value,
-            f"{self.base_url}{path}",
-            **kwargs
-        )
-        
+        try:
+            resp = self.session.request(
+                method.value,
+                f"{self.base_url}{path}",
+                **kwargs
+            )
+            resp.raise_for_status()
+        except httpx.RequestError as exc:
+            raise Exception(f"Error while requesting {exc.request.url!r}: {exc}") from None
+        except httpx.HTTPStatusError as exc:
+            raise Exception(f"Error response {exc.response.status_code} while requesting {exc.request.url!r}\n{exc.response.text}") from None
+
         content_type = resp.headers.get("Content-Type", "")
         if "application/json" in content_type:
             return resp.json()
@@ -42,6 +44,10 @@ class Client:
         
 class SeaTunnelClient:
     def __init__(self, base_url):
+        from .endpoints.cluster import ClusterApi
+        from .endpoints.jobs import JobsApi
+        from .endpoints.config import ConfigApi
+        from .endpoints.system import SystemApi
         self.client = Client(base_url)
 
         self.cluster = ClusterApi(self.client)
