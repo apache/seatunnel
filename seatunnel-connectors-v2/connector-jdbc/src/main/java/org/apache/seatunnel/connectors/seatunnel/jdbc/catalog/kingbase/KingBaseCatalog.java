@@ -130,7 +130,9 @@ public class KingBaseCatalog extends AbstractJdbcCatalog {
         return "SELECT current_database();";
     }
 
-    /** 重写databaseExists方法，因为SELECT current_database()不支持where */
+    /**
+     * Override the databaseExists method because SELECT current_database() does not support WHERE
+     */
     @Override
     public boolean databaseExists(String databaseName) throws CatalogException {
         if (StringUtils.isBlank(databaseName)) {
