@@ -446,11 +446,11 @@ CREATE TABLE products (...);
 ```hocon
 sink {
   JDBC {
-    # 自动创建缺失的表
-    schema-evolution {
-      enabled = true
-      auto-create-table = true
-    }
+    # 作业启动阶段：若表不存在则创建（用于首次建表）
+    schema_save_mode = "CREATE_SCHEMA_WHEN_NOT_EXIST"
+
+    # 说明：运行时 schema 变更由 CDC source 的 `schema-changes.enabled` 控制；
+    # 是否能自动应用新增/删除列等变更取决于 JDBC 方言与目标端能力。
   }
 }
 ```

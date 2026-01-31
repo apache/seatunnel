@@ -139,7 +139,7 @@ Column 通常由以下信息构成:
 
 ### 4.2 数据源模式生产
 
-数据源侧的职责:
+数据源 source 侧的职责:
 - 从外部系统读取元数据(列、类型、主键/唯一键、分区、注释等)
 - 将外部类型映射为 SeaTunnelDataType
 - 产出 CatalogTable，作为作业的“输入契约”
@@ -152,11 +152,11 @@ Column 通常由以下信息构成:
 ### 4.3 转换器模式转换
 
 转换器侧的职责:
-- 根据转换逻辑(表达式/字段选择/重命名/聚合等)计算输出 schema
+- 根据转换逻辑(表达式/字段选择/重命名等)计算输出 schema
 - 保证输出 CatalogTable 可被下游 sink 验证与消费
 
 常见风险:
-- schema 推断不精确(例如 UDF/UDAF、动态字段)
+- schema 推断不精确(例如 UDF、动态字段)
 - 类型提升/缩窄导致的精度或溢出问题
 - 字段重命名/删除导致下游找不到列
 
@@ -220,7 +220,7 @@ Transform 侧需要回答的问题是：**上游 schema 变化，在经过转换
 - 表达式生成列：上游新增列不一定影响下游，但下游可能新增派生列（属于转换器内部 schema 变化）
 
 失败模式:
-- 无法判定影响：例如 UDF/UDAF 返回动态字段，建议显式配置输出 schema 或选择“禁止自动演化”
+- 无法判定影响：例如 UDF 返回动态字段，建议显式配置输出 schema 或选择“禁止自动演化”
 - 不可逆转换：例如精度缩窄/字符串解析失败，建议在演化阶段就拒绝或要求人工介入
 
 ### 5.4 目标端模式演化应用
@@ -301,12 +301,12 @@ Sink 侧的关键是：把输入行映射到正确分区并以目标系统要求
 ### 8.1 模式定义
 
 **优先使用显式模式**:
-- ✅ 推荐：在配置或作业定义阶段显式给出 schema（字段名、类型、nullable、精度等）
-- ❌ 不推荐：完全依赖运行时推断（尤其是“取第一行推断”），容易在脏数据或字段漂移时产生不可恢复的问题
+- 推荐：在配置或作业定义阶段显式给出 schema（字段名、类型、nullable、精度等）
+- 不推荐：完全依赖运行时推断（尤其是“取第一行推断”），容易在脏数据或字段漂移时产生不可恢复的问题
 
 **选择合适类型**:
-- ✅ 推荐：金额/计数等使用 `DECIMAL(p,s)`/`BIGINT` 等精确类型；时间使用 `DATE/TIME/TIMESTAMP`
-- ❌ 不推荐：将所有字段降级为 `STRING`，会把错误推迟到下游并放大数据质量成本
+- 推荐：金额/计数等使用 `DECIMAL(p,s)`/`BIGINT` 等精确类型；时间使用 `DATE/TIME/TIMESTAMP`
+- 不推荐：将所有字段降级为 `STRING`，会把错误推迟到下游并放大数据质量成本
 
 ### 8.2 模式验证
 
@@ -350,21 +350,36 @@ source {
 
 ### 9.2 模式演化控制
 
+SeaTunnel 的模式演化通常由 **CDC Source 侧开关**控制：在 CDC 源启用 `schema-changes.enabled = true` 后，运行时 DDL/元数据变更会随数据流传播；下游 Sink 是否能自动应用变更取决于连接器是否支持 schema evolution。
+
+下面给出一个“CDC → JDBC Sink”的最小可用示例（参数以各连接器文档为准）：
+
 ```hocon
+source {
+  MySQL-CDC {
+    url = "..."
+    table-names = ["db.table"]
+
+    # 启用 CDC 模式变更事件（SchemaChangeEvent）传播
+    schema-changes.enabled = true
+  }
+}
+
 sink {
-  JDBC {
+  jdbc {
     url = "..."
 
-    # 模式演化选项
-    schema-evolution {
-      enabled = true
-      auto-create-table = true
-      auto-add-column = true
-      auto-drop-column = false # 危险!
-    }
+    # 让 JDBC sink 能根据上游 schema 生成/刷新写入 SQL
+    generate_sink_sql = true
+
+    # 作业启动阶段：若表不存在则创建（用于首次建表）
+    schema_save_mode = "CREATE_SCHEMA_WHEN_NOT_EXIST"
   }
 }
 ```
+
+> 说明：当前仓库中没有“schema-evolution 统一配置块”这一通用写法。
+> 新增/删除/重命名列等是否自动应用由具体 Sink 实现与目标端能力决定；其中 DROP/RENAME 属于高风险操作，建议在生产环境谨慎启用并做好灰度与回滚预案。
 
 ## 10. 相关资源
 
