@@ -84,6 +84,40 @@ public class OracleConnectionUtils {
         }
     }
 
+    /**
+     * Convert timestamp (milliseconds since epoch) to Oracle SCN.
+     *
+     * @param jdbc JDBC connection
+     * @param timestampMs timestamp in milliseconds since epoch
+     * @return RedoLogOffset with the corresponding SCN
+     */
+    public static RedoLogOffset timestampToScn(JdbcConnection jdbc, long timestampMs) {
+        try {
+            LOG.info("Converting timestamp {} to SCN", timestampMs);
+            String sql =
+                    "SELECT TIMESTAMP_TO_SCN(TO_TIMESTAMP(?, 'YYYY-MM-DD HH24:MI:SS.FF3')) AS SCN FROM DUAL";
+            return jdbc.prepareQueryAndMap(
+                    sql,
+                    statement -> {
+                        java.sql.Timestamp timestamp = new java.sql.Timestamp(timestampMs);
+                        statement.setString(1, timestamp.toString());
+                    },
+                    rs -> {
+                        if (rs.next()) {
+                            final String scn = rs.getString(1);
+                            LOG.info("Converted timestamp {} to SCN: {}", timestampMs, scn);
+                            return new RedoLogOffset(Scn.valueOf(scn).longValue());
+                        } else {
+                            throw new SeaTunnelException(
+                                    "Cannot convert timestamp to SCN. Make sure the specified timestamp is valid.");
+                        }
+                    });
+        } catch (SQLException e) {
+            LOG.error("Failed to convert timestamp to SCN", e);
+            throw new SeaTunnelException("Failed to convert timestamp to SCN", e);
+        }
+    }
+
     public static List<TableId> listTables(
             JdbcConnection jdbcConnection, String database, RelationalTableFilters tableFilters)
             throws SQLException {

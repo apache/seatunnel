@@ -67,12 +67,15 @@ public class LsnOffsetFactory extends OffsetFactory {
 
     @Override
     public Offset specific(String filename, Long position) {
-        throw new UnsupportedOperationException(
-                "not supported create new Offset by filename and position.");
+        return LsnOffset.valueOf(filename);
     }
 
     @Override
     public Offset timestamp(long timestamp) {
-        throw new UnsupportedOperationException("not supported create new Offset by timestamp.");
+        try (JdbcConnection jdbcConnection = dialect.openJdbcConnection(sourceConfig)) {
+            return SqlServerUtils.timestampToLsn((SqlServerConnection) jdbcConnection, timestamp);
+        } catch (Exception e) {
+            throw new RuntimeException("Convert timestamp to LSN offset error", e);
+        }
     }
 }
