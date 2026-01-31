@@ -60,6 +60,7 @@ if [ ! -f "${APP_DIR}/runtime.tar.gz" ];then
   else
       tar -zcvf runtime.tar.gz "${existing_dirs[@]}"
   fi
+  cd -
 fi
 
 if [ $# == 0 ]

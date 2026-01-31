@@ -66,11 +66,8 @@ public abstract class AbstractFlinkStarter implements Starter {
                     String.format("-Dyarn.ship-files=\"%s\"", flinkCommandArgs.getConfigFile()));
             command.add(
                     String.format(
-                            "-Dyarn.ship-archives=%s",
-                            String.format(
-                                    "%s/%s",
-                                    Common.getSeaTunnelHome(),
-                                    Common.FLINK_YARN_APPLICATION_PATH)));
+                            "-Dyarn.ship-archives=\"%s/%s\"",
+                            Common.getSeaTunnelHome(), Common.FLINK_YARN_APPLICATION_PATH));
         }
         // set yarn application name
         if (flinkCommandArgs.getMasterType() == MasterType.YARN_APPLICATION
