@@ -67,7 +67,8 @@ public class LsnOffsetFactory extends OffsetFactory {
 
     @Override
     public Offset specific(String filename, Long position) {
-        return LsnOffset.valueOf(filename);
+        throw new UnsupportedOperationException(
+                "not supported create new Offset by filename and position.");
     }
 
     @Override
