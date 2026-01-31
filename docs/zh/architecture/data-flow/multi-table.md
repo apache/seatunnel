@@ -40,7 +40,7 @@ source {
 }
 
 sink {
-  JDBC {
+  Jdbc {
     # 写入 PostgreSQL
     url = "jdbc:postgresql://..."
   }
@@ -192,7 +192,7 @@ MultiTableSink 是一个“按表路由 + 可多副本并行写入”的 Sink:
 
 ```hocon
 sink {
-  JDBC {
+  Jdbc {
     url = "..."
 
     # 多表配置
@@ -418,7 +418,7 @@ source {
 **保守开始**:
 ```hocon
 sink {
-  JDBC {
+  Jdbc {
     # 从 1 个副本开始,如果出现瓶颈则增加
     multi-table.replica = 1
   }
@@ -445,7 +445,7 @@ CREATE TABLE products (...);
 **谨慎启用自动创建**:
 ```hocon
 sink {
-  JDBC {
+  Jdbc {
     # 作业启动阶段：若表不存在则创建（用于首次建表）
     schema_save_mode = "CREATE_SCHEMA_WHEN_NOT_EXIST"
 
@@ -460,7 +460,7 @@ sink {
 **每张表错误容忍**:
 ```hocon
 sink {
-  JDBC {
+  Jdbc {
     # 即使某些表失败也继续
     multi-table.continue-on-error = true
     multi-table.max-errors-per-table = 1000
@@ -498,7 +498,7 @@ job-2 { source { table-name = "user_.*|product_.*" } } # 其余表
 ```hocon
 # 减少每个写入器的缓冲区大小
 sink {
-  JDBC {
+  Jdbc {
     batch-size = 500 # 更小的批次
   }
 }
@@ -511,7 +511,7 @@ sink {
 ```hocon
 # 计划中: 每张表副本配置
 sink {
-  JDBC {
+  Jdbc {
     multi-table.replicas {
       orders = 8      # 高吞吐量
       users = 4       # 中等

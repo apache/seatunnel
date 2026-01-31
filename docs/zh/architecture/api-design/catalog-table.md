@@ -332,7 +332,7 @@ Sink 侧的关键是：把输入行映射到正确分区并以目标系统要求
 
 ```hocon
 source {
-  JDBC {
+  Jdbc {
     url = "..."
     query = "SELECT * FROM users"
 
@@ -350,7 +350,7 @@ source {
 
 ### 9.2 模式演化控制
 
-SeaTunnel 的模式演化通常由 **CDC Source 侧开关**控制：在 CDC 源启用 `schema-changes.enabled = true` 后，运行时 DDL/元数据变更会随数据流传播；下游 Sink 是否能自动应用变更取决于连接器是否支持 schema evolution。
+在 **CDC 场景**下，SeaTunnel 的模式演化通常由 **CDC Source 侧开关**控制：在 CDC 源启用 `schema-changes.enabled = true` 后，运行时 DDL/元数据变更会随数据流传播；下游 Sink 是否能自动应用变更取决于连接器是否支持 schema evolution。
 
 下面给出一个“CDC → JDBC Sink”的最小可用示例（参数以各连接器文档为准）：
 
@@ -366,7 +366,7 @@ source {
 }
 
 sink {
-  jdbc {
+  Jdbc {
     url = "..."
 
     # 让 JDBC sink 能根据上游 schema 生成/刷新写入 SQL
