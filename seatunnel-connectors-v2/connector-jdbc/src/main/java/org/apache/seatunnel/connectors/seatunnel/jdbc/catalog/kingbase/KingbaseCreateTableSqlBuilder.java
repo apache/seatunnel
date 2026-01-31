@@ -31,7 +31,7 @@ import java.util.List;
 import java.util.UUID;
 import java.util.stream.Collectors;
 
-public class KingBaseCreateTableSqlBuilder {
+public class KingbaseCreateTableSqlBuilder {
 
     private List<Column> columns;
     private PrimaryKey primaryKey;
@@ -39,7 +39,7 @@ public class KingBaseCreateTableSqlBuilder {
     private String fieldIde;
     private boolean createIndex;
 
-    public KingBaseCreateTableSqlBuilder(CatalogTable catalogTable, boolean createIndex) {
+    public KingbaseCreateTableSqlBuilder(CatalogTable catalogTable, boolean createIndex) {
         this.columns = catalogTable.getTableSchema().getColumns();
         this.primaryKey = catalogTable.getTableSchema().getPrimaryKey();
         this.sourceCatalogName = catalogTable.getCatalogName();

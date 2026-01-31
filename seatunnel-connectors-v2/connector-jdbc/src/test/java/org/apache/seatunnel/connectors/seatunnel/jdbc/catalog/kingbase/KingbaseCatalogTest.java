@@ -32,19 +32,19 @@ import org.junit.jupiter.api.Test;
 import java.util.List;
 
 @Disabled("Please Test it in your local environment")
-class KingBaseCatalogTest {
+class KingbaseCatalogTest {
 
     private static final String DATABASE = "test";
     private static final String SCHEMA = "public";
     private static final String SOURCE_TABLE = "st_type_converter_source";
     private static final String TARGET_TABLE = "st_type_converter_target";
 
-    private static KingBaseCatalog catalog;
+    private static KingbaseCatalog catalog;
 
     @BeforeAll
     static void before() {
         catalog =
-                new KingBaseCatalog(
+                new KingbaseCatalog(
                         "kingbase",
                         "kingbase",
                         "kingbase",

@@ -39,7 +39,7 @@ import java.util.Collections;
 import java.util.HashMap;
 import java.util.List;
 
-class KingBaseCreateTableSqlBuilderTest {
+class KingbaseCreateTableSqlBuilderTest {
 
     @Test
     void testBuildWithKingbaseCatalog() {
@@ -47,7 +47,7 @@ class KingBaseCreateTableSqlBuilderTest {
 
         CatalogTable catalogTable = kingbaseCatalogTable(tablePath);
         String createTableSql =
-                new KingBaseCreateTableSqlBuilder(catalogTable, true).build(tablePath);
+                new KingbaseCreateTableSqlBuilder(catalogTable, true).build(tablePath);
         String expectedSql = buildExpectedSql(tablePath, true);
 
         Assertions.assertEquals(
@@ -55,7 +55,7 @@ class KingBaseCreateTableSqlBuilderTest {
                 createTableSql.replaceAll("pk_id_\\w+", "pk_id_"));
 
         String createTableSqlSkipIndex =
-                new KingBaseCreateTableSqlBuilder(catalogTable, false).build(tablePath);
+                new KingbaseCreateTableSqlBuilder(catalogTable, false).build(tablePath);
         String expectedSqlSkipIndex = buildExpectedSql(tablePath, false);
         Assertions.assertEquals(expectedSqlSkipIndex, createTableSqlSkipIndex);
     }
@@ -66,7 +66,7 @@ class KingBaseCreateTableSqlBuilderTest {
 
         CatalogTable catalogTable = otherCatalogTable(tablePath);
         String createTableSql =
-                new KingBaseCreateTableSqlBuilder(catalogTable, true).build(tablePath);
+                new KingbaseCreateTableSqlBuilder(catalogTable, true).build(tablePath);
         String expectedSql = buildExpectedSqlFromOtherCatalog(tablePath, true);
 
         Assertions.assertEquals(
@@ -74,7 +74,7 @@ class KingBaseCreateTableSqlBuilderTest {
                 createTableSql.replaceAll("pk_id_\\w+", "pk_id_"));
 
         String createTableSqlSkipIndex =
-                new KingBaseCreateTableSqlBuilder(catalogTable, false).build(tablePath);
+                new KingbaseCreateTableSqlBuilder(catalogTable, false).build(tablePath);
         String expectedSqlSkipIndex = buildExpectedSqlFromOtherCatalog(tablePath, false);
         Assertions.assertEquals(expectedSqlSkipIndex, createTableSqlSkipIndex);
     }

@@ -32,7 +32,7 @@ import org.apache.seatunnel.connectors.seatunnel.jdbc.internal.dialect.DatabaseI
 import com.google.auto.service.AutoService;
 
 @AutoService(Factory.class)
-public class KingBaseCatalogFactory implements CatalogFactory {
+public class KingbaseCatalogFactory implements CatalogFactory {
 
     @Override
     public String factoryIdentifier() {
@@ -46,7 +46,7 @@ public class KingBaseCatalogFactory implements CatalogFactory {
                 StringUtils.isNoneBlank(urlWithDatabase),
                 "Miss config <base-url>! Please check your config.");
         JdbcUrlUtil.UrlInfo urlInfo = JdbcUrlUtil.getUrlInfo(urlWithDatabase);
-        return new KingBaseCatalog(
+        return new KingbaseCatalog(
                 catalogName,
                 options.get(JdbcCommonOptions.USERNAME),
                 options.get(JdbcCommonOptions.PASSWORD),

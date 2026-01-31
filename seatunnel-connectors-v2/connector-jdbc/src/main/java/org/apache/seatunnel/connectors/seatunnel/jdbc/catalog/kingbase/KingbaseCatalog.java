@@ -46,7 +46,7 @@ import java.util.List;
 import static org.apache.seatunnel.common.exception.CommonErrorCode.UNSUPPORTED_METHOD;
 
 @Slf4j
-public class KingBaseCatalog extends AbstractJdbcCatalog {
+public class KingbaseCatalog extends AbstractJdbcCatalog {
 
     protected static List<String> EXCLUDED_SCHEMAS =
             Collections.unmodifiableList(
@@ -115,7 +115,7 @@ public class KingBaseCatalog extends AbstractJdbcCatalog {
                     + "    AND a.attnum > 0 \n"
                     + "    AND NOT a.attisdropped;";
 
-    public KingBaseCatalog(
+    public KingbaseCatalog(
             String catalogName,
             String username,
             String pwd,
@@ -156,7 +156,7 @@ public class KingBaseCatalog extends AbstractJdbcCatalog {
     @Override
     protected String getCreateTableSql(
             TablePath tablePath, CatalogTable table, boolean createIndex) {
-        return new KingBaseCreateTableSqlBuilder(table, createIndex).build(tablePath);
+        return new KingbaseCreateTableSqlBuilder(table, createIndex).build(tablePath);
     }
 
     @Override
@@ -240,7 +240,7 @@ public class KingBaseCatalog extends AbstractJdbcCatalog {
     @Override
     protected String getExistDataSql(TablePath tablePath) {
         return String.format(
-                "select * from \"%s\".\"%s\" WHERE rownum = 1",
+                "select * from \"%s\".\"%s\" LIMIT 1",
                 tablePath.getSchemaName(), tablePath.getTableName());
     }
 
