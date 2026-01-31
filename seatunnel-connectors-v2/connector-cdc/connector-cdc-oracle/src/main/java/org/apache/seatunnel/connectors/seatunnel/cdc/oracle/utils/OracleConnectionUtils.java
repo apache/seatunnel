@@ -94,13 +94,12 @@ public class OracleConnectionUtils {
     public static RedoLogOffset timestampToScn(JdbcConnection jdbc, long timestampMs) {
         try {
             LOG.info("Converting timestamp {} to SCN", timestampMs);
-            String sql =
-                    "SELECT TIMESTAMP_TO_SCN(TO_TIMESTAMP(?, 'YYYY-MM-DD HH24:MI:SS.FF3')) AS SCN FROM DUAL";
+            String sql = "SELECT TIMESTAMP_TO_SCN(?) AS SCN FROM DUAL";
             return jdbc.prepareQueryAndMap(
                     sql,
                     statement -> {
                         java.sql.Timestamp timestamp = new java.sql.Timestamp(timestampMs);
-                        statement.setString(1, timestamp.toString());
+                        statement.setTimestamp(1, timestamp);
                     },
                     rs -> {
                         if (rs.next()) {
