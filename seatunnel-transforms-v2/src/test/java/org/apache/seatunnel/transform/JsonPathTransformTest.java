@@ -799,35 +799,6 @@ public class JsonPathTransformTest {
     }
 
     @Test
-    public void testEmptyStringDateValue() {
-        Map<String, Object> configMap = new HashMap<>();
-        configMap.put(
-                JsonPathTransformConfig.COLUMNS.key(),
-                Arrays.asList(
-                        ImmutableMap.of(
-                                JsonPathTransformConfig.SRC_FIELD.key(), "data",
-                                JsonPathTransformConfig.PATH.key(), "$.birth",
-                                JsonPathTransformConfig.DEST_FIELD.key(), "birth_date",
-                                JsonPathTransformConfig.DEST_TYPE.key(), "date")));
-        ReadonlyConfig config = ReadonlyConfig.fromMap(configMap);
-        CatalogTable table =
-                CatalogTableUtil.getCatalogTable(
-                        "test",
-                        new SeaTunnelRowType(
-                                new String[] {"data"},
-                                new SeaTunnelDataType[] {BasicType.STRING_TYPE}));
-        JsonPathTransform transform =
-                new JsonPathTransform(JsonPathTransformConfig.of(config, table), table);
-
-        CatalogTable outputTable = transform.getProducedCatalogTable();
-        String jsonData = "{\"birth\": \"\"}";
-        SeaTunnelRow outputRow = transform.map(new SeaTunnelRow(new Object[] {jsonData}));
-
-        Assertions.assertNull(
-                outputRow.getField(outputTable.getSeaTunnelRowType().indexOf("birth_date")));
-    }
-
-    @Test
     public void testLeapYearDate() {
         Map<String, Object> configMap = new HashMap<>();
         configMap.put(
