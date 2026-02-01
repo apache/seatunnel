@@ -17,6 +17,8 @@
 
 package org.apache.seatunnel.common.utils;
 
+import org.apache.seatunnel.shade.org.apache.commons.lang3.StringUtils;
+
 import org.apache.seatunnel.common.config.Common;
 
 import org.junit.jupiter.api.Assertions;
@@ -34,6 +36,27 @@ public class PathResolverTest {
     public void setUp() {
         System.clearProperty("SEATUNNEL_HOME");
         Common.setSeaTunnelHome(null);
+    }
+
+    /**
+     * SEATUNNEL_HOME will be calculated, and it will be recalculated even if the SEATUNNEL_HOME has
+     * been set to null in the {@link #setUp()}
+     */
+    @Test
+    public void testReplacePathWithEnvWithNoStHome() throws MalformedURLException {
+        // assert SEATUNNEL_HOME not blank
+        Assertions.assertTrue(StringUtils.isNotBlank(Common.getSeaTunnelHome()));
+
+        String jarPath = "/opt/seatunnel-client/connectors/seatunnel/connector-kafka.jar";
+        // Handle Windows path separator if needed for test robustness
+        if (File.separatorChar == '\\') {
+            jarPath = jarPath.replace('/', '\\');
+        }
+
+        URL absoluteUrl = new File(jarPath).toURI().toURL();
+        URL logicalUrl = PathResolver.replacePathWithEnv(absoluteUrl);
+
+        Assertions.assertEquals(absoluteUrl.getPath(), logicalUrl.getPath());
     }
 
     @Test

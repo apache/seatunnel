@@ -107,11 +107,7 @@ public class DefaultClassLoaderService implements ClassLoaderService {
 
     @Override
     public synchronized void releaseClassLoader(long jobId, Collection<URL> jars) {
-        // Resolves a collection of URLs containing the logical SEATUNNEL_HOME variable to
-        // absolute paths.
-        Collection<URL> resolvedJars = new ArrayList<>(jars);
-        PathResolver.resolvePathEnv(resolvedJars);
-        log.debug("Release classloader for job {} with jars {}", jobId, resolvedJars);
+        log.debug("Release classloader for job {} with jars {}", jobId, jars);
         if (cacheMode) {
             // with cache mode, all jobs share the same classloader if the jars are the same
             jobId = 1L;
@@ -120,22 +116,18 @@ public class DefaultClassLoaderService implements ClassLoaderService {
             return;
         }
         Map<String, ClassLoader> classLoaderMap = classLoaderCache.get(jobId);
-        String key = covertJarsToKey(resolvedJars);
+        String key = covertJarsToKey(jars);
         if (!classLoaderMap.containsKey(key)) {
             return;
         }
         int referenceCount = classLoaderReferenceCount.get(jobId).get(key).decrementAndGet();
-        log.debug(
-                "Reference count for job {} with jars {} is {}",
-                jobId,
-                resolvedJars,
-                referenceCount);
+        log.debug("Reference count for job {} with jars {} is {}", jobId, jars, referenceCount);
         if (cacheMode) {
             return;
         }
         if (referenceCount == 0) {
             ClassLoader classLoader = classLoaderMap.remove(key);
-            log.info("Release classloader for job {} with resolvedJars {}", jobId, resolvedJars);
+            log.info("Release classloader for job {} with jars {}", jobId, jars);
             classLoaderReferenceCount.get(jobId).remove(key);
             recycleClassLoaderFromThread(classLoader);
         }

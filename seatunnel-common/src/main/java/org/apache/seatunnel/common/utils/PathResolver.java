@@ -17,6 +17,8 @@
 
 package org.apache.seatunnel.common.utils;
 
+import org.apache.seatunnel.shade.org.apache.commons.lang3.StringUtils;
+
 import org.apache.seatunnel.common.config.Common;
 
 import java.io.File;
@@ -58,6 +60,9 @@ public class PathResolver {
     public static URL replacePathWithEnv(URL url) {
         String path = url.getPath();
         String home = Common.getSeaTunnelHome();
+        if (StringUtils.isBlank(home)) {
+            return url;
+        }
         // Normalize paths for comparison (handle Windows backslashes)
         String normalizedPath = new File(path).getAbsolutePath();
         String normalizedHome = new File(home).getAbsolutePath();
@@ -99,30 +104,34 @@ public class PathResolver {
      */
     public static URL resolvePathEnv(URL url) {
         String path = url.getPath();
-
-        if (path.contains(SEATUNNEL_HOME_VAR)) {
-            String home = Common.getSeaTunnelHome();
-            // Replace the variable with the actual home path
-            // We need to handle the case where path might start with / or not
-            String cleanPath = path;
-            if (path.startsWith("/")) {
-                cleanPath = path.substring(1);
-            }
-
-            String relativePath = cleanPath.replace(SEATUNNEL_HOME_VAR, "");
-
-            // Remove leading slashes from relative path
-            if (relativePath.startsWith("/") || relativePath.startsWith("\\")) {
-                relativePath = relativePath.substring(1);
-            }
-
-            Path fullPath = Paths.get(home, relativePath);
-            try {
-                return fullPath.toUri().toURL();
-            } catch (MalformedURLException e) {
-                throw new RuntimeException("Failed to resolve logical URL for: " + url, e);
-            }
+        if (!path.contains(SEATUNNEL_HOME_VAR)) {
+            return url;
         }
-        return url;
+
+        String home = Common.getSeaTunnelHome();
+        if (StringUtils.isBlank(home)) {
+            return url;
+        }
+
+        // Replace the variable with the actual home path
+        // We need to handle the case where path might start with / or not
+        String cleanPath = path;
+        if (path.startsWith("/")) {
+            cleanPath = path.substring(1);
+        }
+
+        String relativePath = cleanPath.replace(SEATUNNEL_HOME_VAR, "");
+
+        // Remove leading slashes from relative path
+        if (relativePath.startsWith("/") || relativePath.startsWith("\\")) {
+            relativePath = relativePath.substring(1);
+        }
+
+        Path fullPath = Paths.get(home, relativePath);
+        try {
+            return fullPath.toUri().toURL();
+        } catch (MalformedURLException e) {
+            throw new RuntimeException("Failed to resolve logical URL for: " + url, e);
+        }
     }
 }
