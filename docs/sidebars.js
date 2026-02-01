@@ -216,7 +216,8 @@ const sidebars = {
                     "items": [
                         "seatunnel-engine/rest-api-v1",
                         "seatunnel-engine/rest-api-v2",
-                        "seatunnel-engine/security"
+                        "seatunnel-engine/security",
+                        "seatunnel-engine/python-sdk"
                     ]
                 },
                 "seatunnel-engine/user-command",
