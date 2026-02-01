@@ -1,0 +1,113 @@
+package org.apache.seatunnel.common.utils;
+
+import org.apache.seatunnel.common.config.Common;
+
+import org.junit.jupiter.api.Assertions;
+import org.junit.jupiter.api.BeforeEach;
+import org.junit.jupiter.api.Test;
+
+import java.io.File;
+import java.net.MalformedURLException;
+import java.net.URL;
+import java.nio.file.Paths;
+
+public class PathResolverTest {
+
+    @BeforeEach
+    public void setUp() {
+        System.clearProperty("SEATUNNEL_HOME");
+        Common.setSeaTunnelHome(null);
+    }
+
+    @Test
+    public void testReplacePathWithEnv() throws MalformedURLException {
+        // Simulate Client Side
+        String clientHome = "/opt/seatunnel-client";
+        System.setProperty("SEATUNNEL_HOME", clientHome);
+        Common.setSeaTunnelHome(clientHome);
+
+        // Test file inside SEATUNNEL_HOME
+        String jarPath = clientHome + "/connectors/seatunnel/connector-kafka.jar";
+        // Handle Windows path separator if needed for test robustness
+        if (File.separatorChar == '\\') {
+            jarPath = jarPath.replace('/', '\\');
+            clientHome = clientHome.replace('/', '\\');
+            System.setProperty("SEATUNNEL_HOME", clientHome);
+            Common.setSeaTunnelHome(clientHome);
+        }
+
+        URL absoluteUrl = new File(jarPath).toURI().toURL();
+        URL logicalUrl = PathResolver.replacePathWithEnv(absoluteUrl);
+
+        Assertions.assertEquals(
+                "$SEATUNNEL_HOME/connectors/seatunnel/connector-kafka.jar", logicalUrl.getPath());
+
+        // Test file OUTSIDE SEATUNNEL_HOME
+        String outsidePath = "/tmp/other/connector.jar";
+        if (File.separatorChar == '\\') {
+            outsidePath = "C:\\tmp\\other\\connector.jar";
+        }
+        URL outsideUrl = new File(outsidePath).toURI().toURL();
+        URL resultUrl = PathResolver.replacePathWithEnv(outsideUrl);
+
+        Assertions.assertEquals(outsideUrl, resultUrl);
+    }
+
+    @Test
+    public void testResolvePathEnv() throws MalformedURLException {
+        // Simulate Server Side
+        String serverHome = "/opt/seatunnel-server";
+        System.setProperty("SEATUNNEL_HOME", serverHome);
+        Common.setSeaTunnelHome(serverHome);
+
+        if (File.separatorChar == '\\') {
+            serverHome = serverHome.replace('/', '\\');
+            System.setProperty("SEATUNNEL_HOME", serverHome);
+            Common.setSeaTunnelHome(serverHome);
+        }
+
+        // Logical URL from client
+        URL logicalUrl = new URL("file:$SEATUNNEL_HOME/connectors/seatunnel/connector-kafka.jar");
+        URL resolvedUrl = PathResolver.resolvePathEnv(logicalUrl);
+
+        String expectedPath =
+                Paths.get(serverHome, "connectors/seatunnel/connector-kafka.jar")
+                        .toUri()
+                        .toURL()
+                        .getPath();
+        Assertions.assertEquals(expectedPath, resolvedUrl.getPath());
+    }
+
+    @Test
+    public void testEndToEndFlow() throws MalformedURLException {
+        // 1. Client Environment
+        String clientHome = "/home/user/client";
+        if (File.separatorChar == '\\') {
+            clientHome = "C:\\home\\user\\client";
+        }
+        System.setProperty("SEATUNNEL_HOME", clientHome);
+        Common.setSeaTunnelHome(clientHome);
+
+        String jarPath = Paths.get(clientHome, "lib", "test.jar").toString();
+        URL clientUrl = new File(jarPath).toURI().toURL();
+
+        // 2. Client replaces path
+        URL logicalUrl = PathResolver.replacePathWithEnv(clientUrl);
+        Assertions.assertTrue(logicalUrl.getPath().contains("$SEATUNNEL_HOME"));
+
+        // 3. Server Environment (Different Path)
+        String serverHome = "/var/lib/server";
+        if (File.separatorChar == '\\') {
+            serverHome = "D:\\var\\lib\\server";
+        }
+        System.setProperty("SEATUNNEL_HOME", serverHome);
+        Common.setSeaTunnelHome(serverHome);
+
+        // 4. Server resolves path
+        URL resolvedUrl = PathResolver.resolvePathEnv(logicalUrl);
+
+        String expectedServerPath =
+                Paths.get(serverHome, "lib", "test.jar").toUri().toURL().getPath();
+        Assertions.assertEquals(expectedServerPath, resolvedUrl.getPath());
+    }
+}
