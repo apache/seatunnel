@@ -23,4 +23,5 @@ setup(
     install_requires=[
         'httpx'
     ],
+    python_requires='>=3.9',
 )
