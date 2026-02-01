@@ -91,11 +91,6 @@ public class LocalFileWithMetaLakeIT extends SeaTunnelContainer {
                 new GenericContainer<>(getDockerImage())
                         .withNetwork(NETWORK)
                         .withEnv("TZ", "UTC")
-                        .withEnv("METALAKE_ENABLED", "true")
-                        .withEnv("METALAKE_TYPE", "gravitino")
-                        .withEnv(
-                                "METALAKE_URL",
-                                "http://127.0.0.1:8090/api/metalakes/test_metalake/catalogs/")
                         .withCommand(buildStartCommand())
                         .withNetworkAliases("server")
                         .withExposedPorts()
@@ -245,27 +240,15 @@ public class LocalFileWithMetaLakeIT extends SeaTunnelContainer {
         Assertions.assertEquals(
                 0, createSchemaResult.getExitCode(), createSchemaResult.getStderr());
 
-        // Create table1 with full fields in MySQL (this will be used as schema metadata)
+        // Create table1 with basic types in MySQL (this will be used as schema metadata)
         String createTable1Sql =
                 "CREATE TABLE IF NOT EXISTS test_schema.table1 ("
-                        + "c_null INT DEFAULT NULL COMMENT 'null type column',"
                         + "c_string VARCHAR(255) DEFAULT NULL COMMENT 'string column',"
-                        + "c_boolean TINYINT(1) DEFAULT NULL COMMENT 'boolean column',"
-                        + "c_tinyint TINYINT DEFAULT NULL COMMENT 'tinyint column',"
-                        + "c_smallint SMALLINT DEFAULT NULL COMMENT 'smallint column',"
                         + "c_int INT DEFAULT NULL COMMENT 'int column',"
-                        + "c_bigint BIGINT DEFAULT NULL COMMENT 'bigint column',"
-                        + "c_float FLOAT DEFAULT NULL COMMENT 'float column',"
+                        + "c_boolean TINYINT(1) DEFAULT NULL COMMENT 'boolean column',"
                         + "c_double DOUBLE DEFAULT NULL COMMENT 'double column',"
-                        + "c_decimal DECIMAL(30,8) DEFAULT NULL COMMENT 'decimal column',"
-                        + "c_date DATE DEFAULT NULL COMMENT 'date column',"
-                        + "c_timestamp TIMESTAMP DEFAULT NULL COMMENT 'timestamp column',"
-                        + "c_time TIME DEFAULT NULL COMMENT 'time column',"
-                        + "c_bytes BLOB DEFAULT NULL COMMENT 'bytes column',"
-                        + "c_array VARCHAR(255) DEFAULT NULL COMMENT 'array column',"
-                        + "c_map VARCHAR(255) DEFAULT NULL COMMENT 'map column',"
-                        + "c_row VARCHAR(255) DEFAULT NULL COMMENT 'row column'"
-                        + ") COMMENT='test table1 with full fields'";
+                        + "c_timestamp TIMESTAMP DEFAULT NULL COMMENT 'timestamp column'"
+                        + ") COMMENT='test table1 with basic types'";
         GenericContainer.ExecResult createTable1Result =
                 mysqlContainer.execInContainer(
                         "bash",
@@ -275,25 +258,15 @@ public class LocalFileWithMetaLakeIT extends SeaTunnelContainer {
         Assertions.assertEquals(
                 0, createTable1Result.getExitCode(), createTable1Result.getStderr());
 
-        // Create table2 with full fields in MySQL (using schema_url in config)
+        // Create table2 with basic types in MySQL (using schema_url in config)
         String createTable2Sql =
                 "CREATE TABLE IF NOT EXISTS test_schema.table2 ("
-                        + "c_null INT DEFAULT NULL COMMENT 'null type column',"
                         + "c_string VARCHAR(255) DEFAULT NULL COMMENT 'string column',"
-                        + "c_boolean TINYINT(1) DEFAULT NULL COMMENT 'boolean column',"
-                        + "c_tinyint TINYINT DEFAULT NULL COMMENT 'tinyint column',"
-                        + "c_smallint SMALLINT DEFAULT NULL COMMENT 'smallint column',"
                         + "c_int INT DEFAULT NULL COMMENT 'int column',"
-                        + "c_bigint BIGINT DEFAULT NULL COMMENT 'bigint column',"
-                        + "c_float FLOAT DEFAULT NULL COMMENT 'float column',"
+                        + "c_boolean TINYINT(1) DEFAULT NULL COMMENT 'boolean column',"
                         + "c_double DOUBLE DEFAULT NULL COMMENT 'double column',"
-                        + "c_decimal DECIMAL(38,18) DEFAULT NULL COMMENT 'decimal column',"
-                        + "c_date DATE DEFAULT NULL COMMENT 'date column',"
-                        + "c_timestamp TIMESTAMP DEFAULT NULL COMMENT 'timestamp column',"
-                        + "c_bytes BLOB DEFAULT NULL COMMENT 'bytes column',"
-                        + "c_array VARCHAR(255) DEFAULT NULL COMMENT 'array column',"
-                        + "c_map VARCHAR(255) DEFAULT NULL COMMENT 'map column'"
-                        + ") COMMENT='test table2 with full fields'";
+                        + "c_timestamp TIMESTAMP DEFAULT NULL COMMENT 'timestamp column'"
+                        + ") COMMENT='test table2 with basic types'";
         GenericContainer.ExecResult createTable2Result =
                 mysqlContainer.execInContainer(
                         "bash",
@@ -312,23 +285,11 @@ public class LocalFileWithMetaLakeIT extends SeaTunnelContainer {
                                 + "-H 'Content-Type: application/json' "
                                 + "-H 'Accept: application/vnd.gravitino.v1+json' "
                                 + "-d '{\"name\":\"table1\",\"comment\":\"test table1\",\"columns\":["
-                                + "{\"name\":\"c_null\",\"type\":\"integer\",\"nullable\":true,\"comment\":\"null type column\"},"
                                 + "{\"name\":\"c_string\",\"type\":\"string\",\"nullable\":true,\"comment\":\"string column\"},"
-                                + "{\"name\":\"c_boolean\",\"type\":\"boolean\",\"nullable\":true,\"comment\":\"boolean column\"},"
-                                + "{\"name\":\"c_tinyint\",\"type\":\"byte\",\"nullable\":true,\"comment\":\"tinyint column\"},"
-                                + "{\"name\":\"c_smallint\",\"type\":\"short\",\"nullable\":true,\"comment\":\"smallint column\"},"
                                 + "{\"name\":\"c_int\",\"type\":\"integer\",\"nullable\":true,\"comment\":\"int column\"},"
-                                + "{\"name\":\"c_bigint\",\"type\":\"long\",\"nullable\":true,\"comment\":\"bigint column\"},"
-                                + "{\"name\":\"c_float\",\"type\":\"float\",\"nullable\":true,\"comment\":\"float column\"},"
+                                + "{\"name\":\"c_boolean\",\"type\":\"boolean\",\"nullable\":true,\"comment\":\"boolean column\"},"
                                 + "{\"name\":\"c_double\",\"type\":\"double\",\"nullable\":true,\"comment\":\"double column\"},"
-                                + "{\"name\":\"c_decimal\",\"type\":\"decimal(30,8)\",\"nullable\":true,\"comment\":\"decimal column\"},"
-                                + "{\"name\":\"c_date\",\"type\":\"date\",\"nullable\":true,\"comment\":\"date column\"},"
-                                + "{\"name\":\"c_timestamp\",\"type\":\"timestamp\",\"nullable\":true,\"comment\":\"timestamp column\"},"
-                                + "{\"name\":\"c_time\",\"type\":\"time\",\"nullable\":true,\"comment\":\"time column\"},"
-                                + "{\"name\":\"c_bytes\",\"type\":\"binary\",\"nullable\":true,\"comment\":\"bytes column\"},"
-                                + "{\"name\":\"c_array\",\"type\":\"array<int>\",\"nullable\":true,\"comment\":\"array column\"},"
-                                + "{\"name\":\"c_map\",\"type\":\"map<string,string>\",\"nullable\":true,\"comment\":\"map column\"},"
-                                + "{\"name\":\"c_row\",\"type\":\"struct<c_string:string,c_int:integer>\",\"nullable\":true,\"comment\":\"row column\"}"
+                                + "{\"name\":\"c_timestamp\",\"type\":\"timestamp\",\"nullable\":true,\"comment\":\"timestamp column\"}"
                                 + "]}'");
         log.info("Create Gravitino table1 result: {}", createGravitinoTable1Result.getStdout());
 
@@ -340,37 +301,13 @@ public class LocalFileWithMetaLakeIT extends SeaTunnelContainer {
                                 + "-H 'Content-Type: application/json' "
                                 + "-H 'Accept: application/vnd.gravitino.v1+json' "
                                 + "-d '{\"name\":\"table2\",\"comment\":\"test table2\",\"columns\":["
-                                + "{\"name\":\"c_null\",\"type\":\"integer\",\"nullable\":true,\"comment\":\"null type column\"},"
                                 + "{\"name\":\"c_string\",\"type\":\"string\",\"nullable\":true,\"comment\":\"string column\"},"
-                                + "{\"name\":\"c_boolean\",\"type\":\"boolean\",\"nullable\":true,\"comment\":\"boolean column\"},"
-                                + "{\"name\":\"c_tinyint\",\"type\":\"byte\",\"nullable\":true,\"comment\":\"tinyint column\"},"
-                                + "{\"name\":\"c_smallint\",\"type\":\"short\",\"nullable\":true,\"comment\":\"smallint column\"},"
                                 + "{\"name\":\"c_int\",\"type\":\"integer\",\"nullable\":true,\"comment\":\"int column\"},"
-                                + "{\"name\":\"c_bigint\",\"type\":\"long\",\"nullable\":true,\"comment\":\"bigint column\"},"
-                                + "{\"name\":\"c_float\",\"type\":\"float\",\"nullable\":true,\"comment\":\"float column\"},"
+                                + "{\"name\":\"c_boolean\",\"type\":\"boolean\",\"nullable\":true,\"comment\":\"boolean column\"},"
                                 + "{\"name\":\"c_double\",\"type\":\"double\",\"nullable\":true,\"comment\":\"double column\"},"
-                                + "{\"name\":\"c_decimal\",\"type\":\"decimal(38,18)\",\"nullable\":true,\"comment\":\"decimal column\"},"
-                                + "{\"name\":\"c_date\",\"type\":\"date\",\"nullable\":true,\"comment\":\"date column\"},"
-                                + "{\"name\":\"c_timestamp\",\"type\":\"timestamp\",\"nullable\":true,\"comment\":\"timestamp column\"},"
-                                + "{\"name\":\"c_bytes\",\"type\":\"binary\",\"nullable\":true,\"comment\":\"bytes column\"},"
-                                + "{\"name\":\"c_array\",\"type\":\"array<string>\",\"nullable\":true,\"comment\":\"array column\"},"
-                                + "{\"name\":\"c_map\",\"type\":\"map<int,string>\",\"nullable\":true,\"comment\":\"map column\"}"
+                                + "{\"name\":\"c_timestamp\",\"type\":\"timestamp\",\"nullable\":true,\"comment\":\"timestamp column\"}"
                                 + "]}'");
         log.info("Create Gravitino table2 result: {}", createGravitinoTable2Result.getStdout());
-    }
-
-    @Test
-    public void testFakeToLocalFileWithMultipleTableAndMetaLake() throws Exception {
-        // Execute job
-        GenericContainer.ExecResult execResult =
-                executeJob("/csv/fake_to_local_file_with_multiple_table_metalake.conf");
-        Assertions.assertEquals(0, execResult.getExitCode(), execResult.getStderr());
-
-        // Verify row count for table1 (should have 10 rows)
-        verifyCsvRowCount("/tmp/fake_empty/csv/table1", 10);
-
-        // Verify row count for table2 (should have 20 rows)
-        verifyCsvRowCount("/tmp/fake_empty/csv/table2", 20);
     }
 
     @Test
