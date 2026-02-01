@@ -39,6 +39,7 @@ import org.apache.seatunnel.connectors.seatunnel.kudu.util.KuduUtil;
 
 import org.apache.kudu.ColumnSchema;
 import org.apache.kudu.Schema;
+import org.apache.kudu.Type;
 import org.apache.kudu.client.KuduClient;
 import org.apache.kudu.client.KuduException;
 import org.apache.kudu.client.KuduTable;
@@ -142,19 +143,33 @@ public class KuduCatalog implements Catalog {
             kuduTable.getPartitionSchema();
             List<ColumnSchema> columnSchemaList = schema.getColumns();
             Optional<PrimaryKey> primaryKey = getPrimaryKey(schema.getPrimaryKeyColumns());
+            PrimaryKey primaryKeyRef = primaryKey.orElse(null);
             buildColumnsWithErrorCheck(
                     tablePath,
                     builder,
                     IntStream.range(0, columnSchemaList.size()).iterator(),
                     i -> {
+                        ColumnSchema columnSchema = columnSchemaList.get(i);
                         SeaTunnelDataType<?> type = KuduTypeMapper.mapping(columnSchemaList, i);
+                        Long columnLength = null;
+                        if (Type.STRING.equals(columnSchema.getType())
+                                && PrimaryKey.isPrimaryKeyField(
+                                        primaryKeyRef, columnSchema.getName())) {
+                            // Doris does not allow STRING as key column type. For primary key
+                            // string columns we provide a reasonable logical length
+                            // so that downstream sinks (e.g. Doris) can map them to a supported
+                            // CHAR / VARCHAR type instead of the invalid STRING type.
+                            columnLength = 256L;
+                        } else if (!Type.STRING.equals(columnSchema.getType())) {
+                            columnLength = (long) columnSchema.getTypeSize();
+                        }
                         return PhysicalColumn.of(
-                                columnSchemaList.get(i).getName(),
+                                columnSchema.getName(),
                                 type,
-                                columnSchemaList.get(i).getTypeSize(),
-                                columnSchemaList.get(i).isNullable(),
-                                columnSchemaList.get(i).getDefaultValue(),
-                                columnSchemaList.get(i).getComment());
+                                columnLength,
+                                columnSchema.isNullable(),
+                                columnSchema.getDefaultValue(),
+                                columnSchema.getComment());
                     });
 
             primaryKey.ifPresent(builder::primaryKey);

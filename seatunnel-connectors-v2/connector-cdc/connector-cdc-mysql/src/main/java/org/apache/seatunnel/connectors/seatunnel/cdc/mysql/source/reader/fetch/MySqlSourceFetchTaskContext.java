@@ -54,6 +54,8 @@ import io.debezium.connector.mysql.MySqlStreamingChangeEventSourceMetrics;
 import io.debezium.connector.mysql.MySqlTaskContext;
 import io.debezium.connector.mysql.MySqlTopicSelector;
 import io.debezium.data.Envelope;
+import io.debezium.heartbeat.DefaultHeartbeatConnectionProvider;
+import io.debezium.heartbeat.HeartbeatFactory;
 import io.debezium.jdbc.JdbcConnection;
 import io.debezium.pipeline.DataChangeEvent;
 import io.debezium.pipeline.ErrorHandler;
@@ -163,6 +165,12 @@ public class MySqlSourceFetchTaskContext extends JdbcSourceFetchTaskContext {
                         connectorConfig.getTableFilters().dataCollectionFilter(),
                         DataChangeEvent::new,
                         metadataProvider,
+                        new HeartbeatFactory<>(
+                                connectorConfig,
+                                topicSelector,
+                                schemaNameAdjuster,
+                                new DefaultHeartbeatConnectionProvider(connection),
+                                null),
                         schemaNameAdjuster);
 
         final MySqlChangeEventSourceMetricsFactory changeEventSourceMetricsFactory =

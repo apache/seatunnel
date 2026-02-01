@@ -120,19 +120,34 @@ public class ElasticsearchSourceReader
                 searchWithPointInTime(sourceIndexInfo, output, deserializer);
             } else {
                 log.info("Using Scroll API for index: {}", sourceIndexInfo.getIndex());
-                ScrollResult scrollResult =
-                        esRestClient.searchByScroll(
-                                sourceIndexInfo.getIndex(),
-                                sourceIndexInfo.getSource(),
-                                sourceIndexInfo.getQuery(),
-                                sourceIndexInfo.getScrollTime(),
-                                sourceIndexInfo.getScrollSize());
-                outputFromScrollResult(scrollResult, sourceIndexInfo, output, deserializer);
-                while (scrollResult.getDocs() != null && !scrollResult.getDocs().isEmpty()) {
-                    scrollResult =
-                            esRestClient.searchWithScrollId(
-                                    scrollResult.getScrollId(), sourceIndexInfo.getScrollTime());
+                String scrollId = null;
+                try {
+                    ScrollResult scrollResult =
+                            esRestClient.searchByScroll(
+                                    sourceIndexInfo.getIndex(),
+                                    sourceIndexInfo.getSource(),
+                                    sourceIndexInfo.getQuery(),
+                                    sourceIndexInfo.getScrollTime(),
+                                    sourceIndexInfo.getScrollSize());
+                    scrollId = scrollResult.getScrollId();
+
                     outputFromScrollResult(scrollResult, sourceIndexInfo, output, deserializer);
+                    while (scrollResult.getDocs() != null && !scrollResult.getDocs().isEmpty()) {
+                        scrollResult =
+                                esRestClient.searchWithScrollId(
+                                        scrollResult.getScrollId(),
+                                        sourceIndexInfo.getScrollTime());
+                        scrollId = scrollResult.getScrollId();
+                        outputFromScrollResult(scrollResult, sourceIndexInfo, output, deserializer);
+                    }
+                } finally {
+                    if (StringUtils.isNotEmpty(scrollId)) {
+                        try {
+                            esRestClient.clearScroll(scrollId);
+                        } catch (Exception e) {
+                            log.warn("Failed to clear scroll ID: " + scrollId, e);
+                        }
+                    }
                 }
             }
         }

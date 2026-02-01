@@ -95,8 +95,8 @@ public class PostgresTypeConverter implements TypeConverter<BasicTypeDefine> {
     public static final String PG_JSONB = "jsonb";
     public static final String PG_XML = "xml";
     public static final String PG_UUID = "uuid";
-    private static final String PG_GEOMETRY = "geometry";
-    private static final String PG_GEOGRAPHY = "geography";
+    public static final String PG_GEOMETRY = "geometry";
+    public static final String PG_GEOGRAPHY = "geography";
     public static final String PG_DATE = "date";
     public static final String PG_INTERVAL = "interval";
 

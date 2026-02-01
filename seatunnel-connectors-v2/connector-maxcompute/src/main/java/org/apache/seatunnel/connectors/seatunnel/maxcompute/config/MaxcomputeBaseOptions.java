@@ -17,14 +17,10 @@
 
 package org.apache.seatunnel.connectors.seatunnel.maxcompute.config;
 
-import org.apache.seatunnel.shade.com.fasterxml.jackson.core.type.TypeReference;
-
 import org.apache.seatunnel.api.configuration.Option;
 import org.apache.seatunnel.api.configuration.Options;
 
 import java.io.Serializable;
-import java.util.List;
-import java.util.Map;
 
 public class MaxcomputeBaseOptions implements Serializable {
 
@@ -53,12 +49,6 @@ public class MaxcomputeBaseOptions implements Serializable {
                     .stringType()
                     .noDefaultValue()
                     .withDescription("Your Maxcompute project which is created in Alibaba Cloud");
-
-    public static final Option<List<Map<String, Object>>> TABLE_LIST =
-            Options.key("table_list")
-                    .type(new TypeReference<List<Map<String, Object>>>() {})
-                    .noDefaultValue()
-                    .withDescription("List of tables to be written to MaxCompute.");
 
     public static final Option<String> TABLE_NAME =
             Options.key("table_name")

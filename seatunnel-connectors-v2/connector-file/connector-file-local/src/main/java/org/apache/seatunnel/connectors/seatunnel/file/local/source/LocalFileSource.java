@@ -25,7 +25,11 @@ import org.apache.seatunnel.connectors.seatunnel.file.source.BaseMultipleTableFi
 public class LocalFileSource extends BaseMultipleTableFileSource {
 
     public LocalFileSource(ReadonlyConfig readonlyConfig) {
-        super(new MultipleTableLocalFileSourceConfig(readonlyConfig));
+        this(new MultipleTableLocalFileSourceConfig(readonlyConfig));
+    }
+
+    private LocalFileSource(MultipleTableLocalFileSourceConfig sourceConfig) {
+        super(sourceConfig, initFileSplitStrategy(sourceConfig));
     }
 
     @Override

@@ -30,6 +30,13 @@ public class SourceOptions {
     public static final String STARTUP_MODE_KEY = "startup.mode";
     public static final String STOP_MODE_KEY = "stop.mode";
 
+    public static final Option<String> URL =
+            Options.key("url")
+                    .stringType()
+                    .noDefaultValue()
+                    .withFallbackKeys("base-url")
+                    .withDescription("url");
+
     public static final Option<Integer> SNAPSHOT_SPLIT_SIZE =
             Options.key("snapshot.split.size")
                     .intType()
