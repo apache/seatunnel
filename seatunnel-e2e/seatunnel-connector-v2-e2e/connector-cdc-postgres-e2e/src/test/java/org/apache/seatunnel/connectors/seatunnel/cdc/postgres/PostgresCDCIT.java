@@ -371,6 +371,66 @@ public class PostgresCDCIT extends TestSuiteBase implements TestResource {
             value = {},
             type = {EngineType.SPARK, EngineType.FLINK},
             disabledReason =
+                    "Heartbeat action query is currently only supported by the zeta engine.")
+    public void testMPostgresCdcCheckDataE2eWithHeartbeat(TestContainer container) {
+        executeSql(
+                "CREATE TABLE IF NOT EXISTS "
+                        + POSTGRESQL_SCHEMA
+                        + ".heartbeat ("
+                        + "  ts TIMESTAMP DEFAULT CURRENT_TIMESTAMP"
+                        + ");");
+        clearTable(POSTGRESQL_SCHEMA, "heartbeat");
+
+        try {
+            CompletableFuture.supplyAsync(
+                    () -> {
+                        try {
+                            container.executeJob("/postgrescdc_to_postgres_with_heartbeat.conf");
+                        } catch (Exception e) {
+                            log.error("Commit task exception :" + e.getMessage());
+                            throw new RuntimeException(e);
+                        }
+                        return null;
+                    });
+            await().atMost(60000, TimeUnit.MILLISECONDS)
+                    .untilAsserted(
+                            () -> {
+                                Assertions.assertIterableEquals(
+                                        query(getQuerySQL(POSTGRESQL_SCHEMA, SOURCE_TABLE_1)),
+                                        query(getQuerySQL(POSTGRESQL_SCHEMA, SINK_TABLE_1)));
+                            });
+
+            // insert update delete
+            upsertDeleteSourceTable(POSTGRESQL_SCHEMA, SOURCE_TABLE_1);
+
+            // stream stage
+            await().atMost(60000, TimeUnit.MILLISECONDS)
+                    .untilAsserted(
+                            () -> {
+                                Assertions.assertIterableEquals(
+                                        query(getQuerySQL(POSTGRESQL_SCHEMA, SOURCE_TABLE_1)),
+                                        query(getQuerySQL(POSTGRESQL_SCHEMA, SINK_TABLE_1)));
+                            });
+
+            await().atMost(10000, TimeUnit.MILLISECONDS)
+                    .untilAsserted(
+                            () -> {
+                                List<List<Object>> query =
+                                        query("SELECT * FROM " + POSTGRESQL_SCHEMA + ".heartbeat");
+                                Assertions.assertFalse(query.isEmpty());
+                            });
+        } finally {
+            // Clear related content to ensure that multiple operations are not affected
+            clearTable(POSTGRESQL_SCHEMA, SOURCE_TABLE_1);
+            clearTable(POSTGRESQL_SCHEMA, SINK_TABLE_1);
+        }
+    }
+
+    @TestTemplate
+    @DisabledOnContainer(
+            value = {},
+            type = {EngineType.SPARK, EngineType.FLINK},
+            disabledReason =
                     "This case requires obtaining the task health status and manually canceling the canceled task, which is currently only supported by the zeta engine.")
     public void testMPostgresCdcMetadataTrans(TestContainer container) throws InterruptedException {
 

@@ -59,12 +59,12 @@ public class SqlServerIncrementalSource<T> extends IncrementalSource<T, JdbcSour
 
     @Override
     public Option<StartupMode> getStartupModeOption() {
-        return SqlServerSourceOptions.STARTUP_MODE;
+        return SqlServerIncrementalSourceOptions.STARTUP_MODE;
     }
 
     @Override
     public Option<StopMode> getStopModeOption() {
-        return SqlServerSourceOptions.STOP_MODE;
+        return SqlServerIncrementalSourceOptions.STOP_MODE;
     }
 
     @Override

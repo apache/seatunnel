@@ -1,0 +1,176 @@
+import Tabs from '@theme/Tabs';
+import TabItem from '@theme/TabItem';
+
+# 命令使用
+
+## 命令入口
+
+<Tabs
+    groupId="engine-type"
+    defaultValue="spark2"
+    values={[
+        {label: 'Spark 2', value: 'spark2'},
+        {label: 'Spark 3', value: 'spark3'},
+        {label: 'Flink 13 14', value: 'flink13'},
+        {label: 'Flink 15 16', value: 'flink15'},
+    ]}>
+<TabItem value="spark2">
+
+```bash
+bin/start-seatunnel-spark-2-connector-v2.sh
+```
+
+</TabItem>
+<TabItem value="spark3">
+
+```bash
+bin/start-seatunnel-spark-3-connector-v2.sh
+```
+
+</TabItem>
+<TabItem value="flink13">
+
+```bash
+bin/start-seatunnel-flink-13-connector-v2.sh
+```
+
+</TabItem>
+<TabItem value="flink15">
+
+```bash
+bin/start-seatunnel-flink-15-connector-v2.sh
+```
+
+</TabItem>
+</Tabs>
+
+
+## 选项参数
+
+<Tabs
+    groupId="engine-type"
+    defaultValue="spark2"
+    values={[
+        {label: 'Spark 2', value: 'spark2'},
+        {label: 'Spark 3', value: 'spark3'},
+        {label: 'Flink 13 14', value: 'flink13'},
+        {label: 'Flink 15 16', value: 'flink15'},
+    ]}>
+<TabItem value="spark2">
+
+```bash
+用法: start-seatunnel-spark-2-connector-v2.sh [选项]
+  选项:
+    --check           是否检查配置 (默认: false)
+    -c, --config      配置文件
+    -e, --deploy-mode Spark 部署模式，支持 [cluster, client] (默认: 
+                      client) 
+    -h, --help        显示使用说明
+    -m, --master      Spark master，支持 [spark://host:port, 
+                      mesos://host:port, yarn, k8s://https://host:port, 
+                      local]，默认 local[*] (默认: local[*])
+    -n, --name        SeaTunnel 作业名称 (默认: SeaTunnel)
+    -i, --variable    变量替换，例如 -i city=beijing，或 -i 
+                      date=20190318 (默认: [])
+```
+
+</TabItem>
+<TabItem value="spark3">
+
+```bash
+用法: start-seatunnel-spark-3-connector-v2.sh [选项]
+  选项:
+    --check           是否检查配置 (默认: false)
+    -c, --config      配置文件
+    -e, --deploy-mode Spark 部署模式，支持 [cluster, client] (默认: 
+                      client) 
+    -h, --help        显示使用说明
+    -m, --master      Spark master，支持 [spark://host:port, 
+                      mesos://host:port, yarn, k8s://https://host:port, 
+                      local]，默认 local[*] (默认: local[*])
+    -n, --name        SeaTunnel 作业名称 (默认: SeaTunnel)
+    -i, --variable    变量替换，例如 -i city=beijing，或 -i 
+                      date=20190318 (默认: [])
+```
+
+</TabItem>
+<TabItem value="flink13">
+
+```bash
+用法: start-seatunnel-flink-13-connector-v2.sh [选项]
+  选项:
+    --check            是否检查配置 (默认: false)
+    -c, --config       配置文件
+    -e, --deploy-mode  Flink 作业部署模式，支持 [run, run-application] 
+                       (默认: run)
+    -h, --help         显示使用说明
+    --master, --target Flink 作业提交目标 master，支持 [local, 
+                       remote, yarn-session, yarn-per-job, kubernetes-session, 
+                       yarn-application, kubernetes-application]
+    -n, --name         SeaTunnel 作业名称 (默认: SeaTunnel)
+    -i, --variable     变量替换，例如 -i city=beijing，或 -i 
+                       date=20190318 (默认: [])
+```
+
+</TabItem>
+<TabItem value="flink15">
+
+```bash
+用法: start-seatunnel-flink-15-connector-v2.sh [选项]
+  选项:
+    --check            是否检查配置 (默认: false)
+    -c, --config       配置文件
+    -e, --deploy-mode  Flink 作业部署模式，支持 [run, run-application] 
+                       (默认: run)
+    -h, --help         显示使用说明
+    --master, --target Flink 作业提交目标 master，支持 [local, 
+                       remote, yarn-session, yarn-per-job, kubernetes-session, 
+                       yarn-application, kubernetes-application]
+    -n, --name         SeaTunnel 作业名称 (默认: SeaTunnel)
+    -i, --variable     变量替换，例如 -i city=beijing，或 -i 
+                       date=20190318 (默认: [])
+```
+
+</TabItem>
+</Tabs>
+
+## 示例
+
+<Tabs
+    groupId="engine-type"
+    defaultValue="spark2"
+    values={[
+        {label: 'Spark 2', value: 'spark2'},
+        {label: 'Spark 3', value: 'spark3'},
+        {label: 'Flink 13 14', value: 'flink13'},
+        {label: 'Flink 15 16', value: 'flink15'},
+    ]}>
+<TabItem value="spark2">
+
+```bash
+bin/start-seatunnel-spark-2-connector-v2.sh --config config/v2.batch.config.template -m local -e client
+```
+
+</TabItem>
+<TabItem value="spark3">
+
+```bash
+bin/start-seatunnel-spark-3-connector-v2.sh --config config/v2.batch.config.template -m local -e client
+```
+
+</TabItem>
+<TabItem value="flink13">
+
+```bash
+bin/start-seatunnel-flink-13-connector-v2.sh --config config/v2.batch.config.template
+```
+
+</TabItem>
+<TabItem value="flink15">
+
+```bash
+bin/start-seatunnel-flink-15-connector-v2.sh --config config/v2.batch.config.template
+```
+
+</TabItem>
+</Tabs>

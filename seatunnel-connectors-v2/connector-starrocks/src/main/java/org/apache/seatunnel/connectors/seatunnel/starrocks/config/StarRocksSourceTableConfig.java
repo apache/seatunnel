@@ -20,6 +20,7 @@ package org.apache.seatunnel.connectors.seatunnel.starrocks.config;
 import org.apache.seatunnel.shade.com.google.common.collect.Lists;
 
 import org.apache.seatunnel.api.configuration.ReadonlyConfig;
+import org.apache.seatunnel.api.options.table.CatalogOptions;
 import org.apache.seatunnel.api.table.catalog.CatalogTable;
 import org.apache.seatunnel.api.table.catalog.TableIdentifier;
 import org.apache.seatunnel.api.table.catalog.TablePath;
@@ -70,8 +71,8 @@ public class StarRocksSourceTableConfig implements Serializable {
 
     public static List<StarRocksSourceTableConfig> of(ReadonlyConfig config) {
 
-        if (config.getOptional(StarRocksSourceOptions.TABLE_LIST).isPresent()) {
-            List<Map<String, Object>> maps = config.get(StarRocksSourceOptions.TABLE_LIST);
+        if (config.getOptional(CatalogOptions.TABLE_LIST).isPresent()) {
+            List<Map<String, Object>> maps = config.get(CatalogOptions.TABLE_LIST);
             return maps.stream()
                     .map(ReadonlyConfig::fromMap)
                     .map(StarRocksSourceTableConfig::parseStarRocksSourceConfig)

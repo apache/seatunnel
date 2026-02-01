@@ -61,8 +61,6 @@ public class MongodbSourceConfig implements SourceConfig {
 
     private final int heartbeatIntervalMillis;
 
-    private final int splitMetaGroupSize;
-
     private final int splitSizeMB;
 
     private final boolean exactlyOnce;
@@ -81,7 +79,6 @@ public class MongodbSourceConfig implements SourceConfig {
             StartupConfig startupOptions,
             StopConfig stopOptions,
             int heartbeatIntervalMillis,
-            int splitMetaGroupSize,
             int splitSizeMB,
             boolean exactlyOnce) {
         this.hosts = checkNotNull(hosts);
@@ -99,7 +96,6 @@ public class MongodbSourceConfig implements SourceConfig {
         this.startupOptions = startupOptions;
         this.stopOptions = stopOptions;
         this.heartbeatIntervalMillis = heartbeatIntervalMillis;
-        this.splitMetaGroupSize = splitMetaGroupSize;
         this.splitSizeMB = splitSizeMB;
         this.exactlyOnce = exactlyOnce;
     }

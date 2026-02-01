@@ -76,6 +76,7 @@
         <commons-logging.version>1.2</commons-logging.version>
         <flink.1.13.6.version>1.13.6</flink.1.13.6.version>
         <flink.1.15.3.version>1.15.3</flink.1.15.3.version>
+        <flink.1.20.1.version>1.20.1</flink.1.20.1.version>
         <spark.2.4.0.version>2.4.0</spark.2.4.0.version>
         <spark.3.3.0.version>3.3.0</spark.3.3.0.version>
         <spark.binary.2.4.version>2.4</spark.binary.2.4.version>

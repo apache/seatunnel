@@ -19,6 +19,7 @@ package org.apache.seatunnel.api.metalake;
 
 import org.apache.seatunnel.shade.com.fasterxml.jackson.databind.JsonNode;
 
+import org.apache.seatunnel.common.constants.MetaLakeType;
 import org.apache.seatunnel.common.utils.JsonUtils;
 
 import org.apache.http.HttpEntity;
@@ -39,7 +40,7 @@ public class GravitinoClient implements MetalakeClient {
 
     @Override
     public String getType() {
-        return "gravitino";
+        return MetaLakeType.GRAVITINO.getType();
     }
 
     @Override

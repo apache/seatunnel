@@ -17,6 +17,8 @@
 
 package org.apache.seatunnel.api.metalake;
 
+import org.apache.seatunnel.common.constants.MetaLakeType;
+
 import java.util.HashMap;
 import java.util.Map;
 import java.util.function.Function;
@@ -25,7 +27,7 @@ public class MetalakeClientFactory {
     private static final Map<String, Function<String, MetalakeClient>> REGISTRY = new HashMap<>();
 
     static {
-        register("gravitino", GravitinoClient::new);
+        register(MetaLakeType.GRAVITINO.getType(), GravitinoClient::new);
     }
 
     private MetalakeClientFactory() {}

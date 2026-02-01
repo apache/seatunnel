@@ -41,9 +41,12 @@ import org.apache.seatunnel.connectors.seatunnel.file.source.reader.ReadStrategy
 import org.apache.seatunnel.connectors.seatunnel.file.source.reader.TextReadStrategy;
 import org.apache.seatunnel.connectors.seatunnel.file.source.reader.XmlReadStrategy;
 
+import lombok.extern.slf4j.Slf4j;
+
 import java.io.Serializable;
 import java.util.Arrays;
 
+@Slf4j
 public enum FileFormat implements Serializable {
     CSV("csv") {
         @Override
@@ -206,5 +209,18 @@ public enum FileFormat implements Serializable {
 
     public WriteStrategy getWriteStrategy(FileSinkConfig fileSinkConfig) {
         return null;
+    }
+
+    public boolean supportFileSplit() {
+        switch (this) {
+            case CSV:
+            case TEXT:
+            case JSON:
+            case PARQUET:
+                return true;
+            default:
+                log.info("The {} file type does not support file split", this);
+                return false;
+        }
     }
 }

@@ -1083,6 +1083,37 @@ public class ElasticsearchIT extends TestSuiteBase implements TestResource {
         return data;
     }
 
+    @Test
+    public void testScrollAndSqlCursorResourceCleanup() throws Exception {
+
+        String scrollId = null;
+        try {
+            List<String> source = Arrays.asList("c_string", "c_int");
+            Map<String, Object> query = new HashMap<>();
+            query.put("match_all", Collections.emptyMap());
+
+            ScrollResult result = esRestClient.searchByScroll("st_index", source, query, "1m", 5);
+            scrollId = result.getScrollId();
+            Assertions.assertNotNull(scrollId, "Scroll ID should not be null");
+
+            int totalDocs = result.getDocs().size();
+            while (result.getDocs() != null && !result.getDocs().isEmpty()) {
+                result = esRestClient.searchWithScrollId(scrollId, "1m");
+                scrollId = result.getScrollId();
+                if (result.getDocs() != null) {
+                    totalDocs += result.getDocs().size();
+                }
+            }
+            log.info("Retrieved {} documents via Scroll API", totalDocs);
+
+        } finally {
+            if (scrollId != null) {
+                boolean cleaned = esRestClient.clearScroll(scrollId);
+                Assertions.assertTrue(cleaned, "Scroll context should be successfully cleaned up");
+            }
+        }
+    }
+
     /**
      * elastic query all dsl
      *
