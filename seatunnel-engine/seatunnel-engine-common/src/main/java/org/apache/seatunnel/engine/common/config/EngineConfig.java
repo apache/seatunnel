@@ -21,6 +21,7 @@ import org.apache.seatunnel.engine.common.config.server.CheckpointConfig;
 import org.apache.seatunnel.engine.common.config.server.ConnectorJarStorageConfig;
 import org.apache.seatunnel.engine.common.config.server.CoordinatorServiceConfig;
 import org.apache.seatunnel.engine.common.config.server.HttpConfig;
+import org.apache.seatunnel.engine.common.config.server.PendingJobRescheduleConfig;
 import org.apache.seatunnel.engine.common.config.server.QueueType;
 import org.apache.seatunnel.engine.common.config.server.ScheduleStrategy;
 import org.apache.seatunnel.engine.common.config.server.ServerConfigOptions;
@@ -95,6 +96,9 @@ public class EngineConfig {
 
     private ScheduleStrategy scheduleStrategy =
             ServerConfigOptions.MasterServerConfigOptions.JOB_SCHEDULE_STRATEGY.defaultValue();
+
+    private PendingJobRescheduleConfig pendingJobRescheduleConfig =
+            ServerConfigOptions.MasterServerConfigOptions.PENDING_JOB_RESCHEDULE.defaultValue();
 
     private HttpConfig httpConfig =
             ServerConfigOptions.MasterServerConfigOptions.HTTP.defaultValue();

@@ -108,7 +108,6 @@ import java.util.stream.Collectors;
 import static org.apache.seatunnel.engine.server.metrics.JobMetricsUtil.toJobMetricsMap;
 
 public class CoordinatorService {
-    private static final int PENDING_JOB_RESCHEDULE_THRESHOLD = 3;
     private final NodeEngineImpl nodeEngine;
     private final ILogger logger;
 
@@ -192,6 +191,7 @@ public class CoordinatorService {
     private PassiveCompletableFuture restoreAllJobFromMasterNodeSwitchFuture;
 
     private final boolean isWaitStrategy;
+    private final boolean isWaitRescheduleStrategy;
 
     private final ScheduleStrategy scheduleStrategy;
 
@@ -219,7 +219,10 @@ public class CoordinatorService {
         masterActiveListener.scheduleAtFixedRate(
                 this::checkNewActiveMaster, 0, 100, TimeUnit.MILLISECONDS);
         scheduleStrategy = engineConfig.getScheduleStrategy();
-        isWaitStrategy = scheduleStrategy.equals(ScheduleStrategy.WAIT);
+        isWaitStrategy =
+                scheduleStrategy.equals(ScheduleStrategy.WAIT)
+                        || scheduleStrategy.equals(ScheduleStrategy.WAIT_RESCHEDULE);
+        isWaitRescheduleStrategy = scheduleStrategy.equals(ScheduleStrategy.WAIT_RESCHEDULE);
         logger.info("Start pending job schedule thread");
         // start pending job schedule thread
         startPendingJobScheduleThread();
@@ -284,14 +287,20 @@ public class CoordinatorService {
                             "Current strategy is %s, and resources is not enough, skipping this schedule, JobID: %s",
                             scheduleStrategy, jobId));
             if (isWaitStrategy) {
-                int checkTimes = pendingJobInfo.getCheckTimes();
-                if (pendingJobQueue.size() > 1
-                        && checkTimes > 0
-                        && checkTimes % PENDING_JOB_RESCHEDULE_THRESHOLD == 0) {
-                    pendingJobQueue.moveToTail(jobId);
+                if (isWaitRescheduleStrategy) {
+                    int maxRetryTimes =
+                            engineConfig.getPendingJobRescheduleConfig().getMaxRetryTimes();
+                    int checkTimes = pendingJobInfo.getCheckTimes();
+                    if (maxRetryTimes > 0
+                            && pendingJobQueue.size() > 1
+                            && checkTimes > 0
+                            && checkTimes % maxRetryTimes == 0) {
+                        pendingJobQueue.moveToTail(jobId);
+                    }
                 }
                 try {
-                    Thread.sleep(3000);
+                    Thread.sleep(
+                            engineConfig.getPendingJobRescheduleConfig().getSleepIntervalMillis());
                 } catch (InterruptedException e) {
                     logger.severe(ExceptionUtils.getMessage(e));
                 }

@@ -335,7 +335,7 @@ public class SeaTunnelEngineClusterRoleTest {
 
         SeaTunnelConfig masterConfig = ConfigProvider.locateAndGetSeaTunnelConfig();
         EngineConfig masterEngineConfig = masterConfig.getEngineConfig();
-        masterEngineConfig.setScheduleStrategy(ScheduleStrategy.WAIT);
+        masterEngineConfig.setScheduleStrategy(ScheduleStrategy.WAIT_RESCHEDULE);
         masterEngineConfig.getSlotServiceConfig().setDynamicSlot(false);
         masterEngineConfig.getSlotServiceConfig().setSlotNum(1);
         masterConfig
@@ -344,7 +344,7 @@ public class SeaTunnelEngineClusterRoleTest {
 
         SeaTunnelConfig workerConfig1 = ConfigProvider.locateAndGetSeaTunnelConfig();
         EngineConfig workerEngineConfig1 = workerConfig1.getEngineConfig();
-        workerEngineConfig1.setScheduleStrategy(ScheduleStrategy.WAIT);
+        workerEngineConfig1.setScheduleStrategy(ScheduleStrategy.WAIT_RESCHEDULE);
         workerEngineConfig1.getSlotServiceConfig().setDynamicSlot(false);
         workerEngineConfig1.getSlotServiceConfig().setSlotNum(1);
         workerConfig1
@@ -353,7 +353,7 @@ public class SeaTunnelEngineClusterRoleTest {
 
         SeaTunnelConfig workerConfig2 = ConfigProvider.locateAndGetSeaTunnelConfig();
         EngineConfig workerEngineConfig2 = workerConfig2.getEngineConfig();
-        workerEngineConfig2.setScheduleStrategy(ScheduleStrategy.WAIT);
+        workerEngineConfig2.setScheduleStrategy(ScheduleStrategy.WAIT_RESCHEDULE);
         workerEngineConfig2.getSlotServiceConfig().setDynamicSlot(false);
         workerEngineConfig2.getSlotServiceConfig().setSlotNum(1);
         workerConfig2

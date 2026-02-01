@@ -188,7 +188,27 @@ public class ServerConfigOptions {
                         .enumType(ScheduleStrategy.class)
                         .defaultValue(ScheduleStrategy.REJECT)
                         .withDescription(
-                                "When the policy is REJECT, when the task queue is full, the task will be rejected; when the policy is WAIT, when the task queue is full, the task will wait");
+                                "When the policy is REJECT, when the task queue is full, the task will be rejected; when the policy is WAIT, when the task queue is full, the task will wait; when the policy is WAIT_RESCHEDULE, the task will wait and pending queue may reschedule when resources are not enough.");
+
+        public static final Option<Integer> PENDING_JOB_RESCHEDULE_MAX_RETRY_TIMES =
+                Options.key("max-retry-times")
+                        .intType()
+                        .defaultValue(3)
+                        .withDescription(
+                                "When schedule strategy is WAIT_RESCHEDULE, the maximum consecutive resource checks before moving the head pending job to the tail.");
+
+        public static final Option<Integer> PENDING_JOB_RESCHEDULE_SLEEP_INTERVAL =
+                Options.key("sleep-interval-millis")
+                        .intType()
+                        .defaultValue(3000)
+                        .withDescription(
+                                "When schedule strategy is WAIT or WAIT_RESCHEDULE and resources are not enough, the pending scheduler sleep interval (in milliseconds).");
+
+        public static final Option<PendingJobRescheduleConfig> PENDING_JOB_RESCHEDULE =
+                Options.key("pending-job-reschedule")
+                        .type(new TypeReference<PendingJobRescheduleConfig>() {})
+                        .defaultValue(new PendingJobRescheduleConfig())
+                        .withDescription("The pending job reschedule configuration.");
         // The options for job scheduler end
         /////////////////////////////////////////////////////
 

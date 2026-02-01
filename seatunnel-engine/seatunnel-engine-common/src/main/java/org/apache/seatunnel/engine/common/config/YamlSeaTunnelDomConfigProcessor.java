@@ -27,6 +27,7 @@ import org.apache.seatunnel.engine.common.config.server.ConnectorJarStorageConfi
 import org.apache.seatunnel.engine.common.config.server.ConnectorJarStorageMode;
 import org.apache.seatunnel.engine.common.config.server.CoordinatorServiceConfig;
 import org.apache.seatunnel.engine.common.config.server.HttpConfig;
+import org.apache.seatunnel.engine.common.config.server.PendingJobRescheduleConfig;
 import org.apache.seatunnel.engine.common.config.server.QueueType;
 import org.apache.seatunnel.engine.common.config.server.ScheduleStrategy;
 import org.apache.seatunnel.engine.common.config.server.ServerConfigOptions;
@@ -253,6 +254,10 @@ public class YamlSeaTunnelDomConfigProcessor extends AbstractDomConfigProcessor 
                     .equals(name)) {
                 engineConfig.setScheduleStrategy(
                         ScheduleStrategy.valueOf(getTextContent(node).toUpperCase(Locale.ROOT)));
+            } else if (ServerConfigOptions.MasterServerConfigOptions.PENDING_JOB_RESCHEDULE
+                    .key()
+                    .equals(name)) {
+                engineConfig.setPendingJobRescheduleConfig(parsePendingJobRescheduleConfig(node));
             } else if (ServerConfigOptions.MasterServerConfigOptions.HTTP.key().equals(name)) {
                 engineConfig.setHttpConfig(parseHttpConfig(node));
             } else if (ServerConfigOptions.MasterServerConfigOptions.COORDINATOR_SERVICE
@@ -269,6 +274,36 @@ public class YamlSeaTunnelDomConfigProcessor extends AbstractDomConfigProcessor 
             LOGGER.info("Dynamic slot is enabled, the schedule strategy is set to REJECT");
             engineConfig.setScheduleStrategy(ScheduleStrategy.REJECT);
         }
+    }
+
+    private PendingJobRescheduleConfig parsePendingJobRescheduleConfig(Node pendingRescheduleNode) {
+        PendingJobRescheduleConfig pendingJobRescheduleConfig = new PendingJobRescheduleConfig();
+        for (Node node : childElements(pendingRescheduleNode)) {
+            String name = cleanNodeName(node);
+            if (ServerConfigOptions.MasterServerConfigOptions.PENDING_JOB_RESCHEDULE_MAX_RETRY_TIMES
+                    .key()
+                    .equals(name)) {
+                pendingJobRescheduleConfig.setMaxRetryTimes(
+                        getIntegerValue(
+                                ServerConfigOptions.MasterServerConfigOptions
+                                        .PENDING_JOB_RESCHEDULE_MAX_RETRY_TIMES
+                                        .key(),
+                                getTextContent(node)));
+            } else if (ServerConfigOptions.MasterServerConfigOptions
+                    .PENDING_JOB_RESCHEDULE_SLEEP_INTERVAL
+                    .key()
+                    .equals(name)) {
+                pendingJobRescheduleConfig.setSleepIntervalMillis(
+                        getIntegerValue(
+                                ServerConfigOptions.MasterServerConfigOptions
+                                        .PENDING_JOB_RESCHEDULE_SLEEP_INTERVAL
+                                        .key(),
+                                getTextContent(node)));
+            } else {
+                LOGGER.warning("Unrecognized element: " + name);
+            }
+        }
+        return pendingJobRescheduleConfig;
     }
 
     private CheckpointConfig parseCheckpointConfig(Node checkpointNode) {
