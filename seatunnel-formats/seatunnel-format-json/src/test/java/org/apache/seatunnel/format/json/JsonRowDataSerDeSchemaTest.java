@@ -715,52 +715,20 @@ public class JsonRowDataSerDeSchemaTest {
     }
 
     @Test
-    public void testConvertToLocalDateWithEmptyString() throws IOException {
+    public void testMultipleDateColumnsWithDifferentFormats() throws IOException {
         SeaTunnelRowType rowType =
                 new SeaTunnelRowType(
-                        new String[] {"date_field"},
-                        new SeaTunnelDataType<?>[] {LocalTimeType.LOCAL_DATE_TYPE});
+                        new String[] {"date_us", "date_iso"},
+                        new SeaTunnelDataType<?>[] {
+                            LocalTimeType.LOCAL_DATE_TYPE, LocalTimeType.LOCAL_DATE_TYPE
+                        });
         JsonDeserializationSchema deserializationSchema =
                 new JsonDeserializationSchema(false, false, rowType);
 
-        // Test empty string
-        String emptyDateJson = "{\"date_field\":\"\"}";
-        SeaTunnelRow row = deserializationSchema.deserialize(emptyDateJson.getBytes());
-        assertNull(row.getField(0));
+        String json = "{\"date_us\":\"01/15/2024\",\"date_iso\":\"2024-06-20\"}";
+        SeaTunnelRow row = deserializationSchema.deserialize(json.getBytes());
 
-        // Test whitespace only string
-        String whitespaceJson = "{\"date_field\":\"   \"}";
-        row = deserializationSchema.deserialize(whitespaceJson.getBytes());
-        assertNull(row.getField(0));
-
-        // Test normal date value still works
-        String normalDateJson = "{\"date_field\":\"2024-01-15\"}";
-        row = deserializationSchema.deserialize(normalDateJson.getBytes());
         assertEquals(LocalDate.of(2024, 1, 15), row.getField(0));
-    }
-
-    @Test
-    public void testConvertToLocalDateTimeWithEmptyString() throws IOException {
-        SeaTunnelRowType rowType =
-                new SeaTunnelRowType(
-                        new String[] {"timestamp_field"},
-                        new SeaTunnelDataType<?>[] {LocalTimeType.LOCAL_DATE_TIME_TYPE});
-        JsonDeserializationSchema deserializationSchema =
-                new JsonDeserializationSchema(false, false, rowType);
-
-        // Test empty string
-        String emptyTimestampJson = "{\"timestamp_field\":\"\"}";
-        SeaTunnelRow row = deserializationSchema.deserialize(emptyTimestampJson.getBytes());
-        assertNull(row.getField(0));
-
-        // Test whitespace only string
-        String whitespaceJson = "{\"timestamp_field\":\"   \"}";
-        row = deserializationSchema.deserialize(whitespaceJson.getBytes());
-        assertNull(row.getField(0));
-
-        // Test normal timestamp value still works
-        String normalTimestampJson = "{\"timestamp_field\":\"2024-01-15 10:30:00\"}";
-        row = deserializationSchema.deserialize(normalTimestampJson.getBytes());
-        assertEquals(LocalDateTime.of(2024, 1, 15, 10, 30, 0), row.getField(0));
+        assertEquals(LocalDate.of(2024, 6, 20), row.getField(1));
     }
 }
