@@ -15,18 +15,33 @@
  * limitations under the License.
  */
 
-package org.apache.seatunnel.engine.common.config.server;
+package org.apache.seatunnel.engine.server.scheduler;
 
-public enum ScheduleStrategy {
-    WAIT,
-    WAIT_RESCHEDULE,
-    REJECT;
+import org.apache.seatunnel.engine.common.config.EngineConfig;
+import org.apache.seatunnel.engine.server.execution.PendingJobInfo;
+import org.apache.seatunnel.engine.server.utils.PeekBlockingQueue;
 
-    public boolean isWait() {
-        return this == WAIT || this == WAIT_RESCHEDULE;
+import lombok.Value;
+
+@Value
+public class PendingJobScheduleContext {
+    PendingJobInfo pendingJobInfo;
+    PeekBlockingQueue<PendingJobInfo> pendingJobQueue;
+    EngineConfig engineConfig;
+    long jobId;
+    Runnable failJobAction;
+
+    public boolean moveHeadToTail() {
+        return pendingJobQueue.moveToTail(jobId);
     }
 
-    public boolean supportsPendingJobReschedule() {
-        return this == WAIT_RESCHEDULE;
+    public void failJob() {
+        failJobAction.run();
+    }
+
+    public void sleep(long sleepMillis) throws InterruptedException {
+        if (sleepMillis > 0) {
+            Thread.sleep(sleepMillis);
+        }
     }
 }

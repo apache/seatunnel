@@ -24,6 +24,7 @@ import org.apache.seatunnel.engine.common.config.server.HttpConfig;
 import org.apache.seatunnel.engine.common.config.server.PendingJobRescheduleConfig;
 import org.apache.seatunnel.engine.common.config.server.QueueType;
 import org.apache.seatunnel.engine.common.config.server.ScheduleStrategy;
+import org.apache.seatunnel.engine.common.config.server.ScheduleStrategyConfig;
 import org.apache.seatunnel.engine.common.config.server.ServerConfigOptions;
 import org.apache.seatunnel.engine.common.config.server.SlotServiceConfig;
 import org.apache.seatunnel.engine.common.config.server.TelemetryConfig;
@@ -33,6 +34,7 @@ import org.apache.seatunnel.engine.common.runtime.ExecutionMode;
 import lombok.Data;
 
 import java.util.Collections;
+import java.util.EnumMap;
 import java.util.Map;
 
 import static com.hazelcast.internal.util.Preconditions.checkBackupCount;
@@ -97,11 +99,36 @@ public class EngineConfig {
     private ScheduleStrategy scheduleStrategy =
             ServerConfigOptions.MasterServerConfigOptions.JOB_SCHEDULE_STRATEGY.defaultValue();
 
-    private PendingJobRescheduleConfig pendingJobRescheduleConfig =
-            ServerConfigOptions.MasterServerConfigOptions.PENDING_JOB_RESCHEDULE.defaultValue();
+    private Map<ScheduleStrategy, ScheduleStrategyConfig> scheduleStrategyConfigs =
+            defaultScheduleStrategyConfigs();
 
     private HttpConfig httpConfig =
             ServerConfigOptions.MasterServerConfigOptions.HTTP.defaultValue();
+
+    private static Map<ScheduleStrategy, ScheduleStrategyConfig> defaultScheduleStrategyConfigs() {
+        Map<ScheduleStrategy, ScheduleStrategyConfig> configs =
+                new EnumMap<>(ScheduleStrategy.class);
+        configs.put(ScheduleStrategy.WAIT_RESCHEDULE, new PendingJobRescheduleConfig());
+        return configs;
+    }
+
+    public void putScheduleStrategyConfig(
+            ScheduleStrategy scheduleStrategy, ScheduleStrategyConfig scheduleStrategyConfig) {
+        scheduleStrategyConfigs.put(scheduleStrategy, scheduleStrategyConfig);
+    }
+
+    public <T extends ScheduleStrategyConfig> T getScheduleStrategyConfig(
+            ScheduleStrategy scheduleStrategy, Class<T> configType) {
+        ScheduleStrategyConfig config = scheduleStrategyConfigs.get(scheduleStrategy);
+        if (config == null) {
+            return null;
+        }
+        if (!configType.isInstance(config)) {
+            throw new IllegalStateException(
+                    "Config type mismatch for schedule strategy " + scheduleStrategy);
+        }
+        return configType.cast(config);
+    }
 
     public void setBackupCount(int newBackupCount) {
         checkBackupCount(newBackupCount, 0);

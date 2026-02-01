@@ -17,16 +17,4 @@
 
 package org.apache.seatunnel.engine.common.config.server;
 
-public enum ScheduleStrategy {
-    WAIT,
-    WAIT_RESCHEDULE,
-    REJECT;
-
-    public boolean isWait() {
-        return this == WAIT || this == WAIT_RESCHEDULE;
-    }
-
-    public boolean supportsPendingJobReschedule() {
-        return this == WAIT_RESCHEDULE;
-    }
-}
+public interface ScheduleStrategyConfig {}

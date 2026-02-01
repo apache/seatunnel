@@ -67,6 +67,9 @@ import org.apache.seatunnel.engine.server.resourcemanager.NoEnoughResourceExcept
 import org.apache.seatunnel.engine.server.resourcemanager.ResourceManager;
 import org.apache.seatunnel.engine.server.resourcemanager.ResourceManagerFactory;
 import org.apache.seatunnel.engine.server.resourcemanager.resource.SlotProfile;
+import org.apache.seatunnel.engine.server.scheduler.PendingJobScheduleContext;
+import org.apache.seatunnel.engine.server.scheduler.PendingJobSchedulePolicy;
+import org.apache.seatunnel.engine.server.scheduler.PendingJobSchedulePolicyFactory;
 import org.apache.seatunnel.engine.server.service.jar.ConnectorPackageService;
 import org.apache.seatunnel.engine.server.task.operation.GetMetricsOperation;
 import org.apache.seatunnel.engine.server.telemetry.metrics.entity.JobCounter;
@@ -190,10 +193,8 @@ public class CoordinatorService {
 
     private PassiveCompletableFuture restoreAllJobFromMasterNodeSwitchFuture;
 
-    private final boolean isWaitStrategy;
-    private final boolean isWaitRescheduleStrategy;
-
     private final ScheduleStrategy scheduleStrategy;
+    private final PendingJobSchedulePolicy pendingJobSchedulePolicy;
 
     public CoordinatorService(
             @NonNull NodeEngineImpl nodeEngine,
@@ -219,10 +220,7 @@ public class CoordinatorService {
         masterActiveListener.scheduleAtFixedRate(
                 this::checkNewActiveMaster, 0, 100, TimeUnit.MILLISECONDS);
         scheduleStrategy = engineConfig.getScheduleStrategy();
-        isWaitStrategy =
-                scheduleStrategy.equals(ScheduleStrategy.WAIT)
-                        || scheduleStrategy.equals(ScheduleStrategy.WAIT_RESCHEDULE);
-        isWaitRescheduleStrategy = scheduleStrategy.equals(ScheduleStrategy.WAIT_RESCHEDULE);
+        pendingJobSchedulePolicy = PendingJobSchedulePolicyFactory.create(scheduleStrategy);
         logger.info("Start pending job schedule thread");
         // start pending job schedule thread
         startPendingJobScheduleThread();
@@ -286,30 +284,22 @@ public class CoordinatorService {
                     String.format(
                             "Current strategy is %s, and resources is not enough, skipping this schedule, JobID: %s",
                             scheduleStrategy, jobId));
-            if (isWaitStrategy) {
-                if (isWaitRescheduleStrategy) {
-                    int maxRetryTimes =
-                            engineConfig.getPendingJobRescheduleConfig().getMaxRetryTimes();
-                    int checkTimes = pendingJobInfo.getCheckTimes();
-                    if (maxRetryTimes > 0
-                            && pendingJobQueue.size() > 1
-                            && checkTimes > 0
-                            && checkTimes % maxRetryTimes == 0) {
-                        pendingJobQueue.moveToTail(jobId);
-                    }
-                }
-                try {
-                    Thread.sleep(
-                            engineConfig.getPendingJobRescheduleConfig().getSleepIntervalMillis());
-                } catch (InterruptedException e) {
-                    logger.severe(ExceptionUtils.getMessage(e));
-                }
-                return;
-            } else {
-                completeFailJob(jobMaster);
-                queueRemove(jobMaster);
-                return;
+            PendingJobScheduleContext context =
+                    new PendingJobScheduleContext(
+                            pendingJobInfo,
+                            pendingJobQueue,
+                            engineConfig,
+                            jobId,
+                            () -> {
+                                completeFailJob(jobMaster);
+                                queueRemove(jobMaster);
+                            });
+            try {
+                pendingJobSchedulePolicy.onResourcesNotEnough(context);
+            } catch (InterruptedException e) {
+                logger.severe(ExceptionUtils.getMessage(e));
             }
+            return;
         }
         logger.info(String.format("Resources enough, start running: %s", jobId));
         // When deleting jobmaster from pendingJobQueue, make sure that there is a corresponding
@@ -582,7 +572,7 @@ public class CoordinatorService {
     public synchronized void clearCoordinatorService() {
         // interrupt all JobMaster
         runningJobMasterMap.values().forEach(JobMaster::interrupt);
-        if (isWaitStrategy) {
+        if (scheduleStrategy.isWait()) {
             pendingJobQueue
                     .getJobIdMap()
                     .values()

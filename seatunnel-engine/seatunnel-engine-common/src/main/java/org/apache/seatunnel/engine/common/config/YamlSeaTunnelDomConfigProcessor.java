@@ -141,6 +141,7 @@ public class YamlSeaTunnelDomConfigProcessor extends AbstractDomConfigProcessor 
 
     private void parseEngineConfig(Node engineNode, SeaTunnelConfig config) {
         final EngineConfig engineConfig = config.getEngineConfig();
+        boolean pendingJobRescheduleConfigured = false;
         for (Node node : childElements(engineNode)) {
             String name = cleanNodeName(node);
             if (ServerConfigOptions.MasterServerConfigOptions.BACKUP_COUNT.key().equals(name)) {
@@ -257,7 +258,9 @@ public class YamlSeaTunnelDomConfigProcessor extends AbstractDomConfigProcessor 
             } else if (ServerConfigOptions.MasterServerConfigOptions.PENDING_JOB_RESCHEDULE
                     .key()
                     .equals(name)) {
-                engineConfig.setPendingJobRescheduleConfig(parsePendingJobRescheduleConfig(node));
+                engineConfig.putScheduleStrategyConfig(
+                        ScheduleStrategy.WAIT_RESCHEDULE, parsePendingJobRescheduleConfig(node));
+                pendingJobRescheduleConfigured = true;
             } else if (ServerConfigOptions.MasterServerConfigOptions.HTTP.key().equals(name)) {
                 engineConfig.setHttpConfig(parseHttpConfig(node));
             } else if (ServerConfigOptions.MasterServerConfigOptions.COORDINATOR_SERVICE
@@ -274,33 +277,41 @@ public class YamlSeaTunnelDomConfigProcessor extends AbstractDomConfigProcessor 
             LOGGER.info("Dynamic slot is enabled, the schedule strategy is set to REJECT");
             engineConfig.setScheduleStrategy(ScheduleStrategy.REJECT);
         }
+
+        if (pendingJobRescheduleConfigured
+                && !engineConfig.getScheduleStrategy().supportsPendingJobReschedule()) {
+            throw new InvalidConfigurationException(
+                    ServerConfigOptions.MasterServerConfigOptions.PENDING_JOB_RESCHEDULE.key()
+                            + " is only supported when job-schedule-strategy is WAIT_RESCHEDULE");
+        }
     }
 
     private PendingJobRescheduleConfig parsePendingJobRescheduleConfig(Node pendingRescheduleNode) {
         PendingJobRescheduleConfig pendingJobRescheduleConfig = new PendingJobRescheduleConfig();
         for (Node node : childElements(pendingRescheduleNode)) {
             String name = cleanNodeName(node);
-            if (ServerConfigOptions.MasterServerConfigOptions.PENDING_JOB_RESCHEDULE_MAX_RETRY_TIMES
-                    .key()
-                    .equals(name)) {
-                pendingJobRescheduleConfig.setMaxRetryTimes(
+            if (PendingJobRescheduleConfig.KEY_MAX_RETRY_TIMES.equals(name)) {
+                int maxRetryTimes =
                         getIntegerValue(
-                                ServerConfigOptions.MasterServerConfigOptions
-                                        .PENDING_JOB_RESCHEDULE_MAX_RETRY_TIMES
-                                        .key(),
-                                getTextContent(node)));
-            } else if (ServerConfigOptions.MasterServerConfigOptions
-                    .PENDING_JOB_RESCHEDULE_SLEEP_INTERVAL
-                    .key()
-                    .equals(name)) {
-                pendingJobRescheduleConfig.setSleepIntervalMillis(
+                                PendingJobRescheduleConfig.KEY_MAX_RETRY_TIMES,
+                                getTextContent(node));
+                if (maxRetryTimes <= 0) {
+                    throw new InvalidConfigurationException(
+                            PendingJobRescheduleConfig.KEY_MAX_RETRY_TIMES + " must be > 0");
+                }
+                pendingJobRescheduleConfig.setMaxRetryTimes(maxRetryTimes);
+            } else if (PendingJobRescheduleConfig.KEY_SLEEP_INTERVAL_MILLIS.equals(name)) {
+                int sleepIntervalMillis =
                         getIntegerValue(
-                                ServerConfigOptions.MasterServerConfigOptions
-                                        .PENDING_JOB_RESCHEDULE_SLEEP_INTERVAL
-                                        .key(),
-                                getTextContent(node)));
+                                PendingJobRescheduleConfig.KEY_SLEEP_INTERVAL_MILLIS,
+                                getTextContent(node));
+                if (sleepIntervalMillis <= 0) {
+                    throw new InvalidConfigurationException(
+                            PendingJobRescheduleConfig.KEY_SLEEP_INTERVAL_MILLIS + " must be > 0");
+                }
+                pendingJobRescheduleConfig.setSleepIntervalMillis(sleepIntervalMillis);
             } else {
-                LOGGER.warning("Unrecognized element: " + name);
+                throw new InvalidConfigurationException("Unrecognized element: " + name);
             }
         }
         return pendingJobRescheduleConfig;

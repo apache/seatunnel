@@ -15,18 +15,8 @@
  * limitations under the License.
  */
 
-package org.apache.seatunnel.engine.common.config.server;
+package org.apache.seatunnel.engine.server.scheduler;
 
-public enum ScheduleStrategy {
-    WAIT,
-    WAIT_RESCHEDULE,
-    REJECT;
-
-    public boolean isWait() {
-        return this == WAIT || this == WAIT_RESCHEDULE;
-    }
-
-    public boolean supportsPendingJobReschedule() {
-        return this == WAIT_RESCHEDULE;
-    }
+public interface PendingJobSchedulePolicy {
+    void onResourcesNotEnough(PendingJobScheduleContext context) throws InterruptedException;
 }

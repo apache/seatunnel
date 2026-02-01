@@ -17,16 +17,15 @@
 
 package org.apache.seatunnel.engine.common.config.server;
 
-public enum ScheduleStrategy {
-    WAIT,
-    WAIT_RESCHEDULE,
-    REJECT;
+import lombok.Data;
 
-    public boolean isWait() {
-        return this == WAIT || this == WAIT_RESCHEDULE;
-    }
+@Data
+public class PendingJobRescheduleConfig implements ScheduleStrategyConfig {
 
-    public boolean supportsPendingJobReschedule() {
-        return this == WAIT_RESCHEDULE;
-    }
+    public static final String KEY_MAX_RETRY_TIMES = "max-retry-times";
+    public static final String KEY_SLEEP_INTERVAL_MILLIS = "sleep-interval-millis";
+
+    private int maxRetryTimes = 3;
+
+    private int sleepIntervalMillis = 3000;
 }
