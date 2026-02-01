@@ -32,4 +32,5 @@ public enum EventType {
     READER_MESSAGE_DELAYED,
     JOB_STATUS,
     SCHEMA_CHANGE_FLUSH,
+    STAIN_TRACE,
 }

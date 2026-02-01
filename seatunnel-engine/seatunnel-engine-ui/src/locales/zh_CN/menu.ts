@@ -18,6 +18,7 @@
 export default {
   overview: '概览',
   jobs: '任务',
+  trace: '链路追踪',
   managers: '管理',
   synchronization_instance: '同步任务实例',
 }

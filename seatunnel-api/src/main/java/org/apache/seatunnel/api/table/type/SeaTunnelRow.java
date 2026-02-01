@@ -27,6 +27,7 @@ import java.util.Objects;
 /** SeaTunnel row type. */
 public final class SeaTunnelRow implements Serializable {
     private static final long serialVersionUID = -1L;
+    private static final String TRACE_PAYLOAD_OPTION_KEY = "__st_trace_payload";
     /** Table identifier. */
     private String tableId = "";
     /** The kind of change that a row describes in a changelog. */
@@ -78,6 +79,10 @@ public final class SeaTunnelRow implements Serializable {
         if (options == null) {
             options = new HashMap<>();
         }
+        return options;
+    }
+
+    public Map<String, Object> getOptionsOrNull() {
         return options;
     }
 
@@ -379,25 +384,39 @@ public final class SeaTunnelRow implements Serializable {
         SeaTunnelRow that = (SeaTunnelRow) o;
         return Objects.equals(tableId, that.tableId)
                 && rowKind == that.rowKind
-                && Arrays.deepEquals(fields, that.fields);
+                && Arrays.deepEquals(fields, that.fields)
+                && Arrays.equals(
+                        getTracePayloadOrNull(options), getTracePayloadOrNull(that.options));
     }
 
     @Override
     public int hashCode() {
         int result = Objects.hash(tableId, rowKind);
         result = 31 * result + Arrays.deepHashCode(fields);
+        result = 31 * result + Arrays.hashCode(getTracePayloadOrNull(options));
         return result;
     }
 
     @Override
     public String toString() {
-        return "SeaTunnelRow{"
-                + "tableId="
-                + tableId
-                + ", kind="
-                + rowKind.shortString()
-                + ", fields="
-                + Arrays.toString(fields)
-                + '}';
+        boolean tracePayloadPresent =
+                options != null && options.get(TRACE_PAYLOAD_OPTION_KEY) instanceof byte[];
+        StringBuilder sb = new StringBuilder("SeaTunnelRow{");
+        sb.append("tableId=").append(tableId);
+        sb.append(", kind=").append(rowKind.shortString());
+        sb.append(", fields=").append(Arrays.toString(fields));
+        if (tracePayloadPresent) {
+            sb.append(", tracePayloadPresent=true");
+        }
+        sb.append('}');
+        return sb.toString();
+    }
+
+    private static byte[] getTracePayloadOrNull(Map<String, Object> options) {
+        if (options == null || options.isEmpty()) {
+            return null;
+        }
+        Object payload = options.get(TRACE_PAYLOAD_OPTION_KEY);
+        return payload instanceof byte[] ? (byte[]) payload : null;
     }
 }

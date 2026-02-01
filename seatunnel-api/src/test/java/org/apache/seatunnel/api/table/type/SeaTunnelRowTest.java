@@ -31,6 +31,64 @@ import java.util.Map;
 public class SeaTunnelRowTest {
 
     @Test
+    void testGetOptionsOrNull() {
+        SeaTunnelRow row = new SeaTunnelRow(1);
+        Assertions.assertNull(row.getOptionsOrNull());
+        row.getOptions().put("k", "v");
+        Assertions.assertNotNull(row.getOptionsOrNull());
+        Assertions.assertEquals("v", row.getOptionsOrNull().get("k"));
+    }
+
+    @Test
+    void testToStringShowsOptionsAndTraceFlag() {
+        SeaTunnelRow row = new SeaTunnelRow(1);
+        String s1 = row.toString();
+        Assertions.assertFalse(s1.contains("tracePayloadPresent=true"));
+
+        row.getOptions().put("__st_trace_payload", new byte[] {1});
+        String s2 = row.toString();
+        Assertions.assertTrue(s2.contains("tracePayloadPresent=true"));
+    }
+
+    @Test
+    void testEqualsAndHashCodeConsiderOptions() {
+        SeaTunnelRow row1 = new SeaTunnelRow(new Object[] {1, "a"});
+        row1.setTableId("t");
+
+        SeaTunnelRow row2 = new SeaTunnelRow(new Object[] {1, "a"});
+        row2.setTableId("t");
+
+        Assertions.assertEquals(row1, row2);
+        Assertions.assertEquals(row1.hashCode(), row2.hashCode());
+
+        row2.setOptions(new HashMap<>());
+        Assertions.assertEquals(row1, row2);
+        Assertions.assertEquals(row1.hashCode(), row2.hashCode());
+
+        row2.getOptions().put("k", "v");
+        Assertions.assertEquals(row1, row2);
+        Assertions.assertEquals(row1.hashCode(), row2.hashCode());
+    }
+
+    @Test
+    void testEqualsAndHashCodeWithTracePayloadByteArray() {
+        SeaTunnelRow row1 = new SeaTunnelRow(new Object[] {1, "a"});
+        row1.setTableId("t");
+        row1.getOptions().put("__st_trace_payload", new byte[] {1, 2, 3});
+
+        SeaTunnelRow row2 = new SeaTunnelRow(new Object[] {1, "a"});
+        row2.setTableId("t");
+        row2.getOptions().put("__st_trace_payload", new byte[] {1, 2, 3});
+
+        Assertions.assertEquals(row1, row2);
+        Assertions.assertEquals(row1.hashCode(), row2.hashCode());
+
+        SeaTunnelRow row3 = new SeaTunnelRow(new Object[] {1, "a"});
+        row3.setTableId("t");
+        Assertions.assertNotEquals(row1, row3);
+    }
+
+    @Test
     void testForRowSize() {
         Map<String, Object> map = new HashMap<>();
         map.put(

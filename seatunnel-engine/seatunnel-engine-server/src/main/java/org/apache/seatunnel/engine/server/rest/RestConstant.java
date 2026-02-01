@@ -98,6 +98,7 @@ public class RestConstant {
     public static final String REST_URL_GET_ALL_LOG_NAME = "/get-all-log-name";
     public static final String REST_URL_METRICS = "/metrics";
     public static final String REST_URL_OPEN_METRICS = "/openmetrics";
+    public static final String REST_URL_TRACE_TASK_MAPPING = "/trace/task-mapping";
     // api path end
 
 }

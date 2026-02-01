@@ -43,6 +43,12 @@ const routes: RouteRecordRaw[] = [
         component: () => import('@/views/jobs/detail')
       },
       {
+        path: 'trace',
+        name: 'trace',
+        meta: { title: 'trace', showSide: true, activeSide: 'trace' },
+        component: () => import('@/views/trace')
+      },
+      {
         path: 'managers/workers',
         name: 'managers-workers',
         meta: { title: 'workers', showSide: true, activeSide: 'workers' },

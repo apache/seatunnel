@@ -99,6 +99,15 @@ public class EngineConfig {
     private HttpConfig httpConfig =
             ServerConfigOptions.MasterServerConfigOptions.HTTP.defaultValue();
 
+    private boolean stainTraceEnabled = ServerConfigOptions.STAIN_TRACE_ENABLED.defaultValue();
+    private int stainTraceSampleRate = ServerConfigOptions.STAIN_TRACE_SAMPLE_RATE.defaultValue();
+    private int stainTraceMaxTracesPerSecondPerWorker =
+            ServerConfigOptions.STAIN_TRACE_MAX_TRACES_PER_SECOND_PER_WORKER.defaultValue();
+    private int stainTraceMaxEntriesPerTrace =
+            ServerConfigOptions.STAIN_TRACE_MAX_ENTRIES_PER_TRACE.defaultValue();
+    private boolean stainTracePropagateToAllSplits =
+            ServerConfigOptions.STAIN_TRACE_PROPAGATE_TO_ALL_SPLITS.defaultValue();
+
     public void setBackupCount(int newBackupCount) {
         checkBackupCount(newBackupCount, 0);
         this.backupCount = newBackupCount;
@@ -173,5 +182,32 @@ public class EngineConfig {
     public EngineConfig setEventReportHttpHeaders(Map<String, String> eventReportHttpHeaders) {
         this.eventReportHttpHeaders = eventReportHttpHeaders;
         return this;
+    }
+
+    public void setStainTraceSampleRate(int stainTraceSampleRate) {
+        checkPositive(
+                stainTraceSampleRate, ServerConfigOptions.STAIN_TRACE_SAMPLE_RATE + " must be > 0");
+        this.stainTraceSampleRate = stainTraceSampleRate;
+    }
+
+    public void setStainTraceMaxTracesPerSecondPerWorker(
+            int stainTraceMaxTracesPerSecondPerWorker) {
+        if (stainTraceMaxTracesPerSecondPerWorker < 0) {
+            throw new IllegalArgumentException(
+                    ServerConfigOptions.STAIN_TRACE_MAX_TRACES_PER_SECOND_PER_WORKER
+                            + " must be >= 0");
+        }
+        this.stainTraceMaxTracesPerSecondPerWorker = stainTraceMaxTracesPerSecondPerWorker;
+    }
+
+    public void setStainTraceMaxEntriesPerTrace(int stainTraceMaxEntriesPerTrace) {
+        checkPositive(
+                stainTraceMaxEntriesPerTrace,
+                ServerConfigOptions.STAIN_TRACE_MAX_ENTRIES_PER_TRACE + " must be > 0");
+        this.stainTraceMaxEntriesPerTrace = stainTraceMaxEntriesPerTrace;
+    }
+
+    public void setStainTracePropagateToAllSplits(boolean stainTracePropagateToAllSplits) {
+        this.stainTracePropagateToAllSplits = stainTracePropagateToAllSplits;
     }
 }

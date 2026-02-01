@@ -18,11 +18,14 @@
 package org.apache.seatunnel.engine.server.task.group.queue.disruptor;
 
 import org.apache.seatunnel.api.table.type.Record;
+import org.apache.seatunnel.api.table.type.SeaTunnelRow;
 import org.apache.seatunnel.api.transform.Collector;
 import org.apache.seatunnel.engine.server.checkpoint.CheckpointBarrier;
 import org.apache.seatunnel.engine.server.task.SeaTunnelTask;
 import org.apache.seatunnel.engine.server.task.flow.IntermediateQueueFlowLifeCycle;
 import org.apache.seatunnel.engine.server.task.record.Barrier;
+import org.apache.seatunnel.engine.server.trace.StainTraceStage;
+import org.apache.seatunnel.engine.server.trace.StainTraceUtils;
 
 import com.lmax.disruptor.EventHandler;
 
@@ -60,6 +63,18 @@ public class RecordEventHandler implements EventHandler<RecordEvent> {
             } else {
                 if (this.intermediateQueueFlowLifeCycle.getPrepareClose()) {
                     return;
+                }
+            }
+            if (record.getData() instanceof SeaTunnelRow) {
+                SeaTunnelRow row = (SeaTunnelRow) record.getData();
+                if (StainTraceUtils.hasPayload(row)) {
+                    StainTraceUtils.appendIfPresent(
+                            row,
+                            StainTraceStage.QUEUE_OUT,
+                            runningTask.getTaskID(),
+                            System.currentTimeMillis(),
+                            intermediateQueueFlowLifeCycle.getStainTraceMaxEntriesPerTrace(),
+                            intermediateQueueFlowLifeCycle.getStainTraceEntriesTruncatedTotal());
                 }
             }
             collector.collect(record);

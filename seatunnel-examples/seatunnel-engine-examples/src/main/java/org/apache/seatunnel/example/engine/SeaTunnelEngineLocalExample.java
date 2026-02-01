@@ -36,7 +36,9 @@ public class SeaTunnelEngineLocalExample {
 
     public static void main(String[] args)
             throws FileNotFoundException, URISyntaxException, CommandException {
-        String configurePath = args.length > 0 ? args[0] : "/examples/fake_to_console.conf";
+        String configurePath =
+                args.length > 0 ? args[0] : "/examples/stain_trace_fake_sql_union_to_console.conf";
+        maybeEnableStainTraceForLocalExample(configurePath);
         String configFile = getTestConfigFile(configurePath);
         ClientCommandArgs clientCommandArgs = new ClientCommandArgs();
         clientCommandArgs.setConfigFile(configFile);
@@ -55,5 +57,22 @@ public class SeaTunnelEngineLocalExample {
             throw new FileNotFoundException("Can't find config file: " + configFile);
         }
         return Paths.get(resource.toURI()).toString();
+    }
+
+    private static void maybeEnableStainTraceForLocalExample(String jobConfigResourcePath)
+            throws FileNotFoundException, URISyntaxException {
+        if (System.getProperty("seatunnel.config") != null) {
+            return;
+        }
+        if (!"/examples/stain_trace_fake_sql_union_to_console.conf".equals(jobConfigResourcePath)) {
+            return;
+        }
+        URL resource =
+                SeaTunnelEngineLocalExample.class.getResource(
+                        "/examples/stain_trace_seatunnel.yaml");
+        if (resource == null) {
+            throw new FileNotFoundException("Can't find seatunnel.yaml for stain trace example");
+        }
+        System.setProperty("seatunnel.config", Paths.get(resource.toURI()).toString());
     }
 }

@@ -125,6 +125,39 @@ public class JobEventHttpReportHandlerTest {
         }
     }
 
+    @Test
+    public void testCloseWhenHazelcastNotActive() {
+        String closeTestRingBufferName = "close-test";
+        Config config = new Config();
+        config.setRingbufferConfigs(
+                Collections.singletonMap(
+                        closeTestRingBufferName,
+                        new RingbufferConfig(closeTestRingBufferName)
+                                .setCapacity(capacity)
+                                .setBackupCount(0)
+                                .setAsyncBackupCount(1)
+                                .setTimeToLiveSeconds(0)
+                                .setRingbufferStoreConfig(
+                                        new RingbufferStoreConfig().setEnabled(false))));
+
+        HazelcastInstance localHazelcast = Hazelcast.newHazelcastInstance(config);
+        JobEventHttpReportHandler handler = null;
+        try {
+            Ringbuffer ringbuffer = localHazelcast.getRingbuffer(closeTestRingBufferName);
+            handler =
+                    new JobEventHttpReportHandler(
+                            mockWebServer.url("/api").toString(),
+                            Duration.ofSeconds(1),
+                            ringbuffer);
+        } finally {
+            localHazelcast.shutdown();
+        }
+
+        Assertions.assertNotNull(handler);
+        JobEventHttpReportHandler finalHandler = handler;
+        Assertions.assertDoesNotThrow(finalHandler::close);
+    }
+
     @Getter
     @Setter
     @NoArgsConstructor

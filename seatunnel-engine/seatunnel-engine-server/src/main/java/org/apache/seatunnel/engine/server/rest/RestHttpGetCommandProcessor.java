@@ -31,6 +31,7 @@ import org.apache.seatunnel.engine.server.rest.service.OverviewService;
 import org.apache.seatunnel.engine.server.rest.service.RunningThreadService;
 import org.apache.seatunnel.engine.server.rest.service.SystemMonitoringService;
 import org.apache.seatunnel.engine.server.rest.service.ThreadDumpService;
+import org.apache.seatunnel.engine.server.rest.service.TraceTaskMappingService;
 
 import com.hazelcast.internal.ascii.TextCommandService;
 import com.hazelcast.internal.ascii.rest.HttpCommandProcessor;
@@ -67,6 +68,7 @@ import static org.apache.seatunnel.engine.server.rest.RestConstant.REST_URL_RUNN
 import static org.apache.seatunnel.engine.server.rest.RestConstant.REST_URL_RUNNING_THREADS;
 import static org.apache.seatunnel.engine.server.rest.RestConstant.REST_URL_SYSTEM_MONITORING_INFORMATION;
 import static org.apache.seatunnel.engine.server.rest.RestConstant.REST_URL_THREAD_DUMP;
+import static org.apache.seatunnel.engine.server.rest.RestConstant.REST_URL_TRACE_TASK_MAPPING;
 
 @Slf4j
 public class RestHttpGetCommandProcessor extends HttpCommandProcessor<HttpGetCommand> {
@@ -79,6 +81,7 @@ public class RestHttpGetCommandProcessor extends HttpCommandProcessor<HttpGetCom
     private ThreadDumpService threadDumpService;
     private RunningThreadService runningThreadService;
     private LogService logService;
+    private TraceTaskMappingService traceTaskMappingService;
 
     public RestHttpGetCommandProcessor(TextCommandService textCommandService) {
 
@@ -90,6 +93,7 @@ public class RestHttpGetCommandProcessor extends HttpCommandProcessor<HttpGetCom
         this.threadDumpService = new ThreadDumpService(nodeEngine);
         this.runningThreadService = new RunningThreadService(nodeEngine);
         this.logService = new LogService(nodeEngine);
+        this.traceTaskMappingService = new TraceTaskMappingService(nodeEngine);
     }
 
     public RestHttpGetCommandProcessor(
@@ -106,6 +110,7 @@ public class RestHttpGetCommandProcessor extends HttpCommandProcessor<HttpGetCom
         this.threadDumpService = new ThreadDumpService(nodeEngine);
         this.runningThreadService = new RunningThreadService(nodeEngine);
         this.logService = new LogService(nodeEngine);
+        this.traceTaskMappingService = new TraceTaskMappingService(nodeEngine);
     }
 
     @Override
@@ -138,6 +143,8 @@ public class RestHttpGetCommandProcessor extends HttpCommandProcessor<HttpGetCom
                 getAllNodeLog(httpGetCommand, uri);
             } else if (uri.startsWith(CONTEXT_PATH + REST_URL_LOG)) {
                 getCurrentNodeLog(httpGetCommand, uri);
+            } else if (uri.startsWith(CONTEXT_PATH + REST_URL_TRACE_TASK_MAPPING)) {
+                handleTraceTaskMapping(httpGetCommand, uri);
             } else {
                 original.handle(httpGetCommand);
             }
@@ -218,6 +225,18 @@ public class RestHttpGetCommandProcessor extends HttpCommandProcessor<HttpGetCom
 
     private void getRunningThread(HttpGetCommand command) {
         this.prepareResponse(command, runningThreadService.getRunningThread());
+    }
+
+    private void handleTraceTaskMapping(HttpGetCommand command, String uri) {
+        uri = StringUtil.stripTrailingSlash(uri);
+        String prefix = CONTEXT_PATH + REST_URL_TRACE_TASK_MAPPING + "/";
+        if (!uri.startsWith(prefix)) {
+            command.send400();
+            return;
+        }
+        String jobIdStr = uri.substring(prefix.length());
+        long jobId = Long.parseLong(jobIdStr);
+        this.prepareResponse(command, traceTaskMappingService.getJobTaskMappingJson(jobId));
     }
 
     private void handleMetrics(HttpGetCommand httpGetCommand, String contentType) {

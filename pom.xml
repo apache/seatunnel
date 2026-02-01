@@ -49,6 +49,7 @@
         <module>seatunnel-plugin-discovery</module>
         <module>seatunnel-formats</module>
         <module>seatunnel-engine</module>
+        <module>seatunnel-trace</module>
         <module>seatunnel-examples</module>
         <module>seatunnel-e2e</module>
         <module>seatunnel-shade</module>

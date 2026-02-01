@@ -223,6 +223,29 @@ public class YamlSeaTunnelDomConfigProcessor extends AbstractDomConfigProcessor 
                 engineConfig.setConnectorJarStorageConfig(parseConnectorJarStorageConfig(node));
             } else if (ServerConfigOptions.CLASSLOADER_CACHE_MODE.key().equals(name)) {
                 engineConfig.setClassloaderCacheMode(getBooleanValue(getTextContent(node)));
+            } else if (ServerConfigOptions.STAIN_TRACE_ENABLED.key().equals(name)) {
+                engineConfig.setStainTraceEnabled(getBooleanValue(getTextContent(node)));
+            } else if (ServerConfigOptions.STAIN_TRACE_SAMPLE_RATE.key().equals(name)) {
+                engineConfig.setStainTraceSampleRate(
+                        getIntegerValue(
+                                ServerConfigOptions.STAIN_TRACE_SAMPLE_RATE.key(),
+                                getTextContent(node)));
+            } else if (ServerConfigOptions.STAIN_TRACE_MAX_TRACES_PER_SECOND_PER_WORKER
+                    .key()
+                    .equals(name)) {
+                engineConfig.setStainTraceMaxTracesPerSecondPerWorker(
+                        getIntegerValue(
+                                ServerConfigOptions.STAIN_TRACE_MAX_TRACES_PER_SECOND_PER_WORKER
+                                        .key(),
+                                getTextContent(node)));
+            } else if (ServerConfigOptions.STAIN_TRACE_MAX_ENTRIES_PER_TRACE.key().equals(name)) {
+                engineConfig.setStainTraceMaxEntriesPerTrace(
+                        getIntegerValue(
+                                ServerConfigOptions.STAIN_TRACE_MAX_ENTRIES_PER_TRACE.key(),
+                                getTextContent(node)));
+            } else if (ServerConfigOptions.STAIN_TRACE_PROPAGATE_TO_ALL_SPLITS.key().equals(name)) {
+                engineConfig.setStainTracePropagateToAllSplits(
+                        getBooleanValue(getTextContent(node)));
             } else if (ServerConfigOptions.MasterServerConfigOptions.EVENT_REPORT_HTTP
                     .equalsIgnoreCase(name)) {
                 NamedNodeMap attributes = node.getAttributes();

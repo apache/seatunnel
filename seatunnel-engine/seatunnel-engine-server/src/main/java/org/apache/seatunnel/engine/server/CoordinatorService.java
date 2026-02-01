@@ -581,9 +581,15 @@ public class CoordinatorService {
         runningJobMasterMap.clear();
 
         try {
-            executorService.awaitTermination(20, TimeUnit.SECONDS);
+            boolean terminated = executorService.awaitTermination(20, TimeUnit.SECONDS);
+            if (!terminated) {
+                logger.warning(
+                        "Coordinator service executorService did not terminate within 20 seconds.");
+            }
         } catch (InterruptedException e) {
-            throw new SeaTunnelEngineException("wait clean executor service error", e);
+            Thread.currentThread().interrupt();
+            logger.info(
+                    "Coordinator service shutdown interrupted while waiting executorService termination, continue cleanup.");
         }
 
         if (resourceManager != null) {

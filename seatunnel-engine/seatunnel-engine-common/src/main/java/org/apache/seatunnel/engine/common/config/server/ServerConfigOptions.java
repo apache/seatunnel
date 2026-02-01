@@ -33,6 +33,40 @@ public class ServerConfigOptions {
                     .withDescription(
                             "Whether to use classloader cache mode. With cache mode, all jobs share the same classloader if the jars are the same");
 
+    public static final Option<Boolean> STAIN_TRACE_ENABLED =
+            Options.key("stain-trace-enabled")
+                    .booleanType()
+                    .defaultValue(false)
+                    .withDescription(
+                            "Whether to enable stain trace. When enabled, the engine will sample a small number of records and report end-to-end latency breakdown as events.");
+
+    public static final Option<Integer> STAIN_TRACE_SAMPLE_RATE =
+            Options.key("stain-trace-sample-rate")
+                    .intType()
+                    .defaultValue(100000)
+                    .withDescription("Sample 1 record per N records for stain trace.");
+
+    public static final Option<Integer> STAIN_TRACE_MAX_TRACES_PER_SECOND_PER_WORKER =
+            Options.key("stain-trace-max-traces-per-second-per-worker")
+                    .intType()
+                    .defaultValue(50)
+                    .withDescription(
+                            "Maximum number of stain traces generated per second per worker. 0 means disable trace generation.");
+
+    public static final Option<Integer> STAIN_TRACE_MAX_ENTRIES_PER_TRACE =
+            Options.key("stain-trace-max-entries-per-trace")
+                    .intType()
+                    .defaultValue(32)
+                    .withDescription("Maximum stage entries recorded per stain trace payload.");
+
+    public static final Option<Boolean> STAIN_TRACE_PROPAGATE_TO_ALL_SPLITS =
+            Options.key("stain-trace-propagate-to-all-splits")
+                    .booleanType()
+                    .defaultValue(false)
+                    .withDescription(
+                            "Whether to propagate stain trace payload to all split outputs in transform (e.g. flatMap). "
+                                    + "When enabled, all derived output rows will inherit payload and append TRANSFORM_OUT stage.");
+
     /////////////////////////////////////////////////
     // The options for metrics start
     public static final Option<Boolean> TELEMETRY_METRIC_ENABLED =

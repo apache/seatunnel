@@ -26,6 +26,7 @@ import org.apache.seatunnel.api.table.catalog.TableIdentifier;
 import org.apache.seatunnel.api.table.catalog.TablePath;
 import org.apache.seatunnel.api.table.type.SeaTunnelDataType;
 import org.apache.seatunnel.core.starter.flowcontrol.FlowControlStrategy;
+import org.apache.seatunnel.engine.common.config.EngineConfig;
 import org.apache.seatunnel.engine.common.utils.concurrent.CompletableFuture;
 import org.apache.seatunnel.engine.core.dag.actions.SourceAction;
 import org.apache.seatunnel.engine.server.dag.physical.config.SourceConfig;
@@ -94,6 +95,11 @@ public class SourceSeaTunnelTask<T, SplitT extends SourceSplit> extends SeaTunne
                 // TODO remove it when all connector use `getProducedCatalogTables`
                 sourceProducedType = sourceFlow.getAction().getSource().getProducedType();
             }
+            EngineConfig engineConfig =
+                    getExecutionContext()
+                            .getTaskExecutionService()
+                            .getSeaTunnelConfig()
+                            .getEngineConfig();
             this.collector =
                     new SeaTunnelSourceCollector<>(
                             checkpointLock,
@@ -101,7 +107,9 @@ public class SourceSeaTunnelTask<T, SplitT extends SourceSplit> extends SeaTunne
                             this.getMetricsContext(),
                             FlowControlStrategy.fromMap(envOption),
                             sourceProducedType,
-                            tablePaths);
+                            tablePaths,
+                            this,
+                            engineConfig);
             ((SourceFlowLifeCycle<T, SplitT>) startFlowLifeCycle).setCollector(collector);
         }
     }

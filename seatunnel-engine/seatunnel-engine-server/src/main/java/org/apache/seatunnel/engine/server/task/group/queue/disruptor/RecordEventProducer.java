@@ -18,9 +18,12 @@
 package org.apache.seatunnel.engine.server.task.group.queue.disruptor;
 
 import org.apache.seatunnel.api.table.type.Record;
+import org.apache.seatunnel.api.table.type.SeaTunnelRow;
 import org.apache.seatunnel.engine.server.checkpoint.CheckpointBarrier;
 import org.apache.seatunnel.engine.server.task.flow.IntermediateQueueFlowLifeCycle;
 import org.apache.seatunnel.engine.server.task.record.Barrier;
+import org.apache.seatunnel.engine.server.trace.StainTraceStage;
+import org.apache.seatunnel.engine.server.trace.StainTraceUtils;
 
 import com.lmax.disruptor.RingBuffer;
 
@@ -48,6 +51,18 @@ public class RecordEventProducer {
         try {
             RecordEvent recordEvent = ringBuffer.get(sequence);
             recordEvent.setRecord(record);
+            if (record.getData() instanceof SeaTunnelRow) {
+                SeaTunnelRow row = (SeaTunnelRow) record.getData();
+                if (StainTraceUtils.hasPayload(row)) {
+                    StainTraceUtils.appendIfPresent(
+                            row,
+                            StainTraceStage.QUEUE_IN,
+                            intermediateQueueFlowLifeCycle.getRunningTask().getTaskID(),
+                            System.currentTimeMillis(),
+                            intermediateQueueFlowLifeCycle.getStainTraceMaxEntriesPerTrace(),
+                            intermediateQueueFlowLifeCycle.getStainTraceEntriesTruncatedTotal());
+                }
+            }
         } finally {
             ringBuffer.publish(sequence);
         }

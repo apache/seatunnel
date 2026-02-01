@@ -36,6 +36,11 @@ public class TaskLogManagerService {
     public void initClean() {
         try {
             path = LogUtil.getLogPath();
+        } catch (IllegalArgumentException e) {
+            // log4j appender 未配置时（例如本地示例/自定义日志配置），避免打印堆栈污染日志
+            log.debug(
+                    "The corresponding log file path is not properly configured, please check the log configuration file. {}",
+                    e.getMessage());
         } catch (Exception e) {
             log.debug(
                     "The corresponding log file path is not properly configured, please check the log configuration file.",

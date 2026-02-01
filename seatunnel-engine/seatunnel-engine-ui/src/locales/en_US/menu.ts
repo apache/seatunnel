@@ -18,6 +18,7 @@
 export default {
   overview: 'Overview',
   jobs: 'Jobs',
+  trace: 'Trace',
   managers: {
     workers: 'Workers',
     master: 'Master'
