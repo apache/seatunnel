@@ -17,12 +17,13 @@
 
 package org.apache.seatunnel.connectors.seatunnel.starrocks.config;
 
+import org.apache.seatunnel.shade.com.fasterxml.jackson.core.type.TypeReference;
+
 import org.apache.seatunnel.api.configuration.Option;
 import org.apache.seatunnel.api.configuration.Options;
 
 import java.util.ArrayList;
 import java.util.List;
-import java.util.Map;
 
 public class StarRocksSourceOptions extends StarRocksBaseOptions {
     private static final long DEFAULT_SCAN_MEM_LIMIT = 1024 * 1024 * 1024L;
