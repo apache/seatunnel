@@ -207,7 +207,7 @@ public class KingbaseCatalog extends AbstractJdbcCatalog {
         BasicTypeDefine typeDefine =
                 BasicTypeDefine.builder()
                         .name(columnName)
-                        .columnType(typeName)
+                        .columnType(fullTypeName)
                         .dataType(typeName)
                         .length(columnLength)
                         .precision(columnPrecision)
