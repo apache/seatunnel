@@ -718,14 +718,14 @@ public class JsonRowDataSerDeSchemaTest {
     public void testMultipleDateColumnsWithDifferentFormats() throws IOException {
         SeaTunnelRowType rowType =
                 new SeaTunnelRowType(
-                        new String[] {"date_us", "date_iso"},
+                        new String[] {"date_dash", "date_dot"},
                         new SeaTunnelDataType<?>[] {
                             LocalTimeType.LOCAL_DATE_TYPE, LocalTimeType.LOCAL_DATE_TYPE
                         });
         JsonDeserializationSchema deserializationSchema =
                 new JsonDeserializationSchema(false, false, rowType);
 
-        String json = "{\"date_us\":\"01/15/2024\",\"date_iso\":\"2024-06-20\"}";
+        String json = "{\"date_dash\":\"2024-01-15\",\"date_dot\":\"2024.06.20\"}";
         SeaTunnelRow row = deserializationSchema.deserialize(json.getBytes());
 
         assertEquals(LocalDate.of(2024, 1, 15), row.getField(0));
