@@ -180,6 +180,8 @@ public class OracleDialectContainerTest extends AbstractOracleContainerTest {
                         .build();
 
         Object maxValue = dialect.queryNextChunkMax(connection, table, "ID", 10, 0);
+        Assertions.assertNotNull(maxValue);
+        Assertions.assertEquals(1, ((Number) maxValue).intValue());
     }
 
     @Test

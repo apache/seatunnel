@@ -28,6 +28,8 @@ import org.apache.seatunnel.api.table.type.BasicType;
 import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.Test;
 
+import lombok.extern.slf4j.Slf4j;
+
 import java.sql.SQLException;
 import java.util.Arrays;
 import java.util.Collections;
@@ -37,6 +39,7 @@ import java.util.List;
  * Unit tests for OracleCatalog using Testcontainers. Tests catalog operations like database
  * listing, table operations, and schema management.
  */
+@Slf4j
 public class OracleCatalogContainerTest extends AbstractOracleContainerTest {
 
     @Test
@@ -49,7 +52,7 @@ public class OracleCatalogContainerTest extends AbstractOracleContainerTest {
     @Test
     public void testDatabaseExists() {
         List<String> databases = catalog.listDatabases();
-        System.out.println("Available databases: " + databases);
+        log.info("Available databases: {}", databases);
 
         // OracleCatalog.databaseExists() always returns true because Oracle uses schemas,
         // not separate databases
@@ -177,7 +180,7 @@ public class OracleCatalogContainerTest extends AbstractOracleContainerTest {
         }
 
         Assertions.assertNotNull(tables);
-        System.out.println("Tables found: " + tables);
+        log.info("Tables found: {}", tables);
 
         // Tables may be returned with schema prefix (SCHEMA.TABLE_NAME)
         boolean hasTable1 =
