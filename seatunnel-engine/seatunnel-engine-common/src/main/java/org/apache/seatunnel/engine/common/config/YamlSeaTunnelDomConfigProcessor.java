@@ -27,7 +27,6 @@ import org.apache.seatunnel.engine.common.config.server.ConnectorJarStorageConfi
 import org.apache.seatunnel.engine.common.config.server.ConnectorJarStorageMode;
 import org.apache.seatunnel.engine.common.config.server.CoordinatorServiceConfig;
 import org.apache.seatunnel.engine.common.config.server.HttpConfig;
-import org.apache.seatunnel.engine.common.config.server.PendingJobRescheduleConfig;
 import org.apache.seatunnel.engine.common.config.server.QueueType;
 import org.apache.seatunnel.engine.common.config.server.ScheduleStrategy;
 import org.apache.seatunnel.engine.common.config.server.ServerConfigOptions;
@@ -36,6 +35,7 @@ import org.apache.seatunnel.engine.common.config.server.TelemetryConfig;
 import org.apache.seatunnel.engine.common.config.server.TelemetryLogsConfig;
 import org.apache.seatunnel.engine.common.config.server.TelemetryMetricConfig;
 import org.apache.seatunnel.engine.common.config.server.ThreadShareMode;
+import org.apache.seatunnel.engine.common.config.server.scheduler.ScheduleStrategyConfig;
 
 import org.w3c.dom.NamedNodeMap;
 import org.w3c.dom.Node;
@@ -46,7 +46,9 @@ import com.hazelcast.internal.config.AbstractDomConfigProcessor;
 import com.hazelcast.logging.ILogger;
 import com.hazelcast.logging.Logger;
 
+import java.lang.reflect.Method;
 import java.util.Arrays;
+import java.util.EnumSet;
 import java.util.HashMap;
 import java.util.LinkedHashMap;
 import java.util.Locale;
@@ -141,7 +143,8 @@ public class YamlSeaTunnelDomConfigProcessor extends AbstractDomConfigProcessor 
 
     private void parseEngineConfig(Node engineNode, SeaTunnelConfig config) {
         final EngineConfig engineConfig = config.getEngineConfig();
-        boolean pendingJobRescheduleConfigured = false;
+        EnumSet<ScheduleStrategy> configuredScheduleStrategyConfigs =
+                EnumSet.noneOf(ScheduleStrategy.class);
         for (Node node : childElements(engineNode)) {
             String name = cleanNodeName(node);
             if (ServerConfigOptions.MasterServerConfigOptions.BACKUP_COUNT.key().equals(name)) {
@@ -253,20 +256,23 @@ public class YamlSeaTunnelDomConfigProcessor extends AbstractDomConfigProcessor 
             } else if (ServerConfigOptions.MasterServerConfigOptions.JOB_SCHEDULE_STRATEGY
                     .key()
                     .equals(name)) {
-                engineConfig.setScheduleStrategy(
-                        ScheduleStrategy.valueOf(getTextContent(node).toUpperCase(Locale.ROOT)));
-            } else if (ServerConfigOptions.MasterServerConfigOptions.PENDING_JOB_RESCHEDULE
-                    .key()
-                    .equals(name)) {
-                engineConfig.putScheduleStrategyConfig(
-                        ScheduleStrategy.WAIT_RESCHEDULE, parsePendingJobRescheduleConfig(node));
-                pendingJobRescheduleConfigured = true;
+                parseJobScheduleStrategyNode(node, engineConfig, configuredScheduleStrategyConfigs);
             } else if (ServerConfigOptions.MasterServerConfigOptions.HTTP.key().equals(name)) {
                 engineConfig.setHttpConfig(parseHttpConfig(node));
             } else if (ServerConfigOptions.MasterServerConfigOptions.COORDINATOR_SERVICE
                     .key()
                     .equals(name)) {
                 engineConfig.setCoordinatorServiceConfig(parseCoordinatorServiceConfig(node));
+            } else if (ScheduleStrategy.findByConfigSectionKey(name).isPresent()) {
+                ScheduleStrategy scheduleStrategy =
+                        ScheduleStrategy.findByConfigSectionKey(name).get();
+                if (configuredScheduleStrategyConfigs.contains(scheduleStrategy)) {
+                    throw new InvalidConfigurationException("Duplicate element: " + name);
+                }
+                ScheduleStrategyConfig scheduleStrategyConfig =
+                        parseScheduleStrategyConfig(node, scheduleStrategy, name);
+                engineConfig.putScheduleStrategyConfig(scheduleStrategy, scheduleStrategyConfig);
+                configuredScheduleStrategyConfigs.add(scheduleStrategy);
             } else {
                 LOGGER.warning("Unrecognized element: " + name);
             }
@@ -276,45 +282,151 @@ public class YamlSeaTunnelDomConfigProcessor extends AbstractDomConfigProcessor 
             // If dynamic slot is enabled, the schedule strategy must be REJECT
             LOGGER.info("Dynamic slot is enabled, the schedule strategy is set to REJECT");
             engineConfig.setScheduleStrategy(ScheduleStrategy.REJECT);
+            configuredScheduleStrategyConfigs.clear();
         }
 
-        if (pendingJobRescheduleConfigured
-                && !engineConfig.getScheduleStrategy().supportsPendingJobReschedule()) {
+        if (!configuredScheduleStrategyConfigs.isEmpty()
+                && !configuredScheduleStrategyConfigs.contains(
+                        engineConfig.getScheduleStrategy())) {
             throw new InvalidConfigurationException(
-                    ServerConfigOptions.MasterServerConfigOptions.PENDING_JOB_RESCHEDULE.key()
-                            + " is only supported when job-schedule-strategy is WAIT_RESCHEDULE");
+                    "Schedule strategy config is only supported when job-schedule-strategy matches it");
         }
     }
 
-    private PendingJobRescheduleConfig parsePendingJobRescheduleConfig(Node pendingRescheduleNode) {
-        PendingJobRescheduleConfig pendingJobRescheduleConfig = new PendingJobRescheduleConfig();
-        for (Node node : childElements(pendingRescheduleNode)) {
+    private void parseJobScheduleStrategyNode(
+            Node jobScheduleStrategyNode,
+            EngineConfig engineConfig,
+            EnumSet<ScheduleStrategy> configuredScheduleStrategyConfigs) {
+        if (!childElements(jobScheduleStrategyNode).iterator().hasNext()) {
+            engineConfig.setScheduleStrategy(
+                    ScheduleStrategy.valueOf(
+                            getTextContent(jobScheduleStrategyNode).toUpperCase(Locale.ROOT)));
+            return;
+        }
+
+        ScheduleStrategy scheduleStrategy = null;
+        for (Node node : childElements(jobScheduleStrategyNode)) {
             String name = cleanNodeName(node);
-            if (PendingJobRescheduleConfig.KEY_MAX_RETRY_TIMES.equals(name)) {
-                int maxRetryTimes =
-                        getIntegerValue(
-                                PendingJobRescheduleConfig.KEY_MAX_RETRY_TIMES,
-                                getTextContent(node));
-                if (maxRetryTimes <= 0) {
-                    throw new InvalidConfigurationException(
-                            PendingJobRescheduleConfig.KEY_MAX_RETRY_TIMES + " must be > 0");
-                }
-                pendingJobRescheduleConfig.setMaxRetryTimes(maxRetryTimes);
-            } else if (PendingJobRescheduleConfig.KEY_SLEEP_INTERVAL_MILLIS.equals(name)) {
-                int sleepIntervalMillis =
-                        getIntegerValue(
-                                PendingJobRescheduleConfig.KEY_SLEEP_INTERVAL_MILLIS,
-                                getTextContent(node));
-                if (sleepIntervalMillis <= 0) {
-                    throw new InvalidConfigurationException(
-                            PendingJobRescheduleConfig.KEY_SLEEP_INTERVAL_MILLIS + " must be > 0");
-                }
-                pendingJobRescheduleConfig.setSleepIntervalMillis(sleepIntervalMillis);
-            } else {
-                throw new InvalidConfigurationException("Unrecognized element: " + name);
+            if ("strategy".equals(name) || "name".equals(name) || "type".equals(name)) {
+                scheduleStrategy =
+                        ScheduleStrategy.valueOf(getTextContent(node).toUpperCase(Locale.ROOT));
+                continue;
+            }
+
+            ScheduleStrategy.findByConfigSectionKey(name)
+                    .ifPresent(
+                            s -> {
+                                if (configuredScheduleStrategyConfigs.contains(s)) {
+                                    throw new InvalidConfigurationException(
+                                            "Duplicate element: " + name);
+                                }
+                                ScheduleStrategyConfig scheduleStrategyConfig =
+                                        parseScheduleStrategyConfig(node, s, name);
+                                engineConfig.putScheduleStrategyConfig(s, scheduleStrategyConfig);
+                                configuredScheduleStrategyConfigs.add(s);
+                            });
+            if (ScheduleStrategy.findByConfigSectionKey(name).isPresent()) {
+                continue;
+            }
+
+            throw new InvalidConfigurationException("Unrecognized element: " + name);
+        }
+
+        if (scheduleStrategy == null) {
+            throw new InvalidConfigurationException(
+                    "job-schedule-strategy.strategy (or name/type) is required");
+        }
+        engineConfig.setScheduleStrategy(scheduleStrategy);
+
+        if (!configuredScheduleStrategyConfigs.isEmpty()
+                && !configuredScheduleStrategyConfigs.contains(
+                        engineConfig.getScheduleStrategy())) {
+            throw new InvalidConfigurationException(
+                    "Schedule strategy config is only supported when job-schedule-strategy matches it");
+        }
+    }
+
+    private ScheduleStrategyConfig parseScheduleStrategyConfig(
+            Node scheduleStrategyConfigNode,
+            ScheduleStrategy scheduleStrategy,
+            String sectionName) {
+        ScheduleStrategyConfig config = scheduleStrategy.createDefaultConfig();
+        if (config == null) {
+            throw new InvalidConfigurationException(sectionName + " is not supported");
+        }
+        for (Node node : childElements(scheduleStrategyConfigNode)) {
+            String key = cleanNodeName(node);
+            String value = getTextContent(node);
+            setScheduleStrategyConfigValue(config, key, value);
+        }
+        scheduleStrategy.validateConfig(config);
+        return config;
+    }
+
+    private void setScheduleStrategyConfigValue(
+            ScheduleStrategyConfig config, String key, String value) {
+        String propertyName = toCamelCase(key);
+        String setterName = "set" + capitalize(propertyName);
+        Method setter =
+                Arrays.stream(config.getClass().getMethods())
+                        .filter(m -> m.getName().equals(setterName) && m.getParameterCount() == 1)
+                        .findFirst()
+                        .orElseThrow(
+                                () ->
+                                        new InvalidConfigurationException(
+                                                "Unrecognized element: " + key));
+        Class<?> paramType = setter.getParameterTypes()[0];
+        Object convertedValue = convertValue(key, value, paramType);
+        try {
+            setter.invoke(config, convertedValue);
+        } catch (Exception e) {
+            throw new InvalidConfigurationException(
+                    "Set config failed for key: " + key + ", value: " + value, e);
+        }
+    }
+
+    private Object convertValue(String key, String value, Class<?> paramType) {
+        if (paramType.equals(String.class)) {
+            return value;
+        }
+        if (paramType.equals(int.class) || paramType.equals(Integer.class)) {
+            return getIntegerValue(key, value);
+        }
+        if (paramType.equals(long.class) || paramType.equals(Long.class)) {
+            try {
+                return Long.parseLong(value);
+            } catch (NumberFormatException e) {
+                throw new InvalidConfigurationException(key + " must be a number", e);
             }
         }
-        return pendingJobRescheduleConfig;
+        if (paramType.equals(boolean.class) || paramType.equals(Boolean.class)) {
+            return getBooleanValue(value);
+        }
+        throw new InvalidConfigurationException("Unsupported config type for key: " + key);
+    }
+
+    private String toCamelCase(String key) {
+        String[] parts = key.split("-");
+        StringBuilder sb = new StringBuilder();
+        for (int i = 0; i < parts.length; i++) {
+            String part = parts[i];
+            if (part.isEmpty()) {
+                continue;
+            }
+            if (i == 0) {
+                sb.append(part);
+            } else {
+                sb.append(capitalize(part));
+            }
+        }
+        return sb.toString();
+    }
+
+    private String capitalize(String s) {
+        if (s == null || s.isEmpty()) {
+            return s;
+        }
+        return Character.toUpperCase(s.charAt(0)) + s.substring(1);
     }
 
     private CheckpointConfig parseCheckpointConfig(Node checkpointNode) {

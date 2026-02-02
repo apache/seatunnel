@@ -15,17 +15,12 @@
  * limitations under the License.
  */
 
-package org.apache.seatunnel.engine.common.config.server;
+package org.apache.seatunnel.engine.common.config.server.scheduler;
 
 import lombok.Data;
 
 @Data
-public class PendingJobRescheduleConfig implements ScheduleStrategyConfig {
-
-    public static final String KEY_MAX_RETRY_TIMES = "max-retry-times";
-    public static final String KEY_SLEEP_INTERVAL_MILLIS = "sleep-interval-millis";
-
-    private int maxRetryTimes = 3;
+public class WaitConfig implements ScheduleStrategyConfig {
 
     private int sleepIntervalMillis = 3000;
 }

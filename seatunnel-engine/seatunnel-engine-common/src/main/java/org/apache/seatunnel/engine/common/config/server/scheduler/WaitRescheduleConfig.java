@@ -15,6 +15,14 @@
  * limitations under the License.
  */
 
-package org.apache.seatunnel.engine.common.config.server;
+package org.apache.seatunnel.engine.common.config.server.scheduler;
 
-public interface ScheduleStrategyConfig {}
+import lombok.Data;
+
+@Data
+public class WaitRescheduleConfig implements ScheduleStrategyConfig {
+
+    private int maxRetryTimes = 3;
+
+    private int sleepIntervalMillis = 3000;
+}

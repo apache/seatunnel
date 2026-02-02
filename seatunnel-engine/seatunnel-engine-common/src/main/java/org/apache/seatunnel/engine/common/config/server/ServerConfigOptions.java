@@ -21,6 +21,7 @@ import org.apache.seatunnel.shade.com.fasterxml.jackson.core.type.TypeReference;
 
 import org.apache.seatunnel.api.configuration.Option;
 import org.apache.seatunnel.api.configuration.Options;
+import org.apache.seatunnel.engine.common.config.server.scheduler.ScheduleStrategyConfig;
 
 import java.util.Map;
 
@@ -190,11 +191,12 @@ public class ServerConfigOptions {
                         .withDescription(
                                 "When the policy is REJECT, when the task queue is full, the task will be rejected; when the policy is WAIT, when the task queue is full, the task will wait; when the policy is WAIT_RESCHEDULE, the task will wait and pending queue may reschedule when resources are not enough.");
 
-        public static final Option<PendingJobRescheduleConfig> PENDING_JOB_RESCHEDULE =
+        public static final Option<ScheduleStrategyConfig> PENDING_JOB_RESCHEDULE =
                 Options.key("pending-job-reschedule")
-                        .type(new TypeReference<PendingJobRescheduleConfig>() {})
-                        .defaultValue(new PendingJobRescheduleConfig())
-                        .withDescription("The pending job reschedule configuration.");
+                        .type(new TypeReference<ScheduleStrategyConfig>() {})
+                        .noDefaultValue()
+                        .withDescription(
+                                "The WAIT_RESCHEDULE strategy configuration. Effective only when job-schedule-strategy is WAIT_RESCHEDULE.");
         // The options for job scheduler end
         /////////////////////////////////////////////////////
 

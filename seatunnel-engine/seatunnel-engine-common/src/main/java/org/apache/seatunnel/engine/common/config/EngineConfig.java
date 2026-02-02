@@ -21,14 +21,15 @@ import org.apache.seatunnel.engine.common.config.server.CheckpointConfig;
 import org.apache.seatunnel.engine.common.config.server.ConnectorJarStorageConfig;
 import org.apache.seatunnel.engine.common.config.server.CoordinatorServiceConfig;
 import org.apache.seatunnel.engine.common.config.server.HttpConfig;
-import org.apache.seatunnel.engine.common.config.server.PendingJobRescheduleConfig;
 import org.apache.seatunnel.engine.common.config.server.QueueType;
 import org.apache.seatunnel.engine.common.config.server.ScheduleStrategy;
-import org.apache.seatunnel.engine.common.config.server.ScheduleStrategyConfig;
 import org.apache.seatunnel.engine.common.config.server.ServerConfigOptions;
 import org.apache.seatunnel.engine.common.config.server.SlotServiceConfig;
 import org.apache.seatunnel.engine.common.config.server.TelemetryConfig;
 import org.apache.seatunnel.engine.common.config.server.ThreadShareMode;
+import org.apache.seatunnel.engine.common.config.server.scheduler.ScheduleStrategyConfig;
+import org.apache.seatunnel.engine.common.config.server.scheduler.WaitConfig;
+import org.apache.seatunnel.engine.common.config.server.scheduler.WaitRescheduleConfig;
 import org.apache.seatunnel.engine.common.runtime.ExecutionMode;
 
 import lombok.Data;
@@ -108,7 +109,8 @@ public class EngineConfig {
     private static Map<ScheduleStrategy, ScheduleStrategyConfig> defaultScheduleStrategyConfigs() {
         Map<ScheduleStrategy, ScheduleStrategyConfig> configs =
                 new EnumMap<>(ScheduleStrategy.class);
-        configs.put(ScheduleStrategy.WAIT_RESCHEDULE, new PendingJobRescheduleConfig());
+        configs.put(ScheduleStrategy.WAIT, new WaitConfig());
+        configs.put(ScheduleStrategy.WAIT_RESCHEDULE, new WaitRescheduleConfig());
         return configs;
     }
 

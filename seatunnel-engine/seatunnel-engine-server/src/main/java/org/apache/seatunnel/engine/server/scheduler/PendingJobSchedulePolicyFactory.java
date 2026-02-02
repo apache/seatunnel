@@ -17,8 +17,9 @@
 
 package org.apache.seatunnel.engine.server.scheduler;
 
-import org.apache.seatunnel.engine.common.config.server.PendingJobRescheduleConfig;
 import org.apache.seatunnel.engine.common.config.server.ScheduleStrategy;
+import org.apache.seatunnel.engine.common.config.server.scheduler.WaitConfig;
+import org.apache.seatunnel.engine.common.config.server.scheduler.WaitRescheduleConfig;
 
 public final class PendingJobSchedulePolicyFactory {
 
@@ -40,7 +41,13 @@ public final class PendingJobSchedulePolicyFactory {
         @Override
         public void onResourcesNotEnough(PendingJobScheduleContext context)
                 throws InterruptedException {
-            context.sleep(3000);
+            WaitConfig config =
+                    context.getEngineConfig()
+                            .getScheduleStrategyConfig(ScheduleStrategy.WAIT, WaitConfig.class);
+            if (config == null) {
+                config = new WaitConfig();
+            }
+            context.sleep(config.getSleepIntervalMillis());
         }
     }
 
@@ -48,13 +55,12 @@ public final class PendingJobSchedulePolicyFactory {
         @Override
         public void onResourcesNotEnough(PendingJobScheduleContext context)
                 throws InterruptedException {
-            PendingJobRescheduleConfig config =
+            WaitRescheduleConfig config =
                     context.getEngineConfig()
                             .getScheduleStrategyConfig(
-                                    ScheduleStrategy.WAIT_RESCHEDULE,
-                                    PendingJobRescheduleConfig.class);
+                                    ScheduleStrategy.WAIT_RESCHEDULE, WaitRescheduleConfig.class);
             if (config == null) {
-                config = new PendingJobRescheduleConfig();
+                config = new WaitRescheduleConfig();
             }
             int maxRetryTimes = config.getMaxRetryTimes();
             int checkTimes = context.getPendingJobInfo().getCheckTimes();
