@@ -19,9 +19,13 @@ package org.apache.seatunnel.api.table.catalog;
 
 import org.apache.seatunnel.api.table.type.ArrayType;
 import org.apache.seatunnel.api.table.type.BasicType;
+import org.apache.seatunnel.api.table.type.DecimalType;
+import org.apache.seatunnel.api.table.type.LocalTimeType;
 import org.apache.seatunnel.api.table.type.MapType;
+import org.apache.seatunnel.api.table.type.PrimitiveByteArrayType;
 import org.apache.seatunnel.api.table.type.SeaTunnelDataType;
 import org.apache.seatunnel.api.table.type.SeaTunnelRowType;
+import org.apache.seatunnel.api.table.type.VectorType;
 import org.apache.seatunnel.common.exception.SeaTunnelRuntimeException;
 
 import org.junit.jupiter.api.Assertions;
@@ -165,5 +169,158 @@ public class SeaTunnelDataTypeConvertorUtilTest {
                         SeaTunnelDataTypeConvertorUtil.deserializeSeaTunnelDataType(
                                 "c_byte_row", "{c = byte}");
         Assertions.assertEquals(BasicType.BYTE_TYPE, byteRow.getFieldType(0));
+    }
+
+    @Test
+    public void testAllSupportedTypes() {
+        // Test basic types
+        Assertions.assertEquals(
+                BasicType.STRING_TYPE,
+                SeaTunnelDataTypeConvertorUtil.deserializeSeaTunnelDataType("c_string", "string"));
+        Assertions.assertEquals(
+                BasicType.BOOLEAN_TYPE,
+                SeaTunnelDataTypeConvertorUtil.deserializeSeaTunnelDataType(
+                        "c_boolean", "boolean"));
+        Assertions.assertEquals(
+                BasicType.BYTE_TYPE,
+                SeaTunnelDataTypeConvertorUtil.deserializeSeaTunnelDataType(
+                        "c_tinyint", "tinyint"));
+        Assertions.assertEquals(
+                PrimitiveByteArrayType.INSTANCE,
+                SeaTunnelDataTypeConvertorUtil.deserializeSeaTunnelDataType("c_bytes", "bytes"));
+        Assertions.assertEquals(
+                BasicType.SHORT_TYPE,
+                SeaTunnelDataTypeConvertorUtil.deserializeSeaTunnelDataType(
+                        "c_smallint", "smallint"));
+        Assertions.assertEquals(
+                BasicType.INT_TYPE,
+                SeaTunnelDataTypeConvertorUtil.deserializeSeaTunnelDataType("c_int", "int"));
+        Assertions.assertEquals(
+                BasicType.LONG_TYPE,
+                SeaTunnelDataTypeConvertorUtil.deserializeSeaTunnelDataType("c_bigint", "bigint"));
+        Assertions.assertEquals(
+                BasicType.FLOAT_TYPE,
+                SeaTunnelDataTypeConvertorUtil.deserializeSeaTunnelDataType("c_float", "float"));
+        Assertions.assertEquals(
+                BasicType.DOUBLE_TYPE,
+                SeaTunnelDataTypeConvertorUtil.deserializeSeaTunnelDataType("c_double", "double"));
+        Assertions.assertEquals(
+                BasicType.VOID_TYPE,
+                SeaTunnelDataTypeConvertorUtil.deserializeSeaTunnelDataType("c_null", "null"));
+
+        // Test datetime types
+        Assertions.assertEquals(
+                LocalTimeType.LOCAL_DATE_TYPE,
+                SeaTunnelDataTypeConvertorUtil.deserializeSeaTunnelDataType("c_date", "date"));
+        Assertions.assertEquals(
+                LocalTimeType.LOCAL_TIME_TYPE,
+                SeaTunnelDataTypeConvertorUtil.deserializeSeaTunnelDataType("c_time", "time"));
+        Assertions.assertEquals(
+                LocalTimeType.LOCAL_DATE_TIME_TYPE,
+                SeaTunnelDataTypeConvertorUtil.deserializeSeaTunnelDataType(
+                        "c_timestamp", "timestamp"));
+        Assertions.assertEquals(
+                LocalTimeType.OFFSET_DATE_TIME_TYPE,
+                SeaTunnelDataTypeConvertorUtil.deserializeSeaTunnelDataType(
+                        "c_timestamp_tz", "timestamp_tz"));
+
+        // Test vector types
+        Assertions.assertEquals(
+                VectorType.VECTOR_BINARY_TYPE,
+                SeaTunnelDataTypeConvertorUtil.deserializeSeaTunnelDataType(
+                        "c_binary_vector", "binary_vector"));
+        Assertions.assertEquals(
+                VectorType.VECTOR_FLOAT_TYPE,
+                SeaTunnelDataTypeConvertorUtil.deserializeSeaTunnelDataType(
+                        "c_float_vector", "float_vector"));
+        Assertions.assertEquals(
+                VectorType.VECTOR_FLOAT16_TYPE,
+                SeaTunnelDataTypeConvertorUtil.deserializeSeaTunnelDataType(
+                        "c_float16_vector", "float16_vector"));
+        Assertions.assertEquals(
+                VectorType.VECTOR_BFLOAT16_TYPE,
+                SeaTunnelDataTypeConvertorUtil.deserializeSeaTunnelDataType(
+                        "c_bfloat16_vector", "bfloat16_vector"));
+        Assertions.assertEquals(
+                VectorType.VECTOR_SPARSE_FLOAT_TYPE,
+                SeaTunnelDataTypeConvertorUtil.deserializeSeaTunnelDataType(
+                        "c_sparse_float_vector", "sparse_float_vector"));
+
+        // Test complex types - Array
+        Assertions.assertEquals(
+                ArrayType.STRING_ARRAY_TYPE,
+                SeaTunnelDataTypeConvertorUtil.deserializeSeaTunnelDataType(
+                        "c_string_array", "array<string>"));
+        Assertions.assertEquals(
+                ArrayType.BOOLEAN_ARRAY_TYPE,
+                SeaTunnelDataTypeConvertorUtil.deserializeSeaTunnelDataType(
+                        "c_boolean_array", "array<boolean>"));
+        Assertions.assertEquals(
+                ArrayType.INT_ARRAY_TYPE,
+                SeaTunnelDataTypeConvertorUtil.deserializeSeaTunnelDataType(
+                        "c_int_array", "array<int>"));
+        Assertions.assertEquals(
+                ArrayType.LONG_ARRAY_TYPE,
+                SeaTunnelDataTypeConvertorUtil.deserializeSeaTunnelDataType(
+                        "c_bigint_array", "array<bigint>"));
+        Assertions.assertEquals(
+                ArrayType.FLOAT_ARRAY_TYPE,
+                SeaTunnelDataTypeConvertorUtil.deserializeSeaTunnelDataType(
+                        "c_float_array", "array<float>"));
+        Assertions.assertEquals(
+                ArrayType.DOUBLE_ARRAY_TYPE,
+                SeaTunnelDataTypeConvertorUtil.deserializeSeaTunnelDataType(
+                        "c_double_array", "array<double>"));
+
+        // Test complex types - Map
+        MapType<?, ?> stringMapType =
+                (MapType<?, ?>)
+                        SeaTunnelDataTypeConvertorUtil.deserializeSeaTunnelDataType(
+                                "c_string_map", "map<string, string>");
+        Assertions.assertEquals(BasicType.STRING_TYPE, stringMapType.getKeyType());
+        Assertions.assertEquals(BasicType.STRING_TYPE, stringMapType.getValueType());
+
+        MapType<?, ?> intStringMapType =
+                (MapType<?, ?>)
+                        SeaTunnelDataTypeConvertorUtil.deserializeSeaTunnelDataType(
+                                "c_int_string_map", "map<int, string>");
+        Assertions.assertEquals(BasicType.INT_TYPE, intStringMapType.getKeyType());
+        Assertions.assertEquals(BasicType.STRING_TYPE, intStringMapType.getValueType());
+
+        // Test complex types - Decimal
+        DecimalType decimalType =
+                (DecimalType)
+                        SeaTunnelDataTypeConvertorUtil.deserializeSeaTunnelDataType(
+                                "c_decimal", "decimal(10,2)");
+        Assertions.assertEquals(10, decimalType.getPrecision());
+        Assertions.assertEquals(2, decimalType.getScale());
+
+        // Test complex types - Row
+        SeaTunnelRowType rowType =
+                (SeaTunnelRowType)
+                        SeaTunnelDataTypeConvertorUtil.deserializeSeaTunnelDataType(
+                                "c_row", "{c1 = string, c2 = int, c3 = boolean}");
+        Assertions.assertEquals(3, rowType.getFieldNames().length);
+        Assertions.assertEquals(3, rowType.getFieldTypes().length);
+        Assertions.assertEquals("c1", rowType.getFieldName(0));
+        Assertions.assertEquals(BasicType.STRING_TYPE, rowType.getFieldType(0));
+        Assertions.assertEquals("c2", rowType.getFieldName(1));
+        Assertions.assertEquals(BasicType.INT_TYPE, rowType.getFieldType(1));
+        Assertions.assertEquals("c3", rowType.getFieldName(2));
+        Assertions.assertEquals(BasicType.BOOLEAN_TYPE, rowType.getFieldType(2));
+
+        // Test nested complex types
+        ArrayType<?, ?> arrayOfArrayType =
+                (ArrayType<?, ?>)
+                        SeaTunnelDataTypeConvertorUtil.deserializeSeaTunnelDataType(
+                                "c_array_array", "array<array<int>>");
+        Assertions.assertEquals(ArrayType.INT_ARRAY_TYPE, arrayOfArrayType.getElementType());
+
+        MapType<?, ?> mapOfArrayType =
+                (MapType<?, ?>)
+                        SeaTunnelDataTypeConvertorUtil.deserializeSeaTunnelDataType(
+                                "c_map_array", "map<string, array<int>>");
+        Assertions.assertEquals(BasicType.STRING_TYPE, mapOfArrayType.getKeyType());
+        Assertions.assertEquals(ArrayType.INT_ARRAY_TYPE, mapOfArrayType.getValueType());
     }
 }
