@@ -69,6 +69,8 @@ public class FtpFileIT extends TestSuiteBase implements TestResource {
 
     private static final int FTP_PORT = 21;
 
+    private static final String FTP_CONTAINER_HOME = "/home/vsftpd/seatunnel";
+
     private static final String USERNAME = "seatunnel";
 
     private static final String PASSWORD = "pass";
@@ -204,6 +206,32 @@ public class FtpFileIT extends TestSuiteBase implements TestResource {
         Assertions.assertEquals("5", resultExecResult.getStdout().trim());
 
         deleteFileFromContainer(homePath);
+    }
+
+    @TestTemplate
+    public void testFtpBinaryUpdateModeDistcp(TestContainer container)
+            throws IOException, InterruptedException {
+        resetUpdateTestPath();
+        putFtpFile("/tmp/seatunnel/update/src/test.bin", "abc");
+
+        Container.ExecResult firstRun = container.executeJob("/text/ftp_binary_update_distcp.conf");
+        Assertions.assertEquals(0, firstRun.getExitCode(), firstRun.getStderr());
+        Assertions.assertEquals("abc", readFtpFile("/tmp/seatunnel/update/dst/test.bin"));
+
+        // Make target newer with same length, distcp strategy should SKIP overwrite.
+        putFtpFile("/tmp/seatunnel/update/dst/test.bin", "zzz");
+        Container.ExecResult secondRun =
+                container.executeJob("/text/ftp_binary_update_distcp.conf");
+        Assertions.assertEquals(0, secondRun.getExitCode(), secondRun.getStderr());
+        Assertions.assertEquals("zzz", readFtpFile("/tmp/seatunnel/update/dst/test.bin"));
+
+        // Change source length, distcp strategy should COPY overwrite.
+        putFtpFile("/tmp/seatunnel/update/src/test.bin", "abcd");
+        Container.ExecResult thirdRun = container.executeJob("/text/ftp_binary_update_distcp.conf");
+        Assertions.assertEquals(0, thirdRun.getExitCode(), thirdRun.getStderr());
+        Assertions.assertEquals("abcd", readFtpFile("/tmp/seatunnel/update/dst/test.bin"));
+
+        deleteFileFromContainer(FTP_CONTAINER_HOME + "/tmp/seatunnel/update");
     }
 
     @TestTemplate
@@ -381,6 +409,53 @@ public class FtpFileIT extends TestSuiteBase implements TestResource {
         helper.execute("/text/multiple_table_fake_to_ftp_file_text_2.conf");
         Assertions.assertEquals(getFileListFromContainer(homePath + path3).size(), 2);
         Assertions.assertEquals(getFileListFromContainer(homePath + path4).size(), 2);
+    }
+
+    private void resetUpdateTestPath() throws IOException, InterruptedException {
+        deleteFileFromContainer(FTP_CONTAINER_HOME + "/tmp/seatunnel/update");
+        Container.ExecResult mkdirResult =
+                ftpContainer.execInContainer(
+                        "sh",
+                        "-c",
+                        "mkdir -p "
+                                + FTP_CONTAINER_HOME
+                                + "/tmp/seatunnel/update/src "
+                                + FTP_CONTAINER_HOME
+                                + "/tmp/seatunnel/update/dst "
+                                + FTP_CONTAINER_HOME
+                                + "/tmp/seatunnel/update/tmp");
+        Assertions.assertEquals(0, mkdirResult.getExitCode(), mkdirResult.getStderr());
+        ftpContainer.execInContainer(
+                "sh", "-c", "chmod -R 777 " + FTP_CONTAINER_HOME + "/tmp/seatunnel/update || true");
+        ftpContainer.execInContainer(
+                "sh",
+                "-c",
+                "chown -R ftp:ftp " + FTP_CONTAINER_HOME + "/tmp/seatunnel/update || true");
+    }
+
+    private void putFtpFile(String ftpPath, String content)
+            throws IOException, InterruptedException {
+        String containerPath = FTP_CONTAINER_HOME + ftpPath;
+        String command =
+                "mkdir -p $(dirname '"
+                        + containerPath
+                        + "') && printf '"
+                        + content
+                        + "' > '"
+                        + containerPath
+                        + "' && chmod 666 '"
+                        + containerPath
+                        + "'";
+        Container.ExecResult putResult = ftpContainer.execInContainer("sh", "-c", command);
+        Assertions.assertEquals(0, putResult.getExitCode(), putResult.getStderr());
+    }
+
+    private String readFtpFile(String ftpPath) throws IOException, InterruptedException {
+        String containerPath = FTP_CONTAINER_HOME + ftpPath;
+        Container.ExecResult catResult =
+                ftpContainer.execInContainer("sh", "-c", "cat '" + containerPath + "'");
+        Assertions.assertEquals(0, catResult.getExitCode(), catResult.getStderr());
+        return catResult.getStdout() == null ? "" : catResult.getStdout().trim();
     }
 
     @SneakyThrows

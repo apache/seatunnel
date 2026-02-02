@@ -72,6 +72,11 @@ import ChangeLog from '../changelog/connector-file-ftp.md';
 | null_format                 | string  | 否    | -                   |
 | binary_chunk_size           | int     | 否    | 1024                |
 | binary_complete_file_mode   | boolean | 否    | false               |
+| sync_mode                   | string  | 否    | full                |
+| target_path                 | string  | 否    | -                   |
+| target_hadoop_conf          | map     | 否    | -                   |
+| update_strategy             | string  | 否    | distcp              |
+| compare_mode                | string  | 否    | len_mtime           |
 | common-options              |         | 否    | -                   |
 | file_filter_modified_start  | string  | 否    | -                   | 
 | file_filter_modified_end    | string  | 否    | -                   | 
@@ -404,6 +409,27 @@ SeaTunnel 将从源文件中跳过前 2 行。
 
 是否将完整文件作为单个块读取，而不是分割成块。启用时，整个文件内容将一次性读入内存。默认为 false。
 
+### sync_mode [string]
+
+文件同步模式，支持：`full`（默认）、`update`。
+当 `update` 时，对源/目标进行对比，只读取新增/变更文件（目前仅支持 `file_format_type=binary`）。
+
+### target_path [string]
+
+仅在 `sync_mode=update` 时使用。目标端基础路径（通常应与 sink 的 `path` 一致），用于对比同相对路径文件。
+
+### target_hadoop_conf [map]
+
+仅在 `sync_mode=update` 时使用。目标端 Hadoop 配置（可选），可在其中设置 `fs.defaultFS` 覆盖目标 defaultFS。
+
+### update_strategy [string]
+
+仅在 `sync_mode=update` 时使用。支持：`distcp`（默认）、`strict`。
+
+### compare_mode [string]
+
+仅在 `sync_mode=update` 时使用。支持：`len_mtime`（默认）、`checksum`（仅在 `update_strategy=strict` 时可用）。
+
 ### file_filter_modified_start
 
 按照最后修改时间过滤文件。 要过滤的开始时间(包括改时间),时间格式是：`yyyy-MM-dd HH:mm:ss`。
@@ -538,6 +564,47 @@ sink {
   }
 }
 
+```
+
+### 增量同步（sync_mode=update，仅 binary）
+
+`sync_mode=update` 会对比 source 与 `target_path`，仅读取新增/变更文件。
+多数情况下，`target_path` 需要与 sink 的 `path` 对齐（同一文件系统、相同相对路径）。
+
+```hocon
+env {
+  parallelism = 1
+  job.mode = "BATCH"
+}
+
+source {
+  FtpFile {
+    host = "192.168.31.48"
+    port = 21
+    user = tyrantlucifer
+    password = tianchao
+
+    path = "/seatunnel/read/binary/"
+    file_format_type = "binary"
+
+    sync_mode = "update"
+    target_path = "/seatunnel/read/binary2/"
+    update_strategy = "distcp"
+    compare_mode = "len_mtime"
+  }
+}
+sink {
+  FtpFile {
+    host = "192.168.31.48"
+    port = 21
+    user = tyrantlucifer
+    password = tianchao
+
+    path = "/seatunnel/read/binary2/"
+    tmp_path = "/seatunnel/read/binary2-tmp/"
+    file_format_type = "binary"
+  }
+}
 ```
 
 ### 过滤文件
