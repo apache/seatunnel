@@ -568,10 +568,10 @@ public class RestApiIT {
                                                         "jobDag.vertexInfoMap[1].tablePaths[0]",
                                                         equalTo("fake"))
                                                 .body(
-                                                        "metrics.TableSourceReceivedCount.fake",
+                                                        "metrics.TableSourceReceivedCount.'Source[0].fake'",
                                                         equalTo("5"))
                                                 .body(
-                                                        "metrics.TableSinkWriteCount.fake",
+                                                        "metrics.TableSinkWriteCount.'Sink[0].fake'",
                                                         equalTo("5"))
                                                 .body("metrics.SinkWriteCount", equalTo("5"))
                                                 .body("metrics.SourceReceivedCount", equalTo("5"))
@@ -634,10 +634,10 @@ public class RestApiIT {
                                                         "jobDag.vertexInfoMap[1].tablePaths[0]",
                                                         equalTo("fake"))
                                                 .body(
-                                                        "metrics.TableSourceReceivedCount.fake",
+                                                        "metrics.TableSourceReceivedCount.'Source[0].fake'",
                                                         equalTo("5"))
                                                 .body(
-                                                        "metrics.TableSinkWriteCount.fake",
+                                                        "metrics.TableSinkWriteCount.'Sink[0].fake'",
                                                         equalTo("5"))
                                                 .body("metrics.SinkWriteCount", equalTo("5"))
                                                 .body("metrics.SourceReceivedCount", equalTo("5"))

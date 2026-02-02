@@ -78,3 +78,8 @@ export interface Job {
   metrics: Metrics
   pluginJarsUrls: []
 }
+
+export interface JobPage {
+  total: number
+  data: Job[]
+}

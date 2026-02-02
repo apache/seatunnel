@@ -75,12 +75,17 @@ Please refer [security](security.md)
 
 ------------------------------------------------------------------------------------------
 
-### Returns An Overview And State Of All Jobs
+### Query An Overview And State Of Running Jobs
 
 <details>
- <summary><code>GET</code> <code><b>/running-jobs</b></code> <code>(Returns an overview over all jobs and their current state.)</code></summary>
+ <summary><code>GET</code> <code><b>/running-jobs?page=1&rows=10</b></code> <code>(Query an overview over running jobs and their current state.)</code></summary>
 
 #### Parameters
+
+> | name  |   type   | data type | description                                                                       |
+> |-------|----------|-----------|-----------------------------------------------------------------------------------|
+> | page  | optional | int       | page number.                                                                      |
+> | rows  | optional | int       | page size.                                                                        |
 
 #### Responses
 
@@ -465,16 +470,18 @@ When we can't get the job info, the response will be:
 
 ------------------------------------------------------------------------------------------
 
-### Return All Finished Jobs Info
+### Query Finished Jobs Info
 
 <details>
- <summary><code>GET</code> <code><b>/finished-jobs/:state</b></code> <code>(Return all finished Jobs Info.)</code></summary>
+ <summary><code>GET</code> <code><b>/finished-jobs/:state?page=1&rows=10</b></code> <code>(Query finished Jobs Info.)</code></summary>
 
 #### Parameters
 
 > | name  |   type   | data type | description                                                                       |
 > |-------|----------|-----------|-----------------------------------------------------------------------------------|
 > | state | optional | string    | finished job status. `FINISHED`,`CANCELED`,`FAILED`,`SAVEPOINT_DONE`,`UNKNOWABLE` |
+> | page  | optional | int       | page number.                                                                      |
+> | rows  | optional | int       | page size.                                                                        |
 
 #### Responses
 
