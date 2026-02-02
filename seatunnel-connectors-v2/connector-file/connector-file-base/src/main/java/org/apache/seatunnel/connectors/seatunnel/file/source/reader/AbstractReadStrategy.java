@@ -780,7 +780,7 @@ public abstract class AbstractReadStrategy implements ReadStrategy {
         return new Path(targetBasePath, cleanRelativePath).toString();
     }
 
-    private static String resolveRelativePath(String basePath, String fullFilePath) {
+    protected static String resolveRelativePath(String basePath, String fullFilePath) {
         String base = normalizePathPart(basePath);
         String file = normalizePathPart(fullFilePath);
         if (StringUtils.isBlank(file)) {
