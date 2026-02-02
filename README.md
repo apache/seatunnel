@@ -45,6 +45,7 @@ SeaTunnel addresses common data integration challenges:
 - **Resource Efficiency**: Minimizes computing resources and JDBC connections for real-time synchronization.
   
 - **Quality and Monitoring**: Provides data quality and monitoring to prevent data loss or duplication.
+
 ## Key Features
 
 - **Diverse Connectors**: Offers support for over 100 connectors, with ongoing expansion.
