@@ -26,6 +26,13 @@ import ChangeLog from '../changelog/connector-cdc-sqlserver.md';
 
 Sql Server CDC 连接器允许从 SqlServer 数据库读取快照数据和增量数据。本文档描述了如何设置 Sql Server CDC 连接器来对 SqlServer 数据库运行 SQL 查询。
 
+:::tip
+
+在通过 JDBC 元数据发现表列信息时，SeaTunnel 会按精确的 schema/table 标识符对返回结果做二次过滤，以避免混入其他表的列（部分驱动会将
+`schemaPattern`/`tableNamePattern` 视为 SQL LIKE 模式匹配）。对于大小写敏感的数据库，请确保配置的标识符大小写与数据库一致。
+
+:::
+
 ## 支持的数据源信息
 
 | 数据源    | 支持版本                                      | 驱动                                         | Url                                                           | Maven                                                                 |
