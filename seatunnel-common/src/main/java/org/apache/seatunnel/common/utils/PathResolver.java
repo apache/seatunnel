@@ -23,6 +23,8 @@ import org.apache.seatunnel.common.config.Common;
 
 import java.io.File;
 import java.net.MalformedURLException;
+import java.net.URI;
+import java.net.URISyntaxException;
 import java.net.URL;
 import java.nio.file.Path;
 import java.nio.file.Paths;
@@ -70,10 +72,14 @@ public class PathResolver {
         if (normalizedPath.startsWith(normalizedHome)) {
             String relativePath = normalizedPath.substring(normalizedHome.length());
             // Ensure leading slash for URL construction
-            String newPath = SEATUNNEL_HOME_VAR + relativePath.replace(File.separatorChar, '/');
+            String newPath =
+                    "/" + SEATUNNEL_HOME_VAR + relativePath.replace(File.separatorChar, '/');
+            // Remove double slashes if any (e.g. if relativePath started with /)
+            newPath = newPath.replace("//", "/");
             try {
-                return new URL(url.getProtocol(), url.getHost(), url.getPort(), newPath);
-            } catch (MalformedURLException e) {
+                // Use URI constructor to build URL, ensure format consistency
+                return new URI(url.getProtocol(), url.getHost(), newPath, null).toURL();
+            } catch (MalformedURLException | URISyntaxException e) {
                 throw new RuntimeException("Failed to create logical URL for: " + url, e);
             }
         }
@@ -115,17 +121,10 @@ public class PathResolver {
 
         // Replace the variable with the actual home path
         // We need to handle the case where path might start with / or not
-        String cleanPath = path;
-        if (path.startsWith("/")) {
-            cleanPath = path.substring(1);
-        }
-
+        String cleanPath = path.startsWith("/") ? path.substring(1) : path;
         String relativePath = cleanPath.replace(SEATUNNEL_HOME_VAR, "");
-
         // Remove leading slashes from relative path
-        if (relativePath.startsWith("/") || relativePath.startsWith("\\")) {
-            relativePath = relativePath.substring(1);
-        }
+        relativePath = relativePath.replaceAll("^/+", "");
 
         Path fullPath = Paths.get(home, relativePath);
         try {
