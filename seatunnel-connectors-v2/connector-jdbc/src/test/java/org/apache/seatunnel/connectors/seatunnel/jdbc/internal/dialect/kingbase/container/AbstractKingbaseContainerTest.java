@@ -43,7 +43,7 @@ import java.time.Duration;
  *
  * <p>NOTE: The Kingbase license must be provided via the KINGBASE_LICENSE environment variable. In
  * CI, this should be configured as a GitHub Secret. The license has a validity period of 1 year.
- * Current license was generated on 2026-01-31 and will expire around 2027-01-31.
+ * Current license was generated on 2026-01-31 and will expire around 2027-01-31...
  */
 @Slf4j
 @DisabledOnOs(OS.WINDOWS)
@@ -70,7 +70,7 @@ public abstract class AbstractKingbaseContainerTest {
             throw new IllegalStateException(
                     "Environment variable "
                             + KINGBASE_LICENSE_ENV
-                            + " is not set.  Please set it with the license file content.");
+                            + " is not set. Please set it with the license file content.");
         }
 
         DockerImageName imageName = DockerImageName.parse(KINGBASE_IMAGE);
