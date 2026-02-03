@@ -321,6 +321,34 @@ public class GravitinoTableSchemaConvertorTest {
     }
 
     @Test
+    void testTimestampTypeWithPrecision() throws Exception {
+        String json =
+                "{\"columns\":[{\"name\":\"created_at\",\"type\":\"timestamp(6)\",\"nullable\":true}]}";
+        JsonNode metaInfo = OBJECT_MAPPER.readTree(json);
+        TableSchema schema = CONVERTOR.convertor(metaInfo);
+        List<Column> columns = schema.getColumns();
+        Assertions.assertEquals(1, columns.size());
+        PhysicalColumn column = (PhysicalColumn) columns.get(0);
+        Assertions.assertEquals("created_at", column.getName());
+        Assertions.assertEquals(LocalTimeType.LOCAL_DATE_TIME_TYPE, column.getDataType());
+        Assertions.assertEquals(Long.valueOf(6), column.getColumnLength());
+    }
+
+    @Test
+    void testTimestampTzTypeWithPrecision() throws Exception {
+        String json =
+                "{\"columns\":[{\"name\":\"updated_at\",\"type\":\"timestamp_tz(6)\",\"nullable\":true}]}";
+        JsonNode metaInfo = OBJECT_MAPPER.readTree(json);
+        TableSchema schema = CONVERTOR.convertor(metaInfo);
+        List<Column> columns = schema.getColumns();
+        Assertions.assertEquals(1, columns.size());
+        PhysicalColumn column = (PhysicalColumn) columns.get(0);
+        Assertions.assertEquals("updated_at", column.getName());
+        Assertions.assertEquals(LocalTimeType.OFFSET_DATE_TIME_TYPE, column.getDataType());
+        Assertions.assertEquals(Long.valueOf(6), column.getColumnLength());
+    }
+
+    @Test
     void testBinaryType() throws Exception {
         String json =
                 "{\"columns\":[{\"name\":\"binary_col\",\"type\":\"binary\",\"nullable\":true}]}";

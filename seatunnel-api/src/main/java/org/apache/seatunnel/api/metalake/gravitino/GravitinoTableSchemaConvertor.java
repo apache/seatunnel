@@ -38,6 +38,8 @@ import org.apache.seatunnel.api.table.type.SeaTunnelRowType;
 import org.apache.seatunnel.common.constants.MetaLakeType;
 import org.apache.seatunnel.common.exception.CommonError;
 
+import scala.Tuple2;
+
 import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.List;
@@ -69,6 +71,8 @@ public class GravitinoTableSchemaConvertor implements MetaLakeTableSchemaConvert
             Pattern.compile("char\\s*\\(\\s*(\\d+)\\s*\\)", Pattern.CASE_INSENSITIVE);
     private static final Pattern FIXED_PATTERN =
             Pattern.compile("fixed\\s*\\(\\s*(\\d+)\\s*\\)", Pattern.CASE_INSENSITIVE);
+    private static final Pattern TIMESTAMP_PATTERN =
+            Pattern.compile("timestamp(_tz)?\\s*\\(\\s*(\\d+)\\s*\\)", Pattern.CASE_INSENSITIVE);
 
     // JSON field names
     private static final String COLUMNS = "columns";
@@ -152,9 +156,17 @@ public class GravitinoTableSchemaConvertor implements MetaLakeTableSchemaConvert
                     MetaLakeType.GRAVITINO.getType(), "null", name);
         }
         SeaTunnelDataType<?> dataType = convertGravitinoType(name, typeNode);
-        String typeStrForLength = typeNode.isTextual() ? typeNode.asText() : null;
-        Long columnLength = typeStrForLength == null ? null : extractColumnLength(typeStrForLength);
-        Integer scale = typeStrForLength == null ? null : extractScale(typeStrForLength);
+        // Extract column length and scale from type string
+        // Returns null if the type doesn't support length/scale specification
+        Long columnLength = null;
+        Integer scale = null;
+        if (typeNode.isTextual()) {
+            Tuple2<Long, Integer> result = extractLengthAndScale(typeNode.asText());
+            if (result != null) {
+                columnLength = result._1();
+                scale = result._2();
+            }
+        }
         return PhysicalColumn.builder()
                 .name(name)
                 .dataType(dataType)
@@ -203,7 +215,6 @@ public class GravitinoTableSchemaConvertor implements MetaLakeTableSchemaConvert
                             fieldName);
                 }
                 return ArrayType.of(convertGravitinoType(fieldName, elementType));
-
             case "map":
                 JsonNode keyType = typeNode.get(KEY_TYPE);
                 JsonNode valueType = typeNode.get(VALUE_TYPE);
@@ -216,7 +227,6 @@ public class GravitinoTableSchemaConvertor implements MetaLakeTableSchemaConvert
                 return new MapType<>(
                         convertGravitinoType(fieldName, keyType),
                         convertGravitinoType(fieldName, valueType));
-
             case "struct":
                 JsonNode fields = typeNode.get(FIELDS);
                 if (fields == null || !fields.isArray()) {
@@ -252,7 +262,6 @@ public class GravitinoTableSchemaConvertor implements MetaLakeTableSchemaConvert
             case "external":
                 // External types like PostgreSQL jsonb are treated as string
                 return BasicType.STRING_TYPE;
-
             case "union":
             default:
                 throw CommonError.convertToSeaTunnelTypeError(
@@ -322,28 +331,64 @@ public class GravitinoTableSchemaConvertor implements MetaLakeTableSchemaConvert
         }
     }
 
-    /** Extract column length from type string (for varchar, char, etc.). */
-    private Long extractColumnLength(String type) {
-        Matcher varcharMatcher = VARCHAR_PATTERN.matcher(type);
-        if (varcharMatcher.find()) {
-            return Long.parseLong(varcharMatcher.group(1));
-        }
-        Matcher charMatcher = CHAR_PATTERN.matcher(type);
-        if (charMatcher.find()) {
-            return Long.parseLong(charMatcher.group(1));
-        }
-        Matcher fixedMatcher = FIXED_PATTERN.matcher(type);
-        if (fixedMatcher.find()) {
-            return Long.parseLong(fixedMatcher.group(1));
-        }
-        return null;
-    }
+    /**
+     * Extract column length and scale from type string.
+     *
+     * <p>Supports extracting:
+     *
+     * <ul>
+     *   <li>Length: varchar(n), char(n), fixed(n), timestamp(n), timestamp_tz(n), time(n)
+     *   <li>Scale: decimal(precision,scale) - returns scale, precision can be obtained via
+     *       DecimalType
+     * </ul>
+     *
+     * @param type the type string (e.g., "varchar(255)", "decimal(10,2)", "timestamp(6)")
+     * @return a Pair where left is length (Long) and right is scale (Integer), or null if neither
+     *     exists
+     */
+    private Tuple2<Long, Integer> extractLengthAndScale(String type) {
+        // Extract base type before the parenthesis
+        String baseType = type.split("\\(")[0].trim().toLowerCase();
+        // Remove 'unsigned' suffix for type matching
+        String cleanType = baseType.replaceAll("unsigned", "").trim();
 
-    /** Extract scale from type string (for decimal). */
-    private Integer extractScale(String type) {
-        Matcher decimalMatcher = DECIMAL_PATTERN.matcher(type);
-        if (decimalMatcher.find()) {
-            return Integer.parseInt(decimalMatcher.group(2));
+        switch (cleanType) {
+            case "decimal":
+                Matcher decimalMatcher = DECIMAL_PATTERN.matcher(type);
+                if (decimalMatcher.find()) {
+                    return Tuple2.apply(
+                            Long.parseLong(decimalMatcher.group(1)),
+                            Integer.parseInt(decimalMatcher.group(2)));
+                }
+                break;
+            case "varchar":
+                Matcher varcharMatcher = VARCHAR_PATTERN.matcher(type);
+                if (varcharMatcher.find()) {
+                    return Tuple2.apply(Long.parseLong(varcharMatcher.group(1)), null);
+                }
+                break;
+            case "char":
+                Matcher charMatcher = CHAR_PATTERN.matcher(type);
+                if (charMatcher.find()) {
+                    return Tuple2.apply(Long.parseLong(charMatcher.group(1)), null);
+                }
+                break;
+            case "fixed":
+                Matcher fixedMatcher = FIXED_PATTERN.matcher(type);
+                if (fixedMatcher.find()) {
+                    return Tuple2.apply(Long.parseLong(fixedMatcher.group(1)), null);
+                }
+                break;
+            case "timestamp":
+            case "timestamp_tz":
+                Matcher timestampMatcher = TIMESTAMP_PATTERN.matcher(type);
+                if (timestampMatcher.find()) {
+                    return Tuple2.apply(Long.parseLong(timestampMatcher.group(2)), null);
+                }
+                break;
+            default:
+                // Types not supporting length/scale parameters
+                break;
         }
         return null;
     }
