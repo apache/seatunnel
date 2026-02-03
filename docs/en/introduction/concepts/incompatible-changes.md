@@ -7,6 +7,30 @@ You need to check this document before you upgrade to related version.
 
 ### API Changes
 
+- **Breaking Change: Engine REST table metrics key format**
+  - **Affected component**: SeaTunnel Engine REST API (job metrics in `/job-info`)
+  - **Description**: To support multiple Sources/Sinks/Transforms processing the same table, the key format of table-level metrics has changed from `{tableName}` to `{VertexIdentifier}.{tableName}` (for example, `Sink[0].fake.user_table`).
+  - **Impact**: Existing Grafana dashboards, Prometheus alert rules, and custom monitoring integrations that reference the old keys must be updated.
+
+  **Before**
+  ```json
+  {
+    "TableSinkWriteCount": {
+      "fake.user_table": "15"
+    }
+  }
+  ```
+
+  **After**
+  ```json
+  {
+    "TableSinkWriteCount": {
+      "Sink[0].fake.user_table": "10",
+      "Sink[1].fake.user_table": "5"
+    }
+  }
+  ```
+
 ### Configuration Changes
 
 ### Connector Changes

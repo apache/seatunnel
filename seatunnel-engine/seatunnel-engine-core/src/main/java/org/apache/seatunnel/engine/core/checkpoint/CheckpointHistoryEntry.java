@@ -15,17 +15,21 @@
  * limitations under the License.
  */
 
-import { get } from '@/service/service'
-import type {Job, JobPage} from './types'
+package org.apache.seatunnel.engine.core.checkpoint;
 
-export const getRunningJobs = (page: number, rows: number) => get<JobPage>('/running-jobs', {page: page, rows: rows})
-export const getFinishedJobs = (page: number, rows: number) => get<JobPage>(`/finished-jobs`, {page: page, rows: rows})
-export const getJobInfo = (jobId: string) => get<Job>(`/job-info/${jobId}`)
-export const getRunningJobInfo = (jobId: string) => get<Job>(`/running-job/${jobId}`)
+import lombok.AllArgsConstructor;
+import lombok.Builder;
+import lombok.Data;
+import lombok.NoArgsConstructor;
 
-export const JobsService = {
-  getRunningJobs,
-  getFinishedJobs,
-  getJobInfo,
-  getRunningJobInfo
+import java.io.Serializable;
+
+@Data
+@Builder
+@NoArgsConstructor
+@AllArgsConstructor
+public class CheckpointHistoryEntry implements Serializable {
+    private long jobId;
+    private int pipelineId;
+    private CheckpointInfo checkpointInfo;
 }

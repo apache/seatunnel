@@ -17,10 +17,9 @@
 
 package org.apache.seatunnel.engine.server.rest.servlet;
 
-import org.apache.seatunnel.engine.server.rest.service.JobInfoService;
+import org.apache.seatunnel.engine.server.rest.service.CheckpointMonitorRestService;
 
 import com.hazelcast.spi.impl.NodeEngineImpl;
-import lombok.extern.slf4j.Slf4j;
 
 import javax.servlet.ServletException;
 import javax.servlet.http.HttpServletRequest;
@@ -28,20 +27,23 @@ import javax.servlet.http.HttpServletResponse;
 
 import java.io.IOException;
 
-@Slf4j
-public class RunningJobsServlet extends PageBaseServlet {
+public class CheckpointOverviewServlet extends BaseServlet {
 
-    private final JobInfoService jobInfoService;
+    private final CheckpointMonitorRestService restService;
 
-    public RunningJobsServlet(NodeEngineImpl nodeEngine) {
+    public CheckpointOverviewServlet(NodeEngineImpl nodeEngine) {
         super(nodeEngine);
-        this.jobInfoService = new JobInfoService(nodeEngine);
+        this.restService = new CheckpointMonitorRestService(nodeEngine);
     }
 
     @Override
     protected void doGet(HttpServletRequest req, HttpServletResponse resp)
             throws ServletException, IOException {
-
-        writeJsonWithPagination(req, resp, jobInfoService.getRunningJobsJson());
+        String jobIdStr = req.getPathInfo();
+        if (jobIdStr == null || jobIdStr.length() <= 1) {
+            throw new IllegalArgumentException("The jobId must not be empty.");
+        }
+        long jobId = Long.parseLong(jobIdStr.substring(1));
+        writeJson(resp, restService.getOverview(jobId));
     }
 }

@@ -15,17 +15,9 @@
  * limitations under the License.
  */
 
-import { get } from '@/service/service'
-import type {Job, JobPage} from './types'
+package org.apache.seatunnel.engine.server.rest;
 
-export const getRunningJobs = (page: number, rows: number) => get<JobPage>('/running-jobs', {page: page, rows: rows})
-export const getFinishedJobs = (page: number, rows: number) => get<JobPage>(`/finished-jobs`, {page: page, rows: rows})
-export const getJobInfo = (jobId: string) => get<Job>(`/job-info/${jobId}`)
-export const getRunningJobInfo = (jobId: string) => get<Job>(`/running-job/${jobId}`)
-
-export const JobsService = {
-  getRunningJobs,
-  getFinishedJobs,
-  getJobInfo,
-  getRunningJobInfo
+@FunctionalInterface
+public interface RestApiRequestCallback {
+    void callback(int responseCode, String responseContent);
 }

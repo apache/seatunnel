@@ -15,17 +15,44 @@
  * limitations under the License.
  */
 
-import { get } from '@/service/service'
-import type {Job, JobPage} from './types'
+package org.apache.seatunnel.engine.core.checkpoint;
 
-export const getRunningJobs = (page: number, rows: number) => get<JobPage>('/running-jobs', {page: page, rows: rows})
-export const getFinishedJobs = (page: number, rows: number) => get<JobPage>(`/finished-jobs`, {page: page, rows: rows})
-export const getJobInfo = (jobId: string) => get<Job>(`/job-info/${jobId}`)
-export const getRunningJobInfo = (jobId: string) => get<Job>(`/running-job/${jobId}`)
+import lombok.Data;
 
-export const JobsService = {
-  getRunningJobs,
-  getFinishedJobs,
-  getJobInfo,
-  getRunningJobInfo
+import java.io.Serializable;
+
+@Data
+public class CheckpointCounts implements Serializable {
+
+    private long triggered;
+    private long completed;
+    private long failed;
+    private long inProgress;
+    private long restored;
+
+    public void incrementTriggered() {
+        triggered++;
+    }
+
+    public void incrementCompleted() {
+        completed++;
+        if (inProgress > 0) {
+            inProgress--;
+        }
+    }
+
+    public void incrementFailed() {
+        failed++;
+        if (inProgress > 0) {
+            inProgress--;
+        }
+    }
+
+    public void incrementInProgress() {
+        inProgress++;
+    }
+
+    public void incrementRestored() {
+        restored++;
+    }
 }

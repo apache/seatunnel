@@ -41,36 +41,41 @@ They can be downloaded via install-plugin.sh or from the Maven central repositor
 
 4.Permissions:changeStream and read
 
-```shell
-use admin;
-db.createRole(
-    {
-        role: "strole",
-        privileges: [{
-            resource: { db: "", collection: "" },
-            actions: [
-                "splitVector",
-                "listDatabases",
-                "listCollections",
-                "collStats",
-                "find",
-                "changeStream" ]
-        }],
-        roles: [
-            { role: 'read', db: 'config' }
-        ]
-    }
-);
+```
+// 1) Switch to the target database
+use <DB_NAME>
 
-db.createUser(
-  {
-      user: 'stuser',
-      pwd: 'stpw',
-      roles: [
-         { role: 'strole', db: 'admin' }
+// 2) Create role (common permissions for CDC scenarios)
+db.createRole({
+  role: "<ROLE_NAME>",
+  privileges: [
+    {
+      resource: { db: "<DB_NAME>", collection: "" },
+      actions: [
+        "collStats",
+        "splitVector",
+        "listDatabases",
+        "find",
+        "listCollections",
+        "changeStream"
       ]
-  }
-);
+    }
+  ],
+  roles: []
+})
+
+// 3) Create user and bind read + custom role
+db.createUser({
+  user: "<USER_NAME>",
+  pwd: "<PASSWORD>",
+  roles: [
+    { role: "read", db: "<DB_NAME>" },
+    { role: "<ROLE_NAME>", db: "<DB_NAME>" }
+  ]
+})
+
+// 4) Grant additional role to user (use when user exists or additional authorization is needed)
+db.grantRolesToUser("<USER_NAME>", ["<ROLE_NAME>"])
 ```
 
 ## Data Type Mapping
