@@ -17,6 +17,7 @@
 
 package org.apache.seatunnel.connectors.seatunnel.file.source.reader;
 
+import org.apache.seatunnel.api.common.SeaTunnelAPIErrorCode;
 import org.apache.seatunnel.api.source.Collector;
 import org.apache.seatunnel.api.table.type.BasicType;
 import org.apache.seatunnel.api.table.type.MetadataUtil;
@@ -46,7 +47,7 @@ public class BinaryReadStrategy extends AbstractReadStrategy {
                     });
 
     private String basePath;
-    private transient Boolean basePathIsFile;
+    private transient boolean basePathIsFile;
     private int binaryChunkSize = FileBaseSourceOptions.BINARY_CHUNK_SIZE.defaultValue();
     private boolean completeFileMode =
             FileBaseSourceOptions.BINARY_COMPLETE_FILE_MODE.defaultValue();
@@ -55,7 +56,15 @@ public class BinaryReadStrategy extends AbstractReadStrategy {
     public void init(HadoopConf conf) {
         super.init(conf);
         basePath = pluginConfig.getString(FileBaseSourceOptions.FILE_PATH.key());
-        basePathIsFile = null;
+        try {
+            basePathIsFile = hadoopFileSystemProxy.isFile(basePath);
+        } catch (IOException e) {
+            throw new FileConnectorException(
+                    SeaTunnelAPIErrorCode.CONFIG_VALIDATION_FAILED,
+                    "Failed to determine whether file source path is a file or directory: "
+                            + basePath,
+                    e);
+        }
 
         // Load binary chunk size configuration
         if (pluginConfig.hasPath(FileBaseSourceOptions.BINARY_CHUNK_SIZE.key())) {
@@ -100,11 +109,8 @@ public class BinaryReadStrategy extends AbstractReadStrategy {
         }
     }
 
-    private String resolveBinaryRelativePath(String filePath) throws IOException {
-        if (basePathIsFile == null) {
-            basePathIsFile = hadoopFileSystemProxy.isFile(basePath);
-        }
-        if (Boolean.TRUE.equals(basePathIsFile)) {
+    private String resolveBinaryRelativePath(String filePath) {
+        if (basePathIsFile) {
             return new Path(filePath).getName();
         }
         return resolveRelativePath(basePath, filePath);

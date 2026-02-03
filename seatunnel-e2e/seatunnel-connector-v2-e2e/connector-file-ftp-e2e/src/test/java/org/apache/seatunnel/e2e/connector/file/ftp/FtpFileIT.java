@@ -69,13 +69,13 @@ public class FtpFileIT extends TestSuiteBase implements TestResource {
 
     private static final int FTP_PORT = 21;
 
-    private static final String FTP_CONTAINER_HOME = "/home/vsftpd/seatunnel";
-
     private static final String USERNAME = "seatunnel";
 
     private static final String PASSWORD = "pass";
 
     private GenericContainer<?> ftpContainer;
+
+    private String ftpHomeDir;
 
     private String ftpPassiveAddress;
 
@@ -136,36 +136,39 @@ public class FtpFileIT extends TestSuiteBase implements TestResource {
 
         log.info("ftp container started");
 
+        ftpHomeDir = getFtpUserHomeDir();
+
         ContainerUtil.copyFileIntoContainers(
                 "/json/e2e.json",
-                "/home/vsftpd/seatunnel/tmp/seatunnel/read/json/name=tyrantlucifer/hobby=coding/e2e.json",
+                ftpHomeDir + "/tmp/seatunnel/read/json/name=tyrantlucifer/hobby=coding/e2e.json",
                 ftpContainer);
 
         ContainerUtil.copyFileIntoContainers(
                 "/text/e2e.txt",
-                "/home/vsftpd/seatunnel/tmp/seatunnel/read/text/name=tyrantlucifer/hobby=coding/e2e.txt",
+                ftpHomeDir + "/tmp/seatunnel/read/text/name=tyrantlucifer/hobby=coding/e2e.txt",
                 ftpContainer);
 
         ContainerUtil.copyFileIntoContainers(
                 "/text/e2e-txt.zip",
-                "/home/vsftpd/seatunnel/tmp/seatunnel/read/zip/txt/single/e2e-txt.zip",
+                ftpHomeDir + "/tmp/seatunnel/read/zip/txt/single/e2e-txt.zip",
                 ftpContainer);
 
         ContainerUtil.copyFileIntoContainers(
                 "/excel/e2e.xlsx",
-                "/home/vsftpd/seatunnel/tmp/seatunnel/read/excel/name=tyrantlucifer/hobby=coding/e2e.xlsx",
+                ftpHomeDir + "/tmp/seatunnel/read/excel/name=tyrantlucifer/hobby=coding/e2e.xlsx",
                 ftpContainer);
 
         ContainerUtil.copyFileIntoContainers(
                 "/excel/e2e.xlsx",
-                "/home/vsftpd/seatunnel/tmp/seatunnel/read/excel_filter/name=tyrantlucifer/hobby=coding/e2e_filter.xlsx",
+                ftpHomeDir
+                        + "/tmp/seatunnel/read/excel_filter/name=tyrantlucifer/hobby=coding/e2e_filter.xlsx",
                 ftpContainer);
 
         ContainerUtil.copyFileIntoContainers(
-                "/excel/e2e.xlsx", "/home/vsftpd/seatunnel/e2e.xlsx", ftpContainer);
+                "/excel/e2e.xlsx", ftpHomeDir + "/e2e.xlsx", ftpContainer);
 
-        ftpContainer.execInContainer("sh", "-c", "chmod -R 777 /home/vsftpd/seatunnel/");
-        ftpContainer.execInContainer("sh", "-c", "chown -R ftp:ftp /home/vsftpd/seatunnel/");
+        ftpContainer.execInContainer("sh", "-c", "chmod -R 777 " + ftpHomeDir + "/");
+        ftpContainer.execInContainer("sh", "-c", "chown -R ftp:ftp " + ftpHomeDir + "/");
     }
 
     @TestTemplate
@@ -177,7 +180,7 @@ public class FtpFileIT extends TestSuiteBase implements TestResource {
                 container, "/text/ftp_file_text_to_assert_for_passive.conf", configParams);
         assertJobExecution(container, "/text/fake_to_ftp_file_text_for_passive.conf", configParams);
 
-        String homePath = "/home/vsftpd/seatunnel/tmp/seatunnel/passive_text";
+        String homePath = ftpHomeDir + "/tmp/seatunnel/passive_text";
         // test write ftp text file
         Assertions.assertEquals(1, getFileListFromContainer(homePath).size());
 
@@ -196,7 +199,7 @@ public class FtpFileIT extends TestSuiteBase implements TestResource {
         Container.ExecResult execResult = container.executeJob("/text/ftp_to_ftp_for_binary.conf");
         Assertions.assertEquals(0, execResult.getExitCode(), execResult.getStderr());
 
-        String homePath = "/home/vsftpd/seatunnel/uploads/seatunnel";
+        String homePath = ftpHomeDir + "/uploads/seatunnel";
         Assertions.assertEquals(1, getFileListFromContainer(homePath).size());
 
         // Confirm data is written correctly
@@ -231,7 +234,7 @@ public class FtpFileIT extends TestSuiteBase implements TestResource {
         Assertions.assertEquals(0, thirdRun.getExitCode(), thirdRun.getStderr());
         Assertions.assertEquals("abcd", readFtpFile("/tmp/seatunnel/update/dst/test.bin"));
 
-        deleteFileFromContainer(FTP_CONTAINER_HOME + "/tmp/seatunnel/update");
+        deleteFileFromContainer(ftpHomeDir + "/tmp/seatunnel/update");
     }
 
     @TestTemplate
@@ -240,28 +243,33 @@ public class FtpFileIT extends TestSuiteBase implements TestResource {
 
         ContainerUtil.copyFileIntoContainers(
                 "/json/e2e.json",
-                "/home/vsftpd/seatunnel/tmp/seatunnel/read/filter/json/name=tyrantlucifer/hobby=coding/e2e.json",
+                ftpHomeDir
+                        + "/tmp/seatunnel/read/filter/json/name=tyrantlucifer/hobby=coding/e2e.json",
                 ftpContainer);
         ContainerUtil.copyFileIntoContainers(
                 "/json/e2e.json",
-                "/home/vsftpd/seatunnel/tmp/seatunnel/read/filter/json2025/name=tyrantlucifer/hobby=coding/e2e_2025.json",
+                ftpHomeDir
+                        + "/tmp/seatunnel/read/filter/json2025/name=tyrantlucifer/hobby=coding/e2e_2025.json",
                 ftpContainer);
         ContainerUtil.copyFileIntoContainers(
                 "/text/e2e.txt",
-                "/home/vsftpd/seatunnel/tmp/seatunnel/read/filter/json2025/name=tyrantlucifer/hobby=coding/e2e_2025.txt",
+                ftpHomeDir
+                        + "/tmp/seatunnel/read/filter/json2025/name=tyrantlucifer/hobby=coding/e2e_2025.txt",
                 ftpContainer);
         ContainerUtil.copyFileIntoContainers(
                 "/json/e2e.json",
-                "/home/vsftpd/seatunnel/tmp/seatunnel/read/filter/json2024/name=tyrantlucifer/hobby=coding/e2e_2024.json",
+                ftpHomeDir
+                        + "/tmp/seatunnel/read/filter/json2024/name=tyrantlucifer/hobby=coding/e2e_2024.json",
                 ftpContainer);
 
         ContainerUtil.copyFileIntoContainers(
                 "/text/e2e.txt",
-                "/home/vsftpd/seatunnel/tmp/seatunnel/read/filter/text/name=tyrantlucifer/hobby=coding/e2e.txt",
+                ftpHomeDir
+                        + "/tmp/seatunnel/read/filter/text/name=tyrantlucifer/hobby=coding/e2e.txt",
                 ftpContainer);
 
-        ftpContainer.execInContainer("sh", "-c", "chmod -R 777 /home/vsftpd/seatunnel/");
-        ftpContainer.execInContainer("sh", "-c", "chown -R ftp:ftp /home/vsftpd/seatunnel/");
+        ftpContainer.execInContainer("sh", "-c", "chmod -R 777 " + ftpHomeDir + "/");
+        ftpContainer.execInContainer("sh", "-c", "chown -R ftp:ftp " + ftpHomeDir + "/");
 
         TestHelper helper = new TestHelper(container);
         // -----filter based on the file directory at the same time, the expression needs to start
@@ -272,7 +280,7 @@ public class FtpFileIT extends TestSuiteBase implements TestResource {
         helper.execute("/json/ftp_to_access_for_json_name_filter.conf");
 
         // delete path
-        String filterPath = "/home/vsftpd/seatunnel/tmp/seatunnel/read/filter";
+        String filterPath = ftpHomeDir + "/tmp/seatunnel/read/filter";
         deleteFileFromContainer(filterPath);
     }
 
@@ -308,6 +316,7 @@ public class FtpFileIT extends TestSuiteBase implements TestResource {
         // test write ftp json file
         helper.execute("/json/fake_to_ftp_file_json.conf");
         // test read ftp json file
+        ensureReadJsonInputFile();
         helper.execute("/json/ftp_file_json_to_assert.conf");
         // test write ftp parquet file
         helper.execute("/parquet/fake_to_ftp_file_parquet.conf");
@@ -317,7 +326,7 @@ public class FtpFileIT extends TestSuiteBase implements TestResource {
         helper.execute("/excel/fake_source_to_ftp_root_path_excel.conf");
         // test ftp source support multipleTable
 
-        String homePath = "/home/vsftpd/seatunnel";
+        String homePath = ftpHomeDir;
         String sink01 = "/tmp/seatunnel/json/sink/multiplesource/fake01";
         String sink02 = "/tmp/seatunnel/json/sink/multiplesource/fake02";
         deleteFileFromContainer(homePath + sink01);
@@ -336,7 +345,7 @@ public class FtpFileIT extends TestSuiteBase implements TestResource {
         String specialPath = "/tmp/seatunnel/test spaces";
         String fileName = "file with spaces.txt";
         String fullPath = specialPath + "/" + fileName;
-        String homePath = "/home/vsftpd/seatunnel";
+        String homePath = ftpHomeDir;
         String containerPath = homePath + fullPath;
 
         try {
@@ -383,7 +392,7 @@ public class FtpFileIT extends TestSuiteBase implements TestResource {
             throws IOException, InterruptedException {
         TestHelper helper = new TestHelper(container);
         // test mult table and save_mode:RECREATE_SCHEMA DROP_DATA
-        String homePath = "/home/vsftpd/seatunnel";
+        String homePath = ftpHomeDir;
         String path1 = "/tmp/seatunnel_mult/text/source_1";
         String path2 = "/tmp/seatunnel_mult/text/source_2";
         deleteFileFromContainer(homePath + path1);
@@ -412,30 +421,28 @@ public class FtpFileIT extends TestSuiteBase implements TestResource {
     }
 
     private void resetUpdateTestPath() throws IOException, InterruptedException {
-        deleteFileFromContainer(FTP_CONTAINER_HOME + "/tmp/seatunnel/update");
+        deleteFileFromContainer(ftpHomeDir + "/tmp/seatunnel/update");
         Container.ExecResult mkdirResult =
                 ftpContainer.execInContainer(
                         "sh",
                         "-c",
                         "mkdir -p "
-                                + FTP_CONTAINER_HOME
+                                + ftpHomeDir
                                 + "/tmp/seatunnel/update/src "
-                                + FTP_CONTAINER_HOME
+                                + ftpHomeDir
                                 + "/tmp/seatunnel/update/dst "
-                                + FTP_CONTAINER_HOME
+                                + ftpHomeDir
                                 + "/tmp/seatunnel/update/tmp");
         Assertions.assertEquals(0, mkdirResult.getExitCode(), mkdirResult.getStderr());
         ftpContainer.execInContainer(
-                "sh", "-c", "chmod -R 777 " + FTP_CONTAINER_HOME + "/tmp/seatunnel/update || true");
+                "sh", "-c", "chmod -R 777 " + ftpHomeDir + "/tmp/seatunnel/update || true");
         ftpContainer.execInContainer(
-                "sh",
-                "-c",
-                "chown -R ftp:ftp " + FTP_CONTAINER_HOME + "/tmp/seatunnel/update || true");
+                "sh", "-c", "chown -R ftp:ftp " + ftpHomeDir + "/tmp/seatunnel/update || true");
     }
 
     private void putFtpFile(String ftpPath, String content)
             throws IOException, InterruptedException {
-        String containerPath = FTP_CONTAINER_HOME + ftpPath;
+        String containerPath = ftpHomeDir + ftpPath;
         String command =
                 "mkdir -p $(dirname '"
                         + containerPath
@@ -451,11 +458,42 @@ public class FtpFileIT extends TestSuiteBase implements TestResource {
     }
 
     private String readFtpFile(String ftpPath) throws IOException, InterruptedException {
-        String containerPath = FTP_CONTAINER_HOME + ftpPath;
+        String containerPath = ftpHomeDir + ftpPath;
         Container.ExecResult catResult =
                 ftpContainer.execInContainer("sh", "-c", "cat '" + containerPath + "'");
         Assertions.assertEquals(0, catResult.getExitCode(), catResult.getStderr());
         return catResult.getStdout() == null ? "" : catResult.getStdout().trim();
+    }
+
+    private String getFtpUserHomeDir() throws IOException, InterruptedException {
+        Container.ExecResult homeResult =
+                ftpContainer.execInContainer(
+                        "sh", "-c", "grep '^" + USERNAME + ":' /etc/passwd | cut -d: -f6");
+        Assertions.assertEquals(0, homeResult.getExitCode(), homeResult.getStderr());
+        String homeDir = homeResult.getStdout() == null ? "" : homeResult.getStdout().trim();
+        Assertions.assertTrue(
+                StringUtils.isNotBlank(homeDir),
+                "Cannot resolve ftp home directory for user: " + USERNAME);
+        return homeDir;
+    }
+
+    private void ensureReadJsonInputFile() throws IOException, InterruptedException {
+        Container.ExecResult mkdirResult =
+                ftpContainer.execInContainer(
+                        "sh",
+                        "-c",
+                        "mkdir -p "
+                                + ftpHomeDir
+                                + "/tmp/seatunnel/read/json/name=tyrantlucifer/hobby=coding");
+        Assertions.assertEquals(0, mkdirResult.getExitCode(), mkdirResult.getStderr());
+        ContainerUtil.copyFileIntoContainers(
+                "/json/e2e.json",
+                ftpHomeDir + "/tmp/seatunnel/read/json/name=tyrantlucifer/hobby=coding/e2e.json",
+                ftpContainer);
+        Container.ExecResult chmodResult =
+                ftpContainer.execInContainer(
+                        "sh", "-c", "chmod -R 777 " + ftpHomeDir + "/tmp/seatunnel/read");
+        Assertions.assertEquals(0, chmodResult.getExitCode(), chmodResult.getStderr());
     }
 
     @SneakyThrows

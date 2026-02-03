@@ -421,6 +421,25 @@ null_format 定义哪些字符串可以表示为 null。
 文件同步模式，支持：`full`（默认）、`update`。
 当 `update` 时，对源/目标进行对比，只读取新增/变更文件（目前仅支持 `file_format_type=binary`）。
 
+**性能注意事项**
+- Update 模式会对每个源文件额外发起一次到目标端的 `getFileStatus` 用于对比。
+- 不建议用于海量小文件场景。
+
+**要求 / 限制**
+- `target_path` 通常应与 sink 的 `path` 一致（同一文件系统且相对路径结构一致）。
+- 使用 `update_strategy=distcp` 时，依赖源/目标端时钟同步，否则可能误判。
+- 使用 `compare_mode=checksum` 时，需要文件系统支持 checksum；若无法获取 checksum，SeaTunnel 会降级为内容比较（开销更大）并打印告警日志。
+
+示例：
+
+```hocon
+sync_mode = "update"
+file_format_type = "binary"
+target_path = "/path/to/your/sink/path"
+update_strategy = "distcp"
+compare_mode = "len_mtime"
+```
+
 ### target_path [string]
 
 仅在 `sync_mode=update` 时使用。目标端基础路径（通常应与 sink 的 `path` 一致），用于对比同相对路径文件。

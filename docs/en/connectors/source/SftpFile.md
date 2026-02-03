@@ -302,6 +302,25 @@ Whether to read the complete file as a single chunk instead of splitting into ch
 File sync mode. Supported values: `full` (default), `update`.
 When `update`, the source compares files between source/target and only reads new/changed files (currently only supports `file_format_type=binary`).
 
+**Performance considerations**
+- Update mode triggers an extra `getFileStatus` call on the target for each source file.
+- For remote file systems (FTP/SFTP), this adds per-file network overhead. It is not recommended for massive small-file scenarios.
+
+**Requirements / limitations**
+- `target_path` should typically align with sink `path` (same filesystem and same relative path layout).
+- When `update_strategy=distcp`, correctness depends on source/target clock synchronization.
+- When `compare_mode=checksum`, filesystem checksum support is required. If checksum is unavailable, SeaTunnel falls back to content comparison (more expensive) and logs a warning.
+
+Example:
+
+```hocon
+sync_mode = "update"
+file_format_type = "binary"
+target_path = "/path/to/your/sink/path"
+update_strategy = "distcp"
+compare_mode = "len_mtime"
+```
+
 ### target_path [string]
 
 Only used when `sync_mode=update`. Target base path used for comparison (it should usually be the same as sink `path`).
