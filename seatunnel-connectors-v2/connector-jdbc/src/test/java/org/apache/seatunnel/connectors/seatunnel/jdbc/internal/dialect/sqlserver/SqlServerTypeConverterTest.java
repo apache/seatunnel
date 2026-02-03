@@ -540,7 +540,7 @@ public class SqlServerTypeConverterTest {
                         .build();
         column = SqlServerTypeConverter.INSTANCE.convert(typeDefine);
         Assertions.assertEquals(typeDefine.getName(), column.getName());
-        Assertions.assertEquals(LocalTimeType.LOCAL_DATE_TIME_TYPE, column.getDataType());
+        Assertions.assertEquals(LocalTimeType.OFFSET_DATE_TIME_TYPE, column.getDataType());
         Assertions.assertEquals(typeDefine.getScale(), column.getScale());
         Assertions.assertEquals(
                 String.format("%s(%s)", typeDefine.getDataType(), typeDefine.getScale()),
