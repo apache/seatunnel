@@ -110,7 +110,7 @@ For more details, see: [lightbend/config#456](https://github.com/lightbend/confi
 
 
 ## Where should I start if I want to learn SeaTunnel source code?
-SeaTunnel features a highly abstracted and well-structured architecture, making it an excellent choice for learning big data architecture. You can start by exploring and debugging the `seatunnel-examples` module: `SeaTunnelEngineLocalExample.java`. For more details, refer to the [SeaTunnel Contribution Guide](https://seatunnel.apache.org/docs/contribution/setup).
+SeaTunnel features a highly abstracted and well-structured architecture, making it an excellent choice for learning big data architecture. You can start by exploring and debugging the `seatunnel-examples` module: `SeaTunnelEngineLocalExample.java`. For more details, refer to the [SeaTunnel Contribution Guide](https://seatunnel.apache.org/docs/developer/setup).
 
 ## Do I need to understand all of SeaTunnel’s source code if I want to develop my own source, sink, or transform?
 No, you only need to focus on the interfaces for source, sink, and transform. If you want to develop your own connector (Connector V2) for the SeaTunnel API, refer to the **[Connector Development Guide](https://github.com/apache/seatunnel/blob/dev/seatunnel-connectors-v2/README.md)**.

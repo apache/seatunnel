@@ -418,13 +418,26 @@ File modification time filter. The connector will filter some files base on the 
 
 File modification time filter. The connector will filter some files base on the last modification end time (not include end time). The default data format is `yyyy-MM-dd HH:mm:ss`.
 
-### enable_file_split [string]
+### enable_file_split [boolean]
 
 Turn on the file splitting function, the default is false.It can be selected when the file type is csv, text, json, parquet and non-compressed format.
+
+**Recommendations**
+- Enable when reading a few large files and you want higher read parallelism.
+- Disable when reading many small files, or when parallelism is low (splitting adds overhead).
+
+**Limitations**
+- Not supported for compressed files (`compress_codec` != `none`) or archive files (`archive_compress_codec` != `none`) — it will fall back to non-splitting.
+- For `text`/`csv`/`json`, actual split size may be larger than `file_split_size` because the split end is aligned to the next `row_delimiter`.
+- LocalFile uses Hadoop LocalFileSystem internally; no extra Hadoop configuration is required.
 
 ### file_split_size [long]
 
 File split size, which can be filled in when the enable_file_split parameter is true. The unit is the number of bytes. The default value is the number of bytes of 128MB, which is 134217728.
+
+**Tuning**
+- Start with the default (128MB). Decrease it if parallelism is under-utilized; increase it if the number of splits is too large.
+- Rough rule: `file_split_size ≈ file_size / desired_parallelism`.
 
 ### quote_char [string]
 

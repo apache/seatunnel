@@ -20,13 +20,16 @@ package org.apache.seatunnel.engine.server.rest.service;
 import org.apache.seatunnel.shade.com.fasterxml.jackson.core.JsonProcessingException;
 import org.apache.seatunnel.shade.com.fasterxml.jackson.databind.JsonNode;
 import org.apache.seatunnel.shade.com.fasterxml.jackson.databind.ObjectMapper;
+import org.apache.seatunnel.shade.com.fasterxml.jackson.databind.node.ArrayNode;
 import org.apache.seatunnel.shade.com.typesafe.config.Config;
 import org.apache.seatunnel.shade.org.apache.commons.lang3.ArrayUtils;
 import org.apache.seatunnel.shade.org.apache.commons.lang3.StringUtils;
 
+import org.apache.seatunnel.api.common.metrics.MetricTags;
 import org.apache.seatunnel.api.configuration.ReadonlyConfig;
 import org.apache.seatunnel.api.options.EnvCommonOptions;
 import org.apache.seatunnel.api.table.catalog.TablePath;
+import org.apache.seatunnel.common.constants.PluginType;
 import org.apache.seatunnel.common.utils.DateTimeUtils;
 import org.apache.seatunnel.engine.common.Constant;
 import org.apache.seatunnel.engine.common.config.JobConfig;
@@ -38,6 +41,7 @@ import org.apache.seatunnel.engine.core.job.ExecutionAddress;
 import org.apache.seatunnel.engine.core.job.JobDAGInfo;
 import org.apache.seatunnel.engine.core.job.JobImmutableInformation;
 import org.apache.seatunnel.engine.core.job.JobInfo;
+import org.apache.seatunnel.engine.core.job.VertexInfo;
 import org.apache.seatunnel.engine.server.CoordinatorService;
 import org.apache.seatunnel.engine.server.SeaTunnelServer;
 import org.apache.seatunnel.engine.server.dag.DAGUtils;
@@ -67,12 +71,17 @@ import com.hazelcast.spi.impl.NodeEngineImpl;
 import lombok.extern.slf4j.Slf4j;
 
 import java.io.IOException;
+import java.util.ArrayList;
 import java.util.Arrays;
+import java.util.Comparator;
 import java.util.HashMap;
 import java.util.HashSet;
+import java.util.List;
 import java.util.Map;
 import java.util.Set;
 import java.util.concurrent.ExecutionException;
+import java.util.regex.Matcher;
+import java.util.regex.Pattern;
 import java.util.stream.Collectors;
 import java.util.stream.Stream;
 import java.util.stream.StreamSupport;
@@ -105,6 +114,10 @@ import static org.apache.seatunnel.engine.server.rest.RestConstant.TABLE_SOURCE_
 
 @Slf4j
 public abstract class BaseService {
+
+    private static final int JOB_METRICS_LOG_TRUNCATE_LENGTH = 500;
+    private static final Pattern VERTEX_IDENTIFIER_PATTERN =
+            Pattern.compile("((?:Sink|Source|Transform)\\[(\\d+)\\])");
 
     protected final NodeEngineImpl nodeEngine;
 
@@ -205,7 +218,9 @@ public abstract class BaseService {
                 .add(
                         RestConstant.IS_START_WITH_SAVE_POINT,
                         jobImmutableInformation.isStartWithSavePoint())
-                .add(RestConstant.METRICS, metricsToJsonObject(getJobMetrics(jobMetrics)));
+                .add(
+                        RestConstant.METRICS,
+                        metricsToJsonObject(getJobMetrics(jobMetrics, jobDAGInfo)));
 
         return jobInfoJson;
     }
@@ -248,11 +263,42 @@ public abstract class BaseService {
                                 DateTimeUtils.Formatter.YYYY_MM_DD_HH_MM_SS))
                 .add(RestConstant.JOB_DAG, jobDAGInfo.toJsonObject())
                 .add(RestConstant.PLUGIN_JARS_URLS, new JsonArray())
-                .add(RestConstant.METRICS, metricsToJsonObject(getJobMetrics(jobMetrics)));
+                .add(
+                        RestConstant.METRICS,
+                        metricsToJsonObject(getJobMetrics(jobMetrics, jobDAGInfo)));
     }
 
-    private Map<String, Object> getJobMetrics(String jobMetrics) {
+    private Map<String, Object> getJobMetrics(String jobMetrics, JobDAGInfo jobDAGInfo) {
         Map<String, Object> metricsMap = new HashMap<>();
+
+        Map<String, List<String>> tableToSourceIdentifiersMap = new HashMap<>();
+        Map<String, List<String>> tableToSinkIdentifiersMap = new HashMap<>();
+        if (jobDAGInfo != null && jobDAGInfo.getVertexInfoMap() != null) {
+            for (VertexInfo vertexInfo : jobDAGInfo.getVertexInfoMap().values()) {
+                String identifier = extractVertexIdentifier(vertexInfo.getConnectorType());
+                if (vertexInfo.getTablePaths() == null
+                        || identifier.equals(vertexInfo.getConnectorType())) {
+                    continue;
+                }
+                Map<String, List<String>> targetMap = null;
+                if (vertexInfo.getType() == PluginType.SOURCE) {
+                    targetMap = tableToSourceIdentifiersMap;
+                } else if (vertexInfo.getType() == PluginType.SINK) {
+                    targetMap = tableToSinkIdentifiersMap;
+                }
+
+                if (targetMap != null) {
+                    for (TablePath tablePath : vertexInfo.getTablePaths()) {
+                        targetMap
+                                .computeIfAbsent(tablePath.getFullName(), k -> new ArrayList<>())
+                                .add(identifier);
+                    }
+                }
+            }
+            sortVertexIdentifiers(tableToSourceIdentifiersMap);
+            sortVertexIdentifiers(tableToSinkIdentifiersMap);
+        }
+
         // To add metrics, populate the corresponding array,
         String[] countMetricsNames = {
             SOURCE_RECEIVED_COUNT,
@@ -316,12 +362,35 @@ public abstract class BaseService {
                     .fieldNames()
                     .forEachRemaining(
                             metricName -> {
-                                if (metricName.contains("#")) {
+                                if (!metricName.contains("#")) {
+                                    return;
+                                }
+                                try {
                                     String tableName =
                                             TablePath.of(metricName.split("#")[1]).getFullName();
                                     JsonNode metricNode = jobMetricsStr.get(metricName);
+
+                                    Map<String, java.util.List<String>> identifiersMap = null;
+                                    if (metricName.startsWith("TableSource")
+                                            || metricName.startsWith("Source")) {
+                                        identifiersMap = tableToSourceIdentifiersMap;
+                                    } else if (metricName.startsWith("TableSink")
+                                            || metricName.startsWith("Sink")) {
+                                        identifiersMap = tableToSinkIdentifiersMap;
+                                    }
+
                                     processMetric(
-                                            metricName, tableName, metricNode, tableMetricsMaps);
+                                            metricName,
+                                            tableName,
+                                            metricNode,
+                                            tableMetricsMaps,
+                                            identifiersMap);
+                                } catch (Exception e) {
+                                    log.error(
+                                            "Failed to process metric '{}': {}. Continuing with other metrics.",
+                                            metricName,
+                                            e.getMessage(),
+                                            e);
                                 }
                             });
 
@@ -333,6 +402,15 @@ public abstract class BaseService {
                     ArrayUtils.addAll(countMetricsNames, rateMetricsNames));
 
         } catch (JsonProcessingException e) {
+            log.error(
+                    "Failed to parse job metrics JSON: {}. Raw input (first {} chars): {}",
+                    e.getMessage(),
+                    JOB_METRICS_LOG_TRUNCATE_LENGTH,
+                    truncateJobMetricsForLog(jobMetrics),
+                    e);
+            return metricsMap;
+        } catch (Exception e) {
+            log.error("Unexpected error while processing job metrics: {}", e.getMessage(), e);
             return metricsMap;
         }
 
@@ -355,10 +433,155 @@ public abstract class BaseService {
             String metricName,
             String tableName,
             JsonNode metricNode,
-            Map<String, JsonNode>[] tableMetricsMaps) {
+            Map<String, JsonNode>[] tableMetricsMaps,
+            Map<String, java.util.List<String>> tableToVertexIdentifiersMap) {
         if (metricNode == null) {
             return;
         }
+
+        List<String> vertexIdentifiers =
+                tableToVertexIdentifiersMap == null
+                        ? null
+                        : tableToVertexIdentifiersMap.get(tableName);
+
+        if (vertexIdentifiers == null || vertexIdentifiers.isEmpty()) {
+            putMetricToMap(metricName, tableName, metricNode, tableMetricsMaps);
+            return;
+        }
+
+        if (!metricNode.isArray()) {
+            String metricKey = tableName;
+            if (vertexIdentifiers.size() == 1) {
+                metricKey = vertexIdentifiers.get(0) + "." + tableName;
+            } else {
+                log.warn(
+                        "Cannot reliably determine vertex assignment for table '{}' metric '{}' (isArray=false) with {} configured vertices, using table name only to avoid incorrect attribution",
+                        tableName,
+                        metricName,
+                        vertexIdentifiers.size());
+            }
+            putMetricToMap(metricName, metricKey, metricNode, tableMetricsMaps);
+            return;
+        }
+
+        // Prefer tag-based attribution to handle partial/mismatched arrays reliably.
+        ObjectMapper mapper = new ObjectMapper();
+        Map<String, ArrayNode> metricsByIdentifier = new HashMap<>();
+        ArrayNode unassignedMetrics = null;
+        for (JsonNode node : metricNode) {
+            String identifier = extractVertexIdentifierFromMetricNode(node);
+            if (StringUtils.isNotBlank(identifier) && vertexIdentifiers.contains(identifier)) {
+                metricsByIdentifier
+                        .computeIfAbsent(identifier, k -> mapper.createArrayNode())
+                        .add(node);
+            } else {
+                if (unassignedMetrics == null) {
+                    unassignedMetrics = mapper.createArrayNode();
+                }
+                unassignedMetrics.add(node);
+            }
+        }
+
+        if (!metricsByIdentifier.isEmpty()) {
+            metricsByIdentifier.keySet().stream()
+                    .sorted(vertexIdentifierComparator())
+                    .forEach(
+                            identifier -> {
+                                putMetricToMap(
+                                        metricName,
+                                        identifier + "." + tableName,
+                                        metricsByIdentifier.get(identifier),
+                                        tableMetricsMaps);
+                            });
+
+            if (vertexIdentifiers.size() > 1
+                    && metricsByIdentifier.size() < vertexIdentifiers.size()) {
+                log.warn(
+                        "Some vertices may not be reporting metrics yet for table '{}': expected {} vertices {}, but only received metrics for {} vertices {}",
+                        tableName,
+                        vertexIdentifiers.size(),
+                        vertexIdentifiers,
+                        metricsByIdentifier.size(),
+                        metricsByIdentifier.keySet());
+            }
+
+            if (unassignedMetrics != null && unassignedMetrics.size() > 0) {
+                log.warn(
+                        "Found {} unassigned metric entries for table '{}' metric '{}', using table name key only for these entries",
+                        unassignedMetrics.size(),
+                        tableName,
+                        metricName);
+                putMetricToMap(metricName, tableName, unassignedMetrics, tableMetricsMaps);
+            }
+            return;
+        }
+
+        // Fallback for legacy/simplified metric nodes without tags (mainly in tests or older
+        // outputs).
+        int arraySize = metricNode.size();
+        if (vertexIdentifiers.size() > 1) {
+            if (arraySize == vertexIdentifiers.size()) {
+                for (int i = 0; i < arraySize; i++) {
+                    String identifier = vertexIdentifiers.get(i);
+                    String metricKey = identifier + "." + tableName;
+                    JsonNode element = metricNode.get(i);
+                    if (element != null && element.isArray()) {
+                        putMetricToMap(metricName, metricKey, element, tableMetricsMaps);
+                    } else {
+                        ArrayNode wrapped = mapper.createArrayNode();
+                        wrapped.add(element);
+                        putMetricToMap(metricName, metricKey, wrapped, tableMetricsMaps);
+                    }
+                }
+            } else if (arraySize > 0 && arraySize < vertexIdentifiers.size()) {
+                log.warn(
+                        "Metric array size mismatch for table '{}': expected {} vertices {} but got {} metric entries. Some vertices may not be reporting metrics yet.",
+                        tableName,
+                        vertexIdentifiers.size(),
+                        vertexIdentifiers,
+                        arraySize);
+                for (int i = 0; i < arraySize; i++) {
+                    String identifier = vertexIdentifiers.get(i);
+                    String metricKey = identifier + "." + tableName;
+                    JsonNode element = metricNode.get(i);
+                    if (element != null && element.isArray()) {
+                        putMetricToMap(metricName, metricKey, element, tableMetricsMaps);
+                    } else {
+                        ArrayNode wrapped = mapper.createArrayNode();
+                        wrapped.add(element);
+                        putMetricToMap(metricName, metricKey, wrapped, tableMetricsMaps);
+                    }
+                }
+            } else if (arraySize > vertexIdentifiers.size()) {
+                log.error(
+                        "Invalid metric array size for table '{}': received {} metric entries but only {} vertices {} configured. Using table name only.",
+                        tableName,
+                        arraySize,
+                        vertexIdentifiers.size(),
+                        vertexIdentifiers);
+                putMetricToMap(metricName, tableName, metricNode, tableMetricsMaps);
+            } else {
+                log.warn(
+                        "Metric array size mismatch for table '{}': expected {} vertices {} but got {} metric entries. Using table name only to avoid incorrect attribution.",
+                        tableName,
+                        vertexIdentifiers.size(),
+                        vertexIdentifiers,
+                        arraySize);
+                putMetricToMap(metricName, tableName, metricNode, tableMetricsMaps);
+            }
+            return;
+        }
+
+        // Single vertex: safe to prefix.
+        String metricKey = vertexIdentifiers.get(0) + "." + tableName;
+        putMetricToMap(metricName, metricKey, metricNode, tableMetricsMaps);
+    }
+
+    private void putMetricToMap(
+            String metricName,
+            String metricKey,
+            JsonNode metricNode,
+            Map<String, JsonNode>[] tableMetricsMaps) {
 
         // Define index constant
         final int SOURCE_COUNT_IDX = 0,
@@ -374,30 +597,103 @@ public abstract class BaseService {
                 SINK_BYTES_SEC_IDX = 10,
                 SINK_COMMITTED_BYTES_SEC_IDX = 11;
         if (metricName.startsWith(SOURCE_RECEIVED_COUNT + "#")) {
-            tableMetricsMaps[SOURCE_COUNT_IDX].put(tableName, metricNode);
+            tableMetricsMaps[SOURCE_COUNT_IDX].put(metricKey, metricNode);
         } else if (metricName.startsWith(SINK_WRITE_COUNT + "#")) {
-            tableMetricsMaps[SINK_COUNT_IDX].put(tableName, metricNode);
+            tableMetricsMaps[SINK_COUNT_IDX].put(metricKey, metricNode);
         } else if (metricName.startsWith(SINK_COMMITTED_COUNT + "#")) {
-            tableMetricsMaps[SINK_COMMITTED_COUNT_IDX].put(tableName, metricNode);
+            tableMetricsMaps[SINK_COMMITTED_COUNT_IDX].put(metricKey, metricNode);
         } else if (metricName.startsWith(SOURCE_RECEIVED_BYTES + "#")) {
-            tableMetricsMaps[SOURCE_BYTES_IDX].put(tableName, metricNode);
+            tableMetricsMaps[SOURCE_BYTES_IDX].put(metricKey, metricNode);
         } else if (metricName.startsWith(SINK_WRITE_BYTES + "#")) {
-            tableMetricsMaps[SINK_BYTES_IDX].put(tableName, metricNode);
+            tableMetricsMaps[SINK_BYTES_IDX].put(metricKey, metricNode);
         } else if (metricName.startsWith(SINK_COMMITTED_BYTES + "#")) {
-            tableMetricsMaps[SINK_COMMITTED_BYTES_IDX].put(tableName, metricNode);
+            tableMetricsMaps[SINK_COMMITTED_BYTES_IDX].put(metricKey, metricNode);
         } else if (metricName.startsWith(SOURCE_RECEIVED_QPS + "#")) {
-            tableMetricsMaps[SOURCE_QPS_IDX].put(tableName, metricNode);
+            tableMetricsMaps[SOURCE_QPS_IDX].put(metricKey, metricNode);
         } else if (metricName.startsWith(SINK_WRITE_QPS + "#")) {
-            tableMetricsMaps[SINK_QPS_IDX].put(tableName, metricNode);
+            tableMetricsMaps[SINK_QPS_IDX].put(metricKey, metricNode);
         } else if (metricName.startsWith(SINK_COMMITTED_QPS + "#")) {
-            tableMetricsMaps[SINK_COMMITTED_QPS_IDX].put(tableName, metricNode);
+            tableMetricsMaps[SINK_COMMITTED_QPS_IDX].put(metricKey, metricNode);
         } else if (metricName.startsWith(SOURCE_RECEIVED_BYTES_PER_SECONDS + "#")) {
-            tableMetricsMaps[SOURCE_BYTES_SEC_IDX].put(tableName, metricNode);
+            tableMetricsMaps[SOURCE_BYTES_SEC_IDX].put(metricKey, metricNode);
         } else if (metricName.startsWith(SINK_WRITE_BYTES_PER_SECONDS + "#")) {
-            tableMetricsMaps[SINK_BYTES_SEC_IDX].put(tableName, metricNode);
+            tableMetricsMaps[SINK_BYTES_SEC_IDX].put(metricKey, metricNode);
         } else if (metricName.startsWith(SINK_COMMITTED_BYTES_PER_SECONDS + "#")) {
-            tableMetricsMaps[SINK_COMMITTED_BYTES_SEC_IDX].put(tableName, metricNode);
+            tableMetricsMaps[SINK_COMMITTED_BYTES_SEC_IDX].put(metricKey, metricNode);
         }
+    }
+
+    private String extractVertexIdentifier(String vertexName) {
+        if (StringUtils.isBlank(vertexName)) {
+            return "";
+        }
+
+        Matcher matcher = VERTEX_IDENTIFIER_PATTERN.matcher(vertexName);
+        if (matcher.find()) {
+            return matcher.group(1);
+        }
+        return vertexName;
+    }
+
+    private String extractVertexIdentifierFromMetricNode(JsonNode metricNode) {
+        if (metricNode == null) {
+            return "";
+        }
+        JsonNode tagsNode = metricNode.path("tags");
+        if (tagsNode.isMissingNode() || !tagsNode.isObject()) {
+            return "";
+        }
+        String taskName = tagsNode.path(MetricTags.TASK_NAME).asText("");
+        if (StringUtils.isBlank(taskName)) {
+            return "";
+        }
+        Matcher matcher = VERTEX_IDENTIFIER_PATTERN.matcher(taskName);
+        if (matcher.find()) {
+            return matcher.group(1);
+        }
+        return "";
+    }
+
+    private Comparator<String> vertexIdentifierComparator() {
+        return Comparator.comparingInt(this::vertexIdentifierIndex)
+                .thenComparing(Comparator.naturalOrder());
+    }
+
+    private int vertexIdentifierIndex(String identifier) {
+        if (StringUtils.isBlank(identifier)) {
+            return Integer.MAX_VALUE;
+        }
+        Matcher matcher = VERTEX_IDENTIFIER_PATTERN.matcher(identifier);
+        if (matcher.find()) {
+            try {
+                return Integer.parseInt(matcher.group(2));
+            } catch (NumberFormatException ignored) {
+                return Integer.MAX_VALUE;
+            }
+        }
+        return Integer.MAX_VALUE;
+    }
+
+    private void sortVertexIdentifiers(Map<String, List<String>> tableToVertexIdentifiersMap) {
+        if (tableToVertexIdentifiersMap == null || tableToVertexIdentifiersMap.isEmpty()) {
+            return;
+        }
+        tableToVertexIdentifiersMap
+                .values()
+                .forEach(
+                        identifiers -> {
+                            identifiers.sort(vertexIdentifierComparator());
+                        });
+    }
+
+    private String truncateJobMetricsForLog(String jobMetrics) {
+        if (jobMetrics == null) {
+            return "null";
+        }
+        if (jobMetrics.length() > JOB_METRICS_LOG_TRUNCATE_LENGTH) {
+            return jobMetrics.substring(0, JOB_METRICS_LOG_TRUNCATE_LENGTH) + "...";
+        }
+        return jobMetrics;
     }
 
     private void aggregateMetrics(

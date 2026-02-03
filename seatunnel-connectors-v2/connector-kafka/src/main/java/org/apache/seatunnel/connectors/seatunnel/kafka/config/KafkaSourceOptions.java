@@ -125,4 +125,13 @@ public class KafkaSourceOptions extends KafkaBaseOptions {
                     .noDefaultValue()
                     .withDescription(
                             "The time required for consumption mode to be timestamp.The endTimestamp configuration specifies the end timestamp of the messages and is only applicable in batch mode");
+
+    public static final Option<Boolean> STRIP_SCHEMA_REGISTRY_HEADER =
+            Options.key("strip_schema_registry_header")
+                    .booleanType()
+                    .defaultValue(false)
+                    .withDescription(
+                            "Whether to strip the Confluent Schema Registry wire format header "
+                                    + "(magic byte, schema id and message indexes) before "
+                                    + "protobuf deserialization.");
 }

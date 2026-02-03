@@ -204,6 +204,7 @@ public class PhysicalPlan {
             // Tasks with the status 'INITIALIZING', 'CREATED', 'PENDING' need to be set directly to
             // the 'CANCELLED' state because it has not yet started running
             updateJobState(JobStatus.CANCELED);
+            jobEndFuture.complete(new JobResult(JobStatus.CANCELED));
         } else {
             updateJobState(JobStatus.CANCELING);
         }

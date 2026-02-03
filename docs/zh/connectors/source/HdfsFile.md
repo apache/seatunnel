@@ -88,6 +88,8 @@ import ChangeLog from '../changelog/connector-file-hadoop.md';
 | common-options             |         | 否    | -                   | 数据源插件通用参数，请参阅 [数据源通用选项](../source-common-options.md) 了解详情。                                                                                                                       |
 | file_filter_modified_start | string  | 否    | -                   | 按照最后修改时间过滤文件。 要过滤的开始时间(包括改时间),时间格式是：`yyyy-MM-dd HH:mm:ss`                                                                                                                        |
 | file_filter_modified_end   | string  | 否    | -                   | 按照最后修改时间过滤文件。 要过滤的结束时间(不包括改时间),时间格式是：`yyyy-MM-dd HH:mm:ss`                                                                                                                       |
+| enable_file_split          | boolean | 否    | false               | 开启大文件拆分以提升并行度。仅支持 `text`/`csv`/`json`/`parquet` 且非压缩格式（`compress_codec=none` 且 `archive_compress_codec=none`）。                                                                                 |
+| file_split_size            | long    | 否    | 134217728           | `enable_file_split=true` 时生效，单位字节。`text`/`csv`/`json` 按 `file_split_size` 拆分并对齐到下一个 `row_delimiter`；`parquet` 以 RowGroup 为拆分单位，不会切开 RowGroup。                                                |
 | quote_char                 | string  | 否    | "                   | 用于包裹 CSV 字段的单字符，可保证包含逗号、换行符或引号的字段被正确解析。                                                                                                                                          |
 | escape_char                | string  | 否    | -                   | 用于在 CSV 字段内转义引号或其他特殊字符，使其不会结束字段。                                                                                                                                                 |
 
@@ -255,6 +257,30 @@ abc.*
 
 - `len_mtime`：`len` 与 `mtime` 都相同才 SKIP，否则 COPY。
 - `checksum`：要求 `len` 相同且 Hadoop `getFileChecksum` 相同才 SKIP，否则 COPY（仅在 `update_strategy=strict` 时生效）。
+
+### enable_file_split [boolean]
+
+开启大文件拆分功能，默认 false。仅支持 `csv`/`text`/`json`/`parquet` 且非压缩格式（`compress_codec=none` 且 `archive_compress_codec=none`）。
+
+- `text`/`csv`/`json`：按 `file_split_size` 拆分并对齐到下一个 `row_delimiter`，避免切开一行/一条记录。
+- `parquet`：以 RowGroup 为逻辑拆分单位，不会切开 RowGroup。
+
+**使用建议**
+- 适合：读取少量大文件，并希望通过更高并行度提升吞吐。
+- 不建议：读取大量小文件，或并行度较低的场景（拆分会带来额外的枚举/调度开销）。
+
+**限制说明**
+- 不支持压缩文件（`compress_codec` != `none`）或归档文件（`archive_compress_codec` != `none`），会自动回退为不拆分。
+- 对于 `text`/`csv`/`json`，实际 split 的大小可能略大于 `file_split_size`（因为需要对齐到下一个 `row_delimiter`）。
+
+### file_split_size [long]
+
+`enable_file_split=true` 时生效，单位字节。默认 128MB（134217728）。
+
+**调优建议**
+- 建议从默认值（128MB）开始：如果并行度未充分利用可适当调小；如果 split 数量过多可适当调大。
+- 经验公式：`file_split_size ≈ file_size / 期望并行度`。
+
 ### quote_char [string]
 
 用于包裹 CSV 字段的单字符，可保证包含逗号、换行符或引号的字段被正确解析。

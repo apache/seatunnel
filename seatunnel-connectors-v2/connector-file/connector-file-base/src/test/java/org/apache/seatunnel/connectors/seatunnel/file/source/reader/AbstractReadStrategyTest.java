@@ -36,6 +36,7 @@ import org.apache.avro.util.Utf8;
 import org.apache.hadoop.conf.Configuration;
 import org.apache.hadoop.fs.FileStatus;
 import org.apache.hadoop.fs.Path;
+import org.apache.hadoop.fs.Seekable;
 import org.apache.parquet.avro.AvroParquetWriter;
 import org.apache.parquet.hadoop.ParquetWriter;
 import org.apache.parquet.hadoop.metadata.CompressionCodecName;
@@ -45,8 +46,11 @@ import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.condition.DisabledOnOs;
 import org.junit.jupiter.api.condition.OS;
 
+import java.io.ByteArrayOutputStream;
 import java.io.File;
 import java.io.IOException;
+import java.io.InputStream;
+import java.nio.charset.StandardCharsets;
 import java.text.SimpleDateFormat;
 import java.util.Date;
 import java.util.HashMap;
@@ -56,6 +60,37 @@ import java.util.Map;
 import static org.apache.hadoop.fs.CommonConfigurationKeysPublic.FS_DEFAULT_NAME_DEFAULT;
 
 public class AbstractReadStrategyTest {
+
+    @Test
+    void testSafeSliceUsesSeekForSeekableStream() throws Exception {
+        byte[] data = "0123456789".getBytes(StandardCharsets.UTF_8);
+        TrackingSeekableInputStream in = new TrackingSeekableInputStream(data);
+
+        try (InputStream sliced = AbstractReadStrategy.safeSlice(in, 5, 3)) {
+            byte[] buffer = new byte[10];
+            int n = sliced.read(buffer);
+            Assertions.assertEquals(3, n);
+            Assertions.assertEquals("567", new String(buffer, 0, n, StandardCharsets.UTF_8));
+            Assertions.assertTrue(in.seekCalled);
+        }
+    }
+
+    @Test
+    void testSafeSliceReadsToEndWhenLengthIsNegative() throws Exception {
+        byte[] data = "0123456789".getBytes(StandardCharsets.UTF_8);
+        TrackingSeekableInputStream in = new TrackingSeekableInputStream(data);
+
+        try (InputStream sliced = AbstractReadStrategy.safeSlice(in, 5, -1)) {
+            ByteArrayOutputStream out = new ByteArrayOutputStream();
+            byte[] buffer = new byte[4];
+            int n;
+            while ((n = sliced.read(buffer)) != -1) {
+                out.write(buffer, 0, n);
+            }
+            Assertions.assertEquals("56789", new String(out.toByteArray(), StandardCharsets.UTF_8));
+            Assertions.assertTrue(in.seekCalled);
+        }
+    }
 
     @DisabledOnOs(OS.WINDOWS)
     @Test
@@ -143,6 +178,52 @@ public class AbstractReadStrategyTest {
                     Assertions.assertTrue(b);
                 }
             }
+        }
+    }
+
+    private static class TrackingSeekableInputStream extends InputStream implements Seekable {
+        private final byte[] data;
+        private int pos;
+        private boolean seekCalled;
+
+        private TrackingSeekableInputStream(byte[] data) {
+            this.data = data;
+            this.pos = 0;
+        }
+
+        @Override
+        public int read() {
+            if (pos >= data.length) {
+                return -1;
+            }
+            return data[pos++] & 0xFF;
+        }
+
+        @Override
+        public int read(byte[] b, int off, int len) {
+            if (pos >= data.length) {
+                return -1;
+            }
+            int toRead = Math.min(len, data.length - pos);
+            System.arraycopy(data, pos, b, off, toRead);
+            pos += toRead;
+            return toRead;
+        }
+
+        @Override
+        public void seek(long newPos) {
+            this.seekCalled = true;
+            this.pos = (int) newPos;
+        }
+
+        @Override
+        public long getPos() {
+            return pos;
+        }
+
+        @Override
+        public boolean seekToNewSource(long targetPos) {
+            return false;
         }
     }
 

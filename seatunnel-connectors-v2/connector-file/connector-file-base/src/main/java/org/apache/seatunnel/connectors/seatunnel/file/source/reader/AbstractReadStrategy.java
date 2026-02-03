@@ -50,6 +50,7 @@ import org.apache.commons.io.input.BoundedInputStream;
 import org.apache.hadoop.fs.FileChecksum;
 import org.apache.hadoop.fs.FileStatus;
 import org.apache.hadoop.fs.Path;
+import org.apache.hadoop.fs.Seekable;
 
 import lombok.extern.slf4j.Slf4j;
 
@@ -522,13 +523,22 @@ public abstract class AbstractReadStrategy implements ReadStrategy {
 
     protected static InputStream safeSlice(InputStream in, long start, long length)
             throws IOException {
-        long toSkip = start;
-        while (toSkip > 0) {
-            long skipped = in.skip(toSkip);
-            if (skipped <= 0) {
-                throw new SeaTunnelException("skipped error");
+        if (start > 0) {
+            if (in instanceof Seekable) {
+                ((Seekable) in).seek(start);
+            } else {
+                long toSkip = start;
+                while (toSkip > 0) {
+                    long skipped = in.skip(toSkip);
+                    if (skipped <= 0) {
+                        throw new SeaTunnelException("skipped error");
+                    }
+                    toSkip -= skipped;
+                }
             }
-            toSkip -= skipped;
+        }
+        if (length < 0) {
+            return in;
         }
         return new BoundedInputStream(in, length);
     }

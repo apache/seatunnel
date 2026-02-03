@@ -44,6 +44,7 @@ The zookeeper quorum for Hbase cluster hosts, e.g., "hadoop001:2181,hadoop002:21
 ### table [string]
 
 The name of the table to write to, e.g., "seatunnel".
+If your table lives in a custom namespace, use the `namespace:table` form (for example, `ns1:seatunnel_test`); when the namespace is omitted SeaTunnel will read from HBase's default namespace (`default`).
 
 ### schema [config]
 
