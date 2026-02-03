@@ -20,6 +20,7 @@ package org.apache.seatunnel.e2e.connector.file.local;
 import org.apache.seatunnel.e2e.common.container.ContainerExtendedFactory;
 import org.apache.seatunnel.e2e.common.container.seatunnel.SeaTunnelContainer;
 import org.apache.seatunnel.e2e.common.junit.TestContainerExtension;
+import org.apache.seatunnel.e2e.common.util.ContainerUtil;
 
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.Assertions;
@@ -38,13 +39,14 @@ import lombok.extern.slf4j.Slf4j;
 
 import java.nio.file.Paths;
 import java.util.Arrays;
+import java.util.Collections;
 
 import static org.apache.seatunnel.e2e.common.util.ContainerUtil.PROJECT_ROOT_PATH;
 
 @Slf4j
 public class LocalFileWithMetaLakeIT extends SeaTunnelContainer {
 
-    private static final String GRAVITINO_IMAGE = "apache/gravitino:0.9.1";
+    private static final String GRAVITINO_IMAGE = "apache/gravitino:latest";
     private static final int GRAVITINO_PORT = 8090;
 
     private static final String MYSQL_IMAGE = "mysql:8.0.43";
@@ -60,21 +62,15 @@ public class LocalFileWithMetaLakeIT extends SeaTunnelContainer {
     @TestContainerExtension
     private final ContainerExtendedFactory extendedFactory =
             container -> {
-                container.execInContainer("mkdir", "-p", "/tmp/fake_empty");
-                container.execInContainer("mkdir", "-p", "/seatunnel/read/metalake/table1");
-                container.execInContainer("mkdir", "-p", "/seatunnel/read/metalake/table2");
-
                 // Copy CSV data files from resources to container
-                container.withCopyFileToContainer(
-                        MountableFile.forHostPath(
-                                PROJECT_ROOT_PATH
-                                        + "/seatunnel-e2e/seatunnel-connector-v2-e2e/connector-file-local-e2e/src/test/resources/csv/data/table1.csv"),
-                        "/seatunnel/read/metalake/table1/data.csv");
-                container.withCopyFileToContainer(
-                        MountableFile.forHostPath(
-                                PROJECT_ROOT_PATH
-                                        + "/seatunnel-e2e/seatunnel-connector-v2-e2e/connector-file-local-e2e/src/test/resources/csv/data/table2.csv"),
-                        "/seatunnel/read/metalake/table2/data.csv");
+                ContainerUtil.copyFileIntoContainers(
+                        "/csv/data/table1.csv",
+                        "/seatunnel/read/metalake/table1/data.csv",
+                        container);
+                ContainerUtil.copyFileIntoContainers(
+                        "/csv/data/table2.csv",
+                        "/seatunnel/read/metalake/table2/data.csv",
+                        container);
             };
 
     @BeforeEach
@@ -114,9 +110,12 @@ public class LocalFileWithMetaLakeIT extends SeaTunnelContainer {
                                 + "/seatunnel-shade/seatunnel-hadoop3-3.1.4-uber/target/seatunnel-hadoop3-3.1.4-uber.jar"),
                 Paths.get(SEATUNNEL_HOME, "lib/seatunnel-hadoop3-3.1.4-uber.jar").toString());
 
-        // execute extra commands
-        executeExtraCommands(server);
         server.start();
+
+        // execute extra commands (including copying CSV files via extendedFactory)
+        // This must be called after server.start() because copyFileToContainer requires a running
+        // container
+        executeExtraCommands(extendedFactory);
     }
 
     @AfterEach
@@ -151,7 +150,7 @@ public class LocalFileWithMetaLakeIT extends SeaTunnelContainer {
                                 new Slf4jLogConsumer(DockerLoggerFactory.getLogger(MYSQL_IMAGE)));
 
         mysqlContainer.setPortBindings(
-                Arrays.asList(String.format("%s:%s", MYSQL_PORT, MYSQL_PORT)));
+                Collections.singletonList(String.format("%s:%s", MYSQL_PORT, MYSQL_PORT)));
         mysqlContainer.start();
 
         log.info("MySQL container started at {}", mysqlContainer.getHost());
@@ -166,22 +165,46 @@ public class LocalFileWithMetaLakeIT extends SeaTunnelContainer {
                         .withNetwork(NETWORK)
                         .withNetworkAliases("gravitino")
                         .withExposedPorts(GRAVITINO_PORT)
-                        .waitingFor(
-                                Wait.forLogMessage(
-                                        ".*Gravitino server has started successfully.*", 1))
                         .withLogConsumer(
                                 new Slf4jLogConsumer(
                                         DockerLoggerFactory.getLogger(
                                                 "gravitino:" + GRAVITINO_IMAGE)));
+        gravitinoContainer.setPortBindings(
+                Collections.singletonList(String.format("%s:%s", GRAVITINO_PORT, GRAVITINO_PORT)));
         gravitinoContainer.start();
+
+        // Wait for Gravitino to be ready by checking the API endpoint
+        waitForGravitinoReady();
 
         log.info("Gravitino server started at {}", gravitinoContainer.getHost());
 
-        // Wait for Gravitino to be fully ready
-        Thread.sleep(10000);
-
         // Create metalake and catalog using curl with MySQL as backend
         createMetalakeAndCatalog();
+    }
+
+    private void waitForGravitinoReady() throws Exception {
+        int maxAttempts = 60;
+        int attempt = 0;
+
+        while (attempt < maxAttempts) {
+            try {
+                GenericContainer.ExecResult result =
+                        gravitinoContainer.execInContainer(
+                                "bash",
+                                "-c",
+                                "curl -s -f http://localhost:8090/api/metalakes || exit 1");
+                if (result.getExitCode() == 0) {
+                    log.info("Gravitino API is ready");
+                    return;
+                }
+            } catch (Exception e) {
+                log.debug("Gravitino not ready yet, attempt {}/{}", attempt + 1, maxAttempts);
+            }
+            attempt++;
+            Thread.sleep(2000);
+        }
+        throw new RuntimeException(
+                "Gravitino did not start within " + (maxAttempts * 2) + " seconds");
     }
 
     private void createMetalakeAndCatalog() throws Exception {
@@ -277,22 +300,6 @@ public class LocalFileWithMetaLakeIT extends SeaTunnelContainer {
                 0, createTable2Result.getExitCode(), createTable2Result.getStderr());
 
         // Also create tables through Gravitino API for schema_url support
-        GenericContainer.ExecResult createGravitinoTable1Result =
-                gravitinoContainer.execInContainer(
-                        "bash",
-                        "-c",
-                        "curl -L 'http://localhost:8090/api/metalakes/test_metalake/catalogs/test_catalog/schemas/test_schema/tables' "
-                                + "-H 'Content-Type: application/json' "
-                                + "-H 'Accept: application/vnd.gravitino.v1+json' "
-                                + "-d '{\"name\":\"table1\",\"comment\":\"test table1\",\"columns\":["
-                                + "{\"name\":\"c_string\",\"type\":\"string\",\"nullable\":true,\"comment\":\"string column\"},"
-                                + "{\"name\":\"c_int\",\"type\":\"integer\",\"nullable\":true,\"comment\":\"int column\"},"
-                                + "{\"name\":\"c_boolean\",\"type\":\"boolean\",\"nullable\":true,\"comment\":\"boolean column\"},"
-                                + "{\"name\":\"c_double\",\"type\":\"double\",\"nullable\":true,\"comment\":\"double column\"},"
-                                + "{\"name\":\"c_timestamp\",\"type\":\"timestamp\",\"nullable\":true,\"comment\":\"timestamp column\"}"
-                                + "]}'");
-        log.info("Create Gravitino table1 result: {}", createGravitinoTable1Result.getStdout());
-
         GenericContainer.ExecResult createGravitinoTable2Result =
                 gravitinoContainer.execInContainer(
                         "bash",

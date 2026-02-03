@@ -34,6 +34,6 @@ public class MultipleTableOssFileSourceConfig extends BaseMultipleTableFileSourc
     @Override
     public BaseFileSourceConfig getBaseSourceConfig(
             ReadonlyConfig readonlyConfig, CatalogTable catalogTableFromConfig) {
-        return new OssFileSourceConfig(readonlyConfig);
+        return new OssFileSourceConfig(readonlyConfig, catalogTableFromConfig);
     }
 }
