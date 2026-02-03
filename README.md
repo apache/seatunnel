@@ -33,16 +33,16 @@ SeaTunnel addresses common data integration challenges:
 Configure jobs, select execution engines, and parallelize data using Source Connectors. Easily develop and extend connectors to meet your needs.
 
 ## Supported Connectors
-- [Source Connectors](https://seatunnel.apache.org/docs/connector-v2/source)
-- [Sink Connectors](https://seatunnel.apache.org/docs/connector-v2/sink)
-- [Transform Connectors](docs/en/transform-v2)
+- [Source Connectors](https://seatunnel.apache.org/docs/connectors/source)
+- [Sink Connectors](https://seatunnel.apache.org/docs/connectors/sink)
+- [Transform Connectors](https://seatunnel.apache.org/docs/transforms)
 
 ## Getting Started
 Download SeaTunnel from the [Official Website](https://seatunnel.apache.org/download).
 Choose your runtime execution engine:
-- [SeaTunnel Zeta Engine](https://seatunnel.apache.org/docs/start-v2/locally/quick-start-seatunnel-engine/)
-- [Spark](https://seatunnel.apache.org/docs/start-v2/locally/quick-start-spark)
-- [Flink](https://seatunnel.apache.org/docs/start-v2/locally/quick-start-flink)
+- [SeaTunnel Zeta Engine](https://seatunnel.apache.org/docs/getting-started/locally/quick-start-seatunnel-engine)
+- [Spark](https://seatunnel.apache.org/docs/getting-started/locally/quick-start-spark)
+- [Flink](https://seatunnel.apache.org/docs/getting-started/locally/quick-start-flink)
 
 ## Multimodal Data Integration
 - Most data integration tools support structured and unstructured text data, and SeaTunnel does as well. Simply refer to the desired Source/Sink to use.
@@ -53,7 +53,7 @@ SeaTunnel Tools provides a range of peripheral tools, including Apache SeaTunnel
 
 ## Users
 Companies and organizations worldwide use SeaTunnel for research, production, and commercial products. 
-Explore real-world use cases of SeaTunnel, such as JP mogan, S7, JDT, Bytedance, Tencent Cloud. More use cases can be found on the [SeaTunnel Users](https://seatunnel.apache.org/user).
+Explore real-world use cases of SeaTunnel, such as JP morgan, S7, JDT, Bytedance, Tencent Cloud. More use cases can be found on the [SeaTunnel Users](https://seatunnel.apache.org/user).
 
 ## Code of Conduct
 Participate in this project in accordance with the Contributor Covenant [Code of Conduct](https://www.apache.org/foundation/policies/conduct).
@@ -62,7 +62,7 @@ Participate in this project in accordance with the Contributor Covenant [Code of
 We appreciate all developers for their contributions. See the [List Of Contributors](https://github.com/apache/seatunnel/graphs/contributors).
 
 ## How to Compile
-Refer to this [Setup](docs/en/contribution/setup.md) for compilation instructions.
+Refer to this [Setup](https://seatunnel.apache.org/docs/developer/setup) for compilation instructions.
 
 ## Contact Us
 - Mail list: **dev@seatunnel.apache.org**. Subscribe by sending an email to `dev-subscribe@seatunnel.apache.org`.
@@ -81,7 +81,7 @@ SeaTunnel enriches the [CNCF CLOUD NATIVE Landscape](https://landscape.cncf.io/?
 
 Follow the [Local Deployment](https://seatunnel.apache.org/docs/getting-started/locally/deployment) on SeaTunnel website to get 
 started quickly.
-Please refer to the [Cluster Deployment](https://seatunnel.apache.org/docs/engines/zeta/separated-cluster-deployment)
+Please refer to the [Cluster Deployment](https://seatunnel.apache.org/docs/engines/zeta/hybrid-cluster-deployment)
 
 ### 2. Where can I find documentation and tutorials?
 [Official Documentation](https://seatunnel.apache.org/docs) includes detailed guides and tutorials to help you get started.
