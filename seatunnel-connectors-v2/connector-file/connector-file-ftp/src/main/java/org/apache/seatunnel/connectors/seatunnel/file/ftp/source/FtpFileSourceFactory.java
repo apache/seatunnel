@@ -103,6 +103,7 @@ public class FtpFileSourceFactory implements TableSourceFactory {
                 .optional(FtpFileSourceOptions.FTP_CONTROL_ENCODING)
                 .optional(FileBaseSourceOptions.QUOTE_CHAR)
                 .optional(FileBaseSourceOptions.ESCAPE_CHAR)
+                .optional(ConnectorCommonOptions.METALAKE_TYPE)
                 .build();
     }
 

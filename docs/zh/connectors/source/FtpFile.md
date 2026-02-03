@@ -43,40 +43,41 @@ import ChangeLog from '../changelog/connector-file-ftp.md';
 
 ## 配置项
 
-| 名称                          | 类型      | 是否必填 | 默认值                 |
-|-----------------------------|---------|------|---------------------|
-| host                        | string  | 是    | -                   |
-| port                        | int     | 是    | -                   |
-| user                        | string  | 是    | -                   |
-| password                    | string  | 是    | -                   |
-| path                        | string  | 是    | -                   |
-| file_format_type            | string  | 是    | -                   |
-| connection_mode             | string  | 否    | active_local        |
-| remote_verification_enabled | boolean | no   | true                |
-| delimiter/field_delimiter   | string  | 否    | \001                |
-| read_columns                | list    | 否    | -                   |
-| parse_partition_from_path   | boolean | 否    | true                |
-| date_format                 | string  | 否    | yyyy-MM-dd          |
-| datetime_format             | string  | 否    | yyyy-MM-dd HH:mm:ss |
-| time_format                 | string  | 否    | HH:mm:ss            |
-| skip_header_row_number      | long    | 否    | 0                   |
-| schema                      | config  | 否    | -                   |
-| sheet_name                  | string  | 否    | -                   |
-| xml_row_tag                 | string  | 否    | -                   |
-| xml_use_attr_format         | boolean | 否    | -                   |
-| csv_use_header_line         | boolean | 否    | false               |
-| file_filter_pattern         | string  | 否    | -                   |
-| compress_codec              | string  | 否    | none                |
-| archive_compress_codec      | string  | 否    | none                |
-| encoding                    | string  | 否    | UTF-8               |
-| null_format                 | string  | 否    | -                   |
-| binary_chunk_size           | int     | 否    | 1024                |
-| binary_complete_file_mode   | boolean | 否    | false               |
-| common-options              |         | 否    | -                   |
-| file_filter_modified_start  | string  | 否    | -                   | 
-| file_filter_modified_end    | string  | 否    | -                   | 
-| quote_char                  | string  | 否    | "                   | 
-| escape_char                 | string  | 否    | -                   |
+| 名称                          | 类型      | 是否必填 | 默认值                  |
+|-----------------------------|---------|------|----------------------|
+| host                        | string  | 是    | -                    |
+| port                        | int     | 是    | -                    |
+| user                        | string  | 是    | -                    |
+| password                    | string  | 是    | -                    |
+| path                        | string  | 是    | -                    |
+| file_format_type            | string  | 是    | -                    |
+| connection_mode             | string  | 否    | active_local         |
+| remote_verification_enabled | boolean | no   | true                 |
+| delimiter/field_delimiter   | string  | 否    | \001                 |
+| read_columns                | list    | 否    | -                    |
+| parse_partition_from_path   | boolean | 否    | true                 |
+| date_format                 | string  | 否    | yyyy-MM-dd           |
+| datetime_format             | string  | 否    | yyyy-MM-dd HH:mm:ss  |
+| time_format                 | string  | 否    | HH:mm:ss             |
+| skip_header_row_number      | long    | 否    | 0                    |
+| schema                      | config  | 否    | -                    |
+| sheet_name                  | string  | 否    | -                    |
+| xml_row_tag                 | string  | 否    | -                    |
+| xml_use_attr_format         | boolean | 否    | -                    |
+| csv_use_header_line         | boolean | 否    | false                |
+| file_filter_pattern         | string  | 否    | -                    |
+| compress_codec              | string  | 否    | none                 |
+| archive_compress_codec      | string  | 否    | none                 |
+| encoding                    | string  | 否    | UTF-8                |
+| null_format                 | string  | 否    | -                    |
+| binary_chunk_size           | int     | 否    | 1024                 |
+| binary_complete_file_mode   | boolean | 否    | false                |
+| common-options              |         | 否    | -                    |
+| file_filter_modified_start  | string  | 否    | -                    | 
+| file_filter_modified_end    | string  | 否    | -                    | 
+| quote_char                  | string  | 否    | "                    | 
+| escape_char                 | string  | 否    | -                    |
+| metalake_type               | string  | 否    | gravitino            |
 
 ### host [string]
 
@@ -330,6 +331,18 @@ SeaTunnel 将从源文件中跳过前 2 行。
 仅在文件格式类型为 text、json、excel、xml 或 csv（或其他无法从元数据中读取 schema 的格式）时需要配置。
 
 上游数据的 schema 信息。更多详情请参考 [Schema 特性](../../introduction/concepts/schema-feature.md)。
+
+#### schema_url [string]
+
+通过 restApi 获取元数据信息的 http url，例如：`http://localhost:8090/api/metalakes/laowang_test/catalogs/221-pgsql/schemas/ykw/tables/all_type`
+
+> 当使用 Gravitino 作为元数据源时，Gravitino 的列类型会自动转换为 SeaTunnel 数据类型。详细的类型映射信息请参考 [Gravitino 类型映射](../../introduction/concepts/gravitino-type-mapping.md)。
+
+### metalake_type [string]
+
+Metalake 服务类型，目前仅支持 `gravitino`。当使用 `schema_url` 从 Gravitino 获取元数据时，可以指定此参数（默认为 `gravitino`）。
+
+有关 Metalake 的更多信息，请参考 [Metalake](../../introduction/concepts/metalake.md)。
 
 ### read_columns [list]
 

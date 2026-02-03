@@ -78,10 +78,8 @@ public class LocalFileWithMetaLakeIT extends SeaTunnelContainer {
     public void startUp() throws Exception {
         // Start MySQL container first as metadata storage
         startMySQLContainer();
-
         // Start Gravitino server with MySQL as backend
         startGravitinoServer();
-
         // Start SeaTunnel server with MetaLake enabled
         server =
                 new GenericContainer<>(getDockerImage())
@@ -111,7 +109,6 @@ public class LocalFileWithMetaLakeIT extends SeaTunnelContainer {
                 Paths.get(SEATUNNEL_HOME, "lib/seatunnel-hadoop3-3.1.4-uber.jar").toString());
 
         server.start();
-
         // execute extra commands (including copying CSV files via extendedFactory)
         // This must be called after server.start() because copyFileToContainer requires a running
         // container
@@ -138,7 +135,6 @@ public class LocalFileWithMetaLakeIT extends SeaTunnelContainer {
 
     private void startMySQLContainer() throws Exception {
         DockerImageName imageName = DockerImageName.parse(MYSQL_IMAGE);
-
         mysqlContainer =
                 new MySQLContainer<>(imageName)
                         .withUsername(MYSQL_USERNAME)
@@ -151,13 +147,10 @@ public class LocalFileWithMetaLakeIT extends SeaTunnelContainer {
                         .waitingFor(Wait.forHealthcheck())
                         .withLogConsumer(
                                 new Slf4jLogConsumer(DockerLoggerFactory.getLogger(MYSQL_IMAGE)));
-
         mysqlContainer.setPortBindings(
                 Collections.singletonList(String.format("%s:%s", MYSQL_PORT, MYSQL_PORT)));
         mysqlContainer.start();
-
         log.info("MySQL container started at {}", mysqlContainer.getHost());
-
         // Wait for MySQL to be fully ready
         Thread.sleep(10000);
     }
@@ -175,12 +168,9 @@ public class LocalFileWithMetaLakeIT extends SeaTunnelContainer {
         gravitinoContainer.setPortBindings(
                 Collections.singletonList(String.format("%s:%s", GRAVITINO_PORT, GRAVITINO_PORT)));
         gravitinoContainer.start();
-
         // Wait for Gravitino to be ready by checking the API endpoint
         waitForGravitinoReady();
-
         log.info("Gravitino server started at {}", gravitinoContainer.getHost());
-
         // Create metalake and catalog using curl with MySQL as backend
         createMetalakeAndCatalog();
     }
@@ -188,7 +178,6 @@ public class LocalFileWithMetaLakeIT extends SeaTunnelContainer {
     private void waitForGravitinoReady() throws Exception {
         int maxAttempts = 60;
         int attempt = 0;
-
         while (attempt < maxAttempts) {
             try {
                 GenericContainer.ExecResult result =
@@ -296,37 +285,30 @@ public class LocalFileWithMetaLakeIT extends SeaTunnelContainer {
         GenericContainer.ExecResult execResult =
                 executeJob("/csv/local_file_csv_to_local_file_csv_with_metalake.conf");
         Assertions.assertEquals(0, execResult.getExitCode(), execResult.getStderr());
-
         // Verify row count for table1 (should have 5 rows from source CSV file - excluding header)
         verifyCsvRowCount("/tmp/fake_empty/csv/table1", 5);
-
         // Verify row count for table2 (should have 10 rows from source CSV file - excluding header)
         verifyCsvRowCount("/tmp/fake_empty/csv/table2", 10);
     }
 
     private void verifyCsvRowCount(String path, int expectedRowCount) throws Exception {
         log.info("Verifying row count for path: {}, expected: {}", path, expectedRowCount);
-
         // Check if path exists
         GenericContainer.ExecResult checkResult =
                 server.execInContainer(
                         "bash", "-c", "test -e " + path + " && echo 'exists' || echo 'not exists'");
         log.info("Path check result: {}", checkResult.getStdout().trim());
-
         if (checkResult.getStdout().trim().equals("not exists")) {
             log.warn("Path {} does not exist, skipping verification", path);
             return;
         }
-
         // Check if path is a file or directory
         GenericContainer.ExecResult typeResult =
                 server.execInContainer(
                         "bash", "-c", "test -f " + path + " && echo 'file' || echo 'dir'");
         String pathType = typeResult.getStdout().trim();
         log.info("Path type: {}", pathType);
-
         int totalRows = 0;
-
         if ("file".equals(pathType)) {
             // Path is a file, count rows directly
             totalRows = countCsvRows(path);
@@ -335,9 +317,7 @@ public class LocalFileWithMetaLakeIT extends SeaTunnelContainer {
             GenericContainer.ExecResult listResult =
                     server.execInContainer("bash", "-c", "ls -1 " + path + " 2>/dev/null || true");
             String[] files = listResult.getStdout().trim().split("\n");
-
             log.info("Found {} files in directory {}", files.length, path);
-
             for (String file : files) {
                 if (file.trim().isEmpty()) continue;
                 String filePath = path + "/" + file.trim();
@@ -345,7 +325,6 @@ public class LocalFileWithMetaLakeIT extends SeaTunnelContainer {
                 totalRows += countCsvRows(filePath);
             }
         }
-
         log.info("Total data rows in {} (excluding headers): {}", path, totalRows);
         Assertions.assertEquals(
                 expectedRowCount,
@@ -359,7 +338,6 @@ public class LocalFileWithMetaLakeIT extends SeaTunnelContainer {
                 server.execInContainer(
                         "bash", "-c", "wc -l < " + filePath + " 2>/dev/null || echo 0");
         String wcOutput = wcResult.getStdout().trim();
-
         int lineCount = 0;
         try {
             lineCount = Integer.parseInt(wcOutput);
@@ -372,7 +350,6 @@ public class LocalFileWithMetaLakeIT extends SeaTunnelContainer {
                 server.execInContainer(
                         "bash", "-c", "stat -c%s " + filePath + " 2>/dev/null || echo 0");
         int fileSize = Integer.parseInt(sizeResult.getStdout().trim());
-
         // If file has content but wc -l is 0, or if we need to check for last line without newline
         if (fileSize > 0 && lineCount == 0) {
             // File has content but no newlines, count as 1 line
@@ -388,19 +365,16 @@ public class LocalFileWithMetaLakeIT extends SeaTunnelContainer {
                 lineCount++;
             }
         }
-
         // Read first line to check for header
         GenericContainer.ExecResult firstLineResult =
                 server.execInContainer("bash", "-c", "head -1 " + filePath);
         String firstLine = firstLineResult.getStdout().trim().toLowerCase();
-
         // Check if first line is a header (contains column names)
         boolean hasHeader =
                 firstLine.contains("c_string")
                         || firstLine.contains("c_int")
                         || firstLine.contains("c_boolean")
                         || firstLine.contains("c_double");
-
         int dataRows = hasHeader ? Math.max(0, lineCount - 1) : lineCount;
         log.info(
                 "File: {}, Total lines: {}, Has header: {}, Data rows: {}",
@@ -408,7 +382,6 @@ public class LocalFileWithMetaLakeIT extends SeaTunnelContainer {
                 lineCount,
                 hasHeader,
                 dataRows);
-
         return dataRows;
     }
 }

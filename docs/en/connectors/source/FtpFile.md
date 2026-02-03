@@ -45,42 +45,43 @@ If you use SeaTunnel Engine, It automatically integrated the hadoop jar when you
 
 ## Options
 
-| name                        | type    | required | default value               |
-|-----------------------------|---------|----------|-----------------------------|
-| host                        | string  | yes      | -                           |
-| port                        | int     | yes      | -                           |
-| user                        | string  | yes      | -                           |
-| password                    | string  | yes      | -                           |
-| path                        | string  | yes      | -                           |
-| file_format_type            | string  | yes      | -                           |
-| connection_mode             | string  | no       | active_local                |
-| remote_verification_enabled | boolean | no       | true                        |
-| delimiter/field_delimiter   | string  | no       | \001 for text and , for csv |
-| row_delimiter               | string  | no       | \n                          |
-| read_columns                | list    | no       | -                           |
-| parse_partition_from_path   | boolean | no       | true                        |
-| date_format                 | string  | no       | yyyy-MM-dd                  |
-| datetime_format             | string  | no       | yyyy-MM-dd HH:mm:ss         |
-| time_format                 | string  | no       | HH:mm:ss                    |
-| skip_header_row_number      | long    | no       | 0                           |
-| schema                      | config  | no       | -                           |
-| sheet_name                  | string  | no       | -                           |
-| xml_row_tag                 | string  | no       | -                           |
-| xml_use_attr_format         | boolean | no       | -                           |
-| csv_use_header_line         | boolean | no       | -                           |
-| file_filter_pattern         | string  | no       | -                           |
-| filename_extension          | string  | no       | -                           |
-| compress_codec              | string  | no       | none                        |
-| archive_compress_codec      | string  | no       | none                        |
-| encoding                    | string  | no       | UTF-8                       |
-| null_format                 | string  | no       | -                           |
-| binary_chunk_size           | int     | no       | 1024                        |
-| binary_complete_file_mode   | boolean | no       | false                       |
-| common-options              |         | no       | -                           |
-| file_filter_modified_start  | string  | no       | -                           | 
-| file_filter_modified_end    | string  | no       | -                           | 
-| quote_char                  | string  | no       | "                           |
-| escape_char                 | string  | no       | -                           |
+| name                        | type    | required | default value                |
+|-----------------------------|---------|----------|------------------------------|
+| host                        | string  | yes      | -                            |
+| port                        | int     | yes      | -                            |
+| user                        | string  | yes      | -                            |
+| password                    | string  | yes      | -                            |
+| path                        | string  | yes      | -                            |
+| file_format_type            | string  | yes      | -                            |
+| connection_mode             | string  | no       | active_local                 |
+| remote_verification_enabled | boolean | no       | true                         |
+| delimiter/field_delimiter   | string  | no       | \001 for text and , for csv  |
+| row_delimiter               | string  | no       | \n                           |
+| read_columns                | list    | no       | -                            |
+| parse_partition_from_path   | boolean | no       | true                         |
+| date_format                 | string  | no       | yyyy-MM-dd                   |
+| datetime_format             | string  | no       | yyyy-MM-dd HH:mm:ss          |
+| time_format                 | string  | no       | HH:mm:ss                     |
+| skip_header_row_number      | long    | no       | 0                            |
+| schema                      | config  | no       | -                            |
+| sheet_name                  | string  | no       | -                            |
+| xml_row_tag                 | string  | no       | -                            |
+| xml_use_attr_format         | boolean | no       | -                            |
+| csv_use_header_line         | boolean | no       | -                            |
+| file_filter_pattern         | string  | no       | -                            |
+| filename_extension          | string  | no       | -                            |
+| compress_codec              | string  | no       | none                         |
+| archive_compress_codec      | string  | no       | none                         |
+| encoding                    | string  | no       | UTF-8                        |
+| null_format                 | string  | no       | -                            |
+| binary_chunk_size           | int     | no       | 1024                         |
+| binary_complete_file_mode   | boolean | no       | false                        |
+| common-options              |         | no       | -                            |
+| file_filter_modified_start  | string  | no       | -                            | 
+| file_filter_modified_end    | string  | no       | -                            | 
+| quote_char                  | string  | no       | "                            |
+| escape_char                 | string  | no       | -                            |
+| metalake_type               | string  | no       | gravitino                    |
 
 ### host [string]
 
@@ -361,6 +362,18 @@ then SeaTunnel will skip the first 2 lines from source files
 Only need to be configured when the file_format_type are text, json, excel, xml or csv ( Or other format we can't read the schema from metadata).
 
 The schema information of upstream data. For more details, please refer to [Schema Feature](../../introduction/concepts/schema-feature.md).
+
+#### schema_url [string]
+
+Get the http url of metadata information through restApi, such as: `http://localhost:8090/api/metalakes/laowang_test/catalogs/221-pgsql/schemas/ykw/tables/all_type`
+
+> When using Gravitino as the metadata source, the column types from Gravitino will be automatically converted to SeaTunnel data types. For detailed type mapping information, please refer to [Gravitino Type Mapping](../../introduction/concepts/gravitino-type-mapping.md).
+
+### metalake_type [string]
+
+The type of metalake service, currently only supports `gravitino`. When using `schema_url` to obtain metadata from Gravitino, you can specify this parameter (default is `gravitino`).
+
+For more information about Metalake, please refer to [Metalake](../../introduction/concepts/metalake.md).
 
 ### read_columns [list]
 

@@ -84,6 +84,7 @@ import ChangeLog from '../changelog/connector-file-local.md';
 | file_split_size            | long    | 否    | 134217728           | 
 | quote_char                 | string  | 否    | -                   | 
 | escape_char                | string  | 否    | -                   |
+| metalake_type              | string  | 否    | gravitino          | Metalake 服务类型，目前支持 `gravitino`。             |
 
 ### path [string]
 
@@ -273,6 +274,18 @@ markdown 解析器提取各种元素，包括标题、段落、列表、代码�
 #### fields [Config]
 
 上游数据的 schema 信息。更多详情请参考 [Schema 特性](../../introduction/concepts/schema-feature.md)。
+
+#### schema_url [string]
+
+通过 restApi 获取元数据信息的 http url，例如：`http://localhost:8090/api/metalakes/laowang_test/catalogs/221-pgsql/schemas/ykw/tables/all_type`
+
+> 当使用 Gravitino 作为元数据源时，Gravitino 的列类型会自动转换为 SeaTunnel 数据类型。详细的类型映射信息请参考 [Gravitino 类型映射](../../introduction/concepts/gravitino-type-mapping.md)。
+
+### metalake_type [string]
+
+Metalake 服务类型，目前仅支持 `gravitino`。当使用 `schema_url` 从 Gravitino 获取元数据时，可以指定此参数（默认为 `gravitino`）。
+
+有关 Metalake 的更多信息，请参考 [Metalake](../../introduction/concepts/metalake.md)。
 
 ### sheet_name [string]
 
