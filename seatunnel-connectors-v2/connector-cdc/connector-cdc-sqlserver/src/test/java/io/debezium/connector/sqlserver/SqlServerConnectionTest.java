@@ -34,7 +34,6 @@ import java.sql.ResultSet;
 import java.sql.SQLException;
 import java.sql.Types;
 import java.util.Collections;
-import java.util.HashSet;
 import java.util.List;
 import java.util.Optional;
 
@@ -52,8 +51,7 @@ public class SqlServerConnectionTest {
 
         SqlServerChangeTable changeTable = mock(SqlServerChangeTable.class);
         when(changeTable.getSourceTableId()).thenReturn(tableId);
-        when(changeTable.getCapturedColumns())
-                .thenReturn(new HashSet<>(Collections.singletonList("id")));
+        when(changeTable.getCapturedColumns()).thenReturn(Collections.singletonList("id"));
 
         ResultSet columnsRs = mock(ResultSet.class);
         when(columnsRs.next()).thenReturn(true, true, false);
@@ -82,8 +80,7 @@ public class SqlServerConnectionTest {
 
         SqlServerChangeTable changeTable = mock(SqlServerChangeTable.class);
         when(changeTable.getSourceTableId()).thenReturn(tableId);
-        when(changeTable.getCapturedColumns())
-                .thenReturn(new HashSet<>(Collections.singletonList("id")));
+        when(changeTable.getCapturedColumns()).thenReturn(Collections.singletonList("id"));
 
         ResultSet columnsRs = mock(ResultSet.class);
         when(columnsRs.next()).thenReturn(true, false);
