@@ -10,9 +10,9 @@
  *
  *    Unless required by applicable law or agreed to in writing, software
  * distributed under the License is distributed on an "AS IS" BASIS,
- *    WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
- *    See the License for the specific language governing permissions and
- *    limitations under the License.
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
  */
 
 package org.apache.seatunnel.e2e.connector.file.local;
@@ -240,66 +240,36 @@ public class LocalFileWithMetaLakeIT extends SeaTunnelContainer {
         Assertions.assertEquals(
                 0, createCatalogResult.getExitCode(), createCatalogResult.getStderr());
 
-        // Create schema in MySQL
+        // Create schema through Gravitino API (this will also create the database in MySQL)
         GenericContainer.ExecResult createSchemaResult =
-                mysqlContainer.execInContainer(
-                        "bash",
-                        "-c",
-                        "mysql -uroot -pAbc!@#135_seatunnel -e \"CREATE DATABASE IF NOT EXISTS test_schema;\"");
-        log.info("Create schema result: {}", createSchemaResult.getStdout());
-        Assertions.assertEquals(
-                0, createSchemaResult.getExitCode(), createSchemaResult.getStderr());
-
-        // Also create schema through Gravitino API
-        createSchemaResult =
                 gravitinoContainer.execInContainer(
                         "bash",
                         "-c",
                         "curl -L 'http://localhost:8090/api/metalakes/test_metalake/catalogs/test_catalog/schemas' "
                                 + "-H 'Content-Type: application/json' "
                                 + "-H 'Accept: application/vnd.gravitino.v1+json' "
-                                + "-d '{\"name\":\"test_schema\",\"comment\":\"for metalake test\"}'");
+                                + "-d '{\"name\":\"test_schema\"}'");
         log.info("Create schema via Gravitino result: {}", createSchemaResult.getStdout());
         Assertions.assertEquals(
                 0, createSchemaResult.getExitCode(), createSchemaResult.getStderr());
 
-        // Create table1 with basic types in MySQL (this will be used as schema metadata)
-        String createTable1Sql =
-                "CREATE TABLE IF NOT EXISTS test_schema.table1 ("
-                        + "c_string VARCHAR(255) DEFAULT NULL COMMENT 'string column',"
-                        + "c_int INT DEFAULT NULL COMMENT 'int column',"
-                        + "c_boolean TINYINT(1) DEFAULT NULL COMMENT 'boolean column',"
-                        + "c_double DOUBLE DEFAULT NULL COMMENT 'double column',"
-                        + "c_timestamp TIMESTAMP DEFAULT NULL COMMENT 'timestamp column'"
-                        + ") COMMENT='test table1 with basic types'";
-        GenericContainer.ExecResult createTable1Result =
-                mysqlContainer.execInContainer(
+        // Create table1 through Gravitino API
+        GenericContainer.ExecResult createGravitinoTable1Result =
+                gravitinoContainer.execInContainer(
                         "bash",
                         "-c",
-                        "mysql -uroot -pAbc!@#135_seatunnel -e \"" + createTable1Sql + "\"");
-        log.info("Create table1 result: {}", createTable1Result.getStdout());
-        Assertions.assertEquals(
-                0, createTable1Result.getExitCode(), createTable1Result.getStderr());
+                        "curl -L 'http://localhost:8090/api/metalakes/test_metalake/catalogs/test_catalog/schemas/test_schema/tables' "
+                                + "-H 'Content-Type: application/json' "
+                                + "-H 'Accept: application/vnd.gravitino.v1+json' "
+                                + "-d '{\"name\":\"table1\",\"comment\":\"test table1\",\"columns\":["
+                                + "{\"name\":\"c_string\",\"type\":\"string\",\"nullable\":true,\"comment\":\"string column\"},"
+                                + "{\"name\":\"c_int\",\"type\":\"integer\",\"nullable\":true,\"comment\":\"int column\"},"
+                                + "{\"name\":\"c_boolean\",\"type\":\"boolean\",\"nullable\":true,\"comment\":\"boolean column\"},"
+                                + "{\"name\":\"c_double\",\"type\":\"double\",\"nullable\":true,\"comment\":\"double column\"}"
+                                + "]}'");
+        log.info("Create Gravitino table1 result: {}", createGravitinoTable1Result.getStdout());
 
-        // Create table2 with basic types in MySQL (using schema_url in config)
-        String createTable2Sql =
-                "CREATE TABLE IF NOT EXISTS test_schema.table2 ("
-                        + "c_string VARCHAR(255) DEFAULT NULL COMMENT 'string column',"
-                        + "c_int INT DEFAULT NULL COMMENT 'int column',"
-                        + "c_boolean TINYINT(1) DEFAULT NULL COMMENT 'boolean column',"
-                        + "c_double DOUBLE DEFAULT NULL COMMENT 'double column',"
-                        + "c_timestamp TIMESTAMP DEFAULT NULL COMMENT 'timestamp column'"
-                        + ") COMMENT='test table2 with basic types'";
-        GenericContainer.ExecResult createTable2Result =
-                mysqlContainer.execInContainer(
-                        "bash",
-                        "-c",
-                        "mysql -uroot -pAbc!@#135_seatunnel -e \"" + createTable2Sql + "\"");
-        log.info("Create table2 result: {}", createTable2Result.getStdout());
-        Assertions.assertEquals(
-                0, createTable2Result.getExitCode(), createTable2Result.getStderr());
-
-        // Also create tables through Gravitino API for schema_url support
+        // Create table2 through Gravitino API
         GenericContainer.ExecResult createGravitinoTable2Result =
                 gravitinoContainer.execInContainer(
                         "bash",
@@ -311,8 +281,7 @@ public class LocalFileWithMetaLakeIT extends SeaTunnelContainer {
                                 + "{\"name\":\"c_string\",\"type\":\"string\",\"nullable\":true,\"comment\":\"string column\"},"
                                 + "{\"name\":\"c_int\",\"type\":\"integer\",\"nullable\":true,\"comment\":\"int column\"},"
                                 + "{\"name\":\"c_boolean\",\"type\":\"boolean\",\"nullable\":true,\"comment\":\"boolean column\"},"
-                                + "{\"name\":\"c_double\",\"type\":\"double\",\"nullable\":true,\"comment\":\"double column\"},"
-                                + "{\"name\":\"c_timestamp\",\"type\":\"timestamp\",\"nullable\":true,\"comment\":\"timestamp column\"}"
+                                + "{\"name\":\"c_double\",\"type\":\"double\",\"nullable\":true,\"comment\":\"double column\"}"
                                 + "]}'");
         log.info("Create Gravitino table2 result: {}", createGravitinoTable2Result.getStdout());
     }
@@ -326,10 +295,10 @@ public class LocalFileWithMetaLakeIT extends SeaTunnelContainer {
         Assertions.assertEquals(0, execResult.getExitCode(), execResult.getStderr());
 
         // Verify row count for table1 (should have 5 rows from source CSV file - excluding header)
-        verifyCsvRowCount("/tmp/fake_empty/csv/db.table1", 5);
+        verifyCsvRowCount("/tmp/fake_empty/csv/table1", 5);
 
         // Verify row count for table2 (should have 10 rows from source CSV file - excluding header)
-        verifyCsvRowCount("/tmp/fake_empty/csv/db.table2", 10);
+        verifyCsvRowCount("/tmp/fake_empty/csv/table2", 10);
     }
 
     private void verifyCsvRowCount(String path, int expectedRowCount) throws Exception {

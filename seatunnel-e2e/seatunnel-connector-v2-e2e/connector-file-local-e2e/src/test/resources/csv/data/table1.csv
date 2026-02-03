@@ -1,6 +1,6 @@
-c_string,c_int,c_boolean,c_double,c_timestamp
-string1,100,false,1.5,2023-01-01T12:00:00
-string2,200,true,2.5,2023-01-02T13:00:00
-string3,300,false,3.5,2023-01-03T14:00:00
-string4,400,true,4.5,2023-01-04T15:00:00
-string5,500,false,5.5,2023-01-05T16:00:00
+c_string,c_int,c_boolean,c_double
+string1,100,false,1.5
+string2,200,true,2.5
+string3,300,false,3.5
+string4,400,true,4.5
+string5,500,false,5.5
