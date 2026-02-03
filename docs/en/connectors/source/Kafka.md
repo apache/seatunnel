@@ -78,7 +78,7 @@ Only the data of the `test.public.products` table will be consumed.
 
 ## Metadata Support
 
-The Kafka source automatically injects `ConsumerRecord.timestamp` into the SeaTunnel `EventTime` metadata when the value is non-negative. You can expose it as a normal field through the [Metadata transform](../../transform-v2/metadata.md) for downstream SQL or partitioning.
+The Kafka source automatically injects `ConsumerRecord.timestamp` into the SeaTunnel `EventTime` metadata when the value is non-negative. You can expose it as a normal field through the [Metadata transform](../../transforms/metadata.md) for downstream SQL or partitioning.
 
 ```hocon
 source {

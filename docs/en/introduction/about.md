@@ -49,11 +49,11 @@ The default engine use by SeaTunnel is [SeaTunnel Engine](../engines/zeta/about.
 
 ## Connector
 
-- **Source Connectors** SeaTunnel supports reading data from various relational, graph, NoSQL, document, and memory databases; distributed file systems such as HDFS; and a variety of cloud storage solutions, such as S3 and OSS. We also support data reading of many common SaaS services. You can access the detailed list [Here](connector-v2/source). If you want, You can develop your own source connector and easily integrate it into SeaTunnel.
+- **Source Connectors** SeaTunnel supports reading data from various relational, graph, NoSQL, document, and memory databases; distributed file systems such as HDFS; and a variety of cloud storage solutions, such as S3 and OSS. We also support data reading of many common SaaS services. You can access the detailed list [Here](../connectors/source). If you want, You can develop your own source connector and easily integrate it into SeaTunnel.
 
 - **Transform Connector** If the schema is different between source and Sink, You can use the Transform Connector to change the schema read from source and make it the same as the Sink schema.
 
-- **Sink Connector** SeaTunnel supports writing data to various relational, graph, NoSQL, document, and memory databases; distributed file systems such as HDFS; and a variety of cloud storage solutions, such as S3 and OSS. We also support writing data to many common SaaS services. You can access the detailed list [Here](connector-v2/sink). If you want, you can develop your own Sink connector and easily integrate it into SeaTunnel.
+- **Sink Connector** SeaTunnel supports writing data to various relational, graph, NoSQL, document, and memory databases; distributed file systems such as HDFS; and a variety of cloud storage solutions, such as S3 and OSS. We also support writing data to many common SaaS services. You can access the detailed list [Here](../connectors/sink). If you want, you can develop your own Sink connector and easily integrate it into SeaTunnel.
 
 ## Who Uses SeaTunnel
 
@@ -70,4 +70,4 @@ SeaTunnel enriches the <a href="https://landscape.cncf.io/?item=app-definition-a
 
 ## Learn more
 
-You can see [Quick Start](start-v2/locally/deployment.md) for the next steps.
+You can see [Quick Start](../getting-started/locally/deployment.md) for the next steps.
