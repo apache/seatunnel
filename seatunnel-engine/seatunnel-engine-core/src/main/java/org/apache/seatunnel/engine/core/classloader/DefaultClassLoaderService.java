@@ -19,7 +19,6 @@ package org.apache.seatunnel.engine.core.classloader;
 
 import org.apache.seatunnel.shade.com.google.common.annotations.VisibleForTesting;
 
-import org.apache.seatunnel.common.utils.PathResolver;
 import org.apache.seatunnel.engine.common.exception.ClassLoaderErrorCode;
 import org.apache.seatunnel.engine.common.exception.ClassLoaderException;
 import org.apache.seatunnel.engine.common.loader.SeaTunnelChildFirstClassLoader;
@@ -31,7 +30,6 @@ import lombok.extern.slf4j.Slf4j;
 
 import java.io.File;
 import java.net.URL;
-import java.util.ArrayList;
 import java.util.Collection;
 import java.util.Map;
 import java.util.Objects;
@@ -73,14 +71,10 @@ public class DefaultClassLoaderService implements ClassLoaderService {
             classLoaderReferenceCount.get(jobId).get(key).incrementAndGet();
             return classLoaderMap.get(key);
         } else {
-            // Resolves a collection of URLs containing the logical SEATUNNEL_HOME variable to
-            // absolute paths.
-            Collection<URL> resolvedJars = new ArrayList<>(jars);
-            PathResolver.resolvePathEnv(resolvedJars);
             if (Objects.nonNull(nodeEngine)
                     && !Boolean.parseBoolean(
                             System.getenv().getOrDefault(SKIP_CHECK_JAR, "false"))) {
-                for (URL jar : resolvedJars) {
+                for (URL jar : jars) {
                     File file = new File(jar.toURI().getPath());
                     if (!file.exists()) {
                         String host =
@@ -97,8 +91,8 @@ public class DefaultClassLoaderService implements ClassLoaderService {
             } else {
                 log.debug("Run the test class without file checking");
             }
-            ClassLoader classLoader = new SeaTunnelChildFirstClassLoader(resolvedJars);
-            log.info("Create classloader for job {} with resolvedJars {}", jobId, resolvedJars);
+            ClassLoader classLoader = new SeaTunnelChildFirstClassLoader(jars);
+            log.info("Create classloader for job {} with jars {}", jobId, jars);
             classLoaderMap.put(key, classLoader);
             classLoaderReferenceCount.get(jobId).put(key, new AtomicInteger(1));
             return classLoader;

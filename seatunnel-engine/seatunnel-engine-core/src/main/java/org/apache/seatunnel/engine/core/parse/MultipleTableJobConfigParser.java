@@ -52,6 +52,7 @@ import org.apache.seatunnel.common.constants.CollectionConstants;
 import org.apache.seatunnel.common.constants.JobMode;
 import org.apache.seatunnel.common.constants.PluginType;
 import org.apache.seatunnel.common.exception.SeaTunnelRuntimeException;
+import org.apache.seatunnel.common.utils.PathResolver;
 import org.apache.seatunnel.core.starter.utils.ConfigBuilder;
 import org.apache.seatunnel.engine.common.config.JobConfig;
 import org.apache.seatunnel.engine.common.exception.JobDefineCheckException;
@@ -309,6 +310,9 @@ public class MultipleTableJobConfigParser {
         jarPaths.addAll(
                 new SeaTunnelSinkPluginDiscovery().getPluginJarAndDependencyPaths(factoryIds));
         jarPaths.addAll(commonPluginJars);
+        // Resolves a collection of URLs containing the logical SEATUNNEL_HOME variable to
+        // absolute paths.
+        PathResolver.resolvePathEnv(jarPaths);
         return jarPaths;
     }
 

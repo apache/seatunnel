@@ -24,6 +24,7 @@ import org.apache.seatunnel.api.event.Event;
 import org.apache.seatunnel.api.tracing.MDCExecutorService;
 import org.apache.seatunnel.api.tracing.MDCTracer;
 import org.apache.seatunnel.common.utils.ExceptionUtils;
+import org.apache.seatunnel.common.utils.PathResolver;
 import org.apache.seatunnel.common.utils.StringFormatUtils;
 import org.apache.seatunnel.engine.common.config.ConfigProvider;
 import org.apache.seatunnel.engine.common.config.SeaTunnelConfig;
@@ -301,6 +302,9 @@ public class TaskExecutionService implements DynamicMetricsProvider {
                 } else if (!CollectionUtils.isEmpty(taskImmutableInfo.getJars().get(i))) {
                     jars = taskImmutableInfo.getJars().get(i);
                 }
+                // Resolves a collection of URLs containing the logical SEATUNNEL_HOME variable to
+                // absolute paths.
+                PathResolver.resolvePathEnv(jars);
                 ClassLoader classLoader =
                         classLoaderService.getClassLoader(
                                 taskImmutableInfo.getJobId(), Lists.newArrayList(jars));
