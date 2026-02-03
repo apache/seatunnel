@@ -70,7 +70,7 @@ public abstract class AbstractKingbaseContainerTest {
             throw new IllegalStateException(
                     "Environment variable "
                             + KINGBASE_LICENSE_ENV
-                            + " is not set. Please set it with the license file content.");
+                            + " is not set.  Please set it with the license file content.");
         }
 
         DockerImageName imageName = DockerImageName.parse(KINGBASE_IMAGE);
