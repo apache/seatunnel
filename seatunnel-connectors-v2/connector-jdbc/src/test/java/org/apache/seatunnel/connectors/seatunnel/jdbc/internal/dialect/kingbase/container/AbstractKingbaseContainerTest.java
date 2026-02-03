@@ -26,10 +26,8 @@ import org.junit.jupiter.api.condition.DisabledOnOs;
 import org.junit.jupiter.api.condition.OS;
 import org.testcontainers.containers.GenericContainer;
 import org.testcontainers.containers.wait.strategy.Wait;
-import org.testcontainers.images.builder.Transferable;
 import org.testcontainers.utility.DockerImageName;
-
-import lombok.extern.slf4j.Slf4j;
+import org.testcontainers.utility.MountableFile;
 
 import java.sql.Connection;
 import java.sql.DriverManager;
@@ -41,11 +39,11 @@ import java.time.Duration;
  * Base class for Kingbase Testcontainers-based unit tests. Provides shared Kingbase container setup
  * and connection management.
  *
- * <p>NOTE: The Kingbase license must be provided via the KINGBASE_LICENSE environment variable. In
- * CI, this should be configured as a GitHub Secret. The license has a validity period of 1 year.
- * Current license was generated on 2026-01-31 and will expire around 2027-01-31...
+ * <p>NOTE: The Kingbase license file (license_39893_0.dat) has a validity period of approximately
+ * one year. If tests fail with license-related errors, you may need to obtain a new license file
+ * from Kingbase and replace the existing one in src/test/resources/kingbase/. Current license was
+ * generated on 2026-01-31 and will expire around 2027-01-31...
  */
-@Slf4j
 @DisabledOnOs(OS.WINDOWS)
 public abstract class AbstractKingbaseContainerTest {
 
@@ -55,7 +53,7 @@ public abstract class AbstractKingbaseContainerTest {
     protected static final String DATABASE = "test";
     protected static final String SCHEMA = "public";
     protected static final int KINGBASE_PORT = 54321;
-    protected static final String KINGBASE_LICENSE_ENV = "KINGBASE_LICENSE";
+    protected static final String LICENSE_RESOURCE_PATH = "kingbase/license_39893_0.dat";
     protected static final String CONTAINER_LICENSE_PATH = "/opt/kingbase/Server/bin/license.dat";
 
     protected static GenericContainer<?> kingbaseContainer;
@@ -64,15 +62,6 @@ public abstract class AbstractKingbaseContainerTest {
 
     @BeforeAll
     public static void startContainer() throws SQLException {
-        String licenseContent = System.getenv(KINGBASE_LICENSE_ENV);
-        log.info("KINGBASE_LICENSE content: {}", licenseContent);
-        if (licenseContent == null || licenseContent.isEmpty()) {
-            throw new IllegalStateException(
-                    "Environment variable "
-                            + KINGBASE_LICENSE_ENV
-                            + " is not set. Please set it with the license file content.");
-        }
-
         DockerImageName imageName = DockerImageName.parse(KINGBASE_IMAGE);
 
         kingbaseContainer =
@@ -80,8 +69,9 @@ public abstract class AbstractKingbaseContainerTest {
                         .withExposedPorts(KINGBASE_PORT)
                         .withEnv("SYSTEM_USER", USERNAME)
                         .withEnv("SYSTEM_PWD", PASSWORD)
-                        .withCopyToContainer(
-                                Transferable.of(licenseContent), CONTAINER_LICENSE_PATH)
+                        .withCopyFileToContainer(
+                                MountableFile.forClasspathResource(LICENSE_RESOURCE_PATH),
+                                CONTAINER_LICENSE_PATH)
                         .waitingFor(Wait.forListeningPort())
                         .withStartupTimeout(Duration.ofMinutes(3));
 
