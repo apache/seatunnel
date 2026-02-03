@@ -466,15 +466,71 @@ public class FtpFileIT extends TestSuiteBase implements TestResource {
     }
 
     private String getFtpUserHomeDir() throws IOException, InterruptedException {
+        // Prefer vsftpd local_root as the real filesystem root used by FTP paths in test configs.
+        // In some images, FTP users are created as virtual users and may not exist in /etc/passwd.
+        try {
+            Container.ExecResult confResult =
+                    ftpContainer.execInContainer("sh", "-c", "cat /etc/vsftpd/vsftpd.conf");
+            if (confResult.getExitCode() == 0 && StringUtils.isNotBlank(confResult.getStdout())) {
+                Properties properties = new Properties();
+                properties.load(new StringReader(confResult.getStdout()));
+                String localRoot = properties.getProperty("local_root");
+                if (StringUtils.isNotBlank(localRoot)) {
+                    String resolved =
+                            localRoot
+                                    .trim()
+                                    .replace("${FTP_USER}", USERNAME)
+                                    .replace("$FTP_USER", USERNAME)
+                                    .replace("${USER}", USERNAME)
+                                    .replace("$USER", USERNAME);
+                    if (StringUtils.isNotBlank(resolved)) {
+                        return resolved;
+                    }
+                }
+            }
+        } catch (Exception e) {
+            log.warn("Failed to resolve ftp local_root from vsftpd.conf, fallback to default.", e);
+        }
+
+        // Fallback: resolve from /etc/passwd if user exists
         Container.ExecResult homeResult =
                 ftpContainer.execInContainer(
-                        "sh", "-c", "grep '^" + USERNAME + ":' /etc/passwd | cut -d: -f6");
-        Assertions.assertEquals(0, homeResult.getExitCode(), homeResult.getStderr());
-        String homeDir = homeResult.getStdout() == null ? "" : homeResult.getStdout().trim();
-        Assertions.assertTrue(
-                StringUtils.isNotBlank(homeDir),
-                "Cannot resolve ftp home directory for user: " + USERNAME);
-        return homeDir;
+                        "sh",
+                        "-c",
+                        "awk -F: '$1==\""
+                                + USERNAME
+                                + "\"{print $6}' /etc/passwd 2>/dev/null || true");
+        if (homeResult.getExitCode() == 0) {
+            String homeDir = homeResult.getStdout() == null ? "" : homeResult.getStdout().trim();
+            if (StringUtils.isNotBlank(homeDir)) {
+                return homeDir;
+            }
+        }
+
+        // Last resort: use default directory used by fauria/vsftpd.
+        String defaultRoot = "/home/vsftpd";
+        if (containerDirExists(defaultRoot)) {
+            log.warn(
+                    "Cannot resolve ftp home directory for user: {}, fallback to {}",
+                    USERNAME,
+                    defaultRoot);
+            return defaultRoot;
+        }
+        String defaultUserRoot = defaultRoot + "/" + USERNAME;
+        log.warn(
+                "Cannot resolve ftp home directory for user: {}, fallback to {}",
+                USERNAME,
+                defaultUserRoot);
+        return defaultUserRoot;
+    }
+
+    private boolean containerDirExists(String path) throws IOException, InterruptedException {
+        Container.ExecResult result =
+                ftpContainer.execInContainer(
+                        "sh", "-c", "test -d '" + path + "' && echo true || echo false");
+        return result.getExitCode() == 0
+                && StringUtils.equalsIgnoreCase(
+                        (result.getStdout() == null ? "" : result.getStdout().trim()), "true");
     }
 
     private void ensureReadJsonInputFile() throws IOException, InterruptedException {
