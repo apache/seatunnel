@@ -31,6 +31,7 @@ import org.apache.seatunnel.api.options.table.TableIdentifierOptions;
 import org.apache.seatunnel.api.options.table.TableSchemaOptions;
 import org.apache.seatunnel.api.table.catalog.CatalogTable;
 import org.apache.seatunnel.api.table.catalog.CatalogTableUtil;
+import org.apache.seatunnel.api.table.catalog.TableIdentifier;
 import org.apache.seatunnel.api.table.catalog.TablePath;
 import org.apache.seatunnel.api.table.catalog.TableSchema;
 import org.apache.seatunnel.api.table.factory.TableSourceFactoryContext;
@@ -46,7 +47,6 @@ import java.util.Map;
 import java.util.stream.Collectors;
 
 import static org.apache.seatunnel.api.table.schema.exception.SchemaEvolutionErrorCode.GET_META_LAKE_TABLE_SCHEMA_FAILED;
-import static org.apache.seatunnel.api.table.schema.exception.SchemaEvolutionErrorCode.INVALID_SCHEMA_STRUCTURE;
 
 @Slf4j
 public class TableSchemaDiscoverer {
@@ -115,9 +115,7 @@ public class TableSchemaDiscoverer {
                     schemaConfig.get(ColumnOptions.SCHEMA_URL),
                     schemaConfig.get(TableIdentifierOptions.TABLE));
         }
-        throw new SeaTunnelRuntimeException(
-                INVALID_SCHEMA_STRUCTURE,
-                "Schema config need option [schema], please correct your config first");
+        return buildSimpleTextTable(schemaConfig);
     }
 
     private CatalogTable discoverTableSchemaFromConfig(ReadonlyConfig readonlyConfig) {
@@ -141,6 +139,16 @@ public class TableSchemaDiscoverer {
         }
     }
 
+    private CatalogTable buildSimpleTextTable(ReadonlyConfig schemaConfig) {
+        CatalogTable catalogTable = CatalogTableUtil.buildSimpleTextTable();
+        if (schemaConfig.getOptional(TableIdentifierOptions.TABLE).isPresent()) {
+            String table = schemaConfig.get(TableIdentifierOptions.TABLE);
+            return CatalogTable.of(
+                    TableIdentifier.of(catalogName, TablePath.of(table)), catalogTable);
+        }
+        return catalogTable;
+    }
+
     @VisibleForTesting
     protected MetaLakeType getMetaLakeType() {
         // first source
@@ -148,8 +156,10 @@ public class TableSchemaDiscoverer {
             return sourceOptions.get(TableSchemaOptions.METALAKE_TYPE);
         }
         // second env
-        if (envOptions.getOptional(EnvCommonOptions.METALAKE_TYPE).isPresent()) {
-            return envOptions.get(EnvCommonOptions.METALAKE_TYPE);
+        if (envOptions != null) {
+            if (envOptions.getOptional(EnvCommonOptions.METALAKE_TYPE).isPresent()) {
+                return envOptions.get(EnvCommonOptions.METALAKE_TYPE);
+            }
         }
         // third system
         if (StringUtils.isNotEmpty(

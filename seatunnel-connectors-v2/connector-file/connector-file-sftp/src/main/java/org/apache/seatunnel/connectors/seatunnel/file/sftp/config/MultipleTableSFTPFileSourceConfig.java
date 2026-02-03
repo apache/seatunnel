@@ -34,6 +34,6 @@ public class MultipleTableSFTPFileSourceConfig extends BaseMultipleTableFileSour
     @Override
     public BaseFileSourceConfig getBaseSourceConfig(
             ReadonlyConfig readonlyConfig, CatalogTable catalogTableFromConfig) {
-        return new SFTPFileSourceConfig(readonlyConfig);
+        return new SFTPFileSourceConfig(readonlyConfig, catalogTableFromConfig);
     }
 }

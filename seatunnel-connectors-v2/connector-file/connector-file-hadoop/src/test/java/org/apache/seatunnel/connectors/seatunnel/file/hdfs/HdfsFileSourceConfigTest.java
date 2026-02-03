@@ -22,6 +22,7 @@ import org.apache.seatunnel.shade.com.typesafe.config.ConfigFactory;
 
 import org.apache.seatunnel.api.configuration.ReadonlyConfig;
 import org.apache.seatunnel.api.table.catalog.CatalogTable;
+import org.apache.seatunnel.api.table.catalog.CatalogTableUtil;
 import org.apache.seatunnel.api.table.type.BasicType;
 import org.apache.seatunnel.api.table.type.SeaTunnelDataType;
 import org.apache.seatunnel.api.table.type.SeaTunnelRow;
@@ -99,7 +100,9 @@ class HdfsFileSourceConfigTest {
         Config config = ConfigFactory.parseMap(configMap);
         ReadonlyConfig readonlyConfig = ReadonlyConfig.fromConfig(config);
 
-        HdfsFileSourceConfig sourceConfig = new HdfsFileSourceConfig(readonlyConfig);
+        HdfsFileSourceConfig sourceConfig =
+                new HdfsFileSourceConfig(
+                        readonlyConfig, CatalogTableUtil.buildWithConfig(readonlyConfig));
         ReadStrategy readStrategy = sourceConfig.getReadStrategy();
         CatalogTable catalogTable = sourceConfig.getCatalogTable();
         SeaTunnelRowType seaTunnelRowType = catalogTable.getSeaTunnelRowType();
@@ -201,8 +204,9 @@ class HdfsFileSourceConfigTest {
         configMap.put(FileBaseSourceOptions.COMPARE_MODE.key(), "len_mtime");
 
         Config config = ConfigFactory.parseMap(configMap);
+        final ReadonlyConfig readonlyConfig = ReadonlyConfig.fromConfig(config);
         HdfsFileSourceConfig sourceConfig =
-                new HdfsFileSourceConfig(ReadonlyConfig.fromConfig(config));
+                new HdfsFileSourceConfig(readonlyConfig, CatalogTableUtil.buildSimpleTextTable());
 
         Assertions.assertTrue(
                 sourceConfig.getFilePaths().isEmpty(),
