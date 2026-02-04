@@ -31,6 +31,7 @@ concurrency:
 
 env:
   TEST_IN_PR: ${{ inputs.TEST_IN_PR }}
+  KINGBASE_LICENSE: ${{ vars.KINGBASE_LICENSE }}
 
 jobs:
   license-header:
@@ -49,7 +50,7 @@ jobs:
     runs-on: ubuntu-latest
     timeout-minutes: 10
     steps:
-      - uses: actions/checkout@v3
+      - uses: actions/checkout@v3unit
         with:
           submodules: true
       - name: Check code style
