@@ -318,7 +318,6 @@ public class TableSchemaDiscovererTest {
         Assertions.assertEquals(1, result.get(0).getTableSchema().getColumns().size());
         Assertions.assertEquals(
                 "content", result.get(0).getTableSchema().getColumns().get(0).getName());
-
         // Second table (orc) - db.orc_table
         Assertions.assertEquals("schema", result.get(1).getCatalogName());
         Assertions.assertEquals(TablePath.of("db", "orc_table"), result.get(1).getTablePath());
@@ -326,7 +325,6 @@ public class TableSchemaDiscovererTest {
         Assertions.assertEquals(1, result.get(1).getTableSchema().getColumns().size());
         Assertions.assertEquals(
                 "content", result.get(1).getTableSchema().getColumns().get(0).getName());
-
         // Third table (binary) - db.binary_table
         Assertions.assertEquals("schema", result.get(2).getCatalogName());
         Assertions.assertEquals(TablePath.of("db", "binary_table"), result.get(2).getTablePath());
