@@ -1,3 +1,5 @@
+import ChangeLog from '../changelog/connector-http-hubspot.md';
+
 # HubSpot
 
 > HubSpot Source Connector

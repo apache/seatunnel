@@ -17,32 +17,20 @@
 
 package org.apache.seatunnel.connectors.seatunnel.hubspot.source;
 
-import org.apache.seatunnel.api.configuration.util.OptionRule;
-import org.apache.seatunnel.api.source.SeaTunnelSource;
-import org.apache.seatunnel.api.table.factory.Factory;
-import org.apache.seatunnel.api.table.factory.TableSourceFactory;
+import org.apache.seatunnel.api.configuration.Option;
+import org.apache.seatunnel.api.configuration.Options;
 
-import com.google.auto.service.AutoService;
+public class HubSpotSourceOptions {
 
-@AutoService(Factory.class)
-public class HubSpotSourceFactory implements TableSourceFactory {
+    public static final Option<String> ACCESS_TOKEN =
+            Options.key("access_token")
+                    .stringType()
+                    .noDefaultValue()
+                    .withDescription("HubSpot Private App Access Token");
 
-    @Override
-    public String factoryIdentifier() {
-        return "HubSpot";
-    }
-
-    @Override
-    public OptionRule optionRule() {
-        return OptionRule.builder()
-                .required(HubSpotSourceOptions.ACCESS_TOKEN)
-                .optional(HubSpotSourceOptions.OBJECT_TYPE)
-                .build();
-    }
-
-    @Override
-    @SuppressWarnings("rawtypes")
-    public Class<? extends SeaTunnelSource> getSourceClass() {
-        return HubSpotSource.class;
-    }
+    public static final Option<String> OBJECT_TYPE =
+            Options.key("object_type")
+                    .stringType()
+                    .defaultValue("contacts")
+                    .withDescription("The HubSpot object to fetch (contacts, companies, deals)");
 }

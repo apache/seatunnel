@@ -1,3 +1,20 @@
+/*
+ * Licensed to the Apache Software Foundation (ASF) under one or more
+ * contributor license agreements.  See the NOTICE file distributed with
+ * this work for additional information regarding copyright ownership.
+ * The ASF licenses this file to You under the Apache License, Version 2.0
+ * (the "License"); you may not use this file except in compliance with
+ * the License.  You may obtain a copy of the License at
+ *
+ * http://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an "AS IS" BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
+ */
+
 package org.apache.seatunnel.connectors.seatunnel.hubspot.source;
 
 import org.apache.seatunnel.api.configuration.ReadonlyConfig;
@@ -13,7 +30,6 @@ public class HubSpotSource extends HttpSource {
 
     public HubSpotSource(ReadonlyConfig config) {
         // We calculate the specific HubSpot config (URL, Auth) BEFORE calling super()
-        // This injects our logic into the standard HttpSource
         super(buildHubSpotConfig(config));
     }
 
@@ -31,24 +47,22 @@ public class HubSpotSource extends HttpSource {
 
         // 1. Get user inputs
         String objectType =
-                originalConfig.getOptional(HubSpotSourceFactory.OBJECT_TYPE).orElse("contacts");
-        String accessToken = originalConfig.get(HubSpotSourceFactory.ACCESS_TOKEN);
+                originalConfig.getOptional(HubSpotSourceOptions.OBJECT_TYPE).orElse("contacts");
+        String accessToken = originalConfig.get(HubSpotSourceOptions.ACCESS_TOKEN);
 
         // 2. Generate the URL dynamically
         String finalUrl = "https://api.hubapi.com/crm/v3/objects/" + objectType;
         newConfigMap.put("url", finalUrl);
 
         // 3. Inject Authentication Headers
-        // The HttpSource expects a map under the key "headers"
         Map<String, String> headers = new HashMap<>();
         headers.put("Authorization", "Bearer " + accessToken);
         headers.put("Content-Type", "application/json");
         newConfigMap.put("headers", headers);
 
-        // 4. Force the content field to "results" (so it parses the list correctly)
+        // 4. Force the content field to "results"
         newConfigMap.put("content_field", "results");
 
-        // 5. Return the new merged config
         return ReadonlyConfig.fromMap(newConfigMap);
     }
 }
