@@ -1,6 +1,5 @@
 package org.apache.seatunnel.engine.server.checkpoint;
 
-import com.hazelcast.internal.serialization.Data;
 import org.apache.seatunnel.engine.common.job.JobStatus;
 import org.apache.seatunnel.engine.common.utils.PassiveCompletableFuture;
 import org.apache.seatunnel.engine.core.dag.logical.LogicalDag;
@@ -9,10 +8,13 @@ import org.apache.seatunnel.engine.server.AbstractSeaTunnelServerTest;
 import org.apache.seatunnel.engine.server.TestUtils;
 import org.apache.seatunnel.engine.server.checkpoint.operation.CheckpointBarrierTriggerOperation;
 import org.apache.seatunnel.engine.server.master.JobMaster;
+
 import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.Test;
 import org.mockito.Mockito;
 import org.mockito.invocation.InvocationOnMock;
+
+import com.hazelcast.internal.serialization.Data;
 
 import java.lang.reflect.Field;
 import java.util.Collections;
@@ -25,11 +27,13 @@ import static org.mockito.Mockito.spy;
 
 public class CheckpointBarrierTriggerErrorTest extends AbstractSeaTunnelServerTest {
 
-    private static final String CONF_PATH = "stream_fake_to_console_checkpoint_barrier_trigger_error.conf";
+    private static final String CONF_PATH =
+            "stream_fake_to_console_checkpoint_barrier_trigger_error.conf";
     private static final AtomicInteger COUNTER = new AtomicInteger(0);
 
     @Test
-    public void testCheckpointBarrierTriggerError() throws NoSuchFieldException, IllegalAccessException {
+    public void testCheckpointBarrierTriggerError()
+            throws NoSuchFieldException, IllegalAccessException {
         long jobId = System.currentTimeMillis();
         startJob(System.currentTimeMillis(), CONF_PATH);
 
@@ -44,8 +48,8 @@ public class CheckpointBarrierTriggerErrorTest extends AbstractSeaTunnelServerTe
         setCheckpointManager(spiedCheckpointManager);
 
         doAnswer(this::mockException)
-        .when(spiedCheckpointManager)
-        .sendOperationToMemberNode(Mockito.any(CheckpointBarrierTriggerOperation.class));
+                .when(spiedCheckpointManager)
+                .sendOperationToMemberNode(Mockito.any(CheckpointBarrierTriggerOperation.class));
 
         await().atMost(360000, TimeUnit.MILLISECONDS)
                 .untilAsserted(
@@ -79,23 +83,26 @@ public class CheckpointBarrierTriggerErrorTest extends AbstractSeaTunnelServerTe
 
     private Object mockException(InvocationOnMock invocation) throws Throwable {
         if (COUNTER.incrementAndGet() == 1) {
-            throw new RuntimeException("An exception occurred while sending CheckpointBarrierTriggerOperation.");
+            throw new RuntimeException(
+                    "An exception occurred while sending CheckpointBarrierTriggerOperation.");
         }
         return invocation.callRealMethod();
     }
 
-    private CheckpointManager getCheckpointManager(Long jobId) throws NoSuchFieldException, IllegalAccessException {
+    private CheckpointManager getCheckpointManager(Long jobId)
+            throws NoSuchFieldException, IllegalAccessException {
         JobMaster jobMaster = server.getCoordinatorService().getJobMaster(jobId);
         Field checkpointManagerField = JobMaster.class.getDeclaredField("checkpointManager");
         checkpointManagerField.setAccessible(true);
         return (CheckpointManager) checkpointManagerField.get(jobMaster);
     }
 
-    private void setCheckpointManager(CheckpointManager checkpointManager) throws NoSuchFieldException, IllegalAccessException {
+    private void setCheckpointManager(CheckpointManager checkpointManager)
+            throws NoSuchFieldException, IllegalAccessException {
         CheckpointCoordinator checkpointCoordinator = checkpointManager.getCheckpointCoordinator(1);
-        Field checkpointManagerField = CheckpointCoordinator.class.getDeclaredField("checkpointManager");
+        Field checkpointManagerField =
+                CheckpointCoordinator.class.getDeclaredField("checkpointManager");
         checkpointManagerField.setAccessible(true);
         checkpointManagerField.set(checkpointCoordinator, checkpointManager);
     }
-
 }
