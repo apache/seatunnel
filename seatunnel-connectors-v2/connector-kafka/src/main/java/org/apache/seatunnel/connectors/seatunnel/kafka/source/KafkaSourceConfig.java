@@ -55,6 +55,7 @@ import org.apache.seatunnel.format.json.exception.SeaTunnelJsonFormatException;
 import org.apache.seatunnel.format.json.maxwell.MaxWellJsonDeserializationSchema;
 import org.apache.seatunnel.format.json.ogg.OggJsonDeserializationSchema;
 import org.apache.seatunnel.format.protobuf.ProtobufDeserializationSchema;
+import org.apache.seatunnel.format.protobuf.SchemaRegistryAwareProtobufDeserializationSchema;
 import org.apache.seatunnel.format.text.TextDeserializationSchema;
 import org.apache.seatunnel.format.text.constant.TextFormatConstant;
 
@@ -100,6 +101,7 @@ import static org.apache.seatunnel.connectors.seatunnel.kafka.config.KafkaSource
 import static org.apache.seatunnel.connectors.seatunnel.kafka.config.KafkaSourceOptions.START_MODE_END_TIMESTAMP;
 import static org.apache.seatunnel.connectors.seatunnel.kafka.config.KafkaSourceOptions.START_MODE_OFFSETS;
 import static org.apache.seatunnel.connectors.seatunnel.kafka.config.KafkaSourceOptions.START_MODE_TIMESTAMP;
+import static org.apache.seatunnel.connectors.seatunnel.kafka.config.KafkaSourceOptions.STRIP_SCHEMA_REGISTRY_HEADER;
 import static org.apache.seatunnel.connectors.seatunnel.kafka.config.KafkaSourceOptions.TOPIC;
 
 public class KafkaSourceConfig implements Serializable {
@@ -408,7 +410,13 @@ public class KafkaSourceConfig implements Serializable {
                     schema = new AvroDeserializationSchema(catalogTable);
                     break;
                 case PROTOBUF:
-                    schema = new ProtobufDeserializationSchema(catalogTable);
+                    boolean stripSchemaRegistryHeader =
+                            readonlyConfig.get(STRIP_SCHEMA_REGISTRY_HEADER);
+                    if (stripSchemaRegistryHeader) {
+                        schema = new SchemaRegistryAwareProtobufDeserializationSchema(catalogTable);
+                    } else {
+                        schema = new ProtobufDeserializationSchema(catalogTable);
+                    }
                     break;
                 default:
                     throw new SeaTunnelJsonFormatException(

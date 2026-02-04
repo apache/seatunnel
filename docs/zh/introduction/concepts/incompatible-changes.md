@@ -6,6 +6,30 @@
 
 ### API 变更
 
+- **破坏性变更：Engine REST 表级指标 key 格式变化**
+  - **影响范围**：SeaTunnel Engine REST API（`/job-info` 返回的 job metrics 中的表级指标）
+  - **变更说明**：为支持多个 Source/Sink/Transform 同时处理同一张表，表级指标的 key 格式从 `{tableName}` 变更为 `{VertexIdentifier}.{tableName}`（例如 `Sink[0].fake.user_table`）。
+  - **影响**：依赖旧 key 的 Grafana 仪表盘、Prometheus 告警规则以及自定义监控解析逻辑需要同步修改，否则升级后会出现指标查询/告警静默失效。
+
+  **变更前**
+  ```json
+  {
+    "TableSinkWriteCount": {
+      "fake.user_table": "15"
+    }
+  }
+  ```
+
+  **变更后**
+  ```json
+  {
+    "TableSinkWriteCount": {
+      "Sink[0].fake.user_table": "10",
+      "Sink[1].fake.user_table": "5"
+    }
+  }
+  ```
+
 ### 配置变更
 
 ### 连接器变更

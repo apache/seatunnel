@@ -322,7 +322,8 @@ public class JobMaster {
                         jobCheckpointConfig,
                         seaTunnelServer.getCheckpointService().getCheckpointStorage(),
                         executorService,
-                        runningJobStateIMap);
+                        runningJobStateIMap,
+                        seaTunnelServer.getCheckpointMonitorService());
     }
 
     // TODO replace it after ReadableConfig Support parse yaml format, then use only one config to
