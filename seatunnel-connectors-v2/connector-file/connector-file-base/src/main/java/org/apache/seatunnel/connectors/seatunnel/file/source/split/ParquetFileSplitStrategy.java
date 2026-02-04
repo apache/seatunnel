@@ -79,7 +79,12 @@ public class ParquetFileSplitStrategy implements FileSplitStrategy, Closeable {
         try {
             return splitByRowGroups(tableId, filePath, readRowGroups(filePath));
         } catch (IOException e) {
-            throw new SeaTunnelRuntimeException(FileConnectorErrorCode.FILE_SPLIT_FAIL, e);
+            throw new SeaTunnelRuntimeException(
+                    FileConnectorErrorCode.FILE_SPLIT_FAIL,
+                    String.format(
+                            "Split parquet file for [%s] failed, cause=%s: %s",
+                            filePath, e.getClass().getSimpleName(), e.getMessage()),
+                    e);
         }
     }
 

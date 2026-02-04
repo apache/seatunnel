@@ -114,12 +114,14 @@ public class CsvReadStrategy extends AbstractReadStrategy {
                 break;
         }
         // rebuild inputStream
-        if (enableSplitFile && split.getLength() > -1) {
+        final boolean useSplitRead = enableSplitFile && split.getLength() > -1;
+        if (useSplitRead) {
             actualInputStream = safeSlice(inputStream, split.getStart(), split.getLength());
         }
         CSVFormat csvFormat = getCSVFormat();
-        // if enableSplitFile is true,no need to skip
-        if (!enableSplitFile) {
+        // When split range is used, skip_header_row_number is expected to be handled by split
+        // strategy, so reader should not skip again.
+        if (!useSplitRead) {
             if (firstLineAsHeader) {
                 csvFormat = csvFormat.withFirstRecordAsHeader();
             }
@@ -134,8 +136,8 @@ public class CsvReadStrategy extends AbstractReadStrategy {
                 reader.reset();
             }
             // skip lines
-            // if enableSplitFile is true,no need to skip
-            if (!enableSplitFile) {
+            // if split range is used, no need to skip
+            if (!useSplitRead) {
                 for (int i = 0; i < skipHeaderNumber; i++) {
                     if (reader.readLine() == null) {
                         throw new IOException(

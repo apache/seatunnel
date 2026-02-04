@@ -25,7 +25,11 @@ import org.apache.seatunnel.connectors.seatunnel.file.source.BaseMultipleTableFi
 public class S3FileSource extends BaseMultipleTableFileSource {
 
     public S3FileSource(ReadonlyConfig readonlyConfig) {
-        super(new MultipleTableS3FileSourceConfig(readonlyConfig));
+        this(new MultipleTableS3FileSourceConfig(readonlyConfig));
+    }
+
+    private S3FileSource(MultipleTableS3FileSourceConfig sourceConfig) {
+        super(sourceConfig, initFileSplitStrategy(sourceConfig));
     }
 
     @Override
