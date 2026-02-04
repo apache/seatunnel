@@ -114,6 +114,7 @@ public class JdbcPostgresIT extends TestSuiteBase implements TestResource {
                     + "  jsonb_col jsonb NOT NULL,\n"
                     + "  xml_col xml NOT NULL\n"
                     + ");comment on column pg_e2e_source_table.uuid_col is '\"#¥%……&*（）;;'',,.\\.``````//''@特殊注释''\\\\''\"'";
+
     private static final String PG_SINK_DDL =
             "CREATE TABLE IF NOT EXISTS pg_e2e_sink_table (\n"
                     + "    gid SERIAL PRIMARY KEY,\n"
@@ -151,6 +152,7 @@ public class JdbcPostgresIT extends TestSuiteBase implements TestResource {
                     + "    jsonb_col jsonb NOT NULL,\n"
                     + "    xml_col xml NOT NULL\n"
                     + "  )";
+
     private static final String SOURCE_SQL =
             "select \n"
                     + "gid,\n"
@@ -188,6 +190,7 @@ public class JdbcPostgresIT extends TestSuiteBase implements TestResource {
                     + "jsonb_col,\n"
                     + " cast(xml_col as varchar) \n"
                     + "from pg_e2e_source_table";
+
     private static final String SINK_SQL =
             "select\n"
                     + "  gid,\n"
