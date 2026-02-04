@@ -358,7 +358,6 @@ public class JdbcPostgresIT extends TestSuiteBase implements TestResource {
         }
     }
 
-
     private void initializeJdbcTable() {
         try (Connection connection = getJdbcConnection()) {
             Statement statement = connection.createStatement();
