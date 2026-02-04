@@ -276,7 +276,7 @@ Source plugin common parameters, please refer to [Source Common Options](../comm
 ## Example
 
 ```hocon
-Github {
+Hubspot {
   url = "https://api.github.com/orgs/apache/repos"
   access_token = "xxxx"
   method = "GET"
@@ -297,4 +297,3 @@ Github {
 ## Changelog
 
 <ChangeLog />
-
