@@ -34,7 +34,7 @@ import java.sql.SQLException;
 import java.sql.Statement;
 
 @DisabledOnOs(OS.WINDOWS)
-public class PostgresDialectContainerTest extends AbstractPostgresContainerTest {
+public class PostgresDialectTest extends AbstractPostgresContainerTest {
 
     @Test
     void testUpsertStatement() {

@@ -79,14 +79,6 @@ public class PostgresCatalogTest extends AbstractPostgresContainerTest {
     }
 
     @Test
-    public void testContainerInfo() {
-        System.out.println("JDBC URL: " + getJdbcUrl());
-        System.out.println("Username: " + getUsername());
-        System.out.println("Password: " + getPassword());
-        System.out.println("Database: " + POSTGRES_CONTAINER.getDatabaseName());
-    }
-
-    @Test
     public void testCatalogOperations() throws SQLException {
         PostgresCatalog catalog = createPostgresCatalog();
         catalog.open();
