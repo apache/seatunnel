@@ -683,9 +683,16 @@ public class CheckpointCoordinator {
                     try {
                         CompletableFuture.allOf(completableFutureArray).get();
                     } catch (InterruptedException e) {
+                        handleCoordinatorError(
+                                "triggering checkpoint barrier has been interrupted",
+                                e,
+                                CheckpointCloseReason.CHECKPOINT_INSIDE_ERROR);
                         throw new RuntimeException(e);
                     } catch (Exception e) {
-                        LOG.error(ExceptionUtils.getMessage(e));
+                        handleCoordinatorError(
+                                "triggering checkpoint barrier failed",
+                                e,
+                                CheckpointCloseReason.CHECKPOINT_INSIDE_ERROR);
                         return;
                     }
                     if (coordinatorConfig.isCheckpointEnable()) {
