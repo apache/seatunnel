@@ -46,6 +46,7 @@ import ChangeLog from '../changelog/connector-elasticsearch.md';
 | tls_truststore_password | string  | no       | -                                   |
 | pit_keep_alive          | long    | no       | 60000 (1 minute)                    |
 | pit_batch_size          | int     | no       | 100                                 |
+| runtime_fields          | array   | no       | -                                   |
 | common-options          |         | no       | -                                   |
 
 ### hosts [array]
@@ -206,6 +207,36 @@ PIT 应保持活动的时间量（以毫秒为单位）
 
 ### pit_batch_size  [int]
 每次 PIT 搜索请求返回的最大数量
+
+### runtime_fields [array]
+
+在查询时动态计算字段（Elasticsearch 7.11+）。每个 runtime field 需要包含：
+- **name**: 字段名
+- **type**: 数据类型（boolean, date, double, geo_point, ip, keyword, long）
+- **script**: Painless 脚本，用于计算字段值
+- **script_lang** (可选): 脚本语言（默认：painless）
+- **script_params** (可选): 脚本参数
+
+示例：
+```hocon
+runtime_fields = [
+  {
+    name = "day_of_week"
+    type = "keyword"
+    script = "emit(doc['timestamp'].value.dayOfWeekEnum.toString())"
+  },
+  {
+    name = "total_price"
+    type = "double"
+    script = "emit(doc['quantity'].value * doc['price'].value)"
+  }
+]
+```
+
+**性能与限制：**
+- 运行时字段在查询阶段计算，数据量大时会影响性能
+- 适合临时分析、字段试验与低频查询
+- 需要 Elasticsearch 7.11 及以上版本
 
 ### common options
 
@@ -377,6 +408,89 @@ source {
     search_api_type = PIT
     pit_keep_alive = 60000  # 1 minute in milliseconds
     pit_batch_size = 100
+  }
+}
+```
+
+Demo8: Runtime Fields（Elasticsearch 7.11+）
+
+> 该示例演示如何在查询时计算字段值，而无需重建索引。
+
+```hocon
+source {
+  Elasticsearch {
+    hosts = ["https://elasticsearch:9200"]
+    username = "elastic"
+    password = "elasticsearch"
+    tls_verify_certificate = false
+    tls_verify_hostname = false
+    
+    index = "sales_data"
+    
+    # 定义运行时字段
+    runtime_fields = [
+      {
+        name = "total_amount"
+        type = "double"
+        script = "emit(doc['quantity'].value * doc['price'].value)"
+      },
+      {
+        name = "day_of_week"
+        type = "keyword"
+        script = "emit(doc['order_date'].value.dayOfWeekEnum.getDisplayName(TextStyle.FULL, Locale.ROOT))"
+      },
+      {
+        name = "order_category"
+        type = "keyword"
+        script = """
+          double amount = doc['quantity'].value * doc['price'].value;
+          if (amount > 1000) {
+            emit('high_value');
+          } else if (amount > 100) {
+            emit('medium_value');
+          } else {
+            emit('low_value');
+          }
+        """
+      },
+      {
+        name = "price_with_tax"
+        type = "double"
+        script = "emit(doc['price'].value * (1 + params.tax_rate))"
+        script_params = {
+          tax_rate = 0.13
+        }
+      }
+    ]
+    
+    source = [
+      "product_id",
+      "quantity",
+      "price",
+      "order_date",
+      "total_amount",
+      "day_of_week",
+      "order_category",
+      "price_with_tax"
+    ]
+    
+    schema = {
+      fields {
+        product_id = string
+        quantity = int
+        price = double
+        order_date = timestamp
+        total_amount = double
+        day_of_week = string
+        order_category = string
+        price_with_tax = double
+      }
+    }
+  }
+}
+
+sink {
+  Console {
   }
 }
 ```
