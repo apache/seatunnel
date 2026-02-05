@@ -52,7 +52,7 @@ public class CheckpointBarrierTriggerErrorTest extends AbstractSeaTunnelServerTe
     public void testCheckpointBarrierTriggerError()
             throws NoSuchFieldException, IllegalAccessException {
         long jobId = System.currentTimeMillis();
-        startJob(System.currentTimeMillis(), CONF_PATH);
+        startJob(jobId, CONF_PATH);
 
         await().atMost(120000, TimeUnit.MILLISECONDS)
                 .untilAsserted(

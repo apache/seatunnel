@@ -687,7 +687,7 @@ public class CheckpointCoordinator {
                                 "triggering checkpoint barrier has been interrupted",
                                 e,
                                 CheckpointCloseReason.CHECKPOINT_INSIDE_ERROR);
-                        throw new RuntimeException(e);
+                        return;
                     } catch (Exception e) {
                         handleCoordinatorError(
                                 "triggering checkpoint barrier failed",
