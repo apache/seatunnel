@@ -198,7 +198,7 @@ public class EsRestClient implements Closeable {
             Map<String, Object> query,
             String scrollTime,
             int scrollSize) {
-        return searchByScroll(index, source, query, scrollTime, scrollSize, null);
+        return searchByScroll(index, source, query, scrollTime, scrollSize, null, null, null);
     }
 
     /**
