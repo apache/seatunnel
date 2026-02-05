@@ -177,7 +177,7 @@ Created → Initialized → Scheduled → Running → Finished/Failed/Canceled
     │
     ▼
 ┌───────────────┐
-│  LogicalDag   │  • 逻辑顶点（数据源/转换/数据汇）
+│  LogicalDag   │  • 逻辑顶点（数据源/转换/数据 Sink ）
 │               │  • 逻辑边（数据流）
 │               │  • 并行度（每个顶点）
 └───────────────┘
@@ -213,7 +213,7 @@ Created → Initialized → Scheduled → Running → Finished/Failed/Canceled
     ▼
 ┌───────────────┐
 │ SeaTunnelTask │  • 单个任务执行
-│               │  • 数据源/转换/数据汇生命周期
+│               │  • 数据源/转换/数据 Sink 生命周期
 │               │  • 任务状态机
 └───────────────┘
 ```
@@ -253,7 +253,7 @@ Created → Initialized → Scheduled → Running → Finished/Failed/Canceled
 
 **示例**：
 ```hocon
-# 多数据源/汇配置
+# 多数据源/Sink 配置
 env { ... }
 
 source {
@@ -288,10 +288,10 @@ sink {
 
 ```
 无融合：
-[数据源任务] → 网络 → [转换任务] → 网络 → [数据汇任务]
+[数据源任务] → 网络 → [转换任务] → 网络 → [数据 Sink 任务]
 
 有融合：
-[TaskGroup: 数据源 → 转换 → 数据汇]（单线程，无网络）
+[TaskGroup: 数据源 → 转换 → 数据 Sink ]（单线程，无网络）
 ```
 
 **融合条件**：
@@ -335,7 +335,7 @@ sink {
 1. **CREATED → INIT**：任务已创建，初始化资源
 2. **INIT → WAITING_RESTORE**：从检查点恢复
 3. **WAITING_RESTORE → READY_START**：状态已恢复
-4. **READY_START → STARTING**：打开数据源/转换/数据汇
+4. **READY_START → STARTING**：打开数据源/转换/数据 Sink 
 5. **STARTING → RUNNING**：数据处理已启动
 6. **RUNNING → PREPARE_CLOSE**：正常完成
 7. **PREPARE_CLOSE → CLOSED**：资源已清理
@@ -518,7 +518,7 @@ env {
 - 独立的检查点协调（较少的协调开销）
 - 清晰的失败边界（一个管道失败，其他继续）
 - 更容易推理数据流
-- 支持复杂的 DAG（多数据源/汇）
+- 支持复杂的 DAG（多数据源/Sink ）
 
 **缺点**：
 - 无法跨管道边界融合任务

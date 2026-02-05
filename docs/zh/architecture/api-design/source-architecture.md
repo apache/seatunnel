@@ -3,7 +3,7 @@ sidebar_position: 2
 title: 数据读取端 Source 架构
 ---
 
-# 数据源端 Source 架构
+# 数据 Source 端架构
 
 ## 1. 概述
 
@@ -11,7 +11,7 @@ title: 数据读取端 Source 架构
 
 分布式系统中的数据源读取端面临几个挑战：
 
-- **并行度**：如何从单个数据源并行读取数据？
+- **并行度**：如何从单个 Sink 并行读取数据？
 - **容错**：失败后如何从中断处恢复？
 - **动态分配**：如何处理工作节点失败并重新分配工作？
 - **有界 vs 无界**：如何统一批处理和流式数据源？
@@ -19,7 +19,7 @@ title: 数据读取端 Source 架构
 
 ### 1.2 设计目标
 
-SeaTunnel 的数据源 API 旨在：
+SeaTunnel 的源端 Source 端读取 API 旨在：
 
 1. **启用并行读取**：通过基于分片的并行度支持可扩展性
 2. **确保容错**：检查点分片状态以实现精确一次处理
@@ -76,7 +76,7 @@ SeaTunnel 的数据源 API 旨在：
                              │
                              ▼
                        SeaTunnelRow
-                       (到转换/数据汇)
+                       (到转换/数据 Sink )
 ```
 
 ### 2.2 核心组件
@@ -418,7 +418,7 @@ snapshotState(checkpointId):
 
 - [架构概览](../overview.md)
 - [设计理念](../design-philosophy.md)
-- [数据汇架构](sink-architecture.md)
+- [数据 Sink 架构](sink-architecture.md)
 - [检查点机制](../fault-tolerance/checkpoint-mechanism.md)
 - [如何创建您的连接器](../../developer/how-to-create-your-connector.md)
 

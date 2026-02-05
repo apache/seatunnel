@@ -31,13 +31,13 @@ SeaTunnel 采用分层架构，实现关注点分离和灵活性：
 ```
 ┌─────────────────────────────────────────────────────────────────┐
 │                        用户配置层                                 │
-│                  (HOCON 配置 / SQL / Web UI)                     │
+│                  (HOCON 配置 / SQL)                     │
 └─────────────────────────────────────────────────────────────────┘
                               │
                               ▼
 ┌─────────────────────────────────────────────────────────────────┐
 │                      SeaTunnel API 层                            │
-│         (数据源 API / 数据汇 API / 转换 API / 表 API)             │
+│         (数据源 API / 数据 Sink  API / 转换 API / 表 API)             │
 │                                                                   │
 │  • SeaTunnelSource        • CatalogTable                         │
 │  • SeaTunnelSink          • TableSchema                          │
@@ -78,8 +78,8 @@ SeaTunnel 采用分层架构，实现关注点分离和灵活性：
 | 层级 | 职责 | 核心组件 |
 |-----|------|---------|
 | **配置层** | 作业定义、参数配置 | HOCON 解析器、SQL 解析器、配置验证 |
-| **API 层** | 连接器的统一抽象 | 数据源/数据汇/转换接口、CatalogTable |
-| **连接器层** | 数据源/汇实现 | 连接器实现（JDBC、Kafka、CDC 等） |
+| **API 层** | 连接器的统一抽象 | 数据源/数据 Sink /转换接口、CatalogTable |
+| **连接器层** | 数据源/Sink 实现 | 连接器实现（JDBC、Kafka、CDC 等） |
 | **转换层** | 引擎特定适配 | Flink/Spark 适配器、上下文包装器 |
 | **引擎层** | 作业执行和资源管理 | 调度、容错、状态管理 |
 
@@ -89,9 +89,7 @@ SeaTunnel 采用分层架构，实现关注点分离和灵活性：
 
 API 层提供引擎独立的抽象：
 
-> 说明：为降低维护成本并避免“文档代码/链接随重构漂移”，本文档不直接嵌入源码片段与源码链接；重点解释组件职责、交互流程与设计动机。
-
-#### 数据源 API
+#### 数据源 Source API
 - **SeaTunnelSource**：创建读取器和枚举器的工厂接口
 - **SourceSplitEnumerator**：主节点侧组件，负责分片生成和分配
 - **SourceReader**：工作节点侧组件，负责从分片读取数据
@@ -99,7 +97,7 @@ API 层提供引擎独立的抽象：
 
 **关键设计**：协调（枚举器）与执行（读取器）分离，实现高效的并行处理和容错。
 
-#### 数据汇 API
+#### 数据 Sink  API
 - **SeaTunnelSink**：创建写入器和提交器的工厂接口
 - **SinkWriter**：工作节点侧组件，负责写入数据
 - **SinkCommitter**：多个写入器的提交操作协调器
@@ -129,8 +127,8 @@ API 层提供引擎独立的抽象：
 
 #### 工作节点组件
 - **TaskExecutionService**：部署和执行任务
-- **SeaTunnelTask**：执行数据源/转换/数据汇逻辑
-- **FlowLifeCycle**：管理数据源/转换/数据汇组件的生命周期
+- **SeaTunnelTask**：执行数据源 Source/转换/数据 Sink 逻辑
+- **FlowLifeCycle**：管理数据源 Source/转换/数据 Sink 组件的生命周期
 
 #### 执行模型
 ```
@@ -141,7 +139,7 @@ LogicalDag → PhysicalPlan → SubPlan (管道) → PhysicalVertex → TaskGrou
 
 通过适配器模式实现引擎可移植性：
 
-- **FlinkSource/FlinkSink**：将 SeaTunnel API 适配到 Flink 的数据源/汇接口
+- **FlinkSource/FlinkSink**：将 SeaTunnel API 适配到 Flink 的数据源/Sink 接口
 - **SparkSource/SparkSink**：将 SeaTunnel API 适配到 Spark 的 RDD/Dataset 接口
 - **上下文适配器**：包装引擎特定的上下文（SourceReaderContext、SinkWriterContext）
 - **序列化适配器**：桥接 SeaTunnel 和引擎序列化机制
@@ -169,10 +167,10 @@ connector-[name]/
 
 ## 4. 数据流模型
 
-### 4.1 数据源数据流
+### 4.1 数据读取 Source 端数据流
 
 ```
-数据源
+数据源 Source
     │
     ▼
 ┌─────────────────────┐
@@ -211,7 +209,7 @@ connector-[name]/
 └─────────────────────┘
     │
     ▼
-数据汇
+数据 Sink 
 ```
 
 ### 4.2 基于分片的并行度
@@ -226,9 +224,9 @@ connector-[name]/
 作业被划分为**管道**（SubPlan）：
 
 ```
-管道 1: [数据源 A] → [转换 1] → [数据汇 A]
+管道 1: [数据 Source A] → [转换 1] → [数据 Sink  A]
                                 ↓
-管道 2: [数据源 B] ───────→ [转换 2] → [数据汇 B]
+管道 2: [数据 Source B] ───────→ [转换 2] → [数据 Sink  B]
 ```
 
 每个管道：
@@ -260,7 +258,7 @@ sequenceDiagram
 
 1. **任务初始化**
    - 将任务部署到分配的槽位
-   - 初始化数据源/转换/数据汇组件
+   - 初始化数据 Source/转换/数据 Sink 组件
    - 从检查点恢复状态（如果在恢复中）
 
 2. **数据处理**
@@ -332,13 +330,13 @@ CREATED → SCHEDULED → RUNNING → FINISHED
 
 - **DDL 传播**：从数据源捕获模式变更（ADD/DROP/MODIFY 列）
 - **模式映射**：通过管道转换模式变更
-- **动态应用**：将模式变更应用到数据汇表
+- **动态应用**：将模式变更应用到数据 Sink 表
 - **兼容性检查**：在应用前验证模式变更
 
 ### 6.5 多表支持
 
 - **单作业多表**：在一个作业中同步数百个表
-- **表路由**：根据 TablePath 将记录路由到正确的数据汇
+- **表路由**：根据 TablePath 将记录路由到正确的数据 Sink 
 - **独立模式**：每个表维护自己的模式
 - **副本支持**：每个表多个写入器副本以获得更高吞吐量
 
@@ -348,7 +346,7 @@ CREATED → SCHEDULED → RUNNING → FINISHED
 seatunnel/
 ├── seatunnel-api/                 # 核心 API 定义
 │   ├── source/                    # 数据源 API
-│   ├── sink/                      # 数据汇 API
+│   ├── sink/                      # 数据 Sink  API
 │   ├── transform/                 # 转换 API
 │   └── table/                     # 表和模式 API
 │
@@ -418,8 +416,8 @@ seatunnel/
 深入了解特定架构组件：
 
 - [设计理念](design-philosophy.md) - 核心设计原则和权衡
-- [数据源架构](api-design/source-architecture.md) - 数据源 API 设计深入探讨
-- [数据汇架构](api-design/sink-architecture.md) - 数据汇 API 设计深入探讨
+- [数据 Source 架构](api-design/source-architecture.md) - 数据源 API 设计深入探讨
+- [数据 Sink 架构](api-design/sink-architecture.md) - 数据 Sink  API 设计深入探讨
 - [引擎架构](engine/engine-architecture.md) - SeaTunnel Engine 内部机制
 - [检查点机制](fault-tolerance/checkpoint-mechanism.md) - 容错实现
 
