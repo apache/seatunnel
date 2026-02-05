@@ -224,6 +224,60 @@ int_type_narrowing = false
 | Vertica   | OceanBase | XUGU |
 | IRIS      | Inceptor | Highgo |
 
+### Postgres Copy 方式读取
+
+`Postgres` 数据库支持使用 `COPY` 协议进行数据读取，这通常比使用 `SELECT` 查询快得多。
+
+要启用此功能，请配置以下选项：
+
+| 参数名 | 类型 | 必填 | 默认值 | 描述 |
+| --- | --- | --- | --- | --- |
+| use_copy_statement | Boolean | 否 | false | 是否使用 COPY 方式读取。 |
+| binary | Boolean | 否 | false | 是否使用二进制格式进行 COPY 读取。仅在 use_copy_statement=true 时生效。 |
+| pg_copy_buffer_size | Int | 否 | 1048576 | COPY 读取的缓冲区大小（字节）。仅在 use_copy_statement=true 时生效。 |
+
+> 注意：目前，此功能仅适用于 Postgres 数据库。
+
+#### 兼容性与 SQL 构建
+
+该功能与 JDBC Source 现有的分片（Sharding）机制完全兼容。当启用 `use_copy_statement=true` 时，SeaTunnel 会根据您配置的 `query`、`partition_column` 和 `where_condition` 自动构建高效的 COPY SQL 语句。
+
+**SQL 生成逻辑示例：**
+
+1. **分片与过滤**：若配置了 `partition_column` 或 `where_condition`，COPY 语句将包含子查询以支持数据切分：
+   ```sql
+   COPY (
+       SELECT * FROM (
+           SELECT * FROM "schema"."table_name"
+           WHERE "partition_column" >= ? AND "partition_column" < ?
+       ) tmp <where_condition>
+   ) TO STDOUT WITH [BINARY|CSV];
+   ```
+
+2. **自定义查询**：若仅配置了 `query`，则直接基于查询语句构建：
+   ```sql
+   COPY (
+       SELECT * FROM (<query>) tmp
+   ) TO STDOUT WITH [BINARY|CSV];
+   ```
+
+示例配置：
+
+```hocon
+Jdbc {
+    url = "jdbc:postgresql://localhost:5432/test"
+    driver = "org.postgresql.Driver"
+    user = "postgres"
+    password = "password"
+    # 启用 COPY 方式
+    use_copy_statement = true
+    # 启用二进制 COPY 方式
+    binary = true
+    # 缓冲区大小
+    pg_copy_buffer_size = 1048576
+}
+```
+
 ## 并行读取器
 
 JDBC 源连接器支持从表中并行读取数据。SeaTunnel 将使用某些规则分割表中的数据，这些数据将交给读取器进行读取。读取器的数量由 `parallelism` 选项确定。
