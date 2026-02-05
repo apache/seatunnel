@@ -37,10 +37,22 @@ import lombok.extern.slf4j.Slf4j;
 
 import java.io.IOException;
 import java.util.ArrayDeque;
+import java.util.Collections;
 import java.util.Iterator;
 import java.util.Queue;
+import java.util.Set;
 
 @Slf4j
+/**
+ * Split reader for incremental source (snapshot + incremental phase).
+ *
+ * <p><b>Thread safety:</b> This class is NOT thread-safe and is expected to be used from a single
+ * thread. The {@link #fetch()} method should be called sequentially without concurrent access. The
+ * {@link #close()} method should be called from the same thread or after all fetch calls have
+ * completed.
+ *
+ * @param <C> The type of source configuration.
+ */
 public class IncrementalSourceSplitReader<C extends SourceConfig>
         implements SplitReader<SourceRecords, SourceSplitBase> {
     private final Queue<SourceSplitBase> splits;
@@ -49,6 +61,7 @@ public class IncrementalSourceSplitReader<C extends SourceConfig>
     private Fetcher<SourceRecords, SourceSplitBase> currentFetcher;
 
     private String currentSplitId;
+    private String emittedFinishedSplitId;
     private final DataSourceDialect<C> dataSourceDialect;
     private final C sourceConfig;
     private final SchemaChangeResolver schemaChangeResolver;
@@ -70,6 +83,9 @@ public class IncrementalSourceSplitReader<C extends SourceConfig>
 
         checkSplitOrStartNext();
         checkNeedStopBinlogReader();
+        if (hasEmittedCurrentSplitFinished()) {
+            return NoSplitRecords.INSTANCE;
+        }
         Iterator<SourceRecords> dataIt = null;
         try {
             dataIt = currentFetcher.pollSplitRecords();
@@ -77,9 +93,27 @@ public class IncrementalSourceSplitReader<C extends SourceConfig>
             log.warn("fetch data failed.", e);
             throw new IOException(e);
         }
-        return dataIt == null
-                ? finishedSnapshotSplit()
-                : ChangeEventRecords.forRecords(currentSplitId, dataIt);
+        if (dataIt == null) {
+            return finishedSnapshotSplit();
+        }
+        if (currentSplitId == null) {
+            log.warn(
+                    "Invalid state: currentSplitId is null when emitting records. "
+                            + "emittedFinishedSplitId={}, currentFetcher={}, isFinished={}",
+                    emittedFinishedSplitId,
+                    currentFetcher != null ? currentFetcher.getClass().getSimpleName() : "null",
+                    currentFetcher != null && currentFetcher.isFinished());
+            throw new IOException(
+                    String.format(
+                            "Invalid state: currentSplitId is null when emitting records. "
+                                    + "emittedFinishedSplitId=%s, currentFetcher=%s, isFinished=%s",
+                            emittedFinishedSplitId,
+                            currentFetcher != null
+                                    ? currentFetcher.getClass().getSimpleName()
+                                    : "null",
+                            currentFetcher != null && currentFetcher.isFinished()));
+        }
+        return ChangeEventRecords.forRecords(currentSplitId, dataIt);
     }
 
     @Override
@@ -100,10 +134,14 @@ public class IncrementalSourceSplitReader<C extends SourceConfig>
 
     @Override
     public void close() throws Exception {
-        if (currentFetcher != null) {
-            log.info("Close current fetcher {}", currentFetcher.getClass().getCanonicalName());
-            currentFetcher.close();
+        try {
+            if (currentFetcher != null) {
+                log.info("Close current fetcher {}", currentFetcher.getClass().getCanonicalName());
+                currentFetcher.close();
+            }
+        } finally {
             currentSplitId = null;
+            emittedFinishedSplitId = null;
         }
     }
 
@@ -123,6 +161,7 @@ public class IncrementalSourceSplitReader<C extends SourceConfig>
                 throw new IOException("Cannot fetch from another split - no split remaining.");
             }
             currentSplitId = nextSplit.splitId();
+            emittedFinishedSplitId = null;
 
             if (nextSplit.isSnapshotSplit()) {
                 if (currentFetcher == null) {
@@ -152,10 +191,52 @@ public class IncrementalSourceSplitReader<C extends SourceConfig>
         return currentFetcher == null || currentFetcher.isFinished();
     }
 
-    private ChangeEventRecords finishedSnapshotSplit() {
-        final ChangeEventRecords finishedRecords =
-                ChangeEventRecords.forFinishedSplit(currentSplitId);
-        currentSplitId = null;
-        return finishedRecords;
+    private boolean hasEmittedCurrentSplitFinished() {
+        return currentSplitId != null && currentSplitId.equals(emittedFinishedSplitId);
+    }
+
+    private RecordsWithSplitIds<SourceRecords> finishedSnapshotSplit() throws IOException {
+        final String splitId = currentSplitId;
+        if (splitId == null) {
+            log.warn(
+                    "Invalid state: currentSplitId is null when finishing snapshot split. "
+                            + "emittedFinishedSplitId={}, currentFetcher={}, isFinished={}",
+                    emittedFinishedSplitId,
+                    currentFetcher != null ? currentFetcher.getClass().getSimpleName() : "null",
+                    currentFetcher != null && currentFetcher.isFinished());
+            throw new IOException(
+                    String.format(
+                            "Invalid state: currentSplitId is null when finishing snapshot split. "
+                                    + "emittedFinishedSplitId=%s, currentFetcher=%s, isFinished=%s",
+                            emittedFinishedSplitId,
+                            currentFetcher != null
+                                    ? currentFetcher.getClass().getSimpleName()
+                                    : "null",
+                            currentFetcher != null && currentFetcher.isFinished()));
+        }
+        if (splitId.equals(emittedFinishedSplitId)) {
+            return NoSplitRecords.INSTANCE;
+        }
+        emittedFinishedSplitId = splitId;
+        return ChangeEventRecords.forFinishedSplit(splitId);
+    }
+
+    private static final class NoSplitRecords implements RecordsWithSplitIds<SourceRecords> {
+        private static final NoSplitRecords INSTANCE = new NoSplitRecords();
+
+        @Override
+        public String nextSplit() {
+            return null;
+        }
+
+        @Override
+        public SourceRecords nextRecordFromSplit() {
+            throw new IllegalStateException("No split assigned");
+        }
+
+        @Override
+        public Set<String> finishedSplits() {
+            return Collections.emptySet();
+        }
     }
 }
