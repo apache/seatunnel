@@ -311,8 +311,10 @@ abc.*
 - 不建议：读取大量小文件，或并行度较低的场景（拆分会带来额外的枚举/调度开销）。
 
 **限制说明**
-- 不支持压缩文件（`compress_codec` != `none`）或归档文件（`archive_compress_codec` != `none`），会自动回退为不拆分。
+- 不支持压缩文件（`compress_codec` != `none`）或归档文件（`archive_compress_codec` != `none`），会自动回退为不拆分，并打印 WARN 日志提示。
 - 对于 `text`/`csv`/`json`，实际 split 的大小可能略大于 `file_split_size`（因为需要对齐到下一个 `row_delimiter`）。
+- 对于 `json`，仅支持 JSON Lines（每行一个 JSON 对象）的切分读取。
+- 启用切分后，数据全局顺序不保证（split 可能并行处理导致输出顺序交错）。如需严格有序，请设置 `parallelism=1` 或关闭切分。
 
 ### file_split_size [long]
 

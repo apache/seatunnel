@@ -324,8 +324,10 @@ Turn on the file splitting function, the default is false. It can be selected wh
 - Disable when reading many small files, or when parallelism is low (splitting adds overhead).
 
 **Limitations**
-- Not supported for compressed files (`compress_codec` != `none`) or archive files (`archive_compress_codec` != `none`) — it will fall back to non-splitting.
+- Not supported for compressed files (`compress_codec` != `none`) or archive files (`archive_compress_codec` != `none`) — it will fall back to non-splitting and emit a warning log.
 - For `text`/`csv`/`json`, actual split size may be larger than `file_split_size` because the split end is aligned to the next `row_delimiter`.
+- For `json`, splitting is only supported for JSON Lines (one JSON object per line).
+- When splitting is enabled, global record order is not guaranteed because splits can be processed in parallel. Set `parallelism=1` if strict ordering is required.
 
 ### file_split_size [long]
 
