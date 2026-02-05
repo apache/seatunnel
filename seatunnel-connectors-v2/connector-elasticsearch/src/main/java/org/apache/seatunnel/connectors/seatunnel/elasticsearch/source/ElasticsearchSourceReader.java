@@ -131,7 +131,7 @@ public class ElasticsearchSourceReader
                                     sourceIndexInfo.getQuery(),
                                     sourceIndexInfo.getScrollTime(),
                                     sourceIndexInfo.getScrollSize(),
-                                    sourceIndexInfo.getRuntimeFields());
+                                    sourceIndexInfo.getRuntimeFields(),
                                     sourceIndexInfo.getScrollSize(),
                                     sourceIndexInfo.getSliceId(),
                                     sourceIndexInfo.getSliceMax());
