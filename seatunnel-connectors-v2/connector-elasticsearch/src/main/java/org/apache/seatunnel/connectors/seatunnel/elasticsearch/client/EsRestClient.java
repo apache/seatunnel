@@ -956,7 +956,8 @@ public class EsRestClient implements Closeable {
             long keepAlive,
             Integer sliceId,
             Integer sliceMax) {
-        return searchWithPointInTime(pitId, source, query, batchSize, searchAfter, keepAlive, null);
+        return searchWithPointInTime(
+                pitId, source, query, batchSize, searchAfter, keepAlive, null, sliceId, sliceMax);
     }
 
     /**
@@ -978,7 +979,9 @@ public class EsRestClient implements Closeable {
             int batchSize,
             Object[] searchAfter,
             long keepAlive,
-            Map<String, Object> runtimeFields) {
+            Map<String, Object> runtimeFields,
+            Integer sliceId,
+            Integer sliceMax) {
 
         Map<String, Object> requestBody = new HashMap<>();
         requestBody.put("size", batchSize);

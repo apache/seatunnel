@@ -202,7 +202,6 @@ public class ElasticsearchSourceReader
                             null, // No search_after for first request
                             sourceIndexInfo.getPitKeepAlive(),
                             sourceIndexInfo.getRuntimeFields(),
-                            sourceIndexInfo.getPitKeepAlive(),
                             sourceIndexInfo.getSliceId(),
                             sourceIndexInfo.getSliceMax());
 
@@ -225,7 +224,6 @@ public class ElasticsearchSourceReader
                                 sourceIndexInfo.getSearchAfter(),
                                 sourceIndexInfo.getPitKeepAlive(),
                                 sourceIndexInfo.getRuntimeFields(),
-                                sourceIndexInfo.getPitKeepAlive(),
                                 sourceIndexInfo.getSliceId(),
                                 sourceIndexInfo.getSliceMax());
 
