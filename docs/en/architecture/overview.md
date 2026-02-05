@@ -89,6 +89,8 @@ SeaTunnel adopts a layered architecture that separates concerns and enables flex
 
 The API layer provides engine-independent abstractions:
 
+> Note: To minimize maintenance overhead and avoid "documentation-code drift" due to refactoring, this documentation focuses on component responsibilities, interaction flows, and design motivations rather than embedding source code snippets or direct source links.
+
 #### Source API
 - **SeaTunnelSource**: Factory interface for creating readers and enumerators
 - **SourceSplitEnumerator**: Master-side component for split generation and assignment
