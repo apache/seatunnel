@@ -260,9 +260,8 @@ public class PhysicalPlanGenerator {
                                     sinkAggregatedCommitter;
                             ClassLoader appClassLoader =
                                     Thread.currentThread().getContextClassLoader();
-                            // Resolves a collection of URLs containing the logical SEATUNNEL_HOME
-                            // variable to
-                            // absolute paths.
+                            // Resolves URLs with the logical SEATUNNEL_HOME variable to absolute
+                            // paths.
                             PathResolver.resolvePathEnv(sinkAction.getJarUrls());
                             try {
                                 ClassLoader classLoader =

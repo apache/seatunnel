@@ -146,22 +146,16 @@ public class ClientJobExecutionEnvironment extends AbstractJobEnvironment {
                                 action, commonPluginJarUrls, commonJarIdentifiers);
                     });
         } else {
-            // Replaces the absolute path of SEATUNNEL_HOME in the given URLs with a logical
-            // variable.
-            Set<URL> replacedCommonPluginJars = new HashSet<>(commonPluginJars);
-            PathResolver.replacePathWithEnv(replacedCommonPluginJars);
-            jarUrls.addAll(replacedCommonPluginJars);
-
-            Set<URL> additionalJars = new HashSet<>(immutablePair.getRight());
-            PathResolver.replacePathWithEnv(additionalJars);
-            jarUrls.addAll(additionalJars);
+            // Replaces the absolute SEATUNNEL_HOME path in the given URL with a logical variable.
+            PathResolver.replacePathWithEnv(commonPluginJars);
+            PathResolver.replacePathWithEnv(immutablePair.getRight());
+            jarUrls.addAll(commonPluginJars);
+            jarUrls.addAll(immutablePair.getRight());
             actions.forEach(
                     action -> {
                         replaceActionJarUrls(action);
                         addCommonPluginJarsToAction(
-                                action,
-                                new HashSet<>(replacedCommonPluginJars),
-                                Collections.emptySet());
+                                action, new HashSet<>(commonPluginJars), Collections.emptySet());
                     });
         }
         return getLogicalDagGenerator().generate();
@@ -197,12 +191,16 @@ public class ClientJobExecutionEnvironment extends AbstractJobEnvironment {
                 });
     }
 
+    /**
+     * It will traverse the entire task graph (DAG) and ensure that the jar path of each node
+     * (whether it is Source, Transform, or Sink) is correctly replaced with the logical path
+     * starting with $SEATUNNEL_HOME.
+     *
+     * @param action action
+     */
     private void replaceActionJarUrls(Action action) {
         PathResolver.replacePathWithEnv(action.getJarUrls());
         if (!action.getUpstream().isEmpty()) {
-            // It will traverse the entire task graph (DAG) and ensure that the jar path of each
-            // node (whether it is Source, Transform, or Sink) is correctly replaced with the
-            // logical path starting with $SEATUNNEL_HOME.
             action.getUpstream().forEach(this::replaceActionJarUrls);
         }
     }

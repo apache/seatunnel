@@ -69,8 +69,7 @@ public class DAGUtils {
 
                 LogicalVertex logicalVertex =
                         serializationService.toObject(logicalVertexDataList.get(i));
-                // Resolves a collection of URLs containing the logical SEATUNNEL_HOME variable to
-                // absolute paths.
+                // Resolves URLs with the logical SEATUNNEL_HOME variable to absolute paths.
                 PathResolver.resolvePathEnv(logicalVertex.getAction().getJarUrls());
                 logicalDag.addLogicalVertex(logicalVertex);
             }
@@ -85,8 +84,7 @@ public class DAGUtils {
             SerializationService serializationService,
             ClassLoaderService classLoaderService) {
         List<Set<URL>> logicalVertexJarsList = jobImmutableInformation.getLogicalVertexJarsList();
-        // Resolves a collection of URLs containing the logical SEATUNNEL_HOME variable to
-        // absolute paths.
+        // Resolves URLs with the logical SEATUNNEL_HOME variable to absolute paths.
         logicalVertexJarsList.forEach(PathResolver::resolvePathEnv);
         List<ClassLoader> classLoaders = new ArrayList<>();
         try {

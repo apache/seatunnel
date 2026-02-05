@@ -53,7 +53,7 @@ public class PathResolver {
     }
 
     /**
-     * Replaces the absolute path of SEATUNNEL_HOME in the given URL with a logical variable.
+     * Replaces SEATUNNEL_HOME in a URL with a logical variable.
      *
      * @param url The absolute URL
      * @return A URL with the logical variable, or the original URL if it's not within

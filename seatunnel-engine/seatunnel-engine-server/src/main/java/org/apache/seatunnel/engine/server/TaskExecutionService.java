@@ -302,8 +302,7 @@ public class TaskExecutionService implements DynamicMetricsProvider {
                 } else if (!CollectionUtils.isEmpty(taskImmutableInfo.getJars().get(i))) {
                     jars = taskImmutableInfo.getJars().get(i);
                 }
-                // Resolves a collection of URLs containing the logical SEATUNNEL_HOME variable to
-                // absolute paths.
+                // Resolves URLs with the logical SEATUNNEL_HOME variable to absolute paths.
                 PathResolver.resolvePathEnv(jars);
                 ClassLoader classLoader =
                         classLoaderService.getClassLoader(

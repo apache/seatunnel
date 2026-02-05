@@ -234,8 +234,7 @@ public class JobMaster {
         ClassLoader appClassLoader = Thread.currentThread().getContextClassLoader();
 
         List<Set<URL>> logicalVertexJarsList = jobImmutableInformation.getLogicalVertexJarsList();
-        // Resolves a collection of URLs containing the logical SEATUNNEL_HOME variable to
-        // absolute paths.
+        // Resolves URLs with the logical SEATUNNEL_HOME variable to absolute paths.
         logicalVertexJarsList.forEach(PathResolver::resolvePathEnv);
         List<ClassLoader> logicalVertexClassLoaders = new ArrayList<>();
         for (Set<URL> urls : logicalVertexJarsList) {

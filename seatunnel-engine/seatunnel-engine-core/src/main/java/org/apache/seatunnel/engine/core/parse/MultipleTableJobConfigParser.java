@@ -310,8 +310,7 @@ public class MultipleTableJobConfigParser {
         jarPaths.addAll(
                 new SeaTunnelSinkPluginDiscovery().getPluginJarAndDependencyPaths(factoryIds));
         jarPaths.addAll(commonPluginJars);
-        // Resolves a collection of URLs containing the logical SEATUNNEL_HOME variable to
-        // absolute paths.
+        // Resolves URLs with the logical SEATUNNEL_HOME variable to absolute paths.
         PathResolver.resolvePathEnv(jarPaths);
         return jarPaths;
     }
