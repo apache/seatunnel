@@ -31,7 +31,6 @@ concurrency:
 
 env:
   TEST_IN_PR: ${{ inputs.TEST_IN_PR }}
-  KINGBASE_LICENSE: ${{ vars.KINGBASE_LICENSE }}
 
 jobs:
   license-header:
@@ -400,6 +399,7 @@ jobs:
           ./mvnw -B -T 1 clean verify -DskipUT=false -DskipIT=true -D"license.skipAddThirdParty"=true -D"skip.ui"=true --no-snapshot-updates
         env:
           MAVEN_OPTS: -Xmx4096m
+          KINGBASE_LICENSE: ${{ vars.KINGBASE_LICENSE }}
 
   updated-modules-integration-test-part-1:
     needs: [ changes, sanity-check ]
