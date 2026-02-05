@@ -109,4 +109,12 @@ public class ElasticsearchSourceOptions extends ElasticsearchBaseOptions {
                     .defaultValue(100)
                     .withDescription(
                             "Maximum number of hits to be returned with each PIT search request. Similar to scroll_size but for PIT API.");
+
+    public static final Option<Integer> SLICE_MAX =
+            Options.key("slice_max")
+                    .intType()
+                    .defaultValue(1)
+                    .withDescription(
+                            "Split a single index into multiple slices for parallel reads. "
+                                    + "Only effective for Scroll/PIT, and should be > 1 to enable slicing.");
 }

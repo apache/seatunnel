@@ -197,12 +197,20 @@ public class EsRestClient implements Closeable {
             List<String> source,
             Map<String, Object> query,
             String scrollTime,
-            int scrollSize) {
+            int scrollSize,
+            Integer sliceId,
+            Integer sliceMax) {
         Map<String, Object> param = new HashMap<>();
         param.put("query", query);
         param.put("_source", source);
         param.put("sort", new String[] {"_doc"});
         param.put("size", scrollSize);
+        if (sliceMax != null && sliceMax > 1) {
+            Map<String, Object> slice = new HashMap<>();
+            slice.put("id", sliceId == null ? 0 : sliceId);
+            slice.put("max", sliceMax);
+            param.put("slice", slice);
+        }
         String endpoint = "/" + index + "/_search?scroll=" + scrollTime;
         return getDocsFromScrollRequest(endpoint, JsonUtils.toJsonString(param));
     }
@@ -917,7 +925,9 @@ public class EsRestClient implements Closeable {
             Map<String, Object> query,
             int batchSize,
             Object[] searchAfter,
-            long keepAlive) {
+            long keepAlive,
+            Integer sliceId,
+            Integer sliceMax) {
 
         Map<String, Object> requestBody = new HashMap<>();
         requestBody.put("size", batchSize);
@@ -938,6 +948,12 @@ public class EsRestClient implements Closeable {
         // Add search_after if provided
         if (searchAfter != null && searchAfter.length > 0) {
             requestBody.put("search_after", searchAfter);
+        }
+        if (sliceMax != null && sliceMax > 1) {
+            Map<String, Object> slice = new HashMap<>();
+            slice.put("id", sliceId == null ? 0 : sliceId);
+            slice.put("max", sliceMax);
+            requestBody.put("slice", slice);
         }
 
         String endpoint = "/_search";

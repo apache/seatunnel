@@ -371,6 +371,28 @@ public class ElasticsearchIT extends TestSuiteBase implements TestResource {
     }
 
     @TestTemplate
+    public void testElasticsearchWithPITSlice(TestContainer container)
+            throws IOException, InterruptedException {
+        Container.ExecResult execResult =
+                container.executeJob("/elasticsearch/elasticsearch_source_with_pit_slice.conf");
+        Assertions.assertEquals(0, execResult.getExitCode());
+        List<String> sinkData = readSinkDataWithSchema("st_index_pit_slice");
+        // for DSL is: {"range":{"c_int":{"gte":10,"lte":20}}}
+        Assertions.assertIterableEquals(mapTestDatasetForDSL(), sinkData);
+    }
+
+    @TestTemplate
+    public void testElasticsearchWithScrollSlice(TestContainer container)
+            throws IOException, InterruptedException {
+        Container.ExecResult execResult =
+                container.executeJob("/elasticsearch/elasticsearch_source_with_scroll_slice.conf");
+        Assertions.assertEquals(0, execResult.getExitCode());
+        List<String> sinkData = readSinkDataWithSchema("st_index_scroll_slice");
+        // for DSL is: {"range":{"c_int":{"gte":10,"lte":20}}}
+        Assertions.assertIterableEquals(mapTestDatasetForDSL(), sinkData);
+    }
+
+    @TestTemplate
     public void testElasticsearchWithNestSchema(TestContainer container)
             throws IOException, InterruptedException {
         Container.ExecResult execResult =
@@ -751,7 +773,8 @@ public class ElasticsearchIT extends TestSuiteBase implements TestResource {
         Map<String, Object> query = new HashMap<>();
         query.put("match_all", Maps.newHashMap());
 
-        ScrollResult scrollResult = esRestClient.searchByScroll(index, source, query, "1m", 1000);
+        ScrollResult scrollResult =
+                esRestClient.searchByScroll(index, source, query, "1m", 1000, null, null);
         scrollResult
                 .getDocs()
                 .forEach(
@@ -778,7 +801,8 @@ public class ElasticsearchIT extends TestSuiteBase implements TestResource {
         range.put("c_int", rangeParam);
         Map<String, Object> query = new HashMap<>();
         query.put("range", range);
-        ScrollResult scrollResult = esRestClient.searchByScroll(index, source, query, "1m", 1000);
+        ScrollResult scrollResult =
+                esRestClient.searchByScroll(index, source, query, "1m", 1000, null, null);
         scrollResult
                 .getDocs()
                 .forEach(
@@ -805,7 +829,8 @@ public class ElasticsearchIT extends TestSuiteBase implements TestResource {
     private List<String> getDocsWithNestType(List<String> source, String index) {
         Map<String, Object> query = new HashMap<>();
         query.put("match_all", new HashMap<>());
-        ScrollResult scrollResult = esRestClient.searchByScroll(index, source, query, "1m", 1000);
+        ScrollResult scrollResult =
+                esRestClient.searchByScroll(index, source, query, "1m", 1000, null, null);
         scrollResult
                 .getDocs()
                 .forEach(
@@ -842,7 +867,8 @@ public class ElasticsearchIT extends TestSuiteBase implements TestResource {
         range.put("c_int", rangeParam);
         Map<String, Object> query = new HashMap<>();
         query.put("range", range);
-        ScrollResult scrollResult = esRestClient.searchByScroll(index, source, query, "1m", 1000);
+        ScrollResult scrollResult =
+                esRestClient.searchByScroll(index, source, query, "1m", 1000, null, null);
         scrollResult
                 .getDocs()
                 .forEach(
@@ -891,7 +917,8 @@ public class ElasticsearchIT extends TestSuiteBase implements TestResource {
             Map<String, Object> query,
             List<String> dateFields,
             String orderField) {
-        ScrollResult scrollResult = esRestClient.searchByScroll(index, source, query, "1m", 1000);
+        ScrollResult scrollResult =
+                esRestClient.searchByScroll(index, source, query, "1m", 1000, null, null);
         scrollResult
                 .getDocs()
                 .forEach(
@@ -1035,7 +1062,8 @@ public class ElasticsearchIT extends TestSuiteBase implements TestResource {
         Map<String, Object> query = new HashMap<>();
         query.put("match_all", new HashMap<>());
         ScrollResult scrollResult =
-                esRestClient.searchByScroll("st_index3", sourceFields, query, "1m", 100);
+                esRestClient.searchByScroll(
+                        "st_index3", sourceFields, query, "1m", 100, null, null);
         Assertions.assertFalse(scrollResult.getDocs().isEmpty(), "Data should exist in the index");
 
         // Truncate the table
@@ -1043,7 +1071,9 @@ public class ElasticsearchIT extends TestSuiteBase implements TestResource {
         Thread.sleep(INDEX_REFRESH_MILL_DELAY); // Wait for data to be indexed
 
         // Verify data is deleted
-        scrollResult = esRestClient.searchByScroll("st_index3", sourceFields, query, "1m", 100);
+        scrollResult =
+                esRestClient.searchByScroll(
+                        "st_index3", sourceFields, query, "1m", 100, null, null);
         Assertions.assertTrue(
                 scrollResult.getDocs().isEmpty(), "Data should be deleted from the index");
 
@@ -1092,7 +1122,8 @@ public class ElasticsearchIT extends TestSuiteBase implements TestResource {
             Map<String, Object> query = new HashMap<>();
             query.put("match_all", Collections.emptyMap());
 
-            ScrollResult result = esRestClient.searchByScroll("st_index", source, query, "1m", 5);
+            ScrollResult result =
+                    esRestClient.searchByScroll("st_index", source, query, "1m", 5, null, null);
             scrollId = result.getScrollId();
             Assertions.assertNotNull(scrollId, "Scroll ID should not be null");
 

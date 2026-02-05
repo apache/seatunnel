@@ -45,6 +45,8 @@ public class ElasticsearchConfig implements Serializable {
     private int pitBatchSize;
     private String pitId;
     private Object[] searchAfter;
+    private int sliceId;
+    private int sliceMax = 1;
 
     private CatalogTable catalogTable;
 
@@ -63,6 +65,8 @@ public class ElasticsearchConfig implements Serializable {
         elasticsearchConfig.setPitBatchSize(pitBatchSize);
         elasticsearchConfig.setPitId(pitId);
         elasticsearchConfig.setSearchAfter(searchAfter != null ? searchAfter.clone() : null);
+        elasticsearchConfig.setSliceId(sliceId);
+        elasticsearchConfig.setSliceMax(sliceMax);
 
         return elasticsearchConfig;
     }

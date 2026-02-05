@@ -46,6 +46,7 @@ import ChangeLog from '../changelog/connector-elasticsearch.md';
 | tls_truststore_password | string  | no       | -                                   |
 | pit_keep_alive          | long    | no       | 60000 (1 minute)                    |
 | pit_batch_size          | int     | no       | 100                                 |
+| slice_max               | int     | no       | 1                                   |
 | common-options          |         | no       | -                                   |
 
 ### hosts [array]
@@ -206,6 +207,9 @@ PIT 应保持活动的时间量（以毫秒为单位）
 
 ### pit_batch_size  [int]
 每次 PIT 搜索请求返回的最大数量
+
+### slice_max [int]
+将单个索引拆分为多个切片以并行读取。仅对 SCROLL/PIT 生效，配置 > 1 时启用切片。
 
 ### common options
 
@@ -377,6 +381,30 @@ source {
     search_api_type = PIT
     pit_keep_alive = 60000  # 1 minute in milliseconds
     pit_batch_size = 100
+  }
+}
+```
+
+Demo8: PIT + slicing 并行读取
+```hocon
+source {
+  Elasticsearch {
+    hosts = ["https://elasticsearch:9200"]
+    username = "elastic"
+    password = "elasticsearch"
+    tls_verify_certificate = false
+    tls_verify_hostname = false
+
+    index = "st_index"
+    query = {"range": {"c_int": {"gte": 10, "lte": 20}}}
+
+    search_type = DSL
+    search_api_type = PIT
+    pit_keep_alive = 60000
+    pit_batch_size = 100
+
+    # 开启切片并行读取
+    slice_max = 2
   }
 }
 ```

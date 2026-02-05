@@ -48,6 +48,7 @@ support version >= 2.x and <= 8.x.
 | tls_truststore_password | string  | no       | -                                                              |
 | pit_keep_alive          | long    | no       | 60000 (1 minute)                                               |
 | pit_batch_size          | int     | no       | 100                                                            |
+| slice_max               | int     | no       | 1                                                              |
 | common-options          |         | no       | -                                                              |
 
 
@@ -210,6 +211,9 @@ The amount of time (in milliseconds) for which the PIT should be keep alive
 
 ### pit_batch_size  [int]
 Maximum number of hits to be returned with each PIT search request
+
+### slice_max [int]
+Split a single index into multiple slices for parallel reads. Only effective for SCROLL/PIT. Set to a value greater than 1 to enable slicing.
 
 ### common options
 
@@ -382,6 +386,30 @@ source {
     search_api_type = PIT
     pit_keep_alive = 60000  # 1 minute in milliseconds
     pit_batch_size = 100
+  }
+}
+```
+
+Demo 8: PIT with slicing
+```hocon
+source {
+  Elasticsearch {
+    hosts = ["https://elasticsearch:9200"]
+    username = "elastic"
+    password = "elasticsearch"
+    tls_verify_certificate = false
+    tls_verify_hostname = false
+
+    index = "st_index"
+    query = {"range": {"c_int": {"gte": 10, "lte": 20}}}
+
+    search_type = DSL
+    search_api_type = PIT
+    pit_keep_alive = 60000
+    pit_batch_size = 100
+
+    # Enable slicing for parallel reads
+    slice_max = 2
   }
 }
 ```
