@@ -131,6 +131,8 @@ public class ElasticsearchSourceReader
                                     sourceIndexInfo.getQuery(),
                                     sourceIndexInfo.getScrollTime(),
                                     sourceIndexInfo.getScrollSize(),
+                                    sourceIndexInfo.getRuntimeFields());
+                                    sourceIndexInfo.getScrollSize(),
                                     sourceIndexInfo.getSliceId(),
                                     sourceIndexInfo.getSliceMax());
                     scrollId = scrollResult.getScrollId();
@@ -199,6 +201,8 @@ public class ElasticsearchSourceReader
                             sourceIndexInfo.getPitBatchSize(),
                             null, // No search_after for first request
                             sourceIndexInfo.getPitKeepAlive(),
+                            sourceIndexInfo.getRuntimeFields(),
+                            sourceIndexInfo.getPitKeepAlive(),
                             sourceIndexInfo.getSliceId(),
                             sourceIndexInfo.getSliceMax());
 
@@ -219,6 +223,8 @@ public class ElasticsearchSourceReader
                                 sourceIndexInfo.getQuery(),
                                 sourceIndexInfo.getPitBatchSize(),
                                 sourceIndexInfo.getSearchAfter(),
+                                sourceIndexInfo.getPitKeepAlive(),
+                                sourceIndexInfo.getRuntimeFields(),
                                 sourceIndexInfo.getPitKeepAlive(),
                                 sourceIndexInfo.getSliceId(),
                                 sourceIndexInfo.getSliceMax());
