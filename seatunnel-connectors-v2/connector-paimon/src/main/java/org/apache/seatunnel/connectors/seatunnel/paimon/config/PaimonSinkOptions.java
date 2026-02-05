@@ -68,4 +68,7 @@ public class PaimonSinkOptions extends PaimonBaseOptions {
                     .defaultValue(new HashMap<>())
                     .withDescription(
                             "Properties passed through to paimon table initialization, such as 'file.format', 'bucket'(org.apache.paimon.CoreOptions)");
+
+    public static final Option<String> BRANCH =
+            Options.key("branch").stringType().noDefaultValue().withDescription("branch");
 }

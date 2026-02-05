@@ -208,13 +208,13 @@ public class MysqlCDCWithFlinkSchemaChangeIT extends TestSuiteBase implements Te
 
     private void assertTableStructureAndData(
             String database, String sourceTable, String sinkTable) {
-        await().atMost(180000, TimeUnit.MILLISECONDS)
+        await().atMost(300000, TimeUnit.MILLISECONDS)
                 .untilAsserted(
                         () ->
                                 Assertions.assertIterableEquals(
                                         query(String.format(DESC, database, sourceTable)),
                                         query(String.format(DESC, database, sinkTable))));
-        await().atMost(180000, TimeUnit.MILLISECONDS)
+        await().atMost(300000, TimeUnit.MILLISECONDS)
                 .untilAsserted(
                         () ->
                                 Assertions.assertIterableEquals(

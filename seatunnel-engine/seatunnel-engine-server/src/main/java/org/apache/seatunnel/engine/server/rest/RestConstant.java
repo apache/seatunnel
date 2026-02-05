@@ -59,7 +59,11 @@ public class RestConstant {
     public static final String TABLE_SOURCE_RECEIVED_BYTES_PER_SECONDS =
             "TableSourceReceivedBytesPerSeconds";
     public static final String TABLE_SINK_WRITE_BYTES_PER_SECONDS = "TableSinkWriteBytesPerSeconds";
-
+    public static final String TABLE_SINK_COMMITTED_COUNT = "TableSinkCommittedCount";
+    public static final String TABLE_SINK_COMMITTED_QPS = "TableSinkCommittedQPS";
+    public static final String TABLE_SINK_COMMITTED_BYTES = "TableSinkCommittedBytes";
+    public static final String TABLE_SINK_COMMITTED_BYTES_PER_SECONDS =
+            "TableSinkCommittedBytesPerSeconds";
     public static final String CONTEXT_PATH = "/hazelcast/rest/maps";
     public static final String INSTANCE_CONTEXT_PATH = "/hazelcast/rest/instance";
 
@@ -94,6 +98,8 @@ public class RestConstant {
     public static final String REST_URL_GET_ALL_LOG_NAME = "/get-all-log-name";
     public static final String REST_URL_METRICS = "/metrics";
     public static final String REST_URL_OPEN_METRICS = "/openmetrics";
+    public static final String REST_URL_CHECKPOINT_OVERVIEW = "/jobs/checkpoints";
+    public static final String REST_URL_CHECKPOINT_HISTORY = "/jobs/checkpoints/history";
     // api path end
 
 }

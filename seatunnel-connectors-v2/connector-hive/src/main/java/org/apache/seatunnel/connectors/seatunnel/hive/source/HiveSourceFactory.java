@@ -28,6 +28,7 @@ import org.apache.seatunnel.api.table.factory.TableSourceFactoryContext;
 import org.apache.seatunnel.connectors.seatunnel.file.config.FileBaseSourceOptions;
 import org.apache.seatunnel.connectors.seatunnel.hive.config.HiveConfig;
 import org.apache.seatunnel.connectors.seatunnel.hive.config.HiveConstants;
+import org.apache.seatunnel.connectors.seatunnel.hive.config.HiveOptions;
 
 import com.google.auto.service.AutoService;
 
@@ -52,6 +53,7 @@ public class HiveSourceFactory implements TableSourceFactory {
                 .optional(HiveConfig.TABLE_NAME)
                 .optional(HiveConfig.METASTORE_URI)
                 .optional(ConnectorCommonOptions.TABLE_CONFIGS, ConnectorCommonOptions.TABLE_LIST)
+                .optional(HiveOptions.USE_REGEX)
                 .optional(FileBaseSourceOptions.READ_PARTITIONS)
                 .optional(FileBaseSourceOptions.READ_COLUMNS)
                 .optional(FileBaseSourceOptions.KERBEROS_PRINCIPAL)

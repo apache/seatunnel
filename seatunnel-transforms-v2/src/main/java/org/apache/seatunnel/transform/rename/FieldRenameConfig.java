@@ -114,7 +114,7 @@ public class FieldRenameConfig implements Serializable {
         private String replaceTo;
 
         @JsonAlias("is_regex")
-        private Boolean isRegex;
+        private Boolean isRegex = true;
     }
 
     public static FieldRenameConfig of(ReadonlyConfig config) {
