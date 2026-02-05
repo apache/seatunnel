@@ -258,10 +258,10 @@ public interface CheckpointStorage {
 ```
 
 **Implementations**:
-- `LocalFileCheckpointStorage`: Local file system (testing)
-- `HdfsCheckpointStorage`: HDFS
-- `S3CheckpointStorage`: AWS S3
-- `OssCheckpointStorage`: Aliyun OSS
+- `LocalFileStorage`: Local file system (testing)
+- `HdfsStorage`: Hadoop FileSystem-based backend; can work with HDFS/S3A/etc depending on Hadoop configuration
+
+Note: S3 and OSS support are provided through Hadoop FileSystem configuration (e.g., `fs.s3a.impl`) rather than separate CheckpointStorage implementations.
 
 ## 3. Checkpoint Flow
 

@@ -32,36 +32,35 @@ This document explains the core design principles, philosophies, and trade-offs 
 - **Con**: Additional translation overhead
 - **Mitigation**: Translation layer is thin and optimized; most overhead is in I/O, not translation
 
-**Example**:
-```java
-// Connector developer only implements SeaTunnelSource
-public class JdbcSource implements SeaTunnelSource<SeaTunnelRow, JdbcSourceSplit, JdbcSourceState> {
-    // This code works on Zeta, Flink, and Spark without modification
-}
-
-// Translation layer handles engine adaptation
-FlinkSource<SeaTunnelRow> flinkSource = new FlinkSource<>(jdbcSource); // For Flink
-SparkSource<SeaTunnelRow> sparkSource = new SparkSource<>(jdbcSource); // For Spark
-```
+**Example**: Connectors only implement SeaTunnel API abstractions (Source/Sink/Transform), and different execution engines complete adaptation through the translation layer; thus connector logic is decoupled from engine API changes.
 
 ### 2.2 Separation of Coordination and Execution
 
-**Principle**: Split control plane (coordination) from data plane (execution).
+**Principle**: Separate control logic (coordination) from data processing (execution).
 
 **Motivation**:
 - Coordination logic is single-threaded and lightweight
 - Execution logic is parallel and resource-intensive
 - Fault tolerance requires independent state management for each
 
-**Implementation**:
+**Implementation Principle**:
 
-**Source**:
-- `SourceSplitEnumerator` (Master): Generates splits, assigns to readers, handles registration
-- `SourceReader` (Worker): Reads data from assigned splits
+**Coordination Layer (Master-side)**:
+- Location: Runs on master nodes with global view
+- Core Responsibilities: Resource discovery, work distribution, failure detection, state coordination
+- Characteristics: Single-threaded, lightweight, no actual data processing
+- Managed State: Assignment plan, pending work units, global progress tracking
 
-**Sink**:
-- `SinkCommitter` / `SinkAggregatedCommitter` (Master): Coordinates commits
-- `SinkWriter` (Worker): Writes data, prepares commit info
+**Execution Layer (Worker-side)**:
+- Location: Runs on worker nodes with independent parallel execution
+- Core Responsibilities: Local data processing, progress reporting, checkpoint participation
+- Characteristics: Multi-threaded, resource-intensive, handles large data volumes
+- Managed State: Local processing progress, buffered data, execution context
+
+**Communication Mechanism**:
+- Coordination layer → Execution layer: Dispatches work via events (e.g., assign new data splits)
+- Execution layer → Coordination layer: Reports progress via messages (e.g., split completed, request new work)
+- During checkpoints: Each layer snapshots its own state independently
 
 **Trade-offs**:
 - **Pro**: Clear separation of concerns
@@ -72,25 +71,10 @@ SparkSource<SeaTunnelRow> sparkSource = new SparkSource<>(jdbcSource); // For Sp
 - **Mitigation**: Reasonable defaults; simple connectors can use trivial enumerators/committers
 
 **Example**:
-```java
-// Coordination: Split assignment on master
-class JdbcSourceSplitEnumerator {
-    void handleSplitRequest(int subtaskId) {
-        JdbcSourceSplit split = pendingSplits.poll();
-        context.assignSplit(subtaskId, split); // Assign to specific reader
-    }
-}
+- Master side: Responsible for "discovering/generating work units (splits) + assignment + reclamation + state snapshots"
+- Worker side: Responsible for "executing reads/writes + progress reporting + checkpoint participation"
 
-// Execution: Data reading on worker
-class JdbcSourceReader {
-    void pollNext(Collector<SeaTunnelRow> output) {
-        ResultSet rs = statement.executeQuery();
-        while (rs.next()) {
-            output.collect(convertToRow(rs)); // Parallel data processing
-        }
-    }
-}
-```
+The key reason for this design: Fault tolerance requires distinguishing between "control state" (assigned/pending splits) and "execution progress" (offset/position per split) to enable precise recovery and fast reassignment after failures.
 
 ### 2.3 Split-based Parallelism
 
@@ -142,10 +126,26 @@ class FileSplit implements SourceSplit {
 - Failures can occur at any time (network, process crashes)
 - External systems require transactional guarantees
 
-**Implementation**:
-1. **Prepare Phase**: During checkpoint, `SinkWriter.prepareCommit(checkpointId)` returns commit info without making changes externally visible
-2. **Commit Phase**: After checkpoint succeeds, `SinkCommitter.commit()` applies changes atomically
-3. **Abort**: If checkpoint fails, `SinkWriter.abortPrepare()` rolls back
+**Implementation Principle**:
+
+Two-phase commit protocol separates data writing into two independent phases:
+
+1. **Prepare Phase**:
+   - Timing: Triggered when checkpoint barrier arrives
+   - Action: Writer generates "committable but not yet committed" credentials (e.g., transaction ID, temp file path)
+   - Constraint: No externally visible side effects (data not visible to external systems)
+   - State: Credential information persisted with checkpoint
+
+2. **Commit Phase**:
+   - Timing: After checkpoint completes successfully
+   - Action: Coordinator atomically commits changes using credentials (e.g., commit transaction, move files)
+   - Effect: Data becomes visible to external systems
+   - Guarantee: Idempotent - repeated commits have no side effects
+
+3. **Abort Handling**:
+   - Timing: When checkpoint fails or times out
+   - Action: Clean up temporary resources from prepare phase (e.g., rollback transaction, delete temp files)
+   - Effect: Ensures no partial writes or inconsistent state
 
 **Trade-offs**:
 - **Pro**: Strong consistency guarantee
@@ -155,26 +155,7 @@ class FileSplit implements SourceSplit {
 - **Con**: Additional state for commit info
 - **Mitigation**: Optional feature; at-least-once mode available for non-transactional sinks
 
-**Example**:
-```java
-class JdbcExactlyOnceSinkWriter {
-    List<CommitInfoT> prepareCommit(long checkpointId) {
-        // Start XA transaction but don't commit yet
-        String xid = generateXid();
-        connection.prepareTransaction(xid);
-        return Collections.singletonList(new XidInfo(xid));
-    }
-}
-
-class JdbcSinkCommitter {
-    void commit(List<XidInfo> commitInfos) {
-        // Commit all prepared transactions atomically
-        for (XidInfo xid : commitInfos) {
-            connection.commitPreparedTransaction(xid);
-        }
-    }
-}
-```
+**Example**: A typical exactly-once implementation follows this pattern: "the writer first generates committable credentials (commit info), and after checkpoint succeeds, the coordinator performs the final commit". This approach delays side effects (visible changes to external systems) until after checkpoint success, avoiding duplicate visible writes during failure recovery.
 
 ### 2.5 Schema as First-Class Citizen
 

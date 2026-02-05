@@ -237,15 +237,6 @@ SeaTunnel 侧使用统一抽象类型；转换层根据引擎能力与用户配�
 
 ## 9. 相关资源
 
-- [数据源架构](../api-design/source-architecture.md)
-- [目标端架构](../api-design/sink-architecture.md)
+- [数据 Source 架构](../api-design/source-architecture.md)
+- [目标端 Sink 架构](../api-design/sink-architecture.md)
 - [设计理念](../design-philosophy.md)
-
-## 10. 参考资料
-
-本章节不维护“源码路径清单”，避免实现调整导致文档失真；如需从概念进一步落地，请从“相关资源”按主题继续阅读。
-
-### 进一步阅读
-
-- [Apache Flink Source API](https://nightlies.apache.org/flink/flink-docs-stable/docs/dev/datastream/sources/)
-- [Apache Spark Data Source V2](https://spark.apache.org/docs/latest/sql-data-sources.html)
