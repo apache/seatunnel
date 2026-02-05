@@ -201,16 +201,15 @@ public class OracleDialectContainerTest extends AbstractOracleContainerTest {
 
     @Test
     public void testCreatPreparedStatement() throws Exception {
-        PreparedStatement preparedStatement =
+        try (PreparedStatement preparedStatement =
                 dialect.creatPreparedStatement(
                         connection,
                         "SELECT * FROM "
                                 + quoteIdentifier(SCHEMA)
                                 + "."
                                 + quoteIdentifier(TEST_TABLE),
-                        128);
-
-        Assertions.assertNotNull(preparedStatement);
-        preparedStatement.close();
+                        128)) {
+            Assertions.assertNotNull(preparedStatement);
+        }
     }
 }

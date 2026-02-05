@@ -84,15 +84,29 @@ public abstract class AbstractOracleContainerTest {
     }
 
     @AfterAll
-    public static void stopContainer() throws SQLException {
-        if (catalog != null) {
-            catalog.close();
+    public static void stopContainer() {
+        try {
+            if (catalog != null) {
+                catalog.close();
+            }
+        } catch (Exception e) {
+            // Ignore to ensure subsequent cleanup continues
         }
-        if (connection != null && !connection.isClosed()) {
-            connection.close();
+
+        try {
+            if (connection != null && !connection.isClosed()) {
+                connection.close();
+            }
+        } catch (Exception e) {
+            // Ignore to ensure subsequent cleanup continues
         }
-        if (oracleContainer != null) {
-            oracleContainer.stop();
+
+        try {
+            if (oracleContainer != null) {
+                oracleContainer.stop();
+            }
+        } catch (Exception e) {
+            // Ignore cleanup exception
         }
     }
 
