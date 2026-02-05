@@ -22,47 +22,15 @@ import org.apache.seatunnel.connectors.seatunnel.http.source.HttpSource;
 
 import lombok.extern.slf4j.Slf4j;
 
-import java.util.HashMap;
-import java.util.Map;
-
 @Slf4j
 public class HubSpotSource extends HttpSource {
 
     public HubSpotSource(ReadonlyConfig config) {
-        // We calculate the specific HubSpot config (URL, Auth) BEFORE calling super()
-        super(buildHubSpotConfig(config));
+        super(new HubSpotSourceParameter(config).getConfig());
     }
 
     @Override
     public String getPluginName() {
         return "HubSpot";
-    }
-
-    /**
-     * This helper method builds the final configuration that the parent HttpSource needs. It
-     * converts "object_type" -> "url" and "access_token" -> "headers".
-     */
-    private static ReadonlyConfig buildHubSpotConfig(ReadonlyConfig originalConfig) {
-        Map<String, Object> newConfigMap = new HashMap<>(originalConfig.toMap());
-
-        // 1. Get user inputs
-        String objectType =
-                originalConfig.getOptional(HubSpotSourceOptions.OBJECT_TYPE).orElse("contacts");
-        String accessToken = originalConfig.get(HubSpotSourceOptions.ACCESS_TOKEN);
-
-        // 2. Generate the URL dynamically
-        String finalUrl = "https://api.hubapi.com/crm/v3/objects/" + objectType;
-        newConfigMap.put("url", finalUrl);
-
-        // 3. Inject Authentication Headers
-        Map<String, String> headers = new HashMap<>();
-        headers.put("Authorization", "Bearer " + accessToken);
-        headers.put("Content-Type", "application/json");
-        newConfigMap.put("headers", headers);
-
-        // 4. Force the content field to "results"
-        newConfigMap.put("content_field", "results");
-
-        return ReadonlyConfig.fromMap(newConfigMap);
     }
 }
