@@ -260,6 +260,8 @@ runtime_fields = [
 ### slice_max [int]
 Split a single index into multiple slices for parallel reads. Only effective for SCROLL/PIT. Set to a value greater than 1 to enable slicing.
 
+**Trade-off:** slicing improves throughput but may reduce snapshot consistency across slices. For strong consistency, prefer PIT with a shared snapshot or set `slice_max = 1`. For append-only or low-write workloads, slicing is usually acceptable.
+
 ### common options
 
 Source plugin common parameters, please refer to [Source Common Options](../common-options/source-common-options.md) for details

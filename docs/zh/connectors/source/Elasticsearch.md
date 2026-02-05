@@ -242,6 +242,8 @@ runtime_fields = [
 ### slice_max [int]
 将单个索引拆分为多个切片以并行读取。仅对 SCROLL/PIT 生效，配置 > 1 时启用切片。
 
+**取舍说明：**切片能提升吞吐，但可能降低跨切片的一致性。对一致性要求高时，建议使用 PIT（共享快照）或将 `slice_max = 1`；对追加写或写入较少的场景，开启切片通常可以接受。
+
 ### common options
 
 Source 插件常用参数，具体请参考 [Source 常用选项](../common-options/source-common-options.md)

@@ -180,15 +180,24 @@ public class ElasticsearchSourceReader
             Collector<SeaTunnelRow> output,
             SeaTunnelRowDeserializer deserializer) {
 
-        // Create a PIT
-        String pitId =
-                esRestClient.createPointInTime(
-                        sourceIndexInfo.getIndex(), sourceIndexInfo.getPitKeepAlive());
-        sourceIndexInfo.setPitId(pitId);
-        log.info(
-                "Created Point-in-Time with ID: {} for index: {}",
-                pitId,
-                sourceIndexInfo.getIndex());
+        String pitId = sourceIndexInfo.getPitId();
+        boolean pitOwnedByReader = false;
+        if (StringUtils.isEmpty(pitId)) {
+            pitId =
+                    esRestClient.createPointInTime(
+                            sourceIndexInfo.getIndex(), sourceIndexInfo.getPitKeepAlive());
+            sourceIndexInfo.setPitId(pitId);
+            pitOwnedByReader = true;
+            log.info(
+                    "Created Point-in-Time with ID: {} for index: {}",
+                    pitId,
+                    sourceIndexInfo.getIndex());
+        } else {
+            log.info(
+                    "Using shared Point-in-Time with ID: {} for index: {}",
+                    pitId,
+                    sourceIndexInfo.getIndex());
+        }
 
         try {
             // Initial search
@@ -231,11 +240,11 @@ public class ElasticsearchSourceReader
             }
         } finally {
             // Always clean up the PIT when done
-            if (pitId != null) {
+            if (pitOwnedByReader && pitId != null) {
                 try {
                     esRestClient.deletePointInTime(pitId);
                 } catch (Exception e) {
-                    log.warn("Failed to delete Point-in-Time with ID: " + pitId, e);
+                    log.warn("Failed to delete Point-in-Time with ID: {}", pitId, e);
                 }
             }
         }
