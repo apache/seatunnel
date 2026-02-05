@@ -622,10 +622,38 @@ public class DateTimeFunction {
     }
 
     public static boolean isDate(List<Object> args) {
+        String str = (String) args.get(0);
+        if (str == null || str.isEmpty()) {
+            return false;
+        }
+
+        String format = (String) args.get(1);
+        if (format == null) {
+            return false;
+        }
+
+        ZetaDateTimeFormat dateTimeFormat = ZetaDateTimeFormat.fromPattern(format).orElse(null);
+        if (dateTimeFormat == null) {
+            return false;
+        }
+
         try {
-            parsedatetime(args);
-            return true;
-        } catch (Throwable e) {
+            DateTimeFormatter formatter = dateTimeFormat.getFormatter();
+
+            switch (dateTimeFormat.getType()) {
+                case DATETIME:
+                    LocalDateTime.parse(str, formatter);
+                    return true;
+                case DATE:
+                    LocalDate.parse(str, formatter);
+                    return true;
+                case TIME:
+                    LocalTime.parse(str, formatter);
+                    return true;
+                default:
+                    return false;
+            }
+        } catch (DateTimeParseException e) {
             return false;
         }
     }
