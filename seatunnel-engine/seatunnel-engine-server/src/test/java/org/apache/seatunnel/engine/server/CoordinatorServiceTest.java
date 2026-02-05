@@ -354,7 +354,6 @@ public class CoordinatorServiceTest {
                 Assertions.assertDoesNotThrow(() -> coordinatorService.getJobInfo(jobId));
         Assertions.assertEquals(jobId, jobDAGInfo.getJobId());
 
-        jobInformation.coordinatorService.clearCoordinatorService();
         jobInformation.coordinatorServiceTest.shutdown();
     }
 
