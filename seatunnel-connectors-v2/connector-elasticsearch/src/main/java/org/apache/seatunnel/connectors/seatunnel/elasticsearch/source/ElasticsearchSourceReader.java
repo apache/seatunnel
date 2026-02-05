@@ -121,7 +121,7 @@ public class ElasticsearchSourceReader
                     try {
                         esRestClient.closeSqlCursor(cursor);
                     } catch (Exception e) {
-                        log.warn("Failed to close SQL cursor: " + cursor, e);
+                        log.warn("Failed to close SQL cursor: {}", cursor, e);
                     }
                 }
             }

@@ -315,7 +315,7 @@ public class EsRestClient implements Closeable {
      */
     public boolean closeSqlCursor(String cursor) {
         if (StringUtils.isEmpty(cursor)) {
-            log.warn("Attempted to close SQL cursor with empty cursor");
+            log.debug("SQL cursor is empty; skip closing.");
             return false;
         }
 
@@ -344,7 +344,7 @@ public class EsRestClient implements Closeable {
                 return false;
             }
         } catch (Exception ex) {
-            log.warn("Failed to close SQL cursor: " + cursor, ex);
+            log.warn("Failed to close SQL cursor: {}", cursor, ex);
             return false;
         }
     }
