@@ -27,6 +27,8 @@ import org.apache.seatunnel.api.table.type.BasicType;
 
 import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.Test;
+import org.junit.jupiter.api.condition.DisabledOnOs;
+import org.junit.jupiter.api.condition.OS;
 
 import lombok.extern.slf4j.Slf4j;
 
@@ -40,7 +42,8 @@ import java.util.List;
  * listing, table operations, and schema management.
  */
 @Slf4j
-public class OracleCatalogContainerTest extends AbstractOracleContainerTest {
+@DisabledOnOs(OS.WINDOWS)
+public class OracleCatalogTest extends AbstractOracleContainerTest {
 
     @Test
     public void testListDatabases() {

@@ -25,6 +25,8 @@ import org.apache.seatunnel.connectors.seatunnel.jdbc.source.JdbcSourceTable;
 import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.BeforeAll;
 import org.junit.jupiter.api.Test;
+import org.junit.jupiter.api.condition.DisabledOnOs;
+import org.junit.jupiter.api.condition.OS;
 
 import java.sql.PreparedStatement;
 import java.sql.SQLException;
@@ -34,7 +36,8 @@ import java.sql.Statement;
  * Unit tests for OracleDialect using Testcontainers. Tests dialect-specific functionality like
  * quoting, SQL generation, and data sampling.
  */
-public class OracleDialectContainerTest extends AbstractOracleContainerTest {
+@DisabledOnOs(OS.WINDOWS)
+public class OracleDialectTest extends AbstractOracleContainerTest {
 
     private static OracleDialect dialect;
     private static final String TEST_TABLE = "DIALECT_TEST_TABLE";
