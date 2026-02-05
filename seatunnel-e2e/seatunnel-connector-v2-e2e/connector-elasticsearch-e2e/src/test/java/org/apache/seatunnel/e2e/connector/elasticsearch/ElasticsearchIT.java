@@ -827,8 +827,7 @@ public class ElasticsearchIT extends TestSuiteBase implements TestResource {
         Map<String, Object> query = new HashMap<>();
         query.put("match_all", Maps.newHashMap());
 
-        ScrollResult scrollResult =
-                esRestClient.searchByScroll(index, source, query, "1m", 1000, null, null);
+        ScrollResult scrollResult = esRestClient.searchByScroll(index, source, query, "1m", 1000);
         scrollResult
                 .getDocs()
                 .forEach(
@@ -855,8 +854,7 @@ public class ElasticsearchIT extends TestSuiteBase implements TestResource {
         range.put("c_int", rangeParam);
         Map<String, Object> query = new HashMap<>();
         query.put("range", range);
-        ScrollResult scrollResult =
-                esRestClient.searchByScroll(index, source, query, "1m", 1000, null, null);
+        ScrollResult scrollResult = esRestClient.searchByScroll(index, source, query, "1m", 1000);
         scrollResult
                 .getDocs()
                 .forEach(
@@ -883,8 +881,7 @@ public class ElasticsearchIT extends TestSuiteBase implements TestResource {
     private List<String> getDocsWithNestType(List<String> source, String index) {
         Map<String, Object> query = new HashMap<>();
         query.put("match_all", new HashMap<>());
-        ScrollResult scrollResult =
-                esRestClient.searchByScroll(index, source, query, "1m", 1000, null, null);
+        ScrollResult scrollResult = esRestClient.searchByScroll(index, source, query, "1m", 1000);
         scrollResult
                 .getDocs()
                 .forEach(
@@ -921,8 +918,7 @@ public class ElasticsearchIT extends TestSuiteBase implements TestResource {
         range.put("c_int", rangeParam);
         Map<String, Object> query = new HashMap<>();
         query.put("range", range);
-        ScrollResult scrollResult =
-                esRestClient.searchByScroll(index, source, query, "1m", 1000, null, null);
+        ScrollResult scrollResult = esRestClient.searchByScroll(index, source, query, "1m", 1000);
         scrollResult
                 .getDocs()
                 .forEach(
@@ -971,8 +967,7 @@ public class ElasticsearchIT extends TestSuiteBase implements TestResource {
             Map<String, Object> query,
             List<String> dateFields,
             String orderField) {
-        ScrollResult scrollResult =
-                esRestClient.searchByScroll(index, source, query, "1m", 1000, null, null);
+        ScrollResult scrollResult = esRestClient.searchByScroll(index, source, query, "1m", 1000);
         scrollResult
                 .getDocs()
                 .forEach(
@@ -1116,8 +1111,7 @@ public class ElasticsearchIT extends TestSuiteBase implements TestResource {
         Map<String, Object> query = new HashMap<>();
         query.put("match_all", new HashMap<>());
         ScrollResult scrollResult =
-                esRestClient.searchByScroll(
-                        "st_index3", sourceFields, query, "1m", 100, null, null);
+                esRestClient.searchByScroll("st_index3", sourceFields, query, "1m", 100);
         Assertions.assertFalse(scrollResult.getDocs().isEmpty(), "Data should exist in the index");
 
         // Truncate the table
@@ -1125,9 +1119,7 @@ public class ElasticsearchIT extends TestSuiteBase implements TestResource {
         Thread.sleep(INDEX_REFRESH_MILL_DELAY); // Wait for data to be indexed
 
         // Verify data is deleted
-        scrollResult =
-                esRestClient.searchByScroll(
-                        "st_index3", sourceFields, query, "1m", 100, null, null);
+        scrollResult = esRestClient.searchByScroll("st_index3", sourceFields, query, "1m", 100);
         Assertions.assertTrue(
                 scrollResult.getDocs().isEmpty(), "Data should be deleted from the index");
 
@@ -1176,8 +1168,7 @@ public class ElasticsearchIT extends TestSuiteBase implements TestResource {
             Map<String, Object> query = new HashMap<>();
             query.put("match_all", Collections.emptyMap());
 
-            ScrollResult result =
-                    esRestClient.searchByScroll("st_index", source, query, "1m", 5, null, null);
+            ScrollResult result = esRestClient.searchByScroll("st_index", source, query, "1m", 5);
             scrollId = result.getScrollId();
             Assertions.assertNotNull(scrollId, "Scroll ID should not be null");
 
