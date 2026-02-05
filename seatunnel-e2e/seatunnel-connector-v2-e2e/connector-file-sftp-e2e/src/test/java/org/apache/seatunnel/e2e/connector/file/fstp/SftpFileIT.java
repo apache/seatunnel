@@ -31,6 +31,7 @@ import org.junit.jupiter.api.AfterAll;
 import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.BeforeAll;
 import org.junit.jupiter.api.TestTemplate;
+import org.testcontainers.containers.Container;
 import org.testcontainers.containers.GenericContainer;
 import org.testcontainers.lifecycle.Startables;
 import org.testcontainers.shaded.com.github.dockerjava.core.command.ExecStartResultCallback;
@@ -60,6 +61,8 @@ public class SftpFileIT extends TestSuiteBase implements TestResource {
     private static final int SFTP_PORT = 22;
 
     private static final int SFTP_BIND_PORT = 2222;
+
+    private static final String SFTP_CONTAINER_HOME = "/home/seatunnel";
 
     private static final String USERNAME = "seatunnel";
 
@@ -212,6 +215,32 @@ public class SftpFileIT extends TestSuiteBase implements TestResource {
     }
 
     @TestTemplate
+    public void testSftpBinaryUpdateModeDistcp(TestContainer container)
+            throws IOException, InterruptedException {
+        resetUpdateTestPath();
+        putSftpFile(SFTP_CONTAINER_HOME + "/tmp/seatunnel/update/src/test.bin", "abc");
+
+        TestHelper helper = new TestHelper(container);
+        helper.execute("/text/sftp_binary_update_distcp.conf");
+        Assertions.assertEquals(
+                "abc", readSftpFile(SFTP_CONTAINER_HOME + "/tmp/seatunnel/update/dst/test.bin"));
+
+        // Make target newer with same length, distcp strategy should SKIP overwrite.
+        putSftpFile(SFTP_CONTAINER_HOME + "/tmp/seatunnel/update/dst/test.bin", "zzz");
+        helper.execute("/text/sftp_binary_update_distcp.conf");
+        Assertions.assertEquals(
+                "zzz", readSftpFile(SFTP_CONTAINER_HOME + "/tmp/seatunnel/update/dst/test.bin"));
+
+        // Change source length, distcp strategy should COPY overwrite.
+        putSftpFile(SFTP_CONTAINER_HOME + "/tmp/seatunnel/update/src/test.bin", "abcd");
+        helper.execute("/text/sftp_binary_update_distcp.conf");
+        Assertions.assertEquals(
+                "abcd", readSftpFile(SFTP_CONTAINER_HOME + "/tmp/seatunnel/update/dst/test.bin"));
+
+        deleteFileFromContainer(SFTP_CONTAINER_HOME + "/tmp/seatunnel/update");
+    }
+
+    @TestTemplate
     public void testMultipleTableAndSaveMode(TestContainer container)
             throws IOException, InterruptedException {
         TestHelper helper = new TestHelper(container);
@@ -242,6 +271,49 @@ public class SftpFileIT extends TestSuiteBase implements TestResource {
         helper.execute("/text/multiple_fake_to_sftp_file_text_append.conf");
         Assertions.assertEquals(getFileListFromContainer(homePath + path3).size(), 2);
         Assertions.assertEquals(getFileListFromContainer(homePath + path4).size(), 2);
+    }
+
+    private void resetUpdateTestPath() throws IOException, InterruptedException {
+        deleteFileFromContainer(SFTP_CONTAINER_HOME + "/tmp/seatunnel/update");
+        Container.ExecResult mkdirResult =
+                sftpContainer.execInContainer(
+                        "sh",
+                        "-c",
+                        "mkdir -p "
+                                + SFTP_CONTAINER_HOME
+                                + "/tmp/seatunnel/update/src "
+                                + SFTP_CONTAINER_HOME
+                                + "/tmp/seatunnel/update/dst "
+                                + SFTP_CONTAINER_HOME
+                                + "/tmp/seatunnel/update/tmp");
+        Assertions.assertEquals(0, mkdirResult.getExitCode(), mkdirResult.getStderr());
+        sftpContainer.execInContainer(
+                "sh",
+                "-c",
+                "chmod -R 777 " + SFTP_CONTAINER_HOME + "/tmp/seatunnel/update || true");
+    }
+
+    private void putSftpFile(String containerPath, String content)
+            throws IOException, InterruptedException {
+        String command =
+                "mkdir -p $(dirname '"
+                        + containerPath
+                        + "') && printf '"
+                        + content
+                        + "' > '"
+                        + containerPath
+                        + "' && chmod 666 '"
+                        + containerPath
+                        + "'";
+        Container.ExecResult putResult = sftpContainer.execInContainer("sh", "-c", command);
+        Assertions.assertEquals(0, putResult.getExitCode(), putResult.getStderr());
+    }
+
+    private String readSftpFile(String containerPath) throws IOException, InterruptedException {
+        Container.ExecResult catResult =
+                sftpContainer.execInContainer("sh", "-c", "cat '" + containerPath + "'");
+        Assertions.assertEquals(0, catResult.getExitCode(), catResult.getStderr());
+        return catResult.getStdout() == null ? "" : catResult.getStdout().trim();
     }
 
     @SneakyThrows
