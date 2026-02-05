@@ -1146,3 +1146,151 @@ To get the metrics, you need to open `Telemetry` first, or you will get an empty
 More information about `Telemetry` can be found in the [Telemetry](telemetry.md) documentation.
 
 </details>
+
+### Get Job Checkpoint Overview
+
+<details>
+ <summary><code>GET</code> <code><b>/jobs/checkpoints/:jobId</b></code> <code>(Return checkpoint overview of every pipeline).</code></summary>
+
+#### Path Parameter
+
+- `jobId`: required job identifier.
+
+#### Response Example
+
+```json
+{
+  "jobId": "1234567890",
+  "updatedAt": 1720000000123,
+  "pipelines": [
+    {
+      "pipelineId": 1,
+      "counts": {
+        "triggered": 10,
+        "completed": 8,
+        "failed": 1,
+        "inProgress": 1,
+        "restored": 2
+      },
+      "latestCompleted": {
+        "checkpointId": 9,
+        "checkpointType": "CHECKPOINT_TYPE",
+        "status": "COMPLETED",
+        "triggerTimestamp": 1720000000000,
+        "completedTimestamp": 1720000000450,
+        "durationMillis": 450,
+        "stateSize": 128934
+      },
+      "latestFailed": {
+        "checkpointId": 8,
+        "checkpointType": "CHECKPOINT_TYPE",
+        "status": "FAILED",
+        "triggerTimestamp": 1719999995000,
+        "failureReason": "CHECKPOINT_EXPIRED"
+      },
+      "latestSavepoint": null,
+      "inProgress": [
+        {
+          "checkpointId": 10,
+          "checkpointType": "CHECKPOINT_TYPE",
+          "triggerTimestamp": 1720000005000,
+          "acknowledged": 2,
+          "total": 4
+        }
+      ],
+      "history": [
+        {
+          "pipelineId": 1,
+          "checkpoint": {
+            "checkpointId": 9,
+            "checkpointType": "CHECKPOINT_TYPE",
+            "status": "COMPLETED",
+            "triggerTimestamp": 1720000000000,
+            "completedTimestamp": 1720000000450,
+            "durationMillis": 450,
+            "stateSize": 128934
+          }
+        }
+      ]
+    }
+  ]
+}
+```
+</details>
+
+#### Field Description
+
+| Field | Description |
+| --- | --- |
+| `jobId` | Job ID. |
+| `updatedAt` | Latest snapshot timestamp (millisecond). |
+| `pipelines` | List of pipeline statistics. |
+| `pipelines[].pipelineId` | Pipeline ID. |
+| `pipelines[].counts.triggered/completed/failed/inProgress/restored` | Checkpoint statistics:<br/>- `triggered`: total triggered checkpoints.<br/>- `completed`: total successful checkpoints.<br/>- `failed`: total failed checkpoints.<br/>- `inProgress`: checkpoints currently running.<br/>- `restored`: number of restore (including savepoint) attempts. |
+| `pipelines[].latestCompleted/latestFailed/latestSavepoint` | Metadata of the latest completed/failed/savepoint checkpoints (see table below for field definitions). |
+| `pipelines[].inProgress` | Ongoing checkpoints with details:<br/>- `checkpointId`: ID of the running checkpoint.<br/>- `checkpointType`: type (`CHECKPOINT_TYPE`, savepoint, etc.).<br/>- `triggerTimestamp`: when it was triggered (ms).<br/>- `acknowledged`: number of subtasks that have ACKed.<br/>- `total`: total subtasks requiring ACK. |
+| `pipelines[].history` | Ring-buffer history (default 32 entries) ordered latest-first; each entry contains `pipelineId` plus checkpoint metadata. |
+
+Checkpoint metadata fields:
+
+| Field | Description |
+| --- | --- |
+| `checkpointId` | Checkpoint identifier. |
+| `checkpointType` | Checkpoint type. |
+| `status` | `COMPLETED`, `FAILED`, or `CANCELED`. |
+| `triggerTimestamp` | Trigger time in milliseconds. |
+| `completedTimestamp` | Completion time (only for success). |
+| `durationMillis` | Duration in milliseconds. |
+| `stateSize` | State size in bytes. |
+| `failureReason` | Failure/cancel reason, optional. |
+
+### Get Job Checkpoint History
+
+<details>
+ <summary><code>GET</code> <code><b>/jobs/checkpoints/history/:jobId</b></code> <code>(Return checkpoint history records.)</code></summary>
+
+#### Query Parameters
+
+| Name | Description |
+| --- | --- |
+| `jobId` | Required job ID (path). |
+| `pipelineId` | Optional pipeline filter. |
+| `limit` | Optional limit (default 20). |
+| `status` | Optional status filter: `COMPLETED`, `FAILED`, `CANCELED`. |
+
+#### Response Example
+
+```json
+[
+  {
+    "pipelineId": 1,
+    "checkpoint": {
+      "checkpointId": 9,
+      "checkpointType": "CHECKPOINT_TYPE",
+      "status": "COMPLETED",
+      "triggerTimestamp": 1720000000000,
+      "completedTimestamp": 1720000000450,
+      "durationMillis": 450,
+      "stateSize": 128934
+    }
+  },
+  {
+    "pipelineId": 1,
+    "checkpoint": {
+      "checkpointId": 8,
+      "checkpointType": "CHECKPOINT_TYPE",
+      "status": "FAILED",
+      "triggerTimestamp": 1719999995000,
+      "failureReason": "CHECKPOINT_EXPIRED"
+    }
+  }
+]
+```
+</details>
+
+#### Field Description
+
+| Field | Description |
+| --- | --- |
+| `pipelineId` | ID of the pipeline to which the record belongs. |
+| `checkpoint` | Checkpoint metadata described above. |

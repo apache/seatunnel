@@ -19,8 +19,6 @@ package org.apache.seatunnel.transform.common;
 
 import org.apache.seatunnel.api.configuration.ReadonlyConfig;
 import org.apache.seatunnel.api.table.catalog.CatalogTable;
-import org.apache.seatunnel.api.table.catalog.TableIdentifier;
-import org.apache.seatunnel.api.table.catalog.TableSchema;
 import org.apache.seatunnel.api.table.type.SeaTunnelDataType;
 import org.apache.seatunnel.api.table.type.SeaTunnelRow;
 import org.apache.seatunnel.api.transform.SeaTunnelTransform;
@@ -73,7 +71,7 @@ public abstract class AbstractMultiCatalogTransform implements SeaTunnelTransfor
                     if (tableConfig != null) {
                         transformMap.put(tableId, buildTransform(inputCatalogTable, tableConfig));
                     } else {
-                        transformMap.put(tableId, new IdentityTransform(inputCatalogTable));
+                        transformMap.put(tableId, createIdentityTransform(inputCatalogTable));
                     }
                 });
 
@@ -91,6 +89,9 @@ public abstract class AbstractMultiCatalogTransform implements SeaTunnelTransfor
     protected abstract SeaTunnelTransform<SeaTunnelRow> buildTransform(
             CatalogTable inputCatalogTable, ReadonlyConfig config);
 
+    protected abstract SeaTunnelTransform<SeaTunnelRow> createIdentityTransform(
+            CatalogTable catalogTable);
+
     @Override
     public List<CatalogTable> getProducedCatalogTables() {
         return outputCatalogTables;
@@ -103,36 +104,4 @@ public abstract class AbstractMultiCatalogTransform implements SeaTunnelTransfor
 
     @Override
     public void setTypeInfo(SeaTunnelDataType<SeaTunnelRow> inputDataType) {}
-
-    public static class IdentityTransform extends AbstractCatalogSupportMapTransform {
-        private final CatalogTable catalogTable;
-
-        @Override
-        public String getPluginName() {
-            return "Identity";
-        }
-
-        public IdentityTransform(CatalogTable catalogTable) {
-            super(catalogTable);
-            this.catalogTable = catalogTable;
-        }
-
-        @Override
-        protected SeaTunnelRow transformRow(SeaTunnelRow row) {
-            return row;
-        }
-
-        @Override
-        protected TableSchema transformTableSchema() {
-            return catalogTable.getTableSchema();
-        }
-
-        @Override
-        protected TableIdentifier transformTableIdentifier() {
-            return catalogTable.getTableId();
-        }
-
-        @Override
-        public void setTypeInfo(SeaTunnelDataType<SeaTunnelRow> inputDataType) {}
-    }
 }
