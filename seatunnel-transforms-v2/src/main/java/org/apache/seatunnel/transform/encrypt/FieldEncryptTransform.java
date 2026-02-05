@@ -29,6 +29,7 @@ import org.apache.seatunnel.api.table.type.SeaTunnelRow;
 import org.apache.seatunnel.common.exception.CommonError;
 import org.apache.seatunnel.transform.common.AbstractCatalogSupportMapTransform;
 import org.apache.seatunnel.transform.encrypt.encryptor.Encryptor;
+import org.apache.seatunnel.transform.exception.TransformCommonError;
 
 import lombok.NonNull;
 
@@ -144,8 +145,8 @@ public class FieldEncryptTransform extends AbstractCatalogSupportMapTransform {
                                             }
                                         }
                                     }
-                                    throw new IllegalArgumentException(
-                                            "Field not found: " + fieldName);
+                                    throw TransformCommonError.cannotFindInputFieldError(
+                                            PLUGIN_NAME, fieldName);
                                 })
                         .toArray();
     }

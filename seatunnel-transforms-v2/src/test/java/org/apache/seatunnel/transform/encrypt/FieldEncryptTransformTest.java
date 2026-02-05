@@ -25,6 +25,8 @@ import org.apache.seatunnel.api.table.catalog.TablePath;
 import org.apache.seatunnel.api.table.catalog.TableSchema;
 import org.apache.seatunnel.api.table.type.BasicType;
 import org.apache.seatunnel.api.table.type.SeaTunnelRow;
+import org.apache.seatunnel.common.exception.SeaTunnelRuntimeException;
+import org.apache.seatunnel.transform.exception.TransformException;
 
 import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.BeforeAll;
@@ -37,10 +39,11 @@ import java.util.List;
 import java.util.Map;
 
 class FieldEncryptTransformTest {
-    private List<String> encryptFields = Arrays.asList("key2", "key3");
+    public static final String KEY = "base64:AAAAAAAAAAAAAAAAAAAAAA==";
     private static CatalogTable catalogTable;
     private static Object[] values;
     private static Object[] original;
+    private List<String> encryptFields = Arrays.asList("key2", "key3");
 
     @BeforeAll
     static void setUp() {
@@ -113,7 +116,7 @@ class FieldEncryptTransformTest {
         SeaTunnelRow output = encryption();
         Map<String, Object> configMap = new HashMap<>();
         configMap.put(FieldEncryptTransformConfig.FIELDS.key(), encryptFields);
-        configMap.put(FieldEncryptTransformConfig.KEY.key(), "base64:AAAAAAAAAAAAAAAAAAAAAA==");
+        configMap.put(FieldEncryptTransformConfig.KEY.key(), KEY);
         configMap.put(FieldEncryptTransformConfig.MODE.key(), "decrypt");
 
         FieldEncryptTransform fieldEncryptTransform =
@@ -126,10 +129,135 @@ class FieldEncryptTransformTest {
         Assertions.assertEquals("value3", decryptedRow.getField(2));
     }
 
+    @Test
+    void testNullField() {
+        Map<String, Object> configMap = new HashMap<>();
+        configMap.put(FieldEncryptTransformConfig.FIELDS.key(), encryptFields);
+        configMap.put(FieldEncryptTransformConfig.KEY.key(), KEY);
+
+        FieldEncryptTransform fieldEncryptTransform =
+                new FieldEncryptTransform(ReadonlyConfig.fromMap(configMap), catalogTable);
+
+        Object[] valuesWithNull = new Object[] {"value1", null, "value3", "value4", "value5"};
+        SeaTunnelRow input = new SeaTunnelRow(valuesWithNull);
+        SeaTunnelRow output = fieldEncryptTransform.transformRow(input);
+
+        Assertions.assertNull(output.getField(1));
+        Assertions.assertNotNull(output.getField(2));
+    }
+
+    @Test
+    void testEmptyString() {
+        Map<String, Object> configMap = new HashMap<>();
+        configMap.put(FieldEncryptTransformConfig.FIELDS.key(), encryptFields);
+        configMap.put(FieldEncryptTransformConfig.KEY.key(), KEY);
+
+        FieldEncryptTransform fieldEncryptTransform =
+                new FieldEncryptTransform(ReadonlyConfig.fromMap(configMap), catalogTable);
+
+        Object[] valuesWithEmpty = new Object[] {"value1", "", "   ", "value4", "value5"};
+        SeaTunnelRow input = new SeaTunnelRow(valuesWithEmpty);
+        SeaTunnelRow output = fieldEncryptTransform.transformRow(input);
+
+        Assertions.assertEquals("", output.getField(1));
+        Assertions.assertEquals("   ", output.getField(2));
+    }
+
+    @Test
+    void testFieldNotFound() {
+        Map<String, Object> configMap = new HashMap<>();
+        configMap.put(FieldEncryptTransformConfig.FIELDS.key(), Arrays.asList("nonExistentField"));
+        configMap.put(FieldEncryptTransformConfig.KEY.key(), KEY);
+
+        Assertions.assertThrows(
+                TransformException.class,
+                () -> new FieldEncryptTransform(ReadonlyConfig.fromMap(configMap), catalogTable));
+    }
+
+    @Test
+    void testInvalidKeyLength() {
+        Map<String, Object> configMap = new HashMap<>();
+        configMap.put(FieldEncryptTransformConfig.FIELDS.key(), encryptFields);
+        configMap.put(FieldEncryptTransformConfig.KEY.key(), "base64:AAAAAAA=");
+
+        FieldEncryptTransform fieldEncryptTransform =
+                new FieldEncryptTransform(ReadonlyConfig.fromMap(configMap), catalogTable);
+        SeaTunnelRow input = new SeaTunnelRow(values);
+
+        Assertions.assertThrows(
+                SeaTunnelRuntimeException.class, () -> fieldEncryptTransform.transformRow(input));
+    }
+
+    @Test
+    void testUnsupportedAlgorithm() {
+        Map<String, Object> configMap = new HashMap<>();
+        configMap.put(FieldEncryptTransformConfig.FIELDS.key(), encryptFields);
+        configMap.put(FieldEncryptTransformConfig.KEY.key(), KEY);
+        configMap.put(FieldEncryptTransformConfig.ALGORITHM.key(), "INVALID_ALGORITHM");
+
+        FieldEncryptTransform fieldEncryptTransform =
+                new FieldEncryptTransform(ReadonlyConfig.fromMap(configMap), catalogTable);
+        SeaTunnelRow input = new SeaTunnelRow(values);
+
+        Assertions.assertThrows(
+                SeaTunnelRuntimeException.class,
+                () -> {
+                    fieldEncryptTransform.transformRow(input);
+                });
+    }
+
+    @Test
+    void testInvalidMode() {
+        Map<String, Object> configMap = new HashMap<>();
+        configMap.put(FieldEncryptTransformConfig.FIELDS.key(), encryptFields);
+        configMap.put(FieldEncryptTransformConfig.KEY.key(), KEY);
+        configMap.put(FieldEncryptTransformConfig.MODE.key(), "invalid_mode");
+
+        FieldEncryptTransform fieldEncryptTransform =
+                new FieldEncryptTransform(ReadonlyConfig.fromMap(configMap), catalogTable);
+        SeaTunnelRow input = new SeaTunnelRow(values);
+
+        Assertions.assertThrows(
+                SeaTunnelRuntimeException.class,
+                () -> {
+                    fieldEncryptTransform.transformRow(input);
+                });
+    }
+
+    @Test
+    void testNonStringField() {
+        CatalogTable intCatalogTable =
+                CatalogTable.of(
+                        TableIdentifier.of("catalog", TablePath.DEFAULT),
+                        TableSchema.builder()
+                                .column(
+                                        PhysicalColumn.of(
+                                                "key1",
+                                                BasicType.INT_TYPE,
+                                                1L,
+                                                Boolean.FALSE,
+                                                null,
+                                                null))
+                                .build(),
+                        new HashMap<>(),
+                        new ArrayList<>(),
+                        "comment");
+
+        Map<String, Object> configMap = new HashMap<>();
+        configMap.put(FieldEncryptTransformConfig.FIELDS.key(), Arrays.asList("key1"));
+        configMap.put(FieldEncryptTransformConfig.KEY.key(), KEY);
+
+        Assertions.assertThrows(
+                SeaTunnelRuntimeException.class,
+                () ->
+                        new FieldEncryptTransform(
+                                ReadonlyConfig.fromMap(configMap), intCatalogTable));
+    }
+
     private SeaTunnelRow encryption() {
         Map<String, Object> configMap = new HashMap<>();
         configMap.put(FieldEncryptTransformConfig.FIELDS.key(), encryptFields);
-        configMap.put(FieldEncryptTransformConfig.KEY.key(), "base64:AAAAAAAAAAAAAAAAAAAAAA==");
+        configMap.put(FieldEncryptTransformConfig.KEY.key(), KEY);
 
         FieldEncryptTransform fieldEncryptTransform =
                 new FieldEncryptTransform(ReadonlyConfig.fromMap(configMap), catalogTable);

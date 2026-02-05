@@ -63,7 +63,7 @@ public class AesCbcEncryptor implements Encryptor {
             cipher.init(Cipher.ENCRYPT_MODE, keySpec, ivSpec);
             encrypted = cipher.doFinal(plainText.getBytes(StandardCharsets.UTF_8));
         } catch (Exception e) {
-            throw TransformCommonError.encryptionError(plainText, e);
+            throw TransformCommonError.encryptionError("plaintext length:" + plainText.length(), e);
         }
 
         byte[] encryptedWithIv = new byte[IV_SIZE + encrypted.length];
@@ -93,21 +93,37 @@ public class AesCbcEncryptor implements Encryptor {
             cipher.init(Cipher.DECRYPT_MODE, keySpec, ivSpec);
             original = cipher.doFinal(encrypted);
         } catch (Exception e) {
-            throw TransformCommonError.encryptionError(cipherText, e);
+            throw TransformCommonError.encryptionError(
+                    "ciphertext length:" + cipherText.length(), e);
         }
 
         return new String(original, StandardCharsets.UTF_8);
     }
 
     private SecretKeySpec buildAesKey(String key) {
+        if (key == null || key.trim().isEmpty()) {
+            throw CommonError.illegalArgument(key, "Encryption key cannot be null or empty");
+        }
+
         String base64 = key;
         if (key.startsWith("base64:")) {
             base64 = key.substring("base64:".length());
         }
-        byte[] keyBytes = Base64.getDecoder().decode(base64);
+        base64 = base64.trim();
+
+        byte[] keyBytes;
+        try {
+            keyBytes = Base64.getDecoder().decode(base64);
+        } catch (IllegalArgumentException e) {
+            throw CommonError.illegalArgument(key, "Invalid Base64 encoding in encryption key");
+        }
 
         if (!(keyBytes.length == 16 || keyBytes.length == 24 || keyBytes.length == 32)) {
-            throw new IllegalArgumentException("Invalid AES key length: " + keyBytes.length);
+            throw CommonError.illegalArgument(
+                    key,
+                    "Invalid AES key length: "
+                            + keyBytes.length
+                            + ". Expected 16, 24, or 32 bytes");
         }
 
         return new SecretKeySpec(keyBytes, "AES");
