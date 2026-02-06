@@ -40,16 +40,18 @@ public class TimeUtils {
         // Initialize time format patterns - most common formats first
         PATTERN_LIST.add(
                 new TimePattern(
-                        "\\d{2}:\\d{2}:\\d{2}", Formatter.HH_MM_SS)); // Most common: HH:mm:ss
+                        "\\d{2}:\\d{2}:\\d{2}", Formatter.HH_MM_SS.value)); // Most common: HH:mm:ss
         PATTERN_LIST.add(
-                new TimePattern("\\d{1,2}:\\d{2}:\\d{2}", Formatter.H_MM_SS)); // Common: H:mm:ss
+                new TimePattern(
+                        "\\d{1,2}:\\d{2}:\\d{2}", Formatter.H_MM_SS.value)); // Common: H:mm:ss
         PATTERN_LIST.add(
                 new TimePattern(
                         "\\d{2}:\\d{2}:\\d{2}\\.\\d{3}",
-                        Formatter.HH_MM_SS_SSS)); // With milliseconds
-        PATTERN_LIST.add(new TimePattern("\\d{1,2}:\\d{2}:\\d{2}\\.\\d{3}", Formatter.H_MM_SS_SSS));
-        PATTERN_LIST.add(new TimePattern("\\d{2}:\\d{2}", Formatter.HH_MM));
-        PATTERN_LIST.add(new TimePattern("\\d{1,2}:\\d{2}", Formatter.H_MM));
+                        Formatter.HH_MM_SS_SSS.value)); // With milliseconds
+        PATTERN_LIST.add(
+                new TimePattern("\\d{1,2}:\\d{2}:\\d{2}\\.\\d{3}", Formatter.H_MM_SS_SSS.value));
+        PATTERN_LIST.add(new TimePattern("\\d{2}:\\d{2}", Formatter.HH_MM.value));
+        PATTERN_LIST.add(new TimePattern("\\d{1,2}:\\d{2}", Formatter.H_MM.value));
         // With milliseconds
         PATTERN_LIST.add(
                 new TimePattern(
@@ -79,9 +81,13 @@ public class TimeUtils {
         final Pattern pattern;
         final DateTimeFormatter formatter;
 
-        TimePattern(String regex, Formatter formatter) {
+        TimePattern(String regex, String formatter) {
             this.pattern = Pattern.compile(regex);
-            this.formatter = DateTimeFormatter.ofPattern(formatter.value);
+            this.formatter =
+                    new DateTimeFormatterBuilder()
+                            .parseCaseInsensitive()
+                            .appendOptional(DateTimeFormatter.ofPattern(formatter))
+                            .toFormatter();
         }
 
         TimePattern(String regex, DateTimeFormatter timeFormatter) {
