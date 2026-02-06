@@ -30,8 +30,10 @@ import org.apache.seatunnel.common.exception.CommonErrorCodeDeprecated;
 import org.apache.seatunnel.connectors.seatunnel.jdbc.config.JdbcSinkConfig;
 import org.apache.seatunnel.connectors.seatunnel.jdbc.exception.JdbcConnectorErrorCode;
 import org.apache.seatunnel.connectors.seatunnel.jdbc.exception.JdbcConnectorException;
+import org.apache.seatunnel.connectors.seatunnel.jdbc.internal.JdbcOutputFormat;
 import org.apache.seatunnel.connectors.seatunnel.jdbc.internal.JdbcOutputFormatBuilder;
 import org.apache.seatunnel.connectors.seatunnel.jdbc.internal.dialect.JdbcDialect;
+import org.apache.seatunnel.connectors.seatunnel.jdbc.internal.executor.JdbcBatchStatementExecutor;
 import org.apache.seatunnel.connectors.seatunnel.jdbc.internal.xa.XaFacade;
 import org.apache.seatunnel.connectors.seatunnel.jdbc.internal.xa.XaGroupOps;
 import org.apache.seatunnel.connectors.seatunnel.jdbc.internal.xa.XaGroupOpsImpl;
@@ -67,6 +69,7 @@ public class JdbcExactlyOnceSinkWriter extends AbstractJdbcSinkWriter<Void> {
 
     private final XidGenerator xidGenerator;
 
+    private transient long lastGeneratedTxId = Long.MIN_VALUE;
     private transient Xid currentXid;
     private transient Xid prepareXid;
 
@@ -102,6 +105,24 @@ public class JdbcExactlyOnceSinkWriter extends AbstractJdbcSinkWriter<Void> {
         this.xaGroupOps = new XaGroupOpsImpl(xaFacade);
     }
 
+    JdbcExactlyOnceSinkWriter(
+            SinkWriter.Context sinkcontext,
+            JobContext context,
+            List<JdbcSinkState> states,
+            XaFacade xaFacade,
+            XaGroupOps xaGroupOps,
+            XidGenerator xidGenerator,
+            JdbcOutputFormat<SeaTunnelRow, JdbcBatchStatementExecutor<SeaTunnelRow>> outputFormat) {
+        this.sinkcontext = sinkcontext;
+        this.context = context;
+        this.recoverStates = states;
+        this.connectionProvider = xaFacade;
+        this.xaFacade = xaFacade;
+        this.xaGroupOps = xaGroupOps;
+        this.xidGenerator = xidGenerator;
+        this.outputFormat = outputFormat;
+    }
+
     private void tryOpen() {
         if (!isOpen) {
             isOpen = true;
@@ -114,7 +135,7 @@ public class JdbcExactlyOnceSinkWriter extends AbstractJdbcSinkWriter<Void> {
                     // Rollback pending transactions that should not include recoverStates
                     xaGroupOps.recoverAndRollback(context, sinkcontext, xidGenerator, xid);
                 }
-                beginTx();
+                beginTx(System.currentTimeMillis());
             } catch (Exception e) {
                 throw new JdbcConnectorException(
                         CommonErrorCodeDeprecated.WRITER_OPERATION_FAILED,
@@ -181,6 +202,11 @@ public class JdbcExactlyOnceSinkWriter extends AbstractJdbcSinkWriter<Void> {
 
     @Override
     public Optional<XidInfo> prepareCommit() throws IOException {
+        return prepareCommit(System.currentTimeMillis());
+    }
+
+    @Override
+    public Optional<XidInfo> prepareCommit(long checkpointId) throws IOException {
         tryOpen();
 
         boolean emptyXaTransaction = false;
@@ -195,24 +221,30 @@ public class JdbcExactlyOnceSinkWriter extends AbstractJdbcSinkWriter<Void> {
             }
         }
         this.currentXid = null;
-        beginTx();
+        try {
+            beginTx(checkpointId);
+        } catch (Exception e) {
+            if (!emptyXaTransaction) {
+                rollbackPrepareXidQuietly();
+            } else {
+                prepareXid = null;
+            }
+            throw e;
+        }
         checkState(prepareXid != null, "prepare xid must not be null");
         return emptyXaTransaction ? Optional.empty() : Optional.of(new XidInfo(prepareXid, 0));
     }
 
     @Override
-    public void abortPrepare() {}
+    public void abortPrepare() {
+        rollbackPrepareXidQuietly();
+        failAndRollbackCurrentXidQuietly();
+    }
 
     @Override
     public void close() throws IOException {
-        if (currentXid != null && xaFacade.isOpen()) {
-            try {
-                LOG.debug("remove current transaction before closing, xid={}", currentXid);
-                xaFacade.failAndRollback(currentXid);
-            } catch (Exception e) {
-                LOG.warn("unable to fail/rollback current transaction, xid={}", currentXid, e);
-            }
-        }
+        rollbackPrepareXidQuietly();
+        failAndRollbackCurrentXidQuietly();
         try {
             xaFacade.close();
         } catch (Exception e) {
@@ -228,16 +260,59 @@ public class JdbcExactlyOnceSinkWriter extends AbstractJdbcSinkWriter<Void> {
         }
     }
 
-    private void beginTx() throws IOException {
+    private void beginTx(long txIdHint) throws IOException {
         checkState(currentXid == null, "currentXid not null");
-        currentXid = xidGenerator.generateXid(context, sinkcontext, System.currentTimeMillis());
+        long txId = nextTxId(txIdHint);
+        currentXid = xidGenerator.generateXid(context, sinkcontext, txId);
         try {
             xaFacade.start(currentXid);
         } catch (Exception e) {
+            Xid xid = currentXid;
+            currentXid = null;
             throw new JdbcConnectorException(
                     JdbcConnectorErrorCode.XA_OPERATION_FAILED,
-                    "unable to start xa transaction",
+                    String.format("unable to start xa transaction, xid=%s", xid),
                     e);
+        }
+    }
+
+    private long nextTxId(long txIdHint) {
+        long candidate = txIdHint;
+        if (candidate <= lastGeneratedTxId) {
+            checkState(lastGeneratedTxId != Long.MAX_VALUE, "tx id exhausted");
+            candidate = lastGeneratedTxId + 1;
+        }
+        lastGeneratedTxId = candidate;
+        return candidate;
+    }
+
+    private void rollbackPrepareXidQuietly() {
+        if (prepareXid == null || !xaFacade.isOpen()) {
+            return;
+        }
+        Xid xid = prepareXid;
+        try {
+            LOG.debug("rollback prepared transaction, xid={}", xid);
+            xaFacade.rollback(xid);
+        } catch (Exception e) {
+            LOG.warn("unable to rollback prepared transaction, xid={}", xid, e);
+        } finally {
+            prepareXid = null;
+        }
+    }
+
+    private void failAndRollbackCurrentXidQuietly() {
+        if (currentXid == null || !xaFacade.isOpen()) {
+            return;
+        }
+        Xid xid = currentXid;
+        try {
+            LOG.debug("remove current transaction, xid={}", xid);
+            xaFacade.failAndRollback(xid);
+        } catch (Exception e) {
+            LOG.warn("unable to fail/rollback current transaction, xid={}", xid, e);
+        } finally {
+            currentXid = null;
         }
     }
 
