@@ -25,6 +25,8 @@ import org.apache.seatunnel.connectors.seatunnel.jdbc.internal.dialect.kingbase.
 import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.BeforeAll;
 import org.junit.jupiter.api.Test;
+import org.junit.jupiter.api.condition.DisabledOnOs;
+import org.junit.jupiter.api.condition.OS;
 
 import java.sql.PreparedStatement;
 import java.sql.ResultSet;
@@ -36,6 +38,7 @@ import java.util.Optional;
  * Unit tests for KingbaseDialect using Testcontainers. Tests dialect-specific functionality like
  * quoting, SQL generation, and upsert statements.
  */
+@DisabledOnOs(OS.WINDOWS)
 public class KingbaseDialectContainerTest extends AbstractKingbaseContainerTest {
 
     private static KingbaseDialect dialect;
