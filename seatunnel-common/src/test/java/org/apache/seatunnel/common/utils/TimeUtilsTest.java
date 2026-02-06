@@ -155,15 +155,8 @@ public class TimeUtilsTest {
     @Test
     public void testParseUnsupportedFormat() {
         // Test parsing with unsupported format
-        assertThrows(
-                IllegalArgumentException.class,
-                () -> {
-                    try {
-                        TimeUtils.parse("15:30");
-                    } catch (Exception e) {
-                        assertEquals("Unsupported time format: 15:30", e.getMessage());
-                        throw e;
-                    }
-                });
+        IllegalArgumentException assertThrows =
+                assertThrows(IllegalArgumentException.class, () -> TimeUtils.parse("15:301"));
+        assertEquals("Unsupported time format: 15:301", assertThrows.getMessage());
     }
 }
