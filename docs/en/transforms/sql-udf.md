@@ -39,7 +39,7 @@ public interface ZetaUDF {
 
 ## UDF Implements Example
 
-Add these dependencies and provided scope to your maven project:
+Add these dependencies and provided scope to your maven project. **Dependency versions should match the runtime environment.**
 
 ```xml
 
@@ -47,13 +47,13 @@ Add these dependencies and provided scope to your maven project:
     <dependency>
         <groupId>org.apache.seatunnel</groupId>
         <artifactId>seatunnel-transforms-v2</artifactId>
-        <version>2.3.2</version>
+        <version>${seatunnel.version}</version>
         <scope>provided</scope>
     </dependency>
     <dependency>
         <groupId>org.apache.seatunnel</groupId>
         <artifactId>seatunnel-api</artifactId>
-        <version>2.3.2</version>
+        <version>${seatunnel.version}</version>
         <scope>provided</scope>
     </dependency>
     <dependency>
@@ -131,4 +131,3 @@ Then the data in result table `fake1` will update to
 ### new version
 
 - Add UDF of SQL Transform Connector
-
