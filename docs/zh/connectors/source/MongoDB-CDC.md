@@ -41,36 +41,41 @@ MongoDB CDC连接器允许从MongoDB数据库读取快照数据和增量数据�
 
 4.权限：更改流和读取
 
-```shell
-use admin;
-db.createRole(
-    {
-        role: "strole",
-        privileges: [{
-            resource: { db: "", collection: "" },
-            actions: [
-                "splitVector",
-                "listDatabases",
-                "listCollections",
-                "collStats",
-                "find",
-                "changeStream" ]
-        }],
-        roles: [
-            { role: 'read', db: 'config' }
-        ]
-    }
-);
+```
+// 1) 切换到目标数据库
+use <DB_NAME>
 
-db.createUser(
-  {
-      user: 'stuser',
-      pwd: 'stpw',
-      roles: [
-         { role: 'strole', db: 'admin' }
+// 2) 创建角色（CDC 场景常用权限）
+db.createRole({
+  role: "<ROLE_NAME>",
+  privileges: [
+    {
+      resource: { db: "<DB_NAME>", collection: "" },
+      actions: [
+        "collStats",
+        "splitVector",
+        "listDatabases",
+        "find",
+        "listCollections",
+        "changeStream"
       ]
-  }
-);
+    }
+  ],
+  roles: []
+})
+
+// 3) 创建用户，并绑定 read + 自定义角色
+db.createUser({
+  user: "<USER_NAME>",
+  pwd: "<PASSWORD>",
+  roles: [
+    { role: "read", db: "<DB_NAME>" },
+    { role: "<ROLE_NAME>", db: "<DB_NAME>" }
+  ]
+})
+
+// 4) 为用户追加授予角色（用户已存在或需要补授权时使用）
+db.grantRolesToUser("<USER_NAME>", ["<ROLE_NAME>"])
 ```
 
 ## 数据类型映射
@@ -114,7 +119,7 @@ db.createUser(
 | password                           | String | 否       | -     | 连接到MongoDB时使用的密码。                                                                     |
 | database                           | List   | 是      | -     | 要监视更改的数据库的名称。如果未设置，则将捕获所有数据库。该数据库还支持正则表达式，以监视与正则表达式匹配的多个数据库。例如db1、db2。                |
 | collection                         | List   | 是      | -     | 要监视更改的数据库中集合的名称。如果未设置，则将捕获所有集合。该集合还支持正则表达式来监视与完全限定的集合标识符匹配的多个集合。例如db1.coll1、db2.coll2。 |
-| schema                             |        | 否       | -     | 数据的结构，包括字段名和字段类型，使用单表cdc。                                                             |
+| schema                             |        | 否       | -     | 数据的结构，包括字段名和字段类型，使用单表cdc。更多详情请参考 [Schema 特性](../../introduction/concepts/schema-feature.md)。                                                             |
 | tables_configs                     |        | 否       | -     | 数据的结构，包括字段名和字段类型，使用多表cdc。                                                             |
 | connection.options                 | String | 否       | -     | 与号分隔了MongoDB的连接选项。如。 `replicaSet=test&connectTimeoutMS=300000`.                       |
 | batch.size                         | Long   | 否       | 1024  | 批量大小。                                                                                 |

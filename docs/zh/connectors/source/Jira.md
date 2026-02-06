@@ -138,7 +138,7 @@ schema {
 
 #### fields [Config]
 
-上游数据的字段定义。
+上游数据的字段定义。更多详情请参考 [Schema 特性](../../introduction/concepts/schema-feature.md)。
 
 ### content_json [String]
 

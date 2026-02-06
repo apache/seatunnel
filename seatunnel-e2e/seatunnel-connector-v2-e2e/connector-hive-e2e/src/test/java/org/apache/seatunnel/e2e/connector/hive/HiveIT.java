@@ -105,6 +105,39 @@ public class HiveIT extends TestSuiteBase implements TestResource {
                     + "    score  INT"
                     + ")";
 
+    private static final String CREATE_EMPTY_TEXT_SQL =
+            "CREATE TABLE IF NOT EXISTS default.test_hive_empty_text"
+                    + "("
+                    + "    pk_id  BIGINT,"
+                    + "    name   STRING,"
+                    + "    score  INT"
+                    + ")"
+                    + " ROW FORMAT DELIMITED FIELDS TERMINATED BY ',' LINES TERMINATED BY '\\n' STORED AS TEXTFILE";
+
+    private static final String CREATE_EMPTY_PARQUET_SQL =
+            "CREATE TABLE IF NOT EXISTS default.test_hive_empty_parquet"
+                    + "("
+                    + "    pk_id  BIGINT,"
+                    + "    name   STRING,"
+                    + "    score  INT"
+                    + ") STORED AS PARQUET";
+
+    private static final String CREATE_EMPTY_ORC_SQL =
+            "CREATE TABLE IF NOT EXISTS default.test_hive_empty_orc"
+                    + "("
+                    + "    pk_id  BIGINT,"
+                    + "    name   STRING,"
+                    + "    score  INT"
+                    + ") STORED AS ORC";
+
+    private static final String CREATE_EMPTY_PARQUET_TARGET_SQL =
+            "CREATE TABLE IF NOT EXISTS default.test_hive_empty_parquet_target"
+                    + "("
+                    + "    pk_id  BIGINT,"
+                    + "    name   STRING,"
+                    + "    score  INT"
+                    + ") STORED AS PARQUET";
+
     private static final String HMS_HOST = "metastore";
     private static final String HIVE_SERVER_HOST = "hiveserver2";
 
@@ -258,6 +291,10 @@ public class HiveIT extends TestSuiteBase implements TestResource {
         try (Statement statement = this.hiveConnection.createStatement()) {
             statement.execute(CREATE_SQL);
             statement.execute(CREATE_FAILOVER_SQL);
+            statement.execute(CREATE_EMPTY_TEXT_SQL);
+            statement.execute(CREATE_EMPTY_PARQUET_SQL);
+            statement.execute(CREATE_EMPTY_ORC_SQL);
+            statement.execute(CREATE_EMPTY_PARQUET_TARGET_SQL);
             statement.execute(CREATE_REGEX_DB_A_SQL);
             statement.execute(CREATE_REGEX_DB_ABC_SQL);
             statement.execute(CREATE_REGEX_TABLE_1_SQL);
@@ -292,6 +329,24 @@ public class HiveIT extends TestSuiteBase implements TestResource {
                 container,
                 "/fake_to_hive_metastore_uri_failover.conf",
                 "/hive_to_assert_metastore_uri_failover.conf");
+    }
+
+    @TestTemplate
+    public void testHiveSourceEmptyTextTable(TestContainer container) throws Exception {
+        Container.ExecResult execResult = container.executeJob("/hive_empty_text_to_assert.conf");
+        Assertions.assertEquals(0, execResult.getExitCode(), execResult.getStderr());
+    }
+
+    @TestTemplate
+    public void testHiveSourceEmptyOrcTable(TestContainer container) throws Exception {
+        Container.ExecResult execResult = container.executeJob("/hive_empty_orc_to_assert.conf");
+        Assertions.assertEquals(0, execResult.getExitCode(), execResult.getStderr());
+    }
+
+    @TestTemplate
+    public void testHiveSourceEmptyParquetTableToHive(TestContainer container) throws Exception {
+        Container.ExecResult execResult = container.executeJob("/hive_empty_parquet_to_hive.conf");
+        Assertions.assertEquals(0, execResult.getExitCode(), execResult.getStderr());
     }
 
     @TestTemplate

@@ -14,6 +14,7 @@ schema = {
     table = "database.schema.table"
     schema_first = false
     comment = "comment"
+    partition_keys = ["dt"]
     columns = [
     ...
     ]
@@ -40,6 +41,11 @@ schema所属的表标识符的表全名，包含数据库、schema、表名。 �
 ### comment
 
 schema所属的 CatalogTable 的注释。
+
+### partition_keys
+
+schema 所属的 CatalogTable 的分区字段列表。
+该元数据可以配合 sink 端占位符 `${partition_keys}` 使用（例如多表同步写入 Iceberg 时按表创建分区表）。
 
 ### Columns
 
@@ -87,7 +93,7 @@ columns = [
 | time         | `java.time.LocalTime`                              | 仅存储时间。精度为 100 纳秒。                                                                                                                                                                                                                                                                                               |
 | timestamp    | `java.time.LocalDateTime`                          | 存储不带时区的日期和时间信息，表示事件发生的本地时间。不包含任何偏移量或时区相关信息。                                                                                                                                           |
 | timestamp_tz | `java.time.OffsetDateTime`                         | 存储带有 UTC 偏移量的日期和时间信息，包含本地日期时间和 UTC 偏移量。在处理多时区场景时，可以提供更精确的时间信息。                                                                                     |
-| row          | `org.apache.seatunnel.api.table.type.SeaTunnelRow` | 行类型，可以嵌套。                                                                                                                                                                                                                                                                                                       |
+| row          | `org.apache.seatunnel.api.table.type.SeaTunnelRowType` | 行类型，可以嵌套。                                                                                                                                                                                                                                                                                                       |
 | map          | `java.util.Map`                                    | Map 是将键映射到值的对象。 键类型包括： `int` `string` `boolean` `tinyint` `smallint` `bigint` `float` `double` `decimal` `date` `time` `timestamp` `null` , and the value type includes `int` `string` `boolean` `tinyint` `smallint` `bigint` `float` `double` `decimal` `date` `time` `timestamp` `null` `array` `map` `row`. |
 | array        | `ValueType[]`                                      | 数组是一种表示元素集合的数据类型。 元素类型包括： `int` `string` `boolean` `tinyint` `smallint` `bigint` `float` `double`.                                                                                                                                                                                                              |
 

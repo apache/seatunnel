@@ -332,23 +332,22 @@ public class JdbcCatalogUtils {
                                                                             .get(column.getName())
                                                                             .getDataType()
                                                                             .getSqlType())
-                                            ? PhysicalColumn.of(
+                                            ? new PhysicalColumn(
                                                     column.getName(),
                                                     column.getDataType(),
-                                                    column.getColumnLength() == null
-                                                            ? null
-                                                            : Math.toIntExact(
-                                                                    column.getColumnLength()),
+                                                    column.getColumnLength(),
+                                                    column.getScale(),
                                                     column.isNullable(),
                                                     column.getDefaultValue(),
                                                     columnsOfPath
                                                             .get(column.getName())
                                                             .getComment(),
                                                     column.getSourceType(),
+                                                    column.getSinkType(),
+                                                    column.getOptions(),
                                                     column.isUnsigned(),
                                                     column.isZeroFill(),
                                                     column.getBitLen(),
-                                                    column.getOptions(),
                                                     column.getLongColumnLength())
                                             : column;
                                 })

@@ -50,6 +50,8 @@ import io.debezium.connector.postgresql.connection.ReplicationConnection;
 import io.debezium.connector.postgresql.spi.SlotState;
 import io.debezium.connector.postgresql.spi.Snapshotter;
 import io.debezium.data.Envelope;
+import io.debezium.heartbeat.DefaultHeartbeatConnectionProvider;
+import io.debezium.heartbeat.HeartbeatFactory;
 import io.debezium.pipeline.DataChangeEvent;
 import io.debezium.pipeline.ErrorHandler;
 import io.debezium.pipeline.metrics.DefaultChangeEventSourceMetricsFactory;
@@ -248,6 +250,12 @@ public class PostgresSourceFetchTaskContext extends JdbcSourceFetchTaskContext {
                             connectorConfig.getTableFilters().dataCollectionFilter(),
                             DataChangeEvent::new,
                             metadataProvider,
+                            new HeartbeatFactory<>(
+                                    connectorConfig,
+                                    topicSelector,
+                                    schemaNameAdjuster,
+                                    new DefaultHeartbeatConnectionProvider(dataConnection),
+                                    null),
                             schemaNameAdjuster);
 
             this.pgEventDispatcher =
@@ -259,6 +267,12 @@ public class PostgresSourceFetchTaskContext extends JdbcSourceFetchTaskContext {
                             connectorConfig.getTableFilters().dataCollectionFilter(),
                             DataChangeEvent::new,
                             metadataProvider,
+                            new HeartbeatFactory<>(
+                                    connectorConfig,
+                                    topicSelector,
+                                    schemaNameAdjuster,
+                                    new DefaultHeartbeatConnectionProvider(dataConnection),
+                                    null),
                             schemaNameAdjuster);
 
             this.snapshotChangeEventSourceMetrics =

@@ -441,7 +441,7 @@ public class SqlServerUtils {
             sql.append(" TOP( ").append(limit).append(") ");
         }
         sql.append(projection).append(" FROM ");
-        sql.append(quoteSchemaAndTable(tableId));
+        sql.append(quote(tableId));
         if (condition.isPresent()) {
             sql.append(" WHERE ").append(condition.get());
         }
@@ -467,7 +467,16 @@ public class SqlServerUtils {
     }
 
     public static String quote(TableId tableId) {
-        return "[" + tableId.schema() + "].[" + tableId.table() + "]";
+        StringBuilder quoted = new StringBuilder();
+        if (tableId.catalog() != null && !tableId.catalog().isEmpty()) {
+            quoted.append("[").append(tableId.catalog()).append("].");
+        }
+        quoted.append("[")
+                .append(tableId.schema())
+                .append("].[")
+                .append(tableId.table())
+                .append("]");
+        return quoted.toString();
     }
 
     private static void addPrimaryKeyColumnsToCondition(
@@ -495,7 +504,7 @@ public class SqlServerUtils {
         sql.append(" TOP( ").append(limit).append(") ");
         sql.append(projection);
         sql.append(" FROM ");
-        sql.append(quoteSchemaAndTable(tableId));
+        sql.append(quote(tableId));
         if (condition.isPresent()) {
             sql.append(" WHERE ").append(condition.get());
         }

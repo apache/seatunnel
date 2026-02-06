@@ -58,7 +58,7 @@ Used to read data from IoTDB.
 | sql_dialect                | String  | No       | tree          | The sql dialect of IoTDB, options available is `"tree"` or `"table"`                                              |
 | database                   | String  | No       | -             | The database selected (only valid when `sql_dielct` is `"table"`)                                                 |
 | sql                        | String  | Yes      | -             | The sql statement to be executed                                                                                  |
-| schema                     | Config  | Yes      | -             | The data schema                                                                                                   |
+| schema                     | Config  | Yes      | -             | The data schema. For more details, please refer to [Schema Feature](../../introduction/concepts/schema-feature.md).                                                                                                   |
 | fetch_size                 | Integer | No       | -             | The fetch_size of the IoTDB when you select                                                                       |
 | lower_bound                | Long    | No       | -             | The lower_bound of the IoTDB when you select                                                                      |
 | upper_bound                | Long    | No       | -             | The upper_bound of the IoTDB when you select                                                                      |

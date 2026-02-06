@@ -31,10 +31,14 @@ import org.apache.seatunnel.connectors.seatunnel.file.source.reader.MultipleTabl
 import org.apache.seatunnel.connectors.seatunnel.file.source.split.DefaultFileSplitStrategy;
 import org.apache.seatunnel.connectors.seatunnel.file.source.split.FileSourceSplit;
 import org.apache.seatunnel.connectors.seatunnel.file.source.split.FileSplitStrategy;
+import org.apache.seatunnel.connectors.seatunnel.file.source.split.FileSplitStrategyFactory;
 import org.apache.seatunnel.connectors.seatunnel.file.source.split.MultipleTableFileSourceSplitEnumerator;
+import org.apache.seatunnel.connectors.seatunnel.file.source.split.MultipleTableFileSplitStrategy;
 import org.apache.seatunnel.connectors.seatunnel.file.source.state.FileSourceState;
 
+import java.util.HashMap;
 import java.util.List;
+import java.util.Map;
 import java.util.stream.Collectors;
 
 public abstract class BaseMultipleTableFileSource
@@ -56,6 +60,21 @@ public abstract class BaseMultipleTableFileSource
             FileSplitStrategy fileSplitStrategy) {
         this.baseMultipleTableFileSourceConfig = baseMultipleTableFileSourceConfig;
         this.fileSplitStrategy = fileSplitStrategy;
+    }
+
+    protected static FileSplitStrategy initFileSplitStrategy(
+            BaseMultipleTableFileSourceConfig sourceConfig) {
+        Map<String, FileSplitStrategy> splitStrategies = new HashMap<>();
+        for (BaseFileSourceConfig fileSourceConfig : sourceConfig.getFileSourceConfigs()) {
+            String tableId =
+                    fileSourceConfig.getCatalogTable().getTableId().toTablePath().toString();
+            splitStrategies.put(
+                    tableId,
+                    FileSplitStrategyFactory.initFileSplitStrategy(
+                            fileSourceConfig.getBaseFileSourceConfig(),
+                            fileSourceConfig.getHadoopConfig()));
+        }
+        return new MultipleTableFileSplitStrategy(splitStrategies);
     }
 
     @Override
@@ -91,6 +110,9 @@ public abstract class BaseMultipleTableFileSource
             SourceSplitEnumerator.Context<FileSourceSplit> enumeratorContext,
             FileSourceState checkpointState) {
         return new MultipleTableFileSourceSplitEnumerator(
-                enumeratorContext, baseMultipleTableFileSourceConfig, checkpointState);
+                enumeratorContext,
+                baseMultipleTableFileSourceConfig,
+                fileSplitStrategy,
+                checkpointState);
     }
 }

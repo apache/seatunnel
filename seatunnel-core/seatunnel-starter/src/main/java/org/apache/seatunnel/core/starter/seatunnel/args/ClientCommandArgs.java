@@ -90,6 +90,31 @@ public class ClientCommandArgs extends AbstractCommandArgs {
     private boolean getRunningJobMetrics = false;
 
     @Parameter(
+            names = {"--checkpoint-overview"},
+            description = "Get checkpoint overview by JobId")
+    private String checkpointOverviewJobId;
+
+    @Parameter(
+            names = {"--checkpoint-history"},
+            description = "Get checkpoint history by JobId")
+    private String checkpointHistoryJobId;
+
+    @Parameter(
+            names = {"--checkpoint-history-pipeline"},
+            description = "Filter checkpoint history by pipeline id")
+    private Integer checkpointHistoryPipeline;
+
+    @Parameter(
+            names = {"--checkpoint-history-limit"},
+            description = "Limit checkpoint history size")
+    private Integer checkpointHistoryLimit = 20;
+
+    @Parameter(
+            names = {"--checkpoint-history-status"},
+            description = "Filter checkpoint history by status: COMPLETED,FAILED,CANCELED")
+    private String checkpointHistoryStatus;
+
+    @Parameter(
             names = {"-l", "--list"},
             description = "list job status")
     private boolean listJob = false;

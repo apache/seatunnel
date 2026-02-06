@@ -51,7 +51,7 @@ Google表格URL中的表格id
 
 #### fields [config]
 
-上游数据的字段
+上游数据的字段。更多详情请参考 [Schema 特性](../../introduction/concepts/schema-feature.md)。
 
 ## 示例
 

@@ -32,6 +32,17 @@ github:
     - data-ingestion
     - apache
     - elt
+  collaborators:
+    - dybyte
+    - chl-wxp
+    - LiJie20190102
+    - yzeng1618
+    - fcb-xiaobo
+    - LeonYoah
+    - silenceland
+    - SEZ9
+    - boy-xiaozhang
+    - ZmmBigdata
   enabled_merge_buttons:
     squash: true
     merge: false

@@ -41,36 +41,41 @@ They can be downloaded via install-plugin.sh or from the Maven central repositor
 
 4.Permissions:changeStream and read
 
-```shell
-use admin;
-db.createRole(
-    {
-        role: "strole",
-        privileges: [{
-            resource: { db: "", collection: "" },
-            actions: [
-                "splitVector",
-                "listDatabases",
-                "listCollections",
-                "collStats",
-                "find",
-                "changeStream" ]
-        }],
-        roles: [
-            { role: 'read', db: 'config' }
-        ]
-    }
-);
+```
+// 1) Switch to the target database
+use <DB_NAME>
 
-db.createUser(
-  {
-      user: 'stuser',
-      pwd: 'stpw',
-      roles: [
-         { role: 'strole', db: 'admin' }
+// 2) Create role (common permissions for CDC scenarios)
+db.createRole({
+  role: "<ROLE_NAME>",
+  privileges: [
+    {
+      resource: { db: "<DB_NAME>", collection: "" },
+      actions: [
+        "collStats",
+        "splitVector",
+        "listDatabases",
+        "find",
+        "listCollections",
+        "changeStream"
       ]
-  }
-);
+    }
+  ],
+  roles: []
+})
+
+// 3) Create user and bind read + custom role
+db.createUser({
+  user: "<USER_NAME>",
+  pwd: "<PASSWORD>",
+  roles: [
+    { role: "read", db: "<DB_NAME>" },
+    { role: "<ROLE_NAME>", db: "<DB_NAME>" }
+  ]
+})
+
+// 4) Grant additional role to user (use when user exists or additional authorization is needed)
+db.grantRolesToUser("<USER_NAME>", ["<ROLE_NAME>"])
 ```
 
 ## Data Type Mapping
@@ -114,7 +119,7 @@ For specific types in MongoDB, we use Extended JSON format to map them to Seatun
 | password                           | String | No       | -       | Password to be used when connecting to MongoDB.                                                                                                                                                                                                                             |
 | database                           | List   | Yes      | -       | Name of the database to watch for changes. If not set then all databases will be captured. The database also supports regular expressions to monitor multiple databases matching the regular expression. eg. `db1,db2`.                                                     |
 | collection                         | List   | Yes      | -       | Name of the collection in the database to watch for changes. If not set then all collections will be captured. The collection also supports regular expressions to monitor multiple collections matching fully-qualified collection identifiers. eg. `db1.coll1,db2.coll2`. |
-| schema                             |        | no       | -       | The structure of the data, including field names and field types, use single table cdc.                                                                                                                                                                                     |
+| schema                             |        | no       | -       | The structure of the data, including field names and field types, use single table cdc. For more details, please refer to [Schema Feature](../../introduction/concepts/schema-feature.md).                                                                                                                                                                                     |
 | tables_configs                     |        | no       | -       | The structure of the data, including field names and field types, use muliti table cdc.                                                                                                                                                                                     |
 | connection.options                 | String | No       | -       | The ampersand-separated connection options of MongoDB.  eg. `replicaSet=test&connectTimeoutMS=300000`.                                                                                                                                                                      |
 | batch.size                         | Long   | No       | 1024    | The cursor batch size.                                                                                                                                                                                                                                                      |
