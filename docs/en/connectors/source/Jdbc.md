@@ -79,6 +79,13 @@ supports query SQL and can achieve projection effect.
 
 The JDBC Source connector supports two ways to specify tables:
 
+#### Notes
+
+- Many JDBC drivers treat `DatabaseMetaData.getColumns(..., schemaPattern, tableNamePattern, ...)` as SQL LIKE patterns.
+  If your schema/table names contain `_` or `%`, column discovery may return rows from other tables. SeaTunnel filters the
+  returned metadata rows by exact schema/table identifier to avoid mixing columns.
+- For case-sensitive databases, make sure the configured schema/table names use the exact identifier case.
+
 1. **Exact Table Path**: Use `table_path` to specify a single table with its full path.
    ```hocon
    table_path = "testdb.table1"

@@ -31,18 +31,21 @@ const sidebars = {
                     "label": "Concepts",
                     "items": [
                         "introduction/concepts/config",
-                        "introduction/concepts/config-encryption-decryption",
                         "introduction/concepts/connector-v2-features",
-                        "introduction/concepts/connector-isolated-dependency",
-                        "introduction/concepts/schema-feature",
-                        "introduction/concepts/JobEnvConfig",
-                        "introduction/concepts/sink-options-placeholders",
-                        "introduction/concepts/sql-config",
-                        "introduction/concepts/speed-limit",
-                        "introduction/concepts/event-listener",
-                        "introduction/concepts/schema-evolution",
-                        "introduction/concepts/metalake",
-                        "introduction/concepts/incompatible-changes"
+                        "introduction/concepts/schema-feature"
+                    ]
+                },
+                {
+                    "type": "category",
+                    "label": "Configuration",
+                    "items": [
+                        "introduction/configuration/JobEnvConfig",
+                        "introduction/configuration/sql-config",
+                        "introduction/configuration/config-encryption-decryption",
+                        "introduction/configuration/metalake",
+                        "introduction/configuration/sink-options-placeholders",
+                        "introduction/configuration/schema-evolution",
+                        "introduction/configuration/speed-limit"
                     ]
                 }
             ]
@@ -82,6 +85,7 @@ const sidebars = {
             "type": "category",
             "label": "Connectors",
             "items": [
+                "connectors/connector-isolated-dependency",
                 {
                     "type": "category",
                     "label": "Source",
@@ -213,6 +217,7 @@ const sidebars = {
             "label": "Engines",
             "items": [
                 "engines/overview",
+                "engines/event-listener",
                 {
                     "type": "category",
                     "label": "SeaTunnel Engine (Zeta)",
