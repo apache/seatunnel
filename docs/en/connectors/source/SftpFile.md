@@ -108,7 +108,7 @@ The File does not have a specific type list, and we can indicate which SeaTunnel
 | binary_chunk_size          | int     | no       | 1024                          | Only used when file_format_type is binary. The chunk size (in bytes) for reading binary files. Default is 1024 bytes. Larger values may improve performance for large files but use more memory.                                                                                                                                                                                |
 | binary_complete_file_mode  | boolean | no       | false                         | Only used when file_format_type is binary. Whether to read the complete file as a single chunk instead of splitting into chunks. When enabled, the entire file content will be read into memory at once. Default is false.                                                                                                                                                      |
 | discovery_mode             | string  | no       | once                          | File discovery mode. Supported values: `once` (default), `continuous`. When `continuous`, the source keeps scanning the path and processes new/changed files at runtime (unbounded). In the current implementation, `continuous` requires `sync_mode=update` (binary only).                                                                 |
-| scan_interval              | string  | no       | 10s                           | Only used when `discovery_mode=continuous`. Scan interval for periodic discovery, for example `10s`, `30s`.                                                                                                                                                                                                                                                                    |
+| scan_interval              | string  | no       | PT10S                           | Only used when `discovery_mode=continuous`. Scan interval for periodic discovery, for example `PT10S`, `PT30S`.                                                                                                                                                                                                                                                                    |
 | start_mode                 | string  | no       | earliest                      | Only used when `discovery_mode=continuous`. Supported values: `earliest` (default), `latest`.                                                                                                                                                                                                                                                                                 |
 | sync_mode                  | string  | no       | full                          | File sync mode. Supported values: `full`, `update`. When `update`, the source compares files between source/target and only reads new/changed files (currently only supports `file_format_type=binary`).                                                                                                                               |
 | target_path                | string  | no       | -                             | Only used when `sync_mode=update`. Target base path used for comparison (it should usually be the same as sink `path`).                                                                                                                                                                                                           |
@@ -311,7 +311,7 @@ In the current implementation, `discovery_mode=continuous` requires `sync_mode=u
 
 ### scan_interval [string]
 
-Only used when `discovery_mode=continuous`. Scan interval for periodic discovery, for example `10s`, `30s`. Default is `10s`.
+Only used when `discovery_mode=continuous`. Scan interval for periodic discovery, for example `PT10S`, `PT30S`. Default is `PT10S`.
 
 ### start_mode [string]
 
@@ -573,7 +573,7 @@ source {
     file_format_type = "binary"
 
     discovery_mode = "continuous"
-    scan_interval = "10s"
+    scan_interval = "PT10S"
     start_mode = "latest"
 
     sync_mode = "update"

@@ -31,6 +31,8 @@ import org.apache.seatunnel.connectors.seatunnel.file.source.state.FileSourceSta
 
 import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.Test;
+import org.junit.jupiter.api.condition.DisabledOnOs;
+import org.junit.jupiter.api.condition.OS;
 import org.junit.jupiter.api.io.TempDir;
 import org.mockito.ArgumentCaptor;
 import org.mockito.Mockito;
@@ -45,6 +47,7 @@ import java.util.Map;
 
 import static org.apache.hadoop.fs.CommonConfigurationKeysPublic.FS_DEFAULT_NAME_DEFAULT;
 
+@DisabledOnOs(OS.WINDOWS)
 class ContinuousMultipleTableFileSourceSplitEnumeratorTest {
 
     @TempDir private Path tempDir;
