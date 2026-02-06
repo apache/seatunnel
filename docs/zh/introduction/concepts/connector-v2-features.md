@@ -76,7 +76,7 @@ Sink connector有一些公共的核心特性，每个sink connector在不同程�
 
 ### 支持多表写入
 
-支持在一个 SeaTunnel 作业中写入多个表，用户可以通过[配置占位符](sink-options-placeholders.md)动态指定表的标识符。
+支持在一个 SeaTunnel 作业中写入多个表，用户可以通过[配置占位符](../configuration/sink-options-placeholders.md)动态指定表的标识符。
 
 ### 多模态（multimodal）
 

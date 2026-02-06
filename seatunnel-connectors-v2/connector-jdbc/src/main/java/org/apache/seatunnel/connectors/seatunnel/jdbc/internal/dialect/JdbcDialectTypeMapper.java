@@ -21,6 +21,10 @@ import org.apache.seatunnel.api.table.catalog.Column;
 import org.apache.seatunnel.api.table.catalog.PhysicalColumn;
 import org.apache.seatunnel.api.table.converter.BasicTypeDefine;
 import org.apache.seatunnel.api.table.type.SeaTunnelDataType;
+import org.apache.seatunnel.connectors.seatunnel.jdbc.catalog.utils.JdbcIdentifierUtils;
+
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 
 import java.io.Serializable;
 import java.sql.DatabaseMetaData;
@@ -46,6 +50,7 @@ import static java.sql.Types.VARCHAR;
 
 /** Separate the jdbc meta-information type to SeaTunnelDataType into the interface. */
 public interface JdbcDialectTypeMapper extends Serializable {
+    Logger LOG = LoggerFactory.getLogger(JdbcDialectTypeMapper.class);
 
     /**
      * @deprecated instead by {@link #mappingColumn(BasicTypeDefine)}
@@ -89,9 +94,30 @@ public interface JdbcDialectTypeMapper extends Serializable {
             String columnNamePattern)
             throws SQLException {
         List<Column> columns = new ArrayList<>();
+        int filteredRows = 0;
+        JdbcIdentifierUtils.IdentifierCaseStrategy identifierCaseStrategy =
+                JdbcIdentifierUtils.identifierCaseStrategy(metadata);
         try (ResultSet rs =
                 metadata.getColumns(catalog, schemaPattern, tableNamePattern, columnNamePattern)) {
             while (rs.next()) {
+                // `tableNamePattern` is treated as a SQL LIKE pattern by many drivers, so filter
+                // the ResultSet by exact table/schema to avoid mixing columns from other tables.
+                if (tableNamePattern != null) {
+                    String actualTableName = rs.getString("TABLE_NAME");
+                    if (!JdbcIdentifierUtils.identifierEquals(
+                            identifierCaseStrategy, tableNamePattern, actualTableName)) {
+                        filteredRows++;
+                        continue;
+                    }
+                }
+                if (schemaPattern != null) {
+                    String actualSchemaName = rs.getString("TABLE_SCHEM");
+                    if (!JdbcIdentifierUtils.identifierEquals(
+                            identifierCaseStrategy, schemaPattern, actualSchemaName)) {
+                        filteredRows++;
+                        continue;
+                    }
+                }
                 String columnName = rs.getString("COLUMN_NAME");
                 String nativeType = rs.getString("TYPE_NAME");
                 int sqlType = rs.getInt("DATA_TYPE");
@@ -114,6 +140,15 @@ public interface JdbcDialectTypeMapper extends Serializable {
                                 .build();
                 columns.add(mappingColumn(typeDefine));
             }
+        }
+        if (columns.isEmpty() && filteredRows > 0) {
+            LOG.warn(
+                    "No columns found for catalog '{}', schema '{}', table '{}'. Filtered {} rows returned by JDBC driver. "
+                            + "The table may not exist or the database requires exact identifier case.",
+                    catalog,
+                    schemaPattern,
+                    tableNamePattern,
+                    filteredRows);
         }
         return columns;
     }
