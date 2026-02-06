@@ -94,7 +94,7 @@ public class GravitinoClient implements MetalakeClient {
 
     private Matcher getMatcher(String schemaHttpUrl) {
         Matcher matcher = TABLE_URL_PATTERN.matcher(schemaHttpUrl);
-        if (!matcher.matches()) { // Use matches() instead of find()
+        if (!matcher.find()) {
             throw new SeaTunnelRuntimeException(
                     ERROR_INVALID_TABLE_URL,
                     String.format(
