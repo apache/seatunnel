@@ -47,10 +47,10 @@ public class TimeUtils {
                 new TimePattern(
                         "\\d{2}:\\d{2}:\\d{2}\\.\\d{3}",
                         Formatter.HH_MM_SS_SSS)); // With milliseconds
-        PATTERN_LIST.add(
-                new TimePattern(
-                        "\\d{1,2}:\\d{2}:\\d{2}\\.\\d{3}",
-                        Formatter.H_MM_SS_SSS)); // With milliseconds
+        PATTERN_LIST.add(new TimePattern("\\d{1,2}:\\d{2}:\\d{2}\\.\\d{3}", Formatter.H_MM_SS_SSS));
+        PATTERN_LIST.add(new TimePattern("\\d{2}:\\d{2}", Formatter.HH_MM));
+        PATTERN_LIST.add(new TimePattern("\\d{1,2}:\\d{2}", Formatter.H_MM));
+        // With milliseconds
         PATTERN_LIST.add(
                 new TimePattern(
                         "\\d{2}:\\d{2}:\\d{2}\\.\\d+",
@@ -181,7 +181,9 @@ public class TimeUtils {
         HH_MM_SS("HH:mm:ss"),
         HH_MM_SS_SSS("HH:mm:ss.SSS"),
         H_MM_SS("H:mm:ss"),
-        H_MM_SS_SSS("H:mm:ss.SSS");
+        H_MM_SS_SSS("H:mm:ss.SSS"),
+        HH_MM("HH:mm"),
+        H_MM("H:mm");
         private final String value;
         private final DateTimeFormatter dateTimeFormatter;
 
