@@ -18,6 +18,7 @@
 package org.apache.seatunnel.connectors.seatunnel.jdbc.internal.dialect.kingbase.container;
 
 import org.apache.seatunnel.common.utils.JdbcUrlUtil;
+import org.apache.seatunnel.common.utils.RetryUtils;
 import org.apache.seatunnel.connectors.seatunnel.jdbc.catalog.kingbase.KingbaseCatalog;
 
 import org.junit.jupiter.api.AfterAll;
@@ -81,7 +82,7 @@ public abstract class AbstractKingbaseContainerTest {
         Integer mappedPort = kingbaseContainer.getMappedPort(KINGBASE_PORT);
         String jdbcUrl = String.format("jdbc:kingbase8://%s:%d/%s", host, mappedPort, DATABASE);
 
-        connection = DriverManager.getConnection(jdbcUrl, USERNAME, PASSWORD);
+        connection = connectWithRetry(jdbcUrl, USERNAME, PASSWORD);
 
         catalog =
                 new KingbaseCatalog(
@@ -110,6 +111,21 @@ public abstract class AbstractKingbaseContainerTest {
     protected void executeSql(String sql) throws SQLException {
         try (Statement stmt = connection.createStatement()) {
             stmt.execute(sql);
+        }
+    }
+
+    private static Connection connectWithRetry(String jdbcUrl, String username, String password)
+            throws SQLException {
+        RetryUtils.RetryMaterial retryMaterial =
+                new RetryUtils.RetryMaterial(30, true, exception -> true, 2000);
+        try {
+            return RetryUtils.retryWithException(
+                    () -> DriverManager.getConnection(jdbcUrl, username, password), retryMaterial);
+        } catch (Exception e) {
+            if (e instanceof SQLException) {
+                throw (SQLException) e;
+            }
+            throw new SQLException("Failed to connect to Kingbase", e);
         }
     }
 
