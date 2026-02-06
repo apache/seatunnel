@@ -23,9 +23,13 @@ import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.Disabled;
 import org.junit.jupiter.api.Test;
 
+import java.time.LocalDate;
 import java.time.LocalDateTime;
+import java.time.LocalTime;
 import java.time.ZoneId;
 import java.time.format.DateTimeFormatter;
+import java.time.temporal.TemporalAccessor;
+import java.time.temporal.TemporalQueries;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertThrows;
@@ -44,6 +48,17 @@ public class DateTimeUtilsTest {
         Assertions.assertEquals(12, parse.getMonth().getValue());
         Assertions.assertEquals(2023, parse.getYear());
         Assertions.assertEquals(22, parse.getDayOfMonth());
+    }
+
+    @Test
+    public void testConvertDateTimeWithLocalTimeZone() {
+        String datetimeStr = "2024-12-16T15:33:45";
+        TemporalAccessor parsedTimestamp =
+                DateTimeUtils.matchDateTimeFormatter(datetimeStr).parse(datetimeStr);
+        LocalTime localTime = parsedTimestamp.query(TemporalQueries.localTime());
+        LocalDate localDate = parsedTimestamp.query(TemporalQueries.localDate());
+        LocalDateTime dateTime = LocalDateTime.of(localDate, localTime);
+        Assertions.assertEquals("2024-12-16T15:33:45", dateTime.toString());
     }
 
     @Test

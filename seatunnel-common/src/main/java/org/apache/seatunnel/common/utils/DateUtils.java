@@ -25,57 +25,32 @@ import java.time.format.DateTimeFormatterBuilder;
 import java.time.format.SignStyle;
 import java.time.temporal.Temporal;
 import java.util.ArrayList;
-import java.util.HashMap;
 import java.util.List;
-import java.util.Map;
 import java.util.regex.Pattern;
 
-import static java.time.format.DateTimeFormatter.ISO_LOCAL_DATE;
-import static java.time.format.DateTimeFormatter.ISO_LOCAL_TIME;
-import static java.time.format.DateTimeFormatter.ISO_OFFSET_TIME;
 import static java.time.temporal.ChronoField.DAY_OF_MONTH;
-import static java.time.temporal.ChronoField.HOUR_OF_DAY;
-import static java.time.temporal.ChronoField.MINUTE_OF_HOUR;
 import static java.time.temporal.ChronoField.MONTH_OF_YEAR;
-import static java.time.temporal.ChronoField.NANO_OF_SECOND;
-import static java.time.temporal.ChronoField.SECOND_OF_MINUTE;
 import static java.time.temporal.ChronoField.YEAR;
 
 public class DateUtils {
-    private static final Map<Formatter, DateTimeFormatter> FORMATTER_MAP = new HashMap<>();
-
-    static {
-        FORMATTER_MAP.put(
-                Formatter.YYYY_MM_DD, DateTimeFormatter.ofPattern(Formatter.YYYY_MM_DD.value));
-        FORMATTER_MAP.put(
-                Formatter.YYYY_MM_DD_SPOT,
-                DateTimeFormatter.ofPattern(Formatter.YYYY_MM_DD_SPOT.value));
-        FORMATTER_MAP.put(
-                Formatter.YYYY_MM_DD_SLASH,
-                DateTimeFormatter.ofPattern(Formatter.YYYY_MM_DD_SLASH.value));
-        FORMATTER_MAP.put(
-                Formatter.YYYY_M_D, DateTimeFormatter.ofPattern(Formatter.YYYY_M_D.value));
-        FORMATTER_MAP.put(
-                Formatter.YYYY_M_D_SPOT,
-                DateTimeFormatter.ofPattern(Formatter.YYYY_M_D_SPOT.value));
-        FORMATTER_MAP.put(
-                Formatter.YYYY_M_D_SLASH,
-                DateTimeFormatter.ofPattern(Formatter.YYYY_M_D_SLASH.value));
-    }
 
     // Define date format pattern, containing regex and corresponding formatter
     private static class DatePattern {
         final Pattern pattern;
         final DateTimeFormatter formatter;
 
-        DatePattern(String regex, DateTimeFormatter formatter) {
+        DatePattern(String regex, String formatter) {
             this.pattern = Pattern.compile(regex);
-            this.formatter = formatter;
+            this.formatter =
+                    new DateTimeFormatterBuilder()
+                            .parseCaseInsensitive()
+                            .appendOptional(DateTimeFormatter.ofPattern(formatter))
+                            .toFormatter();
         }
 
-        DatePattern(String regex, String format) {
+        DatePattern(String regex, DateTimeFormatter format) {
             this.pattern = Pattern.compile(regex);
-            this.formatter = DateTimeFormatter.ofPattern(format);
+            this.formatter = format;
         }
     }
 
@@ -84,14 +59,16 @@ public class DateUtils {
 
     static {
         // Initialize date format patterns
+        PATTERN_LIST.add(new DatePattern("\\d{4}-\\d{2}-\\d{2}", Formatter.YYYY_MM_DD.value));
         PATTERN_LIST.add(new DatePattern("\\d{8}", "yyyyMMdd"));
+        PATTERN_LIST.add(new DatePattern("\\d{4}/\\d{2}/\\d{2}", Formatter.YYYY_MM_DD_SLASH.value));
         PATTERN_LIST.add(
-                new DatePattern(
-                        "\\d{4}-\\d{2}-\\d{2}",
-                        new DateTimeFormatterBuilder()
-                                .parseCaseInsensitive()
-                                .append(DateTimeFormatter.ISO_LOCAL_DATE)
-                                .toFormatter()));
+                new DatePattern("\\d{4}\\.\\d{2}\\.\\d{2}", Formatter.YYYY_MM_DD_SPOT.value));
+        PATTERN_LIST.add(new DatePattern("\\d{4}-\\d{1,2}-\\d{1,2}", Formatter.YYYY_M_D.value));
+        PATTERN_LIST.add(
+                new DatePattern("\\d{4}/\\d{1,2}/\\d{1,2}", Formatter.YYYY_M_D_SLASH.value));
+        PATTERN_LIST.add(
+                new DatePattern("\\d{4}\\.\\d{1,2}\\.\\d{1,2}", Formatter.YYYY_M_D_SPOT.value));
         PATTERN_LIST.add(
                 new DatePattern(
                         "\\d{4}年\\d{2}月\\d{2}日",
@@ -107,65 +84,6 @@ public class DateUtils {
                                                 .appendLiteral("日")
                                                 .toFormatter())
                                 .toFormatter()));
-        PATTERN_LIST.add(
-                new DatePattern(
-                        "\\d{4}/\\d{2}/\\d{2}",
-                        new DateTimeFormatterBuilder()
-                                .parseCaseInsensitive()
-                                .append(
-                                        new DateTimeFormatterBuilder()
-                                                .appendValue(YEAR, 4, 10, SignStyle.EXCEEDS_PAD)
-                                                .appendLiteral('/')
-                                                .appendValue(MONTH_OF_YEAR, 2)
-                                                .appendLiteral('/')
-                                                .appendValue(DAY_OF_MONTH, 2)
-                                                .toFormatter())
-                                .toFormatter()));
-        PATTERN_LIST.add(
-                new DatePattern(
-                        "\\d{4}\\.\\d{2}\\.\\d{2}",
-                        new DateTimeFormatterBuilder()
-                                .parseCaseInsensitive()
-                                .append(
-                                        new DateTimeFormatterBuilder()
-                                                .appendValue(YEAR, 4, 10, SignStyle.EXCEEDS_PAD)
-                                                .appendLiteral('.')
-                                                .appendValue(MONTH_OF_YEAR, 2)
-                                                .appendLiteral('.')
-                                                .appendValue(DAY_OF_MONTH, 2)
-                                                .toFormatter())
-                                .toFormatter()));
-        PATTERN_LIST.add(
-                new DatePattern(
-                        "\\d{4}-\\d{2}-\\d{2}T\\d{2}:\\d{2}:\\d{2}(\\.\\d{1,9})?Z?",
-                        new DateTimeFormatterBuilder()
-                                .parseCaseInsensitive()
-                                .append(ISO_LOCAL_DATE)
-                                .appendLiteral('T')
-                                .append(
-                                        new DateTimeFormatterBuilder()
-                                                .appendValue(HOUR_OF_DAY, 2)
-                                                .appendLiteral(':')
-                                                .appendValue(MINUTE_OF_HOUR, 2)
-                                                .optionalStart()
-                                                .appendLiteral(':')
-                                                .appendValue(SECOND_OF_MINUTE, 2)
-                                                .optionalStart()
-                                                .appendFraction(NANO_OF_SECOND, 0, 9, true)
-                                                .appendLiteral('Z')
-                                                .toFormatter())
-                                .toFormatter()));
-        PATTERN_LIST.add(new DatePattern("\\d{2}:\\d{2}:\\d{2}\\+\\d{2}:\\d{2}", ISO_OFFSET_TIME));
-        PATTERN_LIST.add(new DatePattern("\\d{2}:\\d{2}:\\d{2}(\\.\\d{1,9})?", ISO_LOCAL_TIME));
-        PATTERN_LIST.add(
-                new DatePattern(
-                        "\\d{4}/\\d{1,2}/\\d{1,2}",
-                        new DateTimeFormatterBuilder()
-                                .parseCaseInsensitive()
-                                .append(DateTimeFormatter.ofPattern("yyyy/M/d"))
-                                .toFormatter()));
-        PATTERN_LIST.add(new DatePattern("\\d{4}-\\d{1,2}-\\d{1,2}", "yyyy-M-d"));
-        PATTERN_LIST.add(new DatePattern("\\d{4}\\.\\d{1,2}\\.\\d{1,2}", "yyyy.M.d"));
     }
 
     /**
@@ -216,7 +134,7 @@ public class DateUtils {
      * @return Parsed LocalDate object
      */
     public static LocalDate parse(String date, Formatter formatter) {
-        return LocalDate.parse(date, FORMATTER_MAP.get(formatter));
+        return LocalDate.parse(date, formatter.getDateTimeFormatter());
     }
 
     /**
@@ -239,7 +157,7 @@ public class DateUtils {
      * @return Formatted string
      */
     public static String toString(LocalDate date, Formatter formatter) {
-        return date.format(FORMATTER_MAP.get(formatter));
+        return date.format(formatter.getDateTimeFormatter());
     }
 
     /**
@@ -262,7 +180,7 @@ public class DateUtils {
      * @return Formatted string
      */
     public static String toString(Temporal temporal, Formatter formatter) {
-        return FORMATTER_MAP.get(formatter).format(temporal);
+        return formatter.getDateTimeFormatter().format(temporal);
     }
 
     @Getter
@@ -270,7 +188,7 @@ public class DateUtils {
         YYYY_MM_DD("yyyy-MM-dd"),
         YYYY_MM_DD_SPOT("yyyy.MM.dd"),
         YYYY_MM_DD_SLASH("yyyy/MM/dd"),
-        YYYY_M_D("yyyy/M/d"),
+        YYYY_M_D("yyyy-M-d"),
         YYYY_M_D_SPOT("yyyy.M.d"),
         YYYY_M_D_SLASH("yyyy/M/d");
         private final String value;

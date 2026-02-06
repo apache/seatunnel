@@ -70,17 +70,17 @@ public class DateTimeUtils {
         List<DateTimePattern> length14Patterns = new ArrayList<>();
         // High priority: 14-digit no-separator common format
         length14Patterns.add(
-                new DateTimePattern("\\d{14}", Formatter.YYYY_MM_DD_HH_MM_SS_NO_SPLIT));
+                new DateTimePattern("\\d{14}", Formatter.YYYY_MM_DD_HH_MM_SS_NO_SPLIT.value));
         // Secondary: Single digit month/day, ISO8601 separator (no second)
         length14Patterns.add(
                 new DateTimePattern(
                         "\\d{4}-\\d{1,2}-\\d{1,2}\\s\\d{2}:\\d{2}",
-                        Formatter.YYYY_M_D_HH_MM_ISO8601));
+                        Formatter.YYYY_M_D_HH_MM_ISO8601.value));
         // Secondary: Single digit month/day, slash separator (no second)
         length14Patterns.add(
                 new DateTimePattern(
                         "\\d{4}/\\d{1,2}/\\d{1,2}\\s\\d{2}:\\d{2}",
-                        Formatter.YYYY_M_D_HH_MM_SLASH));
+                        Formatter.YYYY_M_D_HH_MM_SLASH.value));
         DATETIME_PATTERN_MAP.put(14, length14Patterns);
 
         // ===================== Length 15: Fixed Length =====================
@@ -90,11 +90,11 @@ public class DateTimeUtils {
         length15Patterns.add(
                 new DateTimePattern(
                         "\\d{4}-\\d{1,2}-\\d{1,2}\\s\\d{2}:\\d{2}",
-                        Formatter.YYYY_M_D_HH_MM_ISO8601));
+                        Formatter.YYYY_M_D_HH_MM_ISO8601.value));
         length15Patterns.add(
                 new DateTimePattern(
                         "\\d{4}/\\d{1,2}/\\d{1,2}\\s\\d{2}:\\d{2}",
-                        Formatter.YYYY_M_D_HH_MM_SLASH));
+                        Formatter.YYYY_M_D_HH_MM_SLASH.value));
         DATETIME_PATTERN_MAP.put(15, length15Patterns);
 
         // ===================== Length 16: Fixed Length =====================
@@ -105,19 +105,19 @@ public class DateTimeUtils {
         length16Patterns.add(
                 new DateTimePattern(
                         "\\d{4}-\\d{1,2}-\\d{1,2}\\s\\d{2}:\\d{2}",
-                        Formatter.YYYY_M_D_HH_MM_ISO8601));
+                        Formatter.YYYY_M_D_HH_MM_ISO8601.value));
         length16Patterns.add(
                 new DateTimePattern(
                         "\\d{4}/\\d{1,2}/\\d{1,2}\\s\\d{2}:\\d{2}",
-                        Formatter.YYYY_M_D_HH_MM_SLASH));
+                        Formatter.YYYY_M_D_HH_MM_SLASH.value));
         length16Patterns.add(
                 new DateTimePattern(
                         "\\d{4}-\\d{1,2}-\\d{1,2}\\s\\d{1,2}:\\d{2}:\\d{2}",
-                        Formatter.YYYY_M_D_H_MM_SS_ISO8601));
+                        Formatter.YYYY_M_D_H_MM_SS_ISO8601.value));
         length16Patterns.add(
                 new DateTimePattern(
                         "\\d{4}/\\d{1,2}/\\d{1,2}\\s\\d{1,2}:\\d{2}:\\d{2}",
-                        Formatter.YYYY_M_D_H_MM_SS_SLASH));
+                        Formatter.YYYY_M_D_H_MM_SS_SLASH.value));
         DATETIME_PATTERN_MAP.put(16, length16Patterns);
 
         // ===================== Length 17: Fixed Length =====================
@@ -127,11 +127,11 @@ public class DateTimeUtils {
         length17Patterns.add(
                 new DateTimePattern(
                         "\\d{4}-\\d{1,2}-\\d{1,2}\\s\\d{1,2}:\\d{2}:\\d{2}",
-                        Formatter.YYYY_M_D_H_MM_SS_ISO8601));
+                        Formatter.YYYY_M_D_H_MM_SS_ISO8601.value));
         length17Patterns.add(
                 new DateTimePattern(
                         "\\d{4}/\\d{1,2}/\\d{1,2}\\s\\d{1,2}:\\d{2}:\\d{2}",
-                        Formatter.YYYY_M_D_H_MM_SS_SLASH));
+                        Formatter.YYYY_M_D_H_MM_SS_SLASH.value));
         DATETIME_PATTERN_MAP.put(17, length17Patterns);
 
         // ===================== Length 18: Fixed Length =====================
@@ -141,11 +141,11 @@ public class DateTimeUtils {
         length18Patterns.add(
                 new DateTimePattern(
                         "\\d{4}-\\d{1,2}-\\d{1,2}\\s\\d{1,2}:\\d{2}:\\d{2}",
-                        Formatter.YYYY_M_D_H_MM_SS_ISO8601));
+                        Formatter.YYYY_M_D_H_MM_SS_ISO8601.value));
         length18Patterns.add(
                 new DateTimePattern(
                         "\\d{4}/\\d{1,2}/\\d{1,2}\\s\\d{1,2}:\\d{2}:\\d{2}",
-                        Formatter.YYYY_M_D_H_MM_SS_SLASH));
+                        Formatter.YYYY_M_D_H_MM_SS_SLASH.value));
         DATETIME_PATTERN_MAP.put(18, length18Patterns);
 
         // ===================== Length 19: Fixed Length (Core Common) =====================
@@ -156,22 +156,22 @@ public class DateTimeUtils {
         length19Patterns.add(
                 new DateTimePattern(
                         "\\d{4}-\\d{2}-\\d{2}\\s\\d{2}:\\d{2}:\\d{2}",
-                        Formatter.YYYY_MM_DD_HH_MM_SS));
+                        Formatter.YYYY_MM_DD_HH_MM_SS.value));
         // High priority: ISO8601 standard format (T separator)
         length19Patterns.add(
                 new DateTimePattern(
                         "\\d{4}-\\d{2}-\\d{2}T\\d{2}:\\d{2}:\\d{2}",
-                        Formatter.YYYY_MM_DD_HH_MM_SS_ISO8601));
+                        Formatter.YYYY_MM_DD_HH_MM_SS_ISO8601.value));
         // Secondary: Slash separator
         length19Patterns.add(
                 new DateTimePattern(
                         "\\d{4}/\\d{2}/\\d{2}\\s\\d{2}:\\d{2}:\\d{2}",
-                        Formatter.YYYY_MM_DD_HH_MM_SS_SLASH));
+                        Formatter.YYYY_MM_DD_HH_MM_SS_SLASH.value));
         // Secondary: Dot separator
         length19Patterns.add(
                 new DateTimePattern(
                         "\\d{4}\\.\\d{2}\\.\\d{2}\\s\\d{2}:\\d{2}:\\d{2}",
-                        Formatter.YYYY_MM_DD_HH_MM_SS_SPOT));
+                        Formatter.YYYY_MM_DD_HH_MM_SS_SPOT.value));
         DATETIME_PATTERN_MAP.put(19, length19Patterns);
 
         // ===================== Length 21: Fixed Length (Chinese Exclusive) =====================
@@ -179,8 +179,7 @@ public class DateTimeUtils {
         List<DateTimePattern> length21Patterns = new ArrayList<>();
         length21Patterns.add(
                 new DateTimePattern(
-                        "\\d{4}年\\d{2}月\\d{2}日\\s\\d{2}时\\d{2}分\\d{2}秒",
-                        DateTimeFormatter.ofPattern("yyyy年MM月dd日 HH时mm分ss秒")));
+                        "\\d{4}年\\d{2}月\\d{2}日\\s\\d{2}时\\d{2}分\\d{2}秒", "yyyy年MM月dd日 HH时mm分ss秒"));
         DATETIME_PATTERN_MAP.put(21, length21Patterns);
 
         // ===================== Length 23: Fixed Length (3-digit millisecond) =====================
@@ -192,22 +191,22 @@ public class DateTimeUtils {
         length23Patterns.add(
                 new DateTimePattern(
                         "\\d{4}-\\d{2}-\\d{2}T\\d{2}:\\d{2}:\\d{2}\\.\\d{3}",
-                        Formatter.YYYY_MM_DD_HH_MM_SS_SSS_ISO8601));
+                        Formatter.YYYY_MM_DD_HH_MM_SS_SSS_ISO8601.value));
         // High priority: Hyphen separator 3-digit millisecond (common business format)
         length23Patterns.add(
                 new DateTimePattern(
                         "\\d{4}-\\d{2}-\\d{2}\\s\\d{2}:\\d{2}:\\d{2}\\.\\d{3}",
-                        Formatter.YYYY_MM_DD_HH_MM_SS_SSS));
+                        Formatter.YYYY_MM_DD_HH_MM_SS_SSS.value));
         // Secondary: Slash separator 3-digit millisecond
         length23Patterns.add(
                 new DateTimePattern(
                         "\\d{4}/\\d{2}/\\d{2}\\s\\d{2}:\\d{2}:\\d{2}\\.\\d{3}",
-                        DateTimeFormatter.ofPattern("yyyy/MM/dd HH:mm:ss.SSS")));
+                        "yyyy/MM/dd HH:mm:ss.SSS"));
         // Secondary: Dot separator 3-digit millisecond
         length23Patterns.add(
                 new DateTimePattern(
                         "\\d{4}\\.\\d{2}\\.\\d{2}\\s\\d{2}:\\d{2}:\\d{2}\\.\\d{3}",
-                        DateTimeFormatter.ofPattern("yyyy.MM.dd HH:mm:ss.SSS")));
+                        "yyyy.MM.dd HH:mm:ss.SSS"));
         DATETIME_PATTERN_MAP.put(23, length23Patterns);
 
         // ===================== Ultra Long Group: Length >23 (key = OVER_LENGTH_KEY=-1)
@@ -272,9 +271,13 @@ public class DateTimeUtils {
             this.dateTimeFormatter = dateTimeFormatter;
         }
 
-        DateTimePattern(String regex, Formatter formatter) {
+        DateTimePattern(String regex, String formatter) {
             this.pattern = Pattern.compile(regex);
-            this.dateTimeFormatter = DateTimeFormatter.ofPattern(formatter.value);
+            this.dateTimeFormatter =
+                    new DateTimeFormatterBuilder()
+                            .parseCaseInsensitive()
+                            .appendOptional(DateTimeFormatter.ofPattern(formatter))
+                            .toFormatter();
         }
     }
 
