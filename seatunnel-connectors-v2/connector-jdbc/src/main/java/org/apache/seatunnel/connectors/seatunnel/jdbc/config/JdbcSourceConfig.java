@@ -50,6 +50,9 @@ public class JdbcSourceConfig implements Serializable {
 
     private String stringSplitModeCollate;
 
+    private boolean isBinary;
+    private int pgCopyBufferSize;
+
     public static JdbcSourceConfig of(ReadonlyConfig config) {
         JdbcSourceConfig.Builder builder = JdbcSourceConfig.builder();
         builder.jdbcConnectionConfig(JdbcConnectionConfig.of(config));
@@ -74,6 +77,9 @@ public class JdbcSourceConfig implements Serializable {
 
         builder.decimalTypeNarrowing(config.get(JdbcSourceOptions.DECIMAL_TYPE_NARROWING));
         builder.handleBlobAsString(config.get(JdbcSourceOptions.HANDLE_BLOB_AS_STRING));
+
+        builder.isBinary(config.get(JdbcSourceOptions.BINARY));
+        builder.pgCopyBufferSize(config.get(JdbcSourceOptions.PG_COPY_BUFFER_SIZE));
 
         config.getOptional(JdbcSourceOptions.WHERE_CONDITION)
                 .ifPresent(

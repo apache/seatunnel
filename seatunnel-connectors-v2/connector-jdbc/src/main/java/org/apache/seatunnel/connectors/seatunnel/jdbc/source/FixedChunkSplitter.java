@@ -21,6 +21,7 @@ import org.apache.seatunnel.shade.org.apache.commons.lang3.StringUtils;
 import org.apache.seatunnel.shade.org.apache.commons.lang3.tuple.Pair;
 
 import org.apache.seatunnel.api.table.catalog.Column;
+import org.apache.seatunnel.api.table.catalog.TablePath;
 import org.apache.seatunnel.api.table.catalog.TableSchema;
 import org.apache.seatunnel.api.table.type.DecimalType;
 import org.apache.seatunnel.api.table.type.SeaTunnelDataType;
@@ -28,6 +29,7 @@ import org.apache.seatunnel.api.table.type.SeaTunnelRowType;
 import org.apache.seatunnel.api.table.type.SqlType;
 import org.apache.seatunnel.common.exception.CommonErrorCodeDeprecated;
 import org.apache.seatunnel.connectors.seatunnel.jdbc.config.JdbcSourceConfig;
+import org.apache.seatunnel.connectors.seatunnel.jdbc.config.JdbcSourceTableConfig;
 import org.apache.seatunnel.connectors.seatunnel.jdbc.exception.JdbcConnectorException;
 import org.apache.seatunnel.connectors.seatunnel.jdbc.internal.split.JdbcNumericBetweenParametersProvider;
 
@@ -189,6 +191,82 @@ public class FixedChunkSplitter extends ChunkSplitter {
 
         return createNumberColumnSplits(
                 table, splitKeyName, splitKeyType, partitionStart, partitionEnd);
+    }
+
+    @Override
+    public String generateSplitQuerySQL(JdbcSourceSplit split, TableSchema tableSchema) {
+        if (split.getSplitStart() == null && split.getSplitEnd() == null) {
+            return split.getSplitQuery() != null
+                    ? split.getSplitQuery()
+                    : String.format(
+                            "SELECT * FROM %s", jdbcDialect.tableIdentifier(split.getTablePath()));
+        }
+        String splitQuery = split.getSplitQuery();
+        if (StringUtils.isBlank(splitQuery)) {
+            splitQuery =
+                    String.format(
+                            "SELECT * FROM %s", jdbcDialect.tableIdentifier(split.getTablePath()));
+        }
+        // If it is a string split, we need to inject the hash mod condition
+        if (SqlType.STRING.equals(split.getSplitKeyType().getSqlType())
+                && !useCharsetBasedStringSplitter) {
+            // Find the column
+            String splitKeyName = split.getSplitKeyName();
+            Column column =
+                    tableSchema.getColumns().stream()
+                            .filter(c -> c.getName().equals(splitKeyName))
+                            .findFirst()
+                            .orElseThrow(
+                                    () ->
+                                            new IllegalArgumentException(
+                                                    "Split key "
+                                                            + splitKeyName
+                                                            + " not found in schema"));
+            String condition =
+                    String.format(
+                            "%s = %d",
+                            jdbcDialect.hashModForField(
+                                    column.getSourceType(),
+                                    splitKeyName,
+                                    getPartitionNumber(split.getTablePath())),
+                            (Integer) split.getSplitStart());
+            // Inject condition
+            return String.format("SELECT * FROM (%s) AS t WHERE %s", splitQuery, condition);
+        }
+        // Numeric split
+        String splitKeyName = jdbcDialect.quoteIdentifier(split.getSplitKeyName());
+        String condition =
+                String.format(
+                        "%s >= %s AND %s <= %s",
+                        splitKeyName,
+                        split.getSplitStart().toString(),
+                        splitKeyName,
+                        split.getSplitEnd().toString());
+        return String.format("SELECT * FROM (%s) AS t WHERE %s", splitQuery, condition);
+    }
+
+    private int getPartitionNumber(TablePath tablePath) {
+        if (config.getTableConfigList() != null) {
+            String fullName = tablePath.getFullName();
+            for (JdbcSourceTableConfig tableConfig : config.getTableConfigList()) {
+                if (fullName.equals(tableConfig.getTablePath())) {
+                    return tableConfig.getPartitionNumber() != null
+                            ? tableConfig.getPartitionNumber()
+                            : 10;
+                }
+                if (Boolean.TRUE.equals(tableConfig.getUseRegex())
+                        && fullName.matches(tableConfig.getTablePath())) {
+                    return tableConfig.getPartitionNumber() != null
+                            ? tableConfig.getPartitionNumber()
+                            : 10;
+                }
+            }
+            if (config.getTableConfigList().size() == 1) {
+                Integer num = config.getTableConfigList().get(0).getPartitionNumber();
+                return num != null ? num : 10;
+            }
+        }
+        return 10;
     }
 
     @Override

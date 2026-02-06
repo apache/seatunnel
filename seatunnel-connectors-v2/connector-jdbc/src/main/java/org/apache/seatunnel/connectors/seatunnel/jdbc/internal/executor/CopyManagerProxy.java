@@ -28,7 +28,7 @@ import java.lang.reflect.Proxy;
 import java.sql.Connection;
 import java.sql.SQLException;
 
-class CopyManagerProxy {
+public class CopyManagerProxy {
     private static final Logger LOG = LoggerFactory.getLogger(CopyManagerProxy.class);
     Object connection;
     Object copyManager;
@@ -37,7 +37,7 @@ class CopyManagerProxy {
     Method getCopyAPIMethod;
     Method copyInMethod;
 
-    CopyManagerProxy(Connection connection)
+    public CopyManagerProxy(Connection connection)
             throws NoSuchMethodException, InvocationTargetException, IllegalAccessException,
                     SQLException {
         LOG.info("Proxy connection class: {}", connection.getClass().getName());
@@ -88,5 +88,18 @@ class CopyManagerProxy {
             }
         }
         return null;
+    }
+
+    public java.io.InputStream copyOutAsStream(String sql) throws SQLException {
+        try {
+            Class<?> pgCopyInputStreamClazz =
+                    Class.forName("org.postgresql.copy.PgCopyInputStream");
+            Class<?> baseConnectionClazz = Class.forName("org.postgresql.core.BaseConnection");
+            java.lang.reflect.Constructor<?> constructor =
+                    pgCopyInputStreamClazz.getConstructor(baseConnectionClazz, String.class);
+            return (java.io.InputStream) constructor.newInstance(connection, sql);
+        } catch (Exception e) {
+            throw new SQLException("Failed to create PgCopyInputStream", e);
+        }
     }
 }

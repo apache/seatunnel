@@ -159,4 +159,16 @@ public class JdbcSourceOptions extends JdbcCommonOptions {
                     .noDefaultValue()
                     .withDescription(
                             "Specifies the collation to use when string_split_mode is set to `charset_based` and the table has a special collation. If not specified, the database's default collation will be used.");
+
+    public static final Option<Boolean> BINARY =
+            Options.key("binary")
+                    .booleanType()
+                    .defaultValue(false)
+                    .withDescription("Use binary copy mode");
+
+    public static final Option<Integer> PG_COPY_BUFFER_SIZE =
+            Options.key("pg_copy_buffer_size")
+                    .intType()
+                    .defaultValue(65536)
+                    .withDescription("Postgres copy buffer size");
 }

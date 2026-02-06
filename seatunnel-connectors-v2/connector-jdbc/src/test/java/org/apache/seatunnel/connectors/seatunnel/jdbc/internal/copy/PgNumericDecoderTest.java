@@ -29,11 +29,10 @@ public class PgNumericDecoderTest {
     @Test
     public void testDecode() {
         // 123.45
-        // 正确编码: 12345 = 1 * 10000 + 2345, 权重=1, 小数位数=2
         ByteBuffer buf1 = ByteBuffer.allocate(12);
         buf1.putShort((short) 2); // ndigits = 2
         buf1.putShort((short) 0); // weight = 0
-        buf1.putShort((short) 0); // sign = 0 (正数)
+        buf1.putShort((short) 0); // sign = 0
         buf1.putShort((short) 2); // dscale = 2
         buf1.putShort((short) 123); // digits[0] = 1
         buf1.putShort((short) 4500); // digits[1] = 2345
@@ -44,7 +43,7 @@ public class PgNumericDecoderTest {
         ByteBuffer buf2 = ByteBuffer.allocate(12);
         buf2.putShort((short) 2); // ndigits = 2
         buf2.putShort((short) 0); // weight = 0
-        buf2.putShort((short) 0x4000); // sign = 0x4000 (负数)
+        buf2.putShort((short) 0x4000); // sign = 0x4000
         buf2.putShort((short) 2); // dscale = 2
         buf2.putShort((short) 123); // digits[0] = 1
         buf2.putShort((short) 4500); // digits[1] = 2345
@@ -88,7 +87,6 @@ public class PgNumericDecoderTest {
         }
 
         // 123.4567 (dscale=4)
-        // 1234567 = 123 * 10000^1 + 4567 * 10000^0, 权重=1, 小数位数=4
         ByteBuffer buf6 = ByteBuffer.allocate(12);
         buf6.putShort((short) 2); // ndigits = 2
         buf6.putShort((short) 0); // weight = 0
@@ -99,7 +97,7 @@ public class PgNumericDecoderTest {
         buf6.flip();
         assertEquals(new BigDecimal("123.4567"), PgNumericDecoder.decode(buf6));
 
-        // High weight 1 × 10000^3 = 1_0000_0000_0000
+        // High weight 1 * 10000^3 = 1_0000_0000_0000
         ByteBuffer buf7 = ByteBuffer.allocate(10);
         buf7.putShort((short) 1); // ndigits = 1
         buf7.putShort((short) 3); // weight = 3
@@ -110,7 +108,6 @@ public class PgNumericDecoderTest {
         assertEquals(new BigDecimal("1000000000000"), PgNumericDecoder.decode(buf7));
 
         // Small value 0.000123
-        // 123 = 123 * 10000^0, 权重=-1, 小数位数=6
         // 0.000123
         ByteBuffer buf8 = ByteBuffer.allocate(12);
         buf8.putShort((short) 2); // ndigits = 2

@@ -367,4 +367,8 @@ public abstract class ChunkSplitter implements AutoCloseable, Serializable {
     protected String createSplitId(TablePath tablePath, int index) {
         return String.format("%s-%s", tablePath, index);
     }
+
+    public String generateSplitQuerySQL(JdbcSourceSplit split, TableSchema tableSchema) {
+        throw new UnsupportedOperationException("Not supported by this splitter");
+    }
 }

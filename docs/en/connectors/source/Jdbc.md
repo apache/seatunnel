@@ -231,6 +231,60 @@ If one dialect not supported by SeaTunnel, it will use the default dialect `Gene
 | IRIS      | Inceptor     | Highgo   |
 
 
+### Postgres Copy Method Read
+
+`Postgres` database supports reading data using the `COPY` protocol, which is generally much faster than using `SELECT` queries.
+
+To enable this feature, configure the following options:
+
+| Name | Type | Required | Default Value | Description |
+| --- | --- | --- | --- | --- |
+| use_copy_statement | Boolean | No | false | Whether to use COPY method for reading. |
+| binary | Boolean | No | false | Whether to use binary format for COPY reading. Only takes effect when use_copy_statement=true. |
+| pg_copy_buffer_size | Int | No | 1048576 | Buffer size for COPY reading (bytes). Only takes effect when use_copy_statement=true. |
+
+> Note: Currently, this feature is only available for Postgres database.
+
+#### Compatibility and SQL Construction
+
+This feature is fully compatible with the existing sharding mechanism of JDBC Source. When `use_copy_statement=true` is enabled, SeaTunnel automatically constructs efficient COPY SQL statements based on your configured `query`, `partition_column`, and `where_condition`.
+
+**SQL Generation Logic Example:**
+
+1. **Sharding and Filtering**: If `partition_column` or `where_condition` is configured, the COPY statement will include a subquery to support data splitting:
+   ```sql
+   COPY (
+       SELECT * FROM (
+           SELECT * FROM "schema"."table_name"
+           WHERE "partition_column" >= ? AND "partition_column" < ?
+       ) tmp <where_condition>
+   ) TO STDOUT WITH [BINARY|CSV];
+   ```
+
+2. **Custom Query**: If only `query` is configured, it is constructed directly based on the query statement:
+   ```sql
+   COPY (
+       SELECT * FROM (<query>) tmp
+   ) TO STDOUT WITH [BINARY|CSV];
+   ```
+
+Example configuration:
+
+```hocon
+Jdbc {
+    url = "jdbc:postgresql://localhost:5432/test"
+    driver = "org.postgresql.Driver"
+    user = "postgres"
+    password = "password"
+    # Enable COPY method
+    use_copy_statement = true
+    # Enable binary COPY method
+    binary = true
+    # Buffer size
+    pg_copy_buffer_size = 1048576
+}
+```
+
 ## Parallel Reader
 
 The JDBC Source connector supports parallel reading of data from tables. SeaTunnel will use certain rules to split the data in the table, which will be handed over to readers for reading. The number of readers is determined by the `parallelism` option.

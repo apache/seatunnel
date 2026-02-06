@@ -85,10 +85,6 @@ public final class PgCopyBinaryReader implements PgCopyReader {
     private static final LocalDateTime EPOCH_DATETIME = LocalDateTime.of(2000, 1, 1, 0, 0);
 
     private static final int DEFAULT_BUFFER_SIZE = 1 * 1024 * 1024;
-    //    private static final int MAX_BUFFER_SIZE =
-    //            BUFFER_SIZE * 1024; // upper bound to prevent unbounded growth
-    //    // main read buffer (big-endian as per PG COPY binary format)
-    //    private ByteBuffer buffer = ByteBuffer.allocate(BUFFER_SIZE).order(ByteOrder.BIG_ENDIAN);
 
     private static int BUFFER_SIZE;
     private static int MAX_BUFFER_SIZE; // upper bound to prevent unbounded growth
@@ -109,12 +105,6 @@ public final class PgCopyBinaryReader implements PgCopyReader {
 
     private boolean headerParsed = false;
     private boolean eof = false;
-
-    //    public PgCopyBinaryReader(InputStream stream, TableSchema schema) {
-    //        this.stream = stream;
-    //        this.rowType = schema.toPhysicalRowDataType();
-    //        this.fieldTypes = rowType.getFieldTypes();
-    //    }
 
     /**
      * Constructs a PostgreSQL COPY (binary) reader. Initializes schema-derived row type and field
