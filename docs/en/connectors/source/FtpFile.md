@@ -76,6 +76,9 @@ If you use SeaTunnel Engine, It automatically integrated the hadoop jar when you
 | null_format                 | string  | no       | -                           |
 | binary_chunk_size           | int     | no       | 1024                        |
 | binary_complete_file_mode   | boolean | no       | false                       |
+| discovery_mode              | string  | no       | once                        |
+| scan_interval               | string  | no       | 10s                         |
+| start_mode                  | string  | no       | earliest                    |
 | sync_mode                   | string  | no       | full                        |
 | target_path                 | string  | no       | -                           |
 | target_hadoop_conf          | map     | no       | -                           |
@@ -439,6 +442,26 @@ Only used when file_format_type is binary.
 
 Whether to read the complete file as a single chunk instead of splitting into chunks. When enabled, the entire file content will be read into memory at once. Default is false.
 
+### discovery_mode [string]
+
+File discovery mode. Supported values: `once` (default), `continuous`.
+
+- `once`: enumerate current files once and finish (bounded).
+- `continuous`: keep scanning the path and processing new/changed files at runtime (unbounded).
+
+In the current implementation, `discovery_mode=continuous` requires `sync_mode=update` (binary only) to avoid repeated transfers.
+
+### scan_interval [string]
+
+Only used when `discovery_mode=continuous`. Scan interval for periodic discovery, for example `10s`, `30s`. Default is `10s`.
+
+### start_mode [string]
+
+Only used when `discovery_mode=continuous`. Supported values: `earliest` (default), `latest`.
+
+- `earliest`: read existing files on startup.
+- `latest`: only process files modified after the job starts.
+
 ### sync_mode [string]
 
 File sync mode. Supported values: `full` (default), `update`.
@@ -651,6 +674,52 @@ sink {
 
     path = "/seatunnel/read/binary2/"
     tmp_path = "/seatunnel/read/binary2-tmp/"
+    file_format_type = "binary"
+  }
+}
+```
+
+### Continuous Discovery (discovery_mode=continuous)
+
+`discovery_mode=continuous` keeps the job running and periodically scans the path for new/changed files (long-running job, recommended to run with `job.mode="STREAMING"`).
+
+**Note:** `discovery_mode=continuous` currently requires `sync_mode="update"` (binary-only) to avoid repeated transfers without keeping an unbounded "seen" state. `target_path` should align with the sink `path` on the same filesystem.
+
+```hocon
+env {
+  parallelism = 1
+  job.mode = "STREAMING"
+}
+
+source {
+  FtpFile {
+    host = "192.168.31.48"
+    port = 21
+    user = tyrantlucifer
+    password = tianchao
+
+    path = "/seatunnel/watch/src/"
+    file_format_type = "binary"
+
+    discovery_mode = "continuous"
+    scan_interval = "10s"
+    start_mode = "latest"
+
+    sync_mode = "update"
+    target_path = "/seatunnel/watch/dst/"
+    update_strategy = "distcp"
+    compare_mode = "len_mtime"
+  }
+}
+sink {
+  FtpFile {
+    host = "192.168.31.48"
+    port = 21
+    user = tyrantlucifer
+    password = tianchao
+
+    path = "/seatunnel/watch/dst/"
+    tmp_path = "/seatunnel/watch/dst-tmp/"
     file_format_type = "binary"
   }
 }

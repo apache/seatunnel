@@ -103,6 +103,10 @@ public class FtpFileSourceFactory implements TableSourceFactory {
                 .optional(FileBaseSourceOptions.QUOTE_CHAR)
                 .optional(FileBaseSourceOptions.ESCAPE_CHAR)
                 .optional(
+                        FileBaseSourceOptions.DISCOVERY_MODE,
+                        FileBaseSourceOptions.SCAN_INTERVAL,
+                        FileBaseSourceOptions.START_MODE)
+                .optional(
                         FileBaseSourceOptions.SYNC_MODE,
                         FileBaseSourceOptions.TARGET_HADOOP_CONF,
                         FileBaseSourceOptions.UPDATE_STRATEGY,

@@ -37,6 +37,7 @@ import lombok.Getter;
 
 import java.io.Serializable;
 import java.util.ArrayList;
+import java.util.Collections;
 import java.util.List;
 import java.util.Map;
 import java.util.function.Function;
@@ -67,6 +68,10 @@ public abstract class BaseFileSourceConfig implements Serializable {
     }
 
     private List<String> parseFilePaths(ReadonlyConfig readonlyConfig) {
+        if (readonlyConfig.get(FileBaseSourceOptions.DISCOVERY_MODE)
+                == FileDiscoveryMode.CONTINUOUS) {
+            return Collections.emptyList();
+        }
         String rootPath = null;
         try {
             rootPath = readonlyConfig.get(FileBaseSourceOptions.FILE_PATH);
