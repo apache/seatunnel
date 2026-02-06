@@ -23,12 +23,14 @@ import org.apache.seatunnel.api.table.catalog.TablePath;
 
 import java.io.IOException;
 
-public interface MetalakeClient {
-    String getType();
+public interface MetalakeClient extends AutoCloseable {
 
     JsonNode getMetaInfo(String sourceId, String metalakeUrl) throws IOException;
 
     JsonNode getTableSchema(String schemaHttpUrl) throws IOException;
 
     TablePath getTableSchemaPath(String schemaHttpUrl);
+
+    @Override
+    void close();
 }

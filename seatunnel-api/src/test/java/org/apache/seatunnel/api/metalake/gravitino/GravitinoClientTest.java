@@ -24,15 +24,15 @@ import org.junit.jupiter.api.Test;
 
 public class GravitinoClientTest {
 
-    private static final GravitinoClient CLIENT = new GravitinoClient();
-
     @Test
     void testGetTableSchemaPathWithFullUrl() {
         String url = "http://localhost:8090/catalogs/postgres/schemas/public/tables/users";
-        TablePath tablePath = CLIENT.getTableSchemaPath(url);
-        Assertions.assertNotNull(tablePath);
-        Assertions.assertEquals("postgres", tablePath.getDatabaseName());
-        Assertions.assertEquals("public", tablePath.getSchemaName());
-        Assertions.assertEquals("users", tablePath.getTableName());
+        try (GravitinoClient client = new GravitinoClient()) {
+            TablePath tablePath = client.getTableSchemaPath(url);
+            Assertions.assertNotNull(tablePath);
+            Assertions.assertEquals("postgres", tablePath.getDatabaseName());
+            Assertions.assertEquals("public", tablePath.getSchemaName());
+            Assertions.assertEquals("users", tablePath.getTableName());
+        }
     }
 }

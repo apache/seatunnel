@@ -49,7 +49,7 @@ import java.util.stream.Collectors;
 import static org.apache.seatunnel.api.table.schema.exception.SchemaEvolutionErrorCode.GET_META_LAKE_TABLE_SCHEMA_FAILED;
 
 @Slf4j
-public class TableSchemaDiscoverer {
+public class TableSchemaDiscoverer implements AutoCloseable {
 
     private final ReadonlyConfig envOptions;
     private final ReadonlyConfig sourceOptions;
@@ -135,7 +135,19 @@ public class TableSchemaDiscoverer {
             return metaLakeTableSchemaConvertor.buildCatalogTable(
                     catalogName, tableSchemaPath, tableSchema);
         } catch (IOException e) {
-            throw new SeaTunnelRuntimeException(GET_META_LAKE_TABLE_SCHEMA_FAILED, e);
+            String errorMsg =
+                    String.format(
+                            "Failed to get table schema from MetaLake. "
+                                    + "Schema URL: %s, "
+                                    + "Configured table path: %s, "
+                                    + "Catalog name: %s, "
+                                    + "Error: %s",
+                            schemaUrl,
+                            configTablePath != null ? configTablePath : "not configured",
+                            catalogName,
+                            e.getMessage());
+            throw new SeaTunnelRuntimeException(
+                    GET_META_LAKE_TABLE_SCHEMA_FAILED, new IOException(errorMsg, e));
         }
     }
 
@@ -164,10 +176,25 @@ public class TableSchemaDiscoverer {
         // third system
         if (StringUtils.isNotEmpty(
                 System.getenv(EnvCommonOptions.METALAKE_TYPE.key().toUpperCase()))) {
-            return MetaLakeType.valueOf(
-                    System.getenv(EnvCommonOptions.METALAKE_TYPE.key().toUpperCase()));
+            try {
+                return MetaLakeType.valueOf(
+                        System.getenv(EnvCommonOptions.METALAKE_TYPE.key().toUpperCase()));
+            } catch (Exception e) {
+                log.warn(
+                        "The environment variable configuration is incorrect and automatically downgraded to GRAVITINO.",
+                        e);
+                return MetaLakeType.GRAVITINO;
+            }
         }
         // default
         return MetaLakeType.GRAVITINO;
+    }
+
+    /** Close the metalake client and release resources. */
+    @Override
+    public void close() {
+        if (metalakeClient != null) {
+            metalakeClient.close();
+        }
     }
 }

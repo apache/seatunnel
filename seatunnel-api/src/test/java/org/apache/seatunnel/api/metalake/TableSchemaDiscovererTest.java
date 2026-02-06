@@ -88,18 +88,18 @@ public class TableSchemaDiscovererTest {
         when(metalakeClient.getTableSchemaPath(schemaUrl))
                 .thenReturn(TablePath.of("test_catalog", "test_schema", "test_table"));
 
-        TableSchemaDiscoverer discoverer =
+        try (TableSchemaDiscoverer discoverer =
                 new TableSchemaDiscoverer(
-                        envOptions, sourceOptions, TEST_CATALOG_NAME, metalakeClient, convertor);
+                        envOptions, sourceOptions, TEST_CATALOG_NAME, metalakeClient, convertor)) {
+            List<CatalogTable> result = discoverer.discoverTableSchemas();
 
-        List<CatalogTable> result = discoverer.discoverTableSchemas();
-
-        Assertions.assertEquals(1, result.size());
-        Assertions.assertEquals(TEST_CATALOG_NAME, result.get(0).getCatalogName());
-        Assertions.assertEquals(
-                TablePath.of("test_catalog", "test_schema", "test_table"),
-                result.get(0).getTablePath());
-        Assertions.assertEquals(2, result.get(0).getTableSchema().getColumns().size());
+            Assertions.assertEquals(1, result.size());
+            Assertions.assertEquals(TEST_CATALOG_NAME, result.get(0).getCatalogName());
+            Assertions.assertEquals(
+                    TablePath.of("test_catalog", "test_schema", "test_table"),
+                    result.get(0).getTablePath());
+            Assertions.assertEquals(2, result.get(0).getTableSchema().getColumns().size());
+        }
     }
 
     @Test
@@ -141,21 +141,22 @@ public class TableSchemaDiscovererTest {
         when(metalakeClient.getTableSchemaPath(schemaUrl2))
                 .thenReturn(TablePath.of("test_catalog", "test_schema", "table2"));
         // discoverer
-        TableSchemaDiscoverer discoverer =
+        try (TableSchemaDiscoverer discoverer =
                 new TableSchemaDiscoverer(
-                        envOptions, sourceOptions, TEST_CATALOG_NAME, metalakeClient, convertor);
-        List<CatalogTable> result = discoverer.discoverTableSchemas();
-        Assertions.assertEquals(2, result.size());
-        Assertions.assertEquals(TEST_CATALOG_NAME, result.get(0).getCatalogName());
-        Assertions.assertEquals(
-                TablePath.of("test_database.test_schema.test_table1"),
-                result.get(0).getTablePath());
-        Assertions.assertEquals(2, result.get(0).getTableSchema().getColumns().size());
-        Assertions.assertEquals(TEST_CATALOG_NAME, result.get(1).getCatalogName());
-        Assertions.assertEquals(
-                TablePath.of("test_catalog", "test_schema", "table2"),
-                result.get(1).getTablePath());
-        Assertions.assertEquals(2, result.get(1).getTableSchema().getColumns().size());
+                        envOptions, sourceOptions, TEST_CATALOG_NAME, metalakeClient, convertor)) {
+            List<CatalogTable> result = discoverer.discoverTableSchemas();
+            Assertions.assertEquals(2, result.size());
+            Assertions.assertEquals(TEST_CATALOG_NAME, result.get(0).getCatalogName());
+            Assertions.assertEquals(
+                    TablePath.of("test_database.test_schema.test_table1"),
+                    result.get(0).getTablePath());
+            Assertions.assertEquals(2, result.get(0).getTableSchema().getColumns().size());
+            Assertions.assertEquals(TEST_CATALOG_NAME, result.get(1).getCatalogName());
+            Assertions.assertEquals(
+                    TablePath.of("test_catalog", "test_schema", "table2"),
+                    result.get(1).getTablePath());
+            Assertions.assertEquals(2, result.get(1).getTableSchema().getColumns().size());
+        }
     }
 
     @Test
@@ -170,20 +171,20 @@ public class TableSchemaDiscovererTest {
         when(metalakeClient.getTableSchema(url2)).thenReturn(schemaNode2);
         when(metalakeClient.getTableSchemaPath(url2))
                 .thenReturn(TablePath.of("test_catalog", "test_schema", "table2"));
-        TableSchemaDiscoverer discoverer =
+        try (TableSchemaDiscoverer discoverer =
                 new TableSchemaDiscoverer(
-                        envOptions, sourceOptions, TEST_CATALOG_NAME, metalakeClient, convertor);
+                        envOptions, sourceOptions, TEST_CATALOG_NAME, metalakeClient, convertor)) {
+            List<CatalogTable> result = discoverer.discoverTableSchemas();
 
-        List<CatalogTable> result = discoverer.discoverTableSchemas();
-
-        Assertions.assertEquals(2, result.size());
-        Assertions.assertEquals(TEST_CATALOG_NAME, result.get(0).getCatalogName());
-        Assertions.assertEquals(TablePath.of("db.table1"), result.get(0).getTablePath());
-        Assertions.assertEquals(2, result.get(0).getTableSchema().getColumns().size());
-        Assertions.assertEquals(TEST_CATALOG_NAME, result.get(1).getCatalogName());
-        Assertions.assertEquals(
-                TablePath.of("test_catalog.test_schema.table2"), result.get(1).getTablePath());
-        Assertions.assertEquals(2, result.get(1).getTableSchema().getColumns().size());
+            Assertions.assertEquals(2, result.size());
+            Assertions.assertEquals(TEST_CATALOG_NAME, result.get(0).getCatalogName());
+            Assertions.assertEquals(TablePath.of("db.table1"), result.get(0).getTablePath());
+            Assertions.assertEquals(2, result.get(0).getTableSchema().getColumns().size());
+            Assertions.assertEquals(TEST_CATALOG_NAME, result.get(1).getCatalogName());
+            Assertions.assertEquals(
+                    TablePath.of("test_catalog.test_schema.table2"), result.get(1).getTablePath());
+            Assertions.assertEquals(2, result.get(1).getTableSchema().getColumns().size());
+        }
     }
 
     @Test
@@ -195,9 +196,11 @@ public class TableSchemaDiscovererTest {
         TableSourceFactoryContext context =
                 new TableSourceFactoryContext(
                         sourceOptions, getClass().getClassLoader(), envOptions);
-        TableSchemaDiscoverer discoverer = new TableSchemaDiscoverer(context, TEST_CATALOG_NAME);
-        MetaLakeType result = discoverer.getMetaLakeType();
-        Assertions.assertEquals(MetaLakeType.GRAVITINO, result);
+        try (TableSchemaDiscoverer discoverer =
+                new TableSchemaDiscoverer(context, TEST_CATALOG_NAME)) {
+            MetaLakeType result = discoverer.getMetaLakeType();
+            Assertions.assertEquals(MetaLakeType.GRAVITINO, result);
+        }
     }
 
     @Test
@@ -209,9 +212,11 @@ public class TableSchemaDiscovererTest {
         TableSourceFactoryContext context =
                 new TableSourceFactoryContext(
                         sourceOptions, getClass().getClassLoader(), envOptions);
-        TableSchemaDiscoverer discoverer = new TableSchemaDiscoverer(context, TEST_CATALOG_NAME);
-        MetaLakeType result = discoverer.getMetaLakeType();
-        Assertions.assertEquals(MetaLakeType.GRAVITINO, result);
+        try (TableSchemaDiscoverer discoverer =
+                new TableSchemaDiscoverer(context, TEST_CATALOG_NAME)) {
+            MetaLakeType result = discoverer.getMetaLakeType();
+            Assertions.assertEquals(MetaLakeType.GRAVITINO, result);
+        }
     }
 
     @Test
@@ -223,9 +228,11 @@ public class TableSchemaDiscovererTest {
                         sourceOptions, getClass().getClassLoader(), envOptions);
         System.setProperty(
                 EnvCommonOptions.METALAKE_TYPE.key().toUpperCase(), MetaLakeType.GRAVITINO.name());
-        TableSchemaDiscoverer discoverer = new TableSchemaDiscoverer(context, TEST_CATALOG_NAME);
-        MetaLakeType result = discoverer.getMetaLakeType();
-        Assertions.assertEquals(MetaLakeType.GRAVITINO, result);
+        try (TableSchemaDiscoverer discoverer =
+                new TableSchemaDiscoverer(context, TEST_CATALOG_NAME)) {
+            MetaLakeType result = discoverer.getMetaLakeType();
+            Assertions.assertEquals(MetaLakeType.GRAVITINO, result);
+        }
     }
 
     @Test
@@ -235,9 +242,11 @@ public class TableSchemaDiscovererTest {
         TableSourceFactoryContext context =
                 new TableSourceFactoryContext(
                         sourceOptions, getClass().getClassLoader(), envOptions);
-        TableSchemaDiscoverer discoverer = new TableSchemaDiscoverer(context, TEST_CATALOG_NAME);
-        MetaLakeType result = discoverer.getMetaLakeType();
-        Assertions.assertEquals(MetaLakeType.GRAVITINO, result);
+        try (TableSchemaDiscoverer discoverer =
+                new TableSchemaDiscoverer(context, TEST_CATALOG_NAME)) {
+            MetaLakeType result = discoverer.getMetaLakeType();
+            Assertions.assertEquals(MetaLakeType.GRAVITINO, result);
+        }
     }
 
     @Test
@@ -251,9 +260,11 @@ public class TableSchemaDiscovererTest {
         TableSourceFactoryContext context =
                 new TableSourceFactoryContext(
                         sourceOptions, getClass().getClassLoader(), envOptions);
-        TableSchemaDiscoverer discoverer = new TableSchemaDiscoverer(context, TEST_CATALOG_NAME);
-        MetaLakeType result = discoverer.getMetaLakeType();
-        Assertions.assertEquals(MetaLakeType.GRAVITINO, result);
+        try (TableSchemaDiscoverer discoverer =
+                new TableSchemaDiscoverer(context, TEST_CATALOG_NAME)) {
+            MetaLakeType result = discoverer.getMetaLakeType();
+            Assertions.assertEquals(MetaLakeType.GRAVITINO, result);
+        }
     }
 
     @Test
@@ -266,9 +277,11 @@ public class TableSchemaDiscovererTest {
                 new TableSourceFactoryContext(
                         sourceOptions, getClass().getClassLoader(), envOptions);
         System.setProperty(EnvCommonOptions.METALAKE_TYPE.key().toUpperCase(), "other_type");
-        TableSchemaDiscoverer discoverer = new TableSchemaDiscoverer(context, TEST_CATALOG_NAME);
-        MetaLakeType result = discoverer.getMetaLakeType();
-        Assertions.assertEquals(MetaLakeType.GRAVITINO, result);
+        try (TableSchemaDiscoverer discoverer =
+                new TableSchemaDiscoverer(context, TEST_CATALOG_NAME)) {
+            MetaLakeType result = discoverer.getMetaLakeType();
+            Assertions.assertEquals(MetaLakeType.GRAVITINO, result);
+        }
     }
 
     @Test

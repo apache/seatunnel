@@ -49,9 +49,10 @@ public interface TableSourceFactory extends Factory {
      * @param context TableFactoryContext
      */
     default List<CatalogTable> discoverTableSchemas(TableSourceFactoryContext context) {
-        final TableSchemaDiscoverer metaLakeSchemaDiscoverer =
-                new TableSchemaDiscoverer(context, factoryIdentifier());
-        return metaLakeSchemaDiscoverer.discoverTableSchemas();
+        try (TableSchemaDiscoverer metaLakeSchemaDiscoverer =
+                new TableSchemaDiscoverer(context, factoryIdentifier())) {
+            return metaLakeSchemaDiscoverer.discoverTableSchemas();
+        }
     }
 
     /**
