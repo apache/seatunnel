@@ -43,6 +43,7 @@ import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.anyLong;
 import static org.mockito.Mockito.clearInvocations;
 import static org.mockito.Mockito.doNothing;
+import static org.mockito.Mockito.doThrow;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.times;
@@ -82,6 +83,37 @@ class JdbcExactlyOnceSinkWriterTest {
         verify(context.xaFacade, times(2)).start(startXidCaptor.capture());
         Xid preparedXid = startXidCaptor.getAllValues().get(0);
         verify(context.xaFacade, times(1)).rollback(preparedXid);
+    }
+
+    @Test
+    void testPrepareCommitWithEmptyTransactionDontRollbackPreparedXidWhenStartNextTxFailed()
+            throws Exception {
+        TestContext context = createWriter();
+
+        doThrow(mock(XaFacade.EmptyXaTransactionException.class))
+                .when(context.xaFacade)
+                .endAndPrepare(any());
+        doNothing()
+                .doThrow(new RuntimeException("start next tx failed"))
+                .when(context.xaFacade)
+                .start(any());
+
+        Assertions.assertThrows(
+                JdbcConnectorException.class, () -> context.writer.prepareCommit(10L));
+
+        verify(context.xaFacade, never()).rollback(any());
+        Assertions.assertNull(getPrivateField(context.writer, "prepareXid"));
+    }
+
+    @Test
+    void testInjectedConstructorOpenXidGeneratorOnFirstUse() throws Exception {
+        TestContext context = createWriter();
+
+        verify(context.xidGenerator, never()).open();
+
+        context.writer.prepareCommit(10L);
+
+        verify(context.xidGenerator, times(1)).open();
     }
 
     @Test
