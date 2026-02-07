@@ -21,9 +21,9 @@ import org.apache.seatunnel.api.configuration.util.OptionRule;
 import org.apache.seatunnel.api.source.SeaTunnelSource;
 import org.apache.seatunnel.api.table.factory.Factory;
 import org.apache.seatunnel.api.table.factory.TableSourceFactory;
+import org.apache.seatunnel.connectors.seatunnel.http.config.HttpCommonOptions;
 
 import com.google.auto.service.AutoService;
-import org.apache.seatunnel.connectors.seatunnel.http.config.HttpCommonOptions;
 
 @AutoService(Factory.class)
 public class HubSpotSourceFactory implements TableSourceFactory {
@@ -43,7 +43,6 @@ public class HubSpotSourceFactory implements TableSourceFactory {
     }
 
     @Override
-    @SuppressWarnings("rawtypes")
     public Class<? extends SeaTunnelSource> getSourceClass() {
         return HubSpotSource.class;
     }

@@ -26,7 +26,10 @@ import lombok.extern.slf4j.Slf4j;
 public class HubSpotSource extends HttpSource {
 
     public HubSpotSource(ReadonlyConfig config) {
-        super(new HubSpotSourceParameter(config).getConfig());
+        super(config);
+
+        // FIX: Apply our custom logic immediately after parent constructor
+        HubSpotSourceParameter.configure(this.httpParameter, config);
     }
 
     @Override
