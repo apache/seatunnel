@@ -26,6 +26,8 @@ import org.apache.seatunnel.core.starter.enums.MasterType;
 import org.apache.seatunnel.core.starter.flink.args.FlinkCommandArgs;
 import org.apache.seatunnel.core.starter.utils.CommandLineUtils;
 
+import java.net.URI;
+import java.net.URISyntaxException;
 import java.nio.file.Paths;
 import java.util.ArrayList;
 import java.util.List;
@@ -60,9 +62,11 @@ public abstract class AbstractFlinkStarter implements Starter {
         // set deploy mode, run or run-application
         command.add(flinkCommandArgs.getDeployMode().getDeployMode());
         // set restore checkpoint
-        if (StringUtils.isNoneBlank(flinkCommandArgs.getFromSavepoint())) {
+        String fromSavepoint = flinkCommandArgs.getFromSavepoint();
+        if (Objects.nonNull(fromSavepoint)) {
+            validateCheckpointPath(fromSavepoint);
             command.add("-s");
-            command.add(flinkCommandArgs.getFromSavepoint());
+            command.add(fromSavepoint);
         }
         // set submitted target master
         if (flinkCommandArgs.getMasterType() != null) {
@@ -118,5 +122,22 @@ public abstract class AbstractFlinkStarter implements Starter {
                 .map(String::trim)
                 .forEach(variable -> command.add("-i " + variable));
         return command;
+    }
+
+    private void validateCheckpointPath(String checkpointPath) {
+        if (StringUtils.isBlank(checkpointPath)) {
+            throw new IllegalArgumentException("Checkpoint path must not be blank");
+        }
+        if (!checkpointPath.contains("://")) {
+            throw new IllegalArgumentException(
+                    "Checkpoint path must be a valid URI (e.g. hdfs://path or s3://path), but got: "
+                            + checkpointPath);
+        }
+        try {
+            new URI(checkpointPath);
+        } catch (URISyntaxException e) {
+            throw new IllegalArgumentException(
+                    "Checkpoint path must be a valid URI, but got: " + checkpointPath, e);
+        }
     }
 }

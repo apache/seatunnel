@@ -96,4 +96,17 @@ public class FlinkCommandArgsTest {
                 !commands.contains("-s") && !commands.contains("--fromSavepoint"),
                 "The flink commands should not include either `-s` or `--fromSavepoint`");
     }
+
+    @Test
+    public void testBuildFlinkCommandArgsWithInvalidCheckpointPath() {
+        FlinkStarter flinkStarter =
+                new FlinkStarter(
+                        new String[] {
+                            "--target", "local",
+                            "--deploy-mode ", "run",
+                            "--config ", "/config/fake_to_inmemory1.json",
+                            "--fromCheckpoint ", "invalid_path"
+                        });
+        Assertions.assertThrows(IllegalArgumentException.class, flinkStarter::buildCommands);
+    }
 }
