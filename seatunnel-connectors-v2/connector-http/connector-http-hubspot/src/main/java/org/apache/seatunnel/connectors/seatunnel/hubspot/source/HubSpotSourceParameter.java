@@ -15,7 +15,7 @@
  * limitations under the License.
  */
 
-package org.apache.seatunnel.connectors.seatunnel.hubspot.source; // FIX: Updated to match your file path
+package org.apache.seatunnel.connectors.seatunnel.hubspot.source;
 
 import org.apache.seatunnel.api.configuration.ReadonlyConfig;
 import org.apache.seatunnel.connectors.seatunnel.http.config.HttpCommonOptions;
@@ -24,30 +24,38 @@ import org.apache.seatunnel.connectors.seatunnel.http.config.HttpParameter;
 import java.lang.reflect.Field;
 
 public class HubSpotSourceParameter extends HttpParameter {
-    // FIX 1: Change default to valid JsonPath
+    // Default JsonPath
     public static final String DEFAULT_CONTENT_FIELD = "$.results";
 
-    @Override
-    public void buildWithConfig(ReadonlyConfig pluginConfig) {
-        super.buildWithConfig(pluginConfig);
-
-        // FIX 2: Support 'url' override for testing
-        if (pluginConfig.getOptional(HttpCommonOptions.URL).isPresent()) {
-            this.setUrl(pluginConfig.get(HttpCommonOptions.URL));
+    /** Helper method to apply HubSpot-specific configuration to the standard HttpParameter. */
+    public static void configure(HttpParameter parameter, ReadonlyConfig config) {
+        // 1. Allow URL override for testing
+        if (config.getOptional(HttpCommonOptions.URL).isPresent()) {
+            parameter.setUrl(config.get(HttpCommonOptions.URL));
         }
 
-        // FIX 3: Apply default content_field using Reflection (Safe Fallback)
+        // 2. Set default content_field using Reflection
+        // We do this here because we cannot change the logic inside the parent HttpSource
+        // constructor
         try {
-            Field contentFieldVar = HttpParameter.class.getDeclaredField("contentField");
-            contentFieldVar.setAccessible(true);
+            // Check if 'content_field' is missing in the config
+            // (We construct the option key manually to avoid import issues)
+            boolean hasContentField =
+                    config.getOptional(
+                                    org.apache.seatunnel.api.configuration.Options.key(
+                                                    "content_field")
+                                            .stringType()
+                                            .noDefaultValue())
+                            .isPresent();
 
-            Object currentValue = contentFieldVar.get(this);
-
-            if (currentValue == null) {
-                contentFieldVar.set(this, DEFAULT_CONTENT_FIELD);
+            if (!hasContentField) {
+                // Force set our default "$.results"
+                Field contentFieldVar = HttpParameter.class.getDeclaredField("contentField");
+                contentFieldVar.setAccessible(true);
+                contentFieldVar.set(parameter, DEFAULT_CONTENT_FIELD);
             }
         } catch (Exception e) {
-            // Safe to ignore if reflection fails
+            // Safe to ignore, connector will use default behavior
         }
     }
 }

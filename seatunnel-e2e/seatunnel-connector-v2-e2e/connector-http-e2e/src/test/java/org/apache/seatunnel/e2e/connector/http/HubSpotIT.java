@@ -39,11 +39,8 @@ import java.io.IOException;
 
 public class HubSpotIT extends TestSuiteBase implements TestResource {
 
-    // FIX: Manually define the LOG variable to resolve the symbol error
     private static final Logger LOG = LoggerFactory.getLogger(HubSpotIT.class);
-
     private static final String MOCKSERVER_IMAGE = "mockserver/mockserver:5.14.0";
-
     private GenericContainer<?> mockServerContainer;
     private MockServerClient mockServerClient;
 
@@ -102,7 +99,6 @@ public class HubSpotIT extends TestSuiteBase implements TestResource {
 
     @TestTemplate
     public void testHubSpotSource(TestContainer container) throws IOException, InterruptedException {
-        // Fix: Use correct class Container.ExecResult
         Container.ExecResult result = container.executeJob("/hubspot_source_case.conf");
         Assertions.assertEquals(0, result.getExitCode());
     }
