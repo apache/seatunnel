@@ -38,7 +38,7 @@ import static java.nio.file.FileVisitOption.FOLLOW_LINKS;
 
 public class Common {
 
-    public static final String FLINK_YARN_APPLICATION_PATH = "runtime.tar.gz";
+    private static final String FLINK_YARN_APPLICATION_PATH = "runtime.tar.gz";
 
     private Common() {
         throw new IllegalStateException("Utility class");
