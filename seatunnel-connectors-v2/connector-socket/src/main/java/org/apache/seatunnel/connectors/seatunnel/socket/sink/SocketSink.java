@@ -19,6 +19,7 @@ package org.apache.seatunnel.connectors.seatunnel.socket.sink;
 
 import org.apache.seatunnel.api.configuration.ReadonlyConfig;
 import org.apache.seatunnel.api.sink.SinkWriter;
+import org.apache.seatunnel.api.sink.SupportMultiTableSink;
 import org.apache.seatunnel.api.table.catalog.CatalogTable;
 import org.apache.seatunnel.api.table.type.SeaTunnelRow;
 import org.apache.seatunnel.connectors.seatunnel.common.sink.AbstractSimpleSink;
@@ -29,7 +30,22 @@ import org.apache.seatunnel.connectors.seatunnel.socket.config.SocketSinkOptions
 import java.io.IOException;
 import java.util.Optional;
 
-public class SocketSink extends AbstractSimpleSink<SeaTunnelRow, Void> {
+/**
+ * Socket Sink for writing data to a network socket.
+ *
+ * <p>This sink implements {@link SupportMultiTableSink} to support multi-table routing scenarios.
+ * In multi-table mode, multiple source tables can write to the same socket instance without data
+ * shuffling, which is useful for CDC and debugging scenarios.
+ *
+ * <p><b>Current Implementation:</b> Uses a shared schema for all incoming rows (the schema of the
+ * first table). This works correctly for single-table jobs and multi-table jobs where all tables
+ * share the same schema.
+ *
+ * @see org.apache.seatunnel.api.sink.SupportMultiTableSink
+ * @since 2.3.13
+ */
+public class SocketSink extends AbstractSimpleSink<SeaTunnelRow, Void>
+        implements SupportMultiTableSink {
 
     private final SocketConfig socketConfig;
     private final CatalogTable catalogTable;
