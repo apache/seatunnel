@@ -68,7 +68,7 @@ public class CheckpointBarrierTriggerErrorTest extends AbstractSeaTunnelServerTe
                 .when(spiedCheckpointManager)
                 .sendOperationToMemberNode(Mockito.any(CheckpointBarrierTriggerOperation.class));
 
-        await().atMost(360000, TimeUnit.MILLISECONDS)
+        await().atMost(120000, TimeUnit.MILLISECONDS)
                 .untilAsserted(
                         () -> {
                             Assertions.assertEquals(
