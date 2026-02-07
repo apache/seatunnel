@@ -23,6 +23,7 @@ import org.apache.seatunnel.api.table.factory.Factory;
 import org.apache.seatunnel.api.table.factory.TableSourceFactory;
 
 import com.google.auto.service.AutoService;
+import org.apache.seatunnel.connectors.seatunnel.http.config.HttpCommonOptions;
 
 @AutoService(Factory.class)
 public class HubSpotSourceFactory implements TableSourceFactory {
@@ -36,7 +37,8 @@ public class HubSpotSourceFactory implements TableSourceFactory {
     public OptionRule optionRule() {
         return OptionRule.builder()
                 .required(HubSpotSourceOptions.ACCESS_TOKEN)
-                .optional(HubSpotSourceOptions.OBJECT_TYPE)
+                .required(HubSpotSourceOptions.OBJECT_TYPE)
+                .optional(HttpCommonOptions.URL)
                 .build();
     }
 
