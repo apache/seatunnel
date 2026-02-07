@@ -44,6 +44,7 @@ if [ -f "${CONF_DIR}/seatunnel-env.sh" ]; then
 fi
 
 if [ ! -f "${APP_DIR}/runtime.tar.gz" ];then
+
   directories=("connectors" "lib" "plugins")
 
   existing_dirs=()
