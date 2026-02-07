@@ -49,11 +49,13 @@ import java.sql.Statement;
 import java.sql.Timestamp;
 import java.util.ArrayList;
 import java.util.Arrays;
+import java.util.Calendar;
 import java.util.HashMap;
 import java.util.Iterator;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
+import java.util.TimeZone;
 
 /** The utils for SqlServer data source. */
 @Slf4j
@@ -289,10 +291,14 @@ public class SqlServerUtils {
      *
      * @param connection SQL Server connection
      * @param timestampMs timestamp in milliseconds
+     * @param serverTimeZone database server time zone
      * @return LsnOffset corresponding to the timestamp
      */
-    public static LsnOffset timestampToLsn(SqlServerConnection connection, long timestampMs) {
+    public static LsnOffset timestampToLsn(
+            SqlServerConnection connection, long timestampMs, String serverTimeZone) {
         try {
+            String effectiveServerTimeZone =
+                    serverTimeZone == null ? TimeZone.getDefault().getID() : serverTimeZone;
             String sql =
                     "SELECT sys.fn_cdc_map_time_to_lsn('smallest greater than or equal', ?) AS lsn";
 
@@ -300,7 +306,9 @@ public class SqlServerUtils {
                     sql,
                     ps -> {
                         Timestamp timestamp = new Timestamp(timestampMs);
-                        ps.setTimestamp(1, timestamp);
+                        Calendar calendar =
+                                Calendar.getInstance(TimeZone.getTimeZone(effectiveServerTimeZone));
+                        ps.setTimestamp(1, timestamp, calendar);
                     },
                     rs -> {
                         if (!rs.next()) {

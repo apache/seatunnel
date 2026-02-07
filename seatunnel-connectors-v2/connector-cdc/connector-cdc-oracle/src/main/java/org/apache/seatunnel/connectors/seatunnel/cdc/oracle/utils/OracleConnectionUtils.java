@@ -33,9 +33,11 @@ import io.debezium.relational.TableId;
 
 import java.sql.SQLException;
 import java.util.ArrayList;
+import java.util.Calendar;
 import java.util.HashSet;
 import java.util.List;
 import java.util.Set;
+import java.util.TimeZone;
 
 import static io.debezium.config.CommonConnectorConfig.DATABASE_CONFIG_PREFIX;
 
@@ -89,17 +91,26 @@ public class OracleConnectionUtils {
      *
      * @param jdbc JDBC connection
      * @param timestampMs timestamp in milliseconds since epoch
+     * @param serverTimeZone database server time zone
      * @return RedoLogOffset with the corresponding SCN
      */
-    public static RedoLogOffset timestampToScn(JdbcConnection jdbc, long timestampMs) {
+    public static RedoLogOffset timestampToScn(
+            JdbcConnection jdbc, long timestampMs, String serverTimeZone) {
         try {
-            LOG.info("Converting timestamp {} to SCN", timestampMs);
+            String effectiveServerTimeZone =
+                    serverTimeZone == null ? TimeZone.getDefault().getID() : serverTimeZone;
+            LOG.info(
+                    "Converting timestamp {} to SCN with server time zone {}",
+                    timestampMs,
+                    effectiveServerTimeZone);
             String sql = "SELECT TIMESTAMP_TO_SCN(?) AS SCN FROM DUAL";
             return jdbc.prepareQueryAndMap(
                     sql,
                     statement -> {
                         java.sql.Timestamp timestamp = new java.sql.Timestamp(timestampMs);
-                        statement.setTimestamp(1, timestamp);
+                        Calendar calendar =
+                                Calendar.getInstance(TimeZone.getTimeZone(effectiveServerTimeZone));
+                        statement.setTimestamp(1, timestamp, calendar);
                     },
                     rs -> {
                         if (rs.next()) {

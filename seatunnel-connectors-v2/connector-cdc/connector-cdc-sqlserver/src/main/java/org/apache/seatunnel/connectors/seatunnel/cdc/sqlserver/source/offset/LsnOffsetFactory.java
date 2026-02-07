@@ -74,7 +74,10 @@ public class LsnOffsetFactory extends OffsetFactory {
     @Override
     public Offset timestamp(long timestamp) {
         try (JdbcConnection jdbcConnection = dialect.openJdbcConnection(sourceConfig)) {
-            return SqlServerUtils.timestampToLsn((SqlServerConnection) jdbcConnection, timestamp);
+            return SqlServerUtils.timestampToLsn(
+                    (SqlServerConnection) jdbcConnection,
+                    timestamp,
+                    sourceConfig.getServerTimeZone());
         } catch (Exception e) {
             throw new RuntimeException("Convert timestamp to LSN offset error", e);
         }
