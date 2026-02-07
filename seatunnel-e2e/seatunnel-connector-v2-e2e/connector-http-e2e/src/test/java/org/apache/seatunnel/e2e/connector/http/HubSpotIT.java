@@ -20,6 +20,7 @@ package org.apache.seatunnel.e2e.connector.http;
 import org.apache.seatunnel.e2e.common.TestResource;
 import org.apache.seatunnel.e2e.common.TestSuiteBase;
 import org.apache.seatunnel.e2e.common.container.TestContainer;
+
 import org.junit.jupiter.api.AfterAll;
 import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.BeforeAll;
@@ -47,19 +48,23 @@ public class HubSpotIT extends TestSuiteBase implements TestResource {
     @BeforeAll
     @Override
     public void startUp() {
-        this.mockServerContainer = new GenericContainer<>(DockerImageName.parse(MOCKSERVER_IMAGE))
-                .withNetwork(NETWORK)
-                .withNetworkAliases("mock-server")
-                .withExposedPorts(1080)
-                .waitingFor(Wait.forHttp("/mockserver/status").withMethod("PUT").forStatusCode(200))
-                .withLogConsumer(new Slf4jLogConsumer(LOG));
+        this.mockServerContainer =
+                new GenericContainer<>(DockerImageName.parse(MOCKSERVER_IMAGE))
+                        .withNetwork(NETWORK)
+                        .withNetworkAliases("mock-server")
+                        .withExposedPorts(1080)
+                        .waitingFor(
+                                Wait.forHttp("/mockserver/status")
+                                        .withMethod("PUT")
+                                        .forStatusCode(200))
+                        .withLogConsumer(new Slf4jLogConsumer(LOG));
 
         this.mockServerContainer.start();
 
-        this.mockServerClient = new MockServerClient(
-                this.mockServerContainer.getHost(),
-                this.mockServerContainer.getMappedPort(1080)
-        );
+        this.mockServerClient =
+                new MockServerClient(
+                        this.mockServerContainer.getHost(),
+                        this.mockServerContainer.getMappedPort(1080));
 
         this.initMockServer();
     }
@@ -77,28 +82,25 @@ public class HubSpotIT extends TestSuiteBase implements TestResource {
 
     private void initMockServer() {
         this.mockServerClient
-                .when(
-                        HttpRequest.request()
-                                .withMethod("GET")
-                                .withPath("/crm/v3/objects/contacts")
-                )
+                .when(HttpRequest.request().withMethod("GET").withPath("/crm/v3/objects/contacts"))
                 .respond(
                         HttpResponse.response()
                                 .withStatusCode(200)
                                 .withHeader("Content-Type", "application/json")
-                                .withBody("{\n" +
-                                        "  \"results\": [\n" +
-                                        "    {\n" +
-                                        "      \"id\": \"101\",\n" +
-                                        "      \"properties\": \"{'firstname': 'Suresh', 'lastname': 'Krishna'}\"\n" +
-                                        "    }\n" +
-                                        "  ]\n" +
-                                        "}")
-                );
+                                .withBody(
+                                        "{\n"
+                                                + "  \"results\": [\n"
+                                                + "    {\n"
+                                                + "      \"id\": \"101\",\n"
+                                                + "      \"properties\": \"{'firstname': 'Suresh', 'lastname': 'Krishna'}\"\n"
+                                                + "    }\n"
+                                                + "  ]\n"
+                                                + "}"));
     }
 
     @TestTemplate
-    public void testHubSpotSource(TestContainer container) throws IOException, InterruptedException {
+    public void testHubSpotSource(TestContainer container)
+            throws IOException, InterruptedException {
         Container.ExecResult result = container.executeJob("/hubspot_source_case.conf");
         Assertions.assertEquals(0, result.getExitCode());
     }
