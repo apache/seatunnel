@@ -11,12 +11,11 @@ Supported objects: Contacts, Companies, Deals, etc.
 
 ## Key features
 
-- [x] [batch](../../introduction/concepts/connector-v2-features.md)
-- [ ] [stream](../../introduction/concepts/connector-v2-features.md)
-- [x] [exactly-once](../../introduction/concepts/connector-v2-features.md)
-- [ ] [column projection](../../introduction/concepts/connector-v2-features.md)
-- [x] [parallelism](../../introduction/concepts/connector-v2-features.md)
-- [ ] [support user-defined split](../../introduction/concepts/connector-v2-features.md)
+| Feature | Supported |
+| :--- | :--- |
+| Batch | [x] |
+| Stream | [ ] |
+| Exactly-Once | [ ] | | Parallelism | [ ] | ```
 
 ## Options
 

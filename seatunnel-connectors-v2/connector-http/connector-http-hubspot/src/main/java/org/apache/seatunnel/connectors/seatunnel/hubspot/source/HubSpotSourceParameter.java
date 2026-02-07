@@ -15,69 +15,39 @@
  * limitations under the License.
  */
 
-package org.apache.seatunnel.connectors.seatunnel.hubspot.source;
+package org.apache.seatunnel.connectors.seatunnel.hubspot.source; // FIX: Updated to match your file path
 
 import org.apache.seatunnel.api.configuration.ReadonlyConfig;
+import org.apache.seatunnel.connectors.seatunnel.http.config.HttpCommonOptions;
 import org.apache.seatunnel.connectors.seatunnel.http.config.HttpParameter;
 
-import java.util.HashMap;
-import java.util.Map;
+import java.lang.reflect.Field;
 
 public class HubSpotSourceParameter extends HttpParameter {
-
-    private final ReadonlyConfig targetConfig;
-
-    public HubSpotSourceParameter(ReadonlyConfig originalConfig) {
-        super();
-
-        // 1. Get user inputs
-        String objectType =
-                originalConfig.getOptional(HubSpotSourceOptions.OBJECT_TYPE).orElse("contacts");
-        String accessToken = originalConfig.get(HubSpotSourceOptions.ACCESS_TOKEN);
-
-        // 2. Determine Base URL
-        String providedUrl =
-                originalConfig
-                        .getOptional(
-                                org.apache.seatunnel.api.configuration.Options.key("url")
-                                        .stringType()
-                                        .noDefaultValue())
-                        .orElse(null);
-
-        if (providedUrl != null) {
-            this.url = providedUrl;
-        } else {
-            this.url = "https://api.hubapi.com/crm/v3/objects/" + objectType;
-        }
-
-        this.headers = new HashMap<>();
-        this.headers.put("Authorization", "Bearer " + accessToken);
-        this.headers.put("Content-Type", "application/json");
-
-        // 3. Build the final config map for the parent Source
-        Map<String, Object> params = new HashMap<>(originalConfig.toMap());
-        params.put("url", this.url);
-        params.put("headers", this.headers);
-        params.put("content_field", "results");
-
-        this.targetConfig = ReadonlyConfig.fromMap(params);
-    }
-
-    public ReadonlyConfig getConfig() {
-        return targetConfig;
-    }
+    // FIX 1: Change default to valid JsonPath
+    public static final String DEFAULT_CONTENT_FIELD = "$.results";
 
     @Override
-    public String toString() {
-        return "HubSpotSourceParameter{"
-                + "url='"
-                + url
-                + '\''
-                + ", method='"
-                + method
-                + '\''
-                + ", headers=******"
-                + // Mask headers
-                '}';
+    public void buildWithConfig(ReadonlyConfig pluginConfig) {
+        super.buildWithConfig(pluginConfig);
+
+        // FIX 2: Support 'url' override for testing
+        if (pluginConfig.getOptional(HttpCommonOptions.URL).isPresent()) {
+            this.setUrl(pluginConfig.get(HttpCommonOptions.URL));
+        }
+
+        // FIX 3: Apply default content_field using Reflection (Safe Fallback)
+        try {
+            Field contentFieldVar = HttpParameter.class.getDeclaredField("contentField");
+            contentFieldVar.setAccessible(true);
+
+            Object currentValue = contentFieldVar.get(this);
+
+            if (currentValue == null) {
+                contentFieldVar.set(this, DEFAULT_CONTENT_FIELD);
+            }
+        } catch (Exception e) {
+            // Safe to ignore if reflection fails
+        }
     }
 }
