@@ -20,6 +20,7 @@ package org.apache.seatunnel.engine.common.config.server;
 import org.apache.seatunnel.engine.common.config.server.scheduler.ScheduleStrategyConfig;
 import org.apache.seatunnel.engine.common.config.server.scheduler.WaitConfig;
 import org.apache.seatunnel.engine.common.config.server.scheduler.WaitRescheduleConfig;
+import org.apache.seatunnel.engine.common.config.server.scheduler.WindowScanAgingPriorityConfig;
 
 import com.hazelcast.config.InvalidConfigurationException;
 
@@ -28,11 +29,9 @@ import java.util.Optional;
 import java.util.function.Consumer;
 import java.util.function.Supplier;
 
-import static org.apache.seatunnel.engine.common.config.server.ServerConfigOptions.MasterServerConfigOptions.PENDING_JOB_RESCHEDULE;
-
 public enum ScheduleStrategy {
     WAIT(
-            new String[] {PENDING_JOB_RESCHEDULE.key()},
+            new String[] {"wait"},
             WaitConfig::new,
             config -> {
                 WaitConfig waitConfig = (WaitConfig) config;
@@ -42,7 +41,7 @@ public enum ScheduleStrategy {
                 }
             }),
     WAIT_RESCHEDULE(
-            new String[] {PENDING_JOB_RESCHEDULE.key()},
+            new String[] {"pending-job-reschedule"},
             WaitRescheduleConfig::new,
             config -> {
                 WaitRescheduleConfig waitRescheduleConfig = (WaitRescheduleConfig) config;
@@ -53,6 +52,25 @@ public enum ScheduleStrategy {
                 if (waitRescheduleConfig.getSleepIntervalMillis() <= 0) {
                     throw new InvalidConfigurationException(
                             "pending-job-reschedule.sleep-interval-millis must be > 0");
+                }
+            }),
+    WINDOW_SCAN_AGING_PRIORITY(
+            new String[] {"window-scan-aging-priority"},
+            WindowScanAgingPriorityConfig::new,
+            config -> {
+                WindowScanAgingPriorityConfig windowScanAgingPriorityConfig =
+                        (WindowScanAgingPriorityConfig) config;
+                if (windowScanAgingPriorityConfig.getWindowSize() <= 0) {
+                    throw new InvalidConfigurationException(
+                            "window-scan-aging-priority.window-size must be > 0");
+                }
+                if (windowScanAgingPriorityConfig.getAgingThresholdMillis() <= 0) {
+                    throw new InvalidConfigurationException(
+                            "window-scan-aging-priority.aging-threshold-millis must be > 0");
+                }
+                if (windowScanAgingPriorityConfig.getSleepIntervalMillis() <= 0) {
+                    throw new InvalidConfigurationException(
+                            "window-scan-aging-priority.sleep-interval-millis must be > 0");
                 }
             }),
     REJECT(new String[0], null, null);
@@ -71,7 +89,7 @@ public enum ScheduleStrategy {
     }
 
     public boolean isWait() {
-        return this == WAIT || this == WAIT_RESCHEDULE;
+        return this == WAIT || this == WAIT_RESCHEDULE || this == WINDOW_SCAN_AGING_PRIORITY;
     }
 
     public boolean supportsConfigSection() {

@@ -21,18 +21,13 @@ import org.apache.seatunnel.engine.common.config.EngineConfig;
 import org.apache.seatunnel.engine.server.execution.PendingJobInfo;
 import org.apache.seatunnel.engine.server.utils.PeekBlockingQueue;
 
-public interface PendingJobScheduleContext {
-    PendingJobInfo getPendingJobInfo();
-
-    PeekBlockingQueue<PendingJobInfo> getPendingJobQueue();
-
-    EngineConfig getEngineConfig();
-
-    long getJobId();
-
-    boolean moveHeadToTail();
-
-    void failJob();
-
-    void sleep(long sleepMillis) throws InterruptedException;
+public class WaitReschedulePendingJobScheduleContext extends AbstractPendingJobScheduleContext {
+    public WaitReschedulePendingJobScheduleContext(
+            PendingJobInfo pendingJobInfo,
+            PeekBlockingQueue<PendingJobInfo> pendingJobQueue,
+            EngineConfig engineConfig,
+            long jobId,
+            Runnable failJobAction) {
+        super(pendingJobInfo, pendingJobQueue, engineConfig, jobId, failJobAction);
+    }
 }

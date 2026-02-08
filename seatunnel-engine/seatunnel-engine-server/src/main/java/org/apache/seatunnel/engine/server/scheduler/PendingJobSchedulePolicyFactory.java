@@ -20,6 +20,7 @@ package org.apache.seatunnel.engine.server.scheduler;
 import org.apache.seatunnel.engine.common.config.server.ScheduleStrategy;
 import org.apache.seatunnel.engine.common.config.server.scheduler.WaitConfig;
 import org.apache.seatunnel.engine.common.config.server.scheduler.WaitRescheduleConfig;
+import org.apache.seatunnel.engine.common.config.server.scheduler.WindowScanAgingPriorityConfig;
 
 public final class PendingJobSchedulePolicyFactory {
 
@@ -31,6 +32,8 @@ public final class PendingJobSchedulePolicyFactory {
                 return new WaitPolicy();
             case WAIT_RESCHEDULE:
                 return new WaitReschedulePolicy();
+            case WINDOW_SCAN_AGING_PRIORITY:
+                return new WindowScanAgingPriorityPolicy();
             case REJECT:
             default:
                 return new RejectPolicy();
@@ -78,6 +81,40 @@ public final class PendingJobSchedulePolicyFactory {
         @Override
         public void onResourcesNotEnough(PendingJobScheduleContext context) {
             context.failJob();
+        }
+    }
+
+    private static class WindowScanAgingPriorityPolicy implements PendingJobSchedulePolicy {
+        @Override
+        public void onResourcesNotEnough(PendingJobScheduleContext context)
+                throws InterruptedException {
+            WindowScanAgingPriorityConfig config =
+                    context.getEngineConfig()
+                            .getScheduleStrategyConfig(
+                                    ScheduleStrategy.WINDOW_SCAN_AGING_PRIORITY,
+                                    WindowScanAgingPriorityConfig.class);
+            if (config == null) {
+                config = new WindowScanAgingPriorityConfig();
+            }
+
+            long ageMillis =
+                    System.currentTimeMillis() - context.getPendingJobInfo().getEnqueueTimestamp();
+            if (ageMillis >= config.getAgingThresholdMillis()) {
+                context.sleep(config.getSleepIntervalMillis());
+                return;
+            }
+
+            int checkTimes = context.getPendingJobInfo().getCheckTimes();
+            int windowSize = config.getWindowSize();
+            if (windowSize > 0
+                    && context.getPendingJobQueue().size() > 1
+                    && (checkTimes <= 0 || checkTimes % windowSize != 0)) {
+                context.moveHeadToTail();
+                context.sleep(0);
+                return;
+            }
+
+            context.sleep(config.getSleepIntervalMillis());
         }
     }
 }

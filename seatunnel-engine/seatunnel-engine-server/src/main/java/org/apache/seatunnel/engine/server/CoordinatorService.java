@@ -68,6 +68,7 @@ import org.apache.seatunnel.engine.server.resourcemanager.ResourceManager;
 import org.apache.seatunnel.engine.server.resourcemanager.ResourceManagerFactory;
 import org.apache.seatunnel.engine.server.resourcemanager.resource.SlotProfile;
 import org.apache.seatunnel.engine.server.scheduler.PendingJobScheduleContext;
+import org.apache.seatunnel.engine.server.scheduler.PendingJobScheduleContextFactory;
 import org.apache.seatunnel.engine.server.scheduler.PendingJobSchedulePolicy;
 import org.apache.seatunnel.engine.server.scheduler.PendingJobSchedulePolicyFactory;
 import org.apache.seatunnel.engine.server.service.jar.ConnectorPackageService;
@@ -285,7 +286,8 @@ public class CoordinatorService {
                             "Current strategy is %s, and resources is not enough, skipping this schedule, JobID: %s",
                             scheduleStrategy, jobId));
             PendingJobScheduleContext context =
-                    new PendingJobScheduleContext(
+                    PendingJobScheduleContextFactory.create(
+                            scheduleStrategy,
                             pendingJobInfo,
                             pendingJobQueue,
                             engineConfig,

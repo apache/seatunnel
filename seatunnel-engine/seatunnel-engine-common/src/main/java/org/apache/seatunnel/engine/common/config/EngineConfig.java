@@ -30,6 +30,7 @@ import org.apache.seatunnel.engine.common.config.server.ThreadShareMode;
 import org.apache.seatunnel.engine.common.config.server.scheduler.ScheduleStrategyConfig;
 import org.apache.seatunnel.engine.common.config.server.scheduler.WaitConfig;
 import org.apache.seatunnel.engine.common.config.server.scheduler.WaitRescheduleConfig;
+import org.apache.seatunnel.engine.common.config.server.scheduler.WindowScanAgingPriorityConfig;
 import org.apache.seatunnel.engine.common.runtime.ExecutionMode;
 
 import lombok.Data;
@@ -111,6 +112,8 @@ public class EngineConfig {
                 new EnumMap<>(ScheduleStrategy.class);
         configs.put(ScheduleStrategy.WAIT, new WaitConfig());
         configs.put(ScheduleStrategy.WAIT_RESCHEDULE, new WaitRescheduleConfig());
+        configs.put(
+                ScheduleStrategy.WINDOW_SCAN_AGING_PRIORITY, new WindowScanAgingPriorityConfig());
         return configs;
     }
 

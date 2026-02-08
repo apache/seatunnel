@@ -15,24 +15,16 @@
  * limitations under the License.
  */
 
-package org.apache.seatunnel.engine.server.scheduler;
+package org.apache.seatunnel.engine.common.config.server.scheduler;
 
-import org.apache.seatunnel.engine.common.config.EngineConfig;
-import org.apache.seatunnel.engine.server.execution.PendingJobInfo;
-import org.apache.seatunnel.engine.server.utils.PeekBlockingQueue;
+import lombok.Data;
 
-public interface PendingJobScheduleContext {
-    PendingJobInfo getPendingJobInfo();
+@Data
+public class WindowScanAgingPriorityConfig implements ScheduleStrategyConfig {
 
-    PeekBlockingQueue<PendingJobInfo> getPendingJobQueue();
+    private int windowSize = 5;
 
-    EngineConfig getEngineConfig();
+    private long agingThresholdMillis = 60000;
 
-    long getJobId();
-
-    boolean moveHeadToTail();
-
-    void failJob();
-
-    void sleep(long sleepMillis) throws InterruptedException;
+    private int sleepIntervalMillis = 3000;
 }
