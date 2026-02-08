@@ -37,7 +37,7 @@ public class HubSpotSourceFactory implements TableSourceFactory {
     public OptionRule optionRule() {
         return OptionRule.builder()
                 .required(HubSpotSourceOptions.ACCESS_TOKEN)
-                .required(HubSpotSourceOptions.OBJECT_TYPE)
+                .optional(HubSpotSourceOptions.OBJECT_TYPE)
                 .optional(HttpCommonOptions.URL)
                 .build();
     }
