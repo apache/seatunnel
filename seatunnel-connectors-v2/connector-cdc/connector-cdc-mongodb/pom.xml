@@ -23,7 +23,7 @@
     <parent>
         <groupId>org.apache.seatunnel</groupId>
         <artifactId>connector-cdc</artifactId>
-        <version>3.0.0-SNAPSHOT</version>
+        <version>${revision}</version>
     </parent>
     <artifactId>connector-cdc-mongodb</artifactId>
     <name>SeaTunnel : Connectors V2 : CDC : Mongodb</name>
