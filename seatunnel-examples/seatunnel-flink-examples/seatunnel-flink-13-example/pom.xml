@@ -21,11 +21,11 @@
     <parent>
         <groupId>org.apache.seatunnel</groupId>
         <artifactId>seatunnel-flink-examples</artifactId>
-        <version>${revision}</version>
+        <version>3.0.0-SNAPSHOT</version>
     </parent>
 
     <artifactId>seatunnel-flink-13-example</artifactId>
-    <version>${revision}</version>
+    <version>3.0.0-SNAPSHOT</version>
     <name>SeaTunnel : Examples : Flink : 1.13</name>
 
     <properties>
