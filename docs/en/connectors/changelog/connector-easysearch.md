@@ -2,6 +2,7 @@
 
 | Change | Commit | Version |
 | --- | --- | --- |
+|[Fix][Connector-v2][Easysearch] Handle optional password in credentials and add clearScroll method (#10161)|https://github.com/apache/seatunnel/commit/aeed71cebf|2.3.13|
 |[improve] EasySearch support schema_save_mode/data_save_mode (#9310)|https://github.com/apache/seatunnel/commit/3ceb57f279|2.3.11|
 |[Feature][Checkpoint] Add check script for source/sink state class serialVersionUID missing (#9118)|https://github.com/apache/seatunnel/commit/4f5adeb1c7|2.3.11|
 |[Improve] easysearch options (#8951)|https://github.com/apache/seatunnel/commit/349f142962|2.3.10|

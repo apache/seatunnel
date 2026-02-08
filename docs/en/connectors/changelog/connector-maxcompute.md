@@ -2,6 +2,9 @@
 
 | Change | Commit | Version |
 | --- | --- | --- |
+|[Improve][seatunnel-api] Unify non-relational data source multi-table mode schema configuration parameters (#10370)|https://github.com/apache/seatunnel/commit/3f1fd541fe|2.3.13|
+|[Fix] Fix CVE-2025-48924 for commons-lang3 (#9935)|https://github.com/apache/seatunnel/commit/c079a967e7|2.3.13|
+|[Fix][Core] Add shade module for apache commons lang3 (#9895)|https://github.com/apache/seatunnel/commit/abb9124b05|2.3.13|
 |[Improve][API] Optimize the enumerator API semantics and reduce lock calls at the connector level (#9671)|https://github.com/apache/seatunnel/commit/9212a77140|2.3.12|
 |[Bug][Connector-V2] NoSuchMethodError caused by Netty version conflict on Spark 3.3.0 (#9632)|https://github.com/apache/seatunnel/commit/4d2b55ce3c|2.3.12|
 |[Improve][Connector-V2] Replace deprecated createDownloadSession by buildDownloadSession (#9555)|https://github.com/apache/seatunnel/commit/6862945eef|2.3.12|

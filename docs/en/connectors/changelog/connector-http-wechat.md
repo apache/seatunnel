@@ -2,6 +2,7 @@
 
 | Change | Commit | Version |
 | --- | --- | --- |
+|[Improve][Connector-V2][WeChat] Optimize StringBuffer to StringBuilder for better performance (#10127)|https://github.com/apache/seatunnel/commit/2ecdca2ab1|2.3.13|
 |[improve] http connector options (#8969)|https://github.com/apache/seatunnel/commit/63ff9f910a|2.3.10|
 |[Feature][Restapi] Allow metrics information to be associated to logical plan nodes (#7786)|https://github.com/apache/seatunnel/commit/6b7c53d03c|2.3.9|
 |[Feature][Core] Support using upstream table placeholders in sink options and auto replacement (#7131)|https://github.com/apache/seatunnel/commit/c4ca74122c|2.3.6|

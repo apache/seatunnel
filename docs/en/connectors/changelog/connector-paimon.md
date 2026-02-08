@@ -2,7 +2,12 @@
 
 | Change | Commit | Version |
 | --- | --- | --- |
-|[Feature][Connectors-v2] Clean up temporary files for paimon sink (#9819)|https://github.com/apache/seatunnel/commit/c43d57de31| dev |
+|[Improve][seatunnel-api] Unify non-relational data source multi-table mode schema configuration parameters (#10370)|https://github.com/apache/seatunnel/commit/3f1fd541fe|2.3.13|
+|[Feature][Connector-V2] Support `` for the SQL To Paimon converter (#10206)|https://github.com/apache/seatunnel/commit/53db9c5dfe|2.3.13|
+|[Improve][Connector-V2] Add branch option for paimon sink (#9982)|https://github.com/apache/seatunnel/commit/c82b19ad06|2.3.13|
+|[Feature][Connector-V2] Support the dynamic options of the paimon table read (#9981)|https://github.com/apache/seatunnel/commit/959a23b47a|2.3.13|
+|[Fix][Core] Add shade module for apache commons lang3 (#9895)|https://github.com/apache/seatunnel/commit/abb9124b05|2.3.13|
+|[Feature][Connectors-v2] Clean up temporary files for paimon sink (#9819)|https://github.com/apache/seatunnel/commit/c43d57de31|2.3.13|
 |[Feature][Connector-v2] Support multi paimon source (#9759)|https://github.com/apache/seatunnel/commit/0d52102241|2.3.12|
 |[Chore] fix typos filed -&gt; field (#9757)|https://github.com/apache/seatunnel/commit/e3e1c67d29|2.3.12|
 |[Feature][connector-paimon] Paimon connector supports paimon privilege (#9722)|https://github.com/apache/seatunnel/commit/b2bb2f8d78|2.3.12|

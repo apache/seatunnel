@@ -2,6 +2,10 @@
 
 | Change | Commit | Version |
 | --- | --- | --- |
+|[Improve][Common] Improve SinkFlowTestUtils Checkpoint Logic (#10071)|https://github.com/apache/seatunnel/commit/70c7040746|2.3.13|
+|[Fix][Connector-v2][Clickhouse] Handle special characters in column comments  (#10128)|https://github.com/apache/seatunnel/commit/5880c3ee84|2.3.13|
+|[Fix][Connector-v2][Doris] Array type data parsing failed (#10095)|https://github.com/apache/seatunnel/commit/4f07c6ff77|2.3.13|
+|[Fix][Core] Add shade module for apache commons lang3 (#9895)|https://github.com/apache/seatunnel/commit/abb9124b05|2.3.13|
 |[Chore] fix typos filed -&gt; field (#9757)|https://github.com/apache/seatunnel/commit/e3e1c67d29|2.3.12|
 |[Feature][Connector-File-Hadoop]Support multi table sink feature for HdfsFile (#9651)|https://github.com/apache/seatunnel/commit/bb4f743c05|2.3.12|
 |[Fix][Connector-V2] ArrowToSeatunnelRowReader convertSeatunnelRowValue add handle Second TIMESTAMP type (#9393)|https://github.com/apache/seatunnel/commit/0555f8520b|2.3.12|

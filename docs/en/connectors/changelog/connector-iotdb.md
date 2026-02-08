@@ -2,6 +2,7 @@
 
 | Change | Commit | Version |
 | --- | --- | --- |
+|[Feature] [Connector-V2] [IoTDB] Added source and sink connectors to support IoTDB 2.X (#9872)|https://github.com/apache/seatunnel/commit/6b7db1eb77|2.3.13|
 |[Feature][Checkpoint] Add check script for source/sink state class serialVersionUID missing (#9118)|https://github.com/apache/seatunnel/commit/4f5adeb1c7|2.3.11|
 |[improve] iotdb options (#8965)|https://github.com/apache/seatunnel/commit/6e073935f4|2.3.10|
 |[Improve] restruct connector common options (#8634)|https://github.com/apache/seatunnel/commit/f3499a6eeb|2.3.10|

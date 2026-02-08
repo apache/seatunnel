@@ -2,6 +2,8 @@
 
 | Change | Commit | Version |
 | --- | --- | --- |
+|[Fix] Fix CVE-2025-48924 for commons-lang3 (#9935)|https://github.com/apache/seatunnel/commit/c079a967e7|2.3.13|
+|[Fix][Core] Add shade module for apache commons lang3 (#9895)|https://github.com/apache/seatunnel/commit/abb9124b05|2.3.13|
 |[Fix][Core]fix kotlin jar conflict (#9683)|https://github.com/apache/seatunnel/commit/c4ec5c0be5|2.3.12|
 |[Improve][Connector-Hudi] Add pre-combine field option for hudi sink (#9496)|https://github.com/apache/seatunnel/commit/f134d7e129|2.3.12|
 |[Feature][Checkpoint] Add check script for source/sink state class serialVersionUID missing (#9118)|https://github.com/apache/seatunnel/commit/4f5adeb1c7|2.3.11|

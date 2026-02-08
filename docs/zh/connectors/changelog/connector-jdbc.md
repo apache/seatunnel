@@ -2,8 +2,27 @@
 
 | Change | Commit | Version |
 | --- | --- | --- |
-|[Fix][Connector-xugu] Fix several bugs in the xugu connector (#9820)|https://github.com/apache/seatunnel/commit/75c9adb280| dev |
-|[Feature][Transform-V2] Support `AT TIME ZONE` statement for sql transform (#9784)|https://github.com/apache/seatunnel/commit/ad5278c5bb| dev |
+|[Improve][Connectors-v2] Add support for re-signaling NoMoreSplitsEvent after reader re-registration (#10208)|https://github.com/apache/seatunnel/commit/e4052e95c9|2.3.13|
+|[Fix][Connector-V2] Fix wrong column discovery when tableNamePattern is treated as LIKE (#10422)|https://github.com/apache/seatunnel/commit/eeb4c0b704|2.3.13|
+|[Fix][Connector-v2][SQLServer] Handle database names with special characters in SQL queries and add related tests (#10327)|https://github.com/apache/seatunnel/commit/81ddef758d|2.3.13|
+|[Fix][Connector-Jdbc] Bump Redshift JDBC driver from 2.1.0.9 to 2.1.0.30 to fix OOM issues  (#10393)|https://github.com/apache/seatunnel/commit/6a3fdf3964|2.3.13|
+|[Bug][connector-jdbc] Fix integer overflow when merging table schema with large column length (#10387)|https://github.com/apache/seatunnel/commit/5d888e965e|2.3.13|
+|[Feature][connector-jdbc] Support source and sink of duckdb (#10285)|https://github.com/apache/seatunnel/commit/316fe87c0b|2.3.13|
+|[Improve][Connector-v2][Hive] Add socket and connection timeout options for Hive JDBC connections (#10254)|https://github.com/apache/seatunnel/commit/807c708026|2.3.13|
+|[Fix][Connector-V2][Postgres-CDC] Fix PostgreSQL GEOMETRY handling with JDBC sink (#10186)|https://github.com/apache/seatunnel/commit/f08ce7ba8a|2.3.13|
+|[Improve][seatunnel-connectors-v2][connector-jdbc] Remove some obsolete code in JdbcSinkFactory (#10026)|https://github.com/apache/seatunnel/commit/3a8f4afb1b|2.3.13|
+|[Fix][connector-jdbc] Fix CatalogUtils getCatalogTable(Connection, String, ...) losing primary key for query-only sources (#10093)|https://github.com/apache/seatunnel/commit/0b45bc9090|2.3.13|
+|[Feature][Connector-V2] Postgresql  support read TIMESTAMP_TZ (#10048)|https://github.com/apache/seatunnel/commit/30b0a08495|2.3.13|
+|[Fix][Connector-V2] Ignore JdbcConnectorException on JDBC statement close (#9942)|https://github.com/apache/seatunnel/commit/439b736029|2.3.13|
+|[Improve][Connector-v2][MySQL] Optimize shard calculation strategy (#9975)|https://github.com/apache/seatunnel/commit/d5847347de|2.3.13|
+|[Fix][Connecotr][Hive] correct password parameter assignment in HiveJdbcConnectionProvider (#10025)|https://github.com/apache/seatunnel/commit/5681fe3bb7|2.3.13|
+|[Feature][Connector-V2] Support sink connector for AWS DSQL #9726 (#9739)|https://github.com/apache/seatunnel/commit/ff47b4a842|2.3.13|
+|[Feature][Flink] Support CDC source schema evolution on Flink engine (#9867)|https://github.com/apache/seatunnel/commit/3473e2d7f1|2.3.13|
+|[improve] int_type_narrowing parameter is compatible with bit (1) type (#9927)|https://github.com/apache/seatunnel/commit/bca5bfccaf|2.3.13|
+|[Fix][Core] Add shade module for apache commons lang3 (#9895)|https://github.com/apache/seatunnel/commit/abb9124b05|2.3.13|
+|[Fix][Connector-V2] Fix db2 table lower case bug (#9568)|https://github.com/apache/seatunnel/commit/82a7d052dc|2.3.13|
+|[Fix][Connector-xugu] Fix several bugs in the xugu connector (#9820)|https://github.com/apache/seatunnel/commit/75c9adb280|2.3.13|
+|[Feature][Transform-V2] Support `AT TIME ZONE` statement for sql transform (#9784)|https://github.com/apache/seatunnel/commit/ad5278c5bb|2.3.13|
 |[Feature][Transform-V2] Support vector series sql function (#9765)|https://github.com/apache/seatunnel/commit/a40114cf7a|2.3.12|
 |[Chore] fix typos filed -&gt; field (#9757)|https://github.com/apache/seatunnel/commit/e3e1c67d29|2.3.12|
 |[Feature][Core] Add plugin directory support for each connector (#9650)|https://github.com/apache/seatunnel/commit/4beb2b9336|2.3.12|

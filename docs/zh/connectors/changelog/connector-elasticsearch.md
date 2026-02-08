@@ -2,6 +2,12 @@
 
 | Change | Commit | Version |
 | --- | --- | --- |
+|[Feature][Connector-V2][Elasticsearch] Add Runtime Fields support (Elasticsearch 7.11+) (#10201)|https://github.com/apache/seatunnel/commit/296a8fa566|2.3.13|
+|[Improve][Connector-V2][Elasticsearch] Enhance Scroll API handling with resource cleanup  (#10124)|https://github.com/apache/seatunnel/commit/6677ea68f4|2.3.13|
+|[Improve][connector-elasticsearch] Optimize Elasticsearch Sink vector parameters and documents (#10260)|https://github.com/apache/seatunnel/commit/0f6a3c5cd3|2.3.13|
+|[Improve][Elasticsearch] Add LocalDateTime serialization test and simplify serializer (#10135)|https://github.com/apache/seatunnel/commit/ddd92383b8|2.3.13|
+|[Bugfix][seatunnel-connectors-v2][connector-elasticsearch] ElasticsearchSink encounters a writing error and the task does not exit (#10038)|https://github.com/apache/seatunnel/commit/bf801605ea|2.3.13|
+|[Fix][Core] Add shade module for apache commons lang3 (#9895)|https://github.com/apache/seatunnel/commit/abb9124b05|2.3.13|
 |[Feature][Transform-V2] Support vector series sql function (#9765)|https://github.com/apache/seatunnel/commit/a40114cf7a|2.3.12|
 |[Feature][elasticsearch-connector] Add API key authentication support (#9610)|https://github.com/apache/seatunnel/commit/a2bfe1a530|2.3.12|
 |[Feature][Connectors-V2][Elasticsearch] Support vector transformation sink (#9330)|https://github.com/apache/seatunnel/commit/a1ce97155f|2.3.12|

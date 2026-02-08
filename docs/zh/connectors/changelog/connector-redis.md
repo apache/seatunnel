@@ -2,6 +2,10 @@
 
 | Change | Commit | Version |
 | --- | --- | --- |
+|[Improve][E2E][connector-redis-e2e] Transfer e2e test cases to unit tests (#10160)|https://github.com/apache/seatunnel/commit/f3de771e03|2.3.13|
+|[Improve][E2E] Improve redis e2e for delete (#10018)|https://github.com/apache/seatunnel/commit/3930010386|2.3.13|
+|[Feature][Connector-redis] fix redis cluster bug and add cluster e2e (#9869)|https://github.com/apache/seatunnel/commit/720ed0c756|2.3.13|
+|[Fix][Core] Add shade module for apache commons lang3 (#9895)|https://github.com/apache/seatunnel/commit/abb9124b05|2.3.13|
 |[Improve][Connector-V2] Use key_field_name option when reading Redis hash data (#9642)|https://github.com/apache/seatunnel/commit/5d214a7305|2.3.12|
 |[Feature][Redis] Add redis key into the result record (#9574)|https://github.com/apache/seatunnel/commit/6e8b7c5da5|2.3.12|
 |[Fix][Connector-Redis] Redis did not write successfully, but the task did not fail (#9055)|https://github.com/apache/seatunnel/commit/07510ed937|2.3.11|

@@ -2,7 +2,12 @@
 
 | Change | Commit | Version |
 | --- | --- | --- |
-|[Fix][Connectors-v2] Fix UT for connector-http (#9821)|https://github.com/apache/seatunnel/commit/2653f6798e| dev |
+|[Fix][Connector-V2][GraphQL] Clarify subscription modes and JSON-only response (#10303)|https://github.com/apache/seatunnel/commit/cad0e40cc5|2.3.13|
+|[Improve][Connector-V2][WeChat] Optimize StringBuffer to StringBuilder for better performance (#10127)|https://github.com/apache/seatunnel/commit/2ecdca2ab1|2.3.13|
+|[Fix][Connector-V2][Http]Fix setting of HTTP parameters in HttpSink.java (#10053)|https://github.com/apache/seatunnel/commit/87bf8a23b1|2.3.13|
+|[Fix][Core] Add shade module for apache commons lang3 (#9895)|https://github.com/apache/seatunnel/commit/abb9124b05|2.3.13|
+|[Feature][Engine]Metalake support for data source information storage and management (#9688)|https://github.com/apache/seatunnel/commit/6416a17a0e|2.3.13|
+|[Fix][Connectors-v2] Fix UT for connector-http (#9821)|https://github.com/apache/seatunnel/commit/2653f6798e|2.3.13|
 |[Fix][connector-http] fix parsing httpjson, the number of two fields is inconsistent with the import failure (#9103)|https://github.com/apache/seatunnel/commit/c8ade098ee|2.3.12|
 |[Fix][Connector-HTTP] Add default content-type when user not set (#9497)|https://github.com/apache/seatunnel/commit/8da0a78c1d|2.3.12|
 |[Bug][connector-http] Fix paging request running infinitely (#9504)|https://github.com/apache/seatunnel/commit/1844e04c97|2.3.12|

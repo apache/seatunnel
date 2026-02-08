@@ -2,6 +2,17 @@
 
 | Change | Commit | Version |
 | --- | --- | --- |
+|[Fix] [connector-hbase] Fix namespace handling for HBase source (#10295)|https://github.com/apache/seatunnel/commit/d722474bc3|2.3.13|
+|[Feature] [Connector-V2][HBase] Support time-range scan with min/max timestamp in HBaseSource (#10318)|https://github.com/apache/seatunnel/commit/402291d359|2.3.13|
+|[Fix][Connector-V2][Hbase] Fix ERROR_WHEN_DATA_EXISTS NPE on empty table (#10336)|https://github.com/apache/seatunnel/commit/9d58bc01ac|2.3.13|
+|[Improve][Connector-V2][HBase] Support DATE/TIME/TIMESTAMP/DECIMAL in sink and fix DECIMAL deserialization (#10291)|https://github.com/apache/seatunnel/commit/2cc680fe65|2.3.13|
+|[Fix[Connector-V2][Hbase] Avoid duplicate split assignment on restore (#10310)|https://github.com/apache/seatunnel/commit/75bc71beb8|2.3.13|
+|[Fix][Connector-V2][Hbase] Fix HBase sink binary rowkey handling (#10300)|https://github.com/apache/seatunnel/commit/84b039d4fa|2.3.13|
+|[Fix][Connector-V2][Hbase] Fix source reader only scanning first split (#10287)|https://github.com/apache/seatunnel/commit/d393d2a82f|2.3.13|
+|[Fix][Connector-V2][HBase] Ensure fully qualified table name is used in tableExists method and add unit tests (#10126)|https://github.com/apache/seatunnel/commit/53c50f3944|2.3.13|
+|[Improve][Connector-V2][HBase] Support configurable range scan boundary inclusion policies (#10011)|https://github.com/apache/seatunnel/commit/40bf6560f5|2.3.13|
+|[Feature][Connector-V2] Support row range boundaries for HBaseSource (#9983)|https://github.com/apache/seatunnel/commit/d7b8f37b41|2.3.13|
+|[Fix][Core] Add shade module for apache commons lang3 (#9895)|https://github.com/apache/seatunnel/commit/abb9124b05|2.3.13|
 |[Feature][Checkpoint] Add check script for source/sink state class serialVersionUID missing (#9118)|https://github.com/apache/seatunnel/commit/4f5adeb1c7|2.3.11|
 |[Improve] hbase options (#8923)|https://github.com/apache/seatunnel/commit/b6a702b58f|2.3.10|
 |[Improve] restruct connector common options (#8634)|https://github.com/apache/seatunnel/commit/f3499a6eeb|2.3.10|

@@ -2,6 +2,8 @@
 
 | Change | Commit | Version |
 | --- | --- | --- |
+|[Feature][Connector-V2][Milvus] Sink writer flush by interval (#9961)|https://github.com/apache/seatunnel/commit/58a5a2d134|2.3.13|
+|[Fix][Core] Add shade module for apache commons lang3 (#9895)|https://github.com/apache/seatunnel/commit/abb9124b05|2.3.13|
 |[Feature][Transform-V2] Support vector series sql function (#9765)|https://github.com/apache/seatunnel/commit/a40114cf7a|2.3.12|
 |[Improve][Connector-milvus]update milvus-sdk-java to 2.5.11 (#9710)|https://github.com/apache/seatunnel/commit/08ebbaa8bd|2.3.12|
 |[Chore] fix typos filed -&gt; field (#9757)|https://github.com/apache/seatunnel/commit/e3e1c67d29|2.3.12|
