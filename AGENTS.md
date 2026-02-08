@@ -83,7 +83,21 @@ seatunnel/
     * Use shaded dependencies: `org.apache.seatunnel.shade.*`
 * **Nullability**: Avoid implicit null assumptions
 * **Visibility**: Keep APIs minimal; prefer package-private when possible
-* **Comments**: Add comments for important methods (public APIs, complex logic).
+* **Comments**: Add comments for important methods (public APIs, complex logic). Important methods include public APIs, lifecycle hooks (initialization, start/stop, checkpoint), and complex or performance-critical logic. Example:
+
+```java
+/**
+ * Enumerates source splits for parallel reading.
+ * Called once during job initialization.
+ *
+ * @param context Split enumeration context
+ * @return Collection of discovered splits
+ */
+@Override
+public List<SourceSplit> enumerateSplits(SplitEnumerationContext context) {
+    // Implementation
+}
+```
 
 ### Apache License Header (MANDATORY)
 
