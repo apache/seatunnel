@@ -260,7 +260,7 @@ source {
 }
 ```
 
-## Example 3:  Using 'be_fost_port_mapping' to obtain data
+## Example 3:  Using 'be_host_port_mapping' to obtain data
 
 ```
 source {
