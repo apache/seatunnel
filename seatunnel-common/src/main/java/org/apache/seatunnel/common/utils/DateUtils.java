@@ -28,8 +28,15 @@ import java.util.ArrayList;
 import java.util.List;
 import java.util.regex.Pattern;
 
+import static java.time.format.DateTimeFormatter.ISO_LOCAL_DATE;
+import static java.time.format.DateTimeFormatter.ISO_LOCAL_TIME;
+import static java.time.format.DateTimeFormatter.ISO_OFFSET_TIME;
 import static java.time.temporal.ChronoField.DAY_OF_MONTH;
+import static java.time.temporal.ChronoField.HOUR_OF_DAY;
+import static java.time.temporal.ChronoField.MINUTE_OF_HOUR;
 import static java.time.temporal.ChronoField.MONTH_OF_YEAR;
+import static java.time.temporal.ChronoField.NANO_OF_SECOND;
+import static java.time.temporal.ChronoField.SECOND_OF_MINUTE;
 import static java.time.temporal.ChronoField.YEAR;
 
 public class DateUtils {
@@ -69,6 +76,28 @@ public class DateUtils {
                 new DatePattern("\\d{4}/\\d{1,2}/\\d{1,2}", Formatter.YYYY_M_D_SLASH.value));
         PATTERN_LIST.add(
                 new DatePattern("\\d{4}\\.\\d{1,2}\\.\\d{1,2}", Formatter.YYYY_M_D_SPOT.value));
+        PATTERN_LIST.add(
+                new DatePattern(
+                        "\\d{4}-\\d{2}-\\d{2}T\\d{2}:\\d{2}:\\d{2}(\\.\\d{1,9})?Z?",
+                        new DateTimeFormatterBuilder()
+                                .parseCaseInsensitive()
+                                .append(ISO_LOCAL_DATE)
+                                .appendLiteral('T')
+                                .append(
+                                        new DateTimeFormatterBuilder()
+                                                .appendValue(HOUR_OF_DAY, 2)
+                                                .appendLiteral(':')
+                                                .appendValue(MINUTE_OF_HOUR, 2)
+                                                .optionalStart()
+                                                .appendLiteral(':')
+                                                .appendValue(SECOND_OF_MINUTE, 2)
+                                                .optionalStart()
+                                                .appendFraction(NANO_OF_SECOND, 0, 9, true)
+                                                .appendLiteral('Z')
+                                                .toFormatter())
+                                .toFormatter()));
+        PATTERN_LIST.add(new DatePattern("\\d{2}:\\d{2}:\\d{2}\\+\\d{2}:\\d{2}", ISO_OFFSET_TIME));
+        PATTERN_LIST.add(new DatePattern("\\d{2}:\\d{2}:\\d{2}(\\.\\d{1,9})?", ISO_LOCAL_TIME));
         PATTERN_LIST.add(
                 new DatePattern(
                         "\\d{4}年\\d{2}月\\d{2}日",

@@ -453,9 +453,29 @@ public class DateTimeUtilsTest {
         assertEquals(2023, dateTime19.getYear());
         assertEquals(12, dateTime19.getMonthValue());
         assertEquals(25, dateTime19.getDayOfMonth());
-        assertEquals(15, dateTime18.getHour());
-        assertEquals(30, dateTime18.getMinute());
-        assertEquals(45, dateTime18.getSecond());
+        assertEquals(15, dateTime19.getHour());
+        assertEquals(30, dateTime19.getMinute());
+        assertEquals(45, dateTime19.getSecond());
+
+        // 20. T separator for date-time, 9-digit nanoseconds with UTC time zone Z identifier
+        LocalDateTime dateTime20 = DateTimeUtils.parse("2023-12-25T15:30:45.123456789Z");
+        assertEquals(2023, dateTime20.getYear());
+        assertEquals(12, dateTime20.getMonthValue());
+        assertEquals(25, dateTime20.getDayOfMonth());
+        assertEquals(15, dateTime20.getHour());
+        assertEquals(30, dateTime20.getMinute());
+        assertEquals(45, dateTime20.getSecond());
+        assertEquals(123456789, dateTime20.getNano());
+
+        // 21. T separator for date-time, 9-digit nanoseconds with +08:00 time zone Z identifier
+        LocalDateTime dateTime21 = DateTimeUtils.parse("2023/12/25 15:30:45.123456789+08:00");
+        assertEquals(2023, dateTime21.getYear());
+        assertEquals(12, dateTime21.getMonthValue());
+        assertEquals(25, dateTime21.getDayOfMonth());
+        assertEquals(15, dateTime21.getHour());
+        assertEquals(30, dateTime21.getMinute());
+        assertEquals(45, dateTime21.getSecond());
+        assertEquals(123456789, dateTime21.getNano());
     }
 
     @Test

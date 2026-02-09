@@ -87,6 +87,23 @@ public class TimeUtilsTest {
         assertEquals(30, time8.getMinute());
         assertEquals(45, time8.getSecond());
         assertEquals(123456789, time8.getNano());
+
+        LocalTime time9 = TimeUtils.parse("9:30:45.123456789Z");
+        assertEquals(9, time9.getHour());
+        assertEquals(30, time9.getMinute());
+        assertEquals(45, time9.getSecond());
+        assertEquals(123456789, time9.getNano());
+
+        LocalTime time10 = TimeUtils.parse("9:30:45.123456789+08:00");
+        assertEquals(9, time10.getHour());
+        assertEquals(30, time10.getMinute());
+        assertEquals(45, time10.getSecond());
+        assertEquals(123456789, time10.getNano());
+
+        LocalTime time11 = TimeUtils.parse("9:30:45+08:00");
+        assertEquals(9, time11.getHour());
+        assertEquals(30, time11.getMinute());
+        assertEquals(45, time11.getSecond());
     }
 
     @Test
