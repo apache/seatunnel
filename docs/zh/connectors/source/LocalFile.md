@@ -77,7 +77,7 @@ import ChangeLog from '../changelog/connector-file-local.md';
 | binary_chunk_size          | int     | 否    | 1024                |
 | binary_complete_file_mode  | boolean | 否    | false               |
 | discovery_mode             | string  | 否    | once                |
-| scan_interval              | string  | 否    | PT10S                 |
+| scan_interval              | string  | 否    | 10s                 |
 | start_mode                 | string  | 否    | earliest            |
 | sync_mode                  | string  | 否    | full                |
 | target_path                | string  | 否    | -                   |
@@ -430,7 +430,7 @@ null_format 定义哪些字符串可以表示为 null。
 
 ### scan_interval [string]
 
-仅在 `discovery_mode=continuous` 时使用。周期性扫描间隔，例如 `PT10S`、`PT30S`，默认 `PT10S`。
+仅在 `discovery_mode=continuous` 时使用。周期性扫描间隔，例如 `10s`、`30s`，默认 `10s`。
 
 ### start_mode [string]
 
@@ -693,7 +693,7 @@ source {
     file_format_type = "binary"
 
     discovery_mode = "continuous"
-    scan_interval = "PT10S"
+    scan_interval = "10s"
     start_mode = "latest"
 
     sync_mode = "update"

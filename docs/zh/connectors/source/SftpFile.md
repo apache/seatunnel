@@ -108,7 +108,7 @@ import ChangeLog from '../changelog/connector-file-sftp.md';
 | binary_chunk_size          | int     | 否    | 1024                | 仅在file_format_type为binary时使用。读取二进制文件的块大小（以字节为单位）。默认为1024字节。较大的值可能会提高大文件的性能，但会使用更多内存。                                                                                                                                                               |
 | binary_complete_file_mode  | boolean | 否    | false               | 仅在file_format_type为binary时使用。是否将完整文件作为单个块读取，而不是分割成块。启用时，整个文件内容将一次性读入内存。默认为false。                                                                                                                                                                   |
 | discovery_mode             | string  | 否    | once                | 文件发现模式，支持：`once`（默认）、`continuous`。continuous 模式下将周期性扫描并处理新/变更文件（无界）。当前实现中 continuous 需要配合 `sync_mode=update`（仅 binary）使用，以避免重复传输。                                                                                                                            |
-| scan_interval              | string  | 否    | PT10S                 | 仅在 `discovery_mode=continuous` 时使用。周期性扫描间隔，例如 `PT10S`、`PT30S`。                                                                                                                                                                                                               |
+| scan_interval              | string  | 否    | 10s                 | 仅在 `discovery_mode=continuous` 时使用。周期性扫描间隔，例如 `10s`、`30s`。                                                                                                                                                                                                               |
 | start_mode                 | string  | 否    | earliest            | 仅在 `discovery_mode=continuous` 时使用，支持：`earliest`（默认）、`latest`。                                                                                                                                                                                                            |
 | sync_mode                  | string  | 否    | full                | 文件同步模式，支持：`full`（默认）、`update`。当 `update` 时，对源/目标进行对比，只读取新增/变更文件（目前仅支持 `file_format_type=binary`）。                                                                                                                                                          |
 | target_path                | string  | 否    | -                   | 仅在 `sync_mode=update` 时使用。目标端基础路径（通常应与 sink 的 `path` 一致），用于对比同相对路径文件。                                                                                                                                                                                         |
@@ -310,7 +310,7 @@ markdown 解析器提取各种元素，包括标题、段落、列表、代码�
 
 ### scan_interval [string]
 
-仅在 `discovery_mode=continuous` 时使用。周期性扫描间隔，例如 `PT10S`、`PT30S`，默认 `PT10S`。
+仅在 `discovery_mode=continuous` 时使用。周期性扫描间隔，例如 `10s`、`30s`，默认 `10s`。
 
 ### start_mode [string]
 
@@ -564,7 +564,7 @@ source {
     file_format_type = "binary"
 
     discovery_mode = "continuous"
-    scan_interval = "PT10S"
+    scan_interval = "10s"
     start_mode = "latest"
 
     sync_mode = "update"

@@ -44,7 +44,7 @@ public class FileBaseSourceOptions extends FileBaseOptions {
                     .durationType()
                     .defaultValue(Duration.ofSeconds(10))
                     .withDescription(
-                            "Scan interval for discovery_mode=continuous in ISO-8601 duration format, for example PT10S. Default is PT10S.");
+                            "Scan interval for discovery_mode=continuous. Default is 10 seconds.");
 
     public static final Option<FileStartMode> START_MODE =
             Options.key("start_mode")

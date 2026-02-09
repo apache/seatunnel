@@ -77,7 +77,7 @@ If you use SeaTunnel Engine, It automatically integrated the hadoop jar when you
 | binary_chunk_size           | int     | no       | 1024                        |
 | binary_complete_file_mode   | boolean | no       | false                       |
 | discovery_mode              | string  | no       | once                        |
-| scan_interval               | string  | no       | PT10S                         |
+| scan_interval               | string  | no       | 10s                         |
 | start_mode                  | string  | no       | earliest                    |
 | sync_mode                   | string  | no       | full                        |
 | target_path                 | string  | no       | -                           |
@@ -453,7 +453,7 @@ In the current implementation, `discovery_mode=continuous` requires `sync_mode=u
 
 ### scan_interval [string]
 
-Only used when `discovery_mode=continuous`. Scan interval for periodic discovery, for example `PT10S`, `PT30S`. Default is `PT10S`.
+Only used when `discovery_mode=continuous`. Scan interval for periodic discovery, for example `10s`, `30s`. Default is `10s`.
 
 ### start_mode [string]
 
@@ -702,7 +702,7 @@ source {
     file_format_type = "binary"
 
     discovery_mode = "continuous"
-    scan_interval = "PT10S"
+    scan_interval = "10s"
     start_mode = "latest"
 
     sync_mode = "update"

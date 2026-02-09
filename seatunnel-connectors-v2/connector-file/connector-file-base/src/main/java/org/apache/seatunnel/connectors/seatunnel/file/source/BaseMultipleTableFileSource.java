@@ -23,7 +23,6 @@ import org.apache.seatunnel.api.source.SeaTunnelSource;
 import org.apache.seatunnel.api.source.SourceReader;
 import org.apache.seatunnel.api.source.SourceSplitEnumerator;
 import org.apache.seatunnel.api.source.SupportColumnProjection;
-import org.apache.seatunnel.api.source.SupportCoordinate;
 import org.apache.seatunnel.api.source.SupportParallelism;
 import org.apache.seatunnel.api.table.catalog.CatalogTable;
 import org.apache.seatunnel.api.table.type.SeaTunnelRow;
@@ -50,8 +49,7 @@ import java.util.stream.Collectors;
 public abstract class BaseMultipleTableFileSource
         implements SeaTunnelSource<SeaTunnelRow, FileSourceSplit, FileSourceState>,
                 SupportParallelism,
-                SupportColumnProjection,
-                SupportCoordinate {
+                SupportColumnProjection {
 
     private final BaseMultipleTableFileSourceConfig baseMultipleTableFileSourceConfig;
     private final FileSplitStrategy fileSplitStrategy;
