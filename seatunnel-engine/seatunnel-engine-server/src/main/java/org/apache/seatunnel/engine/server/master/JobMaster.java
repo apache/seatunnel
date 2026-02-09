@@ -948,6 +948,11 @@ public class JobMaster {
             if (pendingCleanupIMap.replace(pipelineLocation, existing, merged)) {
                 return;
             }
+            try {
+                Thread.sleep(10);
+            } catch (InterruptedException e) {
+                throw new RuntimeException(e);
+            }
         }
     }
 
