@@ -62,15 +62,17 @@ public class TableSchemaDiscovererTest {
         Config config = loadConfig("/conf/table_schema_discoverer/single_schema_field.conf");
         ReadonlyConfig sourceOptions = ReadonlyConfig.fromConfig(config);
         ReadonlyConfig envOptions = ReadonlyConfig.fromMap(new HashMap<>());
-        TableSchemaDiscoverer discoverer =
-                new TableSchemaDiscoverer(envOptions, sourceOptions, TEST_CATALOG_NAME, null, null);
-        Assertions.assertFalse(discoverer.enableMetaLakeClient(sourceOptions));
-        List<CatalogTable> result = discoverer.discoverTableSchemas();
-        Assertions.assertEquals(1, result.size());
-        Assertions.assertEquals(TEST_CATALOG_NAME, result.get(0).getCatalogName());
-        Assertions.assertEquals(
-                TablePath.of("default", "default", "default"), result.get(0).getTablePath());
-        Assertions.assertEquals(3, result.get(0).getTableSchema().getColumns().size());
+        try (TableSchemaDiscoverer discoverer =
+                new TableSchemaDiscoverer(
+                        envOptions, sourceOptions, TEST_CATALOG_NAME, null, null)) {
+            Assertions.assertFalse(discoverer.enableMetaLakeClient(sourceOptions));
+            List<CatalogTable> result = discoverer.discoverTableSchemas();
+            Assertions.assertEquals(1, result.size());
+            Assertions.assertEquals(TEST_CATALOG_NAME, result.get(0).getCatalogName());
+            Assertions.assertEquals(
+                    TablePath.of("default", "default", "default"), result.get(0).getTablePath());
+            Assertions.assertEquals(3, result.get(0).getTableSchema().getColumns().size());
+        }
     }
 
     @Test
@@ -105,18 +107,21 @@ public class TableSchemaDiscovererTest {
         Config config = loadConfig("/conf/table_schema_discoverer/multiple_tables_fields.conf");
         ReadonlyConfig sourceOptions = ReadonlyConfig.fromConfig(config);
         ReadonlyConfig envOptions = ReadonlyConfig.fromMap(new HashMap<>());
-        TableSchemaDiscoverer discoverer =
-                new TableSchemaDiscoverer(envOptions, sourceOptions, TEST_CATALOG_NAME, null, null);
-        Assertions.assertFalse(discoverer.enableMetaLakeClient(sourceOptions));
-        List<CatalogTable> result = discoverer.discoverTableSchemas();
-
-        Assertions.assertEquals(2, result.size());
-        Assertions.assertEquals(TEST_CATALOG_NAME, result.get(0).getCatalogName());
-        Assertions.assertEquals(TablePath.of("db", null, "table1"), result.get(0).getTablePath());
-        Assertions.assertEquals(1, result.get(0).getTableSchema().getColumns().size());
-        Assertions.assertEquals(TEST_CATALOG_NAME, result.get(1).getCatalogName());
-        Assertions.assertEquals(TablePath.of("db", null, "table2"), result.get(1).getTablePath());
-        Assertions.assertEquals(3, result.get(1).getTableSchema().getColumns().size());
+        try (TableSchemaDiscoverer discoverer =
+                new TableSchemaDiscoverer(
+                        envOptions, sourceOptions, TEST_CATALOG_NAME, null, null)) {
+            Assertions.assertFalse(discoverer.enableMetaLakeClient(sourceOptions));
+            List<CatalogTable> result = discoverer.discoverTableSchemas();
+            Assertions.assertEquals(2, result.size());
+            Assertions.assertEquals(TEST_CATALOG_NAME, result.get(0).getCatalogName());
+            Assertions.assertEquals(
+                    TablePath.of("db", null, "table1"), result.get(0).getTablePath());
+            Assertions.assertEquals(1, result.get(0).getTableSchema().getColumns().size());
+            Assertions.assertEquals(TEST_CATALOG_NAME, result.get(1).getCatalogName());
+            Assertions.assertEquals(
+                    TablePath.of("db", null, "table2"), result.get(1).getTablePath());
+            Assertions.assertEquals(3, result.get(1).getTableSchema().getColumns().size());
+        }
     }
 
     @Test
@@ -286,21 +291,23 @@ public class TableSchemaDiscovererTest {
         Config config = loadConfig("/conf/table_schema_discoverer/single_no_schema.conf");
         ReadonlyConfig sourceOptions = ReadonlyConfig.fromConfig(config);
         ReadonlyConfig envOptions = ReadonlyConfig.fromMap(new HashMap<>());
-        TableSchemaDiscoverer discoverer =
-                new TableSchemaDiscoverer(envOptions, sourceOptions, TEST_CATALOG_NAME, null, null);
-        Assertions.assertFalse(discoverer.enableMetaLakeClient(sourceOptions));
-        List<CatalogTable> result = discoverer.discoverTableSchemas();
-        // When no schema is configured, should return a simple text table
-        Assertions.assertEquals(1, result.size());
-        // Catalog name is "schema" from buildSimpleTextTable()
-        Assertions.assertEquals("schema", result.get(0).getCatalogName());
-        // TablePath is (database="default", schema=null, tableName="default")
-        Assertions.assertEquals(
-                TablePath.of("default", null, "default"), result.get(0).getTablePath());
-        Assertions.assertNotNull(result.get(0).getTableSchema());
-        Assertions.assertEquals(1, result.get(0).getTableSchema().getColumns().size());
-        Assertions.assertEquals(
-                "content", result.get(0).getTableSchema().getColumns().get(0).getName());
+        try (TableSchemaDiscoverer discoverer =
+                new TableSchemaDiscoverer(
+                        envOptions, sourceOptions, TEST_CATALOG_NAME, null, null)) {
+            Assertions.assertFalse(discoverer.enableMetaLakeClient(sourceOptions));
+            List<CatalogTable> result = discoverer.discoverTableSchemas();
+            // When no schema is configured, should return a simple text table
+            Assertions.assertEquals(1, result.size());
+            // Catalog name is "schema" from buildSimpleTextTable()
+            Assertions.assertEquals("schema", result.get(0).getCatalogName());
+            // TablePath is (database="default", schema=null, tableName="default")
+            Assertions.assertEquals(
+                    TablePath.of("default", null, "default"), result.get(0).getTablePath());
+            Assertions.assertNotNull(result.get(0).getTableSchema());
+            Assertions.assertEquals(1, result.get(0).getTableSchema().getColumns().size());
+            Assertions.assertEquals(
+                    "content", result.get(0).getTableSchema().getColumns().get(0).getName());
+        }
     }
 
     @Test
@@ -310,34 +317,38 @@ public class TableSchemaDiscovererTest {
                         "/conf/table_schema_discoverer/multiple_tables_no_schema_mixed_format.conf");
         ReadonlyConfig sourceOptions = ReadonlyConfig.fromConfig(config);
         ReadonlyConfig envOptions = ReadonlyConfig.fromMap(new HashMap<>());
-        TableSchemaDiscoverer discoverer =
-                new TableSchemaDiscoverer(envOptions, sourceOptions, TEST_CATALOG_NAME, null, null);
-        Assertions.assertFalse(discoverer.enableMetaLakeClient(sourceOptions));
-        List<CatalogTable> result = discoverer.discoverTableSchemas();
-        // Should return 3 tables for parquet, orc, and binary file formats
-        Assertions.assertEquals(3, result.size());
-        // First table (parquet) - db.parquet_table
-        // catalogName is "schema" from buildSimpleTextTable()
-        Assertions.assertEquals("schema", result.get(0).getCatalogName());
-        Assertions.assertEquals(TablePath.of("db", "parquet_table"), result.get(0).getTablePath());
-        Assertions.assertNotNull(result.get(0).getTableSchema());
-        Assertions.assertEquals(1, result.get(0).getTableSchema().getColumns().size());
-        Assertions.assertEquals(
-                "content", result.get(0).getTableSchema().getColumns().get(0).getName());
-        // Second table (orc) - db.orc_table
-        Assertions.assertEquals("schema", result.get(1).getCatalogName());
-        Assertions.assertEquals(TablePath.of("db", "orc_table"), result.get(1).getTablePath());
-        Assertions.assertNotNull(result.get(1).getTableSchema());
-        Assertions.assertEquals(1, result.get(1).getTableSchema().getColumns().size());
-        Assertions.assertEquals(
-                "content", result.get(1).getTableSchema().getColumns().get(0).getName());
-        // Third table (binary) - db.binary_table
-        Assertions.assertEquals("schema", result.get(2).getCatalogName());
-        Assertions.assertEquals(TablePath.of("db", "binary_table"), result.get(2).getTablePath());
-        Assertions.assertNotNull(result.get(2).getTableSchema());
-        Assertions.assertEquals(1, result.get(2).getTableSchema().getColumns().size());
-        Assertions.assertEquals(
-                "content", result.get(2).getTableSchema().getColumns().get(0).getName());
+        try (TableSchemaDiscoverer discoverer =
+                new TableSchemaDiscoverer(
+                        envOptions, sourceOptions, TEST_CATALOG_NAME, null, null)) {
+            Assertions.assertFalse(discoverer.enableMetaLakeClient(sourceOptions));
+            List<CatalogTable> result = discoverer.discoverTableSchemas();
+            // Should return 3 tables for parquet, orc, and binary file formats
+            Assertions.assertEquals(3, result.size());
+            // First table (parquet) - db.parquet_table
+            // catalogName is "schema" from buildSimpleTextTable()
+            Assertions.assertEquals("schema", result.get(0).getCatalogName());
+            Assertions.assertEquals(
+                    TablePath.of("db", "parquet_table"), result.get(0).getTablePath());
+            Assertions.assertNotNull(result.get(0).getTableSchema());
+            Assertions.assertEquals(1, result.get(0).getTableSchema().getColumns().size());
+            Assertions.assertEquals(
+                    "content", result.get(0).getTableSchema().getColumns().get(0).getName());
+            // Second table (orc) - db.orc_table
+            Assertions.assertEquals("schema", result.get(1).getCatalogName());
+            Assertions.assertEquals(TablePath.of("db", "orc_table"), result.get(1).getTablePath());
+            Assertions.assertNotNull(result.get(1).getTableSchema());
+            Assertions.assertEquals(1, result.get(1).getTableSchema().getColumns().size());
+            Assertions.assertEquals(
+                    "content", result.get(1).getTableSchema().getColumns().get(0).getName());
+            // Third table (binary) - db.binary_table
+            Assertions.assertEquals("schema", result.get(2).getCatalogName());
+            Assertions.assertEquals(
+                    TablePath.of("db", "binary_table"), result.get(2).getTablePath());
+            Assertions.assertNotNull(result.get(2).getTableSchema());
+            Assertions.assertEquals(1, result.get(2).getTableSchema().getColumns().size());
+            Assertions.assertEquals(
+                    "content", result.get(2).getTableSchema().getColumns().get(0).getName());
+        }
     }
 
     /**
