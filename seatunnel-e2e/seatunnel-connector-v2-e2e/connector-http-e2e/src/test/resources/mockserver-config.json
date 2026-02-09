@@ -4828,5 +4828,61 @@
         ]
       }
     }
+  },
+  {
+    "httpRequest": {
+      "method": "POST",
+      "path": "/v0/appTEST123/TestTable/listRecords"
+    },
+    "httpResponse": {
+      "body": {
+        "records": [
+          {
+            "id": "rec001",
+            "createdTime": "2024-01-01T00:00:00.000Z",
+            "fields": {
+              "Name": "Alice",
+              "Age": 30,
+              "Status": "Active"
+            }
+          },
+          {
+            "id": "rec002",
+            "createdTime": "2024-01-02T00:00:00.000Z",
+            "fields": {
+              "Name": "Bob",
+              "Age": 25,
+              "Status": "Inactive"
+            }
+          },
+          {
+            "id": "rec003",
+            "createdTime": "2024-01-03T00:00:00.000Z",
+            "fields": {
+              "Name": "Charlie",
+              "Age": 35,
+              "Status": "Active"
+            }
+          }
+        ]
+      }
+    }
+  },
+  {
+    "httpRequest": {
+      "method": "POST",
+      "path": "/v0/appTEST123/SinkTable"
+    },
+    "httpResponse": {
+      "statusCode": 200,
+      "body": {
+        "records": [
+          {
+            "id": "recNew001",
+            "fields": {}
+          }
+        ]
+      }
+    }
   }
 ]
