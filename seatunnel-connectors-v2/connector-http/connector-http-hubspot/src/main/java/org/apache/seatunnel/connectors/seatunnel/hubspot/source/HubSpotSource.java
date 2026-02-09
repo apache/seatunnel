@@ -28,8 +28,14 @@ public class HubSpotSource extends HttpSource {
     public HubSpotSource(ReadonlyConfig config) {
         super(config);
 
-        // FIX: Apply our custom logic immediately after parent constructor
+        // 1. Configure the parameter (URL overrides, etc)
         HubSpotSourceParameter.configure(this.httpParameter, config);
+
+        // 2. CRITICAL FIX: The parent HttpSource uses 'this.contentField' to create the reader.
+        // If it wasn't found in the config, we MUST set it here, or the reader crashes.
+        if (this.contentField == null) {
+            this.contentField = HubSpotSourceParameter.DEFAULT_CONTENT_FIELD;
+        }
     }
 
     @Override
