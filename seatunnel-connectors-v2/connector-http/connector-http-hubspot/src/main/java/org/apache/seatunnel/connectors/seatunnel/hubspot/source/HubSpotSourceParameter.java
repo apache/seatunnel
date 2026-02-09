@@ -24,22 +24,14 @@ import org.apache.seatunnel.connectors.seatunnel.http.config.HttpParameter;
 import java.lang.reflect.Field;
 
 public class HubSpotSourceParameter extends HttpParameter {
-    // Default JsonPath
     public static final String DEFAULT_CONTENT_FIELD = "$.results";
 
-    /** Helper method to apply HubSpot-specific configuration to the standard HttpParameter. */
     public static void configure(HttpParameter parameter, ReadonlyConfig config) {
-        // 1. Allow URL override for testing
         if (config.getOptional(HttpCommonOptions.URL).isPresent()) {
             parameter.setUrl(config.get(HttpCommonOptions.URL));
         }
 
-        // 2. Set default content_field using Reflection
-        // We do this here because we cannot change the logic inside the parent HttpSource
-        // constructor
         try {
-            // Check if 'content_field' is missing in the config
-            // (We construct the option key manually to avoid import issues)
             boolean hasContentField =
                     config.getOptional(
                                     org.apache.seatunnel.api.configuration.Options.key(
@@ -49,7 +41,6 @@ public class HubSpotSourceParameter extends HttpParameter {
                             .isPresent();
 
             if (!hasContentField) {
-                // Force set our default "$.results"
                 Field contentFieldVar = HttpParameter.class.getDeclaredField("contentField");
                 contentFieldVar.setAccessible(true);
                 contentFieldVar.set(parameter, DEFAULT_CONTENT_FIELD);
