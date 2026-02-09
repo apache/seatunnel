@@ -243,7 +243,6 @@ public class JdbcExactlyOnceSinkWriter extends AbstractJdbcSinkWriter<Void> {
 
     @Override
     public void close() throws IOException {
-        rollbackPrepareXidQuietly();
         failAndRollbackCurrentXidQuietly();
         try {
             xaFacade.close();

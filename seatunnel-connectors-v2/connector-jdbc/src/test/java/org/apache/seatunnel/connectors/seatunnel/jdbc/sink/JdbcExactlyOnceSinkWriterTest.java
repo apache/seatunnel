@@ -138,7 +138,7 @@ class JdbcExactlyOnceSinkWriterTest {
     }
 
     @Test
-    void testCloseRollbackPreparedAndCurrentTransaction() throws Exception {
+    void testCloseRollbackCurrentTransactionOnly() throws Exception {
         TestContext context = createWriter();
 
         Xid preparedXid = new TestXid(3L);
@@ -148,11 +148,13 @@ class JdbcExactlyOnceSinkWriterTest {
 
         context.writer.close();
 
-        verify(context.xaFacade, times(1)).rollback(preparedXid);
+        verify(context.xaFacade, never()).rollback(any());
         verify(context.xaFacade, times(1)).failAndRollback(currentXid);
         verify(context.xaFacade, times(1)).close();
         verify(context.outputFormat, times(1)).close();
         verify(context.xidGenerator, times(1)).close();
+        Assertions.assertNull(getPrivateField(context.writer, "prepareXid"));
+        Assertions.assertNull(getPrivateField(context.writer, "currentXid"));
     }
 
     private TestContext createWriter() throws Exception {
