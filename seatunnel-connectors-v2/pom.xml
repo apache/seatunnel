@@ -91,6 +91,7 @@
         <module>connector-sensorsdata</module>
         <module>connector-fluss</module>
         <module>connector-lance</module>
+        <module>connector-mqtt</module>
     </modules>
 
     <dependencyManagement>
