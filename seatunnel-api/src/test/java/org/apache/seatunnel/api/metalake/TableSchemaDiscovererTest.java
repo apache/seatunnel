@@ -62,11 +62,10 @@ public class TableSchemaDiscovererTest {
         Config config = loadConfig("/conf/table_schema_discoverer/single_schema_field.conf");
         ReadonlyConfig sourceOptions = ReadonlyConfig.fromConfig(config);
         ReadonlyConfig envOptions = ReadonlyConfig.fromMap(new HashMap<>());
-
         TableSchemaDiscoverer discoverer =
                 new TableSchemaDiscoverer(envOptions, sourceOptions, TEST_CATALOG_NAME, null, null);
+        Assertions.assertFalse(discoverer.enableMetaLakeClient(sourceOptions));
         List<CatalogTable> result = discoverer.discoverTableSchemas();
-
         Assertions.assertEquals(1, result.size());
         Assertions.assertEquals(TEST_CATALOG_NAME, result.get(0).getCatalogName());
         Assertions.assertEquals(
@@ -79,7 +78,6 @@ public class TableSchemaDiscovererTest {
         Config config = loadConfig("/conf/table_schema_discoverer/single_schema_url.conf");
         ReadonlyConfig sourceOptions = ReadonlyConfig.fromConfig(config);
         ReadonlyConfig envOptions = ReadonlyConfig.fromMap(new HashMap<>());
-
         // Mock setup with real JsonNode structure
         JsonNode schemaNode = createMockTableSchemaNode("test_table");
         String schemaUrl =
@@ -91,8 +89,8 @@ public class TableSchemaDiscovererTest {
         try (TableSchemaDiscoverer discoverer =
                 new TableSchemaDiscoverer(
                         envOptions, sourceOptions, TEST_CATALOG_NAME, metalakeClient, convertor)) {
+            Assertions.assertTrue(discoverer.enableMetaLakeClient(sourceOptions));
             List<CatalogTable> result = discoverer.discoverTableSchemas();
-
             Assertions.assertEquals(1, result.size());
             Assertions.assertEquals(TEST_CATALOG_NAME, result.get(0).getCatalogName());
             Assertions.assertEquals(
@@ -107,10 +105,9 @@ public class TableSchemaDiscovererTest {
         Config config = loadConfig("/conf/table_schema_discoverer/multiple_tables_fields.conf");
         ReadonlyConfig sourceOptions = ReadonlyConfig.fromConfig(config);
         ReadonlyConfig envOptions = ReadonlyConfig.fromMap(new HashMap<>());
-
         TableSchemaDiscoverer discoverer =
                 new TableSchemaDiscoverer(envOptions, sourceOptions, TEST_CATALOG_NAME, null, null);
-
+        Assertions.assertFalse(discoverer.enableMetaLakeClient(sourceOptions));
         List<CatalogTable> result = discoverer.discoverTableSchemas();
 
         Assertions.assertEquals(2, result.size());
@@ -145,6 +142,7 @@ public class TableSchemaDiscovererTest {
                 new TableSchemaDiscoverer(
                         envOptions, sourceOptions, TEST_CATALOG_NAME, metalakeClient, convertor)) {
             List<CatalogTable> result = discoverer.discoverTableSchemas();
+            Assertions.assertTrue(discoverer.enableMetaLakeClient(sourceOptions));
             Assertions.assertEquals(2, result.size());
             Assertions.assertEquals(TEST_CATALOG_NAME, result.get(0).getCatalogName());
             Assertions.assertEquals(
@@ -164,7 +162,6 @@ public class TableSchemaDiscovererTest {
         Config config = loadConfig("/conf/table_schema_discoverer/multiple_tables_mixed.conf");
         ReadonlyConfig sourceOptions = ReadonlyConfig.fromConfig(config);
         ReadonlyConfig envOptions = ReadonlyConfig.fromMap(new HashMap<>());
-
         JsonNode schemaNode2 = createMockTableSchemaNode("table2");
         String url2 =
                 "http://localhost:8090/api/metalakes/test_catalog/schemas/test_schema/tables/table2";
@@ -174,8 +171,8 @@ public class TableSchemaDiscovererTest {
         try (TableSchemaDiscoverer discoverer =
                 new TableSchemaDiscoverer(
                         envOptions, sourceOptions, TEST_CATALOG_NAME, metalakeClient, convertor)) {
+            Assertions.assertTrue(discoverer.enableMetaLakeClient(sourceOptions));
             List<CatalogTable> result = discoverer.discoverTableSchemas();
-
             Assertions.assertEquals(2, result.size());
             Assertions.assertEquals(TEST_CATALOG_NAME, result.get(0).getCatalogName());
             Assertions.assertEquals(TablePath.of("db.table1"), result.get(0).getTablePath());
@@ -289,11 +286,10 @@ public class TableSchemaDiscovererTest {
         Config config = loadConfig("/conf/table_schema_discoverer/single_no_schema.conf");
         ReadonlyConfig sourceOptions = ReadonlyConfig.fromConfig(config);
         ReadonlyConfig envOptions = ReadonlyConfig.fromMap(new HashMap<>());
-
         TableSchemaDiscoverer discoverer =
                 new TableSchemaDiscoverer(envOptions, sourceOptions, TEST_CATALOG_NAME, null, null);
+        Assertions.assertFalse(discoverer.enableMetaLakeClient(sourceOptions));
         List<CatalogTable> result = discoverer.discoverTableSchemas();
-
         // When no schema is configured, should return a simple text table
         Assertions.assertEquals(1, result.size());
         // Catalog name is "schema" from buildSimpleTextTable()
@@ -314,15 +310,12 @@ public class TableSchemaDiscovererTest {
                         "/conf/table_schema_discoverer/multiple_tables_no_schema_mixed_format.conf");
         ReadonlyConfig sourceOptions = ReadonlyConfig.fromConfig(config);
         ReadonlyConfig envOptions = ReadonlyConfig.fromMap(new HashMap<>());
-
         TableSchemaDiscoverer discoverer =
                 new TableSchemaDiscoverer(envOptions, sourceOptions, TEST_CATALOG_NAME, null, null);
-
+        Assertions.assertFalse(discoverer.enableMetaLakeClient(sourceOptions));
         List<CatalogTable> result = discoverer.discoverTableSchemas();
-
         // Should return 3 tables for parquet, orc, and binary file formats
         Assertions.assertEquals(3, result.size());
-
         // First table (parquet) - db.parquet_table
         // catalogName is "schema" from buildSimpleTextTable()
         Assertions.assertEquals("schema", result.get(0).getCatalogName());

@@ -38,8 +38,6 @@ import org.apache.seatunnel.api.table.type.SeaTunnelRowType;
 import org.apache.seatunnel.common.constants.MetaLakeType;
 import org.apache.seatunnel.common.exception.CommonError;
 
-import scala.Tuple2;
-
 import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.List;
@@ -161,10 +159,10 @@ public class GravitinoTableSchemaConvertor implements MetaLakeTableSchemaConvert
         Long columnLength = null;
         Integer scale = null;
         if (typeNode.isTextual()) {
-            Tuple2<Long, Integer> result = extractLengthAndScale(typeNode.asText());
+            Pair<Long, Integer> result = extractLengthAndScale(typeNode.asText());
             if (result != null) {
-                columnLength = result._1();
-                scale = result._2();
+                columnLength = result.getLeft();
+                scale = result.getRight();
             }
         }
         return PhysicalColumn.builder()
@@ -346,7 +344,7 @@ public class GravitinoTableSchemaConvertor implements MetaLakeTableSchemaConvert
      * @return a Pair where left is length (Long) and right is scale (Integer), or null if neither
      *     exists
      */
-    private Tuple2<Long, Integer> extractLengthAndScale(String type) {
+    private Pair<Long, Integer> extractLengthAndScale(String type) {
         // Extract base type before the parenthesis
         String baseType = type.split("\\(")[0].trim().toLowerCase();
         // Remove 'unsigned' suffix for type matching
@@ -356,7 +354,7 @@ public class GravitinoTableSchemaConvertor implements MetaLakeTableSchemaConvert
             case "decimal":
                 Matcher decimalMatcher = DECIMAL_PATTERN.matcher(type);
                 if (decimalMatcher.find()) {
-                    return Tuple2.apply(
+                    return Pair.of(
                             Long.parseLong(decimalMatcher.group(1)),
                             Integer.parseInt(decimalMatcher.group(2)));
                 }
@@ -364,26 +362,26 @@ public class GravitinoTableSchemaConvertor implements MetaLakeTableSchemaConvert
             case "varchar":
                 Matcher varcharMatcher = VARCHAR_PATTERN.matcher(type);
                 if (varcharMatcher.find()) {
-                    return Tuple2.apply(Long.parseLong(varcharMatcher.group(1)), null);
+                    return Pair.of(Long.parseLong(varcharMatcher.group(1)), null);
                 }
                 break;
             case "char":
                 Matcher charMatcher = CHAR_PATTERN.matcher(type);
                 if (charMatcher.find()) {
-                    return Tuple2.apply(Long.parseLong(charMatcher.group(1)), null);
+                    return Pair.of(Long.parseLong(charMatcher.group(1)), null);
                 }
                 break;
             case "fixed":
                 Matcher fixedMatcher = FIXED_PATTERN.matcher(type);
                 if (fixedMatcher.find()) {
-                    return Tuple2.apply(Long.parseLong(fixedMatcher.group(1)), null);
+                    return Pair.of(Long.parseLong(fixedMatcher.group(1)), null);
                 }
                 break;
             case "timestamp":
             case "timestamp_tz":
                 Matcher timestampMatcher = TIMESTAMP_PATTERN.matcher(type);
                 if (timestampMatcher.find()) {
-                    return Tuple2.apply(Long.parseLong(timestampMatcher.group(2)), null);
+                    return Pair.of(Long.parseLong(timestampMatcher.group(2)), null);
                 }
                 break;
             default:
@@ -432,5 +430,28 @@ public class GravitinoTableSchemaConvertor implements MetaLakeTableSchemaConvert
     private String getTextValue(JsonNode node, String fieldName) {
         JsonNode fieldNode = node.get(fieldName);
         return fieldNode != null ? fieldNode.asText() : null;
+    }
+
+    /** Simple immutable pair class to avoid coupling with scala.Tuple2 or Apache Commons Pair. */
+    private static class Pair<L, R> {
+        private final L left;
+        private final R right;
+
+        private Pair(L left, R right) {
+            this.left = left;
+            this.right = right;
+        }
+
+        public static <L, R> Pair<L, R> of(L left, R right) {
+            return new Pair<>(left, right);
+        }
+
+        public L getLeft() {
+            return left;
+        }
+
+        public R getRight() {
+            return right;
+        }
     }
 }

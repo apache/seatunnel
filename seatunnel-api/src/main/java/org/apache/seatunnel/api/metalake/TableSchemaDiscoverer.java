@@ -44,6 +44,7 @@ import java.io.IOException;
 import java.util.Collections;
 import java.util.List;
 import java.util.Map;
+import java.util.function.Predicate;
 import java.util.stream.Collectors;
 
 import static org.apache.seatunnel.api.table.schema.exception.SchemaEvolutionErrorCode.GET_META_LAKE_TABLE_SCHEMA_FAILED;
@@ -54,14 +55,16 @@ public class TableSchemaDiscoverer implements AutoCloseable {
     private final ReadonlyConfig envOptions;
     private final ReadonlyConfig sourceOptions;
     private final String catalogName;
-    private final MetalakeClient metalakeClient;
+    private MetalakeClient metalakeClient;
     private final MetaLakeTableSchemaConvertor metaLakeTableSchemaConvertor;
 
     public TableSchemaDiscoverer(TableSourceFactoryContext context, String catalogName) {
         this.envOptions = context.getEnvOptions();
         this.sourceOptions = context.getOptions();
         this.catalogName = catalogName;
-        this.metalakeClient = MetaLakeFactory.createClient(getMetaLakeType());
+        if (enableMetaLakeClient(context.getOptions())) {
+            this.metalakeClient = MetaLakeFactory.createClient(getMetaLakeType());
+        }
         this.metaLakeTableSchemaConvertor = MetaLakeFactory.createTypeMapper(getMetaLakeType());
     }
 
@@ -188,6 +191,42 @@ public class TableSchemaDiscoverer implements AutoCloseable {
         }
         // default
         return MetaLakeType.GRAVITINO;
+    }
+
+    @VisibleForTesting
+    protected boolean enableMetaLakeClient(ReadonlyConfig sourceOptions) {
+        // schema
+        if (sourceOptions.getOptional(ConnectorCommonOptions.SCHEMA).isPresent()) {
+            final Map<String, Object> schemaMap = sourceOptions.get(ConnectorCommonOptions.SCHEMA);
+            ReadonlyConfig schemaConfig = ReadonlyConfig.fromMap(schemaMap);
+            if (schemaConfig.getOptional(ColumnOptions.SCHEMA_URL).isPresent()) {
+                return true;
+            }
+        }
+        // table_config
+        if (sourceOptions.getOptional(TableSchemaOptions.TABLE_CONFIGS).isPresent()) {
+            return sourceOptions.get(TableSchemaOptions.TABLE_CONFIGS).stream()
+                    .map(ReadonlyConfig::fromMap)
+                    .anyMatch(this.getEnableMetaLakeClientPredicate());
+        }
+        // table_list
+        if (sourceOptions.getOptional(CatalogOptions.TABLE_LIST).isPresent()) {
+            return sourceOptions.get(CatalogOptions.TABLE_LIST).stream()
+                    .map(ReadonlyConfig::fromMap)
+                    .anyMatch(this.getEnableMetaLakeClientPredicate());
+        }
+        return false;
+    }
+
+    private Predicate<ReadonlyConfig> getEnableMetaLakeClientPredicate() {
+        return config -> {
+            if (config.getOptional(ConnectorCommonOptions.SCHEMA).isPresent()) {
+                final Map<String, Object> schemaMap = config.get(ConnectorCommonOptions.SCHEMA);
+                ReadonlyConfig schemaConfig = ReadonlyConfig.fromMap(schemaMap);
+                return schemaConfig.getOptional(ColumnOptions.SCHEMA_URL).isPresent();
+            }
+            return false;
+        };
     }
 
     /** Close the metalake client and release resources. */

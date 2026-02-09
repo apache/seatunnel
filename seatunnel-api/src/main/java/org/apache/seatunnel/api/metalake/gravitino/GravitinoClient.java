@@ -24,8 +24,10 @@ import org.apache.seatunnel.api.metalake.MetalakeClient;
 import org.apache.seatunnel.api.table.catalog.TablePath;
 import org.apache.seatunnel.common.exception.SeaTunnelRuntimeException;
 import org.apache.seatunnel.common.utils.JsonUtils;
+import org.apache.seatunnel.common.utils.SeaTunnelException;
 
 import org.apache.http.HttpEntity;
+import org.apache.http.HttpStatus;
 import org.apache.http.client.methods.CloseableHttpResponse;
 import org.apache.http.client.methods.HttpGet;
 import org.apache.http.impl.client.CloseableHttpClient;
@@ -111,27 +113,35 @@ public class GravitinoClient implements MetalakeClient {
      *
      * @param url the request URL
      * @return parsed JSON root node
-     * @throws IOException if network or parsing error occurs after all retries
      */
-    private JsonNode executeGetRequest(String url) throws IOException {
-        IOException lastException = null;
+    private JsonNode executeGetRequest(String url) {
         for (int attempt = 1; attempt <= MAX_RETRY_ATTEMPTS; attempt++) {
             HttpGet request = new HttpGet(url);
             request.addHeader(HEADER_ACCEPT, MEDIA_TYPE_GRAVITINO_V1);
             try (CloseableHttpResponse response = httpClient.execute(request)) {
-                HttpEntity entity = response.getEntity();
-                if (entity == null) {
-                    throw new RuntimeException(ERROR_NO_RESPONSE_ENTITY);
-                }
-                try {
-                    return JsonUtils.readTree(entity.getContent());
-                } finally {
-                    EntityUtils.consume(entity);
+                final int statusCode = response.getStatusLine().getStatusCode();
+                if (statusCode != HttpStatus.SC_OK) {
+                    if (!isRetryableHttpStatus(statusCode)) {
+                        throw new SeaTunnelException(
+                                String.format(
+                                        "Failed to execute HTTP request to %s , http status code is %s",
+                                        url, statusCode));
+                    } else {
+                        sleepQuietly(RETRY_DELAY_MS);
+                    }
+                } else {
+                    HttpEntity entity = response.getEntity();
+                    if (entity == null) {
+                        throw new RuntimeException(ERROR_NO_RESPONSE_ENTITY);
+                    }
+                    try {
+                        return JsonUtils.readTree(entity.getContent());
+                    } finally {
+                        EntityUtils.consume(entity);
+                    }
                 }
             } catch (IOException e) {
-                lastException = e;
-                // Check if exception is retryable
-                if (!isRetryableException(e) || attempt >= MAX_RETRY_ATTEMPTS) {
+                if (attempt >= MAX_RETRY_ATTEMPTS) {
                     break;
                 }
                 // Exponential backoff delay before retry
@@ -146,41 +156,23 @@ public class GravitinoClient implements MetalakeClient {
                 sleepQuietly(delayMs);
             }
         }
-        throw new IOException(
+        throw new SeaTunnelException(
                 String.format(
                         "Failed to execute HTTP request to %s after %d attempts",
-                        url, MAX_RETRY_ATTEMPTS),
-                lastException);
+                        url, MAX_RETRY_ATTEMPTS));
     }
 
-    /**
-     * Determine if an exception is retryable. Certain exceptions like DNS resolution failures, SSL
-     * errors, or 4xx client errors should not be retried as they will likely fail again.
-     *
-     * @param e the exception to check
-     * @return true if the exception is retryable, false otherwise
-     */
-    private boolean isRetryableException(IOException e) {
-        String message = e.getMessage();
-        if (message == null) {
-            return true;
-        }
-        // Non-retryable error patterns
-        String lowerMessage = message.toLowerCase();
-        if (lowerMessage.contains("unknownhost")
-                || lowerMessage.contains("dns")
-                || lowerMessage.contains("hostname")
-                || lowerMessage.contains("ssl")
-                || lowerMessage.contains("certificate")
-                || lowerMessage.contains("400")
-                || lowerMessage.contains("401")
-                || lowerMessage.contains("403")
-                || lowerMessage.contains("404")) {
-            log.debug("Non-retryable exception detected", e);
-            return false;
-        }
-        // Retryable: network timeouts, connection resets, 5xx server errors, etc.
-        return true;
+    /** 5xx and 408 and 429 will be retried */
+    private boolean isRetryableHttpStatus(int httpStatus) {
+        return httpStatus == HttpStatus.SC_INTERNAL_SERVER_ERROR
+                || httpStatus == HttpStatus.SC_NOT_IMPLEMENTED
+                || httpStatus == HttpStatus.SC_BAD_GATEWAY
+                || httpStatus == HttpStatus.SC_SERVICE_UNAVAILABLE
+                || httpStatus == HttpStatus.SC_GATEWAY_TIMEOUT
+                || httpStatus == HttpStatus.SC_HTTP_VERSION_NOT_SUPPORTED
+                || httpStatus == HttpStatus.SC_INSUFFICIENT_STORAGE
+                || httpStatus == HttpStatus.SC_REQUEST_TIMEOUT
+                || httpStatus == HttpStatus.SC_TOO_MANY_REQUESTS;
     }
 
     /**
