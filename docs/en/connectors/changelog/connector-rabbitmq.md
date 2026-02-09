@@ -2,6 +2,7 @@
 
 | Change | Commit | Version |
 | --- | --- | --- |
+|[Fix][Core] Add shade module for apache commons lang3 (#9895)|https://github.com/apache/seatunnel/commit/abb9124b05|2.3.13|
 |[Fix][connector-rabbitmq] Set default value for durable, exclusive and auto-delete (#9631)|https://github.com/apache/seatunnel/commit/5f9492e62a|2.3.12|
 |[Feature][Checkpoint] Add check script for source/sink state class serialVersionUID missing (#9118)|https://github.com/apache/seatunnel/commit/4f5adeb1c7|2.3.11|
 |[Improve] rabbit mq options (#8740)|https://github.com/apache/seatunnel/commit/4eec9be012|2.3.10|

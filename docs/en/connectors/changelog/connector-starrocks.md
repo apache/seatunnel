@@ -2,6 +2,9 @@
 
 | Change | Commit | Version |
 | --- | --- | --- |
+|[Improve][seatunnel-api] Unify non-relational data source multi-table mode schema configuration parameters (#10370)|https://github.com/apache/seatunnel/commit/3f1fd541fe|2.3.13|
+|[Fix][Core] Add shade module for apache commons lang3 (#9895)|https://github.com/apache/seatunnel/commit/abb9124b05|2.3.13|
+|[Feature][Engine]Metalake support for data source information storage and management (#9688)|https://github.com/apache/seatunnel/commit/6416a17a0e|2.3.13|
 |[Feature][Core] Add plugin directory support for each connector (#9650)|https://github.com/apache/seatunnel/commit/4beb2b9336|2.3.12|
 |[Fix][Doc] Update StarRocks doc change schema necessity to true (#9656)|https://github.com/apache/seatunnel/commit/45f8ac6d1d|2.3.12|
 |[improve] jdbc options (#9541)|https://github.com/apache/seatunnel/commit/d041e5fb32|2.3.12|

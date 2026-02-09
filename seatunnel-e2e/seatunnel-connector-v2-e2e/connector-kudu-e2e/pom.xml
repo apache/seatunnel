@@ -19,7 +19,7 @@
     <parent>
         <groupId>org.apache.seatunnel</groupId>
         <artifactId>seatunnel-connector-v2-e2e</artifactId>
-        <version>${revision}</version>
+        <version>3.0.0-SNAPSHOT</version>
     </parent>
 
     <artifactId>connector-kudu-e2e</artifactId>

@@ -2,6 +2,10 @@
 
 | Change | Commit | Version |
 | --- | --- | --- |
+|[Fix][Connector-V2] Fix NPE when heartbeat.action.query is configured (#10278)|https://github.com/apache/seatunnel/commit/1cfffc7094|2.3.13|
+|[Improve] cdc related options (#10372)|https://github.com/apache/seatunnel/commit/106c369db2|2.3.13|
+|Fix[CI] Update the MySQL Docker image version to 8.0.43 (#9903)|https://github.com/apache/seatunnel/commit/a0aa0ceaf9|2.3.13|
+|[Fix][Core] Add shade module for apache commons lang3 (#9895)|https://github.com/apache/seatunnel/commit/abb9124b05|2.3.13|
 |[Feature][MySQL CDC] MySQL cdc support start by time (#9735)|https://github.com/apache/seatunnel/commit/b6c5d941b0|2.3.12|
 |[Feature][Core] Add plugin directory support for each connector (#9650)|https://github.com/apache/seatunnel/commit/4beb2b9336|2.3.12|
 |[Feature][Connectors-v2] Support Mysql8.4+ for mysql-cdc (#9720)|https://github.com/apache/seatunnel/commit/e338743927|2.3.12|

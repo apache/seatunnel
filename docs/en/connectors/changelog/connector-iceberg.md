@@ -2,6 +2,10 @@
 
 | Change | Commit | Version |
 | --- | --- | --- |
+|[Feature][Iceberg] Support schema.partition_keys and ${partition_keys} placeholder (#10389)|https://github.com/apache/seatunnel/commit/839e7ab8df|2.3.13|
+|[Fix][Iceberg] Fix IllegalMonitorStateException in streaming enumerator (#10131)|https://github.com/apache/seatunnel/commit/793bb795c3|2.3.13|
+|[Improve][Iceberg] Fix withDescription format in IcebergSourceOptions (#10166)|https://github.com/apache/seatunnel/commit/3fe9c06e8b|2.3.13|
+|[Fix][Core] Add shade module for apache commons lang3 (#9895)|https://github.com/apache/seatunnel/commit/abb9124b05|2.3.13|
 |[Chore] fix typos filed -&gt; field (#9757)|https://github.com/apache/seatunnel/commit/e3e1c67d29|2.3.12|
 |[Improve][Core] Unify the aws-sdk-v2 version to 2.31.30 (#9698)|https://github.com/apache/seatunnel/commit/41c251cc8a|2.3.12|
 |[Improve][API] Optimize the enumerator API semantics and reduce lock calls at the connector level (#9671)|https://github.com/apache/seatunnel/commit/9212a77140|2.3.12|

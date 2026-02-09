@@ -2,6 +2,8 @@
 
 | Change | Commit | Version |
 | --- | --- | --- |
+|[Fix][Connector-V2] Fix NPE when heartbeat.action.query is configured (#10278)|https://github.com/apache/seatunnel/commit/1cfffc7094|2.3.13|
+|[Improve] cdc related options (#10372)|https://github.com/apache/seatunnel/commit/106c369db2|2.3.13|
 |[Feature][Core] Add plugin directory support for each connector (#9650)|https://github.com/apache/seatunnel/commit/4beb2b9336|2.3.12|
 |[improve] jdbc options (#9541)|https://github.com/apache/seatunnel/commit/d041e5fb32|2.3.12|
 |[Feature][Connectors-v2] Optimize the size of CDC JAR Files (#9546)|https://github.com/apache/seatunnel/commit/1dd19c6823|2.3.12|

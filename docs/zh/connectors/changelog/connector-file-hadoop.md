@@ -2,8 +2,11 @@
 
 | Change | Commit | Version |
 | --- | --- | --- |
-|[Feature][File] Add markdown parser #9714|https://github.com/apache/seatunnel/commit/8b3c07844| dev |
-|[Feature][Connector-V2] Support hdfs file multi table source read (#9816)|https://github.com/apache/seatunnel/commit/672af255ef| dev |
+|[Feature][Connector-V2][HdfsFile] Support true large-file split for parallel read (#10332)|https://github.com/apache/seatunnel/commit/4c110c8fdf|2.3.13|
+|[Feature][Connector-File-Hadoop] Support sync_mode=update for HdfsFile source (binary) (#10268)|https://github.com/apache/seatunnel/commit/c134273bcf|2.3.13|
+|[Improve][Doc][connector-file] Document SaveMode options for HdfsFile/LocalFile (#10283)|https://github.com/apache/seatunnel/commit/81834f26a7|2.3.13|
+|[Feature][connectors-v2]File support quote char and escape char (#10185)|https://github.com/apache/seatunnel/commit/7345f27a9c|2.3.13|
+|[Feature][Connector-V2] Support hdfs file multi table source read (#9816)|https://github.com/apache/seatunnel/commit/672af255ef|2.3.13|
 |[Feature][Connector-File-Hadoop]Support multi table sink feature for HdfsFile (#9651)|https://github.com/apache/seatunnel/commit/bb4f743c05|2.3.12|
 |[Improve][Connector-V2] Add customizable row delimiter support for text file processing (#9608)|https://github.com/apache/seatunnel/commit/7898e62e01|2.3.12|
 |[Improve][Connector-V2] Support maxcompute sink writer with timestamp field type (#9234)|https://github.com/apache/seatunnel/commit/a513c495e3|2.3.12|

@@ -2,6 +2,7 @@
 
 | Change | Commit | Version |
 | --- | --- | --- |
+|[Fix][Core] Add shade module for apache commons lang3 (#9895)|https://github.com/apache/seatunnel/commit/abb9124b05|2.3.13|
 |[Feature][connector-tdengine] Support subtable and fieldNames in tdengine source (#9593)|https://github.com/apache/seatunnel/commit/b136a0dc43|2.3.12|
 |[improve] tdengine options (#9399)|https://github.com/apache/seatunnel/commit/ff122fe405|2.3.12|
 |[Feature][Connector-V2] Support multi-table sink feature for TDengine (#9215)|https://github.com/apache/seatunnel/commit/98b593f095|2.3.11|

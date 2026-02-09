@@ -2,6 +2,18 @@
 
 | Change | Commit | Version |
 | --- | --- | --- |
+|[Fix][connector-cdc] Fix NPE when finishing snapshot split due to null splitId (#10404)|https://github.com/apache/seatunnel/commit/275adcce13|2.3.13|
+|[Fix][Connector-V2] Fix wrong column discovery when tableNamePattern is treated as LIKE (#10422)|https://github.com/apache/seatunnel/commit/eeb4c0b704|2.3.13|
+|[Fix][Connector-v2][MongoDB] There is a problem with using Cache for multi-task submission (#10116)|https://github.com/apache/seatunnel/commit/8e27bffff8|2.3.13|
+|[Fix][Connector-V2] Fix NPE when heartbeat.action.query is configured (#10278)|https://github.com/apache/seatunnel/commit/1cfffc7094|2.3.13|
+|[Fix][Connector-v2][SQLServer] Handle database names with special characters in SQL queries and add related tests (#10327)|https://github.com/apache/seatunnel/commit/81ddef758d|2.3.13|
+|[Fix][Connector-V2] Fix partitioning column selection logic (#10319)|https://github.com/apache/seatunnel/commit/d36ba850f6|2.3.13|
+|[Improve] cdc related options (#10372)|https://github.com/apache/seatunnel/commit/106c369db2|2.3.13|
+|[Fix][Connector-V2][Postgres-CDC] Fix PostgreSQL GEOMETRY handling with JDBC sink (#10186)|https://github.com/apache/seatunnel/commit/f08ce7ba8a|2.3.13|
+|[Fix][Connector-V2][SqlServer-CDC] Fix earliest startup.mode offset and align tests (#10207)|https://github.com/apache/seatunnel/commit/9f76fa5398|2.3.13|
+|[Fix][Connector-v2][MongoDB-CDC] When starting multiple tasks to connect to different MongoDB services, only the first one takes effect (#10064)|https://github.com/apache/seatunnel/commit/71b7f8c6c6|2.3.13|
+|Fix[CI] Update the MySQL Docker image version to 8.0.43 (#9903)|https://github.com/apache/seatunnel/commit/a0aa0ceaf9|2.3.13|
+|[Fix][Core] Add shade module for apache commons lang3 (#9895)|https://github.com/apache/seatunnel/commit/abb9124b05|2.3.13|
 |[Feature][MySQL CDC] MySQL cdc support start by time (#9735)|https://github.com/apache/seatunnel/commit/b6c5d941b0|2.3.12|
 |[Feature][Core] Add plugin directory support for each connector (#9650)|https://github.com/apache/seatunnel/commit/4beb2b9336|2.3.12|
 |[Feature][Connectors-v2] Support Mysql8.4+ for mysql-cdc (#9720)|https://github.com/apache/seatunnel/commit/e338743927|2.3.12|

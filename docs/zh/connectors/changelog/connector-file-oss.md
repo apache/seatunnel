@@ -2,7 +2,7 @@
 
 | Change | Commit | Version |
 | --- | --- | --- |
-|[Feature][File] Add markdown parser #9714|https://github.com/apache/seatunnel/commit/8b3c07844| dev |
+|[Feature][connectors-v2]File support quote char and escape char (#10185)|https://github.com/apache/seatunnel/commit/7345f27a9c|2.3.13|
 |[Improve][Connector-V2] Add customizable row delimiter support for text file processing (#9608)|https://github.com/apache/seatunnel/commit/7898e62e01|2.3.12|
 |[Improve][Connector-V2] Support maxcompute sink writer with timestamp field type (#9234)|https://github.com/apache/seatunnel/commit/a513c495e3|2.3.12|
 |[Doc][Connector-V2] Update save mode config for OssFileSink (#9303)|https://github.com/apache/seatunnel/commit/40097d7f3e|2.3.11|

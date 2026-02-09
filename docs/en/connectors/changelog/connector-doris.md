@@ -2,6 +2,10 @@
 
 | Change | Commit | Version |
 | --- | --- | --- |
+|[Bugfix] Doris Sink should not throw exception when the transaction is already committed/visible (#10079)|https://github.com/apache/seatunnel/commit/c3b63c84d0|2.3.13|
+|[Fix][Connector-V2] [Doris] Fix DECIMAL scale=0 conversion to avoid unintended MAX_SCALE (#9947)|https://github.com/apache/seatunnel/commit/cde147a859|2.3.13|
+|[Fix][Core] Add shade module for apache commons lang3 (#9895)|https://github.com/apache/seatunnel/commit/abb9124b05|2.3.13|
+|[Feature][Engine]Metalake support for data source information storage and management (#9688)|https://github.com/apache/seatunnel/commit/6416a17a0e|2.3.13|
 |[Feature][Core] Add plugin directory support for each connector (#9650)|https://github.com/apache/seatunnel/commit/4beb2b9336|2.3.12|
 |[Improve][API] Optimize the enumerator API semantics and reduce lock calls at the connector level (#9671)|https://github.com/apache/seatunnel/commit/9212a77140|2.3.12|
 |[Fix][Connector-V2] Fix misleading parameter name in DorisStreamLoad (#9685)|https://github.com/apache/seatunnel/commit/16618c8019|2.3.12|

@@ -2,7 +2,14 @@
 
 | Change | Commit | Version |
 | --- | --- | --- |
-|[Improve][Connector-Clickhouse] improve ck batch parallel read by using last batch row sorting value approach, instead of limit offset. (#9801)|https://github.com/apache/seatunnel/commit/5e9990afd5| dev |
+|[Fix][Connector-V2][ClickHouse] Fix ThreadLocal memory leak in ClickhouseCatalogUtil (#10264)|https://github.com/apache/seatunnel/commit/b9e5054fa1|2.3.13|
+|[Fix][Connector-V2][Clickhouse] Fix ClickHouse catalog nullable column type and add tests (#10119)|https://github.com/apache/seatunnel/commit/01be66dfac|2.3.13|
+|[Fix][Connector-V2][Clickhouse] Add primary key support in ClickhouseSourceFactory  (#10067)|https://github.com/apache/seatunnel/commit/03eaba5370|2.3.13|
+|[Fix][Connector-v2][Clickhouse] Use actual table schema instead of DESC results for PhysicalColumn creation (#10019)|https://github.com/apache/seatunnel/commit/4d2e346a30|2.3.13|
+|[Fix][Connector-v2][Clickhouse] Support clickhouse log engine (#10035)|https://github.com/apache/seatunnel/commit/c387818d09|2.3.13|
+|[Fix][Connector-v2][Clickhouse]Fix filter_query not working in SQL batch read strategy (#10009)|https://github.com/apache/seatunnel/commit/07cc924703|2.3.13|
+|[Fix][Core] Add shade module for apache commons lang3 (#9895)|https://github.com/apache/seatunnel/commit/abb9124b05|2.3.13|
+|[Improve][Connector-Clickhouse] improve ck batch parallel read by using last batch row sorting value approach, instead of limit offset. (#9801)|https://github.com/apache/seatunnel/commit/5e9990afd5|2.3.13|
 |[Feature][Connector-Clickhouse] Support Clickhouse multi table source read (#9704)|https://github.com/apache/seatunnel/commit/6e323743ea|2.3.12|
 |[Improve][API] Optimize the enumerator API semantics and reduce lock calls at the connector level (#9671)|https://github.com/apache/seatunnel/commit/9212a77140|2.3.12|
 |[Fix][Connector-clickhouse] Fix SeaTunnelRow tableId set error (#9585)|https://github.com/apache/seatunnel/commit/01f1caa6fb|2.3.12|

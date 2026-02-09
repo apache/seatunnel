@@ -2,6 +2,10 @@
 
 | Change | Commit | Version |
 | --- | --- | --- |
+|[Fix][Connector-v2][MongoDB] There is a problem with using Cache for multi-task submission (#10116)|https://github.com/apache/seatunnel/commit/8e27bffff8|2.3.13|
+|[Improve] cdc related options (#10372)|https://github.com/apache/seatunnel/commit/106c369db2|2.3.13|
+|[Fix][Connector-v2][MongoDB-CDC] When starting multiple tasks to connect to different MongoDB services, only the first one takes effect (#10064)|https://github.com/apache/seatunnel/commit/71b7f8c6c6|2.3.13|
+|[Fix][Core] Add shade module for apache commons lang3 (#9895)|https://github.com/apache/seatunnel/commit/abb9124b05|2.3.13|
 |[Feature][Core] Add plugin directory support for each connector (#9650)|https://github.com/apache/seatunnel/commit/4beb2b9336|2.3.12|
 |[Feature][Connectors-v2] Optimize the size of CDC JAR Files (#9546)|https://github.com/apache/seatunnel/commit/1dd19c6823|2.3.12|
 |[Fix][Mongo-CDC] Fix the issue where mongo isExactlyOnce defaults to true, causing room to malfunction (#9454)|https://github.com/apache/seatunnel/commit/814b19537c|2.3.12|

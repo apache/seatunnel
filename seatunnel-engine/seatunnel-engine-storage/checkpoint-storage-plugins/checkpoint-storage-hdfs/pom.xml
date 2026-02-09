@@ -24,7 +24,7 @@
     <parent>
         <groupId>org.apache.seatunnel</groupId>
         <artifactId>checkpoint-storage-plugins</artifactId>
-        <version>${revision}</version>
+        <version>3.0.0-SNAPSHOT</version>
     </parent>
 
     <artifactId>checkpoint-storage-hdfs</artifactId>

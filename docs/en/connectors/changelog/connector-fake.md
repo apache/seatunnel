@@ -2,6 +2,8 @@
 
 | Change | Commit | Version |
 | --- | --- | --- |
+|[Fix][connector-fake] Signal no more splits to avoid FakeSourceReader wait-split hang after restore (#10275)|https://github.com/apache/seatunnel/commit/ed021460f7|2.3.13|
+|[Fix][Core] Add shade module for apache commons lang3 (#9895)|https://github.com/apache/seatunnel/commit/abb9124b05|2.3.13|
 |[Feature][Transform-V2] Support vector series sql function (#9765)|https://github.com/apache/seatunnel/commit/a40114cf7a|2.3.12|
 |[Feature][Connectors-v2] Support auto-increment id for FakeSource (#9505)|https://github.com/apache/seatunnel/commit/3a16b4a4b5|2.3.12|
 |[Feature][Checkpoint] Add check script for source/sink state class serialVersionUID missing (#9118)|https://github.com/apache/seatunnel/commit/4f5adeb1c7|2.3.11|

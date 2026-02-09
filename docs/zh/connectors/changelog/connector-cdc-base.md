@@ -2,6 +2,12 @@
 
 | Change | Commit | Version |
 | --- | --- | --- |
+|[Fix][connector-cdc] Fix NPE when finishing snapshot split due to null splitId (#10404)|https://github.com/apache/seatunnel/commit/275adcce13|2.3.13|
+|[Fix][Connector-V2] Fix NPE when heartbeat.action.query is configured (#10278)|https://github.com/apache/seatunnel/commit/1cfffc7094|2.3.13|
+|[Fix][Connector-V2] Fix partitioning column selection logic (#10319)|https://github.com/apache/seatunnel/commit/d36ba850f6|2.3.13|
+|[Improve] cdc related options (#10372)|https://github.com/apache/seatunnel/commit/106c369db2|2.3.13|
+|[Fix][Connector-V2][Postgres-CDC] Fix PostgreSQL GEOMETRY handling with JDBC sink (#10186)|https://github.com/apache/seatunnel/commit/f08ce7ba8a|2.3.13|
+|[Fix][Core] Add shade module for apache commons lang3 (#9895)|https://github.com/apache/seatunnel/commit/abb9124b05|2.3.13|
 |[Feature][MySQL CDC] MySQL cdc support start by time (#9735)|https://github.com/apache/seatunnel/commit/b6c5d941b0|2.3.12|
 |[Feature][Core] Add plugin directory support for each connector (#9650)|https://github.com/apache/seatunnel/commit/4beb2b9336|2.3.12|
 |[Improve][API] Add metadata schema into catalog table (#9586)|https://github.com/apache/seatunnel/commit/385814e7f1|2.3.12|

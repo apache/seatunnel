@@ -2,8 +2,29 @@
 
 | Change | Commit | Version |
 | --- | --- | --- |
-|[Feature][Connector-V2] Support hdfs file multi table source read (#9816)|https://github.com/apache/seatunnel/commit/672af255ef| dev |
-|[Feature][Transform-V2] Support multimodal embeddings (#9673)|https://github.com/apache/seatunnel/commit/12414c4eab| dev |
+|[Feature][Connector-V2] Support sync_mode=update for FtpFile/SftpFile/LocalFile source (binary) (#10437)|https://github.com/apache/seatunnel/commit/07a2125e53|2.3.13|
+|[Feature][Connector-v2]Resolve null first column in CSV Reader (#10383)|https://github.com/apache/seatunnel/commit/28b65d3fef|2.3.13|
+|[Feature][Connector-V2][HdfsFile] Support true large-file split for parallel read (#10332)|https://github.com/apache/seatunnel/commit/4c110c8fdf|2.3.13|
+|[Bug][Connector-V2][File] Fix IndexOutOfBoundsException when reading empty directories (#10373)|https://github.com/apache/seatunnel/commit/ec8919a877|2.3.13|
+|[Fix] [Connector-V2] Bump jsch from 0.1.55 to 0.2.20 to fix buffer issues (#10298)|https://github.com/apache/seatunnel/commit/a0e12c4be8|2.3.13|
+|[Feature][Connector-File-Hadoop] Support sync_mode=update for HdfsFile source (binary) (#10268)|https://github.com/apache/seatunnel/commit/c134273bcf|2.3.13|
+|[Feature][connectors-v2/connector-file]Support logical Parquet splits (#10239)|https://github.com/apache/seatunnel/commit/3f2ea78a46|2.3.13|
+|[Improve][Doc][connector-file] Document SaveMode options for HdfsFile/LocalFile (#10283)|https://github.com/apache/seatunnel/commit/81834f26a7|2.3.13|
+|[Feature][connectors-v2]File support quote char and escape char (#10185)|https://github.com/apache/seatunnel/commit/7345f27a9c|2.3.13|
+|[Feature][connector-file-local]localfile supports splitting and parallel reading of large files of csv, text, and json (#10142)|https://github.com/apache/seatunnel/commit/0b9c4acdb2|2.3.13|
+|[Improve][connector-file-base] Improve the write performance of ORC file format (#10114)|https://github.com/apache/seatunnel/commit/3fc5917063|2.3.13|
+|[Fix][Connector-V2] Fix &#x27;file_filterpattern&#x27; cannot filter directories (#10049)|https://github.com/apache/seatunnel/commit/fd515b871d|2.3.13|
+|[Feature][Connector-V2] Support HDFS ViewFs Schema (#10117)|https://github.com/apache/seatunnel/commit/27c966daa4|2.3.13|
+|[Feature][Connector-V2] Hive sink support SchemaSaveMode and DataSaveMode (#9743)|https://github.com/apache/seatunnel/commit/b4b6188f6a|2.3.13|
+|[Feature][Hive] Kerberos renew for &gt;24h Hive and HDFS writes (#9989)|https://github.com/apache/seatunnel/commit/124eb29248|2.3.13|
+|[Fix][Connector-V2] Fixed the problem of complex path reading of ftp (#9781)|https://github.com/apache/seatunnel/commit/745b56de4e|2.3.13|
+|[Fix] Fix CVE-2025-48924 for commons-lang3 (#9935)|https://github.com/apache/seatunnel/commit/c079a967e7|2.3.13|
+|[Fix][Core] Add shade module for apache commons lang3 (#9895)|https://github.com/apache/seatunnel/commit/abb9124b05|2.3.13|
+|[Fix][Connector-V2] Solve the reading of special excel (#9882)|https://github.com/apache/seatunnel/commit/c4b96c2ba3|2.3.13|
+|[Feature][Format] Improve maxwell_json,canal_json,debezium_json format support merge update_before and update_after (#9805)|https://github.com/apache/seatunnel/commit/7da68523f3|2.3.13|
+|[Feature][File] Add markdown parser for RAG support #9714 (#9760)|https://github.com/apache/seatunnel/commit/dc61cbe9d2|2.3.13|
+|[Feature][Connector-V2] Support hdfs file multi table source read (#9816)|https://github.com/apache/seatunnel/commit/672af255ef|2.3.13|
+|[Feature][Transform-V2] Support multimodal embeddings (#9673)|https://github.com/apache/seatunnel/commit/12414c4eab|2.3.13|
 |[Improve][Connector-V2] File Source Support filtering files by last modified time.  (#9526)|https://github.com/apache/seatunnel/commit/cde4c3d410|2.3.12|
 |[Feature][Format] Improve maxwell_json,canal_json,debezium_json format add ts_ms and table (#9701)|https://github.com/apache/seatunnel/commit/fb8444b946|2.3.12|
 |[Improve][API] Optimize the enumerator API semantics and reduce lock calls at the connector level (#9671)|https://github.com/apache/seatunnel/commit/9212a77140|2.3.12|

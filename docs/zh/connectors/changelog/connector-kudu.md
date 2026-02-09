@@ -2,6 +2,10 @@
 
 | Change | Commit | Version |
 | --- | --- | --- |
+|[Bug] [Connector-Kudu] Fix Doris auto table from Kudu STRING being created as CHAR(16) (#10175)|https://github.com/apache/seatunnel/commit/f951b0a01c|2.3.13|
+|[Feature][connector-kudu] Support regex and whole-database table_name for source (#10180)|https://github.com/apache/seatunnel/commit/e9b6071e4d|2.3.13|
+|[Fix] Fix CVE-2025-48924 for commons-lang3 (#9935)|https://github.com/apache/seatunnel/commit/c079a967e7|2.3.13|
+|[Fix][Core] Add shade module for apache commons lang3 (#9895)|https://github.com/apache/seatunnel/commit/abb9124b05|2.3.13|
 |[Chore] fix typos filed -&gt; field (#9757)|https://github.com/apache/seatunnel/commit/e3e1c67d29|2.3.12|
 |[Improve][Core] Update apache common to apache common lang3 (#9694)|https://github.com/apache/seatunnel/commit/6e5737c1ec|2.3.12|
 |[Improve][API] Optimize the enumerator API semantics and reduce lock calls at the connector level (#9671)|https://github.com/apache/seatunnel/commit/9212a77140|2.3.12|

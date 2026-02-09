@@ -2,6 +2,7 @@
 
 | Change | Commit | Version |
 | --- | --- | --- |
+|[Bug][Connector-V2][Email] Fix NPE on null values, add configurable attachment name and delimiter (#10112)|https://github.com/apache/seatunnel/commit/5f4e944378|2.3.13|
 |[improve] email connector options (#8983)|https://github.com/apache/seatunnel/commit/7821e824dd|2.3.10|
 |[Improve] restruct connector common options (#8634)|https://github.com/apache/seatunnel/commit/f3499a6eeb|2.3.10|
 |[Improve][Transform] Rename sql transform table name from &#x27;fake&#x27; to &#x27;dual&#x27; (#8298)|https://github.com/apache/seatunnel/commit/e6169684fb|2.3.9|

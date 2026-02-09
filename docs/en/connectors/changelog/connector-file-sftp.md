@@ -2,7 +2,9 @@
 
 | Change | Commit | Version |
 | --- | --- | --- |
-|[Feature][File] Add markdown parser #9714|https://github.com/apache/seatunnel/commit/8b3c07844| dev |
+|[Feature][Connector-V2] Support sync_mode=update for FtpFile/SftpFile/LocalFile source (binary) (#10437)|https://github.com/apache/seatunnel/commit/07a2125e53|2.3.13|
+|[Fix] [Connector-V2] Bump jsch from 0.1.55 to 0.2.20 to fix buffer issues (#10298)|https://github.com/apache/seatunnel/commit/a0e12c4be8|2.3.13|
+|[Feature][connectors-v2]File support quote char and escape char (#10185)|https://github.com/apache/seatunnel/commit/7345f27a9c|2.3.13|
 |[Improve][Connector-V2] Add customizable row delimiter support for text file processing (#9608)|https://github.com/apache/seatunnel/commit/7898e62e01|2.3.12|
 |[Improve][Connector-V2] Support maxcompute sink writer with timestamp field type (#9234)|https://github.com/apache/seatunnel/commit/a513c495e3|2.3.12|
 |[improve] update file connectors config (#9034)|https://github.com/apache/seatunnel/commit/8041d59dc2|2.3.11|

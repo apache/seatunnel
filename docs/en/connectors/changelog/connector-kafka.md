@@ -2,6 +2,11 @@
 
 | Change | Commit | Version |
 | --- | --- | --- |
+|[Fix][Connectors-v2] Fix transaction cancellation failure after broker recovery (#10013)|https://github.com/apache/seatunnel/commit/4d12727ad9|2.3.13|
+|[Feat][Connector-v2][Kafka] Add support for Schema Registry wire format in Protobuf deserialization (#10183)|https://github.com/apache/seatunnel/commit/6948d3492e|2.3.13|
+|[Feature][Kafka source] Inject Kafka record timestamp as EventTime metadata (#9994)|https://github.com/apache/seatunnel/commit/e4ec14a958|2.3.13|
+|[Improvement][Connector] Upgrade Kafka client version from 3.2.0 to 3.4.0 (#9941)|https://github.com/apache/seatunnel/commit/44454dcd3f|2.3.13|
+|[Fix][Core] Add shade module for apache commons lang3 (#9895)|https://github.com/apache/seatunnel/commit/abb9124b05|2.3.13|
 |[Fix][Connector-V2] Optimize start mode of kafka recovery job (#9736)|https://github.com/apache/seatunnel/commit/bbde7f6339|2.3.12|
 |[Improve][API] Optimize the enumerator API semantics and reduce lock calls at the connector level (#9671)|https://github.com/apache/seatunnel/commit/9212a77140|2.3.12|
 |[Fix][Connector-V2] Add Filter for Partitions to Prevent Blocking in KafkaConsumer StreamMode (#9598)|https://github.com/apache/seatunnel/commit/bd24fa77cb|2.3.12|
