@@ -71,6 +71,8 @@ public class JdbcHanaIT extends AbstractJdbcIT {
                     + "VARCHAR_VALUE_255 VARCHAR(255), \n"
                     + "NVARCHAR_VALUE NVARCHAR, \n"
                     + "NVARCHAR_VALUE_255 NVARCHAR(255), \n"
+                    + "CHAR_VALUE CHAR, \n"
+                    + "CHAR_VALUE_10 CHAR(15), \n"
                     + "TEXT_VALUE TEXT, \n"
                     + "BINTEXT_VALUE BINTEXT, \n"
                     //                + "DECIMAL_VALUE DECIMAL, \n"
@@ -145,6 +147,8 @@ public class JdbcHanaIT extends AbstractJdbcIT {
                     "VARCHAR_VALUE_255",
                     "NVARCHAR_VALUE",
                     "NVARCHAR_VALUE_255",
+                    "CHAR_VALUE",
+                    "CHAR_VALUE_10",
                     "TEXT_VALUE",
                     "BINTEXT_VALUE",
                     "DECIMAL_VALUE_10_2",
@@ -176,6 +180,8 @@ public class JdbcHanaIT extends AbstractJdbcIT {
                                 "varchar_value_255",
                                 "n",
                                 "nvarchar_value_255",
+                                "c",
+                                "char_10",
                                 "text_value",
                                 "bintext_value",
                                 1.0,
@@ -282,7 +288,7 @@ public class JdbcHanaIT extends AbstractJdbcIT {
                         connection, TablePath.of(SOURCE_TABLE), new SapHanaTypeMapper());
         List<String> columnNames = catalogTable.getTableSchema().getPrimaryKey().getColumnNames();
         Assertions.assertEquals(1, columnNames.size());
-        Assertions.assertEquals(25, catalogTable.getTableSchema().getColumns().size());
+        Assertions.assertEquals(27, catalogTable.getTableSchema().getColumns().size());
     }
 
     @SneakyThrows
@@ -297,6 +303,6 @@ public class JdbcHanaIT extends AbstractJdbcIT {
         Assertions.assertNotNull(catalogTable.getTableSchema().getPrimaryKey());
         Assertions.assertEquals(
                 1, catalogTable.getTableSchema().getPrimaryKey().getColumnNames().size());
-        Assertions.assertEquals(25, catalogTable.getTableSchema().getColumns().size());
+        Assertions.assertEquals(27, catalogTable.getTableSchema().getColumns().size());
     }
 }

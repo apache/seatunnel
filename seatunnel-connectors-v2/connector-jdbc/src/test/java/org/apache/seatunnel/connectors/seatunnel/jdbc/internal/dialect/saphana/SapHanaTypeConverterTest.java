@@ -268,6 +268,20 @@ public class SapHanaTypeConverterTest {
         Assertions.assertEquals(BasicType.STRING_TYPE, column.getDataType());
         Assertions.assertEquals(typeDefine.getLength() * 4, column.getColumnLength());
         Assertions.assertEquals(typeDefine.getColumnType(), column.getSourceType());
+
+        typeDefine =
+                BasicTypeDefine.builder()
+                        .name("test")
+                        .columnType("CHAR")
+                        .dataType("CHAR")
+                        .length(10L)
+                        .build();
+        column = SapHanaTypeConverter.INSTANCE.convert(typeDefine);
+
+        Assertions.assertEquals(typeDefine.getName(), column.getName());
+        Assertions.assertEquals(BasicType.STRING_TYPE, column.getDataType());
+        Assertions.assertEquals(typeDefine.getLength(), column.getColumnLength());
+        Assertions.assertEquals(typeDefine.getColumnType(), column.getSourceType());
     }
 
     @Test
@@ -622,5 +636,20 @@ public class SapHanaTypeConverterTest {
         Assertions.assertEquals(SapHanaTypeConverter.HANA_TIMESTAMP, typeDefine.getColumnType());
         Assertions.assertEquals(SapHanaTypeConverter.HANA_TIMESTAMP, typeDefine.getDataType());
         Assertions.assertEquals(column.getScale(), typeDefine.getScale());
+    }
+
+    @Test
+    public void testReconvertStringToChar() {
+        Column column =
+                PhysicalColumn.builder()
+                        .name("test")
+                        .dataType(BasicType.STRING_TYPE)
+                        .columnLength(10L)
+                        .sourceType("CHAR")
+                        .build();
+
+        BasicTypeDefine typeDefine = SapHanaTypeConverter.INSTANCE.reconvert(column);
+
+        Assertions.assertEquals(SapHanaTypeConverter.HANA_CHAR, typeDefine.getColumnType());
     }
 }
