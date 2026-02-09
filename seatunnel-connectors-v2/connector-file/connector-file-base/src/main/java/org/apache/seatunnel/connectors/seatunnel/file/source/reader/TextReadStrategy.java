@@ -36,9 +36,7 @@ import org.apache.seatunnel.connectors.seatunnel.file.exception.FileConnectorErr
 import org.apache.seatunnel.connectors.seatunnel.file.exception.FileConnectorException;
 import org.apache.seatunnel.connectors.seatunnel.file.source.split.FileSourceSplit;
 import org.apache.seatunnel.format.text.TextDeserializationSchema;
-import org.apache.seatunnel.format.text.constant.TextFormatConstant;
 import org.apache.seatunnel.format.text.splitor.DefaultTextLineSplitor;
-import org.apache.seatunnel.format.text.splitor.TextLineSplitor;
 
 import io.airlift.compress.lzo.LzopCodec;
 import lombok.extern.slf4j.Slf4j;
@@ -48,15 +46,12 @@ import java.io.IOException;
 import java.io.InputStream;
 import java.nio.charset.StandardCharsets;
 import java.util.Map;
-import java.util.Optional;
 
 @Slf4j
 public class TextReadStrategy extends AbstractReadStrategy {
     private DeserializationSchema<SeaTunnelRow> deserializationSchema;
-    private String fieldDelimiter = FileBaseSourceOptions.FIELD_DELIMITER.defaultValue();
     private String rowDelimiter = FileBaseSourceOptions.ROW_DELIMITER.defaultValue();
     private CompressFormat compressFormat = FileBaseSourceOptions.COMPRESS_CODEC.defaultValue();
-    private TextLineSplitor textLineSplitor;
     private int[] indexes;
     private String encoding = FileBaseSourceOptions.ENCODING.defaultValue();
 
@@ -267,7 +262,6 @@ public class TextReadStrategy extends AbstractReadStrategy {
         this.seaTunnelRowType = CatalogTableUtil.buildSimpleTextSchema();
         this.seaTunnelRowTypeWithPartition =
                 mergePartitionTypes(getPathForPartitionInference(path), seaTunnelRowType);
-        initFormatter();
         if (pluginConfig.hasPath(FileBaseSourceOptions.READ_COLUMNS.key())) {
             throw new FileConnectorException(
                     SeaTunnelAPIErrorCode.CONFIG_VALIDATION_FAILED,
@@ -275,32 +269,8 @@ public class TextReadStrategy extends AbstractReadStrategy {
                             + "SeaTunnel will not support column projection");
         }
         ReadonlyConfig readonlyConfig = ReadonlyConfig.fromConfig(pluginConfig);
-        TextDeserializationSchema.Builder builder =
-                TextDeserializationSchema.builder()
-                        .delimiter(TextFormatConstant.PLACEHOLDER)
-                        .textLineSplitor(textLineSplitor)
-                        .nullFormat(
-                                readonlyConfig
-                                        .getOptional(FileBaseSourceOptions.NULL_FORMAT)
-                                        .orElse(null));
-        readonlyConfig
-                .getOptional(FileBaseSourceOptions.DATETIME_FORMAT_LEGACY)
-                .ifPresent(builder::dateTimeFormatter);
-        readonlyConfig
-                .getOptional(FileBaseSourceOptions.DATETIME_FORMAT)
-                .ifPresent(val -> builder.dateTimeFormatter(DateTimeUtils.Formatter.parse(val)));
-        readonlyConfig
-                .getOptional(FileBaseSourceOptions.DATE_FORMAT_LEGACY)
-                .ifPresent(builder::dateFormatter);
-        readonlyConfig
-                .getOptional(FileBaseSourceOptions.DATE_FORMAT)
-                .ifPresent(val -> builder.dateFormatter(DateUtils.Formatter.parse(val)));
-        readonlyConfig
-                .getOptional(FileBaseSourceOptions.TIME_FORMAT_LEGACY)
-                .ifPresent(builder::timeFormatter);
-        readonlyConfig
-                .getOptional(FileBaseSourceOptions.TIME_FORMAT)
-                .ifPresent(val -> builder.timeFormatter(TimeUtils.Formatter.parse(val)));
+        TextDeserializationSchema.Builder builder = TextDeserializationSchema.builder();
+        initConfig(builder, readonlyConfig);
         if (isMergePartition) {
             deserializationSchema =
                     builder.seaTunnelRowType(this.seaTunnelRowTypeWithPartition).build();
@@ -317,25 +287,9 @@ public class TextReadStrategy extends AbstractReadStrategy {
         SeaTunnelRowType userDefinedRowTypeWithPartition =
                 mergePartitionTypes(partitionPath, rowType);
         ReadonlyConfig readonlyConfig = ReadonlyConfig.fromConfig(pluginConfig);
-        Optional<String> fieldDelimiterOptional =
-                readonlyConfig.getOptional(FileBaseSourceOptions.FIELD_DELIMITER);
-        Optional<String> rowDelimiterOptional =
-                readonlyConfig.getOptional(FileBaseSourceOptions.ROW_DELIMITER);
-        encoding =
-                readonlyConfig
-                        .getOptional(FileBaseSourceOptions.ENCODING)
-                        .orElse(StandardCharsets.UTF_8.name());
-        fieldDelimiterOptional.ifPresent(s -> fieldDelimiter = s);
-        rowDelimiterOptional.ifPresent(s -> rowDelimiter = s);
-        initFormatter();
-        TextDeserializationSchema.Builder builder =
-                TextDeserializationSchema.builder()
-                        .delimiter(fieldDelimiter)
-                        .textLineSplitor(textLineSplitor)
-                        .nullFormat(
-                                readonlyConfig
-                                        .getOptional(FileBaseSourceOptions.NULL_FORMAT)
-                                        .orElse(null));
+
+        TextDeserializationSchema.Builder builder = TextDeserializationSchema.builder();
+        initConfig(builder, readonlyConfig);
         if (isMergePartition) {
             deserializationSchema =
                     builder.seaTunnelRowType(userDefinedRowTypeWithPartition).build();
@@ -362,8 +316,18 @@ public class TextReadStrategy extends AbstractReadStrategy {
         }
     }
 
-    private void initFormatter() {
-        ReadonlyConfig readonlyConfig = ReadonlyConfig.fromConfig(pluginConfig);
+    private void initConfig(
+            TextDeserializationSchema.Builder builder, ReadonlyConfig readonlyConfig) {
+        readonlyConfig.getOptional(FileBaseSourceOptions.ENCODING).ifPresent(val -> encoding = val);
+        readonlyConfig
+                .getOptional(FileBaseSourceOptions.ROW_DELIMITER)
+                .ifPresent(val -> rowDelimiter = val);
+        readonlyConfig
+                .getOptional(FileBaseSourceOptions.FIELD_DELIMITER)
+                .ifPresent(builder::delimiter);
+        readonlyConfig
+                .getOptional(FileBaseSourceOptions.NULL_FORMAT)
+                .ifPresent(builder::nullFormat);
         readonlyConfig
                 .getOptional(FileBaseSourceOptions.COMPRESS_CODEC)
                 .ifPresent(
@@ -371,6 +335,24 @@ public class TextReadStrategy extends AbstractReadStrategy {
                                 compressFormat =
                                         CompressFormat.valueOf(
                                                 compressCodec.getCompressCodec().toUpperCase()));
-        textLineSplitor = new DefaultTextLineSplitor();
+        readonlyConfig
+                .getOptional(FileBaseSourceOptions.DATETIME_FORMAT_LEGACY)
+                .ifPresent(builder::dateTimeFormatter);
+        readonlyConfig
+                .getOptional(FileBaseSourceOptions.DATETIME_FORMAT)
+                .ifPresent(val -> builder.dateTimeFormatter(DateTimeUtils.Formatter.parse(val)));
+        readonlyConfig
+                .getOptional(FileBaseSourceOptions.DATE_FORMAT_LEGACY)
+                .ifPresent(builder::dateFormatter);
+        readonlyConfig
+                .getOptional(FileBaseSourceOptions.DATE_FORMAT)
+                .ifPresent(val -> builder.dateFormatter(DateUtils.Formatter.parse(val)));
+        readonlyConfig
+                .getOptional(FileBaseSourceOptions.TIME_FORMAT_LEGACY)
+                .ifPresent(builder::timeFormatter);
+        readonlyConfig
+                .getOptional(FileBaseSourceOptions.TIME_FORMAT)
+                .ifPresent(val -> builder.timeFormatter(TimeUtils.Formatter.parse(val)));
+        builder.textLineSplitor(new DefaultTextLineSplitor());
     }
 }
