@@ -293,7 +293,7 @@ public class MongodbCDCIT extends TestSuiteBase implements TestResource {
         assertionsSourceAndSink(MONGODB_COLLECTION_2, SINK_SQL_ORDERS);
 
         // Clean and verify again to ensure CDC continues to work
-        cleanSourceTable();
+        cleanMongoSourceTable();
         TimeUnit.SECONDS.sleep(20);
         assertionsSourceAndSink(MONGODB_COLLECTION_1, SINK_SQL_PRODUCTS);
         assertionsSourceAndSink(MONGODB_COLLECTION_2, SINK_SQL_ORDERS);
@@ -667,8 +667,12 @@ public class MongodbCDCIT extends TestSuiteBase implements TestResource {
         mongodbContainer.executeCommandFileInDatabase("inventoryDDL", MONGODB_DATABASE);
     }
 
-    private void cleanSourceTable() {
+    private void cleanMongoSourceTable() {
         mongodbContainer.executeCommandFileInDatabase("inventoryClean", MONGODB_DATABASE);
+    }
+
+    private void cleanSourceTable() {
+        cleanMongoSourceTable();
         truncateMysqlTable(MONGODB_COLLECTION_1);
         truncateMysqlTable(MONGODB_COLLECTION_2);
     }
