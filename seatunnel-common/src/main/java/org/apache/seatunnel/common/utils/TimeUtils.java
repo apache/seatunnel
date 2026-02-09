@@ -22,6 +22,9 @@ import lombok.Getter;
 import java.time.LocalTime;
 import java.time.format.DateTimeFormatter;
 import java.time.format.DateTimeFormatterBuilder;
+import java.time.format.SignStyle;
+import java.time.temporal.TemporalAccessor;
+import java.time.temporal.TemporalQueries;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.regex.Pattern;
@@ -52,26 +55,34 @@ public class TimeUtils {
                 new TimePattern("\\d{1,2}:\\d{2}:\\d{2}\\.\\d{3}", Formatter.H_MM_SS_SSS.value));
         PATTERN_LIST.add(new TimePattern("\\d{2}:\\d{2}", Formatter.HH_MM.value));
         PATTERN_LIST.add(new TimePattern("\\d{1,2}:\\d{2}", Formatter.H_MM.value));
-        // With milliseconds
-        PATTERN_LIST.add(
-                new TimePattern(
-                        "\\d{2}:\\d{2}:\\d{2}\\.\\d+",
-                        new DateTimeFormatterBuilder()
-                                .parseCaseInsensitive()
-                                .append(DateTimeFormatter.ISO_LOCAL_TIME)
-                                .toFormatter()));
         PATTERN_LIST.add(
                 new TimePattern(
                         "\\d{1,2}:\\d{2}:\\d{2}\\.\\d+",
                         new DateTimeFormatterBuilder()
-                                .appendValue(HOUR_OF_DAY, 1)
+                                .appendValue(HOUR_OF_DAY, 1, 2, SignStyle.NEVER)
                                 .appendLiteral(':')
                                 .appendValue(MINUTE_OF_HOUR, 2)
-                                .optionalStart()
                                 .appendLiteral(':')
                                 .appendValue(SECOND_OF_MINUTE, 2)
                                 .optionalStart()
                                 .appendFraction(NANO_OF_SECOND, 0, 9, true)
+                                .optionalEnd()
+                                .toFormatter()));
+        PATTERN_LIST.add(
+                new TimePattern(
+                        "\\d{1,2}:\\d{2}:\\d{2}(?:\\.\\d{0,9})?(?:[+-]\\d{2}:\\d{2}|Z)$",
+                        new DateTimeFormatterBuilder()
+                                .appendValue(HOUR_OF_DAY, 1, 2, SignStyle.NEVER)
+                                .appendLiteral(':')
+                                .appendValue(MINUTE_OF_HOUR, 2)
+                                .appendLiteral(':')
+                                .appendValue(SECOND_OF_MINUTE, 2)
+                                .optionalStart()
+                                .appendFraction(NANO_OF_SECOND, 0, 9, true)
+                                .optionalEnd()
+                                .optionalStart()
+                                .appendOffset("+HH:mm", "Z")
+                                .optionalEnd()
                                 .toFormatter()));
     }
 
@@ -133,7 +144,7 @@ public class TimeUtils {
      * @return Parsed LocalTime object
      */
     public static LocalTime parse(String time, Formatter formatter) {
-        return LocalTime.parse(time, formatter.getDateTimeFormatter());
+        return parse(time, formatter.getDateTimeFormatter());
     }
 
     /**
@@ -156,7 +167,8 @@ public class TimeUtils {
      * @return Parsed LocalTime object
      */
     public static LocalTime parse(String time, DateTimeFormatter timeFormatter) {
-        return LocalTime.parse(time, timeFormatter);
+        TemporalAccessor temporalAccessor = timeFormatter.parse(time);
+        return temporalAccessor.query(TemporalQueries.localTime());
     }
 
     /**

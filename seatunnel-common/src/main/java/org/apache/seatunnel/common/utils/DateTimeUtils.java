@@ -27,6 +27,7 @@ import java.time.OffsetDateTime;
 import java.time.ZoneId;
 import java.time.format.DateTimeFormatter;
 import java.time.format.DateTimeFormatterBuilder;
+import java.time.format.SignStyle;
 import java.time.temporal.ChronoField;
 import java.time.temporal.Temporal;
 import java.time.temporal.TemporalAccessor;
@@ -37,12 +38,18 @@ import java.util.List;
 import java.util.Map;
 import java.util.regex.Pattern;
 
+import static java.time.temporal.ChronoField.HOUR_OF_DAY;
+import static java.time.temporal.ChronoField.MINUTE_OF_HOUR;
+import static java.time.temporal.ChronoField.NANO_OF_SECOND;
+import static java.time.temporal.ChronoField.SECOND_OF_MINUTE;
+
 public class DateTimeUtils {
 
     // List of date-time format patterns, sorted by priority
     private static final Map<Integer, List<DateTimePattern>> DATETIME_PATTERN_MAP = new HashMap<>();
     private static final int OVER_LENGTH_THRESHOLD = 23;
     private static final int OVER_LENGTH_KEY = -1;
+    private static final int HAS_TIME_ZONE = -2;
 
     static {
         initPatternMap();
@@ -217,12 +224,12 @@ public class DateTimeUtils {
         // High priority: ISO8601 variable millisecond (6/9 digit, standard)
         overLengthPatterns.add(
                 new DateTimePattern(
-                        "\\d{4}-\\d{2}-\\d{2}T\\d{2}:\\d{2}:\\d{2}\\..*",
+                        "\\d{4}-\\d{2}-\\d{2}T\\d{2}:\\d{2}:\\d{2}\\.\\d+",
                         DateTimeFormatter.ISO_LOCAL_DATE_TIME));
         // High priority: Hyphen separator variable millisecond (common business)
         overLengthPatterns.add(
                 new DateTimePattern(
-                        "\\d{4}-\\d{2}-\\d{2}\\s\\d{2}:\\d{2}:\\d{2}\\..*",
+                        "\\d{4}-\\d{2}-\\d{2}\\s\\d{2}:\\d{2}:\\d{2}\\.\\d+",
                         new DateTimeFormatterBuilder()
                                 .parseCaseInsensitive()
                                 .append(DateTimeFormatter.ISO_LOCAL_DATE)
@@ -232,7 +239,7 @@ public class DateTimeUtils {
         // Secondary: Slash separator variable millisecond
         overLengthPatterns.add(
                 new DateTimePattern(
-                        "\\d{4}/\\d{2}/\\d{2}\\s\\d{2}:\\d{2}:\\d{2}\\..*",
+                        "\\d{4}/\\d{2}/\\d{2}\\s\\d{2}:\\d{2}:\\d{2}\\.\\d+",
                         new DateTimeFormatterBuilder()
                                 .parseCaseInsensitive()
                                 .appendValue(ChronoField.YEAR, 4)
@@ -246,7 +253,7 @@ public class DateTimeUtils {
         // Secondary: Dot separator variable millisecond
         overLengthPatterns.add(
                 new DateTimePattern(
-                        "\\d{4}\\.\\d{2}\\.\\d{2}\\s\\d{2}:\\d{2}:\\d{2}\\..*",
+                        "\\d{4}\\.\\d{2}\\.\\d{2}\\s\\d{2}:\\d{2}:\\d{2}\\.\\d+",
                         new DateTimeFormatterBuilder()
                                 .parseCaseInsensitive()
                                 .appendValue(ChronoField.YEAR, 4)
@@ -258,6 +265,57 @@ public class DateTimeUtils {
                                 .append(DateTimeFormatter.ISO_LOCAL_TIME)
                                 .toFormatter()));
         DATETIME_PATTERN_MAP.put(OVER_LENGTH_KEY, overLengthPatterns);
+
+        List<DateTimePattern> hasTimeZonePatterns = new ArrayList<>();
+        hasTimeZonePatterns.add(
+                new DateTimePattern(
+                        "^\\d{4}-\\d{2}-\\d{2}[T\\s]\\d{2}:\\d{2}:\\d{2}(?:\\.\\d{0,9})?(?:[+-]\\d{2}:\\d{2}|Z)$",
+                        new DateTimeFormatterBuilder()
+                                .parseCaseInsensitive()
+                                .append(DateTimeFormatter.ISO_LOCAL_DATE)
+                                .optionalStart()
+                                .appendLiteral('T')
+                                .optionalEnd()
+                                .optionalStart()
+                                .appendLiteral(' ')
+                                .optionalEnd()
+                                .appendValue(HOUR_OF_DAY, 2)
+                                .appendLiteral(':')
+                                .appendValue(MINUTE_OF_HOUR, 2)
+                                .appendLiteral(':')
+                                .appendValue(SECOND_OF_MINUTE, 2)
+                                .optionalStart()
+                                .appendFraction(NANO_OF_SECOND, 0, 9, true)
+                                .optionalEnd()
+                                .optionalStart()
+                                .appendOffset("+HH:mm", "Z")
+                                .optionalEnd()
+                                .toFormatter()));
+        hasTimeZonePatterns.add(
+                new DateTimePattern(
+                        "^\\d{4}/\\d{2}/\\d{2}[T\\s]\\d{2}:\\d{2}:\\d{2}(?:\\.\\d{0,9})?(?:[+-]\\d{2}:\\d{2}|Z)$",
+                        new DateTimeFormatterBuilder()
+                                .parseCaseInsensitive()
+                                .appendPattern("yyyy/MM/dd")
+                                .optionalStart()
+                                .appendLiteral('T')
+                                .optionalEnd()
+                                .optionalStart()
+                                .appendLiteral(' ')
+                                .optionalEnd()
+                                .appendValue(HOUR_OF_DAY, 1, 2, SignStyle.NEVER)
+                                .appendLiteral(':')
+                                .appendValue(MINUTE_OF_HOUR, 2)
+                                .appendLiteral(':')
+                                .appendValue(SECOND_OF_MINUTE, 2)
+                                .optionalStart()
+                                .appendFraction(NANO_OF_SECOND, 0, 9, true)
+                                .optionalEnd()
+                                .optionalStart()
+                                .appendOffset("+HH:mm", "Z")
+                                .optionalEnd()
+                                .toFormatter()));
+        DATETIME_PATTERN_MAP.put(HAS_TIME_ZONE, hasTimeZonePatterns);
     }
 
     // Define date-time format pattern, containing regex and corresponding formatter
@@ -292,7 +350,10 @@ public class DateTimeUtils {
             throw new IllegalArgumentException("Datetime string cannot be null or empty");
         }
         int strLength = dateTimeStr.length();
-        int targetKey = strLength > OVER_LENGTH_THRESHOLD ? OVER_LENGTH_KEY : strLength;
+        int targetKey =
+                isTimeStrHasTimeZone(dateTimeStr)
+                        ? HAS_TIME_ZONE
+                        : strLength > OVER_LENGTH_THRESHOLD ? OVER_LENGTH_KEY : strLength;
         List<DateTimePattern> dateTimePatterns = DATETIME_PATTERN_MAP.get(targetKey);
         if (dateTimePatterns == null || dateTimePatterns.isEmpty()) {
             return null;
@@ -361,7 +422,7 @@ public class DateTimeUtils {
         if (dateTimeFormatter == null) {
             throw new IllegalArgumentException("Unsupported datetime format: " + dateTime);
         }
-        return LocalDateTime.parse(dateTime, dateTimeFormatter);
+        return parse(dateTime, dateTimeFormatter);
     }
 
     /**
@@ -384,7 +445,7 @@ public class DateTimeUtils {
      */
     public static LocalDateTime parse(String dateTime, String format) {
         DateTimeFormatter dateTimeFormatter = DateTimeFormatter.ofPattern(format);
-        return LocalDateTime.parse(dateTime, dateTimeFormatter);
+        return parse(dateTime, dateTimeFormatter);
     }
 
     public static LocalDateTime parse(long timestamp) {
@@ -469,6 +530,15 @@ public class DateTimeUtils {
     public static String toString(long timestamp, String format) {
         Instant instant = Instant.ofEpochMilli(timestamp);
         return toString(LocalDateTime.ofInstant(instant, ZoneId.systemDefault()), format);
+    }
+
+    public static boolean isTimeStrHasTimeZone(String timeStr) {
+        if (timeStr == null || timeStr.isEmpty()) {
+            return false;
+        }
+        return timeStr.endsWith("Z")
+                || timeStr.contains("+") && timeStr.contains(":")
+                || timeStr.contains("-") && timeStr.indexOf("-") > 5;
     }
 
     @Getter
