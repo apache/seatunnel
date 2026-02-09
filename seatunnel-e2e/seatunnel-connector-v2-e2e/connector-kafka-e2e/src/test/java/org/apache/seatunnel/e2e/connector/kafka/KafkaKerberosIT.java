@@ -330,7 +330,7 @@ public class KafkaKerberosIT extends TestSuiteBase implements TestResource {
                 .untilAsserted(
                         () -> {
                             String jobStatus = container.getJobStatus(String.valueOf(jobId));
-                            Assertions.assertEquals("CANCELING", jobStatus);
+                            Assertions.assertEquals("CANCELED", jobStatus);
                         });
 
         // step 2. Verify that the program outputs retry logs
