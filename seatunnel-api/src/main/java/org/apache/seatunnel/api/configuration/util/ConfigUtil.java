@@ -28,6 +28,7 @@ import org.apache.seatunnel.api.configuration.Option;
 import lombok.extern.slf4j.Slf4j;
 
 import java.lang.reflect.ParameterizedType;
+import java.time.Duration;
 import java.util.Arrays;
 import java.util.List;
 import java.util.Locale;
@@ -111,6 +112,8 @@ public class ConfigUtil {
             return (T) convertToFloat(rawValue);
         } else if (Double.class.equals(clazz)) {
             return (T) convertToDouble(rawValue);
+        } else if (Duration.class.equals(clazz)) {
+            return (T) convertToDuration(rawValue);
         } else if (Object.class.equals(clazz)) {
             return (T) rawValue;
         }
@@ -173,6 +176,56 @@ public class ConfigUtil {
         }
 
         return Double.parseDouble(o.toString());
+    }
+
+    static Duration convertToDuration(Object o) {
+        if (o instanceof Duration) {
+            return (Duration) o;
+        }
+
+        String value = o.toString().trim();
+        if (value.isEmpty()) {
+            throw new IllegalArgumentException("Duration value cannot be blank.");
+        }
+
+        // Prefer ISO-8601 duration format first, e.g. PT10S.
+        try {
+            return Duration.parse(value);
+        } catch (Exception ignored) {
+            // Try shorthand format next.
+        }
+
+        // Support shorthand format such as 10S / 5M / 1H / 1D / 500MS.
+        String normalized = value.replaceAll("\\s+", "").toUpperCase(Locale.ROOT);
+        try {
+            if (normalized.endsWith("MS")) {
+                return Duration.ofMillis(
+                        Long.parseLong(normalized.substring(0, normalized.length() - 2)));
+            } else if (normalized.endsWith("S")) {
+                return Duration.ofSeconds(
+                        Long.parseLong(normalized.substring(0, normalized.length() - 1)));
+            } else if (normalized.endsWith("M")) {
+                return Duration.ofMinutes(
+                        Long.parseLong(normalized.substring(0, normalized.length() - 1)));
+            } else if (normalized.endsWith("H")) {
+                return Duration.ofHours(
+                        Long.parseLong(normalized.substring(0, normalized.length() - 1)));
+            } else if (normalized.endsWith("D")) {
+                return Duration.ofDays(
+                        Long.parseLong(normalized.substring(0, normalized.length() - 1)));
+            }
+        } catch (NumberFormatException e) {
+            throw new IllegalArgumentException(
+                    String.format(
+                            "Could not parse duration value '%s'. Supported formats: ISO-8601 (e.g. PT10S) or shorthand (e.g. 10S, 500MS).",
+                            value),
+                    e);
+        }
+
+        throw new IllegalArgumentException(
+                String.format(
+                        "Could not parse duration value '%s'. Supported formats: ISO-8601 (e.g. PT10S) or shorthand (e.g. 10S, 500MS).",
+                        value));
     }
 
     static Boolean convertToBoolean(Object o) {

@@ -73,7 +73,7 @@ import ChangeLog from '../changelog/connector-file-ftp.md';
 | binary_chunk_size           | int     | 否    | 1024                |
 | binary_complete_file_mode   | boolean | 否    | false               |
 | discovery_mode              | string  | 否    | once                |
-| scan_interval               | string  | 否    | 10s                 |
+| scan_interval               | string  | 否    | 10S |
 | start_mode                  | string  | 否    | earliest            |
 | sync_mode                   | string  | 否    | full                |
 | target_path                 | string  | 否    | -                   |
@@ -423,7 +423,7 @@ SeaTunnel 将从源文件中跳过前 2 行。
 
 ### scan_interval [string]
 
-仅在 `discovery_mode=continuous` 时使用。周期性扫描间隔，例如 `10s`、`30s`，默认 `10s`。
+仅在 `discovery_mode=continuous` 时使用。周期性扫描间隔。推荐使用简写格式 `10S`、`30S`；同时兼容 ISO-8601 格式 `PT10S`、`PT30S`。默认 `10S`。
 
 ### start_mode [string]
 
@@ -672,7 +672,7 @@ source {
     file_format_type = "binary"
 
     discovery_mode = "continuous"
-    scan_interval = "10s"
+    scan_interval = "10S"
     start_mode = "latest"
 
     sync_mode = "update"
