@@ -32,19 +32,20 @@ public enum SchemaEvolutionErrorCode implements SeaTunnelErrorCode {
     INVALID_SCHEMA_STRUCTURE("SE-05", "Invalid schema structure provided"),
     OUTDATED_SCHEMA_EVENT("SE-06", "Schema change event is outdated"),
     UNSUPPORTED_SCHEMA_CHANGE_TYPE("SE-07", "Schema change type is not supported"),
-    GET_META_LAKE_TABLE_SCHEMA_FAILED("SE-11", "Get meta lake table schema failed"),
-    ERROR_INVALID_TABLE_URL(
-            "SE-12",
-            "Invalid table URL format, expected: /catalogs/{catalog}/schemas/{schema}/tables/{table}"),
-    CATALOG_TABLE_SIZE_IS_ERROR("SE-13", "Catalog table size is error"),
-
 
     // sink writer errors
     SCHEMA_CHANGE_APPLICATION_FAILED("SE-08", "Failed to apply schema change to sink writer"),
     FLUSH_OPERATION_FAILED("SE-09", "Flush operation failed during schema evolution"),
 
     // event processing errors
-    SCHEMA_EVENT_PROCESSING_FAILED("SE-10", "Failed to process schema change event");
+    SCHEMA_EVENT_PROCESSING_FAILED("SE-10", "Failed to process schema change event"),
+
+    // meta lake schema
+    GET_META_LAKE_TABLE_SCHEMA_FAILED("SE-11", "Get meta lake table schema failed"),
+    ERROR_INVALID_TABLE_URL(
+            "SE-12",
+            "Invalid table URL format, expected: /catalogs/{catalog}/schemas/{schema}/tables/{table}"),
+    CATALOG_TABLE_SIZE_IS_ERROR("SE-13", "Catalog table size is error");
 
     private final String code;
     private final String description;
