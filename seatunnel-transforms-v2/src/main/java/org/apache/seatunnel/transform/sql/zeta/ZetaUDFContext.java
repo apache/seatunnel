@@ -82,25 +82,21 @@ public class ZetaUDFContext {
         }
     }
 
-    @Nullable
-    public String getRawTableId() {
+    @Nullable public String getRawTableId() {
         return rawTableId;
     }
 
-    @Nullable
-    public String getDatabase() {
+    @Nullable public String getDatabase() {
         resolveTablePathIfNeeded();
         return database;
     }
 
-    @Nullable
-    public String getSchema() {
+    @Nullable public String getSchema() {
         resolveTablePathIfNeeded();
         return schema;
     }
 
-    @Nullable
-    public String getTable() {
+    @Nullable public String getTable() {
         resolveTablePathIfNeeded();
         return table;
     }

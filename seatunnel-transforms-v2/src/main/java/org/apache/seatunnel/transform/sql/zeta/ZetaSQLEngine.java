@@ -114,7 +114,8 @@ public class ZetaSQLEngine implements SQLEngine {
                 closeUDFs(i - 1);
                 throw new TransformException(
                         CommonErrorCodeDeprecated.UNSUPPORTED_OPERATION,
-                        String.format("Open udf %s failed: %s", udf.functionName(), e.getMessage()));
+                        String.format(
+                                "Open udf %s failed: %s", udf.functionName(), e.getMessage()));
             }
         }
     }
