@@ -166,6 +166,9 @@ public class MongodbFetchTaskContext implements FetchTask.Context {
     public boolean isRecordBetween(
             SourceRecord record, @Nonnull Object[] splitStart, @Nonnull Object[] splitEnd) {
         BsonDocument documentKey = getDocumentKey(record);
+        if (documentKey == null) {
+            return false;
+        }
         BsonDocument splitKeys = (BsonDocument) splitStart[0];
         String firstKey = splitKeys.getFirstKey();
         BsonValue keyValue = documentKey.get(firstKey);

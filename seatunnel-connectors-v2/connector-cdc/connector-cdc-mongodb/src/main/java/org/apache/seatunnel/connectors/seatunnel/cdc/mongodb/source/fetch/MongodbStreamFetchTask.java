@@ -57,6 +57,8 @@ import javax.annotation.Nonnull;
 import javax.annotation.Nullable;
 
 import java.time.Instant;
+import java.util.HashMap;
+import java.util.Map;
 import java.util.Optional;
 
 import static org.apache.seatunnel.common.exception.CommonErrorCodeDeprecated.ILLEGAL_ARGUMENT;
@@ -67,6 +69,7 @@ import static org.apache.seatunnel.connectors.seatunnel.cdc.mongodb.config.Mongo
 import static org.apache.seatunnel.connectors.seatunnel.cdc.mongodb.config.MongodbSourceConstants.DOCUMENT_KEY;
 import static org.apache.seatunnel.connectors.seatunnel.cdc.mongodb.config.MongodbSourceConstants.FAILED_TO_PARSE_ERROR;
 import static org.apache.seatunnel.connectors.seatunnel.cdc.mongodb.config.MongodbSourceConstants.FALSE_FALSE;
+import static org.apache.seatunnel.connectors.seatunnel.cdc.mongodb.config.MongodbSourceConstants.HEARTBEAT_KEY_FIELD;
 import static org.apache.seatunnel.connectors.seatunnel.cdc.mongodb.config.MongodbSourceConstants.ID_FIELD;
 import static org.apache.seatunnel.connectors.seatunnel.cdc.mongodb.config.MongodbSourceConstants.ILLEGAL_OPERATION_ERROR;
 import static org.apache.seatunnel.connectors.seatunnel.cdc.mongodb.config.MongodbSourceConstants.NS_FIELD;
@@ -388,9 +391,12 @@ public class MongodbStreamFetchTask implements FetchTask<SourceSplitBase> {
                 new Struct(SchemaBuilder.struct().field(TS_MS_FIELD, Schema.INT64_SCHEMA).build());
         heartbeatValue.put(TS_MS_FIELD, Instant.now().toEpochMilli());
 
+        Map<String, Object> heartbeatOffset = new HashMap<>(heartbeatRecord.sourceOffset());
+        heartbeatOffset.put(HEARTBEAT_KEY_FIELD, "true");
+
         return new SourceRecord(
                 heartbeatRecord.sourcePartition(),
-                heartbeatRecord.sourceOffset(),
+                heartbeatOffset,
                 heartbeatRecord.topic(),
                 heartbeatRecord.keySchema(),
                 heartbeatRecord.key(),
