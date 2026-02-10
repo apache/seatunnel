@@ -22,9 +22,6 @@ import org.apache.seatunnel.shade.com.zaxxer.hikari.HikariDataSource;
 import org.apache.seatunnel.api.sink.MultiTableResourceManager;
 import org.apache.seatunnel.api.table.catalog.TablePath;
 import org.apache.seatunnel.api.table.catalog.TableSchema;
-import org.apache.seatunnel.api.table.coordinator.SchemaCoordinator;
-import org.apache.seatunnel.api.table.schema.event.FlushEvent;
-import org.apache.seatunnel.api.table.schema.exception.SinkWriterSchemaException;
 import org.apache.seatunnel.api.table.type.SeaTunnelRow;
 import org.apache.seatunnel.common.exception.CommonErrorCodeDeprecated;
 import org.apache.seatunnel.connectors.seatunnel.jdbc.config.JdbcSinkConfig;
@@ -49,7 +46,6 @@ import java.util.Optional;
 @Slf4j
 public class JdbcSinkWriter extends AbstractJdbcSinkWriter<ConnectionPoolManager> {
     private final Integer primaryKeyIndex;
-    private SchemaCoordinator schemaCoordinator;
 
     public JdbcSinkWriter(
             TablePath sinkTablePath,
@@ -148,42 +144,12 @@ public class JdbcSinkWriter extends AbstractJdbcSinkWriter<ConnectionPoolManager
 
     @Override
     public void write(SeaTunnelRow element) throws IOException {
-        if (element != null && element.getOptions() != null) {
-            if (element.getOptions().containsKey("flush_event")
-                    || element.getOptions().containsKey("schema_change_event")) {
-                log.debug("Skipping schema change event row: {}", element.getOptions().keySet());
-                return;
-            }
+        if (element.getArity() == 0) {
+            return;
         }
 
         tryOpen();
         outputFormat.writeRecord(element);
-    }
-
-    @Override
-    public void handleFlushEvent(FlushEvent event) throws IOException {
-        log.info("JdbcSinkWriter handling FlushEvent for table: {}", event.tableIdentifier());
-        try {
-            flushData();
-            log.info("JdbcSinkWriter flush completed for table: {}", event.tableIdentifier());
-            sendFlushSuccessful(event);
-        } catch (Exception e) {
-            log.error("JdbcSinkWriter flush failed for table: {}", event.tableIdentifier(), e);
-            throw SinkWriterSchemaException.flushFailed(
-                    event.tableIdentifier(), event.getJobId(), "JDBC flush operation failed", e);
-        }
-    }
-
-    @Override
-    public void flushData() throws IOException {
-        tryOpen();
-        outputFormat.checkFlushException();
-        outputFormat.flush();
-    }
-
-    @Override
-    public SchemaCoordinator getSchemaCoordinator() {
-        return schemaCoordinator;
     }
 
     @Override
