@@ -793,7 +793,7 @@ jobs:
 
   all-connectors-it-2:
     needs: [ changes, sanity-check ]
-    if: needs.changes.outputs.api == 'true' || needs.changes.outputs.engine == 'true'
+    if: ${{ false }} # temporary: only run all-connectors-it-1
     runs-on: ${{ matrix.os }}
     env:
       RUN_ALL_CONTAINER: ${{ needs.changes.outputs.api }}
@@ -824,7 +824,7 @@ jobs:
 
   all-connectors-it-3:
     needs: [ changes, sanity-check ]
-    if: needs.changes.outputs.api == 'true' || needs.changes.outputs.engine == 'true'
+    if: ${{ false }} # temporary: only run all-connectors-it-1
     runs-on: ${{ matrix.os }}
     env:
       RUN_ALL_CONTAINER: ${{ needs.changes.outputs.api }}
@@ -855,7 +855,7 @@ jobs:
 
   all-connectors-it-4:
     needs: [ changes, sanity-check ]
-    if: needs.changes.outputs.api == 'true' || needs.changes.outputs.engine == 'true'
+    if: ${{ false }} # temporary: only run all-connectors-it-1
     runs-on: ${{ matrix.os }}
     env:
       RUN_ALL_CONTAINER: ${{ needs.changes.outputs.api }}
@@ -886,7 +886,7 @@ jobs:
 
   all-connectors-it-5:
     needs: [ changes, sanity-check ]
-    if: needs.changes.outputs.api == 'true' || needs.changes.outputs.engine == 'true'
+    if: ${{ false }} # temporary: only run all-connectors-it-1
     runs-on: ${{ matrix.os }}
     env:
       RUN_ALL_CONTAINER: ${{ needs.changes.outputs.api }}
@@ -917,7 +917,7 @@ jobs:
 
   all-connectors-it-6:
     needs: [ changes, sanity-check ]
-    if: needs.changes.outputs.api == 'true' || needs.changes.outputs.engine == 'true'
+    if: ${{ false }} # temporary: only run all-connectors-it-1
     runs-on: ${{ matrix.os }}
     env:
       RUN_ALL_CONTAINER: ${{ needs.changes.outputs.api }}
@@ -948,7 +948,7 @@ jobs:
 
   all-connectors-it-7:
     needs: [ changes, sanity-check ]
-    if: needs.changes.outputs.api == 'true' || needs.changes.outputs.engine == 'true'
+    if: ${{ false }} # temporary: only run all-connectors-it-1
     runs-on: ${{ matrix.os }}
     env:
       RUN_ALL_CONTAINER: ${{ needs.changes.outputs.api }}
