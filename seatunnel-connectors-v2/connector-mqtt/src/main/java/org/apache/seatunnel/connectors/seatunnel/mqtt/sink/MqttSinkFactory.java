@@ -1,4 +1,4 @@
-package org.apache.seatunnel.connectors.seatunnel.mqtt;
+package org.apache.seatunnel.connectors.seatunnel.mqtt.sink;
 
 import org.apache.seatunnel.api.configuration.Option;
 import org.apache.seatunnel.api.configuration.Options;
