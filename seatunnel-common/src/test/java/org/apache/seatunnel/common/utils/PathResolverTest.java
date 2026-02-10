@@ -80,7 +80,7 @@ public class PathResolverTest {
         URL logicalUrl = PathResolver.replacePathWithEnv(absoluteUrl);
 
         Assertions.assertEquals(
-                "$SEATUNNEL_HOME/connectors/seatunnel/connector-kafka.jar", logicalUrl.getPath());
+                "/$SEATUNNEL_HOME/connectors/seatunnel/connector-kafka.jar", logicalUrl.getPath());
 
         // Test file OUTSIDE SEATUNNEL_HOME
         String outsidePath = "/tmp/other/connector.jar";
