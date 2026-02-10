@@ -55,6 +55,7 @@ import java.util.ArrayList;
 import java.util.Collections;
 import java.util.Date;
 import java.util.Deque;
+import java.util.HashMap;
 import java.util.HashSet;
 import java.util.LinkedHashMap;
 import java.util.List;
@@ -90,6 +91,9 @@ public class ContinuousMultipleTableFileSourceSplitEnumerator
     private final Object lock = new Object();
     private final Deque<FileSourceSplit> pendingSplits = new ArrayDeque<>();
     private final Set<String> pendingSplitIds = new HashSet<>();
+    // Tracks the latest queued/completed source file version to prevent duplicate re-queue
+    // before the target side catches up (e.g. short scan interval with distcp update mode).
+    private final Map<String, SplitVersion> knownSplitVersions = new HashMap<>();
     private Set<FileSourceSplit> inFlightSplits;
 
     private ScheduledExecutorService scheduler;
@@ -261,10 +265,12 @@ public class ContinuousMultipleTableFileSourceSplitEnumerator
             scanned += files.size();
             for (FileStatus fileStatus : files) {
                 if (!ctx.shouldProcess(fileStatus, jobStartTimeMillis, startMode)) {
+                    clearKnownVersionIfPresent(ctx.tableId, fileStatus.getPath().toString());
                     continue;
                 }
+                SplitVersion splitVersion = SplitVersion.fromFileStatus(fileStatus);
                 for (FileSourceSplit split : ctx.toSplits(fileStatus)) {
-                    if (enqueueSplitIfAbsent(split)) {
+                    if (enqueueSplitIfAbsent(split, splitVersion)) {
                         queued++;
                     }
                 }
@@ -287,8 +293,15 @@ public class ContinuousMultipleTableFileSourceSplitEnumerator
     }
 
     private boolean enqueueSplitIfAbsent(FileSourceSplit split) {
+        return enqueueSplitIfAbsent(split, null);
+    }
+
+    private boolean enqueueSplitIfAbsent(FileSourceSplit split, SplitVersion splitVersion) {
         String splitId = split.splitId();
         synchronized (lock) {
+            if (splitVersion != null && splitVersion.equals(knownSplitVersions.get(splitId))) {
+                return false;
+            }
             if (pendingSplitIds.contains(splitId)) {
                 return false;
             }
@@ -299,7 +312,19 @@ public class ContinuousMultipleTableFileSourceSplitEnumerator
             }
             pendingSplits.addLast(split);
             pendingSplitIds.add(splitId);
+            if (splitVersion != null) {
+                knownSplitVersions.put(splitId, splitVersion);
+            }
             return true;
+        }
+    }
+
+    private void clearKnownVersionIfPresent(String tableId, String filePath) {
+        // Continuous mode currently supports binary only, so split id is stable as
+        // tableId+filePath.
+        String splitId = new FileSourceSplit(tableId, filePath).splitId();
+        synchronized (lock) {
+            knownSplitVersions.remove(splitId);
         }
     }
 
@@ -803,6 +828,37 @@ public class ContinuousMultipleTableFileSourceSplitEnumerator
                     + (uri.getPath() == null ? "" : uri.getPath());
         } catch (Exception e) {
             return rawPath;
+        }
+    }
+
+    private static final class SplitVersion {
+        private final long length;
+        private final long modificationTime;
+
+        private SplitVersion(long length, long modificationTime) {
+            this.length = length;
+            this.modificationTime = modificationTime;
+        }
+
+        private static SplitVersion fromFileStatus(FileStatus fileStatus) {
+            return new SplitVersion(fileStatus.getLen(), fileStatus.getModificationTime());
+        }
+
+        @Override
+        public boolean equals(Object o) {
+            if (this == o) {
+                return true;
+            }
+            if (o == null || getClass() != o.getClass()) {
+                return false;
+            }
+            SplitVersion that = (SplitVersion) o;
+            return length == that.length && modificationTime == that.modificationTime;
+        }
+
+        @Override
+        public int hashCode() {
+            return Objects.hash(length, modificationTime);
         }
     }
 }

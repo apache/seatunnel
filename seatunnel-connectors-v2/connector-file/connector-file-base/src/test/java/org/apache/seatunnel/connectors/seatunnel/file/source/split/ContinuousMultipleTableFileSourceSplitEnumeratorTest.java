@@ -113,6 +113,45 @@ class ContinuousMultipleTableFileSourceSplitEnumeratorTest {
     }
 
     @Test
+    void testScanOnceDoesNotRequeueSameVersionAfterAck() throws Exception {
+        Path srcDir = Files.createDirectories(tempDir.resolve("src2_requeue"));
+        Path dstDir = Files.createDirectories(tempDir.resolve("dst2_requeue"));
+        Path srcFile = srcDir.resolve("test.bin");
+        Files.write(srcFile, "abc".getBytes());
+
+        EnumeratorWithContext enumeratorWithContext = createEnumerator(srcDir, dstDir);
+        ContinuousMultipleTableFileSourceSplitEnumerator enumerator =
+                enumeratorWithContext.enumerator;
+        try {
+            enumerator.scanOnceForTest();
+            Assertions.assertEquals(1, enumerator.currentUnassignedSplitSize());
+
+            enumerator.handleSplitRequest(0);
+            @SuppressWarnings("unchecked")
+            ArgumentCaptor<java.util.List<FileSourceSplit>> splitsCaptor =
+                    ArgumentCaptor.forClass((Class) java.util.List.class);
+            Mockito.verify(enumeratorWithContext.context)
+                    .assignSplit(Mockito.eq(0), splitsCaptor.capture());
+            FileSourceSplit assigned = splitsCaptor.getValue().get(0);
+
+            enumerator.handleSourceEvent(0, new FileSplitFinishedEvent(assigned.splitId()));
+
+            // Same file version should not be queued again before target catches up.
+            enumerator.scanOnceForTest();
+            Assertions.assertEquals(0, enumerator.currentUnassignedSplitSize());
+
+            // Once source file version changes, it should be discovered again.
+            Files.write(srcFile, "abcd".getBytes());
+            Files.setLastModifiedTime(
+                    srcFile, FileTime.fromMillis(System.currentTimeMillis() + 2000));
+            enumerator.scanOnceForTest();
+            Assertions.assertEquals(1, enumerator.currentUnassignedSplitSize());
+        } finally {
+            enumerator.close();
+        }
+    }
+
+    @Test
     void testContinuousDiscoveryRequiresBinaryFormat() throws Exception {
         Path srcDir = Files.createDirectories(tempDir.resolve("src3"));
         Path dstDir = Files.createDirectories(tempDir.resolve("dst3"));
