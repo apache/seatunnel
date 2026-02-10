@@ -19,38 +19,86 @@ package org.apache.seatunnel.connectors.seatunnel.rabbitmq.source;
 
 import org.apache.seatunnel.api.common.JobContext;
 import org.apache.seatunnel.api.common.SeaTunnelAPIErrorCode;
-import org.apache.seatunnel.api.serialization.DeserializationSchema;
+import org.apache.seatunnel.api.configuration.ReadonlyConfig;
+import org.apache.seatunnel.api.options.ConnectorCommonOptions;
 import org.apache.seatunnel.api.source.Boundedness;
 import org.apache.seatunnel.api.source.SeaTunnelSource;
 import org.apache.seatunnel.api.source.SourceReader;
 import org.apache.seatunnel.api.source.SourceSplitEnumerator;
 import org.apache.seatunnel.api.source.SupportParallelism;
 import org.apache.seatunnel.api.table.catalog.CatalogTable;
+import org.apache.seatunnel.api.table.catalog.CatalogTableUtil;
 import org.apache.seatunnel.api.table.type.SeaTunnelRow;
 import org.apache.seatunnel.common.constants.JobMode;
 import org.apache.seatunnel.common.constants.PluginType;
 import org.apache.seatunnel.connectors.seatunnel.rabbitmq.config.RabbitmqConfig;
+import org.apache.seatunnel.connectors.seatunnel.rabbitmq.config.RabbitmqSourceOptions;
 import org.apache.seatunnel.connectors.seatunnel.rabbitmq.exception.RabbitmqConnectorException;
 import org.apache.seatunnel.connectors.seatunnel.rabbitmq.split.RabbitmqSplit;
 import org.apache.seatunnel.connectors.seatunnel.rabbitmq.split.RabbitmqSplitEnumeratorState;
-import org.apache.seatunnel.format.json.JsonDeserializationSchema;
 
-import java.util.Collections;
+import java.util.ArrayList;
+import java.util.HashMap;
 import java.util.List;
+import java.util.Map;
+import java.util.Optional;
 
 public class RabbitmqSource
         implements SeaTunnelSource<SeaTunnelRow, RabbitmqSplit, RabbitmqSplitEnumeratorState>,
                 SupportParallelism {
 
-    private DeserializationSchema<SeaTunnelRow> deserializationSchema;
     private JobContext jobContext;
     private final RabbitmqConfig rabbitMQConfig;
-    private final CatalogTable catalogTable;
+    private final List<CatalogTable> catalogTables;
 
-    public RabbitmqSource(RabbitmqConfig rabbitMQConfig, CatalogTable catalogTable) {
-        this.rabbitMQConfig = rabbitMQConfig;
-        this.catalogTable = catalogTable;
-        this.deserializationSchema = new JsonDeserializationSchema(catalogTable, false, false);
+    public RabbitmqSource(ReadonlyConfig config) {
+        this.rabbitMQConfig = new RabbitmqConfig(config);
+        this.catalogTables = new ArrayList<>();
+
+        if (config.getOptional(ConnectorCommonOptions.TABLE_CONFIGS).isPresent()) {
+            List<Map<String, Object>> tableConfigs =
+                    config.get(ConnectorCommonOptions.TABLE_CONFIGS);
+
+            for (Map<String, Object> configMap : tableConfigs) {
+                ReadonlyConfig tableConfig = ReadonlyConfig.fromMap(configMap);
+                CatalogTable table = CatalogTableUtil.buildWithConfig(tableConfig);
+
+                Optional<String> queueNameOpt =
+                        tableConfig.getOptional(RabbitmqSourceOptions.QUEUE_NAME);
+
+                if (queueNameOpt.isPresent()) {
+                    Map<String, String> options = new HashMap<>(table.getOptions());
+                    options.put(RabbitmqSourceOptions.QUEUE_NAME.key(), queueNameOpt.get());
+
+                    table =
+                            CatalogTable.of(
+                                    table.getTableId(),
+                                    table.getTableSchema(),
+                                    options,
+                                    table.getPartitionKeys(),
+                                    table.getComment());
+                }
+                this.catalogTables.add(table);
+            }
+        } else {
+            CatalogTable table = CatalogTableUtil.buildWithConfig(config);
+
+            Optional<String> queueNameOpt = config.getOptional(RabbitmqSourceOptions.QUEUE_NAME);
+
+            if (queueNameOpt.isPresent()) {
+                Map<String, String> options = new HashMap<>(table.getOptions());
+                options.put(RabbitmqSourceOptions.QUEUE_NAME.key(), queueNameOpt.get());
+
+                table =
+                        CatalogTable.of(
+                                table.getTableId(),
+                                table.getTableSchema(),
+                                options,
+                                table.getPartitionKeys(),
+                                table.getComment());
+            }
+            this.catalogTables.add(table);
+        }
     }
 
     @Override
@@ -72,19 +120,19 @@ public class RabbitmqSource
 
     @Override
     public List<CatalogTable> getProducedCatalogTables() {
-        return Collections.singletonList(catalogTable);
+        return catalogTables;
     }
 
     @Override
     public SourceReader<SeaTunnelRow, RabbitmqSplit> createReader(
             SourceReader.Context readerContext) throws Exception {
-        return new RabbitmqSourceReader(deserializationSchema, readerContext, rabbitMQConfig);
+        return new RabbitmqSourceReader(catalogTables, readerContext, rabbitMQConfig);
     }
 
     @Override
     public SourceSplitEnumerator<RabbitmqSplit, RabbitmqSplitEnumeratorState> createEnumerator(
             SourceSplitEnumerator.Context<RabbitmqSplit> enumeratorContext) throws Exception {
-        return new RabbitmqSplitEnumerator();
+        return new RabbitmqSplitEnumerator(enumeratorContext, catalogTables);
     }
 
     @Override
@@ -92,7 +140,7 @@ public class RabbitmqSource
             SourceSplitEnumerator.Context<RabbitmqSplit> enumeratorContext,
             RabbitmqSplitEnumeratorState checkpointState)
             throws Exception {
-        return new RabbitmqSplitEnumerator();
+        return new RabbitmqSplitEnumerator(enumeratorContext, catalogTables);
     }
 
     @Override

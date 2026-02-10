@@ -64,7 +64,7 @@ public class RabbitmqConfig implements Serializable {
     public RabbitmqConfig(ReadonlyConfig config) {
         this.host = config.get(RabbitmqBaseOptions.HOST);
         this.port = config.get(RabbitmqBaseOptions.PORT);
-        this.queueName = config.get(RabbitmqBaseOptions.QUEUE_NAME);
+        this.queueName = config.getOptional(RabbitmqBaseOptions.QUEUE_NAME).orElse(null);
         if (config.getOptional(RabbitmqBaseOptions.USERNAME).isPresent()) {
             this.username = config.get(RabbitmqBaseOptions.USERNAME);
         }

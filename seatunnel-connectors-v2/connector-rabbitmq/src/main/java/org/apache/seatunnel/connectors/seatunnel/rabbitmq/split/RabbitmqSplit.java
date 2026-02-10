@@ -23,6 +23,7 @@ import lombok.AllArgsConstructor;
 import lombok.Getter;
 import lombok.Setter;
 
+import java.util.Collections;
 import java.util.List;
 import java.util.Set;
 
@@ -31,11 +32,27 @@ import java.util.Set;
 @AllArgsConstructor
 public class RabbitmqSplit implements SourceSplit {
     private static final long serialVersionUID = -678845022239224163L;
+    private String splitId;
+    private final String queueName;
     private List<Long> deliveryTags;
     private Set<String> correlationIds;
 
+    public RabbitmqSplit(String splitId, String queueName) {
+        this.splitId = splitId;
+        this.queueName = queueName;
+        this.deliveryTags = Collections.emptyList();
+        this.correlationIds = Collections.emptySet();
+    }
+
+    public RabbitmqSplit(List<Long> deliveryTags, Set<String> correlationIds) {
+        this.splitId = "default-split";
+        this.queueName = null;
+        this.deliveryTags = deliveryTags;
+        this.correlationIds = correlationIds;
+    }
+
     @Override
     public String splitId() {
-        return "";
+        return queueName;
     }
 }
