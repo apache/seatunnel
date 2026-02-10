@@ -36,6 +36,7 @@ import org.apache.seatunnel.common.constants.PluginType;
 import org.apache.seatunnel.core.starter.execution.SourceTableInfo;
 import org.apache.seatunnel.plugin.discovery.seatunnel.SeaTunnelFactoryDiscovery;
 import org.apache.seatunnel.plugin.discovery.seatunnel.SeaTunnelSourcePluginDiscovery;
+import org.apache.seatunnel.translation.flink.schema.SchemaOperator;
 import org.apache.seatunnel.translation.flink.source.FlinkSource;
 
 import org.apache.flink.api.common.eventtime.WatermarkStrategy;
@@ -57,6 +58,7 @@ import java.util.function.Function;
 import static org.apache.seatunnel.api.options.ConnectorCommonOptions.PLUGIN_NAME;
 import static org.apache.seatunnel.api.options.ConnectorCommonOptions.PLUGIN_OUTPUT;
 import static org.apache.seatunnel.api.table.factory.FactoryUtil.ensureJobModeMatch;
+import static org.apache.seatunnel.common.constants.JobMode.STREAMING;
 
 @SuppressWarnings("unchecked,rawtypes")
 public class SourceExecuteProcessor extends FlinkAbstractPluginExecuteProcessor<SourceTableInfo> {
@@ -91,9 +93,25 @@ public class SourceExecuteProcessor extends FlinkAbstractPluginExecuteProcessor<
                 sourceStream.setParallelism(parallelism);
             }
 
+            boolean isStreaming =
+                    envConfig.hasPath("job.mode")
+                            && STREAMING
+                                    .toString()
+                                    .equalsIgnoreCase(envConfig.getString("job.mode"));
+
+            boolean enableSchemaChange = false;
+            for (Config cfg : pluginConfigs) {
+                if (cfg.hasPath("schema-changes.enabled")
+                        && cfg.getBoolean("schema-changes.enabled")) {
+                    enableSchemaChange = true;
+                    break;
+                }
+            }
             // add schema evolution functionality to cdc source
             DataStream<SeaTunnelRow> evolvedStream = null;
-            if (sourceTableInfo.getSource() instanceof SupportSchemaEvolution) {
+            if (isStreaming
+                    && enableSchemaChange
+                    && sourceTableInfo.getSource() instanceof SupportSchemaEvolution) {
                 evolvedStream =
                         sourceStream.transform(
                                 "schema-evolution",
