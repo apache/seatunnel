@@ -303,11 +303,7 @@ public class CsvReadStrategy extends AbstractReadStrategy {
                 .ifPresent(builder::nullFormat);
         readonlyConfig
                 .getOptional(FileBaseSourceOptions.COMPRESS_CODEC)
-                .ifPresent(
-                        compressCodec ->
-                                compressFormat =
-                                        CompressFormat.valueOf(
-                                                compressCodec.getCompressCodec().toUpperCase()));
+                .ifPresent(compressCodec -> compressFormat = compressCodec);
         readonlyConfig
                 .getOptional(FileBaseSourceOptions.DATETIME_FORMAT_LEGACY)
                 .ifPresent(builder::dateTimeFormatter);
