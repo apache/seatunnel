@@ -120,7 +120,9 @@ public class ContinuousMultipleTableFileSourceSplitEnumerator
                 checkpointState.getDiscoveryStartTimeMillis() > 0
                         ? checkpointState.getDiscoveryStartTimeMillis()
                         : System.currentTimeMillis();
-        this.inFlightSplits = new HashSet<>(checkpointState.getAssignedSplit());
+        Set<FileSourceSplit> restoredInFlightSplits =
+                new HashSet<>(checkpointState.getAssignedSplit());
+        this.inFlightSplits = new HashSet<>();
 
         List<BaseFileSourceConfig> fileSourceConfigs =
                 multipleTableFileSourceConfig.getFileSourceConfigs();
@@ -134,6 +136,8 @@ public class ContinuousMultipleTableFileSourceSplitEnumerator
         for (BaseFileSourceConfig cfg : fileSourceConfigs) {
             this.tableScanContexts.add(new TableScanContext(cfg, fileSplitStrategy));
         }
+
+        recoverSplitsFromCheckpoint(restoredInFlightSplits);
     }
 
     @Override
@@ -214,7 +218,8 @@ public class ContinuousMultipleTableFileSourceSplitEnumerator
 
     @Override
     public void registerReader(int subtaskId) {
-        // No-op. Readers pull splits via handleSplitRequest.
+        // Try to assign immediately in case splits are already discovered.
+        handleSplitRequest(subtaskId);
     }
 
     @Override
@@ -290,6 +295,23 @@ public class ContinuousMultipleTableFileSourceSplitEnumerator
                     currentUnassignedSplitSize(),
                     inFlightSplits.size());
         }
+        assignSplitsToRegisteredReaders();
+    }
+
+    private void assignSplitsToRegisteredReaders() {
+        if (currentUnassignedSplitSize() <= 0) {
+            return;
+        }
+        Set<Integer> registeredReaders = context.registeredReaders();
+        if (registeredReaders == null || registeredReaders.isEmpty()) {
+            return;
+        }
+        for (int readerId : registeredReaders) {
+            if (currentUnassignedSplitSize() <= 0) {
+                return;
+            }
+            handleSplitRequest(readerId);
+        }
     }
 
     private boolean enqueueSplitIfAbsent(FileSourceSplit split) {
@@ -317,6 +339,72 @@ public class ContinuousMultipleTableFileSourceSplitEnumerator
             }
             return true;
         }
+    }
+
+    private void recoverSplitsFromCheckpoint(Set<FileSourceSplit> restoredInFlightSplits) {
+        if (restoredInFlightSplits == null || restoredInFlightSplits.isEmpty()) {
+            return;
+        }
+        int recovered = 0;
+        int skipped = 0;
+        for (FileSourceSplit split : restoredInFlightSplits) {
+            Optional<TableScanContext> contextOpt = findTableScanContext(split.getTableId());
+            if (!contextOpt.isPresent()) {
+                skipped++;
+                continue;
+            }
+            TableScanContext context = contextOpt.get();
+            FileStatus sourceStatus;
+            try {
+                sourceStatus = context.sourceFs.getFileStatus(split.getFilePath());
+            } catch (IOException e) {
+                if (log.isDebugEnabled()) {
+                    log.debug(
+                            "Skip recovering split because source file status cannot be resolved: {}",
+                            maskUriUserInfo(split.getFilePath()),
+                            e);
+                }
+                skipped++;
+                continue;
+            }
+
+            boolean shouldProcess;
+            try {
+                shouldProcess = context.shouldProcess(sourceStatus, jobStartTimeMillis, startMode);
+            } catch (IOException e) {
+                log.warn(
+                        "Failed to evaluate recovered split {}, re-enqueue it conservatively.",
+                        maskUriUserInfo(split.getFilePath()),
+                        e);
+                shouldProcess = true;
+            }
+            if (!shouldProcess) {
+                skipped++;
+                continue;
+            }
+
+            synchronized (lock) {
+                pendingSplits.addLast(split);
+                pendingSplitIds.add(split.splitId());
+                knownSplitVersions.put(split.splitId(), SplitVersion.fromFileStatus(sourceStatus));
+            }
+            recovered++;
+        }
+        log.info(
+                "Recovered in-flight splits from checkpoint: total={}, re-enqueued={}, skipped={}.",
+                restoredInFlightSplits.size(),
+                recovered,
+                skipped);
+    }
+
+    private Optional<TableScanContext> findTableScanContext(String tableId) {
+        for (TableScanContext ctx : tableScanContexts) {
+            if (!Objects.equals(ctx.tableId, tableId)) {
+                continue;
+            }
+            return Optional.of(ctx);
+        }
+        return Optional.empty();
     }
 
     private void clearKnownVersionIfPresent(String tableId, String filePath) {
@@ -348,6 +436,14 @@ public class ContinuousMultipleTableFileSourceSplitEnumerator
                 throw new FileConnectorException(
                         SeaTunnelAPIErrorCode.CONFIG_VALIDATION_FAILED,
                         "discovery_mode=continuous currently only supports file_format_type=binary.");
+            }
+            Duration interval = c.get(FileBaseSourceOptions.SCAN_INTERVAL);
+            if (interval.isZero() || interval.isNegative()) {
+                throw new FileConnectorException(
+                        SeaTunnelAPIErrorCode.CONFIG_VALIDATION_FAILED,
+                        "discovery_mode=continuous requires scan_interval > 0, but got "
+                                + interval
+                                + ".");
             }
         }
     }

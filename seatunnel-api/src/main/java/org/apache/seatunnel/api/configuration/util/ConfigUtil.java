@@ -32,6 +32,7 @@ import java.time.Duration;
 import java.util.Arrays;
 import java.util.List;
 import java.util.Locale;
+import java.util.function.LongFunction;
 import java.util.stream.Collectors;
 
 @Slf4j
@@ -188,44 +189,84 @@ public class ConfigUtil {
             throw new IllegalArgumentException("Duration value cannot be blank.");
         }
 
-        // Prefer ISO-8601 duration format first, e.g. PT10S.
-        try {
-            return Duration.parse(value);
-        } catch (Exception ignored) {
-            // Try shorthand format next.
+        // Prefer shorthand format first to match connector docs, e.g. 10S / 500MS.
+        String normalized = value.replaceAll("\\s+", "").toUpperCase(Locale.ROOT);
+        Duration shorthandDuration = tryParseShorthandDuration(normalized);
+        if (shorthandDuration != null) {
+            return shorthandDuration;
         }
 
-        // Support shorthand format such as 10S / 5M / 1H / 1D / 500MS.
-        String normalized = value.replaceAll("\\s+", "").toUpperCase(Locale.ROOT);
+        // Fallback to ISO-8601 duration format, e.g. PT10S.
         try {
-            if (normalized.endsWith("MS")) {
-                return Duration.ofMillis(
-                        Long.parseLong(normalized.substring(0, normalized.length() - 2)));
-            } else if (normalized.endsWith("S")) {
-                return Duration.ofSeconds(
-                        Long.parseLong(normalized.substring(0, normalized.length() - 1)));
-            } else if (normalized.endsWith("M")) {
-                return Duration.ofMinutes(
-                        Long.parseLong(normalized.substring(0, normalized.length() - 1)));
-            } else if (normalized.endsWith("H")) {
-                return Duration.ofHours(
-                        Long.parseLong(normalized.substring(0, normalized.length() - 1)));
-            } else if (normalized.endsWith("D")) {
-                return Duration.ofDays(
-                        Long.parseLong(normalized.substring(0, normalized.length() - 1)));
-            }
-        } catch (NumberFormatException e) {
+            return Duration.parse(value);
+        } catch (Exception e) {
             throw new IllegalArgumentException(
                     String.format(
-                            "Could not parse duration value '%s'. Supported formats: ISO-8601 (e.g. PT10S) or shorthand (e.g. 10S, 500MS).",
+                            "Could not parse duration value '%s'. Supported formats: shorthand (e.g. 10S, 500MS) or ISO-8601 (e.g. PT10S).",
                             value),
                     e);
         }
+    }
 
-        throw new IllegalArgumentException(
-                String.format(
-                        "Could not parse duration value '%s'. Supported formats: ISO-8601 (e.g. PT10S) or shorthand (e.g. 10S, 500MS).",
-                        value));
+    private static Duration tryParseShorthandDuration(String normalizedValue) {
+        Duration parsed = parseDurationWithSuffix(normalizedValue, "MS", Duration::ofMillis);
+        if (parsed != null) {
+            return parsed;
+        }
+        parsed = parseDurationWithSuffix(normalizedValue, "S", Duration::ofSeconds);
+        if (parsed != null) {
+            return parsed;
+        }
+        parsed = parseDurationWithSuffix(normalizedValue, "M", Duration::ofMinutes);
+        if (parsed != null) {
+            return parsed;
+        }
+        parsed = parseDurationWithSuffix(normalizedValue, "H", Duration::ofHours);
+        if (parsed != null) {
+            return parsed;
+        }
+        return parseDurationWithSuffix(normalizedValue, "D", Duration::ofDays);
+    }
+
+    private static Duration parseDurationWithSuffix(
+            String normalizedValue, String suffix, LongFunction<Duration> converter) {
+        if (!normalizedValue.endsWith(suffix)) {
+            return null;
+        }
+
+        String numberPart =
+                normalizedValue.substring(0, normalizedValue.length() - suffix.length());
+        if (!isSignedInteger(numberPart)) {
+            return null;
+        }
+
+        try {
+            return converter.apply(Long.parseLong(numberPart));
+        } catch (RuntimeException e) {
+            return null;
+        }
+    }
+
+    private static boolean isSignedInteger(String value) {
+        if (value == null || value.isEmpty()) {
+            return false;
+        }
+
+        int start = 0;
+        char firstChar = value.charAt(0);
+        if (firstChar == '+' || firstChar == '-') {
+            if (value.length() == 1) {
+                return false;
+            }
+            start = 1;
+        }
+
+        for (int i = start; i < value.length(); i++) {
+            if (!Character.isDigit(value.charAt(i))) {
+                return false;
+            }
+        }
+        return true;
     }
 
     static Boolean convertToBoolean(Object o) {

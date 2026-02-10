@@ -40,6 +40,7 @@ import org.mockito.Mockito;
 import java.io.IOException;
 import java.nio.file.Files;
 import java.nio.file.Path;
+import java.nio.file.StandardCopyOption;
 import java.nio.file.attribute.FileTime;
 import java.util.Collections;
 import java.util.HashMap;
@@ -230,6 +231,160 @@ class ContinuousMultipleTableFileSourceSplitEnumeratorTest {
         } finally {
             first.enumerator.close();
         }
+    }
+
+    @Test
+    void testRestoreReEnqueuesInFlightSplitsAsPending() throws Exception {
+        Path srcDir = Files.createDirectories(tempDir.resolve("src5_restore_pending"));
+        Path dstDir = Files.createDirectories(tempDir.resolve("dst5_restore_pending"));
+        Files.write(srcDir.resolve("test.bin"), "abc".getBytes());
+
+        EnumeratorWithContext first = createEnumerator(srcDir, dstDir, "earliest");
+        try {
+            first.enumerator.scanOnceForTest();
+            first.enumerator.handleSplitRequest(0);
+            FileSourceState checkpointState = first.enumerator.snapshotState(1L);
+            Assertions.assertFalse(
+                    checkpointState.getAssignedSplit().isEmpty(),
+                    "checkpoint should contain in-flight split before finished event arrives");
+
+            EnumeratorWithContext restored =
+                    createEnumerator(srcDir, dstDir, "earliest", checkpointState);
+            try {
+                Assertions.assertEquals(
+                        1,
+                        restored.enumerator.currentUnassignedSplitSize(),
+                        "restored enumerator should re-enqueue in-flight split as pending");
+
+                restored.enumerator.handleSplitRequest(0);
+                @SuppressWarnings("unchecked")
+                ArgumentCaptor<java.util.List<FileSourceSplit>> splitsCaptor =
+                        ArgumentCaptor.forClass((Class) java.util.List.class);
+                Mockito.verify(restored.context).assignSplit(Mockito.eq(0), splitsCaptor.capture());
+                Assertions.assertEquals(1, splitsCaptor.getValue().size());
+            } finally {
+                restored.enumerator.close();
+            }
+        } finally {
+            first.enumerator.close();
+        }
+    }
+
+    @Test
+    void testScanOnceAssignsSplitAfterEarlyRequest() throws Exception {
+        Path srcDir = Files.createDirectories(tempDir.resolve("src6_assign_after_scan"));
+        Path dstDir = Files.createDirectories(tempDir.resolve("dst6_assign_after_scan"));
+        Files.write(srcDir.resolve("test.bin"), "abc".getBytes());
+
+        EnumeratorWithContext enumeratorWithContext = createEnumerator(srcDir, dstDir, "earliest");
+        try {
+            Mockito.when(enumeratorWithContext.context.registeredReaders())
+                    .thenReturn(Collections.singleton(0));
+
+            // Simulate reader requests splits before the first discovery scan.
+            enumeratorWithContext.enumerator.handleSplitRequest(0);
+
+            // Discovery should enqueue and proactively assign to registered readers.
+            enumeratorWithContext.enumerator.scanOnceForTest();
+
+            @SuppressWarnings("unchecked")
+            ArgumentCaptor<java.util.List<FileSourceSplit>> splitsCaptor =
+                    ArgumentCaptor.forClass((Class) java.util.List.class);
+            Mockito.verify(enumeratorWithContext.context, Mockito.atLeastOnce())
+                    .assignSplit(Mockito.eq(0), splitsCaptor.capture());
+            Assertions.assertFalse(splitsCaptor.getValue().isEmpty());
+        } finally {
+            enumeratorWithContext.enumerator.close();
+        }
+    }
+
+    @Test
+    void testRestoreSkipsRecoveredSplitWhenAlreadySynced() throws Exception {
+        Path srcDir = Files.createDirectories(tempDir.resolve("src7_restore_synced"));
+        Path dstDir = Files.createDirectories(tempDir.resolve("dst7_restore_synced"));
+        Path srcFile = srcDir.resolve("test.bin");
+        Files.write(srcFile, "abc".getBytes());
+
+        EnumeratorWithContext first = createEnumerator(srcDir, dstDir, "earliest");
+        try {
+            first.enumerator.scanOnceForTest();
+            first.enumerator.handleSplitRequest(0);
+            FileSourceState checkpointState = first.enumerator.snapshotState(1L);
+            Assertions.assertFalse(
+                    checkpointState.getAssignedSplit().isEmpty(),
+                    "checkpoint should contain in-flight split before finished event arrives");
+
+            Path dstFile = dstDir.resolve("test.bin");
+            Files.copy(srcFile, dstFile, StandardCopyOption.REPLACE_EXISTING);
+            FileTime sourceMtime = Files.getLastModifiedTime(srcFile);
+            Files.setLastModifiedTime(dstFile, FileTime.fromMillis(sourceMtime.toMillis() + 1000));
+
+            EnumeratorWithContext restored =
+                    createEnumerator(srcDir, dstDir, "earliest", checkpointState);
+            try {
+                Assertions.assertEquals(
+                        0,
+                        restored.enumerator.currentUnassignedSplitSize(),
+                        "restored enumerator should not re-enqueue splits that are already synced");
+            } finally {
+                restored.enumerator.close();
+            }
+        } finally {
+            first.enumerator.close();
+        }
+    }
+
+    @Test
+    void testContinuousDiscoveryRequiresPositiveScanInterval() throws Exception {
+        Path srcDir = Files.createDirectories(tempDir.resolve("src8"));
+        Path dstDir = Files.createDirectories(tempDir.resolve("dst8"));
+
+        Map<String, Object> config = new HashMap<>();
+        config.put(FileBaseSourceOptions.FILE_PATH.key(), srcDir.toString());
+        config.put(FileBaseSourceOptions.FILE_FORMAT_TYPE.key(), "binary");
+        config.put(FileBaseSourceOptions.DISCOVERY_MODE.key(), "continuous");
+        config.put(FileBaseSourceOptions.START_MODE.key(), "earliest");
+        config.put(FileBaseSourceOptions.SYNC_MODE.key(), "update");
+        config.put(FileBaseSourceOptions.TARGET_PATH.key(), dstDir.toString());
+        config.put(FileBaseSourceOptions.UPDATE_STRATEGY.key(), "distcp");
+        config.put(FileBaseSourceOptions.COMPARE_MODE.key(), "len_mtime");
+        config.put(FileBaseSourceOptions.SCAN_INTERVAL.key(), "0S");
+
+        ReadonlyConfig readonlyConfig = ReadonlyConfig.fromMap(config);
+
+        BaseFileSourceConfig baseFileSourceConfig = Mockito.mock(BaseFileSourceConfig.class);
+        Mockito.when(baseFileSourceConfig.getBaseFileSourceConfig()).thenReturn(readonlyConfig);
+        Mockito.when(baseFileSourceConfig.getHadoopConfig())
+                .thenReturn(new LocalConf(FS_DEFAULT_NAME_DEFAULT));
+
+        CatalogTable catalogTable =
+                CatalogTable.of(
+                        TableIdentifier.of("catalog", "db", "table"),
+                        null,
+                        new HashMap<>(),
+                        Collections.emptyList(),
+                        null);
+        Mockito.when(baseFileSourceConfig.getCatalogTable()).thenReturn(catalogTable);
+
+        BaseMultipleTableFileSourceConfig multipleTableFileSourceConfig =
+                Mockito.mock(BaseMultipleTableFileSourceConfig.class);
+        Mockito.when(multipleTableFileSourceConfig.getFileSourceConfigs())
+                .thenReturn(Collections.singletonList(baseFileSourceConfig));
+
+        SourceSplitEnumerator.Context<FileSourceSplit> context =
+                Mockito.mock(SourceSplitEnumerator.Context.class);
+
+        FileConnectorException exception =
+                Assertions.assertThrows(
+                        FileConnectorException.class,
+                        () ->
+                                new ContinuousMultipleTableFileSourceSplitEnumerator(
+                                        context,
+                                        multipleTableFileSourceConfig,
+                                        new DefaultFileSplitStrategy()));
+        Assertions.assertTrue(
+                exception.getMessage().contains("scan_interval > 0"),
+                "continuous mode should require a positive scan_interval");
     }
 
     private EnumeratorWithContext createEnumerator(Path srcDir, Path dstDir) throws IOException {

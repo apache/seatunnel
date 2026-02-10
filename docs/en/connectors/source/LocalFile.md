@@ -429,7 +429,7 @@ In the current implementation, `discovery_mode=continuous` requires `sync_mode=u
 
 ### scan_interval [string]
 
-Only used when `discovery_mode=continuous`. Scan interval for periodic discovery, recommended shorthand format `10S`, `30S`; ISO-8601 format `PT10S`, `PT30S` is also supported. Default is `10S`.
+Only used when `discovery_mode=continuous`. Scan interval for periodic discovery; value must be greater than `0`. Recommended shorthand format `10S`, `30S` (case-insensitive, e.g. `10s`); ISO-8601 format `PT10S`, `PT30S` is also supported. Default is `10S`.
 
 ### start_mode [string]
 
