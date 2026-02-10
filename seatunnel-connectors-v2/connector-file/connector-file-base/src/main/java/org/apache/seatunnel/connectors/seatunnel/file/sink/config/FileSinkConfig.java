@@ -17,9 +17,9 @@
 
 package org.apache.seatunnel.connectors.seatunnel.file.sink.config;
 
-import org.apache.seatunnel.shade.com.typesafe.config.Config;
 import org.apache.seatunnel.shade.org.apache.commons.lang3.StringUtils;
 
+import org.apache.seatunnel.api.configuration.ReadonlyConfig;
 import org.apache.seatunnel.api.table.type.SeaTunnelRowType;
 import org.apache.seatunnel.common.exception.CommonErrorCodeDeprecated;
 import org.apache.seatunnel.connectors.seatunnel.file.config.BaseFileSinkConfig;
@@ -92,15 +92,15 @@ public class FileSinkConfig extends BaseFileSinkConfig implements PartitionConfi
 
     private Boolean mergeUpdateEvent = FileBaseSinkOptions.MERGE_UPDATE_EVENT.defaultValue();
 
-    public FileSinkConfig(@NonNull Config config, @NonNull SeaTunnelRowType seaTunnelRowTypeInfo) {
+    public FileSinkConfig(
+            @NonNull ReadonlyConfig config, @NonNull SeaTunnelRowType seaTunnelRowTypeInfo) {
         super(config);
         checkArgument(
                 !CollectionUtils.isEmpty(Arrays.asList(seaTunnelRowTypeInfo.getFieldNames())));
 
-        if (config.hasPath(FileBaseSinkOptions.SINK_COLUMNS.key())
-                && !CollectionUtils.isEmpty(
-                        config.getStringList(FileBaseSinkOptions.SINK_COLUMNS.key()))) {
-            this.sinkColumnList = config.getStringList(FileBaseSinkOptions.SINK_COLUMNS.key());
+        if (config.getOptional(FileBaseSinkOptions.SINK_COLUMNS).isPresent()
+                && !CollectionUtils.isEmpty(config.get(FileBaseSinkOptions.SINK_COLUMNS))) {
+            this.sinkColumnList = config.get(FileBaseSinkOptions.SINK_COLUMNS);
         }
 
         // if the config sink_columns is empty, all fields in SeaTunnelRowTypeInfo will being write
@@ -111,44 +111,22 @@ public class FileSinkConfig extends BaseFileSinkConfig implements PartitionConfi
                     new ArrayList<>(Arrays.asList(seaTunnelRowTypeInfo.getFieldNames()));
         }
 
-        if (config.hasPath(FileBaseSinkOptions.PARTITION_BY.key())) {
-            this.partitionFieldList = config.getStringList(FileBaseSinkOptions.PARTITION_BY.key());
+        if (config.getOptional(FileBaseSinkOptions.PARTITION_BY).isPresent()) {
+            this.partitionFieldList = config.get(FileBaseSinkOptions.PARTITION_BY);
         } else {
             this.partitionFieldList = Collections.emptyList();
         }
 
-        if (config.hasPath(FileBaseSinkOptions.PARTITION_DIR_EXPRESSION.key())
-                && !StringUtils.isBlank(
-                        config.getString(FileBaseSinkOptions.PARTITION_DIR_EXPRESSION.key()))) {
-            this.partitionDirExpression =
-                    config.getString(FileBaseSinkOptions.PARTITION_DIR_EXPRESSION.key());
+        if (config.getOptional(FileBaseSinkOptions.PARTITION_DIR_EXPRESSION).isPresent()
+                && !StringUtils.isBlank(config.get(FileBaseSinkOptions.PARTITION_DIR_EXPRESSION))) {
+            this.partitionDirExpression = config.get(FileBaseSinkOptions.PARTITION_DIR_EXPRESSION);
         }
-
-        if (config.hasPath(FileBaseSinkOptions.IS_PARTITION_FIELD_WRITE_IN_FILE.key())) {
-            this.isPartitionFieldWriteInFile =
-                    config.getBoolean(FileBaseSinkOptions.IS_PARTITION_FIELD_WRITE_IN_FILE.key());
-        }
-
-        if (config.hasPath(FileBaseSinkOptions.TMP_PATH.key())
-                && !StringUtils.isBlank(config.getString(FileBaseSinkOptions.TMP_PATH.key()))) {
-            this.tmpPath = config.getString(FileBaseSinkOptions.TMP_PATH.key());
-        }
-
-        if (config.hasPath(FileBaseSinkOptions.FILENAME_TIME_FORMAT.key())
-                && !StringUtils.isBlank(
-                        config.getString(FileBaseSinkOptions.FILENAME_TIME_FORMAT.key()))) {
-            this.fileNameTimeFormat =
-                    config.getString(FileBaseSinkOptions.FILENAME_TIME_FORMAT.key());
-        }
-
-        if (config.hasPath(FileBaseSinkOptions.IS_ENABLE_TRANSACTION.key())) {
-            this.isEnableTransaction =
-                    config.getBoolean(FileBaseSinkOptions.IS_ENABLE_TRANSACTION.key());
-        }
-
-        if (config.hasPath(FileBaseSinkOptions.ENCODING.key())) {
-            this.encoding = config.getString(FileBaseSinkOptions.ENCODING.key());
-        }
+        this.isPartitionFieldWriteInFile =
+                config.get(FileBaseSinkOptions.IS_PARTITION_FIELD_WRITE_IN_FILE);
+        this.tmpPath = config.get(FileBaseSinkOptions.TMP_PATH);
+        this.fileNameTimeFormat = config.get(FileBaseSinkOptions.FILENAME_TIME_FORMAT);
+        this.isEnableTransaction = config.get(FileBaseSinkOptions.IS_ENABLE_TRANSACTION);
+        this.encoding = config.get(FileBaseSinkOptions.ENCODING);
 
         if (this.isEnableTransaction
                 && !this.fileNameExpression.contains(FileBaseSinkOptions.TRANSACTION_EXPRESSION)) {
@@ -204,60 +182,40 @@ public class FileSinkConfig extends BaseFileSinkConfig implements PartitionConfi
                             .collect(Collectors.toList());
         }
 
-        if (config.hasPath(FileBaseSinkOptions.MAX_ROWS_IN_MEMORY.key())) {
-            this.maxRowsInMemory = config.getInt(FileBaseSinkOptions.MAX_ROWS_IN_MEMORY.key());
+        if (config.getOptional(FileBaseSinkOptions.MAX_ROWS_IN_MEMORY).isPresent()) {
+            this.maxRowsInMemory = config.get(FileBaseSinkOptions.MAX_ROWS_IN_MEMORY);
         }
 
-        if (config.hasPath(FileBaseSinkOptions.SHEET_NAME.key())) {
-            this.sheetName = config.getString(FileBaseSinkOptions.SHEET_NAME.key());
+        if (config.getOptional(FileBaseSinkOptions.SHEET_NAME).isPresent()) {
+            this.sheetName = config.get(FileBaseSinkOptions.SHEET_NAME);
         }
 
         if (FileFormat.XML.equals(this.fileFormat)) {
-            if (!config.hasPath(FileBaseSinkOptions.XML_USE_ATTR_FORMAT.key())) {
+            if (!config.getOptional(FileBaseSinkOptions.XML_USE_ATTR_FORMAT).isPresent()) {
                 throw new FileConnectorException(
                         CommonErrorCodeDeprecated.ILLEGAL_ARGUMENT,
                         "User must define xml_use_attr_format when file_format_type is xml");
             }
 
-            this.xmlUseAttrFormat =
-                    config.getBoolean(FileBaseSinkOptions.XML_USE_ATTR_FORMAT.key());
-
-            if (config.hasPath(FileBaseSinkOptions.XML_ROOT_TAG.key())) {
-                this.xmlRootTag = config.getString(FileBaseSinkOptions.XML_ROOT_TAG.key());
-            }
-
-            if (config.hasPath(FileBaseSinkOptions.XML_ROW_TAG.key())) {
-                this.xmlRowTag = config.getString(FileBaseSinkOptions.XML_ROW_TAG.key());
-            }
+            this.xmlUseAttrFormat = config.get(FileBaseSinkOptions.XML_USE_ATTR_FORMAT);
+            this.xmlRootTag = config.get(FileBaseSinkOptions.XML_ROOT_TAG);
+            this.xmlRowTag = config.get(FileBaseSinkOptions.XML_ROW_TAG);
         }
 
         if (FileFormat.PARQUET.equals(this.fileFormat)) {
-            if (config.hasPath(FileBaseSinkOptions.PARQUET_AVRO_WRITE_TIMESTAMP_AS_INT96.key())) {
-                this.parquetWriteTimestampAsInt96 =
-                        config.getBoolean(
-                                FileBaseSinkOptions.PARQUET_AVRO_WRITE_TIMESTAMP_AS_INT96.key());
-            }
-            if (config.hasPath(FileBaseSinkOptions.PARQUET_AVRO_WRITE_FIXED_AS_INT96.key())) {
-                this.parquetAvroWriteFixedAsInt96 =
-                        config.getStringList(
-                                FileBaseSinkOptions.PARQUET_AVRO_WRITE_FIXED_AS_INT96.key());
-            }
+            this.parquetWriteTimestampAsInt96 =
+                    config.get(FileBaseSinkOptions.PARQUET_AVRO_WRITE_TIMESTAMP_AS_INT96);
+            this.parquetAvroWriteFixedAsInt96 =
+                    config.get(FileBaseSinkOptions.PARQUET_AVRO_WRITE_FIXED_AS_INT96);
         }
 
         if (FileFormat.CSV.equals(this.fileFormat)) {
-            if (config.hasPath(FileBaseSinkOptions.CSV_STRING_QUOTE_MODE.key())) {
-                this.csvStringQuoteMode =
-                        CsvStringQuoteMode.valueOf(
-                                config.getString(FileBaseSinkOptions.CSV_STRING_QUOTE_MODE.key()));
-            }
+            this.csvStringQuoteMode = config.get(FileBaseSinkOptions.CSV_STRING_QUOTE_MODE);
         }
         if (FileFormat.DEBEZIUM_JSON.equals(this.fileFormat)
                 || FileFormat.CANAL_JSON.equals(this.fileFormat)
                 || FileFormat.MAXWELL_JSON.equals(this.fileFormat)) {
-            if (config.hasPath(FileBaseSinkOptions.MERGE_UPDATE_EVENT.key())) {
-                this.mergeUpdateEvent =
-                        config.getBoolean(FileBaseSinkOptions.MERGE_UPDATE_EVENT.key());
-            }
+            this.mergeUpdateEvent = config.get(FileBaseSinkOptions.MERGE_UPDATE_EVENT);
         }
     }
 }

@@ -17,10 +17,8 @@
 
 package org.apache.seatunnel.connectors.seatunnel.file.sink;
 
-import org.apache.seatunnel.shade.com.typesafe.config.Config;
-
 import org.apache.seatunnel.api.common.JobContext;
-import org.apache.seatunnel.api.common.PrepareFailException;
+import org.apache.seatunnel.api.configuration.ReadonlyConfig;
 import org.apache.seatunnel.api.serialization.DefaultSerializer;
 import org.apache.seatunnel.api.serialization.Serializer;
 import org.apache.seatunnel.api.sink.SeaTunnelSink;
@@ -47,21 +45,21 @@ public abstract class BaseFileSink
         implements SeaTunnelSink<
                 SeaTunnelRow, FileSinkState, FileCommitInfo, FileAggregatedCommitInfo> {
     protected SeaTunnelRowType seaTunnelRowType;
-    protected Config pluginConfig;
+    protected ReadonlyConfig pluginConfig;
     protected HadoopConf hadoopConf;
     protected FileSinkConfig fileSinkConfig;
     protected JobContext jobContext;
     protected String jobId;
 
     public void preCheckConfig() {
-        if (pluginConfig.hasPath(FileBaseSinkOptions.SINGLE_FILE_MODE.key())
-                && pluginConfig.getBoolean(FileBaseSinkOptions.SINGLE_FILE_MODE.key())
+        if (pluginConfig.getOptional(FileBaseSinkOptions.SINGLE_FILE_MODE).isPresent()
+                && pluginConfig.get(FileBaseSinkOptions.SINGLE_FILE_MODE)
                 && jobContext.isEnableCheckpoint()) {
             throw new IllegalArgumentException(
                     "Single file mode is not supported when checkpoint is enabled or in streaming mode.");
         }
-        if (pluginConfig.hasPath(FileBaseSinkOptions.CREATE_EMPTY_FILE_WHEN_NO_DATA.key())
-                && pluginConfig.getBoolean(FileBaseSinkOptions.CREATE_EMPTY_FILE_WHEN_NO_DATA.key())
+        if (pluginConfig.getOptional(FileBaseSinkOptions.CREATE_EMPTY_FILE_WHEN_NO_DATA).isPresent()
+                && pluginConfig.get(FileBaseSinkOptions.CREATE_EMPTY_FILE_WHEN_NO_DATA)
                 && !fileSinkConfig.getPartitionFieldList().isEmpty()) {
             throw new IllegalArgumentException(
                     "Generate empty file when no data is not supported when partition is enabled.");
@@ -112,18 +110,6 @@ public abstract class BaseFileSink
     @Override
     public Optional<Serializer<FileSinkState>> getWriterStateSerializer() {
         return Optional.of(new DefaultSerializer<>());
-    }
-
-    /**
-     * Use the pluginConfig to do some initialize operation.
-     *
-     * @param pluginConfig plugin config.
-     * @throws PrepareFailException if plugin prepare failed, the {@link PrepareFailException} will
-     *     throw.
-     */
-    @Override
-    public void prepare(Config pluginConfig) throws PrepareFailException {
-        this.pluginConfig = pluginConfig;
     }
 
     protected WriteStrategy createWriteStrategy() {

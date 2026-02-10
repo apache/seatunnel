@@ -17,9 +17,9 @@
 
 package org.apache.seatunnel.connectors.seatunnel.redshift.commit;
 
-import org.apache.seatunnel.shade.com.typesafe.config.Config;
 import org.apache.seatunnel.shade.org.apache.commons.lang3.StringUtils;
 
+import org.apache.seatunnel.api.configuration.ReadonlyConfig;
 import org.apache.seatunnel.common.exception.CommonErrorCodeDeprecated;
 import org.apache.seatunnel.connectors.seatunnel.file.config.HadoopConf;
 import org.apache.seatunnel.connectors.seatunnel.file.sink.commit.FileAggregatedCommitInfo;
@@ -43,12 +43,12 @@ public class S3RedshiftSinkAggregatedCommitter extends FileSinkAggregatedCommitt
 
     private final String executeSql;
 
-    private Config pluginConfig;
+    private ReadonlyConfig pluginConfig;
 
-    public S3RedshiftSinkAggregatedCommitter(HadoopConf hadoopConf, Config pluginConfig) {
+    public S3RedshiftSinkAggregatedCommitter(HadoopConf hadoopConf, ReadonlyConfig pluginConfig) {
         super(hadoopConf);
         this.pluginConfig = pluginConfig;
-        this.executeSql = pluginConfig.getString(S3RedshiftConfigOptions.EXECUTE_SQL.key());
+        this.executeSql = pluginConfig.get(S3RedshiftConfigOptions.EXECUTE_SQL);
     }
 
     @Override
