@@ -171,6 +171,21 @@ public class SftpFileIT extends TestSuiteBase implements TestResource {
     }
 
     @TestTemplate
+    public void testReadTextMetadata(TestContainer container)
+            throws IOException, InterruptedException {
+        ContainerUtil.copyFileIntoContainers(
+                "/text/e2e.txt",
+                "/home/seatunnel/tmp/seatunnel/read/metadata/json2025/name=tyrantlucifer/hobby=coding/e2e_2025.txt",
+                sftpContainer);
+
+        TestHelper helper = new TestHelper(container);
+        helper.execute("/json/sftp_to_access_for_json_path_filter.conf");
+        // delete path
+        String filterPath = "/home/seatunnel/tmp/seatunnel/read/metadata";
+        deleteFileFromContainer(filterPath);
+    }
+
+    @TestTemplate
     public void testSftpFileReadAndWrite(TestContainer container)
             throws IOException, InterruptedException {
         TestHelper helper = new TestHelper(container);

@@ -15,19 +15,19 @@
  * limitations under the License.
  */
 
-package org.apache.seatunnel.connectors.seatunnel.file.writer;
+package org.apache.seatunnel.connectors.seatunnel.file.reader;
 
 import org.apache.seatunnel.shade.com.typesafe.config.Config;
 import org.apache.seatunnel.shade.com.typesafe.config.ConfigFactory;
 
-import org.apache.seatunnel.api.source.Collector;
 import org.apache.seatunnel.api.table.catalog.CatalogTable;
 import org.apache.seatunnel.api.table.catalog.CatalogTableUtil;
 import org.apache.seatunnel.api.table.type.ArrayType;
+import org.apache.seatunnel.api.table.type.CommonOptions;
 import org.apache.seatunnel.api.table.type.SeaTunnelRow;
 import org.apache.seatunnel.api.table.type.SeaTunnelRowType;
 import org.apache.seatunnel.common.exception.SeaTunnelRuntimeException;
-import org.apache.seatunnel.connectors.seatunnel.file.config.HadoopConf;
+import org.apache.seatunnel.connectors.seatunnel.file.BaseTest;
 import org.apache.seatunnel.connectors.seatunnel.file.source.reader.ParquetReadStrategy;
 
 import org.apache.avro.Conversions;
@@ -68,7 +68,6 @@ import java.nio.charset.StandardCharsets;
 import java.nio.file.Paths;
 import java.time.LocalDate;
 import java.time.LocalDateTime;
-import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
@@ -78,7 +77,7 @@ import static org.apache.hadoop.fs.CommonConfigurationKeysPublic.FS_DEFAULT_NAME
 import static org.apache.parquet.schema.PrimitiveType.PrimitiveTypeName.INT32;
 
 @Slf4j
-public class ParquetReadStrategyTest {
+public class ParquetReadStrategyTest extends BaseTest {
     @Test
     public void testParquetRead1() throws Exception {
         URL resource = ParquetReadStrategyTest.class.getResource("/timestamp_as_int64.parquet");
@@ -92,6 +91,19 @@ public class ParquetReadStrategyTest {
         log.info(seaTunnelRowTypeInfo.toString());
         TestCollector testCollector = new TestCollector();
         parquetReadStrategy.read(path, "", testCollector);
+
+        // assert file metadata
+        SeaTunnelRow firstRow = testCollector.getRows().get(0);
+        Assertions.assertTrue(
+                firstRow.getOptions()
+                        .get(CommonOptions.FILE_PATH.getName())
+                        .toString()
+                        .endsWith("timestamp_as_int64.parquet"));
+        Assertions.assertNotNull(
+                firstRow.getOptions().get(CommonOptions.FILE_UPDATE_TIME.getName()));
+        Assertions.assertNotNull(firstRow.getOptions().get(CommonOptions.FILE_SIZE.getName()));
+        Assertions.assertEquals(
+                "parquet", firstRow.getOptions().get(CommonOptions.FILE_TYPE.getName()));
     }
 
     @Test
@@ -322,45 +334,6 @@ public class ParquetReadStrategyTest {
         Assertions.assertEquals("binary_as_string", row.getField(12));
 
         AutoGenerateParquetData.deleteFile();
-    }
-
-    public static class TestCollector implements Collector<SeaTunnelRow> {
-
-        private final List<SeaTunnelRow> rows = new ArrayList<>();
-
-        public List<SeaTunnelRow> getRows() {
-            return rows;
-        }
-
-        @Override
-        public void collect(SeaTunnelRow record) {
-            log.info(record.toString());
-            rows.add(record);
-        }
-
-        @Override
-        public Object getCheckpointLock() {
-            return null;
-        }
-    }
-
-    public static class LocalConf extends HadoopConf {
-        private static final String HDFS_IMPL = "org.apache.hadoop.fs.LocalFileSystem";
-        private static final String SCHEMA = "file";
-
-        public LocalConf(String hdfsNameKey) {
-            super(hdfsNameKey);
-        }
-
-        @Override
-        public String getFsHdfsImpl() {
-            return HDFS_IMPL;
-        }
-
-        @Override
-        public String getSchema() {
-            return SCHEMA;
-        }
     }
 
     public static class AutoGenerateParquetData {

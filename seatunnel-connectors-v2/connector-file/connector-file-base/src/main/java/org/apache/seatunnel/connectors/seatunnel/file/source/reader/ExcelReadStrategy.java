@@ -91,6 +91,7 @@ public class ExcelReadStrategy extends AbstractReadStrategy {
             String currentFileName)
             throws IOException {
         String tableId = split.getTableId();
+        Map<String, Object> metadata = buildFileMetadata(split, currentFileName);
         if (skipHeaderNumber > Integer.MAX_VALUE || skipHeaderNumber < Integer.MIN_VALUE) {
             throw new FileConnectorException(
                     CommonErrorCodeDeprecated.UNSUPPORTED_OPERATION,
@@ -127,7 +128,7 @@ public class ExcelReadStrategy extends AbstractReadStrategy {
                     EasyExcel.read(
                             inputStream,
                             new ExcelReaderListener(
-                                    tableId, output, excelCellUtils, seaTunnelRowType));
+                                    tableId, output, excelCellUtils, seaTunnelRowType, metadata));
             if (pluginConfig.hasPath(FileBaseSourceOptions.SHEET_NAME.key())) {
                 read.sheet(pluginConfig.getString(FileBaseSourceOptions.SHEET_NAME.key()))
                         .headRowNumber((int) skipHeaderNumber)
@@ -204,7 +205,7 @@ public class ExcelReadStrategy extends AbstractReadStrategy {
                                         seaTunnelRow.setField(index++, value);
                                     }
                                 }
-                                seaTunnelRow.setTableId(tableId);
+                                applyRowMetadata(seaTunnelRow, tableId, metadata);
                                 output.collect(seaTunnelRow);
                             });
         }

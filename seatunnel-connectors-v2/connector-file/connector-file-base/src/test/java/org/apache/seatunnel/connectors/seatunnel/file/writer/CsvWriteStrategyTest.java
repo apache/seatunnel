@@ -25,6 +25,7 @@ import org.apache.seatunnel.api.table.type.BasicType;
 import org.apache.seatunnel.api.table.type.SeaTunnelDataType;
 import org.apache.seatunnel.api.table.type.SeaTunnelRow;
 import org.apache.seatunnel.api.table.type.SeaTunnelRowType;
+import org.apache.seatunnel.connectors.seatunnel.file.BaseTest;
 import org.apache.seatunnel.connectors.seatunnel.file.config.FileFormat;
 import org.apache.seatunnel.connectors.seatunnel.file.sink.config.FileSinkConfig;
 import org.apache.seatunnel.connectors.seatunnel.file.sink.writer.CsvWriteStrategy;
@@ -45,7 +46,7 @@ import java.util.Map;
 import static org.apache.hadoop.fs.CommonConfigurationKeysPublic.FS_DEFAULT_NAME_DEFAULT;
 
 @Slf4j
-public class CsvWriteStrategyTest {
+public class CsvWriteStrategyTest extends BaseTest {
     private static final String TMP_PATH = "file:///tmp/seatunnel/csv/test";
 
     @DisabledOnOs(OS.WINDOWS)
@@ -65,8 +66,7 @@ public class CsvWriteStrategyTest {
         FileSinkConfig writeSinkConfig =
                 new FileSinkConfig(ConfigFactory.parseMap(writeConfig), writeRowType);
         CsvWriteStrategy writeStrategy = new CsvWriteStrategy(writeSinkConfig);
-        ParquetReadStrategyTest.LocalConf hadoopConf =
-                new ParquetReadStrategyTest.LocalConf(FS_DEFAULT_NAME_DEFAULT);
+        LocalConf hadoopConf = new LocalConf(FS_DEFAULT_NAME_DEFAULT);
         writeStrategy.setCatalogTable(
                 CatalogTableUtil.getCatalogTable("test", null, null, "test", writeRowType));
         writeStrategy.init(hadoopConf, "test1", "test1", 0);
@@ -128,8 +128,7 @@ public class CsvWriteStrategyTest {
         FileSinkConfig writeSinkConfig =
                 new FileSinkConfig(ConfigFactory.parseMap(writeConfig), writeRowType);
         CsvWriteStrategy writeStrategy = new CsvWriteStrategy(writeSinkConfig);
-        ParquetReadStrategyTest.LocalConf hadoopConf =
-                new ParquetReadStrategyTest.LocalConf(FS_DEFAULT_NAME_DEFAULT);
+        LocalConf hadoopConf = new LocalConf(FS_DEFAULT_NAME_DEFAULT);
         writeStrategy.setCatalogTable(
                 CatalogTableUtil.getCatalogTable("test", null, null, "test", writeRowType));
         writeStrategy.init(hadoopConf, "test1", "test1", 0);

@@ -15,25 +15,23 @@
  * limitations under the License.
  */
 
-package org.apache.seatunnel.connectors.seatunnel.file.writer;
+package org.apache.seatunnel.connectors.seatunnel.file.reader;
 
 import org.apache.seatunnel.shade.com.typesafe.config.Config;
 import org.apache.seatunnel.shade.com.typesafe.config.ConfigFactory;
 
-import org.apache.seatunnel.api.source.Collector;
 import org.apache.seatunnel.api.table.catalog.CatalogTable;
 import org.apache.seatunnel.api.table.catalog.CatalogTableUtil;
+import org.apache.seatunnel.api.table.type.CommonOptions;
 import org.apache.seatunnel.api.table.type.SeaTunnelRow;
 import org.apache.seatunnel.common.utils.DateTimeUtils;
 import org.apache.seatunnel.common.utils.DateUtils;
 import org.apache.seatunnel.common.utils.TimeUtils;
-import org.apache.seatunnel.connectors.seatunnel.file.config.HadoopConf;
+import org.apache.seatunnel.connectors.seatunnel.file.BaseTest;
 import org.apache.seatunnel.connectors.seatunnel.file.source.reader.XmlReadStrategy;
 
 import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.Test;
-
-import lombok.Getter;
 
 import java.io.File;
 import java.io.IOException;
@@ -44,13 +42,12 @@ import java.nio.file.Paths;
 import java.time.LocalDate;
 import java.time.LocalDateTime;
 import java.time.LocalTime;
-import java.util.ArrayList;
 import java.util.LinkedHashMap;
 import java.util.List;
 
 import static org.apache.hadoop.fs.CommonConfigurationKeysPublic.FS_DEFAULT_NAME_DEFAULT;
 
-public class XmlReadStrategyTest {
+public class XmlReadStrategyTest extends BaseTest {
 
     @Test
     public void testXmlRead() throws IOException, URISyntaxException {
@@ -119,39 +116,18 @@ public class XmlReadStrategyTest {
                     TimeUtils.parse("16:00:48", TimeUtils.Formatter.HH_MM_SS));
             Assertions.assertEquals(seaTunnelRow.getField(14), "xmlTest");
         }
-    }
 
-    @Getter
-    public static class TestCollector implements Collector<SeaTunnelRow> {
-        private final List<SeaTunnelRow> rows = new ArrayList<>();
-
-        @Override
-        public void collect(SeaTunnelRow record) {
-            rows.add(record);
-        }
-
-        @Override
-        public Object getCheckpointLock() {
-            return null;
-        }
-    }
-
-    public static class LocalConf extends HadoopConf {
-        private static final String HDFS_IMPL = "org.apache.hadoop.fs.LocalFileSystem";
-        private static final String SCHEMA = "file";
-
-        public LocalConf(String hdfsNameKey) {
-            super(hdfsNameKey);
-        }
-
-        @Override
-        public String getFsHdfsImpl() {
-            return HDFS_IMPL;
-        }
-
-        @Override
-        public String getSchema() {
-            return SCHEMA;
-        }
+        // assert file metadata
+        SeaTunnelRow firstRow = testCollector.getRows().get(0);
+        Assertions.assertTrue(
+                firstRow.getOptions()
+                        .get(CommonOptions.FILE_PATH.getName())
+                        .toString()
+                        .endsWith("test_read.xml"));
+        Assertions.assertNotNull(
+                firstRow.getOptions().get(CommonOptions.FILE_UPDATE_TIME.getName()));
+        Assertions.assertNotNull(firstRow.getOptions().get(CommonOptions.FILE_SIZE.getName()));
+        Assertions.assertEquals(
+                "xml", firstRow.getOptions().get(CommonOptions.FILE_TYPE.getName()));
     }
 }

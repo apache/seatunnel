@@ -22,6 +22,7 @@ import org.apache.seatunnel.api.table.type.BasicType;
 import org.apache.seatunnel.api.table.type.SeaTunnelRow;
 import org.apache.seatunnel.api.table.type.SeaTunnelRowType;
 import org.apache.seatunnel.connectors.seatunnel.file.exception.FileConnectorException;
+import org.apache.seatunnel.connectors.seatunnel.file.source.split.FileSourceSplit;
 
 import com.vladsch.flexmark.ast.BlockQuote;
 import com.vladsch.flexmark.ast.BulletList;
@@ -76,6 +77,9 @@ public class MarkdownReadStrategy extends AbstractReadStrategy {
         Parser parser = Parser.builder().build();
         Node document = parser.parse(markdown);
 
+        FileSourceSplit split = new FileSourceSplit(tableId, path);
+        Map<String, Object> metadata = buildFileMetadata(split, path);
+
         Map<Node, NodeInfo> nodeInfoMap = new IdentityHashMap<>();
         Map<String, Integer> typeCounters = new HashMap<>();
         List<SeaTunnelRow> rows = new ArrayList<>();
@@ -84,6 +88,7 @@ public class MarkdownReadStrategy extends AbstractReadStrategy {
         generateRows(document, rows, nodeInfoMap, DEFAULT_PAGE_NUMBER);
 
         for (SeaTunnelRow row : rows) {
+            applyRowMetadata(row, tableId, metadata);
             output.collect(row);
         }
     }

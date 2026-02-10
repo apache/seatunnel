@@ -37,7 +37,7 @@ public class FileSinkConfigTest {
 
     @Test
     public void testConfigInit() throws Exception {
-        URL conf = OrcReadStrategyTest.class.getResource("/test_write_hdfs.conf");
+        URL conf = FileSinkConfigTest.class.getResource("/test_write_hdfs.conf");
         Assertions.assertNotNull(conf);
         String confPath = Paths.get(conf.toURI()).toString();
         Config config = ConfigFactory.parseFile(new File(confPath));
@@ -51,7 +51,7 @@ public class FileSinkConfigTest {
 
     @Test
     public void testConfigInitDefault() throws Exception {
-        URL conf = OrcReadStrategyTest.class.getResource("/test_write_hdfs_default_format.conf");
+        URL conf = FileSinkConfigTest.class.getResource("/test_write_hdfs_default_format.conf");
         Assertions.assertNotNull(conf);
         String confPath = Paths.get(conf.toURI()).toString();
         Config config = ConfigFactory.parseFile(new File(confPath));
@@ -65,7 +65,7 @@ public class FileSinkConfigTest {
 
     @Test
     public void testSinkColumnsGreaterThanSource() throws Exception {
-        URL conf = OrcReadStrategyTest.class.getResource("/test_write_hive.conf");
+        URL conf = FileSinkConfigTest.class.getResource("/test_write_hive.conf");
         Assertions.assertNotNull(conf);
         String confPath = Paths.get(conf.toURI()).toString();
         Config config = ConfigFactory.parseFile(new File(confPath));

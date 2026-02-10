@@ -25,6 +25,7 @@ import org.apache.seatunnel.api.table.type.BasicType;
 import org.apache.seatunnel.api.table.type.SeaTunnelDataType;
 import org.apache.seatunnel.api.table.type.SeaTunnelRow;
 import org.apache.seatunnel.api.table.type.SeaTunnelRowType;
+import org.apache.seatunnel.connectors.seatunnel.file.BaseTest;
 import org.apache.seatunnel.connectors.seatunnel.file.config.FileFormat;
 import org.apache.seatunnel.connectors.seatunnel.file.sink.config.FileSinkConfig;
 import org.apache.seatunnel.connectors.seatunnel.file.sink.writer.OrcWriteStrategy;
@@ -45,7 +46,7 @@ import java.util.Map;
 import static org.apache.hadoop.fs.CommonConfigurationKeysPublic.FS_DEFAULT_NAME_DEFAULT;
 
 @Slf4j
-public class OrcWriteStrategyTest {
+public class OrcWriteStrategyTest extends BaseTest {
     private static final String TMP_PATH = "file:///tmp/seatunnel/orc/batch/test";
     private static final int ORC_WRITE_NUMBER = 2000;
 
@@ -67,8 +68,7 @@ public class OrcWriteStrategyTest {
                 new FileSinkConfig(ConfigFactory.parseMap(writeConfig), writeRowType);
         OrcWriteStrategy writeStrategy = new OrcWriteStrategy(writeSinkConfig);
 
-        OrcReadStrategyTest.LocalConf hadoopConf =
-                new OrcReadStrategyTest.LocalConf(FS_DEFAULT_NAME_DEFAULT);
+        LocalConf hadoopConf = new LocalConf(FS_DEFAULT_NAME_DEFAULT);
         writeStrategy.setCatalogTable(
                 CatalogTableUtil.getCatalogTable("test", null, null, "test", writeRowType));
         writeStrategy.init(hadoopConf, "test1", "test1", 0);

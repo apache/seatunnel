@@ -27,6 +27,7 @@ import org.apache.seatunnel.api.configuration.ReadonlyConfig;
 import org.apache.seatunnel.api.source.Collector;
 import org.apache.seatunnel.api.table.catalog.CatalogTable;
 import org.apache.seatunnel.api.table.type.BasicType;
+import org.apache.seatunnel.api.table.type.CommonOptions;
 import org.apache.seatunnel.api.table.type.SeaTunnelDataType;
 import org.apache.seatunnel.api.table.type.SeaTunnelRow;
 import org.apache.seatunnel.api.table.type.SeaTunnelRowType;
@@ -60,6 +61,10 @@ import java.io.FileNotFoundException;
 import java.io.IOException;
 import java.io.InputStream;
 import java.math.BigDecimal;
+import java.net.URI;
+import java.nio.file.Files;
+import java.nio.file.Paths;
+import java.nio.file.attribute.BasicFileAttributes;
 import java.text.ParseException;
 import java.text.SimpleDateFormat;
 import java.time.LocalDate;
@@ -580,6 +585,66 @@ public abstract class AbstractReadStrategy implements ReadStrategy {
             return in;
         }
         return new BoundedInputStream(in, length);
+    }
+
+    protected Map<String, Object> buildFileMetadata(FileSourceSplit split, String currentFileName)
+            throws IOException {
+        FileStatus fileStatus = hadoopFileSystemProxy.getFileStatus(split.getFilePath());
+        Map<String, Object> metadata = new LinkedHashMap<>();
+        metadata.put(CommonOptions.FILE_PATH.getName(), currentFileName);
+        metadata.put(
+                CommonOptions.FILE_CREATE_TIME.getName(),
+                resolveFileCreateTime(fileStatus, split.getFilePath()));
+        metadata.put(
+                CommonOptions.FILE_UPDATE_TIME.getName(),
+                fileStatus.getModificationTime() > 0 ? fileStatus.getModificationTime() : null);
+        metadata.put(CommonOptions.FILE_SIZE.getName(), fileStatus.getLen());
+        metadata.put(CommonOptions.FILE_TYPE.getName(), getFileType(currentFileName));
+        return metadata;
+    }
+
+    private Long resolveFileCreateTime(FileStatus fileStatus, String filePath) {
+        // Prefer real creation time when the underlying filesystem exposes it.
+        String scheme = null;
+        try {
+            scheme = hadoopFileSystemProxy.getFileSystem().getScheme();
+        } catch (Exception ignored) {
+        }
+        if (StringUtils.isBlank(scheme)) {
+            scheme = new Path(filePath).toUri().getScheme();
+        }
+        if ("file".equalsIgnoreCase(scheme)) {
+            try {
+                URI uri = new Path(filePath).toUri();
+                BasicFileAttributes attributes =
+                        Files.readAttributes(Paths.get(uri), BasicFileAttributes.class);
+                long created = attributes.creationTime().toMillis();
+                if (created > 0) {
+                    return created;
+                }
+            } catch (Exception ignored) {
+            }
+        }
+        // Fallback to modification time for filesystems without creation time.
+        long modificationTime = fileStatus.getModificationTime();
+        return modificationTime > 0 ? modificationTime : null;
+    }
+
+    protected void applyRowMetadata(
+            SeaTunnelRow row, String tableId, Map<String, Object> metadata) {
+        row.setTableId(tableId);
+        row.getOptions().putAll(metadata);
+    }
+
+    private String getFileType(String fileName) {
+        if (StringUtils.isBlank(fileName)) {
+            return "";
+        }
+        int index = fileName.lastIndexOf('.');
+        if (index == -1 || index == fileName.length() - 1) {
+            return "";
+        }
+        return fileName.substring(index + 1);
     }
 
     @Override

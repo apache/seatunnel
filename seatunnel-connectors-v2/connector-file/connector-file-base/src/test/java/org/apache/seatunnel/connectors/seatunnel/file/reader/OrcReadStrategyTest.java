@@ -15,15 +15,15 @@
  * limitations under the License.
  */
 
-package org.apache.seatunnel.connectors.seatunnel.file.writer;
+package org.apache.seatunnel.connectors.seatunnel.file.reader;
 
 import org.apache.seatunnel.shade.com.typesafe.config.Config;
 import org.apache.seatunnel.shade.com.typesafe.config.ConfigFactory;
 
-import org.apache.seatunnel.api.source.Collector;
+import org.apache.seatunnel.api.table.type.CommonOptions;
 import org.apache.seatunnel.api.table.type.SeaTunnelRow;
 import org.apache.seatunnel.api.table.type.SeaTunnelRowType;
-import org.apache.seatunnel.connectors.seatunnel.file.config.HadoopConf;
+import org.apache.seatunnel.connectors.seatunnel.file.BaseTest;
 import org.apache.seatunnel.connectors.seatunnel.file.source.reader.OrcReadStrategy;
 
 import org.junit.jupiter.api.Assertions;
@@ -35,13 +35,11 @@ import java.io.File;
 import java.io.FileNotFoundException;
 import java.net.URL;
 import java.nio.file.Paths;
-import java.util.ArrayList;
-import java.util.List;
 
 import static org.apache.hadoop.fs.CommonConfigurationKeysPublic.FS_DEFAULT_NAME_DEFAULT;
 
 @Slf4j
-public class OrcReadStrategyTest {
+public class OrcReadStrategyTest extends BaseTest {
 
     @Test
     public void testOrcRead() throws Exception {
@@ -62,6 +60,18 @@ public class OrcReadStrategyTest {
             Assertions.assertEquals(row.getField(1).getClass(), Byte.class);
             Assertions.assertEquals(row.getField(16).getClass(), SeaTunnelRow.class);
         }
+        // assert file metadata
+        SeaTunnelRow firstRow = testCollector.getRows().get(0);
+        Assertions.assertTrue(
+                firstRow.getOptions()
+                        .get(CommonOptions.FILE_PATH.getName())
+                        .toString()
+                        .endsWith("test.orc"));
+        Assertions.assertNotNull(
+                firstRow.getOptions().get(CommonOptions.FILE_UPDATE_TIME.getName()));
+        Assertions.assertNotNull(firstRow.getOptions().get(CommonOptions.FILE_SIZE.getName()));
+        Assertions.assertEquals(
+                "orc", firstRow.getOptions().get(CommonOptions.FILE_TYPE.getName()));
     }
 
     @Test
@@ -98,45 +108,6 @@ public class OrcReadStrategyTest {
         for (SeaTunnelRow row : testCollector.getRows()) {
             Assertions.assertEquals(row.getField(0).getClass(), Byte.class);
             Assertions.assertEquals(row.getField(1).getClass(), Boolean.class);
-        }
-    }
-
-    public static class TestCollector implements Collector<SeaTunnelRow> {
-
-        private final List<SeaTunnelRow> rows = new ArrayList<>();
-
-        public List<SeaTunnelRow> getRows() {
-            return rows;
-        }
-
-        @Override
-        public void collect(SeaTunnelRow record) {
-            log.info(record.toString());
-            rows.add(record);
-        }
-
-        @Override
-        public Object getCheckpointLock() {
-            return null;
-        }
-    }
-
-    public static class LocalConf extends HadoopConf {
-        private static final String HDFS_IMPL = "org.apache.hadoop.fs.LocalFileSystem";
-        private static final String SCHEMA = "file";
-
-        public LocalConf(String hdfsNameKey) {
-            super(hdfsNameKey);
-        }
-
-        @Override
-        public String getFsHdfsImpl() {
-            return HDFS_IMPL;
-        }
-
-        @Override
-        public String getSchema() {
-            return SCHEMA;
         }
     }
 }

@@ -19,6 +19,8 @@ Metadata 转换插件用于将数据行中的元数据信息提取并转换为�
 
 ## 支持的元数据字段
 
+可按数据来源进行分类，详见下表的“数据来源”列。
+
 |    元数据Key    | 输出类型 |          说明          | 数据来源 |
 |:---------:|:--------:|:-----------------------------:|:----:|
 | Database  |  string  |  数据所属的数据库名称  | 所有连接器 |
@@ -27,12 +29,18 @@ Metadata 转换插件用于将数据行中的元数据信息提取并转换为�
 | EventTime | long   | 数据变更的事件时间戳（毫秒） | CDC 连接器；Kafka 源（ConsumerRecord.timestamp） |
 |   Delay   |   long   |  数据采集延迟时间（毫秒），即数据抽取时间与数据库变更时间的差值  | CDC 连接器 |
 | Partition |  string  |  数据所属的分区信息，多个分区字段使用逗号分隔  | 支持分区的连接器 |
+| FilePath | string | 文件路径 | 文件类连接器 |
+| FileCreateTime | long | 文件创建时间（毫秒） | 文件类连接器 |
+| FileUpdateTime | long | 文件更新时间（毫秒） | 文件类连接器 |
+| FileSize | long | 文件大小（字节） | 文件类连接器 |
+| FileType | string | 文件类型（通常为文件扩展名） | 文件类连接器 |
 
 ### 重要说明
 
 1. **元数据字段区分大小写**：配置时必须严格按照上表中的 Key 名称（如 `Database`、`Table`、`RowKind` 等）。
 2. **时间相关字段**：`Delay` 仅在 CDC 连接器有效（TiDB-CDC 除外）；`EventTime` 由 CDC 连接器写入，也会在 Kafka 源中使用 `ConsumerRecord.timestamp`（毫秒，非负时）写入。
 3. **Kafka 事件时间**：Kafka 源会在 `ConsumerRecord.timestamp` 非负时写入 `EventTime`，可通过 Metadata 转换将其暴露为普通字段。
+4. **文件类元数据**：`FileCreateTime` 在 `file://` 本地文件系统会读取真实创建时间；在其他文件系统（如 `hdfs://`、`viewfs://`、`s3://`、`oss://`、`ftp://`、`sftp://` 等）默认回退为修改时间，与 `FileUpdateTime` 保持一致；`FileType` 通常由文件扩展名推断。
 
 ## 配置选项
 

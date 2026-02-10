@@ -20,9 +20,9 @@ package org.apache.seatunnel.connectors.seatunnel.file.reader;
 import org.apache.seatunnel.shade.com.typesafe.config.Config;
 import org.apache.seatunnel.shade.com.typesafe.config.ConfigFactory;
 
-import org.apache.seatunnel.api.source.Collector;
+import org.apache.seatunnel.api.table.type.CommonOptions;
 import org.apache.seatunnel.api.table.type.SeaTunnelRow;
-import org.apache.seatunnel.connectors.seatunnel.file.config.HadoopConf;
+import org.apache.seatunnel.connectors.seatunnel.file.BaseTest;
 import org.apache.seatunnel.connectors.seatunnel.file.source.reader.BinaryReadStrategy;
 
 import org.junit.jupiter.api.Assertions;
@@ -30,20 +30,17 @@ import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.io.TempDir;
 
-import lombok.Getter;
-
 import java.io.File;
 import java.io.FileOutputStream;
 import java.io.IOException;
 import java.nio.file.Path;
-import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 
 import static org.apache.hadoop.fs.CommonConfigurationKeysPublic.FS_DEFAULT_NAME_DEFAULT;
 
-public class BinaryReadStrategyTest {
+public class BinaryReadStrategyTest extends BaseTest {
 
     @TempDir Path tempDir;
 
@@ -115,6 +112,33 @@ public class BinaryReadStrategyTest {
         Assertions.assertEquals(0L, rows.get(0).getField(2));
         Assertions.assertEquals(1L, rows.get(1).getField(2));
         Assertions.assertEquals(2L, rows.get(2).getField(2));
+    }
+
+    @Test
+    public void testBinaryReadAddsFileMetadata() throws IOException {
+        File testFile = createTestFile("test_binary_metadata.bin", 10);
+
+        Config config = createConfig(testFile.getParent(), null, null);
+        binaryReadStrategy.setPluginConfig(config);
+        binaryReadStrategy.init(localConf);
+
+        TestCollector collector = new TestCollector();
+        binaryReadStrategy.read(testFile.getAbsolutePath(), "test_table", collector);
+
+        SeaTunnelRow row = collector.getRows().get(0);
+        Map<String, Object> options = row.getOptions();
+
+        Assertions.assertEquals(
+                testFile.getAbsolutePath(), options.get(CommonOptions.FILE_PATH.getName()));
+        Assertions.assertEquals(testFile.length(), options.get(CommonOptions.FILE_SIZE.getName()));
+        Assertions.assertEquals("bin", options.get(CommonOptions.FILE_TYPE.getName()));
+        Assertions.assertTrue(options.containsKey(CommonOptions.FILE_CREATE_TIME.getName()));
+        Assertions.assertTrue(options.containsKey(CommonOptions.FILE_UPDATE_TIME.getName()));
+
+        Object createTime = options.get(CommonOptions.FILE_CREATE_TIME.getName());
+        Object updateTime = options.get(CommonOptions.FILE_UPDATE_TIME.getName());
+        Assertions.assertTrue(createTime == null || createTime instanceof Long);
+        Assertions.assertTrue(updateTime == null || updateTime instanceof Long);
     }
 
     @Test
@@ -209,39 +233,5 @@ public class BinaryReadStrategyTest {
         }
 
         return ConfigFactory.parseMap(configMap);
-    }
-
-    @Getter
-    public static class TestCollector implements Collector<SeaTunnelRow> {
-        private final List<SeaTunnelRow> rows = new ArrayList<>();
-
-        @Override
-        public void collect(SeaTunnelRow record) {
-            rows.add(record);
-        }
-
-        @Override
-        public Object getCheckpointLock() {
-            return null;
-        }
-    }
-
-    public static class LocalConf extends HadoopConf {
-        private static final String HDFS_IMPL = "org.apache.hadoop.fs.LocalFileSystem";
-        private static final String SCHEMA = "file";
-
-        public LocalConf(String hdfsNameKey) {
-            super(hdfsNameKey);
-        }
-
-        @Override
-        public String getFsHdfsImpl() {
-            return HDFS_IMPL;
-        }
-
-        @Override
-        public String getSchema() {
-            return SCHEMA;
-        }
     }
 }

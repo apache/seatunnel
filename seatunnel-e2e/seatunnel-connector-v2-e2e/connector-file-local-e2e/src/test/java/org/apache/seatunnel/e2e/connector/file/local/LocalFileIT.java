@@ -340,6 +340,7 @@ public class LocalFileIT extends TestSuiteBase {
         helper.execute("/text/local_file_text_skip_headers.conf");
         // test read local text file
         helper.execute("/text/local_file_text_to_assert.conf");
+        helper.execute("/text/local_file_text_metadata_to_assert.conf");
         // test read local text file with projection
         helper.execute("/text/local_file_text_projection_to_assert.conf");
         // test read local csv file with assigning encoding

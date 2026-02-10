@@ -35,6 +35,7 @@ import org.apache.seatunnel.common.exception.CommonErrorCodeDeprecated;
 import org.apache.seatunnel.connectors.seatunnel.file.config.FileBaseSourceOptions;
 import org.apache.seatunnel.connectors.seatunnel.file.exception.FileConnectorErrorCode;
 import org.apache.seatunnel.connectors.seatunnel.file.exception.FileConnectorException;
+import org.apache.seatunnel.connectors.seatunnel.file.source.split.FileSourceSplit;
 
 import org.apache.hadoop.fs.FSDataInputStream;
 import org.apache.hadoop.fs.Path;
@@ -92,6 +93,7 @@ public class OrcReadStrategy extends AbstractReadStrategy {
             throw new FileConnectorException(FileConnectorErrorCode.FILE_TYPE_INVALID, errorMsg);
         }
         Map<String, String> partitionsMap = parsePartitionsByPath(path);
+        Map<String, Object> metadata = buildFileMetadata(new FileSourceSplit(tableId, path), path);
         try (Reader reader =
                 hadoopFileSystemProxy.doWithHadoopAuth(
                         (configuration, userGroupInformation) -> {
@@ -136,7 +138,7 @@ public class OrcReadStrategy extends AbstractReadStrategy {
                         }
                     }
                     SeaTunnelRow seaTunnelRow = new SeaTunnelRow(fields);
-                    seaTunnelRow.setTableId(tableId);
+                    applyRowMetadata(seaTunnelRow, tableId, metadata);
                     output.collect(seaTunnelRow);
                     num++;
                 }

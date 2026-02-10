@@ -149,6 +149,18 @@ public class S3FileIT extends TestSuiteBase {
         helper.execute("/parquet/s3_file_to_console.conf");
     }
 
+    @TestTemplate
+    public void testReadTextMetadata(TestContainer container)
+            throws IOException, InterruptedException {
+        S3Utils.uploadTestFiles(
+                "/text/e2e.txt",
+                "test/seatunnel/read/metadata/name=tyrantlucifer/hobby=coding/e2e.txt",
+                true);
+        TestHelper helper = new TestHelper(container);
+        // test read text metadata
+        helper.execute("/json/s3_file_to_console.conf");
+    }
+
     private Path convertToLzoFile(File file) throws IOException {
         LzopCodec lzo = new LzopCodec();
         Path path = Paths.get(file.getAbsolutePath() + ".lzo");

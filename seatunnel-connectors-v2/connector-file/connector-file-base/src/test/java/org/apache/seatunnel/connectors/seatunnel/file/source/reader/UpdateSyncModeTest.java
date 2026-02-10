@@ -20,7 +20,7 @@ package org.apache.seatunnel.connectors.seatunnel.file.source.reader;
 import org.apache.seatunnel.shade.com.typesafe.config.Config;
 import org.apache.seatunnel.shade.com.typesafe.config.ConfigFactory;
 
-import org.apache.seatunnel.connectors.seatunnel.file.config.HadoopConf;
+import org.apache.seatunnel.connectors.seatunnel.file.BaseTest;
 import org.apache.seatunnel.connectors.seatunnel.file.exception.FileConnectorException;
 
 import org.junit.jupiter.api.Assertions;
@@ -43,7 +43,7 @@ import static org.apache.hadoop.fs.CommonConfigurationKeysPublic.FS_DEFAULT_NAME
         value = OS.WINDOWS,
         disabledReason =
                 "Hadoop has windows problem, please refer https://cwiki.apache.org/confluence/display/HADOOP2/WindowsProblems")
-class UpdateSyncModeTest {
+class UpdateSyncModeTest extends BaseTest {
 
     @TempDir Path tempDir;
 
@@ -222,24 +222,5 @@ class UpdateSyncModeTest {
         configMap.put("update_strategy", updateStrategy);
         configMap.put("compare_mode", compareMode);
         return ConfigFactory.parseMap(configMap);
-    }
-
-    static class LocalConf extends HadoopConf {
-        private static final String HDFS_IMPL = "org.apache.hadoop.fs.LocalFileSystem";
-        private static final String SCHEMA = "file";
-
-        public LocalConf(String hdfsNameKey) {
-            super(hdfsNameKey);
-        }
-
-        @Override
-        public String getFsHdfsImpl() {
-            return HDFS_IMPL;
-        }
-
-        @Override
-        public String getSchema() {
-            return SCHEMA;
-        }
     }
 }

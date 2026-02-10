@@ -107,6 +107,7 @@ public class CsvReadStrategy extends AbstractReadStrategy {
                 split.getStart(),
                 split.getLength());
         final boolean useSplitRead = isSplitReadEnabled(split);
+        Map<String, Object> metadata = buildFileMetadata(split, currentFileName);
         try (BOMInputStream bomIn = new BOMInputStream(wrapInputStream(inputStream, split));
                 BufferedReader reader =
                         new BufferedReader(new InputStreamReader(bomIn, getCharset(bomIn)));
@@ -165,7 +166,7 @@ public class CsvReadStrategy extends AbstractReadStrategy {
                         seaTunnelRow.setField(index++, value);
                     }
                 }
-                seaTunnelRow.setTableId(split.getTableId());
+                applyRowMetadata(seaTunnelRow, split.getTableId(), metadata);
                 output.collect(seaTunnelRow);
             }
         } catch (IOException e) {

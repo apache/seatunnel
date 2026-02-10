@@ -17,19 +17,27 @@
 
 package org.apache.seatunnel.connectors.seatunnel.file.source.reader;
 
+import org.apache.seatunnel.api.table.type.CommonOptions;
+import org.apache.seatunnel.api.table.type.SeaTunnelRow;
+import org.apache.seatunnel.connectors.seatunnel.file.BaseTest;
+
 import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.Test;
 
 import java.net.URL;
 import java.nio.file.Paths;
 
-class MarkdownReadStrategyTest {
+import static org.apache.hadoop.fs.CommonConfigurationKeysPublic.FS_DEFAULT_NAME_DEFAULT;
+
+class MarkdownReadStrategyTest extends BaseTest {
 
     @Test
     public void testReadMarkdown() throws Exception {
         URL resource = this.getClass().getResource("/test.md");
         String path = Paths.get(resource.toURI()).toString();
         AbstractReadStrategy markdownReadStrategy = new MarkdownReadStrategy();
+        LocalConf localConf = new LocalConf(FS_DEFAULT_NAME_DEFAULT);
+        markdownReadStrategy.init(localConf);
         TempCollector tempCollector = new TempCollector();
         markdownReadStrategy.read(path, "", tempCollector);
 
@@ -76,5 +84,17 @@ class MarkdownReadStrategyTest {
         Assertions.assertEquals(1, tempCollector.getRows().get(4).getField(5));
         Assertions.assertEquals("OrderedList_1", tempCollector.getRows().get(4).getField(6));
         Assertions.assertNull(tempCollector.getRows().get(4).getField(7));
+
+        // assert file metadata
+        SeaTunnelRow firstRow = tempCollector.getRows().get(0);
+        Assertions.assertTrue(
+                firstRow.getOptions()
+                        .get(CommonOptions.FILE_PATH.getName())
+                        .toString()
+                        .endsWith("test.md"));
+        Assertions.assertNotNull(
+                firstRow.getOptions().get(CommonOptions.FILE_UPDATE_TIME.getName()));
+        Assertions.assertNotNull(firstRow.getOptions().get(CommonOptions.FILE_SIZE.getName()));
+        Assertions.assertEquals("md", firstRow.getOptions().get(CommonOptions.FILE_TYPE.getName()));
     }
 }

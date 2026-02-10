@@ -120,6 +120,7 @@ public class JsonReadStrategy extends AbstractReadStrategy {
         }
         try (BufferedReader reader =
                 new BufferedReader(new InputStreamReader(actualInputStream, encoding))) {
+            Map<String, Object> metadata = buildFileMetadata(split, currentFileName);
             reader.lines()
                     .forEach(
                             line -> {
@@ -133,7 +134,7 @@ public class JsonReadStrategy extends AbstractReadStrategy {
                                             seaTunnelRow.setField(index++, value);
                                         }
                                     }
-                                    seaTunnelRow.setTableId(split.getTableId());
+                                    applyRowMetadata(seaTunnelRow, split.getTableId(), metadata);
                                     output.collect(seaTunnelRow);
                                 } catch (IOException e) {
                                     String errorMsg =

@@ -43,6 +43,7 @@ public class ExcelReaderListener extends AnalysisEventListener<Map<Integer, Obje
         implements Serializable, Closeable {
     private final String tableId;
     private final Collector<SeaTunnelRow> output;
+    private final Map<String, Object> metadata;
     private int cellCount;
 
     private final ObjectMapper objectMapper = new ObjectMapper();
@@ -61,9 +62,11 @@ public class ExcelReaderListener extends AnalysisEventListener<Map<Integer, Obje
             String tableId,
             Collector<SeaTunnelRow> output,
             ExcelCellUtils excelCellUtils,
-            SeaTunnelRowType seaTunnelRowType) {
+            SeaTunnelRowType seaTunnelRowType,
+            Map<String, Object> metadata) {
         this.tableId = tableId;
         this.output = output;
+        this.metadata = metadata;
         this.excelCellUtils = excelCellUtils;
         this.seaTunnelRowType = seaTunnelRowType;
 
@@ -95,6 +98,7 @@ public class ExcelReaderListener extends AnalysisEventListener<Map<Integer, Obje
             }
         }
         seaTunnelRow.setTableId(tableId);
+        seaTunnelRow.setOptions(metadata);
         output.collect(seaTunnelRow);
     }
 

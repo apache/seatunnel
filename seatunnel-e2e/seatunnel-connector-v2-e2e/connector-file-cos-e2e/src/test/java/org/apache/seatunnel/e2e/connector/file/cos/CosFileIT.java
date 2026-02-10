@@ -72,5 +72,10 @@ public class CosFileIT extends TestSuiteBase {
         Container.ExecResult parquetReadResult =
                 container.executeJob("/parquet/cos_file_parquet_to_assert.conf");
         Assertions.assertEquals(0, parquetReadResult.getExitCode());
+
+        // test file metadata
+        Container.ExecResult testMetadataReadResult =
+                container.executeJob("/text/cos_file_text_metadata_to_assert.conf");
+        Assertions.assertEquals(0, testMetadataReadResult.getExitCode());
     }
 }

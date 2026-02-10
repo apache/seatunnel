@@ -19,15 +19,15 @@ package org.apache.seatunnel.connectors.seatunnel.file.source.reader;
 
 import org.apache.seatunnel.shade.com.typesafe.config.ConfigFactory;
 
-import org.apache.seatunnel.api.source.Collector;
 import org.apache.seatunnel.api.table.catalog.CatalogTable;
 import org.apache.seatunnel.api.table.catalog.CatalogTableUtil;
 import org.apache.seatunnel.api.table.type.BasicType;
+import org.apache.seatunnel.api.table.type.CommonOptions;
 import org.apache.seatunnel.api.table.type.SeaTunnelDataType;
 import org.apache.seatunnel.api.table.type.SeaTunnelRow;
 import org.apache.seatunnel.api.table.type.SeaTunnelRowType;
+import org.apache.seatunnel.connectors.seatunnel.file.BaseTest;
 import org.apache.seatunnel.connectors.seatunnel.file.config.FileBaseSourceOptions;
-import org.apache.seatunnel.connectors.seatunnel.file.config.HadoopConf;
 
 import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.Test;
@@ -36,7 +36,6 @@ import lombok.extern.slf4j.Slf4j;
 
 import java.net.URL;
 import java.nio.file.Paths;
-import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
@@ -44,7 +43,7 @@ import java.util.Map;
 import static org.apache.hadoop.fs.CommonConfigurationKeysPublic.FS_DEFAULT_NAME_DEFAULT;
 
 @Slf4j
-public class CsvReadStrategyTest {
+public class CsvReadStrategyTest extends BaseTest {
 
     @Test
     public void testReadCsv() throws Exception {
@@ -73,6 +72,18 @@ public class CsvReadStrategyTest {
         Assertions.assertEquals(2, testCollector.getRows().get(1).getField(0));
         Assertions.assertEquals("b", testCollector.getRows().get(1).getField(1));
         Assertions.assertEquals(100, testCollector.getRows().get(1).getField(2));
+        // assert file metadata
+        SeaTunnelRow firstRow = testCollector.getRows().get(0);
+        Assertions.assertTrue(
+                firstRow.getOptions()
+                        .get(CommonOptions.FILE_PATH.getName())
+                        .toString()
+                        .endsWith("test.csv"));
+        Assertions.assertNotNull(
+                firstRow.getOptions().get(CommonOptions.FILE_UPDATE_TIME.getName()));
+        Assertions.assertNotNull(firstRow.getOptions().get(CommonOptions.FILE_SIZE.getName()));
+        Assertions.assertEquals(
+                "csv", firstRow.getOptions().get(CommonOptions.FILE_TYPE.getName()));
     }
 
     @Test
@@ -190,10 +201,6 @@ public class CsvReadStrategyTest {
         Assertions.assertEquals("M", rows.get(1).getField(3));
     }
 
-    private boolean isWindows() {
-        return System.getProperty("os.name").toLowerCase().contains("win");
-    }
-
     private Map<String, Object> getOptionsForSpecialQuoteChar() {
         Map<String, Object> map = new HashMap<>();
         map.put(FileBaseSourceOptions.QUOTE_CHAR.key(), "`");
@@ -205,44 +212,5 @@ public class CsvReadStrategyTest {
         Map<String, Object> map = new HashMap<>();
         map.put(FileBaseSourceOptions.CSV_USE_HEADER_LINE.key(), withHeader);
         return map;
-    }
-
-    public static class TestCollector implements Collector<SeaTunnelRow> {
-
-        private final List<SeaTunnelRow> rows = new ArrayList<>();
-
-        public List<SeaTunnelRow> getRows() {
-            return rows;
-        }
-
-        @Override
-        public void collect(SeaTunnelRow record) {
-            log.info(record.toString());
-            rows.add(record);
-        }
-
-        @Override
-        public Object getCheckpointLock() {
-            return null;
-        }
-    }
-
-    public static class LocalConf extends HadoopConf {
-        private static final String HDFS_IMPL = "org.apache.hadoop.fs.LocalFileSystem";
-        private static final String SCHEMA = "file";
-
-        public LocalConf(String hdfsNameKey) {
-            super(hdfsNameKey);
-        }
-
-        @Override
-        public String getFsHdfsImpl() {
-            return HDFS_IMPL;
-        }
-
-        @Override
-        public String getSchema() {
-            return SCHEMA;
-        }
     }
 }

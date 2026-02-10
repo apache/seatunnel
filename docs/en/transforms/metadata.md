@@ -19,6 +19,8 @@ The Metadata transform plugin is used to extract metadata information from data 
 
 ## Supported Metadata Fields
 
+You can classify fields by data source; see the “Data Source” column below.
+
 |    Metadata Key    | Output Type |          Description          | Data Source |
 |:---------:|:--------:|:-----------------------------:|:----:|
 | Database  |  string  |  Name of the database containing the data  | All connectors |
@@ -27,12 +29,18 @@ The Metadata transform plugin is used to extract metadata information from data 
 | EventTime |   long   |  Event timestamp of data change (milliseconds)  | CDC connectors; Kafka source (ConsumerRecord.timestamp) |
 |   Delay   |   long   |  Data collection delay time (milliseconds), i.e., the difference between data extraction time and database change time  | CDC connectors |
 | Partition |  string  |  Partition information of the data, multiple partition fields separated by commas  | Connectors supporting partitions |
+| FilePath | string | File path | File connectors |
+| FileCreateTime | long | File create time (milliseconds) | File connectors |
+| FileUpdateTime | long | File update time (milliseconds) | File connectors |
+| FileSize | long | File size (bytes) | File connectors |
+| FileType | string | File type (usually file extension) | File connectors |
 
 ### Important Notes
 
 1. **Metadata field names are case-sensitive**: Configuration must strictly follow the Key names in the table above (e.g., `Database`, `Table`, `RowKind`, etc.)
 2. **Time fields**: `Delay` is only valid when using CDC connectors (except TiDB-CDC). `EventTime` is provided by CDC connectors and also by the Kafka source via `ConsumerRecord.timestamp` when available.
 3. **Kafka event time**: The Kafka source writes `ConsumerRecord.timestamp` (milliseconds) into `EventTime` when it is non-negative, so you can surface it with the `Metadata` transform.
+4. **File metadata**: `FileCreateTime` can be null depending on filesystem or permissions; `FileType` is typically derived from the file extension.
 
 ## Options
 
