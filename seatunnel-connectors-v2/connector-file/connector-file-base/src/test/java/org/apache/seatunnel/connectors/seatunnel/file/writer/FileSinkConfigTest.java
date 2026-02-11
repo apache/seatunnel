@@ -17,9 +17,9 @@
 
 package org.apache.seatunnel.connectors.seatunnel.file.writer;
 
-import org.apache.seatunnel.shade.com.typesafe.config.Config;
 import org.apache.seatunnel.shade.com.typesafe.config.ConfigFactory;
 
+import org.apache.seatunnel.api.configuration.ReadonlyConfig;
 import org.apache.seatunnel.api.table.type.BasicType;
 import org.apache.seatunnel.api.table.type.SeaTunnelDataType;
 import org.apache.seatunnel.api.table.type.SeaTunnelRowType;
@@ -40,7 +40,8 @@ public class FileSinkConfigTest {
         URL conf = OrcReadStrategyTest.class.getResource("/test_write_hdfs.conf");
         Assertions.assertNotNull(conf);
         String confPath = Paths.get(conf.toURI()).toString();
-        Config config = ConfigFactory.parseFile(new File(confPath));
+        ReadonlyConfig config =
+                ReadonlyConfig.fromConfig(ConfigFactory.parseFile(new File(confPath)));
 
         SeaTunnelRowType rowType =
                 new SeaTunnelRowType(
@@ -54,7 +55,8 @@ public class FileSinkConfigTest {
         URL conf = OrcReadStrategyTest.class.getResource("/test_write_hdfs_default_format.conf");
         Assertions.assertNotNull(conf);
         String confPath = Paths.get(conf.toURI()).toString();
-        Config config = ConfigFactory.parseFile(new File(confPath));
+        ReadonlyConfig config =
+                ReadonlyConfig.fromConfig(ConfigFactory.parseFile(new File(confPath)));
 
         SeaTunnelRowType rowType =
                 new SeaTunnelRowType(
@@ -68,7 +70,8 @@ public class FileSinkConfigTest {
         URL conf = OrcReadStrategyTest.class.getResource("/test_write_hive.conf");
         Assertions.assertNotNull(conf);
         String confPath = Paths.get(conf.toURI()).toString();
-        Config config = ConfigFactory.parseFile(new File(confPath));
+        ReadonlyConfig config =
+                ReadonlyConfig.fromConfig(ConfigFactory.parseFile(new File(confPath)));
 
         SeaTunnelRowType seaTunnelRowTypeInfo =
                 new SeaTunnelRowType(
