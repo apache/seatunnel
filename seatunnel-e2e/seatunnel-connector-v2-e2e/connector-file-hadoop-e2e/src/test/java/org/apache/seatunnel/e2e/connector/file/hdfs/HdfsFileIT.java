@@ -147,7 +147,7 @@ public class HdfsFileIT extends TestSuiteBase implements TestResource {
                 container.executeJob("/fake_to_hdfs_text_normal.conf");
         Assertions.assertEquals(0, writeResult.getExitCode());
         org.testcontainers.containers.Container.ExecResult readResult =
-                container.executeJob("/hdfs_parquet_split_to_assert.conf");
+                container.executeJob("/hdfs_file_text_metadata_to_assert.conf");
         Assertions.assertEquals(0, readResult.getExitCode());
     }
 
