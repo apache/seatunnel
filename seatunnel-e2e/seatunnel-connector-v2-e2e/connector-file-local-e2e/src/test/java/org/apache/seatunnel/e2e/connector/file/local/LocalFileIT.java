@@ -70,9 +70,9 @@ import java.util.zip.ZipEntry;
 import java.util.zip.ZipOutputStream;
 
 @DisabledOnContainer(
-        value = {},
-        type = {EngineType.SPARK, EngineType.FLINK},
-        disabledReason = "flink/spark failed reason not same")
+        value = {TestContainerId.SPARK_2_4},
+        type = {},
+        disabledReason = "The apache-compress version is not compatible with apache-poi")
 @Slf4j
 public class LocalFileIT extends TestSuiteBase {
 

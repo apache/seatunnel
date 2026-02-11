@@ -168,35 +168,9 @@ public class LocalFileWithMetaLakeIT extends SeaTunnelContainer {
         gravitinoContainer.setPortBindings(
                 Collections.singletonList(String.format("%s:%s", GRAVITINO_PORT, GRAVITINO_PORT)));
         gravitinoContainer.start();
-        // Wait for Gravitino to be ready by checking the API endpoint
-        waitForGravitinoReady();
         log.info("Gravitino server started at {}", gravitinoContainer.getHost());
         // Create metalake and catalog using curl with MySQL as backend
         createMetalakeAndCatalog();
-    }
-
-    private void waitForGravitinoReady() throws Exception {
-        int maxAttempts = 60;
-        int attempt = 0;
-        while (attempt < maxAttempts) {
-            try {
-                GenericContainer.ExecResult result =
-                        gravitinoContainer.execInContainer(
-                                "bash",
-                                "-c",
-                                "curl -s -f http://localhost:8090/api/metalakes || exit 1");
-                if (result.getExitCode() == 0) {
-                    log.info("Gravitino API is ready");
-                    return;
-                }
-            } catch (Exception e) {
-                log.debug("Gravitino not ready yet, attempt {}/{}", attempt + 1, maxAttempts);
-            }
-            attempt++;
-            Thread.sleep(2000);
-        }
-        throw new RuntimeException(
-                "Gravitino did not start within " + (maxAttempts * 2) + " seconds");
     }
 
     private void createMetalakeAndCatalog() throws Exception {
