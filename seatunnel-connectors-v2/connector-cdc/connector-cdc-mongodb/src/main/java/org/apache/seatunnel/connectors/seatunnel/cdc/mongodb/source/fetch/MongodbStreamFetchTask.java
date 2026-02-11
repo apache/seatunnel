@@ -385,6 +385,27 @@ public class MongodbStreamFetchTask implements FetchTask<SourceSplitBase> {
         return new BsonDocument(ID_FIELD, primaryKey);
     }
 
+    /**
+     * Normalizes a heartbeat record by adding the HEARTBEAT=true flag to its offset.
+     *
+     * <p>The original heartbeat record from {@link HeartbeatManager} does not contain the HEARTBEAT
+     * flag in its offset, which causes {@link MongodbRecordUtils#isHeartbeatEvent} to return {@code
+     * false}. This would lead to the heartbeat record being incorrectly identified as a data change
+     * record and processed through {@link MongodbFetchTaskContext#isRecordBetween}, where a {@link
+     * NullPointerException} would occur because heartbeat records have no documentKey field.
+     *
+     * <p>By adding the HEARTBEAT=true flag, we ensure that:
+     *
+     * <ul>
+     *   <li>{@link MongodbRecordUtils#isHeartbeatEvent} returns {@code true}
+     *   <li>{@link MongodbRecordUtils#isDataChangeRecord} returns {@code false}
+     *   <li>The heartbeat record is excluded from range checking in {@link
+     *       MongodbFetchTaskContext#isRecordBetween}
+     * </ul>
+     *
+     * @param heartbeatRecord the original heartbeat record from HeartbeatManager
+     * @return a normalized heartbeat record with HEARTBEAT=true in its offset
+     */
     @Nonnull
     private SourceRecord normalizeHeartbeatRecord(@Nonnull SourceRecord heartbeatRecord) {
         final Struct heartbeatValue =

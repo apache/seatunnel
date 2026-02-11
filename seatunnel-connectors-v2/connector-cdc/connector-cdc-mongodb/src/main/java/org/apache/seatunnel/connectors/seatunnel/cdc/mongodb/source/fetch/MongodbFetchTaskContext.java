@@ -167,6 +167,10 @@ public class MongodbFetchTaskContext implements FetchTask.Context {
             SourceRecord record, @Nonnull Object[] splitStart, @Nonnull Object[] splitEnd) {
         BsonDocument documentKey = getDocumentKey(record);
         if (documentKey == null) {
+            log.debug(
+                    "Record has no documentKey field, skipping range check. "
+                            + "This is expected for heartbeat records. Record: {}",
+                    record);
             return false;
         }
         BsonDocument splitKeys = (BsonDocument) splitStart[0];

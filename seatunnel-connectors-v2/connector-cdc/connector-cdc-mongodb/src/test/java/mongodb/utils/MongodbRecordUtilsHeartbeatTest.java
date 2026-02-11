@@ -17,7 +17,12 @@
 
 package mongodb.utils;
 
+import org.apache.seatunnel.connectors.seatunnel.cdc.mongodb.config.MongodbSourceConfig;
+import org.apache.seatunnel.connectors.seatunnel.cdc.mongodb.source.dialect.MongodbDialect;
+import org.apache.seatunnel.connectors.seatunnel.cdc.mongodb.source.fetch.MongodbFetchTaskContext;
+import org.apache.seatunnel.connectors.seatunnel.cdc.mongodb.source.offset.ChangeStreamDescriptor;
 import org.apache.seatunnel.connectors.seatunnel.cdc.mongodb.utils.MongodbRecordUtils;
+import org.apache.seatunnel.connectors.seatunnel.cdc.mongodb.utils.MongodbUtils;
 
 import org.apache.kafka.connect.data.Schema;
 import org.apache.kafka.connect.data.SchemaBuilder;
@@ -25,9 +30,19 @@ import org.apache.kafka.connect.data.Struct;
 import org.apache.kafka.connect.source.SourceRecord;
 
 import org.bson.BsonDocument;
+import org.bson.BsonInt32;
+import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.Assertions;
+import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
+import org.junit.jupiter.api.extension.ExtendWith;
+import org.mockito.Mock;
+import org.mockito.MockedStatic;
+import org.mockito.Mockito;
+import org.mockito.junit.jupiter.MockitoExtension;
+
+import com.mongodb.client.MongoClient;
 
 import java.time.Instant;
 import java.util.Collections;
@@ -46,47 +61,43 @@ import static org.apache.seatunnel.connectors.seatunnel.cdc.mongodb.config.Mongo
  * correctly identified by {@link MongodbRecordUtils#isHeartbeatEvent} and excluded from data change
  * processing by {@link MongodbRecordUtils#isDataChangeRecord}.
  */
+@ExtendWith(MockitoExtension.class)
 public class MongodbRecordUtilsHeartbeatTest {
 
-    /**
-     * Build a SourceRecord that simulates a correctly normalized heartbeat record with {@code
-     * HEARTBEAT=true} in offset. This is the expected output of the fixed {@code
-     * MongodbStreamFetchTask.normalizeHeartbeatRecord()}.
-     */
-    private SourceRecord createHeartbeatRecordWithFlag() {
-        Map<String, Object> sourcePartition =
-                Collections.singletonMap(
-                        NS_FIELD, "mongodb://localhost:27017/__mongodb_heartbeats");
+    @Mock private MongodbSourceConfig mockConfig;
+    @Mock private MongodbDialect mockDialect;
+    @Mock private ChangeStreamDescriptor mockDescriptor;
+    @Mock private MongoClient mockMongoClient;
 
-        Map<String, String> sourceOffset = new HashMap<>();
-        sourceOffset.put(ID_FIELD, "{\"_data\": \"test-resume-token\"}");
-        sourceOffset.put(HEARTBEAT_KEY_FIELD, "true");
+    private MockedStatic<MongodbUtils> mockedMongodbUtils;
+    private MongodbFetchTaskContext fetchTaskContext;
 
-        Schema valueSchema = SchemaBuilder.struct().field(TS_MS_FIELD, Schema.INT64_SCHEMA).build();
-        Struct heartbeatValue = new Struct(valueSchema);
-        heartbeatValue.put(TS_MS_FIELD, Instant.now().toEpochMilli());
-
-        return new SourceRecord(
-                sourcePartition,
-                sourceOffset,
-                "__mongodb_heartbeats",
-                null,
-                null,
-                valueSchema,
-                heartbeatValue);
+    @BeforeEach
+    void setUp() {
+        mockedMongodbUtils = Mockito.mockStatic(MongodbUtils.class);
+        mockedMongodbUtils
+                .when(() -> MongodbUtils.createMongoClient(mockConfig))
+                .thenReturn(mockMongoClient);
+        fetchTaskContext = new MongodbFetchTaskContext(mockDialect, mockConfig, mockDescriptor);
     }
 
-    /**
-     * Build a SourceRecord that simulates a heartbeat record WITHOUT the {@code HEARTBEAT=true}
-     * flag in offset. This represents the old buggy behavior before the fix.
-     */
-    private SourceRecord createHeartbeatRecordWithoutFlag() {
+    @AfterEach
+    void tearDown() {
+        if (mockedMongodbUtils != null) {
+            mockedMongodbUtils.close();
+        }
+    }
+
+    private SourceRecord createHeartbeatRecord(boolean withHeartbeatFlag) {
         Map<String, Object> sourcePartition =
                 Collections.singletonMap(
                         NS_FIELD, "mongodb://localhost:27017/__mongodb_heartbeats");
 
         Map<String, String> sourceOffset = new HashMap<>();
         sourceOffset.put(ID_FIELD, "{\"_data\": \"test-resume-token\"}");
+        if (withHeartbeatFlag) {
+            sourceOffset.put(HEARTBEAT_KEY_FIELD, "true");
+        }
 
         Schema valueSchema = SchemaBuilder.struct().field(TS_MS_FIELD, Schema.INT64_SCHEMA).build();
         Struct heartbeatValue = new Struct(valueSchema);
@@ -105,7 +116,7 @@ public class MongodbRecordUtilsHeartbeatTest {
     @Test
     @DisplayName("isHeartbeatEvent should return true when offset contains HEARTBEAT=true")
     void testIsHeartbeatEventReturnsTrueWithFlag() {
-        SourceRecord heartbeatRecord = createHeartbeatRecordWithFlag();
+        SourceRecord heartbeatRecord = createHeartbeatRecord(true);
 
         boolean result = MongodbRecordUtils.isHeartbeatEvent(heartbeatRecord);
 
@@ -115,7 +126,7 @@ public class MongodbRecordUtilsHeartbeatTest {
     @Test
     @DisplayName("isDataChangeRecord should return false for heartbeat record with flag")
     void testIsDataChangeRecordReturnsFalseForHeartbeat() {
-        SourceRecord heartbeatRecord = createHeartbeatRecordWithFlag();
+        SourceRecord heartbeatRecord = createHeartbeatRecord(true);
 
         boolean result = MongodbRecordUtils.isDataChangeRecord(heartbeatRecord);
 
@@ -125,7 +136,7 @@ public class MongodbRecordUtilsHeartbeatTest {
     @Test
     @DisplayName("getDocumentKey should return null for heartbeat record (no documentKey field)")
     void testGetDocumentKeyReturnsNullForHeartbeatRecord() {
-        SourceRecord heartbeatRecord = createHeartbeatRecordWithFlag();
+        SourceRecord heartbeatRecord = createHeartbeatRecord(true);
 
         BsonDocument documentKey = MongodbRecordUtils.getDocumentKey(heartbeatRecord);
 
@@ -137,7 +148,7 @@ public class MongodbRecordUtilsHeartbeatTest {
             "isHeartbeatEvent should return false when offset lacks HEARTBEAT flag"
                     + " (old buggy heartbeat record)")
     void testIsHeartbeatEventReturnsFalseWithoutFlag() {
-        SourceRecord heartbeatRecord = createHeartbeatRecordWithoutFlag();
+        SourceRecord heartbeatRecord = createHeartbeatRecord(false);
 
         boolean result = MongodbRecordUtils.isHeartbeatEvent(heartbeatRecord);
 
@@ -149,7 +160,7 @@ public class MongodbRecordUtilsHeartbeatTest {
             "isDataChangeRecord incorrectly returns true for heartbeat record without flag"
                     + " (old buggy behavior)")
     void testIsDataChangeRecordReturnsTrueForHeartbeatWithoutFlag() {
-        SourceRecord heartbeatRecord = createHeartbeatRecordWithoutFlag();
+        SourceRecord heartbeatRecord = createHeartbeatRecord(false);
 
         boolean result = MongodbRecordUtils.isDataChangeRecord(heartbeatRecord);
 
@@ -159,11 +170,33 @@ public class MongodbRecordUtilsHeartbeatTest {
     }
 
     @Test
+    @DisplayName("isRecordBetween should return false for heartbeat record with null documentKey")
+    void testIsRecordBetweenReturnsFalseForHeartbeat() {
+        // Given
+        SourceRecord heartbeatRecord = createHeartbeatRecord(true);
+
+        BsonDocument splitKeyDoc = new BsonDocument("_id", new BsonInt32(1));
+        BsonDocument lowerBound = new BsonDocument("_id", new BsonInt32(0));
+        BsonDocument upperBound = new BsonDocument("_id", new BsonInt32(100));
+        Object[] splitStart = new Object[] {splitKeyDoc, lowerBound};
+        Object[] splitEnd = new Object[] {splitKeyDoc, upperBound};
+
+        // When
+        boolean result = fetchTaskContext.isRecordBetween(heartbeatRecord, splitStart, splitEnd);
+
+        // Then
+        Assertions.assertFalse(
+                result,
+                "isRecordBetween should return false for heartbeat record"
+                        + " with null documentKey");
+    }
+
+    @Test
     @DisplayName(
             "Accessing documentKey on heartbeat record without flag would cause NPE"
                     + " (old buggy behavior)")
     void testNpeReproductionWithoutFlag() {
-        SourceRecord heartbeatRecord = createHeartbeatRecordWithoutFlag();
+        SourceRecord heartbeatRecord = createHeartbeatRecord(false);
 
         BsonDocument documentKey = MongodbRecordUtils.getDocumentKey(heartbeatRecord);
 
