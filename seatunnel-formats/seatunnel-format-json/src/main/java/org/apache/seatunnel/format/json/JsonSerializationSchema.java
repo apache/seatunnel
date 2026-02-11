@@ -19,6 +19,7 @@
 package org.apache.seatunnel.format.json;
 
 import org.apache.seatunnel.shade.com.fasterxml.jackson.core.JsonGenerator;
+import org.apache.seatunnel.shade.com.fasterxml.jackson.databind.JsonNode;
 import org.apache.seatunnel.shade.com.fasterxml.jackson.databind.ObjectMapper;
 import org.apache.seatunnel.shade.com.fasterxml.jackson.databind.node.ObjectNode;
 
@@ -82,6 +83,18 @@ public class JsonSerializationSchema implements SerializationSchema {
             return mapper.writeValueAsString(node).getBytes(charset);
         } catch (Throwable t) {
             throw CommonError.jsonOperationError(FORMAT, row.toString(), t);
+        }
+    }
+
+    public JsonNode convert(SeaTunnelRow row) {
+        if (node == null) {
+            node = mapper.createObjectNode();
+        }
+
+        try {
+            return runtimeConverter.convert(mapper, node, row);
+        } catch (Exception e) {
+            throw CommonError.jsonOperationError(FORMAT, row.toString(), e);
         }
     }
 }
