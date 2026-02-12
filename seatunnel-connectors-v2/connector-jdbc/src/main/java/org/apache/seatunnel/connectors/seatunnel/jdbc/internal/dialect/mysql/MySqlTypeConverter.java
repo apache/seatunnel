@@ -76,7 +76,6 @@ public class MySqlTypeConverter implements TypeConverter<BasicTypeDefine<MysqlTy
     static final String MYSQL_JSON = "JSON";
     static final String MYSQL_ENUM = "ENUM";
     static final String MYSQL_SET = "SET";
-    static final String MYSQL_SET_UNSIGNED = "SET UNSIGNED";
 
     // ------------------------------time-------------------------
     static final String MYSQL_DATE = "DATE";
@@ -247,7 +246,6 @@ public class MySqlTypeConverter implements TypeConverter<BasicTypeDefine<MysqlTy
                 break;
             case MYSQL_ENUM:
             case MYSQL_SET:
-            case MYSQL_SET_UNSIGNED:
                 builder.dataType(BasicType.STRING_TYPE);
                 if (typeDefine.getLength() == null || typeDefine.getLength() <= 0) {
                     builder.columnLength(100L);
