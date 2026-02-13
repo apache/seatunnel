@@ -228,10 +228,11 @@ public class EmbeddingTransform extends MultipleFieldOutputTransform {
                             getPluginName(), srcFieldNames);
                 }
             }
-            isMultimodalFields = vectorFieldSpec.isMultimodalField();
             fieldSpecMap.put(vectorFieldSpec, srcFieldIndexes);
             fieldNames.add(vectorFieldSpec.getFieldName());
         }
+        this.isMultimodalFields =
+                fieldSpecMap.keySet().stream().anyMatch(VectorFieldSpec::isMultimodalField);
         this.fieldSpecMap = fieldSpecMap;
         this.fieldNames = fieldNames;
     }
