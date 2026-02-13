@@ -31,6 +31,7 @@ concurrency:
 
 env:
   TEST_IN_PR: ${{ inputs.TEST_IN_PR }}
+  DOCKER_API_VERSION: ""
 
 jobs:
   license-header:
