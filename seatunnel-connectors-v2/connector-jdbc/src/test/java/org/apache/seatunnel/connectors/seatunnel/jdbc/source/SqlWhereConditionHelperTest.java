@@ -532,4 +532,334 @@ public class SqlWhereConditionHelperTest {
         Assertions.assertTrue(
                 missing.contains("abc"), "Should identify 'abc' as missing even if 'abcde' exists");
     }
+
+    // ==================== Tests for Problem 1: Field in WHERE/JOIN but not in SELECT
+    // ====================
+
+    @Test
+    public void testFindMissingFields_FieldInWhereButNotInSelect() {
+        // The field partition_date is in WHERE clause but not in SELECT clause
+        // This is the core bug scenario - we should detect it as missing
+        String selectClause = "SELECT id, name FROM";
+        Set<String> requiredFields = new HashSet<>(Arrays.asList("partition_date"));
+
+        List<String> missing =
+                SqlWhereConditionHelper.findMissingFields(selectClause, requiredFields);
+        Assertions.assertTrue(
+                missing.contains("partition_date"),
+                "partition_date should be missing from SELECT clause");
+    }
+
+    @Test
+    public void testApplyWhereConditionWithWrap_FieldInInnerWhereButNotInSelect() {
+        // Scenario: SQL has partition_date in its WHERE clause, but not in SELECT
+        // When we apply additional where_condition with partition_date, we need to add it
+        String sql = "SELECT id, name FROM orders WHERE partition_date > '2023-01-01'";
+        String whereCondition = "WHERE partition_date = '2023-02-01'";
+
+        String result =
+                SqlWhereConditionHelper.applyWhereConditionWithWrap(sql, whereCondition, true);
+
+        // The partition_date should be added to SELECT because it's needed by outer WHERE
+        Assertions.assertTrue(
+                result.contains(", partition_date FROM"),
+                "partition_date should be added to SELECT clause. Result: " + result);
+    }
+
+    @Test
+    public void testApplyWhereConditionWithWrap_FieldInJoinButNotInSelect() {
+        // Scenario: partition_date appears in JOIN ON clause but not in SELECT
+        String sql =
+                "SELECT t1.id, t1.name FROM orders t1 JOIN customers t2 ON t1.partition_date = t2.partition_date";
+        String whereCondition = "WHERE t1.partition_date = '2023-02-01'";
+
+        String result =
+                SqlWhereConditionHelper.applyWhereConditionWithWrap(sql, whereCondition, true);
+
+        // The partition_date should be added to SELECT because it's needed by outer WHERE
+        // Even though it appears in JOIN ON, it's not in SELECT
+        Assertions.assertTrue(
+                result.contains(", t1.partition_date FROM")
+                        || result.contains(", partition_date FROM"),
+                "partition_date should be added to SELECT clause. Result: " + result);
+    }
+
+    @Test
+    public void testApplyWhereConditionWithWrap_FieldInSubqueryWhereButNotInOuterSelect() {
+        // Scenario: partition_date is in inner query's WHERE but outer SELECT doesn't include it
+        String sql =
+                "SELECT id, name FROM (SELECT * FROM orders WHERE partition_date > '2023-01-01') sub";
+        String whereCondition = "WHERE partition_date = '2023-02-01'";
+
+        String result =
+                SqlWhereConditionHelper.applyWhereConditionWithWrap(sql, whereCondition, true);
+
+        // The partition_date should be added to outer SELECT
+        Assertions.assertTrue(
+                result.contains(", partition_date FROM"),
+                "partition_date should be added to outer SELECT clause. Result: " + result);
+    }
+
+    @Test
+    public void testApplyWhereConditionWithWrap_FieldAlreadyInSelectNotDuplicated() {
+        // Scenario: partition_date is already in SELECT, should not be duplicated
+        String sql = "SELECT id, partition_date, name FROM orders WHERE status = 'active'";
+        String whereCondition = "WHERE partition_date = '2023-02-01'";
+
+        String result =
+                SqlWhereConditionHelper.applyWhereConditionWithWrap(sql, whereCondition, true);
+
+        // Count occurrences of partition_date in SELECT clause area (before first FROM in outer
+        // query)
+        String innerSql = result.substring(result.indexOf("(") + 1, result.indexOf(") tmp"));
+        // The inner SQL should still have just one partition_date in SELECT
+        int selectAreaEnd = innerSql.toUpperCase().indexOf(" FROM ");
+        String selectArea = innerSql.substring(0, selectAreaEnd);
+        long count = selectArea.chars().filter(c -> c == ',').count();
+        // Original has 2 commas (id, partition_date, name), should still have 2
+        Assertions.assertEquals(
+                2, count, "Should not duplicate partition_date in SELECT. Result: " + result);
+    }
+
+    // ==================== Tests for Problem 2: Quoted field names preserved ====================
+
+    @Test
+    public void testExtractFieldInfosFromWhere_BacktickQuotedField() {
+        String whereCondition = "WHERE `partition_date` = '2023-01-01'";
+        Set<SqlWhereConditionHelper.FieldInfo> fieldInfos =
+                SqlWhereConditionHelper.extractFieldInfosFromWhere(whereCondition);
+
+        Assertions.assertEquals(1, fieldInfos.size());
+        SqlWhereConditionHelper.FieldInfo info = fieldInfos.iterator().next();
+        Assertions.assertEquals("partition_date", info.getRawName());
+        Assertions.assertEquals("`partition_date`", info.getOriginalForm());
+    }
+
+    @Test
+    public void testExtractFieldInfosFromWhere_DoubleQuoteQuotedField() {
+        String whereCondition = "WHERE \"partition_date\" = '2023-01-01'";
+        Set<SqlWhereConditionHelper.FieldInfo> fieldInfos =
+                SqlWhereConditionHelper.extractFieldInfosFromWhere(whereCondition);
+
+        Assertions.assertEquals(1, fieldInfos.size());
+        SqlWhereConditionHelper.FieldInfo info = fieldInfos.iterator().next();
+        Assertions.assertEquals("partition_date", info.getRawName());
+        Assertions.assertEquals("\"partition_date\"", info.getOriginalForm());
+    }
+
+    @Test
+    public void testExtractFieldInfosFromWhere_SquareBracketQuotedField() {
+        String whereCondition = "WHERE [partition_date] = '2023-01-01'";
+        Set<SqlWhereConditionHelper.FieldInfo> fieldInfos =
+                SqlWhereConditionHelper.extractFieldInfosFromWhere(whereCondition);
+
+        Assertions.assertEquals(1, fieldInfos.size());
+        SqlWhereConditionHelper.FieldInfo info = fieldInfos.iterator().next();
+        Assertions.assertEquals("partition_date", info.getRawName());
+        Assertions.assertEquals("[partition_date]", info.getOriginalForm());
+    }
+
+    @Test
+    public void testExtractFieldInfosFromWhere_ReservedWordField() {
+        // Test with SQL reserved word "order"
+        String whereCondition = "WHERE `order` = 1";
+        Set<SqlWhereConditionHelper.FieldInfo> fieldInfos =
+                SqlWhereConditionHelper.extractFieldInfosFromWhere(whereCondition);
+
+        Assertions.assertEquals(1, fieldInfos.size());
+        SqlWhereConditionHelper.FieldInfo info = fieldInfos.iterator().next();
+        Assertions.assertEquals("order", info.getRawName());
+        Assertions.assertEquals("`order`", info.getOriginalForm());
+    }
+
+    @Test
+    public void testExtractFieldInfosFromWhere_SpecialCharacterField() {
+        // Test with field containing special characters
+        String whereCondition = "WHERE `order-id` = 1 AND `user name` = 'test'";
+        Set<SqlWhereConditionHelper.FieldInfo> fieldInfos =
+                SqlWhereConditionHelper.extractFieldInfosFromWhere(whereCondition);
+
+        Assertions.assertEquals(2, fieldInfos.size());
+
+        boolean foundOrderId = false;
+        boolean foundUserName = false;
+        for (SqlWhereConditionHelper.FieldInfo info : fieldInfos) {
+            if (info.getRawName().equals("order-id")) {
+                Assertions.assertEquals("`order-id`", info.getOriginalForm());
+                foundOrderId = true;
+            }
+            if (info.getRawName().equals("user name")) {
+                Assertions.assertEquals("`user name`", info.getOriginalForm());
+                foundUserName = true;
+            }
+        }
+        Assertions.assertTrue(foundOrderId, "Should find order-id field");
+        Assertions.assertTrue(foundUserName, "Should find user name field");
+    }
+
+    @Test
+    public void testApplyWhereConditionWithWrap_PreservesBacktickQuotes() {
+        // When field is quoted with backticks, should preserve them when adding to SELECT
+        String sql = "SELECT id, name FROM my_table";
+        String whereCondition = "WHERE `partition_date` = '2023-01-01'";
+
+        String result =
+                SqlWhereConditionHelper.applyWhereConditionWithWrap(sql, whereCondition, true);
+
+        // Should use backtick-quoted form when inserting
+        Assertions.assertTrue(
+                result.contains(", `partition_date` FROM"),
+                "Should preserve backtick quotes. Result: " + result);
+    }
+
+    @Test
+    public void testApplyWhereConditionWithWrap_PreservesDoubleQuotes() {
+        // When field is quoted with double quotes, should preserve them when adding to SELECT
+        String sql = "SELECT id, name FROM my_table";
+        String whereCondition = "WHERE \"partition_date\" = '2023-01-01'";
+
+        String result =
+                SqlWhereConditionHelper.applyWhereConditionWithWrap(sql, whereCondition, true);
+
+        // Should use double-quote-quoted form when inserting
+        Assertions.assertTrue(
+                result.contains(", \"partition_date\" FROM"),
+                "Should preserve double quotes. Result: " + result);
+    }
+
+    @Test
+    public void testApplyWhereConditionWithWrap_PreservesSquareBrackets() {
+        // When field is quoted with square brackets, should preserve them when adding to SELECT
+        String sql = "SELECT id, name FROM my_table";
+        String whereCondition = "WHERE [partition_date] = '2023-01-01'";
+
+        String result =
+                SqlWhereConditionHelper.applyWhereConditionWithWrap(sql, whereCondition, true);
+
+        // Should use square-bracket-quoted form when inserting
+        Assertions.assertTrue(
+                result.contains(", [partition_date] FROM"),
+                "Should preserve square brackets. Result: " + result);
+    }
+
+    @Test
+    public void testApplyWhereConditionWithWrap_ReservedWordFieldPreserved() {
+        // Critical test: reserved word "order" must keep its quotes
+        String sql = "SELECT id, name FROM orders";
+        String whereCondition = "WHERE `order` = 1";
+
+        String result =
+                SqlWhereConditionHelper.applyWhereConditionWithWrap(sql, whereCondition, true);
+
+        // Should preserve backticks for reserved word, otherwise SQL would be invalid
+        Assertions.assertTrue(
+                result.contains(", `order` FROM"),
+                "Reserved word 'order' must be quoted. Result: " + result);
+        // Should NOT contain unquoted version in SELECT
+        Assertions.assertFalse(
+                result.matches(".*, order FROM.*"),
+                "Should not have unquoted 'order' in SELECT. Result: " + result);
+    }
+
+    @Test
+    public void testApplyWhereConditionWithWrap_SpecialCharacterFieldPreserved() {
+        // Field with hyphen must keep its quotes
+        String sql = "SELECT id, name FROM orders";
+        String whereCondition = "WHERE `order-id` = 1";
+
+        String result =
+                SqlWhereConditionHelper.applyWhereConditionWithWrap(sql, whereCondition, true);
+
+        // Should preserve backticks for field with hyphen
+        Assertions.assertTrue(
+                result.contains(", `order-id` FROM"),
+                "Field with hyphen must be quoted. Result: " + result);
+    }
+
+    @Test
+    public void testApplyWhereConditionWithWrap_FieldWithSpacePreserved() {
+        // Field with space must keep its quotes
+        String sql = "SELECT id, name FROM orders";
+        String whereCondition = "WHERE `user name` = 'test'";
+
+        String result =
+                SqlWhereConditionHelper.applyWhereConditionWithWrap(sql, whereCondition, true);
+
+        // Should preserve backticks for field with space
+        Assertions.assertTrue(
+                result.contains(", `user name` FROM"),
+                "Field with space must be quoted. Result: " + result);
+    }
+
+    @Test
+    public void testApplyWhereConditionWithWrap_MultipleQuotedFieldsPreserved() {
+        // Multiple fields with different quote styles
+        String sql = "SELECT id FROM orders";
+        String whereCondition = "WHERE `order-id` = 1 AND \"status\" = 'active' AND [type] = 'A'";
+
+        String result =
+                SqlWhereConditionHelper.applyWhereConditionWithWrap(sql, whereCondition, true);
+
+        // All should preserve their original quote styles
+        Assertions.assertTrue(
+                result.contains("`order-id`"),
+                "Should preserve backticks for order-id. Result: " + result);
+        Assertions.assertTrue(
+                result.contains("\"status\""),
+                "Should preserve double quotes for status. Result: " + result);
+        Assertions.assertTrue(
+                result.contains("[type]"),
+                "Should preserve square brackets for type. Result: " + result);
+    }
+
+    @Test
+    public void testApplyWhereConditionWithWrap_MixedQuotedAndUnquotedFields() {
+        // Mix of quoted and unquoted fields
+        String sql = "SELECT id FROM orders";
+        String whereCondition = "WHERE `order-id` = 1 AND status = 'active'";
+
+        String result =
+                SqlWhereConditionHelper.applyWhereConditionWithWrap(sql, whereCondition, true);
+
+        // Quoted field should keep quotes, unquoted should stay unquoted
+        Assertions.assertTrue(
+                result.contains(", `order-id`") || result.contains("`order-id`,"),
+                "Quoted order-id should preserve quotes. Result: " + result);
+        Assertions.assertTrue(
+                result.contains(", status") || result.contains("status,"),
+                "Unquoted status should stay unquoted. Result: " + result);
+    }
+
+    // ==================== Integration tests combining Problem 1 and Problem 2 ====================
+
+    @Test
+    public void testIntegration_ReservedWordInWhereNotInSelect() {
+        // Combined scenario: reserved word field appears in inner WHERE but not in SELECT
+        String sql = "SELECT id, name FROM orders WHERE `order` > 0";
+        String whereCondition = "WHERE `order` = 1";
+
+        String result =
+                SqlWhereConditionHelper.applyWhereConditionWithWrap(sql, whereCondition, true);
+
+        // Should add `order` (with quotes) to SELECT, not plain order
+        Assertions.assertTrue(
+                result.contains(", `order` FROM"),
+                "Should add quoted reserved word to SELECT. Result: " + result);
+    }
+
+    @Test
+    public void testIntegration_SpecialCharFieldInJoinNotInSelect() {
+        // Combined scenario: special char field in JOIN but not in SELECT
+        String sql =
+                "SELECT t1.id FROM orders t1 JOIN order_items t2 ON t1.`order-id` = t2.`order-id`";
+        String whereCondition = "WHERE t1.`order-id` = 1";
+
+        String result =
+                SqlWhereConditionHelper.applyWhereConditionWithWrap(sql, whereCondition, true);
+
+        // Should add `order-id` (with quotes) to SELECT
+        Assertions.assertTrue(
+                result.contains("`order-id`"),
+                "Should add quoted special char field to SELECT. Result: " + result);
+    }
 }

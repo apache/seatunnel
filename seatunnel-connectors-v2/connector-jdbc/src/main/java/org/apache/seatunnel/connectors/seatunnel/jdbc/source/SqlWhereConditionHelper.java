@@ -19,11 +19,15 @@ package org.apache.seatunnel.connectors.seatunnel.jdbc.source;
 
 import org.apache.seatunnel.shade.org.apache.commons.lang3.StringUtils;
 
+import lombok.AllArgsConstructor;
+import lombok.EqualsAndHashCode;
 import lombok.extern.slf4j.Slf4j;
 
 import java.util.ArrayList;
+import java.util.HashMap;
 import java.util.HashSet;
 import java.util.List;
+import java.util.Map;
 import java.util.Set;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
@@ -43,6 +47,22 @@ public class SqlWhereConditionHelper {
                     "^\\s*SELECT\\s+(DISTINCT\\s+|ALL\\s+)?",
                     Pattern.CASE_INSENSITIVE | Pattern.MULTILINE);
 
+    /** Represents a field with both raw name and original quoted form. */
+    @AllArgsConstructor
+    @EqualsAndHashCode
+    public static class FieldInfo {
+        private final String rawName;
+        private final String originalForm;
+
+        public String getRawName() {
+            return rawName;
+        }
+
+        public String getOriginalForm() {
+            return originalForm;
+        }
+    }
+
     /**
      * Strategy: Wrap query and apply WHERE, ensuring all referenced fields are available.
      *
@@ -57,11 +77,11 @@ public class SqlWhereConditionHelper {
             return sql;
         }
 
-        Set<String> whereFields = extractFieldNamesFromWhere(whereCondition);
+        Set<FieldInfo> whereFieldInfos = extractFieldInfosFromWhere(whereCondition);
         String modifiedSql = sql;
 
-        if (addMissingFields && !whereFields.isEmpty()) {
-            modifiedSql = ensureFieldsInSelect(sql, whereFields);
+        if (addMissingFields && !whereFieldInfos.isEmpty()) {
+            modifiedSql = ensureFieldsInSelect(sql, whereFieldInfos);
         }
 
         return String.format(
@@ -72,7 +92,7 @@ public class SqlWhereConditionHelper {
      * Extract field names referenced in a WHERE condition.
      *
      * @param whereCondition the WHERE condition
-     * @return set of field names found
+     * @return set of field names found (raw names without quotes)
      */
     public static Set<String> extractFieldNamesFromWhere(String whereCondition) {
         Set<String> fields = new HashSet<>();
@@ -80,30 +100,48 @@ public class SqlWhereConditionHelper {
             return fields;
         }
 
-        String condition = normalizeWhereCondition(whereCondition);
-        Matcher matcher = FIELD_PATTERN.matcher(condition);
-
-        while (matcher.find()) {
-            String field = matcher.group(1).trim();
-            // Remove quotes if present
-            field = field.replaceAll("^[`\"\\[]|[`\"\\]]$", "");
-            if (!field.isEmpty() && !isKeyword(field)) {
-                fields.add(field);
-            }
+        for (FieldInfo fieldInfo : extractFieldInfosFromWhere(whereCondition)) {
+            fields.add(fieldInfo.getRawName());
         }
-
-        log.debug("Extracted fields from WHERE condition '{}': {}", whereCondition, fields);
         return fields;
     }
 
     /**
-     * Check if the SQL query contains specific fields.
+     * Extract field infos (with original quoted form) from a WHERE condition.
      *
-     * @param sql the SQL query
-     * @param fields the fields to check
-     * @return list of fields not found in the query
+     * @param whereCondition the WHERE condition
+     * @return set of FieldInfo objects containing both raw name and original form
      */
-    public static List<String> findMissingFields(String sql, Set<String> fields) {
+    public static Set<FieldInfo> extractFieldInfosFromWhere(String whereCondition) {
+        Set<FieldInfo> fieldInfos = new HashSet<>();
+        if (StringUtils.isBlank(whereCondition)) {
+            return fieldInfos;
+        }
+
+        String condition = normalizeWhereCondition(whereCondition);
+        Matcher matcher = FIELD_PATTERN.matcher(condition);
+
+        while (matcher.find()) {
+            String originalForm = matcher.group(1).trim();
+            // Remove quotes to get raw name
+            String rawName = originalForm.replaceAll("^[`\"\\[]|[`\"\\]]$", "");
+            if (!rawName.isEmpty() && !isKeyword(rawName)) {
+                fieldInfos.add(new FieldInfo(rawName, originalForm));
+            }
+        }
+
+        log.debug("Extracted fields from WHERE condition '{}': {}", whereCondition, fieldInfos);
+        return fieldInfos;
+    }
+
+    /**
+     * Check if the SQL query contains specific fields in SELECT clause only.
+     *
+     * @param selectClause the SELECT clause portion of the SQL
+     * @param fields the fields to check (raw names)
+     * @return list of field raw names not found in the SELECT clause
+     */
+    public static List<String> findMissingFields(String selectClause, Set<String> fields) {
         List<String> missingFields = new ArrayList<>();
 
         for (String field : fields) {
@@ -118,7 +156,7 @@ public class SqlWhereConditionHelper {
                             + Pattern.quote(field)
                             + "\\]";
             Pattern pattern = Pattern.compile(regex);
-            Matcher matcher = pattern.matcher(sql);
+            Matcher matcher = pattern.matcher(selectClause);
 
             if (!matcher.find()) {
                 missingFields.add(field);
@@ -132,10 +170,10 @@ public class SqlWhereConditionHelper {
      * Ensure all required fields are in the SELECT clause.
      *
      * @param sql the original SQL
-     * @param requiredFields fields that must be present
+     * @param requiredFieldInfos fields that must be present (with original forms)
      * @return modified SQL with fields added if necessary
      */
-    private static String ensureFieldsInSelect(String sql, Set<String> requiredFields) {
+    private static String ensureFieldsInSelect(String sql, Set<FieldInfo> requiredFieldInfos) {
         int fromIndex = findMainFromClauseIndex(sql);
         String selectClause;
         if (fromIndex != -1) {
@@ -151,17 +189,38 @@ public class SqlWhereConditionHelper {
             return sql;
         }
 
-        List<String> missingFields = findMissingFields(sql, requiredFields);
-        if (missingFields.isEmpty()) {
+        // Build a map from raw name to FieldInfo for lookup
+        Map<String, FieldInfo> fieldInfoMap = new HashMap<>();
+        Set<String> rawNames = new HashSet<>();
+        for (FieldInfo info : requiredFieldInfos) {
+            fieldInfoMap.put(info.getRawName(), info);
+            rawNames.add(info.getRawName());
+        }
+
+        // Check missing fields in SELECT clause only (not entire SQL)
+        List<String> missingRawNames = findMissingFields(selectClause, rawNames);
+        if (missingRawNames.isEmpty()) {
             return sql;
         }
 
-        log.warn("Adding missing fields to SELECT clause: {}", missingFields);
+        // Get original forms for missing fields
+        List<String> missingFieldsWithQuotes = new ArrayList<>();
+        for (String rawName : missingRawNames) {
+            FieldInfo info = fieldInfoMap.get(rawName);
+            if (info != null) {
+                missingFieldsWithQuotes.add(info.getOriginalForm());
+            } else {
+                // Fallback: use raw name if FieldInfo not found (should not happen)
+                missingFieldsWithQuotes.add(rawName);
+            }
+        }
+
+        log.warn("Adding missing fields to SELECT clause: {}", missingFieldsWithQuotes);
 
         // Try to insert before FROM clause (safer for column index)
         if (fromIndex != -1) {
             StringBuilder insertion = new StringBuilder();
-            for (String field : missingFields) {
+            for (String field : missingFieldsWithQuotes) {
                 insertion.append(", ").append(field);
             }
             // Insert before FROM
@@ -175,7 +234,7 @@ public class SqlWhereConditionHelper {
         if (matcher.find()) {
             int insertPosition = matcher.end();
             StringBuilder newSql = new StringBuilder(sql);
-            for (String field : missingFields) {
+            for (String field : missingFieldsWithQuotes) {
                 newSql.insert(insertPosition, " " + field + ",");
             }
             return newSql.toString();
