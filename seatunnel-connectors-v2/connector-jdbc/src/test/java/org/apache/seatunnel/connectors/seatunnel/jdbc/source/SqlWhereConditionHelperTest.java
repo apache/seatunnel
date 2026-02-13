@@ -862,4 +862,351 @@ public class SqlWhereConditionHelperTest {
                 result.contains("`order-id`"),
                 "Should add quoted special char field to SELECT. Result: " + result);
     }
+
+    // ==================== Tests for hasTopLevelSelectWildcard ====================
+
+    @Test
+    public void testHasTopLevelSelectWildcard_SelectStar() {
+        Assertions.assertTrue(
+                SqlWhereConditionHelper.hasTopLevelSelectWildcard("SELECT * FROM t"),
+                "SELECT * should be detected as wildcard");
+    }
+
+    @Test
+    public void testHasTopLevelSelectWildcard_SelectTableStar() {
+        Assertions.assertTrue(
+                SqlWhereConditionHelper.hasTopLevelSelectWildcard("SELECT t.* FROM t"),
+                "SELECT t.* should be detected as wildcard");
+    }
+
+    @Test
+    public void testHasTopLevelSelectWildcard_SelectStarWithOtherColumns() {
+        Assertions.assertTrue(
+                SqlWhereConditionHelper.hasTopLevelSelectWildcard("SELECT id, * FROM t"),
+                "SELECT id, * should be detected as wildcard");
+    }
+
+    @Test
+    public void testHasTopLevelSelectWildcard_CountStar() {
+        Assertions.assertFalse(
+                SqlWhereConditionHelper.hasTopLevelSelectWildcard("SELECT COUNT(*) FROM t"),
+                "SELECT COUNT(*) should NOT be detected as wildcard");
+    }
+
+    @Test
+    public void testHasTopLevelSelectWildcard_CountStarWithOtherColumns() {
+        Assertions.assertFalse(
+                SqlWhereConditionHelper.hasTopLevelSelectWildcard("SELECT id, COUNT(*) FROM t"),
+                "SELECT id, COUNT(*) should NOT be detected as wildcard");
+    }
+
+    @Test
+    public void testHasTopLevelSelectWildcard_MultiplicationExpression() {
+        Assertions.assertFalse(
+                SqlWhereConditionHelper.hasTopLevelSelectWildcard("SELECT col1 * 2 FROM t"),
+                "SELECT col1 * 2 should NOT be detected as wildcard");
+    }
+
+    @Test
+    public void testHasTopLevelSelectWildcard_SumMultiplication() {
+        Assertions.assertFalse(
+                SqlWhereConditionHelper.hasTopLevelSelectWildcard("SELECT SUM(a * b) FROM t"),
+                "SELECT SUM(a * b) should NOT be detected as wildcard");
+    }
+
+    @Test
+    public void testHasTopLevelSelectWildcard_ComplexExpressions() {
+        Assertions.assertFalse(
+                SqlWhereConditionHelper.hasTopLevelSelectWildcard(
+                        "SELECT id, COUNT(*), col1 * col2 FROM t"),
+                "Complex expressions with * should NOT be detected as wildcard");
+    }
+
+    @Test
+    public void testHasTopLevelSelectWildcard_MultipleAggregates() {
+        Assertions.assertFalse(
+                SqlWhereConditionHelper.hasTopLevelSelectWildcard(
+                        "SELECT COUNT(*), SUM(amount), AVG(price) FROM orders"),
+                "Multiple aggregates with * should NOT be detected as wildcard");
+    }
+
+    @Test
+    public void testHasTopLevelSelectWildcard_NoWildcard() {
+        Assertions.assertFalse(
+                SqlWhereConditionHelper.hasTopLevelSelectWildcard("SELECT id, name FROM t"),
+                "SELECT id, name should NOT be detected as wildcard");
+    }
+
+    @Test
+    public void testHasTopLevelSelectWildcard_StarInString() {
+        Assertions.assertFalse(
+                SqlWhereConditionHelper.hasTopLevelSelectWildcard(
+                        "SELECT id, '*' as pattern FROM t"),
+                "* in string literal should NOT be detected as wildcard");
+    }
+
+    // ==================== Tests for hasTopLevelSetOperator ====================
+
+    @Test
+    public void testHasTopLevelSetOperator_Union() {
+        Assertions.assertTrue(
+                SqlWhereConditionHelper.hasTopLevelSetOperator(
+                        "SELECT id FROM t1 UNION SELECT id FROM t2"),
+                "UNION should be detected");
+    }
+
+    @Test
+    public void testHasTopLevelSetOperator_UnionAll() {
+        Assertions.assertTrue(
+                SqlWhereConditionHelper.hasTopLevelSetOperator(
+                        "SELECT id FROM t1 UNION ALL SELECT id FROM t2"),
+                "UNION ALL should be detected");
+    }
+
+    @Test
+    public void testHasTopLevelSetOperator_Intersect() {
+        Assertions.assertTrue(
+                SqlWhereConditionHelper.hasTopLevelSetOperator(
+                        "SELECT id FROM t1 INTERSECT SELECT id FROM t2"),
+                "INTERSECT should be detected");
+    }
+
+    @Test
+    public void testHasTopLevelSetOperator_Except() {
+        Assertions.assertTrue(
+                SqlWhereConditionHelper.hasTopLevelSetOperator(
+                        "SELECT id FROM t1 EXCEPT SELECT id FROM t2"),
+                "EXCEPT should be detected");
+    }
+
+    @Test
+    public void testHasTopLevelSetOperator_Minus() {
+        Assertions.assertTrue(
+                SqlWhereConditionHelper.hasTopLevelSetOperator(
+                        "SELECT id FROM t1 MINUS SELECT id FROM t2"),
+                "MINUS should be detected");
+    }
+
+    @Test
+    public void testHasTopLevelSetOperator_NoOperator() {
+        Assertions.assertFalse(
+                SqlWhereConditionHelper.hasTopLevelSetOperator("SELECT id FROM t1"),
+                "Simple query should NOT have set operator");
+    }
+
+    @Test
+    public void testHasTopLevelSetOperator_UnionInSubquery() {
+        Assertions.assertFalse(
+                SqlWhereConditionHelper.hasTopLevelSetOperator(
+                        "SELECT * FROM (SELECT id FROM t1 UNION SELECT id FROM t2) sub"),
+                "UNION inside subquery should NOT be detected as top-level");
+    }
+
+    @Test
+    public void testHasTopLevelSetOperator_UnionInWhere() {
+        Assertions.assertFalse(
+                SqlWhereConditionHelper.hasTopLevelSetOperator(
+                        "SELECT id FROM t1 WHERE id IN (SELECT id FROM t2 UNION SELECT id FROM t3)"),
+                "UNION inside WHERE clause should NOT be detected as top-level");
+    }
+
+    @Test
+    public void testHasTopLevelSetOperator_UnionInString() {
+        Assertions.assertFalse(
+                SqlWhereConditionHelper.hasTopLevelSetOperator(
+                        "SELECT id, 'UNION' as type FROM t1"),
+                "UNION in string literal should NOT be detected");
+    }
+
+    // ==================== Integration: COUNT(*) should still add missing fields
+    // ====================
+
+    @Test
+    public void testApplyWhereConditionWithWrap_CountStar_AddsMissingFields() {
+        // COUNT(*) should NOT be treated as SELECT *
+        // Missing fields should still be added
+        String sql = "SELECT id, COUNT(*) FROM orders GROUP BY id";
+        String whereCondition = "WHERE partition_date = '2023-01-01'";
+
+        String result =
+                SqlWhereConditionHelper.applyWhereConditionWithWrap(sql, whereCondition, true);
+
+        // partition_date should be added because COUNT(*) is not SELECT *
+        Assertions.assertTrue(
+                result.contains(", partition_date FROM"),
+                "Missing field should be added for COUNT(*) query. Result: " + result);
+    }
+
+    @Test
+    public void testApplyWhereConditionWithWrap_MultiplicationExpression_AddsMissingFields() {
+        // col1 * 2 should NOT be treated as SELECT *
+        String sql = "SELECT id, price * quantity as total FROM orders";
+        String whereCondition = "WHERE partition_date = '2023-01-01'";
+
+        String result =
+                SqlWhereConditionHelper.applyWhereConditionWithWrap(sql, whereCondition, true);
+
+        // partition_date should be added
+        Assertions.assertTrue(
+                result.contains(", partition_date FROM"),
+                "Missing field should be added for multiplication expression query. Result: "
+                        + result);
+    }
+
+    @Test
+    public void testApplyWhereConditionWithWrap_ComplexAggregate_AddsMissingFields() {
+        // Complex aggregate with * should still add missing fields
+        String sql = "SELECT id, SUM(a * b) as total FROM orders GROUP BY id";
+        String whereCondition = "WHERE partition_date = '2023-01-01'";
+
+        String result =
+                SqlWhereConditionHelper.applyWhereConditionWithWrap(sql, whereCondition, true);
+
+        // partition_date should be added
+        Assertions.assertTrue(
+                result.contains(", partition_date FROM"),
+                "Missing field should be added for complex aggregate query. Result: " + result);
+    }
+
+    // ==================== Integration: UNION should NOT modify inner SQL ====================
+
+    @Test
+    public void testApplyWhereConditionWithWrap_UnionQuery_SkipsAddingFields() {
+        // UNION query should NOT have fields auto-added to first branch
+        String sql = "SELECT id FROM t1 UNION SELECT id FROM t2";
+        String whereCondition = "WHERE partition_date = '2023-01-01'";
+
+        String result =
+                SqlWhereConditionHelper.applyWhereConditionWithWrap(sql, whereCondition, true);
+
+        // Should still wrap the query
+        Assertions.assertTrue(
+                result.contains("SELECT * FROM ("),
+                "UNION query should still be wrapped. Result: " + result);
+        Assertions.assertTrue(
+                result.contains(") tmp WHERE"),
+                "UNION query should have WHERE condition. Result: " + result);
+
+        // Should NOT modify the inner SQL (no partition_date added to first branch)
+        // The original UNION structure should be preserved
+        Assertions.assertFalse(
+                result.contains("SELECT id, partition_date FROM t1"),
+                "UNION query should NOT have fields added to first branch only. Result: " + result);
+    }
+
+    @Test
+    public void testApplyWhereConditionWithWrap_UnionAllQuery_SkipsAddingFields() {
+        String sql = "SELECT id FROM t1 UNION ALL SELECT id FROM t2";
+        String whereCondition = "WHERE partition_date = '2023-01-01'";
+
+        String result =
+                SqlWhereConditionHelper.applyWhereConditionWithWrap(sql, whereCondition, true);
+
+        // Should still wrap
+        Assertions.assertTrue(
+                result.contains("SELECT * FROM ("),
+                "UNION ALL query should still be wrapped. Result: " + result);
+
+        // Should NOT add fields to inner query
+        Assertions.assertFalse(
+                result.contains("SELECT id, partition_date FROM t1"),
+                "UNION ALL query should NOT have fields added. Result: " + result);
+    }
+
+    @Test
+    public void testApplyWhereConditionWithWrap_IntersectQuery_SkipsAddingFields() {
+        String sql = "SELECT id FROM t1 INTERSECT SELECT id FROM t2";
+        String whereCondition = "WHERE partition_date = '2023-01-01'";
+
+        String result =
+                SqlWhereConditionHelper.applyWhereConditionWithWrap(sql, whereCondition, true);
+
+        Assertions.assertTrue(
+                result.contains("SELECT * FROM ("),
+                "INTERSECT query should still be wrapped. Result: " + result);
+        Assertions.assertFalse(
+                result.contains("SELECT id, partition_date FROM t1"),
+                "INTERSECT query should NOT have fields added. Result: " + result);
+    }
+
+    @Test
+    public void testApplyWhereConditionWithWrap_ExceptQuery_SkipsAddingFields() {
+        String sql = "SELECT id FROM t1 EXCEPT SELECT id FROM t2";
+        String whereCondition = "WHERE partition_date = '2023-01-01'";
+
+        String result =
+                SqlWhereConditionHelper.applyWhereConditionWithWrap(sql, whereCondition, true);
+
+        Assertions.assertTrue(
+                result.contains("SELECT * FROM ("),
+                "EXCEPT query should still be wrapped. Result: " + result);
+        Assertions.assertFalse(
+                result.contains("SELECT id, partition_date FROM t1"),
+                "EXCEPT query should NOT have fields added. Result: " + result);
+    }
+
+    @Test
+    public void testApplyWhereConditionWithWrap_UnionWithAllFields_WorksCorrectly() {
+        // If UNION already has the field in all branches, it should work
+        String sql = "SELECT id, partition_date FROM t1 UNION SELECT id, partition_date FROM t2";
+        String whereCondition = "WHERE partition_date = '2023-01-01'";
+
+        String result =
+                SqlWhereConditionHelper.applyWhereConditionWithWrap(sql, whereCondition, true);
+
+        // Should wrap and add WHERE
+        Assertions.assertTrue(
+                result.contains("SELECT * FROM ("),
+                "UNION with all fields should be wrapped. Result: " + result);
+        Assertions.assertTrue(
+                result.contains(") tmp WHERE partition_date = '2023-01-01'"),
+                "WHERE condition should be applied. Result: " + result);
+    }
+
+    // ==================== Edge cases: combination scenarios ====================
+
+    @Test
+    public void testApplyWhereConditionWithWrap_CountStarWithQuotedField() {
+        // COUNT(*) with quoted field in WHERE
+        String sql = "SELECT id, COUNT(*) FROM orders GROUP BY id";
+        String whereCondition = "WHERE `partition_date` = '2023-01-01'";
+
+        String result =
+                SqlWhereConditionHelper.applyWhereConditionWithWrap(sql, whereCondition, true);
+
+        // Should add quoted field
+        Assertions.assertTrue(
+                result.contains(", `partition_date` FROM"),
+                "Quoted field should be preserved when added. Result: " + result);
+    }
+
+    @Test
+    public void testApplyWhereConditionWithWrap_SelectTableStar_NotAddFields() {
+        // SELECT t.* should NOT add missing fields
+        String sql = "SELECT t.* FROM orders t";
+        String whereCondition = "WHERE partition_date = '2023-01-01'";
+
+        String result =
+                SqlWhereConditionHelper.applyWhereConditionWithWrap(sql, whereCondition, true);
+
+        // Should NOT add partition_date because t.* covers all columns
+        Assertions.assertFalse(
+                result.contains(", partition_date FROM"),
+                "SELECT t.* should not have fields added. Result: " + result);
+    }
+
+    @Test
+    public void testApplyWhereConditionWithWrap_MultipleWildcards() {
+        // Multiple table.* patterns
+        String sql = "SELECT t1.*, t2.id FROM t1 JOIN t2 ON t1.id = t2.id";
+        String whereCondition = "WHERE partition_date = '2023-01-01'";
+
+        String result =
+                SqlWhereConditionHelper.applyWhereConditionWithWrap(sql, whereCondition, true);
+
+        // Should NOT add fields because t1.* is a wildcard
+        Assertions.assertFalse(
+                result.contains(", partition_date FROM"),
+                "Query with table.* should not have fields added. Result: " + result);
+    }
 }

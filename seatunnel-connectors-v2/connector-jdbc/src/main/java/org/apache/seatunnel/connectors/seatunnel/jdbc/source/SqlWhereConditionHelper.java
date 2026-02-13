@@ -167,6 +167,169 @@ public class SqlWhereConditionHelper {
     }
 
     /**
+     * Check if SQL contains top-level set operators (UNION/INTERSECT/EXCEPT). These operators at
+     * top level would make auto-adding columns unsafe.
+     */
+    public static boolean hasTopLevelSetOperator(String sql) {
+        String upper = sql.toUpperCase();
+        int length = upper.length();
+        int parenCount = 0;
+        boolean inString = false;
+        char stringChar = 0;
+
+        for (int i = 0; i < length; i++) {
+            char c = upper.charAt(i);
+
+            // Track string literals
+            if (!inString && (c == '\'' || c == '"')) {
+                inString = true;
+                stringChar = c;
+            } else if (inString && c == stringChar) {
+                // Check for escaped quote
+                if (i + 1 < length && upper.charAt(i + 1) == stringChar) {
+                    i++; // Skip escaped quote
+                } else {
+                    inString = false;
+                }
+            } else if (!inString) {
+                if (c == '(') {
+                    parenCount++;
+                } else if (c == ')') {
+                    parenCount--;
+                } else if (parenCount == 0) {
+                    // Check for set operators at top level (not inside parentheses)
+                    if (i > 0
+                            && (Character.isWhitespace(upper.charAt(i - 1))
+                                    || upper.charAt(i - 1) == ')')) {
+                        if (upper.startsWith("UNION", i) && isKeywordEnd(upper, i + 5)) {
+                            return true;
+                        }
+                        if (upper.startsWith("INTERSECT", i) && isKeywordEnd(upper, i + 9)) {
+                            return true;
+                        }
+                        if (upper.startsWith("EXCEPT", i) && isKeywordEnd(upper, i + 6)) {
+                            return true;
+                        }
+                        if (upper.startsWith("MINUS", i) && isKeywordEnd(upper, i + 5)) {
+                            return true;
+                        }
+                    }
+                }
+            }
+        }
+        return false;
+    }
+
+    private static boolean isKeywordEnd(String s, int index) {
+        if (index >= s.length()) {
+            return true;
+        }
+        char c = s.charAt(index);
+        return Character.isWhitespace(c) || c == '(' || c == ';' || c == ')';
+    }
+
+    /**
+     * Check if SELECT clause has top-level wildcard (* or table.*). Does NOT match wildcards inside
+     * expressions like COUNT(*), col*2, SUM(a*b).
+     */
+    public static boolean hasTopLevelSelectWildcard(String sql) {
+        // Remove string literals to avoid false positives
+        String cleaned = sql.replaceAll("'[^']*'|\"[^\"]*\"", "");
+
+        // Find the column list between SELECT and FROM
+        String upperCleaned = cleaned.toUpperCase();
+        int selectIdx = -1;
+
+        // Find SELECT keyword (not inside parentheses)
+        int parenCount = 0;
+        for (int i = 0; i < upperCleaned.length(); i++) {
+            char c = upperCleaned.charAt(i);
+            if (c == '(') parenCount++;
+            else if (c == ')') parenCount--;
+            else if (parenCount == 0 && upperCleaned.startsWith("SELECT", i)) {
+                // Check it's a keyword, not part of another word
+                if (i == 0 || !Character.isLetterOrDigit(upperCleaned.charAt(i - 1))) {
+                    int nextIdx = i + 6;
+                    if (nextIdx >= upperCleaned.length()
+                            || Character.isWhitespace(upperCleaned.charAt(nextIdx))) {
+                        selectIdx = i;
+                        break;
+                    }
+                }
+            }
+        }
+
+        if (selectIdx == -1) {
+            return false;
+        }
+
+        // Find FROM position in the original string
+        int fromIdx = findMainFromClauseIndex(cleaned);
+        if (fromIdx == -1) {
+            // No FROM found, use entire string after SELECT
+            fromIdx = cleaned.length();
+        }
+
+        // Extract column list (from after SELECT keyword to before FROM)
+        int selectEndIdx = selectIdx + 6;
+        String columnList = cleaned.substring(selectEndIdx, fromIdx).trim();
+
+        // Skip DISTINCT/ALL keywords
+        if (columnList.toUpperCase().startsWith("DISTINCT ")) {
+            columnList = columnList.substring(9).trim();
+        } else if (columnList.toUpperCase().startsWith("ALL ")) {
+            columnList = columnList.substring(4).trim();
+        }
+
+        // Check for standalone * or table.*
+        // Split by commas, handling nested parentheses
+        List<String> columns = splitColumns(columnList);
+
+        for (String column : columns) {
+            String trimmed = column.trim();
+            // Check if this column is exactly * or table.*
+            if (trimmed.equals("*")) {
+                return true;
+            }
+            // Check for table.* pattern
+            if (trimmed.matches("[a-zA-Z_][a-zA-Z0-9_]*\\.\\*")) {
+                return true;
+            }
+        }
+
+        return false;
+    }
+
+    /** Split column list by commas, respecting nested parentheses. */
+    private static List<String> splitColumns(String columnList) {
+        List<String> columns = new ArrayList<>();
+        StringBuilder current = new StringBuilder();
+        int parenCount = 0;
+
+        for (int i = 0; i < columnList.length(); i++) {
+            char c = columnList.charAt(i);
+            if (c == '(') {
+                parenCount++;
+                current.append(c);
+            } else if (c == ')') {
+                parenCount--;
+                current.append(c);
+            } else if (c == ',' && parenCount == 0) {
+                columns.add(current.toString());
+                current = new StringBuilder();
+            } else {
+                current.append(c);
+            }
+        }
+
+        if (current.length() > 0) {
+            columns.add(current.toString());
+        }
+
+        return columns;
+    }
+
+    /**
      * Ensure all required fields are in the SELECT clause.
      *
      * @param sql the original SQL
@@ -174,6 +337,17 @@ public class SqlWhereConditionHelper {
      * @return modified SQL with fields added if necessary
      */
     private static String ensureFieldsInSelect(String sql, Set<FieldInfo> requiredFieldInfos) {
+        // For UNION/INTERSECT/EXCEPT queries, skip auto-adding columns
+        // because it's unsafe to modify only the first branch.
+        // The query will still be wrapped, but columns won't be auto-added.
+        if (hasTopLevelSetOperator(sql)) {
+            log.info(
+                    "Detected UNION/INTERSECT/EXCEPT query, skipping auto-add missing fields. "
+                            + "Please ensure all required fields are included in each SELECT branch. SQL: {}",
+                    sql);
+            return sql;
+        }
+
         int fromIndex = findMainFromClauseIndex(sql);
         String selectClause;
         if (fromIndex != -1) {
@@ -182,10 +356,9 @@ public class SqlWhereConditionHelper {
             selectClause = sql;
         }
 
-        // Remove quotes to avoid matching * inside strings
-        String cleanSelect =
-                selectClause.replaceAll("`[^`]*`|'[^']*'|\"[^\"]*\"|\\[[^\\]]*\\]", "");
-        if (cleanSelect.contains("*")) {
+        // Check for top-level SELECT * or table.* wildcard
+        // Do NOT match COUNT(*), col*2, SUM(a*b) etc.
+        if (hasTopLevelSelectWildcard(selectClause)) {
             return sql;
         }
 
