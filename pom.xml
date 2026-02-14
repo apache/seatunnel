@@ -666,7 +666,11 @@
                         <skip>${skipUT}</skip>
                         <systemPropertyVariables>
                             <jacoco-agent.destfile>${project.build.directory}/jacoco.exec</jacoco-agent.destfile>
+                            <!-- temporary fix for https://github.com/testcontainers/testcontainers-java/issues/11491 -->
+                            <api.version>1.44</api.version>
                         </systemPropertyVariables>
+                        <forkCount>1</forkCount>
+                        <reuseForks>false</reuseForks>
                         <excludes>
                             <exclude>**/*IT.java</exclude>
                         </excludes>
@@ -695,6 +699,12 @@
                     <version>${maven-failsafe-plugin.version}</version>
                     <configuration>
                         <skip>${skipIT}</skip>
+                        <!-- temporary fix for https://github.com/testcontainers/testcontainers-java/issues/11491 -->
+                        <systemPropertyVariables>
+                            <api.version>1.44</api.version>
+                        </systemPropertyVariables>
+                        <forkCount>1</forkCount>
+                        <reuseForks>false</reuseForks>
                     </configuration>
                     <executions>
                         <execution>

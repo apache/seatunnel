@@ -17,8 +17,6 @@
 
 package org.apache.seatunnel.e2e.connector.iotdb;
 
-import org.apache.seatunnel.shade.com.google.common.collect.Lists;
-
 import org.apache.seatunnel.e2e.common.TestResource;
 import org.apache.seatunnel.e2e.common.TestSuiteBase;
 import org.apache.seatunnel.e2e.common.container.EngineType;
@@ -28,6 +26,7 @@ import org.apache.seatunnel.e2e.common.junit.DisabledOnContainer;
 import org.junit.jupiter.api.AfterAll;
 import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.BeforeAll;
+import org.junit.jupiter.api.Disabled;
 import org.junit.jupiter.api.TestTemplate;
 import org.testcontainers.containers.Container;
 import org.testcontainers.containers.GenericContainer;
@@ -59,6 +58,7 @@ import java.util.stream.Stream;
 import static org.awaitility.Awaitility.given;
 
 @Slf4j
+@Disabled("Temporary disabled due to port 5801 conflict in CI environment")
 @DisabledOnContainer(
         value = {},
         type = {EngineType.SPARK},
@@ -85,10 +85,10 @@ public class IoTDBIT extends TestSuiteBase implements TestResource {
                 new GenericContainer<>(IOTDB_DOCKER_IMAGE)
                         .withNetwork(NETWORK)
                         .withNetworkAliases(IOTDB_HOST)
+                        .withExposedPorts(IOTDB_PORT)
                         .withLogConsumer(
                                 new Slf4jLogConsumer(
                                         DockerLoggerFactory.getLogger(IOTDB_DOCKER_IMAGE)));
-        iotdbServer.setPortBindings(Lists.newArrayList(String.format("%s:6667", IOTDB_PORT)));
         Startables.deepStart(Stream.of(iotdbServer)).join();
         log.info("IoTDB container started");
         // wait for IoTDB fully start
@@ -103,6 +103,7 @@ public class IoTDBIT extends TestSuiteBase implements TestResource {
     }
 
     @TestTemplate
+    @Disabled("Temporary disabled due to port 5801 conflict in CI environment")
     public void testIoTDB(TestContainer container) throws Exception {
         Container.ExecResult execResult = container.executeJob("/iotdb/iotdb_source_to_sink.conf");
         Assertions.assertEquals(0, execResult.getExitCode());
@@ -114,7 +115,7 @@ public class IoTDBIT extends TestSuiteBase implements TestResource {
     private Session createSession() {
         return new Session.Builder()
                 .host("localhost")
-                .port(IOTDB_PORT)
+                .port(iotdbServer.getMappedPort(6667))
                 .username(IOTDB_USERNAME)
                 .password(IOTDB_PASSWORD)
                 .build();

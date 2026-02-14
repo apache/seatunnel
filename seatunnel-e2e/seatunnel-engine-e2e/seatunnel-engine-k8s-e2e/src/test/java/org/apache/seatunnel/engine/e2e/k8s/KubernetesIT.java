@@ -89,6 +89,7 @@ public class KubernetesIT {
         Model model = pomReader.read(new FileReader(pomPath), true);
         String artifactId = model.getArtifactId();
         String tag = artifactId + ":latest";
+        log.info("Start to build docker image for test, the tag is {}", tag);
         Info info = dockerClient.infoCmd().exec();
         log.info("Docker's environmental information");
         log.info(info.toString());
