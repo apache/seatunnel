@@ -43,7 +43,6 @@ import java.io.IOException;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.List;
-import java.util.concurrent.ExecutionException;
 import java.util.concurrent.TimeUnit;
 import java.util.stream.Stream;
 
@@ -62,7 +61,13 @@ public class QdrantIT extends TestSuiteBase implements TestResource {
     private static final String ALIAS = "qdrante2e";
     private static final String SOURCE_COLLECTION = "source_collection";
     private static final String SINK_COLLECTION = "sink_collection";
-    private static final String IMAGE = "qdrant/qdrant:latest";
+
+    /**
+     * Fixed Qdrant at v1.15.0 for stability; upgrading to v1.17.0+ requires ensuring the SeaTunnel
+     * Qdrant connector is compatible with the latest breaking changes.
+     */
+    private static final String IMAGE = "qdrant/qdrant:v1.15.0";
+
     private QdrantContainer container;
     private QdrantClient qdrantClient;
 
@@ -136,10 +141,15 @@ public class QdrantIT extends TestSuiteBase implements TestResource {
     }
 
     @TestTemplate
-    public void testQdrant(TestContainer container)
-            throws IOException, InterruptedException, ExecutionException {
+    public void testQdrant(TestContainer container) throws IOException, InterruptedException {
         Container.ExecResult execResult = container.executeJob("/qdrant-to-qdrant.conf");
-        Assertions.assertEquals(execResult.getExitCode(), 0);
-        Assertions.assertEquals(qdrantClient.countAsync(SINK_COLLECTION).get(), 10);
+        Assertions.assertEquals(0, execResult.getExitCode());
+        Awaitility.given()
+                .await()
+                .atMost(10L, TimeUnit.SECONDS)
+                .untilAsserted(
+                        () ->
+                                Assertions.assertEquals(
+                                        10L, qdrantClient.countAsync(SINK_COLLECTION).get()));
     }
 }

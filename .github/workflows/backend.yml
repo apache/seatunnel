@@ -682,7 +682,7 @@ jobs:
     steps:
       - name: install k8s
         run: |
-          curl -sfL https://get.k3s.io | K3S_KUBECONFIG_MODE=777 sh -s - --docker
+          curl -sfL https://get.k3s.io | K3S_KUBECONFIG_MODE=777 sh -s -
           cat /etc/rancher/k3s/k3s.yaml
           mkdir -p ~/.kube
           cp /etc/rancher/k3s/k3s.yaml ~/.kube/config
@@ -698,7 +698,29 @@ jobs:
           distribution: 'temurin'
           cache: 'maven'
       - name: run seatunnel zeta on k8s test
+        # Sideload the SeaTunnel image into the k3s internal store.
+        # This is necessary because the k3s container runtime cannot natively
+        # access images residing only in the local Docker daemon.
         run: |
+          ./mvnw -B install -DskipTests -am
+          
+          TARGET_PATH="seatunnel-e2e/seatunnel-engine-e2e/seatunnel-engine-k8s-e2e/src/test/resources"
+          mkdir -p $TARGET_PATH/jars $TARGET_PATH/bin $TARGET_PATH/connectors $TARGET_PATH/config
+          cp -r config/* $TARGET_PATH/config/
+          cp $TARGET_PATH/custom_config/hazelcast-kubernetes-discovery.yaml $TARGET_PATH/config/hazelcast.yaml
+          cp $TARGET_PATH/custom_config/hazelcast-client.yaml $TARGET_PATH/config/hazelcast-client.yaml
+          cp seatunnel-shade/seatunnel-hadoop3-3.1.4-uber/target/seatunnel-hadoop3-3.1.4-uber.jar $TARGET_PATH/jars/
+          cp seatunnel-core/seatunnel-starter/target/seatunnel-starter.jar $TARGET_PATH/jars/
+          cp seatunnel-transforms-v2/target/seatunnel-transforms-v2.jar $TARGET_PATH/jars/
+          cp seatunnel-core/seatunnel-starter/src/main/bin/seatunnel.sh $TARGET_PATH/bin/
+          cp seatunnel-core/seatunnel-starter/src/main/bin/seatunnel-cluster.sh $TARGET_PATH/bin/
+          cp $TARGET_PATH/custom_config/plugin-mapping.properties $TARGET_PATH/connectors/
+          cp seatunnel-connectors-v2/connector-fake/target/connector-fake*.jar $TARGET_PATH/connectors/
+          cp seatunnel-connectors-v2/connector-console/target/connector-console*.jar $TARGET_PATH/connectors/
+          
+          docker build -t seatunnel:latest -f $TARGET_PATH/seatunnel_dockerfile $TARGET_PATH
+          docker save seatunnel:latest | sudo k3s ctr images import -
+          
           ./mvnw -T 1 -B verify -DskipUT=true -DskipIT=false -D"license.skipAddThirdParty"=true -D"skip.ui"=true --no-snapshot-updates -pl :seatunnel-engine-k8s-e2e -am -Pci
         env:
           MAVEN_OPTS: -Xmx4096m
@@ -1390,7 +1412,7 @@ jobs:
       matrix:
         java: [ '8', '11' ]
         os: [ 'ubuntu-latest' ]
-    timeout-minutes: 120
+    timeout-minutes: 150
     steps:
       - uses: actions/checkout@v2
       - name: Set up JDK ${{ matrix.java }}
