@@ -291,8 +291,7 @@ public class MongodbRecordUtilsHeartbeatTest {
 
         boolean result = fetchTaskContext.isRecordBetween(record, splitStart, splitEnd);
 
-        Assertions.assertTrue(
-                result, "Any record should be within full range [MIN_KEY, MAX_KEY)");
+        Assertions.assertTrue(result, "Any record should be within full range [MIN_KEY, MAX_KEY)");
     }
 
     @Test
@@ -311,8 +310,7 @@ public class MongodbRecordUtilsHeartbeatTest {
         boolean result = fetchTaskContext.isRecordBetween(record, splitStart, splitEnd);
 
         Assertions.assertFalse(
-                result,
-                "Record with _id=100 should be excluded (upper bound is exclusive)");
+                result, "Record with _id=100 should be excluded (upper bound is exclusive)");
     }
 
     @Test
