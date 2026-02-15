@@ -72,6 +72,7 @@ import static org.apache.seatunnel.connectors.seatunnel.cdc.mongodb.utils.Mongod
 import static org.apache.seatunnel.connectors.seatunnel.cdc.mongodb.utils.MongodbRecordUtils.extractBsonDocument;
 import static org.apache.seatunnel.connectors.seatunnel.cdc.mongodb.utils.MongodbRecordUtils.getDocumentKey;
 import static org.apache.seatunnel.connectors.seatunnel.cdc.mongodb.utils.MongodbRecordUtils.getResumeToken;
+import static org.apache.seatunnel.connectors.seatunnel.cdc.mongodb.utils.MongodbRecordUtils.isHeartbeatEvent;
 import static org.apache.seatunnel.connectors.seatunnel.cdc.mongodb.utils.MongodbUtils.createMongoClient;
 
 @Slf4j
@@ -167,11 +168,20 @@ public class MongodbFetchTaskContext implements FetchTask.Context {
             SourceRecord record, @Nonnull Object[] splitStart, @Nonnull Object[] splitEnd) {
         BsonDocument documentKey = getDocumentKey(record);
         if (documentKey == null) {
-            log.debug(
-                    "Record has no documentKey field, skipping range check. "
-                            + "This is expected for heartbeat records. Record: {}",
+            if (isHeartbeatEvent(record)) {
+                log.debug(
+                        "Heartbeat record has no documentKey field, skipping range check. Record: {}",
+                        record);
+                return false;
+            }
+            log.warn(
+                    "Non-heartbeat record has no documentKey field, this is unexpected. Record: {}",
                     record);
-            return false;
+            throw new MongodbConnectorException(
+                    ILLEGAL_ARGUMENT,
+                    "Record has no documentKey field but is not a heartbeat event. "
+                            + "This indicates an unexpected record type: "
+                            + record);
         }
         BsonDocument splitKeys = (BsonDocument) splitStart[0];
         String firstKey = splitKeys.getFirstKey();
