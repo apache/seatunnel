@@ -38,11 +38,11 @@ public class DynamoDbSinkClient {
     private final AmazonDynamoDBConfig amazondynamodbConfig;
     private volatile boolean initialize;
     private DynamoDbClient dynamoDbClient;
-    private final List<WriteRequest> batchList;
+    private final Map<String, List<WriteRequest>> batchListByTable;
 
     public DynamoDbSinkClient(AmazonDynamoDBConfig amazondynamodbConfig) {
         this.amazondynamodbConfig = amazondynamodbConfig;
-        this.batchList = new ArrayList<>();
+        this.batchListByTable = new HashMap<>();
     }
 
     private void tryInit() {
@@ -64,14 +64,19 @@ public class DynamoDbSinkClient {
         initialize = true;
     }
 
-    public synchronized void write(PutItemRequest putItemRequest) {
+    public synchronized void write(PutItemRequest putItemRequest, String tableName) {
         tryInit();
-        batchList.add(
-                WriteRequest.builder()
-                        .putRequest(PutRequest.builder().item(putItemRequest.item()).build())
-                        .build());
+
+        batchListByTable.computeIfAbsent(tableName, k -> new ArrayList<>());
+        batchListByTable
+                .get(tableName)
+                .add(
+                        WriteRequest.builder()
+                                .putRequest(
+                                        PutRequest.builder().item(putItemRequest.item()).build())
+                                .build());
         if (amazondynamodbConfig.getBatchSize() > 0
-                && batchList.size() >= amazondynamodbConfig.getBatchSize()) {
+                && batchListByTable.get(tableName).size() >= amazondynamodbConfig.getBatchSize()) {
             flush();
         }
     }
@@ -84,14 +89,22 @@ public class DynamoDbSinkClient {
     }
 
     synchronized void flush() {
-        if (batchList.isEmpty()) {
+        if (batchListByTable.isEmpty()) {
             return;
         }
-        Map<String, List<WriteRequest>> requestItems = new HashMap<>(1);
-        requestItems.put(amazondynamodbConfig.getTable(), batchList);
-        dynamoDbClient.batchWriteItem(
-                BatchWriteItemRequest.builder().requestItems(requestItems).build());
 
-        batchList.clear();
+        for (Map.Entry<String, List<WriteRequest>> entry : batchListByTable.entrySet()) {
+            String tableName = entry.getKey();
+            List<WriteRequest> requests = entry.getValue();
+
+            if (!requests.isEmpty()) {
+                Map<String, List<WriteRequest>> requestItems = new HashMap<>(1);
+                requestItems.put(tableName, requests);
+                dynamoDbClient.batchWriteItem(
+                        BatchWriteItemRequest.builder().requestItems(requestItems).build());
+            }
+        }
+
+        batchListByTable.clear();
     }
 }

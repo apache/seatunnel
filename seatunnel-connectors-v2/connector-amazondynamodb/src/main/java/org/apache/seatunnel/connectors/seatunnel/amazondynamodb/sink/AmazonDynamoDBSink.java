@@ -18,6 +18,7 @@
 package org.apache.seatunnel.connectors.seatunnel.amazondynamodb.sink;
 
 import org.apache.seatunnel.api.sink.SinkWriter;
+import org.apache.seatunnel.api.sink.SupportMultiTableSink;
 import org.apache.seatunnel.api.table.catalog.CatalogTable;
 import org.apache.seatunnel.api.table.type.SeaTunnelRow;
 import org.apache.seatunnel.connectors.seatunnel.amazondynamodb.config.AmazonDynamoDBConfig;
@@ -27,7 +28,8 @@ import org.apache.seatunnel.connectors.seatunnel.common.sink.AbstractSinkWriter;
 import java.io.IOException;
 import java.util.Optional;
 
-public class AmazonDynamoDBSink extends AbstractSimpleSink<SeaTunnelRow, Void> {
+public class AmazonDynamoDBSink extends AbstractSimpleSink<SeaTunnelRow, Void>
+        implements SupportMultiTableSink {
 
     private CatalogTable catalogTable;
 
@@ -52,6 +54,6 @@ public class AmazonDynamoDBSink extends AbstractSimpleSink<SeaTunnelRow, Void> {
     @Override
     public AbstractSinkWriter<SeaTunnelRow, Void> createWriter(SinkWriter.Context context)
             throws IOException {
-        return new AmazonDynamoDBWriter(amazondynamodbConfig, catalogTable.getSeaTunnelRowType());
+        return new AmazonDynamoDBWriter(amazondynamodbConfig, catalogTable);
     }
 }

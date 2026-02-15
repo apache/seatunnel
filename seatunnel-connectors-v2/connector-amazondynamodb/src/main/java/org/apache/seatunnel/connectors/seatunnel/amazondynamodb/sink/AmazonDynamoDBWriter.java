@@ -17,6 +17,8 @@
 
 package org.apache.seatunnel.connectors.seatunnel.amazondynamodb.sink;
 
+import org.apache.seatunnel.api.sink.SupportMultiTableSinkWriter;
+import org.apache.seatunnel.api.table.catalog.CatalogTable;
 import org.apache.seatunnel.api.table.type.SeaTunnelRow;
 import org.apache.seatunnel.api.table.type.SeaTunnelRowType;
 import org.apache.seatunnel.connectors.seatunnel.amazondynamodb.config.AmazonDynamoDBConfig;
@@ -27,20 +29,24 @@ import org.apache.seatunnel.connectors.seatunnel.common.sink.AbstractSinkWriter;
 import java.io.IOException;
 import java.util.Optional;
 
-public class AmazonDynamoDBWriter extends AbstractSinkWriter<SeaTunnelRow, Void> {
+public class AmazonDynamoDBWriter extends AbstractSinkWriter<SeaTunnelRow, Void>
+        implements SupportMultiTableSinkWriter<Void> {
 
     private final DynamoDbSinkClient dynamoDbSinkClient;
     private final SeaTunnelRowSerializer serializer;
 
     public AmazonDynamoDBWriter(
-            AmazonDynamoDBConfig amazondynamodbConfig, SeaTunnelRowType seaTunnelRowType) {
+            AmazonDynamoDBConfig amazondynamodbConfig, CatalogTable catalogTable) {
+        SeaTunnelRowType seaTunnelRowType = catalogTable.getSeaTunnelRowType();
+
         dynamoDbSinkClient = new DynamoDbSinkClient(amazondynamodbConfig);
         serializer = new DefaultSeaTunnelRowSerializer(seaTunnelRowType, amazondynamodbConfig);
     }
 
     @Override
     public void write(SeaTunnelRow element) throws IOException {
-        dynamoDbSinkClient.write(serializer.serialize(element));
+        String tableName = element.getTableId();
+        dynamoDbSinkClient.write(serializer.serialize(element), tableName);
     }
 
     @Override
