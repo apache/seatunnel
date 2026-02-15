@@ -18,6 +18,7 @@
 package mongodb.utils;
 
 import org.apache.seatunnel.connectors.seatunnel.cdc.mongodb.config.MongodbSourceConfig;
+import org.apache.seatunnel.connectors.seatunnel.cdc.mongodb.exception.MongodbConnectorException;
 import org.apache.seatunnel.connectors.seatunnel.cdc.mongodb.source.dialect.MongodbDialect;
 import org.apache.seatunnel.connectors.seatunnel.cdc.mongodb.source.fetch.MongodbFetchTaskContext;
 import org.apache.seatunnel.connectors.seatunnel.cdc.mongodb.source.offset.ChangeStreamDescriptor;
@@ -31,6 +32,8 @@ import org.apache.kafka.connect.source.SourceRecord;
 
 import org.bson.BsonDocument;
 import org.bson.BsonInt32;
+import org.bson.BsonMaxKey;
+import org.bson.BsonMinKey;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.BeforeEach;
@@ -49,6 +52,7 @@ import java.util.Collections;
 import java.util.HashMap;
 import java.util.Map;
 
+import static org.apache.seatunnel.connectors.seatunnel.cdc.mongodb.config.MongodbSourceConstants.DOCUMENT_KEY;
 import static org.apache.seatunnel.connectors.seatunnel.cdc.mongodb.config.MongodbSourceConstants.HEARTBEAT_KEY_FIELD;
 import static org.apache.seatunnel.connectors.seatunnel.cdc.mongodb.config.MongodbSourceConstants.ID_FIELD;
 import static org.apache.seatunnel.connectors.seatunnel.cdc.mongodb.config.MongodbSourceConstants.NS_FIELD;
@@ -193,16 +197,140 @@ public class MongodbRecordUtilsHeartbeatTest {
 
     @Test
     @DisplayName(
-            "Accessing documentKey on heartbeat record without flag would cause NPE"
-                    + " (old buggy behavior)")
-    void testNpeReproductionWithoutFlag() {
-        SourceRecord heartbeatRecord = createHeartbeatRecord(false);
+            "isRecordBetween should throw MongodbConnectorException"
+                    + " for non-heartbeat record with null documentKey")
+    void testIsRecordBetweenThrowsForNonHeartbeatWithNullDocumentKey() {
+        // A record without HEARTBEAT flag and without documentKey field
+        // simulates an unexpected record type that should not be silently swallowed.
+        SourceRecord nonHeartbeatRecord = createHeartbeatRecord(false);
 
-        BsonDocument documentKey = MongodbRecordUtils.getDocumentKey(heartbeatRecord);
+        BsonDocument splitKeyDoc = new BsonDocument("_id", new BsonInt32(1));
+        BsonDocument lowerBound = new BsonDocument("_id", new BsonInt32(0));
+        BsonDocument upperBound = new BsonDocument("_id", new BsonInt32(100));
+        Object[] splitStart = new Object[] {splitKeyDoc, lowerBound};
+        Object[] splitEnd = new Object[] {splitKeyDoc, upperBound};
 
-        // documentKey is null because heartbeat value schema has no documentKey field.
-        // Before the defensive fix in isRecordBetween, this would cause NPE.
-        Assertions.assertNull(documentKey);
-        Assertions.assertThrows(NullPointerException.class, () -> documentKey.get("_id"));
+        MongodbConnectorException exception =
+                Assertions.assertThrows(
+                        MongodbConnectorException.class,
+                        () ->
+                                fetchTaskContext.isRecordBetween(
+                                        nonHeartbeatRecord, splitStart, splitEnd));
+        Assertions.assertTrue(
+                exception.getMessage().contains("not a heartbeat event"),
+                "Exception message should indicate the record is not a heartbeat event");
+    }
+
+    // ======================== isRecordBetween range check tests ========================
+
+    /**
+     * Creates a normal data change SourceRecord with a documentKey containing the given _id value.
+     */
+    private SourceRecord createDataChangeRecord(int idValue) {
+        Map<String, Object> sourcePartition =
+                Collections.singletonMap(NS_FIELD, "mongodb://localhost:27017/testdb.testcoll");
+
+        Map<String, String> sourceOffset = new HashMap<>();
+        sourceOffset.put(ID_FIELD, "{\"_data\": \"test-resume-token\"}");
+
+        Schema valueSchema =
+                SchemaBuilder.struct()
+                        .field(DOCUMENT_KEY, Schema.OPTIONAL_STRING_SCHEMA)
+                        .field(TS_MS_FIELD, Schema.INT64_SCHEMA)
+                        .build();
+        Struct value = new Struct(valueSchema);
+        value.put(DOCUMENT_KEY, new BsonDocument("_id", new BsonInt32(idValue)).toJson());
+        value.put(TS_MS_FIELD, Instant.now().toEpochMilli());
+
+        return new SourceRecord(
+                sourcePartition, sourceOffset, "testdb.testcoll", null, null, valueSchema, value);
+    }
+
+    @Test
+    @DisplayName("isRecordBetween should return true when documentKey is within split range")
+    void testIsRecordBetweenReturnsTrueForRecordInRange() {
+        SourceRecord record = createDataChangeRecord(50);
+
+        BsonDocument splitKeyDoc = new BsonDocument("_id", new BsonInt32(1));
+        BsonDocument lowerBound = new BsonDocument("_id", new BsonInt32(0));
+        BsonDocument upperBound = new BsonDocument("_id", new BsonInt32(100));
+        Object[] splitStart = new Object[] {splitKeyDoc, lowerBound};
+        Object[] splitEnd = new Object[] {splitKeyDoc, upperBound};
+
+        boolean result = fetchTaskContext.isRecordBetween(record, splitStart, splitEnd);
+
+        Assertions.assertTrue(result, "Record with _id=50 should be within range [0, 100)");
+    }
+
+    @Test
+    @DisplayName("isRecordBetween should return false when documentKey is outside split range")
+    void testIsRecordBetweenReturnsFalseForRecordOutOfRange() {
+        SourceRecord record = createDataChangeRecord(200);
+
+        BsonDocument splitKeyDoc = new BsonDocument("_id", new BsonInt32(1));
+        BsonDocument lowerBound = new BsonDocument("_id", new BsonInt32(0));
+        BsonDocument upperBound = new BsonDocument("_id", new BsonInt32(100));
+        Object[] splitStart = new Object[] {splitKeyDoc, lowerBound};
+        Object[] splitEnd = new Object[] {splitKeyDoc, upperBound};
+
+        boolean result = fetchTaskContext.isRecordBetween(record, splitStart, splitEnd);
+
+        Assertions.assertFalse(result, "Record with _id=200 should be outside range [0, 100)");
+    }
+
+    @Test
+    @DisplayName("isRecordBetween should return true for full range (MIN_KEY to MAX_KEY)")
+    void testIsRecordBetweenReturnsTrueForFullRange() {
+        SourceRecord record = createDataChangeRecord(999);
+
+        BsonDocument splitKeyDoc = new BsonDocument("_id", new BsonInt32(1));
+        BsonDocument lowerBound = new BsonDocument("_id", new BsonMinKey());
+        BsonDocument upperBound = new BsonDocument("_id", new BsonMaxKey());
+        Object[] splitStart = new Object[] {splitKeyDoc, lowerBound};
+        Object[] splitEnd = new Object[] {splitKeyDoc, upperBound};
+
+        boolean result = fetchTaskContext.isRecordBetween(record, splitStart, splitEnd);
+
+        Assertions.assertTrue(
+                result, "Any record should be within full range [MIN_KEY, MAX_KEY)");
+    }
+
+    @Test
+    @DisplayName(
+            "isRecordBetween should return false when documentKey equals upper bound"
+                    + " (upper bound exclusive)")
+    void testIsRecordBetweenUpperBoundExclusive() {
+        SourceRecord record = createDataChangeRecord(100);
+
+        BsonDocument splitKeyDoc = new BsonDocument("_id", new BsonInt32(1));
+        BsonDocument lowerBound = new BsonDocument("_id", new BsonInt32(0));
+        BsonDocument upperBound = new BsonDocument("_id", new BsonInt32(100));
+        Object[] splitStart = new Object[] {splitKeyDoc, lowerBound};
+        Object[] splitEnd = new Object[] {splitKeyDoc, upperBound};
+
+        boolean result = fetchTaskContext.isRecordBetween(record, splitStart, splitEnd);
+
+        Assertions.assertFalse(
+                result,
+                "Record with _id=100 should be excluded (upper bound is exclusive)");
+    }
+
+    @Test
+    @DisplayName(
+            "isRecordBetween should return true when documentKey equals lower bound"
+                    + " (lower bound inclusive)")
+    void testIsRecordBetweenLowerBoundInclusive() {
+        SourceRecord record = createDataChangeRecord(0);
+
+        BsonDocument splitKeyDoc = new BsonDocument("_id", new BsonInt32(1));
+        BsonDocument lowerBound = new BsonDocument("_id", new BsonInt32(0));
+        BsonDocument upperBound = new BsonDocument("_id", new BsonInt32(100));
+        Object[] splitStart = new Object[] {splitKeyDoc, lowerBound};
+        Object[] splitEnd = new Object[] {splitKeyDoc, upperBound};
+
+        boolean result = fetchTaskContext.isRecordBetween(record, splitStart, splitEnd);
+
+        Assertions.assertTrue(
+                result, "Record with _id=0 should be included (lower bound is inclusive)");
     }
 }
