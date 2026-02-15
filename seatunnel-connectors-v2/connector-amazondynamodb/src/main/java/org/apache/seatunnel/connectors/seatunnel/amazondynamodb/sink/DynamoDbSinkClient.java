@@ -94,35 +94,39 @@ public class DynamoDbSinkClient {
 
         // Execute network I/O outside lock (other threads can continue)
         if (toFlush != null) {
-            flushTableAsync(tableName, toFlush);
+            flushTable(tableName, toFlush);
         }
     }
 
-    public synchronized void close() {
-        if (dynamoDbClient != null) {
+    public void close() {
+        synchronized (lock) {
             flush();
-            dynamoDbClient.close();
-        }
-    }
-
-    synchronized void flush() {
-        if (batchListByTable.isEmpty()) {
-            return;
-        }
-
-        for (Map.Entry<String, List<WriteRequest>> entry : batchListByTable.entrySet()) {
-            String tableName = entry.getKey();
-            List<WriteRequest> requests = entry.getValue();
-
-            if (!requests.isEmpty()) {
-                flushWithRetry(tableName, requests);
+            if (dynamoDbClient != null) {
+                dynamoDbClient.close();
             }
         }
-
-        batchListByTable.clear();
     }
 
-    private void flushTableAsync(String tableName, List<WriteRequest> requests) {
+    void flush() {
+        synchronized (lock) {
+            if (batchListByTable.isEmpty()) {
+                return;
+            }
+
+            for (Map.Entry<String, List<WriteRequest>> entry : batchListByTable.entrySet()) {
+                String tableName = entry.getKey();
+                List<WriteRequest> requests = entry.getValue();
+
+                if (!requests.isEmpty()) {
+                    flushWithRetry(tableName, requests);
+                }
+            }
+
+            batchListByTable.clear();
+        }
+    }
+
+    private void flushTable(String tableName, List<WriteRequest> requests) {
         if (!requests.isEmpty()) {
             flushWithRetry(tableName, requests);
         }
@@ -130,7 +134,7 @@ public class DynamoDbSinkClient {
 
     private void flushWithRetry(String tableName, List<WriteRequest> requests) {
         List<WriteRequest> pendingRequests = new ArrayList<>(requests);
-        int maxRetries = 3;
+        int maxRetries = 10;
         int retryCount = 0;
 
         while (!pendingRequests.isEmpty() && retryCount < maxRetries) {
@@ -141,15 +145,22 @@ public class DynamoDbSinkClient {
                     dynamoDbClient.batchWriteItem(
                             BatchWriteItemRequest.builder().requestItems(requestItems).build());
 
-            // Check for unprocessed items
             Map<String, List<WriteRequest>> unprocessedKeys = response.unprocessedItems();
             pendingRequests = unprocessedKeys.getOrDefault(tableName, new ArrayList<>());
 
             if (!pendingRequests.isEmpty()) {
                 retryCount++;
-                // Exponential backoff
+
+                long baseDelayMs = 100;
+                long maxDelayMs = 5000;
+
+                long delay = Math.min(baseDelayMs * (1L << retryCount), maxDelayMs);
+
+                long jitter = (long) (delay * Math.random() * 0.5);
+                delay += jitter;
+
                 try {
-                    Thread.sleep(100 * retryCount);
+                    Thread.sleep(delay);
                 } catch (InterruptedException e) {
                     Thread.currentThread().interrupt();
                     throw new RuntimeException("Interrupted during retry", e);
@@ -157,7 +168,6 @@ public class DynamoDbSinkClient {
             }
         }
 
-        // If still have unprocessed items after retries, fail
         if (!pendingRequests.isEmpty()) {
             throw new RuntimeException(
                     String.format(
