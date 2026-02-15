@@ -24,6 +24,7 @@ import software.amazon.awssdk.auth.credentials.StaticCredentialsProvider;
 import software.amazon.awssdk.regions.Region;
 import software.amazon.awssdk.services.dynamodb.DynamoDbClient;
 import software.amazon.awssdk.services.dynamodb.model.BatchWriteItemRequest;
+import software.amazon.awssdk.services.dynamodb.model.BatchWriteItemResponse;
 import software.amazon.awssdk.services.dynamodb.model.PutItemRequest;
 import software.amazon.awssdk.services.dynamodb.model.PutRequest;
 import software.amazon.awssdk.services.dynamodb.model.WriteRequest;
@@ -39,6 +40,7 @@ public class DynamoDbSinkClient {
     private volatile boolean initialize;
     private DynamoDbClient dynamoDbClient;
     private final Map<String, List<WriteRequest>> batchListByTable;
+    private final Object lock = new Object();
 
     public DynamoDbSinkClient(AmazonDynamoDBConfig amazondynamodbConfig) {
         this.amazondynamodbConfig = amazondynamodbConfig;
@@ -64,20 +66,35 @@ public class DynamoDbSinkClient {
         initialize = true;
     }
 
-    public synchronized void write(PutItemRequest putItemRequest, String tableName) {
-        tryInit();
+    public void write(PutItemRequest putItemRequest, String tableName) {
+        List<WriteRequest> toFlush = null;
 
-        batchListByTable.computeIfAbsent(tableName, k -> new ArrayList<>());
-        batchListByTable
-                .get(tableName)
-                .add(
-                        WriteRequest.builder()
-                                .putRequest(
-                                        PutRequest.builder().item(putItemRequest.item()).build())
-                                .build());
-        if (amazondynamodbConfig.getBatchSize() > 0
-                && batchListByTable.get(tableName).size() >= amazondynamodbConfig.getBatchSize()) {
-            flush();
+        synchronized (lock) {
+            tryInit();
+
+            batchListByTable.computeIfAbsent(tableName, k -> new ArrayList<>());
+            batchListByTable
+                    .get(tableName)
+                    .add(
+                            WriteRequest.builder()
+                                    .putRequest(
+                                            PutRequest.builder()
+                                                    .item(putItemRequest.item())
+                                                    .build())
+                                    .build());
+
+            if (amazondynamodbConfig.getBatchSize() > 0
+                    && batchListByTable.get(tableName).size()
+                            >= amazondynamodbConfig.getBatchSize()) {
+                // Copy batch and remove from map inside lock (fast)
+                toFlush = new ArrayList<>(batchListByTable.get(tableName));
+                batchListByTable.remove(tableName);
+            }
+        }
+
+        // Execute network I/O outside lock (other threads can continue)
+        if (toFlush != null) {
+            flushTableAsync(tableName, toFlush);
         }
     }
 
@@ -98,13 +115,54 @@ public class DynamoDbSinkClient {
             List<WriteRequest> requests = entry.getValue();
 
             if (!requests.isEmpty()) {
-                Map<String, List<WriteRequest>> requestItems = new HashMap<>(1);
-                requestItems.put(tableName, requests);
-                dynamoDbClient.batchWriteItem(
-                        BatchWriteItemRequest.builder().requestItems(requestItems).build());
+                flushWithRetry(tableName, requests);
             }
         }
 
         batchListByTable.clear();
+    }
+
+    private void flushTableAsync(String tableName, List<WriteRequest> requests) {
+        if (!requests.isEmpty()) {
+            flushWithRetry(tableName, requests);
+        }
+    }
+
+    private void flushWithRetry(String tableName, List<WriteRequest> requests) {
+        List<WriteRequest> pendingRequests = new ArrayList<>(requests);
+        int maxRetries = 3;
+        int retryCount = 0;
+
+        while (!pendingRequests.isEmpty() && retryCount < maxRetries) {
+            Map<String, List<WriteRequest>> requestItems = new HashMap<>(1);
+            requestItems.put(tableName, pendingRequests);
+
+            BatchWriteItemResponse response =
+                    dynamoDbClient.batchWriteItem(
+                            BatchWriteItemRequest.builder().requestItems(requestItems).build());
+
+            // Check for unprocessed items
+            Map<String, List<WriteRequest>> unprocessedKeys = response.unprocessedItems();
+            pendingRequests = unprocessedKeys.getOrDefault(tableName, new ArrayList<>());
+
+            if (!pendingRequests.isEmpty()) {
+                retryCount++;
+                // Exponential backoff
+                try {
+                    Thread.sleep(100 * retryCount);
+                } catch (InterruptedException e) {
+                    Thread.currentThread().interrupt();
+                    throw new RuntimeException("Interrupted during retry", e);
+                }
+            }
+        }
+
+        // If still have unprocessed items after retries, fail
+        if (!pendingRequests.isEmpty()) {
+            throw new RuntimeException(
+                    String.format(
+                            "Failed to write %d items to table %s after %d retries",
+                            pendingRequests.size(), tableName, maxRetries));
+        }
     }
 }
