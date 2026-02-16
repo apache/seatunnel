@@ -102,14 +102,9 @@ public class HubSpotIT extends TestSuiteBase implements TestResource {
     public void testHubSpotSource(TestContainer container)
             throws IOException, InterruptedException {
         Container.ExecResult result = container.executeJob("/hubspot_source_case.conf");
-
-        // CRITICAL FIX: Print the actual container logs so we know EXACTLY why it crashed.
         Assertions.assertEquals(
                 0,
                 result.getExitCode(),
-                "Job failed to execute.\n--- STDERR ---\n"
-                        + result.getStderr()
-                        + "\n--- STDOUT ---\n"
-                        + result.getStdout());
+                "Job failed to execute. Check logs: " + result.getStderr());
     }
 }

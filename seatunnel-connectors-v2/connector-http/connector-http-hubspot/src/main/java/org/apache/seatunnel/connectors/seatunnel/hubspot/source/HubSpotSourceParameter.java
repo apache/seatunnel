@@ -17,36 +17,9 @@
 
 package org.apache.seatunnel.connectors.seatunnel.hubspot.source;
 
-import org.apache.seatunnel.api.configuration.ReadonlyConfig;
-import org.apache.seatunnel.connectors.seatunnel.http.config.HttpCommonOptions;
 import org.apache.seatunnel.connectors.seatunnel.http.config.HttpParameter;
 
-import java.lang.reflect.Field;
-
 public class HubSpotSourceParameter extends HttpParameter {
+    // Kept cleanly as a constant for the Factory to use
     public static final String DEFAULT_CONTENT_FIELD = "$.results";
-
-    public static void configure(HttpParameter parameter, ReadonlyConfig config) {
-        if (config.getOptional(HttpCommonOptions.URL).isPresent()) {
-            parameter.setUrl(config.get(HttpCommonOptions.URL));
-        }
-
-        try {
-            boolean hasContentField =
-                    config.getOptional(
-                                    org.apache.seatunnel.api.configuration.Options.key(
-                                                    "content_field")
-                                            .stringType()
-                                            .noDefaultValue())
-                            .isPresent();
-
-            if (!hasContentField) {
-                Field contentFieldVar = HttpParameter.class.getDeclaredField("contentField");
-                contentFieldVar.setAccessible(true);
-                contentFieldVar.set(parameter, DEFAULT_CONTENT_FIELD);
-            }
-        } catch (Exception e) {
-            // Safe to ignore, connector will use default behavior
-        }
-    }
 }
