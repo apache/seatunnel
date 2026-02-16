@@ -22,46 +22,30 @@ import org.apache.seatunnel.api.configuration.util.OptionRule;
 import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.Test;
 
-import java.util.List;
-
 public class HubSpotSourceFactoryTest {
 
     @Test
     public void testFactoryIdentifier() {
         HubSpotSourceFactory factory = new HubSpotSourceFactory();
-        Assertions.assertEquals("HubSpot", factory.factoryIdentifier());
+        Assertions.assertEquals(
+                "HubSpot", factory.factoryIdentifier(), "Factory identifier should be HubSpot");
     }
 
     @Test
     public void testOptionRule() {
         HubSpotSourceFactory factory = new HubSpotSourceFactory();
-        OptionRule rule = factory.optionRule();
+        OptionRule optionRule = factory.optionRule();
 
-        // 1. Verify Required Options
-        List<?> required = rule.getRequiredOptions();
-        boolean foundAccessToken = false;
+        Assertions.assertNotNull(optionRule, "OptionRule should not be null");
 
-        // Robust check: Look for the key string inside the object's string representation
-        for (Object obj : required) {
-            if (obj.toString().contains("access_token")) {
-                foundAccessToken = true;
-                break;
-            }
-        }
+        // Verifies that ACCESS_TOKEN is required
         Assertions.assertTrue(
-                foundAccessToken, "Required option 'access_token' not found in: " + required);
+                optionRule.getRequiredOptions().contains(HubSpotSourceOptions.ACCESS_TOKEN),
+                "ACCESS_TOKEN must be a required option");
 
-        // 2. Verify Optional Options
-        List<?> optional = rule.getOptionalOptions();
-        boolean foundObjectType = false;
-
-        for (Object obj : optional) {
-            if (obj.toString().contains("object_type")) {
-                foundObjectType = true;
-                break;
-            }
-        }
+        // Verifies that OBJECT_TYPE is optional (which fixes the unit-test crash from earlier)
         Assertions.assertTrue(
-                foundObjectType, "Optional option 'object_type' not found in: " + optional);
+                optionRule.getOptionalOptions().contains(HubSpotSourceOptions.OBJECT_TYPE),
+                "OBJECT_TYPE must be an optional option because it has a default value");
     }
 }
