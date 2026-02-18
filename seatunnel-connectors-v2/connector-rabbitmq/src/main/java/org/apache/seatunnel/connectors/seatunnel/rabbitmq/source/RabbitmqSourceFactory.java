@@ -65,7 +65,8 @@ public class RabbitmqSourceFactory implements TableSourceFactory {
                         RabbitmqSourceOptions.REQUESTED_HEARTBEAT,
                         RabbitmqSourceOptions.PREFETCH_COUNT,
                         RabbitmqSourceOptions.DELIVERY_TIMEOUT,
-                        RabbitmqSourceOptions.SCHEMA)
+                        RabbitmqSourceOptions.SCHEMA,
+                        RabbitmqSourceOptions.USE_CORRELATION_ID)
                 .build();
     }
 

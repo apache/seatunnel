@@ -1,20 +1,3 @@
-/*
- * Licensed to the Apache Software Foundation (ASF) under one or more
- * contributor license agreements.  See the NOTICE file distributed with
- * this work for additional information regarding copyright ownership.
- * The ASF licenses this file to You under the Apache License, Version 2.0
- * (the "License"); you may not use this file except in compliance with
- * the License.  You may obtain a copy of the License at
- *
- * http://www.apache.org/licenses/LICENSE-2.0
- *
- * Unless required by applicable law or agreed to in writing, software
- * distributed under the License is distributed on an "AS IS" BASIS,
- * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
- * See the License for the specific language governing permissions and
- * limitations under the License.
- */
-
 package org.apache.seatunnel.connectors.seatunnel.rabbitmq.source;
 
 import org.apache.seatunnel.api.serialization.DeserializationSchema;
@@ -22,6 +5,7 @@ import org.apache.seatunnel.api.source.Boundedness;
 import org.apache.seatunnel.api.source.Collector;
 import org.apache.seatunnel.api.source.SourceReader;
 import org.apache.seatunnel.api.table.catalog.CatalogTable;
+import org.apache.seatunnel.api.table.catalog.TablePath;
 import org.apache.seatunnel.api.table.type.SeaTunnelRow;
 import org.apache.seatunnel.common.Handover;
 import org.apache.seatunnel.connectors.seatunnel.rabbitmq.client.RabbitmqClient;
@@ -55,9 +39,9 @@ import static org.apache.seatunnel.connectors.seatunnel.rabbitmq.exception.Rabbi
 import static org.apache.seatunnel.connectors.seatunnel.rabbitmq.exception.RabbitmqConnectorErrorCode.MESSAGE_ACK_REJECTED;
 
 @Slf4j
-public class RabbitmqSourceReader<T> implements SourceReader<T, RabbitmqSplit> {
-    protected final Handover<Delivery> handover;
+public class RabbitmqSourceReader implements SourceReader<SeaTunnelRow, RabbitmqSplit> {
 
+    protected final Handover<Delivery> handover;
     protected final SourceReader.Context context;
     protected transient Channel channel;
     private final boolean usesCorrelationId;
@@ -69,14 +53,13 @@ public class RabbitmqSourceReader<T> implements SourceReader<T, RabbitmqSplit> {
     protected final SortedMap<Long, List<Long>> pendingDeliveryTagsToCommit;
     protected final SortedMap<Long, Set<String>> pendingCorrelationIdsToCommit;
 
-    private final Map<String, DeserializationSchema<SeaTunnelRow>> schemaMap;
-
-    private final List<CatalogTable> catalogTables;
-    private final Set<String> assignedQueues;
-
     private RabbitmqClient rabbitMQClient;
     private DefaultConsumer consumer;
     private final RabbitmqConfig config;
+
+    private final Map<String, DeserializationSchema<SeaTunnelRow>> schemaMap;
+    private final Map<String, String> queueToTableIdMap;
+    private final Set<String> assignedQueues;
 
     public RabbitmqSourceReader(
             List<CatalogTable> catalogTables, SourceReader.Context context, RabbitmqConfig config) {
@@ -84,13 +67,13 @@ public class RabbitmqSourceReader<T> implements SourceReader<T, RabbitmqSplit> {
         this.pendingDeliveryTagsToCommit = Collections.synchronizedSortedMap(new TreeMap<>());
         this.pendingCorrelationIdsToCommit = Collections.synchronizedSortedMap(new TreeMap<>());
         this.context = context;
-        this.catalogTables = catalogTables;
         this.config = config;
         this.rabbitMQClient = new RabbitmqClient(config);
         this.channel = rabbitMQClient.getChannel();
         this.usesCorrelationId = config.isUsesCorrelationId();
-        this.assignedQueues = new HashSet<>();
         this.schemaMap = new HashMap<>();
+        this.queueToTableIdMap = new HashMap<>();
+        this.assignedQueues = new HashSet<>();
 
         if (catalogTables != null) {
             for (CatalogTable table : catalogTables) {
@@ -102,6 +85,10 @@ public class RabbitmqSourceReader<T> implements SourceReader<T, RabbitmqSplit> {
 
                 if (queueName != null) {
                     schemaMap.put(queueName, new JsonDeserializationSchema(table, false, false));
+                    TablePath tablePath = table.getTablePath();
+                    queueToTableIdMap.put(queueName, tablePath.toString());
+
+                    log.info("Mapped Queue '{}' to TableID '{}'", queueName, tablePath.toString());
                 }
             }
         }
@@ -132,54 +119,42 @@ public class RabbitmqSourceReader<T> implements SourceReader<T, RabbitmqSplit> {
     }
 
     @Override
-    public void pollNext(Collector output) throws Exception {
+    public void pollNext(Collector<SeaTunnelRow> output) throws Exception {
         Optional<Delivery> deliveryOptional = handover.pollNext();
         if (deliveryOptional.isPresent()) {
             Delivery delivery = deliveryOptional.get();
             AMQP.BasicProperties properties = delivery.getProperties();
             byte[] body = delivery.getBody();
             Envelope envelope = delivery.getEnvelope();
+
             synchronized (output.getCheckpointLock()) {
-                boolean newMessage =
-                        verifyMessageIdentifier(
-                                properties.getCorrelationId(), envelope.getDeliveryTag());
-                if (!newMessage) {
+                String correlationId = (properties != null) ? properties.getCorrelationId() : null;
+                if (!verifyMessageIdentifier(correlationId, envelope.getDeliveryTag())) {
                     return;
                 }
                 deliveryTagsProcessedForCurrentSnapshot.add(envelope.getDeliveryTag());
 
                 String sourceQueue = envelope.getRoutingKey();
+
                 DeserializationSchema<SeaTunnelRow> currentSchema = schemaMap.get(sourceQueue);
+                String correctTableId = queueToTableIdMap.get(sourceQueue);
 
                 if (currentSchema == null && !schemaMap.isEmpty()) {
-                    currentSchema = schemaMap.values().iterator().next();
+                    String defaultKey = schemaMap.keySet().iterator().next();
+                    currentSchema = schemaMap.get(defaultKey);
+                    correctTableId = queueToTableIdMap.get(defaultKey);
                 }
 
-                if (currentSchema != null) {
-                    final String finalTableId = sourceQueue;
+                if (currentSchema != null && correctTableId != null) {
+                    final String tableIdToUse = correctTableId;
 
                     currentSchema.deserialize(
                             body,
                             new Collector<SeaTunnelRow>() {
                                 @Override
                                 public void collect(SeaTunnelRow record) {
-                                    try {
-                                        if (finalTableId != null) {
-                                            record.setTableId(finalTableId);
-                                        }
-                                        output.collect(record);
-
-                                    } catch (NullPointerException e) {
-                                        log.warn(
-                                                "SKIPPING MALFORMED MESSAGE: Found a message in queue '{}' that does not match the schema or caused an internal error. This is expected for bad data. Error: {}",
-                                                finalTableId,
-                                                e.toString());
-                                    } catch (Exception e) {
-                                        log.warn(
-                                                "Unexpected error processing message in queue '{}'. Skipping. Error: {}",
-                                                finalTableId,
-                                                e.toString());
-                                    }
+                                    record.setTableId(tableIdToUse);
+                                    output.collect(record);
                                 }
 
                                 @Override
@@ -188,29 +163,27 @@ public class RabbitmqSourceReader<T> implements SourceReader<T, RabbitmqSplit> {
                                 }
                             });
                 } else {
-                    log.error("No schema found for queue: {}", sourceQueue);
+                    log.warn("No schema or TableID found for routing key: {}", sourceQueue);
                 }
             }
+        }
 
-            if (Boundedness.BOUNDED.equals(context.getBoundedness())) {
-                context.signalNoMoreElement();
-            }
+        if (Boundedness.BOUNDED.equals(context.getBoundedness()) && handover.isEmpty()) {
+            context.signalNoMoreElement();
         }
     }
 
     @Override
     public List<RabbitmqSplit> snapshotState(long checkpointId) throws Exception {
-        String currentQueue =
-                assignedQueues.isEmpty() ? "default-queue" : assignedQueues.iterator().next();
-        String splitId = "split-" + currentQueue;
-
         List<RabbitmqSplit> pendingSplit =
                 Collections.singletonList(
                         new RabbitmqSplit(
-                                splitId,
-                                currentQueue,
-                                deliveryTagsProcessedForCurrentSnapshot,
-                                correlationIdsProcessedButNotAcknowledged));
+                                "rabbitmq-split-" + checkpointId,
+                                assignedQueues.isEmpty()
+                                        ? "unassigned"
+                                        : assignedQueues.iterator().next(),
+                                new ArrayList<>(deliveryTagsProcessedForCurrentSnapshot),
+                                new HashSet<>(correlationIdsProcessedButNotAcknowledged)));
 
         List<Long> deliveryTags =
                 pendingDeliveryTagsToCommit.computeIfAbsent(checkpointId, id -> new ArrayList<>());
@@ -218,17 +191,9 @@ public class RabbitmqSourceReader<T> implements SourceReader<T, RabbitmqSplit> {
                 pendingCorrelationIdsToCommit.computeIfAbsent(checkpointId, id -> new HashSet<>());
 
         for (RabbitmqSplit split : pendingSplit) {
-            List<Long> currentCheckPointDeliveryTags = split.getDeliveryTags();
-            Set<String> currentCheckPointCorrelationIds = split.getCorrelationIds();
-
-            if (currentCheckPointDeliveryTags != null) {
-                deliveryTags.addAll(currentCheckPointDeliveryTags);
-            }
-            if (currentCheckPointCorrelationIds != null) {
-                correlationIds.addAll(currentCheckPointCorrelationIds);
-            }
+            if (split.getDeliveryTags() != null) deliveryTags.addAll(split.getDeliveryTags());
+            if (split.getCorrelationIds() != null) correlationIds.addAll(split.getCorrelationIds());
         }
-
         deliveryTagsProcessedForCurrentSnapshot.clear();
         return pendingSplit;
     }
@@ -237,7 +202,6 @@ public class RabbitmqSourceReader<T> implements SourceReader<T, RabbitmqSplit> {
     public void addSplits(List<RabbitmqSplit> splits) {
         for (RabbitmqSplit split : splits) {
             String queueName = split.getQueueName();
-
             if (queueName != null && !assignedQueues.contains(queueName)) {
                 try {
                     log.info("Source Reader adding split, consuming from queue: {}", queueName);

@@ -41,7 +41,6 @@ import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
-import java.util.Optional;
 
 public class RabbitmqSource
         implements SeaTunnelSource<SeaTunnelRow, RabbitmqSplit, RabbitmqSplitEnumeratorState>,
@@ -58,46 +57,54 @@ public class RabbitmqSource
         if (config.getOptional(ConnectorCommonOptions.TABLE_CONFIGS).isPresent()) {
             List<Map<String, Object>> tableConfigs =
                     config.get(ConnectorCommonOptions.TABLE_CONFIGS);
-
             for (Map<String, Object> configMap : tableConfigs) {
-                ReadonlyConfig tableConfig = ReadonlyConfig.fromMap(configMap);
-                CatalogTable table = CatalogTableUtil.buildWithConfig(tableConfig);
+                Map<String, Object> mutableConfigMap = new HashMap<>(configMap);
 
-                Optional<String> queueNameOpt =
-                        tableConfig.getOptional(RabbitmqSourceOptions.QUEUE_NAME);
+                String queueName =
+                        (String) mutableConfigMap.get(RabbitmqSourceOptions.QUEUE_NAME.key());
 
-                if (queueNameOpt.isPresent()) {
-                    Map<String, String> options = new HashMap<>(table.getOptions());
-                    options.put(RabbitmqSourceOptions.QUEUE_NAME.key(), queueNameOpt.get());
-
-                    table =
-                            CatalogTable.of(
-                                    table.getTableId(),
-                                    table.getTableSchema(),
-                                    options,
-                                    table.getPartitionKeys(),
-                                    table.getComment());
+                if (mutableConfigMap.containsKey("schema")) {
+                    Object schemaObj = mutableConfigMap.get("schema");
+                    if (schemaObj instanceof Map) {
+                        Map<String, Object> schemaMap = (Map<String, Object>) schemaObj;
+                        if (!schemaMap.containsKey("table") && queueName != null) {
+                            Map<String, Object> mutableSchemaMap = new HashMap<>(schemaMap);
+                            mutableSchemaMap.put("table", queueName);
+                            mutableConfigMap.put("schema", mutableSchemaMap);
+                        }
+                    }
                 }
-                this.catalogTables.add(table);
-            }
-        } else {
-            CatalogTable table = CatalogTableUtil.buildWithConfig(config);
-
-            Optional<String> queueNameOpt = config.getOptional(RabbitmqSourceOptions.QUEUE_NAME);
-
-            if (queueNameOpt.isPresent()) {
+                ReadonlyConfig tableConfig = ReadonlyConfig.fromMap(mutableConfigMap);
+                CatalogTable table = CatalogTableUtil.buildWithConfig(tableConfig);
                 Map<String, String> options = new HashMap<>(table.getOptions());
-                options.put(RabbitmqSourceOptions.QUEUE_NAME.key(), queueNameOpt.get());
 
-                table =
+                if (tableConfig.getOptional(RabbitmqSourceOptions.QUEUE_NAME).isPresent()) {
+                    options.put(
+                            RabbitmqSourceOptions.QUEUE_NAME.key(),
+                            tableConfig.get(RabbitmqSourceOptions.QUEUE_NAME));
+                }
+                this.catalogTables.add(
                         CatalogTable.of(
                                 table.getTableId(),
                                 table.getTableSchema(),
                                 options,
                                 table.getPartitionKeys(),
-                                table.getComment());
+                                table.getComment()));
             }
-            this.catalogTables.add(table);
+        } else {
+            CatalogTable table = CatalogTableUtil.buildWithConfig(config);
+            Map<String, String> options = new HashMap<>(table.getOptions());
+            options.put(
+                    RabbitmqSourceOptions.QUEUE_NAME.key(),
+                    config.get(RabbitmqSourceOptions.QUEUE_NAME));
+
+            this.catalogTables.add(
+                    CatalogTable.of(
+                            table.getTableId(),
+                            table.getTableSchema(),
+                            options,
+                            table.getPartitionKeys(),
+                            table.getComment()));
         }
     }
 

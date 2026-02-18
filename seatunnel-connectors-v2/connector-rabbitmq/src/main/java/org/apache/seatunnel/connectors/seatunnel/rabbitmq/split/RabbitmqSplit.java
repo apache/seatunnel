@@ -44,13 +44,6 @@ public class RabbitmqSplit implements SourceSplit {
         this.correlationIds = Collections.emptySet();
     }
 
-    public RabbitmqSplit(List<Long> deliveryTags, Set<String> correlationIds) {
-        this.splitId = "default-split";
-        this.queueName = null;
-        this.deliveryTags = deliveryTags;
-        this.correlationIds = correlationIds;
-    }
-
     @Override
     public String splitId() {
         return queueName;
