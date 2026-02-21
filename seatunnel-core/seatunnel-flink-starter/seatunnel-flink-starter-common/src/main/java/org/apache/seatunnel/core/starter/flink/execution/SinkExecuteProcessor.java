@@ -50,7 +50,11 @@ public class SinkExecuteProcessor extends AbstractSinkExecuteProcessor {
 
     @Override
     protected DataStreamSink<SeaTunnelRow> createVersionSpecificDataStreamSink(
-            DataStreamTableInfo stream, SeaTunnelSink sink, int parallelism, Config sinkConfig, DirtyRecordCollector dirtyCollector) {
+            DataStreamTableInfo stream,
+            SeaTunnelSink sink,
+            int parallelism,
+            Config sinkConfig,
+            DirtyRecordCollector dirtyCollector) {
         boolean isStreaming =
                 envConfig.hasPath("job.mode")
                         && STREAMING.toString().equalsIgnoreCase(envConfig.getString("job.mode"));
