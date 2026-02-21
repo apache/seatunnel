@@ -15,8 +15,9 @@
  * limitations under the License.
  */
 
-package org.apache.seatunnel.connectors.seatunnel.amazondynamodb;
+package org.apache.seatunnel.connectors.seatunnel.amazondynamodb.sink;
 
+import org.apache.seatunnel.api.configuration.ReadonlyConfig;
 import org.apache.seatunnel.api.sink.SupportMultiTableSink;
 import org.apache.seatunnel.api.sink.SupportMultiTableSinkWriter;
 import org.apache.seatunnel.api.table.catalog.CatalogTable;
@@ -28,9 +29,7 @@ import org.apache.seatunnel.api.table.catalog.TableSchema;
 import org.apache.seatunnel.api.table.type.BasicType;
 import org.apache.seatunnel.api.table.type.SeaTunnelRow;
 import org.apache.seatunnel.connectors.seatunnel.amazondynamodb.config.AmazonDynamoDBConfig;
-import org.apache.seatunnel.connectors.seatunnel.amazondynamodb.sink.AmazonDynamoDBSink;
-import org.apache.seatunnel.connectors.seatunnel.amazondynamodb.sink.AmazonDynamoDBWriter;
-import org.apache.seatunnel.connectors.seatunnel.amazondynamodb.sink.DynamoDbSinkClient;
+import org.apache.seatunnel.connectors.seatunnel.amazondynamodb.config.AmazonDynamoDBSinkOptions;
 
 import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.BeforeEach;
@@ -44,9 +43,6 @@ import software.amazon.awssdk.services.dynamodb.model.BatchWriteItemResponse;
 import software.amazon.awssdk.services.dynamodb.model.PutItemRequest;
 import software.amazon.awssdk.services.dynamodb.model.WriteRequest;
 
-import java.lang.reflect.Field;
-import java.lang.reflect.InvocationTargetException;
-import java.lang.reflect.Method;
 import java.util.ArrayList;
 import java.util.Collections;
 import java.util.HashMap;
@@ -93,15 +89,15 @@ public class AmazonDynamoDBMultiTableSinkTest {
 
     @Test
     public void testEmptyTableIdFallback() throws Exception {
-        AmazonDynamoDBWriter writer = new AmazonDynamoDBWriter(config, catalogTable);
-        DynamoDbSinkClient client = getDynamoDbSinkClientFromWriter(writer);
-        injectMockClientIntoSinkClient(client);
+        // Inject mock client using protected constructor
+        DynamoDbSinkClient sinkClient = new DynamoDbSinkClient(config, mockDynamoDbClient);
+        AmazonDynamoDBWriter writer = new AmazonDynamoDBWriter(config, catalogTable, sinkClient);
 
         SeaTunnelRow row = createTestRow(1, "test");
         row.setTableId("");
 
         writer.write(row);
-        writer.prepareCommit();
+        writer.prepareCommit(); // Triggers flush()
 
         ArgumentCaptor<BatchWriteItemRequest> captor =
                 ArgumentCaptor.forClass(BatchWriteItemRequest.class);
@@ -113,9 +109,8 @@ public class AmazonDynamoDBMultiTableSinkTest {
 
     @Test
     public void testNullTableIdFallback() throws Exception {
-        AmazonDynamoDBWriter writer = new AmazonDynamoDBWriter(config, catalogTable);
-        DynamoDbSinkClient client = getDynamoDbSinkClientFromWriter(writer);
-        injectMockClientIntoSinkClient(client);
+        DynamoDbSinkClient sinkClient = new DynamoDbSinkClient(config, mockDynamoDbClient);
+        AmazonDynamoDBWriter writer = new AmazonDynamoDBWriter(config, catalogTable, sinkClient);
 
         SeaTunnelRow row = createTestRow(1, "test");
         row.setTableId(null);
@@ -133,9 +128,8 @@ public class AmazonDynamoDBMultiTableSinkTest {
 
     @Test
     public void testMultiTableWrite() throws Exception {
-        AmazonDynamoDBWriter writer = new AmazonDynamoDBWriter(config, catalogTable);
-        DynamoDbSinkClient client = getDynamoDbSinkClientFromWriter(writer);
-        injectMockClientIntoSinkClient(client);
+        DynamoDbSinkClient sinkClient = new DynamoDbSinkClient(config, mockDynamoDbClient);
+        AmazonDynamoDBWriter writer = new AmazonDynamoDBWriter(config, catalogTable, sinkClient);
 
         SeaTunnelRow row1 = createTestRow(1, "user1");
         row1.setTableId("users");
@@ -172,8 +166,8 @@ public class AmazonDynamoDBMultiTableSinkTest {
 
     @Test
     public void testUnprocessedKeysRetry() throws Exception {
-        DynamoDbSinkClient client = new DynamoDbSinkClient(config);
-        injectMockClientIntoSinkClient(client);
+        // Test Client directly without Writer to isolate retry logic
+        DynamoDbSinkClient client = new DynamoDbSinkClient(config, mockDynamoDbClient);
 
         PutItemRequest putRequest =
                 PutItemRequest.builder().tableName("test_table").item(createTestItem()).build();
@@ -193,19 +187,20 @@ public class AmazonDynamoDBMultiTableSinkTest {
         BatchWriteItemResponse secondResponse =
                 BatchWriteItemResponse.builder().unprocessedItems(Collections.emptyMap()).build();
 
+        // First call returns unprocessed items, second call succeeds
         when(mockDynamoDbClient.batchWriteItem(any(BatchWriteItemRequest.class)))
                 .thenReturn(firstResponse)
                 .thenReturn(secondResponse);
 
-        callFlushViaReflection(client);
+        client.close(); // calls flush()
 
+        // Verify batchWriteItem was called twice (initial + 1 retry)
         verify(mockDynamoDbClient, times(2)).batchWriteItem(any(BatchWriteItemRequest.class));
     }
 
     @Test
     public void testUnprocessedKeysMaxRetriesExceeded() throws Exception {
-        DynamoDbSinkClient client = new DynamoDbSinkClient(config);
-        injectMockClientIntoSinkClient(client);
+        DynamoDbSinkClient client = new DynamoDbSinkClient(config, mockDynamoDbClient);
 
         PutItemRequest putRequest =
                 PutItemRequest.builder().tableName("test_table").item(createTestItem()).build();
@@ -222,24 +217,28 @@ public class AmazonDynamoDBMultiTableSinkTest {
         BatchWriteItemResponse response =
                 BatchWriteItemResponse.builder().unprocessedItems(unprocessedItems).build();
 
+        // Always return unprocessed items
         when(mockDynamoDbClient.batchWriteItem(any(BatchWriteItemRequest.class)))
                 .thenReturn(response);
 
-        // Expect InvocationTargetException because the method is called via reflection
-        InvocationTargetException exception =
-                Assertions.assertThrows(
-                        InvocationTargetException.class,
-                        () -> {
-                            callFlushViaReflection(client);
-                        });
-
-        // Verify the underlying cause is the expected RuntimeException
-        Assertions.assertTrue(exception.getCause() instanceof RuntimeException);
+        // Expect RuntimeException after retries exhausted
+        Assertions.assertThrows(
+                RuntimeException.class, client::close // calls flush()
+                );
     }
 
     private AmazonDynamoDBConfig createTestConfig(String tableName) {
-        return new AmazonDynamoDBConfig(
-                "http://localhost:8000", "us-east-1", "test", "test", tableName, null, 25, 100, 1);
+        Map<String, Object> configMap = new HashMap<>();
+        configMap.put(AmazonDynamoDBSinkOptions.URL.key(), "http://localhost:8000");
+        configMap.put(AmazonDynamoDBSinkOptions.REGION.key(), "us-east-1");
+        configMap.put(AmazonDynamoDBSinkOptions.ACCESS_KEY_ID.key(), "test");
+        configMap.put(AmazonDynamoDBSinkOptions.SECRET_ACCESS_KEY.key(), "test");
+        configMap.put(AmazonDynamoDBSinkOptions.TABLE.key(), tableName);
+        configMap.put(AmazonDynamoDBSinkOptions.BATCH_SIZE.key(), 25);
+        configMap.put(AmazonDynamoDBSinkOptions.MAX_RETRIES.key(), 2); // Low retry count for tests
+        configMap.put(AmazonDynamoDBSinkOptions.RETRY_BASE_DELAY_MS.key(), 1L); // Fast retry
+
+        return new AmazonDynamoDBConfig(ReadonlyConfig.fromMap(configMap));
     }
 
     private CatalogTable createTestCatalogTable(String tableName) {
@@ -278,28 +277,5 @@ public class AmazonDynamoDBMultiTableSinkTest {
         item.put("id", AttributeValue.builder().n("1").build());
         item.put("name", AttributeValue.builder().s("test").build());
         return item;
-    }
-
-    private DynamoDbSinkClient getDynamoDbSinkClientFromWriter(AmazonDynamoDBWriter writer)
-            throws Exception {
-        Field field = AmazonDynamoDBWriter.class.getDeclaredField("dynamoDbSinkClient");
-        field.setAccessible(true);
-        return (DynamoDbSinkClient) field.get(writer);
-    }
-
-    private void injectMockClientIntoSinkClient(DynamoDbSinkClient sinkClient) throws Exception {
-        Field field = DynamoDbSinkClient.class.getDeclaredField("dynamoDbClient");
-        field.setAccessible(true);
-        field.set(sinkClient, mockDynamoDbClient);
-
-        Field initField = DynamoDbSinkClient.class.getDeclaredField("initialize");
-        initField.setAccessible(true);
-        initField.set(sinkClient, true);
-    }
-
-    private void callFlushViaReflection(DynamoDbSinkClient client) throws Exception {
-        Method flushMethod = DynamoDbSinkClient.class.getDeclaredMethod("flush");
-        flushMethod.setAccessible(true);
-        flushMethod.invoke(client);
     }
 }

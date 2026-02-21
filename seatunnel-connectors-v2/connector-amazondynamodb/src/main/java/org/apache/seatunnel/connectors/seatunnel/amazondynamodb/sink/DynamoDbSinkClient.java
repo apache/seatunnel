@@ -42,6 +42,14 @@ public class DynamoDbSinkClient {
     private final Map<String, List<WriteRequest>> batchListByTable;
     private final Object lock = new Object();
 
+    protected DynamoDbSinkClient(
+            AmazonDynamoDBConfig amazondynamodbConfig, DynamoDbClient dynamoDbClient) {
+        this.amazondynamodbConfig = amazondynamodbConfig;
+        this.dynamoDbClient = dynamoDbClient;
+        this.batchListByTable = new HashMap<>();
+        this.initialize = true;
+    }
+
     public DynamoDbSinkClient(AmazonDynamoDBConfig amazondynamodbConfig) {
         this.amazondynamodbConfig = amazondynamodbConfig;
         this.batchListByTable = new HashMap<>();
@@ -99,8 +107,8 @@ public class DynamoDbSinkClient {
     }
 
     public void close() {
+        flush();
         synchronized (lock) {
-            flush();
             if (dynamoDbClient != null) {
                 dynamoDbClient.close();
             }
@@ -108,21 +116,18 @@ public class DynamoDbSinkClient {
     }
 
     void flush() {
+        Map<String, List<WriteRequest>> batchToFlush = new HashMap<>();
+
         synchronized (lock) {
             if (batchListByTable.isEmpty()) {
                 return;
             }
-
-            for (Map.Entry<String, List<WriteRequest>> entry : batchListByTable.entrySet()) {
-                String tableName = entry.getKey();
-                List<WriteRequest> requests = entry.getValue();
-
-                if (!requests.isEmpty()) {
-                    flushWithRetry(tableName, requests);
-                }
-            }
-
+            batchToFlush.putAll(batchListByTable);
             batchListByTable.clear();
+        }
+
+        for (Map.Entry<String, List<WriteRequest>> entry : batchToFlush.entrySet()) {
+            flushTable(entry.getKey(), entry.getValue());
         }
     }
 
@@ -134,7 +139,11 @@ public class DynamoDbSinkClient {
 
     private void flushWithRetry(String tableName, List<WriteRequest> requests) {
         List<WriteRequest> pendingRequests = new ArrayList<>(requests);
-        int maxRetries = 10;
+
+        int maxRetries = amazondynamodbConfig.getMaxRetries();
+        long baseDelayMs = amazondynamodbConfig.getRetryBaseDelayMs();
+        long maxDelayMs = amazondynamodbConfig.getRetryMaxDelayMs();
+
         int retryCount = 0;
 
         while (!pendingRequests.isEmpty() && retryCount < maxRetries) {
@@ -150,9 +159,6 @@ public class DynamoDbSinkClient {
 
             if (!pendingRequests.isEmpty()) {
                 retryCount++;
-
-                long baseDelayMs = 100;
-                long maxDelayMs = 5000;
 
                 long delay = Math.min(baseDelayMs * (1L << retryCount), maxDelayMs);
 

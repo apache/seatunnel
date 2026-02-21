@@ -38,6 +38,17 @@ public class AmazonDynamoDBWriter extends AbstractSinkWriter<SeaTunnelRow, Void>
     private final SeaTunnelRowSerializer serializer;
     private final AmazonDynamoDBConfig amazondynamodbConfig;
 
+    protected AmazonDynamoDBWriter(
+            AmazonDynamoDBConfig amazondynamodbConfig,
+            CatalogTable catalogTable,
+            DynamoDbSinkClient dynamoDbSinkClient) {
+        this.amazondynamodbConfig = amazondynamodbConfig;
+        this.dynamoDbSinkClient = dynamoDbSinkClient;
+
+        SeaTunnelRowType seaTunnelRowType = catalogTable.getSeaTunnelRowType();
+        this.serializer = new DefaultSeaTunnelRowSerializer(seaTunnelRowType, amazondynamodbConfig);
+    }
+
     public AmazonDynamoDBWriter(
             AmazonDynamoDBConfig amazondynamodbConfig, CatalogTable catalogTable) {
 
@@ -51,6 +62,8 @@ public class AmazonDynamoDBWriter extends AbstractSinkWriter<SeaTunnelRow, Void>
 
     @Override
     public void write(SeaTunnelRow element) throws IOException {
+        // In multi-table pipelines, row.tableId identifies the target table.
+        // Falls back to the configured table name for single-table usage.
         String tableName = element.getTableId();
 
         if (StringUtils.isEmpty(tableName)) {
