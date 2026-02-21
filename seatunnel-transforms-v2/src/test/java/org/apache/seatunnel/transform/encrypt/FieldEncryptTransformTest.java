@@ -254,6 +254,59 @@ class FieldEncryptTransformTest {
                                 ReadonlyConfig.fromMap(configMap), intCatalogTable));
     }
 
+    @Test
+    void testFieldExceedsMaxLength() {
+        Map<String, Object> configMap = new HashMap<>();
+        configMap.put(FieldEncryptTransformConfig.FIELDS.key(), encryptFields);
+        configMap.put(FieldEncryptTransformConfig.KEY.key(), KEY);
+        configMap.put(FieldEncryptTransformConfig.MAX_FIELD_LENGTH.key(), 10);
+
+        FieldEncryptTransform fieldEncryptTransform =
+                new FieldEncryptTransform(ReadonlyConfig.fromMap(configMap), catalogTable);
+
+        Object[] oversizedValues =
+                new Object[] {"value1", "thisvalueiswaytoolong", "value3", "value4", "value5"};
+        SeaTunnelRow input = new SeaTunnelRow(oversizedValues);
+
+        Assertions.assertThrows(
+                SeaTunnelRuntimeException.class, () -> fieldEncryptTransform.transformRow(input));
+    }
+
+    @Test
+    void testFieldExactlyMaxLength() {
+        Map<String, Object> configMap = new HashMap<>();
+        configMap.put(FieldEncryptTransformConfig.FIELDS.key(), encryptFields);
+        configMap.put(FieldEncryptTransformConfig.KEY.key(), KEY);
+        configMap.put(FieldEncryptTransformConfig.MAX_FIELD_LENGTH.key(), 6);
+
+        FieldEncryptTransform fieldEncryptTransform =
+                new FieldEncryptTransform(ReadonlyConfig.fromMap(configMap), catalogTable);
+
+        Object[] exactValues = new Object[] {"value1", "value2", "value3", "value4", "value5"};
+        SeaTunnelRow input = new SeaTunnelRow(exactValues);
+        SeaTunnelRow output = fieldEncryptTransform.transformRow(input);
+
+        Assertions.assertNotNull(output);
+        Assertions.assertNotEquals("value2", output.getField(1));
+    }
+
+    @Test
+    void testMaxFieldLengthWithNullField() {
+        Map<String, Object> configMap = new HashMap<>();
+        configMap.put(FieldEncryptTransformConfig.FIELDS.key(), encryptFields);
+        configMap.put(FieldEncryptTransformConfig.KEY.key(), KEY);
+        configMap.put(FieldEncryptTransformConfig.MAX_FIELD_LENGTH.key(), 3);
+
+        FieldEncryptTransform fieldEncryptTransform =
+                new FieldEncryptTransform(ReadonlyConfig.fromMap(configMap), catalogTable);
+
+        Object[] valuesWithNull = new Object[] {"value1", null, "val", "value4", "value5"};
+        SeaTunnelRow input = new SeaTunnelRow(valuesWithNull);
+        SeaTunnelRow output = fieldEncryptTransform.transformRow(input);
+
+        Assertions.assertNull(output.getField(1));
+    }
+
     private SeaTunnelRow encryption() {
         Map<String, Object> configMap = new HashMap<>();
         configMap.put(FieldEncryptTransformConfig.FIELDS.key(), encryptFields);

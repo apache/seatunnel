@@ -44,4 +44,10 @@ public class FieldEncryptTransformConfig {
                     .stringType()
                     .defaultValue("encrypt")
                     .withDescription("The mode of the transform, support encrypt and decrypt.");
+
+    public static final Option<Integer> MAX_FIELD_LENGTH =
+            Options.key("max_field_length")
+                    .intType()
+                    .defaultValue(10 * 1024 * 1024) // 10MB
+                    .withDescription("Maximum field length to encrypt");
 }

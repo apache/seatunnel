@@ -37,6 +37,7 @@ import java.util.ArrayList;
 import java.util.List;
 import java.util.Optional;
 import java.util.ServiceLoader;
+import java.util.function.UnaryOperator;
 import java.util.stream.StreamSupport;
 
 public class FieldEncryptTransform extends AbstractCatalogSupportMapTransform {
@@ -49,6 +50,7 @@ public class FieldEncryptTransform extends AbstractCatalogSupportMapTransform {
     private final String key;
     private final String encryptAlgorithm;
     private final String mode;
+    private final int maxFieldLength;
 
     private transient volatile Encryptor encryptor;
     private int[] encryptFieldIndexes;
@@ -61,6 +63,7 @@ public class FieldEncryptTransform extends AbstractCatalogSupportMapTransform {
         this.key = config.get(FieldEncryptTransformConfig.KEY);
         this.encryptAlgorithm = config.get(FieldEncryptTransformConfig.ALGORITHM);
         this.mode = config.get(FieldEncryptTransformConfig.MODE);
+        this.maxFieldLength = config.get(FieldEncryptTransformConfig.MAX_FIELD_LENGTH);
 
         initializeFieldIndexes();
     }
@@ -83,32 +86,34 @@ public class FieldEncryptTransform extends AbstractCatalogSupportMapTransform {
         }
 
         if (ENCRYPT.equalsIgnoreCase(mode)) {
-            for (int index : encryptFieldIndexes) {
-                Object field = inputRow.getField(index);
-                if (field == null) {
-                    continue;
-                }
-                String value = field.toString();
-                if (StringUtils.isNotBlank(value)) {
-                    inputRow.setField(index, encryptor.encrypt(value));
-                }
-            }
-            return inputRow;
+            return processFields(inputRow, encryptor::encrypt);
         } else if (DECRYPT.equalsIgnoreCase(mode)) {
-            for (int index : encryptFieldIndexes) {
-                Object field = inputRow.getField(index);
-                if (field == null) {
-                    continue;
-                }
-                String value = field.toString();
-                if (StringUtils.isNotBlank(value)) {
-                    inputRow.setField(index, encryptor.decrypt(value));
-                }
-            }
-            return inputRow;
+            return processFields(inputRow, encryptor::decrypt);
         } else {
             throw CommonError.illegalArgument(mode, "mode only support encrypt or decrypt");
         }
+    }
+
+    private SeaTunnelRow processFields(SeaTunnelRow inputRow, UnaryOperator<String> action) {
+        SeaTunnelRow outputRow = inputRow.copy();
+        for (int index : encryptFieldIndexes) {
+            Object field = outputRow.getField(index);
+            if (field == null) {
+                continue;
+            }
+
+            String value = field.toString();
+            if (value.length() > maxFieldLength) {
+                throw CommonError.illegalArgument(
+                        String.valueOf(value.length()),
+                        "Field length exceeds the maximum limit of " + maxFieldLength);
+            }
+
+            if (StringUtils.isNotBlank(value)) {
+                outputRow.setField(index, action.apply(value));
+            }
+        }
+        return outputRow;
     }
 
     @Override
