@@ -230,7 +230,6 @@ public class FileBaseSourceOptions extends FileBaseOptions {
                     .booleanType()
                     .defaultValue(true)
                     .withDescription(
-                            "Whether to recursively scan subdirectories when collecting files. "
-                                    + "When set to false, only files in the specified path will be scanned, "
-                                    + "subdirectories will be ignored.");
+                            "Whether to recursively scan subdirectories. "
+                                    + "If false, subdirectories will be ignored.");
 }

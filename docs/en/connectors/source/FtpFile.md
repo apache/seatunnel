@@ -89,6 +89,9 @@ If you use SeaTunnel Engine, It automatically integrated the hadoop jar when you
 | file_filter_modified_end    | string  | no       | -                           | 
 | quote_char                  | string  | no       | "                           |
 | escape_char                 | string  | no       | -                           |
+| metalake_type               | string  | no       | gravitino                   |
+| recursive_file_scan         | boolean | no       | true                        |
+
 
 ### host [string]
 
@@ -536,6 +539,11 @@ A single character that encloses CSV fields, allowing fields with commas, line b
 ### escape_char [string]
 
 A single character that allows the quote or other special characters to appear inside a CSV field without ending the field.
+
+### recursive_file_scan [boolean]
+
+Whether to scan subdirectories recursively.
+If `false`, subdirectories will be ignored.
 
 ### common options
 

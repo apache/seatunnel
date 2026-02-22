@@ -133,6 +133,7 @@ public class HdfsFileSourceFactory implements TableSourceFactory {
                 .optional(HdfsFileSourceOptions.QUOTE_CHAR)
                 .optional(HdfsFileSourceOptions.ESCAPE_CHAR)
                 .optional(ConnectorCommonOptions.METALAKE_TYPE)
+                .optional(FileBaseSourceOptions.RECURSIVE_FILE_SCAN)
                 .build();
     }
 

@@ -453,12 +453,9 @@ public class AbstractReadStrategyTest {
                 List<String> fileNames = strategy.getFileNamesByPath(baseDir);
 
                 Assertions.assertEquals(2, fileNames.size());
-                Assertions.assertTrue(fileNames.stream()
-                        .noneMatch(f -> f.contains("subdir")));
-                Assertions.assertTrue(fileNames.stream()
-                        .anyMatch(f -> f.endsWith("file1.txt")));
-                Assertions.assertTrue(fileNames.stream()
-                        .anyMatch(f -> f.endsWith("file2.txt")));
+                Assertions.assertTrue(fileNames.stream().noneMatch(f -> f.contains("subdir")));
+                Assertions.assertTrue(fileNames.stream().anyMatch(f -> f.endsWith("file1.txt")));
+                Assertions.assertTrue(fileNames.stream().anyMatch(f -> f.endsWith("file2.txt")));
             }
 
         } finally {
@@ -470,8 +467,7 @@ public class AbstractReadStrategyTest {
         Configuration conf = new Configuration();
         for (String filePath : filePaths) {
             Path path = new Path(filePath);
-            org.apache.hadoop.fs.FileSystem fs =
-                    path.getFileSystem(conf);
+            org.apache.hadoop.fs.FileSystem fs = path.getFileSystem(conf);
 
             fs.mkdirs(path.getParent());
 

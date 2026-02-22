@@ -92,6 +92,9 @@ import ChangeLog from '../changelog/connector-file-local.md';
 | file_split_size            | long    | 否    | 134217728           | 
 | quote_char                 | string  | 否    | -                   | 
 | escape_char                | string  | 否    | -                   |
+| metalake_type              | string  | 否    | gravitino          | Metalake 服务类型，目前支持 `gravitino`。             |
+| recursive_file_scan        | boolean | 否    | true                |
+
 ### path [string]
 
 源文件路径。
@@ -533,6 +536,11 @@ compare_mode = "len_mtime"
 ### escape_char [string]
 
 用于在 CSV 字段内转义引号或其他特殊字符，使其不会结束字段。
+
+### recursive_file_scan [boolean]
+
+是否递归扫描子目录。
+如果设置为 `false`，将忽略子目录，仅扫描指定路径下的文件。
 
 ### 通用选项
 
