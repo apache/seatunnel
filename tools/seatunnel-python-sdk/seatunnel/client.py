@@ -17,6 +17,21 @@
 import httpx
 from .helpers.httpMethod import HttpMethod
 
+class SeaTunnelError(Exception):
+    """Base exception for SeaTunnel SDK"""
+    pass
+
+class SeaTunnelAPIError(SeaTunnelError):
+    """API error (4xx/5xx responses)"""
+    def __init__(self, status_code: int, message: str):
+        self.status_code = status_code
+        self.message = message
+        super().__init__(f"[{status_code}] {message}")
+
+class SeaTunnelConnectionError(SeaTunnelError):
+    """Network connection error"""
+    pass
+
 class Client:
     def __init__(self, base_url: str, timeout: float = 10):
         self.base_url = base_url
@@ -32,15 +47,26 @@ class Client:
             )
             resp.raise_for_status()
         except httpx.RequestError as exc:
-            raise Exception(f"Error while requesting {exc.request.url!r}: {exc}") from None
+            raise SeaTunnelConnectionError(
+                f"Failed to connect to {exc.request.url}: {exc}"
+            ) from exc
         except httpx.HTTPStatusError as exc:
-            raise Exception(f"Error response {exc.response.status_code} while requesting {exc.request.url!r}\n{exc.response.text}") from None
+            try:
+                error_data = exc.response.json()
+                message = error_data.get("message", exc.response.text)
+            except:
+                message = exc.response.text
+            
+            raise SeaTunnelAPIError(
+                status_code=exc.response.status_code,
+                message=message
+            ) from exc
 
         content_type = resp.headers.get("Content-Type", "")
-        if "application/json" in content_type:
-            return resp.json()
-        else:
-            return resp.text
+        return resp.json() if "application/json" in content_type else resp.text
+
+    def close(self):
+        self.session.close()
         
 class SeaTunnelClient:
     def __init__(self, base_url):
@@ -54,3 +80,9 @@ class SeaTunnelClient:
         self.jobs = JobsApi(self.client)
         self.config = ConfigApi(self.client)
         self.system = SystemApi(self.client)
+
+    def __enter__(self):
+        return self
+
+    def __exit__(self, exc_type, exc_val, exc_tb):
+        self.client.close()
