@@ -20,13 +20,18 @@ package org.apache.seatunnel.engine.server;
 import org.apache.seatunnel.engine.common.Constant;
 import org.apache.seatunnel.engine.common.config.ConfigProvider;
 import org.apache.seatunnel.engine.common.config.SeaTunnelConfig;
+import org.apache.seatunnel.engine.common.exception.JobNotFoundException;
 import org.apache.seatunnel.engine.common.exception.SeaTunnelEngineException;
 import org.apache.seatunnel.engine.common.job.JobStatus;
+import org.apache.seatunnel.engine.common.utils.PassiveCompletableFuture;
 import org.apache.seatunnel.engine.common.utils.concurrent.CompletableFuture;
 import org.apache.seatunnel.engine.core.dag.logical.LogicalDag;
 import org.apache.seatunnel.engine.core.job.JobDAGInfo;
 import org.apache.seatunnel.engine.core.job.JobImmutableInformation;
 import org.apache.seatunnel.engine.core.job.PipelineStatus;
+import org.apache.seatunnel.engine.server.execution.ExecutionState;
+import org.apache.seatunnel.engine.server.execution.TaskExecutionState;
+import org.apache.seatunnel.engine.server.execution.TaskGroupLocation;
 import org.apache.seatunnel.engine.server.execution.TaskLocation;
 import org.apache.seatunnel.engine.server.master.JobMaster;
 import org.apache.seatunnel.engine.server.metrics.SeaTunnelMetricsContext;
@@ -46,6 +51,7 @@ import com.hazelcast.map.IMap;
 import com.hazelcast.spi.impl.NodeEngineImpl;
 import lombok.extern.slf4j.Slf4j;
 
+import java.lang.reflect.Field;
 import java.nio.file.Path;
 import java.nio.file.Paths;
 import java.util.Arrays;
@@ -460,6 +466,200 @@ public class CoordinatorServiceTest {
                                 thread ->
                                         thread.getName().startsWith("pending-job-schedule-runner"))
                         .count());
+    }
+
+    @Test
+    void testUpdateTaskExecutionStateWaitsForRestoreCompletion() throws Exception {
+        CountDownLatch restoreLatch = new CountDownLatch(1);
+
+        JobInformation jobInformation =
+                submitJob(
+                        "CoordinatorServiceTest_testUpdateTaskExecutionStateWaitsForRestoreCompletion",
+                        "batch_fake_to_console.conf",
+                        "test_update_task_execution_state_waits_for_restore_completion");
+        CoordinatorService coordinatorService = jobInformation.coordinatorService;
+        await().atMost(30000, TimeUnit.MILLISECONDS)
+                .untilAsserted(
+                        () ->
+                                Assertions.assertEquals(
+                                        JobStatus.RUNNING,
+                                        coordinatorService.getJobStatus(jobInformation.jobId)));
+        JobMaster jobMaster = coordinatorService.getJobMaster(jobInformation.jobId);
+
+        Field mapField = CoordinatorService.class.getDeclaredField("runningJobMasterMap");
+        mapField.setAccessible(true);
+        @SuppressWarnings("unchecked")
+        Map<Long, JobMaster> runningJobMasterMap =
+                (Map<Long, JobMaster>) mapField.get(coordinatorService);
+        runningJobMasterMap.remove(jobInformation.jobId);
+
+        CompletableFuture<Void> delayedFuture =
+                CompletableFuture.runAsync(
+                        () -> {
+                            try {
+                                restoreLatch.await(10, TimeUnit.SECONDS);
+                            } catch (InterruptedException e) {
+                                Thread.currentThread().interrupt();
+                            }
+                        });
+
+        PassiveCompletableFuture<Void> delayedPassiveFuture =
+                new PassiveCompletableFuture<>(new CompletableFuture<>(delayedFuture));
+
+        Field futureField =
+                CoordinatorService.class.getDeclaredField(
+                        "restoreAllJobFromMasterNodeSwitchFuture");
+        futureField.setAccessible(true);
+        futureField.set(coordinatorService, delayedPassiveFuture);
+
+        Executors.newSingleThreadExecutor()
+                .submit(
+                        () -> {
+                            try {
+                                Thread.sleep(1000);
+                                runningJobMasterMap.put(jobInformation.jobId, jobMaster);
+                                restoreLatch.countDown();
+                            } catch (InterruptedException e) {
+                                Thread.currentThread().interrupt();
+                            }
+                        });
+
+        TaskGroupLocation taskGroupLocation =
+                jobMaster
+                        .getPhysicalPlan()
+                        .getPipelineList()
+                        .get(0)
+                        .getPhysicalVertexList()
+                        .get(0)
+                        .getTaskGroupLocation();
+        TaskExecutionState taskExecutionState =
+                new TaskExecutionState(taskGroupLocation, ExecutionState.FAILED);
+
+        await().atMost(10000, TimeUnit.MILLISECONDS)
+                .untilAsserted(
+                        () ->
+                                Assertions.assertDoesNotThrow(
+                                        () ->
+                                                coordinatorService.updateTaskExecutionState(
+                                                        taskExecutionState)));
+
+        jobInformation.coordinatorServiceTest.shutdown();
+    }
+
+    @Test
+    void testUpdateTaskExecutionStateThrowsWhenJobNotFound() {
+        JobInformation jobInformation =
+                submitJob(
+                        "CoordinatorServiceTest_testUpdateTaskExecutionStateThrowsWhenJobNotFound",
+                        "batch_fake_to_console.conf",
+                        "test_update_task_execution_state_throws_when_job_not_found");
+        CoordinatorService coordinatorService = jobInformation.coordinatorService;
+
+        TaskGroupLocation fakeLocation = new TaskGroupLocation(99999L, 0, 0);
+        TaskExecutionState taskExecutionState =
+                new TaskExecutionState(fakeLocation, ExecutionState.FAILED);
+
+        Assertions.assertThrows(
+                JobNotFoundException.class,
+                () -> coordinatorService.updateTaskExecutionState(taskExecutionState));
+
+        jobInformation.coordinatorServiceTest.shutdown();
+    }
+
+    @Test
+    void testUpdateTaskExecutionStateWhenRestoreFailed() throws Exception {
+        JobInformation jobInformation =
+                submitJob(
+                        "CoordinatorServiceTest_testUpdateTaskExecutionStateWhenRestoreFailed",
+                        "batch_fake_to_console.conf",
+                        "test_update_task_execution_state_when_restore_failed");
+        CoordinatorService coordinatorService = jobInformation.coordinatorService;
+        await().atMost(30000, TimeUnit.MILLISECONDS)
+                .untilAsserted(
+                        () ->
+                                Assertions.assertEquals(
+                                        JobStatus.RUNNING,
+                                        coordinatorService.getJobStatus(jobInformation.jobId)));
+
+        // Remove job from runningJobMasterMap to simulate master switch
+        Field mapField = CoordinatorService.class.getDeclaredField("runningJobMasterMap");
+        mapField.setAccessible(true);
+        @SuppressWarnings("unchecked")
+        Map<Long, JobMaster> runningJobMasterMap =
+                (Map<Long, JobMaster>) mapField.get(coordinatorService);
+        runningJobMasterMap.remove(jobInformation.jobId);
+
+        // Create a failed future to simulate restore failure
+        CompletableFuture<Void> failedFuture = new CompletableFuture<>();
+        failedFuture.completeExceptionally(new SeaTunnelEngineException("Restore failed"));
+        PassiveCompletableFuture<Void> failedPassiveFuture =
+                new PassiveCompletableFuture<>(failedFuture);
+
+        Field futureField =
+                CoordinatorService.class.getDeclaredField(
+                        "restoreAllJobFromMasterNodeSwitchFuture");
+        futureField.setAccessible(true);
+        futureField.set(coordinatorService, failedPassiveFuture);
+
+        // Try to update task state
+        TaskGroupLocation fakeLocation = new TaskGroupLocation(jobInformation.jobId, 0, 0);
+        TaskExecutionState taskExecutionState =
+                new TaskExecutionState(fakeLocation, ExecutionState.FAILED);
+
+        Assertions.assertThrows(
+                JobNotFoundException.class,
+                () -> coordinatorService.updateTaskExecutionState(taskExecutionState));
+
+        jobInformation.coordinatorServiceTest.shutdown();
+    }
+
+    @Test
+    void testUpdateTaskExecutionStateWhenJobRemovedDuringRestore() throws Exception {
+        JobInformation jobInformation =
+                submitJob(
+                        "CoordinatorServiceTest_testUpdateTaskExecutionStateWhenJobRemovedDuringRestore",
+                        "batch_fake_to_console.conf",
+                        "test_update_task_execution_state_job_removed_during_restore");
+        CoordinatorService coordinatorService = jobInformation.coordinatorService;
+        await().atMost(30000, TimeUnit.MILLISECONDS)
+                .untilAsserted(
+                        () ->
+                                Assertions.assertEquals(
+                                        JobStatus.RUNNING,
+                                        coordinatorService.getJobStatus(jobInformation.jobId)));
+
+        Field mapField = CoordinatorService.class.getDeclaredField("runningJobMasterMap");
+        mapField.setAccessible(true);
+        @SuppressWarnings("unchecked")
+        Map<Long, JobMaster> runningJobMasterMap =
+                (Map<Long, JobMaster>) mapField.get(coordinatorService);
+
+        // Remove job from map but don't add it back (simulating job cancellation during restore)
+        Long jobId = jobInformation.jobId;
+        runningJobMasterMap.remove(jobId);
+
+        // Create a future that completes but doesn't restore the job
+        CompletableFuture<Void> completedFuture = CompletableFuture.completedFuture(null);
+        PassiveCompletableFuture<Void> completedPassiveFuture =
+                new PassiveCompletableFuture<>(completedFuture);
+
+        Field futureField =
+                CoordinatorService.class.getDeclaredField(
+                        "restoreAllJobFromMasterNodeSwitchFuture");
+        futureField.setAccessible(true);
+        futureField.set(coordinatorService, completedPassiveFuture);
+
+        // Try to update task state
+        TaskGroupLocation fakeLocation = new TaskGroupLocation(jobId, 0, 0);
+        TaskExecutionState taskExecutionState =
+                new TaskExecutionState(fakeLocation, ExecutionState.FAILED);
+
+        // Should throw JobNotFoundException
+        Assertions.assertThrows(
+                JobNotFoundException.class,
+                () -> coordinatorService.updateTaskExecutionState(taskExecutionState));
+
+        jobInformation.coordinatorServiceTest.shutdown();
     }
 
     @Test
