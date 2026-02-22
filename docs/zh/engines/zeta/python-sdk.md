@@ -12,16 +12,6 @@ pip install seatunnel
 
 ## 使用方法
 
-### 初始化
-
-首先，导入 `SeaTunnelClient` 并使用 SeaTunnel Engine 的基础 URL 对其进行初始化。
-
-```python
-from seatunnel import SeaTunnelClient
-
-client = SeaTunnelClient(base_url="http://localhost:8080")
-```
-
 ### 作业管理
 
 您可以使用客户端的 `jobs` 属性来管理作业。
@@ -53,24 +43,27 @@ sink {
 }
 """
 
-query_params = SubmitJobQueryParams()
-response = client.jobs.submit_job(conf=config, params=query_params)
-print(response)
+with SeaTunnelClient(base_url="http://localhost:8080") as client:
+  query_params = SubmitJobQueryParams()
+  response = client.jobs.submit_job(conf=config, params=query_params)
+  print(response)
 ```
 
 #### 获取运行中的作业
 
 ```python
-running_jobs = client.jobs.get_running_jobs()
-print(running_jobs)
+with SeaTunnelClient(base_url="http://localhost:8080") as client:
+  running_jobs = client.jobs.get_running_jobs()
+  print(running_jobs)
 ```
 
 #### 获取作业详情
 
 ```python
-job_id = 12345  # 替换为实际的 Job ID
-job_details = client.jobs.get_job_details(jobId=job_id)
-print(job_details)
+with SeaTunnelClient(base_url="http://localhost:8080") as client:
+  job_id = 12345  # 替换为实际的 Job ID
+  job_details = client.jobs.get_job_details(jobId=job_id)
+  print(job_details)
 ```
 
 ### 集群监控
@@ -80,8 +73,9 @@ print(job_details)
 #### 获取集群概览
 
 ```python
-overview = client.cluster.get_overview()
-print(overview)
+with SeaTunnelClient(base_url="http://localhost:8080") as client:
+  overview = client.cluster.get_overview()
+  print(overview)
 ```
 
 ## API 参考

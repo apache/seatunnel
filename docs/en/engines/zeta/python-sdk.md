@@ -12,16 +12,6 @@ pip install seatunnel
 
 ## Usage
 
-### Initialization
-
-First, import the `SeaTunnelClient` and initialize it with the base URL of your SeaTunnel Engine.
-
-```python
-from seatunnel import SeaTunnelClient
-
-client = SeaTunnelClient(base_url="http://localhost:8080")
-```
-
 ### Job Management
 
 You can use the `jobs` property of the client to manage jobs.
@@ -52,25 +42,27 @@ sink {
   Console {}
 }
 """
-
-query_params = SubmitJobQueryParams()
-response = client.jobs.submit_job(conf=config, params=query_params)
-print(response)
+with SeaTunnelClient(base_url="http://localhost:8080") as client:
+  query_params = SubmitJobQueryParams()
+  response = client.jobs.submit_job(conf=config, params=query_params)
+  print(response)
 ```
 
 #### Get Running Jobs
 
 ```python
-running_jobs = client.jobs.get_running_jobs()
-print(running_jobs)
+with SeaTunnelClient(base_url="http://localhost:8080") as client:
+  running_jobs = client.jobs.get_running_jobs()
+  print(running_jobs)
 ```
 
 #### Get Job Details
 
 ```python
-job_id = 12345  # Replace with actual Job ID
-job_details = client.jobs.get_job_details(jobId=job_id)
-print(job_details)
+with SeaTunnelClient(base_url="http://localhost:8080") as client:
+  job_id = 12345  # Replace with actual Job ID
+  job_details = client.jobs.get_job_details(jobId=job_id)
+  print(job_details)
 ```
 
 ### Cluster Monitoring
@@ -80,8 +72,9 @@ You can use the `cluster` property to get cluster information.
 #### Get Cluster Overview
 
 ```python
-overview = client.cluster.get_overview()
-print(overview)
+with SeaTunnelClient(base_url="http://localhost:8080") as client:
+  overview = client.cluster.get_overview()
+  print(overview)
 ```
 
 ## API Reference
