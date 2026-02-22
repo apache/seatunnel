@@ -224,4 +224,13 @@ public class FileBaseSourceOptions extends FileBaseOptions {
                     .noDefaultValue()
                     .withDescription(
                             "A single character that allows the quote or other special characters to appear inside a CSV field without ending the field.");
+
+    public static final Option<Boolean> RECURSIVE_FILE_SCAN =
+            Options.key("recursive_file_scan")
+                    .booleanType()
+                    .defaultValue(true)
+                    .withDescription(
+                            "Whether to recursively scan subdirectories when collecting files. "
+                                    + "When set to false, only files in the specified path will be scanned, "
+                                    + "subdirectories will be ignored.");
 }

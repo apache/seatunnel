@@ -425,4 +425,69 @@ public class AbstractReadStrategyTest {
         SeaTunnelRowType actualRowType = readStrategy.getActualSeaTunnelRowTypeInfo();
         Assertions.assertArrayEquals(new String[] {"id", "dt"}, actualRowType.getFieldNames());
     }
+
+    @DisabledOnOs(OS.WINDOWS)
+    @Test
+    public void testNonRecursiveFileScan() throws Exception {
+        String baseDir = "/tmp/test_recursive";
+        String file1 = baseDir + "/file1.txt";
+        String file2 = baseDir + "/file2.txt";
+        String subdirFile = baseDir + "/subdir/file3.txt";
+
+        try {
+            createTestFiles(file1, file2, subdirFile);
+
+            Map<String, Object> config = new HashMap<>();
+            config.put(FileBaseSourceOptions.FILE_PATH.key(), baseDir);
+            config.put(FileBaseSourceOptions.FILE_FORMAT_TYPE.key(), "text");
+            config.put(FileBaseSourceOptions.RECURSIVE_FILE_SCAN.key(), false);
+
+            Config pluginConfig = ConfigFactory.parseMap(config);
+
+            try (TextReadStrategy strategy = new TextReadStrategy()) {
+                ParquetReadStrategyTest.LocalConf localConf =
+                        new ParquetReadStrategyTest.LocalConf(FS_DEFAULT_NAME_DEFAULT);
+                strategy.init(localConf);
+                strategy.setPluginConfig(pluginConfig);
+
+                List<String> fileNames = strategy.getFileNamesByPath(baseDir);
+
+                Assertions.assertEquals(2, fileNames.size());
+                Assertions.assertTrue(fileNames.stream()
+                        .noneMatch(f -> f.contains("subdir")));
+                Assertions.assertTrue(fileNames.stream()
+                        .anyMatch(f -> f.endsWith("file1.txt")));
+                Assertions.assertTrue(fileNames.stream()
+                        .anyMatch(f -> f.endsWith("file2.txt")));
+            }
+
+        } finally {
+            deleteTestDirectory(baseDir);
+        }
+    }
+
+    private void createTestFiles(String... filePaths) throws IOException {
+        Configuration conf = new Configuration();
+        for (String filePath : filePaths) {
+            Path path = new Path(filePath);
+            org.apache.hadoop.fs.FileSystem fs =
+                    path.getFileSystem(conf);
+
+            fs.mkdirs(path.getParent());
+
+            try (org.apache.hadoop.fs.FSDataOutputStream out = fs.create(path)) {
+                out.writeBytes("test content");
+            }
+        }
+    }
+
+    private void deleteTestDirectory(String dirPath) {
+        try {
+            Path path = new Path(dirPath);
+            Configuration conf = new Configuration();
+            org.apache.hadoop.fs.FileSystem fs = path.getFileSystem(conf);
+            fs.delete(path, true);
+        } catch (Exception e) {
+        }
+    }
 }

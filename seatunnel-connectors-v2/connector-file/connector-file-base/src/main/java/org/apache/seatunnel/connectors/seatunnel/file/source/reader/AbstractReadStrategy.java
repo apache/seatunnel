@@ -123,6 +123,7 @@ public abstract class AbstractReadStrategy implements ReadStrategy {
     protected transient HadoopFileSystemProxy targetHadoopFileSystemProxy;
     protected transient boolean shareTargetFileSystemProxy;
     protected transient boolean checksumUnavailableWarned;
+    protected boolean recursiveFileScan = true;
 
     private static final class UpdateModeStats {
         private long scanned;
@@ -169,7 +170,7 @@ public abstract class AbstractReadStrategy implements ReadStrategy {
             throws IOException {
         FileStatus[] stats = hadoopFileSystemProxy.listStatus(path);
         for (FileStatus fileStatus : stats) {
-            if (fileStatus.isDirectory()) {
+            if (fileStatus.isDirectory() && recursiveFileScan) {
                 // skip hidden tmp directory, such as .hive-staging_hive
                 if (!fileStatus.getPath().getName().startsWith(".")) {
                     collectFileNamesByPath(
@@ -334,6 +335,12 @@ public abstract class AbstractReadStrategy implements ReadStrategy {
                             pluginConfig.getString(FileBaseSourceOptions.SYNC_MODE.key()),
                             FileBaseSourceOptions.SYNC_MODE.key());
         }
+
+        if (pluginConfig.hasPath(FileBaseSourceOptions.RECURSIVE_FILE_SCAN.key())) {
+            recursiveFileScan =
+                    pluginConfig.getBoolean(FileBaseSourceOptions.RECURSIVE_FILE_SCAN.key());
+        }
+
         enableUpdateSync = syncMode == FileSyncMode.UPDATE;
         if (enableUpdateSync) {
             validateUpdateSyncConfig(pluginConfig);
