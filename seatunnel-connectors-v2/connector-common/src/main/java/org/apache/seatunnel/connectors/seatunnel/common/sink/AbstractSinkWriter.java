@@ -121,6 +121,7 @@ public abstract class AbstractSinkWriter<T, StateT> implements SinkWriter<T, Voi
         return Optional.empty();
     }
 
+    @Override
     public final void abortPrepare() {
         // nothing
     }

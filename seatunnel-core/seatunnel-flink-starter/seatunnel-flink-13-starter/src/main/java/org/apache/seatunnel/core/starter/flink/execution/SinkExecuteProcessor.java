@@ -184,8 +184,7 @@ public class SinkExecuteProcessor
             DirtyRecordCollector dirtyCollector = createDirtyRecordCollector(envConfig, sinkConfig);
 
             DataStreamSink<SeaTunnelRow> dataStreamSink =
-                    stream.getDataStream()
-                            .sinkTo(
+                    ds.sinkTo(
                                     new FlinkSink<>(
                                             sink,
                                             stream.getCatalogTables(),

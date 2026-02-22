@@ -661,6 +661,10 @@ public class MultipleTableJobConfigParser {
                         jars,
                         new HashSet<>());
         multiTableAction.setParallelism(sinkActions.get(0).getParallelism());
+        DirtyRecordCollector dirtyCollector = sinkActions.get(0).getDirtyRecordCollector();
+        if (dirtyCollector != null) {
+            multiTableAction.setDirtyRecordCollector(dirtyCollector);
+        }
         return Optional.of(multiTableAction);
     }
 
