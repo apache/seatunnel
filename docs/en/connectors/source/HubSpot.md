@@ -11,20 +11,26 @@ Supported objects: Contacts, Companies, Deals, etc.
 
 ## Key features
 
-| Feature | Supported |
-| :--- | :--- |
-| Batch | [x] |
-| Stream | [ ] |
-| Exactly-Once | [ ] | | Parallelism | [ ] | ```
+| Feature      | Supported |
+| :----------- | :-------- |
+| Batch        | [x]       |
+| Stream       | [ ]       |
+| Exactly-Once | [ ]       |
+| Parallelism  | [ ]       |
+
+## Description
+
+Read data from HubSpot CRM API. The connector automatically constructs the API URL based on the `object_type` provided, and handles Bearer token authentication.
 
 ## Options
 
-| Name | Type | Required | Default | Description |
-|------|------|----------|---------|-------------|
-| access_token | String | Yes | - | The Private App Access Token (Bearer Token) from HubSpot Developers. |
-| object_type | String | No | contacts | The HubSpot object type to query (e.g., `contacts`, `companies`, `deals`). |
-| common-options | config | No | - | Source plugin common parameters, please refer to [Source Common Options](../common-options/source-common-options.md) for details. |
+| name         | type   | required | default value |
+| ------------ | ------ | -------- | ------------- |
+| access_token | string | yes      | -             |
+| object_type  | string | no       | contacts      |
+| url          | string | no       | -             |
 
+**Note:** If `url` is not provided, the connector will automatically query `https://api.hubapi.com/crm/v3/objects/{object_type}`.
 ### access_token [String]
 
 HubSpot Private App Access Token.

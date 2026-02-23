@@ -17,27 +17,33 @@
 
 package org.apache.seatunnel.connectors.seatunnel.hubspot.source;
 
-import org.apache.seatunnel.api.configuration.util.OptionRule;
+import org.apache.seatunnel.api.configuration.ReadonlyConfig;
 
 import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.Test;
 
-public class HubSpotSourceFactoryTest {
+import java.util.HashMap;
+import java.util.Map;
+
+public class HubSpotSourceParameterTest {
 
     @Test
-    public void testFactoryIdentifier() {
-        HubSpotSourceFactory factory = new HubSpotSourceFactory();
+    public void testAuthHeaderAndUrlConstruction() {
+        Map<String, Object> configMap = new HashMap<>();
+        configMap.put("access_token", "test_secret_token");
+        configMap.put("object_type", "companies");
+
+        ReadonlyConfig config = ReadonlyConfig.fromMap(configMap);
+        HubSpotSourceParameter parameter = new HubSpotSourceParameter();
+        parameter.buildWithConfig(config);
+
+        // Verify Header Injection
+        Assertions.assertNotNull(parameter.getHeaders());
         Assertions.assertEquals(
-                "HubSpot", factory.factoryIdentifier(), "Factory identifier should be HubSpot");
-    }
+                "Bearer test_secret_token", parameter.getHeaders().get("Authorization"));
 
-    @Test
-    public void testOptionRule() {
-        HubSpotSourceFactory factory = new HubSpotSourceFactory();
-        OptionRule optionRule = factory.optionRule();
-
-        // Verifies the OptionRule builder successfully compiles the required
-        // and optional options without throwing validation exceptions.
-        Assertions.assertNotNull(optionRule, "OptionRule should not be null");
+        // Verify URL Construction
+        Assertions.assertEquals(
+                "https://api.hubapi.com/crm/v3/objects/companies", parameter.getUrl());
     }
 }
