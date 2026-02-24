@@ -15,19 +15,20 @@
  * limitations under the License.
  */
 
-package org.apache.seatunnel.api.sink;
+package org.apache.seatunnel.translation.flink.schema.coordinator;
 
-import org.apache.seatunnel.api.table.schema.event.SchemaChangeEvent;
+import org.apache.seatunnel.api.table.catalog.TableIdentifier;
 
-import java.io.IOException;
-
-public interface SupportSchemaEvolutionSinkWriter {
-
+/**
+ * Interface for sink subtasks to provide their schema processing state This allows the coordinator
+ * to query the actual processing state during recovery
+ */
+public interface SinkStateProvider {
     /**
-     * apply schema change to third party data receiver.
+     * Get the last processed epoch for a specific table
      *
-     * @param event
-     * @throws IOException
+     * @param tableId the table identifier
+     * @return the last processed epoch, or null if never processed
      */
-    void applySchemaChange(SchemaChangeEvent event) throws IOException;
+    Long getLastProcessedEpoch(TableIdentifier tableId);
 }

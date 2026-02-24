@@ -21,38 +21,24 @@ import org.apache.seatunnel.common.exception.SeaTunnelErrorCode;
 
 public enum SchemaEvolutionErrorCode implements SeaTunnelErrorCode {
 
-    // Schema Coordination Errors
+    // schema coordination errors
     SCHEMA_COORDINATOR_NOT_INITIALIZED("SE-01", "Schema coordinator is not initialized"),
     SCHEMA_CHANGE_ALREADY_IN_PROGRESS(
             "SE-02", "Schema change is already in progress for the table"),
     SCHEMA_CHANGE_TIMEOUT("SE-03", "Schema change operation timed out"),
     SCHEMA_CHANGE_COORDINATION_FAILED("SE-04", "Schema change coordination failed"),
 
-    // Schema Validation Errors
+    // schema validation errors
     INVALID_SCHEMA_STRUCTURE("SE-05", "Invalid schema structure provided"),
-    SCHEMA_INCOMPATIBLE("SE-06", "Schema change is incompatible with current schema"),
-    OUTDATED_SCHEMA_EVENT("SE-07", "Schema change event is outdated"),
-    UNSUPPORTED_SCHEMA_CHANGE_TYPE("SE-08", "Schema change type is not supported"),
+    OUTDATED_SCHEMA_EVENT("SE-06", "Schema change event is outdated"),
+    UNSUPPORTED_SCHEMA_CHANGE_TYPE("SE-07", "Schema change type is not supported"),
 
-    // Sink Writer Errors
-    SCHEMA_CHANGE_APPLICATION_FAILED("SE-09", "Failed to apply schema change to sink writer"),
-    FLUSH_OPERATION_FAILED("SE-10", "Flush operation failed during schema evolution"),
-    SCHEMA_ROLLBACK_FAILED("SE-11", "Failed to rollback schema change"),
+    // sink writer errors
+    SCHEMA_CHANGE_APPLICATION_FAILED("SE-08", "Failed to apply schema change to sink writer"),
+    FLUSH_OPERATION_FAILED("SE-09", "Flush operation failed during schema evolution"),
 
-    // Table and Database Errors
-    TABLE_SCHEMA_UPDATE_FAILED("SE-12", "Failed to update table schema in database"),
-    TABLE_NOT_FOUND("SE-13", "Target table not found"),
-    INSUFFICIENT_PERMISSIONS("SE-14", "Insufficient permissions to modify table schema"),
-
-    // Event Processing Errors
-    SCHEMA_EVENT_PROCESSING_FAILED("SE-15", "Failed to process schema change event"),
-    FLUSH_EVENT_PROCESSING_FAILED("SE-16", "Failed to process flush event"),
-    SCHEMA_EVENT_DESERIALIZATION_FAILED("SE-17", "Failed to deserialize schema change event"),
-
-    // Resource Management Errors
-    RESOURCE_CLEANUP_FAILED("SE-18", "Failed to cleanup resources after schema change"),
-    CONNECTION_POOL_EXHAUSTED("SE-19", "Database connection pool exhausted during schema change"),
-    MEMORY_ALLOCATION_FAILED("SE-20", "Memory allocation failed during schema processing");
+    // event processing errors
+    SCHEMA_EVENT_PROCESSING_FAILED("SE-10", "Failed to process schema change event");
 
     private final String code;
     private final String description;
