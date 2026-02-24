@@ -100,7 +100,7 @@ public class KafkaTransactionSender<K, V> implements KafkaProduceSender<K, V> {
 
         for (long i = checkpointId; ; i++) {
             String transactionId = generateTransactionId(this.transactionPrefix, i);
-            producer.setTransactionalId(transactionId);
+            producer.initTransactionId(transactionId);
             if (log.isDebugEnabled()) {
                 log.debug("Abort kafka transaction: {}", transactionId);
             }

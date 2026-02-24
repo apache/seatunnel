@@ -24,6 +24,7 @@ import org.apache.seatunnel.engine.common.exception.SeaTunnelEngineException;
 import org.apache.seatunnel.engine.common.job.JobStatus;
 import org.apache.seatunnel.engine.common.utils.concurrent.CompletableFuture;
 import org.apache.seatunnel.engine.core.dag.logical.LogicalDag;
+import org.apache.seatunnel.engine.core.job.JobDAGInfo;
 import org.apache.seatunnel.engine.core.job.JobImmutableInformation;
 import org.apache.seatunnel.engine.core.job.PipelineStatus;
 import org.apache.seatunnel.engine.server.execution.TaskLocation;
@@ -334,6 +335,26 @@ public class CoordinatorServiceTest {
                                         coordinatorService
                                                 .getPendingJobQueue()
                                                 .contains(jobInformation.jobId)));
+    }
+
+    @Test
+    void testGetPendingJobInfo() {
+        JobInformation jobInformation =
+                submitJob(
+                        "CoordinatorServiceTest_testGetPendingJobInfo",
+                        "batch_fake_to_console.conf",
+                        "test_get_pending_job_info");
+
+        CoordinatorService coordinatorService = jobInformation.coordinatorService;
+        Long jobId = jobInformation.jobId;
+
+        Assertions.assertTrue(coordinatorService.getPendingJobQueue().contains(jobId));
+
+        JobDAGInfo jobDAGInfo =
+                Assertions.assertDoesNotThrow(() -> coordinatorService.getJobInfo(jobId));
+        Assertions.assertEquals(jobId, jobDAGInfo.getJobId());
+
+        jobInformation.coordinatorServiceTest.shutdown();
     }
 
     private void setDefaultConfigFile() {

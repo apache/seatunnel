@@ -25,6 +25,7 @@ import org.apache.seatunnel.engine.server.TaskExecutionService;
 import org.apache.seatunnel.engine.server.execution.TaskExecutionContext;
 import org.apache.seatunnel.engine.server.execution.TaskGroupLocation;
 import org.apache.seatunnel.engine.server.execution.TaskLocation;
+import org.apache.seatunnel.engine.server.task.context.SeaTunnelSplitEnumeratorContext;
 
 import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.Test;
@@ -37,6 +38,7 @@ import java.util.ArrayList;
 import java.util.Collections;
 import java.util.HashSet;
 import java.util.concurrent.atomic.AtomicLong;
+import java.util.concurrent.atomic.AtomicReference;
 
 public class SourceSplitEnumeratorTaskTest {
 
@@ -101,5 +103,61 @@ public class SourceSplitEnumeratorTaskTest {
         }
 
         Assertions.assertTrue(openTime.get() < registerReaderTime.get());
+    }
+
+    @Test
+    void testResignalNoMoreSplitsAfterReaderReregister() throws Exception {
+        SeaTunnelSource source = Mockito.mock(SeaTunnelSource.class);
+        SourceSplitEnumerator enumerator = Mockito.mock(SourceSplitEnumerator.class);
+
+        AtomicReference<SeaTunnelSplitEnumeratorContext> enumeratorContextRef =
+                new AtomicReference<>();
+        Mockito.when(source.createEnumerator(Mockito.any()))
+                .thenAnswer(
+                        invocation -> {
+                            enumeratorContextRef.set(
+                                    (SeaTunnelSplitEnumeratorContext) invocation.getArgument(0));
+                            return enumerator;
+                        });
+
+        SourceAction action =
+                new SourceAction<>(1, "fake", source, new HashSet<>(), Collections.emptySet());
+        SourceSplitEnumeratorTask enumeratorTask =
+                new SourceSplitEnumeratorTask<>(
+                        1, new TaskLocation(new TaskGroupLocation(1, 1, 1), 1, 1), action);
+
+        TaskExecutionContext context = Mockito.mock(TaskExecutionContext.class);
+        InvocationFuture future = Mockito.mock(InvocationFuture.class);
+        Mockito.when(context.getOrCreateMetricsContext(Mockito.any())).thenReturn(null);
+        Mockito.when(context.sendToMaster(Mockito.any())).thenReturn(future);
+        Mockito.when(context.sendToMember(Mockito.any(), Mockito.any())).thenReturn(future);
+        Mockito.when(future.join()).thenReturn(null);
+        TaskExecutionService taskExecutionService = Mockito.mock(TaskExecutionService.class);
+        Mockito.when(context.getTaskExecutionService()).thenReturn(taskExecutionService);
+
+        enumeratorTask.setTaskExecutionContext(context);
+        enumeratorTask.init();
+        enumeratorTask.restoreState(new ArrayList<>());
+
+        TaskLocation readerLocation = new TaskLocation(new TaskGroupLocation(1, 1, 1), 1, 1);
+        Address address = Address.createUnresolvedAddress("localhost", 5701);
+
+        // Initial register
+        enumeratorTask.receivedReader(readerLocation, address);
+
+        SeaTunnelSplitEnumeratorContext enumeratorContext = enumeratorContextRef.get();
+        Assertions.assertNotNull(enumeratorContext);
+
+        Mockito.clearInvocations(context);
+
+        // Simulate that NoMoreSplitsEvent has been signaled once.
+        enumeratorContext.signalNoMoreSplits(readerLocation.getTaskIndex());
+        Assertions.assertTrue(
+                enumeratorContext.hasNoMoreSplitsSignaled(readerLocation.getTaskIndex()));
+
+        // Reader re-registers after failover, framework should re-signal.
+        enumeratorTask.receivedReader(readerLocation, address);
+
+        Mockito.verify(context, Mockito.times(2)).sendToMember(Mockito.any(), Mockito.any());
     }
 }
