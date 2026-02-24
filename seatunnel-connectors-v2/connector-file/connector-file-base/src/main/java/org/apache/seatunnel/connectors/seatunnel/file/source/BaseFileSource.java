@@ -54,6 +54,8 @@ public abstract class BaseFileSource
     protected HadoopConf hadoopConf;
     protected List<String> filePaths;
 
+    public BaseFileSource() {}
+
     public BaseFileSource(ReadonlyConfig pluginConfig) {
         String path = pluginConfig.get(FileBaseSinkOptions.FILE_PATH);
         readStrategy = pluginConfig.get(FileBaseSinkOptions.FILE_FORMAT_TYPE).getReadStrategy();
