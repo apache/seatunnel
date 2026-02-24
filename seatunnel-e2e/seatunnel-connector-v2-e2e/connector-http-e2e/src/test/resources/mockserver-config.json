@@ -4832,7 +4832,16 @@
   {
     "httpRequest": {
       "method": "POST",
-      "path": "/v0/appTEST123/TestTable/listRecords"
+      "path": "/v0/appTEST123/TestTable/listRecords",
+      "body": {
+        "type": "JSON",
+        "json": "{\"pageSize\":2}",
+        "matchType": "ONLY_MATCHING_FIELDS"
+      }
+    },
+    "times": {
+      "remainingTimes": 1,
+      "unlimited": false
     },
     "httpResponse": {
       "body": {
@@ -4841,8 +4850,8 @@
             "id": "rec001",
             "createdTime": "2024-01-01T00:00:00.000Z",
             "fields": {
-              "Name": "Alice",
-              "Age": 30,
+              "Name": "Name001",
+              "Age": 21,
               "Status": "Active"
             }
           },
@@ -4850,17 +4859,79 @@
             "id": "rec002",
             "createdTime": "2024-01-02T00:00:00.000Z",
             "fields": {
-              "Name": "Bob",
-              "Age": 25,
+              "Name": "Name002",
+              "Age": 22,
               "Status": "Inactive"
             }
-          },
+          }
+        ],
+        "offset": "itrPAGE2/recPAGE2"
+      }
+    }
+  },
+  {
+    "httpRequest": {
+      "method": "POST",
+      "path": "/v0/appTEST123/TestTable/listRecords",
+      "body": {
+        "type": "JSON",
+        "json": "{\"offset\":\"itrPAGE2/recPAGE2\",\"pageSize\":2}",
+        "matchType": "ONLY_MATCHING_FIELDS"
+      }
+    },
+    "times": {
+      "remainingTimes": 1,
+      "unlimited": false
+    },
+    "httpResponse": {
+      "body": {
+        "records": [
           {
             "id": "rec003",
             "createdTime": "2024-01-03T00:00:00.000Z",
             "fields": {
-              "Name": "Charlie",
-              "Age": 35,
+              "Name": "Name003",
+              "Age": 23,
+              "Status": "Active"
+            }
+          },
+          {
+            "id": "rec004",
+            "createdTime": "2024-01-04T00:00:00.000Z",
+            "fields": {
+              "Name": "Name004",
+              "Age": 24,
+              "Status": "Inactive"
+            }
+          }
+        ],
+        "offset": "itrPAGE3/recPAGE3"
+      }
+    }
+  },
+  {
+    "httpRequest": {
+      "method": "POST",
+      "path": "/v0/appTEST123/TestTable/listRecords",
+      "body": {
+        "type": "JSON",
+        "json": "{\"offset\":\"itrPAGE3/recPAGE3\",\"pageSize\":2}",
+        "matchType": "ONLY_MATCHING_FIELDS"
+      }
+    },
+    "times": {
+      "remainingTimes": 1,
+      "unlimited": false
+    },
+    "httpResponse": {
+      "body": {
+        "records": [
+          {
+            "id": "rec005",
+            "createdTime": "2024-01-05T00:00:00.000Z",
+            "fields": {
+              "Name": "Name005",
+              "Age": 25,
               "Status": "Active"
             }
           }
