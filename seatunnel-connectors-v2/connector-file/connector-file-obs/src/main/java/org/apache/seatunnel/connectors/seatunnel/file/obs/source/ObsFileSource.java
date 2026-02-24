@@ -17,19 +17,11 @@
 
 package org.apache.seatunnel.connectors.seatunnel.file.obs.source;
 
-import org.apache.seatunnel.shade.com.typesafe.config.Config;
-
-import org.apache.seatunnel.api.common.PrepareFailException;
-import org.apache.seatunnel.api.common.SeaTunnelAPIErrorCode;
+import org.apache.seatunnel.api.configuration.ReadonlyConfig;
 import org.apache.seatunnel.api.options.ConnectorCommonOptions;
-import org.apache.seatunnel.api.source.SeaTunnelSource;
 import org.apache.seatunnel.api.table.catalog.CatalogTable;
 import org.apache.seatunnel.api.table.catalog.CatalogTableUtil;
-import org.apache.seatunnel.common.config.CheckConfigUtil;
-import org.apache.seatunnel.common.config.CheckResult;
-import org.apache.seatunnel.common.constants.PluginType;
 import org.apache.seatunnel.common.exception.CommonErrorCodeDeprecated;
-import org.apache.seatunnel.connectors.seatunnel.file.config.FileBaseOptions;
 import org.apache.seatunnel.connectors.seatunnel.file.config.FileBaseSourceOptions;
 import org.apache.seatunnel.connectors.seatunnel.file.config.FileFormat;
 import org.apache.seatunnel.connectors.seatunnel.file.config.FileSystemType;
@@ -37,46 +29,18 @@ import org.apache.seatunnel.connectors.seatunnel.file.exception.FileConnectorErr
 import org.apache.seatunnel.connectors.seatunnel.file.exception.FileConnectorException;
 import org.apache.seatunnel.connectors.seatunnel.file.obs.config.ObsConf;
 import org.apache.seatunnel.connectors.seatunnel.file.obs.config.ObsFileBaseOptions;
-import org.apache.seatunnel.connectors.seatunnel.file.obs.config.ObsFileSourceOptions;
 import org.apache.seatunnel.connectors.seatunnel.file.source.BaseFileSource;
-import org.apache.seatunnel.connectors.seatunnel.file.source.reader.ReadStrategyFactory;
-
-import com.google.auto.service.AutoService;
 
 import java.io.IOException;
 
-@AutoService(SeaTunnelSource.class)
 public class ObsFileSource extends BaseFileSource {
-    @Override
-    public String getPluginName() {
-        return FileSystemType.OBS.getFileSystemPluginName();
-    }
 
-    @Override
-    public void prepare(Config pluginConfig) throws PrepareFailException {
-        CheckResult result =
-                CheckConfigUtil.checkAllExists(
-                        pluginConfig,
-                        FileBaseOptions.FILE_PATH.key(),
-                        FileBaseSourceOptions.FILE_FORMAT_TYPE.key(),
-                        ObsFileSourceOptions.ENDPOINT.key(),
-                        ObsFileSourceOptions.ACCESS_KEY.key(),
-                        ObsFileSourceOptions.ACCESS_SECRET.key(),
-                        ObsFileSourceOptions.BUCKET.key());
-        if (!result.isSuccess()) {
-            throw new FileConnectorException(
-                    SeaTunnelAPIErrorCode.CONFIG_VALIDATION_FAILED,
-                    String.format(
-                            "PluginName: %s, PluginType: %s, Message: %s",
-                            getPluginName(), PluginType.SOURCE, result.getMsg()));
-        }
-        readStrategy =
-                ReadStrategyFactory.of(
-                        pluginConfig.getString(FileBaseSourceOptions.FILE_FORMAT_TYPE.key()));
-        readStrategy.setPluginConfig(pluginConfig);
+    public ObsFileSource(ReadonlyConfig pluginConfig) {
+        readStrategy = pluginConfig.get(FileBaseSourceOptions.FILE_FORMAT_TYPE).getReadStrategy();
+        readStrategy.setPluginConfig(pluginConfig.toConfig());
         hadoopConf = ObsConf.buildWithConfig(pluginConfig);
         readStrategy.init(hadoopConf);
-        String path = pluginConfig.getString(ObsFileBaseOptions.FILE_PATH.key());
+        String path = pluginConfig.get(ObsFileBaseOptions.FILE_PATH);
         try {
             filePaths = readStrategy.getFileNamesByPath(path);
         } catch (IOException e) {
@@ -85,13 +49,9 @@ public class ObsFileSource extends BaseFileSource {
                     FileConnectorErrorCode.FILE_LIST_GET_FAILED, errorMsg, e);
         }
         // support user-defined schema
-        FileFormat fileFormat =
-                FileFormat.valueOf(
-                        pluginConfig
-                                .getString(FileBaseSourceOptions.FILE_FORMAT_TYPE.key())
-                                .toUpperCase());
+        FileFormat fileFormat = pluginConfig.get(FileBaseSourceOptions.FILE_FORMAT_TYPE);
         // only json text csv type support user-defined schema now
-        if (pluginConfig.hasPath(ConnectorCommonOptions.SCHEMA.key())) {
+        if (pluginConfig.getOptional(ConnectorCommonOptions.SCHEMA).isPresent()) {
             switch (fileFormat) {
                 case CSV:
                 case TEXT:
@@ -128,5 +88,10 @@ public class ObsFileSource extends BaseFileSource {
                         CommonErrorCodeDeprecated.TABLE_SCHEMA_GET_FAILED, errorMsg, e);
             }
         }
+    }
+
+    @Override
+    public String getPluginName() {
+        return FileSystemType.OBS.getFileSystemPluginName();
     }
 }

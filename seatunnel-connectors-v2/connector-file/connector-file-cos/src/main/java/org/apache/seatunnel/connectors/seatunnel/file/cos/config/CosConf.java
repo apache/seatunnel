@@ -17,8 +17,7 @@
 
 package org.apache.seatunnel.connectors.seatunnel.file.cos.config;
 
-import org.apache.seatunnel.shade.com.typesafe.config.Config;
-
+import org.apache.seatunnel.api.configuration.ReadonlyConfig;
 import org.apache.seatunnel.connectors.seatunnel.file.config.HadoopConf;
 
 import org.apache.hadoop.fs.CosNConfigKeys;
@@ -43,17 +42,16 @@ public class CosConf extends HadoopConf {
         super(hdfsNameKey);
     }
 
-    public static HadoopConf buildWithConfig(Config config) {
-        HadoopConf hadoopConf = new CosConf(config.getString(CosFileBaseOptions.BUCKET.key()));
+    public static HadoopConf buildWithConfig(ReadonlyConfig config) {
+        HadoopConf hadoopConf = new CosConf(config.get(CosFileBaseOptions.BUCKET));
         HashMap<String, String> cosOptions = new HashMap<>();
         cosOptions.put(
                 CosNConfigKeys.COSN_USERINFO_SECRET_ID_KEY,
-                config.getString(CosFileBaseOptions.SECRET_ID.key()));
+                config.get(CosFileBaseOptions.SECRET_ID));
         cosOptions.put(
                 CosNConfigKeys.COSN_USERINFO_SECRET_KEY_KEY,
-                config.getString(CosFileBaseOptions.SECRET_KEY.key()));
-        cosOptions.put(
-                CosNConfigKeys.COSN_REGION_KEY, config.getString(CosFileBaseOptions.REGION.key()));
+                config.get(CosFileBaseOptions.SECRET_KEY));
+        cosOptions.put(CosNConfigKeys.COSN_REGION_KEY, config.get(CosFileBaseOptions.REGION));
         hadoopConf.setExtraOptions(cosOptions);
         return hadoopConf;
     }

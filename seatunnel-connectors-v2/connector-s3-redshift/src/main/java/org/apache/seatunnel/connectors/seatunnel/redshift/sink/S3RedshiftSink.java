@@ -19,18 +19,40 @@ package org.apache.seatunnel.connectors.seatunnel.redshift.sink;
 
 import org.apache.seatunnel.api.configuration.ReadonlyConfig;
 import org.apache.seatunnel.api.sink.SinkAggregatedCommitter;
+import org.apache.seatunnel.api.table.catalog.CatalogTable;
+import org.apache.seatunnel.connectors.seatunnel.file.config.FileBaseSinkOptions;
 import org.apache.seatunnel.connectors.seatunnel.file.hdfs.sink.BaseHdfsFileSink;
 import org.apache.seatunnel.connectors.seatunnel.file.s3.config.S3HadoopConf;
 import org.apache.seatunnel.connectors.seatunnel.file.sink.commit.FileAggregatedCommitInfo;
 import org.apache.seatunnel.connectors.seatunnel.file.sink.commit.FileCommitInfo;
+import org.apache.seatunnel.connectors.seatunnel.file.sink.config.FileSinkConfig;
 import org.apache.seatunnel.connectors.seatunnel.redshift.commit.S3RedshiftSinkAggregatedCommitter;
 
 import java.util.Optional;
 
 public class S3RedshiftSink extends BaseHdfsFileSink {
 
-    public S3RedshiftSink(ReadonlyConfig readonlyConfig) {
-        hadoopConf = S3HadoopConf.buildWithReadOnlyConfig(readonlyConfig);
+    public S3RedshiftSink(ReadonlyConfig readonlyConfig, CatalogTable catalogTable) {
+        this.pluginConfig = readonlyConfig;
+        hadoopConf = S3HadoopConf.buildWithReadOnlyConfig(pluginConfig);
+        if (pluginConfig.getOptional(FileBaseSinkOptions.HDFS_SITE_PATH).isPresent()) {
+            hadoopConf.setHdfsSitePath(pluginConfig.get(FileBaseSinkOptions.HDFS_SITE_PATH));
+        }
+        if (pluginConfig.getOptional(FileBaseSinkOptions.REMOTE_USER).isPresent()) {
+            hadoopConf.setRemoteUser(pluginConfig.get(FileBaseSinkOptions.REMOTE_USER));
+        }
+        if (pluginConfig.getOptional(FileBaseSinkOptions.KRB5_PATH).isPresent()) {
+            hadoopConf.setKrb5Path(pluginConfig.get(FileBaseSinkOptions.KRB5_PATH));
+        }
+        if (pluginConfig.getOptional(FileBaseSinkOptions.KERBEROS_PRINCIPAL).isPresent()) {
+            hadoopConf.setKerberosPrincipal(
+                    pluginConfig.get(FileBaseSinkOptions.KERBEROS_PRINCIPAL));
+        }
+        if (pluginConfig.getOptional(FileBaseSinkOptions.KERBEROS_KEYTAB_PATH).isPresent()) {
+            hadoopConf.setKerberosKeytabPath(
+                    pluginConfig.get(FileBaseSinkOptions.KERBEROS_KEYTAB_PATH));
+        }
+        this.fileSinkConfig = new FileSinkConfig(pluginConfig, catalogTable.getSeaTunnelRowType());
     }
 
     @Override

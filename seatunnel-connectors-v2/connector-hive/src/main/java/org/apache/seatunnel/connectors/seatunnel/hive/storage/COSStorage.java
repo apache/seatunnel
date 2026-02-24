@@ -50,7 +50,7 @@ public class COSStorage extends AbstractStorage {
                         CosFileBaseOptions.REGION.key(),
                         ConfigValueFactory.fromAnyRef(
                                 configuration.get(CosFileBaseOptions.REGION.key())));
-        HadoopConf hadoopConf = CosConf.buildWithConfig(config);
+        HadoopConf hadoopConf = CosConf.buildWithConfig(ReadonlyConfig.fromConfig(config));
         Map<String, String> propsInConfiguration =
                 configuration.getPropsWithPrefix(StringUtils.EMPTY);
         hadoopConf.setExtraOptions(propsInConfiguration);

@@ -76,6 +76,6 @@ public class S3RedshiftSinkFactory implements TableSinkFactory {
 
     @Override
     public TableSink createSink(TableSinkFactoryContext context) {
-        return () -> new S3RedshiftSink(context.getOptions());
+        return () -> new S3RedshiftSink(context.getOptions(), context.getCatalogTable());
     }
 }

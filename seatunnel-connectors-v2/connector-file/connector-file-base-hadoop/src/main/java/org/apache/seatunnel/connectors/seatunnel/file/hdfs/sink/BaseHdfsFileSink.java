@@ -17,60 +17,6 @@
 
 package org.apache.seatunnel.connectors.seatunnel.file.hdfs.sink;
 
-import org.apache.seatunnel.shade.com.typesafe.config.Config;
-
-import org.apache.seatunnel.api.common.PrepareFailException;
-import org.apache.seatunnel.api.common.SeaTunnelAPIErrorCode;
-import org.apache.seatunnel.common.config.CheckConfigUtil;
-import org.apache.seatunnel.common.config.CheckResult;
-import org.apache.seatunnel.common.constants.PluginType;
-import org.apache.seatunnel.connectors.seatunnel.file.config.FileBaseSinkOptions;
-import org.apache.seatunnel.connectors.seatunnel.file.config.HadoopConf;
-import org.apache.seatunnel.connectors.seatunnel.file.exception.FileConnectorException;
 import org.apache.seatunnel.connectors.seatunnel.file.sink.BaseFileSink;
 
-import java.util.Objects;
-
-import static org.apache.hadoop.fs.CommonConfigurationKeysPublic.FS_DEFAULT_NAME_KEY;
-
-public abstract class BaseHdfsFileSink extends BaseFileSink {
-
-    @Override
-    public void prepare(Config pluginConfig) throws PrepareFailException {
-        CheckResult result = CheckConfigUtil.checkAllExists(pluginConfig, FS_DEFAULT_NAME_KEY);
-        if (!result.isSuccess()) {
-            throw new FileConnectorException(
-                    SeaTunnelAPIErrorCode.CONFIG_VALIDATION_FAILED,
-                    String.format(
-                            "PluginName: %s, PluginType: %s, Message: %s",
-                            getPluginName(), PluginType.SINK, result.getMsg()));
-        }
-        super.prepare(pluginConfig);
-        // Avoid overwriting hadoopConf for subclass initialization. If a subclass is initialized,
-        // it is not initialized here.
-        if (Objects.isNull(hadoopConf)) {
-            hadoopConf = new HadoopConf(pluginConfig.getString(FS_DEFAULT_NAME_KEY));
-        }
-        if (pluginConfig.hasPath(FileBaseSinkOptions.HDFS_SITE_PATH.key())) {
-            hadoopConf.setHdfsSitePath(
-                    pluginConfig.getString(FileBaseSinkOptions.HDFS_SITE_PATH.key()));
-        }
-
-        if (pluginConfig.hasPath(FileBaseSinkOptions.REMOTE_USER.key())) {
-            hadoopConf.setRemoteUser(pluginConfig.getString(FileBaseSinkOptions.REMOTE_USER.key()));
-        }
-
-        if (pluginConfig.hasPath(FileBaseSinkOptions.KRB5_PATH.key())) {
-            hadoopConf.setKrb5Path(pluginConfig.getString(FileBaseSinkOptions.KRB5_PATH.key()));
-        }
-
-        if (pluginConfig.hasPath(FileBaseSinkOptions.KERBEROS_PRINCIPAL.key())) {
-            hadoopConf.setKerberosPrincipal(
-                    pluginConfig.getString(FileBaseSinkOptions.KERBEROS_PRINCIPAL.key()));
-        }
-        if (pluginConfig.hasPath(FileBaseSinkOptions.KERBEROS_KEYTAB_PATH.key())) {
-            hadoopConf.setKerberosKeytabPath(
-                    pluginConfig.getString(FileBaseSinkOptions.KERBEROS_KEYTAB_PATH.key()));
-        }
-    }
-}
+public abstract class BaseHdfsFileSink extends BaseFileSink {}

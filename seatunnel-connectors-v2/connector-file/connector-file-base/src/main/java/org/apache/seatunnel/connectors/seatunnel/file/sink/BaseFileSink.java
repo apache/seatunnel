@@ -24,11 +24,10 @@ import org.apache.seatunnel.api.serialization.Serializer;
 import org.apache.seatunnel.api.sink.SeaTunnelSink;
 import org.apache.seatunnel.api.sink.SinkAggregatedCommitter;
 import org.apache.seatunnel.api.sink.SinkWriter;
+import org.apache.seatunnel.api.table.catalog.CatalogTable;
 import org.apache.seatunnel.api.table.catalog.CatalogTableUtil;
 import org.apache.seatunnel.api.table.catalog.TablePath;
 import org.apache.seatunnel.api.table.type.SeaTunnelRow;
-import org.apache.seatunnel.api.table.type.SeaTunnelRowType;
-import org.apache.seatunnel.connectors.seatunnel.file.config.FileBaseSinkOptions;
 import org.apache.seatunnel.connectors.seatunnel.file.config.HadoopConf;
 import org.apache.seatunnel.connectors.seatunnel.file.sink.commit.FileAggregatedCommitInfo;
 import org.apache.seatunnel.connectors.seatunnel.file.sink.commit.FileCommitInfo;
@@ -44,39 +43,17 @@ import java.util.Optional;
 public abstract class BaseFileSink
         implements SeaTunnelSink<
                 SeaTunnelRow, FileSinkState, FileCommitInfo, FileAggregatedCommitInfo> {
-    protected SeaTunnelRowType seaTunnelRowType;
+    protected CatalogTable catalogTable;
     protected ReadonlyConfig pluginConfig;
     protected HadoopConf hadoopConf;
     protected FileSinkConfig fileSinkConfig;
     protected JobContext jobContext;
     protected String jobId;
 
-    public void preCheckConfig() {
-        if (pluginConfig.getOptional(FileBaseSinkOptions.SINGLE_FILE_MODE).isPresent()
-                && pluginConfig.get(FileBaseSinkOptions.SINGLE_FILE_MODE)
-                && jobContext.isEnableCheckpoint()) {
-            throw new IllegalArgumentException(
-                    "Single file mode is not supported when checkpoint is enabled or in streaming mode.");
-        }
-        if (pluginConfig.getOptional(FileBaseSinkOptions.CREATE_EMPTY_FILE_WHEN_NO_DATA).isPresent()
-                && pluginConfig.get(FileBaseSinkOptions.CREATE_EMPTY_FILE_WHEN_NO_DATA)
-                && !fileSinkConfig.getPartitionFieldList().isEmpty()) {
-            throw new IllegalArgumentException(
-                    "Generate empty file when no data is not supported when partition is enabled.");
-        }
-    }
-
     @Override
     public void setJobContext(JobContext jobContext) {
         this.jobContext = jobContext;
         this.jobId = jobContext.getJobId();
-        preCheckConfig();
-    }
-
-    @Override
-    public void setTypeInfo(SeaTunnelRowType seaTunnelRowType) {
-        this.seaTunnelRowType = seaTunnelRowType;
-        this.fileSinkConfig = new FileSinkConfig(pluginConfig, seaTunnelRowType);
     }
 
     @Override
@@ -117,7 +94,11 @@ public abstract class BaseFileSink
                 WriteStrategyFactory.of(fileSinkConfig.getFileFormat(), fileSinkConfig);
         writeStrategy.setCatalogTable(
                 CatalogTableUtil.getCatalogTable(
-                        "file", null, null, TablePath.DEFAULT.getTableName(), seaTunnelRowType));
+                        "file",
+                        null,
+                        null,
+                        TablePath.DEFAULT.getTableName(),
+                        catalogTable.getSeaTunnelRowType()));
         return writeStrategy;
     }
 }

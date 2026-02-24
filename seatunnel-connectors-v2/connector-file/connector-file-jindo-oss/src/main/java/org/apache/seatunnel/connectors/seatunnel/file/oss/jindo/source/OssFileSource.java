@@ -17,17 +17,10 @@
 
 package org.apache.seatunnel.connectors.seatunnel.file.oss.jindo.source;
 
-import org.apache.seatunnel.shade.com.typesafe.config.Config;
-
-import org.apache.seatunnel.api.common.PrepareFailException;
-import org.apache.seatunnel.api.common.SeaTunnelAPIErrorCode;
+import org.apache.seatunnel.api.configuration.ReadonlyConfig;
 import org.apache.seatunnel.api.options.ConnectorCommonOptions;
-import org.apache.seatunnel.api.source.SeaTunnelSource;
 import org.apache.seatunnel.api.table.catalog.CatalogTable;
 import org.apache.seatunnel.api.table.catalog.CatalogTableUtil;
-import org.apache.seatunnel.common.config.CheckConfigUtil;
-import org.apache.seatunnel.common.config.CheckResult;
-import org.apache.seatunnel.common.constants.PluginType;
 import org.apache.seatunnel.common.exception.CommonErrorCodeDeprecated;
 import org.apache.seatunnel.connectors.seatunnel.file.config.FileBaseOptions;
 import org.apache.seatunnel.connectors.seatunnel.file.config.FileBaseSourceOptions;
@@ -36,46 +29,18 @@ import org.apache.seatunnel.connectors.seatunnel.file.config.FileSystemType;
 import org.apache.seatunnel.connectors.seatunnel.file.exception.FileConnectorErrorCode;
 import org.apache.seatunnel.connectors.seatunnel.file.exception.FileConnectorException;
 import org.apache.seatunnel.connectors.seatunnel.file.oss.jindo.config.OssConf;
-import org.apache.seatunnel.connectors.seatunnel.file.oss.jindo.config.OssFileSourceOptions;
 import org.apache.seatunnel.connectors.seatunnel.file.oss.jindo.exception.OssJindoConnectorException;
 import org.apache.seatunnel.connectors.seatunnel.file.source.BaseFileSource;
-import org.apache.seatunnel.connectors.seatunnel.file.source.reader.ReadStrategyFactory;
-
-import com.google.auto.service.AutoService;
 
 import java.io.IOException;
 
-@AutoService(SeaTunnelSource.class)
 public class OssFileSource extends BaseFileSource {
-    @Override
-    public String getPluginName() {
-        return FileSystemType.OSS_JINDO.getFileSystemPluginName();
-    }
 
-    @Override
-    public void prepare(Config pluginConfig) throws PrepareFailException {
-        CheckResult result =
-                CheckConfigUtil.checkAllExists(
-                        pluginConfig,
-                        FileBaseOptions.FILE_PATH.key(),
-                        FileBaseSourceOptions.FILE_FORMAT_TYPE.key(),
-                        OssFileSourceOptions.ENDPOINT.key(),
-                        OssFileSourceOptions.ACCESS_KEY.key(),
-                        OssFileSourceOptions.ACCESS_SECRET.key(),
-                        OssFileSourceOptions.BUCKET.key());
-        if (!result.isSuccess()) {
-            throw new OssJindoConnectorException(
-                    SeaTunnelAPIErrorCode.CONFIG_VALIDATION_FAILED,
-                    String.format(
-                            "PluginName: %s, PluginType: %s, Message: %s",
-                            getPluginName(), PluginType.SOURCE, result.getMsg()));
-        }
-        String path = pluginConfig.getString(FileBaseOptions.FILE_PATH.key());
+    public OssFileSource(ReadonlyConfig pluginConfig) {
+        String path = pluginConfig.get(FileBaseOptions.FILE_PATH);
         hadoopConf = OssConf.buildWithConfig(pluginConfig);
-        readStrategy =
-                ReadStrategyFactory.of(
-                        pluginConfig.getString(FileBaseSourceOptions.FILE_FORMAT_TYPE.key()));
-        readStrategy.setPluginConfig(pluginConfig);
+        readStrategy = pluginConfig.get(FileBaseSourceOptions.FILE_FORMAT_TYPE).getReadStrategy();
+        readStrategy.setPluginConfig(pluginConfig.toConfig());
         readStrategy.init(hadoopConf);
         try {
             filePaths = readStrategy.getFileNamesByPath(path);
@@ -85,13 +50,9 @@ public class OssFileSource extends BaseFileSource {
                     FileConnectorErrorCode.FILE_LIST_GET_FAILED, errorMsg, e);
         }
         // support user-defined schema
-        FileFormat fileFormat =
-                FileFormat.valueOf(
-                        pluginConfig
-                                .getString(FileBaseSourceOptions.FILE_FORMAT_TYPE.key())
-                                .toUpperCase());
+        FileFormat fileFormat = pluginConfig.get(FileBaseSourceOptions.FILE_FORMAT_TYPE);
         // only json text csv type support user-defined schema now
-        if (pluginConfig.hasPath(ConnectorCommonOptions.SCHEMA.key())) {
+        if (pluginConfig.getOptional(ConnectorCommonOptions.SCHEMA).isPresent()) {
             switch (fileFormat) {
                 case CSV:
                 case TEXT:
@@ -130,5 +91,10 @@ public class OssFileSource extends BaseFileSource {
                         CommonErrorCodeDeprecated.TABLE_SCHEMA_GET_FAILED, errorMsg, e);
             }
         }
+    }
+
+    @Override
+    public String getPluginName() {
+        return FileSystemType.OSS_JINDO.getFileSystemPluginName();
     }
 }
