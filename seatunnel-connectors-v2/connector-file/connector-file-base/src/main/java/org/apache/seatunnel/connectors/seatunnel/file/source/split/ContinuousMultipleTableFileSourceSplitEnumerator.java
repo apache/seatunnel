@@ -149,7 +149,12 @@ public class ContinuousMultipleTableFileSourceSplitEnumerator
                 context.currentParallelism());
 
         scheduler =
-                Executors.newSingleThreadScheduledExecutor(r -> new Thread(r, "file-source-scan"));
+                Executors.newSingleThreadScheduledExecutor(
+                        r -> {
+                            Thread thread = new Thread(r, "file-source-scan");
+                            thread.setDaemon(true);
+                            return thread;
+                        });
         scheduler.scheduleWithFixedDelay(
                 this::safeScanOnce,
                 0L,
@@ -167,6 +172,13 @@ public class ContinuousMultipleTableFileSourceSplitEnumerator
         closed = true;
         if (scheduler != null) {
             scheduler.shutdownNow();
+            try {
+                if (!scheduler.awaitTermination(5, TimeUnit.SECONDS)) {
+                    log.warn("Continuous discovery scheduler does not terminate in 5 seconds.");
+                }
+            } catch (InterruptedException e) {
+                Thread.currentThread().interrupt();
+            }
         }
         for (TableScanContext ctx : tableScanContexts) {
             ctx.close();
@@ -294,23 +306,6 @@ public class ContinuousMultipleTableFileSourceSplitEnumerator
                     scanned,
                     currentUnassignedSplitSize(),
                     inFlightSplits.size());
-        }
-        assignSplitsToRegisteredReaders();
-    }
-
-    private void assignSplitsToRegisteredReaders() {
-        if (currentUnassignedSplitSize() <= 0) {
-            return;
-        }
-        Set<Integer> registeredReaders = context.registeredReaders();
-        if (registeredReaders == null || registeredReaders.isEmpty()) {
-            return;
-        }
-        for (int readerId : registeredReaders) {
-            if (currentUnassignedSplitSize() <= 0) {
-                return;
-            }
-            handleSplitRequest(readerId);
         }
     }
 
