@@ -91,6 +91,7 @@ public class ContinuousMultipleTableFileSourceSplitEnumerator
     private final Object lock = new Object();
     private final Deque<FileSourceSplit> pendingSplits = new ArrayDeque<>();
     private final Set<String> pendingSplitIds = new HashSet<>();
+    private final Set<Integer> readersAwaitingSplit = new HashSet<>();
     // Tracks the latest queued/completed source file version to prevent duplicate re-queue
     // before the target side catches up (e.g. short scan interval with distcp update mode).
     private final Map<String, SplitVersion> knownSplitVersions = new HashMap<>();
@@ -219,6 +220,11 @@ public class ContinuousMultipleTableFileSourceSplitEnumerator
                 inFlightSplits.add(split);
                 assign.add(split);
             }
+            if (assign.isEmpty()) {
+                readersAwaitingSplit.add(subtaskId);
+            } else {
+                readersAwaitingSplit.remove(subtaskId);
+            }
         }
         if (!assign.isEmpty()) {
             context.assignSplit(subtaskId, assign);
@@ -306,6 +312,36 @@ public class ContinuousMultipleTableFileSourceSplitEnumerator
                     scanned,
                     currentUnassignedSplitSize(),
                     inFlightSplits.size());
+        }
+
+        assignSplitsToAwaitingReaders();
+    }
+
+    private void assignSplitsToAwaitingReaders() {
+        if (currentUnassignedSplitSize() <= 0) {
+            return;
+        }
+        Set<Integer> registeredReaders = context.registeredReaders();
+        if (registeredReaders == null || registeredReaders.isEmpty()) {
+            return;
+        }
+
+        Set<Integer> awaitingReaders;
+        synchronized (lock) {
+            if (readersAwaitingSplit.isEmpty()) {
+                return;
+            }
+            awaitingReaders = new HashSet<>(readersAwaitingSplit);
+        }
+
+        for (int readerId : awaitingReaders) {
+            if (!registeredReaders.contains(readerId)) {
+                continue;
+            }
+            if (currentUnassignedSplitSize() <= 0) {
+                return;
+            }
+            handleSplitRequest(readerId);
         }
     }
 
