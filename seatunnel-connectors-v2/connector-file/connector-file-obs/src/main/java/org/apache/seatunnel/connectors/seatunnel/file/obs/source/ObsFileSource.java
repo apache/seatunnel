@@ -18,76 +18,15 @@
 package org.apache.seatunnel.connectors.seatunnel.file.obs.source;
 
 import org.apache.seatunnel.api.configuration.ReadonlyConfig;
-import org.apache.seatunnel.api.options.ConnectorCommonOptions;
-import org.apache.seatunnel.api.table.catalog.CatalogTable;
-import org.apache.seatunnel.api.table.catalog.CatalogTableUtil;
-import org.apache.seatunnel.common.exception.CommonErrorCodeDeprecated;
-import org.apache.seatunnel.connectors.seatunnel.file.config.FileBaseSourceOptions;
-import org.apache.seatunnel.connectors.seatunnel.file.config.FileFormat;
 import org.apache.seatunnel.connectors.seatunnel.file.config.FileSystemType;
-import org.apache.seatunnel.connectors.seatunnel.file.exception.FileConnectorErrorCode;
-import org.apache.seatunnel.connectors.seatunnel.file.exception.FileConnectorException;
 import org.apache.seatunnel.connectors.seatunnel.file.obs.config.ObsConf;
-import org.apache.seatunnel.connectors.seatunnel.file.obs.config.ObsFileBaseOptions;
 import org.apache.seatunnel.connectors.seatunnel.file.source.BaseFileSource;
-
-import java.io.IOException;
 
 public class ObsFileSource extends BaseFileSource {
 
     public ObsFileSource(ReadonlyConfig pluginConfig) {
-        readStrategy = pluginConfig.get(FileBaseSourceOptions.FILE_FORMAT_TYPE).getReadStrategy();
-        readStrategy.setPluginConfig(pluginConfig.toConfig());
-        hadoopConf = ObsConf.buildWithConfig(pluginConfig);
-        readStrategy.init(hadoopConf);
-        String path = pluginConfig.get(ObsFileBaseOptions.FILE_PATH);
-        try {
-            filePaths = readStrategy.getFileNamesByPath(path);
-        } catch (IOException e) {
-            String errorMsg = String.format("Get file list from this path [%s] failed", path);
-            throw new FileConnectorException(
-                    FileConnectorErrorCode.FILE_LIST_GET_FAILED, errorMsg, e);
-        }
-        // support user-defined schema
-        FileFormat fileFormat = pluginConfig.get(FileBaseSourceOptions.FILE_FORMAT_TYPE);
-        // only json text csv type support user-defined schema now
-        if (pluginConfig.getOptional(ConnectorCommonOptions.SCHEMA).isPresent()) {
-            switch (fileFormat) {
-                case CSV:
-                case TEXT:
-                case JSON:
-                case EXCEL:
-                    CatalogTable userDefinedCatalogTable =
-                            CatalogTableUtil.buildWithConfig(pluginConfig);
-                    readStrategy.setCatalogTable(userDefinedCatalogTable);
-                    rowType = readStrategy.getActualSeaTunnelRowTypeInfo();
-                    break;
-                case ORC:
-                case PARQUET:
-                    throw new FileConnectorException(
-                            CommonErrorCodeDeprecated.UNSUPPORTED_OPERATION,
-                            "SeaTunnel does not support user-defined schema for [parquet, orc] files");
-                default:
-                    // never got in there
-                    throw new FileConnectorException(
-                            CommonErrorCodeDeprecated.ILLEGAL_ARGUMENT,
-                            "SeaTunnel does not supported this file format");
-            }
-        } else {
-            if (filePaths.isEmpty()) {
-                // When the directory is empty, distribute default behavior schema
-                rowType = CatalogTableUtil.buildSimpleTextSchema();
-                return;
-            }
-            try {
-                rowType = readStrategy.getSeaTunnelRowTypeInfo(filePaths.get(0));
-            } catch (FileConnectorException e) {
-                String errorMsg =
-                        String.format("Get table schema from file [%s] failed", filePaths.get(0));
-                throw new FileConnectorException(
-                        CommonErrorCodeDeprecated.TABLE_SCHEMA_GET_FAILED, errorMsg, e);
-            }
-        }
+        super(pluginConfig);
+        this.hadoopConf = ObsConf.buildWithConfig(pluginConfig);
     }
 
     @Override

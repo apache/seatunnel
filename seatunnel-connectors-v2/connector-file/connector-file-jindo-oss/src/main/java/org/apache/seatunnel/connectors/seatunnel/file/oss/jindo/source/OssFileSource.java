@@ -18,79 +18,15 @@
 package org.apache.seatunnel.connectors.seatunnel.file.oss.jindo.source;
 
 import org.apache.seatunnel.api.configuration.ReadonlyConfig;
-import org.apache.seatunnel.api.options.ConnectorCommonOptions;
-import org.apache.seatunnel.api.table.catalog.CatalogTable;
-import org.apache.seatunnel.api.table.catalog.CatalogTableUtil;
-import org.apache.seatunnel.common.exception.CommonErrorCodeDeprecated;
-import org.apache.seatunnel.connectors.seatunnel.file.config.FileBaseOptions;
-import org.apache.seatunnel.connectors.seatunnel.file.config.FileBaseSourceOptions;
-import org.apache.seatunnel.connectors.seatunnel.file.config.FileFormat;
 import org.apache.seatunnel.connectors.seatunnel.file.config.FileSystemType;
-import org.apache.seatunnel.connectors.seatunnel.file.exception.FileConnectorErrorCode;
-import org.apache.seatunnel.connectors.seatunnel.file.exception.FileConnectorException;
 import org.apache.seatunnel.connectors.seatunnel.file.oss.jindo.config.OssConf;
-import org.apache.seatunnel.connectors.seatunnel.file.oss.jindo.exception.OssJindoConnectorException;
 import org.apache.seatunnel.connectors.seatunnel.file.source.BaseFileSource;
-
-import java.io.IOException;
 
 public class OssFileSource extends BaseFileSource {
 
     public OssFileSource(ReadonlyConfig pluginConfig) {
-        String path = pluginConfig.get(FileBaseOptions.FILE_PATH);
-        hadoopConf = OssConf.buildWithConfig(pluginConfig);
-        readStrategy = pluginConfig.get(FileBaseSourceOptions.FILE_FORMAT_TYPE).getReadStrategy();
-        readStrategy.setPluginConfig(pluginConfig.toConfig());
-        readStrategy.init(hadoopConf);
-        try {
-            filePaths = readStrategy.getFileNamesByPath(path);
-        } catch (IOException e) {
-            String errorMsg = String.format("Get file list from this path [%s] failed", path);
-            throw new FileConnectorException(
-                    FileConnectorErrorCode.FILE_LIST_GET_FAILED, errorMsg, e);
-        }
-        // support user-defined schema
-        FileFormat fileFormat = pluginConfig.get(FileBaseSourceOptions.FILE_FORMAT_TYPE);
-        // only json text csv type support user-defined schema now
-        if (pluginConfig.getOptional(ConnectorCommonOptions.SCHEMA).isPresent()) {
-            switch (fileFormat) {
-                case CSV:
-                case TEXT:
-                case JSON:
-                case EXCEL:
-                case XML:
-                    CatalogTable userDefinedCatalogTable =
-                            CatalogTableUtil.buildWithConfig(pluginConfig);
-                    readStrategy.setCatalogTable(userDefinedCatalogTable);
-                    rowType = readStrategy.getActualSeaTunnelRowTypeInfo();
-                    break;
-                case ORC:
-                case PARQUET:
-                case BINARY:
-                    throw new OssJindoConnectorException(
-                            CommonErrorCodeDeprecated.UNSUPPORTED_OPERATION,
-                            "SeaTunnel does not support user-defined schema for [parquet, orc, binary] files");
-                default:
-                    // never got in there
-                    throw new OssJindoConnectorException(
-                            CommonErrorCodeDeprecated.UNSUPPORTED_OPERATION,
-                            "SeaTunnel does not supported this file format");
-            }
-        } else {
-            if (filePaths.isEmpty()) {
-                // When the directory is empty, distribute default behavior schema
-                rowType = CatalogTableUtil.buildSimpleTextSchema();
-                return;
-            }
-            try {
-                rowType = readStrategy.getSeaTunnelRowTypeInfo(filePaths.get(0));
-            } catch (FileConnectorException e) {
-                String errorMsg =
-                        String.format("Get table schema from file [%s] failed", filePaths.get(0));
-                throw new FileConnectorException(
-                        CommonErrorCodeDeprecated.TABLE_SCHEMA_GET_FAILED, errorMsg, e);
-            }
-        }
+        super(pluginConfig);
+        this.hadoopConf = OssConf.buildWithConfig(pluginConfig);
     }
 
     @Override

@@ -40,6 +40,7 @@ public class HiveSource extends BaseHdfsFileSource {
     private final MultipleTableHiveSourceConfig multipleTableHiveSourceConfig;
 
     public HiveSource(ReadonlyConfig readonlyConfig) {
+        super(readonlyConfig);
         this.multipleTableHiveSourceConfig = new MultipleTableHiveSourceConfig(readonlyConfig);
     }
 
