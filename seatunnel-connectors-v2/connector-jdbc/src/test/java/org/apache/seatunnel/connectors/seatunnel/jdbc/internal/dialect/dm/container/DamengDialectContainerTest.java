@@ -34,6 +34,7 @@ import java.sql.ResultSet;
 import java.sql.SQLException;
 import java.sql.Statement;
 
+/** Integration tests for {@link DmdbDialect} against a real Dameng database container. */
 @Slf4j
 @DisabledOnOs(OS.WINDOWS)
 public class DamengDialectContainerTest extends AbstractDamengContainerTest {

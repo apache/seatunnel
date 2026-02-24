@@ -22,6 +22,7 @@ import org.apache.seatunnel.connectors.seatunnel.jdbc.catalog.dm.DamengCatalog;
 import org.apache.seatunnel.connectors.seatunnel.jdbc.internal.dialect.DatabaseIdentifier;
 
 import org.junit.jupiter.api.AfterAll;
+import org.junit.jupiter.api.Assumptions;
 import org.junit.jupiter.api.BeforeAll;
 import org.junit.jupiter.api.condition.DisabledOnOs;
 import org.junit.jupiter.api.condition.OS;
@@ -39,8 +40,12 @@ import java.sql.Statement;
 import java.time.Duration;
 
 /**
- * Base class for Dameng (DM8) tests using Testcontainers. Provides a shared DM container for all
- * tests in the same test suite.
+ * Base class for Dameng (DM8) integration tests using Testcontainers.
+ *
+ * <p>Uses the {@code onlyoffice/damengdb:8.1.2} Docker image since official Dameng images require
+ * registration and are not publicly available for automated CI/CD. Tests are disabled on Windows.
+ *
+ * @see <a href="https://hub.docker.com/r/onlyoffice/damengdb">onlyoffice/damengdb on Docker Hub</a>
  */
 @Slf4j
 @DisabledOnOs(OS.WINDOWS)
@@ -59,30 +64,40 @@ public abstract class AbstractDamengContainerTest {
 
     @BeforeAll
     static void startContainer() {
-        DM_CONTAINER =
-                new GenericContainer<>(DockerImageName.parse(DM_IMAGE))
-                        .withExposedPorts(DM_PORT)
-                        .withEnv("PAGE_SIZE", "16")
-                        .withEnv("LD_LIBRARY_PATH", "/opt/dmdbms/bin")
-                        .withEnv("EXTENT_SIZE", "32")
-                        .withEnv("BLANK_PAD_MODE", "1")
-                        .withEnv("LOG_SIZE", "1024")
-                        .withEnv("UNICODE_FLAG", "1")
-                        .withEnv("INSTANCE_NAME", "dm8_test")
-                        .waitingFor(Wait.forLogMessage(".*SYSTEM IS READY.*\\n", 1))
-                        .withStartupTimeout(Duration.ofMinutes(5));
-        DM_CONTAINER.start();
-        log.info(
-                "Dameng container started at: {}:{}",
-                DM_CONTAINER.getHost(),
-                DM_CONTAINER.getMappedPort(DM_PORT));
+        try {
+            DM_CONTAINER =
+                    new GenericContainer<>(DockerImageName.parse(DM_IMAGE))
+                            .withExposedPorts(DM_PORT)
+                            .withEnv("PAGE_SIZE", "16")
+                            .withEnv("LD_LIBRARY_PATH", "/opt/dmdbms/bin")
+                            .withEnv("EXTENT_SIZE", "32")
+                            .withEnv("BLANK_PAD_MODE", "1")
+                            .withEnv("LOG_SIZE", "1024")
+                            .withEnv("UNICODE_FLAG", "1")
+                            .withEnv("INSTANCE_NAME", "dm8_test")
+                            .waitingFor(Wait.forLogMessage(".*SYSTEM IS READY.*\\n", 1))
+                            .withStartupTimeout(Duration.ofMinutes(5));
+            DM_CONTAINER.start();
+            log.info(
+                    "Dameng container started at: {}:{}",
+                    DM_CONTAINER.getHost(),
+                    DM_CONTAINER.getMappedPort(DM_PORT));
+        } catch (Exception e) {
+            log.error("Failed to start Dameng container", e);
+            Assumptions.assumeTrue(
+                    false, "Dameng container not available, skipping integration tests: " + e);
+        }
     }
 
     @AfterAll
     static void stopContainer() {
         if (DM_CONTAINER != null) {
-            DM_CONTAINER.stop();
-            log.info("Dameng container stopped");
+            try {
+                DM_CONTAINER.stop();
+                log.info("Dameng container stopped");
+            } catch (Exception e) {
+                log.warn("Failed to stop Dameng container", e);
+            }
         }
     }
 

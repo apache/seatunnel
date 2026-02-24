@@ -27,6 +27,11 @@ import org.junit.jupiter.api.Test;
 
 import java.util.Optional;
 
+/**
+ * Unit tests for {@link DmdbDialect}. Tests cover SQL generation (UPSERT, INSERT, UPDATE, DELETE,
+ * EXISTS), identifier quoting, default value handling, and converter/mapper instantiation. No
+ * running database required.
+ */
 public class DmdbDialectTest {
     @Test
     public void testIdentifierCaseSensitive() {
@@ -76,6 +81,8 @@ public class DmdbDialectTest {
         Assertions.assertTrue(sql.contains("WHEN NOT MATCHED THEN"));
         Assertions.assertTrue(sql.contains("INSERT"));
 
+        // Note: database name "testdb" is not quoted because DmdbDialect does not override
+        // quoteDatabaseIdentifier(), which returns the identifier as-is by default.
         Assertions.assertEquals(
                 " MERGE INTO testdb.\"users\" TARGET"
                         + " USING (SELECT :id \"id\", :name \"name\", :age \"age\") SOURCE"
@@ -213,6 +220,26 @@ public class DmdbDialectTest {
         BasicTypeDefine<Object> textType =
                 BasicTypeDefine.builder().name("col").dataType("TEXT").build();
         Assertions.assertTrue(dialect.needsQuotesWithDefaultValue(textType));
+
+        BasicTypeDefine<Object> characterType =
+                BasicTypeDefine.builder().name("col").dataType("CHARACTER").build();
+        Assertions.assertTrue(dialect.needsQuotesWithDefaultValue(characterType));
+
+        BasicTypeDefine<Object> varchar2Type =
+                BasicTypeDefine.builder().name("col").dataType("VARCHAR2").build();
+        Assertions.assertTrue(dialect.needsQuotesWithDefaultValue(varchar2Type));
+
+        BasicTypeDefine<Object> nvarcharType =
+                BasicTypeDefine.builder().name("col").dataType("NVARCHAR").build();
+        Assertions.assertTrue(dialect.needsQuotesWithDefaultValue(nvarcharType));
+
+        BasicTypeDefine<Object> longvarcharType =
+                BasicTypeDefine.builder().name("col").dataType("LONGVARCHAR").build();
+        Assertions.assertTrue(dialect.needsQuotesWithDefaultValue(longvarcharType));
+
+        BasicTypeDefine<Object> longType =
+                BasicTypeDefine.builder().name("col").dataType("LONG").build();
+        Assertions.assertTrue(dialect.needsQuotesWithDefaultValue(longType));
 
         // Numeric types do not need quotes
         BasicTypeDefine<Object> intType =

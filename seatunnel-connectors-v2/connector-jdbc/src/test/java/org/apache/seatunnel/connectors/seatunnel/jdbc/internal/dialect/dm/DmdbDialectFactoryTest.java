@@ -23,6 +23,10 @@ import org.apache.seatunnel.connectors.seatunnel.jdbc.internal.dialect.dialecten
 import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.Test;
 
+/**
+ * Unit tests for {@link DmdbDialectFactory}. Tests cover factory name, URL acceptance, and dialect
+ * creation.
+ */
 public class DmdbDialectFactoryTest {
 
     @Test
@@ -37,10 +41,15 @@ public class DmdbDialectFactoryTest {
 
         Assertions.assertTrue(factory.acceptsURL("jdbc:dm://localhost:5236"));
         Assertions.assertTrue(factory.acceptsURL("jdbc:dm:localhost:5236"));
+        Assertions.assertTrue(factory.acceptsURL("jdbc:dm://localhost:5236?param=value"));
 
         Assertions.assertFalse(factory.acceptsURL("jdbc:mysql://localhost:3306"));
         Assertions.assertFalse(factory.acceptsURL("jdbc:postgresql://localhost:5432"));
         Assertions.assertFalse(factory.acceptsURL("jdbc:oracle:thin:@localhost:1521"));
+
+        // Edge cases
+        Assertions.assertFalse(factory.acceptsURL(""));
+        Assertions.assertFalse(factory.acceptsURL("jdbc:dm"));
     }
 
     @Test
