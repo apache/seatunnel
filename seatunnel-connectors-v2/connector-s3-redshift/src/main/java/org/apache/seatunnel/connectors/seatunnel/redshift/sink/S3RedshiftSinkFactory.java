@@ -31,7 +31,7 @@ import org.apache.seatunnel.connectors.seatunnel.redshift.config.S3RedshiftConfi
 import com.google.auto.service.AutoService;
 
 @AutoService(Factory.class)
-public class S3RedshiftFactory implements TableSinkFactory {
+public class S3RedshiftSinkFactory implements TableSinkFactory {
 
     @Override
     public String factoryIdentifier() {
