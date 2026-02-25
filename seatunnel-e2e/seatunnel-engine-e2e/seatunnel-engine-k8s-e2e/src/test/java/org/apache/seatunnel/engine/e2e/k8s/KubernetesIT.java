@@ -92,7 +92,7 @@ public class KubernetesIT {
         Info info = dockerClient.infoCmd().exec();
         log.info("Docker's environmental information");
         log.info(info.toString());
-        if (dockerClient.listImagesCmd().withImageNameFilter(tag).exec().isEmpty()) {
+        if (dockerClient.listImagesCmd().withReferenceFilter(tag).exec().isEmpty()) {
             log.info("Image {} not found, build it", tag);
             copyFileToCurrentResources(hazelCastConfigFile, targetPath);
             File file =
