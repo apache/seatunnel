@@ -5,11 +5,6 @@ title: Architecture Overview
 
 # SeaTunnel Architecture Overview
 
-> Note: To minimize maintenance overhead and avoid “documentation-code drift” as the codebase evolves,
-> this documentation focuses on component responsibilities, interaction flows, and design motivations.
-> Any code snippets are illustrative (not authoritative), and the definitive behavior should be verified
-> against the current implementation.
-
 ## 1. Introduction
 
 ### 1.1 Design Goals
@@ -453,8 +448,6 @@ For practical guides:
 - [Quick Start](../getting-started/locally/quick-start-seatunnel-engine.md)
 
 ## 10. References
-
-This chapter intentionally avoids listing specific source file paths to reduce maintenance burden.
 
 ### 10.1 Related Concepts
 
