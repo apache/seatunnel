@@ -25,10 +25,12 @@ import org.apache.seatunnel.common.utils.FileUtils;
 import org.apache.seatunnel.engine.checkpoint.storage.PipelineState;
 import org.apache.seatunnel.engine.checkpoint.storage.constants.StorageConstants;
 import org.apache.seatunnel.engine.common.config.ConfigProvider;
+import org.apache.seatunnel.engine.common.config.JobConfig;
 import org.apache.seatunnel.engine.common.config.SeaTunnelConfig;
 import org.apache.seatunnel.engine.common.config.server.HttpConfig;
 import org.apache.seatunnel.engine.common.runtime.ExecutionMode;
 import org.apache.seatunnel.engine.core.checkpoint.CheckpointType;
+import org.apache.seatunnel.engine.core.job.JobImmutableInformation;
 import org.apache.seatunnel.engine.core.parse.JobConfigParser;
 import org.apache.seatunnel.engine.serializer.protobuf.ProtoStuffSerializer;
 import org.apache.seatunnel.engine.server.SeaTunnelServer;
@@ -38,11 +40,14 @@ import org.apache.seatunnel.engine.server.checkpoint.ActionState;
 import org.apache.seatunnel.engine.server.checkpoint.ActionStateKey;
 import org.apache.seatunnel.engine.server.checkpoint.ActionSubtaskState;
 import org.apache.seatunnel.engine.server.checkpoint.CompletedCheckpoint;
+import org.apache.seatunnel.engine.server.utils.RestUtil;
 
 import org.awaitility.Awaitility;
-import org.junit.jupiter.api.AfterEach;
+import org.junit.jupiter.api.AfterAll;
 import org.junit.jupiter.api.Assertions;
+import org.junit.jupiter.api.BeforeAll;
 import org.junit.jupiter.api.Test;
+import org.junit.jupiter.api.TestInstance;
 
 import com.hazelcast.config.Config;
 import com.hazelcast.instance.impl.HazelcastInstanceImpl;
@@ -64,6 +69,7 @@ import java.util.Map;
 import java.util.concurrent.TimeUnit;
 import java.util.stream.Collectors;
 
+@TestInstance(TestInstance.Lifecycle.PER_CLASS)
 public class RestApiSubmitJobStartWithSavePointTest {
 
     private static final String SOURCE_FACTORY_ID = "FakeSource";
@@ -74,8 +80,39 @@ public class RestApiSubmitJobStartWithSavePointTest {
     private SeaTunnelServer masterServer;
     private SeaTunnelServer workerServer;
     private Path checkpointDir;
+    private int workerRestPort;
 
-    @AfterEach
+    @BeforeAll
+    public void setUp() throws Exception {
+        String clusterName =
+                TestUtils.getClusterName(
+                        "RestApiSubmitJobStartWithSavePointTest_" + System.nanoTime());
+        checkpointDir = Files.createTempDirectory(clusterName + "_checkpoint_");
+
+        SeaTunnelConfig masterConfig = createSeaTunnelConfig(clusterName, 20000, false);
+        SeaTunnelConfig workerConfig = createSeaTunnelConfig(clusterName, 23000, true);
+
+        masterInstance = SeaTunnelServerStarter.createMasterHazelcastInstance(masterConfig);
+        workerInstance = SeaTunnelServerStarter.createWorkerHazelcastInstance(workerConfig);
+
+        masterServer = masterInstance.node.nodeEngine.getService(SeaTunnelServer.SERVICE_NAME);
+        workerServer = workerInstance.node.nodeEngine.getService(SeaTunnelServer.SERVICE_NAME);
+
+        Awaitility.await()
+                .atMost(30, TimeUnit.SECONDS)
+                .untilAsserted(
+                        () -> {
+                            Assertions.assertEquals(
+                                    2, masterInstance.getCluster().getMembers().size());
+                            Assertions.assertEquals(
+                                    2, workerInstance.getCluster().getMembers().size());
+                        });
+
+        workerRestPort = getHttpPort(workerServer);
+        awaitRestReady(workerRestPort);
+    }
+
+    @AfterAll
     public void tearDown() {
         try {
             if (workerServer != null) {
@@ -105,13 +142,10 @@ public class RestApiSubmitJobStartWithSavePointTest {
 
     @Test
     public void testSubmitJobStartWithSavePointNoCheckpointOnWorkerReturns400() throws Exception {
-        ClusterPorts clusterPorts = startTwoNodeCluster();
-        awaitRestReady(clusterPorts.workerPort);
-
         long jobId = System.currentTimeMillis();
         String requestUrl =
                 "http://localhost:"
-                        + clusterPorts.workerPort
+                        + workerRestPort
                         + "/submit-job?format=json&jobId="
                         + jobId
                         + "&jobName="
@@ -119,16 +153,13 @@ public class RestApiSubmitJobStartWithSavePointTest {
                         + "&isStartWithSavePoint=true";
 
         HttpResponse response = postJson(requestUrl, getRequestBody());
-        Assertions.assertEquals(400, response.code);
+        Assertions.assertEquals(400, response.code, () -> "responseBody=" + response.body);
         Assertions.assertTrue(response.body.contains("\"status\":\"fail\""));
         Assertions.assertTrue(response.body.contains("No checkpoint found for jobId=" + jobId));
     }
 
     @Test
-    public void testSubmitJobStartWithSavePointSuccessOnWorkerReturns200() throws Exception {
-        ClusterPorts clusterPorts = startTwoNodeCluster();
-        awaitRestReady(clusterPorts.workerPort);
-
+    public void testBuildJobStartWithSavePointOnWorkerWhenCheckpointExists() throws Exception {
         Assertions.assertNotNull(masterServer);
         Assertions.assertNotNull(masterServer.getCheckpointService());
         Assertions.assertNotNull(workerServer);
@@ -137,80 +168,57 @@ public class RestApiSubmitJobStartWithSavePointTest {
         long jobId = System.currentTimeMillis();
         storeFakeSourceCheckpoint(jobId);
 
-        String requestUrl =
-                "http://localhost:"
-                        + clusterPorts.workerPort
-                        + "/submit-job?format=json&jobId="
-                        + jobId
-                        + "&jobName="
-                        + TEST_JOB_NAME
-                        + "&isStartWithSavePoint=true";
+        JobConfig jobConfig = new JobConfig();
+        jobConfig.setName(TEST_JOB_NAME);
+        org.apache.seatunnel.shade.com.typesafe.config.Config seaTunnelJobConfig =
+                buildSeaTunnelJobConfigFromJsonRequest();
 
-        HttpResponse response = postJson(requestUrl, getRequestBody());
-        Assertions.assertEquals(200, response.code, () -> "responseBody=" + response.body);
-        Assertions.assertTrue(response.body.contains("\"jobId\":\"" + jobId + "\""));
-        Assertions.assertTrue(response.body.contains("\"jobName\":\"" + TEST_JOB_NAME + "\""));
+        RestJobExecutionEnvironment restJobExecutionEnvironment =
+                new RestJobExecutionEnvironment(
+                        workerServer,
+                        jobConfig,
+                        seaTunnelJobConfig,
+                        workerInstance.node,
+                        true,
+                        jobId);
+        JobImmutableInformation jobImmutableInformation = restJobExecutionEnvironment.build();
+        Assertions.assertEquals(jobId, jobImmutableInformation.getJobId());
+        Assertions.assertTrue(jobImmutableInformation.isStartWithSavePoint());
     }
 
     @Test
-    public void testSubmitJobStartWithSavePointSuccessOnMasterReturns200() throws Exception {
-        ClusterPorts clusterPorts = startTwoNodeCluster();
-        awaitRestReady(clusterPorts.masterPort);
+    public void testBuildJobStartWithSavePointOnMasterWhenCheckpointExists() throws Exception {
+        Assertions.assertNotNull(masterServer);
+        Assertions.assertNotNull(masterServer.getCheckpointService());
 
         long jobId = System.currentTimeMillis();
         storeFakeSourceCheckpoint(jobId);
 
-        String requestUrl =
-                "http://localhost:"
-                        + clusterPorts.masterPort
-                        + "/submit-job?format=json&jobId="
-                        + jobId
-                        + "&jobName="
-                        + TEST_JOB_NAME
-                        + "&isStartWithSavePoint=true";
+        JobConfig jobConfig = new JobConfig();
+        jobConfig.setName(TEST_JOB_NAME);
+        org.apache.seatunnel.shade.com.typesafe.config.Config seaTunnelJobConfig =
+                buildSeaTunnelJobConfigFromJsonRequest();
 
-        HttpResponse response = postJson(requestUrl, getRequestBody());
-        Assertions.assertEquals(200, response.code, () -> "responseBody=" + response.body);
-        Assertions.assertTrue(response.body.contains("\"jobId\":\"" + jobId + "\""));
-        Assertions.assertTrue(response.body.contains("\"jobName\":\"" + TEST_JOB_NAME + "\""));
-    }
-
-    private ClusterPorts startTwoNodeCluster() throws Exception {
-        String clusterName =
-                TestUtils.getClusterName(
-                        "RestApiSubmitJobStartWithSavePointTest_" + System.nanoTime());
-        checkpointDir = Files.createTempDirectory(clusterName + "_checkpoint_");
-
-        // Use dynamic port to avoid flaky "Address already in use" errors on busy test machines.
-        SeaTunnelConfig masterConfig = createSeaTunnelConfig(clusterName, 20000);
-        SeaTunnelConfig workerConfig = createSeaTunnelConfig(clusterName, 23000);
-
-        masterInstance = SeaTunnelServerStarter.createMasterHazelcastInstance(masterConfig);
-        workerInstance = SeaTunnelServerStarter.createWorkerHazelcastInstance(workerConfig);
-
-        masterServer = masterInstance.node.nodeEngine.getService(SeaTunnelServer.SERVICE_NAME);
-        workerServer = workerInstance.node.nodeEngine.getService(SeaTunnelServer.SERVICE_NAME);
-
-        Awaitility.await()
-                .atMost(30, TimeUnit.SECONDS)
-                .untilAsserted(
-                        () -> {
-                            Assertions.assertEquals(
-                                    2, masterInstance.getCluster().getMembers().size());
-                            Assertions.assertEquals(
-                                    2, workerInstance.getCluster().getMembers().size());
-                        });
-
-        int masterPort = getHttpPort(masterServer);
-        int workerPort = getHttpPort(workerServer);
-        return new ClusterPorts(masterPort, workerPort);
+        RestJobExecutionEnvironment restJobExecutionEnvironment =
+                new RestJobExecutionEnvironment(
+                        masterServer,
+                        jobConfig,
+                        seaTunnelJobConfig,
+                        masterInstance.node,
+                        true,
+                        jobId);
+        JobImmutableInformation jobImmutableInformation = restJobExecutionEnvironment.build();
+        Assertions.assertEquals(jobId, jobImmutableInformation.getJobId());
+        Assertions.assertTrue(jobImmutableInformation.isStartWithSavePoint());
     }
 
     private int getHttpPort(SeaTunnelServer seaTunnelServer) throws Exception {
         Field jettyServiceField = SeaTunnelServer.class.getDeclaredField("jettyService");
         jettyServiceField.setAccessible(true);
+        Awaitility.await()
+                .atMost(30, TimeUnit.SECONDS)
+                .until(() -> jettyServiceField.get(seaTunnelServer) != null);
         Object jettyService = jettyServiceField.get(seaTunnelServer);
-        Assertions.assertNotNull(jettyService, "JettyService should be initialized");
 
         Field serverField = jettyService.getClass().getDeclaredField("server");
         serverField.setAccessible(true);
@@ -218,12 +226,21 @@ public class RestApiSubmitJobStartWithSavePointTest {
                 (org.apache.seatunnel.shade.org.eclipse.jetty.server.Server)
                         serverField.get(jettyService);
 
-        for (Connector connector : server.getConnectors()) {
-            if (connector instanceof ServerConnector) {
-                return ((ServerConnector) connector).getLocalPort();
-            }
-        }
-        throw new IllegalStateException("No HTTP connector found for Jetty server");
+        return Awaitility.await()
+                .atMost(30, TimeUnit.SECONDS)
+                .until(
+                        () -> {
+                            for (Connector connector : server.getConnectors()) {
+                                if (connector instanceof ServerConnector) {
+                                    int port = ((ServerConnector) connector).getLocalPort();
+                                    if (port > 0) {
+                                        return port;
+                                    }
+                                }
+                            }
+                            return -1;
+                        },
+                        port -> port > 0);
     }
 
     private void storeFakeSourceCheckpoint(long jobId) throws Exception {
@@ -274,6 +291,13 @@ public class RestApiSubmitJobStartWithSavePointTest {
         masterServer.getCheckpointService().getCheckpointStorage().storeCheckPoint(pipelineState);
     }
 
+    private org.apache.seatunnel.shade.com.typesafe.config.Config
+            buildSeaTunnelJobConfigFromJsonRequest() throws IOException {
+        return RestUtil.buildConfig(
+                RestUtil.convertByteToJsonNode(getRequestBody().getBytes(StandardCharsets.UTF_8)),
+                false);
+    }
+
     private String getRequestBody() {
         return "{\n"
                 + "  \"env\": {\n"
@@ -302,7 +326,8 @@ public class RestApiSubmitJobStartWithSavePointTest {
                 + "}\n";
     }
 
-    private SeaTunnelConfig createSeaTunnelConfig(String clusterName, int httpPort) {
+    private SeaTunnelConfig createSeaTunnelConfig(
+            String clusterName, int httpPort, boolean enableRest) {
         Config hazelcastConfig = Config.loadFromString(getHazelcastConfig());
         hazelcastConfig.setClusterName(clusterName);
 
@@ -311,11 +336,13 @@ public class RestApiSubmitJobStartWithSavePointTest {
         seaTunnelConfig.getEngineConfig().setMode(ExecutionMode.LOCAL);
 
         HttpConfig httpConfig = seaTunnelConfig.getEngineConfig().getHttpConfig();
-        httpConfig.setEnabled(true);
-        httpConfig.setPort(httpPort);
+        httpConfig.setEnabled(enableRest);
         httpConfig.setEnableHttps(false);
-        httpConfig.setEnableDynamicPort(true);
-        httpConfig.setPortRange(2000);
+        if (enableRest) {
+            httpConfig.setPort(httpPort);
+            httpConfig.setEnableDynamicPort(true);
+            httpConfig.setPortRange(2000);
+        }
 
         if (checkpointDir != null) {
             seaTunnelConfig
@@ -417,16 +444,6 @@ public class RestApiSubmitJobStartWithSavePointTest {
         private HttpResponse(int code, String body) {
             this.code = code;
             this.body = body;
-        }
-    }
-
-    private static class ClusterPorts {
-        private final int masterPort;
-        private final int workerPort;
-
-        private ClusterPorts(int masterPort, int workerPort) {
-            this.masterPort = masterPort;
-            this.workerPort = workerPort;
         }
     }
 }

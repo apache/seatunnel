@@ -35,7 +35,6 @@ import org.apache.seatunnel.engine.server.operation.GetJobCheckpointOperation;
 import org.apache.seatunnel.engine.server.utils.NodeEngineUtil;
 
 import com.hazelcast.instance.impl.Node;
-import com.hazelcast.internal.serialization.Data;
 import com.hazelcast.spi.impl.NodeEngineImpl;
 
 import java.net.URL;
@@ -127,12 +126,15 @@ public class RestJobExecutionEnvironment extends AbstractJobEnvironment {
         }
 
         try {
-            Data response =
-                    (Data)
-                            NodeEngineUtil.sendOperationToMasterNode(
-                                            nodeEngine, new GetJobCheckpointOperation(jobId))
-                                    .join();
-            return nodeEngine.getSerializationService().toObject(response);
+            Object response =
+                    NodeEngineUtil.sendOperationToMasterNode(
+                                    nodeEngine, new GetJobCheckpointOperation(jobId))
+                            .join();
+            if (response == null) {
+                return Collections.emptyList();
+            }
+            return (List<JobPipelineCheckpointData>)
+                    nodeEngine.getSerializationService().toObject(response);
         } catch (Exception e) {
             throw new IllegalStateException(
                     "Failed to get checkpoint data from master node, jobId="
