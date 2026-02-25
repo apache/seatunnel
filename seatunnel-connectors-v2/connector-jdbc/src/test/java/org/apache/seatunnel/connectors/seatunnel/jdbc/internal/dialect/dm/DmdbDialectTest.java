@@ -274,4 +274,70 @@ public class DmdbDialectTest {
         Assertions.assertEquals(
                 "DmdbTypeMapper", dialect.getJdbcDialectTypeMapper().getClass().getSimpleName());
     }
+
+    // ==================== CATALOG RELATED TESTS ====================
+
+    @Test
+    public void testParseCatalog() {
+        DmdbDialect dialect = new DmdbDialect(FieldIdeEnum.ORIGINAL.getValue());
+
+        // schemaFirst=true: "schema.table" -> schema=schema, table=table
+        TablePath path = dialect.parse("SYSDBA.users");
+        Assertions.assertNull(path.getDatabaseName());
+        Assertions.assertEquals("SYSDBA", path.getSchemaName());
+        Assertions.assertEquals("users", path.getTableName());
+
+        // Three-part: "db.schema.table"
+        TablePath fullPath = dialect.parse("DAMENG.SYSDBA.users");
+        Assertions.assertEquals("DAMENG", fullPath.getDatabaseName());
+        Assertions.assertEquals("SYSDBA", fullPath.getSchemaName());
+        Assertions.assertEquals("users", fullPath.getTableName());
+
+        // Single part: just table name
+        TablePath simplePath = dialect.parse("users");
+        Assertions.assertNull(simplePath.getDatabaseName());
+        Assertions.assertNull(simplePath.getSchemaName());
+        Assertions.assertEquals("users", simplePath.getTableName());
+    }
+
+    @Test
+    public void testExtractCatalogTableName() {
+        DmdbDialect dialect = new DmdbDialect(FieldIdeEnum.ORIGINAL.getValue());
+
+        // With schema: returns "schema.table"
+        TablePath pathWithSchema = TablePath.of(null, "SYSDBA", "users");
+        Assertions.assertEquals("SYSDBA.users", dialect.extractTableName(pathWithSchema));
+
+        // Without schema: returns just table name
+        TablePath pathNoSchema = TablePath.of(null, null, "users");
+        Assertions.assertEquals("users", dialect.extractTableName(pathNoSchema));
+    }
+
+    @Test
+    public void testCatalogTableIdentifierWithTablePath() {
+        DmdbDialect dialect = new DmdbDialect(FieldIdeEnum.ORIGINAL.getValue());
+
+        // With schema: returns quoted "schema"."table"
+        TablePath pathWithSchema = TablePath.of(null, "SYSDBA", "users");
+        Assertions.assertEquals("\"SYSDBA\".\"users\"", dialect.tableIdentifier(pathWithSchema));
+
+        // Without schema: returns just quoted table
+        TablePath pathNoSchema = TablePath.of(null, null, "users");
+        Assertions.assertEquals("\"users\"", dialect.tableIdentifier(pathNoSchema));
+    }
+
+    @Test
+    public void testTableIdentifierWithDatabaseAndTableName() {
+        DmdbDialect dialect = new DmdbDialect(FieldIdeEnum.ORIGINAL.getValue());
+
+        // Normal case: database + table -> database."table"
+        Assertions.assertEquals("testdb.\"users\"", dialect.tableIdentifier("testdb", "users"));
+
+        // Null database: returns quoted table only
+        Assertions.assertEquals("\"users\"", dialect.tableIdentifier(null, "users"));
+
+        // Table name contains dot (schema.table): quotes each part, ignores database
+        Assertions.assertEquals(
+                "\"SYSDBA\".\"users\"", dialect.tableIdentifier("testdb", "SYSDBA.users"));
+    }
 }
