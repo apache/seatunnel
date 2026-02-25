@@ -207,8 +207,8 @@ sink { Elasticsearch { } }
 **示例 2: 多个数据源**:
 ```hocon
 source {
-  JDBC { result_table_name = "orders" }
-  Kafka { result_table_name = "events" }
+  JDBC { plugin_output = "orders" }
+  Kafka { plugin_output = "events" }
 }
 
 transform {
@@ -233,8 +233,8 @@ source {
 }
 
 sink {
-  Elasticsearch { source_table_name = "MySQL-CDC" }
-  JDBC { source_table_name = "MySQL-CDC" }
+  Elasticsearch { plugin_input = "MySQL-CDC" }
+  JDBC { plugin_input = "MySQL-CDC" }
 }
 ```
 
