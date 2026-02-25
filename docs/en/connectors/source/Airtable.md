@@ -41,8 +41,8 @@ Used to read data from Airtable.
 | rate_limit_max_retries      | int     | No       | 3             |
 | schema                      | Config  | No       | -             |
 | schema.fields               | Config  | No       | -             |
-| format                      | String  | No       | json          |
-| content_json                | String  | No       | -             |
+| format                      | String  | No       | text          |
+| content_field               | String  | No       | -             |
 | json_field                  | Config  | No       | -             |
 | common-options              | config  | No       | -             |
 
@@ -126,9 +126,9 @@ The schema fields of upstream data. For more details, please refer to [Schema Fe
 
 ### format [String]
 
-The format of upstream data, supports `json` and `text`, default `json`.
+The format of upstream data, supports `json` and `text`, default `text`.
 
-### content_json [String]
+### content_field [String]
 
 JsonPath expression to extract data from the response. For Airtable, you typically use `$.records[*].fields` to extract the fields from each record.
 

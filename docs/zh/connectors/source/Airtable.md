@@ -41,8 +41,8 @@ import ChangeLog from '../changelog/connector-http-airtable.md';
 | rate_limit_max_retries      | int     | 否 | 3             |
 | schema                      | Config  | 否 | -             |
 | schema.fields               | Config  | 否 | -             |
-| format                      | String  | 否 | json          |
-| content_json                | String  | 否 | -             |
+| format                      | String  | 否 | text          |
+| content_field               | String  | 否 | -             |
 | json_field                  | Config  | 否 | -             |
 | common-options              | config  | 否 | -             |
 
@@ -126,9 +126,9 @@ API 请求之间的最小间隔（毫秒），默认 220ms（以保持在 Airtab
 
 ### format [String]
 
-上游数据的格式，支持 `json` 和 `text`，默认 `json`。
+上游数据的格式，支持 `json` 和 `text`，默认 `text`。
 
-### content_json [String]
+### content_field [String]
 
 用于从响应中提取数据的 JsonPath 表达式。对于 Airtable，通常使用 `$.records[*].fields` 来提取每条记录的字段。
 
