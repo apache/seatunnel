@@ -17,15 +17,27 @@
 
 package org.apache.seatunnel.engine.server.rest;
 
+import org.apache.seatunnel.shade.org.eclipse.jetty.server.Connector;
+import org.apache.seatunnel.shade.org.eclipse.jetty.server.ServerConnector;
+
 import org.apache.seatunnel.common.utils.ExceptionUtils;
 import org.apache.seatunnel.common.utils.FileUtils;
+import org.apache.seatunnel.engine.checkpoint.storage.PipelineState;
+import org.apache.seatunnel.engine.checkpoint.storage.constants.StorageConstants;
 import org.apache.seatunnel.engine.common.config.ConfigProvider;
 import org.apache.seatunnel.engine.common.config.SeaTunnelConfig;
 import org.apache.seatunnel.engine.common.config.server.HttpConfig;
 import org.apache.seatunnel.engine.common.runtime.ExecutionMode;
+import org.apache.seatunnel.engine.core.checkpoint.CheckpointType;
+import org.apache.seatunnel.engine.core.parse.JobConfigParser;
+import org.apache.seatunnel.engine.serializer.protobuf.ProtoStuffSerializer;
 import org.apache.seatunnel.engine.server.SeaTunnelServer;
 import org.apache.seatunnel.engine.server.SeaTunnelServerStarter;
 import org.apache.seatunnel.engine.server.TestUtils;
+import org.apache.seatunnel.engine.server.checkpoint.ActionState;
+import org.apache.seatunnel.engine.server.checkpoint.ActionStateKey;
+import org.apache.seatunnel.engine.server.checkpoint.ActionSubtaskState;
+import org.apache.seatunnel.engine.server.checkpoint.CompletedCheckpoint;
 
 import org.awaitility.Awaitility;
 import org.junit.jupiter.api.AfterEach;
@@ -39,21 +51,29 @@ import java.io.BufferedReader;
 import java.io.IOException;
 import java.io.InputStreamReader;
 import java.io.OutputStream;
+import java.lang.reflect.Field;
 import java.net.HttpURLConnection;
-import java.net.ServerSocket;
 import java.net.URL;
 import java.nio.charset.StandardCharsets;
+import java.nio.file.Files;
 import java.nio.file.Path;
 import java.nio.file.Paths;
+import java.util.Collections;
+import java.util.HashMap;
+import java.util.Map;
 import java.util.concurrent.TimeUnit;
 import java.util.stream.Collectors;
 
 public class RestApiSubmitJobStartWithSavePointTest {
 
+    private static final String SOURCE_FACTORY_ID = "FakeSource";
+    private static final String TEST_JOB_NAME = "test";
+
     private HazelcastInstanceImpl masterInstance;
     private HazelcastInstanceImpl workerInstance;
     private SeaTunnelServer masterServer;
     private SeaTunnelServer workerServer;
+    private Path checkpointDir;
 
     @AfterEach
     public void tearDown() {
@@ -71,6 +91,10 @@ public class RestApiSubmitJobStartWithSavePointTest {
                 masterInstance.shutdown();
             }
 
+            if (checkpointDir != null) {
+                FileUtils.deleteFile(checkpointDir.toString());
+            }
+
             Path logPath = Paths.get("logs");
             FileUtils.deleteFile(logPath.toString());
         } catch (Exception e) {
@@ -81,15 +105,85 @@ public class RestApiSubmitJobStartWithSavePointTest {
 
     @Test
     public void testSubmitJobStartWithSavePointNoCheckpointOnWorkerReturns400() throws Exception {
-        String testClassName = this.getClass().getSimpleName();
+        ClusterPorts clusterPorts = startTwoNodeCluster();
+        awaitRestReady(clusterPorts.workerPort);
+
+        long jobId = System.currentTimeMillis();
+        String requestUrl =
+                "http://localhost:"
+                        + clusterPorts.workerPort
+                        + "/submit-job?format=json&jobId="
+                        + jobId
+                        + "&jobName="
+                        + TEST_JOB_NAME
+                        + "&isStartWithSavePoint=true";
+
+        HttpResponse response = postJson(requestUrl, getRequestBody());
+        Assertions.assertEquals(400, response.code);
+        Assertions.assertTrue(response.body.contains("\"status\":\"fail\""));
+        Assertions.assertTrue(response.body.contains("No checkpoint found for jobId=" + jobId));
+    }
+
+    @Test
+    public void testSubmitJobStartWithSavePointSuccessOnWorkerReturns200() throws Exception {
+        ClusterPorts clusterPorts = startTwoNodeCluster();
+        awaitRestReady(clusterPorts.workerPort);
+
+        Assertions.assertNotNull(masterServer);
+        Assertions.assertNotNull(masterServer.getCheckpointService());
+        Assertions.assertNotNull(workerServer);
+        Assertions.assertNull(workerServer.getCheckpointService());
+
+        long jobId = System.currentTimeMillis();
+        storeFakeSourceCheckpoint(jobId);
+
+        String requestUrl =
+                "http://localhost:"
+                        + clusterPorts.workerPort
+                        + "/submit-job?format=json&jobId="
+                        + jobId
+                        + "&jobName="
+                        + TEST_JOB_NAME
+                        + "&isStartWithSavePoint=true";
+
+        HttpResponse response = postJson(requestUrl, getRequestBody());
+        Assertions.assertEquals(200, response.code, () -> "responseBody=" + response.body);
+        Assertions.assertTrue(response.body.contains("\"jobId\":\"" + jobId + "\""));
+        Assertions.assertTrue(response.body.contains("\"jobName\":\"" + TEST_JOB_NAME + "\""));
+    }
+
+    @Test
+    public void testSubmitJobStartWithSavePointSuccessOnMasterReturns200() throws Exception {
+        ClusterPorts clusterPorts = startTwoNodeCluster();
+        awaitRestReady(clusterPorts.masterPort);
+
+        long jobId = System.currentTimeMillis();
+        storeFakeSourceCheckpoint(jobId);
+
+        String requestUrl =
+                "http://localhost:"
+                        + clusterPorts.masterPort
+                        + "/submit-job?format=json&jobId="
+                        + jobId
+                        + "&jobName="
+                        + TEST_JOB_NAME
+                        + "&isStartWithSavePoint=true";
+
+        HttpResponse response = postJson(requestUrl, getRequestBody());
+        Assertions.assertEquals(200, response.code, () -> "responseBody=" + response.body);
+        Assertions.assertTrue(response.body.contains("\"jobId\":\"" + jobId + "\""));
+        Assertions.assertTrue(response.body.contains("\"jobName\":\"" + TEST_JOB_NAME + "\""));
+    }
+
+    private ClusterPorts startTwoNodeCluster() throws Exception {
         String clusterName =
-                TestUtils.getClusterName("RestApiSubmitJobStartWithSavePointTest_" + testClassName);
+                TestUtils.getClusterName(
+                        "RestApiSubmitJobStartWithSavePointTest_" + System.nanoTime());
+        checkpointDir = Files.createTempDirectory(clusterName + "_checkpoint_");
 
-        int masterPort = findFreePort();
-        int workerPort = findFreePortExcluding(masterPort);
-
-        SeaTunnelConfig masterConfig = createSeaTunnelConfig(clusterName, masterPort);
-        SeaTunnelConfig workerConfig = createSeaTunnelConfig(clusterName, workerPort);
+        // Use dynamic port to avoid flaky "Address already in use" errors on busy test machines.
+        SeaTunnelConfig masterConfig = createSeaTunnelConfig(clusterName, 20000);
+        SeaTunnelConfig workerConfig = createSeaTunnelConfig(clusterName, 23000);
 
         masterInstance = SeaTunnelServerStarter.createMasterHazelcastInstance(masterConfig);
         workerInstance = SeaTunnelServerStarter.createWorkerHazelcastInstance(workerConfig);
@@ -107,47 +201,105 @@ public class RestApiSubmitJobStartWithSavePointTest {
                                     2, workerInstance.getCluster().getMembers().size());
                         });
 
-        awaitRestReady(workerPort);
+        int masterPort = getHttpPort(masterServer);
+        int workerPort = getHttpPort(workerServer);
+        return new ClusterPorts(masterPort, workerPort);
+    }
 
-        long jobId = System.currentTimeMillis();
-        String requestUrl =
-                "http://localhost:"
-                        + workerPort
-                        + "/submit-job?format=json&jobId="
-                        + jobId
-                        + "&jobName=test&isStartWithSavePoint=true";
+    private int getHttpPort(SeaTunnelServer seaTunnelServer) throws Exception {
+        Field jettyServiceField = SeaTunnelServer.class.getDeclaredField("jettyService");
+        jettyServiceField.setAccessible(true);
+        Object jettyService = jettyServiceField.get(seaTunnelServer);
+        Assertions.assertNotNull(jettyService, "JettyService should be initialized");
 
-        String requestBody =
-                "{\n"
-                        + "  \"env\": {\n"
-                        + "    \"job.mode\": \"BATCH\",\n"
-                        + "    \"job.name\": \"rest_api_test\"\n"
-                        + "  },\n"
-                        + "  \"source\": [\n"
-                        + "    {\n"
-                        + "      \"plugin_name\": \"FakeSource\",\n"
-                        + "      \"plugin_output\": \"fake\",\n"
-                        + "      \"row.num\": 1,\n"
-                        + "      \"schema\": {\n"
-                        + "        \"fields\": {\n"
-                        + "          \"name\": \"string\"\n"
-                        + "        }\n"
-                        + "      }\n"
-                        + "    }\n"
-                        + "  ],\n"
-                        + "  \"transform\": [],\n"
-                        + "  \"sink\": [\n"
-                        + "    {\n"
-                        + "      \"plugin_name\": \"Console\",\n"
-                        + "      \"plugin_input\": [\"fake\"]\n"
-                        + "    }\n"
-                        + "  ]\n"
-                        + "}";
+        Field serverField = jettyService.getClass().getDeclaredField("server");
+        serverField.setAccessible(true);
+        org.apache.seatunnel.shade.org.eclipse.jetty.server.Server server =
+                (org.apache.seatunnel.shade.org.eclipse.jetty.server.Server)
+                        serverField.get(jettyService);
 
-        HttpResponse response = postJson(requestUrl, requestBody);
-        Assertions.assertEquals(400, response.code);
-        Assertions.assertTrue(response.body.contains("\"status\":\"fail\""));
-        Assertions.assertTrue(response.body.contains("No checkpoint found for jobId=" + jobId));
+        for (Connector connector : server.getConnectors()) {
+            if (connector instanceof ServerConnector) {
+                return ((ServerConnector) connector).getLocalPort();
+            }
+        }
+        throw new IllegalStateException("No HTTP connector found for Jetty server");
+    }
+
+    private void storeFakeSourceCheckpoint(long jobId) throws Exception {
+        Assertions.assertNotNull(masterServer);
+        Assertions.assertNotNull(masterServer.getCheckpointService());
+
+        String sourceActionName = JobConfigParser.createSourceActionName(0, SOURCE_FACTORY_ID);
+        ActionStateKey actionStateKey = new ActionStateKey("ActionStateKey - " + sourceActionName);
+
+        ActionState actionState = new ActionState(actionStateKey, 1);
+        actionState.reportState(
+                -1,
+                new ActionSubtaskState(
+                        actionStateKey,
+                        -1,
+                        Collections.singletonList("coordinator".getBytes(StandardCharsets.UTF_8))));
+        actionState.reportState(
+                0, new ActionSubtaskState(actionStateKey, 0, Collections.emptyList()));
+
+        Map<ActionStateKey, ActionState> taskStates = new HashMap<>();
+        taskStates.put(actionStateKey, actionState);
+
+        long checkpointId = 1L;
+        int pipelineId = 1;
+        long now = System.currentTimeMillis();
+        CompletedCheckpoint completedCheckpoint =
+                new CompletedCheckpoint(
+                        jobId,
+                        pipelineId,
+                        checkpointId,
+                        now,
+                        CheckpointType.SAVEPOINT_TYPE,
+                        now,
+                        taskStates,
+                        Collections.emptyMap());
+
+        ProtoStuffSerializer serializer = new ProtoStuffSerializer();
+        byte[] checkpointBytes = serializer.serialize(completedCheckpoint);
+
+        PipelineState pipelineState =
+                PipelineState.builder()
+                        .jobId(String.valueOf(jobId))
+                        .pipelineId(pipelineId)
+                        .checkpointId(checkpointId)
+                        .states(checkpointBytes)
+                        .build();
+
+        masterServer.getCheckpointService().getCheckpointStorage().storeCheckPoint(pipelineState);
+    }
+
+    private String getRequestBody() {
+        return "{\n"
+                + "  \"env\": {\n"
+                + "    \"job.mode\": \"BATCH\",\n"
+                + "    \"job.name\": \"rest_api_test\"\n"
+                + "  },\n"
+                + "  \"source\": [\n"
+                + "    {\n"
+                + "      \"plugin_name\": \"FakeSource\",\n"
+                + "      \"plugin_output\": \"fake\",\n"
+                + "      \"row.num\": 1,\n"
+                + "      \"schema\": {\n"
+                + "        \"fields\": {\n"
+                + "          \"name\": \"string\"\n"
+                + "        }\n"
+                + "      }\n"
+                + "    }\n"
+                + "  ],\n"
+                + "  \"transform\": [],\n"
+                + "  \"sink\": [\n"
+                + "    {\n"
+                + "      \"plugin_name\": \"Console\",\n"
+                + "      \"plugin_input\": [\"fake\"]\n"
+                + "    }\n"
+                + "  ]\n"
+                + "}\n";
     }
 
     private SeaTunnelConfig createSeaTunnelConfig(String clusterName, int httpPort) {
@@ -162,7 +314,22 @@ public class RestApiSubmitJobStartWithSavePointTest {
         httpConfig.setEnabled(true);
         httpConfig.setPort(httpPort);
         httpConfig.setEnableHttps(false);
-        httpConfig.setEnableDynamicPort(false);
+        httpConfig.setEnableDynamicPort(true);
+        httpConfig.setPortRange(2000);
+
+        if (checkpointDir != null) {
+            seaTunnelConfig
+                    .getEngineConfig()
+                    .getCheckpointConfig()
+                    .getStorage()
+                    .setStorage("localfile");
+            seaTunnelConfig
+                    .getEngineConfig()
+                    .getCheckpointConfig()
+                    .getStorage()
+                    .getStoragePluginConfig()
+                    .put(StorageConstants.STORAGE_NAME_SPACE, checkpointDir.toString());
+        }
         return seaTunnelConfig;
     }
 
@@ -178,6 +345,8 @@ public class RestApiSubmitJobStartWithSavePointTest {
                                                 new URL("http://localhost:" + port + "/overview")
                                                         .openConnection();
                                 conn.setRequestMethod("GET");
+                                conn.setConnectTimeout(2000);
+                                conn.setReadTimeout(2000);
                                 int code = conn.getResponseCode();
                                 conn.disconnect();
                                 return code == 200;
@@ -191,6 +360,8 @@ public class RestApiSubmitJobStartWithSavePointTest {
         HttpURLConnection conn = (HttpURLConnection) new URL(requestUrl).openConnection();
         conn.setRequestMethod("POST");
         conn.setRequestProperty("Content-Type", "application/json; charset=UTF-8");
+        conn.setConnectTimeout(5000);
+        conn.setReadTimeout(30000);
         conn.setDoOutput(true);
         try (OutputStream os = conn.getOutputStream()) {
             os.write(body.getBytes(StandardCharsets.UTF_8));
@@ -209,23 +380,6 @@ public class RestApiSubmitJobStartWithSavePointTest {
         } finally {
             conn.disconnect();
         }
-    }
-
-    private static int findFreePort() {
-        try (ServerSocket socket = new ServerSocket(0)) {
-            socket.setReuseAddress(true);
-            return socket.getLocalPort();
-        } catch (IOException e) {
-            throw new RuntimeException("No free port available", e);
-        }
-    }
-
-    private static int findFreePortExcluding(int exclude) {
-        int port;
-        do {
-            port = findFreePort();
-        } while (port == exclude);
-        return port;
     }
 
     private static String getHazelcastConfig() {
@@ -263,6 +417,16 @@ public class RestApiSubmitJobStartWithSavePointTest {
         private HttpResponse(int code, String body) {
             this.code = code;
             this.body = body;
+        }
+    }
+
+    private static class ClusterPorts {
+        private final int masterPort;
+        private final int workerPort;
+
+        private ClusterPorts(int masterPort, int workerPort) {
+            this.masterPort = masterPort;
+            this.workerPort = workerPort;
         }
     }
 }
