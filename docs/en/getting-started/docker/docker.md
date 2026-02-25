@@ -232,7 +232,7 @@ services:
     image: apache/seatunnel
     container_name: seatunnel_master
     environment:
-      - ST_DOCKER_MEMBER_LIST=172.16.0.2,172.16.0.3,172.16.0.4    
+      - ST_DOCKER_MEMBER_LIST=172.16.0.2:5801,172.16.0.3:5801,172.16.0.4:5801
     entrypoint: >
       /bin/sh -c "
       /opt/seatunnel/bin/seatunnel-cluster.sh -r master
@@ -247,7 +247,7 @@ services:
     image: apache/seatunnel
     container_name: seatunnel_worker_1
     environment:
-      - ST_DOCKER_MEMBER_LIST=172.16.0.2,172.16.0.3,172.16.0.4
+      - ST_DOCKER_MEMBER_LIST=172.16.0.2:5801,172.16.0.3:5801,172.16.0.4:5801
     entrypoint: >
       /bin/sh -c "
       /opt/seatunnel/bin/seatunnel-cluster.sh -r worker
@@ -262,7 +262,7 @@ services:
     image: apache/seatunnel
     container_name: seatunnel_worker_2
     environment:
-      - ST_DOCKER_MEMBER_LIST=172.16.0.2,172.16.0.3,172.16.0.4
+      - ST_DOCKER_MEMBER_LIST=172.16.0.2:5801,172.16.0.3:5801,172.16.0.4:5801
     entrypoint: >
       /bin/sh -c "
       /opt/seatunnel/bin/seatunnel-cluster.sh -r worker
@@ -302,7 +302,7 @@ services:
     image: apache/seatunnel
     container_name: seatunnel_master
     environment:
-      - ST_DOCKER_MEMBER_LIST=172.16.0.2,172.16.0.3,172.16.0.4    
+      - ST_DOCKER_MEMBER_LIST=172.16.0.2:5801,172.16.0.3:5801,172.16.0.4:5801
     entrypoint: >
       /bin/sh -c "
       /opt/seatunnel/bin/seatunnel-cluster.sh -r master
@@ -317,7 +317,7 @@ services:
     image: apache/seatunnel
     container_name: seatunnel_worker_1
     environment:
-      - ST_DOCKER_MEMBER_LIST=172.16.0.2,172.16.0.3,172.16.0.4
+      - ST_DOCKER_MEMBER_LIST=172.16.0.2:5801,172.16.0.3:5801,172.16.0.4:5801
     entrypoint: >
       /bin/sh -c "
       /opt/seatunnel/bin/seatunnel-cluster.sh -r worker
@@ -332,7 +332,7 @@ services:
     image: apache/seatunnel
     container_name: seatunnel_worker_2
     environment:
-      - ST_DOCKER_MEMBER_LIST=172.16.0.2,172.16.0.3,172.16.0.4
+      - ST_DOCKER_MEMBER_LIST=172.16.0.2:5801,172.16.0.3:5801,172.16.0.4:5801
     entrypoint: >
       /bin/sh -c "
       /opt/seatunnel/bin/seatunnel-cluster.sh -r worker
@@ -349,7 +349,7 @@ services:
     image: apache/seatunnel
     container_name: seatunnel_worker_3
     environment:
-      - ST_DOCKER_MEMBER_LIST=172.16.0.2,172.16.0.3,172.16.0.4,172.16.0.5 # add ip to here
+      - ST_DOCKER_MEMBER_LIST=172.16.0.2:5801,172.16.0.3:5801,172.16.0.4:5801,172.16.0.5:5801 # add ip to here
     entrypoint: >
       /bin/sh -c "
       /opt/seatunnel/bin/seatunnel-cluster.sh -r worker
