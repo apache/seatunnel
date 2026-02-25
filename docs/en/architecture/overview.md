@@ -5,6 +5,11 @@ title: Architecture Overview
 
 # SeaTunnel Architecture Overview
 
+> Note: To minimize maintenance overhead and avoid “documentation-code drift” as the codebase evolves,
+> this documentation focuses on component responsibilities, interaction flows, and design motivations.
+> Any code snippets are illustrative (not authoritative), and the definitive behavior should be verified
+> against the current implementation.
+
 ## 1. Introduction
 
 ### 1.1 Design Goals
@@ -449,13 +454,9 @@ For practical guides:
 
 ## 10. References
 
-### 10.1 Key Source Files
+This chapter intentionally avoids listing specific source file paths to reduce maintenance burden.
 
-- API Layer: `seatunnel-api/src/main/java/org/apache/seatunnel/api/`
-- Engine Core: `seatunnel-engine/seatunnel-engine-server/src/main/java/org/apache/seatunnel/engine/server/`
-- Example Connector: `seatunnel-connectors-v2/connector-jdbc/`
-
-### 10.2 Related Concepts
+### 10.1 Related Concepts
 
 - [Apache Flink](https://flink.apache.org/) - Inspiration for checkpoint and state management
 - [Apache Kafka](https://kafka.apache.org/) - Consumer group model influenced split assignment

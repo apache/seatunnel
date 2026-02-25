@@ -353,12 +353,12 @@ seatunnel/
 ├── seatunnel-connectors-v2/       # 连接器实现
 │   ├── connector-jdbc/            # JDBC 连接器
 │   ├── connector-kafka/           # Kafka 连接器
-│   ├── connector-cdc-mysql/       # MySQL CDC 连接器
+│   ├── connector-cdc/             # CDC 连接器集合
+│   │   ├── connector-cdc-mysql/   # MySQL CDC 连接器
 │   └── ...                        # 更多连接器
 │
 ├── seatunnel-transforms-v2/       # 转换实现
-│   ├── transform-sql/             # SQL 转换
-│   ├── transform-filter/          # 过滤转换
+│   ├── src/                       # Transform 实现源码（如：SQL、Filter 等）
 │   └── ...
 │
 ├── seatunnel-engine/              # SeaTunnel Engine (Zeta)
