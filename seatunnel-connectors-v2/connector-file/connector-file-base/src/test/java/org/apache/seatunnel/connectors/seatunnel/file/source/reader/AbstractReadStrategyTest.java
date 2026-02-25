@@ -17,6 +17,7 @@
 
 package org.apache.seatunnel.connectors.seatunnel.file.source.reader;
 
+import lombok.extern.slf4j.Slf4j;
 import org.apache.seatunnel.shade.com.typesafe.config.Config;
 import org.apache.seatunnel.shade.com.typesafe.config.ConfigFactory;
 
@@ -59,6 +60,7 @@ import java.util.Map;
 
 import static org.apache.hadoop.fs.CommonConfigurationKeysPublic.FS_DEFAULT_NAME_DEFAULT;
 
+@Slf4j
 public class AbstractReadStrategyTest {
 
     @Test
@@ -463,6 +465,109 @@ public class AbstractReadStrategyTest {
         }
     }
 
+    @DisabledOnOs(OS.WINDOWS)
+    @Test
+    public void testRecursiveFileScanDefault() throws Exception {
+        String baseDir = "/tmp/test_default";
+        String file1 = baseDir + "/file1.txt";
+        String subdirFile = baseDir + "/subdir/file2.txt";
+
+        try {
+            createTestFiles(file1, subdirFile);
+
+            Map<String, Object> config = new HashMap<>();
+            config.put(FileBaseSourceOptions.FILE_PATH.key(), baseDir);
+            config.put(FileBaseSourceOptions.FILE_FORMAT_TYPE.key(), "text");
+
+            Config pluginConfig = ConfigFactory.parseMap(config);
+
+            try (TextReadStrategy strategy = new TextReadStrategy()) {
+                ParquetReadStrategyTest.LocalConf localConf =
+                    new ParquetReadStrategyTest.LocalConf(FS_DEFAULT_NAME_DEFAULT);
+                strategy.init(localConf);
+                strategy.setPluginConfig(pluginConfig);
+
+                List<String> fileNames = strategy.getFileNamesByPath(baseDir);
+
+                Assertions.assertEquals(2, fileNames.size());
+                Assertions.assertTrue(fileNames.stream().anyMatch(f -> f.contains("file1.txt")));
+                Assertions.assertTrue(fileNames.stream().anyMatch(f -> f.contains("subdir")));
+                Assertions.assertTrue(fileNames.stream().anyMatch(f -> f.contains("subdir/file2.txt")));
+
+            }
+        } finally {
+            deleteTestDirectory(baseDir);
+        }
+    }
+
+    @DisabledOnOs(OS.WINDOWS)
+    @Test
+    public void testNonRecursiveEmptyDirectory() throws Exception {
+        String baseDir = "/tmp/test_empty";
+        String subdirDir = baseDir + "/subdir";
+        String subdirFile = baseDir + "/subdir/file.txt";
+        createTestFiles(subdirFile);
+
+        try {
+            Configuration conf = new Configuration();
+            Path path = new Path(subdirDir);
+            org.apache.hadoop.fs.FileSystem fs = path.getFileSystem(conf);
+            fs.mkdirs(path);
+
+            Map<String, Object> config = new HashMap<>();
+            config.put(FileBaseSourceOptions.FILE_PATH.key(), baseDir);
+            config.put(FileBaseSourceOptions.FILE_FORMAT_TYPE.key(), "text");
+            config.put(FileBaseSourceOptions.RECURSIVE_FILE_SCAN.key(), false);
+
+            Config pluginConfig = ConfigFactory.parseMap(config);
+
+            try (TextReadStrategy strategy = new TextReadStrategy()) {
+                ParquetReadStrategyTest.LocalConf localConf =
+                    new ParquetReadStrategyTest.LocalConf(FS_DEFAULT_NAME_DEFAULT);
+                strategy.init(localConf);
+                strategy.setPluginConfig(pluginConfig);
+
+                List<String> fileNames = strategy.getFileNamesByPath(baseDir);
+
+                Assertions.assertEquals(0, fileNames.size());
+            }
+        } finally {
+            deleteTestDirectory(baseDir);
+        }
+    }
+
+    @DisabledOnOs(OS.WINDOWS)
+    @Test
+    public void testNonRecursiveWithOnlySubdirectories() throws Exception {
+        String baseDir = "/tmp/test_only_subdir";
+        String subdirFile1 = baseDir + "/subdir1/file1.txt";
+        String subdirFile2 = baseDir + "/subdir2/file2.txt";
+
+        try {
+            createTestFiles(subdirFile1, subdirFile2);
+
+            Map<String, Object> config = new HashMap<>();
+            config.put(FileBaseSourceOptions.FILE_PATH.key(), baseDir);
+            config.put(FileBaseSourceOptions.FILE_FORMAT_TYPE.key(), "text");
+            config.put(FileBaseSourceOptions.RECURSIVE_FILE_SCAN.key(), false);
+
+            Config pluginConfig = ConfigFactory.parseMap(config);
+
+            try (TextReadStrategy strategy = new TextReadStrategy()) {
+                ParquetReadStrategyTest.LocalConf localConf =
+                    new ParquetReadStrategyTest.LocalConf(FS_DEFAULT_NAME_DEFAULT);
+                strategy.init(localConf);
+                strategy.setPluginConfig(pluginConfig);
+
+                List<String> fileNames = strategy.getFileNamesByPath(baseDir);
+
+                Assertions.assertEquals(0, fileNames.size());
+            }
+        } finally {
+            deleteTestDirectory(baseDir);
+        }
+    }
+
     private void createTestFiles(String... filePaths) throws IOException {
         Configuration conf = new Configuration();
         for (String filePath : filePaths) {
@@ -484,6 +589,7 @@ public class AbstractReadStrategyTest {
             org.apache.hadoop.fs.FileSystem fs = path.getFileSystem(conf);
             fs.delete(path, true);
         } catch (Exception e) {
+            log.error("Warning: Failed to delete test directory: " + dirPath, e);
         }
     }
 }
