@@ -297,6 +297,46 @@ public class KafkaIT extends TestSuiteBase implements TestResource {
     }
 
     @TestTemplate
+    public void testSinkKafkaWithHeaders(TestContainer container)
+            throws IOException, InterruptedException {
+        Container.ExecResult execResult = container.executeJob("/kafka_sink_with_headers.conf");
+        Assertions.assertEquals(0, execResult.getExitCode(), execResult.getStderr());
+
+        String topicName = "test_topic_headers";
+        List<ConsumerRecord<String, String>> records = getKafkaRecordData(topicName);
+
+        Assertions.assertEquals(10, records.size());
+
+        // Verify that headers contain the expected fields (id, name)
+        for (ConsumerRecord<String, String> record : records) {
+            Map<String, String> headers = convertHeadersToMap(record.headers());
+
+            // Verify headers contain id and name
+            Assertions.assertTrue(headers.containsKey("id"), "Header should contain 'id' field");
+            Assertions.assertTrue(
+                    headers.containsKey("name"), "Header should contain 'name' field");
+
+            // Verify the value (payload) is a JSON object
+            ObjectMapper objectMapper = new ObjectMapper();
+            ObjectNode payloadNode = objectMapper.readValue(record.value(), ObjectNode.class);
+
+            // Verify payload does NOT contain the header fields (id, name)
+            Assertions.assertFalse(
+                    payloadNode.has("id"),
+                    "Payload should NOT contain 'id' field (it's in headers)");
+            Assertions.assertFalse(
+                    payloadNode.has("name"),
+                    "Payload should NOT contain 'name' field (it's in headers)");
+
+            // Verify payload contains the non-header fields (age, email, description)
+            Assertions.assertTrue(payloadNode.has("age"), "Payload should contain 'age' field");
+            Assertions.assertTrue(payloadNode.has("email"), "Payload should contain 'email' field");
+            Assertions.assertTrue(
+                    payloadNode.has("description"), "Payload should contain 'description' field");
+        }
+    }
+
+    @TestTemplate
     public void testDefaultRandomSinkKafka(TestContainer container)
             throws IOException, InterruptedException {
         Container.ExecResult execResult =
