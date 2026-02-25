@@ -17,7 +17,6 @@
 
 package org.apache.seatunnel.connectors.seatunnel.file.source.reader;
 
-import lombok.extern.slf4j.Slf4j;
 import org.apache.seatunnel.shade.com.typesafe.config.Config;
 import org.apache.seatunnel.shade.com.typesafe.config.ConfigFactory;
 
@@ -46,6 +45,8 @@ import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.condition.DisabledOnOs;
 import org.junit.jupiter.api.condition.OS;
+
+import lombok.extern.slf4j.Slf4j;
 
 import java.io.ByteArrayOutputStream;
 import java.io.File;
@@ -483,7 +484,7 @@ public class AbstractReadStrategyTest {
 
             try (TextReadStrategy strategy = new TextReadStrategy()) {
                 ParquetReadStrategyTest.LocalConf localConf =
-                    new ParquetReadStrategyTest.LocalConf(FS_DEFAULT_NAME_DEFAULT);
+                        new ParquetReadStrategyTest.LocalConf(FS_DEFAULT_NAME_DEFAULT);
                 strategy.init(localConf);
                 strategy.setPluginConfig(pluginConfig);
 
@@ -492,8 +493,8 @@ public class AbstractReadStrategyTest {
                 Assertions.assertEquals(2, fileNames.size());
                 Assertions.assertTrue(fileNames.stream().anyMatch(f -> f.contains("file1.txt")));
                 Assertions.assertTrue(fileNames.stream().anyMatch(f -> f.contains("subdir")));
-                Assertions.assertTrue(fileNames.stream().anyMatch(f -> f.contains("subdir/file2.txt")));
-
+                Assertions.assertTrue(
+                        fileNames.stream().anyMatch(f -> f.contains("subdir/file2.txt")));
             }
         } finally {
             deleteTestDirectory(baseDir);
@@ -523,7 +524,7 @@ public class AbstractReadStrategyTest {
 
             try (TextReadStrategy strategy = new TextReadStrategy()) {
                 ParquetReadStrategyTest.LocalConf localConf =
-                    new ParquetReadStrategyTest.LocalConf(FS_DEFAULT_NAME_DEFAULT);
+                        new ParquetReadStrategyTest.LocalConf(FS_DEFAULT_NAME_DEFAULT);
                 strategy.init(localConf);
                 strategy.setPluginConfig(pluginConfig);
 
@@ -555,7 +556,7 @@ public class AbstractReadStrategyTest {
 
             try (TextReadStrategy strategy = new TextReadStrategy()) {
                 ParquetReadStrategyTest.LocalConf localConf =
-                    new ParquetReadStrategyTest.LocalConf(FS_DEFAULT_NAME_DEFAULT);
+                        new ParquetReadStrategyTest.LocalConf(FS_DEFAULT_NAME_DEFAULT);
                 strategy.init(localConf);
                 strategy.setPluginConfig(pluginConfig);
 
