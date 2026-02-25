@@ -21,13 +21,9 @@ import org.apache.seatunnel.api.configuration.util.OptionRule;
 import org.apache.seatunnel.api.table.factory.Factory;
 
 /**
- * SPI interface for pluggable dirty record collector implementations. Extends SeaTunnel's {@link
- * Factory} so that providers are discovered via the standard {@code
+ * SPI interface for pluggable dirty record collector implementations. Extends SeaTunnel's
+ * Factory so that providers are discovered via the standard {@code
  * FactoryUtil.discoverFactories()} mechanism.
- *
- * <p>Register implementations with {@code @AutoService(Factory.class)} or add the fully-qualified
- * class name to {@code META-INF/services/org.apache.seatunnel.api.table.factory.Factory}.
- *
  * <p>Configuration example:
  *
  * <pre>{@code
