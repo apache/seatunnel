@@ -39,6 +39,7 @@ They can be downloaded via install-plugin.sh or from the Maven central repositor
 | kafka.config          | Map    | No       | -       | In addition to the above parameters that must be specified by the `Kafka producer` client, the user can also specify multiple non-mandatory parameters for the `producer` client, covering [all the producer parameters specified in the official Kafka document](https://kafka.apache.org/documentation.html#producerconfigs).                                                                                                                              |
 | semantics             | String | No       | NON     | Semantics that can be chosen EXACTLY_ONCE/AT_LEAST_ONCE/NON, default NON.                                                                                                                                                                                                                                                                                                                                                                                    |
 | partition_key_fields  | Array  | No       | -       | Configure which fields are used as the key of the kafka message.                                                                                                                                                                                                                                                                                                                                                                                             |
+| kafka_headers_fields  | Array  | No       | -       | Configure which fields are used as the headers of the kafka message. The field value will be converted to a string and used as the header value.                                                                                                                                                                                                                                                                                                             |
 | partition             | Int    | No       | -       | We can specify the partition, all messages will be sent to this partition.                                                                                                                                                                                                                                                                                                                                                                                   |
 | assign_partitions     | Array  | No       | -       | We can decide which partition to send based on the content of the message. The function of this parameter is to distribute information.                                                                                                                                                                                                                                                                                                                      |
 | transaction_prefix    | String | No       | -       | If semantic is specified as EXACTLY_ONCE, the producer will write all messages in a Kafka transaction,kafka distinguishes different transactions by different transactionId. This parameter is prefix of  kafka  transactionId, make sure different job use different prefix.                                                                                                                                                                                |
@@ -90,6 +91,25 @@ If not set partition key fields, the null message key will be sent to.
 The format of the message key is json, If name is set as the key, for example '{"name":"Jack"}'.
 The selected field must be an existing field in the upstream.
 
+### Kafka Headers Fields
+
+For example, if you want to use value of fields from upstream data as kafka message headers, you can assign field names to this property.
+
+Upstream data is the following:
+
+| name | age |     data      | source | traceId   |
+|------|-----|---------------|--------|-----------|
+| Jack | 16  | data-example1 | web    | trace-123 |
+| Mary | 23  | data-example2 | mobile | trace-456 |
+
+If source and traceId are set as the kafka headers fields, then these field values will be added as headers to the kafka message.
+For example, the first row will have headers: `source=web` and `traceId=trace-123`.
+The field values will be converted to strings and used as header values.
+The selected fields must be existing fields in the upstream.
+
+Note:
+Fields configured as Kafka headers will be excluded from the message value (payload) and will only be present in the Kafka message headers.
+
 ### Assign Partitions
 
 For example, there are five partitions in total, and the assign_partitions field in config is as follows:
@@ -129,6 +149,50 @@ sink {
       topic = "test_topic"
       bootstrap.servers = "localhost:9092"
       format = json
+      kafka.request.timeout.ms = 60000
+      semantics = EXACTLY_ONCE
+      kafka.config = {
+        acks = "all"
+        request.timeout.ms = 60000
+        buffer.memory = 33554432
+      }
+  }
+}
+```
+
+### Using Kafka Headers
+
+This example shows how to use kafka_headers_fields to set Kafka message headers:
+
+```hocon
+env {
+  parallelism = 1
+  job.mode = "BATCH"
+}
+
+source {
+  FakeSource {
+    parallelism = 1
+    plugin_output = "fake"
+    row.num = 16
+    schema = {
+      fields {
+        name = "string"
+        age = "int"
+        source = "string"
+        traceId = "string"
+      }
+    }
+  }
+}
+
+sink {
+  kafka {
+      topic = "test_topic"
+      bootstrap.servers = "localhost:9092"
+      format = json
+      partition_key_fields = ["name"]
+      kafka_headers_fields = ["source", "traceId"]
       kafka.request.timeout.ms = 60000
       semantics = EXACTLY_ONCE
       kafka.config = {
