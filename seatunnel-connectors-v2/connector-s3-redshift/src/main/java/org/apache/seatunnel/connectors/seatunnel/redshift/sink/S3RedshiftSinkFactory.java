@@ -18,8 +18,10 @@
 package org.apache.seatunnel.connectors.seatunnel.redshift.sink;
 
 import org.apache.seatunnel.api.configuration.util.OptionRule;
+import org.apache.seatunnel.api.table.connector.TableSink;
 import org.apache.seatunnel.api.table.factory.Factory;
 import org.apache.seatunnel.api.table.factory.TableSinkFactory;
+import org.apache.seatunnel.api.table.factory.TableSinkFactoryContext;
 import org.apache.seatunnel.connectors.seatunnel.file.config.FileBaseSinkOptions;
 import org.apache.seatunnel.connectors.seatunnel.file.config.FileBaseSourceOptions;
 import org.apache.seatunnel.connectors.seatunnel.file.config.FileFormat;
@@ -29,7 +31,7 @@ import org.apache.seatunnel.connectors.seatunnel.redshift.config.S3RedshiftConfi
 import com.google.auto.service.AutoService;
 
 @AutoService(Factory.class)
-public class S3RedshiftFactory implements TableSinkFactory {
+public class S3RedshiftSinkFactory implements TableSinkFactory {
 
     @Override
     public String factoryIdentifier() {
@@ -70,5 +72,10 @@ public class S3RedshiftFactory implements TableSinkFactory {
                 .optional(FileBaseSinkOptions.IS_ENABLE_TRANSACTION)
                 .optional(FileBaseSinkOptions.FILE_NAME_EXPRESSION)
                 .build();
+    }
+
+    @Override
+    public TableSink createSink(TableSinkFactoryContext context) {
+        return () -> new S3RedshiftSink(context.getOptions(), context.getCatalogTable());
     }
 }
