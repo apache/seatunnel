@@ -59,7 +59,8 @@ const sidebars = {
                     "items": [
                         "architecture/api-design/source-architecture",
                         "architecture/api-design/sink-architecture",
-                        "architecture/api-design/catalog-table"
+                        "architecture/api-design/catalog-table",
+                        "architecture/api-design/translation-layer"
                     ]
                 },
                 {
@@ -81,16 +82,9 @@ const sidebars = {
                 },
                 {
                     "type": "category",
-                    "label": "Data Flow",
+                    "label": "Features",
                     "items": [
-                        "architecture/data-flow/multi-table"
-                    ]
-                },
-                {
-                    "type": "category",
-                    "label": "Translation",
-                    "items": [
-                        "architecture/translation/translation-layer"
+                        "architecture/features/multi-table"
                     ]
                 }
             ]
