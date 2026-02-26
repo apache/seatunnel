@@ -28,6 +28,7 @@ import static org.apache.seatunnel.api.table.type.CommonOptions.EVENT_TIME;
 import static org.apache.seatunnel.api.table.type.CommonOptions.IS_BINARY_FORMAT;
 import static org.apache.seatunnel.api.table.type.CommonOptions.IS_COMPLETE;
 import static org.apache.seatunnel.api.table.type.CommonOptions.PARTITION;
+import static org.apache.seatunnel.api.table.type.CommonOptions.SOURCE_TIMESTAMP;
 
 public class MetadataUtil {
 
@@ -51,6 +52,10 @@ public class MetadataUtil {
 
     public static void setEventTime(SeaTunnelRow row, Long delay) {
         row.getOptions().put(EVENT_TIME.getName(), delay);
+    }
+
+    public static void setSourceTimestamp(SeaTunnelRow row, Long sourceTimestamp) {
+        row.getOptions().put(SOURCE_TIMESTAMP.getName(), sourceTimestamp);
     }
 
     public static void setBinaryRowComplete(SeaTunnelRow row) {

@@ -230,6 +230,7 @@ public final class SeaTunnelRowDebeziumDeserializeSchema
             insert.setTableId(tableId);
             MetadataUtil.setDelay(insert, delay);
             MetadataUtil.setEventTime(insert, fetchTimestamp);
+            MetadataUtil.setSourceTimestamp(insert, messageTimestamp);
             collector.collect(insert);
         } else if (operation == Envelope.Operation.DELETE) {
             SeaTunnelRow delete = extractBeforeRow(converters, record, messageStruct, valueSchema);
@@ -237,6 +238,7 @@ public final class SeaTunnelRowDebeziumDeserializeSchema
             delete.setTableId(tableId);
             MetadataUtil.setDelay(delete, delay);
             MetadataUtil.setEventTime(delete, fetchTimestamp);
+            MetadataUtil.setSourceTimestamp(delete, messageTimestamp);
             collector.collect(delete);
         } else if (operation == Envelope.Operation.UPDATE) {
             SeaTunnelRow before = extractBeforeRow(converters, record, messageStruct, valueSchema);
@@ -244,6 +246,7 @@ public final class SeaTunnelRowDebeziumDeserializeSchema
             before.setTableId(tableId);
             MetadataUtil.setDelay(before, delay);
             MetadataUtil.setEventTime(before, fetchTimestamp);
+            MetadataUtil.setSourceTimestamp(before, messageTimestamp);
             collector.collect(before);
 
             SeaTunnelRow after = extractAfterRow(converters, record, messageStruct, valueSchema);
@@ -251,6 +254,7 @@ public final class SeaTunnelRowDebeziumDeserializeSchema
             after.setTableId(tableId);
             MetadataUtil.setDelay(after, delay);
             MetadataUtil.setEventTime(after, fetchTimestamp);
+            MetadataUtil.setSourceTimestamp(after, messageTimestamp);
             collector.collect(after);
         } else {
             log.warn("Received {} operation, skip", operation);

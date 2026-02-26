@@ -162,6 +162,14 @@ public abstract class IncrementalSource<T, C extends SourceConfig>
                         null));
         metadata.add(
                 MetadataColumn.of(
+                        CommonOptions.SOURCE_TIMESTAMP.getName(),
+                        BasicType.LONG_TYPE,
+                        (Long) null,
+                        true,
+                        null,
+                        null));
+        metadata.add(
+                MetadataColumn.of(
                         CommonOptions.DELAY.getName(),
                         BasicType.LONG_TYPE,
                         (Long) null,

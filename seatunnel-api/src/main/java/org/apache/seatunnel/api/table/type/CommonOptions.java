@@ -53,6 +53,12 @@ public enum CommonOptions {
      */
     EVENT_TIME("EventTime", true),
     /**
+     * The key of {@link SeaTunnelRow#getOptions()} to store the SOURCE_TIMESTAMP value of the row
+     * value. This represents the timestamp when the event occurred in the source database (from
+     * Debezium's source.ts_ms). The data should be milliseconds.
+     */
+    SOURCE_TIMESTAMP("SourceTimestamp", true),
+    /**
      * The key of {@link SeaTunnelRow#getOptions()} to store the DELAY value of the row value. And
      * the data should be milliseconds.
      */
