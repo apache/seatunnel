@@ -20,6 +20,7 @@ package org.apache.seatunnel.connectors.seatunnel.jdbc.internal.dialect;
 
 import org.apache.seatunnel.connectors.seatunnel.jdbc.internal.dialect.mysql.MysqlDialect;
 import org.apache.seatunnel.connectors.seatunnel.jdbc.internal.dialect.psql.PostgresDialect;
+import org.apache.seatunnel.connectors.seatunnel.jdbc.internal.dialect.singlestore.SingleStoreDialect;
 
 import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.Test;
@@ -37,6 +38,19 @@ public class JdbcDialectLoaderTest {
         JdbcDialect jdbcDialect =
                 JdbcDialectLoader.load("jdbc:mysql://localhost:3306/test", null, "");
         Assertions.assertInstanceOf(MysqlDialect.class, jdbcDialect);
+    }
+
+    @Test
+    public void shouldFindSingleStoreDialect() throws Exception {
+        JdbcDialect jdbcDialect =
+                JdbcDialectLoader.load("jdbc:singlestore://localhost:3306/test", null, "");
+        Assertions.assertInstanceOf(SingleStoreDialect.class, jdbcDialect);
+    }
+
+    @Test
+    public void shouldFindSingleStoreDialectByDialect() throws Exception {
+        JdbcDialect jdbcDialect = JdbcDialectLoader.load("jdbc:other://host/db", "SingleStore", "");
+        Assertions.assertInstanceOf(SingleStoreDialect.class, jdbcDialect);
     }
 
     /** Test for {@link JdbcDialectLoader} for appointDialect */

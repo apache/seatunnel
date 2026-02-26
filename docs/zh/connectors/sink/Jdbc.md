@@ -109,6 +109,7 @@ Postgres 9.5及以下版本，请设置为 `postgresLow` 来支持 CDC
 | Vertica   | OceanBase  | XUGU     |
 | IRIS      | Inceptor   | Highgo   |
 | DSQL      |            |          |
+| SingleStore | -         | -        |
 
 ### database [string]
 
@@ -269,6 +270,7 @@ Amazon Aurora DSQL 所在的区域。 该参考仅适用于 dialect="dsql"
 | opengauss  | org.opengauss.Driver                         | jdbc:opengauss://localhost:5432/postgres                           | /                                                  | https://repo1.maven.org/maven2/org/opengauss/opengauss-jdbc/5.1.0-og/opengauss-jdbc-5.1.0-og.jar   |
 | Highgo     | com.highgo.jdbc.Driver                       | jdbc:highgo://localhost:5866/highgo                                | /                                                  | https://repo1.maven.org/maven2/com/highgo/HgdbJdbc/6.2.3/HgdbJdbc-6.2.3.jar                        |
 | Dsql       | org.postgresql.Driver                        | jdbc:postgresql://Amazon Aurora DSQL Cluster Endpoint:5432/postgres | org.postgresql.xa.PGXADataSource                   | https://mvnrepository.com/artifact/org.postgresql/postgresql                                                                  |
+| SingleStore | com.singlestore.jdbc.Driver                  | jdbc:singlestore://localhost:3306/test                              | /                                                  | https://mvnrepository.com/artifact/com.singlestore/singlestore-jdbc-client                                                   |
 
 ## 示例
 
