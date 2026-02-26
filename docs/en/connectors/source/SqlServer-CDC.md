@@ -27,6 +27,14 @@ import ChangeLog from '../changelog/connector-cdc-sqlserver.md';
 The Sql Server CDC connector allows for reading snapshot data and incremental data from SqlServer database. This document
 describes how to setup the Sql Server CDC connector to run SQL queries against SqlServer databases.
 
+:::tip
+
+When discovering table columns via JDBC metadata, SeaTunnel filters metadata rows by the exact schema/table identifier to
+avoid mixing columns from other tables (some drivers treat `schemaPattern`/`tableNamePattern` as SQL LIKE patterns). For
+case-sensitive databases, make sure the configured identifier case matches the database.
+
+:::
+
 ## Supported DataSource Info
 
 | Datasource |                      Supported versions                       |                    Driver                    |                              Url                              |                                 Maven                                 |

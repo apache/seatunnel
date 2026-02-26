@@ -29,6 +29,7 @@ import org.apache.seatunnel.connectors.seatunnel.file.config.FileBaseOptions;
 import org.apache.seatunnel.connectors.seatunnel.file.config.FileBaseSinkOptions;
 import org.apache.seatunnel.connectors.seatunnel.file.config.FileBaseSourceOptions;
 import org.apache.seatunnel.connectors.seatunnel.file.config.FileFormat;
+import org.apache.seatunnel.connectors.seatunnel.file.config.FileSyncMode;
 import org.apache.seatunnel.connectors.seatunnel.file.config.FileSystemType;
 import org.apache.seatunnel.connectors.seatunnel.file.local.config.LocalFileSourceOptions;
 
@@ -108,6 +109,15 @@ public class LocalFileSourceFactory implements TableSourceFactory {
                 .optional(FileBaseSourceOptions.READ_COLUMNS)
                 .optional(FileBaseSourceOptions.QUOTE_CHAR)
                 .optional(FileBaseSourceOptions.ESCAPE_CHAR)
+                .optional(
+                        FileBaseSourceOptions.SYNC_MODE,
+                        FileBaseSourceOptions.TARGET_HADOOP_CONF,
+                        FileBaseSourceOptions.UPDATE_STRATEGY,
+                        FileBaseSourceOptions.COMPARE_MODE)
+                .conditional(
+                        FileBaseSourceOptions.SYNC_MODE,
+                        FileSyncMode.UPDATE,
+                        FileBaseSourceOptions.TARGET_PATH)
                 .build();
     }
 

@@ -50,6 +50,14 @@ public class MultiTableWriterRunnable implements Runnable {
                 if (row == null) {
                     continue;
                 }
+                // control rows used for schema evolution / coordination
+                // are represented as SeaTunnelRow with zero fields (arity == 0)
+                if (row.getArity() == 0) {
+                    log.debug(
+                            "Skip control SeaTunnelRow with zero arity in MultiTableWriterRunnable: {}",
+                            row);
+                    continue;
+                }
                 SinkWriter<SeaTunnelRow, ?, ?> writer = tableIdWriterMap.get(row.getTableId());
                 if (writer == null) {
                     if (tableIdWriterMap.size() == 1) {

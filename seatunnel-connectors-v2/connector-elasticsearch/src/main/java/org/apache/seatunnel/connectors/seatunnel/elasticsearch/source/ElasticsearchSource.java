@@ -185,6 +185,14 @@ public class ElasticsearchSource
         long pitKeepAlive = readonlyConfig.get(ElasticsearchSourceOptions.PIT_KEEP_ALIVE);
         int pitBatchSize = readonlyConfig.get(ElasticsearchSourceOptions.PIT_BATCH_SIZE);
 
+        // Parse runtime fields configuration
+        Map<String, Object> runtimeFields = null;
+        if (readonlyConfig.getOptional(ElasticsearchSourceOptions.RUNTIME_FIELDS).isPresent()) {
+            runtimeFields =
+                    parseRuntimeFields(
+                            readonlyConfig.get(ElasticsearchSourceOptions.RUNTIME_FIELDS));
+        }
+
         ElasticsearchConfig elasticsearchConfig = new ElasticsearchConfig();
         elasticsearchConfig.setSource(source);
         elasticsearchConfig.setCatalogTable(catalogTable);
@@ -196,10 +204,56 @@ public class ElasticsearchSource
         elasticsearchConfig.setSqlQuery(sqlQuery);
         elasticsearchConfig.setSearchType(searchType);
         elasticsearchConfig.setSearchApiType(searchApiType);
+        elasticsearchConfig.setRuntimeFields(runtimeFields);
 
         elasticsearchConfig.setPitKeepAlive(pitKeepAlive);
         elasticsearchConfig.setPitBatchSize(pitBatchSize);
         return elasticsearchConfig;
+    }
+
+    /**
+     * Parse runtime fields configuration from list of maps to Elasticsearch runtime_mappings format
+     *
+     * @param runtimeFieldsList List of runtime field configurations
+     * @return Runtime mappings in Elasticsearch format
+     */
+    private Map<String, Object> parseRuntimeFields(List<Map<String, Object>> runtimeFieldsList) {
+        if (runtimeFieldsList == null || runtimeFieldsList.isEmpty()) {
+            return null;
+        }
+
+        Map<String, Object> runtimeMappings = new java.util.LinkedHashMap<>();
+        for (Map<String, Object> fieldConfig : runtimeFieldsList) {
+            String name = (String) fieldConfig.get("name");
+            String type = (String) fieldConfig.get("type");
+            String script = (String) fieldConfig.get("script");
+
+            if (name == null || type == null || script == null) {
+                log.warn("Invalid runtime field configuration: {}, skipping", fieldConfig);
+                continue;
+            }
+
+            Map<String, Object> fieldDef = new java.util.LinkedHashMap<>();
+            fieldDef.put("type", type);
+
+            Map<String, Object> scriptDef = new java.util.LinkedHashMap<>();
+            scriptDef.put("source", script);
+
+            // Optional: script language (default is painless)
+            if (fieldConfig.containsKey("script_lang")) {
+                scriptDef.put("lang", fieldConfig.get("script_lang"));
+            }
+
+            // Optional: script parameters
+            if (fieldConfig.containsKey("script_params")) {
+                scriptDef.put("params", fieldConfig.get("script_params"));
+            }
+
+            fieldDef.put("script", scriptDef);
+            runtimeMappings.put(name, fieldDef);
+        }
+
+        return runtimeMappings.isEmpty() ? null : runtimeMappings;
     }
 
     @Override
