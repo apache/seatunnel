@@ -76,6 +76,11 @@ If you use SeaTunnel Engine, It automatically integrated the hadoop jar when you
 | null_format                | string  | no       | -                                    |
 | binary_chunk_size          | int     | no       | 1024                                 |
 | binary_complete_file_mode  | boolean | no       | false                                |
+| sync_mode                  | string  | no       | full                                 |
+| target_path                | string  | no       | -                                    |
+| target_hadoop_conf         | map     | no       | -                                    |
+| update_strategy            | string  | no       | distcp                               |
+| compare_mode               | string  | no       | len_mtime                            |
 | common-options             |         | no       | -                                    |
 | tables_configs             | list    | no       | used to define a multiple table task |
 | file_filter_modified_start | string  | no       | -                                    |
@@ -410,6 +415,46 @@ Only used when file_format_type is binary.
 
 Whether to read the complete file as a single chunk instead of splitting into chunks. When enabled, the entire file content will be read into memory at once. Default is false.
 
+### sync_mode [string]
+
+File sync mode. Supported values: `full` (default), `update`.
+When `update`, the source compares files between source/target and only reads new/changed files (currently only supports `file_format_type=binary`).
+
+**Performance considerations**
+- Update mode triggers an extra `getFileStatus` call on the target for each source file.
+- It is not recommended for massive small-file scenarios.
+
+**Requirements / limitations**
+- `target_path` should typically align with sink `path` (same filesystem and same relative path layout).
+- When `update_strategy=distcp`, correctness depends on source/target clock synchronization.
+- When `compare_mode=checksum`, filesystem checksum support is required. If checksum is unavailable, SeaTunnel falls back to content comparison (more expensive) and logs a warning.
+
+Example:
+
+```hocon
+sync_mode = "update"
+file_format_type = "binary"
+target_path = "/path/to/your/sink/path"
+update_strategy = "distcp"
+compare_mode = "len_mtime"
+```
+
+### target_path [string]
+
+Only used when `sync_mode=update`. Target base path used for comparison (it should usually be the same as sink `path`).
+
+### target_hadoop_conf [map]
+
+Only used when `sync_mode=update`. Extra Hadoop configuration for target filesystem. You can set `fs.defaultFS` in this map to override target defaultFS.
+
+### update_strategy [string]
+
+Only used when `sync_mode=update`. Supported values: `distcp` (default), `strict`.
+
+### compare_mode [string]
+
+Only used when `sync_mode=update`. Supported values: `len_mtime` (default), `checksum` (only valid when `update_strategy=strict`).
+
 ### file_filter_modified_start [string]
 
 File modification time filter. The connector will filter some files base on the last modification start time (include start time). The default data format is `yyyy-MM-dd HH:mm:ss`.
@@ -418,13 +463,26 @@ File modification time filter. The connector will filter some files base on the 
 
 File modification time filter. The connector will filter some files base on the last modification end time (not include end time). The default data format is `yyyy-MM-dd HH:mm:ss`.
 
-### enable_file_split [string]
+### enable_file_split [boolean]
 
 Turn on the file splitting function, the default is false.It can be selected when the file type is csv, text, json, parquet and non-compressed format.
+
+**Recommendations**
+- Enable when reading a few large files and you want higher read parallelism.
+- Disable when reading many small files, or when parallelism is low (splitting adds overhead).
+
+**Limitations**
+- Not supported for compressed files (`compress_codec` != `none`) or archive files (`archive_compress_codec` != `none`) — it will fall back to non-splitting.
+- For `text`/`csv`/`json`, actual split size may be larger than `file_split_size` because the split end is aligned to the next `row_delimiter`.
+- LocalFile uses Hadoop LocalFileSystem internally; no extra Hadoop configuration is required.
 
 ### file_split_size [long]
 
 File split size, which can be filled in when the enable_file_split parameter is true. The unit is the number of bytes. The default value is the number of bytes of 128MB, which is 134217728.
+
+**Tuning**
+- Start with the default (128MB). Decrease it if parallelism is under-utilized; increase it if the number of splits is too large.
+- Rough rule: `file_split_size ≈ file_size / desired_parallelism`.
 
 ### quote_char [string]
 
@@ -560,6 +618,37 @@ sink {
   }
 }
 
+```
+
+### Incremental Sync (sync_mode=update, binary)
+
+`sync_mode=update` compares files between source and `target_path`, then only reads new/changed files.
+In most cases, `target_path` should be aligned with sink `path` (same filesystem and same relative paths).
+
+```hocon
+env {
+  parallelism = 1
+  job.mode = "BATCH"
+}
+
+source {
+  LocalFile {
+    path = "/seatunnel/read/binary/"
+    file_format_type = "binary"
+
+    sync_mode = "update"
+    target_path = "/seatunnel/read/binary2/"
+    update_strategy = "distcp"
+    compare_mode = "len_mtime"
+  }
+}
+sink {
+  LocalFile {
+    path = "/seatunnel/read/binary2/"
+    tmp_path = "/seatunnel/read/binary2-tmp/"
+    file_format_type = "binary"
+  }
+}
 ```
 
 ### Filter File

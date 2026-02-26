@@ -39,7 +39,7 @@ public interface ZetaUDF {
 
 ## UDF 实现示例
 
-将这些依赖项添加到您的 Maven 项目，并使用 provided 作用域。
+将这些依赖项添加到您的 Maven 项目，并使用 provided 作用域。**依赖版本应与运行环境一致。**
 
 ```xml
 
@@ -47,13 +47,13 @@ public interface ZetaUDF {
     <dependency>
         <groupId>org.apache.seatunnel</groupId>
         <artifactId>seatunnel-transforms-v2</artifactId>
-        <version>2.3.2</version>
+        <version>${seatunnel.version}</version>
         <scope>provided</scope>
     </dependency>
     <dependency>
         <groupId>org.apache.seatunnel</groupId>
         <artifactId>seatunnel-api</artifactId>
-        <version>2.3.2</version>
+        <version>${seatunnel.version}</version>
         <scope>provided</scope>
     </dependency>
     <dependency>
@@ -130,4 +130,3 @@ transform {
 ### 新版本
 
 - 添加SQL转换连接器的UDF
-

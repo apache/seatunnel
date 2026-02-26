@@ -771,13 +771,6 @@ public class CoordinatorService {
                     CompletableFuture.supplyAsync(
                             () -> {
                                 runningJobMaster.cancelJob();
-                                // The pending task "JobMaster.init" has not been executed, so the
-                                // job status (JobStatus) will not be stored in the
-                                // jobHistoryService. Here, storeJobEndState is called to store the
-                                // `CANCELED` status in the jobHistoryService.
-                                if (isPendingJob) {
-                                    runningJobMaster.storeJobEndState();
-                                }
                                 return null;
                             },
                             executorService));
@@ -876,7 +869,18 @@ public class CoordinatorService {
         if (jobInfo != null) {
             return jobInfo;
         }
-        return runningJobMasterMap.get(jobId).getJobDAGInfo();
+
+        JobMaster runningJobMaster = runningJobMasterMap.get(jobId);
+        if (runningJobMaster != null) {
+            return runningJobMaster.getJobDAGInfo();
+        }
+
+        PendingJobInfo pendingJobInfo = pendingJobQueue.getById(jobId);
+        if (pendingJobInfo != null) {
+            return pendingJobInfo.getJobMaster().getJobDAGInfo();
+        }
+
+        throw new JobNotFoundException(String.format("Job %s not found", jobId));
     }
 
     /**

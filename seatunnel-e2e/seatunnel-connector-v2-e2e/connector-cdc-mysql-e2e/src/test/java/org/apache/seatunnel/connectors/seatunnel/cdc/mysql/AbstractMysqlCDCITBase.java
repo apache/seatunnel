@@ -182,6 +182,66 @@ public abstract class AbstractMysqlCDCITBase extends TestSuiteBase implements Te
             value = {},
             type = {EngineType.SPARK, EngineType.FLINK},
             disabledReason =
+                    "Heartbeat action query is currently only supported by the zeta engine.")
+    public void testMysqlCdcCheckDataE2eWithHeartbeat(TestContainer container)
+            throws InterruptedException {
+        // Clear related content to ensure that multiple operations are not affected
+        clearTable(MYSQL_DATABASE, SOURCE_TABLE_1);
+        clearTable(MYSQL_DATABASE, SINK_TABLE);
+
+        executeSql(
+                "CREATE TABLE IF NOT EXISTS "
+                        + MYSQL_DATABASE
+                        + ".heartbeat ("
+                        + "  ts TIMESTAMP DEFAULT CURRENT_TIMESTAMP"
+                        + ");");
+        clearTable(MYSQL_DATABASE, "heartbeat");
+
+        CompletableFuture.supplyAsync(
+                () -> {
+                    try {
+                        container.executeJob("/mysqlcdc_to_mysql_with_heartbeat.conf");
+                    } catch (Exception e) {
+                        log.error("Commit task exception :" + e.getMessage());
+                        throw new RuntimeException(e);
+                    }
+                    return null;
+                });
+        await().atMost(60000, TimeUnit.MILLISECONDS)
+                .untilAsserted(
+                        () -> {
+                            log.info(query(getSinkQuerySQL(MYSQL_DATABASE, SINK_TABLE)).toString());
+                            Assertions.assertIterableEquals(
+                                    query(getSourceQuerySQL(MYSQL_DATABASE, SOURCE_TABLE_1)),
+                                    query(getSinkQuerySQL(MYSQL_DATABASE, SINK_TABLE)));
+                        });
+
+        // insert update delete
+        upsertDeleteSourceTable(MYSQL_DATABASE, SOURCE_TABLE_1);
+
+        // stream stage
+        await().atMost(60000, TimeUnit.MILLISECONDS)
+                .untilAsserted(
+                        () -> {
+                            Assertions.assertIterableEquals(
+                                    query(getSourceQuerySQL(MYSQL_DATABASE, SOURCE_TABLE_1)),
+                                    query(getSinkQuerySQL(MYSQL_DATABASE, SINK_TABLE)));
+                        });
+
+        await().atMost(10000, TimeUnit.MILLISECONDS)
+                .untilAsserted(
+                        () -> {
+                            List<List<Object>> query =
+                                    query("SELECT * FROM " + MYSQL_DATABASE + ".heartbeat");
+                            Assertions.assertFalse(query.isEmpty());
+                        });
+    }
+
+    @TestTemplate
+    @DisabledOnContainer(
+            value = {},
+            type = {EngineType.SPARK, EngineType.FLINK},
+            disabledReason =
                     "This case requires obtaining the task health status and manually canceling the canceled task, which is currently only supported by the zeta engine.")
     public void testMysqlCdcMetadataTrans(TestContainer container) throws InterruptedException {
         // Clear related content to ensure that multiple operations are not affected

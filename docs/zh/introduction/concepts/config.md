@@ -5,7 +5,7 @@
 配置文件的主要格式是 `hocon`, 有关该格式类型的更多信息你可以参考[HOCON-GUIDE](https://github.com/lightbend/config/blob/main/HOCON.md),
 顺便提一下，我们也支持 `json`格式，但你应该知道配置文件的名称应该是以 `.json`结尾。
 
-我们同时提供了以 `SQL` 格式，详细可以参考[SQL配置文件](sql-config.md)。
+我们同时提供了以 `SQL` 格式，详细可以参考[SQL配置文件](../configuration/sql-config.md)。
 
 ## 例子
 
@@ -70,7 +70,7 @@ sink {
 
 用于添加引擎可选的参数，不管是什么引擎（Zeta、Spark 或者 Flink），对应的可选参数应该在这里填写。
 
-注意，我们按照引擎分离了参数，对于公共参数我们可以像以前一样配置。对于Flink和Spark引擎，其参数的具体配置规则可以参考[JobEnvConfig](JobEnvConfig.md)。
+注意，我们按照引擎分离了参数，对于公共参数我们可以像以前一样配置。对于Flink和Spark引擎，其参数的具体配置规则可以参考[JobEnvConfig](../configuration/JobEnvConfig.md)。
 
 <!-- TODO add supported env parameters -->
 
@@ -321,7 +321,7 @@ sink {
 - 如果替换变量包含`"`或`'`(如`"resName"`和`"nameVal"`)，需要添加`"`。
 - 值不能包含空格`' '`。例如, `-i jobName='this is a job name'`将被替换为`job.name = "this"`。 你可以使用环境变量传递带有空格的值。 
 - 如果要使用动态参数,可以使用以下格式: `-i date=$(date +"%Y%m%d")`。
-- 不能使用指定系统保留字符，它将不会被`-i`替换，如:`${database_name}`、`${schema_name}`、`${table_name}`、`${schema_full_name}`、`${table_full_name}`、`${primary_key}`、`${unique_key}`、`${field_names}`、`${partition_keys}`。具体可参考[Sink参数占位符](sink-options-placeholders.md)
+- 不能使用指定系统保留字符，它将不会被`-i`替换，如:`${database_name}`、`${schema_name}`、`${table_name}`、`${schema_full_name}`、`${table_full_name}`、`${primary_key}`、`${unique_key}`、`${field_names}`、`${partition_keys}`。具体可参考[Sink参数占位符](../configuration/sink-options-placeholders.md)
 ## 此外
 
 如果你想了解更多关于格式配置的详细信息，请查看 [HOCON](https://github.com/lightbend/config/blob/main/HOCON.md)。

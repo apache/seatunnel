@@ -17,6 +17,11 @@
 
 package org.apache.seatunnel.connectors.seatunnel.file.local;
 
+import org.apache.seatunnel.api.configuration.util.Expression;
+import org.apache.seatunnel.api.configuration.util.OptionRule;
+import org.apache.seatunnel.api.configuration.util.RequiredOption;
+import org.apache.seatunnel.connectors.seatunnel.file.config.FileBaseSourceOptions;
+import org.apache.seatunnel.connectors.seatunnel.file.config.FileSyncMode;
 import org.apache.seatunnel.connectors.seatunnel.file.local.sink.LocalFileSinkFactory;
 import org.apache.seatunnel.connectors.seatunnel.file.local.source.LocalFileSourceFactory;
 
@@ -28,6 +33,27 @@ class LocalFileFactoryTest {
     @Test
     void optionRule() {
         Assertions.assertNotNull((new LocalFileSinkFactory()).optionRule());
-        Assertions.assertNotNull((new LocalFileSourceFactory()).optionRule());
+        OptionRule optionRule = (new LocalFileSourceFactory()).optionRule();
+        Assertions.assertNotNull(optionRule);
+        Assertions.assertTrue(
+                optionRule.getOptionalOptions().contains(FileBaseSourceOptions.SYNC_MODE));
+        Assertions.assertTrue(
+                optionRule.getOptionalOptions().contains(FileBaseSourceOptions.TARGET_HADOOP_CONF));
+        Assertions.assertTrue(
+                optionRule.getOptionalOptions().contains(FileBaseSourceOptions.UPDATE_STRATEGY));
+        Assertions.assertTrue(
+                optionRule.getOptionalOptions().contains(FileBaseSourceOptions.COMPARE_MODE));
+
+        Expression expectExpression =
+                Expression.of(FileBaseSourceOptions.SYNC_MODE, FileSyncMode.UPDATE);
+        Assertions.assertTrue(
+                optionRule.getRequiredOptions().stream()
+                        .filter(RequiredOption.ConditionalRequiredOptions.class::isInstance)
+                        .map(RequiredOption.ConditionalRequiredOptions.class::cast)
+                        .filter(
+                                required ->
+                                        required.getOptions()
+                                                .contains(FileBaseSourceOptions.TARGET_PATH))
+                        .anyMatch(required -> expectExpression.equals(required.getExpression())));
     }
 }

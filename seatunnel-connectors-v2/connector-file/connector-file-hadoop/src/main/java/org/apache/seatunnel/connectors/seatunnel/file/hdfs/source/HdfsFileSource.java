@@ -25,7 +25,11 @@ import org.apache.seatunnel.connectors.seatunnel.file.source.BaseMultipleTableFi
 public class HdfsFileSource extends BaseMultipleTableFileSource {
 
     public HdfsFileSource(ReadonlyConfig readonlyConfig) {
-        super(new MultipleTableHdfsFileSourceConfig(readonlyConfig));
+        this(new MultipleTableHdfsFileSourceConfig(readonlyConfig));
+    }
+
+    private HdfsFileSource(MultipleTableHdfsFileSourceConfig sourceConfig) {
+        super(sourceConfig, initFileSplitStrategy(sourceConfig));
     }
 
     @Override

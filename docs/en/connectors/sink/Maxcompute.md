@@ -14,7 +14,7 @@ Used to read data from Maxcompute.
 
 ## Options
 
-|      name      |  type   | required | default value |
+|      name      | type    | required | default value |
 |----------------|---------|----------|---------------|
 | accessId       | string  | yes      | -             |
 | accesskey      | string  | yes      | -             |
@@ -23,6 +23,7 @@ Used to read data from Maxcompute.
 | table_name     | string  | yes      | -             |
 | partition_spec | string  | no       | -             |
 | overwrite      | boolean | no       | false         |
+| insert_strategy| string  | no       | upload        |
 | common-options | string  | no       |               |
 
 ### accessId [string]
@@ -133,6 +134,7 @@ Example values:
 Default: `yyyy-MM-dd HH:mm:ss`
 
 ### tunnel_endpoint [String]
+
 Specifies the custom endpoint URL for the MaxCompute Tunnel service.
 
 By default, the endpoint is automatically inferred from the configured region.
@@ -149,6 +151,15 @@ Example values:
 - `http://maxcompute:8080`
 
 Default: Not set (auto-inferred from region)
+
+### insert_strategy [string]
+
+If `insert_strategy` is set to `upload`, insert operations use an upload session.
+If set to `upsert`, insert operations use an upsert session. Upsert sessions require a primary key.
+
+**Note**:
+Using upload sessions for insert operations alongside update or delete operations may cause insert records to appear in the table later than expected.
+When a primary key is present, it is recommended to set `insert_strategy` to `upsert` to ensure consistent upsert behavior.
 
 ### common options
 
