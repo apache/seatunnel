@@ -4836,12 +4836,8 @@
       "body": {
         "type": "JSON",
         "json": "{\"pageSize\":2}",
-        "matchType": "ONLY_MATCHING_FIELDS"
+        "matchType": "STRICT"
       }
-    },
-    "times": {
-      "remainingTimes": 1,
-      "unlimited": false
     },
     "httpResponse": {
       "body": {
@@ -4876,12 +4872,8 @@
       "body": {
         "type": "JSON",
         "json": "{\"offset\":\"itrPAGE2/recPAGE2\",\"pageSize\":2}",
-        "matchType": "ONLY_MATCHING_FIELDS"
+        "matchType": "STRICT"
       }
-    },
-    "times": {
-      "remainingTimes": 1,
-      "unlimited": false
     },
     "httpResponse": {
       "body": {
@@ -4916,12 +4908,8 @@
       "body": {
         "type": "JSON",
         "json": "{\"offset\":\"itrPAGE3/recPAGE3\",\"pageSize\":2}",
-        "matchType": "ONLY_MATCHING_FIELDS"
+        "matchType": "STRICT"
       }
-    },
-    "times": {
-      "remainingTimes": 1,
-      "unlimited": false
     },
     "httpResponse": {
       "body": {
