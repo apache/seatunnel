@@ -26,7 +26,7 @@ import org.apache.seatunnel.connectors.seatunnel.file.config.FileBaseSinkOptions
 import org.apache.seatunnel.connectors.seatunnel.file.config.FileBaseSourceOptions;
 import org.apache.seatunnel.connectors.seatunnel.file.config.FileFormat;
 import org.apache.seatunnel.connectors.seatunnel.file.s3.config.S3FileBaseOptions;
-import org.apache.seatunnel.connectors.seatunnel.redshift.config.S3RedshiftConfigOptions;
+import org.apache.seatunnel.connectors.seatunnel.redshift.config.S3RedshiftSinkOptions;
 
 import com.google.auto.service.AutoService;
 
@@ -43,10 +43,10 @@ public class S3RedshiftSinkFactory implements TableSinkFactory {
         return OptionRule.builder()
                 .required(
                         S3FileBaseOptions.S3_BUCKET,
-                        S3RedshiftConfigOptions.JDBC_URL,
-                        S3RedshiftConfigOptions.JDBC_USER,
-                        S3RedshiftConfigOptions.JDBC_PASSWORD,
-                        S3RedshiftConfigOptions.EXECUTE_SQL,
+                        S3RedshiftSinkOptions.JDBC_URL,
+                        S3RedshiftSinkOptions.JDBC_USER,
+                        S3RedshiftSinkOptions.JDBC_PASSWORD,
+                        S3RedshiftSinkOptions.EXECUTE_SQL,
                         FileBaseSourceOptions.FILE_PATH,
                         S3FileBaseOptions.S3A_AWS_CREDENTIALS_PROVIDER)
                 .conditional(
