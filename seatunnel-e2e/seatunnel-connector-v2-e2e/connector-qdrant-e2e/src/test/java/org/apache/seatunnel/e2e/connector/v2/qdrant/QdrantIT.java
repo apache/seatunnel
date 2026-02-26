@@ -62,7 +62,12 @@ public class QdrantIT extends TestSuiteBase implements TestResource {
     private static final String ALIAS = "qdrante2e";
     private static final String SOURCE_COLLECTION = "source_collection";
     private static final String SINK_COLLECTION = "sink_collection";
+    /**
+     * Fixed Qdrant at v1.15.0 for stability; upgrading to v1.17.0+ requires ensuring the SeaTunnel
+     * Qdrant connector is compatible with the latest breaking changes.
+     */
     private static final String IMAGE = "qdrant/qdrant:v1.15.0";
+
     private QdrantContainer container;
     private QdrantClient qdrantClient;
 
