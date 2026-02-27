@@ -254,7 +254,7 @@ public class AmazonDynamoDBMultiTableSinkTest {
                                         false,
                                         null,
                                         null))
-                        .primaryKey(PrimaryKey.of("pk", List.of("id")))
+                        .primaryKey(PrimaryKey.of("pk", Collections.singletonList("id")))
                         .build();
 
         return CatalogTable.of(
