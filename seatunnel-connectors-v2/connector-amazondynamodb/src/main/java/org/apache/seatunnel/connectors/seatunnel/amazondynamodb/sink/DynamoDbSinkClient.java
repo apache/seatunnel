@@ -42,7 +42,7 @@ public class DynamoDbSinkClient {
     private final Map<String, List<WriteRequest>> batchListByTable;
     private final Object lock = new Object();
 
-    protected DynamoDbSinkClient(
+    public DynamoDbSinkClient(
             AmazonDynamoDBConfig amazondynamodbConfig, DynamoDbClient dynamoDbClient) {
         this.amazondynamodbConfig = amazondynamodbConfig;
         this.dynamoDbClient = dynamoDbClient;

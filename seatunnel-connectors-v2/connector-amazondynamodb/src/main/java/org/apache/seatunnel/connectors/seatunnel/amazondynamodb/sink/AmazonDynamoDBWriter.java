@@ -38,7 +38,7 @@ public class AmazonDynamoDBWriter extends AbstractSinkWriter<SeaTunnelRow, Void>
     private final SeaTunnelRowSerializer serializer;
     private final AmazonDynamoDBConfig amazondynamodbConfig;
 
-    protected AmazonDynamoDBWriter(
+    public AmazonDynamoDBWriter(
             AmazonDynamoDBConfig amazondynamodbConfig,
             CatalogTable catalogTable,
             DynamoDbSinkClient dynamoDbSinkClient) {
