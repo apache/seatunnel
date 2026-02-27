@@ -153,9 +153,6 @@ public class LogDirtyRecordCollector implements DirtyRecordCollector {
     }
 
     @Override
-    public void close() throws Exception {}
-
-    @Override
     public long getDirtyRecordCount() {
         return dirtyRecordCount.get();
     }

@@ -96,6 +96,16 @@ public class ExecutionPlanGenerator {
                             action.getJarUrls(),
                             action.getConnectorJarIdentifiers(),
                             (SinkConfig) action.getConfig());
+            // preserve dirty collector and config map from original action
+            try {
+                SinkAction<?, ?, ?, ?> orig = (SinkAction<?, ?, ?, ?>) action;
+                SinkAction<?, ?, ?, ?> created = (SinkAction<?, ?, ?, ?>) newAction;
+                if (orig.getDirtyRecordCollector() != null) {
+                    created.setDirtyRecordCollector(orig.getDirtyRecordCollector());
+                }
+            } catch (Throwable t) {
+                log.warn("Failed to copy dirty collector/config from original SinkAction", t);
+            }
         } else if (action instanceof SourceAction) {
             newAction =
                     new SourceAction<>(
