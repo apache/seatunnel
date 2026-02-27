@@ -33,7 +33,8 @@ import org.apache.seatunnel.connectors.seatunnel.jdbc.internal.dialect.mysql.Mys
  * <ul>
  *   <li>Type mapping and {@link
  *       org.apache.seatunnel.connectors.seatunnel.jdbc.internal.converter.JdbcRowConverter} –
- *       delegated to MySQL implementation (reported as "MySQL" in converterName for compatibility).
+ *       delegated to the MySQL implementation while reporting SingleStore in {@code converterName}
+ *       for clearer error messages.
  *   <li>Upsert syntax – {@code INSERT ... ON DUPLICATE KEY UPDATE} (see {@link
  *       MysqlDialect#getUpsertStatement(String, String, String[], String[])}).
  *   <li>Split / sampling – {@code SHOW TABLE STATUS}, {@code CRC32} for hash-based split (see
