@@ -104,6 +104,11 @@ public class TimeUtilsTest {
         assertEquals(9, time11.getHour());
         assertEquals(30, time11.getMinute());
         assertEquals(45, time11.getSecond());
+
+        LocalTime time12 = TimeUtils.parse("1:2:3");
+        assertEquals(1, time12.getHour());
+        assertEquals(2, time12.getMinute());
+        assertEquals(3, time12.getSecond());
     }
 
     @Test

@@ -43,10 +43,14 @@ public class TimeUtils {
         // Initialize time format patterns - most common formats first
         PATTERN_LIST.add(
                 new TimePattern(
-                        "\\d{2}:\\d{2}:\\d{2}", Formatter.HH_MM_SS.value)); // Most common: HH:mm:ss
-        PATTERN_LIST.add(
-                new TimePattern(
-                        "\\d{1,2}:\\d{2}:\\d{2}", Formatter.H_MM_SS.value)); // Common: H:mm:ss
+                        "\\d{1,2}:\\d{1,2}:\\d{1,2}",
+                        new DateTimeFormatterBuilder()
+                                .appendValue(HOUR_OF_DAY, 1, 2, SignStyle.NEVER)
+                                .appendLiteral(':')
+                                .appendValue(MINUTE_OF_HOUR, 1, 2, SignStyle.NEVER)
+                                .appendLiteral(':')
+                                .appendValue(SECOND_OF_MINUTE, 1, 2, SignStyle.NEVER)
+                                .toFormatter()));
         PATTERN_LIST.add(
                 new TimePattern(
                         "\\d{2}:\\d{2}:\\d{2}\\.\\d{3}",
@@ -55,28 +59,27 @@ public class TimeUtils {
                 new TimePattern("\\d{1,2}:\\d{2}:\\d{2}\\.\\d{3}", Formatter.H_MM_SS_SSS.value));
         PATTERN_LIST.add(new TimePattern("\\d{2}:\\d{2}", Formatter.HH_MM.value));
         PATTERN_LIST.add(new TimePattern("\\d{1,2}:\\d{2}", Formatter.H_MM.value));
+
         PATTERN_LIST.add(
                 new TimePattern(
-                        "\\d{1,2}:\\d{2}:\\d{2}\\.\\d+",
+                        "\\d{1,2}:\\d{1,2}:\\d{1,2}\\.\\d+",
                         new DateTimeFormatterBuilder()
                                 .appendValue(HOUR_OF_DAY, 1, 2, SignStyle.NEVER)
                                 .appendLiteral(':')
-                                .appendValue(MINUTE_OF_HOUR, 2)
+                                .appendValue(MINUTE_OF_HOUR, 1, 2, SignStyle.NEVER)
                                 .appendLiteral(':')
-                                .appendValue(SECOND_OF_MINUTE, 2)
-                                .optionalStart()
+                                .appendValue(SECOND_OF_MINUTE, 1, 2, SignStyle.NEVER)
                                 .appendFraction(NANO_OF_SECOND, 0, 9, true)
-                                .optionalEnd()
                                 .toFormatter()));
         PATTERN_LIST.add(
                 new TimePattern(
-                        "\\d{1,2}:\\d{2}:\\d{2}(?:\\.\\d{0,9})?(?:[+-]\\d{2}:\\d{2}|Z)$",
+                        "\\d{1,2}:\\d{1,2}:\\d{1,2}(?:\\.\\d{0,9})?(?:[+-]\\d{2}:\\d{2}|Z)$",
                         new DateTimeFormatterBuilder()
                                 .appendValue(HOUR_OF_DAY, 1, 2, SignStyle.NEVER)
                                 .appendLiteral(':')
-                                .appendValue(MINUTE_OF_HOUR, 2)
+                                .appendValue(MINUTE_OF_HOUR, 1, 2, SignStyle.NEVER)
                                 .appendLiteral(':')
-                                .appendValue(SECOND_OF_MINUTE, 2)
+                                .appendValue(SECOND_OF_MINUTE, 1, 2, SignStyle.NEVER)
                                 .optionalStart()
                                 .appendFraction(NANO_OF_SECOND, 0, 9, true)
                                 .optionalEnd()
@@ -224,6 +227,11 @@ public class TimeUtils {
         @Override
         public Formatter getFormatter() {
             return this;
+        }
+
+        @Override
+        public String getPattern() {
+            return getValue();
         }
 
         @Override

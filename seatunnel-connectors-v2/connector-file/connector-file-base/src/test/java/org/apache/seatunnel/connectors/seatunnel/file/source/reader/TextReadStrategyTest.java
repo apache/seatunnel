@@ -68,7 +68,7 @@ public class TextReadStrategyTest {
             TextReadStrategy.read(path, "", TempCollector);
         }
         final List<SeaTunnelRow> rows = TempCollector.getRows();
-        Assertions.assertEquals(10, rows.size());
+        Assertions.assertEquals(11, rows.size());
         for (SeaTunnelRow row : rows) {
             LocalDate date = (LocalDate) row.getField(0);
             LocalDateTime datetime = (LocalDateTime) row.getField(1);

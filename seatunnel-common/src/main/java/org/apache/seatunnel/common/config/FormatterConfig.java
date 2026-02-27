@@ -22,7 +22,7 @@ import lombok.Getter;
 import java.io.Serializable;
 
 @Getter
-public class FormatterConfig<T> implements Serializable {
+public class FormatterConfig<T extends Formatter> implements Serializable {
     private static final long serialVersionUID = 1L;
     private final T formatter;
     private final boolean userConfigured;
@@ -32,11 +32,11 @@ public class FormatterConfig<T> implements Serializable {
         this.userConfigured = userConfigured;
     }
 
-    public static <T> FormatterConfig<T> ofDefault(T formatter) {
+    public static <T extends Formatter> FormatterConfig<T> ofDefault(T formatter) {
         return new FormatterConfig<>(formatter, false);
     }
 
-    public static <T> FormatterConfig<T> ofUserConfigured(T formatter) {
+    public static <T extends Formatter> FormatterConfig<T> ofUserConfigured(T formatter) {
         return new FormatterConfig<>(formatter, true);
     }
 }

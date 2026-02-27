@@ -120,6 +120,24 @@ public class DateUtilsTest {
     }
 
     @Test
+    public void testReverseFormatter() {
+        LocalDate dateTime1 = DateUtils.parse("1/2/2026");
+        assertEquals(2026, dateTime1.getYear());
+        assertEquals(1, dateTime1.getMonthValue());
+        assertEquals(2, dateTime1.getDayOfMonth());
+
+        LocalDate dateTime2 = DateUtils.parse("12/2/2026");
+        assertEquals(2026, dateTime2.getYear());
+        assertEquals(12, dateTime2.getMonthValue());
+        assertEquals(2, dateTime2.getDayOfMonth());
+
+        LocalDate dateTime3 = DateUtils.parse("01/02/2026");
+        assertEquals(2026, dateTime3.getYear());
+        assertEquals(1, dateTime3.getMonthValue());
+        assertEquals(2, dateTime3.getDayOfMonth());
+    }
+
+    @Test
     public void testParseWithCustomFormat() {
         // Test parsing with custom format
         LocalDate date1 = DateUtils.parse("2023/12/25", "yyyy/MM/dd");
