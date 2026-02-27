@@ -53,6 +53,20 @@ public class JdbcDialectLoaderTest {
         Assertions.assertInstanceOf(SingleStoreDialect.class, jdbcDialect);
     }
 
+    @Test
+    public void shouldRejectInvalidSingleStoreUrl() throws Exception {
+        JdbcDialect jdbcDialect = JdbcDialectLoader.load("jdbc:singlestore://", null, "");
+        Assertions.assertNotInstanceOf(SingleStoreDialect.class, jdbcDialect);
+    }
+
+    @Test
+    public void shouldLoadSingleStoreDialectByDialectNameWithFieldIde() throws Exception {
+        JdbcDialect jdbcDialect =
+                JdbcDialectLoader.load("jdbc:unknown://host/db", "", "SingleStore", "LOWERCASE");
+        Assertions.assertInstanceOf(SingleStoreDialect.class, jdbcDialect);
+        Assertions.assertEquals("`col`", jdbcDialect.quoteIdentifier("COL"));
+    }
+
     /** Test for {@link JdbcDialectLoader} for appointDialect */
     @Test
     public void shouldFindPostgresSQLDialectByDialect() throws Exception {

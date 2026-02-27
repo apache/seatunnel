@@ -17,8 +17,10 @@
 
 package org.apache.seatunnel.connectors.seatunnel.jdbc.internal.dialect.singlestore;
 
+import org.apache.seatunnel.connectors.seatunnel.jdbc.internal.converter.JdbcRowConverter;
 import org.apache.seatunnel.connectors.seatunnel.jdbc.internal.dialect.DatabaseIdentifier;
 import org.apache.seatunnel.connectors.seatunnel.jdbc.internal.dialect.mysql.MysqlDialect;
+import org.apache.seatunnel.connectors.seatunnel.jdbc.internal.dialect.mysql.MysqlJdbcRowConverter;
 
 /**
  * JDBC dialect for SingleStore (formerly MemSQL), a high-performance real-time analytical database.
@@ -55,6 +57,16 @@ public class SingleStoreDialect extends MysqlDialect {
      */
     public SingleStoreDialect(String fieldIde) {
         super(fieldIde);
+    }
+
+    @Override
+    public JdbcRowConverter getRowConverter() {
+        return new MysqlJdbcRowConverter() {
+            @Override
+            public String converterName() {
+                return DatabaseIdentifier.SINGLESTORE;
+            }
+        };
     }
 
     @Override

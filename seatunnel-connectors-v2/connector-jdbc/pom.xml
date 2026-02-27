@@ -400,6 +400,7 @@
         <dependency>
             <groupId>com.singlestore</groupId>
             <artifactId>singlestore-jdbc-client</artifactId>
+            <scope>provided</scope>
         </dependency>
         <!-- AWS SDK for DSQL -->
         <dependency>

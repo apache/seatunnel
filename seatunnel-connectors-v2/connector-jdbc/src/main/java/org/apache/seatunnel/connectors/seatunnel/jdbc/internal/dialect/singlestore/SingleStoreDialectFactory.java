@@ -58,7 +58,34 @@ public class SingleStoreDialectFactory implements JdbcDialectFactory {
             return false;
         }
         String hostPart = m.group(1);
-        return hostPart != null && !hostPart.trim().isEmpty();
+        if (hostPart == null || hostPart.trim().isEmpty()) {
+            return false;
+        }
+
+        String[] hosts = hostPart.split(",");
+        for (String host : hosts) {
+            String trimmedHost = host.trim();
+            if (trimmedHost.isEmpty()) {
+                return false;
+            }
+            int lastColonIndex = trimmedHost.lastIndexOf(':');
+            if (lastColonIndex > -1) {
+                String portPart = trimmedHost.substring(lastColonIndex + 1);
+                if (portPart.isEmpty()) {
+                    return false;
+                }
+                try {
+                    int port = Integer.parseInt(portPart);
+                    if (port < 1 || port > 65535) {
+                        return false;
+                    }
+                } catch (NumberFormatException e) {
+                    return false;
+                }
+            }
+        }
+
+        return true;
     }
 
     @Override

@@ -34,17 +34,12 @@ public class SingleStoreDialectTest {
         Assertions.assertEquals(DatabaseIdentifier.SINGLESTORE, dialect.dialectName());
     }
 
-    /**
-     * SingleStore reuses MySQL's row converter by design (MySQL-compatible type handling). Logs may
-     * show "MySQL" as converter name; the dialect in use is still SingleStore ({@link
-     * SingleStoreDialect#dialectName()}).
-     */
     @Test
     public void testRowConverter() {
         SingleStoreDialect dialect = new SingleStoreDialect();
         Assertions.assertNotNull(dialect.getRowConverter());
         Assertions.assertEquals(
-                DatabaseIdentifier.MYSQL, dialect.getRowConverter().converterName());
+                DatabaseIdentifier.SINGLESTORE, dialect.getRowConverter().converterName());
     }
 
     @Test
@@ -111,6 +106,9 @@ public class SingleStoreDialectTest {
         Assertions.assertFalse(factory.acceptsURL("jdbc:singlestore://"));
         Assertions.assertFalse(factory.acceptsURL("jdbc:singlestore:///database"));
         Assertions.assertFalse(factory.acceptsURL("jdbc:singlestore:loadbalance://"));
+        Assertions.assertFalse(factory.acceptsURL("jdbc:singlestore://host:abc/db"));
+        Assertions.assertFalse(factory.acceptsURL("jdbc:singlestore://host:0/db"));
+        Assertions.assertFalse(factory.acceptsURL("jdbc:singlestore://host:65536/db"));
     }
 
     @Test
