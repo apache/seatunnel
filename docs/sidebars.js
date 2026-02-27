@@ -52,6 +52,48 @@ const sidebars = {
         },
         {
             "type": "category",
+            "label": "Architecture",
+            "items": [
+                "architecture/overview",
+                "architecture/design-philosophy",
+                {
+                    "type": "category",
+                    "label": "API Design",
+                    "items": [
+                        "architecture/api-design/source-architecture",
+                        "architecture/api-design/sink-architecture",
+                        "architecture/api-design/catalog-table",
+                        "architecture/api-design/translation-layer"
+                    ]
+                },
+                {
+                    "type": "category",
+                    "label": "Engine",
+                    "items": [
+                        "architecture/engine/engine-architecture",
+                        "architecture/engine/dag-execution",
+                        "architecture/engine/resource-management"
+                    ]
+                },
+                {
+                    "type": "category",
+                    "label": "Fault Tolerance",
+                    "items": [
+                        "architecture/fault-tolerance/checkpoint-mechanism",
+                        "architecture/fault-tolerance/exactly-once"
+                    ]
+                },
+                {
+                    "type": "category",
+                    "label": "Features",
+                    "items": [
+                        "architecture/features/multi-table"
+                    ]
+                }
+            ]
+        },
+        {
+            "type": "category",
             "label": "Getting Started",
             "items": [
                 {
