@@ -10,7 +10,7 @@ Read data from SingleStore (formerly MemSQL) through JDBC. SingleStore is a high
 
 ## Supported SingleStore Version
 
-- SingleStore v7.1+
+- **SingleStore v7.1+** (tested on 7.1 and later). This version range is required for the JDBC driver and MySQL-compatible SQL (e.g. `SHOW TABLE STATUS`, `CRC32`, `ON DUPLICATE KEY UPDATE`) used by the connector. Earlier versions are not officially supported and may have compatibility differences.
 
 ## Support Those Engines
 
@@ -22,7 +22,7 @@ Read data from SingleStore (formerly MemSQL) through JDBC. SingleStore is a high
 
 ### For Spark/Flink Engine
 
-> 1. You need to ensure that the [SingleStore JDBC driver](https://mvnrepository.com/artifact/com.singlestore/singlestore-jdbc-client) has been placed in directory `${SEATUNNEL_HOME}/plugins/`.
+> 1. You need to ensure that the [SingleStore JDBC driver](https://mvnrepository.com/artifact/com.singlestore/singlestore-jdbc-client) has been placed in directory `${SEATUNNEL_HOME}/plugins/`. The connector is built and tested with `singlestore-jdbc-client` 1.2.8; other versions may work but compatibility and security should be verified.
 
 ### For SeaTunnel Zeta Engine
 
@@ -60,6 +60,25 @@ jdbc:singlestore:[loadbalance:|sequential:]//<host>[:port]/[database][?<key1>=<v
 ## Data Type Mapping
 
 SingleStore is MySQL-compatible. Data type mapping follows the same as [MySQL JDBC Source](Mysql.md#data-type-mapping) (TINYINT, INT, BIGINT, VARCHAR, TEXT, DATETIME, etc.).
+
+## FAQ / Troubleshooting
+
+| Issue | Possible cause | Suggestion |
+|-------|----------------|------------|
+| Connection refused or timeout | Wrong host/port, firewall, or SingleStore not running | Check URL format `jdbc:singlestore://host:port/database`, default port 3306. Ensure the database is reachable. |
+| "No suitable driver" or ClassNotFoundException | JDBC driver not on classpath | Place `singlestore-jdbc-client` JAR in `${SEATUNNEL_HOME}/plugins/` (Spark/Flink) or `${SEATUNNEL_HOME}/lib/` (Zeta). |
+| Split or sampling errors | SingleStore version or SQL differences | Use SingleStore 7.1+. If you see errors on `SHOW TABLE STATUS` or `CRC32`, report the SingleStore version. |
+| Upsert or batch write failures | Syntax or driver behavior | Ensure `rewriteBatchedStatements=true` in URL or properties. Verify primary key columns and table schema. |
+| Schema evolution (ALTER TABLE) issues | DDL inherited from MySQL dialect | Test ADD/MODIFY/DROP COLUMN on your SingleStore version; document any differences. |
+
+## Manual integration testing
+
+There is no Testcontainers image for SingleStore in this project. To validate the connector against a real SingleStore instance:
+
+1. Start SingleStore 7.1+ (e.g. Docker or cloud).
+2. Create a database and table, then run a small job with the JDBC source (and optionally sink) using the config examples above.
+3. Verify split behavior (parallelism), upsert, and batch writes if using the sink.
+4. If you use Schema Evolution, run ADD/MODIFY/DROP COLUMN and confirm the job continues correctly.
 
 ## Source Options
 

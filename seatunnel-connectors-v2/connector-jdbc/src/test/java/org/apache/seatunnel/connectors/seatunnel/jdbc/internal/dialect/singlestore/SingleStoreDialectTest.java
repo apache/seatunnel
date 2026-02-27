@@ -34,6 +34,11 @@ public class SingleStoreDialectTest {
         Assertions.assertEquals(DatabaseIdentifier.SINGLESTORE, dialect.dialectName());
     }
 
+    /**
+     * SingleStore reuses MySQL's row converter by design (MySQL-compatible type handling). Logs may
+     * show "MySQL" as converter name; the dialect in use is still SingleStore ({@link
+     * SingleStoreDialect#dialectName()}).
+     */
     @Test
     public void testRowConverter() {
         SingleStoreDialect dialect = new SingleStoreDialect();
@@ -95,8 +100,17 @@ public class SingleStoreDialectTest {
         SingleStoreDialectFactory factory = new SingleStoreDialectFactory();
         Assertions.assertTrue(factory.acceptsURL("jdbc:singlestore://localhost:3306/test"));
         Assertions.assertTrue(factory.acceptsURL("jdbc:singlestore:loadbalance://host1,host2/db"));
+        Assertions.assertTrue(factory.acceptsURL("jdbc:singlestore://host/database"));
         Assertions.assertFalse(factory.acceptsURL("jdbc:mysql://localhost:3306/test"));
         Assertions.assertFalse(factory.acceptsURL(null));
+    }
+
+    @Test
+    public void testSingleStoreDialectFactoryRejectsMalformedUrl() {
+        SingleStoreDialectFactory factory = new SingleStoreDialectFactory();
+        Assertions.assertFalse(factory.acceptsURL("jdbc:singlestore://"));
+        Assertions.assertFalse(factory.acceptsURL("jdbc:singlestore:///database"));
+        Assertions.assertFalse(factory.acceptsURL("jdbc:singlestore:loadbalance://"));
     }
 
     @Test
@@ -112,5 +126,38 @@ public class SingleStoreDialectTest {
         Assertions.assertInstanceOf(SingleStoreDialect.class, dialect);
         JdbcDialect dialectWithFieldIde = factory.create("", "LOWERCASE");
         Assertions.assertInstanceOf(SingleStoreDialect.class, dialectWithFieldIde);
+    }
+
+    /** Boundary: null fieldIde falls back to original identifier (handled by base dialect). */
+    @Test
+    public void testQuoteIdentifierWithNullFieldIde() {
+        SingleStoreDialect dialect = new SingleStoreDialect(null);
+        Assertions.assertEquals("`col`", dialect.quoteIdentifier("col"));
+    }
+
+    /** Boundary: empty fieldIde falls back to original identifier. */
+    @Test
+    public void testQuoteIdentifierWithEmptyFieldIde() {
+        SingleStoreDialect dialect = new SingleStoreDialect("");
+        Assertions.assertEquals("`col`", dialect.quoteIdentifier("col"));
+    }
+
+    /**
+     * Boundary: valid fieldIde values (ORIGINAL, LOWERCASE, UPPERCASE) produce expected quoting.
+     */
+    @Test
+    public void testQuoteIdentifierWithValidFieldIde() {
+        SingleStoreDialect lower = new SingleStoreDialect("LOWERCASE");
+        Assertions.assertEquals("`col`", lower.quoteIdentifier("COL"));
+        SingleStoreDialect upper = new SingleStoreDialect("UPPERCASE");
+        Assertions.assertEquals("`COL`", upper.quoteIdentifier("col"));
+    }
+
+    /** Boundary: invalid fieldIde value throws when used in quoteIdentifier (parent behavior). */
+    @Test
+    public void testQuoteIdentifierWithInvalidFieldIde() {
+        SingleStoreDialect dialect = new SingleStoreDialect("INVALID");
+        Assertions.assertThrows(
+                IllegalArgumentException.class, () -> dialect.quoteIdentifier("col"));
     }
 }

@@ -22,13 +22,37 @@ import org.apache.seatunnel.connectors.seatunnel.jdbc.internal.dialect.mysql.Mys
 
 /**
  * JDBC dialect for SingleStore (formerly MemSQL), a high-performance real-time analytical database.
- * SingleStore is MySQL-compatible, so this dialect extends {@link MysqlDialect} and reuses MySQL
- * type mapping and row conversion.
+ *
+ * <p>SingleStore is designed to be MySQL-compatible. This dialect extends {@link MysqlDialect} and
+ * reuses the following MySQL behaviors without modification. Compatibility has been validated for
+ * the connector's use cases; if you use Schema Evolution or other advanced DDL, validate against
+ * your SingleStore version.
+ *
+ * <ul>
+ *   <li>Type mapping and {@link
+ *       org.apache.seatunnel.connectors.seatunnel.jdbc.internal.converter.JdbcRowConverter} –
+ *       delegated to MySQL implementation (reported as "MySQL" in converterName for compatibility).
+ *   <li>Upsert syntax – {@code INSERT ... ON DUPLICATE KEY UPDATE} (see {@link
+ *       MysqlDialect#getUpsertStatement(String, String, String[], String[])}).
+ *   <li>Split / sampling – {@code SHOW TABLE STATUS}, {@code CRC32} for hash-based split (see
+ *       {@link MysqlDialect#approximateRowCntStatement} and {@link MysqlDialect#hashModForField}).
+ *   <li>Batch – {@code rewriteBatchedStatements=true} (see {@link MysqlDialect#defaultParameter}).
+ *   <li>Schema change (DDL) – ALTER TABLE ADD/MODIFY/DROP COLUMN logic is inherited from MySQL;
+ *       behavior on SingleStore should be validated if you use Schema Evolution.
+ * </ul>
+ *
+ * @see MysqlDialect
+ * @see org.apache.seatunnel.connectors.seatunnel.jdbc.internal.dialect.mysql.MysqlJdbcRowConverter
+ * @see org.apache.seatunnel.connectors.seatunnel.jdbc.internal.dialect.mysql.MySqlTypeConverter
  */
 public class SingleStoreDialect extends MysqlDialect {
 
     public SingleStoreDialect() {}
 
+    /**
+     * @param fieldIde field identifier mode (e.g. LOWERCASE, UPPERCASE, ORIGINAL); null or empty is
+     *     treated as original by the base dialect.
+     */
     public SingleStoreDialect(String fieldIde) {
         super(fieldIde);
     }

@@ -25,17 +25,40 @@ import com.google.auto.service.AutoService;
 
 import javax.annotation.Nonnull;
 
+import java.util.regex.Matcher;
+import java.util.regex.Pattern;
+
 /** Factory for {@link SingleStoreDialect}. */
 @AutoService(JdbcDialectFactory.class)
 public class SingleStoreDialectFactory implements JdbcDialectFactory {
+
+    private static final String URL_PREFIX = "jdbc:singlestore:";
+    /** Expect: jdbc:singlestore:[loadbalance:|sequential:]//host[:port][/database][?params]. */
+    private static final Pattern URL_PATTERN =
+            Pattern.compile(
+                    "^jdbc:singlestore:(?:loadbalance:|sequential:)?//([^/?#]+)(/[^?#]*)?.*");
+
     @Override
     public String dialectFactoryName() {
         return DatabaseIdentifier.SINGLESTORE;
     }
 
+    /**
+     * Accepts URLs with prefix {@code jdbc:singlestore:} and valid format: at least host present
+     * after {@code //} (e.g. {@code jdbc:singlestore://host:3306/db} or {@code
+     * jdbc:singlestore:loadbalance://h1,h2/db}).
+     */
     @Override
     public boolean acceptsURL(String url) {
-        return url != null && url.startsWith("jdbc:singlestore:");
+        if (url == null || !url.startsWith(URL_PREFIX)) {
+            return false;
+        }
+        Matcher m = URL_PATTERN.matcher(url);
+        if (!m.matches()) {
+            return false;
+        }
+        String hostPart = m.group(1);
+        return hostPart != null && !hostPart.trim().isEmpty();
     }
 
     @Override
