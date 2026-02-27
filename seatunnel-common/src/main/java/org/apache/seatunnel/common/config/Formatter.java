@@ -19,4 +19,6 @@ package org.apache.seatunnel.common.config;
 
 public interface Formatter<T> {
     T getFormatter();
+
+    String getPattern();
 }

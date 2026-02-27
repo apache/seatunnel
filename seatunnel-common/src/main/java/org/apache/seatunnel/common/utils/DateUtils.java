@@ -23,7 +23,10 @@ import java.time.LocalDate;
 import java.time.format.DateTimeFormatter;
 import java.time.format.DateTimeFormatterBuilder;
 import java.time.format.SignStyle;
+import java.time.temporal.ChronoField;
 import java.time.temporal.Temporal;
+import java.time.temporal.TemporalAccessor;
+import java.time.temporal.TemporalQueries;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.regex.Pattern;
@@ -76,6 +79,31 @@ public class DateUtils {
                 new DatePattern("\\d{4}/\\d{1,2}/\\d{1,2}", Formatter.YYYY_M_D_SLASH.value));
         PATTERN_LIST.add(
                 new DatePattern("\\d{4}\\.\\d{1,2}\\.\\d{1,2}", Formatter.YYYY_M_D_SPOT.value));
+        PATTERN_LIST.add(
+                new DatePattern(
+                        "^\\d{1,2}[-/]\\d{1,2}[-/]\\d{4}",
+                        new DateTimeFormatterBuilder()
+                                .parseCaseInsensitive()
+                                .appendValue(ChronoField.MONTH_OF_YEAR, 1, 2, SignStyle.NEVER)
+                                .appendOptional(
+                                        new DateTimeFormatterBuilder()
+                                                .appendLiteral('/')
+                                                .toFormatter())
+                                .appendOptional(
+                                        new DateTimeFormatterBuilder()
+                                                .appendLiteral('-')
+                                                .toFormatter())
+                                .appendValue(ChronoField.DAY_OF_MONTH, 1, 2, SignStyle.NEVER)
+                                .appendOptional(
+                                        new DateTimeFormatterBuilder()
+                                                .appendLiteral('/')
+                                                .toFormatter())
+                                .appendOptional(
+                                        new DateTimeFormatterBuilder()
+                                                .appendLiteral('-')
+                                                .toFormatter())
+                                .appendValue(ChronoField.YEAR, 4)
+                                .toFormatter()));
         PATTERN_LIST.add(
                 new DatePattern(
                         "\\d{4}-\\d{2}-\\d{2}T\\d{2}:\\d{2}:\\d{2}(\\.\\d{1,9})?Z?",
@@ -152,7 +180,8 @@ public class DateUtils {
      * @return Parsed LocalDate object
      */
     public static LocalDate parse(String date, DateTimeFormatter dateTimeFormatter) {
-        return LocalDate.parse(date, dateTimeFormatter);
+        TemporalAccessor temporalAccessor = dateTimeFormatter.parse(date);
+        return temporalAccessor.query(TemporalQueries.localDate());
     }
 
     /**
@@ -163,7 +192,7 @@ public class DateUtils {
      * @return Parsed LocalDate object
      */
     public static LocalDate parse(String date, Formatter formatter) {
-        return LocalDate.parse(date, formatter.getDateTimeFormatter());
+        return parse(date, formatter.getDateTimeFormatter());
     }
 
     /**
@@ -175,7 +204,7 @@ public class DateUtils {
      */
     public static LocalDate parse(String date, String format) {
         DateTimeFormatter dateTimeFormatter = DateTimeFormatter.ofPattern(format);
-        return LocalDate.parse(date, dateTimeFormatter);
+        return parse(date, dateTimeFormatter);
     }
 
     /**
@@ -242,6 +271,11 @@ public class DateUtils {
         @Override
         public Formatter getFormatter() {
             return this;
+        }
+
+        @Override
+        public String getPattern() {
+            return getValue();
         }
 
         @Override

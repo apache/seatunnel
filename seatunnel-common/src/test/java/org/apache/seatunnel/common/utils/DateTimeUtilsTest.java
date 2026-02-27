@@ -515,6 +515,41 @@ public class DateTimeUtilsTest {
     }
 
     @Test
+    public void testReverseFormatter() {
+        LocalDateTime dateTime1 = DateTimeUtils.parse("1/2/2026 12:01:30");
+        assertEquals(2026, dateTime1.getYear());
+        assertEquals(1, dateTime1.getMonthValue());
+        assertEquals(2, dateTime1.getDayOfMonth());
+        assertEquals(12, dateTime1.getHour());
+        assertEquals(1, dateTime1.getMinute());
+        assertEquals(30, dateTime1.getSecond());
+
+        LocalDateTime dateTime2 = DateTimeUtils.parse("12/2/2026 12:01:30");
+        assertEquals(2026, dateTime2.getYear());
+        assertEquals(12, dateTime2.getMonthValue());
+        assertEquals(2, dateTime2.getDayOfMonth());
+        assertEquals(12, dateTime2.getHour());
+        assertEquals(1, dateTime2.getMinute());
+        assertEquals(30, dateTime2.getSecond());
+
+        LocalDateTime dateTime3 = DateTimeUtils.parse("1/2/2026 1:2:3");
+        assertEquals(2026, dateTime3.getYear());
+        assertEquals(1, dateTime3.getMonthValue());
+        assertEquals(2, dateTime3.getDayOfMonth());
+        assertEquals(1, dateTime3.getHour());
+        assertEquals(2, dateTime3.getMinute());
+        assertEquals(3, dateTime3.getSecond());
+
+        LocalDateTime dateTime4 = DateTimeUtils.parse("01/02/2026 01:02:03");
+        assertEquals(2026, dateTime4.getYear());
+        assertEquals(1, dateTime4.getMonthValue());
+        assertEquals(2, dateTime4.getDayOfMonth());
+        assertEquals(1, dateTime4.getHour());
+        assertEquals(2, dateTime4.getMinute());
+        assertEquals(3, dateTime4.getSecond());
+    }
+
+    @Test
     public void testToString() {
         LocalDateTime dateTime = LocalDateTime.of(2023, 12, 25, 15, 30, 45);
 

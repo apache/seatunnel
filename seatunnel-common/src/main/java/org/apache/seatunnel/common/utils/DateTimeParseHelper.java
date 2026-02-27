@@ -17,6 +17,7 @@
 
 package org.apache.seatunnel.common.utils;
 
+import org.apache.seatunnel.common.config.Formatter;
 import org.apache.seatunnel.common.config.FormatterConfig;
 import org.apache.seatunnel.common.exception.CommonError;
 import org.apache.seatunnel.common.exception.SeaTunnelRuntimeException;
@@ -60,24 +61,23 @@ public interface DateTimeParseHelper {
         if (fieldVal == null || fieldVal.isEmpty()) {
             return null;
         }
-        DateTimeFormatter formatter = fieldFormatterCache.get(fieldName);
         boolean isUserConfigured =
                 Objects.nonNull(formatterConfig) && formatterConfig.isUserConfigured();
-        if (formatter == null) {
-            if (isUserConfigured) {
-                // User configured formatter, extract the pattern value
-                String pattern = getPatternStr(formatterConfig);
-                formatter = DateTimeFormatter.ofPattern(pattern);
-            } else {
-                // Auto match formatter
-                formatter = autoFormatterSupplier.get(fieldVal);
-            }
-        }
-        if (formatter == null) {
-            throw errorSupplier.get(fieldVal, fieldName);
-        } else {
-            fieldFormatterCache.put(fieldName, formatter);
-        }
+        DateTimeFormatter formatter =
+                fieldFormatterCache.computeIfAbsent(
+                        fieldName,
+                        key -> {
+                            if (isUserConfigured) {
+                                Formatter configFormatter = formatterConfig.getFormatter();
+                                return DateTimeFormatter.ofPattern(configFormatter.getPattern());
+                            } else {
+                                DateTimeFormatter matched = autoFormatterSupplier.get(fieldVal);
+                                if (matched == null) {
+                                    throw errorSupplier.get(fieldVal, fieldName);
+                                }
+                                return matched;
+                            }
+                        });
         try {
             return parser.parse(fieldVal, formatter);
         } catch (Exception e) {
@@ -85,27 +85,16 @@ public interface DateTimeParseHelper {
                 // If user configured formatter fails, we can't do anything
                 throw errorSupplier.get(fieldVal, fieldName);
             }
-            // Re-match formatter and update cache
-            formatter = autoFormatterSupplier.get(fieldVal);
-            if (formatter == null) {
+            // Re-match: replace cached formatter
+            DateTimeFormatter newFormatter = autoFormatterSupplier.get(fieldVal);
+            if (newFormatter == null) {
                 throw errorSupplier.get(fieldVal, fieldName);
             }
-            fieldFormatterCache.put(fieldName, formatter);
-            return parser.parse(fieldVal, formatter);
+            // Atomic replacement (note: there may be concurrency issues here, but rare in actual
+            // scenarios)
+            fieldFormatterCache.replace(fieldName, formatter, newFormatter);
+            return parser.parse(fieldVal, newFormatter);
         }
-    }
-
-    default String getPatternStr(FormatterConfig<?> formatterConfig) {
-        Object formatterObj = formatterConfig.getFormatter();
-        String pattern = "";
-        if (formatterObj instanceof DateUtils.Formatter) {
-            pattern = ((DateUtils.Formatter) formatterObj).getValue();
-        } else if (formatterObj instanceof TimeUtils.Formatter) {
-            pattern = ((TimeUtils.Formatter) formatterObj).getValue();
-        } else if (formatterObj instanceof DateTimeUtils.Formatter) {
-            pattern = ((DateTimeUtils.Formatter) formatterObj).getValue();
-        }
-        return pattern;
     }
 
     default LocalDate parseDate(

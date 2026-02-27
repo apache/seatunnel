@@ -70,6 +70,30 @@ public class DateTimeUtils {
     private static void initPatternMap() {
         // Clear the map to avoid repeated initialization when the class is reloaded
         DATETIME_PATTERN_MAP.clear();
+        String reversePattern = "^\\d{1,2}[-/]\\d{1,2}[-/]\\d{4}[T\\s]\\d{1,2}:\\d{1,2}:\\d{1,2}";
+        DateTimeFormatter reverseFormatter =
+                new DateTimeFormatterBuilder()
+                        .parseCaseInsensitive()
+                        .appendValue(ChronoField.MONTH_OF_YEAR, 1, 2, SignStyle.NEVER)
+                        .appendOptional(
+                                new DateTimeFormatterBuilder().appendLiteral('/').toFormatter())
+                        .appendOptional(
+                                new DateTimeFormatterBuilder().appendLiteral('-').toFormatter())
+                        .appendValue(ChronoField.DAY_OF_MONTH, 1, 2, SignStyle.NEVER)
+                        .appendOptional(
+                                new DateTimeFormatterBuilder().appendLiteral('/').toFormatter())
+                        .appendOptional(
+                                new DateTimeFormatterBuilder().appendLiteral('-').toFormatter())
+                        .appendValue(ChronoField.YEAR, 4)
+                        .appendLiteral(' ')
+                        .appendValue(ChronoField.HOUR_OF_DAY, 1, 2, SignStyle.NEVER)
+                        .appendLiteral(':')
+                        .appendValue(ChronoField.MINUTE_OF_HOUR, 1, 2, SignStyle.NEVER)
+                        .optionalStart()
+                        .appendLiteral(':')
+                        .appendValue(ChronoField.SECOND_OF_MINUTE, 1, 2, SignStyle.NEVER)
+                        .optionalEnd()
+                        .toFormatter();
 
         // ===================== Length 14: Fixed Length =====================
         // Format Type: No-separator compact format / Single digit month/day (no second)
@@ -88,6 +112,7 @@ public class DateTimeUtils {
                 new DateTimePattern(
                         "\\d{4}/\\d{1,2}/\\d{1,2}\\s\\d{2}:\\d{2}",
                         Formatter.YYYY_M_D_HH_MM_SLASH.value));
+        length14Patterns.add(new DateTimePattern(reversePattern, reverseFormatter));
         DATETIME_PATTERN_MAP.put(14, length14Patterns);
 
         // ===================== Length 15: Fixed Length =====================
@@ -102,6 +127,7 @@ public class DateTimeUtils {
                 new DateTimePattern(
                         "\\d{4}/\\d{1,2}/\\d{1,2}\\s\\d{2}:\\d{2}",
                         Formatter.YYYY_M_D_HH_MM_SLASH.value));
+        length15Patterns.add(new DateTimePattern(reversePattern, reverseFormatter));
         DATETIME_PATTERN_MAP.put(15, length15Patterns);
 
         // ===================== Length 16: Fixed Length =====================
@@ -125,6 +151,7 @@ public class DateTimeUtils {
                 new DateTimePattern(
                         "\\d{4}/\\d{1,2}/\\d{1,2}\\s\\d{1,2}:\\d{2}:\\d{2}",
                         Formatter.YYYY_M_D_H_MM_SS_SLASH.value));
+        length16Patterns.add(new DateTimePattern(reversePattern, reverseFormatter));
         DATETIME_PATTERN_MAP.put(16, length16Patterns);
 
         // ===================== Length 17: Fixed Length =====================
@@ -139,6 +166,7 @@ public class DateTimeUtils {
                 new DateTimePattern(
                         "\\d{4}/\\d{1,2}/\\d{1,2}\\s\\d{1,2}:\\d{2}:\\d{2}",
                         Formatter.YYYY_M_D_H_MM_SS_SLASH.value));
+        length17Patterns.add(new DateTimePattern(reversePattern, reverseFormatter));
         DATETIME_PATTERN_MAP.put(17, length17Patterns);
 
         // ===================== Length 18: Fixed Length =====================
@@ -153,6 +181,7 @@ public class DateTimeUtils {
                 new DateTimePattern(
                         "\\d{4}/\\d{1,2}/\\d{1,2}\\s\\d{1,2}:\\d{2}:\\d{2}",
                         Formatter.YYYY_M_D_H_MM_SS_SLASH.value));
+        length18Patterns.add(new DateTimePattern(reversePattern, reverseFormatter));
         DATETIME_PATTERN_MAP.put(18, length18Patterns);
 
         // ===================== Length 19: Fixed Length (Core Common) =====================
@@ -179,6 +208,7 @@ public class DateTimeUtils {
                 new DateTimePattern(
                         "\\d{4}\\.\\d{2}\\.\\d{2}\\s\\d{2}:\\d{2}:\\d{2}",
                         Formatter.YYYY_MM_DD_HH_MM_SS_SPOT.value));
+        length19Patterns.add(new DateTimePattern(reversePattern, reverseFormatter));
         DATETIME_PATTERN_MAP.put(19, length19Patterns);
 
         // ===================== Length 21: Fixed Length (Chinese Exclusive) =====================
@@ -269,10 +299,28 @@ public class DateTimeUtils {
         List<DateTimePattern> hasTimeZonePatterns = new ArrayList<>();
         hasTimeZonePatterns.add(
                 new DateTimePattern(
-                        "^\\d{4}-\\d{2}-\\d{2}[T\\s]\\d{2}:\\d{2}:\\d{2}(?:\\.\\d{0,9})?(?:[+-]\\d{2}:\\d{2}|Z)$",
+                        "^\\d{4}[-/]\\d{2}[-/]\\d{2}[T\\s]\\d{2}:\\d{2}:\\d{2}(?:\\.\\d{0,9})?(?:[+-]\\d{2}:\\d{2}|Z)$",
                         new DateTimeFormatterBuilder()
                                 .parseCaseInsensitive()
-                                .append(DateTimeFormatter.ISO_LOCAL_DATE)
+                                .appendValue(ChronoField.YEAR, 4)
+                                .appendOptional(
+                                        new DateTimeFormatterBuilder()
+                                                .appendLiteral('/')
+                                                .toFormatter())
+                                .appendOptional(
+                                        new DateTimeFormatterBuilder()
+                                                .appendLiteral('-')
+                                                .toFormatter())
+                                .appendValue(ChronoField.MONTH_OF_YEAR, 1, 2, SignStyle.NEVER)
+                                .appendOptional(
+                                        new DateTimeFormatterBuilder()
+                                                .appendLiteral('/')
+                                                .toFormatter())
+                                .appendOptional(
+                                        new DateTimeFormatterBuilder()
+                                                .appendLiteral('-')
+                                                .toFormatter())
+                                .appendValue(ChronoField.DAY_OF_MONTH, 1, 2, SignStyle.NEVER)
                                 .optionalStart()
                                 .appendLiteral('T')
                                 .optionalEnd()
@@ -280,30 +328,6 @@ public class DateTimeUtils {
                                 .appendLiteral(' ')
                                 .optionalEnd()
                                 .appendValue(HOUR_OF_DAY, 2)
-                                .appendLiteral(':')
-                                .appendValue(MINUTE_OF_HOUR, 2)
-                                .appendLiteral(':')
-                                .appendValue(SECOND_OF_MINUTE, 2)
-                                .optionalStart()
-                                .appendFraction(NANO_OF_SECOND, 0, 9, true)
-                                .optionalEnd()
-                                .optionalStart()
-                                .appendOffset("+HH:mm", "Z")
-                                .optionalEnd()
-                                .toFormatter()));
-        hasTimeZonePatterns.add(
-                new DateTimePattern(
-                        "^\\d{4}/\\d{2}/\\d{2}[T\\s]\\d{2}:\\d{2}:\\d{2}(?:\\.\\d{0,9})?(?:[+-]\\d{2}:\\d{2}|Z)$",
-                        new DateTimeFormatterBuilder()
-                                .parseCaseInsensitive()
-                                .appendPattern("yyyy/MM/dd")
-                                .optionalStart()
-                                .appendLiteral('T')
-                                .optionalEnd()
-                                .optionalStart()
-                                .appendLiteral(' ')
-                                .optionalEnd()
-                                .appendValue(HOUR_OF_DAY, 1, 2, SignStyle.NEVER)
                                 .appendLiteral(':')
                                 .appendValue(MINUTE_OF_HOUR, 2)
                                 .appendLiteral(':')
@@ -582,6 +606,11 @@ public class DateTimeUtils {
         @Override
         public Formatter getFormatter() {
             return this;
+        }
+
+        @Override
+        public String getPattern() {
+            return getValue();
         }
 
         @Override
