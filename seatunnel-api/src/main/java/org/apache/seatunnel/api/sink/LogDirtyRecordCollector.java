@@ -39,6 +39,66 @@ public class LogDirtyRecordCollector implements DirtyRecordCollector {
     private long threshold = -1;
     private boolean failOnThreshold = false;
     private final AtomicLong dirtyRecordCount = new AtomicLong(0);
+    private transient Object distributedCounter;
+
+    @Override
+    public void setDistributedCounter(Object counter) {
+        this.distributedCounter = counter;
+        log.debug(
+                "[LogCollector] distributed counter set: {}",
+                counter != null ? counter.getClass().getName() : "null");
+    }
+
+    @Override
+    public void incrementDistributedCounter() {
+        if (distributedCounter == null) {
+            return;
+        }
+        try {
+            if (distributedCounter.getClass().getName().contains("LongAccumulator")) {
+                // spark LongAccumulator
+                distributedCounter
+                        .getClass()
+                        .getMethod("add", long.class)
+                        .invoke(distributedCounter, 1L);
+            } else {
+                // flink LongCounter or seaTunnel Counter
+                try {
+                    distributedCounter.getClass().getMethod("inc").invoke(distributedCounter);
+                } catch (NoSuchMethodException e) {
+                    distributedCounter
+                            .getClass()
+                            .getMethod("add", long.class)
+                            .invoke(distributedCounter, 1L);
+                }
+            }
+        } catch (Exception e) {
+            log.trace("Failed to increment distributed counter", e);
+        }
+    }
+
+    private long getDistributedCount() {
+        if (distributedCounter == null) {
+            return dirtyRecordCount.get();
+        }
+        try {
+            if (distributedCounter.getClass().getName().contains("LongAccumulator")) {
+                // spark LongAccumulator
+                return (Long)
+                        distributedCounter.getClass().getMethod("value").invoke(distributedCounter);
+            } else {
+                // flink or seaTunnel Counter
+                return (Long)
+                        distributedCounter
+                                .getClass()
+                                .getMethod("getCount")
+                                .invoke(distributedCounter);
+            }
+        } catch (Exception e) {
+            log.trace("Failed to get distributed count, using local count", e);
+            return dirtyRecordCount.get();
+        }
+    }
 
     @Override
     public void init(Config config) {
@@ -76,6 +136,7 @@ public class LogDirtyRecordCollector implements DirtyRecordCollector {
             CatalogTable catalogTable) {
 
         long currentCount = dirtyRecordCount.incrementAndGet();
+        incrementDistributedCounter();
 
         String tableInfo = formatTableInfo(catalogTable);
 
@@ -101,6 +162,8 @@ public class LogDirtyRecordCollector implements DirtyRecordCollector {
             int subTaskIndex, SeaTunnelRow record, String errorMessage, CatalogTable catalogTable) {
 
         long currentCount = dirtyRecordCount.incrementAndGet();
+        incrementDistributedCounter();
+
         String tableInfo = formatTableInfo(catalogTable);
         String logMessage =
                 String.format(
@@ -159,11 +222,16 @@ public class LogDirtyRecordCollector implements DirtyRecordCollector {
 
     @Override
     public void checkThreshold() throws Exception {
-        if (threshold > 0 && dirtyRecordCount.get() >= threshold) {
+        if (threshold <= 0) {
+            return;
+        }
+
+        long count = getDistributedCount();
+        if (count >= threshold) {
             String message =
                     String.format(
-                            "Dirty record threshold exceeded: %d >= %d",
-                            dirtyRecordCount.get(), threshold);
+                            "Dirty record threshold exceeded: %d >= %d (distributed=%s)",
+                            count, threshold, distributedCounter != null);
 
             if (failOnThreshold) {
                 log.error(message + " - Task will be failed!");

@@ -115,4 +115,14 @@ public class ValidatingDirtyRecordCollector implements DirtyRecordCollector {
     public void checkThreshold() throws Exception {
         delegate.checkThreshold();
     }
+
+    @Override
+    public void setDistributedCounter(Object counter) {
+        delegate.setDistributedCounter(counter);
+    }
+
+    @Override
+    public void incrementDistributedCounter() {
+        delegate.incrementDistributedCounter();
+    }
 }

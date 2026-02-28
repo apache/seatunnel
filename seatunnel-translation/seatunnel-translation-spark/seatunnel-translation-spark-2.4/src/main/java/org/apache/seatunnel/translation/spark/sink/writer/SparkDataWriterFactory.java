@@ -28,13 +28,18 @@ import org.apache.seatunnel.api.table.catalog.CatalogTable;
 import org.apache.seatunnel.api.table.type.SeaTunnelRow;
 import org.apache.seatunnel.translation.spark.execution.MultiTableManager;
 
+import org.apache.spark.sql.SparkSession;
 import org.apache.spark.sql.catalyst.InternalRow;
 import org.apache.spark.sql.sources.v2.writer.DataWriter;
 import org.apache.spark.sql.sources.v2.writer.DataWriterFactory;
+import org.apache.spark.util.LongAccumulator;
+
+import lombok.extern.slf4j.Slf4j;
 
 import java.io.IOException;
 import java.sql.DriverManager;
 
+@Slf4j
 public class SparkDataWriterFactory<CommitInfoT, StateT> implements DataWriterFactory<InternalRow> {
 
     static {
@@ -54,6 +59,7 @@ public class SparkDataWriterFactory<CommitInfoT, StateT> implements DataWriterFa
     private final String jobId;
     private final int parallelism;
     private final DirtyRecordCollector dirtyRecordCollector;
+    private final LongAccumulator dirtyRecordAccumulator;
 
     SparkDataWriterFactory(
             SeaTunnelSink<SeaTunnelRow, StateT, CommitInfoT, ?> sink,
@@ -69,10 +75,39 @@ public class SparkDataWriterFactory<CommitInfoT, StateT> implements DataWriterFa
                 dirtyRecordCollector != null
                         ? dirtyRecordCollector
                         : NoOpDirtyRecordCollector.INSTANCE;
+
+        this.dirtyRecordAccumulator = createSparkAccumulator(jobId);
+        if (this.dirtyRecordAccumulator != null) {
+            log.info("Created Spark LongAccumulator for distributed dirty record counting");
+        }
+    }
+
+    private LongAccumulator createSparkAccumulator(String jobId) {
+        try {
+            SparkSession session =
+                    SparkSession.getActiveSession().isDefined()
+                            ? SparkSession.getActiveSession().get()
+                            : null;
+            if (session != null) {
+                return session.sparkContext().longAccumulator("dirtyRecordCount_" + jobId);
+            }
+            return null;
+        } catch (Exception e) {
+            log.warn("Failed to create Spark accumulator for dirty record counting", e);
+            return null;
+        }
     }
 
     @Override
     public DataWriter<InternalRow> createDataWriter(int partitionId, long taskId, long epochId) {
+        if (dirtyRecordAccumulator != null
+                && !(dirtyRecordCollector instanceof NoOpDirtyRecordCollector)) {
+            dirtyRecordCollector.setDistributedCounter(dirtyRecordAccumulator);
+            log.debug(
+                    "Set Spark accumulator to dirty record collector for partition {}",
+                    partitionId);
+        }
+
         org.apache.seatunnel.api.sink.SinkWriter.Context context =
                 new DefaultSinkWriterContext(
                         (int) taskId,

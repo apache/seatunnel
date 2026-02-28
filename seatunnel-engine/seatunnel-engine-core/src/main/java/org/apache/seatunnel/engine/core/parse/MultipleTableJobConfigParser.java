@@ -578,6 +578,14 @@ public class MultipleTableJobConfigParser {
         jarUrls.addAll(getSinkPluginJarPaths(sinkConfig));
         List<SinkAction<?, ?, ?, ?>> sinkActions = new ArrayList<>();
 
+        CatalogTable catalogTableSample =
+                !inputVertices.isEmpty() && !inputVertices.get(0).isEmpty()
+                        ? inputVertices.get(0).get(0)._1()
+                        : null;
+        DirtyRecordCollector dirtyRecordCollector =
+                DirtyCollectorConfigProcessor.processConfig(
+                        envConfig, sinkConfig, catalogTableSample);
+
         // union
         if (inputVertices.size() > 1) {
             Set<Action> inputActions =
@@ -597,7 +605,8 @@ public class MultipleTableJobConfigParser {
                             new HashSet<>(),
                             factoryId,
                             inputActionSample._2().getParallelism(),
-                            configIndex);
+                            configIndex,
+                            dirtyRecordCollector);
             sinkActions.add(sinkAction);
             return sinkActions;
         }
@@ -615,7 +624,8 @@ public class MultipleTableJobConfigParser {
                             new HashSet<>(),
                             factoryId,
                             tuple._2().getParallelism(),
-                            configIndex);
+                            configIndex,
+                            dirtyRecordCollector);
             sinkActions.add(sinkAction);
         }
         Optional<SinkAction<?, ?, ?, ?>> multiTableSink =
@@ -677,7 +687,8 @@ public class MultipleTableJobConfigParser {
             Set<ConnectorJarIdentifier> connectorJarIdentifiers,
             String factoryId,
             int parallelism,
-            int configIndex) {
+            int configIndex,
+            DirtyRecordCollector dirtyRecordCollector) {
 
         Function<PluginIdentifier, SeaTunnelSink> fallbackCreateSink =
                 pluginIdentifier -> {
@@ -709,12 +720,8 @@ public class MultipleTableJobConfigParser {
                         factoryUrls,
                         connectorJarIdentifiers,
                         actionConfig);
-        Config envConfig =
-                seaTunnelJobConfig.hasPath("env") ? seaTunnelJobConfig.getConfig("env") : null;
-        DirtyRecordCollector dirtyCollector =
-                DirtyCollectorConfigProcessor.processConfig(
-                        envConfig, readonlyConfig.toConfig(), catalogTable);
-        sinkAction.setDirtyRecordCollector(dirtyCollector);
+
+        sinkAction.setDirtyRecordCollector(dirtyRecordCollector);
         if (!isStartWithSavePoint) {
             handleSaveMode(sink);
         } else {

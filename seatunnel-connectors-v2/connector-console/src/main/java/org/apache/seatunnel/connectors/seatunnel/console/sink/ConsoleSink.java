@@ -17,8 +17,6 @@
 
 package org.apache.seatunnel.connectors.seatunnel.console.sink;
 
-import org.apache.seatunnel.shade.com.typesafe.config.Config;
-
 import org.apache.seatunnel.api.configuration.ReadonlyConfig;
 import org.apache.seatunnel.api.sink.SinkWriter;
 import org.apache.seatunnel.api.sink.SupportMultiTableSink;
@@ -39,14 +37,12 @@ public class ConsoleSink extends AbstractSimpleSink<SeaTunnelRow, Void>
     private final boolean isPrintData;
     private final int delayMs;
     private final CatalogTable catalogTable;
-    private final Config pluginConfig;
 
     public ConsoleSink(CatalogTable catalogTable, ReadonlyConfig options) {
         this.catalogTable = catalogTable;
         this.isPrintData = options.get(ConsoleSinkOptions.LOG_PRINT_DATA);
         this.delayMs = options.get(ConsoleSinkOptions.LOG_PRINT_DELAY);
         this.seaTunnelRowType = catalogTable.getTableSchema().toPhysicalRowDataType();
-        this.pluginConfig = options.toConfig();
     }
 
     @Override
@@ -57,11 +53,6 @@ public class ConsoleSink extends AbstractSimpleSink<SeaTunnelRow, Void>
     @Override
     public String getPluginName() {
         return "Console";
-    }
-
-    @Override
-    public Config getPluginConfig() {
-        return pluginConfig;
     }
 
     @Override

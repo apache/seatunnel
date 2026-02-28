@@ -17,6 +17,7 @@
 
 package org.apache.seatunnel.translation.flink.sink;
 
+import org.apache.seatunnel.api.common.metrics.Counter;
 import org.apache.seatunnel.api.common.metrics.MetricsContext;
 import org.apache.seatunnel.api.event.DefaultEventProcessor;
 import org.apache.seatunnel.api.event.EventListener;
@@ -36,10 +37,13 @@ import java.lang.reflect.Field;
 @Slf4j
 public class FlinkSinkWriterContext implements SinkWriter.Context {
 
+    private static final String DIRTY_RECORD_COUNT_METRIC = "dirtyRecordCount";
+
     private final Sink.InitContext writerContext;
     private final EventListener eventListener;
     private final int parallelism;
     private final DirtyRecordCollector dirtyRecordCollector;
+    private final MetricsContext metricsContext;
 
     public FlinkSinkWriterContext(InitContext writerContext, int parallelism) {
         this(writerContext, parallelism, NoOpDirtyRecordCollector.INSTANCE);
@@ -51,6 +55,27 @@ public class FlinkSinkWriterContext implements SinkWriter.Context {
         this.eventListener = new DefaultEventProcessor(getFlinkJobId(writerContext));
         this.parallelism = parallelism;
         this.dirtyRecordCollector = dirtyRecordCollector;
+
+        // initialize metrics context and set up distributed dirty record counter
+        this.metricsContext =
+                new FlinkMetricContext(getStreamingRuntimeContextForV15(writerContext));
+        setupDistributedDirtyRecordCounter();
+    }
+
+    private void setupDistributedDirtyRecordCounter() {
+        if (dirtyRecordCollector == null
+                || dirtyRecordCollector instanceof NoOpDirtyRecordCollector) {
+            return;
+        }
+        try {
+            Counter dirtyCounter = metricsContext.counter(DIRTY_RECORD_COUNT_METRIC);
+            dirtyRecordCollector.setDistributedCounter(dirtyCounter);
+            log.info(
+                    "Set up Flink distributed counter for dirty record counting (subtask {})",
+                    writerContext.getSubtaskId());
+        } catch (Exception e) {
+            log.warn("Failed to set up Flink distributed counter for dirty record counting", e);
+        }
     }
 
     @Override
@@ -65,7 +90,7 @@ public class FlinkSinkWriterContext implements SinkWriter.Context {
 
     @Override
     public MetricsContext getMetricsContext() {
-        return new FlinkMetricContext(getStreamingRuntimeContextForV15(writerContext));
+        return metricsContext;
     }
 
     @Override

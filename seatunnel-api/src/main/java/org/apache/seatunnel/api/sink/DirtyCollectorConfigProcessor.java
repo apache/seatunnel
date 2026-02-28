@@ -21,9 +21,7 @@ import org.apache.seatunnel.shade.com.typesafe.config.Config;
 import org.apache.seatunnel.shade.com.typesafe.config.ConfigFactory;
 import org.apache.seatunnel.shade.com.typesafe.config.ConfigValue;
 
-import org.apache.seatunnel.api.common.SeaTunnelPluginLifeCycle;
 import org.apache.seatunnel.api.table.catalog.CatalogTable;
-import org.apache.seatunnel.api.table.type.SeaTunnelRow;
 
 import lombok.extern.slf4j.Slf4j;
 
@@ -94,23 +92,6 @@ public class DirtyCollectorConfigProcessor {
                             envConfig.getValue(DIRTY_VALIDATOR_CONFIG_KEY));
         }
         return mergedConfig;
-    }
-
-    public static DirtyRecordCollector initializeCollector(
-            SeaTunnelSink<SeaTunnelRow, ?, ?, ?> sink, CatalogTable[] catalogTables) {
-        Config pluginConfig = null;
-        if (sink instanceof SeaTunnelPluginLifeCycle) {
-            try {
-                pluginConfig = ((SeaTunnelPluginLifeCycle) sink).getPluginConfig();
-            } catch (UnsupportedOperationException ignored) {
-                log.debug(
-                        "Sink {} doesn't implement getPluginConfig",
-                        sink.getClass().getSimpleName());
-            }
-        }
-        CatalogTable catalogTable =
-                catalogTables != null && catalogTables.length > 0 ? catalogTables[0] : null;
-        return processConfig(null, pluginConfig, catalogTable);
     }
 
     public static DirtyRecordCollector processConfig(Config envConfig, Config sinkConfig) {

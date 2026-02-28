@@ -81,4 +81,8 @@ public interface DirtyRecordCollector extends Serializable {
     }
 
     default void checkThreshold() throws Exception {}
+
+    default void setDistributedCounter(Object counter) {}
+
+    default void incrementDistributedCounter() {}
 }
