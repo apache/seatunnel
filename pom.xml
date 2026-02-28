@@ -88,7 +88,7 @@
         <jersey.version>1.19</jersey.version>
         <javax.servlet.jap.version>2.1</javax.servlet.jap.version>
         <hadoop.binary.version>2.7</hadoop.binary.version>
-        <jackson.version>2.13.3</jackson.version>
+        <jackson.version>2.18.6</jackson.version>
         <lombok.version>1.18.24</lombok.version>
         <commons-compress.version>1.20</commons-compress.version>
         <avro.version>1.11.1</avro.version>
