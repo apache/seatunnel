@@ -18,9 +18,12 @@
 package org.apache.seatunnel.connectors.seatunnel.file.s3.source;
 
 import org.apache.seatunnel.api.configuration.ReadonlyConfig;
+import org.apache.seatunnel.api.table.catalog.CatalogTable;
 import org.apache.seatunnel.connectors.seatunnel.file.config.FileSystemType;
 import org.apache.seatunnel.connectors.seatunnel.file.s3.source.config.MultipleTableS3FileSourceConfig;
 import org.apache.seatunnel.connectors.seatunnel.file.source.BaseMultipleTableFileSource;
+
+import java.util.List;
 
 public class S3FileSource extends BaseMultipleTableFileSource {
 
@@ -30,6 +33,8 @@ public class S3FileSource extends BaseMultipleTableFileSource {
 
     private S3FileSource(MultipleTableS3FileSourceConfig sourceConfig) {
         super(sourceConfig, initFileSplitStrategy(sourceConfig));
+    public S3FileSource(ReadonlyConfig readonlyConfig, List<CatalogTable> catalogTablesFromConfig) {
+        super(new MultipleTableS3FileSourceConfig(readonlyConfig, catalogTablesFromConfig));
     }
 
     @Override
