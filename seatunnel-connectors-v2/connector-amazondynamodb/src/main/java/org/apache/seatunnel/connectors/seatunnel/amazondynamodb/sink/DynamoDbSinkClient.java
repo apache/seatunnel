@@ -19,6 +19,7 @@ package org.apache.seatunnel.connectors.seatunnel.amazondynamodb.sink;
 
 import org.apache.seatunnel.connectors.seatunnel.amazondynamodb.config.AmazonDynamoDBConfig;
 
+import lombok.extern.slf4j.Slf4j;
 import software.amazon.awssdk.auth.credentials.AwsBasicCredentials;
 import software.amazon.awssdk.auth.credentials.StaticCredentialsProvider;
 import software.amazon.awssdk.regions.Region;
@@ -35,6 +36,7 @@ import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 
+@Slf4j
 public class DynamoDbSinkClient {
     private final AmazonDynamoDBConfig amazondynamodbConfig;
     private volatile boolean initialize;
@@ -119,7 +121,7 @@ public class DynamoDbSinkClient {
         Map<String, List<WriteRequest>> batchToFlush = new HashMap<>();
 
         synchronized (lock) {
-            if (batchListByTable.isEmpty()) {
+            if (dynamoDbClient == null || batchListByTable.isEmpty()) {
                 return;
             }
             batchToFlush.putAll(batchListByTable);
@@ -165,6 +167,15 @@ public class DynamoDbSinkClient {
                 long jitter = (long) (delay * Math.random() * 0.5);
                 delay += jitter;
 
+                log.warn(
+                        "Retrying batch write to table '{}': attempt {}/{}, "
+                                + "{} unprocessed items remaining, retrying in {} ms",
+                        tableName,
+                        retryCount,
+                        maxRetries,
+                        pendingRequests.size(),
+                        delay);
+
                 try {
                     Thread.sleep(delay);
                 } catch (InterruptedException e) {
@@ -175,6 +186,12 @@ public class DynamoDbSinkClient {
         }
 
         if (!pendingRequests.isEmpty()) {
+            log.error(
+                    "Failed to write {} items to table '{}' after {} retries",
+                    pendingRequests.size(),
+                    tableName,
+                    maxRetries);
+
             throw new RuntimeException(
                     String.format(
                             "Failed to write %d items to table %s after %d retries",
