@@ -26,7 +26,6 @@ public enum CommonErrorCode implements SeaTunnelErrorCode {
     UNSUPPORTED_DATA_TYPE(
             "COMMON-07", "'<identifier>' unsupported data type '<dataType>' of '<field>'"),
     UNSUPPORTED_ENCODING("COMMON-08", "unsupported encoding '<encoding>'"),
-    VALIDATION_FAILED("COMMMON-38", "Data validation failed: '<message>'"),
     CONVERT_TO_SEATUNNEL_TYPE_ERROR(
             "COMMON-16",
             "'<connector>' <type> unsupported convert type '<dataType>' of '<field>' to SeaTunnel data type."),
@@ -81,6 +80,7 @@ public enum CommonErrorCode implements SeaTunnelErrorCode {
     KERBEROS_AUTHORIZED_FAILED("COMMON-35", "Kerberos authorized failed"),
     CLOSE_FAILED("COMMON-36", "'<identifier>' close failed."),
     SEATUNNEL_ROW_SERIALIZE_FAILED("COMMON-37", "Seatunnel row serialize failed. Row={ '<row>' }"),
+    VALIDATION_FAILED("COMMON-38", "Data validation failed: '<message>'"),
     ;
 
     private final String code;
