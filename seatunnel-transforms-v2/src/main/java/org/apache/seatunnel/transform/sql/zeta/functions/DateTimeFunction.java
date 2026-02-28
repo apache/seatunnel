@@ -17,8 +17,10 @@
 
 package org.apache.seatunnel.transform.sql.zeta.functions;
 
+import org.apache.seatunnel.common.exception.CommonError;
 import org.apache.seatunnel.common.exception.CommonErrorCodeDeprecated;
 import org.apache.seatunnel.transform.exception.TransformException;
+import org.apache.seatunnel.transform.sql.zeta.ZetaDateTimeFormat;
 import org.apache.seatunnel.transform.sql.zeta.ZetaSQLFunction;
 
 import java.text.DateFormatSymbols;
@@ -32,6 +34,7 @@ import java.time.Period;
 import java.time.ZoneId;
 import java.time.ZoneOffset;
 import java.time.format.DateTimeFormatter;
+import java.time.format.DateTimeParseException;
 import java.time.temporal.Temporal;
 import java.time.temporal.TemporalAccessor;
 import java.time.temporal.WeekFields;
@@ -619,10 +622,38 @@ public class DateTimeFunction {
     }
 
     public static boolean isDate(List<Object> args) {
+        String str = (String) args.get(0);
+        if (str == null || str.isEmpty()) {
+            return false;
+        }
+
+        String format = (String) args.get(1);
+        if (format == null) {
+            return false;
+        }
+
+        ZetaDateTimeFormat dateTimeFormat = ZetaDateTimeFormat.fromPattern(format).orElse(null);
+        if (dateTimeFormat == null) {
+            return false;
+        }
+
         try {
-            parsedatetime(args);
-            return true;
-        } catch (Throwable e) {
+            DateTimeFormatter formatter = dateTimeFormat.getFormatter();
+
+            switch (dateTimeFormat.getType()) {
+                case DATETIME:
+                    LocalDateTime.parse(str, formatter);
+                    return true;
+                case DATE:
+                    LocalDate.parse(str, formatter);
+                    return true;
+                case TIME:
+                    LocalTime.parse(str, formatter);
+                    return true;
+                default:
+                    return false;
+            }
+        } catch (DateTimeParseException e) {
             return false;
         }
     }
@@ -633,23 +664,32 @@ public class DateTimeFunction {
             return null;
         }
         String format = (String) args.get(1);
-        if (format.contains("yy") && format.contains("mm")) {
-            DateTimeFormatter df = DateTimeFormatter.ofPattern(format);
-            return LocalDateTime.parse(str, df);
+
+        ZetaDateTimeFormat dateTimeFormat =
+                ZetaDateTimeFormat.fromPattern(format)
+                        .orElseThrow(
+                                () ->
+                                        CommonError.illegalArgument(
+                                                format, "unsupported datetime format"));
+
+        try {
+            DateTimeFormatter formatter = dateTimeFormat.getFormatter();
+
+            switch (dateTimeFormat.getType()) {
+                case DATETIME:
+                    return LocalDateTime.parse(str, formatter);
+                case DATE:
+                    return LocalDate.parse(str, formatter);
+                case TIME:
+                    return LocalTime.parse(str, formatter);
+                default:
+                    throw CommonError.illegalArgument(
+                            dateTimeFormat.getType().toString(),
+                            "unsupported datetime format type");
+            }
+        } catch (DateTimeParseException e) {
+            throw CommonError.illegalArgument(str, "parsing datetime with format: " + format);
         }
-        if (format.contains("yy")) {
-            DateTimeFormatter df = DateTimeFormatter.ofPattern(format);
-            return LocalDate.parse(str, df);
-        }
-        if (format.contains("mm")) {
-            DateTimeFormatter df = DateTimeFormatter.ofPattern(format);
-            return LocalTime.parse(str, df);
-        }
-        throw new TransformException(
-                CommonErrorCodeDeprecated.UNSUPPORTED_OPERATION,
-                String.format(
-                        "Unknown pattern letter %s for function: %s",
-                        format, ZetaSQLFunction.PARSEDATETIME));
     }
 
     public static Integer quarter(List<Object> args) {
