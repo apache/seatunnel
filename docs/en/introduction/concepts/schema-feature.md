@@ -32,6 +32,74 @@ schema = {
 
 The table full name of the table identifier which the schema belongs to, it contains database, schema, table name. e.g. `database.schema.table`, `database.table`, `table`.
 
+### schema_url
+
+Get the http url of metadata information through restApi, such as: `http://localhost:8090/api/metalakes/laowang_test/catalogs/221-pgsql/schemas/ykw/tables/all_type`
+
+> When using Gravitino as the metadata source, the column types from Gravitino will be automatically converted to SeaTunnel data types. For detailed type mapping information, please refer to [Gravitino Type Mapping](./gravitino-type-mapping.md).
+
+#### schema_url Examples
+
+**1. Single table with table and schema_url:**
+
+```hocon
+source {
+  LocalFile {
+    path = "/tmp/data"
+    file_format_type = "json"
+    schema {
+      table = "db.table2"
+      schema_url = "http://gravitino:8090/api/metalakes/test_metalake/catalogs/test_catalog/schemas/test_schema/tables/table2"
+    }
+  }
+}
+```
+
+**2. Single table with schema_url only (without table attribute):**
+
+```hocon
+source {
+  LocalFile {
+    path = "/tmp/data"
+    file_format_type = "json"
+    schema {
+      schema_url = "http://gravitino:8090/api/metalakes/test_metalake/catalogs/test_catalog/schemas/test_schema/tables/table2"
+    }
+  }
+}
+```
+
+**3. Multi-table with columns and schema_url:**
+
+```hocon
+source {
+  LocalFile {
+    tables_configs = [
+      {
+        path = "/tmp/data/table1"
+        file_format_type = "json"
+        schema {
+          table = "db.table1"
+          columns = [
+            { name = id, type = bigint, nullable = false },
+            { name = name, type = string },
+            { name = age, type = int }
+          ]
+        }
+      },
+      {
+        path = "/tmp/data/table2"
+        file_format_type = "json"
+        schema {
+          table = "db.table2"
+          schema_url = "http://gravitino:8090/api/metalakes/test_metalake/catalogs/test_catalog/schemas/test_schema/tables/table2"
+        }
+      }
+    ]
+  }
+}
+```
+
 ### schema_first
 
 Default is false.

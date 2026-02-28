@@ -27,6 +27,7 @@ import org.apache.seatunnel.shade.com.typesafe.config.ConfigValueType;
 
 import org.apache.seatunnel.api.options.EnvCommonOptions;
 import org.apache.seatunnel.common.Constants;
+import org.apache.seatunnel.common.constants.MetaLakeType;
 import org.apache.seatunnel.common.constants.PluginType;
 import org.apache.seatunnel.common.utils.PlaceholderUtils;
 
@@ -65,15 +66,19 @@ public class MetalakeConfigUtils {
                 envConfig.hasPath(EnvCommonOptions.METALAKE_URL.key())
                         ? envConfig.getString(EnvCommonOptions.METALAKE_URL.key())
                         : System.getenv(EnvCommonOptions.METALAKE_URL.key().toUpperCase());
-        MetalakeClient metalakeClient = MetalakeClientFactory.create(metalakeType, metalakeUrl);
-        update = replaceConfigList(update, PluginType.SOURCE.getType(), metalakeClient);
-        update = replaceConfigList(update, PluginType.SINK.getType(), metalakeClient);
-        update = replaceConfigList(update, PluginType.TRANSFORM.getType(), metalakeClient);
+        MetalakeClient metalakeClient =
+                MetaLakeFactory.createClient(MetaLakeType.valueOf(metalakeType.toUpperCase()));
+        update =
+                replaceConfigList(update, PluginType.SOURCE.getType(), metalakeClient, metalakeUrl);
+        update = replaceConfigList(update, PluginType.SINK.getType(), metalakeClient, metalakeUrl);
+        update =
+                replaceConfigList(
+                        update, PluginType.TRANSFORM.getType(), metalakeClient, metalakeUrl);
         return update;
     }
 
     private static Config replaceConfigList(
-            Config updateConfig, String key, MetalakeClient metalakeClient) {
+            Config updateConfig, String key, MetalakeClient metalakeClient, String metalakeUrl) {
         ConfigList list = updateConfig.getList(key);
         List<ConfigValue> newConfigList = new ArrayList<>(list);
 
@@ -83,7 +88,7 @@ public class MetalakeConfigUtils {
                 if (Obj.containsKey(SOURCE_ID)) {
                     ConfigObject tmp = Obj;
                     String sourceId = Obj.toConfig().getString(SOURCE_ID);
-                    JsonNode metalakeJson = metalakeClient.getMetaInfo(sourceId);
+                    JsonNode metalakeJson = metalakeClient.getMetaInfo(sourceId, metalakeUrl);
                     for (Map.Entry<String, ConfigValue> entry : Obj.entrySet()) {
                         String subKey = entry.getKey();
                         ConfigValue value = entry.getValue();
