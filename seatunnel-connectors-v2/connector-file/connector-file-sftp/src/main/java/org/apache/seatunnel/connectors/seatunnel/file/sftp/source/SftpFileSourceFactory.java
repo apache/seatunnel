@@ -91,6 +91,7 @@ public class SftpFileSourceFactory implements TableSourceFactory {
                 .optional(FileBaseSourceOptions.READ_COLUMNS)
                 .optional(FileBaseSourceOptions.QUOTE_CHAR)
                 .optional(FileBaseSourceOptions.ESCAPE_CHAR)
+                .optional(ConnectorCommonOptions.METALAKE_TYPE)
                 .optional(
                         FileBaseSourceOptions.DISCOVERY_MODE,
                         FileBaseSourceOptions.SCAN_INTERVAL,
@@ -110,7 +111,9 @@ public class SftpFileSourceFactory implements TableSourceFactory {
     @Override
     public <T, SplitT extends SourceSplit, StateT extends Serializable>
             TableSource<T, SplitT, StateT> createSource(TableSourceFactoryContext context) {
-        return () -> (SeaTunnelSource<T, SplitT, StateT>) new SftpFileSource(context.getOptions());
+        return () ->
+                (SeaTunnelSource<T, SplitT, StateT>)
+                        new SftpFileSource(context.getOptions(), discoverTableSchemas(context));
     }
 
     @Override
