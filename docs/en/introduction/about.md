@@ -5,7 +5,7 @@
 [![Slack](../../images/seatunnel-slack.svg)](https://s.apache.org/seatunnel-slack)
 [![Twitter Follow](../../images/ASFSeaTunnel.svg)](https://x.com/ASFSeaTunnel)
 
-SeaTunnel is a multimodal, high-performance, distributed data integration tool, capable of synchronizing vast amounts of data daily. It's trusted by numerous companies for its efficiency and stability.
+SeaTunnel is a multimodal, ultra-high-performance, distributed data integration tool, capable of synchronizing vast amounts of data daily. It's trusted by numerous companies for its efficiency and stability.
 
 ## Why We Need SeaTunnel
 
