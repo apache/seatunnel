@@ -5,7 +5,7 @@
 [![Slack](../../images/seatunnel-slack.svg)](https://s.apache.org/seatunnel-slack)
 [![Twitter Follow](../../images/ASFSeaTunnel.svg)](https://x.com/ASFSeaTunnel)
 
-SeaTunnel是一个多模态、高性能、分布式的海量数据集成工具，每天可稳定高效同步数百亿数据，已被近百家企业应用于生产，以其高效和稳定性深受众多企业信赖。
+SeaTunnel是一个多模态、超高性能、分布式的海量数据集成工具，每天可稳定高效同步数百亿数据，已被数千家企业应用于生产，以其高效和稳定性深受众多企业信赖。
 
 ## 为什么需要 SeaTunnel
 
