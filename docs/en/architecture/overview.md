@@ -9,7 +9,7 @@ title: Architecture Overview
 
 ### 1.1 Design Goals
 
-SeaTunnel is designed as a distributed data integration platform with the following core objectives:
+SeaTunnel is designed as a distributed multimodal data integration tool with the following core objectives:
 
 - **Engine Independence**: Decouple connector logic from execution engines, enabling the same connectors to run on SeaTunnel Engine (Zeta), Apache Flink, or Apache Spark
 - **High Performance**: Support large-scale data synchronization with high throughput and low latency
