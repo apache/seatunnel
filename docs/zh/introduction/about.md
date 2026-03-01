@@ -43,7 +43,7 @@ Source Connector负责并行读取数据并将数据发送到下游Transform或�
 
 SeaTunnel 是一个 EtL(T) 数据集成工具。 因此，在SeaTunnel中，transform(t)只能用于对数据进行一些简单的转换，例如将一列的数据转换为大写或小写，更改列名，或者将一列拆分为多列。
 
-SeaTunnel 使用的默认引擎是 [SeaTunnel Engine](../engines/zeta/about.md)。 如果您选择使用Flink或Spark引擎，SeaTunnel会将Connector打包成Flink或Spark程序并提交给Flink或Spark运行。
+SeaTunnel 使用的默认引擎是 [SeaTunnel Zeta Engine](../engines/zeta/about.md)。 如果您选择使用Flink或Spark引擎，SeaTunnel会将Connector打包成Flink或Spark程序并提交给Flink或Spark运行。
 
 ## 连接器
 
