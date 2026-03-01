@@ -41,7 +41,7 @@ The user configures the job information and selects the execution engine to subm
 
 The Source Connector is responsible for parallel reading and sending the data to the downstream Transform or directly to the Sink, and the Sink writes the data to the destination. It is worth noting that Source, Transform and Sink can be easily developed and extended by yourself.
 
-SeaTunnel is an EL(T) data integration tool. Therefore, in SeaTunnel, Transform can only be used to perform some simple transformations on data, such as converting the data of a column to uppercase or lowercase, changing the column name, or splitting a column into multiple columns.
+SeaTunnel is an EtL(T) data integration tool. Therefore, in SeaTunnel, transform can only be used to perform some simple transformations on data, such as converting the data of a column to uppercase or lowercase, changing the column name, or splitting a column into multiple columns.
 
 The default engine use by SeaTunnel is [SeaTunnel Engine](../engines/zeta/about.md). If you choose to use the Flink or Spark engine, SeaTunnel will package the Connector into a Flink or Spark program and submit it to Flink or Spark to run.
 
