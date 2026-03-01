@@ -76,11 +76,17 @@ If you use SeaTunnel Engine, It automatically integrated the hadoop jar when you
 | null_format                 | string  | no       | -                           |
 | binary_chunk_size           | int     | no       | 1024                        |
 | binary_complete_file_mode   | boolean | no       | false                       |
+| sync_mode                   | string  | no       | full                        |
+| target_path                 | string  | no       | -                           |
+| target_hadoop_conf          | map     | no       | -                           |
+| update_strategy             | string  | no       | distcp                      |
+| compare_mode                | string  | no       | len_mtime                   |
 | common-options              |         | no       | -                           |
 | file_filter_modified_start  | string  | no       | -                           | 
 | file_filter_modified_end    | string  | no       | -                           | 
 | quote_char                  | string  | no       | "                           |
 | escape_char                 | string  | no       | -                           |
+| metalake_type               | string  | no       | gravitino                   |
 
 ### host [string]
 
@@ -362,6 +368,18 @@ Only need to be configured when the file_format_type are text, json, excel, xml 
 
 The schema information of upstream data. For more details, please refer to [Schema Feature](../../introduction/concepts/schema-feature.md).
 
+#### schema_url [string]
+
+Get the http url of metadata information through restApi, such as: `http://localhost:8090/api/metalakes/laowang_test/catalogs/221-pgsql/schemas/ykw/tables/all_type`
+
+> When using Gravitino as the metadata source, the column types from Gravitino will be automatically converted to SeaTunnel data types. For detailed type mapping information, please refer to [Gravitino Type Mapping](../../introduction/concepts/gravitino-type-mapping.md).
+
+### metalake_type [string]
+
+The type of metalake service, currently only supports `gravitino`. When using `schema_url` to obtain metadata from Gravitino, you can specify this parameter (default is `gravitino`).
+
+For more information about Metalake, please refer to [Metalake](../../introduction/concepts/metalake.md).
+
 ### read_columns [list]
 
 The read column list of the data source, user can use it to implement field projection.
@@ -433,6 +451,46 @@ The chunk size (in bytes) for reading binary files. Default is 1024 bytes. Large
 Only used when file_format_type is binary.
 
 Whether to read the complete file as a single chunk instead of splitting into chunks. When enabled, the entire file content will be read into memory at once. Default is false.
+
+### sync_mode [string]
+
+File sync mode. Supported values: `full` (default), `update`.
+When `update`, the source compares files between source/target and only reads new/changed files (currently only supports `file_format_type=binary`).
+
+**Performance considerations**
+- Update mode triggers an extra `getFileStatus` call on the target for each source file.
+- For remote file systems (FTP/SFTP), this adds per-file network overhead. It is not recommended for massive small-file scenarios.
+
+**Requirements / limitations**
+- `target_path` should typically align with sink `path` (same filesystem and same relative path layout).
+- When `update_strategy=distcp`, correctness depends on source/target clock synchronization.
+- When `compare_mode=checksum`, filesystem checksum support is required. If checksum is unavailable, SeaTunnel falls back to content comparison (more expensive) and logs a warning.
+
+Example:
+
+```hocon
+sync_mode = "update"
+file_format_type = "binary"
+target_path = "/path/to/your/sink/path"
+update_strategy = "distcp"
+compare_mode = "len_mtime"
+```
+
+### target_path [string]
+
+Only used when `sync_mode=update`. Target base path used for comparison (it should usually be the same as sink `path`).
+
+### target_hadoop_conf [map]
+
+Only used when `sync_mode=update`. Extra Hadoop configuration for target filesystem. You can set `fs.defaultFS` in this map to override target defaultFS.
+
+### update_strategy [string]
+
+Only used when `sync_mode=update`. Supported values: `distcp` (default), `strict`.
+
+### compare_mode [string]
+
+Only used when `sync_mode=update`. Supported values: `len_mtime` (default), `checksum` (only valid when `update_strategy=strict`).
 
 ### file_filter_modified_start [string]
 
@@ -568,6 +626,47 @@ sink {
   }
 }
 
+```
+
+### Incremental Sync (sync_mode=update, binary)
+
+`sync_mode=update` compares files between source and `target_path`, then only reads new/changed files.
+In most cases, `target_path` should be aligned with sink `path` (same filesystem and same relative paths).
+
+```hocon
+env {
+  parallelism = 1
+  job.mode = "BATCH"
+}
+
+source {
+  FtpFile {
+    host = "192.168.31.48"
+    port = 21
+    user = tyrantlucifer
+    password = tianchao
+
+    path = "/seatunnel/read/binary/"
+    file_format_type = "binary"
+
+    sync_mode = "update"
+    target_path = "/seatunnel/read/binary2/"
+    update_strategy = "distcp"
+    compare_mode = "len_mtime"
+  }
+}
+sink {
+  FtpFile {
+    host = "192.168.31.48"
+    port = 21
+    user = tyrantlucifer
+    password = tianchao
+
+    path = "/seatunnel/read/binary2/"
+    tmp_path = "/seatunnel/read/binary2-tmp/"
+    file_format_type = "binary"
+  }
+}
 ```
 
 ### Filter File

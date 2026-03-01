@@ -35,6 +35,7 @@ import org.apache.seatunnel.engine.core.checkpoint.CheckpointIDCounter;
 import org.apache.seatunnel.engine.core.checkpoint.CheckpointType;
 import org.apache.seatunnel.engine.serializer.api.Serializer;
 import org.apache.seatunnel.engine.serializer.protobuf.ProtoStuffSerializer;
+import org.apache.seatunnel.engine.server.checkpoint.monitor.CheckpointMonitorService;
 import org.apache.seatunnel.engine.server.checkpoint.operation.CheckpointBarrierTriggerOperation;
 import org.apache.seatunnel.engine.server.checkpoint.operation.CheckpointEndOperation;
 import org.apache.seatunnel.engine.server.checkpoint.operation.CheckpointFinishedOperation;
@@ -149,6 +150,8 @@ public class CheckpointCoordinator {
 
     private final IMap<Object, Object> runningJobStateIMap;
 
+    private final CheckpointMonitorService checkpointMonitorService;
+
     // save pending checkpoint for savepoint, to make sure the different savepoint request can be
     // processed with one savepoint operation in the same time.
     private PendingCheckpoint savepointPendingCheckpoint;
@@ -166,7 +169,8 @@ public class CheckpointCoordinator {
             PipelineState pipelineState,
             ExecutorService executorService,
             IMap<Object, Object> runningJobStateIMap,
-            boolean isStartWithSavePoint) {
+            boolean isStartWithSavePoint,
+            CheckpointMonitorService checkpointMonitorService) {
 
         this.executorService = executorService;
         this.checkpointManager = manager;
@@ -177,6 +181,7 @@ public class CheckpointCoordinator {
         this.runningJobStateIMap = runningJobStateIMap;
         this.plan = plan;
         this.coordinatorConfig = checkpointConfig;
+        this.checkpointMonitorService = checkpointMonitorService;
         this.pendingCheckpoints = new ConcurrentHashMap<>();
         this.completedCheckpointIds =
                 new ArrayDeque<>(coordinatorConfig.getStorage().getMaxRetainedCheckpoints() + 1);
@@ -776,6 +781,15 @@ public class CheckpointCoordinator {
                         pendingCheckpoint -> {
                             pendingCheckpoints.put(
                                     pendingCheckpoint.getCheckpointId(), pendingCheckpoint);
+                            if (checkpointMonitorService != null) {
+                                checkpointMonitorService.onCheckpointTriggered(
+                                        jobId,
+                                        plan.getPipelineId(),
+                                        pendingCheckpoint.getCheckpointId(),
+                                        pendingCheckpoint.getCheckpointType(),
+                                        pendingCheckpoint.getCheckpointTimestamp(),
+                                        pendingCheckpoint.getTotalSubtasks());
+                            }
                             return pendingCheckpoint;
                         },
                         executorService);
@@ -845,8 +859,22 @@ public class CheckpointCoordinator {
                 pendingCheckpoints
                         .values()
                         .forEach(
-                                pendingCheckpoint ->
-                                        pendingCheckpoint.abortCheckpoint(closedReason, null));
+                                pendingCheckpoint -> {
+                                    if (checkpointMonitorService != null
+                                            && closedReason
+                                                    != CheckpointCloseReason
+                                                            .CHECKPOINT_COORDINATOR_RESET) {
+                                        checkpointMonitorService.onCheckpointFailed(
+                                                jobId,
+                                                plan.getPipelineId(),
+                                                pendingCheckpoint.getCheckpointId(),
+                                                pendingCheckpoint.getCheckpointType(),
+                                                closedReason,
+                                                null,
+                                                pendingCheckpoint.getCheckpointTimestamp());
+                                    }
+                                    pendingCheckpoint.abortCheckpoint(closedReason, null);
+                                });
                 // TODO: clear related future & scheduler task
                 pendingCheckpoints.clear();
             }
@@ -867,6 +895,10 @@ public class CheckpointCoordinator {
                                                 "checkpoint-coordinator-%s/%s", pipelineId, jobId));
                                 return thread;
                             });
+        }
+        if (checkpointMonitorService != null
+                && closedReason == CheckpointCloseReason.CHECKPOINT_COORDINATOR_RESET) {
+            checkpointMonitorService.clearInProgress(jobId, pipelineId);
         }
     }
 
@@ -891,6 +923,15 @@ public class CheckpointCoordinator {
                 pendingCheckpoint.getCheckpointType().isSavepoint()
                         ? SubtaskStatus.SAVEPOINT_PREPARE_CLOSE
                         : SubtaskStatus.RUNNING);
+
+        if (checkpointMonitorService != null) {
+            checkpointMonitorService.onCheckpointAcknowledge(
+                    jobId,
+                    plan.getPipelineId(),
+                    pendingCheckpoint.getCheckpointId(),
+                    pendingCheckpoint.getAcknowledgedSubtasks(),
+                    pendingCheckpoint.getTotalSubtasks());
+        }
 
         if (ackOperation.getBarrier().getCheckpointType().notFinalCheckpoint()
                 && ackOperation.getBarrier().prepareClose(location)) {
@@ -948,6 +989,10 @@ public class CheckpointCoordinator {
                 completedCheckpoint.getPipelineId(),
                 completedCheckpoint.getJobId());
         latestCompletedCheckpoint = completedCheckpoint;
+        if (checkpointMonitorService != null) {
+            long stateSize = CheckpointMonitorService.calculateStateSize(completedCheckpoint);
+            checkpointMonitorService.onCheckpointCompleted(completedCheckpoint, stateSize);
+        }
         notifyCompleted(completedCheckpoint);
         pendingCheckpoints.remove(checkpointId).abortCheckpointTimeoutFutureWhenIsCompleted();
         pendingCounter.decrementAndGet();

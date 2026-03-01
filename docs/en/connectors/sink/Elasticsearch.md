@@ -39,7 +39,7 @@ Engine Supported
 | max_retry_count         | int     | no       | 3                            |
 | max_batch_size          | int     | no       | 10                           |
 | tls_verify_certificate  | boolean | no       | true                         |
-| tls_verify_hostnames    | boolean | no       | true                         |
+| tls_verify_hostname    | boolean | no       | true                         |
 | tls_keystore_path       | string  | no       | -                            |
 | tls_keystore_password   | string  | no       | -                            |
 | tls_truststore_path     | string  | no       | -                            |

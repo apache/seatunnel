@@ -82,9 +82,16 @@ public final class FactoryUtil {
                     ClassLoader classLoader,
                     String factoryIdentifier,
                     Function<PluginIdentifier, SeaTunnelSource> fallbackCreateSource,
-                    TableSourceFactory factory) {
+                    TableSourceFactory factory,
+                    ReadonlyConfig envOptions) {
         return restoreAndPrepareSource(
-                options, classLoader, factoryIdentifier, null, fallbackCreateSource, factory);
+                options,
+                classLoader,
+                factoryIdentifier,
+                null,
+                fallbackCreateSource,
+                factory,
+                envOptions);
     }
 
     public static <T, SplitT extends SourceSplit, StateT extends Serializable>
@@ -94,7 +101,8 @@ public final class FactoryUtil {
                     String factoryIdentifier,
                     ChangeStreamTableSourceCheckpoint checkpoint,
                     Function<PluginIdentifier, SeaTunnelSource> fallbackCreateSource,
-                    TableSourceFactory factory) {
+                    TableSourceFactory factory,
+                    ReadonlyConfig envOptions) {
 
         try {
 
@@ -133,7 +141,7 @@ public final class FactoryUtil {
                             restoreAndPrepareSource(
                                     changeStreamTableSourceFactory, options, classLoader, state);
                 } else {
-                    source = createAndPrepareSource(factory, options, classLoader);
+                    source = createAndPrepareSource(factory, options, classLoader, envOptions);
                 }
             }
             List<CatalogTable> catalogTables;
@@ -173,8 +181,12 @@ public final class FactoryUtil {
 
     private static <T, SplitT extends SourceSplit, StateT extends Serializable>
             SeaTunnelSource<T, SplitT, StateT> createAndPrepareSource(
-                    TableSourceFactory factory, ReadonlyConfig options, ClassLoader classLoader) {
-        TableSourceFactoryContext context = new TableSourceFactoryContext(options, classLoader);
+                    TableSourceFactory factory,
+                    ReadonlyConfig options,
+                    ClassLoader classLoader,
+                    ReadonlyConfig envOptions) {
+        TableSourceFactoryContext context =
+                new TableSourceFactoryContext(options, classLoader, envOptions);
         ConfigValidator.of(context.getOptions()).validate(factory.optionRule());
         TableSource<T, SplitT, StateT> tableSource = factory.createSource(context);
         return tableSource.createSource();
