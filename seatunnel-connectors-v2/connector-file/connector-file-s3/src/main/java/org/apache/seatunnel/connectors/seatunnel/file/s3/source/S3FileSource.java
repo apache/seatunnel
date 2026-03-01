@@ -27,14 +27,12 @@ import java.util.List;
 
 public class S3FileSource extends BaseMultipleTableFileSource {
 
-    public S3FileSource(ReadonlyConfig readonlyConfig) {
-        this(new MultipleTableS3FileSourceConfig(readonlyConfig));
+    public S3FileSource(ReadonlyConfig readonlyConfig, List<CatalogTable> catalogTablesFromConfig) {
+        this(new MultipleTableS3FileSourceConfig(readonlyConfig, catalogTablesFromConfig));
     }
 
     private S3FileSource(MultipleTableS3FileSourceConfig sourceConfig) {
         super(sourceConfig, initFileSplitStrategy(sourceConfig));
-    public S3FileSource(ReadonlyConfig readonlyConfig, List<CatalogTable> catalogTablesFromConfig) {
-        super(new MultipleTableS3FileSourceConfig(readonlyConfig, catalogTablesFromConfig));
     }
 
     @Override
