@@ -890,17 +890,101 @@ MONTH(CREATED)
 
 MONTHNAME(CREATED)
 
-### PARSEDATETIME / TO_DATE
+### IS_DATE
 
-```PARSEDATETIME | TO_DATE(string, formatString) -> TIMESTAMP```
+```IS_DATE(string, formatString) -> BOOLEAN```
+验证字符串是否可以使用指定的格式模式解析为日期/时间值。
 
-解析一个字符串并返回一个 TIMESTAMP WITH TIME ZONE 值。最重要的格式字符包括：y（年）、M（月）、d（日）、H（时）、m（分）、s（秒）。有关格式的详细信息，请参阅 java.time.format.DateTimeFormatter。
+**支持的格式模式:**
+
+日期时间格式:
+- `yyyy-MM-dd HH:mm:ss` - 标准日期时间格式
+- `yyyy-MM-dd HH:mm:ss.SSS` - 带毫秒的日期时间
+- `yyyy-MM-dd'T'HH:mm:ss` - ISO 8601 日期时间格式
+- `yyyy-MM-dd'T'HH:mm:ss.SSS` - 带毫秒的 ISO 8601 日期时间
+- `yyyy/MM/dd HH:mm:ss` - 带斜杠分隔符的日期时间
+- `yyyy/MM/dd HH:mm:ss.SSS` - 带斜杠分隔符和毫秒的日期时间
+- `yyyyMMddHHmmss` - 紧凑日期时间格式
+
+日期格式:
+- `yyyy-MM-dd` - ISO 8601 日期格式
+- `yyyy/MM/dd` - 带斜杠分隔符的日期
+- `yyyyMMdd` - 紧凑日期格式
+
+时间格式:
+- `HH:mm:ss` - 标准时间格式
+- `HH:mm:ss.SSS` - 带毫秒的时间
+- `HHmmss` - 紧凑时间格式
 
 示例:
 
-CALL PARSEDATETIME('2021-04-08 13:34:45','yyyy-MM-dd HH:mm:ss')
-CALL TO_DATE('2021-04-08T13:34:45','yyyy-MM-dd''T''HH:mm:ss')
-注意SQL函数中的`'`填写时需要转义为`''`。
+```sql
+CALL IS_DATE('2021-04-08 13:34:45', 'yyyy-MM-dd HH:mm:ss')
+-- 返回 true
+
+CALL IS_DATE('2021/04/08', 'yyyy/MM/dd')
+-- 返回 true
+
+CALL IS_DATE('20210408', 'yyyyMMdd')
+-- 返回 true
+
+-- 与 TO_DATE 保持一致
+SELECT CASE
+  WHEN IS_DATE(date_string, 'yyyy-MM-dd HH:mm:ss')
+  THEN TO_DATE(date_string, 'yyyy-MM-dd HH:mm:ss')
+  ELSE NULL
+END as parsed_date
+```
+
+### PARSEDATETIME / TO_DATE
+
+```PARSEDATETIME | TO_DATE(string, formatString) -> TIMESTAMP | DATE | TIME```
+
+使用指定的格式模式将字符串解析为日期/时间值
+
+**支持的格式模式:**
+
+日期时间格式 (返回 TIMESTAMP):
+- `yyyy-MM-dd HH:mm:ss` - 标准日期时间格式
+- `yyyy-MM-dd HH:mm:ss.SSS` - 带毫秒的日期时间
+- `yyyy-MM-dd'T'HH:mm:ss` - ISO 8601 日期时间格式
+- `yyyy-MM-dd'T'HH:mm:ss.SSS` - 带毫秒的 ISO 8601 日期时间
+- `yyyy/MM/dd HH:mm:ss` - 带斜杠分隔符的日期时间
+- `yyyy/MM/dd HH:mm:ss.SSS` - 带斜杠分隔符和毫秒的日期时间
+- `yyyyMMddHHmmss` - 紧凑日期时间格式
+
+日期格式 (返回 DATE):
+- `yyyy-MM-dd` - ISO 8601 日期格式
+- `yyyy/MM/dd` - 带斜杠分隔符的日期
+- `yyyyMMdd` - 紧凑日期格式
+
+时间格式 (返回 TIME):
+- `HH:mm:ss` - 标准时间格式
+- `HH:mm:ss.SSS` - 带毫秒的时间
+- `HHmmss` - 紧凑时间格式
+
+**注意:** 在格式模式中使用单引号 (`'`) 时(例如 ISO 8601 的 'T' 分隔符)，必须在 SQL 中转义为 `''`。
+
+示例:
+
+```sql
+-- 日期时间示例
+CALL PARSEDATETIME('2021-04-08 13:34:45', 'yyyy-MM-dd HH:mm:ss')
+CALL TO_DATE('2021-04-08T13:34:45', 'yyyy-MM-dd''T''HH:mm:ss')
+CALL PARSEDATETIME('2024-06-15 14:30:45.123', 'yyyy-MM-dd HH:mm:ss.SSS')
+CALL PARSEDATETIME('2021/04/08 13:34:45', 'yyyy/MM/dd HH:mm:ss')
+CALL PARSEDATETIME('20210408133445', 'yyyyMMddHHmmss')
+
+-- 日期示例
+CALL TO_DATE('2021-04-08', 'yyyy-MM-dd')
+CALL TO_DATE('2021/04/08', 'yyyy/MM/dd')
+CALL TO_DATE('20210408', 'yyyyMMdd')
+
+-- 时间示例
+CALL PARSEDATETIME('14:30:45', 'HH:mm:ss')
+CALL PARSEDATETIME('14:30:45.123', 'HH:mm:ss.SSS')
+CALL PARSEDATETIME('143045', 'HHmmss')
+```
 
 ### QUARTER
 
