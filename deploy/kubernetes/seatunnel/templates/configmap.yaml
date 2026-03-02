@@ -14,6 +14,7 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 #
+{{- if .Values.configMap.create }}
 apiVersion: v1
 kind: ConfigMap
 metadata:
@@ -26,4 +27,5 @@ data:
     {{- base $path | nindent 2 }}: |-
       {{- tpl ($.Files.Get $path) $ | nindent 4 -}}
   {{- end }}
+{{- end }}
 
