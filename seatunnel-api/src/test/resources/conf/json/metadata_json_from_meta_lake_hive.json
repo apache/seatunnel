@@ -1,0 +1,236 @@
+{
+  "code": 0,
+  "table": {
+    "name": "all_hive_types_csv",
+    "columns": [
+      {
+        "name": "c_tinyint",
+        "type": "byte",
+        "nullable": true,
+        "autoIncrement": false
+      },
+      {
+        "name": "c_smallint",
+        "type": "short",
+        "nullable": true,
+        "autoIncrement": false
+      },
+      {
+        "name": "c_int",
+        "type": "integer",
+        "nullable": true,
+        "autoIncrement": false
+      },
+      {
+        "name": "c_bigint",
+        "type": "long",
+        "nullable": true,
+        "autoIncrement": false
+      },
+      {
+        "name": "c_boolean",
+        "type": "boolean",
+        "nullable": true,
+        "autoIncrement": false
+      },
+      {
+        "name": "c_float",
+        "type": "float",
+        "nullable": true,
+        "autoIncrement": false
+      },
+      {
+        "name": "c_double",
+        "type": "double",
+        "nullable": true,
+        "autoIncrement": false
+      },
+      {
+        "name": "c_decimal",
+        "type": "decimal(20,6)",
+        "nullable": true,
+        "autoIncrement": false
+      },
+      {
+        "name": "c_string",
+        "type": "string",
+        "nullable": true,
+        "autoIncrement": false
+      },
+      {
+        "name": "c_varchar",
+        "type": "varchar(50)",
+        "nullable": true,
+        "autoIncrement": false
+      },
+      {
+        "name": "c_char",
+        "type": "char(10)",
+        "nullable": true,
+        "autoIncrement": false
+      },
+      {
+        "name": "c_binary",
+        "type": "binary",
+        "nullable": true,
+        "autoIncrement": false
+      },
+      {
+        "name": "c_date",
+        "type": "date",
+        "nullable": true,
+        "autoIncrement": false
+      },
+      {
+        "name": "c_timestamp",
+        "type": "timestamp",
+        "nullable": true,
+        "autoIncrement": false
+      },
+      {
+        "name": "c_array_int",
+        "type": {
+          "type": "list",
+          "containsNull": true,
+          "elementType": "integer"
+        },
+        "nullable": true,
+        "autoIncrement": false
+      },
+      {
+        "name": "c_array_string",
+        "type": {
+          "type": "list",
+          "containsNull": true,
+          "elementType": "string"
+        },
+        "nullable": true,
+        "autoIncrement": false
+      },
+      {
+        "name": "c_map_str_int",
+        "type": {
+          "type": "map",
+          "valueContainsNull": true,
+          "keyType": "string",
+          "valueType": "integer"
+        },
+        "nullable": true,
+        "autoIncrement": false
+      },
+      {
+        "name": "c_map_str_str",
+        "type": {
+          "type": "map",
+          "valueContainsNull": true,
+          "keyType": "string",
+          "valueType": "string"
+        },
+        "nullable": true,
+        "autoIncrement": false
+      },
+      {
+        "name": "c_struct_simple",
+        "type": {
+          "type": "struct",
+          "fields": [
+            {
+              "name": "id",
+              "type": "integer",
+              "nullable": true
+            },
+            {
+              "name": "name",
+              "type": "string",
+              "nullable": true
+            }
+          ]
+        },
+        "nullable": true,
+        "autoIncrement": false
+      },
+      {
+        "name": "c_struct_nested",
+        "type": {
+          "type": "struct",
+          "fields": [
+            {
+              "name": "base",
+              "type": {
+                "type": "struct",
+                "fields": [
+                  {
+                    "name": "id",
+                    "type": "long",
+                    "nullable": true
+                  },
+                  {
+                    "name": "flag",
+                    "type": "boolean",
+                    "nullable": true
+                  }
+                ]
+              },
+              "nullable": true
+            },
+            {
+              "name": "ext",
+              "type": {
+                "type": "struct",
+                "fields": [
+                  {
+                    "name": "score",
+                    "type": "double",
+                    "nullable": true
+                  },
+                  {
+                    "name": "tags",
+                    "type": {
+                      "type": "list",
+                      "containsNull": true,
+                      "elementType": "string"
+                    },
+                    "nullable": true
+                  }
+                ]
+              },
+              "nullable": true
+            }
+          ]
+        },
+        "nullable": true,
+        "autoIncrement": false
+      }
+    ],
+    "properties": {
+      "numRows": "0",
+      "rawDataSize": "0",
+      "transient_lastDdlTime": "1769685048",
+      "serde.parameter.mapkey.delim": ":",
+      "output-format": "org.apache.hadoop.hive.ql.io.HiveIgnoreKeyTextOutputFormat",
+      "table-type": "MANAGED_TABLE",
+      "serde.parameter.collection.delim": "|",
+      "numFilesErasureCoded": "0",
+      "input-format": "org.apache.hadoop.mapred.TextInputFormat",
+      "totalSize": "0",
+      "COLUMN_STATS_ACCURATE": "{\"BASIC_STATS\":\"true\"}",
+      "numFiles": "0",
+      "serde.parameter.serialization.format": ",",
+      "serde.parameter.field.delim": ",",
+      "location": "hdfs://foton1.cdh.com:8020/user/hive/warehouse/test.db/all_hive_types_csv",
+      "serde-lib": "org.apache.hadoop.hive.serde2.lazy.LazySimpleSerDe"
+    },
+    "audit": {
+      "creator": "root",
+      "createTime": "2026-01-29T11:10:48Z"
+    },
+    "distribution": {
+      "strategy": "none",
+      "number": 0,
+      "funcArgs": []
+    },
+    "sortOrders": [],
+    "partitioning": [],
+    "indexes": []
+  }
+}
