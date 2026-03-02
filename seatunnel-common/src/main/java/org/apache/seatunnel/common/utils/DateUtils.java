@@ -243,5 +243,10 @@ public class DateUtils {
         public Formatter getFormatter() {
             return this;
         }
+
+        @Override
+        public String toString() {
+            return value;
+        }
     }
 }

@@ -583,5 +583,10 @@ public class DateTimeUtils {
         public Formatter getFormatter() {
             return this;
         }
+
+        @Override
+        public String toString() {
+            return value;
+        }
     }
 }
