@@ -409,4 +409,40 @@ public class FixedChunkSplitter extends ChunkSplitter {
                             + " is not handled (yet).");
         }
     }
+
+    @Override
+    protected String createSplitQuerySQL(JdbcSourceSplit split, TableSchema schema) {
+        if (SqlType.STRING.equals(split.getSplitKeyType().getSqlType())) {
+            String base = split.getSplitQuery();
+            // one placeholder '?' for hash_mod partition, replace with actual value
+            return base.replace("?", String.valueOf((Integer) split.getSplitStart()));
+        }
+        String splitKeyName = jdbcDialect.quoteIdentifier(split.getSplitKeyName());
+        if (split.getSplitStart() == null && split.getSplitEnd() == null) {
+            // single split
+            String splitQuery = split.getSplitQuery();
+            if (StringUtils.isNotBlank(splitQuery)) {
+                return String.format("SELECT * FROM (%s) st_jdbc_splitter", splitQuery);
+            } else {
+                return String.format(
+                        "SELECT * FROM %s", jdbcDialect.tableIdentifier(split.getTablePath()));
+            }
+        }
+        String splitQuery = split.getSplitQuery();
+        String condition =
+                String.format(
+                        "%s >= %s AND %s < %s",
+                        splitKeyName,
+                        String.valueOf(split.getSplitStart()),
+                        splitKeyName,
+                        String.valueOf(split.getSplitEnd()));
+        if (StringUtils.isNotBlank(splitQuery)) {
+            return String.format(
+                    "SELECT * FROM (%s) st_jdbc_splitter WHERE %s", splitQuery, condition);
+        } else {
+            return String.format(
+                    "SELECT * FROM %s WHERE %s",
+                    jdbcDialect.tableIdentifier(split.getTablePath()), condition);
+        }
+    }
 }

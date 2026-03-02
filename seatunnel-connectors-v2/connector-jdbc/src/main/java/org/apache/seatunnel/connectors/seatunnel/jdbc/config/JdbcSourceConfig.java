@@ -50,6 +50,12 @@ public class JdbcSourceConfig implements Serializable {
 
     private String stringSplitModeCollate;
 
+    private boolean useCopyStatement;
+
+    private boolean binary;
+
+    private Integer pgCopyBufferSize;
+
     public static JdbcSourceConfig of(ReadonlyConfig config) {
         JdbcSourceConfig.Builder builder = JdbcSourceConfig.builder();
         builder.jdbcConnectionConfig(JdbcConnectionConfig.of(config));
@@ -74,6 +80,22 @@ public class JdbcSourceConfig implements Serializable {
 
         builder.decimalTypeNarrowing(config.get(JdbcSourceOptions.DECIMAL_TYPE_NARROWING));
         builder.handleBlobAsString(config.get(JdbcSourceOptions.HANDLE_BLOB_AS_STRING));
+
+        builder.useCopyStatement(config.get(JdbcSourceOptions.COPY_ENABLED));
+        builder.binary(config.get(JdbcSourceOptions.BINARY));
+        builder.pgCopyBufferSize(config.get(JdbcSourceOptions.PG_COPY_ROW_SIZE));
+        int bufferSize = config.get(JdbcSourceOptions.PG_COPY_ROW_SIZE);
+
+        if (bufferSize < 65536 || bufferSize > 10 * 1024 * 1024) {
+            throw new IllegalArgumentException(
+                    "pg_copy_buffer_size must be between 64KB and 10MB, got: " + bufferSize);
+        }
+
+        boolean exactlyOnce = config.getOptional(JdbcSinkOptions.IS_EXACTLY_ONCE).orElse(false);
+        if (config.get(JdbcSourceOptions.COPY_ENABLED) && exactlyOnce) {
+            throw new IllegalArgumentException(
+                    "PostgreSQL COPY mode is not compatible with Exactly-Once.");
+        }
 
         config.getOptional(JdbcSourceOptions.WHERE_CONDITION)
                 .ifPresent(

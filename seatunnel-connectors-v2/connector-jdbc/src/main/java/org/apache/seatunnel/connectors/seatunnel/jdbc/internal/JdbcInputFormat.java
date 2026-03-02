@@ -28,6 +28,7 @@ import org.apache.seatunnel.connectors.seatunnel.jdbc.config.JdbcSourceConfig;
 import org.apache.seatunnel.connectors.seatunnel.jdbc.exception.JdbcConnectorErrorCode;
 import org.apache.seatunnel.connectors.seatunnel.jdbc.exception.JdbcConnectorException;
 import org.apache.seatunnel.connectors.seatunnel.jdbc.internal.converter.JdbcRowConverter;
+import org.apache.seatunnel.connectors.seatunnel.jdbc.internal.copy.PgCopyInput;
 import org.apache.seatunnel.connectors.seatunnel.jdbc.internal.dialect.JdbcDialect;
 import org.apache.seatunnel.connectors.seatunnel.jdbc.internal.dialect.JdbcDialectLoader;
 import org.apache.seatunnel.connectors.seatunnel.jdbc.source.ChunkSplitter;
@@ -64,6 +65,10 @@ public class JdbcInputFormat implements Serializable {
     private transient ResultSet resultSet;
     private volatile boolean hasNext;
 
+    private final JdbcSourceConfig config;
+    private final boolean useCopyStatement;
+    private transient PgCopyInput pgCopyInput;
+
     public JdbcInputFormat(JdbcSourceConfig config, Map<TablePath, CatalogTable> tables) {
         this.jdbcDialect =
                 JdbcDialectLoader.load(
@@ -73,6 +78,9 @@ public class JdbcInputFormat implements Serializable {
         this.chunkSplitter = ChunkSplitter.create(config);
         this.jdbcRowConverter = jdbcDialect.getRowConverter();
         this.tables = tables;
+
+        this.config = config;
+        this.useCopyStatement = config.isUseCopyStatement();
     }
 
     public void openInputFormat() {}
@@ -97,9 +105,18 @@ public class JdbcInputFormat implements Serializable {
             splitTableSchema = tables.get(inputSplit.getTablePath()).getTableSchema();
             splitTableId = inputSplit.getTablePath().toString();
 
-            statement = chunkSplitter.generateSplitStatement(inputSplit, splitTableSchema);
-            resultSet = statement.executeQuery();
-            hasNext = resultSet.next();
+            if (useCopyStatement) {
+                pgCopyInput =
+                        new PgCopyInput(
+                                config, jdbcDialect, chunkSplitter, splitTableSchema, splitTableId);
+                pgCopyInput.open(inputSplit);
+                hasNext = pgCopyInput.hasNext();
+            } else {
+                statement = chunkSplitter.generateSplitStatement(inputSplit, splitTableSchema);
+                resultSet = statement.executeQuery();
+                hasNext = resultSet.next();
+            }
+
         } catch (SQLException se) {
             throw new JdbcConnectorException(
                     JdbcConnectorErrorCode.CONNECT_DATABASE_FAILED,
@@ -114,6 +131,19 @@ public class JdbcInputFormat implements Serializable {
      * @throws IOException Indicates that a resource could not be closed.
      */
     public void close() throws IOException {
+        if (useCopyStatement) {
+            try {
+                if (pgCopyInput != null) {
+                    pgCopyInput.close();
+                }
+            } catch (Exception e) {
+                LOG.info("PG COPY resources couldn't be closed - " + e.getMessage());
+            } finally {
+                pgCopyInput = null;
+            }
+            return;
+        }
+
         if (resultSet != null) {
             try {
                 resultSet.close();
@@ -145,13 +175,23 @@ public class JdbcInputFormat implements Serializable {
             if (!hasNext) {
                 return null;
             }
-            SeaTunnelRow seaTunnelRow = jdbcRowConverter.toInternal(resultSet, splitTableSchema);
-            seaTunnelRow.setTableId(splitTableId);
-            seaTunnelRow.setRowKind(RowKind.INSERT);
 
-            // update hasNext after we've read the record
-            hasNext = resultSet.next();
-            return seaTunnelRow;
+            if (useCopyStatement) {
+                SeaTunnelRow seaTunnelRow = pgCopyInput.next();
+                seaTunnelRow.setTableId(splitTableId);
+                seaTunnelRow.setRowKind(RowKind.INSERT);
+                hasNext = pgCopyInput.hasNext();
+                return seaTunnelRow;
+            } else {
+                SeaTunnelRow seaTunnelRow =
+                        jdbcRowConverter.toInternal(resultSet, splitTableSchema);
+                seaTunnelRow.setTableId(splitTableId);
+                seaTunnelRow.setRowKind(RowKind.INSERT);
+
+                // update hasNext after we've read the record
+                hasNext = resultSet.next();
+                return seaTunnelRow;
+            }
         } catch (SQLException se) {
             throw new JdbcConnectorException(
                     CommonErrorCodeDeprecated.SQL_OPERATION_FAILED,

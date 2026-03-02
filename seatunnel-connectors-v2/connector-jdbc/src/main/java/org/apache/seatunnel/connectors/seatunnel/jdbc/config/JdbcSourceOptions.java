@@ -159,4 +159,24 @@ public class JdbcSourceOptions extends JdbcCommonOptions {
                     .noDefaultValue()
                     .withDescription(
                             "Specifies the collation to use when string_split_mode is set to `charset_based` and the table has a special collation. If not specified, the database's default collation will be used.");
+
+    public static final Option<Boolean> COPY_ENABLED =
+            Options.key("copy.enabled")
+                    .booleanType()
+                    .defaultValue(false)
+                    .withDescription(
+                            "Whether to use PostgreSQL COPY protocol for data reading. Only supported for PostgreSQL.");
+
+    public static final Option<Boolean> BINARY =
+            Options.key("copy.binary")
+                    .booleanType()
+                    .defaultValue(false)
+                    .withDescription("Use PostgreSQL COPY BINARY format when copy.enabled is true");
+
+    public static final Option<Integer> PG_COPY_ROW_SIZE =
+            Options.key("copy.buffer_size")
+                    .intType()
+                    .defaultValue(1048576)
+                    .withDescription(
+                            "Buffer size for PostgreSQL COPY. This is only supported for PostgreSQL.");
 }

@@ -367,4 +367,65 @@ public abstract class ChunkSplitter implements AutoCloseable, Serializable {
     protected String createSplitId(TablePath tablePath, int index) {
         return String.format("%s-%s", tablePath, index);
     }
+
+    /**
+     * Builds the split-specific query used to read data for a parallel split.
+     *
+     * <p>This method is a protected hook for implementations to generate the SQL for a split when
+     * {@link JdbcSourceSplit#getSplitKeyName()} is not {@code null}. Implementations are expected
+     * to return a complete {@code SELECT} statement (including any split boundary predicates) that
+     * can be executed directly.
+     *
+     * <p>Callers should prefer {@link #generateSplitQuerySQL(JdbcSourceSplit, TableSchema)} to get
+     * a fully wrapped query with connector-level filtering applied.
+     *
+     * @param split the split to generate the query for
+     * @param schema the table schema used for type-aware SQL generation
+     */
+    protected String createSplitQuerySQL(JdbcSourceSplit split, TableSchema schema) {
+        return split.getTablePath().toString();
+    }
+
+    /**
+     * Generates an executable {@code SELECT} SQL string for the given split.
+     *
+     * <p>This method normalizes query generation across split types:
+     *
+     * <ul>
+     *   <li>For non-partitioned (single) splits, it selects from the physical table or wraps a
+     *       user-provided subquery as {@code SELECT * FROM (<query>) tmp}.
+     *   <li>For partitioned splits, it delegates to {@link #createSplitQuerySQL(JdbcSourceSplit,
+     *       TableSchema)}.
+     * </ul>
+     *
+     * <p>If {@code whereConditionClause} is configured, it will be appended by wrapping the
+     * generated SQL as a subquery.
+     *
+     * <p>Note: This method is primarily used by COPY-based readers (e.g., PostgreSQL COPY), where a
+     * raw SQL string is required.
+     *
+     * @param split the split to generate the query for
+     * @param schema the table schema
+     * @return an executable {@code SELECT} statement for this split
+     */
+    public String generateSplitQuerySQL(JdbcSourceSplit split, TableSchema schema) {
+        String sql;
+        if (split.getSplitKeyName() == null) {
+            String splitQuery = split.getSplitQuery();
+            if (StringUtils.isEmpty(splitQuery)) {
+                sql =
+                        String.format(
+                                "SELECT * FROM %s",
+                                jdbcDialect.tableIdentifier(split.getTablePath()));
+            } else {
+                sql = String.format("SELECT * FROM (%s) tmp", splitQuery);
+            }
+        } else {
+            sql = createSplitQuerySQL(split, schema);
+        }
+        if (StringUtils.isNotBlank(config.getWhereConditionClause())) {
+            sql = String.format("SELECT * FROM (%s) tmp %s", sql, config.getWhereConditionClause());
+        }
+        return sql;
+    }
 }

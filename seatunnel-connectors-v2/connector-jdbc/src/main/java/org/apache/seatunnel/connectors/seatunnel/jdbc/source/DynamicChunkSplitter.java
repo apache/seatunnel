@@ -40,8 +40,12 @@ import java.math.BigInteger;
 import java.sql.Date;
 import java.sql.PreparedStatement;
 import java.sql.SQLException;
+import java.sql.Time;
 import java.sql.Timestamp;
 import java.time.LocalDate;
+import java.time.LocalDateTime;
+import java.time.LocalTime;
+import java.time.format.DateTimeFormatter;
 import java.util.ArrayList;
 import java.util.Collection;
 import java.util.Collections;
@@ -58,6 +62,9 @@ public class DynamicChunkSplitter extends ChunkSplitter {
 
     private final boolean useCharsetBasedStringSplitter =
             StringSplitMode.CHARSET_BASED.equals(config.getStringSplitMode());
+
+    private static final DateTimeFormatter TIMESTAMP_SECONDS_FORMATTER =
+            DateTimeFormatter.ofPattern("yyyy-MM-dd HH:mm:ss");
 
     public DynamicChunkSplitter(JdbcSourceConfig config) {
         super(config);
@@ -755,5 +762,138 @@ public class DynamicChunkSplitter extends ChunkSplitter {
             this.chunkStart = chunkStart;
             this.chunkEnd = chunkEnd;
         }
+    }
+
+    @Override
+    protected String createSplitQuerySQL(JdbcSourceSplit split, TableSchema schema) {
+        String splitQuery;
+        if (StringUtils.isNotBlank(split.getSplitQuery())) {
+            splitQuery = String.format("SELECT * FROM (%s) tmp", split.getSplitQuery());
+        } else {
+            splitQuery =
+                    String.format(
+                            "SELECT * FROM %s", jdbcDialect.tableIdentifier(split.getTablePath()));
+        }
+
+        boolean isFirstSplit = split.getSplitStart() == null;
+        boolean isLastSplit = split.getSplitEnd() == null;
+
+        String condition = null;
+        if (!(isFirstSplit && isLastSplit)) {
+            Map<String, Column> columns =
+                    schema.getColumns().stream()
+                            .collect(Collectors.toMap(c -> c.getName(), c -> c));
+            String keyNameQuoted = jdbcDialect.quoteIdentifier(split.getSplitKeyName());
+            keyNameQuoted =
+                    jdbcDialect.convertType(
+                            keyNameQuoted, columns.get(split.getSplitKeyName()).getSourceType());
+
+            String startVal =
+                    isFirstSplit
+                            ? null
+                            : toSqlLiteral(split.getSplitStart(), split.getSplitKeyType());
+            String endVal =
+                    isLastSplit ? null : toSqlLiteral(split.getSplitEnd(), split.getSplitKeyType());
+
+            if (isFirstSplit) {
+                condition = keyNameQuoted + " < " + endVal;
+            } else if (isLastSplit) {
+                condition = keyNameQuoted + " >= " + startVal;
+            } else {
+                condition =
+                        keyNameQuoted
+                                + " >= "
+                                + startVal
+                                + " AND "
+                                + keyNameQuoted
+                                + " < "
+                                + endVal;
+            }
+        }
+
+        if (StringUtils.isNotBlank(condition)) {
+            return splitQuery + " WHERE " + condition;
+        }
+        return splitQuery;
+    }
+
+    private String toSqlLiteral(Object value, SeaTunnelDataType<?> type) {
+        if (value == null) {
+            return "NULL";
+        }
+        switch (type.getSqlType()) {
+            case TINYINT:
+            case SMALLINT:
+            case INT:
+            case BIGINT:
+            case DOUBLE:
+            case FLOAT:
+            case DECIMAL:
+                return String.valueOf(value);
+            case BOOLEAN:
+                return ((Boolean) value) ? "TRUE" : "FALSE";
+            case STRING:
+                return "'" + escapeSqlString(String.valueOf(value)) + "'";
+            case DATE:
+                return "'" + escapeSqlString(formatDate(value)) + "'";
+            case TIME:
+                return "'" + escapeSqlString(formatTime(value)) + "'";
+            case TIMESTAMP:
+                return "'" + escapeSqlString(formatTimestamp(value)) + "'";
+            case BYTES:
+                throw new UnsupportedOperationException(
+                        "COPY split key does not support BYTES literals yet");
+            default:
+                throw new UnsupportedOperationException(
+                        "Unsupported split key type: " + type.getSqlType());
+        }
+    }
+
+    private String formatDate(Object value) {
+        if (value instanceof Date) {
+            return ((Date) value).toLocalDate().toString();
+        }
+        if (value instanceof LocalDate) {
+            return ((LocalDate) value).toString();
+        }
+        return String.valueOf(value);
+    }
+
+    private String formatTime(Object value) {
+        if (value instanceof Time) {
+            return ((Time) value).toLocalTime().toString();
+        }
+        if (value instanceof LocalTime) {
+            return ((LocalTime) value).toString();
+        }
+        return String.valueOf(value);
+    }
+
+    private String formatTimestamp(Object value) {
+        if (value instanceof Timestamp) {
+            return formatLocalDateTime(((Timestamp) value).toLocalDateTime());
+        }
+        if (value instanceof LocalDateTime) {
+            return formatLocalDateTime((LocalDateTime) value);
+        }
+        return String.valueOf(value);
+    }
+
+    private String formatLocalDateTime(LocalDateTime dateTime) {
+        String base = dateTime.format(TIMESTAMP_SECONDS_FORMATTER);
+        int nanos = dateTime.getNano();
+        if (nanos == 0) {
+            return base;
+        }
+        String fraction = String.format("%09d", nanos);
+        int end = fraction.length();
+        while (end > 0 && fraction.charAt(end - 1) == '0') {
+            end--;
+        }
+        return base + "." + fraction.substring(0, end);
+    }
+
+    private String escapeSqlString(String s) {
+        return s.replace("'", "''");
     }
 }
