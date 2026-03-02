@@ -225,5 +225,10 @@ public class TimeUtils {
         public Formatter getFormatter() {
             return this;
         }
+
+        @Override
+        public String toString() {
+            return value;
+        }
     }
 }

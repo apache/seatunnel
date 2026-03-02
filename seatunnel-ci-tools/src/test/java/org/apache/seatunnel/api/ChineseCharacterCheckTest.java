@@ -84,19 +84,6 @@ public class ChineseCharacterCheckTest {
         checkChineseCharacters(CheckScope.CODE_ONLY);
     }
 
-    public static void main(String[] args) {
-        whiteList.add(
-                "seatunnel-common/src/main/java/org/apache/seatunnel/common/utils/DateTimeUtils.java");
-        whiteList.add(
-                "seatunnel-common\\src\\main\\java\\org\\apache\\seatunnel\\common\\utils\\DateTimeUtils.java");
-        String path =
-                "..\\seatunnel-common\\src\\main\\java\\org\\apache\\seatunnel\\common\\utils\\DateTimeUtils.java";
-        for (String s : whiteList) {
-            System.out.println(path.contains(s));
-        }
-        System.out.println(whiteList.stream().noneMatch(path::contains));
-    }
-
     private void checkChineseCharacters(CheckScope scope) {
         // Define path fragments for source and test Java files
         String mainPathFragment = isWindows ? "src\\main\\java" : "src/main/java";
