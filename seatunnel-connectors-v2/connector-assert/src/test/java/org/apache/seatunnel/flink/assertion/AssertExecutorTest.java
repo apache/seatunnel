@@ -32,7 +32,6 @@ import org.apache.seatunnel.api.table.type.SeaTunnelRow;
 import org.apache.seatunnel.api.table.type.SeaTunnelRowType;
 import org.apache.seatunnel.connectors.seatunnel.assertion.excecutor.AssertExecutor;
 import org.apache.seatunnel.connectors.seatunnel.assertion.rule.AssertFieldRule;
-import org.apache.seatunnel.format.json.JsonToRowConverters;
 
 import org.junit.jupiter.api.Test;
 
@@ -333,12 +332,12 @@ public class AssertExecutorTest {
     public void testTimeEqualsTo() throws IOException {
         String timeStr = "12:11:34";
         LocalTime time =
-                JsonToRowConverters.TIME_FORMAT.parse(timeStr).query(TemporalQueries.localTime());
+                DateTimeFormatter.ISO_TIME.parse(timeStr).query(TemporalQueries.localTime());
         assertFieldRuleEqualsTo(
                 ConfigFactory.parseString("{equals_to = \"" + timeStr + "\" }")
                         .getValue("equals_to"),
                 LocalTimeType.LOCAL_TIME_TYPE,
-                (LocalTime) time);
+                time);
     }
 
     @Test

@@ -557,7 +557,7 @@ public class JsonRowDataSerDeSchemaTest {
                 "{\"2024-01-26\": \"xxx\"}", dateConverter, date, "iso_local_date_string_map");
 
         LocalTime time =
-                JsonToRowConverters.TIME_FORMAT
+                DateTimeFormatter.ISO_LOCAL_TIME
                         .parse("12:00:12.001")
                         .query(TemporalQueries.localTime());
         assertMapKeyType(
