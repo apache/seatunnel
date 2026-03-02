@@ -311,6 +311,16 @@ const sidebars = {
         },
         {
             "type": "category",
+            "label": "Tools",
+            "items": [
+                "tools/overview",
+                "tools/seatunnel-skill",
+                "tools/seatunnel-mcp",
+                "tools/x2seatunnel"
+            ]
+        },
+        {
+            "type": "category",
             "label": "Developer",
             "items": [
                 "developer/setup",
