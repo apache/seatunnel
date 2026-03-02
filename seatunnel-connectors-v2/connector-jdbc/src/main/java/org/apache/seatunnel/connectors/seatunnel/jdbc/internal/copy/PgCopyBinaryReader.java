@@ -127,13 +127,25 @@ public final class PgCopyBinaryReader implements PgCopyReader {
     /**
      * Indicates whether more rows are available to be read. Returns true if the internal queue has
      * parsed rows or if the stream has not reached EOF.
+     *
      */
     @Override
     public boolean hasNext() {
         if (!queue.isEmpty()) {
             return true;
         }
-        return !eof;
+        if (eof) {
+            return false;
+        }
+        try {
+            while (queue.isEmpty() && !eof) {
+                fillAndParse();
+            }
+        } catch (IOException e) {
+            throw new JdbcConnectorException(
+                    CommonErrorCodeDeprecated.SQL_OPERATION_FAILED, "Binary COPY read failed", e);
+        }
+        return !queue.isEmpty();
     }
 
     /**
@@ -142,18 +154,10 @@ public final class PgCopyBinaryReader implements PgCopyReader {
      */
     @Override
     public SeaTunnelRow next() {
-        try {
-            if (queue.isEmpty() && !eof) {
-                fillAndParse();
-                while (queue.isEmpty() && !eof) {
-                    fillAndParse();
-                }
-            }
+        if (hasNext()) {
             return queue.poll();
-        } catch (IOException e) {
-            throw new JdbcConnectorException(
-                    CommonErrorCodeDeprecated.SQL_OPERATION_FAILED, "Binary COPY read failed", e);
         }
+        return null;
     }
 
     /**
