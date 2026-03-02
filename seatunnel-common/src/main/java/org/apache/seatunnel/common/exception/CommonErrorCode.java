@@ -83,7 +83,8 @@ public enum CommonErrorCode implements SeaTunnelErrorCode {
     VALIDATION_FAILED("COMMON-38", "Data validation failed: '<message>'"),
     FORMAT_TIME_ERROR(
             "COMMON-39",
-            "The date format '<time>' of field '<field>' is not supported. Please check the time format."),;
+            "The date format '<time>' of field '<field>' is not supported. Please check the time format."),
+    ;
 
     private final String code;
     private final String description;
