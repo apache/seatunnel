@@ -262,7 +262,7 @@ transform {
 
 sink {
   Console {}
-  # 如果你想了解更多关于如何配置 seatunnel 的信息，并查看汇插件的完整列表，
+  # 如果你想了解更多关于如何配置 seatunnel 的信息，并查看 Sink 插件的完整列表，
   # 请前往 https://seatunnel.apache.org/docs/connector-v2/sink/Jdbc
 }
 ```

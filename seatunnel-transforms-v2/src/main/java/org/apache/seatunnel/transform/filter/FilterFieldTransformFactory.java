@@ -49,7 +49,7 @@ public class FilterFieldTransformFactory implements TableTransformFactory {
     @Override
     public TableTransform createTransform(TableTransformFactoryContext context) {
         return () ->
-                new FieldFieldMultiCatalogTransform(
+                new FilterFieldMultiCatalogTransform(
                         context.getCatalogTables(), context.getOptions());
     }
 }

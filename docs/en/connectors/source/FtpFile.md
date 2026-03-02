@@ -86,6 +86,7 @@ If you use SeaTunnel Engine, It automatically integrated the hadoop jar when you
 | file_filter_modified_end    | string  | no       | -                           | 
 | quote_char                  | string  | no       | "                           |
 | escape_char                 | string  | no       | -                           |
+| metalake_type               | string  | no       | gravitino                   |
 
 ### host [string]
 
@@ -366,6 +367,18 @@ then SeaTunnel will skip the first 2 lines from source files
 Only need to be configured when the file_format_type are text, json, excel, xml or csv ( Or other format we can't read the schema from metadata).
 
 The schema information of upstream data. For more details, please refer to [Schema Feature](../../introduction/concepts/schema-feature.md).
+
+#### schema_url [string]
+
+Get the http url of metadata information through restApi, such as: `http://localhost:8090/api/metalakes/laowang_test/catalogs/221-pgsql/schemas/ykw/tables/all_type`
+
+> When using Gravitino as the metadata source, the column types from Gravitino will be automatically converted to SeaTunnel data types. For detailed type mapping information, please refer to [Gravitino Type Mapping](../../introduction/concepts/gravitino-type-mapping.md).
+
+### metalake_type [string]
+
+The type of metalake service, currently only supports `gravitino`. When using `schema_url` to obtain metadata from Gravitino, you can specify this parameter (default is `gravitino`).
+
+For more information about Metalake, please refer to [Metalake](../../introduction/concepts/metalake.md).
 
 ### read_columns [list]
 
