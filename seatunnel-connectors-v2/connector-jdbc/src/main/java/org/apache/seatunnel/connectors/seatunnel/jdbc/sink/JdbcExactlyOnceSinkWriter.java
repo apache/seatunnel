@@ -130,11 +130,10 @@ public class JdbcExactlyOnceSinkWriter extends AbstractJdbcSinkWriter<Void> {
                 xidGenerator.open();
                 xaFacade.open();
                 outputFormat.open();
-                if (!recoverStates.isEmpty()) {
-                    Xid xid = recoverStates.get(0).getXid();
-                    // Rollback pending transactions that should not include recoverStates
-                    xaGroupOps.recoverAndRollback(context, sinkcontext, xidGenerator, xid);
-                }
+                Xid excludeXid = recoverStates.isEmpty() ? null : recoverStates.get(0).getXid();
+                // Rollback all pending transactions for this subtask except recovered checkpoint
+                // xid.
+                xaGroupOps.recoverAndRollback(context, sinkcontext, xidGenerator, excludeXid);
                 beginTx(System.currentTimeMillis());
             } catch (Exception e) {
                 throw new JdbcConnectorException(
@@ -225,7 +224,7 @@ public class JdbcExactlyOnceSinkWriter extends AbstractJdbcSinkWriter<Void> {
             beginTx(checkpointId);
         } catch (Exception e) {
             if (!emptyXaTransaction) {
-                rollbackPrepareXidQuietly();
+                rollbackPrepareXidOrThrow(e);
             } else {
                 prepareXid = null;
             }
@@ -297,6 +296,36 @@ public class JdbcExactlyOnceSinkWriter extends AbstractJdbcSinkWriter<Void> {
             LOG.warn("unable to rollback prepared transaction, xid={}", xid, e);
         } finally {
             prepareXid = null;
+        }
+    }
+
+    private void rollbackPrepareXidOrThrow(Exception beginTxException) {
+        if (prepareXid == null) {
+            return;
+        }
+        Xid xid = prepareXid;
+        if (!xaFacade.isOpen()) {
+            throw new JdbcConnectorException(
+                    JdbcConnectorErrorCode.XA_OPERATION_FAILED,
+                    String.format(
+                            "unable to rollback prepared transaction because xaFacade is closed, xid=%s",
+                            xid),
+                    beginTxException);
+        }
+        try {
+            LOG.warn("begin next transaction failed, rollback prepared transaction, xid={}", xid);
+            xaFacade.rollback(xid);
+            prepareXid = null;
+        } catch (Exception rollbackException) {
+            JdbcConnectorException rollbackFailure =
+                    new JdbcConnectorException(
+                            JdbcConnectorErrorCode.XA_OPERATION_FAILED,
+                            String.format(
+                                    "failed to rollback prepared transaction after begin next transaction failure, xid=%s",
+                                    xid),
+                            rollbackException);
+            rollbackFailure.addSuppressed(beginTxException);
+            throw rollbackFailure;
         }
     }
 

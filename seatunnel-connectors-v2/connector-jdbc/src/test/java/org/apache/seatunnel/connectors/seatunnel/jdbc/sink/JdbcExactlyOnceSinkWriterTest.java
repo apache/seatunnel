@@ -41,6 +41,7 @@ import java.util.List;
 
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.anyLong;
+import static org.mockito.ArgumentMatchers.isNull;
 import static org.mockito.Mockito.clearInvocations;
 import static org.mockito.Mockito.doNothing;
 import static org.mockito.Mockito.doThrow;
@@ -86,6 +87,32 @@ class JdbcExactlyOnceSinkWriterTest {
     }
 
     @Test
+    void testPrepareCommitThrowWhenRollbackPreparedXidFailedAfterBeginNextTxFailed()
+            throws Exception {
+        TestContext context = createWriter();
+
+        doNothing()
+                .doThrow(new RuntimeException("start next tx failed"))
+                .when(context.xaFacade)
+                .start(any());
+        doThrow(new RuntimeException("rollback prepared failed"))
+                .when(context.xaFacade)
+                .rollback(any());
+
+        JdbcConnectorException exception =
+                Assertions.assertThrows(
+                        JdbcConnectorException.class, () -> context.writer.prepareCommit(10L));
+
+        Assertions.assertTrue(exception.getMessage().contains("rollback prepared transaction"));
+        Assertions.assertEquals(1, exception.getSuppressed().length);
+        Assertions.assertTrue(
+                exception
+                        .getSuppressed()[0]
+                        .getMessage()
+                        .contains("unable to start xa transaction"));
+    }
+
+    @Test
     void testPrepareCommitWithEmptyTransactionDontRollbackPreparedXidWhenStartNextTxFailed()
             throws Exception {
         TestContext context = createWriter();
@@ -114,6 +141,15 @@ class JdbcExactlyOnceSinkWriterTest {
         context.writer.prepareCommit(10L);
 
         verify(context.xidGenerator, times(1)).open();
+    }
+
+    @Test
+    void testTryOpenAlwaysRecoverAndRollbackWhenRecoverStateIsEmpty() throws Exception {
+        TestContext context = createWriter();
+
+        context.writer.prepareCommit(10L);
+
+        verify(context.xaGroupOps, times(1)).recoverAndRollback(any(), any(), any(), isNull());
     }
 
     @Test
@@ -158,6 +194,10 @@ class JdbcExactlyOnceSinkWriterTest {
     }
 
     private TestContext createWriter() throws Exception {
+        return createWriter(Collections.<JdbcSinkState>emptyList());
+    }
+
+    private TestContext createWriter(List<JdbcSinkState> states) throws Exception {
         SinkWriter.Context sinkWriterContext = new DefaultSinkWriterContext(0, 1);
         JobContext jobContext = new JobContext(1L);
         XaFacade xaFacade = mock(XaFacade.class);
@@ -174,12 +214,12 @@ class JdbcExactlyOnceSinkWriterTest {
                 new JdbcExactlyOnceSinkWriter(
                         sinkWriterContext,
                         jobContext,
-                        Collections.<JdbcSinkState>emptyList(),
+                        states,
                         xaFacade,
                         xaGroupOps,
                         xidGenerator,
                         outputFormat);
-        return new TestContext(writer, xaFacade, xidGenerator, outputFormat);
+        return new TestContext(writer, xaFacade, xaGroupOps, xidGenerator, outputFormat);
     }
 
     private static void setPrivateField(Object target, String fieldName, Object value)
@@ -198,6 +238,7 @@ class JdbcExactlyOnceSinkWriterTest {
     private static class TestContext {
         private final JdbcExactlyOnceSinkWriter writer;
         private final XaFacade xaFacade;
+        private final XaGroupOps xaGroupOps;
         private final XidGenerator xidGenerator;
         private final JdbcOutputFormat<SeaTunnelRow, JdbcBatchStatementExecutor<SeaTunnelRow>>
                 outputFormat;
@@ -205,11 +246,13 @@ class JdbcExactlyOnceSinkWriterTest {
         private TestContext(
                 JdbcExactlyOnceSinkWriter writer,
                 XaFacade xaFacade,
+                XaGroupOps xaGroupOps,
                 XidGenerator xidGenerator,
                 JdbcOutputFormat<SeaTunnelRow, JdbcBatchStatementExecutor<SeaTunnelRow>>
                         outputFormat) {
             this.writer = writer;
             this.xaFacade = xaFacade;
+            this.xaGroupOps = xaGroupOps;
             this.xidGenerator = xidGenerator;
             this.outputFormat = outputFormat;
         }
