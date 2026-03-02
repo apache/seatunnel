@@ -134,6 +134,7 @@ public class MongoDBConnectorDeserializationSchema
                 insert.setTableId(tableId);
                 MetadataUtil.setDelay(insert, delay);
                 MetadataUtil.setEventTime(insert, fetchTimestamp);
+                MetadataUtil.setSourceTimestamp(insert, messageTimestamp);
                 emit(record, insert, out);
                 break;
             case DELETE:
@@ -142,6 +143,7 @@ public class MongoDBConnectorDeserializationSchema
                 delete.setTableId(tableId);
                 MetadataUtil.setDelay(delete, delay);
                 MetadataUtil.setEventTime(delete, fetchTimestamp);
+                MetadataUtil.setSourceTimestamp(delete, messageTimestamp);
                 emit(record, delete, out);
                 break;
             case UPDATE:
@@ -153,6 +155,7 @@ public class MongoDBConnectorDeserializationSchema
                 updateAfter.setTableId(tableId);
                 MetadataUtil.setDelay(updateAfter, delay);
                 MetadataUtil.setEventTime(updateAfter, fetchTimestamp);
+                MetadataUtil.setSourceTimestamp(updateAfter, messageTimestamp);
                 emit(record, updateAfter, out);
                 break;
             case REPLACE:
@@ -161,6 +164,7 @@ public class MongoDBConnectorDeserializationSchema
                 replaceAfter.setTableId(tableId);
                 MetadataUtil.setDelay(replaceAfter, delay);
                 MetadataUtil.setEventTime(replaceAfter, fetchTimestamp);
+                MetadataUtil.setSourceTimestamp(replaceAfter, messageTimestamp);
                 emit(record, replaceAfter, out);
                 break;
             case INVALIDATE:

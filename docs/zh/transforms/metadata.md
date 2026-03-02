@@ -24,14 +24,18 @@ Metadata 转换插件用于将数据行中的元数据信息提取并转换为�
 | Database  |  string  |  数据所属的数据库名称  | 所有连接器 |
 |   Table   |  string  |  数据所属的表名称  | 所有连接器 |
 |  RowKind  |  string  |  行的变更类型，值为：+I（插入）、-U（更新前）、+U（更新后）、-D（删除）  | 所有连接器 |
-| EventTime | long   | 数据变更的事件时间戳（毫秒） | CDC 连接器；Kafka 源（ConsumerRecord.timestamp） |
+| EventTime | long   | 连接器处理数据变更的时间戳（毫秒） | CDC 连接器；Kafka 源（ConsumerRecord.timestamp） |
+| SourceTimestamp | long   | 源数据库中事件发生的时间戳（毫秒，来自 Debezium 的 source.ts_ms） | CDC 连接器 |
 |   Delay   |   long   |  数据采集延迟时间（毫秒），即数据抽取时间与数据库变更时间的差值  | CDC 连接器 |
 | Partition |  string  |  数据所属的分区信息，多个分区字段使用逗号分隔  | 支持分区的连接器 |
 
 ### 重要说明
 
 1. **元数据字段区分大小写**：配置时必须严格按照上表中的 Key 名称（如 `Database`、`Table`、`RowKind` 等）。
-2. **时间相关字段**：`Delay` 仅在 CDC 连接器有效（TiDB-CDC 除外）；`EventTime` 由 CDC 连接器写入，也会在 Kafka 源中使用 `ConsumerRecord.timestamp`（毫秒，非负时）写入。
+2. **时间相关字段**：
+   - `EventTime`：表示连接器处理事件的时间（CDC 连接器）或 Kafka `ConsumerRecord.timestamp`（Kafka 源）
+   - `SourceTimestamp`：表示事件在源数据库中发生的时间（仅 CDC 连接器，来自 Debezium 的 source.ts_ms）
+   - `Delay`：仅在 CDC 连接器有效（TiDB-CDC 除外）
 3. **Kafka 事件时间**：Kafka 源会在 `ConsumerRecord.timestamp` 非负时写入 `EventTime`，可通过 Metadata 转换将其暴露为普通字段。
 
 ## 配置选项
@@ -60,6 +64,7 @@ metadata_fields {
   Table = source_table      # 将表名映射到 source_table 字段
   RowKind = op_type         # 将行类型映射到 op_type 字段
   EventTime = event_ts      # 将事件时间映射到 event_ts 字段
+  SourceTimestamp = db_ts   # 将源数据库事件时间戳映射到 db_ts 字段
   Delay = sync_delay        # 将延迟时间映射到 sync_delay 字段
   Partition = partition_info # 将分区信息映射到 partition_info 字段
 }
@@ -103,6 +108,7 @@ transform {
       Table = source_table          # 提取表名
       RowKind = change_type         # 提取变更类型
       EventTime = event_timestamp   # 提取事件时间
+      SourceTimestamp = db_event_ts # 提取源数据库事件时间戳
       Delay = sync_delay_ms         # 提取同步延迟
     }
   }
@@ -126,7 +132,7 @@ RowKind: +I (INSERT)
 ```
 转换后的数据行：
 id=1, name="张三", age=25, source_database="mydb", source_table="users",
-change_type="+I", event_timestamp=1699000000000, sync_delay_ms=100
+change_type="+I", event_timestamp=1699000000000, db_event_ts=1699000000000, sync_delay_ms=100
 ```
 
 ---

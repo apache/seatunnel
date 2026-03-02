@@ -54,6 +54,17 @@ public class MetadataUtil {
         row.getOptions().put(EVENT_TIME.getName(), delay);
     }
 
+    /**
+     * Sets the source timestamp metadata for a SeaTunnelRow.
+     *
+     * <p>The source timestamp represents the time when the event occurred in the source database
+     * (from Debezium's source.ts_ms field). This is different from {@link
+     * #setEventTime(SeaTunnelRow, Long)} which represents when the connector processed the event.
+     *
+     * @param row the SeaTunnelRow to set metadata for
+     * @param sourceTimestamp the source timestamp in milliseconds, can be null if not available
+     * @see CommonOptions#SOURCE_TIMESTAMP
+     */
     public static void setSourceTimestamp(SeaTunnelRow row, Long sourceTimestamp) {
         row.getOptions().put(SOURCE_TIMESTAMP.getName(), sourceTimestamp);
     }

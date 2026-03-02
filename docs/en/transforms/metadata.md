@@ -24,14 +24,18 @@ The Metadata transform plugin is used to extract metadata information from data 
 | Database  |  string  |  Name of the database containing the data  | All connectors |
 |   Table   |  string  |  Name of the table containing the data  | All connectors |
 |  RowKind  |  string  |  Row change type, values: +I (insert), -U (update before), +U (update after), -D (delete)  | All connectors |
-| EventTime |   long   |  Event timestamp of data change (milliseconds)  | CDC connectors; Kafka source (ConsumerRecord.timestamp) |
+| EventTime |   long   |  Event timestamp when connector processed the change (milliseconds)  | CDC connectors; Kafka source (ConsumerRecord.timestamp) |
+| SourceTimestamp |   long   |  Database event timestamp when the change occurred in source database (milliseconds, from Debezium's source.ts_ms)  | CDC connectors |
 |   Delay   |   long   |  Data collection delay time (milliseconds), i.e., the difference between data extraction time and database change time  | CDC connectors |
 | Partition |  string  |  Partition information of the data, multiple partition fields separated by commas  | Connectors supporting partitions |
 
 ### Important Notes
 
 1. **Metadata field names are case-sensitive**: Configuration must strictly follow the Key names in the table above (e.g., `Database`, `Table`, `RowKind`, etc.)
-2. **Time fields**: `Delay` is only valid when using CDC connectors (except TiDB-CDC). `EventTime` is provided by CDC connectors and also by the Kafka source via `ConsumerRecord.timestamp` when available.
+2. **Time fields**:
+   - `EventTime`: Represents when the connector processed the event (CDC connectors) or the Kafka `ConsumerRecord.timestamp` (Kafka source)
+   - `SourceTimestamp`: Represents when the event occurred in the source database (CDC connectors only, from Debezium's source.ts_ms)
+   - `Delay`: Only valid when using CDC connectors (except TiDB-CDC)
 3. **Kafka event time**: The Kafka source writes `ConsumerRecord.timestamp` (milliseconds) into `EventTime` when it is non-negative, so you can surface it with the `Metadata` transform.
 
 ## Options
@@ -60,6 +64,7 @@ metadata_fields {
   Table = source_table      # Map table name to source_table field
   RowKind = op_type         # Map row type to op_type field
   EventTime = event_ts      # Map event time to event_ts field
+  SourceTimestamp = db_ts   # Map source database event timestamp to db_ts field
   Delay = sync_delay        # Map delay time to sync_delay field
   Partition = partition_info # Map partition info to partition_info field
 }
@@ -103,6 +108,7 @@ transform {
       Table = source_table          # Extract table name
       RowKind = change_type         # Extract change type
       EventTime = event_timestamp   # Extract event time
+      SourceTimestamp = db_event_ts # Extract source database event timestamp
       Delay = sync_delay_ms         # Extract sync delay
     }
   }
@@ -126,7 +132,7 @@ RowKind: +I (INSERT)
 ```
 Transformed data row:
 id=1, name="John", age=25, source_database="mydb", source_table="users",
-change_type="+I", event_timestamp=1699000000000, sync_delay_ms=100
+change_type="+I", event_timestamp=1699000000000, db_event_ts=1699000000000, sync_delay_ms=100
 ```
 
 ---
