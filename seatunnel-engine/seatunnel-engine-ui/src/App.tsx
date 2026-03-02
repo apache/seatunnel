@@ -15,7 +15,7 @@
  * limitations under the License.
  */
 
-import { defineComponent } from 'vue'
+import { defineComponent, watch } from 'vue'
 import {
   NConfigProvider,
   NMessageProvider,
@@ -32,10 +32,14 @@ const App = defineComponent({
   setup() {
     const settingStore = useSettingStore()
 
-    if (settingStore.getLocales) {
-      const { locale } = useI18n()
-      locale.value = settingStore.getLocales
-    }
+    const { locale } = useI18n()
+    locale.value = settingStore.getLocales
+    watch(
+      () => settingStore.getLocales,
+      (v) => {
+        locale.value = v
+      }
+    )
 
     const themeOverrides = {
       common: {

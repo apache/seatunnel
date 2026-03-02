@@ -17,6 +17,8 @@
 
 package org.apache.seatunnel.engine.server.rest.servlet;
 
+import org.apache.seatunnel.shade.org.eclipse.jetty.server.Request;
+
 import org.apache.seatunnel.engine.server.rest.service.JobInfoService;
 
 import com.hazelcast.spi.impl.NodeEngineImpl;
@@ -27,6 +29,7 @@ import javax.servlet.http.HttpServletRequest;
 import javax.servlet.http.HttpServletResponse;
 
 import java.io.IOException;
+import java.util.concurrent.TimeUnit;
 
 @Slf4j
 public class RunningJobsServlet extends PageBaseServlet {
@@ -42,6 +45,59 @@ public class RunningJobsServlet extends PageBaseServlet {
     protected void doGet(HttpServletRequest req, HttpServletResponse resp)
             throws ServletException, IOException {
 
-        writeJsonWithPagination(req, resp, jobInfoService.getRunningJobsJson());
+        long nowMs = System.currentTimeMillis();
+        long receivedMs = -1;
+        try {
+            Request baseRequest = Request.getBaseRequest(req);
+            if (baseRequest != null) {
+                receivedMs = baseRequest.getTimeStamp();
+            }
+        } catch (Throwable ignored) {
+            // ignore
+        }
+
+        long startNs = System.nanoTime();
+        boolean full = Boolean.parseBoolean(req.getParameter("full"));
+
+        String json =
+                full
+                        ? jobInfoService.getRunningJobsJson().toString()
+                        : jobInfoService.getRunningJobsSummaryJson().toString();
+
+        long costMs = TimeUnit.NANOSECONDS.toMillis(System.nanoTime() - startNs);
+        long dispatchDelayMs = receivedMs <= 0 ? -1 : Math.max(0, nowMs - receivedMs);
+
+        resp.setHeader("X-Dispatch-Delay-Ms", String.valueOf(dispatchDelayMs));
+        resp.setHeader("X-Handler-Cost-Ms", String.valueOf(costMs));
+
+        writeJsonString(resp, json);
+
+        if (dispatchDelayMs > 500) {
+            System.out.println(
+                    "[DIAG] /running-jobs dispatchDelayMs="
+                            + dispatchDelayMs
+                            + " thread="
+                            + Thread.currentThread().getName());
+        }
+        if (costMs > 500) {
+            log.warn("GET /running-jobs slow: full={} costMs={}", full, costMs);
+            Runtime rt = Runtime.getRuntime();
+            long usedBytes = rt.totalMemory() - rt.freeMemory();
+            System.out.println(
+                    "[DIAG] GET /running-jobs slow: full="
+                            + full
+                            + " costMs="
+                            + costMs
+                            + " thread="
+                            + Thread.currentThread().getName()
+                            + " heapUsedMB="
+                            + (usedBytes / 1024 / 1024)
+                            + " heapTotalMB="
+                            + (rt.totalMemory() / 1024 / 1024)
+                            + " heapMaxMB="
+                            + (rt.maxMemory() / 1024 / 1024));
+        } else {
+            log.debug("GET /running-jobs: full={} costMs={}", full, costMs);
+        }
     }
 }

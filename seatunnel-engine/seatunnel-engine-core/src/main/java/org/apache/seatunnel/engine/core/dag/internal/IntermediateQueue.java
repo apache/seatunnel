@@ -26,11 +26,18 @@ public class IntermediateQueue implements Serializable {
     private final long id;
     private final int parallelism;
     private final String name;
+    /** 0 means use default capacity decided by engine runtime. */
+    private final int capacity;
 
     public IntermediateQueue(long id, String name, int parallelism) {
+        this(id, name, parallelism, 0);
+    }
+
+    public IntermediateQueue(long id, String name, int parallelism, int capacity) {
         this.id = id;
         this.name = name;
         this.parallelism = parallelism;
+        this.capacity = capacity;
     }
 
     public long getId() {
@@ -43,5 +50,9 @@ public class IntermediateQueue implements Serializable {
 
     public String getName() {
         return name;
+    }
+
+    public int getCapacity() {
+        return capacity;
     }
 }

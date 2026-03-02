@@ -174,6 +174,10 @@ public class TaskExecutionService implements DynamicMetricsProvider {
         this.eventService = eventService;
     }
 
+    public NodeEngineImpl getNodeEngine() {
+        return nodeEngine;
+    }
+
     public void start() {
         runBusWorkSupplier.runNewBusWork(false);
     }

@@ -17,6 +17,7 @@
 
 package org.apache.seatunnel.engine.server.task.group.queue.disruptor;
 
+import org.apache.seatunnel.api.common.metrics.Counter;
 import org.apache.seatunnel.api.table.type.Record;
 import org.apache.seatunnel.api.transform.Collector;
 import org.apache.seatunnel.engine.server.checkpoint.CheckpointBarrier;
@@ -34,13 +35,20 @@ public class RecordEventHandler implements EventHandler<RecordEvent> {
 
     private final IntermediateQueueFlowLifeCycle intermediateQueueFlowLifeCycle;
 
+    private final Counter totalQueueSize;
+    private final Counter queueSize;
+
     public RecordEventHandler(
             SeaTunnelTask runningTask,
             Collector<Record<?>> collector,
-            IntermediateQueueFlowLifeCycle intermediateQueueFlowLifeCycle) {
+            IntermediateQueueFlowLifeCycle intermediateQueueFlowLifeCycle,
+            Counter totalQueueSize,
+            Counter queueSize) {
         this.runningTask = runningTask;
         this.collector = collector;
         this.intermediateQueueFlowLifeCycle = intermediateQueueFlowLifeCycle;
+        this.totalQueueSize = totalQueueSize;
+        this.queueSize = queueSize;
     }
 
     @Override
@@ -51,6 +59,7 @@ public class RecordEventHandler implements EventHandler<RecordEvent> {
 
     private void handleRecord(Record<?> record, Collector<Record<?>> collector) throws Exception {
         if (record != null) {
+            boolean metricsEnabled = runningTask != null && runningTask.isObservabilityEnabled();
             if (record.getData() instanceof Barrier) {
                 CheckpointBarrier barrier = (CheckpointBarrier) record.getData();
                 runningTask.ack(barrier);
@@ -63,6 +72,10 @@ public class RecordEventHandler implements EventHandler<RecordEvent> {
                 }
             }
             collector.collect(record);
+            if (metricsEnabled) {
+                totalQueueSize.dec();
+                queueSize.dec();
+            }
         }
     }
 }

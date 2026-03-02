@@ -27,6 +27,17 @@ Apache SeaTunnel 的 Web UI 提供了一个友好的用户界面，用于监控�
 ![running.png](../../../images/ui/running.png)
 ![detail.png](../../../images/ui/detail.png)
 
+#### 实时可观测性（Realtime Observability）
+
+在 Job Detail 页面中，DAG 图支持展示“最近 N 分钟”的实时指标（默认 3 分钟，最大 10 分钟）：
+
+- **节点忙碌度**：Source/Transform/Sink 的忙闲比例（例如 Source Read/Idle，Transform Busy，Sink Busy）。
+- **边的下游等待占比**：当作业在某些位置插入了队列（例如 async boundary 队列、sink 前拆分 IO 队列）时，边会根据下游等待占比与队列填充率进行着色/加粗。
+- **交互**：点击节点或边可在右侧抽屉查看该对象的实时曲线与关键字段。
+
+> 该能力需要作业侧开启 `env.engine.observability`（或满足默认开启条件），并按需配置 `async_boundaries`、`split_sink_io` 等。
+> 详细配置与指标说明请参考：[实时可观测性](realtime-observability.md)。
+
 ### 已完成的作业
 
 “已完成的作业”模块展示了所有已成功完成或失败的 SeaTunnel 作业。此部分提供了每个作业的执行结果、完成时间、耗时以及失败原因（如果有）。用户可以通过此模块回顾过去的作业记录，分析作业性能，进行故障排查或重复执行某些特定作业。

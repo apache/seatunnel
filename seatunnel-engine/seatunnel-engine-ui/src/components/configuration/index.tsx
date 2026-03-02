@@ -17,6 +17,7 @@
 
 import { NCard, NDescriptions, NDescriptionsItem, NSpace } from 'naive-ui'
 import { defineComponent, type PropType } from 'vue'
+import { formatPercentFromRatio } from '@/utils/format'
 
 export default defineComponent({
   props: {
@@ -26,7 +27,13 @@ export default defineComponent({
     }
   },
   setup(props) {
-    const format = (value: any) => {
+    const isRatioKey = (key: string) => key.toLowerCase().endsWith('ratio')
+
+    const format = (key: string, value: any) => {
+      if (isRatioKey(key)) {
+        return formatPercentFromRatio(value)
+      }
+
       value = JSON.stringify(value)
       if (value) {
         value = value.replace(/^"(.*)"$/, '$1')
@@ -37,7 +44,7 @@ export default defineComponent({
       <NDescriptions label-placement="left" bordered column={1}>
         {props.data &&
           Object.entries(props.data).map(([key, value]) => (
-            <NDescriptionsItem label={key}>{format(value)}</NDescriptionsItem>
+            <NDescriptionsItem label={key}>{format(key, value)}</NDescriptionsItem>
           ))}
       </NDescriptions>
     )

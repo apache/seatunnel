@@ -18,6 +18,17 @@
 import { defineStore } from 'pinia'
 import type { SettingStore, Locales } from './types'
 
+const LOCALES_STORAGE_KEY = 'seatunnel.ui.locales'
+
+const resolveInitialLocales = (): Locales => {
+  try {
+    const stored = localStorage.getItem(LOCALES_STORAGE_KEY)
+    return stored === 'zh_CN' || stored === 'en_US' ? stored : 'en_US'
+  } catch {
+    return 'en_US'
+  }
+}
+
 export const useSettingStore = defineStore({
   id: 'setting',
   state: (): SettingStore => ({
@@ -25,7 +36,7 @@ export const useSettingStore = defineStore({
     dataUniqueValue: false,
     fillet: 15,
     requestTime: 6000,
-    locales: 'en_US',
+    locales: resolveInitialLocales(),
     primaryColor: '#4678B9'
   }),
   getters: {
@@ -60,6 +71,11 @@ export const useSettingStore = defineStore({
     },
     setLocales(lang: Locales): void {
       this.locales = lang
+      try {
+        localStorage.setItem(LOCALES_STORAGE_KEY, lang)
+      } catch {
+        // ignore
+      }
     }
   }
 })
