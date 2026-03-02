@@ -48,8 +48,10 @@ public class RedisSourceFactory implements TableSourceFactory {
     @Override
     public OptionRule optionRule() {
         return OptionRule.builder()
-                .required(RedisBaseOptions.KEY_PATTERN, RedisBaseOptions.DATA_TYPE)
                 .optional(
+                        RedisBaseOptions.KEY_PATTERN,
+                        RedisBaseOptions.DATA_TYPE,
+                        RedisSourceOptions.TABLE_LIST,
                         RedisBaseOptions.MODE,
                         RedisSourceOptions.HASH_KEY_PARSE_MODE,
                         RedisBaseOptions.AUTH,
@@ -57,7 +59,12 @@ public class RedisSourceFactory implements TableSourceFactory {
                         RedisBaseOptions.KEY,
                         RedisSourceOptions.READ_KEY_ENABLED,
                         RedisSourceOptions.SINGLE_FIELD_NAME,
-                        RedisSourceOptions.KEY_FIELD_NAME)
+                        RedisSourceOptions.KEY_FIELD_NAME,
+                        RedisBaseOptions.BATCH_SIZE,
+                        RedisBaseOptions.FORMAT,
+                        RedisBaseOptions.FIELD_DELIMITER,
+                        RedisBaseOptions.DB_NUM,
+                        SinkConnectorCommonOptions.SCHEMA)
                 .conditional(
                         RedisBaseOptions.MODE,
                         RedisBaseOptions.RedisMode.CLUSTER,
@@ -71,7 +78,6 @@ public class RedisSourceFactory implements TableSourceFactory {
                         RedisSourceOptions.READ_KEY_ENABLED,
                         true,
                         RedisSourceOptions.SINGLE_FIELD_NAME)
-                .bundled(RedisBaseOptions.FORMAT, SinkConnectorCommonOptions.SCHEMA)
                 .build();
     }
 

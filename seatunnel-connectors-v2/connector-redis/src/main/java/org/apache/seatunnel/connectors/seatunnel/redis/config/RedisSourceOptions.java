@@ -20,6 +20,8 @@ package org.apache.seatunnel.connectors.seatunnel.redis.config;
 import org.apache.seatunnel.api.configuration.Option;
 import org.apache.seatunnel.api.configuration.Options;
 
+import java.util.List;
+
 public class RedisSourceOptions extends RedisBaseOptions {
     public enum HashKeyParseMode {
         ALL,
@@ -53,4 +55,12 @@ public class RedisSourceOptions extends RedisBaseOptions {
                     .stringType()
                     .noDefaultValue()
                     .withDescription("Specifies the key field name to be used in the output row.");
+
+    public static final Option<List<RedisTableConfig>> TABLE_LIST =
+            Options.key("table_list")
+                    .listType(RedisTableConfig.class)
+                    .noDefaultValue()
+                    .withDescription(
+                            "List of table configurations for multiple key patterns. "
+                                    + "Each table configuration can specify independent keys pattern, data type, schema, etc.");
 }
