@@ -25,7 +25,7 @@ const sidebars = {
             "label": "Introduction",
             "items": [
                 "introduction/about",
-                "introduction/architecture",
+                "introduction/how-it-works",
                 {
                     "type": "category",
                     "label": "Concepts",
@@ -222,7 +222,7 @@ const sidebars = {
                 "image": "/img/favicon.ico"
             },
             "items": [
-                 {
+                {
                     "type": "category",
                     "label": "Common Options",
                     "items": [
