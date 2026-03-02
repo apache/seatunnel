@@ -46,7 +46,7 @@ import ChangeLog from '../changelog/connector-elasticsearch.md';
 | tls_truststore_password | string  | no       | -                                   |
 | pit_keep_alive          | long    | no       | 60000 (1 minute)                    |
 | pit_batch_size          | int     | no       | 100                                 |
-| slice_max               | int     | no       | 1                                   |
+| slice_max               | int     | no       | 1（SCROLL 需 ES >= 5.0，PIT 需 ES >= 7.10） |
 | runtime_fields          | array   | no       | -                                   |
 | common-options          |         | no       | -                                   |
 

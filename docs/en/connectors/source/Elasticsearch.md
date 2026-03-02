@@ -49,7 +49,7 @@ support version >= 2.x and <= 8.x.
 | pit_keep_alive          | long    | no       | 60000 (1 minute)                                               |
 | pit_batch_size          | int     | no       | 100                                                            |
 | runtime_fields          | array   | no       | -                                                              |
-| slice_max               | int     | no       | 1                                                              |
+| slice_max               | int     | no       | 1 (SCROLL: ES >= 5.0, PIT: ES >= 7.10)                        |
 | common-options          |         | no       | -                                                              |
 
 
