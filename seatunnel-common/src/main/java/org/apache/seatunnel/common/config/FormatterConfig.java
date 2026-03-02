@@ -15,28 +15,28 @@
  * limitations under the License.
  */
 
-package org.apache.seatunnel.connectors.seatunnel.file.source.reader;
-
-import org.apache.seatunnel.api.source.Collector;
-import org.apache.seatunnel.api.table.type.SeaTunnelRow;
+package org.apache.seatunnel.common.config;
 
 import lombok.Getter;
 
-import java.util.ArrayList;
-import java.util.List;
+import java.io.Serializable;
 
 @Getter
-public class TempCollector implements Collector<SeaTunnelRow> {
+public class FormatterConfig<T> implements Serializable {
+    private static final long serialVersionUID = 1L;
+    private final T formatter;
+    private final boolean userConfigured;
 
-    private final List<SeaTunnelRow> rows = new ArrayList<>();
-
-    @Override
-    public void collect(SeaTunnelRow record) {
-        rows.add(record);
+    private FormatterConfig(T formatter, boolean userConfigured) {
+        this.formatter = formatter;
+        this.userConfigured = userConfigured;
     }
 
-    @Override
-    public Object getCheckpointLock() {
-        return null;
+    public static <T> FormatterConfig<T> ofDefault(T formatter) {
+        return new FormatterConfig<>(formatter, false);
+    }
+
+    public static <T> FormatterConfig<T> ofUserConfigured(T formatter) {
+        return new FormatterConfig<>(formatter, true);
     }
 }

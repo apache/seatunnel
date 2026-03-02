@@ -15,28 +15,8 @@
  * limitations under the License.
  */
 
-package org.apache.seatunnel.connectors.seatunnel.file.source.reader;
+package org.apache.seatunnel.common.config;
 
-import org.apache.seatunnel.api.source.Collector;
-import org.apache.seatunnel.api.table.type.SeaTunnelRow;
-
-import lombok.Getter;
-
-import java.util.ArrayList;
-import java.util.List;
-
-@Getter
-public class TempCollector implements Collector<SeaTunnelRow> {
-
-    private final List<SeaTunnelRow> rows = new ArrayList<>();
-
-    @Override
-    public void collect(SeaTunnelRow record) {
-        rows.add(record);
-    }
-
-    @Override
-    public Object getCheckpointLock() {
-        return null;
-    }
+public interface Formatter<T> {
+    T getFormatter();
 }

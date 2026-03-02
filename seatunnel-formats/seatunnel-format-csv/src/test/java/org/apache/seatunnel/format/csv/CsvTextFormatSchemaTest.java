@@ -25,6 +25,7 @@ import org.apache.seatunnel.api.table.type.MapType;
 import org.apache.seatunnel.api.table.type.SeaTunnelDataType;
 import org.apache.seatunnel.api.table.type.SeaTunnelRow;
 import org.apache.seatunnel.api.table.type.SeaTunnelRowType;
+import org.apache.seatunnel.common.exception.SeaTunnelRuntimeException;
 import org.apache.seatunnel.common.utils.DateTimeUtils.Formatter;
 import org.apache.seatunnel.format.csv.constant.CsvStringQuoteMode;
 import org.apache.seatunnel.format.csv.processor.DefaultCsvLineProcessor;
@@ -294,5 +295,46 @@ public class CsvTextFormatSchemaTest {
                     () -> Integer.parseInt(amountField),
                     "Amount should be a valid integer at line " + (i + 1));
         }
+    }
+
+    @Test
+    public void testParseUnsupportedDateTimeFormat() throws IOException {
+        SeaTunnelRowType rowType =
+                new SeaTunnelRowType(
+                        new String[] {"date_field"},
+                        new SeaTunnelDataType<?>[] {LocalTimeType.LOCAL_DATE_TYPE});
+        CsvDeserializationSchema deserializationSchema =
+                CsvDeserializationSchema.builder()
+                        .seaTunnelRowType(rowType)
+                        .delimiter("\u0001")
+                        .build();
+        String content = "2022-092-24";
+        SeaTunnelRuntimeException exception =
+                Assertions.assertThrows(
+                        SeaTunnelRuntimeException.class,
+                        () -> deserializationSchema.deserialize(content.getBytes()));
+        Assertions.assertEquals(
+                "ErrorCode:[COMMON-32], ErrorDescription:[The date format '2022-092-24' of field 'date_field' is not supported. Please check the date format.]",
+                exception.getMessage());
+
+        SeaTunnelRowType rowType2 =
+                new SeaTunnelRowType(
+                        new String[] {"timestamp_field"},
+                        new SeaTunnelDataType<?>[] {
+                            LocalTimeType.LOCAL_DATE_TIME_TYPE,
+                        });
+        CsvDeserializationSchema deserializationSchema2 =
+                CsvDeserializationSchema.builder()
+                        .seaTunnelRowType(rowType2)
+                        .delimiter("\u0001")
+                        .build();
+        String content2 = "2022-09-24-22:45:00";
+        SeaTunnelRuntimeException exception2 =
+                Assertions.assertThrows(
+                        SeaTunnelRuntimeException.class,
+                        () -> deserializationSchema2.deserialize(content2.getBytes()));
+        Assertions.assertEquals(
+                "ErrorCode:[COMMON-33], ErrorDescription:[The datetime format '2022-09-24-22:45:00' of field 'timestamp_field' is not supported. Please check the datetime format.]",
+                exception2.getMessage());
     }
 }

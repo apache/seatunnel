@@ -29,6 +29,7 @@ import org.apache.seatunnel.api.table.type.SeaTunnelRowType;
 import org.apache.seatunnel.api.table.type.SqlType;
 import org.apache.seatunnel.common.exception.CommonError;
 import org.apache.seatunnel.common.exception.CommonErrorCodeDeprecated;
+import org.apache.seatunnel.common.utils.DateTimeParseHelper;
 import org.apache.seatunnel.common.utils.DateTimeUtils;
 import org.apache.seatunnel.common.utils.DateUtils;
 import org.apache.seatunnel.common.utils.JsonUtils;
@@ -43,8 +44,6 @@ import java.time.LocalDateTime;
 import java.time.LocalTime;
 import java.time.OffsetDateTime;
 import java.time.format.DateTimeFormatter;
-import java.time.format.DateTimeFormatterBuilder;
-import java.time.temporal.ChronoField;
 import java.time.temporal.TemporalAccessor;
 import java.time.temporal.TemporalQueries;
 import java.util.Arrays;
@@ -58,16 +57,9 @@ import java.util.function.IntFunction;
  * Tool class used to convert from {@link JsonNode} to {@link
  * org.apache.seatunnel.api.table.type.SeaTunnelRow}. *
  */
-public class JsonToRowConverters implements Serializable {
+public class JsonToRowConverters implements DateTimeParseHelper, Serializable {
 
     private static final long serialVersionUID = 1L;
-
-    @SuppressWarnings("MagicNumber")
-    public static final DateTimeFormatter TIME_FORMAT =
-            new DateTimeFormatterBuilder()
-                    .appendPattern("HH:mm:ss")
-                    .appendFraction(ChronoField.NANO_OF_SECOND, 0, 9, true)
-                    .toFormatter();
 
     public static final String FORMAT = "Common";
 
@@ -139,21 +131,22 @@ public class JsonToRowConverters implements Serializable {
                 return new JsonToObjectConverter() {
                     @Override
                     public Object convert(JsonNode jsonNode, String fieldName) {
-                        return convertToLocalDate(jsonNode, fieldName);
+                        return parseDate(jsonNode.asText(), fieldName, null, fieldFormatterMap);
                     }
                 };
             case TIME:
                 return new JsonToObjectConverter() {
                     @Override
                     public Object convert(JsonNode jsonNode, String fieldName) {
-                        return convertToLocalTime(jsonNode);
+                        return parseTime(jsonNode.asText(), fieldName, null, fieldFormatterMap);
                     }
                 };
             case TIMESTAMP:
                 return new JsonToObjectConverter() {
                     @Override
                     public Object convert(JsonNode jsonNode, String fieldName) {
-                        return convertToLocalDateTime(jsonNode, fieldName);
+                        return parseTimestamp(
+                                jsonNode.asText(), fieldName, null, fieldFormatterMap);
                     }
                 };
             case TIMESTAMP_TZ:
@@ -279,9 +272,9 @@ public class JsonToRowConverters implements Serializable {
         return dateFormatter.parse(dateStr).query(TemporalQueries.localDate());
     }
 
-    private LocalTime convertToLocalTime(JsonNode jsonNode) {
-        TemporalAccessor parsedTime = TIME_FORMAT.parse(jsonNode.asText());
-        return parsedTime.query(TemporalQueries.localTime());
+    private LocalTime convertToLocalTime(JsonNode jsonNode, String fieldName) {
+        String fieldVal = jsonNode.asText();
+        return parseTime(fieldVal, fieldName, null, fieldFormatterMap);
     }
 
     private LocalDateTime convertToLocalDateTime(JsonNode jsonNode, String fieldName) {
@@ -480,18 +473,5 @@ public class JsonToRowConverters implements Serializable {
      */
     public interface JsonToObjectConverter extends Serializable {
         Object convert(JsonNode jsonNode, String fieldName);
-    }
-
-    /** Exception which refers to parse errors in converters. */
-    private static final class JsonParseException extends RuntimeException {
-        private static final long serialVersionUID = 1L;
-
-        public JsonParseException(String message) {
-            super(message);
-        }
-
-        public JsonParseException(String message, Throwable cause) {
-            super(message, cause);
-        }
     }
 }

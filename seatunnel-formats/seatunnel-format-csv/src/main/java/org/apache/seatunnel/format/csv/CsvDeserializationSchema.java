@@ -19,6 +19,7 @@ package org.apache.seatunnel.format.csv;
 
 import org.apache.seatunnel.shade.org.apache.commons.lang3.StringUtils;
 
+import org.apache.seatunnel.api.serialization.DeserializationSchema;
 import org.apache.seatunnel.api.table.catalog.CatalogTable;
 import org.apache.seatunnel.api.table.catalog.TablePath;
 import org.apache.seatunnel.api.table.type.ArrayType;
@@ -26,8 +27,10 @@ import org.apache.seatunnel.api.table.type.MapType;
 import org.apache.seatunnel.api.table.type.SeaTunnelDataType;
 import org.apache.seatunnel.api.table.type.SeaTunnelRow;
 import org.apache.seatunnel.api.table.type.SeaTunnelRowType;
+import org.apache.seatunnel.common.config.FormatterConfig;
 import org.apache.seatunnel.common.exception.CommonError;
 import org.apache.seatunnel.common.exception.CommonErrorCode;
+import org.apache.seatunnel.common.utils.DateTimeParseHelper;
 import org.apache.seatunnel.common.utils.DateTimeUtils;
 import org.apache.seatunnel.common.utils.DateUtils;
 import org.apache.seatunnel.common.utils.EncodingUtils;
@@ -40,40 +43,31 @@ import org.apache.seatunnel.format.csv.processor.DefaultCsvLineProcessor;
 import lombok.NonNull;
 
 import java.io.IOException;
-import java.io.Serializable;
 import java.math.BigDecimal;
 import java.nio.charset.StandardCharsets;
 import java.time.LocalDate;
 import java.time.LocalDateTime;
 import java.time.LocalTime;
 import java.time.format.DateTimeFormatter;
-import java.time.format.DateTimeFormatterBuilder;
-import java.time.format.DateTimeParseException;
-import java.time.temporal.ChronoField;
-import java.time.temporal.TemporalAccessor;
-import java.time.temporal.TemporalQueries;
 import java.util.ArrayList;
-import java.util.HashMap;
 import java.util.LinkedHashMap;
 import java.util.Map;
 import java.util.Optional;
+import java.util.concurrent.ConcurrentHashMap;
 
-public class CsvDeserializationSchema implements Serializable {
+public class CsvDeserializationSchema
+        implements DeserializationSchema<SeaTunnelRow>, DateTimeParseHelper {
     private final SeaTunnelRowType seaTunnelRowType;
     private final String[] separators;
     private final String encoding;
     private final String nullFormat;
     private final CsvLineProcessor processor;
     private final CatalogTable catalogTable;
+    private final FormatterConfig<DateUtils.Formatter> dateFormatterConfig;
+    private final FormatterConfig<DateTimeUtils.Formatter> dateTimeFormatterConfig;
+    private final FormatterConfig<TimeUtils.Formatter> timeFormatterConfig;
 
-    @SuppressWarnings("MagicNumber")
-    public static final DateTimeFormatter TIME_FORMAT =
-            new DateTimeFormatterBuilder()
-                    .appendPattern("HH:mm:ss")
-                    .appendFraction(ChronoField.NANO_OF_SECOND, 0, 9, true)
-                    .toFormatter();
-
-    public Map<String, DateTimeFormatter> fieldFormatterMap = new HashMap<>();
+    private final Map<String, DateTimeFormatter> fieldFormatterCache = new ConcurrentHashMap<>();
 
     private CsvDeserializationSchema(
             @NonNull SeaTunnelRowType seaTunnelRowType,
@@ -81,13 +75,19 @@ public class CsvDeserializationSchema implements Serializable {
             String encoding,
             String nullFormat,
             CsvLineProcessor processor,
-            CatalogTable catalogTable) {
+            CatalogTable catalogTable,
+            FormatterConfig<DateUtils.Formatter> dateFormatterConfig,
+            FormatterConfig<DateTimeUtils.Formatter> dateTimeFormatterConfig,
+            FormatterConfig<TimeUtils.Formatter> timeFormatterConfig) {
         this.seaTunnelRowType = seaTunnelRowType;
         this.separators = separators;
         this.encoding = encoding;
         this.nullFormat = nullFormat;
         this.processor = processor;
         this.catalogTable = catalogTable;
+        this.dateFormatterConfig = dateFormatterConfig;
+        this.dateTimeFormatterConfig = dateTimeFormatterConfig;
+        this.timeFormatterConfig = timeFormatterConfig;
     }
 
     public static Builder builder() {
@@ -98,10 +98,12 @@ public class CsvDeserializationSchema implements Serializable {
         private SeaTunnelRowType seaTunnelRowType;
         private CatalogTable catalogTable;
         private String[] separators = CsvFormatConstant.SEPARATOR.clone();
-        private DateUtils.Formatter dateFormatter = DateUtils.Formatter.YYYY_MM_DD;
-        private DateTimeUtils.Formatter dateTimeFormatter =
-                DateTimeUtils.Formatter.YYYY_MM_DD_HH_MM_SS;
-        private TimeUtils.Formatter timeFormatter = TimeUtils.Formatter.HH_MM_SS;
+        private FormatterConfig<DateUtils.Formatter> dateFormatterConfig =
+                FormatterConfig.ofDefault(DateUtils.Formatter.YYYY_MM_DD);
+        private FormatterConfig<DateTimeUtils.Formatter> dateTimeFormatterConfig =
+                FormatterConfig.ofDefault(DateTimeUtils.Formatter.YYYY_MM_DD_HH_MM_SS);
+        private FormatterConfig<TimeUtils.Formatter> timeFormatterConfig =
+                FormatterConfig.ofDefault(TimeUtils.Formatter.HH_MM_SS);
         private String encoding = StandardCharsets.UTF_8.name();
         private String nullFormat;
         private CsvLineProcessor csvLineProcessor = new DefaultCsvLineProcessor();
@@ -129,17 +131,17 @@ public class CsvDeserializationSchema implements Serializable {
         }
 
         public Builder dateFormatter(DateUtils.Formatter dateFormatter) {
-            this.dateFormatter = dateFormatter;
+            this.dateFormatterConfig = FormatterConfig.ofUserConfigured(dateFormatter);
             return this;
         }
 
         public Builder dateTimeFormatter(DateTimeUtils.Formatter dateTimeFormatter) {
-            this.dateTimeFormatter = dateTimeFormatter;
+            this.dateTimeFormatterConfig = FormatterConfig.ofUserConfigured(dateTimeFormatter);
             return this;
         }
 
         public Builder timeFormatter(TimeUtils.Formatter timeFormatter) {
-            this.timeFormatter = timeFormatter;
+            this.timeFormatterConfig = FormatterConfig.ofUserConfigured(timeFormatter);
             return this;
         }
 
@@ -165,11 +167,15 @@ public class CsvDeserializationSchema implements Serializable {
                     encoding,
                     nullFormat,
                     csvLineProcessor,
-                    catalogTable);
+                    catalogTable,
+                    dateFormatterConfig,
+                    dateTimeFormatterConfig,
+                    timeFormatterConfig);
         }
     }
 
-    protected SeaTunnelRow deserialize(byte[] message) throws IOException {
+    @Override
+    public SeaTunnelRow deserialize(byte[] message) throws IOException {
         if (message == null || message.length == 0) {
             return null;
         }
@@ -227,14 +233,14 @@ public class CsvDeserializationSchema implements Serializable {
     }
 
     private Object convert(
-            String field, SeaTunnelDataType<?> fieldType, int level, String fieldName) {
-        if (StringUtils.isBlank(field)) {
+            String fieldVal, SeaTunnelDataType<?> fieldType, int level, String fieldName) {
+        if (StringUtils.isBlank(fieldVal)) {
             return null;
         }
         switch (fieldType.getSqlType()) {
             case ARRAY:
                 SeaTunnelDataType<?> elementType = ((ArrayType<?, ?>) fieldType).getElementType();
-                String[] elements = field.split(separators[level + 1]);
+                String[] elements = fieldVal.split(separators[level + 1]);
                 ArrayList<Object> objectArrayList = new ArrayList<>();
                 for (String element : elements) {
                     objectArrayList.add(convert(element, elementType, level + 1, fieldName));
@@ -275,7 +281,7 @@ public class CsvDeserializationSchema implements Serializable {
                 SeaTunnelDataType<?> keyType = ((MapType<?, ?>) fieldType).getKeyType();
                 SeaTunnelDataType<?> valueType = ((MapType<?, ?>) fieldType).getValueType();
                 LinkedHashMap<Object, Object> objectMap = new LinkedHashMap<>();
-                String[] kvs = field.split(separators[level + 1]);
+                String[] kvs = fieldVal.split(separators[level + 1]);
                 for (String kv : kvs) {
                     String[] splits = kv.split(separators[level + 2]);
                     if (splits.length < 2) {
@@ -288,36 +294,38 @@ public class CsvDeserializationSchema implements Serializable {
                 }
                 return objectMap;
             case STRING:
-                return field;
+                return fieldVal;
             case BOOLEAN:
-                return Boolean.parseBoolean(field);
+                return Boolean.parseBoolean(fieldVal);
             case TINYINT:
-                return Byte.parseByte(field);
+                return Byte.parseByte(fieldVal);
             case SMALLINT:
-                return Short.parseShort(field);
+                return Short.parseShort(fieldVal);
             case INT:
-                return Integer.parseInt(field);
+                return Integer.parseInt(fieldVal);
             case BIGINT:
-                return Long.parseLong(field);
+                return Long.parseLong(fieldVal);
             case FLOAT:
-                return Float.parseFloat(field);
+                return Float.parseFloat(fieldVal);
             case DOUBLE:
-                return Double.parseDouble(field);
+                return Double.parseDouble(fieldVal);
             case DECIMAL:
-                return new BigDecimal(field);
+                return new BigDecimal(fieldVal);
             case NULL:
                 return null;
             case BYTES:
-                return field.getBytes(StandardCharsets.UTF_8);
+                return fieldVal.getBytes(StandardCharsets.UTF_8);
             case DATE:
-                return parseDate(field, fieldName);
+                return parseDate(fieldVal, fieldName, dateFormatterConfig, fieldFormatterCache);
             case TIME:
-                return parseTime(field);
+                return parseTime(fieldVal, fieldName, timeFormatterConfig, fieldFormatterCache);
             case TIMESTAMP:
-                return parseTimestamp(field, fieldName);
+                return parseTimestamp(
+                        fieldVal, fieldName, dateTimeFormatterConfig, fieldFormatterCache);
             case ROW:
                 Map<Integer, String> splitsMap =
-                        splitLineBySeaTunnelRowType(field, (SeaTunnelRowType) fieldType, level + 1);
+                        splitLineBySeaTunnelRowType(
+                                fieldVal, (SeaTunnelRowType) fieldType, level + 1);
                 Object[] objects = new Object[splitsMap.size()];
                 String[] eleFieldNames = ((SeaTunnelRowType) fieldType).getFieldNames();
                 for (int i = 0; i < objects.length; i++) {
@@ -333,45 +341,5 @@ public class CsvDeserializationSchema implements Serializable {
                 throw CommonError.unsupportedDataType(
                         "SeaTunnel", fieldType.getSqlType().toString(), fieldName);
         }
-    }
-
-    private LocalDate parseDate(String field, String fieldName) {
-        DateTimeFormatter dateFormatter = fieldFormatterMap.get(fieldName);
-        if (dateFormatter == null) {
-            dateFormatter = DateUtils.matchDateFormatter(field);
-            fieldFormatterMap.put(fieldName, dateFormatter);
-        }
-        if (dateFormatter == null) {
-            throw CommonError.formatDateError(field, fieldName);
-        }
-
-        return dateFormatter.parse(field).query(TemporalQueries.localDate());
-    }
-
-    private LocalTime parseTime(String field) {
-        try {
-            TemporalAccessor parsedTime = TIME_FORMAT.parse(field);
-            return parsedTime.query(TemporalQueries.localTime());
-        } catch (DateTimeParseException e) {
-            throw new SeaTunnelCsvFormatException(
-                    CommonErrorCode.UNSUPPORTED_DATA_TYPE, "Invalid time format: " + field, e);
-        }
-    }
-
-    private LocalDateTime parseTimestamp(String field, String fieldName) {
-        DateTimeFormatter dateTimeFormatter =
-                fieldFormatterMap.computeIfAbsent(
-                        fieldName, f -> DateTimeUtils.matchDateTimeFormatter(field));
-        if (dateTimeFormatter == null) {
-            throw new SeaTunnelCsvFormatException(
-                    CommonErrorCode.UNSUPPORTED_DATA_TYPE,
-                    String.format(
-                            "SeaTunnel can not parse this date format [%s] of field [%s]",
-                            field, fieldName));
-        }
-        TemporalAccessor parsedTimestamp = dateTimeFormatter.parse(field);
-        return LocalDateTime.of(
-                parsedTimestamp.query(TemporalQueries.localDate()),
-                parsedTimestamp.query(TemporalQueries.localTime()));
     }
 }
