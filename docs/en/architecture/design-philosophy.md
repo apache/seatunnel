@@ -447,19 +447,10 @@ However, for Flink translation, SeaTunnel checkpoints align with Flink checkpoin
 
 ## 6. Future Directions
 
-### 6.1 Planned Enhancements
-
-- **Dynamic Scaling**: Add/remove workers during job execution
-- **Adaptive Batch Size**: Auto-tune batch sizes based on throughput
-- **Query Pushdown**: Push filters/projections to sources
-- **Vectorized Execution**: Process batches of rows (columnar)
-- **Speculative Execution**: Mitigate stragglers
-
-### 6.2 Research Directions
-
-- **Machine Learning Integration**: ML-based optimization (split sizing, parallelism)
-- **Unified Batch and Streaming**: True unified processing model
-- **Global Query Optimization**: Cross-pipeline optimization
+Future roadmap commitments are intentionally omitted from this document.
+For exploratory topics, SeaTunnel is interested in AI-assisted optimization for
+data integration workloads (for example, using models to improve split sizing,
+parallelism tuning, and anomaly detection).
 
 ## 7. Lessons Learned
 
