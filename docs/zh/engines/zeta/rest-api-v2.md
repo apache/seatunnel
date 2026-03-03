@@ -1306,7 +1306,7 @@ Checkpoint 信息字段：
 </details>
 
 <details>
- <summary><code>GET</code> <code><b>/metrics/realtime/jobs/{jobId}/vertices?windowMs=600000</b></code> <code>(返回 vertex 维度时序：Source/Transform/Sink)</code></summary>
+ <summary><code>GET</code> <code><b>/metrics/realtime/jobs/{'{'}jobId{'}'}/vertices?windowMs=600000</b></code> <code>(返回 vertex 维度时序：Source/Transform/Sink)</code></summary>
 
 #### 参数
 
@@ -1346,7 +1346,7 @@ Checkpoint 信息字段：
 </details>
 
 <details>
- <summary><code>GET</code> <code><b>/metrics/realtime/jobs/{jobId}/edges?windowMs=600000</b></code> <code>(返回 queue/edge 维度时序：下游等待占比 + 队列填充率)</code></summary>
+ <summary><code>GET</code> <code><b>/metrics/realtime/jobs/{'{'}jobId{'}'}/edges?windowMs=600000</b></code> <code>(返回 queue/edge 维度时序：下游等待占比 + 队列填充率)</code></summary>
 
 #### 参数
 
