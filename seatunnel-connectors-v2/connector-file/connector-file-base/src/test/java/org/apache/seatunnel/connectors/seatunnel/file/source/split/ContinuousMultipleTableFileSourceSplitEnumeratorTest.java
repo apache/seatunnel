@@ -24,9 +24,11 @@ import org.apache.seatunnel.api.table.catalog.TableIdentifier;
 import org.apache.seatunnel.connectors.seatunnel.file.config.BaseFileSourceConfig;
 import org.apache.seatunnel.connectors.seatunnel.file.config.BaseMultipleTableFileSourceConfig;
 import org.apache.seatunnel.connectors.seatunnel.file.config.FileBaseSourceOptions;
+import org.apache.seatunnel.connectors.seatunnel.file.config.FilePostSyncAction;
 import org.apache.seatunnel.connectors.seatunnel.file.config.HadoopConf;
 import org.apache.seatunnel.connectors.seatunnel.file.exception.FileConnectorException;
 import org.apache.seatunnel.connectors.seatunnel.file.source.event.FileSplitFinishedEvent;
+import org.apache.seatunnel.connectors.seatunnel.file.source.state.FileSourceOperationState;
 import org.apache.seatunnel.connectors.seatunnel.file.source.state.FileSourceState;
 
 import org.junit.jupiter.api.Assertions;
@@ -42,8 +44,10 @@ import java.nio.file.Files;
 import java.nio.file.Path;
 import java.nio.file.StandardCopyOption;
 import java.nio.file.attribute.FileTime;
+import java.util.ArrayList;
 import java.util.Collections;
 import java.util.HashMap;
+import java.util.List;
 import java.util.Map;
 
 import static org.apache.hadoop.fs.CommonConfigurationKeysPublic.FS_DEFAULT_NAME_DEFAULT;
@@ -339,19 +343,292 @@ class ContinuousMultipleTableFileSourceSplitEnumeratorTest {
         Path srcDir = Files.createDirectories(tempDir.resolve("src8"));
         Path dstDir = Files.createDirectories(tempDir.resolve("dst8"));
 
-        Map<String, Object> config = new HashMap<>();
-        config.put(FileBaseSourceOptions.FILE_PATH.key(), srcDir.toString());
-        config.put(FileBaseSourceOptions.FILE_FORMAT_TYPE.key(), "binary");
-        config.put(FileBaseSourceOptions.DISCOVERY_MODE.key(), "continuous");
-        config.put(FileBaseSourceOptions.START_MODE.key(), "earliest");
-        config.put(FileBaseSourceOptions.SYNC_MODE.key(), "update");
-        config.put(FileBaseSourceOptions.TARGET_PATH.key(), dstDir.toString());
-        config.put(FileBaseSourceOptions.UPDATE_STRATEGY.key(), "distcp");
-        config.put(FileBaseSourceOptions.COMPARE_MODE.key(), "len_mtime");
+        Map<String, Object> config = baseContinuousConfig(srcDir, dstDir);
         config.put(FileBaseSourceOptions.SCAN_INTERVAL.key(), "0S");
 
-        ReadonlyConfig readonlyConfig = ReadonlyConfig.fromMap(config);
+        FileConnectorException exception =
+                Assertions.assertThrows(
+                        FileConnectorException.class,
+                        () -> createValidationEnumerator(ReadonlyConfig.fromMap(config)));
+        Assertions.assertTrue(
+                exception.getMessage().contains("scan_interval > 0"),
+                "continuous mode should require a positive scan_interval");
+    }
 
+    @Test
+    void testContinuousDiscoveryBackupActionRequiresBackupPath() throws Exception {
+        Path srcDir = Files.createDirectories(tempDir.resolve("src9"));
+        Path dstDir = Files.createDirectories(tempDir.resolve("dst9"));
+
+        Map<String, Object> config = baseContinuousConfig(srcDir, dstDir);
+        config.put(FileBaseSourceOptions.POST_SYNC_ACTION.key(), "backup");
+
+        FileConnectorException exception =
+                Assertions.assertThrows(
+                        FileConnectorException.class,
+                        () -> createValidationEnumerator(ReadonlyConfig.fromMap(config)));
+        Assertions.assertTrue(
+                exception.getMessage().contains("post_sync_action=backup requires backup_path"),
+                "backup action should require backup_path");
+    }
+
+    @Test
+    void testContinuousDiscoveryBackupActionRejectsCrossFileSystemBackupPath() throws Exception {
+        Path srcDir = Files.createDirectories(tempDir.resolve("src9_cross_fs"));
+        Path dstDir = Files.createDirectories(tempDir.resolve("dst9_cross_fs"));
+
+        Map<String, Object> config = baseContinuousConfig(srcDir, dstDir);
+        config.put(FileBaseSourceOptions.POST_SYNC_ACTION.key(), "backup");
+        config.put(FileBaseSourceOptions.BACKUP_PATH.key(), "hdfs://cluster-b/backup");
+
+        FileConnectorException exception =
+                Assertions.assertThrows(
+                        FileConnectorException.class,
+                        () -> createValidationEnumerator(ReadonlyConfig.fromMap(config)));
+        Assertions.assertTrue(
+                exception.getMessage().contains("same-filesystem backup"),
+                "backup action should reject cross-file-system backup_path in phase-1");
+    }
+
+    @Test
+    void testContinuousDiscoveryDeleteActionRejectsBackupPath() throws Exception {
+        Path srcDir = Files.createDirectories(tempDir.resolve("src10"));
+        Path dstDir = Files.createDirectories(tempDir.resolve("dst10"));
+
+        Map<String, Object> config = baseContinuousConfig(srcDir, dstDir);
+        config.put(FileBaseSourceOptions.POST_SYNC_ACTION.key(), "delete");
+        config.put(FileBaseSourceOptions.BACKUP_PATH.key(), dstDir.resolve("backup").toString());
+
+        FileConnectorException exception =
+                Assertions.assertThrows(
+                        FileConnectorException.class,
+                        () -> createValidationEnumerator(ReadonlyConfig.fromMap(config)));
+        Assertions.assertTrue(
+                exception
+                        .getMessage()
+                        .contains("backup_path is only valid when post_sync_action=backup"),
+                "backup_path should be rejected unless action is backup");
+    }
+
+    @Test
+    void testContinuousDiscoveryRetentionRequiresBackupAction() throws Exception {
+        Path srcDir = Files.createDirectories(tempDir.resolve("src11"));
+        Path dstDir = Files.createDirectories(tempDir.resolve("dst11"));
+
+        Map<String, Object> config = baseContinuousConfig(srcDir, dstDir);
+        config.put(FileBaseSourceOptions.POST_SYNC_ACTION.key(), "delete");
+        config.put(FileBaseSourceOptions.RETENTION_MAX_AGE.key(), "1H");
+
+        FileConnectorException exception =
+                Assertions.assertThrows(
+                        FileConnectorException.class,
+                        () -> createValidationEnumerator(ReadonlyConfig.fromMap(config)));
+        Assertions.assertTrue(
+                exception
+                        .getMessage()
+                        .contains("retention_max_age is only valid when post_sync_action=backup"),
+                "retention_max_age should require backup action");
+    }
+
+    @Test
+    void testContinuousDiscoveryRetentionRequiresPositiveCheckInterval() throws Exception {
+        Path srcDir = Files.createDirectories(tempDir.resolve("src12"));
+        Path dstDir = Files.createDirectories(tempDir.resolve("dst12"));
+
+        Map<String, Object> config = baseContinuousConfig(srcDir, dstDir);
+        config.put(FileBaseSourceOptions.POST_SYNC_ACTION.key(), "backup");
+        config.put(FileBaseSourceOptions.BACKUP_PATH.key(), dstDir.resolve("backup").toString());
+        config.put(FileBaseSourceOptions.RETENTION_MAX_AGE.key(), "1H");
+        config.put(FileBaseSourceOptions.RETENTION_CHECK_INTERVAL.key(), "0S");
+
+        FileConnectorException exception =
+                Assertions.assertThrows(
+                        FileConnectorException.class,
+                        () -> createValidationEnumerator(ReadonlyConfig.fromMap(config)));
+        Assertions.assertTrue(
+                exception.getMessage().contains("retention_check_interval must be greater than 0"),
+                "retention_check_interval should be positive when retention is enabled");
+    }
+
+    @Test
+    void testPostSyncDeleteCommittedAfterCheckpointComplete() throws Exception {
+        Path srcDir = Files.createDirectories(tempDir.resolve("src13"));
+        Path dstDir = Files.createDirectories(tempDir.resolve("dst13"));
+        Path srcFile = srcDir.resolve("test.bin");
+        Files.write(srcFile, "abc".getBytes());
+
+        Map<String, Object> extraConfig = new HashMap<>();
+        extraConfig.put(FileBaseSourceOptions.POST_SYNC_ACTION.key(), "delete");
+        EnumeratorWithContext enumeratorWithContext =
+                createEnumerator(
+                        srcDir,
+                        dstDir,
+                        "earliest",
+                        new FileSourceState(Collections.emptySet()),
+                        extraConfig);
+        try {
+            enumeratorWithContext.enumerator.scanOnceForTest();
+            enumeratorWithContext.enumerator.handleSplitRequest(0);
+
+            @SuppressWarnings("unchecked")
+            ArgumentCaptor<List<FileSourceSplit>> splitsCaptor =
+                    ArgumentCaptor.forClass((Class) List.class);
+            Mockito.verify(enumeratorWithContext.context)
+                    .assignSplit(Mockito.eq(0), splitsCaptor.capture());
+            FileSourceSplit assigned = splitsCaptor.getValue().get(0);
+
+            enumeratorWithContext.enumerator.handleSourceEvent(
+                    0, new FileSplitFinishedEvent(assigned.splitId()));
+            Assertions.assertTrue(
+                    Files.exists(srcFile), "source file should exist before checkpoint complete");
+
+            FileSourceState state = enumeratorWithContext.enumerator.snapshotState(1L);
+            Assertions.assertEquals(
+                    1,
+                    state.getPendingOpsByCheckpoint().get(1L).size(),
+                    "checkpoint should persist staged post-sync operation");
+
+            enumeratorWithContext.enumerator.notifyCheckpointComplete(1L);
+            Assertions.assertFalse(
+                    Files.exists(srcFile),
+                    "source file should be deleted after checkpoint complete");
+        } finally {
+            enumeratorWithContext.enumerator.close();
+        }
+    }
+
+    @Test
+    void testPostSyncBackupVersionGuardSkipsStaleOperation() throws Exception {
+        Path srcDir = Files.createDirectories(tempDir.resolve("src14"));
+        Path dstDir = Files.createDirectories(tempDir.resolve("dst14"));
+        Path backupDir = Files.createDirectories(tempDir.resolve("backup14"));
+        Path srcFile = srcDir.resolve("test.bin");
+        Files.write(srcFile, "abc".getBytes());
+
+        Map<String, Object> extraConfig = new HashMap<>();
+        extraConfig.put(FileBaseSourceOptions.POST_SYNC_ACTION.key(), "backup");
+        extraConfig.put(FileBaseSourceOptions.BACKUP_PATH.key(), backupDir.toString());
+        EnumeratorWithContext enumeratorWithContext =
+                createEnumerator(
+                        srcDir,
+                        dstDir,
+                        "earliest",
+                        new FileSourceState(Collections.emptySet()),
+                        extraConfig);
+        try {
+            enumeratorWithContext.enumerator.scanOnceForTest();
+            enumeratorWithContext.enumerator.handleSplitRequest(0);
+
+            @SuppressWarnings("unchecked")
+            ArgumentCaptor<List<FileSourceSplit>> splitsCaptor =
+                    ArgumentCaptor.forClass((Class) List.class);
+            Mockito.verify(enumeratorWithContext.context)
+                    .assignSplit(Mockito.eq(0), splitsCaptor.capture());
+            FileSourceSplit assigned = splitsCaptor.getValue().get(0);
+            enumeratorWithContext.enumerator.handleSourceEvent(
+                    0, new FileSplitFinishedEvent(assigned.splitId()));
+            enumeratorWithContext.enumerator.snapshotState(1L);
+
+            // Simulate source file updated before post-sync commit.
+            Files.write(srcFile, "abcd".getBytes());
+            Files.setLastModifiedTime(
+                    srcFile, FileTime.fromMillis(System.currentTimeMillis() + 5_000));
+
+            enumeratorWithContext.enumerator.notifyCheckpointComplete(1L);
+
+            Assertions.assertTrue(
+                    Files.exists(srcFile),
+                    "new source version should not be moved by stale post-sync backup operation");
+            long backupFileCount;
+            try (java.util.stream.Stream<Path> stream = Files.walk(backupDir)) {
+                backupFileCount = stream.filter(Files::isRegularFile).count();
+            }
+            Assertions.assertEquals(0, backupFileCount, "stale backup operation should be skipped");
+        } finally {
+            enumeratorWithContext.enumerator.close();
+        }
+    }
+
+    @Test
+    void testPostSyncOperationRetryWhenContextMissing() throws Exception {
+        Path srcDir = Files.createDirectories(tempDir.resolve("src15"));
+        Path dstDir = Files.createDirectories(tempDir.resolve("dst15"));
+
+        FileSourceOperationState operationState =
+                new FileSourceOperationState(
+                        "unknown_table",
+                        "unknown_table_missing",
+                        srcDir.resolve("missing.bin").toString(),
+                        1L,
+                        1L,
+                        FilePostSyncAction.DELETE,
+                        null);
+
+        Map<Long, List<FileSourceOperationState>> pendingByCheckpoint = new HashMap<>();
+        pendingByCheckpoint.put(1L, new ArrayList<>(Collections.singletonList(operationState)));
+        FileSourceState checkpointState =
+                new FileSourceState(
+                        Collections.emptySet(),
+                        System.currentTimeMillis(),
+                        pendingByCheckpoint,
+                        new HashMap<>());
+
+        EnumeratorWithContext enumeratorWithContext =
+                createEnumerator(
+                        srcDir, dstDir, "earliest", checkpointState, Collections.emptyMap());
+        try {
+            enumeratorWithContext.enumerator.notifyCheckpointComplete(1L);
+            FileSourceState stateAfterRetry = enumeratorWithContext.enumerator.snapshotState(2L);
+
+            Assertions.assertTrue(
+                    stateAfterRetry.getPendingOpsByCheckpoint().containsKey(1L),
+                    "failed post-sync operation should remain pending for retry");
+            Assertions.assertEquals(
+                    1,
+                    stateAfterRetry.getPendingOpsByCheckpoint().get(1L).size(),
+                    "pending operation should remain after failed commit");
+            Assertions.assertTrue(
+                    stateAfterRetry.getPendingOpsByCheckpoint().get(1L).get(0).getRetryCount() >= 1,
+                    "retry counter should increase after failed commit");
+        } finally {
+            enumeratorWithContext.enumerator.close();
+        }
+    }
+
+    @Test
+    void testRetentionDeletesExpiredBackupFiles() throws Exception {
+        Path srcDir = Files.createDirectories(tempDir.resolve("src16"));
+        Path dstDir = Files.createDirectories(tempDir.resolve("dst16"));
+        Path backupDir = Files.createDirectories(tempDir.resolve("backup16"));
+        Path expiredFile = backupDir.resolve("expired.bin");
+        Files.write(expiredFile, "old".getBytes());
+        Files.setLastModifiedTime(
+                expiredFile, FileTime.fromMillis(System.currentTimeMillis() - 60_000));
+
+        Map<String, Object> extraConfig = new HashMap<>();
+        extraConfig.put(FileBaseSourceOptions.POST_SYNC_ACTION.key(), "backup");
+        extraConfig.put(FileBaseSourceOptions.BACKUP_PATH.key(), backupDir.toString());
+        extraConfig.put(FileBaseSourceOptions.RETENTION_MAX_AGE.key(), "1S");
+        extraConfig.put(FileBaseSourceOptions.RETENTION_CHECK_INTERVAL.key(), "1S");
+
+        EnumeratorWithContext enumeratorWithContext =
+                createEnumerator(
+                        srcDir,
+                        dstDir,
+                        "earliest",
+                        new FileSourceState(Collections.emptySet()),
+                        extraConfig);
+        try {
+            enumeratorWithContext.enumerator.notifyCheckpointComplete(1L);
+            Assertions.assertFalse(
+                    Files.exists(expiredFile), "retention should remove expired backup files");
+        } finally {
+            enumeratorWithContext.enumerator.close();
+        }
+    }
+
+    private ContinuousMultipleTableFileSourceSplitEnumerator createValidationEnumerator(
+            ReadonlyConfig readonlyConfig) {
         BaseFileSourceConfig baseFileSourceConfig = Mockito.mock(BaseFileSourceConfig.class);
         Mockito.when(baseFileSourceConfig.getBaseFileSourceConfig()).thenReturn(readonlyConfig);
         Mockito.when(baseFileSourceConfig.getHadoopConfig())
@@ -373,18 +650,23 @@ class ContinuousMultipleTableFileSourceSplitEnumeratorTest {
 
         SourceSplitEnumerator.Context<FileSourceSplit> context =
                 Mockito.mock(SourceSplitEnumerator.Context.class);
+        Mockito.when(context.currentParallelism()).thenReturn(1);
 
-        FileConnectorException exception =
-                Assertions.assertThrows(
-                        FileConnectorException.class,
-                        () ->
-                                new ContinuousMultipleTableFileSourceSplitEnumerator(
-                                        context,
-                                        multipleTableFileSourceConfig,
-                                        new DefaultFileSplitStrategy()));
-        Assertions.assertTrue(
-                exception.getMessage().contains("scan_interval > 0"),
-                "continuous mode should require a positive scan_interval");
+        return new ContinuousMultipleTableFileSourceSplitEnumerator(
+                context, multipleTableFileSourceConfig, new DefaultFileSplitStrategy());
+    }
+
+    private Map<String, Object> baseContinuousConfig(Path srcDir, Path dstDir) {
+        Map<String, Object> config = new HashMap<>();
+        config.put(FileBaseSourceOptions.FILE_PATH.key(), srcDir.toString());
+        config.put(FileBaseSourceOptions.FILE_FORMAT_TYPE.key(), "binary");
+        config.put(FileBaseSourceOptions.DISCOVERY_MODE.key(), "continuous");
+        config.put(FileBaseSourceOptions.START_MODE.key(), "earliest");
+        config.put(FileBaseSourceOptions.SYNC_MODE.key(), "update");
+        config.put(FileBaseSourceOptions.TARGET_PATH.key(), dstDir.toString());
+        config.put(FileBaseSourceOptions.UPDATE_STRATEGY.key(), "distcp");
+        config.put(FileBaseSourceOptions.COMPARE_MODE.key(), "len_mtime");
+        return config;
     }
 
     private EnumeratorWithContext createEnumerator(Path srcDir, Path dstDir) throws IOException {
@@ -394,11 +676,25 @@ class ContinuousMultipleTableFileSourceSplitEnumeratorTest {
     private EnumeratorWithContext createEnumerator(Path srcDir, Path dstDir, String startMode)
             throws IOException {
         return createEnumerator(
-                srcDir, dstDir, startMode, new FileSourceState(Collections.emptySet()));
+                srcDir,
+                dstDir,
+                startMode,
+                new FileSourceState(Collections.emptySet()),
+                Collections.emptyMap());
     }
 
     private EnumeratorWithContext createEnumerator(
             Path srcDir, Path dstDir, String startMode, FileSourceState checkpointState)
+            throws IOException {
+        return createEnumerator(srcDir, dstDir, startMode, checkpointState, Collections.emptyMap());
+    }
+
+    private EnumeratorWithContext createEnumerator(
+            Path srcDir,
+            Path dstDir,
+            String startMode,
+            FileSourceState checkpointState,
+            Map<String, Object> extraConfig)
             throws IOException {
         Map<String, Object> config = new HashMap<>();
         config.put(FileBaseSourceOptions.FILE_PATH.key(), srcDir.toString());
@@ -409,6 +705,9 @@ class ContinuousMultipleTableFileSourceSplitEnumeratorTest {
         config.put(FileBaseSourceOptions.TARGET_PATH.key(), dstDir.toString());
         config.put(FileBaseSourceOptions.UPDATE_STRATEGY.key(), "distcp");
         config.put(FileBaseSourceOptions.COMPARE_MODE.key(), "len_mtime");
+        if (extraConfig != null && !extraConfig.isEmpty()) {
+            config.putAll(extraConfig);
+        }
 
         ReadonlyConfig readonlyConfig = ReadonlyConfig.fromMap(config);
 

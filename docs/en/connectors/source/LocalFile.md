@@ -84,6 +84,10 @@ If you use SeaTunnel Engine, It automatically integrated the hadoop jar when you
 | target_hadoop_conf         | map     | no       | -                                    |
 | update_strategy            | string  | no       | distcp                               |
 | compare_mode               | string  | no       | len_mtime                            |
+| post_sync_action           | string  | no       | none                                 |
+| backup_path                | string  | no       | -                                    |
+| retention_max_age          | string  | no       | -                                    |
+| retention_check_interval   | string  | no       | 1H                                   |
 | common-options             |         | no       | -                                    |
 | tables_configs             | list    | no       | used to define a multiple table task |
 | file_filter_modified_start | string  | no       | -                                    |
@@ -490,6 +494,27 @@ Only used when `sync_mode=update`. Supported values: `distcp` (default), `strict
 ### compare_mode [string]
 
 Only used when `sync_mode=update`. Supported values: `len_mtime` (default), `checksum` (only valid when `update_strategy=strict`).
+
+### post_sync_action [string]
+
+Only used when `discovery_mode=continuous`. Supported values: `none` (default), `delete`, `backup`. In `discovery_mode=once`, setting `post_sync_action=delete` or `post_sync_action=backup` is rejected during config validation.
+
+- `none`: default behavior, no source-side file operation.
+- `delete`: delete processed source files after `notifyCheckpointComplete`; failed operations are retried on later checkpoints.
+- `backup`: move processed source files to `backup_path` after `notifyCheckpointComplete`; failed operations are retried on later checkpoints.
+
+### backup_path [string]
+
+Only used when `post_sync_action=backup`. Processed files are moved to this base path after checkpoint-complete commit, and destination file names include source version suffix to avoid overwrite collision. Phase-1 only supports backup on the same filesystem as `file_path` (same scheme and authority); cross-filesystem backup is rejected.
+
+### retention_max_age [string]
+
+Optional retention policy for `backup_path`. Files older than this age are cleaned up during checkpoint-complete retention scans.
+Only valid when `post_sync_action=backup`.
+
+### retention_check_interval [string]
+
+Retention scan interval, default `1H`. Cleanup runs at most once per interval when `retention_max_age` is configured.
 
 ### file_filter_modified_start [string]
 

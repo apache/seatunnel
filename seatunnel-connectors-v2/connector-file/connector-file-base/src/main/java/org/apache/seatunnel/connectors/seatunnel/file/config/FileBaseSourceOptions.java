@@ -203,6 +203,45 @@ public class FileBaseSourceOptions extends FileBaseOptions {
                     .withDescription(
                             "Compare mode when sync_mode=update. Supported values: len_mtime, checksum. "
                                     + "checksum uses Hadoop FileSystem#getFileChecksum, only valid when update_strategy=strict.");
+
+    public static final Option<FilePostSyncAction> POST_SYNC_ACTION =
+            Options.key("post_sync_action")
+                    .singleChoice(
+                            FilePostSyncAction.class,
+                            Arrays.asList(
+                                    FilePostSyncAction.NONE,
+                                    FilePostSyncAction.DELETE,
+                                    FilePostSyncAction.BACKUP))
+                    .defaultValue(FilePostSyncAction.NONE)
+                    .withDescription(
+                            "Post-sync action after successful processing in discovery_mode=continuous. "
+                                    + "Supported values: none (default), delete, backup. "
+                                    + "The default none preserves existing behavior and performs no source-side file operation.");
+
+    public static final Option<String> BACKUP_PATH =
+            Options.key("backup_path")
+                    .stringType()
+                    .noDefaultValue()
+                    .withDescription(
+                            "Backup base path for post_sync_action=backup. "
+                                    + "Used as the destination path when moving processed source files.");
+
+    public static final Option<Duration> RETENTION_MAX_AGE =
+            Options.key("retention_max_age")
+                    .durationType()
+                    .noDefaultValue()
+                    .withDescription(
+                            "Maximum age for files in backup_path before cleanup. "
+                                    + "Only valid when post_sync_action=backup.");
+
+    public static final Option<Duration> RETENTION_CHECK_INTERVAL =
+            Options.key("retention_check_interval")
+                    .durationType()
+                    .defaultValue(Duration.ofHours(1))
+                    .withDescription(
+                            "Retention scan interval for backup cleanup. "
+                                    + "Only effective when retention_max_age is configured.");
+
     public static final Option<String> QUOTE_CHAR =
             Options.key("quote_char")
                     .stringType()

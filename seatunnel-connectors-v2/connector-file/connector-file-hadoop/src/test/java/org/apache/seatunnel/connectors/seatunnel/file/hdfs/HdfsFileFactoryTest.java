@@ -17,8 +17,11 @@
 
 package org.apache.seatunnel.connectors.seatunnel.file.hdfs;
 
+import org.apache.seatunnel.api.configuration.util.Expression;
 import org.apache.seatunnel.api.configuration.util.OptionRule;
+import org.apache.seatunnel.api.configuration.util.RequiredOption;
 import org.apache.seatunnel.connectors.seatunnel.file.config.FileBaseSourceOptions;
+import org.apache.seatunnel.connectors.seatunnel.file.config.FilePostSyncAction;
 import org.apache.seatunnel.connectors.seatunnel.file.hdfs.sink.HdfsFileSinkFactory;
 import org.apache.seatunnel.connectors.seatunnel.file.hdfs.source.HdfsFileSourceFactory;
 
@@ -37,6 +40,28 @@ class HdfsFileFactoryTest {
                 optionRule.getOptionalOptions().contains(FileBaseSourceOptions.SCAN_INTERVAL));
         Assertions.assertTrue(
                 optionRule.getOptionalOptions().contains(FileBaseSourceOptions.START_MODE));
+        Assertions.assertTrue(
+                optionRule.getOptionalOptions().contains(FileBaseSourceOptions.POST_SYNC_ACTION));
+        Assertions.assertTrue(
+                optionRule.getOptionalOptions().contains(FileBaseSourceOptions.BACKUP_PATH));
+        Assertions.assertTrue(
+                optionRule.getOptionalOptions().contains(FileBaseSourceOptions.RETENTION_MAX_AGE));
+        Assertions.assertTrue(
+                optionRule
+                        .getOptionalOptions()
+                        .contains(FileBaseSourceOptions.RETENTION_CHECK_INTERVAL));
+
+        Expression backupExpression =
+                Expression.of(FileBaseSourceOptions.POST_SYNC_ACTION, FilePostSyncAction.BACKUP);
+        Assertions.assertTrue(
+                optionRule.getRequiredOptions().stream()
+                        .filter(RequiredOption.ConditionalRequiredOptions.class::isInstance)
+                        .map(RequiredOption.ConditionalRequiredOptions.class::cast)
+                        .filter(
+                                required ->
+                                        required.getOptions()
+                                                .contains(FileBaseSourceOptions.BACKUP_PATH))
+                        .anyMatch(required -> backupExpression.equals(required.getExpression())));
         Assertions.assertNotNull((new HdfsFileSinkFactory()).optionRule());
     }
 }

@@ -30,6 +30,7 @@ import org.apache.seatunnel.connectors.seatunnel.file.config.BaseFileSourceConfi
 import org.apache.seatunnel.connectors.seatunnel.file.config.BaseMultipleTableFileSourceConfig;
 import org.apache.seatunnel.connectors.seatunnel.file.config.FileBaseSourceOptions;
 import org.apache.seatunnel.connectors.seatunnel.file.config.FileDiscoveryMode;
+import org.apache.seatunnel.connectors.seatunnel.file.config.FilePostSyncAction;
 import org.apache.seatunnel.connectors.seatunnel.file.exception.FileConnectorException;
 import org.apache.seatunnel.connectors.seatunnel.file.source.reader.MultipleTableFileSourceReader;
 import org.apache.seatunnel.connectors.seatunnel.file.source.split.ContinuousMultipleTableFileSourceSplitEnumerator;
@@ -151,6 +152,20 @@ public abstract class BaseMultipleTableFileSource
                         "In multi-table mode, option '"
                                 + FileBaseSourceOptions.DISCOVERY_MODE.key()
                                 + "' must be consistent across tables.");
+            }
+        }
+        if (mode != FileDiscoveryMode.CONTINUOUS) {
+            for (BaseFileSourceConfig config : configs) {
+                FilePostSyncAction action =
+                        config.getBaseFileSourceConfig()
+                                .get(FileBaseSourceOptions.POST_SYNC_ACTION);
+                if (action == FilePostSyncAction.NONE) {
+                    continue;
+                }
+                throw new FileConnectorException(
+                        SeaTunnelAPIErrorCode.CONFIG_VALIDATION_FAILED,
+                        "post_sync_action only supports discovery_mode=continuous. "
+                                + "Please set post_sync_action=none or switch discovery_mode to continuous.");
             }
         }
         return mode;
