@@ -361,6 +361,18 @@ public class HttpIT extends TestSuiteBase implements TestResource {
         Container.ExecResult execResult21 =
                 container.executeJob("/http_page_cursor_num_assert.conf");
         Assertions.assertEquals(0, execResult21.getExitCode());
+
+        // http airtable source
+        Container.ExecResult execResult22 = container.executeJob("/airtable_json_to_assert.conf");
+        Assertions.assertEquals(0, execResult22.getExitCode());
+    }
+
+    @TestTemplate
+    public void testFakeToAirtableSink(TestContainer container)
+            throws IOException, InterruptedException {
+        Container.ExecResult execResult = container.executeJob("/fake_to_airtable.conf");
+        Assertions.assertEquals(0, execResult.getExitCode());
+        mockServerClient.verify(request().withPath("/v0/appTEST123/SinkTable").withMethod("POST"));
     }
 
     @TestTemplate
