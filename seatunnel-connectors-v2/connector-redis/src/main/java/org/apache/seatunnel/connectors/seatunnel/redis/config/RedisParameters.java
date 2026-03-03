@@ -25,7 +25,6 @@ import org.apache.seatunnel.connectors.seatunnel.redis.client.RedisClient;
 import org.apache.seatunnel.connectors.seatunnel.redis.client.RedisClusterClient;
 import org.apache.seatunnel.connectors.seatunnel.redis.client.RedisSingleClient;
 import org.apache.seatunnel.connectors.seatunnel.redis.exception.RedisConnectorException;
-import org.apache.seatunnel.connectors.seatunnel.redis.source.RedisSourceTable;
 
 import lombok.Data;
 import lombok.extern.slf4j.Slf4j;
@@ -148,16 +147,16 @@ public class RedisParameters implements Serializable {
         this.fieldDelimiter = config.get(RedisBaseOptions.FIELD_DELIMITER);
     }
 
-    /** Update current instance's KEY-related parameters from RedisSourceTable. */
-    public void setFromSourceTable(RedisSourceTable sourceTable) {
-        // Set table-specific KEY-related settings from RedisSourceTable
-        this.keysPattern = sourceTable.getKeyPattern();
-        this.redisDataType = sourceTable.getDataType();
-        this.batchSize = sourceTable.getBatchSize();
-        this.hashKeyParseMode = sourceTable.getHashKeyParseMode();
-        this.readKeyEnabled = sourceTable.getReadKeyEnabled();
-        this.keyFieldName = sourceTable.getKeyFieldName();
-        this.singleFieldName = sourceTable.getSingleFieldName();
+    /** Update current instance's KEY-related parameters from RedisTableConfig. */
+    public void setFromTableConfig(RedisTableConfig tableConfig) {
+        // Set table-specific KEY-related settings from RedisTableConfig
+        this.keysPattern = tableConfig.getKeys();
+        this.redisDataType = tableConfig.getDataType();
+        this.batchSize = tableConfig.getBatchSize();
+        this.hashKeyParseMode = tableConfig.getHashKeyParseMode();
+        this.readKeyEnabled = tableConfig.getReadKeyEnabled();
+        this.keyFieldName = tableConfig.getKeyFieldName();
+        this.singleFieldName = tableConfig.getSingleFieldName();
     }
 
     public RedisClient buildRedisClient() {

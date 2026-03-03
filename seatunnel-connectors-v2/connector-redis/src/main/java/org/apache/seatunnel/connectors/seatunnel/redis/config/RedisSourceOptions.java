@@ -17,10 +17,13 @@
 
 package org.apache.seatunnel.connectors.seatunnel.redis.config;
 
+import org.apache.seatunnel.shade.com.fasterxml.jackson.core.type.TypeReference;
+
 import org.apache.seatunnel.api.configuration.Option;
 import org.apache.seatunnel.api.configuration.Options;
 
 import java.util.List;
+import java.util.Map;
 
 public class RedisSourceOptions extends RedisBaseOptions {
     public enum HashKeyParseMode {
@@ -56,9 +59,9 @@ public class RedisSourceOptions extends RedisBaseOptions {
                     .noDefaultValue()
                     .withDescription("Specifies the key field name to be used in the output row.");
 
-    public static final Option<List<RedisTableConfig>> TABLE_LIST =
+    public static final Option<List<Map<String, Object>>> TABLE_LIST =
             Options.key("table_list")
-                    .listType(RedisTableConfig.class)
+                    .type(new TypeReference<List<Map<String, Object>>>() {})
                     .noDefaultValue()
                     .withDescription(
                             "List of table configurations for multiple key patterns. "

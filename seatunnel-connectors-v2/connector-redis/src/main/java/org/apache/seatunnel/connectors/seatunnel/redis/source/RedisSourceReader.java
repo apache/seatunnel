@@ -27,6 +27,7 @@ import org.apache.seatunnel.connectors.seatunnel.common.source.SingleSplitReader
 import org.apache.seatunnel.connectors.seatunnel.redis.client.RedisClient;
 import org.apache.seatunnel.connectors.seatunnel.redis.config.RedisDataType;
 import org.apache.seatunnel.connectors.seatunnel.redis.config.RedisParameters;
+import org.apache.seatunnel.connectors.seatunnel.redis.config.RedisTableConfig;
 import org.apache.seatunnel.connectors.seatunnel.redis.exception.RedisConnectorException;
 import org.apache.seatunnel.connectors.seatunnel.redis.util.KeyValueMergerFactory;
 
@@ -45,13 +46,13 @@ import java.util.Objects;
 public class RedisSourceReader extends AbstractSingleSplitReader<SeaTunnelRow> {
     private final RedisParameters redisParameters;
     private final SingleSplitReaderContext context;
-    private final Map<TablePath, RedisSourceTable> sourceTablesMap;
+    private final Map<TablePath, RedisTableConfig> sourceTablesMap;
     private RedisClient redisClient;
 
     public RedisSourceReader(
             RedisParameters redisParameters,
             SingleSplitReaderContext context,
-            Map<TablePath, RedisSourceTable> sourceTablesMap) {
+            Map<TablePath, RedisTableConfig> sourceTablesMap) {
         this.redisParameters = redisParameters;
         this.context = context;
         this.sourceTablesMap = sourceTablesMap;
@@ -72,16 +73,16 @@ public class RedisSourceReader extends AbstractSingleSplitReader<SeaTunnelRow> {
     @Override
     public void internalPollNext(Collector<SeaTunnelRow> output) throws Exception {
         // Process each redis table configuration
-        for (Map.Entry<TablePath, RedisSourceTable> entry : sourceTablesMap.entrySet()) {
+        for (Map.Entry<TablePath, RedisTableConfig> entry : sourceTablesMap.entrySet()) {
             TablePath tablePath = entry.getKey();
-            RedisSourceTable sourceTable = entry.getValue();
+            RedisTableConfig tableConfig = entry.getValue();
 
             log.info(
                     "Processing redis table with TablePath: {}, key pattern: {}, data type: {}",
                     tablePath,
-                    sourceTable.getKeyPattern(),
-                    sourceTable.getDataType());
-            processTable(sourceTable, output);
+                    tableConfig.getKeys(),
+                    tableConfig.getDataType());
+            processTable(tableConfig, output);
         }
         context.signalNoMoreElement();
     }
@@ -89,16 +90,16 @@ public class RedisSourceReader extends AbstractSingleSplitReader<SeaTunnelRow> {
     /**
      * Process a single table by scanning all matching keys.
      *
-     * @param sourceTable Source table configuration
+     * @param tableConfig Table configuration
      * @param output Collector for output rows
      * @throws Exception If error occurs during processing
      */
-    private void processTable(RedisSourceTable sourceTable, Collector<SeaTunnelRow> output)
+    private void processTable(RedisTableConfig tableConfig, Collector<SeaTunnelRow> output)
             throws Exception {
         String cursor = ScanParams.SCAN_POINTER_START;
-        String keysPattern = sourceTable.getKeyPattern();
-        int batchSize = sourceTable.getBatchSize();
-        RedisDataType dataType = sourceTable.getDataType();
+        String keysPattern = tableConfig.getKeys();
+        int batchSize = tableConfig.getBatchSize();
+        RedisDataType dataType = tableConfig.getDataType();
         RedisDataType scanType = resolveScanType(dataType);
 
         while (true) {
@@ -109,7 +110,7 @@ public class RedisSourceReader extends AbstractSingleSplitReader<SeaTunnelRow> {
             List<String> keys = scanResult.getResult();
 
             // Process the batch of keys
-            pollNext(sourceTable, keys, dataType, output);
+            pollNext(tableConfig, keys, dataType, output);
 
             // Check if scan is complete (cursor returns "0")
             if (ScanParams.SCAN_POINTER_START.equals(cursor)) {
@@ -121,14 +122,14 @@ public class RedisSourceReader extends AbstractSingleSplitReader<SeaTunnelRow> {
     /**
      * Process a batch of keys and collect output rows.
      *
-     * @param sourceTable Source table configuration
+     * @param tableConfig Table configuration
      * @param keys List of Redis keys to process
      * @param dataType Redis data type
      * @param output Collector for output rows
      * @throws IOException If error occurs during processing
      */
     private void pollNext(
-            RedisSourceTable sourceTable,
+            RedisTableConfig tableConfig,
             List<String> keys,
             RedisDataType dataType,
             Collector<SeaTunnelRow> output)
@@ -137,8 +138,7 @@ public class RedisSourceReader extends AbstractSingleSplitReader<SeaTunnelRow> {
             return;
         }
 
-        // Create record reader for this table
-        RedisRecordReader redisRecordReader = createRecordReader(sourceTable);
+        RedisRecordReader redisRecordReader = createRecordReader(tableConfig);
 
         // Process keys based on data type
         if (RedisDataType.HASH.equals(dataType)) {
@@ -167,28 +167,29 @@ public class RedisSourceReader extends AbstractSingleSplitReader<SeaTunnelRow> {
     }
 
     /**
-     * Create a record reader for the given source table.
+     * Create a record reader for the given table configuration.
      *
-     * @param sourceTable Source table configuration
+     * @param tableConfig Table configuration
      * @return RedisRecordReader
      */
-    private RedisRecordReader createRecordReader(RedisSourceTable sourceTable) {
+    private RedisRecordReader createRecordReader(RedisTableConfig tableConfig) {
         DeserializationSchema<SeaTunnelRow> deserializationSchema =
-                sourceTable.getDeserializationSchema();
+                tableConfig.getDeserializationSchema();
+        TablePath tablePath = tableConfig.getTablePath();
 
         // Update this.redisParameters with table-specific KEY-related settings
-        this.redisParameters.setFromSourceTable(sourceTable);
+        this.redisParameters.setFromTableConfig(tableConfig);
 
-        if (Boolean.TRUE.equals(sourceTable.getReadKeyEnabled())) {
+        if (Boolean.TRUE.equals(tableConfig.getReadKeyEnabled())) {
             return new KeyedRecordReader(
                     this.redisParameters,
                     deserializationSchema,
                     redisClient,
-                    KeyValueMergerFactory.createMerger(
-                            deserializationSchema, this.redisParameters));
+                    KeyValueMergerFactory.createMerger(deserializationSchema, this.redisParameters),
+                    tablePath);
         } else {
             return new UnKeyedRecordReader(
-                    this.redisParameters, deserializationSchema, redisClient);
+                    this.redisParameters, deserializationSchema, redisClient, tablePath);
         }
     }
 

@@ -19,6 +19,7 @@ package org.apache.seatunnel.connectors.seatunnel.redis.source;
 
 import org.apache.seatunnel.api.serialization.DeserializationSchema;
 import org.apache.seatunnel.api.source.Collector;
+import org.apache.seatunnel.api.table.catalog.TablePath;
 import org.apache.seatunnel.api.table.type.SeaTunnelRow;
 import org.apache.seatunnel.common.utils.JsonUtils;
 import org.apache.seatunnel.connectors.seatunnel.redis.client.RedisClient;
@@ -32,15 +33,33 @@ import java.util.Map;
 public abstract class RedisRecordReader {
     protected final RedisParameters redisParameters;
     protected final DeserializationSchema<SeaTunnelRow> deserializationSchema;
+    protected final TablePath tablePath;
     protected RedisClient redisClient;
 
     protected RedisRecordReader(
             RedisParameters redisParameters,
             DeserializationSchema<SeaTunnelRow> deserializationSchema,
-            RedisClient redisClient) {
+            RedisClient redisClient,
+            TablePath tablePath) {
         this.redisParameters = redisParameters;
         this.deserializationSchema = deserializationSchema;
         this.redisClient = redisClient;
+        this.tablePath = tablePath;
+    }
+
+    /**
+     * Helper method to create SeaTunnelRow with tableId set. This is required for multi-table mode
+     * to work correctly.
+     */
+    protected SeaTunnelRow createRowWithTableId(Object[] fields) {
+        SeaTunnelRow row = new SeaTunnelRow(fields);
+        row.setTableId(tablePath.toString());
+        return row;
+    }
+
+    /** Helper method to set tableId for a SeaTunnelRow. */
+    protected void setTableId(SeaTunnelRow row) {
+        row.setTableId(tablePath.toString());
     }
 
     public void pollHashMapToNext(List<String> keys, Collector<SeaTunnelRow> output)
@@ -48,18 +67,20 @@ public abstract class RedisRecordReader {
         List<Map<String, String>> values = redisClient.batchGetHash(keys);
         if (deserializationSchema == null) {
             for (Map<String, String> value : values) {
-                output.collect(new SeaTunnelRow(new Object[] {JsonUtils.toJsonString(value)}));
+                output.collect(createRowWithTableId(new Object[] {JsonUtils.toJsonString(value)}));
             }
             return;
         }
         for (Map<String, String> recordsMap : values) {
             if (redisParameters.getHashKeyParseMode() == RedisSourceOptions.HashKeyParseMode.KV) {
-                deserializationSchema.deserialize(
-                        JsonUtils.toJsonString(recordsMap).getBytes(), output);
+                SeaTunnelRow row =
+                        deserializationSchema.deserialize(
+                                JsonUtils.toJsonString(recordsMap).getBytes());
+                setTableId(row);
+                output.collect(row);
             } else {
-                SeaTunnelRow seaTunnelRow =
-                        new SeaTunnelRow(new Object[] {JsonUtils.toJsonString(recordsMap)});
-                output.collect(seaTunnelRow);
+                output.collect(
+                        createRowWithTableId(new Object[] {JsonUtils.toJsonString(recordsMap)}));
             }
         }
     }
