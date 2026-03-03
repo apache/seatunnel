@@ -17,7 +17,6 @@
 
 package org.apache.seatunnel.connectors.seatunnel.rabbitmq.source;
 
-import lombok.extern.slf4j.Slf4j;
 import org.apache.seatunnel.api.source.SourceSplitEnumerator;
 import org.apache.seatunnel.api.table.catalog.CatalogTable;
 import org.apache.seatunnel.connectors.seatunnel.rabbitmq.config.RabbitmqBaseOptions;
@@ -25,8 +24,7 @@ import org.apache.seatunnel.connectors.seatunnel.rabbitmq.config.RabbitmqConfig;
 import org.apache.seatunnel.connectors.seatunnel.rabbitmq.split.RabbitmqSplit;
 import org.apache.seatunnel.connectors.seatunnel.rabbitmq.split.RabbitmqSplitEnumeratorState;
 
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
+import lombok.extern.slf4j.Slf4j;
 
 import java.io.IOException;
 import java.util.ArrayList;
@@ -36,6 +34,7 @@ import java.util.List;
 import java.util.Map;
 import java.util.Set;
 import java.util.concurrent.ConcurrentHashMap;
+
 @Slf4j
 public class RabbitmqSplitEnumerator
         implements SourceSplitEnumerator<RabbitmqSplit, RabbitmqSplitEnumeratorState> {
