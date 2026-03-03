@@ -129,10 +129,11 @@ public class JdbcExactlyOnceSinkWriter extends AbstractJdbcSinkWriter<Void> {
                 xidGenerator.open();
                 xaFacade.open();
                 outputFormat.open();
-                Xid excludeXid = recoverStates.isEmpty() ? null : recoverStates.get(0).getXid();
-                // Rollback all pending transactions for this subtask except recovered checkpoint
-                // xid.
-                xaGroupOps.recoverAndRollback(context, sinkcontext, xidGenerator, excludeXid);
+                if (!recoverStates.isEmpty()) {
+                    Xid excludeXid = recoverStates.get(0).getXid();
+                    // Rollback pending transactions that should not include recoverStates.
+                    xaGroupOps.recoverAndRollback(context, sinkcontext, xidGenerator, excludeXid);
+                }
                 beginTx(System.currentTimeMillis());
             } catch (Exception e) {
                 throw new JdbcConnectorException(
@@ -287,7 +288,24 @@ public class JdbcExactlyOnceSinkWriter extends AbstractJdbcSinkWriter<Void> {
                                     xid),
                             rollbackException);
             rollbackFailure.addSuppressed(beginTxException);
+            tryRecoverPreparedTransactionsAfterRollbackFailure(xid, rollbackFailure);
             throw rollbackFailure;
+        }
+    }
+
+    private void tryRecoverPreparedTransactionsAfterRollbackFailure(
+            Xid failedRollbackXid, JdbcConnectorException rollbackFailure) {
+        try {
+            LOG.warn(
+                    "rollback prepared transaction failed, try to recover pending transactions for current subtask, xid={}",
+                    failedRollbackXid);
+            xaGroupOps.recoverAndRollback(context, sinkcontext, xidGenerator, null);
+        } catch (Exception recoveryException) {
+            LOG.warn(
+                    "recovery after rollback prepared transaction failure also failed, xid={}",
+                    failedRollbackXid,
+                    recoveryException);
+            rollbackFailure.addSuppressed(recoveryException);
         }
     }
 

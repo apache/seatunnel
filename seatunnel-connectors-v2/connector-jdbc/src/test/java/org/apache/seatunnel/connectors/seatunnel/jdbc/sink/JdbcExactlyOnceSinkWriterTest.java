@@ -41,7 +41,6 @@ import java.util.List;
 
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.anyLong;
-import static org.mockito.ArgumentMatchers.isNull;
 import static org.mockito.Mockito.clearInvocations;
 import static org.mockito.Mockito.doNothing;
 import static org.mockito.Mockito.doThrow;
@@ -110,6 +109,40 @@ class JdbcExactlyOnceSinkWriterTest {
                         .getSuppressed()[0]
                         .getMessage()
                         .contains("unable to start xa transaction"));
+        ArgumentCaptor<Xid> recoverExcludeXidCaptor = ArgumentCaptor.forClass(Xid.class);
+        verify(context.xaGroupOps, times(1))
+                .recoverAndRollback(any(), any(), any(), recoverExcludeXidCaptor.capture());
+        Assertions.assertNull(recoverExcludeXidCaptor.getValue());
+    }
+
+    @Test
+    void testPrepareCommitAttachRecoveryFailureWhenRollbackAndRecoveryBothFailed()
+            throws Exception {
+        TestContext context = createWriter();
+
+        doNothing()
+                .doThrow(new RuntimeException("start next tx failed"))
+                .when(context.xaFacade)
+                .start(any());
+        doThrow(new RuntimeException("rollback prepared failed"))
+                .when(context.xaFacade)
+                .rollback(any());
+        doThrow(new RuntimeException("recover failed"))
+                .when(context.xaGroupOps)
+                .recoverAndRollback(any(), any(), any(), any());
+
+        JdbcConnectorException exception =
+                Assertions.assertThrows(
+                        JdbcConnectorException.class, () -> context.writer.prepareCommit(10L));
+
+        Assertions.assertTrue(exception.getMessage().contains("rollback prepared transaction"));
+        Assertions.assertEquals(2, exception.getSuppressed().length);
+        Assertions.assertTrue(
+                exception
+                        .getSuppressed()[0]
+                        .getMessage()
+                        .contains("unable to start xa transaction"));
+        Assertions.assertTrue(exception.getSuppressed()[1].getMessage().contains("recover failed"));
     }
 
     @Test
@@ -144,12 +177,26 @@ class JdbcExactlyOnceSinkWriterTest {
     }
 
     @Test
-    void testTryOpenAlwaysRecoverAndRollbackWhenRecoverStateIsEmpty() throws Exception {
+    void testTryOpenSkipRecoverAndRollbackWhenRecoverStateIsEmpty() throws Exception {
         TestContext context = createWriter();
 
         context.writer.prepareCommit(10L);
 
-        verify(context.xaGroupOps, times(1)).recoverAndRollback(any(), any(), any(), isNull());
+        verify(context.xaGroupOps, never()).recoverAndRollback(any(), any(), any(), any());
+    }
+
+    @Test
+    void testTryOpenRecoverAndRollbackWhenRecoverStatePresent() throws Exception {
+        Xid recoveredStateXid = new TestXid(10L);
+        TestContext context =
+                createWriter(Collections.singletonList(new JdbcSinkState(recoveredStateXid)));
+
+        context.writer.prepareCommit(10L);
+
+        ArgumentCaptor<Xid> excludeXidCaptor = ArgumentCaptor.forClass(Xid.class);
+        verify(context.xaGroupOps, times(1))
+                .recoverAndRollback(any(), any(), any(), excludeXidCaptor.capture());
+        Assertions.assertSame(recoveredStateXid, excludeXidCaptor.getValue());
     }
 
     @Test
