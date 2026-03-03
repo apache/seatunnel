@@ -19,10 +19,14 @@ package org.apache.seatunnel.connectors.seatunnel.rabbitmq.config;
 
 import org.apache.seatunnel.api.configuration.Option;
 import org.apache.seatunnel.api.configuration.Options;
+import org.apache.seatunnel.api.options.ConnectorCommonOptions;
 
+import java.util.List;
 import java.util.Map;
 
 public class RabbitmqSourceOptions extends RabbitmqBaseOptions {
+    public static final Option<List<Map<String, Object>>> TABLE_CONFIGS =
+            ConnectorCommonOptions.TABLE_CONFIGS;
 
     public static final Option<Integer> REQUESTED_CHANNEL_MAX =
             Options.key("requested_channel_max")
@@ -62,10 +66,4 @@ public class RabbitmqSourceOptions extends RabbitmqBaseOptions {
                     .withDescription(
                             "Whether the messages received are supplied with a unique"
                                     + "id to deduplicate messages (in case of failed acknowledgments).");
-
-    public static final Option<Map<String, String>> SCHEMA =
-            Options.key("schema")
-                    .mapType()
-                    .noDefaultValue()
-                    .withDescription("The schema description of the data");
 }

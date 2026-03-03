@@ -6,7 +6,7 @@
  * (the "License"); you may not use this file except in compliance with
  * the License.  You may obtain a copy of the License at
  *
- * http://www.apache.org/licenses/LICENSE-2.0
+ *    http://www.apache.org/licenses/LICENSE-2.0
  *
  * Unless required by applicable law or agreed to in writing, software
  * distributed under the License is distributed on an "AS IS" BASIS,
@@ -17,94 +17,224 @@
 
 package org.apache.seatunnel.connectors.seatunnel.rabbitmq;
 
+import org.apache.seatunnel.api.common.JobContext;
+import org.apache.seatunnel.api.common.SeaTunnelAPIErrorCode;
 import org.apache.seatunnel.api.configuration.ReadonlyConfig;
+import org.apache.seatunnel.api.options.ConnectorCommonOptions;
+import org.apache.seatunnel.api.options.table.TableSchemaOptions;
+import org.apache.seatunnel.api.source.Boundedness;
 import org.apache.seatunnel.api.table.catalog.CatalogTable;
-import org.apache.seatunnel.connectors.seatunnel.rabbitmq.config.RabbitmqSourceOptions;
+import org.apache.seatunnel.common.constants.JobMode;
+import org.apache.seatunnel.connectors.seatunnel.rabbitmq.config.RabbitmqBaseOptions;
+import org.apache.seatunnel.connectors.seatunnel.rabbitmq.exception.RabbitmqConnectorException;
 import org.apache.seatunnel.connectors.seatunnel.rabbitmq.source.RabbitmqSource;
 
 import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.Test;
 
-import java.util.ArrayList;
+import java.util.Arrays;
+import java.util.Collections;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 
 public class RabbitmqSourceTest {
 
+    /**
+     * Test the initialization of the RabbitMQ source with multiple tables. Verifies that: 1. The
+     * correct number of tables is created. 2. Each table has the correct Table Name (based on our
+     * new logic, it should match queue_name). 3. Each table has the correct Schema (columns).
+     */
     @Test
-    public void testSingleTableConfigParsing() {
+    public void testMultiTableInitialization() {
         Map<String, Object> configMap = new HashMap<>();
-        configMap.put("host", "localhost");
-        configMap.put("port", 5672);
-        configMap.put("virtual_host", "/");
-        configMap.put("queue_name", "single_queue");
+        configMap.put(RabbitmqBaseOptions.HOST.key(), "localhost");
+        configMap.put(RabbitmqBaseOptions.PORT.key(), 5672);
 
-        Map<String, Object> schema = new HashMap<>();
-        Map<String, Object> fields = new HashMap<>();
-        fields.put("id", "int");
-        schema.put("fields", fields);
-        configMap.put("schema", schema);
-
-        ReadonlyConfig config = ReadonlyConfig.fromMap(configMap);
-        RabbitmqSource source = new RabbitmqSource(config);
-
-        List<CatalogTable> tables = source.getProducedCatalogTables();
-
-        Assertions.assertEquals(1, tables.size());
-        Assertions.assertEquals(
-                "single_queue",
-                tables.get(0).getOptions().get(RabbitmqSourceOptions.QUEUE_NAME.key()));
-    }
-
-    @Test
-    public void testMultiTableConfigParsing() {
-        Map<String, Object> rootMap = new HashMap<>();
-        rootMap.put("host", "localhost");
-        rootMap.put("port", 5672);
-        rootMap.put("virtual_host", "/");
-
-        List<Map<String, Object>> tablesConfigs = new ArrayList<>();
-
-        // Table 1
+        // 1. Table A Config (User Table)
         Map<String, Object> table1 = new HashMap<>();
-        table1.put("queue_name", "queue_users");
-
+        table1.put("queue_name", "queue_user");
         Map<String, Object> schema1 = new HashMap<>();
-        Map<String, Object> fields1 = new HashMap<>();
-        fields1.put("id", "int");
-        schema1.put("fields", fields1);
+        schema1.put("fields", Collections.singletonMap("username", "string"));
         table1.put("schema", schema1);
-        tablesConfigs.add(table1);
 
-        // Table 2
+        // 2. Table B Config (Order Table)
         Map<String, Object> table2 = new HashMap<>();
-        table2.put("queue_name", "queue_orders");
-
+        table2.put("queue_name", "queue_order");
         Map<String, Object> schema2 = new HashMap<>();
-        Map<String, Object> fields2 = new HashMap<>();
-        fields2.put("order_id", "int");
-        schema2.put("fields", fields2);
+        schema2.put("fields", Collections.singletonMap("amount", "int"));
         table2.put("schema", schema2);
-        tablesConfigs.add(table2);
 
-        rootMap.put("tables_configs", tablesConfigs);
+        configMap.put(TableSchemaOptions.TABLE_CONFIGS.key(), Arrays.asList(table1, table2));
 
-        ReadonlyConfig config = ReadonlyConfig.fromMap(rootMap);
-        RabbitmqSource source = new RabbitmqSource(config);
-
+        RabbitmqSource source = new RabbitmqSource(ReadonlyConfig.fromMap(configMap));
         List<CatalogTable> tables = source.getProducedCatalogTables();
 
+        Assertions.assertNotNull(tables);
         Assertions.assertEquals(2, tables.size());
 
-        String queue1 = tables.get(0).getOptions().get(RabbitmqSourceOptions.QUEUE_NAME.key());
-        String queue2 = tables.get(1).getOptions().get(RabbitmqSourceOptions.QUEUE_NAME.key());
+        // --- Deep Verification ---
+        // Based on our NEW logic, the TableName should equal the queue_name!
+        // Check Table 1
+        CatalogTable t1 = tables.get(0);
+        Assertions.assertEquals("queue_user", t1.getTableId().getTableName());
+        Assertions.assertArrayEquals(
+                new String[] {"username"}, t1.getTableSchema().getFieldNames());
 
-        List<String> queues = new ArrayList<>();
-        queues.add(queue1);
-        queues.add(queue2);
+        // Check Table 2
+        CatalogTable t2 = tables.get(1);
+        Assertions.assertEquals("queue_order", t2.getTableId().getTableName());
+        Assertions.assertArrayEquals(new String[] {"amount"}, t2.getTableSchema().getFieldNames());
+    }
 
-        Assertions.assertTrue(queues.contains("queue_users"));
-        Assertions.assertTrue(queues.contains("queue_orders"));
+    /**
+     * Tests Backward Compatibility (Legacy Mode). Ensures that providing a global queue_name and
+     * schema block results in a single CatalogTable with the correct TableName.
+     */
+    @Test
+    public void testLegacySingleTableInitialization() {
+        Map<String, Object> configMap = new HashMap<>();
+        configMap.put(RabbitmqBaseOptions.HOST.key(), "localhost");
+        configMap.put(RabbitmqBaseOptions.QUEUE_NAME.key(), "legacy_queue");
+
+        Map<String, Object> schemaMap = new HashMap<>();
+        schemaMap.put("fields", Collections.singletonMap("id", "int"));
+
+        configMap.put(ConnectorCommonOptions.SCHEMA.key(), schemaMap);
+
+        RabbitmqSource source = new RabbitmqSource(ReadonlyConfig.fromMap(configMap));
+        List<CatalogTable> tables = source.getProducedCatalogTables();
+
+        Assertions.assertNotNull(tables);
+        Assertions.assertEquals(1, tables.size());
+        // Based on our NEW logic, the TableName should match the global queue_name
+        Assertions.assertEquals("legacy_queue", tables.get(0).getTableId().getTableName());
+    }
+
+    /**
+     * Test Priority: table_configs > schema. If a user accidentally provides BOTH, 'table_configs'
+     * should take precedence and the 'schema' should be ignored.
+     */
+    @Test
+    public void testMixedConfigPrecedence() {
+        Map<String, Object> configMap = new HashMap<>();
+        configMap.put(RabbitmqBaseOptions.HOST.key(), "localhost");
+
+        // Define Table Configs (2 tables)
+        Map<String, Object> table1 = new HashMap<>();
+        table1.put("queue_name", "q1");
+        table1.put(
+                "schema",
+                Collections.singletonMap("fields", Collections.singletonMap("col1", "string")));
+
+        Map<String, Object> table2 = new HashMap<>();
+        table2.put("queue_name", "q2");
+        table2.put(
+                "schema",
+                Collections.singletonMap("fields", Collections.singletonMap("col2", "int")));
+
+        configMap.put(TableSchemaOptions.TABLE_CONFIGS.key(), Arrays.asList(table1, table2));
+
+        // Define Root Schema (Legacy - Should be ignored)
+        Map<String, Object> rootSchema = new HashMap<>();
+        rootSchema.put("fields", Collections.singletonMap("legacy_col", "boolean"));
+        configMap.put(ConnectorCommonOptions.SCHEMA.key(), rootSchema);
+        configMap.put(RabbitmqBaseOptions.QUEUE_NAME.key(), "global_q");
+
+        RabbitmqSource source = new RabbitmqSource(ReadonlyConfig.fromMap(configMap));
+        List<CatalogTable> tables = source.getProducedCatalogTables();
+
+        // Expecting 2 tables from table_configs, ignoring the 3rd one from root schema
+        Assertions.assertEquals(
+                2, tables.size(), "Should prioritize table_configs over root schema");
+        Assertions.assertEquals("q1", tables.get(0).getTableId().getTableName());
+        Assertions.assertEquals("q2", tables.get(1).getTableId().getTableName());
+    }
+
+    /**
+     * Tests that the Source throws an exception if configured for BATCH mode, as RabbitMQ is
+     * inherently unbounded (Streaming) unless specific for_e2e_testing flag is true.
+     */
+    @Test
+    public void testBatchJobModeFailure() {
+        Map<String, Object> configMap = new HashMap<>();
+        configMap.put(RabbitmqBaseOptions.HOST.key(), "localhost");
+        configMap.put(
+                RabbitmqBaseOptions.QUEUE_NAME.key(), "test_queue"); // Added to avoid missing ID
+        Map<String, Object> schema = new HashMap<>();
+        schema.put("fields", Collections.singletonMap("id", "int"));
+        configMap.put("schema", schema);
+
+        RabbitmqSource source = new RabbitmqSource(ReadonlyConfig.fromMap(configMap));
+
+        JobContext batchContext = new JobContext();
+        batchContext.setJobMode(JobMode.BATCH);
+        source.setJobContext(batchContext);
+
+        // Expect RabbitmqConnectorException because Batch is not supported
+        RabbitmqConnectorException exception =
+                Assertions.assertThrows(RabbitmqConnectorException.class, source::getBoundedness);
+
+        Assertions.assertEquals(
+                SeaTunnelAPIErrorCode.CONFIG_VALIDATION_FAILED, exception.getSeaTunnelErrorCode());
+    }
+
+    /** Tests the correctness of metadata and boundedness in Streaming mode. */
+    @Test
+    public void testSourceMetadataAndBoundedness() {
+        Map<String, Object> configMap = new HashMap<>();
+        configMap.put(RabbitmqBaseOptions.HOST.key(), "localhost");
+        configMap.put(
+                RabbitmqBaseOptions.QUEUE_NAME.key(), "test_queue"); // Added to avoid missing ID
+        Map<String, Object> schema = new HashMap<>();
+        schema.put("fields", Collections.singletonMap("id", "int"));
+        configMap.put("schema", schema);
+
+        RabbitmqSource source = new RabbitmqSource(ReadonlyConfig.fromMap(configMap));
+
+        JobContext context = new JobContext();
+        context.setJobMode(JobMode.STREAMING);
+        source.setJobContext(context);
+
+        Assertions.assertEquals(Boundedness.UNBOUNDED, source.getBoundedness());
+        Assertions.assertEquals("RabbitMQ", source.getPluginName());
+    }
+
+    /**
+     * Test Fallback Scenario: Missing 'queue_name' in table config. This test verifies that if a
+     * user forgets to specify a 'queue_name' inside 'table_configs', the Source correctly falls
+     * back to the global queue_name to build the CatalogTable.
+     */
+    @Test
+    public void testTableConfigWithoutQueueName() {
+        Map<String, Object> configMap = new HashMap<>();
+        configMap.put(RabbitmqBaseOptions.HOST.key(), "localhost");
+        configMap.put(RabbitmqBaseOptions.PORT.key(), 5672);
+
+        // Define a Global Queue (This acts as the fallback)
+        configMap.put(RabbitmqBaseOptions.QUEUE_NAME.key(), "global_default_queue");
+
+        // Define a Table Config that relies on the global queue (NO 'queue_name' key here)
+        Map<String, Object> table1 = new HashMap<>();
+
+        // Setup Schema
+        Map<String, Object> schema1 = new HashMap<>();
+        schema1.put("fields", Collections.singletonMap("id", "int"));
+        table1.put("schema", schema1);
+
+        // Add to config
+        configMap.put(TableSchemaOptions.TABLE_CONFIGS.key(), Collections.singletonList(table1));
+
+        // Create Source
+        RabbitmqSource source = new RabbitmqSource(ReadonlyConfig.fromMap(configMap));
+        List<CatalogTable> tables = source.getProducedCatalogTables();
+
+        // Verifications
+        Assertions.assertNotNull(tables);
+        Assertions.assertEquals(1, tables.size());
+
+        CatalogTable t1 = tables.get(0);
+        // It should have fallen back to the global queue name!
+        Assertions.assertEquals("global_default_queue", t1.getTableId().getTableName());
     }
 }

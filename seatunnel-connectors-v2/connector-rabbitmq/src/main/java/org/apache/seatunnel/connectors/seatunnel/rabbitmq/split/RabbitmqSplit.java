@@ -20,32 +20,37 @@ package org.apache.seatunnel.connectors.seatunnel.rabbitmq.split;
 import org.apache.seatunnel.api.source.SourceSplit;
 
 import lombok.AllArgsConstructor;
+import lombok.EqualsAndHashCode;
 import lombok.Getter;
 import lombok.Setter;
 
-import java.util.Collections;
 import java.util.List;
 import java.util.Set;
 
 @Getter
+@EqualsAndHashCode
 @Setter
 @AllArgsConstructor
 public class RabbitmqSplit implements SourceSplit {
     private static final long serialVersionUID = -678845022239224163L;
     private String splitId;
-    private final String queueName;
     private List<Long> deliveryTags;
     private Set<String> correlationIds;
 
-    public RabbitmqSplit(String splitId, String queueName) {
+    /**
+     * Constructor used during the split discovery phase.
+     *
+     * @param splitId A unique identifier for this split (synchronized with queueName for
+     *     multi-table).
+     */
+    public RabbitmqSplit(String splitId) {
         this.splitId = splitId;
-        this.queueName = queueName;
-        this.deliveryTags = Collections.emptyList();
-        this.correlationIds = Collections.emptySet();
+        this.deliveryTags = null;
+        this.correlationIds = null;
     }
 
     @Override
     public String splitId() {
-        return queueName;
+        return splitId;
     }
 }

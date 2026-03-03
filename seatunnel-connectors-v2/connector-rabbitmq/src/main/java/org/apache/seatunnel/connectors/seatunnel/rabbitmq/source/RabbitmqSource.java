@@ -28,17 +28,17 @@ import org.apache.seatunnel.api.source.SourceSplitEnumerator;
 import org.apache.seatunnel.api.source.SupportParallelism;
 import org.apache.seatunnel.api.table.catalog.CatalogTable;
 import org.apache.seatunnel.api.table.catalog.CatalogTableUtil;
+import org.apache.seatunnel.api.table.catalog.TableIdentifier;
 import org.apache.seatunnel.api.table.type.SeaTunnelRow;
 import org.apache.seatunnel.common.constants.JobMode;
 import org.apache.seatunnel.common.constants.PluginType;
+import org.apache.seatunnel.connectors.seatunnel.rabbitmq.config.RabbitmqBaseOptions;
 import org.apache.seatunnel.connectors.seatunnel.rabbitmq.config.RabbitmqConfig;
-import org.apache.seatunnel.connectors.seatunnel.rabbitmq.config.RabbitmqSourceOptions;
 import org.apache.seatunnel.connectors.seatunnel.rabbitmq.exception.RabbitmqConnectorException;
 import org.apache.seatunnel.connectors.seatunnel.rabbitmq.split.RabbitmqSplit;
 import org.apache.seatunnel.connectors.seatunnel.rabbitmq.split.RabbitmqSplitEnumeratorState;
 
 import java.util.ArrayList;
-import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 
@@ -47,77 +47,70 @@ public class RabbitmqSource
                 SupportParallelism {
 
     private JobContext jobContext;
-    private final RabbitmqConfig rabbitMQConfig;
+    private final RabbitmqConfig rabbitmqConfig;
     private final List<CatalogTable> catalogTables;
 
     public RabbitmqSource(ReadonlyConfig config) {
-        this.rabbitMQConfig = new RabbitmqConfig(config);
-        this.catalogTables = new ArrayList<>();
+        this.rabbitmqConfig = new RabbitmqConfig(config);
+        this.catalogTables = initializeCatalogTables(config);
+    }
 
+    private List<CatalogTable> initializeCatalogTables(ReadonlyConfig config) {
+        List<CatalogTable> tables = new ArrayList<>();
+
+        // Multi-table configuration
         if (config.getOptional(ConnectorCommonOptions.TABLE_CONFIGS).isPresent()) {
-            List<Map<String, Object>> tableConfigs =
+            List<Map<String, Object>> tableConfigList =
                     config.get(ConnectorCommonOptions.TABLE_CONFIGS);
-            for (Map<String, Object> configMap : tableConfigs) {
-                Map<String, Object> mutableConfigMap = new HashMap<>(configMap);
-
-                String queueName =
-                        (String) mutableConfigMap.get(RabbitmqSourceOptions.QUEUE_NAME.key());
-
-                if (mutableConfigMap.containsKey("schema")) {
-                    Object schemaObj = mutableConfigMap.get("schema");
-                    if (schemaObj instanceof Map) {
-                        Map<String, Object> schemaMap = (Map<String, Object>) schemaObj;
-                        if (!schemaMap.containsKey("table") && queueName != null) {
-                            Map<String, Object> mutableSchemaMap = new HashMap<>(schemaMap);
-                            mutableSchemaMap.put("table", queueName);
-                            mutableConfigMap.put("schema", mutableSchemaMap);
-                        }
-                    }
-                }
-                ReadonlyConfig tableConfig = ReadonlyConfig.fromMap(mutableConfigMap);
-                CatalogTable table = CatalogTableUtil.buildWithConfig(tableConfig);
-                Map<String, String> options = new HashMap<>(table.getOptions());
-
-                if (tableConfig.getOptional(RabbitmqSourceOptions.QUEUE_NAME).isPresent()) {
-                    options.put(
-                            RabbitmqSourceOptions.QUEUE_NAME.key(),
-                            tableConfig.get(RabbitmqSourceOptions.QUEUE_NAME));
-                }
-                this.catalogTables.add(
-                        CatalogTable.of(
-                                table.getTableId(),
-                                table.getTableSchema(),
-                                options,
-                                table.getPartitionKeys(),
-                                table.getComment()));
+            for (Map<String, Object> item : tableConfigList) {
+                ReadonlyConfig tableConfig = ReadonlyConfig.fromMap(item);
+                // We use our helper to ensure the TableIdentifier matches the queue name
+                tables.add(buildCatalogTableWithCorrectId(tableConfig));
             }
-        } else {
-            CatalogTable table = CatalogTableUtil.buildWithConfig(config);
-            Map<String, String> options = new HashMap<>(table.getOptions());
-            options.put(
-                    RabbitmqSourceOptions.QUEUE_NAME.key(),
-                    config.get(RabbitmqSourceOptions.QUEUE_NAME));
-
-            this.catalogTables.add(
-                    CatalogTable.of(
-                            table.getTableId(),
-                            table.getTableSchema(),
-                            options,
-                            table.getPartitionKeys(),
-                            table.getComment()));
         }
+        // Legacy Single-table configuration
+        else if (config.getOptional(ConnectorCommonOptions.SCHEMA).isPresent()) {
+            tables.add(buildCatalogTableWithCorrectId(config));
+        } else {
+            throw new RabbitmqConnectorException(
+                    SeaTunnelAPIErrorCode.CONFIG_VALIDATION_FAILED,
+                    "No 'schema' or 'table_configs' found. Please configure at least one table.");
+        }
+        return tables;
+    }
+
+    /**
+     * Helper method to build a CatalogTable where the TableName is explicitly set to the
+     * queue_name. This prevents the "default" name issue.
+     */
+    private CatalogTable buildCatalogTableWithCorrectId(ReadonlyConfig config) {
+        CatalogTable table = CatalogTableUtil.buildWithConfig(config);
+        String queueName = config.get(RabbitmqBaseOptions.QUEUE_NAME);
+
+        // If queue_name is missing in this block, fallback to global config
+        if (queueName == null || queueName.isEmpty()) {
+            queueName = rabbitmqConfig.getQueueName();
+        }
+
+        // Reconstruct the CatalogTable with the queue name as the Table Name
+        return CatalogTable.of(
+                TableIdentifier.of("rabbitmq", "default", queueName),
+                table.getTableSchema(),
+                table.getOptions(),
+                table.getPartitionKeys(),
+                table.getComment());
     }
 
     @Override
     public Boundedness getBoundedness() {
-        if (!JobMode.STREAMING.equals(jobContext.getJobMode())) {
+        if (jobContext != null && !JobMode.STREAMING.equals(jobContext.getJobMode())) {
             throw new RabbitmqConnectorException(
                     SeaTunnelAPIErrorCode.CONFIG_VALIDATION_FAILED,
                     String.format(
                             "PluginName: %s, PluginType: %s, Message: %s",
                             getPluginName(), PluginType.SOURCE, "not support batch job mode"));
         }
-        return rabbitMQConfig.isForE2ETesting() ? Boundedness.BOUNDED : Boundedness.UNBOUNDED;
+        return rabbitmqConfig.isForE2ETesting() ? Boundedness.BOUNDED : Boundedness.UNBOUNDED;
     }
 
     @Override
@@ -133,13 +126,14 @@ public class RabbitmqSource
     @Override
     public SourceReader<SeaTunnelRow, RabbitmqSplit> createReader(
             SourceReader.Context readerContext) throws Exception {
-        return new RabbitmqSourceReader(catalogTables, readerContext, rabbitMQConfig);
+        return new RabbitmqSourceReader(catalogTables, readerContext, rabbitmqConfig);
     }
 
     @Override
     public SourceSplitEnumerator<RabbitmqSplit, RabbitmqSplitEnumeratorState> createEnumerator(
             SourceSplitEnumerator.Context<RabbitmqSplit> enumeratorContext) throws Exception {
-        return new RabbitmqSplitEnumerator(enumeratorContext, catalogTables);
+        return new RabbitmqSplitEnumerator(
+                enumeratorContext, rabbitmqConfig, getProducedCatalogTables());
     }
 
     @Override
@@ -147,7 +141,8 @@ public class RabbitmqSource
             SourceSplitEnumerator.Context<RabbitmqSplit> enumeratorContext,
             RabbitmqSplitEnumeratorState checkpointState)
             throws Exception {
-        return new RabbitmqSplitEnumerator(enumeratorContext, catalogTables);
+        return new RabbitmqSplitEnumerator(
+                enumeratorContext, rabbitmqConfig, catalogTables, checkpointState);
     }
 
     @Override

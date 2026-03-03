@@ -17,8 +17,11 @@
 
 package org.apache.seatunnel.connectors.seatunnel.rabbitmq.source;
 
+import lombok.extern.slf4j.Slf4j;
 import org.apache.seatunnel.api.source.SourceSplitEnumerator;
 import org.apache.seatunnel.api.table.catalog.CatalogTable;
+import org.apache.seatunnel.connectors.seatunnel.rabbitmq.config.RabbitmqBaseOptions;
+import org.apache.seatunnel.connectors.seatunnel.rabbitmq.config.RabbitmqConfig;
 import org.apache.seatunnel.connectors.seatunnel.rabbitmq.split.RabbitmqSplit;
 import org.apache.seatunnel.connectors.seatunnel.rabbitmq.split.RabbitmqSplitEnumeratorState;
 
@@ -28,26 +31,63 @@ import org.slf4j.LoggerFactory;
 import java.io.IOException;
 import java.util.ArrayList;
 import java.util.Collections;
-import java.util.HashMap;
+import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
-import java.util.concurrent.ConcurrentLinkedQueue;
-
+import java.util.concurrent.ConcurrentHashMap;
+@Slf4j
 public class RabbitmqSplitEnumerator
         implements SourceSplitEnumerator<RabbitmqSplit, RabbitmqSplitEnumeratorState> {
 
-    private static final Logger log = LoggerFactory.getLogger(RabbitmqSplitEnumerator.class);
-    private final Context<RabbitmqSplit> context;
-    private final List<CatalogTable> catalogTables;
-    private final ConcurrentLinkedQueue<RabbitmqSplit> pendingSplits;
-    private final Object lock = new Object();
+    private final SourceSplitEnumerator.Context<RabbitmqSplit> context;
+    private final Map<String, RabbitmqSplit> pendingSplits = new ConcurrentHashMap<>();
+    private final Object stateLock = new Object();
+    private final Set<Integer> assignedReaders = Collections.synchronizedSet(new HashSet<>());
 
     public RabbitmqSplitEnumerator(
-            Context<RabbitmqSplit> context, List<CatalogTable> catalogTables) {
+            SourceSplitEnumerator.Context<RabbitmqSplit> context,
+            RabbitmqConfig rabbitmqConfig,
+            List<CatalogTable> tables) {
         this.context = context;
-        this.catalogTables = catalogTables;
-        this.pendingSplits = new ConcurrentLinkedQueue<>();
+        this.initializeSplits(rabbitmqConfig, tables);
+    }
+
+    private void initializeSplits(RabbitmqConfig rabbitmqConfig, List<CatalogTable> tables) {
+        for (CatalogTable table : tables) {
+            String queueName = table.getTableId().getTableName();
+            if (queueName == null || queueName.isEmpty()) {
+                if (table.getOptions() != null) {
+                    queueName = table.getOptions().get(RabbitmqBaseOptions.QUEUE_NAME.key());
+                }
+            }
+            if (queueName == null || queueName.isEmpty()) {
+                queueName = rabbitmqConfig.getQueueName();
+            }
+            if (queueName != null
+                    && !queueName.isEmpty()
+                    && !pendingSplits.containsKey(queueName)) {
+                log.info("Discovered queue for processing: {}", queueName);
+                pendingSplits.put(queueName, new RabbitmqSplit(queueName));
+            }
+        }
+    }
+
+    public RabbitmqSplitEnumerator(
+            SourceSplitEnumerator.Context<RabbitmqSplit> context,
+            RabbitmqConfig rabbitmqConfig,
+            List<CatalogTable> tables,
+            RabbitmqSplitEnumeratorState checkpointState) {
+        this(context, rabbitmqConfig, tables);
+
+        if (checkpointState != null) {
+            // Future logic: restore splits form state if needed
+        }
+    }
+
+    @Override
+    public void run() {
+        assignSplitsToReaders();
     }
 
     @Override
@@ -55,72 +95,33 @@ public class RabbitmqSplitEnumerator
         // do nothing
     }
 
-    @Override
-    public void run() throws Exception {
-        Set<RabbitmqSplit> discovered = discoverSplits();
-        if (!discovered.isEmpty()) {
-            pendingSplits.addAll(discovered);
-            assignSplits();
-        } else {
-            log.warn("RUN WARNING: No splits were discovered! Check your config.");
-        }
-    }
-
-    private Set<RabbitmqSplit> discoverSplits() {
-        Set<RabbitmqSplit> splits = Collections.newSetFromMap(new HashMap<>());
-
-        if (catalogTables == null || catalogTables.isEmpty()) {
-            log.error("CRITICAL: No catalog tables provided to Enumerator!");
-            return splits;
-        }
-
-        log.info("Enumerator starting discovery on {} tables...", catalogTables.size());
-
-        int tableIndex = 0;
-        for (CatalogTable table : catalogTables) {
-            tableIndex++;
-            Map<String, String> options = table.getOptions();
-
-            log.info("--- Table #{} Options Dump ---", tableIndex);
-            for (Map.Entry<String, String> entry : options.entrySet()) {
-                log.info("   Key: '{}', Value: '{}'", entry.getKey(), entry.getValue());
-            }
-            String queueName = options.get("queue_name");
-            if (queueName == null) {
-                queueName = options.get("rabbitmq.queue.name");
-            }
-            if (queueName != null) {
-                log.info(">>> SUCCESS: Discovered queue '{}' for table #{}", queueName, tableIndex);
-                splits.add(new RabbitmqSplit(queueName, queueName));
-            } else {
-                log.error(
-                        ">>> FAILURE: Could not find 'queue_name' in Table #{} options!",
-                        tableIndex);
-            }
-        }
-
-        log.info("Discovery finished. Found {} total splits.", splits.size());
-        return splits;
-    }
-
-    private void assignSplits() {
-        synchronized (lock) {
-            if (context.registeredReaders().isEmpty()) {
-                log.info("No readers registered yet. Splits will be assigned later.");
+    private void assignSplitsToReaders() {
+        synchronized (stateLock) {
+            Set<Integer> registeredReaders = context.registeredReaders();
+            if (registeredReaders.isEmpty()) {
                 return;
             }
+            if (!pendingSplits.isEmpty()) {
+                List<String> splitIds = new ArrayList<>(pendingSplits.keySet());
+                int numReaders = registeredReaders.size();
+                List<Integer> readersList = new ArrayList<>(registeredReaders);
+                Collections.sort(readersList);
 
-            int readerId = 0;
+                for (int i = 0; i < splitIds.size(); i++) {
+                    String splitId = splitIds.get(i);
+                    int readerId = readersList.get(i % numReaders);
 
-            List<RabbitmqSplit> splitsToAssign = new ArrayList<>();
-            while (!pendingSplits.isEmpty()) {
-                splitsToAssign.add(pendingSplits.poll());
+                    RabbitmqSplit split = pendingSplits.remove(splitId);
+                    if (split != null) {
+                        context.assignSplit(readerId, split);
+                        log.info("Assigned split {} to reader {}", splitId, readerId);
+                    }
+                }
             }
-
-            if (!splitsToAssign.isEmpty()) {
-                log.info("Assigning {} splits to reader {}", splitsToAssign.size(), readerId);
-                context.assignSplit(readerId, splitsToAssign);
-                context.signalNoMoreSplits(readerId);
+            if (pendingSplits.isEmpty()) {
+                for (int readerId : registeredReaders) {
+                    context.signalNoMoreSplits(readerId);
+                }
             }
         }
     }
@@ -132,12 +133,13 @@ public class RabbitmqSplitEnumerator
 
     @Override
     public void addSplitsBack(List<RabbitmqSplit> splits, int subtaskId) {
-        synchronized (lock) {
-            if (splits != null) {
-                pendingSplits.addAll(splits);
-                assignSplits();
+        log.info("Splits returned from reader {}: {}", subtaskId, splits);
+        synchronized (stateLock) {
+            for (RabbitmqSplit split : splits) {
+                pendingSplits.put(split.splitId(), split);
             }
         }
+        assignSplitsToReaders();
     }
 
     @Override
@@ -152,8 +154,9 @@ public class RabbitmqSplitEnumerator
 
     @Override
     public void registerReader(int subtaskId) {
-        log.info("Reader {} registered. Checking for pending splits...", subtaskId);
-        assignSplits();
+        log.info("Reader {} registered", subtaskId);
+        assignedReaders.add(subtaskId);
+        assignSplitsToReaders();
     }
 
     @Override

@@ -18,7 +18,6 @@
 package org.apache.seatunnel.connectors.seatunnel.rabbitmq.source;
 
 import org.apache.seatunnel.api.configuration.util.OptionRule;
-import org.apache.seatunnel.api.options.ConnectorCommonOptions;
 import org.apache.seatunnel.api.source.SeaTunnelSource;
 import org.apache.seatunnel.api.source.SourceSplit;
 import org.apache.seatunnel.api.table.connector.TableSource;
@@ -42,13 +41,11 @@ public class RabbitmqSourceFactory implements TableSourceFactory {
     @Override
     public OptionRule optionRule() {
         return OptionRule.builder()
-                .required(
-                        RabbitmqSourceOptions.HOST,
-                        RabbitmqSourceOptions.PORT,
-                        RabbitmqSourceOptions.VIRTUAL_HOST)
+                .required(RabbitmqSourceOptions.HOST, RabbitmqSourceOptions.PORT)
                 .bundled(RabbitmqSourceOptions.USERNAME, RabbitmqSourceOptions.PASSWORD)
-                .exclusive(ConnectorCommonOptions.TABLE_CONFIGS, RabbitmqSourceOptions.QUEUE_NAME)
+                .exclusive(RabbitmqSourceOptions.TABLE_CONFIGS, RabbitmqSourceOptions.QUEUE_NAME)
                 .optional(
+                        RabbitmqSourceOptions.VIRTUAL_HOST,
                         RabbitmqSourceOptions.URL,
                         RabbitmqSourceOptions.ROUTING_KEY,
                         RabbitmqSourceOptions.EXCHANGE,

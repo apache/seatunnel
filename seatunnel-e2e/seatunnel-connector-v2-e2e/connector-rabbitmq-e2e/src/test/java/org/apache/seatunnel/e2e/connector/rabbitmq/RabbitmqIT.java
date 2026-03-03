@@ -26,9 +26,9 @@ import org.apache.seatunnel.api.table.type.PrimitiveByteArrayType;
 import org.apache.seatunnel.api.table.type.SeaTunnelDataType;
 import org.apache.seatunnel.api.table.type.SeaTunnelRow;
 import org.apache.seatunnel.api.table.type.SeaTunnelRowType;
-import org.apache.seatunnel.common.Handover;
 import org.apache.seatunnel.connectors.seatunnel.rabbitmq.client.RabbitmqClient;
 import org.apache.seatunnel.connectors.seatunnel.rabbitmq.config.RabbitmqConfig;
+import org.apache.seatunnel.connectors.seatunnel.rabbitmq.source.DeliveryMessage;
 import org.apache.seatunnel.e2e.common.TestResource;
 import org.apache.seatunnel.e2e.common.TestSuiteBase;
 import org.apache.seatunnel.e2e.common.container.TestContainer;
@@ -49,7 +49,6 @@ import org.testcontainers.utility.DockerLoggerFactory;
 
 import com.rabbitmq.client.Connection;
 import com.rabbitmq.client.DefaultConsumer;
-import com.rabbitmq.client.Delivery;
 import lombok.extern.slf4j.Slf4j;
 
 import java.io.IOException;
@@ -62,8 +61,10 @@ import java.util.ArrayList;
 import java.util.Collections;
 import java.util.HashSet;
 import java.util.List;
-import java.util.Optional;
 import java.util.Set;
+import java.util.concurrent.BlockingQueue;
+import java.util.concurrent.LinkedBlockingQueue;
+import java.util.concurrent.TimeUnit;
 import java.util.stream.Stream;
 
 @Slf4j
@@ -210,39 +211,42 @@ public class RabbitmqIT extends TestSuiteBase implements TestResource {
         RabbitmqClient sourceClient = this.getRabbitmqClient(sourceQueueName);
         // send data to source queue before executeJob start in every testContainer
         initSourceData(sourceClient);
-
+        Thread.sleep(3000);
         // init consumer client before executeJob start in every testContainer
         RabbitmqClient sinkRabbitmqClient = getRabbitmqClient(sinkQueueName);
 
-        Set<String> resultSet = new HashSet<>();
-        Handover handover = new Handover<>();
-        DefaultConsumer consumer = sinkRabbitmqClient.getQueueingConsumer(handover);
+        // Use BlockingQueue instead of Handover to match the new optimized connector architecture
+        BlockingQueue<DeliveryMessage> queue = new LinkedBlockingQueue<>();
+        DefaultConsumer consumer = sinkRabbitmqClient.getQueueingConsumer(queue, sinkQueueName);
+
+        // Start consuming BEFORE executing the job.
+        // This ensures the test consumer is ready to catch messages even if Flink finishes
+        // instantly.
         sinkRabbitmqClient.getChannel().basicConsume(sinkQueueName, true, consumer);
         // assert execute Job code
         Container.ExecResult execResult = container.executeJob("/rabbitmq-to-rabbitmq.conf");
         Assertions.assertEquals(0, execResult.getExitCode());
+        Set<String> resultSet = new HashSet<>();
         // consume data when every  testContainer finished
         // try to poll five times
-        for (int i = 0; i < 5; i++) {
-            Optional<Delivery> deliveryOptional = handover.pollNext();
-            if (deliveryOptional.isPresent()) {
-                Delivery delivery = deliveryOptional.get();
-                byte[] body = delivery.getBody();
-                resultSet.add(new String(body));
+        for (int i = 0; i < 10; i++) {
+            DeliveryMessage msg = queue.poll(15, TimeUnit.SECONDS);
+            if (msg != null && msg.getDelivery() != null) {
+                byte[] body = msg.getDelivery().getBody();
+                String content = new String(body);
+                resultSet.add(content);
             }
         }
         // close to prevent rabbitmq client consumer in the next TestContainer to consume
         sinkRabbitmqClient.close();
         // assert source and sink data
         Assertions.assertTrue(resultSet.size() > 0);
+        // Verify against the test dataset
         Assertions.assertTrue(
-                resultSet.stream()
-                        .findAny()
-                        .get()
-                        .equals(
-                                new String(
-                                        JSON_SERIALIZATION_SCHEMA.serialize(
-                                                TEST_DATASET.getValue().get(1)))));
+                resultSet.contains(
+                        new String(
+                                JSON_SERIALIZATION_SCHEMA.serialize(
+                                        TEST_DATASET.getValue().get(1)))));
     }
 
     @TestTemplate
@@ -255,17 +259,56 @@ public class RabbitmqIT extends TestSuiteBase implements TestResource {
 
         // init consumer client before executeJob start in every testContainer
         RabbitmqClient sinkRabbitmqClient = getRabbitmqClient(sinkQueueName);
+        BlockingQueue<DeliveryMessage> queue = new LinkedBlockingQueue<>();
+        DefaultConsumer consumer = sinkRabbitmqClient.getQueueingConsumer(queue, sinkQueueName);
 
-        Handover handover = new Handover<>();
-        DefaultConsumer consumer = sinkRabbitmqClient.getQueueingConsumer(handover);
+        // Pre-start consumption to prevent message loss in fast-finishing Batch jobs
         sinkRabbitmqClient.getChannel().basicConsume(sinkQueueName, true, consumer);
-        // assert execute Job code
-        Container.ExecResult execResult = null;
-        try {
-            execResult = container.executeJob("/rabbitmq-to-rabbitmq-using-default-config.conf");
-        } catch (IOException | InterruptedException e) {
-            throw new RuntimeException(e);
-        }
+
+        Container.ExecResult execResult =
+                container.executeJob("/rabbitmq-to-rabbitmq-using-default-config.conf");
         Assertions.assertEquals(0, execResult.getExitCode());
+
+        sinkRabbitmqClient.close();
+    }
+
+    @TestTemplate
+    public void testRabbitMQMultiTableE2E(TestContainer container) throws Exception {
+        // Multi-table E2E test: verifies different schemas across multiple queues
+        SeaTunnelRowType type1 =
+                new SeaTunnelRowType(
+                        new String[] {"id", "name"},
+                        new SeaTunnelDataType[] {BasicType.LONG_TYPE, BasicType.STRING_TYPE});
+        SeaTunnelRowType type2 =
+                new SeaTunnelRowType(
+                        new String[] {"id", "age"},
+                        new SeaTunnelDataType[] {BasicType.LONG_TYPE, BasicType.INT_TYPE});
+
+        sendData("multi_table_1", type1, 10);
+        sendData("multi_table_2", type2, 10);
+        Thread.sleep(3000);
+        // The .conf uses Assert Sink to verify that total 20 rows are processed across all tables
+        Container.ExecResult execResult = container.executeJob("/rabbitmq_multitable.conf");
+        Assertions.assertEquals(0, execResult.getExitCode());
+    }
+
+    private void sendData(String queueName, SeaTunnelRowType rowType, int count)
+            throws IOException {
+        try (RabbitmqClient client = getRabbitmqClient(queueName)) {
+            JsonSerializationSchema serializer = new JsonSerializationSchema(rowType);
+            for (int i = 0; i < count; i++) {
+                Object[] fields = new Object[rowType.getTotalFields()];
+                fields[0] = (long) i;
+
+                String fieldName = rowType.getFieldNames()[1];
+                if ("name".equals(fieldName)) {
+                    fields[1] = "user_" + i;
+                } else {
+                    fields[1] = 20 + i;
+                }
+
+                client.write(serializer.serialize(new SeaTunnelRow(fields)));
+            }
+        }
     }
 }

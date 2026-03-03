@@ -17,8 +17,8 @@
 
 package org.apache.seatunnel.connectors.seatunnel.rabbitmq.client;
 
-import org.apache.seatunnel.common.Handover;
 import org.apache.seatunnel.connectors.seatunnel.rabbitmq.exception.RabbitmqConnectorException;
+import org.apache.seatunnel.connectors.seatunnel.rabbitmq.source.DeliveryMessage;
 
 import com.rabbitmq.client.AMQP;
 import com.rabbitmq.client.Channel;
@@ -32,27 +32,25 @@ import lombok.SneakyThrows;
 import lombok.extern.slf4j.Slf4j;
 
 import java.io.IOException;
+import java.util.concurrent.BlockingQueue;
 
 import static org.apache.seatunnel.connectors.seatunnel.rabbitmq.exception.RabbitmqConnectorErrorCode.HANDLE_SHUTDOWN_SIGNAL_FAILED;
 
 @Slf4j
 public class QueueingConsumer extends DefaultConsumer {
-    private final Handover<Delivery> handover;
+    private final BlockingQueue<DeliveryMessage> queue;
+    private final String splitId;
 
     // When this is non-null the queue is in shutdown mode and nextDelivery should
     // throw a shutdown signal exception.
     private volatile ShutdownSignalException shutdown;
     private volatile ConsumerCancelledException cancelled;
+    private static final DeliveryMessage POISON = new DeliveryMessage(null, null);
 
-    private static final Delivery POISON = new Delivery(null, null, null);
-
-    public QueueingConsumer(Channel channel, Handover<Delivery> handover) {
-        this(channel, Integer.MAX_VALUE, handover);
-    }
-
-    public QueueingConsumer(Channel channel, int capacity, Handover<Delivery> handover) {
+    public QueueingConsumer(Channel channel, BlockingQueue<DeliveryMessage> queue, String splitId) {
         super(channel);
-        this.handover = handover;
+        this.queue = queue;
+        this.splitId = splitId;
     }
 
     private void checkShutdown() {
@@ -65,8 +63,9 @@ public class QueueingConsumer extends DefaultConsumer {
     public void handleShutdownSignal(String consumerTag, ShutdownSignalException sig) {
         shutdown = sig;
         try {
-            handover.produce(POISON);
-        } catch (InterruptedException | Handover.ClosedException e) {
+            queue.put(POISON);
+        } catch (InterruptedException e) {
+            Thread.currentThread().interrupt();
             throw new RabbitmqConnectorException(HANDLE_SHUTDOWN_SIGNAL_FAILED, e);
         }
     }
@@ -75,7 +74,7 @@ public class QueueingConsumer extends DefaultConsumer {
     @Override
     public void handleCancel(String consumerTag) throws IOException {
         cancelled = new ConsumerCancelledException();
-        handover.produce(POISON);
+        queue.put(POISON);
     }
 
     @SneakyThrows
@@ -84,6 +83,8 @@ public class QueueingConsumer extends DefaultConsumer {
             String consumerTag, Envelope envelope, AMQP.BasicProperties properties, byte[] body)
             throws IOException {
         checkShutdown();
-        handover.produce(new Delivery(envelope, properties, body));
+        Delivery delivery = new Delivery(envelope, properties, body);
+        DeliveryMessage message = new DeliveryMessage(this.splitId, delivery);
+        queue.put(message);
     }
 }

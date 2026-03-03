@@ -64,7 +64,9 @@ public class RabbitmqConfig implements Serializable {
     public RabbitmqConfig(ReadonlyConfig config) {
         this.host = config.get(RabbitmqBaseOptions.HOST);
         this.port = config.get(RabbitmqBaseOptions.PORT);
-        this.queueName = config.getOptional(RabbitmqBaseOptions.QUEUE_NAME).orElse(null);
+        if (config.getOptional(RabbitmqBaseOptions.QUEUE_NAME).isPresent()) {
+            this.queueName = config.get(RabbitmqBaseOptions.QUEUE_NAME);
+        }
         if (config.getOptional(RabbitmqBaseOptions.USERNAME).isPresent()) {
             this.username = config.get(RabbitmqBaseOptions.USERNAME);
         }
@@ -117,6 +119,11 @@ public class RabbitmqConfig implements Serializable {
         this.durable = config.get(RabbitmqBaseOptions.DURABLE);
         this.exclusive = config.get(RabbitmqBaseOptions.EXCLUSIVE);
         this.autoDelete = config.get(RabbitmqBaseOptions.AUTO_DELETE);
-        this.sinkOptionProps = config.get(RabbitmqSinkOptions.RABBITMQ_CONFIG);
+        if (config.getOptional(RabbitmqSinkOptions.RABBITMQ_CONFIG).isPresent()) {
+            this.sinkOptionProps = config.get(RabbitmqSinkOptions.RABBITMQ_CONFIG);
+        }
+        if (config.getOptional(RabbitmqBaseOptions.URL).isPresent()) {
+            this.uri = config.get(RabbitmqBaseOptions.URL);
+        }
     }
 }
