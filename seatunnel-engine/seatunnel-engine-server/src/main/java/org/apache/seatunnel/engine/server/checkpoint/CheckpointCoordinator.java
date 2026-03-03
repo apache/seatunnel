@@ -503,7 +503,7 @@ public class CheckpointCoordinator {
      * @return an array of {@code InvocationFuture} instances corresponding to the
      *         asynchronous start operations for each pipeline subtask
      */
-    public InvocationFuture<?>[] notifyTaskStart() {
+
     public InvocationFuture<?>[] notifyTaskStart() {
         return plan.getPipelineSubtasks().stream()
                 .map(NotifyTaskStartOperation::new)
@@ -1096,7 +1096,7 @@ public class CheckpointCoordinator {
      * @param ackOperation the acknowledgment operation containing the
      *                     checkpoint barrier, task location, and state snapshot
      */
-    protected void acknowledgeTask(TaskAcknowledgeOperation ackOperation) {
+
     protected void acknowledgeTask(TaskAcknowledgeOperation ackOperation) {
         final long checkpointId = ackOperation.getBarrier().getId();
         final PendingCheckpoint pendingCheckpoint = pendingCheckpoints.get(checkpointId);
