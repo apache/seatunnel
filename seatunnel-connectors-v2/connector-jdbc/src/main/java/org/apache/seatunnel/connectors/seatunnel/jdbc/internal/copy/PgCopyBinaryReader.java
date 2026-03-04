@@ -108,9 +108,9 @@ public final class PgCopyBinaryReader implements PgCopyReader {
     private boolean eof = false;
 
     /**
-     * Constructs a PostgreSQL COPY (binary) reader. Initializes schema-derived row type and field
-     * types, configures the parsing buffer with a power-of-two capacity based on the provided
-     * pgCopyBufferSize.
+     * Indicates whether more rows are available to be read. Returns true if the internal queue has
+     * parsed rows or if the stream has not reached EOF. Checks the internal buffer and reads from
+     * the stream if necessary.
      */
     public PgCopyBinaryReader(InputStream stream, TableSchema schema, Integer pgCopyBufferSize) {
         this.stream = stream;
@@ -127,7 +127,6 @@ public final class PgCopyBinaryReader implements PgCopyReader {
     /**
      * Indicates whether more rows are available to be read. Returns true if the internal queue has
      * parsed rows or if the stream has not reached EOF.
-     *
      */
     @Override
     public boolean hasNext() {
@@ -149,8 +148,8 @@ public final class PgCopyBinaryReader implements PgCopyReader {
     }
 
     /**
-     * Retrieves the next SeaTunnelRow from the COPY stream. Lazily fills the buffer and parses rows
-     * until one is available or EOF is reached. Throws a JdbcConnectorException on I/O errors.
+     * Retrieves the next SeaTunnelRow from the COPY stream. Delegates to hasNext() to ensure
+     * data is available before polling the queue.
      */
     @Override
     public SeaTunnelRow next() {

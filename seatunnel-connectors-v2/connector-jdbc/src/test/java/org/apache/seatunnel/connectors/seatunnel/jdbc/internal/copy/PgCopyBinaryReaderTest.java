@@ -1,11 +1,15 @@
 package org.apache.seatunnel.connectors.seatunnel.jdbc.internal.copy;
 
+import org.apache.seatunnel.api.table.catalog.PhysicalColumn;
+import org.apache.seatunnel.api.table.type.BasicType;
 import org.apache.seatunnel.api.table.type.LocalTimeType;
 import org.apache.seatunnel.api.table.type.PrimitiveByteArrayType;
 import org.apache.seatunnel.connectors.seatunnel.jdbc.exception.JdbcConnectorException;
 
 import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.Test;
+import org.apache.seatunnel.api.table.type.SeaTunnelRow;
+import org.apache.seatunnel.api.table.catalog.TableSchema;
 
 import java.io.ByteArrayInputStream;
 import java.io.ByteArrayOutputStream;
@@ -16,6 +20,7 @@ import java.nio.charset.StandardCharsets;
 import java.time.LocalDate;
 import java.time.LocalDateTime;
 import java.time.temporal.ChronoUnit;
+
 
 public class PgCopyBinaryReaderTest {
 
@@ -38,7 +43,7 @@ public class PgCopyBinaryReaderTest {
         InputStream stream = new ByteArrayInputStream(baos.toByteArray());
         TableSchema schema =
                 TableSchema.builder()
-                        .addColumn(
+                        .column(
                                 PhysicalColumn.of("id", BasicType.INT_TYPE, 0, false, null, null))
                         .build();
 
@@ -54,7 +59,7 @@ public class PgCopyBinaryReaderTest {
         ByteArrayInputStream stream = new ByteArrayInputStream(invalidSig);
         TableSchema schema =
                 TableSchema.builder()
-                        .addColumn(
+                        .column(
                                 PhysicalColumn.of("id", BasicType.INT_TYPE, 0, false, null, null))
                         .build();
 
@@ -96,9 +101,9 @@ public class PgCopyBinaryReaderTest {
         InputStream stream = new ByteArrayInputStream(baos.toByteArray());
         TableSchema schema =
                 TableSchema.builder()
-                        .addColumn(
+                        .column(
                                 PhysicalColumn.of("id", BasicType.INT_TYPE, 0, false, null, null))
-                        .addColumn(
+                        .column(
                                 PhysicalColumn.of(
                                         "name", BasicType.STRING_TYPE, 0, false, null, null))
                         .build();
@@ -135,9 +140,9 @@ public class PgCopyBinaryReaderTest {
         InputStream stream = new ByteArrayInputStream(baos.toByteArray());
         TableSchema schema =
                 TableSchema.builder()
-                        .addColumn(
+                        .column(
                                 PhysicalColumn.of("id", BasicType.INT_TYPE, 0, false, null, null))
-                        .addColumn(
+                        .column(
                                 PhysicalColumn.of(
                                         "name", BasicType.STRING_TYPE, 0, false, null, null))
                         .build();
@@ -171,7 +176,7 @@ public class PgCopyBinaryReaderTest {
         InputStream stream = new ByteArrayInputStream(baos.toByteArray());
         TableSchema schema =
                 TableSchema.builder()
-                        .addColumn(
+                        .column(
                                 PhysicalColumn.of(
                                         "name", BasicType.STRING_TYPE, 0, false, null, null))
                         .build();
@@ -205,9 +210,9 @@ public class PgCopyBinaryReaderTest {
         InputStream stream = new ByteArrayInputStream(baos.toByteArray());
         TableSchema schema =
                 TableSchema.builder()
-                        .addColumn(
+                        .column(
                                 PhysicalColumn.of("id", BasicType.INT_TYPE, 0, false, null, null))
-                        .addColumn(
+                        .column(
                                 PhysicalColumn.of(
                                         "name", BasicType.STRING_TYPE, 0, false, null, null))
                         .build();
@@ -254,13 +259,13 @@ public class PgCopyBinaryReaderTest {
         InputStream stream = new ByteArrayInputStream(baos.toByteArray());
         TableSchema schema =
                 TableSchema.builder()
-                        .addColumn(
+                        .column(
                                 PhysicalColumn.of(
                                         "c_bigint", BasicType.LONG_TYPE, 0, false, null, null))
-                        .addColumn(
+                        .column(
                                 PhysicalColumn.of(
                                         "c_bool", BasicType.BOOLEAN_TYPE, 0, false, null, null))
-                        .addColumn(
+                        .column(
                                 PhysicalColumn.of(
                                         "c_double", BasicType.DOUBLE_TYPE, 0, false, null, null))
                         .build();
@@ -304,7 +309,7 @@ public class PgCopyBinaryReaderTest {
         InputStream stream = new ByteArrayInputStream(baos.toByteArray());
         TableSchema schema =
                 TableSchema.builder()
-                        .addColumn(
+                        .column(
                                 PhysicalColumn.of(
                                         "c_date",
                                         LocalTimeType.LOCAL_DATE_TYPE,
@@ -312,7 +317,7 @@ public class PgCopyBinaryReaderTest {
                                         false,
                                         null,
                                         null))
-                        .addColumn(
+                        .column(
                                 PhysicalColumn.of(
                                         "c_timestamp",
                                         LocalTimeType.LOCAL_DATE_TIME_TYPE,
@@ -363,7 +368,7 @@ public class PgCopyBinaryReaderTest {
         InputStream stream = new ByteArrayInputStream(baos.toByteArray());
         TableSchema schema =
                 TableSchema.builder()
-                        .addColumn(
+                        .column(
                                 PhysicalColumn.of(
                                         "c_bytea",
                                         PrimitiveByteArrayType.INSTANCE,
@@ -371,10 +376,10 @@ public class PgCopyBinaryReaderTest {
                                         false,
                                         null,
                                         null))
-                        .addColumn(
+                        .column(
                                 PhysicalColumn.of(
                                         "c_short", BasicType.SHORT_TYPE, 0, false, null, null))
-                        .addColumn(
+                        .column(
                                 PhysicalColumn.of(
                                         "c_float", BasicType.FLOAT_TYPE, 0, false, null, null))
                         .build();
@@ -407,9 +412,9 @@ public class PgCopyBinaryReaderTest {
         InputStream stream = new ByteArrayInputStream(baos.toByteArray());
         TableSchema schema =
                 TableSchema.builder()
-                        .addColumn(
+                        .column(
                                 PhysicalColumn.of("id", BasicType.INT_TYPE, 0, false, null, null))
-                        .addColumn(
+                        .column(
                                 PhysicalColumn.of(
                                         "name", BasicType.STRING_TYPE, 0, false, null, null))
                         .build();
@@ -452,7 +457,7 @@ public class PgCopyBinaryReaderTest {
         InputStream stream = new ByteArrayInputStream(baos.toByteArray());
         TableSchema schema =
                 TableSchema.builder()
-                        .addColumn(
+                        .column(
                                 PhysicalColumn.of(
                                         "data",
                                         PrimitiveByteArrayType.INSTANCE,

@@ -3,6 +3,7 @@ package org.apache.seatunnel.connectors.seatunnel.jdbc.internal.copy;
 import org.apache.seatunnel.api.table.catalog.PhysicalColumn;
 import org.apache.seatunnel.api.table.catalog.TableSchema;
 import org.apache.seatunnel.api.table.type.BasicType;
+import org.apache.seatunnel.api.table.type.DecimalType;
 import org.apache.seatunnel.api.table.type.SeaTunnelRow;
 import org.apache.seatunnel.connectors.seatunnel.jdbc.exception.JdbcConnectorException;
 
@@ -24,9 +25,9 @@ public class PgCopyCsvReaderTest {
 
         TableSchema schema =
                 TableSchema.builder()
-                        .addColumn(
+                        .column(
                                 PhysicalColumn.of("id", BasicType.INT_TYPE, 0, false, null, null))
-                        .addColumn(
+                        .column(
                                 PhysicalColumn.of(
                                         "name", BasicType.STRING_TYPE, 0, false, null, null))
                         .build();
@@ -53,9 +54,9 @@ public class PgCopyCsvReaderTest {
 
         TableSchema schema =
                 TableSchema.builder()
-                        .addColumn(
+                        .column(
                                 PhysicalColumn.of("id", BasicType.INT_TYPE, 0, false, null, null))
-                        .addColumn(
+                        .column(
                                 PhysicalColumn.of(
                                         "name", BasicType.STRING_TYPE, 0, false, null, null))
                         .build();
@@ -85,10 +86,10 @@ public class PgCopyCsvReaderTest {
 
         TableSchema schema =
                 TableSchema.builder()
-                        .addColumn(
+                        .column(
                                 PhysicalColumn.of(
                                         "c1", BasicType.STRING_TYPE, 0, false, null, null))
-                        .addColumn(
+                        .column(
                                 PhysicalColumn.of(
                                         "c2", BasicType.STRING_TYPE, 0, false, null, null))
                         .build();
@@ -110,10 +111,10 @@ public class PgCopyCsvReaderTest {
 
         TableSchema schema =
                 TableSchema.builder()
-                        .addColumn(
+                        .column(
                                 PhysicalColumn.of(
                                         "b1", BasicType.BOOLEAN_TYPE, 0, false, null, null))
-                        .addColumn(
+                        .column(
                                 PhysicalColumn.of(
                                         "b2", BasicType.BOOLEAN_TYPE, 0, false, null, null))
                         .build();
@@ -148,12 +149,12 @@ public class PgCopyCsvReaderTest {
 
         TableSchema schema =
                 TableSchema.builder()
-                        .addColumn(
+                        .column(
                                 PhysicalColumn.of(
                                         "d1", BasicType.DOUBLE_TYPE, 0, false, null, null))
-                        .addColumn(
+                        .column(
                                 PhysicalColumn.of(
-                                        "d2", BasicType.BIG_DECIMAL_TYPE, 0, false, null, null))
+                                        "d2", new DecimalType(38, 18), 0, false, null, null))
                         .build();
 
         PgCopyCsvReader reader = new PgCopyCsvReader(stream, schema);
@@ -171,7 +172,7 @@ public class PgCopyCsvReaderTest {
 
         TableSchema schema =
                 TableSchema.builder()
-                        .addColumn(
+                        .column(
                                 PhysicalColumn.of("id", BasicType.INT_TYPE, 0, false, null, null))
                         .build();
 
@@ -193,10 +194,10 @@ public class PgCopyCsvReaderTest {
 
         TableSchema schema =
                 TableSchema.builder()
-                        .addColumn(
+                        .column(
                                 PhysicalColumn.of(
                                         "s1", BasicType.STRING_TYPE, 0, false, null, null))
-                        .addColumn(
+                        .column(
                                 PhysicalColumn.of(
                                         "s2", BasicType.STRING_TYPE, 0, false, null, null))
                         .build();
