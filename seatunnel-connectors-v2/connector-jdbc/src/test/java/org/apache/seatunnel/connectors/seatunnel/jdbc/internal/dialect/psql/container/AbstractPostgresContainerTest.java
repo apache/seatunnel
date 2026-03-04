@@ -44,7 +44,8 @@ public abstract class AbstractPostgresContainerTest {
 
     static {
         // Method to force SeaTunnel Engine to use a dynamic port for Jetty Service
-        // Due to constant error: 'java.io.IOException: Failed to bind to 0.0.0.0/0.0.0.0:28088' in GitHub CI
+        // Due to constant error: 'java.io.IOException: Failed to bind to 0.0.0.0/0.0.0.0:28088' in
+        // GitHub CI
         System.setProperty("seatunnel.engine.port", "0");
     }
 
@@ -84,25 +85,19 @@ public abstract class AbstractPostgresContainerTest {
         return POSTGRES_CONTAINER.getPassword();
     }
 
-    /**
-     * Get a standard JDBC connection to the PostgreSQL container.
-     */
+    /** Get a standard JDBC connection to the PostgreSQL container. */
     protected Connection getConnection() throws SQLException {
         return DriverManager.getConnection(getJdbcUrl(), getUsername(), getPassword());
     }
 
     // ==================== HELPER METHODS FOR CATALOG ====================
 
-    /**
-     * Creates JdbcUrlUtil.UrlInfo needed for PostgresCatalog constructor.
-     */
+    /** Creates JdbcUrlUtil.UrlInfo needed for PostgresCatalog constructor. */
     protected JdbcUrlUtil.UrlInfo getJdbcUrlInfo() {
         return JdbcUrlUtil.getUrlInfo(getJdbcUrl());
     }
 
-    /**
-     * Helper to create a PostgresCatalog instance with current container settings.
-     */
+    /** Helper to create a PostgresCatalog instance with current container settings. */
     protected PostgresCatalog createPostgresCatalog() {
         return new PostgresCatalog(
                 DatabaseIdentifier.POSTGRESQL,
@@ -111,7 +106,7 @@ public abstract class AbstractPostgresContainerTest {
                 getJdbcUrlInfo(),
                 "public", // default schema
                 null // default properties
-        );
+                );
     }
 
     // ==================== DATABASE SETUP/TEARDOWN ====================
@@ -119,7 +114,7 @@ public abstract class AbstractPostgresContainerTest {
     /** Executes a SQL statement (useful for test setup/cleanup). */
     protected void executeSql(String sql) throws SQLException {
         try (Connection conn = getConnection();
-             Statement stmt = conn.createStatement()) {
+                Statement stmt = conn.createStatement()) {
             stmt.execute(sql);
         }
     }
