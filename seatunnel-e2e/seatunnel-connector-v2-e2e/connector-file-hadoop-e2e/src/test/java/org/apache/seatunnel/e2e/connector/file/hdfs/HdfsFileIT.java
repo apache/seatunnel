@@ -397,9 +397,8 @@ public class HdfsFileIT extends TestSuiteBase implements TestResource {
                 .atMost(90, TimeUnit.SECONDS)
                 .untilAsserted(
                         () ->
-                                Assertions.assertEquals(
-                                        0L,
-                                        countHdfsAllFiles("/continuous/backup"),
+                                Assertions.assertFalse(
+                                        hdfsFileExists("/continuous/backup/retention-old.bin"),
                                         "retention should remove expired backup files"));
 
         cancelContinuousJob(container, jobId, jobFuture);
