@@ -64,86 +64,58 @@ import static org.awaitility.Awaitility.await;
 public class CoordinatorServiceTest {
     @Test
     public void testMasterNodeActive() {
+        String clusterName =
+                TestUtils.getClusterName("CoordinatorServiceTest_testMasterNodeActive");
         HazelcastInstanceImpl instance1 =
-                SeaTunnelServerStarter.createHazelcastInstance(
-                        TestUtils.getClusterName("CoordinatorServiceTest_testMasterNodeActive"));
+                createHazelcastInstanceWithJoinPortTryCount(clusterName, 100);
         HazelcastInstanceImpl instance2 =
-                SeaTunnelServerStarter.createHazelcastInstance(
-                        TestUtils.getClusterName("CoordinatorServiceTest_testMasterNodeActive"));
+                createHazelcastInstanceWithJoinPortTryCount(clusterName, 100);
 
         SeaTunnelServer server1 =
                 instance1.node.getNodeEngine().getService(SeaTunnelServer.SERVICE_NAME);
         SeaTunnelServer server2 =
                 instance2.node.getNodeEngine().getService(SeaTunnelServer.SERVICE_NAME);
 
-        try {
-            // Wait until both instances are in one cluster.
-            await().atMost(120000, TimeUnit.MILLISECONDS)
-                    .untilAsserted(
-                            () -> {
-                                Assertions.assertEquals(
-                                        2, instance1.getCluster().getMembers().size());
-                                Assertions.assertEquals(
-                                        2, instance2.getCluster().getMembers().size());
-                            });
+        await().atMost(20000, TimeUnit.MILLISECONDS)
+                .untilAsserted(
+                        () -> {
+                            Assertions.assertEquals(2, instance1.getCluster().getMembers().size());
+                            Assertions.assertEquals(2, instance2.getCluster().getMembers().size());
+                            Assertions.assertTrue(server1.isMasterNode());
+                            Assertions.assertFalse(server2.isMasterNode());
+                        });
 
-            // Wait until master election and coordinator activation are stable.
-            await().atMost(120000, TimeUnit.MILLISECONDS)
-                    .untilAsserted(
-                            () -> {
-                                boolean master1 = server1.isMasterNode();
-                                boolean master2 = server2.isMasterNode();
-                                Assertions.assertTrue(
-                                        master1 ^ master2,
-                                        "Expected exactly one master node, but got master1="
-                                                + master1
-                                                + ", master2="
-                                                + master2);
+        CoordinatorService coordinatorService1 = server1.getCoordinatorService();
+        Assertions.assertTrue(coordinatorService1.isCoordinatorActive());
 
-                                SeaTunnelServer masterServer = master1 ? server1 : server2;
-                                Assertions.assertTrue(
-                                        masterServer.getCoordinatorService().isCoordinatorActive());
-                            });
+        Assertions.assertThrows(
+                SeaTunnelEngineException.class, () -> server2.getCoordinatorService());
 
-            await().atMost(120000, TimeUnit.MILLISECONDS)
-                    .untilAsserted(
-                            () -> {
-                                boolean master1 = server1.isMasterNode();
-                                boolean master2 = server2.isMasterNode();
-                                Assertions.assertTrue(master1 ^ master2);
-                                SeaTunnelServer followerServer = master1 ? server2 : server1;
-                                Assertions.assertThrows(
-                                        SeaTunnelEngineException.class,
-                                        followerServer::getCoordinatorService);
-                            });
+        // shutdown instance1
+        instance1.shutdown();
+        await().atMost(20000, TimeUnit.MILLISECONDS)
+                .untilAsserted(
+                        () -> {
+                            try {
+                                Assertions.assertTrue(server2.isMasterNode());
+                                CoordinatorService coordinatorService =
+                                        server2.getCoordinatorService();
+                                Assertions.assertTrue(coordinatorService.isCoordinatorActive());
+                            } catch (SeaTunnelEngineException e) {
+                                Assertions.fail("Should not throw SeaTunnelEngineException here.");
+                            }
+                        });
+        instance2.shutdown();
+    }
 
-            boolean instance1IsMaster = server1.isMasterNode();
-            SeaTunnelServer followerServer = instance1IsMaster ? server2 : server1;
-            HazelcastInstanceImpl masterInstance = instance1IsMaster ? instance1 : instance2;
-
-            // Shutdown current master and ensure follower takes over.
-            masterInstance.shutdown();
-            await().atMost(120000, TimeUnit.MILLISECONDS)
-                    .untilAsserted(
-                            () -> {
-                                try {
-                                    Assertions.assertTrue(followerServer.isMasterNode());
-                                    CoordinatorService coordinatorService =
-                                            followerServer.getCoordinatorService();
-                                    Assertions.assertTrue(coordinatorService.isCoordinatorActive());
-                                } catch (SeaTunnelEngineException e) {
-                                    Assertions.fail(
-                                            "Should not throw SeaTunnelEngineException here.");
-                                }
-                            });
-        } finally {
-            if (instance1.getLifecycleService().isRunning()) {
-                instance1.shutdown();
-            }
-            if (instance2.getLifecycleService().isRunning()) {
-                instance2.shutdown();
-            }
-        }
+    private HazelcastInstanceImpl createHazelcastInstanceWithJoinPortTryCount(
+            String clusterName, int joinPortTryCount) {
+        SeaTunnelConfig seaTunnelConfig = ConfigProvider.locateAndGetSeaTunnelConfig();
+        seaTunnelConfig.getHazelcastConfig().setClusterName(clusterName);
+        seaTunnelConfig
+                .getHazelcastConfig()
+                .setProperty("hazelcast.tcp.join.port.try.count", String.valueOf(joinPortTryCount));
+        return SeaTunnelServerStarter.createHazelcastInstance(seaTunnelConfig);
     }
 
     @Test

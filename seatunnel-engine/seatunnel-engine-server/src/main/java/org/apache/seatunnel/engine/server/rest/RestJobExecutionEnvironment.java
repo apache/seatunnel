@@ -31,6 +31,8 @@ import org.apache.seatunnel.engine.core.job.JobImmutableInformation;
 import org.apache.seatunnel.engine.core.job.JobPipelineCheckpointData;
 import org.apache.seatunnel.engine.core.parse.MultipleTableJobConfigParser;
 import org.apache.seatunnel.engine.server.SeaTunnelServer;
+import org.apache.seatunnel.engine.server.operation.GetJobCheckpointOperation;
+import org.apache.seatunnel.engine.server.utils.NodeEngineUtil;
 
 import com.hazelcast.instance.impl.Node;
 import com.hazelcast.spi.impl.NodeEngineImpl;
@@ -99,10 +101,13 @@ public class RestJobExecutionEnvironment extends AbstractJobEnvironment {
         List<JobPipelineCheckpointData> pipelineCheckpoints = Collections.emptyList();
         if (isStartWithSavePoint) {
             LOGGER.info("Start with savepoint, get checkpoint state from server");
-            pipelineCheckpoints =
-                    seaTunnelServer
-                            .getCheckpointService()
-                            .getLatestCheckpointData(jobConfig.getJobContext().getJobId());
+            pipelineCheckpoints = loadPipelineCheckpointsFromMasterNode();
+            if (pipelineCheckpoints == null || pipelineCheckpoints.isEmpty()) {
+                throw new IllegalArgumentException(
+                        "No checkpoint found for jobId="
+                                + jobConfig.getJobContext().getJobId()
+                                + ", cannot start with save point.");
+            }
         }
         return new MultipleTableJobConfigParser(
                 seaTunnelJobConfig,
@@ -111,6 +116,31 @@ public class RestJobExecutionEnvironment extends AbstractJobEnvironment {
                 commonPluginJars,
                 isStartWithSavePoint,
                 pipelineCheckpoints);
+    }
+
+    private List<JobPipelineCheckpointData> loadPipelineCheckpointsFromMasterNode() {
+        if (seaTunnelServer.isMasterNode() && seaTunnelServer.getCheckpointService() != null) {
+            return seaTunnelServer
+                    .getCheckpointService()
+                    .getLatestCheckpointData(jobConfig.getJobContext().getJobId());
+        }
+
+        try {
+            Object response =
+                    NodeEngineUtil.sendOperationToMasterNode(
+                                    nodeEngine, new GetJobCheckpointOperation(jobId))
+                            .join();
+            if (response == null) {
+                return Collections.emptyList();
+            }
+            return (List<JobPipelineCheckpointData>)
+                    nodeEngine.getSerializationService().toObject(response);
+        } catch (Exception e) {
+            throw new IllegalStateException(
+                    "Failed to get checkpoint data from master node, jobId="
+                            + jobConfig.getJobContext().getJobId(),
+                    e);
+        }
     }
 
     public JobImmutableInformation build() {

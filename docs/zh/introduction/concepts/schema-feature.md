@@ -32,6 +32,74 @@ schema = {
 
 schema所属的表标识符的表全名，包含数据库、schema、表名。 例如 `database.schema.table`、`database.table`、`table`。
 
+### schema_url
+
+通过restApi获取元数据信息的http url，比如：`http://localhost:8090/api/metalakes/laowang_test/catalogs/221-pgsql/schemas/ykw/tables/all_type`
+
+> 当使用 Gravitino 作为元数据源时，Gravitino 的列类型会自动转换为 SeaTunnel 数据类型。详细的类型映射信息请参考 [Gravitino 类型映射](./gravitino-type-mapping.md)。
+
+#### schema_url 配置示例
+
+**1. 单表配置，包含 table 和 schema_url 属性：**
+
+```hocon
+source {
+  LocalFile {
+    path = "/tmp/data"
+    file_format_type = "json"
+    schema {
+      table = "db.table2"
+      schema_url = "http://gravitino:8090/api/metalakes/test_metalake/catalogs/test_catalog/schemas/test_schema/tables/table2"
+    }
+  }
+}
+```
+
+**2. 单表配置，仅使用 schema_url（不包含 table 属性）：**
+
+```hocon
+source {
+  LocalFile {
+    path = "/tmp/data"
+    file_format_type = "json"
+    schema {
+      schema_url = "http://gravitino:8090/api/metalakes/test_metalake/catalogs/test_catalog/schemas/test_schema/tables/table2"
+    }
+  }
+}
+```
+
+**3. 多表配置，包含 columns 和 schema_url：**
+
+```hocon
+source {
+  LocalFile {
+    tables_configs = [
+      {
+        path = "/tmp/data/table1"
+        file_format_type = "json"
+        schema {
+          table = "db.table1"
+          columns = [
+            { name = id, type = bigint, nullable = false },
+            { name = name, type = string },
+            { name = age, type = int }
+          ]
+        }
+      },
+      {
+        path = "/tmp/data/table2"
+        file_format_type = "json"
+        schema {
+          table = "db.table2"
+          schema_url = "http://gravitino:8090/api/metalakes/test_metalake/catalogs/test_catalog/schemas/test_schema/tables/table2"
+        }
+      }
+    ]
+  }
+}
+```
+
 ### schema_first
 
 默认是false。
