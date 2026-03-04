@@ -1,32 +1,10 @@
-/*
- * Licensed to the Apache Software Foundation (ASF) under one or more
- * contributor license agreements.  See the NOTICE file distributed with
- * this work for additional information regarding copyright ownership.
- * The ASF licenses this file to You under the Apache License, Version 2.0
- * (the "License"); you may not use this file except in compliance with
- * the License.  You may obtain a copy of the License at
- *
- *    http://www.apache.org/licenses/LICENSE-2.0
- *
- * Unless required by applicable law or agreed to in writing, software
- * distributed under the License is distributed on an "AS IS" BASIS,
- * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
- * See the License for the specific language governing permissions and
- * limitations under the License.
- */
-
 package org.apache.seatunnel.connectors.seatunnel.pulsar.sink;
-
-import org.apache.seatunnel.shade.com.google.common.collect.Lists;
 
 import org.apache.seatunnel.api.configuration.ReadonlyConfig;
 import org.apache.seatunnel.api.serialization.SerializationSchema;
 import org.apache.seatunnel.api.sink.SinkWriter;
-import org.apache.seatunnel.api.table.type.SeaTunnelDataType;
 import org.apache.seatunnel.api.table.type.SeaTunnelRow;
 import org.apache.seatunnel.api.table.type.SeaTunnelRowType;
-import org.apache.seatunnel.common.exception.CommonErrorCode;
-import org.apache.seatunnel.common.exception.CommonErrorCodeDeprecated;
 import org.apache.seatunnel.connectors.seatunnel.pulsar.config.PulsarClientConfig;
 import org.apache.seatunnel.connectors.seatunnel.pulsar.config.PulsarConfigUtil;
 import org.apache.seatunnel.connectors.seatunnel.pulsar.config.PulsarSemantics;
@@ -36,37 +14,39 @@ import org.apache.seatunnel.connectors.seatunnel.pulsar.exception.PulsarConnecto
 import org.apache.seatunnel.connectors.seatunnel.pulsar.state.PulsarCommitInfo;
 import org.apache.seatunnel.connectors.seatunnel.pulsar.state.PulsarSinkState;
 import org.apache.seatunnel.format.json.JsonSerializationSchema;
-import org.apache.seatunnel.format.json.exception.SeaTunnelJsonFormatException;
 import org.apache.seatunnel.format.text.TextSerializationSchema;
 
 import org.apache.pulsar.client.api.MessageId;
-import org.apache.pulsar.client.api.MessageRoutingMode;
 import org.apache.pulsar.client.api.Producer;
 import org.apache.pulsar.client.api.PulsarClient;
-import org.apache.pulsar.client.api.PulsarClientException;
 import org.apache.pulsar.client.api.TypedMessageBuilder;
+import org.apache.pulsar.client.api.transaction.Transaction;
+import org.apache.pulsar.client.api.transaction.TxnID;
 import org.apache.pulsar.client.impl.transaction.TransactionImpl;
 
 import java.io.IOException;
-import java.util.Arrays;
 import java.util.Collections;
 import java.util.List;
+import java.util.Map;
 import java.util.Optional;
 import java.util.concurrent.CompletableFuture;
+import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.atomic.AtomicLong;
-import java.util.function.Function;
 
 public class PulsarSinkWriter
         implements SinkWriter<SeaTunnelRow, PulsarCommitInfo, PulsarSinkState> {
 
-    private Producer<byte[]> producer;
-    private PulsarClient pulsarClient;
-    private SerializationSchema serializationSchema;
-    private SerializationSchema keySerializationSchema;
-    private TransactionImpl transaction;
-    private int transactionTimeout;
-    private PulsarSemantics pulsarSemantics;
-    private final AtomicLong pendingMessages;
+    private final PulsarClient pulsarClient;
+    private final SerializationSchema serializationSchema;
+    private final PulsarSemantics pulsarSemantics;
+    private final int transactionTimeout;
+    private final ReadonlyConfig pluginConfig;
+
+    private final Map<String, Producer<byte[]>> producerMap = new ConcurrentHashMap<>();
+    private final AtomicLong pendingMessages = new AtomicLong(0);
+
+    // SINGLE transaction per checkpoint
+    private Transaction currentTransaction;
 
     public PulsarSinkWriter(
             Context context,
@@ -74,123 +54,157 @@ public class PulsarSinkWriter
             SeaTunnelRowType seaTunnelRowType,
             ReadonlyConfig pluginConfig,
             List<PulsarSinkState> pulsarStates) {
-        String topic = pluginConfig.get(PulsarSinkOptions.TOPIC);
-        String format = pluginConfig.get(PulsarSinkOptions.FORMAT);
-        String delimiter = pluginConfig.get(PulsarSinkOptions.FIELD_DELIMITER);
+
+        this.pluginConfig = pluginConfig;
         this.transactionTimeout = pluginConfig.get(PulsarSinkOptions.TRANSACTION_TIMEOUT);
         this.pulsarSemantics = pluginConfig.get(PulsarSinkOptions.SEMANTICS);
-        MessageRoutingMode messageRoutingMode =
-                pluginConfig.get(PulsarSinkOptions.MESSAGE_ROUTING_MODE);
-        this.serializationSchema = createSerializationSchema(seaTunnelRowType, format, delimiter);
-        List<String> partitionKeyList = getPartitionKeyFields(pluginConfig, seaTunnelRowType);
-        this.keySerializationSchema =
-                createKeySerializationSchema(partitionKeyList, seaTunnelRowType);
-        this.pulsarClient = PulsarConfigUtil.createClient(clientConfig, pulsarSemantics);
 
-        if (PulsarSemantics.EXACTLY_ONCE == pulsarSemantics) {
-            try {
-                this.transaction =
-                        (TransactionImpl)
-                                PulsarConfigUtil.getTransaction(pulsarClient, transactionTimeout);
-            } catch (Exception e) {
-                throw new PulsarConnectorException(
-                        PulsarConnectorErrorCode.CREATE_TRANSACTION_FAILED,
-                        "Pulsar transaction create fail.");
-            }
-        }
-        try {
-            this.producer =
-                    PulsarConfigUtil.createProducer(
-                            pulsarClient, topic, pulsarSemantics, pluginConfig, messageRoutingMode);
-        } catch (PulsarClientException e) {
-            throw new PulsarConnectorException(
-                    PulsarConnectorErrorCode.CREATE_PRODUCER_FAILED,
-                    "Pulsar Producer create fail.");
-        }
-        this.pendingMessages = new AtomicLong(0);
+        this.serializationSchema =
+                createSerializationSchema(
+                        seaTunnelRowType,
+                        pluginConfig.get(PulsarSinkOptions.FORMAT),
+                        pluginConfig.get(PulsarSinkOptions.FIELD_DELIMITER));
+
+        this.pulsarClient = PulsarConfigUtil.createClient(clientConfig, pulsarSemantics);
     }
 
     @Override
     public void write(SeaTunnelRow element) throws IOException {
+
+        String topic = resolveTopic(element);
+
+        Producer<byte[]> producer = producerMap.computeIfAbsent(topic, this::createProducer);
+
         byte[] message = serializationSchema.serialize(element);
-        byte[] key = null;
-        if (keySerializationSchema != null) {
-            key = keySerializationSchema.serialize(element);
-        }
-        TypedMessageBuilder<byte[]> typedMessageBuilder =
-                PulsarConfigUtil.createTypedMessageBuilder(producer, transaction);
-        if (key != null) {
-            typedMessageBuilder.keyBytes(key);
-        }
-        typedMessageBuilder.value(message);
+
+        TypedMessageBuilder<byte[]> builder =
+                PulsarConfigUtil.createTypedMessageBuilder(
+                        producer, (TransactionImpl) getOrCreateTransaction());
+
+        builder.value(message);
+
         if (PulsarSemantics.NON == pulsarSemantics) {
-            typedMessageBuilder.sendAsync();
+            builder.sendAsync();
         } else {
             pendingMessages.incrementAndGet();
-            CompletableFuture<MessageId> future = typedMessageBuilder.sendAsync();
+            CompletableFuture<MessageId> future = builder.sendAsync();
             future.whenComplete(
                     (id, ex) -> {
                         pendingMessages.decrementAndGet();
                         if (ex != null) {
                             throw new PulsarConnectorException(
                                     PulsarConnectorErrorCode.SEND_MESSAGE_FAILED,
-                                    "send message failed");
+                                    "Send message failed");
                         }
                     });
         }
     }
 
+    private String resolveTopic(SeaTunnelRow row) {
+        if (row.getTableId() != null) {
+            return row.getTableId();
+        }
+        return pluginConfig.get(PulsarSinkOptions.TOPIC);
+    }
+
+    private Producer<byte[]> createProducer(String topic) {
+        try {
+            return PulsarConfigUtil.createProducer(
+                    pulsarClient,
+                    topic,
+                    pulsarSemantics,
+                    pluginConfig,
+                    pluginConfig.get(PulsarSinkOptions.MESSAGE_ROUTING_MODE));
+        } catch (Exception e) {
+            throw new PulsarConnectorException(
+                    PulsarConnectorErrorCode.CREATE_PRODUCER_FAILED,
+                    "Failed to create producer for topic: " + topic);
+        }
+    }
+
+    private Transaction getOrCreateTransaction() {
+        if (PulsarSemantics.EXACTLY_ONCE != pulsarSemantics) {
+            return null;
+        }
+
+        if (currentTransaction == null) {
+            try {
+                currentTransaction =
+                        PulsarConfigUtil.getTransaction(pulsarClient, transactionTimeout);
+            } catch (Exception e) {
+                throw new PulsarConnectorException(
+                        PulsarConnectorErrorCode.CREATE_TRANSACTION_FAILED,
+                        "Transaction create failed");
+            }
+        }
+
+        return currentTransaction;
+    }
+
     @Override
     public Optional<PulsarCommitInfo> prepareCommit() throws IOException {
-        if (PulsarSemantics.EXACTLY_ONCE == pulsarSemantics) {
-            PulsarCommitInfo pulsarCommitInfo = new PulsarCommitInfo(this.transaction.getTxnID());
-            return Optional.of(pulsarCommitInfo);
-        } else {
+
+        if (PulsarSemantics.EXACTLY_ONCE != pulsarSemantics) {
             return Optional.empty();
         }
+
+        while (pendingMessages.get() > 0) {
+            Thread.yield();
+        }
+
+        if (currentTransaction == null) {
+            return Optional.empty();
+        }
+
+        TxnID txnID = currentTransaction.getTxnID();
+        currentTransaction = null;
+
+        return Optional.of(new PulsarCommitInfo(txnID));
     }
 
     @Override
     public List<PulsarSinkState> snapshotState(long checkpointId) throws IOException {
-        if (PulsarSemantics.NON != pulsarSemantics) {
-            /** flush pending messages */
+
+        for (Producer<byte[]> producer : producerMap.values()) {
             producer.flush();
-            while (pendingMessages.longValue() > 0) {
+        }
+
+        while (pendingMessages.get() > 0) {
+            for (Producer<byte[]> producer : producerMap.values()) {
                 producer.flush();
             }
         }
-        if (PulsarSemantics.EXACTLY_ONCE == pulsarSemantics) {
-            List<PulsarSinkState> pulsarSinkStates =
-                    Lists.newArrayList(new PulsarSinkState(this.transaction.getTxnID()));
-            try {
-                this.transaction =
-                        (TransactionImpl)
-                                PulsarConfigUtil.getTransaction(pulsarClient, transactionTimeout);
-            } catch (Exception e) {
-                throw new PulsarConnectorException(
-                        PulsarConnectorErrorCode.CREATE_TRANSACTION_FAILED,
-                        "Pulsar transaction create fail.");
-            }
-            return pulsarSinkStates;
-        }
+
         return Collections.emptyList();
     }
 
     @Override
     public void abortPrepare() {
-        if (PulsarSemantics.EXACTLY_ONCE == pulsarSemantics) {
-            transaction.abort();
+
+        if (PulsarSemantics.EXACTLY_ONCE != pulsarSemantics) {
+            return;
+        }
+
+        if (currentTransaction != null) {
+            try {
+                currentTransaction.abort();
+            } catch (Exception ignored) {
+            }
+            currentTransaction = null;
         }
     }
 
     @Override
     public void close() throws IOException {
-        producer.close();
+        for (Producer<byte[]> producer : producerMap.values()) {
+            producer.close();
+        }
         pulsarClient.close();
     }
 
     private SerializationSchema createSerializationSchema(
             SeaTunnelRowType rowType, String format, String delimiter) {
+
         if (PulsarSinkOptions.DEFAULT_FORMAT.equals(format)) {
             return new JsonSerializationSchema(rowType);
         } else if (PulsarSinkOptions.TEXT_FORMAT.equals(format)) {
@@ -199,56 +213,7 @@ public class PulsarSinkWriter
                     .delimiter(delimiter)
                     .build();
         } else {
-            throw new SeaTunnelJsonFormatException(
-                    CommonErrorCode.UNSUPPORTED_DATA_TYPE, "Unsupported format: " + format);
+            throw new RuntimeException("Unsupported format: " + format);
         }
-    }
-
-    public static SerializationSchema createKeySerializationSchema(
-            List<String> keyFieldNames, SeaTunnelRowType seaTunnelRowType) {
-        if (keyFieldNames == null || keyFieldNames.isEmpty()) {
-            return null;
-        }
-        int[] keyFieldIndexArr = new int[keyFieldNames.size()];
-        SeaTunnelDataType[] keyFieldDataTypeArr = new SeaTunnelDataType[keyFieldNames.size()];
-        for (int i = 0; i < keyFieldNames.size(); i++) {
-            String keyFieldName = keyFieldNames.get(i);
-            int rowFieldIndex = seaTunnelRowType.indexOf(keyFieldName);
-            keyFieldIndexArr[i] = rowFieldIndex;
-            keyFieldDataTypeArr[i] = seaTunnelRowType.getFieldType(rowFieldIndex);
-        }
-        SeaTunnelRowType keyType =
-                new SeaTunnelRowType(keyFieldNames.toArray(new String[0]), keyFieldDataTypeArr);
-        SerializationSchema keySerializationSchema = new JsonSerializationSchema(keyType);
-
-        Function<SeaTunnelRow, SeaTunnelRow> keyDataExtractor =
-                row -> {
-                    Object[] keyFields = new Object[keyFieldIndexArr.length];
-                    for (int i = 0; i < keyFieldIndexArr.length; i++) {
-                        keyFields[i] = row.getField(keyFieldIndexArr[i]);
-                    }
-                    return new SeaTunnelRow(keyFields);
-                };
-        return row -> keySerializationSchema.serialize(keyDataExtractor.apply(row));
-    }
-
-    private List<String> getPartitionKeyFields(
-            ReadonlyConfig pluginConfig, SeaTunnelRowType seaTunnelRowType) {
-        if (pluginConfig.getOptional(PulsarSinkOptions.PARTITION_KEY_FIELDS).isPresent()) {
-            List<String> partitionKeyFields =
-                    pluginConfig.get(PulsarSinkOptions.PARTITION_KEY_FIELDS);
-            List<String> rowTypeFieldNames = Arrays.asList(seaTunnelRowType.getFieldNames());
-            for (String partitionKeyField : partitionKeyFields) {
-                if (!rowTypeFieldNames.contains(partitionKeyField)) {
-                    throw new PulsarConnectorException(
-                            CommonErrorCodeDeprecated.ILLEGAL_ARGUMENT,
-                            String.format(
-                                    "Partition key field not found: %s, rowType: %s",
-                                    partitionKeyField, rowTypeFieldNames));
-                }
-            }
-            return partitionKeyFields;
-        }
-        return Collections.emptyList();
     }
 }
