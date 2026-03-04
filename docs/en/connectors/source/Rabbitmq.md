@@ -32,8 +32,9 @@ The source must be non-parallel (parallelism set to 1) in order to achieve exact
 | virtual_host               | string  | yes      | -             |
 | username                   | string  | yes      | -             |
 | password                   | string  | yes      | -             |
-| queue_name                 | string  | yes      | -             |
-| schema                     | config  | yes      | -             |
+| queue_name                 | string  | no       | -             |
+| schema                     | config  | no       | -             |
+| table_configs              | array   | no       | -             |
 | url                        | string  | no       | -             |
 | routing_key                | string  | no       | -             |
 | exchange                   | string  | no       | -             |
@@ -77,7 +78,7 @@ convenience method for setting the fields in an AMQP URI: host, port, username, 
 
 ### queue_name [string]
 
-the queue to publish the message to
+the queue to consume messages from. *Note: Required if `table_configs` is not configured.*
 
 ### routing_key [string]
 
@@ -91,17 +92,21 @@ the exchange to publish the message to
 
 #### fields [Config]
 
-the schema fields of upstream data. For more details, please refer to [Schema Feature](../../introduction/concepts/schema-feature.md).
+the schema fields of upstream data. For more details, please refer to [Schema Feature](../../introduction/concepts/schema-feature.md). *Note: Required if `table_configs` is not configured.*
+
+### table_configs [array]
+
+Used to read from multiple queues simultaneously. Each object in the array must contain a queue_name and a schema. You can optionally provide a result_table_name to identify the table in downstream sinks.
 
 ### network_recovery_interval [int]
 
 how long will automatic recovery wait before attempting to reconnect, in ms
 
-### topology_recovery [string]
+### topology_recovery [boolean]
 
 if true, enables topology recovery
 
-### automatic_recovery [string]
+### automatic_recovery [boolean]
 
 if true, enables connection recovery
 
@@ -150,9 +155,18 @@ Source plugin common parameters, please refer to [Source Common Options](../comm
 - true: The queue will be deleted automatically when the last consumer unsubscribes.
 - false: The queue will not be automatically deleted.
 
+## Migration Guide & Configuration Rules
+
+If you are upgrading from a previous version that only supported single-table reads, your existing configuration will work without any changes.
+
+**Configuration Priority:**
+- You cannot configure both `table_configs` and the root-level `queue_name`/`schema` at the same time. They are mutually exclusive. Doing so will result in a configuration validation error.
+- Use `table_configs` for multi-table mode.
+- Use root-level `queue_name` and `schema` for single-table mode.
+
 ## Example
 
-simple:
+### Single-table Read Example
 
 ```hocon
 source {
@@ -173,8 +187,36 @@ source {
     }
 }
 ```
-
-## Changelog
-
-<ChangeLog />
-
+### Multi-table Read Example
+You can use the table_configs option to consume messages from multiple RabbitMQ queues simultaneously within a single job. The connector will automatically assign the correct table identifier to each row based on the queue it originated from.
+```hocon
+source {
+    RabbitMQ {
+        host = "rabbitmq-e2e"
+        port = 5672
+        virtual_host = "/"
+        username = "guest"
+        password = "guest"
+        table_configs = [
+            {
+                queue_name = "users_queue"
+                schema = {
+                    fields {
+                        id = bigint
+                        name = string
+                    }
+                }
+            },
+            {
+                queue_name = "orders_queue"
+                schema = {
+                    fields {
+                        order_id = bigint
+                        amount = double
+                    }
+                }
+            }
+        ]
+    }
+}
+```

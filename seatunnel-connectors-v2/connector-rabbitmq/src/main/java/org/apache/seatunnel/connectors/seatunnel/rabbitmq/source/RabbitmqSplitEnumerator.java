@@ -54,15 +54,17 @@ public class RabbitmqSplitEnumerator
 
     private void initializeSplits(RabbitmqConfig rabbitmqConfig, List<CatalogTable> tables) {
         for (CatalogTable table : tables) {
-            String queueName = table.getTableId().getTableName();
-            if (queueName == null || queueName.isEmpty()) {
-                if (table.getOptions() != null) {
-                    queueName = table.getOptions().get(RabbitmqBaseOptions.QUEUE_NAME.key());
-                }
+            String queueName = null;
+
+            if (table.getOptions() != null
+                    && table.getOptions().containsKey(RabbitmqBaseOptions.QUEUE_NAME.key())) {
+                queueName = table.getOptions().get(RabbitmqBaseOptions.QUEUE_NAME.key());
             }
+
             if (queueName == null || queueName.isEmpty()) {
                 queueName = rabbitmqConfig.getQueueName();
             }
+
             if (queueName != null
                     && !queueName.isEmpty()
                     && !pendingSplits.containsKey(queueName)) {

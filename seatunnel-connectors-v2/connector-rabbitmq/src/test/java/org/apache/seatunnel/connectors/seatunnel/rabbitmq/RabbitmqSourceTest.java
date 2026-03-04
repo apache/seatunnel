@@ -112,43 +112,40 @@ public class RabbitmqSourceTest {
     }
 
     /**
-     * Test Priority: table_configs > schema. If a user accidentally provides BOTH, 'table_configs'
-     * should take precedence and the 'schema' should be ignored.
+     * Test Validation: If a user accidentally provides BOTH 'table_configs' and 'schema', the
+     * connector should fail-fast and throw a validation exception.
      */
     @Test
-    public void testMixedConfigPrecedence() {
+    public void testMixedConfigThrowsException() {
         Map<String, Object> configMap = new HashMap<>();
         configMap.put(RabbitmqBaseOptions.HOST.key(), "localhost");
 
-        // Define Table Configs (2 tables)
+        // Define Table Configs
         Map<String, Object> table1 = new HashMap<>();
         table1.put("queue_name", "q1");
         table1.put(
                 "schema",
                 Collections.singletonMap("fields", Collections.singletonMap("col1", "string")));
+        configMap.put(TableSchemaOptions.TABLE_CONFIGS.key(), Arrays.asList(table1));
 
-        Map<String, Object> table2 = new HashMap<>();
-        table2.put("queue_name", "q2");
-        table2.put(
-                "schema",
-                Collections.singletonMap("fields", Collections.singletonMap("col2", "int")));
-
-        configMap.put(TableSchemaOptions.TABLE_CONFIGS.key(), Arrays.asList(table1, table2));
-
-        // Define Root Schema (Legacy - Should be ignored)
+        // Define Root Schema (Conflict)
         Map<String, Object> rootSchema = new HashMap<>();
         rootSchema.put("fields", Collections.singletonMap("legacy_col", "boolean"));
         configMap.put(ConnectorCommonOptions.SCHEMA.key(), rootSchema);
         configMap.put(RabbitmqBaseOptions.QUEUE_NAME.key(), "global_q");
 
-        RabbitmqSource source = new RabbitmqSource(ReadonlyConfig.fromMap(configMap));
-        List<CatalogTable> tables = source.getProducedCatalogTables();
+        // Expect the validation to fail and throw our new RabbitmqConnectorException
+        RabbitmqConnectorException exception =
+                Assertions.assertThrows(
+                        RabbitmqConnectorException.class,
+                        () -> new RabbitmqSource(ReadonlyConfig.fromMap(configMap)),
+                        "Should throw an exception when both table_configs and schema are provided");
 
-        // Expecting 2 tables from table_configs, ignoring the 3rd one from root schema
-        Assertions.assertEquals(
-                2, tables.size(), "Should prioritize table_configs over root schema");
-        Assertions.assertEquals("q1", tables.get(0).getTableId().getTableName());
-        Assertions.assertEquals("q2", tables.get(1).getTableId().getTableName());
+        // Verify the error message is the one we expect
+        Assertions.assertTrue(
+                exception
+                        .getMessage()
+                        .contains("Cannot specify both 'table_configs' and 'schema'"));
     }
 
     /**

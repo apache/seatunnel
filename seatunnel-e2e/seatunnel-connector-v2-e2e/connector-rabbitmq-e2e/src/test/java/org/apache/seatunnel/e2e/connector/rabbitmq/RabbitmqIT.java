@@ -61,7 +61,6 @@ import java.util.ArrayList;
 import java.util.Collections;
 import java.util.HashSet;
 import java.util.List;
-import java.util.Set;
 import java.util.concurrent.BlockingQueue;
 import java.util.concurrent.LinkedBlockingQueue;
 import java.util.concurrent.TimeUnit;
@@ -226,7 +225,7 @@ public class RabbitmqIT extends TestSuiteBase implements TestResource {
         // assert execute Job code
         Container.ExecResult execResult = container.executeJob("/rabbitmq-to-rabbitmq.conf");
         Assertions.assertEquals(0, execResult.getExitCode());
-        Set<String> resultSet = new HashSet<>();
+        HashSet<Object> resultSet = new HashSet<>();
         // consume data when every  testContainer finished
         // try to poll five times
         for (int i = 0; i < 10; i++) {
@@ -274,7 +273,7 @@ public class RabbitmqIT extends TestSuiteBase implements TestResource {
 
     @TestTemplate
     public void testRabbitMQMultiTableE2E(TestContainer container) throws Exception {
-        // Multi-table E2E test: verifies different schemas across multiple queues
+        // Define schemas for two different tables/queues
         SeaTunnelRowType type1 =
                 new SeaTunnelRowType(
                         new String[] {"id", "name"},
@@ -284,26 +283,41 @@ public class RabbitmqIT extends TestSuiteBase implements TestResource {
                         new String[] {"id", "age"},
                         new SeaTunnelDataType[] {BasicType.LONG_TYPE, BasicType.INT_TYPE});
 
+        // Send 10 records to each unique RabbitMQ queue
         sendData("multi_table_1", type1, 10);
         sendData("multi_table_2", type2, 10);
+
+        // Wait for messages to be fully persisted in RabbitMQ broker
         Thread.sleep(3000);
-        // The .conf uses Assert Sink to verify that total 20 rows are processed across all tables
+
+        // Execute the SeaTunnel synchronization job
+        // The job uses a multi-table configuration to consume from both queues simultaneously
         Container.ExecResult execResult = container.executeJob("/rabbitmq_multitable.conf");
-        Assertions.assertEquals(0, execResult.getExitCode());
+
+        // Validate that the job finished successfully (exit code 0)
+        // If the multi-table routing or schema mapping fails, the job will crash with exit code 1
+        Assertions.assertEquals(
+                0, execResult.getExitCode(), "The SeaTunnel job should finish with exit code 0.");
     }
 
+    /**
+     * Helper method to publish test data directly to a specific RabbitMQ queue. Uses
+     * JsonSerializationSchema to simulate standard RabbitMQ message format.
+     */
     private void sendData(String queueName, SeaTunnelRowType rowType, int count)
             throws IOException {
         try (RabbitmqClient client = getRabbitmqClient(queueName)) {
             JsonSerializationSchema serializer = new JsonSerializationSchema(rowType);
             for (int i = 0; i < count; i++) {
                 Object[] fields = new Object[rowType.getTotalFields()];
-                fields[0] = (long) i;
+                fields[0] = (long) i; // Common 'id' field
 
+                // Map specific fields based on the rowType provided (name for table1, age for
+                // table2)
                 String fieldName = rowType.getFieldNames()[1];
                 if ("name".equals(fieldName)) {
                     fields[1] = "user_" + i;
-                } else {
+                } else if ("age".equals(fieldName)) {
                     fields[1] = 20 + i;
                 }
 

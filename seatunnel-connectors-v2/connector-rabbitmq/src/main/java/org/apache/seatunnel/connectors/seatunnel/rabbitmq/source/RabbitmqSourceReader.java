@@ -17,6 +17,7 @@
 
 package org.apache.seatunnel.connectors.seatunnel.rabbitmq.source;
 
+import org.apache.seatunnel.api.common.SeaTunnelAPIErrorCode;
 import org.apache.seatunnel.api.serialization.DeserializationSchema;
 import org.apache.seatunnel.api.source.Boundedness;
 import org.apache.seatunnel.api.source.Collector;
@@ -47,6 +48,7 @@ import java.util.Set;
 import java.util.SortedMap;
 import java.util.TreeMap;
 import java.util.concurrent.BlockingQueue;
+import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.LinkedBlockingQueue;
 import java.util.concurrent.TimeUnit;
 
@@ -73,6 +75,7 @@ public class RabbitmqSourceReader implements SourceReader<SeaTunnelRow, Rabbitmq
     private final Map<String, DeserializationSchema<SeaTunnelRow>> schemaMap;
     private final Map<String, String> exactTableIdMap;
     private final Set<RabbitmqSplit> sourceSplits;
+    private final Map<String, DefaultConsumer> activeConsumers;
     private volatile boolean noMoreSplitsAssigned = false;
 
     public RabbitmqSourceReader(
@@ -85,22 +88,24 @@ public class RabbitmqSourceReader implements SourceReader<SeaTunnelRow, Rabbitmq
         this.rabbitMQClient = new RabbitmqClient(config);
         this.channel = rabbitMQClient.getChannel();
         this.usesCorrelationId = config.isUsesCorrelationId();
-        this.sourceSplits = new HashSet<>();
+
+        // Initialize thread-safe collections
+        this.sourceSplits = ConcurrentHashMap.newKeySet();
+        this.activeConsumers = new ConcurrentHashMap<>();
+
         this.schemaMap = new HashMap<>();
         this.exactTableIdMap = new HashMap<>();
 
         // Initialize schema map for multi-table and single-table support
         for (CatalogTable table : catalogTables) {
-            String queueName = table.getTableId().getTableName();
+            String queueName = null;
 
-            if (queueName == null || "default".equalsIgnoreCase(queueName) || queueName.isEmpty()) {
-                if (table.getOptions() != null
-                        && table.getOptions().containsKey(RabbitmqBaseOptions.QUEUE_NAME.key())) {
-                    queueName = table.getOptions().get(RabbitmqBaseOptions.QUEUE_NAME.key());
-                }
+            if (table.getOptions() != null
+                    && table.getOptions().containsKey(RabbitmqBaseOptions.QUEUE_NAME.key())) {
+                queueName = table.getOptions().get(RabbitmqBaseOptions.QUEUE_NAME.key());
             }
 
-            if (queueName == null || "default".equalsIgnoreCase(queueName) || queueName.isEmpty()) {
+            if (queueName == null || queueName.isEmpty()) {
                 queueName = config.getQueueName();
             }
 
@@ -157,7 +162,16 @@ public class RabbitmqSourceReader implements SourceReader<SeaTunnelRow, Rabbitmq
                         output.collect(row);
                     }
                 } else {
-                    log.warn("Cannot find schema or tableId for queue: {}", message.getSplitId());
+                    // Fix Issue 2: Fail-fast on configuration errors instead of silent data loss
+                    String errorMsg =
+                            String.format(
+                                    "Cannot find schema or tableId for queue: %s. "
+                                            + "This queue is not configured in tables_configs. "
+                                            + "Available queues: %s",
+                                    message.getSplitId(), schemaMap.keySet());
+                    log.error(errorMsg);
+                    throw new RabbitmqConnectorException(
+                            SeaTunnelAPIErrorCode.CONFIG_VALIDATION_FAILED, errorMsg);
                 }
             }
         }
@@ -173,16 +187,18 @@ public class RabbitmqSourceReader implements SourceReader<SeaTunnelRow, Rabbitmq
     @Override
     public void addSplits(List<RabbitmqSplit> splits) {
         for (RabbitmqSplit split : splits) {
-            System.out.println(
-                    "\u001B[32m [READER DEBUG] Received split for queue: "
-                            + split.splitId()
-                            + "\u001B[0m");
+            log.info("Received split for queue: {}", split.splitId());
             try {
-                // For Bounded jobs (batch mode), signal end of input when the queue is drained.
+                if (activeConsumers.containsKey(split.splitId())) {
+                    log.warn("Consumer for queue {} already exists, skipping", split.splitId());
+                    continue;
+                }
+
                 DefaultConsumer consumer =
                         rabbitMQClient.getQueueingConsumer(queue, split.splitId());
 
                 channel.basicConsume(split.splitId(), autoAck, consumer);
+                activeConsumers.put(split.splitId(), consumer);
                 sourceSplits.add(split);
                 log.info("Started consuming from queue: {}", split.splitId());
             } catch (IOException e) {
@@ -258,6 +274,17 @@ public class RabbitmqSourceReader implements SourceReader<SeaTunnelRow, Rabbitmq
 
     @Override
     public void close() throws IOException {
+        for (Map.Entry<String, DefaultConsumer> entry : activeConsumers.entrySet()) {
+            try {
+                if (channel != null && channel.isOpen()) {
+                    channel.basicCancel(entry.getValue().getConsumerTag());
+                }
+            } catch (IOException e) {
+                log.error("Failed to cancel consumer for queue {}", entry.getKey(), e);
+            }
+        }
+        activeConsumers.clear();
+
         if (rabbitMQClient != null) {
             rabbitMQClient.close();
         }

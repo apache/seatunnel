@@ -56,10 +56,20 @@ public class RabbitmqSource
     }
 
     private List<CatalogTable> initializeCatalogTables(ReadonlyConfig config) {
+        boolean hasTableConfigs =
+                config.getOptional(ConnectorCommonOptions.TABLE_CONFIGS).isPresent();
+        boolean hasSchema = config.getOptional(ConnectorCommonOptions.SCHEMA).isPresent();
+
+        if (hasTableConfigs && hasSchema) {
+            throw new RabbitmqConnectorException(
+                    SeaTunnelAPIErrorCode.CONFIG_VALIDATION_FAILED,
+                    "Cannot specify both 'table_configs' and 'schema'. Please use 'table_configs' for multi-table or 'schema' for single-table mode.");
+        }
+
         List<CatalogTable> tables = new ArrayList<>();
 
         // Multi-table configuration
-        if (config.getOptional(ConnectorCommonOptions.TABLE_CONFIGS).isPresent()) {
+        if (hasTableConfigs) {
             List<Map<String, Object>> tableConfigList =
                     config.get(ConnectorCommonOptions.TABLE_CONFIGS);
             for (Map<String, Object> item : tableConfigList) {
@@ -69,13 +79,14 @@ public class RabbitmqSource
             }
         }
         // Legacy Single-table configuration
-        else if (config.getOptional(ConnectorCommonOptions.SCHEMA).isPresent()) {
+        else if (hasSchema) {
             tables.add(buildCatalogTableWithCorrectId(config));
         } else {
             throw new RabbitmqConnectorException(
                     SeaTunnelAPIErrorCode.CONFIG_VALIDATION_FAILED,
                     "No 'schema' or 'table_configs' found. Please configure at least one table.");
         }
+
         return tables;
     }
 
@@ -85,16 +96,23 @@ public class RabbitmqSource
      */
     private CatalogTable buildCatalogTableWithCorrectId(ReadonlyConfig config) {
         CatalogTable table = CatalogTableUtil.buildWithConfig(config);
-        String queueName = config.get(RabbitmqBaseOptions.QUEUE_NAME);
 
-        // If queue_name is missing in this block, fallback to global config
-        if (queueName == null || queueName.isEmpty()) {
-            queueName = rabbitmqConfig.getQueueName();
+        String tableName;
+        if (config.getOptional(ConnectorCommonOptions.PLUGIN_OUTPUT).isPresent()) {
+            tableName = config.get(ConnectorCommonOptions.PLUGIN_OUTPUT);
+        } else {
+            tableName = config.get(RabbitmqBaseOptions.QUEUE_NAME);
+            if (tableName == null || tableName.isEmpty()) {
+                tableName = rabbitmqConfig.getQueueName();
+            }
         }
 
         // Reconstruct the CatalogTable with the queue name as the Table Name
         return CatalogTable.of(
-                TableIdentifier.of("rabbitmq", "default", queueName),
+                TableIdentifier.of(
+                        table.getTableId().getCatalogName(),
+                        table.getTableId().getDatabaseName(),
+                        tableName),
                 table.getTableSchema(),
                 table.getOptions(),
                 table.getPartitionKeys(),
