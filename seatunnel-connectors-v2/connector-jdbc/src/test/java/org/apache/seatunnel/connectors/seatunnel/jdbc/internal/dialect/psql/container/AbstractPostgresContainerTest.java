@@ -6,7 +6,7 @@
  * (the "License"); you may not use this file except in compliance with
  * the License.  You may obtain a copy of the License at
  *
- *    http://www.apache.org/licenses/LICENSE-2.0
+ * http://www.apache.org/licenses/LICENSE-2.0
  *
  * Unless required by applicable law or agreed to in writing, software
  * distributed under the License is distributed on an "AS IS" BASIS,
@@ -18,6 +18,7 @@
 package org.apache.seatunnel.connectors.seatunnel.jdbc.internal.dialect.psql.container;
 
 import org.apache.seatunnel.common.utils.JdbcUrlUtil;
+import org.apache.seatunnel.connectors.seatunnel.jdbc.catalog.psql.PostgresCatalog;
 import org.apache.seatunnel.connectors.seatunnel.jdbc.internal.dialect.DatabaseIdentifier;
 
 import org.junit.jupiter.api.AfterAll;
@@ -31,6 +32,7 @@ import org.testcontainers.utility.DockerImageName;
 import java.sql.Connection;
 import java.sql.DriverManager;
 import java.sql.SQLException;
+import java.sql.Statement;
 
 /**
  * Base class for PostgreSQL tests using Testcontainers. Provides a shared PostgreSQL container for
@@ -40,7 +42,12 @@ import java.sql.SQLException;
 @Testcontainers
 public abstract class AbstractPostgresContainerTest {
 
-    // Use a lightweight PostgreSQL image without PostGIS extensions
+    static {
+        // Method to force SeaTunnel Engine to use a dynamic port for Jetty Service
+        // Due to constant error: 'java.io.IOException: Failed to bind to 0.0.0.0/0.0.0.0:28088' in GitHub CI
+        System.setProperty("seatunnel.engine.port", "0");
+    }
+
     private static final String POSTGRES_IMAGE = "postgres:15-alpine";
 
     protected static PostgreSQLContainer<?> POSTGRES_CONTAINER;
@@ -77,6 +84,9 @@ public abstract class AbstractPostgresContainerTest {
         return POSTGRES_CONTAINER.getPassword();
     }
 
+    /**
+     * Get a standard JDBC connection to the PostgreSQL container.
+     */
     protected Connection getConnection() throws SQLException {
         return DriverManager.getConnection(getJdbcUrl(), getUsername(), getPassword());
     }
@@ -84,27 +94,24 @@ public abstract class AbstractPostgresContainerTest {
     // ==================== HELPER METHODS FOR CATALOG ====================
 
     /**
-     * Creates JdbcUrlUtil.UrlInfo needed for PostgresCatalog constructor. This mimics what
-     * JdbcPostgresIT does.
+     * Creates JdbcUrlUtil.UrlInfo needed for PostgresCatalog constructor.
      */
     protected JdbcUrlUtil.UrlInfo getJdbcUrlInfo() {
         return JdbcUrlUtil.getUrlInfo(getJdbcUrl());
     }
 
     /**
-     * Helper to create a PostgresCatalog instance with current container settings. You'll need to
-     * import PostgresCatalog class in your test.
+     * Helper to create a PostgresCatalog instance with current container settings.
      */
-    protected org.apache.seatunnel.connectors.seatunnel.jdbc.catalog.psql.PostgresCatalog
-            createPostgresCatalog() {
-        return new org.apache.seatunnel.connectors.seatunnel.jdbc.catalog.psql.PostgresCatalog(
+    protected PostgresCatalog createPostgresCatalog() {
+        return new PostgresCatalog(
                 DatabaseIdentifier.POSTGRESQL,
                 getUsername(),
                 getPassword(),
                 getJdbcUrlInfo(),
                 "public", // default schema
                 null // default properties
-                );
+        );
     }
 
     // ==================== DATABASE SETUP/TEARDOWN ====================
@@ -112,7 +119,7 @@ public abstract class AbstractPostgresContainerTest {
     /** Executes a SQL statement (useful for test setup/cleanup). */
     protected void executeSql(String sql) throws SQLException {
         try (Connection conn = getConnection();
-                java.sql.Statement stmt = conn.createStatement()) {
+             Statement stmt = conn.createStatement()) {
             stmt.execute(sql);
         }
     }
@@ -134,13 +141,5 @@ public abstract class AbstractPostgresContainerTest {
     /** Drops a table if it exists. */
     protected void dropTableIfExists(String tableName) throws SQLException {
         executeSql(String.format("DROP TABLE IF EXISTS %s", tableName));
-    }
-
-    /** Gets the jdbc connection fot the dialectConteinerTests */
-    protected Connection getJdbcConnection() throws SQLException {
-        return DriverManager.getConnection(
-                POSTGRES_CONTAINER.getJdbcUrl(),
-                POSTGRES_CONTAINER.getUsername(),
-                POSTGRES_CONTAINER.getPassword());
     }
 }
