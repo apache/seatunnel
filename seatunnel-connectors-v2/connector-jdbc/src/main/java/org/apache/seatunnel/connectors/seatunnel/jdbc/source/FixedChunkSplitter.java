@@ -431,7 +431,7 @@ public class FixedChunkSplitter extends ChunkSplitter {
         String splitQuery = split.getSplitQuery();
         String condition =
                 String.format(
-                        "%s >= %s AND %s < %s",
+                        "%s >= %s AND %s <= %s",
                         splitKeyName,
                         String.valueOf(split.getSplitStart()),
                         splitKeyName,

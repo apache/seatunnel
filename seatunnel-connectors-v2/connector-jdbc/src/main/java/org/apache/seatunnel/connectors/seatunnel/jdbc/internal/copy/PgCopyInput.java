@@ -17,6 +17,8 @@
 
 package org.apache.seatunnel.connectors.seatunnel.jdbc.internal.copy;
 
+import org.apache.seatunnel.api.table.catalog.Column;
+import org.apache.seatunnel.api.table.catalog.PrimaryKey;
 import org.apache.seatunnel.api.table.catalog.TableSchema;
 import org.apache.seatunnel.api.table.type.SeaTunnelRow;
 import org.apache.seatunnel.common.exception.CommonErrorCodeDeprecated;
@@ -36,6 +38,7 @@ import java.sql.Connection;
 import java.sql.SQLException;
 import java.util.Arrays;
 import java.util.List;
+import java.util.stream.Collectors;
 
 /** Unified entry for PostgreSQL COPY input (CSV or BINARY). */
 public final class PgCopyInput implements AutoCloseable {
@@ -75,6 +78,9 @@ public final class PgCopyInput implements AutoCloseable {
         try {
             String selectSql = chunkSplitter.generateSplitQuerySQL(split, tableSchema);
             validateSqlSafety(selectSql);
+            if (useBinary) {
+                selectSql = addCastsForBinaryMode(selectSql, tableSchema);
+            }
             String copySql =
                     String.format(
                             "COPY (%s) TO STDOUT WITH %s", selectSql, useBinary ? "BINARY" : "CSV");
@@ -93,6 +99,37 @@ public final class PgCopyInput implements AutoCloseable {
                     "Failed to open PG COPY stream: " + e.getMessage(),
                     e);
         }
+    }
+
+    private String addCastsForBinaryMode(String originalSql, TableSchema schema) {
+        List<String> columns =
+                schema.getColumns().stream()
+                        .filter(Column::isPhysical)
+                        .map(
+                                col -> {
+                                    String name = dialect.quoteIdentifier(col.getName());
+                                    String sourceType = col.getSourceType();
+                                    if (sourceType != null
+                                            && "jsonb".equalsIgnoreCase(sourceType)) {
+                                        return name + "::text AS " + name;
+                                    }
+                                    return name;
+                                })
+                        .collect(Collectors.toList());
+        if (columns.isEmpty()) {
+            return originalSql;
+        }
+        String projection = String.join(", ", columns);
+        String wrapped =
+                String.format(
+                        "SELECT %s FROM (%s) AS seatunnel_pg_copy_wrapper",
+                        projection, originalSql);
+        PrimaryKey pk = schema.getPrimaryKey();
+        if (pk != null && pk.getColumnNames() != null && !pk.getColumnNames().isEmpty()) {
+            String pkCol = dialect.quoteIdentifier(pk.getColumnNames().get(0));
+            wrapped = wrapped + " ORDER BY " + pkCol;
+        }
+        return wrapped;
     }
 
     private Connection getConnection() throws SQLException, ClassNotFoundException {

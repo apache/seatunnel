@@ -22,6 +22,7 @@ import org.apache.seatunnel.common.exception.CommonErrorCodeDeprecated;
 import org.apache.seatunnel.connectors.seatunnel.jdbc.exception.JdbcConnectorException;
 
 import org.apache.commons.codec.binary.Base64;
+import org.apache.commons.codec.binary.Hex;
 
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -35,6 +36,8 @@ import java.sql.Time;
 import java.sql.Timestamp;
 import java.time.LocalDate;
 import java.time.LocalDateTime;
+import java.time.ZoneOffset;
+import java.util.UUID;
 
 /** Common utility functions for COPY readers. */
 public final class PgCopyUtils {
@@ -59,6 +62,15 @@ public final class PgCopyUtils {
             SeaTunnelDataType<?> type,
             LocalDate epochDate,
             LocalDateTime epochDateTime) {
+        return parseBinaryField(bytes, type, null, epochDate, epochDateTime);
+    }
+
+    public static Object parseBinaryField(
+            byte[] bytes,
+            SeaTunnelDataType<?> type,
+            String sourceType,
+            LocalDate epochDate,
+            LocalDateTime epochDateTime) {
 
         if (bytes == null) {
             return null;
@@ -69,7 +81,28 @@ public final class PgCopyUtils {
         try {
             switch (type.getSqlType()) {
                 case STRING:
-                    return new String(bytes);
+                    if (sourceType != null) {
+                        if ("uuid".equalsIgnoreCase(sourceType)) {
+                            long msb = buf.getLong();
+                            long lsb = buf.getLong();
+                            return new UUID(msb, lsb).toString();
+                        }
+                        if ("geometry".equalsIgnoreCase(sourceType)
+                                || "geography".equalsIgnoreCase(sourceType)) {
+                            return Hex.encodeHexString(bytes);
+                        }
+                        if ("jsonb".equalsIgnoreCase(sourceType)) {
+                            if (bytes.length > 0 && (bytes[0] == 0x01)) {
+                                return new String(
+                                        bytes,
+                                        1,
+                                        bytes.length - 1,
+                                        java.nio.charset.StandardCharsets.UTF_8);
+                            }
+                            return new String(bytes, java.nio.charset.StandardCharsets.UTF_8);
+                        }
+                    }
+                    return new String(bytes, java.nio.charset.StandardCharsets.UTF_8);
                 case BOOLEAN:
                     return buf.get() != 0;
                 case TINYINT:
@@ -92,6 +125,8 @@ public final class PgCopyUtils {
                     return java.time.LocalTime.ofNanoOfDay(buf.getLong() * 1000L);
                 case TIMESTAMP:
                     return epochDateTime.plusNanos(buf.getLong() * 1000L);
+                case TIMESTAMP_TZ:
+                    return epochDateTime.atOffset(ZoneOffset.UTC).plusNanos(buf.getLong() * 1000L);
                 case BYTES:
                     return bytes;
                 default:
@@ -112,11 +147,54 @@ public final class PgCopyUtils {
             SeaTunnelDataType<?> type,
             LocalDate epochDate,
             LocalDateTime epochDateTime) {
+        return parseBinaryField(buf, type, null, epochDate, epochDateTime);
+    }
+
+    public static Object parseBinaryField(
+            ByteBuffer buf,
+            SeaTunnelDataType<?> type,
+            String sourceType,
+            LocalDate epochDate,
+            LocalDateTime epochDateTime) {
         try {
             switch (type.getSqlType()) {
                 case STRING:
+                    if (sourceType != null) {
+                        if ("uuid".equalsIgnoreCase(sourceType)) {
+                            long msb = buf.getLong();
+                            long lsb = buf.getLong();
+                            return new UUID(msb, lsb).toString();
+                        }
+                        if ("geometry".equalsIgnoreCase(sourceType)
+                                || "geography".equalsIgnoreCase(sourceType)) {
+                            byte[] g = new byte[buf.remaining()];
+                            buf.get(g);
+                            return Hex.encodeHexString(g);
+                        }
+                        if ("jsonb".equalsIgnoreCase(sourceType)) {
+                            if (buf.remaining() == 0) {
+                                return null;
+                            }
+                            int pos = buf.position();
+                            int len = buf.remaining();
+                            if (buf.get(pos) == 0x01 && len > 1) {
+                                byte[] b = new byte[len - 1];
+                                buf.position(pos + 1);
+                                buf.get(b);
+                                return new String(b, java.nio.charset.StandardCharsets.UTF_8);
+                            } else {
+                                byte[] b = new byte[len];
+                                buf.get(b);
+                                return new String(b, java.nio.charset.StandardCharsets.UTF_8);
+                            }
+                        }
+                    }
                     if (buf.hasArray()) {
-                        return new String(buf.array(), buf.position(), buf.remaining());
+                        return new String(
+                                buf.array(),
+                                buf.position(),
+                                buf.remaining(),
+                                java.nio.charset.StandardCharsets.UTF_8);
                     } else {
                         return java.nio.charset.StandardCharsets.UTF_8
                                 .decode(buf.slice())
@@ -144,6 +222,8 @@ public final class PgCopyUtils {
                     return java.time.LocalTime.ofNanoOfDay(buf.getLong() * 1000L);
                 case TIMESTAMP:
                     return epochDateTime.plusNanos(buf.getLong() * 1000L);
+                case TIMESTAMP_TZ:
+                    return epochDateTime.atOffset(ZoneOffset.UTC).plusNanos(buf.getLong() * 1000L);
                 case BYTES:
                     {
                         byte[] out = new byte[buf.remaining()];

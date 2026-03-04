@@ -32,7 +32,9 @@ import org.apache.seatunnel.connectors.seatunnel.jdbc.internal.dialect.DatabaseI
 import org.apache.seatunnel.e2e.common.TestResource;
 import org.apache.seatunnel.e2e.common.TestSuiteBase;
 import org.apache.seatunnel.e2e.common.container.ContainerExtendedFactory;
+import org.apache.seatunnel.e2e.common.container.EngineType;
 import org.apache.seatunnel.e2e.common.container.TestContainer;
+import org.apache.seatunnel.e2e.common.junit.DisabledOnContainer;
 import org.apache.seatunnel.e2e.common.junit.TestContainerExtension;
 import org.apache.seatunnel.e2e.common.util.JdbcUtil;
 
@@ -47,8 +49,6 @@ import org.testcontainers.containers.output.Slf4jLogConsumer;
 import org.testcontainers.lifecycle.Startables;
 import org.testcontainers.utility.DockerImageName;
 import org.testcontainers.utility.DockerLoggerFactory;
-import org.apache.seatunnel.e2e.common.container.EngineType;
-import org.apache.seatunnel.e2e.common.junit.DisabledOnContainer;
 
 import lombok.extern.slf4j.Slf4j;
 
@@ -64,10 +64,6 @@ import java.util.stream.Stream;
 import static org.awaitility.Awaitility.given;
 
 @Slf4j
-@DisabledOnContainer(
-    value = {},
-    type = {EngineType.FLINK, EngineType.SPARK},
-    disabledReason = "Flink and Spark image pull failed")
 public class JdbcPostgresIT extends TestSuiteBase implements TestResource {
     private static final String PG_IMAGE = "postgis/postgis";
     private static final String PG_DRIVER_JAR =
@@ -78,11 +74,16 @@ public class JdbcPostgresIT extends TestSuiteBase implements TestResource {
             "https://repo1.maven.org/maven2/net/postgis/postgis-geometry/2.5.1/postgis-geometry-2.5.1.jar";
     private static final List<String> PG_CONFIG_FILE_LIST =
             Lists.newArrayList(
-//                    "/jdbc_postgres_source_and_sink.conf",
-//                    "/jdbc_postgres_source_and_sink_copy_stmt.conf",
-//                    "/jdbc_postgres_source_and_sink_parallel.conf",
-//                    "/jdbc_postgres_source_and_sink_parallel_upper_lower.conf",
-//                    "/jdbc_postgres_source_and_sink_xa.conf",
+                                                            "/jdbc_postgres_source_and_sink.conf",
+
+                     "/jdbc_postgres_source_and_sink_copy_stmt.conf",
+
+                     "/jdbc_postgres_source_and_sink_parallel.conf",
+
+
+                     "/jdbc_postgres_source_and_sink_parallel_upper_lower.conf",
+
+                     "/jdbc_postgres_source_and_sink_xa.conf",
                     "/jdbc_postgres_source_copy_binary.conf");
     private PostgreSQLContainer<?> POSTGRESQL_CONTAINER;
     private static final String PG_SOURCE_DDL =

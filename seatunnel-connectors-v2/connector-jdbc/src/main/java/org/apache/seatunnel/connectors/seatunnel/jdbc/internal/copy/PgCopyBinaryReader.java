@@ -17,6 +17,7 @@
 
 package org.apache.seatunnel.connectors.seatunnel.jdbc.internal.copy;
 
+import org.apache.seatunnel.api.table.catalog.Column;
 import org.apache.seatunnel.api.table.catalog.TableSchema;
 import org.apache.seatunnel.api.table.type.SeaTunnelDataType;
 import org.apache.seatunnel.api.table.type.SeaTunnelRow;
@@ -35,6 +36,7 @@ import java.time.LocalDate;
 import java.time.LocalDateTime;
 import java.util.ArrayDeque;
 import java.util.Deque;
+import java.util.List;
 
 public final class PgCopyBinaryReader implements PgCopyReader {
     private static final Logger LOG = LoggerFactory.getLogger(PgCopyBinaryReader.class);
@@ -94,6 +96,7 @@ public final class PgCopyBinaryReader implements PgCopyReader {
     private final InputStream stream;
     private final SeaTunnelRowType rowType;
     private final SeaTunnelDataType<?>[] fieldTypes;
+    private final String[] sourceTypes;
 
     // parsed rows waiting to be consumed by upper layer
     private final Deque<SeaTunnelRow> queue = new ArrayDeque<>();
@@ -116,6 +119,16 @@ public final class PgCopyBinaryReader implements PgCopyReader {
         this.stream = stream;
         this.rowType = schema.toPhysicalRowDataType();
         this.fieldTypes = rowType.getFieldTypes();
+        this.sourceTypes = new String[fieldTypes.length];
+        int idx = 0;
+        List<Column> columns = schema.getColumns();
+        for (int i = 0; i < columns.size() && idx < sourceTypes.length; i++) {
+            Column column = columns.get(i);
+            if (!column.isPhysical()) {
+                continue;
+            }
+            sourceTypes[idx++] = column.getSourceType();
+        }
         this.bufferSize =
                 pgCopyBufferSize == null
                         ? DEFAULT_BUFFER_SIZE
@@ -148,8 +161,8 @@ public final class PgCopyBinaryReader implements PgCopyReader {
     }
 
     /**
-     * Retrieves the next SeaTunnelRow from the COPY stream. Delegates to hasNext() to ensure
-     * data is available before polling the queue.
+     * Retrieves the next SeaTunnelRow from the COPY stream. Delegates to hasNext() to ensure data
+     * is available before polling the queue.
      */
     @Override
     public SeaTunnelRow next() {
@@ -237,9 +250,12 @@ public final class PgCopyBinaryReader implements PgCopyReader {
      */
     private void parseHeader() {
         if (buffer.remaining() < SIGNATURE.length + 8) {
-            // Insufficient bytes for header; defer parsing until header is fully available
-            // Return and let the upper loop refill the buffer
-            return; // 11-byte signature + 4-byte flags + 4-byte extension length
+            if (eof) {
+                throw new JdbcConnectorException(
+                        CommonErrorCodeDeprecated.UNSUPPORTED_OPERATION,
+                        "Truncated COPY header");
+            }
+            return;
         }
 
         int savedPos = buffer.position();
@@ -256,6 +272,11 @@ public final class PgCopyBinaryReader implements PgCopyReader {
         int extLen = buffer.getInt();
         if (extLen > 0) {
             if (buffer.remaining() < extLen) {
+                if (eof) {
+                    throw new JdbcConnectorException(
+                            CommonErrorCodeDeprecated.UNSUPPORTED_OPERATION,
+                            "Truncated COPY header extension");
+                }
                 buffer.position(savedPos);
                 return;
             }
@@ -272,7 +293,14 @@ public final class PgCopyBinaryReader implements PgCopyReader {
         while (true) {
             // start a new row when there is no active one
             if (pendingFields < 0) {
-                if (buffer.remaining() < 2) return; // need row header (short fields)
+                if (buffer.remaining() < 2) {
+                    if (eof) {
+                        throw new JdbcConnectorException(
+                                CommonErrorCodeDeprecated.SQL_OPERATION_FAILED,
+                                "Unexpected EOF before row header");
+                    }
+                    return;
+                }
                 short fields = buffer.getShort();
                 if (fields == -1) { // EOF marker
                     eof = true;
@@ -293,7 +321,14 @@ public final class PgCopyBinaryReader implements PgCopyReader {
             while (pendingIndex < pendingFields) {
                 // read the length prefix for the current field
                 if (pendingFieldLen < 0) {
-                    if (buffer.remaining() < 4) return; // need 4 bytes length
+                    if (buffer.remaining() < 4) {
+                        if (eof) {
+                            throw new JdbcConnectorException(
+                                    CommonErrorCodeDeprecated.SQL_OPERATION_FAILED,
+                                    "Unexpected EOF while reading field length");
+                        }
+                        return;
+                    }
                     pendingFieldLen = buffer.getInt();
                 }
                 // -1 denotes NULL field
@@ -305,7 +340,14 @@ public final class PgCopyBinaryReader implements PgCopyReader {
                 // expand buffer if the upcoming field payload exceeds capacity
                 ensureCapacityFor(pendingFieldLen);
                 // if payload not fully in buffer yet, wait for next fill
-                if (buffer.remaining() < pendingFieldLen) return;
+                if (buffer.remaining() < pendingFieldLen) {
+                    if (eof) {
+                        throw new JdbcConnectorException(
+                                CommonErrorCodeDeprecated.SQL_OPERATION_FAILED,
+                                "Unexpected EOF while reading field payload");
+                    }
+                    return;
+                }
 
                 int startPos = buffer.position();
 
@@ -317,7 +359,11 @@ public final class PgCopyBinaryReader implements PgCopyReader {
 
                 pendingValues[pendingIndex] =
                         PgCopyUtils.parseBinaryField(
-                                fieldBuf, fieldTypes[pendingIndex], EPOCH_DATE, EPOCH_DATETIME);
+                                fieldBuf,
+                                fieldTypes[pendingIndex],
+                                sourceTypes[pendingIndex],
+                                EPOCH_DATE,
+                                EPOCH_DATETIME);
                 buffer.position(startPos + pendingFieldLen);
                 pendingIndex++;
                 pendingFieldLen = -1;
@@ -354,7 +400,7 @@ public final class PgCopyBinaryReader implements PgCopyReader {
             fieldBuf.position(startPos);
             values[i] =
                     PgCopyUtils.parseBinaryField(
-                            fieldBuf, fieldTypes[i], EPOCH_DATE, EPOCH_DATETIME);
+                            fieldBuf, fieldTypes[i], sourceTypes[i], EPOCH_DATE, EPOCH_DATETIME);
             buffer.position(startPos + len);
         }
         return true;
