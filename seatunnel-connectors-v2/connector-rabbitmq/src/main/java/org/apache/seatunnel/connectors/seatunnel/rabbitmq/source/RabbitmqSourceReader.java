@@ -162,7 +162,6 @@ public class RabbitmqSourceReader implements SourceReader<SeaTunnelRow, Rabbitmq
                         output.collect(row);
                     }
                 } else {
-                    // Fix Issue 2: Fail-fast on configuration errors instead of silent data loss
                     String errorMsg =
                             String.format(
                                     "Cannot find schema or tableId for queue: %s. "
