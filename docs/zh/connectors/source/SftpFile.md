@@ -386,6 +386,11 @@ compare_mode = "len_mtime"
 
 更多信息请参考 [元数据 SPI](../../introduction/concepts/metadata-spi.md)。
 
+### recursive_file_scan [boolean]
+
+是否递归扫描子目录。
+如果设置为 `false`，将忽略子目录，仅扫描指定路径下的文件。
+
 ## 如何创建Sftp数据同步作业
 
 以下示例演示如何创建从sftp读取数据并在本地客户端打印的数据同步作业：
