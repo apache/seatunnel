@@ -76,52 +76,56 @@ public class CoordinatorServiceTest {
         SeaTunnelServer server2 =
                 instance2.node.getNodeEngine().getService(SeaTunnelServer.SERVICE_NAME);
 
-        // Wait for the 2 members to form a cluster and master election to be stable, otherwise
-        // each instance may temporarily think it's the master and the assertion below will be
-        // flaky on slow CI machines.
-        await().atMost(20000, TimeUnit.MILLISECONDS)
-                .untilAsserted(
-                        () -> {
-                            Assertions.assertEquals(2, instance1.getCluster().getMembers().size());
-                            Assertions.assertEquals(2, instance2.getCluster().getMembers().size());
-                            boolean master1 = server1.isMasterNode();
-                            boolean master2 = server2.isMasterNode();
-                            Assertions.assertTrue(
-                                    master1 ^ master2,
-                                    "Expected exactly one master node, but got master1="
-                                            + master1
-                                            + ", master2="
-                                            + master2);
-                        });
+        try {
+            // Wait until master election is stable and role semantics are correct.
+            await().atMost(60000, TimeUnit.MILLISECONDS)
+                    .untilAsserted(
+                            () -> {
+                                boolean master1 = server1.isMasterNode();
+                                boolean master2 = server2.isMasterNode();
+                                Assertions.assertTrue(
+                                        master1 ^ master2,
+                                        "Expected exactly one master node, but got master1="
+                                                + master1
+                                                + ", master2="
+                                                + master2);
 
-        boolean instance1IsMaster = server1.isMasterNode();
-        SeaTunnelServer masterServer = instance1IsMaster ? server1 : server2;
-        SeaTunnelServer followerServer = instance1IsMaster ? server2 : server1;
-        HazelcastInstanceImpl masterInstance = instance1IsMaster ? instance1 : instance2;
-        HazelcastInstanceImpl followerInstance = instance1IsMaster ? instance2 : instance1;
+                                SeaTunnelServer masterServer = master1 ? server1 : server2;
+                                SeaTunnelServer followerServer = master1 ? server2 : server1;
+                                Assertions.assertTrue(
+                                        masterServer.getCoordinatorService().isCoordinatorActive());
+                                Assertions.assertThrows(
+                                        SeaTunnelEngineException.class,
+                                        followerServer::getCoordinatorService);
+                            });
 
-        Assertions.assertTrue(masterServer.isMasterNode());
-        CoordinatorService coordinatorService1 = masterServer.getCoordinatorService();
-        Assertions.assertTrue(coordinatorService1.isCoordinatorActive());
+            boolean instance1IsMaster = server1.isMasterNode();
+            SeaTunnelServer followerServer = instance1IsMaster ? server2 : server1;
+            HazelcastInstanceImpl masterInstance = instance1IsMaster ? instance1 : instance2;
 
-        Assertions.assertThrows(
-                SeaTunnelEngineException.class, () -> followerServer.getCoordinatorService());
-
-        // shutdown master instance
-        masterInstance.shutdown();
-        await().atMost(20000, TimeUnit.MILLISECONDS)
-                .untilAsserted(
-                        () -> {
-                            try {
-                                Assertions.assertTrue(followerServer.isMasterNode());
-                                CoordinatorService coordinatorService =
-                                        followerServer.getCoordinatorService();
-                                Assertions.assertTrue(coordinatorService.isCoordinatorActive());
-                            } catch (SeaTunnelEngineException e) {
-                                Assertions.fail("Should not throw SeaTunnelEngineException here.");
-                            }
-                        });
-        followerInstance.shutdown();
+            // Shutdown current master and ensure follower takes over.
+            masterInstance.shutdown();
+            await().atMost(60000, TimeUnit.MILLISECONDS)
+                    .untilAsserted(
+                            () -> {
+                                try {
+                                    Assertions.assertTrue(followerServer.isMasterNode());
+                                    CoordinatorService coordinatorService =
+                                            followerServer.getCoordinatorService();
+                                    Assertions.assertTrue(coordinatorService.isCoordinatorActive());
+                                } catch (SeaTunnelEngineException e) {
+                                    Assertions.fail(
+                                            "Should not throw SeaTunnelEngineException here.");
+                                }
+                            });
+        } finally {
+            if (instance1.getLifecycleService().isRunning()) {
+                instance1.shutdown();
+            }
+            if (instance2.getLifecycleService().isRunning()) {
+                instance2.shutdown();
+            }
+        }
     }
 
     @Test

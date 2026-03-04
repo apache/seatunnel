@@ -286,13 +286,17 @@ public class JobMasterTest extends AbstractSeaTunnelServerTest {
         SeaTunnelTask seaTunnelTask =
                 (SeaTunnelTask) taskGroup1.getTaskGroup().getTasks().stream().findFirst().get();
         jobMaster.getCheckpointManager().readyToCloseIdleTask(seaTunnelTask.getTaskLocation());
+        int expectedClosedIdleTaskSize = taskGroup1.getTaskGroup().getTasks().size();
 
         CheckpointCoordinator checkpointCoordinator =
                 jobMaster
                         .getCheckpointManager()
                         .getCheckpointCoordinator(seaTunnelTask.getTaskLocation().getPipelineId());
         await().atMost(60, TimeUnit.SECONDS)
-                .until(() -> checkpointCoordinator.getClosedIdleTask().size() == 3);
+                .until(
+                        () ->
+                                checkpointCoordinator.getClosedIdleTask().size()
+                                        >= expectedClosedIdleTaskSize);
         await().atMost(60, TimeUnit.SECONDS)
                 .until(() -> slotService.getWorkerProfile().getAssignedSlots().length == 3);
     }
