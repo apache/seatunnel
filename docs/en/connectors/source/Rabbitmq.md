@@ -96,7 +96,7 @@ the schema fields of upstream data. For more details, please refer to [Schema Fe
 
 ### table_configs [array]
 
-Used to read from multiple queues simultaneously. Each object in the array must contain a queue_name and a schema. You can optionally provide a result_table_name to identify the table in downstream sinks.
+Used to read from multiple queues simultaneously. Each object in the array must contain a `queue_name` and a `schema`. You can optionally provide a `plugin_output` to identify the table in downstream sinks.
 
 ### network_recovery_interval [int]
 
@@ -220,3 +220,6 @@ source {
     }
 }
 ```
+## Changelog
+
+<ChangeLog />
