@@ -21,6 +21,7 @@ import org.apache.seatunnel.shade.org.eclipse.jetty.server.Request;
 
 import org.apache.seatunnel.engine.server.rest.service.JobInfoService;
 
+import com.hazelcast.internal.json.JsonArray;
 import com.hazelcast.spi.impl.NodeEngineImpl;
 import lombok.extern.slf4j.Slf4j;
 
@@ -59,10 +60,10 @@ public class RunningJobsServlet extends PageBaseServlet {
         long startNs = System.nanoTime();
         boolean full = Boolean.parseBoolean(req.getParameter("full"));
 
-        String json =
+        JsonArray runningJobs =
                 full
-                        ? jobInfoService.getRunningJobsJson().toString()
-                        : jobInfoService.getRunningJobsSummaryJson().toString();
+                        ? jobInfoService.getRunningJobsJson()
+                        : jobInfoService.getRunningJobsSummaryJson();
 
         long costMs = TimeUnit.NANOSECONDS.toMillis(System.nanoTime() - startNs);
         long dispatchDelayMs = receivedMs <= 0 ? -1 : Math.max(0, nowMs - receivedMs);
@@ -70,7 +71,7 @@ public class RunningJobsServlet extends PageBaseServlet {
         resp.setHeader("X-Dispatch-Delay-Ms", String.valueOf(dispatchDelayMs));
         resp.setHeader("X-Handler-Cost-Ms", String.valueOf(costMs));
 
-        writeJsonString(resp, json);
+        writeJsonWithPagination(req, resp, runningJobs);
 
         if (dispatchDelayMs > 500) {
             System.out.println(

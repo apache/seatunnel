@@ -411,9 +411,9 @@ public class PhysicalPlanGenerator {
                             // intermediate queues. Disabled by default to avoid extra overhead.
                             if (observabilityConfig.isEnabled()
                                     && observabilityConfig.isSplitSinkIo()) {
-                                // Must not repeatedly split the newly created queue-consumer flows,
-                                // otherwise it may keep inserting queues and cause huge memory
-                                // overhead.
+                                // Must not repeatedly split the newly created queue-consumer
+                                // flows, otherwise it may keep inserting queues and cause huge
+                                // memory overhead.
                                 List<Flow> sinkSplitRoots = new ArrayList<>(flows);
                                 for (Flow root : sinkSplitRoots) {
                                     flows.addAll(splitSinkFromFlow(root));
