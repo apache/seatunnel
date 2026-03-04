@@ -148,7 +148,7 @@ public class DynamoDbSinkClient {
 
         int retryCount = 0;
 
-        while (!pendingRequests.isEmpty() && retryCount < maxRetries) {
+        while (!pendingRequests.isEmpty() && retryCount <= maxRetries) {
             Map<String, List<WriteRequest>> requestItems = new HashMap<>(1);
             requestItems.put(tableName, pendingRequests);
 
