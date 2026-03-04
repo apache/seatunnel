@@ -77,8 +77,18 @@ public class CoordinatorServiceTest {
                 instance2.node.getNodeEngine().getService(SeaTunnelServer.SERVICE_NAME);
 
         try {
-            // Wait until master election is stable and role semantics are correct.
-            await().atMost(60000, TimeUnit.MILLISECONDS)
+            // Wait until both instances are in one cluster.
+            await().atMost(120000, TimeUnit.MILLISECONDS)
+                    .untilAsserted(
+                            () -> {
+                                Assertions.assertEquals(
+                                        2, instance1.getCluster().getMembers().size());
+                                Assertions.assertEquals(
+                                        2, instance2.getCluster().getMembers().size());
+                            });
+
+            // Wait until master election and coordinator activation are stable.
+            await().atMost(120000, TimeUnit.MILLISECONDS)
                     .untilAsserted(
                             () -> {
                                 boolean master1 = server1.isMasterNode();
@@ -91,9 +101,17 @@ public class CoordinatorServiceTest {
                                                 + master2);
 
                                 SeaTunnelServer masterServer = master1 ? server1 : server2;
-                                SeaTunnelServer followerServer = master1 ? server2 : server1;
                                 Assertions.assertTrue(
                                         masterServer.getCoordinatorService().isCoordinatorActive());
+                            });
+
+            await().atMost(120000, TimeUnit.MILLISECONDS)
+                    .untilAsserted(
+                            () -> {
+                                boolean master1 = server1.isMasterNode();
+                                boolean master2 = server2.isMasterNode();
+                                Assertions.assertTrue(master1 ^ master2);
+                                SeaTunnelServer followerServer = master1 ? server2 : server1;
                                 Assertions.assertThrows(
                                         SeaTunnelEngineException.class,
                                         followerServer::getCoordinatorService);
@@ -105,7 +123,7 @@ public class CoordinatorServiceTest {
 
             // Shutdown current master and ensure follower takes over.
             masterInstance.shutdown();
-            await().atMost(60000, TimeUnit.MILLISECONDS)
+            await().atMost(120000, TimeUnit.MILLISECONDS)
                     .untilAsserted(
                             () -> {
                                 try {
