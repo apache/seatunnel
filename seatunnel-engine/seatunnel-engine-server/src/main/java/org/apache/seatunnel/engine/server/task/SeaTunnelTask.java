@@ -407,9 +407,9 @@ public abstract class SeaTunnelTask extends AbstractTask {
      *   <li>If the barrier carries a {@code prepareClose} signal for this task, {@code
      *       prepareCloseStatus} is set to {@code true} to trigger the {@code RUNNING →
      *       PREPARE_CLOSE} transition.
-     *   <li>If the barrier is a snapshot barrier, a {@link TaskAcknowledgeOperation} containing
-     *       all buffered {@link ActionSubtaskState}s is sent to the {@code CheckpointCoordinator}
-     *       on the master node.
+     *   <li>If the barrier is a snapshot barrier, a {@link TaskAcknowledgeOperation} containing all
+     *       buffered {@link ActionSubtaskState}s is sent to the {@code CheckpointCoordinator} on
+     *       the master node.
      * </ol>
      *
      * @param barrier the checkpoint or prepare-close barrier being acknowledged
@@ -456,8 +456,8 @@ public abstract class SeaTunnelTask extends AbstractTask {
     /**
      * Sends a {@link TriggerSchemaChangeAfterCheckpointOperation} to the master node.
      *
-     * <p>This propagates a DDL-after-checkpoint barrier signalling that the schema change has
-     * been committed and downstream tasks can proceed with the new schema.
+     * <p>This propagates a DDL-after-checkpoint barrier signalling that the schema change has been
+     * committed and downstream tasks can proceed with the new schema.
      *
      * @return a future that completes when the master acknowledges the operation
      */
@@ -474,12 +474,12 @@ public abstract class SeaTunnelTask extends AbstractTask {
      * Buffers a per-action checkpoint state snapshot for the given barrier.
      *
      * <p>Each action in the task chain serializes its state as a list of byte arrays and registers
-     * it here. The accumulated states are later sent to the {@code CheckpointCoordinator} when
-     * all cycles have ACKed via {@link #ack(Barrier)}.
+     * it here. The accumulated states are later sent to the {@code CheckpointCoordinator} when all
+     * cycles have ACKed via {@link #ack(Barrier)}.
      *
-     * @param barrier  the checkpoint barrier this state belongs to
+     * @param barrier the checkpoint barrier this state belongs to
      * @param stateKey identifies the action that produced the state
-     * @param state    the serialized action state as a list of byte arrays
+     * @param state the serialized action state as a list of byte arrays
      */
     public void addState(Barrier barrier, ActionStateKey stateKey, List<byte[]> state) {
         List<ActionSubtaskState> states =
