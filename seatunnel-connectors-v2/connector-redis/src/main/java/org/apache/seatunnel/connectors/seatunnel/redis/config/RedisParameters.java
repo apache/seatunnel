@@ -45,38 +45,72 @@ import static org.apache.seatunnel.connectors.seatunnel.redis.exception.RedisErr
 @Data
 @Slf4j
 public class RedisParameters implements Serializable {
+    // Connection configuration fields
     private String host;
     private Integer port;
     private String auth = "";
     private int dbNum;
     private String user = "";
-    private String keysPattern;
-    private String keyField;
-    private RedisDataType redisDataType;
     private RedisBaseOptions.RedisMode mode;
-    private RedisSourceOptions.HashKeyParseMode hashKeyParseMode;
-    private Boolean readKeyEnabled;
-    private String singleFieldName;
-    private String keyFieldName;
     private List<String> redisNodes = Collections.emptyList();
+    private int redisVersion;
+
+    // The following fields are only for single-table mode.
+    // In multi-table mode, use RedisTableConfig instead.
+    @Deprecated private String keysPattern;
+
+    @Deprecated private String keyField;
+
+    @Deprecated private RedisDataType redisDataType;
+
+    @Deprecated private RedisSourceOptions.HashKeyParseMode hashKeyParseMode;
+
+    @Deprecated private Boolean readKeyEnabled;
+
+    @Deprecated private String singleFieldName;
+
+    @Deprecated private String keyFieldName;
+
+    @Deprecated private int batchSize = RedisBaseOptions.BATCH_SIZE.defaultValue();
+
+    @Deprecated private String fieldDelimiter;
+
+    @Deprecated private RedisBaseOptions.Format format;
+
+    // Sink-specific fields
     private long expire = RedisSinkOptions.EXPIRE.defaultValue();
-    private int batchSize = RedisBaseOptions.BATCH_SIZE.defaultValue();
     private Boolean supportCustomKey;
     private String valueField;
     private String hashKeyField;
     private String hashValueField;
-    private String fieldDelimiter;
-    private RedisBaseOptions.Format format;
-
-    private int redisVersion;
 
     public void buildWithConfig(ReadonlyConfig config) {
+        // Connection configuration
         // set host
         this.host = config.get(RedisBaseOptions.HOST);
         // set port
         this.port = config.get(RedisBaseOptions.PORT);
         // set db_num
         this.dbNum = config.get(RedisBaseOptions.DB_NUM);
+        // set auth
+        if (config.getOptional(RedisBaseOptions.AUTH).isPresent()) {
+            this.auth = config.get(RedisBaseOptions.AUTH);
+        }
+        // set user
+        if (config.getOptional(RedisBaseOptions.USER).isPresent()) {
+            this.user = config.get(RedisBaseOptions.USER);
+        }
+        // set mode
+        this.mode = config.get(RedisBaseOptions.MODE);
+        // set redis nodes information
+        if (config.getOptional(RedisBaseOptions.NODES).isPresent()) {
+            this.redisNodes = config.get(RedisBaseOptions.NODES);
+        }
+
+        // Note: The following table-level configurations are for single-table mode compatibility
+        // only.
+        // In multi-table mode, these values are read from RedisTableConfig instead.
+
         // set hash key mode
         this.hashKeyParseMode = config.get(RedisSourceOptions.HASH_KEY_PARSE_MODE);
         // set read with key
@@ -95,22 +129,6 @@ public class RedisParameters implements Serializable {
         } else {
             this.keyFieldName = config.get(RedisSourceOptions.KEY_FIELD_NAME);
         }
-        // set expire
-        this.expire = config.get(RedisSinkOptions.EXPIRE);
-        // set auth
-        if (config.getOptional(RedisBaseOptions.AUTH).isPresent()) {
-            this.auth = config.get(RedisBaseOptions.AUTH);
-        }
-        // set user
-        if (config.getOptional(RedisBaseOptions.USER).isPresent()) {
-            this.user = config.get(RedisBaseOptions.USER);
-        }
-        // set mode
-        this.mode = config.get(RedisBaseOptions.MODE);
-        // set redis nodes information
-        if (config.getOptional(RedisBaseOptions.NODES).isPresent()) {
-            this.redisNodes = config.get(RedisBaseOptions.NODES);
-        }
         // set key
         if (config.getOptional(RedisBaseOptions.KEY).isPresent()) {
             this.keyField = config.get(RedisBaseOptions.KEY);
@@ -123,6 +141,14 @@ public class RedisParameters implements Serializable {
         this.redisDataType = config.get(RedisBaseOptions.DATA_TYPE);
         // Indicates the number of keys to attempt to return per iteration.default 10
         this.batchSize = config.get(RedisBaseOptions.BATCH_SIZE);
+        // set format, default json
+        this.format = config.get(RedisBaseOptions.FORMAT);
+        // set field delimiter, only need when format is TEXT
+        this.fieldDelimiter = config.get(RedisBaseOptions.FIELD_DELIMITER);
+
+        // Sink-specific configuration
+        // set expire
+        this.expire = config.get(RedisSinkOptions.EXPIRE);
         // set support custom key
         if (config.getOptional(RedisSinkOptions.SUPPORT_CUSTOM_KEY).isPresent()) {
             this.supportCustomKey = config.get(RedisSinkOptions.SUPPORT_CUSTOM_KEY);
@@ -139,24 +165,6 @@ public class RedisParameters implements Serializable {
         if (config.getOptional(RedisSinkOptions.HASH_VALUE_FIELD).isPresent()) {
             this.hashValueField = config.get(RedisSinkOptions.HASH_VALUE_FIELD);
         }
-
-        // set format, default json
-        this.format = config.get(RedisBaseOptions.FORMAT);
-
-        // set field delimiter, only need when format is TEXT
-        this.fieldDelimiter = config.get(RedisBaseOptions.FIELD_DELIMITER);
-    }
-
-    /** Update current instance's KEY-related parameters from RedisTableConfig. */
-    public void setFromTableConfig(RedisTableConfig tableConfig) {
-        // Set table-specific KEY-related settings from RedisTableConfig
-        this.keysPattern = tableConfig.getKeys();
-        this.redisDataType = tableConfig.getDataType();
-        this.batchSize = tableConfig.getBatchSize();
-        this.hashKeyParseMode = tableConfig.getHashKeyParseMode();
-        this.readKeyEnabled = tableConfig.getReadKeyEnabled();
-        this.keyFieldName = tableConfig.getKeyFieldName();
-        this.singleFieldName = tableConfig.getSingleFieldName();
     }
 
     public RedisClient buildRedisClient() {

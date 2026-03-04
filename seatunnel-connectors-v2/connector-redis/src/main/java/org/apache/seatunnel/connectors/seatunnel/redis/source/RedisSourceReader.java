@@ -177,19 +177,21 @@ public class RedisSourceReader extends AbstractSingleSplitReader<SeaTunnelRow> {
                 tableConfig.getDeserializationSchema();
         TablePath tablePath = tableConfig.getTablePath();
 
-        // Update this.redisParameters with table-specific KEY-related settings
-        this.redisParameters.setFromTableConfig(tableConfig);
-
         if (Boolean.TRUE.equals(tableConfig.getReadKeyEnabled())) {
             return new KeyedRecordReader(
                     this.redisParameters,
+                    tableConfig,
                     deserializationSchema,
                     redisClient,
-                    KeyValueMergerFactory.createMerger(deserializationSchema, this.redisParameters),
+                    KeyValueMergerFactory.createMerger(deserializationSchema, tableConfig),
                     tablePath);
         } else {
             return new UnKeyedRecordReader(
-                    this.redisParameters, deserializationSchema, redisClient, tablePath);
+                    this.redisParameters,
+                    tableConfig,
+                    deserializationSchema,
+                    redisClient,
+                    tablePath);
         }
     }
 

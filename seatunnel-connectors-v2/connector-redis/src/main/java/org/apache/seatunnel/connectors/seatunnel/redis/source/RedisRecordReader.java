@@ -25,6 +25,7 @@ import org.apache.seatunnel.common.utils.JsonUtils;
 import org.apache.seatunnel.connectors.seatunnel.redis.client.RedisClient;
 import org.apache.seatunnel.connectors.seatunnel.redis.config.RedisParameters;
 import org.apache.seatunnel.connectors.seatunnel.redis.config.RedisSourceOptions;
+import org.apache.seatunnel.connectors.seatunnel.redis.config.RedisTableConfig;
 
 import java.io.IOException;
 import java.util.List;
@@ -32,16 +33,19 @@ import java.util.Map;
 
 public abstract class RedisRecordReader {
     protected final RedisParameters redisParameters;
+    protected final RedisTableConfig tableConfig;
     protected final DeserializationSchema<SeaTunnelRow> deserializationSchema;
     protected final TablePath tablePath;
     protected RedisClient redisClient;
 
     protected RedisRecordReader(
             RedisParameters redisParameters,
+            RedisTableConfig tableConfig,
             DeserializationSchema<SeaTunnelRow> deserializationSchema,
             RedisClient redisClient,
             TablePath tablePath) {
         this.redisParameters = redisParameters;
+        this.tableConfig = tableConfig;
         this.deserializationSchema = deserializationSchema;
         this.redisClient = redisClient;
         this.tablePath = tablePath;
@@ -64,15 +68,16 @@ public abstract class RedisRecordReader {
 
     public void pollHashMapToNext(List<String> keys, Collector<SeaTunnelRow> output)
             throws IOException {
-        List<Map<String, String>> values = redisClient.batchGetHash(keys);
+        List<Map<String, String>> values = redisClient.batchGetHash(keys, tableConfig);
         if (deserializationSchema == null) {
             for (Map<String, String> value : values) {
                 output.collect(createRowWithTableId(new Object[] {JsonUtils.toJsonString(value)}));
             }
             return;
         }
+        RedisSourceOptions.HashKeyParseMode hashKeyParseMode = tableConfig.getHashKeyParseMode();
         for (Map<String, String> recordsMap : values) {
-            if (redisParameters.getHashKeyParseMode() == RedisSourceOptions.HashKeyParseMode.KV) {
+            if (hashKeyParseMode == RedisSourceOptions.HashKeyParseMode.KV) {
                 SeaTunnelRow row =
                         deserializationSchema.deserialize(
                                 JsonUtils.toJsonString(recordsMap).getBytes());

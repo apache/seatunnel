@@ -22,16 +22,16 @@ import org.apache.seatunnel.shade.com.fasterxml.jackson.databind.node.ObjectNode
 
 import org.apache.seatunnel.common.exception.CommonError;
 import org.apache.seatunnel.common.utils.JsonUtils;
-import org.apache.seatunnel.connectors.seatunnel.redis.config.RedisParameters;
+import org.apache.seatunnel.connectors.seatunnel.redis.config.RedisTableConfig;
 
 import lombok.extern.slf4j.Slf4j;
 
 @Slf4j
 public class JsonKeyValueMerger implements KeyValueMerger {
-    private final RedisParameters redisParameters;
+    private final RedisTableConfig tableConfig;
 
-    public JsonKeyValueMerger(RedisParameters redisParameters) {
-        this.redisParameters = redisParameters;
+    public JsonKeyValueMerger(RedisTableConfig tableConfig) {
+        this.tableConfig = tableConfig;
     }
 
     @Override
@@ -62,7 +62,10 @@ public class JsonKeyValueMerger implements KeyValueMerger {
             objectNode = JsonUtils.createObjectNode();
             setValueInNode(objectNode, node);
         }
-        objectNode.put(redisParameters.getKeyFieldName(), key);
+        String keyFieldName = tableConfig.getKeyFieldName();
+        if (keyFieldName != null) {
+            objectNode.put(keyFieldName, key);
+        }
         return objectNode;
     }
 
@@ -73,7 +76,7 @@ public class JsonKeyValueMerger implements KeyValueMerger {
     }
 
     private void setValueInNode(ObjectNode objectNode, JsonNode node) {
-        String singleFieldName = redisParameters.getSingleFieldName();
+        String singleFieldName = tableConfig.getSingleFieldName();
         if (singleFieldName != null) {
             objectNode.set(singleFieldName, node);
         } else {

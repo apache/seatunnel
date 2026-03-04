@@ -24,6 +24,7 @@ import org.apache.seatunnel.api.table.type.SeaTunnelRow;
 import org.apache.seatunnel.common.exception.CommonError;
 import org.apache.seatunnel.connectors.seatunnel.redis.client.RedisClient;
 import org.apache.seatunnel.connectors.seatunnel.redis.config.RedisParameters;
+import org.apache.seatunnel.connectors.seatunnel.redis.config.RedisTableConfig;
 import org.apache.seatunnel.connectors.seatunnel.redis.util.KeyValueMerger;
 
 import lombok.extern.slf4j.Slf4j;
@@ -39,11 +40,12 @@ public class KeyedRecordReader extends RedisRecordReader {
 
     public KeyedRecordReader(
             RedisParameters redisParameters,
+            RedisTableConfig tableConfig,
             DeserializationSchema<SeaTunnelRow> deserializationSchema,
             RedisClient redisClient,
             KeyValueMerger keyValueMerger,
             TablePath tablePath) {
-        super(redisParameters, deserializationSchema, redisClient, tablePath);
+        super(redisParameters, tableConfig, deserializationSchema, redisClient, tablePath);
         this.keyValueMerger = keyValueMerger;
     }
 

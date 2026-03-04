@@ -170,6 +170,19 @@ public class RedisTableConfig implements Serializable {
         String keys = tableConfig.get(KEY_PATTERN);
         TablePath tablePath = getTablePath(tableConfig, keys);
 
+        // Set keyFieldName with default value based on data type
+        String keyFieldName;
+        if (!tableConfig.getOptional(KEY_FIELD_NAME).isPresent()) {
+            RedisDataType dataType = tableConfig.get(DATA_TYPE);
+            if (dataType == RedisDataType.HASH) {
+                keyFieldName = "hash_key";
+            } else {
+                keyFieldName = "key";
+            }
+        } else {
+            keyFieldName = tableConfig.get(KEY_FIELD_NAME);
+        }
+
         return RedisTableConfig.builder()
                 .keys(keys)
                 .dataType(tableConfig.get(DATA_TYPE)) // ← Goes through convertToEnum()
@@ -179,7 +192,7 @@ public class RedisTableConfig implements Serializable {
                 .hashKeyParseMode(
                         tableConfig.get(HASH_KEY_PARSE_MODE)) // ← Goes through convertToEnum()
                 .readKeyEnabled(tableConfig.get(READ_KEY_ENABLED))
-                .keyFieldName(tableConfig.getOptional(KEY_FIELD_NAME).orElse(null))
+                .keyFieldName(keyFieldName)
                 .singleFieldName(tableConfig.getOptional(SINGLE_FIELD_NAME).orElse(null))
                 .fieldDelimiter(tableConfig.get(FIELD_DELIMITER))
                 .tablePath(tablePath)
@@ -244,6 +257,19 @@ public class RedisTableConfig implements Serializable {
         String keys = config.get(KEY_PATTERN);
         TablePath tablePath = getTablePath(config, keys);
 
+        // Set keyFieldName with default value based on data type
+        String keyFieldName;
+        if (!config.getOptional(KEY_FIELD_NAME).isPresent()) {
+            RedisDataType dataType = config.get(DATA_TYPE);
+            if (dataType == RedisDataType.HASH) {
+                keyFieldName = "hash_key";
+            } else {
+                keyFieldName = "key";
+            }
+        } else {
+            keyFieldName = config.get(KEY_FIELD_NAME);
+        }
+
         RedisTableConfig tableConfig =
                 RedisTableConfig.builder()
                         .keys(keys)
@@ -253,7 +279,7 @@ public class RedisTableConfig implements Serializable {
                         .schema(config.getOptional(ConnectorCommonOptions.SCHEMA).orElse(null))
                         .hashKeyParseMode(config.get(HASH_KEY_PARSE_MODE))
                         .readKeyEnabled(config.get(READ_KEY_ENABLED))
-                        .keyFieldName(config.getOptional(KEY_FIELD_NAME).orElse(null))
+                        .keyFieldName(keyFieldName)
                         .singleFieldName(config.getOptional(SINGLE_FIELD_NAME).orElse(null))
                         .fieldDelimiter(config.get(FIELD_DELIMITER))
                         .tablePath(tablePath)

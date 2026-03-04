@@ -23,6 +23,7 @@ import org.apache.seatunnel.api.table.catalog.TablePath;
 import org.apache.seatunnel.api.table.type.SeaTunnelRow;
 import org.apache.seatunnel.connectors.seatunnel.redis.client.RedisClient;
 import org.apache.seatunnel.connectors.seatunnel.redis.config.RedisParameters;
+import org.apache.seatunnel.connectors.seatunnel.redis.config.RedisTableConfig;
 
 import lombok.extern.slf4j.Slf4j;
 
@@ -35,10 +36,11 @@ public class UnKeyedRecordReader extends RedisRecordReader {
 
     public UnKeyedRecordReader(
             RedisParameters redisParameters,
+            RedisTableConfig tableConfig,
             DeserializationSchema<SeaTunnelRow> deserializationSchema,
             RedisClient redisClient,
             TablePath tablePath) {
-        super(redisParameters, deserializationSchema, redisClient, tablePath);
+        super(redisParameters, tableConfig, deserializationSchema, redisClient, tablePath);
     }
 
     @Override
