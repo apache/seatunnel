@@ -249,7 +249,6 @@ public class RabbitmqSourceTest {
         Assertions.assertThrows(
                 Exception.class,
                 () -> new RabbitmqSource(ReadonlyConfig.fromMap(configMap)),
-                "Should fail when table_configs is missing the schema block"
-        );
+                "Should fail when table_configs is missing the schema block");
     }
 }
