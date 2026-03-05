@@ -26,6 +26,8 @@ import org.apache.seatunnel.engine.common.config.server.ConnectorJarHAStorageCon
 import org.apache.seatunnel.engine.common.config.server.ConnectorJarStorageConfig;
 import org.apache.seatunnel.engine.common.config.server.ConnectorJarStorageMode;
 import org.apache.seatunnel.engine.common.config.server.CoordinatorServiceConfig;
+import org.apache.seatunnel.engine.common.config.server.DataSourceConfig;
+import org.apache.seatunnel.engine.common.config.server.DataSourceOptions;
 import org.apache.seatunnel.engine.common.config.server.HttpConfig;
 import org.apache.seatunnel.engine.common.config.server.QueueType;
 import org.apache.seatunnel.engine.common.config.server.ScheduleStrategy;
@@ -255,6 +257,8 @@ public class YamlSeaTunnelDomConfigProcessor extends AbstractDomConfigProcessor 
                         ScheduleStrategy.valueOf(getTextContent(node).toUpperCase(Locale.ROOT)));
             } else if (ServerConfigOptions.MasterServerConfigOptions.HTTP.key().equals(name)) {
                 engineConfig.setHttpConfig(parseHttpConfig(node));
+            } else if (ServerConfigOptions.DATASOURCE.key().equals(name)) {
+                engineConfig.setDataSourceConfig(parseDataSourceConfig(node));
             } else if (ServerConfigOptions.MasterServerConfigOptions.COORDINATOR_SERVICE
                     .key()
                     .equals(name)) {
@@ -583,5 +587,22 @@ public class YamlSeaTunnelDomConfigProcessor extends AbstractDomConfigProcessor 
             }
         }
         return httpConfig;
+    }
+
+    private DataSourceConfig parseDataSourceConfig(Node dataSourceNode) {
+        DataSourceConfig dataSourceConfig = new DataSourceConfig();
+        for (Node node : childElements(dataSourceNode)) {
+            String name = cleanNodeName(node);
+            if (DataSourceOptions.ENABLED.key().equals(name)) {
+                dataSourceConfig.setEnabled(getBooleanValue(getTextContent(node)));
+            } else if (DataSourceOptions.KIND.key().equals(name)) {
+                dataSourceConfig.setKind(getTextContent(node));
+            } else {
+                // Provider-specific properties, store in properties map
+                // e.g., "uri", "metalake", "auth-type" for Gravitino
+                dataSourceConfig.getProperties().put(name, getTextContent(node));
+            }
+        }
+        return dataSourceConfig;
     }
 }

@@ -44,6 +44,13 @@ seatunnel:
       enable-http: true
       port: 8080
       enable-dynamic-port: false
+    datasource:
+      enable: false
+      kind: gravitino
+      gravitino:
+        uri: http://localhost:8090
+        metalake: seatunnel
+
       # Uncomment the following lines to enable basic authentication for web UI
       # enable-basic-auth: true
       # basic-auth-username: admin
