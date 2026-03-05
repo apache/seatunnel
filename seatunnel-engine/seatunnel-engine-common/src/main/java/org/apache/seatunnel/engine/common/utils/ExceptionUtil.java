@@ -31,6 +31,7 @@ import com.hazelcast.client.impl.protocol.ClientProtocolErrorCodes;
 import com.hazelcast.core.HazelcastInstanceNotActiveException;
 import com.hazelcast.core.OperationTimeoutException;
 import com.hazelcast.instance.impl.OutOfMemoryErrorDispatcher;
+import com.hazelcast.spi.exception.RetryableHazelcastException;
 import lombok.NonNull;
 
 import java.lang.reflect.InvocationTargetException;
@@ -155,6 +156,7 @@ public final class ExceptionUtil {
         Throwable exception = ExceptionUtils.getRootException(e);
         return exception instanceof HazelcastInstanceNotActiveException
                 || exception instanceof InterruptedException
-                || exception instanceof OperationTimeoutException;
+                || exception instanceof OperationTimeoutException
+                || exception instanceof RetryableHazelcastException;
     }
 }
