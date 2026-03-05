@@ -449,10 +449,26 @@ public class CoordinatorService {
     }
 
     private void restoreAllRunningJobFromMasterNodeSwitch() {
-        List<Map.Entry<Long, JobInfo>> needRestoreFromMasterNodeSwitchJobs =
-                runningJobInfoIMap.entrySet().stream()
-                        .filter(entry -> !runningJobMasterMap.containsKey(entry.getKey()))
-                        .collect(Collectors.toList());
+        List<Map.Entry<Long, JobInfo>> needRestoreFromMasterNodeSwitchJobs;
+        try {
+            needRestoreFromMasterNodeSwitchJobs =
+                    RetryUtils.retryWithException(
+                            () ->
+                                    runningJobInfoIMap.entrySet().stream()
+                                            .filter(
+                                                    entry ->
+                                                            !runningJobMasterMap.containsKey(
+                                                                    entry.getKey()))
+                                            .collect(Collectors.toList()),
+                            new RetryUtils.RetryMaterial(
+                                    Constant.OPERATION_RETRY_TIME,
+                                    true,
+                                    ExceptionUtil::isOperationNeedRetryException,
+                                    Constant.OPERATION_RETRY_SLEEP));
+        } catch (Exception e) {
+            throw new SeaTunnelEngineException(
+                    "Failed to fetch running jobs from IMap during master switch restore", e);
+        }
         if (needRestoreFromMasterNodeSwitchJobs.isEmpty()) {
             return;
         }
