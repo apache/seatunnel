@@ -234,4 +234,22 @@ public class RabbitmqSourceTest {
         // It should have fallen back to the global queue name!
         Assertions.assertEquals("global_default_queue", t1.getTableId().getTableName());
     }
+
+    @Test
+    public void testTableConfigMissingSchemaThrowsException() {
+        Map<String, Object> configMap = new HashMap<>();
+        configMap.put(RabbitmqBaseOptions.HOST.key(), "localhost");
+
+        Map<String, Object> table1 = new HashMap<>();
+        table1.put("queue_name", "q1");
+        // table1.put("schema", ...)
+
+        configMap.put(TableSchemaOptions.TABLE_CONFIGS.key(), Collections.singletonList(table1));
+
+        Assertions.assertThrows(
+                Exception.class,
+                () -> new RabbitmqSource(ReadonlyConfig.fromMap(configMap)),
+                "Should fail when table_configs is missing the schema block"
+        );
+    }
 }
