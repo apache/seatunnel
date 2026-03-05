@@ -718,4 +718,60 @@ public class SqlServerCDCIT extends TestSuiteBase implements TestResource {
                                     querySql(selectSql, sinkTable));
                         });
     }
+
+    @TestTemplate
+    @DisabledOnContainer(
+            value = {},
+            type = {EngineType.SPARK},
+            disabledReason = "Currently SPARK do not support cdc")
+    public void testTimestampStartupMode(TestContainer container) throws InterruptedException {
+        initializeSqlServerTable(DATABASE_NAME);
+        executeSql("TRUNCATE TABLE " + DATABASE_NAME + "." + SCHEMA_NAME + ".full_types_sink;");
+
+        // Use full fields insert to avoid implicit conversion error for varbinary columns with null
+        // value
+        executeSql(
+                "INSERT INTO "
+                        + SOURCE_TABLE_CUSTOM_PRIMARY_KEY
+                        + " VALUES (1, 'cč1', 'vcč', 'tč', N'cč', N'vcč', N'tč', 1.123, 2, 3.323, 4.323, 5.323, 6.323, 1, 22, 333, 4444, 55555, '2018-07-13', '10:23:45', '2018-07-13 11:23:45.34', '2018-07-13 13:23:45.78', '2018-07-13 14:23:45', '<a>b</a>',SYSDATETIMEOFFSET(),CAST('test_varbinary' AS varbinary(100)), 5.32)");
+
+        // sleep for a while to make sure the timestamp is different
+        TimeUnit.SECONDS.sleep(5);
+        long startTimestamp = System.currentTimeMillis();
+        TimeUnit.SECONDS.sleep(5);
+
+        executeSql(
+                "INSERT INTO "
+                        + SOURCE_TABLE_CUSTOM_PRIMARY_KEY
+                        + " VALUES (2, 'cč2', 'vcč', 'tč', N'cč', N'vcč', N'tč', 1.123, 2, 3.323, 4.323, 5.323, 6.323, 1, 22, 333, 4444, 55555, '2018-07-13', '10:23:45', '2018-07-13 11:23:45.34', '2018-07-13 13:23:45.78', '2018-07-13 14:23:45', '<a>b</a>',SYSDATETIMEOFFSET(),CAST('test_varbinary' AS varbinary(100)), 5.32)");
+
+        CompletableFuture.runAsync(
+                () -> {
+                    try {
+                        container.executeJob(
+                                "/sqlservercdc_to_sqlserver_timestamp.conf",
+                                Arrays.asList("timestamp=" + startTimestamp));
+                    } catch (Exception e) {
+                        throw new RuntimeException(e);
+                    }
+                });
+
+        await().atMost(300000, TimeUnit.MILLISECONDS)
+                .untilAsserted(
+                        () -> {
+                            List<List<Object>> sinkRows =
+                                    querySql(
+                                            "SELECT id FROM "
+                                                    + DATABASE_NAME
+                                                    + "."
+                                                    + SCHEMA_NAME
+                                                    + ".full_types_sink ORDER BY id ASC");
+                            Assertions.assertTrue(
+                                    sinkRows.stream()
+                                            .anyMatch(row -> row.get(0).toString().equals("2")));
+                            Assertions.assertFalse(
+                                    sinkRows.stream()
+                                            .anyMatch(row -> row.get(0).toString().equals("1")));
+                        });
+    }
 }
