@@ -1,0 +1,217 @@
+/*
+ * Licensed to the Apache Software Foundation (ASF) under one or more
+ * contributor license agreements.  See the NOTICE file distributed with
+ * this work for additional information regarding copyright ownership.
+ * The ASF licenses this file to You under the Apache License, Version 2.0
+ * (the "License"); you may not use this file except in compliance with
+ * the License.  You may obtain a copy of the License at
+ *
+ *    http://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an "AS IS" BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
+ */
+
+package org.apache.seatunnel.api.datasource;
+
+import org.apache.seatunnel.shade.com.typesafe.config.Config;
+import org.apache.seatunnel.shade.com.typesafe.config.ConfigFactory;
+
+import org.apache.seatunnel.api.configuration.ReadonlyConfig;
+import org.apache.seatunnel.api.datasource.exception.DataSourceProviderException;
+
+import org.junit.jupiter.api.AfterEach;
+import org.junit.jupiter.api.BeforeEach;
+import org.junit.jupiter.api.Test;
+
+import lombok.SneakyThrows;
+
+import java.nio.file.Paths;
+import java.util.ArrayList;
+import java.util.Arrays;
+import java.util.HashMap;
+import java.util.List;
+import java.util.Map;
+
+import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertNotNull;
+import static org.junit.jupiter.api.Assertions.assertThrows;
+
+public class DataSourceConfigUtilTest {
+
+    private static final String TEST_PROVIDER_KIND = "test-provider";
+
+    @BeforeEach
+    public void setUp() {
+        // Clear the cache before each test
+        DataSourceProviderFactory.clearCache();
+    }
+
+    @AfterEach
+    public void tearDown() {
+        // Clear the cache after each test after each test
+        DataSourceProviderFactory.clearCache();
+    }
+
+    @Test
+    public void testResolveDataSourceConfigsWithDatasourceId() {
+        // Register mock provider
+        MockTestDataSourceProvider provider = new MockTestDataSourceProvider();
+        registerProvider(provider);
+
+        // Load config from file with datasource_id
+        Config jobConfig = loadTestConfig();
+
+        // Resolve with datasource_id
+        Config resolved =
+                DataSourceConfigUtil.resolveDataSourceConfigs(jobConfig, TEST_PROVIDER_KIND);
+
+        assertNotNull(resolved);
+
+        // Verify we have 2 sources and 2 sinks
+        List<? extends Config> sources = resolved.getConfigList("source");
+        List<? extends Config> sinks = resolved.getConfigList("sink");
+        assertEquals(2, sources.size());
+        assertEquals(2, sinks.size());
+
+        // Verify first source has datasource config merged (flat structure)
+        Config source1 = sources.get(0);
+        // In flat structure, values are directly at root level
+        assertEquals("jdbc:postgresql://metadata:5432/metadata_db", source1.getString("url"));
+        assertEquals("metadata_user", source1.getString("username"));
+        assertEquals("metadata_password", source1.getString("password"));
+        // The original query should still be there
+        assertEquals("select id, name from table1", source1.getString("query"));
+
+        // Verify second source has datasource config merged (flat structure)
+        Config source2 = sources.get(1);
+        assertEquals("jdbc:postgresql://metadata:5432/metadata_db", source2.getString("url"));
+        assertEquals("metadata_user", source2.getString("username"));
+        assertEquals("select id, value from table2", source2.getString("query"));
+
+        // Verify first sink has datasource config merged (flat structure)
+        Config sink1 = sinks.get(0);
+        assertEquals("jdbc:postgresql://metadata:5432/metadata_db", sink1.getString("url"));
+        assertEquals("metadata_user", sink1.getString("username"));
+        assertEquals("insert into sink_table1 (id, name) values (?, ?)", sink1.getString("query"));
+
+        // Verify second sink has datasource config merged (flat structure)
+        Config sink2 = sinks.get(1);
+        assertEquals("jdbc:postgresql://metadata:5432/metadata_db", sink2.getString("url"));
+        assertEquals("insert into sink_table2 (id, value) values (?, ?)", sink2.getString("query"));
+    }
+
+    @Test
+    public void testResolveDataSourceConfigsWithUnknownProvider() {
+        // Load config from file with datasource_id
+        Config jobConfig = loadTestConfig();
+
+        // Try to resolve with a provider that doesn't exist
+        DataSourceProviderException exception =
+                assertThrows(
+                        DataSourceProviderException.class,
+                        () ->
+                                DataSourceConfigUtil.resolveDataSourceConfigs(
+                                        jobConfig, "unknown-provider"));
+
+        // Verify exception is thrown
+        assertNotNull(exception);
+        assertNotNull(exception.getMessage());
+    }
+
+    /** Helper method to load the test config file. */
+    @SneakyThrows
+    private Config loadTestConfig() {
+        return ConfigFactory.parseFile(
+                Paths.get(
+                                DataSourceConfigUtilTest.class
+                                        .getResource("/conf/datasource-test.conf")
+                                        .toURI())
+                        .toFile());
+    }
+
+    /**
+     * Helper method to manually register a provider for testing. This is a workaround since we
+     * can't easily use SPI in unit tests.
+     */
+    private void registerProvider(DataSourceProvider provider) {
+        try {
+            java.lang.reflect.Field cacheField =
+                    DataSourceProviderFactory.class.getDeclaredField("PROVIDER_CACHE");
+            cacheField.setAccessible(true);
+            @SuppressWarnings("unchecked")
+            java.util.Map<String, DataSourceProvider> cache =
+                    (java.util.Map<String, DataSourceProvider>) cacheField.get(null);
+            cache.put(provider.kind(), provider);
+
+            java.lang.reflect.Field providersField =
+                    DataSourceProviderFactory.class.getDeclaredField("cachedProviders");
+            providersField.setAccessible(true);
+            @SuppressWarnings("unchecked")
+            java.util.List<DataSourceProvider> cachedProviders =
+                    (java.util.List<DataSourceProvider>) providersField.get(null);
+            if (cachedProviders == null) {
+                cachedProviders = new ArrayList<>();
+                cachedProviders.add(provider);
+                providersField.set(null, cachedProviders);
+            } else if (cachedProviders.isEmpty()) {
+                cachedProviders.add(provider);
+            }
+        } catch (Exception e) {
+            throw new RuntimeException("Failed to register provider for testing", e);
+        }
+    }
+
+    /** Mock DataSourceProvider for testing. */
+    public static class MockTestDataSourceProvider implements DataSourceProvider {
+
+        private final List<DataSourceMapper> mappers;
+
+        public MockTestDataSourceProvider() {
+            this.mappers = Arrays.asList(new MockJdbcDataSourceMapper());
+        }
+
+        @Override
+        public String kind() {
+            return TEST_PROVIDER_KIND;
+        }
+
+        @Override
+        public void init(ReadonlyConfig config) {
+            // No-op for testing
+        }
+
+        @Override
+        public List<DataSourceMapper> dataSourceMappers() {
+            return mappers;
+        }
+
+        @Override
+        public void close() {
+            // No-op for testing
+        }
+    }
+
+    /** Mock DataSourceMapper for Jdbc connector. */
+    public static class MockJdbcDataSourceMapper implements DataSourceMapper {
+
+        @Override
+        public String connectorIdentifier() {
+            return "Jdbc";
+        }
+
+        @Override
+        public Map<String, Object> map(String datasourceId) {
+            // Simulate fetching connection config from metadata service
+            Map<String, Object> config = new HashMap<>();
+            config.put("url", "jdbc:postgresql://metadata:5432/metadata_db");
+            config.put("driver", "org.postgresql.Driver");
+            config.put("username", "metadata_user");
+            config.put("password", "metadata_password");
+            return config;
+        }
+    }
+}
