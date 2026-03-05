@@ -25,6 +25,15 @@ import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.BeforeAll;
 import org.junit.jupiter.api.Test;
 
+import java.sql.Connection;
+import java.sql.PreparedStatement;
+import java.sql.ResultSet;
+import java.sql.SQLException;
+import java.util.List;
+
+import static org.mockito.Mockito.mock;
+import static org.mockito.Mockito.when;
+
 /**
  * Unit tests for {@link DamengCatalog}. Tests SQL generation methods without requiring a real
  * database connection.
@@ -56,6 +65,66 @@ public class DamengCatalogTest {
     void testGetListTableSql() {
         String sql = catalog.exposedGetListTableSql("DAMENG");
         Assertions.assertEquals("SELECT OWNER, TABLE_NAME FROM ALL_TABLES", sql);
+    }
+
+    @Test
+    void testListDatabasesExecutesCatalogMethod() throws SQLException {
+        Connection connection = mock(Connection.class);
+        PreparedStatement statement = mock(PreparedStatement.class);
+        ResultSet resultSet = mock(ResultSet.class);
+        when(connection.prepareStatement("SELECT name FROM v$database")).thenReturn(statement);
+        when(statement.executeQuery()).thenReturn(resultSet);
+        when(resultSet.next()).thenReturn(true, false);
+        when(resultSet.getString(1)).thenReturn("DAMENG");
+        catalog.setConnection(connection);
+
+        List<String> databases = catalog.listDatabases();
+
+        Assertions.assertEquals(1, databases.size());
+        Assertions.assertEquals("DAMENG", databases.get(0));
+    }
+
+    @Test
+    void testListTablesExecutesCatalogMethod() throws SQLException {
+        Connection connection = mock(Connection.class);
+        PreparedStatement databaseExistsStatement = mock(PreparedStatement.class);
+        PreparedStatement listTablesStatement = mock(PreparedStatement.class);
+        ResultSet databaseExistsResultSet = mock(ResultSet.class);
+        ResultSet listTablesResultSet = mock(ResultSet.class);
+        when(connection.prepareStatement("SELECT name FROM v$database where name = 'DAMENG'"))
+                .thenReturn(databaseExistsStatement);
+        when(connection.prepareStatement("SELECT OWNER, TABLE_NAME FROM ALL_TABLES"))
+                .thenReturn(listTablesStatement);
+        when(databaseExistsStatement.executeQuery()).thenReturn(databaseExistsResultSet);
+        when(listTablesStatement.executeQuery()).thenReturn(listTablesResultSet);
+        when(databaseExistsResultSet.next()).thenReturn(true, false);
+        when(listTablesResultSet.next()).thenReturn(true, true, false);
+        when(listTablesResultSet.getString(1)).thenReturn("SYSDBA", "SYSDBA");
+        when(listTablesResultSet.getString(2)).thenReturn("users", "orders");
+        catalog.setConnection(connection);
+
+        List<String> tables = catalog.listTables("DAMENG");
+
+        Assertions.assertEquals(2, tables.size());
+        Assertions.assertEquals("SYSDBA.users", tables.get(0));
+        Assertions.assertEquals("SYSDBA.orders", tables.get(1));
+    }
+
+    @Test
+    void testTableExistsExecutesCatalogMethod() throws SQLException {
+        Connection connection = mock(Connection.class);
+        PreparedStatement statement = mock(PreparedStatement.class);
+        ResultSet resultSet = mock(ResultSet.class);
+        TablePath tablePath = TablePath.of("DAMENG", "SYSDBA", "users");
+        when(connection.prepareStatement(
+                        "SELECT OWNER, TABLE_NAME FROM ALL_TABLES"
+                                + " where OWNER = 'SYSDBA' and TABLE_NAME = 'users'"))
+                .thenReturn(statement);
+        when(statement.executeQuery()).thenReturn(resultSet);
+        when(resultSet.next()).thenReturn(true, false);
+        catalog.setConnection(connection);
+
+        Assertions.assertTrue(catalog.tableExists(tablePath));
     }
 
     @Test
@@ -181,6 +250,7 @@ public class DamengCatalogTest {
      * without requiring a database connection.
      */
     static class TestDamengCatalog extends DamengCatalog {
+        private Connection connection;
 
         TestDamengCatalog(
                 String catalogName,
@@ -190,6 +260,18 @@ public class DamengCatalogTest {
                 String defaultSchema,
                 String driverClass) {
             super(catalogName, username, pwd, urlInfo, defaultSchema, driverClass);
+        }
+
+        @Override
+        protected Connection getConnection(String url) {
+            if (connection != null) {
+                return connection;
+            }
+            return super.getConnection(url);
+        }
+
+        void setConnection(Connection connection) {
+            this.connection = connection;
         }
 
         String exposedGetListDatabaseSql() {

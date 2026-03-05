@@ -33,6 +33,7 @@ import java.sql.PreparedStatement;
 import java.sql.ResultSet;
 import java.sql.SQLException;
 import java.sql.Statement;
+import java.util.Optional;
 
 /** Integration tests for {@link DmdbDialect} against a real Dameng database container. */
 @Slf4j
@@ -107,7 +108,7 @@ public class DamengDialectContainerTest extends AbstractDamengContainerTest {
             String[] fieldNames = {"ID", "NAME", "VALUE"};
             String[] uniqueKeyFields = {"ID"};
 
-            java.util.Optional<String> upsertSQLOptional =
+            Optional<String> upsertSQLOptional =
                     dialect.getUpsertStatement(null, tableName, fieldNames, uniqueKeyFields);
             Assertions.assertTrue(upsertSQLOptional.isPresent());
 
