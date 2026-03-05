@@ -15,9 +15,7 @@
  * limitations under the License.
  */
 
-package org.apache.seatunnel.engine.server.exception;
-
-import org.apache.seatunnel.engine.common.exception.SeaTunnelEngineException;
+package org.apache.seatunnel.engine.common.exception;
 
 public class JobRestoreInProgressException extends SeaTunnelEngineException {
     public JobRestoreInProgressException(String message) {

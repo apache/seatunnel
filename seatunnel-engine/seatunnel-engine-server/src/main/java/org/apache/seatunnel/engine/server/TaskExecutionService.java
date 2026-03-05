@@ -29,11 +29,11 @@ import org.apache.seatunnel.engine.common.config.ConfigProvider;
 import org.apache.seatunnel.engine.common.config.SeaTunnelConfig;
 import org.apache.seatunnel.engine.common.config.server.ThreadShareMode;
 import org.apache.seatunnel.engine.common.exception.JobNotFoundException;
+import org.apache.seatunnel.engine.common.exception.JobRestoreInProgressException;
 import org.apache.seatunnel.engine.common.utils.PassiveCompletableFuture;
 import org.apache.seatunnel.engine.common.utils.concurrent.CompletableFuture;
 import org.apache.seatunnel.engine.core.classloader.ClassLoaderService;
 import org.apache.seatunnel.engine.core.job.ConnectorJarIdentifier;
-import org.apache.seatunnel.engine.server.exception.JobRestoreInProgressException;
 import org.apache.seatunnel.engine.server.exception.TaskGroupContextNotFoundException;
 import org.apache.seatunnel.engine.server.execution.ExecutionState;
 import org.apache.seatunnel.engine.server.execution.ProgressState;
@@ -471,6 +471,7 @@ public class TaskExecutionService implements DynamicMetricsProvider {
                 try {
                     Thread.sleep(sleepTime);
                 } catch (InterruptedException ex) {
+                    Thread.currentThread().interrupt();
                     logger.severe(e);
                 }
             } catch (ExecutionException e) {
@@ -486,6 +487,7 @@ public class TaskExecutionService implements DynamicMetricsProvider {
                     try {
                         Thread.sleep(sleepTime);
                     } catch (InterruptedException ex) {
+                        Thread.currentThread().interrupt();
                         logger.severe(e);
                     }
                 }

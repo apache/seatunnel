@@ -487,14 +487,14 @@ public class CoordinatorServiceTest {
     }
 
     @Test
-    void testUpdateTaskExecutionStateWaitsForRestoreCompletion() throws Exception {
+    void testUpdateTaskExecutionStateRetriesUntilRestoreComplete() throws Exception {
         CountDownLatch restoreLatch = new CountDownLatch(1);
 
         JobInformation jobInformation =
                 submitJob(
-                        "CoordinatorServiceTest_testUpdateTaskExecutionStateWaitsForRestoreCompletion",
+                        "CoordinatorServiceTest_testUpdateTaskExecutionStateRetriesUntilRestoreComplete",
                         "batch_fake_to_console.conf",
-                        "test_update_task_execution_state_waits_for_restore_completion");
+                        "test_update_task_execution_state_retries_until_restore_complete");
         CoordinatorService coordinatorService = jobInformation.coordinatorService;
         await().atMost(30000, TimeUnit.MILLISECONDS)
                 .untilAsserted(
