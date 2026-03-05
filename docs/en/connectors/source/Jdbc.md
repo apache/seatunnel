@@ -71,9 +71,41 @@ supports query SQL and can achieve projection effect.
 | split.even-distribution.factor.upper-bound | Double  | No       | 100             | Not recommended for use.<br/> The upper bound of the chunk key distribution factor. This factor is used to determine whether the table data is evenly distributed. If the distribution factor is calculated to be less than or equal to this upper bound (i.e., (MAX(id) - MIN(id) + 1) / row count), the table chunks would be optimized for even distribution. Otherwise, if the distribution factor is greater, the table will be considered as unevenly distributed and the sampling-based sharding strategy will be used if the estimated shard count exceeds the value specified by `sample-sharding.threshold`. The default value is 100.0. |
 | split.sample-sharding.threshold            | Int     | No       | 1000            | This configuration specifies the threshold of estimated shard count to trigger the sample sharding strategy. When the distribution factor is outside the bounds specified by `chunk-key.even-distribution.factor.upper-bound` and `chunk-key.even-distribution.factor.lower-bound`, and the estimated shard count (calculated as approximate row count / chunk size) exceeds this threshold, the sample sharding strategy will be used. This can help to handle large datasets more efficiently. The default value is 1000 shards.                                                                                                                 |
 | split.inverse-sampling.rate                | Int     | No       | 1000            | The inverse of the sampling rate used in the sample sharding strategy. For example, if this value is set to 1000, it means a 1/1000 sampling rate is applied during the sampling process. This option provides flexibility in controlling the granularity of the sampling, thus affecting the final number of shards. It's especially useful when dealing with very large datasets where a lower sampling rate is preferred. The default value is 1000.                                                                                                                                                                                            |
+| copy.enabled                               | Boolean | No       | false           | Whether to read via PostgreSQL `COPY (SELECT ...) TO STDOUT`. Only supported for PostgreSQL dialects. Not compatible with Exactly-Once.                                                                                                                                                                                                                                                                                                                                                                                                                                                                                       |
+| copy.binary                                | Boolean | No       | false           | Use `COPY ... WITH BINARY` when `copy.enabled = true`. In binary mode, SeaTunnel parses PostgreSQL COPY binary protocol directly.                                                                                                                                                                                                                                                                                                                                                                                                                                                                                               |
+| copy.buffer_size                           | Int     | No       | 1048576         | Buffer size (bytes) for PostgreSQL COPY reader when `copy.enabled = true`. Must be between 65536 (64KB) and 10485760 (10MB). The runtime buffer may be rounded up to a power of 2.                                                                                                                                                                                                                                                                                                                                                                                                                                            |
 | common-options                             |         | No       | -               | Source plugin common parameters, please refer to [Source Common Options](../common-options/source-common-options.md) for details.                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                 |
 | split.string_split_mode                    | String  | No       | sample          | Supports different string splitting algorithms. By default, `sample` is used to determine the split by sampling the string value. You can switch to `charset_based` to enable charset-based string splitting algorithm. When set to `charset_based`, the algorithm assumes characters of partition_column are within ASCII range 32-126, which covers most character-based splitting scenarios.                                                                                                                                                                                                                                                    |
 | split.string_split_mode_collate            | String  | No       | -               | Specifies the collation to use when string_split_mode is set to `charset_based` and the table has a special collation. If not specified, the database's default collation will be used.                                                                                                                                                                                                                                                                                                                                                                                                                                                            |
+
+## PostgreSQL COPY Mode
+
+When `copy.enabled = true`, SeaTunnel issues `COPY (SELECT ...) TO STDOUT` instead of using `PreparedStatement + ResultSet`. This reduces client/server round trips and improves throughput for large scans.
+
+Notes:
+- Only supported for PostgreSQL dialects.
+- Not compatible with Exactly-Once.
+- COPY SQL is generated from your `query`/`table_path` and split conditions; unsafe patterns (e.g., `;`, comments, DDL/DML) are rejected.
+- If binary parsing causes incompatibilities, set `copy.binary = false` (CSV mode).
+- This feature is covered by unit tests and E2E tests.
+
+Example:
+
+```hocon
+source {
+  Jdbc {
+    url = "jdbc:postgresql://localhost:5432/test"
+    driver = "org.postgresql.Driver"
+    username = "user"
+    password = "pass"
+    table_path = "public.my_table"
+
+    copy.enabled = true
+    copy.binary = true
+    copy.buffer_size = 1048576
+  }
+}
+```
 
 ### Table Matching
 

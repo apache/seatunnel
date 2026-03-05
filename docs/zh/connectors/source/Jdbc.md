@@ -67,7 +67,39 @@ import ChangeLog from '../changelog/connector-jdbc.md';
 | table_list                                 | Array   | 否   | -       | 要读取的表列表，您可以使用此配置代替 `table_path`                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                              |
 | where_condition                            | String  | 否   | -       | 所有表/查询的通用行过滤条件，必须以 `where` 开头。例如 `where id > 100`                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                         |
 | split.size                                 | Int     | 否   | 8096    | 一个分割中有多少行，捕获的表在读取时被分成多个分割。**注意**：此参数仅在使用 `table_path` 参数时生效。使用 `query` 参数时不生效。                                                                                                                                                                                                                                                                                                                                                                                                         |
+| copy.enabled                               | Boolean | 否   | false   | 是否通过 PostgreSQL `COPY (SELECT ...) TO STDOUT` 读取数据。仅支持 PostgreSQL 方言。与 Exactly-Once 不兼容。 |
+| copy.binary                                | Boolean | 否   | false   | 当 `copy.enabled = true` 时是否使用 `COPY ... WITH BINARY`。在二进制模式下，SeaTunnel 将直接解析 PostgreSQL COPY 二进制协议。 |
+| copy.buffer_size                           | Int     | 否   | 1048576 | 当 `copy.enabled = true` 时 COPY 读取器的缓冲区大小（字节）。必须在 65536（64KB）到 10485760（10MB）之间，运行时可能向上取整到 2 的幂。 |
 | common-options                             |         | 否   | -       | 源插件通用参数，请参考 [源通用选项](../common-options/source-common-options.md) 详见。                                                                                                                                                                                                                                                                                                                                                                                                                                 |
+
+## PostgreSQL COPY 模式
+
+当 `copy.enabled = true` 时，SeaTunnel 使用 `COPY (SELECT ...) TO STDOUT` 来读取数据，而不是传统的 `PreparedStatement + ResultSet`。对于大表扫描，通常能减少往返、提升吞吐。
+
+注意事项：
+- 仅支持 PostgreSQL 方言。
+- 与 Exactly-Once 不兼容。
+- COPY 的 SQL 基于 `query`/`table_path` 与拆分条件生成；出于安全考虑，会拒绝包含潜在危险模式（如 `;`、注释、DDL/DML）的 SQL。
+- 如遇二进制解析兼容性问题，可设置 `copy.binary = false`（CSV 模式）。
+- 该能力已由单元测试与 E2E 测试覆盖。
+
+示例：
+
+```hocon
+source {
+  Jdbc {
+    url = "jdbc:postgresql://localhost:5432/test"
+    driver = "org.postgresql.Driver"
+    username = "user"
+    password = "pass"
+    table_path = "public.my_table"
+
+    copy.enabled = true
+    copy.binary = true
+    copy.buffer_size = 1048576
+  }
+}
+```
 
 ### 表匹配
 
