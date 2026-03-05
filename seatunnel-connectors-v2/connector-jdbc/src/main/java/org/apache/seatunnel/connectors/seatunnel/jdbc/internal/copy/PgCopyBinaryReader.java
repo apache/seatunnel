@@ -252,8 +252,7 @@ public final class PgCopyBinaryReader implements PgCopyReader {
         if (buffer.remaining() < SIGNATURE.length + 8) {
             if (eof) {
                 throw new JdbcConnectorException(
-                        CommonErrorCodeDeprecated.UNSUPPORTED_OPERATION,
-                        "Truncated COPY header");
+                        CommonErrorCodeDeprecated.UNSUPPORTED_OPERATION, "Truncated COPY header");
             }
             return;
         }

@@ -32,9 +32,7 @@ import org.apache.seatunnel.connectors.seatunnel.jdbc.internal.dialect.DatabaseI
 import org.apache.seatunnel.e2e.common.TestResource;
 import org.apache.seatunnel.e2e.common.TestSuiteBase;
 import org.apache.seatunnel.e2e.common.container.ContainerExtendedFactory;
-import org.apache.seatunnel.e2e.common.container.EngineType;
 import org.apache.seatunnel.e2e.common.container.TestContainer;
-import org.apache.seatunnel.e2e.common.junit.DisabledOnContainer;
 import org.apache.seatunnel.e2e.common.junit.TestContainerExtension;
 import org.apache.seatunnel.e2e.common.util.JdbcUtil;
 
@@ -74,16 +72,11 @@ public class JdbcPostgresIT extends TestSuiteBase implements TestResource {
             "https://repo1.maven.org/maven2/net/postgis/postgis-geometry/2.5.1/postgis-geometry-2.5.1.jar";
     private static final List<String> PG_CONFIG_FILE_LIST =
             Lists.newArrayList(
-                                                            "/jdbc_postgres_source_and_sink.conf",
-
-                     "/jdbc_postgres_source_and_sink_copy_stmt.conf",
-
-                     "/jdbc_postgres_source_and_sink_parallel.conf",
-
-
-                     "/jdbc_postgres_source_and_sink_parallel_upper_lower.conf",
-
-                     "/jdbc_postgres_source_and_sink_xa.conf",
+                    "/jdbc_postgres_source_and_sink.conf",
+                    "/jdbc_postgres_source_and_sink_copy_stmt.conf",
+                    "/jdbc_postgres_source_and_sink_parallel.conf",
+                    "/jdbc_postgres_source_and_sink_parallel_upper_lower.conf",
+                    "/jdbc_postgres_source_and_sink_xa.conf",
                     "/jdbc_postgres_source_copy_binary.conf");
     private PostgreSQLContainer<?> POSTGRESQL_CONTAINER;
     private static final String PG_SOURCE_DDL =
