@@ -17,6 +17,7 @@
 
 package org.apache.seatunnel.engine.core.parse;
 
+import org.apache.seatunnel.shade.com.google.common.annotations.VisibleForTesting;
 import org.apache.seatunnel.shade.com.google.common.base.Preconditions;
 import org.apache.seatunnel.shade.com.google.common.collect.Lists;
 import org.apache.seatunnel.shade.com.typesafe.config.Config;
@@ -129,11 +130,13 @@ public class MultipleTableJobConfigParser {
     private final boolean isStartWithSavePoint;
     private final List<JobPipelineCheckpointData> pipelineCheckpoints;
 
+    @VisibleForTesting
     public MultipleTableJobConfigParser(
             String jobDefineFilePath, IdGenerator idGenerator, JobConfig jobConfig) {
         this(jobDefineFilePath, idGenerator, jobConfig, Collections.emptyList(), false);
     }
 
+    @VisibleForTesting
     public MultipleTableJobConfigParser(
             Config seaTunnelJobConfig, IdGenerator idGenerator, JobConfig jobConfig) {
         this(
@@ -145,6 +148,7 @@ public class MultipleTableJobConfigParser {
                 Collections.emptyList());
     }
 
+    @VisibleForTesting
     public MultipleTableJobConfigParser(
             String jobDefineFilePath,
             IdGenerator idGenerator,
@@ -169,16 +173,13 @@ public class MultipleTableJobConfigParser {
             List<URL> commonPluginJars,
             boolean isStartWithSavePoint,
             List<JobPipelineCheckpointData> pipelineCheckpoints) {
-        this.idGenerator = idGenerator;
-        this.jobConfig = jobConfig;
-        this.commonPluginJars = commonPluginJars;
-        this.isStartWithSavePoint = isStartWithSavePoint;
-        this.seaTunnelJobConfig =
-                MetalakeConfigUtils.getMetalakeConfig(
-                        ConfigBuilder.of(Paths.get(jobDefineFilePath), variables));
-        this.envOptions = ReadonlyConfig.fromConfig(seaTunnelJobConfig.getConfig("env"));
-        this.pipelineCheckpoints = pipelineCheckpoints;
-        ConfigValidator.of(this.envOptions).validate(new EnvOptionRule().optionRule());
+        this(
+                ConfigBuilder.of(Paths.get(jobDefineFilePath), variables),
+                idGenerator,
+                jobConfig,
+                commonPluginJars,
+                isStartWithSavePoint,
+                pipelineCheckpoints);
     }
 
     public MultipleTableJobConfigParser(
@@ -192,7 +193,7 @@ public class MultipleTableJobConfigParser {
         this.jobConfig = jobConfig;
         this.commonPluginJars = commonPluginJars;
         this.isStartWithSavePoint = isStartWithSavePoint;
-        this.seaTunnelJobConfig = seaTunnelJobConfig;
+        this.seaTunnelJobConfig = MetalakeConfigUtils.getMetalakeConfig(seaTunnelJobConfig);
         this.envOptions = ReadonlyConfig.fromConfig(seaTunnelJobConfig.getConfig("env"));
         this.pipelineCheckpoints = pipelineCheckpoints;
         ConfigValidator.of(this.envOptions).validate(new EnvOptionRule().optionRule());
