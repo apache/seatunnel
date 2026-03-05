@@ -106,7 +106,7 @@ public class CsvReadStrategy extends AbstractReadStrategy {
                 currentFileName,
                 split.getStart(),
                 split.getLength());
-        final boolean useSplitRead = enableSplitFile && split.getLength() > -1;
+        final boolean useSplitRead = isSplitReadEnabled(split);
         try (BOMInputStream bomIn = new BOMInputStream(wrapInputStream(inputStream, split));
                 BufferedReader reader =
                         new BufferedReader(new InputStreamReader(bomIn, getCharset(bomIn)));
@@ -198,7 +198,7 @@ public class CsvReadStrategy extends AbstractReadStrategy {
                 break;
         }
         // rebuild inputStream
-        if (enableSplitFile && split.getLength() > -1) {
+        if (isSplitReadEnabled(split)) {
             resultStream = safeSlice(resultStream, split.getStart(), split.getLength());
         }
         return resultStream;
@@ -208,6 +208,10 @@ public class CsvReadStrategy extends AbstractReadStrategy {
         return bomIn.getBOM() == null
                 ? Charset.forName(encoding)
                 : Charset.forName(bomIn.getBOM().getCharsetName());
+    }
+
+    private boolean isSplitReadEnabled(FileSourceSplit split) {
+        return enableSplitFile && split.getLength() > -1;
     }
 
     private CSVFormat getCSVFormat(FileSourceSplit split) {
@@ -222,7 +226,7 @@ public class CsvReadStrategy extends AbstractReadStrategy {
             builder.setEscape(escapeChar.charAt(0));
         }
         CSVFormat csvFormat = builder.build();
-        final boolean useSplitRead = enableSplitFile && split.getLength() > -1;
+        final boolean useSplitRead = isSplitReadEnabled(split);
         // if split range is used, header should only be read in the first split
         if (firstLineAsHeader && (!useSplitRead || split.getStart() == 0)) {
             csvFormat = csvFormat.withFirstRecordAsHeader();
@@ -232,7 +236,7 @@ public class CsvReadStrategy extends AbstractReadStrategy {
 
     private List<String> getHeaders(CSVParser csvParser, FileSourceSplit split) {
         List<String> headers;
-        final boolean useSplitRead = enableSplitFile && split.getLength() > -1;
+        final boolean useSplitRead = isSplitReadEnabled(split);
         if (firstLineAsHeader && (!useSplitRead || split.getStart() == 0)) {
             headers = new ArrayList<>(csvParser.getHeaderNames());
         } else {
