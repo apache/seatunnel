@@ -400,6 +400,7 @@ public class SeaTunnelContainer extends AbstractTestContainer {
         Pattern aqsThread = Pattern.compile("pool-[0-9]-thread-[0-9]");
         return s.startsWith("hz.main")
                 || s.startsWith("seatunnel-coordinator-service")
+                || s.startsWith("seatunnel-metrics-fetch-")
                 || s.startsWith("GC task thread")
                 || s.contains("CompilerThread")
                 || s.startsWith("SeaTunnel-CompletableFuture-Thread-")
