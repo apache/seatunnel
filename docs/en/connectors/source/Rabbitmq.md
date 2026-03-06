@@ -189,7 +189,7 @@ source {
 ```
 ### Multi-table Read Example
 
-You can use the `table_configs` option to consume messages from multiple RabbitMQ queues simultaneously within a single job. The connector will automatically assign the correct table identifier to each row based on the queue it originated from, allowing you to route them to different sinks using `source_table_name`.
+You can use the `table_configs` option to consume messages from multiple RabbitMQ queues simultaneously within a single job. The connector will automatically assign the correct table identifier to each row based on the queue it originated from, allowing you to route them to different sinks using `plugin_input`.
 
 ```hocon
 source {
