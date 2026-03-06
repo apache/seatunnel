@@ -822,19 +822,8 @@ public class CoordinatorService {
 
     public Map<Long, JobMetrics> getRunningJobMetrics() {
         final Set<Long> runningJobIds = runningJobMasterMap.keySet();
-
-        Set<Address> addresses = new HashSet<>();
-        ownedSlotProfilesIMap.forEach(
-                (pipelineLocation, ownedSlotProfilesIMap) -> {
-                    if (runningJobIds.contains(pipelineLocation.getJobId())) {
-                        ownedSlotProfilesIMap
-                                .values()
-                                .forEach(
-                                        ownedSlotProfile -> {
-                                            addresses.add(ownedSlotProfile.getWorker());
-                                        });
-                    }
-                });
+        Set<Address> addresses =
+                collectRunningWorkerAddresses(ownedSlotProfilesIMap, runningJobIds);
 
         List<RawJobMetrics> metrics = new ArrayList<>();
 
@@ -899,17 +888,8 @@ public class CoordinatorService {
             return Collections.emptyMap();
         }
 
-        Set<Address> addresses = new HashSet<>();
-        ownedSlotProfilesIMap.forEach(
-                (pipelineLocation, ownedSlotProfilesIMap) -> {
-                    if (runningJobIds.contains(pipelineLocation.getJobId())) {
-                        ownedSlotProfilesIMap
-                                .values()
-                                .forEach(
-                                        ownedSlotProfile ->
-                                                addresses.add(ownedSlotProfile.getWorker()));
-                    }
-                });
+        Set<Address> addresses =
+                collectRunningWorkerAddresses(ownedSlotProfilesIMap, runningJobIds);
 
         List<RawJobMetrics> metrics = new ArrayList<>();
         for (Address address : addresses) {
@@ -968,18 +948,8 @@ public class CoordinatorService {
             return Collections.emptyList();
         }
 
-        Set<Address> addresses = new HashSet<>();
-        ownedSlotProfilesIMap.forEach(
-                (pipelineLocation, ownedSlotProfilesIMap) -> {
-                    if (runningJobIds.contains(pipelineLocation.getJobId())) {
-                        ownedSlotProfilesIMap
-                                .values()
-                                .forEach(
-                                        ownedSlotProfile ->
-                                                addresses.add(ownedSlotProfile.getWorker()));
-                    }
-                });
-
+        Set<Address> addresses =
+                collectRunningWorkerAddresses(ownedSlotProfilesIMap, runningJobIds);
         if (addresses.isEmpty()) {
             return Collections.emptyList();
         }
@@ -1020,6 +990,36 @@ public class CoordinatorService {
             }
         }
         return metrics;
+    }
+
+    @VisibleForTesting
+    static Set<Address> collectRunningWorkerAddresses(
+            Map<PipelineLocation, Map<TaskGroupLocation, SlotProfile>> ownedSlotProfiles,
+            Set<Long> runningJobIds) {
+        if (ownedSlotProfiles == null || runningJobIds == null || runningJobIds.isEmpty()) {
+            return Collections.emptySet();
+        }
+
+        Set<Address> addresses = new HashSet<>();
+        // Realtime metrics polling can start before coordinator state is fully initialized.
+        ownedSlotProfiles.forEach(
+                (pipelineLocation, pipelineOwnedSlotProfiles) -> {
+                    if (pipelineLocation == null
+                            || pipelineOwnedSlotProfiles == null
+                            || !runningJobIds.contains(pipelineLocation.getJobId())) {
+                        return;
+                    }
+                    pipelineOwnedSlotProfiles
+                            .values()
+                            .forEach(
+                                    ownedSlotProfile -> {
+                                        if (ownedSlotProfile != null
+                                                && ownedSlotProfile.getWorker() != null) {
+                                            addresses.add(ownedSlotProfile.getWorker());
+                                        }
+                                    });
+                });
+        return addresses;
     }
 
     private RawJobMetrics fetchRawMetricsFromWorker(
