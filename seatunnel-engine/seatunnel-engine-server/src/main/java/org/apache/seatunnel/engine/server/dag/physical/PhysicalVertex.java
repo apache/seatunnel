@@ -206,6 +206,18 @@ public class PhysicalVertex {
 
     public void restoreExecutionState() {
         startPhysicalVertex();
+        // Re-sync currExecutionState from IMap before processing. During master failover,
+        // IMap may still say DEPLOYING if the master crashed after the worker finished
+        // deploying but before the master processed NotifyTaskStatusOperation and updated
+        // the IMap to RUNNING. In that case, check whether the task is actually executing
+        // on the worker and advance the state to RUNNING so stateProcess() does not send
+        // a redundant DeployTaskOperation.
+        this.currExecutionState = (ExecutionState) runningJobStateIMap.get(taskGroupLocation);
+        if (ExecutionState.DEPLOYING.equals(currExecutionState)) {
+            if (checkTaskGroupIsExecuting(taskGroupLocation)) {
+                updateTaskState(ExecutionState.RUNNING);
+            }
+        }
         stateProcess();
     }
 
