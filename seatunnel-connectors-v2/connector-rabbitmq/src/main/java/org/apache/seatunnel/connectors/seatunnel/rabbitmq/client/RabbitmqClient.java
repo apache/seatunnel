@@ -43,6 +43,7 @@ import static org.apache.seatunnel.connectors.seatunnel.rabbitmq.exception.Rabbi
 import static org.apache.seatunnel.connectors.seatunnel.rabbitmq.exception.RabbitmqConnectorErrorCode.SEND_MESSAGE_FAILED;
 import static org.apache.seatunnel.connectors.seatunnel.rabbitmq.exception.RabbitmqConnectorErrorCode.SETUP_SSL_FACTORY_FAILED;
 
+/** RabbitMQ client for interaction with the broker. */
 @Slf4j
 public class RabbitmqClient implements AutoCloseable {
     private final RabbitmqConfig config;
@@ -50,6 +51,11 @@ public class RabbitmqClient implements AutoCloseable {
     private final Connection connection;
     private final Channel channel;
 
+    /**
+     * Constructor for RabbitmqClient.
+     *
+     * @param config RabbitMQ configuration
+     */
     public RabbitmqClient(RabbitmqConfig config) {
         this.config = config;
         try {
@@ -62,7 +68,6 @@ public class RabbitmqClient implements AutoCloseable {
                 channel.basicQos(config.getPrefetchCount(), true);
             }
 
-            setupQueue();
         } catch (Exception e) {
             throw new RabbitmqConnectorException(
                     CREATE_RABBITMQ_CLIENT_FAILED,
@@ -73,10 +78,22 @@ public class RabbitmqClient implements AutoCloseable {
         }
     }
 
+    /**
+     * Get the current RabbitMQ channel.
+     *
+     * @return RabbitMQ channel
+     */
     public Channel getChannel() {
         return channel;
     }
 
+    /**
+     * Create a new QueueingConsumer for the given queue and split.
+     *
+     * @param queue blocking queue
+     * @param splitId split id
+     * @return consumer instance
+     */
     public DefaultConsumer getQueueingConsumer(
             BlockingQueue<DeliveryMessage> queue, String splitId) {
         return new QueueingConsumer(channel, queue, splitId);
@@ -130,6 +147,11 @@ public class RabbitmqClient implements AutoCloseable {
         return factory;
     }
 
+    /**
+     * Write data to RabbitMQ.
+     *
+     * @param msg message body
+     */
     public void write(byte[] msg) {
         try {
             if (StringUtils.isEmpty(config.getRoutingKey())) {
@@ -189,6 +211,7 @@ public class RabbitmqClient implements AutoCloseable {
         }
     }
 
+    /** Declare the queue using configuration defaults. */
     protected void setupQueue() throws IOException {
         if (StringUtils.isNotEmpty(config.getQueueName())) {
             declareQueueDefaults(channel, config);

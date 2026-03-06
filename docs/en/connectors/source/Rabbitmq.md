@@ -96,7 +96,7 @@ the schema fields of upstream data. For more details, please refer to [Schema Fe
 
 ### table_configs [array]
 
-Used to read from multiple queues simultaneously. Each object in the array must contain a `queue_name` and a `schema`. You can optionally provide a `plugin_output` to identify the table in downstream sinks.
+Used to read from multiple queues simultaneously. Each object in the array must contain a queue_name and a schema.
 
 ### network_recovery_interval [int]
 
@@ -117,7 +117,7 @@ connection tcp establishment timeout in milliseconds; zero for infinite
 ### requested_channel_max [int]
 
 initially requested maximum channel number; zero for unlimited
-**Note: Note the value must be between 0 and 65535 (unsigned short in AMQP 0-9-1).
+**Note:** The value must be between 0 and 65535 (unsigned short in AMQP 0-9-1).
 
 ### requested_frame_max [int]
 
@@ -126,7 +126,7 @@ the requested maximum frame size
 ### requested_heartbeat [int]
 
 Set the requested heartbeat timeout
-**Note: Note the value must be between 0 and 65535 (unsigned short in AMQP 0-9-1).
+**Note:** The value must be between 0 and 65535 (unsigned short in AMQP 0-9-1).
 
 ### prefetch_count [int]
 
@@ -188,36 +188,59 @@ source {
 }
 ```
 ### Multi-table Read Example
-You can use the table_configs option to consume messages from multiple RabbitMQ queues simultaneously within a single job. The connector will automatically assign the correct table identifier to each row based on the queue it originated from.
+
+You can use the `table_configs` option to consume messages from multiple RabbitMQ queues simultaneously within a single job. The connector will automatically assign the correct table identifier to each row based on the queue it originated from, allowing you to route them to different sinks using `source_table_name`.
+
 ```hocon
 source {
-    RabbitMQ {
-        host = "rabbitmq-e2e"
-        port = 5672
-        virtual_host = "/"
-        username = "guest"
-        password = "guest"
-        table_configs = [
-            {
-                queue_name = "users_queue"
-                schema = {
-                    fields {
-                        id = bigint
-                        name = string
-                    }
-                }
-            },
-            {
-                queue_name = "orders_queue"
-                schema = {
-                    fields {
-                        order_id = bigint
-                        amount = double
-                    }
-                }
-            }
-        ]
-    }
+  RabbitMQ {
+    host = "localhost"
+    port = 5672
+    username = "guest"
+    password = "guest"
+    
+    # Use table_configs to read from multiple queues
+    table_configs = [
+      {
+        queue_name = "users_queue"
+        schema = {
+          table = "users_table" # Defines the table name for routing
+          fields {
+            user_id = bigint
+            name = string
+          }
+        }
+      },
+      {
+        queue_name = "orders_queue"
+        schema = {
+          table = "orders_table" # Defines the table name for routing
+          fields {
+            order_id = bigint
+            amount = double
+          }
+        }
+      }
+    ]
+  }
+}
+
+sink {
+  # The first sink will ONLY receive data from the users_queue
+  Jdbc {
+    source_table_name = "users_table"
+    driver = "com.mysql.cj.jdbc.Driver"
+    url = "jdbc:mysql://localhost:3306/mydb"
+    query = "insert into users (user_id, name) values (?, ?)"
+  }
+
+  # The second sink will ONLY receive data from the orders_queue
+  Jdbc {
+    source_table_name = "orders_table"
+    driver = "com.mysql.cj.jdbc.Driver"
+    url = "jdbc:mysql://localhost:3306/mydb"
+    query = "insert into orders (order_id, amount) values (?, ?)"
+  }
 }
 ```
 ## Changelog

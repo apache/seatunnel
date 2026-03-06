@@ -25,7 +25,6 @@ import org.apache.seatunnel.api.source.SourceReader;
 import org.apache.seatunnel.api.table.catalog.CatalogTable;
 import org.apache.seatunnel.api.table.type.SeaTunnelRow;
 import org.apache.seatunnel.connectors.seatunnel.rabbitmq.client.RabbitmqClient;
-import org.apache.seatunnel.connectors.seatunnel.rabbitmq.config.RabbitmqBaseOptions;
 import org.apache.seatunnel.connectors.seatunnel.rabbitmq.config.RabbitmqConfig;
 import org.apache.seatunnel.connectors.seatunnel.rabbitmq.exception.RabbitmqConnectorException;
 import org.apache.seatunnel.connectors.seatunnel.rabbitmq.split.RabbitmqSplit;
@@ -55,6 +54,10 @@ import java.util.concurrent.TimeUnit;
 import static org.apache.seatunnel.connectors.seatunnel.rabbitmq.exception.RabbitmqConnectorErrorCode.MESSAGE_ACK_FAILED;
 import static org.apache.seatunnel.connectors.seatunnel.rabbitmq.exception.RabbitmqConnectorErrorCode.MESSAGE_ACK_REJECTED;
 
+/**
+ * The reader implementation for RabbitMQ. Responsible for fetching messages from one or multiple
+ * RabbitMQ queues, deserializing them using the correct schema, and passing them downstream.
+ */
 @Slf4j
 public class RabbitmqSourceReader implements SourceReader<SeaTunnelRow, RabbitmqSplit> {
     private final BlockingQueue<DeliveryMessage> queue;
@@ -72,14 +75,26 @@ public class RabbitmqSourceReader implements SourceReader<SeaTunnelRow, Rabbitmq
     private RabbitmqClient rabbitMQClient;
     private final RabbitmqConfig config;
 
+    // Maps used for Multi-Table routing.
+    // They map the source queue name (split ID) to its specific deserialization schema and table
+    // ID.
     private final Map<String, DeserializationSchema<SeaTunnelRow>> schemaMap;
     private final Map<String, String> exactTableIdMap;
     private final Set<RabbitmqSplit> sourceSplits;
     private final Map<String, DefaultConsumer> activeConsumers;
     private volatile boolean noMoreSplitsAssigned = false;
 
+    /**
+     * Constructor for RabbitmqSourceReader.
+     *
+     * @param queueToTableMap map of queue names to their corresponding CatalogTable
+     * @param context source context
+     * @param config rabbitmq config
+     */
     public RabbitmqSourceReader(
-            List<CatalogTable> catalogTables, SourceReader.Context context, RabbitmqConfig config) {
+            Map<String, CatalogTable> queueToTableMap,
+            SourceReader.Context context,
+            RabbitmqConfig config) {
         this.queue = new LinkedBlockingQueue<>();
         this.pendingDeliveryTagsToCommit = Collections.synchronizedSortedMap(new TreeMap<>());
         this.pendingCorrelationIdsToCommit = Collections.synchronizedSortedMap(new TreeMap<>());
@@ -89,30 +104,20 @@ public class RabbitmqSourceReader implements SourceReader<SeaTunnelRow, Rabbitmq
         this.channel = rabbitMQClient.getChannel();
         this.usesCorrelationId = config.isUsesCorrelationId();
 
-        // Initialize thread-safe collections
         this.sourceSplits = ConcurrentHashMap.newKeySet();
         this.activeConsumers = new ConcurrentHashMap<>();
 
         this.schemaMap = new HashMap<>();
         this.exactTableIdMap = new HashMap<>();
 
-        // Initialize schema map for multi-table and single-table support
-        for (CatalogTable table : catalogTables) {
-            String queueName = null;
+        // Initialize schemas and table IDs for all configured queues.
+        // This ensures the reader knows how to parse and route messages from any incoming split.
+        for (Map.Entry<String, CatalogTable> entry : queueToTableMap.entrySet()) {
+            String queueName = entry.getKey();
+            CatalogTable table = entry.getValue();
 
-            if (table.getOptions() != null
-                    && table.getOptions().containsKey(RabbitmqBaseOptions.QUEUE_NAME.key())) {
-                queueName = table.getOptions().get(RabbitmqBaseOptions.QUEUE_NAME.key());
-            }
-
-            if (queueName == null || queueName.isEmpty()) {
-                queueName = config.getQueueName();
-            }
-
-            if (queueName != null && !queueName.isEmpty()) {
-                this.schemaMap.put(queueName, new JsonDeserializationSchema(table, false, false));
-                this.exactTableIdMap.put(queueName, table.getTableId().toTablePath().toString());
-            }
+            this.schemaMap.put(queueName, new JsonDeserializationSchema(table, false, false));
+            this.exactTableIdMap.put(queueName, table.getTableId().toTablePath().toString());
         }
     }
 
@@ -132,6 +137,8 @@ public class RabbitmqSourceReader implements SourceReader<SeaTunnelRow, Rabbitmq
 
     @Override
     public void pollNext(Collector<SeaTunnelRow> output) throws Exception {
+        // Poll a message from the internal buffer.
+        // Messages are pushed here asynchronously by the RabbitMQ DefaultConsumers.
         DeliveryMessage message = queue.poll(5000, TimeUnit.MILLISECONDS);
 
         if (message != null) {
@@ -144,13 +151,18 @@ public class RabbitmqSourceReader implements SourceReader<SeaTunnelRow, Rabbitmq
             String correlationId = (properties != null) ? properties.getCorrelationId() : null;
 
             synchronized (output.getCheckpointLock()) {
+                // Ensure the message wasn't already processed (idempotency check)
                 if (!verifyMessageIdentifier(
                         correlationId, delivery.getEnvelope().getDeliveryTag())) {
                     return;
                 }
+
+                // Record the delivery tag for the current snapshot (to be acked later)
                 deliveryTagsProcessedForCurrentSnapshot.add(
                         delivery.getEnvelope().getDeliveryTag());
 
+                // Multi-Table Logic: Retrieve the correct schema and table ID based on the queue
+                // name (split ID)
                 DeserializationSchema<SeaTunnelRow> schema = schemaMap.get(message.getSplitId());
                 String exactTableId = exactTableIdMap.get(message.getSplitId());
 
@@ -158,6 +170,8 @@ public class RabbitmqSourceReader implements SourceReader<SeaTunnelRow, Rabbitmq
                     SeaTunnelRow row = schema.deserialize(delivery.getBody());
 
                     if (row != null) {
+                        // Tag the row with its specific Table ID to ensure downstream sinks route
+                        // it correctly
                         row.setTableId(exactTableId);
                         output.collect(row);
                     }
@@ -175,9 +189,11 @@ public class RabbitmqSourceReader implements SourceReader<SeaTunnelRow, Rabbitmq
             }
         }
 
+        // Bounded mode logic: Stop the job if all splits have been consumed and the queue is empty
         if (Boundedness.BOUNDED.equals(context.getBoundedness())) {
             if (noMoreSplitsAssigned && queue.isEmpty()) {
-                log.info("No more splits assigned and queue is empty. Signaling end of input.");
+                log.info(
+                        "No more splits assigned and internal queue is empty. Signaling end of input.");
                 context.signalNoMoreElement();
             }
         }
@@ -185,6 +201,7 @@ public class RabbitmqSourceReader implements SourceReader<SeaTunnelRow, Rabbitmq
 
     @Override
     public void addSplits(List<RabbitmqSplit> splits) {
+        // Dynamically start consuming from newly assigned queues (splits)
         for (RabbitmqSplit split : splits) {
             log.info("Received split for queue: {}", split.splitId());
             try {
@@ -193,12 +210,14 @@ public class RabbitmqSourceReader implements SourceReader<SeaTunnelRow, Rabbitmq
                     continue;
                 }
 
+                // Create a new consumer that feeds messages into the shared internal 'queue'
                 DefaultConsumer consumer =
                         rabbitMQClient.getQueueingConsumer(queue, split.splitId());
 
                 channel.basicConsume(split.splitId(), autoAck, consumer);
                 activeConsumers.put(split.splitId(), consumer);
                 sourceSplits.add(split);
+
                 log.info("Started consuming from queue: {}", split.splitId());
             } catch (IOException e) {
                 throw new RabbitmqConnectorException(
@@ -246,6 +265,13 @@ public class RabbitmqSourceReader implements SourceReader<SeaTunnelRow, Rabbitmq
         }
     }
 
+    /**
+     * Verify message identifier.
+     *
+     * @param correlationId correlation id
+     * @param deliveryTag delivery tag
+     * @return true if valid
+     */
     public boolean verifyMessageIdentifier(String correlationId, long deliveryTag) {
         if (!autoAck && usesCorrelationId) {
             if (correlationId == null) {

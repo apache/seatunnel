@@ -27,14 +27,21 @@ import lombok.Setter;
 import java.util.List;
 import java.util.Set;
 
+/** RabbitMQ source split representing a specific queue. */
 @Getter
 @EqualsAndHashCode
 @Setter
 @AllArgsConstructor
-public class RabbitmqSplit implements SourceSplit {
+public final class RabbitmqSplit implements SourceSplit {
     private static final long serialVersionUID = -678845022239224163L;
+
+    /** Unique identifier for the split. */
     private String splitId;
+
+    /** List of delivery tags associated with this split. */
     private List<Long> deliveryTags;
+
+    /** Set of correlation IDs associated with this split. */
     private Set<String> correlationIds;
 
     /**
@@ -43,7 +50,7 @@ public class RabbitmqSplit implements SourceSplit {
      * @param splitId A unique identifier for this split (synchronized with queueName for
      *     multi-table).
      */
-    public RabbitmqSplit(String splitId) {
+    public RabbitmqSplit(final String splitId) {
         this.splitId = splitId;
         this.deliveryTags = null;
         this.correlationIds = null;

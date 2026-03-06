@@ -19,8 +19,6 @@ package org.apache.seatunnel.connectors.seatunnel.rabbitmq;
 
 import org.apache.seatunnel.api.source.SourceSplitEnumerator;
 import org.apache.seatunnel.api.table.catalog.CatalogTable;
-import org.apache.seatunnel.api.table.catalog.TableIdentifier;
-import org.apache.seatunnel.connectors.seatunnel.rabbitmq.config.RabbitmqBaseOptions;
 import org.apache.seatunnel.connectors.seatunnel.rabbitmq.config.RabbitmqConfig;
 import org.apache.seatunnel.connectors.seatunnel.rabbitmq.source.RabbitmqSplitEnumerator;
 import org.apache.seatunnel.connectors.seatunnel.rabbitmq.split.RabbitmqSplit;
@@ -29,11 +27,9 @@ import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.Test;
 import org.mockito.Mockito;
 
-import java.util.ArrayList;
+import java.util.Arrays;
 import java.util.Collections;
-import java.util.HashMap;
 import java.util.List;
-import java.util.Map;
 import java.util.Set;
 
 import static org.mockito.Mockito.doReturn;
@@ -64,27 +60,11 @@ public class RabbitmqSplitEnumeratorTest {
         doReturn(readers).when(context).registeredReaders();
 
         RabbitmqConfig config = mock(RabbitmqConfig.class);
-        List<CatalogTable> tables = new ArrayList<>();
 
-        // Table A -> queue_A
-        CatalogTable tableA = mock(CatalogTable.class);
-        Map<String, String> optionsA = new HashMap<>();
-        optionsA.put(RabbitmqBaseOptions.QUEUE_NAME.key(), "queue_A");
-        when(tableA.getOptions()).thenReturn(optionsA);
-        when(tableA.getTableId()).thenReturn(TableIdentifier.of("db", "schema", "tableA"));
-        tables.add(tableA);
+        List<String> queues = Arrays.asList("queue_A", "queue_B");
 
-        // Table B -> queue_B
-        CatalogTable tableB = mock(CatalogTable.class);
-        Map<String, String> optionsB = new HashMap<>();
-        optionsB.put(RabbitmqBaseOptions.QUEUE_NAME.key(), "queue_B");
-        when(tableB.getOptions()).thenReturn(optionsB);
-        when(tableB.getTableId()).thenReturn(TableIdentifier.of("db", "schema", "tableB"));
-        tables.add(tableB);
+        RabbitmqSplitEnumerator enumerator = new RabbitmqSplitEnumerator(context, config, queues);
 
-        RabbitmqSplitEnumerator enumerator = new RabbitmqSplitEnumerator(context, config, tables);
-
-        // Discovery of 2 splits
         Assertions.assertEquals(2, enumerator.currentUnassignedSplitSize());
 
         enumerator.registerReader(0);

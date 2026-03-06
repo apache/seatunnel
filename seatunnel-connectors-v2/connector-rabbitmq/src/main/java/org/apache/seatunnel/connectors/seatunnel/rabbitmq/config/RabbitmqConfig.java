@@ -61,6 +61,11 @@ public class RabbitmqConfig implements Serializable {
 
     private Map<String, String> sinkOptionProps = new HashMap<>();
 
+    /**
+     * Constructor using ReadonlyConfig.
+     *
+     * @param config configuration.
+     */
     public RabbitmqConfig(ReadonlyConfig config) {
         this.host = config.get(RabbitmqBaseOptions.HOST);
         this.port = config.get(RabbitmqBaseOptions.PORT);

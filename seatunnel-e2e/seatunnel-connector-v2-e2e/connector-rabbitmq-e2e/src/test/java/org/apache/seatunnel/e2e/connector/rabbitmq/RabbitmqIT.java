@@ -6,7 +6,7 @@
  * (the "License"); you may not use this file except in compliance with
  * the License.  You may obtain a copy of the License at
  *
- *    http://www.apache.org/licenses/LICENSE-2.0
+ * http://www.apache.org/licenses/LICENSE-2.0
  *
  * Unless required by applicable law or agreed to in writing, software
  * distributed under the License is distributed on an "AS IS" BASIS,
@@ -47,7 +47,9 @@ import org.testcontainers.shaded.org.apache.commons.lang3.tuple.Pair;
 import org.testcontainers.utility.DockerImageName;
 import org.testcontainers.utility.DockerLoggerFactory;
 
+import com.rabbitmq.client.Channel;
 import com.rabbitmq.client.Connection;
+import com.rabbitmq.client.ConnectionFactory;
 import com.rabbitmq.client.DefaultConsumer;
 import lombok.extern.slf4j.Slf4j;
 
@@ -207,26 +209,41 @@ public class RabbitmqIT extends TestSuiteBase implements TestResource {
     public void testRabbitMQ(TestContainer container) throws Exception {
         final String sourceQueueName = "test";
         final String sinkQueueName = "test1";
+
         RabbitmqClient sourceClient = this.getRabbitmqClient(sourceQueueName);
+        // Explicitly declare source queue before writing to avoid message drop
+        sourceClient
+                .getChannel()
+                .queueDeclare(sourceQueueName, DURABLE, EXCLUSIVE, AUTO_DELETE, null);
+
         // send data to source queue before executeJob start in every testContainer
         initSourceData(sourceClient);
         Thread.sleep(3000);
+
         // init consumer client before executeJob start in every testContainer
         RabbitmqClient sinkRabbitmqClient = getRabbitmqClient(sinkQueueName);
+
+        // Explicitly declare sink queue before trying to consume from it,
+        // to avoid 404 NOT_FOUND channel errors.
+        sinkRabbitmqClient
+                .getChannel()
+                .queueDeclare(sinkQueueName, DURABLE, EXCLUSIVE, AUTO_DELETE, null);
 
         // Use BlockingQueue instead of Handover to match the new optimized connector architecture
         BlockingQueue<DeliveryMessage> queue = new LinkedBlockingQueue<>();
         DefaultConsumer consumer = sinkRabbitmqClient.getQueueingConsumer(queue, sinkQueueName);
 
         // Start consuming BEFORE executing the job.
-        // This ensures the test consumer is ready to catch messages even if Flink finishes
+        // This ensures the test consumer is ready to catch messages even if TestContainer finishes
         // instantly.
         sinkRabbitmqClient.getChannel().basicConsume(sinkQueueName, true, consumer);
+
         // assert execute Job code
         Container.ExecResult execResult = container.executeJob("/rabbitmq-to-rabbitmq.conf");
         Assertions.assertEquals(0, execResult.getExitCode());
+
         HashSet<Object> resultSet = new HashSet<>();
-        // consume data when every  testContainer finished
+        // consume data when every testContainer finished
         // try to poll five times
         for (int i = 0; i < 10; i++) {
             DeliveryMessage msg = queue.poll(15, TimeUnit.SECONDS);
@@ -238,6 +255,7 @@ public class RabbitmqIT extends TestSuiteBase implements TestResource {
         }
         // close to prevent rabbitmq client consumer in the next TestContainer to consume
         sinkRabbitmqClient.close();
+
         // assert source and sink data
         Assertions.assertTrue(resultSet.size() > 0);
         // Verify against the test dataset
@@ -252,12 +270,24 @@ public class RabbitmqIT extends TestSuiteBase implements TestResource {
     public void testRabbitMQUSingDefaultConfig(TestContainer container) throws Exception {
         final String sourceQueueName = "test2_0";
         final String sinkQueueName = "test2_1";
+
         RabbitmqClient sourceClient = this.getRabbitmqClient(sourceQueueName);
+        // Explicitly declare source queue
+        sourceClient
+                .getChannel()
+                .queueDeclare(sourceQueueName, DURABLE, EXCLUSIVE, AUTO_DELETE, null);
+
         // send data to source queue before executeJob start in every testContainer
         initSourceData(sourceClient);
 
         // init consumer client before executeJob start in every testContainer
         RabbitmqClient sinkRabbitmqClient = getRabbitmqClient(sinkQueueName);
+
+        // Explicitly declare sink queue BEFORE trying to consume to prevent 404 error
+        sinkRabbitmqClient
+                .getChannel()
+                .queueDeclare(sinkQueueName, DURABLE, EXCLUSIVE, AUTO_DELETE, null);
+
         BlockingQueue<DeliveryMessage> queue = new LinkedBlockingQueue<>();
         DefaultConsumer consumer = sinkRabbitmqClient.getQueueingConsumer(queue, sinkQueueName);
 
@@ -271,9 +301,16 @@ public class RabbitmqIT extends TestSuiteBase implements TestResource {
         sinkRabbitmqClient.close();
     }
 
+    /**
+     * End-to-end test for the Multi-Table feature of the RabbitMQ Source Connector. * This test
+     * verifies that the connector can simultaneously read from multiple RabbitMQ queues, apply
+     * different schemas to the incoming JSON messages based on the queue they originated from, and
+     * correctly route them as distinct tables to the downstream sinks.
+     */
     @TestTemplate
     public void testRabbitMQMultiTableE2E(TestContainer container) throws Exception {
-        // Define schemas for two different tables/queues
+        // Define distinct schemas for two different tables/queues.
+        // This ensures we test the connector's ability to handle heterogeneous data streams.
         SeaTunnelRowType type1 =
                 new SeaTunnelRowType(
                         new String[] {"id", "name"},
@@ -283,37 +320,66 @@ public class RabbitmqIT extends TestSuiteBase implements TestResource {
                         new String[] {"id", "age"},
                         new SeaTunnelDataType[] {BasicType.LONG_TYPE, BasicType.INT_TYPE});
 
-        // Send 10 records to each unique RabbitMQ queue
-        sendData("multi_table_1", type1, 10);
-        sendData("multi_table_2", type2, 10);
+        String queue1 = "multi_table_1";
+        String queue2 = "multi_table_2";
 
-        // Wait for messages to be fully persisted in RabbitMQ broker
-        Thread.sleep(3000);
+        // Pre-populate the RabbitMQ broker with synthetic test data.
+        // We send 10 records to each unique RabbitMQ queue using their respective schemas.
+        sendData(queue1, type1, 10);
+        sendData(queue2, type2, 10);
 
-        // Execute the SeaTunnel synchronization job
-        // The job uses a multi-table configuration to consume from both queues simultaneously
+        // Wait briefly to ensure all messages are fully persisted and available in the RabbitMQ
+        // broker
+        // before the SeaTunnel job starts consuming.
+        Thread.sleep(5000);
+
+        // Execute the SeaTunnel synchronization job.
+        // The job uses a multi-table configuration to consume from both queues simultaneously.
+        // Note: The actual data validation (e.g., checking row counts, non-null fields)
+        // is handled entirely by the 'Assert' sink defined inside the 'rabbitmq_multitable.conf'
+        // file.
         Container.ExecResult execResult = container.executeJob("/rabbitmq_multitable.conf");
 
-        // Validate that the job finished successfully (exit code 0)
-        // If the multi-table routing or schema mapping fails, the job will crash with exit code 1
+        // Validate that the SeaTunnel engine finished the job successfully without any exceptions.
         Assertions.assertEquals(
                 0, execResult.getExitCode(), "The SeaTunnel job should finish with exit code 0.");
     }
 
     /**
-     * Helper method to publish test data directly to a specific RabbitMQ queue. Uses
-     * JsonSerializationSchema to simulate standard RabbitMQ message format.
+     * Helper utility method to generate and publish synthetic JSON test data to a specific RabbitMQ
+     * queue. * It establishes a direct connection to the RabbitMQ test container, explicitly
+     * declares the target queue (to prevent messages from being dropped if the queue doesn't exist
+     * yet), and dynamically generates field values based on the provided {@link SeaTunnelRowType}.
+     *
+     * @param queueName The target RabbitMQ queue to publish messages to.
+     * @param rowType The schema used to generate and serialize the data.
+     * @param count The number of messages to generate and send.
      */
-    private void sendData(String queueName, SeaTunnelRowType rowType, int count)
-            throws IOException {
-        try (RabbitmqClient client = getRabbitmqClient(queueName)) {
+    private void sendData(String queueName, SeaTunnelRowType rowType, int count) throws Exception {
+        // Setup RabbitMQ connection factory using the TestContainer properties
+        ConnectionFactory factory = new ConnectionFactory();
+        factory.setHost(rabbitmqContainer.getHost());
+        factory.setPort(rabbitmqContainer.getFirstMappedPort());
+        factory.setVirtualHost("/");
+        factory.setUsername(USERNAME);
+        factory.setPassword(PASSWORD);
+
+        try (Connection conn = factory.newConnection();
+                Channel channel = conn.createChannel()) {
+
+            // Explicitly declare the queue before writing.
+            // This guarantees the queue exists, avoiding message loss before the SeaTunnel job
+            // connects.
+            channel.queueDeclare(queueName, DURABLE, EXCLUSIVE, AUTO_DELETE, null);
+
             JsonSerializationSchema serializer = new JsonSerializationSchema(rowType);
+
             for (int i = 0; i < count; i++) {
                 Object[] fields = new Object[rowType.getTotalFields()];
-                fields[0] = (long) i; // Common 'id' field
+                // The first field is always 'id'
+                fields[0] = (long) i;
 
-                // Map specific fields based on the rowType provided (name for table1, age for
-                // table2)
+                // Dynamically populate the second field based on the schema definition
                 String fieldName = rowType.getFieldNames()[1];
                 if ("name".equals(fieldName)) {
                     fields[1] = "user_" + i;
@@ -321,8 +387,17 @@ public class RabbitmqIT extends TestSuiteBase implements TestResource {
                     fields[1] = 20 + i;
                 }
 
-                client.write(serializer.serialize(new SeaTunnelRow(fields)));
+                // Serialize the generated SeaTunnelRow into a JSON byte array
+                byte[] message = serializer.serialize(new SeaTunnelRow(fields));
+
+                // Publish the message to the queue with persistent delivery mode
+                channel.basicPublish(
+                        "",
+                        queueName,
+                        com.rabbitmq.client.MessageProperties.PERSISTENT_TEXT_PLAIN,
+                        message);
             }
+            log.info("Successfully sent {} messages to queue {}", count, queueName);
         }
     }
 }

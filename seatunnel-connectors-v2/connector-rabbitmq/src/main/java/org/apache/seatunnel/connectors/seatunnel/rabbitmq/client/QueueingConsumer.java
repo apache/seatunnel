@@ -36,6 +36,7 @@ import java.util.concurrent.BlockingQueue;
 
 import static org.apache.seatunnel.connectors.seatunnel.rabbitmq.exception.RabbitmqConnectorErrorCode.HANDLE_SHUTDOWN_SIGNAL_FAILED;
 
+/** Consumer that queues deliveries in a {@link BlockingQueue}. */
 @Slf4j
 public class QueueingConsumer extends DefaultConsumer {
     private final BlockingQueue<DeliveryMessage> queue;
@@ -47,6 +48,13 @@ public class QueueingConsumer extends DefaultConsumer {
     private volatile ConsumerCancelledException cancelled;
     private static final DeliveryMessage POISON = new DeliveryMessage(null, null);
 
+    /**
+     * Constructor for QueueingConsumer.
+     *
+     * @param channel rabbitmq channel
+     * @param queue queue to store messages
+     * @param splitId split id
+     */
     public QueueingConsumer(Channel channel, BlockingQueue<DeliveryMessage> queue, String splitId) {
         super(channel);
         this.queue = queue;

@@ -6,7 +6,7 @@
  * (the "License"); you may not use this file except in compliance with
  * the License.  You may obtain a copy of the License at
  *
- *    http://www.apache.org/licenses/LICENSE-2.0
+ * http://www.apache.org/licenses/LICENSE-2.0
  *
  * Unless required by applicable law or agreed to in writing, software
  * distributed under the License is distributed on an "AS IS" BASIS,
@@ -42,8 +42,8 @@ public class RabbitmqSourceTest {
 
     /**
      * Test the initialization of the RabbitMQ source with multiple tables. Verifies that: 1. The
-     * correct number of tables is created. 2. Each table has the correct Table Name (based on our
-     * new logic, it should match queue_name). 3. Each table has the correct Schema (columns).
+     * correct number of tables is created. 2. Each table correctly parses its explicitly defined
+     * Table Name. 3. Each table has the correct Schema (columns).
      */
     @Test
     public void testMultiTableInitialization() {
@@ -55,6 +55,8 @@ public class RabbitmqSourceTest {
         Map<String, Object> table1 = new HashMap<>();
         table1.put("queue_name", "queue_user");
         Map<String, Object> schema1 = new HashMap<>();
+        // Using the official API method, table name must be defined inside the schema
+        schema1.put("table", "queue_user");
         schema1.put("fields", Collections.singletonMap("username", "string"));
         table1.put("schema", schema1);
 
@@ -62,6 +64,7 @@ public class RabbitmqSourceTest {
         Map<String, Object> table2 = new HashMap<>();
         table2.put("queue_name", "queue_order");
         Map<String, Object> schema2 = new HashMap<>();
+        schema2.put("table", "queue_order");
         schema2.put("fields", Collections.singletonMap("amount", "int"));
         table2.put("schema", schema2);
 
@@ -74,14 +77,11 @@ public class RabbitmqSourceTest {
         Assertions.assertEquals(2, tables.size());
 
         // --- Deep Verification ---
-        // Based on our NEW logic, the TableName should equal the queue_name!
-        // Check Table 1
         CatalogTable t1 = tables.get(0);
         Assertions.assertEquals("queue_user", t1.getTableId().getTableName());
         Assertions.assertArrayEquals(
                 new String[] {"username"}, t1.getTableSchema().getFieldNames());
 
-        // Check Table 2
         CatalogTable t2 = tables.get(1);
         Assertions.assertEquals("queue_order", t2.getTableId().getTableName());
         Assertions.assertArrayEquals(new String[] {"amount"}, t2.getTableSchema().getFieldNames());
@@ -89,7 +89,7 @@ public class RabbitmqSourceTest {
 
     /**
      * Tests Backward Compatibility (Legacy Mode). Ensures that providing a global queue_name and
-     * schema block results in a single CatalogTable with the correct TableName.
+     * schema block results in a single CatalogTable.
      */
     @Test
     public void testLegacySingleTableInitialization() {
@@ -107,8 +107,9 @@ public class RabbitmqSourceTest {
 
         Assertions.assertNotNull(tables);
         Assertions.assertEquals(1, tables.size());
-        // Based on our NEW logic, the TableName should match the global queue_name
-        Assertions.assertEquals("legacy_queue", tables.get(0).getTableId().getTableName());
+        // In legacy single-table mode without an explicit "table" key, SeaTunnel defaults to
+        // "default"
+        Assertions.assertEquals("default", tables.get(0).getTableId().getTableName());
     }
 
     /**
@@ -126,7 +127,7 @@ public class RabbitmqSourceTest {
         table1.put(
                 "schema",
                 Collections.singletonMap("fields", Collections.singletonMap("col1", "string")));
-        configMap.put(TableSchemaOptions.TABLE_CONFIGS.key(), Arrays.asList(table1));
+        configMap.put(TableSchemaOptions.TABLE_CONFIGS.key(), Collections.singletonList(table1));
 
         // Define Root Schema (Conflict)
         Map<String, Object> rootSchema = new HashMap<>();
@@ -197,25 +198,22 @@ public class RabbitmqSourceTest {
         Assertions.assertEquals("RabbitMQ", source.getPluginName());
     }
 
-    /**
-     * Test Fallback Scenario: Missing 'queue_name' in table config. This test verifies that if a
-     * user forgets to specify a 'queue_name' inside 'table_configs', the Source correctly falls
-     * back to the global queue_name to build the CatalogTable.
-     */
+    /** Test Fallback Scenario: Missing 'queue_name' in table config. */
     @Test
     public void testTableConfigWithoutQueueName() {
         Map<String, Object> configMap = new HashMap<>();
         configMap.put(RabbitmqBaseOptions.HOST.key(), "localhost");
         configMap.put(RabbitmqBaseOptions.PORT.key(), 5672);
 
-        // Define a Global Queue (This acts as the fallback)
+        // Define a Global Queue
         configMap.put(RabbitmqBaseOptions.QUEUE_NAME.key(), "global_default_queue");
 
-        // Define a Table Config that relies on the global queue (NO 'queue_name' key here)
+        // Define a Table Config without queue_name
         Map<String, Object> table1 = new HashMap<>();
 
         // Setup Schema
         Map<String, Object> schema1 = new HashMap<>();
+        schema1.put("table", "fallback_table");
         schema1.put("fields", Collections.singletonMap("id", "int"));
         table1.put("schema", schema1);
 
@@ -231,8 +229,7 @@ public class RabbitmqSourceTest {
         Assertions.assertEquals(1, tables.size());
 
         CatalogTable t1 = tables.get(0);
-        // It should have fallen back to the global queue name!
-        Assertions.assertEquals("global_default_queue", t1.getTableId().getTableName());
+        Assertions.assertEquals("fallback_table", t1.getTableId().getTableName());
     }
 
     @Test
@@ -242,7 +239,7 @@ public class RabbitmqSourceTest {
 
         Map<String, Object> table1 = new HashMap<>();
         table1.put("queue_name", "q1");
-        // table1.put("schema", ...)
+        // table1.put("schema", ...) is purposefully missing
 
         configMap.put(TableSchemaOptions.TABLE_CONFIGS.key(), Collections.singletonList(table1));
 

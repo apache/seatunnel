@@ -17,8 +17,9 @@
 
 package org.apache.seatunnel.connectors.seatunnel.rabbitmq.source;
 
+import org.apache.seatunnel.api.configuration.ReadonlyConfig;
+import org.apache.seatunnel.api.options.ConnectorCommonOptions;
 import org.apache.seatunnel.api.source.SourceSplitEnumerator;
-import org.apache.seatunnel.api.table.catalog.CatalogTable;
 import org.apache.seatunnel.connectors.seatunnel.rabbitmq.config.RabbitmqBaseOptions;
 import org.apache.seatunnel.connectors.seatunnel.rabbitmq.config.RabbitmqConfig;
 import org.apache.seatunnel.connectors.seatunnel.rabbitmq.split.RabbitmqSplit;
@@ -44,42 +45,59 @@ public class RabbitmqSplitEnumerator
     private final Object stateLock = new Object();
     private final Set<Integer> assignedReaders = Collections.synchronizedSet(new HashSet<>());
 
+    /**
+     * Constructor for RabbitmqSplitEnumerator.
+     *
+     * @param context enumerator context
+     * @param rabbitmqConfig rabbitmq config
+     * @param queues list of queue names to consume
+     */
     public RabbitmqSplitEnumerator(
             SourceSplitEnumerator.Context<RabbitmqSplit> context,
             RabbitmqConfig rabbitmqConfig,
-            List<CatalogTable> tables) {
+            List<String> queues) {
         this.context = context;
-        this.initializeSplits(rabbitmqConfig, tables);
+        for (String queue : queues) {
+            log.info("Discovered queue for processing: {}", queue);
+            this.pendingSplits.put(queue, new RabbitmqSplit(queue));
+        }
     }
 
-    private void initializeSplits(RabbitmqConfig rabbitmqConfig, List<CatalogTable> tables) {
-        for (CatalogTable table : tables) {
-            String queueName = null;
-
-            if (table.getOptions() != null
-                    && table.getOptions().containsKey(RabbitmqBaseOptions.QUEUE_NAME.key())) {
-                queueName = table.getOptions().get(RabbitmqBaseOptions.QUEUE_NAME.key());
+    private void initializeSplits(ReadonlyConfig pluginConfig, RabbitmqConfig rabbitmqConfig) {
+        if (pluginConfig.getOptional(ConnectorCommonOptions.TABLE_CONFIGS).isPresent()) {
+            for (Map<String, Object> item :
+                    pluginConfig.get(ConnectorCommonOptions.TABLE_CONFIGS)) {
+                ReadonlyConfig tableConfig = ReadonlyConfig.fromMap(item);
+                String queueName = tableConfig.get(RabbitmqBaseOptions.QUEUE_NAME);
+                if (queueName != null
+                        && !queueName.isEmpty()
+                        && !pendingSplits.containsKey(queueName)) {
+                    log.info("Discovered queue for processing: {}", queueName);
+                    pendingSplits.put(queueName, new RabbitmqSplit(queueName));
+                }
             }
-
-            if (queueName == null || queueName.isEmpty()) {
-                queueName = rabbitmqConfig.getQueueName();
-            }
-
-            if (queueName != null
-                    && !queueName.isEmpty()
-                    && !pendingSplits.containsKey(queueName)) {
-                log.info("Discovered queue for processing: {}", queueName);
+        } else {
+            String queueName = rabbitmqConfig.getQueueName();
+            if (queueName != null && !queueName.isEmpty()) {
                 pendingSplits.put(queueName, new RabbitmqSplit(queueName));
             }
         }
     }
 
+    /**
+     * Constructor for restoring RabbitmqSplitEnumerator from state.
+     *
+     * @param context enumerator context
+     * @param rabbitmqConfig rabbitmq config
+     * @param queues list of queue names to consume
+     * @param checkpointState checkpoint state
+     */
     public RabbitmqSplitEnumerator(
             SourceSplitEnumerator.Context<RabbitmqSplit> context,
             RabbitmqConfig rabbitmqConfig,
-            List<CatalogTable> tables,
+            List<String> queues,
             RabbitmqSplitEnumeratorState checkpointState) {
-        this(context, rabbitmqConfig, tables);
+        this(context, rabbitmqConfig, queues);
 
         if (checkpointState != null) {
             // Future logic: restore splits form state if needed
