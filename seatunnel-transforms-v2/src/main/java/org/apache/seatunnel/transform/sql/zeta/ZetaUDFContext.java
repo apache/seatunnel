@@ -23,6 +23,8 @@ import org.apache.seatunnel.api.table.type.SeaTunnelRow;
 
 import javax.annotation.Nullable;
 
+import java.util.Objects;
+
 /** Runtime context for zeta udf execution. */
 public class ZetaUDFContext {
     private static final Object[] EMPTY_FIELDS = new Object[0];
@@ -49,6 +51,9 @@ public class ZetaUDFContext {
     }
 
     private void updateTableId(String tableId) {
+        if (Objects.equals(this.rawTableId, tableId)) {
+            return;
+        }
         this.rawTableId = tableId;
         this.tableIdIsNull = tableId == null;
         this.database = null;
