@@ -17,9 +17,10 @@
 
 package org.apache.seatunnel.api.datasource.gravitino;
 
+import org.apache.seatunnel.shade.com.typesafe.config.Config;
+
 import org.apache.seatunnel.api.configuration.Option;
 import org.apache.seatunnel.api.configuration.Options;
-import org.apache.seatunnel.api.configuration.ReadonlyConfig;
 import org.apache.seatunnel.api.datasource.AbstractDataSourceProvider;
 import org.apache.seatunnel.api.datasource.DataSourceMapper;
 import org.apache.seatunnel.api.datasource.DataSourceProvider;
@@ -27,11 +28,11 @@ import org.apache.seatunnel.api.metalake.gravitino.GravitinoClient;
 
 import com.google.auto.service.AutoService;
 
-import java.util.Collections;
-import java.util.List;
+import java.util.HashMap;
+import java.util.Map;
 
 /**
- * Gravitino implementation of {@link org.apache.seatunnel.api.datasource.DataSourceProvider}.
+ * Gravitino implementation of {@link DataSourceProvider}.
  *
  * <p>This provider integrates with Apache Gravitino for centralized data source metadata
  * management.
@@ -42,7 +43,7 @@ import java.util.List;
  * datasource:
  *   enabled: true
  *   kind: gravitino
- *   uri: http://localhost:8090          # Gravitino server URI
+ *   uri: <a href="http://localhost:8090">...</a>          # Gravitino server URI
  *   metalake: seatunnel                 # Metalake name
  * </pre>
  */
@@ -74,10 +75,10 @@ public class GravitinoDataSourceProvider extends AbstractDataSourceProvider {
     }
 
     @Override
-    public void init(ReadonlyConfig config) {
+    public void init(Config config) {
         // Extract Gravitino-specific configuration
-        String uri = config.get(URI);
-        String metalake = config.get(METALAKE);
+        String uri = config.getString(URI.key());
+        String metalake = config.getString(METALAKE.key());
         // Validate required parameters
         if (uri == null || uri.isEmpty()) {
             throw new IllegalArgumentException(
@@ -93,9 +94,11 @@ public class GravitinoDataSourceProvider extends AbstractDataSourceProvider {
     }
 
     @Override
-    protected List<DataSourceMapper> createDataSourceMappers() {
+    protected Map<String, DataSourceMapper> createDataSourceMappers() {
         String metalakeUrl = buildMetalakeUrl();
-        return Collections.singletonList(new GravitinoJdbcDataSourceMapper(metalakeUrl, client));
+        Map<String, DataSourceMapper> mappers = new HashMap<>();
+        mappers.put("Jdbc", new GravitinoJdbcDataSourceMapper(metalakeUrl, client));
+        return mappers;
     }
 
     /**

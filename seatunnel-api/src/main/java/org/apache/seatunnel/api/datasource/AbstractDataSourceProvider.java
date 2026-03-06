@@ -17,18 +17,18 @@
 
 package org.apache.seatunnel.api.datasource;
 
-import java.util.List;
-import java.util.concurrent.locks.Lock;
-import java.util.concurrent.locks.ReentrantLock;
+import java.util.Collection;
+import java.util.Collections;
+import java.util.Map;
 
 /**
  * Abstract base class for {@link DataSourceProvider} implementations.
  *
  * <p>This class provides thread-safe caching for data source mappers, using double-checked locking
- * with {@link ReentrantLock} for better performance in high-concurrency scenarios.
+ * with {@code synchronized} for lazy initialization.
  *
  * <p>Subclasses only need to implement {@link #createDataSourceMappers()} to provide the mapper
- * list, which will be cached after the first call.
+ * map, which will be cached after the first call.
  *
  * <h2>Usage Example</h2>
  *
@@ -42,8 +42,11 @@ import java.util.concurrent.locks.ReentrantLock;
  *     }
  *
  *     &#64;Override
- *     protected List&lt;DataSourceMapper&gt; createDataSourceMappers() {
- *         return Arrays.asList(new MyMapper1(), new MyMapper2());
+ *     protected Map&lt;String, DataSourceMapper&gt; createDataSourceMappers() {
+ *         Map&lt;String, DataSourceMapper&gt; mappers = new HashMap&lt;&gt;();
+ *         mappers.put("Jdbc", new MyJdbcMapper());
+ *         mappers.put("Kafka", new MyKafkaMapper());
+ *         return mappers;
  *     }
  *
  *     // implement init() and close()
@@ -52,34 +55,48 @@ import java.util.concurrent.locks.ReentrantLock;
  */
 public abstract class AbstractDataSourceProvider implements DataSourceProvider {
 
-    private volatile List<DataSourceMapper> cachedMappers;
-    private final Lock lock = new ReentrantLock();
+    private volatile Map<String, DataSourceMapper> cachedMappers;
 
     @Override
-    public final List<DataSourceMapper> dataSourceMappers() {
+    public final Collection<DataSourceMapper> dataSourceMappers() {
         if (cachedMappers == null) {
-            lock.lock();
-            try {
+            synchronized (this) {
                 if (cachedMappers == null) {
                     cachedMappers = createDataSourceMappers();
+                    // Make the cached map unmodifiable for thread safety
+                    cachedMappers = Collections.unmodifiableMap(cachedMappers);
                 }
-            } finally {
-                lock.unlock();
             }
         }
-        return cachedMappers;
+        return cachedMappers.values();
     }
 
     /**
-     * Creates the list of data source mappers supported by this provider.
+     * Gets the data source mapper for a specific connector identifier.
+     *
+     * <p>This is a convenience method for directly looking up a mapper by connector identifier,
+     * avoiding the need to iterate through the collection returned by {@link #dataSourceMappers()}.
+     *
+     * @param connectorIdentifier the connector identifier (e.g., "Jdbc", "Kafka")
+     * @return the matching mapper, or null if not found
+     */
+    public final DataSourceMapper getMapper(String connectorIdentifier) {
+        // Ensure mappers are initialized
+        dataSourceMappers();
+        return cachedMappers.get(connectorIdentifier);
+    }
+
+    /**
+     * Creates the map of data source mappers supported by this provider.
      *
      * <p>This method is called once (lazily) when {@link #dataSourceMappers()} is first invoked.
      * Subclasses should implement this method to provide their mappers.
      *
-     * <p>The returned list is cached and reused for subsequent calls. Implementations should return
-     * an immutable or thread-safe list if mappers will be shared across threads.
+     * <p>The returned map is cached and reused for subsequent calls. The map key should be the
+     * connector identifier (e.g., "Jdbc", "Kafka") and the value should be the corresponding
+     * mapper.
      *
-     * @return list of supported data source mappers
+     * @return map of connector identifier to data source mapper
      */
-    protected abstract List<DataSourceMapper> createDataSourceMappers();
+    protected abstract Map<String, DataSourceMapper> createDataSourceMappers();
 }

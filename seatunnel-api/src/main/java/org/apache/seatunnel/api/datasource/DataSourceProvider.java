@@ -17,9 +17,11 @@
 
 package org.apache.seatunnel.api.datasource;
 
+import org.apache.seatunnel.shade.com.typesafe.config.Config;
+
 import org.apache.seatunnel.api.configuration.ReadonlyConfig;
 
-import java.util.List;
+import java.util.Collection;
 
 /**
  * SPI interface for external data source metadata providers.
@@ -83,17 +85,36 @@ public interface DataSourceProvider extends AutoCloseable {
      *
      * @param config the configuration for this provider
      */
-    void init(ReadonlyConfig config);
+    void init(Config config);
 
     /**
-     * Returns the list of data source mappers supported by this provider.
+     * Returns the collection of data source mappers supported by this provider.
      *
      * <p>Each mapper is responsible for converting metadata from a specific connector type into
      * SeaTunnel configuration.
      *
-     * @return list of supported data source mappers
+     * @return collection of supported data source mappers
      */
-    List<DataSourceMapper> dataSourceMappers();
+    Collection<DataSourceMapper> dataSourceMappers();
+
+    /**
+     * Gets the data source mapper for a specific connector identifier.
+     *
+     * <p>This is a convenience method for directly looking up a mapper by connector identifier.
+     * Default implementation iterates through the collection, but subclasses may override for
+     * better performance (e.g., using a map for O(1) lookup).
+     *
+     * @param connectorIdentifier the connector identifier (e.g., "Jdbc", "Kafka")
+     * @return the matching mapper, or null if not found
+     */
+    default DataSourceMapper getMapper(String connectorIdentifier) {
+        for (DataSourceMapper mapper : dataSourceMappers()) {
+            if (mapper.connectorIdentifier().equalsIgnoreCase(connectorIdentifier)) {
+                return mapper;
+            }
+        }
+        return null;
+    }
 
     /** Closes resources held by this provider. */
     @Override

@@ -15,13 +15,16 @@
  * limitations under the License.
  */
 
-package org.apache.seatunnel.api.datasource;
+package org.apache.seatunnel.engine.common.utils;
 
 import org.apache.seatunnel.shade.com.typesafe.config.Config;
 import org.apache.seatunnel.shade.com.typesafe.config.ConfigFactory;
 
-import org.apache.seatunnel.api.configuration.ReadonlyConfig;
+import org.apache.seatunnel.api.datasource.DataSourceMapper;
+import org.apache.seatunnel.api.datasource.DataSourceProvider;
+import org.apache.seatunnel.api.datasource.DataSourceProviderFactory;
 import org.apache.seatunnel.api.datasource.exception.DataSourceProviderException;
+import org.apache.seatunnel.engine.common.config.server.DataSourceConfig;
 
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
@@ -65,9 +68,14 @@ public class DataSourceConfigUtilTest {
         // Load config from file with datasource_id
         Config jobConfig = loadTestConfig();
 
+        // Create DataSourceConfig
+        DataSourceConfig dataSourceConfig = new DataSourceConfig();
+        dataSourceConfig.setEnabled(true);
+        dataSourceConfig.setKind(TEST_PROVIDER_KIND);
+
         // Resolve with datasource_id
         Config resolved =
-                DataSourceConfigUtil.resolveDataSourceConfigs(jobConfig, TEST_PROVIDER_KIND);
+                DataSourceConfigUtil.resolveDataSourceConfigs(jobConfig, dataSourceConfig);
 
         assertNotNull(resolved);
 
@@ -109,13 +117,18 @@ public class DataSourceConfigUtilTest {
         // Load config from file with datasource_id
         Config jobConfig = loadTestConfig();
 
+        // Create DataSourceConfig with unknown provider
+        DataSourceConfig dataSourceConfig = new DataSourceConfig();
+        dataSourceConfig.setEnabled(true);
+        dataSourceConfig.setKind("unknown-provider");
+
         // Try to resolve with a provider that doesn't exist
         DataSourceProviderException exception =
                 assertThrows(
                         DataSourceProviderException.class,
                         () ->
                                 DataSourceConfigUtil.resolveDataSourceConfigs(
-                                        jobConfig, "unknown-provider"));
+                                        jobConfig, dataSourceConfig));
 
         // Verify exception is thrown
         assertNotNull(exception);
@@ -143,16 +156,16 @@ public class DataSourceConfigUtilTest {
                     DataSourceProviderFactory.class.getDeclaredField("PROVIDER_CACHE");
             cacheField.setAccessible(true);
             @SuppressWarnings("unchecked")
-            java.util.Map<String, DataSourceProvider> cache =
-                    (java.util.Map<String, DataSourceProvider>) cacheField.get(null);
+            Map<String, DataSourceProvider> cache =
+                    (Map<String, DataSourceProvider>) cacheField.get(null);
             cache.put(provider.kind(), provider);
 
             java.lang.reflect.Field providersField =
                     DataSourceProviderFactory.class.getDeclaredField("cachedProviders");
             providersField.setAccessible(true);
             @SuppressWarnings("unchecked")
-            java.util.List<DataSourceProvider> cachedProviders =
-                    (java.util.List<DataSourceProvider>) providersField.get(null);
+            List<DataSourceProvider> cachedProviders =
+                    (List<DataSourceProvider>) providersField.get(null);
             if (cachedProviders == null) {
                 cachedProviders = new ArrayList<>();
                 cachedProviders.add(provider);
@@ -180,7 +193,7 @@ public class DataSourceConfigUtilTest {
         }
 
         @Override
-        public void init(ReadonlyConfig config) {
+        public void init(Config config) {
             // No-op for testing
         }
 

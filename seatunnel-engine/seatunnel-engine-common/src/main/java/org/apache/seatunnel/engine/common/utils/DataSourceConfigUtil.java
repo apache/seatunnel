@@ -15,17 +15,22 @@
  * limitations under the License.
  */
 
-package org.apache.seatunnel.api.datasource;
+package org.apache.seatunnel.engine.common.utils;
 
 import org.apache.seatunnel.shade.com.typesafe.config.Config;
 import org.apache.seatunnel.shade.com.typesafe.config.ConfigException;
 import org.apache.seatunnel.shade.com.typesafe.config.ConfigFactory;
 import org.apache.seatunnel.shade.com.typesafe.config.ConfigValue;
 
+import org.apache.seatunnel.api.datasource.AbstractDataSourceProvider;
+import org.apache.seatunnel.api.datasource.DataSourceMapper;
+import org.apache.seatunnel.api.datasource.DataSourceProvider;
+import org.apache.seatunnel.api.datasource.DataSourceProviderFactory;
 import org.apache.seatunnel.api.datasource.exception.DataSourceProviderException;
 import org.apache.seatunnel.api.options.ConnectorCommonOptions;
 import org.apache.seatunnel.common.config.TypesafeConfigUtils;
 import org.apache.seatunnel.common.constants.PluginType;
+import org.apache.seatunnel.engine.common.config.server.DataSourceConfig;
 
 import lombok.extern.slf4j.Slf4j;
 
@@ -35,6 +40,8 @@ import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
+import java.util.concurrent.ConcurrentHashMap;
+import java.util.concurrent.ConcurrentMap;
 
 /**
  * Utility class for resolving data source configurations from DataSource Center.
@@ -45,20 +52,31 @@ import java.util.Optional;
 @Slf4j
 public final class DataSourceConfigUtil {
 
+    /** Cache for initialized DataSourceProvider instances by kind. */
+    private static final ConcurrentMap<String, DataSourceProvider> PROVIDER_INSTANCE_CACHE =
+            new ConcurrentHashMap<>();
+
     private DataSourceConfigUtil() {}
 
     /**
      * Resolves and merges data source configurations for a SeaTunnel job config.
      *
-     * <p>This method iterates through source, sink, and transform connector configs and applies
-     * {@link #resolveConnectorConfig(Config, String)} to each one that contains a datasource_id.
-     *
      * @param seaTunnelJobConfig the SeaTunnel job configuration (Hocon/Config format)
-     * @param providerKind the kind of DataSourceProvider (e.g., "gravitino", "datahub")
+     * @param dataSourceConfig the DataSource configuration containing provider kind and properties
      * @return a new Config with datasource configurations merged
      */
-    public static Config resolveDataSourceConfigs(Config seaTunnelJobConfig, String providerKind) {
+    public static Config resolveDataSourceConfigs(
+            Config seaTunnelJobConfig, DataSourceConfig dataSourceConfig) {
+        if (!dataSourceConfig.isEnabled()) {
+            log.debug("DataSource Center is disabled, returning original config");
+            return seaTunnelJobConfig;
+        }
+
+        String providerKind = dataSourceConfig.getKind();
         log.info("Starting datasource config resolution with provider: {}", providerKind);
+
+        // Get or create initialized provider instance (cached)
+        DataSourceProvider provider = getOrCreateProvider(dataSourceConfig);
 
         // Get original config as unwrapped map
         Map<String, Object> originalMap = seaTunnelJobConfig.root().unwrapped();
@@ -70,7 +88,7 @@ public final class DataSourceConfigUtil {
                         seaTunnelJobConfig, PluginType.SOURCE.getType(), Collections.emptyList());
         List<Object> resolvedSources = new ArrayList<>();
         for (Config sourceConfig : sourceConfigs) {
-            Config resolved = resolveConnectorConfig(sourceConfig, providerKind);
+            Config resolved = resolveConnectorConfig(sourceConfig, provider, providerKind);
             resolvedSources.add(resolved.root().unwrapped());
         }
         if (!resolvedSources.isEmpty()) {
@@ -83,7 +101,7 @@ public final class DataSourceConfigUtil {
                         seaTunnelJobConfig, PluginType.SINK.getType(), Collections.emptyList());
         List<Object> resolvedSinks = new ArrayList<>();
         for (Config sinkConfig : sinkConfigs) {
-            Config resolved = resolveConnectorConfig(sinkConfig, providerKind);
+            Config resolved = resolveConnectorConfig(sinkConfig, provider, providerKind);
             resolvedSinks.add(resolved.root().unwrapped());
         }
         if (!resolvedSinks.isEmpty()) {
@@ -94,30 +112,33 @@ public final class DataSourceConfigUtil {
     }
 
     /**
-     * Resolves datasource configurations for a list of connector configs.
+     * Gets or creates an initialized DataSourceProvider instance.
      *
-     * @param connectorConfigs list of connector configurations
-     * @param providerKind the kind of DataSourceProvider
-     * @return list of resolved configurations
+     * <p>The provider instance is cached by kind to avoid repeated initialization. The cache key
+     * includes both the kind and properties hash to ensure different configurations get different
+     * instances.
+     *
+     * @param dataSourceConfig the DataSource configuration
+     * @return initialized DataSourceProvider instance
      */
-    private static List<Config> resolveConfigsInSection(
-            List<? extends Config> connectorConfigs, String providerKind) {
-        List<Config> resolvedConfigs = new ArrayList<>(connectorConfigs.size());
+    private static DataSourceProvider getOrCreateProvider(DataSourceConfig dataSourceConfig) {
+        String providerKind = dataSourceConfig.getKind();
+        // Create a cache key that includes both kind and properties to handle different
+        // configurations for the same provider kind
+        String cacheKey = providerKind + "_" + dataSourceConfig.getProperties().hashCode();
 
-        for (Config connectorConfig : connectorConfigs) {
-            try {
-                Config resolved = resolveConnectorConfig(connectorConfig, providerKind);
-                resolvedConfigs.add(resolved);
-            } catch (Exception e) {
-                throw new DataSourceProviderException(
-                        String.format(
-                                "Failed to resolve datasource config for connector at path: %s",
-                                connectorConfig.origin().description()),
-                        e);
-            }
-        }
-
-        return resolvedConfigs;
+        return PROVIDER_INSTANCE_CACHE.computeIfAbsent(
+                cacheKey,
+                k -> {
+                    DataSourceProvider provider =
+                            DataSourceProviderFactory.getProvider(providerKind);
+                    provider.init(ConfigFactory.parseMap(dataSourceConfig.getProperties()));
+                    log.info(
+                            "Initialized DataSourceProvider: {} with properties: {}",
+                            providerKind,
+                            dataSourceConfig.getProperties());
+                    return provider;
+                });
     }
 
     /**
@@ -126,18 +147,20 @@ public final class DataSourceConfigUtil {
      * <p>If the config contains a {@code datasource_id}, this method will:
      *
      * <ol>
-     *   <li>Get the appropriate {@link DataSourceProvider} by kind
+     *   <li>Use the provided {@link DataSourceProvider} (already initialized)
      *   <li>Find the matching {@link DataSourceMapper} by connector identifier
      *   <li>Fetch the connection config from the metadata service using the datasource_id
      *   <li>Merge the fetched config into the original config
      * </ol>
      *
      * @param connectorConfig the connector configuration
+     * @param provider the initialized DataSourceProvider instance
      * @param providerKind the kind of DataSourceProvider (e.g., "gravitino", "datahub")
      * @return a new Config with datasource configuration merged, or the original config if no
      *     datasource_id is present
      */
-    private static Config resolveConnectorConfig(Config connectorConfig, String providerKind) {
+    private static Config resolveConnectorConfig(
+            Config connectorConfig, DataSourceProvider provider, String providerKind) {
         Optional<String> datasourceIdOptional = getDatasourceId(connectorConfig);
 
         if (!datasourceIdOptional.isPresent()) {
@@ -157,8 +180,6 @@ public final class DataSourceConfigUtil {
                 providerKind);
 
         try {
-            DataSourceProvider provider = DataSourceProviderFactory.getProvider(providerKind);
-
             // Find matching DataSourceMapper by connector identifier
             DataSourceMapper mapper = findMapper(provider, connectorIdentifier);
 
@@ -257,15 +278,29 @@ public final class DataSourceConfigUtil {
     /**
      * Finds the appropriate DataSourceMapper for a given connector identifier.
      *
+     * <p>This method first attempts to use the {@link AbstractDataSourceProvider#getMapper(String)}
+     * method if the provider is an instance of {@link AbstractDataSourceProvider}, which provides
+     * O(1) lookup. Otherwise, it falls back to iterating through the mappers.
+     *
      * @param provider the DataSourceProvider to search in
      * @param connectorIdentifier the connector identifier (e.g., "Jdbc", "Kafka")
      * @return the matching DataSourceMapper, or null if not found
      */
     private static DataSourceMapper findMapper(
             DataSourceProvider provider, String connectorIdentifier) {
-        for (DataSourceMapper mapper : provider.dataSourceMappers()) {
-            if (mapper.connectorIdentifier().equalsIgnoreCase(connectorIdentifier)) {
+        // Use the optimized getMapper method if available (O(1) lookup)
+        if (provider instanceof AbstractDataSourceProvider) {
+            DataSourceMapper mapper =
+                    ((AbstractDataSourceProvider) provider).getMapper(connectorIdentifier);
+            if (mapper != null) {
                 return mapper;
+            }
+        } else {
+            // Fallback to iteration for non-abstract providers
+            for (DataSourceMapper mapper : provider.dataSourceMappers()) {
+                if (mapper.connectorIdentifier().equalsIgnoreCase(connectorIdentifier)) {
+                    return mapper;
+                }
             }
         }
         return null;
