@@ -228,7 +228,7 @@ source {
 sink {
   # The first sink will ONLY receive data from the users_queue
   Jdbc {
-    source_table_name = "users_table"
+    plugin_input = "users_table"
     driver = "com.mysql.cj.jdbc.Driver"
     url = "jdbc:mysql://localhost:3306/mydb"
     query = "insert into users (user_id, name) values (?, ?)"
@@ -236,7 +236,7 @@ sink {
 
   # The second sink will ONLY receive data from the orders_queue
   Jdbc {
-    source_table_name = "orders_table"
+    plugin_input = "orders_table"
     driver = "com.mysql.cj.jdbc.Driver"
     url = "jdbc:mysql://localhost:3306/mydb"
     query = "insert into orders (order_id, amount) values (?, ?)"
