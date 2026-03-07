@@ -47,6 +47,7 @@
         <module>connector-neo4j-e2e</module>
         <module>connector-http-e2e</module>
         <module>connector-rabbitmq-e2e</module>
+        <module>connector-mqtt-e2e</module>
         <module>connector-kafka-e2e</module>
         <module>connector-doris-e2e</module>
         <module>connector-fake-e2e</module>

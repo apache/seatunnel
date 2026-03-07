@@ -1,11 +1,34 @@
+/*
+ * Licensed to the Apache Software Foundation (ASF) under one or more
+ * contributor license agreements.  See the NOTICE file distributed with
+ * this work for additional information regarding copyright ownership.
+ * The ASF licenses this file to You under the Apache License, Version 2.0
+ * (the "License"); you may not use this file except in compliance with
+ * the License.  You may obtain a copy of the License at
+ *
+ *    http://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an "AS IS" BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
+ */
+
 package org.apache.seatunnel.connectors.seatunnel.mqtt.sink;
 
 import org.apache.seatunnel.api.configuration.Option;
 import org.apache.seatunnel.api.configuration.Options;
 import org.apache.seatunnel.api.configuration.util.OptionRule;
+import org.apache.seatunnel.api.table.connector.TableSink;
 import org.apache.seatunnel.api.table.factory.Factory;
+import org.apache.seatunnel.api.table.factory.TableSinkFactory;
+import org.apache.seatunnel.api.table.factory.TableSinkFactoryContext;
 
-public class MqttSinkFactory implements Factory {
+import com.google.auto.service.AutoService;
+
+@AutoService(Factory.class)
+public class MqttSinkFactory implements TableSinkFactory {
 
     public static final Option<String> URL =
             Options.key("url")
@@ -14,33 +37,63 @@ public class MqttSinkFactory implements Factory {
                     .withDescription("MQTT broker URL, e.g. tcp://localhost:1883");
 
     public static final Option<String> TOPIC =
-            Options.key("topic").stringType().noDefaultValue().withDescription("Target MQTT topic");
+            Options.key("topic")
+                    .stringType()
+                    .noDefaultValue()
+                    .withDescription("Target MQTT topic to publish messages to");
 
     public static final Option<String> USERNAME =
-            Options.key("username").stringType().noDefaultValue().withDescription("MQTT username");
+            Options.key("username")
+                    .stringType()
+                    .noDefaultValue()
+                    .withDescription("MQTT broker authentication username");
 
     public static final Option<String> PASSWORD =
-            Options.key("password").stringType().noDefaultValue().withDescription("MQTT password");
+            Options.key("password")
+                    .stringType()
+                    .noDefaultValue()
+                    .withDescription("MQTT broker authentication password");
 
     public static final Option<Integer> QOS =
-            Options.key("qos").intType().defaultValue(0).withDescription("MQTT QoS level (0 or 1)");
+            Options.key("qos")
+                    .intType()
+                    .defaultValue(1)
+                    .withDescription("MQTT QoS level: 0 (at-most-once), 1 (at-least-once)");
 
     public static final Option<String> FORMAT =
             Options.key("format")
                     .stringType()
                     .defaultValue("json")
-                    .withDescription("Message serialization format (json or text)");
+                    .withDescription("Message serialization format: json or text");
+
+    public static final Option<Integer> RETRY_TIMEOUT =
+            Options.key("retry_timeout")
+                    .intType()
+                    .defaultValue(5000)
+                    .withDescription(
+                            "Maximum time in milliseconds to retry publishing on transient failures");
+
+    public static final Option<Integer> CONNECTION_TIMEOUT =
+            Options.key("connection_timeout")
+                    .intType()
+                    .defaultValue(30)
+                    .withDescription("MQTT connection timeout in seconds");
 
     @Override
     public String factoryIdentifier() {
-        return "mqtt";
+        return "MQTT";
     }
 
     @Override
     public OptionRule optionRule() {
         return OptionRule.builder()
                 .required(URL, TOPIC)
-                .optional(USERNAME, PASSWORD, QOS, FORMAT)
+                .optional(USERNAME, PASSWORD, QOS, FORMAT, RETRY_TIMEOUT, CONNECTION_TIMEOUT)
                 .build();
+    }
+
+    @Override
+    public TableSink createSink(TableSinkFactoryContext context) {
+        return () -> new MqttSink(context.getOptions(), context.getCatalogTable());
     }
 }
