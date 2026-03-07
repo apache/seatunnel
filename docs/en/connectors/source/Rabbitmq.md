@@ -34,7 +34,7 @@ The source must be non-parallel (parallelism set to 1) in order to achieve exact
 | password                   | string  | yes      | -             |
 | queue_name                 | string  | no       | -             |
 | schema                     | config  | no       | -             |
-| table_configs              | array   | no       | -             |
+| tables_configs             | array   | no       | -             |
 | url                        | string  | no       | -             |
 | routing_key                | string  | no       | -             |
 | exchange                   | string  | no       | -             |
@@ -78,7 +78,7 @@ convenience method for setting the fields in an AMQP URI: host, port, username, 
 
 ### queue_name [string]
 
-the queue to consume messages from. *Note: Required if `table_configs` is not configured.*
+the queue to consume messages from. *Note: Required if `tables_configs` is not configured.*
 
 ### routing_key [string]
 
@@ -92,9 +92,9 @@ the exchange to publish the message to
 
 #### fields [Config]
 
-the schema fields of upstream data. For more details, please refer to [Schema Feature](../../introduction/concepts/schema-feature.md). *Note: Required if `table_configs` is not configured.*
+the schema fields of upstream data. For more details, please refer to [Schema Feature](../../introduction/concepts/schema-feature.md). *Note: Required if `tables_configs` is not configured.*
 
-### table_configs [array]
+### tables_configs [array]
 
 Used to read from multiple queues simultaneously. Each object in the array must contain a queue_name and a schema.
 
@@ -160,8 +160,8 @@ Source plugin common parameters, please refer to [Source Common Options](../comm
 If you are upgrading from a previous version that only supported single-table reads, your existing configuration will work without any changes.
 
 **Configuration Priority:**
-- You cannot configure both `table_configs` and the root-level `queue_name`/`schema` at the same time. They are mutually exclusive. Doing so will result in a configuration validation error.
-- Use `table_configs` for multi-table mode.
+- You cannot configure both `tables_configs` and the root-level `queue_name`/`schema` at the same time. They are mutually exclusive. Doing so will result in a configuration validation error.
+- Use `tables_configs` for multi-table mode.
 - Use root-level `queue_name` and `schema` for single-table mode.
 
 ## Example
@@ -200,7 +200,7 @@ source {
     password = "guest"
     
     # Use table_configs to read from multiple queues
-    table_configs = [
+    tables_configs = [
       {
         queue_name = "users_queue"
         schema = {
