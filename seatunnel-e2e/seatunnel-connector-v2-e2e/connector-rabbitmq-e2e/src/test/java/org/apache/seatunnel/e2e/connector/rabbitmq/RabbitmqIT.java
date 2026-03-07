@@ -253,6 +253,7 @@ public class RabbitmqIT extends TestSuiteBase implements TestResource {
         }
         // close to prevent rabbitmq client consumer in the next TestContainer to consume
         sinkRabbitmqClient.close();
+        sourceClient.close();
 
         // assert source and sink data
         Assertions.assertTrue(resultSet.size() > 0);
@@ -297,6 +298,7 @@ public class RabbitmqIT extends TestSuiteBase implements TestResource {
         Assertions.assertEquals(0, execResult.getExitCode());
 
         sinkRabbitmqClient.close();
+        sourceClient.close();
     }
 
     /**
