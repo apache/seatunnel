@@ -47,9 +47,7 @@ import org.testcontainers.shaded.org.apache.commons.lang3.tuple.Pair;
 import org.testcontainers.utility.DockerImageName;
 import org.testcontainers.utility.DockerLoggerFactory;
 
-import com.rabbitmq.client.Channel;
 import com.rabbitmq.client.Connection;
-import com.rabbitmq.client.ConnectionFactory;
 import com.rabbitmq.client.DefaultConsumer;
 import lombok.extern.slf4j.Slf4j;
 
@@ -356,30 +354,21 @@ public class RabbitmqIT extends TestSuiteBase implements TestResource {
      * @param count The number of messages to generate and send.
      */
     private void sendData(String queueName, SeaTunnelRowType rowType, int count) throws Exception {
-        // Setup RabbitMQ connection factory using the TestContainer properties
-        ConnectionFactory factory = new ConnectionFactory();
-        factory.setHost(rabbitmqContainer.getHost());
-        factory.setPort(rabbitmqContainer.getFirstMappedPort());
-        factory.setVirtualHost("/");
-        factory.setUsername(USERNAME);
-        factory.setPassword(PASSWORD);
+        // Use the safe wrapper that already knows how to connect to the active container
+        RabbitmqClient rabbitmqClient = getRabbitmqClient(queueName);
 
-        try (Connection conn = factory.newConnection();
-                Channel channel = conn.createChannel()) {
-
+        try {
             // Explicitly declare the queue before writing.
-            // This guarantees the queue exists, avoiding message loss before the SeaTunnel job
-            // connects.
-            channel.queueDeclare(queueName, DURABLE, EXCLUSIVE, AUTO_DELETE, null);
+            rabbitmqClient
+                    .getChannel()
+                    .queueDeclare(queueName, DURABLE, EXCLUSIVE, AUTO_DELETE, null);
 
             JsonSerializationSchema serializer = new JsonSerializationSchema(rowType);
 
             for (int i = 0; i < count; i++) {
                 Object[] fields = new Object[rowType.getTotalFields()];
-                // The first field is always 'id'
                 fields[0] = (long) i;
 
-                // Dynamically populate the second field based on the schema definition
                 String fieldName = rowType.getFieldNames()[1];
                 if ("name".equals(fieldName)) {
                     fields[1] = "user_" + i;
@@ -387,17 +376,20 @@ public class RabbitmqIT extends TestSuiteBase implements TestResource {
                     fields[1] = 20 + i;
                 }
 
-                // Serialize the generated SeaTunnelRow into a JSON byte array
                 byte[] message = serializer.serialize(new SeaTunnelRow(fields));
 
-                // Publish the message to the queue with persistent delivery mode
-                channel.basicPublish(
-                        "",
-                        queueName,
-                        com.rabbitmq.client.MessageProperties.PERSISTENT_TEXT_PLAIN,
-                        message);
+                rabbitmqClient
+                        .getChannel()
+                        .basicPublish(
+                                "",
+                                queueName,
+                                com.rabbitmq.client.MessageProperties.PERSISTENT_TEXT_PLAIN,
+                                message);
             }
             log.info("Successfully sent {} messages to queue {}", count, queueName);
+        } finally {
+            // Always close the client to prevent connection leaks
+            rabbitmqClient.close();
         }
     }
 }
