@@ -192,7 +192,8 @@ public class RabbitmqSourceReader implements SourceReader<SeaTunnelRow, Rabbitmq
         // Bounded mode logic: Stop the job if all splits have been consumed and the queue is empty
         if (Boundedness.BOUNDED.equals(context.getBoundedness()) && noMoreSplitsAssigned) {
             if (message == null && queue.isEmpty()) {
-                log.info("No more splits assigned, queue is empty, and polling timed out. Signaling end of input.");
+                log.info(
+                        "No more splits assigned, queue is empty, and polling timed out. Signaling end of input.");
                 context.signalNoMoreElement();
             }
         }
