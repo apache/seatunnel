@@ -20,6 +20,7 @@ more.
 | model                  | string | yes      |               |
 | api_key                | string | yes      |               |
 | api_path               | string | no       |               |
+| process_batch_size     | int    | no       | 100           |
 | custom_config          | map    | no       |               |
 | custom_response_parse  | string | no       |               |
 | custom_request_headers | map    | no       |               |
@@ -102,6 +103,11 @@ If you use OpenAI model, please refer https://platform.openai.com/docs/api-refer
 
 The API path to use for the model provider. In most cases, you do not need to change this configuration. If you
 are using an API agent's service, you may need to configure it to the agent's API address.
+
+### process_batch_size
+
+The number of rows buffered before one LLM inference request is triggered. The buffered rows are included in transform
+checkpoint state, so unfinished batches can be restored after recovery.
 
 ### custom_config
 

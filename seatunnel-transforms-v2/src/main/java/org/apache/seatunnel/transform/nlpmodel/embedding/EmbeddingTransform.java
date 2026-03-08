@@ -20,13 +20,17 @@ package org.apache.seatunnel.transform.nlpmodel.embedding;
 import org.apache.seatunnel.shade.com.google.common.annotations.VisibleForTesting;
 
 import org.apache.seatunnel.api.configuration.ReadonlyConfig;
+import org.apache.seatunnel.api.serialization.DefaultSerializer;
+import org.apache.seatunnel.api.serialization.Serializer;
 import org.apache.seatunnel.api.table.catalog.CatalogTable;
 import org.apache.seatunnel.api.table.catalog.Column;
 import org.apache.seatunnel.api.table.catalog.PhysicalColumn;
 import org.apache.seatunnel.api.table.type.MetadataUtil;
+import org.apache.seatunnel.api.table.type.SeaTunnelRow;
 import org.apache.seatunnel.api.table.type.SeaTunnelRowAccessor;
 import org.apache.seatunnel.api.table.type.SeaTunnelRowType;
 import org.apache.seatunnel.api.table.type.VectorType;
+import org.apache.seatunnel.api.transform.SeaTunnelBatchTransform;
 import org.apache.seatunnel.transform.common.MultipleFieldOutputTransform;
 import org.apache.seatunnel.transform.exception.TransformCommonError;
 import org.apache.seatunnel.transform.nlpmodel.ModelProvider;
@@ -48,34 +52,44 @@ import lombok.extern.slf4j.Slf4j;
 
 import java.io.ByteArrayOutputStream;
 import java.io.IOException;
+import java.io.Serializable;
 import java.net.URISyntaxException;
 import java.nio.ByteBuffer;
 import java.util.ArrayList;
-import java.util.HashMap;
+import java.util.Arrays;
+import java.util.Collections;
+import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
-import java.util.Set;
+import java.util.Optional;
 import java.util.TreeMap;
 import java.util.concurrent.ConcurrentHashMap;
 
 @Slf4j
-public class EmbeddingTransform extends MultipleFieldOutputTransform {
+public class EmbeddingTransform extends MultipleFieldOutputTransform
+        implements SeaTunnelBatchTransform<SeaTunnelRow, EmbeddingTransform.EmbeddingBatchState> {
+
+    private static final Serializer<EmbeddingBatchState> STATE_SERIALIZER =
+            new DefaultSerializer<>();
 
     private final ReadonlyConfig config;
-    private List<Integer> fieldOriginalIndexes;
-    private transient Model model;
-    private Integer dimension;
-    private boolean isMultimodalFields = false;
-    private Map<Integer, FieldSpec> fieldSpecMap;
-    private List<String> fieldNames;
-
+    private final int processBatchSize;
+    private final List<BufferedInput> bufferedInputs = new ArrayList<>();
+    private final List<SeaTunnelRow> readyOutputs = new ArrayList<>();
     private final Map<String, TreeMap<Long, byte[]>> binaryFileCache = new ConcurrentHashMap<>();
     private final Map<String, Long> partIndexMap = new ConcurrentHashMap<>();
+
+    private transient Model model;
+    private Integer dimension;
+    private boolean multimodalFields;
+    private Map<Integer, FieldSpec> fieldSpecMap;
+    private List<String> fieldNames;
 
     public EmbeddingTransform(
             @NonNull ReadonlyConfig config, @NonNull CatalogTable inputCatalogTable) {
         super(inputCatalogTable);
         this.config = config;
+        this.processBatchSize = config.get(ModelTransformConfig.PROCESS_BATCH_SIZE);
         initOutputFields(inputCatalogTable.getTableSchema().toPhysicalRowDataType(), config);
     }
 
@@ -90,11 +104,10 @@ public class EmbeddingTransform extends MultipleFieldOutputTransform {
         ModelProvider provider = config.get(ModelTransformConfig.MODEL_PROVIDER);
         String apiPath =
                 provider.usedEmbeddingPath(
-                        config.get(ModelTransformConfig.API_PATH), isMultimodalFields);
+                        config.get(ModelTransformConfig.API_PATH), multimodalFields);
         try {
             switch (provider) {
                 case CUSTOM:
-                    // load custom_config from the configuration
                     ReadonlyConfig customConfig =
                             config.getOptional(
                                             ModelTransformConfig.CustomRequestConfig.CUSTOM_CONFIG)
@@ -139,7 +152,7 @@ public class EmbeddingTransform extends MultipleFieldOutputTransform {
                                     config.get(
                                             EmbeddingTransformConfig
                                                     .SINGLE_VECTORIZED_INPUT_NUMBER),
-                                    isMultimodalFields);
+                                    multimodalFields);
                     break;
                 case QIANFAN:
                     model =
@@ -152,7 +165,6 @@ public class EmbeddingTransform extends MultipleFieldOutputTransform {
                                     config.get(
                                             EmbeddingTransformConfig
                                                     .SINGLE_VECTORIZED_INPUT_NUMBER));
-
                     break;
                 case ZHIPU:
                     model =
@@ -182,7 +194,7 @@ public class EmbeddingTransform extends MultipleFieldOutputTransform {
                 default:
                     throw new IllegalArgumentException("Unsupported model provider: " + provider);
             }
-            if (isMultimodalFields && !(model instanceof MultimodalModel)) {
+            if (multimodalFields && !(model instanceof MultimodalModel)) {
                 throw new IllegalArgumentException(
                         String.format(
                                 "Model provider: %s does not support multimodal embedding",
@@ -197,8 +209,8 @@ public class EmbeddingTransform extends MultipleFieldOutputTransform {
     }
 
     private void initOutputFields(SeaTunnelRowType inputRowType, ReadonlyConfig config) {
-        Map<Integer, FieldSpec> fieldSpecMap = new HashMap<>();
-        List<String> fieldNames = new ArrayList<>();
+        Map<Integer, FieldSpec> configuredFieldSpecMap = new LinkedHashMap<>();
+        List<String> configuredFieldNames = new ArrayList<>();
         Map<String, Object> fieldsConfig =
                 config.get(EmbeddingTransformConfig.VECTORIZATION_FIELDS);
         if (fieldsConfig == null || fieldsConfig.isEmpty()) {
@@ -207,7 +219,6 @@ public class EmbeddingTransform extends MultipleFieldOutputTransform {
 
         for (Map.Entry<String, Object> field : fieldsConfig.entrySet()) {
             FieldSpec fieldSpec = new FieldSpec(field);
-            log.info("Field spec: {}", fieldSpec.toString());
             String srcField = fieldSpec.getFieldName();
             int srcFieldIndex;
             try {
@@ -216,13 +227,14 @@ public class EmbeddingTransform extends MultipleFieldOutputTransform {
                 throw TransformCommonError.cannotFindInputFieldError(getPluginName(), srcField);
             }
             if (fieldSpec.isMultimodalField()) {
-                isMultimodalFields = true;
+                multimodalFields = true;
             }
-            fieldSpecMap.put(srcFieldIndex, fieldSpec);
-            fieldNames.add(field.getKey());
+            configuredFieldSpecMap.put(srcFieldIndex, fieldSpec);
+            configuredFieldNames.add(field.getKey());
+            log.info("Field spec: {}", fieldSpec);
         }
-        this.fieldSpecMap = fieldSpecMap;
-        this.fieldNames = fieldNames;
+        this.fieldSpecMap = configuredFieldSpecMap;
+        this.fieldNames = configuredFieldNames;
     }
 
     @Override
@@ -230,32 +242,91 @@ public class EmbeddingTransform extends MultipleFieldOutputTransform {
         tryOpen();
         try {
             if (MetadataUtil.isBinaryFormat(inputRow)) {
-                return vectorizationBinaryRow(inputRow);
+                return vectorizePreparedFields(createBinaryFieldValues(processBinaryRow(inputRow)));
             }
-            Set<Integer> fieldOriginalIndexes = fieldSpecMap.keySet();
-            Object[] fieldValues = new Object[fieldOriginalIndexes.size()];
-            List<ByteBuffer> vectorization;
-            int i = 0;
-
-            for (Integer fieldOriginalIndex : fieldOriginalIndexes) {
-                FieldSpec fieldSpec = fieldSpecMap.get(fieldOriginalIndex);
-                Object value = inputRow.getField(fieldOriginalIndex);
-                fieldValues[i++] =
-                        isMultimodalFields ? new MultimodalFieldValue(fieldSpec, value) : value;
-            }
-
-            vectorization = model.vectorization(fieldValues);
-            return vectorization.toArray();
+            return vectorizePreparedFields(extractFieldValues(inputRow));
         } catch (Exception e) {
             throw new RuntimeException("Failed to data vectorization", e);
         }
     }
 
     @Override
+    public void collect(SeaTunnelRow row) {
+        SeaTunnelRow bufferedRow = row.copy();
+        try {
+            if (MetadataUtil.isBinaryFormat(bufferedRow)) {
+                byte[] completeData = processBinaryRow(new SeaTunnelRowAccessor(bufferedRow));
+                if (completeData != null) {
+                    bufferedInputs.add(new BufferedInput(bufferedRow, completeData));
+                }
+            } else {
+                bufferedInputs.add(new BufferedInput(bufferedRow, null));
+            }
+            processBufferedInputs(false);
+        } catch (Exception e) {
+            throw new RuntimeException("Failed to collect row for embedding batch transform", e);
+        }
+    }
+
+    @Override
+    public List<SeaTunnelRow> drainOutput() {
+        if (readyOutputs.isEmpty()) {
+            return Collections.emptyList();
+        }
+        List<SeaTunnelRow> outputs = new ArrayList<>(readyOutputs);
+        readyOutputs.clear();
+        return outputs;
+    }
+
+    @Override
+    public List<SeaTunnelRow> flush() {
+        processBufferedInputs(true);
+        return drainOutput();
+    }
+
+    @Override
+    public List<EmbeddingBatchState> snapshotState(long checkpointId) {
+        if (bufferedInputs.isEmpty() && binaryFileCache.isEmpty() && partIndexMap.isEmpty()) {
+            return Collections.emptyList();
+        }
+        return Collections.singletonList(
+                new EmbeddingBatchState(
+                        copyBufferedInputs(bufferedInputs),
+                        copyBinaryFileCache(binaryFileCache),
+                        new LinkedHashMap<>(partIndexMap)));
+    }
+
+    @Override
+    public void restoreState(List<EmbeddingBatchState> states) {
+        bufferedInputs.clear();
+        binaryFileCache.clear();
+        partIndexMap.clear();
+        for (EmbeddingBatchState state : states) {
+            bufferedInputs.addAll(copyBufferedInputs(state.getBufferedInputs()));
+            mergeBinaryFileCache(binaryFileCache, state.getBinaryFileCache());
+            partIndexMap.putAll(state.getPartIndexMap());
+        }
+    }
+
+    @Override
+    public Optional<Serializer<EmbeddingBatchState>> getStateSerializer() {
+        return Optional.of(STATE_SERIALIZER);
+    }
+
+    @Override
+    public boolean hasBufferedData() {
+        return !bufferedInputs.isEmpty() || !binaryFileCache.isEmpty();
+    }
+
+    @Override
+    public int getBufferSize() {
+        return bufferedInputs.size();
+    }
+
+    @Override
     @VisibleForTesting
     public Column[] getOutputColumns() {
         tryOpen();
-        log.info("getOutputColumns: {}", fieldNames);
         Column[] columns = new Column[fieldNames.size()];
         for (int i = 0; i < fieldNames.size(); i++) {
             columns[i] =
@@ -277,22 +348,106 @@ public class EmbeddingTransform extends MultipleFieldOutputTransform {
     }
 
     public boolean isMultimodalFields() {
-        return isMultimodalFields;
+        return multimodalFields;
     }
 
-    /** Process a row in binary format: [data, relativePath, partIndex] */
-    private Object[] vectorizationBinaryRow(SeaTunnelRowAccessor inputRow) throws Exception {
+    @SneakyThrows
+    @Override
+    public void close() {
+        if (model != null) {
+            model.close();
+        }
+        bufferedInputs.clear();
+        readyOutputs.clear();
+        binaryFileCache.clear();
+        partIndexMap.clear();
+    }
 
-        byte[] completeData = processBinaryRow(inputRow);
+    private void processBufferedInputs(boolean forceFlush) {
+        while (!bufferedInputs.isEmpty()
+                && (forceFlush || bufferedInputs.size() >= processBatchSize)) {
+            tryOpen();
+            getProducedCatalogTable();
+            int currentBatchSize =
+                    forceFlush
+                            ? Math.min(processBatchSize, bufferedInputs.size())
+                            : processBatchSize;
+            List<BufferedInput> batchInputs =
+                    new ArrayList<>(bufferedInputs.subList(0, currentBatchSize));
+            bufferedInputs.subList(0, currentBatchSize).clear();
+            readyOutputs.addAll(vectorizeBatch(batchInputs));
+        }
+    }
+
+    private List<SeaTunnelRow> vectorizeBatch(List<BufferedInput> batchInputs) {
+        List<Object[]> rowFieldValuesList = new ArrayList<>(batchInputs.size());
+        List<Object> mergedFieldValues = new ArrayList<>();
+        for (BufferedInput batchInput : batchInputs) {
+            Object[] rowFieldValues =
+                    batchInput.isBinary()
+                            ? createBinaryFieldValues(batchInput.getCompleteBinaryData())
+                            : extractFieldValues(new SeaTunnelRowAccessor(batchInput.getRow()));
+            rowFieldValuesList.add(rowFieldValues);
+            mergedFieldValues.addAll(Arrays.asList(rowFieldValues));
+        }
+
+        try {
+            List<ByteBuffer> embeddings = model.vectorization(mergedFieldValues.toArray());
+            if (embeddings.size() != mergedFieldValues.size()) {
+                throw new IllegalStateException(
+                        String.format(
+                                "Expected %s vectors but model returned %s vectors",
+                                mergedFieldValues.size(), embeddings.size()));
+            }
+            List<SeaTunnelRow> outputs = new ArrayList<>(batchInputs.size());
+            int embeddingIndex = 0;
+            for (int i = 0; i < batchInputs.size(); i++) {
+                Object[] rowOutputValues = new Object[rowFieldValuesList.get(i).length];
+                for (int j = 0; j < rowOutputValues.length; j++) {
+                    rowOutputValues[j] = embeddings.get(embeddingIndex++);
+                }
+                outputs.add(buildOutputRow(batchInputs.get(i).getRow(), rowOutputValues));
+            }
+            return outputs;
+        } catch (Exception e) {
+            throw new RuntimeException("Failed to process embedding batch", e);
+        }
+    }
+
+    private SeaTunnelRow buildOutputRow(SeaTunnelRow inputRow, Object[] fieldValues) {
+        SeaTunnelRow outputRow = getRowContainerGenerator().apply(inputRow);
+        int[] fieldsIndex = getFieldsIndex();
+        for (int i = 0; i < fieldValues.length; i++) {
+            outputRow.setField(fieldsIndex[i], fieldValues[i]);
+        }
+        return outputRow;
+    }
+
+    private Object[] extractFieldValues(SeaTunnelRowAccessor inputRow) {
+        Object[] fieldValues = new Object[fieldSpecMap.size()];
+        int i = 0;
+        for (Map.Entry<Integer, FieldSpec> entry : fieldSpecMap.entrySet()) {
+            Object value = inputRow.getField(entry.getKey());
+            fieldValues[i++] =
+                    multimodalFields ? new MultimodalFieldValue(entry.getValue(), value) : value;
+        }
+        return fieldValues;
+    }
+
+    private Object[] vectorizePreparedFields(Object[] fieldValues) throws IOException {
+        if (fieldValues == null) {
+            return null;
+        }
+        return model.vectorization(fieldValues).toArray();
+    }
+
+    private Object[] createBinaryFieldValues(byte[] completeData) {
         if (completeData == null) {
             return null;
         }
-        Set<Integer> fieldOriginalIndexes = fieldSpecMap.keySet();
-        Object[] fieldValues = new Object[fieldOriginalIndexes.size()];
+        Object[] fieldValues = new Object[fieldSpecMap.size()];
         int i = 0;
-
-        for (Integer fieldOriginalIndex : fieldOriginalIndexes) {
-            FieldSpec fieldSpec = fieldSpecMap.get(fieldOriginalIndex);
+        for (FieldSpec fieldSpec : fieldSpecMap.values()) {
             if (fieldSpec.isBinary()) {
                 fieldValues[i++] = new MultimodalFieldValue(fieldSpec, completeData);
             } else {
@@ -302,13 +457,7 @@ public class EmbeddingTransform extends MultipleFieldOutputTransform {
                 fieldValues[i++] = null;
             }
         }
-
-        try {
-            return model.vectorization(fieldValues).toArray();
-        } catch (Exception e) {
-            throw new RuntimeException(
-                    "Failed to vectorize binary data for file: " + inputRow.toString(), e);
-        }
+        return fieldValues;
     }
 
     private byte[] processBinaryRow(SeaTunnelRowAccessor inputRow) throws Exception {
@@ -316,23 +465,22 @@ public class EmbeddingTransform extends MultipleFieldOutputTransform {
         String relativePath = (String) inputRow.getField(1);
         long partIndex = (long) inputRow.getField(2);
 
-        if (partIndex != -1) {
+        if (partIndex >= 0) {
             checkPartOrder(relativePath, partIndex);
+            cacheBinaryChunk(relativePath, partIndex, data);
         }
-        cacheBinaryChunk(relativePath, partIndex, data);
-        if (MetadataUtil.isComplete(inputRow)) {
-            byte[] completeFile = assembleCompleteFile(relativePath);
-            cleanupFileCache(relativePath);
-            log.info(
-                    "Assembled complete file: {}, size: {} bytes",
-                    relativePath,
-                    completeFile.length);
-            return completeFile;
+        if (!MetadataUtil.isComplete(inputRow)) {
+            return null;
         }
-        return null;
+        if (partIndex < 0) {
+            return data;
+        }
+        byte[] completeFile = assembleCompleteFile(relativePath);
+        cleanupFileCache(relativePath);
+        log.info("Assembled complete file: {}, size: {} bytes", relativePath, completeFile.length);
+        return completeFile;
     }
 
-    /** Validate that partIndex is in correct order for the given file */
     private void checkPartOrder(String relativePath, long partIndex) throws Exception {
         Long lastPartIndex = partIndexMap.getOrDefault(relativePath, -1L);
         if (partIndex - 1 != lastPartIndex) {
@@ -342,15 +490,14 @@ public class EmbeddingTransform extends MultipleFieldOutputTransform {
     }
 
     private void cacheBinaryChunk(String relativePath, long partIndex, byte[] data) {
-        if (partIndex >= 0) {
-            binaryFileCache
-                    .computeIfAbsent(relativePath, k -> new TreeMap<>())
-                    .put(partIndex, data);
-        }
+        binaryFileCache.computeIfAbsent(relativePath, key -> new TreeMap<>()).put(partIndex, data);
     }
 
     private byte[] assembleCompleteFile(String relativePath) {
         TreeMap<Long, byte[]> chunks = binaryFileCache.get(relativePath);
+        if (chunks == null || chunks.isEmpty()) {
+            throw new IllegalStateException("Missing binary chunks for file: " + relativePath);
+        }
         try (ByteArrayOutputStream outputStream = new ByteArrayOutputStream()) {
             for (Map.Entry<Long, byte[]> entry : chunks.entrySet()) {
                 byte[] chunk = entry.getValue();
@@ -370,13 +517,99 @@ public class EmbeddingTransform extends MultipleFieldOutputTransform {
         log.info("Cleaned up cache and partIndex tracking for file: {}", relativePath);
     }
 
-    @SneakyThrows
-    @Override
-    public void close() {
-        if (model != null) {
-            model.close();
+    private List<BufferedInput> copyBufferedInputs(List<BufferedInput> inputs) {
+        List<BufferedInput> copiedInputs = new ArrayList<>(inputs.size());
+        for (BufferedInput input : inputs) {
+            copiedInputs.add(input.copy());
         }
-        binaryFileCache.clear();
-        partIndexMap.clear();
+        return copiedInputs;
+    }
+
+    private Map<String, TreeMap<Long, byte[]>> copyBinaryFileCache(
+            Map<String, TreeMap<Long, byte[]>> source) {
+        Map<String, TreeMap<Long, byte[]>> copied = new LinkedHashMap<>();
+        mergeBinaryFileCache(copied, source);
+        return copied;
+    }
+
+    private void mergeBinaryFileCache(
+            Map<String, TreeMap<Long, byte[]>> target, Map<String, TreeMap<Long, byte[]>> source) {
+        for (Map.Entry<String, TreeMap<Long, byte[]>> entry : source.entrySet()) {
+            TreeMap<Long, byte[]> chunks =
+                    target.computeIfAbsent(entry.getKey(), key -> new TreeMap<>());
+            for (Map.Entry<Long, byte[]> chunkEntry : entry.getValue().entrySet()) {
+                chunks.put(chunkEntry.getKey(), copyBytes(chunkEntry.getValue()));
+            }
+        }
+    }
+
+    private byte[] copyBytes(byte[] value) {
+        return value == null ? null : Arrays.copyOf(value, value.length);
+    }
+
+    @VisibleForTesting
+    void setModel(Model model) {
+        this.model = model;
+    }
+
+    static final class BufferedInput implements Serializable {
+        private static final long serialVersionUID = 1L;
+
+        private final SeaTunnelRow row;
+        private final byte[] completeBinaryData;
+
+        private BufferedInput(SeaTunnelRow row, byte[] completeBinaryData) {
+            this.row = row;
+            this.completeBinaryData = completeBinaryData;
+        }
+
+        public SeaTunnelRow getRow() {
+            return row;
+        }
+
+        public byte[] getCompleteBinaryData() {
+            return completeBinaryData;
+        }
+
+        public boolean isBinary() {
+            return completeBinaryData != null;
+        }
+
+        public BufferedInput copy() {
+            return new BufferedInput(
+                    row.copy(),
+                    completeBinaryData == null
+                            ? null
+                            : Arrays.copyOf(completeBinaryData, completeBinaryData.length));
+        }
+    }
+
+    public static final class EmbeddingBatchState implements Serializable {
+        private static final long serialVersionUID = 1L;
+
+        private final List<BufferedInput> bufferedInputs;
+        private final Map<String, TreeMap<Long, byte[]>> binaryFileCache;
+        private final Map<String, Long> partIndexMap;
+
+        public EmbeddingBatchState(
+                List<BufferedInput> bufferedInputs,
+                Map<String, TreeMap<Long, byte[]>> binaryFileCache,
+                Map<String, Long> partIndexMap) {
+            this.bufferedInputs = bufferedInputs;
+            this.binaryFileCache = binaryFileCache;
+            this.partIndexMap = partIndexMap;
+        }
+
+        public List<BufferedInput> getBufferedInputs() {
+            return bufferedInputs;
+        }
+
+        public Map<String, TreeMap<Long, byte[]>> getBinaryFileCache() {
+            return binaryFileCache;
+        }
+
+        public Map<String, Long> getPartIndexMap() {
+            return partIndexMap;
+        }
     }
 }

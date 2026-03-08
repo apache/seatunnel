@@ -18,6 +18,7 @@
 | model                  | string | yes      |             |
 | api_key                | string | yes      |             |
 | api_path               | string | no       |             |
+| process_batch_size     | int    | no       | 100         |
 | custom_config          | map    | no       |             |
 | custom_response_parse  | string | no       |             |
 | custom_request_headers | map    | no       |             |
@@ -98,6 +99,10 @@ transform {
 ### api_path
 
 用于模型提供者的 API 路径。在大多数情况下，您不需要更改此配置。如果使用 API 代理的服务，您可能需要将其配置为代理的 API 地址。
+
+### process_batch_size
+
+在触发一次 LLM 推理请求之前，transform 会先缓冲的行数。未完成的缓冲批次会写入 checkpoint 状态，因此任务恢复后可以继续处理。
 
 ### custom_config
 

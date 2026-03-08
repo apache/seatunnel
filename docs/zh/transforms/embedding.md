@@ -16,6 +16,7 @@
 | api_key                        | string | 是    | -      | 用于验证embedding服务的API密钥。                                           |
 | secret_key                     | string | 是    | -      | 用于额外验证的密钥。一些提供商可能需要此密钥进行安全的API请求。                                |
 | aws_region                     | string | 否    |        | 用于使用Amazon Bedrock 模型，需要指定模型请求区域.                                |
+| process_batch_size             | int    | 否    | 100    | transform 在触发一次 embedding 批处理前先缓冲的行数。未完成的缓冲行和二进制分片都会写入 checkpoint。 |
 | single_vectorized_input_number | int    | 否    | 1      | 单次请求向量化的输入数量。默认值为1。                                              |
 | vectorization_fields           | map    | 是    | -      | 输入字段和相应的输出向量字段之间的映射。                                             |
 | model                          | string | 是    | -      | 要使用的具体embedding模型。例如，如果提供商为OPENAI，可以指定 `text-embedding-3-small`。 |
@@ -50,6 +51,12 @@
 ### single_vectorized_input_number
 
 指定单次请求向量化的输入数量。默认值为1。根据处理能力和模型提供商的API限制进行调整。
+
+### process_batch_size
+
+指定 transform 在触发一次批量处理前先缓冲多少输入行。它控制的是“行级批处理”，而 `single_vectorized_input_number`
+控制的是单次模型请求里发送多少个 embedding 输入。缓冲中的行以及未拼完的二进制分片会写入 checkpoint 状态，
+任务恢复后可以继续处理。
 
 ### vectorization_fields
 

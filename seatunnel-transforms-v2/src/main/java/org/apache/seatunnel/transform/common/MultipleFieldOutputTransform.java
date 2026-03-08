@@ -164,4 +164,12 @@ public abstract class MultipleFieldOutputTransform extends AbstractCatalogSuppor
     }
 
     protected abstract Column[] getOutputColumns();
+
+    protected int[] getFieldsIndex() {
+        return fieldsIndex;
+    }
+
+    protected SeaTunnelRowContainerGenerator getRowContainerGenerator() {
+        return rowContainerGenerator;
+    }
 }

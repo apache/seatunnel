@@ -18,6 +18,7 @@ different API endpoints.
 | api_key                        | string | yes      | -             | The API key required to authenticate with the embedding service.                                                                                                        |
 | secret_key                     | string | yes      | -             | The secret key required for additional authentication with the embedding service.                                                                                       |
 | aws_region                     | string | no       |               | AWS Region. Required for use Amazon Bedrock model.                                                                                                                      |
+| process_batch_size             | int    | no       | 100           | The number of rows buffered before one embedding batch is processed. Unfinished buffered rows and binary chunks are checkpointed for recovery.                           |
 | single_vectorized_input_number | int    | no       | 1             | The number of inputs vectorized in one request. Default is 1.                                                                                                           |
 | vectorization_fields           | map    | yes      | -             | A mapping between input fields and their corresponding output vector fields.                                                                                            |
 | model                          | string | yes      | -             | The specific model to use for embedding (e.g: `text-embedding-3-small` for OPENAI).                                                                                     |
@@ -55,6 +56,12 @@ The secret key used for additional authentication. Some providers may require th
 Specifies how many inputs are processed in a single vectorization request. The default is 1. Adjust based on your
 processing
 capacity and the model provider's API limitations.
+
+### process_batch_size
+
+Specifies how many input rows are buffered by the transform before one batch is processed. This controls row-level
+batching, while `single_vectorized_input_number` controls how many embedding inputs are sent in one model request.
+Buffered rows and incomplete binary chunks are written into checkpoint state and can be restored after recovery.
 
 ### vectorization_fields
 
