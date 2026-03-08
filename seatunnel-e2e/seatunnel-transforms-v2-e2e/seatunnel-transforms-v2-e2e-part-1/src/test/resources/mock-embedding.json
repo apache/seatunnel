@@ -4,6 +4,41 @@
   {
     "httpRequest": {
       "method": "POST",
+      "path": "/v1/qianfan/embedding-batch/.*",
+      "queryStringParameters": {
+        "access_token": ["^.*$"]
+      }
+    },
+    "httpResponse": {
+      "body": {
+        "id": "batch-qianfan",
+        "object": "embedding_list",
+        "created": 1724948271,
+        "data": [
+          {
+            "object": "embedding",
+            "embedding": [0.1, 0.2, 0.3, 0.4],
+            "index": 0
+          },
+          {
+            "object": "embedding",
+            "embedding": [0.5, 0.6, 0.7, 0.8],
+            "index": 1
+          }
+        ],
+        "usage": {
+          "prompt_tokens": 4,
+          "total_tokens": 4
+        }
+      },
+      "headers": {
+        "Content-Type": "application/json"
+      }
+    }
+  },
+  {
+    "httpRequest": {
+      "method": "POST",
       "path": "/v1/cohere/embedding/model/cohere.embed-english-v3/invoke"
     },
     "httpResponse": {
@@ -126,6 +161,5 @@
     }
   }
 ]
-
 
 

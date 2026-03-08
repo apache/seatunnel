@@ -17,6 +17,9 @@
 
 package org.apache.seatunnel.e2e.transform;
 
+import org.apache.seatunnel.shade.com.fasterxml.jackson.databind.JsonNode;
+import org.apache.seatunnel.shade.com.fasterxml.jackson.databind.node.ArrayNode;
+
 import org.apache.seatunnel.e2e.common.TestResource;
 import org.apache.seatunnel.e2e.common.container.ContainerExtendedFactory;
 import org.apache.seatunnel.e2e.common.container.EngineType;
@@ -101,6 +104,32 @@ public class TestEmbeddingIT extends TestSuiteBase implements TestResource {
     public void testEmbedding(TestContainer container) throws IOException, InterruptedException {
         Container.ExecResult execResult = container.executeJob("/embedding_transform.conf");
         Assertions.assertEquals(0, execResult.getExitCode());
+    }
+
+    @TestTemplate
+    public void testEmbeddingBatch(TestContainer container)
+            throws IOException, InterruptedException {
+        Container.ExecResult execResult = container.executeJob("/embedding_transform_batch.conf");
+        Assertions.assertEquals(0, execResult.getExitCode());
+
+        ArrayNode requests =
+                MockServerRequestUtils.retrieveRequests(
+                        mockserverContainer, "POST", "/v1/qianfan/embedding-batch/bge_large_en");
+        Assertions.assertEquals(3, requests.size());
+
+        int singleInputRequests = 0;
+        int batchInputRequests = 0;
+        for (JsonNode request : requests) {
+            JsonNode input = request.path("body").path("json").path("input");
+            Assertions.assertTrue(input.isArray());
+            if (input.size() == 1) {
+                singleInputRequests++;
+            } else if (input.size() == 2) {
+                batchInputRequests++;
+            }
+        }
+        Assertions.assertEquals(1, singleInputRequests);
+        Assertions.assertEquals(2, batchInputRequests);
     }
 
     @TestTemplate

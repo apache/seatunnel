@@ -17,6 +17,10 @@
 
 package org.apache.seatunnel.e2e.transform;
 
+import org.apache.seatunnel.shade.com.fasterxml.jackson.databind.JsonNode;
+import org.apache.seatunnel.shade.com.fasterxml.jackson.databind.ObjectMapper;
+import org.apache.seatunnel.shade.com.fasterxml.jackson.databind.node.ArrayNode;
+
 import org.apache.seatunnel.e2e.common.TestResource;
 import org.apache.seatunnel.e2e.common.container.TestContainer;
 
@@ -41,6 +45,7 @@ import java.util.stream.Stream;
 
 public class TestLLMIT extends TestSuiteBase implements TestResource {
     private static final String TMP_DIR = "/tmp";
+    private static final ObjectMapper OBJECT_MAPPER = new ObjectMapper();
     private GenericContainer<?> mockserverContainer;
     private static final String IMAGE = "mockserver/mockserver:5.14.0";
 
@@ -86,6 +91,27 @@ public class TestLLMIT extends TestSuiteBase implements TestResource {
             throws IOException, InterruptedException {
         Container.ExecResult execResult = container.executeJob("/llm_openai_transform.conf");
         Assertions.assertEquals(0, execResult.getExitCode());
+    }
+
+    @TestTemplate
+    public void testLLMWithOpenAIBatch(TestContainer container)
+            throws IOException, InterruptedException {
+        Container.ExecResult execResult = container.executeJob("/llm_openai_transform_batch.conf");
+        Assertions.assertEquals(0, execResult.getExitCode());
+
+        ArrayNode requests =
+                MockServerRequestUtils.retrieveRequests(
+                        mockserverContainer, "POST", "/v1/chat/completions/batch");
+        Assertions.assertEquals(2, requests.size());
+
+        for (JsonNode request : requests) {
+            JsonNode requestBody = request.path("body").path("json");
+            JsonNode messages = requestBody.path("messages");
+            Assertions.assertEquals(2, messages.size());
+            JsonNode rows = OBJECT_MAPPER.readTree(messages.get(1).path("content").asText());
+            Assertions.assertTrue(rows.isArray());
+            Assertions.assertEquals(2, rows.size());
+        }
     }
 
     @TestTemplate

@@ -4,6 +4,42 @@
   {
     "httpRequest": {
       "method": "POST",
+      "path": "/v1/chat/completions/batch"
+    },
+    "httpResponse": {
+      "body": {
+        "id": "chatcmpl-batch-openai",
+        "object": "chat.completion",
+        "created": 1722674828,
+        "model": "gpt-4o-mini",
+        "choices": [
+          {
+            "index": 0,
+            "message": {
+              "role": "assistant",
+              "content": "[\"Chinese\", \"Chinese\"]"
+            },
+            "logprobs": null,
+            "finish_reason": "stop"
+          }
+        ],
+        "usage": {
+          "prompt_tokens": 107,
+          "completion_tokens": 4,
+          "total_tokens": 111
+        },
+        "system_fingerprint": "fp_0f03d4f0ee",
+        "code": 0,
+        "msg": "ok"
+      },
+      "headers": {
+        "Content-Type": "application/json"
+      }
+    }
+  },
+  {
+    "httpRequest": {
+      "method": "POST",
       "path": "/v1/chat/completions"
     },
     "httpResponse": {
