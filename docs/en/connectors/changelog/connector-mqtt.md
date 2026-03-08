@@ -4,4 +4,5 @@
 
 ### Sink
 
-- Add MQTT Sink Connector ([#XXXX](https://github.com/apache/seatunnel/pull/XXXX))
+- Add MQTT Sink Connector ([#10575](https://github.com/apache/seatunnel/pull/10575))
+  Resolves [#9566](https://github.com/apache/seatunnel/issues/9566)

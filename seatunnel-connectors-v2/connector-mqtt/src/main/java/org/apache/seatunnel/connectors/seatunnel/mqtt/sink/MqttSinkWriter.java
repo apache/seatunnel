@@ -22,6 +22,8 @@ import org.apache.seatunnel.api.serialization.SerializationSchema;
 import org.apache.seatunnel.api.sink.SinkWriter;
 import org.apache.seatunnel.api.table.type.SeaTunnelRow;
 import org.apache.seatunnel.api.table.type.SeaTunnelRowType;
+import org.apache.seatunnel.connectors.seatunnel.mqtt.exception.MqttConnectorErrorCode;
+import org.apache.seatunnel.connectors.seatunnel.mqtt.exception.MqttConnectorException;
 import org.apache.seatunnel.format.json.JsonSerializationSchema;
 import org.apache.seatunnel.format.text.TextSerializationSchema;
 
@@ -36,6 +38,8 @@ import org.eclipse.paho.client.mqttv3.persist.MemoryPersistence;
 import lombok.extern.slf4j.Slf4j;
 
 import java.io.IOException;
+import java.util.ArrayList;
+import java.util.List;
 import java.util.Optional;
 
 /**
@@ -52,14 +56,25 @@ public class MqttSinkWriter implements SinkWriter<SeaTunnelRow, Void, Void>, Mqt
     private final String topic;
     private final int qos;
     private final int retryTimeoutMs;
+    private final int batchSize;
     private final SerializationSchema serializationSchema;
+    private final List<MqttMessage> messageBuffer;
     private MqttClient mqttClient;
 
     public MqttSinkWriter(
             SinkWriter.Context context, SeaTunnelRowType rowType, ReadonlyConfig pluginConfig) {
-        this.topic = pluginConfig.get(MqttSinkFactory.TOPIC);
-        this.qos = pluginConfig.get(MqttSinkFactory.QOS);
-        this.retryTimeoutMs = pluginConfig.get(MqttSinkFactory.RETRY_TIMEOUT);
+        this.topic = pluginConfig.get(MqttSinkOptions.TOPIC);
+        this.qos = pluginConfig.get(MqttSinkOptions.QOS);
+        if (this.qos < 0 || this.qos > 1) {
+            throw new IllegalArgumentException(
+                    "MQTT QoS must be 0 (at-most-once) or 1 (at-least-once), got: " + this.qos);
+        }
+        this.retryTimeoutMs = pluginConfig.get(MqttSinkOptions.RETRY_TIMEOUT);
+        this.batchSize = pluginConfig.get(MqttSinkOptions.BATCH_SIZE);
+        if (this.batchSize < 1) {
+            throw new IllegalArgumentException("batch_size must be >= 1, got: " + this.batchSize);
+        }
+        this.messageBuffer = new ArrayList<>(this.batchSize);
         this.serializationSchema = createSerializationSchema(rowType, pluginConfig);
 
         // Each subtask appends its index to guarantee a unique MQTT client ID,
@@ -70,7 +85,7 @@ public class MqttSinkWriter implements SinkWriter<SeaTunnelRow, Void, Void>, Mqt
             // MemoryPersistence avoids file-system I/O; ideal for containerized deployments.
             this.mqttClient =
                     new MqttClient(
-                            pluginConfig.get(MqttSinkFactory.URL),
+                            pluginConfig.get(MqttSinkOptions.URL),
                             clientId,
                             new MemoryPersistence());
             this.mqttClient.setCallback(this);
@@ -80,9 +95,12 @@ public class MqttSinkWriter implements SinkWriter<SeaTunnelRow, Void, Void>, Mqt
             log.info(
                     "MQTT sink writer [{}] connected to {}",
                     clientId,
-                    pluginConfig.get(MqttSinkFactory.URL));
+                    pluginConfig.get(MqttSinkOptions.URL));
         } catch (MqttException e) {
-            throw new RuntimeException("Failed to connect MQTT client [" + clientId + "]", e);
+            throw new MqttConnectorException(
+                    MqttConnectorErrorCode.CONNECTION_FAILED,
+                    "Failed to connect MQTT client [" + clientId + "]",
+                    e);
         }
     }
 
@@ -92,33 +110,15 @@ public class MqttSinkWriter implements SinkWriter<SeaTunnelRow, Void, Void>, Mqt
         MqttMessage message = new MqttMessage(payload);
         message.setQos(qos);
 
-        // Localized retry loop with backoff to isolate the pipeline from transient
-        // network disruptions. Polls isConnected() to let auto-reconnect recover.
-        long deadline = System.currentTimeMillis() + retryTimeoutMs;
-        MqttException lastException = null;
-        while (System.currentTimeMillis() < deadline) {
-            try {
-                if (mqttClient.isConnected()) {
-                    mqttClient.publish(topic, message);
-                    return;
-                }
-            } catch (MqttException e) {
-                lastException = e;
-                log.warn("Transient MQTT publish failure, retrying...", e);
-            }
-            try {
-                Thread.sleep(RETRY_BACKOFF_MS);
-            } catch (InterruptedException ie) {
-                Thread.currentThread().interrupt();
-                throw new IOException("Interrupted during MQTT publish retry", ie);
-            }
+        messageBuffer.add(message);
+        if (messageBuffer.size() >= batchSize) {
+            flushBuffer();
         }
-        throw new IOException(
-                "Failed to publish MQTT message after " + retryTimeoutMs + "ms", lastException);
     }
 
     @Override
-    public Optional<Void> prepareCommit() {
+    public Optional<Void> prepareCommit() throws IOException {
+        flushBuffer();
         return Optional.empty();
     }
 
@@ -129,15 +129,19 @@ public class MqttSinkWriter implements SinkWriter<SeaTunnelRow, Void, Void>, Mqt
 
     @Override
     public void close() throws IOException {
-        if (mqttClient != null) {
-            try {
-                if (mqttClient.isConnected()) {
-                    mqttClient.disconnect();
+        try {
+            flushBuffer();
+        } finally {
+            if (mqttClient != null) {
+                try {
+                    if (mqttClient.isConnected()) {
+                        mqttClient.disconnect();
+                    }
+                    mqttClient.close();
+                    log.info("MQTT sink writer closed");
+                } catch (MqttException e) {
+                    throw new IOException("Error closing MQTT client", e);
                 }
-                mqttClient.close();
-                log.info("MQTT sink writer closed");
-            } catch (MqttException e) {
-                throw new IOException("Error closing MQTT client", e);
             }
         }
     }
@@ -162,17 +166,60 @@ public class MqttSinkWriter implements SinkWriter<SeaTunnelRow, Void, Void>, Mqt
 
     // ---- private helpers ----
 
+    private void flushBuffer() throws IOException {
+        if (messageBuffer.isEmpty()) {
+            return;
+        }
+        for (MqttMessage message : messageBuffer) {
+            publishWithRetry(message);
+        }
+        messageBuffer.clear();
+    }
+
+    private void publishWithRetry(MqttMessage message) throws IOException {
+        long deadline = System.currentTimeMillis() + retryTimeoutMs;
+        MqttException lastException = null;
+        while (System.currentTimeMillis() < deadline) {
+            try {
+                if (mqttClient.isConnected()) {
+                    mqttClient.publish(topic, message);
+                    return;
+                }
+            } catch (MqttException e) {
+                lastException = e;
+                log.warn("Transient MQTT publish failure, retrying...", e);
+            }
+            try {
+                Thread.sleep(RETRY_BACKOFF_MS);
+            } catch (InterruptedException ie) {
+                Thread.currentThread().interrupt();
+                throw new IOException("Interrupted during MQTT publish retry", ie);
+            }
+        }
+        throw new IOException(
+                new MqttConnectorException(
+                                MqttConnectorErrorCode.PUBLISH_FAILED,
+                                "Failed to publish MQTT message after " + retryTimeoutMs + "ms")
+                        .getMessage(),
+                lastException);
+    }
+
     private static MqttConnectOptions buildConnectOptions(ReadonlyConfig config) {
         MqttConnectOptions options = new MqttConnectOptions();
         options.setAutomaticReconnect(true);
-        options.setCleanSession(true);
-        options.setConnectionTimeout(config.get(MqttSinkFactory.CONNECTION_TIMEOUT));
+        boolean cleanSession = config.get(MqttSinkOptions.CLEAN_SESSION);
+        options.setCleanSession(cleanSession);
+        if (!cleanSession) {
+            log.warn(
+                    "clean_session=false may cause broker-side state accumulation. Ensure proper clientId management.");
+        }
+        options.setConnectionTimeout(config.get(MqttSinkOptions.CONNECTION_TIMEOUT));
 
-        String username = config.get(MqttSinkFactory.USERNAME);
+        String username = config.get(MqttSinkOptions.USERNAME);
         if (username != null && !username.isEmpty()) {
             options.setUserName(username);
         }
-        String password = config.get(MqttSinkFactory.PASSWORD);
+        String password = config.get(MqttSinkOptions.PASSWORD);
         if (password != null && !password.isEmpty()) {
             options.setPassword(password.toCharArray());
         }
@@ -181,14 +228,15 @@ public class MqttSinkWriter implements SinkWriter<SeaTunnelRow, Void, Void>, Mqt
 
     private static SerializationSchema createSerializationSchema(
             SeaTunnelRowType rowType, ReadonlyConfig config) {
-        String format = config.get(MqttSinkFactory.FORMAT);
+        String format = config.get(MqttSinkOptions.FORMAT);
         switch (format.toLowerCase()) {
             case "json":
                 return new JsonSerializationSchema(rowType);
             case "text":
+                String delimiter = config.get(MqttSinkOptions.FIELD_DELIMITER);
                 return TextSerializationSchema.builder()
                         .seaTunnelRowType(rowType)
-                        .delimiter(",")
+                        .delimiter(delimiter)
                         .build();
             default:
                 throw new IllegalArgumentException("Unsupported MQTT sink format: " + format);

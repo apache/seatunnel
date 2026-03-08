@@ -17,8 +17,6 @@
 
 package org.apache.seatunnel.connectors.seatunnel.mqtt.sink;
 
-import org.apache.seatunnel.api.configuration.Option;
-import org.apache.seatunnel.api.configuration.Options;
 import org.apache.seatunnel.api.configuration.util.OptionRule;
 import org.apache.seatunnel.api.table.connector.TableSink;
 import org.apache.seatunnel.api.table.factory.Factory;
@@ -30,55 +28,6 @@ import com.google.auto.service.AutoService;
 @AutoService(Factory.class)
 public class MqttSinkFactory implements TableSinkFactory {
 
-    public static final Option<String> URL =
-            Options.key("url")
-                    .stringType()
-                    .noDefaultValue()
-                    .withDescription("MQTT broker URL, e.g. tcp://localhost:1883");
-
-    public static final Option<String> TOPIC =
-            Options.key("topic")
-                    .stringType()
-                    .noDefaultValue()
-                    .withDescription("Target MQTT topic to publish messages to");
-
-    public static final Option<String> USERNAME =
-            Options.key("username")
-                    .stringType()
-                    .noDefaultValue()
-                    .withDescription("MQTT broker authentication username");
-
-    public static final Option<String> PASSWORD =
-            Options.key("password")
-                    .stringType()
-                    .noDefaultValue()
-                    .withDescription("MQTT broker authentication password");
-
-    public static final Option<Integer> QOS =
-            Options.key("qos")
-                    .intType()
-                    .defaultValue(1)
-                    .withDescription("MQTT QoS level: 0 (at-most-once), 1 (at-least-once)");
-
-    public static final Option<String> FORMAT =
-            Options.key("format")
-                    .stringType()
-                    .defaultValue("json")
-                    .withDescription("Message serialization format: json or text");
-
-    public static final Option<Integer> RETRY_TIMEOUT =
-            Options.key("retry_timeout")
-                    .intType()
-                    .defaultValue(5000)
-                    .withDescription(
-                            "Maximum time in milliseconds to retry publishing on transient failures");
-
-    public static final Option<Integer> CONNECTION_TIMEOUT =
-            Options.key("connection_timeout")
-                    .intType()
-                    .defaultValue(30)
-                    .withDescription("MQTT connection timeout in seconds");
-
     @Override
     public String factoryIdentifier() {
         return "MQTT";
@@ -87,8 +36,16 @@ public class MqttSinkFactory implements TableSinkFactory {
     @Override
     public OptionRule optionRule() {
         return OptionRule.builder()
-                .required(URL, TOPIC)
-                .optional(USERNAME, PASSWORD, QOS, FORMAT, RETRY_TIMEOUT, CONNECTION_TIMEOUT)
+                .required(MqttSinkOptions.URL, MqttSinkOptions.TOPIC)
+                .optional(
+                        MqttSinkOptions.USERNAME,
+                        MqttSinkOptions.PASSWORD,
+                        MqttSinkOptions.QOS,
+                        MqttSinkOptions.FORMAT,
+                        MqttSinkOptions.FIELD_DELIMITER,
+                        MqttSinkOptions.BATCH_SIZE,
+                        MqttSinkOptions.RETRY_TIMEOUT,
+                        MqttSinkOptions.CONNECTION_TIMEOUT)
                 .build();
     }
 
