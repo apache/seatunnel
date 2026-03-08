@@ -25,6 +25,16 @@ image:
   pullPolicy: "IfNotPresent"
   pullSecret: ""
 
+# ConfigMap settings
+configMap:
+  # If true, create a new ConfigMap. If false, use existingConfigMapName
+  create: true
+  # Name of existing ConfigMap to use (only used when create=false)
+  # The ConfigMap should contain all config files: hazelcast-client.yaml, hazelcast-master.yaml,
+  # hazelcast-worker.yaml, jvm_client_options, jvm_master_options, jvm_worker_options,
+  # log4j2.properties, seatunnel.yaml
+  existingConfigMapName: ""
+
 # The env for pod
 env:
   - name: TZ
