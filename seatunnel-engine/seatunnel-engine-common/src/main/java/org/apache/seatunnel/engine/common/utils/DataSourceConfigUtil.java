@@ -21,8 +21,8 @@ import org.apache.seatunnel.shade.com.typesafe.config.Config;
 import org.apache.seatunnel.shade.com.typesafe.config.ConfigException;
 import org.apache.seatunnel.shade.com.typesafe.config.ConfigFactory;
 import org.apache.seatunnel.shade.com.typesafe.config.ConfigValue;
+import org.apache.seatunnel.shade.com.typesafe.config.ConfigValueType;
 
-import org.apache.seatunnel.api.datasource.AbstractDataSourceProvider;
 import org.apache.seatunnel.api.datasource.DataSourceMapper;
 import org.apache.seatunnel.api.datasource.DataSourceProvider;
 import org.apache.seatunnel.api.datasource.DataSourceProviderFactory;
@@ -52,12 +52,9 @@ import java.util.concurrent.ConcurrentMap;
 @Slf4j
 public final class DataSourceConfigUtil {
 
-    /** Cache for initialized DataSourceProvider instances by kind. */
-    private static final ConcurrentMap<String, DataSourceProvider> PROVIDER_INSTANCE_CACHE =
+    /** Cache for DataSourceMapper instances. Key format: "providerKind_connectorIdentifier". */
+    private static final ConcurrentMap<String, DataSourceMapper> MAPPER_CACHE =
             new ConcurrentHashMap<>();
-
-    private DataSourceConfigUtil() {}
-
     /**
      * Resolves and merges data source configurations for a SeaTunnel job config.
      *
@@ -122,23 +119,7 @@ public final class DataSourceConfigUtil {
      * @return initialized DataSourceProvider instance
      */
     private static DataSourceProvider getOrCreateProvider(DataSourceConfig dataSourceConfig) {
-        String providerKind = dataSourceConfig.getKind();
-        // Create a cache key that includes both kind and properties to handle different
-        // configurations for the same provider kind
-        String cacheKey = providerKind + "_" + dataSourceConfig.getProperties().hashCode();
-
-        return PROVIDER_INSTANCE_CACHE.computeIfAbsent(
-                cacheKey,
-                k -> {
-                    DataSourceProvider provider =
-                            DataSourceProviderFactory.getProvider(providerKind);
-                    provider.init(ConfigFactory.parseMap(dataSourceConfig.getProperties()));
-                    log.info(
-                            "Initialized DataSourceProvider: {} with properties: {}",
-                            providerKind,
-                            dataSourceConfig.getProperties());
-                    return provider;
-                });
+        return DataSourceProviderFactory.getProvider(dataSourceConfig.getKind());
     }
 
     /**
@@ -267,8 +248,7 @@ public final class DataSourceConfigUtil {
 
         // Fallback: look for nested object structure (original config format)
         for (Map.Entry<String, ConfigValue> entry : config.root().entrySet()) {
-            if (entry.getValue().valueType()
-                    == org.apache.seatunnel.shade.com.typesafe.config.ConfigValueType.OBJECT) {
+            if (entry.getValue().valueType() == ConfigValueType.OBJECT) {
                 return entry.getKey();
             }
         }
@@ -278,9 +258,8 @@ public final class DataSourceConfigUtil {
     /**
      * Finds the appropriate DataSourceMapper for a given connector identifier.
      *
-     * <p>This method first attempts to use the {@link AbstractDataSourceProvider#getMapper(String)}
-     * method if the provider is an instance of {@link AbstractDataSourceProvider}, which provides
-     * O(1) lookup. Otherwise, it falls back to iterating through the mappers.
+     * <p>This method uses a cache to avoid repeated lookups. The cache key includes both the
+     * provider kind and connector identifier.
      *
      * @param provider the DataSourceProvider to search in
      * @param connectorIdentifier the connector identifier (e.g., "Jdbc", "Kafka")
@@ -288,22 +267,18 @@ public final class DataSourceConfigUtil {
      */
     private static DataSourceMapper findMapper(
             DataSourceProvider provider, String connectorIdentifier) {
-        // Use the optimized getMapper method if available (O(1) lookup)
-        if (provider instanceof AbstractDataSourceProvider) {
-            DataSourceMapper mapper =
-                    ((AbstractDataSourceProvider) provider).getMapper(connectorIdentifier);
-            if (mapper != null) {
-                return mapper;
-            }
-        } else {
-            // Fallback to iteration for non-abstract providers
-            for (DataSourceMapper mapper : provider.dataSourceMappers()) {
-                if (mapper.connectorIdentifier().equalsIgnoreCase(connectorIdentifier)) {
-                    return mapper;
-                }
-            }
-        }
-        return null;
+
+        return MAPPER_CACHE.computeIfAbsent(
+                connectorIdentifier,
+                k -> {
+                    // Iterate through mappers to find the matching one
+                    for (DataSourceMapper mapper : provider.dataSourceMappers()) {
+                        if (mapper.connectorIdentifier().equalsIgnoreCase(connectorIdentifier)) {
+                            return mapper;
+                        }
+                    }
+                    return null;
+                });
     }
 
     /**

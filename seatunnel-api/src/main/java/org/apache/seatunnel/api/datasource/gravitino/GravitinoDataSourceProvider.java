@@ -21,15 +21,14 @@ import org.apache.seatunnel.shade.com.typesafe.config.Config;
 
 import org.apache.seatunnel.api.configuration.Option;
 import org.apache.seatunnel.api.configuration.Options;
-import org.apache.seatunnel.api.datasource.AbstractDataSourceProvider;
 import org.apache.seatunnel.api.datasource.DataSourceMapper;
 import org.apache.seatunnel.api.datasource.DataSourceProvider;
 import org.apache.seatunnel.api.metalake.gravitino.GravitinoClient;
 
 import com.google.auto.service.AutoService;
 
-import java.util.HashMap;
-import java.util.Map;
+import java.util.Collection;
+import java.util.Collections;
 
 /**
  * Gravitino implementation of {@link DataSourceProvider}.
@@ -48,7 +47,7 @@ import java.util.Map;
  * </pre>
  */
 @AutoService(DataSourceProvider.class)
-public class GravitinoDataSourceProvider extends AbstractDataSourceProvider {
+public class GravitinoDataSourceProvider implements DataSourceProvider {
 
     private String uri;
     private String metalake;
@@ -94,11 +93,9 @@ public class GravitinoDataSourceProvider extends AbstractDataSourceProvider {
     }
 
     @Override
-    protected Map<String, DataSourceMapper> createDataSourceMappers() {
-        String metalakeUrl = buildMetalakeUrl();
-        Map<String, DataSourceMapper> mappers = new HashMap<>();
-        mappers.put("Jdbc", new GravitinoJdbcDataSourceMapper(metalakeUrl, client));
-        return mappers;
+    public Collection<DataSourceMapper> dataSourceMappers() {
+        return Collections.singletonList(
+                new GravitinoJdbcDataSourceMapper(buildMetalakeUrl(), client));
     }
 
     /**

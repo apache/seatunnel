@@ -97,25 +97,6 @@ public interface DataSourceProvider extends AutoCloseable {
      */
     Collection<DataSourceMapper> dataSourceMappers();
 
-    /**
-     * Gets the data source mapper for a specific connector identifier.
-     *
-     * <p>This is a convenience method for directly looking up a mapper by connector identifier.
-     * Default implementation iterates through the collection, but subclasses may override for
-     * better performance (e.g., using a map for O(1) lookup).
-     *
-     * @param connectorIdentifier the connector identifier (e.g., "Jdbc", "Kafka")
-     * @return the matching mapper, or null if not found
-     */
-    default DataSourceMapper getMapper(String connectorIdentifier) {
-        for (DataSourceMapper mapper : dataSourceMappers()) {
-            if (mapper.connectorIdentifier().equalsIgnoreCase(connectorIdentifier)) {
-                return mapper;
-            }
-        }
-        return null;
-    }
-
     /** Closes resources held by this provider. */
     @Override
     void close();

@@ -53,8 +53,32 @@ public final class DataSourceProviderFactory {
     /** Cache for provider list. */
     private static volatile List<DataSourceProvider> cachedProviders = null;
 
-    private DataSourceProviderFactory() {
-        // Utility class, prevent instantiation
+    /**
+     * Finds a {@link DataSourceProvider} by its kind identifier or throws an exception if not
+     * found.
+     *
+     * @param kind the kind identifier of the provider to find
+     * @return the provider
+     * @throws DataSourceProviderException if provider is not found or multiple providers with the
+     *     same kind are found
+     */
+    public static DataSourceProvider getProvider(String kind) {
+        return findProvider(kind)
+                .orElseThrow(
+                        () -> {
+                            List<String> availableKinds =
+                                    discoverProviders().stream()
+                                            .map(DataSourceProvider::kind)
+                                            .distinct()
+                                            .sorted()
+                                            .collect(Collectors.toList());
+
+                            return new DataSourceProviderException(
+                                    String.format(
+                                            "No DataSourceProvider found for kind '%s'.\n\n"
+                                                    + "Available provider kinds are:\n\n%s",
+                                            kind, String.join("\n", availableKinds)));
+                        });
     }
 
     /**
@@ -91,7 +115,6 @@ public final class DataSourceProviderFactory {
         if (cached != null) {
             return Optional.of(cached);
         }
-
         // Not in cache, discover and cache
         List<DataSourceProvider> providers = discoverProviders();
         List<DataSourceProvider> matching =
@@ -124,34 +147,6 @@ public final class DataSourceProviderFactory {
         DataSourceProvider provider = matching.get(0);
         PROVIDER_CACHE.put(kind, provider);
         return Optional.of(provider);
-    }
-
-    /**
-     * Finds a {@link DataSourceProvider} by its kind identifier or throws an exception if not
-     * found.
-     *
-     * @param kind the kind identifier of the provider to find
-     * @return the provider
-     * @throws DataSourceProviderException if provider is not found or multiple providers with the
-     *     same kind are found
-     */
-    public static DataSourceProvider getProvider(String kind) {
-        return findProvider(kind)
-                .orElseThrow(
-                        () -> {
-                            List<String> availableKinds =
-                                    discoverProviders().stream()
-                                            .map(DataSourceProvider::kind)
-                                            .distinct()
-                                            .sorted()
-                                            .collect(Collectors.toList());
-
-                            return new DataSourceProviderException(
-                                    String.format(
-                                            "No DataSourceProvider found for kind '%s'.\n\n"
-                                                    + "Available provider kinds are:\n\n%s",
-                                            kind, String.join("\n", availableKinds)));
-                        });
     }
 
     /**
