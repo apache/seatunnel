@@ -286,8 +286,6 @@ public class DefaultSlotService implements SlotService {
 
     private void initFixedSlots() {
         long maxMemory = Runtime.getRuntime().maxMemory();
-        int cpuCores = getCpuCores();
-        int perSlotCpu = Math.max(1, cpuCores / Math.max(1, config.getSlotNum()));
         for (int i = 0; i < config.getSlotNum(); i++) {
             unassignedSlots.put(
                     i,
@@ -295,7 +293,7 @@ public class DefaultSlotService implements SlotService {
                             nodeEngine.getThisAddress(),
                             i,
                             new ResourceProfile(
-                                    CPU.of(perSlotCpu),
+                                    CPU.of(0),
                                     Memory.of(maxMemory / Math.max(1, config.getSlotNum()))),
                             slotServiceSequence));
         }
@@ -314,8 +312,7 @@ public class DefaultSlotService implements SlotService {
     }
 
     private ResourceProfile getNodeResource() {
-        return new ResourceProfile(
-                CPU.of(getCpuCores()), Memory.of(Runtime.getRuntime().maxMemory()));
+        return new ResourceProfile(CPU.of(0), Memory.of(Runtime.getRuntime().maxMemory()));
     }
 
     public <E> InvocationFuture<E> sendToMaster(Operation operation) {
@@ -360,15 +357,5 @@ public class DefaultSlotService implements SlotService {
             }
             return processor;
         }
-    }
-
-    private int getCpuCores() {
-        int cores;
-        try {
-            cores = Runtime.getRuntime().availableProcessors();
-        } catch (Throwable ignored) {
-            cores = 1;
-        }
-        return Math.max(1, cores);
     }
 }
