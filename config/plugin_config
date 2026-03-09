@@ -59,6 +59,7 @@ connector-http-myhours
 connector-http-notion
 connector-http-onesignal
 connector-http-wechat
+connector-http-airtable
 connector-hudi
 connector-iceberg
 connector-influxdb
