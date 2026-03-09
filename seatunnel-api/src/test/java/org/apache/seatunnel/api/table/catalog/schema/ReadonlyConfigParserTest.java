@@ -22,6 +22,7 @@ import org.apache.seatunnel.api.table.catalog.Column;
 import org.apache.seatunnel.api.table.catalog.ConstraintKey;
 import org.apache.seatunnel.api.table.catalog.PrimaryKey;
 import org.apache.seatunnel.api.table.catalog.TableSchema;
+import org.apache.seatunnel.api.table.catalog.VectorIndex;
 import org.apache.seatunnel.api.table.type.SeaTunnelRowType;
 import org.apache.seatunnel.api.table.type.SqlType;
 
@@ -30,7 +31,10 @@ import org.junit.jupiter.api.Test;
 
 import java.io.FileNotFoundException;
 import java.net.URISyntaxException;
+import java.util.Arrays;
+import java.util.HashMap;
 import java.util.List;
+import java.util.Map;
 
 class ReadonlyConfigParserTest extends BaseConfigParserTest {
 
@@ -57,6 +61,41 @@ class ReadonlyConfigParserTest extends BaseConfigParserTest {
         assertPrimaryKey(tableSchema);
         assertConstraintKey(tableSchema);
         assertColumn(tableSchema, false);
+    }
+
+    @Test
+    void parseVectorIndexKeyCreatesVectorIndexColumns() {
+        Map<String, Object> column0 = new HashMap<>();
+        column0.put("columnName", "vec");
+        column0.put("indexName", "idx1");
+        column0.put("indexType", "HNSW");
+        column0.put("metricType", "L2");
+
+        Map<String, Object> ck0 = new HashMap<>();
+        ck0.put("constraintName", "vec_index");
+        ck0.put("constraintType", ConstraintKey.ConstraintType.VECTOR_INDEX_KEY);
+        ck0.put("constraintColumns", Arrays.asList(column0));
+
+        Map<String, Object> schema = new HashMap<>();
+        schema.put("columns", Arrays.asList());
+        schema.put("constraintKeys", Arrays.asList(ck0));
+
+        Map<String, Object> root = new HashMap<>();
+        root.put("schema", schema);
+        ReadonlyConfig config = ReadonlyConfig.fromMap(root);
+
+        ReadonlyConfigParser readonlyConfigParser = new ReadonlyConfigParser();
+        TableSchema tableSchema = readonlyConfigParser.parse(config);
+
+        ConstraintKey constraintKey = tableSchema.getConstraintKeys().get(0);
+        Assertions.assertEquals(
+                ConstraintKey.ConstraintType.VECTOR_INDEX_KEY, constraintKey.getConstraintType());
+        Assertions.assertTrue(constraintKey.getColumnNames().get(0) instanceof VectorIndex);
+        VectorIndex vectorIndex = (VectorIndex) constraintKey.getColumnNames().get(0);
+        Assertions.assertEquals("vec", vectorIndex.getColumnName());
+        Assertions.assertEquals("idx1", vectorIndex.getIndexName());
+        Assertions.assertEquals(VectorIndex.IndexType.HNSW, vectorIndex.getIndexType());
+        Assertions.assertEquals(VectorIndex.MetricType.L2, vectorIndex.getMetricType());
     }
 
     private void assertPrimaryKey(TableSchema tableSchema) {

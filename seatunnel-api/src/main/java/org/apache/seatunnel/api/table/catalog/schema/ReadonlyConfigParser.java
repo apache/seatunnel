@@ -27,6 +27,7 @@ import org.apache.seatunnel.api.table.catalog.PhysicalColumn;
 import org.apache.seatunnel.api.table.catalog.PrimaryKey;
 import org.apache.seatunnel.api.table.catalog.SeaTunnelDataTypeConvertorUtil;
 import org.apache.seatunnel.api.table.catalog.TableSchema;
+import org.apache.seatunnel.api.table.catalog.VectorIndex;
 import org.apache.seatunnel.api.table.type.SeaTunnelDataType;
 import org.apache.seatunnel.common.utils.JsonUtils;
 
@@ -199,6 +200,47 @@ public class ReadonlyConfigParser implements TableSchemaParser<ReadonlyConfig> {
                                                                                                                     () ->
                                                                                                                             new IllegalArgumentException(
                                                                                                                                     "schema.constraintKeys.constraintColumns.* config need option [columnName], please correct your config first"));
+                                                                                    if (constraintType
+                                                                                            == ConstraintKey
+                                                                                                    .ConstraintType
+                                                                                                    .VECTOR_INDEX_KEY) {
+                                                                                        String
+                                                                                                indexName =
+                                                                                                        constraintColumnConfig
+                                                                                                                .getOptional(
+                                                                                                                        ConnectorCommonOptions
+                                                                                                                                .VECTOR_INDEX_NAME)
+                                                                                                                .orElseThrow(
+                                                                                                                        () ->
+                                                                                                                                new IllegalArgumentException(
+                                                                                                                                        "schema.constraintKeys.constraintColumns.* config need option [indexName], please correct your config first"));
+                                                                                        String
+                                                                                                indexType =
+                                                                                                        constraintColumnConfig
+                                                                                                                .getOptional(
+                                                                                                                        ConnectorCommonOptions
+                                                                                                                                .VECTOR_INDEX_TYPE)
+                                                                                                                .orElseThrow(
+                                                                                                                        () ->
+                                                                                                                                new IllegalArgumentException(
+                                                                                                                                        "schema.constraintKeys.constraintColumns.* config need option [indexType], please correct your config first"));
+                                                                                        String
+                                                                                                metricType =
+                                                                                                        constraintColumnConfig
+                                                                                                                .getOptional(
+                                                                                                                        ConnectorCommonOptions
+                                                                                                                                .VECTOR_METRIC_TYPE)
+                                                                                                                .orElseThrow(
+                                                                                                                        () ->
+                                                                                                                                new IllegalArgumentException(
+                                                                                                                                        "schema.constraintKeys.constraintColumns.* config need option [metricType], please correct your config first"));
+                                                                                        return new VectorIndex(
+                                                                                                indexName,
+                                                                                                columnName,
+                                                                                                indexType,
+                                                                                                metricType);
+                                                                                    }
+
                                                                                     ConstraintKey
                                                                                                     .ColumnSortType
                                                                                             columnSortType =
