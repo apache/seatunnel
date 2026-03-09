@@ -238,7 +238,7 @@ constraintKeys = [
 |:------------------|:---------|:--------------|-------------------------------------------------------------------------------------------------------------------------------------------|
 | constraintName    | Yes      | -             | The name of the constraintKey                                                                                                             |
 | constraintType    | No       | KEY           | The type of the constraintKey                                                                                                             |
-| constraintColumns | Yes      | -             | The column list in the primaryKey, each column should contains constraintType and sortType, sortType support ASC and DESC, default is ASC |
+| constraintColumns | Yes      | -             | The column list in the constraintKey. Each column must contain `columnName`. For `INDEX_KEY`/`UNIQUE_KEY`/`FOREIGN_KEY`, `sortType` is supported (ASC/DESC, default ASC). For `VECTOR_INDEX_KEY`, `indexName`/`indexType`/`metricType` are required. |
 
 #### What constraintType supported at now
 
@@ -246,6 +246,36 @@ constraintKeys = [
 |:---------------|:------------|
 | INDEX_KEY      | key         |
 | UNIQUE_KEY     | unique key  |
+| FOREIGN_KEY     | foreign key  |
+| VECTOR_INDEX_KEY | vector index key |
+
+##### VECTOR_INDEX_KEY
+
+When `constraintType = VECTOR_INDEX_KEY`, each item in `constraintColumns` must contain:
+
+- `columnName`: the vector column name
+- `indexName`: the index name
+- `indexType`: the vector index type (e.g. `HNSW`)
+- `metricType`: the distance metric type (e.g. `L2`)
+
+Example:
+
+```hocon
+constraintKeys = [
+  {
+    constraintName = "vec_index"
+    constraintType = VECTOR_INDEX_KEY
+    constraintColumns = [
+      {
+        columnName = "vec"
+        indexName = "idx1"
+        indexType = "HNSW"
+        metricType = "L2"
+      }
+    ]
+  }
+]
+```
 
 ## Multi table schemas
 

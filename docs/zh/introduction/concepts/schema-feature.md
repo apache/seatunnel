@@ -238,7 +238,7 @@ constraintKeys = [
 |:------------------|:-----|:----|------------------------------------------------------------------------|
 | constraintName    | 是    | -   | 约束键的名称                                                                 |
 | constraintType    | 否    | KEY | 约束键的类型                                                                 |
-| constraintColumns | 是    | -   | PrimaryKey中的列列表，每列应包含constraintType和sortType，sortType支持ASC和DESC，默认为ASC |
+| constraintColumns | 是    | -   | 约束键中的列。每列必须包含 `columnName`。当 `constraintType` 为 `INDEX_KEY`/`UNIQUE_KEY`/`FOREIGN_KEY` 时，支持 `sortType`（ASC/DESC，默认 ASC）；当 `constraintType` 为 `VECTOR_INDEX_KEY` 时，必须包含 `indexName`/`indexType`/`metricType`。 |
 
 #### 目前支持哪些约束类型
 
@@ -246,6 +246,36 @@ constraintKeys = [
 |:-----------|:----|
 | INDEX_KEY  | 键   |
 | UNIQUE_KEY | 唯一键 |
+| FOREIGN_KEY | 外键 |
+| VECTOR_INDEX_KEY | 向量索引键 |
+
+#### VECTOR_INDEX_KEY
+
+当 `constraintType = VECTOR_INDEX_KEY` 时，`constraintColumns` 中每一项必须包含：
+
+- `columnName`：向量列名
+- `indexName`：索引名称
+- `indexType`：向量索引类型（例如 `HNSW`）
+- `metricType`：距离度量类型（例如 `L2`）
+
+示例：
+
+```hocon
+constraintKeys = [
+  {
+    constraintName = "vec_index"
+    constraintType = VECTOR_INDEX_KEY
+    constraintColumns = [
+      {
+        columnName = "vec"
+        indexName = "idx1"
+        indexType = "HNSW"
+        metricType = "L2"
+      }
+    ]
+  }
+]
+```
 
 ## 多表Schema
 
