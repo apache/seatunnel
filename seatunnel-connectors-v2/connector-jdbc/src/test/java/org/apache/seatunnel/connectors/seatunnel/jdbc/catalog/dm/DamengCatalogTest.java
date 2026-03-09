@@ -18,52 +18,74 @@
 package org.apache.seatunnel.connectors.seatunnel.jdbc.catalog.dm;
 
 import org.apache.seatunnel.api.table.catalog.TablePath;
-import org.apache.seatunnel.api.table.catalog.exception.CatalogException;
 import org.apache.seatunnel.common.utils.JdbcUrlUtil;
 
+import org.junit.jupiter.api.AfterAll;
+import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.BeforeAll;
+import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 
 import java.sql.Connection;
+import java.sql.Driver;
+import java.sql.DriverManager;
+import java.sql.DriverPropertyInfo;
 import java.sql.PreparedStatement;
 import java.sql.ResultSet;
 import java.sql.SQLException;
+import java.sql.SQLFeatureNotSupportedException;
 import java.util.List;
+import java.util.Properties;
+import java.util.concurrent.atomic.AtomicReference;
+import java.util.logging.Logger;
 
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.when;
 
-/**
- * Unit tests for {@link DamengCatalog}. Tests SQL generation methods without requiring a real
- * database connection.
- */
 public class DamengCatalogTest {
 
     private static final String TEST_URL = "jdbc:dm://localhost:5236/DAMENG";
-    private static DamengCatalog catalog;
+    private static final MockDamengDriver MOCK_DRIVER = new MockDamengDriver();
+    private DamengCatalog catalog;
 
     @BeforeAll
-    static void setUp() {
+    static void setUpDriver() throws SQLException {
+        DriverManager.registerDriver(MOCK_DRIVER);
+    }
+
+    @AfterAll
+    static void tearDownDriver() throws SQLException {
+        DriverManager.deregisterDriver(MOCK_DRIVER);
+    }
+
+    @BeforeEach
+    void setUp() {
         JdbcUrlUtil.UrlInfo urlInfo = JdbcUrlUtil.getUrlInfo(TEST_URL);
         catalog =
-                new TestDamengCatalog(
+                new DamengCatalog(
                         "dameng_test",
                         "SYSDBA",
                         "SYSDBA",
                         urlInfo,
                         null,
-                        "dm.jdbc.driver.DmDriver");
+                        MockDamengDriver.class.getName());
+    }
+
+    @AfterEach
+    void tearDown() {
+        catalog.close();
+        MOCK_DRIVER.setConnection(null);
     }
 
     @Test
     void testGetListDatabaseSql() {
-        Assertions.assertEquals("SELECT name FROM v$database", catalog.exposedGetListDatabaseSql());
+        Assertions.assertEquals("SELECT name FROM v$database", catalog.getListDatabaseSql());
     }
 
     @Test
     void testGetListTableSql() {
-        String sql = catalog.exposedGetListTableSql("DAMENG");
+        String sql = catalog.getListTableSql("DAMENG");
         Assertions.assertEquals("SELECT OWNER, TABLE_NAME FROM ALL_TABLES", sql);
     }
 
@@ -76,7 +98,7 @@ public class DamengCatalogTest {
         when(statement.executeQuery()).thenReturn(resultSet);
         when(resultSet.next()).thenReturn(true, false);
         when(resultSet.getString(1)).thenReturn("DAMENG");
-        catalog.setConnection(connection);
+        MOCK_DRIVER.setConnection(connection);
 
         List<String> databases = catalog.listDatabases();
 
@@ -101,7 +123,7 @@ public class DamengCatalogTest {
         when(listTablesResultSet.next()).thenReturn(true, true, false);
         when(listTablesResultSet.getString(1)).thenReturn("SYSDBA", "SYSDBA");
         when(listTablesResultSet.getString(2)).thenReturn("users", "orders");
-        catalog.setConnection(connection);
+        MOCK_DRIVER.setConnection(connection);
 
         List<String> tables = catalog.listTables("DAMENG");
 
@@ -122,7 +144,7 @@ public class DamengCatalogTest {
                 .thenReturn(statement);
         when(statement.executeQuery()).thenReturn(resultSet);
         when(resultSet.next()).thenReturn(true, false);
-        catalog.setConnection(connection);
+        MOCK_DRIVER.setConnection(connection);
 
         Assertions.assertTrue(catalog.tableExists(tablePath));
     }
@@ -137,28 +159,28 @@ public class DamengCatalogTest {
     @Test
     void testGetDropTableSql() {
         TablePath tablePath = TablePath.of("DAMENG", "SYSDBA", "users");
-        String sql = catalog.exposedGetDropTableSql(tablePath);
+        String sql = catalog.getDropTableSql(tablePath);
         Assertions.assertEquals("DROP TABLE \"SYSDBA\".\"users\"", sql);
     }
 
     @Test
     void testGetTableName() {
         TablePath tablePath = TablePath.of("DAMENG", "SYSDBA", "users");
-        String name = catalog.exposedGetTableName(tablePath);
+        String name = catalog.getTableName(tablePath);
         Assertions.assertEquals("\"SYSDBA\".\"users\"", name);
     }
 
     @Test
     void testGetTruncateTableSql() {
         TablePath tablePath = TablePath.of("DAMENG", "SYSDBA", "users");
-        String sql = catalog.exposedGetTruncateTableSql(tablePath);
+        String sql = catalog.getTruncateTableSql(tablePath);
         Assertions.assertEquals("TRUNCATE TABLE \"SYSDBA\".\"users\"", sql);
     }
 
     @Test
     void testGetSelectColumnsSql() {
         TablePath tablePath = TablePath.of("DAMENG", "SYSDBA", "users");
-        String sql = catalog.exposedGetSelectColumnsSql(tablePath);
+        String sql = catalog.getSelectColumnsSql(tablePath);
         // Verify key structural parts: SELECT columns, FROM/JOIN, WHERE filter, ORDER BY
         Assertions.assertTrue(sql.startsWith("SELECT COLUMNS.COLUMN_NAME"));
         Assertions.assertTrue(sql.contains("FROM ALL_TAB_COLUMNS COLUMNS "));
@@ -172,27 +194,27 @@ public class DamengCatalogTest {
     @Test
     void testGetOptionTableName() {
         TablePath tablePath = TablePath.of("DAMENG", "SYSDBA", "users");
-        String name = catalog.exposedGetOptionTableName(tablePath);
+        String name = catalog.getOptionTableName(tablePath);
         Assertions.assertEquals("SYSDBA.users", name);
     }
 
     @Test
     void testGetUrlFromDatabaseName() {
-        String url = catalog.exposedGetUrlFromDatabaseName("ANY_DB");
+        String url = catalog.getUrlFromDatabaseName("ANY_DB");
         // DamengCatalog always returns defaultUrl regardless of databaseName
         Assertions.assertEquals(TEST_URL, url);
     }
 
     @Test
     void testGetDatabaseWithConditionSql() {
-        String sql = catalog.exposedGetDatabaseWithConditionSql("DAMENG");
+        String sql = catalog.getDatabaseWithConditionSql("DAMENG");
         Assertions.assertEquals("SELECT name FROM v$database where name = 'DAMENG'", sql);
     }
 
     @Test
     void testGetTableWithConditionSql() {
         TablePath tablePath = TablePath.of("DAMENG", "SYSDBA", "users");
-        String sql = catalog.exposedGetTableWithConditionSql(tablePath);
+        String sql = catalog.getTableWithConditionSql(tablePath);
         Assertions.assertEquals(
                 "SELECT OWNER, TABLE_NAME FROM ALL_TABLES"
                         + " where OWNER = 'SYSDBA' and TABLE_NAME = 'users'",
@@ -203,123 +225,93 @@ public class DamengCatalogTest {
     void testCreateDatabaseInternalThrowsUnsupported() {
         Assertions.assertThrows(
                 UnsupportedOperationException.class,
-                () -> catalog.exposedCreateDatabaseInternal("test_db"));
+                () -> catalog.createDatabaseInternal("test_db"));
     }
 
     @Test
     void testDropDatabaseInternalThrowsUnsupported() {
         Assertions.assertThrows(
-                UnsupportedOperationException.class,
-                () -> catalog.exposedDropDatabaseInternal("test_db"));
+                UnsupportedOperationException.class, () -> catalog.dropDatabaseInternal("test_db"));
     }
 
     @Test
     void testSqlGenerationWithSpacesInIdentifiers() {
         TablePath tablePath = TablePath.of("DAMENG", "MY SCHEMA", "my table");
         // getTableName wraps with double quotes, spaces should be preserved inside quotes
+        Assertions.assertEquals("\"MY SCHEMA\".\"my table\"", catalog.getTableName(tablePath));
         Assertions.assertEquals(
-                "\"MY SCHEMA\".\"my table\"", catalog.exposedGetTableName(tablePath));
-        Assertions.assertEquals(
-                "DROP TABLE \"MY SCHEMA\".\"my table\"", catalog.exposedGetDropTableSql(tablePath));
+                "DROP TABLE \"MY SCHEMA\".\"my table\"", catalog.getDropTableSql(tablePath));
         Assertions.assertEquals(
                 "TRUNCATE TABLE \"MY SCHEMA\".\"my table\"",
-                catalog.exposedGetTruncateTableSql(tablePath));
+                catalog.getTruncateTableSql(tablePath));
         // getOptionTableName returns unquoted form
-        Assertions.assertEquals("MY SCHEMA.my table", catalog.exposedGetOptionTableName(tablePath));
+        Assertions.assertEquals("MY SCHEMA.my table", catalog.getOptionTableName(tablePath));
     }
 
     @Test
     void testSqlGenerationWithReservedWordIdentifiers() {
         TablePath tablePath = TablePath.of("DAMENG", "SELECT", "TABLE");
         // SQL reserved words used as identifiers should be quoted properly
-        Assertions.assertEquals("\"SELECT\".\"TABLE\"", catalog.exposedGetTableName(tablePath));
+        Assertions.assertEquals("\"SELECT\".\"TABLE\"", catalog.getTableName(tablePath));
         String existSql = catalog.getExistDataSql(tablePath);
         Assertions.assertEquals("select * from \"SELECT\".\"TABLE\" LIMIT 1", existSql);
-        String conditionSql = catalog.exposedGetTableWithConditionSql(tablePath);
+        String conditionSql = catalog.getTableWithConditionSql(tablePath);
         Assertions.assertEquals(
                 "SELECT OWNER, TABLE_NAME FROM ALL_TABLES"
                         + " where OWNER = 'SELECT' and TABLE_NAME = 'TABLE'",
                 conditionSql);
-        String columnsSql = catalog.exposedGetSelectColumnsSql(tablePath);
+        String columnsSql = catalog.getSelectColumnsSql(tablePath);
         Assertions.assertTrue(columnsSql.contains("WHERE COLUMNS.OWNER = 'SELECT' "));
         Assertions.assertTrue(columnsSql.contains("AND COLUMNS.TABLE_NAME = 'TABLE' "));
     }
 
-    /**
-     * Test subclass that exposes protected methods of {@link DamengCatalog} for unit testing
-     * without requiring a database connection.
-     */
-    static class TestDamengCatalog extends DamengCatalog {
-        private Connection connection;
+    private static final class MockDamengDriver implements Driver {
+        private final AtomicReference<Connection> connectionRef = new AtomicReference<>();
 
-        TestDamengCatalog(
-                String catalogName,
-                String username,
-                String pwd,
-                JdbcUrlUtil.UrlInfo urlInfo,
-                String defaultSchema,
-                String driverClass) {
-            super(catalogName, username, pwd, urlInfo, defaultSchema, driverClass);
+        void setConnection(Connection connection) {
+            connectionRef.set(connection);
         }
 
         @Override
-        protected Connection getConnection(String url) {
-            if (connection != null) {
-                return connection;
+        public Connection connect(String url, Properties info) throws SQLException {
+            if (!acceptsURL(url)) {
+                return null;
             }
-            return super.getConnection(url);
+            Connection connection = connectionRef.get();
+            if (connection == null) {
+                throw new SQLException("No mock connection configured for url: " + url);
+            }
+            return connection;
         }
 
-        void setConnection(Connection connection) {
-            this.connection = connection;
+        @Override
+        public boolean acceptsURL(String url) {
+            return TEST_URL.equals(url);
         }
 
-        String exposedGetListDatabaseSql() {
-            return getListDatabaseSql();
+        @Override
+        public DriverPropertyInfo[] getPropertyInfo(String url, Properties info) {
+            return new DriverPropertyInfo[0];
         }
 
-        String exposedGetListTableSql(String databaseName) {
-            return getListTableSql(databaseName);
+        @Override
+        public int getMajorVersion() {
+            return 1;
         }
 
-        String exposedGetDropTableSql(TablePath tablePath) {
-            return getDropTableSql(tablePath);
+        @Override
+        public int getMinorVersion() {
+            return 0;
         }
 
-        String exposedGetTableName(TablePath tablePath) {
-            return getTableName(tablePath);
+        @Override
+        public boolean jdbcCompliant() {
+            return false;
         }
 
-        String exposedGetTruncateTableSql(TablePath tablePath) {
-            return getTruncateTableSql(tablePath);
-        }
-
-        String exposedGetSelectColumnsSql(TablePath tablePath) {
-            return getSelectColumnsSql(tablePath);
-        }
-
-        String exposedGetOptionTableName(TablePath tablePath) {
-            return getOptionTableName(tablePath);
-        }
-
-        String exposedGetUrlFromDatabaseName(String databaseName) {
-            return getUrlFromDatabaseName(databaseName);
-        }
-
-        String exposedGetDatabaseWithConditionSql(String databaseName) {
-            return getDatabaseWithConditionSql(databaseName);
-        }
-
-        String exposedGetTableWithConditionSql(TablePath tablePath) {
-            return getTableWithConditionSql(tablePath);
-        }
-
-        void exposedCreateDatabaseInternal(String databaseName) {
-            createDatabaseInternal(databaseName);
-        }
-
-        void exposedDropDatabaseInternal(String databaseName) throws CatalogException {
-            dropDatabaseInternal(databaseName);
+        @Override
+        public Logger getParentLogger() throws SQLFeatureNotSupportedException {
+            throw new SQLFeatureNotSupportedException("Parent logger is not supported");
         }
     }
 }
