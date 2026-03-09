@@ -41,7 +41,7 @@ import static org.mockito.Mockito.when;
 public class DamengCatalogTest {
 
     private static final String TEST_URL = "jdbc:dm://localhost:5236/DAMENG";
-    private static TestDamengCatalog catalog;
+    private static DamengCatalog catalog;
 
     @BeforeAll
     static void setUp() {
