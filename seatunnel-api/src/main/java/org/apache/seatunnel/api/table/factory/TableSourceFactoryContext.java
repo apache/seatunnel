@@ -24,7 +24,15 @@ import lombok.Getter;
 @Getter
 public class TableSourceFactoryContext extends TableFactoryContext {
 
+    private ReadonlyConfig envOptions;
+
     public TableSourceFactoryContext(ReadonlyConfig options, ClassLoader classLoader) {
         super(options, classLoader);
+    }
+
+    public TableSourceFactoryContext(
+            ReadonlyConfig options, ClassLoader classLoader, ReadonlyConfig envOptions) {
+        super(options, classLoader);
+        this.envOptions = envOptions;
     }
 }

@@ -45,7 +45,9 @@ public class S3FileSourceFactory implements TableSourceFactory {
     @Override
     public <T, SplitT extends SourceSplit, StateT extends Serializable>
             TableSource<T, SplitT, StateT> createSource(TableSourceFactoryContext context) {
-        return () -> (SeaTunnelSource<T, SplitT, StateT>) new S3FileSource(context.getOptions());
+        return () ->
+                (SeaTunnelSource<T, SplitT, StateT>)
+                        new S3FileSource(context.getOptions(), discoverTableSchemas(context));
     }
 
     @Override
@@ -103,6 +105,7 @@ public class S3FileSourceFactory implements TableSourceFactory {
                 .optional(FileBaseSourceOptions.READ_COLUMNS)
                 .optional(FileBaseSourceOptions.QUOTE_CHAR)
                 .optional(FileBaseSourceOptions.ESCAPE_CHAR)
+                .optional(ConnectorCommonOptions.METALAKE_TYPE)
                 .build();
     }
 

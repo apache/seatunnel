@@ -869,7 +869,18 @@ public class CoordinatorService {
         if (jobInfo != null) {
             return jobInfo;
         }
-        return runningJobMasterMap.get(jobId).getJobDAGInfo();
+
+        JobMaster runningJobMaster = runningJobMasterMap.get(jobId);
+        if (runningJobMaster != null) {
+            return runningJobMaster.getJobDAGInfo();
+        }
+
+        PendingJobInfo pendingJobInfo = pendingJobQueue.getById(jobId);
+        if (pendingJobInfo != null) {
+            return pendingJobInfo.getJobMaster().getJobDAGInfo();
+        }
+
+        throw new JobNotFoundException(String.format("Job %s not found", jobId));
     }
 
     /**

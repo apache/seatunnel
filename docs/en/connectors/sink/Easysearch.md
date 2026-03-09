@@ -45,25 +45,25 @@ Engine Supported
 
 ## Sink Options
 
-|          name           |  type   | required | default value |
-|-------------------------|---------|----------|---------------|
-| hosts                   | array   | yes      | -             |
-| index                   | string  | yes      | -             |
-| primary_keys            | list    | no       |               |
-| key_delimiter           | string  | no       | `_`           |
-| username                | string  | no       |               |
-| password                | string  | no       |               |
-| max_retry_count         | int     | no       | 3             |
-| max_batch_size          | int     | no       | 10            |
-| tls_verify_certificate  | boolean | no       | true          |
-| tls_verify_hostnames    | boolean | no       | true          |
-| tls_keystore_path       | string  | no       | -             |
-| tls_keystore_password   | string  | no       | -             |
-| tls_truststore_path     | string  | no       | -             |
+|          name          |  type   | required | default value |
+|------------------------|---------|----------|---------------|
+| hosts                  | array   | yes      | -             |
+| index                  | string  | yes      | -             |
+| primary_keys           | list    | no       |               |
+| key_delimiter          | string  | no       | `_`           |
+| username               | string  | no       |               |
+| password               | string  | no       |               |
+| max_retry_count        | int     | no       | 3             |
+| max_batch_size         | int     | no       | 10            |
+| tls_verify_certificate | boolean | no       | true          |
+| tls_verify_hostname    | boolean | no       | true          |
+| tls_keystore_path      | string  | no       | -             |
+| tls_keystore_password  | string  | no       | -             |
+| tls_truststore_path    | string  | no       | -             |
 | tls_truststore_password | string  | no       | -             |
-| schema_save_mode        | enum    | no       | CREATE_SCHEMA_WHEN_NOT_EXIST |
-| data_save_mode          | enum    | no       | APPEND_DATA   |
-| common-options          |         | no       | -             |
+| schema_save_mode       | enum    | no       | CREATE_SCHEMA_WHEN_NOT_EXIST |
+| data_save_mode         | enum    | no       | APPEND_DATA   |
+| common-options         |         | no       | -             |
 
 ### hosts [array]
 

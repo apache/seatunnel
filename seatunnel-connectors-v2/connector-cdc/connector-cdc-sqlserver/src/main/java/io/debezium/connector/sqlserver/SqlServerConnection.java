@@ -19,6 +19,8 @@ package io.debezium.connector.sqlserver;
 
 import org.apache.seatunnel.shade.org.apache.commons.lang3.StringUtils;
 
+import org.apache.seatunnel.connectors.seatunnel.jdbc.catalog.utils.JdbcIdentifierUtils;
+
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -696,8 +698,11 @@ public class SqlServerConnection extends JdbcConnection {
     public Table getTableSchemaFromTable(String databaseName, SqlServerChangeTable changeTable)
             throws SQLException {
         final DatabaseMetaData metadata = connection().getMetaData();
+        JdbcIdentifierUtils.IdentifierCaseStrategy identifierCaseStrategy =
+                JdbcIdentifierUtils.identifierCaseStrategy(metadata);
 
         List<Column> columns = new ArrayList<>();
+        int filteredRows = 0;
         try (ResultSet rs =
                 metadata.getColumns(
                         databaseName,
@@ -705,6 +710,24 @@ public class SqlServerConnection extends JdbcConnection {
                         changeTable.getSourceTableId().table(),
                         null)) {
             while (rs.next()) {
+                // `tableNamePattern` is treated as a SQL LIKE pattern by many drivers, so filter
+                // the ResultSet by exact table/schema to avoid mixing columns from other tables.
+                String actualTableName = rs.getString("TABLE_NAME");
+                if (!JdbcIdentifierUtils.identifierEquals(
+                        identifierCaseStrategy,
+                        changeTable.getSourceTableId().table(),
+                        actualTableName)) {
+                    filteredRows++;
+                    continue;
+                }
+                String actualSchemaName = rs.getString("TABLE_SCHEM");
+                if (!JdbcIdentifierUtils.identifierEquals(
+                        identifierCaseStrategy,
+                        changeTable.getSourceTableId().schema(),
+                        actualSchemaName)) {
+                    filteredRows++;
+                    continue;
+                }
                 readTableColumn(rs, changeTable.getSourceTableId(), null)
                         .ifPresent(
                                 ce -> {
@@ -714,6 +737,14 @@ public class SqlServerConnection extends JdbcConnection {
                                     }
                                 });
             }
+        }
+        if (columns.isEmpty() && filteredRows > 0) {
+            LOGGER.warn(
+                    "No columns found for table '{}' in database '{}'. Filtered {} rows returned by JDBC driver. "
+                            + "The table may not exist or the database requires exact identifier case.",
+                    changeTable.getSourceTableId(),
+                    databaseName,
+                    filteredRows);
         }
 
         final List<String> pkColumnNames =

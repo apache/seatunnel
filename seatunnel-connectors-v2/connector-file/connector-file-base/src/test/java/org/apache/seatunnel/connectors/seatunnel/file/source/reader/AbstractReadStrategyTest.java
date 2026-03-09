@@ -381,6 +381,30 @@ public class AbstractReadStrategyTest {
         }
     }
 
+    @Test
+    void testResolveRelativePathWithSftpUri() {
+        String basePath = "sftp://server:22/path";
+        String fullFilePath = "sftp://server:22/path/sub/file.txt";
+        Assertions.assertEquals(
+                "sub/file.txt", AbstractReadStrategy.resolveRelativePath(basePath, fullFilePath));
+    }
+
+    @Test
+    void testResolveRelativePathWithFtpUri() {
+        String basePath = "ftp://server:21/tmp/seatunnel/read";
+        String fullFilePath = "ftp://server:21/tmp/seatunnel/read/file.txt";
+        Assertions.assertEquals(
+                "file.txt", AbstractReadStrategy.resolveRelativePath(basePath, fullFilePath));
+    }
+
+    @Test
+    void testResolveRelativePathWithCustomSchemeUri() {
+        String basePath = "default.default_sftp://sftp:22/tmp/seatunnel/update/src";
+        String fullFilePath = "default.default_sftp://sftp:22/tmp/seatunnel/update/src/test.bin_0";
+        Assertions.assertEquals(
+                "test.bin_0", AbstractReadStrategy.resolveRelativePath(basePath, fullFilePath));
+    }
+
     private static Map<String, Object> buildBasePluginConfigWithPartitions() {
         Map<String, Object> config = new HashMap<>();
         config.put(FileBaseSourceOptions.FILE_PATH.key(), "/tmp/dt=2024-01-01");
