@@ -80,6 +80,7 @@ import static org.apache.seatunnel.engine.server.rest.RestConstant.REST_URL_PEND
 import static org.apache.seatunnel.engine.server.rest.RestConstant.REST_URL_REALTIME_METRICS;
 import static org.apache.seatunnel.engine.server.rest.RestConstant.REST_URL_RUNNING_JOB;
 import static org.apache.seatunnel.engine.server.rest.RestConstant.REST_URL_RUNNING_JOBS;
+import static org.apache.seatunnel.engine.server.rest.RestConstant.REST_URL_RUNNING_JOBS_SUMMARY;
 import static org.apache.seatunnel.engine.server.rest.RestConstant.REST_URL_RUNNING_THREADS;
 import static org.apache.seatunnel.engine.server.rest.RestConstant.REST_URL_STOP_JOB;
 import static org.apache.seatunnel.engine.server.rest.RestConstant.REST_URL_STOP_JOBS;
@@ -218,6 +219,7 @@ public class JettyService {
 
         context.addServlet(overviewHolder, convertUrlToPath(REST_URL_OVERVIEW));
         context.addServlet(runningJobsHolder, convertUrlToPath(REST_URL_RUNNING_JOBS));
+        context.addServlet(runningJobsHolder, convertUrlToPath(REST_URL_RUNNING_JOBS_SUMMARY));
         context.addServlet(pendingJobsHolder, convertUrlToPath(REST_URL_PENDING_JOBS));
         context.addServlet(finishedJobsHolder, convertUrlToPath(REST_URL_FINISHED_JOBS));
         context.addServlet(

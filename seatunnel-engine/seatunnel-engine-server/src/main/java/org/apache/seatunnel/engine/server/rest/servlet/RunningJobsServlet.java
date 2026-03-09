@@ -19,6 +19,7 @@ package org.apache.seatunnel.engine.server.rest.servlet;
 
 import org.apache.seatunnel.shade.org.eclipse.jetty.server.Request;
 
+import org.apache.seatunnel.engine.server.rest.RestConstant;
 import org.apache.seatunnel.engine.server.rest.service.JobInfoService;
 
 import com.hazelcast.internal.json.JsonArray;
@@ -58,7 +59,10 @@ public class RunningJobsServlet extends PageBaseServlet {
         }
 
         long startNs = System.nanoTime();
-        boolean full = Boolean.parseBoolean(req.getParameter("full"));
+        boolean summary =
+                req.getRequestURI() != null
+                        && req.getRequestURI().endsWith(RestConstant.REST_URL_RUNNING_JOBS_SUMMARY);
+        boolean full = !summary || Boolean.parseBoolean(req.getParameter("full"));
 
         JsonArray runningJobs =
                 full
