@@ -34,13 +34,13 @@ import org.apache.seatunnel.engine.server.dag.physical.PipelineLocation;
 import org.apache.seatunnel.engine.server.execution.ExecutionState;
 import org.apache.seatunnel.engine.server.execution.PendingJobInfo;
 import org.apache.seatunnel.engine.server.execution.TaskGroupLocation;
+import org.apache.seatunnel.engine.server.storage.StateStore;
 import org.apache.seatunnel.engine.server.telemetry.log.operation.CleanLogOperation;
 import org.apache.seatunnel.engine.server.utils.NodeEngineUtil;
 
 import com.hazelcast.cluster.Address;
 import com.hazelcast.core.EntryEvent;
 import com.hazelcast.logging.ILogger;
-import com.hazelcast.map.IMap;
 import com.hazelcast.map.listener.EntryExpiredListener;
 import com.hazelcast.spi.impl.NodeEngine;
 import lombok.AllArgsConstructor;
@@ -64,17 +64,17 @@ public class JobHistoryService {
     private final NodeEngine nodeEngine;
 
     /**
-     * IMap key is one of jobId {@link
+     * StateStore key is one of jobId {@link
      * org.apache.seatunnel.engine.server.dag.physical.PipelineLocation} and {@link
      * org.apache.seatunnel.engine.server.execution.TaskGroupLocation}
      *
-     * <p>The value of IMap is one of {@link JobStatus} {@link PipelineStatus} {@link
+     * <p>The value of StateStore is one of {@link JobStatus} {@link PipelineStatus} {@link
      * org.apache.seatunnel.engine.server.execution.ExecutionState}
      *
-     * <p>This IMap is used to recovery runningJobStateIMap in JobMaster when a new master node
-     * active
+     * <p>This StateStore is used to recovery runningJobStateStore in JobMaster when a new master
+     * node active
      */
-    private final IMap<Object, Object> runningJobStateIMap;
+    private final StateStore<Object, Object> runningJobStateStore;
 
     private final ILogger logger;
 
@@ -90,16 +90,16 @@ public class JobHistoryService {
      */
     private final Map<Long, PendingJobInfo> pendingJobInfoMap;
 
-    /** finishedJobVertexInfoImap key is jobId and value is JobDAGInfo */
-    private final IMap<Long, JobDAGInfo> finishedJobDAGInfoImap;
+    /** finishedJobDAGInfoStore key is jobId and value is JobDAGInfo */
+    private final StateStore<Long, JobDAGInfo> finishedJobDAGInfoStore;
 
     /**
-     * finishedJobStateImap key is jobId and value is jobState(json) JobStateData Indicates the
+     * finishedJobStateStore key is jobId and value is jobState(json) JobStateData Indicates the
      * status of the job, pipeline, and task
      */
-    @Getter private final IMap<Long, JobState> finishedJobStateImap;
+    @Getter private final StateStore<Long, JobState> finishedJobStateStore;
 
-    private final IMap<Long, JobMetrics> finishedJobMetricsImap;
+    private final StateStore<Long, JobMetrics> finishedJobMetricsStore;
 
     private final ObjectMapper objectMapper;
 
@@ -107,23 +107,23 @@ public class JobHistoryService {
 
     public JobHistoryService(
             NodeEngine nodeEngine,
-            IMap<Object, Object> runningJobStateIMap,
+            StateStore<Object, Object> runningJobStateStore,
             ILogger logger,
             Map<Long, PendingJobInfo> pendingJobMasterMap,
             Map<Long, JobMaster> runningJobMasterMap,
-            IMap<Long, JobState> finishedJobStateImap,
-            IMap<Long, JobMetrics> finishedJobMetricsImap,
-            IMap<Long, JobDAGInfo> finishedJobVertexInfoImap,
+            StateStore<Long, JobState> finishedJobStateStore,
+            StateStore<Long, JobMetrics> finishedJobMetricsStore,
+            StateStore<Long, JobDAGInfo> finishedJobVertexInfoMap,
             int finishedJobExpireTime) {
         this.nodeEngine = nodeEngine;
-        this.runningJobStateIMap = runningJobStateIMap;
+        this.runningJobStateStore = runningJobStateStore;
         this.logger = logger;
         this.pendingJobInfoMap = pendingJobMasterMap;
         this.runningJobMasterMap = runningJobMasterMap;
-        this.finishedJobStateImap = finishedJobStateImap;
-        this.finishedJobMetricsImap = finishedJobMetricsImap;
-        this.finishedJobDAGInfoImap = finishedJobVertexInfoImap;
-        this.finishedJobDAGInfoImap.addEntryListener(new JobInfoExpiredListener(), true);
+        this.finishedJobStateStore = finishedJobStateStore;
+        this.finishedJobMetricsStore = finishedJobMetricsStore;
+        this.finishedJobDAGInfoStore = finishedJobVertexInfoMap;
+        this.finishedJobDAGInfoStore.addEntryListener(new JobInfoExpiredListener(), true);
         this.objectMapper = new ObjectMapper();
         this.objectMapper.configure(SerializationFeature.FAIL_ON_EMPTY_BEANS, false);
         this.finishedJobExpireTime = finishedJobExpireTime;
@@ -174,7 +174,7 @@ public class JobHistoryService {
 
         Stream.concat(
                         Stream.concat(runningJobStateList.stream(), pendingJobStateList.stream()),
-                        finishedJobStateImap.values().stream()
+                        finishedJobStateStore.values().stream()
                                 .filter(
                                         jobState ->
                                                 !runningJonIds.contains(jobState.getJobId())
@@ -213,15 +213,15 @@ public class JobHistoryService {
         }
         return runningJobMasterMap.containsKey(jobId)
                 ? toJobStateMapper(runningJobMasterMap.get(jobId), false)
-                : finishedJobStateImap.getOrDefault(jobId, null);
+                : finishedJobStateStore.getOrDefault(jobId, null);
     }
 
     public JobMetrics getJobMetrics(Long jobId) {
-        return finishedJobMetricsImap.getOrDefault(jobId, JobMetrics.empty());
+        return finishedJobMetricsStore.getOrDefault(jobId, JobMetrics.empty());
     }
 
     public JobDAGInfo getJobDAGInfo(Long jobId) {
-        return finishedJobDAGInfoImap.getOrDefault(jobId, null);
+        return finishedJobDAGInfoStore.getOrDefault(jobId, null);
     }
 
     // Get detailed status of a single job as json
@@ -245,13 +245,14 @@ public class JobHistoryService {
     public void storeFinishedJobState(JobMaster jobMaster) {
         JobState jobState = toJobStateMapper(jobMaster, false);
         jobState.setErrorMessage(jobMaster.getErrorMessage());
-        finishedJobStateImap.put(jobState.jobId, jobState, finishedJobExpireTime, TimeUnit.MINUTES);
+        finishedJobStateStore.put(
+                jobState.jobId, jobState, finishedJobExpireTime, TimeUnit.MINUTES);
     }
 
     public void storeFinishedPipelineMetrics(long jobId, JobMetrics metrics) {
-        finishedJobMetricsImap.computeIfAbsent(jobId, key -> JobMetrics.of(new HashMap<>()));
-        JobMetrics newMetrics = finishedJobMetricsImap.get(jobId).merge(metrics);
-        finishedJobMetricsImap.put(jobId, newMetrics, finishedJobExpireTime, TimeUnit.MINUTES);
+        finishedJobMetricsStore.computeIfAbsent(jobId, key -> JobMetrics.of(new HashMap<>()));
+        JobMetrics newMetrics = finishedJobMetricsStore.get(jobId).merge(metrics);
+        finishedJobMetricsStore.put(jobId, newMetrics, finishedJobExpireTime, TimeUnit.MINUTES);
     }
 
     private JobState toJobStateMapper(JobMaster jobMaster, boolean simple) {
@@ -268,7 +269,7 @@ public class JobHistoryService {
                                             pipeline.getPipelineLocation();
                                     PipelineStatus pipelineState =
                                             (PipelineStatus)
-                                                    runningJobStateIMap.get(pipelineLocation);
+                                                    runningJobStateStore.get(pipelineLocation);
                                     Map<TaskGroupLocation, ExecutionState> taskStateMap =
                                             new HashMap<>();
                                     pipeline.getCoordinatorVertexList()
@@ -279,7 +280,7 @@ public class JobHistoryService {
                                                         taskStateMap.put(
                                                                 taskGroupLocation,
                                                                 (ExecutionState)
-                                                                        runningJobStateIMap.get(
+                                                                        runningJobStateStore.get(
                                                                                 taskGroupLocation));
                                                     });
                                     pipeline.getPhysicalVertexList()
@@ -290,7 +291,7 @@ public class JobHistoryService {
                                                         taskStateMap.put(
                                                                 taskGroupLocation,
                                                                 (ExecutionState)
-                                                                        runningJobStateIMap.get(
+                                                                        runningJobStateStore.get(
                                                                                 taskGroupLocation));
                                                     });
 
@@ -303,7 +304,7 @@ public class JobHistoryService {
             }
         }
         JobStatus jobStatus =
-                Optional.ofNullable(runningJobStateIMap.get(jobId))
+                Optional.ofNullable(runningJobStateStore.get(jobId))
                         .map(status -> ((JobStatus) status))
                         .orElse(jobMaster.getJobStatus());
         String jobName = jobMaster.getJobImmutableInformation().getJobName();
@@ -325,7 +326,7 @@ public class JobHistoryService {
     }
 
     public void storeJobInfo(long jobId, JobDAGInfo jobInfo) {
-        finishedJobDAGInfoImap.put(jobId, jobInfo, finishedJobExpireTime, TimeUnit.MINUTES);
+        finishedJobDAGInfoStore.put(jobId, jobInfo, finishedJobExpireTime, TimeUnit.MINUTES);
     }
 
     @AllArgsConstructor

@@ -23,9 +23,11 @@ import org.apache.seatunnel.engine.common.utils.ExceptionUtil;
 import org.apache.seatunnel.engine.common.utils.concurrent.CompletableFuture;
 import org.apache.seatunnel.engine.core.checkpoint.CheckpointIDCounter;
 import org.apache.seatunnel.engine.core.job.PipelineStatus;
+import org.apache.seatunnel.engine.server.storage.DistributedStoreManager;
+import org.apache.seatunnel.engine.server.storage.StateStore;
 
-import com.hazelcast.map.IMap;
 import com.hazelcast.spi.impl.NodeEngine;
+import com.hazelcast.spi.impl.NodeEngineImpl;
 
 import java.nio.ByteBuffer;
 import java.util.Base64;
@@ -36,17 +38,18 @@ import static org.apache.seatunnel.shade.com.google.common.base.Preconditions.ch
 public class IMapCheckpointIDCounter implements CheckpointIDCounter {
 
     private final String key;
-    private final IMap<String, Long> checkpointIdMap;
+    private final StateStore<String, Long> checkpointIdMapStorage;
 
     public IMapCheckpointIDCounter(Long jobID, Integer pipelineId, NodeEngine nodeEngine) {
         this.key = convertLongIntToBase64(jobID, pipelineId);
-        this.checkpointIdMap = nodeEngine.getHazelcastInstance().getMap(IMAP_CHECKPOINT_ID);
+        this.checkpointIdMapStorage =
+                DistributedStoreManager.getMap((NodeEngineImpl) nodeEngine, IMAP_CHECKPOINT_ID);
     }
 
     @Override
     public void start() throws Exception {
         RetryUtils.retryWithException(
-                () -> checkpointIdMap.putIfAbsent(key, INITIAL_CHECKPOINT_ID),
+                () -> checkpointIdMapStorage.putIfAbsent(key, INITIAL_CHECKPOINT_ID),
                 new RetryUtils.RetryMaterial(
                         Constant.OPERATION_RETRY_TIME,
                         true,
@@ -57,26 +60,26 @@ public class IMapCheckpointIDCounter implements CheckpointIDCounter {
     @Override
     public CompletableFuture<Void> shutdown(PipelineStatus pipelineStatus) {
         if (pipelineStatus.isEndState()) {
-            checkpointIdMap.remove(key);
+            checkpointIdMapStorage.remove(key);
         }
         return CompletableFuture.completedFuture(null);
     }
 
     @Override
     public long getAndIncrement() throws Exception {
-        Long nextId = checkpointIdMap.compute(key, (k, v) -> v == null ? null : v + 1);
+        Long nextId = checkpointIdMapStorage.compute(key, (k, v) -> v == null ? null : v + 1);
         checkNotNull(nextId);
         return nextId - 1;
     }
 
     @Override
     public long get() {
-        return checkpointIdMap.get(key);
+        return checkpointIdMapStorage.get(key);
     }
 
     @Override
     public void setCount(long newId) throws Exception {
-        checkpointIdMap.put(key, newId);
+        checkpointIdMapStorage.put(key, newId);
     }
 
     public static String convertLongIntToBase64(long longValue, int intValue) {

@@ -25,12 +25,14 @@ import org.apache.seatunnel.engine.server.resourcemanager.ResourceManager;
 import org.apache.seatunnel.engine.server.resourcemanager.resource.OverviewInfo;
 import org.apache.seatunnel.engine.server.resourcemanager.resource.SlotProfile;
 import org.apache.seatunnel.engine.server.serializable.ResourceDataSerializerHook;
+import org.apache.seatunnel.engine.server.storage.DistributedStoreManager;
+import org.apache.seatunnel.engine.server.storage.StateStore;
 
-import com.hazelcast.map.IMap;
 import com.hazelcast.nio.ObjectDataInput;
 import com.hazelcast.nio.ObjectDataOutput;
 import com.hazelcast.nio.serialization.IdentifiedDataSerializable;
 import com.hazelcast.spi.impl.NodeEngine;
+import com.hazelcast.spi.impl.NodeEngineImpl;
 import com.hazelcast.spi.impl.operationservice.Operation;
 import lombok.extern.slf4j.Slf4j;
 
@@ -84,8 +86,9 @@ public class GetOverviewOperation extends Operation implements IdentifiedDataSer
         List<SlotProfile> assignedSlots = resourceManager.getAssignedSlots(tags);
 
         List<SlotProfile> unassignedSlots = resourceManager.getUnassignedSlots(tags);
-        IMap<Long, JobState> finishedJob =
-                nodeEngine.getHazelcastInstance().getMap(Constant.IMAP_FINISHED_JOB_STATE);
+        StateStore<Long, JobState> finishedJob =
+                DistributedStoreManager.getMap(
+                        (NodeEngineImpl) nodeEngine, Constant.IMAP_FINISHED_JOB_STATE);
         overviewInfo.setTotalSlot(assignedSlots.size() + unassignedSlots.size());
         overviewInfo.setUnassignedSlot(unassignedSlots.size());
         overviewInfo.setWorkers(resourceManager.workerCount(tags));

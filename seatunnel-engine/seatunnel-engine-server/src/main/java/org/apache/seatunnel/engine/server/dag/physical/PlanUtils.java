@@ -24,10 +24,10 @@ import org.apache.seatunnel.engine.core.dag.logical.LogicalDag;
 import org.apache.seatunnel.engine.core.job.JobImmutableInformation;
 import org.apache.seatunnel.engine.server.checkpoint.CheckpointPlan;
 import org.apache.seatunnel.engine.server.dag.execution.ExecutionPlanGenerator;
+import org.apache.seatunnel.engine.server.storage.StateStore;
 
 import com.hazelcast.flakeidgen.FlakeIdGenerator;
 import com.hazelcast.jet.datamodel.Tuple2;
-import com.hazelcast.map.IMap;
 import com.hazelcast.spi.impl.NodeEngine;
 import lombok.NonNull;
 
@@ -44,8 +44,8 @@ public class PlanUtils {
             @NonNull ExecutorService executorService,
             @NonNull ClassLoaderService classLoaderService,
             @NonNull FlakeIdGenerator flakeIdGenerator,
-            @NonNull IMap runningJobStateIMap,
-            @NonNull IMap runningJobStateTimestampsIMap,
+            @NonNull StateStore runningJobStateStore,
+            @NonNull StateStore runningJobStateTimestampsStore,
             @NonNull QueueType queueType,
             @NonNull EngineConfig engineConfig) {
         return new PhysicalPlanGenerator(
@@ -58,8 +58,8 @@ public class PlanUtils {
                         executorService,
                         classLoaderService,
                         flakeIdGenerator,
-                        runningJobStateIMap,
-                        runningJobStateTimestampsIMap,
+                        runningJobStateStore,
+                        runningJobStateTimestampsStore,
                         queueType)
                 .generate();
     }

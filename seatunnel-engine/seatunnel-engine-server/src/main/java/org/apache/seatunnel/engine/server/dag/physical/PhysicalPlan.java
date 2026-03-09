@@ -33,8 +33,8 @@ import org.apache.seatunnel.engine.core.job.PipelineStatus;
 import org.apache.seatunnel.engine.server.execution.TaskGroupLocation;
 import org.apache.seatunnel.engine.server.master.JobMaster;
 import org.apache.seatunnel.engine.server.resourcemanager.resource.SlotProfile;
+import org.apache.seatunnel.engine.server.storage.StateStore;
 
-import com.hazelcast.map.IMap;
 import lombok.NonNull;
 import lombok.extern.slf4j.Slf4j;
 
@@ -58,7 +58,7 @@ public class PhysicalPlan {
 
     private final JobImmutableInformation jobImmutableInformation;
 
-    private final IMap<Object, Object> runningJobStateIMap;
+    private final StateStore<Object, Object> runningJobStateStore;
 
     /**
      * Timestamps (in milliseconds) as returned by {@code System.currentTimeMillis()} when the
@@ -66,7 +66,7 @@ public class PhysicalPlan {
      * of the enum value, i.e. the timestamp when the graph went into state "RUNNING" is at {@code
      * stateTimestamps[RUNNING.ordinal()]}.
      */
-    private final IMap<Object, Long[]> runningJobStateTimestampsIMap;
+    private final StateStore<Object, Long[]> runningJobStateTimestampsStore;
 
     /** when job status turn to end, complete this future. */
     private CompletableFuture<JobResult> jobEndFuture;
@@ -93,26 +93,26 @@ public class PhysicalPlan {
             @NonNull ExecutorService executorService,
             @NonNull JobImmutableInformation jobImmutableInformation,
             long initializationTimestamp,
-            @NonNull IMap<Object, Object> runningJobStateIMap,
-            @NonNull IMap runningJobStateTimestampsIMap) {
+            @NonNull StateStore<Object, Object> runningJobStateStore,
+            @NonNull StateStore runningJobStateTimestampsStore) {
         this.jobImmutableInformation = jobImmutableInformation;
         this.jobId = jobImmutableInformation.getJobId();
         Long[] stateTimestamps = new Long[JobStatus.values().length];
-        if (runningJobStateTimestampsIMap.get(jobId) == null) {
+        if (runningJobStateTimestampsStore.get(jobId) == null) {
             stateTimestamps[JobStatus.INITIALIZING.ordinal()] = initializationTimestamp;
-            runningJobStateTimestampsIMap.put(jobId, stateTimestamps);
+            runningJobStateTimestampsStore.put(jobId, stateTimestamps);
         }
 
-        if (runningJobStateIMap.get(jobId) == null) {
-            // We must update runningJobStateTimestampsIMap first and then can update
-            // runningJobStateIMap.
+        if (runningJobStateStore.get(jobId) == null) {
+            // We must update runningJobStateTimestampsStore first and then can update
+            // runningJobStateStore.
             // Because if a new Master Node become active, we can recover ExecutionState and
             // PipelineState and JobStatus
             // from TaskExecutionService. But we can not recover stateTimestamps.
             stateTimestamps[JobStatus.CREATED.ordinal()] = System.currentTimeMillis();
-            runningJobStateTimestampsIMap.put(jobId, stateTimestamps);
+            runningJobStateTimestampsStore.put(jobId, stateTimestamps);
 
-            runningJobStateIMap.put(jobId, JobStatus.CREATED);
+            runningJobStateStore.put(jobId, JobStatus.CREATED);
         }
 
         this.pipelineList = pipelineList;
@@ -126,8 +126,8 @@ public class PhysicalPlan {
                         jobImmutableInformation.getJobConfig().getName(),
                         jobImmutableInformation.getJobId());
 
-        this.runningJobStateIMap = runningJobStateIMap;
-        this.runningJobStateTimestampsIMap = runningJobStateTimestampsIMap;
+        this.runningJobStateStore = runningJobStateStore;
+        this.runningJobStateTimestampsStore = runningJobStateTimestampsStore;
     }
 
     public void setJobMaster(JobMaster jobMaster) {
@@ -200,7 +200,8 @@ public class PhysicalPlan {
             return;
         }
 
-        if (((JobStatus) runningJobStateIMap.get(jobId)).ordinal() <= JobStatus.PENDING.ordinal()) {
+        if (((JobStatus) runningJobStateStore.get(jobId)).ordinal()
+                <= JobStatus.PENDING.ordinal()) {
             // Tasks with the status 'INITIALIZING', 'CREATED', 'PENDING' need to be set directly to
             // the 'CANCELLED' state because it has not yet started running
             updateJobState(JobStatus.CANCELED);
@@ -226,15 +227,15 @@ public class PhysicalPlan {
     }
 
     private void updateStateTimestamps(@NonNull JobStatus targetState) {
-        // we must update runningJobStateTimestampsIMap first and then can update
-        // runningJobStateIMap
-        Long[] stateTimestamps = runningJobStateTimestampsIMap.get(jobId);
+        // we must update runningJobStateTimestampsStore first and then can update
+        // runningJobStateStore
+        Long[] stateTimestamps = runningJobStateTimestampsStore.get(jobId);
         stateTimestamps[targetState.ordinal()] = System.currentTimeMillis();
-        runningJobStateTimestampsIMap.set(jobId, stateTimestamps);
+        runningJobStateTimestampsStore.set(jobId, stateTimestamps);
     }
 
     public synchronized Long getStateTimestamp(@NonNull JobStatus jobStatus) {
-        Long[] stateTimestamps = runningJobStateTimestampsIMap.get(jobId);
+        Long[] stateTimestamps = runningJobStateTimestampsStore.get(jobId);
         if (stateTimestamps == null) {
             return null;
         }
@@ -243,7 +244,7 @@ public class PhysicalPlan {
 
     public synchronized void updateJobState(@NonNull JobStatus targetState) {
         try {
-            JobStatus current = (JobStatus) runningJobStateIMap.get(jobId);
+            JobStatus current = (JobStatus) runningJobStateStore.get(jobId);
             log.debug(
                     "Try to update the {} state from {} to {}", jobFullName, current, targetState);
 
@@ -259,12 +260,13 @@ public class PhysicalPlan {
                 throw new SeaTunnelEngineException(message);
             }
 
-            // Now do the actual state transition, we must update runningJobStateTimestampsIMap
-            // first and then can update runningJobStateIMap
+            // Now do the actual state transition, we must update
+            // runningJobStateTimestampsStore
+            // first and then can update runningJobStateStore
             RetryUtils.retryWithException(
                     () -> {
                         updateStateTimestamps(targetState);
-                        runningJobStateIMap.set(jobId, targetState);
+                        runningJobStateStore.set(jobId, targetState);
                         return null;
                     },
                     new RetryUtils.RetryMaterial(
@@ -289,7 +291,7 @@ public class PhysicalPlan {
     }
 
     public JobStatus getJobStatus() {
-        return (JobStatus) runningJobStateIMap.get(jobId);
+        return (JobStatus) runningJobStateStore.get(jobId);
     }
 
     public String getJobFullName() {

@@ -31,12 +31,12 @@ import org.apache.seatunnel.engine.server.master.JobHistoryService.JobState;
 import org.apache.seatunnel.engine.server.operation.GetJobMetricsOperation;
 import org.apache.seatunnel.engine.server.rest.ConfigFormat;
 import org.apache.seatunnel.engine.server.rest.RestConstant;
+import org.apache.seatunnel.engine.server.storage.StateStore;
 import org.apache.seatunnel.engine.server.utils.NodeEngineUtil;
 import org.apache.seatunnel.engine.server.utils.RestUtil;
 
 import com.hazelcast.internal.json.JsonArray;
 import com.hazelcast.internal.json.JsonObject;
-import com.hazelcast.map.IMap;
 import com.hazelcast.spi.impl.NodeEngineImpl;
 import lombok.extern.slf4j.Slf4j;
 import scala.Tuple2;
@@ -57,13 +57,13 @@ public class JobInfoService extends BaseService {
     }
 
     public JsonObject getJobInfoJson(Long jobId) {
-        IMap<Object, Object> jobInfoMap =
-                nodeEngine.getHazelcastInstance().getMap(Constant.IMAP_RUNNING_JOB_INFO);
-        JobInfo jobInfo = (JobInfo) jobInfoMap.get(jobId);
+        StateStore<Object, Object> jobInfoStore =
+                distributedStoreManager.getMap(Constant.IMAP_RUNNING_JOB_INFO);
+        JobInfo jobInfo = (JobInfo) jobInfoStore.get(jobId);
 
-        IMap<Object, Object> finishedJobStateMap =
-                nodeEngine.getHazelcastInstance().getMap(Constant.IMAP_FINISHED_JOB_STATE);
-        JobState finishedJobState = (JobState) finishedJobStateMap.get(jobId);
+        StateStore<Object, Object> finishedJobStateStore =
+                distributedStoreManager.getMap(Constant.IMAP_FINISHED_JOB_STATE);
+        JobState finishedJobState = (JobState) finishedJobStateStore.get(jobId);
 
         if (jobInfo != null) {
             return convertToJson(jobInfo, jobId);
@@ -88,11 +88,11 @@ public class JobInfoService extends BaseService {
     }
 
     public JsonArray getJobsByStateJson(String state) {
-        IMap<Long, JobState> finishedJob =
-                nodeEngine.getHazelcastInstance().getMap(Constant.IMAP_FINISHED_JOB_STATE);
+        StateStore<Long, JobState> finishedJob =
+                distributedStoreManager.getMap(Constant.IMAP_FINISHED_JOB_STATE);
 
-        IMap<Long, JobDAGInfo> finishedJobDAGInfo =
-                nodeEngine.getHazelcastInstance().getMap(Constant.IMAP_FINISHED_JOB_VERTEX_INFO);
+        StateStore<Long, JobDAGInfo> finishedJobDAGInfo =
+                distributedStoreManager.getMap(Constant.IMAP_FINISHED_JOB_VERTEX_INFO);
 
         SeaTunnelServer seaTunnelServer = getSeaTunnelServer(true);
 
@@ -130,8 +130,8 @@ public class JobInfoService extends BaseService {
     }
 
     public JsonArray getRunningJobsJson() {
-        IMap<Long, JobInfo> values =
-                nodeEngine.getHazelcastInstance().getMap(Constant.IMAP_RUNNING_JOB_INFO);
+        StateStore<Long, JobInfo> values =
+                distributedStoreManager.getMap(Constant.IMAP_RUNNING_JOB_INFO);
         return values.entrySet().stream()
                 .sorted(
                         Comparator.comparing(

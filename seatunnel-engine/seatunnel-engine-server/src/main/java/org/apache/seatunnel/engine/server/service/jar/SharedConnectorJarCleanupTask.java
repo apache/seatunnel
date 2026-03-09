@@ -19,8 +19,7 @@ package org.apache.seatunnel.engine.server.service.jar;
 
 import org.apache.seatunnel.engine.core.job.ConnectorJarIdentifier;
 import org.apache.seatunnel.engine.core.job.RefCount;
-
-import com.hazelcast.map.IMap;
+import org.apache.seatunnel.engine.server.storage.StateStore;
 
 import java.util.Iterator;
 import java.util.Map;
@@ -36,11 +35,11 @@ public class SharedConnectorJarCleanupTask extends TimerTask {
 
     private final Consumer<ConnectorJarIdentifier> cleanupCallback;
 
-    private final IMap<ConnectorJarIdentifier, RefCount> connectorJarRefCounters;
+    private final StateStore<ConnectorJarIdentifier, RefCount> connectorJarRefCounters;
 
     public SharedConnectorJarCleanupTask(
             Consumer<ConnectorJarIdentifier> cleanupCallback,
-            IMap<ConnectorJarIdentifier, RefCount> connectorJarRefCounters) {
+            StateStore<ConnectorJarIdentifier, RefCount> connectorJarRefCounters) {
         this.cleanupCallback = checkNotNull(cleanupCallback);
         this.connectorJarRefCounters = checkNotNull(connectorJarRefCounters);
     }

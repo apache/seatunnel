@@ -39,6 +39,8 @@ import org.apache.seatunnel.engine.server.execution.TaskGroupDefaultImpl;
 import org.apache.seatunnel.engine.server.execution.TaskGroupLocation;
 import org.apache.seatunnel.engine.server.master.JobMaster;
 import org.apache.seatunnel.engine.server.resourcemanager.resource.SlotProfile;
+import org.apache.seatunnel.engine.server.storage.DistributedStoreManager;
+import org.apache.seatunnel.engine.server.storage.StateStore;
 import org.apache.seatunnel.engine.server.task.TaskGroupImmutableInformation;
 import org.apache.seatunnel.engine.server.task.operation.CancelTaskOperation;
 import org.apache.seatunnel.engine.server.task.operation.CheckTaskGroupIsExecutingOperation;
@@ -49,8 +51,8 @@ import com.hazelcast.cluster.Address;
 import com.hazelcast.cluster.Member;
 import com.hazelcast.flakeidgen.FlakeIdGenerator;
 import com.hazelcast.internal.serialization.Data;
-import com.hazelcast.map.IMap;
 import com.hazelcast.spi.impl.NodeEngine;
+import com.hazelcast.spi.impl.NodeEngineImpl;
 import com.hazelcast.spi.impl.operationservice.impl.InvocationFuture;
 import lombok.NonNull;
 import lombok.extern.slf4j.Slf4j;
@@ -72,6 +74,8 @@ import java.util.stream.Collectors;
  */
 @Slf4j
 public class PhysicalVertex {
+
+    private final DistributedStoreManager distributedStoreManager;
 
     private final TaskGroupLocation taskGroupLocation;
 
@@ -97,7 +101,7 @@ public class PhysicalVertex {
     // including the storage path of the Jar package on the server.
     private final List<Set<ConnectorJarIdentifier>> connectorJarIdentifiers;
 
-    private final IMap<Object, Object> runningJobStateIMap;
+    private final StateStore<Object, Object> runningJobStateStore;
 
     /**
      * When PhysicalVertex status turn to end, complete this future. And then the
@@ -111,7 +115,7 @@ public class PhysicalVertex {
      * value, i.e. the timestamp when the graph went into state "RUNNING" is at {@code
      * stateTimestamps[RUNNING.ordinal()]}.
      */
-    private final IMap<Object, Long[]> runningJobStateTimestampsIMap;
+    private final StateStore<Object, Long[]> runningJobStateTimestampsStore;
 
     private final NodeEngine nodeEngine;
 
@@ -136,8 +140,9 @@ public class PhysicalVertex {
             @NonNull JobImmutableInformation jobImmutableInformation,
             long initializationTimestamp,
             @NonNull NodeEngine nodeEngine,
-            @NonNull IMap runningJobStateIMap,
-            @NonNull IMap runningJobStateTimestampsIMap) {
+            @NonNull StateStore runningJobStateStore,
+            @NonNull StateStore runningJobStateTimestampsStore) {
+        this.distributedStoreManager = new DistributedStoreManager((NodeEngineImpl) nodeEngine);
         this.taskGroupLocation = taskGroup.getTaskGroupLocation();
         this.taskGroup = taskGroup;
         this.flakeIdGenerator = flakeIdGenerator;
@@ -145,21 +150,21 @@ public class PhysicalVertex {
         this.connectorJarIdentifiers = connectorJarIdentifiers;
 
         Long[] stateTimestamps = new Long[ExecutionState.values().length];
-        if (runningJobStateTimestampsIMap.get(taskGroup.getTaskGroupLocation()) == null) {
+        if (runningJobStateTimestampsStore.get(taskGroup.getTaskGroupLocation()) == null) {
             stateTimestamps[ExecutionState.INITIALIZING.ordinal()] = initializationTimestamp;
-            runningJobStateTimestampsIMap.put(taskGroup.getTaskGroupLocation(), stateTimestamps);
+            runningJobStateTimestampsStore.put(taskGroup.getTaskGroupLocation(), stateTimestamps);
         }
 
-        if (runningJobStateIMap.get(taskGroupLocation) == null) {
-            // we must update runningJobStateTimestampsIMap first and then can update
-            // runningJobStateIMap
+        if (runningJobStateStore.get(taskGroupLocation) == null) {
+            // we must update runningJobStateTimestampsStore first and then can update
+            // runningJobStateStore
             stateTimestamps[ExecutionState.CREATED.ordinal()] = System.currentTimeMillis();
-            runningJobStateTimestampsIMap.put(taskGroupLocation, stateTimestamps);
+            runningJobStateTimestampsStore.put(taskGroupLocation, stateTimestamps);
 
-            runningJobStateIMap.put(taskGroupLocation, ExecutionState.CREATED);
+            runningJobStateStore.put(taskGroupLocation, ExecutionState.CREATED);
         }
 
-        this.currExecutionState = (ExecutionState) runningJobStateIMap.get(taskGroupLocation);
+        this.currExecutionState = (ExecutionState) runningJobStateStore.get(taskGroupLocation);
 
         this.nodeEngine = nodeEngine;
         this.taskFullName =
@@ -175,13 +180,13 @@ public class PhysicalVertex {
 
         this.taskFuture = new CompletableFuture<>();
 
-        this.runningJobStateIMap = runningJobStateIMap;
-        this.runningJobStateTimestampsIMap = runningJobStateTimestampsIMap;
+        this.runningJobStateStore = runningJobStateStore;
+        this.runningJobStateTimestampsStore = runningJobStateTimestampsStore;
     }
 
     public PassiveCompletableFuture<TaskExecutionState> initStateFuture() {
         this.taskFuture = new CompletableFuture<>();
-        this.currExecutionState = (ExecutionState) runningJobStateIMap.get(taskGroupLocation);
+        this.currExecutionState = (ExecutionState) runningJobStateStore.get(taskGroupLocation);
         if (currExecutionState != null) {
             log.info(
                     String.format(
@@ -210,10 +215,10 @@ public class PhysicalVertex {
     }
 
     private boolean checkTaskGroupIsExecuting(TaskGroupLocation taskGroupLocation) {
-        IMap<PipelineLocation, Map<TaskGroupLocation, SlotProfile>> ownedSlotProfilesIMap =
-                nodeEngine.getHazelcastInstance().getMap(Constant.IMAP_OWNED_SLOT_PROFILES);
+        StateStore<PipelineLocation, Map<TaskGroupLocation, SlotProfile>> ownedSlotProfilesStore =
+                distributedStoreManager.getMap(Constant.IMAP_OWNED_SLOT_PROFILES);
         SlotProfile slotProfile =
-                getOwnedSlotProfilesByTaskGroup(taskGroupLocation, ownedSlotProfilesIMap);
+                getOwnedSlotProfilesByTaskGroup(taskGroupLocation, ownedSlotProfilesStore);
         if (null != slotProfile) {
             Address worker = slotProfile.getWorker();
             List<Address> members =
@@ -250,10 +255,11 @@ public class PhysicalVertex {
 
     private SlotProfile getOwnedSlotProfilesByTaskGroup(
             TaskGroupLocation taskGroupLocation,
-            IMap<PipelineLocation, Map<TaskGroupLocation, SlotProfile>> ownedSlotProfilesIMap) {
+            StateStore<PipelineLocation, Map<TaskGroupLocation, SlotProfile>>
+                    ownedSlotProfilesStore) {
         PipelineLocation pipelineLocation = taskGroupLocation.getPipelineLocation();
         try {
-            return ownedSlotProfilesIMap.get(pipelineLocation).get(taskGroupLocation);
+            return ownedSlotProfilesStore.get(pipelineLocation).get(taskGroupLocation);
         } catch (NullPointerException ignore) {
         }
         return null;
@@ -350,7 +356,7 @@ public class PhysicalVertex {
 
     public synchronized void updateTaskState(@NonNull ExecutionState targetState) {
         try {
-            ExecutionState current = (ExecutionState) runningJobStateIMap.get(taskGroupLocation);
+            ExecutionState current = (ExecutionState) runningJobStateStore.get(taskGroupLocation);
             log.debug(
                     String.format(
                             "Try to update the task %s state from %s to %s",
@@ -375,7 +381,7 @@ public class PhysicalVertex {
             RetryUtils.retryWithException(
                     () -> {
                         updateStateTimestamps(targetState);
-                        runningJobStateIMap.set(taskGroupLocation, targetState);
+                        runningJobStateStore.set(taskGroupLocation, targetState);
                         return null;
                     },
                     new RetryUtils.RetryMaterial(
@@ -448,11 +454,11 @@ public class PhysicalVertex {
     }
 
     private void updateStateTimestamps(@NonNull ExecutionState targetState) {
-        // we must update runningJobStateTimestampsIMap first and then can update
-        // runningJobStateIMap
-        Long[] stateTimestamps = runningJobStateTimestampsIMap.get(taskGroupLocation);
+        // we must update runningJobStateTimestampsStore first and then can update
+        // runningJobStateStore
+        Long[] stateTimestamps = runningJobStateTimestampsStore.get(taskGroupLocation);
         stateTimestamps[targetState.ordinal()] = System.currentTimeMillis();
-        runningJobStateTimestampsIMap.set(taskGroupLocation, stateTimestamps);
+        runningJobStateTimestampsStore.set(taskGroupLocation, stateTimestamps);
     }
 
     public ExecutionState getExecutionState() {
@@ -474,7 +480,7 @@ public class PhysicalVertex {
                 RetryUtils.retryWithException(
                         () -> {
                             updateStateTimestamps(ExecutionState.CREATED);
-                            runningJobStateIMap.set(taskGroupLocation, ExecutionState.CREATED);
+                            runningJobStateStore.set(taskGroupLocation, ExecutionState.CREATED);
                             // reset the errorByPhysicalVertex
                             errorByPhysicalVertex = new AtomicReference<>();
                             return null;

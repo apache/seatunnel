@@ -68,6 +68,8 @@ import org.apache.seatunnel.engine.server.resourcemanager.ResourceManager;
 import org.apache.seatunnel.engine.server.resourcemanager.ResourceManagerFactory;
 import org.apache.seatunnel.engine.server.resourcemanager.resource.SlotProfile;
 import org.apache.seatunnel.engine.server.service.jar.ConnectorPackageService;
+import org.apache.seatunnel.engine.server.storage.DistributedStoreManager;
+import org.apache.seatunnel.engine.server.storage.StateStore;
 import org.apache.seatunnel.engine.server.task.operation.GetMetricsOperation;
 import org.apache.seatunnel.engine.server.telemetry.metrics.entity.JobCounter;
 import org.apache.seatunnel.engine.server.telemetry.metrics.entity.ThreadPoolStatus;
@@ -80,7 +82,6 @@ import com.hazelcast.core.HazelcastInstanceNotActiveException;
 import com.hazelcast.internal.serialization.Data;
 import com.hazelcast.internal.services.MembershipServiceEvent;
 import com.hazelcast.logging.ILogger;
-import com.hazelcast.map.IMap;
 import com.hazelcast.ringbuffer.Ringbuffer;
 import com.hazelcast.spi.impl.NodeEngineImpl;
 import lombok.NonNull;
@@ -109,6 +110,7 @@ import static org.apache.seatunnel.engine.server.metrics.JobMetricsUtil.toJobMet
 
 public class CoordinatorService {
     private final NodeEngineImpl nodeEngine;
+    private final DistributedStoreManager distributedStoreManager;
     private final ILogger logger;
 
     private volatile ResourceManager resourceManager;
@@ -116,41 +118,41 @@ public class CoordinatorService {
     private JobHistoryService jobHistoryService;
 
     /**
-     * IMap key is jobId and value is {@link JobInfo}. Tuple2 key is JobMaster init timestamp and
-     * value is the jobImmutableInformation which is sent by client when submit job
+     * StateStore key is jobId and value is {@link JobInfo}. Tuple2 key is JobMaster init timestamp
+     * and value is the jobImmutableInformation which is sent by client when submit job
      *
-     * <p>This IMap is used to recovery runningJobInfoIMap in JobMaster when a new master node
-     * active
+     * <p>This StateStore is used to recovery runningJobInfoStore in JobMaster when a new master
+     * node active
      */
-    private IMap<Long, JobInfo> runningJobInfoIMap;
+    private StateStore<Long, JobInfo> runningJobInfoStore;
 
     /**
-     * IMap key is one of jobId {@link
+     * StateStore key is one of jobId {@link
      * org.apache.seatunnel.engine.server.dag.physical.PipelineLocation} and {@link
      * org.apache.seatunnel.engine.server.execution.TaskGroupLocation}
      *
-     * <p>The value of IMap is one of {@link JobStatus} {@link PipelineStatus} {@link
+     * <p>The value of StateStore is one of {@link JobStatus} {@link PipelineStatus} {@link
      * org.apache.seatunnel.engine.server.execution.ExecutionState}
      *
-     * <p>This IMap is used to recovery runningJobStateIMap in JobMaster when a new master node
-     * active
+     * <p>This StateStore is used to recovery runningJobStateStore in JobMaster when a new master
+     * node active
      */
-    private IMap<Object, Object> runningJobStateIMap;
+    private StateStore<Object, Object> runningJobStateStore;
 
     /**
-     * IMap key is one of jobId {@link
+     * StateStore key is one of jobId {@link
      * org.apache.seatunnel.engine.server.dag.physical.PipelineLocation} and {@link
      * org.apache.seatunnel.engine.server.execution.TaskGroupLocation}
      *
-     * <p>The value of IMap is one of {@link
+     * <p>The value of StateStore is one of {@link
      * org.apache.seatunnel.engine.server.dag.physical.PhysicalPlan} stateTimestamps {@link
      * org.apache.seatunnel.engine.server.dag.physical.SubPlan} stateTimestamps {@link
      * org.apache.seatunnel.engine.server.dag.physical.PhysicalVertex} stateTimestamps
      *
-     * <p>This IMap is used to recovery runningJobStateTimestampsIMap in JobMaster when a new master
-     * node active
+     * <p>This StateStore is used to recovery runningJobStateTimestampsStore in JobMaster when a new
+     * master node active
      */
-    private IMap<Object, Long[]> runningJobStateTimestampsIMap;
+    private StateStore<Object, Long[]> runningJobStateTimestampsStore;
 
     /**
      * key: job id; <br>
@@ -162,16 +164,18 @@ public class CoordinatorService {
             new PeekBlockingQueue<>(PendingJobInfo::getJobId);
 
     /**
-     * IMap key is {@link PipelineLocation}
+     * StateStore key is {@link PipelineLocation}
      *
-     * <p>The value of IMap is map of {@link TaskGroupLocation} and the {@link SlotProfile} it used.
+     * <p>The value of StateStore is map of {@link TaskGroupLocation} and the {@link SlotProfile} it
+     * used.
      *
-     * <p>This IMap is used to recovery ownedSlotProfilesIMap in JobMaster when a new master node
-     * active
+     * <p>This StateStore is used to recovery ownedSlotProfilesStore in JobMaster when a new master
+     * node active
      */
-    private IMap<PipelineLocation, Map<TaskGroupLocation, SlotProfile>> ownedSlotProfilesIMap;
+    private StateStore<PipelineLocation, Map<TaskGroupLocation, SlotProfile>>
+            ownedSlotProfilesStore;
 
-    private IMap<Long, HashMap<TaskLocation, SeaTunnelMetricsContext>> metricsImap;
+    private StateStore<Long, HashMap<TaskLocation, SeaTunnelMetricsContext>> metricsStore;
 
     /** If this node is a master node */
     private volatile boolean isActive = false;
@@ -199,6 +203,7 @@ public class CoordinatorService {
             @NonNull SeaTunnelServer seaTunnelServer,
             EngineConfig engineConfig) {
         this.nodeEngine = nodeEngine;
+        this.distributedStoreManager = new DistributedStoreManager(nodeEngine);
         this.engineConfig = engineConfig;
         this.logger = nodeEngine.getLogger(getClass());
         this.executorService =
@@ -307,7 +312,7 @@ public class CoordinatorService {
                 () -> {
                     try {
                         String jobFullName = finalJobMaster.getPhysicalPlan().getJobFullName();
-                        JobStatus jobStatus = (JobStatus) runningJobStateIMap.get(jobId);
+                        JobStatus jobStatus = (JobStatus) runningJobStateStore.get(jobId);
                         if (pendingSourceState == PendingSourceState.RESTORE) {
                             finalJobMaster
                                     .getPhysicalPlan()
@@ -402,30 +407,23 @@ public class CoordinatorService {
     }
 
     private void initCoordinatorService() {
-        runningJobInfoIMap =
-                nodeEngine.getHazelcastInstance().getMap(Constant.IMAP_RUNNING_JOB_INFO);
-        runningJobStateIMap =
-                nodeEngine.getHazelcastInstance().getMap(Constant.IMAP_RUNNING_JOB_STATE);
-        runningJobStateTimestampsIMap =
-                nodeEngine.getHazelcastInstance().getMap(Constant.IMAP_STATE_TIMESTAMPS);
-        ownedSlotProfilesIMap =
-                nodeEngine.getHazelcastInstance().getMap(Constant.IMAP_OWNED_SLOT_PROFILES);
-        metricsImap = nodeEngine.getHazelcastInstance().getMap(Constant.IMAP_RUNNING_JOB_METRICS);
+        runningJobInfoStore = distributedStoreManager.getMap(Constant.IMAP_RUNNING_JOB_INFO);
+        runningJobStateStore = distributedStoreManager.getMap(Constant.IMAP_RUNNING_JOB_STATE);
+        runningJobStateTimestampsStore =
+                distributedStoreManager.getMap(Constant.IMAP_STATE_TIMESTAMPS);
+        ownedSlotProfilesStore = distributedStoreManager.getMap(Constant.IMAP_OWNED_SLOT_PROFILES);
+        metricsStore = distributedStoreManager.getMap(Constant.IMAP_RUNNING_JOB_METRICS);
 
         jobHistoryService =
                 new JobHistoryService(
                         nodeEngine,
-                        runningJobStateIMap,
+                        runningJobStateStore,
                         logger,
                         pendingJobQueue.getJobIdMap(),
                         runningJobMasterMap,
-                        nodeEngine.getHazelcastInstance().getMap(Constant.IMAP_FINISHED_JOB_STATE),
-                        nodeEngine
-                                .getHazelcastInstance()
-                                .getMap(Constant.IMAP_FINISHED_JOB_METRICS),
-                        nodeEngine
-                                .getHazelcastInstance()
-                                .getMap(Constant.IMAP_FINISHED_JOB_VERTEX_INFO),
+                        distributedStoreManager.getMap(Constant.IMAP_FINISHED_JOB_STATE),
+                        distributedStoreManager.getMap(Constant.IMAP_FINISHED_JOB_METRICS),
+                        distributedStoreManager.getMap(Constant.IMAP_FINISHED_JOB_VERTEX_INFO),
                         engineConfig.getHistoryJobExpireMinutes());
         eventProcessor =
                 createJobEventProcessor(
@@ -448,7 +446,7 @@ public class CoordinatorService {
 
     private void restoreAllRunningJobFromMasterNodeSwitch() {
         List<Map.Entry<Long, JobInfo>> needRestoreFromMasterNodeSwitchJobs =
-                runningJobInfoIMap.entrySet().stream()
+                runningJobInfoStore.entrySet().stream()
                         .filter(entry -> !runningJobMasterMap.containsKey(entry.getKey()))
                         .collect(Collectors.toList());
         if (needRestoreFromMasterNodeSwitchJobs.isEmpty()) {
@@ -504,8 +502,8 @@ public class CoordinatorService {
     }
 
     private void restoreJobFromMasterActiveSwitch(@NonNull Long jobId, @NonNull JobInfo jobInfo) {
-        if (runningJobStateIMap.get(jobId) == null) {
-            runningJobInfoIMap.remove(jobId);
+        if (runningJobStateStore.get(jobId) == null) {
+            runningJobInfoStore.remove(jobId);
             return;
         }
 
@@ -517,15 +515,15 @@ public class CoordinatorService {
                         MDCTracer.tracing(jobId, executorService),
                         getResourceManager(),
                         getJobHistoryService(),
-                        runningJobStateIMap,
-                        runningJobStateTimestampsIMap,
-                        ownedSlotProfilesIMap,
-                        runningJobInfoIMap,
+                        runningJobStateStore,
+                        runningJobStateTimestampsStore,
+                        ownedSlotProfilesStore,
+                        runningJobInfoStore,
                         engineConfig,
                         seaTunnelServer);
 
         try {
-            jobMaster.init(runningJobInfoIMap.get(jobId).getInitializationTimestamp(), true);
+            jobMaster.init(runningJobInfoStore.get(jobId).getInitializationTimestamp(), true);
         } catch (Exception e) {
             throw new SeaTunnelEngineException(String.format("Job id %s init failed", jobId), e);
         }
@@ -640,10 +638,10 @@ public class CoordinatorService {
                         mdcExecutorService,
                         getResourceManager(),
                         getJobHistoryService(),
-                        runningJobStateIMap,
-                        runningJobStateTimestampsIMap,
-                        ownedSlotProfilesIMap,
-                        runningJobInfoIMap,
+                        runningJobStateStore,
+                        runningJobStateTimestampsStore,
+                        ownedSlotProfilesStore,
+                        runningJobInfoStore,
                         engineConfig,
                         seaTunnelServer);
         mdcExecutorService.submit(
@@ -657,11 +655,11 @@ public class CoordinatorService {
                                             "The job id %s has already been submitted and is not starting with a savepoint.",
                                             jobId));
                         }
-                        runningJobInfoIMap.put(
+                        runningJobInfoStore.put(
                                 jobId,
                                 new JobInfo(System.currentTimeMillis(), jobImmutableInformation));
                         jobMaster.init(
-                                runningJobInfoIMap.get(jobId).getInitializationTimestamp(), false);
+                                runningJobInfoStore.get(jobId).getInitializationTimestamp(), false);
                         // Initialize the JobMaster and add it to the pendingJobQueue, ensuring that
                         // calling the getJobMaster method does not return NULL when the
                         // jobSubmitFuture is still running.
@@ -683,7 +681,7 @@ public class CoordinatorService {
                                         jobId,
                                         jobMaster.getJobImmutableInformation().getJobName()));
                     } else {
-                        runningJobInfoIMap.remove(jobId);
+                        runningJobInfoStore.remove(jobId);
                         runningJobMasterMap.remove(jobId);
                         pendingJobQueue.removeById(jobId);
                     }
@@ -788,7 +786,7 @@ public class CoordinatorService {
         }
         JobStatus jobStatus = runningJobMaster.getJobStatus();
         if (jobStatus == null) {
-            return jobHistoryService.getFinishedJobStateImap().get(jobId).getJobStatus();
+            return jobHistoryService.getFinishedJobStateStore().get(jobId).getJobStatus();
         }
         return jobStatus;
     }
@@ -803,18 +801,20 @@ public class CoordinatorService {
             return jobHistoryService.getJobMetrics(jobId);
         }
         JobMetrics jobMetrics = JobMetricsUtil.toJobMetrics(runningJobMaster.getCurrJobMetrics());
-        JobMetrics jobMetricsImap = jobHistoryService.getJobMetrics(jobId);
-        return jobMetricsImap != JobMetrics.empty() ? jobMetricsImap.merge(jobMetrics) : jobMetrics;
+        JobMetrics jobMetricsRecord = jobHistoryService.getJobMetrics(jobId);
+        return jobMetricsRecord != JobMetrics.empty()
+                ? jobMetricsRecord.merge(jobMetrics)
+                : jobMetrics;
     }
 
     public Map<Long, JobMetrics> getRunningJobMetrics() {
         final Set<Long> runningJobIds = runningJobMasterMap.keySet();
 
         Set<Address> addresses = new HashSet<>();
-        ownedSlotProfilesIMap.forEach(
-                (pipelineLocation, ownedSlotProfilesIMap) -> {
+        ownedSlotProfilesStore.forEach(
+                (pipelineLocation, slotProfileMap) -> {
                     if (runningJobIds.contains(pipelineLocation.getJobId())) {
-                        ownedSlotProfilesIMap
+                        slotProfileMap
                                 .values()
                                 .forEach(
                                         ownedSlotProfile -> {
@@ -855,9 +855,9 @@ public class CoordinatorService {
 
         longJobMetricsMap.forEach(
                 (jobId, jobMetrics) -> {
-                    JobMetrics jobMetricsImap = jobHistoryService.getJobMetrics(jobId);
-                    if (jobMetricsImap != JobMetrics.empty()) {
-                        longJobMetricsMap.put(jobId, jobMetricsImap.merge(jobMetrics));
+                    JobMetrics jobMetricsRecord = jobHistoryService.getJobMetrics(jobId);
+                    if (jobMetricsRecord != JobMetrics.empty()) {
+                        longJobMetricsMap.put(jobId, jobMetricsRecord.merge(jobMetrics));
                     }
                 });
 
@@ -1166,8 +1166,9 @@ public class CoordinatorService {
     }
 
     @VisibleForTesting
-    protected IMap<Long, HashMap<TaskLocation, SeaTunnelMetricsContext>> getMetricsImap() {
-        return metricsImap;
+    protected StateStore<Long, HashMap<TaskLocation, SeaTunnelMetricsContext>>
+            getMetricsStateStore() {
+        return metricsStore;
     }
 
     @VisibleForTesting

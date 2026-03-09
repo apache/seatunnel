@@ -40,12 +40,12 @@ import org.apache.seatunnel.engine.server.dag.physical.SubPlan;
 import org.apache.seatunnel.engine.server.execution.Task;
 import org.apache.seatunnel.engine.server.execution.TaskLocation;
 import org.apache.seatunnel.engine.server.master.JobMaster;
+import org.apache.seatunnel.engine.server.storage.StateStore;
 import org.apache.seatunnel.engine.server.task.SourceSplitEnumeratorTask;
 import org.apache.seatunnel.engine.server.task.operation.TaskOperation;
 import org.apache.seatunnel.engine.server.task.statemachine.SeaTunnelTaskState;
 import org.apache.seatunnel.engine.server.utils.NodeEngineUtil;
 
-import com.hazelcast.map.IMap;
 import com.hazelcast.spi.impl.NodeEngine;
 import com.hazelcast.spi.impl.operationservice.impl.InvocationFuture;
 import lombok.extern.slf4j.Slf4j;
@@ -92,7 +92,7 @@ public class CheckpointManager {
             CheckpointConfig checkpointConfig,
             CheckpointStorage checkpointStorage,
             ExecutorService executorService,
-            IMap<Object, Object> runningJobStateIMap,
+            StateStore<Object, Object> runningJobStateStore,
             CheckpointMonitorService checkpointMonitorService) {
         this.jobId = jobId;
         this.nodeEngine = nodeEngine;
@@ -137,7 +137,7 @@ public class CheckpointManager {
                                                 idCounter,
                                                 pipelineState,
                                                 executorService,
-                                                runningJobStateIMap,
+                                                runningJobStateStore,
                                                 isStartWithSavePoint,
                                                 checkpointMonitorService);
                                     } catch (Exception e) {

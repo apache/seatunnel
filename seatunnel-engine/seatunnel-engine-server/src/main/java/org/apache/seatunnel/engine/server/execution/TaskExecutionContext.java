@@ -21,12 +21,13 @@ import org.apache.seatunnel.engine.common.Constant;
 import org.apache.seatunnel.engine.server.SeaTunnelServer;
 import org.apache.seatunnel.engine.server.TaskExecutionService;
 import org.apache.seatunnel.engine.server.metrics.SeaTunnelMetricsContext;
+import org.apache.seatunnel.engine.server.storage.DistributedStoreManager;
+import org.apache.seatunnel.engine.server.storage.StateStore;
 import org.apache.seatunnel.engine.server.utils.NodeEngineUtil;
 
 import com.hazelcast.cluster.Address;
 import com.hazelcast.core.HazelcastInstance;
 import com.hazelcast.logging.ILogger;
-import com.hazelcast.map.IMap;
 import com.hazelcast.spi.impl.NodeEngineImpl;
 import com.hazelcast.spi.impl.operationservice.Operation;
 import com.hazelcast.spi.impl.operationservice.impl.InvocationFuture;
@@ -38,12 +39,14 @@ public class TaskExecutionContext {
     private final Task task;
     private final NodeEngineImpl nodeEngine;
     private final TaskExecutionService taskExecutionService;
+    private final DistributedStoreManager distributedStoreManager;
 
     public TaskExecutionContext(
             Task task, NodeEngineImpl nodeEngine, TaskExecutionService taskExecutionService) {
         this.task = task;
         this.nodeEngine = nodeEngine;
         this.taskExecutionService = taskExecutionService;
+        this.distributedStoreManager = new DistributedStoreManager(nodeEngine);
     }
 
     public <E> InvocationFuture<E> sendToMaster(Operation operation) {
@@ -59,14 +62,14 @@ public class TaskExecutionContext {
     }
 
     public SeaTunnelMetricsContext getOrCreateMetricsContext(TaskLocation taskLocation) {
-        IMap<Long, HashMap<TaskLocation, SeaTunnelMetricsContext>> map =
-                nodeEngine.getHazelcastInstance().getMap(Constant.IMAP_RUNNING_JOB_METRICS);
+        StateStore<Long, HashMap<TaskLocation, SeaTunnelMetricsContext>> map =
+                distributedStoreManager.getMap(Constant.IMAP_RUNNING_JOB_METRICS);
         int partitionCount =
                 taskExecutionService
                         .getSeaTunnelConfig()
                         .getEngineConfig()
                         .getJobMetricsPartitionCount();
-        long partition = SeaTunnelServer.getMetricsImapPartition(taskLocation, partitionCount);
+        long partition = SeaTunnelServer.getMetricsStorePartition(taskLocation, partitionCount);
         HashMap<TaskLocation, SeaTunnelMetricsContext> centralMap = map.get(partition);
         return centralMap == null || centralMap.get(taskLocation) == null
                 ? new SeaTunnelMetricsContext()

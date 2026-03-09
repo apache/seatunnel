@@ -34,8 +34,8 @@ import org.apache.seatunnel.engine.server.execution.TaskExecutionState;
 import org.apache.seatunnel.engine.server.execution.TaskGroupLocation;
 import org.apache.seatunnel.engine.server.master.JobMaster;
 import org.apache.seatunnel.engine.server.resourcemanager.resource.SlotProfile;
+import org.apache.seatunnel.engine.server.storage.StateStore;
 
-import com.hazelcast.map.IMap;
 import lombok.Data;
 import lombok.NonNull;
 import lombok.extern.slf4j.Slf4j;
@@ -70,7 +70,7 @@ public class SubPlan {
 
     private final String pipelineFullName;
 
-    private final IMap<Object, Object> runningJobStateIMap;
+    private final StateStore<Object, Object> runningJobStateStore;
     private final Map<String, String> tags;
 
     /**
@@ -79,7 +79,7 @@ public class SubPlan {
      * enum value, i.e. the timestamp when the graph went into state "RUNNING" is at {@code
      * stateTimestamps[RUNNING.ordinal()]}.
      */
-    private final IMap<Object, Long[]> runningJobStateTimestampsIMap;
+    private final StateStore<Object, Long[]> runningJobStateTimestampsStore;
 
     /**
      * Complete this future when this sub plan complete. When this future completed, the
@@ -116,8 +116,8 @@ public class SubPlan {
             @NonNull List<PhysicalVertex> coordinatorVertexList,
             @NonNull JobImmutableInformation jobImmutableInformation,
             @NonNull ExecutorService executorService,
-            @NonNull IMap runningJobStateIMap,
-            @NonNull IMap runningJobStateTimestampsIMap,
+            @NonNull StateStore runningJobStateStore,
+            @NonNull StateStore runningJobStateTimestampsStore,
             Map<String, String> tags) {
         this.pipelineId = pipelineId;
         this.pipelineLocation =
@@ -147,21 +147,21 @@ public class SubPlan {
                                                         .defaultValue())
                                 .toString());
         Long[] stateTimestamps = new Long[PipelineStatus.values().length];
-        if (runningJobStateTimestampsIMap.get(pipelineLocation) == null) {
+        if (runningJobStateTimestampsStore.get(pipelineLocation) == null) {
             stateTimestamps[PipelineStatus.INITIALIZING.ordinal()] = initializationTimestamp;
-            runningJobStateTimestampsIMap.put(pipelineLocation, stateTimestamps);
+            runningJobStateTimestampsStore.put(pipelineLocation, stateTimestamps);
         }
 
-        if (runningJobStateIMap.get(pipelineLocation) == null) {
-            // we must update runningJobStateTimestampsIMap first and then can update
-            // runningJobStateIMap
+        if (runningJobStateStore.get(pipelineLocation) == null) {
+            // we must update runningJobStateTimestampsStore first and then can update
+            // runningJobStateStore
             stateTimestamps[PipelineStatus.CREATED.ordinal()] = System.currentTimeMillis();
-            runningJobStateTimestampsIMap.put(pipelineLocation, stateTimestamps);
+            runningJobStateTimestampsStore.put(pipelineLocation, stateTimestamps);
 
-            runningJobStateIMap.put(pipelineLocation, PipelineStatus.CREATED);
+            runningJobStateStore.put(pipelineLocation, PipelineStatus.CREATED);
         }
 
-        this.currPipelineStatus = (PipelineStatus) runningJobStateIMap.get(pipelineLocation);
+        this.currPipelineStatus = (PipelineStatus) runningJobStateStore.get(pipelineLocation);
 
         this.pipelineFullName =
                 String.format(
@@ -170,8 +170,8 @@ public class SubPlan {
                         jobImmutableInformation.getJobId(),
                         pipelineId,
                         totalPipelineNum);
-        this.runningJobStateIMap = runningJobStateIMap;
-        this.runningJobStateTimestampsIMap = runningJobStateTimestampsIMap;
+        this.runningJobStateStore = runningJobStateStore;
+        this.runningJobStateTimestampsStore = runningJobStateTimestampsStore;
         this.executorService = executorService;
         this.tags = tags;
     }
@@ -339,7 +339,7 @@ public class SubPlan {
 
     public synchronized void updatePipelineState(@NonNull PipelineStatus targetState) {
         try {
-            PipelineStatus current = (PipelineStatus) runningJobStateIMap.get(pipelineLocation);
+            PipelineStatus current = (PipelineStatus) runningJobStateStore.get(pipelineLocation);
             log.debug(
                     String.format(
                             "Try to update the %s state from %s to %s",
@@ -361,13 +361,13 @@ public class SubPlan {
             }
 
             // now do the actual state transition
-            // we must update runningJobStateTimestampsIMap first and then can update
-            // runningJobStateIMap
+            // we must update runningJobStateTimestampsStore first and then can update
+            // runningJobStateStore
             PipelineStatus finalTargetState = targetState;
             RetryUtils.retryWithException(
                     () -> {
                         updateStateTimestamps(finalTargetState);
-                        runningJobStateIMap.set(pipelineLocation, finalTargetState);
+                        runningJobStateStore.set(pipelineLocation, finalTargetState);
                         return null;
                     },
                     new RetryUtils.RetryMaterial(
@@ -415,11 +415,11 @@ public class SubPlan {
     }
 
     private void updateStateTimestamps(@NonNull PipelineStatus targetState) {
-        // we must update runningJobStateTimestampsIMap first and then can update
-        // runningJobStateIMap
-        Long[] stateTimestamps = runningJobStateTimestampsIMap.get(pipelineLocation);
+        // we must update runningJobStateTimestampsMap first and then can update
+        // runningJobStateMap
+        Long[] stateTimestamps = runningJobStateTimestampsStore.get(pipelineLocation);
         stateTimestamps[targetState.ordinal()] = System.currentTimeMillis();
-        runningJobStateTimestampsIMap.set(pipelineLocation, stateTimestamps);
+        runningJobStateTimestampsStore.set(pipelineLocation, stateTimestamps);
     }
 
     private void resetPipelineState() throws Exception {
@@ -439,7 +439,7 @@ public class SubPlan {
                                     "Reset pipeline %s state to %s",
                                     getPipelineFullName(), PipelineStatus.CREATED));
                     updateStateTimestamps(PipelineStatus.CREATED);
-                    runningJobStateIMap.set(pipelineLocation, PipelineStatus.CREATED);
+                    runningJobStateStore.set(pipelineLocation, PipelineStatus.CREATED);
                     this.currPipelineStatus = PipelineStatus.CREATED;
                     log.info(
                             String.format(

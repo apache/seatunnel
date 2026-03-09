@@ -32,6 +32,7 @@ import org.apache.seatunnel.engine.server.master.JobMaster;
 import org.apache.seatunnel.engine.server.metrics.SeaTunnelMetricsContext;
 import org.apache.seatunnel.engine.server.operation.PrintMessageOperation;
 import org.apache.seatunnel.engine.server.operation.ReturnRetryTimesOperation;
+import org.apache.seatunnel.engine.server.storage.StateStore;
 import org.apache.seatunnel.engine.server.task.operation.ReportMetricsOperation;
 import org.apache.seatunnel.engine.server.utils.NodeEngineUtil;
 
@@ -42,7 +43,6 @@ import org.junitpioneer.jupiter.SetEnvironmentVariable;
 
 import com.hazelcast.instance.impl.HazelcastInstanceImpl;
 import com.hazelcast.internal.serialization.Data;
-import com.hazelcast.map.IMap;
 import com.hazelcast.spi.impl.NodeEngineImpl;
 import lombok.extern.slf4j.Slf4j;
 
@@ -61,9 +61,9 @@ import java.util.concurrent.TimeUnit;
 import static org.awaitility.Awaitility.await;
 
 @Slf4j
-public class CoordinatorServiceTest {
+class CoordinatorServiceTest {
     @Test
-    public void testMasterNodeActive() {
+    void testMasterNodeActive() {
         String clusterName =
                 TestUtils.getClusterName("CoordinatorServiceTest_testMasterNodeActive");
         HazelcastInstanceImpl instance1 =
@@ -119,7 +119,7 @@ public class CoordinatorServiceTest {
     }
 
     @Test
-    public void testSeaTunnelEngineRetryableExceptionOperationCanBeRetryByHazelcast() {
+    void testSeaTunnelEngineRetryableExceptionOperationCanBeRetryByHazelcast() {
 
         HazelcastInstanceImpl instance =
                 SeaTunnelServerStarter.createHazelcastInstance(
@@ -147,7 +147,7 @@ public class CoordinatorServiceTest {
     }
 
     @Test
-    public void testInvocationFutureUseCompletableFutureExecutor() {
+    void testInvocationFutureUseCompletableFutureExecutor() {
         HazelcastInstanceImpl instance =
                 SeaTunnelServerStarter.createHazelcastInstance(
                         TestUtils.getClusterName(
@@ -212,15 +212,15 @@ public class CoordinatorServiceTest {
     }
 
     @Test
-    void testCleanupRunningJobStateIMap() {
+    void testCleanupRunningJobStateStore() {
         JobInformation jobInformation =
                 submitJob(
-                        "CoordinatorServiceTest_testCleanupRunningJobStateIMap",
+                        "CoordinatorServiceTest_testCleanupRunningJobStateStore",
                         "batch_fake_to_console.conf",
-                        "test_cleanup_running_job_state_imap");
+                        "test_cleanup_running_job_state_store");
         CoordinatorService coordinatorService = jobInformation.coordinatorService;
-        IMap<Object, Object> runningJobStateIMap =
-                coordinatorService.getJobMaster(jobInformation.jobId).getRunningJobStateIMap();
+        StateStore<Object, Object> runningJobStateStore =
+                coordinatorService.getJobMaster(jobInformation.jobId).getRunningJobStateStore();
 
         await().atMost(10000, TimeUnit.MILLISECONDS)
                 .untilAsserted(
@@ -233,7 +233,7 @@ public class CoordinatorServiceTest {
                             Assertions.assertNotNull(jobMaster);
                             Assertions.assertTrue(
                                     jobMaster
-                                            .getRunningJobStateIMap()
+                                            .getRunningJobStateStore()
                                             .containsKey(jobInformation.jobId));
                         });
 
@@ -247,7 +247,7 @@ public class CoordinatorServiceTest {
                                     coordinatorService.getJobMaster(jobInformation.jobId);
                             // job master should be null
                             Assertions.assertNull(jobMaster);
-                            Assertions.assertTrue(runningJobStateIMap.isEmpty());
+                            Assertions.assertTrue(runningJobStateStore.isEmpty());
                         });
 
         jobInformation.coordinatorService.clearCoordinatorService();
@@ -255,40 +255,40 @@ public class CoordinatorServiceTest {
     }
 
     @Test
-    void testCleanupMetricsImap() {
+    void testCleanupMetricsStateStore() {
         JobInformation jobInformation =
                 submitJob(
-                        "CoordinatorServiceTest_testCleanupMetricsImap",
+                        "CoordinatorServiceTest_testCleanupMetricsStore",
                         "batch_fake_to_console.conf",
-                        "test_cleanup_metrics_imap");
+                        "test_cleanup_metrics_store");
         CoordinatorService coordinatorService = jobInformation.coordinatorService;
-        IMap<Long, HashMap<TaskLocation, SeaTunnelMetricsContext>> metricsImap =
-                coordinatorService.getMetricsImap();
+        StateStore<Long, HashMap<TaskLocation, SeaTunnelMetricsContext>> metricsStore =
+                coordinatorService.getMetricsStateStore();
         await().atMost(10000, TimeUnit.MILLISECONDS)
-                .untilAsserted(() -> Assertions.assertFalse(metricsImap.isEmpty()));
+                .untilAsserted(() -> Assertions.assertFalse(metricsStore.isEmpty()));
         await().atMost(10000, TimeUnit.MILLISECONDS)
-                .untilAsserted(() -> Assertions.assertTrue(metricsImap.isEmpty()));
+                .untilAsserted(() -> Assertions.assertTrue(metricsStore.isEmpty()));
 
         jobInformation.coordinatorService.clearCoordinatorService();
         jobInformation.coordinatorServiceTest.shutdown();
     }
 
     @Test
-    void testCleanupMetricsImapWithPartitionConfig() {
+    void testCleanupMetricsStateStoreWithPartitionConfig() {
         setConfigFile("seatunnel_multiple_metrics_key.yaml");
 
         JobInformation jobInformation =
                 submitJob(
-                        "CoordinatorServiceTest_testCleanupMetricsImapWithPartitionConfig",
+                        "CoordinatorServiceTest_testCleanupMetricsStateStoreWithPartitionConfig",
                         "batch_fake_to_console.conf",
-                        "test_cleanup_metrics_imap_with_partition_config");
+                        "test_cleanup_metrics_state_store_with_partition_config");
         CoordinatorService coordinatorService = jobInformation.coordinatorService;
-        IMap<Long, HashMap<TaskLocation, SeaTunnelMetricsContext>> metricsImap =
-                coordinatorService.getMetricsImap();
+        StateStore<Long, HashMap<TaskLocation, SeaTunnelMetricsContext>> metricsStore =
+                coordinatorService.getMetricsStateStore();
         await().atMost(10000, TimeUnit.MILLISECONDS)
-                .untilAsserted(() -> Assertions.assertFalse(metricsImap.isEmpty()));
+                .untilAsserted(() -> Assertions.assertFalse(metricsStore.isEmpty()));
         await().atMost(10000, TimeUnit.MILLISECONDS)
-                .untilAsserted(() -> Assertions.assertTrue(metricsImap.isEmpty()));
+                .untilAsserted(() -> Assertions.assertTrue(metricsStore.isEmpty()));
 
         jobInformation.coordinatorService.clearCoordinatorService();
         jobInformation.coordinatorServiceTest.shutdown();
@@ -296,10 +296,11 @@ public class CoordinatorServiceTest {
     }
 
     @Test
-    void testMetricsImapSizeWithPartitionConfig() {
+    void testMetricsStateStoreSizeWithPartitionConfig() {
         setConfigFile("seatunnel_multiple_metrics_key.yaml");
 
-        String clusterName = TestUtils.getClusterName("testMetricsImapSizeWithPartitionConfig");
+        String clusterName =
+                TestUtils.getClusterName("testMetricsStateStoreSizeWithPartitionConfig");
         HazelcastInstanceImpl instance1 =
                 SeaTunnelServerStarter.createHazelcastInstance(clusterName);
         SeaTunnelServer server1 =
@@ -313,8 +314,8 @@ public class CoordinatorServiceTest {
                 taskLocation.setTaskID(i);
                 localMap.put(taskLocation, new SeaTunnelMetricsContext());
             }
-            IMap<Long, HashMap<TaskLocation, SeaTunnelMetricsContext>> metricsImap =
-                    server1.getCoordinatorService().getMetricsImap();
+            StateStore<Long, HashMap<TaskLocation, SeaTunnelMetricsContext>> metricsStore =
+                    server1.getCoordinatorService().getMetricsStateStore();
             CompletableFuture.runAsync(
                     () -> {
                         try {
@@ -331,7 +332,7 @@ public class CoordinatorServiceTest {
                         }
                     });
             await().atMost(10000, TimeUnit.MILLISECONDS)
-                    .untilAsserted(() -> Assertions.assertEquals(10, metricsImap.size()));
+                    .untilAsserted(() -> Assertions.assertEquals(10, metricsStore.size()));
         } finally {
             instance1.shutdown();
             setDefaultConfigFile();
@@ -430,7 +431,7 @@ public class CoordinatorServiceTest {
     }
 
     @Test
-    public void testClearCoordinatorService() {
+    void testClearCoordinatorService() {
         JobInformation jobInformation =
                 submitJob(
                         "CoordinatorServiceTest_testClearCoordinatorService",
@@ -482,7 +483,7 @@ public class CoordinatorServiceTest {
 
     @Test
     @Disabled("Disabled because we can't know when the master node switches in the unit tests")
-    public void testJobRestoreWhenMasterNodeSwitch() throws InterruptedException {
+    void testJobRestoreWhenMasterNodeSwitch() throws InterruptedException {
         HazelcastInstanceImpl instance1 =
                 SeaTunnelServerStarter.createHazelcastInstance(
                         TestUtils.getClusterName(
@@ -585,7 +586,7 @@ public class CoordinatorServiceTest {
     @SetEnvironmentVariable(
             key = "ST_DOCKER_MEMBER_LIST",
             value = "127.0.0.1,127.0.0.2,127.0.0.3,127.0.0.4")
-    public void testDockerEnvOverwrite() {
+    void testDockerEnvOverwrite() {
         SeaTunnelConfig seaTunnelConfig = ConfigProvider.locateAndGetSeaTunnelConfig();
         if (seaTunnelConfig
                 .getHazelcastConfig()

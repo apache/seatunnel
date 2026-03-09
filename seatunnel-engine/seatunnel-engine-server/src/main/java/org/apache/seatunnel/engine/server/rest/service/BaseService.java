@@ -54,6 +54,8 @@ import org.apache.seatunnel.engine.server.operation.SavePointJobOperation;
 import org.apache.seatunnel.engine.server.operation.SubmitJobOperation;
 import org.apache.seatunnel.engine.server.rest.RestConstant;
 import org.apache.seatunnel.engine.server.rest.RestJobExecutionEnvironment;
+import org.apache.seatunnel.engine.server.storage.DistributedStoreManager;
+import org.apache.seatunnel.engine.server.storage.StateStore;
 import org.apache.seatunnel.engine.server.utils.NodeEngineUtil;
 import org.apache.seatunnel.engine.server.utils.RestUtil;
 
@@ -66,7 +68,6 @@ import com.hazelcast.internal.json.JsonObject;
 import com.hazelcast.internal.json.JsonValue;
 import com.hazelcast.internal.serialization.Data;
 import com.hazelcast.internal.util.JsonUtil;
-import com.hazelcast.map.IMap;
 import com.hazelcast.spi.impl.NodeEngineImpl;
 import lombok.extern.slf4j.Slf4j;
 
@@ -120,9 +121,11 @@ public abstract class BaseService {
             Pattern.compile("((?:Sink|Source|Transform)\\[(\\d+)\\])");
 
     protected final NodeEngineImpl nodeEngine;
+    protected final DistributedStoreManager distributedStoreManager;
 
     public BaseService(NodeEngineImpl nodeEngine) {
         this.nodeEngine = nodeEngine;
+        this.distributedStoreManager = new DistributedStoreManager(nodeEngine);
     }
 
     protected SeaTunnelServer getSeaTunnelServer(boolean shouldBeMaster) {
@@ -226,8 +229,8 @@ public abstract class BaseService {
     }
 
     private String getJobStartTime(long jobId) {
-        IMap<Object, Long[]> stateTimestamps =
-                nodeEngine.getHazelcastInstance().getMap(Constant.IMAP_STATE_TIMESTAMPS);
+        StateStore<Object, Long[]> stateTimestamps =
+                distributedStoreManager.getMap(Constant.IMAP_STATE_TIMESTAMPS);
         Long[] jobStateTimestamps = stateTimestamps.get(jobId);
         if (jobStateTimestamps != null) {
             Long startTimestamp = jobStateTimestamps[JobStatus.SCHEDULED.ordinal()];

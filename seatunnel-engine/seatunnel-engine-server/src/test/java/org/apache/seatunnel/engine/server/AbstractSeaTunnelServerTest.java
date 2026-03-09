@@ -25,6 +25,7 @@ import org.apache.seatunnel.engine.common.runtime.ExecutionMode;
 import org.apache.seatunnel.engine.common.utils.PassiveCompletableFuture;
 import org.apache.seatunnel.engine.core.dag.logical.LogicalDag;
 import org.apache.seatunnel.engine.core.job.JobImmutableInformation;
+import org.apache.seatunnel.engine.server.storage.DistributedStoreManager;
 
 import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.core.LoggerContext;
@@ -38,6 +39,7 @@ import com.hazelcast.instance.impl.HazelcastInstanceImpl;
 import com.hazelcast.internal.serialization.Data;
 import com.hazelcast.logging.ILogger;
 import com.hazelcast.spi.impl.NodeEngine;
+import com.hazelcast.spi.impl.NodeEngineImpl;
 import lombok.extern.slf4j.Slf4j;
 
 import java.nio.file.Path;
@@ -51,6 +53,8 @@ public abstract class AbstractSeaTunnelServerTest<T extends AbstractSeaTunnelSer
     protected SeaTunnelServer server;
 
     protected NodeEngine nodeEngine;
+
+    protected DistributedStoreManager distributedStoreManager;
 
     protected HazelcastInstanceImpl instance;
 
@@ -67,6 +71,7 @@ public abstract class AbstractSeaTunnelServerTest<T extends AbstractSeaTunnelSer
         seaTunnelConfig.getEngineConfig().setMode(ExecutionMode.LOCAL);
         instance = SeaTunnelServerStarter.createHazelcastInstance(seaTunnelConfig);
         nodeEngine = instance.node.nodeEngine;
+        distributedStoreManager = new DistributedStoreManager((NodeEngineImpl) nodeEngine);
         server = nodeEngine.getService(SeaTunnelServer.SERVICE_NAME);
         LOGGER = nodeEngine.getLogger(AbstractSeaTunnelServerTest.class);
     }

@@ -34,6 +34,8 @@ import org.apache.seatunnel.engine.server.metrics.SeaTunnelMetricsContext;
 import org.apache.seatunnel.engine.server.service.jar.ConnectorPackageService;
 import org.apache.seatunnel.engine.server.service.slot.DefaultSlotService;
 import org.apache.seatunnel.engine.server.service.slot.SlotService;
+import org.apache.seatunnel.engine.server.storage.DistributedStoreManager;
+import org.apache.seatunnel.engine.server.storage.StateStore;
 import org.apache.seatunnel.engine.server.telemetry.log.TaskLogManagerService;
 import org.apache.seatunnel.engine.server.telemetry.metrics.entity.ThreadPoolStatus;
 
@@ -45,7 +47,6 @@ import com.hazelcast.internal.services.MembershipServiceEvent;
 import com.hazelcast.jet.impl.LiveOperationRegistry;
 import com.hazelcast.logging.ILogger;
 import com.hazelcast.logging.Logger;
-import com.hazelcast.map.IMap;
 import com.hazelcast.spi.impl.NodeEngine;
 import com.hazelcast.spi.impl.NodeEngineImpl;
 import com.hazelcast.spi.impl.operationservice.LiveOperations;
@@ -85,6 +86,7 @@ public class SeaTunnelServer
     public static final String SERVICE_NAME = "st:impl:seaTunnelServer";
 
     private NodeEngineImpl nodeEngine;
+    private DistributedStoreManager distributedStoreManager;
     private final LiveOperationRegistry liveOperationRegistry;
 
     private volatile SlotService slotService;
@@ -138,6 +140,7 @@ public class SeaTunnelServer
     @Override
     public void init(NodeEngine engine, Properties hzProperties) {
         this.nodeEngine = (NodeEngineImpl) engine;
+        this.distributedStoreManager = new DistributedStoreManager(nodeEngine);
         // TODO Determine whether to execute there method on the master node according to the deploy
         // type
 
@@ -312,8 +315,8 @@ public class SeaTunnelServer
      * @param taskGroupLocation taskGroupLocation
      */
     public boolean taskIsEnded(@NonNull TaskGroupLocation taskGroupLocation) {
-        IMap<Object, Object> runningJobState =
-                nodeEngine.getHazelcastInstance().getMap(Constant.IMAP_RUNNING_JOB_STATE);
+        StateStore<Object, Object> runningJobState =
+                distributedStoreManager.getMap(Constant.IMAP_RUNNING_JOB_STATE);
 
         Object taskState = runningJobState.get(taskGroupLocation);
         return taskState != null && ((ExecutionState) taskState).isEndState();
@@ -352,13 +355,13 @@ public class SeaTunnelServer
         }
         int partitionCount = seaTunnelConfig.getEngineConfig().getJobMetricsPartitionCount();
 
-        IMap<Long, Map<TaskLocation, SeaTunnelMetricsContext>> metricsImap =
-                getNodeEngine().getHazelcastInstance().getMap(Constant.IMAP_RUNNING_JOB_METRICS);
+        StateStore<Long, Map<TaskLocation, SeaTunnelMetricsContext>> metricsStore =
+                distributedStoreManager.getMap(Constant.IMAP_RUNNING_JOB_METRICS);
 
         Map<Long, Map<TaskLocation, SeaTunnelMetricsContext>> partitioned = new HashMap<>();
         localMap.forEach(
                 (key, value) -> {
-                    long partition = getMetricsImapPartition(key, partitionCount);
+                    long partition = getMetricsStorePartition(key, partitionCount);
                     partitioned.computeIfAbsent(partition, k -> new HashMap<>()).put(key, value);
                 });
 
@@ -367,7 +370,7 @@ public class SeaTunnelServer
                 .parallelStream()
                 .forEach(
                         entry -> {
-                            metricsImap.compute(
+                            metricsStore.compute(
                                     entry.getKey(),
                                     (k, oldVal) -> {
                                         if (oldVal == null) oldVal = new HashMap<>();
@@ -378,12 +381,12 @@ public class SeaTunnelServer
     }
 
     public void removeMetrics(PipelineLocation pipelineLocation) {
-        IMap<Long, Map<TaskLocation, SeaTunnelMetricsContext>> metricsImap =
-                getNodeEngine().getHazelcastInstance().getMap(Constant.IMAP_RUNNING_JOB_METRICS);
+        StateStore<Long, Map<TaskLocation, SeaTunnelMetricsContext>> metricsStore =
+                distributedStoreManager.getMap(Constant.IMAP_RUNNING_JOB_METRICS);
 
         Map<Long, List<TaskLocation>> partitionedTasks = new HashMap<>();
         for (Map.Entry<Long, Map<TaskLocation, SeaTunnelMetricsContext>> entry :
-                metricsImap.entrySet()) {
+                metricsStore.entrySet()) {
             long partition = entry.getKey();
             List<TaskLocation> tasksToRemove =
                     entry.getValue().keySet().stream()
@@ -405,7 +408,7 @@ public class SeaTunnelServer
                         entry -> {
                             long partition = entry.getKey();
                             List<TaskLocation> tasks = entry.getValue();
-                            metricsImap.compute(
+                            metricsStore.compute(
                                     partition,
                                     (k, oldVal) -> {
                                         if (oldVal != null) {
@@ -417,7 +420,7 @@ public class SeaTunnelServer
                         });
     }
 
-    public static long getMetricsImapPartition(TaskLocation key, int partitionCount) {
+    public static long getMetricsStorePartition(TaskLocation key, int partitionCount) {
         return (key.hashCode() & 0x7FFFFFFF) % partitionCount;
     }
 

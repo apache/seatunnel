@@ -31,9 +31,11 @@ import org.apache.seatunnel.engine.server.checkpoint.CheckpointCloseReason;
 import org.apache.seatunnel.engine.server.checkpoint.CompletedCheckpoint;
 import org.apache.seatunnel.engine.server.checkpoint.SubtaskStatistics;
 import org.apache.seatunnel.engine.server.checkpoint.TaskStatistics;
+import org.apache.seatunnel.engine.server.storage.DistributedStoreManager;
+import org.apache.seatunnel.engine.server.storage.StateStore;
 
-import com.hazelcast.map.IMap;
 import com.hazelcast.spi.impl.NodeEngine;
+import com.hazelcast.spi.impl.NodeEngineImpl;
 import lombok.extern.slf4j.Slf4j;
 
 import java.util.ArrayList;
@@ -47,12 +49,13 @@ import java.util.stream.Collectors;
 @Slf4j
 public class CheckpointMonitorService {
 
-    private final IMap<Long, CheckpointOverview> overviewMap;
+    private final StateStore<Long, CheckpointOverview> overviewStore;
     private final int maxHistorySize;
 
     public CheckpointMonitorService(NodeEngine nodeEngine, int maxHistorySize) {
-        this.overviewMap =
-                nodeEngine.getHazelcastInstance().getMap(Constant.IMAP_CHECKPOINT_MONITOR);
+        this.overviewStore =
+                DistributedStoreManager.getMap(
+                        (NodeEngineImpl) nodeEngine, Constant.IMAP_CHECKPOINT_MONITOR);
         this.maxHistorySize = maxHistorySize;
     }
 
@@ -177,17 +180,17 @@ public class CheckpointMonitorService {
     }
 
     public void cleanupJob(long jobId) {
-        overviewMap.remove(jobId);
+        overviewStore.remove(jobId);
     }
 
     public Optional<CheckpointOverview> getOverview(long jobId) {
-        CheckpointOverview overview = overviewMap.get(jobId);
+        CheckpointOverview overview = overviewStore.get(jobId);
         return Optional.ofNullable(overview);
     }
 
     public List<CheckpointHistoryEntry> getHistory(
             long jobId, Integer pipelineId, int limit, CheckpointStatus status) {
-        CheckpointOverview overview = overviewMap.get(jobId);
+        CheckpointOverview overview = overviewStore.get(jobId);
         if (overview == null) {
             return Collections.emptyList();
         }
@@ -224,7 +227,7 @@ public class CheckpointMonitorService {
 
     private void updateOverview(
             long jobId, int pipelineId, Consumer<PipelineCheckpointOverview> consumer) {
-        overviewMap.compute(
+        overviewStore.compute(
                 jobId,
                 (id, overview) -> {
                     CheckpointOverview snapshot =

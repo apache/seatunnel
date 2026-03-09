@@ -74,6 +74,7 @@ import org.apache.seatunnel.engine.server.resourcemanager.allocation.strategy.Sl
 import org.apache.seatunnel.engine.server.resourcemanager.allocation.strategy.SlotRatioStrategy;
 import org.apache.seatunnel.engine.server.resourcemanager.allocation.strategy.SystemLoadStrategy;
 import org.apache.seatunnel.engine.server.resourcemanager.resource.SlotProfile;
+import org.apache.seatunnel.engine.server.storage.StateStore;
 import org.apache.seatunnel.engine.server.task.operation.CleanTaskGroupContextOperation;
 import org.apache.seatunnel.engine.server.task.operation.GetTaskGroupMetricsOperation;
 import org.apache.seatunnel.engine.server.utils.NodeEngineUtil;
@@ -85,7 +86,6 @@ import com.hazelcast.internal.serialization.Data;
 import com.hazelcast.jet.datamodel.Tuple2;
 import com.hazelcast.logging.ILogger;
 import com.hazelcast.logging.Logger;
-import com.hazelcast.map.IMap;
 import com.hazelcast.spi.impl.NodeEngine;
 import lombok.Getter;
 import lombok.NonNull;
@@ -144,11 +144,12 @@ public class JobMaster {
      * we need store slot used by task in Hazelcast IMap and release or reuse it when a new master
      * node active.
      */
-    private final IMap<PipelineLocation, Map<TaskGroupLocation, SlotProfile>> ownedSlotProfilesIMap;
+    private final StateStore<PipelineLocation, Map<TaskGroupLocation, SlotProfile>>
+            ownedSlotProfilesStore;
 
-    private final IMap<Object, Object> runningJobStateIMap;
+    private final StateStore<Object, Object> runningJobStateStore;
 
-    private final IMap<Object, Object> runningJobStateTimestampsIMap;
+    private final StateStore<Object, Object> runningJobStateTimestampsStore;
 
     // TODO add config to change value
     private boolean isPhysicalDAGInfo = true;
@@ -161,7 +162,7 @@ public class JobMaster {
 
     private final Map<Integer, List<SlotProfile>> releasedSlotWhenTaskGroupFinished;
 
-    private final IMap<Long, JobInfo> runningJobInfoIMap;
+    private final StateStore<Long, JobInfo> runningJobInfoStore;
 
     @Getter private final Set<ExecutionAddress> historyExecutionAddress = new HashSet<>();
 
@@ -185,10 +186,10 @@ public class JobMaster {
             @NonNull ExecutorService executorService,
             @NonNull ResourceManager resourceManager,
             @NonNull JobHistoryService jobHistoryService,
-            @NonNull IMap runningJobStateIMap,
-            @NonNull IMap runningJobStateTimestampsIMap,
-            @NonNull IMap ownedSlotProfilesIMap,
-            @NonNull IMap<Long, JobInfo> runningJobInfoIMap,
+            @NonNull StateStore runningJobStateStore,
+            @NonNull StateStore runningJobStateTimestampsStore,
+            @NonNull StateStore ownedSlotProfilesStore,
+            @NonNull StateStore<Long, JobInfo> runningJobInfoStore,
             EngineConfig engineConfig,
             SeaTunnelServer seaTunnelServer) {
         this.jobId = jobId;
@@ -199,12 +200,12 @@ public class JobMaster {
                 this.nodeEngine
                         .getHazelcastInstance()
                         .getFlakeIdGenerator(Constant.SEATUNNEL_ID_GENERATOR_NAME);
-        this.ownedSlotProfilesIMap = ownedSlotProfilesIMap;
+        this.ownedSlotProfilesStore = ownedSlotProfilesStore;
         this.resourceManager = resourceManager;
         this.jobHistoryService = jobHistoryService;
-        this.runningJobStateIMap = runningJobStateIMap;
-        this.runningJobStateTimestampsIMap = runningJobStateTimestampsIMap;
-        this.runningJobInfoIMap = runningJobInfoIMap;
+        this.runningJobStateStore = runningJobStateStore;
+        this.runningJobStateTimestampsStore = runningJobStateTimestampsStore;
+        this.runningJobInfoStore = runningJobInfoStore;
         this.engineConfig = engineConfig;
         this.seaTunnelServer = seaTunnelServer;
         this.releasedSlotWhenTaskGroupFinished = new ConcurrentHashMap<>();
@@ -280,8 +281,8 @@ public class JobMaster {
                             executorService,
                             seaTunnelServer.getClassLoaderService(),
                             flakeIdGenerator,
-                            runningJobStateIMap,
-                            runningJobStateTimestampsIMap,
+                            runningJobStateStore,
+                            runningJobStateTimestampsStore,
                             engineConfig.getQueueType(),
                             engineConfig);
             this.physicalPlan = planTuple.f0();
@@ -322,7 +323,7 @@ public class JobMaster {
                         jobCheckpointConfig,
                         seaTunnelServer.getCheckpointService().getCheckpointStorage(),
                         executorService,
-                        runningJobStateIMap,
+                        runningJobStateStore,
                         seaTunnelServer.getCheckpointMonitorService());
     }
 
@@ -598,42 +599,42 @@ public class JobMaster {
                         });
     }
 
-    private void removeJobIMap() {
+    private void removeJobStateStore() {
         Long jobId = getJobImmutableInformation().getJobId();
-        runningJobStateTimestampsIMap.remove(jobId);
+        runningJobStateTimestampsStore.remove(jobId);
 
         getPhysicalPlan()
                 .getPipelineList()
                 .forEach(
                         pipeline -> {
-                            runningJobStateIMap.remove(pipeline.getPipelineLocation());
-                            runningJobStateTimestampsIMap.remove(pipeline.getPipelineLocation());
+                            runningJobStateStore.remove(pipeline.getPipelineLocation());
+                            runningJobStateTimestampsStore.remove(pipeline.getPipelineLocation());
                             pipeline.getCoordinatorVertexList()
                                     .forEach(
                                             coordinator -> {
-                                                runningJobStateIMap.remove(
+                                                runningJobStateStore.remove(
                                                         coordinator.getTaskGroupLocation());
-                                                runningJobStateTimestampsIMap.remove(
+                                                runningJobStateTimestampsStore.remove(
                                                         coordinator.getTaskGroupLocation());
                                             });
 
                             pipeline.getPhysicalVertexList()
                                     .forEach(
                                             task -> {
-                                                runningJobStateIMap.remove(
+                                                runningJobStateStore.remove(
                                                         task.getTaskGroupLocation());
-                                                runningJobStateTimestampsIMap.remove(
+                                                runningJobStateTimestampsStore.remove(
                                                         task.getTaskGroupLocation());
                                             });
 
-                            String checkpointStateImapKey =
+                            String checkpointStateStoreKey =
                                     checkpointManager
                                             .getCheckpointCoordinator(pipeline.getPipelineId())
-                                            .getCheckpointStateImapKey();
-                            runningJobStateIMap.remove(checkpointStateImapKey);
+                                            .getCheckpointStateStoreKey();
+                            runningJobStateStore.remove(checkpointStateStoreKey);
                         });
-        runningJobStateIMap.remove(jobId);
-        runningJobInfoIMap.remove(jobId);
+        runningJobStateStore.remove(jobId);
+        runningJobInfoStore.remove(jobId);
     }
 
     public JobDAGInfo getJobDAGInfo() {
@@ -655,7 +656,7 @@ public class JobMaster {
     public void releaseTaskGroupResource(
             PipelineLocation pipelineLocation, TaskGroupLocation taskGroupLocation) {
         Map<TaskGroupLocation, SlotProfile> taskGroupLocationSlotProfileMap =
-                ownedSlotProfilesIMap.get(pipelineLocation);
+                ownedSlotProfilesStore.get(pipelineLocation);
         if (taskGroupLocationSlotProfileMap == null) {
             return;
         }
@@ -699,7 +700,7 @@ public class JobMaster {
     public void releasePipelineResource(SubPlan subPlan) {
         try {
             Map<TaskGroupLocation, SlotProfile> taskGroupLocationSlotProfileMap =
-                    ownedSlotProfilesIMap.get(subPlan.getPipelineLocation());
+                    ownedSlotProfilesStore.get(subPlan.getPipelineLocation());
             if (taskGroupLocationSlotProfileMap == null) {
                 return;
             }
@@ -722,7 +723,7 @@ public class JobMaster {
                                                 .filter(p -> !alreadyReleased.contains(p))
                                                 .collect(Collectors.toList()))
                                 .join();
-                        ownedSlotProfilesIMap.remove(subPlan.getPipelineLocation());
+                        ownedSlotProfilesStore.remove(subPlan.getPipelineLocation());
                         releasedSlotWhenTaskGroupFinished.remove(subPlan.getPipelineId());
                         return null;
                     },
@@ -743,7 +744,7 @@ public class JobMaster {
         checkpointManager.clearCheckpointIfNeed(physicalPlan.getJobStatus());
         jobHistoryService.storeJobInfo(jobImmutableInformation.getJobId(), getJobDAGInfo());
         jobHistoryService.storeFinishedJobState(this);
-        removeJobIMap();
+        removeJobStateStore();
     }
 
     public void storeJobEndState() {
@@ -757,7 +758,7 @@ public class JobMaster {
                         taskGroupLocation.getJobId(), taskGroupLocation.getPipelineId());
 
         Map<TaskGroupLocation, SlotProfile> taskGroupLocationSlotProfileMap =
-                ownedSlotProfilesIMap.get(pipelineLocation);
+                ownedSlotProfilesStore.get(pipelineLocation);
 
         if (null != taskGroupLocationSlotProfileMap) {
             SlotProfile slotProfile = taskGroupLocationSlotProfileMap.get(taskGroupLocation);
@@ -801,7 +802,7 @@ public class JobMaster {
 
         Map<TaskGroupLocation, Address> taskGroupLocationSlotProfileMap = new HashMap<>();
 
-        ownedSlotProfilesIMap.forEach(
+        ownedSlotProfilesStore.forEach(
                 (pipelineLocation, map) -> {
                     if (pipelineLocation.getJobId()
                             == this.getJobImmutableInformation().getJobId()) {
@@ -821,7 +822,7 @@ public class JobMaster {
     public List<RawJobMetrics> getCurrJobMetrics(List<PipelineLocation> pipelineLocations) {
         Map<TaskGroupLocation, Address> taskGroupLocationSlotProfileMap = new HashMap<>();
 
-        ownedSlotProfilesIMap.forEach(
+        ownedSlotProfilesStore.forEach(
                 (pipelineLocation, map) -> {
                     if (pipelineLocations.contains(pipelineLocation)) {
                         map.forEach(
@@ -906,7 +907,7 @@ public class JobMaster {
 
     private void cleanTaskGroupContext(PipelineLocation pipelineLocation) {
         Map<TaskGroupLocation, SlotProfile> slotProfileMap =
-                ownedSlotProfilesIMap.get(pipelineLocation);
+                ownedSlotProfilesStore.get(pipelineLocation);
         if (slotProfileMap == null) {
             return;
         }
@@ -1009,12 +1010,12 @@ public class JobMaster {
     public void setOwnedSlotProfiles(
             @NonNull PipelineLocation pipelineLocation,
             @NonNull Map<TaskGroupLocation, SlotProfile> pipelineOwnedSlotProfiles) {
-        ownedSlotProfilesIMap.put(pipelineLocation, pipelineOwnedSlotProfiles);
+        ownedSlotProfilesStore.put(pipelineLocation, pipelineOwnedSlotProfiles);
         try {
             RetryUtils.retryWithException(
                     () ->
                             pipelineOwnedSlotProfiles.equals(
-                                    ownedSlotProfilesIMap.get(pipelineLocation)),
+                                    ownedSlotProfilesStore.get(pipelineLocation)),
                     new RetryUtils.RetryMaterial(
                             Constant.OPERATION_RETRY_TIME,
                             true,
@@ -1022,13 +1023,13 @@ public class JobMaster {
                             Constant.OPERATION_RETRY_SLEEP));
         } catch (Exception e) {
             throw new SeaTunnelEngineException(
-                    "Can not sync pipeline owned slot profiles with IMap", e);
+                    "Can not sync pipeline owned slot profiles with StateStore", e);
         }
     }
 
     public SlotProfile getOwnedSlotProfiles(@NonNull TaskGroupLocation taskGroupLocation) {
         Map<TaskGroupLocation, SlotProfile> taskGroupLocationSlotProfileMap =
-                ownedSlotProfilesIMap.get(
+                ownedSlotProfilesStore.get(
                         new PipelineLocation(
                                 taskGroupLocation.getJobId(), taskGroupLocation.getPipelineId()));
         if (taskGroupLocationSlotProfileMap == null) {
@@ -1060,7 +1061,7 @@ public class JobMaster {
     }
 
     @VisibleForTesting
-    public IMap<Object, Object> getRunningJobStateIMap() {
-        return runningJobStateIMap;
+    public StateStore<Object, Object> getRunningJobStateStore() {
+        return runningJobStateStore;
     }
 }
