@@ -26,6 +26,10 @@ import java.util.Map;
 import java.util.concurrent.BlockingQueue;
 import java.util.concurrent.TimeUnit;
 
+/**
+ * MultiTableWriterRunnable is the async worker that drains a {@link BlockingQueue} of {@link
+ * SeaTunnelRow} and dispatches rows to per-table {@link SinkWriter} instances.
+ */
 @Slf4j
 public class MultiTableWriterRunnable implements Runnable {
 
@@ -34,6 +38,10 @@ public class MultiTableWriterRunnable implements Runnable {
     private volatile Throwable throwable;
     private volatile String currentTableId;
 
+    /**
+     * @param tableIdWriterMap keyed by tableIdentifier string
+     * @param queue each runnable owns exactly one BlockingQueue
+     */
     public MultiTableWriterRunnable(
             Map<String, SinkWriter<SeaTunnelRow, ?, ?>> tableIdWriterMap,
             BlockingQueue<SeaTunnelRow> queue) {
@@ -41,6 +49,11 @@ public class MultiTableWriterRunnable implements Runnable {
         this.queue = queue;
     }
 
+    /**
+     * Infinite loop draining the queue; row.getArity() == 0 as control signal for schema-evolution
+     * events; synchronized(this) block ensures snapshotState cannot run concurrently with an active
+     * write
+     */
     @Override
     public void run() {
         while (true) {
@@ -88,10 +101,18 @@ public class MultiTableWriterRunnable implements Runnable {
         }
     }
 
+    /**
+     * Returns first unhandled exception from the run loop; null means the worker is healthy;
+     * checked by MultiTableSinkWriter.subSinkErrorCheck()
+     */
     public Throwable getThrowable() {
         return throwable;
     }
 
+    /**
+     * Diagnostic field: the tableId of the row currently being written; may be null or stale
+     * between rows
+     */
     public String getCurrentTableId() {
         return currentTableId;
     }
