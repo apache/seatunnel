@@ -108,11 +108,6 @@ public class MetalakeIT extends SeaTunnelContainer {
                 new GenericContainer<>(getDockerImage())
                         .withNetwork(NETWORK)
                         .withEnv("TZ", "UTC")
-                        .withEnv("METALAKE_ENABLED", "true")
-                        .withEnv("METALAKE_TYPE", "gravitino")
-                        .withEnv(
-                                "METALAKE_URL",
-                                "http://127.0.0.1:8090/api/metalakes/test_metalake/catalogs/")
                         .withCommand(buildStartCommand())
                         .withNetworkAliases("server")
                         .withExposedPorts()
@@ -129,6 +124,13 @@ public class MetalakeIT extends SeaTunnelContainer {
                         PROJECT_ROOT_PATH
                                 + "/seatunnel-e2e/seatunnel-engine-e2e/connector-seatunnel-e2e-base/src/test/resources/"),
                 Paths.get(SEATUNNEL_HOME, "config").toString());
+
+        // Copy datasource-enabled seatunnel.yaml
+        server.withCopyFileToContainer(
+                MountableFile.forHostPath(
+                        PROJECT_ROOT_PATH
+                                + "/seatunnel-e2e/seatunnel-connector-v2-e2e/connector-jdbc-e2e/connector-jdbc-e2e-part-7/src/test/resources/config/seatunnel.yaml"),
+                Paths.get(SEATUNNEL_HOME, "config", "seatunnel.yaml").toString());
 
         server.withCopyFileToContainer(
                 MountableFile.forHostPath(
@@ -187,6 +189,13 @@ public class MetalakeIT extends SeaTunnelContainer {
     public void testMetalake() throws IOException, InterruptedException {
         Container.ExecResult execResult =
                 executeJob("/jdbc_mysql_source_to_assert_sink_with_metalake.conf");
+        Assertions.assertEquals(0, execResult.getExitCode());
+    }
+
+    @Test
+    public void testDataSource() throws IOException, InterruptedException {
+        Container.ExecResult execResult =
+                executeJob("/jdbc_mysql_source_to_assert_sink_with_datasource_enable.conf");
         Assertions.assertEquals(0, execResult.getExitCode());
     }
 

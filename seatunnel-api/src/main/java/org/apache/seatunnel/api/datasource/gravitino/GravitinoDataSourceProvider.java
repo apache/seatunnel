@@ -26,6 +26,7 @@ import org.apache.seatunnel.api.datasource.DataSourceProvider;
 import org.apache.seatunnel.api.metalake.gravitino.GravitinoClient;
 
 import com.google.auto.service.AutoService;
+import lombok.extern.slf4j.Slf4j;
 
 import java.util.Collection;
 import java.util.Collections;
@@ -46,6 +47,7 @@ import java.util.Collections;
  *   metalake: seatunnel                 # Metalake name
  * </pre>
  */
+@Slf4j
 @AutoService(DataSourceProvider.class)
 public class GravitinoDataSourceProvider implements DataSourceProvider {
 
@@ -78,6 +80,8 @@ public class GravitinoDataSourceProvider implements DataSourceProvider {
         // Extract Gravitino-specific configuration
         String uri = config.getString(URI.key());
         String metalake = config.getString(METALAKE.key());
+        log.info("Gravitino server URI: {}", uri);
+        log.info("Gravitino metalake name: {}", metalake);
         // Validate required parameters
         if (uri == null || uri.isEmpty()) {
             throw new IllegalArgumentException(

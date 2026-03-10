@@ -74,7 +74,7 @@ public final class DataSourceConfigUtil {
 
         // Get or create initialized provider instance (cached)
         DataSourceProvider provider = getOrCreateProvider(dataSourceConfig);
-
+        provider.init(ConfigFactory.parseMap(dataSourceConfig.getProperties()));
         // Get original config as unwrapped map
         Map<String, Object> originalMap = seaTunnelJobConfig.root().unwrapped();
         Map<String, Object> resultMap = new HashMap<>(originalMap);
@@ -104,7 +104,7 @@ public final class DataSourceConfigUtil {
         if (!resolvedSinks.isEmpty()) {
             resultMap.put(PluginType.SINK.getType(), resolvedSinks);
         }
-
+        provider.close();
         return ConfigFactory.parseMap(resultMap);
     }
 

@@ -591,16 +591,23 @@ public class YamlSeaTunnelDomConfigProcessor extends AbstractDomConfigProcessor 
 
     private DataSourceConfig parseDataSourceConfig(Node dataSourceNode) {
         DataSourceConfig dataSourceConfig = new DataSourceConfig();
+        String providerKind = null;
+
         for (Node node : childElements(dataSourceNode)) {
             String name = cleanNodeName(node);
             if (DataSourceOptions.ENABLED.key().equals(name)) {
                 dataSourceConfig.setEnabled(getBooleanValue(getTextContent(node)));
             } else if (DataSourceOptions.KIND.key().equals(name)) {
-                dataSourceConfig.setKind(getTextContent(node));
-            } else {
-                // Provider-specific properties, store in properties map
-                // e.g., "uri", "metalake", "auth-type" for Gravitino
-                dataSourceConfig.getProperties().put(name, getTextContent(node));
+                providerKind = getTextContent(node);
+                dataSourceConfig.setKind(providerKind);
+            } else if (providerKind != null && providerKind.equalsIgnoreCase(name)) {
+                // Parse nested provider properties (e.g., gravitino.uri, gravitino.metalake)
+                for (Node propertyNode : childElements(node)) {
+                    String propertyName = cleanNodeName(propertyNode);
+                    dataSourceConfig
+                            .getProperties()
+                            .put(propertyName, getTextContent(propertyNode));
+                }
             }
         }
         return dataSourceConfig;
