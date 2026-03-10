@@ -103,7 +103,7 @@ source {
   Jdbc {
     url = "jdbc:singlestore://localhost:3306/test"
     driver = "com.singlestore.jdbc.Driver"
-    user = "root"
+    username = "root"
     password = "myPassword"
     table_path = "test.my_table"
   }
@@ -117,7 +117,7 @@ source {
   Jdbc {
     url = "jdbc:singlestore://localhost:3306/test"
     driver = "com.singlestore.jdbc.Driver"
-    user = "root"
+    username = "root"
     password = "myPassword"
     query = "SELECT * FROM my_table WHERE id > 100"
   }
@@ -131,7 +131,7 @@ source {
   Jdbc {
     url = "jdbc:singlestore://localhost:3306/test?rewriteBatchedStatements=true"
     driver = "com.singlestore.jdbc.Driver"
-    user = "root"
+    username = "root"
     password = "myPassword"
     table_path = "test.my_table"
     properties {

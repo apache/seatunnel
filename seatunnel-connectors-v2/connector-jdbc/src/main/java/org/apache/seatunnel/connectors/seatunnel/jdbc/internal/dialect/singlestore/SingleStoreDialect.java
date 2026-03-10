@@ -62,16 +62,22 @@ public class SingleStoreDialect extends MysqlDialect {
 
     @Override
     public JdbcRowConverter getRowConverter() {
-        return new MysqlJdbcRowConverter() {
-            @Override
-            public String converterName() {
-                return DatabaseIdentifier.SINGLESTORE;
-            }
-        };
+        return new SingleStoreJdbcRowConverter();
     }
 
     @Override
     public String dialectName() {
         return DatabaseIdentifier.SINGLESTORE;
+    }
+
+    /**
+     * SingleStore-specific JDBC row converter. Extends {@link MysqlJdbcRowConverter} for MySQL
+     * compatibility while reporting SingleStore in converter name for clearer error messages.
+     */
+    private static class SingleStoreJdbcRowConverter extends MysqlJdbcRowConverter {
+        @Override
+        public String converterName() {
+            return DatabaseIdentifier.SINGLESTORE;
+        }
     }
 }

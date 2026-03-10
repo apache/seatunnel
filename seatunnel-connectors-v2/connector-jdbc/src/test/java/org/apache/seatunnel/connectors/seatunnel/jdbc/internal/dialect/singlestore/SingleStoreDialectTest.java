@@ -115,6 +115,7 @@ public class SingleStoreDialectTest {
     public void testSingleStoreDialectFactoryDialectName() {
         SingleStoreDialectFactory factory = new SingleStoreDialectFactory();
         Assertions.assertEquals(DatabaseIdentifier.SINGLESTORE, factory.dialectFactoryName());
+        Assertions.assertEquals("SingleStore", DatabaseIdentifier.SINGLESTORE);
     }
 
     @Test
