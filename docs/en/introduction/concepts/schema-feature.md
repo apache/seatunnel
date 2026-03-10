@@ -238,7 +238,7 @@ constraintKeys = [
 |:------------------|:---------|:--------------|-------------------------------------------------------------------------------------------------------------------------------------------|
 | constraintName    | Yes      | -             | The name of the constraintKey                                                                                                             |
 | constraintType    | No       | KEY           | The type of the constraintKey                                                                                                             |
-| constraintColumns | Yes      | -             | The column list in the constraintKey. Each column must contain `columnName`. For `INDEX_KEY`/`UNIQUE_KEY`/`FOREIGN_KEY`, `sortType` is supported (ASC/DESC, default ASC). For `VECTOR_INDEX_KEY`, `indexName`/`indexType`/`metricType` are required. |
+| constraintColumns | Yes      | -             | The column list in the constraintKey. Each column must contain `columnName`. For `INDEX_KEY`/`UNIQUE_KEY`/`FOREIGN_KEY`, `sortType` is supported (ASC/DESC, default ASC). For `VECTOR_INDEX_KEY`, `indexName`/`indexType`/`metricType` are optional and may be provided by connectors via config or defaults. |
 
 #### What constraintType supported at now
 
@@ -254,9 +254,19 @@ constraintKeys = [
 When `constraintType = VECTOR_INDEX_KEY`, each item in `constraintColumns` must contain:
 
 - `columnName`: the vector column name
-- `indexName`: the index name
-- `indexType`: the vector index type (e.g. `HNSW`)
-- `metricType`: the distance metric type (e.g. `L2`)
+- `indexName`: the index name (optional)
+- `indexType`: the vector index type (optional). Case-insensitive. Optional values:
+  - For float vectors: `FLAT`, `IVF_FLAT`, `IVF_SQ8`, `IVF_PQ`, `HNSW`, `DISKANN`, `AUTOINDEX`, `SCANN`
+  - For binary vectors: `BIN_FLAT`, `BIN_IVF_FLAT`
+  - For GPU (float vectors): `GPU_IVF_FLAT`, `GPU_IVF_PQ`, `GPU_BRUTE_FORCE`, `GPU_CAGRA`
+  - For varchar: `TRIE`
+  - For scalar fields: `STL_SORT` (numeric), `INVERTED` (all scalar except JSON)
+  - For sparse vectors: `SPARSE_INVERTED_INDEX`, `SPARSE_WAND`
+  - Case-insensitive (e.g., `hnsw`, `HNSW`, `Hnsw` are all valid)
+- `metricType`: the distance metric type (optional). Case-insensitive. Optional values:
+  - For float vectors: `L2`, `IP`, `COSINE`
+  - For binary vectors: `HAMMING`, `JACCARD`
+  - Case-insensitive (e.g., `cosine`, `COSINE`, `Cosine` are all valid)
 
 Example:
 

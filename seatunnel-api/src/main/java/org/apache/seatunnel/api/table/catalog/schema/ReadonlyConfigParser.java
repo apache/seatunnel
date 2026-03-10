@@ -199,7 +199,10 @@ public class ReadonlyConfigParser implements TableSchemaParser<ReadonlyConfig> {
                                                                                                             .orElseThrow(
                                                                                                                     () ->
                                                                                                                             new IllegalArgumentException(
-                                                                                                                                    "schema.constraintKeys.constraintColumns.* config need option [columnName], please correct your config first"));
+                                                                                                                                    String
+                                                                                                                                            .format(
+                                                                                                                                                    "schema.constraintKeys[%s].constraintColumns.* config need option [columnName], please correct your config first",
+                                                                                                                                                    constraintName)));
                                                                                     if (constraintType
                                                                                             == ConstraintKey
                                                                                                     .ConstraintType
@@ -210,35 +213,43 @@ public class ReadonlyConfigParser implements TableSchemaParser<ReadonlyConfig> {
                                                                                                                 .getOptional(
                                                                                                                         ConnectorCommonOptions
                                                                                                                                 .VECTOR_INDEX_NAME)
-                                                                                                                .orElseThrow(
-                                                                                                                        () ->
-                                                                                                                                new IllegalArgumentException(
-                                                                                                                                        "schema.constraintKeys.constraintColumns.* config need option [indexName], please correct your config first"));
+                                                                                                                .orElse(
+                                                                                                                        null);
                                                                                         String
                                                                                                 indexType =
                                                                                                         constraintColumnConfig
                                                                                                                 .getOptional(
                                                                                                                         ConnectorCommonOptions
                                                                                                                                 .VECTOR_INDEX_TYPE)
-                                                                                                                .orElseThrow(
-                                                                                                                        () ->
-                                                                                                                                new IllegalArgumentException(
-                                                                                                                                        "schema.constraintKeys.constraintColumns.* config need option [indexType], please correct your config first"));
+                                                                                                                .orElse(
+                                                                                                                        null);
                                                                                         String
                                                                                                 metricType =
                                                                                                         constraintColumnConfig
                                                                                                                 .getOptional(
                                                                                                                         ConnectorCommonOptions
                                                                                                                                 .VECTOR_METRIC_TYPE)
-                                                                                                                .orElseThrow(
-                                                                                                                        () ->
-                                                                                                                                new IllegalArgumentException(
-                                                                                                                                        "schema.constraintKeys.constraintColumns.* config need option [metricType], please correct your config first"));
-                                                                                        return new VectorIndex(
-                                                                                                indexName,
-                                                                                                columnName,
-                                                                                                indexType,
-                                                                                                metricType);
+                                                                                                                .orElse(
+                                                                                                                        null);
+                                                                                        try {
+                                                                                            return new VectorIndex(
+                                                                                                    indexName,
+                                                                                                    columnName,
+                                                                                                    indexType,
+                                                                                                    metricType);
+                                                                                        } catch (
+                                                                                                IllegalArgumentException
+                                                                                                        exception) {
+                                                                                            throw new IllegalArgumentException(
+                                                                                                    String
+                                                                                                            .format(
+                                                                                                                    "schema.constraintKeys[%s].constraintColumns[%s] config invalid: %s",
+                                                                                                                    constraintName,
+                                                                                                                    columnName,
+                                                                                                                    exception
+                                                                                                                            .getMessage()),
+                                                                                                    exception);
+                                                                                        }
                                                                                     }
 
                                                                                     ConstraintKey
@@ -260,7 +271,9 @@ public class ReadonlyConfigParser implements TableSchemaParser<ReadonlyConfig> {
                                                 .orElseThrow(
                                                         () ->
                                                                 new IllegalArgumentException(
-                                                                        "schema.constraintKeys.* config need option [columns], please correct your config first"));
+                                                                        String.format(
+                                                                                "schema.constraintKeys[%s] config need option [constraintColumns], please correct your config first",
+                                                                                constraintName)));
                                 return ConstraintKey.of(constraintType, constraintName, columns);
                             })
                     .collect(Collectors.toList());

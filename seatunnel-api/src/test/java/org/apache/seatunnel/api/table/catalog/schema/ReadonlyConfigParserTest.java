@@ -71,18 +71,7 @@ class ReadonlyConfigParserTest extends BaseConfigParserTest {
         column0.put("indexType", "HNSW");
         column0.put("metricType", "L2");
 
-        Map<String, Object> ck0 = new HashMap<>();
-        ck0.put("constraintName", "vec_index");
-        ck0.put("constraintType", ConstraintKey.ConstraintType.VECTOR_INDEX_KEY);
-        ck0.put("constraintColumns", Arrays.asList(column0));
-
-        Map<String, Object> schema = new HashMap<>();
-        schema.put("columns", Arrays.asList());
-        schema.put("constraintKeys", Arrays.asList(ck0));
-
-        Map<String, Object> root = new HashMap<>();
-        root.put("schema", schema);
-        ReadonlyConfig config = ReadonlyConfig.fromMap(root);
+        ReadonlyConfig config = buildVectorIndexConfig(column0);
 
         ReadonlyConfigParser readonlyConfigParser = new ReadonlyConfigParser();
         TableSchema tableSchema = readonlyConfigParser.parse(config);
@@ -94,6 +83,120 @@ class ReadonlyConfigParserTest extends BaseConfigParserTest {
         VectorIndex vectorIndex = (VectorIndex) constraintKey.getColumnNames().get(0);
         Assertions.assertEquals("vec", vectorIndex.getColumnName());
         Assertions.assertEquals("idx1", vectorIndex.getIndexName());
+        Assertions.assertEquals(VectorIndex.IndexType.HNSW, vectorIndex.getIndexType());
+        Assertions.assertEquals(VectorIndex.MetricType.L2, vectorIndex.getMetricType());
+    }
+
+    @Test
+    void parseVectorIndexKeyMissingIndexNameKeepsNull() {
+        Map<String, Object> column0 = new HashMap<>();
+        column0.put("columnName", "vec");
+        column0.put("indexType", "HNSW");
+        column0.put("metricType", "L2");
+
+        ReadonlyConfig config = buildVectorIndexConfig(column0);
+
+        ReadonlyConfigParser readonlyConfigParser = new ReadonlyConfigParser();
+        TableSchema tableSchema = readonlyConfigParser.parse(config);
+        ConstraintKey constraintKey = tableSchema.getConstraintKeys().get(0);
+        VectorIndex vectorIndex = (VectorIndex) constraintKey.getColumnNames().get(0);
+        Assertions.assertEquals("vec", vectorIndex.getColumnName());
+        Assertions.assertEquals(VectorIndex.IndexType.HNSW, vectorIndex.getIndexType());
+        Assertions.assertEquals(VectorIndex.MetricType.L2, vectorIndex.getMetricType());
+        Assertions.assertNull(vectorIndex.getIndexName());
+    }
+
+    @Test
+    void parseVectorIndexKeyMissingIndexTypeKeepsNull() {
+        Map<String, Object> column0 = new HashMap<>();
+        column0.put("columnName", "vec");
+        column0.put("indexName", "idx1");
+        column0.put("metricType", "L2");
+
+        ReadonlyConfig config = buildVectorIndexConfig(column0);
+
+        ReadonlyConfigParser readonlyConfigParser = new ReadonlyConfigParser();
+        TableSchema tableSchema = readonlyConfigParser.parse(config);
+        ConstraintKey constraintKey = tableSchema.getConstraintKeys().get(0);
+        VectorIndex vectorIndex = (VectorIndex) constraintKey.getColumnNames().get(0);
+        Assertions.assertEquals("vec", vectorIndex.getColumnName());
+        Assertions.assertEquals("idx1", vectorIndex.getIndexName());
+        Assertions.assertEquals(VectorIndex.MetricType.L2, vectorIndex.getMetricType());
+        Assertions.assertNull(vectorIndex.getIndexType());
+    }
+
+    @Test
+    void parseVectorIndexKeyMissingMetricTypeKeepsNull() {
+        Map<String, Object> column0 = new HashMap<>();
+        column0.put("columnName", "vec");
+        column0.put("indexName", "idx1");
+        column0.put("indexType", "HNSW");
+
+        ReadonlyConfig config = buildVectorIndexConfig(column0);
+
+        ReadonlyConfigParser readonlyConfigParser = new ReadonlyConfigParser();
+        TableSchema tableSchema = readonlyConfigParser.parse(config);
+        ConstraintKey constraintKey = tableSchema.getConstraintKeys().get(0);
+        VectorIndex vectorIndex = (VectorIndex) constraintKey.getColumnNames().get(0);
+        Assertions.assertEquals("vec", vectorIndex.getColumnName());
+        Assertions.assertEquals("idx1", vectorIndex.getIndexName());
+        Assertions.assertEquals(VectorIndex.IndexType.HNSW, vectorIndex.getIndexType());
+        Assertions.assertNull(vectorIndex.getMetricType());
+    }
+
+    @Test
+    void parseVectorIndexKeyInvalidIndexTypeThrowsException() {
+        Map<String, Object> column0 = new HashMap<>();
+        column0.put("columnName", "vec");
+        column0.put("indexName", "idx1");
+        column0.put("indexType", "INVALID_TYPE");
+        column0.put("metricType", "L2");
+
+        ReadonlyConfig config = buildVectorIndexConfig(column0);
+
+        ReadonlyConfigParser readonlyConfigParser = new ReadonlyConfigParser();
+        IllegalArgumentException exception =
+                Assertions.assertThrows(
+                        IllegalArgumentException.class, () -> readonlyConfigParser.parse(config));
+        Assertions.assertTrue(exception.getMessage().contains("vec_index"));
+        Assertions.assertTrue(exception.getMessage().contains("INVALID_TYPE"));
+        Assertions.assertTrue(exception.getMessage().contains("indexType"));
+    }
+
+    @Test
+    void parseVectorIndexKeyInvalidMetricTypeThrowsException() {
+        Map<String, Object> column0 = new HashMap<>();
+        column0.put("columnName", "vec");
+        column0.put("indexName", "idx1");
+        column0.put("indexType", "HNSW");
+        column0.put("metricType", "INVALID_METRIC");
+
+        ReadonlyConfig config = buildVectorIndexConfig(column0);
+
+        ReadonlyConfigParser readonlyConfigParser = new ReadonlyConfigParser();
+        IllegalArgumentException exception =
+                Assertions.assertThrows(
+                        IllegalArgumentException.class, () -> readonlyConfigParser.parse(config));
+        Assertions.assertTrue(exception.getMessage().contains("vec_index"));
+        Assertions.assertTrue(exception.getMessage().contains("INVALID_METRIC"));
+        Assertions.assertTrue(exception.getMessage().contains("metricType"));
+    }
+
+    @Test
+    void parseVectorIndexKeyCaseInsensitive() {
+        Map<String, Object> column0 = new HashMap<>();
+        column0.put("columnName", "vec");
+        column0.put("indexName", "idx1");
+        column0.put("indexType", "hnsw");
+        column0.put("metricType", "l2");
+
+        ReadonlyConfig config = buildVectorIndexConfig(column0);
+
+        ReadonlyConfigParser readonlyConfigParser = new ReadonlyConfigParser();
+        TableSchema tableSchema = readonlyConfigParser.parse(config);
+
+        ConstraintKey constraintKey = tableSchema.getConstraintKeys().get(0);
+        VectorIndex vectorIndex = (VectorIndex) constraintKey.getColumnNames().get(0);
         Assertions.assertEquals(VectorIndex.IndexType.HNSW, vectorIndex.getIndexType());
         Assertions.assertEquals(VectorIndex.MetricType.L2, vectorIndex.getMetricType());
     }
@@ -165,5 +268,20 @@ class ReadonlyConfigParserTest extends BaseConfigParserTest {
             Assertions.assertEquals("2020-01-01", columns.get(15).getDefaultValue());
             Assertions.assertEquals(4294967295L, columns.get(4).getColumnLength());
         }
+    }
+
+    private ReadonlyConfig buildVectorIndexConfig(Map<String, Object> columnConfig) {
+        Map<String, Object> ck0 = new HashMap<>();
+        ck0.put("constraintName", "vec_index");
+        ck0.put("constraintType", ConstraintKey.ConstraintType.VECTOR_INDEX_KEY);
+        ck0.put("constraintColumns", Arrays.asList(columnConfig));
+
+        Map<String, Object> schema = new HashMap<>();
+        schema.put("columns", Arrays.asList());
+        schema.put("constraintKeys", Arrays.asList(ck0));
+
+        Map<String, Object> root = new HashMap<>();
+        root.put("schema", schema);
+        return ReadonlyConfig.fromMap(root);
     }
 }
