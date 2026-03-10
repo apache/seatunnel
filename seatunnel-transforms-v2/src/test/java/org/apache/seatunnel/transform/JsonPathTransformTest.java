@@ -822,7 +822,7 @@ public class JsonPathTransformTest {
         CatalogTable outputTable = transform.getProducedCatalogTable();
         String jsonData = "{\"birth\": \"2024-02-29\"}";
         SeaTunnelRow outputRow = transform.map(new SeaTunnelRow(new Object[] {jsonData}));
- 
+
         Assertions.assertEquals(
                 LocalDate.of(2024, 2, 29),
                 outputRow.getField(outputTable.getSeaTunnelRowType().indexOf("birth_date")));
