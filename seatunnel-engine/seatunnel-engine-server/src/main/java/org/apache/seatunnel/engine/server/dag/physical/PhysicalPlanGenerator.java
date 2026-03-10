@@ -407,13 +407,20 @@ public class PhysicalPlanGenerator {
                                     flows.addAll(splitAsyncBoundaryFromFlow(flows.get(idx++)));
                                 }
                             }
-                            // Optional: split sink IO from upstream execution by inserting
-                            // intermediate queues. Disabled by default to avoid extra overhead.
-                            if (observabilityConfig.isEnabled()
-                                    && observabilityConfig.isSplitSinkIo()) {
+                            // Keep the legacy sink split for normal jobs. The engine has long
+                            // executed source->sink edges via an intermediate queue consumer task,
+                            // and several cancellation/checkpoint paths rely on that topology.
+                            //
+                            // For observability-enabled jobs, `split_sink_io` remains the switch
+                            // that controls whether we rewrite the sink edge for queue-level
+                            // observability.
+                            boolean shouldSplitSinkIo =
+                                    !observabilityConfig.isEnabled()
+                                            || observabilityConfig.isSplitSinkIo();
+                            if (shouldSplitSinkIo) {
                                 // Must not repeatedly split the newly created queue-consumer
-                                // flows, otherwise it may keep inserting queues and cause huge
-                                // memory overhead.
+                                // flows, otherwise it may keep inserting nested queues and cause
+                                // huge memory overhead.
                                 List<Flow> sinkSplitRoots = new ArrayList<>(flows);
                                 for (Flow root : sinkSplitRoots) {
                                     flows.addAll(splitSinkFromFlow(root));

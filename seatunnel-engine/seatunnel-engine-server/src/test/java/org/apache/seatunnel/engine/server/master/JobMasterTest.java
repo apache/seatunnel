@@ -283,6 +283,7 @@ public class JobMasterTest extends AbstractSeaTunnelServerTest {
 
         Assertions.assertEquals(2, subPlan.getPhysicalVertexList().size());
         PhysicalVertex taskGroup1 = subPlan.getPhysicalVertexList().get(0);
+        Assertions.assertEquals(3, taskGroup1.getTaskGroup().getTasks().size());
         SeaTunnelTask seaTunnelTask =
                 (SeaTunnelTask) taskGroup1.getTaskGroup().getTasks().stream().findFirst().get();
         jobMaster.getCheckpointManager().readyToCloseIdleTask(seaTunnelTask.getTaskLocation());
