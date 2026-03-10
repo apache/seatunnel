@@ -44,17 +44,21 @@ class OptionRulesApiTest {
     private static final int HTTP_PORT = 18082;
 
     private static HazelcastInstanceImpl instance;
+    private static Config originalHazelcastConfig;
     private static boolean originalHttpEnabled;
     private static int originalHttpPort;
     private static boolean originalEnableDynamicPort;
+    private static ExecutionMode originalExecutionMode;
 
     @BeforeAll
     static void before() {
         SeaTunnelConfig seaTunnelConfig = ConfigProvider.locateAndGetSeaTunnelConfig();
         HttpConfig httpConfig = seaTunnelConfig.getEngineConfig().getHttpConfig();
+        originalHazelcastConfig = seaTunnelConfig.getHazelcastConfig();
         originalHttpEnabled = httpConfig.isEnabled();
         originalHttpPort = httpConfig.getPort();
         originalEnableDynamicPort = httpConfig.isEnableDynamicPort();
+        originalExecutionMode = seaTunnelConfig.getEngineConfig().getMode();
 
         Config hazelcastConfig = Config.loadFromString(getHazelcastConfig());
         hazelcastConfig.setClusterName(TestUtils.getClusterName("OptionRulesApiTest"));
@@ -128,6 +132,8 @@ class OptionRulesApiTest {
             instance.shutdown();
         }
         SeaTunnelConfig seaTunnelConfig = ConfigProvider.locateAndGetSeaTunnelConfig();
+        seaTunnelConfig.setHazelcastConfig(originalHazelcastConfig);
+        seaTunnelConfig.getEngineConfig().setMode(originalExecutionMode);
         HttpConfig httpConfig = seaTunnelConfig.getEngineConfig().getHttpConfig();
         httpConfig.setEnabled(originalHttpEnabled);
         httpConfig.setPort(originalHttpPort);

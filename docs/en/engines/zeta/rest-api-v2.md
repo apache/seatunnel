@@ -95,14 +95,14 @@ Please refer [security](security.md)
             "optionValues": null
           }
         ],
-        "expression": "'string_fake_mode' == TEMPLATE",
+        "expression": "'string.fake.mode' == TEMPLATE",
         "expressionTree": {
           "condition": {
             "option": {
-              "key": "string_fake_mode",
+              "key": "string.fake.mode",
               "type": "org.apache.seatunnel.connectors.seatunnel.fake.config.FakeSourceOptions$FakeMode",
               "defaultValue": "RANDOM",
-              "description": "The fake mode of string type data",
+              "description": "The fake mode of generating string data",
               "fallbackKeys": [],
               "optionValues": [
                 "RANDOM",

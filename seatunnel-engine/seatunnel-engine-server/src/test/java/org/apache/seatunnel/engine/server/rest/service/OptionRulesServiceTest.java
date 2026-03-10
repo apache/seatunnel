@@ -82,6 +82,14 @@ class OptionRulesServiceTest {
     }
 
     @Test
+    void shouldTrimPluginTypeAndPluginName() {
+        OptionRuleResponse response = service.getOptionRules(" source ", " FakeSource ");
+
+        assertEquals("source", response.getPluginType());
+        assertEquals("FakeSource", response.getPluginName());
+    }
+
+    @Test
     void shouldPreserveBundledConditionalAndChoiceMetadata() {
         SingleChoiceOption<AuthMode> authMode =
                 Options.key("auth.mode")

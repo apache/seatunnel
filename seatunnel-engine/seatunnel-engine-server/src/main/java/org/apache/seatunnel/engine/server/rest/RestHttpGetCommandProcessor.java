@@ -51,7 +51,6 @@ import java.io.StringWriter;
 import java.nio.charset.StandardCharsets;
 import java.util.Arrays;
 import java.util.Map;
-import java.util.NoSuchElementException;
 import java.util.stream.Collectors;
 
 import static com.hazelcast.internal.ascii.rest.HttpStatusCode.SC_400;
@@ -154,8 +153,6 @@ public class RestHttpGetCommandProcessor extends HttpCommandProcessor<HttpGetCom
             }
         } catch (IndexOutOfBoundsException e) {
             httpGetCommand.send400();
-        } catch (NoSuchElementException e) {
-            prepareResponse(SC_404, httpGetCommand, exceptionResponse(e));
         } catch (IllegalArgumentException e) {
             prepareResponse(SC_400, httpGetCommand, exceptionResponse(e));
         } catch (Throwable e) {
@@ -194,13 +191,17 @@ public class RestHttpGetCommandProcessor extends HttpCommandProcessor<HttpGetCom
     }
 
     private void getOptionRules(HttpGetCommand command, String uri) {
-        Map<String, String> params = getUriParam(uri);
-        String response =
-                new Gson()
-                        .toJson(
-                                optionRulesService.getOptionRules(
-                                        params.get("type"), params.get("plugin")));
-        this.prepareResponse(command, Json.parse(response).asObject());
+        try {
+            Map<String, String> params = getUriParam(uri);
+            String response =
+                    new Gson()
+                            .toJson(
+                                    optionRulesService.getOptionRules(
+                                            params.get("type"), params.get("plugin")));
+            this.prepareResponse(command, Json.parse(response).asObject());
+        } catch (java.util.NoSuchElementException e) {
+            prepareResponse(SC_404, command, exceptionResponse(e));
+        }
     }
 
     public void getThreadDump(HttpGetCommand command) {

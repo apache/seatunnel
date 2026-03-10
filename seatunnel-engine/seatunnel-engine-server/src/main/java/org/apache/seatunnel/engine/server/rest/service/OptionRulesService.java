@@ -82,14 +82,15 @@ public class OptionRulesService extends BaseService {
                                                             pluginEntry
                                                                     .getKey()
                                                                     .getPluginName()
-                                                                    .equalsIgnoreCase(pluginName))
+                                                                    .equalsIgnoreCase(
+                                                                            normalizedPluginName))
                                             .findFirst()
                                             .orElseThrow(
                                                     () ->
                                                             new NoSuchElementException(
                                                                     String.format(
                                                                             "Plugin '%s' not found for type '%s'.",
-                                                                            pluginName,
+                                                                            pluginName.trim(),
                                                                             pluginType.getType())));
                             return buildResponse(entry.getKey(), entry.getValue());
                         });
@@ -130,16 +131,19 @@ public class OptionRulesService extends BaseService {
             throw new IllegalArgumentException(
                     String.format("Parameter '%s' cannot be empty.", PARAM_TYPE));
         }
-        if (StringUtils.equalsIgnoreCase(pluginTypeText, PluginType.SOURCE.getType())) {
+        String normalizedPluginType = pluginTypeText.trim();
+        if (StringUtils.equalsIgnoreCase(normalizedPluginType, PluginType.SOURCE.getType())) {
             return PluginType.SOURCE;
         }
-        if (StringUtils.equalsIgnoreCase(pluginTypeText, PluginType.SINK.getType())) {
+        if (StringUtils.equalsIgnoreCase(normalizedPluginType, PluginType.SINK.getType())) {
             return PluginType.SINK;
         }
         throw new IllegalArgumentException(
                 String.format(
                         "Unsupported plugin type '%s'. Only '%s' and '%s' are supported.",
-                        pluginTypeText, PluginType.SOURCE.getType(), PluginType.SINK.getType()));
+                        normalizedPluginType,
+                        PluginType.SOURCE.getType(),
+                        PluginType.SINK.getType()));
     }
 
     private String normalizePluginName(String pluginName) {
