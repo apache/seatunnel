@@ -1,4 +1,4 @@
-package org.apache.seatunnel.connectors.seatunnel.rabbitmq.source;
+package org.apache.seatunnel.connectors.seatunnel.rabbitmq;
 
 import org.apache.seatunnel.api.source.Boundedness;
 import org.apache.seatunnel.api.source.Collector;
@@ -7,6 +7,8 @@ import org.apache.seatunnel.api.table.type.SeaTunnelRow;
 import org.apache.seatunnel.connectors.seatunnel.rabbitmq.client.RabbitmqClient;
 import org.apache.seatunnel.connectors.seatunnel.rabbitmq.config.RabbitmqConfig;
 import org.apache.seatunnel.connectors.seatunnel.rabbitmq.exception.RabbitmqConnectorException;
+import org.apache.seatunnel.connectors.seatunnel.rabbitmq.source.DeliveryMessage;
+import org.apache.seatunnel.connectors.seatunnel.rabbitmq.source.RabbitmqSourceReader;
 import org.apache.seatunnel.connectors.seatunnel.rabbitmq.split.RabbitmqSplit;
 
 import org.junit.jupiter.api.Assertions;
