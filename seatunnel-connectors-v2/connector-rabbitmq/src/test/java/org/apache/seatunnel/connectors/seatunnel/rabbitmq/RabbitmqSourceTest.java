@@ -32,6 +32,7 @@ import org.apache.seatunnel.connectors.seatunnel.rabbitmq.source.RabbitmqSource;
 import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.Test;
 
+import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.Collections;
 import java.util.HashMap;
@@ -247,5 +248,26 @@ public class RabbitmqSourceTest {
                 Exception.class,
                 () -> new RabbitmqSource(ReadonlyConfig.fromMap(configMap)),
                 "Should fail when table_configs is missing the schema block");
+    }
+    /**
+     * Verifies that if a user configures BOTH 'schema' and 'tables_configs', the code fails-fast
+     * instead of silently prioritizing one over the other.
+     */
+    @Test
+    public void testExclusiveConfigValidation() {
+        Map<String, Object> configMap = new HashMap<>();
+        configMap.put("host", "localhost");
+        configMap.put(ConnectorCommonOptions.SCHEMA.key(), new HashMap<>());
+        configMap.put(ConnectorCommonOptions.TABLE_CONFIGS.key(), new ArrayList<>());
+
+        ReadonlyConfig config = ReadonlyConfig.fromMap(configMap);
+
+        RabbitmqConnectorException exception =
+                Assertions.assertThrows(
+                        RabbitmqConnectorException.class, () -> new RabbitmqSource(config));
+        Assertions.assertTrue(
+                exception
+                        .getMessage()
+                        .contains("Cannot specify both 'table_configs' and 'schema'"));
     }
 }
