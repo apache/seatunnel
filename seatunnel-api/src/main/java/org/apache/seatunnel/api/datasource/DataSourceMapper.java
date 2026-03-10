@@ -46,8 +46,8 @@ public interface DataSourceMapper {
     /**
      * Returns the connector identifier this mapper supports.
      *
-     * <p>The identifier should match the SeaTunnel connector's plugin identifier (e.g., "jdbc",
-     * "mysql-cdc", "kafka").
+     * <p>The identifier should match the SeaTunnel connector's plugin identifier (e.g., "Jdbc",
+     * "MySQL-CDC", "Kafka").
      *
      * @return connector identifier
      */
