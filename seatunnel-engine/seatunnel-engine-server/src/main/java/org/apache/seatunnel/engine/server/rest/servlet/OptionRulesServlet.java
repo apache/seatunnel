@@ -21,6 +21,7 @@ import org.apache.seatunnel.engine.server.rest.ErrResponse;
 import org.apache.seatunnel.engine.server.rest.service.OptionRulesService;
 
 import com.hazelcast.spi.impl.NodeEngineImpl;
+import lombok.extern.slf4j.Slf4j;
 
 import javax.servlet.ServletException;
 import javax.servlet.http.HttpServletRequest;
@@ -30,6 +31,7 @@ import java.io.IOException;
 import java.util.Map;
 import java.util.NoSuchElementException;
 
+@Slf4j
 public class OptionRulesServlet extends BaseServlet {
 
     private final OptionRulesService optionRulesService;
@@ -43,14 +45,27 @@ public class OptionRulesServlet extends BaseServlet {
     protected void doGet(HttpServletRequest req, HttpServletResponse resp)
             throws ServletException, IOException {
         Map<String, String> params = getParameterMap(req);
+        String pluginType = params.get("type");
+        String pluginName = params.get("plugin");
         try {
-            writeJson(
-                    resp,
-                    optionRulesService.getOptionRules(params.get("type"), params.get("plugin")));
+            writeJson(resp, optionRulesService.getOptionRules(pluginType, pluginName));
         } catch (IllegalArgumentException e) {
+            log.warn(
+                    "Invalid option rules request, type: {}, plugin: {}, error: {}",
+                    pluginType,
+                    pluginName,
+                    e.getMessage());
             writeJson(resp, errorResponse(e.getMessage()), HttpServletResponse.SC_BAD_REQUEST);
         } catch (NoSuchElementException e) {
+            log.info("Option rules plugin not found, type: {}, plugin: {}", pluginType, pluginName);
             writeJson(resp, errorResponse(e.getMessage()), HttpServletResponse.SC_NOT_FOUND);
+        } catch (RuntimeException e) {
+            log.error(
+                    "Failed to load option rules, type: {}, plugin: {}", pluginType, pluginName, e);
+            writeJson(
+                    resp,
+                    errorResponse("Failed to load option rules."),
+                    HttpServletResponse.SC_INTERNAL_SERVER_ERROR);
         }
     }
 

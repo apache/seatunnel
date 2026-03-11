@@ -33,10 +33,12 @@ import org.apache.seatunnel.plugin.discovery.seatunnel.SeaTunnelSinkPluginDiscov
 import org.apache.seatunnel.plugin.discovery.seatunnel.SeaTunnelSourcePluginDiscovery;
 
 import com.hazelcast.spi.impl.NodeEngineImpl;
+import lombok.extern.slf4j.Slf4j;
 
 import java.util.ArrayList;
 import java.util.Collections;
 import java.util.EnumMap;
+import java.util.HashMap;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Locale;
@@ -46,10 +48,20 @@ import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.ConcurrentMap;
 import java.util.stream.Collectors;
 
+/**
+ * Service for exposing runtime connector option rules via REST APIs.
+ *
+ * <p>The returned metadata is loaded from runtime plugin discovery and cached for the lifetime of
+ * the service instance. The cache can be cleared explicitly if plugin metadata needs to be
+ * refreshed.
+ */
+@Slf4j
 public class OptionRulesService extends BaseService {
 
     private static final String PARAM_TYPE = "type";
     private static final String PARAM_PLUGIN = "plugin";
+    private static final Map<Class<? extends RequiredOption>, OptionRuleResponse.RuleType>
+            REQUIRED_OPTION_RULE_TYPES = createRequiredOptionRuleTypes();
 
     private final Map<PluginType, PluginDiscovery<?>> pluginDiscoveries;
     private final ConcurrentMap<PluginType, LinkedHashMap<PluginIdentifier, OptionRule>>
@@ -67,33 +79,37 @@ public class OptionRulesService extends BaseService {
         this.responseCache = new ConcurrentHashMap<>();
     }
 
+    /**
+     * Returns the full option rule metadata of a runtime connector.
+     *
+     * @param pluginTypeText connector type text, currently supports {@code source} and {@code sink}
+     * @param pluginName connector factory identifier
+     * @return connector option rule metadata
+     * @throws IllegalArgumentException if the request parameters are blank or unsupported
+     * @throws NoSuchElementException if the target plugin cannot be found from runtime discovery
+     */
     public OptionRuleResponse getOptionRules(String pluginTypeText, String pluginName) {
         PluginType pluginType = parseSupportedPluginType(pluginTypeText);
         String normalizedPluginName = normalizePluginName(pluginName);
-        return responseCache
-                .computeIfAbsent(pluginType, key -> new ConcurrentHashMap<>())
-                .computeIfAbsent(
-                        normalizedPluginName,
-                        key -> {
-                            Map.Entry<PluginIdentifier, OptionRule> entry =
-                                    getDiscoveredPlugins(pluginType).entrySet().stream()
-                                            .filter(
-                                                    pluginEntry ->
-                                                            pluginEntry
-                                                                    .getKey()
-                                                                    .getPluginName()
-                                                                    .equalsIgnoreCase(
-                                                                            normalizedPluginName))
-                                            .findFirst()
-                                            .orElseThrow(
-                                                    () ->
-                                                            new NoSuchElementException(
-                                                                    String.format(
-                                                                            "Plugin '%s' not found for type '%s'.",
-                                                                            pluginName.trim(),
-                                                                            pluginType.getType())));
-                            return buildResponse(entry.getKey(), entry.getValue());
-                        });
+        String displayPluginName = pluginName.trim();
+        ConcurrentMap<String, OptionRuleResponse> pluginTypeCache = getPluginTypeCache(pluginType);
+        return pluginTypeCache.computeIfAbsent(
+                normalizedPluginName,
+                key ->
+                        buildOptionRuleResponse(
+                                pluginType, normalizedPluginName, displayPluginName));
+    }
+
+    /**
+     * Clears all cached discovery and response metadata.
+     *
+     * <p>This is primarily intended for future plugin reload scenarios. Current Zeta deployments
+     * still expect service restart after plugin installation or upgrade.
+     */
+    public void clearCache() {
+        discoveredPluginsCache.clear();
+        responseCache.clear();
+        log.info("Cleared option rules cache");
     }
 
     OptionRuleResponse buildResponse(PluginIdentifier pluginIdentifier, OptionRule optionRule) {
@@ -110,6 +126,35 @@ public class OptionRulesService extends BaseService {
                 pluginIdentifier.getPluginType(),
                 pluginIdentifier.getPluginName(),
                 new OptionRuleResponse.OptionRuleMetadata(optionalOptions, requiredOptions));
+    }
+
+    private ConcurrentMap<String, OptionRuleResponse> getPluginTypeCache(PluginType pluginType) {
+        return responseCache.computeIfAbsent(pluginType, key -> new ConcurrentHashMap<>());
+    }
+
+    private OptionRuleResponse buildOptionRuleResponse(
+            PluginType pluginType, String normalizedPluginName, String displayPluginName) {
+        Map.Entry<PluginIdentifier, OptionRule> pluginEntry =
+                findPlugin(pluginType, normalizedPluginName, displayPluginName);
+        return buildResponse(pluginEntry.getKey(), pluginEntry.getValue());
+    }
+
+    private Map.Entry<PluginIdentifier, OptionRule> findPlugin(
+            PluginType pluginType, String normalizedPluginName, String displayPluginName) {
+        return getDiscoveredPlugins(pluginType).entrySet().stream()
+                .filter(
+                        pluginEntry ->
+                                pluginEntry
+                                        .getKey()
+                                        .getPluginName()
+                                        .equalsIgnoreCase(normalizedPluginName))
+                .findFirst()
+                .orElseThrow(
+                        () ->
+                                new NoSuchElementException(
+                                        String.format(
+                                                "Plugin '%s' not found for type '%s'.",
+                                                displayPluginName, pluginType.getType())));
     }
 
     private LinkedHashMap<PluginIdentifier, OptionRule> getDiscoveredPlugins(
@@ -160,31 +205,28 @@ public class OptionRulesService extends BaseService {
                 requiredOption.getOptions().stream()
                         .map(this::toOptionMetadata)
                         .collect(Collectors.toList());
-        if (requiredOption instanceof RequiredOption.AbsolutelyRequiredOptions) {
-            return new OptionRuleResponse.RequiredOptionMetadata(
-                    OptionRuleResponse.RuleType.ABSOLUTELY_REQUIRED, options, null, null);
-        }
-        if (requiredOption instanceof RequiredOption.ExclusiveRequiredOptions) {
-            return new OptionRuleResponse.RequiredOptionMetadata(
-                    OptionRuleResponse.RuleType.EXCLUSIVE, options, null, null);
-        }
-        if (requiredOption instanceof RequiredOption.BundledRequiredOptions) {
-            return new OptionRuleResponse.RequiredOptionMetadata(
-                    OptionRuleResponse.RuleType.BUNDLED, options, null, null);
+        OptionRuleResponse.RuleType ruleType = resolveRuleType(requiredOption);
+        if (ruleType == null) {
+            throw new IllegalArgumentException(
+                    String.format(
+                            "Unsupported required option type: %s",
+                            requiredOption.getClass().getName()));
         }
         if (requiredOption instanceof RequiredOption.ConditionalRequiredOptions) {
             Expression expression =
                     ((RequiredOption.ConditionalRequiredOptions) requiredOption).getExpression();
             return new OptionRuleResponse.RequiredOptionMetadata(
-                    OptionRuleResponse.RuleType.CONDITIONAL,
-                    options,
-                    expression.toString(),
-                    toExpressionNode(expression));
+                    ruleType, options, expression.toString(), toExpressionNode(expression));
         }
-        throw new IllegalArgumentException(
-                String.format(
-                        "Unsupported required option type: %s",
-                        requiredOption.getClass().getName()));
+        return new OptionRuleResponse.RequiredOptionMetadata(ruleType, options, null, null);
+    }
+
+    private OptionRuleResponse.RuleType resolveRuleType(RequiredOption requiredOption) {
+        return REQUIRED_OPTION_RULE_TYPES.entrySet().stream()
+                .filter(entry -> entry.getKey().isInstance(requiredOption))
+                .map(Map.Entry::getValue)
+                .findFirst()
+                .orElse(null);
     }
 
     private OptionRuleResponse.ExpressionNode toExpressionNode(Expression expression) {
@@ -227,5 +269,23 @@ public class OptionRulesService extends BaseService {
                 option.getDescription(),
                 new ArrayList<>(option.getFallbackKeys()),
                 optionValues);
+    }
+
+    private static Map<Class<? extends RequiredOption>, OptionRuleResponse.RuleType>
+            createRequiredOptionRuleTypes() {
+        Map<Class<? extends RequiredOption>, OptionRuleResponse.RuleType> ruleTypes =
+                new HashMap<>();
+        ruleTypes.put(
+                RequiredOption.AbsolutelyRequiredOptions.class,
+                OptionRuleResponse.RuleType.ABSOLUTELY_REQUIRED);
+        ruleTypes.put(
+                RequiredOption.ExclusiveRequiredOptions.class,
+                OptionRuleResponse.RuleType.EXCLUSIVE);
+        ruleTypes.put(
+                RequiredOption.BundledRequiredOptions.class, OptionRuleResponse.RuleType.BUNDLED);
+        ruleTypes.put(
+                RequiredOption.ConditionalRequiredOptions.class,
+                OptionRuleResponse.RuleType.CONDITIONAL);
+        return Collections.unmodifiableMap(ruleTypes);
     }
 }

@@ -26,12 +26,21 @@ import org.apache.seatunnel.engine.server.rest.response.OptionRuleResponse;
 
 import org.junit.jupiter.api.Test;
 
+import java.util.ArrayList;
 import java.util.Arrays;
+import java.util.List;
 import java.util.NoSuchElementException;
+import java.util.concurrent.CountDownLatch;
+import java.util.concurrent.ExecutorService;
+import java.util.concurrent.Executors;
+import java.util.concurrent.Future;
+import java.util.concurrent.TimeUnit;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertNotNull;
+import static org.junit.jupiter.api.Assertions.assertNotSame;
+import static org.junit.jupiter.api.Assertions.assertSame;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
@@ -150,6 +159,50 @@ class OptionRulesServiceTest {
                 OptionRuleResponse.LogicalOperator.OR,
                 conditionalRule.getExpressionTree().getOperator());
         assertNotNull(conditionalRule.getExpressionTree().getNext());
+    }
+
+    @Test
+    void shouldClearCachedOptionRules() {
+        OptionRuleResponse cachedResponse = service.getOptionRules("source", "FakeSource");
+        OptionRuleResponse sameCachedResponse = service.getOptionRules("source", "FakeSource");
+
+        assertSame(cachedResponse, sameCachedResponse);
+
+        service.clearCache();
+
+        OptionRuleResponse refreshedResponse = service.getOptionRules("source", "FakeSource");
+        assertNotSame(cachedResponse, refreshedResponse);
+        assertEquals("FakeSource", refreshedResponse.getPluginName());
+    }
+
+    @Test
+    void shouldReturnConsistentResponsesForConcurrentRequests() throws Exception {
+        int threadCount = 8;
+        ExecutorService executorService = Executors.newFixedThreadPool(threadCount);
+        CountDownLatch ready = new CountDownLatch(threadCount);
+        CountDownLatch start = new CountDownLatch(1);
+        List<Future<OptionRuleResponse>> futures = new ArrayList<>();
+        try {
+            for (int i = 0; i < threadCount; i++) {
+                futures.add(
+                        executorService.submit(
+                                () -> {
+                                    ready.countDown();
+                                    assertTrue(start.await(10, TimeUnit.SECONDS));
+                                    return service.getOptionRules("source", "FakeSource");
+                                }));
+            }
+
+            assertTrue(ready.await(10, TimeUnit.SECONDS));
+            start.countDown();
+
+            OptionRuleResponse firstResponse = futures.get(0).get(30, TimeUnit.SECONDS);
+            for (Future<OptionRuleResponse> future : futures) {
+                assertSame(firstResponse, future.get(30, TimeUnit.SECONDS));
+            }
+        } finally {
+            executorService.shutdownNow();
+        }
     }
 
     @Test
