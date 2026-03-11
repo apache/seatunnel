@@ -25,6 +25,9 @@ import org.apache.seatunnel.shade.org.apache.commons.lang3.StringUtils;
 import org.apache.seatunnel.shade.org.apache.commons.lang3.tuple.ImmutablePair;
 
 import org.apache.seatunnel.api.common.PluginIdentifier;
+import org.apache.seatunnel.api.common.multitable.MultiTableFailedTable;
+import org.apache.seatunnel.api.common.multitable.MultiTableFailureHelper;
+import org.apache.seatunnel.api.common.multitable.MultiTableFailurePhase;
 import org.apache.seatunnel.api.configuration.ReadonlyConfig;
 import org.apache.seatunnel.api.configuration.util.ConfigValidator;
 import org.apache.seatunnel.api.metalake.MetalakeConfigUtils;
@@ -129,6 +132,7 @@ public class MultipleTableJobConfigParser {
 
     private final boolean isStartWithSavePoint;
     private final List<JobPipelineCheckpointData> pipelineCheckpoints;
+    private final List<MultiTableFailedTable> failedTables = new ArrayList<>();
 
     @VisibleForTesting
     public MultipleTableJobConfigParser(
@@ -200,6 +204,7 @@ public class MultipleTableJobConfigParser {
     }
 
     public ImmutablePair<List<Action>, Set<URL>> parse(ClassLoaderService classLoaderService) {
+        failedTables.clear();
         this.fillJobConfigAndCommonJars();
         List<? extends Config> sourceConfigs =
                 TypesafeConfigUtils.getConfigList(
@@ -248,6 +253,15 @@ public class MultipleTableJobConfigParser {
                         parseSource(configIndex, sourceConfig, sourceAndTransformClassLoader);
                 tableWithActionMap.put(tuple2._1(), tuple2._2());
             }
+            boolean hasSourceTables =
+                    tableWithActionMap.values().stream().anyMatch(actions -> !actions.isEmpty());
+            if (!sourceConfigs.isEmpty()
+                    && !hasSourceTables
+                    && MultiTableFailureHelper.shouldContinueOtherTables(envOptions)) {
+                throw new JobDefineCheckException(
+                        "No source tables were available after discovery. "
+                                + "Check source-side failed-table warnings for details.");
+            }
 
             log.info("start generating all transforms.");
             parseTransforms(transformConfigs, sourceAndTransformClassLoader, tableWithActionMap);
@@ -259,6 +273,16 @@ public class MultipleTableJobConfigParser {
                 Config sinkConfig = sinkConfigs.get(configIndex);
                 sinkActions.addAll(
                         parseSink(configIndex, sinkConfig, sinkClassLoader, tableWithActionMap));
+            }
+            if (sinkActions.isEmpty() && !failedTables.isEmpty()) {
+                throw new JobDefineCheckException(
+                        buildFailureSummary(
+                                "All candidate sink tables were skipped during job parsing."));
+            }
+            if (!failedTables.isEmpty()) {
+                log.warn(
+                        buildFailureSummary(
+                                "Some tables were skipped during multi-table job parsing."));
             }
             Set<URL> factoryUrls = getUsedFactoryUrls(sinkActions);
             return new ImmutablePair<>(sinkActions, factoryUrls);
@@ -588,6 +612,7 @@ public class MultipleTableJobConfigParser {
         Set<URL> jarUrls = new HashSet<>();
         jarUrls.addAll(getSinkPluginJarPaths(sinkConfig));
         List<SinkAction<?, ?, ?, ?>> sinkActions = new ArrayList<>();
+        int failedTableStartIndex = failedTables.size();
 
         // union
         if (inputVertices.size() > 1) {
@@ -598,7 +623,7 @@ public class MultipleTableJobConfigParser {
                             .collect(Collectors.toCollection(LinkedHashSet::new));
             checkProducedTypeEquals(inputActions);
             Tuple2<CatalogTable, Action> inputActionSample = inputVertices.get(0).get(0);
-            SinkAction<?, ?, ?, ?> sinkAction =
+            Optional<SinkAction<?, ?, ?, ?>> sinkAction =
                     createSinkAction(
                             inputActionSample._1(),
                             inputActions,
@@ -609,14 +634,14 @@ public class MultipleTableJobConfigParser {
                             factoryId,
                             inputActionSample._2().getParallelism(),
                             configIndex);
-            sinkActions.add(sinkAction);
+            sinkAction.ifPresent(sinkActions::add);
             return sinkActions;
         }
 
         // TODO move it into tryGenerateMultiTableSink when we don't support sink template
         // sink template
         for (Tuple2<CatalogTable, Action> tuple : inputVertices.get(0)) {
-            SinkAction<?, ?, ?, ?> sinkAction =
+            Optional<SinkAction<?, ?, ?, ?>> sinkAction =
                     createSinkAction(
                             tuple._1(),
                             Collections.singleton(tuple._2()),
@@ -627,11 +652,17 @@ public class MultipleTableJobConfigParser {
                             factoryId,
                             tuple._2().getParallelism(),
                             configIndex);
-            sinkActions.add(sinkAction);
+            sinkAction.ifPresent(sinkActions::add);
         }
         Optional<SinkAction<?, ?, ?, ?>> multiTableSink =
                 tryGenerateMultiTableSink(
-                        sinkActions, readonlyConfig, classLoader, factoryId, configIndex);
+                        sinkActions,
+                        readonlyConfig,
+                        classLoader,
+                        factoryId,
+                        configIndex,
+                        new ArrayList<>(
+                                failedTables.subList(failedTableStartIndex, failedTables.size())));
         return multiTableSink
                 .<List<SinkAction<?, ?, ?, ?>>>map(Collections::singletonList)
                 .orElse(sinkActions);
@@ -642,7 +673,11 @@ public class MultipleTableJobConfigParser {
             ReadonlyConfig options,
             ClassLoader classLoader,
             String factoryId,
-            int configIndex) {
+            int configIndex,
+            List<MultiTableFailedTable> skippedTables) {
+        if (sinkActions.isEmpty()) {
+            return Optional.empty();
+        }
         if (sinkActions.stream()
                 .anyMatch(action -> !(action.getSink() instanceof SupportMultiTableSink))) {
             log.info("Unsupported multi table sink api, rollback to sink template");
@@ -660,7 +695,12 @@ public class MultipleTableJobConfigParser {
                     sinks.put(tablePath, sink);
                 });
         SeaTunnelSink<?, ?, ?, ?> sink =
-                FactoryUtil.createMultiTableSink(sinks, options, classLoader);
+                FactoryUtil.createMultiTableSink(
+                        sinks,
+                        MultiTableFailureHelper.withFailedTables(
+                                MultiTableFailureHelper.mergeOptions(options, envOptions),
+                                skippedTables),
+                        classLoader);
         String actionName =
                 JobConfigParser.createSinkActionName(configIndex, factoryId, "MultiTableSink");
         SinkAction<?, ?, ?, ?> multiTableAction =
@@ -675,7 +715,7 @@ public class MultipleTableJobConfigParser {
         return Optional.of(multiTableAction);
     }
 
-    private SinkAction<?, ?, ?, ?> createSinkAction(
+    protected Optional<SinkAction<?, ?, ?, ?>> createSinkAction(
             CatalogTable catalogTable,
             Set<Action> inputActions,
             ReadonlyConfig readonlyConfig,
@@ -693,14 +733,20 @@ public class MultipleTableJobConfigParser {
                     return sinkPluginDiscovery.createPluginInstance(pluginIdentifier);
                 };
 
-        SeaTunnelSink<?, ?, ?, ?> sink =
-                FactoryUtil.createAndPrepareSink(
-                        catalogTable,
-                        readonlyConfig,
-                        classLoader,
-                        factoryId,
-                        fallbackCreateSink,
-                        null);
+        SeaTunnelSink<?, ?, ?, ?> sink;
+        try {
+            sink =
+                    FactoryUtil.createAndPrepareSink(
+                            catalogTable,
+                            readonlyConfig,
+                            classLoader,
+                            factoryId,
+                            fallbackCreateSink,
+                            null);
+        } catch (Exception error) {
+            return handleCreateSinkFailure(
+                    catalogTable, factoryId, MultiTableFailurePhase.SINK_INIT, error);
+        }
         sink.setJobContext(jobConfig.getJobContext());
         SinkConfig actionConfig = new SinkConfig(catalogTable.getTableId().toTablePath());
         long id = idGenerator.getNextId();
@@ -716,13 +762,18 @@ public class MultipleTableJobConfigParser {
                         factoryUrls,
                         connectorJarIdentifiers,
                         actionConfig);
-        if (!isStartWithSavePoint) {
-            handleSaveMode(sink);
-        } else {
-            handleSchemaSaveModeWithRestore(sink);
+        try {
+            if (!isStartWithSavePoint) {
+                handleSaveMode(sink);
+            } else {
+                handleSchemaSaveModeWithRestore(sink);
+            }
+        } catch (Exception error) {
+            return handleCreateSinkFailure(
+                    catalogTable, factoryId, MultiTableFailurePhase.SAVE_MODE, error);
         }
         sinkAction.setParallelism(parallelism);
-        return sinkAction;
+        return Optional.of(sinkAction);
     }
 
     public void handleSaveMode(SeaTunnelSink<?, ?, ?, ?> sink) {
@@ -763,6 +814,36 @@ public class MultipleTableJobConfigParser {
                 }
             }
         }
+    }
+
+    private Optional<SinkAction<?, ?, ?, ?>> handleCreateSinkFailure(
+            CatalogTable catalogTable,
+            String factoryId,
+            MultiTableFailurePhase phase,
+            Throwable error) {
+        if (!MultiTableFailureHelper.shouldContinueOtherTables(envOptions)) {
+            throw wrapThrowable(error);
+        }
+        MultiTableFailedTable failedTable =
+                MultiTableFailureHelper.buildFailedTable(
+                        catalogTable.getTablePath().getFullName(), phase, factoryId, error);
+        failedTables.add(failedTable);
+        log.warn(
+                "Skip failed sink table during parsing: {}",
+                MultiTableFailureHelper.formatFailedTableLine(failedTable),
+                error);
+        return Optional.empty();
+    }
+
+    private String buildFailureSummary(String title) {
+        return MultiTableFailureHelper.formatFailedTableSummary(title, failedTables);
+    }
+
+    private RuntimeException wrapThrowable(Throwable error) {
+        if (error instanceof RuntimeException) {
+            return (RuntimeException) error;
+        }
+        return new RuntimeException(error);
     }
 
     private List<URL> getSourcePluginJarPaths(Config sourceConfig) {

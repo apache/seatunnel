@@ -25,20 +25,33 @@ import lombok.extern.slf4j.Slf4j;
 import java.util.Map;
 import java.util.concurrent.BlockingQueue;
 import java.util.concurrent.TimeUnit;
+import java.util.function.BiConsumer;
 
 @Slf4j
 public class MultiTableWriterRunnable implements Runnable {
 
     private final Map<String, SinkWriter<SeaTunnelRow, ?, ?>> tableIdWriterMap;
     private final BlockingQueue<SeaTunnelRow> queue;
+    private final boolean continueOnTableFailure;
+    private final BiConsumer<String, Throwable> failureHandler;
     private volatile Throwable throwable;
     private volatile String currentTableId;
 
     public MultiTableWriterRunnable(
             Map<String, SinkWriter<SeaTunnelRow, ?, ?>> tableIdWriterMap,
             BlockingQueue<SeaTunnelRow> queue) {
+        this(tableIdWriterMap, queue, false, (tableId, error) -> {});
+    }
+
+    public MultiTableWriterRunnable(
+            Map<String, SinkWriter<SeaTunnelRow, ?, ?>> tableIdWriterMap,
+            BlockingQueue<SeaTunnelRow> queue,
+            boolean continueOnTableFailure,
+            BiConsumer<String, Throwable> failureHandler) {
         this.tableIdWriterMap = tableIdWriterMap;
         this.queue = queue;
+        this.continueOnTableFailure = continueOnTableFailure;
+        this.failureHandler = failureHandler;
     }
 
     @Override
@@ -60,9 +73,13 @@ public class MultiTableWriterRunnable implements Runnable {
                 }
                 SinkWriter<SeaTunnelRow, ?, ?> writer = tableIdWriterMap.get(row.getTableId());
                 if (writer == null) {
-                    if (tableIdWriterMap.size() == 1) {
+                    if ((row.getTableId() == null || row.getTableId().trim().isEmpty())
+                            && tableIdWriterMap.size() == 1) {
                         writer = tableIdWriterMap.values().stream().findFirst().get();
                         currentTableId = tableIdWriterMap.keySet().stream().findFirst().get();
+                    } else if (continueOnTableFailure) {
+                        log.debug("Skip row for quarantined table {}", row.getTableId());
+                        continue;
                     } else {
                         throw new RuntimeException(
                                 "MultiTableWriterRunnable can't find writer for tableId: "
@@ -77,11 +94,22 @@ public class MultiTableWriterRunnable implements Runnable {
             } catch (InterruptedException e) {
                 // When the job finished, the thread will be interrupted, so we ignore this
                 // exception.
-                throwable = e;
                 break;
             } catch (Throwable e) {
                 log.error(
                         String.format("MultiTableWriterRunnable error when write row %s", row), e);
+                String failedTableId =
+                        currentTableId != null
+                                ? currentTableId
+                                : row == null ? null : row.getTableId();
+                if (continueOnTableFailure
+                        && failedTableId != null
+                        && !failedTableId.trim().isEmpty()) {
+                    removeTableWriter(failedTableId);
+                    failureHandler.accept(failedTableId, e);
+                    currentTableId = null;
+                    continue;
+                }
                 throwable = e;
                 break;
             }
@@ -94,5 +122,9 @@ public class MultiTableWriterRunnable implements Runnable {
 
     public String getCurrentTableId() {
         return currentTableId;
+    }
+
+    public synchronized void removeTableWriter(String tableId) {
+        tableIdWriterMap.remove(tableId);
     }
 }
