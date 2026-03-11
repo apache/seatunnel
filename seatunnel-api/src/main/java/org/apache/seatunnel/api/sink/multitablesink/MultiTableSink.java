@@ -18,10 +18,6 @@
 package org.apache.seatunnel.api.sink.multitablesink;
 
 import org.apache.seatunnel.api.common.JobContext;
-import org.apache.seatunnel.api.common.multitable.MultiTableFailedTable;
-import org.apache.seatunnel.api.common.multitable.MultiTableFailureHelper;
-import org.apache.seatunnel.api.options.MultiTableCommonOptions;
-import org.apache.seatunnel.api.options.MultiTableFailurePolicy;
 import org.apache.seatunnel.api.options.SinkConnectorCommonOptions;
 import org.apache.seatunnel.api.serialization.DefaultSerializer;
 import org.apache.seatunnel.api.serialization.Serializer;
@@ -35,7 +31,6 @@ import org.apache.seatunnel.api.table.catalog.TablePath;
 import org.apache.seatunnel.api.table.factory.MultiTableFactoryContext;
 import org.apache.seatunnel.api.table.schema.SchemaChangeType;
 import org.apache.seatunnel.api.table.type.SeaTunnelRow;
-import org.apache.seatunnel.common.constants.JobMode;
 
 import lombok.Getter;
 
@@ -60,18 +55,11 @@ public class MultiTableSink
 
     @Getter private final Map<TablePath, SeaTunnelSink> sinks;
     private final int replicaNum;
-    private final MultiTableFailurePolicy failurePolicy;
-    private final List<MultiTableFailedTable> initialFailedTables;
-    private JobContext jobContext;
 
     public MultiTableSink(MultiTableFactoryContext context) {
         this.sinks = context.getSinks();
         this.replicaNum =
                 context.getOptions().get(SinkConnectorCommonOptions.MULTI_TABLE_SINK_REPLICA);
-        this.failurePolicy =
-                context.getOptions().get(MultiTableCommonOptions.MULTI_TABLE_FAILURE_POLICY);
-        this.initialFailedTables =
-                MultiTableFailureHelper.getInitialFailedTables(context.getOptions());
     }
 
     @Override
@@ -95,13 +83,7 @@ public class MultiTableSink
                 sinkWritersContext.put(SinkIdentifier.of(tableIdentifier, index), context);
             }
         }
-        return new MultiTableSinkWriter(
-                writers,
-                replicaNum,
-                sinkWritersContext,
-                failurePolicy,
-                getJobMode(),
-                initialFailedTables);
+        return new MultiTableSinkWriter(writers, replicaNum, sinkWritersContext);
     }
 
     @Override
@@ -136,13 +118,7 @@ public class MultiTableSink
                 sinkWritersContext.put(sinkIdentifier, context);
             }
         }
-        return new MultiTableSinkWriter(
-                writers,
-                replicaNum,
-                sinkWritersContext,
-                failurePolicy,
-                getJobMode(),
-                initialFailedTables);
+        return new MultiTableSinkWriter(writers, replicaNum, sinkWritersContext);
     }
 
     @Override
@@ -212,7 +188,6 @@ public class MultiTableSink
 
     @Override
     public void setJobContext(JobContext jobContext) {
-        this.jobContext = jobContext;
         sinks.values().forEach(sink -> sink.setJobContext(jobContext));
     }
 
@@ -228,11 +203,5 @@ public class MultiTableSink
             return ((SupportSchemaEvolutionSink) firstSink).supports();
         }
         return Collections.emptyList();
-    }
-
-    private JobMode getJobMode() {
-        return jobContext == null || jobContext.getJobMode() == null
-                ? JobMode.BATCH
-                : jobContext.getJobMode();
     }
 }

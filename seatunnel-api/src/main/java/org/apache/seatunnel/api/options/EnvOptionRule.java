@@ -46,7 +46,6 @@ public class EnvOptionRule implements Factory {
                         EnvCommonOptions.READ_LIMIT_ROW_PER_SECOND,
                         EnvCommonOptions.READ_LIMIT_BYTES_PER_SECOND,
                         EnvCommonOptions.SAVEMODE_EXECUTE_LOCATION,
-                        MultiTableCommonOptions.MULTI_TABLE_FAILURE_POLICY,
                         EnvCommonOptions.CUSTOM_PARAMETERS,
                         EnvCommonOptions.NODE_TAG_FILTER)
                 .build();

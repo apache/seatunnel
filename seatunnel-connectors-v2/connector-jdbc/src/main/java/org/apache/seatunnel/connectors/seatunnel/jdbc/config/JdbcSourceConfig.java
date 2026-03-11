@@ -18,8 +18,6 @@
 package org.apache.seatunnel.connectors.seatunnel.jdbc.config;
 
 import org.apache.seatunnel.api.configuration.ReadonlyConfig;
-import org.apache.seatunnel.api.options.MultiTableCommonOptions;
-import org.apache.seatunnel.api.options.MultiTableFailurePolicy;
 import org.apache.seatunnel.connectors.seatunnel.jdbc.source.StringSplitMode;
 
 import lombok.Builder;
@@ -47,7 +45,6 @@ public class JdbcSourceConfig implements Serializable {
     private int splitInverseSamplingRate;
     private boolean decimalTypeNarrowing;
     private boolean handleBlobAsString;
-    private MultiTableFailurePolicy multiTableFailurePolicy;
 
     private StringSplitMode stringSplitMode;
 
@@ -77,8 +74,6 @@ public class JdbcSourceConfig implements Serializable {
 
         builder.decimalTypeNarrowing(config.get(JdbcSourceOptions.DECIMAL_TYPE_NARROWING));
         builder.handleBlobAsString(config.get(JdbcSourceOptions.HANDLE_BLOB_AS_STRING));
-        builder.multiTableFailurePolicy(
-                config.get(MultiTableCommonOptions.MULTI_TABLE_FAILURE_POLICY));
 
         config.getOptional(JdbcSourceOptions.WHERE_CONDITION)
                 .ifPresent(

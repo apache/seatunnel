@@ -19,8 +19,6 @@ package org.apache.seatunnel.api.table.catalog;
 
 import org.apache.seatunnel.shade.org.apache.commons.lang3.StringUtils;
 
-import org.apache.seatunnel.api.common.multitable.MultiTableFailureHelper;
-import org.apache.seatunnel.api.common.multitable.MultiTableFailurePhase;
 import org.apache.seatunnel.api.configuration.ReadonlyConfig;
 import org.apache.seatunnel.api.options.ConnectorCommonOptions;
 import org.apache.seatunnel.api.table.catalog.exception.CatalogException;
@@ -32,9 +30,6 @@ import org.apache.seatunnel.api.table.factory.Factory;
 import org.apache.seatunnel.common.exception.CommonError;
 import org.apache.seatunnel.common.exception.CommonErrorCode;
 import org.apache.seatunnel.common.exception.SeaTunnelRuntimeException;
-
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
 
 import java.util.ArrayList;
 import java.util.Collections;
@@ -52,8 +47,6 @@ import java.util.stream.Collectors;
  * the implementation of Catalog.
  */
 public interface Catalog extends AutoCloseable {
-
-    Logger LOG = LoggerFactory.getLogger(Catalog.class);
 
     default Optional<Factory> getFactory() {
         return Optional.empty();
@@ -161,7 +154,7 @@ public interface Catalog extends AutoCloseable {
         if (tableNames != null && !tableNames.isEmpty()) {
             Iterator<TablePath> tablePaths =
                     tableNames.stream().map(TablePath::of).filter(this::tableExists).iterator();
-            return buildCatalogTablesWithErrorCheck(tablePaths, config);
+            return buildCatalogTablesWithErrorCheck(tablePaths);
         }
 
         // Get the list of table pattern
@@ -191,7 +184,7 @@ public interface Catalog extends AutoCloseable {
                                                     .matches())
                             .collect(Collectors.toList()));
         }
-        return buildCatalogTablesWithErrorCheck(tablePaths.iterator(), config);
+        return buildCatalogTablesWithErrorCheck(tablePaths.iterator());
     }
 
     default List<TablePath> listTablePaths(String databaseName)
@@ -211,38 +204,19 @@ public interface Catalog extends AutoCloseable {
     }
 
     default List<CatalogTable> buildCatalogTablesWithErrorCheck(Iterator<TablePath> tablePaths) {
-        return buildCatalogTablesWithErrorCheck(tablePaths, null);
-    }
-
-    default List<CatalogTable> buildCatalogTablesWithErrorCheck(
-            Iterator<TablePath> tablePaths, ReadonlyConfig config) {
         Map<String, Map<String, String>> unsupportedTable = new LinkedHashMap<>();
         List<CatalogTable> catalogTables = new ArrayList<>();
-        boolean continueOtherTables = MultiTableFailureHelper.shouldContinueOtherTables(config);
         while (tablePaths.hasNext()) {
-            TablePath tablePath = tablePaths.next();
             try {
-                catalogTables.add(getTable(tablePath));
+                catalogTables.add(getTable(tablePaths.next()));
             } catch (SeaTunnelRuntimeException e) {
                 if (e.getSeaTunnelErrorCode()
                         .equals(CommonErrorCode.GET_CATALOG_TABLE_WITH_UNSUPPORTED_TYPE_ERROR)) {
-                    if (continueOtherTables) {
-                        logSkipFailedTable(tablePath, e);
-                    } else {
-                        unsupportedTable.put(
-                                e.getParams().get("tableName"),
-                                e.getParamsValueAsMap("fieldWithDataTypes"));
-                    }
-                } else if (continueOtherTables) {
-                    logSkipFailedTable(tablePath, e);
+                    unsupportedTable.put(
+                            e.getParams().get("tableName"),
+                            e.getParamsValueAsMap("fieldWithDataTypes"));
                 } else {
                     throw e;
-                }
-            } catch (Exception e) {
-                if (continueOtherTables) {
-                    logSkipFailedTable(tablePath, e);
-                } else {
-                    throw wrapThrowable(e);
                 }
             }
         }
@@ -274,25 +248,6 @@ public interface Catalog extends AutoCloseable {
             throw CommonError.getCatalogTableWithUnsupportedType(
                     name(), tablePath.getFullName(), unsupported);
         }
-    }
-
-    default void logSkipFailedTable(TablePath tablePath, Throwable error) {
-        LOG.warn(
-                "Skip failed table in discovery: {}",
-                MultiTableFailureHelper.formatFailedTableLine(
-                        MultiTableFailureHelper.buildFailedTable(
-                                tablePath.getFullName(),
-                                MultiTableFailurePhase.DISCOVERY,
-                                name(),
-                                error)),
-                error);
-    }
-
-    default RuntimeException wrapThrowable(Throwable error) {
-        if (error instanceof RuntimeException) {
-            return (RuntimeException) error;
-        }
-        return new RuntimeException(error);
     }
 
     /**

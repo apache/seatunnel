@@ -18,20 +18,14 @@
 package org.apache.seatunnel.api.sink.multitablesink;
 
 import org.apache.seatunnel.api.common.metrics.MetricsContext;
-import org.apache.seatunnel.api.common.multitable.MultiTableFailedTable;
-import org.apache.seatunnel.api.common.multitable.MultiTableFailureHelper;
-import org.apache.seatunnel.api.common.multitable.MultiTableFailurePhase;
 import org.apache.seatunnel.api.event.DefaultEventProcessor;
 import org.apache.seatunnel.api.event.EventListener;
-import org.apache.seatunnel.api.options.MultiTableFailurePolicy;
 import org.apache.seatunnel.api.serialization.DefaultSerializer;
 import org.apache.seatunnel.api.sink.SinkWriter;
 import org.apache.seatunnel.api.sink.SupportMultiTableSinkWriter;
 import org.apache.seatunnel.api.table.catalog.TablePath;
 import org.apache.seatunnel.api.table.type.SeaTunnelRow;
-import org.apache.seatunnel.common.constants.JobMode;
 
-import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.Test;
 
 import lombok.AllArgsConstructor;
@@ -39,12 +33,10 @@ import lombok.Data;
 
 import java.io.IOException;
 import java.io.Serializable;
-import java.util.Collections;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
-import java.util.concurrent.atomic.AtomicInteger;
 
 public class MultiTableSinkWriterTest {
 
@@ -70,95 +62,6 @@ public class MultiTableSinkWriterTest {
         }
     }
 
-    @Test
-    public void testContinueOtherTablesKeepsHealthyTableRunning() throws IOException {
-        Map<SinkIdentifier, SinkWriter<SeaTunnelRow, ?, ?>> sinkWriters = new HashMap<>();
-        Map<SinkIdentifier, SinkWriter.Context> sinkWritersContext = new HashMap<>();
-        RecordingSinkWriter failedWriter = new RecordingSinkWriter(true);
-        RecordingSinkWriter healthyWriter = new RecordingSinkWriter(false);
-        SinkIdentifier failedIdentifier = SinkIdentifier.of("test.failed", 0);
-        SinkIdentifier healthyIdentifier = SinkIdentifier.of("test.healthy", 1);
-        sinkWriters.put(failedIdentifier, failedWriter);
-        sinkWriters.put(healthyIdentifier, healthyWriter);
-        sinkWritersContext.put(failedIdentifier, new TestSinkWriterContext());
-        sinkWritersContext.put(healthyIdentifier, new TestSinkWriterContext());
-
-        MultiTableSinkWriter multiTableSinkWriter =
-                new MultiTableSinkWriter(
-                        sinkWriters,
-                        2,
-                        sinkWritersContext,
-                        MultiTableFailurePolicy.CONTINUE_OTHER_TABLES,
-                        JobMode.BATCH);
-
-        multiTableSinkWriter.write(buildRow("test.failed", 0));
-        multiTableSinkWriter.write(buildRow("test.healthy", 1));
-
-        Optional<MultiTableCommitInfo> commitInfo = multiTableSinkWriter.prepareCommit(1L);
-        Assertions.assertTrue(commitInfo.isPresent());
-        Assertions.assertEquals(1, commitInfo.get().getCommitInfo().size());
-        Assertions.assertTrue(
-                commitInfo.get().getCommitInfo().keySet().stream()
-                        .allMatch(
-                                identifier ->
-                                        "test.healthy".equals(identifier.getTableIdentifier())));
-        Assertions.assertEquals(1, healthyWriter.getWriteCount());
-        Assertions.assertEquals(1, failedWriter.getWriteCount());
-
-        IOException closeException =
-                Assertions.assertThrows(IOException.class, multiTableSinkWriter::close);
-        Assertions.assertTrue(closeException.getMessage().contains("test.failed"));
-    }
-
-    @Test
-    public void testInitialFailedTableIsSkippedAndReported() throws IOException {
-        Map<SinkIdentifier, SinkWriter<SeaTunnelRow, ?, ?>> sinkWriters = new HashMap<>();
-        Map<SinkIdentifier, SinkWriter.Context> sinkWritersContext = new HashMap<>();
-        RecordingSinkWriter skippedWriter = new RecordingSinkWriter(false);
-        RecordingSinkWriter healthyWriter = new RecordingSinkWriter(false);
-        SinkIdentifier skippedIdentifier = SinkIdentifier.of("test.skipped", 0);
-        SinkIdentifier healthyIdentifier = SinkIdentifier.of("test.healthy", 1);
-        sinkWriters.put(skippedIdentifier, skippedWriter);
-        sinkWriters.put(healthyIdentifier, healthyWriter);
-        sinkWritersContext.put(skippedIdentifier, new TestSinkWriterContext());
-        sinkWritersContext.put(healthyIdentifier, new TestSinkWriterContext());
-
-        MultiTableFailedTable initialFailedTable =
-                MultiTableFailureHelper.buildFailedTable(
-                        "test.skipped",
-                        MultiTableFailurePhase.SINK_INIT,
-                        "console",
-                        new RuntimeException("startup failure"));
-        MultiTableSinkWriter multiTableSinkWriter =
-                new MultiTableSinkWriter(
-                        sinkWriters,
-                        2,
-                        sinkWritersContext,
-                        MultiTableFailurePolicy.CONTINUE_OTHER_TABLES,
-                        JobMode.BATCH,
-                        Collections.singletonList(initialFailedTable));
-
-        multiTableSinkWriter.write(buildRow("test.skipped", 0));
-        multiTableSinkWriter.write(buildRow("test.healthy", 1));
-
-        Optional<MultiTableCommitInfo> commitInfo = multiTableSinkWriter.prepareCommit(1L);
-        Assertions.assertTrue(commitInfo.isPresent());
-        Assertions.assertEquals(1, commitInfo.get().getCommitInfo().size());
-        Assertions.assertEquals(0, skippedWriter.getWriteCount());
-        Assertions.assertEquals(1, healthyWriter.getWriteCount());
-
-        IOException closeException =
-                Assertions.assertThrows(IOException.class, multiTableSinkWriter::close);
-        Assertions.assertTrue(closeException.getMessage().contains("test.skipped"));
-        Assertions.assertTrue(closeException.getMessage().contains("startup failure"));
-    }
-
-    private SeaTunnelRow buildRow(String tableId, int value) {
-        SeaTunnelRow row = new SeaTunnelRow(new Object[] {value});
-        row.setTableId(tableId);
-        return row;
-    }
-
     static class TestSinkWriter
             implements SinkWriter<SeaTunnelRow, TestSinkState, Object>,
                     SupportMultiTableSinkWriter {
@@ -180,32 +83,6 @@ public class MultiTableSinkWriterTest {
 
         @Override
         public void close() throws IOException {}
-
-        @Override
-        public Optional<Integer> primaryKey() {
-            return Optional.of(0);
-        }
-    }
-
-    static class RecordingSinkWriter extends TestSinkWriter {
-        private final boolean failOnWrite;
-        private final AtomicInteger writeCount = new AtomicInteger();
-
-        RecordingSinkWriter(boolean failOnWrite) {
-            this.failOnWrite = failOnWrite;
-        }
-
-        @Override
-        public void write(SeaTunnelRow seaTunnelRow) {
-            writeCount.incrementAndGet();
-            if (failOnWrite) {
-                throw new RuntimeException("intentional sink failure");
-            }
-        }
-
-        int getWriteCount() {
-            return writeCount.get();
-        }
     }
 
     static class TestSinkWriterContext implements SinkWriter.Context {
