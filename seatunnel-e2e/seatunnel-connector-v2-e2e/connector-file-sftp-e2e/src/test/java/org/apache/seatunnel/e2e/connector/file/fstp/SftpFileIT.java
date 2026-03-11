@@ -125,6 +125,27 @@ public class SftpFileIT extends TestSuiteBase implements TestResource {
                 "/text/e2e.txt",
                 "/home/seatunnel/tmp/seatunnel/read/wildcard/e2e.txt",
                 sftpContainer);
+
+        ContainerUtil.copyFileIntoContainers(
+                "/text/e2e.txt",
+                "/home/seatunnel/tmp/seatunnel/read/recursive/e2e.txt",
+                sftpContainer);
+
+        ContainerUtil.copyFileIntoContainers(
+                "/text/e2e.txt",
+                "/home/seatunnel/tmp/seatunnel/read/recursive/subdir/e2e.txt",
+                sftpContainer);
+
+        ContainerUtil.copyFileIntoContainers(
+                "/text/e2e.txt",
+                "/home/seatunnel/tmp/seatunnel/read/recursive/subdir/deeper/e2e.txt",
+                sftpContainer);
+
+        ContainerUtil.copyFileIntoContainers(
+                "/text/e2e.txt",
+                        "/home/seatunnel/tmp/seatunnel/read/recursive/subdir/deeper/final/e2e.txt",
+                        sftpContainer);
+
         Container.ExecResult chownResult =
                 sftpContainer.execInContainer(
                         "sh", "-c", "chown -R seatunnel /home/seatunnel/tmp/");

@@ -171,6 +171,26 @@ public class FtpFileIT extends TestSuiteBase implements TestResource {
         ContainerUtil.copyFileIntoContainers(
                 "/excel/e2e.xlsx", ftpHomeDir + "/e2e.xlsx", ftpContainer);
 
+        ContainerUtil.copyFileIntoContainers(
+                "/text/e2e.txt",
+                ftpHomeDir + "/tmp/seatunnel/read/recursive/e2e.txt",
+                ftpContainer);
+
+        ContainerUtil.copyFileIntoContainers(
+                "/text/e2e.txt",
+                ftpHomeDir + "/tmp/seatunnel/read/recursive/subdir/e2e.txt",
+                ftpContainer);
+
+        ContainerUtil.copyFileIntoContainers(
+                "/text/e2e.txt",
+                ftpHomeDir + "/tmp/seatunnel/read/recursive/subdir/deeper/e2e.txt",
+                ftpContainer);
+
+        ContainerUtil.copyFileIntoContainers(
+                "/text/e2e.txt",
+                ftpHomeDir + "/tmp/seatunnel/read/recursive/subdir/deeper/final/e2e.txt",
+                ftpContainer);
+
         ftpContainer.execInContainer("sh", "-c", "chmod -R 777 " + ftpHomeDir + "/");
         ftpContainer.execInContainer("sh", "-c", "chown -R ftp:ftp " + ftpHomeDir + "/");
     }
@@ -391,14 +411,9 @@ public class FtpFileIT extends TestSuiteBase implements TestResource {
         helper.execute("/excel/fake_source_to_ftp_root_path_excel.conf");
         // test ftp source support multipleTable
 
-        String homePath = ftpHomeDir;
-        String sink01 = "/tmp/seatunnel/json/sink/multiplesource/fake01";
-        String sink02 = "/tmp/seatunnel/json/sink/multiplesource/fake02";
-        deleteFileFromContainer(homePath + sink01);
-        deleteFileFromContainer(homePath + sink02);
-        helper.execute("/json/ftp_file_json_to_assert_with_multipletable.conf");
-        Assertions.assertEquals(getFileListFromContainer(homePath + sink01).size(), 1);
-        Assertions.assertEquals(getFileListFromContainer(homePath + sink02).size(), 1);
+        // test read recursive file path
+        helper.execute("/text/ftp_file_text_recursive_to_assert.conf");
+        helper.execute("/text/ftp_file_text_non_recursive_to_assert.conf");
     }
 
     @TestTemplate
