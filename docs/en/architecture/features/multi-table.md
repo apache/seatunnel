@@ -683,6 +683,25 @@ sink {
 
 Error tolerance and retry policies are typically connector-specific. Avoid relying on undocumented `multi-table.*` option keys unless they are defined by the connector you use.
 
+SeaTunnel also provides a framework-level failure policy for multi-table jobs:
+
+```hocon
+env {
+  multi_table {
+    failure_policy = "CONTINUE_OTHER_TABLES"
+  }
+}
+```
+
+When `failure_policy` is set to `CONTINUE_OTHER_TABLES`:
+
+- table-scoped failures during table discovery, sink initialization, save mode handling, or `MultiTableSink` runtime writes are recorded and printed with `table`, `phase`, `plugin`, `exception`, and summarized `reason`
+- healthy tables continue to run instead of being blocked by a small number of abnormal tables
+- batch jobs still finish as `FAILED` if any table was isolated
+- streaming jobs keep running while healthy tables remain active
+
+Shared failures such as source connection loss, checkpoint coordinator failures, plugin loading failures, or OOM conditions still abort the whole job.
+
 ## 11. Limitations and Considerations
 
 ### 11.1 Current Limitations
