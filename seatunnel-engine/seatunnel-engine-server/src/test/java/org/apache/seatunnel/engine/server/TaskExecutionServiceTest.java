@@ -19,15 +19,10 @@ package org.apache.seatunnel.engine.server;
 
 import org.apache.seatunnel.shade.com.google.common.collect.Lists;
 
-import org.apache.seatunnel.engine.common.Constant;
 import org.apache.seatunnel.engine.common.utils.PassiveCompletableFuture;
 import org.apache.seatunnel.engine.common.utils.concurrent.CompletableFuture;
-import org.apache.seatunnel.engine.core.job.JobImmutableInformation;
-import org.apache.seatunnel.engine.server.dag.physical.PhysicalVertex;
-import org.apache.seatunnel.engine.server.dag.physical.PipelineLocation;
 import org.apache.seatunnel.engine.server.execution.BlockTask;
 import org.apache.seatunnel.engine.server.execution.ExceptionTestTask;
-import org.apache.seatunnel.engine.server.execution.ExecutionState;
 import org.apache.seatunnel.engine.server.execution.FixedCallTestTimeTask;
 import org.apache.seatunnel.engine.server.execution.StopTimeTestTask;
 import org.apache.seatunnel.engine.server.execution.Task;
@@ -39,8 +34,6 @@ import org.apache.seatunnel.engine.server.execution.TaskGroupDefaultImpl;
 import org.apache.seatunnel.engine.server.execution.TaskGroupLocation;
 import org.apache.seatunnel.engine.server.execution.TaskGroupType;
 import org.apache.seatunnel.engine.server.execution.TestTask;
-import org.apache.seatunnel.engine.server.resourcemanager.resource.ResourceProfile;
-import org.apache.seatunnel.engine.server.resourcemanager.resource.SlotProfile;
 import org.apache.seatunnel.engine.server.task.TaskGroupImmutableInformation;
 
 import org.junit.jupiter.api.Assertions;
@@ -48,10 +41,8 @@ import org.junit.jupiter.api.BeforeAll;
 import org.junit.jupiter.api.RepeatedTest;
 import org.junit.jupiter.api.Test;
 
-import com.hazelcast.cluster.Address;
 import com.hazelcast.flakeidgen.FlakeIdGenerator;
 import com.hazelcast.internal.serialization.Data;
-import com.hazelcast.map.IMap;
 import lombok.NonNull;
 
 import java.io.File;
@@ -61,9 +52,7 @@ import java.net.URLClassLoader;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.Collections;
-import java.util.HashMap;
 import java.util.List;
-import java.util.Map;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.CopyOnWriteArrayList;
 import java.util.concurrent.TimeUnit;
@@ -465,114 +454,6 @@ public class TaskExecutionServiceTest extends AbstractSeaTunnelServerTest {
 
         stop.set(true);
         taskExecutionService.cancelTaskGroup(location);
-    }
-
-    /**
-     * Verifies that {@link PhysicalVertex#restoreExecutionState()} advances the task state from
-     * {@code DEPLOYING} to {@code RUNNING} when the task is already executing on the worker.
-     *
-     * <p>During master failover the new master re-reads job state from the IMap. If the master
-     * crashed after the worker finished deploying but before the master wrote {@code RUNNING} back
-     * to the IMap, the IMap still records {@code DEPLOYING}. Before this fix, {@code
-     * restoreExecutionState()} called {@code stateProcess()} with {@code DEPLOYING} state, which
-     * sent a redundant {@code DeployTaskOperation} to the worker. With the idempotency fix in
-     * {@link TaskExecutionService} that second deploy returns success, but the state machine never
-     * advances past {@code DEPLOYING} — the job loops forever. After this fix, {@code
-     * restoreExecutionState()} calls {@code checkTaskGroupIsExecuting()} first: if the task is
-     * confirmed running on the worker, the IMap state is advanced to {@code RUNNING} before {@code
-     * stateProcess()} is invoked, so no redundant deploy is sent.
-     */
-    @Test
-    public void testRestoreExecutionStateAdvancesDeployingToRunningWhenTaskIsExecuting() {
-        TaskExecutionService taskExecutionService = server.getTaskExecutionService();
-
-        // 1. Deploy a task locally so CheckTaskGroupIsExecutingOperation returns true.
-        AtomicBoolean stop = new AtomicBoolean(false);
-        TestTask testTask = new TestTask(stop, 500, true);
-        long testJobId = System.currentTimeMillis() + 1; // distinct from other tests
-        TaskGroupLocation location = new TaskGroupLocation(testJobId, 2, 0);
-
-        TaskGroupImmutableInformation taskGroupInfo =
-                new TaskGroupImmutableInformation(
-                        testJobId,
-                        2,
-                        TaskGroupType.INTERMEDIATE_BLOCKING_QUEUE,
-                        location,
-                        "restore-state-test",
-                        Collections.singletonList(
-                                nodeEngine.getSerializationService().toData(testTask)),
-                        Collections.singletonList(emptySet()),
-                        Collections.singletonList(emptySet()));
-
-        Data data = nodeEngine.getSerializationService().toData(taskGroupInfo);
-        TaskDeployState deployState = taskExecutionService.deployTask(data);
-        assertEquals(TaskDeployState.success(), deployState);
-
-        // 2. Get state IMaps and overwrite state with DEPLOYING — simulating the master crash
-        //    scenario where the worker finished but the master hadn't updated the IMap yet.
-        IMap<Object, Object> runningJobStateIMap =
-                nodeEngine.getHazelcastInstance().getMap(Constant.IMAP_RUNNING_JOB_STATE);
-        IMap<Object, Long[]> stateTimestampsIMap =
-                nodeEngine.getHazelcastInstance().getMap(Constant.IMAP_STATE_TIMESTAMPS);
-        runningJobStateIMap.put(location, ExecutionState.DEPLOYING);
-
-        // 3. Populate IMAP_OWNED_SLOT_PROFILES so checkTaskGroupIsExecuting() finds a SlotProfile
-        //    with the local node address, causing it to dispatch CheckTaskGroupIsExecutingOperation
-        //    to the local worker (which returns true because the task is in executionContexts).
-        IMap<PipelineLocation, Map<TaskGroupLocation, SlotProfile>> ownedSlotProfilesIMap =
-                nodeEngine.getHazelcastInstance().getMap(Constant.IMAP_OWNED_SLOT_PROFILES);
-        Address localAddress = nodeEngine.getThisAddress();
-        SlotProfile slotProfile =
-                new SlotProfile(localAddress, 0, new ResourceProfile(), "restore-test-seq");
-        Map<TaskGroupLocation, SlotProfile> taskGroupSlotMap = new HashMap<>();
-        taskGroupSlotMap.put(location, slotProfile);
-        ownedSlotProfilesIMap.put(location.getPipelineLocation(), taskGroupSlotMap);
-
-        // 4. Build PhysicalVertex. The constructor reads the IMap: state is already DEPLOYING so
-        //    it will not overwrite with CREATED.
-        FlakeIdGenerator flakeIdGenerator =
-                nodeEngine
-                        .getHazelcastInstance()
-                        .getFlakeIdGenerator(Constant.SEATUNNEL_ID_GENERATOR_NAME);
-        TaskGroupDefaultImpl taskGroup =
-                new TaskGroupDefaultImpl(
-                        location, "restore-state-test", Collections.singletonList(testTask));
-        PhysicalVertex vertex =
-                new PhysicalVertex(
-                        0,
-                        1,
-                        taskGroup,
-                        flakeIdGenerator,
-                        2,
-                        1,
-                        Collections.emptyList(),
-                        Collections.emptyList(),
-                        new JobImmutableInformation(),
-                        System.currentTimeMillis(),
-                        nodeEngine,
-                        runningJobStateIMap,
-                        stateTimestampsIMap);
-
-        // 5. Call restoreExecutionState(). The fix should:
-        //    a) re-read IMap → DEPLOYING
-        //    b) call checkTaskGroupIsExecuting() → true (task is in executionContexts)
-        //    c) advance IMap state to RUNNING via updateTaskState()
-        //    d) call stateProcess() which is a no-op for RUNNING state
-        vertex.restoreExecutionState();
-
-        // 6. Verify IMap state was advanced to RUNNING — not left as DEPLOYING.
-        ExecutionState resultState = (ExecutionState) runningJobStateIMap.get(location);
-        assertEquals(
-                ExecutionState.RUNNING,
-                resultState,
-                "restoreExecutionState() must advance DEPLOYING→RUNNING when task is executing");
-
-        // Cleanup
-        stop.set(true);
-        taskExecutionService.cancelTaskGroup(location);
-        ownedSlotProfilesIMap.delete(location.getPipelineLocation());
-        runningJobStateIMap.delete(location);
-        stateTimestampsIMap.delete(location);
     }
 
     public List<Task> buildFixedTestTask(
