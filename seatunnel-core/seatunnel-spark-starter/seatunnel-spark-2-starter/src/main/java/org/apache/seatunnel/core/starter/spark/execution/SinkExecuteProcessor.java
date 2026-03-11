@@ -186,9 +186,7 @@ public class SinkExecuteProcessor
                                     MultiTableFailureHelper.mergeOptions(
                                             ReadonlyConfig.fromConfig(sinkConfig),
                                             ReadonlyConfig.fromConfig(
-                                                    sparkRuntimeEnvironment
-                                                            .getConfig()
-                                                            .getConfig("env"))),
+                                                    sparkRuntimeEnvironment.getConfig())),
                                     currentSkippedTables),
                             classLoader);
             createdAnySink = true;
@@ -233,7 +231,7 @@ public class SinkExecuteProcessor
 
     private boolean shouldContinueOtherTables() {
         return MultiTableFailureHelper.shouldContinueOtherTables(
-                ReadonlyConfig.fromConfig(sparkRuntimeEnvironment.getConfig().getConfig("env")));
+                ReadonlyConfig.fromConfig(sparkRuntimeEnvironment.getConfig()));
     }
 
     private RuntimeException wrapThrowable(Throwable error) {
