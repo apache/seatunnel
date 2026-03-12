@@ -42,6 +42,27 @@ final class MockServerRequestUtils {
 
     private MockServerRequestUtils() {}
 
+    static void clearRequests(GenericContainer<?> mockserverContainer, String method, String path)
+            throws IOException {
+        String endpoint =
+                String.format(
+                        "http://%s:%d/mockserver/clear?type=LOG",
+                        mockserverContainer.getHost(), mockserverContainer.getMappedPort(1080));
+
+        HttpPut request = new HttpPut(endpoint);
+        request.setHeader("Content-Type", "application/json");
+        request.setEntity(
+                new StringEntity(createMatcher(method, path).toString(), StandardCharsets.UTF_8));
+
+        try (CloseableHttpClient client = HttpClients.createDefault();
+                CloseableHttpResponse response = client.execute(request)) {
+            String responseBody =
+                    EntityUtils.toString(response.getEntity(), StandardCharsets.UTF_8);
+            Assertions.assertEquals(
+                    HttpStatus.SC_OK, response.getStatusLine().getStatusCode(), responseBody);
+        }
+    }
+
     static ArrayNode retrieveRequests(
             GenericContainer<?> mockserverContainer, String method, String path)
             throws IOException {

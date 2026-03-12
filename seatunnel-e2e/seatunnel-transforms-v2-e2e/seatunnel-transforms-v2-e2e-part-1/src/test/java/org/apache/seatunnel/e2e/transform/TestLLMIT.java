@@ -96,6 +96,8 @@ public class TestLLMIT extends TestSuiteBase implements TestResource {
     @TestTemplate
     public void testLLMWithOpenAIBatch(TestContainer container)
             throws IOException, InterruptedException {
+        MockServerRequestUtils.clearRequests(
+                mockserverContainer, "POST", "/v1/chat/completions/batch");
         Container.ExecResult execResult = container.executeJob("/llm_openai_transform_batch.conf");
         Assertions.assertEquals(0, execResult.getExitCode());
 

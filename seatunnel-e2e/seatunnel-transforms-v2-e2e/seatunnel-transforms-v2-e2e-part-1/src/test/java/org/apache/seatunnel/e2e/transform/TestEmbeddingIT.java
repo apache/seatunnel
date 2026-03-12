@@ -109,6 +109,8 @@ public class TestEmbeddingIT extends TestSuiteBase implements TestResource {
     @TestTemplate
     public void testEmbeddingBatch(TestContainer container)
             throws IOException, InterruptedException {
+        MockServerRequestUtils.clearRequests(
+                mockserverContainer, "POST", "/v1/qianfan/embedding-batch/bge_large_en");
         Container.ExecResult execResult = container.executeJob("/embedding_transform_batch.conf");
         Assertions.assertEquals(0, execResult.getExitCode());
 
