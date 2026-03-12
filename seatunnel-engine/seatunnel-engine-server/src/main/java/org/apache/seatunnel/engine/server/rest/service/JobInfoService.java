@@ -173,26 +173,24 @@ public class JobInfoService extends BaseService {
         Config config;
         ConfigFormat configFormat = ConfigFormat.fromString(requestParams.get(CONFIG_FORMAT));
 
-        // fix issue: https://github.com/apache/seatunnel/issues/10590
         switch (configFormat) {
             case HOCON:
-                config =
-                        ConfigShadeUtils.decryptConfig(
-                                ConfigFactory.parseString(
-                                        new String(requestBody, StandardCharsets.UTF_8)));
+                config = ConfigFactory.parseString(new String(requestBody, StandardCharsets.UTF_8));
                 break;
             case SQL:
-                config =
-                        ConfigShadeUtils.decryptConfig(
-                                SqlConfigBuilder.of(
-                                        new String(requestBody, StandardCharsets.UTF_8)));
+                config = SqlConfigBuilder.of(new String(requestBody, StandardCharsets.UTF_8));
                 break;
             case JSON:
             default:
-                config = RestUtil.buildConfig(requestHandle(requestBody), false);
+                config = RestUtil.buildConfig(requestHandle(requestBody));
                 break;
         }
+
+        // fix issue: https://github.com/apache/seatunnel/issues/10590
+        config = ConfigShadeUtils.decryptConfig(config);
+
         SeaTunnelServer seaTunnelServer = getSeaTunnelServer(false);
+
         return submitJobInternal(config, requestParams, seaTunnelServer, nodeEngine.getNode());
     }
 
@@ -207,7 +205,7 @@ public class JobInfoService extends BaseService {
 
     public JsonArray submitJobs(byte[] requestBody) {
         List<Tuple2<Map<String, String>, Config>> configTuples =
-                RestUtil.buildConfigList(requestHandle(requestBody), false);
+                RestUtil.buildConfigList(requestHandle(requestBody));
 
         return configTuples.stream()
                 .map(
@@ -216,8 +214,12 @@ public class JobInfoService extends BaseService {
                             Map<String, String> requestParams = new HashMap<>();
                             RestUtil.buildRequestParams(requestParams, urlParams);
                             SeaTunnelServer seaTunnelServer = getSeaTunnelServer(false);
+                            Config decryptConfig = ConfigShadeUtils.decryptConfig(tuple._2);
                             return submitJobInternal(
-                                    tuple._2, requestParams, seaTunnelServer, nodeEngine.getNode());
+                                    decryptConfig,
+                                    requestParams,
+                                    seaTunnelServer,
+                                    nodeEngine.getNode());
                         })
                 .collect(JsonArray::new, JsonArray::add, JsonArray::add);
     }

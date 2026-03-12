@@ -124,15 +124,40 @@ public class RestApiSubmitJobConfigShadeDecryptTest {
     }
 
     @Test
-    public void testSubmitJobWithSqlFormatDecryptsConfig() throws Exception {
-        String requestUrl =
-                "http://localhost:" + restPort + "/submit-job?format=sql&jobName=sql_shade_test";
+    public void testSubmitJobWithHoconFormatMissingShadeIdentifier() throws Exception {
+        String bodyWithoutShade =
+                "env {\n"
+                        + "  job.mode = \"BATCH\"\n"
+                        + "}\n"
+                        + "source {\n"
+                        + "  FakeSource {\n"
+                        + "    row.num = 5\n"
+                        + "    username = \""
+                        + ENCRYPTED_USERNAME
+                        + "\"\n"
+                        + "    password = \""
+                        + ENCRYPTED_PASSWORD
+                        + "\"\n"
+                        + "    schema { fields { name = \"string\" } }\n"
+                        + "  }\n"
+                        + "}\n"
+                        + "transform {}\n"
+                        + "sink { Console {} }";
 
-        HttpResponse response = post(requestUrl, "text/plain", buildSqlBody());
-        Assertions.assertEquals(200, response.code, () -> "responseBody=" + response.body);
-        Assertions.assertTrue(
-                response.body.contains("jobId"),
-                "Response should contain jobId, got: " + response.body);
+        String requestUrl = "http://localhost:" + restPort + "/submit-job?format=hocon";
+
+        HttpResponse response = post(requestUrl, "text/plain", bodyWithoutShade);
+        // Should handle normally (without decryption)
+        Assertions.assertEquals(200, response.code);
+    }
+
+    @Test
+    public void testSubmitJobByUploadSqlFileDecryptsConfig() throws Exception {
+        String requestUrl = "http://localhost:" + restPort + "/submit-job/upload";
+
+        HttpResponse response = postMultipart(requestUrl, "job.sql", buildSqlBody());
+        Assertions.assertEquals(200, response.code);
+        Assertions.assertTrue(response.body.contains("jobId"));
     }
 
     @Test
@@ -144,6 +169,18 @@ public class RestApiSubmitJobConfigShadeDecryptTest {
         Assertions.assertTrue(
                 response.body.contains("jobId"),
                 "Response should contain jobId, got: " + response.body);
+    }
+
+    @Test
+    public void testSubmitJobWithHoconFormatInvalidBase64() throws Exception {
+        String invalidBase64Body = buildHoconBody().replace(ENCRYPTED_USERNAME, "invalid_base64!");
+
+        String requestUrl = "http://localhost:" + restPort + "/submit-job?format=hocon";
+
+        HttpResponse response = post(requestUrl, "text/plain", invalidBase64Body);
+        // Should return 400 Bad Request or 500 Internal Server Error
+        Assertions.assertTrue(response.code == 400 || response.code == 500);
+        Assertions.assertTrue(response.body.contains("error") || response.body.contains("Illegal"));
     }
 
     private int getHttpPort(SeaTunnelServer seaTunnelServer) throws Exception {
@@ -299,29 +336,31 @@ public class RestApiSubmitJobConfigShadeDecryptTest {
                 + "  shade.identifier = \"base64\"\n"
                 + "}\n"
                 + "*/\n"
-                + "CREATE TABLE src (\n"
+                + "CREATE TABLE source_table (\n"
                 + "    id INT,\n"
                 + "    name STRING\n"
                 + ") WITH (\n"
-                + "    'connector' = 'FakeSource',\n"
-                + "    'username' = '"
+                + "  'connector'='FakeSource',\n"
+                + "  'type'='source',\n"
+                + "  'user'='"
                 + ENCRYPTED_USERNAME
                 + "',\n"
-                + "    'password' = '"
+                + "  'password'='"
                 + ENCRYPTED_PASSWORD
                 + "',\n"
-                + "    'rows' = '[{ fields = [1, \"test\"], kind = INSERT }]',\n"
-                + "    'schema' = '{ fields { id = \"int\", name = \"string\" } }',\n"
-                + "    'type' = 'source'\n"
+                + "  'row.num'='3',\n"
+                + "  'field.names'='id,name',\n"
+                + "  'field.types'='INT,STRING'\n"
                 + ");\n"
-                + "CREATE TABLE dst (\n"
+                + "CREATE TABLE sink_table (\n"
                 + "    id INT,\n"
                 + "    name STRING\n"
                 + ") WITH (\n"
-                + "    'connector' = 'Console',\n"
-                + "    'type' = 'sink'\n"
+                + "  'connector'='Console',\n"
+                + "  'type'='sink',\n"
+                + "  'print-result'='true'\n"
                 + ");\n"
-                + "INSERT INTO dst SELECT * FROM src;";
+                + "INSERT INTO sink_table SELECT id,name FROM source_table;";
     }
 
     private static String getHazelcastConfig() {
