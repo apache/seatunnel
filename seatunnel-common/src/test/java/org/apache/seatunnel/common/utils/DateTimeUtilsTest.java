@@ -96,7 +96,7 @@ public class DateTimeUtilsTest {
         datetimeStr = "2024/12/1 10:10";
         Assertions.assertEquals("2024-12-01T10:10", DateTimeUtils.parse(datetimeStr).toString());
 
-        datetimeStr = "2020年10月10日 10时10分10秒";
+        datetimeStr = "2020年10月10日10时10分10秒";
         Assertions.assertEquals("2020-10-10T10:10:10", DateTimeUtils.parse(datetimeStr).toString());
 
         datetimeStr = "2020.10.10 10:10:10";
@@ -448,17 +448,18 @@ public class DateTimeUtilsTest {
         assertEquals(45, dateTime18.getSecond());
         assertEquals(123456789, dateTime18.getNano());
 
-        // 19. Chinese format
-        LocalDateTime dateTime19 = DateTimeUtils.parse("2023年12月25日 15时30分45秒");
+        // 19. T separator for date-time, 9-digit nanoseconds with UTC time zone Z identifier
+        LocalDateTime dateTime19 = DateTimeUtils.parse("2023-12-25T15:30:45.123456789Z");
         assertEquals(2023, dateTime19.getYear());
         assertEquals(12, dateTime19.getMonthValue());
         assertEquals(25, dateTime19.getDayOfMonth());
         assertEquals(15, dateTime19.getHour());
         assertEquals(30, dateTime19.getMinute());
         assertEquals(45, dateTime19.getSecond());
+        assertEquals(123456789, dateTime19.getNano());
 
-        // 20. T separator for date-time, 9-digit nanoseconds with UTC time zone Z identifier
-        LocalDateTime dateTime20 = DateTimeUtils.parse("2023-12-25T15:30:45.123456789Z");
+        // 20. T separator for date-time, 9-digit nanoseconds with +08:00 time zone Z identifier
+        LocalDateTime dateTime20 = DateTimeUtils.parse("2023/12/25 15:30:45.123456789+08:00");
         assertEquals(2023, dateTime20.getYear());
         assertEquals(12, dateTime20.getMonthValue());
         assertEquals(25, dateTime20.getDayOfMonth());
@@ -466,16 +467,6 @@ public class DateTimeUtilsTest {
         assertEquals(30, dateTime20.getMinute());
         assertEquals(45, dateTime20.getSecond());
         assertEquals(123456789, dateTime20.getNano());
-
-        // 21. T separator for date-time, 9-digit nanoseconds with +08:00 time zone Z identifier
-        LocalDateTime dateTime21 = DateTimeUtils.parse("2023/12/25 15:30:45.123456789+08:00");
-        assertEquals(2023, dateTime21.getYear());
-        assertEquals(12, dateTime21.getMonthValue());
-        assertEquals(25, dateTime21.getDayOfMonth());
-        assertEquals(15, dateTime21.getHour());
-        assertEquals(30, dateTime21.getMinute());
-        assertEquals(45, dateTime21.getSecond());
-        assertEquals(123456789, dateTime21.getNano());
     }
 
     @Test
@@ -498,6 +489,57 @@ public class DateTimeUtilsTest {
         assertEquals(15, dateTime1.getHour());
         assertEquals(30, dateTime1.getMinute());
         assertEquals(45, dateTime1.getSecond());
+    }
+
+    @Test
+    public void testChineseDateFormat() {
+        LocalDateTime dateTime1 = DateTimeUtils.parse("2023年12月25日15时30分45秒");
+        assertEquals(2023, dateTime1.getYear());
+        assertEquals(12, dateTime1.getMonthValue());
+        assertEquals(25, dateTime1.getDayOfMonth());
+        assertEquals(15, dateTime1.getHour());
+        assertEquals(30, dateTime1.getMinute());
+        assertEquals(45, dateTime1.getSecond());
+
+        LocalDateTime dateTime2 = DateTimeUtils.parse("2023年1月2日1时3分4秒");
+        assertEquals(2023, dateTime2.getYear());
+        assertEquals(1, dateTime2.getMonthValue());
+        assertEquals(2, dateTime2.getDayOfMonth());
+        assertEquals(1, dateTime2.getHour());
+        assertEquals(3, dateTime2.getMinute());
+        assertEquals(4, dateTime2.getSecond());
+
+        LocalDateTime dateTime3 = DateTimeUtils.parse("2023年12月2日1时3分4秒");
+        assertEquals(2023, dateTime3.getYear());
+        assertEquals(12, dateTime3.getMonthValue());
+        assertEquals(2, dateTime3.getDayOfMonth());
+        assertEquals(1, dateTime3.getHour());
+        assertEquals(3, dateTime3.getMinute());
+        assertEquals(4, dateTime3.getSecond());
+
+        LocalDateTime dateTime4 = DateTimeUtils.parse("2023年12月21日1时3分4秒");
+        assertEquals(2023, dateTime4.getYear());
+        assertEquals(12, dateTime4.getMonthValue());
+        assertEquals(21, dateTime4.getDayOfMonth());
+        assertEquals(1, dateTime4.getHour());
+        assertEquals(3, dateTime4.getMinute());
+        assertEquals(4, dateTime4.getSecond());
+
+        LocalDateTime dateTime5 = DateTimeUtils.parse("2023年12月21日17时3分4秒");
+        assertEquals(2023, dateTime5.getYear());
+        assertEquals(12, dateTime5.getMonthValue());
+        assertEquals(21, dateTime5.getDayOfMonth());
+        assertEquals(17, dateTime5.getHour());
+        assertEquals(3, dateTime5.getMinute());
+        assertEquals(4, dateTime5.getSecond());
+
+        LocalDateTime dateTime6 = DateTimeUtils.parse("2023年12月21日17时31分4秒");
+        assertEquals(2023, dateTime6.getYear());
+        assertEquals(12, dateTime6.getMonthValue());
+        assertEquals(21, dateTime6.getDayOfMonth());
+        assertEquals(17, dateTime6.getHour());
+        assertEquals(31, dateTime6.getMinute());
+        assertEquals(4, dateTime6.getSecond());
     }
 
     @Test
@@ -547,6 +589,22 @@ public class DateTimeUtilsTest {
         assertEquals(1, dateTime4.getHour());
         assertEquals(2, dateTime4.getMinute());
         assertEquals(3, dateTime4.getSecond());
+    }
+
+    @Test
+    void testDateWithMillisecondFormat() {
+        LocalDateTime dateTime1 = DateTimeUtils.parse("2026-03-11T00:23:47.1");
+        assertEquals(2026, dateTime1.getYear());
+        assertEquals(3, dateTime1.getMonthValue());
+        assertEquals(11, dateTime1.getDayOfMonth());
+        assertEquals(0, dateTime1.getHour());
+        assertEquals(23, dateTime1.getMinute());
+        assertEquals(47, dateTime1.getSecond());
+        assertEquals(100000000, dateTime1.getNano());
+        LocalDateTime dateTime2 = DateTimeUtils.parse("2026-03-11T00:23:47.12");
+        assertEquals(120000000, dateTime2.getNano());
+        LocalDateTime dateTime3 = DateTimeUtils.parse("2026-03-11T00:23:47.123");
+        assertEquals(123000000, dateTime3.getNano());
     }
 
     @Test
@@ -636,7 +694,7 @@ public class DateTimeUtilsTest {
     public void testParsePerformanceAutoFormatCNPattern() {
         // Test performance of auto-format parsing
         final int iterations = 10000000;
-        String dateTimeStr = "2023年12月25日 15时30分45秒";
+        String dateTimeStr = "2023年12月25日15时30分45秒";
 
         // Warm-up
         for (int i = 0; i < iterations / 1000; i++) {
