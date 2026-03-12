@@ -123,12 +123,13 @@ public class OptionRule {
         }
         OptionRule that = (OptionRule) o;
         return Objects.equals(optionalOptions, that.optionalOptions)
-                && Objects.equals(requiredOptions, that.requiredOptions);
+                && Objects.equals(requiredOptions, that.requiredOptions)
+                && Objects.equals(conditionRules, that.conditionRules);
     }
 
     @Override
     public int hashCode() {
-        return Objects.hash(optionalOptions, requiredOptions);
+        return Objects.hash(optionalOptions, requiredOptions, conditionRules);
     }
 
     public static OptionRule.Builder builder() {
@@ -195,15 +196,10 @@ public class OptionRule {
 
             /** Each parameter can only be controlled by one other parameter */
             Expression expression =
-                    Expression.of(Condition.of(conditionalOption, expectValues.get(0)));
-            for (int i = 0; i < expectValues.size(); i++) {
-                if (i != 0) {
-                    expression =
-                            expression.or(
-                                    Expression.of(
-                                            Condition.of(conditionalOption, expectValues.get(i))));
-                }
-            }
+                    expectValues.stream()
+                            .map(v -> Expression.of(Condition.of(conditionalOption, v)))
+                            .reduce(Expression::or)
+                            .get();
 
             RequiredOption.ConditionalRequiredOptions option =
                     RequiredOption.ConditionalRequiredOptions.of(
@@ -260,15 +256,10 @@ public class OptionRule {
             }
 
             Expression expression =
-                    Expression.of(Condition.of(conditionalOption, expectValues.get(0)));
-            for (int i = 0; i < expectValues.size(); i++) {
-                if (i != 0) {
-                    expression =
-                            expression.or(
-                                    Expression.of(
-                                            Condition.of(conditionalOption, expectValues.get(i))));
-                }
-            }
+                    expectValues.stream()
+                            .map(v -> Expression.of(Condition.of(conditionalOption, v)))
+                            .reduce(Expression::or)
+                            .get();
 
             if (conditionRulesMap.containsKey(expression)) {
                 throw new OptionValidationException(

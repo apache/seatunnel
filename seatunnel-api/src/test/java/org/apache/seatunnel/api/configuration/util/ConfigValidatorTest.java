@@ -348,4 +348,61 @@ public class ConfigValidatorTest {
         executable = () -> validate(config, optionRule);
         Assertions.assertDoesNotThrow(executable);
     }
+
+    @Test
+    public void testEmptyNestedOption() {
+        OptionRule emptyRule = OptionRule.builder().build();
+        Executable executable =
+                () ->
+                        OptionRule.builder()
+                                .optional(SINGLE_CHOICE_VALUE_TEST)
+                                .conditionalRule(SINGLE_CHOICE_VALUE_TEST, "A", emptyRule)
+                                .build();
+        assertEquals(
+                "ErrorCode:[API-02], ErrorDescription:[Option item validate failed] - conditional option rule for 'single_choice_test' must have options.",
+                assertThrows(OptionValidationException.class, executable).getMessage());
+    }
+
+    @Test
+    public void testDuplicatedNestedOption() {
+        OptionRule subOption1 = OptionRule.builder().required(KEY_USERNAME).build();
+        OptionRule subOption2 = OptionRule.builder().required(KEY_PASSWORD).build();
+        Executable executable =
+                () ->
+                        OptionRule.builder()
+                                .required(KEY_KERBEROS_TICKET)
+                                .optional(SINGLE_CHOICE_VALUE_TEST)
+                                .conditionalRule(SINGLE_CHOICE_VALUE_TEST, "A", subOption1)
+                                .conditionalRule(SINGLE_CHOICE_VALUE_TEST, "A", subOption2)
+                                .build();
+        assertEquals(
+                "ErrorCode:[API-02], ErrorDescription:[Option item validate failed] - conditional option rule for 'single_choice_test' with expression ''single_choice_test' == A' already exists.",
+                assertThrows(OptionValidationException.class, executable).getMessage());
+    }
+
+    @Test
+    public void testMultipleValueNestedRule() {
+        OptionRule subOption1 = OptionRule.builder().required(KEY_USERNAME, KEY_PASSWORD).build();
+        OptionRule subOption2 = OptionRule.builder().required(KEY_BEARER_TOKEN).build();
+        OptionRule optionRule =
+                OptionRule.builder()
+                        .optional(SINGLE_CHOICE_VALUE_TEST)
+                        .conditionalRule(
+                                SINGLE_CHOICE_VALUE_TEST, Arrays.asList("A", "B"), subOption1)
+                        .build();
+
+        Map<String, Object> config = new HashMap<>();
+        config.put(KEY_KERBEROS_TICKET.key(), "A");
+        config.put(SINGLE_CHOICE_VALUE_TEST.key(), "B");
+        Executable executable = () -> validate(config, optionRule);
+        assertEquals(
+                "ErrorCode:[API-02], ErrorDescription:[Option item validate failed] - There are unconfigured options, the options('username', 'password') are required when ['single_choice_test' == A || 'single_choice_test' == B].",
+                assertThrows(OptionValidationException.class, executable).getMessage());
+
+        config.put(SINGLE_CHOICE_VALUE_TEST.key(), "B");
+        executable = () -> validate(config, optionRule);
+        assertEquals(
+                "ErrorCode:[API-02], ErrorDescription:[Option item validate failed] - There are unconfigured options, the options('username', 'password') are required when ['single_choice_test' == A || 'single_choice_test' == B].",
+                assertThrows(OptionValidationException.class, executable).getMessage());
+    }
 }
