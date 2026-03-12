@@ -38,10 +38,7 @@ import java.util.List;
 import java.util.Map;
 import java.util.regex.Pattern;
 
-import static java.time.temporal.ChronoField.HOUR_OF_DAY;
-import static java.time.temporal.ChronoField.MINUTE_OF_HOUR;
 import static java.time.temporal.ChronoField.NANO_OF_SECOND;
-import static java.time.temporal.ChronoField.SECOND_OF_MINUTE;
 
 public class DateTimeUtils {
 
@@ -94,6 +91,34 @@ public class DateTimeUtils {
                         .appendValue(ChronoField.SECOND_OF_MINUTE, 1, 2, SignStyle.NEVER)
                         .optionalEnd()
                         .toFormatter();
+        DateTimePattern reverseDateTimePattern =
+                new DateTimePattern(reversePattern, reverseFormatter);
+
+        String chinesePattern = "\\d{4}年\\d{1,2}月\\d{1,2}日 {0,1}\\d{1,2}[时点]\\d{1,2}分\\d{1,2}秒";
+        DateTimeFormatter chineseFormatter =
+                new DateTimeFormatterBuilder()
+                        .parseCaseInsensitive()
+                        .appendValue(ChronoField.YEAR, 4)
+                        .appendLiteral('年')
+                        .appendValue(ChronoField.MONTH_OF_YEAR, 1, 2, SignStyle.NEVER)
+                        .appendLiteral('月')
+                        .appendValue(ChronoField.DAY_OF_MONTH, 1, 2, SignStyle.NEVER)
+                        .appendLiteral('日')
+                        .optionalStart()
+                        .appendLiteral(' ')
+                        .optionalEnd()
+                        .appendValue(ChronoField.HOUR_OF_DAY, 1, 2, SignStyle.NEVER)
+                        .appendOptional(
+                                new DateTimeFormatterBuilder().appendLiteral('时').toFormatter())
+                        .appendOptional(
+                                new DateTimeFormatterBuilder().appendLiteral('点').toFormatter())
+                        .appendValue(ChronoField.MINUTE_OF_HOUR, 1, 2, SignStyle.NEVER)
+                        .appendLiteral('分')
+                        .appendValue(ChronoField.SECOND_OF_MINUTE, 1, 2, SignStyle.NEVER)
+                        .appendLiteral('秒')
+                        .toFormatter();
+        DateTimePattern chineseDateTimePattern =
+                new DateTimePattern(chinesePattern, chineseFormatter);
 
         // ===================== Length 14: Fixed Length =====================
         // Format Type: No-separator compact format / Single digit month/day (no second)
@@ -112,7 +137,8 @@ public class DateTimeUtils {
                 new DateTimePattern(
                         "\\d{4}/\\d{1,2}/\\d{1,2}\\s\\d{2}:\\d{2}",
                         Formatter.YYYY_M_D_HH_MM_SLASH.value));
-        length14Patterns.add(new DateTimePattern(reversePattern, reverseFormatter));
+        length14Patterns.add(reverseDateTimePattern);
+        length14Patterns.add(chineseDateTimePattern);
         DATETIME_PATTERN_MAP.put(14, length14Patterns);
 
         // ===================== Length 15: Fixed Length =====================
@@ -127,7 +153,8 @@ public class DateTimeUtils {
                 new DateTimePattern(
                         "\\d{4}/\\d{1,2}/\\d{1,2}\\s\\d{2}:\\d{2}",
                         Formatter.YYYY_M_D_HH_MM_SLASH.value));
-        length15Patterns.add(new DateTimePattern(reversePattern, reverseFormatter));
+        length15Patterns.add(reverseDateTimePattern);
+        length15Patterns.add(chineseDateTimePattern);
         DATETIME_PATTERN_MAP.put(15, length15Patterns);
 
         // ===================== Length 16: Fixed Length =====================
@@ -151,7 +178,8 @@ public class DateTimeUtils {
                 new DateTimePattern(
                         "\\d{4}/\\d{1,2}/\\d{1,2}\\s\\d{1,2}:\\d{2}:\\d{2}",
                         Formatter.YYYY_M_D_H_MM_SS_SLASH.value));
-        length16Patterns.add(new DateTimePattern(reversePattern, reverseFormatter));
+        length16Patterns.add(reverseDateTimePattern);
+        length16Patterns.add(chineseDateTimePattern);
         DATETIME_PATTERN_MAP.put(16, length16Patterns);
 
         // ===================== Length 17: Fixed Length =====================
@@ -166,7 +194,8 @@ public class DateTimeUtils {
                 new DateTimePattern(
                         "\\d{4}/\\d{1,2}/\\d{1,2}\\s\\d{1,2}:\\d{2}:\\d{2}",
                         Formatter.YYYY_M_D_H_MM_SS_SLASH.value));
-        length17Patterns.add(new DateTimePattern(reversePattern, reverseFormatter));
+        length17Patterns.add(reverseDateTimePattern);
+        length17Patterns.add(chineseDateTimePattern);
         DATETIME_PATTERN_MAP.put(17, length17Patterns);
 
         // ===================== Length 18: Fixed Length =====================
@@ -181,7 +210,8 @@ public class DateTimeUtils {
                 new DateTimePattern(
                         "\\d{4}/\\d{1,2}/\\d{1,2}\\s\\d{1,2}:\\d{2}:\\d{2}",
                         Formatter.YYYY_M_D_H_MM_SS_SLASH.value));
-        length18Patterns.add(new DateTimePattern(reversePattern, reverseFormatter));
+        length18Patterns.add(reverseDateTimePattern);
+        length18Patterns.add(chineseDateTimePattern);
         DATETIME_PATTERN_MAP.put(18, length18Patterns);
 
         // ===================== Length 19: Fixed Length (Core Common) =====================
@@ -208,16 +238,66 @@ public class DateTimeUtils {
                 new DateTimePattern(
                         "\\d{4}\\.\\d{2}\\.\\d{2}\\s\\d{2}:\\d{2}:\\d{2}",
                         Formatter.YYYY_MM_DD_HH_MM_SS_SPOT.value));
-        length19Patterns.add(new DateTimePattern(reversePattern, reverseFormatter));
+        length19Patterns.add(reverseDateTimePattern);
+        length19Patterns.add(chineseDateTimePattern);
         DATETIME_PATTERN_MAP.put(19, length19Patterns);
 
-        // ===================== Length 21: Fixed Length (Chinese Exclusive) =====================
-        // Format Type: Chinese datetime format (fixed 21 bits, no variable part)
+        // ===================== Length 20: Fixed Length =====================
+        // Format Type: Chinese datetime format
+        // Example: 2024年12月29日21时30分21秒
+        List<DateTimePattern> length20Patterns = new ArrayList<>();
+        length20Patterns.add(chineseDateTimePattern);
+        DATETIME_PATTERN_MAP.put(20, length20Patterns);
+
+        DateTimeFormatter formatter =
+                new DateTimeFormatterBuilder()
+                        .parseCaseInsensitive()
+                        .appendValue(ChronoField.YEAR, 4)
+                        .appendOptional(
+                                new DateTimeFormatterBuilder().appendLiteral('/').toFormatter())
+                        .appendOptional(
+                                new DateTimeFormatterBuilder().appendLiteral('-').toFormatter())
+                        .appendValue(ChronoField.MONTH_OF_YEAR, 1, 2, SignStyle.NEVER)
+                        .appendOptional(
+                                new DateTimeFormatterBuilder().appendLiteral('/').toFormatter())
+                        .appendOptional(
+                                new DateTimeFormatterBuilder().appendLiteral('-').toFormatter())
+                        .appendValue(ChronoField.DAY_OF_MONTH, 1, 2, SignStyle.NEVER)
+                        .optionalStart()
+                        .appendLiteral('T')
+                        .optionalEnd()
+                        .optionalStart()
+                        .appendLiteral(' ')
+                        .optionalEnd()
+                        .appendValue(ChronoField.HOUR_OF_DAY, 1, 2, SignStyle.NEVER)
+                        .appendLiteral(':')
+                        .appendValue(ChronoField.MINUTE_OF_HOUR, 1, 2, SignStyle.NEVER)
+                        .appendLiteral(':')
+                        .appendValue(ChronoField.SECOND_OF_MINUTE, 1, 2, SignStyle.NEVER)
+                        .optionalStart()
+                        .appendFraction(NANO_OF_SECOND, 0, 9, true)
+                        .optionalEnd()
+                        .toFormatter();
+        // ===================== Length 21: Fixed Length =====================
+        // Format Type: Standard format with 1-digit millisecond
+        // Example: 2024-05-20T12:34:56.1, 2024-05-20 12:34:56.1
         List<DateTimePattern> length21Patterns = new ArrayList<>();
         length21Patterns.add(
                 new DateTimePattern(
-                        "\\d{4}年\\d{2}月\\d{2}日\\s\\d{2}时\\d{2}分\\d{2}秒", "yyyy年MM月dd日 HH时mm分ss秒"));
+                        "^\\d{4}[-/]\\d{1,2}[-/]\\d{1,2}[T\\s]\\d{1,2}:\\d{1,2}:\\d{1,2}\\.\\d{1}",
+                        formatter));
+        length21Patterns.add(chineseDateTimePattern);
         DATETIME_PATTERN_MAP.put(21, length21Patterns);
+
+        // ===================== Length 22: Fixed Length =====================
+        // Format Type: Standard format with 2-digit millisecond
+        // Example: 2024-05-20T12:34:56.12, 2024-05-20 12:34:56.12
+        List<DateTimePattern> length22Patterns = new ArrayList<>();
+        length22Patterns.add(
+                new DateTimePattern(
+                        "^\\d{4}[-/]\\d{1,2}[-/]\\d{1,2}[T\\s]\\d{1,2}:\\d{1,2}:\\d{1,2}\\.\\d{2}",
+                        formatter));
+        DATETIME_PATTERN_MAP.put(22, length22Patterns);
 
         // ===================== Length 23: Fixed Length (3-digit millisecond) =====================
         // Format Type: Standard format with 3-digit millisecond (max fixed length for normal
@@ -301,40 +381,7 @@ public class DateTimeUtils {
                 new DateTimePattern(
                         "^\\d{4}[-/]\\d{2}[-/]\\d{2}[T\\s]\\d{2}:\\d{2}:\\d{2}(?:\\.\\d{0,9})?(?:[+-]\\d{2}:\\d{2}|Z)$",
                         new DateTimeFormatterBuilder()
-                                .parseCaseInsensitive()
-                                .appendValue(ChronoField.YEAR, 4)
-                                .appendOptional(
-                                        new DateTimeFormatterBuilder()
-                                                .appendLiteral('/')
-                                                .toFormatter())
-                                .appendOptional(
-                                        new DateTimeFormatterBuilder()
-                                                .appendLiteral('-')
-                                                .toFormatter())
-                                .appendValue(ChronoField.MONTH_OF_YEAR, 1, 2, SignStyle.NEVER)
-                                .appendOptional(
-                                        new DateTimeFormatterBuilder()
-                                                .appendLiteral('/')
-                                                .toFormatter())
-                                .appendOptional(
-                                        new DateTimeFormatterBuilder()
-                                                .appendLiteral('-')
-                                                .toFormatter())
-                                .appendValue(ChronoField.DAY_OF_MONTH, 1, 2, SignStyle.NEVER)
-                                .optionalStart()
-                                .appendLiteral('T')
-                                .optionalEnd()
-                                .optionalStart()
-                                .appendLiteral(' ')
-                                .optionalEnd()
-                                .appendValue(HOUR_OF_DAY, 2)
-                                .appendLiteral(':')
-                                .appendValue(MINUTE_OF_HOUR, 2)
-                                .appendLiteral(':')
-                                .appendValue(SECOND_OF_MINUTE, 2)
-                                .optionalStart()
-                                .appendFraction(NANO_OF_SECOND, 0, 9, true)
-                                .optionalEnd()
+                                .appendOptional(formatter)
                                 .optionalStart()
                                 .appendOffset("+HH:mm", "Z")
                                 .optionalEnd()
