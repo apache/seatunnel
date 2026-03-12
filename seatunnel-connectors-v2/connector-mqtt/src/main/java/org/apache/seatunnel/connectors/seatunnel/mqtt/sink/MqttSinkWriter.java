@@ -97,6 +97,13 @@ public class MqttSinkWriter implements SinkWriter<SeaTunnelRow, Void, Void>, Mqt
                     clientId,
                     pluginConfig.get(MqttSinkOptions.URL));
         } catch (MqttException e) {
+            if (this.mqttClient != null) {
+                try {
+                    this.mqttClient.close();
+                } catch (MqttException ignored) {
+                    // Best-effort cleanup; the original exception is more important.
+                }
+            }
             throw new MqttConnectorException(
                     MqttConnectorErrorCode.CONNECTION_FAILED,
                     "Failed to connect MQTT client [" + clientId + "]",
