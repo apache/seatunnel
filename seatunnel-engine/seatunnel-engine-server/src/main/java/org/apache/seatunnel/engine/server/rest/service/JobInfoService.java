@@ -23,6 +23,7 @@ import org.apache.seatunnel.shade.com.typesafe.config.ConfigFactory;
 import org.apache.seatunnel.api.common.metrics.JobMetrics;
 import org.apache.seatunnel.common.utils.JsonUtils;
 import org.apache.seatunnel.config.sql.SqlConfigBuilder;
+import org.apache.seatunnel.core.starter.utils.ConfigShadeUtils;
 import org.apache.seatunnel.engine.common.Constant;
 import org.apache.seatunnel.engine.core.job.JobDAGInfo;
 import org.apache.seatunnel.engine.core.job.JobInfo;
@@ -171,12 +172,20 @@ public class JobInfoService extends BaseService {
         }
         Config config;
         ConfigFormat configFormat = ConfigFormat.fromString(requestParams.get(CONFIG_FORMAT));
+
+        // fix issue: https://github.com/apache/seatunnel/issues/10590
         switch (configFormat) {
             case HOCON:
-                config = ConfigFactory.parseString(new String(requestBody, StandardCharsets.UTF_8));
+                config =
+                        ConfigShadeUtils.decryptConfig(
+                                ConfigFactory.parseString(
+                                        new String(requestBody, StandardCharsets.UTF_8)));
                 break;
             case SQL:
-                config = SqlConfigBuilder.of(new String(requestBody, StandardCharsets.UTF_8));
+                config =
+                        ConfigShadeUtils.decryptConfig(
+                                SqlConfigBuilder.of(
+                                        new String(requestBody, StandardCharsets.UTF_8)));
                 break;
             case JSON:
             default:
