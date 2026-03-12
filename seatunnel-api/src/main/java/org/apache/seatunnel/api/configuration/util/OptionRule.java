@@ -23,9 +23,13 @@ import lombok.NonNull;
 
 import java.util.ArrayList;
 import java.util.Arrays;
+import java.util.Collections;
+import java.util.HashMap;
 import java.util.List;
+import java.util.Map;
 import java.util.Objects;
 import java.util.concurrent.atomic.AtomicBoolean;
+import java.util.stream.Collectors;
 
 /**
  * Validation rule for {@link Option}.
@@ -80,9 +84,15 @@ public class OptionRule {
      */
     private final List<RequiredOption> requiredOptions;
 
-    OptionRule(List<Option<?>> optionalOptions, List<RequiredOption> requiredOptions) {
+    private final List<ConditionRule> conditionRules;
+
+    OptionRule(
+            List<Option<?>> optionalOptions,
+            List<RequiredOption> requiredOptions,
+            List<ConditionRule> conditionRules) {
         this.optionalOptions = optionalOptions;
         this.requiredOptions = requiredOptions;
+        this.conditionRules = conditionRules;
     }
 
     public List<Option<?>> getOptionalOptions() {
@@ -91,6 +101,16 @@ public class OptionRule {
 
     public List<RequiredOption> getRequiredOptions() {
         return requiredOptions;
+    }
+
+    public List<ConditionRule> getConditionRules() {
+        return conditionRules;
+    }
+
+    private boolean hasOptions() {
+        return !(optionalOptions.isEmpty()
+                && requiredOptions.isEmpty()
+                && conditionRules.isEmpty());
     }
 
     @Override
@@ -119,6 +139,7 @@ public class OptionRule {
     public static class Builder {
         private final List<Option<?>> optionalOptions = new ArrayList<>();
         private final List<RequiredOption> requiredOptions = new ArrayList<>();
+        private final Map<Expression, OptionRule> conditionRulesMap = new HashMap<>();
 
         private Builder() {}
 
@@ -218,8 +239,63 @@ public class OptionRule {
             return this;
         }
 
+        public <T> Builder conditionalRule(
+                @NonNull Option<T> conditionalOption,
+                @NonNull List<T> expectValues,
+                @NonNull OptionRule conditionalOptionRule) {
+            verifyConditionalExists(conditionalOption);
+
+            if (expectValues.isEmpty()) {
+                throw new OptionValidationException(
+                        String.format(
+                                "conditional option '%s' must have expect values .",
+                                conditionalOption.key()));
+            }
+
+            if (!conditionalOptionRule.hasOptions()) {
+                throw new OptionValidationException(
+                        String.format(
+                                "conditional option rule for '%s' must have options.",
+                                conditionalOption.key()));
+            }
+
+            Expression expression =
+                    Expression.of(Condition.of(conditionalOption, expectValues.get(0)));
+            for (int i = 0; i < expectValues.size(); i++) {
+                if (i != 0) {
+                    expression =
+                            expression.or(
+                                    Expression.of(
+                                            Condition.of(conditionalOption, expectValues.get(i))));
+                }
+            }
+
+            if (conditionRulesMap.containsKey(expression)) {
+                throw new OptionValidationException(
+                        String.format(
+                                "conditional option rule for '%s' with expression '%s' already exists.",
+                                conditionalOption.key(), expression.toString()));
+            }
+            this.conditionRulesMap.put(expression, conditionalOptionRule);
+            return this;
+        }
+
+        public <T> Builder conditionalRule(
+                @NonNull Option<T> conditionalOption,
+                @NonNull T expectValue,
+                @NonNull OptionRule conditionalOptionRule) {
+            return conditionalRule(
+                    conditionalOption,
+                    Collections.singletonList(expectValue),
+                    conditionalOptionRule);
+        }
+
         public OptionRule build() {
-            return new OptionRule(optionalOptions, requiredOptions);
+            List<ConditionRule> conditionRuleList =
+                    conditionRulesMap.entrySet().stream()
+                            .map(e -> new ConditionRule(e.getKey(), e.getValue()))
+                            .collect(Collectors.toList());
+            return new OptionRule(optionalOptions, requiredOptions, conditionRuleList);
         }
 
         private void verifyRequiredOptionDefaultValue(@NonNull Option<?> option) {

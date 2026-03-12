@@ -293,4 +293,59 @@ public class ConfigValidatorTest {
                 "ErrorCode:[API-02], ErrorDescription:[Option item validate failed] - These options('single_choice_test') are SingleChoiceOption, the value(N) must be one of the optionValues([A, B, C]).",
                 assertThrows(OptionValidationException.class, executable).getMessage());
     }
+
+    @Test
+    public void testNestedOptionRule() {
+        Option<String> test_key =
+                Options.key("test_key").stringType().noDefaultValue().withDescription("for test");
+        OptionRule adminUserOption = OptionRule.builder().required(test_key).build();
+        OptionRule subOption1 =
+                OptionRule.builder()
+                        .required(KEY_USERNAME, KEY_PASSWORD)
+                        .conditionalRule(KEY_USERNAME, "admin", adminUserOption)
+                        .build();
+        OptionRule subOption2 = OptionRule.builder().required(KEY_BEARER_TOKEN).build();
+
+        // the final rule is :
+        // key_kerberos_ticket is required
+        // single_choice_test is optional (the default value is A)
+        // when single_choice_test == A, username and password are required, and when username ==
+        // admin, test_key is required
+        // when single_choice_test == B, bearer_token is required
+        // when single_choice_test == C, no extra options are required
+        OptionRule optionRule =
+                OptionRule.builder()
+                        .required(KEY_KERBEROS_TICKET)
+                        .optional(SINGLE_CHOICE_VALUE_TEST)
+                        .conditionalRule(SINGLE_CHOICE_VALUE_TEST, "A", subOption1)
+                        .conditionalRule(SINGLE_CHOICE_VALUE_TEST, "B", subOption2)
+                        .build();
+
+        Map<String, Object> config = new HashMap<>();
+        config.put(KEY_KERBEROS_TICKET.key(), "A");
+        config.put(SINGLE_CHOICE_VALUE_TEST.key(), "C");
+        Executable executable = () -> validate(config, optionRule);
+        Assertions.assertDoesNotThrow(executable);
+
+        config.put(SINGLE_CHOICE_VALUE_TEST.key(), "A");
+        executable = () -> validate(config, optionRule);
+        assertEquals(
+                "ErrorCode:[API-02], ErrorDescription:[Option item validate failed] - There are unconfigured options, the options('username', 'password') are required when ['single_choice_test' == A].",
+                assertThrows(OptionValidationException.class, executable).getMessage());
+
+        config.put(KEY_USERNAME.key(), "root");
+        config.put(KEY_PASSWORD.key(), "111");
+        executable = () -> validate(config, optionRule);
+        Assertions.assertDoesNotThrow(executable);
+
+        config.put(KEY_USERNAME.key(), "admin");
+        executable = () -> validate(config, optionRule);
+        assertEquals(
+                "ErrorCode:[API-02], ErrorDescription:[Option item validate failed] - There are unconfigured options, the options('test_key') are required when ['username' == admin].",
+                assertThrows(OptionValidationException.class, executable).getMessage());
+
+        config.put(test_key.key(), "111");
+        executable = () -> validate(config, optionRule);
+        Assertions.assertDoesNotThrow(executable);
+    }
 }
