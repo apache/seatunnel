@@ -22,6 +22,7 @@ import org.apache.seatunnel.shade.com.google.common.io.CharStreams;
 import org.apache.seatunnel.shade.org.apache.commons.lang3.StringUtils;
 import org.apache.seatunnel.shade.org.apache.commons.lang3.tuple.Pair;
 
+import org.apache.seatunnel.api.options.MultiTableFailurePolicy;
 import org.apache.seatunnel.api.table.catalog.Catalog;
 import org.apache.seatunnel.api.table.catalog.CatalogTable;
 import org.apache.seatunnel.api.table.catalog.ConstraintKey;
@@ -519,7 +520,8 @@ public abstract class AbstractJdbcIT extends TestSuiteBase implements TestResour
                                 .username(jdbcCase.getUserName())
                                 .password(jdbcCase.getPassword())
                                 .build(),
-                        tablesConfig);
+                        tablesConfig,
+                        MultiTableFailurePolicy.FAIL_FAST);
         Set<TablePath> tablePaths = tables.keySet();
 
         tablePaths.forEach(
