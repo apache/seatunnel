@@ -436,7 +436,7 @@ public class MultiTableSinkWriter
      * the first exception is propagated. Resource manager close errors are logged but not
      * propagated.
      *
-     * @throws IOException if any sub-writer fails to close
+     * @throws RuntimeException if any sub-writer fails to close
      */
     @Override
     public void close() throws IOException {
