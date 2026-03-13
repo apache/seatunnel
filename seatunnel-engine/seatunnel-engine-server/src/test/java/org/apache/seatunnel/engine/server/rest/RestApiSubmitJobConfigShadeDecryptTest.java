@@ -180,7 +180,7 @@ public class RestApiSubmitJobConfigShadeDecryptTest {
         HttpResponse response = post(requestUrl, "text/plain", invalidBase64Body);
         // Should return 400 Bad Request or 500 Internal Server Error
         Assertions.assertTrue(response.code == 400 || response.code == 500);
-        Assertions.assertTrue(response.body.contains("error") || response.body.contains("Illegal"));
+        Assertions.assertTrue(response.body.contains("fail") || response.body.contains("Illegal"));
     }
 
     private int getHttpPort(SeaTunnelServer seaTunnelServer) throws Exception {
@@ -336,31 +336,23 @@ public class RestApiSubmitJobConfigShadeDecryptTest {
                 + "  shade.identifier = \"base64\"\n"
                 + "}\n"
                 + "*/\n"
-                + "CREATE TABLE source_table (\n"
-                + "    id INT,\n"
-                + "    name STRING\n"
-                + ") WITH (\n"
+                + "CREATE TABLE source_table WITH (\n"
                 + "  'connector'='FakeSource',\n"
                 + "  'type'='source',\n"
-                + "  'user'='"
+                + "  'username'='"
                 + ENCRYPTED_USERNAME
                 + "',\n"
                 + "  'password'='"
                 + ENCRYPTED_PASSWORD
                 + "',\n"
                 + "  'row.num'='3',\n"
-                + "  'field.names'='id,name',\n"
-                + "  'field.types'='INT,STRING'\n"
+                + "  'schema'='{ fields { id = \"int\", name = \"string\" } }'\n"
                 + ");\n"
-                + "CREATE TABLE sink_table (\n"
-                + "    id INT,\n"
-                + "    name STRING\n"
-                + ") WITH (\n"
+                + "CREATE TABLE sink_table WITH (\n"
                 + "  'connector'='Console',\n"
-                + "  'type'='sink',\n"
-                + "  'print-result'='true'\n"
+                + "  'type'='sink'\n"
                 + ");\n"
-                + "INSERT INTO sink_table SELECT id,name FROM source_table;";
+                + "INSERT INTO sink_table SELECT source_table;";
     }
 
     private static String getHazelcastConfig() {
