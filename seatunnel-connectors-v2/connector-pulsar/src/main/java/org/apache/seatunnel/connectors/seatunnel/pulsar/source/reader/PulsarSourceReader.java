@@ -21,15 +21,15 @@ import org.apache.seatunnel.api.serialization.DeserializationSchema;
 import org.apache.seatunnel.api.source.Boundedness;
 import org.apache.seatunnel.api.source.Collector;
 import org.apache.seatunnel.api.source.SourceReader;
+import org.apache.seatunnel.api.table.catalog.TablePath;
 import org.apache.seatunnel.common.Handover;
 import org.apache.seatunnel.common.exception.CommonErrorCodeDeprecated;
 import org.apache.seatunnel.connectors.seatunnel.pulsar.config.PulsarClientConfig;
 import org.apache.seatunnel.connectors.seatunnel.pulsar.config.PulsarConfigUtil;
-import org.apache.seatunnel.connectors.seatunnel.pulsar.config.PulsarConsumerConfig;
 import org.apache.seatunnel.connectors.seatunnel.pulsar.config.PulsarSemantics;
 import org.apache.seatunnel.connectors.seatunnel.pulsar.exception.PulsarConnectorErrorCode;
 import org.apache.seatunnel.connectors.seatunnel.pulsar.exception.PulsarConnectorException;
-import org.apache.seatunnel.connectors.seatunnel.pulsar.source.enumerator.cursor.start.StartCursor;
+import org.apache.seatunnel.connectors.seatunnel.pulsar.source.PulsarConsumerMetadata;
 import org.apache.seatunnel.connectors.seatunnel.pulsar.source.split.PulsarPartitionSplit;
 
 import org.apache.pulsar.client.api.Message;
@@ -50,14 +50,16 @@ import java.util.Set;
 import java.util.SortedMap;
 import java.util.TreeMap;
 import java.util.TreeSet;
+import java.util.concurrent.ConcurrentHashMap;
 import java.util.stream.Collectors;
 
 public class PulsarSourceReader<T> implements SourceReader<T, PulsarPartitionSplit> {
     private static final Logger LOG = LoggerFactory.getLogger(PulsarSourceReader.class);
+
     protected final SourceReader.Context context;
     protected final PulsarClientConfig clientConfig;
-    protected final PulsarConsumerConfig consumerConfig;
-    protected final StartCursor startCursor;
+    protected final Map<TablePath, PulsarConsumerMetadata> consumerMetadataMap;
+    protected final TablePath defaultTablePath;
     protected final Handover<RecordWithSplitId> handover;
 
     protected final Map<String, PulsarPartitionSplit> splitStates;
@@ -65,8 +67,7 @@ public class PulsarSourceReader<T> implements SourceReader<T, PulsarPartitionSpl
     protected final SortedMap<Long, Map<String, MessageId>> pendingCursorsToCommit;
     protected final Map<String, MessageId> pendingCursorsToFinish;
     protected final Set<String> finishedSplits;
-
-    protected final DeserializationSchema<T> deserialization;
+    protected final ConcurrentHashMap<String, TablePath> splitIdToTablePath;
 
     /** The maximum number of milliseconds to wait for a fetch batch. */
     protected final int pollTimeout;
@@ -81,17 +82,17 @@ public class PulsarSourceReader<T> implements SourceReader<T, PulsarPartitionSpl
     public PulsarSourceReader(
             SourceReader.Context context,
             PulsarClientConfig clientConfig,
-            PulsarConsumerConfig consumerConfig,
-            StartCursor startCursor,
-            DeserializationSchema<T> deserialization,
+            Map<TablePath, PulsarConsumerMetadata> consumerMetadataMap,
             int pollTimeout,
             long pollInterval,
             int batchSize) {
         this.context = context;
         this.clientConfig = clientConfig;
-        this.consumerConfig = consumerConfig;
-        this.startCursor = startCursor;
-        this.deserialization = deserialization;
+        this.consumerMetadataMap = consumerMetadataMap;
+        this.defaultTablePath =
+                consumerMetadataMap.size() == 1
+                        ? consumerMetadataMap.keySet().iterator().next()
+                        : null;
         this.pollTimeout = pollTimeout;
         this.pollInterval = pollInterval;
         this.batchSize = batchSize;
@@ -100,6 +101,7 @@ public class PulsarSourceReader<T> implements SourceReader<T, PulsarPartitionSpl
         this.pendingCursorsToCommit = Collections.synchronizedSortedMap(new TreeMap<>());
         this.pendingCursorsToFinish = Collections.synchronizedSortedMap(new TreeMap<>());
         this.finishedSplits = new TreeSet<>();
+        this.splitIdToTablePath = new ConcurrentHashMap<>();
         this.handover = new Handover<>();
     }
 
@@ -130,11 +132,18 @@ public class PulsarSourceReader<T> implements SourceReader<T, PulsarPartitionSpl
         for (int i = 0; i < batchSize; i++) {
             Optional<RecordWithSplitId> recordWithSplitId = handover.pollNext();
             if (recordWithSplitId.isPresent()) {
-                final String splitId = recordWithSplitId.get().getSplitId();
-                final Message<byte[]> message = recordWithSplitId.get().getMessage();
+                String splitId = recordWithSplitId.get().getSplitId();
+                Message<byte[]> message = recordWithSplitId.get().getMessage();
                 synchronized (output.getCheckpointLock()) {
                     splitStates.get(splitId).setLatestConsumedId(message.getMessageId());
-                    deserialization.deserialize(message.getData(), output);
+                    TablePath tablePath = resolveTablePath(splitId);
+                    DeserializationSchema<T> deserializationSchema =
+                            resolveDeserializationSchema(tablePath);
+                    Collector<T> collector =
+                            tablePath == null
+                                    ? output
+                                    : new TableIdInjectingCollector<>(output, tablePath);
+                    deserializationSchema.deserialize(message.getData(), collector);
                 }
             }
             if (noMoreSplitsAssignment && finishedSplits.size() == splitStates.size()) {
@@ -168,6 +177,10 @@ public class PulsarSourceReader<T> implements SourceReader<T, PulsarPartitionSpl
     public void addSplits(List<PulsarPartitionSplit> splits) {
         for (PulsarPartitionSplit split : splits) {
             splitStates.put(split.splitId(), split);
+            TablePath tablePath = resolveTablePath(split);
+            if (tablePath != null) {
+                splitIdToTablePath.put(split.splitId(), tablePath);
+            }
             PulsarSplitReaderThread splitReaderThread = createPulsarSplitReaderThread(split);
             try {
                 splitReaderThread.setName(
@@ -186,14 +199,15 @@ public class PulsarSourceReader<T> implements SourceReader<T, PulsarPartitionSpl
     }
 
     protected PulsarSplitReaderThread createPulsarSplitReaderThread(PulsarPartitionSplit split) {
+        PulsarConsumerMetadata metadata = resolveConsumerMetadata(resolveTablePath(split));
         return new PulsarSplitReaderThread(
                 this,
                 split,
                 pulsarClient,
-                consumerConfig,
+                metadata.getConsumerConfig(),
                 pollTimeout,
                 pollInterval,
-                startCursor,
+                metadata.getStartCursor(),
                 handover);
     }
 
@@ -252,5 +266,34 @@ public class PulsarSourceReader<T> implements SourceReader<T, PulsarPartitionSpl
                     "pulsar consumer acknowledgeCumulative failed.",
                     e);
         }
+    }
+
+    private TablePath resolveTablePath(String splitId) {
+        TablePath tablePath = splitIdToTablePath.get(splitId);
+        return tablePath != null ? tablePath : defaultTablePath;
+    }
+
+    private TablePath resolveTablePath(PulsarPartitionSplit split) {
+        return split.getTablePath() != null ? split.getTablePath() : defaultTablePath;
+    }
+
+    private PulsarConsumerMetadata resolveConsumerMetadata(TablePath tablePath) {
+        PulsarConsumerMetadata metadata =
+                tablePath == null ? null : consumerMetadataMap.get(tablePath);
+        if (metadata == null && defaultTablePath != null) {
+            metadata = consumerMetadataMap.get(defaultTablePath);
+        }
+        if (metadata == null) {
+            throw new PulsarConnectorException(
+                    PulsarConnectorErrorCode.DESERIALIZATION_SCHEMA_NOT_FOUND,
+                    String.format("No consumer metadata found for table '%s'", tablePath));
+        }
+        return metadata;
+    }
+
+    @SuppressWarnings("unchecked")
+    private DeserializationSchema<T> resolveDeserializationSchema(TablePath tablePath) {
+        return (DeserializationSchema<T>)
+                resolveConsumerMetadata(tablePath).getDeserializationSchema();
     }
 }
