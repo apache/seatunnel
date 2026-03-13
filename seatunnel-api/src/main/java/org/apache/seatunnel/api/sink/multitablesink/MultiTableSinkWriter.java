@@ -437,8 +437,8 @@ public class MultiTableSinkWriter
      * propagated.
      *
      * @throws RuntimeException wrapping the first {@link Throwable} caught from any sub-writer;
-     *     note that the method signature declares {@code throws IOException} (inherited from
-     *     the interface), but the current implementation always wraps in {@code RuntimeException}
+     *     note that the method signature declares {@code throws IOException} (inherited from the
+     *     interface), but the current implementation always wraps in {@code RuntimeException}
      */
     @Override
     public void close() throws IOException {
