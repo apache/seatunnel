@@ -346,7 +346,7 @@ public class TaskExecutionService implements DynamicMetricsProvider {
                     // Release classloaders acquired during deserialization
                     for (Map.Entry<Long, Collection<URL>> entry : taskJars.entrySet()) {
                         classLoaderService.releaseClassLoader(
-                            taskImmutableInfo.getJobId(), entry.getValue());
+                                taskImmutableInfo.getJobId(), entry.getValue());
                     }
                     return TaskDeployState.success();
                 }
