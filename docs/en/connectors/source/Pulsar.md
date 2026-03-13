@@ -23,8 +23,10 @@ Source connector for Apache Pulsar.
 |--------------------------|---------|----------|---------------|
 | topic                    | String  | No       | -             |
 | topic-pattern            | String  | No       | -             |
+| table_path               | String  | No       | -             |
+| tables_configs           | Array   | No       | -             |
 | topic-discovery.interval | Long    | No       | -1            |
-| subscription.name        | String  | Yes      | -             |
+| subscription.name        | String  | No       | -             |
 | client.service-url       | String  | Yes      | -             |
 | admin.service-url        | String  | Yes      | -             |
 | auth.plugin-class        | String  | No       | -             |
@@ -43,15 +45,35 @@ Source connector for Apache Pulsar.
 
 ### topic [String]
 
-Topic name(s) to read data from when the table is used as source. It also supports topic list for source by separating topic by semicolon like 'topic-1;topic-2'.
+Topic name(s) to read data from when the table is used as source. It also supports topic lists by separating topics with commas like `'topic-1,topic-2'`.
 
-**Note, only one of "topic-pattern" and "topic" can be specified for sources.**
+**Note, only one of `topic`, `topic-pattern` and `tables_configs` can be specified for sources.**
 
 ### topic-pattern [String]
 
 The regular expression for a pattern of topic names to read from. All topics with names that match the specified regular expression will be subscribed by the consumer when the job starts running.
 
-**Note, only one of "topic-pattern" and "topic" can be specified for sources.**
+**Note, only one of `topic`, `topic-pattern` and `tables_configs` can be specified for sources.**
+
+### table_path [String]
+
+Logical table identifier for one `tables_configs` item. This option is mainly used in multi-table mode.
+
+### tables_configs [Array]
+
+Multi-table source configuration. Each item can override global defaults such as `format`, cursor options and `subscription.name`.
+
+Each item must configure exactly one of:
+
+- `topic`
+- `topic-pattern`
+
+Additional rules:
+
+- `table_path` is required when `topic-pattern` is used.
+- `subscription.name` must exist either globally or inside the item.
+- Only `JSON` and `CANAL_JSON` are supported in multi-table mode.
+- In batch mode, every table must be bounded. If any table uses `cursor.stop.mode = NEVER`, the source is unbounded and batch jobs are rejected.
 
 ### topic-discovery.interval [Long]
 
@@ -61,7 +83,7 @@ The interval (in ms) for the Pulsar source to discover the new topic partitions.
 
 ### subscription.name [String]
 
-Specify the subscription name for this consumer. This argument is required when constructing the consumer.
+Specify the subscription name for this consumer. This is required for each effective table configuration, but in multi-table mode it can be defined globally or overridden per `tables_configs` item.
 
 ### client.service-url [String]
 
@@ -142,17 +164,59 @@ Source plugin common parameters, please refer to [Source Common Options](../comm
 
 ## Example
 
-```Jdbc {
+```hocon
 source {
   Pulsar {
-  	topic = "example"
-  	subscription.name = "seatunnel"
+    topic = "example"
+    subscription.name = "seatunnel"
     client.service-url = "pulsar://localhost:6650"
     admin.service-url = "http://my-broker.example.com:8080"
     plugin_output = "test"
   }
 }
 ```
+
+## Multi-table Example
+
+```hocon
+source {
+  Pulsar {
+    subscription.name = "seatunnel-sub"
+    client.service-url = "pulsar://localhost:6650"
+    admin.service-url = "http://localhost:8080"
+    cursor.startup.mode = "EARLIEST"
+    cursor.stop.mode = "NEVER"
+    format = "json"
+
+    tables_configs = [
+      {
+        table_path = "default.orders"
+        topic = "persistent://public/default/orders"
+        schema = {
+          fields {
+            order_id = "bigint"
+            user_id = "int"
+          }
+        }
+      },
+      {
+        table_path = "default.users"
+        topic-pattern = "persistent://public/default/users-.*"
+        subscription.name = "users-sub"
+        format = "canal_json"
+        schema = {
+          fields {
+            user_id = "int"
+            name = "string"
+          }
+        }
+      }
+    ]
+  }
+}
+```
+
+In batch mode, replace `cursor.stop.mode = "NEVER"` with a bounded mode such as `LATEST` or `TIMESTAMP`.
 
 ## Changelog
 

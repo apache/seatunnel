@@ -18,6 +18,7 @@
 package org.apache.seatunnel.connectors.seatunnel.pulsar.source;
 
 import org.apache.seatunnel.api.configuration.util.OptionRule;
+import org.apache.seatunnel.api.options.table.TableSchemaOptions;
 import org.apache.seatunnel.api.source.SeaTunnelSource;
 import org.apache.seatunnel.api.source.SourceSplit;
 import org.apache.seatunnel.api.table.catalog.CatalogTable;
@@ -43,10 +44,10 @@ public class PulsarSourceFactory implements TableSourceFactory {
     public OptionRule optionRule() {
         return OptionRule.builder()
                 .required(
-                        PulsarSourceOptions.SUBSCRIPTION_NAME,
                         PulsarSourceOptions.CLIENT_SERVICE_URL,
                         PulsarSourceOptions.ADMIN_SERVICE_URL)
                 .optional(
+                        PulsarSourceOptions.SUBSCRIPTION_NAME,
                         PulsarSourceOptions.CURSOR_STARTUP_MODE,
                         PulsarSourceOptions.CURSOR_STOP_MODE,
                         PulsarSourceOptions.TOPIC_DISCOVERY_INTERVAL,
@@ -55,7 +56,10 @@ public class PulsarSourceFactory implements TableSourceFactory {
                         PulsarSourceOptions.POLL_BATCH_SIZE,
                         PulsarSourceOptions.FORMAT,
                         PulsarSourceOptions.SCHEMA)
-                .exclusive(PulsarSourceOptions.TOPIC, PulsarSourceOptions.TOPIC_PATTERN)
+                .exclusive(
+                        PulsarSourceOptions.TOPIC,
+                        PulsarSourceOptions.TOPIC_PATTERN,
+                        TableSchemaOptions.TABLE_CONFIGS)
                 .conditional(
                         PulsarSourceOptions.FORMAT,
                         PulsarSourceOptions.TEXT_FORMAT,
