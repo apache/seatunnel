@@ -24,6 +24,7 @@ import org.apache.seatunnel.e2e.common.container.TestContainer;
 import org.apache.seatunnel.e2e.common.junit.DisabledOnContainer;
 import org.apache.seatunnel.e2e.common.junit.TestContainerExtension;
 import org.apache.seatunnel.e2e.common.util.JobIdGenerator;
+import org.apache.seatunnel.e2e.common.util.ContainerUtil;
 
 import org.awaitility.Awaitility;
 import org.junit.jupiter.api.AfterAll;
@@ -171,6 +172,24 @@ public class HdfsFileIT extends TestSuiteBase implements TestResource {
     }
 
     @TestTemplate
+    public void testHdfsReadRecursiveTextDirectory(TestContainer container)
+            throws IOException, InterruptedException {
+        resetRecursiveTestPath();
+        putHdfsClasspathFile("/text/e2e.txt", "/recursive/e2e.txt");
+        putHdfsClasspathFile("/text/e2e.txt", "/recursive/subdir/e2e.txt");
+        putHdfsClasspathFile("/text/e2e.txt", "/recursive/subdir/deeper/e2e.txt");
+        putHdfsClasspathFile("/text/e2e.txt", "/recursive/subdir/deeper/final/e2e.txt");
+
+        org.testcontainers.containers.Container.ExecResult recursiveResult =
+                container.executeJob("/hdfs_text_recursive_to_assert.conf");
+        Assertions.assertEquals(0, recursiveResult.getExitCode());
+
+        org.testcontainers.containers.Container.ExecResult nonRecursiveResult =
+                container.executeJob("/hdfs_text_non_recursive_to_assert.conf");
+        Assertions.assertEquals(0, nonRecursiveResult.getExitCode());
+    }
+
+    @TestTemplate
     public void testHdfsBinaryUpdateModeDistcp(TestContainer container)
             throws IOException, InterruptedException {
         resetUpdateTestPath();
@@ -304,11 +323,32 @@ public class HdfsFileIT extends TestSuiteBase implements TestResource {
         Assertions.assertEquals(0, mkdirResult.getExitCode());
     }
 
+    private void resetRecursiveTestPath() throws IOException, InterruptedException {
+        nameNode.execInContainer("bash", "-c", "hdfs dfs -rm -r -f /recursive || true");
+        org.testcontainers.containers.Container.ExecResult mkdirResult =
+                nameNode.execInContainer(
+                        "hdfs", "dfs", "-mkdir", "-p", "/recursive/subdir/deeper/final");
+        Assertions.assertEquals(0, mkdirResult.getExitCode());
+    }
+
     private void putHdfsFile(String hdfsPath, String content)
             throws IOException, InterruptedException {
         String command = "printf '" + content + "' | hdfs dfs -put -f - " + hdfsPath;
         org.testcontainers.containers.Container.ExecResult putResult =
                 nameNode.execInContainer("bash", "-c", command);
+        Assertions.assertEquals(0, putResult.getExitCode());
+    }
+
+    private void putHdfsClasspathFile(String resourcePath, String hdfsPath)
+            throws IOException, InterruptedException {
+        String tempFileName =
+                "/tmp/"
+                        + java.util.UUID.randomUUID()
+                        + "-"
+                        + java.nio.file.Paths.get(resourcePath).getFileName();
+        ContainerUtil.copyFileIntoContainers(resourcePath, tempFileName, nameNode);
+        org.testcontainers.containers.Container.ExecResult putResult =
+                nameNode.execInContainer("hdfs", "dfs", "-put", "-f", tempFileName, hdfsPath);
         Assertions.assertEquals(0, putResult.getExitCode());
     }
 
