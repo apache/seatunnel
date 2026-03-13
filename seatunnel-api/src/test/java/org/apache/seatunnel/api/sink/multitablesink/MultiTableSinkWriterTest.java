@@ -44,6 +44,8 @@ import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
+import java.util.concurrent.BlockingQueue;
+import java.util.concurrent.LinkedBlockingQueue;
 import java.util.concurrent.atomic.AtomicInteger;
 
 public class MultiTableSinkWriterTest {
@@ -153,6 +155,44 @@ public class MultiTableSinkWriterTest {
         Assertions.assertTrue(closeException.getMessage().contains("startup failure"));
     }
 
+    @Test
+    public void testSingleWriterFallbackAcceptsExplicitTableId() {
+        Map<String, SinkWriter<SeaTunnelRow, ?, ?>> tableIdWriterMap = new HashMap<>();
+        RecordingSinkWriter onlyWriter = new RecordingSinkWriter(false, true);
+        BlockingQueue<SeaTunnelRow> queue = new LinkedBlockingQueue<>(1);
+        tableIdWriterMap.put("http", onlyWriter);
+        queue.add(buildRow("Optional[http]", 1));
+
+        MultiTableWriterRunnable runnable = new MultiTableWriterRunnable(tableIdWriterMap, queue);
+        runnable.run();
+
+        Assertions.assertNull(runnable.getThrowable());
+        Assertions.assertEquals(1, onlyWriter.getWriteCount());
+        Assertions.assertEquals("http", runnable.getCurrentTableId());
+    }
+
+    @Test
+    public void testFailedTableMetadataIsSerializable() throws IOException {
+        MultiTableFailedTable failedTable =
+                MultiTableFailureHelper.buildFailedTable(
+                        "test.skipped",
+                        MultiTableFailurePhase.SINK_INIT,
+                        "console",
+                        new RuntimeException("startup failure"));
+        DefaultSerializer<MultiTableFailedTable> serializer = new DefaultSerializer<>();
+
+        byte[] bytes = serializer.serialize(failedTable);
+        MultiTableFailedTable restored = serializer.deserialize(bytes);
+
+        Assertions.assertEquals("test.skipped", restored.getTablePath());
+        Assertions.assertEquals(MultiTableFailurePhase.SINK_INIT, restored.getPhase());
+        Assertions.assertEquals("console", restored.getPluginName());
+        Assertions.assertEquals("RuntimeException", restored.getExceptionClass());
+        Assertions.assertEquals("startup failure", restored.getMessageSummary());
+        Assertions.assertEquals(failedTable.getFirstFailureTime(), restored.getFirstFailureTime());
+        Assertions.assertNull(restored.getCause());
+    }
+
     private SeaTunnelRow buildRow(String tableId, int value) {
         SeaTunnelRow row = new SeaTunnelRow(new Object[] {value});
         row.setTableId(tableId);
@@ -189,10 +229,16 @@ public class MultiTableSinkWriterTest {
 
     static class RecordingSinkWriter extends TestSinkWriter {
         private final boolean failOnWrite;
+        private final boolean interruptAfterWrite;
         private final AtomicInteger writeCount = new AtomicInteger();
 
         RecordingSinkWriter(boolean failOnWrite) {
+            this(failOnWrite, false);
+        }
+
+        RecordingSinkWriter(boolean failOnWrite, boolean interruptAfterWrite) {
             this.failOnWrite = failOnWrite;
+            this.interruptAfterWrite = interruptAfterWrite;
         }
 
         @Override
@@ -200,6 +246,9 @@ public class MultiTableSinkWriterTest {
             writeCount.incrementAndGet();
             if (failOnWrite) {
                 throw new RuntimeException("intentional sink failure");
+            }
+            if (interruptAfterWrite) {
+                Thread.currentThread().interrupt();
             }
         }
 

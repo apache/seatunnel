@@ -32,6 +32,7 @@ public class MultiTableWriterRunnable implements Runnable {
 
     private final Map<String, SinkWriter<SeaTunnelRow, ?, ?>> tableIdWriterMap;
     private final BlockingQueue<SeaTunnelRow> queue;
+    private final boolean allowSingleWriterFallback;
     private final boolean continueOnTableFailure;
     private final BiConsumer<String, Throwable> failureHandler;
     private volatile Throwable throwable;
@@ -50,6 +51,7 @@ public class MultiTableWriterRunnable implements Runnable {
             BiConsumer<String, Throwable> failureHandler) {
         this.tableIdWriterMap = tableIdWriterMap;
         this.queue = queue;
+        this.allowSingleWriterFallback = tableIdWriterMap.size() == 1;
         this.continueOnTableFailure = continueOnTableFailure;
         this.failureHandler = failureHandler;
     }
@@ -73,8 +75,10 @@ public class MultiTableWriterRunnable implements Runnable {
                 }
                 SinkWriter<SeaTunnelRow, ?, ?> writer = tableIdWriterMap.get(row.getTableId());
                 if (writer == null) {
-                    if ((row.getTableId() == null || row.getTableId().trim().isEmpty())
-                            && tableIdWriterMap.size() == 1) {
+                    // Single-table jobs may still emit rewritten/non-canonical table ids.
+                    // Keep the historical sole-writer fallback only for runnables that
+                    // started with one writer so quarantined multi-table rows are not rerouted.
+                    if (allowSingleWriterFallback && tableIdWriterMap.size() == 1) {
                         writer = tableIdWriterMap.values().stream().findFirst().get();
                         currentTableId = tableIdWriterMap.keySet().stream().findFirst().get();
                     } else if (continueOnTableFailure) {

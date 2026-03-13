@@ -19,16 +19,22 @@ package org.apache.seatunnel.api.common.multitable;
 
 import lombok.Getter;
 
+import java.io.Serializable;
+
 /** A normalized failed-table record used by parser and runtime multi-table components. */
 @Getter
-public class MultiTableFailedTable {
+public class MultiTableFailedTable implements Serializable {
+    private static final long serialVersionUID = 1L;
+
     private final String tablePath;
     private final MultiTableFailurePhase phase;
     private final String pluginName;
     private final String exceptionClass;
     private final String messageSummary;
     private final long firstFailureTime;
-    private final Throwable cause;
+    // Throwable chains may capture connector internals that are not safe to ship with job graph
+    // serialization. Failed-table metadata is the stable contract across stages.
+    private final transient Throwable cause;
 
     public MultiTableFailedTable(
             String tablePath,
