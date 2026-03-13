@@ -17,10 +17,7 @@
 
 package org.apache.seatunnel.connectors.seatunnel.rabbitmq.source;
 
-import org.apache.seatunnel.api.configuration.ReadonlyConfig;
-import org.apache.seatunnel.api.options.ConnectorCommonOptions;
 import org.apache.seatunnel.api.source.SourceSplitEnumerator;
-import org.apache.seatunnel.connectors.seatunnel.rabbitmq.config.RabbitmqBaseOptions;
 import org.apache.seatunnel.connectors.seatunnel.rabbitmq.config.RabbitmqConfig;
 import org.apache.seatunnel.connectors.seatunnel.rabbitmq.split.RabbitmqSplit;
 import org.apache.seatunnel.connectors.seatunnel.rabbitmq.split.RabbitmqSplitEnumeratorState;
@@ -60,27 +57,6 @@ public class RabbitmqSplitEnumerator
         for (String queue : queues) {
             log.info("Discovered queue for processing: {}", queue);
             this.pendingSplits.put(queue, new RabbitmqSplit(queue));
-        }
-    }
-
-    private void initializeSplits(ReadonlyConfig pluginConfig, RabbitmqConfig rabbitmqConfig) {
-        if (pluginConfig.getOptional(ConnectorCommonOptions.TABLE_CONFIGS).isPresent()) {
-            for (Map<String, Object> item :
-                    pluginConfig.get(ConnectorCommonOptions.TABLE_CONFIGS)) {
-                ReadonlyConfig tableConfig = ReadonlyConfig.fromMap(item);
-                String queueName = tableConfig.get(RabbitmqBaseOptions.QUEUE_NAME);
-                if (queueName != null
-                        && !queueName.isEmpty()
-                        && !pendingSplits.containsKey(queueName)) {
-                    log.info("Discovered queue for processing: {}", queueName);
-                    pendingSplits.put(queueName, new RabbitmqSplit(queueName));
-                }
-            }
-        } else {
-            String queueName = rabbitmqConfig.getQueueName();
-            if (queueName != null && !queueName.isEmpty()) {
-                pendingSplits.put(queueName, new RabbitmqSplit(queueName));
-            }
         }
     }
 
