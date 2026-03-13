@@ -343,6 +343,11 @@ public class TaskExecutionService implements DynamicMetricsProvider {
                                     "TaskGroupLocation %s already exists and is active, "
                                             + "skipping redeploy for master failover recovery",
                                     taskGroup.getTaskGroupLocation()));
+                    // Release classloaders acquired during deserialization
+                    for (Map.Entry<Long, Collection<URL>> entry : taskJars.entrySet()) {
+                        classLoaderService.releaseClassLoader(
+                            taskImmutableInfo.getJobId(), entry.getValue());
+                    }
                     return TaskDeployState.success();
                 }
                 deployLocalTask(taskGroup, classLoaders, taskJars);
