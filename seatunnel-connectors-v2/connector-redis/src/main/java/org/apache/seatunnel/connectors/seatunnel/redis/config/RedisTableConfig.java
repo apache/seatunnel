@@ -120,8 +120,8 @@ public class RedisTableConfig implements Serializable {
         if (config.getOptional(TABLE_LIST).isPresent()) {
             List<Map<String, Object>> tableListMaps = config.get(TABLE_LIST);
             return tableListMaps.stream()
-                    .map(ReadonlyConfig::fromMap) // Map → ReadonlyConfig
-                    .map(RedisTableConfig::buildFromConfig) // Manual construction
+                    .map(ReadonlyConfig::fromMap)
+                    .map(RedisTableConfig::buildFromConfig)
                     .collect(Collectors.toList());
         } else {
             // Single table mode (backward compatibility)
@@ -188,12 +188,11 @@ public class RedisTableConfig implements Serializable {
 
         return RedisTableConfig.builder()
                 .keys(keys)
-                .dataType(tableConfig.get(DATA_TYPE)) // ← Goes through convertToEnum()
+                .dataType(tableConfig.get(DATA_TYPE))
                 .batchSize(tableConfig.get(BATCH_SIZE))
-                .format(tableConfig.get(FORMAT)) // ← Goes through convertToEnum()
+                .format(tableConfig.get(FORMAT))
                 .schema(tableConfig.getOptional(ConnectorCommonOptions.SCHEMA).orElse(null))
-                .hashKeyParseMode(
-                        tableConfig.get(HASH_KEY_PARSE_MODE)) // ← Goes through convertToEnum()
+                .hashKeyParseMode(tableConfig.get(HASH_KEY_PARSE_MODE))
                 .readKeyEnabled(tableConfig.get(READ_KEY_ENABLED))
                 .keyFieldName(keyFieldName)
                 .singleFieldName(tableConfig.getOptional(SINGLE_FIELD_NAME).orElse(null))

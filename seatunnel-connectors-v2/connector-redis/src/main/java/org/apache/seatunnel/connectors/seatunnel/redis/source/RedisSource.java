@@ -61,7 +61,6 @@ public class RedisSource extends AbstractSingleSplitSource<SeaTunnelRow> {
         Map<TablePath, RedisTableConfig> tablesMap = new HashMap<>();
 
         for (RedisTableConfig tableConfig : tableConfigs) {
-            // tableConfig already contains fully initialized tablePath
             TablePath tablePath = tableConfig.getTablePath();
 
             // Check for duplicate TablePath
@@ -86,7 +85,6 @@ public class RedisSource extends AbstractSingleSplitSource<SeaTunnelRow> {
 
     @Override
     public List<CatalogTable> getProducedCatalogTables() {
-        // Return all catalog tables from source tables map
         List<CatalogTable> catalogTables = new ArrayList<>(sourceTablesMap.size());
         for (RedisTableConfig tableConfig : sourceTablesMap.values()) {
             catalogTables.add(tableConfig.getCatalogTable());
