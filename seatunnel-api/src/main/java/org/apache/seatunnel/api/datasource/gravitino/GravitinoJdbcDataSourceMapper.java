@@ -21,6 +21,7 @@ import org.apache.seatunnel.shade.com.fasterxml.jackson.databind.JsonNode;
 
 import org.apache.seatunnel.api.datasource.DataSourceMapper;
 import org.apache.seatunnel.api.metalake.gravitino.GravitinoClient;
+import org.apache.seatunnel.common.utils.SeaTunnelException;
 
 import java.io.IOException;
 import java.util.HashMap;
@@ -91,7 +92,7 @@ public class GravitinoJdbcDataSourceMapper implements DataSourceMapper {
             JsonNode propertiesNode = client.getMetaInfo(datasourceId, catalogBaseUrl);
             return convertToJdbcConfig(propertiesNode);
         } catch (IOException e) {
-            throw new RuntimeException(
+            throw new SeaTunnelException(
                     String.format(
                             "Failed to fetch metadata from Gravitino for datasource: %s",
                             datasourceId),

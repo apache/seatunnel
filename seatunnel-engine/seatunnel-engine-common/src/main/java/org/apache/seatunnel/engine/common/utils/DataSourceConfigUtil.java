@@ -320,12 +320,7 @@ public final class DataSourceConfigUtil {
         for (Map.Entry<String, Object> entry : datasourceConfig.entrySet()) {
             String key = entry.getKey();
             Object value = entry.getValue();
-
-            log.debug(
-                    "Merging datasource config: key={}, value={}, datasource_id={}",
-                    key,
-                    value,
-                    datasourceId);
+            log.debug("Merging datasource config: key={}, datasource_id={}", key, datasourceId);
 
             if (isFlatStructure) {
                 // Flat structure: merge directly into the map
