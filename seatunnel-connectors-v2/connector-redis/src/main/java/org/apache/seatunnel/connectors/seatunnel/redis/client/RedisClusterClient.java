@@ -88,12 +88,10 @@ public class RedisClusterClient extends RedisClient {
             return new ArrayList<>();
         }
         List<Map<String, String>> result = new ArrayList<>(keys.size());
+        String keyFieldName = tableConfig.getKeyFieldName();
         for (String key : keys) {
             Map<String, String> map = jedis.hgetAll(key);
-            String keyFieldName = tableConfig.getKeyFieldName();
-            if (keyFieldName != null) {
-                map.put(keyFieldName, key);
-            }
+            map.put(keyFieldName, key);
             result.add(map);
         }
         return result;

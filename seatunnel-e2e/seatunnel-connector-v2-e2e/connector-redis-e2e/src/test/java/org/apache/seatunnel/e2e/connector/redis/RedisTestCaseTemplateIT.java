@@ -16,6 +16,7 @@
  */
 package org.apache.seatunnel.e2e.connector.redis;
 
+import org.apache.seatunnel.shade.com.fasterxml.jackson.core.type.TypeReference;
 import org.apache.seatunnel.shade.com.fasterxml.jackson.databind.node.ObjectNode;
 
 import org.apache.seatunnel.api.table.type.ArrayType;
@@ -816,20 +817,27 @@ public abstract class RedisTestCaseTemplateIT extends TestSuiteBase implements T
                 container.executeJob("/scan-multitable-mixed-types-to-redis.conf");
         Assertions.assertEquals(0, execResult.getExitCode(), "Job should complete successfully");
 
-        // Verify hash table results (10 hashes * 5 fields = 50 records)
+        // Verify hash table results
         long hashCount = jedis.llen("mixed-types-result-hash_table");
-        Assertions.assertEquals(
-                50, hashCount, "Hash table should have 50 records (10 hashes * 5 fields)");
+        Assertions.assertEquals(10, hashCount);
 
-        // Verify list table results (10 lists * 5 elements = 50 records)
+        List<String> hashTabelValueList =
+                jedis.lrange("mixed-types-result-hash_table", 0, hashCount);
+
+        for (String hashValue : hashTabelValueList) {
+            Map<String, Object> valueMap =
+                    JsonUtils.parseObject(hashValue, new TypeReference<Map<String, Object>>() {});
+            Assertions.assertNotNull(valueMap);
+            Assertions.assertEquals(6, valueMap.size());
+        }
+
+        // Verify list table results
         long listCount = jedis.llen("mixed-types-result-list_table");
-        Assertions.assertEquals(
-                50, listCount, "List table should have 50 records (10 lists * 5 elements)");
+        Assertions.assertEquals(50, listCount);
 
-        // Verify set table results (10 sets * 5 members = 50 records)
+        // Verify set table results
         long setCount = jedis.llen("mixed-types-result-set_table");
-        Assertions.assertEquals(
-                50, setCount, "Set table should have 50 records (10 sets * 5 members)");
+        Assertions.assertEquals(50, setCount);
 
         // Clean up source data
         for (int i = 0; i < 10; i++) {

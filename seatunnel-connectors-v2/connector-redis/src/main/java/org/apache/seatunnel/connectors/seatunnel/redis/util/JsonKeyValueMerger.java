@@ -62,10 +62,7 @@ public class JsonKeyValueMerger implements KeyValueMerger {
             objectNode = JsonUtils.createObjectNode();
             setValueInNode(objectNode, node);
         }
-        String keyFieldName = tableConfig.getKeyFieldName();
-        if (keyFieldName != null) {
-            objectNode.put(keyFieldName, key);
-        }
+        objectNode.put(tableConfig.getKeyFieldName(), key);
         return objectNode;
     }
 

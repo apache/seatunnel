@@ -55,27 +55,12 @@ public class RedisParameters implements Serializable {
     private List<String> redisNodes = Collections.emptyList();
     private int redisVersion;
 
-    // The following fields are only for single-table mode.
-    // In multi-table mode, use RedisTableConfig instead.
-    @Deprecated private String keysPattern;
-
-    @Deprecated private String keyField;
-
-    @Deprecated private RedisDataType redisDataType;
-
-    @Deprecated private RedisSourceOptions.HashKeyParseMode hashKeyParseMode;
-
-    @Deprecated private Boolean readKeyEnabled;
-
-    @Deprecated private String singleFieldName;
-
-    @Deprecated private String keyFieldName;
-
-    @Deprecated private int batchSize = RedisBaseOptions.BATCH_SIZE.defaultValue();
-
-    @Deprecated private String fieldDelimiter;
-
-    @Deprecated private RedisBaseOptions.Format format;
+    // These parameters are also required in RedisSinkWriter
+    private String keyField;
+    private RedisDataType redisDataType;
+    private int batchSize = RedisBaseOptions.BATCH_SIZE.defaultValue();
+    private String fieldDelimiter;
+    private RedisBaseOptions.Format format;
 
     // Sink-specific fields
     private long expire = RedisSinkOptions.EXPIRE.defaultValue();
@@ -107,35 +92,9 @@ public class RedisParameters implements Serializable {
             this.redisNodes = config.get(RedisBaseOptions.NODES);
         }
 
-        // Note: The following table-level configurations are for single-table mode compatibility
-        // only.
-        // In multi-table mode, these values are read from RedisTableConfig instead.
-
-        // set hash key mode
-        this.hashKeyParseMode = config.get(RedisSourceOptions.HASH_KEY_PARSE_MODE);
-        // set read with key
-        this.readKeyEnabled = config.get(RedisSourceOptions.READ_KEY_ENABLED);
-        // set single field name
-        if (config.getOptional(RedisSourceOptions.SINGLE_FIELD_NAME).isPresent()) {
-            this.singleFieldName = config.get(RedisSourceOptions.SINGLE_FIELD_NAME);
-        }
-        // set key name
-        if (!config.getOptional(RedisSourceOptions.KEY_FIELD_NAME).isPresent()) {
-            if (config.get(RedisBaseOptions.DATA_TYPE) == RedisDataType.HASH) {
-                this.keyFieldName = "hash_key";
-            } else {
-                this.keyFieldName = "key";
-            }
-        } else {
-            this.keyFieldName = config.get(RedisSourceOptions.KEY_FIELD_NAME);
-        }
         // set key
         if (config.getOptional(RedisBaseOptions.KEY).isPresent()) {
             this.keyField = config.get(RedisBaseOptions.KEY);
-        }
-        // set keysPattern
-        if (config.getOptional(RedisBaseOptions.KEY_PATTERN).isPresent()) {
-            this.keysPattern = config.get(RedisBaseOptions.KEY_PATTERN);
         }
         // set redis data type verification factory createAndPrepareSource
         this.redisDataType = config.get(RedisBaseOptions.DATA_TYPE);

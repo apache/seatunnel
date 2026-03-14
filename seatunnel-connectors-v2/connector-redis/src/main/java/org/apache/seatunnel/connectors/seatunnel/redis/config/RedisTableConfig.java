@@ -77,6 +77,18 @@ public class RedisTableConfig implements Serializable {
     public RedisTableConfig() {}
 
     /**
+     * Resolve keyFieldName with default value based on data type.
+     *
+     * @param config ReadonlyConfig instance
+     * @param dataType RedisDataType
+     * @return keyFieldName, never null
+     */
+    private static String resolveKeyFieldName(ReadonlyConfig config, RedisDataType dataType) {
+        return config.getOptional(KEY_FIELD_NAME)
+                .orElseGet(() -> dataType == RedisDataType.HASH ? "hash_key" : "key");
+    }
+
+    /**
      * Get TablePath from table-level configuration.
      *
      * @param tableConfig ReadonlyConfig for a single table
@@ -171,17 +183,8 @@ public class RedisTableConfig implements Serializable {
         TablePath tablePath = getTablePath(tableConfig, keys);
 
         // Set keyFieldName with default value based on data type
-        String keyFieldName;
-        if (!tableConfig.getOptional(KEY_FIELD_NAME).isPresent()) {
-            RedisDataType dataType = tableConfig.get(DATA_TYPE);
-            if (dataType == RedisDataType.HASH) {
-                keyFieldName = "hash_key";
-            } else {
-                keyFieldName = "key";
-            }
-        } else {
-            keyFieldName = tableConfig.get(KEY_FIELD_NAME);
-        }
+        RedisDataType dataType = tableConfig.get(DATA_TYPE);
+        String keyFieldName = resolveKeyFieldName(tableConfig, dataType);
 
         return RedisTableConfig.builder()
                 .keys(keys)
@@ -258,17 +261,8 @@ public class RedisTableConfig implements Serializable {
         TablePath tablePath = getTablePath(config, keys);
 
         // Set keyFieldName with default value based on data type
-        String keyFieldName;
-        if (!config.getOptional(KEY_FIELD_NAME).isPresent()) {
-            RedisDataType dataType = config.get(DATA_TYPE);
-            if (dataType == RedisDataType.HASH) {
-                keyFieldName = "hash_key";
-            } else {
-                keyFieldName = "key";
-            }
-        } else {
-            keyFieldName = config.get(KEY_FIELD_NAME);
-        }
+        RedisDataType dataType = config.get(DATA_TYPE);
+        String keyFieldName = resolveKeyFieldName(config, dataType);
 
         RedisTableConfig tableConfig =
                 RedisTableConfig.builder()

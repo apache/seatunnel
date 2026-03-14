@@ -114,15 +114,13 @@ public class RedisSingleClient extends RedisClient {
 
         pipeline.sync();
 
+        String keyFieldName = tableConfig.getKeyFieldName();
         List<Map<String, String>> resultList = new ArrayList<>(keys.size());
         for (int i = 0; i < keys.size(); i++) {
             Response<Map<String, String>> response = responses.get(i);
             Map<String, String> map = response.get();
             if (map != null) {
-                String keyFieldName = tableConfig.getKeyFieldName();
-                if (keyFieldName != null) {
-                    map.put(keyFieldName, keys.get(i));
-                }
+                map.put(keyFieldName, keys.get(i));
             }
             resultList.add(map);
         }
