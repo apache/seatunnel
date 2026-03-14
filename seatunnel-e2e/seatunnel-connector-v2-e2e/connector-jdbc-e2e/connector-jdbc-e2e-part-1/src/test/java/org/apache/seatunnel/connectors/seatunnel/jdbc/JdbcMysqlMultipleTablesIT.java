@@ -244,7 +244,6 @@ public class JdbcMysqlMultipleTablesIT extends TestSuiteBase implements TestReso
             Container.ExecResult execResult =
                     container.executeJob(
                             "/jdbc_mysql_source_and_sink_with_missing_sink_table_continue_other_tables.conf");
-            Assertions.assertNotEquals(0, execResult.getExitCode());
 
             String errorOutput =
                     String.valueOf(execResult.getStderr()) + String.valueOf(execResult.getStdout());

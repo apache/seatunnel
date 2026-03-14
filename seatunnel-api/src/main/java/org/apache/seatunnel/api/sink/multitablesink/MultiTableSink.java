@@ -44,6 +44,7 @@ import java.util.ArrayList;
 import java.util.Collection;
 import java.util.Collections;
 import java.util.HashMap;
+import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Objects;
@@ -60,7 +61,7 @@ public class MultiTableSink
 
     @Getter private final Map<TablePath, SeaTunnelSink> sinks;
     private final int replicaNum;
-    private final MultiTableFailurePolicy failurePolicy;
+    @Getter private final MultiTableFailurePolicy failurePolicy;
     private final List<MultiTableFailedTable> initialFailedTables;
     private JobContext jobContext;
 
@@ -71,7 +72,8 @@ public class MultiTableSink
         this.failurePolicy =
                 context.getOptions().get(MultiTableCommonOptions.MULTI_TABLE_FAILURE_POLICY);
         this.initialFailedTables =
-                MultiTableFailureHelper.getInitialFailedTables(context.getOptions());
+                new ArrayList<>(
+                        MultiTableFailureHelper.getInitialFailedTables(context.getOptions()));
     }
 
     @Override
@@ -214,6 +216,25 @@ public class MultiTableSink
     public void setJobContext(JobContext jobContext) {
         this.jobContext = jobContext;
         sinks.values().forEach(sink -> sink.setJobContext(jobContext));
+    }
+
+    public void registerInitialFailedTables(Collection<MultiTableFailedTable> failedTables) {
+        if (failedTables == null || failedTables.isEmpty()) {
+            return;
+        }
+        Map<String, MultiTableFailedTable> mergedFailedTables = new LinkedHashMap<>();
+        initialFailedTables.forEach(
+                failedTable -> mergedFailedTables.put(failedTable.getTablePath(), failedTable));
+        failedTables.forEach(
+                failedTable -> mergedFailedTables.put(failedTable.getTablePath(), failedTable));
+        initialFailedTables.clear();
+        initialFailedTables.addAll(mergedFailedTables.values());
+    }
+
+    public void removeSink(TablePath tablePath) {
+        if (tablePath != null) {
+            sinks.remove(tablePath);
+        }
     }
 
     @Override
