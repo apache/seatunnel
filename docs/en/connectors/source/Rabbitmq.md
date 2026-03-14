@@ -102,11 +102,11 @@ Used to read from multiple queues simultaneously. Each object in the array must 
 
 how long will automatic recovery wait before attempting to reconnect, in ms
 
-### topology_recovery [boolean]
+### topology_recovery_enabled [boolean]
 
 if true, enables topology recovery
 
-### automatic_recovery [boolean]
+### automatic_recovery_enabled [boolean]
 
 if true, enables connection recovery
 

@@ -96,7 +96,7 @@ import ChangeLog from '../changelog/connector-rabbitmq.md';
 
 ### tables_configs [array]
 
-您可以使用 `tables_configs` 选项在一个作业中同时从多个 RabbitMQ 队列消费消息。连接器将根据消息来源的队列自动为每行数据分配正确的表标识符，允许您使用 `plugin_input` 将它们路由到不同的 sink。
+用于同时从多个队列读取消息。数组中的每个对象必须包含 queue_name 和 schema。
 
 ### network_recovery_interval [int]
 
@@ -187,7 +187,7 @@ source {
 
 ```
 ### 多表读取示例
-您可以使用 tables_configs 选项在一个作业中同时从多个 RabbitMQ 队列消费消息。连接器将根据消息来源的队列自动为每行数据分配正确的表标识符，允许您使用 plugin_input 将它们路由到不同的 sink。
+您可以使用 `tables_configs` 选项在一个作业中同时从多个 RabbitMQ 队列消费消息。连接器将根据消息来源的队列自动为每行数据分配正确的表标识符，允许您使用 `plugin_input` 将它们路由到不同的 sink。
 
 ```hocon
 source {
