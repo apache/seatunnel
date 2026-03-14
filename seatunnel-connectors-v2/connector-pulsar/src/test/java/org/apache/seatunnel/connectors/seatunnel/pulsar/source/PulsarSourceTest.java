@@ -21,6 +21,7 @@ import org.apache.seatunnel.api.common.JobContext;
 import org.apache.seatunnel.api.configuration.ReadonlyConfig;
 import org.apache.seatunnel.api.source.Boundedness;
 import org.apache.seatunnel.api.table.catalog.CatalogTableUtil;
+import org.apache.seatunnel.api.table.factory.TableSourceFactoryContext;
 import org.apache.seatunnel.common.constants.JobMode;
 import org.apache.seatunnel.connectors.seatunnel.pulsar.exception.PulsarConnectorException;
 
@@ -90,6 +91,73 @@ class PulsarSourceTest {
                 () -> source.setJobContext(new JobContext().setJobMode(JobMode.BATCH)));
     }
 
+    @Test
+    void shouldKeepSingleTableBatchCompatibilityForUnboundedSource() {
+        Map<String, Object> config = createBaseConfig("NEVER");
+        config.put("topic", "persistent://public/default/orders");
+
+        PulsarSource source =
+                new PulsarSource(
+                        ReadonlyConfig.fromMap(config), CatalogTableUtil.buildSimpleTextTable());
+
+        Assertions.assertDoesNotThrow(
+                () -> source.setJobContext(new JobContext().setJobMode(JobMode.BATCH)));
+    }
+
+    @Test
+    void shouldRejectSingleTableWithoutSubscriptionNameInFactory() {
+        Map<String, Object> config = createBaseConfig("NEVER");
+        config.remove("subscription.name");
+        config.put("topic", "persistent://public/default/orders");
+
+        PulsarSourceFactory factory = new PulsarSourceFactory();
+
+        Assertions.assertThrows(
+                PulsarConnectorException.class,
+                () ->
+                        factory.createSource(
+                                new TableSourceFactoryContext(
+                                        ReadonlyConfig.fromMap(config),
+                                        Thread.currentThread().getContextClassLoader())));
+    }
+
+    @Test
+    void shouldAllowPerTableSubscriptionNameInFactoryForTablesConfigs() {
+        Map<String, Object> config = createBaseConfig("NEVER");
+        config.remove("subscription.name");
+        Map<String, Object> tableConfig =
+                createTableConfig("db.orders", "persistent://public/default/orders");
+        tableConfig.put("subscription.name", "orders-sub");
+        config.put("tables_configs", Arrays.asList(tableConfig));
+
+        PulsarSourceFactory factory = new PulsarSourceFactory();
+
+        Assertions.assertDoesNotThrow(
+                () ->
+                        factory.createSource(
+                                        new TableSourceFactoryContext(
+                                                ReadonlyConfig.fromMap(config),
+                                                Thread.currentThread().getContextClassLoader()))
+                                .createSource());
+    }
+
+    @Test
+    void shouldNotTouchPulsarAdminDuringSourceConstructionForTopicPatternTables() {
+        Map<String, Object> config = createBaseConfig("NEVER");
+        config.put("admin.service-url", "invalid-admin-url");
+        config.put(
+                "tables_configs",
+                Arrays.asList(
+                        createPatternTableConfig(
+                                "db.orders_pattern", "persistent://public/default/orders.*")));
+
+        Assertions.assertDoesNotThrow(
+                () ->
+                        new PulsarSource(
+                                ReadonlyConfig.fromMap(config),
+                                CatalogTableUtil.buildSimpleTextTable()));
+    }
+
     private Map<String, Object> createBaseConfig(String stopMode) {
         Map<String, Object> config = new HashMap<>();
         config.put("subscription.name", "seatunnel-sub");
@@ -106,11 +174,13 @@ class PulsarSourceTest {
         Map<String, Object> config = new HashMap<>();
         config.put("table_path", tablePath);
         config.put("topic", topic);
-        Map<String, Object> schema = new HashMap<>();
-        Map<String, Object> fields = new HashMap<>();
-        fields.put("id", "bigint");
-        schema.put("fields", fields);
-        config.put("schema", schema);
+        return config;
+    }
+
+    private Map<String, Object> createPatternTableConfig(String tablePath, String topicPattern) {
+        Map<String, Object> config = new HashMap<>();
+        config.put("table_path", tablePath);
+        config.put("topic-pattern", topicPattern);
         return config;
     }
 }

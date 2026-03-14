@@ -374,6 +374,9 @@ public class PulsarMultiTableConfig implements Serializable {
                                 explicitTopic.getValue()));
             }
         }
+        // Different Java regex patterns may still overlap. We intentionally allow that and resolve
+        // ownership by tables_configs declaration order in MultiTablePartitionDiscoverer so future
+        // topics do not fail the job when they match more than one pattern.
         knownPatterns.add(new PatternEntry(index, pattern));
     }
 

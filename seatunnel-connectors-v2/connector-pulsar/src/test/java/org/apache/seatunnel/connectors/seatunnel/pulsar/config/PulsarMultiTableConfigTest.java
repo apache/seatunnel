@@ -100,6 +100,47 @@ class PulsarMultiTableConfigTest {
     }
 
     @Test
+    void shouldAllowOverlappingTopicPatternsForDeterministicRuntimeRouting() {
+        Map<String, Object> config = createBaseConfig();
+        config.put(
+                "tables_configs",
+                Arrays.asList(
+                        createTableConfig(
+                                "db.orders_general", null, "persistent://public/default/orders-.*"),
+                        createTableConfig(
+                                "db.orders_vip",
+                                null,
+                                "persistent://public/default/orders-vip-.*")));
+
+        PulsarMultiTableConfig multiTableConfig =
+                PulsarMultiTableConfig.of(ReadonlyConfig.fromMap(config));
+
+        Assertions.assertEquals(2, multiTableConfig.getTableConfigs().size());
+    }
+
+    @Test
+    void shouldRejectDuplicateTopicPatterns() {
+        Map<String, Object> config = createBaseConfig();
+        config.put(
+                "tables_configs",
+                Arrays.asList(
+                        createTableConfig(
+                                "db.orders_general", null, "persistent://public/default/orders-.*"),
+                        createTableConfig(
+                                "db.orders_duplicate",
+                                null,
+                                "persistent://public/default/orders-.*")));
+
+        PulsarConnectorException exception =
+                Assertions.assertThrows(
+                        PulsarConnectorException.class,
+                        () -> PulsarMultiTableConfig.of(ReadonlyConfig.fromMap(config)));
+
+        Assertions.assertEquals(
+                SeaTunnelAPIErrorCode.CONFIG_VALIDATION_FAILED, exception.getSeaTunnelErrorCode());
+    }
+
+    @Test
     void shouldAllowPerTableSubscriptionNameWithoutGlobalSubscription() {
         Map<String, Object> config = createBaseConfig();
         config.remove("subscription.name");

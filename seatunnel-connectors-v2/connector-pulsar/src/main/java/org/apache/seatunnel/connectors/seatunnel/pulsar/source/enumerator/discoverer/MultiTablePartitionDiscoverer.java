@@ -17,12 +17,13 @@
 
 package org.apache.seatunnel.connectors.seatunnel.pulsar.source.enumerator.discoverer;
 
-import org.apache.seatunnel.api.common.SeaTunnelAPIErrorCode;
 import org.apache.seatunnel.api.table.catalog.TablePath;
-import org.apache.seatunnel.connectors.seatunnel.pulsar.exception.PulsarConnectorException;
 import org.apache.seatunnel.connectors.seatunnel.pulsar.source.enumerator.topic.TopicPartition;
 
 import org.apache.pulsar.client.admin.PulsarAdmin;
+
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 
 import lombok.Getter;
 
@@ -32,9 +33,18 @@ import java.util.List;
 import java.util.Map;
 import java.util.Set;
 
+/**
+ * Resolves multi-table topic ownership for Pulsar source.
+ *
+ * <p>The discoverer pairs are evaluated in {@code tables_configs} declaration order. If multiple
+ * {@code topic-pattern} entries match the same topic, the first matching table keeps ownership and
+ * later matches are ignored. This makes topic routing deterministic even when new topics appear
+ * after the job has started.
+ */
 public class MultiTablePartitionDiscoverer implements PulsarDiscoverer {
 
     private static final long serialVersionUID = 7777745279743885587L;
+    private static final Logger LOG = LoggerFactory.getLogger(MultiTablePartitionDiscoverer.class);
 
     private final List<TableDiscovererPair> discovererPairs;
     private final Map<TopicPartition, TablePath> partitionToTablePath = new HashMap<>();
@@ -51,13 +61,13 @@ public class MultiTablePartitionDiscoverer implements PulsarDiscoverer {
         for (TableDiscovererPair pair : discovererPairs) {
             Set<TopicPartition> partitions = pair.discoverer.getSubscribedTopicPartitions(admin);
             for (TopicPartition tp : partitions) {
-                TablePath existing = partitionToTablePath.put(tp, pair.tablePath);
+                TablePath existing = partitionToTablePath.putIfAbsent(tp, pair.tablePath);
                 if (existing != null && !existing.equals(pair.tablePath)) {
-                    throw new PulsarConnectorException(
-                            SeaTunnelAPIErrorCode.CONFIG_VALIDATION_FAILED,
-                            String.format(
-                                    "TopicPartition '%s' matched by both '%s' and '%s'",
-                                    tp, existing, pair.tablePath));
+                    LOG.debug(
+                            "TopicPartition '{}' matched by multiple table configs. Keeping '{}' and ignoring '{}'.",
+                            tp,
+                            existing,
+                            pair.tablePath);
                 }
             }
             allPartitions.addAll(partitions);
