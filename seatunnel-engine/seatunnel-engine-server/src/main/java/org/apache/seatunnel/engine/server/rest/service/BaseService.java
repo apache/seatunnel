@@ -238,7 +238,7 @@ public abstract class BaseService {
                         startTimestamp, DateTimeUtils.Formatter.YYYY_MM_DD_HH_MM_SS);
             }
         }
-        return null;
+        return "";
     }
 
     protected JsonObject getJobInfoJson(
