@@ -134,6 +134,57 @@ vectorization_fields {
 }
 ```
 
+**多字段混合多模态向量化：**
+```hocon
+vectorization_fields {
+    # 多字段文本
+    multi_field_text_vector = [product_name, description]
+
+    # 多字段图片
+    multi_field_image_vector = [
+      {
+        field = product_image_url
+        modality = jpeg
+        format = url
+      },
+      {
+        field = thumbnail_image
+        modality = png
+        format = url
+      }
+    ]
+
+    # 多字段视频
+    multi_field_video_vector = [
+      {
+        field = product_video_url
+        modality = mp4
+        format = url
+      },
+      {
+        field = promotional_video
+        modality = mov
+        format = url
+      }
+    ]
+
+    # 多字段混合多模态
+    multi_field_mix_vector = [
+      product_name,
+      {
+        field = product_image_url
+        modality = jpeg
+        format = url
+      },
+      {
+        field = product_video_url
+        modality = mp4
+        format = url
+      }
+    ]
+}
+```
+
 **字段规范格式：**
 
 **支持的模态类型：**

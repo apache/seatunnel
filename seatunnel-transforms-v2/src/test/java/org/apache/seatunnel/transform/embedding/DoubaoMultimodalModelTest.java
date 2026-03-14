@@ -32,6 +32,7 @@ import org.junit.jupiter.api.Test;
 
 import java.io.IOException;
 import java.util.Arrays;
+import java.util.Base64;
 import java.util.Collections;
 import java.util.HashMap;
 import java.util.List;
@@ -218,6 +219,12 @@ public class DoubaoMultimodalModelTest {
         ObjectNode inputNode = (ObjectNode) result.get("input").get(0);
         Assertions.assertEquals("image_url", inputNode.get("type").asText());
         Assertions.assertTrue(inputNode.has("image_url"));
+        Assertions.assertTrue(
+                inputNode
+                        .get("image_url")
+                        .get("url")
+                        .asText()
+                        .endsWith(Base64.getEncoder().encodeToString(mockImageData)));
     }
 
     /**

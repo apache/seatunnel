@@ -149,6 +149,57 @@ vectorization_fields {
 }
 ```
 
+**Multi-field Mixing Multimodal Vectorization:**
+```hocon
+vectorization_fields {
+    # Multi-field text
+    multi_field_text_vector = [product_name, description]
+    
+    # Multi-field image
+    multi_field_image_vector = [
+      {
+        field = product_image_url
+        modality = jpeg
+        format = url
+      },
+      {
+        field = thumbnail_image
+        modality = png
+        format = url
+      }
+    ]
+
+    # Multi-field video
+    multi_field_video_vector = [
+      {
+        field = product_video_url
+        modality = mp4
+        format = url
+      },
+      {
+        field = promotional_video
+        modality = mov
+        format = url
+      }
+    ]
+
+    # Multi-field mix multimodal
+    multi_field_mix_vector = [
+      product_name,
+      {
+        field = product_image_url
+        modality = jpeg
+        format = url
+      },
+      {
+        field = product_video_url
+        modality = mp4
+        format = url
+      }
+    ]
+}
+```
+
 **Field Specification Formats:**
 
 **Supported Modality Types:**

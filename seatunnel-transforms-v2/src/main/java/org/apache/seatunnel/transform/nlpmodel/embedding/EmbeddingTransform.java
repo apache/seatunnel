@@ -52,7 +52,7 @@ import java.io.IOException;
 import java.net.URISyntaxException;
 import java.nio.ByteBuffer;
 import java.util.ArrayList;
-import java.util.HashMap;
+import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
@@ -211,7 +211,7 @@ public class EmbeddingTransform extends MultipleFieldOutputTransform {
         }
 
         List<String> fieldNames = new ArrayList<>();
-        Map<VectorFieldSpec, List<Integer>> fieldSpecMap = new HashMap<>();
+        Map<VectorFieldSpec, List<Integer>> fieldSpecMap = new LinkedHashMap<>();
         for (Map.Entry<String, Object> fieldConfig : fieldsConfig.entrySet()) {
             VectorFieldSpec vectorFieldSpec = new VectorFieldSpec(fieldConfig);
             log.info("Vector field spec: {}", vectorFieldSpec);

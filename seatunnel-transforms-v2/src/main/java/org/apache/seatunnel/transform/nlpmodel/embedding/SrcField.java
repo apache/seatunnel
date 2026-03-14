@@ -43,6 +43,10 @@ public class SrcField implements Serializable {
         if (fieldValue == null) {
             throw new IllegalArgumentException("Binary data cannot be null or empty");
         }
-        return Base64.getEncoder().encodeToString(fieldValue.toString().getBytes());
+        if (fieldValue instanceof byte[]) {
+            return Base64.getEncoder().encodeToString((byte[]) fieldValue);
+        } else {
+            return Base64.getEncoder().encodeToString(fieldValue.toString().getBytes());
+        }
     }
 }
