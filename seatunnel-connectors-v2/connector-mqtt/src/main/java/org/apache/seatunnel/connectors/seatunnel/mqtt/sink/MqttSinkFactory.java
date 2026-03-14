@@ -45,7 +45,8 @@ public class MqttSinkFactory implements TableSinkFactory {
                         MqttSinkOptions.FIELD_DELIMITER,
                         MqttSinkOptions.BATCH_SIZE,
                         MqttSinkOptions.RETRY_TIMEOUT,
-                        MqttSinkOptions.CONNECTION_TIMEOUT)
+                        MqttSinkOptions.CONNECTION_TIMEOUT,
+                        MqttSinkOptions.CLEAN_SESSION)
                 .build();
     }
 

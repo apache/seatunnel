@@ -44,5 +44,6 @@ public class MqttSinkFactoryTest {
         Assertions.assertTrue(optionalOptions.contains(MqttSinkOptions.QOS));
         Assertions.assertTrue(optionalOptions.contains(MqttSinkOptions.FIELD_DELIMITER));
         Assertions.assertTrue(optionalOptions.contains(MqttSinkOptions.BATCH_SIZE));
+        Assertions.assertTrue(optionalOptions.contains(MqttSinkOptions.CLEAN_SESSION));
     }
 }
