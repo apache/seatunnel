@@ -129,6 +129,7 @@ public class PulsarSourceReader<T> implements SourceReader<T, PulsarPartitionSpl
 
     @Override
     public void pollNext(Collector<T> output) throws Exception {
+        Map<TablePath, Collector<T>> collectorCache = new HashMap<>();
         for (int i = 0; i < batchSize; i++) {
             Optional<RecordWithSplitId> recordWithSplitId = handover.pollNext();
             if (recordWithSplitId.isPresent()) {
@@ -139,10 +140,7 @@ public class PulsarSourceReader<T> implements SourceReader<T, PulsarPartitionSpl
                     TablePath tablePath = resolveTablePath(splitId);
                     DeserializationSchema<T> deserializationSchema =
                             resolveDeserializationSchema(tablePath);
-                    Collector<T> collector =
-                            tablePath == null
-                                    ? output
-                                    : new TableIdInjectingCollector<>(output, tablePath);
+                    Collector<T> collector = resolveCollector(tablePath, output, collectorCache);
                     deserializationSchema.deserialize(message.getData(), collector);
                 }
             }
@@ -295,5 +293,15 @@ public class PulsarSourceReader<T> implements SourceReader<T, PulsarPartitionSpl
     private DeserializationSchema<T> resolveDeserializationSchema(TablePath tablePath) {
         return (DeserializationSchema<T>)
                 resolveConsumerMetadata(tablePath).getDeserializationSchema();
+    }
+
+    private Collector<T> resolveCollector(
+            TablePath tablePath, Collector<T> output, Map<TablePath, Collector<T>> collectorCache) {
+        if (tablePath == null) {
+            return output;
+        }
+        // Reuse wrappers inside the current poll batch to avoid per-record allocations on hot path.
+        return collectorCache.computeIfAbsent(
+                tablePath, path -> new TableIdInjectingCollector<>(output, path));
     }
 }

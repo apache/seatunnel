@@ -17,6 +17,8 @@
 
 package org.apache.seatunnel.connectors.seatunnel.pulsar.source;
 
+import org.apache.seatunnel.api.common.SeaTunnelAPIErrorCode;
+import org.apache.seatunnel.api.configuration.ReadonlyConfig;
 import org.apache.seatunnel.api.configuration.util.OptionRule;
 import org.apache.seatunnel.api.options.table.TableSchemaOptions;
 import org.apache.seatunnel.api.source.SeaTunnelSource;
@@ -28,6 +30,7 @@ import org.apache.seatunnel.api.table.factory.Factory;
 import org.apache.seatunnel.api.table.factory.TableSourceFactory;
 import org.apache.seatunnel.api.table.factory.TableSourceFactoryContext;
 import org.apache.seatunnel.connectors.seatunnel.pulsar.config.PulsarSourceOptions;
+import org.apache.seatunnel.connectors.seatunnel.pulsar.exception.PulsarConnectorException;
 
 import com.google.auto.service.AutoService;
 
@@ -88,6 +91,7 @@ public class PulsarSourceFactory implements TableSourceFactory {
     @Override
     public <T, SplitT extends SourceSplit, StateT extends Serializable>
             TableSource<T, SplitT, StateT> createSource(TableSourceFactoryContext context) {
+        validateSourceOptions(context.getOptions());
         CatalogTable catalogTable;
         if (context.getOptions().getOptional(PulsarSourceOptions.SCHEMA).isPresent()) {
             catalogTable = CatalogTableUtil.buildWithConfig(context.getOptions());
@@ -97,5 +101,16 @@ public class PulsarSourceFactory implements TableSourceFactory {
         return () ->
                 (SeaTunnelSource<T, SplitT, StateT>)
                         new PulsarSource(context.getOptions(), catalogTable);
+    }
+
+    private void validateSourceOptions(ReadonlyConfig config) {
+        if (!config.getOptional(TableSchemaOptions.TABLE_CONFIGS).isPresent()
+                && !config.getOptional(PulsarSourceOptions.SUBSCRIPTION_NAME).isPresent()) {
+            throw new PulsarConnectorException(
+                    SeaTunnelAPIErrorCode.CONFIG_VALIDATION_FAILED,
+                    String.format(
+                            "Single-table Pulsar source must configure '%s'.",
+                            PulsarSourceOptions.SUBSCRIPTION_NAME.key()));
+        }
     }
 }

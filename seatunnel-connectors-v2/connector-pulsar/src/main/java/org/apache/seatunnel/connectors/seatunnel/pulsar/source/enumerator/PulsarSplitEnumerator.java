@@ -77,6 +77,7 @@ public class PulsarSplitEnumerator
     // This flag will be marked as true if periodically partition discovery is disabled AND the
     // initializing partition discovery has finished.
     private boolean noMoreNewPartitionSplits = false;
+    private volatile boolean initialized = false;
 
     private ScheduledThreadPoolExecutor executor = null;
 
@@ -125,10 +126,6 @@ public class PulsarSplitEnumerator
     @Override
     public void open() {
         this.pulsarAdmin = PulsarConfigUtil.createAdmin(adminConfig);
-    }
-
-    @Override
-    public void run() throws Exception {
         if (partitionDiscoveryIntervalMs > 0) {
             executor =
                     new ScheduledThreadPoolExecutor(
@@ -140,10 +137,28 @@ public class PulsarSplitEnumerator
                                 return thread;
                             });
             executor.scheduleAtFixedRate(
-                    this::discoverySplits, 0, partitionDiscoveryIntervalMs, TimeUnit.MILLISECONDS);
-        } else {
-            discoverySplits();
+                    () -> {
+                        if (!initialized) {
+                            return;
+                        }
+                        try {
+                            discoverySplits();
+                        } catch (Exception e) {
+                            LOG.error("Dynamic discovery failure:", e);
+                        }
+                    },
+                    partitionDiscoveryIntervalMs,
+                    partitionDiscoveryIntervalMs,
+                    TimeUnit.MILLISECONDS);
         }
+    }
+
+    @Override
+    public void run() throws Exception {
+        // Run one discovery synchronously so topic-pattern conflicts and initial splits are
+        // resolved on the runtime side before periodic discovery begins.
+        discoverySplits();
+        initialized = true;
     }
 
     private void discoverySplits() {

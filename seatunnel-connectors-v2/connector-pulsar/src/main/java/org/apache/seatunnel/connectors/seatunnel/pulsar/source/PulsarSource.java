@@ -160,7 +160,8 @@ public class PulsarSource
 
     @Override
     public void setJobContext(JobContext jobContext) {
-        if (JobMode.BATCH.equals(jobContext.getJobMode())
+        if (multiTableConfig.isMultiTable()
+                && JobMode.BATCH.equals(jobContext.getJobMode())
                 && getBoundedness() == Boundedness.UNBOUNDED) {
             throw new PulsarConnectorException(
                     SeaTunnelAPIErrorCode.CONFIG_VALIDATION_FAILED,
@@ -200,6 +201,8 @@ public class PulsarSource
             return consumerMetadataMap.values().iterator().next().getDiscoverer();
         }
 
+        // Preserve tables_configs order so multi-table topic-pattern overlaps are resolved
+        // deterministically by MultiTablePartitionDiscoverer.
         List<MultiTablePartitionDiscoverer.TableDiscovererPair> discovererPairs = new ArrayList<>();
         for (PulsarConsumerMetadata metadata : consumerMetadataMap.values()) {
             discovererPairs.add(
