@@ -246,7 +246,9 @@ public class JdbcMysqlMultipleTablesIT extends TestSuiteBase implements TestReso
                             "/jdbc_mysql_source_and_sink_with_missing_sink_table_continue_other_tables.conf");
 
             String errorOutput =
-                    String.valueOf(execResult.getStderr()) + String.valueOf(execResult.getStdout());
+                    String.valueOf(execResult.getStderr())
+                            + String.valueOf(execResult.getStdout())
+                            + container.getServerLogs();
             Assertions.assertTrue(
                     errorOutput.contains("sink.table2") || errorOutput.contains("table2"),
                     "job output should contain the failed sink table, but was: " + errorOutput);

@@ -59,7 +59,8 @@ public class MultiTableSinkWriter
 
     private final Map<SinkIdentifier, SinkWriter<SeaTunnelRow, ?, ?>> sinkWriters;
     private final Map<SinkIdentifier, SinkWriter.Context> sinkWritersContext;
-    private final Map<String, Optional<Integer>> sinkPrimaryKeys = new HashMap<>();
+    private final ConcurrentMap<String, Optional<Integer>> sinkPrimaryKeys =
+            new ConcurrentHashMap<>();
     private final List<ConcurrentMap<SinkIdentifier, SinkWriter<SeaTunnelRow, ?, ?>>>
             sinkWritersWithIndex;
     private final List<MultiTableWriterRunnable> runnable = new ArrayList<>();
