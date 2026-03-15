@@ -16,30 +16,40 @@ Used to read data from Redis.
 - [ ] [column projection](../../introduction/concepts/connector-v2-features.md)
 - [ ] [parallelism](../../introduction/concepts/connector-v2-features.md)
 - [ ] [support user-defined split](../../introduction/concepts/connector-v2-features.md)
+- [x] [support multiple table read](../../introduction/concepts/connector-v2-features.md)
 
 ## Options
 
-| name                | type   | required                       | default value |
-|---------------------| ------ |--------------------------------| ------------- |
-| host                | string | yes when mode=single           | -             |
-| port                | int    | no                             | 6379          |
-| keys                | string | yes when table_list not set    | -             |
-| table_list          | list   | no                             | -             |
-| read_key_enabled    | boolean| no                             | false         |
-| key_field_name      | string | yes when read_key_enabled=true | key           |
-| batch_size          | int    | no                             | 10            |
-| data_type           | string | yes when table_list not set    | -             |
-| user                | string | no                             | -             |
-| auth                | string | no                             | -             |
-| db_num              | int    | no                             | 0             |
-| mode                | string | no                             | single        |
-| hash_key_parse_mode | string | no                             | all           |
-| nodes               | list   | yes when mode=cluster          | -             |
-| schema              | config | yes when format=json           | -             |
-| format              | string | no                             | json          |
-| single_field_name   | string | yes when read_key_enabled=true | -             |
-| field_delimiter     | string | no                             | ','           |
-| common-options      |        | no                             | -             |
+| name           | type   | required                | default value | Description |
+|----------------|--------|-------------------------|---------------|-------------|
+| host           | string | yes when mode=single    | -             | Redis server host |
+| port           | int    | no                      | 6379          | Redis server port |
+| user           | string | no                      | -             | Redis authentication user |
+| auth           | string | no                      | -             | Redis authentication password |
+| db_num         | int    | no                      | 0             | Redis database index |
+| mode           | string | no                      | single        | Redis mode: `single` or `cluster` |
+| nodes          | list   | yes when mode=cluster   | -             | Redis cluster nodes in format `["host1:port1", "host2:port2"]` |
+| table_list     | list   | no                      | -             | List of table configurations for multi-table reading |
+| common-options |        | no                      | -             | Source plugin common parameters, please refer to [Source Common Options](../common-options/source-common-options.md) for details |
+
+### Table list configuration
+
+When using `table_list` to read multiple key patterns, each table configuration can include the following parameters:
+
+| name                | type   | required | default value | description |
+|---------------------|--------|----------|---------------|-------------|
+| keys                | string | yes      | -             | Redis key pattern to scan |
+| data_type           | string | yes      | -             | Redis data type: `key`, `hash`, `list`, `set`, `zset` |
+| batch_size          | int    | no       | 10            | Batch size for SCAN operations |
+| format              | string | no       | json          | Data format: `json` or `text` |
+| schema              | config | no       | -             | Schema configuration for this table |
+| hash_key_parse_mode | string | no       | all           | Hash key parse mode: `all` or `kv` |
+| read_key_enabled    | boolean| no       | false         | Include Redis key in output |
+| key_field_name      | string | no       | -             | Field name for Redis key |
+| single_field_name   | string | no       | -             | Field name for single-value types |
+| field_delimiter     | string | no       | ','           | Delimiter for text format |
+
+**Note:** When this configuration corresponds to a single table, you can flatten the configuration items in table_list to the outer layer (backward compatible).
 
 ### host [string]
 
@@ -118,77 +128,6 @@ each kv that in hash key it will be treated as a row and send it to upstream.
 ### keys [string]
 
 keys pattern
-
-**Note:** This parameter is required when not using `table_list`. When using `table_list`, you should specify keys pattern for each table configuration.
-
-### table_list [list]
-
-List of table configurations for reading multiple key patterns. Each table configuration represents a logical table corresponding to a specific key pattern in Redis.
-
-Each table configuration can include the following parameters:
-
-| name                | type   | required | default value | description                          |
-|---------------------|--------|----------|---------------|--------------------------------------|
-| keys                | string | yes      | -             | Redis key pattern to scan            |
-| data_type           | string | yes      | -             | Redis data type (key/hash/list/set/zset) |
-| batch_size          | int    | no       | 10            | Batch size for SCAN operations       |
-| format              | string | no       | json          | Data format (json/text)              |
-| schema              | config | no       | -             | Schema configuration for this table  |
-| hash_key_parse_mode | string | no       | all           | Hash key parse mode (all/kv)         |
-| read_key_enabled    | boolean| no       | false         | Include Redis key in output          |
-| key_field_name      | string | no       | -             | Field name for Redis key             |
-| single_field_name   | string | no       | -             | Field name for single-value types    |
-| field_delimiter     | string | no       | ','           | Delimiter for text format            |
-
-**Important Notes:**
-
-1. **Parallelism Limitation**: When using multiple table configurations, they are processed **sequentially** (one after another). The job parallelism is fixed at 1, which means you cannot use multiple parallel tasks to process different tables simultaneously.
-
-2. **Logical Table Concept**: Each key pattern in `table_list` is treated as a **logical table**. This allows you to configure independent schemas and data types for different key patterns within a single source.
-
-3. **Performance Consideration**: Total processing time = time for table 1 + time for table 2 + ... + time for table N. For large datasets, consider:
-   - Using precise key patterns to reduce the number of keys matched
-   - Adjusting `batch_size` (default 10, can increase to 50-100)
-   - Limiting the number of table configurations (recommended: ≤ 10)
-
-4. **Backward Compatibility**: You can still use the single-table configuration (with `keys` and `data_type` at the root level) for backward compatibility.
-
-**Example:**
-
-```hocon
-source {
-  Redis {
-    host = "localhost"
-    port = 6379
-    table_list = [
-      {
-        keys = "user:*"
-        data_type = STRING
-        format = JSON
-        schema {
-          fields {
-            name = string
-            age = int
-          }
-        }
-      },
-      {
-        keys = "order:*"
-        data_type = HASH
-        hash_key_parse_mode = KV
-        key_field_name = "order_id"
-        schema {
-          fields {
-            order_id = string
-            amount = decimal
-            status = string
-          }
-        }
-      }
-    ]
-  }
-}
-```
 
 ### read_key_enabled [boolean]
 
@@ -396,8 +335,6 @@ Source plugin common parameters, please refer to [Source Common Options](../comm
 
 ## Example
 
-### Single Table Mode (Backward Compatible)
-
 simple:
 
 ```hocon
@@ -459,7 +396,6 @@ sink {
 ```hocon
 env {
   job.mode = "BATCH"
-  # Note: parallelism is automatically set to 1 when using multiple tables
 }
 
 source {
@@ -467,13 +403,12 @@ source {
     host = "localhost"
     port = 6379
     auth = "password"
-    db_num = 0
     table_list = [
       {
         keys = "user:active:*"
         data_type = STRING
         format = JSON
-        batch_size = 50
+        batch_size = 10
         schema {
           fields {
             id = int
@@ -515,60 +450,7 @@ sink {
 }
 ```
 
-**Example 2: Reading different Redis data types with independent schemas**
-
-```hocon
-source {
-  Redis {
-    host = "localhost"
-    port = 6379
-    table_list = [
-      {
-        keys = "product:*"
-        data_type = STRING
-        format = JSON
-        schema {
-          fields {
-            product_id = string
-            name = string
-            price = decimal
-            stock = int
-          }
-        }
-      },
-      {
-        keys = "cart:*"
-        data_type = HASH
-        hash_key_parse_mode = ALL
-        schema {
-          fields {
-            user_id = int
-            items = array<string>
-            total_amount = decimal
-          }
-        }
-      },
-      {
-        keys = "log:error:*"
-        data_type = LIST
-        format = TEXT
-      }
-    ]
-  }
-}
-
-sink {
-  Jdbc {
-    url = "jdbc:mysql://localhost:3306/mydb"
-    driver = "com.mysql.cj.jdbc.Driver"
-    user = "root"
-    password = "password"
-    query = "INSERT INTO redis_data VALUES (?, ?, ?)"
-  }
-}
-```
-
-**Example 3: Cluster mode with multiple tables**
+**Example 2: Cluster mode with multiple tables**
 
 ```hocon
 source {
@@ -581,7 +463,7 @@ source {
         keys = "metric:cpu:*"
         data_type = STRING
         format = JSON
-        batch_size = 100
+        batch_size = 10
         schema {
           fields {
             host = string
@@ -594,7 +476,7 @@ source {
         keys = "metric:memory:*"
         data_type = STRING
         format = JSON
-        batch_size = 100
+        batch_size = 10
         schema {
           fields {
             host = string
@@ -612,25 +494,6 @@ sink {
   Console {}
 }
 ```
-
-### Performance Tips for Multiple Tables
-
-1. **Optimize key patterns**: Use specific patterns to reduce the number of keys scanned
-   - Good: `user:active:*` (specific)
-   - Avoid: `user:*` (too broad)
-
-2. **Adjust batch_size**: Increase batch size for better throughput
-   - Default: 10
-   - Recommended for large datasets: 50-100
-
-3. **Limit table count**: Keep the number of table configurations reasonable
-   - Recommended: ≤ 10 tables
-   - Each table adds to total processing time
-
-4. **Order tables by priority**: Place important tables first in the list
-   - Tables are processed sequentially in order
-   - If the job is interrupted, earlier tables are guaranteed to be processed
-
 ## Changelog
 
 <ChangeLog />
