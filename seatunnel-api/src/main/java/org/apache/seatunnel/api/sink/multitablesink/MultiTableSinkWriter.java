@@ -277,11 +277,12 @@ public class MultiTableSinkWriter
             runnable.forEach(executorService::submit);
         }
         subSinkErrorCheck();
-        if (failurePolicy.continueOtherTables() && isTableFailed(element.getTableId())) {
-            log.debug("Skip row for quarantined table {}", element.getTableId());
+        String tableId = element.getTableId();
+        if (failurePolicy.continueOtherTables() && isTableFailed(tableId)) {
+            log.debug("Skip row for quarantined table {}", tableId);
             return;
         }
-        Optional<Integer> primaryKey = sinkPrimaryKeys.get(element.getTableId());
+        Optional<Integer> primaryKey = tableId == null ? null : sinkPrimaryKeys.get(tableId);
         try {
             if ((primaryKey == null && sinkPrimaryKeys.size() == 1)
                     || (primaryKey != null && !primaryKey.isPresent())) {
@@ -293,15 +294,13 @@ public class MultiTableSinkWriter
             } else if (primaryKey == null) {
                 if (failurePolicy.continueOtherTables()) {
                     handleTableFailure(
-                            element.getTableId(),
+                            tableId,
                             MultiTableFailurePhase.RUNTIME_WRITE,
                             new IllegalStateException(
-                                    "No active sink writer found for table "
-                                            + element.getTableId()));
+                                    "No active sink writer found for table " + tableId));
                     return;
                 }
-                throw new RuntimeException(
-                        "multi table sink can not write table: " + element.getTableId());
+                throw new RuntimeException("multi table sink can not write table: " + tableId);
             } else {
                 Object object = element.getField(primaryKey.get());
                 int index = 0;

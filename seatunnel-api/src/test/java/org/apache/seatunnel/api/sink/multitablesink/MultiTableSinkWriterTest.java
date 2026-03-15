@@ -172,6 +172,25 @@ public class MultiTableSinkWriterTest {
     }
 
     @Test
+    public void testSingleWriterAcceptsNullTableId() throws IOException {
+        Map<SinkIdentifier, SinkWriter<SeaTunnelRow, ?, ?>> sinkWriters = new HashMap<>();
+        Map<SinkIdentifier, SinkWriter.Context> sinkWritersContext = new HashMap<>();
+        RecordingSinkWriter onlyWriter = new RecordingSinkWriter(false);
+        SinkIdentifier sinkIdentifier = SinkIdentifier.of(TablePath.DEFAULT.toString(), 0);
+        sinkWriters.put(sinkIdentifier, onlyWriter);
+        sinkWritersContext.put(sinkIdentifier, new TestSinkWriterContext());
+
+        MultiTableSinkWriter multiTableSinkWriter =
+                new MultiTableSinkWriter(sinkWriters, 1, sinkWritersContext);
+
+        multiTableSinkWriter.write(buildRow(null, 1));
+        Optional<MultiTableCommitInfo> commitInfo = multiTableSinkWriter.prepareCommit(1L);
+
+        Assertions.assertTrue(commitInfo.isPresent());
+        Assertions.assertEquals(1, onlyWriter.getWriteCount());
+    }
+
+    @Test
     public void testFailedTableMetadataIsSerializable() throws IOException {
         MultiTableFailedTable failedTable =
                 MultiTableFailureHelper.buildFailedTable(
