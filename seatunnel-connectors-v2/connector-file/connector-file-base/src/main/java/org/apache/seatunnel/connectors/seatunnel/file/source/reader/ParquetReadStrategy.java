@@ -456,10 +456,9 @@ public class ParquetReadStrategy extends AbstractReadStrategy {
                                     firstLevelGroup.getLogicalTypeAnnotation();
 
                             if (firstLevelAnnotation != null
-                                    && firstLevelAnnotation.toOriginalType() == OriginalType.LIST) {
-                                elementType = firstLevel;
-                            } else if (firstLevelAnnotation != null
-                                    && firstLevelAnnotation.toOriginalType() == OriginalType.MAP) {
+                                    && (firstLevelAnnotation.toOriginalType() == OriginalType.LIST
+                                            || firstLevelAnnotation.toOriginalType()
+                                                    == OriginalType.MAP)) {
                                 elementType = firstLevel;
                             } else if (firstLevelGroup.getFieldCount() == 1) {
                                 elementType = firstLevelGroup.getType(0);
