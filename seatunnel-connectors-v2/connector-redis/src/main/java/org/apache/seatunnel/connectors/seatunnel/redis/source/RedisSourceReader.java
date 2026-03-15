@@ -102,12 +102,33 @@ public class RedisSourceReader extends AbstractSingleSplitReader<SeaTunnelRow> {
         RedisDataType dataType = tableConfig.getDataType();
         RedisDataType scanType = resolveScanType(dataType);
 
+        int totalKeysScanned = 0;
+        int scanIterations = 0;
+        long startTime = System.currentTimeMillis();
+
+        log.info(
+                "Starting to scan table with key pattern: {}, batch size: {}",
+                keysPattern,
+                batchSize);
+
         while (true) {
+            scanIterations++;
             // Scan keys matching the pattern
             ScanResult<String> scanResult =
                     redisClient.scanKeys(cursor, batchSize, keysPattern, scanType);
             cursor = scanResult.getCursor();
             List<String> keys = scanResult.getResult();
+
+            totalKeysScanned += keys.size();
+
+            // Log progress once for every 100 keys scanned or every 10 iterations
+            if (totalKeysScanned % 100 == 0 || scanIterations % 10 == 0) {
+                log.info(
+                        "Scanning progress for table {}: {} keys scanned in {} iterations",
+                        tableConfig.getTablePath(),
+                        totalKeysScanned,
+                        scanIterations);
+            }
 
             // Process the batch of keys
             pollNext(tableConfig, keys, dataType, output);
@@ -117,6 +138,14 @@ public class RedisSourceReader extends AbstractSingleSplitReader<SeaTunnelRow> {
                 break;
             }
         }
+
+        long duration = System.currentTimeMillis() - startTime;
+        log.info(
+                "Finished scanning table {}: {} keys scanned in {} iterations, took {} ms",
+                tableConfig.getTablePath(),
+                totalKeysScanned,
+                scanIterations,
+                duration);
     }
 
     /**
