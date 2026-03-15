@@ -60,12 +60,16 @@ import java.util.Optional;
 class PulsarSourceReaderRestoreTest {
 
     @Test
-    void shouldFallbackToSingleTableMetadataForLegacySplit() throws Exception {
+    void shouldFallbackToSingleTableMetadataForLegacySplitWithoutOverridingRowTableId()
+            throws Exception {
         TablePath tablePath = TablePath.of("db.orders");
         TestingPulsarSourceReader reader =
                 new TestingPulsarSourceReader(
                         new TestingReaderContext(),
-                        Collections.singletonMap(tablePath, createMetadata(tablePath)));
+                        Collections.singletonMap(
+                                tablePath,
+                                createMetadata(
+                                        tablePath, new TableIdAwareDeserializationSchema())));
 
         PulsarPartitionSplit split =
                 new PulsarPartitionSplit(
@@ -85,7 +89,7 @@ class PulsarSourceReaderRestoreTest {
         reader.pollNext(collector);
 
         Assertions.assertEquals(1, collector.records.size());
-        Assertions.assertEquals(tablePath.toString(), collector.records.get(0).getTableId());
+        Assertions.assertEquals("deserializer.table", collector.records.get(0).getTableId());
     }
 
     @Test
@@ -110,11 +114,47 @@ class PulsarSourceReaderRestoreTest {
                 () -> reader.addSplits(Collections.singletonList(legacySplit)));
     }
 
+    @Test
+    void shouldInjectTableIdForMultiTableRouting() throws Exception {
+        TablePath ordersPath = TablePath.of("db.orders");
+        TablePath usersPath = TablePath.of("db.users");
+        Map<TablePath, PulsarConsumerMetadata> metadataMap = new LinkedHashMap<>();
+        metadataMap.put(ordersPath, createMetadata(ordersPath));
+        metadataMap.put(usersPath, createMetadata(usersPath));
+
+        TestingPulsarSourceReader reader =
+                new TestingPulsarSourceReader(new TestingReaderContext(), metadataMap);
+        PulsarPartitionSplit split =
+                new PulsarPartitionSplit(
+                        new TopicPartition("persistent://public/default/orders", 0),
+                        StopCursor.never(),
+                        null,
+                        ordersPath);
+        reader.addSplits(Collections.singletonList(split));
+
+        reader.handover.produce(
+                new RecordWithSplitId(
+                        testingMessage(
+                                "value".getBytes(StandardCharsets.UTF_8), MessageId.earliest),
+                        split.splitId()));
+
+        TestingCollector collector = new TestingCollector();
+        reader.pollNext(collector);
+
+        Assertions.assertEquals(1, collector.records.size());
+        Assertions.assertEquals(ordersPath.toString(), collector.records.get(0).getTableId());
+    }
+
     private static PulsarConsumerMetadata createMetadata(TablePath tablePath) {
+        return createMetadata(tablePath, new TestingDeserializationSchema());
+    }
+
+    private static PulsarConsumerMetadata createMetadata(
+            TablePath tablePath, DeserializationSchema<SeaTunnelRow> deserializationSchema) {
         return new PulsarConsumerMetadata(
                 tablePath,
                 CatalogTableUtil.buildSimpleTextTable(),
-                new TestingDeserializationSchema(),
+                deserializationSchema,
                 new TopicListDiscoverer(Collections.singletonList(tablePath.toString())),
                 StartCursor.earliest(),
                 StopCursor.never(),
@@ -286,7 +326,7 @@ class PulsarSourceReaderRestoreTest {
         }
     }
 
-    private static final class TestingDeserializationSchema
+    private static class TestingDeserializationSchema
             implements DeserializationSchema<SeaTunnelRow> {
 
         private static final SeaTunnelRowType ROW_TYPE =
@@ -301,6 +341,17 @@ class PulsarSourceReaderRestoreTest {
         @Override
         public SeaTunnelDataType<SeaTunnelRow> getProducedType() {
             return ROW_TYPE;
+        }
+    }
+
+    private static final class TableIdAwareDeserializationSchema
+            extends TestingDeserializationSchema {
+
+        @Override
+        public SeaTunnelRow deserialize(byte[] message) {
+            SeaTunnelRow row = super.deserialize(message);
+            row.setTableId("deserializer.table");
+            return row;
         }
     }
 }

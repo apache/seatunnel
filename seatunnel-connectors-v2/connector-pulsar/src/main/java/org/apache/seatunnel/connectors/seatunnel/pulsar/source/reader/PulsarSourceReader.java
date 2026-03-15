@@ -60,6 +60,7 @@ public class PulsarSourceReader<T> implements SourceReader<T, PulsarPartitionSpl
     protected final PulsarClientConfig clientConfig;
     protected final Map<TablePath, PulsarConsumerMetadata> consumerMetadataMap;
     protected final TablePath defaultTablePath;
+    protected final boolean injectTableIdForRouting;
     protected final Handover<RecordWithSplitId> handover;
 
     protected final Map<String, PulsarPartitionSplit> splitStates;
@@ -93,6 +94,7 @@ public class PulsarSourceReader<T> implements SourceReader<T, PulsarPartitionSpl
                 consumerMetadataMap.size() == 1
                         ? consumerMetadataMap.keySet().iterator().next()
                         : null;
+        this.injectTableIdForRouting = consumerMetadataMap.size() > 1;
         this.pollTimeout = pollTimeout;
         this.pollInterval = pollInterval;
         this.batchSize = batchSize;
@@ -297,7 +299,7 @@ public class PulsarSourceReader<T> implements SourceReader<T, PulsarPartitionSpl
 
     private Collector<T> resolveCollector(
             TablePath tablePath, Collector<T> output, Map<TablePath, Collector<T>> collectorCache) {
-        if (tablePath == null) {
+        if (!injectTableIdForRouting || tablePath == null) {
             return output;
         }
         // Reuse wrappers inside the current poll batch to avoid per-record allocations on hot path.
