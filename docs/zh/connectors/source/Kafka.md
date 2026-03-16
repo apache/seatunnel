@@ -62,6 +62,9 @@ import ChangeLog from '../changelog/connector-kafka.md';
 | reader_cache_queue_size             | Integer                             | 否    | 1024                         | Reader分片缓存队列，用于缓存分片对应的数据。占用大小取决于每个reader得到的分片量，而不是每个分片的数据量。                                                                                                                                                                                                                                                                    |
 | is_native                           | Boolean                             | No   | false                        | 支持保留record的源信息。                                                                                                                                                                                                                                                                                                                |
 
+> 从 checkpoint 或 savepoint 恢复时，Kafka Source 会优先使用 checkpoint 中保存的 split offset。
+> `start_mode` 和 consumer group offset 只在首次启动，或为尚未存在 checkpoint 状态的新发现分区初始化位点时生效。
+
 ### debezium_record_table_filter
 
 我们可以使用 `debezium_record_table_filter` 来过滤 debezium 格式的数据。配置如下：
