@@ -98,6 +98,8 @@ public class ElasticsearchIT extends TestSuiteBase implements TestResource {
 
     private EsRestClient esRestClient;
 
+    private static final ObjectMapper OBJECT_MAPPER = new ObjectMapper();
+
     @BeforeEach
     @Override
     public void startUp() throws Exception {
@@ -136,6 +138,7 @@ public class ElasticsearchIT extends TestSuiteBase implements TestResource {
         createIndexWithNestType();
         createIndexForSqlSearch();
         generateTestSqlDataSet();
+        createTestIndexWithData();
     }
 
     /** create a index,and bulk some documents */
@@ -154,6 +157,45 @@ public class ElasticsearchIT extends TestSuiteBase implements TestResource {
                                 .toURI(),
                         StandardCharsets.UTF_8);
         esRestClient.createIndex("st_index_sql", mapping);
+    }
+
+    private void createTestIndexWithData() throws IOException, InterruptedException {
+        String indexName = "st_index_runtime";
+
+        // Create index with explicit mapping for timestamp field
+        String mapping =
+                "{"
+                        + "  \"mappings\": {"
+                        + "    \"properties\": {"
+                        + "      \"c_string\": { \"type\": \"keyword\" },"
+                        + "      \"c_int\": { \"type\": \"integer\" },"
+                        + "      \"c_timestamp\": { \"type\": \"date\" }"
+                        + "    }"
+                        + "  }"
+                        + "}";
+        esRestClient.createIndex(indexName, mapping);
+        log.info("Created index with mapping: {}", indexName);
+
+        // Prepare test data
+        List<String> testData = generateRuntimeTestData();
+
+        // Bulk insert data
+        StringBuilder bulkRequestBody = new StringBuilder();
+        for (String doc : testData) {
+            bulkRequestBody
+                    .append("{\"index\":{\"_index\":\"")
+                    .append(indexName)
+                    .append("\"}}\n")
+                    .append(doc)
+                    .append("\n");
+        }
+
+        BulkResponse response = esRestClient.bulk(bulkRequestBody.toString());
+        Assertions.assertFalse(response.isErrors(), "Bulk insert should not have errors");
+        log.info("Inserted {} documents into index: {}", testData.size(), indexName);
+
+        // Wait for index refresh
+        Thread.sleep(2000);
     }
 
     private void generateTestSqlDataSet() throws JsonProcessingException, InterruptedException {
@@ -368,6 +410,18 @@ public class ElasticsearchIT extends TestSuiteBase implements TestResource {
         List<String> sinkData = readSinkDataWithSchema("st_index_pit");
         // for DSL is: {"range":{"c_int":{"gte":10,"lte":20}}}
         Assertions.assertIterableEquals(mapTestDatasetForDSL(), sinkData);
+    }
+
+    @TestTemplate
+    public void testElasticsearchSourceWithRuntimeFields(TestContainer container)
+            throws IOException, InterruptedException {
+        Container.ExecResult execResult =
+                container.executeJob(
+                        "/elasticsearch/elasticsearch_source_with_runtime_fields.conf");
+        Assertions.assertEquals(0, execResult.getExitCode(), "Job should complete successfully");
+
+        log.info("Runtime fields test completed successfully");
+        log.info("Job output: {}", execResult.getStdout());
     }
 
     @TestTemplate
@@ -1112,6 +1166,18 @@ public class ElasticsearchIT extends TestSuiteBase implements TestResource {
                 Assertions.assertTrue(cleaned, "Scroll context should be successfully cleaned up");
             }
         }
+    }
+
+    private List<String> generateRuntimeTestData() throws IOException {
+        List<String> testData = new ArrayList<>();
+
+        Map<String, Object> doc = new HashMap<>();
+        doc.put("c_string", "test_1");
+        doc.put("c_int", 10);
+        doc.put("c_timestamp", "2024-01-15T10:00:00");
+        testData.add(OBJECT_MAPPER.writeValueAsString(doc));
+
+        return testData;
     }
 
     /**

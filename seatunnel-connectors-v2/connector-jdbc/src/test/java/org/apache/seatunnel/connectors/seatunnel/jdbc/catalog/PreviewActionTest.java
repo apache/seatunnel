@@ -348,12 +348,12 @@ public class PreviewActionTest {
         assertPreviewResult(
                 catalog,
                 Catalog.ActionType.CREATE_DATABASE,
-                "CREATE DATABASE testddatabase",
+                "CREATE DATABASE [testddatabase]",
                 Optional.empty());
         assertPreviewResult(
                 catalog,
                 Catalog.ActionType.DROP_DATABASE,
-                "DROP DATABASE testddatabase;",
+                "DROP DATABASE [testddatabase];",
                 Optional.empty());
         assertPreviewResult(
                 catalog,

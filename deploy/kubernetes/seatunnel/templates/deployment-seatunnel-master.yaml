@@ -92,5 +92,5 @@ spec:
       volumes:
         - name: seatunnel-configs
           configMap:
-            name: {{ include "seatunnel.fullname" . }}-configs
+            name: {{ include "seatunnel.configMapName" . }}
 

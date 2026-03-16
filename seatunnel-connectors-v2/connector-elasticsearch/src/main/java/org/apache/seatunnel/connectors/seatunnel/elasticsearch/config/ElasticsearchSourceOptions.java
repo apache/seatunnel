@@ -109,4 +109,14 @@ public class ElasticsearchSourceOptions extends ElasticsearchBaseOptions {
                     .defaultValue(100)
                     .withDescription(
                             "Maximum number of hits to be returned with each PIT search request. Similar to scroll_size but for PIT API.");
+
+    public static final Option<List<Map<String, Object>>> RUNTIME_FIELDS =
+            Options.key("runtime_fields")
+                    .type(new TypeReference<List<Map<String, Object>>>() {})
+                    .noDefaultValue()
+                    .withDescription(
+                            "Runtime fields to be computed at query time. Each runtime field should contain: name, type, and script. "
+                                    + "Example: [{\"name\": \"day_of_week\", \"type\": \"keyword\", \"script\": \"emit(doc['timestamp'].value.dayOfWeekEnum.toString())\"}]. "
+                                    + "Supported types: boolean, date, double, geo_point, ip, keyword, long. "
+                                    + "Available in Elasticsearch 7.11+");
 }

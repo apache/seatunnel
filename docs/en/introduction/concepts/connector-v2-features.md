@@ -77,7 +77,7 @@ If a sink connector supports writing row kinds(INSERT/UPDATE_BEFORE/UPDATE_AFTER
 
 ### support multiple table write
 
-Supports write multiple tables in one SeaTunnel job, users can dynamically specify the table's identifier by [configuring placeholders](./sink-options-placeholders.md).
+Supports write multiple tables in one SeaTunnel job, users can dynamically specify the table's identifier by [configuring placeholders](../configuration/sink-options-placeholders.md).
 
 ### multimodal
 

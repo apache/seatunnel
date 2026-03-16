@@ -7,7 +7,7 @@ configure the config file.
 The main format of the config file is `hocon`, for more details you can refer to [HOCON-GUIDE](https://github.com/lightbend/config/blob/main/HOCON.md),
 BTW, we also support the `json` format, but you should keep in mind that the name of the config file should end with `.json`.
 
-We also support the `SQL` format, please refer to [SQL configuration](sql-config.md) for more details.
+We also support the `SQL` format, please refer to [SQL configuration](../configuration/sql-config.md) for more details.
 
 ## Example
 
@@ -76,7 +76,7 @@ Used to add some engine optional parameters, no matter which engine (Zeta, Spark
 optional parameters should be filled in here.
 
 Note that we have separated the parameters by engine, and for the common parameters, we can configure them as before.
-For flink and spark engine, the specific configuration rules of their parameters can be referred to [JobEnvConfig](./JobEnvConfig.md).
+For flink and spark engine, the specific configuration rules of their parameters can be referred to [JobEnvConfig](../configuration/JobEnvConfig.md).
 
 <!-- TODO add supported env parameters -->
 
@@ -333,7 +333,7 @@ sink {
 - If the substitution variable contains double or single quotes (e.g., `"resName"` or `"nameVal"`), you need to include them with the value.
 - The value cannot contain spaces (`' '`). For example, `-i jobName='this is a job name'` will be replaced with `job.name = "this"`. You can use environment variables to pass values with spaces.
 - For dynamic parameters, you can use the following format: `-i date=$(date +"%Y%m%d")`.
-- Cannot use specified system reserved characters; they will not be replaced by `-i`, such as: `${database_name}`, `${schema_name}`, `${table_name}`, `${schema_full_name}`, `${table_full_name}`, `${primary_key}`, `${unique_key}`, `${field_names}`, `${partition_keys}`. For details, please refer to [Sink Parameter Placeholders](sink-options-placeholders.md).
+- Cannot use specified system reserved characters; they will not be replaced by `-i`, such as: `${database_name}`, `${schema_name}`, `${table_name}`, `${schema_full_name}`, `${table_full_name}`, `${primary_key}`, `${unique_key}`, `${field_names}`, `${partition_keys}`. For details, please refer to [Sink Parameter Placeholders](../configuration/sink-options-placeholders.md).
 
 ## What's More
 
