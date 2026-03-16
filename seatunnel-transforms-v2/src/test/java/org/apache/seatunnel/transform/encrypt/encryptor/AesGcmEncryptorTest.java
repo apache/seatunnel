@@ -107,10 +107,7 @@ class AesGcmEncryptorTest {
 
         SeaTunnelRuntimeException ex =
                 assertThrows(SeaTunnelRuntimeException.class, () -> another.decrypt(cipher));
-        assertTrue(
-                ex.getMessage()
-                        .contains(
-                                "ciphertext decryption failed (possible tampering or wrong key)"));
+        assertTrue(ex.getMessage().contains("Decryption failed (possible tampering or wrong key)"));
     }
 
     @ParameterizedTest
