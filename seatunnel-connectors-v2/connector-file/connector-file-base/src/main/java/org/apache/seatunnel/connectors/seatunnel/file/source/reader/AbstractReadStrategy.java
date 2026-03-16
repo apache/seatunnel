@@ -67,6 +67,7 @@ import java.time.LocalDate;
 import java.time.LocalDateTime;
 import java.util.ArrayList;
 import java.util.Arrays;
+import java.util.Comparator;
 import java.util.Date;
 import java.util.LinkedHashMap;
 import java.util.List;
@@ -74,6 +75,7 @@ import java.util.Locale;
 import java.util.Map;
 import java.util.Objects;
 import java.util.regex.Pattern;
+import java.util.stream.Collectors;
 import java.util.zip.ZipEntry;
 import java.util.zip.ZipInputStream;
 
@@ -154,9 +156,15 @@ public abstract class AbstractReadStrategy implements ReadStrategy {
 
     @Override
     public List<String> getFileNamesByPath(String path) throws IOException {
-        ArrayList<String> fileNames = new ArrayList<>();
+        List<FileInfo> fileInfoList = new ArrayList<>();
         UpdateModeStats updateModeStats = enableUpdateSync ? new UpdateModeStats() : null;
-        collectFileNamesByPath(path, fileNames, updateModeStats);
+        collectFileInfoByPath(path, fileInfoList, updateModeStats);
+
+        // Sort by modification time in descending order if enabled
+        if (sortFilesByModTime) {
+            fileInfoList.sort(Comparator.comparingLong(FileInfo::getModifyTime).reversed());
+        }
+
         if (updateModeStats != null) {
             log.info(
                     "Update sync mode statistics: scanned={}, skipped={}, to_sync={}",
@@ -164,19 +172,24 @@ public abstract class AbstractReadStrategy implements ReadStrategy {
                     updateModeStats.skipped,
                     updateModeStats.scanned - updateModeStats.skipped);
         }
-        return fileNames;
+
+        for (FileInfo fileInfo : fileInfoList) {
+            this.fileNames.add(fileInfo.getFileName());
+        }
+
+        return fileInfoList.stream().map(FileInfo::getFileName).collect(Collectors.toList());
     }
 
-    private void collectFileNamesByPath(
-            String path, List<String> fileNames, UpdateModeStats updateModeStats)
+    private void collectFileInfoByPath(
+            String path, List<FileInfo> fileInfoList, UpdateModeStats updateModeStats)
             throws IOException {
         FileStatus[] stats = hadoopFileSystemProxy.listStatus(path);
         for (FileStatus fileStatus : stats) {
             if (fileStatus.isDirectory()) {
                 // skip hidden tmp directory, such as .hive-staging_hive
                 if (!fileStatus.getPath().getName().startsWith(".")) {
-                    collectFileNamesByPath(
-                            fileStatus.getPath().toString(), fileNames, updateModeStats);
+                    collectFileInfoByPath(
+                            fileStatus.getPath().toString(), fileInfoList, updateModeStats);
                 }
                 continue;
             }
@@ -217,8 +230,8 @@ public abstract class AbstractReadStrategy implements ReadStrategy {
                 updateModeStats.scanned++;
             }
             if (shouldSyncFileInUpdateMode(fileStatus)) {
-                fileNames.add(filePath);
-                this.fileNames.add(filePath);
+                FileInfo fileInfo = new FileInfo(filePath, fileStatus.getModificationTime());
+                fileInfoList.add(fileInfo);
             } else if (updateModeStats != null) {
                 updateModeStats.skipped++;
             }

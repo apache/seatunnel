@@ -173,7 +173,8 @@ public class CsvReadStrategyTest {
         String path = Paths.get(resource.toURI()).toString();
         TestCollector testCollector;
         try (CsvReadStrategy csvReadStrategy = new CsvReadStrategy()) {
-            LocalConf localConf = new LocalConf(FS_DEFAULT_NAME_DEFAULT);
+            LocalFileSystemConf.LocalConf localConf =
+                    new LocalFileSystemConf.LocalConf(FS_DEFAULT_NAME_DEFAULT);
             csvReadStrategy.init(localConf);
             csvReadStrategy.getFileNamesByPath(path);
             csvReadStrategy.setPluginConfig(ConfigFactory.parseMap(csvBomOptions));
