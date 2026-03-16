@@ -53,7 +53,9 @@ import org.apache.seatunnel.engine.server.dag.physical.PhysicalPlan;
 import org.apache.seatunnel.engine.server.dag.physical.PhysicalVertex;
 import org.apache.seatunnel.engine.server.dag.physical.PlanUtils;
 import org.apache.seatunnel.engine.server.dag.physical.SubPlan;
+import org.apache.seatunnel.engine.server.execution.ExecutionState;
 import org.apache.seatunnel.engine.server.execution.Task;
+import org.apache.seatunnel.engine.server.execution.TaskExecutionState;
 import org.apache.seatunnel.engine.server.execution.TaskGroupLocation;
 
 import org.junit.jupiter.api.Assertions;
@@ -306,6 +308,161 @@ public class TaskTest extends AbstractSeaTunnelServerTest {
                 }
             }
         }
+    }
+
+    // Regression test: when the state entry is removed from the distributed map
+    // (e.g. during node scaling down), updateTaskState should still complete
+    // the local state transition instead of throwing NPE.
+    @Test
+    @SetEnvironmentVariable(key = SKIP_CHECK_JAR, value = "true")
+    public void testUpdateTaskStateWhenStateEntryMissing() throws MalformedURLException {
+        IMap<Object, Object> runningJobState =
+                nodeEngine.getHazelcastInstance().getMap("testRunningJobStateNullStateEntry");
+        IMap<Object, Long[]> runningJobStateTimestamp =
+                nodeEngine
+                        .getHazelcastInstance()
+                        .getMap("testRunningJobStateTimestampNullStateEntry");
+        runningJobState.clear();
+        runningJobStateTimestamp.clear();
+
+        PhysicalPlan physicalPlan =
+                createSingleSourcePhysicalPlan(
+                        new IdGenerator(), runningJobState, runningJobStateTimestamp);
+
+        PhysicalVertex physicalVertex =
+                physicalPlan.getPipelineList().get(0).getPhysicalVertexList().get(0);
+        PassiveCompletableFuture<TaskExecutionState> stateFuture = physicalVertex.initStateFuture();
+        physicalVertex.startPhysicalVertex();
+
+        runningJobState.remove(physicalVertex.getTaskGroupLocation());
+        runningJobStateTimestamp.remove(physicalVertex.getTaskGroupLocation());
+        physicalVertex.makeTaskGroupFailing(new RuntimeException("test missing state entry"));
+
+        Assertions.assertTrue(stateFuture.isDone());
+        Assertions.assertEquals(ExecutionState.FAILED, physicalVertex.getExecutionState());
+        Assertions.assertEquals(ExecutionState.FAILED, stateFuture.join().getExecutionState());
+        Assertions.assertEquals(
+                ExecutionState.FAILED, runningJobState.get(physicalVertex.getTaskGroupLocation()));
+        Assertions.assertNotNull(
+                runningJobStateTimestamp.get(physicalVertex.getTaskGroupLocation()));
+        Assertions.assertNotNull(
+                runningJobStateTimestamp
+                        .get(physicalVertex.getTaskGroupLocation())[
+                        ExecutionState.FAILED.ordinal()]);
+    }
+
+    @Test
+    @SetEnvironmentVariable(key = SKIP_CHECK_JAR, value = "true")
+    public void testUpdateTaskStateWhenStateEntryAndLocalStateMissing()
+            throws ReflectiveOperationException, MalformedURLException {
+        IMap<Object, Object> runningJobState =
+                nodeEngine
+                        .getHazelcastInstance()
+                        .getMap("testRunningJobStateNullStateEntryAndLocalState");
+        IMap<Object, Long[]> runningJobStateTimestamp =
+                nodeEngine
+                        .getHazelcastInstance()
+                        .getMap("testRunningJobStateTimestampNullStateEntryAndLocalState");
+        runningJobState.clear();
+        runningJobStateTimestamp.clear();
+
+        PhysicalPlan physicalPlan =
+                createSingleSourcePhysicalPlan(
+                        new IdGenerator(), runningJobState, runningJobStateTimestamp);
+
+        PhysicalVertex physicalVertex =
+                physicalPlan.getPipelineList().get(0).getPhysicalVertexList().get(0);
+        PassiveCompletableFuture<TaskExecutionState> stateFuture = physicalVertex.initStateFuture();
+        physicalVertex.startPhysicalVertex();
+
+        runningJobState.remove(physicalVertex.getTaskGroupLocation());
+        runningJobStateTimestamp.remove(physicalVertex.getTaskGroupLocation());
+        java.lang.reflect.Field currentStateField =
+                PhysicalVertex.class.getDeclaredField("currExecutionState");
+        currentStateField.setAccessible(true);
+        currentStateField.set(physicalVertex, null);
+
+        physicalVertex.makeTaskGroupFailing(
+                new RuntimeException("test missing state entry and local state"));
+
+        Assertions.assertTrue(stateFuture.isDone());
+        Assertions.assertEquals(ExecutionState.FAILED, physicalVertex.getExecutionState());
+        Assertions.assertEquals(ExecutionState.FAILED, stateFuture.join().getExecutionState());
+        Assertions.assertEquals(
+                ExecutionState.FAILED, runningJobState.get(physicalVertex.getTaskGroupLocation()));
+        Assertions.assertNotNull(
+                runningJobStateTimestamp.get(physicalVertex.getTaskGroupLocation()));
+        Assertions.assertNotNull(
+                runningJobStateTimestamp
+                        .get(physicalVertex.getTaskGroupLocation())[
+                        ExecutionState.FAILED.ordinal()]);
+    }
+
+    private PhysicalPlan createSingleSourcePhysicalPlan(
+            IdGenerator idGenerator,
+            IMap<Object, Object> runningJobState,
+            IMap<Object, Long[]> runningJobStateTimestamp)
+            throws MalformedURLException {
+        Action fake =
+                new SourceAction<>(
+                        idGenerator.getNextId(),
+                        "fake",
+                        createFakeSource(),
+                        Sets.newHashSet(new URL("file:///fake.jar")),
+                        Collections.emptySet());
+        LogicalVertex fakeVertex = new LogicalVertex(fake.getId(), fake, 2);
+
+        List<Column> columns = new ArrayList<>();
+        columns.add(PhysicalColumn.of("id", BasicType.INT_TYPE, 11L, 0, true, 111, ""));
+
+        CatalogTable catalogTable =
+                CatalogTable.of(
+                        TableIdentifier.of("default", TablePath.DEFAULT),
+                        TableSchema.builder().columns(columns).build(),
+                        new HashMap<>(),
+                        Collections.emptyList(),
+                        "fake");
+
+        Action console =
+                new SinkAction<>(
+                        idGenerator.getNextId(),
+                        "console",
+                        new ConsoleSink(catalogTable, ReadonlyConfig.fromMap(new HashMap<>())),
+                        Sets.newHashSet(new URL("file:///console.jar")),
+                        Collections.emptySet());
+        LogicalVertex consoleVertex = new LogicalVertex(console.getId(), console, 2);
+
+        LogicalEdge edge = new LogicalEdge(fakeVertex, consoleVertex);
+
+        JobConfig config = new JobConfig();
+        config.setName("test");
+        LogicalDag logicalDag = new LogicalDag(config, idGenerator);
+        logicalDag.addLogicalVertex(fakeVertex);
+        logicalDag.addLogicalVertex(consoleVertex);
+        logicalDag.addEdge(edge);
+
+        JobImmutableInformation jobImmutableInformation =
+                new JobImmutableInformation(
+                        2,
+                        "Test",
+                        nodeEngine.getSerializationService(),
+                        logicalDag,
+                        Collections.emptyList(),
+                        Collections.emptyList());
+
+        return PlanUtils.fromLogicalDAG(
+                        logicalDag,
+                        nodeEngine,
+                        jobImmutableInformation,
+                        System.currentTimeMillis(),
+                        Executors.newCachedThreadPool(),
+                        server.getClassLoaderService(),
+                        instance.getFlakeIdGenerator(Constant.SEATUNNEL_ID_GENERATOR_NAME),
+                        runningJobState,
+                        runningJobStateTimestamp,
+                        QueueType.BLOCKINGQUEUE,
+                        new EngineConfig())
+                .f0();
     }
 
     private static FakeSource createFakeSource() {

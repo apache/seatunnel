@@ -351,13 +351,28 @@ public class PhysicalVertex {
     public synchronized void updateTaskState(@NonNull ExecutionState targetState) {
         try {
             ExecutionState current = (ExecutionState) runningJobStateIMap.get(taskGroupLocation);
+            // When a node is removed during scaling down, the IMap entry may be lost.
+            // Fall back to the local cached state to allow state progression.
+            boolean stateEntryMissing = false;
             if (current == null) {
+                stateEntryMissing = true;
+                current = currExecutionState;
                 log.warn(
-                        "{} current state is null, skip transition to {}. Task execution location: {}",
+                        "{} state entry missing from distributed map (possibly due to node "
+                                + "removal during scaling down), using local state {} as fallback, "
+                                + "target state: {}",
                         taskFullName,
-                        targetState,
-                        taskGroupLocation);
-                return;
+                        current,
+                        targetState);
+            }
+            if (current == null) {
+                current = ExecutionState.CREATED;
+                log.error(
+                        "{} both distributed and local state are null, "
+                                + "use {} as fallback for target state {}",
+                        taskFullName,
+                        current,
+                        targetState);
             }
             log.debug(
                     String.format(
@@ -380,12 +395,18 @@ public class PhysicalVertex {
             }
 
             // now do the actual state transition
+            boolean missingStateEntry = stateEntryMissing;
             RetryUtils.retryWithException(
                     () -> {
                         updateStateTimestamps(targetState);
-                        if (runningJobStateIMap.get(taskGroupLocation) != null) {
-                            runningJobStateIMap.set(taskGroupLocation, targetState);
+                        if (missingStateEntry) {
+                            log.info(
+                                    "{} task state entry missing from distributed map, recreate it with target state {}. Task execution location: {}",
+                                    taskFullName,
+                                    targetState,
+                                    taskGroupLocation);
                         }
+                        runningJobStateIMap.set(taskGroupLocation, targetState);
                         return null;
                     },
                     new RetryUtils.RetryMaterial(
@@ -470,10 +491,10 @@ public class PhysicalVertex {
         Long[] stateTimestamps = runningJobStateTimestampsIMap.get(taskGroupLocation);
         if (stateTimestamps == null) {
             log.warn(
-                    "{} state timestamps have already been cleaned, skip persisting transition to {}",
+                    "{} state timestamps entry missing from distributed map, recreate it for target state {}",
                     taskFullName,
                     targetState);
-            return;
+            stateTimestamps = new Long[ExecutionState.values().length];
         }
         stateTimestamps[targetState.ordinal()] = System.currentTimeMillis();
         runningJobStateTimestampsIMap.set(taskGroupLocation, stateTimestamps);

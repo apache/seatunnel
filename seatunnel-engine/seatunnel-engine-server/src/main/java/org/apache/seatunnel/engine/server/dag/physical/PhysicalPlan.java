@@ -91,6 +91,8 @@ public class PhysicalPlan {
 
     private volatile boolean isRunning = false;
 
+    private volatile JobStatus currJobStatus;
+
     public PhysicalPlan(
             @NonNull List<SubPlan> pipelineList,
             @NonNull ExecutorService executorService,
@@ -131,6 +133,7 @@ public class PhysicalPlan {
 
         this.runningJobStateIMap = runningJobStateIMap;
         this.runningJobStateTimestampsIMap = runningJobStateTimestampsIMap;
+        this.currJobStatus = (JobStatus) runningJobStateIMap.get(jobId);
     }
 
     public void setJobMaster(JobMaster jobMaster) {
@@ -197,6 +200,10 @@ public class PhysicalPlan {
 
     public void cancelJob() {
         JobStatus jobStatus = getJobStatus();
+        if (jobStatus == null) {
+            log.error("{} job state is null, cannot cancel", jobFullName);
+            return;
+        }
         if (jobStatus.isEndState()) {
             log.warn(
                     String.format(
@@ -204,7 +211,7 @@ public class PhysicalPlan {
             return;
         }
 
-        if (((JobStatus) runningJobStateIMap.get(jobId)).ordinal() <= JobStatus.PENDING.ordinal()) {
+        if (jobStatus.ordinal() <= JobStatus.PENDING.ordinal()) {
             // Tasks with the status 'INITIALIZING', 'CREATED', 'PENDING' need to be set directly to
             // the 'CANCELLED' state because it has not yet started running
             updateJobState(JobStatus.CANCELED);
@@ -249,13 +256,18 @@ public class PhysicalPlan {
         return pipelineList;
     }
 
-    private void updateStateInfo(JobStatus current, JobStatus targetState) throws Exception {
+    private void updateStateInfo(
+            JobStatus current, JobStatus targetState, boolean stateEntryMissing) throws Exception {
+        if (stateEntryMissing) {
+            log.info(
+                    "{} job state entry missing from distributed map, recreate it with target state {}",
+                    jobFullName,
+                    targetState);
+        }
         RetryUtils.retryWithException(
                 () -> {
                     updateStateTimestamps(targetState);
-                    if (runningJobStateIMap.get(jobId) != null) {
-                        runningJobStateIMap.set(jobId, targetState);
-                    }
+                    runningJobStateIMap.set(jobId, targetState);
                     return null;
                 },
                 new RetryUtils.RetryMaterial(
@@ -263,8 +275,10 @@ public class PhysicalPlan {
                         true,
                         ExceptionUtil::isOperationNeedRetryException,
                         Constant.OPERATION_RETRY_SLEEP));
+        this.currJobStatus = targetState;
         log.info(
                 String.format("%s turned from state %s to %s.", jobFullName, current, targetState));
+        reportJobStateEvent(targetState);
     }
 
     private void updateStateTimestamps(@NonNull JobStatus targetState) {
@@ -273,10 +287,11 @@ public class PhysicalPlan {
         Long[] stateTimestamps = runningJobStateTimestampsIMap.get(jobId);
         if (stateTimestamps == null) {
             log.warn(
-                    "{} state timestamps have already been cleaned, skip persisting transition to {}",
+                    "{} state timestamps entry missing from distributed map, "
+                            + "recreate it for target state {}",
                     jobFullName,
                     targetState);
-            return;
+            stateTimestamps = new Long[JobStatus.values().length];
         }
         stateTimestamps[targetState.ordinal()] = System.currentTimeMillis();
         runningJobStateTimestampsIMap.set(jobId, stateTimestamps);
@@ -293,12 +308,26 @@ public class PhysicalPlan {
     public synchronized void updateJobState(@NonNull JobStatus targetState) {
         try {
             JobStatus current = (JobStatus) runningJobStateIMap.get(jobId);
+            boolean stateEntryMissing = false;
             if (current == null) {
+                stateEntryMissing = true;
+                current = currJobStatus;
                 log.warn(
-                        "{} current state is null, skip transition to {}",
+                        "{} job state entry missing from distributed map (possibly due to node "
+                                + "removal during scaling down), using local state {} as fallback, "
+                                + "target state: {}",
                         jobFullName,
+                        current,
                         targetState);
-                return;
+            }
+            if (current == null) {
+                current = JobStatus.CREATED;
+                log.error(
+                        "{} both distributed and local job state are null, "
+                                + "use {} as fallback for target state {}",
+                        jobFullName,
+                        current,
+                        targetState);
             }
             log.debug(
                     "Try to update the {} state from {} to {}", jobFullName, current, targetState);
@@ -317,9 +346,7 @@ public class PhysicalPlan {
 
             // Now do the actual state transition, we must update runningJobStateTimestampsIMap
             // first and then can update runningJobStateIMap
-            updateStateInfo(current, targetState);
-            reportJobStateEvent(targetState);
-
+            updateStateInfo(current, targetState, stateEntryMissing);
             stateProcess();
         } catch (Exception e) {
             log.error(ExceptionUtils.getMessage(e));
@@ -334,7 +361,16 @@ public class PhysicalPlan {
     }
 
     public JobStatus getJobStatus() {
-        return (JobStatus) runningJobStateIMap.get(jobId);
+        JobStatus status = (JobStatus) runningJobStateIMap.get(jobId);
+        if (status == null) {
+            log.warn(
+                    "{} job state entry missing from distributed map, "
+                            + "using local cached state {} as fallback",
+                    jobFullName,
+                    currJobStatus);
+            return currJobStatus;
+        }
+        return status;
     }
 
     public String getJobFullName() {
