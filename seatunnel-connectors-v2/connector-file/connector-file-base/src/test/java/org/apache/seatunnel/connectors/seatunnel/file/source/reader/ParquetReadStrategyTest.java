@@ -585,6 +585,7 @@ public class ParquetReadStrategyTest {
 
         Map<String, Object> props = new HashMap<>();
         props.put(FileBaseSourceOptions.FILENAME_EXTENSION.key(), "parquet");
+        props.put(FileBaseSourceOptions.SORT_FILES_BY_MOD_TIME.key(), true);
 
         ReadonlyConfig readonlyConfig = ReadonlyConfig.fromMap(props);
 

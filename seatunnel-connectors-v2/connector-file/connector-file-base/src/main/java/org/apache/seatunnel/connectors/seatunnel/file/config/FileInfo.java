@@ -17,6 +17,17 @@
 
 package org.apache.seatunnel.connectors.seatunnel.file.config;
 
+import lombok.Getter;
+
+import java.util.Objects;
+
+/**
+ * Represents a file with its metadata information for schema inference.
+ *
+ * <p>This class is used to track file information during file listing operations, particularly to
+ * support sorting by modification time.
+ */
+@Getter
 public class FileInfo {
 
     private final String fileName;
@@ -27,11 +38,16 @@ public class FileInfo {
         this.modifyTime = modifyTime;
     }
 
-    public String getFileName() {
-        return fileName;
+    @Override
+    public boolean equals(Object o) {
+        if (this == o) return true;
+        if (o == null || getClass() != o.getClass()) return false;
+        FileInfo fileInfo = (FileInfo) o;
+        return modifyTime == fileInfo.modifyTime && Objects.equals(fileName, fileInfo.fileName);
     }
 
-    public long getModifyTime() {
-        return modifyTime;
+    @Override
+    public int hashCode() {
+        return Objects.hash(fileName, modifyTime);
     }
 }

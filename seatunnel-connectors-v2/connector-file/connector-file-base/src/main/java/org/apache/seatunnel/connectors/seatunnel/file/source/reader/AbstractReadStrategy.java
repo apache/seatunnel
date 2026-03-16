@@ -125,6 +125,8 @@ public abstract class AbstractReadStrategy implements ReadStrategy {
     protected transient HadoopFileSystemProxy targetHadoopFileSystemProxy;
     protected transient boolean shareTargetFileSystemProxy;
     protected transient boolean checksumUnavailableWarned;
+    protected boolean sortFilesByModTime =
+            FileBaseSourceOptions.SORT_FILES_BY_MOD_TIME.defaultValue();
 
     @Override
     public void init(HadoopConf conf) {
@@ -199,8 +201,10 @@ public abstract class AbstractReadStrategy implements ReadStrategy {
             fileInfoList.removeIf(fileInfo -> !fileInfo.getFileName().endsWith(filenameExtension));
         }
 
-        // Sort by modification time in descending order
-        fileInfoList.sort(Comparator.comparingLong(FileInfo::getModifyTime).reversed());
+        // Sort by modification time in descending order if enabled
+        if (sortFilesByModTime) {
+            fileInfoList.sort(Comparator.comparingLong(FileInfo::getModifyTime).reversed());
+        }
 
         for (FileInfo fileInfo : fileInfoList) {
             this.fileNames.add(fileInfo.getFileName());
@@ -305,6 +309,11 @@ public abstract class AbstractReadStrategy implements ReadStrategy {
         if (pluginConfig.hasPath(FileBaseSourceOptions.ENABLE_FILE_SPLIT.key())) {
             enableSplitFile =
                     pluginConfig.getBoolean(FileBaseSourceOptions.ENABLE_FILE_SPLIT.key());
+        }
+
+        if (pluginConfig.hasPath(FileBaseSourceOptions.SORT_FILES_BY_MOD_TIME.key())) {
+            sortFilesByModTime =
+                    pluginConfig.getBoolean(FileBaseSourceOptions.SORT_FILES_BY_MOD_TIME.key());
         }
 
         if (pluginConfig.hasPath(FileBaseSourceOptions.FILE_PATH.key())
