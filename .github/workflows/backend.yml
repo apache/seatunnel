@@ -327,7 +327,7 @@ jobs:
     needs: [ changes, sanity-check ]
     name: Build website
     runs-on: ubuntu-latest
-    timeout-minutes: 60
+    timeout-minutes: 90
     steps:
       - name: Checkout PR
         uses: actions/checkout@v3
