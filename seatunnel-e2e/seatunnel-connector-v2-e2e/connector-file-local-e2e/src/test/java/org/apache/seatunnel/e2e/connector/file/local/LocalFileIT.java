@@ -582,6 +582,56 @@ public class LocalFileIT extends TestSuiteBase {
 
     @TestTemplate
     @DisabledOnContainer(
+            value = {},
+            type = {EngineType.FLINK, EngineType.SPARK},
+            disabledReason =
+                    "sync_mode=update needs to compare source/target on the same filesystem. Local filesystem is not shared between engine master/workers in Flink/Spark E2E.")
+    public void testLocalFileBinaryUpdateModeDistcpWithNonRecursiveScan(TestContainer container)
+            throws IOException, InterruptedException {
+        resetUpdateTestPath();
+        putLocalFile("/tmp/seatunnel/update/src/root.bin", "root-updated-v2");
+        putLocalFile("/tmp/seatunnel/update/src/subdir/nested.bin", "nest-updated-v2");
+        putLocalFile("/tmp/seatunnel/update/dst/root.bin", "root-stale-v1");
+        putLocalFile("/tmp/seatunnel/update/dst/subdir/nested.bin", "nest-stale-v1");
+
+        TestHelper helper = new TestHelper(container);
+        helper.execute("/binary/local_file_binary_update_non_recursive_distcp.conf");
+
+        Assertions.assertEquals(
+                "root-updated-v2", readLocalFile("/tmp/seatunnel/update/dst/root.bin"));
+        Assertions.assertEquals(
+                "nest-stale-v1", readLocalFile("/tmp/seatunnel/update/dst/subdir/nested.bin"));
+
+        baseContainer.execInContainer("sh", "-c", "rm -rf /tmp/seatunnel/update");
+    }
+
+    @TestTemplate
+    @DisabledOnContainer(
+            value = {},
+            type = {EngineType.FLINK, EngineType.SPARK},
+            disabledReason =
+                    "sync_mode=update needs to compare source/target on the same filesystem. Local filesystem is not shared between engine master/workers in Flink/Spark E2E.")
+    public void testLocalFileBinaryUpdateModeStrictChecksumSkipsNestedChangesWithNonRecursiveScan(
+            TestContainer container) throws IOException, InterruptedException {
+        resetUpdateTestPath();
+        putLocalFile("/tmp/seatunnel/update/src/root.bin", "root-same-v1");
+        putLocalFile("/tmp/seatunnel/update/src/subdir/nested.bin", "nest-new-v1");
+        putLocalFile("/tmp/seatunnel/update/dst/root.bin", "root-same-v1");
+        putLocalFile("/tmp/seatunnel/update/dst/subdir/nested.bin", "nest-old-v1");
+
+        TestHelper helper = new TestHelper(container);
+        helper.execute("/binary/local_file_binary_update_non_recursive_strict_checksum.conf");
+
+        Assertions.assertEquals(
+                "root-same-v1", readLocalFile("/tmp/seatunnel/update/dst/root.bin"));
+        Assertions.assertEquals(
+                "nest-old-v1", readLocalFile("/tmp/seatunnel/update/dst/subdir/nested.bin"));
+
+        baseContainer.execInContainer("sh", "-c", "rm -rf /tmp/seatunnel/update");
+    }
+
+    @TestTemplate
+    @DisabledOnContainer(
             value = {TestContainerId.SPARK_2_4},
             type = {EngineType.FLINK},
             disabledReason =
