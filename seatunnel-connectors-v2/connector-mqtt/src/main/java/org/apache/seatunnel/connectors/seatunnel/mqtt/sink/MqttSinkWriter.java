@@ -77,9 +77,14 @@ public class MqttSinkWriter implements SinkWriter<SeaTunnelRow, Void, Void>, Mqt
         this.messageBuffer = new ArrayList<>(this.batchSize);
         this.serializationSchema = createSerializationSchema(rowType, pluginConfig);
 
-        // Each subtask appends its index to guarantee a unique MQTT client ID,
-        // preventing connection hijacking when running parallel tasks.
-        String clientId = CLIENT_ID_PREFIX + context.getIndexOfSubtask();
+        // Each subtask appends its index and a random UUID to guarantee a globally unique client
+        // ID,
+        // preventing mutual disconnections and connection hijacking when running parallel jobs.
+        String clientId =
+                CLIENT_ID_PREFIX
+                        + context.getIndexOfSubtask()
+                        + "-"
+                        + java.util.UUID.randomUUID().toString();
 
         try {
             // MemoryPersistence avoids file-system I/O; ideal for containerized deployments.
