@@ -26,8 +26,6 @@ import java.util.List;
 import java.util.Optional;
 import java.util.ServiceConfigurationError;
 import java.util.ServiceLoader;
-import java.util.concurrent.ConcurrentHashMap;
-import java.util.concurrent.ConcurrentMap;
 import java.util.stream.Collectors;
 
 /**
@@ -41,14 +39,9 @@ import java.util.stream.Collectors;
  *   <li>Find a specific provider by kind
  *   <li>Handle provider loading errors gracefully
  * </ul>
- *
- * <p>Discovered providers are cached by kind to avoid repeated ServiceLoader lookups.
  */
 @Slf4j
 public final class DataSourceProviderFactory {
-    /** Cache for all discovered providers by kind. */
-    private static final ConcurrentMap<String, DataSourceProvider> PROVIDER_CACHE =
-            new ConcurrentHashMap<>();
 
     /** Cache for provider list. */
     private static volatile List<DataSourceProvider> cachedProviders = null;
@@ -103,19 +96,12 @@ public final class DataSourceProviderFactory {
     /**
      * Finds a {@link DataSourceProvider} by its kind identifier.
      *
-     * <p>Results are cached by kind, subsequent calls will return the cached provider.
-     *
      * @param kind the kind identifier of the provider to find
      * @return Optional containing the provider if found, empty otherwise
      * @throws DataSourceProviderException if SPI loading fails or multiple providers with the same
      *     kind are found
      */
     private static Optional<DataSourceProvider> findProvider(String kind) {
-        DataSourceProvider cached = PROVIDER_CACHE.get(kind);
-        if (cached != null) {
-            return Optional.of(cached);
-        }
-        // Not in cache, discover and cache
         List<DataSourceProvider> providers = discoverProviders();
         List<DataSourceProvider> matching =
                 providers.stream()
@@ -144,18 +130,15 @@ public final class DataSourceProviderFactory {
                             kind, duplicateProviders));
         }
 
-        DataSourceProvider provider = matching.get(0);
-        PROVIDER_CACHE.put(kind, provider);
-        return Optional.of(provider);
+        return Optional.of(matching.get(0));
     }
 
     /**
-     * Clears all cached providers.
+     * Clears the cached providers.
      *
      * <p>This method is primarily intended for testing purposes.
      */
     public static void clearCache() {
-        PROVIDER_CACHE.clear();
         cachedProviders = null;
         log.debug("DataSourceProvider cache cleared");
     }

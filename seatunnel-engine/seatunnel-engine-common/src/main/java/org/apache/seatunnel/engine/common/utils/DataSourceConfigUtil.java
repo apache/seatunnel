@@ -23,7 +23,6 @@ import org.apache.seatunnel.shade.com.typesafe.config.ConfigFactory;
 import org.apache.seatunnel.shade.com.typesafe.config.ConfigValue;
 import org.apache.seatunnel.shade.com.typesafe.config.ConfigValueType;
 
-import org.apache.seatunnel.api.datasource.DataSourceMapper;
 import org.apache.seatunnel.api.datasource.DataSourceProvider;
 import org.apache.seatunnel.api.datasource.DataSourceProviderFactory;
 import org.apache.seatunnel.api.datasource.exception.DataSourceProviderException;
@@ -40,8 +39,6 @@ import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
-import java.util.concurrent.ConcurrentHashMap;
-import java.util.concurrent.ConcurrentMap;
 
 /**
  * Utility class for resolving data source configurations from DataSource Center.
@@ -52,9 +49,6 @@ import java.util.concurrent.ConcurrentMap;
 @Slf4j
 public final class DataSourceConfigUtil {
 
-    /** Cache for DataSourceMapper instances. Key format: "providerKind_connectorIdentifier". */
-    private static final ConcurrentMap<String, DataSourceMapper> MAPPER_CACHE =
-            new ConcurrentHashMap<>();
     /**
      * Resolves and merges data source configurations for a SeaTunnel job config.
      *
@@ -129,7 +123,6 @@ public final class DataSourceConfigUtil {
      *
      * <ol>
      *   <li>Use the provided {@link DataSourceProvider} (already initialized)
-     *   <li>Find the matching {@link DataSourceMapper} by connector identifier
      *   <li>Fetch the connection config from the metadata service using the datasource_id
      *   <li>Merge the fetched config into the original config
      * </ol>
@@ -161,23 +154,13 @@ public final class DataSourceConfigUtil {
                 providerKind);
 
         try {
-            // Find matching DataSourceMapper by connector identifier
-            DataSourceMapper mapper = findMapper(provider, connectorIdentifier);
-
-            if (mapper == null) {
-                log.warn(
-                        "No DataSourceMapper found for connector '{}' in provider '{}', returning original config",
-                        connectorIdentifier,
-                        providerKind);
-                return connectorConfig;
-            }
-
-            // Fetch connection config from metadata service
-            Map<String, Object> datasourceConfig = mapper.map(datasourceId);
+            // Fetch connection config from metadata service via provider
+            Map<String, Object> datasourceConfig =
+                    provider.datasourceMap(connectorIdentifier, datasourceId);
 
             if (datasourceConfig == null || datasourceConfig.isEmpty()) {
                 log.warn(
-                        "Received empty or null config from DataSourceMapper for datasource_id: {}",
+                        "Received empty or null config from DataSourceProvider for datasource_id: {}",
                         datasourceId);
                 return connectorConfig;
             }
@@ -253,32 +236,6 @@ public final class DataSourceConfigUtil {
             }
         }
         return "unknown";
-    }
-
-    /**
-     * Finds the appropriate DataSourceMapper for a given connector identifier.
-     *
-     * <p>This method uses a cache to avoid repeated lookups. The cache key includes both the
-     * provider kind and connector identifier.
-     *
-     * @param provider the DataSourceProvider to search in
-     * @param connectorIdentifier the connector identifier (e.g., "Jdbc", "Kafka")
-     * @return the matching DataSourceMapper, or null if not found
-     */
-    private static DataSourceMapper findMapper(
-            DataSourceProvider provider, String connectorIdentifier) {
-
-        return MAPPER_CACHE.computeIfAbsent(
-                connectorIdentifier,
-                k -> {
-                    // Iterate through mappers to find the matching one
-                    for (DataSourceMapper mapper : provider.dataSourceMappers()) {
-                        if (mapper.connectorIdentifier().equalsIgnoreCase(connectorIdentifier)) {
-                            return mapper;
-                        }
-                    }
-                    return null;
-                });
     }
 
     /**

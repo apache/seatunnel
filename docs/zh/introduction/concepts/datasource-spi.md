@@ -7,7 +7,7 @@ weight: 6
 
 ## 概述
 
-数据源 SPI（Service Provider Interface）是 SeaTunnel 引入的扩展机制，用于集中管理数据源连接配置。它允许外部元数据系统（如 Apache Gravitino、DataHub、Atlas或者Custom）管理数据源元数据，而 SeaTunnel 作业通过简单的 `datasource_id` 引用这些配置。
+数据源 SPI（Service Provider Interface）是 SeaTunnel 引入的扩展机制，用于集中管理数据源连接配置。它允许外部元数据系统管理数据源元数据，而 SeaTunnel 作业通过简单的 `datasource_id` 引用这些配置。
 
 ### 优势
 
@@ -15,8 +15,9 @@ weight: 6
 - **增强安全性**：敏感凭据不再存储在作业配置文件中
 - **集中管理**：对数据源配置的修改只需在外部系统中进行一次
 - **向后兼容**：不使用 `datasource_id` 的现有作业可以继续正常工作
+- **可扩展**：通过实现 `DataSourceProvider` 接口可以集成自定义元数据系统
 
-## datasource_id 参数
+## 使用 datasource_id
 
 `datasource_id` 是所有 SeaTunnel 连接器都可用的通用参数。当指定此参数时，连接器将从外部元数据服务获取连接配置，而不是使用直接配置。
 
@@ -51,11 +52,13 @@ sink {
 2. 将获取的配置与作业配置中的其他参数合并
 3. 作业级别的参数优先于获取的配置
 
-## 数据源 SPI 接口
+## 数据源 SPI 规范
+
+本节定义所有数据源提供者必须实现的标准 SPI 接口。
 
 ### DataSourceProvider 接口
 
-`DataSourceProvider` 接口是将外部元数据系统与 SeaTunnel 集成的入口点。它通过使用 `@AutoService` 注解的 Java SPI 机制被发现。
+`DataSourceProvider` 接口是将外部元数据系统与 SeaTunnel 集成的契约。实现通过使用 `@AutoService` 注解的 Java SPI 机制被发现。
 
 **位置**：`seatunnel-api/src/main/java/org/apache/seatunnel/api/datasource/DataSourceProvider.java`
 
@@ -78,10 +81,13 @@ public interface DataSourceProvider extends AutoCloseable {
     void init(Config config);
 
     /**
-     * 返回此提供者支持的数据源映射器集合。
-     * 每个映射器处理特定的连接器类型（Jdbc、Kafka 等）
+     * 将 datasource_id 映射到连接器配置。
+     *
+     * @param connectorIdentifier 连接器标识符（例如："Jdbc"、"Kafka"）
+     * @param datasourceId 外部系统中的数据源 ID
+     * @return 连接器的配置映射，如果映射失败则返回 null
      */
-    Collection<DataSourceMapper> dataSourceMappers();
+    Map<String, Object> datasourceMap(String connectorIdentifier, String datasourceId);
 
     /**
      * 关闭此提供者持有的资源。
@@ -92,56 +98,25 @@ public interface DataSourceProvider extends AutoCloseable {
 }
 ```
 
-#### 生命周期
+### 生命周期
 
 1. **发现**：提供者实例通过 `@AutoService(DataSourceProvider.class)` 被发现并缓存
 2. **初始化**：使用来自 `seatunnel.yaml` 的配置调用 `init(Config)`
-3. **使用**：调用 `dataSourceMappers()` 获取用于解析 `datasource_id` 的映射器
+3. **使用**：调用 `datasourceMap(String, String)` 来解析每个连接器的 `datasource_id`
 4. **清理**：关闭期间调用 `close()`
 
-#### 资源管理
+### 资源管理
 
-提供者负责管理其映射器所需的所有资源：
+提供者负责管理数据源映射所需的所有资源：
 - 用于 REST API 调用的 HTTP 客户端
 - 用于数据库访问的连接池
 - 任何其他共享资源
 
-映射器应通过构造函数从提供者接收资源，而不应直接持有资源。
+这些资源应在 `init()` 中创建，在多次 `datasourceMap()` 调用中重用，并在 `close()` 中清理。
 
-### DataSourceMapper 接口
+## 配置
 
-`DataSourceMapper` 接口将外部元数据转换为 SeaTunnel 连接器配置。
-
-**位置**：`seatunnel-api/src/main/java/org/apache/seatunnel/api/datasource/DataSourceMapper.java`
-
-```java
-public interface DataSourceMapper {
-
-    /**
-     * 返回此映射器支持的连接器标识符。
-     * 必须与 SeaTunnel 连接器的插件标识符匹配。
-     * 示例："Jdbc"、"Kafka"、"MySQL-CDC"
-     */
-    String connectorIdentifier();
-
-    /**
-     * 将 datasource_id 映射到连接器配置。
-     *
-     * @param datasourceId 外部系统中的数据源 ID
-     * @return 连接器的配置映射，如果映射失败则返回 null
-     */
-    Map<String, Object> map(String datasourceId);
-}
-```
-
-#### 实现指南
-
-- 映射器应该是轻量级且无状态的
-- 通过构造函数从 `DataSourceProvider` 接收资源
-- 必须是线程安全的，因为可能被并发调用
-- 优雅地处理错误并返回有意义的错误消息
-
-## 数据源配置
+以下配置示例以 **Gravitino 作为默认提供者**为例。如需使用其他提供者，请相应调整 `kind` 和提供者特定的选项。
 
 ### seatunnel.yaml 配置
 
@@ -167,55 +142,29 @@ seatunnel:
 | `gravitino.uri`      | String  | -           | Gravitino 服务器 URI（当 kind=gravitino 时必填）     |
 | `gravitino.metalake` | String  | -           | Gravitino metalake 名称（当 kind=gravitino 时必填） |
 
-## Gravitino 实现
+## 默认实现：Gravitino
 
-Apache Gravitino 是数据源 SPI 的默认（参考）实现。
+Apache Gravitino 是数据源 SPI 的默认实现。要使用 Gravitino 作为数据源中心，必须将 `datasource.enabled` 设置为 `true`，并明确指定 `kind` 为 `gravitino`，同时配置所需的参数。
 
-### 概述
+### datasource_id 配置
 
-Gravitino 是一个面向数据和 AI 的统一元数据目录。SeaTunnel Gravitino 集成提供：
-- 集中式 JDBC 数据源管理
-- 安全的凭据存储
-- Gravitino 和 SeaTunnel 之间的类型映射
+当使用 Gravitino 作为数据源中心时，`datasource_id` 的值应配置为 Gravitino 中 **catalog 的名称**。
 
-### GravitinoDataSourceProvider
+例如，如果 Gravitino 中有一个名为 `mysql-catalog` 的 catalog，则直接将其作为 `datasource_id` 使用：
 
-**位置**：`seatunnel-api/src/main/java/org/apache/seatunnel/api/datasource/gravitino/GravitinoDataSourceProvider.java`
-
-Gravitino 提供者实现了 `DataSourceProvider` 接口：
-
-```java
-@AutoService(DataSourceProvider.class)
-public class GravitinoDataSourceProvider implements DataSourceProvider {
-
-    @Override
-    public String kind() {
-        return "gravitino";
-    }
-
-    @Override
-    public void init(Config config) {
-        // 验证并存储 URI 和 metalake 配置
-        // 初始化用于 Gravitino API 调用的 HTTP 客户端
-    }
-
-    @Override
-    public Collection<DataSourceMapper> dataSourceMappers() {
-        // 返回支持的映射器列表
-        // 当前仅支持 JDBC 连接器
-        return Collections.singletonList(
-            new GravitinoJdbcDataSourceMapper(buildMetalakeUrl(), client));
-    }
+```hocon
+source {
+  Jdbc {
+    datasource_id = "mysql-catalog"
+    database = "test_db"
+    table = "users"
+  }
 }
 ```
 
-### GravitinoJdbcDataSourceMapper
+### 属性映射
 
-**位置**：`seatunnel-api/src/main/java/org/apache/seatunnel/api/datasource/gravitino/GravitinoJdbcDataSourceMapper.java`
-
-JDBC 映射器将 Gravitino 目录属性转换为 SeaTunnel JDBC 连接器配置。
-
-#### 属性映射
+Gravitino 提供者执行**有限的属性名映射**，从 Gravitino 目录属性映射到 SeaTunnel 连接器配置。**仅支持以下四种属性映射**：
 
 | Gravitino 属性    | SeaTunnel 属性 |
 |-----------------|--------------|
@@ -224,7 +173,16 @@ JDBC 映射器将 Gravitino 目录属性转换为 SeaTunnel JDBC 连接器配置
 | `jdbc-password` | `password`   |
 | `jdbc-driver`   | `driver`     |
 
-#### Gravitino 响应示例
+> **注意**：Gravitino 目录中的任何其他属性将原样传递。如果您需要额外的属性映射，请考虑实现自定义的 `DataSourceProvider`。
+
+### 连接器支持
+
+Gravitino 提供者目前支持：
+- **Jdbc** 连接器（完全支持）
+
+### 示例
+
+#### Gravitino 目录响应
 
 ```json
 {
@@ -254,6 +212,86 @@ JDBC 映射器将 Gravitino 目录属性转换为 SeaTunnel JDBC 连接器配置
 }
 ```
 
+## 实现自定义提供者
+
+要将自定义元数据系统与 SeaTunnel 集成，请实现 `DataSourceProvider` 接口。
+
+### 步骤 1：添加依赖
+
+将 `seatunnel-api` 依赖添加到项目的 `pom.xml` 中：
+
+```xml
+<dependency>
+    <groupId>org.apache.seatunnel</groupId>
+    <artifactId>seatunnel-api</artifactId>
+    <version>${seatunnel.version}</version>
+    <scope>provided</scope>
+</dependency>
+```
+
+> **注意**：使用 `<scope>provided</scope>`，因为 SeaTunnel 在运行时已包含此依赖。
+
+### 步骤 2：创建提供者类
+
+```java
+@AutoService(DataSourceProvider.class)
+public class MyDataSourceProvider implements DataSourceProvider {
+
+    private HttpClient httpClient;
+
+    @Override
+    public String kind() {
+        return "my-provider";
+    }
+
+    @Override
+    public void init(Config config) {
+        // 初始化客户端、连接池等
+        this.httpClient = HttpClient.newBuilder().build();
+    }
+
+    @Override
+    public Map<String, Object> datasourceMap(String connectorIdentifier, String datasourceId) {
+        // 根据连接器类型从元数据服务获取
+        // 返回 SeaTunnel 兼容的配置
+        switch (connectorIdentifier.toLowerCase()) {
+            case "jdbc":
+                return fetchJdbcConfig(datasourceId);
+            case "kafka":
+                return fetchKafkaConfig(datasourceId);
+            default:
+                return Collections.emptyMap();
+        }
+    }
+
+    @Override
+    public void close() {
+        // 清理资源
+        if (httpClient != null) {
+            // 清理 HTTP 客户端
+        }
+    }
+}
+```
+
+### 步骤 3：配置 seatunnel.yaml
+
+```yaml
+seatunnel:
+  engine:
+    datasource:
+      enabled: true
+      kind: my-provider
+      my-provider:
+        endpoint: https://my-metadata-service.com
+        api-key: your-api-key
+```
+
+### 步骤 4：打包和部署
+
+- 将实现包含在 SeaTunnel 的类路径中
+- `@AutoService` 注解将通过 Java SPI 自动注册
+
 ## 运行时流程
 
 1. **SeaTunnel 启动**
@@ -264,75 +302,10 @@ JDBC 映射器将 Gravitino 目录属性转换为 SeaTunnel JDBC 连接器配置
    - 解析作业配置
    - 检测连接器配置中是否存在 `datasource_id`
 
-3. **映射器解析**
-   - 根据连接器标识符（如 "Jdbc"）查找匹配的 `DataSourceMapper`
-   - 每种连接器类型都有自己的映射器
+3. **配置获取**
+   - 调用 `provider.datasourceMap(connectorIdentifier, datasourceId)` 从外部系统检索配置
+   - 提供者查询元数据服务并返回连接器配置
 
-4. **配置获取**
-   - 调用 `mapper.map(datasourceId)` 从外部系统检索配置
-   - 映射器查询元数据服务并返回连接器配置
-
-5. **配置合并**
+4. **配置合并**
    - 将获取的配置与作业级别的参数合并
    - 作业级别的参数优先
-
-## 实现自定义提供者
-
-要实现自定义数据源提供者：
-
-1. **创建提供者类**
-   ```java
-   @AutoService(DataSourceProvider.class)
-   public class MyDataSourceProvider implements DataSourceProvider {
-       @Override
-       public String kind() {
-           return "my-provider";
-       }
-
-       @Override
-       public void init(Config config) {
-           // 初始化客户端、连接池等
-       }
-
-       @Override
-       public Collection<DataSourceMapper> dataSourceMappers() {
-           return Arrays.asList(new MyJdbcMapper(), new MyKafkaMapper());
-       }
-
-       @Override
-       public void close() {
-           // 清理资源
-       }
-   }
-   ```
-
-2. **创建映射器类**
-   ```java
-   public class MyJdbcMapper implements DataSourceMapper {
-       @Override
-       public String connectorIdentifier() {
-           return "Jdbc";
-       }
-
-       @Override
-       public Map<String, Object> map(String datasourceId) {
-           // 从元数据服务获取
-           // 返回 SeaTunnel 兼容的配置
-       }
-   }
-   ```
-
-3. **配置 seatunnel.yaml**
-   ```yaml
-   seatunnel:
-     engine:
-       datasource:
-         enabled: true
-         kind: my-provider
-         my-provider:
-           # 提供者特定的选项
-   ```
-
-4. **打包和部署**
-   - 将实现包含在 SeaTunnel 的类路径中
-   - `@AutoService` 注解将自动注册它

@@ -20,7 +20,6 @@ package org.apache.seatunnel.engine.common.utils;
 import org.apache.seatunnel.shade.com.typesafe.config.Config;
 import org.apache.seatunnel.shade.com.typesafe.config.ConfigFactory;
 
-import org.apache.seatunnel.api.datasource.DataSourceMapper;
 import org.apache.seatunnel.api.datasource.DataSourceProvider;
 import org.apache.seatunnel.api.datasource.DataSourceProviderFactory;
 import org.apache.seatunnel.api.datasource.exception.DataSourceProviderException;
@@ -34,7 +33,6 @@ import lombok.SneakyThrows;
 
 import java.nio.file.Paths;
 import java.util.ArrayList;
-import java.util.Arrays;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
@@ -181,12 +179,6 @@ public class DataSourceConfigUtilTest {
     /** Mock DataSourceProvider for testing. */
     public static class MockTestDataSourceProvider implements DataSourceProvider {
 
-        private final List<DataSourceMapper> mappers;
-
-        public MockTestDataSourceProvider() {
-            this.mappers = Arrays.asList(new MockJdbcDataSourceMapper());
-        }
-
         @Override
         public String kind() {
             return TEST_PROVIDER_KIND;
@@ -198,26 +190,11 @@ public class DataSourceConfigUtilTest {
         }
 
         @Override
-        public List<DataSourceMapper> dataSourceMappers() {
-            return mappers;
-        }
-
-        @Override
-        public void close() {
-            // No-op for testing
-        }
-    }
-
-    /** Mock DataSourceMapper for Jdbc connector. */
-    public static class MockJdbcDataSourceMapper implements DataSourceMapper {
-
-        @Override
-        public String connectorIdentifier() {
-            return "Jdbc";
-        }
-
-        @Override
-        public Map<String, Object> map(String datasourceId) {
+        public Map<String, Object> datasourceMap(String connectorIdentifier, String datasourceId) {
+            // Only support Jdbc connector for testing
+            if (!"Jdbc".equalsIgnoreCase(connectorIdentifier)) {
+                return new HashMap<>();
+            }
             // Simulate fetching connection config from metadata service
             Map<String, Object> config = new HashMap<>();
             config.put("url", "jdbc:postgresql://metadata:5432/metadata_db");
@@ -225,6 +202,11 @@ public class DataSourceConfigUtilTest {
             config.put("username", "metadata_user");
             config.put("password", "metadata_password");
             return config;
+        }
+
+        @Override
+        public void close() {
+            // No-op for testing
         }
     }
 }

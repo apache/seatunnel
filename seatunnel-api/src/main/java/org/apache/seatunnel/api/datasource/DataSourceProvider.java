@@ -19,9 +19,7 @@ package org.apache.seatunnel.api.datasource;
 
 import org.apache.seatunnel.shade.com.typesafe.config.Config;
 
-import org.apache.seatunnel.api.configuration.ReadonlyConfig;
-
-import java.util.Collection;
+import java.util.Map;
 
 /**
  * SPI interface for external data source metadata providers.
@@ -37,16 +35,16 @@ import java.util.Collection;
  * <ol>
  *   <li>Provider instances are discovered via {@code @AutoService} and cached for the lifetime of
  *       the SeaTunnel client process
- *   <li>{@link #init(ReadonlyConfig)} is called once during startup with configuration from {@code
+ *   <li>{@link #init(Config)} is called once during startup with configuration from {@code
  *       seatunnel.yaml}
- *   <li>{@link #dataSourceMappers()} is called to obtain mappers for resolving {@code datasourceId}
- *       in job configs
+ *   <li>{@link #datasourceMap(String, String)} is called to resolve {@code datasourceId} in job
+ *       configs
  *   <li>{@link #close()} is called once during client shutdown
  * </ol>
  *
  * <h2>Resource Management </h2>
  *
- * <p>Providers are responsible for managing all resources needed by their mappers:
+ * <p>Providers are responsible for managing all resources needed for datasource mapping:
  *
  * <ul>
  *   <li>HTTP clients for REST API calls
@@ -54,12 +52,11 @@ import java.util.Collection;
  *   <li>Any other shared resources
  * </ul>
  *
- * <p>{@link DataSourceMapper} implementations should NOT hold resources directly; they should
- * obtain resources from the provider. This ensures:
+ * <p>This ensures:
  *
  * <ul>
- *   <li>Resources are created once in {@link #init(ReadonlyConfig)}
- *   <li>Resources are reused across multiple mapper calls
+ *   <li>Resources are created once in {@link #init(Config)}
+ *   <li>Resources are reused across multiple {@link #datasourceMap(String, String)} calls
  *   <li>Resources are cleaned up in {@link #close()}
  * </ul>
  *
@@ -88,14 +85,16 @@ public interface DataSourceProvider extends AutoCloseable {
     void init(Config config);
 
     /**
-     * Returns the collection of data source mappers supported by this provider.
+     * Maps the given data source ID to connector configuration.
      *
-     * <p>Each mapper is responsible for converting metadata from a specific connector type into
-     * SeaTunnel configuration.
+     * <p>This method retrieves metadata from the external system for the specified data source and
+     * converts it into a configuration map compatible with the target connector.
      *
-     * @return collection of supported data source mappers
+     * @param connectorIdentifier the connector identifier (e.g., "Jdbc", "MySQL-CDC", "Kafka")
+     * @param datasourceId the data source ID in the external metadata system
+     * @return configuration map for the connector, or null if mapping fails
      */
-    Collection<DataSourceMapper> dataSourceMappers();
+    Map<String, Object> datasourceMap(String connectorIdentifier, String datasourceId);
 
     /** Closes resources held by this provider. */
     @Override
