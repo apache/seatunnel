@@ -186,7 +186,6 @@ public class JobInfoService extends BaseService {
                 break;
         }
 
-        // fix issue: https://github.com/apache/seatunnel/issues/10590
         config = ConfigShadeUtils.decryptConfig(config);
 
         SeaTunnelServer seaTunnelServer = getSeaTunnelServer(false);

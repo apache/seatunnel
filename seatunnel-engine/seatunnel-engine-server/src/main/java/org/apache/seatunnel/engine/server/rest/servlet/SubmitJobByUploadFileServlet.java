@@ -75,8 +75,9 @@ public class SubmitJobByUploadFileServlet extends BaseServlet {
                 config = ConfigFactory.parseString(content);
                 break;
         }
-        // fix issue: https://github.com/apache/seatunnel/issues/10590
+
         config = ConfigShadeUtils.decryptConfig(config);
+
         writeJson(resp, jobInfoService.submitJob(getParameterMap(req), config));
     }
 
