@@ -28,15 +28,61 @@ import org.apache.seatunnel.connectors.seatunnel.pulsar.source.enumerator.discov
 
 import java.io.Serializable;
 
+/**
+ * Runtime metadata container for each table in a Pulsar source configuration.
+ *
+ * <p>This class is different from {@code PulsarTableConfig}:
+ *
+ * <ul>
+ *   <li>{@code PulsarTableConfig} is used during configuration parsing and validation
+ *   <li>{@code PulsarConsumerMetadata} is used during runtime and includes constructed objects like
+ *       {@link DeserializationSchema}
+ * </ul>
+ *
+ * <p><b>Thread-safety:</b> This class is immutable and thread-safe. All fields are final and can be
+ * safely accessed by multiple threads.
+ *
+ * <p><b>Serialization:</b> This class is {@link Serializable} and can be transferred between
+ * enumerator and reader. However, {@link DeserializationSchema} implementations must also be
+ * serializable.
+ *
+ * <p><b>Lifecycle:</b>
+ *
+ * <ol>
+ *   <li>Created by {@link PulsarSource#createConsumerMetadata}
+ *   <li>Stored in {@code Map<TablePath, PulsarConsumerMetadata>} in {@link PulsarSource}
+ *   <li>Passed to {@code PulsarSourceReader} and {@code PulsarSplitEnumerator}
+ *   <li>Used to resolve table-specific deserializers, cursors, and discoverers
+ * </ol>
+ */
 public class PulsarConsumerMetadata implements Serializable {
     private static final long serialVersionUID = 1L;
 
+    /** Logical table identifier (e.g., "db.orders"). Never null. */
     private final TablePath tablePath;
+
+    /** Catalog table including schema information. */
     private final CatalogTable catalogTable;
+
+    /**
+     * Deserialization schema for this table's data format. Different tables may use different
+     * formats (e.g., JSON vs CANAL_JSON).
+     */
     private final DeserializationSchema<SeaTunnelRow> deserializationSchema;
+
+    /** Partition discoverer for this table (topic or topic-pattern). */
     private final PulsarDiscoverer discoverer;
+
+    /** Start cursor (initial position) for this table's subscription. */
     private final StartCursor startCursor;
+
+    /**
+     * Stop cursor (end position) for this table's subscription. Determines if the table is bounded
+     * or unbounded.
+     */
     private final StopCursor stopCursor;
+
+    /** Consumer configuration including subscription name. */
     private final PulsarConsumerConfig consumerConfig;
 
     public PulsarConsumerMetadata(

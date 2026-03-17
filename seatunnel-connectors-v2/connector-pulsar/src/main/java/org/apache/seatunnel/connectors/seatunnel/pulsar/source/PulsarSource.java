@@ -63,6 +63,7 @@ import java.util.Arrays;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.stream.Collectors;
 
 public class PulsarSource
         implements SeaTunnelSource<SeaTunnelRow, PulsarPartitionSplit, PulsarSplitEnumeratorState>,
@@ -163,9 +164,18 @@ public class PulsarSource
         if (multiTableConfig.isMultiTable()
                 && JobMode.BATCH.equals(jobContext.getJobMode())
                 && getBoundedness() == Boundedness.UNBOUNDED) {
+            List<String> unboundedTables =
+                    consumerMetadataMap.entrySet().stream()
+                            .filter(e -> e.getValue().getStopCursor() instanceof NeverStopCursor)
+                            .map(e -> e.getKey().toString())
+                            .collect(Collectors.toList());
             throw new PulsarConnectorException(
                     SeaTunnelAPIErrorCode.CONFIG_VALIDATION_FAILED,
-                    "Pulsar source does not support unbounded multi-table configuration in batch mode.");
+                    String.format(
+                            "Pulsar source does not support unbounded multi-table configuration in batch mode. "
+                                    + "The following tables use cursor.stop.mode=NEVER (unbounded): %s. "
+                                    + "Either change them to a bounded mode (LATEST or TIMESTAMP) or use STREAMING mode.",
+                            String.join(", ", unboundedTables)));
         }
     }
 
