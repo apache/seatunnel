@@ -60,24 +60,28 @@ class KafkaSourceSplitEnumeratorTest {
         Mockito.when(kafkaSourceConfig.isIgnoreNoLeaderPartition()).thenReturn(false);
 
         Mockito.when(adminClient.listOffsets(Mockito.any(java.util.Map.class)))
-                .thenReturn(
-                        new ListOffsetsResult(
-                                new HashMap<
-                                        TopicPartition,
-                                        KafkaFuture<ListOffsetsResult.ListOffsetsResultInfo>>() {
-                                    {
-                                        put(
-                                                partition0,
-                                                KafkaFuture.completedFuture(
-                                                        new ListOffsetsResult.ListOffsetsResultInfo(
-                                                                0, 0, Optional.of(0))));
-                                        put(
-                                                partition2,
-                                                KafkaFuture.completedFuture(
-                                                        new ListOffsetsResult.ListOffsetsResultInfo(
-                                                                0, 0, Optional.of(0))));
-                                    }
-                                }));
+                .thenAnswer(
+                        invocation -> {
+                            Map<TopicPartition, OffsetSpec> requestedOffsets =
+                                    invocation.getArgument(0);
+                            Map<
+                                            TopicPartition,
+                                            KafkaFuture<ListOffsetsResult.ListOffsetsResultInfo>>
+                                    offsets = new HashMap<>();
+                            requestedOffsets
+                                    .keySet()
+                                    .forEach(
+                                            tp ->
+                                                    offsets.put(
+                                                            tp,
+                                                            KafkaFuture.completedFuture(
+                                                                    new ListOffsetsResult
+                                                                            .ListOffsetsResultInfo(
+                                                                            0,
+                                                                            0,
+                                                                            Optional.of(0)))));
+                            return new ListOffsetsResult(offsets);
+                        });
 
         List<TopicPartitionInfo> mockTopicPartition = new ArrayList<>();
         TopicPartitionInfo topicPartitionWithLeader =
