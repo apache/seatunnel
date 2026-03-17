@@ -17,11 +17,14 @@
 
 package org.apache.seatunnel.connectors.seatunnel.file.source.reader;
 
+import org.apache.seatunnel.shade.org.apache.commons.lang3.StringUtils;
+
 import org.apache.seatunnel.api.common.SeaTunnelAPIErrorCode;
 import org.apache.seatunnel.api.configuration.ReadonlyConfig;
 import org.apache.seatunnel.api.source.Collector;
 import org.apache.seatunnel.api.table.catalog.CatalogTable;
 import org.apache.seatunnel.api.table.catalog.CatalogTableUtil;
+import org.apache.seatunnel.api.table.catalog.Column;
 import org.apache.seatunnel.api.table.type.SeaTunnelDataType;
 import org.apache.seatunnel.api.table.type.SeaTunnelRow;
 import org.apache.seatunnel.api.table.type.SeaTunnelRowType;
@@ -33,6 +36,7 @@ import org.apache.seatunnel.connectors.seatunnel.file.config.FileBaseSourceOptio
 import org.apache.seatunnel.connectors.seatunnel.file.config.FileFormat;
 import org.apache.seatunnel.connectors.seatunnel.file.exception.FileConnectorErrorCode;
 import org.apache.seatunnel.connectors.seatunnel.file.exception.FileConnectorException;
+import org.apache.seatunnel.connectors.seatunnel.file.source.split.FileSourceSplit;
 import org.apache.seatunnel.format.csv.CsvDeserializationSchema;
 import org.apache.seatunnel.format.csv.processor.CsvLineProcessor;
 import org.apache.seatunnel.format.csv.processor.DefaultCsvLineProcessor;
@@ -41,6 +45,7 @@ import org.apache.commons.csv.CSVFormat;
 import org.apache.commons.csv.CSVFormat.Builder;
 import org.apache.commons.csv.CSVParser;
 import org.apache.commons.csv.CSVRecord;
+import org.apache.commons.io.input.BOMInputStream;
 
 import io.airlift.compress.lzo.LzopCodec;
 import lombok.extern.slf4j.Slf4j;
@@ -49,7 +54,9 @@ import java.io.BufferedReader;
 import java.io.IOException;
 import java.io.InputStream;
 import java.io.InputStreamReader;
+import java.nio.charset.Charset;
 import java.nio.charset.StandardCharsets;
+import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
@@ -75,67 +82,64 @@ public class CsvReadStrategy extends AbstractReadStrategy {
     public void read(String path, String tableId, Collector<SeaTunnelRow> output)
             throws FileConnectorException, IOException {
         Map<String, String> partitionsMap = parsePartitionsByPath(path);
-        resolveArchiveCompressedInputStream(path, tableId, output, partitionsMap, FileFormat.CSV);
+        resolveArchiveCompressedInputStream(
+                new FileSourceSplit(tableId, path), output, partitionsMap, FileFormat.CSV);
+    }
+
+    @Override
+    public void read(FileSourceSplit split, Collector<SeaTunnelRow> output)
+            throws IOException, FileConnectorException {
+        Map<String, String> partitionsMap = parsePartitionsByPath(split.getFilePath());
+        resolveArchiveCompressedInputStream(split, output, partitionsMap, FileFormat.CSV);
     }
 
     @Override
     public void readProcess(
-            String path,
-            String tableId,
+            FileSourceSplit split,
             Collector<SeaTunnelRow> output,
             InputStream inputStream,
             Map<String, String> partitionsMap,
             String currentFileName)
             throws IOException {
-        InputStream actualInputStream;
-        switch (compressFormat) {
-            case LZO:
-                LzopCodec lzo = new LzopCodec();
-                actualInputStream = lzo.createInputStream(inputStream);
-                break;
-            case NONE:
-                actualInputStream = inputStream;
-                break;
-            default:
-                log.warn(
-                        "Csv file does not support this compress type: {}",
-                        compressFormat.getCompressCodec());
-                actualInputStream = inputStream;
-                break;
-        }
-        Builder builder =
-                CSVFormat.EXCEL.builder().setIgnoreEmptyLines(true).setDelimiter(getDelimiter());
-        CSVFormat csvFormat = builder.build();
-        if (firstLineAsHeader) {
-            csvFormat = csvFormat.withFirstRecordAsHeader();
-        }
-        try (BufferedReader reader =
-                        new BufferedReader(new InputStreamReader(actualInputStream, encoding));
-                CSVParser csvParser = new CSVParser(reader, csvFormat); ) {
-            // test and skip `\uFEFF` BOM
-            reader.mark(1);
-            int firstChar = reader.read();
-            if (firstChar != 0xFEFF) {
-                reader.reset();
-            }
+        log.info(
+                "Start reading CSV file: {}, split start: {}, split length: {}",
+                currentFileName,
+                split.getStart(),
+                split.getLength());
+        final boolean useSplitRead = isSplitReadEnabled(split);
+        try (BOMInputStream bomIn = new BOMInputStream(wrapInputStream(inputStream, split));
+                BufferedReader reader =
+                        new BufferedReader(new InputStreamReader(bomIn, getCharset(bomIn)));
+                CSVParser csvParser = new CSVParser(reader, getCSVFormat(split))) {
             // skip lines
-            for (int i = 0; i < skipHeaderNumber; i++) {
-                if (reader.readLine() == null) {
-                    throw new IOException(
-                            String.format(
-                                    "File [%s] has fewer lines than expected to skip.",
-                                    currentFileName));
+            // if split range is used, no need to skip
+            if (!useSplitRead) {
+                for (int i = 0; i < skipHeaderNumber; i++) {
+                    if (reader.readLine() == null) {
+                        throw new IOException(
+                                String.format(
+                                        "File [%s] has fewer lines than expected to skip.",
+                                        currentFileName));
+                    }
                 }
             }
-            // read lines
-            List<String> headers = getHeaders(csvParser);
+            // read header lines
+            List<String> headers = getHeaders(csvParser, split);
+            // Clean up BOM characters (\uFEFF) in the header to solve occasional BOM residue
+            // issues
+            List<String> cleanedHeaders =
+                    headers.stream()
+                            .map(header -> header.replace("\uFEFF", ""))
+                            .collect(Collectors.toList());
             for (CSVRecord csvRecord : csvParser) {
                 HashMap<Integer, String> fieldIdValueMap = new HashMap<>();
-                for (int i = 0; i < headers.size(); i++) {
+                for (int i = 0; i < cleanedHeaders.size(); i++) {
                     // the user input schema may not contain all the columns in the csv header
                     // and may contain columns in a different order with the csv header
                     int index =
-                            inputCatalogTable.getSeaTunnelRowType().indexOf(headers.get(i), false);
+                            inputCatalogTable
+                                    .getSeaTunnelRowType()
+                                    .indexOf(cleanedHeaders.get(i), false);
                     if (index == -1) {
                         continue;
                     }
@@ -161,7 +165,7 @@ public class CsvReadStrategy extends AbstractReadStrategy {
                         seaTunnelRow.setField(index++, value);
                     }
                 }
-                seaTunnelRow.setTableId(tableId);
+                seaTunnelRow.setTableId(split.getTableId());
                 output.collect(seaTunnelRow);
             }
         } catch (IOException e) {
@@ -174,14 +178,71 @@ public class CsvReadStrategy extends AbstractReadStrategy {
         }
     }
 
-    private List<String> getHeaders(CSVParser csvParser) {
+    private InputStream wrapInputStream(InputStream inputStream, FileSourceSplit split)
+            throws IOException {
+        InputStream resultStream;
+        // process compression isnputStream
+        switch (compressFormat) {
+            case LZO:
+                LzopCodec lzo = new LzopCodec();
+                resultStream = lzo.createInputStream(inputStream);
+                break;
+            case NONE:
+                resultStream = inputStream;
+                break;
+            default:
+                log.warn(
+                        "Csv file does not support this compress type: {}",
+                        compressFormat.getCompressCodec());
+                resultStream = inputStream;
+                break;
+        }
+        // rebuild inputStream
+        if (isSplitReadEnabled(split)) {
+            resultStream = safeSlice(resultStream, split.getStart(), split.getLength());
+        }
+        return resultStream;
+    }
+
+    private Charset getCharset(BOMInputStream bomIn) throws IOException {
+        return bomIn.getBOM() == null
+                ? Charset.forName(encoding)
+                : Charset.forName(bomIn.getBOM().getCharsetName());
+    }
+
+    private boolean isSplitReadEnabled(FileSourceSplit split) {
+        return enableSplitFile && split.getLength() > -1;
+    }
+
+    private CSVFormat getCSVFormat(FileSourceSplit split) {
+        String quoteChar = readonlyConfig.get(FileBaseSourceOptions.QUOTE_CHAR);
+        String escapeChar = readonlyConfig.get(FileBaseSourceOptions.ESCAPE_CHAR);
+        Builder builder =
+                CSVFormat.EXCEL.builder().setIgnoreEmptyLines(true).setDelimiter(getDelimiter());
+        if (StringUtils.isNotEmpty(quoteChar)) {
+            builder.setQuote(quoteChar.charAt(0));
+        }
+        if (StringUtils.isNotEmpty(escapeChar)) {
+            builder.setEscape(escapeChar.charAt(0));
+        }
+        CSVFormat csvFormat = builder.build();
+        final boolean useSplitRead = isSplitReadEnabled(split);
+        // if split range is used, header should only be read in the first split
+        if (firstLineAsHeader && (!useSplitRead || split.getStart() == 0)) {
+            csvFormat = csvFormat.withFirstRecordAsHeader();
+        }
+        return csvFormat;
+    }
+
+    private List<String> getHeaders(CSVParser csvParser, FileSourceSplit split) {
         List<String> headers;
-        if (firstLineAsHeader) {
-            headers = csvParser.getHeaderNames().stream().collect(Collectors.toList());
+        final boolean useSplitRead = isSplitReadEnabled(split);
+        if (firstLineAsHeader && (!useSplitRead || split.getStart() == 0)) {
+            headers = new ArrayList<>(csvParser.getHeaderNames());
         } else {
             headers =
                     inputCatalogTable.getTableSchema().getColumns().stream()
-                            .map(column -> column.getName())
+                            .map(Column::getName)
                             .collect(Collectors.toList());
         }
         return headers;
@@ -191,7 +252,7 @@ public class CsvReadStrategy extends AbstractReadStrategy {
     public SeaTunnelRowType getSeaTunnelRowTypeInfo(String path) {
         this.seaTunnelRowType = CatalogTableUtil.buildSimpleTextSchema();
         this.seaTunnelRowTypeWithPartition =
-                mergePartitionTypes(fileNames.get(0), seaTunnelRowType);
+                mergePartitionTypes(getPathForPartitionInference(path), seaTunnelRowType);
         initFormatter();
         if (pluginConfig.hasPath(FileBaseSourceOptions.READ_COLUMNS.key())) {
             throw new FileConnectorException(
@@ -199,7 +260,6 @@ public class CsvReadStrategy extends AbstractReadStrategy {
                     "When reading csv files, if user has not specified schema information, "
                             + "SeaTunnel will not support column projection");
         }
-        ReadonlyConfig readonlyConfig = ReadonlyConfig.fromConfig(pluginConfig);
         CsvDeserializationSchema.Builder builder =
                 CsvDeserializationSchema.builder()
                         .delimiter(getDelimiter())
@@ -218,7 +278,6 @@ public class CsvReadStrategy extends AbstractReadStrategy {
     }
 
     private String getDelimiter() {
-        ReadonlyConfig readonlyConfig = ReadonlyConfig.fromConfig(pluginConfig);
         return readonlyConfig.getOptional(FileBaseSourceOptions.FIELD_DELIMITER).orElse(",");
     }
 
@@ -226,8 +285,9 @@ public class CsvReadStrategy extends AbstractReadStrategy {
     public void setCatalogTable(CatalogTable catalogTable) {
         SeaTunnelRowType rowType = catalogTable.getSeaTunnelRowType();
         this.inputCatalogTable = catalogTable;
+        String partitionPath = getPathForPartitionInference(null);
         SeaTunnelRowType userDefinedRowTypeWithPartition =
-                mergePartitionTypes(fileNames.get(0), rowType);
+                mergePartitionTypes(partitionPath, rowType);
         ReadonlyConfig readonlyConfig = ReadonlyConfig.fromConfig(pluginConfig);
         encoding =
                 readonlyConfig
@@ -265,7 +325,7 @@ public class CsvReadStrategy extends AbstractReadStrategy {
             }
             this.seaTunnelRowType = new SeaTunnelRowType(fields, types);
             this.seaTunnelRowTypeWithPartition =
-                    mergePartitionTypes(fileNames.get(0), this.seaTunnelRowType);
+                    mergePartitionTypes(partitionPath, this.seaTunnelRowType);
         } else {
             this.seaTunnelRowType = rowType;
             this.seaTunnelRowTypeWithPartition = userDefinedRowTypeWithPartition;

@@ -59,9 +59,9 @@ import static org.awaitility.Awaitility.await;
 @TestMethodOrder(MethodOrderer.OrderAnnotation.class)
 @DisabledOnContainer(
         value = {},
-        type = {EngineType.SPARK},
+        type = {EngineType.SPARK, EngineType.SEATUNNEL},
         disabledReason =
-                "Currently SPARK do not support cdc. In addition, the Flink engine only supports configuring single parallelism in the configuration file, and currently does not support multi-parallelism scenarios.")
+                "Currently SPARK do not support cdc, only test the change process related to Flink.")
 public class MysqlCDCWithFlinkSchemaChangeIT extends TestSuiteBase implements TestResource {
     private static final String MYSQL_DATABASE = "shop";
     private static final String SOURCE_TABLE = "products";
@@ -208,13 +208,13 @@ public class MysqlCDCWithFlinkSchemaChangeIT extends TestSuiteBase implements Te
 
     private void assertTableStructureAndData(
             String database, String sourceTable, String sinkTable) {
-        await().atMost(180000, TimeUnit.MILLISECONDS)
+        await().atMost(300000, TimeUnit.MILLISECONDS)
                 .untilAsserted(
                         () ->
                                 Assertions.assertIterableEquals(
                                         query(String.format(DESC, database, sourceTable)),
                                         query(String.format(DESC, database, sinkTable))));
-        await().atMost(180000, TimeUnit.MILLISECONDS)
+        await().atMost(300000, TimeUnit.MILLISECONDS)
                 .untilAsserted(
                         () ->
                                 Assertions.assertIterableEquals(

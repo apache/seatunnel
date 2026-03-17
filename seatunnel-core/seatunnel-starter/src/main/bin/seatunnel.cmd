@@ -112,4 +112,41 @@ for %%i in (%*) do (
 )
 :break_loop
 
+REM Ensure HeapDumpPath directory exists to avoid OOM dump failures.
+set "HEAP_DUMP_PATH="
+for %%I in (!JAVA_OPTS!) do (
+    set "opt=%%I"
+    if "!opt:~0,18!"=="-XX:HeapDumpPath=" (
+        set "HEAP_DUMP_PATH=!opt:~18!"
+    )
+)
+if defined HEAP_DUMP_PATH (
+    set "HEAP_DUMP_DIR=!HEAP_DUMP_PATH!"
+    if "!HEAP_DUMP_PATH:~-1!"=="/" set "HEAP_DUMP_DIR=!HEAP_DUMP_PATH:~0,-1!"
+    if "!HEAP_DUMP_PATH:~-1!"=="\\" set "HEAP_DUMP_DIR=!HEAP_DUMP_PATH:~0,-1!"
+    if /I "!HEAP_DUMP_PATH:~-6!"==".hprof" (
+        for %%D in ("!HEAP_DUMP_PATH!") do set "HEAP_DUMP_DIR=%%~dpD"
+    ) else if /I "!HEAP_DUMP_PATH:~-4!"==".phd" (
+        for %%D in ("!HEAP_DUMP_PATH!") do set "HEAP_DUMP_DIR=%%~dpD"
+    ) else (
+        for %%D in ("!HEAP_DUMP_PATH!") do (
+            if not "%%~xD"=="" set "HEAP_DUMP_DIR=%%~dpD"
+        )
+    )
+    if defined HEAP_DUMP_DIR if not exist "!HEAP_DUMP_DIR!" mkdir "!HEAP_DUMP_DIR!"
+)
+
+REM Ensure Xloggc directory exists to avoid GC logging failures.
+set "GC_LOG_PATH="
+for %%I in (!JAVA_OPTS!) do (
+    set "opt=%%I"
+    if "!opt:~0,8!"=="-Xloggc:" (
+        set "GC_LOG_PATH=!opt:~8!"
+    )
+)
+if defined GC_LOG_PATH (
+    for %%D in ("!GC_LOG_PATH!") do set "GC_LOG_DIR=%%~dpD"
+    if defined GC_LOG_DIR if not exist "!GC_LOG_DIR!" mkdir "!GC_LOG_DIR!"
+)
+
 java !JAVA_OPTS! -cp %CLASS_PATH% %APP_MAIN% %args%

@@ -57,25 +57,28 @@ import javax.annotation.Nonnull;
 import javax.annotation.Nullable;
 
 import java.time.Instant;
+import java.util.HashMap;
+import java.util.Map;
 import java.util.Optional;
 
 import static org.apache.seatunnel.common.exception.CommonErrorCodeDeprecated.ILLEGAL_ARGUMENT;
 import static org.apache.seatunnel.common.exception.CommonErrorCodeDeprecated.UNSUPPORTED_OPERATION;
-import static org.apache.seatunnel.connectors.seatunnel.cdc.mongodb.config.MongodbSourceOptions.CLUSTER_TIME_FIELD;
-import static org.apache.seatunnel.connectors.seatunnel.cdc.mongodb.config.MongodbSourceOptions.COLL_FIELD;
-import static org.apache.seatunnel.connectors.seatunnel.cdc.mongodb.config.MongodbSourceOptions.DB_FIELD;
-import static org.apache.seatunnel.connectors.seatunnel.cdc.mongodb.config.MongodbSourceOptions.DOCUMENT_KEY;
-import static org.apache.seatunnel.connectors.seatunnel.cdc.mongodb.config.MongodbSourceOptions.FAILED_TO_PARSE_ERROR;
-import static org.apache.seatunnel.connectors.seatunnel.cdc.mongodb.config.MongodbSourceOptions.FALSE_FALSE;
-import static org.apache.seatunnel.connectors.seatunnel.cdc.mongodb.config.MongodbSourceOptions.ID_FIELD;
-import static org.apache.seatunnel.connectors.seatunnel.cdc.mongodb.config.MongodbSourceOptions.ILLEGAL_OPERATION_ERROR;
-import static org.apache.seatunnel.connectors.seatunnel.cdc.mongodb.config.MongodbSourceOptions.NS_FIELD;
-import static org.apache.seatunnel.connectors.seatunnel.cdc.mongodb.config.MongodbSourceOptions.OPERATION_TYPE;
-import static org.apache.seatunnel.connectors.seatunnel.cdc.mongodb.config.MongodbSourceOptions.SNAPSHOT_FIELD;
-import static org.apache.seatunnel.connectors.seatunnel.cdc.mongodb.config.MongodbSourceOptions.SOURCE_FIELD;
-import static org.apache.seatunnel.connectors.seatunnel.cdc.mongodb.config.MongodbSourceOptions.TS_MS_FIELD;
-import static org.apache.seatunnel.connectors.seatunnel.cdc.mongodb.config.MongodbSourceOptions.UNAUTHORIZED_ERROR;
-import static org.apache.seatunnel.connectors.seatunnel.cdc.mongodb.config.MongodbSourceOptions.UNKNOWN_FIELD_ERROR;
+import static org.apache.seatunnel.connectors.seatunnel.cdc.mongodb.config.MongodbSourceConstants.CLUSTER_TIME_FIELD;
+import static org.apache.seatunnel.connectors.seatunnel.cdc.mongodb.config.MongodbSourceConstants.COLL_FIELD;
+import static org.apache.seatunnel.connectors.seatunnel.cdc.mongodb.config.MongodbSourceConstants.DB_FIELD;
+import static org.apache.seatunnel.connectors.seatunnel.cdc.mongodb.config.MongodbSourceConstants.DOCUMENT_KEY;
+import static org.apache.seatunnel.connectors.seatunnel.cdc.mongodb.config.MongodbSourceConstants.FAILED_TO_PARSE_ERROR;
+import static org.apache.seatunnel.connectors.seatunnel.cdc.mongodb.config.MongodbSourceConstants.FALSE_FALSE;
+import static org.apache.seatunnel.connectors.seatunnel.cdc.mongodb.config.MongodbSourceConstants.HEARTBEAT_KEY_FIELD;
+import static org.apache.seatunnel.connectors.seatunnel.cdc.mongodb.config.MongodbSourceConstants.ID_FIELD;
+import static org.apache.seatunnel.connectors.seatunnel.cdc.mongodb.config.MongodbSourceConstants.ILLEGAL_OPERATION_ERROR;
+import static org.apache.seatunnel.connectors.seatunnel.cdc.mongodb.config.MongodbSourceConstants.NS_FIELD;
+import static org.apache.seatunnel.connectors.seatunnel.cdc.mongodb.config.MongodbSourceConstants.OPERATION_TYPE;
+import static org.apache.seatunnel.connectors.seatunnel.cdc.mongodb.config.MongodbSourceConstants.SNAPSHOT_FIELD;
+import static org.apache.seatunnel.connectors.seatunnel.cdc.mongodb.config.MongodbSourceConstants.SOURCE_FIELD;
+import static org.apache.seatunnel.connectors.seatunnel.cdc.mongodb.config.MongodbSourceConstants.TS_MS_FIELD;
+import static org.apache.seatunnel.connectors.seatunnel.cdc.mongodb.config.MongodbSourceConstants.UNAUTHORIZED_ERROR;
+import static org.apache.seatunnel.connectors.seatunnel.cdc.mongodb.config.MongodbSourceConstants.UNKNOWN_FIELD_ERROR;
 import static org.apache.seatunnel.connectors.seatunnel.cdc.mongodb.source.offset.ChangeStreamOffset.NO_STOPPING_OFFSET;
 import static org.apache.seatunnel.connectors.seatunnel.cdc.mongodb.utils.MongodbRecordUtils.createHeartbeatPartitionMap;
 import static org.apache.seatunnel.connectors.seatunnel.cdc.mongodb.utils.MongodbRecordUtils.createPartitionMap;
@@ -382,15 +385,39 @@ public class MongodbStreamFetchTask implements FetchTask<SourceSplitBase> {
         return new BsonDocument(ID_FIELD, primaryKey);
     }
 
+    /**
+     * Normalizes a heartbeat record by adding the HEARTBEAT=true flag to its offset.
+     *
+     * <p>The original heartbeat record from {@link HeartbeatManager} does not contain the HEARTBEAT
+     * flag in its offset, which causes {@link MongodbRecordUtils#isHeartbeatEvent} to return {@code
+     * false}. This would lead to the heartbeat record being incorrectly identified as a data change
+     * record and processed through {@link MongodbFetchTaskContext#isRecordBetween}, where a {@link
+     * NullPointerException} would occur because heartbeat records have no documentKey field.
+     *
+     * <p>By adding the HEARTBEAT=true flag, we ensure that:
+     *
+     * <ul>
+     *   <li>{@link MongodbRecordUtils#isHeartbeatEvent} returns {@code true}
+     *   <li>{@link MongodbRecordUtils#isDataChangeRecord} returns {@code false}
+     *   <li>The heartbeat record is excluded from range checking in {@link
+     *       MongodbFetchTaskContext#isRecordBetween}
+     * </ul>
+     *
+     * @param heartbeatRecord the original heartbeat record from HeartbeatManager
+     * @return a normalized heartbeat record with HEARTBEAT=true in its offset
+     */
     @Nonnull
     private SourceRecord normalizeHeartbeatRecord(@Nonnull SourceRecord heartbeatRecord) {
         final Struct heartbeatValue =
                 new Struct(SchemaBuilder.struct().field(TS_MS_FIELD, Schema.INT64_SCHEMA).build());
         heartbeatValue.put(TS_MS_FIELD, Instant.now().toEpochMilli());
 
+        Map<String, Object> heartbeatOffset = new HashMap<>(heartbeatRecord.sourceOffset());
+        heartbeatOffset.put(HEARTBEAT_KEY_FIELD, "true");
+
         return new SourceRecord(
                 heartbeatRecord.sourcePartition(),
-                heartbeatRecord.sourceOffset(),
+                heartbeatOffset,
                 heartbeatRecord.topic(),
                 heartbeatRecord.keySchema(),
                 heartbeatRecord.key(),

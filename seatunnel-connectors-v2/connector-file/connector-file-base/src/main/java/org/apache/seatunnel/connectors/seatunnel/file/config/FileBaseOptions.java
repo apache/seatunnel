@@ -150,4 +150,19 @@ public class FileBaseOptions extends ConnectorCommonOptions {
                     .enumType(ArchiveCompressFormat.class)
                     .defaultValue(ArchiveCompressFormat.NONE)
                     .withDescription("Archive compression codec");
+
+    public static final Option<Boolean> ENABLE_FILE_SPLIT =
+            Options.key("enable_file_split")
+                    .booleanType()
+                    .defaultValue(false)
+                    .withDescription("Turn on the file splitting function, the default is false");
+
+    public static final Option<Long> FILE_SPLIT_SIZE =
+            Options.key("file_split_size")
+                    .longType()
+                    .defaultValue(128 * 1024 * 1024L)
+                    .withDescription(
+                            "File split size in bytes when enable_file_split=true. Must be greater than 0. "
+                                    + "For text-like formats, the split end will be aligned to the next row_delimiter. "
+                                    + "Default is 128MB (128*1024*1024).");
 }

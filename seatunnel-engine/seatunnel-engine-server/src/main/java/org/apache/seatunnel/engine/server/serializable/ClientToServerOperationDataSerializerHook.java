@@ -19,6 +19,8 @@ package org.apache.seatunnel.engine.server.serializable;
 
 import org.apache.seatunnel.engine.common.serializeable.SeaTunnelFactoryIdConstant;
 import org.apache.seatunnel.engine.server.operation.CancelJobOperation;
+import org.apache.seatunnel.engine.server.operation.GetCheckpointHistoryOperation;
+import org.apache.seatunnel.engine.server.operation.GetCheckpointOverviewOperation;
 import org.apache.seatunnel.engine.server.operation.GetClusterHealthMetricsOperation;
 import org.apache.seatunnel.engine.server.operation.GetJobCheckpointOperation;
 import org.apache.seatunnel.engine.server.operation.GetJobDetailStatusOperation;
@@ -67,6 +69,8 @@ public final class ClientToServerOperationDataSerializerHook implements DataSeri
 
     public static final int UPLOAD_CONNECTOR_JAR_OPERATION = 11;
     public static final int GET_JOB_CHECKPOINT_OPERATION = 12;
+    public static final int GET_CHECKPOINT_OVERVIEW_OPERATION = 13;
+    public static final int GET_CHECKPOINT_HISTORY_OPERATION = 14;
 
     public static final int FACTORY_ID =
             FactoryIdHelper.getFactoryId(
@@ -113,6 +117,10 @@ public final class ClientToServerOperationDataSerializerHook implements DataSeri
                     return new UploadConnectorJarOperation();
                 case GET_JOB_CHECKPOINT_OPERATION:
                     return new GetJobCheckpointOperation();
+                case GET_CHECKPOINT_OVERVIEW_OPERATION:
+                    return new GetCheckpointOverviewOperation();
+                case GET_CHECKPOINT_HISTORY_OPERATION:
+                    return new GetCheckpointHistoryOperation();
                 default:
                     throw new IllegalArgumentException("Unknown type id " + typeId);
             }

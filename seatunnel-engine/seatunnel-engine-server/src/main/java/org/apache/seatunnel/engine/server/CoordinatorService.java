@@ -27,6 +27,7 @@ import org.apache.seatunnel.api.event.EventProcessor;
 import org.apache.seatunnel.api.tracing.MDCExecutorService;
 import org.apache.seatunnel.api.tracing.MDCTracer;
 import org.apache.seatunnel.common.utils.ExceptionUtils;
+import org.apache.seatunnel.common.utils.RetryUtils;
 import org.apache.seatunnel.common.utils.SeaTunnelException;
 import org.apache.seatunnel.common.utils.StringFormatUtils;
 import org.apache.seatunnel.engine.common.Constant;
@@ -39,6 +40,7 @@ import org.apache.seatunnel.engine.common.exception.SavePointFailedException;
 import org.apache.seatunnel.engine.common.exception.SeaTunnelEngineException;
 import org.apache.seatunnel.engine.common.job.JobResult;
 import org.apache.seatunnel.engine.common.job.JobStatus;
+import org.apache.seatunnel.engine.common.utils.ExceptionUtil;
 import org.apache.seatunnel.engine.common.utils.PassiveCompletableFuture;
 import org.apache.seatunnel.engine.common.utils.concurrent.CompletableFuture;
 import org.apache.seatunnel.engine.core.job.JobDAGInfo;
@@ -447,10 +449,26 @@ public class CoordinatorService {
     }
 
     private void restoreAllRunningJobFromMasterNodeSwitch() {
-        List<Map.Entry<Long, JobInfo>> needRestoreFromMasterNodeSwitchJobs =
-                runningJobInfoIMap.entrySet().stream()
-                        .filter(entry -> !runningJobMasterMap.containsKey(entry.getKey()))
-                        .collect(Collectors.toList());
+        List<Map.Entry<Long, JobInfo>> needRestoreFromMasterNodeSwitchJobs;
+        try {
+            needRestoreFromMasterNodeSwitchJobs =
+                    RetryUtils.retryWithException(
+                            () ->
+                                    runningJobInfoIMap.entrySet().stream()
+                                            .filter(
+                                                    entry ->
+                                                            !runningJobMasterMap.containsKey(
+                                                                    entry.getKey()))
+                                            .collect(Collectors.toList()),
+                            new RetryUtils.RetryMaterial(
+                                    Constant.OPERATION_RETRY_TIME,
+                                    true,
+                                    ExceptionUtil::isOperationNeedRetryException,
+                                    Constant.OPERATION_RETRY_SLEEP));
+        } catch (Exception e) {
+            throw new SeaTunnelEngineException(
+                    "Failed to fetch running jobs from IMap during master switch restore", e);
+        }
         if (needRestoreFromMasterNodeSwitchJobs.isEmpty()) {
             return;
         }
@@ -504,7 +522,21 @@ public class CoordinatorService {
     }
 
     private void restoreJobFromMasterActiveSwitch(@NonNull Long jobId, @NonNull JobInfo jobInfo) {
-        if (runningJobStateIMap.get(jobId) == null) {
+        Object jobState;
+        try {
+            jobState =
+                    RetryUtils.retryWithException(
+                            () -> runningJobStateIMap.get(jobId),
+                            new RetryUtils.RetryMaterial(
+                                    Constant.OPERATION_RETRY_TIME,
+                                    true,
+                                    ExceptionUtil::isOperationNeedRetryException,
+                                    Constant.OPERATION_RETRY_SLEEP));
+        } catch (Exception e) {
+            throw new SeaTunnelEngineException(
+                    String.format("Job id %s restore failed, can not get job state", jobId), e);
+        }
+        if (jobState == null) {
             runningJobInfoIMap.remove(jobId);
             return;
         }
@@ -771,13 +803,6 @@ public class CoordinatorService {
                     CompletableFuture.supplyAsync(
                             () -> {
                                 runningJobMaster.cancelJob();
-                                // The pending task "JobMaster.init" has not been executed, so the
-                                // job status (JobStatus) will not be stored in the
-                                // jobHistoryService. Here, storeJobEndState is called to store the
-                                // `CANCELED` status in the jobHistoryService.
-                                if (isPendingJob) {
-                                    runningJobMaster.storeJobEndState();
-                                }
                                 return null;
                             },
                             executorService));
@@ -876,7 +901,18 @@ public class CoordinatorService {
         if (jobInfo != null) {
             return jobInfo;
         }
-        return runningJobMasterMap.get(jobId).getJobDAGInfo();
+
+        JobMaster runningJobMaster = runningJobMasterMap.get(jobId);
+        if (runningJobMaster != null) {
+            return runningJobMaster.getJobDAGInfo();
+        }
+
+        PendingJobInfo pendingJobInfo = pendingJobQueue.getById(jobId);
+        if (pendingJobInfo != null) {
+            return pendingJobInfo.getJobMaster().getJobDAGInfo();
+        }
+
+        throw new JobNotFoundException(String.format("Job %s not found", jobId));
     }
 
     /**

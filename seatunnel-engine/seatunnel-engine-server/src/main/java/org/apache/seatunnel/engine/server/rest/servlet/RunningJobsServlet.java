@@ -29,7 +29,7 @@ import javax.servlet.http.HttpServletResponse;
 import java.io.IOException;
 
 @Slf4j
-public class RunningJobsServlet extends BaseServlet {
+public class RunningJobsServlet extends PageBaseServlet {
 
     private final JobInfoService jobInfoService;
 
@@ -42,6 +42,6 @@ public class RunningJobsServlet extends BaseServlet {
     protected void doGet(HttpServletRequest req, HttpServletResponse resp)
             throws ServletException, IOException {
 
-        writeJson(resp, jobInfoService.getRunningJobsJson());
+        writeJsonWithPagination(req, resp, jobInfoService.getRunningJobsJson());
     }
 }
