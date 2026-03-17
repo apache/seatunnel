@@ -323,6 +323,45 @@ public class FtpFileIT extends TestSuiteBase implements TestResource {
     }
 
     @TestTemplate
+    public void testFtpBinaryUpdateModeDistcpWithNonRecursiveScan(TestContainer container)
+            throws IOException, InterruptedException {
+        resetUpdateTestPath();
+        putFtpFile("/tmp/seatunnel/update/src/root.bin", "root-updated-v2");
+        putFtpFile("/tmp/seatunnel/update/src/subdir/nested.bin", "nest-updated-v2");
+        putFtpFile("/tmp/seatunnel/update/dst/root.bin", "root-stale-v1");
+        putFtpFile("/tmp/seatunnel/update/dst/subdir/nested.bin", "nest-stale-v1");
+
+        Container.ExecResult execResult =
+                container.executeJob("/text/ftp_binary_update_non_recursive_distcp.conf");
+        Assertions.assertEquals(0, execResult.getExitCode(), execResult.getStderr());
+        Assertions.assertEquals(
+                "root-updated-v2", readFtpFile("/tmp/seatunnel/update/dst/root.bin"));
+        Assertions.assertEquals(
+                "nest-stale-v1", readFtpFile("/tmp/seatunnel/update/dst/subdir/nested.bin"));
+
+        deleteFileFromContainer(ftpHomeDir + "/tmp/seatunnel/update");
+    }
+
+    @TestTemplate
+    public void testFtpBinaryUpdateModeStrictChecksumSkipsNestedChangesWithNonRecursiveScan(
+            TestContainer container) throws IOException, InterruptedException {
+        resetUpdateTestPath();
+        putFtpFile("/tmp/seatunnel/update/src/root.bin", "root-same-v1");
+        putFtpFile("/tmp/seatunnel/update/src/subdir/nested.bin", "nest-new-v1");
+        putFtpFile("/tmp/seatunnel/update/dst/root.bin", "root-same-v1");
+        putFtpFile("/tmp/seatunnel/update/dst/subdir/nested.bin", "nest-old-v1");
+
+        Container.ExecResult execResult =
+                container.executeJob("/text/ftp_binary_update_non_recursive_strict_checksum.conf");
+        Assertions.assertEquals(0, execResult.getExitCode(), execResult.getStderr());
+        Assertions.assertEquals("root-same-v1", readFtpFile("/tmp/seatunnel/update/dst/root.bin"));
+        Assertions.assertEquals(
+                "nest-old-v1", readFtpFile("/tmp/seatunnel/update/dst/subdir/nested.bin"));
+
+        deleteFileFromContainer(ftpHomeDir + "/tmp/seatunnel/update");
+    }
+
+    @TestTemplate
     public void testFtpToAssertForJsonFilter(TestContainer container)
             throws IOException, InterruptedException {
 

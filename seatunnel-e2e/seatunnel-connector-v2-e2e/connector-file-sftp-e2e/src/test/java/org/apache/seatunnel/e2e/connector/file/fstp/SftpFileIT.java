@@ -357,6 +357,56 @@ public class SftpFileIT extends TestSuiteBase implements TestResource {
     }
 
     @TestTemplate
+    public void testSftpBinaryUpdateModeDistcpWithNonRecursiveScan(TestContainer container)
+            throws IOException, InterruptedException {
+        resetUpdateTestPath();
+        putSftpFile(SFTP_CONTAINER_HOME + "/tmp/seatunnel/update/src/root.bin", "root-updated-v2");
+        putSftpFile(
+                SFTP_CONTAINER_HOME + "/tmp/seatunnel/update/src/subdir/nested.bin",
+                "nest-updated-v2");
+        putSftpFile(SFTP_CONTAINER_HOME + "/tmp/seatunnel/update/dst/root.bin", "root-stale-v1");
+        putSftpFile(
+                SFTP_CONTAINER_HOME + "/tmp/seatunnel/update/dst/subdir/nested.bin",
+                "nest-stale-v1");
+
+        TestHelper helper = new TestHelper(container);
+        helper.execute("/text/sftp_binary_update_non_recursive_distcp.conf");
+
+        Assertions.assertEquals(
+                "root-updated-v2",
+                readSftpFile(SFTP_CONTAINER_HOME + "/tmp/seatunnel/update/dst/root.bin"));
+        Assertions.assertEquals(
+                "nest-stale-v1",
+                readSftpFile(SFTP_CONTAINER_HOME + "/tmp/seatunnel/update/dst/subdir/nested.bin"));
+
+        deleteFileFromContainer(SFTP_CONTAINER_HOME + "/tmp/seatunnel/update");
+    }
+
+    @TestTemplate
+    public void testSftpBinaryUpdateModeStrictChecksumSkipsNestedChangesWithNonRecursiveScan(
+            TestContainer container) throws IOException, InterruptedException {
+        resetUpdateTestPath();
+        putSftpFile(SFTP_CONTAINER_HOME + "/tmp/seatunnel/update/src/root.bin", "root-same-v1");
+        putSftpFile(
+                SFTP_CONTAINER_HOME + "/tmp/seatunnel/update/src/subdir/nested.bin", "nest-new-v1");
+        putSftpFile(SFTP_CONTAINER_HOME + "/tmp/seatunnel/update/dst/root.bin", "root-same-v1");
+        putSftpFile(
+                SFTP_CONTAINER_HOME + "/tmp/seatunnel/update/dst/subdir/nested.bin", "nest-old-v1");
+
+        TestHelper helper = new TestHelper(container);
+        helper.execute("/text/sftp_binary_update_non_recursive_strict_checksum.conf");
+
+        Assertions.assertEquals(
+                "root-same-v1",
+                readSftpFile(SFTP_CONTAINER_HOME + "/tmp/seatunnel/update/dst/root.bin"));
+        Assertions.assertEquals(
+                "nest-old-v1",
+                readSftpFile(SFTP_CONTAINER_HOME + "/tmp/seatunnel/update/dst/subdir/nested.bin"));
+
+        deleteFileFromContainer(SFTP_CONTAINER_HOME + "/tmp/seatunnel/update");
+    }
+
+    @TestTemplate
     public void testMultipleTableAndSaveMode(TestContainer container)
             throws IOException, InterruptedException {
         TestHelper helper = new TestHelper(container);
