@@ -150,14 +150,6 @@ public class DataSourceConfigUtilTest {
      */
     private void registerProvider(DataSourceProvider provider) {
         try {
-            java.lang.reflect.Field cacheField =
-                    DataSourceProviderFactory.class.getDeclaredField("PROVIDER_CACHE");
-            cacheField.setAccessible(true);
-            @SuppressWarnings("unchecked")
-            Map<String, DataSourceProvider> cache =
-                    (Map<String, DataSourceProvider>) cacheField.get(null);
-            cache.put(provider.kind(), provider);
-
             java.lang.reflect.Field providersField =
                     DataSourceProviderFactory.class.getDeclaredField("cachedProviders");
             providersField.setAccessible(true);
