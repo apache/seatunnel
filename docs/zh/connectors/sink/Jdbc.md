@@ -44,6 +44,7 @@ import ChangeLog from '../changelog/connector-jdbc.md';
 | connection_check_timeout_sec              | Int     | 否    | 30                           |
 | max_retries                               | Int     | 否    | 0                            |
 | batch_size                                | Int     | 否    | 1000                         |
+| batch_interval_ms                         | Long    | 否    | 0                            |
 | is_exactly_once                           | Boolean | 否    | false                        |
 | generate_sink_sql                         | Boolean | 否    | false                        |
 | xa_data_source_class_name                 | String  | 否    | -                            |
@@ -154,6 +155,10 @@ Tip: 如果目标数据库有 SCHEMA 的概念，则表参数必须写成 `xxx.x
 ### batch_size [int]
 
 对于批量写入，当缓冲的记录数达到 `batch_size` 数量或者时间达到 `checkpoint.interval` 时，数据将被刷新到数据库中
+
+### batch_interval_ms [long]
+
+定时刷新间隔（毫秒）。当设置值大于 0 时，后台线程会定期将缓冲区中的记录刷新到数据库，即使尚未达到 `batch_size`。适用于低流量场景（如 CDC 实时同步中写入频率较低的情况），以降低数据延迟。默认值为 `0`（禁用）。当 `batch_size` 为 `1` 时此配置无效。
 
 ### is_exactly_once [boolean]
 

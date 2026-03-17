@@ -31,6 +31,10 @@ import org.slf4j.LoggerFactory;
 import java.io.IOException;
 import java.io.Serializable;
 import java.sql.SQLException;
+import java.util.concurrent.Executors;
+import java.util.concurrent.ScheduledExecutorService;
+import java.util.concurrent.ScheduledFuture;
+import java.util.concurrent.TimeUnit;
 import java.util.function.Supplier;
 
 import static org.apache.seatunnel.shade.com.google.common.base.Preconditions.checkNotNull;
@@ -51,6 +55,8 @@ public class JdbcOutputFormat<I, E extends JdbcBatchStatementExecutor<I>> implem
     private transient int batchCount = 0;
     private transient volatile boolean closed = false;
     private transient volatile Exception flushException;
+    private transient ScheduledExecutorService executor;
+    private transient ScheduledFuture<?> scheduledFuture;
 
     public JdbcOutputFormat(
             JdbcConnectionProvider connectionProvider,
@@ -72,6 +78,44 @@ public class JdbcOutputFormat<I, E extends JdbcBatchStatementExecutor<I>> implem
                     e);
         }
         jdbcStatementExecutor = createAndOpenStatementExecutor(statementExecutorFactory);
+        scheduledFuture = createAndStartScheduledFlush();
+    }
+
+    private ScheduledFuture<?> createAndStartScheduledFlush() {
+        long batchIntervalMs = jdbcConnectionConfig.getBatchIntervalMs();
+        if (batchIntervalMs <= 0 || jdbcConnectionConfig.getBatchSize() == 1) {
+            LOG.info(
+                    "Periodic flush disabled: batch_interval_ms={}, batch_size={}",
+                    batchIntervalMs,
+                    jdbcConnectionConfig.getBatchSize());
+            return null;
+        }
+
+        executor =
+                Executors.newScheduledThreadPool(
+                        1,
+                        runnable -> {
+                            Thread thread = new Thread(runnable);
+                            thread.setDaemon(true);
+                            thread.setName("jdbc-batch-flush-scheduler");
+                            return thread;
+                        });
+
+        return executor.scheduleWithFixedDelay(
+                () -> {
+                    synchronized (JdbcOutputFormat.this) {
+                        if (!closed) {
+                            try {
+                                flush();
+                            } catch (Exception e) {
+                                flushException = e;
+                            }
+                        }
+                    }
+                },
+                batchIntervalMs,
+                batchIntervalMs,
+                TimeUnit.MILLISECONDS);
     }
 
     private E createAndOpenStatementExecutor(StatementExecutorFactory<E> statementExecutorFactory) {
@@ -176,6 +220,15 @@ public class JdbcOutputFormat<I, E extends JdbcBatchStatementExecutor<I>> implem
     public synchronized void close() {
         if (!closed) {
             closed = true;
+
+            if (scheduledFuture != null) {
+                scheduledFuture.cancel(false);
+                scheduledFuture = null;
+            }
+            if (executor != null) {
+                executor.shutdownNow();
+                executor = null;
+            }
 
             if (batchCount > 0) {
                 try {

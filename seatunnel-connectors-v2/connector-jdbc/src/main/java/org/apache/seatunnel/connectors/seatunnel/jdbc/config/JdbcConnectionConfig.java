@@ -44,6 +44,8 @@ public class JdbcConnectionConfig implements Serializable {
 
     private int batchSize = JdbcSinkOptions.BATCH_SIZE.defaultValue();
 
+    private long batchIntervalMs = JdbcSinkOptions.BATCH_INTERVAL_MS.defaultValue();
+
     private String xaDataSourceClassName;
 
     private boolean decimalTypeNarrowing = JdbcCommonOptions.DECIMAL_TYPE_NARROWING.defaultValue();
@@ -86,6 +88,7 @@ public class JdbcConnectionConfig implements Serializable {
         builder.socketTimeoutMs(config.get(JdbcCommonOptions.SOCKET_TIMEOUT_MS));
         builder.connectTimeoutMs(config.get(JdbcCommonOptions.CONNECT_TIMEOUT_MS));
         builder.batchSize(config.get(JdbcSinkOptions.BATCH_SIZE));
+        builder.batchIntervalMs(config.get(JdbcSinkOptions.BATCH_INTERVAL_MS));
         builder.handleBlobAsString(config.get(JdbcCommonOptions.HANDLE_BLOB_AS_STRING));
         if (config.get(JdbcSinkOptions.IS_EXACTLY_ONCE)) {
             builder.xaDataSourceClassName(config.get(JdbcSinkOptions.XA_DATA_SOURCE_CLASS_NAME));
@@ -142,6 +145,7 @@ public class JdbcConnectionConfig implements Serializable {
         private String query;
         private boolean autoCommit = JdbcSinkOptions.AUTO_COMMIT.defaultValue();
         private int batchSize = JdbcSinkOptions.BATCH_SIZE.defaultValue();
+        private long batchIntervalMs = JdbcSinkOptions.BATCH_INTERVAL_MS.defaultValue();
         private String xaDataSourceClassName;
         private boolean decimalTypeNarrowing =
                 JdbcCommonOptions.DECIMAL_TYPE_NARROWING.defaultValue();
@@ -223,6 +227,11 @@ public class JdbcConnectionConfig implements Serializable {
             return this;
         }
 
+        public Builder batchIntervalMs(long batchIntervalMs) {
+            this.batchIntervalMs = batchIntervalMs;
+            return this;
+        }
+
         public Builder xaDataSourceClassName(String xaDataSourceClassName) {
             this.xaDataSourceClassName = xaDataSourceClassName;
             return this;
@@ -301,6 +310,7 @@ public class JdbcConnectionConfig implements Serializable {
         public JdbcConnectionConfig build() {
             JdbcConnectionConfig jdbcConnectionConfig = new JdbcConnectionConfig();
             jdbcConnectionConfig.batchSize = this.batchSize;
+            jdbcConnectionConfig.batchIntervalMs = this.batchIntervalMs;
             jdbcConnectionConfig.driverName = this.driverName;
             jdbcConnectionConfig.compatibleMode = this.compatibleMode;
             jdbcConnectionConfig.maxRetries = this.maxRetries;

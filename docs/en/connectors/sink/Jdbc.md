@@ -46,6 +46,7 @@ support `Xa transactions`. You can set `is_exactly_once=true` to enable it.
 | connection_check_timeout_sec              | Int     | No       | 30                           |
 | max_retries                               | Int     | No       | 0                            |
 | batch_size                                | Int     | No       | 1000                         |
+| batch_interval_ms                         | Long    | No       | 0                            |
 | is_exactly_once                           | Boolean | No       | false                        |
 | generate_sink_sql                         | Boolean | No       | false                        |
 | xa_data_source_class_name                 | String  | No       | -                            |
@@ -156,6 +157,10 @@ The number of retries to submit failed (executeBatch)
 
 For batch writing, when the number of buffered records reaches the number of `batch_size` or the time reaches `checkpoint.interval`
 , the data will be flushed into the database
+
+### batch_interval_ms [long]
+
+For batch writing, the interval in milliseconds between periodic flush attempts. When set to a value greater than 0, a background thread will periodically flush buffered records to the database, even if `batch_size` has not been reached. This is useful in low-throughput scenarios (e.g., CDC real-time sync with sparse updates) to reduce data latency. Default value is `0` (disabled). Has no effect when `batch_size` is `1`.
 
 ### is_exactly_once [boolean]
 
