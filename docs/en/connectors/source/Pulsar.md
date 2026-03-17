@@ -19,29 +19,29 @@ Source connector for Apache Pulsar.
 
 ## Options
 
-|           name           |  type   | required | default value |
-|--------------------------|---------|----------|---------------|
-| topic                    | String  | No       | -             |
-| topic-pattern            | String  | No       | -             |
-| table_path               | String  | No       | -             |
-| tables_configs           | Array   | No       | -             |
-| topic-discovery.interval | Long    | No       | -1            |
-| subscription.name        | String  | No       | -             |
-| client.service-url       | String  | Yes      | -             |
-| admin.service-url        | String  | Yes      | -             |
-| auth.plugin-class        | String  | No       | -             |
-| auth.params              | String  | No       | -             |
-| poll.timeout             | Integer | No       | 100           |
-| poll.interval            | Long    | No       | 50            |
-| poll.batch.size          | Integer | No       | 500           |
-| cursor.startup.mode      | Enum    | No       | LATEST        |
-| cursor.startup.timestamp | Long    | No       | -             |
-| cursor.reset.mode        | Enum    | No       | LATEST        |
-| cursor.stop.mode         | Enum    | No       | NEVER         |
-| cursor.stop.timestamp    | Long    | No       | -             |
-| schema                   | config  | No       | -             |
-| common-options           |         | no       | -             |
-| format                   | String  | no       | json          |
+| Name                     | Type    | Required | Default Value | Description                                                                                                      |
+|--------------------------|---------|----------|---------------|------------------------------------------------------------------------------------------------------------------|
+| topic                    | String  | No       | -             | Topic name(s) to read. Supports comma-separated list. **Note: only one of `topic`, `topic-pattern`, `tables_configs`** |
+| topic-pattern            | String  | No       | -             | Regular expression for topic names. **Note: only one of `topic`, `topic-pattern`, `tables_configs`**            |
+| table_path               | String  | No       | -             | Logical table identifier for multi-table mode                                                                    |
+| tables_configs           | Array   | No       | -             | Multi-table configuration. Each item can override global defaults. **Note: only one of `topic`, `topic-pattern`, `tables_configs`** |
+| topic-discovery.interval | Long    | No       | -1            | Interval (ms) to discover new partitions. Non-positive disables discovery. Only works with `topic-pattern`      |
+| subscription.name        | String  | No       | -             | Consumer subscription name. Can be defined globally or per item in multi-table mode                              |
+| client.service-url       | String  | Yes      | -             | Pulsar client service URL, e.g., `pulsar://localhost:6650`                                                      |
+| admin.service-url        | String  | Yes      | -             | Pulsar admin HTTP URL, e.g., `http://localhost:8080`                                                            |
+| auth.plugin-class        | String  | No       | -             | Pulsar client authentication plugin class name                                                                   |
+| auth.params              | String  | No       | -             | Pulsar client authentication parameters                                                                          |
+| poll.timeout             | Integer | No       | 100           | Timeout (ms) for polling messages from Pulsar                                                                    |
+| poll.interval            | Long    | No       | 50            | Interval (ms) between two polls                                                                                  |
+| poll.batch.size          | Integer | No       | 500           | Maximum number of messages to poll in a single batch                                                             |
+| cursor.startup.mode      | Enum    | No       | LATEST        | Startup position mode. Options: `EARLIEST`, `LATEST`, `SUBSCRIPTION`, `TIMESTAMP`                                |
+| cursor.startup.timestamp | Long    | No       | -             | Start timestamp (ms) when `cursor.startup.mode=TIMESTAMP`                                                        |
+| cursor.reset.mode        | Enum    | No       | LATEST        | Reset mode when `cursor.startup.mode=SUBSCRIPTION`. Options: `EARLIEST`, `LATEST`                               |
+| cursor.stop.mode         | Enum    | No       | NEVER         | Stop position mode. Options: `NEVER` (streaming), `LATEST` (batch), `TIMESTAMP` (batch)                         |
+| cursor.stop.timestamp    | Long    | No       | -             | Stop timestamp (ms) when `cursor.stop.mode=TIMESTAMP`                                                            |
+| schema                   | Config  | No       | -             | Data structure including field names and types                                                                   |
+| format                   | String  | No       | json          | Data format. Default is json. **Multi-table mode only supports JSON and CANAL_JSON**                            |
+| common-options           |         | No       | -             | Source plugin common parameters. See [Source Common Options](../source-common-options.md) for details           |
 
 ### topic [String]
 

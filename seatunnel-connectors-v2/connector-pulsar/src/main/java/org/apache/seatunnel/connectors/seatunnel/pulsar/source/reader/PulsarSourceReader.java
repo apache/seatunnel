@@ -284,9 +284,21 @@ public class PulsarSourceReader<T> implements SourceReader<T, PulsarPartitionSpl
             metadata = consumerMetadataMap.get(defaultTablePath);
         }
         if (metadata == null) {
+            String tablePathStr = tablePath != null ? tablePath.toString() : "null";
+            String defaultTablePathStr =
+                    defaultTablePath != null ? defaultTablePath.toString() : "null";
+            String availableTables =
+                    consumerMetadataMap.keySet().stream()
+                            .map(TablePath::toString)
+                            .collect(Collectors.joining(", "));
             throw new PulsarConnectorException(
                     PulsarConnectorErrorCode.DESERIALIZATION_SCHEMA_NOT_FOUND,
-                    String.format("No consumer metadata found for table '%s'", tablePath));
+                    String.format(
+                            "No consumer metadata found for table '%s'. "
+                                    + "Default table path: '%s'. "
+                                    + "Available tables: [%s]. "
+                                    + "This is likely a bug in the multi-table routing logic.",
+                            tablePathStr, defaultTablePathStr, availableTables));
         }
         return metadata;
     }
