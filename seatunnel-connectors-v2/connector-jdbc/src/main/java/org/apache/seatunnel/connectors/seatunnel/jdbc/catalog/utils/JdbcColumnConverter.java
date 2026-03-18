@@ -26,6 +26,9 @@ import org.apache.seatunnel.api.table.type.LocalTimeType;
 import org.apache.seatunnel.api.table.type.PrimitiveByteArrayType;
 import org.apache.seatunnel.api.table.type.SeaTunnelDataType;
 
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
+
 import java.sql.DatabaseMetaData;
 import java.sql.ResultSet;
 import java.sql.ResultSetMetaData;
@@ -69,10 +72,14 @@ import static java.sql.Types.VARCHAR;
  */
 @Deprecated
 public class JdbcColumnConverter {
+    private static final Logger LOG = LoggerFactory.getLogger(JdbcColumnConverter.class);
 
     public static List<Column> convert(DatabaseMetaData metadata, TablePath tablePath)
             throws SQLException {
         List<Column> columns = new ArrayList<>();
+        int filteredRows = 0;
+        JdbcIdentifierUtils.IdentifierCaseStrategy identifierCaseStrategy =
+                JdbcIdentifierUtils.identifierCaseStrategy(metadata);
 
         try (ResultSet columnsResultSet =
                 metadata.getColumns(
@@ -82,6 +89,23 @@ public class JdbcColumnConverter {
                         null)) {
 
             while (columnsResultSet.next()) {
+                // `tableNamePattern` is treated as a SQL LIKE pattern by many drivers, so filter
+                // the ResultSet by exact table/schema to avoid mixing columns from other tables.
+                String actualTableName = columnsResultSet.getString("TABLE_NAME");
+                if (!JdbcIdentifierUtils.identifierEquals(
+                        identifierCaseStrategy, tablePath.getTableName(), actualTableName)) {
+                    filteredRows++;
+                    continue;
+                }
+                if (tablePath.getSchemaName() != null) {
+                    String actualSchemaName = columnsResultSet.getString("TABLE_SCHEM");
+                    if (!JdbcIdentifierUtils.identifierEquals(
+                            identifierCaseStrategy, tablePath.getSchemaName(), actualSchemaName)) {
+                        filteredRows++;
+                        continue;
+                    }
+                }
+
                 String columnName = columnsResultSet.getString("COLUMN_NAME");
                 int jdbcType = columnsResultSet.getInt("DATA_TYPE");
                 String nativeType = columnsResultSet.getString("TYPE_NAME");
@@ -101,6 +125,15 @@ public class JdbcColumnConverter {
                                 comment);
                 columns.add(column);
             }
+        }
+        if (columns.isEmpty() && filteredRows > 0) {
+            LOG.warn(
+                    "No columns found for catalog '{}', schema '{}', table '{}'. Filtered {} rows returned by JDBC driver. "
+                            + "The table may not exist or the database requires exact identifier case.",
+                    tablePath.getDatabaseName(),
+                    tablePath.getSchemaName(),
+                    tablePath.getTableName(),
+                    filteredRows);
         }
         return columns;
     }

@@ -48,6 +48,7 @@ import static org.apache.seatunnel.connectors.seatunnel.elasticsearch.config.Ela
 import static org.apache.seatunnel.connectors.seatunnel.elasticsearch.config.ElasticsearchSourceOptions.PIT_BATCH_SIZE;
 import static org.apache.seatunnel.connectors.seatunnel.elasticsearch.config.ElasticsearchSourceOptions.PIT_KEEP_ALIVE;
 import static org.apache.seatunnel.connectors.seatunnel.elasticsearch.config.ElasticsearchSourceOptions.QUERY;
+import static org.apache.seatunnel.connectors.seatunnel.elasticsearch.config.ElasticsearchSourceOptions.RUNTIME_FIELDS;
 import static org.apache.seatunnel.connectors.seatunnel.elasticsearch.config.ElasticsearchSourceOptions.SCROLL_SIZE;
 import static org.apache.seatunnel.connectors.seatunnel.elasticsearch.config.ElasticsearchSourceOptions.SCROLL_TIME;
 import static org.apache.seatunnel.connectors.seatunnel.elasticsearch.config.ElasticsearchSourceOptions.SEARCH_API_TYPE;
@@ -72,6 +73,7 @@ public class ElasticsearchSourceFactory implements TableSourceFactory {
                         SCROLL_TIME,
                         SCROLL_SIZE,
                         QUERY,
+                        RUNTIME_FIELDS,
                         PIT_KEEP_ALIVE,
                         PIT_BATCH_SIZE,
                         SEARCH_API_TYPE,

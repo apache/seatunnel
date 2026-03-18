@@ -198,6 +198,10 @@ public class MilvusCatalog implements Catalog {
         checkNotNull(catalogTable, "catalogTable must not be null");
         TableSchema tableSchema = catalogTable.getTableSchema();
         checkNotNull(tableSchema, "tableSchema must not be null");
+        log.info(
+                "Start creating Milvus collection. database={}, collection={}",
+                tablePath.getDatabaseName(),
+                tablePath.getTableName());
         createTableInternal(tablePath, catalogTable);
 
         if (CollectionUtils.isNotEmpty(tableSchema.getConstraintKeys())
@@ -206,10 +210,19 @@ public class MilvusCatalog implements Catalog {
                 if (constraintKey
                         .getConstraintType()
                         .equals(ConstraintKey.ConstraintType.VECTOR_INDEX_KEY)) {
+                    log.info(
+                            "Creating Milvus vector indexes. database={}, collection={}, constraintName={}",
+                            tablePath.getDatabaseName(),
+                            tablePath.getTableName(),
+                            constraintKey.getConstraintName());
                     createIndexInternal(tablePath, constraintKey.getColumnNames());
                 }
             }
         }
+        log.info(
+                "Finished creating Milvus collection. database={}, collection={}",
+                tablePath.getDatabaseName(),
+                tablePath.getTableName());
     }
 
     private void createIndexInternal(
@@ -294,15 +307,26 @@ public class MilvusCatalog implements Catalog {
             }
 
             CreateCollectionParam createCollectionParam = builder.build();
+            log.info(
+                    "Creating Milvus collection metadata. database={}, collection={}",
+                    tablePath.getDatabaseName(),
+                    tablePath.getTableName());
             R<RpcStatus> response = this.client.createCollection(createCollectionParam);
             if (!Objects.equals(response.getStatus(), R.success().getStatus())) {
                 throw new MilvusConnectorException(
                         MilvusConnectionErrorCode.CREATE_COLLECTION_ERROR, response.getMessage());
             }
 
-            // not exist partition key field, will read show partitions to create
-            if (!existPartitionKeyField && options.containsKey(MilvusOptions.PARTITION_KEY_FIELD)) {
-                createPartitionInternal(options.get(MilvusOptions.PARTITION_KEY_FIELD), tablePath);
+            // When collection does not have a partition key field,
+            // create partitions from the 'partitionNames' option
+            String partitionNames = options.get(MilvusOptions.PARTITION_NAMES);
+            if (!existPartitionKeyField && StringUtils.isNotBlank(partitionNames)) {
+                log.info(
+                        "Creating Milvus partitions. database={}, collection={}, partitionNames={}",
+                        tablePath.getDatabaseName(),
+                        tablePath.getTableName(),
+                        partitionNames);
+                createPartitionInternal(partitionNames, tablePath);
             }
 
         } catch (Exception e) {
@@ -329,9 +353,28 @@ public class MilvusCatalog implements Catalog {
         // start to loop create partition
         String[] partitionNameArray = partitionNames.split(",");
         for (String partitionName : partitionNameArray) {
-            if (existPartitionNames.contains(partitionName)) {
+            partitionName = partitionName.trim();
+            if (StringUtils.isBlank(partitionName) || "_default".equals(partitionName)) {
+                log.info(
+                        "Skip Milvus partition creation. database={}, collection={}, partitionName={}",
+                        tablePath.getDatabaseName(),
+                        tablePath.getTableName(),
+                        partitionName);
                 continue;
             }
+            if (existPartitionNames.contains(partitionName)) {
+                log.info(
+                        "Milvus partition already exists. database={}, collection={}, partitionName={}",
+                        tablePath.getDatabaseName(),
+                        tablePath.getTableName(),
+                        partitionName);
+                continue;
+            }
+            log.info(
+                    "Creating Milvus partition. database={}, collection={}, partitionName={}",
+                    tablePath.getDatabaseName(),
+                    tablePath.getTableName(),
+                    partitionName);
             R<RpcStatus> response =
                     this.client.createPartition(
                             CreatePartitionParam.newBuilder()
