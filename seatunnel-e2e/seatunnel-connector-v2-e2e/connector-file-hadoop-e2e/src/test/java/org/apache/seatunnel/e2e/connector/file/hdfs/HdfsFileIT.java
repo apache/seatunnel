@@ -294,6 +294,40 @@ public class HdfsFileIT extends TestSuiteBase implements TestResource {
         nameNode.execInContainer("bash", "-c", "hdfs dfs -rm -r -f /continuous || true");
     }
 
+    @TestTemplate
+    public void testHdfsBinaryUpdateModeDistcpWithNonRecursiveScan(TestContainer container)
+            throws IOException, InterruptedException {
+        resetUpdateTestPath();
+        createHdfsDirectories("/update/src/subdir", "/update/dst/subdir");
+        putHdfsFile("/update/src/root.bin", "root-updated-v2");
+        putHdfsFile("/update/src/subdir/nested.bin", "nest-updated-v2");
+        putHdfsFile("/update/dst/root.bin", "root-stale-v1");
+        putHdfsFile("/update/dst/subdir/nested.bin", "nest-stale-v1");
+
+        org.testcontainers.containers.Container.ExecResult execResult =
+                container.executeJob("/hdfs_binary_update_non_recursive_distcp.conf");
+        Assertions.assertEquals(0, execResult.getExitCode());
+        Assertions.assertEquals("root-updated-v2", readHdfsFile("/update/dst/root.bin"));
+        Assertions.assertEquals("nest-stale-v1", readHdfsFile("/update/dst/subdir/nested.bin"));
+    }
+
+    @TestTemplate
+    public void testHdfsBinaryUpdateModeStrictChecksumSkipsNestedChangesWithNonRecursiveScan(
+            TestContainer container) throws IOException, InterruptedException {
+        resetUpdateTestPath();
+        createHdfsDirectories("/update/src/subdir", "/update/dst/subdir");
+        putHdfsFile("/update/src/root.bin", "root-same-v1");
+        putHdfsFile("/update/src/subdir/nested.bin", "nest-new-v1");
+        putHdfsFile("/update/dst/root.bin", "root-same-v1");
+        putHdfsFile("/update/dst/subdir/nested.bin", "nest-old-v1");
+
+        org.testcontainers.containers.Container.ExecResult execResult =
+                container.executeJob("/hdfs_binary_update_non_recursive_strict_checksum.conf");
+        Assertions.assertEquals(0, execResult.getExitCode());
+        Assertions.assertEquals("root-same-v1", readHdfsFile("/update/dst/root.bin"));
+        Assertions.assertEquals("nest-old-v1", readHdfsFile("/update/dst/subdir/nested.bin"));
+    }
+
     private void resetUpdateTestPath() throws IOException, InterruptedException {
         nameNode.execInContainer("bash", "-c", "hdfs dfs -rm -r -f /update || true");
         org.testcontainers.containers.Container.ExecResult mkdirResult =
@@ -337,6 +371,14 @@ public class HdfsFileIT extends TestSuiteBase implements TestResource {
         org.testcontainers.containers.Container.ExecResult putResult =
                 nameNode.execInContainer("bash", "-c", command);
         Assertions.assertEquals(0, putResult.getExitCode());
+    }
+
+    private void createHdfsDirectories(String... hdfsPaths)
+            throws IOException, InterruptedException {
+        String command = "hdfs dfs -mkdir -p " + String.join(" ", hdfsPaths);
+        org.testcontainers.containers.Container.ExecResult mkdirResult =
+                nameNode.execInContainer("bash", "-c", command);
+        Assertions.assertEquals(0, mkdirResult.getExitCode());
     }
 
     private void putHdfsClasspathFile(String resourcePath, String hdfsPath)
