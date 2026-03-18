@@ -23,7 +23,7 @@ import org.apache.seatunnel.transform.exception.TransformCommonError;
 import com.google.auto.service.AutoService;
 
 import javax.crypto.Cipher;
-import javax.crypto.spec.IvParameterSpec;
+import javax.crypto.spec.GCMParameterSpec;
 import javax.crypto.spec.SecretKeySpec;
 
 import java.nio.charset.StandardCharsets;
@@ -31,12 +31,14 @@ import java.security.SecureRandom;
 import java.util.Base64;
 
 @AutoService(Encryptor.class)
-public class AesCbcEncryptor extends AbstractAesEncryptor {
-    public static final String IDENTIFIER = "AES_CBC";
+public class AesGcmEncryptor extends AbstractAesEncryptor {
+    public static final String IDENTIFIER = "AES_GCM";
 
-    private static final int IV_SIZE = 16;
+    private static final int IV_SIZE = 12;
+    private static final int TAG_BIT_LENGTH = 128;
+
     private static final SecureRandom SECURE_RANDOM = new SecureRandom();
-    private static final String ALGORITHM = "AES/CBC/PKCS5Padding";
+    private static final String ALGORITHM = "AES/GCM/NoPadding";
 
     private SecretKeySpec keySpec;
 
@@ -55,12 +57,12 @@ public class AesCbcEncryptor extends AbstractAesEncryptor {
         byte[] iv = new byte[IV_SIZE];
         SECURE_RANDOM.nextBytes(iv);
 
-        IvParameterSpec ivSpec = new IvParameterSpec(iv);
+        GCMParameterSpec spec = new GCMParameterSpec(TAG_BIT_LENGTH, iv);
 
         byte[] encrypted;
         try {
             Cipher cipher = Cipher.getInstance(ALGORITHM);
-            cipher.init(Cipher.ENCRYPT_MODE, keySpec, ivSpec);
+            cipher.init(Cipher.ENCRYPT_MODE, keySpec, spec);
             encrypted = cipher.doFinal(plainText.getBytes(StandardCharsets.UTF_8));
         } catch (Exception e) {
             throw TransformCommonError.encryptionError("Encryption failed", e);
@@ -76,24 +78,27 @@ public class AesCbcEncryptor extends AbstractAesEncryptor {
     @Override
     public String decrypt(String cipherText) {
         byte[] decoded = Base64.getDecoder().decode(cipherText);
-        byte[] iv = new byte[IV_SIZE];
-        if (decoded.length < IV_SIZE) {
+
+        if (decoded.length < IV_SIZE + (TAG_BIT_LENGTH / 8)) {
             throw CommonError.illegalArgument(cipherText, "Invalid encrypted value (too short)");
         }
+
+        byte[] iv = new byte[IV_SIZE];
         byte[] encrypted = new byte[decoded.length - IV_SIZE];
 
         System.arraycopy(decoded, 0, iv, 0, IV_SIZE);
         System.arraycopy(decoded, IV_SIZE, encrypted, 0, encrypted.length);
 
-        IvParameterSpec ivSpec = new IvParameterSpec(iv);
+        GCMParameterSpec spec = new GCMParameterSpec(TAG_BIT_LENGTH, iv);
 
         byte[] original;
         try {
             Cipher cipher = Cipher.getInstance(ALGORITHM);
-            cipher.init(Cipher.DECRYPT_MODE, keySpec, ivSpec);
+            cipher.init(Cipher.DECRYPT_MODE, keySpec, spec);
             original = cipher.doFinal(encrypted);
         } catch (Exception e) {
-            throw TransformCommonError.encryptionError("Decryption failed", e);
+            throw TransformCommonError.encryptionError(
+                    "Decryption failed (possible tampering or wrong key)", e);
         }
 
         return new String(original, StandardCharsets.UTF_8);
