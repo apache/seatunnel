@@ -251,8 +251,11 @@ public class ParquetWriteStrategy extends AbstractWriteStrategy<ParquetWriter<Ge
                                     + TimeUnit.MILLISECONDS.toNanos(
                                             calendar.get(Calendar.MILLISECOND));
                     NanoTime nanoTime = new NanoTime(julianDays, timeOfDayNanos);
-                    return new GenericData.Fixed(
-                            schema.getField(name).schema(), nanoTime.toBinary().getBytes());
+                    Schema fieldSchema =
+                            schema.getField(name) != null ? schema.getField(name).schema() : null;
+                    return fieldSchema != null
+                            ? new GenericData.Fixed(fieldSchema, nanoTime.toBinary().getBytes())
+                            : null;
                 }
                 return ((LocalDateTime) data)
                         .atZone(ZoneId.systemDefault())
