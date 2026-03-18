@@ -42,7 +42,12 @@ public class CommandLineUtils {
     public static <T extends CommandArgs> T parse(
             String[] args, T obj, String programName, boolean acceptUnknownOptions) {
         List<String> list = Arrays.asList(args);
-        if (list.contains("-can") || list.contains("--cancel-job")) {
+        if (list.contains("-can")
+                || list.contains("--cancel")
+                || list.contains("--cancel-job")
+                || list.contains("-f")
+                || list.contains("--force-cancel")
+                || list.contains("--force-cancel-job")) {
             // When acceptUnknown Options is true, the List parameter cannot be parsed.
             // For details, please refer to the official code JCommander.class#DefaultVariableArity
             acceptUnknownOptions = false;
