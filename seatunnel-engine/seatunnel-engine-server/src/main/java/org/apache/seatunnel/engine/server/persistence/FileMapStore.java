@@ -19,6 +19,9 @@ package org.apache.seatunnel.engine.server.persistence;
 
 import org.apache.seatunnel.shade.com.google.common.collect.Maps;
 
+import org.apache.seatunnel.common.config.Common;
+import org.apache.seatunnel.common.utils.FileUtils;
+import org.apache.seatunnel.common.utils.TemporaryClassLoaderContext;
 import org.apache.seatunnel.engine.common.utils.FactoryUtil;
 import org.apache.seatunnel.engine.imap.storage.api.IMapStorage;
 import org.apache.seatunnel.engine.imap.storage.api.IMapStorageFactory;
@@ -28,9 +31,13 @@ import com.hazelcast.map.MapLoaderLifecycleSupport;
 import com.hazelcast.map.MapStore;
 import lombok.SneakyThrows;
 
+import java.io.IOException;
+import java.net.URL;
+import java.net.URLClassLoader;
 import java.util.Collection;
 import java.util.Collections;
 import java.util.HashMap;
+import java.util.List;
 import java.util.Map;
 import java.util.Properties;
 
@@ -42,12 +49,29 @@ public class FileMapStore implements MapStore<Object, Object>, MapLoaderLifecycl
     public void init(HazelcastInstance hazelcastInstance, Properties properties, String mapName) {
 
         Map<String, Object> initMap = new HashMap<>(Maps.fromProperties(properties));
-        this.mapStorage =
-                FactoryUtil.discoverFactory(
-                                Thread.currentThread().getContextClassLoader(),
-                                IMapStorageFactory.class,
-                                (String) initMap.get("type"))
-                        .create(initMap);
+        ClassLoader storageClassLoader = Thread.currentThread().getContextClassLoader();
+        try {
+            List<URL> storageJars =
+                    FileUtils.searchJarFilesForStorage(
+                            Common.appStarterDir().resolve("zeta"),
+                            properties.getProperty("storage.type"));
+            if (!storageJars.isEmpty()) {
+                storageClassLoader =
+                        new URLClassLoader(storageJars.toArray(new URL[0]), storageClassLoader);
+            }
+        } catch (IOException e) {
+            throw new IllegalStateException("Failed to load Zeta storage jars", e);
+        }
+
+        try (TemporaryClassLoaderContext ignored =
+                TemporaryClassLoaderContext.of(storageClassLoader)) {
+            this.mapStorage =
+                    FactoryUtil.discoverFactory(
+                                    Thread.currentThread().getContextClassLoader(),
+                                    IMapStorageFactory.class,
+                                    (String) initMap.get("type"))
+                            .create(initMap);
+        }
     }
 
     @Override

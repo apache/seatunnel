@@ -332,16 +332,10 @@ map:
            fs.oss.endpoint: OSS endpoint
 ```
 
-Notice: When using OSS, make sure that the following jars are in the lib directory.
-
-```
-aliyun-sdk-oss-3.13.2.jar
-hadoop-aliyun-3.3.6.jar
-jdom2-2.0.6.jar
-netty-buffer-4.1.89.Final.jar 
-netty-common-4.1.89.Final.jar
-seatunnel-hadoop3-3.1.4-uber.jar
-```
+Notice: In the official binary package, the jars required by OSS IMAP storage are copied to
+`starter/zeta/common` and `starter/zeta/oss`. You do not need to add them to `lib/` again when
+using the packaged distribution. If you build a custom distribution, make sure the Hadoop, OSS,
+JDOM, and Netty dependencies are available in those directories.
 
 It is possible to utilize S3 for IMAP storage. 
 
@@ -371,12 +365,11 @@ map:
          fs.s3a.aws.credentials.provider: org.apache.hadoop.fs.s3a.SimpleAWSCredentialsProvider
 ```
 
-Notice: When using S3, make sure that the following jars are in the lib directory.
-
-```
-seatunnel-hadoop3-3.1.4-uber.jar
-seatunnel-hadoop-aws.jar
-```
+Notice: In the official binary package, the jars required by S3 IMAP storage are copied to
+`starter/zeta/common` and `starter/zeta/s3`. You do not need to add them to `lib/` again when
+using the packaged distribution. If you build a custom distribution, make sure
+`seatunnel-hadoop3-3.1.4-uber.jar` and `seatunnel-hadoop-aws.jar` are available in those
+directories.
 
 
 ## 6. Configure The SeaTunnel Engine Client

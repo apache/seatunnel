@@ -28,9 +28,16 @@ import java.io.BufferedWriter;
 import java.io.File;
 import java.io.FileWriter;
 import java.io.IOException;
+import java.net.URL;
+import java.nio.file.Files;
 import java.nio.file.NoSuchFileException;
 import java.nio.file.Path;
 import java.nio.file.Paths;
+import java.util.Arrays;
+import java.util.HashSet;
+import java.util.List;
+import java.util.Set;
+import java.util.stream.Collectors;
 
 public class FileUtilsTest {
     @Test
@@ -144,5 +151,50 @@ public class FileUtilsTest {
         Assertions.assertEquals(
                 "",
                 FileUtils.readFileToStr(Paths.get("/tmp/newfolder/newfolder2/newfolde3/test.txt")));
+    }
+
+    @Test
+    public void testSearchJarFilesForStorageLoadsCommonAndStorageDirectories() throws Exception {
+        Path zetaDir = Files.createTempDirectory("seatunnel-zeta");
+        Files.createDirectories(zetaDir.resolve("common"));
+        Files.createDirectories(zetaDir.resolve("s3"));
+        Files.createDirectories(zetaDir.resolve("oss"));
+        Path commonJar = Files.createFile(zetaDir.resolve("common").resolve("common.jar"));
+        Path storageJar = Files.createFile(zetaDir.resolve("s3").resolve("s3.jar"));
+        Files.createFile(zetaDir.resolve("oss").resolve("oss.jar"));
+
+        Set<String> jarNames =
+                extractJarNames(FileUtils.searchJarFilesForStorage(zetaDir, "  S3  "));
+
+        Assertions.assertEquals(
+                new HashSet<>(
+                        Arrays.asList(
+                                commonJar.getFileName().toString(),
+                                storageJar.getFileName().toString())),
+                jarNames);
+    }
+
+    @Test
+    public void testSearchJarFilesForStorageFallsBackToLegacyLayout() throws Exception {
+        Path zetaDir = Files.createTempDirectory("seatunnel-zeta-legacy");
+        Path legacyJar = Files.createFile(zetaDir.resolve("legacy.jar"));
+
+        Set<String> jarNames = extractJarNames(FileUtils.searchJarFilesForStorage(zetaDir, "hdfs"));
+
+        Assertions.assertEquals(
+                new HashSet<>(Arrays.asList(legacyJar.getFileName().toString())), jarNames);
+    }
+
+    private Set<String> extractJarNames(List<URL> jarUrls) {
+        return jarUrls.stream()
+                .map(
+                        url -> {
+                            try {
+                                return Paths.get(url.toURI()).getFileName().toString();
+                            } catch (Exception e) {
+                                throw new RuntimeException(e);
+                            }
+                        })
+                .collect(Collectors.toSet());
     }
 }

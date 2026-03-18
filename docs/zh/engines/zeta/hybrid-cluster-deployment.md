@@ -328,16 +328,9 @@ map:
            fs.oss.endpoint: OSS endpoint
 ```
 
-注意：使用OSS 时，确保 lib目录下有这几个jar.
-
-```
-aliyun-sdk-oss-3.13.2.jar
-hadoop-aliyun-3.3.6.jar
-jdom2-2.0.6.jar
-netty-buffer-4.1.89.Final.jar 
-netty-common-4.1.89.Final.jar
-seatunnel-hadoop3-3.1.4-uber.jar
-```
+注意：在官方二进制发行包中，OSS IMAP 存储所需 jar 会被复制到
+`starter/zeta/common` 和 `starter/zeta/oss`。使用官方发行包时，不需要再手动放到 `lib/`
+目录。如果是自定义打包，请确保对应的 Hadoop、OSS、JDOM 和 Netty 依赖位于这两个目录中。
 
 ## 6. 配置 SeaTunnel Engine 客户端
 

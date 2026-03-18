@@ -38,6 +38,7 @@ import java.nio.file.Paths;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.List;
+import java.util.Locale;
 import java.util.Objects;
 import java.util.stream.Collectors;
 import java.util.stream.Stream;
@@ -64,6 +65,63 @@ public class FileUtils {
                             })
                     .collect(Collectors.toList());
         }
+    }
+
+    /**
+     * Search Zeta storage JAR files from a split starter layout.
+     *
+     * <p>When {@code storageType} is configured, SeaTunnel loads jars from {@code common/} and the
+     * matching storage-specific subdirectory (for example, {@code s3/} or {@code oss/}). If the
+     * split layout is not available, this method falls back to scanning the whole Zeta directory to
+     * preserve compatibility with the legacy layout.
+     *
+     * @param zetaDirectory The starter/zeta directory
+     * @param storageType The storage type configured in plugin-config, such as {@code hdfs}, {@code
+     *     s3}, or {@code oss}
+     * @return List of URLs pointing to JAR files
+     * @throws IOException if there is an error reading JAR files
+     */
+    public static List<URL> searchJarFilesForStorage(
+            @NonNull Path zetaDirectory, String storageType) throws IOException {
+        if (!Files.isDirectory(zetaDirectory)) {
+            log.debug("Zeta directory does not exist: {}", zetaDirectory);
+            return new ArrayList<>();
+        }
+
+        if (storageType == null || storageType.trim().isEmpty()) {
+            return searchJarFiles(zetaDirectory);
+        }
+
+        List<URL> jars = new ArrayList<>();
+        boolean splitLayoutDetected = false;
+
+        Path commonDir = zetaDirectory.resolve("common");
+        if (Files.isDirectory(commonDir)) {
+            splitLayoutDetected = true;
+            jars.addAll(searchJarFiles(commonDir));
+        }
+
+        String normalizedStorageType = storageType.trim().toLowerCase(Locale.ROOT);
+        Path storageDir = zetaDirectory.resolve(normalizedStorageType);
+        if (Files.isDirectory(storageDir)) {
+            splitLayoutDetected = true;
+            jars.addAll(searchJarFiles(storageDir));
+        }
+
+        if (splitLayoutDetected) {
+            log.info(
+                    "Loaded {} storage JAR(s) for storage type '{}' from {}",
+                    jars.size(),
+                    normalizedStorageType,
+                    zetaDirectory);
+            return jars;
+        }
+
+        log.info(
+                "No split Zeta storage directory found for storage type '{}', scan all JAR(s) under {} instead",
+                normalizedStorageType,
+                zetaDirectory);
+        return searchJarFiles(zetaDirectory);
     }
 
     public static String readFileToStr(Path path) {
