@@ -88,6 +88,8 @@ public class ClickhouseIT extends TestSuiteBase implements TestResource {
     private static final String DRIVER_CLASS = "com.clickhouse.jdbc.ClickHouseDriver";
     private static final String INIT_CLICKHOUSE_PATH = "/init/clickhouse_init.conf";
     private static final String CLICKHOUSE_JOB_CONFIG = "/clickhouse_to_clickhouse.conf";
+    private static final String CLICKHOUSE_FILE_JOB_CONFIG =
+            "/clickhouse_to_clickhousefile_avro.conf";
     private static final String DATABASE = "default";
     private static final String SOURCE_TABLE = "source_table";
     private static final String SOURCE_MERGE_TREE_TABLE = "source_merge_tree_table";
@@ -111,6 +113,15 @@ public class ClickhouseIT extends TestSuiteBase implements TestResource {
     @TestTemplate
     public void testClickhouse(TestContainer container) throws Exception {
         Container.ExecResult execResult = container.executeJob(CLICKHOUSE_JOB_CONFIG);
+        Assertions.assertEquals(0, execResult.getExitCode());
+        assertHasData(SINK_TABLE);
+        compareResult(SOURCE_TABLE, SINK_TABLE);
+        clearTable(SINK_TABLE);
+    }
+
+    @TestTemplate
+    public void testClickhouseFileSinkAvro(TestContainer container) throws Exception {
+        Container.ExecResult execResult = container.executeJob(CLICKHOUSE_FILE_JOB_CONFIG);
         Assertions.assertEquals(0, execResult.getExitCode());
         assertHasData(SINK_TABLE);
         compareResult(SOURCE_TABLE, SINK_TABLE);

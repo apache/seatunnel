@@ -38,7 +38,7 @@ Write data to Clickhouse can also be done using JDBC
 | node_pass.username     | string  | no       | "root"                                 |
 | node_pass.password     | string  | no       | -                                      |
 | compatible_mode        | boolean | no       | false                                  |
-| file_fields_delimiter  | string  | no       | "\t"                                   |
+| file_fields_delimiter  | string  | no       | "\t" (deprecated, ignored with Avro)   |
 | file_temp_path         | string  | no       | "/tmp/seatunnel/clickhouse-local/file" |
 | key_path               | string  | no       | "/tmp/id_rsa"                          |
 | common-options         |         | no       | -                                      |
@@ -106,9 +106,9 @@ you need to use this mode to take other ways to realize the `--path` parameter f
 
 ### file_fields_delimiter [string]
 
-ClickhouseFile uses csv format to temporarily save data. If the data in the row contains the delimiter value
-of csv, it may cause program exceptions.
-Avoid this with this configuration. Value string has to be an exactly one character long
+ClickhouseFile uses Avro format to temporarily save data and loads it with
+`clickhouse-local --input-format Avro`.
+This option is kept only for backward compatibility and is ignored in Avro write mode.
 
 ### file_temp_path [string]
 
@@ -144,5 +144,4 @@ ClickhouseFile {
 ## Changelog
 
 <ChangeLog />
-
 

@@ -18,7 +18,12 @@
 package org.apache.seatunnel.connectors.seatunnel.clickhouse.sink.file;
 
 import org.apache.seatunnel.api.sink.SinkWriter;
+import org.apache.seatunnel.api.table.type.ArrayType;
+import org.apache.seatunnel.api.table.type.BasicType;
+import org.apache.seatunnel.api.table.type.DecimalType;
+import org.apache.seatunnel.api.table.type.SeaTunnelDataType;
 import org.apache.seatunnel.api.table.type.SeaTunnelRow;
+import org.apache.seatunnel.api.table.type.SeaTunnelRowType;
 import org.apache.seatunnel.common.config.Common;
 import org.apache.seatunnel.common.exception.CommonError;
 import org.apache.seatunnel.common.exception.CommonErrorCodeDeprecated;
@@ -30,7 +35,15 @@ import org.apache.seatunnel.connectors.seatunnel.clickhouse.sink.client.ShardRou
 import org.apache.seatunnel.connectors.seatunnel.clickhouse.state.CKFileCommitInfo;
 import org.apache.seatunnel.connectors.seatunnel.clickhouse.state.ClickhouseSinkState;
 import org.apache.seatunnel.connectors.seatunnel.clickhouse.util.ClickhouseProxy;
+import org.apache.seatunnel.format.avro.SeaTunnelRowTypeToAvroSchemaConverter;
+import org.apache.seatunnel.format.avro.exception.AvroFormatErrorCode;
+import org.apache.seatunnel.format.avro.exception.SeaTunnelAvroFormatException;
 
+import org.apache.avro.Schema;
+import org.apache.avro.file.DataFileWriter;
+import org.apache.avro.generic.GenericDatumWriter;
+import org.apache.avro.generic.GenericRecord;
+import org.apache.avro.generic.GenericRecordBuilder;
 import org.apache.commons.io.FileUtils;
 
 import com.clickhouse.client.ClickHouseRequest;
@@ -42,11 +55,11 @@ import java.io.FileWriter;
 import java.io.IOException;
 import java.io.InputStream;
 import java.io.InputStreamReader;
-import java.nio.MappedByteBuffer;
-import java.nio.channels.FileChannel;
-import java.nio.charset.StandardCharsets;
-import java.nio.file.Paths;
-import java.nio.file.StandardOpenOption;
+import java.lang.reflect.Array;
+import java.math.BigDecimal;
+import java.nio.ByteBuffer;
+import java.time.LocalDate;
+import java.time.LocalDateTime;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.HashMap;
@@ -57,6 +70,8 @@ import java.util.UUID;
 import java.util.concurrent.ThreadLocalRandom;
 import java.util.function.Function;
 import java.util.stream.Collectors;
+
+import static java.time.ZoneOffset.UTC;
 
 @Slf4j
 public class ClickhouseFileSinkWriter
@@ -74,9 +89,9 @@ public class ClickhouseFileSinkWriter
     private final ClickhouseProxy proxy;
     private final ClickhouseTable clickhouseTable;
     private final Map<Shard, List<String>> shardLocalDataPaths;
-    private final Map<Shard, FileChannel> rowCache;
-    private final Map<Shard, MappedByteBuffer> bufferCache;
-    private final Integer bufferSize = 1024 * 128;
+    private final Map<Shard, DataFileWriter<GenericRecord>> rowCache;
+    private final Schema schema;
+    private final SeaTunnelRowType rowType;
 
     private final Map<Shard, String> shardTempFile;
 
@@ -96,7 +111,10 @@ public class ClickhouseFileSinkWriter
                         this.readerOption.getShardMetadata().getDatabase(),
                         this.readerOption.getShardMetadata().getTable());
         rowCache = new HashMap<>(Common.COLLECTION_SIZE);
-        bufferCache = new HashMap<>(Common.COLLECTION_SIZE);
+        schema =
+                SeaTunnelRowTypeToAvroSchemaConverter.buildAvroSchemaWithRowType(
+                        readerOption.getSeaTunnelRowType());
+        rowType = readerOption.getSeaTunnelRowType();
         shardTempFile = new HashMap<>();
         nodePasswordCheck();
 
@@ -121,7 +139,7 @@ public class ClickhouseFileSinkWriter
     @Override
     public void write(SeaTunnelRow element) throws IOException {
         Shard shard = shardRouter.getShard(element);
-        FileChannel channel =
+        DataFileWriter<GenericRecord> dataFileWriter =
                 rowCache.computeIfAbsent(
                         shard,
                         k -> {
@@ -137,17 +155,17 @@ public class ClickhouseFileSinkWriter
                                 String clickhouseLocalFileTmpFile =
                                         clickhouseLocalFile + CLICKHOUSE_LOCAL_FILE_SUFFIX;
                                 shardTempFile.put(shard, clickhouseLocalFileTmpFile);
-                                return FileChannel.open(
-                                        Paths.get(clickhouseLocalFileTmpFile),
-                                        StandardOpenOption.WRITE,
-                                        StandardOpenOption.READ,
-                                        StandardOpenOption.CREATE_NEW);
+                                File file = new File(clickhouseLocalFileTmpFile);
+                                DataFileWriter<GenericRecord> writer =
+                                        new DataFileWriter<>(new GenericDatumWriter<>(schema));
+                                writer.create(schema, file);
+                                return writer;
                             } catch (IOException e) {
                                 throw CommonError.fileOperationFailed(
                                         "ClickhouseFile", "write", clickhouseLocalFile, e);
                             }
                         });
-        saveDataToFile(channel, element, shard);
+        saveDataToFile(dataFileWriter, element);
     }
 
     private void nodePasswordCheck() {
@@ -176,8 +194,9 @@ public class ClickhouseFileSinkWriter
 
     @Override
     public Optional<CKFileCommitInfo> prepareCommit() throws IOException {
-        for (FileChannel channel : rowCache.values()) {
-            channel.close();
+        for (DataFileWriter<GenericRecord> writer : rowCache.values()) {
+            writer.flush();
+            writer.close();
         }
         Map<Shard, List<String>> detachedFiles = new HashMap<>();
         shardTempFile.forEach(
@@ -210,50 +229,14 @@ public class ClickhouseFileSinkWriter
 
     @Override
     public void close() throws IOException {
-        for (FileChannel channel : rowCache.values()) {
-            channel.close();
+        for (DataFileWriter<GenericRecord> writer : rowCache.values()) {
+            writer.close();
         }
     }
 
-    private void saveDataToFile(FileChannel fileChannel, SeaTunnelRow row, Shard shard)
+    private void saveDataToFile(DataFileWriter<GenericRecord> writer, SeaTunnelRow row)
             throws IOException {
-        String data =
-                this.readerOption.getFields().stream()
-                                .map(
-                                        field -> {
-                                            Object fieldValueObj =
-                                                    row.getField(
-                                                            this.readerOption
-                                                                    .getSeaTunnelRowType()
-                                                                    .indexOf(field));
-                                            if (fieldValueObj == null) {
-                                                return "";
-                                            } else {
-                                                return fieldValueObj.toString();
-                                            }
-                                        })
-                                .collect(Collectors.joining(readerOption.getFileFieldsDelimiter()))
-                        + "\n";
-
-        MappedByteBuffer buffer =
-                bufferCache.computeIfAbsent(
-                        shard,
-                        k -> {
-                            try {
-                                return fileChannel.map(
-                                        FileChannel.MapMode.READ_WRITE, 0, bufferSize);
-                            } catch (IOException e) {
-                                throw CommonError.fileOperationFailed(
-                                        "ClickhouseFile", "write", "UNKNOWN", e);
-                            }
-                        });
-        byte[] byteData = data.getBytes(StandardCharsets.UTF_8);
-        if (buffer.position() + byteData.length > buffer.capacity()) {
-            buffer =
-                    fileChannel.map(FileChannel.MapMode.READ_WRITE, fileChannel.size(), bufferSize);
-            bufferCache.put(shard, buffer);
-        }
-        buffer.put(byteData);
+        writer.append(convertRowToGenericRecord(row));
     }
 
     private List<String> generateClickhouseLocalFiles(String clickhouseLocalFileTmpFile)
@@ -275,8 +258,7 @@ public class ClickhouseFileSinkWriter
         }
         command.add("--file");
         command.add(clickhouseLocalFileTmpFile);
-        command.add("--format_csv_delimiter");
-        command.add("\"" + readerOption.getFileFieldsDelimiter() + "\"");
+        command.add("--input-format Avro");
         command.add("-S");
         command.add(
                 "\""
@@ -440,5 +422,89 @@ public class ClickhouseFileSinkWriter
                     createTableDDL.substring(0, p) + CLICKHOUSE_SETTINGS_KEY + filteredSetting;
         }
         return createTableDDL;
+    }
+
+    public GenericRecord convertRowToGenericRecord(SeaTunnelRow element) {
+        GenericRecordBuilder builder = new GenericRecordBuilder(schema);
+        String[] fieldNames = rowType.getFieldNames();
+        for (int i = 0; i < fieldNames.length; i++) {
+            String fieldName = rowType.getFieldName(i);
+            Object value = element.getField(i);
+            builder.set(fieldName, resolveObject(value, rowType.getFieldType(i)));
+        }
+        return builder.build();
+    }
+
+    private Object resolveObject(Object data, SeaTunnelDataType<?> seaTunnelDataType) {
+        if (data == null) {
+            return null;
+        }
+        switch (seaTunnelDataType.getSqlType()) {
+            case STRING:
+            case SMALLINT:
+            case INT:
+            case BIGINT:
+            case FLOAT:
+            case DOUBLE:
+            case BOOLEAN:
+            case MAP:
+            case TIMESTAMP:
+                if (data instanceof LocalDateTime) {
+                    return ((LocalDateTime) data).atZone(UTC).toInstant().toEpochMilli();
+                }
+                return data;
+            case DATE:
+                if (data instanceof LocalDate) {
+                    return (int) ((LocalDate) data).toEpochDay();
+                }
+                return data;
+            case TINYINT:
+                Class<?> typeClass = seaTunnelDataType.getTypeClass();
+                if (typeClass == Byte.class && data instanceof Byte) {
+                    Byte aByte = (Byte) data;
+                    return Byte.toUnsignedInt(aByte);
+                }
+                return data;
+            case BYTES:
+                return ByteBuffer.wrap((byte[]) data);
+            case DECIMAL:
+                return ByteBuffer.wrap(
+                        ((BigDecimal) data)
+                                .setScale(
+                                        ((DecimalType) seaTunnelDataType).getScale(),
+                                        BigDecimal.ROUND_HALF_UP)
+                                .unscaledValue()
+                                .toByteArray());
+            case ARRAY:
+                BasicType<?> basicType =
+                        (BasicType<?>) ((ArrayType<?, ?>) seaTunnelDataType).getElementType();
+                int length = Array.getLength(data);
+                ArrayList<Object> records = new ArrayList<>(length);
+                for (int i = 0; i < length; i++) {
+                    records.add(resolveObject(Array.get(data, i), basicType));
+                }
+                return records;
+            case ROW:
+                SeaTunnelRow seaTunnelRow = (SeaTunnelRow) data;
+                SeaTunnelDataType<?>[] fieldTypes =
+                        ((SeaTunnelRowType) seaTunnelDataType).getFieldTypes();
+                String[] fieldNames = ((SeaTunnelRowType) seaTunnelDataType).getFieldNames();
+                Schema recordSchema =
+                        SeaTunnelRowTypeToAvroSchemaConverter.buildAvroSchemaWithRowType(
+                                (SeaTunnelRowType) seaTunnelDataType);
+                GenericRecordBuilder recordBuilder = new GenericRecordBuilder(recordSchema);
+                for (int i = 0; i < fieldNames.length; i++) {
+                    recordBuilder.set(
+                            fieldNames[i], resolveObject(seaTunnelRow.getField(i), fieldTypes[i]));
+                }
+                return recordBuilder.build();
+            default:
+                String errorMsg =
+                        String.format(
+                                "SeaTunnel avro format is not supported for this data type [%s]",
+                                seaTunnelDataType.getSqlType());
+                throw new SeaTunnelAvroFormatException(
+                        AvroFormatErrorCode.UNSUPPORTED_DATA_TYPE, errorMsg);
+        }
     }
 }
