@@ -298,6 +298,50 @@ public class RocketMqIT extends TestSuiteBase implements TestResource {
         Assertions.assertEquals(0, execResult.getExitCode(), execResult.getStderr());
     }
 
+    @DisabledOnContainer(
+            value = {},
+            type = {EngineType.SPARK, EngineType.FLINK},
+            disabledReason = "The multi-catalog does not currently support the Spark Flink engine")
+    @TestTemplate
+    public void testSourceRocketMqMultiTableToAssert(TestContainer container)
+            throws IOException, InterruptedException {
+        String topicA = "test_topic_multi_a";
+        String topicB = "test_topic_multi_b";
+
+        // topicA: 5 messages without tag (ids 0-4).
+        // The conf sets global start.mode=CONSUME_FROM_LAST_OFFSET but overrides topicA to
+        // CONSUME_FROM_FIRST_OFFSET, so all 5 pre-written messages must be consumed.
+        DefaultSeaTunnelRowSerializer serializerA =
+                new DefaultSeaTunnelRowSerializer(
+                        topicA, null, SEATUNNEL_ROW_TYPE, DEFAULT_FORMAT, DEFAULT_FIELD_DELIMITER);
+        generateTestData(serializerA::serializeRow, topicA, 0, 5);
+
+        // topicB: 3 messages with "tag_b" (ids 100-102) + 4 messages with "other_tag" (ids
+        // 103-106).
+        // The conf overrides topicB to CONSUME_FROM_FIRST_OFFSET and filters by tags="tag_b",
+        // so exactly 3 messages must be consumed; other_tag messages are dropped.
+        DefaultSeaTunnelRowSerializer serializerB =
+                new DefaultSeaTunnelRowSerializer(
+                        topicB,
+                        "tag_b",
+                        SEATUNNEL_ROW_TYPE,
+                        DEFAULT_FORMAT,
+                        DEFAULT_FIELD_DELIMITER);
+        DefaultSeaTunnelRowSerializer serializerBOther =
+                new DefaultSeaTunnelRowSerializer(
+                        topicB,
+                        "other_tag",
+                        SEATUNNEL_ROW_TYPE,
+                        DEFAULT_FORMAT,
+                        DEFAULT_FIELD_DELIMITER);
+        generateTestData(serializerB::serializeRow, topicB, 100, 103);
+        generateTestData(serializerBOther::serializeRow, topicB, 103, 107);
+
+        Container.ExecResult execResult =
+                container.executeJob("/multiTableIT/rocketmq_multi_source_to_assert.conf");
+        Assertions.assertEquals(0, execResult.getExitCode(), execResult.getStderr());
+    }
+
     @TestTemplate
     public void testRocketMqLatestToConsole(TestContainer container)
             throws IOException, InterruptedException {
