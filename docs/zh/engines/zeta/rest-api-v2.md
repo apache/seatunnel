@@ -842,12 +842,22 @@ curl --location 'http://127.0.0.1:8080/submit-job/upload' --form 'config_file=@"
 <details>
 <summary><code>POST</code> <code><b>/stop-job</b></code> <code>(如果作业成功停止，返回jobId。)</code></summary>
 
+#### 参数
+
+| 参数名称                | 是否必传 | 参数类型 | 参数描述 |
+|------------------------|----------|----------|----------|
+| jobId                  | yes      | long     | 作业 ID |
+| isStopWithSavePoint    | no       | boolean  | 是否通过 savepoint 方式停止作业 |
+| force                  | no       | boolean  | 是否强制停止作业（忽略 isStopWithSavePoint 参数） |
+
+
 #### 请求体
 
 ```json
 {
     "jobId": 733584788375666689,
-    "isStopWithSavePoint": false # if job is stopped with save point
+    "isStopWithSavePoint": false,
+    "force": false
 }
 ```
 
@@ -858,6 +868,10 @@ curl --location 'http://127.0.0.1:8080/submit-job/upload' --form 'config_file=@"
 "jobId": 733584788375666689
 }
 ```
+
+**Notes（注意事项）：**
+- 如果作业状态为 DOING_SAVEPOINT 且保存点未成功完成，在启用 force 选项时执行的强制停止操作会将作业状态设置为 CANCELED。
+- 强制停止可能导致检查点数据不完整或处于不一致状态，仅应在异常或非正常情况下使用。
 
 </details>
 
@@ -875,11 +889,13 @@ curl --location 'http://127.0.0.1:8080/submit-job/upload' --form 'config_file=@"
 [
   {
     "jobId": 881432421482889220,
-    "isStopWithSavePoint": false
+    "isStopWithSavePoint": false,
+    "force": false
   },
   {
     "jobId": 881432456517910529,
-    "isStopWithSavePoint": false
+    "isStopWithSavePoint": false,
+    "force": false
   }
 ]
 ```

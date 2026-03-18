@@ -114,6 +114,8 @@ import static org.apache.seatunnel.common.constants.JobMode.BATCH;
 public class JobMaster {
     private static final ILogger LOGGER = Logger.getLogger(JobMaster.class);
 
+    private final Object metricsLock = new Object();
+
     private PhysicalPlan physicalPlan;
 
     private final Data jobImmutableInformationData;
@@ -773,6 +775,10 @@ public class JobMaster {
         physicalPlan.cancelJob();
     }
 
+    public synchronized void stopJob() {
+        physicalPlan.stopJob();
+    }
+
     public ResourceManager getResourceManager() {
         return resourceManager;
     }
@@ -883,7 +889,7 @@ public class JobMaster {
                 this.getCurrJobMetrics(Collections.singletonList(pipelineLocation));
         JobMetrics jobMetrics = JobMetricsUtil.toJobMetrics(currJobMetrics);
         long jobId = this.getJobImmutableInformation().getJobId();
-        synchronized (this) {
+        synchronized (metricsLock) {
             jobHistoryService.storeFinishedPipelineMetrics(jobId, jobMetrics);
         }
         // Clean TaskGroupContext for TaskExecutionServer
