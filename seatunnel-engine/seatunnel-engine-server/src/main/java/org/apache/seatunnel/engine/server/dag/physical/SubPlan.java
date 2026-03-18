@@ -396,6 +396,12 @@ public class SubPlan {
         }
     }
 
+    public void forceStopPipeline() {
+        jobMaster.neverNeedRestore();
+        coordinatorVertexList.forEach(PhysicalVertex::forceStop);
+        physicalVertexList.forEach(PhysicalVertex::forceStop);
+    }
+
     private void cancelCheckpointCoordinator() {
         if (jobMaster.getCheckpointManager() != null) {
             jobMaster.getCheckpointManager().cancelCheckpoint(pipelineId).join();
@@ -500,6 +506,22 @@ public class SubPlan {
                     e);
             makePipelineFailing(e);
             startSubPlanStateProcess();
+        }
+    }
+
+    public void stopPipelineWithCheckpointFallback() {
+        if (jobMaster.getCheckpointManager() == null) {
+            forceStopPipeline();
+            return;
+        }
+        if (jobMaster.getCheckpointManager().isCompletedPipeline(pipelineId)) {
+            forcePipelineFinish();
+        } else {
+            log.warn(
+                    "Failed to stop the pipeline gracefully. Falling back to forced stop: {}",
+                    pipelineFullName);
+            cancelCheckpointCoordinator();
+            forceStopPipeline();
         }
     }
 
