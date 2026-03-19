@@ -121,12 +121,12 @@ source {
     }
   }
 	#如果你想了解更多关于如何配置seatunnel的信息，并查看完整的源插件列表，
-	#请前往https://seatunnel.apache.org/docs/connector-v2/source
+	#请前往https://seatunnel.apache.org/docs/connectors/source
 }
 
 transform {
 	#如果你想了解更多关于如何配置seatunnel的信息，并查看转换插件的完整列表，
-	#请前往https://seatunnel.apache.org/docs/transform-v2
+	#请前往https://seatunnel.apache.org/docs/transforms
 }
 
 sink {
@@ -138,7 +138,7 @@ sink {
         query = "INSERT INTO TEST.TEST_TABLE(NAME,AGE) VALUES(?,?)"
      }
 	#如果你想了解更多关于如何配置seatunnel的信息，并查看完整的sink插件列表，
-	#请前往https://seatunnel.apache.org/docs/connector-v2/sink
+	#请前往https://seatunnel.apache.org/docs/connectors/sink
 }
 ```
 

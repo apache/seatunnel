@@ -30,12 +30,12 @@ import ChangeLog from '../changelog/connector-jdbc.md';
 
 ## 主要功能
 
-- [x] [批处理](../../concept/connector-v2-features.md)
-- [ ] [流处理](../../concept/connector-v2-features.md)
-- [x] [精确一次](../../concept/connector-v2-features.md)
-- [x] [列投影](../../concept/connector-v2-features.md)
-- [x] [并行度](../../concept/connector-v2-features.md)
-- [x] [支持用户定义的拆分](../../concept/connector-v2-features.md)
+- [x] [批处理](../../introduction/concepts/connector-v2-features.md)
+- [ ] [流处理](../../introduction/concepts/connector-v2-features.md)
+- [x] [精确一次](../../introduction/concepts/connector-v2-features.md)
+- [x] [列投影](../../introduction/concepts/connector-v2-features.md)
+- [x] [并行度](../../introduction/concepts/connector-v2-features.md)
+- [x] [支持用户定义的拆分](../../introduction/concepts/connector-v2-features.md)
 
 > 支持 SQL 查询，并能实现列投影效果
 
@@ -157,7 +157,7 @@ source{
 
 transform {
     # 如果您想了解更多关于如何配置 seatunnel 和查看转换插件的完整列表，
-    # 请访问 https://seatunnel.apache.org/docs/transform-v2/sql
+    # 请访问 https://seatunnel.apache.org/docs/transforms/sql
 }
 
 sink {
