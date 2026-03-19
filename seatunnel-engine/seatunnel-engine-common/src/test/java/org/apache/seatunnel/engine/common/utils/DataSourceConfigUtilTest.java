@@ -55,6 +55,7 @@ public class DataSourceConfigUtilTest {
     public void tearDown() {
         // Clear the cache after each test after each test
         DataSourceProviderFactory.clearCache();
+        DataSourceConfigUtil.clearCache();
     }
 
     @Test
