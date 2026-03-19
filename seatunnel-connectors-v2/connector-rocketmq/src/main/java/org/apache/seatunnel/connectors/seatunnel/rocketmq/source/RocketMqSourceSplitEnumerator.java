@@ -309,10 +309,18 @@ public class RocketMqSourceSplitEnumerator
                     break;
                 case CONSUME_FROM_SPECIFIC_OFFSETS:
                     Map<MessageQueue, Long> specificOffsets = metadata.getSpecificStartOffsets();
-                    setMessageQueueBroker(queues, specificOffsets);
-                    for (MessageQueue mq : queues) {
-                        if (specificOffsets != null && specificOffsets.containsKey(mq)) {
-                            topicPartitionOffsets.put(mq, specificOffsets.get(mq));
+                    if (specificOffsets != null) {
+                        Map<String, Long> offsetByKey = new HashMap<>();
+                        for (Map.Entry<MessageQueue, Long> e : specificOffsets.entrySet()) {
+                            offsetByKey.put(
+                                    e.getKey().getTopic() + "-" + e.getKey().getQueueId(),
+                                    e.getValue());
+                        }
+                        for (MessageQueue mq : queues) {
+                            Long offset = offsetByKey.get(mq.getTopic() + "-" + mq.getQueueId());
+                            if (offset != null) {
+                                topicPartitionOffsets.put(mq, offset);
+                            }
                         }
                     }
                     break;
@@ -329,26 +337,6 @@ public class RocketMqSourceSplitEnumerator
                         pendingSplit.get(mq).setStartOffset(offset);
                     }
                 });
-    }
-
-    private void setMessageQueueBroker(
-            Collection<MessageQueue> topicPartitions,
-            Map<MessageQueue, Long> topicPartitionOffsets) {
-        Map<String, String> flatTopicPartitions =
-                topicPartitions.stream()
-                        .collect(
-                                Collectors.toMap(
-                                        messageQueue ->
-                                                messageQueue.getTopic()
-                                                        + "-"
-                                                        + messageQueue.getQueueId(),
-                                        MessageQueue::getBrokerName));
-        for (MessageQueue messageQueue : topicPartitionOffsets.keySet()) {
-            String key = messageQueue.getTopic() + "-" + messageQueue.getQueueId();
-            if (flatTopicPartitions.containsKey(key)) {
-                messageQueue.setBrokerName(flatTopicPartitions.get(key));
-            }
-        }
     }
 
     private Map<MessageQueue, Long> listOffsets(

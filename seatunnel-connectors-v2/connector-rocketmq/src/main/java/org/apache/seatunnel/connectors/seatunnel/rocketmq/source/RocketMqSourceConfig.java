@@ -133,7 +133,7 @@ public class RocketMqSourceConfig implements Serializable {
                     long currentTimestamp = System.currentTimeMillis();
                     if (startTimestamp < 0 || startTimestamp > currentTimestamp) {
                         throw new IllegalArgumentException(
-                                "The offsets timestamp value is smaller than 0 or smaller"
+                                "The offsets timestamp value is smaller than 0 or larger"
                                         + " than the current time");
                     }
                     break;
@@ -216,7 +216,7 @@ public class RocketMqSourceConfig implements Serializable {
                 long currentTimestamp = System.currentTimeMillis();
                 if (startOffsetsTimestamp < 0 || startOffsetsTimestamp > currentTimestamp) {
                     throw new IllegalArgumentException(
-                            "The offsets timestamp value is smaller than 0 or smaller"
+                            "The offsets timestamp value is smaller than 0 or larger"
                                     + " than the current time");
                 }
                 consumerMetadata.setStartOffsetsTimestamp(startOffsetsTimestamp);
