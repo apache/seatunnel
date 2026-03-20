@@ -458,9 +458,9 @@ public class StarRocksCatalog implements Catalog {
     protected Optional<PrimaryKey> getPrimaryKey(String schema, String table) throws SQLException {
 
         List<String> pkFields = new ArrayList<>();
-        try (ResultSet rs =
-                conn.createStatement()
-                        .executeQuery(
+        try (Statement stmt = conn.createStatement();
+                ResultSet rs =
+                        stmt.executeQuery(
                                 String.format(
                                         "SELECT COLUMN_NAME FROM information_schema.columns where TABLE_SCHEMA = '%s' AND TABLE_NAME = '%s' AND COLUMN_KEY = 'PRI' ORDER BY ORDINAL_POSITION",
                                         schema, table))) {
