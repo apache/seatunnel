@@ -20,6 +20,7 @@ package org.apache.seatunnel.e2e.connector.file.s3;
 import org.apache.seatunnel.e2e.common.container.seatunnel.SeaTunnelContainer;
 import org.apache.seatunnel.e2e.common.util.ContainerUtil;
 
+import org.junit.jupiter.api.AfterAll;
 import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.BeforeAll;
 import org.junit.jupiter.api.Test;
@@ -38,6 +39,14 @@ import lombok.extern.slf4j.Slf4j;
 import java.io.IOException;
 import java.nio.file.Paths;
 
+/**
+ * MinIO-based S3 E2E test suite for connector-file-s3, covering:
+ *
+ * <ul>
+ *   <li>file filter by path/name pattern
+ *   <li>logical file split (enable_file_split/file_split_size) for parallel read
+ * </ul>
+ */
 @Slf4j
 @TestInstance(TestInstance.Lifecycle.PER_CLASS)
 public class S3FileWithFilterIT extends SeaTunnelContainer {
@@ -79,7 +88,9 @@ public class S3FileWithFilterIT extends SeaTunnelContainer {
     }
 
     @Override
+    @AfterAll
     public void tearDown() throws Exception {
+        super.tearDown();
         if (s3Container != null) {
             s3Container.close();
         }
@@ -142,5 +153,16 @@ public class S3FileWithFilterIT extends SeaTunnelContainer {
         Container.ExecResult execNameResult =
                 executeJob("/json/s3_to_access_for_json_name_filter.conf");
         Assertions.assertEquals(0, execNameResult.getExitCode());
+    }
+
+    @Test
+    public void testS3FileTextEnableSplitToAssert() throws IOException, InterruptedException {
+        S3Utils.uploadTestFiles(
+                "/text/e2e_split_with_header.txt",
+                "/test/seatunnel/read/split/text/e2e_split_with_header.txt",
+                true);
+        Container.ExecResult execResult =
+                executeJob("/text/s3_file_text_enable_split_to_assert.conf");
+        Assertions.assertEquals(0, execResult.getExitCode());
     }
 }

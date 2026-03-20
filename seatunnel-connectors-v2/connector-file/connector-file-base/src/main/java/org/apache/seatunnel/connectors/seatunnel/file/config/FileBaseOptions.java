@@ -162,5 +162,7 @@ public class FileBaseOptions extends ConnectorCommonOptions {
                     .longType()
                     .defaultValue(128 * 1024 * 1024L)
                     .withDescription(
-                            "File split size, which can be filled in when the enable_file_split parameter is true. The unit is the number of bytes. The default value is the number of bytes of 128MB, which is 128*1024*1024.");
+                            "File split size in bytes when enable_file_split=true. Must be greater than 0. "
+                                    + "For text-like formats, the split end will be aligned to the next row_delimiter. "
+                                    + "Default is 128MB (128*1024*1024).");
 }
