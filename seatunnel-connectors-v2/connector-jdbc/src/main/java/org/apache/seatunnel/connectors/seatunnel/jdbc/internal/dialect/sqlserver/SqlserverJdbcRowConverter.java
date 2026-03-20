@@ -27,6 +27,8 @@ import org.apache.seatunnel.connectors.seatunnel.jdbc.internal.converter.Abstrac
 import org.apache.seatunnel.connectors.seatunnel.jdbc.internal.dialect.DatabaseIdentifier;
 import org.apache.seatunnel.connectors.seatunnel.jdbc.utils.JdbcFieldTypeUtils;
 
+import javax.annotation.Nullable;
+
 import java.math.BigDecimal;
 import java.sql.PreparedStatement;
 import java.sql.ResultSet;
@@ -50,6 +52,40 @@ public class SqlserverJdbcRowConverter extends AbstractJdbcRowConverter {
         return Optional.ofNullable(sqlTime)
                 .map(e -> e.toLocalDateTime().toLocalTime())
                 .orElse(null);
+    }
+
+    @Override
+    protected void setNullToStatementByDataType(
+            PreparedStatement statement,
+            SeaTunnelDataType<?> seaTunnelDataType,
+            int statementIndex,
+            @Nullable String sourceType)
+            throws SQLException {
+
+        if (seaTunnelDataType.getSqlType() == SqlType.BYTES) {
+            statement.setNull(statementIndex, resolveSqlServerBytesNullType(sourceType));
+            return;
+        }
+
+        statement.setObject(statementIndex, null);
+    }
+
+    private int resolveSqlServerBytesNullType(@Nullable String sourceType) {
+        if (sourceType == null) {
+            return java.sql.Types.VARBINARY;
+        }
+
+        if (SqlServerTypeConverter.SQLSERVER_IMAGE.equals(sourceType)) {
+            return java.sql.Types.LONGVARBINARY;
+        }
+        if (sourceType.startsWith(SqlServerTypeConverter.SQLSERVER_VARBINARY)) {
+            return java.sql.Types.VARBINARY;
+        }
+        if (sourceType.startsWith(SqlServerTypeConverter.SQLSERVER_BINARY)) {
+            return java.sql.Types.BINARY;
+        }
+
+        return java.sql.Types.VARBINARY;
     }
 
     public PreparedStatement toExternal(

@@ -210,14 +210,16 @@ public abstract class AbstractJdbcRowConverter implements JdbcRowConverter {
                 SeaTunnelDataType<?> seaTunnelDataType = rowType.getFieldType(fieldIndex);
                 String fieldName = rowType.getFieldName(fieldIndex);
                 int statementIndex = fieldIndex + 1;
-                Object fieldValue = row.getField(fieldIndex);
-                if (fieldValue == null) {
-                    statement.setObject(statementIndex, null);
-                    continue;
-                }
                 String sourceType = null;
                 if (databaseTableSchema != null && databaseTableSchema.contains(fieldName)) {
                     sourceType = databaseTableSchema.getColumn(fieldName).getSourceType();
+                }
+                Object fieldValue = row.getField(fieldIndex);
+                if (fieldValue == null) {
+                    setNullToStatementByDataType(
+                            statement, seaTunnelDataType, statementIndex, sourceType);
+                    statement.setObject(statementIndex, null);
+                    continue;
                 }
                 setValueToStatementByDataType(
                         row.getField(fieldIndex),
@@ -233,6 +235,15 @@ public abstract class AbstractJdbcRowConverter implements JdbcRowConverter {
             }
         }
         return statement;
+    }
+
+    protected void setNullToStatementByDataType(
+            PreparedStatement statement,
+            SeaTunnelDataType<?> seaTunnelDataType,
+            int statementIndex,
+            @Nullable String sourceType)
+            throws SQLException {
+        statement.setObject(statementIndex, null);
     }
 
     protected void setValueToStatementByDataType(
