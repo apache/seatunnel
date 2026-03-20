@@ -148,9 +148,11 @@ public class SqlWhereConditionHelperTest {
         String result =
                 SqlWhereConditionHelper.applyWhereConditionWithWrap(sql, whereCondition, true);
 
-        // Should insert missing field before FROM
-        Assertions.assertTrue(result.contains(", partition_date FROM my_table"));
-        Assertions.assertTrue(result.contains("SELECT DISTINCT col1, col2"));
+        // DISTINCT with specific columns is complex, should NOT add missing fields
+        Assertions.assertTrue(result.contains("SELECT * FROM ("));
+        Assertions.assertFalse(
+                result.contains(", partition_date FROM"),
+                "DISTINCT query should NOT have fields auto-added. Result: " + result);
     }
 
     @Test
@@ -377,6 +379,10 @@ public class SqlWhereConditionHelperTest {
 
         Assertions.assertTrue(result.contains("SELECT * FROM ("));
         Assertions.assertTrue(result.contains(") tmp WHERE"));
+        // GROUP BY: should NOT add missing fields (would break non-aggregate column rule)
+        Assertions.assertFalse(
+                result.contains(", partition_date FROM"),
+                "GROUP BY query should NOT have fields auto-added. Result: " + result);
     }
 
     @Test
@@ -401,6 +407,10 @@ public class SqlWhereConditionHelperTest {
 
         Assertions.assertTrue(result.contains("SELECT * FROM ("));
         Assertions.assertTrue(result.contains(") tmp WHERE"));
+        // LIMIT: should NOT add missing fields
+        Assertions.assertFalse(
+                result.contains(", partition_date FROM"),
+                "LIMIT query should NOT have fields auto-added. Result: " + result);
     }
 
     @Test
@@ -1023,18 +1033,18 @@ public class SqlWhereConditionHelperTest {
 
     @Test
     public void testApplyWhereConditionWithWrap_CountStar_AddsMissingFields() {
-        // COUNT(*) should NOT be treated as SELECT *
-        // Missing fields should still be added
-        String sql = "SELECT id, COUNT(*) FROM orders GROUP BY id";
+        // COUNT(*) without GROUP BY: missing fields should still be added
+        String sql = "SELECT id, COUNT(*) FROM orders";
         String whereCondition = "WHERE partition_date = '2023-01-01'";
 
         String result =
                 SqlWhereConditionHelper.applyWhereConditionWithWrap(sql, whereCondition, true);
 
-        // partition_date should be added because COUNT(*) is not SELECT *
+        // partition_date should be added because COUNT(*) is not SELECT * and no GROUP BY
         Assertions.assertTrue(
                 result.contains(", partition_date FROM"),
-                "Missing field should be added for COUNT(*) query. Result: " + result);
+                "Missing field should be added for COUNT(*) query without GROUP BY. Result: "
+                        + result);
     }
 
     @Test
@@ -1055,8 +1065,8 @@ public class SqlWhereConditionHelperTest {
 
     @Test
     public void testApplyWhereConditionWithWrap_ComplexAggregate_AddsMissingFields() {
-        // Complex aggregate with * should still add missing fields
-        String sql = "SELECT id, SUM(a * b) as total FROM orders GROUP BY id";
+        // Complex aggregate without GROUP BY: should still add missing fields
+        String sql = "SELECT id, SUM(a * b) as total FROM orders";
         String whereCondition = "WHERE partition_date = '2023-01-01'";
 
         String result =
@@ -1065,7 +1075,8 @@ public class SqlWhereConditionHelperTest {
         // partition_date should be added
         Assertions.assertTrue(
                 result.contains(", partition_date FROM"),
-                "Missing field should be added for complex aggregate query. Result: " + result);
+                "Missing field should be added for complex aggregate query without GROUP BY. Result: "
+                        + result);
     }
 
     // ==================== Integration: UNION should NOT modify inner SQL ====================
@@ -1167,17 +1178,20 @@ public class SqlWhereConditionHelperTest {
 
     @Test
     public void testApplyWhereConditionWithWrap_CountStarWithQuotedField() {
-        // COUNT(*) with quoted field in WHERE
+        // COUNT(*) with GROUP BY: should NOT add fields
         String sql = "SELECT id, COUNT(*) FROM orders GROUP BY id";
         String whereCondition = "WHERE `partition_date` = '2023-01-01'";
 
         String result =
                 SqlWhereConditionHelper.applyWhereConditionWithWrap(sql, whereCondition, true);
 
-        // Should add quoted field
-        Assertions.assertTrue(
+        // GROUP BY present, should NOT add quoted field
+        Assertions.assertFalse(
                 result.contains(", `partition_date` FROM"),
-                "Quoted field should be preserved when added. Result: " + result);
+                "GROUP BY query should NOT have fields auto-added. Result: " + result);
+        // But should still wrap
+        Assertions.assertTrue(result.contains("SELECT * FROM ("));
+        Assertions.assertTrue(result.contains(") tmp WHERE"));
     }
 
     @Test
@@ -1208,5 +1222,237 @@ public class SqlWhereConditionHelperTest {
         Assertions.assertFalse(
                 result.contains(", partition_date FROM"),
                 "Query with table.* should not have fields added. Result: " + result);
+    }
+
+    // ==================== Tests for hasComplexClause ====================
+
+    @Test
+    public void testHasComplexClause_GroupBy() {
+        Assertions.assertTrue(
+                SqlWhereConditionHelper.hasComplexClause(
+                        "SELECT dept, COUNT(*) FROM emp GROUP BY dept"));
+    }
+
+    @Test
+    public void testHasComplexClause_Having() {
+        Assertions.assertTrue(
+                SqlWhereConditionHelper.hasComplexClause(
+                        "SELECT dept, COUNT(*) FROM emp GROUP BY dept HAVING COUNT(*) > 5"));
+    }
+
+    @Test
+    public void testHasComplexClause_Limit() {
+        Assertions.assertTrue(
+                SqlWhereConditionHelper.hasComplexClause("SELECT id FROM t LIMIT 100"));
+    }
+
+    @Test
+    public void testHasComplexClause_Offset() {
+        Assertions.assertTrue(
+                SqlWhereConditionHelper.hasComplexClause("SELECT id FROM t LIMIT 100 OFFSET 10"));
+    }
+
+    @Test
+    public void testHasComplexClause_Fetch() {
+        Assertions.assertTrue(
+                SqlWhereConditionHelper.hasComplexClause(
+                        "SELECT id FROM t FETCH FIRST 10 ROWS ONLY"));
+    }
+
+    @Test
+    public void testHasComplexClause_Top() {
+        Assertions.assertTrue(SqlWhereConditionHelper.hasComplexClause("SELECT TOP 10 id FROM t"));
+    }
+
+    @Test
+    public void testHasComplexClause_WindowFunction() {
+        Assertions.assertTrue(
+                SqlWhereConditionHelper.hasComplexClause(
+                        "SELECT id, ROW_NUMBER() OVER (ORDER BY id) FROM t"));
+    }
+
+    @Test
+    public void testHasComplexClause_Distinct() {
+        Assertions.assertTrue(
+                SqlWhereConditionHelper.hasComplexClause("SELECT DISTINCT col1, col2 FROM t"));
+    }
+
+    @Test
+    public void testHasComplexClause_DistinctStar_Safe() {
+        Assertions.assertFalse(
+                SqlWhereConditionHelper.hasComplexClause("SELECT DISTINCT * FROM t"),
+                "DISTINCT * is safe, should not be detected as complex");
+    }
+
+    @Test
+    public void testHasComplexClause_CTE() {
+        Assertions.assertTrue(
+                SqlWhereConditionHelper.hasComplexClause(
+                        "WITH cte AS (SELECT id FROM t) SELECT * FROM cte"));
+    }
+
+    @Test
+    public void testHasComplexClause_SimpleQuery() {
+        Assertions.assertFalse(
+                SqlWhereConditionHelper.hasComplexClause("SELECT id, name FROM users"));
+    }
+
+    @Test
+    public void testHasComplexClause_SimpleQueryWithWhere() {
+        Assertions.assertFalse(
+                SqlWhereConditionHelper.hasComplexClause(
+                        "SELECT id, name FROM users WHERE status = 'active'"));
+    }
+
+    @Test
+    public void testHasComplexClause_SimpleQueryWithJoin() {
+        Assertions.assertFalse(
+                SqlWhereConditionHelper.hasComplexClause(
+                        "SELECT t1.id, t2.name FROM t1 JOIN t2 ON t1.id = t2.id"));
+    }
+
+    @Test
+    public void testHasComplexClause_GroupByInSubquery() {
+        // GROUP BY inside subquery should NOT be detected at top level
+        Assertions.assertFalse(
+                SqlWhereConditionHelper.hasComplexClause(
+                        "SELECT * FROM (SELECT dept, COUNT(*) as cnt FROM emp GROUP BY dept) sub"),
+                "GROUP BY inside subquery should NOT be detected as top-level complex clause");
+    }
+
+    @Test
+    public void testHasComplexClause_LimitInSubquery() {
+        Assertions.assertFalse(
+                SqlWhereConditionHelper.hasComplexClause(
+                        "SELECT * FROM (SELECT id FROM t LIMIT 100) sub"),
+                "LIMIT inside subquery should NOT be detected as top-level complex clause");
+    }
+
+    @Test
+    public void testHasComplexClause_KeywordInString() {
+        Assertions.assertFalse(
+                SqlWhereConditionHelper.hasComplexClause("SELECT id, 'GROUP BY' as label FROM t"),
+                "GROUP BY in string literal should NOT be detected");
+    }
+
+    // ==================== Tests for complex clause fallback behavior ====================
+
+    @Test
+    public void testApplyWhereConditionWithWrap_GroupBy_SkipsAddingFields() {
+        String sql = "SELECT dept, COUNT(*) as cnt FROM emp GROUP BY dept";
+        String whereCondition = "WHERE region = 'US'";
+
+        String result =
+                SqlWhereConditionHelper.applyWhereConditionWithWrap(sql, whereCondition, true);
+
+        // Should still wrap
+        Assertions.assertTrue(result.contains("SELECT * FROM ("));
+        Assertions.assertTrue(result.contains(") tmp WHERE region = 'US'"));
+        // Should NOT add region to SELECT (GROUP BY makes it unsafe)
+        Assertions.assertFalse(
+                result.contains(", region FROM"),
+                "GROUP BY query should NOT have fields auto-added. Result: " + result);
+    }
+
+    @Test
+    public void testApplyWhereConditionWithWrap_Having_SkipsAddingFields() {
+        String sql = "SELECT dept, COUNT(*) as cnt FROM emp GROUP BY dept HAVING COUNT(*) > 5";
+        String whereCondition = "WHERE region = 'US'";
+
+        String result =
+                SqlWhereConditionHelper.applyWhereConditionWithWrap(sql, whereCondition, true);
+
+        Assertions.assertTrue(result.contains("SELECT * FROM ("));
+        Assertions.assertFalse(
+                result.contains(", region FROM"),
+                "HAVING query should NOT have fields auto-added. Result: " + result);
+    }
+
+    @Test
+    public void testApplyWhereConditionWithWrap_Distinct_SkipsAddingFields() {
+        String sql = "SELECT DISTINCT col1, col2 FROM my_table";
+        String whereCondition = "WHERE partition_date = '2023-01-01'";
+
+        String result =
+                SqlWhereConditionHelper.applyWhereConditionWithWrap(sql, whereCondition, true);
+
+        Assertions.assertTrue(result.contains("SELECT * FROM ("));
+        // DISTINCT with specific columns: should NOT add fields (changes dedup semantics)
+        Assertions.assertFalse(
+                result.contains(", partition_date FROM"),
+                "DISTINCT query should NOT have fields auto-added. Result: " + result);
+    }
+
+    @Test
+    public void testApplyWhereConditionWithWrap_Limit_SkipsAddingFields() {
+        String sql = "SELECT col1, col2 FROM my_table LIMIT 100";
+        String whereCondition = "WHERE partition_date = '2023-01-01'";
+
+        String result =
+                SqlWhereConditionHelper.applyWhereConditionWithWrap(sql, whereCondition, true);
+
+        Assertions.assertTrue(result.contains("SELECT * FROM ("));
+        Assertions.assertFalse(
+                result.contains(", partition_date FROM"),
+                "LIMIT query should NOT have fields auto-added. Result: " + result);
+    }
+
+    @Test
+    public void testApplyWhereConditionWithWrap_WindowFunction_SkipsAddingFields() {
+        String sql = "SELECT id, ROW_NUMBER() OVER (ORDER BY id) as rn FROM my_table";
+        String whereCondition = "WHERE partition_date = '2023-01-01'";
+
+        String result =
+                SqlWhereConditionHelper.applyWhereConditionWithWrap(sql, whereCondition, true);
+
+        Assertions.assertTrue(result.contains("SELECT * FROM ("));
+        Assertions.assertFalse(
+                result.contains(", partition_date FROM"),
+                "Window function query should NOT have fields auto-added. Result: " + result);
+    }
+
+    @Test
+    public void testApplyWhereConditionWithWrap_CTE_SkipsAddingFields() {
+        String sql = "WITH cte AS (SELECT id, name FROM users) SELECT id FROM cte";
+        String whereCondition = "WHERE name = 'test'";
+
+        String result =
+                SqlWhereConditionHelper.applyWhereConditionWithWrap(sql, whereCondition, true);
+
+        Assertions.assertTrue(result.contains("SELECT * FROM ("));
+        // The inner SQL should remain unchanged (CTE detected, no fields added)
+        Assertions.assertTrue(
+                result.contains("WITH cte AS (SELECT id, name FROM users) SELECT id FROM cte"),
+                "CTE inner SQL should not be modified. Result: " + result);
+    }
+
+    @Test
+    public void testApplyWhereConditionWithWrap_SimpleQuery_StillAddsFields() {
+        // Simple query without complex clauses: should still add missing fields
+        String sql = "SELECT id, name FROM users";
+        String whereCondition = "WHERE age > 18";
+
+        String result =
+                SqlWhereConditionHelper.applyWhereConditionWithWrap(sql, whereCondition, true);
+
+        Assertions.assertTrue(
+                result.contains(", age FROM"),
+                "Simple query should still have missing fields added. Result: " + result);
+    }
+
+    @Test
+    public void testApplyWhereConditionWithWrap_SubqueryGroupBy_StillAddsFields() {
+        // GROUP BY is inside subquery, outer query is simple — should still add fields
+        String sql =
+                "SELECT dept, cnt FROM (SELECT dept, COUNT(*) as cnt FROM emp GROUP BY dept) sub";
+        String whereCondition = "WHERE region = 'US'";
+
+        String result =
+                SqlWhereConditionHelper.applyWhereConditionWithWrap(sql, whereCondition, true);
+
+        Assertions.assertTrue(
+                result.contains(", region FROM"),
+                "Outer simple query with GROUP BY only in subquery should add fields. Result: "
+                        + result);
     }
 }

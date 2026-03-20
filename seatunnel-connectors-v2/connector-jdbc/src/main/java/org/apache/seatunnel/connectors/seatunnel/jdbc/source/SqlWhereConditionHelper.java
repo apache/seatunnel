@@ -330,6 +330,80 @@ public class SqlWhereConditionHelper {
     }
 
     /**
+     * Check if SQL contains complex clauses that make auto-adding fields unsafe. Detects: GROUP BY,
+     * HAVING, DISTINCT (with specific columns), LIMIT/OFFSET/FETCH/TOP, window functions (OVER),
+     * and CTE (WITH ... AS).
+     */
+    public static boolean hasComplexClause(String sql) {
+        String upper = sql.toUpperCase();
+        int length = upper.length();
+        int parenCount = 0;
+        boolean inString = false;
+        char stringChar = 0;
+
+        // Check for CTE (WITH ... AS) at the beginning
+        String trimmedUpper = upper.trim();
+        if (trimmedUpper.startsWith("WITH") && isKeywordEnd(trimmedUpper, 4)) {
+            return true;
+        }
+
+        for (int i = 0; i < length; i++) {
+            char c = upper.charAt(i);
+
+            if (!inString && (c == '\'' || c == '"')) {
+                inString = true;
+                stringChar = c;
+            } else if (inString && c == stringChar) {
+                if (i + 1 < length && upper.charAt(i + 1) == stringChar) {
+                    i++;
+                } else {
+                    inString = false;
+                }
+            } else if (!inString) {
+                if (c == '(') {
+                    parenCount++;
+                } else if (c == ')') {
+                    parenCount--;
+                } else if (parenCount == 0) {
+                    boolean wordBoundary =
+                            i == 0
+                                    || Character.isWhitespace(upper.charAt(i - 1))
+                                    || upper.charAt(i - 1) == ')';
+                    if (wordBoundary) {
+                        if (matchKeyword(upper, i, "GROUP")) return true;
+                        if (matchKeyword(upper, i, "HAVING")) return true;
+                        if (matchKeyword(upper, i, "LIMIT")) return true;
+                        if (matchKeyword(upper, i, "OFFSET")) return true;
+                        if (matchKeyword(upper, i, "FETCH")) return true;
+                        if (matchKeyword(upper, i, "OVER")) return true;
+                    }
+                    // Check for TOP after SELECT
+                    if (wordBoundary && matchKeyword(upper, i, "TOP")) return true;
+                    // Check for DISTINCT with specific columns (not DISTINCT *)
+                    if (wordBoundary
+                            && upper.startsWith("DISTINCT", i)
+                            && isKeywordEnd(upper, i + 8)) {
+                        // Check if it's DISTINCT * (which is safe)
+                        int afterDistinct = i + 8;
+                        while (afterDistinct < length
+                                && Character.isWhitespace(upper.charAt(afterDistinct))) {
+                            afterDistinct++;
+                        }
+                        if (afterDistinct >= length || upper.charAt(afterDistinct) != '*') {
+                            return true;
+                        }
+                    }
+                }
+            }
+        }
+        return false;
+    }
+
+    private static boolean matchKeyword(String upper, int pos, String keyword) {
+        return upper.startsWith(keyword, pos) && isKeywordEnd(upper, pos + keyword.length());
+    }
+
+    /**
      * Ensure all required fields are in the SELECT clause.
      *
      * @param sql the original SQL
@@ -344,6 +418,16 @@ public class SqlWhereConditionHelper {
             log.info(
                     "Detected UNION/INTERSECT/EXCEPT query, skipping auto-add missing fields. "
                             + "Please ensure all required fields are included in each SELECT branch. SQL: {}",
+                    sql);
+            return sql;
+        }
+
+        // For complex SQL (GROUP BY, HAVING, DISTINCT, LIMIT, window functions, CTE),
+        // skip auto-adding columns to avoid breaking query semantics.
+        if (hasComplexClause(sql)) {
+            log.info(
+                    "Detected complex SQL clause (GROUP BY/HAVING/DISTINCT/LIMIT/OVER/CTE), "
+                            + "skipping auto-add missing fields. SQL: {}",
                     sql);
             return sql;
         }
