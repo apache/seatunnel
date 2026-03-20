@@ -23,7 +23,7 @@ import org.apache.seatunnel.engine.common.config.EngineConfig;
 import org.apache.seatunnel.engine.common.config.SeaTunnelConfig;
 import org.apache.seatunnel.engine.common.exception.SeaTunnelEngineException;
 import org.apache.seatunnel.engine.common.exception.SeaTunnelEngineRetryableException;
-import org.apache.seatunnel.engine.common.utils.DataSourceConfigUtil;
+import org.apache.seatunnel.engine.common.utils.DataSourceConfigResolver;
 import org.apache.seatunnel.engine.core.classloader.ClassLoaderService;
 import org.apache.seatunnel.engine.core.classloader.DefaultClassLoaderService;
 import org.apache.seatunnel.engine.server.checkpoint.monitor.CheckpointMonitorService;
@@ -236,7 +236,7 @@ public class SeaTunnelServer
             eventService.shutdownNow();
         }
 
-        DataSourceConfigUtil.closeProviders();
+        DataSourceConfigResolver.closeProviders();
     }
 
     @Override

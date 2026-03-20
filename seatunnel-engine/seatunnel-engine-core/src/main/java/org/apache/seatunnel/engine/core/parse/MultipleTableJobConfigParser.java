@@ -60,7 +60,7 @@ import org.apache.seatunnel.engine.common.config.server.DataSourceConfig;
 import org.apache.seatunnel.engine.common.exception.JobDefineCheckException;
 import org.apache.seatunnel.engine.common.exception.SeaTunnelEngineException;
 import org.apache.seatunnel.engine.common.loader.SeaTunnelChildFirstClassLoader;
-import org.apache.seatunnel.engine.common.utils.DataSourceConfigUtil;
+import org.apache.seatunnel.engine.common.utils.DataSourceConfigResolver;
 import org.apache.seatunnel.engine.common.utils.IdGenerator;
 import org.apache.seatunnel.engine.core.classloader.ClassLoaderService;
 import org.apache.seatunnel.engine.core.dag.actions.Action;
@@ -863,7 +863,7 @@ public class MultipleTableJobConfigParser {
                 && dataSourceConfig.isEnabled()
                 && hasDatasourceId(seaTunnelJobConfig)) {
             tempconfig =
-                    DataSourceConfigUtil.resolveDataSourceConfigs(
+                    DataSourceConfigResolver.resolveDataSourceConfigs(
                             seaTunnelJobConfig, dataSourceConfig);
         }
         // Compatible with old code

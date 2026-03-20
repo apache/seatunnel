@@ -21,7 +21,6 @@ import org.apache.seatunnel.shade.com.typesafe.config.Config;
 import org.apache.seatunnel.shade.com.typesafe.config.ConfigFactory;
 
 import org.apache.seatunnel.api.datasource.DataSourceProvider;
-import org.apache.seatunnel.api.datasource.DataSourceProviderFactory;
 import org.apache.seatunnel.api.datasource.exception.DataSourceProviderException;
 import org.apache.seatunnel.engine.common.config.server.DataSourceConfig;
 
@@ -32,10 +31,10 @@ import org.junit.jupiter.api.Test;
 import lombok.SneakyThrows;
 
 import java.nio.file.Paths;
-import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.Objects;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertNotNull;
@@ -48,14 +47,13 @@ public class DataSourceConfigUtilTest {
     @BeforeEach
     public void setUp() {
         // Clear the cache before each test
-        DataSourceProviderFactory.clearCache();
+        DataSourceConfigResolver.clearCache();
     }
 
     @AfterEach
     public void tearDown() {
-        // Clear the cache after each test after each test
-        DataSourceProviderFactory.clearCache();
-        DataSourceConfigUtil.clearCache();
+        // Clear the cache after each test
+        DataSourceConfigResolver.clearCache();
     }
 
     @Test
@@ -74,15 +72,15 @@ public class DataSourceConfigUtilTest {
 
         // Resolve with datasource_id
         Config resolved =
-                DataSourceConfigUtil.resolveDataSourceConfigs(jobConfig, dataSourceConfig);
+                DataSourceConfigResolver.resolveDataSourceConfigs(jobConfig, dataSourceConfig);
 
         assertNotNull(resolved);
 
-        // Verify we have 2 sources and 2 sinks
+        // Verify we have 3 sources and 3 sinks
         List<? extends Config> sources = resolved.getConfigList("source");
         List<? extends Config> sinks = resolved.getConfigList("sink");
-        assertEquals(2, sources.size());
-        assertEquals(2, sinks.size());
+        assertEquals(3, sources.size());
+        assertEquals(3, sinks.size());
 
         // Verify first source has datasource config merged (flat structure)
         Config source1 = sources.get(0);
@@ -99,6 +97,14 @@ public class DataSourceConfigUtilTest {
         assertEquals("metadata_user", source2.getString("username"));
         assertEquals("select id, value from table2", source2.getString("query"));
 
+        // Verify third source (Jdbc without datasource_id) - keep original config
+        Config source3 = sources.get(2);
+        assertEquals("jdbc:mysql://localhost:3306", source3.getString("url"));
+        assertEquals("com.mysql.cj.jdbc.Driver", source3.getString("driver"));
+        assertEquals("root", source3.getString("user"));
+        assertEquals("123456", source3.getString("password"));
+        assertEquals("select id, name from table4", source3.getString("query"));
+
         // Verify first sink has datasource config merged (flat structure)
         Config sink1 = sinks.get(0);
         assertEquals("jdbc:postgresql://metadata:5432/metadata_db", sink1.getString("url"));
@@ -109,24 +115,35 @@ public class DataSourceConfigUtilTest {
         Config sink2 = sinks.get(1);
         assertEquals("jdbc:postgresql://metadata:5432/metadata_db", sink2.getString("url"));
         assertEquals("insert into sink_table2 (id, value) values (?, ?)", sink2.getString("query"));
+
+        // Verify third sink (Jdbc without datasource_id) - keep original config
+        Config sink3 = sinks.get(2);
+        assertEquals("jdbc:mysql://localhost:3306", sink3.getString("url"));
+        assertEquals("com.mysql.cj.jdbc.Driver", sink3.getString("driver"));
+        assertEquals("root", sink3.getString("user"));
+        assertEquals("123456", sink3.getString("password"));
+        assertEquals("insert into sink_table4 (id, name) values (?, ?)", sink3.getString("query"));
     }
 
     @Test
-    public void testResolveDataSourceConfigsWithUnknownProvider() {
+    public void testResolveDataSourceConfigsWithNoProvider() {
+        // Clear any cached provider
+        DataSourceConfigResolver.clearCache();
+
         // Load config from file with datasource_id
         Config jobConfig = loadTestConfig();
 
-        // Create DataSourceConfig with unknown provider
+        // Create DataSourceConfig with unknown provider kind
         DataSourceConfig dataSourceConfig = new DataSourceConfig();
         dataSourceConfig.setEnabled(true);
-        dataSourceConfig.setKind("unknown-provider");
+        dataSourceConfig.setKind("unknown-provider-kind");
 
-        // Try to resolve with a provider that doesn't exist
+        // Try to resolve with a provider kind that doesn't exist
         DataSourceProviderException exception =
                 assertThrows(
                         DataSourceProviderException.class,
                         () ->
-                                DataSourceConfigUtil.resolveDataSourceConfigs(
+                                DataSourceConfigResolver.resolveDataSourceConfigs(
                                         jobConfig, dataSourceConfig));
 
         // Verify exception is thrown
@@ -139,8 +156,9 @@ public class DataSourceConfigUtilTest {
     private Config loadTestConfig() {
         return ConfigFactory.parseFile(
                 Paths.get(
-                                DataSourceConfigUtilTest.class
-                                        .getResource("/conf/datasource-test.conf")
+                                Objects.requireNonNull(
+                                                DataSourceConfigUtilTest.class.getResource(
+                                                        "/conf/datasource-test.conf"))
                                         .toURI())
                         .toFile());
     }
@@ -151,19 +169,10 @@ public class DataSourceConfigUtilTest {
      */
     private void registerProvider(DataSourceProvider provider) {
         try {
-            java.lang.reflect.Field providersField =
-                    DataSourceProviderFactory.class.getDeclaredField("cachedProviders");
-            providersField.setAccessible(true);
-            @SuppressWarnings("unchecked")
-            List<DataSourceProvider> cachedProviders =
-                    (List<DataSourceProvider>) providersField.get(null);
-            if (cachedProviders == null) {
-                cachedProviders = new ArrayList<>();
-                cachedProviders.add(provider);
-                providersField.set(null, cachedProviders);
-            } else if (cachedProviders.isEmpty()) {
-                cachedProviders.add(provider);
-            }
+            java.lang.reflect.Field providerField =
+                    DataSourceConfigResolver.class.getDeclaredField("cachedProvider");
+            providerField.setAccessible(true);
+            providerField.set(null, provider);
         } catch (Exception e) {
             throw new RuntimeException("Failed to register provider for testing", e);
         }

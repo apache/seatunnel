@@ -40,24 +40,18 @@ import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
-import java.util.concurrent.ConcurrentHashMap;
 
 /**
  * Utility class for resolving data source configurations from DataSource Center.
  *
  * <p>This utility provides methods to merge connection configurations retrieved from external
  * metadata services (via {@link DataSourceProvider}) into SeaTunnel connector configurations.
- *
- * <p>Provider instances are cached lazily and reused across multiple calls. The cache key is
- * composed of the provider kind and properties hash, allowing different configurations to have
- * separate provider instances.
  */
 @Slf4j
-public final class DataSourceConfigUtil {
+public final class DataSourceConfigResolver {
 
-    /** Cache for initialized DataSourceProvider instances. */
-    private static final ConcurrentHashMap<String, DataSourceProvider> PROVIDER_CACHE =
-            new ConcurrentHashMap<>();
+    /** Cache for initialized DataSourceProvider instance. */
+    private static volatile DataSourceProvider cachedProvider = null;
 
     /**
      * Resolves and merges data source configurations for a SeaTunnel job config.
@@ -79,9 +73,7 @@ public final class DataSourceConfigUtil {
         // Get or create initialized provider instance (cached with lazy loading)
         DataSourceProvider provider =
                 getOrCreateProvider(
-                        dataSourceConfig.getKind(),
-                        ConfigFactory.parseMap(dataSourceConfig.getProperties()),
-                        dataSourceConfig.getProperties());
+                        providerKind, ConfigFactory.parseMap(dataSourceConfig.getProperties()));
 
         // Get original config as unwrapped map
         Map<String, Object> originalMap = seaTunnelJobConfig.root().unwrapped();
@@ -119,38 +111,24 @@ public final class DataSourceConfigUtil {
     /**
      * Gets or creates an initialized DataSourceProvider instance with lazy loading caching.
      *
-     * <p>The provider instance is cached by kind and properties hash to avoid repeated
-     * initialization. The cache key is composed of {@code kind:propertiesHashCode}, ensuring
-     * different configurations get separate provider instances.
-     *
      * @param kind the provider kind (e.g., "gravitino", "datahub")
      * @param config the configuration for the provider
-     * @param properties the properties map used to generate the cache key
      * @return initialized DataSourceProvider instance
      */
-    private static DataSourceProvider getOrCreateProvider(
-            String kind, Config config, Map<String, String> properties) {
-        String cacheKey = generateCacheKey(kind, properties);
-
-        return PROVIDER_CACHE.computeIfAbsent(
-                cacheKey,
-                k -> {
-                    DataSourceProvider provider = DataSourceProviderFactory.getProvider(kind);
+    private static DataSourceProvider getOrCreateProvider(String kind, Config config) {
+        DataSourceProvider provider = cachedProvider;
+        if (provider == null) {
+            synchronized (DataSourceConfigResolver.class) {
+                provider = cachedProvider;
+                if (provider == null) {
+                    provider = DataSourceProviderFactory.getProvider(kind);
                     provider.init(config);
-                    log.info("Created and cached new DataSourceProvider with key: {}", cacheKey);
-                    return provider;
-                });
-    }
-
-    /**
-     * Generates a cache key for the provider based on kind and properties.
-     *
-     * @param kind the provider kind
-     * @param properties the provider properties
-     * @return the cache key
-     */
-    private static String generateCacheKey(String kind, Map<String, String> properties) {
-        return kind + ":" + properties.hashCode();
+                    cachedProvider = provider;
+                    log.info("Created and cached new DataSourceProvider: {}", kind);
+                }
+            }
+        }
+        return provider;
     }
 
     /**
@@ -342,34 +320,31 @@ public final class DataSourceConfigUtil {
     }
 
     /**
-     * Closes all cached DataSourceProvider instances.
+     * Closes the cached DataSourceProvider instance.
      *
      * <p>This method should be called when the application shuts down (e.g., when the SeaTunnel
-     * Server is stopping) to properly release all resources held by the providers.
+     * Server or Client is stopping) to properly release all resources held by the provider.
      *
      * <p>This method is idempotent and can be safely called multiple times.
      */
     public static void closeProviders() {
-        log.info("Closing all cached DataSourceProviders, count: {}", PROVIDER_CACHE.size());
-
-        PROVIDER_CACHE.forEach(
-                (key, provider) -> {
-                    try {
-                        log.debug("Closing DataSourceProvider: {}", key);
-                        provider.close();
-                    } catch (Exception e) {
-                        log.warn("Failed to close DataSourceProvider: {}", key, e);
-                    }
-                });
-
-        PROVIDER_CACHE.clear();
-        log.info("All DataSourceProviders closed");
+        DataSourceProvider provider = cachedProvider;
+        if (provider != null) {
+            try {
+                log.info("Closing cached DataSourceProvider");
+                provider.close();
+            } catch (Exception e) {
+                log.warn("Failed to close DataSourceProvider", e);
+            }
+            cachedProvider = null;
+        }
+        log.info("DataSourceProvider closed");
     }
 
     /**
      * Clears the provider cache.
      *
-     * <p>This method is primarily intended for testing purposes. It closes all cached providers and
+     * <p>This method is primarily intended for testing purposes. It closes the cached provider and
      * clears the cache.
      */
     @VisibleForTesting

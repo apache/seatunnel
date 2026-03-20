@@ -21,12 +21,10 @@ import org.apache.seatunnel.api.datasource.exception.DataSourceProviderException
 
 import lombok.extern.slf4j.Slf4j;
 
-import java.util.LinkedList;
+import java.util.ArrayList;
 import java.util.List;
-import java.util.Optional;
 import java.util.ServiceConfigurationError;
 import java.util.ServiceLoader;
-import java.util.stream.Collectors;
 
 /**
  * Utility class for discovering and loading {@link DataSourceProvider} implementations via Java
@@ -35,7 +33,6 @@ import java.util.stream.Collectors;
  * <p>This class provides methods to:
  *
  * <ul>
- *   <li>Discover all available data source providers
  *   <li>Find a specific provider by kind
  *   <li>Handle provider loading errors gracefully
  * </ul>
@@ -43,12 +40,8 @@ import java.util.stream.Collectors;
 @Slf4j
 public final class DataSourceProviderFactory {
 
-    /** Cache for provider list. */
-    private static volatile List<DataSourceProvider> cachedProviders = null;
-
     /**
-     * Finds a {@link DataSourceProvider} by its kind identifier or throws an exception if not
-     * found.
+     * Finds a {@link DataSourceProvider} by its kind identifier.
      *
      * @param kind the kind identifier of the provider to find
      * @return the provider
@@ -56,102 +49,64 @@ public final class DataSourceProviderFactory {
      *     same kind are found
      */
     public static DataSourceProvider getProvider(String kind) {
-        return findProvider(kind)
-                .orElseThrow(
-                        () -> {
-                            List<String> availableKinds =
-                                    discoverProviders().stream()
-                                            .map(DataSourceProvider::kind)
-                                            .distinct()
-                                            .sorted()
-                                            .collect(Collectors.toList());
+        List<DataSourceProvider> providers = loadProviders();
 
-                            return new DataSourceProviderException(
-                                    String.format(
-                                            "No DataSourceProvider found for kind '%s'.\n\n"
-                                                    + "Available provider kinds are:\n\n%s",
-                                            kind, String.join("\n", availableKinds)));
-                        });
-    }
+        DataSourceProvider matchedProvider = null;
+        List<String> matchedKinds = new ArrayList<>();
 
-    /**
-     * Discovers all available {@link DataSourceProvider} implementations.
-     *
-     * <p>Results are cached, subsequent calls will return the cached providers.
-     *
-     * @return list of all discovered providers
-     * @throws DataSourceProviderException if SPI loading fails
-     */
-    private static List<DataSourceProvider> discoverProviders() {
-        if (cachedProviders == null) {
-            synchronized (DataSourceProviderFactory.class) {
-                if (cachedProviders == null) {
-                    cachedProviders = loadProviders();
+        for (DataSourceProvider provider : providers) {
+            if (provider.kind().equalsIgnoreCase(kind)) {
+                if (matchedProvider != null) {
+                    log.error(
+                            "Multiple DataSourceProvider implementations found for kind '{}': {}",
+                            kind,
+                            matchedKinds);
+                    throw new DataSourceProviderException(
+                            String.format(
+                                    "Multiple DataSourceProvider implementations found for kind '%s'.\n\n"
+                                            + "Ambiguous provider classes are:\n\n%s",
+                                    kind, String.join("\n", matchedKinds)));
                 }
+                matchedProvider = provider;
+                matchedKinds.add(provider.getClass().getName());
             }
         }
-        return cachedProviders;
-    }
 
-    /**
-     * Finds a {@link DataSourceProvider} by its kind identifier.
-     *
-     * @param kind the kind identifier of the provider to find
-     * @return Optional containing the provider if found, empty otherwise
-     * @throws DataSourceProviderException if SPI loading fails or multiple providers with the same
-     *     kind are found
-     */
-    private static Optional<DataSourceProvider> findProvider(String kind) {
-        List<DataSourceProvider> providers = discoverProviders();
-        List<DataSourceProvider> matching =
-                providers.stream()
-                        .filter(p -> p.kind().equalsIgnoreCase(kind))
-                        .collect(Collectors.toList());
-
-        if (matching.isEmpty()) {
+        if (matchedProvider == null) {
+            List<String> availableKinds = new ArrayList<>();
+            for (DataSourceProvider provider : providers) {
+                availableKinds.add(provider.kind());
+            }
             log.debug("No DataSourceProvider found for kind: {}", kind);
-            return Optional.empty();
-        }
-
-        if (matching.size() > 1) {
-            String duplicateProviders =
-                    matching.stream()
-                            .map(p -> p.getClass().getName())
-                            .sorted()
-                            .collect(Collectors.joining("\n"));
-            log.error(
-                    "Multiple DataSourceProvider implementations found for kind '{}':\n{}",
-                    kind,
-                    duplicateProviders);
             throw new DataSourceProviderException(
                     String.format(
-                            "Multiple DataSourceProvider implementations found for kind '%s'.\n\n"
-                                    + "Ambiguous provider classes are:\n\n%s",
-                            kind, duplicateProviders));
+                            "No DataSourceProvider found for kind '%s'.\n\n"
+                                    + "Available provider kinds are:\n\n%s",
+                            kind, String.join("\n", availableKinds)));
         }
 
-        return Optional.of(matching.get(0));
+        return matchedProvider;
     }
 
     /**
-     * Clears the cached providers.
+     * Clears the provider cache.
      *
-     * <p>This method is primarily intended for testing purposes.
+     * <p>This method is primarily intended for testing purposes. Currently, this method does
+     * nothing as providers are loaded on-demand via SPI without caching.
      */
     public static void clearCache() {
-        cachedProviders = null;
-        log.debug("DataSourceProvider cache cleared");
+        // No-op for testing compatibility
     }
 
     /**
-     * Loads providers via ServiceLoader.
+     * Loads all providers via ServiceLoader.
      *
      * @return list of all discovered providers
      */
     private static List<DataSourceProvider> loadProviders() {
         try {
             ClassLoader classLoader = Thread.currentThread().getContextClassLoader();
-            List<DataSourceProvider> providers = new LinkedList<>();
+            List<DataSourceProvider> providers = new ArrayList<>();
             ServiceLoader.load(DataSourceProvider.class, classLoader)
                     .iterator()
                     .forEachRemaining(providers::add);
@@ -164,7 +119,8 @@ public final class DataSourceProviderFactory {
                         providers.size(),
                         providers.stream()
                                 .map(DataSourceProvider::kind)
-                                .collect(Collectors.joining(", ")));
+                                .reduce((a, b) -> a + ", " + b)
+                                .orElse(""));
             }
 
             return providers;
