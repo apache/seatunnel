@@ -20,6 +20,7 @@ package org.apache.seatunnel.connectors.seatunnel.cdc.sqlserver.utils;
 import org.apache.seatunnel.api.table.type.BasicType;
 import org.apache.seatunnel.api.table.type.SeaTunnelDataType;
 import org.apache.seatunnel.api.table.type.SeaTunnelRowType;
+import org.apache.seatunnel.connectors.seatunnel.cdc.sqlserver.source.offset.LsnOffset;
 
 import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.Test;
@@ -69,5 +70,16 @@ public class SqlServerUtilsTest {
                         true);
         Assertions.assertEquals(
                 "SELECT * FROM [db1].[schema1].[table1] WHERE [id] >= ?", splitScanSQL);
+    }
+
+    @Test
+    public void testLsnStringToOffset() {
+        String lsnString = "00000027:00000a80:0003";
+        LsnOffset offset = SqlServerUtils.lsnStringToOffset(lsnString);
+        Assertions.assertEquals(lsnString, offset.getCommitLsn().toString());
+
+        String invalidLsn = "invalid_lsn";
+        Assertions.assertThrows(
+                RuntimeException.class, () -> SqlServerUtils.lsnStringToOffset(invalidLsn));
     }
 }

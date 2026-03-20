@@ -156,7 +156,7 @@ transform {
 
 ## tips
 大模型API接口通常会有速率限制，可以配合Seatunnel的限速配置，已确保任务顺利运行。
-Seatunnel限速配置,请参考[speed-limit](../concept/speed-limit.md)了解详情
+Seatunnel限速配置,请参考[speed-limit](../introduction/concepts/speed-limit.md)了解详情
 
 ## 示例 OPENAI
 

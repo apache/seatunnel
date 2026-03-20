@@ -5,9 +5,7 @@
 [![Slack](../../images/seatunnel-slack.svg)](https://s.apache.org/seatunnel-slack)
 [![Twitter Follow](../../images/ASFSeaTunnel.svg)](https://x.com/ASFSeaTunnel)
 
-SeaTunnel is a very easy-to-use, multimodal, ultra-high-performance, distributed data integration platform that supports real-time
-synchronization of massive data. It can synchronize tens of billions of data stably and efficiently every day, and has
-been used in production by nearly 100 companies.
+SeaTunnel is a multimodal, ultra-high-performance, distributed data integration tool, capable of synchronizing vast amounts of data daily. It's trusted by numerous companies for its efficiency and stability.
 
 ## Why We Need SeaTunnel
 
@@ -43,17 +41,17 @@ The user configures the job information and selects the execution engine to subm
 
 The Source Connector is responsible for parallel reading and sending the data to the downstream Transform or directly to the Sink, and the Sink writes the data to the destination. It is worth noting that Source, Transform and Sink can be easily developed and extended by yourself.
 
-SeaTunnel is an EL(T) data integration platform. Therefore, in SeaTunnel, Transform can only be used to perform some simple transformations on data, such as converting the data of a column to uppercase or lowercase, changing the column name, or splitting a column into multiple columns.
+SeaTunnel is an EtL(T) data integration tool. Therefore, in SeaTunnel, transform can only be used to perform some simple transformations on data, such as converting the data of a column to uppercase or lowercase, changing the column name, or splitting a column into multiple columns.
 
 The default engine use by SeaTunnel is [SeaTunnel Engine](../engines/zeta/about.md). If you choose to use the Flink or Spark engine, SeaTunnel will package the Connector into a Flink or Spark program and submit it to Flink or Spark to run.
 
 ## Connector
 
-- **Source Connectors** SeaTunnel supports reading data from various relational, graph, NoSQL, document, and memory databases; distributed file systems such as HDFS; and a variety of cloud storage solutions, such as S3 and OSS. We also support data reading of many common SaaS services. You can access the detailed list [Here](connector-v2/source). If you want, You can develop your own source connector and easily integrate it into SeaTunnel.
+- **Source Connectors** SeaTunnel supports reading data from various relational, graph, NoSQL, document, and memory databases; distributed file systems such as HDFS; and a variety of cloud storage solutions, such as S3 and OSS. We also support data reading of many common SaaS services. You can access the detailed list [Here](../connectors/source). If you want, You can develop your own source connector and easily integrate it into SeaTunnel.
 
 - **Transform Connector** If the schema is different between source and Sink, You can use the Transform Connector to change the schema read from source and make it the same as the Sink schema.
 
-- **Sink Connector** SeaTunnel supports writing data to various relational, graph, NoSQL, document, and memory databases; distributed file systems such as HDFS; and a variety of cloud storage solutions, such as S3 and OSS. We also support writing data to many common SaaS services. You can access the detailed list [Here](connector-v2/sink). If you want, you can develop your own Sink connector and easily integrate it into SeaTunnel.
+- **Sink Connector** SeaTunnel supports writing data to various relational, graph, NoSQL, document, and memory databases; distributed file systems such as HDFS; and a variety of cloud storage solutions, such as S3 and OSS. We also support writing data to many common SaaS services. You can access the detailed list [Here](../connectors/sink). If you want, you can develop your own Sink connector and easily integrate it into SeaTunnel.
 
 ## Who Uses SeaTunnel
 
@@ -70,4 +68,4 @@ SeaTunnel enriches the <a href="https://landscape.cncf.io/?item=app-definition-a
 
 ## Learn more
 
-You can see [Quick Start](start-v2/locally/deployment.md) for the next steps.
+You can see [Quick Start](../getting-started/locally/deployment.md) for the next steps.
