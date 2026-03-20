@@ -25,31 +25,31 @@ import ChangeLog from '../changelog/connector-rabbitmq.md';
 
 ## 选项
 
-| 参数名 | 类型 | 必须 | 默认值 | 描述 |
-|--------|------|------|--------|------|
-| host | string | 是 | - | 连接的默认主机 |
-| port | int | 是 | - | 连接的默认端口 |
-| virtual_host | string | 是 | - | 虚拟主机 – 连接到代理时使用的虚拟主机 |
-| username | string | 是 | - | 连接到代理时使用的 AMQP 用户名 |
-| password | string | 是 | - | 连接到代理时使用的密码 |
-| queue_name | string | 是 | - | 要发布消息的队列 |
-| schema | config | 是 | - | 上游数据的模式 |
-| url | string | 否 | - | 便捷方法，用于设置 AMQP URI 中的字段：主机、端口、用户名、密码和虚拟主机 |
-| routing_key | string | 否 | - | 要发布消息的路由密钥 |
-| exchange | string | 否 | - | 要发布消息的交换机 |
-| network_recovery_interval | int | 否 | - | 自动恢复在尝试重新连接之前等待多长时间（毫秒） |
-| topology_recovery_enabled | boolean | 否 | - | 如果为 true，启用拓扑恢复 |
-| automatic_recovery_enabled | boolean | 否 | - | 如果为 true，启用连接恢复 |
-| connection_timeout | int | 否 | - | 连接 tcp 建立超时（毫秒）；零表示无限 |
-| requested_channel_max | int | 否 | - | 最初请求的最大通道数；零表示无限制。**注意：值必须在 0 到 65535 之间（AMQP 0-9-1 中的无符号短整数）。 |
-| requested_frame_max | int | 否 | - | 请求的最大帧大小 |
-| requested_heartbeat | int | 否 | - | 设置请求的心跳超时。**注意：值必须在 0 到 65535 之间（AMQP 0-9-1 中的无符号短整数）。 |
-| prefetch_count | int | 否 | - | 预取计数，无需确认即可接收的最大消息数 |
-| delivery_timeout | long | 否 | - | 交付超时，等待下一条消息交付的最大时间（毫秒） |
-| durable | boolean | 否 | true | 队列是否在服务器重启时保留 |
-| exclusive | boolean | 否 | false | 队列是否仅由当前连接使用 |
-| auto_delete | boolean | 否 | false | 队列是否在最后一个消费者取消订阅时自动删除 |
-| common-options | | 否 | - | 源插件通用参数 |
+| 参数名                        | 类型      | 必须 | 默认值   | 描述                                                                          |
+|----------------------------|---------|----|-------|-----------------------------------------------------------------------------|
+| host                       | string  | 是  | -     | 连接的默认主机                                                                     |
+| port                       | int     | 是  | -     | 连接的默认端口                                                                     |
+| virtual_host               | string  | 是  | -     | 虚拟主机 – 连接到代理时使用的虚拟主机                                                        |
+| username                   | string  | 是  | -     | 连接到代理时使用的 AMQP 用户名                                                          |
+| password                   | string  | 是  | -     | 连接到代理时使用的密码                                                                 |
+| queue_name                 | string  | 是  | -     | 要发布消息的队列                                                                    |
+| schema                     | config  | 是  | -     | 上游数据的模式。更多详情请参考 [Schema 特性](../../introduction/concepts/schema-feature.md)。 |
+| url                        | string  | 否  | -     | 便捷方法，用于设置 AMQP URI 中的字段：主机、端口、用户名、密码和虚拟主机                                   |
+| routing_key                | string  | 否  | -     | 要发布消息的路由密钥                                                                  |
+| exchange                   | string  | 否  | -     | 要发布消息的交换机                                                                   |
+| network_recovery_interval  | int     | 否  | -     | 自动恢复在尝试重新连接之前等待多长时间（毫秒）                                                     |
+| topology_recovery_enabled  | boolean | 否  | -     | 如果为 true，启用拓扑恢复                                                             |
+| automatic_recovery_enabled | boolean | 否  | -     | 如果为 true，启用连接恢复                                                             |
+| connection_timeout         | int     | 否  | -     | 连接 tcp 建立超时（毫秒）；零表示无限                                                       |
+| requested_channel_max      | int     | 否  | -     | 最初请求的最大通道数；零表示无限制。**注意：值必须在 0 到 65535 之间（AMQP 0-9-1 中的无符号短整数）。              |
+| requested_frame_max        | int     | 否  | -     | 请求的最大帧大小                                                                    |
+| requested_heartbeat        | int     | 否  | -     | 设置请求的心跳超时。**注意：值必须在 0 到 65535 之间（AMQP 0-9-1 中的无符号短整数）。                      |
+| prefetch_count             | int     | 否  | -     | 预取计数，无需确认即可接收的最大消息数                                                         |
+| delivery_timeout           | long    | 否  | -     | 交付超时，等待下一条消息交付的最大时间（毫秒）                                                     |
+| durable                    | boolean | 否  | true  | 队列是否在服务器重启时保留                                                               |
+| exclusive                  | boolean | 否  | false | 队列是否仅由当前连接使用                                                                |
+| auto_delete                | boolean | 否  | false | 队列是否在最后一个消费者取消订阅时自动删除                                                       |
+| common-options             |         | 否  | -     | 源插件通用参数                                                                     |
 
 ### host [string]
 
@@ -91,7 +91,7 @@ import ChangeLog from '../changelog/connector-rabbitmq.md';
 
 #### fields [Config]
 
-上游数据的模式字段。
+上游数据的模式字段。更多详情请参考 [Schema 特性](../../introduction/concepts/schema-feature.md)。
 
 ### network_recovery_interval [int]
 
@@ -129,7 +129,7 @@ import ChangeLog from '../changelog/connector-rabbitmq.md';
 
 交付超时，等待下一条消息交付的最大时间（毫秒）
 
-### 通用选项
+### common options
 
 源插件通用参数，请参考 [源通用选项](../common-options/source-common-options.md) 详见。
 

@@ -34,12 +34,51 @@ public interface ZetaUDF {
      * @return result value
      */
     Object evaluate(List<Object> args);
+
+    /**
+     * 是否需要行级上下文。
+     */
+    default boolean requiresContext() {
+        return false;
+    }
+
+    /**
+     * 带上下文执行。
+     */
+    default Object evaluateWithContext(List<Object> args, ZetaUDFContext context) {
+        return evaluate(args);
+    }
+
+    /**
+     * 初始化 UDF 资源。
+     */
+    default void open() throws Exception {}
+
+    /**
+     * 释放 UDF 资源。
+     */
+    default void close() {}
 }
 ```
 
+`ZetaUDFContext` 提供运行时行级元数据与字段：
+
+- `getRawTableId()`
+- `getDatabase()`
+- `getSchema()`
+- `getTable()`
+- `getRowKind()`
+- `getAllFields()`
+
+说明：
+
+- `database/schema/table` 的解析语义与 `TablePath.of(tableId)` 保持一致。
+- 如果 `tableId` 格式不被支持，访问 `database/schema/table` 时会抛出 `IllegalArgumentException`。
+- 已有 UDF 保持向后兼容，仍可只实现 `evaluate(List<Object> args)`。
+
 ## UDF 实现示例
 
-将这些依赖项添加到您的 Maven 项目，并使用 provided 作用域。
+将这些依赖项添加到您的 Maven 项目，并使用 provided 作用域。**依赖版本应与运行环境一致。**
 
 ```xml
 
@@ -47,13 +86,13 @@ public interface ZetaUDF {
     <dependency>
         <groupId>org.apache.seatunnel</groupId>
         <artifactId>seatunnel-transforms-v2</artifactId>
-        <version>2.3.2</version>
+        <version>${seatunnel.version}</version>
         <scope>provided</scope>
     </dependency>
     <dependency>
         <groupId>org.apache.seatunnel</groupId>
         <artifactId>seatunnel-api</artifactId>
-        <version>2.3.2</version>
+        <version>${seatunnel.version}</version>
         <scope>provided</scope>
     </dependency>
     <dependency>
@@ -93,6 +132,50 @@ public class ExampleUDF implements ZetaUDF {
 
 打包UDF项目并将jar文件复制到路径：${SEATUNNEL_HOME}/lib
 
+## 支持上下文与生命周期的 UDF 示例
+
+```java
+@AutoService(ZetaUDF.class)
+public class ContextLifecycleUdf implements ZetaUDF {
+
+    private transient String prefix;
+
+    @Override
+    public String functionName() {
+        return "CTX_LIFE";
+    }
+
+    @Override
+    public SeaTunnelDataType<?> resultType(List<SeaTunnelDataType<?>> argsType) {
+        return BasicType.STRING_TYPE;
+    }
+
+    @Override
+    public boolean requiresContext() {
+        return true;
+    }
+
+    @Override
+    public void open() {
+        this.prefix = "OPENED";
+    }
+
+    @Override
+    public Object evaluateWithContext(List<Object> args, ZetaUDFContext context) {
+        String arg = args.get(0) == null ? null : String.valueOf(args.get(0));
+        if (arg == null) {
+            return null;
+        }
+        return prefix + ":" + context.getRowKind().shortString() + ":" + arg;
+    }
+
+    @Override
+    public void close() {
+        this.prefix = null;
+    }
+}
+```
+
 ## 示例
 
 源端数据读取的表格如下：
@@ -130,4 +213,3 @@ transform {
 ### 新版本
 
 - 添加SQL转换连接器的UDF
-

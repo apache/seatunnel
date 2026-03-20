@@ -74,7 +74,7 @@ import ChangeLog from '../changelog/connector-starrocks.md';
 
 #### fields [Config]
 
-要生成的`starRocks`的`schema`
+要生成的`starRocks`的`schema`。更多详情请参考 [Schema 特性](../../introduction/concepts/schema-feature.md)。
 
 示例
 

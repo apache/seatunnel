@@ -107,11 +107,17 @@ The File does not have a specific type list, and we can indicate which SeaTunnel
 | null_format                | string  | no       | -                             | Only used when file_format_type is text. null_format to define which strings can be represented as null. e.g: `\N`                                                                                                                                                                                                                                                              |
 | binary_chunk_size          | int     | no       | 1024                          | Only used when file_format_type is binary. The chunk size (in bytes) for reading binary files. Default is 1024 bytes. Larger values may improve performance for large files but use more memory.                                                                                                                                                                                |
 | binary_complete_file_mode  | boolean | no       | false                         | Only used when file_format_type is binary. Whether to read the complete file as a single chunk instead of splitting into chunks. When enabled, the entire file content will be read into memory at once. Default is false.                                                                                                                                                      |
+| sync_mode                  | string  | no       | full                          | File sync mode. Supported values: `full`, `update`. When `update`, the source compares files between source/target and only reads new/changed files (currently only supports `file_format_type=binary`).                                                                                                                               |
+| target_path                | string  | no       | -                             | Only used when `sync_mode=update`. Target base path used for comparison (it should usually be the same as sink `path`).                                                                                                                                                                                                           |
+| target_hadoop_conf         | map     | no       | -                             | Only used when `sync_mode=update`. Extra Hadoop configuration for target filesystem. You can set `fs.defaultFS` in this map to override target defaultFS.                                                                                                                                                                           |
+| update_strategy            | string  | no       | distcp                        | Only used when `sync_mode=update`. Supported values: `distcp` (default), `strict`.                                                                                                                                                                                                                                               |
+| compare_mode               | string  | no       | len_mtime                     | Only used when `sync_mode=update`. Supported values: `len_mtime` (default), `checksum` (only valid when `update_strategy=strict`).                                                                                                                                                                                              |
 | common-options             |         | No       | -                             | Source plugin common parameters, please refer to [Source Common Options](../common-options/source-common-options.md) for details.                                                                                                                                                                                                                                                              |
 | file_filter_modified_start | string  | no       | -                             | File modification time filter. The connector will filter some files base on the last modification start time (include start time). The default data format is `yyyy-MM-dd HH:mm:ss`.                                                                                                                                                                                            |
 | file_filter_modified_end   | string  | no       | -                             | File modification time filter. The connector will filter some files base on the last modification end time (not include end time). The default data format is `yyyy-MM-dd HH:mm:ss`.                                                                                                                                                                                            |
 | quote_char                 | string  | no       | "                             | A single character that encloses CSV fields, allowing fields with commas, line breaks, or quotes to be read correctly.                                                                                                                                                                                                                                                          |
 | escape_char                | string  | no       | -                             | A single character that allows the quote or other special characters to appear inside a CSV field without ending the field.                                                                                                                                                                                                                                                     |
+| metalake_type              | string  | no       | gravitino                    | The type of metalake service, currently supports `gravitino`.                                                                                                                                                                                                                                                                                                                                                              |
 
 ### file_filter_pattern [string]
 
@@ -292,6 +298,46 @@ Only used when file_format_type is binary.
 
 Whether to read the complete file as a single chunk instead of splitting into chunks. When enabled, the entire file content will be read into memory at once. Default is false.
 
+### sync_mode [string]
+
+File sync mode. Supported values: `full` (default), `update`.
+When `update`, the source compares files between source/target and only reads new/changed files (currently only supports `file_format_type=binary`).
+
+**Performance considerations**
+- Update mode triggers an extra `getFileStatus` call on the target for each source file.
+- For remote file systems (FTP/SFTP), this adds per-file network overhead. It is not recommended for massive small-file scenarios.
+
+**Requirements / limitations**
+- `target_path` should typically align with sink `path` (same filesystem and same relative path layout).
+- When `update_strategy=distcp`, correctness depends on source/target clock synchronization.
+- When `compare_mode=checksum`, filesystem checksum support is required. If checksum is unavailable, SeaTunnel falls back to content comparison (more expensive) and logs a warning.
+
+Example:
+
+```hocon
+sync_mode = "update"
+file_format_type = "binary"
+target_path = "/path/to/your/sink/path"
+update_strategy = "distcp"
+compare_mode = "len_mtime"
+```
+
+### target_path [string]
+
+Only used when `sync_mode=update`. Target base path used for comparison (it should usually be the same as sink `path`).
+
+### target_hadoop_conf [map]
+
+Only used when `sync_mode=update`. Extra Hadoop configuration for target filesystem. You can set `fs.defaultFS` in this map to override target defaultFS.
+
+### update_strategy [string]
+
+Only used when `sync_mode=update`. Supported values: `distcp` (default), `strict`.
+
+### compare_mode [string]
+
+Only used when `sync_mode=update`. Supported values: `len_mtime` (default), `checksum` (only valid when `update_strategy=strict`).
+
 ### quote_char [string]
 
 A single character that encloses CSV fields, allowing fields with commas, line breaks, or quotes to be read correctly.
@@ -304,7 +350,19 @@ A single character that allows the quote or other special characters to appear i
 
 #### fields [Config]
 
-The schema of upstream data.
+The schema of upstream data. For more details, please refer to [Schema Feature](../../introduction/concepts/schema-feature.md).
+
+#### schema_url [string]
+
+Get the http url of metadata information through restApi, such as: `http://localhost:8090/api/metalakes/laowang_test/catalogs/221-pgsql/schemas/ykw/tables/all_type`
+
+> When using Gravitino as the metadata source, the column types from Gravitino will be automatically converted to SeaTunnel data types. For detailed type mapping information, please refer to [Gravitino Type Mapping](../../introduction/concepts/gravitino-type-mapping.md).
+
+### metalake_type [string]
+
+The type of metalake service, currently only supports `gravitino`. When using `schema_url` to obtain metadata from Gravitino, you can specify this parameter (default is `gravitino`).
+
+For more information about Metalake, please refer to [Metalake](../../introduction/concepts/metalake.md).
 
 ## How to Create a Sftp Data Synchronization Jobs
 
@@ -436,6 +494,48 @@ source {
 
 sink {
   Console {
+  }
+}
+```
+
+### Incremental Sync (sync_mode=update, binary)
+
+`sync_mode=update` compares files between source and `target_path`, then only reads new/changed files.
+In most cases, `target_path` should be aligned with sink `path` (same filesystem and same relative paths).
+
+```hocon
+env {
+  parallelism = 1
+  job.mode = "BATCH"
+}
+
+source {
+  SftpFile {
+    host = "sftp"
+    port = 22
+    user = seatunnel
+    password = pass
+
+    path = "tmp/seatunnel/update/src"
+    file_format_type = "binary"
+
+    sync_mode = "update"
+    target_path = "tmp/seatunnel/update/dst"
+    update_strategy = "distcp"
+    compare_mode = "len_mtime"
+  }
+}
+
+sink {
+  SftpFile {
+    host = "sftp"
+    port = 22
+    user = seatunnel
+    password = pass
+
+    path = "tmp/seatunnel/update/dst"
+    tmp_path = "tmp/seatunnel/update/tmp"
+    file_format_type = "binary"
   }
 }
 ```

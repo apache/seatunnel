@@ -208,12 +208,14 @@ schema {
 | time_format                     | string  | 否    | HH:mm:ss                                              | 时间类型格式，用于告诉连接器如何将字符串转换为时间，支持以下格式：`HH:mm:ss` `HH:mm:ss.SSS`                                                                                                                                                                                                                                                            |
 | skip_header_row_number          | long    | 否    | 0                                                     | 跳过前几行，但仅适用于txt和csv。例如，设置如下：`skip_header_row_number = 2`。然后SeaTunnel将跳过源文件的前2行                                                                                                                                                                                                                                         |
 | csv_use_header_line             | boolean | 否    | false                                                 | 是否使用标题行来解析文件，仅在file_format为`csv`且文件包含符合RFC 4180的标题行时使用                                                                                                                                                                                                                                                                |
-| schema                          | config  | 否    | -                                                     | 上游数据的schema。                                                                                                                                                                                                                                                                                                          |
+| schema                          | config  | 否    | -                                                     | 上游数据的schema。更多详情请参考 [Schema 特性](../../introduction/concepts/schema-feature.md)。                                                                                                                                                                                                                                                                                                          |
 | sheet_name                      | string  | 否    | -                                                     | 读取工作簿的工作表，仅在file_format为excel时使用。                                                                                                                                                                                                                                                                                     |
 | xml_row_tag                     | string  | 否    | -                                                     | 指定XML文件中数据行的标签名称，仅对XML文件有效。                                                                                                                                                                                                                                                                                           |
 | xml_use_attr_format             | boolean | 否    | -                                                     | 指定是否使用标签属性格式处理数据，仅对XML文件有效。                                                                                                                                                                                                                                                                                           |
 | compress_codec                  | string  | 否    | none                                                  |                                                                                                                                                                                                                                                                                                                       |
 | archive_compress_codec          | string  | 否    | none                                                  |                                                                                                                                                                                                                                                                                                                       |
+| enable_file_split               | boolean | 否    | false                                                 | 开启大文件拆分以提升并行度。仅支持 `text`/`csv`/`json`/`parquet` 且非压缩格式（`compress_codec=none` 且 `archive_compress_codec=none`）。                                                                                 |
+| file_split_size                 | long    | 否    | 134217728                                             | `enable_file_split=true` 时生效，单位字节。`text`/`csv`/`json` 按 `file_split_size` 拆分并对齐到下一个 `row_delimiter`；`parquet` 以 RowGroup 为拆分单位，不会切开 RowGroup。                                                |
 | encoding                        | string  | 否    | UTF-8                                                 |                                                                                                                                                                                                                                                                                                                       |
 | null_format                     | string  | 否    | -                                                     | 仅在file_format_type为text时使用。null_format用于定义哪些字符串可以表示为null。例如：`\N`                                                                                                                                                                                                                                                      |
 | binary_chunk_size               | int     | 否    | 1024                                                  | 仅在file_format_type为binary时使用。读取二进制文件的块大小（以字节为单位）。默认为1024字节。较大的值可能会提高大文件的性能，但会使用更多内存。                                                                                                                                                                                                                                  |
@@ -223,6 +225,7 @@ schema {
 | common-options                  |         | 否    | -                                                     | 数据源插件通用参数，请参考[数据源通用选项](../common-options/source-common-options.md)了解详情。                                                                                                                                                                                                                                                              |
 | quote_char                      | string  | 否    | "                                                     | 用于包裹 CSV 字段的单字符，可保证包含逗号、换行符或引号的字段被正确解析。                                                                                                                                                                                                                                                                               |
 | escape_char                     | string  | 否    | -                                                     | 用于在 CSV 字段内转义引号或其他特殊字符，使其不会结束字段。                                                                                                                                                                                                                                                                                      |
+| metalake_type                   | string  | 否    | gravitino                                            | Metalake 服务类型，目前支持 `gravitino`。                                                                                                                                                                                                                                                 |
 
 ### delimiter/field_delimiter [string]
 
@@ -297,6 +300,31 @@ abc.*
 /data/seatunnel/20241005/old_data.csv
 ```
 
+### enable_file_split [boolean]
+
+开启大文件拆分功能，默认 false。仅支持 `csv`/`text`/`json`/`parquet` 且非压缩格式（`compress_codec=none` 且 `archive_compress_codec=none`）。
+
+- `text`/`csv`/`json`：按 `file_split_size` 拆分并对齐到下一个 `row_delimiter`，避免切开一行/一条记录。
+- `parquet`：以 RowGroup 为逻辑拆分单位，不会切开 RowGroup。
+
+**使用建议**
+- 适合：读取少量大文件，并希望通过更高并行度提升吞吐。
+- 不建议：读取大量小文件，或并行度较低的场景（拆分会带来额外的枚举/调度开销）。
+
+**限制说明**
+- 不支持压缩文件（`compress_codec` != `none`）或归档文件（`archive_compress_codec` != `none`），会自动回退为不拆分，并打印 WARN 日志提示。
+- 对于 `text`/`csv`/`json`，实际 split 的大小可能略大于 `file_split_size`（因为需要对齐到下一个 `row_delimiter`）。
+- 对于 `json`，仅支持 JSON Lines（每行一个 JSON 对象）的切分读取。
+- 启用切分后，数据全局顺序不保证（split 可能并行处理导致输出顺序交错）。如需严格有序，请设置 `parallelism=1` 或关闭切分。
+
+### file_split_size [long]
+
+`enable_file_split=true` 时生效，单位字节。默认 128MB（134217728）。
+
+**调优建议**
+- 建议从默认值（128MB）开始：如果并行度未充分利用可适当调小；如果 split 数量过多可适当调大。
+- 经验公式：`file_split_size ≈ file_size / 期望并行度`。
+
 ### compress_codec [string]
 
 文件的压缩编解码器，支持的详细信息如下所示：
@@ -358,6 +386,24 @@ markdown 解析器提取各种元素，包括标题、段落、列表、代码�
 
 注意：Markdown 格式仅支持读取，不支持写入。
 
+### schema [config]
+
+仅在文件格式类型为 text、json、excel、xml 或 csv（或其他无法从元数据中读取 schema 的格式）时需要配置。
+
+上游数据的 schema 信息。更多详情请参考 [Schema 特性](../../introduction/concepts/schema-feature.md)。
+
+#### schema_url [string]
+
+通过 restApi 获取元数据信息的 http url，例如：`http://localhost:8090/api/metalakes/laowang_test/catalogs/221-pgsql/schemas/ykw/tables/all_type`
+
+> 当使用 Gravitino 作为元数据源时，Gravitino 的列类型会自动转换为 SeaTunnel 数据类型。详细的类型映射信息请参考 [Gravitino 类型映射](../../introduction/concepts/gravitino-type-mapping.md)。
+
+### metalake_type [string]
+
+Metalake 服务类型，目前仅支持 `gravitino`。当使用 `schema_url` 从 Gravitino 获取元数据时，可以指定此参数（默认为 `gravitino`）。
+
+有关 Metalake 的更多信息，请参考 [Metalake](../../introduction/concepts/metalake.md)。
+
 ## 示例
 
 1. 在此示例中，我们从s3路径`s3a://seatunnel-test/seatunnel/text`读取数据，此路径中的文件类型是orc。
@@ -385,7 +431,7 @@ source {
 
 transform {
   # 如果您想获取有关如何配置seatunnel和查看转换插件完整列表的更多信息，
-    # 请访问 https://seatunnel.apache.org/docs/transform-v2
+    # 请访问 https://seatunnel.apache.org/docs/transforms
 }
 
 sink {
@@ -447,7 +493,7 @@ source {
 
 transform {
   # 如果您想获取有关如何配置seatunnel和查看转换插件完整列表的更多信息，
-    # 请访问 https://seatunnel.apache.org/docs/transform-v2
+    # 请访问 https://seatunnel.apache.org/docs/transforms
 }
 
 sink {

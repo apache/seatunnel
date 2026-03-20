@@ -26,9 +26,11 @@ import org.apache.commons.collections4.CollectionUtils;
 
 import lombok.extern.slf4j.Slf4j;
 
+import java.io.Closeable;
 import java.io.IOException;
 import java.util.ArrayList;
 import java.util.Comparator;
+import java.util.HashMap;
 import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
@@ -40,6 +42,8 @@ import java.util.stream.Collectors;
 @Slf4j
 public class MultipleTableFileSourceSplitEnumerator
         implements SourceSplitEnumerator<FileSourceSplit, FileSourceState> {
+
+    private static final int LOG_SPLIT_ID_LIMIT = 50;
 
     private final Context<FileSourceSplit> context;
     private final Set<FileSourceSplit> allSplit;
@@ -78,14 +82,41 @@ public class MultipleTableFileSourceSplitEnumerator
         this.assignedSplit.addAll(fileSourceState.getAssignedSplit());
     }
 
+    public MultipleTableFileSourceSplitEnumerator(
+            Context<FileSourceSplit> context,
+            BaseMultipleTableFileSourceConfig multipleTableFileSourceConfig,
+            FileSplitStrategy fileSplitStrategy,
+            FileSourceState fileSourceState) {
+        this(context, multipleTableFileSourceConfig, fileSplitStrategy);
+        this.assignedSplit.addAll(fileSourceState.getAssignedSplit());
+    }
+
     @Override
     public void open() {
+        boolean hasMultiSplits = false;
+        Map<String, Integer> splitCountByTable = new HashMap<>();
         for (Map.Entry<String, List<String>> filePathEntry : filePathMap.entrySet()) {
             String tableId = filePathEntry.getKey();
             List<String> filePaths = filePathEntry.getValue();
             for (String filePath : filePaths) {
-                allSplit.addAll(fileSplitStrategy.split(tableId, filePath));
+                List<FileSourceSplit> splits = fileSplitStrategy.split(tableId, filePath);
+                splitCountByTable.merge(tableId, splits.size(), Integer::sum);
+                allSplit.addAll(splits);
+                if (splits.size() > 1) {
+                    hasMultiSplits = true;
+                    log.info(
+                            "Split file [{}] for table [{}] into {} splits",
+                            filePath,
+                            tableId,
+                            splits.size());
+                }
             }
+        }
+        if (hasMultiSplits) {
+            log.info(
+                    "Split enumeration finished, total splits: {}, splits by table: {}",
+                    allSplit.size(),
+                    splitCountByTable);
         }
     }
 
@@ -146,11 +177,25 @@ public class MultipleTableFileSourceSplitEnumerator
         log.info(
                 "SubTask {} is assigned to [{}], size {}",
                 taskId,
-                currentTaskSplits.stream()
-                        .map(FileSourceSplit::splitId)
-                        .collect(Collectors.joining(",")),
+                summarizeSplitIds(currentTaskSplits),
                 currentTaskSplits.size());
         context.signalNoMoreSplits(taskId);
+    }
+
+    private static String summarizeSplitIds(List<FileSourceSplit> splits) {
+        if (splits.isEmpty()) {
+            return "";
+        }
+        if (splits.size() <= LOG_SPLIT_ID_LIMIT) {
+            return splits.stream().map(FileSourceSplit::splitId).collect(Collectors.joining(","));
+        }
+        return splits.stream()
+                        .limit(LOG_SPLIT_ID_LIMIT)
+                        .map(FileSourceSplit::splitId)
+                        .collect(Collectors.joining(","))
+                + ",...("
+                + (splits.size() - LOG_SPLIT_ID_LIMIT)
+                + " more)";
     }
 
     private static int getSplitOwner(int assignCount, int numReaders) {
@@ -169,6 +214,19 @@ public class MultipleTableFileSourceSplitEnumerator
 
     @Override
     public void close() throws IOException {
-        // do nothing
+        if (fileSplitStrategy instanceof Closeable) {
+            ((Closeable) fileSplitStrategy).close();
+            return;
+        }
+        if (fileSplitStrategy instanceof AutoCloseable) {
+            try {
+                ((AutoCloseable) fileSplitStrategy).close();
+            } catch (Exception e) {
+                if (e instanceof IOException) {
+                    throw (IOException) e;
+                }
+                throw new IOException(e);
+            }
+        }
     }
 }

@@ -56,7 +56,7 @@ The table name of Tablestore.
 The primarky key of table,just add a unique primary key.
 
 ### schema [Config]
-
+The structure of the data, including field names and field types. For more details, please refer to [Schema Feature](../../introduction/concepts/schema-feature.md).
 
 
 ## Example

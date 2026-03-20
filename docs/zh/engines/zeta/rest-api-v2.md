@@ -73,12 +73,17 @@ seatunnel:
 
 ------------------------------------------------------------------------------------------
 
-### 返回所有作业及其当前状态的概览
+### 查询作业及其当前状态的概览
 
 <details>
- <summary><code>GET</code> <code><b>/running-jobs</b></code> <code>(返回所有作业及其当前状态的概览。)</code></summary>
+ <summary><code>GET</code> <code><b>/running-jobs?page=1&rows=10</b></code> <code>(查询作业及其当前状态的概览。)</code></summary>
 
 #### 参数
+
+> | 参数名称 | 是否必传 | 参数类型 | 参数描述 |
+> |------|------|------|------|
+> | page | 否    | int  | 页号   |
+> | rows | 否    | int  | 每页行数 |
 
 #### 响应
 
@@ -444,16 +449,18 @@ seatunnel:
 
 ------------------------------------------------------------------------------------------
 
-### 返回所有已完成的作业信息
+### 查询已完成的作业信息
 
 <details>
- <summary><code>GET</code> <code><b>/finished-jobs/:state</b></code> <code>(返回所有已完成的作业信息。)</code></summary>
+ <summary><code>GET</code> <code><b>/finished-jobs/:state?page=1&rows=10</b></code> <code>(查询已完成的作业信息。)</code></summary>
 
 #### 参数
 
 > | 参数名称  |   是否必传   |  参数类型  | 参数描述                                                                              |
 > |-------|----------|--------|-----------------------------------------------------------------------------------|
 > | state | optional | string | finished job status. `FINISHED`,`CANCELED`,`FAILED`,`SAVEPOINT_DONE`,`UNKNOWABLE` |
+> | page | 否    | int  | 页号   |
+> | rows | 否    | int  | 每页行数 |
 
 #### 响应
 
@@ -835,12 +842,22 @@ curl --location 'http://127.0.0.1:8080/submit-job/upload' --form 'config_file=@"
 <details>
 <summary><code>POST</code> <code><b>/stop-job</b></code> <code>(如果作业成功停止，返回jobId。)</code></summary>
 
+#### 参数
+
+| 参数名称                | 是否必传 | 参数类型 | 参数描述 |
+|------------------------|----------|----------|----------|
+| jobId                  | yes      | long     | 作业 ID |
+| isStopWithSavePoint    | no       | boolean  | 是否通过 savepoint 方式停止作业 |
+| force                  | no       | boolean  | 是否强制停止作业（忽略 isStopWithSavePoint 参数） |
+
+
 #### 请求体
 
 ```json
 {
     "jobId": 733584788375666689,
-    "isStopWithSavePoint": false # if job is stopped with save point
+    "isStopWithSavePoint": false,
+    "force": false
 }
 ```
 
@@ -851,6 +868,10 @@ curl --location 'http://127.0.0.1:8080/submit-job/upload' --form 'config_file=@"
 "jobId": 733584788375666689
 }
 ```
+
+**Notes（注意事项）：**
+- 如果作业状态为 DOING_SAVEPOINT 且保存点未成功完成，在启用 force 选项时执行的强制停止操作会将作业状态设置为 CANCELED。
+- 强制停止可能导致检查点数据不完整或处于不一致状态，仅应在异常或非正常情况下使用。
 
 </details>
 
@@ -868,11 +889,13 @@ curl --location 'http://127.0.0.1:8080/submit-job/upload' --form 'config_file=@"
 [
   {
     "jobId": 881432421482889220,
-    "isStopWithSavePoint": false
+    "isStopWithSavePoint": false,
+    "force": false
   },
   {
     "jobId": 881432456517910529,
-    "isStopWithSavePoint": false
+    "isStopWithSavePoint": false,
+    "force": false
   }
 ]
 ```
@@ -898,7 +921,7 @@ curl --location 'http://127.0.0.1:8080/submit-job/upload' --form 'config_file=@"
 
 <details>
 <summary><code>POST</code> <code><b>/encrypt-config</b></code> <code>(如果配置加密成功，则返回加密后的配置。)</code></summary>
-有关自定义加密的更多信息，请参阅文档[配置-加密-解密](../connector-v2/Config-Encryption-Decryption.md).
+有关自定义加密的更多信息，请参阅文档[配置-加密-解密](../../introduction/concepts/config-encryption-decryption.md).
 
 #### 请求体
 
@@ -1124,5 +1147,147 @@ curl --location 'http://127.0.0.1:8080/submit-job/upload' --form 'config_file=@"
 你需要先打开`Telemetry`才能获取集群指标信息。否则将返回空信息。
 
 更多关于`Telemetry`的信息可以在[Telemetry](telemetry.md)文档中找到。
+
+</details>
+
+### 获取作业 Checkpoint 概览
+
+<details>
+ <summary><code>GET</code> <code><b>/jobs/checkpoints/:jobId</b></code> <code>(返回指定作业下所有 Pipeline 的 Checkpoint 概览。)</code></summary>
+
+#### 参数
+
+路径参数 `jobId`：必填，作业 ID。
+
+#### 响应示例
+
+```json
+{
+  "jobId": "1234567890",
+  "updatedAt": 1720000000123,
+  "pipelines": [
+    {
+      "pipelineId": 1,
+      "counts": {
+        "triggered": 10,
+        "completed": 8,
+        "failed": 1,
+        "inProgress": 1,
+        "restored": 2
+      },
+      "latestCompleted": {
+        "checkpointId": 9,
+        "checkpointType": "CHECKPOINT_TYPE",
+        "status": "COMPLETED",
+        "triggerTimestamp": 1720000000000,
+        "completedTimestamp": 1720000000450,
+        "durationMillis": 450,
+        "stateSize": 128934
+      },
+      "latestFailed": {
+        "checkpointId": 8,
+        "checkpointType": "CHECKPOINT_TYPE",
+        "status": "FAILED",
+        "triggerTimestamp": 1719999995000,
+        "failureReason": "CHECKPOINT_EXPIRED"
+      },
+      "latestSavepoint": null,
+      "inProgress": [
+        {
+          "checkpointId": 10,
+          "checkpointType": "CHECKPOINT_TYPE",
+          "triggerTimestamp": 1720000005000,
+          "acknowledged": 2,
+          "total": 4
+        }
+      ],
+      "history": [
+        {
+          "pipelineId": 1,
+          "checkpoint": {
+            "checkpointId": 9,
+            "checkpointType": "CHECKPOINT_TYPE",
+            "status": "COMPLETED",
+            "triggerTimestamp": 1720000000000,
+            "completedTimestamp": 1720000000450,
+            "durationMillis": 450,
+            "stateSize": 128934
+          }
+        }
+      ]
+    }
+]
+}
+```
+</details>
+
+#### 字段说明
+
+| 字段 | 描述 |
+| --- | --- |
+| `jobId` | 作业 ID。 |
+| `updatedAt` | 概览最近刷新时间（毫秒时间戳）。 |
+| `pipelines` | pipeline 统计列表。 |
+| `pipelines[].pipelineId` | pipeline ID。 |
+| `pipelines[].counts.triggered/completed/failed/inProgress/restored` | Checkpoint 统计：<br/>- `triggered`：自作业启动以来触发次数。<br/>- `completed`：成功完成次数。<br/>- `failed`：失败次数。<br/>- `inProgress`：当前正在执行的 checkpoint 数量。<br/>- `restored`：触发恢复（包括 savepoint 恢复）的次数。 |
+| `pipelines[].latestCompleted/latestFailed/latestSavepoint` | 最近一次成功/失败/保存点 checkpoint 元信息（字段同“Checkpoint 信息字段”表）。 |
+| `pipelines[].inProgress` | 进行中的 checkpoint 列表，如下所示：<br/>- `checkpointId`：当前执行中的 checkpoint 编号。<br/>- `checkpointType`：类型（普通 checkpoint、savepoint 等）。<br/>- `triggerTimestamp`：该 checkpoint 触发时间（毫秒）。<br/>- `acknowledged`：已完成 ACK 的 subtask 数。<br/>- `total`：该 pipeline 中需要 ACK 的 subtask 总数。 |
+| `pipelines[].history` | 环形缓冲中的历史记录（默认保留 32 条），每条包含 `pipelineId` 和对应的 checkpoint 元信息，按触发时间倒序。 |
+
+Checkpoint 信息字段：
+
+| 字段 | 描述                                      |
+| --- |-----------------------------------------|
+| `checkpointId` | checkpoint 编号。                          |
+| `checkpointType` | checkpoint 类型。                          |
+| `status` | 状态：`COMPLETED` / `FAILED` / `CANCELED`。 |
+| `triggerTimestamp` | 触发时间（毫秒）。                               |
+| `completedTimestamp` | 完成时间（毫秒，成功时存在）。                         |
+| `durationMillis` | 耗时（毫秒）。                                 |
+| `stateSize` | 状态大小（字节）。                               |
+| `failureReason` | 失败/取消原因，可能为空。                           |
+
+### 获取作业 Checkpoint 历史
+
+<details>
+ <summary><code>GET</code> <code><b>/jobs/checkpoints/history/:jobId</b></code> <code>(返回作业的 Checkpoint 历史记录。)</code></summary>
+
+#### 参数
+
+| 参数 | 说明 |
+| --- | --- |
+| `jobId` | 必填，作业 ID。 |
+| `pipelineId` | 可选，按 pipeline 过滤。 |
+| `limit` | 可选，限制返回条数，默认 20。 |
+| `status` | 可选，支持 `COMPLETED`、`FAILED`、`CANCELED`。 |
+
+#### 响应示例
+
+```json
+[
+  {
+    "pipelineId": 1,
+    "checkpoint": {
+      "checkpointId": 9,
+      "checkpointType": "CHECKPOINT_TYPE",
+      "status": "COMPLETED",
+      "triggerTimestamp": 1720000000000,
+      "completedTimestamp": 1720000000450,
+      "durationMillis": 450,
+      "stateSize": 128934
+    }
+  },
+  {
+    "pipelineId": 1,
+    "checkpoint": {
+      "checkpointId": 8,
+      "checkpointType": "CHECKPOINT_TYPE",
+      "status": "FAILED",
+      "triggerTimestamp": 1719999995000,
+      "failureReason": "CHECKPOINT_EXPIRED"
+    }
+  }
+]
+```
 
 </details>

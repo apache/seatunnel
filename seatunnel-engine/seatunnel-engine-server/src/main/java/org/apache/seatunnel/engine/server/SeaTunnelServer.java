@@ -25,6 +25,7 @@ import org.apache.seatunnel.engine.common.exception.SeaTunnelEngineException;
 import org.apache.seatunnel.engine.common.exception.SeaTunnelEngineRetryableException;
 import org.apache.seatunnel.engine.core.classloader.ClassLoaderService;
 import org.apache.seatunnel.engine.core.classloader.DefaultClassLoaderService;
+import org.apache.seatunnel.engine.server.checkpoint.monitor.CheckpointMonitorService;
 import org.apache.seatunnel.engine.server.dag.physical.PipelineLocation;
 import org.apache.seatunnel.engine.server.execution.ExecutionState;
 import org.apache.seatunnel.engine.server.execution.TaskGroupLocation;
@@ -91,6 +92,7 @@ public class SeaTunnelServer
     private ClassLoaderService classLoaderService;
     private CoordinatorService coordinatorService;
     @Getter private CheckpointService checkpointService;
+    @Getter private CheckpointMonitorService checkpointMonitorService;
     private ScheduledExecutorService monitorService;
     private JettyService jettyService;
     private TaskLogManagerService taskLogManagerService;
@@ -186,6 +188,7 @@ public class SeaTunnelServer
                 new CoordinatorService(nodeEngine, this, seaTunnelConfig.getEngineConfig());
         checkpointService =
                 new CheckpointService(seaTunnelConfig.getEngineConfig().getCheckpointConfig());
+        checkpointMonitorService = new CheckpointMonitorService(nodeEngine, 32);
         monitorService = Executors.newSingleThreadScheduledExecutor();
         monitorService.scheduleAtFixedRate(
                 this::printExecutionInfo,

@@ -51,7 +51,7 @@ the range of the sheet you want to import
 
 #### fields [config]
 
-the schema fields of upstream data
+The schema fields of upstream data. Please refer to [Schema Feature](../../introduction/concepts/schema-feature.md).
 
 ## Example
 

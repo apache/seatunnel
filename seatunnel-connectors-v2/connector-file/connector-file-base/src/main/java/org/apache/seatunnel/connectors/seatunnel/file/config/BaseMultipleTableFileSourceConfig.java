@@ -21,12 +21,17 @@ import org.apache.seatunnel.shade.com.google.common.collect.Lists;
 
 import org.apache.seatunnel.api.configuration.ReadonlyConfig;
 import org.apache.seatunnel.api.options.ConnectorCommonOptions;
+import org.apache.seatunnel.api.table.catalog.CatalogTable;
+import org.apache.seatunnel.common.exception.SeaTunnelRuntimeException;
 
 import lombok.Getter;
 
 import java.io.Serializable;
+import java.util.ArrayList;
 import java.util.List;
-import java.util.stream.Collectors;
+import java.util.Map;
+
+import static org.apache.seatunnel.api.table.schema.exception.SchemaEvolutionErrorCode.CATALOG_TABLE_SIZE_IS_ERROR;
 
 public abstract class BaseMultipleTableFileSourceConfig implements Serializable {
 
@@ -34,25 +39,38 @@ public abstract class BaseMultipleTableFileSourceConfig implements Serializable 
 
     @Getter private List<BaseFileSourceConfig> fileSourceConfigs;
 
-    public BaseMultipleTableFileSourceConfig(ReadonlyConfig fileSourceRootConfig) {
+    public BaseMultipleTableFileSourceConfig(
+            ReadonlyConfig fileSourceRootConfig, List<CatalogTable> catalogTablesFromConfig) {
         if (fileSourceRootConfig.getOptional(ConnectorCommonOptions.TABLE_CONFIGS).isPresent()) {
-            parseFromFileSourceConfigs(fileSourceRootConfig);
+            parseFromFileSourceConfigs(fileSourceRootConfig, catalogTablesFromConfig);
         } else {
-            parseFromFileSourceConfig(fileSourceRootConfig);
+            parseFromFileSourceConfig(fileSourceRootConfig, catalogTablesFromConfig.get(0));
         }
     }
 
-    private void parseFromFileSourceConfigs(ReadonlyConfig fileSourceRootConfig) {
-        this.fileSourceConfigs =
-                fileSourceRootConfig.get(ConnectorCommonOptions.TABLE_CONFIGS).stream()
-                        .map(ReadonlyConfig::fromMap)
-                        .map(this::getBaseSourceConfig)
-                        .collect(Collectors.toList());
+    private void parseFromFileSourceConfigs(
+            ReadonlyConfig fileSourceRootConfig, List<CatalogTable> catalogTableFromConfigs) {
+        final List<Map<String, Object>> maps =
+                fileSourceRootConfig.get(ConnectorCommonOptions.TABLE_CONFIGS);
+        if (catalogTableFromConfigs.size() != maps.size()) {
+            throw new SeaTunnelRuntimeException(
+                    CATALOG_TABLE_SIZE_IS_ERROR, "The catalogTableFromConfigs size is not correct");
+        }
+        this.fileSourceConfigs = new ArrayList<>();
+        for (int i = 0; i < catalogTableFromConfigs.size(); i++) {
+            fileSourceConfigs.add(
+                    this.getBaseSourceConfig(
+                            ReadonlyConfig.fromMap(maps.get(i)), catalogTableFromConfigs.get(i)));
+        }
     }
 
-    public abstract BaseFileSourceConfig getBaseSourceConfig(ReadonlyConfig readonlyConfig);
+    public abstract BaseFileSourceConfig getBaseSourceConfig(
+            ReadonlyConfig readonlyConfig, CatalogTable catalogTableFromConfig);
 
-    private void parseFromFileSourceConfig(ReadonlyConfig fileSourceRootConfig) {
-        this.fileSourceConfigs = Lists.newArrayList(getBaseSourceConfig(fileSourceRootConfig));
+    private void parseFromFileSourceConfig(
+            ReadonlyConfig fileSourceRootConfig, CatalogTable catalogTableFromConfig) {
+        this.fileSourceConfigs =
+                Lists.newArrayList(
+                        getBaseSourceConfig(fileSourceRootConfig, catalogTableFromConfig));
     }
 }

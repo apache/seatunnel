@@ -44,7 +44,7 @@ They can be downloaded via install-plugin.sh or from the Maven central repositor
 | commit_on_checkpoint                | Boolean                                                                    | No       | true                     | If true the consumer's offset will be periodically committed in the background.                                                                                                                                                                                                                                                                                                                                                                                                                                                              |
 | poll.timeout                        | Long                                                                       | No       | 10000                    | The interval(millis) for poll messages.                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                      |
 | kafka.config                        | Map                                                                        | No       | -                        | In addition to the above necessary parameters that must be specified by the `Kafka consumer` client, users can also specify multiple `consumer` client non-mandatory parameters, covering [all consumer parameters specified in the official Kafka document](https://kafka.apache.org/documentation.html#consumerconfigs).                                                                                                                                                                                                                   |
-| schema                              | Config                                                                     | No       | -                        | The structure of the data, including field names and field types.                                                                                                                                                                                                                                                                                                                                                                                                                                                                            |
+| schema                              | Config                                                                     | No       | -                        | The structure of the data, including field names and field types. For more details, please refer to [Schema Feature](../../introduction/concepts/schema-feature.md).                                                                                                                                                                                                                                                                                                                                                                                                                                                                            |
 | format                              | String                                                                     | No       | json                     | Data format. The default format is json. Optional text format, canal_json, debezium_json, maxwell_json, ogg_json, avro , protobuf and native. If you use json or text format. The default field separator is ", ". If you customize the delimiter, add the "field_delimiter" option.If you use canal format, please refer to [canal-json](../formats/canal-json.md) for details.If you use debezium format, please refer to [debezium-json](../formats/debezium-json.md) for details. Some format details please refer [formats](../formats) |
 | format_error_handle_way             | String                                                                     | No       | fail                     | The processing method of data format error. The default value is fail, and the optional value is (fail, skip). When fail is selected, data format error will block and an exception will be thrown. When skip is selected, data format error will skip this line data.                                                                                                                                                                                                                                                                       |
 | debezium_record_table_filter        | Config                                                                     | No       | -                        | Used for filtering data in debezium format, only when the format is set to `debezium_json`. Please refer `debezium_record_table_filter` below                                                                                                                                                                                                                                                                                                                                                                                                |
@@ -58,8 +58,9 @@ They can be downloaded via install-plugin.sh or from the Maven central repositor
 | common-options                      |                                                                            | No       | -                        | Source plugin common parameters, please refer to [Source Common Options](../common-options/source-common-options.md) for details                                                                                                                                                                                                                                                                                                                                                                                                                            |
 | protobuf_message_name               | String                                                                     | No       | -                        | Effective when the format is set to protobuf, specifies the Message name                                                                                                                                                                                                                                                                                                                                                                                                                                                                     |
 | protobuf_schema                     | String                                                                     | No       | -                        | Effective when the format is set to protobuf, specifies the Schema definition                                                                                                                                                                                                                                                                                                                                                                                                                                                                |
+| strip_schema_registry_header        | Boolean                                                                    | No       | false                    | Effective when the format is set to protobuf. Whether to strip the Confluent Schema Registry wire format header (magic byte, schema id and message indexes) before protobuf deserialization. This option is useful when consuming Protobuf messages that were encoded using Confluent Schema Registry. When enabled, the connector will try to detect and remove the Schema Registry header before parsing the Protobuf message. If the header is not detected, it will fall back to standard Protobuf deserialization.                                                                                                                                                                                                                                                                    |
 | reader_cache_queue_size             | Integer                                                                     | No       | 1024                     | The reader shard cache queue is used to cache the data corresponding to the shards. The size of the shard cache depends on the number of shards obtained by each reader, rather than the amount of data in each shard.                                                                                                                                                                                                                                                                                            |
-| is_native                           | Boolean                                                                     | No       | false                    | Supports retaining the source information of the record.   
+| is_native                           | Boolean                                                                     | No       | false                    | Supports retaining the source information of the record.
 
 ### debezium_record_table_filter
 
@@ -77,7 +78,7 @@ Only the data of the `test.public.products` table will be consumed.
 
 ## Metadata Support
 
-The Kafka source automatically injects `ConsumerRecord.timestamp` into the SeaTunnel `EventTime` metadata when the value is non-negative. You can expose it as a normal field through the [Metadata transform](../../transform-v2/metadata.md) for downstream SQL or partitioning.
+The Kafka source automatically injects `ConsumerRecord.timestamp` into the SeaTunnel `EventTime` metadata when the value is non-negative. You can expose it as a normal field through the [Metadata transform](../../transforms/metadata.md) for downstream SQL or partitioning.
 
 ```hocon
 source {
@@ -404,6 +405,59 @@ source {
     plugin_output = "kafka_table"
   }
 }
+```
+
+### Protobuf with Schema Registry wire format
+
+When consuming Protobuf messages that were encoded using Confluent Schema Registry, you need to set `strip_schema_registry_header` to `true`. The connector will automatically detect and remove the Schema Registry wire format header (magic byte, schema id, and message indexes) before deserializing the Protobuf message.
+
+Example:
+
+```hocon
+source {
+  Kafka {
+    topic = "test_protobuf_schema_registry_topic"
+    format = protobuf
+    strip_schema_registry_header = true
+    protobuf_message_name = Person
+    protobuf_schema = """
+              syntax = "proto3";
+
+              package org.apache.seatunnel.format.protobuf;
+
+              option java_outer_classname = "ProtobufE2E";
+
+              message Person {
+                int32 c_int32 = 1;
+                int64 c_int64 = 2;
+                float c_float = 3;
+                double c_double = 4;
+                bool c_bool = 5;
+                string c_string = 6;
+                bytes c_bytes = 7;
+
+                message Address {
+                  string street = 1;
+                  string city = 2;
+                  string state = 3;
+                  string zip = 4;
+                }
+
+                Address address = 8;
+
+                map<string, float> attributes = 9;
+
+                repeated string phone_numbers = 10;
+              }
+              """
+    bootstrap.servers = "kafkaCluster:9092"
+    start_mode = "earliest"
+    plugin_output = "kafka_table"
+  }
+}
+```
+
+**Note**: When `strip_schema_registry_header` is enabled, the connector can safely handle both Schema Registry encoded messages and plain Protobuf messages. If the Schema Registry header is not detected, it will automatically fall back to standard Protobuf deserialization.
 ```
 
 ### Ignore No Leader Partition

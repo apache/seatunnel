@@ -17,6 +17,7 @@
 
 package org.apache.seatunnel.e2e.connector.v2.mongodb;
 
+import org.apache.seatunnel.api.configuration.ReadonlyConfig;
 import org.apache.seatunnel.api.sink.DataSaveMode;
 import org.apache.seatunnel.api.sink.SaveModeHandler;
 import org.apache.seatunnel.api.sink.SinkWriter;
@@ -26,16 +27,21 @@ import org.apache.seatunnel.api.table.catalog.PhysicalColumn;
 import org.apache.seatunnel.api.table.catalog.TableIdentifier;
 import org.apache.seatunnel.api.table.catalog.TableSchema;
 import org.apache.seatunnel.api.table.type.BasicType;
+import org.apache.seatunnel.api.table.type.RowKind;
 import org.apache.seatunnel.api.table.type.SeaTunnelRow;
 import org.apache.seatunnel.common.exception.SeaTunnelRuntimeException;
 import org.apache.seatunnel.connectors.seatunnel.mongodb.config.MongodbBaseOptions;
+import org.apache.seatunnel.connectors.seatunnel.mongodb.config.MongodbSinkOptions;
 import org.apache.seatunnel.connectors.seatunnel.mongodb.serde.RowDataDocumentSerializer;
 import org.apache.seatunnel.connectors.seatunnel.mongodb.serde.RowDataToBsonConverters;
 import org.apache.seatunnel.connectors.seatunnel.mongodb.sink.MongoKeyExtractor;
 import org.apache.seatunnel.connectors.seatunnel.mongodb.sink.MongodbSink;
+import org.apache.seatunnel.connectors.seatunnel.mongodb.sink.MongodbSinkFactory;
 import org.apache.seatunnel.connectors.seatunnel.mongodb.sink.MongodbWriterOptions;
 import org.apache.seatunnel.connectors.seatunnel.mongodb.sink.state.DocumentBulk;
 import org.apache.seatunnel.connectors.seatunnel.mongodb.sink.state.MongodbCommitInfo;
+import org.apache.seatunnel.connectors.seatunnel.sink.SinkFlowTestUtils;
+import org.apache.seatunnel.connectors.seatunnel.sink.SinkFlowTestUtils.PeriodicCheckpointOptions;
 import org.apache.seatunnel.e2e.common.container.EngineType;
 import org.apache.seatunnel.e2e.common.container.TestContainer;
 import org.apache.seatunnel.e2e.common.junit.DisabledOnContainer;
@@ -47,12 +53,14 @@ import org.junit.jupiter.api.TestTemplate;
 import org.testcontainers.containers.Container;
 
 import com.mongodb.client.MongoCollection;
+import com.mongodb.client.model.Sorts;
 import com.mongodb.client.model.WriteModel;
 import lombok.SneakyThrows;
 import lombok.extern.slf4j.Slf4j;
 
 import java.io.IOException;
 import java.util.ArrayList;
+import java.util.Arrays;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Optional;
@@ -225,28 +233,8 @@ public class MongodbIT extends AbstractMongodbIT {
     @TestTemplate
     public void testTransactionSinkAndUpsert(TestContainer container)
             throws IOException, InterruptedException {
-        Container.ExecResult insertResult =
-                container.executeJob("/transactionIT/fake_source_to_transaction_sink_mongodb.conf");
-        Assertions.assertEquals(0, insertResult.getExitCode(), insertResult.getStderr());
-
-        Container.ExecResult assertSinkResult =
-                container.executeJob(
-                        "/transactionIT/mongodb_source_transaction_sink_to_assert.conf");
-        Assertions.assertEquals(0, assertSinkResult.getExitCode(), assertSinkResult.getStderr());
-
-        Container.ExecResult upsertResult =
-                container.executeJob(
-                        "/transactionIT/fake_source_to_transaction_upsert_mongodb.conf");
-        Assertions.assertEquals(0, upsertResult.getExitCode(), upsertResult.getStderr());
-
-        Container.ExecResult assertUpsertResult =
-                container.executeJob(
-                        "/transactionIT/mongodb_source_transaction_upsert_to_assert.conf");
-        Assertions.assertEquals(
-                0, assertUpsertResult.getExitCode(), assertUpsertResult.getStderr());
-
-        clearData(MONGODB_TRANSACTION_SINK_TABLE);
-        clearData(MONGODB_TRANSACTION_UPSERT_TABLE);
+        runTransactionSinkFlow(MONGODB_TRANSACTION_SINK_TABLE, false);
+        runTransactionSinkFlow(MONGODB_TRANSACTION_UPSERT_TABLE, true);
     }
 
     @TestTemplate
@@ -432,7 +420,7 @@ public class MongodbIT extends AbstractMongodbIT {
     }
 
     private TableSchema getTableSchema() {
-        return new TableSchema(getColumns(), null, null);
+        return TableSchema.builder().columns(getColumns()).build();
     }
 
     private List<Column> getColumns() {
@@ -441,5 +429,74 @@ public class MongodbIT extends AbstractMongodbIT {
         columns.add(new PhysicalColumn("name", BasicType.STRING_TYPE, 100L, 0, true, "", ""));
         columns.add(new PhysicalColumn("score", BasicType.INT_TYPE, 32L, 0, true, "", ""));
         return columns;
+    }
+
+    private void runTransactionSinkFlow(String collection, boolean upsert) throws IOException {
+        clearData(collection);
+        List<SeaTunnelRow> rows = createTransactionRows(upsert);
+        SinkFlowTestUtils.runBatchWithCheckpointEnabled(
+                getCatalogTable(collection),
+                getTransactionSinkOptions(collection, upsert),
+                new MongodbSinkFactory(),
+                rows,
+                PeriodicCheckpointOptions.builder()
+                        .recordsPerCheckpoint(2)
+                        .maxCheckpointCount(5)
+                        .triggerOnFinish(true)
+                        .build());
+        assertTransactionSinkResult(collection, upsert);
+        clearData(collection);
+    }
+
+    private List<SeaTunnelRow> createTransactionRows(boolean upsert) {
+        List<SeaTunnelRow> rows = new ArrayList<>();
+        rows.add(createRow(RowKind.INSERT, 1L, "alpha", 10));
+        rows.add(createRow(RowKind.INSERT, 2L, "beta", 20));
+        rows.add(createRow(RowKind.INSERT, 3L, "gamma", 30));
+        if (upsert) {
+            rows.add(createRow(RowKind.UPDATE_AFTER, 2L, "beta-updated", 200));
+        }
+        return rows;
+    }
+
+    private SeaTunnelRow createRow(RowKind kind, long id, String name, int score) {
+        SeaTunnelRow row = new SeaTunnelRow(new Object[] {id, name, score});
+        row.setRowKind(kind);
+        return row;
+    }
+
+    private ReadonlyConfig getTransactionSinkOptions(String collection, boolean upsert) {
+        String host = mongodbContainer.getHost();
+        int port = mongodbContainer.getFirstMappedPort();
+        String uri = String.format("mongodb://%s:%d", host, port);
+        HashMap<String, Object> config = new HashMap<>();
+        config.put(MongodbSinkOptions.URI.key(), uri);
+        config.put(MongodbSinkOptions.DATABASE.key(), MONGODB_DATABASE);
+        config.put(MongodbSinkOptions.COLLECTION.key(), collection);
+        config.put(MongodbSinkOptions.TRANSACTION.key(), true);
+        config.put(MongodbSinkOptions.DATA_SAVE_MODE.key(), DataSaveMode.APPEND_DATA);
+        config.put(MongodbSinkOptions.BUFFER_FLUSH_MAX_ROWS.key(), 2);
+        if (upsert) {
+            config.put(MongodbSinkOptions.UPSERT_ENABLE.key(), true);
+            config.put(MongodbSinkOptions.PRIMARY_KEY.key(), Arrays.asList("c_int"));
+        }
+        return ReadonlyConfig.fromMap(config);
+    }
+
+    private void assertTransactionSinkResult(String collection, boolean upsert) {
+        MongoCollection<Document> mongoCollection =
+                client.getDatabase(MONGODB_DATABASE).getCollection(collection);
+        List<Document> documents =
+                mongoCollection.find().sort(Sorts.ascending("c_int")).into(new ArrayList<>());
+        Assertions.assertEquals(3, documents.size());
+        Assertions.assertEquals("alpha", documents.get(0).getString("name"));
+        if (upsert) {
+            Assertions.assertEquals("beta-updated", documents.get(1).getString("name"));
+            Assertions.assertEquals(200, documents.get(1).getInteger("score"));
+        } else {
+            Assertions.assertEquals("beta", documents.get(1).getString("name"));
+            Assertions.assertEquals(20, documents.get(1).getInteger("score"));
+        }
+        Assertions.assertEquals("gamma", documents.get(2).getString("name"));
     }
 }

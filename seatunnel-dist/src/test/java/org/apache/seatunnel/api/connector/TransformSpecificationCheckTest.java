@@ -31,10 +31,10 @@ import java.util.List;
 import java.util.ServiceLoader;
 
 @Slf4j
-public class TransformSpecificationCheckTest {
+class TransformSpecificationCheckTest {
 
     @Test
-    public void testAllTransformUseFactory() {
+    void testAllTransformUseFactory() {
         ServiceLoader<SeaTunnelTransform> transforms =
                 ServiceLoader.load(
                         SeaTunnelTransform.class, Thread.currentThread().getContextClassLoader());
@@ -43,11 +43,11 @@ public class TransformSpecificationCheckTest {
                 FactoryUtil.discoverFactories(
                         Thread.currentThread().getContextClassLoader(),
                         TableTransformFactory.class);
-        Assertions.assertEquals(20, factories.size());
+        Assertions.assertEquals(21, factories.size());
     }
 
     @Test
-    public void testAllTransformSupportMultiTable() {
+    void testAllTransformSupportMultiTable() {
         List<TableTransformFactory> factories =
                 FactoryUtil.discoverFactories(
                         Thread.currentThread().getContextClassLoader(),

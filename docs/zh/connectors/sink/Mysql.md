@@ -85,7 +85,7 @@ import ChangeLog from '../changelog/connector-jdbc.md';
 | max_commit_attempts          | Int     | 否       | 3                            | 事务提交失败的重试次数                                                                                                                                                                                          |
 | transaction_timeout_sec      | Int     | 否       | -1                           | 事务打开后的超时，默认值为-1（永不超时）。请注意，设置超时可能会影响＜br/＞精确一次语义                                                                                            |
 | auto_commit                  | Boolean | 否       | true                         | 默认情况下启用自动事务提交                                                                                                                                                                                             |
-| field_ide                    | String  | 否       | -                            | 确定从源同步到汇时是否需要转换字段`ORIGINAL表示不需要转换`大写`表示转换为大写`LOWERCASE表示转换为小写。     |
+| field_ide                    | String  | 否       | -                            | 确定从源同步到 Sink 时是否需要转换字段`ORIGINAL表示不需要转换`大写`表示转换为大写`LOWERCASE表示转换为小写。     |
 | properties                   | Map     | 否       | -                            | 其他连接配置参数，当属性和URL具有相同的参数时，优先级由驱动程序的特定实现决定。例如，在MySQL中，属性优先于URL。 |
 | common-options               |         | 否       | -                            | Sink插件常用参数，请参考 [Sink Common Options](../common-options/sink-common-options.md) 详见                                                                                                                                    |
 | schema_save_mode             | Enum    | 否       | CREATE_SCHEMA_WHEN_NOT_EXIST | 在启动同步任务之前，对目标侧的现有表面结构选择不同的处理方案。                                                                                                      |
@@ -124,12 +124,12 @@ source {
     }
   }
 	#如果你想了解更多关于如何配置seatunnel的信息，并查看完整的源插件列表，
-	#请前往https://seatunnel.apache.org/docs/connector-v2/source
+	#请前往https://seatunnel.apache.org/docs/connectors/source
 }
 
 transform {
 	#如果你想了解更多关于如何配置seatunnel的信息，并查看转换插件的完整列表，
-	#请前往https://seatunnel.apache.org/docs/transform-v2
+	#请前往https://seatunnel.apache.org/docs/transforms
 }
 
 sink {
@@ -141,7 +141,7 @@ sink {
         query = "insert into test_table(name,age) values(?,?)"
         }
 	#如果你想了解更多关于如何配置seatunnel的信息，并查看完整的sink插件列表，
-	#请前往https://seatunnel.apache.org/docs/connector-v2/sink
+	#请前往https://seatunnel.apache.org/docs/connectors/sink
 }
 ```
 

@@ -12,20 +12,20 @@ import ChangeLog from '../changelog/connector-file-hadoop.md';
 
 ## Key Features
 
-- [x] [batch](../../concept/connector-v2-features.md)
-- [ ] [stream](../../concept/connector-v2-features.md)
-- [x] [multimodal](../../concept/connector-v2-features.md#multimodal)
+- [x] [batch](../../introduction/concepts/connector-v2-features.md)
+- [ ] [stream](../../introduction/concepts/connector-v2-features.md)
+- [x] [multimodal](../../introduction/concepts/connector-v2-features.md#multimodal)
 
   Use binary file format to read and write files in any format, such as videos, pictures, etc. In short, any files can be synchronized to the target place.
 
-- [x] [exactly-once](../../concept/connector-v2-features.md)
+- [x] [exactly-once](../../introduction/concepts/connector-v2-features.md)
 
   Read all the data in a split in a pollNext call. What splits are read will be saved in snapshot.
 
-- [x] [column projection](../../concept/connector-v2-features.md)
-- [x] [parallelism](../../concept/connector-v2-features.md)
-- [ ] [support user-defined split](../../concept/connector-v2-features.md)
-- [x] [support multiple table read](../../concept/connector-v2-features.md)
+- [x] [column projection](../../introduction/concepts/connector-v2-features.md)
+- [x] [parallelism](../../introduction/concepts/connector-v2-features.md)
+- [ ] [support user-defined split](../../introduction/concepts/connector-v2-features.md)
+- [x] [support multiple table read](../../introduction/concepts/connector-v2-features.md)
 - [x] file format file
   - [x] text
   - [x] csv
@@ -67,7 +67,7 @@ Read data from hdfs file system.
 | kerberos_principal         | string  | no       | -                           | The principal of kerberos                                                                                                                                                                                                                                                                                                                     |
 | kerberos_keytab_path       | string  | no       | -                           | The keytab path of kerberos                                                                                                                                                                                                                                                                                                                   |
 | skip_header_row_number     | long    | no       | 0                           | Skip the first few lines, but only for the txt and csv.For example, set like following:`skip_header_row_number = 2`.then Seatunnel will skip the first 2 lines from source files                                                                                                                                                              |
-| schema                     | config  | no       | -                           | the schema fields of upstream data                                                                                                                                                                                                                                                                                                            |
+| schema                     | config  | no       | -                           | the schema fields of upstream data. For more details, please refer to [Schema Feature](../../introduction/concepts/schema-feature.md). **schema_url**: Get the http url of metadata information through restApi. When using Gravitino as the metadata source, the column types from Gravitino will be automatically converted to SeaTunnel data types. For detailed type mapping information, please refer to [Gravitino Type Mapping](../../introduction/concepts/gravitino-type-mapping.md). **metalake_type**: The type of metalake service, currently only supports `gravitino`. For more information about Metalake, please refer to [Metalake](../../introduction/concepts/metalake.md). |
 | sheet_name                 | string  | no       | -                           | Reader the sheet of the workbook,Only used when file_format is excel.                                                                                                                                                                                                                                                                         |
 | xml_row_tag                | string  | no       | -                           | Specifies the tag name of the data rows within the XML file, only used when file_format is xml.                                                                                                                                                                                                                                               |
 | xml_use_attr_format        | boolean | no       | -                           | Specifies whether to process data using the tag attribute format, only used when file_format is xml.                                                                                                                                                                                                                                          |
@@ -88,8 +88,11 @@ Read data from hdfs file system.
 | common-options             |         | no       | -                           | Source plugin common parameters, please refer to [Source Common Options](../source-common-options.md) for details.                                                                                                                                                                                                                            |
 | file_filter_modified_start | string  | no       | -                           | File modification time filter. The connector will filter some files base on the last modification start time (include start time). The default data format is `yyyy-MM-dd HH:mm:ss`.                                                                                                                                                          |
 | file_filter_modified_end   | string  | no       | -                           | File modification time filter. The connector will filter some files base on the last modification end time (not include end time). The default data format is `yyyy-MM-dd HH:mm:ss`.                                                                                                                                                          |
+| enable_file_split          | boolean | no       | false                       | Turn on logical file split to improve parallelism for huge files. Only supported for `text`/`csv`/`json`/`parquet` and non-compressed format.                                                                                                                                                                                               |
+| file_split_size            | long    | no       | 134217728                   | Split size in bytes when `enable_file_split=true`. For `text`/`csv`/`json`, the split end will be aligned to the next `row_delimiter`. For `parquet`, the split unit is RowGroup and will never break a RowGroup.                                                                                                                           |
 | quote_char                 | string  | no       | "                           | A single character that encloses CSV fields, allowing fields with commas, line breaks, or quotes to be read correctly.                                                                                                                                                                                                                        |
 | escape_char                | string  | no       | -                           | A single character that allows the quote or other special characters to appear inside a CSV field without ending the field.                                                                                                                                                                                                                   |
+| metalake_type              | string  | no       | gravitino                  | The type of metalake service, currently supports `gravitino`.                                                                                                                                                                                                                                                                                |
 
 ### file_format_type [string]
 
@@ -254,6 +257,30 @@ Only used when `sync_mode=update`. Supported values: `len_mtime` (default), `che
 
 - `len_mtime`: SKIP only when both `len` and `mtime` are equal, otherwise COPY.
 - `checksum`: SKIP only when `len` is equal and Hadoop `getFileChecksum` is equal, otherwise COPY (only valid when `update_strategy=strict`).
+
+### enable_file_split [boolean]
+
+Turn on the file splitting function, the default is false. It can be selected when the file type is csv, text, json, parquet and non-compressed format.
+
+- `text`/`csv`/`json`: split by `file_split_size` and align to the next `row_delimiter` to avoid breaking records.
+- `parquet`: split by RowGroup (logical split), never breaks a RowGroup.
+
+**Recommendations**
+- Enable when reading a few large files and you want higher read parallelism.
+- Disable when reading many small files, or when parallelism is low (splitting adds overhead).
+
+**Limitations**
+- Not supported for compressed files (`compress_codec` != `none`) or archive files (`archive_compress_codec` != `none`) — it will fall back to non-splitting.
+- For `text`/`csv`/`json`, actual split size may be larger than `file_split_size` because the split end is aligned to the next `row_delimiter`.
+
+### file_split_size [long]
+
+File split size, which can be filled in when the enable_file_split parameter is true. The unit is the number of bytes. The default value is the number of bytes of 128MB, which is 134217728.
+
+**Tuning**
+- Start with the default (128MB). Decrease it if parallelism is under-utilized; increase it if the number of splits is too large.
+- Rough rule: `file_split_size ≈ file_size / desired_parallelism`.
+
 ### quote_char [string]
 
 A single character that encloses CSV fields, allowing fields with commas, line breaks, or quotes to be read correctly.
@@ -292,12 +319,12 @@ source {
   fs.defaultFS = "hdfs://namenode001"
   }
   # If you would like to get more information about how to configure seatunnel and see full list of source plugins,
-  # please go to https://seatunnel.apache.org/docs/connector-v2/source
+  # please go to https://seatunnel.apache.org/docs/connectors/source
 }
 
 transform {
   # If you would like to get more information about how to configure seatunnel and see full list of transform plugins,
-    # please go to https://seatunnel.apache.org/docs/transform-v2
+    # please go to https://seatunnel.apache.org/docs/transforms
 }
 
 sink {
@@ -307,7 +334,7 @@ sink {
       file_format_type = "orc"
     }
   # If you would like to get more information about how to configure seatunnel and see full list of sink plugins,
-  # please go to https://seatunnel.apache.org/docs/connector-v2/sink
+  # please go to https://seatunnel.apache.org/docs/connectors/sink
 }
 ```
 
