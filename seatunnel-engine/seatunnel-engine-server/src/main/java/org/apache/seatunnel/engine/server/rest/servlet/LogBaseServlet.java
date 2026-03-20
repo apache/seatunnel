@@ -36,7 +36,7 @@ public class LogBaseServlet extends BaseServlet {
     public LogBaseServlet(NodeEngineImpl nodeEngine) {
         super(nodeEngine);
     }
-    /** Prepare Log Response */
+    // Prepare log response with path traversal protection
     protected void prepareLogResponse(HttpServletResponse resp, String logPath, String logName) {
         if (StringUtils.isBlank(logPath)) {
             resp.setStatus(HttpServletResponse.SC_BAD_REQUEST);
@@ -46,10 +46,17 @@ public class LogBaseServlet extends BaseServlet {
         }
         String logFilePath = logPath + "/" + logName;
         try {
-            String logContent = FileUtils.readFileToStr(new File(logFilePath).toPath());
+            String canonicalLogDir = new File(logPath).getCanonicalPath();
+            String canonicalFilePath = new File(logFilePath).getCanonicalPath();
+            if (!canonicalFilePath.startsWith(canonicalLogDir + File.separator)
+                    && !canonicalFilePath.equals(canonicalLogDir)) {
+                resp.setStatus(HttpServletResponse.SC_BAD_REQUEST);
+                log.warn("Illegal log file path detected: {}", logName);
+                return;
+            }
+            String logContent = FileUtils.readFileToStr(new File(canonicalFilePath).toPath());
             write(resp, logContent);
         } catch (SeaTunnelRuntimeException | IOException e) {
-            // If the log file does not exist, return 400
             resp.setStatus(HttpServletResponse.SC_BAD_REQUEST);
             log.warn(String.format("Log file content is empty, get log path : %s", logFilePath));
         }

@@ -344,14 +344,21 @@ public class RestHttpGetCommandProcessor extends HttpCommandProcessor<HttpGetCom
         }
     }
 
-    /** Prepare Log Response */
+    // Prepare log response with path traversal protection
     private void prepareLogResponse(HttpGetCommand httpGetCommand, String logPath, String logName) {
         String logFilePath = logPath + "/" + logName;
         try {
-            String logContent = FileUtils.readFileToStr(new File(logFilePath).toPath());
+            String canonicalLogDir = new File(logPath).getCanonicalPath();
+            String canonicalFilePath = new File(logFilePath).getCanonicalPath();
+            if (!canonicalFilePath.startsWith(canonicalLogDir + File.separator)
+                    && !canonicalFilePath.equals(canonicalLogDir)) {
+                httpGetCommand.send400();
+                logger.warning(String.format("Illegal log file path detected: %s", logName));
+                return;
+            }
+            String logContent = FileUtils.readFileToStr(new File(canonicalFilePath).toPath());
             this.prepareResponse(httpGetCommand, logContent);
-        } catch (SeaTunnelRuntimeException e) {
-            // If the log file does not exist, return 400
+        } catch (SeaTunnelRuntimeException | IOException e) {
             httpGetCommand.send400();
             logger.warning(
                     String.format("Log file content is empty, get log path : %s", logFilePath));
