@@ -18,6 +18,7 @@
 
 package org.apache.seatunnel.connectors.seatunnel.jdbc.internal.dialect.sqlserver;
 
+import org.apache.seatunnel.api.table.type.BasicType;
 import org.apache.seatunnel.api.table.type.PrimitiveByteArrayType;
 import org.apache.seatunnel.api.table.type.SeaTunnelDataType;
 
@@ -75,6 +76,42 @@ public class SqlserverJdbcRowConverterTest {
 
         converter.setNullToStatementByDataType(
                 statement, bytesType, 1, SqlServerTypeConverter.MAX_VARBINARY);
+
+        verify(statement).setNull(1, Types.VARBINARY);
+    }
+
+    @Test
+    void testSetNullToStatementByDataTypeForNullSourceType() throws Exception {
+        // Test when sourceType is null, use default VARBINARY
+        PreparedStatement statement = mock(PreparedStatement.class);
+        SqlserverJdbcRowConverter converter = new SqlserverJdbcRowConverter();
+        SeaTunnelDataType<?> bytesType = PrimitiveByteArrayType.INSTANCE;
+
+        converter.setNullToStatementByDataType(statement, bytesType, 1, null);
+
+        verify(statement).setNull(1, Types.VARBINARY);
+    }
+
+    @Test
+    void testSetNullToStatementByDataTypeForNonBytesType() throws Exception {
+        // Test null values of non-BYTES type should use setObject
+        PreparedStatement statement = mock(PreparedStatement.class);
+        SqlserverJdbcRowConverter converter = new SqlserverJdbcRowConverter();
+        SeaTunnelDataType<?> stringType = BasicType.STRING_TYPE;
+
+        converter.setNullToStatementByDataType(statement, stringType, 1, null);
+
+        verify(statement).setObject(1, null);
+    }
+
+    @Test
+    void testSetNullToStatementByDataTypeForUnknownSourceType() throws Exception {
+        // Test unknown sourceType should use default type
+        PreparedStatement statement = mock(PreparedStatement.class);
+        SqlserverJdbcRowConverter converter = new SqlserverJdbcRowConverter();
+        SeaTunnelDataType<?> bytesType = PrimitiveByteArrayType.INSTANCE;
+
+        converter.setNullToStatementByDataType(statement, bytesType, 1, "UNKNOWN_BINARY_TYPE");
 
         verify(statement).setNull(1, Types.VARBINARY);
     }
