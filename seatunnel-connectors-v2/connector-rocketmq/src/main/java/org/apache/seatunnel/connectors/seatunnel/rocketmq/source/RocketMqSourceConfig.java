@@ -103,6 +103,11 @@ public class RocketMqSourceConfig implements Serializable {
 
     private void parseTableConfig(ReadonlyConfig tableConfig, List<String> allTopics) {
         String topicsStr = tableConfig.get(RocketMqSourceOptions.TOPICS);
+        if (topicsStr == null || topicsStr.trim().isEmpty()) {
+            throw new IllegalArgumentException(
+                    "'topics' must be configured in each tables_configs entry, but got: "
+                            + tableConfig);
+        }
         List<String> topics =
                 Arrays.stream(topicsStr.split(RocketMqSourceOptions.DEFAULT_FIELD_DELIMITER))
                         .map(String::trim)
@@ -130,6 +135,13 @@ public class RocketMqSourceConfig implements Serializable {
             switch (startMode) {
                 case CONSUME_FROM_TIMESTAMP:
                     startTimestamp = tableConfig.get(RocketMqSourceOptions.START_MODE_TIMESTAMP);
+                    if (startTimestamp == null) {
+                        throw new IllegalArgumentException(
+                                "When 'start.mode' is set to 'CONSUME_FROM_TIMESTAMP' in tables_configs, "
+                                        + "'start.mode.timestamp' must also be specified in the same table config entry. "
+                                        + "Topics: "
+                                        + topicsStr);
+                    }
                     long currentTimestamp = System.currentTimeMillis();
                     if (startTimestamp < 0 || startTimestamp > currentTimestamp) {
                         throw new IllegalArgumentException(
@@ -140,6 +152,13 @@ public class RocketMqSourceConfig implements Serializable {
                 case CONSUME_FROM_SPECIFIC_OFFSETS:
                     Map<String, Long> offsetConfigMap =
                             tableConfig.get(RocketMqSourceOptions.START_MODE_OFFSETS);
+                    if (offsetConfigMap == null || offsetConfigMap.isEmpty()) {
+                        throw new IllegalArgumentException(
+                                "When 'start.mode' is set to 'CONSUME_FROM_SPECIFIC_OFFSETS' in tables_configs, "
+                                        + "'start.mode.offsets' must also be specified in the same table config entry. "
+                                        + "Topics: "
+                                        + topicsStr);
+                    }
                     Map<MessageQueue, Long> specificOffsets = metadata.getSpecificStartOffsets();
                     if (specificOffsets == null) {
                         specificOffsets = new HashMap<>();

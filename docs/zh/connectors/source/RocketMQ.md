@@ -31,7 +31,7 @@ Apache RocketMQ 的源连接器。
 
 | 参数名                                 | 类型      | 必须 | 默认值                        | 描述                                                                                                                                                            |
 |-------------------------------------|---------|----|----------------------------|---------------------------------------------------------------------------------------------------------------------------------------------------------------|
-| topics                              | String  | 是  | -                          | RocketMQ 主题名称。如果有多个主题，使用 `,` 分隔，例如：`"tpc1,tpc2"`。`topics` 与 `tables_configs` 同时只能配置一个。                                                                       |
+| topics                              | String  | 否  | -                          | RocketMQ 主题名称。如果有多个主题，使用 `,` 分隔，例如：`"tpc1,tpc2"`。`topics` 与 `tables_configs` 同时只能配置一个。                                                                       |
 | tables_configs                      | List    | 否  | -                          | 多表模式配置列表。每项配置一张表，支持：`topics`、`format`、`schema`、`tags`、`start.mode`、`start.mode.timestamp`、`start.mode.offsets`、`ignore_parse_errors`。`topics` 与 `tables_configs` 同时只能配置一个。 |
 | table_list                          | List    | 否  | -                          | 已废弃，请使用 `tables_configs` 代替。                                                                                                                                  |
 | name.srv.addr                       | String  | 是  | -                          | RocketMQ 名称服务器集群地址。                                                                                                                                           |
