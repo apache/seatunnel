@@ -51,6 +51,6 @@ public class SlackSink extends AbstractSimpleSink<SeaTunnelRow, Void> {
 
     @Override
     public Optional<CatalogTable> getWriteCatalogTable() {
-        return super.getWriteCatalogTable();
+        return Optional.of(catalogTable);
     }
 }
