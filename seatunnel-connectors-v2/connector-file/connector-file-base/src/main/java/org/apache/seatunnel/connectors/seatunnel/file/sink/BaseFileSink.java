@@ -52,8 +52,7 @@ public abstract class BaseFileSink
     public BaseFileSink(ReadonlyConfig pluginConfig, CatalogTable catalogTable) {
         this.pluginConfig = pluginConfig;
         this.catalogTable = catalogTable;
-        this.fileSinkConfig =
-                new FileSinkConfig(pluginConfig.toConfig(), catalogTable.getSeaTunnelRowType());
+        this.fileSinkConfig = new FileSinkConfig(pluginConfig, catalogTable.getSeaTunnelRowType());
         this.hadoopConf = initHadoopConf();
     }
 
