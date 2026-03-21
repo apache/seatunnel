@@ -323,7 +323,7 @@ jobs:
         run: tools/dependencies/checkLicense.sh
 
   document:
-    if: needs.changes.outputs.api == 'true' || needs.changes.outputs.docs == 'true'
+    if: needs.changes.outputs.docs == 'true'
     needs: [ changes, sanity-check ]
     name: Build website
     runs-on: ubuntu-latest
