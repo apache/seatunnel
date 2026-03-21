@@ -50,17 +50,17 @@ public class MultiTableWriterRunnable implements Runnable {
     }
 
     /**
-     * Continuously poll rows from the owned queue and dispatch them to the corresponding
-     * per-table {@link SinkWriter}.
+     * Continuously poll rows from the owned queue and dispatch them to the
+     * corresponding per-table {@link SinkWriter}.
      *
-     * Rows with zero arity are treated as control/signal rows and skipped. In normal
-     * flow schema-evolution related signal rows are filtered in
-     * {@link MultiTableSinkWriter#write(SeaTunnelRow)} via options, and this acts as a
-     * defensive guard for zero-arity rows reaching this runnable.
+     * Rows with zero arity are treated as control/signal rows and skipped.
+     * In normal flow, schema-evolution signal rows are filtered in
+     * {@link MultiTableSinkWriter#write(SeaTunnelRow)} through options.
+     * This is a defensive guard for zero-arity rows reaching this runnable.
      *
      * {@code synchronized(this)} is used to avoid concurrent execution with
-     * snapshot/schema-change paths in {@link MultiTableSinkWriter} that also lock on
-     * the same runnable instance.
+     * snapshot and schema-change paths in {@link MultiTableSinkWriter} that also
+     * lock on the same runnable instance.
      */
     @Override
     public void run() {
