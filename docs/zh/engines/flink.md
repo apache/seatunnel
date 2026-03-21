@@ -70,7 +70,7 @@ source {
 
 transform {
   # 如果你想知道更多关于如何配置seatunnel的信息和查看完整的transform插件，
-  # 请访问：https://seatunnel.apache.org/docs/transform-v2/sql
+  # 请访问：https://seatunnel.apache.org/docs/transforms/sql
 }
 
 sink{

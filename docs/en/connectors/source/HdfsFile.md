@@ -12,20 +12,20 @@ import ChangeLog from '../changelog/connector-file-hadoop.md';
 
 ## Key Features
 
-- [x] [batch](../../concept/connector-v2-features.md)
-- [ ] [stream](../../concept/connector-v2-features.md)
-- [x] [multimodal](../../concept/connector-v2-features.md#multimodal)
+- [x] [batch](../../introduction/concepts/connector-v2-features.md)
+- [ ] [stream](../../introduction/concepts/connector-v2-features.md)
+- [x] [multimodal](../../introduction/concepts/connector-v2-features.md#multimodal)
 
   Use binary file format to read and write files in any format, such as videos, pictures, etc. In short, any files can be synchronized to the target place.
 
-- [x] [exactly-once](../../concept/connector-v2-features.md)
+- [x] [exactly-once](../../introduction/concepts/connector-v2-features.md)
 
   Read all the data in a split in a pollNext call. What splits are read will be saved in snapshot.
 
-- [x] [column projection](../../concept/connector-v2-features.md)
-- [x] [parallelism](../../concept/connector-v2-features.md)
-- [ ] [support user-defined split](../../concept/connector-v2-features.md)
-- [x] [support multiple table read](../../concept/connector-v2-features.md)
+- [x] [column projection](../../introduction/concepts/connector-v2-features.md)
+- [x] [parallelism](../../introduction/concepts/connector-v2-features.md)
+- [ ] [support user-defined split](../../introduction/concepts/connector-v2-features.md)
+- [x] [support multiple table read](../../introduction/concepts/connector-v2-features.md)
 - [x] file format file
   - [x] text
   - [x] csv
@@ -319,12 +319,12 @@ source {
   fs.defaultFS = "hdfs://namenode001"
   }
   # If you would like to get more information about how to configure seatunnel and see full list of source plugins,
-  # please go to https://seatunnel.apache.org/docs/connector-v2/source
+  # please go to https://seatunnel.apache.org/docs/connectors/source
 }
 
 transform {
   # If you would like to get more information about how to configure seatunnel and see full list of transform plugins,
-    # please go to https://seatunnel.apache.org/docs/transform-v2
+    # please go to https://seatunnel.apache.org/docs/transforms
 }
 
 sink {
@@ -334,7 +334,7 @@ sink {
       file_format_type = "orc"
     }
   # If you would like to get more information about how to configure seatunnel and see full list of sink plugins,
-  # please go to https://seatunnel.apache.org/docs/connector-v2/sink
+  # please go to https://seatunnel.apache.org/docs/connectors/sink
 }
 ```
 

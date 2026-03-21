@@ -921,7 +921,7 @@ curl --location 'http://127.0.0.1:8080/submit-job/upload' --form 'config_file=@"
 
 <details>
 <summary><code>POST</code> <code><b>/encrypt-config</b></code> <code>(如果配置加密成功，则返回加密后的配置。)</code></summary>
-有关自定义加密的更多信息，请参阅文档[配置-加密-解密](../connector-v2/Config-Encryption-Decryption.md).
+有关自定义加密的更多信息，请参阅文档[配置-加密-解密](../../introduction/concepts/config-encryption-decryption.md).
 
 #### 请求体
 
