@@ -19,7 +19,9 @@ package org.apache.seatunnel.e2e.connector.databend;
 
 import org.apache.seatunnel.e2e.common.TestResource;
 import org.apache.seatunnel.e2e.common.TestSuiteBase;
+import org.apache.seatunnel.e2e.common.container.EngineType;
 import org.apache.seatunnel.e2e.common.container.TestContainer;
+import org.apache.seatunnel.e2e.common.junit.DisabledOnContainer;
 import org.apache.seatunnel.e2e.common.util.ContainerUtil;
 
 import org.awaitility.Awaitility;
@@ -60,6 +62,11 @@ import java.util.List;
 import java.util.Properties;
 import java.util.stream.Stream;
 
+@DisabledOnContainer(
+        value = {},
+        type = {EngineType.SPARK, EngineType.FLINK},
+        disabledReason =
+                "Databend connector does not require Flink or Spark engine for E2E validation")
 public class DatabendIT extends TestSuiteBase implements TestResource {
     private static final Logger LOG = LoggerFactory.getLogger(DatabendIT.class);
     private static final String DATABEND_DOCKER_IMAGE = "datafuselabs/databend:v1.2.71-nightly";

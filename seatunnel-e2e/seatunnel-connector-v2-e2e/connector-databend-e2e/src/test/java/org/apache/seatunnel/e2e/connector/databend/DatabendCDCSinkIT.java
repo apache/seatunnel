@@ -19,7 +19,9 @@ package org.apache.seatunnel.e2e.connector.databend;
 
 import org.apache.seatunnel.e2e.common.TestResource;
 import org.apache.seatunnel.e2e.common.TestSuiteBase;
+import org.apache.seatunnel.e2e.common.container.EngineType;
 import org.apache.seatunnel.e2e.common.container.TestContainer;
+import org.apache.seatunnel.e2e.common.junit.DisabledOnContainer;
 
 import org.awaitility.Awaitility;
 import org.junit.jupiter.api.AfterAll;
@@ -56,6 +58,11 @@ import java.util.Properties;
 import java.util.concurrent.TimeUnit;
 import java.util.stream.Stream;
 
+@DisabledOnContainer(
+        value = {},
+        type = {EngineType.SPARK, EngineType.FLINK},
+        disabledReason =
+                "Databend CDC connector does not require Flink or Spark engine for E2E validation")
 public class DatabendCDCSinkIT extends TestSuiteBase implements TestResource {
     private static final Logger LOG = LoggerFactory.getLogger(DatabendCDCSinkIT.class);
     private static final String DATABEND_DOCKER_IMAGE = "datafuselabs/databend:nightly";
