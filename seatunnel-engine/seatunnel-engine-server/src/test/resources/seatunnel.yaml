@@ -32,4 +32,9 @@ seatunnel:
                     namespace: /tmp/seatunnel/checkpoint_snapshot
                     storage.type: hdfs
                     fs.defaultFS: file:/// # Ensure that the directory has written permission
-                    
+        http:
+            enable-http: true
+            port: 18080
+            enable-dynamic-port: true
+            port-range: 200
+
