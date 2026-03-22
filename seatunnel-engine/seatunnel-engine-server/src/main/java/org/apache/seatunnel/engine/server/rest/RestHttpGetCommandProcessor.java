@@ -346,19 +346,28 @@ public class RestHttpGetCommandProcessor extends HttpCommandProcessor<HttpGetCom
 
     // Prepare log response with path traversal protection
     private void prepareLogResponse(HttpGetCommand httpGetCommand, String logPath, String logName) {
-        String logFilePath = logPath + "/" + logName;
+        String logFilePath = new File(logPath, logName).getPath();
         try {
             String canonicalLogDir = new File(logPath).getCanonicalPath();
             String canonicalFilePath = new File(logFilePath).getCanonicalPath();
             if (!canonicalFilePath.startsWith(canonicalLogDir + File.separator)
                     && !canonicalFilePath.equals(canonicalLogDir)) {
                 httpGetCommand.send400();
-                logger.warning(String.format("Illegal log file path detected: %s", logName));
+                logger.warning(
+                        String.format(
+                                "Path traversal attempt blocked - Requested: %s, Resolved: %s, LogDir: %s",
+                                logName, canonicalFilePath, canonicalLogDir));
                 return;
             }
             String logContent = FileUtils.readFileToStr(new File(canonicalFilePath).toPath());
             this.prepareResponse(httpGetCommand, logContent);
-        } catch (SeaTunnelRuntimeException | IOException e) {
+        } catch (IOException e) {
+            httpGetCommand.send400();
+            logger.warning(
+                    String.format(
+                            "Failed to resolve log file path: %s, error: %s",
+                            logFilePath, e.getMessage()));
+        } catch (SeaTunnelRuntimeException e) {
             httpGetCommand.send400();
             logger.warning(
                     String.format("Log file content is empty, get log path : %s", logFilePath));

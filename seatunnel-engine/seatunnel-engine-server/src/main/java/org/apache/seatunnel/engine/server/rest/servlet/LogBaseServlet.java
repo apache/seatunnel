@@ -44,19 +44,26 @@ public class LogBaseServlet extends BaseServlet {
                     "Log file path is empty, no log file path configured in the current configuration file");
             return;
         }
-        String logFilePath = logPath + "/" + logName;
+        String logFilePath = new File(logPath, logName).getPath();
         try {
             String canonicalLogDir = new File(logPath).getCanonicalPath();
             String canonicalFilePath = new File(logFilePath).getCanonicalPath();
             if (!canonicalFilePath.startsWith(canonicalLogDir + File.separator)
                     && !canonicalFilePath.equals(canonicalLogDir)) {
                 resp.setStatus(HttpServletResponse.SC_BAD_REQUEST);
-                log.warn("Illegal log file path detected: {}", logName);
+                log.warn(
+                        "Path traversal attempt blocked - Requested: {}, Resolved: {}, LogDir: {}",
+                        logName,
+                        canonicalFilePath,
+                        canonicalLogDir);
                 return;
             }
             String logContent = FileUtils.readFileToStr(new File(canonicalFilePath).toPath());
             write(resp, logContent);
-        } catch (SeaTunnelRuntimeException | IOException e) {
+        } catch (IOException e) {
+            resp.setStatus(HttpServletResponse.SC_BAD_REQUEST);
+            log.warn("Failed to resolve log file path: {}, error: {}", logFilePath, e.getMessage());
+        } catch (SeaTunnelRuntimeException e) {
             resp.setStatus(HttpServletResponse.SC_BAD_REQUEST);
             log.warn(String.format("Log file content is empty, get log path : %s", logFilePath));
         }
