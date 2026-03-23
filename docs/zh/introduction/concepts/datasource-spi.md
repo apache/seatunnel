@@ -173,7 +173,7 @@ Gravitino 提供者执行**有限的属性名映射**，从 Gravitino 目录属�
 | `jdbc-password` | `password`   |
 | `jdbc-driver`   | `driver`     |
 
-> **注意**：Gravitino 目录中的任何其他属性将原样传递。如果您需要额外的属性映射，请考虑实现自定义的 `DataSourceProvider`。
+> **注意**：Gravitino 目录中的任何其他属性不会传递。如果您需要额外的属性映射，请考虑实现自定义的 `DataSourceProvider`。
 
 ### 连接器支持
 

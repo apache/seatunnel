@@ -173,7 +173,7 @@ The Gravitino provider performs **limited property name mapping** from Gravitino
 | `jdbc-password`    | `password`         |
 | `jdbc-driver`      | `driver`           |
 
-> **Note**: Any other properties in the Gravitino catalog are passed through unchanged. If you need additional property mappings, consider implementing a custom `DataSourceProvider`.
+> **Note**: Any other properties in the Gravitino catalog are not passed. If you need additional property mappings, consider implementing a custom `DataSourceProvider`.
 
 ### Connector Support
 
