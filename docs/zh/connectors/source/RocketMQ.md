@@ -31,7 +31,9 @@ Apache RocketMQ 的源连接器。
 
 | 参数名                                 | 类型      | 必须 | 默认值                        | 描述                                                                                                                                                            |
 |-------------------------------------|---------|----|----------------------------|---------------------------------------------------------------------------------------------------------------------------------------------------------------|
-| topics                              | String  | 是  | -                          | RocketMQ 主题名称。如果有多个主题，使用 `,` 分隔，例如：`"tpc1,tpc2"`。                                                                                                             |
+| topics                              | String  | 否  | -                          | RocketMQ 主题名称。如果有多个主题，使用 `,` 分隔，例如：`"tpc1,tpc2"`。`topics` 与 `tables_configs` 同时只能配置一个。                                                                       |
+| tables_configs                      | List    | 否  | -                          | 多表模式配置列表。每项配置一张表，支持：`topics`、`format`、`schema`、`tags`、`start.mode`、`start.mode.timestamp`、`start.mode.offsets`、`ignore_parse_errors`。`topics` 与 `tables_configs` 同时只能配置一个。 |
+| table_list                          | List    | 否  | -                          | 已废弃，请使用 `tables_configs` 代替。                                                                                                                                  |
 | name.srv.addr                       | String  | 是  | -                          | RocketMQ 名称服务器集群地址。                                                                                                                                           |
 | tags                                | String  | 否  | -                          | RocketMQ 标签名称。如果有多个标签，使用 `,` 分隔，例如：`"tag1,tag2"`。                                                                                                             |
 | acl.enabled                         | Boolean | 否  | false                      | 如果为 true，启用访问控制，需要配置访问密钥和秘密密钥。                                                                                                                                |
@@ -162,6 +164,52 @@ transform {
 sink {
   Console {
   }
+}
+```
+
+### 多表读取
+
+> 从不同 topic 读取不同结构的数据，使用 `tables_configs` 为每个 topic 独立配置。
+
+```hocon
+env {
+  parallelism = 1
+  job.mode = "BATCH"
+}
+
+source {
+  Rocketmq {
+    name.srv.addr = "localhost:9876"
+    consumer.group = "multi_table_group"
+    start.mode = "CONSUME_FROM_FIRST_OFFSET"
+    tables_configs = [
+      {
+        topics = "topic_1"
+        format = "json"
+        schema = {
+          fields {
+            id = int
+            name = string
+          }
+        }
+      },
+      {
+        topics = "topic_2"
+        format = "json"
+        schema = {
+          fields {
+            id = int
+            description = string
+            weight = double
+          }
+        }
+      }
+    ]
+  }
+}
+
+sink {
+  Console {}
 }
 ```
 
