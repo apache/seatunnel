@@ -25,7 +25,7 @@ import {
   NDrawer,
   NDrawerContent
 } from 'naive-ui'
-import {computed, defineComponent, onUnmounted, reactive, ref, watch} from 'vue'
+import { computed, defineComponent, onUnmounted, reactive, ref, watch } from 'vue'
 import { getJobInfo } from '@/service/job'
 import { useRoute } from 'vue-router'
 import type { Job, Vertex } from '@/service/job/types'
@@ -37,6 +37,7 @@ import { getColorFromStatus } from '@/utils/getTypeFromStatus'
 import './detail.scss'
 import Configuration from '@/components/configuration'
 import JobLog from '@/components/job-log'
+import { collectVertexMetrics, readVertexMetricValue } from './detail-metrics'
 
 export default defineComponent({
   setup() {
@@ -81,7 +82,7 @@ export default defineComponent({
     })
 
     const isTerminalState = (status: string) => {
-      return ['FINISHED', 'FAILED', 'CANCELED','SAVEPOINT_DONE'].includes(status)
+      return ['FINISHED', 'FAILED', 'CANCELED', 'SAVEPOINT_DONE'].includes(status)
     }
 
     const isRunningState = (status: string) => {
@@ -100,7 +101,10 @@ export default defineComponent({
         | 'TableSourceReceivedBytesPerSeconds'
     ) => {
       if (row.type === 'source') {
-        return row.tablePaths.reduce((s, path) => s + Number(job.metrics?.[key][path]), 0)
+        return row.tablePaths.reduce(
+          (s, path) => s + readVertexMetricValue(job.metrics?.[key], row, path),
+          0
+        )
       }
       return 0
     }
@@ -113,7 +117,10 @@ export default defineComponent({
         | 'TableSinkWriteBytesPerSeconds'
     ) => {
       if (row.type === 'sink') {
-        return row.tablePaths.reduce((s, path) => s + Number(job.metrics?.[key][path]), 0)
+        return row.tablePaths.reduce(
+          (s, path) => s + readVertexMetricValue(job.metrics?.[key], row, path),
+          0
+        )
       }
       return 0
     }
@@ -182,34 +189,42 @@ export default defineComponent({
       const vertex = job.jobDag?.vertexInfoMap?.find((v) => v.vertexId === focusedId.value)
       const metrics = {} as any
       if (vertex?.type === 'source') {
-        Object.keys(job.metrics?.TableSourceReceivedBytes || {}).forEach((key) => {
-          metrics[`TableSourceReceivedBytes.${key}`] = job.metrics?.TableSourceReceivedBytes[key]
-        })
-        Object.keys(job.metrics?.TableSourceReceivedCount || {}).forEach((key) => {
-          metrics[`TableSourceReceivedCount.${key}`] = job.metrics?.TableSourceReceivedCount[key]
-        })
-        Object.keys(job.metrics?.TableSourceReceivedQPS || {}).forEach((key) => {
-          metrics[`TableSourceReceivedQPS.${key}`] = job.metrics?.TableSourceReceivedQPS[key]
-        })
-        Object.keys(job.metrics?.TableSourceReceivedBytesPerSeconds || {}).forEach((key) => {
-          metrics[`TableSourceReceivedBytesPerSeconds.${key}`] =
-            job.metrics?.TableSourceReceivedBytesPerSeconds[key]
-        })
+        Object.assign(
+          metrics,
+          collectVertexMetrics(
+            'TableSourceReceivedBytes',
+            job.metrics?.TableSourceReceivedBytes,
+            vertex
+          ),
+          collectVertexMetrics(
+            'TableSourceReceivedCount',
+            job.metrics?.TableSourceReceivedCount,
+            vertex
+          ),
+          collectVertexMetrics(
+            'TableSourceReceivedQPS',
+            job.metrics?.TableSourceReceivedQPS,
+            vertex
+          ),
+          collectVertexMetrics(
+            'TableSourceReceivedBytesPerSeconds',
+            job.metrics?.TableSourceReceivedBytesPerSeconds,
+            vertex
+          )
+        )
       }
       if (vertex?.type === 'sink') {
-        Object.keys(job.metrics?.TableSinkWriteBytes || {}).forEach((key) => {
-          metrics[`TableSinkWriteBytes.${key}`] = job.metrics?.TableSinkWriteBytes[key]
-        })
-        Object.keys(job.metrics?.TableSinkWriteCount || {}).forEach((key) => {
-          metrics[`TableSinkWriteCount.${key}`] = job.metrics?.TableSinkWriteCount[key]
-        })
-        Object.keys(job.metrics?.TableSinkWriteQPS || {}).forEach((key) => {
-          metrics[`TableSinkWriteQPS.${key}`] = job.metrics?.TableSinkWriteQPS[key]
-        })
-        Object.keys(job.metrics?.TableSinkWriteBytesPerSeconds || {}).forEach((key) => {
-          metrics[`TableSinkWriteBytesPerSeconds.${key}`] =
-            job.metrics?.TableSinkWriteBytesPerSeconds[key]
-        })
+        Object.assign(
+          metrics,
+          collectVertexMetrics('TableSinkWriteBytes', job.metrics?.TableSinkWriteBytes, vertex),
+          collectVertexMetrics('TableSinkWriteCount', job.metrics?.TableSinkWriteCount, vertex),
+          collectVertexMetrics('TableSinkWriteQPS', job.metrics?.TableSinkWriteQPS, vertex),
+          collectVertexMetrics(
+            'TableSinkWriteBytesPerSeconds',
+            job.metrics?.TableSinkWriteBytesPerSeconds,
+            vertex
+          )
+        )
       }
       return Object.assign({}, vertex, metrics)
     })
