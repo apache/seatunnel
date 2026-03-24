@@ -86,17 +86,15 @@ public class JdbcOutputFormat<I, E extends JdbcBatchStatementExecutor<I>> implem
         int batchSize = jdbcConnectionConfig.getBatchSize();
         if (batchIntervalMs <= 0 || batchSize == 1) {
             LOG.warn(
-                    "batch_size={}, periodic flush automatically disabled. "
-                            + "batch_interval_ms={}",
-                    batchSize,
-                    batchIntervalMs);
+                    "Periodic flush automatically disabled, batch_interval_ms={}, batch_size={}",
+                    batchIntervalMs,
+                    batchSize);
             return null;
         }
 
         if (jdbcConnectionConfig.isExactlyOnce()) {
             LOG.warn(
-                    "Exactly-once mode enabled, periodic flush automatically disabled. "
-                            + "batch_interval_ms={}",
+                    "Periodic flush automatically disabled, exactly-once mode enabled, batch_interval_ms={}",
                     batchIntervalMs);
             return null;
         }
