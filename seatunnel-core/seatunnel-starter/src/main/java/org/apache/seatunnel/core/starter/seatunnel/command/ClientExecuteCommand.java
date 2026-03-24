@@ -319,8 +319,15 @@ public class ClientExecuteCommand implements Command<ClientCommandArgs> {
                 .setClusterRole(EngineConfig.ClusterRole.MASTER_AND_WORKER);
         // set local mode
         seaTunnelConfig.getEngineConfig().setMode(ExecutionMode.LOCAL);
-        seaTunnelConfig.getHazelcastConfig().getNetworkConfig().setPortAutoIncrement(true);
 
+        // Get custom port from command line argument, default is 0 (random assignment)
+        int port =
+                clientCommandArgs.getHazelcastPort() != null
+                        ? clientCommandArgs.getHazelcastPort()
+                        : seaTunnelConfig.getHazelcastConfig().getNetworkConfig().getPort();
+        seaTunnelConfig.getHazelcastConfig().getNetworkConfig().setPortAutoIncrement(port == 0);
+        seaTunnelConfig.getHazelcastConfig().getNetworkConfig().setPort(port);
+        log.info("Local mode: Hazelcast port configured as {} (0 means random assignment)", port);
         // set the default async executor for Hazelcast InvocationFuture
         ConcurrencyUtil.setDefaultAsyncExecutor(CompletableFuture.EXECUTOR);
 
