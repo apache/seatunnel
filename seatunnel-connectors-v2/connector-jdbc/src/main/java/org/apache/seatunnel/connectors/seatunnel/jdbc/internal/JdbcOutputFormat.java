@@ -83,11 +83,12 @@ public class JdbcOutputFormat<I, E extends JdbcBatchStatementExecutor<I>> implem
 
     private ScheduledFuture<?> createAndStartScheduledFlush() {
         long batchIntervalMs = jdbcConnectionConfig.getBatchIntervalMs();
-        if (batchIntervalMs <= 0 || jdbcConnectionConfig.getBatchSize() == 1) {
+        int batchSize = jdbcConnectionConfig.getBatchSize();
+        if (batchIntervalMs <= 0 || batchSize == 1) {
             LOG.warn(
                     "batch_size={}, periodic flush automatically disabled. "
                             + "batch_interval_ms={}",
-                    jdbcConnectionConfig.getBatchSize(),
+                    batchSize,
                     batchIntervalMs);
             return null;
         }
