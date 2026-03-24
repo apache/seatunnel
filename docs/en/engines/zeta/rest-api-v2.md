@@ -75,12 +75,17 @@ Please refer [security](security.md)
 
 ------------------------------------------------------------------------------------------
 
-### Returns An Overview And State Of All Jobs
+### Query An Overview And State Of Running Jobs
 
 <details>
- <summary><code>GET</code> <code><b>/running-jobs</b></code> <code>(Returns an overview over all jobs and their current state.)</code></summary>
+ <summary><code>GET</code> <code><b>/running-jobs?page=1&rows=10</b></code> <code>(Query an overview over running jobs and their current state.)</code></summary>
 
 #### Parameters
+
+> | name  |   type   | data type | description                                                                       |
+> |-------|----------|-----------|-----------------------------------------------------------------------------------|
+> | page  | optional | int       | page number.                                                                      |
+> | rows  | optional | int       | page size.                                                                        |
 
 #### Responses
 
@@ -465,16 +470,18 @@ When we can't get the job info, the response will be:
 
 ------------------------------------------------------------------------------------------
 
-### Return All Finished Jobs Info
+### Query Finished Jobs Info
 
 <details>
- <summary><code>GET</code> <code><b>/finished-jobs/:state</b></code> <code>(Return all finished Jobs Info.)</code></summary>
+ <summary><code>GET</code> <code><b>/finished-jobs/:state?page=1&rows=10</b></code> <code>(Query finished Jobs Info.)</code></summary>
 
 #### Parameters
 
 > | name  |   type   | data type | description                                                                       |
 > |-------|----------|-----------|-----------------------------------------------------------------------------------|
 > | state | optional | string    | finished job status. `FINISHED`,`CANCELED`,`FAILED`,`SAVEPOINT_DONE`,`UNKNOWABLE` |
+> | page  | optional | int       | page number.                                                                      |
+> | rows  | optional | int       | page size.                                                                        |
 
 #### Responses
 
@@ -851,14 +858,24 @@ curl --location 'http://127.0.0.1:8080/submit-job/upload' --form 'config_file=@"
 ### Stop A Job
 
 <details>
-<summary><code>POST</code> <code><b>/stop-job</b></code> <code>(Returns jobId if job stoped successfully.)</code></summary>
+<summary><code>POST</code> <code><b>/stop-job</b></code> <code>(Returns jobId if job stopped successfully.)</code></summary>
+
+#### Parameters
+
+> | name                | required | data type | description                                                      |
+> |---------------------|----------|-----------|------------------------------------------------------------------|
+> | jobId               | yes      | long      | job id                                                           |
+> | isStopWithSavePoint | no       | boolean   | If the job is stopped with a savepoint.                          |
+> | force               | no       | boolean   | If true, the job is force-stopped (ignores isStopWithSavePoint). |
+
 
 #### Body
 
 ```json
 {
-    "jobId": 733584788375666689,
-    "isStopWithSavePoint": false # if job is stopped with save point
+  "jobId": 733584788375666689,
+  "isStopWithSavePoint": false,
+  "force": false
 }
 ```
 
@@ -869,6 +886,10 @@ curl --location 'http://127.0.0.1:8080/submit-job/upload' --form 'config_file=@"
 "jobId": 733584788375666689
 }
 ```
+
+**Notes:**
+- If the job status is `DOING_SAVEPOINT` and the savepoint does not complete successfully, a forced stop (When the `force` option is enabled) will set the job status to `CANCELED`.
+- A forced stop may leave checkpoint data incomplete or in an inconsistent state. It should be used only for exceptional or abnormal situations.
 
 </details>
 
@@ -884,11 +905,13 @@ curl --location 'http://127.0.0.1:8080/submit-job/upload' --form 'config_file=@"
 [
   {
     "jobId": 881432421482889220,
-    "isStopWithSavePoint": false
+    "isStopWithSavePoint": false,
+    "force": false
   },
   {
     "jobId": 881432456517910529,
-    "isStopWithSavePoint": false
+    "isStopWithSavePoint": false,
+    "force": false
   }
 ]
 ```
@@ -913,7 +936,7 @@ curl --location 'http://127.0.0.1:8080/submit-job/upload' --form 'config_file=@"
 
 <details>
 <summary><code>POST</code> <code><b>/encrypt-config</b></code> <code>(Returns the encrypted config if config is encrypted successfully.)</code></summary>
-For more information about customize encryption, please refer to the documentation [config-encryption-decryption](../connector-v2/Config-Encryption-Decryption.md).
+For more information about customize encryption, please refer to the documentation [config-encryption-decryption](../../introduction/concepts/config-encryption-decryption.md).
 
 #### Body
 
@@ -1139,3 +1162,151 @@ To get the metrics, you need to open `Telemetry` first, or you will get an empty
 More information about `Telemetry` can be found in the [Telemetry](telemetry.md) documentation.
 
 </details>
+
+### Get Job Checkpoint Overview
+
+<details>
+ <summary><code>GET</code> <code><b>/jobs/checkpoints/:jobId</b></code> <code>(Return checkpoint overview of every pipeline).</code></summary>
+
+#### Path Parameter
+
+- `jobId`: required job identifier.
+
+#### Response Example
+
+```json
+{
+  "jobId": "1234567890",
+  "updatedAt": 1720000000123,
+  "pipelines": [
+    {
+      "pipelineId": 1,
+      "counts": {
+        "triggered": 10,
+        "completed": 8,
+        "failed": 1,
+        "inProgress": 1,
+        "restored": 2
+      },
+      "latestCompleted": {
+        "checkpointId": 9,
+        "checkpointType": "CHECKPOINT_TYPE",
+        "status": "COMPLETED",
+        "triggerTimestamp": 1720000000000,
+        "completedTimestamp": 1720000000450,
+        "durationMillis": 450,
+        "stateSize": 128934
+      },
+      "latestFailed": {
+        "checkpointId": 8,
+        "checkpointType": "CHECKPOINT_TYPE",
+        "status": "FAILED",
+        "triggerTimestamp": 1719999995000,
+        "failureReason": "CHECKPOINT_EXPIRED"
+      },
+      "latestSavepoint": null,
+      "inProgress": [
+        {
+          "checkpointId": 10,
+          "checkpointType": "CHECKPOINT_TYPE",
+          "triggerTimestamp": 1720000005000,
+          "acknowledged": 2,
+          "total": 4
+        }
+      ],
+      "history": [
+        {
+          "pipelineId": 1,
+          "checkpoint": {
+            "checkpointId": 9,
+            "checkpointType": "CHECKPOINT_TYPE",
+            "status": "COMPLETED",
+            "triggerTimestamp": 1720000000000,
+            "completedTimestamp": 1720000000450,
+            "durationMillis": 450,
+            "stateSize": 128934
+          }
+        }
+      ]
+    }
+  ]
+}
+```
+</details>
+
+#### Field Description
+
+| Field | Description |
+| --- | --- |
+| `jobId` | Job ID. |
+| `updatedAt` | Latest snapshot timestamp (millisecond). |
+| `pipelines` | List of pipeline statistics. |
+| `pipelines[].pipelineId` | Pipeline ID. |
+| `pipelines[].counts.triggered/completed/failed/inProgress/restored` | Checkpoint statistics:<br/>- `triggered`: total triggered checkpoints.<br/>- `completed`: total successful checkpoints.<br/>- `failed`: total failed checkpoints.<br/>- `inProgress`: checkpoints currently running.<br/>- `restored`: number of restore (including savepoint) attempts. |
+| `pipelines[].latestCompleted/latestFailed/latestSavepoint` | Metadata of the latest completed/failed/savepoint checkpoints (see table below for field definitions). |
+| `pipelines[].inProgress` | Ongoing checkpoints with details:<br/>- `checkpointId`: ID of the running checkpoint.<br/>- `checkpointType`: type (`CHECKPOINT_TYPE`, savepoint, etc.).<br/>- `triggerTimestamp`: when it was triggered (ms).<br/>- `acknowledged`: number of subtasks that have ACKed.<br/>- `total`: total subtasks requiring ACK. |
+| `pipelines[].history` | Ring-buffer history (default 32 entries) ordered latest-first; each entry contains `pipelineId` plus checkpoint metadata. |
+
+Checkpoint metadata fields:
+
+| Field | Description |
+| --- | --- |
+| `checkpointId` | Checkpoint identifier. |
+| `checkpointType` | Checkpoint type. |
+| `status` | `COMPLETED`, `FAILED`, or `CANCELED`. |
+| `triggerTimestamp` | Trigger time in milliseconds. |
+| `completedTimestamp` | Completion time (only for success). |
+| `durationMillis` | Duration in milliseconds. |
+| `stateSize` | State size in bytes. |
+| `failureReason` | Failure/cancel reason, optional. |
+
+### Get Job Checkpoint History
+
+<details>
+ <summary><code>GET</code> <code><b>/jobs/checkpoints/history/:jobId</b></code> <code>(Return checkpoint history records.)</code></summary>
+
+#### Query Parameters
+
+| Name | Description |
+| --- | --- |
+| `jobId` | Required job ID (path). |
+| `pipelineId` | Optional pipeline filter. |
+| `limit` | Optional limit (default 20). |
+| `status` | Optional status filter: `COMPLETED`, `FAILED`, `CANCELED`. |
+
+#### Response Example
+
+```json
+[
+  {
+    "pipelineId": 1,
+    "checkpoint": {
+      "checkpointId": 9,
+      "checkpointType": "CHECKPOINT_TYPE",
+      "status": "COMPLETED",
+      "triggerTimestamp": 1720000000000,
+      "completedTimestamp": 1720000000450,
+      "durationMillis": 450,
+      "stateSize": 128934
+    }
+  },
+  {
+    "pipelineId": 1,
+    "checkpoint": {
+      "checkpointId": 8,
+      "checkpointType": "CHECKPOINT_TYPE",
+      "status": "FAILED",
+      "triggerTimestamp": 1719999995000,
+      "failureReason": "CHECKPOINT_EXPIRED"
+    }
+  }
+]
+```
+</details>
+
+#### Field Description
+
+| Field | Description |
+| --- | --- |
+| `pipelineId` | ID of the pipeline to which the record belongs. |
+| `checkpoint` | Checkpoint metadata described above. |

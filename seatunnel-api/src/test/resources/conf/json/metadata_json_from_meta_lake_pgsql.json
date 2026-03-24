@@ -1,0 +1,198 @@
+{
+  "code": 0,
+  "table": {
+    "name": "all_type",
+    "columns": [
+      {
+        "name": "id",
+        "type": "integer",
+        "nullable": false,
+        "autoIncrement": false
+      },
+      {
+        "name": "big_number",
+        "type": "long",
+        "nullable": true,
+        "autoIncrement": false,
+        "defaultValue": {
+          "type": "literal",
+          "dataType": "null",
+          "value": "NULL"
+        }
+      },
+      {
+        "name": "small_number",
+        "type": "integer",
+        "nullable": true,
+        "autoIncrement": false,
+        "defaultValue": {
+          "type": "literal",
+          "dataType": "null",
+          "value": "NULL"
+        }
+      },
+      {
+        "name": "tiny_number",
+        "type": "short",
+        "nullable": true,
+        "autoIncrement": false,
+        "defaultValue": {
+          "type": "literal",
+          "dataType": "null",
+          "value": "NULL"
+        }
+      },
+      {
+        "name": "float_value",
+        "type": "float",
+        "nullable": true,
+        "autoIncrement": false,
+        "defaultValue": {
+          "type": "literal",
+          "dataType": "null",
+          "value": "NULL"
+        }
+      },
+      {
+        "name": "double_value",
+        "type": "double",
+        "nullable": true,
+        "autoIncrement": false,
+        "defaultValue": {
+          "type": "literal",
+          "dataType": "null",
+          "value": "NULL"
+        }
+      },
+      {
+        "name": "decimal_value",
+        "type": "decimal(10,2)",
+        "nullable": true,
+        "autoIncrement": false,
+        "defaultValue": {
+          "type": "literal",
+          "dataType": "null",
+          "value": "NULL"
+        }
+      },
+      {
+        "name": "event_date",
+        "type": "date",
+        "nullable": true,
+        "autoIncrement": false,
+        "defaultValue": {
+          "type": "literal",
+          "dataType": "null",
+          "value": "NULL"
+        }
+      },
+      {
+        "name": "user_name",
+        "type": "varchar(300)",
+        "nullable": true,
+        "autoIncrement": false,
+        "defaultValue": {
+          "type": "literal",
+          "dataType": "null",
+          "value": "NULL"
+        }
+      },
+      {
+        "name": "code",
+        "type": "varchar(15)",
+        "nullable": true,
+        "autoIncrement": false,
+        "defaultValue": {
+          "type": "literal",
+          "dataType": "null",
+          "value": "NULL"
+        }
+      },
+      {
+        "name": "description",
+        "type": "string",
+        "nullable": true,
+        "autoIncrement": false,
+        "defaultValue": {
+          "type": "literal",
+          "dataType": "null",
+          "value": "NULL"
+        }
+      },
+      {
+        "name": "event_json",
+        "type": "string",
+        "nullable": true,
+        "autoIncrement": false,
+        "defaultValue": {
+          "type": "literal",
+          "dataType": "null",
+          "value": "NULL"
+        }
+      },
+      {
+        "name": "map_field",
+        "type": {
+          "type": "external",
+          "catalogString": "jsonb"
+        },
+        "nullable": true,
+        "autoIncrement": false,
+        "defaultValue": {
+          "type": "literal",
+          "dataType": "null",
+          "value": "NULL"
+        }
+      },
+      {
+        "name": "list_field",
+        "type": {
+          "type": "list",
+          "containsNull": false,
+          "elementType": "string"
+        },
+        "nullable": true,
+        "autoIncrement": false,
+        "defaultValue": {
+          "type": "literal",
+          "dataType": "null",
+          "value": "NULL"
+        }
+      }
+    ],
+    "properties": {
+
+    },
+    "audit": {
+      "lastModifier": "anonymous",
+      "lastModifiedTime": "2026-01-26T09:11:59.357512917Z"
+    },
+    "distribution": {
+      "strategy": "none",
+      "number": 0,
+      "funcArgs": []
+    },
+    "sortOrders": [],
+    "partitioning": [],
+    "indexes": [
+      {
+        "indexType": "PRIMARY_KEY",
+        "name": "all_type_pk",
+        "fieldNames": [
+          [
+            "id"
+          ]
+        ]
+      },
+      {
+        "indexType": "UNIQUE_KEY",
+        "name": "all_type_big_number_idx",
+        "fieldNames": [
+          [
+            "big_number"
+          ]
+        ]
+      }
+    ]
+  }
+}

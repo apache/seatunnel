@@ -35,6 +35,7 @@ import org.apache.seatunnel.e2e.common.junit.DisabledOnContainer;
 import org.apache.groovy.util.Maps;
 import org.apache.hadoop.hbase.Cell;
 import org.apache.hadoop.hbase.CellUtil;
+import org.apache.hadoop.hbase.NamespaceDescriptor;
 import org.apache.hadoop.hbase.TableName;
 import org.apache.hadoop.hbase.client.Admin;
 import org.apache.hadoop.hbase.client.Connection;
@@ -76,6 +77,10 @@ public class HbaseIT extends TestSuiteBase implements TestResource {
 
     private static final String ASSIGN_CF_TABLE_NAME = "assign_cf_table";
 
+    private static final String TEST_NAMESPACE = "test";
+
+    private static final String NAMESPACE_TABLE_NAME = "seatunnel_test_namespace";
+
     private static final String MULTI_TABLE_ONE_NAME = "hbase_sink_1";
 
     private static final String MULTI_TABLE_TWO_NAME = "hbase_sink_2";
@@ -90,6 +95,7 @@ public class HbaseIT extends TestSuiteBase implements TestResource {
 
     private TableName table;
     private TableName tableAssign;
+    private TableName namespaceTable;
     private TableName binaryRowkeyTable;
 
     private HbaseCluster hbaseCluster;
@@ -112,6 +118,14 @@ public class HbaseIT extends TestSuiteBase implements TestResource {
         // Create table for hbase binary rowkey sink test
         hbaseCluster.createTable(BINARY_ROWKEY_TABLE_NAME, Arrays.asList(FAMILY_NAME));
         binaryRowkeyTable = TableName.valueOf(BINARY_ROWKEY_TABLE_NAME);
+
+        if (Arrays.stream(admin.listNamespaceDescriptors())
+                .noneMatch(descriptor -> TEST_NAMESPACE.equals(descriptor.getName()))) {
+            admin.createNamespace(NamespaceDescriptor.create(TEST_NAMESPACE).build());
+        }
+        namespaceTable = TableName.valueOf(TEST_NAMESPACE, NAMESPACE_TABLE_NAME);
+        dropTable(namespaceTable);
+        hbaseCluster.createTable(namespaceTable.getNameAsString(), Arrays.asList(FAMILY_NAME));
 
         // Create table for hbase multi-table sink test
         hbaseCluster.createTable(MULTI_TABLE_ONE_NAME, Arrays.asList(FAMILY_NAME));
@@ -433,6 +447,16 @@ public class HbaseIT extends TestSuiteBase implements TestResource {
         fakeToHbaseArray(container);
         Container.ExecResult sourceExecResult =
                 container.executeJob("/hbase-source-with-rowkey-range.conf");
+        Assertions.assertEquals(0, sourceExecResult.getExitCode());
+    }
+
+    @TestTemplate
+    public void testHbaseSourceWithNamespace(TestContainer container)
+            throws IOException, InterruptedException {
+        deleteData(namespaceTable);
+        insertData(namespaceTable);
+        Container.ExecResult sourceExecResult =
+                container.executeJob("/hbase-source-with-namespace.conf");
         Assertions.assertEquals(0, sourceExecResult.getExitCode());
     }
 

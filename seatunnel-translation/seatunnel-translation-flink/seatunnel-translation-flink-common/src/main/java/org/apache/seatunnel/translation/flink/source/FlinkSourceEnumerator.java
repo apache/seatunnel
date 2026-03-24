@@ -33,6 +33,7 @@ import javax.annotation.Nullable;
 
 import java.io.IOException;
 import java.util.List;
+import java.util.Set;
 import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.stream.Collectors;
 
@@ -54,6 +55,7 @@ public class FlinkSourceEnumerator<SplitT extends SourceSplit, EnumStateT>
 
     private final SourceSplitEnumerator.Context<SplitT> context;
     private final int parallelism;
+    private final Set<Integer> noMoreSplitsSignaledReaders;
 
     private final Object lock = new Object();
 
@@ -63,11 +65,13 @@ public class FlinkSourceEnumerator<SplitT extends SourceSplit, EnumStateT>
 
     public FlinkSourceEnumerator(
             SourceSplitEnumerator<SplitT, EnumStateT> enumerator,
-            SplitEnumeratorContext<SplitWrapper<SplitT>> enumContext) {
+            SplitEnumeratorContext<SplitWrapper<SplitT>> enumContext,
+            Set<Integer> noMoreSplitsSignaledReaders) {
         this.sourceSplitEnumerator = enumerator;
         this.enumeratorContext = enumContext;
         this.context = new FlinkSourceSplitEnumeratorContext<>(enumeratorContext);
         this.parallelism = enumeratorContext.currentParallelism();
+        this.noMoreSplitsSignaledReaders = noMoreSplitsSignaledReaders;
     }
 
     @Override
@@ -95,6 +99,12 @@ public class FlinkSourceEnumerator<SplitT extends SourceSplit, EnumStateT>
         synchronized (lock) {
             sourceSplitEnumerator.registerReader(subtaskId);
             currentRegisterReaders++;
+            if (noMoreSplitsSignaledReaders.contains(subtaskId)) {
+                LOGGER.info(
+                        "Reader [{}] re-registered after failover. Re-signaling NoMoreSplitsEvent.",
+                        subtaskId);
+                enumeratorContext.signalNoMoreSplits(subtaskId);
+            }
         }
         if (currentRegisterReaders == parallelism && !isRun.getAndSet(true)) {
             try {

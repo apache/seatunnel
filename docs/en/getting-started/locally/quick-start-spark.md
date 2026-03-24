@@ -58,7 +58,7 @@ sink {
 
 ```
 
-More information about config please check [Config Concept](../../concept/config.md)
+More information about config please check [Config Concept](../../introduction/concepts/config.md)
 
 ## Step 4: Run SeaTunnel Application
 
@@ -112,7 +112,7 @@ row=16 : SGZCr, 94186144
 
 ## What's More
 
-- Start write your own config file now, choose the [connector](../../connector-v2/source) you want to use, and configure the parameters according to the connector's documentation.
-- See [SeaTunnel With Spark](../../other-engine/spark.md) if you want to know more about SeaTunnel With Spark.
+- Start write your own config file now, choose the [connector](../../connectors/source) you want to use, and configure the parameters according to the connector's documentation.
+- See [SeaTunnel With Spark](../../engines/spark.md) if you want to know more about SeaTunnel With Spark.
 - SeaTunnel have a builtin engine named `Zeta`, and it's the default engine of SeaTunnel. You can follow [Quick Start](quick-start-seatunnel-engine.md) to configure and run a data synchronization job.
 

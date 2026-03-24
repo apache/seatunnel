@@ -12,20 +12,20 @@ import ChangeLog from '../changelog/connector-file-hadoop.md';
 
 ## 主要特性
 
-- [x] [多模态](../../concept/connector-v2-features.md#多模态multimodal)
+- [x] [多模态](../../introduction/concepts/connector-v2-features.md#多模态multimodal)
 
   使用二进制文件格式读取和写入任何格式的文件，例如视频、图片等。简而言之，任何文件都可以同步到目标位置。
 
-- [x] [批处理](../../concept/connector-v2-features.md)
-- [ ] [流处理](../../concept/connector-v2-features.md)
-- [x] [精确一次](../../concept/connector-v2-features.md)
+- [x] [批处理](../../introduction/concepts/connector-v2-features.md)
+- [ ] [流处理](../../introduction/concepts/connector-v2-features.md)
+- [x] [精确一次](../../introduction/concepts/connector-v2-features.md)
 
   在 pollNext 调用中读取分片中的所有数据。读取的分片将保存在快照中。
 
-- [x] [列投影](../../concept/connector-v2-features.md)
-- [x] [并行度](../../concept/connector-v2-features.md)
-- [ ] [支持用户定义分片](../../concept/connector-v2-features.md)
-- [x] [支持多表读](../../concept/connector-v2-features.md)
+- [x] [列投影](../../introduction/concepts/connector-v2-features.md)
+- [x] [并行度](../../introduction/concepts/connector-v2-features.md)
+- [ ] [支持用户定义分片](../../introduction/concepts/connector-v2-features.md)
+- [x] [支持多表读](../../introduction/concepts/connector-v2-features.md)
 - [x] 文件格式类型
   - [x] text
   - [x] csv
@@ -88,8 +88,11 @@ import ChangeLog from '../changelog/connector-file-hadoop.md';
 | common-options             |         | 否    | -                   | 数据源插件通用参数，请参阅 [数据源通用选项](../source-common-options.md) 了解详情。                                                                                                                       |
 | file_filter_modified_start | string  | 否    | -                   | 按照最后修改时间过滤文件。 要过滤的开始时间(包括改时间),时间格式是：`yyyy-MM-dd HH:mm:ss`                                                                                                                        |
 | file_filter_modified_end   | string  | 否    | -                   | 按照最后修改时间过滤文件。 要过滤的结束时间(不包括改时间),时间格式是：`yyyy-MM-dd HH:mm:ss`                                                                                                                       |
+| enable_file_split          | boolean | 否    | false               | 开启大文件拆分以提升并行度。仅支持 `text`/`csv`/`json`/`parquet` 且非压缩格式（`compress_codec=none` 且 `archive_compress_codec=none`）。                                                                                 |
+| file_split_size            | long    | 否    | 134217728           | `enable_file_split=true` 时生效，单位字节。`text`/`csv`/`json` 按 `file_split_size` 拆分并对齐到下一个 `row_delimiter`；`parquet` 以 RowGroup 为拆分单位，不会切开 RowGroup。                                                |
 | quote_char                 | string  | 否    | "                   | 用于包裹 CSV 字段的单字符，可保证包含逗号、换行符或引号的字段被正确解析。                                                                                                                                          |
 | escape_char                | string  | 否    | -                   | 用于在 CSV 字段内转义引号或其他特殊字符，使其不会结束字段。                                                                                                                                                 |
+| metalake_type              | string  | 否    | gravitino           | Metalake 服务类型，目前支持 `gravitino`。                                                                                                                                                                  |
 
 ### file_format_type [string]
 
@@ -255,6 +258,30 @@ abc.*
 
 - `len_mtime`：`len` 与 `mtime` 都相同才 SKIP，否则 COPY。
 - `checksum`：要求 `len` 相同且 Hadoop `getFileChecksum` 相同才 SKIP，否则 COPY（仅在 `update_strategy=strict` 时生效）。
+
+### enable_file_split [boolean]
+
+开启大文件拆分功能，默认 false。仅支持 `csv`/`text`/`json`/`parquet` 且非压缩格式（`compress_codec=none` 且 `archive_compress_codec=none`）。
+
+- `text`/`csv`/`json`：按 `file_split_size` 拆分并对齐到下一个 `row_delimiter`，避免切开一行/一条记录。
+- `parquet`：以 RowGroup 为逻辑拆分单位，不会切开 RowGroup。
+
+**使用建议**
+- 适合：读取少量大文件，并希望通过更高并行度提升吞吐。
+- 不建议：读取大量小文件，或并行度较低的场景（拆分会带来额外的枚举/调度开销）。
+
+**限制说明**
+- 不支持压缩文件（`compress_codec` != `none`）或归档文件（`archive_compress_codec` != `none`），会自动回退为不拆分。
+- 对于 `text`/`csv`/`json`，实际 split 的大小可能略大于 `file_split_size`（因为需要对齐到下一个 `row_delimiter`）。
+
+### file_split_size [long]
+
+`enable_file_split=true` 时生效，单位字节。默认 128MB（134217728）。
+
+**调优建议**
+- 建议从默认值（128MB）开始：如果并行度未充分利用可适当调小；如果 split 数量过多可适当调大。
+- 经验公式：`file_split_size ≈ file_size / 期望并行度`。
+
 ### quote_char [string]
 
 用于包裹 CSV 字段的单字符，可保证包含逗号、换行符或引号的字段被正确解析。
@@ -262,6 +289,24 @@ abc.*
 ### escape_char [string]
 
 用于在 CSV 字段内转义引号或其他特殊字符，使其不会结束字段。
+
+### schema [config]
+
+仅在文件格式类型为 text、json、excel、xml 或 csv（或其他无法从元数据中读取 schema 的格式）时需要配置。
+
+上游数据的 schema 信息。更多详情请参考 [Schema 特性](../../introduction/concepts/schema-feature.md)。
+
+#### schema_url [string]
+
+通过 restApi 获取元数据信息的 http url，例如：`http://localhost:8090/api/metalakes/laowang_test/catalogs/221-pgsql/schemas/ykw/tables/all_type`
+
+> 当使用 Gravitino 作为元数据源时，Gravitino 的列类型会自动转换为 SeaTunnel 数据类型。详细的类型映射信息请参考 [Gravitino 类型映射](../../introduction/concepts/gravitino-type-mapping.md)。
+
+### metalake_type [string]
+
+Metalake 服务类型，目前仅支持 `gravitino`。当使用 `schema_url` 从 Gravitino 获取元数据时，可以指定此参数（默认为 `gravitino`）。
+
+有关 Metalake 的更多信息，请参考 [Metalake](../../introduction/concepts/metalake.md)。
 
 ### 提示
 
@@ -293,12 +338,12 @@ source {
   fs.defaultFS = "hdfs://namenode001"
   }
   # 如果您想获取有关如何配置 seatunnel 的更多信息和查看完整的数据源插件列表，
-  # 请访问 https://seatunnel.apache.org/docs/connector-v2/source
+  # 请访问 https://seatunnel.apache.org/docs/connectors/source
 }
 
 transform {
   # 如果您想获取有关如何配置 seatunnel 的更多信息和查看完整的转换插件列表，
-    # 请访问 https://seatunnel.apache.org/docs/transform-v2
+    # 请访问 https://seatunnel.apache.org/docs/transforms
 }
 
 sink {
@@ -308,7 +353,7 @@ sink {
       file_format_type = "orc"
     }
   # 如果您想获取有关如何配置 seatunnel 的更多信息和查看完整的接收器插件列表，
-  # 请访问 https://seatunnel.apache.org/docs/connector-v2/sink
+  # 请访问 https://seatunnel.apache.org/docs/connectors/sink
 }
 ```
 
