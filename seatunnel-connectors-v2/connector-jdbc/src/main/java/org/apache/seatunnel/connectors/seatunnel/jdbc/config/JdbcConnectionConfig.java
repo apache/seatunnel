@@ -46,6 +46,8 @@ public class JdbcConnectionConfig implements Serializable {
 
     private long batchIntervalMs = JdbcSinkOptions.BATCH_INTERVAL_MS.defaultValue();
 
+    private boolean isExactlyOnce = JdbcSinkOptions.IS_EXACTLY_ONCE.defaultValue();
+
     private String xaDataSourceClassName;
 
     private boolean decimalTypeNarrowing = JdbcCommonOptions.DECIMAL_TYPE_NARROWING.defaultValue();
@@ -90,6 +92,7 @@ public class JdbcConnectionConfig implements Serializable {
         builder.batchSize(config.get(JdbcSinkOptions.BATCH_SIZE));
         builder.batchIntervalMs(config.get(JdbcSinkOptions.BATCH_INTERVAL_MS));
         builder.handleBlobAsString(config.get(JdbcCommonOptions.HANDLE_BLOB_AS_STRING));
+        builder.isExactlyOnce(config.get(JdbcSinkOptions.IS_EXACTLY_ONCE));
         if (config.get(JdbcSinkOptions.IS_EXACTLY_ONCE)) {
             builder.xaDataSourceClassName(config.get(JdbcSinkOptions.XA_DATA_SOURCE_CLASS_NAME));
             builder.maxCommitAttempts(config.get(JdbcSinkOptions.MAX_COMMIT_ATTEMPTS));
@@ -146,6 +149,7 @@ public class JdbcConnectionConfig implements Serializable {
         private boolean autoCommit = JdbcSinkOptions.AUTO_COMMIT.defaultValue();
         private int batchSize = JdbcSinkOptions.BATCH_SIZE.defaultValue();
         private long batchIntervalMs = JdbcSinkOptions.BATCH_INTERVAL_MS.defaultValue();
+        private boolean isExactlyOnce = JdbcSinkOptions.IS_EXACTLY_ONCE.defaultValue();
         private String xaDataSourceClassName;
         private boolean decimalTypeNarrowing =
                 JdbcCommonOptions.DECIMAL_TYPE_NARROWING.defaultValue();
@@ -237,6 +241,11 @@ public class JdbcConnectionConfig implements Serializable {
             return this;
         }
 
+        public Builder isExactlyOnce(boolean isExactlyOnce) {
+            this.isExactlyOnce = isExactlyOnce;
+            return this;
+        }
+
         public Builder maxCommitAttempts(int maxCommitAttempts) {
             this.maxCommitAttempts = maxCommitAttempts;
             return this;
@@ -323,6 +332,7 @@ public class JdbcConnectionConfig implements Serializable {
             jdbcConnectionConfig.socketTimeoutMs = this.socketTimeoutMs;
             jdbcConnectionConfig.connectTimeoutMs = this.connectTimeoutMs;
             jdbcConnectionConfig.maxCommitAttempts = this.maxCommitAttempts;
+            jdbcConnectionConfig.isExactlyOnce = this.isExactlyOnce;
             jdbcConnectionConfig.xaDataSourceClassName = this.xaDataSourceClassName;
             jdbcConnectionConfig.decimalTypeNarrowing = this.decimalTypeNarrowing;
             jdbcConnectionConfig.intTypeNarrowing = this.intTypeNarrowing;

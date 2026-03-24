@@ -84,10 +84,19 @@ public class JdbcOutputFormat<I, E extends JdbcBatchStatementExecutor<I>> implem
     private ScheduledFuture<?> createAndStartScheduledFlush() {
         long batchIntervalMs = jdbcConnectionConfig.getBatchIntervalMs();
         if (batchIntervalMs <= 0 || jdbcConnectionConfig.getBatchSize() == 1) {
-            LOG.info(
-                    "Periodic flush disabled: batch_interval_ms={}, batch_size={}",
-                    batchIntervalMs,
-                    jdbcConnectionConfig.getBatchSize());
+            LOG.warn(
+                    "batch_size={}, periodic flush automatically disabled. "
+                            + "batch_interval_ms={}",
+                    jdbcConnectionConfig.getBatchSize(),
+                    batchIntervalMs);
+            return null;
+        }
+
+        if (jdbcConnectionConfig.isExactlyOnce()) {
+            LOG.warn(
+                    "Exactly-once mode enabled, periodic flush automatically disabled. "
+                            + "batch_interval_ms={}",
+                    batchIntervalMs);
             return null;
         }
 
@@ -97,7 +106,8 @@ public class JdbcOutputFormat<I, E extends JdbcBatchStatementExecutor<I>> implem
                         runnable -> {
                             Thread thread = new Thread(runnable);
                             thread.setDaemon(true);
-                            thread.setName("jdbc-batch-flush-scheduler");
+                            thread.setName(
+                                    "jdbc-batch-flush-scheduler-" + Thread.currentThread().getId());
                             return thread;
                         });
 
