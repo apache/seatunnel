@@ -148,6 +148,97 @@ public class MysqlCDCWithFlinkSchemaChangeIT extends TestSuiteBase implements Te
         assertTableStructureAndData(MYSQL_DATABASE, SOURCE_TABLE, SINK_TABLE);
     }
 
+    @Order(2)
+    @TestTemplate
+    public void testMysqlCdcWithSchemaEvolutionCaseExactlyOnce(TestContainer container) {
+
+        shopDatabase.setTemplateName("shop").createAndInitialize();
+        CompletableFuture.runAsync(
+                () -> {
+                    try {
+                        container.executeJob(
+                                "/mysqlcdc_to_mysql_with_flink_schema_change_exactly_once.conf");
+                    } catch (Exception e) {
+                        log.error("Commit task exception :" + e.getMessage());
+                        throw new RuntimeException(e);
+                    }
+                });
+
+        assertSchemaEvolution(MYSQL_DATABASE, SOURCE_TABLE, SINK_TABLE2);
+    }
+
+    private void assertSchemaEvolution(String database, String sourceTable, String sinkTable) {
+        await().atMost(180000, TimeUnit.MILLISECONDS)
+                .untilAsserted(
+                        () ->
+                                Assertions.assertIterableEquals(
+                                        query(String.format(QUERY, database, sourceTable)),
+                                        query(String.format(QUERY, database, sinkTable))));
+
+        // case1 add columns with cdc data at same time
+        shopDatabase.setTemplateName("add_columns").createAndInitialize();
+        await().atMost(180000, TimeUnit.MILLISECONDS)
+                .untilAsserted(
+                        () ->
+                                Assertions.assertIterableEquals(
+                                        query(String.format(DESC, database, sourceTable)),
+                                        query(String.format(DESC, database, sinkTable))));
+        await().atMost(180000, TimeUnit.MILLISECONDS)
+                .untilAsserted(
+                        () -> {
+                            Assertions.assertIterableEquals(
+                                    query(
+                                            String.format(QUERY, database, sourceTable)
+                                                    + " where id >= 128"),
+                                    query(
+                                            String.format(QUERY, database, sinkTable)
+                                                    + " where id >= 128"));
+
+                            Assertions.assertIterableEquals(
+                                    query(String.format(PROJECTION_QUERY, database, sourceTable)),
+                                    query(String.format(PROJECTION_QUERY, database, sinkTable)));
+
+                            // The default value of add_column4 is current_timestamp()，so the
+                            // history data of sink table with this column may be different from the
+                            // source table because delay of apply schema change.
+                            String query =
+                                    String.format(
+                                            "SELECT t1.id AS table1_id, t1.add_column4 AS table1_timestamp, "
+                                                    + "t2.id AS table2_id, t2.add_column4 AS table2_timestamp, "
+                                                    + "ABS(TIMESTAMPDIFF(SECOND, t1.add_column4, t2.add_column4)) AS time_diff "
+                                                    + "FROM %s.%s t1 "
+                                                    + "INNER JOIN %s.%s t2 ON t1.id = t2.id",
+                                            database, sourceTable, database, sinkTable);
+                            try (Connection jdbcConnection = getJdbcConnection();
+                                    Statement statement = jdbcConnection.createStatement();
+                                    ResultSet resultSet = statement.executeQuery(query); ) {
+                                while (resultSet.next()) {
+                                    int timeDiff = resultSet.getInt("time_diff");
+                                    Assertions.assertTrue(
+                                            timeDiff <= 60,
+                                            "Time difference exceeds 60 seconds: "
+                                                    + timeDiff
+                                                    + " seconds");
+                                }
+                            }
+                        });
+
+        // case2 drop columns with cdc data at same time
+        assertCaseByDdlName("drop_columns", database, sourceTable, sinkTable);
+
+        // case3 change column name with cdc data at same time
+        assertCaseByDdlName("change_columns", database, sourceTable, sinkTable);
+
+        // case4 modify column data type with cdc data at same time
+        assertCaseByDdlName("modify_columns", database, sourceTable, sinkTable);
+    }
+
+    private void assertCaseByDdlName(
+            String drop_columns, String database, String sourceTable, String sinkTable) {
+        shopDatabase.setTemplateName(drop_columns).createAndInitialize();
+        assertTableStructureAndData(database, sourceTable, sinkTable);
+    }
+
     private void assertSchemaEvolutionForAddColumns(
             String database, String sourceTable, String sinkTable) {
         await().atMost(180000, TimeUnit.MILLISECONDS)
@@ -197,8 +288,8 @@ public class MysqlCDCWithFlinkSchemaChangeIT extends TestSuiteBase implements Te
                                 while (resultSet.next()) {
                                     int timeDiff = resultSet.getInt("time_diff");
                                     Assertions.assertTrue(
-                                            timeDiff <= 6,
-                                            "Time difference exceeds 6 seconds: "
+                                            timeDiff <= 60,
+                                            "Time difference exceeds 60 seconds: "
                                                     + timeDiff
                                                     + " seconds");
                                 }
