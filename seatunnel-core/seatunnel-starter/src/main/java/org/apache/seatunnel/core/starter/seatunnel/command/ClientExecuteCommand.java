@@ -324,17 +324,21 @@ public class ClientExecuteCommand implements Command<ClientCommandArgs> {
         int port =
                 clientCommandArgs.getHazelcastPort() != null
                         ? clientCommandArgs.getHazelcastPort()
-                        : seaTunnelConfig.getHazelcastConfig().getNetworkConfig().getPort();
-        seaTunnelConfig.getHazelcastConfig().getNetworkConfig().setPortAutoIncrement(port == 0);
+                        : 0;
         seaTunnelConfig.getHazelcastConfig().getNetworkConfig().setPort(port);
+        seaTunnelConfig.getHazelcastConfig().getNetworkConfig().setPortAutoIncrement(true);
         log.info("Local mode: Hazelcast port configured as {} (0 means random assignment)", port);
         // set the default async executor for Hazelcast InvocationFuture
         ConcurrencyUtil.setDefaultAsyncExecutor(CompletableFuture.EXECUTOR);
-
-        return HazelcastInstanceFactory.newHazelcastInstance(
-                seaTunnelConfig.getHazelcastConfig(),
-                Thread.currentThread().getName(),
-                new SeaTunnelNodeContext(seaTunnelConfig));
+        HazelcastInstance hazelcastInstance =
+                HazelcastInstanceFactory.newHazelcastInstance(
+                        seaTunnelConfig.getHazelcastConfig(),
+                        Thread.currentThread().getName(),
+                        new SeaTunnelNodeContext(seaTunnelConfig));
+        log.info(
+                "Local mode: Hazelcast use port {}",
+                hazelcastInstance.getCluster().getLocalMember().getSocketAddress().getPort());
+        return hazelcastInstance;
     }
 
     private String creatRandomClusterName(String namePrefix) {
