@@ -31,7 +31,9 @@ Source connector for Apache RocketMQ.
 
 | Name                                |  Type   | Required |          Default           | Description                                                                                                                                                                                                        |
 |-------------------------------------|---------|----------|----------------------------|--------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------|
-| topics                              | String  | yes      | -                          | `RocketMQ topic` name. If there are multiple `topics`, use `,` to split, for example: `"tpc1,tpc2"`.                                                                                                               |
+| topics                              | String  | no       | -                          | `RocketMQ topic` name. If there are multiple `topics`, use `,` to split, for example: `"tpc1,tpc2"`. You can configure only one of `topics` and `tables_configs` at the same time.                                 |
+| tables_configs                      | List    | no       | -                          | Multi-table mode config list. Each item configures one table and supports: `topics`, `format`, `schema`, `tags`, `start.mode`, `start.mode.timestamp`, `start.mode.offsets`, `ignore_parse_errors`. You can configure only one of `topics` and `tables_configs` at the same time. |
+| table_list                          | List    | no       | -                          | Deprecated, use `tables_configs` instead.                                                                                                                                                                          |
 | name.srv.addr                       | String  | yes      | -                          | `RocketMQ` name server cluster address.                                                                                                                                                                            |
 | tags                                | String  | no       | -                          | `RocketMQ tag` name. If there are multiple `tags`, use `,` to split, for example: `"tag1,tag2"`.                                                                                                                   |
 | acl.enabled                         | Boolean | no       | false                      | If true, access control is enabled, and access key and secret key need to be configured.                                                                                                                           |
@@ -278,6 +280,52 @@ sink {
   Console {
     plugin_input = "rocketmq_table"
   }
+}
+```
+
+### Multiple RocketMQ Source
+
+> Read from multiple topics with different schemas. Use `tables_configs` to configure each topic independently.
+
+```hocon
+env {
+  parallelism = 1
+  job.mode = "BATCH"
+}
+
+source {
+  Rocketmq {
+    name.srv.addr = "localhost:9876"
+    consumer.group = "multi_table_group"
+    start.mode = "CONSUME_FROM_FIRST_OFFSET"
+    tables_configs = [
+      {
+        topics = "topic_1"
+        format = "json"
+        schema = {
+          fields {
+            id = int
+            name = string
+          }
+        }
+      },
+      {
+        topics = "topic_2"
+        format = "json"
+        schema = {
+          fields {
+            id = int
+            description = string
+            weight = double
+          }
+        }
+      }
+    ]
+  }
+}
+
+sink {
+  Console {}
 }
 ```
 

@@ -42,7 +42,11 @@ public class RocketMqSourceFactory implements TableSourceFactory {
     @Override
     public OptionRule optionRule() {
         return OptionRule.builder()
-                .required(RocketMqSourceOptions.TOPICS, RocketMqSourceOptions.NAME_SRV_ADDR)
+                .required(RocketMqSourceOptions.NAME_SRV_ADDR)
+                .exclusive(
+                        RocketMqSourceOptions.TOPICS,
+                        RocketMqSourceOptions.TABLE_CONFIGS,
+                        RocketMqSourceOptions.TABLE_LIST)
                 .optional(
                         RocketMqSourceOptions.FORMAT,
                         RocketMqSourceOptions.TAGS,
@@ -52,7 +56,8 @@ public class RocketMqSourceFactory implements TableSourceFactory {
                         RocketMqSourceOptions.SCHEMA,
                         RocketMqSourceOptions.KEY_PARTITION_DISCOVERY_INTERVAL_MILLIS,
                         RocketMqSourceOptions.POLL_TIMEOUT_MILLIS,
-                        RocketMqSourceOptions.BATCH_SIZE)
+                        RocketMqSourceOptions.BATCH_SIZE,
+                        RocketMqSourceOptions.IGNORE_PARSE_ERRORS)
                 .conditional(
                         RocketMqSourceOptions.START_MODE,
                         StartMode.CONSUME_FROM_TIMESTAMP,
@@ -60,8 +65,7 @@ public class RocketMqSourceFactory implements TableSourceFactory {
                 .conditional(
                         RocketMqSourceOptions.START_MODE,
                         StartMode.CONSUME_FROM_SPECIFIC_OFFSETS,
-                        RocketMqSourceOptions.START_MODE_OFFSETS,
-                        RocketMqSourceOptions.IGNORE_PARSE_ERRORS)
+                        RocketMqSourceOptions.START_MODE_OFFSETS)
                 .build();
     }
 
