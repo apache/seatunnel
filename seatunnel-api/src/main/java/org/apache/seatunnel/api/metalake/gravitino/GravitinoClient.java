@@ -28,6 +28,7 @@ import org.apache.seatunnel.common.utils.SeaTunnelException;
 
 import org.apache.http.HttpEntity;
 import org.apache.http.HttpStatus;
+import org.apache.http.client.config.RequestConfig;
 import org.apache.http.client.methods.CloseableHttpResponse;
 import org.apache.http.client.methods.HttpGet;
 import org.apache.http.impl.client.CloseableHttpClient;
@@ -60,7 +61,19 @@ public class GravitinoClient implements MetalakeClient {
     private final CloseableHttpClient httpClient;
 
     public GravitinoClient() {
-        this.httpClient = HttpClients.createDefault();
+        RequestConfig config =
+                RequestConfig.custom()
+                        .setConnectTimeout(5000)
+                        .setConnectionRequestTimeout(5000)
+                        .setSocketTimeout(30000)
+                        .build();
+
+        this.httpClient =
+                HttpClients.custom()
+                        .setDefaultRequestConfig(config)
+                        .setMaxConnTotal(50)
+                        .setMaxConnPerRoute(20)
+                        .build();
     }
 
     @VisibleForTesting
