@@ -120,6 +120,7 @@ public class JdbcOutputFormat<I, E extends JdbcBatchStatementExecutor<I>> implem
                                 flush();
                             } catch (Exception e) {
                                 flushException = e;
+                                LOG.error("Periodic flush failed", e);
                             }
                         }
                     }
