@@ -21,10 +21,10 @@ import org.apache.seatunnel.shade.com.google.common.annotations.VisibleForTestin
 import org.apache.seatunnel.shade.org.apache.commons.lang3.tuple.ImmutablePair;
 
 import org.apache.seatunnel.api.common.JobContext;
+import org.apache.seatunnel.api.datasource.DataSourceConfig;
 import org.apache.seatunnel.engine.client.SeaTunnelHazelcastClient;
 import org.apache.seatunnel.engine.common.config.JobConfig;
 import org.apache.seatunnel.engine.common.config.SeaTunnelConfig;
-import org.apache.seatunnel.engine.common.config.server.DataSourceConfig;
 import org.apache.seatunnel.engine.core.dag.actions.Action;
 import org.apache.seatunnel.engine.core.dag.logical.LogicalDag;
 import org.apache.seatunnel.engine.core.job.AbstractJobEnvironment;

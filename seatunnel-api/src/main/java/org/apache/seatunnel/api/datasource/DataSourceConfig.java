@@ -15,7 +15,7 @@
  * limitations under the License.
  */
 
-package org.apache.seatunnel.engine.common.config.server;
+package org.apache.seatunnel.api.datasource;
 
 import lombok.Data;
 

@@ -15,7 +15,7 @@
  * limitations under the License.
  */
 
-package org.apache.seatunnel.engine.common.utils;
+package org.apache.seatunnel.api.datasource;
 
 import org.apache.seatunnel.shade.com.google.common.annotations.VisibleForTesting;
 import org.apache.seatunnel.shade.com.typesafe.config.Config;
@@ -24,13 +24,10 @@ import org.apache.seatunnel.shade.com.typesafe.config.ConfigFactory;
 import org.apache.seatunnel.shade.com.typesafe.config.ConfigValue;
 import org.apache.seatunnel.shade.com.typesafe.config.ConfigValueType;
 
-import org.apache.seatunnel.api.datasource.DataSourceProvider;
-import org.apache.seatunnel.api.datasource.DataSourceProviderFactory;
 import org.apache.seatunnel.api.datasource.exception.DataSourceProviderException;
 import org.apache.seatunnel.api.options.ConnectorCommonOptions;
 import org.apache.seatunnel.common.config.TypesafeConfigUtils;
 import org.apache.seatunnel.common.constants.PluginType;
-import org.apache.seatunnel.engine.common.config.server.DataSourceConfig;
 
 import lombok.extern.slf4j.Slf4j;
 

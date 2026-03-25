@@ -17,10 +17,10 @@
 
 package org.apache.seatunnel.engine.common.config;
 
+import org.apache.seatunnel.api.datasource.DataSourceConfig;
 import org.apache.seatunnel.engine.common.config.server.CheckpointConfig;
 import org.apache.seatunnel.engine.common.config.server.ConnectorJarStorageConfig;
 import org.apache.seatunnel.engine.common.config.server.CoordinatorServiceConfig;
-import org.apache.seatunnel.engine.common.config.server.DataSourceConfig;
 import org.apache.seatunnel.engine.common.config.server.HttpConfig;
 import org.apache.seatunnel.engine.common.config.server.QueueType;
 import org.apache.seatunnel.engine.common.config.server.ScheduleStrategy;

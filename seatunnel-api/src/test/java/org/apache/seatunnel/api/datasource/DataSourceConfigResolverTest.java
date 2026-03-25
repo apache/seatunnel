@@ -15,14 +15,12 @@
  * limitations under the License.
  */
 
-package org.apache.seatunnel.engine.common.utils;
+package org.apache.seatunnel.api.datasource;
 
 import org.apache.seatunnel.shade.com.typesafe.config.Config;
 import org.apache.seatunnel.shade.com.typesafe.config.ConfigFactory;
 
-import org.apache.seatunnel.api.datasource.DataSourceProvider;
 import org.apache.seatunnel.api.datasource.exception.DataSourceProviderException;
-import org.apache.seatunnel.engine.common.config.server.DataSourceConfig;
 
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
@@ -40,7 +38,7 @@ import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertNotNull;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 
-public class DataSourceConfigUtilTest {
+public class DataSourceConfigResolverTest {
 
     private static final String TEST_PROVIDER_KIND = "test-provider";
 
@@ -157,7 +155,7 @@ public class DataSourceConfigUtilTest {
         return ConfigFactory.parseFile(
                 Paths.get(
                                 Objects.requireNonNull(
-                                                DataSourceConfigUtilTest.class.getResource(
+                                                DataSourceConfigResolverTest.class.getResource(
                                                         "/conf/datasource-test.conf"))
                                         .toURI())
                         .toFile());

@@ -17,7 +17,7 @@
 
 package org.apache.seatunnel.engine.common.config;
 
-import org.apache.seatunnel.engine.common.config.server.DataSourceConfig;
+import org.apache.seatunnel.api.datasource.DataSourceConfig;
 
 import org.junit.jupiter.api.Test;
 
