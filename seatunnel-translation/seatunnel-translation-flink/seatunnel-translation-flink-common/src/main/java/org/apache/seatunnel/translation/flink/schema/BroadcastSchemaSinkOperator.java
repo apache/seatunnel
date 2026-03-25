@@ -216,9 +216,11 @@ public class BroadcastSchemaSinkOperator extends AbstractStreamOperator<SeaTunne
 
     @Override
     public void close() throws Exception {
+        int subtaskId = getRuntimeContext().getIndexOfThisSubtask();
+        if (coordinator != null) {
+            coordinator.unregisterSinkSubtask(subtaskId);
+        }
         super.close();
-        log.info(
-                "BroadcastSchemaSinkOperator closed on subtask {}",
-                getRuntimeContext().getIndexOfThisSubtask());
+        log.info("BroadcastSchemaSinkOperator closed on subtask {}", subtaskId);
     }
 }
