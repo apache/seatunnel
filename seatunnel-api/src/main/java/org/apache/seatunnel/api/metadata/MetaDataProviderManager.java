@@ -26,6 +26,7 @@ import org.apache.seatunnel.shade.com.typesafe.config.ConfigValueType;
 
 import org.apache.seatunnel.api.metadata.exception.MetaDataProviderException;
 import org.apache.seatunnel.api.options.ConnectorCommonOptions;
+import org.apache.seatunnel.api.table.catalog.TableSchema;
 import org.apache.seatunnel.common.config.TypesafeConfigUtils;
 import org.apache.seatunnel.common.constants.PluginType;
 
@@ -103,6 +104,15 @@ public final class MetaDataProviderManager {
         }
 
         return ConfigFactory.parseMap(resultMap);
+    }
+
+    public static Optional<TableSchema> resolveTableSchema(
+            String metaDataTableId, MetaDataConfig dataSourceConfig) {
+        MetaDataProvider provider =
+                getOrCreateProvider(
+                        dataSourceConfig.getKind(),
+                        ConfigFactory.parseMap(dataSourceConfig.getProperties()));
+        return provider.tableSchema(metaDataTableId);
     }
 
     /**

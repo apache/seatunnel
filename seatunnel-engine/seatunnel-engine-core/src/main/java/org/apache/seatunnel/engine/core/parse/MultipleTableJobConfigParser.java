@@ -134,7 +134,7 @@ public class MultipleTableJobConfigParser {
     private final boolean isStartWithSavePoint;
     private final List<JobPipelineCheckpointData> pipelineCheckpoints;
 
-    private final MetaDataConfig dataSourceConfig;
+    private final MetaDataConfig metaDataConfig;
 
     @VisibleForTesting
     public MultipleTableJobConfigParser(
@@ -199,15 +199,15 @@ public class MultipleTableJobConfigParser {
             List<URL> commonPluginJars,
             boolean isStartWithSavePoint,
             List<JobPipelineCheckpointData> pipelineCheckpoints,
-            MetaDataConfig dataSourceConfig) {
+            MetaDataConfig metaDataConfig) {
         this.idGenerator = idGenerator;
         this.jobConfig = jobConfig;
         this.commonPluginJars = commonPluginJars;
         this.isStartWithSavePoint = isStartWithSavePoint;
-        this.seaTunnelJobConfig = handleDataSource(seaTunnelJobConfig, dataSourceConfig);
+        this.seaTunnelJobConfig = handleDataSource(seaTunnelJobConfig, metaDataConfig);
         this.envOptions = ReadonlyConfig.fromConfig(seaTunnelJobConfig.getConfig("env"));
         this.pipelineCheckpoints = pipelineCheckpoints;
-        this.dataSourceConfig = dataSourceConfig;
+        this.metaDataConfig = metaDataConfig;
         ConfigValidator.of(this.envOptions).validate(new EnvOptionRule().optionRule());
     }
 
@@ -405,7 +405,7 @@ public class MultipleTableJobConfigParser {
                             checkpoint,
                             fallbackCreateSource,
                             null,
-                            envOptions);
+                            metaDataConfig);
         } else {
             tuple2 =
                     FactoryUtil.createAndPrepareSource(
@@ -414,7 +414,7 @@ public class MultipleTableJobConfigParser {
                             factoryId,
                             fallbackCreateSource,
                             null,
-                            envOptions);
+                            metaDataConfig);
         }
 
         Set<URL> factoryUrls = new HashSet<>();

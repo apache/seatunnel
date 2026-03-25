@@ -24,6 +24,7 @@ import org.apache.seatunnel.api.configuration.Option;
 import org.apache.seatunnel.api.configuration.Options;
 import org.apache.seatunnel.api.metadata.MetaDataProvider;
 import org.apache.seatunnel.api.metalake.gravitino.GravitinoClient;
+import org.apache.seatunnel.api.metalake.gravitino.GravitinoTableSchemaConvertor;
 import org.apache.seatunnel.api.table.catalog.TableSchema;
 import org.apache.seatunnel.common.utils.SeaTunnelException;
 
@@ -89,9 +90,12 @@ public class GravitinoMetaDataProvider implements MetaDataProvider {
     private String uri;
     private String metalake;
     private GravitinoClient client;
+    private GravitinoTableSchemaConvertor tableSchemaConvertor;
 
     private static final String METALAKE_API_PATH = "/api/metalakes/";
-    private static final String CATALOGS_PATH = "/catalogs/";
+    private static final String CATALOGS_PATH = "/catalogs";
+    private static final String SCHEMAS_PATH = "/schemas";
+    private static final String TABLES_PATH = "/tables";
 
     // Gravitino JDBC property names
     private static final String GRAVITINO_JDBC_URL = "jdbc-url";
@@ -144,6 +148,7 @@ public class GravitinoMetaDataProvider implements MetaDataProvider {
         this.uri = uri;
         this.metalake = metalake;
         this.client = new GravitinoClient();
+        this.tableSchemaConvertor = new GravitinoTableSchemaConvertor();
     }
 
     @Override
@@ -172,7 +177,13 @@ public class GravitinoMetaDataProvider implements MetaDataProvider {
 
     @Override
     public Optional<TableSchema> tableSchema(String metaDataTableId) {
-        return Optional.empty();
+        try {
+            final JsonNode tableSchema =
+                    client.getTableSchema(buildMetalakeUrlTableUrl(metaDataTableId));
+            return Optional.of(tableSchemaConvertor.convertor(tableSchema));
+        } catch (IOException e) {
+            throw new SeaTunnelException("fail get tableSchema:" + metaDataTableId, e);
+        }
     }
 
     /**
@@ -183,6 +194,30 @@ public class GravitinoMetaDataProvider implements MetaDataProvider {
     private String buildMetalakeUrl() {
         String baseUri = uri.endsWith("/") ? uri : uri + "/";
         return baseUri + METALAKE_API_PATH + metalake + CATALOGS_PATH;
+    }
+
+    private String buildMetalakeUrlTableUrl(String metaDataTableId) {
+        final String[] split = metaDataTableId.split("\\.");
+        if (split.length != 3) {
+            // todo
+            throw new SeaTunnelException();
+        }
+        String catalog = split[0];
+        String schema = split[1];
+        String table = split[2];
+        String baseUri = uri.endsWith("/") ? uri : uri + "/";
+        return baseUri
+                + METALAKE_API_PATH
+                + metalake
+                + CATALOGS_PATH
+                + "/"
+                + catalog
+                + SCHEMAS_PATH
+                + "/"
+                + schema
+                + TABLES_PATH
+                + "/"
+                + table;
     }
 
     /**

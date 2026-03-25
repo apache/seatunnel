@@ -23,6 +23,14 @@ import org.apache.seatunnel.api.configuration.Options;
 /** Configuration options for DataSource Center. */
 public class MetaDataOptions {
 
+    /** The key for metadata configuration in env config. */
+    public static final Option<String> METADATA =
+            Options.key("metadata")
+                    .stringType()
+                    .noDefaultValue()
+                    .withDescription(
+                            "The metadata configuration containing enabled, kind and provider-specific properties.");
+
     /** Whether to enable DataSource Center. */
     public static final Option<Boolean> ENABLED =
             Options.key("enabled")
