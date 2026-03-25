@@ -151,7 +151,8 @@ public class HiveSink
                                     ConfigValueFactory.fromAnyRef(
                                             getDefaultTableLocation(readonlyConfig)));
 
-            return new FileSinkConfig(pluginConfig, catalogTable.getSeaTunnelRowType());
+            return new FileSinkConfig(
+                    ReadonlyConfig.fromConfig(pluginConfig), catalogTable.getSeaTunnelRowType());
         }
 
         List<String> sinkFields =
@@ -220,7 +221,8 @@ public class HiveSink
                             ConfigValueFactory.fromAnyRef("${transactionId}"));
         }
 
-        return new FileSinkConfig(pluginConfig, catalogTable.getSeaTunnelRowType());
+        return new FileSinkConfig(
+                ReadonlyConfig.fromConfig(pluginConfig), catalogTable.getSeaTunnelRowType());
     }
 
     @Override
