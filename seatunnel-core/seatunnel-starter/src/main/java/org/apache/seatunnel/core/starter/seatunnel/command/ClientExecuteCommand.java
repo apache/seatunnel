@@ -108,6 +108,16 @@ public class ClientExecuteCommand implements Command<ClientCommandArgs> {
                 seaTunnelConfig.getHazelcastConfig().setClusterName(clusterName);
                 clientConfig.setClusterName(clusterName);
             }
+            if (isLocalMode) {
+                int localPort = instance.getCluster().getLocalMember().getSocketAddress().getPort();
+                // Use localhost instead of actual IP to avoid network interface issues
+                // (e.g., VPN interfaces causing connection problems)
+                String memberAddress = "localhost:" + localPort;
+                clientConfig
+                        .getNetworkConfig()
+                        .setAddresses(Collections.singletonList(memberAddress));
+                log.info("Local mode: Client configured to connect to {}", memberAddress);
+            }
             engineClient = new SeaTunnelClient(clientConfig);
             if (clientCommandArgs.isListJob()) {
                 String jobStatus = engineClient.getJobClient().listJobStatus(true);
