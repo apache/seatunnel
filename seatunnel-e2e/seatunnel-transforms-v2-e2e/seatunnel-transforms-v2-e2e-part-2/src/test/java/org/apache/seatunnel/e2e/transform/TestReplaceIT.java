@@ -18,7 +18,6 @@
 package org.apache.seatunnel.e2e.transform;
 
 import org.apache.seatunnel.e2e.common.container.TestContainer;
-
 import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.TestTemplate;
 import org.testcontainers.containers.Container;
@@ -38,6 +37,22 @@ public class TestReplaceIT extends TestSuiteBase {
             throws IOException, InterruptedException {
         Container.ExecResult execResult =
                 container.executeJob("/replace_transform_multi_table.conf");
+        Assertions.assertEquals(0, execResult.getExitCode());
+    }
+
+    @TestTemplate
+    public void testReplaceMultiField(TestContainer container)
+            throws IOException, InterruptedException {
+        Container.ExecResult execResult =
+                container.executeJob("/replace_transform_multi_field.conf");
+        Assertions.assertEquals(0, execResult.getExitCode());
+    }
+
+    @TestTemplate
+    public void testReplaceMultiTableMultiField(TestContainer container)
+            throws IOException, InterruptedException {
+        Container.ExecResult execResult =
+                container.executeJob("/replace_transform_multi_table_multi_field.conf");
         Assertions.assertEquals(0, execResult.getExitCode());
     }
 }
