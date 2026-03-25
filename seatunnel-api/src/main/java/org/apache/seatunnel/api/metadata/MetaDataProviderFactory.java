@@ -15,9 +15,9 @@
  * limitations under the License.
  */
 
-package org.apache.seatunnel.api.datasource;
+package org.apache.seatunnel.api.metadata;
 
-import org.apache.seatunnel.api.datasource.exception.DataSourceProviderException;
+import org.apache.seatunnel.api.metadata.exception.MetaDataProviderException;
 
 import lombok.extern.slf4j.Slf4j;
 
@@ -37,14 +37,14 @@ import java.util.ServiceLoader;
  * </ul>
  */
 @Slf4j
-public final class DataSourceProviderFactory {
+public final class MetaDataProviderFactory {
 
     /**
      * Finds a {@link MetaDataProvider} by its kind identifier.
      *
      * @param kind the kind identifier of the provider to find
      * @return the provider
-     * @throws DataSourceProviderException if provider is not found or multiple providers with the
+     * @throws MetaDataProviderException if provider is not found or multiple providers with the
      *     same kind are found
      */
     public static MetaDataProvider getProvider(String kind) {
@@ -60,7 +60,7 @@ public final class DataSourceProviderFactory {
                             "Multiple DataSourceProvider implementations found for kind '{}': {}",
                             kind,
                             matchedKinds);
-                    throw new DataSourceProviderException(
+                    throw new MetaDataProviderException(
                             String.format(
                                     "Multiple DataSourceProvider implementations found for kind '%s'.\n\n"
                                             + "Ambiguous provider classes are:\n\n%s",
@@ -77,7 +77,7 @@ public final class DataSourceProviderFactory {
                 availableKinds.add(provider.kind());
             }
             log.debug("No DataSourceProvider found for kind: {}", kind);
-            throw new DataSourceProviderException(
+            throw new MetaDataProviderException(
                     String.format(
                             "No DataSourceProvider found for kind '%s'.\n\n"
                                     + "Available provider kinds are:\n\n%s",
@@ -125,7 +125,7 @@ public final class DataSourceProviderFactory {
             return providers;
         } catch (ServiceConfigurationError e) {
             log.error("Could not load service provider for DataSourceProvider.", e);
-            throw new DataSourceProviderException(
+            throw new MetaDataProviderException(
                     "Could not load service provider for DataSourceProvider.", e);
         }
     }

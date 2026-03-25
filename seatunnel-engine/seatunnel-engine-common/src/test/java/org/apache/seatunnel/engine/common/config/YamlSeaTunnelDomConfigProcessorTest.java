@@ -17,7 +17,7 @@
 
 package org.apache.seatunnel.engine.common.config;
 
-import org.apache.seatunnel.api.datasource.DataSourceConfig;
+import org.apache.seatunnel.api.metadata.MetaDataConfig;
 
 import org.junit.jupiter.api.Test;
 
@@ -41,7 +41,7 @@ public class YamlSeaTunnelDomConfigProcessorTest {
 
         SeaTunnelConfig config =
                 new YamlSeaTunnelConfigBuilder(new FileInputStream(configPath)).build();
-        DataSourceConfig dataSourceConfig = config.getEngineConfig().getDataSourceConfig();
+        MetaDataConfig dataSourceConfig = config.getEngineConfig().getDataSourceConfig();
 
         // Verify basic settings
         assertTrue(dataSourceConfig.isEnabled());

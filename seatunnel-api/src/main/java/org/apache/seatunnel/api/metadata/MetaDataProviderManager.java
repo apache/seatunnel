@@ -15,7 +15,7 @@
  * limitations under the License.
  */
 
-package org.apache.seatunnel.api.datasource;
+package org.apache.seatunnel.api.metadata;
 
 import org.apache.seatunnel.shade.com.google.common.annotations.VisibleForTesting;
 import org.apache.seatunnel.shade.com.typesafe.config.Config;
@@ -24,7 +24,7 @@ import org.apache.seatunnel.shade.com.typesafe.config.ConfigFactory;
 import org.apache.seatunnel.shade.com.typesafe.config.ConfigValue;
 import org.apache.seatunnel.shade.com.typesafe.config.ConfigValueType;
 
-import org.apache.seatunnel.api.datasource.exception.DataSourceProviderException;
+import org.apache.seatunnel.api.metadata.exception.MetaDataProviderException;
 import org.apache.seatunnel.api.options.ConnectorCommonOptions;
 import org.apache.seatunnel.common.config.TypesafeConfigUtils;
 import org.apache.seatunnel.common.constants.PluginType;
@@ -58,7 +58,7 @@ public final class MetaDataProviderManager {
      * @return a new Config with datasource configurations merged
      */
     public static Config resolveDataSourceConfigs(
-            Config seaTunnelJobConfig, DataSourceConfig dataSourceConfig) {
+            Config seaTunnelJobConfig, MetaDataConfig dataSourceConfig) {
         if (!dataSourceConfig.isEnabled()) {
             log.debug("DataSource Center is disabled, returning original config");
             return seaTunnelJobConfig;
@@ -118,7 +118,7 @@ public final class MetaDataProviderManager {
             synchronized (MetaDataProviderManager.class) {
                 provider = cachedProvider;
                 if (provider == null) {
-                    provider = DataSourceProviderFactory.getProvider(kind);
+                    provider = MetaDataProviderFactory.getProvider(kind);
                     provider.init(config);
                     cachedProvider = provider;
                     log.info("Created and cached new DataSourceProvider: {}", kind);
@@ -180,10 +180,10 @@ public final class MetaDataProviderManager {
             // Merge the fetched config into the original config
             return mergeConfig(connectorConfig, datasourceConfig, datasourceId);
 
-        } catch (DataSourceProviderException e) {
+        } catch (MetaDataProviderException e) {
             throw e;
         } catch (Exception e) {
-            throw new DataSourceProviderException(
+            throw new MetaDataProviderException(
                     String.format(
                             "Failed to resolve datasource config for connector: %s, datasource_id: %s, provider: %s",
                             connectorIdentifier, datasourceId, providerKind),
@@ -202,8 +202,9 @@ public final class MetaDataProviderManager {
     private static Optional<String> getDatasourceId(Config config) {
         try {
             // First check at root level (for configs like { Jdbc: {...}, datasource_id: "ds-123" })
-            if (config.hasPath(ConnectorCommonOptions.DATASOURCE_ID.key())) {
-                return Optional.of(config.getString(ConnectorCommonOptions.DATASOURCE_ID.key()));
+            if (config.hasPath(ConnectorCommonOptions.METADATA_DATASOURCE_ID.key())) {
+                return Optional.of(
+                        config.getString(ConnectorCommonOptions.METADATA_DATASOURCE_ID.key()));
             }
 
             // If not found at root, check inside the nested connector config
@@ -211,9 +212,10 @@ public final class MetaDataProviderManager {
             String connectorIdentifier = getConnectorIdentifier(config);
             if (!"unknown".equals(connectorIdentifier)) {
                 Config nestedConfig = config.getConfig(connectorIdentifier);
-                if (nestedConfig.hasPath(ConnectorCommonOptions.DATASOURCE_ID.key())) {
+                if (nestedConfig.hasPath(ConnectorCommonOptions.METADATA_DATASOURCE_ID.key())) {
                     return Optional.of(
-                            nestedConfig.getString(ConnectorCommonOptions.DATASOURCE_ID.key()));
+                            nestedConfig.getString(
+                                    ConnectorCommonOptions.METADATA_DATASOURCE_ID.key()));
                 }
             }
         } catch (ConfigException e) {

@@ -125,7 +125,7 @@ To enable the DataSource Center, add the following configuration to `seatunnel.y
 ```yaml
 seatunnel:
   engine:
-    datasource:
+     metadata:
       enabled: true
       kind: gravitino
       gravitino:
@@ -279,7 +279,7 @@ public class MyDataSourceProvider implements DataSourceProvider {
 ```yaml
 seatunnel:
   engine:
-    datasource:
+     metadata:
       enabled: true
       kind: my-provider
       my-provider:

@@ -15,21 +15,21 @@
  * limitations under the License.
  */
 
-package org.apache.seatunnel.api.datasource.exception;
+package org.apache.seatunnel.api.metadata.exception;
 
 import org.apache.seatunnel.api.common.SeaTunnelAPIErrorCode;
 import org.apache.seatunnel.common.exception.SeaTunnelRuntimeException;
 
 /** A DataSourceProvider-related, runtime exception. */
-public class DataSourceProviderException extends SeaTunnelRuntimeException {
+public class MetaDataProviderException extends SeaTunnelRuntimeException {
 
     /** @param message the detail message. */
-    public DataSourceProviderException(String message) {
+    public MetaDataProviderException(String message) {
         super(SeaTunnelAPIErrorCode.DATASOURCE_PROVIDER_INITIALIZE_FAILED, message);
     }
 
     /** @param cause the cause. */
-    public DataSourceProviderException(Throwable cause) {
+    public MetaDataProviderException(Throwable cause) {
         super(SeaTunnelAPIErrorCode.DATASOURCE_PROVIDER_INITIALIZE_FAILED, cause);
     }
 
@@ -37,7 +37,7 @@ public class DataSourceProviderException extends SeaTunnelRuntimeException {
      * @param message the detail message.
      * @param cause the cause.
      */
-    public DataSourceProviderException(String message, Throwable cause) {
+    public MetaDataProviderException(String message, Throwable cause) {
         super(SeaTunnelAPIErrorCode.DATASOURCE_PROVIDER_INITIALIZE_FAILED, message, cause);
     }
 }

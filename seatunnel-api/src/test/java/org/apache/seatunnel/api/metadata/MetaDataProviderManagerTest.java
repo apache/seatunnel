@@ -15,12 +15,12 @@
  * limitations under the License.
  */
 
-package org.apache.seatunnel.api.datasource;
+package org.apache.seatunnel.api.metadata;
 
 import org.apache.seatunnel.shade.com.typesafe.config.Config;
 import org.apache.seatunnel.shade.com.typesafe.config.ConfigFactory;
 
-import org.apache.seatunnel.api.datasource.exception.DataSourceProviderException;
+import org.apache.seatunnel.api.metadata.exception.MetaDataProviderException;
 import org.apache.seatunnel.api.table.catalog.TableSchema;
 
 import org.junit.jupiter.api.AfterEach;
@@ -40,7 +40,7 @@ import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertNotNull;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 
-public class DataSourceConfigResolverTest {
+public class MetaDataProviderManagerTest {
 
     private static final String TEST_PROVIDER_KIND = "test-provider";
 
@@ -66,7 +66,7 @@ public class DataSourceConfigResolverTest {
         Config jobConfig = loadTestConfig();
 
         // Create DataSourceConfig
-        DataSourceConfig dataSourceConfig = new DataSourceConfig();
+        MetaDataConfig dataSourceConfig = new MetaDataConfig();
         dataSourceConfig.setEnabled(true);
         dataSourceConfig.setKind(TEST_PROVIDER_KIND);
 
@@ -134,14 +134,14 @@ public class DataSourceConfigResolverTest {
         Config jobConfig = loadTestConfig();
 
         // Create DataSourceConfig with unknown provider kind
-        DataSourceConfig dataSourceConfig = new DataSourceConfig();
+        MetaDataConfig dataSourceConfig = new MetaDataConfig();
         dataSourceConfig.setEnabled(true);
         dataSourceConfig.setKind("unknown-provider-kind");
 
         // Try to resolve with a provider kind that doesn't exist
-        DataSourceProviderException exception =
+        MetaDataProviderException exception =
                 assertThrows(
-                        DataSourceProviderException.class,
+                        MetaDataProviderException.class,
                         () ->
                                 MetaDataProviderManager.resolveDataSourceConfigs(
                                         jobConfig, dataSourceConfig));
@@ -157,7 +157,7 @@ public class DataSourceConfigResolverTest {
         return ConfigFactory.parseFile(
                 Paths.get(
                                 Objects.requireNonNull(
-                                                DataSourceConfigResolverTest.class.getResource(
+                                                MetaDataProviderManagerTest.class.getResource(
                                                         "/conf/datasource-test.conf"))
                                         .toURI())
                         .toFile());
@@ -192,7 +192,8 @@ public class DataSourceConfigResolverTest {
         }
 
         @Override
-        public Map<String, Object> datasourceMap(String connectorIdentifier, String datasourceId) {
+        public Map<String, Object> datasourceMap(
+                String connectorIdentifier, String metaDataDatasourceId) {
             // Only support Jdbc connector for testing
             if (!"Jdbc".equalsIgnoreCase(connectorIdentifier)) {
                 return new HashMap<>();

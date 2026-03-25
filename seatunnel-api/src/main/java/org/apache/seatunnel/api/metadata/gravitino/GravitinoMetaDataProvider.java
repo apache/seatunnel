@@ -15,14 +15,14 @@
  * limitations under the License.
  */
 
-package org.apache.seatunnel.api.datasource.gravitino;
+package org.apache.seatunnel.api.metadata.gravitino;
 
 import org.apache.seatunnel.shade.com.fasterxml.jackson.databind.JsonNode;
 import org.apache.seatunnel.shade.com.typesafe.config.Config;
 
 import org.apache.seatunnel.api.configuration.Option;
 import org.apache.seatunnel.api.configuration.Options;
-import org.apache.seatunnel.api.datasource.MetaDataProvider;
+import org.apache.seatunnel.api.metadata.MetaDataProvider;
 import org.apache.seatunnel.api.metalake.gravitino.GravitinoClient;
 import org.apache.seatunnel.api.table.catalog.TableSchema;
 import org.apache.seatunnel.common.utils.SeaTunnelException;
@@ -45,7 +45,7 @@ import java.util.Optional;
  * <p>Configuration (from seatunnel.yaml under seatunnel.engine.datasource):
  *
  * <pre>
- * datasource:
+ * metadata:
  *   enabled: true
  *   kind: gravitino
  *   uri: <a href="http://localhost:8090">...</a>          # Gravitino server URI
@@ -84,7 +84,7 @@ import java.util.Optional;
  */
 @Slf4j
 @AutoService(MetaDataProvider.class)
-public class GravitinoDataSourceProvider implements MetaDataProvider {
+public class GravitinoMetaDataProvider implements MetaDataProvider {
 
     private String uri;
     private String metalake;
@@ -147,7 +147,8 @@ public class GravitinoDataSourceProvider implements MetaDataProvider {
     }
 
     @Override
-    public Map<String, Object> datasourceMap(String connectorIdentifier, String datasourceId) {
+    public Map<String, Object> datasourceMap(
+            String connectorIdentifier, String metaDataDatasourceId) {
         if (!JDBC_CONNECTOR.equalsIgnoreCase(connectorIdentifier)) {
             log.warn(
                     "Unsupported connector '{}' for Gravitino provider, only '{}' is supported",
@@ -158,13 +159,13 @@ public class GravitinoDataSourceProvider implements MetaDataProvider {
 
         try {
             String catalogBaseUrl = buildMetalakeUrl();
-            JsonNode propertiesNode = client.getMetaInfo(datasourceId, catalogBaseUrl);
+            JsonNode propertiesNode = client.getMetaInfo(metaDataDatasourceId, catalogBaseUrl);
             return convertToJdbcConfig(propertiesNode);
         } catch (IOException e) {
             throw new SeaTunnelException(
                     String.format(
-                            "Failed to fetch metadata from Gravitino for datasource: %s",
-                            datasourceId),
+                            "Failed to fetch metadata from Gravitino for metadata: %s",
+                            metaDataDatasourceId),
                     e);
         }
     }

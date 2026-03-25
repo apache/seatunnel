@@ -21,7 +21,7 @@ import org.apache.seatunnel.shade.com.google.common.annotations.VisibleForTestin
 import org.apache.seatunnel.shade.org.apache.commons.lang3.tuple.ImmutablePair;
 
 import org.apache.seatunnel.api.common.JobContext;
-import org.apache.seatunnel.api.datasource.DataSourceConfig;
+import org.apache.seatunnel.api.metadata.MetaDataConfig;
 import org.apache.seatunnel.engine.client.SeaTunnelHazelcastClient;
 import org.apache.seatunnel.engine.common.config.JobConfig;
 import org.apache.seatunnel.engine.common.config.SeaTunnelConfig;
@@ -107,7 +107,7 @@ public class ClientJobExecutionEnvironment extends AbstractJobEnvironment {
                     jobClient.getCheckpointData(
                             Long.parseLong(jobConfig.getJobContext().getJobId()));
         }
-        DataSourceConfig dataSourceConfig = seaTunnelConfig.getEngineConfig().getDataSourceConfig();
+        MetaDataConfig dataSourceConfig = seaTunnelConfig.getEngineConfig().getDataSourceConfig();
         return new MultipleTableJobConfigParser(
                 jobFilePath,
                 variables,

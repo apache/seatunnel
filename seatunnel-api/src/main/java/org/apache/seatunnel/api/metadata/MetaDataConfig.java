@@ -15,7 +15,7 @@
  * limitations under the License.
  */
 
-package org.apache.seatunnel.api.datasource;
+package org.apache.seatunnel.api.metadata;
 
 import lombok.Data;
 
@@ -31,16 +31,16 @@ import java.util.Map;
  * the properties map.
  */
 @Data
-public class DataSourceConfig implements Serializable {
+public class MetaDataConfig implements Serializable {
 
     /** Whether to enable DataSource Center. */
-    private boolean enabled = DataSourceOptions.ENABLED.defaultValue();
+    private boolean enabled = MetaDataOptions.ENABLED.defaultValue();
 
     /**
      * The kind of DataSource provider to use. Supported values: "gravitino", "datahub", "atlas",
      * etc.
      */
-    private String kind = DataSourceOptions.KIND.defaultValue();
+    private String kind = MetaDataOptions.KIND.defaultValue();
 
     /**
      * Provider-specific properties. Each provider (e.g., Gravitino) should extract its own

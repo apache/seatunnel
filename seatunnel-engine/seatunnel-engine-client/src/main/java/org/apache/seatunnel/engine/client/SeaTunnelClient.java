@@ -17,7 +17,7 @@
 
 package org.apache.seatunnel.engine.client;
 
-import org.apache.seatunnel.api.datasource.MetaDataProviderManager;
+import org.apache.seatunnel.api.metadata.MetaDataProviderManager;
 import org.apache.seatunnel.common.utils.JsonUtils;
 import org.apache.seatunnel.engine.client.job.ClientJobExecutionEnvironment;
 import org.apache.seatunnel.engine.client.job.JobClient;

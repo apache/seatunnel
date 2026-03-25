@@ -15,13 +15,13 @@
  * limitations under the License.
  */
 
-package org.apache.seatunnel.api.datasource;
+package org.apache.seatunnel.api.metadata;
 
 import org.apache.seatunnel.api.configuration.Option;
 import org.apache.seatunnel.api.configuration.Options;
 
 /** Configuration options for DataSource Center. */
-public class DataSourceOptions {
+public class MetaDataOptions {
 
     /** Whether to enable DataSource Center. */
     public static final Option<Boolean> ENABLED =

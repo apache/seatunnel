@@ -125,7 +125,7 @@ public interface DataSourceProvider extends AutoCloseable {
 ```yaml
 seatunnel:
   engine:
-    datasource:
+     metadata:
       enabled: true
       kind: gravitino
       gravitino:
@@ -279,7 +279,7 @@ public class MyDataSourceProvider implements DataSourceProvider {
 ```yaml
 seatunnel:
   engine:
-    datasource:
+     metadata:
       enabled: true
       kind: my-provider
       my-provider:

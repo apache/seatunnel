@@ -19,8 +19,8 @@ package org.apache.seatunnel.engine.common.config;
 
 import org.apache.seatunnel.shade.org.apache.commons.lang3.StringUtils;
 
-import org.apache.seatunnel.api.datasource.DataSourceConfig;
-import org.apache.seatunnel.api.datasource.DataSourceOptions;
+import org.apache.seatunnel.api.metadata.MetaDataConfig;
+import org.apache.seatunnel.api.metadata.MetaDataOptions;
 import org.apache.seatunnel.engine.common.config.server.AllocateStrategy;
 import org.apache.seatunnel.engine.common.config.server.CheckpointConfig;
 import org.apache.seatunnel.engine.common.config.server.CheckpointStorageConfig;
@@ -257,7 +257,7 @@ public class YamlSeaTunnelDomConfigProcessor extends AbstractDomConfigProcessor 
                         ScheduleStrategy.valueOf(getTextContent(node).toUpperCase(Locale.ROOT)));
             } else if (ServerConfigOptions.MasterServerConfigOptions.HTTP.key().equals(name)) {
                 engineConfig.setHttpConfig(parseHttpConfig(node));
-            } else if (ServerConfigOptions.DATASOURCE.key().equals(name)) {
+            } else if (ServerConfigOptions.METADATA.key().equals(name)) {
                 engineConfig.setDataSourceConfig(parseDataSourceConfig(node));
             } else if (ServerConfigOptions.MasterServerConfigOptions.COORDINATOR_SERVICE
                     .key()
@@ -589,15 +589,15 @@ public class YamlSeaTunnelDomConfigProcessor extends AbstractDomConfigProcessor 
         return httpConfig;
     }
 
-    private DataSourceConfig parseDataSourceConfig(Node dataSourceNode) {
-        DataSourceConfig dataSourceConfig = new DataSourceConfig();
+    private MetaDataConfig parseDataSourceConfig(Node dataSourceNode) {
+        MetaDataConfig dataSourceConfig = new MetaDataConfig();
         String providerKind = null;
 
         for (Node node : childElements(dataSourceNode)) {
             String name = cleanNodeName(node);
-            if (DataSourceOptions.ENABLED.key().equals(name)) {
+            if (MetaDataOptions.ENABLED.key().equals(name)) {
                 dataSourceConfig.setEnabled(getBooleanValue(getTextContent(node)));
-            } else if (DataSourceOptions.KIND.key().equals(name)) {
+            } else if (MetaDataOptions.KIND.key().equals(name)) {
                 providerKind = getTextContent(node);
                 dataSourceConfig.setKind(providerKind);
             } else if (providerKind != null && providerKind.equalsIgnoreCase(name)) {

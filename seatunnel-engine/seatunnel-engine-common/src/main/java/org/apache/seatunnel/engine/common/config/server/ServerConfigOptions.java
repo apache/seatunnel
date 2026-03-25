@@ -21,7 +21,7 @@ import org.apache.seatunnel.shade.com.fasterxml.jackson.core.type.TypeReference;
 
 import org.apache.seatunnel.api.configuration.Option;
 import org.apache.seatunnel.api.configuration.Options;
-import org.apache.seatunnel.api.datasource.DataSourceConfig;
+import org.apache.seatunnel.api.metadata.MetaDataConfig;
 
 import java.util.Map;
 
@@ -68,10 +68,10 @@ public class ServerConfigOptions {
                     .defaultValue(new TelemetryConfig())
                     .withDescription("The telemetry configuration.");
 
-    public static final Option<DataSourceConfig> DATASOURCE =
-            Options.key("datasource")
-                    .type(new TypeReference<DataSourceConfig>() {})
-                    .defaultValue(new DataSourceConfig())
+    public static final Option<MetaDataConfig> METADATA =
+            Options.key("metadata")
+                    .type(new TypeReference<MetaDataConfig>() {})
+                    .defaultValue(new MetaDataConfig())
                     .withDescription("The DataSource Center configuration.");
     // The options for metrics end
     /////////////////////////////////////////////////
