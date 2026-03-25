@@ -60,7 +60,6 @@ public class JdbcOutputFormat<I, E extends JdbcBatchStatementExecutor<I>> implem
     private transient ScheduledExecutorService executor;
     private transient ScheduledFuture<?> scheduledFuture;
 
-
     public JdbcOutputFormat(
             JdbcConnectionProvider connectionProvider,
             JdbcConnectionConfig jdbcConnectionConfig,
@@ -88,7 +87,7 @@ public class JdbcOutputFormat<I, E extends JdbcBatchStatementExecutor<I>> implem
         long batchIntervalMs = jdbcConnectionConfig.getBatchIntervalMs();
         int batchSize = jdbcConnectionConfig.getBatchSize();
 
-        if (batchIntervalMs <= 0){
+        if (batchIntervalMs <= 0) {
             LOG.debug("JDBC periodic flush disabled, batch_interval_ms={}", batchIntervalMs);
             return null;
         }
@@ -109,8 +108,10 @@ public class JdbcOutputFormat<I, E extends JdbcBatchStatementExecutor<I>> implem
         }
 
         if (batchIntervalMs < MIN_BATCH_INTERVAL_MS) {
-            LOG.warn("JDBC batch interval {}ms is too small, recommended minimum is {}ms",
-                    batchIntervalMs, MIN_BATCH_INTERVAL_MS);
+            LOG.warn(
+                    "JDBC batch interval {}ms is too small, recommended minimum is {}ms",
+                    batchIntervalMs,
+                    MIN_BATCH_INTERVAL_MS);
         }
 
         executor =
@@ -119,8 +120,7 @@ public class JdbcOutputFormat<I, E extends JdbcBatchStatementExecutor<I>> implem
                         runnable -> {
                             Thread thread = new Thread(runnable);
                             thread.setDaemon(true);
-                            thread.setName(
-                                    "jdbc-batch-flush-scheduler-" + thread.getId());
+                            thread.setName("jdbc-batch-flush-scheduler-" + thread.getId());
                             return thread;
                         });
 
