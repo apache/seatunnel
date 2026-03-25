@@ -42,13 +42,13 @@ import java.util.Optional;
  * Utility class for resolving data source configurations from DataSource Center.
  *
  * <p>This utility provides methods to merge connection configurations retrieved from external
- * metadata services (via {@link DataSourceProvider}) into SeaTunnel connector configurations.
+ * metadata services (via {@link MetaDataProvider}) into SeaTunnel connector configurations.
  */
 @Slf4j
-public final class DataSourceConfigResolver {
+public final class MetaDataProviderManager {
 
     /** Cache for initialized DataSourceProvider instance. */
-    private static volatile DataSourceProvider cachedProvider = null;
+    private static volatile MetaDataProvider cachedProvider = null;
 
     /**
      * Resolves and merges data source configurations for a SeaTunnel job config.
@@ -68,7 +68,7 @@ public final class DataSourceConfigResolver {
         log.info("Starting datasource config resolution with provider: {}", providerKind);
 
         // Get or create initialized provider instance (cached with lazy loading)
-        DataSourceProvider provider =
+        MetaDataProvider provider =
                 getOrCreateProvider(
                         providerKind, ConfigFactory.parseMap(dataSourceConfig.getProperties()));
 
@@ -112,10 +112,10 @@ public final class DataSourceConfigResolver {
      * @param config the configuration for the provider
      * @return initialized DataSourceProvider instance
      */
-    private static DataSourceProvider getOrCreateProvider(String kind, Config config) {
-        DataSourceProvider provider = cachedProvider;
+    private static MetaDataProvider getOrCreateProvider(String kind, Config config) {
+        MetaDataProvider provider = cachedProvider;
         if (provider == null) {
-            synchronized (DataSourceConfigResolver.class) {
+            synchronized (MetaDataProviderManager.class) {
                 provider = cachedProvider;
                 if (provider == null) {
                     provider = DataSourceProviderFactory.getProvider(kind);
@@ -134,7 +134,7 @@ public final class DataSourceConfigResolver {
      * <p>If the config contains a {@code datasource_id}, this method will:
      *
      * <ol>
-     *   <li>Use the provided {@link DataSourceProvider} (already initialized)
+     *   <li>Use the provided {@link MetaDataProvider} (already initialized)
      *   <li>Fetch the connection config from the metadata service using the datasource_id
      *   <li>Merge the fetched config into the original config
      * </ol>
@@ -146,7 +146,7 @@ public final class DataSourceConfigResolver {
      *     datasource_id is present
      */
     private static Config resolveConnectorConfig(
-            Config connectorConfig, DataSourceProvider provider, String providerKind) {
+            Config connectorConfig, MetaDataProvider provider, String providerKind) {
         Optional<String> datasourceIdOptional = getDatasourceId(connectorConfig);
 
         if (!datasourceIdOptional.isPresent()) {
@@ -325,7 +325,7 @@ public final class DataSourceConfigResolver {
      * <p>This method is idempotent and can be safely called multiple times.
      */
     public static void closeProviders() {
-        DataSourceProvider provider = cachedProvider;
+        MetaDataProvider provider = cachedProvider;
         if (provider != null) {
             try {
                 log.info("Closing cached DataSourceProvider");

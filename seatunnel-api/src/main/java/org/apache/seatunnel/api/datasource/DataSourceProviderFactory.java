@@ -27,8 +27,7 @@ import java.util.ServiceConfigurationError;
 import java.util.ServiceLoader;
 
 /**
- * Utility class for discovering and loading {@link DataSourceProvider} implementations via Java
- * SPI.
+ * Utility class for discovering and loading {@link MetaDataProvider} implementations via Java SPI.
  *
  * <p>This class provides methods to:
  *
@@ -41,20 +40,20 @@ import java.util.ServiceLoader;
 public final class DataSourceProviderFactory {
 
     /**
-     * Finds a {@link DataSourceProvider} by its kind identifier.
+     * Finds a {@link MetaDataProvider} by its kind identifier.
      *
      * @param kind the kind identifier of the provider to find
      * @return the provider
      * @throws DataSourceProviderException if provider is not found or multiple providers with the
      *     same kind are found
      */
-    public static DataSourceProvider getProvider(String kind) {
-        List<DataSourceProvider> providers = loadProviders();
+    public static MetaDataProvider getProvider(String kind) {
+        List<MetaDataProvider> providers = loadProviders();
 
-        DataSourceProvider matchedProvider = null;
+        MetaDataProvider matchedProvider = null;
         List<String> matchedKinds = new ArrayList<>();
 
-        for (DataSourceProvider provider : providers) {
+        for (MetaDataProvider provider : providers) {
             if (provider.kind().equalsIgnoreCase(kind)) {
                 if (matchedProvider != null) {
                     log.error(
@@ -74,7 +73,7 @@ public final class DataSourceProviderFactory {
 
         if (matchedProvider == null) {
             List<String> availableKinds = new ArrayList<>();
-            for (DataSourceProvider provider : providers) {
+            for (MetaDataProvider provider : providers) {
                 availableKinds.add(provider.kind());
             }
             log.debug("No DataSourceProvider found for kind: {}", kind);
@@ -103,11 +102,11 @@ public final class DataSourceProviderFactory {
      *
      * @return list of all discovered providers
      */
-    private static List<DataSourceProvider> loadProviders() {
+    private static List<MetaDataProvider> loadProviders() {
         try {
             ClassLoader classLoader = Thread.currentThread().getContextClassLoader();
-            List<DataSourceProvider> providers = new ArrayList<>();
-            ServiceLoader.load(DataSourceProvider.class, classLoader)
+            List<MetaDataProvider> providers = new ArrayList<>();
+            ServiceLoader.load(MetaDataProvider.class, classLoader)
                     .iterator()
                     .forEachRemaining(providers::add);
 
@@ -118,7 +117,7 @@ public final class DataSourceProviderFactory {
                         "Loaded {} DataSourceProvider: {}",
                         providers.size(),
                         providers.stream()
-                                .map(DataSourceProvider::kind)
+                                .map(MetaDataProvider::kind)
                                 .reduce((a, b) -> a + ", " + b)
                                 .orElse(""));
             }

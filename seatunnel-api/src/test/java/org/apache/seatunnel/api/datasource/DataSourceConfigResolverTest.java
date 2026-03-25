@@ -21,6 +21,7 @@ import org.apache.seatunnel.shade.com.typesafe.config.Config;
 import org.apache.seatunnel.shade.com.typesafe.config.ConfigFactory;
 
 import org.apache.seatunnel.api.datasource.exception.DataSourceProviderException;
+import org.apache.seatunnel.api.table.catalog.TableSchema;
 
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
@@ -33,6 +34,7 @@ import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Objects;
+import java.util.Optional;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertNotNull;
@@ -45,13 +47,13 @@ public class DataSourceConfigResolverTest {
     @BeforeEach
     public void setUp() {
         // Clear the cache before each test
-        DataSourceConfigResolver.clearCache();
+        MetaDataProviderManager.clearCache();
     }
 
     @AfterEach
     public void tearDown() {
         // Clear the cache after each test
-        DataSourceConfigResolver.clearCache();
+        MetaDataProviderManager.clearCache();
     }
 
     @Test
@@ -70,7 +72,7 @@ public class DataSourceConfigResolverTest {
 
         // Resolve with datasource_id
         Config resolved =
-                DataSourceConfigResolver.resolveDataSourceConfigs(jobConfig, dataSourceConfig);
+                MetaDataProviderManager.resolveDataSourceConfigs(jobConfig, dataSourceConfig);
 
         assertNotNull(resolved);
 
@@ -126,7 +128,7 @@ public class DataSourceConfigResolverTest {
     @Test
     public void testResolveDataSourceConfigsWithNoProvider() {
         // Clear any cached provider
-        DataSourceConfigResolver.clearCache();
+        MetaDataProviderManager.clearCache();
 
         // Load config from file with datasource_id
         Config jobConfig = loadTestConfig();
@@ -141,7 +143,7 @@ public class DataSourceConfigResolverTest {
                 assertThrows(
                         DataSourceProviderException.class,
                         () ->
-                                DataSourceConfigResolver.resolveDataSourceConfigs(
+                                MetaDataProviderManager.resolveDataSourceConfigs(
                                         jobConfig, dataSourceConfig));
 
         // Verify exception is thrown
@@ -165,10 +167,10 @@ public class DataSourceConfigResolverTest {
      * Helper method to manually register a provider for testing. This is a workaround since we
      * can't easily use SPI in unit tests.
      */
-    private void registerProvider(DataSourceProvider provider) {
+    private void registerProvider(MetaDataProvider provider) {
         try {
             java.lang.reflect.Field providerField =
-                    DataSourceConfigResolver.class.getDeclaredField("cachedProvider");
+                    MetaDataProviderManager.class.getDeclaredField("cachedProvider");
             providerField.setAccessible(true);
             providerField.set(null, provider);
         } catch (Exception e) {
@@ -177,7 +179,7 @@ public class DataSourceConfigResolverTest {
     }
 
     /** Mock DataSourceProvider for testing. */
-    public static class MockTestDataSourceProvider implements DataSourceProvider {
+    public static class MockTestDataSourceProvider implements MetaDataProvider {
 
         @Override
         public String kind() {
@@ -202,6 +204,11 @@ public class DataSourceConfigResolverTest {
             config.put("username", "metadata_user");
             config.put("password", "metadata_password");
             return config;
+        }
+
+        @Override
+        public Optional<TableSchema> tableSchema(String metaDataTableId) {
+            return Optional.empty();
         }
 
         @Override

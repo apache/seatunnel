@@ -17,7 +17,7 @@
 
 package org.apache.seatunnel.engine.server;
 
-import org.apache.seatunnel.api.datasource.DataSourceConfigResolver;
+import org.apache.seatunnel.api.datasource.MetaDataProviderManager;
 import org.apache.seatunnel.common.utils.RetryUtils;
 import org.apache.seatunnel.engine.common.Constant;
 import org.apache.seatunnel.engine.common.config.EngineConfig;
@@ -236,7 +236,7 @@ public class SeaTunnelServer
             eventService.shutdownNow();
         }
 
-        DataSourceConfigResolver.closeProviders();
+        MetaDataProviderManager.closeProviders();
     }
 
     @Override

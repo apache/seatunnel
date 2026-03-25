@@ -17,7 +17,7 @@
 
 package org.apache.seatunnel.engine.client;
 
-import org.apache.seatunnel.api.datasource.DataSourceConfigResolver;
+import org.apache.seatunnel.api.datasource.MetaDataProviderManager;
 import org.apache.seatunnel.common.utils.JsonUtils;
 import org.apache.seatunnel.engine.client.job.ClientJobExecutionEnvironment;
 import org.apache.seatunnel.engine.client.job.JobClient;
@@ -107,7 +107,7 @@ public class SeaTunnelClient implements SeaTunnelClientInstance, AutoCloseable {
     @Override
     public void close() {
         hazelcastClient.getHazelcastInstance().shutdown();
-        DataSourceConfigResolver.closeProviders();
+        MetaDataProviderManager.closeProviders();
     }
 
     public ILogger getLogger() {

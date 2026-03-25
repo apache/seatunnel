@@ -30,7 +30,7 @@ import org.apache.seatunnel.api.common.PluginIdentifier;
 import org.apache.seatunnel.api.configuration.ReadonlyConfig;
 import org.apache.seatunnel.api.configuration.util.ConfigValidator;
 import org.apache.seatunnel.api.datasource.DataSourceConfig;
-import org.apache.seatunnel.api.datasource.DataSourceConfigResolver;
+import org.apache.seatunnel.api.datasource.MetaDataProviderManager;
 import org.apache.seatunnel.api.metalake.MetalakeConfigUtils;
 import org.apache.seatunnel.api.options.ConnectorCommonOptions;
 import org.apache.seatunnel.api.options.EnvCommonOptions;
@@ -863,7 +863,7 @@ public class MultipleTableJobConfigParser {
                 && dataSourceConfig.isEnabled()
                 && hasDatasourceId(seaTunnelJobConfig)) {
             tempconfig =
-                    DataSourceConfigResolver.resolveDataSourceConfigs(
+                    MetaDataProviderManager.resolveDataSourceConfigs(
                             seaTunnelJobConfig, dataSourceConfig);
         }
         // Compatible with old code

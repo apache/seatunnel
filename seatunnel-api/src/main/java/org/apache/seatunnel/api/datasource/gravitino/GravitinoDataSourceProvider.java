@@ -22,8 +22,9 @@ import org.apache.seatunnel.shade.com.typesafe.config.Config;
 
 import org.apache.seatunnel.api.configuration.Option;
 import org.apache.seatunnel.api.configuration.Options;
-import org.apache.seatunnel.api.datasource.DataSourceProvider;
+import org.apache.seatunnel.api.datasource.MetaDataProvider;
 import org.apache.seatunnel.api.metalake.gravitino.GravitinoClient;
+import org.apache.seatunnel.api.table.catalog.TableSchema;
 import org.apache.seatunnel.common.utils.SeaTunnelException;
 
 import com.google.auto.service.AutoService;
@@ -33,9 +34,10 @@ import java.io.IOException;
 import java.util.Collections;
 import java.util.HashMap;
 import java.util.Map;
+import java.util.Optional;
 
 /**
- * Gravitino implementation of {@link DataSourceProvider}.
+ * Gravitino implementation of {@link MetaDataProvider}.
  *
  * <p>This provider integrates with Apache Gravitino for centralized data source metadata
  * management.
@@ -81,8 +83,8 @@ import java.util.Map;
  * </pre>
  */
 @Slf4j
-@AutoService(DataSourceProvider.class)
-public class GravitinoDataSourceProvider implements DataSourceProvider {
+@AutoService(MetaDataProvider.class)
+public class GravitinoDataSourceProvider implements MetaDataProvider {
 
     private String uri;
     private String metalake;
@@ -165,6 +167,11 @@ public class GravitinoDataSourceProvider implements DataSourceProvider {
                             datasourceId),
                     e);
         }
+    }
+
+    @Override
+    public Optional<TableSchema> tableSchema(String metaDataTableId) {
+        return Optional.empty();
     }
 
     /**
