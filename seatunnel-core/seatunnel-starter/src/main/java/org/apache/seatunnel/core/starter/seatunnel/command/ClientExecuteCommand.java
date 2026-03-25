@@ -111,7 +111,6 @@ public class ClientExecuteCommand implements Command<ClientCommandArgs> {
             if (isLocalMode) {
                 int localPort = instance.getCluster().getLocalMember().getSocketAddress().getPort();
                 // Use localhost instead of actual IP to avoid network interface issues
-                // (e.g., VPN interfaces causing connection problems)
                 String memberAddress = "localhost:" + localPort;
                 clientConfig
                         .getNetworkConfig()
