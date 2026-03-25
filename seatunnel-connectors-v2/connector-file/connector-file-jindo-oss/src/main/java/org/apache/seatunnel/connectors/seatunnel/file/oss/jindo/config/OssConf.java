@@ -19,6 +19,7 @@ package org.apache.seatunnel.connectors.seatunnel.file.oss.jindo.config;
 
 import org.apache.seatunnel.shade.com.typesafe.config.Config;
 
+import org.apache.seatunnel.api.configuration.ReadonlyConfig;
 import org.apache.seatunnel.connectors.seatunnel.file.config.HadoopConf;
 
 import java.util.HashMap;
@@ -50,6 +51,21 @@ public class OssConf extends HadoopConf {
         ossOptions.put(
                 "fs.oss.accessKeySecret", config.getString(OssFileBaseOptions.ACCESS_SECRET.key()));
         ossOptions.put("fs.oss.endpoint", config.getString(OssFileBaseOptions.ENDPOINT.key()));
+        ossOptions.put("fs.oss.upload.thread.concurrency", "20");
+        ossOptions.put("fs.oss.upload.queue.size", "100");
+        hadoopConf.setExtraOptions(ossOptions);
+        return hadoopConf;
+    }
+
+    public static HadoopConf buildWithReadonlyConfig(ReadonlyConfig readonlyConfig) {
+        HadoopConf hadoopConf = new OssConf(readonlyConfig.get(OssFileBaseOptions.BUCKET));
+        HashMap<String, String> ossOptions = new HashMap<>();
+        ossOptions.put("fs.AbstractFileSystem.oss.impl", "com.aliyun.emr.fs.oss.OSS");
+        ossOptions.put("fs.oss.impl", "com.aliyun.emr.fs.oss.JindoOssFileSystem");
+        ossOptions.put("fs.oss.accessKeyId", readonlyConfig.get(OssFileBaseOptions.ACCESS_KEY));
+        ossOptions.put(
+                "fs.oss.accessKeySecret", readonlyConfig.get(OssFileBaseOptions.ACCESS_SECRET));
+        ossOptions.put("fs.oss.endpoint", readonlyConfig.get(OssFileBaseOptions.ENDPOINT));
         ossOptions.put("fs.oss.upload.thread.concurrency", "20");
         ossOptions.put("fs.oss.upload.queue.size", "100");
         hadoopConf.setExtraOptions(ossOptions);

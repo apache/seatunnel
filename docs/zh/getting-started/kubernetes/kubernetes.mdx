@@ -70,7 +70,7 @@ minikube image load seatunnel:3.0.0-flink-1.13
 <TabItem value="Zeta (local-mode)">
 
 ```Dockerfile
-FROM openjdk:8
+FROM seatunnelhub/openjdk:8u342
 
 ENV SEATUNNEL_VERSION="3.0.0"
 ENV SEATUNNEL_HOME="/opt/seatunnel"
@@ -98,7 +98,7 @@ minikube image load seatunnel:3.0.0
 <TabItem value="Zeta (cluster-mode)">
 
 ```Dockerfile
-FROM openjdk:8
+FROM seatunnelhub/openjdk:8u342
 
 ENV SEATUNNEL_VERSION="3.0.0"
 ENV SEATUNNEL_HOME="/opt/seatunnel"
