@@ -48,6 +48,8 @@ public class JdbcOutputFormat<I, E extends JdbcBatchStatementExecutor<I>> implem
 
     private static final Logger LOG = LoggerFactory.getLogger(JdbcOutputFormat.class);
 
+    private static final long MIN_BATCH_INTERVAL_MS = 100;
+
     private final JdbcConnectionConfig jdbcConnectionConfig;
     private final StatementExecutorFactory<E> statementExecutorFactory;
 
@@ -57,6 +59,7 @@ public class JdbcOutputFormat<I, E extends JdbcBatchStatementExecutor<I>> implem
     private transient volatile Exception flushException;
     private transient ScheduledExecutorService executor;
     private transient ScheduledFuture<?> scheduledFuture;
+
 
     public JdbcOutputFormat(
             JdbcConnectionProvider connectionProvider,
@@ -84,7 +87,13 @@ public class JdbcOutputFormat<I, E extends JdbcBatchStatementExecutor<I>> implem
     private ScheduledFuture<?> createAndStartScheduledFlush() {
         long batchIntervalMs = jdbcConnectionConfig.getBatchIntervalMs();
         int batchSize = jdbcConnectionConfig.getBatchSize();
-        if (batchIntervalMs <= 0 || batchSize == 1) {
+
+        if (batchIntervalMs <= 0){
+            LOG.debug("JDBC periodic flush disabled, batch_interval_ms={}", batchIntervalMs);
+            return null;
+        }
+
+        if (batchSize == 1) {
             LOG.warn(
                     "JDBC periodic flush automatically disabled, batch_interval_ms={}, batch_size={}",
                     batchIntervalMs,
@@ -99,6 +108,11 @@ public class JdbcOutputFormat<I, E extends JdbcBatchStatementExecutor<I>> implem
             return null;
         }
 
+        if (batchIntervalMs < MIN_BATCH_INTERVAL_MS) {
+            LOG.warn("JDBC batch interval {}ms is too small, recommended minimum is {}ms",
+                    batchIntervalMs, MIN_BATCH_INTERVAL_MS);
+        }
+
         executor =
                 Executors.newScheduledThreadPool(
                         1,
@@ -106,7 +120,7 @@ public class JdbcOutputFormat<I, E extends JdbcBatchStatementExecutor<I>> implem
                             Thread thread = new Thread(runnable);
                             thread.setDaemon(true);
                             thread.setName(
-                                    "jdbc-batch-flush-scheduler-" + Thread.currentThread().getId());
+                                    "jdbc-batch-flush-scheduler-" + thread.getId());
                             return thread;
                         });
 
