@@ -90,7 +90,8 @@ public class CheckpointManagerTest extends AbstractSeaTunnelServerTest {
                         new CheckpointConfig(),
                         server.getCheckpointService().getCheckpointStorage(),
                         instance.getExecutorService("test"),
-                        nodeEngine.getHazelcastInstance().getMap(IMAP_RUNNING_JOB_STATE));
+                        nodeEngine.getHazelcastInstance().getMap(IMAP_RUNNING_JOB_STATE),
+                        null);
         Assertions.assertTrue(checkpointManager.isCompletedPipeline(1));
         checkpointManager.listenPipeline(1, PipelineStatus.FINISHED);
         Assertions.assertNull(checkpointIdMap.get(1));

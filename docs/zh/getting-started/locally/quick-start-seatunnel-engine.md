@@ -51,7 +51,7 @@ sink {
 
 ```
 
-关于配置的更多信息请查看[配置的基本概念](../../concept/config.md)
+关于配置的更多信息请查看[配置的基本概念](../../introduction/concepts/config.md)
 
 ## 步骤 3: 运行SeaTunnel应用程序
 
@@ -155,7 +155,7 @@ sink {
 }
 ```
 
-关于配置的更多信息请查看[配置的基本概念](../../concept/config.md)
+关于配置的更多信息请查看[配置的基本概念](../../introduction/concepts/config.md)
 
 ### 步骤 4: 运行SeaTunnel应用程序
 

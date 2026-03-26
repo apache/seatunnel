@@ -17,6 +17,11 @@
 
 package org.apache.seatunnel.connectors.seatunnel.file.ftp;
 
+import org.apache.seatunnel.api.configuration.util.Expression;
+import org.apache.seatunnel.api.configuration.util.OptionRule;
+import org.apache.seatunnel.api.configuration.util.RequiredOption;
+import org.apache.seatunnel.connectors.seatunnel.file.config.FileBaseSourceOptions;
+import org.apache.seatunnel.connectors.seatunnel.file.config.FileSyncMode;
 import org.apache.seatunnel.connectors.seatunnel.file.ftp.sink.FtpFileSinkFactory;
 import org.apache.seatunnel.connectors.seatunnel.file.ftp.source.FtpFileSourceFactory;
 
@@ -27,7 +32,28 @@ class FtpFileFactoryTest {
 
     @Test
     void optionRule() {
-        Assertions.assertNotNull((new FtpFileSourceFactory()).optionRule());
+        OptionRule optionRule = (new FtpFileSourceFactory()).optionRule();
+        Assertions.assertNotNull(optionRule);
+        Assertions.assertTrue(
+                optionRule.getOptionalOptions().contains(FileBaseSourceOptions.SYNC_MODE));
+        Assertions.assertTrue(
+                optionRule.getOptionalOptions().contains(FileBaseSourceOptions.TARGET_HADOOP_CONF));
+        Assertions.assertTrue(
+                optionRule.getOptionalOptions().contains(FileBaseSourceOptions.UPDATE_STRATEGY));
+        Assertions.assertTrue(
+                optionRule.getOptionalOptions().contains(FileBaseSourceOptions.COMPARE_MODE));
+
+        Expression expectExpression =
+                Expression.of(FileBaseSourceOptions.SYNC_MODE, FileSyncMode.UPDATE);
+        Assertions.assertTrue(
+                optionRule.getRequiredOptions().stream()
+                        .filter(RequiredOption.ConditionalRequiredOptions.class::isInstance)
+                        .map(RequiredOption.ConditionalRequiredOptions.class::cast)
+                        .filter(
+                                required ->
+                                        required.getOptions()
+                                                .contains(FileBaseSourceOptions.TARGET_PATH))
+                        .anyMatch(required -> expectExpression.equals(required.getExpression())));
         Assertions.assertNotNull((new FtpFileSinkFactory()).optionRule());
     }
 }

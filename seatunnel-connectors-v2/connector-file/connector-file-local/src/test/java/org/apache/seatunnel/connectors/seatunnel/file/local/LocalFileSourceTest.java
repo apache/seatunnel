@@ -21,15 +21,17 @@ import org.apache.seatunnel.connectors.seatunnel.file.config.ArchiveCompressForm
 import org.apache.seatunnel.connectors.seatunnel.file.config.CompressFormat;
 import org.apache.seatunnel.connectors.seatunnel.file.config.FileBaseSourceOptions;
 import org.apache.seatunnel.connectors.seatunnel.file.config.FileFormat;
-import org.apache.seatunnel.connectors.seatunnel.file.local.source.split.LocalFileAccordingToSplitSizeSplitStrategy;
-import org.apache.seatunnel.connectors.seatunnel.file.local.source.split.LocalFileSplitStrategyFactory;
+import org.apache.seatunnel.connectors.seatunnel.file.local.config.LocalFileHadoopConf;
+import org.apache.seatunnel.connectors.seatunnel.file.source.split.AccordingToSplitSizeSplitStrategy;
 import org.apache.seatunnel.connectors.seatunnel.file.source.split.DefaultFileSplitStrategy;
 import org.apache.seatunnel.connectors.seatunnel.file.source.split.FileSplitStrategy;
+import org.apache.seatunnel.connectors.seatunnel.file.source.split.FileSplitStrategyFactory;
 import org.apache.seatunnel.connectors.seatunnel.file.source.split.ParquetFileSplitStrategy;
 
 import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.Test;
 
+import java.io.Closeable;
 import java.util.HashMap;
 import java.util.Map;
 
@@ -42,45 +44,54 @@ public class LocalFileSourceTest {
         map.put(FileBaseSourceOptions.FILE_FORMAT_TYPE.key(), FileFormat.ORC);
         map.put(FileBaseSourceOptions.ENABLE_FILE_SPLIT.key(), true);
         FileSplitStrategy fileSplitStrategy =
-                LocalFileSplitStrategyFactory.initFileSplitStrategy(ReadonlyConfig.fromMap(map));
+                FileSplitStrategyFactory.initFileSplitStrategy(
+                        ReadonlyConfig.fromMap(map), new LocalFileHadoopConf());
         Assertions.assertInstanceOf(DefaultFileSplitStrategy.class, fileSplitStrategy);
+        closeQuietly(fileSplitStrategy);
         // test text, no split
         Map<String, Object> map1 = new HashMap<>();
         map1.put(FileBaseSourceOptions.FILE_FORMAT_TYPE.key(), FileFormat.TEXT);
         fileSplitStrategy =
-                LocalFileSplitStrategyFactory.initFileSplitStrategy(ReadonlyConfig.fromMap(map1));
+                FileSplitStrategyFactory.initFileSplitStrategy(
+                        ReadonlyConfig.fromMap(map1), new LocalFileHadoopConf());
         Assertions.assertInstanceOf(DefaultFileSplitStrategy.class, fileSplitStrategy);
+        closeQuietly(fileSplitStrategy);
         // test text, split
         Map<String, Object> map2 = new HashMap<>();
         map2.put(FileBaseSourceOptions.FILE_FORMAT_TYPE.key(), FileFormat.TEXT);
         map2.put(FileBaseSourceOptions.ENABLE_FILE_SPLIT.key(), true);
         fileSplitStrategy =
-                LocalFileSplitStrategyFactory.initFileSplitStrategy(ReadonlyConfig.fromMap(map2));
-        Assertions.assertInstanceOf(
-                LocalFileAccordingToSplitSizeSplitStrategy.class, fileSplitStrategy);
+                FileSplitStrategyFactory.initFileSplitStrategy(
+                        ReadonlyConfig.fromMap(map2), new LocalFileHadoopConf());
+        Assertions.assertInstanceOf(AccordingToSplitSizeSplitStrategy.class, fileSplitStrategy);
+        closeQuietly(fileSplitStrategy);
         // test csv, split
         Map<String, Object> map3 = new HashMap<>();
         map3.put(FileBaseSourceOptions.FILE_FORMAT_TYPE.key(), FileFormat.CSV);
         map3.put(FileBaseSourceOptions.ENABLE_FILE_SPLIT.key(), true);
         fileSplitStrategy =
-                LocalFileSplitStrategyFactory.initFileSplitStrategy(ReadonlyConfig.fromMap(map3));
-        Assertions.assertInstanceOf(
-                LocalFileAccordingToSplitSizeSplitStrategy.class, fileSplitStrategy);
+                FileSplitStrategyFactory.initFileSplitStrategy(
+                        ReadonlyConfig.fromMap(map3), new LocalFileHadoopConf());
+        Assertions.assertInstanceOf(AccordingToSplitSizeSplitStrategy.class, fileSplitStrategy);
+        closeQuietly(fileSplitStrategy);
         // test json, split
         Map<String, Object> map4 = new HashMap<>();
         map4.put(FileBaseSourceOptions.FILE_FORMAT_TYPE.key(), FileFormat.JSON);
         map4.put(FileBaseSourceOptions.ENABLE_FILE_SPLIT.key(), true);
         fileSplitStrategy =
-                LocalFileSplitStrategyFactory.initFileSplitStrategy(ReadonlyConfig.fromMap(map4));
-        Assertions.assertInstanceOf(
-                LocalFileAccordingToSplitSizeSplitStrategy.class, fileSplitStrategy);
+                FileSplitStrategyFactory.initFileSplitStrategy(
+                        ReadonlyConfig.fromMap(map4), new LocalFileHadoopConf());
+        Assertions.assertInstanceOf(AccordingToSplitSizeSplitStrategy.class, fileSplitStrategy);
+        closeQuietly(fileSplitStrategy);
         // test parquet, split
         Map<String, Object> map5 = new HashMap<>();
         map5.put(FileBaseSourceOptions.FILE_FORMAT_TYPE.key(), FileFormat.PARQUET);
         map5.put(FileBaseSourceOptions.ENABLE_FILE_SPLIT.key(), true);
         fileSplitStrategy =
-                LocalFileSplitStrategyFactory.initFileSplitStrategy(ReadonlyConfig.fromMap(map5));
+                FileSplitStrategyFactory.initFileSplitStrategy(
+                        ReadonlyConfig.fromMap(map5), new LocalFileHadoopConf());
         Assertions.assertInstanceOf(ParquetFileSplitStrategy.class, fileSplitStrategy);
+        closeQuietly(fileSplitStrategy);
         // test compress 1
         Map<String, Object> map6 = new HashMap<>();
         map6.put(FileBaseSourceOptions.FILE_FORMAT_TYPE.key(), FileFormat.PARQUET);
@@ -88,8 +99,10 @@ public class LocalFileSourceTest {
         map6.put(FileBaseSourceOptions.COMPRESS_CODEC.key(), CompressFormat.LZO);
         map6.put(FileBaseSourceOptions.ARCHIVE_COMPRESS_CODEC.key(), ArchiveCompressFormat.NONE);
         fileSplitStrategy =
-                LocalFileSplitStrategyFactory.initFileSplitStrategy(ReadonlyConfig.fromMap(map6));
+                FileSplitStrategyFactory.initFileSplitStrategy(
+                        ReadonlyConfig.fromMap(map6), new LocalFileHadoopConf());
         Assertions.assertInstanceOf(DefaultFileSplitStrategy.class, fileSplitStrategy);
+        closeQuietly(fileSplitStrategy);
         // test compress 2
         Map<String, Object> map7 = new HashMap<>();
         map7.put(FileBaseSourceOptions.FILE_FORMAT_TYPE.key(), FileFormat.PARQUET);
@@ -97,7 +110,23 @@ public class LocalFileSourceTest {
         map7.put(FileBaseSourceOptions.COMPRESS_CODEC.key(), CompressFormat.NONE);
         map7.put(FileBaseSourceOptions.ARCHIVE_COMPRESS_CODEC.key(), ArchiveCompressFormat.NONE);
         fileSplitStrategy =
-                LocalFileSplitStrategyFactory.initFileSplitStrategy(ReadonlyConfig.fromMap(map7));
+                FileSplitStrategyFactory.initFileSplitStrategy(
+                        ReadonlyConfig.fromMap(map7), new LocalFileHadoopConf());
         Assertions.assertInstanceOf(ParquetFileSplitStrategy.class, fileSplitStrategy);
+        closeQuietly(fileSplitStrategy);
+    }
+
+    private void closeQuietly(FileSplitStrategy strategy) {
+        try {
+            if (strategy instanceof Closeable) {
+                ((Closeable) strategy).close();
+                return;
+            }
+            if (strategy instanceof AutoCloseable) {
+                ((AutoCloseable) strategy).close();
+            }
+        } catch (Exception ignored) {
+            // ignore
+        }
     }
 }

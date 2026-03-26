@@ -368,7 +368,9 @@ public class HbaseClient {
             throws IOException {
         Scan scan = buildScan(split, hbaseParameters, columnNames);
         return this.connection
-                .getTable(TableName.valueOf(hbaseParameters.getTable()))
+                .getTable(
+                        TableName.valueOf(
+                                hbaseParameters.getNamespace(), hbaseParameters.getTable()))
                 .getScanner(scan);
     }
 
@@ -416,11 +418,18 @@ public class HbaseClient {
     /**
      * Get a RegionLocator.
      *
-     * @param tableName table name
+     * @param tableName table name (preferably fully qualified as {@code namespace:table})
      * @return RegionLocator
      * @throws IOException exception
+     * @deprecated Use {@link #getRegionLocator(String, String)} instead to avoid relying on the
+     *     default namespace behavior.
      */
+    @Deprecated
     public RegionLocator getRegionLocator(String tableName) throws IOException {
         return this.connection.getRegionLocator(TableName.valueOf(tableName));
+    }
+
+    public RegionLocator getRegionLocator(String namespace, String tableName) throws IOException {
+        return this.connection.getRegionLocator(TableName.valueOf(namespace, tableName));
     }
 }

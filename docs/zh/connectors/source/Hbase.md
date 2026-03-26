@@ -44,6 +44,7 @@ hbase的zookeeper集群主机，例如：“hadoop001:2181,hadoop002:2181,hadoop
 ### table [string]
 
 要写入的表名，例如：“seatunnel”
+如果表在自定义 namespace 下，请使用 `namespace:table` 形式（如 `ns1:seatunnel_test`）；未填写 namespace 时，SeaTunnel 会使用 HBase 的默认命名空间 `default`。
 
 ### schema [config]
 

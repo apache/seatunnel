@@ -215,6 +215,8 @@ If you assign file type to `parquet` `orc`, schema option not required, connecto
 | csv_use_header_line             | boolean | no       | false                                                 | Whether to use the header line to parse the file, only used when the file_format is `csv` and the file contains the header line that match RFC 4180                                                                                                                                                                                                                                                        |
 | compress_codec                  | string  | no       | none                                                  |                                                                                                                                                                                                                                                                                                                                                                                                            |
 | archive_compress_codec          | string  | no       | none                                                  |                                                                                                                                                                                                                                                                                                                                                                                                            |
+| enable_file_split               | boolean | no       | false                                                 | Turn on logical file split to improve parallelism for huge files. Only supported for `text`/`csv`/`json`/`parquet` and non-compressed format.                                                                                                                                                                                               |
+| file_split_size                 | long    | no       | 134217728                                             | Split size in bytes when `enable_file_split=true`. For `text`/`csv`/`json`, the split end will be aligned to the next `row_delimiter`. For `parquet`, the split unit is RowGroup and will never break a RowGroup.                                                                                                                           |
 | encoding                        | string  | no       | UTF-8                                                 |                                                                                                                                                                                                                                                                                                                                                                                                            |
 | null_format                     | string  | no       | -                                                     | Only used when file_format_type is text. null_format to define which strings can be represented as null. e.g: `\N`                                                                                                                                                                                                                                                                                         |
 | binary_chunk_size               | int     | no       | 1024                                                  | Only used when file_format_type is binary. The chunk size (in bytes) for reading binary files. Default is 1024 bytes. Larger values may improve performance for large files but use more memory.                                                                                                                                                                                                           |
@@ -224,6 +226,7 @@ If you assign file type to `parquet` `orc`, schema option not required, connecto
 | common-options                  |         | no       | -                                                     | Source plugin common parameters, please refer to [Source Common Options](../common-options/source-common-options.md) for details.                                                                                                                                                                                                                                                                          |
 | quote_char                      | string  | no       | "                                                     | A single character that encloses CSV fields, allowing fields with commas, line breaks, or quotes to be read correctly.                                                                                                                                                                                                                                                                                     |
 | escape_char                     | string  | no       | -                                                     | A single character that allows the quote or other special characters to appear inside a CSV field without ending the field.                                                                                                                                                                                                                                                                                |
+| metalake_type                   | string  | no       | gravitino                                            | The type of metalake service, currently supports `gravitino`.                                                                                                                                                                                                                                                                              |
 
 ### file_format_type [string]
 
@@ -310,6 +313,30 @@ The result of this example matching is:
 /data/seatunnel/20241005/old_data.csv
 ```
 
+### enable_file_split [boolean]
+
+Turn on the file splitting function, the default is false. It can be selected when the file type is csv, text, json, parquet and non-compressed format.
+
+- `text`/`csv`/`json`: split by `file_split_size` and align to the next `row_delimiter` to avoid breaking records.
+- `parquet`: split by RowGroup (logical split), never breaks a RowGroup.
+
+**Recommendations**
+- Enable when reading a few large files and you want higher read parallelism.
+- Disable when reading many small files, or when parallelism is low (splitting adds overhead).
+
+**Limitations**
+- Not supported for compressed files (`compress_codec` != `none`) or archive files (`archive_compress_codec` != `none`) — it will fall back to non-splitting and emit a warning log.
+- For `text`/`csv`/`json`, actual split size may be larger than `file_split_size` because the split end is aligned to the next `row_delimiter`.
+- For `json`, splitting is only supported for JSON Lines (one JSON object per line).
+- When splitting is enabled, global record order is not guaranteed because splits can be processed in parallel. Set `parallelism=1` if strict ordering is required.
+
+### file_split_size [long]
+
+File split size, which can be filled in when the enable_file_split parameter is true. The unit is the number of bytes. The default value is the number of bytes of 128MB, which is 134217728.
+
+**Tuning**
+- Start with the default (128MB). Decrease it if parallelism is under-utilized; increase it if the number of splits is too large.
+
 ### compress_codec [string]
 
 The compress codec of files and the details that supported as the following shown:
@@ -359,6 +386,24 @@ A single character that encloses CSV fields, allowing fields with commas, line b
 
 A single character that allows the quote or other special characters to appear inside a CSV field without ending the field.
 
+### schema [config]
+
+#### fields [Config]
+
+The schema of upstream data. For more details, please refer to [Schema Feature](../../introduction/concepts/schema-feature.md).
+
+#### schema_url [string]
+
+Get the http url of metadata information through restApi, such as: `http://localhost:8090/api/metalakes/laowang_test/catalogs/221-pgsql/schemas/ykw/tables/all_type`
+
+> When using Gravitino as the metadata source, the column types from Gravitino will be automatically converted to SeaTunnel data types. For detailed type mapping information, please refer to [Gravitino Type Mapping](../../introduction/concepts/gravitino-type-mapping.md).
+
+### metalake_type [string]
+
+The type of metalake service, currently only supports `gravitino`. When using `schema_url` to obtain metadata from Gravitino, you can specify this parameter (default is `gravitino`).
+
+For more information about Metalake, please refer to [Metalake](../../introduction/concepts/metalake.md).
+
 ## Example
 
 1. In this example, We read data from s3 path `s3a://seatunnel-test/seatunnel/text` and the file type is orc in this path.
@@ -386,7 +431,7 @@ source {
 
 transform {
   # If you would like to get more information about how to configure seatunnel and see full list of transform plugins,
-    # please go to https://seatunnel.apache.org/docs/transform-v2
+    # please go to https://seatunnel.apache.org/docs/transforms
 }
 
 sink {
@@ -448,7 +493,7 @@ source {
 
 transform {
   # If you would like to get more information about how to configure seatunnel and see full list of transform plugins,
-    # please go to https://seatunnel.apache.org/docs/transform-v2
+    # please go to https://seatunnel.apache.org/docs/transforms
 }
 
 sink {
