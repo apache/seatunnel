@@ -50,8 +50,8 @@ public class TableSchemaDiscovererTest {
     /** Create a default MetaDataConfig for testing. */
     private MetaDataConfig createDefaultMetaDataConfig() {
         MetaDataConfig config = new MetaDataConfig();
-        config.setEnabled(false);
-        config.setKind("gravitino");
+        config.setEnabled(true);
+        config.setKind("test-mock-provider");
         config.setProperties(new HashMap<>());
         return config;
     }

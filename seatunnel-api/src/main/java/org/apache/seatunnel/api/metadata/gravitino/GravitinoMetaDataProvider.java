@@ -92,7 +92,7 @@ public class GravitinoMetaDataProvider implements MetaDataProvider {
     private GravitinoClient client;
     private GravitinoTableSchemaConvertor tableSchemaConvertor;
 
-    private static final String METALAKE_API_PATH = "/api/metalakes/";
+    private static final String METALAKE_API_PATH = "api/metalakes/";
     private static final String CATALOGS_PATH = "/catalogs";
     private static final String SCHEMAS_PATH = "/schemas";
     private static final String TABLES_PATH = "/tables";
@@ -199,8 +199,7 @@ public class GravitinoMetaDataProvider implements MetaDataProvider {
     private String buildMetalakeUrlTableUrl(String metaDataTableId) {
         final String[] split = metaDataTableId.split("\\.");
         if (split.length != 3) {
-            // todo
-            throw new SeaTunnelException();
+            throw new SeaTunnelException("Invalid metalake table id: " + metaDataTableId);
         }
         String catalog = split[0];
         String schema = split[1];
