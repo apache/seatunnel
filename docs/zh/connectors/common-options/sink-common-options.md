@@ -16,6 +16,11 @@ sidebar_position: 4
 |--------------|--------|------|-----|
 | plugin_input | string | 否    | -   |
 | parallelism  | int    | 否    | -   |
+| datasource_id | string | 否    | -   |
+
+### datasource_id [string]
+
+用于从数据源中心获取连接配置的数据源 ID。当指定此参数时，连接器将从外部元数据服务获取连接详细信息（如 URL、用户名、密码），而不是使用直接配置。详见 [数据源 SPI](../../introduction/concepts/datasource-spi)。
 
 ### plugin_input [string]
 
