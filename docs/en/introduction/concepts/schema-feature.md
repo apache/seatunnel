@@ -38,6 +38,64 @@ Get the http url of metadata information through restApi, such as: `http://local
 
 > When using Gravitino as the metadata source, the column types from Gravitino will be automatically converted to SeaTunnel data types. For detailed type mapping information, please refer to [Gravitino Type Mapping](./gravitino-type-mapping.md).
 
+### metadata_table_id
+
+The Metadata SPI (Service Provider Interface) is an extension mechanism introduced in SeaTunnel for centralized management of data source connection configurations and table schema metadata. It allows external metadata systems to manage data source metadata, while SeaTunnel jobs reference these configurations via a simple `metadata_table_id`.
+
+When specified, the connector will fetch table schema from the external metadata service instead of using `schema_url` or manual `columns` definition.
+
+For Gravitino, the `metadata_table_id` should be formatted as `{catalog}.{database}.{table}`. For example, `mysql-catalog.test_db.users`.
+
+See [Metadata SPI](./metadata-spi.md) for more information.
+
+#### metadata_table_id Examples
+
+**1. Single table with metadata_table_id:**
+
+```hocon
+source {
+  LocalFile {
+    path = "/tmp/data"
+    file_format_type = "json"
+    schema {
+      table = "db.table2"
+      metadata_table_id = "mysql-catalog.test_db.table2"
+    }
+  }
+}
+```
+
+**2. Multi-table with metadata_table_id:**
+
+```hocon
+source {
+  LocalFile {
+    tables_configs = [
+      {
+        path = "/tmp/data/table1"
+        file_format_type = "json"
+        schema {
+          table = "db.table1"
+          columns = [
+            { name = id, type = bigint, nullable = false },
+            { name = name, type = string },
+            { name = age, type = int }
+          ]
+        }
+      },
+      {
+        path = "/tmp/data/table2"
+        file_format_type = "json"
+        schema {
+          table = "db.table2"
+          metadata_table_id = "mysql-catalog.test_db.table2"
+        }
+      }
+    ]
+  }
+}
+```
+
 #### schema_url Examples
 
 **1. Single table with table and schema_url:**
