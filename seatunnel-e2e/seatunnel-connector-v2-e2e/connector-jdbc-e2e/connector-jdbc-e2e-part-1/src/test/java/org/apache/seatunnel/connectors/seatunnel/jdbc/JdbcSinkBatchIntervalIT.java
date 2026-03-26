@@ -36,13 +36,14 @@ import org.testcontainers.utility.DockerLoggerFactory;
 
 import lombok.extern.slf4j.Slf4j;
 
-import java.io.IOException;
 import java.sql.Connection;
 import java.sql.DriverManager;
 import java.sql.ResultSet;
 import java.sql.SQLException;
 import java.sql.Statement;
+import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.TimeUnit;
+import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.stream.Stream;
 
 import static org.awaitility.Awaitility.given;
@@ -88,51 +89,161 @@ public class JdbcSinkBatchIntervalIT extends TestSuiteBase implements TestResour
     }
 
     @TestTemplate
-    public void testBatchIntervalFlush(TestContainer container)
-            throws IOException, InterruptedException, SQLException {
-        Container.ExecResult execResult =
-                container.executeJob("/jdbc_postgres_sink_batch_interval.conf");
-        Assertions.assertEquals(0, execResult.getExitCode(), execResult.getStderr());
-        Thread.sleep(2000);
-        assertSinkRowCount("sink_batch_interval_timer", 100);
+    public void testBatchIntervalFlush(TestContainer container) throws SQLException {
+        AtomicBoolean jobFinished = new AtomicBoolean(false);
+
+        CompletableFuture<Container.ExecResult> jobFuture =
+                CompletableFuture.supplyAsync(
+                        () -> {
+                            try {
+                                return container.executeJob(
+                                        "/jdbc_postgres_sink_batch_interval.conf");
+                            } catch (Exception e) {
+                                throw new RuntimeException(e);
+                            } finally {
+                                jobFinished.set(true);
+                            }
+                        });
+
+        given().ignoreExceptions()
+                .await()
+                .atMost(30, TimeUnit.SECONDS)
+                .pollInterval(2, TimeUnit.SECONDS)
+                .untilAsserted(
+                        () -> {
+                            Assertions.assertFalse(
+                                    jobFinished.get(),
+                                    "Job should still be running when timer flush is detected - "
+                                            + "if the job already finished, the flush may have come from close()");
+                            int rowCount = getSinkRowCount("sink_batch_interval_timer");
+                            log.info(
+                                    "Polling sink_batch_interval_timer during job execution: {} rows, jobFinished={}",
+                                    rowCount,
+                                    jobFinished.get());
+                            Assertions.assertTrue(
+                                    rowCount > 0,
+                                    "Timer flush should have written rows to the database "
+                                            + "BEFORE job completion (batch_size=100000 is never reached)");
+                        });
+
+        Container.ExecResult result = jobFuture.join();
+        Assertions.assertEquals(0, result.getExitCode(), result.getStderr());
         truncateTable("sink_batch_interval_timer");
     }
 
     @TestTemplate
-    public void testBatchSizeFlush(TestContainer container)
-            throws IOException, InterruptedException, SQLException {
-        Container.ExecResult execResult =
-                container.executeJob("/jdbc_postgres_sink_batch_size.conf");
-        Assertions.assertEquals(0, execResult.getExitCode(), execResult.getStderr());
-        Thread.sleep(2000);
-        assertSinkRowCount("sink_batch_size_only", 100);
+    public void testBatchSizeFlush(TestContainer container) throws SQLException {
+        AtomicBoolean jobFinished = new AtomicBoolean(false);
+
+        CompletableFuture<Container.ExecResult> jobFuture =
+                CompletableFuture.supplyAsync(
+                        () -> {
+                            try {
+                                return container.executeJob("/jdbc_postgres_sink_batch_size.conf");
+                            } catch (Exception e) {
+                                throw new RuntimeException(e);
+                            } finally {
+                                jobFinished.set(true);
+                            }
+                        });
+
+        given().ignoreExceptions()
+                .await()
+                .atMost(30, TimeUnit.SECONDS)
+                .pollInterval(2, TimeUnit.SECONDS)
+                .untilAsserted(
+                        () -> {
+                            Assertions.assertFalse(
+                                    jobFinished.get(),
+                                    "Job should still be running when batch_size flush is detected");
+                            int rowCount = getSinkRowCount("sink_batch_size_only");
+                            log.info(
+                                    "Polling sink_batch_size_only during job execution: {} rows, jobFinished={}",
+                                    rowCount,
+                                    jobFinished.get());
+                            Assertions.assertTrue(
+                                    rowCount > 0,
+                                    "batch_size flush should have written rows to the database "
+                                            + "BEFORE job completion");
+                            Assertions.assertEquals(
+                                    0,
+                                    rowCount % 5,
+                                    "Row count should be a multiple of batch_size(5), "
+                                            + "actual: "
+                                            + rowCount);
+                        });
+
+        Container.ExecResult result = jobFuture.join();
+        Assertions.assertEquals(0, result.getExitCode(), result.getStderr());
         truncateTable("sink_batch_size_only");
     }
 
     @TestTemplate
     public void testBatchIntervalWithBatchSize1(TestContainer container)
-            throws IOException, InterruptedException, SQLException {
-        Container.ExecResult execResult =
-                container.executeJob("/jdbc_postgres_sink_batch_interval_with_batch_size_1.conf");
-        Assertions.assertEquals(0, execResult.getExitCode(), execResult.getStderr());
-        Thread.sleep(10000);
-        assertSinkRowCount("sink_batch_interval_bs1", 50);
+            throws SQLException, InterruptedException {
+        AtomicBoolean jobFinished = new AtomicBoolean(false);
+
+        CompletableFuture<Container.ExecResult> jobFuture =
+                CompletableFuture.supplyAsync(
+                        () -> {
+                            try {
+                                return container.executeJob(
+                                        "/jdbc_postgres_sink_batch_interval_with_batch_size_1.conf");
+                            } catch (Exception e) {
+                                throw new RuntimeException(e);
+                            } finally {
+                                jobFinished.set(true);
+                            }
+                        });
+
+        given().ignoreExceptions()
+                .await()
+                .atMost(30, TimeUnit.SECONDS)
+                .pollInterval(2, TimeUnit.SECONDS)
+                .untilAsserted(
+                        () -> {
+                            Assertions.assertFalse(
+                                    jobFinished.get(),
+                                    "Job should still be running when batch_size=1 flush is detected");
+                            int rowCount = getSinkRowCount("sink_batch_interval_bs1");
+                            log.info(
+                                    "Polling sink_batch_interval_bs1 during job execution: {} rows, jobFinished={}",
+                                    rowCount,
+                                    jobFinished.get());
+                            Assertions.assertTrue(
+                                    rowCount > 0,
+                                    "batch_size=1 should flush each row immediately "
+                                            + "BEFORE job completion");
+                        });
+
+        int firstCount = getSinkRowCount("sink_batch_interval_bs1");
+        Thread.sleep(5000);
+        Assertions.assertFalse(jobFinished.get(), "Job should still be running for second poll");
+        int secondCount = getSinkRowCount("sink_batch_interval_bs1");
+        log.info(
+                "batch_size=1 incremental check: firstCount={}, secondCount={}",
+                firstCount,
+                secondCount);
+        Assertions.assertTrue(
+                secondCount > firstCount,
+                "Row count should keep growing with batch_size=1 (per-row flush), "
+                        + "firstCount="
+                        + firstCount
+                        + ", secondCount="
+                        + secondCount);
+
+        Container.ExecResult result = jobFuture.join();
+        Assertions.assertEquals(0, result.getExitCode(), result.getStderr());
         truncateTable("sink_batch_interval_bs1");
     }
 
-    private void assertSinkRowCount(String tableName, int expectedCount) throws SQLException {
+    private int getSinkRowCount(String tableName) throws SQLException {
         try (Connection connection = getJdbcConnection()) {
             try (Statement statement = connection.createStatement();
                     ResultSet resultSet =
                             statement.executeQuery("SELECT count(*) FROM " + tableName)) {
                 Assertions.assertTrue(resultSet.next());
-                int actual = resultSet.getInt(1);
-                Assertions.assertEquals(
-                        expectedCount,
-                        actual,
-                        String.format(
-                                "Expected %d rows in %s but found %d",
-                                expectedCount, tableName, actual));
+                return resultSet.getInt(1);
             }
         }
     }
