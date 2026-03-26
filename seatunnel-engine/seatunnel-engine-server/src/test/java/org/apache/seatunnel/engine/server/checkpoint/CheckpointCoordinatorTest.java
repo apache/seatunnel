@@ -417,27 +417,24 @@ public class CheckpointCoordinatorTest
 
             CheckpointCoordinator coordinator = checkpointManager.getCheckpointCoordinator(1);
 
-            // Spy on the coordinator and override notifyCompleted to simulate the side-effect:
-            // pendingCheckpoints is cleared (as handleCoordinatorError->cleanPendingCheckpoint
-            // does when notifyCompleted encounters an exception).
             CheckpointCoordinator spyCoordinator = Mockito.spy(coordinator);
             Mockito.doAnswer(
                             invocation -> {
-                                // Simulate pendingCheckpoints being cleared inside notifyCompleted
-                                // (the real path: notifyCompleted catches Throwable and calls
-                                // handleCoordinatorError -> cleanPendingCheckpoint ->
-                                // pendingCheckpoints.clear())
-                                ReflectionUtils.getField(spyCoordinator, "pendingCheckpoints")
-                                        .ifPresent(
-                                                pendingCheckpoints ->
-                                                        ((ConcurrentHashMap) pendingCheckpoints)
-                                                                .clear());
+                                @SuppressWarnings("unchecked")
+                                ConcurrentHashMap<Long, PendingCheckpoint> map =
+                                        (ConcurrentHashMap<Long, PendingCheckpoint>)
+                                                ReflectionUtils.getField(
+                                                                spyCoordinator,
+                                                                "pendingCheckpoints")
+                                                        .orElse(null);
+                                if (map != null) {
+                                    map.clear();
+                                }
                                 return null;
                             })
                     .when(spyCoordinator)
                     .notifyCompleted(Mockito.any());
 
-            // Build a CompletedCheckpoint
             long checkpointId = 1L;
             CompletedCheckpoint completedCheckpoint =
                     new CompletedCheckpoint(
@@ -450,7 +447,6 @@ public class CheckpointCoordinatorTest
                             new HashMap<>(),
                             new HashMap<>());
 
-            // Pre-populate pendingCheckpoints so the entry exists before notifyCompleted clears it
             PendingCheckpoint pendingCheckpoint =
                     new PendingCheckpoint(
                             1L,
@@ -461,20 +457,17 @@ public class CheckpointCoordinatorTest
                             new HashSet<>(),
                             new HashMap<>(),
                             new HashMap<>());
-            ReflectionUtils.getField(spyCoordinator, "pendingCheckpoints")
-                    .ifPresent(
-                            pendingCheckpoints ->
-                                    ((ConcurrentHashMap) pendingCheckpoints)
-                                            .put(checkpointId, pendingCheckpoint));
+            ConcurrentHashMap<Long, PendingCheckpoint> pendingCheckpoints =
+                    (ConcurrentHashMap<Long, PendingCheckpoint>)
+                            ReflectionUtils.getField(spyCoordinator, "pendingCheckpoints")
+                                    .orElseThrow(
+                                            () ->
+                                                    new IllegalStateException(
+                                                            "pendingCheckpoints field not found"));
+            pendingCheckpoints.put(checkpointId, pendingCheckpoint);
 
-            // The fix: pendingCheckpoints.remove(checkpointId) returns null after notifyCompleted
-            // clears the map; with the null-check in place, no NPE should be thrown.
             Assertions.assertDoesNotThrow(
-                    () ->
-                            ReflectionUtils.invoke(
-                                    spyCoordinator,
-                                    "completePendingCheckpoint",
-                                    completedCheckpoint),
+                    () -> spyCoordinator.completePendingCheckpoint(completedCheckpoint),
                     "completePendingCheckpoint must not throw NullPointerException when "
                             + "pendingCheckpoints is cleared by notifyCompleted");
         } finally {
