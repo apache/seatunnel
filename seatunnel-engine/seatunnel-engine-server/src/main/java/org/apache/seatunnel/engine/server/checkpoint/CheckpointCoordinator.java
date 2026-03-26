@@ -1001,7 +1001,10 @@ public class CheckpointCoordinator {
             checkpointMonitorService.onCheckpointCompleted(completedCheckpoint, stateSize);
         }
         notifyCompleted(completedCheckpoint);
-        pendingCheckpoints.remove(checkpointId).abortCheckpointTimeoutFutureWhenIsCompleted();
+        PendingCheckpoint pendingCheckpoint = pendingCheckpoints.remove(checkpointId);
+        if (pendingCheckpoint != null) {
+            pendingCheckpoint.abortCheckpointTimeoutFutureWhenIsCompleted();
+        }
         pendingCounter.decrementAndGet();
 
         if (isCompleted()) {
