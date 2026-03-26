@@ -21,7 +21,9 @@ import org.apache.seatunnel.shade.com.typesafe.config.Config;
 import org.apache.seatunnel.shade.com.typesafe.config.ConfigFactory;
 
 import org.apache.seatunnel.api.metadata.exception.MetaDataProviderException;
+import org.apache.seatunnel.api.table.catalog.PhysicalColumn;
 import org.apache.seatunnel.api.table.catalog.TableSchema;
+import org.apache.seatunnel.api.table.type.BasicType;
 
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
@@ -30,6 +32,7 @@ import org.junit.jupiter.api.Test;
 import lombok.SneakyThrows;
 
 import java.nio.file.Paths;
+import java.util.Arrays;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
@@ -37,8 +40,10 @@ import java.util.Objects;
 import java.util.Optional;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertNotNull;
 import static org.junit.jupiter.api.Assertions.assertThrows;
+import static org.junit.jupiter.api.Assertions.assertTrue;
 
 public class MetaDataProviderManagerTest {
 
@@ -209,12 +214,99 @@ public class MetaDataProviderManagerTest {
 
         @Override
         public Optional<TableSchema> tableSchema(String metaDataTableId) {
-            return Optional.empty();
+            // Create a simple TableSchema for testing
+            TableSchema schema =
+                    TableSchema.builder()
+                            .columns(
+                                    Arrays.asList(
+                                            PhysicalColumn.builder()
+                                                    .name("id")
+                                                    .dataType(BasicType.LONG_TYPE)
+                                                    .build(),
+                                            PhysicalColumn.builder()
+                                                    .name("name")
+                                                    .dataType(BasicType.STRING_TYPE)
+                                                    .build()))
+                            .build();
+            return Optional.of(schema);
         }
 
         @Override
         public void close() {
             // No-op for testing
         }
+    }
+
+    @Test
+    public void testResolveTableSchemaWithNullConfig() {
+        // Test with null dataSourceConfig
+        Optional<TableSchema> result =
+                MetaDataProviderManager.resolveTableSchema("test.table", null);
+
+        assertNotNull(result);
+        assertFalse(result.isPresent());
+    }
+
+    @Test
+    public void testResolveTableSchemaWithDisabledConfig() {
+        // Test with disabled dataSourceConfig
+        MetaDataConfig dataSourceConfig = new MetaDataConfig();
+        dataSourceConfig.setEnabled(false);
+        dataSourceConfig.setKind(TEST_PROVIDER_KIND);
+
+        Optional<TableSchema> result =
+                MetaDataProviderManager.resolveTableSchema("test.table", dataSourceConfig);
+
+        assertNotNull(result);
+        assertFalse(result.isPresent());
+    }
+
+    @Test
+    public void testResolveTableSchemaWithValidResult() {
+        // Register mock provider that returns a valid TableSchema
+        MockTestDataSourceProvider provider = new MockTestDataSourceProvider();
+        registerProvider(provider);
+
+        // Create enabled DataSourceConfig
+        MetaDataConfig dataSourceConfig = new MetaDataConfig();
+        dataSourceConfig.setEnabled(true);
+        dataSourceConfig.setKind(TEST_PROVIDER_KIND);
+
+        // The mock provider should return a valid TableSchema
+        Optional<TableSchema> result =
+                MetaDataProviderManager.resolveTableSchema("catalog.db.table", dataSourceConfig);
+
+        assertNotNull(result);
+        assertTrue(result.isPresent());
+        TableSchema schema = result.get();
+        assertEquals(2, schema.getColumns().size());
+        assertEquals("id", schema.getColumns().get(0).getName());
+        assertEquals("name", schema.getColumns().get(1).getName());
+    }
+
+    @Test
+    public void testResolveTableSchemaWithMultipleCalls() {
+        // Register mock provider that returns a valid TableSchema
+        MockTestDataSourceProvider provider = new MockTestDataSourceProvider();
+        registerProvider(provider);
+
+        // Create enabled DataSourceConfig
+        MetaDataConfig dataSourceConfig = new MetaDataConfig();
+        dataSourceConfig.setEnabled(true);
+        dataSourceConfig.setKind(TEST_PROVIDER_KIND);
+
+        // First call
+        Optional<TableSchema> result1 =
+                MetaDataProviderManager.resolveTableSchema("catalog.db.table1", dataSourceConfig);
+
+        // Second call - should use cached provider
+        Optional<TableSchema> result2 =
+                MetaDataProviderManager.resolveTableSchema("catalog.db.table2", dataSourceConfig);
+
+        // Both should return valid results
+        assertTrue(result1.isPresent());
+        assertTrue(result2.isPresent());
+        assertEquals(2, result1.get().getColumns().size());
+        assertEquals(2, result2.get().getColumns().size());
     }
 }

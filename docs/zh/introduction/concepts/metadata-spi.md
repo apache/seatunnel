@@ -17,6 +17,10 @@ weight: 6
 - **结构发现**：自动从元数据系统检索表结构
 - **可扩展**：通过实现 `MetaDataProvider` 接口可以集成自定义元数据系统
 
+### 引擎支持
+
+> **重要提示**：元数据 SPI 目前仅在 **SeaTunnel Zeta 引擎**上受支持，尚未兼容 Flink 或 Spark 引擎。
+
 ## 使用 metadata_datasource_id
 
 `metadata_datasource_id` 是所有 SeaTunnel 连接器都可用的通用参数。当指定此参数时，连接器将从外部元数据服务获取连接配置，而不是使用直接配置。

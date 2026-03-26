@@ -17,6 +17,10 @@ The Metadata SPI (Service Provider Interface) is an extension mechanism introduc
 - **Schema Discovery**: Automatic table schema retrieval from metadata systems
 - **Extensible**: Custom metadata systems can be integrated by implementing the `MetaDataProvider` interface
 
+### Engine Support
+
+> **Important**: Metadata SPI is currently only supported on the **SeaTunnel Zeta engine**. It is not yet compatible with Flink or Spark engines.
+
 ## Using metadata_datasource_id
 
 `metadata_datasource_id` is a common parameter available to all SeaTunnel connectors. When specified, the connector retrieves connection configuration from the external metadata service instead of using direct configuration.

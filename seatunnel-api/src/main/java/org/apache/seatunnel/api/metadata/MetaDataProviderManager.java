@@ -108,6 +108,9 @@ public final class MetaDataProviderManager {
 
     public static Optional<TableSchema> resolveTableSchema(
             String metaDataTableId, MetaDataConfig dataSourceConfig) {
+        if (dataSourceConfig == null || !dataSourceConfig.isEnabled()) {
+            return Optional.empty();
+        }
         MetaDataProvider provider =
                 getOrCreateProvider(
                         dataSourceConfig.getKind(),

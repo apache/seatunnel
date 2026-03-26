@@ -32,19 +32,15 @@ schema = {
 
 schema所属的表标识符的表全名，包含数据库、schema、表名。 例如 `database.schema.table`、`database.table`、`table`。
 
-### schema_url
-
-通过restApi获取元数据信息的http url，比如：`http://localhost:8090/api/metalakes/laowang_test/catalogs/221-pgsql/schemas/ykw/tables/all_type`
-
-> 当使用 Gravitino 作为元数据源时，Gravitino 的列类型会自动转换为 SeaTunnel 数据类型。详细的类型映射信息请参考 [Gravitino 类型映射](./gravitino-type-mapping.md)。
-
 ### metadata_table_id
 
 元数据 SPI（Service Provider Interface）是 SeaTunnel 引入的扩展机制，用于集中管理数据源连接配置和表结构元数据。它允许外部元数据系统管理数据源元数据，而 SeaTunnel 作业通过简单的 `metadata_table_id` 引用这些配置。
 
-当指定此参数时，连接器将从外部元数据服务获取表结构，而不是使用 `schema_url` 或手动定义 `columns`。
+当指定此参数时，连接器将从外部元数据服务获取表结构，而不是使用手动定义 `columns`。
 
 对于 Gravitino，`metadata_table_id` 应格式化为 `{catalog}.{database}.{table}`。例如，`mysql-catalog.test_db.users`。
+
+> 当使用 Gravitino 作为元数据源时，Gravitino 的列类型会自动转换为 SeaTunnel 数据类型。详细的类型映射信息请参考 [Gravitino 类型映射](./gravitino-type-mapping.md)。
 
 详见 [元数据 SPI](./metadata-spi.md)。
 
@@ -89,68 +85,6 @@ source {
         schema {
           table = "db.table2"
           metadata_table_id = "mysql-catalog.test_db.table2"
-        }
-      }
-    ]
-  }
-}
-```
-
-#### schema_url 配置示例
-
-**1. 单表配置，包含 table 和 schema_url 属性：**
-
-```hocon
-source {
-  LocalFile {
-    path = "/tmp/data"
-    file_format_type = "json"
-    schema {
-      table = "db.table2"
-      schema_url = "http://gravitino:8090/api/metalakes/test_metalake/catalogs/test_catalog/schemas/test_schema/tables/table2"
-    }
-  }
-}
-```
-
-**2. 单表配置，仅使用 schema_url（不包含 table 属性）：**
-
-```hocon
-source {
-  LocalFile {
-    path = "/tmp/data"
-    file_format_type = "json"
-    schema {
-      schema_url = "http://gravitino:8090/api/metalakes/test_metalake/catalogs/test_catalog/schemas/test_schema/tables/table2"
-    }
-  }
-}
-```
-
-**3. 多表配置，包含 columns 和 schema_url：**
-
-```hocon
-source {
-  LocalFile {
-    tables_configs = [
-      {
-        path = "/tmp/data/table1"
-        file_format_type = "json"
-        schema {
-          table = "db.table1"
-          columns = [
-            { name = id, type = bigint, nullable = false },
-            { name = name, type = string },
-            { name = age, type = int }
-          ]
-        }
-      },
-      {
-        path = "/tmp/data/table2"
-        file_format_type = "json"
-        schema {
-          table = "db.table2"
-          schema_url = "http://gravitino:8090/api/metalakes/test_metalake/catalogs/test_catalog/schemas/test_schema/tables/table2"
         }
       }
     ]
