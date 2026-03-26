@@ -22,19 +22,26 @@ import org.apache.seatunnel.shade.com.typesafe.config.ConfigFactory;
 
 import org.apache.seatunnel.api.configuration.ReadonlyConfig;
 import org.apache.seatunnel.api.metadata.MetaDataConfig;
+import org.apache.seatunnel.api.metadata.MetaDataProvider;
+import org.apache.seatunnel.api.metadata.MetaDataProviderManager;
 import org.apache.seatunnel.api.table.catalog.CatalogTable;
+import org.apache.seatunnel.api.table.catalog.PhysicalColumn;
 import org.apache.seatunnel.api.table.catalog.TablePath;
+import org.apache.seatunnel.api.table.catalog.TableSchema;
+import org.apache.seatunnel.api.table.type.BasicType;
 
 import org.junit.jupiter.api.Assertions;
-import org.junit.jupiter.api.Disabled;
 import org.junit.jupiter.api.Test;
 
 import java.io.File;
+import java.lang.reflect.Field;
 import java.net.URISyntaxException;
 import java.net.URL;
 import java.nio.file.Paths;
 import java.util.HashMap;
 import java.util.List;
+import java.util.Map;
+import java.util.Optional;
 
 public class TableSchemaDiscovererTest {
 
@@ -66,21 +73,59 @@ public class TableSchemaDiscovererTest {
         }
     }
 
-    @Disabled("Until discoverTableSchemaFromMetaLake is implemented")
     @Test
     void testDiscoverTableSchemasWithSingleSchemaMetadataTableId() throws Exception {
-        Config config = loadConfig("/conf/table_schema_discoverer/single_schema_url.conf");
-        ReadonlyConfig sourceOptions = ReadonlyConfig.fromConfig(config);
-        MetaDataConfig metaDataConfig = createDefaultMetaDataConfig();
-        try (TableSchemaDiscoverer discoverer =
-                new TableSchemaDiscoverer(metaDataConfig, sourceOptions, TEST_CATALOG_NAME)) {
-            Assertions.assertTrue(discoverer.enableMetaLakeClient(sourceOptions));
-            List<CatalogTable> result = discoverer.discoverTableSchemas();
-            // Currently discoverTableSchemaFromMetaLake returns null, so we expect empty result
-            // or the implementation needs to be completed
-            Assertions.assertEquals(1, result.size());
-            // The result will be null from discoverTableSchemaFromMetaLake, which may cause NPE
-            // This test will be updated when the implementation is complete
+        // Register mock provider before test
+        MockMetadataTableProvider mockProvider = new MockMetadataTableProvider();
+        registerMockProvider(mockProvider);
+
+        try {
+            Config config = loadConfig("/conf/table_schema_discoverer/single_metadata_table.conf");
+            ReadonlyConfig sourceOptions = ReadonlyConfig.fromConfig(config);
+            MetaDataConfig metaDataConfig = createDefaultMetaDataConfig();
+            try (TableSchemaDiscoverer discoverer =
+                    new TableSchemaDiscoverer(metaDataConfig, sourceOptions, TEST_CATALOG_NAME)) {
+                Assertions.assertTrue(discoverer.enableMetaLakeClient(sourceOptions));
+                List<CatalogTable> result = discoverer.discoverTableSchemas();
+
+                // Verify result
+                Assertions.assertEquals(1, result.size());
+
+                CatalogTable table = result.get(0);
+                Assertions.assertEquals(TEST_CATALOG_NAME, table.getCatalogName());
+                // TablePath should be constructed from metadata_table_id since no table option is
+                // provided
+                Assertions.assertEquals(
+                        TablePath.of("test_catalog.test_schema.test_table"), table.getTablePath());
+
+                // Verify table schema columns
+                List<org.apache.seatunnel.api.table.catalog.Column> columns =
+                        table.getTableSchema().getColumns();
+                Assertions.assertEquals(4, columns.size());
+
+                // Verify first column (id)
+                Assertions.assertEquals("id", columns.get(0).getName());
+                Assertions.assertEquals(BasicType.INT_TYPE, columns.get(0).getDataType());
+                Assertions.assertFalse(columns.get(0).isNullable());
+
+                // Verify second column (name)
+                Assertions.assertEquals("name", columns.get(1).getName());
+                Assertions.assertEquals(BasicType.STRING_TYPE, columns.get(1).getDataType());
+                Assertions.assertTrue(columns.get(1).isNullable());
+
+                // Verify third column (email)
+                Assertions.assertEquals("email", columns.get(2).getName());
+                Assertions.assertEquals(BasicType.STRING_TYPE, columns.get(2).getDataType());
+                Assertions.assertTrue(columns.get(2).isNullable());
+
+                // Verify fourth column (age)
+                Assertions.assertEquals("age", columns.get(3).getName());
+                Assertions.assertEquals(BasicType.INT_TYPE, columns.get(3).getDataType());
+                Assertions.assertTrue(columns.get(3).isNullable());
+            }
+        } finally {
+            // Clear the cached provider after test
+            MetaDataProviderManager.clearCache();
         }
     }
 
@@ -105,37 +150,110 @@ public class TableSchemaDiscovererTest {
         }
     }
 
-    @Disabled("Until discoverTableSchemaFromMetaLake is implemented")
     @Test
     void testDiscoverTableSchemasWithMultipleTablesMetadataTableId() throws Exception {
-        Config config = loadConfig("/conf/table_schema_discoverer/multiple_tables_schema_url.conf");
-        ReadonlyConfig sourceOptions = ReadonlyConfig.fromConfig(config);
-        MetaDataConfig metaDataConfig = createDefaultMetaDataConfig();
-        try (TableSchemaDiscoverer discoverer =
-                new TableSchemaDiscoverer(metaDataConfig, sourceOptions, TEST_CATALOG_NAME)) {
-            List<CatalogTable> result = discoverer.discoverTableSchemas();
-            Assertions.assertTrue(discoverer.enableMetaLakeClient(sourceOptions));
-            // Currently discoverTableSchemaFromMetaLake returns null for both tables
-            Assertions.assertEquals(2, result.size());
+        // Register mock provider before test
+        MockMetadataTableProvider mockProvider = new MockMetadataTableProvider();
+        registerMockProvider(mockProvider);
+
+        try {
+            Config config =
+                    loadConfig("/conf/table_schema_discoverer/multiple_tables_metadata_table.conf");
+            ReadonlyConfig sourceOptions = ReadonlyConfig.fromConfig(config);
+            MetaDataConfig metaDataConfig = createDefaultMetaDataConfig();
+            try (TableSchemaDiscoverer discoverer =
+                    new TableSchemaDiscoverer(metaDataConfig, sourceOptions, TEST_CATALOG_NAME)) {
+                Assertions.assertTrue(discoverer.enableMetaLakeClient(sourceOptions));
+                List<CatalogTable> result = discoverer.discoverTableSchemas();
+                Assertions.assertEquals(2, result.size());
+
+                // Verify first table (table1)
+                CatalogTable table1 = result.get(0);
+                Assertions.assertEquals(TEST_CATALOG_NAME, table1.getCatalogName());
+                Assertions.assertEquals(
+                        TablePath.of("test_database.test_schema.test_table1"),
+                        table1.getTablePath());
+                List<org.apache.seatunnel.api.table.catalog.Column> table1Columns =
+                        table1.getTableSchema().getColumns();
+                Assertions.assertEquals(2, table1Columns.size());
+                Assertions.assertEquals("user_id", table1Columns.get(0).getName());
+                Assertions.assertEquals(BasicType.LONG_TYPE, table1Columns.get(0).getDataType());
+                Assertions.assertFalse(table1Columns.get(0).isNullable());
+                Assertions.assertEquals("username", table1Columns.get(1).getName());
+                Assertions.assertEquals(BasicType.STRING_TYPE, table1Columns.get(1).getDataType());
+                Assertions.assertTrue(table1Columns.get(1).isNullable());
+
+                // Verify second table (table2)
+                CatalogTable table2 = result.get(1);
+                Assertions.assertEquals(TEST_CATALOG_NAME, table2.getCatalogName());
+                Assertions.assertEquals(
+                        TablePath.of("test_catalog.test_schema.table2"), table2.getTablePath());
+                List<org.apache.seatunnel.api.table.catalog.Column> table2Columns =
+                        table2.getTableSchema().getColumns();
+                Assertions.assertEquals(3, table2Columns.size());
+                Assertions.assertEquals("order_id", table2Columns.get(0).getName());
+                Assertions.assertEquals(BasicType.LONG_TYPE, table2Columns.get(0).getDataType());
+                Assertions.assertFalse(table2Columns.get(0).isNullable());
+                Assertions.assertEquals("amount", table2Columns.get(1).getName());
+                Assertions.assertEquals(BasicType.DOUBLE_TYPE, table2Columns.get(1).getDataType());
+                Assertions.assertTrue(table2Columns.get(1).isNullable());
+                Assertions.assertEquals("status", table2Columns.get(2).getName());
+                Assertions.assertEquals(BasicType.STRING_TYPE, table2Columns.get(2).getDataType());
+                Assertions.assertTrue(table2Columns.get(2).isNullable());
+            }
+        } finally {
+            // Clear the cached provider after test
+            MetaDataProviderManager.clearCache();
         }
     }
 
-    @Disabled("Until discoverTableSchemaFromMetaLake is implemented")
     @Test
     void testDiscoverTableSchemasWithMultipleTablesMixedFieldsAndMetadataTableId()
             throws Exception {
-        Config config = loadConfig("/conf/table_schema_discoverer/multiple_tables_mixed.conf");
-        ReadonlyConfig sourceOptions = ReadonlyConfig.fromConfig(config);
-        MetaDataConfig metaDataConfig = createDefaultMetaDataConfig();
-        try (TableSchemaDiscoverer discoverer =
-                new TableSchemaDiscoverer(metaDataConfig, sourceOptions, TEST_CATALOG_NAME)) {
-            Assertions.assertTrue(discoverer.enableMetaLakeClient(sourceOptions));
-            List<CatalogTable> result = discoverer.discoverTableSchemas();
-            Assertions.assertEquals(2, result.size());
-            Assertions.assertEquals(TEST_CATALOG_NAME, result.get(0).getCatalogName());
-            Assertions.assertEquals(TablePath.of("db.table1"), result.get(0).getTablePath());
-            Assertions.assertEquals(2, result.get(0).getTableSchema().getColumns().size());
-            // Second table uses metadata_table_id which currently returns null
+        // Register mock provider before test
+        MockMetadataTableProvider mockProvider = new MockMetadataTableProvider();
+        registerMockProvider(mockProvider);
+
+        try {
+            Config config = loadConfig("/conf/table_schema_discoverer/multiple_tables_mixed.conf");
+            ReadonlyConfig sourceOptions = ReadonlyConfig.fromConfig(config);
+            MetaDataConfig metaDataConfig = createDefaultMetaDataConfig();
+            try (TableSchemaDiscoverer discoverer =
+                    new TableSchemaDiscoverer(metaDataConfig, sourceOptions, TEST_CATALOG_NAME)) {
+                Assertions.assertTrue(discoverer.enableMetaLakeClient(sourceOptions));
+                List<CatalogTable> result = discoverer.discoverTableSchemas();
+                Assertions.assertEquals(2, result.size());
+
+                // Verify first table (from fields config)
+                CatalogTable table1 = result.get(0);
+                Assertions.assertEquals(TEST_CATALOG_NAME, table1.getCatalogName());
+                Assertions.assertEquals(TablePath.of("db.table1"), table1.getTablePath());
+                List<org.apache.seatunnel.api.table.catalog.Column> table1Columns =
+                        table1.getTableSchema().getColumns();
+                Assertions.assertEquals(2, table1Columns.size());
+                Assertions.assertEquals("id", table1Columns.get(0).getName());
+                Assertions.assertEquals(BasicType.INT_TYPE, table1Columns.get(0).getDataType());
+                Assertions.assertEquals("name", table1Columns.get(1).getName());
+                Assertions.assertEquals(BasicType.STRING_TYPE, table1Columns.get(1).getDataType());
+
+                // Verify second table (from metadata_table_id)
+                CatalogTable table2 = result.get(1);
+                Assertions.assertEquals(TEST_CATALOG_NAME, table2.getCatalogName());
+                Assertions.assertEquals(
+                        TablePath.of("test_catalog.test_schema.table2"), table2.getTablePath());
+                List<org.apache.seatunnel.api.table.catalog.Column> table2Columns =
+                        table2.getTableSchema().getColumns();
+                Assertions.assertEquals(3, table2Columns.size());
+                Assertions.assertEquals("order_id", table2Columns.get(0).getName());
+                Assertions.assertEquals(BasicType.LONG_TYPE, table2Columns.get(0).getDataType());
+                Assertions.assertEquals("amount", table2Columns.get(1).getName());
+                Assertions.assertEquals(BasicType.DOUBLE_TYPE, table2Columns.get(1).getDataType());
+                Assertions.assertEquals("status", table2Columns.get(2).getName());
+                Assertions.assertEquals(BasicType.STRING_TYPE, table2Columns.get(2).getDataType());
+            }
+        } finally {
+            // Clear the cached provider after test
+            MetaDataProviderManager.clearCache();
         }
     }
 
@@ -216,5 +334,144 @@ public class TableSchemaDiscovererTest {
         }
         File configFile = Paths.get(resourceUrl.toURI()).toFile();
         return ConfigFactory.parseFile(configFile);
+    }
+
+    /**
+     * Register a mock MetaDataProvider for testing table schema discovery from metadata lake.
+     *
+     * @param provider the mock provider to register
+     */
+    private void registerMockProvider(MetaDataProvider provider) {
+        try {
+            Field providerField = MetaDataProviderManager.class.getDeclaredField("cachedProvider");
+            providerField.setAccessible(true);
+            providerField.set(null, provider);
+        } catch (Exception e) {
+            throw new RuntimeException("Failed to register mock provider for testing", e);
+        }
+    }
+
+    /**
+     * Mock MetaDataProvider for testing table schema discovery from metadata lake. Returns a
+     * predefined table schema with specific columns and types.
+     */
+    public static class MockMetadataTableProvider implements MetaDataProvider {
+
+        @Override
+        public String kind() {
+            return "test-mock-provider";
+        }
+
+        @Override
+        public void init(org.apache.seatunnel.shade.com.typesafe.config.Config config) {
+            // No-op for testing
+        }
+
+        @Override
+        public Map<String, Object> datasourceMap(
+                String connectorIdentifier, String metaDataDatasourceId) {
+            return new HashMap<>();
+        }
+
+        @Override
+        public Optional<TableSchema> tableSchema(String metaDataTableId) {
+            // Return different schemas based on the table ID
+            switch (metaDataTableId) {
+                case "test_catalog.test_schema.test_table":
+                    return Optional.of(
+                            TableSchema.builder()
+                                    .column(
+                                            PhysicalColumn.of(
+                                                    "id",
+                                                    BasicType.INT_TYPE,
+                                                    0,
+                                                    false,
+                                                    null,
+                                                    "Primary key"))
+                                    .column(
+                                            PhysicalColumn.of(
+                                                    "name",
+                                                    BasicType.STRING_TYPE,
+                                                    1,
+                                                    true,
+                                                    null,
+                                                    "User name"))
+                                    .column(
+                                            PhysicalColumn.of(
+                                                    "email",
+                                                    BasicType.STRING_TYPE,
+                                                    2,
+                                                    true,
+                                                    null,
+                                                    "User email"))
+                                    .column(
+                                            PhysicalColumn.of(
+                                                    "age",
+                                                    BasicType.INT_TYPE,
+                                                    3,
+                                                    true,
+                                                    null,
+                                                    "User age"))
+                                    .build());
+
+                case "test_catalog.test_schema.table1":
+                    return Optional.of(
+                            TableSchema.builder()
+                                    .column(
+                                            PhysicalColumn.of(
+                                                    "user_id",
+                                                    BasicType.LONG_TYPE,
+                                                    0,
+                                                    false,
+                                                    null,
+                                                    "User ID"))
+                                    .column(
+                                            PhysicalColumn.of(
+                                                    "username",
+                                                    BasicType.STRING_TYPE,
+                                                    1,
+                                                    true,
+                                                    null,
+                                                    "Username"))
+                                    .build());
+
+                case "test_catalog.test_schema.table2":
+                    return Optional.of(
+                            TableSchema.builder()
+                                    .column(
+                                            PhysicalColumn.of(
+                                                    "order_id",
+                                                    BasicType.LONG_TYPE,
+                                                    0,
+                                                    false,
+                                                    null,
+                                                    "Order ID"))
+                                    .column(
+                                            PhysicalColumn.of(
+                                                    "amount",
+                                                    BasicType.DOUBLE_TYPE,
+                                                    1,
+                                                    true,
+                                                    null,
+                                                    "Order amount"))
+                                    .column(
+                                            PhysicalColumn.of(
+                                                    "status",
+                                                    BasicType.STRING_TYPE,
+                                                    2,
+                                                    true,
+                                                    null,
+                                                    "Order status"))
+                                    .build());
+
+                default:
+                    return Optional.empty();
+            }
+        }
+
+        @Override
+        public void close() {
+            // No-op for testing
+        }
     }
 }
