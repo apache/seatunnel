@@ -114,7 +114,8 @@ network:
           "next": null
         }
       }
-    ]
+    ],
+    "conditionRules": []
   }
 }
 ```
@@ -122,6 +123,7 @@ network:
 **说明:**
 - 响应结果来自运行时 plugin discovery，会跟随服务端实际安装的 connector 版本。
 - `requiredOptions[].ruleType` 可能是 `ABSOLUTELY_REQUIRED`、`EXCLUSIVE`、`BUNDLED` 或 `CONDITIONAL`。
+- `optionRule.conditionRules` 会递归返回嵌套条件规则；当 connector 未定义嵌套规则时，该字段返回空数组。
 - 对于条件规则，会同时返回 `expression` 和 `expressionTree`，便于 Web 做动态表单渲染。
 
 </details>

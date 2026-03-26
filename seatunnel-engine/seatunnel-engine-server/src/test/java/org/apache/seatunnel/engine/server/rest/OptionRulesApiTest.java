@@ -85,7 +85,8 @@ class OptionRulesApiTest {
                 .body("pluginName", equalTo("FakeSource"))
                 .body("optionRule.optionalOptions.key", hasItem("row.num"))
                 .body("optionRule.requiredOptions.ruleType", hasItem("EXCLUSIVE"))
-                .body("optionRule.requiredOptions.ruleType", hasItem("CONDITIONAL"));
+                .body("optionRule.requiredOptions.ruleType", hasItem("CONDITIONAL"))
+                .body("optionRule.conditionRules.size()", equalTo(0));
     }
 
     @Test
@@ -102,7 +103,8 @@ class OptionRulesApiTest {
                 .then()
                 .statusCode(200)
                 .body("pluginName", equalTo("FakeSource"))
-                .body("optionRule.requiredOptions.ruleType", hasItem("EXCLUSIVE"));
+                .body("optionRule.requiredOptions.ruleType", hasItem("EXCLUSIVE"))
+                .body("optionRule.conditionRules.size()", equalTo(0));
     }
 
     @Test

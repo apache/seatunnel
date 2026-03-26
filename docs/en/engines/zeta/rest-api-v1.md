@@ -115,7 +115,8 @@ network:
           "next": null
         }
       }
-    ]
+    ],
+    "conditionRules": []
   }
 }
 ```
@@ -123,6 +124,7 @@ network:
 **Notes:**
 - The response is resolved from runtime plugin discovery, so it follows the connector version installed on the server.
 - `requiredOptions[].ruleType` can be `ABSOLUTELY_REQUIRED`, `EXCLUSIVE`, `BUNDLED`, or `CONDITIONAL`.
+- `optionRule.conditionRules` recursively exposes nested conditional option rules and is an empty array when the connector does not define nested rules.
 - For conditional rules, both `expression` and `expressionTree` are returned for dynamic form rendering.
 
 </details>

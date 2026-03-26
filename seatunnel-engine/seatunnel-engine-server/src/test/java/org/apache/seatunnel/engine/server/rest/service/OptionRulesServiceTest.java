@@ -76,6 +76,7 @@ class OptionRulesServiceTest {
                         .orElseThrow(AssertionError::new);
         assertNotNull(conditionalRule.getExpression());
         assertNotNull(conditionalRule.getExpressionTree());
+        assertTrue(response.getOptionRule().getConditionRules().isEmpty());
     }
 
     @Test
@@ -88,6 +89,7 @@ class OptionRulesServiceTest {
         assertTrue(
                 response.getOptionRule().getOptionalOptions().stream()
                         .anyMatch(option -> "log.print.data".equals(option.getKey())));
+        assertTrue(response.getOptionRule().getConditionRules().isEmpty());
     }
 
     @Test
@@ -159,6 +161,70 @@ class OptionRulesServiceTest {
                 OptionRuleResponse.LogicalOperator.OR,
                 conditionalRule.getExpressionTree().getOperator());
         assertNotNull(conditionalRule.getExpressionTree().getNext());
+        assertTrue(response.getOptionRule().getConditionRules().isEmpty());
+    }
+
+    @Test
+    void shouldPreserveNestedConditionRuleMetadata() {
+        SingleChoiceOption<AuthMode> authMode =
+                Options.key("auth.mode")
+                        .singleChoice(
+                                AuthMode.class, Arrays.asList(AuthMode.PASSWORD, AuthMode.TOKEN))
+                        .defaultValue(AuthMode.PASSWORD)
+                        .withDescription("Authentication mode");
+        Option<String> username =
+                Options.key("username").stringType().noDefaultValue().withDescription("Username");
+        Option<String> password =
+                Options.key("password").stringType().noDefaultValue().withDescription("Password");
+
+        OptionRule adminRule = OptionRule.builder().required(password).build();
+        OptionRule passwordAuthRule =
+                OptionRule.builder()
+                        .required(username)
+                        .conditionalRule(username, "admin", adminRule)
+                        .build();
+        OptionRule optionRule =
+                OptionRule.builder()
+                        .optional(authMode)
+                        .conditionalRule(authMode, AuthMode.PASSWORD, passwordAuthRule)
+                        .build();
+
+        OptionRuleResponse response =
+                service.buildResponse(
+                        PluginIdentifier.of("seatunnel", "source", "NestedSource"), optionRule);
+
+        assertTrue(response.getOptionRule().getRequiredOptions().isEmpty());
+        assertEquals(1, response.getOptionRule().getConditionRules().size());
+
+        OptionRuleResponse.ConditionRuleMetadata rootConditionRule =
+                response.getOptionRule().getConditionRules().get(0);
+        assertEquals("'auth.mode' == PASSWORD", rootConditionRule.getExpression());
+        assertNotNull(rootConditionRule.getExpressionTree());
+        assertEquals(
+                "username",
+                rootConditionRule
+                        .getOptionRule()
+                        .getRequiredOptions()
+                        .get(0)
+                        .getOptions()
+                        .get(0)
+                        .getKey());
+
+        assertEquals(1, rootConditionRule.getOptionRule().getConditionRules().size());
+        OptionRuleResponse.ConditionRuleMetadata nestedConditionRule =
+                rootConditionRule.getOptionRule().getConditionRules().get(0);
+        assertEquals("'username' == admin", nestedConditionRule.getExpression());
+        assertNotNull(nestedConditionRule.getExpressionTree());
+        assertEquals(
+                "password",
+                nestedConditionRule
+                        .getOptionRule()
+                        .getRequiredOptions()
+                        .get(0)
+                        .getOptions()
+                        .get(0)
+                        .getKey());
+        assertTrue(nestedConditionRule.getOptionRule().getConditionRules().isEmpty());
     }
 
     @Test

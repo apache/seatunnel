@@ -45,12 +45,30 @@ public class OptionRuleResponse {
 
         private final List<OptionMetadata> optionalOptions;
         private final List<RequiredOptionMetadata> requiredOptions;
+        private final List<ConditionRuleMetadata> conditionRules;
 
         public OptionRuleMetadata(
                 List<OptionMetadata> optionalOptions,
-                List<RequiredOptionMetadata> requiredOptions) {
+                List<RequiredOptionMetadata> requiredOptions,
+                List<ConditionRuleMetadata> conditionRules) {
             this.optionalOptions = optionalOptions;
             this.requiredOptions = requiredOptions;
+            this.conditionRules = conditionRules;
+        }
+    }
+
+    @Getter
+    public static class ConditionRuleMetadata {
+
+        private final String expression;
+        private final ExpressionNode expressionTree;
+        private final OptionRuleMetadata optionRule;
+
+        public ConditionRuleMetadata(
+                String expression, ExpressionNode expressionTree, OptionRuleMetadata optionRule) {
+            this.expression = expression;
+            this.expressionTree = expressionTree;
+            this.optionRule = optionRule;
         }
     }
 

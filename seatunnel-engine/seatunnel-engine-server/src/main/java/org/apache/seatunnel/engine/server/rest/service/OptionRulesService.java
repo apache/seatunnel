@@ -23,6 +23,7 @@ import org.apache.seatunnel.api.common.PluginIdentifier;
 import org.apache.seatunnel.api.configuration.Option;
 import org.apache.seatunnel.api.configuration.SingleChoiceOption;
 import org.apache.seatunnel.api.configuration.util.Condition;
+import org.apache.seatunnel.api.configuration.util.ConditionRule;
 import org.apache.seatunnel.api.configuration.util.Expression;
 import org.apache.seatunnel.api.configuration.util.OptionRule;
 import org.apache.seatunnel.api.configuration.util.RequiredOption;
@@ -113,6 +114,14 @@ public class OptionRulesService extends BaseService {
     }
 
     OptionRuleResponse buildResponse(PluginIdentifier pluginIdentifier, OptionRule optionRule) {
+        return new OptionRuleResponse(
+                pluginIdentifier.getEngineType(),
+                pluginIdentifier.getPluginType(),
+                pluginIdentifier.getPluginName(),
+                toOptionRuleMetadata(optionRule));
+    }
+
+    private OptionRuleResponse.OptionRuleMetadata toOptionRuleMetadata(OptionRule optionRule) {
         List<OptionRuleResponse.OptionMetadata> optionalOptions =
                 optionRule.getOptionalOptions().stream()
                         .map(this::toOptionMetadata)
@@ -121,11 +130,12 @@ public class OptionRulesService extends BaseService {
                 optionRule.getRequiredOptions().stream()
                         .map(this::toRequiredOptionMetadata)
                         .collect(Collectors.toList());
-        return new OptionRuleResponse(
-                pluginIdentifier.getEngineType(),
-                pluginIdentifier.getPluginType(),
-                pluginIdentifier.getPluginName(),
-                new OptionRuleResponse.OptionRuleMetadata(optionalOptions, requiredOptions));
+        List<OptionRuleResponse.ConditionRuleMetadata> conditionRules =
+                optionRule.getConditionRules().stream()
+                        .map(this::toConditionRuleMetadata)
+                        .collect(Collectors.toList());
+        return new OptionRuleResponse.OptionRuleMetadata(
+                optionalOptions, requiredOptions, conditionRules);
     }
 
     private ConcurrentMap<String, OptionRuleResponse> getPluginTypeCache(PluginType pluginType) {
@@ -219,6 +229,15 @@ public class OptionRulesService extends BaseService {
                     ruleType, options, expression.toString(), toExpressionNode(expression));
         }
         return new OptionRuleResponse.RequiredOptionMetadata(ruleType, options, null, null);
+    }
+
+    private OptionRuleResponse.ConditionRuleMetadata toConditionRuleMetadata(
+            ConditionRule conditionRule) {
+        Expression expression = conditionRule.getExpression();
+        return new OptionRuleResponse.ConditionRuleMetadata(
+                expression.toString(),
+                toExpressionNode(expression),
+                toOptionRuleMetadata(conditionRule.getOptionRule()));
     }
 
     private OptionRuleResponse.RuleType resolveRuleType(RequiredOption requiredOption) {
