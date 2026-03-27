@@ -44,53 +44,8 @@ Choose your runtime execution engine:
 - [Spark](https://seatunnel.apache.org/docs/getting-started/locally/quick-start-spark)
 - [Flink](https://seatunnel.apache.org/docs/getting-started/locally/quick-start-flink)
 
-## Multimodal Data Integration
-- Most data integration tools support structured and unstructured text data, and SeaTunnel does as well. Simply refer to the desired Source/Sink to use.
-- For integrating video, images, and binary files with SeaTunnel, please refer to the documentation for detailed instructions.
-
-## Apache SeaTunnel Tools
-SeaTunnel Tools provides a range of peripheral tools, including Apache SeaTunnel Mcp Server, etc,please refer to [SeaTunnel Tools](https://github.com/apache/seatunnel-tools).
-
-## Users
-Companies and organizations worldwide use SeaTunnel for research, production, and commercial products. 
-Explore real-world use cases of SeaTunnel, such as JP morgan, S7, JDT, Bytedance, Tencent Cloud. More use cases can be found on the [SeaTunnel Users](https://seatunnel.apache.org/user).
-
-## Code of Conduct
-Participate in this project in accordance with the Contributor Covenant [Code of Conduct](https://www.apache.org/foundation/policies/conduct).
-
-## Contributors
-We appreciate all developers for their contributions. See the [List Of Contributors](https://github.com/apache/seatunnel/graphs/contributors).
-
-## How to Compile
-Refer to this [Setup](https://seatunnel.apache.org/docs/developer/setup) for compilation instructions.
-
-## Contact Us
-- Mail list: **dev@seatunnel.apache.org**. Subscribe by sending an email to `dev-subscribe@seatunnel.apache.org`.
-- Slack: [Join SeaTunnel Slack](https://s.apache.org/seatunnel-slack)
-- Twitter: [ASFSeaTunnel on Twitter](https://twitter.com/ASFSeaTunnel)
-
-## Landscapes
-SeaTunnel enriches the [CNCF CLOUD NATIVE Landscape](https://landscape.cncf.io/?landscape=observability-and-analysis&license=apache-license-2-0).
+## Contributing
+We welcome all kinds of contributions from the community! Whether it's reporting bugs, improving documentation, or submitting code for new connectors. Please check our [Contribution Guide](https://seatunnel.apache.org/community/contribution_guide/subscribe) to get started and join our [Slack](https://s.apache.org/seatunnel-slack) to discuss ideas with the maintainers.
 
 ## License
-[Apache 2.0 License](LICENSE)
-
-## Frequently Asked Questions
-
-### 1. How do I install SeaTunnel?
-
-Follow the [Local Deployment](https://seatunnel.apache.org/docs/getting-started/locally/deployment) on SeaTunnel website to get 
-started quickly.
-Please refer to the [Cluster Deployment](https://seatunnel.apache.org/docs/engines/zeta/hybrid-cluster-deployment)
-
-### 2. Where can I find documentation and tutorials?
-[Official Documentation](https://seatunnel.apache.org/docs) includes detailed guides and tutorials to help you get started.
-
-### 3. Is there a community or support channel?
-You can submit an issue on [GitHub Issues](https://github.com/apache/seatunnel/issues).
-Join our Slack community [SeaTunnel Slack](https://s.apache.org/seatunnel-slack).
-More information, please refer to [FAQ](https://seatunnel.apache.org/docs/faq). 
-
-### 4. How can I contribute to SeaTunnel?
-We welcome contributions! Please refer to our [Contribution Guidelines](https://seatunnel.apache.org/docs/developer/coding-guide) for details.
-
+Apache SeaTunnel is licensed under the [Apache License 2.0](LICENSE).
