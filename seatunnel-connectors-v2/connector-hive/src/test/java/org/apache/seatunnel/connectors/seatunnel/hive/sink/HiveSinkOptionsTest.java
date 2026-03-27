@@ -20,6 +20,7 @@ package org.apache.seatunnel.connectors.seatunnel.hive.sink;
 import org.apache.seatunnel.api.configuration.ReadonlyConfig;
 import org.apache.seatunnel.api.sink.SchemaSaveMode;
 import org.apache.seatunnel.connectors.seatunnel.hive.config.HiveOptions;
+import org.apache.seatunnel.connectors.seatunnel.hive.config.HiveSinkOptions;
 
 import org.junit.jupiter.api.Test;
 

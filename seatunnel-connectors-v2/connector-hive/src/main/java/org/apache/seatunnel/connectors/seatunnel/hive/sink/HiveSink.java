@@ -44,6 +44,7 @@ import org.apache.seatunnel.connectors.seatunnel.file.sink.writer.WriteStrategy;
 import org.apache.seatunnel.connectors.seatunnel.file.sink.writer.WriteStrategyFactory;
 import org.apache.seatunnel.connectors.seatunnel.hive.commit.HiveSinkAggregatedCommitter;
 import org.apache.seatunnel.connectors.seatunnel.hive.config.HiveConstants;
+import org.apache.seatunnel.connectors.seatunnel.hive.config.HiveSinkOptions;
 import org.apache.seatunnel.connectors.seatunnel.hive.exception.HiveConnectorException;
 import org.apache.seatunnel.connectors.seatunnel.hive.sink.writter.HiveSinkWriter;
 import org.apache.seatunnel.connectors.seatunnel.hive.storage.StorageFactory;

@@ -31,6 +31,7 @@ import org.apache.seatunnel.connectors.seatunnel.file.sink.commit.FileAggregated
 import org.apache.seatunnel.connectors.seatunnel.file.sink.commit.FileCommitInfo;
 import org.apache.seatunnel.connectors.seatunnel.file.sink.state.FileSinkState;
 import org.apache.seatunnel.connectors.seatunnel.hive.config.HiveConstants;
+import org.apache.seatunnel.connectors.seatunnel.hive.config.HiveSinkOptions;
 
 import com.google.auto.service.AutoService;
 

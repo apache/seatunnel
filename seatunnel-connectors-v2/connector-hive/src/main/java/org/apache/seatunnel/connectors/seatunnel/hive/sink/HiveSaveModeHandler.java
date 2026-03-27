@@ -25,6 +25,7 @@ import org.apache.seatunnel.api.table.catalog.Catalog;
 import org.apache.seatunnel.api.table.catalog.CatalogTable;
 import org.apache.seatunnel.api.table.catalog.TablePath;
 import org.apache.seatunnel.api.table.catalog.TableSchema;
+import org.apache.seatunnel.connectors.seatunnel.hive.config.HiveSinkOptions;
 import org.apache.seatunnel.connectors.seatunnel.hive.exception.HiveConnectorErrorCode;
 import org.apache.seatunnel.connectors.seatunnel.hive.exception.HiveConnectorException;
 import org.apache.seatunnel.connectors.seatunnel.hive.utils.HiveMetaStoreCatalog;

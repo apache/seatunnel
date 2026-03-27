@@ -15,13 +15,12 @@
  * limitations under the License.
  */
 
-package org.apache.seatunnel.connectors.seatunnel.hive.sink;
+package org.apache.seatunnel.connectors.seatunnel.hive.config;
 
 import org.apache.seatunnel.api.configuration.Option;
 import org.apache.seatunnel.api.configuration.Options;
 import org.apache.seatunnel.api.sink.DataSaveMode;
 import org.apache.seatunnel.api.sink.SchemaSaveMode;
-import org.apache.seatunnel.connectors.seatunnel.hive.config.HiveBaseOptions;
 
 public class HiveSinkOptions extends HiveBaseOptions {
 
