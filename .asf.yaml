@@ -33,7 +33,7 @@ github:
     - apache
     - elt
   collaborators:
-    - dybyte
+    - ricky2129
     - chl-wxp
     - LiJie20190102
     - yzeng1618
@@ -42,7 +42,7 @@ github:
     - silenceland
     - SEZ9
     - boy-xiaozhang
-    - ZmmBigdata
+    - nzw921rx
   enabled_merge_buttons:
     squash: true
     merge: false
