@@ -64,7 +64,7 @@ docker images | grep apache/seatunnel
 
 Dockerfile文件内容为：
 ```dockerfile
-FROM openjdk:8
+FROM seatunnelhub/openjdk:8u342
 
 ARG VERSION
 # Build from Source Code And Copy it into image
