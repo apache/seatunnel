@@ -158,7 +158,7 @@ Tip: 如果目标数据库有 SCHEMA 的概念，则表参数必须写成 `xxx.x
 
 ### batch_interval_ms [long]
 
-定时刷新间隔（毫秒）。当设置值大于 0 时，后台线程会定期将缓冲区中的记录刷新到数据库，即使尚未达到 `batch_size`。默认值为 `0`（禁用）。当 `batch_size` 为 `1` 时此配置无效。
+定时刷新间隔（毫秒）。当设置值大于 0 时，后台线程会定期将缓冲区中的记录刷新到数据库，即使尚未达到 `batch_size`。默认值为 `0`（禁用）。当 `batch_size` 为 `1` 时此配置无效。当 `is_exactly_once = true` 时此配置无效，以避免干扰 XA 事务。
 
 ### is_exactly_once [boolean]
 
