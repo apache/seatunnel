@@ -26,7 +26,6 @@ import org.apache.seatunnel.api.table.catalog.TableSchema;
 import org.apache.seatunnel.api.table.connector.TableSink;
 import org.apache.seatunnel.api.table.factory.TableSinkFactoryContext;
 import org.apache.seatunnel.api.table.type.BasicType;
-import org.apache.seatunnel.connectors.seatunnel.hive.config.HiveConfig;
 import org.apache.seatunnel.connectors.seatunnel.hive.config.HiveSinkOptions;
 
 import org.junit.jupiter.api.BeforeEach;
@@ -83,8 +82,8 @@ public class HiveSinkFactoryTest {
     @Test
     void testCreateSinkWithValidSaveMode() {
         Map<String, Object> configMap = new HashMap<>();
-        configMap.put(HiveConfig.TABLE_NAME.key(), "test_db.test_table");
-        configMap.put(HiveConfig.METASTORE_URI.key(), "thrift://localhost:9083");
+        configMap.put(HiveSinkOptions.TABLE_NAME.key(), "test_db.test_table");
+        configMap.put(HiveSinkOptions.METASTORE_URI.key(), "thrift://localhost:9083");
         configMap.put(HiveSinkOptions.SCHEMA_SAVE_MODE.key(), "CREATE_SCHEMA_WHEN_NOT_EXIST");
         configMap.put(
                 HiveSinkOptions.SAVE_MODE_CREATE_TEMPLATE.key(),
@@ -104,8 +103,8 @@ public class HiveSinkFactoryTest {
     @Test
     void testCreateSinkWithoutSaveMode() {
         Map<String, Object> configMap = new HashMap<>();
-        configMap.put(HiveConfig.TABLE_NAME.key(), "test_db.test_table");
-        configMap.put(HiveConfig.METASTORE_URI.key(), "thrift://localhost:9083");
+        configMap.put(HiveSinkOptions.TABLE_NAME.key(), "test_db.test_table");
+        configMap.put(HiveSinkOptions.METASTORE_URI.key(), "thrift://localhost:9083");
 
         ReadonlyConfig config = ReadonlyConfig.fromMap(configMap);
 
@@ -120,8 +119,8 @@ public class HiveSinkFactoryTest {
     @Test
     void testCreateSinkWithInvalidSaveMode() {
         Map<String, Object> configMap = new HashMap<>();
-        configMap.put(HiveConfig.TABLE_NAME.key(), "test_db.test_table");
-        configMap.put(HiveConfig.METASTORE_URI.key(), "thrift://localhost:9083");
+        configMap.put(HiveSinkOptions.TABLE_NAME.key(), "test_db.test_table");
+        configMap.put(HiveSinkOptions.METASTORE_URI.key(), "thrift://localhost:9083");
         configMap.put(HiveSinkOptions.SCHEMA_SAVE_MODE.key(), "INVALID_MODE");
 
         ReadonlyConfig config = ReadonlyConfig.fromMap(configMap);
@@ -136,8 +135,8 @@ public class HiveSinkFactoryTest {
     @Test
     void testCreateSinkWithSaveModeButNoTemplate() {
         Map<String, Object> configMap = new HashMap<>();
-        configMap.put(HiveConfig.TABLE_NAME.key(), "test_db.test_table");
-        configMap.put(HiveConfig.METASTORE_URI.key(), "thrift://localhost:9083");
+        configMap.put(HiveSinkOptions.TABLE_NAME.key(), "test_db.test_table");
+        configMap.put(HiveSinkOptions.METASTORE_URI.key(), "thrift://localhost:9083");
         configMap.put(HiveSinkOptions.SCHEMA_SAVE_MODE.key(), "CREATE_SCHEMA_WHEN_NOT_EXIST");
 
         ReadonlyConfig config = ReadonlyConfig.fromMap(configMap);
@@ -161,8 +160,8 @@ public class HiveSinkFactoryTest {
 
         for (String mode : validModes) {
             Map<String, Object> configMap = new HashMap<>();
-            configMap.put(HiveConfig.TABLE_NAME.key(), "test_db.test_table");
-            configMap.put(HiveConfig.METASTORE_URI.key(), "thrift://localhost:9083");
+            configMap.put(HiveSinkOptions.TABLE_NAME.key(), "test_db.test_table");
+            configMap.put(HiveSinkOptions.METASTORE_URI.key(), "thrift://localhost:9083");
             configMap.put(HiveSinkOptions.SCHEMA_SAVE_MODE.key(), mode);
             configMap.put(
                     HiveSinkOptions.SAVE_MODE_CREATE_TEMPLATE.key(),
@@ -190,8 +189,8 @@ public class HiveSinkFactoryTest {
 
         for (String template : templates) {
             Map<String, Object> configMap = new HashMap<>();
-            configMap.put(HiveConfig.TABLE_NAME.key(), "test_db.test_table");
-            configMap.put(HiveConfig.METASTORE_URI.key(), "thrift://localhost:9083");
+            configMap.put(HiveSinkOptions.TABLE_NAME.key(), "test_db.test_table");
+            configMap.put(HiveSinkOptions.METASTORE_URI.key(), "thrift://localhost:9083");
             configMap.put(HiveSinkOptions.SCHEMA_SAVE_MODE.key(), "CREATE_SCHEMA_WHEN_NOT_EXIST");
             configMap.put(HiveSinkOptions.SAVE_MODE_CREATE_TEMPLATE.key(), template);
 
@@ -210,7 +209,7 @@ public class HiveSinkFactoryTest {
     @Test
     void testRequiredConfigValidation() {
         Map<String, Object> configMap = new HashMap<>();
-        configMap.put(HiveConfig.METASTORE_URI.key(), "thrift://localhost:9083");
+        configMap.put(HiveSinkOptions.METASTORE_URI.key(), "thrift://localhost:9083");
         configMap.put(HiveSinkOptions.SCHEMA_SAVE_MODE.key(), "CREATE_SCHEMA_WHEN_NOT_EXIST");
 
         ReadonlyConfig config = ReadonlyConfig.fromMap(configMap);
@@ -225,7 +224,7 @@ public class HiveSinkFactoryTest {
     @Test
     void testRequiredMetastoreUriValidation() {
         Map<String, Object> configMap = new HashMap<>();
-        configMap.put(HiveConfig.TABLE_NAME.key(), "test_db.test_table");
+        configMap.put(HiveSinkOptions.TABLE_NAME.key(), "test_db.test_table");
         configMap.put(HiveSinkOptions.SCHEMA_SAVE_MODE.key(), "CREATE_SCHEMA_WHEN_NOT_EXIST");
 
         ReadonlyConfig config = ReadonlyConfig.fromMap(configMap);
@@ -259,8 +258,8 @@ public class HiveSinkFactoryTest {
 
         for (String tableName : tableNames) {
             Map<String, Object> configMap = new HashMap<>();
-            configMap.put(HiveConfig.TABLE_NAME.key(), tableName);
-            configMap.put(HiveConfig.METASTORE_URI.key(), "thrift://localhost:9083");
+            configMap.put(HiveSinkOptions.TABLE_NAME.key(), tableName);
+            configMap.put(HiveSinkOptions.METASTORE_URI.key(), "thrift://localhost:9083");
             configMap.put(HiveSinkOptions.SCHEMA_SAVE_MODE.key(), "CREATE_SCHEMA_WHEN_NOT_EXIST");
 
             ReadonlyConfig config = ReadonlyConfig.fromMap(configMap);
