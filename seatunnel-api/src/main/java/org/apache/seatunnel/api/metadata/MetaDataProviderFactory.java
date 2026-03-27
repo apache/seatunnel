@@ -57,12 +57,12 @@ public final class MetaDataProviderFactory {
             if (provider.kind().equalsIgnoreCase(kind)) {
                 if (matchedProvider != null) {
                     log.error(
-                            "Multiple DataSourceProvider implementations found for kind '{}': {}",
+                            "Multiple MetaDataProvider implementations found for kind '{}': {}",
                             kind,
                             matchedKinds);
                     throw new MetaDataProviderException(
                             String.format(
-                                    "Multiple DataSourceProvider implementations found for kind '%s'.\n\n"
+                                    "Multiple MetaDataProvider implementations found for kind '%s'.\n\n"
                                             + "Ambiguous provider classes are:\n\n%s",
                                     kind, String.join("\n", matchedKinds)));
                 }
@@ -76,10 +76,10 @@ public final class MetaDataProviderFactory {
             for (MetaDataProvider provider : providers) {
                 availableKinds.add(provider.kind());
             }
-            log.debug("No DataSourceProvider found for kind: {}", kind);
+            log.debug("No MetaDataProvider found for kind: {}", kind);
             throw new MetaDataProviderException(
                     String.format(
-                            "No DataSourceProvider found for kind '%s'.\n\n"
+                            "No MetaDataProvider found for kind '%s'.\n\n"
                                     + "Available provider kinds are:\n\n%s",
                             kind, String.join("\n", availableKinds)));
         }
@@ -111,10 +111,10 @@ public final class MetaDataProviderFactory {
                     .forEachRemaining(providers::add);
 
             if (providers.isEmpty()) {
-                log.info("No DataSourceProvider implementations found");
+                log.info("No MetaDataProvider implementations found");
             } else {
                 log.info(
-                        "Loaded {} DataSourceProvider: {}",
+                        "Loaded {} MetaDataProvider: {}",
                         providers.size(),
                         providers.stream()
                                 .map(MetaDataProvider::kind)
@@ -124,9 +124,9 @@ public final class MetaDataProviderFactory {
 
             return providers;
         } catch (ServiceConfigurationError e) {
-            log.error("Could not load service provider for DataSourceProvider.", e);
+            log.error("Could not load service provider for MetaDataProvider.", e);
             throw new MetaDataProviderException(
-                    "Could not load service provider for DataSourceProvider.", e);
+                    "Could not load service provider for MetaDataProvider.", e);
         }
     }
 }

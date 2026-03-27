@@ -24,7 +24,7 @@ import java.util.HashMap;
 import java.util.Map;
 
 /**
- * Configuration for DataSource Center which manages external metadata providers.
+ * Configuration for MetaData Center which manages external metadata providers.
  *
  * <p>This config contains only common properties (enabled, kind) and a properties map for
  * provider-specific settings. Provider implementations should extract their own configuration from
@@ -33,12 +33,11 @@ import java.util.Map;
 @Data
 public class MetaDataConfig implements Serializable {
 
-    /** Whether to enable DataSource Center. */
+    /** Whether to enable MetaData Center. */
     private boolean enabled = MetaDataOptions.ENABLED.defaultValue();
 
     /**
-     * The kind of DataSource provider to use. Supported values: "gravitino", "datahub", "atlas",
-     * etc.
+     * The kind of MetaData provider to use. Supported values: "gravitino", "datahub", "atlas", etc.
      */
     private String kind = MetaDataOptions.KIND.defaultValue();
 

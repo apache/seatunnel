@@ -78,7 +78,7 @@ public class ConnectorCommonOptions
                     .stringType()
                     .noDefaultValue()
                     .withDescription(
-                            "The data source ID for retrieving connection configuration from DataSource Center. "
+                            "The data source ID for retrieving connection configuration from MetaData Center. "
                                     + "When specified, the connector will fetch connection details (e.g., URL, username, password) "
                                     + "from the external metadata service instead of using direct configuration.");
 }

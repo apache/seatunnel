@@ -107,7 +107,7 @@ public class ClientJobExecutionEnvironment extends AbstractJobEnvironment {
                     jobClient.getCheckpointData(
                             Long.parseLong(jobConfig.getJobContext().getJobId()));
         }
-        MetaDataConfig dataSourceConfig = seaTunnelConfig.getEngineConfig().getDataSourceConfig();
+        MetaDataConfig metaDataConfig = seaTunnelConfig.getEngineConfig().getMetaDataConfig();
         return new MultipleTableJobConfigParser(
                 jobFilePath,
                 variables,
@@ -116,7 +116,7 @@ public class ClientJobExecutionEnvironment extends AbstractJobEnvironment {
                 commonPluginJars,
                 isStartWithSavePoint,
                 pipelineCheckpoints,
-                dataSourceConfig);
+                metaDataConfig);
     }
 
     @VisibleForTesting

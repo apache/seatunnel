@@ -100,7 +100,7 @@ public class EngineConfig {
     private HttpConfig httpConfig =
             ServerConfigOptions.MasterServerConfigOptions.HTTP.defaultValue();
 
-    private MetaDataConfig dataSourceConfig = ServerConfigOptions.METADATA.defaultValue();
+    private MetaDataConfig metaDataConfig = ServerConfigOptions.METADATA.defaultValue();
 
     public void setBackupCount(int newBackupCount) {
         checkBackupCount(newBackupCount, 0);

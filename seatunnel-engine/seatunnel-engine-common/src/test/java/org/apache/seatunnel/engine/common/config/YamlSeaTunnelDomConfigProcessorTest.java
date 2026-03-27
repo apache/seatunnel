@@ -27,11 +27,11 @@ import java.nio.file.Paths;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
-/** Unit tests for {@link YamlSeaTunnelDomConfigProcessor} focusing on datasource config parsing. */
+/** Unit tests for {@link YamlSeaTunnelDomConfigProcessor} focusing on MetaData config parsing. */
 public class YamlSeaTunnelDomConfigProcessorTest {
 
     @Test
-    public void testParseDataSourceConfigWithNestedProvider() throws Exception {
+    public void testParseMetaDataConfigWithNestedProvider() throws Exception {
         String configPath =
                 Paths.get(
                                 YamlSeaTunnelDomConfigProcessorTest.class
@@ -41,16 +41,16 @@ public class YamlSeaTunnelDomConfigProcessorTest {
 
         SeaTunnelConfig config =
                 new YamlSeaTunnelConfigBuilder(new FileInputStream(configPath)).build();
-        MetaDataConfig dataSourceConfig = config.getEngineConfig().getDataSourceConfig();
+        MetaDataConfig metaDataConfig = config.getEngineConfig().getMetaDataConfig();
 
         // Verify basic settings
-        assertTrue(dataSourceConfig.isEnabled());
-        assertEquals("test_kind", dataSourceConfig.getKind());
+        assertTrue(metaDataConfig.isEnabled());
+        assertEquals("test_kind", metaDataConfig.getKind());
 
         // Verify nested provider properties are parsed correctly
-        assertEquals(3, dataSourceConfig.getProperties().size());
-        assertEquals("http://127.0.0.1:8090", dataSourceConfig.getProperties().get("test_config1"));
-        assertEquals("test_metalake", dataSourceConfig.getProperties().get("test_config2"));
-        assertEquals("test", dataSourceConfig.getProperties().get("test_config3"));
+        assertEquals(3, metaDataConfig.getProperties().size());
+        assertEquals("http://127.0.0.1:8090", metaDataConfig.getProperties().get("test_config1"));
+        assertEquals("test_metalake", metaDataConfig.getProperties().get("test_config2"));
+        assertEquals("test", metaDataConfig.getProperties().get("test_config3"));
     }
 }

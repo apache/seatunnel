@@ -20,17 +20,17 @@ package org.apache.seatunnel.api.metadata.exception;
 import org.apache.seatunnel.api.common.SeaTunnelAPIErrorCode;
 import org.apache.seatunnel.common.exception.SeaTunnelRuntimeException;
 
-/** A DataSourceProvider-related, runtime exception. */
+/** A MetaDataProvider-related, runtime exception. */
 public class MetaDataProviderException extends SeaTunnelRuntimeException {
 
     /** @param message the detail message. */
     public MetaDataProviderException(String message) {
-        super(SeaTunnelAPIErrorCode.DATASOURCE_PROVIDER_INITIALIZE_FAILED, message);
+        super(SeaTunnelAPIErrorCode.METADATA_PROVIDER_INITIALIZE_FAILED, message);
     }
 
     /** @param cause the cause. */
     public MetaDataProviderException(Throwable cause) {
-        super(SeaTunnelAPIErrorCode.DATASOURCE_PROVIDER_INITIALIZE_FAILED, cause);
+        super(SeaTunnelAPIErrorCode.METADATA_PROVIDER_INITIALIZE_FAILED, cause);
     }
 
     /**
@@ -38,6 +38,6 @@ public class MetaDataProviderException extends SeaTunnelRuntimeException {
      * @param cause the cause.
      */
     public MetaDataProviderException(String message, Throwable cause) {
-        super(SeaTunnelAPIErrorCode.DATASOURCE_PROVIDER_INITIALIZE_FAILED, message, cause);
+        super(SeaTunnelAPIErrorCode.METADATA_PROVIDER_INITIALIZE_FAILED, message, cause);
     }
 }

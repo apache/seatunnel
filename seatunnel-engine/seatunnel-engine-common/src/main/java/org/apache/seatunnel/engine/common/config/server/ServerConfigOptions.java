@@ -72,7 +72,7 @@ public class ServerConfigOptions {
             Options.key("metadata")
                     .type(new TypeReference<MetaDataConfig>() {})
                     .defaultValue(new MetaDataConfig())
-                    .withDescription("The DataSource Center configuration.");
+                    .withDescription("The MetaData Center configuration.");
     // The options for metrics end
     /////////////////////////////////////////////////
 

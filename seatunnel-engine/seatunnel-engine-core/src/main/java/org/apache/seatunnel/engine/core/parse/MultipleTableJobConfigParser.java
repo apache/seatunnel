@@ -181,7 +181,7 @@ public class MultipleTableJobConfigParser {
             List<URL> commonPluginJars,
             boolean isStartWithSavePoint,
             List<JobPipelineCheckpointData> pipelineCheckpoints,
-            MetaDataConfig dataSourceConfig) {
+            MetaDataConfig metaDataConfig) {
         this(
                 ConfigBuilder.of(Paths.get(jobDefineFilePath), variables),
                 idGenerator,
@@ -189,7 +189,7 @@ public class MultipleTableJobConfigParser {
                 commonPluginJars,
                 isStartWithSavePoint,
                 pipelineCheckpoints,
-                dataSourceConfig);
+                metaDataConfig);
     }
 
     public MultipleTableJobConfigParser(
@@ -854,17 +854,17 @@ public class MultipleTableJobConfigParser {
         return new ChangeStreamTableSourceCheckpoint(coordinatorState, subtaskState);
     }
 
-    private Config handleDataSource(Config seaTunnelJobConfig, MetaDataConfig dataSourceConfig) {
+    private Config handleDataSource(Config seaTunnelJobConfig, MetaDataConfig metaDataConfig) {
         Config tempconfig = seaTunnelJobConfig;
-        // Only resolve datasource configs when:
-        // 1. DataSource is enabled
+        // Only resolve MetaData configs when:
+        // 1. MetaData is enabled
         // 2. The job config contains datasource_id in any connector
-        if (dataSourceConfig != null
-                && dataSourceConfig.isEnabled()
+        if (metaDataConfig != null
+                && metaDataConfig.isEnabled()
                 && hasDatasourceId(seaTunnelJobConfig)) {
             tempconfig =
                     MetaDataProviderManager.resolveDataSourceConfigs(
-                            seaTunnelJobConfig, dataSourceConfig);
+                            seaTunnelJobConfig, metaDataConfig);
         }
         // Compatible with old code
         tempconfig = MetalakeConfigUtils.getMetalakeConfig(tempconfig);

@@ -64,20 +64,20 @@ public class MetaDataProviderManagerTest {
     @Test
     public void testResolveDataSourceConfigsWithDatasourceId() {
         // Register mock provider
-        MockTestDataSourceProvider provider = new MockTestDataSourceProvider();
+        MockTestMetaDataProvider provider = new MockTestMetaDataProvider();
         registerProvider(provider);
 
         // Load config from file with datasource_id
         Config jobConfig = loadTestConfig();
 
         // Create DataSourceConfig
-        MetaDataConfig dataSourceConfig = new MetaDataConfig();
-        dataSourceConfig.setEnabled(true);
-        dataSourceConfig.setKind(TEST_PROVIDER_KIND);
+        MetaDataConfig metaDataConfig = new MetaDataConfig();
+        metaDataConfig.setEnabled(true);
+        metaDataConfig.setKind(TEST_PROVIDER_KIND);
 
         // Resolve with datasource_id
         Config resolved =
-                MetaDataProviderManager.resolveDataSourceConfigs(jobConfig, dataSourceConfig);
+                MetaDataProviderManager.resolveDataSourceConfigs(jobConfig, metaDataConfig);
 
         assertNotNull(resolved);
 
@@ -138,10 +138,10 @@ public class MetaDataProviderManagerTest {
         // Load config from file with datasource_id
         Config jobConfig = loadTestConfig();
 
-        // Create DataSourceConfig with unknown provider kind
-        MetaDataConfig dataSourceConfig = new MetaDataConfig();
-        dataSourceConfig.setEnabled(true);
-        dataSourceConfig.setKind("unknown-provider-kind");
+        // Create MetaDataConfig with unknown provider kind
+        MetaDataConfig metaDataConfig = new MetaDataConfig();
+        metaDataConfig.setEnabled(true);
+        metaDataConfig.setKind("unknown-provider-kind");
 
         // Try to resolve with a provider kind that doesn't exist
         MetaDataProviderException exception =
@@ -149,7 +149,7 @@ public class MetaDataProviderManagerTest {
                         MetaDataProviderException.class,
                         () ->
                                 MetaDataProviderManager.resolveDataSourceConfigs(
-                                        jobConfig, dataSourceConfig));
+                                        jobConfig, metaDataConfig));
 
         // Verify exception is thrown
         assertNotNull(exception);
@@ -184,7 +184,7 @@ public class MetaDataProviderManagerTest {
     }
 
     /** Mock DataSourceProvider for testing. */
-    public static class MockTestDataSourceProvider implements MetaDataProvider {
+    public static class MockTestMetaDataProvider implements MetaDataProvider {
 
         @Override
         public String kind() {
@@ -239,7 +239,7 @@ public class MetaDataProviderManagerTest {
 
     @Test
     public void testResolveTableSchemaWithNullConfig() {
-        // Test with null dataSourceConfig
+        // Test with null metaDataConfig
         Optional<TableSchema> result =
                 MetaDataProviderManager.resolveTableSchema("test.table", null);
 
@@ -249,13 +249,13 @@ public class MetaDataProviderManagerTest {
 
     @Test
     public void testResolveTableSchemaWithDisabledConfig() {
-        // Test with disabled dataSourceConfig
-        MetaDataConfig dataSourceConfig = new MetaDataConfig();
-        dataSourceConfig.setEnabled(false);
-        dataSourceConfig.setKind(TEST_PROVIDER_KIND);
+        // Test with disabled metaDataConfig
+        MetaDataConfig metaDataConfig = new MetaDataConfig();
+        metaDataConfig.setEnabled(false);
+        metaDataConfig.setKind(TEST_PROVIDER_KIND);
 
         Optional<TableSchema> result =
-                MetaDataProviderManager.resolveTableSchema("test.table", dataSourceConfig);
+                MetaDataProviderManager.resolveTableSchema("test.table", metaDataConfig);
 
         assertNotNull(result);
         assertFalse(result.isPresent());
@@ -264,17 +264,17 @@ public class MetaDataProviderManagerTest {
     @Test
     public void testResolveTableSchemaWithValidResult() {
         // Register mock provider that returns a valid TableSchema
-        MockTestDataSourceProvider provider = new MockTestDataSourceProvider();
+        MockTestMetaDataProvider provider = new MockTestMetaDataProvider();
         registerProvider(provider);
 
-        // Create enabled DataSourceConfig
-        MetaDataConfig dataSourceConfig = new MetaDataConfig();
-        dataSourceConfig.setEnabled(true);
-        dataSourceConfig.setKind(TEST_PROVIDER_KIND);
+        // Create enabled MetaDataConfig
+        MetaDataConfig metaDataConfig = new MetaDataConfig();
+        metaDataConfig.setEnabled(true);
+        metaDataConfig.setKind(TEST_PROVIDER_KIND);
 
         // The mock provider should return a valid TableSchema
         Optional<TableSchema> result =
-                MetaDataProviderManager.resolveTableSchema("catalog.db.table", dataSourceConfig);
+                MetaDataProviderManager.resolveTableSchema("catalog.db.table", metaDataConfig);
 
         assertNotNull(result);
         assertTrue(result.isPresent());
@@ -287,21 +287,21 @@ public class MetaDataProviderManagerTest {
     @Test
     public void testResolveTableSchemaWithMultipleCalls() {
         // Register mock provider that returns a valid TableSchema
-        MockTestDataSourceProvider provider = new MockTestDataSourceProvider();
+        MockTestMetaDataProvider provider = new MockTestMetaDataProvider();
         registerProvider(provider);
 
-        // Create enabled DataSourceConfig
-        MetaDataConfig dataSourceConfig = new MetaDataConfig();
-        dataSourceConfig.setEnabled(true);
-        dataSourceConfig.setKind(TEST_PROVIDER_KIND);
+        // Create enabled MetaDataConfig
+        MetaDataConfig metaDataConfig = new MetaDataConfig();
+        metaDataConfig.setEnabled(true);
+        metaDataConfig.setKind(TEST_PROVIDER_KIND);
 
         // First call
         Optional<TableSchema> result1 =
-                MetaDataProviderManager.resolveTableSchema("catalog.db.table1", dataSourceConfig);
+                MetaDataProviderManager.resolveTableSchema("catalog.db.table1", metaDataConfig);
 
         // Second call - should use cached provider
         Optional<TableSchema> result2 =
-                MetaDataProviderManager.resolveTableSchema("catalog.db.table2", dataSourceConfig);
+                MetaDataProviderManager.resolveTableSchema("catalog.db.table2", metaDataConfig);
 
         // Both should return valid results
         assertTrue(result1.isPresent());

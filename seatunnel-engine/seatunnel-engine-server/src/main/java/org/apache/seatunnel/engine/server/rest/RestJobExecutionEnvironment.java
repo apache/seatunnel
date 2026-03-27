@@ -110,8 +110,8 @@ public class RestJobExecutionEnvironment extends AbstractJobEnvironment {
                                 + ", cannot start with save point.");
             }
         }
-        MetaDataConfig dataSourceConfig =
-                seaTunnelServer.getSeaTunnelConfig().getEngineConfig().getDataSourceConfig();
+        MetaDataConfig metaDataConfig =
+                seaTunnelServer.getSeaTunnelConfig().getEngineConfig().getMetaDataConfig();
         return new MultipleTableJobConfigParser(
                 seaTunnelJobConfig,
                 idGenerator,
@@ -119,7 +119,7 @@ public class RestJobExecutionEnvironment extends AbstractJobEnvironment {
                 commonPluginJars,
                 isStartWithSavePoint,
                 pipelineCheckpoints,
-                dataSourceConfig);
+                metaDataConfig);
     }
 
     private List<JobPipelineCheckpointData> loadPipelineCheckpointsFromMasterNode() {

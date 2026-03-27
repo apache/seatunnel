@@ -258,7 +258,7 @@ public class YamlSeaTunnelDomConfigProcessor extends AbstractDomConfigProcessor 
             } else if (ServerConfigOptions.MasterServerConfigOptions.HTTP.key().equals(name)) {
                 engineConfig.setHttpConfig(parseHttpConfig(node));
             } else if (ServerConfigOptions.METADATA.key().equals(name)) {
-                engineConfig.setDataSourceConfig(parseDataSourceConfig(node));
+                engineConfig.setMetaDataConfig(parseMetaDataConfigConfig(node));
             } else if (ServerConfigOptions.MasterServerConfigOptions.COORDINATOR_SERVICE
                     .key()
                     .equals(name)) {
@@ -589,27 +589,25 @@ public class YamlSeaTunnelDomConfigProcessor extends AbstractDomConfigProcessor 
         return httpConfig;
     }
 
-    private MetaDataConfig parseDataSourceConfig(Node dataSourceNode) {
-        MetaDataConfig dataSourceConfig = new MetaDataConfig();
+    private MetaDataConfig parseMetaDataConfigConfig(Node dataSourceNode) {
+        MetaDataConfig metaDataConfig = new MetaDataConfig();
         String providerKind = null;
 
         for (Node node : childElements(dataSourceNode)) {
             String name = cleanNodeName(node);
             if (MetaDataOptions.ENABLED.key().equals(name)) {
-                dataSourceConfig.setEnabled(getBooleanValue(getTextContent(node)));
+                metaDataConfig.setEnabled(getBooleanValue(getTextContent(node)));
             } else if (MetaDataOptions.KIND.key().equals(name)) {
                 providerKind = getTextContent(node);
-                dataSourceConfig.setKind(providerKind);
+                metaDataConfig.setKind(providerKind);
             } else if (providerKind != null && providerKind.equalsIgnoreCase(name)) {
                 // Parse nested provider properties (e.g., gravitino.uri, gravitino.metalake)
                 for (Node propertyNode : childElements(node)) {
                     String propertyName = cleanNodeName(propertyNode);
-                    dataSourceConfig
-                            .getProperties()
-                            .put(propertyName, getTextContent(propertyNode));
+                    metaDataConfig.getProperties().put(propertyName, getTextContent(propertyNode));
                 }
             }
         }
-        return dataSourceConfig;
+        return metaDataConfig;
     }
 }
