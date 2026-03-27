@@ -23,7 +23,9 @@ import org.apache.seatunnel.api.source.SourceReader;
 import org.apache.seatunnel.api.source.SourceSplitEnumerator;
 import org.apache.seatunnel.api.table.catalog.CatalogTable;
 import org.apache.seatunnel.api.table.type.SeaTunnelRow;
-import org.apache.seatunnel.connectors.seatunnel.file.hdfs.source.BaseHdfsFileSource;
+import org.apache.seatunnel.connectors.seatunnel.file.config.FileBaseSourceOptions;
+import org.apache.seatunnel.connectors.seatunnel.file.config.HadoopConf;
+import org.apache.seatunnel.connectors.seatunnel.file.source.BaseFileSource;
 import org.apache.seatunnel.connectors.seatunnel.file.source.split.FileSourceSplit;
 import org.apache.seatunnel.connectors.seatunnel.file.source.state.FileSourceState;
 import org.apache.seatunnel.connectors.seatunnel.hive.config.HiveConstants;
@@ -35,12 +37,39 @@ import org.apache.seatunnel.connectors.seatunnel.hive.source.split.MultipleTable
 import java.util.List;
 import java.util.stream.Collectors;
 
-public class HiveSource extends BaseHdfsFileSource {
+public class HiveSource extends BaseFileSource {
 
     private final MultipleTableHiveSourceConfig multipleTableHiveSourceConfig;
 
     public HiveSource(ReadonlyConfig readonlyConfig) {
+        super(readonlyConfig);
         this.multipleTableHiveSourceConfig = new MultipleTableHiveSourceConfig(readonlyConfig);
+    }
+
+    @Override
+    protected HadoopConf initHadoopConf() {
+        HadoopConf conf = new HadoopConf(pluginConfig.get(FileBaseSourceOptions.DEFAULT_FS));
+
+        if (pluginConfig.getOptional(FileBaseSourceOptions.HDFS_SITE_PATH).isPresent()) {
+            conf.setHdfsSitePath(pluginConfig.get(FileBaseSourceOptions.HDFS_SITE_PATH));
+        }
+
+        if (pluginConfig.getOptional(FileBaseSourceOptions.REMOTE_USER).isPresent()) {
+            conf.setRemoteUser(pluginConfig.get(FileBaseSourceOptions.REMOTE_USER));
+        }
+
+        if (pluginConfig.getOptional(FileBaseSourceOptions.KRB5_PATH).isPresent()) {
+            conf.setKrb5Path(pluginConfig.get(FileBaseSourceOptions.KRB5_PATH));
+        }
+
+        if (pluginConfig.getOptional(FileBaseSourceOptions.KERBEROS_PRINCIPAL).isPresent()) {
+            conf.setKerberosPrincipal(pluginConfig.get(FileBaseSourceOptions.KERBEROS_PRINCIPAL));
+        }
+        if (pluginConfig.getOptional(FileBaseSourceOptions.KERBEROS_KEYTAB_PATH).isPresent()) {
+            conf.setKerberosKeytabPath(
+                    pluginConfig.get(FileBaseSourceOptions.KERBEROS_KEYTAB_PATH));
+        }
+        return conf;
     }
 
     @Override

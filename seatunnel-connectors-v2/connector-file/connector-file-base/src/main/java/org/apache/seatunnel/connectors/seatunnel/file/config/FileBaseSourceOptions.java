@@ -26,6 +26,8 @@ import java.util.Arrays;
 import java.util.List;
 import java.util.Map;
 
+import static org.apache.hadoop.fs.CommonConfigurationKeysPublic.FS_DEFAULT_NAME_KEY;
+
 public class FileBaseSourceOptions extends FileBaseOptions {
     public static final String DEFAULT_ROW_DELIMITER = "\n";
 
@@ -216,4 +218,10 @@ public class FileBaseSourceOptions extends FileBaseOptions {
                     .noDefaultValue()
                     .withDescription(
                             "A single character that allows the quote or other special characters to appear inside a CSV field without ending the field.");
+
+    public static final Option<String> DEFAULT_FS =
+            Options.key(FS_DEFAULT_NAME_KEY)
+                    .stringType()
+                    .noDefaultValue()
+                    .withDescription("HDFS namenode host");
 }
