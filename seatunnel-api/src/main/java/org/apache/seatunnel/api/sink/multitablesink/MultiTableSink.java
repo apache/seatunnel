@@ -280,6 +280,8 @@ public class MultiTableSink
     /**
      * Delegates schema evolution support to the first sub-sink.
      *
+     * <p>Precondition: the sinks map must contain at least one entry.
+     *
      * <p>If the first sub-sink implements {@link SupportSchemaEvolutionSink}, returns its supported
      * {@link SchemaChangeType} list. Otherwise returns an empty list, indicating no schema
      * evolution support.
