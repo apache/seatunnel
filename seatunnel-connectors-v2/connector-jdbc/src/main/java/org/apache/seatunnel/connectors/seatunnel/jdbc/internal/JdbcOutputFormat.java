@@ -260,16 +260,20 @@ public class JdbcOutputFormat<I, E extends JdbcBatchStatementExecutor<I>> implem
                 }
             }
 
-            try {
-                if (jdbcStatementExecutor != null) {
-                    jdbcStatementExecutor.closeStatements();
-                }
-            } catch (SQLException | JdbcConnectorException e) {
-                LOG.warn("Close JDBC writer failed.", e);
-            }
+            closeStatements();
         }
         connectionProvider.closeConnection();
         checkFlushException();
+    }
+
+    public void closeStatements() {
+        try {
+            if (jdbcStatementExecutor != null) {
+                jdbcStatementExecutor.closeStatements();
+            }
+        } catch (SQLException | JdbcConnectorException e) {
+            LOG.warn("Close JDBC writer failed.", e);
+        }
     }
 
     public void closeScheduler() {
