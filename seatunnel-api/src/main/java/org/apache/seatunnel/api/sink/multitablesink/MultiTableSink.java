@@ -240,13 +240,13 @@ public class MultiTableSink
     public List<TablePath> getSinkTables() {
 
         List<TablePath> tablePaths = new ArrayList<>();
-        List<SeaTunnelSink> values = new ArrayList<>(sinks.values());
-        for (int i = 0; i < values.size(); i++) {
-            if (values.get(i).getWriteCatalogTable().isPresent()) {
+        for (Map.Entry<TablePath, SeaTunnelSink> entry : sinks.entrySet()) {
+            if (entry.getValue().getWriteCatalogTable().isPresent()) {
                 tablePaths.add(
-                        ((CatalogTable) values.get(i).getWriteCatalogTable().get()).getTablePath());
+                        ((CatalogTable) entry.getValue().getWriteCatalogTable().get())
+                                .getTablePath());
             } else {
-                tablePaths.add(sinks.keySet().toArray(new TablePath[0])[i]);
+                tablePaths.add(entry.getKey());
             }
         }
         return tablePaths;
