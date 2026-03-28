@@ -22,9 +22,10 @@ import org.apache.kafka.connect.data.SchemaBuilder;
 import org.apache.kafka.connect.data.Struct;
 import org.apache.kafka.connect.source.SourceRecord;
 
-import io.debezium.data.Envelope;
 import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.Test;
+
+import io.debezium.data.Envelope;
 
 import java.util.Collections;
 
@@ -101,18 +102,15 @@ public class SourceRecordUtilsTest {
                         .put(Envelope.FieldName.OPERATION, "c");
 
         SourceRecord record = buildRecord(valueSchema, value);
-        Assertions.assertEquals("mysql-bin-changelog.000123", SourceRecordUtils.getBinlogFile(record));
+        Assertions.assertEquals(
+                "mysql-bin-changelog.000123", SourceRecordUtils.getBinlogFile(record));
     }
 
     @Test
     public void testGetBinlogFile_nullForEmptyString() {
         // Snapshot rows: Debezium sets file = "" (empty string)
         Schema sourceSchema = buildMysqlSourceSchema(false);
-        Struct source =
-                new Struct(sourceSchema)
-                        .put("file", "")
-                        .put("pos", 0L)
-                        .put("row", 0);
+        Struct source = new Struct(sourceSchema).put("file", "").put("pos", 0L).put("row", 0);
 
         Schema valueSchema = buildValueSchema(sourceSchema);
         Struct value =
@@ -237,8 +235,7 @@ public class SourceRecordUtilsTest {
 
         SourceRecord record = buildRecord(valueSchema, value);
         Assertions.assertEquals(
-                "3E11FA47-71CA-11E1-9E33-C80AA9429562:23",
-                SourceRecordUtils.getGtid(record));
+                "3E11FA47-71CA-11E1-9E33-C80AA9429562:23", SourceRecordUtils.getGtid(record));
     }
 
     @Test

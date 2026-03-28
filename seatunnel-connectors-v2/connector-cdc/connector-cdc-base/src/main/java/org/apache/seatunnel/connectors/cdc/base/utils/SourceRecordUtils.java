@@ -228,8 +228,8 @@ public class SourceRecordUtils {
     }
 
     /**
-     * Returns the binlog filename from the Debezium source struct, or null if not available.
-     * Only present for MySQL-CDC; other connectors (PostgreSQL, Oracle) use different offset keys.
+     * Returns the binlog filename from the Debezium source struct, or null if not available. Only
+     * present for MySQL-CDC; other connectors (PostgreSQL, Oracle) use different offset keys.
      * Returns null for snapshot rows where Debezium sets file to an empty string.
      */
     public static String getBinlogFile(SourceRecord record) {
@@ -249,8 +249,8 @@ public class SourceRecordUtils {
     }
 
     /**
-     * Returns the binlog position from the Debezium source struct, or null if not available.
-     * Only present for MySQL-CDC.
+     * Returns the binlog position from the Debezium source struct, or null if not available. Only
+     * present for MySQL-CDC.
      */
     public static Long getBinlogPos(SourceRecord record) {
         Struct value = (Struct) record.value();
@@ -265,8 +265,8 @@ public class SourceRecordUtils {
     }
 
     /**
-     * Returns the row index within the binlog event from the Debezium source struct, or null if
-     * not available. Only present for MySQL-CDC.
+     * Returns the row index within the binlog event from the Debezium source struct, or null if not
+     * available. Only present for MySQL-CDC.
      */
     public static Integer getBinlogRow(SourceRecord record) {
         Struct value = (Struct) record.value();
