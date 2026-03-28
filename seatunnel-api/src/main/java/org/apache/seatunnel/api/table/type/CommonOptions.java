@@ -74,18 +74,16 @@ public enum CommonOptions {
     BINLOG_ROW("BinlogRow", true),
     /**
      * The key of {@link SeaTunnelRow#getOptions()} to store the GTID of the CDC event. Only
-     * available for MySQL-CDC source when GTID mode is enabled. Format:
-     * {@code server_uuid:transaction_id}, e.g.
-     * {@code 3E11FA47-71CA-11E1-9E33-C80AA9429562:23}. Null for snapshot rows and when GTID is
-     * disabled.
+     * available for MySQL-CDC source when GTID mode is enabled. Format: {@code
+     * server_uuid:transaction_id}, e.g. {@code 3E11FA47-71CA-11E1-9E33-C80AA9429562:23}. Null for
+     * snapshot rows and when GTID is disabled.
      */
     GTID("Gtid", true),
     /**
      * The key of {@link SeaTunnelRow#getOptions()} to store the timestamp (ms) at which the change
      * was committed in the source database ({@code source.ts_ms} in the Debezium envelope).
-     * Available for all CDC connectors (MySQL, PostgreSQL, Oracle, SQL Server). Distinct from
-     * {@link #EVENT_TIME}, which is the time the connector processed the event. Null for connectors
-     * that do not populate {@code source.ts_ms}.
+     * Available for all CDC connectors. Distinct from {@link #EVENT_TIME}, which is the time the
+     * connector processed the event. Null if the connector does not populate {@code source.ts_ms}.
      */
     SOURCE_TIMESTAMP("SourceTimestamp", true),
     /**
