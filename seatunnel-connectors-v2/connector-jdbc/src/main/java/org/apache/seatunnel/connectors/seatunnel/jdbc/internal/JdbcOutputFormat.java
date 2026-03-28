@@ -244,26 +244,27 @@ public class JdbcOutputFormat<I, E extends JdbcBatchStatementExecutor<I>> implem
     public synchronized void close() {
         if (!closed) {
             closed = true;
-
             closeScheduler();
-
-            if (batchCount > 0) {
-                try {
-                    flush();
-                } catch (Exception e) {
-                    LOG.warn("Writing records to JDBC failed.", e);
-                    flushException =
-                            new JdbcConnectorException(
-                                    CommonErrorCodeDeprecated.FLUSH_DATA_FAILED,
-                                    "Writing records to JDBC failed.",
-                                    e);
-                }
-            }
-
+            flushRemainingBatch();
             closeStatements();
         }
         connectionProvider.closeConnection();
         checkFlushException();
+    }
+
+    private void flushRemainingBatch() {
+        if (batchCount > 0) {
+            try {
+                flush();
+            } catch (Exception e) {
+                LOG.warn("Writing records to JDBC failed.", e);
+                flushException =
+                        new JdbcConnectorException(
+                                CommonErrorCodeDeprecated.FLUSH_DATA_FAILED,
+                                "Writing records to JDBC failed.",
+                                e);
+            }
+        }
     }
 
     public void closeStatements() {
