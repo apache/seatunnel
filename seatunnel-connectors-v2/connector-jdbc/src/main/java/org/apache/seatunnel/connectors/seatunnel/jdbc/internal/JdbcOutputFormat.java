@@ -245,14 +245,7 @@ public class JdbcOutputFormat<I, E extends JdbcBatchStatementExecutor<I>> implem
         if (!closed) {
             closed = true;
 
-            if (scheduledFuture != null) {
-                scheduledFuture.cancel(false);
-                scheduledFuture = null;
-            }
-            if (executor != null) {
-                executor.shutdownNow();
-                executor = null;
-            }
+            closeScheduler();
 
             if (batchCount > 0) {
                 try {
@@ -277,6 +270,17 @@ public class JdbcOutputFormat<I, E extends JdbcBatchStatementExecutor<I>> implem
         }
         connectionProvider.closeConnection();
         checkFlushException();
+    }
+
+    public void closeScheduler() {
+        if (scheduledFuture != null) {
+            scheduledFuture.cancel(false);
+            scheduledFuture = null;
+        }
+        if (executor != null) {
+            executor.shutdownNow();
+            executor = null;
+        }
     }
 
     public void updateExecutor(boolean reconnect) throws SQLException, ClassNotFoundException {
