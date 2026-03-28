@@ -245,14 +245,14 @@ public class JdbcOutputFormat<I, E extends JdbcBatchStatementExecutor<I>> implem
         if (!closed) {
             closed = true;
             closeScheduler();
-            flushRemainingBatch();
+            flushBufferedRecords();
             closeStatements();
         }
         connectionProvider.closeConnection();
         checkFlushException();
     }
 
-    private void flushRemainingBatch() {
+    private void flushBufferedRecords() {
         if (batchCount > 0) {
             try {
                 flush();
