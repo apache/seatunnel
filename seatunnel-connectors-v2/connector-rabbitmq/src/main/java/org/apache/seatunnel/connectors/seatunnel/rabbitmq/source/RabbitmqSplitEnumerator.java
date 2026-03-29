@@ -28,17 +28,26 @@ import java.io.IOException;
 import java.util.ArrayList;
 import java.util.Collections;
 import java.util.HashSet;
+import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
 import java.util.concurrent.ConcurrentHashMap;
 
+/**
+ * The split enumerator for the RabbitMQ source.
+ *
+ * <p>This class is responsible for discovering the configured RabbitMQ queues (splits),
+ * distributing them to the registered source readers, and managing the assignment state
+ * to prevent data duplication during failover recovery.
+ */
 @Slf4j
 public class RabbitmqSplitEnumerator
         implements SourceSplitEnumerator<RabbitmqSplit, RabbitmqSplitEnumeratorState> {
 
     private final SourceSplitEnumerator.Context<RabbitmqSplit> context;
     private final Map<String, RabbitmqSplit> pendingSplits = new ConcurrentHashMap<>();
+    private final Map<String, RabbitmqSplit> assignedSplits = new ConcurrentHashMap<>();
     private final Object stateLock = new Object();
     private final Set<Integer> assignedReaders = Collections.synchronizedSet(new HashSet<>());
 
@@ -75,8 +84,12 @@ public class RabbitmqSplitEnumerator
             RabbitmqSplitEnumeratorState checkpointState) {
         this(context, rabbitmqConfig, queues);
 
-        if (checkpointState != null) {
-            // Future logic: restore splits form state if needed
+        if (checkpointState != null && checkpointState.getAssignedSplits() != null) {
+            this.assignedSplits.putAll(checkpointState.getAssignedSplits());
+            for (String assignedSplitId : checkpointState.getAssignedSplits().keySet()) {
+                this.pendingSplits.remove(assignedSplitId);
+            }
+            log.info("Restored from state. Already assigned splits: {}", assignedSplits.keySet());
         }
     }
 
@@ -109,6 +122,7 @@ public class RabbitmqSplitEnumerator
                     RabbitmqSplit split = pendingSplits.remove(splitId);
                     if (split != null) {
                         context.assignSplit(readerId, split);
+                        assignedSplits.put(splitId, split);
                         log.info("Assigned split {} to reader {}", splitId, readerId);
                     }
                 }
@@ -132,6 +146,7 @@ public class RabbitmqSplitEnumerator
         synchronized (stateLock) {
             for (RabbitmqSplit split : splits) {
                 pendingSplits.put(split.splitId(), split);
+                assignedSplits.remove(split.splitId());
             }
         }
         assignSplitsToReaders();
@@ -156,7 +171,9 @@ public class RabbitmqSplitEnumerator
 
     @Override
     public RabbitmqSplitEnumeratorState snapshotState(long checkpointId) throws Exception {
-        return new RabbitmqSplitEnumeratorState();
+        synchronized (stateLock) {
+            return new RabbitmqSplitEnumeratorState(new HashMap<>(assignedSplits));
+        }
     }
 
     @Override

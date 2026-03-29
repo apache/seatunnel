@@ -22,6 +22,7 @@ import org.apache.seatunnel.api.table.catalog.CatalogTable;
 import org.apache.seatunnel.connectors.seatunnel.rabbitmq.config.RabbitmqConfig;
 import org.apache.seatunnel.connectors.seatunnel.rabbitmq.source.RabbitmqSplitEnumerator;
 import org.apache.seatunnel.connectors.seatunnel.rabbitmq.split.RabbitmqSplit;
+import org.apache.seatunnel.connectors.seatunnel.rabbitmq.split.RabbitmqSplitEnumeratorState;
 
 import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.Test;
@@ -29,7 +30,9 @@ import org.mockito.Mockito;
 
 import java.util.Arrays;
 import java.util.Collections;
+import java.util.HashMap;
 import java.util.List;
+import java.util.Map;
 import java.util.Set;
 
 import static org.mockito.Mockito.doReturn;
@@ -51,6 +54,7 @@ public class RabbitmqSplitEnumeratorTest {
      */
     @Test
     public void testMultiTableSplitAssignment() throws Exception {
+        @SuppressWarnings("unchecked")
         SourceSplitEnumerator.Context<RabbitmqSplit> context =
                 mock(SourceSplitEnumerator.Context.class);
 
@@ -72,5 +76,85 @@ public class RabbitmqSplitEnumeratorTest {
         Assertions.assertEquals(0, enumerator.currentUnassignedSplitSize());
         Mockito.verify(context, Mockito.times(2))
                 .assignSplit(Mockito.eq(0), Mockito.any(RabbitmqSplit.class));
+    }
+
+    /**
+     * Verifies that the {@link RabbitmqSplitEnumerator} correctly persists the assigned splits
+     * into the snapshot state. This is crucial for preventing data duplication during failover.
+     *
+     * @throws Exception if an error occurs during the enumerator execution
+     */
+    @Test
+    public void testSnapshotStateSavesAssignedSplits() throws Exception {
+        @SuppressWarnings("unchecked")
+        SourceSplitEnumerator.Context<RabbitmqSplit> context =
+                mock(SourceSplitEnumerator.Context.class);
+
+        Set<Integer> readers = Collections.singleton(0);
+        doReturn(readers).when(context).registeredReaders();
+
+        RabbitmqConfig config = mock(RabbitmqConfig.class);
+        List<String> queues = Arrays.asList("queue_A", "queue_B");
+
+        RabbitmqSplitEnumerator enumerator = new RabbitmqSplitEnumerator(context, config, queues);
+
+        // Assign splits to the reader
+        enumerator.registerReader(0);
+
+        // Verify no pending splits remain
+        Assertions.assertEquals(0, enumerator.currentUnassignedSplitSize());
+
+        // Take a snapshot
+        RabbitmqSplitEnumeratorState state = enumerator.snapshotState(1L);
+
+        // Verify the assigned splits are properly saved in the state
+        Assertions.assertNotNull(state);
+        Assertions.assertEquals(2, state.getAssignedSplits().size());
+        Assertions.assertTrue(state.getAssignedSplits().containsKey("queue_A"));
+        Assertions.assertTrue(state.getAssignedSplits().containsKey("queue_B"));
+    }
+
+    /**
+     * Verifies the recovery logic of the {@link RabbitmqSplitEnumerator}.
+     *
+     * <p>When restoring from a previous state (checkpoint), the enumerator must identify which
+     * splits have already been assigned and exclude them from the pending splits pool to avoid
+     * duplicate assignment.
+     *
+     * @throws Exception if an error occurs during the enumerator execution
+     */
+    @Test
+    public void testRestoreFromStatePreventsDuplication() throws Exception {
+        @SuppressWarnings("unchecked")
+        SourceSplitEnumerator.Context<RabbitmqSplit> context =
+                mock(SourceSplitEnumerator.Context.class);
+
+        Set<Integer> readers = Collections.singleton(0);
+        doReturn(readers).when(context).registeredReaders();
+
+        // Simulate a previous state where "queue_A" was already assigned
+        Map<String, RabbitmqSplit> previousAssigned = new HashMap<>();
+        previousAssigned.put("queue_A", new RabbitmqSplit("queue_A"));
+        RabbitmqSplitEnumeratorState previousState =
+                new RabbitmqSplitEnumeratorState(previousAssigned);
+
+        RabbitmqConfig config = mock(RabbitmqConfig.class);
+        List<String> queues = Arrays.asList("queue_A", "queue_B");
+
+        // Initialize enumerator WITH the previous state
+        RabbitmqSplitEnumerator enumerator =
+                new RabbitmqSplitEnumerator(context, config, queues, previousState);
+
+        // Verify that "queue_A" is excluded, leaving only "queue_B" to be assigned
+        Assertions.assertEquals(1, enumerator.currentUnassignedSplitSize());
+
+        // Register reader to consume the remaining split
+        enumerator.registerReader(0);
+
+        // Take a new snapshot and verify it tracks BOTH splits now
+        RabbitmqSplitEnumeratorState newState = enumerator.snapshotState(2L);
+        Assertions.assertEquals(2, newState.getAssignedSplits().size());
+        Assertions.assertTrue(newState.getAssignedSplits().containsKey("queue_A"));
+        Assertions.assertTrue(newState.getAssignedSplits().containsKey("queue_B"));
     }
 }
