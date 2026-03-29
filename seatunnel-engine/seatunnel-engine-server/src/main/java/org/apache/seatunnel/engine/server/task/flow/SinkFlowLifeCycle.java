@@ -123,8 +123,7 @@ public class SinkFlowLifeCycle<T, CommitInfoT extends Serializable, AggregatedCo
         boolean isMulti = sinkAction.getSink() instanceof MultiTableSink;
         if (isMulti) {
             sinkTables = ((MultiTableSink) sinkAction.getSink()).getSinkTables();
-            tablesMaps.putAll(
-                    ((MultiTableSink) sinkAction.getSink()).getSinkTableMapping());
+            tablesMaps.putAll(((MultiTableSink) sinkAction.getSink()).getSinkTableMapping());
         } else {
             Optional<CatalogTable> catalogTable = sinkAction.getSink().getWriteCatalogTable();
             if (catalogTable.isPresent()) {
