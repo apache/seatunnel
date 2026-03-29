@@ -88,14 +88,16 @@ public class RabbitmqSource
             for (Map<String, Object> item : tableConfigList) {
                 ReadonlyConfig tableConfig = ReadonlyConfig.fromMap(item);
                 CatalogTable table = CatalogTableUtil.buildWithConfig(tableConfig);
-
-                // Use plugin_output as the split ID if defined, otherwise default to the queue
-                // name.
                 String queueName = tableConfig.get(RabbitmqBaseOptions.QUEUE_NAME);
-                String splitId = queueName;
-                if (tableConfig.getOptional(ConnectorCommonOptions.PLUGIN_OUTPUT).isPresent()) {
-                    splitId = tableConfig.get(ConnectorCommonOptions.PLUGIN_OUTPUT);
+
+                // Ensure queue_name is explicitly defined
+                if (queueName == null || queueName.trim().isEmpty()) {
+                    throw new RabbitmqConnectorException(
+                            SeaTunnelAPIErrorCode.CONFIG_VALIDATION_FAILED,
+                            "The 'queue_name' is missing or empty inside one of the 'table_configs' items.");
                 }
+
+                String splitId = queueName;
 
                 this.catalogTables.add(table);
                 this.queueToTableMap.put(splitId, table);
