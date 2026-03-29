@@ -27,8 +27,8 @@ import lombok.extern.slf4j.Slf4j;
 import java.io.IOException;
 import java.util.ArrayList;
 import java.util.Collections;
-import java.util.HashSet;
 import java.util.HashMap;
+import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
@@ -38,8 +38,8 @@ import java.util.concurrent.ConcurrentHashMap;
  * The split enumerator for the RabbitMQ source.
  *
  * <p>This class is responsible for discovering the configured RabbitMQ queues (splits),
- * distributing them to the registered source readers, and managing the assignment state
- * to prevent data duplication during failover recovery.
+ * distributing them to the registered source readers, and managing the assignment state to prevent
+ * data duplication during failover recovery.
  */
 @Slf4j
 public class RabbitmqSplitEnumerator

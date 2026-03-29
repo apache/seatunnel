@@ -79,8 +79,8 @@ public class RabbitmqSplitEnumeratorTest {
     }
 
     /**
-     * Verifies that the {@link RabbitmqSplitEnumerator} correctly persists the assigned splits
-     * into the snapshot state. This is crucial for preventing data duplication during failover.
+     * Verifies that the {@link RabbitmqSplitEnumerator} correctly persists the assigned splits into
+     * the snapshot state. This is crucial for preventing data duplication during failover.
      *
      * @throws Exception if an error occurs during the enumerator execution
      */
