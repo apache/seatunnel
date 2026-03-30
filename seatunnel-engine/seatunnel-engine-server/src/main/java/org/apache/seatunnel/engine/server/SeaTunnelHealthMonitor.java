@@ -261,7 +261,7 @@ public class SeaTunnelHealthMonitor {
 
             double value = osSystemLoadAverage.read();
             if (value < 0) {
-                sb.append("load.systemAverage").append("=n/a ");
+                sb.append("load.systemAverage").append("=n/a, ");
             } else {
                 sb.append("load.systemAverage")
                         .append('=')
