@@ -110,7 +110,7 @@ public abstract class AbstractKingbaseContainerTest {
     private static Connection connectWithRetry(String jdbcUrl, String username, String password)
             throws SQLException {
         RetryUtils.RetryMaterial retryMaterial =
-                new RetryUtils.RetryMaterial(30, true, exception -> true, 2000);
+                new RetryUtils.RetryMaterial(60, true, exception -> true, 2000);
         try {
             return RetryUtils.retryWithException(
                     () -> DriverManager.getConnection(jdbcUrl, username, password), retryMaterial);
