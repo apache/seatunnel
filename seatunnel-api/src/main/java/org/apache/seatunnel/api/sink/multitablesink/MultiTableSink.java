@@ -229,27 +229,37 @@ public class MultiTableSink
     }
 
     /**
-     * Returns the list of {@link TablePath}s for all tables managed by this sink.
+     * Returns the list of resolved sink {@link TablePath}s for all tables managed by this sink.
      *
-     * <p>For each sub-sink, tries {@link SeaTunnelSink#getWriteCatalogTable()} first to extract the
-     * table path from the catalog table. If that is not present, falls back to using the {@link
-     * TablePath} key from the original sinks map.
+     * <p>Delegates to {@link #getSinkTableMapping()} and returns its values as a list.
      *
-     * @return the list of table paths for all managed tables
+     * @return the list of resolved sink table paths
      */
     public List<TablePath> getSinkTables() {
+        return new ArrayList<>(getSinkTableMapping().values());
+    }
 
-        List<TablePath> tablePaths = new ArrayList<>();
-        List<SeaTunnelSink> values = new ArrayList<>(sinks.values());
-        for (int i = 0; i < values.size(); i++) {
-            if (values.get(i).getWriteCatalogTable().isPresent()) {
-                tablePaths.add(
-                        ((CatalogTable) values.get(i).getWriteCatalogTable().get()).getTablePath());
+    /**
+     * Returns a mapping from upstream {@link TablePath} keys to their resolved sink table paths.
+     *
+     * <p>For each sub-sink, if {@link SeaTunnelSink#getWriteCatalogTable()} is present, the
+     * resolved path comes from the catalog table. Otherwise, the upstream key is used as-is.
+     *
+     * @return a map of upstream table paths to resolved sink table paths
+     */
+    public Map<TablePath, TablePath> getSinkTableMapping() {
+        Map<TablePath, TablePath> mapping = new HashMap<>();
+        for (Map.Entry<TablePath, SeaTunnelSink> entry : sinks.entrySet()) {
+            if (entry.getValue().getWriteCatalogTable().isPresent()) {
+                mapping.put(
+                        entry.getKey(),
+                        ((CatalogTable) entry.getValue().getWriteCatalogTable().get())
+                                .getTablePath());
             } else {
-                tablePaths.add(sinks.keySet().toArray(new TablePath[0])[i]);
+                mapping.put(entry.getKey(), entry.getKey());
             }
         }
-        return tablePaths;
+        return mapping;
     }
 
     @Override
