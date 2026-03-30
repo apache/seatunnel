@@ -202,14 +202,12 @@ Each element is converted to a row with the following schema:
 
 Note: Markdown format only supports reading, not writing.
 
-If you assign file type to `pdf`, SeaTunnel can parse PDF files and extract structured document elements for RAG (Retrieval-Augmented Generation) scenarios.
+If you assign file type to `pdf`, SeaTunnel can parse PDF files and extract structured document elements.
 
 The PDF parser behavior depends on whether the PDF file contains an **outline** (bookmarks/table of contents):
 
 - **With outline**: Extracts `heading`, `paragraph`, `image`, and `link` elements. Headings are derived from the outline structure, and elements are organized into a parent-child hierarchy reflecting the document's logical structure.
 - **Without outline**: Extracts only `paragraph` and `image` elements in a flat structure without hierarchy.
-
-> **Layout requirement**: Only single-column (top-to-bottom) PDF layouts are supported. Multi-column layouts (e.g., side-by-side two-column documents) are not supported and may produce incorrect text ordering.
 
 Each element is converted to a row with the following schema:
 - `element_id`: Unique identifier for the element (string)
@@ -221,18 +219,7 @@ Each element is converted to a row with the following schema:
 - `parent_id`: ID of the parent heading element (string, null for top-level elements)
 - `child_ids`: Array of child element IDs (string array, null when no children)
 
-The schema is fixed and automatically generated — you do **not** need to configure a `schema` option for PDF files.
-
-> **Note**: The `child_ids` field in PDF format is a **string array** type, which differs from the markdown format where `child_ids` is a comma-separated string.
-
-**Currently unsupported scenarios**:
-- Table extraction from PDF files
-- Encrypted or password-protected PDF files
-- Scanned PDF files (OCR is not supported)
-- Heuristic heading detection when the PDF has no outline
-- Multi-column (left-right) layouts — only single-column (top-to-bottom) layouts are supported
-
-Note: PDF format only supports reading, not writing.
+Note: Only single-column (top-to-bottom) PDF layouts are supported. Multi-column layouts (e.g., side-by-side two-column documents) are not supported and may produce incorrect text ordering.
 
 ### read_columns [list]
 
@@ -662,7 +649,7 @@ sink {
 
 ```
 
-For best results, use PDF files that contain an outline (bookmarks/table of contents). This enables the parser to extract headings with hierarchy information. PDF files without an outline will still be processed, but only paragraph and image elements will be extracted.
+For best results, use PDF files that contain an outline (bookmarks/table of contents). This enables the parser to extract headings with hierarchy information.
 
 ### Transfer Binary File
 

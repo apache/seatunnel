@@ -187,7 +187,7 @@ public class DocumentElement {
                     pageNumber,
                     positionIndex,
                     parentId,
-                    childIds == null ? new ArrayList<>() : childIds
+                    childIds == null || childIds.isEmpty() ? null : childIds.toArray(new String[0])
                 });
     }
 }

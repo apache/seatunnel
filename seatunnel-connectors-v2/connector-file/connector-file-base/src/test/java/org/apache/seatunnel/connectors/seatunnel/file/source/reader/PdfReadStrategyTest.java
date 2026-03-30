@@ -61,8 +61,10 @@ public class PdfReadStrategyTest {
         Assertions.assertEquals(0, rows.get(0).getField(5));
         Assertions.assertNull(rows.get(0).getField(6));
 
-        // child size, containing first paragraph and sub heading elements
-        Assertions.assertEquals(11, ((List<Object>) rows.get(0).getField(7)).size());
+        // child_ids must be a String[] array (not a List or comma-separated String)
+        String[] childIds = (String[]) rows.get(0).getField(7);
+        Assertions.assertNotNull(childIds);
+        Assertions.assertEquals(11, childIds.length);
 
         // check paragraph
         String expectedParagraph =
@@ -83,8 +85,54 @@ public class PdfReadStrategyTest {
         Assertions.assertEquals(3, rows.get(lastIndex).getField(4));
     }
 
-    private List<SeaTunnelRow> getHeadingElements(List<SeaTunnelRow> rows) {
+    @Test
+    public void testReadInvalidPdfThrowsException() {
+        PdfReadStrategy strategy = new PdfReadStrategy();
+        TempCollector collector = new TempCollector();
+        Assertions.assertThrows(
+                FileConnectorException.class,
+                () -> strategy.read("/nonexistent/path/file.pdf", "", collector));
+    }
 
+    @Test
+    public void testChildIdsIsArrayType() throws URISyntaxException, IOException {
+        URL resource = this.getClass().getResource("/pdf_read_strategy_test.pdf");
+        String path = Paths.get(resource.toURI()).toString();
+        PdfReadStrategy pdfReadStrategy = new PdfReadStrategy();
+        TempCollector tempCollector = new TempCollector();
+        pdfReadStrategy.read(path, "", tempCollector);
+
+        for (SeaTunnelRow row : tempCollector.getRows()) {
+            Object childIdsField = row.getField(7);
+            Assertions.assertTrue(
+                    childIdsField == null || childIdsField instanceof String[],
+                    "child_ids must be null or String[], got: "
+                            + (childIdsField == null ? "null" : childIdsField.getClass()));
+        }
+    }
+
+    @Test
+    public void testImageElementsHaveText() throws URISyntaxException, IOException {
+        URL resource = this.getClass().getResource("/pdf_read_strategy_test.pdf");
+        String path = Paths.get(resource.toURI()).toString();
+        PdfReadStrategy pdfReadStrategy = new PdfReadStrategy();
+        TempCollector tempCollector = new TempCollector();
+        pdfReadStrategy.read(path, "", tempCollector);
+
+        List<SeaTunnelRow> imageRows =
+                tempCollector.getRows().stream()
+                        .filter(row -> "image".equals(row.getField(1)))
+                        .collect(Collectors.toList());
+
+        for (SeaTunnelRow imageRow : imageRows) {
+            String text = (String) imageRow.getField(3);
+            Assertions.assertNotNull(text, "image element must have text");
+            Assertions.assertTrue(
+                    text.startsWith("image_page_"), "image text must start with 'image_page_'");
+        }
+    }
+
+    private List<SeaTunnelRow> getHeadingElements(List<SeaTunnelRow> rows) {
         return rows.stream().filter(row -> row.getField(2) != null).collect(Collectors.toList());
     }
 }

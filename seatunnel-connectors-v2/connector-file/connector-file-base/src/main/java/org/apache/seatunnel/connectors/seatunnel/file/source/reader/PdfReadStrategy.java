@@ -20,10 +20,13 @@ package org.apache.seatunnel.connectors.seatunnel.file.source.reader;
 import org.apache.seatunnel.shade.org.apache.commons.lang3.StringUtils;
 
 import org.apache.seatunnel.api.source.Collector;
+import org.apache.seatunnel.api.table.type.ArrayType;
 import org.apache.seatunnel.api.table.type.BasicType;
+import org.apache.seatunnel.api.table.type.SeaTunnelDataType;
 import org.apache.seatunnel.api.table.type.SeaTunnelRow;
 import org.apache.seatunnel.api.table.type.SeaTunnelRowType;
 import org.apache.seatunnel.connectors.seatunnel.file.config.DocumentElement;
+import org.apache.seatunnel.connectors.seatunnel.file.exception.FileConnectorErrorCode;
 import org.apache.seatunnel.connectors.seatunnel.file.exception.FileConnectorException;
 
 import org.apache.pdfbox.Loader;
@@ -75,18 +78,11 @@ import java.util.stream.IntStream;
 @Slf4j
 public class PdfReadStrategy extends AbstractReadStrategy {
 
-    // Store heading coordinates for coordinate-based text extraction
-    private List<CoordinateInfo> headingCoordinates = new ArrayList<>();
-
     @Override
     public void read(String path, String tableId, Collector<SeaTunnelRow> output)
             throws IOException, FileConnectorException {
 
-        PDDocument document = null;
-
-        try {
-            document = Loader.loadPDF(new File(path));
-
+        try (PDDocument document = Loader.loadPDF(new File(path))) {
             List<DocumentElement> elements = extractPdfDocumentElements(document);
 
             log.info(
@@ -97,13 +93,11 @@ public class PdfReadStrategy extends AbstractReadStrategy {
             for (DocumentElement element : elements) {
                 output.collect(element.toSeaTunnelRow());
             }
-
         } catch (Exception e) {
-            log.error("Error parsing PDF document structure: {}", e.getMessage(), e);
-        } finally {
-            if (document != null) {
-                document.close();
-            }
+            throw new FileConnectorException(
+                    FileConnectorErrorCode.FILE_READ_FAILED,
+                    String.format("Failed to parse PDF document [%s]: %s", path, e.getMessage()),
+                    e);
         }
     }
 
@@ -120,7 +114,7 @@ public class PdfReadStrategy extends AbstractReadStrategy {
                     "parent_id",
                     "child_ids"
                 },
-                new org.apache.seatunnel.api.table.type.SeaTunnelDataType[] {
+                new SeaTunnelDataType[] {
                     BasicType.STRING_TYPE,
                     BasicType.STRING_TYPE,
                     BasicType.INT_TYPE,
@@ -128,7 +122,7 @@ public class PdfReadStrategy extends AbstractReadStrategy {
                     BasicType.INT_TYPE,
                     BasicType.INT_TYPE,
                     BasicType.STRING_TYPE,
-                    BasicType.STRING_TYPE
+                    ArrayType.STRING_ARRAY_TYPE
                 });
     }
 
@@ -142,16 +136,28 @@ public class PdfReadStrategy extends AbstractReadStrategy {
 
         // Check if outline exists
         if (documentOutline != null && documentOutline.getFirstChild() != null) {
+            List<CoordinateInfo> headingCoordinates = new ArrayList<>();
+
             // Extract headings from outline
-            List<DocumentElement> headings = extractHeadingsFromOutline(document, documentOutline);
+            List<DocumentElement> headings =
+                    extractHeadingsFromOutline(document, documentOutline, headingCoordinates);
+
+            // Build coordinate lookup map for O(1) access
+            Map<String, CoordinateInfo> coordMap =
+                    headingCoordinates.stream()
+                            .filter(c -> c.getElementId() != null)
+                            .collect(
+                                    Collectors.toMap(
+                                            CoordinateInfo::getElementId, c -> c, (a, b) -> a));
 
             // Extract paragraphs and associate with headings
-            List<DocumentElement> paragraphs = extractParagraphsForHeadings(document, headings);
+            List<DocumentElement> paragraphs =
+                    extractParagraphsForHeadings(document, headings, coordMap);
 
             // Extract images and associate with headings
-            List<DocumentElement> images = extractImages(document);
+            List<DocumentElement> images = extractImages(document, headingCoordinates);
 
-            List<DocumentElement> links = extractLinks(document);
+            List<DocumentElement> links = extractLinks(document, headingCoordinates);
 
             // Merge headings and paragraphs maintaining hierarchy
             elements.addAll(mergeElements(headings, paragraphs, images, links));
@@ -166,9 +172,9 @@ public class PdfReadStrategy extends AbstractReadStrategy {
 
     /** Extract headings from PDF outline structure with coordinate information */
     private List<DocumentElement> extractHeadingsFromOutline(
-            PDDocument document, PDDocumentOutline outline) throws IOException {
+            PDDocument document, PDDocumentOutline outline, List<CoordinateInfo> headingCoordinates)
+            throws IOException {
         List<DocumentElement> headings = new ArrayList<>();
-        List<CoordinateInfo> headingCoordinates = new ArrayList<>();
 
         PDOutlineItem current = outline.getFirstChild();
         int positionIndex = 0;
@@ -185,9 +191,6 @@ public class PdfReadStrategy extends AbstractReadStrategy {
                             headingCoordinates);
             current = current.getNextSibling();
         }
-
-        // Store coordinates for later use in paragraph extraction
-        this.headingCoordinates = headingCoordinates;
 
         log.debug("Extracted {} headings from outline with coordinates", headings.size());
         return headings;
@@ -336,7 +339,10 @@ public class PdfReadStrategy extends AbstractReadStrategy {
 
     /** Extract paragraphs for each heading using coordinate-based approach */
     private List<DocumentElement> extractParagraphsForHeadings(
-            PDDocument document, List<DocumentElement> headings) throws IOException {
+            PDDocument document,
+            List<DocumentElement> headings,
+            Map<String, CoordinateInfo> coordMap)
+            throws IOException {
 
         List<DocumentElement> paragraphs = new ArrayList<>();
 
@@ -344,7 +350,8 @@ public class PdfReadStrategy extends AbstractReadStrategy {
             DocumentElement heading = headings.get(i);
             DocumentElement nextHeading = (i + 1 < headings.size()) ? headings.get(i + 1) : null;
 
-            String paragraphText = extractParagraphUsingCoordinates(document, heading, nextHeading);
+            String paragraphText =
+                    extractParagraphUsingCoordinates(document, heading, nextHeading, coordMap);
 
             paragraphText = cleanParagraphText(paragraphText);
 
@@ -363,37 +370,25 @@ public class PdfReadStrategy extends AbstractReadStrategy {
 
     /** Extract paragraph text using coordinate information */
     private String extractParagraphUsingCoordinates(
-            PDDocument document, DocumentElement heading, DocumentElement nextHeading)
+            PDDocument document,
+            DocumentElement heading,
+            DocumentElement nextHeading,
+            Map<String, CoordinateInfo> coordMap)
             throws IOException {
 
-        // Find coordinate information for current and next heading
-        CoordinateInfo currentCoord = findCoordinateByElementId(heading.getElementId());
+        CoordinateInfo currentCoord = coordMap.get(heading.getElementId());
         CoordinateInfo nextCoord =
-                (nextHeading != null)
-                        ? findCoordinateByElementId(nextHeading.getElementId())
-                        : null;
+                (nextHeading != null) ? coordMap.get(nextHeading.getElementId()) : null;
 
         if (currentCoord != null) {
-            // Use coordinate-based extraction
             return extractTextUsingCoordinates(document, currentCoord, nextCoord);
         } else {
-            // Fallback to text-based extraction
             log.info(
                     "No coordinates found for heading: {}, falling back to text-based extraction",
                     heading.getText());
             List<String> pageContents = extractPageContents(document);
             return extractParagraphTextForHeading(heading, nextHeading, pageContents);
         }
-    }
-
-    /** Find coordinate information by element ID */
-    private CoordinateInfo findCoordinateByElementId(String elementId) {
-        for (CoordinateInfo coord : headingCoordinates) {
-            if (coord.getElementId().equals(elementId)) {
-                return coord;
-            }
-        }
-        return null;
     }
 
     /** Extract text using coordinate information */
@@ -419,9 +414,6 @@ public class PdfReadStrategy extends AbstractReadStrategy {
 
         PDFTextStripperByArea stripper = new PDFTextStripperByArea();
         stripper.setSortByPosition(true);
-
-        // Ensure proper character encoding handling
-        System.setProperty("file.encoding", "UTF-8");
 
         StringBuilder content = new StringBuilder();
 
@@ -565,7 +557,6 @@ public class PdfReadStrategy extends AbstractReadStrategy {
             return false;
         }
 
-        // Exact match
         if (line.equals(heading)) {
             return true;
         }
@@ -575,7 +566,14 @@ public class PdfReadStrategy extends AbstractReadStrategy {
         // for the original title: "1.1 Introduction", the extract head title will only take the
         // value of "Introduction"
         if (line.endsWith(heading)) {
-            return true;
+            if (line.length() == heading.length()) {
+                return true;
+            }
+            char charBefore = line.charAt(line.length() - heading.length() - 1);
+            return Character.isWhitespace(charBefore)
+                    || Character.isDigit(charBefore)
+                    || charBefore == '.'
+                    || charBefore == ')';
         }
 
         return false;
@@ -586,7 +584,7 @@ public class PdfReadStrategy extends AbstractReadStrategy {
             throws IOException {
         List<DocumentElement> elements = new ArrayList<>();
         List<String> pageContents = extractPageContents(document);
-        List<DocumentElement> images = extractImages(document);
+        List<DocumentElement> images = extractImages(document, new ArrayList<>());
 
         for (int i = 0; i < pageContents.size(); i++) {
             String pageText = pageContents.get(i);
@@ -606,58 +604,26 @@ public class PdfReadStrategy extends AbstractReadStrategy {
         return elements;
     }
 
-    /** Extract images from PDF document with coordinate-based heading assignment */
-    List<DocumentElement> extractImages(PDDocument document) throws IOException {
-
-        List<DocumentElement> images = new ArrayList<>();
+    List<DocumentElement> extractImages(
+            PDDocument document, List<CoordinateInfo> headingCoordinates) throws IOException {
 
         PdfImageExtractor pdfImageExtractor = new PdfImageExtractor(document);
 
         for (int pageNum = 0; pageNum < document.getNumberOfPages(); pageNum++) {
-            PDPage page = document.getPage(pageNum);
-            pdfImageExtractor.processPage(page);
+            pdfImageExtractor.processPage(document.getPage(pageNum));
         }
 
         List<CoordinateInfo> imagesCoordinates = pdfImageExtractor.getImagesCoordinates();
 
-        for (int i = 0; i < headingCoordinates.size(); i++) {
-            CoordinateInfo heading = headingCoordinates.get(i);
-            CoordinateInfo nextHeading =
-                    (i + 1 < headingCoordinates.size()) ? headingCoordinates.get(i + 1) : null;
-
-            int endPage =
-                    nextHeading == null
-                            ? document.getNumberOfPages()
-                            : nextHeading.getPageNumber() + 1;
-
-            IntStream.range(heading.pageNumber, endPage)
-                    .forEach(
-                            pageIndex -> {
-                                List<CoordinateInfo> includeImages =
-                                        imagesCoordinates.stream()
-                                                .filter(coord -> coord.getPageNumber() == pageIndex)
-                                                .collect(Collectors.toList());
-
-                                includeImages.forEach(
-                                        v -> {
-                                            boolean imageBelongsToHead =
-                                                    isElementBelongsToHead(v, heading, nextHeading);
-
-                                            if (imageBelongsToHead) {
-                                                DocumentElement imageDocument =
-                                                        new DocumentElement();
-                                                imageDocument.setParentId(heading.getElementId());
-                                                imageDocument.setPageNumber(v.getPageNumber() + 1);
-                                                imageDocument.setChildIds(new ArrayList<>());
-                                                imageDocument.setElementType("image");
-
-                                                images.add(imageDocument);
-                                            }
-                                        });
-                            });
-        }
-
-        return images;
+        return assignElementsToHeadings(
+                document,
+                imagesCoordinates,
+                headingCoordinates,
+                "image",
+                coord ->
+                        String.format(
+                                "image_page_%d_pos_(%.0f,%.0f)",
+                                coord.getPageNumber() + 1, coord.getX(), coord.getY()));
     }
 
     /** Determine if element belongs to a specific heading based on position rules */
@@ -715,80 +681,81 @@ public class PdfReadStrategy extends AbstractReadStrategy {
     }
 
     /** Obtain all the link elements in the document */
-    public List<DocumentElement> extractLinks(PDDocument document) throws IOException {
-        List<DocumentElement> links = new ArrayList<>();
+    public List<DocumentElement> extractLinks(
+            PDDocument document, List<CoordinateInfo> headingCoordinates) throws IOException {
 
         List<CoordinateInfo> linksCoordinateInfo = new ArrayList<>();
 
         for (int pageNum = 0; pageNum < document.getNumberOfPages(); pageNum++) {
             PDPage page = document.getPage(pageNum);
-            List<PDAnnotation> annotations = page.getAnnotations();
-
-            for (int j = 0; j < annotations.size(); j++) {
-
-                PDAnnotation annot = annotations.get(j);
-
+            for (PDAnnotation annot : page.getAnnotations()) {
                 if (annot instanceof PDAnnotationLink) {
-
                     PDAnnotationLink link = (PDAnnotationLink) annot;
                     PDRectangle rectangle = link.getRectangle();
-
-                    float upperRightY = rectangle.getUpperRightY();
-                    float upperRightX = rectangle.getUpperRightX();
-
                     PDAction action = link.getAction();
                     if (action instanceof PDActionURI) {
                         PDActionURI uri = (PDActionURI) action;
-
-                        CoordinateInfo linkCoordinate =
+                        linksCoordinateInfo.add(
                                 new CoordinateInfo(
-                                        pageNum, upperRightX, upperRightY, null, uri.getURI());
-
-                        linksCoordinateInfo.add(linkCoordinate);
+                                        pageNum,
+                                        rectangle.getUpperRightX(),
+                                        rectangle.getUpperRightY(),
+                                        null,
+                                        uri.getURI()));
                     }
                 }
             }
         }
 
+        return assignElementsToHeadings(
+                document, linksCoordinateInfo, headingCoordinates, "link", CoordinateInfo::getText);
+    }
+
+    private List<DocumentElement> assignElementsToHeadings(
+            PDDocument document,
+            List<CoordinateInfo> elementCoordinates,
+            List<CoordinateInfo> headingCoordinates,
+            String elementType,
+            java.util.function.Function<CoordinateInfo, String> textExtractor) {
+
+        List<DocumentElement> elements = new ArrayList<>();
+
         for (int i = 0; i < headingCoordinates.size(); i++) {
             CoordinateInfo heading = headingCoordinates.get(i);
             CoordinateInfo nextHeading =
                     (i + 1 < headingCoordinates.size()) ? headingCoordinates.get(i + 1) : null;
-
             int endPage =
                     nextHeading == null
                             ? document.getNumberOfPages()
                             : nextHeading.getPageNumber() + 1;
 
-            IntStream.range(heading.pageNumber, endPage)
+            IntStream.range(heading.getPageNumber(), endPage)
                     .forEach(
-                            pageIndex -> {
-                                List<CoordinateInfo> includeLinks =
-                                        linksCoordinateInfo.stream()
-                                                .filter(coord -> coord.getPageNumber() == pageIndex)
-                                                .collect(Collectors.toList());
-
-                                includeLinks.forEach(
-                                        v -> {
-                                            boolean linkBelongsToHead =
-                                                    isElementBelongsToHead(v, heading, nextHeading);
-
-                                            if (linkBelongsToHead) {
-                                                DocumentElement linkDocument =
-                                                        new DocumentElement();
-                                                linkDocument.setParentId(heading.getElementId());
-                                                linkDocument.setPageNumber(v.getPageNumber() + 1);
-                                                linkDocument.setChildIds(new ArrayList<>());
-                                                linkDocument.setElementType("link");
-                                                linkDocument.setText(v.getText());
-
-                                                links.add(linkDocument);
-                                            }
-                                        });
-                            });
+                            pageIndex ->
+                                    elementCoordinates.stream()
+                                            .filter(coord -> coord.getPageNumber() == pageIndex)
+                                            .filter(
+                                                    coord ->
+                                                            isElementBelongsToHead(
+                                                                    coord, heading, nextHeading))
+                                            .forEach(
+                                                    coord -> {
+                                                        DocumentElement element =
+                                                                new DocumentElement();
+                                                        element.setParentId(heading.getElementId());
+                                                        element.setPageNumber(
+                                                                coord.getPageNumber() + 1);
+                                                        element.setChildIds(new ArrayList<>());
+                                                        element.setElementType(elementType);
+                                                        String text = textExtractor.apply(coord);
+                                                        if (text != null) {
+                                                            element.setText(text);
+                                                        }
+                                                        elements.add(element);
+                                                    }));
         }
 
-        return links;
+        return elements;
     }
 
     /** Merge headings, paragraphs and images element */
@@ -804,7 +771,9 @@ public class PdfReadStrategy extends AbstractReadStrategy {
                 paragraphs.stream()
                         .collect(
                                 Collectors.toMap(
-                                        DocumentElement::getParentId, Function.identity()));
+                                        DocumentElement::getParentId,
+                                        Function.identity(),
+                                        (existing, replacement) -> existing));
 
         Map<String, List<DocumentElement>> imageMap =
                 images.stream().collect(Collectors.groupingBy(DocumentElement::getParentId));
@@ -849,7 +818,9 @@ public class PdfReadStrategy extends AbstractReadStrategy {
             }
         }
 
-        mergeResult.forEach(element -> element.setPositionIndex(mergeResult.indexOf(element)));
+        for (int i = 0; i < mergeResult.size(); i++) {
+            mergeResult.get(i).setPositionIndex(i);
+        }
 
         return mergeResult;
     }
