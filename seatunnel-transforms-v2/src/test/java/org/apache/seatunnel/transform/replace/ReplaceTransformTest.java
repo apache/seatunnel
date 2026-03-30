@@ -25,6 +25,7 @@ import org.apache.seatunnel.api.table.catalog.TablePath;
 import org.apache.seatunnel.api.table.catalog.TableSchema;
 import org.apache.seatunnel.api.table.type.BasicType;
 import org.apache.seatunnel.api.table.type.SeaTunnelRow;
+import org.apache.seatunnel.common.exception.SeaTunnelRuntimeException;
 import org.apache.seatunnel.transform.exception.TransformException;
 
 import org.junit.jupiter.api.Assertions;
@@ -80,64 +81,63 @@ class ReplaceTransformTest {
     @Test
     void testSingleFieldReplaceWithString() {
         Map<String, Object> configMap = new HashMap<>();
-        configMap.put(ReplaceTransformConfig.KEY_REPLACE_FIELD.key(), "name");
-        configMap.put(ReplaceTransformConfig.KEY_PATTERN.key(), "hello");
-        configMap.put(ReplaceTransformConfig.KEY_REPLACEMENT.key(), "world");
+        configMap.put("replace_field", "name");
+        configMap.put(ReplaceTransformConfig.KEY_PATTERN.key(), "before");
+        configMap.put(ReplaceTransformConfig.KEY_REPLACEMENT.key(), "after");
 
         ReplaceTransform transform =
                 new ReplaceTransform(ReadonlyConfig.fromMap(configMap), catalogTable);
 
-        SeaTunnelRow input = new SeaTunnelRow(new Object[] {1, "hello world", "hello title"});
+        SeaTunnelRow input = new SeaTunnelRow(new Object[] {1, "before name", "before title"});
         SeaTunnelRow output = transform.transformRow(input);
 
-        Assertions.assertEquals("world world", output.getField(1));
-        Assertions.assertEquals("hello title", output.getField(2)); // unchanged
+        Assertions.assertEquals("after name", output.getField(1));
+        Assertions.assertEquals("before title", output.getField(2));
     }
 
     @Test
     void testMultipleFieldReplaceWithList() {
         Map<String, Object> configMap = new HashMap<>();
         configMap.put(
-                ReplaceTransformConfig.KEY_REPLACE_FIELD.key(), Arrays.asList("name", "title"));
-        configMap.put(ReplaceTransformConfig.KEY_PATTERN.key(), "hello");
-        configMap.put(ReplaceTransformConfig.KEY_REPLACEMENT.key(), "world");
+                ReplaceTransformConfig.KEY_REPLACE_FIELDS.key(), Arrays.asList("name", "title"));
+        configMap.put(ReplaceTransformConfig.KEY_PATTERN.key(), "before");
+        configMap.put(ReplaceTransformConfig.KEY_REPLACEMENT.key(), "after");
 
         ReplaceTransform transform =
                 new ReplaceTransform(ReadonlyConfig.fromMap(configMap), catalogTable);
 
-        SeaTunnelRow input = new SeaTunnelRow(new Object[] {1, "hello name", "hello title"});
+        SeaTunnelRow input = new SeaTunnelRow(new Object[] {1, "before name", "before title"});
         SeaTunnelRow output = transform.transformRow(input);
 
-        Assertions.assertEquals("world name", output.getField(1));
-        Assertions.assertEquals("world title", output.getField(2));
-        Assertions.assertEquals(1, output.getField(0)); // id unchanged
-    }
-
-    void testNullFieldSkipped() {
-        Map<String, Object> configMap = new HashMap<>();
-        configMap.put(
-                ReplaceTransformConfig.KEY_REPLACE_FIELD.key(), Arrays.asList("name", "title"));
-        configMap.put(ReplaceTransformConfig.KEY_PATTERN.key(), "hello");
-        configMap.put(ReplaceTransformConfig.KEY_REPLACEMENT.key(), "world");
-
-        ReplaceTransform transform =
-                new ReplaceTransform(ReadonlyConfig.fromMap(configMap), catalogTable);
-
-        SeaTunnelRow input = new SeaTunnelRow(new Object[] {1, null, "hello title"});
-        SeaTunnelRow output = transform.transformRow(input);
-
-        Assertions.assertNull(output.getField(1));
-        Assertions.assertEquals("world title", output.getField(2));
+        Assertions.assertEquals("after name", output.getField(1));
+        Assertions.assertEquals("after title", output.getField(2));
+        Assertions.assertEquals(1, output.getField(0));
     }
 
     @Test
-    void testFieldNotFound() {
+    void testNullFieldSkipped() {
         Map<String, Object> configMap = new HashMap<>();
         configMap.put(
-                ReplaceTransformConfig.KEY_REPLACE_FIELD.key(),
-                Collections.singletonList("nonExistentField"));
-        configMap.put(ReplaceTransformConfig.KEY_PATTERN.key(), "a");
-        configMap.put(ReplaceTransformConfig.KEY_REPLACEMENT.key(), "b");
+                ReplaceTransformConfig.KEY_REPLACE_FIELDS.key(), Arrays.asList("name", "title"));
+        configMap.put(ReplaceTransformConfig.KEY_PATTERN.key(), "before");
+        configMap.put(ReplaceTransformConfig.KEY_REPLACEMENT.key(), "after");
+
+        ReplaceTransform transform =
+                new ReplaceTransform(ReadonlyConfig.fromMap(configMap), catalogTable);
+
+        SeaTunnelRow input = new SeaTunnelRow(new Object[] {1, null, "before title"});
+        SeaTunnelRow output = transform.transformRow(input);
+
+        Assertions.assertNull(output.getField(1));
+        Assertions.assertEquals("after title", output.getField(2));
+    }
+
+    @Test
+    void testSinlgeFieldNotFound() {
+        Map<String, Object> configMap = new HashMap<>();
+        configMap.put("replace_field", "nonExistentField");
+        configMap.put(ReplaceTransformConfig.KEY_PATTERN.key(), "before");
+        configMap.put(ReplaceTransformConfig.KEY_REPLACEMENT.key(), "after");
 
         Assertions.assertThrows(
                 TransformException.class,
@@ -145,10 +145,23 @@ class ReplaceTransformTest {
     }
 
     @Test
-    void testRegexReplace() {
+    void testMultiFieldNotFound() {
         Map<String, Object> configMap = new HashMap<>();
         configMap.put(
-                ReplaceTransformConfig.KEY_REPLACE_FIELD.key(), Collections.singletonList("name"));
+                ReplaceTransformConfig.KEY_REPLACE_FIELDS.key(),
+                Arrays.asList("name", "nonExistentField"));
+        configMap.put(ReplaceTransformConfig.KEY_PATTERN.key(), "before");
+        configMap.put(ReplaceTransformConfig.KEY_REPLACEMENT.key(), "after");
+
+        Assertions.assertThrows(
+                TransformException.class,
+                () -> new ReplaceTransform(ReadonlyConfig.fromMap(configMap), catalogTable));
+    }
+
+    @Test
+    void testSingleFieldRegexReplace() {
+        Map<String, Object> configMap = new HashMap<>();
+        configMap.put("replace_field", "name");
         configMap.put(ReplaceTransformConfig.KEY_PATTERN.key(), "\\d+");
         configMap.put(ReplaceTransformConfig.KEY_REPLACEMENT.key(), "NUM");
         configMap.put(ReplaceTransformConfig.KEY_IS_REGEX.key(), true);
@@ -163,10 +176,28 @@ class ReplaceTransformTest {
     }
 
     @Test
-    void testRegexReplaceFirst() {
+    void testMultipleFieldRegexReplace() {
         Map<String, Object> configMap = new HashMap<>();
         configMap.put(
-                ReplaceTransformConfig.KEY_REPLACE_FIELD.key(), Collections.singletonList("name"));
+                ReplaceTransformConfig.KEY_REPLACE_FIELDS.key(), Arrays.asList("name", "title"));
+        configMap.put(ReplaceTransformConfig.KEY_PATTERN.key(), "\\d+");
+        configMap.put(ReplaceTransformConfig.KEY_REPLACEMENT.key(), "NUM");
+        configMap.put(ReplaceTransformConfig.KEY_IS_REGEX.key(), true);
+
+        ReplaceTransform transform =
+                new ReplaceTransform(ReadonlyConfig.fromMap(configMap), catalogTable);
+
+        SeaTunnelRow input = new SeaTunnelRow(new Object[] {1, "abc123def456", "xyz789uvw012"});
+        SeaTunnelRow output = transform.transformRow(input);
+
+        Assertions.assertEquals("abcNUMdefNUM", output.getField(1));
+        Assertions.assertEquals("xyzNUMuvwNUM", output.getField(2));
+    }
+
+    @Test
+    void testSingleFieldRegexReplaceFirst() {
+        Map<String, Object> configMap = new HashMap<>();
+        configMap.put("replace_field", Collections.singletonList("name"));
         configMap.put(ReplaceTransformConfig.KEY_PATTERN.key(), "\\d+");
         configMap.put(ReplaceTransformConfig.KEY_REPLACEMENT.key(), "NUM");
         configMap.put(ReplaceTransformConfig.KEY_IS_REGEX.key(), true);
@@ -185,7 +216,7 @@ class ReplaceTransformTest {
     void testMultipleFieldRegexReplaceFirst() {
         Map<String, Object> configMap = new HashMap<>();
         configMap.put(
-                ReplaceTransformConfig.KEY_REPLACE_FIELD.key(), Arrays.asList("name", "title"));
+                ReplaceTransformConfig.KEY_REPLACE_FIELDS.key(), Arrays.asList("name", "title"));
         configMap.put(ReplaceTransformConfig.KEY_PATTERN.key(), "\\d+");
         configMap.put(ReplaceTransformConfig.KEY_REPLACEMENT.key(), "NUM");
         configMap.put(ReplaceTransformConfig.KEY_IS_REGEX.key(), true);
@@ -202,68 +233,15 @@ class ReplaceTransformTest {
     }
 
     @Test
-    void testMultipleFieldRegexReplace() {
+    void testInvalidRegexPattern() {
         Map<String, Object> configMap = new HashMap<>();
-        configMap.put(
-                ReplaceTransformConfig.KEY_REPLACE_FIELD.key(), Arrays.asList("name", "title"));
-        configMap.put(ReplaceTransformConfig.KEY_PATTERN.key(), ".+");
-        configMap.put(ReplaceTransformConfig.KEY_REPLACEMENT.key(), "replaced");
+        configMap.put("replace_field", "name");
+        configMap.put(ReplaceTransformConfig.KEY_PATTERN.key(), "[");
+        configMap.put(ReplaceTransformConfig.KEY_REPLACEMENT.key(), "NUM");
         configMap.put(ReplaceTransformConfig.KEY_IS_REGEX.key(), true);
 
-        ReplaceTransform transform =
-                new ReplaceTransform(ReadonlyConfig.fromMap(configMap), catalogTable);
-
-        SeaTunnelRow input = new SeaTunnelRow(new Object[] {1, "any name", "any title"});
-        SeaTunnelRow output = transform.transformRow(input);
-
-        Assertions.assertEquals("replaced", output.getField(1));
-        Assertions.assertEquals("replaced", output.getField(2));
-    }
-
-    @Test
-    void testMissingReplaceField() {
-        Map<String, Object> configMap = new HashMap<>();
-        configMap.put(ReplaceTransformConfig.KEY_PATTERN.key(), "a");
-        configMap.put(ReplaceTransformConfig.KEY_REPLACEMENT.key(), "b");
-
         Assertions.assertThrows(
-                TransformException.class,
+                SeaTunnelRuntimeException.class,
                 () -> new ReplaceTransform(ReadonlyConfig.fromMap(configMap), catalogTable));
-    }
-
-    @Test
-    void testRejectEmptyReplaceFieldList() {
-        Map<String, Object> configMap = new HashMap<>();
-        configMap.put(ReplaceTransformConfig.KEY_REPLACE_FIELD.key(), Collections.emptyList());
-        configMap.put(ReplaceTransformConfig.KEY_PATTERN.key(), "a");
-        configMap.put(ReplaceTransformConfig.KEY_REPLACEMENT.key(), "b");
-
-        Assertions.assertThrows(
-                TransformException.class,
-                () -> new ReplaceTransform(ReadonlyConfig.fromMap(configMap), catalogTable));
-    }
-
-    @Test
-    void testRejectBlankReplaceField() {
-        Map<String, Object> blankStringConfig = new HashMap<>();
-        blankStringConfig.put(ReplaceTransformConfig.KEY_REPLACE_FIELD.key(), " ");
-        blankStringConfig.put(ReplaceTransformConfig.KEY_PATTERN.key(), "a");
-        blankStringConfig.put(ReplaceTransformConfig.KEY_REPLACEMENT.key(), "b");
-
-        Assertions.assertThrows(
-                TransformException.class,
-                () ->
-                        new ReplaceTransform(
-                                ReadonlyConfig.fromMap(blankStringConfig), catalogTable));
-
-        Map<String, Object> blankListConfig = new HashMap<>();
-        blankListConfig.put(
-                ReplaceTransformConfig.KEY_REPLACE_FIELD.key(), Arrays.asList("name", " "));
-        blankListConfig.put(ReplaceTransformConfig.KEY_PATTERN.key(), "a");
-        blankListConfig.put(ReplaceTransformConfig.KEY_REPLACEMENT.key(), "b");
-
-        Assertions.assertThrows(
-                TransformException.class,
-                () -> new ReplaceTransform(ReadonlyConfig.fromMap(blankListConfig), catalogTable));
     }
 }

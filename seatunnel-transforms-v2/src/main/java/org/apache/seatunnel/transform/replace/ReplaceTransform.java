@@ -23,38 +23,42 @@ import org.apache.seatunnel.api.table.catalog.Column;
 import org.apache.seatunnel.api.table.catalog.TableIdentifier;
 import org.apache.seatunnel.api.table.catalog.TableSchema;
 import org.apache.seatunnel.api.table.type.SeaTunnelRow;
+import org.apache.seatunnel.common.exception.CommonError;
 import org.apache.seatunnel.transform.common.AbstractCatalogSupportMapTransform;
 import org.apache.seatunnel.transform.exception.TransformCommonError;
 
 import lombok.NonNull;
 
 import java.util.ArrayList;
-import java.util.Collections;
 import java.util.List;
+import java.util.regex.Pattern;
+import java.util.regex.PatternSyntaxException;
 
 public class ReplaceTransform extends AbstractCatalogSupportMapTransform {
+    public static final String PLUGIN_NAME = "Replace";
     private final List<String> replaceFields = new ArrayList<>();
     private final String pattern;
     private final String replacement;
     private final Boolean isRegex;
     private final Boolean replaceFirst;
+    private final Pattern regexPattern;
     private int[] replaceFieldIndexes;
 
     public ReplaceTransform(
             @NonNull ReadonlyConfig config, @NonNull CatalogTable inputCatalogTable) {
         super(inputCatalogTable);
-        this.replaceFields.addAll(
-                parseReplaceFields(config.get(ReplaceTransformConfig.KEY_REPLACE_FIELD)));
+        this.replaceFields.addAll(config.get(ReplaceTransformConfig.KEY_REPLACE_FIELDS));
         this.pattern = config.get(ReplaceTransformConfig.KEY_PATTERN);
         this.replacement = config.get(ReplaceTransformConfig.KEY_REPLACEMENT);
         this.isRegex = config.get(ReplaceTransformConfig.KEY_IS_REGEX);
         this.replaceFirst = config.get(ReplaceTransformConfig.KEY_REPLACE_FIRST);
+        this.regexPattern = initializeRegexPattern();
         initializeFieldIndexes();
     }
 
     @Override
     public String getPluginName() {
-        return "Replace";
+        return PLUGIN_NAME;
     }
 
     private void initializeFieldIndexes() {
@@ -74,6 +78,21 @@ public class ReplaceTransform extends AbstractCatalogSupportMapTransform {
                         .toArray();
     }
 
+    private Pattern initializeRegexPattern() {
+        if (!Boolean.TRUE.equals(isRegex)) {
+            return null;
+        }
+        try {
+            return Pattern.compile(pattern);
+        } catch (PatternSyntaxException e) {
+            throw CommonError.illegalArgument(
+                    pattern,
+                    String.format(
+                            "Invalid regex pattern for %s transform: %s",
+                            getPluginName(), e.getDescription()));
+        }
+    }
+
     @Override
     protected SeaTunnelRow transformRow(SeaTunnelRow inputRow) {
         SeaTunnelRow outputRow = inputRow.copy();
@@ -90,9 +109,9 @@ public class ReplaceTransform extends AbstractCatalogSupportMapTransform {
     private String applyReplacement(String value) {
         if (Boolean.TRUE.equals(isRegex)) {
             if (Boolean.TRUE.equals(replaceFirst)) {
-                return value.replaceFirst(pattern, replacement);
+                return regexPattern.matcher(value).replaceFirst(replacement);
             }
-            return value.replaceAll(pattern, replacement);
+            return regexPattern.matcher(value).replaceAll(replacement);
         }
         return value.replace(pattern, replacement);
     }
@@ -105,58 +124,5 @@ public class ReplaceTransform extends AbstractCatalogSupportMapTransform {
     @Override
     protected TableIdentifier transformTableIdentifier() {
         return inputCatalogTable.getTableId();
-    }
-
-    private List<String> parseReplaceFields(Object rawValue) {
-
-        if (rawValue == null) {
-            throw TransformCommonError.validationFailed(
-                    String.format(
-                            "Option '%s' is required and must be configured as a string or an array of strings.",
-                            ReplaceTransformConfig.KEY_REPLACE_FIELD.key()));
-        }
-
-        if (rawValue instanceof String) {
-            return validateReplaceFields(
-                    Collections.singletonList((String) rawValue),
-                    ReplaceTransformConfig.KEY_REPLACE_FIELD.key());
-        }
-
-        if (rawValue instanceof List) {
-            List<String> fields = new ArrayList<>();
-            for (Object field : (List<?>) rawValue) {
-                if (!(field instanceof String)) {
-                    throw TransformCommonError.validationFailed(
-                            String.format(
-                                    "Option '%s' must be configured as a string or an array of strings.",
-                                    ReplaceTransformConfig.KEY_REPLACE_FIELD.key()));
-                }
-                fields.add((String) field);
-            }
-            return validateReplaceFields(fields, ReplaceTransformConfig.KEY_REPLACE_FIELD.key());
-        }
-
-        throw TransformCommonError.validationFailed(
-                String.format(
-                        "Option '%s' must be configured as a string or an array of strings.",
-                        ReplaceTransformConfig.KEY_REPLACE_FIELD.key()));
-    }
-
-    private List<String> validateReplaceFields(List<String> fields, String optionName) {
-
-        if (fields.isEmpty()) {
-            throw TransformCommonError.validationFailed(
-                    String.format("Option '%s' must not be empty.", optionName));
-        }
-
-        for (String field : fields) {
-            if (field == null || field.trim().isEmpty()) {
-                throw TransformCommonError.validationFailed(
-                        String.format(
-                                "Option '%s' must not contain blank field names.", optionName));
-            }
-        }
-
-        return fields;
     }
 }

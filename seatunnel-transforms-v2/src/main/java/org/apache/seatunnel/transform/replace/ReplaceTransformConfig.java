@@ -20,14 +20,17 @@ package org.apache.seatunnel.transform.replace;
 import org.apache.seatunnel.api.configuration.Option;
 import org.apache.seatunnel.api.configuration.Options;
 
+import java.util.List;
+
 public class ReplaceTransformConfig {
 
-    public static final Option<Object> KEY_REPLACE_FIELD =
-            Options.key("replace_field")
-                    .objectType(Object.class)
+    public static final Option<List<String>> KEY_REPLACE_FIELDS =
+            Options.key("replace_fields")
+                    .listType()
                     .noDefaultValue()
                     .withDescription(
-                            "The field(s) you want to replace. Accepts a single field name or a list of field names.");
+                            "The field(s) you want to replace. Accepts a single field name or a list of field names.")
+                    .withFallbackKeys("replace_field");
 
     public static final Option<String> KEY_PATTERN =
             Options.key("pattern")
