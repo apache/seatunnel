@@ -35,6 +35,7 @@ import ChangeLog from '../changelog/connector-file-local.md';
   - [x] xml
   - [x] binary
   - [x] markdown
+  - [x] pdf
 
 ## Description
 
@@ -98,7 +99,7 @@ The source file path.
 
 File type, supported as the following file types:
 
-`text` `csv` `parquet` `orc` `json` `excel` `xml` `binary` `markdown`
+`text` `csv` `parquet` `orc` `json` `excel` `xml` `binary` `markdown` `pdf`
 
 If you assign file type to `json`, you should also assign schema option to tell connector how to parse data to the row you want.
 
@@ -200,6 +201,38 @@ Each element is converted to a row with the following schema:
 - `child_ids`: Comma-separated list of child element IDs
 
 Note: Markdown format only supports reading, not writing.
+
+If you assign file type to `pdf`, SeaTunnel can parse PDF files and extract structured document elements for RAG (Retrieval-Augmented Generation) scenarios.
+
+The PDF parser behavior depends on whether the PDF file contains an **outline** (bookmarks/table of contents):
+
+- **With outline**: Extracts `heading`, `paragraph`, `image`, and `link` elements. Headings are derived from the outline structure, and elements are organized into a parent-child hierarchy reflecting the document's logical structure.
+- **Without outline**: Extracts only `paragraph` and `image` elements in a flat structure without hierarchy.
+
+> **Layout requirement**: Only single-column (top-to-bottom) PDF layouts are supported. Multi-column layouts (e.g., side-by-side two-column documents) are not supported and may produce incorrect text ordering.
+
+Each element is converted to a row with the following schema:
+- `element_id`: Unique identifier for the element (string)
+- `element_type`: Type of the element — `heading`, `paragraph`, `image`, or `link` (string)
+- `heading_level`: Depth level of the heading starting from 1 (integer, null for non-heading elements)
+- `text`: Text content of the element (string)
+- `page_number`: Page number in the PDF file, starting from 1 (integer)
+- `position_index`: Position index within the document (integer)
+- `parent_id`: ID of the parent heading element (string, null for top-level elements)
+- `child_ids`: Array of child element IDs (string array, null when no children)
+
+The schema is fixed and automatically generated — you do **not** need to configure a `schema` option for PDF files.
+
+> **Note**: The `child_ids` field in PDF format is a **string array** type, which differs from the markdown format where `child_ids` is a comma-separated string.
+
+**Currently unsupported scenarios**:
+- Table extraction from PDF files
+- Encrypted or password-protected PDF files
+- Scanned PDF files (OCR is not supported)
+- Heuristic heading detection when the PDF has no outline
+- Multi-column (left-right) layouts — only single-column (top-to-bottom) layouts are supported
+
+Note: PDF format only supports reading, not writing.
 
 ### read_columns [list]
 
@@ -605,6 +638,31 @@ LocalFile {
 }
 
 ```
+
+### Read PDF File
+
+```hocon
+
+env {
+  parallelism = 1
+  job.mode = "BATCH"
+}
+
+source {
+  LocalFile {
+    path = "/data/documents/"
+    file_format_type = "pdf"
+  }
+}
+
+sink {
+  Console {
+  }
+}
+
+```
+
+For best results, use PDF files that contain an outline (bookmarks/table of contents). This enables the parser to extract headings with hierarchy information. PDF files without an outline will still be processed, but only paragraph and image elements will be extracted.
 
 ### Transfer Binary File
 
