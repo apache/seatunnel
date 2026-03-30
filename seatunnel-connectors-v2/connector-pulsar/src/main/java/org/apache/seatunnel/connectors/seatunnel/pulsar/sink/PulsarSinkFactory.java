@@ -36,11 +36,9 @@ public class PulsarSinkFactory implements TableSinkFactory {
     @Override
     public OptionRule optionRule() {
         return OptionRule.builder()
-                .required(
-                        PulsarSinkOptions.CLIENT_SERVICE_URL,
-                        PulsarSinkOptions.ADMIN_SERVICE_URL,
-                        PulsarSinkOptions.TOPIC)
+                .required(PulsarSinkOptions.CLIENT_SERVICE_URL, PulsarSinkOptions.ADMIN_SERVICE_URL)
                 .optional(
+                        PulsarSinkOptions.TOPIC,
                         PulsarSinkOptions.FORMAT,
                         PulsarSinkOptions.FIELD_DELIMITER,
                         PulsarSinkOptions.MESSAGE_ROUTING_MODE,

@@ -23,6 +23,7 @@ import org.apache.seatunnel.api.serialization.Serializer;
 import org.apache.seatunnel.api.sink.SeaTunnelSink;
 import org.apache.seatunnel.api.sink.SinkCommitter;
 import org.apache.seatunnel.api.sink.SinkWriter;
+import org.apache.seatunnel.api.sink.SupportMultiTableSink;
 import org.apache.seatunnel.api.table.catalog.CatalogTable;
 import org.apache.seatunnel.api.table.type.SeaTunnelRow;
 import org.apache.seatunnel.api.table.type.SeaTunnelRowType;
@@ -42,7 +43,11 @@ import java.util.Optional;
  */
 public class PulsarSink
         implements SeaTunnelSink<
-                SeaTunnelRow, PulsarSinkState, PulsarCommitInfo, PulsarAggregatedCommitInfo> {
+                        SeaTunnelRow,
+                        PulsarSinkState,
+                        PulsarCommitInfo,
+                        PulsarAggregatedCommitInfo>,
+                SupportMultiTableSink {
 
     private final SeaTunnelRowType seaTunnelRowType;
     private final PulsarClientConfig clientConfig;
@@ -68,7 +73,11 @@ public class PulsarSink
     public SinkWriter<SeaTunnelRow, PulsarCommitInfo, PulsarSinkState> createWriter(
             SinkWriter.Context context) {
         return new PulsarSinkWriter(
-                context, clientConfig, seaTunnelRowType, readonlyConfig, Collections.emptyList());
+                context,
+                clientConfig,
+                seaTunnelRowType,
+                readonlyConfig,
+                Collections.<PulsarSinkState>emptyList());
     }
 
     @Override
