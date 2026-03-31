@@ -34,7 +34,6 @@ import org.junit.jupiter.api.Test;
 
 import java.util.ArrayList;
 import java.util.Arrays;
-import java.util.Collections;
 import java.util.HashMap;
 import java.util.Map;
 
@@ -133,19 +132,7 @@ class ReplaceTransformTest {
     }
 
     @Test
-    void testSinlgeFieldNotFound() {
-        Map<String, Object> configMap = new HashMap<>();
-        configMap.put("replace_field", "nonExistentField");
-        configMap.put(ReplaceTransformConfig.KEY_PATTERN.key(), "before");
-        configMap.put(ReplaceTransformConfig.KEY_REPLACEMENT.key(), "after");
-
-        Assertions.assertThrows(
-                TransformException.class,
-                () -> new ReplaceTransform(ReadonlyConfig.fromMap(configMap), catalogTable));
-    }
-
-    @Test
-    void testMultiFieldNotFound() {
+    void testReplaceFieldsNotFound() {
         Map<String, Object> configMap = new HashMap<>();
         configMap.put(
                 ReplaceTransformConfig.KEY_REPLACE_FIELDS.key(),
@@ -155,6 +142,20 @@ class ReplaceTransformTest {
 
         Assertions.assertThrows(
                 TransformException.class,
+                () -> new ReplaceTransform(ReadonlyConfig.fromMap(configMap), catalogTable));
+    }
+
+    @Test
+    void testInvalidRegexPattern() {
+        Map<String, Object> configMap = new HashMap<>();
+        configMap.put(
+                ReplaceTransformConfig.KEY_REPLACE_FIELDS.key(), Arrays.asList("name", "title"));
+        configMap.put(ReplaceTransformConfig.KEY_PATTERN.key(), "[");
+        configMap.put(ReplaceTransformConfig.KEY_REPLACEMENT.key(), "NUM");
+        configMap.put(ReplaceTransformConfig.KEY_IS_REGEX.key(), true);
+
+        Assertions.assertThrows(
+                SeaTunnelRuntimeException.class,
                 () -> new ReplaceTransform(ReadonlyConfig.fromMap(configMap), catalogTable));
     }
 
@@ -176,7 +177,7 @@ class ReplaceTransformTest {
     }
 
     @Test
-    void testMultipleFieldRegexReplace() {
+    void testRegexReplace() {
         Map<String, Object> configMap = new HashMap<>();
         configMap.put(
                 ReplaceTransformConfig.KEY_REPLACE_FIELDS.key(), Arrays.asList("name", "title"));
@@ -197,7 +198,7 @@ class ReplaceTransformTest {
     @Test
     void testSingleFieldRegexReplaceFirst() {
         Map<String, Object> configMap = new HashMap<>();
-        configMap.put("replace_field", Collections.singletonList("name"));
+        configMap.put("replace_field", "name");
         configMap.put(ReplaceTransformConfig.KEY_PATTERN.key(), "\\d+");
         configMap.put(ReplaceTransformConfig.KEY_REPLACEMENT.key(), "NUM");
         configMap.put(ReplaceTransformConfig.KEY_IS_REGEX.key(), true);
@@ -230,18 +231,5 @@ class ReplaceTransformTest {
 
         Assertions.assertEquals("abcNUMdef456", output.getField(1));
         Assertions.assertEquals("xyzNUMuvw012", output.getField(2));
-    }
-
-    @Test
-    void testInvalidRegexPattern() {
-        Map<String, Object> configMap = new HashMap<>();
-        configMap.put("replace_field", "name");
-        configMap.put(ReplaceTransformConfig.KEY_PATTERN.key(), "[");
-        configMap.put(ReplaceTransformConfig.KEY_REPLACEMENT.key(), "NUM");
-        configMap.put(ReplaceTransformConfig.KEY_IS_REGEX.key(), true);
-
-        Assertions.assertThrows(
-                SeaTunnelRuntimeException.class,
-                () -> new ReplaceTransform(ReadonlyConfig.fromMap(configMap), catalogTable));
     }
 }
