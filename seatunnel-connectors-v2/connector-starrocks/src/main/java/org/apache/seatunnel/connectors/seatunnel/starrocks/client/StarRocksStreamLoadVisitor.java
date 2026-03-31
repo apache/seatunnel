@@ -129,8 +129,15 @@ public class StarRocksStreamLoadVisitor {
                 errorBuilder.append(JsonUtils.toJsonString(loadResult));
                 errorBuilder.append('\n');
             }
+            String message =
+                    loadResult.containsKey("Message")
+                            ? String.valueOf(loadResult.get("Message"))
+                            : "";
+            boolean labelAlreadyUsed = message.contains("has already been used");
             throw new StarRocksConnectorException(
-                    StarRocksConnectorErrorCode.FLUSH_DATA_FAILED, errorBuilder.toString());
+                    StarRocksConnectorErrorCode.FLUSH_DATA_FAILED,
+                    errorBuilder.toString(),
+                    labelAlreadyUsed);
         } else if (RESULT_LABEL_EXISTED.equals(loadResult.get(keyStatus))) {
             LOG.debug("StreamLoad response:\n" + JsonUtils.toJsonString(loadResult));
             // has to block-checking the state to get the final result
