@@ -102,8 +102,14 @@ public class StarRocksSinkManager {
                 String labelAlreadyMessage =
                         String.format("Label [%s] has already been used", label);
                 if (ExceptionUtils.getMessage(e).contains(labelAlreadyMessage)) {
-                    log.warn("Label [{}] has already been used, Skipping this batch", label);
-                    break;
+                    String newLabel = createBatchLabel();
+                    log.warn(
+                            "Label [{}] has already been used, retrying with new label [{}]",
+                            label,
+                            newLabel);
+                    label = newLabel;
+                    tuple.setLabel(newLabel);
+                    continue;
                 }
                 if (i >= sinkConfig.getMaxRetries()) {
                     throw new StarRocksConnectorException(
