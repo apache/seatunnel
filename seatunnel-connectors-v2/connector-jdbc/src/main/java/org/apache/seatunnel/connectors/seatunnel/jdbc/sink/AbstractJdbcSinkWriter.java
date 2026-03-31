@@ -77,7 +77,6 @@ public abstract class AbstractJdbcSinkWriter<ResourceT>
         }
 
         this.outputFormat.closeScheduler();
-        this.outputFormat.closeStatements();
         this.outputFormat =
                 new JdbcOutputFormatBuilder(
                                 dialect,
