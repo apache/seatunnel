@@ -332,10 +332,23 @@ public class TaskExecutionService implements DynamicMetricsProvider {
 
             synchronized (this) {
                 if (executionContexts.containsKey(taskGroup.getTaskGroupLocation())) {
-                    throw new RuntimeException(
+                    // Task is actively running (present in executionContexts, not
+                    // finishedExecutionContexts). This happens during master failover: the new
+                    // master restores state and tries to re-deploy tasks that never stopped on
+                    // the worker. Return success so the master reconnects without interrupting
+                    // the running task. The worker will notify the master of the terminal state
+                    // via NotifyTaskStatusOperation when the task eventually completes.
+                    logger.warning(
                             String.format(
-                                    "TaskGroupLocation: %s already exists",
+                                    "TaskGroupLocation %s already exists and is active, "
+                                            + "skipping redeploy for master failover recovery",
                                     taskGroup.getTaskGroupLocation()));
+                    // Release classloaders acquired during deserialization
+                    for (Map.Entry<Long, Collection<URL>> entry : taskJars.entrySet()) {
+                        classLoaderService.releaseClassLoader(
+                                taskImmutableInfo.getJobId(), entry.getValue());
+                    }
+                    return TaskDeployState.success();
                 }
                 deployLocalTask(taskGroup, classLoaders, taskJars);
                 return TaskDeployState.success();

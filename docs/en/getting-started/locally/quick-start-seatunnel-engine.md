@@ -51,7 +51,7 @@ sink {
 
 ```
 
-More information can be found in [Config Concept](../../concept/config.md)
+More information can be found in [Config Concept](../../introduction/concepts/config.md)
 
 ## Step 3: Run SeaTunnel Application
 
@@ -157,7 +157,7 @@ sink {
 }
 ```
 
-For more information about the configuration, please refer to [Basic Concepts of Configuration](../../concept/config.md).
+For more information about the configuration, please refer to [Basic Concepts of Configuration](../../introduction/concepts/config.md).
 
 ### Step 4: Run the SeaTunnel Application
 
@@ -188,13 +188,13 @@ Total Failed Count        :                   0
 
 :::tip
 
-If you want to optimize your job, refer to the connector documentation for [Source-MySQL](../../connector-v2/source/Mysql.md) and [Sink-Doris](../../connector-v2/sink/Doris.md).
+If you want to optimize your job, refer to the connector documentation for [Source-MySQL](../../connectors/source/Mysql.md) and [Sink-Doris](../../connectors/sink/Doris.md).
 
 :::
 
 
 ## What's More
 
-- Start write your own config file now, choose the [connector](../../connector-v2/source) you want to use, and configure the parameters according to the connector's documentation.
-- See [SeaTunnel Engine(Zeta)](../../seatunnel-engine/about.md) if you want to know more about SeaTunnel Engine. Here you will learn how to deploy SeaTunnel Engine and how to use it in cluster mode.
+- Start write your own config file now, choose the [connector](../../connectors/source) you want to use, and configure the parameters according to the connector's documentation.
+- See [SeaTunnel Engine(Zeta)](../../engines/zeta/about.md) if you want to know more about SeaTunnel Engine. Here you will learn how to deploy SeaTunnel Engine and how to use it in cluster mode.
 

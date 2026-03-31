@@ -78,7 +78,7 @@ debezium_record_table_filter {
 
 ## 元数据支持
 
-Kafka 源会在 `ConsumerRecord.timestamp` 大于等于 0 时，将其自动写入 SeaTunnel 行的 `EventTime` 元数据。可以借助 [Metadata 转换](../../transform-v2/metadata.md) 把这段时间戳暴露为普通字段，方便做分区或下游 SQL 处理。
+Kafka 源会在 `ConsumerRecord.timestamp` 大于等于 0 时，将其自动写入 SeaTunnel 行的 `EventTime` 元数据。可以借助 [Metadata 转换](../../transforms/metadata.md) 把这段时间戳暴露为普通字段，方便做分区或下游 SQL 处理。
 
 ```hocon
 source {

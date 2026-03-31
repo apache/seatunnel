@@ -51,7 +51,7 @@ import ChangeLog from '../changelog/connector-sls.md';
 
 ### 简单示例
 
-> 此示例读取sls的logstore1的数据并将其打印到客户端。如果您尚未安装和部署SeaTunnel，则需要按照安装SeaTunnel中的说明安装和部署SeaTunnel。然后按照[快速启动SeaTunnel引擎](../../Start-v2/locale/Quick-Start SeaTunnel Engine.md)中的说明运行此作业。
+> 此示例读取sls的logstore1的数据并将其打印到客户端。如果您尚未安装和部署SeaTunnel，则需要按照安装SeaTunnel中的说明安装和部署SeaTunnel。然后按照[快速启动SeaTunnel引擎](../../getting-started/locally/quick-start-seatunnel-engine.md)中的说明运行此作业。
 
 [创建RAM用户及授权](https://help.aliyun.com/zh/sls/create-a-ram-user-and-authorize-the-ram-user-to-access-log-service?spm=a2c4g.11186623.0.i4), 请确认RAM用户有足够的权限来读取及管理数据，参考：[RAM自定义授权示例](https://help.aliyun.com/zh/sls/use-custom-policies-to-grant-permissions-to-a-ram-user?spm=a2c4g.11186623.0.0.4a6e4e554CKhSc#reference-s3z-m1l-z2b)
 

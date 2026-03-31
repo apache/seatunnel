@@ -181,6 +181,82 @@ public class CoordinatorServiceTest {
     }
 
     @Test
+    void testForceStopRunningJob() {
+        JobInformation jobInformation =
+                submitJob(
+                        "CoordinatorServiceTest_testForceStopRunningJob",
+                        "stream_fake_to_console.conf",
+                        "test_force_stop_running_job");
+        CoordinatorService coordinatorService = jobInformation.coordinatorService;
+
+        await().atMost(10000, TimeUnit.MILLISECONDS)
+                .untilAsserted(
+                        () -> {
+                            Assertions.assertEquals(
+                                    JobStatus.RUNNING,
+                                    coordinatorService.getJobStatus(jobInformation.jobId));
+                            JobMaster jobMaster =
+                                    coordinatorService.getJobMaster(jobInformation.jobId);
+                            Assertions.assertNotNull(jobMaster);
+                            Assertions.assertTrue(
+                                    jobMaster
+                                            .getRunningJobStateIMap()
+                                            .containsKey(jobInformation.jobId));
+                        });
+
+        coordinatorService.stopJob(jobInformation.jobId).join();
+        await().atMost(120000, TimeUnit.MILLISECONDS)
+                .untilAsserted(
+                        () -> {
+                            Assertions.assertEquals(
+                                    JobStatus.CANCELED,
+                                    coordinatorService.getJobStatus(jobInformation.jobId));
+                        });
+        jobInformation.coordinatorService.clearCoordinatorService();
+        jobInformation.coordinatorServiceTest.shutdown();
+    }
+
+    @Test
+    void testForceStopAbnormalSavepointJob() {
+        JobInformation jobInformation =
+                submitJob(
+                        "CoordinatorServiceTest_testForceStopAbnormalSavepointJob",
+                        "stream_fake_to_console.conf",
+                        "test_force_stop_abnormal_savepoint_job");
+        CoordinatorService coordinatorService = jobInformation.coordinatorService;
+
+        await().atMost(10000, TimeUnit.MILLISECONDS)
+                .untilAsserted(
+                        () -> {
+                            Assertions.assertEquals(
+                                    JobStatus.RUNNING,
+                                    coordinatorService.getJobStatus(jobInformation.jobId));
+                            JobMaster jobMaster =
+                                    coordinatorService.getJobMaster(jobInformation.jobId);
+                            Assertions.assertNotNull(jobMaster);
+                            Assertions.assertTrue(
+                                    jobMaster
+                                            .getRunningJobStateIMap()
+                                            .containsKey(jobInformation.jobId));
+                        });
+
+        coordinatorService
+                .getJobMaster(jobInformation.jobId)
+                .getPhysicalPlan()
+                .updateJobState(JobStatus.DOING_SAVEPOINT);
+        coordinatorService.stopJob(jobInformation.jobId).join();
+        await().atMost(120000, TimeUnit.MILLISECONDS)
+                .untilAsserted(
+                        () -> {
+                            Assertions.assertEquals(
+                                    JobStatus.CANCELED,
+                                    coordinatorService.getJobStatus(jobInformation.jobId));
+                        });
+        jobInformation.coordinatorService.clearCoordinatorService();
+        jobInformation.coordinatorServiceTest.shutdown();
+    }
+
+    @Test
     void testCleanupPendingJobMasterMapAfterJobFailed() {
         setConfigFile("seatunnel_fixed_slots.yaml");
 
@@ -482,7 +558,7 @@ public class CoordinatorServiceTest {
 
     @Test
     @Disabled("Disabled because we can't know when the master node switches in the unit tests")
-    public void testJobRestoreWhenMasterNodeSwitch() throws InterruptedException {
+    void testJobRestoreWhenMasterNodeSwitch() {
         HazelcastInstanceImpl instance1 =
                 SeaTunnelServerStarter.createHazelcastInstance(
                         TestUtils.getClusterName(
