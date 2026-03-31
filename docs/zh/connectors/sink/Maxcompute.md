@@ -23,7 +23,9 @@ import ChangeLog from '../changelog/connector-maxcompute.md';
 | table_name     | string  | 是   | -      |
 | partition_spec | string  | 否   | -      |
 | overwrite      | boolean | 否   | false  |
-| insert_strategy| string  | no   | upload |
+| insert_strategy| string  | 否   | upload |
+| tunnel_endpoint| string  | 否   | -      |
+| tunnel_name    | string  | 否   | -      |
 | common-options | string  | 否   |        |
 
 ### accessId [string]
@@ -149,6 +151,20 @@ CREATE TABLE IF NOT EXISTS `${table}`
 - `http://maxcompute:8080`
 
 默认值：未设置（从区域自动推断）
+
+### tunnel_name [String]
+
+`tunnel_name` 指定 Tunnel Quota 名称，用于独占资源组。
+
+Tunnel Quota 允许您使用专用的计算资源进行 MaxCompute Tunnel 数据传输，从而提供更好的性能和资源隔离。
+
+如果未指定，将使用默认的 Tunnel quota。
+
+示例值：
+
+- `your_tunnel_quota_name`
+
+默认值：未设置（使用默认 quota）
 
 ### insert_strategy [string]
 

@@ -24,6 +24,8 @@ Used to read data from Maxcompute.
 | partition_spec | string  | no       | -             |
 | overwrite      | boolean | no       | false         |
 | insert_strategy| string  | no       | upload        |
+| tunnel_endpoint| string  | no       | -             |
+| tunnel_name    | string  | no       | -             |
 | common-options | string  | no       |               |
 
 ### accessId [string]
@@ -151,6 +153,20 @@ Example values:
 - `http://maxcompute:8080`
 
 Default: Not set (auto-inferred from region)
+
+### tunnel_name [String]
+
+`tunnel_name` Specifies the Tunnel Quota name for exclusive resource groups.
+
+Tunnel Quota allows you to use dedicated computing resources for MaxCompute Tunnel data transfer, providing better performance and resource isolation.
+
+If not specified, the default Tunnel quota will be used.
+
+Example values:
+
+- `your_tunnel_quota_name`
+
+Default: Not set (use default quota)
 
 ### insert_strategy [string]
 
