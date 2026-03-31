@@ -105,8 +105,8 @@ public class LocalFileWithMetaLakeIT extends SeaTunnelContainer {
         server.withCopyFileToContainer(
                 MountableFile.forHostPath(
                         PROJECT_ROOT_PATH
-                                + "/seatunnel-shade/seatunnel-hadoop3-3.1.4-uber/target/seatunnel-hadoop3-3.1.4-uber.jar"),
-                Paths.get(SEATUNNEL_HOME, "lib/seatunnel-hadoop3-3.1.4-uber.jar").toString());
+                                + "/seatunnel-shade/seatunnel-hadoop3-3.3.4-uber/target/seatunnel-hadoop3-3.3.4-uber.jar"),
+                Paths.get(SEATUNNEL_HOME, "lib/seatunnel-hadoop3-3.3.4-uber.jar").toString());
 
         server.start();
         // execute extra commands (including copying CSV files via extendedFactory)
