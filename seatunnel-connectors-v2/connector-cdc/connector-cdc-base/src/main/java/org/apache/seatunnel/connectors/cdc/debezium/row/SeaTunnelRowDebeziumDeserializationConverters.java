@@ -51,7 +51,12 @@ import java.time.Instant;
 import java.time.LocalDate;
 import java.time.LocalDateTime;
 import java.time.LocalTime;
+import java.time.OffsetDateTime;
 import java.time.ZoneId;
+import java.time.ZoneOffset;
+import java.time.format.DateTimeFormatter;
+import java.time.format.DateTimeFormatterBuilder;
+import java.time.temporal.ChronoField;
 import java.util.Arrays;
 import java.util.List;
 import java.util.Optional;
@@ -165,6 +170,8 @@ public class SeaTunnelRowDebeziumDeserializationConverters implements Serializab
                 return convertToTime();
             case TIMESTAMP:
                 return convertToTimestamp(serverTimeZone);
+            case TIMESTAMP_TZ:
+                return convertToTimestampTz(serverTimeZone);
             case FLOAT:
                 return wrapNumericConverter(convertToFloat());
             case DOUBLE:
@@ -447,6 +454,60 @@ public class SeaTunnelRowDebeziumDeserializationConverters implements Serializab
                 }
                 throw new IllegalArgumentException(
                         "Unable to convert to LocalDateTime from unexpected value '"
+                                + dbzObj
+                                + "' of type "
+                                + dbzObj.getClass().getName());
+            }
+        };
+    }
+
+    private static final DateTimeFormatter TIMESTAMP_TZ_FORMATTER =
+            new DateTimeFormatterBuilder()
+                    .appendPattern("yyyy-MM-dd'T'HH:mm:ss")
+                    .appendFraction(ChronoField.NANO_OF_SECOND, 0, 9, true)
+                    .appendPattern("[XXX][XX][X]")
+                    .toFormatter();
+
+    private static DebeziumDeserializationConverter convertToTimestampTz(ZoneId serverTimeZone) {
+        return new DebeziumDeserializationConverter() {
+            private static final long serialVersionUID = 1L;
+
+            @SuppressWarnings("MagicNumber")
+            @Override
+            public Object convert(Object dbzObj, Schema schema) {
+                // Debezium encodes timestamptz (TIMESTAMP WITH TIME ZONE) as a String
+                // with schema name "io.debezium.time.ZonedTimestamp" in ISO-8601 format.
+                if (dbzObj instanceof String) {
+                    String str = (String) dbzObj;
+                    try {
+                        return OffsetDateTime.parse(str, TIMESTAMP_TZ_FORMATTER);
+                    } catch (Exception e) {
+                        // Fallback: try parsing as Instant (e.g. "2023-04-27T03:08:40Z")
+                        Instant instant = Instant.parse(str);
+                        return instant.atOffset(ZoneOffset.UTC);
+                    }
+                }
+                if (dbzObj instanceof Long) {
+                    switch (schema.name()) {
+                        case Timestamp.SCHEMA_NAME:
+                            return Instant.ofEpochMilli((Long) dbzObj).atOffset(ZoneOffset.UTC);
+                        case MicroTimestamp.SCHEMA_NAME:
+                            long micro = (long) dbzObj;
+                            return Instant.ofEpochSecond(
+                                            micro / 1000_000, (micro % 1000_000) * 1000)
+                                    .atOffset(ZoneOffset.UTC);
+                        case NanoTimestamp.SCHEMA_NAME:
+                            long nano = (long) dbzObj;
+                            return Instant.ofEpochSecond(nano / 1000_000_000, nano % 1000_000_000)
+                                    .atOffset(ZoneOffset.UTC);
+                        default:
+                    }
+                }
+                if (dbzObj instanceof java.util.Date) {
+                    return ((java.util.Date) dbzObj).toInstant().atOffset(ZoneOffset.UTC);
+                }
+                throw new IllegalArgumentException(
+                        "Unable to convert to OffsetDateTime from unexpected value '"
                                 + dbzObj
                                 + "' of type "
                                 + dbzObj.getClass().getName());
