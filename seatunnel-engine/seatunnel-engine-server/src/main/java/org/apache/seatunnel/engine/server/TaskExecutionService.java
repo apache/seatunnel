@@ -136,10 +136,6 @@ import static org.apache.seatunnel.api.common.metrics.MetricTags.TASK_ID;
  *
  * <p>Tasks are organized into TaskGroups, each tracked by a TaskGroupExecutionTracker that monitors
  * execution state and handles completion/cancellation.
- *
- * @see CooperativeTaskWorker
- * @see BlockingWorker
- * @see TaskGroupExecutionTracker
  */
 public class TaskExecutionService implements DynamicMetricsProvider {
 
@@ -932,8 +928,13 @@ public class TaskExecutionService implements DynamicMetricsProvider {
     }
 
     /**
-     * CooperativeTaskWorker is used to poll the task call method, When a task times out, a new
-     * BusWork will be created to take over the execution of the task
+     * Cooperative task worker that polls tasks from the queue and executes them cooperatively. Uses
+     * a TaskCallTimer to detect stuck tasks. When a task times out, a new BusWork will be created
+     * to take over the execution.
+     *
+     * <p>In cooperative mode, multiple tasks share a single worker thread. Each task yields control
+     * by returning {@link ProgressState#isDone()} == false, allowing other tasks to run. This is
+     * efficient for CPU-bound tasks that don't block.
      */
     public final class CooperativeTaskWorker implements Runnable {
 
@@ -1057,7 +1058,11 @@ public class TaskExecutionService implements DynamicMetricsProvider {
         }
     }
 
-    /** Used to create a new BusWork and run */
+    /**
+     * Supplier that creates and runs new CooperativeTaskWorker instances (BusWork) when needed.
+     * New workers are created when the task queue has pending tasks and no idle worker is
+     * available.
+     */
     public final class RunBusWorkSupplier {
 
         ExecutorService executorService;
@@ -1089,8 +1094,8 @@ public class TaskExecutionService implements DynamicMetricsProvider {
     }
 
     /**
-     * Internal utility class to track the overall state of tasklet execution. There's one instance
-     * of this class per job.
+     * Internal utility class to track the overall state of a TaskGroup execution. There's one
+     * instance of this class per TaskGroup.
      */
     public final class TaskGroupExecutionTracker {
 
