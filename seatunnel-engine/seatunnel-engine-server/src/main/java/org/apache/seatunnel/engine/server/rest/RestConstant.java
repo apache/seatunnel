@@ -100,6 +100,7 @@ public class RestConstant {
     public static final String REST_URL_GET_ALL_LOG_NAME = "/get-all-log-name";
     public static final String REST_URL_METRICS = "/metrics";
     public static final String REST_URL_OPEN_METRICS = "/openmetrics";
+    public static final String REST_URL_OPTION_RULES = "/option-rules";
     public static final String REST_URL_CHECKPOINT_OVERVIEW = "/jobs/checkpoints";
     public static final String REST_URL_CHECKPOINT_HISTORY = "/jobs/checkpoints/history";
     // api path end
