@@ -490,8 +490,7 @@ public class SeaTunnelRowDebeziumDeserializationConverters implements Serializab
                 if (dbzObj instanceof Long) {
                     switch (schema.name()) {
                         case Timestamp.SCHEMA_NAME:
-                            return Instant.ofEpochMilli((Long) dbzObj)
-                                    .atOffset(ZoneOffset.UTC);
+                            return Instant.ofEpochMilli((Long) dbzObj).atOffset(ZoneOffset.UTC);
                         case MicroTimestamp.SCHEMA_NAME:
                             long micro = (long) dbzObj;
                             return Instant.ofEpochSecond(
@@ -499,16 +498,13 @@ public class SeaTunnelRowDebeziumDeserializationConverters implements Serializab
                                     .atOffset(ZoneOffset.UTC);
                         case NanoTimestamp.SCHEMA_NAME:
                             long nano = (long) dbzObj;
-                            return Instant.ofEpochSecond(
-                                            nano / 1000_000_000, nano % 1000_000_000)
+                            return Instant.ofEpochSecond(nano / 1000_000_000, nano % 1000_000_000)
                                     .atOffset(ZoneOffset.UTC);
                         default:
                     }
                 }
                 if (dbzObj instanceof java.util.Date) {
-                    return ((java.util.Date) dbzObj)
-                            .toInstant()
-                            .atOffset(ZoneOffset.UTC);
+                    return ((java.util.Date) dbzObj).toInstant().atOffset(ZoneOffset.UTC);
                 }
                 throw new IllegalArgumentException(
                         "Unable to convert to OffsetDateTime from unexpected value '"
