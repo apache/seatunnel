@@ -29,13 +29,24 @@ import lombok.SneakyThrows;
 import lombok.extern.slf4j.Slf4j;
 
 import java.io.File;
+import java.io.IOException;
+import java.lang.reflect.Field;
+import java.lang.reflect.Method;
 import java.net.URL;
+import java.net.URLClassLoader;
+import java.net.URLConnection;
+import java.util.ArrayList;
 import java.util.Collection;
+import java.util.HashSet;
+import java.util.Iterator;
 import java.util.Map;
 import java.util.Objects;
 import java.util.Optional;
+import java.util.Set;
 import java.util.concurrent.ConcurrentHashMap;
+import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.concurrent.atomic.AtomicInteger;
+import java.util.jar.JarFile;
 
 @Slf4j
 public class DefaultClassLoaderService implements ClassLoaderService {
@@ -44,13 +55,34 @@ public class DefaultClassLoaderService implements ClassLoaderService {
     private final Map<Long, Map<String, AtomicInteger>> classLoaderReferenceCount;
     private final NodeEngine nodeEngine;
     public static final String SKIP_CHECK_JAR = "CLASSLOADER_SERVICE_SKIP_CHECK_JAR";
+    public static final String ENABLE_DEEP_CLEAN = "SEATUNNEL_CLASSLOADER_DEEP_CLEAN";
+    private static final AtomicBoolean JAR_CACHE_DISABLED = new AtomicBoolean(false);
+    private static final AtomicBoolean DEEP_CLEAN_ENABLED = new AtomicBoolean(false);
 
     public DefaultClassLoaderService(boolean cacheMode, NodeEngine nodeEngine) {
         this.cacheMode = cacheMode;
         this.nodeEngine = nodeEngine;
         classLoaderCache = new ConcurrentHashMap<>();
         classLoaderReferenceCount = new ConcurrentHashMap<>();
-        log.info("start classloader service" + (cacheMode ? " with cache mode" : ""));
+        disableJarUrlCache();
+        log.info("start classloader service {}", cacheMode ? " with cache mode" : "");
+    }
+
+    private void disableJarUrlCache() {
+        if (JAR_CACHE_DISABLED.compareAndSet(false, true)) {
+            try {
+                URLConnection connection = new URL("jar:file://dummy.jar!/").openConnection();
+                connection.setDefaultUseCaches(false);
+                log.info("Disabled JAR URL connection cache");
+            } catch (Exception e) {
+                log.warn("Failed to disable JAR URL connection cache: {}", e.getMessage());
+            }
+        }
+        boolean deepClean = Boolean.parseBoolean(System.getProperty(ENABLE_DEEP_CLEAN, "false"));
+        DEEP_CLEAN_ENABLED.set(deepClean);
+        if (deepClean) {
+            log.info("Deep clean mode enabled (requires --add-opens JVM options)");
+        }
     }
 
     @SneakyThrows
@@ -124,6 +156,7 @@ public class DefaultClassLoaderService implements ClassLoaderService {
             log.info("Release classloader for job {} with jars {}", jobId, jars);
             classLoaderReferenceCount.get(jobId).remove(key);
             recycleClassLoaderFromThread(classLoader);
+            closeClassLoader(classLoader);
         }
         if (classLoaderMap.isEmpty()) {
             classLoaderCache.remove(jobId);
@@ -136,7 +169,7 @@ public class DefaultClassLoaderService implements ClassLoaderService {
                 .filter(thread -> thread.getContextClassLoader() == classLoader)
                 .forEach(
                         thread -> {
-                            log.info("recycle classloader for thread " + thread.getName());
+                            log.info("recycle classloader for thread {}", thread.getName());
                             thread.setContextClassLoader(null);
                         });
     }
@@ -192,7 +225,206 @@ public class DefaultClassLoaderService implements ClassLoaderService {
     @Override
     public void close() {
         log.info("close classloader service");
+        closeAllClassLoaders();
         classLoaderCache.clear();
         classLoaderReferenceCount.clear();
+    }
+
+    private void closeClassLoader(ClassLoader classLoader) {
+        if (classLoader == null) {
+            return;
+        }
+
+        // [Phase 1 Compromise]
+        // Currently, physical closure (URLClassLoader.close) and deep cache cleanups are strictly
+        // guarded by the DEEP_CLEAN_ENABLED flag.
+        //
+        // Reason: Many connectors currently leak their ClassLoader references into the global TCCL
+        // or static caches. In a shared JVM test environment (like GitHub CI), explicitly closing
+        // the Jar handlers here will cause subsequent ITs to fail with ZipException or NPE.
+        // Once the global TCCL isolation is fully implemented in Phase 3, this physical closure
+        // can be safely moved outside the flag as the default behavior.
+        if (DEEP_CLEAN_ENABLED.get()) {
+            closeUrlClassLoader(classLoader);
+            clearUrlClassPathCache(classLoader);
+            clearJarFileFactoryCache(classLoader);
+
+            // Success execution -> Elevated to INFO
+            log.info("Deep clean for ClassLoader completed successfully.");
+        }
+    }
+
+    private void closeUrlClassLoader(ClassLoader classLoader) {
+        if (classLoader instanceof URLClassLoader) {
+            try {
+                ((URLClassLoader) classLoader).close();
+                log.info("Successfully closed URLClassLoader: {}", classLoader);
+            } catch (IOException e) {
+                log.warn(
+                        "Failed to close URLClassLoader: {}, error: {}",
+                        classLoader,
+                        e.getMessage());
+            } catch (NoSuchMethodError e) {
+                log.debug("URLClassLoader.close() not available (Java < 7)");
+            }
+        }
+    }
+
+    private void closeAllClassLoaders() {
+        for (Map.Entry<Long, Map<String, ClassLoader>> jobEntry : classLoaderCache.entrySet()) {
+            Map<String, ClassLoader> loaderMap = jobEntry.getValue();
+            for (Map.Entry<String, ClassLoader> loaderEntry : loaderMap.entrySet()) {
+                closeClassLoader(loaderEntry.getValue());
+            }
+        }
+    }
+
+    private void clearUrlClassPathCache(ClassLoader classLoader) {
+        if (!(classLoader instanceof URLClassLoader)) {
+            return;
+        }
+        try {
+            Field ucpField = URLClassLoader.class.getDeclaredField("ucp");
+            ucpField.setAccessible(true);
+            Object ucp = ucpField.get(classLoader);
+            if (ucp == null) {
+                return;
+            }
+            Field loadersField = ucp.getClass().getDeclaredField("loaders");
+            loadersField.setAccessible(true);
+            Object loaders = loadersField.get(ucp);
+            if (loaders instanceof ArrayList) {
+                ArrayList<?> loadersList = (ArrayList<?>) loaders;
+                for (Object loader : loadersList) {
+                    closeJarLoader(loader);
+                }
+                loadersList.clear();
+            }
+            Field lmapField = ucp.getClass().getDeclaredField("lmap");
+            lmapField.setAccessible(true);
+            Object lmap = lmapField.get(ucp);
+            if (lmap instanceof Map) {
+                ((Map<?, ?>) lmap).clear();
+            }
+            log.info("Cleared URLClassPath cache for: {}", classLoader);
+        } catch (Exception e) {
+            // Configuration/Initialization errors -> Elevated to WARN
+            log.warn(
+                    "Failed to clear URLClassPath cache due to reflection restrictions. Please add '--add-opens java.base/java.net=ALL-UNNAMED' to JVM options.",
+                    e);
+        }
+    }
+
+    private void closeJarLoader(Object loader) {
+        try {
+            Field jarFileField = loader.getClass().getDeclaredField("jar");
+            jarFileField.setAccessible(true);
+            Object jarFile = jarFileField.get(loader);
+            if (jarFile != null) {
+                Method closeMethod = jarFile.getClass().getDeclaredMethod("close");
+                closeMethod.setAccessible(true);
+                closeMethod.invoke(jarFile);
+                log.info("Closed JarFile: {}", jarFile);
+            }
+        } catch (NoSuchFieldException e) {
+            try {
+                Method closeMethod = loader.getClass().getDeclaredMethod("close");
+                closeMethod.setAccessible(true);
+                closeMethod.invoke(loader);
+            } catch (Exception ex) {
+                // Empty catch block fixed -> Keep at DEBUG to avoid spamming
+                log.debug("Failed to invoke close() on inner jar loader: {}", ex.getMessage());
+            }
+        } catch (Exception e) {
+            // Per-resource cleanup failures -> Keep at DEBUG
+            log.debug("Failed to close JarLoader: {}", e.getMessage());
+        }
+    }
+
+    private void clearJarFileFactoryCache(ClassLoader classLoader) {
+        if (!(classLoader instanceof URLClassLoader)) {
+            return;
+        }
+        try {
+            Set<String> targetJarPaths = new HashSet<>();
+            for (URL url : ((URLClassLoader) classLoader).getURLs()) {
+                try {
+                    String protocol = url.getProtocol();
+                    if ("file".equalsIgnoreCase(protocol)) {
+                        targetJarPaths.add(new File(url.toURI()).getCanonicalPath());
+                    } else if ("jar".equalsIgnoreCase(protocol)) {
+                        String fileUrlString = url.getFile();
+                        if (fileUrlString.startsWith("file:")) {
+                            int bangIndex = fileUrlString.indexOf("!");
+                            if (bangIndex > 0) {
+                                fileUrlString = fileUrlString.substring(0, bangIndex);
+                            }
+                            targetJarPaths.add(
+                                    new File(new URL(fileUrlString).toURI()).getCanonicalPath());
+                        }
+                    }
+                } catch (Exception e) {
+                    log.debug("Failed to parse URL for deep clean: {}", url, e);
+                }
+            }
+
+            if (targetJarPaths.isEmpty()) {
+                return;
+            }
+
+            Class<?> jarFileFactoryClass = Class.forName("sun.net.www.protocol.jar.JarFileFactory");
+            Field fileCacheField = jarFileFactoryClass.getDeclaredField("fileCache");
+            fileCacheField.setAccessible(true);
+            Map<?, ?> fileCache = (Map<?, ?>) fileCacheField.get(null);
+
+            Field urlCacheField = jarFileFactoryClass.getDeclaredField("urlCache");
+            urlCacheField.setAccessible(true);
+            Map<?, ?> urlCache = (Map<?, ?>) urlCacheField.get(null);
+
+            synchronized (jarFileFactoryClass) {
+                if (fileCache != null) {
+                    Iterator<? extends Map.Entry<?, ?>> iterator = fileCache.entrySet().iterator();
+                    while (iterator.hasNext()) {
+                        Map.Entry<?, ?> entry = iterator.next();
+                        Object value = entry.getValue();
+                        if (value instanceof JarFile) {
+                            JarFile jarFile = (JarFile) value;
+                            if (targetJarPaths.contains(jarFile.getName())) {
+                                try {
+                                    jarFile.close();
+                                } catch (IOException e) {
+                                    log.debug("Failed to close JarFile: {}", jarFile.getName(), e);
+                                }
+                                iterator.remove();
+                            }
+                        }
+                    }
+                }
+
+                if (urlCache != null) {
+                    Iterator<? extends Map.Entry<?, ?>> urlIterator =
+                            urlCache.entrySet().iterator();
+                    while (urlIterator.hasNext()) {
+                        Map.Entry<?, ?> entry = urlIterator.next();
+                        Object key = entry.getKey();
+                        if (key instanceof JarFile) {
+                            JarFile jarFile = (JarFile) key;
+                            if (targetJarPaths.contains(jarFile.getName())) {
+                                urlIterator.remove();
+                            }
+                        }
+                    }
+                }
+            }
+            log.info("Finished targeted deep clean of JarFileFactory global cache");
+        } catch (ClassNotFoundException e) {
+            // Configuration/Initialization errors -> Elevated to WARN
+            log.warn("Deep clean failed: JarFileFactory class not found (non-HotSpot JVM?).", e);
+        } catch (Exception e) {
+            // Configuration/Initialization errors -> Elevated to WARN
+            log.warn(
+                    "Deep clean failed due to reflection restrictions. Please add '--add-opens java.base/sun.net.www.protocol.jar=ALL-UNNAMED' to JVM options.",
+                    e);
+        }
     }
 }

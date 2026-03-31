@@ -30,9 +30,16 @@ import com.hazelcast.instance.impl.Node;
 import com.hazelcast.spi.impl.NodeEngineImpl;
 
 import java.io.File;
+import java.io.FileOutputStream;
 import java.io.IOException;
+import java.lang.reflect.Field;
 import java.net.MalformedURLException;
 import java.net.URL;
+import java.net.URLClassLoader;
+import java.util.Map;
+import java.util.jar.JarFile;
+import java.util.zip.ZipEntry;
+import java.util.zip.ZipOutputStream;
 
 public class ClassLoaderServiceTest extends AbstractClassLoaderServiceTest {
 
@@ -149,5 +156,247 @@ public class ClassLoaderServiceTest extends AbstractClassLoaderServiceTest {
 
         // Deleting the temporary jar file after test
         tempJar.delete();
+    }
+
+    @Test
+    void testClassLoaderClosedOnRelease() throws IOException {
+        File tempJar = File.createTempFile("test", ".jar");
+        URL jarUrl = tempJar.toURI().toURL();
+
+        ClassLoader classLoader = classLoaderService.getClassLoader(1L, Lists.newArrayList(jarUrl));
+        Assertions.assertNotNull(classLoader);
+        Assertions.assertTrue(classLoader instanceof URLClassLoader);
+
+        classLoaderService.releaseClassLoader(1L, Lists.newArrayList(jarUrl));
+
+        Assertions.assertFalse(
+                classLoaderService
+                        .queryClassLoaderById(1L, Lists.newArrayList(jarUrl))
+                        .isPresent());
+
+        tempJar.delete();
+    }
+
+    @Test
+    void testCloseAllClassLoadersOnServiceClose() throws IOException {
+        File tempJar1 = File.createTempFile("test1", ".jar");
+        File tempJar2 = File.createTempFile("test2", ".jar");
+
+        classLoaderService.getClassLoader(1L, Lists.newArrayList(tempJar1.toURI().toURL()));
+        classLoaderService.getClassLoader(2L, Lists.newArrayList(tempJar2.toURI().toURL()));
+
+        Assertions.assertEquals(2, classLoaderService.queryClassLoaderCount());
+
+        classLoaderService.close();
+
+        Assertions.assertEquals(0, classLoaderService.queryClassLoaderCount());
+
+        tempJar1.delete();
+        tempJar2.delete();
+    }
+
+    @Test
+    void testDeepCleanModeDisabledByDefault() {
+        Assertions.assertFalse(
+                Boolean.parseBoolean(
+                        System.getProperty(DefaultClassLoaderService.ENABLE_DEEP_CLEAN, "false")));
+    }
+
+    @Test
+    void testDeepCleanModeEnabled() throws IOException {
+        File tempJar = File.createTempFile("test", ".jar");
+        URL jarUrl = tempJar.toURI().toURL();
+
+        try {
+            System.setProperty(DefaultClassLoaderService.ENABLE_DEEP_CLEAN, "true");
+
+            DefaultClassLoaderService serviceWithDeepClean =
+                    new DefaultClassLoaderService(false, null);
+
+            ClassLoader classLoader =
+                    serviceWithDeepClean.getClassLoader(1L, Lists.newArrayList(jarUrl));
+            Assertions.assertNotNull(classLoader);
+
+            serviceWithDeepClean.releaseClassLoader(1L, Lists.newArrayList(jarUrl));
+            serviceWithDeepClean.close();
+        } finally {
+            System.clearProperty(DefaultClassLoaderService.ENABLE_DEEP_CLEAN);
+        }
+
+        tempJar.delete();
+    }
+
+    @Test
+    void testJarUrlCacheDisabledOnStartup() {
+        DefaultClassLoaderService newService = new DefaultClassLoaderService(false, null);
+        Assertions.assertNotNull(newService);
+        newService.close();
+    }
+
+    @Test
+    void testCloseWithEmptyClassLoaderCache() {
+        DefaultClassLoaderService service = new DefaultClassLoaderService(false, null);
+        Assertions.assertDoesNotThrow(service::close);
+    }
+
+    @Test
+    void testReleaseNonExistentClassLoader() throws MalformedURLException {
+        URL fakeUrl = new URL("file:///nonexistent.jar");
+        Assertions.assertDoesNotThrow(
+                () -> classLoaderService.releaseClassLoader(999L, Lists.newArrayList(fakeUrl)));
+    }
+
+    @Test
+    void testMultipleReleaseCalls() throws IOException {
+        File tempJar = File.createTempFile("test", ".jar");
+        URL jarUrl = tempJar.toURI().toURL();
+
+        classLoaderService.getClassLoader(1L, Lists.newArrayList(jarUrl));
+        classLoaderService.releaseClassLoader(1L, Lists.newArrayList(jarUrl));
+
+        Assertions.assertDoesNotThrow(
+                () -> classLoaderService.releaseClassLoader(1L, Lists.newArrayList(jarUrl)));
+
+        tempJar.delete();
+    }
+
+    private File createValidEmptyJar(String prefix) throws IOException {
+        File tempJar = File.createTempFile(prefix, ".jar");
+        try (ZipOutputStream zos = new ZipOutputStream(new FileOutputStream(tempJar))) {
+            zos.putNextEntry(new ZipEntry("META-INF/"));
+            zos.closeEntry();
+        }
+        return tempJar;
+    }
+
+    @Test
+    void testDeepCleanTargetedRemovalWithoutCollateralDamage() throws Exception {
+        File targetJar = createValidEmptyJar("target-clean");
+        File innocentJar = createValidEmptyJar("innocent-survivor");
+        URL targetUrl = targetJar.toURI().toURL();
+        URL innocentUrl = innocentJar.toURI().toURL();
+
+        try {
+            System.setProperty(DefaultClassLoaderService.ENABLE_DEEP_CLEAN, "true");
+            DefaultClassLoaderService service = new DefaultClassLoaderService(false, null);
+
+            Class<?> jarFileFactoryClass = Class.forName("sun.net.www.protocol.jar.JarFileFactory");
+            Field fileCacheField = jarFileFactoryClass.getDeclaredField("fileCache");
+            fileCacheField.setAccessible(true);
+            Map fileCache = (Map) fileCacheField.get(null);
+
+            JarFile innocentJarFile = new JarFile(innocentJar);
+            URL innocentFileUrl = new URL("jar:" + innocentUrl + "!/");
+            synchronized (jarFileFactoryClass) {
+                fileCache.put(innocentFileUrl, innocentJarFile);
+            }
+
+            ClassLoader targetLoader = service.getClassLoader(1L, Lists.newArrayList(targetUrl));
+            Assertions.assertNotNull(targetLoader);
+
+            JarFile targetJarFile = new JarFile(targetJar);
+            URL targetFileUrl = new URL("jar:" + targetUrl + "!/");
+            synchronized (jarFileFactoryClass) {
+                fileCache.put(targetFileUrl, targetJarFile);
+            }
+
+            service.releaseClassLoader(1L, Lists.newArrayList(targetUrl));
+
+            synchronized (jarFileFactoryClass) {
+                boolean targetExist = false;
+                boolean innocentExist = false;
+                for (Object value : fileCache.values()) {
+                    String name = ((JarFile) value).getName();
+                    if (name.contains("target-clean")) {
+                        targetExist = true;
+                    }
+                    if (name.contains("innocent-survivor")) {
+                        innocentExist = true;
+                    }
+                }
+                Assertions.assertFalse(targetExist, "Target jar should be removed from cache");
+                Assertions.assertTrue(
+                        innocentExist, "Innocent jar should NOT be removed from cache");
+            }
+
+            innocentJarFile.close();
+            synchronized (jarFileFactoryClass) {
+                fileCache.remove(innocentFileUrl);
+            }
+
+            service.close();
+        } catch (ClassNotFoundException e) {
+            // Ignored, maybe not HotSpot JVM
+        } finally {
+            System.clearProperty(DefaultClassLoaderService.ENABLE_DEEP_CLEAN);
+        }
+
+        targetJar.delete();
+        innocentJar.delete();
+    }
+
+    @Test
+    void testJarFileFactoryCacheClearedOnRelease() throws Exception {
+        File tempJar = createValidEmptyJar("cache-clean-target");
+        URL jarUrl = tempJar.toURI().toURL();
+
+        try {
+            System.setProperty(DefaultClassLoaderService.ENABLE_DEEP_CLEAN, "true");
+            DefaultClassLoaderService service = new DefaultClassLoaderService(false, null);
+
+            Class<?> jarFileFactoryClass = Class.forName("sun.net.www.protocol.jar.JarFileFactory");
+
+            Field fileCacheField = jarFileFactoryClass.getDeclaredField("fileCache");
+            fileCacheField.setAccessible(true);
+            Map fileCache = (Map) fileCacheField.get(null);
+
+            Field urlCacheField = jarFileFactoryClass.getDeclaredField("urlCache");
+            urlCacheField.setAccessible(true);
+            Map urlCache = (Map) urlCacheField.get(null);
+
+            JarFile targetJarFile = new JarFile(tempJar);
+            URL targetFileUrl = new URL("jar:" + jarUrl + "!/");
+            synchronized (jarFileFactoryClass) {
+                fileCache.put(targetFileUrl, targetJarFile);
+                urlCache.put(targetJarFile, targetFileUrl);
+            }
+
+            ClassLoader targetLoader = service.getClassLoader(1L, Lists.newArrayList(jarUrl));
+            Assertions.assertNotNull(targetLoader);
+
+            service.releaseClassLoader(1L, Lists.newArrayList(jarUrl));
+
+            synchronized (jarFileFactoryClass) {
+                boolean existInFileCache = false;
+                for (Object value : fileCache.values()) {
+                    if (value instanceof JarFile
+                            && ((JarFile) value).getName().contains("cache-clean-target")) {
+                        existInFileCache = true;
+                        break;
+                    }
+                }
+
+                boolean existInUrlCache = false;
+                for (Object key : urlCache.keySet()) {
+                    if (key instanceof JarFile
+                            && ((JarFile) key).getName().contains("cache-clean-target")) {
+                        existInUrlCache = true;
+                        break;
+                    }
+                }
+
+                Assertions.assertFalse(
+                        existInFileCache,
+                        "Target jar must be removed from JarFileFactory fileCache");
+                Assertions.assertFalse(
+                        existInUrlCache, "Target jar must be removed from JarFileFactory urlCache");
+            }
+            service.close();
+        } catch (ClassNotFoundException e) {
+            // Ignored, maybe not HotSpot JVM
+        } finally {
+            System.clearProperty(DefaultClassLoaderService.ENABLE_DEEP_CLEAN);
+            tempJar.delete();
+        }
     }
 }
