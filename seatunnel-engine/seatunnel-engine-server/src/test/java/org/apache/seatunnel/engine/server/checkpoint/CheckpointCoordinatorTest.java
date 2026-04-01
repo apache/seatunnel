@@ -51,6 +51,7 @@ import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
+import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.ExecutionException;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
@@ -370,6 +371,108 @@ public class CheckpointCoordinatorTest
         Assertions.assertEquals(1, checkpointManager.operations.size());
 
         executor.shutdownNow();
+    }
+
+    /**
+     * Regression test for the NPE bug in {@code completePendingCheckpoint}.
+     *
+     * <p>When {@code notifyCompleted()} encounters an exception internally, it calls {@code
+     * handleCoordinatorError} which in turn calls {@code cleanPendingCheckpoint}, which clears
+     * {@code pendingCheckpoints}. The subsequent {@code pendingCheckpoints.remove(checkpointId)}
+     * then returns {@code null}, and the original chained call {@code
+     * .abortCheckpointTimeoutFutureWhenIsCompleted()} would throw a {@link NullPointerException}.
+     *
+     * <p>After the fix, {@code completePendingCheckpoint} performs a null-check before calling
+     * {@code abortCheckpointTimeoutFutureWhenIsCompleted()}, so no NPE is thrown.
+     */
+    @Test
+    void testCompletePendingCheckpointShouldNotThrowNPEWhenNotifyCompletedClearsPendingMap() {
+        CheckpointConfig checkpointConfig = new CheckpointConfig();
+        checkpointConfig.setStorage(new CheckpointStorageConfig());
+
+        TaskLocation taskLocation = new TaskLocation(new TaskGroupLocation(1L, 1, 1), 1, 1);
+        Map<Integer, CheckpointPlan> planMap = new HashMap<>();
+        planMap.put(
+                1,
+                CheckpointPlan.builder()
+                        .pipelineId(1)
+                        .pipelineSubtasks(Collections.singleton(taskLocation))
+                        .startingSubtasks(Collections.singleton(taskLocation))
+                        .build());
+
+        ExecutorService executorService = Executors.newCachedThreadPool();
+        try {
+            CheckpointManager checkpointManager =
+                    new CheckpointManager(
+                            1L,
+                            false,
+                            nodeEngine,
+                            null,
+                            planMap,
+                            checkpointConfig,
+                            server.getCheckpointService().getCheckpointStorage(),
+                            executorService,
+                            nodeEngine.getHazelcastInstance().getMap(IMAP_RUNNING_JOB_STATE),
+                            null);
+
+            CheckpointCoordinator coordinator = checkpointManager.getCheckpointCoordinator(1);
+
+            CheckpointCoordinator spyCoordinator = Mockito.spy(coordinator);
+            Mockito.doAnswer(
+                            invocation -> {
+                                @SuppressWarnings("unchecked")
+                                ConcurrentHashMap<Long, PendingCheckpoint> map =
+                                        (ConcurrentHashMap<Long, PendingCheckpoint>)
+                                                ReflectionUtils.getField(
+                                                                spyCoordinator,
+                                                                "pendingCheckpoints")
+                                                        .orElse(null);
+                                if (map != null) {
+                                    map.clear();
+                                }
+                                return null;
+                            })
+                    .when(spyCoordinator)
+                    .notifyCompleted(Mockito.any());
+
+            long checkpointId = 1L;
+            CompletedCheckpoint completedCheckpoint =
+                    new CompletedCheckpoint(
+                            1L,
+                            1,
+                            checkpointId,
+                            System.currentTimeMillis(),
+                            CheckpointType.CHECKPOINT_TYPE,
+                            System.currentTimeMillis(),
+                            new HashMap<>(),
+                            new HashMap<>());
+
+            PendingCheckpoint pendingCheckpoint =
+                    new PendingCheckpoint(
+                            1L,
+                            1,
+                            checkpointId,
+                            System.currentTimeMillis(),
+                            CheckpointType.CHECKPOINT_TYPE,
+                            new HashSet<>(),
+                            new HashMap<>(),
+                            new HashMap<>());
+            ConcurrentHashMap<Long, PendingCheckpoint> pendingCheckpoints =
+                    (ConcurrentHashMap<Long, PendingCheckpoint>)
+                            ReflectionUtils.getField(spyCoordinator, "pendingCheckpoints")
+                                    .orElseThrow(
+                                            () ->
+                                                    new IllegalStateException(
+                                                            "pendingCheckpoints field not found"));
+            pendingCheckpoints.put(checkpointId, pendingCheckpoint);
+
+            Assertions.assertDoesNotThrow(
+                    () -> spyCoordinator.completePendingCheckpoint(completedCheckpoint),
+                    "completePendingCheckpoint must not throw NullPointerException when "
+                            + "pendingCheckpoints is cleared by notifyCompleted");
+        } finally {
+            executorService.shutdownNow();
+        }
     }
 }
 
