@@ -586,8 +586,8 @@ public class TaskExecutionService implements DynamicMetricsProvider {
     }
 
     /**
-     * Notifies the master node of the task execution state. This method retries indefinitely
-     * until successful or the service is shutdown.
+     * Notifies the master node of the task execution state. This method retries indefinitely until
+     * successful or the service is shutdown.
      *
      * @param taskGroupLocation the location of the task group
      * @param taskExecutionState the execution state to report
@@ -970,7 +970,6 @@ public class TaskExecutionService implements DynamicMetricsProvider {
          *   <li>Stop the timer and check the result
          *   <li>If task is done, mark it complete; otherwise, re-queue for next iteration
          * </ol>
-         *
          */
         @SneakyThrows
         @Override
@@ -1059,9 +1058,8 @@ public class TaskExecutionService implements DynamicMetricsProvider {
     }
 
     /**
-     * Supplier that creates and runs new CooperativeTaskWorker instances (BusWork) when needed.
-     * New workers are created when the task queue has pending tasks and no idle worker is
-     * available.
+     * Supplier that creates and runs new CooperativeTaskWorker instances (BusWork) when needed. New
+     * workers are created when the task queue has pending tasks and no idle worker is available.
      */
     public final class RunBusWorkSupplier {
 
