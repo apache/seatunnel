@@ -527,17 +527,14 @@ public class CoordinatorServiceTest {
         // Inject a zombie: job in FAILED state that was never cleaned from runningJobInfoIMap
         // (simulates coordinator dying mid-cleanup before removeJobIMap executed)
         long zombieJobId =
-                instance1
-                        .getFlakeIdGenerator(Constant.SEATUNNEL_ID_GENERATOR_NAME)
-                        .newId();
+                instance1.getFlakeIdGenerator(Constant.SEATUNNEL_ID_GENERATOR_NAME).newId();
         IMap<Long, org.apache.seatunnel.engine.core.job.JobInfo> runningJobInfoIMap =
                 instance1.getMap(Constant.IMAP_RUNNING_JOB_INFO);
         IMap<Long, JobStatus> runningJobStateIMap =
                 instance1.getMap(Constant.IMAP_RUNNING_JOB_STATE);
         runningJobInfoIMap.put(
                 zombieJobId,
-                new org.apache.seatunnel.engine.core.job.JobInfo(
-                        System.currentTimeMillis(), null));
+                new org.apache.seatunnel.engine.core.job.JobInfo(System.currentTimeMillis(), null));
         runningJobStateIMap.put(zombieJobId, JobStatus.FAILED);
 
         Assertions.assertTrue(runningJobInfoIMap.containsKey(zombieJobId));
