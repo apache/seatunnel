@@ -720,6 +720,10 @@ public class CoordinatorService {
             runningJobInfoIMap.remove(jobId);
             return;
         }
+        if (jobState instanceof JobStatus && ((JobStatus) jobState).isEndState()) {
+            runningJobInfoIMap.remove(jobId);
+            return;
+        }
 
         JobMaster jobMaster =
                 new JobMaster(

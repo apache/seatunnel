@@ -352,20 +352,12 @@ public class PhysicalVertex {
         try {
             ExecutionState current = (ExecutionState) runningJobStateIMap.get(taskGroupLocation);
             if (current == null) {
-                current = currExecutionState;
-                if (current == null) {
-                    log.warn(
-                            "{} current state is null, cannot transition to {}. Task execution location: {}",
-                            taskFullName,
-                            targetState,
-                            taskGroupLocation);
-                    return;
-                }
                 log.warn(
-                        "{} distributed state has already been cleaned, fallback to local state {} for transition to {}",
+                        "{} current state is null, skip transition to {}. Task execution location: {}",
                         taskFullName,
-                        current,
-                        targetState);
+                        targetState,
+                        taskGroupLocation);
+                return;
             }
             log.debug(
                     String.format(

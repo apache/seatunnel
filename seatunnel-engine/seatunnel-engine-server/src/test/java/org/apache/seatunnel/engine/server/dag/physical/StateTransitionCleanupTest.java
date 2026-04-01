@@ -24,18 +24,16 @@ import org.apache.seatunnel.engine.common.config.EngineConfig;
 import org.apache.seatunnel.engine.common.config.JobConfig;
 import org.apache.seatunnel.engine.core.dag.logical.LogicalDag;
 import org.apache.seatunnel.engine.core.job.JobImmutableInformation;
-import org.apache.seatunnel.engine.core.job.JobResult;
 import org.apache.seatunnel.engine.core.job.JobStatus;
-import org.apache.seatunnel.engine.core.job.PipelineStatus;
 import org.apache.seatunnel.engine.server.AbstractSeaTunnelServerTest;
 import org.apache.seatunnel.engine.server.TestUtils;
+import org.apache.seatunnel.engine.server.execution.ExecutionState;
 
 import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.Test;
 
 import com.hazelcast.map.IMap;
 
-import java.lang.reflect.Field;
 import java.net.MalformedURLException;
 import java.util.Collections;
 import java.util.concurrent.Executors;
@@ -45,44 +43,54 @@ import static org.apache.seatunnel.engine.common.config.server.QueueType.BLOCKIN
 class StateTransitionCleanupTest extends AbstractSeaTunnelServerTest {
 
     @Test
-    void testSubPlanUsesLocalStateWhenDistributedPipelineStateAlreadyCleaned() throws Exception {
+    void testPhysicalVertexIgnoresLateTransitionWhenTaskStateAlreadyTerminal() throws Exception {
+        long jobId = instance.getFlakeIdGenerator(Constant.SEATUNNEL_ID_GENERATOR_NAME).newId();
+        PlanWithStateMaps planWithStateMaps = createPhysicalPlan(jobId);
+
+        PhysicalVertex physicalVertex =
+                planWithStateMaps
+                        .physicalPlan
+                        .getPipelineList()
+                        .get(0)
+                        .getPhysicalVertexList()
+                        .get(0);
+
+        planWithStateMaps.runningJobState.put(
+                physicalVertex.getTaskGroupLocation(), ExecutionState.FAILED);
+
+        physicalVertex.updateTaskState(ExecutionState.CANCELING);
+
+        Assertions.assertEquals(
+                ExecutionState.FAILED,
+                planWithStateMaps.runningJobState.get(physicalVertex.getTaskGroupLocation()));
+    }
+
+    @Test
+    void testSubPlanIgnoresLateTransitionWhenPipelineStateAlreadyTerminal() throws Exception {
         long jobId = instance.getFlakeIdGenerator(Constant.SEATUNNEL_ID_GENERATOR_NAME).newId();
         PlanWithStateMaps planWithStateMaps = createPhysicalPlan(jobId);
 
         SubPlan subPlan = planWithStateMaps.physicalPlan.getPipelineList().get(0);
         PipelineLocation pipelineLocation = subPlan.getPipelineLocation();
 
-        planWithStateMaps.runningJobState.remove(pipelineLocation);
-        planWithStateMaps.runningJobStateTimestamps.remove(pipelineLocation);
+        planWithStateMaps.runningJobState.put(pipelineLocation, PipelineStatus.FAILED);
 
-        subPlan.updatePipelineState(PipelineStatus.SCHEDULED);
+        subPlan.updatePipelineState(PipelineStatus.CANCELING);
 
-        Assertions.assertEquals(PipelineStatus.SCHEDULED, subPlan.getPipelineState());
-        Assertions.assertNull(planWithStateMaps.runningJobState.get(pipelineLocation));
+        Assertions.assertEquals(
+                PipelineStatus.FAILED, planWithStateMaps.runningJobState.get(pipelineLocation));
     }
 
     @Test
-    void testPhysicalPlanCompletesTerminalFutureWhenDistributedJobStateAlreadyCleaned()
-            throws Exception {
+    void testPhysicalPlanIgnoresLateTransitionWhenJobStateAlreadyTerminal() throws Exception {
         long jobId = instance.getFlakeIdGenerator(Constant.SEATUNNEL_ID_GENERATOR_NAME).newId();
         PlanWithStateMaps planWithStateMaps = createPhysicalPlan(jobId);
 
-        org.apache.seatunnel.engine.common.utils.concurrent.CompletableFuture<JobResult>
-                jobEndFuture =
-                        new org.apache.seatunnel.engine.common.utils.concurrent
-                                .CompletableFuture<>();
-        setField(planWithStateMaps.physicalPlan, "jobEndFuture", jobEndFuture);
-        setBooleanField(planWithStateMaps.physicalPlan, "isRunning", true);
+        planWithStateMaps.runningJobState.put(jobId, JobStatus.FAILED);
 
-        planWithStateMaps.runningJobState.remove(jobId);
-        planWithStateMaps.runningJobStateTimestamps.remove(jobId);
+        planWithStateMaps.physicalPlan.updateJobState(JobStatus.CANCELING);
 
-        planWithStateMaps.physicalPlan.updateJobState(JobStatus.FAILED);
-
-        Assertions.assertTrue(jobEndFuture.isDone());
-        Assertions.assertEquals(JobStatus.FAILED, jobEndFuture.get().getStatus());
-        Assertions.assertEquals(JobStatus.FAILED, planWithStateMaps.physicalPlan.getJobStatus());
-        Assertions.assertNull(planWithStateMaps.runningJobState.get(jobId));
+        Assertions.assertEquals(JobStatus.FAILED, planWithStateMaps.runningJobState.get(jobId));
     }
 
     private PlanWithStateMaps createPhysicalPlan(long jobId) throws MalformedURLException {
@@ -125,18 +133,6 @@ class StateTransitionCleanupTest extends AbstractSeaTunnelServerTest {
                         .f0();
 
         return new PlanWithStateMaps(physicalPlan, runningJobState, runningJobStateTimestamps);
-    }
-
-    private void setBooleanField(Object target, String fieldName, boolean value) throws Exception {
-        Field field = target.getClass().getDeclaredField(fieldName);
-        field.setAccessible(true);
-        field.setBoolean(target, value);
-    }
-
-    private void setField(Object target, String fieldName, Object value) throws Exception {
-        Field field = target.getClass().getDeclaredField(fieldName);
-        field.setAccessible(true);
-        field.set(target, value);
     }
 
     private static final class PlanWithStateMaps {

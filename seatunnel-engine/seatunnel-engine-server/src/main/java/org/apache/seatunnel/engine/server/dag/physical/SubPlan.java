@@ -343,19 +343,11 @@ public class SubPlan {
         try {
             PipelineStatus current = (PipelineStatus) runningJobStateIMap.get(pipelineLocation);
             if (current == null) {
-                current = currPipelineStatus;
-                if (current == null) {
-                    log.warn(
-                            "{} current state is null, cannot transition to {}",
-                            pipelineFullName,
-                            targetState);
-                    return;
-                }
                 log.warn(
-                        "{} distributed state has already been cleaned, fallback to local state {} for transition to {}",
+                        "{} current state is null, skip transition to {}",
                         pipelineFullName,
-                        current,
                         targetState);
+                return;
             }
             log.debug(
                     String.format(

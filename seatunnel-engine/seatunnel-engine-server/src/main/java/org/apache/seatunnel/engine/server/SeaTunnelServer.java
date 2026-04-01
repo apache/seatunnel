@@ -94,7 +94,7 @@ public class SeaTunnelServer
     private CoordinatorService coordinatorService;
     @Getter private CheckpointService checkpointService;
     @Getter private CheckpointMonitorService checkpointMonitorService;
-    private ScheduledExecutorService monitorService;
+    @Getter private ScheduledExecutorService monitorService;
     private JettyService jettyService;
     private TaskLogManagerService taskLogManagerService;
 

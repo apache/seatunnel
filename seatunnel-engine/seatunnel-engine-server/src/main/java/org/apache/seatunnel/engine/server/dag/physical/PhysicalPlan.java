@@ -80,8 +80,6 @@ public class PhysicalPlan {
 
     private JobMaster jobMaster;
 
-    private volatile JobStatus currJobStatus;
-
     private Map<TaskGroupLocation, CompletableFuture<SlotProfile>> preApplyResourceFutures =
             new HashMap<>();
 
@@ -116,8 +114,6 @@ public class PhysicalPlan {
 
             runningJobStateIMap.put(jobId, JobStatus.CREATED);
         }
-
-        this.currJobStatus = (JobStatus) runningJobStateIMap.get(jobId);
 
         this.pipelineList = pipelineList;
         if (pipelineList.isEmpty()) {
@@ -294,19 +290,11 @@ public class PhysicalPlan {
         try {
             JobStatus current = (JobStatus) runningJobStateIMap.get(jobId);
             if (current == null) {
-                current = currJobStatus;
-                if (current == null) {
-                    log.warn(
-                            "{} current state is null, cannot transition to {}",
-                            jobFullName,
-                            targetState);
-                    return;
-                }
                 log.warn(
-                        "{} distributed state has already been cleaned, fallback to local state {} for transition to {}",
+                        "{} current state is null, skip transition to {}",
                         jobFullName,
-                        current,
                         targetState);
+                return;
             }
             log.debug(
                     "Try to update the {} state from {} to {}", jobFullName, current, targetState);
@@ -326,7 +314,6 @@ public class PhysicalPlan {
             // Now do the actual state transition, we must update runningJobStateTimestampsIMap
             // first and then can update runningJobStateIMap
             updateStateInfo(current, targetState);
-            this.currJobStatus = targetState;
             stateProcess();
         } catch (Exception e) {
             log.error(ExceptionUtils.getMessage(e));
@@ -341,8 +328,7 @@ public class PhysicalPlan {
     }
 
     public JobStatus getJobStatus() {
-        JobStatus jobStatus = (JobStatus) runningJobStateIMap.get(jobId);
-        return jobStatus != null ? jobStatus : currJobStatus;
+        return (JobStatus) runningJobStateIMap.get(jobId);
     }
 
     public String getJobFullName() {

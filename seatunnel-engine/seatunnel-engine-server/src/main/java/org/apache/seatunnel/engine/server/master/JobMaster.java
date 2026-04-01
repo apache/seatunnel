@@ -106,6 +106,7 @@ import java.util.concurrent.CompletionException;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.CopyOnWriteArrayList;
 import java.util.concurrent.ExecutorService;
+import java.util.concurrent.TimeUnit;
 import java.util.stream.Collectors;
 
 import static com.hazelcast.jet.impl.util.ExceptionUtil.withTryCatch;
@@ -601,7 +602,7 @@ public class JobMaster {
                         });
     }
 
-    private void removeJobIMap() {
+    private void removeJobStateMaps() {
         Long jobId = getJobImmutableInformation().getJobId();
         runningJobStateTimestampsIMap.remove(jobId);
 
@@ -629,14 +630,46 @@ public class JobMaster {
                                                         task.getTaskGroupLocation());
                                             });
 
-                            String checkpointStateImapKey =
-                                    checkpointManager
-                                            .getCheckpointCoordinator(pipeline.getPipelineId())
-                                            .getCheckpointStateImapKey();
-                            runningJobStateIMap.remove(checkpointStateImapKey);
+                            if (checkpointManager != null) {
+                                String checkpointStateImapKey =
+                                        checkpointManager
+                                                .getCheckpointCoordinator(pipeline.getPipelineId())
+                                                .getCheckpointStateImapKey();
+                                runningJobStateIMap.remove(checkpointStateImapKey);
+                            }
                         });
         runningJobStateIMap.remove(jobId);
+    }
+
+    private void scheduleRemoveJobStateMaps() {
+        Long jobId = getJobImmutableInformation().getJobId();
         runningJobInfoIMap.remove(jobId);
+
+        long cleanupDelayMillis = engineConfig.getStateCleanupDelayMillis();
+        if (cleanupDelayMillis <= 0 || seaTunnelServer.getMonitorService() == null) {
+            removeJobStateMaps();
+            return;
+        }
+
+        LOGGER.info(
+                String.format(
+                        "Keep terminal state for %s ms before removing state maps for job %s",
+                        cleanupDelayMillis, jobId));
+        seaTunnelServer
+                .getMonitorService()
+                .schedule(
+                        () -> {
+                            try {
+                                removeJobStateMaps();
+                            } catch (Exception e) {
+                                LOGGER.warning(
+                                        String.format(
+                                                "Delayed state cleanup failed for job %s, exception: %s",
+                                                jobId, ExceptionUtils.getMessage(e)));
+                            }
+                        },
+                        cleanupDelayMillis,
+                        TimeUnit.MILLISECONDS);
     }
 
     public JobDAGInfo getJobDAGInfo() {
@@ -746,7 +779,7 @@ public class JobMaster {
         checkpointManager.clearCheckpointIfNeed(physicalPlan.getJobStatus());
         jobHistoryService.storeJobInfo(jobImmutableInformation.getJobId(), getJobDAGInfo());
         jobHistoryService.storeFinishedJobState(this);
-        removeJobIMap();
+        scheduleRemoveJobStateMaps();
     }
 
     public void storeJobEndState() {
