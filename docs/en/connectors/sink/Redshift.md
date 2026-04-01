@@ -6,7 +6,7 @@ import ChangeLog from '../changelog/connector-jdbc.md';
 
 ## Support Redshift Version
 
-- Amazon Redshift (all available versions)
+- Amazon Redshift
 
 ## Support Those Engines
 
@@ -64,6 +64,8 @@ semantics (using XA transaction guarantee).
 
 ## Sink Options
 
+> Redshift sink is implemented on top of the JDBC sink. The table below focuses on the most commonly used Redshift options. For inherited advanced JDBC sink options such as `compatible_mode`, `dialect`, `is_primary_key_updated`, `support_upsert_by_insert_only`, `use_copy_statement`, `tablePrefix`, `tableSuffix`, and `create_index`, see [JDBC Sink](Jdbc.md).
+
 |                   Name                    |  Type   | Required |           Default            |                                                                                                                  Description                                                                                                                   |
 |-------------------------------------------|---------|----------|------------------------------|------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------|
 | url                                       | String  | Yes      | -                            | The URL of the JDBC connection. Refer to a case: `jdbc:redshift://localhost:5439/mydatabase`                                                                                                                                                   |
@@ -73,7 +75,7 @@ semantics (using XA transaction guarantee).
 | query                                     | String  | No       | -                            | Use this sql write upstream input datas to database. e.g `INSERT ...`,`query` have the higher priority                                                                                                                                         |
 | database                                  | String  | No       | -                            | Use this `database` and `table-name` auto-generate sql and receive upstream input datas write to database.<br/>This option is mutually exclusive with `query` and has a higher priority.                                                        |
 | table                                     | String  | No       | -                            | Use database and this table-name auto-generate sql and receive upstream input datas write to database.<br/>This option is mutually exclusive with `query` and has a higher priority.                                                            |
-| schema                                    | String  | No       | public                       | The schema name of the target table in Redshift.                                                                                                                                                                                               |
+| schema                                    | String  | No       | -                            | The schema name of the target table in Redshift. SeaTunnel does not apply a default value for this option. Configure it explicitly when the target table is not already schema-qualified or when using catalog-based operations such as `generate_sink_sql`, `schema_save_mode`, and `data_save_mode`. |
 | primary_keys                              | Array   | No       | -                            | This option is used to support operations such as `insert`, `delete`, and `update` when automatically generate sql.                                                                                                                            |
 | connection_check_timeout_sec              | Int     | No       | 30                           | The time in seconds to wait for the database operation used to validate the connection to complete.                                                                                                                                             |
 | max_retries                               | Int     | No       | 0                            | The number of retries to submit failed (executeBatch)                                                                                                                                                                                          |

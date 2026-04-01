@@ -6,7 +6,7 @@ import ChangeLog from '../changelog/connector-jdbc.md';
 
 ## 支持的 Redshift 版本
 
-- Amazon Redshift（所有可用版本）
+- Amazon Redshift
 
 ## 支持以下引擎
 
@@ -62,6 +62,8 @@ import ChangeLog from '../changelog/connector-jdbc.md';
 
 ## Sink 参数
 
+> Redshift Sink 基于 JDBC Sink 实现。下表聚焦于 Redshift 常用参数。对于继承自 JDBC Sink 的高级参数，例如 `compatible_mode`、`dialect`、`is_primary_key_updated`、`support_upsert_by_insert_only`、`use_copy_statement`、`tablePrefix`、`tableSuffix` 和 `create_index`，请参考 [JDBC Sink](Jdbc.md)。
+
 | 名称                           | 类型    | 是否必填 |           默认值            |                                                                                                                  描述                                                                                                                   |
 |------------------------------|---------|----------|------------------------------|------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------|
 | url                          | String  | 是      | -                            | JDBC 连接的 URL。参见示例：`jdbc:redshift://localhost:5439/mydatabase`                                                                                                                                                                        |
@@ -71,7 +73,7 @@ import ChangeLog from '../changelog/connector-jdbc.md';
 | query                        | String  | 否       | -                            | 使用此 SQL 将上游输入数据写入数据库。例如 `INSERT ...`，`query` 具有更高的优先级                                                                                                                                                               |
 | database                     | String  | 否       | -                            | 使用此 `database` 和 `table-name` 自动生成 SQL 并接收上游输入数据写入数据库。<br/>此选项与 `query` 互斥，具有更高的优先级。                                                                                                                    |
 | table                        | String  | 否       | -                            | 使用数据库和此表名自动生成 SQL 并接收上游输入数据写入数据库。<br/>此选项与 `query` 互斥，具有更高的优先级。                                                                                                                                    |
-| schema                       | String  | 否       | public                       | Redshift 中目标表的 schema 名称。                                                                                                                                                                                                              |
+| schema                       | String  | 否       | -                            | Redshift 中目标表的 schema 名称。SeaTunnel 不会为该参数自动填充默认值。当目标表没有在 `table` 中显式携带 schema，或使用 `generate_sink_sql`、`schema_save_mode`、`data_save_mode` 等基于 catalog 的操作时，建议显式配置该参数。 |
 | primary_keys                 | Array   | 否       | -                            | 此选项用于支持自动生成 SQL 时的 `insert`、`delete` 和 `update` 操作。                                                                                                                                                                          |
 | connection_check_timeout_sec | Int     | 否       | 30                           | 等待用于验证连接的数据库操作完成的时间（秒）。                                                                                                                                                                                                 |
 | max_retries                  | Int     | 否       | 0                            | 提交失败的重试次数（executeBatch）                                                                                                                                                                                                             |
