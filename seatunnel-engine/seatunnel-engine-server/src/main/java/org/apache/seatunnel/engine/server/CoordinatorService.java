@@ -765,6 +765,16 @@ public class CoordinatorService {
             return;
         }
 
+        if (jobState instanceof JobStatus && ((JobStatus) jobState).isEndState()) {
+            logger.warning(
+                    String.format(
+                            "Job %s is in terminal state %s in runningJobInfoIMap, "
+                                    + "removing zombie entry to prevent incorrect restore",
+                            jobId, jobState));
+            runningJobInfoIMap.remove(jobId);
+            return;
+        }
+
         JobMaster jobMaster =
                 new JobMaster(
                         jobId,

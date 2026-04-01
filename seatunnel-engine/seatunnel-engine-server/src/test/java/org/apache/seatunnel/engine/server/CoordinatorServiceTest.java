@@ -506,6 +506,70 @@ public class CoordinatorServiceTest {
     }
 
     @Test
+    void testZombieJobRemovedFromImapOnMasterSwitchRestore() {
+        String clusterName =
+                TestUtils.getClusterName(
+                        "CoordinatorServiceTest_testZombieJobRemovedFromImapOnMasterSwitchRestore");
+        HazelcastInstanceImpl instance1 =
+                createHazelcastInstanceWithJoinPortTryCount(clusterName, 100);
+        SeaTunnelServer server1 =
+                instance1.node.getNodeEngine().getService(SeaTunnelServer.SERVICE_NAME);
+
+        // Wait for instance1 to become the active master
+        await().atMost(10000, TimeUnit.MILLISECONDS)
+                .untilAsserted(
+                        () -> {
+                            Assertions.assertTrue(server1.isMasterNode());
+                            Assertions.assertTrue(
+                                    server1.getCoordinatorService().isCoordinatorActive());
+                        });
+
+        // Inject a zombie: job in FAILED state that was never cleaned from runningJobInfoIMap
+        // (simulates coordinator dying mid-cleanup before removeJobIMap executed)
+        long zombieJobId =
+                instance1
+                        .getFlakeIdGenerator(Constant.SEATUNNEL_ID_GENERATOR_NAME)
+                        .newId();
+        IMap<Long, org.apache.seatunnel.engine.core.job.JobInfo> runningJobInfoIMap =
+                instance1.getMap(Constant.IMAP_RUNNING_JOB_INFO);
+        IMap<Long, JobStatus> runningJobStateIMap =
+                instance1.getMap(Constant.IMAP_RUNNING_JOB_STATE);
+        runningJobInfoIMap.put(
+                zombieJobId,
+                new org.apache.seatunnel.engine.core.job.JobInfo(
+                        System.currentTimeMillis(), null));
+        runningJobStateIMap.put(zombieJobId, JobStatus.FAILED);
+
+        Assertions.assertTrue(runningJobInfoIMap.containsKey(zombieJobId));
+
+        // Start instance2 in same cluster, then shut down instance1 to trigger master switch
+        HazelcastInstanceImpl instance2 =
+                createHazelcastInstanceWithJoinPortTryCount(clusterName, 100);
+        instance1.shutdown();
+
+        SeaTunnelServer server2 =
+                instance2.node.getNodeEngine().getService(SeaTunnelServer.SERVICE_NAME);
+
+        // Wait for instance2 to become active master and complete restore
+        await().atMost(20000, TimeUnit.MILLISECONDS)
+                .untilAsserted(
+                        () -> {
+                            Assertions.assertTrue(server2.isMasterNode());
+                            Assertions.assertTrue(
+                                    server2.getCoordinatorService().isCoordinatorActive());
+                        });
+
+        // Zombie entry must be removed — terminal state job should never be restored
+        IMap<Long, org.apache.seatunnel.engine.core.job.JobInfo> runningJobInfoOnInstance2 =
+                instance2.getMap(Constant.IMAP_RUNNING_JOB_INFO);
+        Assertions.assertFalse(
+                runningJobInfoOnInstance2.containsKey(zombieJobId),
+                "Zombie job in FAILED state must be removed from runningJobInfoIMap during restore");
+
+        instance2.shutdown();
+    }
+
+    @Test
     public void testClearCoordinatorService() {
         JobInformation jobInformation =
                 submitJob(
