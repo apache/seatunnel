@@ -210,6 +210,8 @@ Command:
 * Located in `seatunnel-e2e`
 * Uses Testcontainers
 * Extend `TestSuiteBase`
+* For engine node-failure validation, existing `ClusterFaultToleranceIT`-style tests are suitable for checking final convergence after member shutdown; cleanup-race bugs in `PhysicalVertex` / `SubPlan` / `PhysicalPlan` still need dedicated unit tests because E2E does not reliably hit the "state already cleaned, callback arrives late" window.
+* To exercise the no-restore failure path in engine tests, use `job.mode = BATCH`, omit `checkpoint.interval`, and set `job.retry.times = 0`; otherwise the pipeline may restore and the test will not cover terminal-failure convergence.
 
 Command:
 

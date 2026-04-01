@@ -80,6 +80,8 @@ public class PhysicalPlan {
 
     private JobMaster jobMaster;
 
+    private volatile JobStatus currJobStatus;
+
     private Map<TaskGroupLocation, CompletableFuture<SlotProfile>> preApplyResourceFutures =
             new HashMap<>();
 
@@ -114,6 +116,8 @@ public class PhysicalPlan {
 
             runningJobStateIMap.put(jobId, JobStatus.CREATED);
         }
+
+        this.currJobStatus = (JobStatus) runningJobStateIMap.get(jobId);
 
         this.pipelineList = pipelineList;
         if (pipelineList.isEmpty()) {
@@ -249,7 +253,9 @@ public class PhysicalPlan {
         RetryUtils.retryWithException(
                 () -> {
                     updateStateTimestamps(targetState);
-                    runningJobStateIMap.set(jobId, targetState);
+                    if (runningJobStateIMap.get(jobId) != null) {
+                        runningJobStateIMap.set(jobId, targetState);
+                    }
                     return null;
                 },
                 new RetryUtils.RetryMaterial(
@@ -265,6 +271,13 @@ public class PhysicalPlan {
         // we must update runningJobStateTimestampsIMap first and then can update
         // runningJobStateIMap
         Long[] stateTimestamps = runningJobStateTimestampsIMap.get(jobId);
+        if (stateTimestamps == null) {
+            log.warn(
+                    "{} state timestamps have already been cleaned, skip persisting transition to {}",
+                    jobFullName,
+                    targetState);
+            return;
+        }
         stateTimestamps[targetState.ordinal()] = System.currentTimeMillis();
         runningJobStateTimestampsIMap.set(jobId, stateTimestamps);
     }
@@ -280,6 +293,21 @@ public class PhysicalPlan {
     public synchronized void updateJobState(@NonNull JobStatus targetState) {
         try {
             JobStatus current = (JobStatus) runningJobStateIMap.get(jobId);
+            if (current == null) {
+                current = currJobStatus;
+                if (current == null) {
+                    log.warn(
+                            "{} current state is null, cannot transition to {}",
+                            jobFullName,
+                            targetState);
+                    return;
+                }
+                log.warn(
+                        "{} distributed state has already been cleaned, fallback to local state {} for transition to {}",
+                        jobFullName,
+                        current,
+                        targetState);
+            }
             log.debug(
                     "Try to update the {} state from {} to {}", jobFullName, current, targetState);
 
@@ -298,6 +326,7 @@ public class PhysicalPlan {
             // Now do the actual state transition, we must update runningJobStateTimestampsIMap
             // first and then can update runningJobStateIMap
             updateStateInfo(current, targetState);
+            this.currJobStatus = targetState;
             stateProcess();
         } catch (Exception e) {
             log.error(ExceptionUtils.getMessage(e));
@@ -312,7 +341,8 @@ public class PhysicalPlan {
     }
 
     public JobStatus getJobStatus() {
-        return (JobStatus) runningJobStateIMap.get(jobId);
+        JobStatus jobStatus = (JobStatus) runningJobStateIMap.get(jobId);
+        return jobStatus != null ? jobStatus : currJobStatus;
     }
 
     public String getJobFullName() {
