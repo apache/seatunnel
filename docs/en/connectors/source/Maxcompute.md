@@ -94,6 +94,8 @@ Default: Not set (auto-inferred from region)
 
 Tunnel Quota allows you to use dedicated computing resources for MaxCompute Tunnel data transfer, providing better performance and resource isolation.
 
+**Important**: Tunnel Quota only works with **VPC (Virtual Private Cloud) endpoints**. It is not supported for public network access. You must configure both `endpoint` and `tunnel_endpoint` to use VPC endpoints when using `tunnel_name`.
+
 If not specified, the default Tunnel quota will be used.
 
 Example values:

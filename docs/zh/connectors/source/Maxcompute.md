@@ -95,6 +95,8 @@ import ChangeLog from '../changelog/connector-maxcompute.md';
 
 Tunnel Quota 允许您使用专用的计算资源进行 MaxCompute Tunnel 数据传输，从而提供更好的性能和资源隔离。
 
+**重要提示**：Tunnel Quota 仅在 **VPC（虚拟私有云）端点**下生效，暂不支持公共网络访问。使用 `tunnel_name` 时，必须同时配置 `endpoint` 和 `tunnel_endpoint` 为 VPC 端点。
+
 如果未指定，将使用默认的 Tunnel quota。
 
 示例值：
