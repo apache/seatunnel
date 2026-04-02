@@ -57,7 +57,7 @@ public class HiveDialect implements JdbcDialect {
     @Override
     public ResultSetMetaData getResultSetMetaData(Connection conn, String query)
             throws SQLException {
-        try (PreparedStatement preparedStatement = conn.prepareStatement(query);
+        try (PreparedStatement preparedStatement = conn.prepareStatement(modifySQLToLimit1(query));
                 ResultSet resultSet = preparedStatement.executeQuery()) {
             return resultSet.getMetaData();
         }
@@ -67,5 +67,9 @@ public class HiveDialect implements JdbcDialect {
     public JdbcConnectionProvider getJdbcConnectionProvider(
             JdbcConnectionConfig jdbcConnectionConfig) {
         return new HiveJdbcConnectionProvider(jdbcConnectionConfig);
+    }
+
+    private String modifySQLToLimit1(String sql) {
+        return String.format("SELECT * FROM (%s) s LIMIT 1", sql.trim().replaceAll(";$", ""));
     }
 }
