@@ -88,17 +88,18 @@ public class ClassLoaderServiceTest extends AbstractClassLoaderServiceTest {
 
     @Test
     void testRecycleClassLoaderFromThread() throws MalformedURLException, InterruptedException {
+        ClassLoader systemLoader = ClassLoader.getSystemClassLoader();
         ClassLoader classLoader =
                 classLoaderService.getClassLoader(
                         3L,
                         Lists.newArrayList(
                                 new URL("file:///console.jar"), new URL("file:///fake.jar")));
-        ClassLoader appClassLoader = Thread.currentThread().getContextClassLoader();
+        ClassLoader originalTCCL = Thread.currentThread().getContextClassLoader();
         Thread.currentThread().setContextClassLoader(classLoader);
         Thread thread =
                 new Thread(
                         () -> {
-                            while (Thread.currentThread().getContextClassLoader() != null) {
+                            while (Thread.currentThread().getContextClassLoader() != systemLoader) {
                                 try {
                                     Thread.sleep(1000);
                                 } catch (InterruptedException e) {
@@ -107,13 +108,13 @@ public class ClassLoaderServiceTest extends AbstractClassLoaderServiceTest {
                             }
                         });
         thread.start();
-        Thread.currentThread().setContextClassLoader(appClassLoader);
+        Thread.currentThread().setContextClassLoader(originalTCCL);
         Assertions.assertEquals(classLoader, thread.getContextClassLoader());
         classLoaderService.releaseClassLoader(
                 3L,
                 Lists.newArrayList(new URL("file:///console.jar"), new URL("file:///fake.jar")));
-        Assertions.assertNull(thread.getContextClassLoader());
-        Thread.sleep(2000);
+        Assertions.assertEquals(systemLoader, thread.getContextClassLoader());
+        thread.join(5000);
         Assertions.assertFalse(thread.isAlive());
     }
 

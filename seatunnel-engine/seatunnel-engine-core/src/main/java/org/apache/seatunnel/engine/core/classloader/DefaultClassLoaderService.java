@@ -164,13 +164,29 @@ public class DefaultClassLoaderService implements ClassLoaderService {
         }
     }
 
+    /**
+     * [Phase 1 Compromise] Forcibly removes the target ClassLoader from the ContextClassLoader
+     * (TCCL) of all live threads.
+     *
+     * <p>Many third-party connectors (e.g., JDBC drivers, Hadoop RPC clients) mutate the TCCL
+     * during execution but fail to restore it in a finally block. If left uncleared, these pooled
+     * threads will hold strong references to the {@link SeaTunnelChildFirstClassLoader}, preventing
+     * GC and ultimately causing severe Metaspace OutOfMemory (OOM) errors. * Note: We restore the
+     * TCCL to the system/application classloader (fallbackLoader) instead of setting it to 'null'.
+     * Setting TCCL to 'null' breaks frameworks that heavily rely on it for SPI discovery or static
+     * resource loading (e.g., Hazelcast, Jetty REST APIs), which would otherwise result in 404 Not
+     * Found errors during E2E integration tests.
+     */
     private static void recycleClassLoaderFromThread(ClassLoader classLoader) {
+        // Acquire a safe fallback ClassLoader (usually the SystemClassLoader)
+        final ClassLoader systemLoader = ClassLoader.getSystemClassLoader();
         Thread.getAllStackTraces().keySet().stream()
                 .filter(thread -> thread.getContextClassLoader() == classLoader)
                 .forEach(
                         thread -> {
                             log.info("recycle classloader for thread {}", thread.getName());
-                            thread.setContextClassLoader(null);
+                            // Restore to the default loader instead of null
+                            thread.setContextClassLoader(systemLoader);
                         });
     }
 
@@ -389,7 +405,7 @@ public class DefaultClassLoaderService implements ClassLoaderService {
                         Object value = entry.getValue();
                         if (value instanceof JarFile) {
                             JarFile jarFile = (JarFile) value;
-                            if (targetJarPaths.contains(jarFile.getName())) {
+                            if (isTargetJar(jarFile.getName(), targetJarPaths)) {
                                 try {
                                     jarFile.close();
                                 } catch (IOException e) {
@@ -409,7 +425,7 @@ public class DefaultClassLoaderService implements ClassLoaderService {
                         Object key = entry.getKey();
                         if (key instanceof JarFile) {
                             JarFile jarFile = (JarFile) key;
-                            if (targetJarPaths.contains(jarFile.getName())) {
+                            if (isTargetJar(jarFile.getName(), targetJarPaths)) {
                                 urlIterator.remove();
                             }
                         }
@@ -425,6 +441,18 @@ public class DefaultClassLoaderService implements ClassLoaderService {
             log.warn(
                     "Deep clean failed due to reflection restrictions. Please add '--add-opens java.base/sun.net.www.protocol.jar=ALL-UNNAMED' to JVM options.",
                     e);
+        }
+    }
+
+    private boolean isTargetJar(String cachedJarPath, Set<String> targetJarPaths) {
+        if (targetJarPaths.contains(cachedJarPath)) {
+            return true;
+        }
+        try {
+            String canonicalCachedPath = new File(cachedJarPath).getCanonicalPath();
+            return targetJarPaths.contains(canonicalCachedPath);
+        } catch (Exception e) {
+            return false;
         }
     }
 }
