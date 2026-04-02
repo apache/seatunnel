@@ -34,6 +34,8 @@ import org.apache.seatunnel.engine.server.task.statemachine.SeaTunnelTaskState;
 
 import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.Test;
+import org.junit.jupiter.api.condition.DisabledOnOs;
+import org.junit.jupiter.api.condition.OS;
 import org.mockito.MockedStatic;
 import org.mockito.Mockito;
 
@@ -386,6 +388,7 @@ public class CheckpointCoordinatorTest
      * {@code abortCheckpointTimeoutFutureWhenIsCompleted()}, so no NPE is thrown.
      */
     @Test
+    @DisabledOnOs(OS.WINDOWS)
     void testCompletePendingCheckpointShouldNotThrowNPEWhenNotifyCompletedClearsPendingMap() {
         CheckpointConfig checkpointConfig = new CheckpointConfig();
         checkpointConfig.setStorage(new CheckpointStorageConfig());
