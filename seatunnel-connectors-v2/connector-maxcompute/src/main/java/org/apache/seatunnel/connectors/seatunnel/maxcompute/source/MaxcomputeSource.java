@@ -19,6 +19,7 @@ package org.apache.seatunnel.connectors.seatunnel.maxcompute.source;
 
 import org.apache.seatunnel.api.configuration.ReadonlyConfig;
 import org.apache.seatunnel.api.options.ConnectorCommonOptions;
+import org.apache.seatunnel.api.options.table.CatalogOptions;
 import org.apache.seatunnel.api.source.Boundedness;
 import org.apache.seatunnel.api.source.SeaTunnelSource;
 import org.apache.seatunnel.api.source.SourceReader;
@@ -79,9 +80,9 @@ public class MaxcomputeSource
         } else {
             try (MaxComputeCatalog catalog = new MaxComputeCatalog("maxcompute", readonlyConfig)) {
                 catalog.open();
-                if (readonlyConfig.getOptional(MaxcomputeSourceOptions.TABLE_LIST).isPresent()) {
+                if (readonlyConfig.getOptional(CatalogOptions.TABLE_LIST).isPresent()) {
                     for (Map<String, Object> subConfig :
-                            readonlyConfig.get(MaxcomputeSourceOptions.TABLE_LIST)) {
+                            readonlyConfig.get(CatalogOptions.TABLE_LIST)) {
                         ReadonlyConfig subReadonlyConfig = ReadonlyConfig.fromMap(subConfig);
                         String project =
                                 subReadonlyConfig

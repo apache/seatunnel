@@ -205,7 +205,8 @@ public class TextReadStrategy extends AbstractReadStrategy {
                 break;
         }
         // rebuild inputStream
-        if (enableSplitFile && split.getLength() > -1) {
+        final boolean useSplitRead = enableSplitFile && split.getLength() > -1;
+        if (useSplitRead) {
             actualInputStream = safeSlice(inputStream, split.getStart(), split.getLength());
         }
         try (BufferedReader reader =
@@ -220,7 +221,7 @@ public class TextReadStrategy extends AbstractReadStrategy {
                         }
                     };
             StreamLineSplitter splitter;
-            if (enableSplitFile) {
+            if (useSplitRead) {
                 splitter = new StreamLineSplitter(rowDelimiter, 0, lineProcessor);
             } else {
                 splitter = new StreamLineSplitter(rowDelimiter, skipHeaderNumber, lineProcessor);
@@ -273,7 +274,7 @@ public class TextReadStrategy extends AbstractReadStrategy {
     public SeaTunnelRowType getSeaTunnelRowTypeInfo(String path) {
         this.seaTunnelRowType = CatalogTableUtil.buildSimpleTextSchema();
         this.seaTunnelRowTypeWithPartition =
-                mergePartitionTypes(fileNames.get(0), seaTunnelRowType);
+                mergePartitionTypes(getPathForPartitionInference(path), seaTunnelRowType);
         initFormatter();
         if (pluginConfig.hasPath(FileBaseSourceOptions.READ_COLUMNS.key())) {
             throw new FileConnectorException(
@@ -302,8 +303,9 @@ public class TextReadStrategy extends AbstractReadStrategy {
     @Override
     public void setCatalogTable(CatalogTable catalogTable) {
         SeaTunnelRowType rowType = catalogTable.getSeaTunnelRowType();
+        String partitionPath = getPathForPartitionInference(null);
         SeaTunnelRowType userDefinedRowTypeWithPartition =
-                mergePartitionTypes(fileNames.get(0), rowType);
+                mergePartitionTypes(partitionPath, rowType);
         ReadonlyConfig readonlyConfig = ReadonlyConfig.fromConfig(pluginConfig);
         Optional<String> fieldDelimiterOptional =
                 readonlyConfig.getOptional(FileBaseSourceOptions.FIELD_DELIMITER);
@@ -343,7 +345,7 @@ public class TextReadStrategy extends AbstractReadStrategy {
             }
             this.seaTunnelRowType = new SeaTunnelRowType(fields, types);
             this.seaTunnelRowTypeWithPartition =
-                    mergePartitionTypes(fileNames.get(0), this.seaTunnelRowType);
+                    mergePartitionTypes(partitionPath, this.seaTunnelRowType);
         } else {
             this.seaTunnelRowType = rowType;
             this.seaTunnelRowTypeWithPartition = userDefinedRowTypeWithPartition;

@@ -22,14 +22,17 @@ import org.apache.seatunnel.shade.com.typesafe.config.ConfigFactory;
 
 import org.apache.seatunnel.api.configuration.ReadonlyConfig;
 import org.apache.seatunnel.api.table.catalog.CatalogTable;
+import org.apache.seatunnel.api.table.catalog.CatalogTableUtil;
 import org.apache.seatunnel.api.table.type.BasicType;
 import org.apache.seatunnel.api.table.type.SeaTunnelDataType;
 import org.apache.seatunnel.api.table.type.SeaTunnelRow;
 import org.apache.seatunnel.api.table.type.SeaTunnelRowType;
+import org.apache.seatunnel.connectors.seatunnel.file.config.FileBaseSourceOptions;
 import org.apache.seatunnel.connectors.seatunnel.file.config.HadoopConf;
 import org.apache.seatunnel.connectors.seatunnel.file.hdfs.config.HdfsFileSourceConfig;
 import org.apache.seatunnel.connectors.seatunnel.file.hdfs.source.HdfsFileSourceFactory;
 import org.apache.seatunnel.connectors.seatunnel.file.hdfs.source.config.HdfsSourceConfigOptions;
+import org.apache.seatunnel.connectors.seatunnel.file.source.reader.BinaryReadStrategy;
 import org.apache.seatunnel.connectors.seatunnel.file.source.reader.ParquetReadStrategy;
 import org.apache.seatunnel.connectors.seatunnel.file.source.reader.ReadStrategy;
 import org.apache.seatunnel.connectors.seatunnel.source.SourceFlowTestUtils;
@@ -50,10 +53,14 @@ import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.condition.DisabledOnOs;
 import org.junit.jupiter.api.condition.OS;
+import org.junit.jupiter.api.io.TempDir;
 
 import lombok.extern.slf4j.Slf4j;
 
 import java.io.IOException;
+import java.nio.charset.StandardCharsets;
+import java.nio.file.Files;
+import java.nio.file.attribute.FileTime;
 import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.List;
@@ -93,7 +100,9 @@ class HdfsFileSourceConfigTest {
         Config config = ConfigFactory.parseMap(configMap);
         ReadonlyConfig readonlyConfig = ReadonlyConfig.fromConfig(config);
 
-        HdfsFileSourceConfig sourceConfig = new HdfsFileSourceConfig(readonlyConfig);
+        HdfsFileSourceConfig sourceConfig =
+                new HdfsFileSourceConfig(
+                        readonlyConfig, CatalogTableUtil.buildWithConfig(readonlyConfig));
         ReadStrategy readStrategy = sourceConfig.getReadStrategy();
         CatalogTable catalogTable = sourceConfig.getCatalogTable();
         SeaTunnelRowType seaTunnelRowType = catalogTable.getSeaTunnelRowType();
@@ -168,6 +177,43 @@ class HdfsFileSourceConfigTest {
         Assertions.assertEquals("hdfs_multi_source_read3", seaTunnelRows.get(2).getField(1));
         Assertions.assertEquals(4, seaTunnelRows.get(3).getField(0));
         Assertions.assertEquals("hdfs_multi_source_read4", seaTunnelRows.get(3).getField(1));
+    }
+
+    @Test
+    void testUpdateModeDistcpSkipStillProducesBinarySchema(@TempDir java.nio.file.Path tempDir)
+            throws IOException {
+        java.nio.file.Path sourceDir = tempDir.resolve("src");
+        java.nio.file.Path targetDir = tempDir.resolve("dst");
+        Files.createDirectories(sourceDir);
+        Files.createDirectories(targetDir);
+
+        java.nio.file.Path sourceFile = sourceDir.resolve("test.bin");
+        java.nio.file.Path targetFile = targetDir.resolve("test.bin");
+        Files.write(sourceFile, "abc".getBytes(StandardCharsets.UTF_8));
+        Files.write(targetFile, "abc".getBytes(StandardCharsets.UTF_8));
+        Files.setLastModifiedTime(sourceFile, FileTime.fromMillis(1_000));
+        Files.setLastModifiedTime(targetFile, FileTime.fromMillis(2_000));
+
+        Map<String, Object> configMap = new HashMap<>();
+        configMap.put(HdfsSourceConfigOptions.FILE_PATH.key(), sourceDir.toString());
+        configMap.put(HdfsSourceConfigOptions.FILE_FORMAT_TYPE.key(), "binary");
+        configMap.put(HdfsSourceConfigOptions.DEFAULT_FS.key(), DEFAULT_FS);
+        configMap.put(FileBaseSourceOptions.SYNC_MODE.key(), "update");
+        configMap.put(FileBaseSourceOptions.TARGET_PATH.key(), targetDir.toString());
+        configMap.put(FileBaseSourceOptions.UPDATE_STRATEGY.key(), "distcp");
+        configMap.put(FileBaseSourceOptions.COMPARE_MODE.key(), "len_mtime");
+
+        Config config = ConfigFactory.parseMap(configMap);
+        final ReadonlyConfig readonlyConfig = ReadonlyConfig.fromConfig(config);
+        HdfsFileSourceConfig sourceConfig =
+                new HdfsFileSourceConfig(readonlyConfig, CatalogTableUtil.buildSimpleTextTable());
+
+        Assertions.assertTrue(
+                sourceConfig.getFilePaths().isEmpty(),
+                "Update+distcp should filter files when target is newer and same length");
+        Assertions.assertEquals(
+                BinaryReadStrategy.binaryRowType,
+                sourceConfig.getCatalogTable().getSeaTunnelRowType());
     }
 
     @AfterEach

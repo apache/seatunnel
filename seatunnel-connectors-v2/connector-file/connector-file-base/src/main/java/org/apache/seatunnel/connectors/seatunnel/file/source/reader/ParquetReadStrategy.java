@@ -33,6 +33,7 @@ import org.apache.seatunnel.common.exception.CommonError;
 import org.apache.seatunnel.common.exception.CommonErrorCodeDeprecated;
 import org.apache.seatunnel.connectors.seatunnel.file.exception.FileConnectorErrorCode;
 import org.apache.seatunnel.connectors.seatunnel.file.exception.FileConnectorException;
+import org.apache.seatunnel.connectors.seatunnel.file.source.split.FileSourceSplit;
 
 import org.apache.avro.Conversions;
 import org.apache.avro.data.TimeConversions;
@@ -89,6 +90,14 @@ public class ParquetReadStrategy extends AbstractReadStrategy {
     @Override
     public void read(String path, String tableId, Collector<SeaTunnelRow> output)
             throws FileConnectorException, IOException {
+        this.read(new FileSourceSplit(path), output);
+    }
+
+    @Override
+    public void read(FileSourceSplit split, Collector<SeaTunnelRow> output)
+            throws IOException, FileConnectorException {
+        String tableId = split.getTableId();
+        String path = split.getFilePath();
         if (Boolean.FALSE.equals(checkFileType(path))) {
             String errorMsg =
                     String.format(
@@ -107,11 +116,18 @@ public class ParquetReadStrategy extends AbstractReadStrategy {
         dataModel.addLogicalTypeConversion(new Conversions.DecimalConversion());
         dataModel.addLogicalTypeConversion(new TimeConversions.DateConversion());
         dataModel.addLogicalTypeConversion(new TimeConversions.LocalTimestampMillisConversion());
+        final boolean useSplitRange =
+                enableSplitFile && split.getStart() >= 0 && split.getLength() > 0;
         GenericRecord record;
-        try (ParquetReader<GenericData.Record> reader =
+        AvroParquetReader.Builder<GenericData.Record> builder =
                 AvroParquetReader.<GenericData.Record>builder(hadoopInputFile)
-                        .withDataModel(dataModel)
-                        .build()) {
+                        .withDataModel(dataModel);
+        if (useSplitRange) {
+            long start = split.getStart();
+            long end = start + split.getLength();
+            builder.withFileRange(start, end);
+        }
+        try (ParquetReader<GenericData.Record> reader = builder.build()) {
             while ((record = reader.read()) != null) {
                 Object[] fields;
                 if (isMergePartition) {

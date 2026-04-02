@@ -186,9 +186,10 @@ public class XmlReadStrategy extends AbstractReadStrategy {
                     "Schema information is undefined or misconfigured, please check your configuration file.");
         }
 
+        String partitionPath = getPathForPartitionInference(null);
         if (readColumns.isEmpty()) {
             this.seaTunnelRowType = rowType;
-            this.seaTunnelRowTypeWithPartition = mergePartitionTypes(fileNames.get(0), rowType);
+            this.seaTunnelRowTypeWithPartition = mergePartitionTypes(partitionPath, rowType);
         } else {
             if (readColumns.retainAll(Arrays.asList(rowType.getFieldNames()))) {
                 log.warn(
@@ -205,7 +206,7 @@ public class XmlReadStrategy extends AbstractReadStrategy {
             }
             this.seaTunnelRowType = new SeaTunnelRowType(fields, types);
             this.seaTunnelRowTypeWithPartition =
-                    mergePartitionTypes(fileNames.get(0), this.seaTunnelRowType);
+                    mergePartitionTypes(partitionPath, this.seaTunnelRowType);
         }
     }
 

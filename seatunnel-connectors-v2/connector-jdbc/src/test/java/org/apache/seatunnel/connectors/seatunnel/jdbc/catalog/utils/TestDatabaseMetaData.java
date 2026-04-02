@@ -664,6 +664,9 @@ public class TestDatabaseMetaData implements DatabaseMetaData {
         value.add(
                 new HashMap<String, Object>() {
                     {
+                        put("TABLE_CAT", catalog);
+                        put("TABLE_SCHEM", schemaPattern);
+                        put("TABLE_NAME", tableNamePattern);
                         put("COLUMN_NAME", "id");
                         put("DATA_TYPE", 1);
                         put("TYPE_NAME", "INT");
