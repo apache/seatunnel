@@ -224,15 +224,10 @@ public class RabbitmqSourceTest {
         configMap.put(TableSchemaOptions.TABLE_CONFIGS.key(), Collections.singletonList(table1));
 
         // Create Source
-        RabbitmqSource source = new RabbitmqSource(ReadonlyConfig.fromMap(configMap));
-        List<CatalogTable> tables = source.getProducedCatalogTables();
-
-        // Verifications
-        Assertions.assertNotNull(tables);
-        Assertions.assertEquals(1, tables.size());
-
-        CatalogTable t1 = tables.get(0);
-        Assertions.assertEquals("fallback_table", t1.getTableId().getTableName());
+        Assertions.assertThrows(
+            Exception.class,
+            () -> new RabbitmqSource(ReadonlyConfig.fromMap(configMap)),
+            "Should fail when table_configs is missing the queue_name");
     }
 
     @Test
