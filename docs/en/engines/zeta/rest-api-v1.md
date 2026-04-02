@@ -37,6 +37,100 @@ network:
 
 ## API reference
 
+### Get Connector Option Rules
+
+<details>
+ <summary><code>GET</code> <code><b>/hazelcast/rest/maps/option-rules?type=source&plugin=FakeSource</b></code> <code>(Returns the full runtime OptionRule metadata of a connector.)</code></summary>
+
+#### Parameters
+
+> |  name  |   type   | data type |                            description                             |
+> |--------|----------|-----------|--------------------------------------------------------------------|
+> | type   | required | string    | plugin type, currently supports `source` and `sink`                |
+> | plugin | required | string    | connector factory identifier, for example `FakeSource` or `Console` |
+
+#### Responses
+
+```json
+{
+  "engineType": "seatunnel",
+  "pluginType": "source",
+  "pluginName": "FakeSource",
+  "optionRule": {
+    "optionalOptions": [
+      {
+        "key": "row.num",
+        "type": "java.lang.Integer",
+        "defaultValue": 5,
+        "description": "The total number of data generated per degree of parallelism",
+        "fallbackKeys": [],
+        "optionValues": null
+      }
+    ],
+    "requiredOptions": [
+      {
+        "ruleType": "EXCLUSIVE",
+        "options": [
+          {
+            "key": "schema",
+            "type": "org.apache.seatunnel.api.table.catalog.TableSchema",
+            "defaultValue": null,
+            "description": "The schema of the upstream table",
+            "fallbackKeys": [],
+            "optionValues": null
+          }
+        ]
+      },
+      {
+        "ruleType": "CONDITIONAL",
+        "options": [
+          {
+            "key": "string.template",
+            "type": "java.util.List<java.lang.String>",
+            "defaultValue": null,
+            "description": "The template list of string type that connector generated, if user configured it, connector will randomly select an item from the template list",
+            "fallbackKeys": [],
+            "optionValues": null
+          }
+        ],
+        "expression": "'string.fake.mode' == TEMPLATE",
+        "expressionTree": {
+          "condition": {
+            "option": {
+              "key": "string.fake.mode",
+              "type": "org.apache.seatunnel.connectors.seatunnel.fake.config.FakeSourceOptions$FakeMode",
+              "defaultValue": "RANDOM",
+              "description": "The fake mode of generating string data",
+              "fallbackKeys": [],
+              "optionValues": [
+                "RANDOM",
+                "TEMPLATE"
+              ]
+            },
+            "expectValue": "TEMPLATE",
+            "operator": null,
+            "next": null
+          },
+          "operator": null,
+          "next": null
+        }
+      }
+    ],
+    "conditionRules": []
+  }
+}
+```
+
+**Notes:**
+- The response is resolved from runtime plugin discovery, so it follows the connector version installed on the server.
+- `requiredOptions[].ruleType` can be `ABSOLUTELY_REQUIRED`, `EXCLUSIVE`, `BUNDLED`, or `CONDITIONAL`.
+- `optionRule.conditionRules` recursively exposes nested conditional option rules and is an empty array when the connector does not define nested rules.
+- For conditional rules, both `expression` and `expressionTree` are returned for dynamic form rendering.
+
+</details>
+
+------------------------------------------------------------------------------------------
+
 ### Returns an overview over the Zeta engine cluster.
 
 <details>

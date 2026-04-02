@@ -49,7 +49,8 @@ Apache RocketMQ 的源连接器。
 | start.mode.offsets                  |         | 否  |                            | 消费模式为 "CONSUME_FROM_SPECIFIC_OFFSETS" 所需的偏移量                                                                                                                  |
 | start.mode.timestamp                | Long    | 否  |                            | 消费模式为 "CONSUME_FROM_TIMESTAMP" 所需的时间。                                                                                                                         |
 | partition.discovery.interval.millis | long    | 否  | -1                         | 动态发现主题和分区的间隔。                                                                                                                                                 |
-| ignore_parse_errors                 | Boolean | 否  | false                      | 可选标志，跳过解析错误而不是失败。                                                                                                                                             |
+| ignore_parse_errors                 | Boolean | 否  | false                      | 可选标志，跳过解析错误而不是失败。                                                                                                                                 |
+| consumer.poll.timeout.millis        | long    | 否  | 5000                       | 拉取消息的超时时间（毫秒）。                                                                                                                                       |
 | common-options                      | config  | 否  | -                          | 源插件通用参数，请参考 [源通用选项](../common-options/source-common-options.md) 详见。                                                                                           |
 
 ### start.mode.offsets
