@@ -95,7 +95,7 @@ public class KingbaseCatalogContainerTest extends AbstractKingbaseContainerTest 
     }
 
     @Test
-    public void testCreateTableViaAPI() throws SQLException {
+    public void testCreateTableViaAPI() {
         String testTableName = "test_api_create_table";
         TablePath tablePath = TablePath.of(DATABASE, SCHEMA, testTableName);
 
