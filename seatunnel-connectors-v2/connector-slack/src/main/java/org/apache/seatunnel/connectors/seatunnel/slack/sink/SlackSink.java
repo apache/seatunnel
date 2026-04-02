@@ -17,44 +17,31 @@
 
 package org.apache.seatunnel.connectors.seatunnel.slack.sink;
 
-import org.apache.seatunnel.shade.com.typesafe.config.Config;
-
-import org.apache.seatunnel.api.common.PrepareFailException;
-import org.apache.seatunnel.api.common.SeaTunnelAPIErrorCode;
-import org.apache.seatunnel.api.sink.SeaTunnelSink;
+import org.apache.seatunnel.api.configuration.ReadonlyConfig;
 import org.apache.seatunnel.api.sink.SinkWriter;
 import org.apache.seatunnel.api.table.catalog.CatalogTable;
 import org.apache.seatunnel.api.table.type.SeaTunnelRow;
-import org.apache.seatunnel.api.table.type.SeaTunnelRowType;
-import org.apache.seatunnel.common.config.CheckConfigUtil;
-import org.apache.seatunnel.common.config.CheckResult;
-import org.apache.seatunnel.common.constants.PluginType;
 import org.apache.seatunnel.connectors.seatunnel.common.sink.AbstractSimpleSink;
 import org.apache.seatunnel.connectors.seatunnel.common.sink.AbstractSinkWriter;
-import org.apache.seatunnel.connectors.seatunnel.slack.config.SlackSinkOptions;
-import org.apache.seatunnel.connectors.seatunnel.slack.exception.SlackConnectorException;
-
-import com.google.auto.service.AutoService;
 
 import java.io.IOException;
 import java.util.Optional;
 
 /** Slack sink class */
-@AutoService(SeaTunnelSink.class)
 public class SlackSink extends AbstractSimpleSink<SeaTunnelRow, Void> {
 
-    private Config pluginConfig;
-    private SeaTunnelRowType seaTunnelRowType;
+    private ReadonlyConfig pluginConfig;
+    private CatalogTable catalogTable;
 
-    @Override
-    public void setTypeInfo(SeaTunnelRowType seaTunnelRowType) {
-        this.seaTunnelRowType = seaTunnelRowType;
+    public SlackSink(ReadonlyConfig pluginConfig, CatalogTable catalogTable) {
+        this.pluginConfig = pluginConfig;
+        this.catalogTable = catalogTable;
     }
 
     @Override
     public AbstractSinkWriter<SeaTunnelRow, Void> createWriter(SinkWriter.Context context)
             throws IOException {
-        return new SlackWriter(seaTunnelRowType, pluginConfig);
+        return new SlackWriter(catalogTable.getSeaTunnelRowType(), pluginConfig);
     }
 
     @Override
@@ -63,25 +50,7 @@ public class SlackSink extends AbstractSimpleSink<SeaTunnelRow, Void> {
     }
 
     @Override
-    public void prepare(Config pluginConfig) throws PrepareFailException {
-        CheckResult checkResult =
-                CheckConfigUtil.checkAllExists(
-                        pluginConfig,
-                        SlackSinkOptions.WEBHOOKS_URL.key(),
-                        SlackSinkOptions.OAUTH_TOKEN.key(),
-                        SlackSinkOptions.SLACK_CHANNEL.key());
-        if (!checkResult.isSuccess()) {
-            throw new SlackConnectorException(
-                    SeaTunnelAPIErrorCode.CONFIG_VALIDATION_FAILED,
-                    String.format(
-                            "PluginName: %s, PluginType: %s, Message: %s",
-                            getPluginName(), PluginType.SINK, checkResult.getMsg()));
-        }
-        this.pluginConfig = pluginConfig;
-    }
-
-    @Override
     public Optional<CatalogTable> getWriteCatalogTable() {
-        return super.getWriteCatalogTable();
+        return Optional.of(catalogTable);
     }
 }

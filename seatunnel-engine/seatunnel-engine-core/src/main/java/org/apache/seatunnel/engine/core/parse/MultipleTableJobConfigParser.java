@@ -21,6 +21,8 @@ import org.apache.seatunnel.shade.com.google.common.annotations.VisibleForTestin
 import org.apache.seatunnel.shade.com.google.common.base.Preconditions;
 import org.apache.seatunnel.shade.com.google.common.collect.Lists;
 import org.apache.seatunnel.shade.com.typesafe.config.Config;
+import org.apache.seatunnel.shade.com.typesafe.config.ConfigValue;
+import org.apache.seatunnel.shade.com.typesafe.config.ConfigValueType;
 import org.apache.seatunnel.shade.org.apache.commons.lang3.StringUtils;
 import org.apache.seatunnel.shade.org.apache.commons.lang3.tuple.ImmutablePair;
 
@@ -54,9 +56,11 @@ import org.apache.seatunnel.common.constants.PluginType;
 import org.apache.seatunnel.common.exception.SeaTunnelRuntimeException;
 import org.apache.seatunnel.core.starter.utils.ConfigBuilder;
 import org.apache.seatunnel.engine.common.config.JobConfig;
+import org.apache.seatunnel.engine.common.config.server.DataSourceConfig;
 import org.apache.seatunnel.engine.common.exception.JobDefineCheckException;
 import org.apache.seatunnel.engine.common.exception.SeaTunnelEngineException;
 import org.apache.seatunnel.engine.common.loader.SeaTunnelChildFirstClassLoader;
+import org.apache.seatunnel.engine.common.utils.DataSourceConfigResolver;
 import org.apache.seatunnel.engine.common.utils.IdGenerator;
 import org.apache.seatunnel.engine.core.classloader.ClassLoaderService;
 import org.apache.seatunnel.engine.core.dag.actions.Action;
@@ -130,6 +134,8 @@ public class MultipleTableJobConfigParser {
     private final boolean isStartWithSavePoint;
     private final List<JobPipelineCheckpointData> pipelineCheckpoints;
 
+    private final DataSourceConfig dataSourceConfig;
+
     @VisibleForTesting
     public MultipleTableJobConfigParser(
             String jobDefineFilePath, IdGenerator idGenerator, JobConfig jobConfig) {
@@ -145,7 +151,8 @@ public class MultipleTableJobConfigParser {
                 jobConfig,
                 Collections.emptyList(),
                 false,
-                Collections.emptyList());
+                Collections.emptyList(),
+                new DataSourceConfig());
     }
 
     @VisibleForTesting
@@ -162,7 +169,8 @@ public class MultipleTableJobConfigParser {
                 jobConfig,
                 commonPluginJars,
                 isStartWithSavePoint,
-                Collections.emptyList());
+                Collections.emptyList(),
+                new DataSourceConfig());
     }
 
     public MultipleTableJobConfigParser(
@@ -172,14 +180,16 @@ public class MultipleTableJobConfigParser {
             JobConfig jobConfig,
             List<URL> commonPluginJars,
             boolean isStartWithSavePoint,
-            List<JobPipelineCheckpointData> pipelineCheckpoints) {
+            List<JobPipelineCheckpointData> pipelineCheckpoints,
+            DataSourceConfig dataSourceConfig) {
         this(
                 ConfigBuilder.of(Paths.get(jobDefineFilePath), variables),
                 idGenerator,
                 jobConfig,
                 commonPluginJars,
                 isStartWithSavePoint,
-                pipelineCheckpoints);
+                pipelineCheckpoints,
+                dataSourceConfig);
     }
 
     public MultipleTableJobConfigParser(
@@ -188,14 +198,16 @@ public class MultipleTableJobConfigParser {
             JobConfig jobConfig,
             List<URL> commonPluginJars,
             boolean isStartWithSavePoint,
-            List<JobPipelineCheckpointData> pipelineCheckpoints) {
+            List<JobPipelineCheckpointData> pipelineCheckpoints,
+            DataSourceConfig dataSourceConfig) {
         this.idGenerator = idGenerator;
         this.jobConfig = jobConfig;
         this.commonPluginJars = commonPluginJars;
         this.isStartWithSavePoint = isStartWithSavePoint;
-        this.seaTunnelJobConfig = MetalakeConfigUtils.getMetalakeConfig(seaTunnelJobConfig);
+        this.seaTunnelJobConfig = handleDataSource(seaTunnelJobConfig, dataSourceConfig);
         this.envOptions = ReadonlyConfig.fromConfig(seaTunnelJobConfig.getConfig("env"));
         this.pipelineCheckpoints = pipelineCheckpoints;
+        this.dataSourceConfig = dataSourceConfig;
         ConfigValidator.of(this.envOptions).validate(new EnvOptionRule().optionRule());
     }
 
@@ -840,5 +852,100 @@ public class MultipleTableJobConfigParser {
                                                         : Stream.of(state.getState()))
                         .collect(Collectors.toList());
         return new ChangeStreamTableSourceCheckpoint(coordinatorState, subtaskState);
+    }
+
+    private Config handleDataSource(Config seaTunnelJobConfig, DataSourceConfig dataSourceConfig) {
+        Config tempconfig = seaTunnelJobConfig;
+        // Only resolve datasource configs when:
+        // 1. DataSource is enabled
+        // 2. The job config contains datasource_id in any connector
+        if (dataSourceConfig != null
+                && dataSourceConfig.isEnabled()
+                && hasDatasourceId(seaTunnelJobConfig)) {
+            tempconfig =
+                    DataSourceConfigResolver.resolveDataSourceConfigs(
+                            seaTunnelJobConfig, dataSourceConfig);
+        }
+        // Compatible with old code
+        tempconfig = MetalakeConfigUtils.getMetalakeConfig(tempconfig);
+        return tempconfig;
+    }
+
+    /**
+     * Checks if the job config contains datasource_id in any connector configuration.
+     *
+     * @param config the SeaTunnel job configuration
+     * @return true if any connector (source or sink) contains datasource_id, false otherwise
+     */
+    private boolean hasDatasourceId(Config config) {
+        List<? extends Config> sourceConfigs =
+                TypesafeConfigUtils.getConfigList(
+                        config, PluginType.SOURCE.getType(), Collections.emptyList());
+        for (Config sourceConfig : sourceConfigs) {
+            if (hasDatasourceIdInConnector(sourceConfig)) {
+                return true;
+            }
+        }
+
+        List<? extends Config> sinkConfigs =
+                TypesafeConfigUtils.getConfigList(
+                        config, PluginType.SINK.getType(), Collections.emptyList());
+        for (Config sinkConfig : sinkConfigs) {
+            if (hasDatasourceIdInConnector(sinkConfig)) {
+                return true;
+            }
+        }
+
+        return false;
+    }
+
+    /**
+     * Checks if a single connector config contains datasource_id.
+     *
+     * @param connectorConfig the connector configuration
+     * @return true if datasource_id is present, false otherwise
+     */
+    private boolean hasDatasourceIdInConnector(Config connectorConfig) {
+        try {
+            // Check at root level
+            if (connectorConfig.hasPath(ConnectorCommonOptions.DATASOURCE_ID.key())) {
+                return true;
+            }
+
+            // Check inside the nested connector config
+            String connectorIdentifier = getConnectorIdentifier(connectorConfig);
+            if (!"unknown".equals(connectorIdentifier)) {
+                Config nestedConfig = connectorConfig.getConfig(connectorIdentifier);
+                if (nestedConfig.hasPath(ConnectorCommonOptions.DATASOURCE_ID.key())) {
+                    return true;
+                }
+            }
+        } catch (Exception e) {
+            log.debug("Failed to check datasource_id in connector config", e);
+        }
+        return false;
+    }
+
+    /**
+     * Gets the connector identifier (plugin name) from a connector config.
+     *
+     * @param config the connector configuration
+     * @return the connector identifier or \”unknown\” if not found
+     */
+    private String getConnectorIdentifier(Config config) {
+        try {
+            if (config.hasPath(ConnectorCommonOptions.PLUGIN_NAME.key())) {
+                return config.getString(ConnectorCommonOptions.PLUGIN_NAME.key());
+            }
+        } catch (Exception e) {
+            // Ignore, try the nested structure approach
+        }
+        // Fallback: look for nested object structure
+        for (Map.Entry<String, ConfigValue> entry : config.root().entrySet()) {
+            if (entry.getValue().valueType() == ConfigValueType.OBJECT) {
+                return entry.getKey();
+            }
+        }
+        return "unknown";
     }
 }
