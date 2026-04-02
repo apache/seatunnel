@@ -911,8 +911,10 @@ public class TaskExecutionService implements DynamicMetricsProvider {
     }
 
     /**
-     * ThreadFactory for creating named threads for blocking task execution. Threads are named with
-     * the pattern {@code hz.{instance}.seaTunnel.task.thread-{n}}.
+     * ThreadFactory for creating named threads used for SeaTunnel task execution. The shared
+     * executor service created with this factory may run blocking workers, cooperative workers, and
+     * asynchronous tasks. Threads are named with the pattern {@code
+     * hz.{instance}.seaTunnel.task.thread-{n}}.
      */
     private final class BlockingTaskThreadFactory implements ThreadFactory {
         private final AtomicInteger seq = new AtomicInteger();
@@ -1059,7 +1061,8 @@ public class TaskExecutionService implements DynamicMetricsProvider {
 
     /**
      * Supplier that creates and runs new CooperativeTaskWorker instances (BusWork) when needed. New
-     * workers are created when the task queue has pending tasks and no idle worker is available.
+     * workers are created either unconditionally or, when requested by the caller, only if the task
+     * queue currently contains pending tasks.
      */
     public final class RunBusWorkSupplier {
 
