@@ -223,11 +223,10 @@ public class RabbitmqSourceTest {
         // Add to config
         configMap.put(TableSchemaOptions.TABLE_CONFIGS.key(), Collections.singletonList(table1));
 
-        // Create Source
         Assertions.assertThrows(
-            Exception.class,
-            () -> new RabbitmqSource(ReadonlyConfig.fromMap(configMap)),
-            "Should fail when table_configs is missing the queue_name");
+                Exception.class,
+                () -> new RabbitmqSource(ReadonlyConfig.fromMap(configMap)),
+                "Should fail when table_configs is missing the queue_name");
     }
 
     @Test
