@@ -339,7 +339,7 @@ public class ClientExecuteCommand implements Command<ClientCommandArgs> {
         int port =
                 clientCommandArgs.getHazelcastPort() != null
                         ? clientCommandArgs.getHazelcastPort()
-                        : 0;
+                        : seaTunnelConfig.getHazelcastConfig().getNetworkConfig().getPort();
         seaTunnelConfig.getHazelcastConfig().getNetworkConfig().setPort(port);
         seaTunnelConfig.getHazelcastConfig().getNetworkConfig().setPortAutoIncrement(true);
         log.info("Local mode: Hazelcast port configured as {} (0 means random assignment)", port);
