@@ -42,6 +42,12 @@ class FtpFileFactoryTest {
                 optionRule.getOptionalOptions().contains(FileBaseSourceOptions.UPDATE_STRATEGY));
         Assertions.assertTrue(
                 optionRule.getOptionalOptions().contains(FileBaseSourceOptions.COMPARE_MODE));
+        Assertions.assertTrue(
+                optionRule.getOptionalOptions().contains(FileBaseSourceOptions.DISCOVERY_MODE));
+        Assertions.assertTrue(
+                optionRule.getOptionalOptions().contains(FileBaseSourceOptions.SCAN_INTERVAL));
+        Assertions.assertTrue(
+                optionRule.getOptionalOptions().contains(FileBaseSourceOptions.START_MODE));
 
         Expression expectExpression =
                 Expression.of(FileBaseSourceOptions.SYNC_MODE, FileSyncMode.UPDATE);

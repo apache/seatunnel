@@ -113,6 +113,10 @@ public class LocalFileSourceFactory implements TableSourceFactory {
                 .optional(FileBaseSourceOptions.ESCAPE_CHAR)
                 .optional(ConnectorCommonOptions.METALAKE_TYPE)
                 .optional(
+                        FileBaseSourceOptions.DISCOVERY_MODE,
+                        FileBaseSourceOptions.SCAN_INTERVAL,
+                        FileBaseSourceOptions.START_MODE)
+                .optional(
                         FileBaseSourceOptions.SYNC_MODE,
                         FileBaseSourceOptions.TARGET_HADOOP_CONF,
                         FileBaseSourceOptions.UPDATE_STRATEGY,
