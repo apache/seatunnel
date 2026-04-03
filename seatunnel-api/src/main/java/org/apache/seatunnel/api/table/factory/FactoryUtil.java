@@ -23,7 +23,7 @@ import org.apache.seatunnel.api.configuration.ReadonlyConfig;
 import org.apache.seatunnel.api.configuration.util.ConfigValidator;
 import org.apache.seatunnel.api.configuration.util.OptionRule;
 import org.apache.seatunnel.api.env.ParsingMode;
-import org.apache.seatunnel.api.metadata.MetaDataConfig;
+import org.apache.seatunnel.api.metadata.MetadataConfig;
 import org.apache.seatunnel.api.options.ConnectorCommonOptions;
 import org.apache.seatunnel.api.options.EnvCommonOptions;
 import org.apache.seatunnel.api.options.SourceConnectorCommonOptions;
@@ -84,7 +84,7 @@ public final class FactoryUtil {
                     String factoryIdentifier,
                     Function<PluginIdentifier, SeaTunnelSource> fallbackCreateSource,
                     TableSourceFactory factory,
-                    MetaDataConfig metaDataConfig) {
+                    MetadataConfig metaDataConfig) {
         return restoreAndPrepareSource(
                 options,
                 classLoader,
@@ -103,7 +103,7 @@ public final class FactoryUtil {
                     ChangeStreamTableSourceCheckpoint checkpoint,
                     Function<PluginIdentifier, SeaTunnelSource> fallbackCreateSource,
                     TableSourceFactory factory,
-                    MetaDataConfig metaDataConfig) {
+                    MetadataConfig metaDataConfig) {
 
         try {
 
@@ -185,7 +185,7 @@ public final class FactoryUtil {
                     TableSourceFactory factory,
                     ReadonlyConfig options,
                     ClassLoader classLoader,
-                    MetaDataConfig metaDataConfig) {
+                    MetadataConfig metaDataConfig) {
         TableSourceFactoryContext context =
                 new TableSourceFactoryContext(options, classLoader, metaDataConfig);
         ConfigValidator.of(context.getOptions()).validate(factory.optionRule());

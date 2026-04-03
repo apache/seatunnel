@@ -24,22 +24,22 @@ import java.util.HashMap;
 import java.util.Map;
 
 /**
- * Configuration for MetaData Center which manages external metadata providers.
+ * Configuration for Metadata Center which manages external metadata providers.
  *
  * <p>This config contains only common properties (enabled, kind) and a properties map for
  * provider-specific settings. Provider implementations should extract their own configuration from
  * the properties map.
  */
 @Data
-public class MetaDataConfig implements Serializable {
+public class MetadataConfig implements Serializable {
 
-    /** Whether to enable MetaData Center. */
-    private boolean enabled = MetaDataOptions.ENABLED.defaultValue();
+    /** Whether to enable Metadata Center. */
+    private boolean enabled = MetadataOptions.ENABLED.defaultValue();
 
     /**
-     * The kind of MetaData provider to use. Supported values: "gravitino", "datahub", "atlas", etc.
+     * The kind of Metadata provider to use. Supported values: "gravitino", "datahub", "atlas", etc.
      */
-    private String kind = MetaDataOptions.KIND.defaultValue();
+    private String kind = MetadataOptions.KIND.defaultValue();
 
     /**
      * Provider-specific properties. Each provider (e.g., Gravitino) should extract its own

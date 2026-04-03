@@ -15,7 +15,7 @@ weight: 6
 - **增强安全性**：敏感凭据不再存储在作业配置文件中
 - **集中管理**：对数据源配置的修改只需在外部系统中进行一次
 - **结构发现**：自动从元数据系统检索表结构
-- **可扩展**：通过实现 `MetaDataProvider` 接口可以集成自定义元数据系统
+- **可扩展**：通过实现 `MetadataProvider` 接口可以集成自定义元数据系统
 
 ### 引擎支持
 
@@ -91,14 +91,14 @@ source {
 
 本节定义所有元数据提供者必须实现的标准 SPI 接口。
 
-### MetaDataProvider 接口
+### MetadataProvider 接口
 
-`MetaDataProvider` 接口是将外部元数据系统与 SeaTunnel 集成的契约。实现通过使用 `@AutoService` 注解的 Java SPI 机制被发现。
+`MetadataProvider` 接口是将外部元数据系统与 SeaTunnel 集成的契约。实现通过使用 `@AutoService` 注解的 Java SPI 机制被发现。
 
-**位置**：`seatunnel-api/src/main/java/org/apache/seatunnel/api/metadata/MetaDataProvider.java`
+**位置**：`seatunnel-api/src/main/java/org/apache/seatunnel/api/metadata/MetadataProvider.java`
 
 ```java
-public interface MetaDataProvider extends AutoCloseable {
+public interface MetadataProvider extends AutoCloseable {
 
     /**
      * 返回此提供者的唯一标识符。
@@ -145,7 +145,7 @@ public interface MetaDataProvider extends AutoCloseable {
 
 ### 生命周期
 
-1. **发现**：提供者实例通过 `@AutoService(MetaDataProvider.class)` 被发现并缓存
+1. **发现**：提供者实例通过 `@AutoService(MetadataProvider.class)` 被发现并缓存
 2. **初始化**：使用来自 `seatunnel.yaml` 的配置调用 `init(Config)`
 3. **使用**：调用 `datasourceMap(String, String)` 来解析每个连接器的 `metadata_datasource_id`
 4. **结构检索**：调用 `tableSchema(String)` 来获取表结构
@@ -227,7 +227,7 @@ Gravitino 提供者执行**有限的属性名映射**，从 Gravitino 目录属�
 | `jdbc-password` | `password`   |
 | `jdbc-driver`   | `driver`     |
 
-> **注意**：Gravitino 目录中的任何其他属性不会传递。如果您需要额外的属性映射，请考虑实现自定义的 `MetaDataProvider`。
+> **注意**：Gravitino 目录中的任何其他属性不会传递。如果您需要额外的属性映射，请考虑实现自定义的 `MetadataProvider`。
 
 ### 连接器支持
 
@@ -268,7 +268,7 @@ Gravitino 提供者目前支持：
 
 ## 实现自定义提供者
 
-要将自定义元数据系统与 SeaTunnel 集成，请实现 `MetaDataProvider` 接口。
+要将自定义元数据系统与 SeaTunnel 集成，请实现 `MetadataProvider` 接口。
 
 ### 步骤 1：添加依赖
 
@@ -288,8 +288,8 @@ Gravitino 提供者目前支持：
 ### 步骤 2：创建提供者类
 
 ```java
-@AutoService(MetaDataProvider.class)
-public class MyMetaDataProvider implements MetaDataProvider {
+@AutoService(MetadataProvider.class)
+public class MyMetadataProvider implements MetadataProvider {
 
     private HttpClient httpClient;
 
@@ -356,7 +356,7 @@ seatunnel:
 ## 运行时流程
 
 1. **SeaTunnel 启动**
-   - 根据 `seatunnel.yaml` 加载配置的 `MetaDataProvider`
+   - 根据 `seatunnel.yaml` 加载配置的 `MetadataProvider`
    - 使用提供者特定的配置调用 `init()`
 
 2. **作业提交**

@@ -24,7 +24,7 @@ import org.apache.seatunnel.shade.com.typesafe.config.ConfigFactory;
 import org.apache.seatunnel.shade.com.typesafe.config.ConfigValue;
 import org.apache.seatunnel.shade.com.typesafe.config.ConfigValueType;
 
-import org.apache.seatunnel.api.metadata.exception.MetaDataProviderException;
+import org.apache.seatunnel.api.metadata.exception.MetadataProviderException;
 import org.apache.seatunnel.api.options.ConnectorCommonOptions;
 import org.apache.seatunnel.api.table.catalog.TableSchema;
 import org.apache.seatunnel.common.config.TypesafeConfigUtils;
@@ -43,13 +43,13 @@ import java.util.Optional;
  * x Utility class for resolving data source configurations from MetaData Center.
  *
  * <p>This utility provides methods to merge connection configurations retrieved from external
- * metadata services (via {@link MetaDataProvider}) into SeaTunnel connector configurations.
+ * metadata services (via {@link MetadataProvider}) into SeaTunnel connector configurations.
  */
 @Slf4j
-public final class MetaDataProviderManager {
+public final class MetadataProviderManager {
 
-    /** Cache for initialized MetaDataProvider instance. */
-    private static volatile MetaDataProvider cachedProvider = null;
+    /** Cache for initialized MetadataProvider instance. */
+    private static volatile MetadataProvider cachedProvider = null;
 
     /**
      * Resolves and merges data source configurations for a SeaTunnel job config.
@@ -59,7 +59,7 @@ public final class MetaDataProviderManager {
      * @return a new Config with datasource configurations merged
      */
     public static Config resolveDataSourceConfigs(
-            Config seaTunnelJobConfig, MetaDataConfig metaDataConfig) {
+            Config seaTunnelJobConfig, MetadataConfig metaDataConfig) {
         if (!metaDataConfig.isEnabled()) {
             log.debug("MetaData Center is disabled, returning original config");
             return seaTunnelJobConfig;
@@ -69,7 +69,7 @@ public final class MetaDataProviderManager {
         log.info("Starting datasource config resolution with provider: {}", providerKind);
 
         // Get or create initialized provider instance (cached with lazy loading)
-        MetaDataProvider provider =
+        MetadataProvider provider =
                 getOrCreateProvider(
                         providerKind, ConfigFactory.parseMap(metaDataConfig.getProperties()));
 
@@ -107,11 +107,11 @@ public final class MetaDataProviderManager {
     }
 
     public static Optional<TableSchema> resolveTableSchema(
-            String metaDataTableId, MetaDataConfig metaDataConfig) {
+            String metaDataTableId, MetadataConfig metaDataConfig) {
         if (metaDataConfig == null || !metaDataConfig.isEnabled()) {
             return Optional.empty();
         }
-        MetaDataProvider provider =
+        MetadataProvider provider =
                 getOrCreateProvider(
                         metaDataConfig.getKind(),
                         ConfigFactory.parseMap(metaDataConfig.getProperties()));
@@ -119,27 +119,27 @@ public final class MetaDataProviderManager {
     }
 
     /**
-     * Gets or creates an initialized MetaDataProvider instance with lazy loading caching.
+     * Gets or creates an initialized MetadataProvider instance with lazy loading caching.
      *
      * @param kind the provider kind (e.g., "gravitino", "datahub")
      * @param config the configuration for the provider
-     * @return initialized MetaDataProvider instance
+     * @return initialized MetadataProvider instance
      */
-    private static MetaDataProvider getOrCreateProvider(String kind, Config config) {
-        MetaDataProvider provider = cachedProvider;
+    private static MetadataProvider getOrCreateProvider(String kind, Config config) {
+        MetadataProvider provider = cachedProvider;
         if (provider != null && !provider.kind().equalsIgnoreCase(kind)) {
             provider.close();
             provider = null;
             cachedProvider = null;
         }
         if (provider == null) {
-            synchronized (MetaDataProviderManager.class) {
+            synchronized (MetadataProviderManager.class) {
                 provider = cachedProvider;
                 if (provider == null) {
-                    provider = MetaDataProviderFactory.getProvider(kind);
+                    provider = MetadataProviderFactory.getProvider(kind);
                     provider.init(config);
                     cachedProvider = provider;
-                    log.info("Created and cached new MetaDataProvider: {}", kind);
+                    log.info("Created and cached new MetadataProvider: {}", kind);
                 }
             }
         }
@@ -152,19 +152,19 @@ public final class MetaDataProviderManager {
      * <p>If the config contains a {@code datasource_id}, this method will:
      *
      * <ol>
-     *   <li>Use the provided {@link MetaDataProvider} (already initialized)
+     *   <li>Use the provided {@link MetadataProvider} (already initialized)
      *   <li>Fetch the connection config from the metadata service using the datasource_id
      *   <li>Merge the fetched config into the original config
      * </ol>
      *
      * @param connectorConfig the connector configuration
-     * @param provider the initialized MetaDataProvider instance
-     * @param providerKind the kind of MetaDataProvider (e.g., "gravitino", "datahub")
+     * @param provider the initialized MetadataProvider instance
+     * @param providerKind the kind of MetadataProvider (e.g., "gravitino", "datahub")
      * @return a new Config with datasource configuration merged, or the original config if no
      *     datasource_id is present
      */
     private static Config resolveConnectorConfig(
-            Config connectorConfig, MetaDataProvider provider, String providerKind) {
+            Config connectorConfig, MetadataProvider provider, String providerKind) {
         Optional<String> datasourceIdOptional = getDatasourceId(connectorConfig);
 
         if (!datasourceIdOptional.isPresent()) {
@@ -190,7 +190,7 @@ public final class MetaDataProviderManager {
 
             if (datasourceConfig == null || datasourceConfig.isEmpty()) {
                 log.warn(
-                        "Received empty or null config from MetaDataProvider for datasource_id: {}",
+                        "Received empty or null config from MetadataProvider for datasource_id: {}",
                         datasourceId);
                 return connectorConfig;
             }
@@ -198,10 +198,10 @@ public final class MetaDataProviderManager {
             // Merge the fetched config into the original config
             return mergeConfig(connectorConfig, datasourceConfig, datasourceId);
 
-        } catch (MetaDataProviderException e) {
+        } catch (MetadataProviderException e) {
             throw e;
         } catch (Exception e) {
-            throw new MetaDataProviderException(
+            throw new MetadataProviderException(
                     String.format(
                             "Failed to resolve datasource config for connector: %s, datasource_id: %s, provider: %s",
                             connectorIdentifier, datasourceId, providerKind),
@@ -337,7 +337,7 @@ public final class MetaDataProviderManager {
     }
 
     /**
-     * Closes the cached MetaDataProvider instance.
+     * Closes the cached MetadataProvider instance.
      *
      * <p>This method should be called when the application shuts down (e.g., when the SeaTunnel
      * Server or Client is stopping) to properly release all resources held by the provider.
@@ -345,17 +345,17 @@ public final class MetaDataProviderManager {
      * <p>This method is idempotent and can be safely called multiple times.
      */
     public static void closeProviders() {
-        MetaDataProvider provider = cachedProvider;
+        MetadataProvider provider = cachedProvider;
         if (provider != null) {
             try {
-                log.info("Closing cached MetaDataProvider");
+                log.info("Closing cached MetadataProvider");
                 provider.close();
             } catch (Exception e) {
-                log.warn("Failed to close MetaDataProvider", e);
+                log.warn("Failed to close MetadataProvider", e);
             }
             cachedProvider = null;
         }
-        log.info("MetaDataProvider closed");
+        log.info("MetadataProvider closed");
     }
 
     /**

@@ -17,7 +17,7 @@
 
 package org.apache.seatunnel.api.metadata;
 
-import org.apache.seatunnel.api.metadata.exception.MetaDataProviderException;
+import org.apache.seatunnel.api.metadata.exception.MetadataProviderException;
 
 import lombok.extern.slf4j.Slf4j;
 
@@ -27,7 +27,7 @@ import java.util.ServiceConfigurationError;
 import java.util.ServiceLoader;
 
 /**
- * Utility class for discovering and loading {@link MetaDataProvider} implementations via Java SPI.
+ * Utility class for discovering and loading {@link MetadataProvider} implementations via Java SPI.
  *
  * <p>This class provides methods to:
  *
@@ -37,32 +37,32 @@ import java.util.ServiceLoader;
  * </ul>
  */
 @Slf4j
-public final class MetaDataProviderFactory {
+public final class MetadataProviderFactory {
 
     /**
-     * Finds a {@link MetaDataProvider} by its kind identifier.
+     * Finds a {@link MetadataProvider} by its kind identifier.
      *
      * @param kind the kind identifier of the provider to find
      * @return the provider
-     * @throws MetaDataProviderException if provider is not found or multiple providers with the
+     * @throws MetadataProviderException if provider is not found or multiple providers with the
      *     same kind are found
      */
-    public static MetaDataProvider getProvider(String kind) {
-        List<MetaDataProvider> providers = loadProviders();
+    public static MetadataProvider getProvider(String kind) {
+        List<MetadataProvider> providers = loadProviders();
 
-        MetaDataProvider matchedProvider = null;
+        MetadataProvider matchedProvider = null;
         List<String> matchedKinds = new ArrayList<>();
 
-        for (MetaDataProvider provider : providers) {
+        for (MetadataProvider provider : providers) {
             if (provider.kind().equalsIgnoreCase(kind)) {
                 if (matchedProvider != null) {
                     log.error(
-                            "Multiple MetaDataProvider implementations found for kind '{}': {}",
+                            "Multiple MetadataProvider implementations found for kind '{}': {}",
                             kind,
                             matchedKinds);
-                    throw new MetaDataProviderException(
+                    throw new MetadataProviderException(
                             String.format(
-                                    "Multiple MetaDataProvider implementations found for kind '%s'.\n\n"
+                                    "Multiple MetadataProvider implementations found for kind '%s'.\n\n"
                                             + "Ambiguous provider classes are:\n\n%s",
                                     kind, String.join("\n", matchedKinds)));
                 }
@@ -73,13 +73,13 @@ public final class MetaDataProviderFactory {
 
         if (matchedProvider == null) {
             List<String> availableKinds = new ArrayList<>();
-            for (MetaDataProvider provider : providers) {
+            for (MetadataProvider provider : providers) {
                 availableKinds.add(provider.kind());
             }
-            log.debug("No MetaDataProvider found for kind: {}", kind);
-            throw new MetaDataProviderException(
+            log.debug("No MetadataProvider found for kind: {}", kind);
+            throw new MetadataProviderException(
                     String.format(
-                            "No MetaDataProvider found for kind '%s'.\n\n"
+                            "No MetadataProvider found for kind '%s'.\n\n"
                                     + "Available provider kinds are:\n\n%s",
                             kind, String.join("\n", availableKinds)));
         }
@@ -102,31 +102,31 @@ public final class MetaDataProviderFactory {
      *
      * @return list of all discovered providers
      */
-    private static List<MetaDataProvider> loadProviders() {
+    private static List<MetadataProvider> loadProviders() {
         try {
             ClassLoader classLoader = Thread.currentThread().getContextClassLoader();
-            List<MetaDataProvider> providers = new ArrayList<>();
-            ServiceLoader.load(MetaDataProvider.class, classLoader)
+            List<MetadataProvider> providers = new ArrayList<>();
+            ServiceLoader.load(MetadataProvider.class, classLoader)
                     .iterator()
                     .forEachRemaining(providers::add);
 
             if (providers.isEmpty()) {
-                log.info("No MetaDataProvider implementations found");
+                log.info("No MetadataProvider implementations found");
             } else {
                 log.info(
-                        "Loaded {} MetaDataProvider: {}",
+                        "Loaded {} MetadataProvider: {}",
                         providers.size(),
                         providers.stream()
-                                .map(MetaDataProvider::kind)
+                                .map(MetadataProvider::kind)
                                 .reduce((a, b) -> a + ", " + b)
                                 .orElse(""));
             }
 
             return providers;
         } catch (ServiceConfigurationError e) {
-            log.error("Could not load service provider for MetaDataProvider.", e);
-            throw new MetaDataProviderException(
-                    "Could not load service provider for MetaDataProvider.", e);
+            log.error("Could not load service provider for MetadataProvider.", e);
+            throw new MetadataProviderException(
+                    "Could not load service provider for MetadataProvider.", e);
         }
     }
 }

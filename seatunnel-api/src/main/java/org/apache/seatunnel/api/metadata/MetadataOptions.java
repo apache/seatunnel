@@ -20,8 +20,8 @@ package org.apache.seatunnel.api.metadata;
 import org.apache.seatunnel.api.configuration.Option;
 import org.apache.seatunnel.api.configuration.Options;
 
-/** Configuration options for MetaData Center. */
-public class MetaDataOptions {
+/** Configuration options for Metadata Center. */
+public class MetadataOptions {
 
     /** The key for metadata configuration in env config. */
     public static final Option<String> METADATA =
@@ -31,22 +31,22 @@ public class MetaDataOptions {
                     .withDescription(
                             "The metadata configuration containing enabled, kind and provider-specific properties.");
 
-    /** Whether to enable MetaData Center. */
+    /** Whether to enable Metadata Center. */
     public static final Option<Boolean> ENABLED =
             Options.key("enabled")
                     .booleanType()
                     .defaultValue(false)
                     .withDescription(
-                            "Whether to enable MetaData Center for centralized data source metadata management. "
+                            "Whether to enable Metadata Center for centralized data source metadata management. "
                                     + "When enabled, data source connection details can be referenced via datasourceId instead of being directly specified in job configs.");
 
     /**
-     * The kind of MetaData provider to use. Supported values: "gravitino", "datahub", "atlas", etc.
+     * The kind of Metadata provider to use. Supported values: "gravitino", "datahub", "atlas", etc.
      */
     public static final Option<String> KIND =
             Options.key("kind")
                     .stringType()
                     .defaultValue("gravitino")
                     .withDescription(
-                            "The kind of MetaData provider to use. Supported values: gravitino, datahub, atlas, etc.");
+                            "The kind of Metadata provider to use. Supported values: gravitino, datahub, atlas, etc.");
 }

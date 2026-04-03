@@ -21,9 +21,9 @@ import org.apache.seatunnel.shade.com.typesafe.config.Config;
 import org.apache.seatunnel.shade.com.typesafe.config.ConfigFactory;
 
 import org.apache.seatunnel.api.configuration.ReadonlyConfig;
-import org.apache.seatunnel.api.metadata.MetaDataConfig;
-import org.apache.seatunnel.api.metadata.MetaDataProvider;
-import org.apache.seatunnel.api.metadata.MetaDataProviderManager;
+import org.apache.seatunnel.api.metadata.MetadataConfig;
+import org.apache.seatunnel.api.metadata.MetadataProvider;
+import org.apache.seatunnel.api.metadata.MetadataProviderManager;
 import org.apache.seatunnel.api.table.catalog.CatalogTable;
 import org.apache.seatunnel.api.table.catalog.PhysicalColumn;
 import org.apache.seatunnel.api.table.catalog.TablePath;
@@ -47,9 +47,9 @@ public class TableSchemaDiscovererTest {
 
     private static final String TEST_CATALOG_NAME = "test_catalog";
 
-    /** Create a default MetaDataConfig for testing. */
-    private MetaDataConfig createDefaultMetaDataConfig() {
-        MetaDataConfig config = new MetaDataConfig();
+    /** Create a default MetadataConfig for testing. */
+    private MetadataConfig createDefaultMetadataConfig() {
+        MetadataConfig config = new MetadataConfig();
         config.setEnabled(true);
         config.setKind("test-mock-provider");
         config.setProperties(new HashMap<>());
@@ -60,9 +60,9 @@ public class TableSchemaDiscovererTest {
     void testDiscoverTableSchemasWithSingleSchemaFields() throws URISyntaxException {
         Config config = loadConfig("/conf/table_schema_discoverer/single_schema_field.conf");
         ReadonlyConfig sourceOptions = ReadonlyConfig.fromConfig(config);
-        MetaDataConfig metaDataConfig = createDefaultMetaDataConfig();
+        MetadataConfig metadataConfig = createDefaultMetadataConfig();
         try (TableSchemaDiscoverer discoverer =
-                new TableSchemaDiscoverer(metaDataConfig, sourceOptions, TEST_CATALOG_NAME)) {
+                new TableSchemaDiscoverer(metadataConfig, sourceOptions, TEST_CATALOG_NAME)) {
             Assertions.assertFalse(discoverer.enableMetaLakeClient(sourceOptions));
             List<CatalogTable> result = discoverer.discoverTableSchemas();
             Assertions.assertEquals(1, result.size());
@@ -82,9 +82,9 @@ public class TableSchemaDiscovererTest {
         try {
             Config config = loadConfig("/conf/table_schema_discoverer/single_metadata_table.conf");
             ReadonlyConfig sourceOptions = ReadonlyConfig.fromConfig(config);
-            MetaDataConfig metaDataConfig = createDefaultMetaDataConfig();
+            MetadataConfig metadataConfig = createDefaultMetadataConfig();
             try (TableSchemaDiscoverer discoverer =
-                    new TableSchemaDiscoverer(metaDataConfig, sourceOptions, TEST_CATALOG_NAME)) {
+                    new TableSchemaDiscoverer(metadataConfig, sourceOptions, TEST_CATALOG_NAME)) {
                 Assertions.assertTrue(discoverer.enableMetaLakeClient(sourceOptions));
                 List<CatalogTable> result = discoverer.discoverTableSchemas();
 
@@ -125,7 +125,7 @@ public class TableSchemaDiscovererTest {
             }
         } finally {
             // Clear the cached provider after test
-            MetaDataProviderManager.clearCache();
+            MetadataProviderManager.clearCache();
         }
     }
 
@@ -133,9 +133,9 @@ public class TableSchemaDiscovererTest {
     void testDiscoverTableSchemasWithMultipleTablesFields() throws URISyntaxException {
         Config config = loadConfig("/conf/table_schema_discoverer/multiple_tables_fields.conf");
         ReadonlyConfig sourceOptions = ReadonlyConfig.fromConfig(config);
-        MetaDataConfig metaDataConfig = createDefaultMetaDataConfig();
+        MetadataConfig metadataConfig = createDefaultMetadataConfig();
         try (TableSchemaDiscoverer discoverer =
-                new TableSchemaDiscoverer(metaDataConfig, sourceOptions, TEST_CATALOG_NAME)) {
+                new TableSchemaDiscoverer(metadataConfig, sourceOptions, TEST_CATALOG_NAME)) {
             Assertions.assertFalse(discoverer.enableMetaLakeClient(sourceOptions));
             List<CatalogTable> result = discoverer.discoverTableSchemas();
             Assertions.assertEquals(2, result.size());
@@ -160,9 +160,9 @@ public class TableSchemaDiscovererTest {
             Config config =
                     loadConfig("/conf/table_schema_discoverer/multiple_tables_metadata_table.conf");
             ReadonlyConfig sourceOptions = ReadonlyConfig.fromConfig(config);
-            MetaDataConfig metaDataConfig = createDefaultMetaDataConfig();
+            MetadataConfig metadataConfig = createDefaultMetadataConfig();
             try (TableSchemaDiscoverer discoverer =
-                    new TableSchemaDiscoverer(metaDataConfig, sourceOptions, TEST_CATALOG_NAME)) {
+                    new TableSchemaDiscoverer(metadataConfig, sourceOptions, TEST_CATALOG_NAME)) {
                 Assertions.assertTrue(discoverer.enableMetaLakeClient(sourceOptions));
                 List<CatalogTable> result = discoverer.discoverTableSchemas();
                 Assertions.assertEquals(2, result.size());
@@ -203,7 +203,7 @@ public class TableSchemaDiscovererTest {
             }
         } finally {
             // Clear the cached provider after test
-            MetaDataProviderManager.clearCache();
+            MetadataProviderManager.clearCache();
         }
     }
 
@@ -217,9 +217,9 @@ public class TableSchemaDiscovererTest {
         try {
             Config config = loadConfig("/conf/table_schema_discoverer/multiple_tables_mixed.conf");
             ReadonlyConfig sourceOptions = ReadonlyConfig.fromConfig(config);
-            MetaDataConfig metaDataConfig = createDefaultMetaDataConfig();
+            MetadataConfig metadataConfig = createDefaultMetadataConfig();
             try (TableSchemaDiscoverer discoverer =
-                    new TableSchemaDiscoverer(metaDataConfig, sourceOptions, TEST_CATALOG_NAME)) {
+                    new TableSchemaDiscoverer(metadataConfig, sourceOptions, TEST_CATALOG_NAME)) {
                 Assertions.assertTrue(discoverer.enableMetaLakeClient(sourceOptions));
                 List<CatalogTable> result = discoverer.discoverTableSchemas();
                 Assertions.assertEquals(2, result.size());
@@ -253,7 +253,7 @@ public class TableSchemaDiscovererTest {
             }
         } finally {
             // Clear the cached provider after test
-            MetaDataProviderManager.clearCache();
+            MetadataProviderManager.clearCache();
         }
     }
 
@@ -261,9 +261,9 @@ public class TableSchemaDiscovererTest {
     void testDiscoverTableSchemaWithSingleParquetNoSchema() throws URISyntaxException {
         Config config = loadConfig("/conf/table_schema_discoverer/single_no_schema.conf");
         ReadonlyConfig sourceOptions = ReadonlyConfig.fromConfig(config);
-        MetaDataConfig metaDataConfig = createDefaultMetaDataConfig();
+        MetadataConfig metadataConfig = createDefaultMetadataConfig();
         try (TableSchemaDiscoverer discoverer =
-                new TableSchemaDiscoverer(metaDataConfig, sourceOptions, TEST_CATALOG_NAME)) {
+                new TableSchemaDiscoverer(metadataConfig, sourceOptions, TEST_CATALOG_NAME)) {
             Assertions.assertFalse(discoverer.enableMetaLakeClient(sourceOptions));
             List<CatalogTable> result = discoverer.discoverTableSchemas();
             // When no schema is configured, should return a simple text table
@@ -286,9 +286,9 @@ public class TableSchemaDiscovererTest {
                 loadConfig(
                         "/conf/table_schema_discoverer/multiple_tables_no_schema_mixed_format.conf");
         ReadonlyConfig sourceOptions = ReadonlyConfig.fromConfig(config);
-        MetaDataConfig metaDataConfig = createDefaultMetaDataConfig();
+        MetadataConfig metadataConfig = createDefaultMetadataConfig();
         try (TableSchemaDiscoverer discoverer =
-                new TableSchemaDiscoverer(metaDataConfig, sourceOptions, TEST_CATALOG_NAME)) {
+                new TableSchemaDiscoverer(metadataConfig, sourceOptions, TEST_CATALOG_NAME)) {
             Assertions.assertFalse(discoverer.enableMetaLakeClient(sourceOptions));
             List<CatalogTable> result = discoverer.discoverTableSchemas();
             // Should return 3 tables for parquet, orc, and binary file formats
@@ -337,13 +337,13 @@ public class TableSchemaDiscovererTest {
     }
 
     /**
-     * Register a mock MetaDataProvider for testing table schema discovery from metadata lake.
+     * Register a mock MetadataProvider for testing table schema discovery from metadata lake.
      *
      * @param provider the mock provider to register
      */
-    private void registerMockProvider(MetaDataProvider provider) {
+    private void registerMockProvider(MetadataProvider provider) {
         try {
-            Field providerField = MetaDataProviderManager.class.getDeclaredField("cachedProvider");
+            Field providerField = MetadataProviderManager.class.getDeclaredField("cachedProvider");
             providerField.setAccessible(true);
             providerField.set(null, provider);
         } catch (Exception e) {
@@ -352,10 +352,10 @@ public class TableSchemaDiscovererTest {
     }
 
     /**
-     * Mock MetaDataProvider for testing table schema discovery from metadata lake. Returns a
+     * Mock MetadataProvider for testing table schema discovery from metadata lake. Returns a
      * predefined table schema with specific columns and types.
      */
-    public static class MockMetadataTableProvider implements MetaDataProvider {
+    public static class MockMetadataTableProvider implements MetadataProvider {
 
         @Override
         public String kind() {

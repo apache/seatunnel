@@ -15,7 +15,7 @@ The Metadata SPI (Service Provider Interface) is an extension mechanism introduc
 - **Enhanced Security**: Sensitive credentials are no longer stored in job configuration files
 - **Centralized Management**: Changes to data source configurations only need to be made once in the external system
 - **Schema Discovery**: Automatic table schema retrieval from metadata systems
-- **Extensible**: Custom metadata systems can be integrated by implementing the `MetaDataProvider` interface
+- **Extensible**: Custom metadata systems can be integrated by implementing the `MetadataProvider` interface
 
 ### Engine Support
 
@@ -91,14 +91,14 @@ See [Schema Feature](./schema-feature.md) for more information on schema configu
 
 This section defines the standard SPI interfaces that all Metadata providers must implement.
 
-### MetaDataProvider Interface
+### MetadataProvider Interface
 
-The `MetaDataProvider` interface is the contract for integrating external metadata systems with SeaTunnel. Implementations are discovered via Java SPI using the `@AutoService` annotation.
+The `MetadataProvider` interface is the contract for integrating external metadata systems with SeaTunnel. Implementations are discovered via Java SPI using the `@AutoService` annotation.
 
-**Location**: `seatunnel-api/src/main/java/org/apache/seatunnel/api/metadata/MetaDataProvider.java`
+**Location**: `seatunnel-api/src/main/java/org/apache/seatunnel/api/metadata/MetadataProvider.java`
 
 ```java
-public interface MetaDataProvider extends AutoCloseable {
+public interface MetadataProvider extends AutoCloseable {
 
     /**
      * Returns a unique identifier for this provider.
@@ -146,7 +146,7 @@ public interface MetaDataProvider extends AutoCloseable {
 
 ### Lifecycle
 
-1. **Discovery**: Provider instances are discovered via `@AutoService(MetaDataProvider.class)` and cached
+1. **Discovery**: Provider instances are discovered via `@AutoService(MetadataProvider.class)` and cached
 2. **Initialization**: `init(Config)` is called with configuration from `seatunnel.yaml`
 3. **Usage**: `datasourceMap(String, String)` is called to resolve `metadata_datasource_id` for each connector
 4. **Schema Retrieval**: `tableSchema(String)` is called to fetch table schema when needed
@@ -228,7 +228,7 @@ The Gravitino provider performs **limited property name mapping** from Gravitino
 | `jdbc-password`    | `password`         |
 | `jdbc-driver`      | `driver`           |
 
-> **Note**: Any other properties in the Gravitino catalog are not passed. If you need additional property mappings, consider implementing a custom `MetaDataProvider`.
+> **Note**: Any other properties in the Gravitino catalog are not passed. If you need additional property mappings, consider implementing a custom `MetadataProvider`.
 
 ### Connector Support
 
@@ -269,7 +269,7 @@ The Gravitino provider currently supports:
 
 ## Implementing a Custom Provider
 
-To integrate a custom metadata system with SeaTunnel, implement the `MetaDataProvider` interface.
+To integrate a custom metadata system with SeaTunnel, implement the `MetadataProvider` interface.
 
 ### Step 1: Add Dependency
 
@@ -289,8 +289,8 @@ Add the `seatunnel-api` dependency to your project's `pom.xml`:
 ### Step 2: Create a Provider Class
 
 ```java
-@AutoService(MetaDataProvider.class)
-public class MyMetaDataProvider implements MetaDataProvider {
+@AutoService(MetadataProvider.class)
+public class MyMetadataProvider implements MetadataProvider {
 
     private HttpClient httpClient;
 
@@ -357,7 +357,7 @@ seatunnel:
 ## Runtime Flow
 
 1. **SeaTunnel Startup**
-   - Loads the configured `MetaDataProvider` based on `seatunnel.yaml`
+   - Loads the configured `MetadataProvider` based on `seatunnel.yaml`
    - Calls `init()` with provider-specific configuration
 
 2. **Job Submission**

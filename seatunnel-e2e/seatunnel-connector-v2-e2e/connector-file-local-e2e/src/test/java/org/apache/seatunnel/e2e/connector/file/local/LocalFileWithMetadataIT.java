@@ -44,7 +44,7 @@ import java.util.Collections;
 import static org.apache.seatunnel.e2e.common.util.ContainerUtil.PROJECT_ROOT_PATH;
 
 @Slf4j
-public class LocalFileWithMetaDataIT extends SeaTunnelContainer {
+public class LocalFileWithMetadataIT extends SeaTunnelContainer {
 
     private static final String GRAVITINO_IMAGE = "apache/gravitino:latest";
     private static final int GRAVITINO_PORT = 8090;

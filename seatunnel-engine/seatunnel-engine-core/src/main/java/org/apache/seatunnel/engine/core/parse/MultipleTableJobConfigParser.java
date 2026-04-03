@@ -29,8 +29,8 @@ import org.apache.seatunnel.shade.org.apache.commons.lang3.tuple.ImmutablePair;
 import org.apache.seatunnel.api.common.PluginIdentifier;
 import org.apache.seatunnel.api.configuration.ReadonlyConfig;
 import org.apache.seatunnel.api.configuration.util.ConfigValidator;
-import org.apache.seatunnel.api.metadata.MetaDataConfig;
-import org.apache.seatunnel.api.metadata.MetaDataProviderManager;
+import org.apache.seatunnel.api.metadata.MetadataConfig;
+import org.apache.seatunnel.api.metadata.MetadataProviderManager;
 import org.apache.seatunnel.api.metalake.MetalakeConfigUtils;
 import org.apache.seatunnel.api.options.ConnectorCommonOptions;
 import org.apache.seatunnel.api.options.EnvCommonOptions;
@@ -134,7 +134,7 @@ public class MultipleTableJobConfigParser {
     private final boolean isStartWithSavePoint;
     private final List<JobPipelineCheckpointData> pipelineCheckpoints;
 
-    private final MetaDataConfig metaDataConfig;
+    private final MetadataConfig metaDataConfig;
 
     @VisibleForTesting
     public MultipleTableJobConfigParser(
@@ -152,7 +152,7 @@ public class MultipleTableJobConfigParser {
                 Collections.emptyList(),
                 false,
                 Collections.emptyList(),
-                new MetaDataConfig());
+                new MetadataConfig());
     }
 
     @VisibleForTesting
@@ -170,7 +170,7 @@ public class MultipleTableJobConfigParser {
                 commonPluginJars,
                 isStartWithSavePoint,
                 Collections.emptyList(),
-                new MetaDataConfig());
+                new MetadataConfig());
     }
 
     public MultipleTableJobConfigParser(
@@ -181,7 +181,7 @@ public class MultipleTableJobConfigParser {
             List<URL> commonPluginJars,
             boolean isStartWithSavePoint,
             List<JobPipelineCheckpointData> pipelineCheckpoints,
-            MetaDataConfig metaDataConfig) {
+            MetadataConfig metaDataConfig) {
         this(
                 ConfigBuilder.of(Paths.get(jobDefineFilePath), variables),
                 idGenerator,
@@ -199,7 +199,7 @@ public class MultipleTableJobConfigParser {
             List<URL> commonPluginJars,
             boolean isStartWithSavePoint,
             List<JobPipelineCheckpointData> pipelineCheckpoints,
-            MetaDataConfig metaDataConfig) {
+            MetadataConfig metaDataConfig) {
         this.idGenerator = idGenerator;
         this.jobConfig = jobConfig;
         this.commonPluginJars = commonPluginJars;
@@ -854,7 +854,7 @@ public class MultipleTableJobConfigParser {
         return new ChangeStreamTableSourceCheckpoint(coordinatorState, subtaskState);
     }
 
-    private Config handleDataSource(Config seaTunnelJobConfig, MetaDataConfig metaDataConfig) {
+    private Config handleDataSource(Config seaTunnelJobConfig, MetadataConfig metaDataConfig) {
         Config tempconfig = seaTunnelJobConfig;
         // Only resolve MetaData configs when:
         // 1. MetaData is enabled
@@ -863,7 +863,7 @@ public class MultipleTableJobConfigParser {
                 && metaDataConfig.isEnabled()
                 && hasDatasourceId(seaTunnelJobConfig)) {
             tempconfig =
-                    MetaDataProviderManager.resolveDataSourceConfigs(
+                    MetadataProviderManager.resolveDataSourceConfigs(
                             seaTunnelJobConfig, metaDataConfig);
         }
         // Compatible with old code

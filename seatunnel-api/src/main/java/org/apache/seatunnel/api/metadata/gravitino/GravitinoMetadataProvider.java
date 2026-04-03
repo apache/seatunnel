@@ -22,7 +22,7 @@ import org.apache.seatunnel.shade.com.typesafe.config.Config;
 
 import org.apache.seatunnel.api.configuration.Option;
 import org.apache.seatunnel.api.configuration.Options;
-import org.apache.seatunnel.api.metadata.MetaDataProvider;
+import org.apache.seatunnel.api.metadata.MetadataProvider;
 import org.apache.seatunnel.api.metalake.gravitino.GravitinoClient;
 import org.apache.seatunnel.api.metalake.gravitino.GravitinoTableSchemaConvertor;
 import org.apache.seatunnel.api.table.catalog.TableSchema;
@@ -38,7 +38,7 @@ import java.util.Map;
 import java.util.Optional;
 
 /**
- * Gravitino implementation of {@link MetaDataProvider}.
+ * Gravitino implementation of {@link MetadataProvider}.
  *
  * <p>This provider integrates with Apache Gravitino for centralized data source metadata
  * management.
@@ -84,8 +84,8 @@ import java.util.Optional;
  * </pre>
  */
 @Slf4j
-@AutoService(MetaDataProvider.class)
-public class GravitinoMetaDataProvider implements MetaDataProvider {
+@AutoService(MetadataProvider.class)
+public class GravitinoMetadataProvider implements MetadataProvider {
 
     private String uri;
     private String metalake;

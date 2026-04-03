@@ -68,7 +68,7 @@ import java.util.Optional;
  * <p>Provider instances may be accessed concurrently by multiple threads. Implementations must be
  * thread-safe.
  */
-public interface MetaDataProvider extends AutoCloseable {
+public interface MetadataProvider extends AutoCloseable {
 
     /**
      * Returns a unique identifier for this data source provider.

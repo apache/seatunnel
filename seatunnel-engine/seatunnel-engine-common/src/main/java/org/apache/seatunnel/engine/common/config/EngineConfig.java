@@ -17,7 +17,7 @@
 
 package org.apache.seatunnel.engine.common.config;
 
-import org.apache.seatunnel.api.metadata.MetaDataConfig;
+import org.apache.seatunnel.api.metadata.MetadataConfig;
 import org.apache.seatunnel.engine.common.config.server.CheckpointConfig;
 import org.apache.seatunnel.engine.common.config.server.ConnectorJarStorageConfig;
 import org.apache.seatunnel.engine.common.config.server.CoordinatorServiceConfig;
@@ -100,7 +100,7 @@ public class EngineConfig {
     private HttpConfig httpConfig =
             ServerConfigOptions.MasterServerConfigOptions.HTTP.defaultValue();
 
-    private MetaDataConfig metaDataConfig = ServerConfigOptions.METADATA.defaultValue();
+    private MetadataConfig metadataConfig = ServerConfigOptions.METADATA.defaultValue();
 
     public void setBackupCount(int newBackupCount) {
         checkBackupCount(newBackupCount, 0);

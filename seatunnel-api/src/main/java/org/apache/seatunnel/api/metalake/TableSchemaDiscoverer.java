@@ -21,8 +21,8 @@ import org.apache.seatunnel.shade.com.google.common.annotations.VisibleForTestin
 import org.apache.seatunnel.shade.org.apache.commons.lang3.StringUtils;
 
 import org.apache.seatunnel.api.configuration.ReadonlyConfig;
-import org.apache.seatunnel.api.metadata.MetaDataConfig;
-import org.apache.seatunnel.api.metadata.MetaDataProviderManager;
+import org.apache.seatunnel.api.metadata.MetadataConfig;
+import org.apache.seatunnel.api.metadata.MetadataProviderManager;
 import org.apache.seatunnel.api.options.ConnectorCommonOptions;
 import org.apache.seatunnel.api.options.table.CatalogOptions;
 import org.apache.seatunnel.api.options.table.ColumnOptions;
@@ -50,19 +50,19 @@ import java.util.stream.Collectors;
 @Slf4j
 public class TableSchemaDiscoverer implements AutoCloseable {
 
-    private final MetaDataConfig metaDataConfig;
+    private final MetadataConfig metaDataConfig;
     private final ReadonlyConfig sourceOptions;
     private final String catalogName;
 
     public TableSchemaDiscoverer(TableSourceFactoryContext context, String catalogName) {
-        this.metaDataConfig = context.getMetaDataConfig();
+        this.metaDataConfig = context.getMetadataConfig();
         this.sourceOptions = context.getOptions();
         this.catalogName = catalogName;
     }
 
     @VisibleForTesting
     protected TableSchemaDiscoverer(
-            MetaDataConfig metaDataConfig, ReadonlyConfig sourceOptions, String catalogName) {
+            MetadataConfig metaDataConfig, ReadonlyConfig sourceOptions, String catalogName) {
         this.sourceOptions = sourceOptions;
         this.catalogName = catalogName;
         this.metaDataConfig = metaDataConfig;
@@ -114,7 +114,7 @@ public class TableSchemaDiscoverer implements AutoCloseable {
     private CatalogTable discoverTableSchemaFromMetaLake(
             String metaDataTableId, String schemaConfigTable) {
         Optional<TableSchema> tableSchema =
-                MetaDataProviderManager.resolveTableSchema(metaDataTableId, metaDataConfig);
+                MetadataProviderManager.resolveTableSchema(metaDataTableId, metaDataConfig);
         if (!tableSchema.isPresent()) {
             return CatalogTableUtil.buildSimpleTextTable();
         }

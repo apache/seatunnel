@@ -17,7 +17,7 @@
 
 package org.apache.seatunnel.engine.server;
 
-import org.apache.seatunnel.api.metadata.MetaDataProviderManager;
+import org.apache.seatunnel.api.metadata.MetadataProviderManager;
 import org.apache.seatunnel.common.utils.RetryUtils;
 import org.apache.seatunnel.engine.common.Constant;
 import org.apache.seatunnel.engine.common.config.EngineConfig;
@@ -236,7 +236,7 @@ public class SeaTunnelServer
             eventService.shutdownNow();
         }
 
-        MetaDataProviderManager.closeProviders();
+        MetadataProviderManager.closeProviders();
     }
 
     @Override
