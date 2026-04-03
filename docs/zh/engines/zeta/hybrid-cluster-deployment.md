@@ -365,8 +365,8 @@ map:
                 storage.type: hdfs
                 fs.defaultFS: hdfs://localhost:9000
                 
-                # 为指定的 IMap 启用合并
-                compactionIMap: ["engine_runningJobMetrics"]
+                # 为此 IMap 启用压缩
+                compactionEnabled: true
                 # 当 WAL 总大小超过此阈值时触发合并 (单位：字节)
                 compactionThreshold: 541065216
                 # 单个合并文件的最大大小 (单位：字节)
@@ -379,19 +379,12 @@ map:
 
 ### 参数说明 (Parameters)
 
-**compactionIMap [array]**
+**compactionEnabled [boolean]**
 
-启用合并功能的 IMap 名称列表。
+是否为该 IMap 启用压缩。
+启用后，SeaTunnel 将定期合并 WAL 文件，以优化存储空间占用和读取性能。
 
-只有指定的 IMap 才会使用基于 LSM 的写入器 (Writer) 和合并逻辑。
-
-这允许仅对数据量大或更新频繁的 IMap（例如 `engine_runningJobMetrics`）应用合并，而保持轻量级 Map 不变。
-
-示例：
-
-```
-compactionIMap: ["engine_runningJobMetrics"]
-```
+默认值：false
 
 **compactionThreshold [long]**
 

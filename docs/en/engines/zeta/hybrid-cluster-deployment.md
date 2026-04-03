@@ -404,8 +404,8 @@ map:
                 storage.type: hdfs
                 fs.defaultFS: hdfs://localhost:9000
                 
-                # Enable compaction for specified IMaps
-                compactionIMap: ["engine_runningJobMetrics"]
+                # Enable compaction for this IMap
+                compactionEnabled: true
                 # Trigger compaction when total WAL size exceeds this threshold (bytes)
                 compactionThreshold: 541065216
                 # Maximum size of a single compacted file (bytes)
@@ -418,19 +418,12 @@ map:
 
 ### Parameters
 
-**compactionIMap [array]**
+**compactionEnabled [boolean]**
 
-A list of IMap names for which compaction is enabled.
+Whether to enable compaction for the IMap.
+When enabled, SeaTunnel will periodically merge WAL files to optimize storage and read performance.
 
-Only the specified IMaps will use LSM-based writers and compaction logic.
-
-This allows applying compaction only to large or high-churn IMaps (for example, `engine_runningJobMetrics`) while keeping lightweight maps unchanged.
-
-Example:
-
-```yaml
-compactionIMap: ["engine_runningJobMetrics"]
-```
+Default: false
 
 **compactionThreshold [long]**
 

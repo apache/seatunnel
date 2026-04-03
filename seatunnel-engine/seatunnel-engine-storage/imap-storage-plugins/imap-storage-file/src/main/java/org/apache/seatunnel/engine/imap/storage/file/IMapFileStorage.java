@@ -20,9 +20,7 @@
 
 package org.apache.seatunnel.engine.imap.storage.file;
 
-import org.apache.seatunnel.shade.hadoop.com.fasterxml.jackson.core.JsonProcessingException;
 import org.apache.seatunnel.shade.hadoop.com.fasterxml.jackson.databind.ObjectMapper;
-import org.apache.seatunnel.shade.hadoop.com.fasterxml.jackson.databind.type.CollectionType;
 
 import org.apache.seatunnel.engine.imap.storage.api.IMapStorage;
 import org.apache.seatunnel.engine.imap.storage.api.exception.IMapStorageException;
@@ -43,6 +41,7 @@ import org.apache.hadoop.fs.FileSystem;
 import org.apache.hadoop.fs.Path;
 
 import lombok.extern.slf4j.Slf4j;
+import shade.org.apache.commons.lang3.StringUtils;
 
 import java.io.IOException;
 import java.util.Arrays;
@@ -168,21 +167,9 @@ public class IMapFileStorage implements IMapStorage {
         this.serializer = new ProtoStuffSerializer();
 
         boolean isCompactionEnabled = false;
-
         String compactionConfig = (String) configuration.get(COMPACTION_IMAP);
-        if (compactionConfig != null) {
-            try {
-                CollectionType listType =
-                        OBJECT_MAPPER
-                                .getTypeFactory()
-                                .constructCollectionType(List.class, String.class);
-                List<String> compactionIMaps = OBJECT_MAPPER.readValue(compactionConfig, listType);
-                isCompactionEnabled = compactionIMaps.contains(businessName);
-            } catch (JsonProcessingException e) {
-                throw new IMapStorageException(
-                        "Failed to parse compaction IMap config. Expected format: [\"engine_runningJobMetrics\"]",
-                        e);
-            }
+        if (StringUtils.isBlank(compactionConfig)) {
+            isCompactionEnabled = Boolean.parseBoolean(compactionConfig);
         }
 
         String storagePath = businessRootPath + region + DEFAULT_IMAP_FILE_PATH_SPLIT;
