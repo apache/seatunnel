@@ -58,8 +58,12 @@ import ChangeLog from '../changelog/connector-kafka.md';
 | common-options                      |                                     | 否    | -                            | 源插件的常见参数，详情请参考 [Source Common Options](../common-options/source-common-options.md)。                                                                                                                                                                                                                                                           |
 | protobuf_message_name               | String                              | 否    | -                            | 当格式设置为 protobuf 时有效，指定消息名称。                                                                                                                                                                                                                                                                                                    |
 | protobuf_schema                     | String                              | 否    | -                            | 当格式设置为 protobuf 时有效，指定 Schema 定义。                                                                                                                                                                                                                                                                                              |
+| strip_schema_registry_header        | Boolean                             | 否    | false                        | 当格式设置为 protobuf 时有效。是否在 Protobuf 反序列化之前去除 Confluent Schema Registry 线格式头部（magic byte、schema id 和 message indexes）。当消费使用 Confluent Schema Registry 编码的 Protobuf 消息时，此选项非常有用。启用后，连接器将尝试在解析 Protobuf 消息之前检测并删除 Schema Registry 头部。如果未检测到头部，它将回退到标准的 Protobuf 反序列化。                                                                                                                                                                                                                                                                                              |
 | reader_cache_queue_size             | Integer                             | 否    | 1024                         | Reader分片缓存队列，用于缓存分片对应的数据。占用大小取决于每个reader得到的分片量，而不是每个分片的数据量。                                                                                                                                                                                                                                                                    |
 | is_native                           | Boolean                             | No   | false                        | 支持保留record的源信息。                                                                                                                                                                                                                                                                                                                |
+
+> 从 checkpoint 或 savepoint 恢复时，Kafka Source 会优先使用 checkpoint 中保存的 split offset。
+> `start_mode` 和 consumer group offset 只在首次启动，或为尚未存在 checkpoint 状态的新发现分区初始化位点时生效。
 
 ### debezium_record_table_filter
 
@@ -77,7 +81,7 @@ debezium_record_table_filter {
 
 ## 元数据支持
 
-Kafka 源会在 `ConsumerRecord.timestamp` 大于等于 0 时，将其自动写入 SeaTunnel 行的 `EventTime` 元数据。可以借助 [Metadata 转换](../../transform-v2/metadata.md) 把这段时间戳暴露为普通字段，方便做分区或下游 SQL 处理。
+Kafka 源会在 `ConsumerRecord.timestamp` 大于等于 0 时，将其自动写入 SeaTunnel 行的 `EventTime` 元数据。可以借助 [Metadata 转换](../../transforms/metadata.md) 把这段时间戳暴露为普通字段，方便做分区或下游 SQL 处理。
 
 ```hocon
 source {
@@ -397,6 +401,59 @@ source {
     plugin_output = "kafka_table"
   }
 }
+```
+
+### Protobuf with Schema Registry wire format
+
+当消费使用 Confluent Schema Registry 编码的 Protobuf 消息时，您需要将 `strip_schema_registry_header` 设置为 `true`。连接器将自动检测并删除 Schema Registry 格式头部（magic byte、schema id 和 message indexes），然后再反序列化 Protobuf 消息。
+
+使用样例：
+
+```hocon
+source {
+  Kafka {
+    topic = "test_protobuf_schema_registry_topic"
+    format = protobuf
+    strip_schema_registry_header = true
+    protobuf_message_name = Person
+    protobuf_schema = """
+              syntax = "proto3";
+
+              package org.apache.seatunnel.format.protobuf;
+
+              option java_outer_classname = "ProtobufE2E";
+
+              message Person {
+                int32 c_int32 = 1;
+                int64 c_int64 = 2;
+                float c_float = 3;
+                double c_double = 4;
+                bool c_bool = 5;
+                string c_string = 6;
+                bytes c_bytes = 7;
+
+                message Address {
+                  string street = 1;
+                  string city = 2;
+                  string state = 3;
+                  string zip = 4;
+                }
+
+                Address address = 8;
+
+                map<string, float> attributes = 9;
+
+                repeated string phone_numbers = 10;
+              }
+              """
+    bootstrap.servers = "kafkaCluster:9092"
+    start_mode = "earliest"
+    plugin_output = "kafka_table"
+  }
+}
+```
+
+**注意**：当启用 `strip_schema_registry_header` 时，连接器可以安全地处理 Schema Registry 编码的消息和纯 Protobuf 消息。如果未检测到 Schema Registry 头部，它将自动回退到标准 Protobuf 反序列化。
 ```
 
 ### 忽略无 Leader 分区

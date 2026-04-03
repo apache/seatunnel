@@ -27,7 +27,7 @@ import javax.servlet.http.HttpServletResponse;
 
 import java.io.IOException;
 
-public class FinishedJobsServlet extends BaseServlet {
+public class FinishedJobsServlet extends PageBaseServlet {
 
     private static final long serialVersionUID = 1L;
 
@@ -50,6 +50,6 @@ public class FinishedJobsServlet extends BaseServlet {
             state = "";
         }
 
-        writeJson(resp, jobInfoService.getJobsByStateJson(state));
+        writeJsonWithPagination(req, resp, jobInfoService.getJobsByStateJson(state));
     }
 }

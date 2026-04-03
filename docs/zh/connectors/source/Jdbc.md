@@ -73,6 +73,13 @@ import ChangeLog from '../changelog/connector-jdbc.md';
 
 JDBC 源连接器支持两种方式指定表：
 
+#### 注意事项
+
+- 许多 JDBC 驱动会将 `DatabaseMetaData.getColumns(..., schemaPattern, tableNamePattern, ...)` 视为 SQL LIKE 的模式匹配。
+  当 schema/table 名称中包含 `_` 或 `%` 时，列发现可能会返回其他表的列。SeaTunnel 会按精确的 schema/table 标识符对返回结果做二次过滤，
+  以避免混入其他表的列。
+- 对于大小写敏感的数据库，请确保配置的 schema/table 名称与数据库中实际标识符大小写一致。
+
 1. **精确表路径**：使用 `table_path` 指定单个表及其完整路径。
    ```hocon
    table_path = "testdb.table1"

@@ -12,20 +12,20 @@ import ChangeLog from '../changelog/connector-file-hadoop.md';
 
 ## Key Features
 
-- [x] [batch](../../concept/connector-v2-features.md)
-- [ ] [stream](../../concept/connector-v2-features.md)
-- [x] [multimodal](../../concept/connector-v2-features.md#multimodal)
+- [x] [batch](../../introduction/concepts/connector-v2-features.md)
+- [ ] [stream](../../introduction/concepts/connector-v2-features.md)
+- [x] [multimodal](../../introduction/concepts/connector-v2-features.md#multimodal)
 
   Use binary file format to read and write files in any format, such as videos, pictures, etc. In short, any files can be synchronized to the target place.
 
-- [x] [exactly-once](../../concept/connector-v2-features.md)
+- [x] [exactly-once](../../introduction/concepts/connector-v2-features.md)
 
   Read all the data in a split in a pollNext call. What splits are read will be saved in snapshot.
 
-- [x] [column projection](../../concept/connector-v2-features.md)
-- [x] [parallelism](../../concept/connector-v2-features.md)
-- [ ] [support user-defined split](../../concept/connector-v2-features.md)
-- [x] [support multiple table read](../../concept/connector-v2-features.md)
+- [x] [column projection](../../introduction/concepts/connector-v2-features.md)
+- [x] [parallelism](../../introduction/concepts/connector-v2-features.md)
+- [ ] [support user-defined split](../../introduction/concepts/connector-v2-features.md)
+- [x] [support multiple table read](../../introduction/concepts/connector-v2-features.md)
 - [x] file format file
   - [x] text
   - [x] csv
@@ -67,7 +67,7 @@ Read data from hdfs file system.
 | kerberos_principal         | string  | no       | -                           | The principal of kerberos                                                                                                                                                                                                                                                                                                                     |
 | kerberos_keytab_path       | string  | no       | -                           | The keytab path of kerberos                                                                                                                                                                                                                                                                                                                   |
 | skip_header_row_number     | long    | no       | 0                           | Skip the first few lines, but only for the txt and csv.For example, set like following:`skip_header_row_number = 2`.then Seatunnel will skip the first 2 lines from source files                                                                                                                                                              |
-| schema                     | config  | no       | -                           | the schema fields of upstream data. For more details, please refer to [Schema Feature](../../introduction/concepts/schema-feature.md).                                                                                                                                                                                                                                                                                                            |
+| schema                     | config  | no       | -                           | the schema fields of upstream data. For more details, please refer to [Schema Feature](../../introduction/concepts/schema-feature.md). **schema_url**: Get the http url of metadata information through restApi. When using Gravitino as the metadata source, the column types from Gravitino will be automatically converted to SeaTunnel data types. For detailed type mapping information, please refer to [Gravitino Type Mapping](../../introduction/concepts/gravitino-type-mapping.md). **metalake_type**: The type of metalake service, currently only supports `gravitino`. For more information about Metalake, please refer to [Metalake](../../introduction/concepts/metalake.md). |
 | sheet_name                 | string  | no       | -                           | Reader the sheet of the workbook,Only used when file_format is excel.                                                                                                                                                                                                                                                                         |
 | xml_row_tag                | string  | no       | -                           | Specifies the tag name of the data rows within the XML file, only used when file_format is xml.                                                                                                                                                                                                                                               |
 | xml_use_attr_format        | boolean | no       | -                           | Specifies whether to process data using the tag attribute format, only used when file_format is xml.                                                                                                                                                                                                                                          |
@@ -80,6 +80,9 @@ Read data from hdfs file system.
 | null_format                | string  | no       | -                           | Only used when file_format_type is text. null_format to define which strings can be represented as null. e.g: `\N`                                                                                                                                                                                                                            |
 | binary_chunk_size          | int     | no       | 1024                        | Only used when file_format_type is binary. The chunk size (in bytes) for reading binary files. Default is 1024 bytes. Larger values may improve performance for large files but use more memory.                                                                                                                                              |
 | binary_complete_file_mode  | boolean | no       | false                       | Only used when file_format_type is binary. Whether to read the complete file as a single chunk instead of splitting into chunks. When enabled, the entire file content will be read into memory at once. Default is false.                                                                                                                    |
+| discovery_mode             | string  | no       | once                        | File discovery mode. Supported values: `once` (default), `continuous`. When `continuous`, the source keeps scanning the path and processes new/changed files at runtime (unbounded). In the current implementation, `continuous` requires `sync_mode=update` (binary only).                                                              |
+| scan_interval              | string  | no       | 10S | Only used when `discovery_mode=continuous`. Scan interval for periodic discovery, recommended shorthand format `10S`, `30S`; ISO-8601 format `PT10S`, `PT30S` is also supported.                                                                                                                                                                                                                               |
+| start_mode                 | string  | no       | earliest                    | Only used when `discovery_mode=continuous`. Supported values: `earliest` (default), `latest`.                                                                                                                                                                                                                                            |
 | sync_mode                  | string  | no       | full                        | File sync mode. Supported values: `full`, `update`. When `update`, the source compares files between source/target and only reads new/changed files (currently only supports `file_format_type=binary`).                                                                                                                                     |
 | target_path                | string  | no       | -                           | Only used when `sync_mode=update`. Target base path used for comparison (it should usually be the same as sink `path`).                                                                                                                                                                                                                       |
 | target_hadoop_conf         | map     | no       | -                           | Only used when `sync_mode=update`. Extra Hadoop configuration for target filesystem. You can set `fs.defaultFS` in this map to override target defaultFS.                                                                                                                                                                                   |
@@ -88,8 +91,11 @@ Read data from hdfs file system.
 | common-options             |         | no       | -                           | Source plugin common parameters, please refer to [Source Common Options](../source-common-options.md) for details.                                                                                                                                                                                                                            |
 | file_filter_modified_start | string  | no       | -                           | File modification time filter. The connector will filter some files base on the last modification start time (include start time). The default data format is `yyyy-MM-dd HH:mm:ss`.                                                                                                                                                          |
 | file_filter_modified_end   | string  | no       | -                           | File modification time filter. The connector will filter some files base on the last modification end time (not include end time). The default data format is `yyyy-MM-dd HH:mm:ss`.                                                                                                                                                          |
+| enable_file_split          | boolean | no       | false                       | Turn on logical file split to improve parallelism for huge files. Only supported for `text`/`csv`/`json`/`parquet` and non-compressed format.                                                                                                                                                                                               |
+| file_split_size            | long    | no       | 134217728                   | Split size in bytes when `enable_file_split=true`. For `text`/`csv`/`json`, the split end will be aligned to the next `row_delimiter`. For `parquet`, the split unit is RowGroup and will never break a RowGroup.                                                                                                                           |
 | quote_char                 | string  | no       | "                           | A single character that encloses CSV fields, allowing fields with commas, line breaks, or quotes to be read correctly.                                                                                                                                                                                                                        |
 | escape_char                | string  | no       | -                           | A single character that allows the quote or other special characters to appear inside a CSV field without ending the field.                                                                                                                                                                                                                   |
+| metalake_type              | string  | no       | gravitino                  | The type of metalake service, currently supports `gravitino`.                                                                                                                                                                                                                                                                                |
 
 ### file_format_type [string]
 
@@ -217,6 +223,26 @@ Only used when file_format_type is binary.
 
 Whether to read the complete file as a single chunk instead of splitting into chunks. When enabled, the entire file content will be read into memory at once. Default is false.
 
+### discovery_mode [string]
+
+File discovery mode. Supported values: `once` (default), `continuous`.
+
+- `once`: enumerate current files once and finish (bounded).
+- `continuous`: keep scanning the path and processing new/changed files at runtime (unbounded).
+
+In the current implementation, `discovery_mode=continuous` requires `sync_mode=update` (binary only) to avoid repeated transfers.
+
+### scan_interval [string]
+
+Only used when `discovery_mode=continuous`. Scan interval for periodic discovery; value must be greater than `0`. Recommended shorthand format `10S`, `30S` (case-insensitive, e.g. `10s`); ISO-8601 format `PT10S`, `PT30S` is also supported. Default is `10S`.
+
+### start_mode [string]
+
+Only used when `discovery_mode=continuous`. Supported values: `earliest` (default), `latest`.
+
+- `earliest`: read existing files on startup.
+- `latest`: only process files modified after the job starts.
+
 ### sync_mode [string]
 
 File sync mode. Supported values: `full` (default), `update`.
@@ -254,6 +280,30 @@ Only used when `sync_mode=update`. Supported values: `len_mtime` (default), `che
 
 - `len_mtime`: SKIP only when both `len` and `mtime` are equal, otherwise COPY.
 - `checksum`: SKIP only when `len` is equal and Hadoop `getFileChecksum` is equal, otherwise COPY (only valid when `update_strategy=strict`).
+
+### enable_file_split [boolean]
+
+Turn on the file splitting function, the default is false. It can be selected when the file type is csv, text, json, parquet and non-compressed format.
+
+- `text`/`csv`/`json`: split by `file_split_size` and align to the next `row_delimiter` to avoid breaking records.
+- `parquet`: split by RowGroup (logical split), never breaks a RowGroup.
+
+**Recommendations**
+- Enable when reading a few large files and you want higher read parallelism.
+- Disable when reading many small files, or when parallelism is low (splitting adds overhead).
+
+**Limitations**
+- Not supported for compressed files (`compress_codec` != `none`) or archive files (`archive_compress_codec` != `none`) — it will fall back to non-splitting.
+- For `text`/`csv`/`json`, actual split size may be larger than `file_split_size` because the split end is aligned to the next `row_delimiter`.
+
+### file_split_size [long]
+
+File split size, which can be filled in when the enable_file_split parameter is true. The unit is the number of bytes. The default value is the number of bytes of 128MB, which is 134217728.
+
+**Tuning**
+- Start with the default (128MB). Decrease it if parallelism is under-utilized; increase it if the number of splits is too large.
+- Rough rule: `file_split_size ≈ file_size / desired_parallelism`.
+
 ### quote_char [string]
 
 A single character that encloses CSV fields, allowing fields with commas, line breaks, or quotes to be read correctly.
@@ -292,12 +342,12 @@ source {
   fs.defaultFS = "hdfs://namenode001"
   }
   # If you would like to get more information about how to configure seatunnel and see full list of source plugins,
-  # please go to https://seatunnel.apache.org/docs/connector-v2/source
+  # please go to https://seatunnel.apache.org/docs/connectors/source
 }
 
 transform {
   # If you would like to get more information about how to configure seatunnel and see full list of transform plugins,
-    # please go to https://seatunnel.apache.org/docs/transform-v2
+    # please go to https://seatunnel.apache.org/docs/transforms
 }
 
 sink {
@@ -307,7 +357,80 @@ sink {
       file_format_type = "orc"
     }
   # If you would like to get more information about how to configure seatunnel and see full list of sink plugins,
-  # please go to https://seatunnel.apache.org/docs/connector-v2/sink
+  # please go to https://seatunnel.apache.org/docs/connectors/sink
+}
+```
+
+### Incremental Sync (sync_mode=update, binary)
+
+`sync_mode=update` compares files between source and `target_path`, then only reads new/changed files (currently only supports `file_format_type=binary`).
+In most cases, `target_path` should be aligned with sink `path` (same filesystem and same relative paths).
+
+```hocon
+env {
+  parallelism = 1
+  job.mode = "BATCH"
+}
+
+source {
+  HdfsFile {
+    path = "/seatunnel/update/src/"
+    file_format_type = "binary"
+    fs.defaultFS = "hdfs://namenode001"
+
+    sync_mode = "update"
+    target_path = "/seatunnel/update/dst/"
+    update_strategy = "distcp"
+    compare_mode = "len_mtime"
+  }
+}
+
+sink {
+  HdfsFile {
+    fs.defaultFS = "hdfs://namenode001"
+    path = "/seatunnel/update/dst/"
+    tmp_path = "/seatunnel/update/tmp/"
+    file_format_type = "binary"
+  }
+}
+```
+
+### Continuous Discovery (discovery_mode=continuous)
+
+`discovery_mode=continuous` keeps the job running and periodically scans the path for new/changed files (long-running job, recommended to run with `job.mode="STREAMING"`).
+
+**Note:** `discovery_mode=continuous` currently requires `sync_mode="update"` (binary-only) to avoid repeated transfers without keeping an unbounded "seen" state. `target_path` should align with the sink `path` on the same filesystem.
+
+```hocon
+env {
+  parallelism = 1
+  job.mode = "STREAMING"
+}
+
+source {
+  HdfsFile {
+    path = "/seatunnel/watch/src/"
+    file_format_type = "binary"
+    fs.defaultFS = "hdfs://namenode001"
+
+    discovery_mode = "continuous"
+    scan_interval = "10S"
+    start_mode = "latest"
+
+    sync_mode = "update"
+    target_path = "/seatunnel/watch/dst/"
+    update_strategy = "distcp"
+    compare_mode = "len_mtime"
+  }
+}
+
+sink {
+  HdfsFile {
+    fs.defaultFS = "hdfs://namenode001"
+    path = "/seatunnel/watch/dst/"
+    tmp_path = "/seatunnel/watch/tmp/"
+    file_format_type = "binary"
+  }
 }
 ```
 

@@ -139,8 +139,43 @@ public class BinaryReadStrategyTest {
         Assertions.assertEquals(0L, row.getField(2));
     }
 
+    @Test
+    public void testBinaryRelativePath_WhenBaseIsFile() throws IOException {
+        File testFile = createTestFile("test_binary_base_is_file.bin", 10);
+
+        Config config = createConfig(testFile.getAbsolutePath(), null, null);
+        binaryReadStrategy.setPluginConfig(config);
+        binaryReadStrategy.init(localConf);
+
+        TestCollector collector = new TestCollector();
+        binaryReadStrategy.read(testFile.getAbsolutePath(), "test_table", collector);
+
+        List<SeaTunnelRow> rows = collector.getRows();
+        Assertions.assertFalse(rows.isEmpty());
+        Assertions.assertEquals("test_binary_base_is_file.bin", rows.get(0).getField(1));
+    }
+
+    @Test
+    public void testBinaryRelativePath_WhenBaseIsDirectoryWithSubDir() throws IOException {
+        File testFile = createTestFile("subdir/test_binary_in_sub.bin", 10);
+
+        Config config = createConfig(tempDir.toFile().getAbsolutePath(), null, null);
+        binaryReadStrategy.setPluginConfig(config);
+        binaryReadStrategy.init(localConf);
+
+        TestCollector collector = new TestCollector();
+        binaryReadStrategy.read(testFile.getAbsolutePath(), "test_table", collector);
+
+        List<SeaTunnelRow> rows = collector.getRows();
+        Assertions.assertFalse(rows.isEmpty());
+        Assertions.assertEquals("subdir/test_binary_in_sub.bin", rows.get(0).getField(1));
+    }
+
     private File createTestFile(String fileName, int sizeInBytes) throws IOException {
         File testFile = tempDir.resolve(fileName).toFile();
+        if (testFile.getParentFile() != null) {
+            testFile.getParentFile().mkdirs();
+        }
 
         if (sizeInBytes > 0) {
             try (FileOutputStream fos = new FileOutputStream(testFile)) {

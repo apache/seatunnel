@@ -22,6 +22,7 @@ import org.apache.seatunnel.api.table.connector.TableSink;
 import org.apache.seatunnel.api.table.factory.Factory;
 import org.apache.seatunnel.api.table.factory.TableSinkFactory;
 import org.apache.seatunnel.api.table.factory.TableSinkFactoryContext;
+import org.apache.seatunnel.connectors.seatunnel.rocketmq.config.RocketMqBaseOptions;
 import org.apache.seatunnel.connectors.seatunnel.rocketmq.config.RocketMqSinkOptions;
 
 import com.google.auto.service.AutoService;
@@ -43,7 +44,16 @@ public class RocketMqSinkFactory implements TableSinkFactory {
                         RocketMqSinkOptions.EXACTLY_ONCE,
                         RocketMqSinkOptions.SEND_SYNC,
                         RocketMqSinkOptions.MAX_MESSAGE_SIZE,
-                        RocketMqSinkOptions.SEND_MESSAGE_TIMEOUT_MILLIS)
+                        RocketMqSinkOptions.SEND_MESSAGE_TIMEOUT_MILLIS,
+                        RocketMqSinkOptions.TAG,
+                        RocketMqBaseOptions.FORMAT,
+                        RocketMqBaseOptions.FIELD_DELIMITER,
+                        RocketMqBaseOptions.ACL_ENABLED)
+                .conditional(
+                        RocketMqBaseOptions.ACL_ENABLED,
+                        true,
+                        RocketMqBaseOptions.ACCESS_KEY,
+                        RocketMqBaseOptions.SECRET_KEY)
                 .build();
     }
 
