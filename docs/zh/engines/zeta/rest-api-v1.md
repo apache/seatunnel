@@ -36,6 +36,100 @@ network:
 
 ## API参考
 
+### 获取 Connector 的 OptionRule
+
+<details>
+ <summary><code>GET</code> <code><b>/hazelcast/rest/maps/option-rules?type=source&plugin=FakeSource</b></code> <code>(返回 Connector 运行时完整的 OptionRule 元数据。)</code></summary>
+
+#### 参数
+
+> |  参数名称  | 是否必传 | 参数类型 |                   参数描述                    |
+> |--------|------|------|-----------------------------------------|
+> | type   | 是    | string | 插件类型，当前支持 `source` 和 `sink`        |
+> | plugin | 是    | string | connector 的 factory identifier，例如 `FakeSource` 或 `Console` |
+
+#### 响应
+
+```json
+{
+  "engineType": "seatunnel",
+  "pluginType": "source",
+  "pluginName": "FakeSource",
+  "optionRule": {
+    "optionalOptions": [
+      {
+        "key": "row.num",
+        "type": "java.lang.Integer",
+        "defaultValue": 5,
+        "description": "The total number of data generated per degree of parallelism",
+        "fallbackKeys": [],
+        "optionValues": null
+      }
+    ],
+    "requiredOptions": [
+      {
+        "ruleType": "EXCLUSIVE",
+        "options": [
+          {
+            "key": "schema",
+            "type": "org.apache.seatunnel.api.table.catalog.TableSchema",
+            "defaultValue": null,
+            "description": "The schema of the upstream table",
+            "fallbackKeys": [],
+            "optionValues": null
+          }
+        ]
+      },
+      {
+        "ruleType": "CONDITIONAL",
+        "options": [
+          {
+            "key": "string.template",
+            "type": "java.util.List<java.lang.String>",
+            "defaultValue": null,
+            "description": "The template list of string type that connector generated, if user configured it, connector will randomly select an item from the template list",
+            "fallbackKeys": [],
+            "optionValues": null
+          }
+        ],
+        "expression": "'string.fake.mode' == TEMPLATE",
+        "expressionTree": {
+          "condition": {
+            "option": {
+              "key": "string.fake.mode",
+              "type": "org.apache.seatunnel.connectors.seatunnel.fake.config.FakeSourceOptions$FakeMode",
+              "defaultValue": "RANDOM",
+              "description": "The fake mode of generating string data",
+              "fallbackKeys": [],
+              "optionValues": [
+                "RANDOM",
+                "TEMPLATE"
+              ]
+            },
+            "expectValue": "TEMPLATE",
+            "operator": null,
+            "next": null
+          },
+          "operator": null,
+          "next": null
+        }
+      }
+    ],
+    "conditionRules": []
+  }
+}
+```
+
+**说明:**
+- 响应结果来自运行时 plugin discovery，会跟随服务端实际安装的 connector 版本。
+- `requiredOptions[].ruleType` 可能是 `ABSOLUTELY_REQUIRED`、`EXCLUSIVE`、`BUNDLED` 或 `CONDITIONAL`。
+- `optionRule.conditionRules` 会递归返回嵌套条件规则；当 connector 未定义嵌套规则时，该字段返回空数组。
+- 对于条件规则，会同时返回 `expression` 和 `expressionTree`，便于 Web 做动态表单渲染。
+
+</details>
+
+------------------------------------------------------------------------------------------
+
 ### 返回Zeta集群的概览
 
 <details>
