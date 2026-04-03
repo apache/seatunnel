@@ -24,8 +24,10 @@ import java.util.Optional;
  * multi-table sink scenario.
  *
  * <p>Created by {@link SupportResourceShare#initMultiTableResourceManager(int, int)} and closed by
- * {@link org.apache.seatunnel.api.sink.multitablesink.MultiTableSinkWriter#close()} after all
- * per-table writers are closed.
+ * the multi-table sink runtime (e.g., {@link
+ * org.apache.seatunnel.api.sink.multitablesink.MultiTableSinkWriter#close()} or {@link
+ * org.apache.seatunnel.api.sink.multitablesink.MultiTableSinkAggregatedCommitter#close()}) after
+ * all participating components are closed.
  *
  * @param <T> the type of shared resource
  * @see SupportResourceShare
@@ -52,10 +54,11 @@ public interface MultiTableResourceManager<T> {
     /**
      * Releases the shared resource held by this manager.
      *
-     * <p>Called by {@link
-     * org.apache.seatunnel.api.sink.multitablesink.MultiTableSinkWriter#close()} after all
-     * per-table writers have been closed. Implementations should release pooled connections or
-     * other resources here.
+     * <p>Called by the multi-table sink runtime (e.g., {@link
+     * org.apache.seatunnel.api.sink.multitablesink.MultiTableSinkWriter#close()} or {@link
+     * org.apache.seatunnel.api.sink.multitablesink.MultiTableSinkAggregatedCommitter#close()})
+     * after all participating components have been closed. Implementations should release pooled
+     * connections or other resources here.
      */
     default void close() {}
 }
