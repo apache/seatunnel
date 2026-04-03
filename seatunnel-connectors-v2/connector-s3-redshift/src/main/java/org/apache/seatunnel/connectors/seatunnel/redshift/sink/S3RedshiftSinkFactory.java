@@ -18,18 +18,20 @@
 package org.apache.seatunnel.connectors.seatunnel.redshift.sink;
 
 import org.apache.seatunnel.api.configuration.util.OptionRule;
+import org.apache.seatunnel.api.table.connector.TableSink;
 import org.apache.seatunnel.api.table.factory.Factory;
 import org.apache.seatunnel.api.table.factory.TableSinkFactory;
+import org.apache.seatunnel.api.table.factory.TableSinkFactoryContext;
 import org.apache.seatunnel.connectors.seatunnel.file.config.FileBaseSinkOptions;
 import org.apache.seatunnel.connectors.seatunnel.file.config.FileBaseSourceOptions;
 import org.apache.seatunnel.connectors.seatunnel.file.config.FileFormat;
 import org.apache.seatunnel.connectors.seatunnel.file.s3.config.S3FileBaseOptions;
-import org.apache.seatunnel.connectors.seatunnel.redshift.config.S3RedshiftConfigOptions;
+import org.apache.seatunnel.connectors.seatunnel.redshift.config.S3RedshiftSinkOptions;
 
 import com.google.auto.service.AutoService;
 
 @AutoService(Factory.class)
-public class S3RedshiftFactory implements TableSinkFactory {
+public class S3RedshiftSinkFactory implements TableSinkFactory {
 
     @Override
     public String factoryIdentifier() {
@@ -41,10 +43,10 @@ public class S3RedshiftFactory implements TableSinkFactory {
         return OptionRule.builder()
                 .required(
                         S3FileBaseOptions.S3_BUCKET,
-                        S3RedshiftConfigOptions.JDBC_URL,
-                        S3RedshiftConfigOptions.JDBC_USER,
-                        S3RedshiftConfigOptions.JDBC_PASSWORD,
-                        S3RedshiftConfigOptions.EXECUTE_SQL,
+                        S3RedshiftSinkOptions.JDBC_URL,
+                        S3RedshiftSinkOptions.JDBC_USER,
+                        S3RedshiftSinkOptions.JDBC_PASSWORD,
+                        S3RedshiftSinkOptions.EXECUTE_SQL,
                         FileBaseSourceOptions.FILE_PATH,
                         S3FileBaseOptions.S3A_AWS_CREDENTIALS_PROVIDER)
                 .conditional(
@@ -70,5 +72,10 @@ public class S3RedshiftFactory implements TableSinkFactory {
                 .optional(FileBaseSinkOptions.IS_ENABLE_TRANSACTION)
                 .optional(FileBaseSinkOptions.FILE_NAME_EXPRESSION)
                 .build();
+    }
+
+    @Override
+    public TableSink createSink(TableSinkFactoryContext context) {
+        return () -> new S3RedshiftSink(context.getOptions(), context.getCatalogTable());
     }
 }

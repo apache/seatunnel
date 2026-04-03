@@ -770,8 +770,12 @@ public class CoordinatorService {
             }
         } catch (Exception e) {
             isActive = false;
-            logger.severe(ExceptionUtils.getMessage(e));
-            throw new SeaTunnelEngineException("check new active master error, stop loop", e);
+            logger.severe("check new active master error, will retry later.", e);
+            try {
+                clearCoordinatorService();
+            } catch (Exception ex) {
+                logger.warning("clear coordinator service failed.", ex);
+            }
         }
     }
 
