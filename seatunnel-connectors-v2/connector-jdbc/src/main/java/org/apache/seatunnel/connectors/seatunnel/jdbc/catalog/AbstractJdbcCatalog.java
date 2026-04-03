@@ -232,7 +232,7 @@ public abstract class AbstractJdbcCatalog implements Catalog {
                     tableIdentifier,
                     tableSchemaBuilder.build(),
                     buildConnectorOptions(tablePath),
-                    Collections.emptyList(),
+                    getPartitionKeys(conn, tablePath),
                     comment.orElse(""),
                     catalogName);
 
@@ -252,6 +252,11 @@ public abstract class AbstractJdbcCatalog implements Catalog {
             buildColumnsWithErrorCheck(tablePath, resultSet, columnsBuilder);
         }
         return columnsBuilder;
+    }
+
+    protected List<String> getPartitionKeys(Connection connection, TablePath tablePath)
+            throws SQLException {
+        return Collections.emptyList();
     }
 
     protected void buildColumnsWithErrorCheck(

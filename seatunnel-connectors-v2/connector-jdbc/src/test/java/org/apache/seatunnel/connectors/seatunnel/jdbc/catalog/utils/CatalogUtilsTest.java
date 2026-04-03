@@ -36,6 +36,7 @@ import java.sql.PreparedStatement;
 import java.sql.ResultSetMetaData;
 import java.sql.SQLException;
 import java.util.ArrayList;
+import java.util.Arrays;
 import java.util.Collections;
 import java.util.HashMap;
 import java.util.List;
@@ -477,5 +478,30 @@ public class CatalogUtilsTest {
                 CatalogUtils.getCatalogTable(connection, "select name from test_table", typeMapper);
 
         Assertions.assertNull(catalogTable.getTableSchema().getPrimaryKey());
+    }
+
+    @Test
+    void testGetCatalogTableKeepsPartitionKeys() throws SQLException {
+        Connection connection =
+                new TestConnection() {
+                    @Override
+                    public java.sql.DatabaseMetaData getMetaData() {
+                        return new TestDatabaseMetaData();
+                    }
+                };
+
+        CatalogTable catalogTable =
+                CatalogUtils.getCatalogTable(
+                        connection,
+                        TablePath.of("test.test"),
+                        new JdbcDialectTypeMapper() {
+                            @Override
+                            public Column mappingColumn(BasicTypeDefine typeDefine) {
+                                return JdbcDialectTypeMapper.super.mappingColumn(typeDefine);
+                            }
+                        },
+                        Arrays.asList("dt", "hr"));
+
+        Assertions.assertEquals(Arrays.asList("dt", "hr"), catalogTable.getPartitionKeys());
     }
 }

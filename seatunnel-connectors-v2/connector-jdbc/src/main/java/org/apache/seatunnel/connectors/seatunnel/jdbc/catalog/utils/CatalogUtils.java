@@ -247,6 +247,15 @@ public class CatalogUtils {
     public static CatalogTable getCatalogTable(
             Connection connection, TablePath tablePath, JdbcDialectTypeMapper typeMapper)
             throws SQLException {
+        return getCatalogTable(connection, tablePath, typeMapper, new ArrayList<>());
+    }
+
+    public static CatalogTable getCatalogTable(
+            Connection connection,
+            TablePath tablePath,
+            JdbcDialectTypeMapper typeMapper,
+            List<String> partitionKeys)
+            throws SQLException {
         DatabaseMetaData metadata = connection.getMetaData();
         TableSchema tableSchema = getTableSchema(metadata, tablePath, typeMapper);
         String catalogName = "jdbc_catalog";
@@ -258,7 +267,7 @@ public class CatalogUtils {
                         tablePath.getTableName()),
                 tableSchema,
                 new HashMap<>(),
-                new ArrayList<>(),
+                partitionKeys,
                 "",
                 catalogName);
     }

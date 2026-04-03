@@ -98,6 +98,11 @@ public interface JdbcDialect extends Serializable {
      */
     JdbcDialectTypeMapper getJdbcDialectTypeMapper();
 
+    default List<String> getPartitionKeys(Connection connection, TablePath tablePath)
+            throws SQLException {
+        return new ArrayList<>();
+    }
+
     default String hashModForField(String nativeType, String fieldName, int mod) {
         return hashModForField(fieldName, mod);
     }
