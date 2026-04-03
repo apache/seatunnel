@@ -17,13 +17,52 @@
 
 package org.apache.seatunnel.api.sink;
 
+/**
+ * SPI interface for sink writers that need to share resources (e.g., connection pools) across
+ * multiple tables in a multi-table sink scenario.
+ *
+ * <p>The methods in this interface are called by {@link
+ * org.apache.seatunnel.api.sink.multitablesink.MultiTableSinkWriter} during initialization in the
+ * following order:
+ *
+ * <ol>
+ *   <li>{@link #initMultiTableResourceManager(int, int)} is called once to create the shared
+ *       resource manager.
+ *   <li>{@link #setMultiTableResourceManager(MultiTableResourceManager, int)} is called on each
+ *       per-table writer to inject the shared resource manager.
+ * </ol>
+ *
+ * @param <T> the type of shared resource (e.g., a connection pool)
+ */
 public interface SupportResourceShare<T> {
 
+    /**
+     * Creates and returns a {@link MultiTableResourceManager} that holds the shared resource.
+     *
+     * <p>Called once per subtask by the {@link
+     * org.apache.seatunnel.api.sink.multitablesink.MultiTableSinkWriter} constructor. The first
+     * writer in the map is used to create the resource manager.
+     *
+     * @param tableSize the number of target tables managed by this sink
+     * @param queueSize the number of parallel write queues (thread pool size = queueSize * 2)
+     * @return a resource manager instance, or {@code null} if resource sharing is not needed
+     */
     default MultiTableResourceManager<T> initMultiTableResourceManager(
             int tableSize, int queueSize) {
         return null;
     }
 
+    /**
+     * Injects the shared {@link MultiTableResourceManager} into the implementing writer.
+     *
+     * <p>Called after {@link #initMultiTableResourceManager(int, int)} on each per-table writer.
+     * Implementations should store the resource manager and use {@code queueIndex} to retrieve the
+     * appropriate shared resource.
+     *
+     * @param multiTableResourceManager the shared resource manager created by {@link
+     *     #initMultiTableResourceManager(int, int)}
+     * @param queueIndex the index of the write queue this writer belongs to
+     */
     default void setMultiTableResourceManager(
             MultiTableResourceManager<T> multiTableResourceManager, int queueIndex) {}
 }
