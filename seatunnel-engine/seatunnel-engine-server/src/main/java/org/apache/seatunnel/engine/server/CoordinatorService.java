@@ -807,8 +807,8 @@ public class CoordinatorService {
      * from runningJobInfoIMap because the coordinator died mid-cleanup). Creates a temporary
      * JobMaster solely to obtain the PhysicalPlan structure needed to enumerate all pipeline/task
      * IMap keys, then calls cleanJob() directly — bypassing the pending queue to avoid
-     * transitioning the job back to PENDING state. Falls back to a direct IMap remove if
-     * JobMaster initialisation fails.
+     * transitioning the job back to PENDING state. Falls back to a direct IMap remove if JobMaster
+     * initialisation fails.
      */
     private void cleanupZombieJob(@NonNull Long jobId, @NonNull JobInfo jobInfo) {
         JobMaster jobMaster =
