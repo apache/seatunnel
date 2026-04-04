@@ -37,16 +37,12 @@ import java.net.URLClassLoader;
 import java.net.URLConnection;
 import java.util.ArrayList;
 import java.util.Collection;
-import java.util.HashSet;
-import java.util.Iterator;
 import java.util.Map;
 import java.util.Objects;
 import java.util.Optional;
-import java.util.Set;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.concurrent.atomic.AtomicInteger;
-import java.util.jar.JarFile;
 
 @Slf4j
 public class DefaultClassLoaderService implements ClassLoaderService {
@@ -263,7 +259,6 @@ public class DefaultClassLoaderService implements ClassLoaderService {
         if (DEEP_CLEAN_ENABLED.get()) {
             closeUrlClassLoader(classLoader);
             clearUrlClassPathCache(classLoader);
-            clearJarFileFactoryCache(classLoader);
 
             // Success execution -> Elevated to INFO
             log.info("Deep clean for ClassLoader completed successfully.");
@@ -354,105 +349,6 @@ public class DefaultClassLoaderService implements ClassLoaderService {
         } catch (Exception e) {
             // Per-resource cleanup failures -> Keep at DEBUG
             log.debug("Failed to close JarLoader: {}", e.getMessage());
-        }
-    }
-
-    private void clearJarFileFactoryCache(ClassLoader classLoader) {
-        if (!(classLoader instanceof URLClassLoader)) {
-            return;
-        }
-        try {
-            Set<String> targetJarPaths = new HashSet<>();
-            for (URL url : ((URLClassLoader) classLoader).getURLs()) {
-                try {
-                    String protocol = url.getProtocol();
-                    if ("file".equalsIgnoreCase(protocol)) {
-                        targetJarPaths.add(new File(url.toURI()).getCanonicalPath());
-                    } else if ("jar".equalsIgnoreCase(protocol)) {
-                        String fileUrlString = url.getFile();
-                        if (fileUrlString.startsWith("file:")) {
-                            int bangIndex = fileUrlString.indexOf("!");
-                            if (bangIndex > 0) {
-                                fileUrlString = fileUrlString.substring(0, bangIndex);
-                            }
-                            targetJarPaths.add(
-                                    new File(new URL(fileUrlString).toURI()).getCanonicalPath());
-                        }
-                    }
-                } catch (Exception e) {
-                    log.debug("Failed to parse URL for deep clean: {}", url, e);
-                }
-            }
-
-            if (targetJarPaths.isEmpty()) {
-                return;
-            }
-
-            Class<?> jarFileFactoryClass = Class.forName("sun.net.www.protocol.jar.JarFileFactory");
-            Field fileCacheField = jarFileFactoryClass.getDeclaredField("fileCache");
-            fileCacheField.setAccessible(true);
-            Map<?, ?> fileCache = (Map<?, ?>) fileCacheField.get(null);
-
-            Field urlCacheField = jarFileFactoryClass.getDeclaredField("urlCache");
-            urlCacheField.setAccessible(true);
-            Map<?, ?> urlCache = (Map<?, ?>) urlCacheField.get(null);
-
-            synchronized (jarFileFactoryClass) {
-                if (fileCache != null) {
-                    Iterator<? extends Map.Entry<?, ?>> iterator = fileCache.entrySet().iterator();
-                    while (iterator.hasNext()) {
-                        Map.Entry<?, ?> entry = iterator.next();
-                        Object value = entry.getValue();
-                        if (value instanceof JarFile) {
-                            JarFile jarFile = (JarFile) value;
-                            if (isTargetJar(jarFile.getName(), targetJarPaths)) {
-                                try {
-                                    jarFile.close();
-                                } catch (IOException e) {
-                                    log.debug("Failed to close JarFile: {}", jarFile.getName(), e);
-                                }
-                                iterator.remove();
-                            }
-                        }
-                    }
-                }
-
-                if (urlCache != null) {
-                    Iterator<? extends Map.Entry<?, ?>> urlIterator =
-                            urlCache.entrySet().iterator();
-                    while (urlIterator.hasNext()) {
-                        Map.Entry<?, ?> entry = urlIterator.next();
-                        Object key = entry.getKey();
-                        if (key instanceof JarFile) {
-                            JarFile jarFile = (JarFile) key;
-                            if (isTargetJar(jarFile.getName(), targetJarPaths)) {
-                                urlIterator.remove();
-                            }
-                        }
-                    }
-                }
-            }
-            log.info("Finished targeted deep clean of JarFileFactory global cache");
-        } catch (ClassNotFoundException e) {
-            // Configuration/Initialization errors -> Elevated to WARN
-            log.warn("Deep clean failed: JarFileFactory class not found (non-HotSpot JVM?).", e);
-        } catch (Exception e) {
-            // Configuration/Initialization errors -> Elevated to WARN
-            log.warn(
-                    "Deep clean failed due to reflection restrictions. Please add '--add-opens java.base/sun.net.www.protocol.jar=ALL-UNNAMED' to JVM options.",
-                    e);
-        }
-    }
-
-    private boolean isTargetJar(String cachedJarPath, Set<String> targetJarPaths) {
-        if (targetJarPaths.contains(cachedJarPath)) {
-            return true;
-        }
-        try {
-            String canonicalCachedPath = new File(cachedJarPath).getCanonicalPath();
-            return targetJarPaths.contains(canonicalCachedPath);
-        } catch (Exception e) {
-            return false;
         }
     }
 }

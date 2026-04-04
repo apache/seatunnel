@@ -30,16 +30,10 @@ import com.hazelcast.instance.impl.Node;
 import com.hazelcast.spi.impl.NodeEngineImpl;
 
 import java.io.File;
-import java.io.FileOutputStream;
 import java.io.IOException;
-import java.lang.reflect.Field;
 import java.net.MalformedURLException;
 import java.net.URL;
 import java.net.URLClassLoader;
-import java.util.Map;
-import java.util.jar.JarFile;
-import java.util.zip.ZipEntry;
-import java.util.zip.ZipOutputStream;
 
 public class ClassLoaderServiceTest extends AbstractClassLoaderServiceTest {
 
@@ -259,145 +253,5 @@ public class ClassLoaderServiceTest extends AbstractClassLoaderServiceTest {
                 () -> classLoaderService.releaseClassLoader(1L, Lists.newArrayList(jarUrl)));
 
         tempJar.delete();
-    }
-
-    private File createValidEmptyJar(String prefix) throws IOException {
-        File tempJar = File.createTempFile(prefix, ".jar");
-        try (ZipOutputStream zos = new ZipOutputStream(new FileOutputStream(tempJar))) {
-            zos.putNextEntry(new ZipEntry("META-INF/"));
-            zos.closeEntry();
-        }
-        return tempJar;
-    }
-
-    @Test
-    void testDeepCleanTargetedRemovalWithoutCollateralDamage() throws Exception {
-        File targetJar = createValidEmptyJar("target-clean");
-        File innocentJar = createValidEmptyJar("innocent-survivor");
-        URL targetUrl = targetJar.toURI().toURL();
-        URL innocentUrl = innocentJar.toURI().toURL();
-
-        try {
-            System.setProperty(DefaultClassLoaderService.ENABLE_DEEP_CLEAN, "true");
-            DefaultClassLoaderService service = new DefaultClassLoaderService(false, null);
-
-            Class<?> jarFileFactoryClass = Class.forName("sun.net.www.protocol.jar.JarFileFactory");
-            Field fileCacheField = jarFileFactoryClass.getDeclaredField("fileCache");
-            fileCacheField.setAccessible(true);
-            Map fileCache = (Map) fileCacheField.get(null);
-
-            JarFile innocentJarFile = new JarFile(innocentJar);
-            URL innocentFileUrl = new URL("jar:" + innocentUrl + "!/");
-            synchronized (jarFileFactoryClass) {
-                fileCache.put(innocentFileUrl, innocentJarFile);
-            }
-
-            ClassLoader targetLoader = service.getClassLoader(1L, Lists.newArrayList(targetUrl));
-            Assertions.assertNotNull(targetLoader);
-
-            JarFile targetJarFile = new JarFile(targetJar);
-            URL targetFileUrl = new URL("jar:" + targetUrl + "!/");
-            synchronized (jarFileFactoryClass) {
-                fileCache.put(targetFileUrl, targetJarFile);
-            }
-
-            service.releaseClassLoader(1L, Lists.newArrayList(targetUrl));
-
-            synchronized (jarFileFactoryClass) {
-                boolean targetExist = false;
-                boolean innocentExist = false;
-                for (Object value : fileCache.values()) {
-                    String name = ((JarFile) value).getName();
-                    if (name.contains("target-clean")) {
-                        targetExist = true;
-                    }
-                    if (name.contains("innocent-survivor")) {
-                        innocentExist = true;
-                    }
-                }
-                Assertions.assertFalse(targetExist, "Target jar should be removed from cache");
-                Assertions.assertTrue(
-                        innocentExist, "Innocent jar should NOT be removed from cache");
-            }
-
-            innocentJarFile.close();
-            synchronized (jarFileFactoryClass) {
-                fileCache.remove(innocentFileUrl);
-            }
-
-            service.close();
-        } catch (ClassNotFoundException e) {
-            // Ignored, maybe not HotSpot JVM
-        } finally {
-            System.clearProperty(DefaultClassLoaderService.ENABLE_DEEP_CLEAN);
-        }
-
-        targetJar.delete();
-        innocentJar.delete();
-    }
-
-    @Test
-    void testJarFileFactoryCacheClearedOnRelease() throws Exception {
-        File tempJar = createValidEmptyJar("cache-clean-target");
-        URL jarUrl = tempJar.toURI().toURL();
-
-        try {
-            System.setProperty(DefaultClassLoaderService.ENABLE_DEEP_CLEAN, "true");
-            DefaultClassLoaderService service = new DefaultClassLoaderService(false, null);
-
-            Class<?> jarFileFactoryClass = Class.forName("sun.net.www.protocol.jar.JarFileFactory");
-
-            Field fileCacheField = jarFileFactoryClass.getDeclaredField("fileCache");
-            fileCacheField.setAccessible(true);
-            Map fileCache = (Map) fileCacheField.get(null);
-
-            Field urlCacheField = jarFileFactoryClass.getDeclaredField("urlCache");
-            urlCacheField.setAccessible(true);
-            Map urlCache = (Map) urlCacheField.get(null);
-
-            JarFile targetJarFile = new JarFile(tempJar);
-            URL targetFileUrl = new URL("jar:" + jarUrl + "!/");
-            synchronized (jarFileFactoryClass) {
-                fileCache.put(targetFileUrl, targetJarFile);
-                urlCache.put(targetJarFile, targetFileUrl);
-            }
-
-            ClassLoader targetLoader = service.getClassLoader(1L, Lists.newArrayList(jarUrl));
-            Assertions.assertNotNull(targetLoader);
-
-            service.releaseClassLoader(1L, Lists.newArrayList(jarUrl));
-
-            synchronized (jarFileFactoryClass) {
-                boolean existInFileCache = false;
-                for (Object value : fileCache.values()) {
-                    if (value instanceof JarFile
-                            && ((JarFile) value).getName().contains("cache-clean-target")) {
-                        existInFileCache = true;
-                        break;
-                    }
-                }
-
-                boolean existInUrlCache = false;
-                for (Object key : urlCache.keySet()) {
-                    if (key instanceof JarFile
-                            && ((JarFile) key).getName().contains("cache-clean-target")) {
-                        existInUrlCache = true;
-                        break;
-                    }
-                }
-
-                Assertions.assertFalse(
-                        existInFileCache,
-                        "Target jar must be removed from JarFileFactory fileCache");
-                Assertions.assertFalse(
-                        existInUrlCache, "Target jar must be removed from JarFileFactory urlCache");
-            }
-            service.close();
-        } catch (ClassNotFoundException e) {
-            // Ignored, maybe not HotSpot JVM
-        } finally {
-            System.clearProperty(DefaultClassLoaderService.ENABLE_DEEP_CLEAN);
-            tempJar.delete();
-        }
     }
 }
