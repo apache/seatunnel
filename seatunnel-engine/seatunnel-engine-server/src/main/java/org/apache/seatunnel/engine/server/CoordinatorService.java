@@ -769,9 +769,9 @@ public class CoordinatorService {
             logger.warning(
                     String.format(
                             "Job %s is in terminal state %s in runningJobInfoIMap, "
-                                    + "removing zombie entry to prevent incorrect restore",
+                                    + "cleaning up zombie entry to prevent incorrect restore",
                             jobId, jobState));
-            runningJobInfoIMap.remove(jobId);
+            cleanupZombieJob(jobId, jobInfo);
             return;
         }
 
@@ -800,6 +800,47 @@ public class CoordinatorService {
         pendingJobQueue.put(pendingJobInfo);
         jobMaster.getPhysicalPlan().updateJobState(JobStatus.PENDING);
         logger.info(String.format("The restore job enter pending queue, JobId: %s", jobId));
+    }
+
+    /**
+     * Clean up all IMap entries for a zombie job (a job in terminal state that was never removed
+     * from runningJobInfoIMap because the coordinator died mid-cleanup). Creates a temporary
+     * JobMaster solely to obtain the PhysicalPlan structure needed to enumerate all pipeline/task
+     * IMap keys, then calls cleanJob() directly — bypassing the pending queue to avoid
+     * transitioning the job back to PENDING state. Falls back to a direct IMap remove if
+     * JobMaster initialisation fails.
+     */
+    private void cleanupZombieJob(@NonNull Long jobId, @NonNull JobInfo jobInfo) {
+        JobMaster jobMaster =
+                new JobMaster(
+                        jobId,
+                        jobInfo.getJobImmutableInformation(),
+                        nodeEngine,
+                        MDCTracer.tracing(jobId, executorService),
+                        getResourceManager(),
+                        getJobHistoryService(),
+                        runningJobStateIMap,
+                        runningJobStateTimestampsIMap,
+                        ownedSlotProfilesIMap,
+                        runningJobInfoIMap,
+                        engineConfig,
+                        seaTunnelServer);
+        try {
+            jobMaster.init(jobInfo.getInitializationTimestamp(), true);
+            jobMaster.neverNeedRestore();
+            jobMaster.cleanJob();
+            logger.info(
+                    String.format(
+                            "Zombie job %s cleaned up successfully via JobMaster.cleanJob()",
+                            jobId));
+        } catch (Exception e) {
+            logger.warning(
+                    String.format(
+                            "Failed to init JobMaster for zombie job %s, "
+                                    + "falling back to direct IMap remove: %s",
+                            jobId, e.getMessage()));
+            runningJobInfoIMap.remove(jobId);
+        }
     }
 
     /**
