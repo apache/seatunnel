@@ -95,6 +95,7 @@ import java.util.Collections;
 import java.util.Comparator;
 import java.util.HashMap;
 import java.util.HashSet;
+import java.util.Iterator;
 import java.util.List;
 import java.util.Map;
 import java.util.Objects;
@@ -681,6 +682,27 @@ public class CoordinatorService {
         } catch (Exception e) {
             throw new SeaTunnelEngineException(
                     "Failed to fetch running jobs from IMap during master switch restore", e);
+        }
+        if (needRestoreFromMasterNodeSwitchJobs.isEmpty()) {
+            return;
+        }
+        // Pre-filter: clean up terminal-state zombie jobs immediately before waiting for workers.
+        // Zombies do not need a worker — they only need IMap cleanup. Processing them here avoids
+        // blocking zombie cleanup behind the worker-wait loop.
+        Iterator<Map.Entry<Long, JobInfo>> zombieIterator =
+                needRestoreFromMasterNodeSwitchJobs.iterator();
+        while (zombieIterator.hasNext()) {
+            Map.Entry<Long, JobInfo> entry = zombieIterator.next();
+            Object jobState;
+            try {
+                jobState = runningJobStateIMap.get(entry.getKey());
+            } catch (Exception e) {
+                continue;
+            }
+            if (jobState instanceof JobStatus && ((JobStatus) jobState).isEndState()) {
+                restoreJobFromMasterActiveSwitch(entry.getKey(), entry.getValue());
+                zombieIterator.remove();
+            }
         }
         if (needRestoreFromMasterNodeSwitchJobs.isEmpty()) {
             return;

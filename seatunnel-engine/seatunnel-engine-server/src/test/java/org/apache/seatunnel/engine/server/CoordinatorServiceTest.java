@@ -559,9 +559,13 @@ public class CoordinatorServiceTest {
         // Zombie entry must be removed — terminal state job should never be restored
         IMap<Long, org.apache.seatunnel.engine.core.job.JobInfo> runningJobInfoOnInstance2 =
                 instance2.getMap(Constant.IMAP_RUNNING_JOB_INFO);
-        Assertions.assertFalse(
-                runningJobInfoOnInstance2.containsKey(zombieJobId),
-                "Zombie job in FAILED state must be removed from runningJobInfoIMap during restore");
+        await().atMost(10000, TimeUnit.MILLISECONDS)
+                .untilAsserted(
+                        () ->
+                                Assertions.assertFalse(
+                                        runningJobInfoOnInstance2.containsKey(zombieJobId),
+                                        "Zombie job in FAILED state must be removed from"
+                                                + " runningJobInfoIMap during restore"));
 
         instance2.shutdown();
     }
