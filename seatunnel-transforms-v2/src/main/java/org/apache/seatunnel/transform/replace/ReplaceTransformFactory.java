@@ -36,7 +36,7 @@ public class ReplaceTransformFactory implements TableTransformFactory {
     @Override
     public OptionRule optionRule() {
         return OptionRule.builder()
-                .optional(
+                .required(
                         ReplaceTransformConfig.KEY_REPLACE_FIELDS,
                         ReplaceTransformConfig.KEY_PATTERN,
                         ReplaceTransformConfig.KEY_REPLACEMENT)

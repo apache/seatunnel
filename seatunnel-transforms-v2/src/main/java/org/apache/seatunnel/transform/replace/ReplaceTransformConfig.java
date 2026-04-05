@@ -53,6 +53,6 @@ public class ReplaceTransformConfig {
     public static final Option<Boolean> KEY_REPLACE_FIRST =
             Options.key("replace_first")
                     .booleanType()
-                    .noDefaultValue()
+                    .defaultValue(false)
                     .withDescription("Replace the first match string");
 }

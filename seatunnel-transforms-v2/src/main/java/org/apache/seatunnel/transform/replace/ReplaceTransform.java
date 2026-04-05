@@ -39,8 +39,8 @@ public class ReplaceTransform extends AbstractCatalogSupportMapTransform {
     private final List<String> replaceFields = new ArrayList<>();
     private final String pattern;
     private final String replacement;
-    private final Boolean isRegex;
-    private final Boolean replaceFirst;
+    private final boolean isRegex;
+    private final boolean replaceFirst;
     private final Pattern regexPattern;
     private int[] replaceFieldIndexes;
 
@@ -79,7 +79,7 @@ public class ReplaceTransform extends AbstractCatalogSupportMapTransform {
     }
 
     private Pattern initializeRegexPattern() {
-        if (!Boolean.TRUE.equals(isRegex)) {
+        if (!isRegex) {
             return null;
         }
         try {
@@ -107,8 +107,8 @@ public class ReplaceTransform extends AbstractCatalogSupportMapTransform {
     }
 
     private String applyReplacement(String value) {
-        if (Boolean.TRUE.equals(isRegex)) {
-            if (Boolean.TRUE.equals(replaceFirst)) {
+        if (isRegex) {
+            if (replaceFirst) {
                 return regexPattern.matcher(value).replaceFirst(replacement);
             }
             return regexPattern.matcher(value).replaceAll(replacement);
