@@ -21,12 +21,14 @@ import org.apache.seatunnel.api.sink.SinkAggregatedCommitter;
 import org.apache.seatunnel.api.table.catalog.CatalogTable;
 import org.apache.seatunnel.connectors.seatunnel.iceberg.IcebergTableLoader;
 import org.apache.seatunnel.connectors.seatunnel.iceberg.config.IcebergSinkConfig;
+import org.apache.seatunnel.connectors.seatunnel.iceberg.sink.writer.WriteResult;
 
 import lombok.extern.slf4j.Slf4j;
 
 import java.io.IOException;
 import java.util.Collections;
 import java.util.List;
+import java.util.stream.Collectors;
 
 /** Iceberg aggregated committer */
 @Slf4j
@@ -59,12 +61,13 @@ public class IcebergAggregatedCommitter
     }
 
     private void commitFiles(List<IcebergCommitInfo> commitInfos) {
-        for (IcebergCommitInfo icebergCommitInfo : commitInfos) {
-            if (icebergCommitInfo.getResults() == null
-                    || icebergCommitInfo.getResults().isEmpty()) {
-                continue;
-            }
-            filesCommitter.doCommit(icebergCommitInfo.getResults());
+        List<WriteResult> allResults =
+                commitInfos.stream()
+                        .filter(info -> info.getResults() != null && !info.getResults().isEmpty())
+                        .flatMap(info -> info.getResults().stream())
+                        .collect(Collectors.toList());
+        if (!allResults.isEmpty()) {
+            filesCommitter.doCommit(allResults);
         }
     }
 
