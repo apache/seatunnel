@@ -41,6 +41,7 @@ public abstract class BaseSourceConfig implements SourceConfig {
     @Getter protected final double distributionFactorLower;
     @Getter protected final int sampleShardingThreshold;
     @Getter protected final int inverseSamplingRate;
+    @Getter protected final boolean sampleShardingEnable;
     @Getter protected final boolean exactlyOnce;
 
     // --------------------------------------------------------------------------------------------
@@ -57,6 +58,7 @@ public abstract class BaseSourceConfig implements SourceConfig {
             double distributionFactorLower,
             int sampleShardingThreshold,
             int inverseSamplingRate,
+            boolean sampleShardingEnable,
             boolean exactlyOnce,
             Properties dbzProperties) {
         this.startupConfig = startupConfig;
@@ -67,6 +69,7 @@ public abstract class BaseSourceConfig implements SourceConfig {
         this.distributionFactorLower = distributionFactorLower;
         this.sampleShardingThreshold = sampleShardingThreshold;
         this.inverseSamplingRate = inverseSamplingRate;
+        this.sampleShardingEnable = sampleShardingEnable;
         this.exactlyOnce = exactlyOnce;
         this.dbzProperties = dbzProperties;
     }

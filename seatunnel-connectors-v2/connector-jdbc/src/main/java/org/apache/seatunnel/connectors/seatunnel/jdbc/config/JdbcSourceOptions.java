@@ -96,6 +96,15 @@ public class JdbcSourceOptions extends JdbcCommonOptions {
                                     + "For example, a value of 1000 means a sampling rate of 1/1000. "
                                     + "This parameter is used when the sample sharding strategy is triggered.");
 
+    public static final Option<Boolean> SPLIT_SAMPLING_ENABLE =
+            Options.key("split.sample-sharding.enable")
+                    .booleanType()
+                    .defaultValue(true)
+                    .withDescription(
+                            "Whether to enable sampling-based sharding strategy."
+                                    + "When set false, the system should fall back to unevenly-sized chunk splitting (iterative query approach) regardless of the shard count."
+                                    + "The default value is true.");
+
     public static final Option<Boolean> USE_SELECT_COUNT =
             Options.key("use_select_count")
                     .booleanType()

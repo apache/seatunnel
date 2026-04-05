@@ -143,6 +143,15 @@ public class JdbcSourceOptions extends SourceOptions {
                                     + "For example, a value of 1000 means a sampling rate of 1/1000. "
                                     + "This parameter is used when the sample sharding strategy is triggered.");
 
+    public static final Option<Boolean> SAMPLE_SHARDING_ENABLE =
+            Options.key("sample-sharding.enable")
+                    .booleanType()
+                    .defaultValue(true)
+                    .withDescription(
+                            "Whether to enable sampling-based sharding strategy."
+                                    + "When set false, the system should fall back to unevenly-sized chunk splitting (iterative query approach) regardless of the shard count."
+                                    + "The default value is true.");
+
     public static final Option<List<JdbcSourceTableConfig>> TABLE_NAMES_CONFIG =
             Options.key("table-names-config")
                     .listType(JdbcSourceTableConfig.class)

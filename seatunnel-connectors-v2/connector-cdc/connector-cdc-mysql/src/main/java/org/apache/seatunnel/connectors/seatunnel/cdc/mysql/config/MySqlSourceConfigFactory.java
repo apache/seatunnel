@@ -125,6 +125,7 @@ public class MySqlSourceConfigFactory extends JdbcSourceConfigFactory {
                 distributionFactorLower,
                 sampleShardingThreshold,
                 inverseSamplingRate,
+                sampleShardingEnable,
                 props,
                 driverClassName,
                 hostname,

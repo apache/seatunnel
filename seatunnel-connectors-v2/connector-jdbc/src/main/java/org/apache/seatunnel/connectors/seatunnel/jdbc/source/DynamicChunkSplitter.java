@@ -183,9 +183,11 @@ public class DynamicChunkSplitter extends ChunkSplitter {
         double distributionFactorUpper = config.getSplitEvenDistributionFactorUpperBound();
         double distributionFactorLower = config.getSplitEvenDistributionFactorLowerBound();
         int sampleShardingThreshold = config.getSplitSampleShardingThreshold();
+        boolean sampleShardingEnable = config.isSplitSampleShardingEnable();
         log.info(
                 "Splitting table {} into chunks, split column: {}, min: {}, max: {}, chunk size: {}, "
-                        + "distribution factor upper: {}, distribution factor lower: {}, sample sharding threshold: {}",
+                        + "distribution factor upper: {}, distribution factor lower: {}, sample sharding threshold: {},"
+                        + " sample sharding enable: {}",
                 tablePath,
                 splitColumnName,
                 min,
@@ -193,7 +195,8 @@ public class DynamicChunkSplitter extends ChunkSplitter {
                 chunkSize,
                 distributionFactorUpper,
                 distributionFactorLower,
-                sampleShardingThreshold);
+                sampleShardingThreshold,
+                sampleShardingEnable);
 
         long approximateRowCnt = queryApproximateRowCnt(table);
 
@@ -227,6 +230,7 @@ public class DynamicChunkSplitter extends ChunkSplitter {
                     chunkSize,
                     tablePath,
                     sampleShardingThreshold,
+                    sampleShardingEnable,
                     approximateRowCnt);
         }
     }
@@ -238,10 +242,12 @@ public class DynamicChunkSplitter extends ChunkSplitter {
         double distributionFactorUpper = config.getSplitEvenDistributionFactorUpperBound();
         double distributionFactorLower = config.getSplitEvenDistributionFactorLowerBound();
         int sampleShardingThreshold = config.getSplitSampleShardingThreshold();
+        boolean sampleShardingEnable = config.isSplitSampleShardingEnable();
 
         log.info(
                 "Splitting table {} into chunks, split column: {}, min: {}, max: {}, chunk size: {}, "
-                        + "distribution factor upper: {}, distribution factor lower: {}, sample sharding threshold: {}",
+                        + "distribution factor upper: {}, distribution factor lower: {}, sample sharding threshold: {},"
+                        + " sample sharding enable: {}",
                 tablePath,
                 splitColumnName,
                 min,
@@ -249,7 +255,8 @@ public class DynamicChunkSplitter extends ChunkSplitter {
                 chunkSize,
                 distributionFactorUpper,
                 distributionFactorLower,
-                sampleShardingThreshold);
+                sampleShardingThreshold,
+                sampleShardingEnable);
 
         long approximateRowCnt = queryApproximateRowCnt(table);
         double distributionFactor =
@@ -274,6 +281,7 @@ public class DynamicChunkSplitter extends ChunkSplitter {
                     chunkSize,
                     tablePath,
                     sampleShardingThreshold,
+                    sampleShardingEnable,
                     approximateRowCnt);
         }
     }
@@ -286,11 +294,12 @@ public class DynamicChunkSplitter extends ChunkSplitter {
             int chunkSize,
             TablePath tablePath,
             int sampleShardingThreshold,
+            boolean sampleShardingEnable,
             long approximateRowCnt)
             throws Exception {
         int shardCount = (int) (approximateRowCnt / chunkSize);
         int inverseSamplingRate = config.getSplitInverseSamplingRate();
-        if (sampleShardingThreshold < shardCount) {
+        if (sampleShardingEnable && sampleShardingThreshold < shardCount) {
             // It is necessary to ensure that the number of data rows sampled by the
             // sampling rate is greater than the number of shards.
             // Otherwise, if the sampling rate is too low, it may result in an insufficient

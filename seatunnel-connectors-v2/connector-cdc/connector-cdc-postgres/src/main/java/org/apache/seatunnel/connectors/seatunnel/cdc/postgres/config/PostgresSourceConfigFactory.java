@@ -120,6 +120,7 @@ public class PostgresSourceConfigFactory extends JdbcSourceConfigFactory {
                 distributionFactorLower,
                 sampleShardingThreshold,
                 inverseSamplingRate,
+                sampleShardingEnable,
                 props,
                 DRIVER_CLASS_NAME,
                 hostname,

@@ -53,6 +53,8 @@ public abstract class JdbcSourceConfigFactory implements SourceConfig.Factory<Jd
     protected int sampleShardingThreshold =
             JdbcSourceOptions.SAMPLE_SHARDING_THRESHOLD.defaultValue();
     protected int inverseSamplingRate = JdbcSourceOptions.INVERSE_SAMPLING_RATE.defaultValue();
+    protected boolean sampleShardingEnable =
+            JdbcSourceOptions.SAMPLE_SHARDING_ENABLE.defaultValue();
     protected int splitSize = SourceOptions.SNAPSHOT_SPLIT_SIZE.defaultValue();
     protected Map<String, String> splitColumn;
     protected int fetchSize = SourceOptions.SNAPSHOT_FETCH_SIZE.defaultValue();
@@ -187,6 +189,18 @@ public abstract class JdbcSourceConfigFactory implements SourceConfig.Factory<Jd
         return this;
     }
 
+    /**
+     * If set false the system should fall back to unevenly-sized chunk splitting (iterative query
+     * approach) regardless of the shard count.
+     *
+     * @param sampleShardingEnable The value Indicate whether to enable sampling
+     * @return this JdbcSourceConfigFactory instance.
+     */
+    public JdbcSourceConfigFactory sampleShardingEnable(boolean sampleShardingEnable) {
+        this.sampleShardingEnable = sampleShardingEnable;
+        return this;
+    }
+
     /** The maximum fetch size for per poll when read table snapshot. */
     public JdbcSourceConfigFactory fetchSize(int fetchSize) {
         this.fetchSize = fetchSize;
@@ -253,6 +267,7 @@ public abstract class JdbcSourceConfigFactory implements SourceConfig.Factory<Jd
                 config.get(JdbcSourceOptions.CHUNK_KEY_EVEN_DISTRIBUTION_FACTOR_LOWER_BOUND);
         this.sampleShardingThreshold = config.get(JdbcSourceOptions.SAMPLE_SHARDING_THRESHOLD);
         this.inverseSamplingRate = config.get(JdbcSourceOptions.INVERSE_SAMPLING_RATE);
+        this.sampleShardingEnable = config.get(JdbcSourceOptions.SAMPLE_SHARDING_ENABLE);
         this.splitSize = config.get(SourceOptions.SNAPSHOT_SPLIT_SIZE);
         this.splitColumn = new HashMap<>();
         config.getOptional(JdbcSourceOptions.TABLE_NAMES_CONFIG)
