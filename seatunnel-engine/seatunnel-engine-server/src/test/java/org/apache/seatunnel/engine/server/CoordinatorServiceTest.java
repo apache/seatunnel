@@ -525,16 +525,32 @@ public class CoordinatorServiceTest {
                         });
 
         // Inject a zombie: job in FAILED state that was never cleaned from runningJobInfoIMap
-        // (simulates coordinator dying mid-cleanup before removeJobIMap executed)
+        // (simulates coordinator dying mid-cleanup before removeJobIMap executed).
+        // Use real serialized JobImmutableInformation so that cleanupZombieJob() can complete
+        // JobMaster.init() and exercise the JobMaster.cleanJob() path (not just the fallback).
         long zombieJobId =
                 instance1.getFlakeIdGenerator(Constant.SEATUNNEL_ID_GENERATOR_NAME).newId();
+        LogicalDag zombieLogicalDag =
+                TestUtils.createTestLogicalPlan(
+                        "batch_fake_to_console.conf", "zombie-test-job", zombieJobId);
+        JobImmutableInformation zombieImmutableInfo =
+                new JobImmutableInformation(
+                        zombieJobId,
+                        "Test",
+                        instance1.getSerializationService(),
+                        zombieLogicalDag,
+                        Collections.emptyList(),
+                        Collections.emptyList());
+        Data zombieData = instance1.getSerializationService().toData(zombieImmutableInfo);
+
         IMap<Long, org.apache.seatunnel.engine.core.job.JobInfo> runningJobInfoIMap =
                 instance1.getMap(Constant.IMAP_RUNNING_JOB_INFO);
         IMap<Long, JobStatus> runningJobStateIMap =
                 instance1.getMap(Constant.IMAP_RUNNING_JOB_STATE);
         runningJobInfoIMap.put(
                 zombieJobId,
-                new org.apache.seatunnel.engine.core.job.JobInfo(System.currentTimeMillis(), null));
+                new org.apache.seatunnel.engine.core.job.JobInfo(
+                        System.currentTimeMillis(), zombieData));
         runningJobStateIMap.put(zombieJobId, JobStatus.FAILED);
 
         Assertions.assertTrue(runningJobInfoIMap.containsKey(zombieJobId));
@@ -556,16 +572,25 @@ public class CoordinatorServiceTest {
                                     server2.getCoordinatorService().isCoordinatorActive());
                         });
 
-        // Zombie entry must be removed — terminal state job should never be restored
+        // All zombie IMap entries must be removed — exercises the JobMaster.cleanJob() path
+        // which cleans runningJobStateIMap in addition to runningJobInfoIMap (the fallback
+        // direct-remove only cleans runningJobInfoIMap).
         IMap<Long, org.apache.seatunnel.engine.core.job.JobInfo> runningJobInfoOnInstance2 =
                 instance2.getMap(Constant.IMAP_RUNNING_JOB_INFO);
+        IMap<Long, JobStatus> runningJobStateOnInstance2 =
+                instance2.getMap(Constant.IMAP_RUNNING_JOB_STATE);
         await().atMost(10000, TimeUnit.MILLISECONDS)
                 .untilAsserted(
-                        () ->
-                                Assertions.assertFalse(
-                                        runningJobInfoOnInstance2.containsKey(zombieJobId),
-                                        "Zombie job in FAILED state must be removed from"
-                                                + " runningJobInfoIMap during restore"));
+                        () -> {
+                            Assertions.assertFalse(
+                                    runningJobInfoOnInstance2.containsKey(zombieJobId),
+                                    "Zombie job must be removed from runningJobInfoIMap");
+                            Assertions.assertFalse(
+                                    runningJobStateOnInstance2.containsKey(zombieJobId),
+                                    "Zombie job must be removed from runningJobStateIMap"
+                                            + " (proves JobMaster.cleanJob() ran, not just"
+                                            + " fallback direct-remove)");
+                        });
 
         instance2.shutdown();
     }

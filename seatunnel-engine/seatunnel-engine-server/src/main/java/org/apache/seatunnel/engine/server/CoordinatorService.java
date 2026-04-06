@@ -695,8 +695,20 @@ public class CoordinatorService {
             Map.Entry<Long, JobInfo> entry = zombieIterator.next();
             Object jobState;
             try {
-                jobState = runningJobStateIMap.get(entry.getKey());
+                jobState =
+                        RetryUtils.retryWithException(
+                                () -> runningJobStateIMap.get(entry.getKey()),
+                                new RetryUtils.RetryMaterial(
+                                        Constant.OPERATION_RETRY_TIME,
+                                        true,
+                                        ExceptionUtil::isOperationNeedRetryException,
+                                        Constant.OPERATION_RETRY_SLEEP));
             } catch (Exception e) {
+                logger.warning(
+                        String.format(
+                                "Failed to read job state for job %s during zombie pre-filter,"
+                                        + " skipping: %s",
+                                entry.getKey(), e.getMessage()));
                 continue;
             }
             if (jobState instanceof JobStatus && ((JobStatus) jobState).isEndState()) {
