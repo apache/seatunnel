@@ -62,6 +62,10 @@ They can be downloaded via install-plugin.sh or from the Maven central repositor
 | reader_cache_queue_size             | Integer                                                                     | No       | 1024                     | The reader shard cache queue is used to cache the data corresponding to the shards. The size of the shard cache depends on the number of shards obtained by each reader, rather than the amount of data in each shard.                                                                                                                                                                                                                                                                                            |
 | is_native                           | Boolean                                                                     | No       | false                    | Supports retaining the source information of the record.
 
+> On restore from checkpoint or savepoint, Kafka Source resumes from the checkpointed split offsets.
+> `start_mode` and consumer-group offsets are only used for the first startup or for newly
+> discovered partitions that do not have checkpointed state yet.
+
 ### debezium_record_table_filter
 
 We can use `debezium_record_table_filter` to filter the data in the debezium format. The configuration is as follows:

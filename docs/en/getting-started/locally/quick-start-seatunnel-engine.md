@@ -4,11 +4,22 @@ sidebar_position: 2
 
 # Quick Start With SeaTunnel Engine
 
-## Step 1: Deploy SeaTunnel And Connectors
+SeaTunnel Engine can be used either for a quick single-node trial or as a multi-node cluster. This page is organized around those two paths:
+
+| Path | Best for | Next step |
+| --- | --- | --- |
+| Single-node quick start | Validate configs, connectors, or pipelines on one machine | Continue with the single-node quick start section on this page |
+| Cluster deployment | Run SeaTunnel Engine across multiple nodes in test, staging, or production-like environments | Go to [SeaTunnel Engine(Zeta) Deployment](../../engines/zeta/deployment.md) |
+
+## Part 1: Single-node Quick Start (Local Mode)
+
+This path is intended for validating the installation, connectors, and job configuration on a single machine. The commands below all start SeaTunnel Engine with `-m local`.
+
+### Step 1: Deploy SeaTunnel And Connectors
 
 Before starting, make sure you have downloaded and deployed SeaTunnel as described in [Deployment](deployment.md)
 
-## Step 2: Add Job Config File To Define A Job
+### Step 2: Add Job Config File To Define A Job
 
 Edit `config/v2.batch.config.template`, which determines the way and logic of data input, processing, and output after seatunnel is started.
 The following is an example of the configuration file, which is the same as the example application mentioned above.
@@ -53,7 +64,7 @@ sink {
 
 More information can be found in [Config Concept](../../introduction/concepts/config.md)
 
-## Step 3: Run SeaTunnel Application
+### Step 3: Run SeaTunnel Application
 
 You could start the application by the following commands:
 
@@ -94,9 +105,9 @@ The SeaTunnel console will print some logs as below:
 2022-12-19 11:01:46,491 INFO  org.apache.seatunnel.connectors.seatunnel.console.sink.ConsoleSinkWriter - subtaskIndex=0 rowIndex=16: SeaTunnelRow#tableId=-1 SeaTunnelRow#kind=INSERT: mIJDt, 995616438
 ```
 
-## Extended Example: Batch Mode from MySQL to Doris
+### Extended Example: Batch Mode from MySQL to Doris
 
-### Step 1: Download the Connector
+#### Step 1: Download the Connector
 
 First, you need to add the connector name to the `${SEATUNNEL_HOME}/config/plugin_config` file. Then, execute the command to install the connector (of course, you can also manually download the connector from the [Apache Maven Repository](https://repo.maven.apache.org/maven2/org/apache/seatunnel/) and move it to the `connectors/` directory). Finally, make sure that the `connector-jdbc` and `connector-doris` connectors are in the `${SEATUNNEL_HOME}/connectors/` directory.
 
@@ -113,11 +124,11 @@ connector-doris
 sh bin/install-plugin.sh
 ```
 
-### Step 2: Place the MySQL Driver
+#### Step 2: Place the MySQL Driver
 
 You need to download the [JDBC driver JAR package](https://mvnrepository.com/artifact/mysql/mysql-connector-java) and place it in the `${SEATUNNEL_HOME}/lib/` directory.
 
-### Step 3: Add Job Configuration File to Define the Job
+#### Step 3: Add Job Configuration File to Define the Job
 
 ```bash
 cd seatunnel/job/
@@ -159,7 +170,7 @@ sink {
 
 For more information about the configuration, please refer to [Basic Concepts of Configuration](../../introduction/concepts/config.md).
 
-### Step 4: Run the SeaTunnel Application
+#### Step 4: Run the SeaTunnel Application
 
 You can start the application using the following command:
 
@@ -192,9 +203,23 @@ If you want to optimize your job, refer to the connector documentation for [Sour
 
 :::
 
+## Part 2: Cluster Deployment
+
+If you have already validated your job locally and want to run SeaTunnel Engine across multiple nodes, continue with [SeaTunnel Engine(Zeta) Deployment](../../engines/zeta/deployment.md).
+
+The deployment guide covers:
+
+- deployment scenarios for local mode, hybrid cluster mode, and separated cluster mode
+- the deployment steps for hybrid and separated cluster modes
+- guidance on choosing the right deployment mode
+
+Recommendation:
+
+- Use the local mode on this page when you want to verify configs and job pipelines on a single machine.
+- Use the deployment guide when you need multi-node execution, resource isolation, or an environment closer to staging or production.
 
 ## What's More
 
-- Start write your own config file now, choose the [connector](../../connectors/source) you want to use, and configure the parameters according to the connector's documentation.
-- See [SeaTunnel Engine(Zeta)](../../engines/zeta/about.md) if you want to know more about SeaTunnel Engine. Here you will learn how to deploy SeaTunnel Engine and how to use it in cluster mode.
-
+- Start writing your own config file, choose the [connector](../../connectors/source) you want to use, and configure the parameters according to the connector documentation.
+- If you want to deploy a multi-node SeaTunnel Engine cluster, continue with [SeaTunnel Engine(Zeta) Deployment](../../engines/zeta/deployment.md).
+- See [SeaTunnel Engine(Zeta)](../../engines/zeta/about.md) if you want to learn more about SeaTunnel Engine.
