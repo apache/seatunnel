@@ -66,7 +66,7 @@ public class FileConstants {
         String WRITE_DATA_TIMEOUT_MILLISECONDS_KEY = "writeDataTimeoutMilliseconds";
 
         /** Compaction related configuration */
-        String COMPACTION_IMAP = "compactionEnabled";
+        String COMPACTION_ENABLED = "compactionEnabled";
 
         String COMPACTION_THRESHOLD = "compactionThreshold";
 

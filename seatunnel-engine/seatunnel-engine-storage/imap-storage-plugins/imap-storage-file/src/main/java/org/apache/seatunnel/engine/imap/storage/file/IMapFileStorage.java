@@ -58,7 +58,7 @@ import static org.apache.seatunnel.engine.imap.storage.file.common.FileConstants
 import static org.apache.seatunnel.engine.imap.storage.file.common.FileConstants.DEFAULT_IMAP_NAMESPACE;
 import static org.apache.seatunnel.engine.imap.storage.file.common.FileConstants.FileInitProperties.BUSINESS_KEY;
 import static org.apache.seatunnel.engine.imap.storage.file.common.FileConstants.FileInitProperties.CLUSTER_NAME;
-import static org.apache.seatunnel.engine.imap.storage.file.common.FileConstants.FileInitProperties.COMPACTION_IMAP;
+import static org.apache.seatunnel.engine.imap.storage.file.common.FileConstants.FileInitProperties.COMPACTION_ENABLED;
 import static org.apache.seatunnel.engine.imap.storage.file.common.FileConstants.FileInitProperties.NAMESPACE_KEY;
 import static org.apache.seatunnel.engine.imap.storage.file.common.FileConstants.FileInitProperties.WRITE_DATA_TIMEOUT_MILLISECONDS_KEY;
 
@@ -167,7 +167,7 @@ public class IMapFileStorage implements IMapStorage {
         this.serializer = new ProtoStuffSerializer();
 
         boolean isCompactionEnabled = false;
-        String compactionConfig = (String) configuration.get(COMPACTION_IMAP);
+        String compactionConfig = (String) configuration.get(COMPACTION_ENABLED);
         if (!StringUtils.isBlank(compactionConfig)) {
             isCompactionEnabled = Boolean.parseBoolean(compactionConfig);
         }

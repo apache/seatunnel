@@ -39,7 +39,7 @@ import java.util.Map;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicInteger;
 
-import static org.apache.seatunnel.engine.imap.storage.file.common.FileConstants.FileInitProperties.COMPACTION_IMAP;
+import static org.apache.seatunnel.engine.imap.storage.file.common.FileConstants.FileInitProperties.COMPACTION_ENABLED;
 import static org.apache.seatunnel.engine.imap.storage.file.common.FileConstants.FileInitProperties.WRITE_DATA_TIMEOUT_MILLISECONDS_KEY;
 import static org.awaitility.Awaitility.await;
 import static org.junit.jupiter.api.condition.OS.LINUX;
@@ -65,7 +65,7 @@ public class IMapFileStorageTest {
         properties.put(FileConstants.FileInitProperties.NAMESPACE_KEY, "/tmp/imap-kris-test/2");
         properties.put(FileConstants.FileInitProperties.CLUSTER_NAME, "test-one");
         properties.put(WRITE_DATA_TIMEOUT_MILLISECONDS_KEY, 60L);
-        properties.put(COMPACTION_IMAP, "[\"random\"]");
+        properties.put(COMPACTION_ENABLED, "[\"random\"]");
 
         STORAGE.initialize(properties);
     }
