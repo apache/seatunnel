@@ -17,12 +17,13 @@
 
 package org.apache.seatunnel.transform.replace;
 
+import org.apache.seatunnel.api.configuration.Option;
 import org.apache.seatunnel.api.configuration.ReadonlyConfig;
 import org.apache.seatunnel.api.table.catalog.CatalogTable;
-import org.apache.seatunnel.api.table.catalog.Column;
 import org.apache.seatunnel.api.table.catalog.TableIdentifier;
 import org.apache.seatunnel.api.table.catalog.TableSchema;
 import org.apache.seatunnel.api.table.type.SeaTunnelRow;
+import org.apache.seatunnel.api.table.type.SeaTunnelRowType;
 import org.apache.seatunnel.common.exception.CommonError;
 import org.apache.seatunnel.transform.common.AbstractCatalogSupportMapTransform;
 import org.apache.seatunnel.transform.exception.TransformCommonError;
@@ -47,9 +48,18 @@ public class ReplaceTransform extends AbstractCatalogSupportMapTransform {
     public ReplaceTransform(
             @NonNull ReadonlyConfig config, @NonNull CatalogTable inputCatalogTable) {
         super(inputCatalogTable);
-        this.replaceFields.addAll(config.get(ReplaceTransformConfig.KEY_REPLACE_FIELDS));
-        this.pattern = config.get(ReplaceTransformConfig.KEY_PATTERN);
-        this.replacement = config.get(ReplaceTransformConfig.KEY_REPLACEMENT);
+        this.replaceFields.addAll(
+                getRequiredOption(config, ReplaceTransformConfig.KEY_REPLACE_FIELDS));
+
+        if (replaceFields.isEmpty()) {
+            throw TransformCommonError.validationFailed(
+                    String.format(
+                            "Option '%s' must not be empty.",
+                            ReplaceTransformConfig.KEY_REPLACE_FIELDS.key()));
+        }
+
+        this.pattern = getRequiredOption(config, ReplaceTransformConfig.KEY_PATTERN);
+        this.replacement = getRequiredOption(config, ReplaceTransformConfig.KEY_REPLACEMENT);
         this.isRegex = config.get(ReplaceTransformConfig.KEY_IS_REGEX);
         this.replaceFirst = config.get(ReplaceTransformConfig.KEY_REPLACE_FIRST);
         this.regexPattern = initializeRegexPattern();
@@ -61,19 +71,27 @@ public class ReplaceTransform extends AbstractCatalogSupportMapTransform {
         return PLUGIN_NAME;
     }
 
+    private <T> T getRequiredOption(ReadonlyConfig config, Option<T> option) {
+        return config.getOptional(option)
+                .orElseThrow(
+                        () ->
+                                TransformCommonError.validationFailed(
+                                        String.format("Option '%s' is required.", option.key())));
+    }
+
     private void initializeFieldIndexes() {
-        List<Column> columns = inputCatalogTable.getTableSchema().getColumns();
+        SeaTunnelRowType physicalRowType =
+                inputCatalogTable.getTableSchema().toPhysicalRowDataType();
         replaceFieldIndexes =
                 replaceFields.stream()
                         .mapToInt(
                                 fieldName -> {
-                                    for (int i = 0; i < columns.size(); i++) {
-                                        if (columns.get(i).getName().equals(fieldName)) {
-                                            return i;
-                                        }
+                                    int index = physicalRowType.indexOf(fieldName, false);
+                                    if (index < 0) {
+                                        throw TransformCommonError.cannotFindInputFieldError(
+                                                getPluginName(), fieldName);
                                     }
-                                    throw TransformCommonError.cannotFindInputFieldError(
-                                            getPluginName(), fieldName);
+                                    return index;
                                 })
                         .toArray();
     }
@@ -95,15 +113,14 @@ public class ReplaceTransform extends AbstractCatalogSupportMapTransform {
 
     @Override
     protected SeaTunnelRow transformRow(SeaTunnelRow inputRow) {
-        SeaTunnelRow outputRow = inputRow.copy();
         for (int index : replaceFieldIndexes) {
-            Object value = outputRow.getField(index);
+            Object value = inputRow.getField(index);
             if (value == null) {
                 continue;
             }
-            outputRow.setField(index, applyReplacement(value.toString()));
+            inputRow.setField(index, applyReplacement(value.toString()));
         }
-        return outputRow;
+        return inputRow;
     }
 
     private String applyReplacement(String value) {

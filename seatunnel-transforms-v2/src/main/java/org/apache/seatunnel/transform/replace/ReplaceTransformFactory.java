@@ -36,15 +36,12 @@ public class ReplaceTransformFactory implements TableTransformFactory {
     @Override
     public OptionRule optionRule() {
         return OptionRule.builder()
-                .required(
+                .optional(
                         ReplaceTransformConfig.KEY_REPLACE_FIELDS,
                         ReplaceTransformConfig.KEY_PATTERN,
                         ReplaceTransformConfig.KEY_REPLACEMENT)
                 .optional(ReplaceTransformConfig.KEY_IS_REGEX)
-                .conditional(
-                        ReplaceTransformConfig.KEY_IS_REGEX,
-                        true,
-                        ReplaceTransformConfig.KEY_REPLACE_FIRST)
+                .optional(ReplaceTransformConfig.KEY_REPLACE_FIRST)
                 .optional(TransformCommonOptions.MULTI_TABLES)
                 .optional(TransformCommonOptions.TABLE_MATCH_REGEX)
                 .build();
