@@ -42,9 +42,13 @@ public class ConfigValidator {
     }
 
     public void validate(OptionRule rule) {
+        validate(rule, null);
+    }
+
+    public void validate(OptionRule rule, Expression expression) {
         List<RequiredOption> requiredOptions = rule.getRequiredOptions();
         for (RequiredOption requiredOption : requiredOptions) {
-            validate(requiredOption);
+            validate(requiredOption, expression);
 
             for (Option<?> option : requiredOption.getOptions()) {
                 if (SingleChoiceOption.class.isAssignableFrom(option.getClass())) {
@@ -62,6 +66,13 @@ public class ConfigValidator {
         for (Option option : rule.getOptionalOptions()) {
             if (SingleChoiceOption.class.isAssignableFrom(option.getClass())) {
                 validateSingleChoice(option);
+            }
+        }
+
+        List<ConditionRule> conditionRules = rule.getConditionRules();
+        for (ConditionRule conditionRule : conditionRules) {
+            if (validate(conditionRule.getExpression())) {
+                validate(conditionRule.getOptionRule(), conditionRule.getExpression());
             }
         }
     }
@@ -90,9 +101,9 @@ public class ConfigValidator {
         }
     }
 
-    void validate(RequiredOption requiredOption) {
+    void validate(RequiredOption requiredOption, Expression expression) {
         if (requiredOption instanceof RequiredOption.AbsolutelyRequiredOptions) {
-            validate((RequiredOption.AbsolutelyRequiredOptions) requiredOption);
+            validate((RequiredOption.AbsolutelyRequiredOptions) requiredOption, expression);
             return;
         }
         if (requiredOption instanceof RequiredOption.BundledRequiredOptions) {
@@ -124,14 +135,22 @@ public class ConfigValidator {
         return absent;
     }
 
-    void validate(RequiredOption.AbsolutelyRequiredOptions requiredOption) {
+    void validate(RequiredOption.AbsolutelyRequiredOptions requiredOption, Expression expression) {
         List<Option<?>> absentOptions = getAbsentOptions(requiredOption.getRequiredOption());
         if (absentOptions.size() == 0) {
             return;
         }
         throw new OptionValidationException(
-                "There are unconfigured options, the options(%s) are required.",
-                getOptionKeys(absentOptions));
+                "There are unconfigured options, the options(%s) are required%s",
+                getOptionKeys(absentOptions), getExpressionExceptionHintMessage(expression));
+    }
+
+    String getExpressionExceptionHintMessage(Expression expression) {
+        if (expression == null) {
+            return ".";
+        } else {
+            return " when [" + expression + "].";
+        }
     }
 
     boolean hasOption(Option<?> option) {
