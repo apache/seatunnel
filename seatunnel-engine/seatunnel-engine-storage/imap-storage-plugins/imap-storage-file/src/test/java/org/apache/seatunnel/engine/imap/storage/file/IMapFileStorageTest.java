@@ -46,7 +46,7 @@ import static org.junit.jupiter.api.condition.OS.LINUX;
 import static org.junit.jupiter.api.condition.OS.MAC;
 
 @EnabledOnOs({LINUX, MAC})
-public class IMapFileStorageTest {
+class IMapFileStorageTest {
 
     private static final Configuration CONF;
 
@@ -65,7 +65,7 @@ public class IMapFileStorageTest {
         properties.put(FileConstants.FileInitProperties.NAMESPACE_KEY, "/tmp/imap-kris-test/2");
         properties.put(FileConstants.FileInitProperties.CLUSTER_NAME, "test-one");
         properties.put(WRITE_DATA_TIMEOUT_MILLISECONDS_KEY, 60L);
-        properties.put(COMPACTION_ENABLED, "[\"random\"]");
+        properties.put(COMPACTION_ENABLED, "true");
 
         STORAGE.initialize(properties);
     }
