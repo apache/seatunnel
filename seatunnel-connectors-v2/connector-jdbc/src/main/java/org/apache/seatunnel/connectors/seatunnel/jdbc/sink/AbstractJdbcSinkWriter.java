@@ -76,7 +76,6 @@ public abstract class AbstractJdbcSinkWriter<ResourceT>
                     JdbcConnectorErrorCode.REFRESH_PHYSICAL_TABLESCHEMA_BY_SCHEMA_CHANGE_EVENT, e);
         }
 
-        this.outputFormat.closeScheduler();
         this.outputFormat =
                 new JdbcOutputFormatBuilder(
                                 dialect,

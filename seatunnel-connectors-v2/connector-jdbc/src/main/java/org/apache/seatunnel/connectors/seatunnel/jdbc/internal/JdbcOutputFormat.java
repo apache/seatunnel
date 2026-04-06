@@ -18,7 +18,6 @@
 package org.apache.seatunnel.connectors.seatunnel.jdbc.internal;
 
 import org.apache.seatunnel.common.exception.CommonErrorCodeDeprecated;
-import org.apache.seatunnel.common.utils.ExceptionUtils;
 import org.apache.seatunnel.connectors.seatunnel.jdbc.config.JdbcConnectionConfig;
 import org.apache.seatunnel.connectors.seatunnel.jdbc.exception.JdbcConnectorErrorCode;
 import org.apache.seatunnel.connectors.seatunnel.jdbc.exception.JdbcConnectorException;
@@ -31,10 +30,6 @@ import org.slf4j.LoggerFactory;
 import java.io.IOException;
 import java.io.Serializable;
 import java.sql.SQLException;
-import java.util.concurrent.Executors;
-import java.util.concurrent.ScheduledExecutorService;
-import java.util.concurrent.ScheduledFuture;
-import java.util.concurrent.TimeUnit;
 import java.util.function.Supplier;
 
 import static org.apache.seatunnel.shade.com.google.common.base.Preconditions.checkNotNull;
@@ -48,8 +43,6 @@ public class JdbcOutputFormat<I, E extends JdbcBatchStatementExecutor<I>> implem
 
     private static final Logger LOG = LoggerFactory.getLogger(JdbcOutputFormat.class);
 
-    private static final long MIN_BATCH_INTERVAL_MS = 100;
-
     private final JdbcConnectionConfig jdbcConnectionConfig;
     private final StatementExecutorFactory<E> statementExecutorFactory;
 
@@ -57,8 +50,7 @@ public class JdbcOutputFormat<I, E extends JdbcBatchStatementExecutor<I>> implem
     private transient int batchCount = 0;
     private transient volatile boolean closed = false;
     private transient volatile Exception flushException;
-    private transient ScheduledExecutorService executor;
-    private transient ScheduledFuture<?> scheduledFuture;
+    private transient long lastFlushTimeMs;
 
     public JdbcOutputFormat(
             JdbcConnectionProvider connectionProvider,
@@ -80,66 +72,7 @@ public class JdbcOutputFormat<I, E extends JdbcBatchStatementExecutor<I>> implem
                     e);
         }
         jdbcStatementExecutor = createAndOpenStatementExecutor(statementExecutorFactory);
-        scheduledFuture = createAndStartScheduledFlush();
-    }
-
-    private ScheduledFuture<?> createAndStartScheduledFlush() {
-        long batchIntervalMs = jdbcConnectionConfig.getBatchIntervalMs();
-        int batchSize = jdbcConnectionConfig.getBatchSize();
-
-        if (batchIntervalMs <= 0) {
-            LOG.debug("JDBC periodic flush disabled, batch_interval_ms={}", batchIntervalMs);
-            return null;
-        }
-
-        if (batchSize == 1) {
-            LOG.warn(
-                    "JDBC periodic flush automatically disabled, batch_interval_ms={}, batch_size={}",
-                    batchIntervalMs,
-                    batchSize);
-            return null;
-        }
-
-        if (jdbcConnectionConfig.isExactlyOnce()) {
-            LOG.warn(
-                    "JDBC periodic flush automatically disabled, exactly-once mode enabled, batch_interval_ms={}",
-                    batchIntervalMs);
-            return null;
-        }
-
-        if (batchIntervalMs < MIN_BATCH_INTERVAL_MS) {
-            LOG.warn(
-                    "JDBC batch interval {}ms is too small, recommended minimum is {}ms",
-                    batchIntervalMs,
-                    MIN_BATCH_INTERVAL_MS);
-        }
-
-        executor =
-                Executors.newScheduledThreadPool(
-                        1,
-                        runnable -> {
-                            Thread thread = new Thread(runnable);
-                            thread.setDaemon(true);
-                            thread.setName("jdbc-batch-flush-scheduler-" + thread.getId());
-                            return thread;
-                        });
-
-        return executor.scheduleWithFixedDelay(
-                () -> {
-                    synchronized (JdbcOutputFormat.this) {
-                        if (!closed) {
-                            try {
-                                flush();
-                            } catch (Exception e) {
-                                flushException = e;
-                                LOG.error("JDBC periodic flush failed", e);
-                            }
-                        }
-                    }
-                },
-                batchIntervalMs,
-                batchIntervalMs,
-                TimeUnit.MILLISECONDS);
+        lastFlushTimeMs = System.currentTimeMillis();
     }
 
     private E createAndOpenStatementExecutor(StatementExecutorFactory<E> statementExecutorFactory) {
@@ -169,8 +102,7 @@ public class JdbcOutputFormat<I, E extends JdbcBatchStatementExecutor<I>> implem
         try {
             addToBatch(record);
             batchCount++;
-            if (jdbcConnectionConfig.getBatchSize() > 0
-                    && batchCount >= jdbcConnectionConfig.getBatchSize()) {
+            if (batchCount > 0 && (isOverMaxBatchSizeLimit() || isOverMaxBatchIntervalLimit())) {
                 flush();
             }
         } catch (Exception e) {
@@ -186,13 +118,6 @@ public class JdbcOutputFormat<I, E extends JdbcBatchStatementExecutor<I>> implem
     }
 
     public synchronized void flush() throws IOException {
-        if (flushException != null) {
-            LOG.warn(
-                    String.format(
-                            "An exception occurred during the previous flush process %s, skipping this flush",
-                            ExceptionUtils.getMessage(flushException)));
-            return;
-        }
         if (batchCount == 0) {
             LOG.debug("No data to flush.");
             return;
@@ -203,6 +128,7 @@ public class JdbcOutputFormat<I, E extends JdbcBatchStatementExecutor<I>> implem
             try {
                 attemptFlush();
                 batchCount = 0;
+                lastFlushTimeMs = System.currentTimeMillis();
                 break;
             } catch (SQLException e) {
                 LOG.error("JDBC executeBatch error, retry times = {}", i, e);
@@ -244,7 +170,6 @@ public class JdbcOutputFormat<I, E extends JdbcBatchStatementExecutor<I>> implem
     public synchronized void close() {
         if (!closed) {
             closed = true;
-            closeScheduler();
             flushBufferedRecords();
             closeStatements();
         }
@@ -277,15 +202,15 @@ public class JdbcOutputFormat<I, E extends JdbcBatchStatementExecutor<I>> implem
         }
     }
 
-    public void closeScheduler() {
-        if (scheduledFuture != null) {
-            scheduledFuture.cancel(false);
-            scheduledFuture = null;
-        }
-        if (executor != null) {
-            executor.shutdownNow();
-            executor = null;
-        }
+    private boolean isOverMaxBatchSizeLimit() {
+        return jdbcConnectionConfig.getBatchSize() > 0
+                && batchCount >= jdbcConnectionConfig.getBatchSize();
+    }
+
+    private boolean isOverMaxBatchIntervalLimit() {
+        long batchIntervalMs = jdbcConnectionConfig.getBatchIntervalMs();
+        return batchIntervalMs > 0
+                && (System.currentTimeMillis() - lastFlushTimeMs) >= batchIntervalMs;
     }
 
     public void updateExecutor(boolean reconnect) throws SQLException, ClassNotFoundException {

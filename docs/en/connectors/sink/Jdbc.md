@@ -160,7 +160,7 @@ For batch writing, when the number of buffered records reaches the number of `ba
 
 ### batch_interval_ms [long]
 
-The interval (in milliseconds) for periodic batch flush. When set to a value greater than 0, a background thread will periodically flush buffered records to the database, even if `batch_size` has not been reached. Default value is `0` (disabled). Has no effect when `batch_size` is `1`. Has no effect when `is_exactly_once = true` to avoid interfering with XA transactions.
+The flush interval in milliseconds. When set to a value greater than 0, if the elapsed time since the last flush exceeds this interval, the next `writeRecord` call will trigger a synchronous flush, even if `batch_size` has not been reached. Default value is `0` (disabled). Note that when `auto_commit = false`, flushed rows are not visible to other transactions until the next commit (e.g. at checkpoint).
 
 ### is_exactly_once [boolean]
 
