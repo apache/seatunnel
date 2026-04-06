@@ -168,7 +168,7 @@ public class IMapFileStorage implements IMapStorage {
 
         boolean isCompactionEnabled = false;
         String compactionConfig = (String) configuration.get(COMPACTION_IMAP);
-        if (StringUtils.isBlank(compactionConfig)) {
+        if (!StringUtils.isBlank(compactionConfig)) {
             isCompactionEnabled = Boolean.parseBoolean(compactionConfig);
         }
 
