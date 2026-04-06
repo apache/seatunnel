@@ -160,6 +160,23 @@ class ReplaceTransformTest {
     }
 
     @Test
+    void testEmptyReplaceFieldsValidation() {
+        Map<String, Object> configMap = new HashMap<>();
+        configMap.put(ReplaceTransformConfig.KEY_REPLACE_FIELDS.key(), new ArrayList<String>());
+        configMap.put(ReplaceTransformConfig.KEY_PATTERN.key(), "before");
+        configMap.put(ReplaceTransformConfig.KEY_REPLACEMENT.key(), "after");
+
+        TransformException exception =
+                Assertions.assertThrows(
+                        TransformException.class,
+                        () ->
+                                new ReplaceTransform(
+                                        ReadonlyConfig.fromMap(configMap), catalogTable));
+
+        Assertions.assertTrue(exception.getMessage().contains("must not be empty"));
+    }
+
+    @Test
     void testSingleFieldRegexReplace() {
         Map<String, Object> configMap = new HashMap<>();
         configMap.put("replace_field", "name");
