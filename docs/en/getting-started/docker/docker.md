@@ -225,60 +225,57 @@ docker run -d --name seatunnel_worker_1 \
 
 The `docker-compose.yaml` file is :
 ```yaml
-version: '3.8'
 
 services:
   master:
     image: apache/seatunnel
     container_name: seatunnel_master
+    restart: unless-stopped
     environment:
-      - ST_DOCKER_MEMBER_LIST=172.16.0.2,172.16.0.3,172.16.0.4    
+      - ST_DOCKER_MEMBER_LIST=seatunnel_master:5801,seatunnel_worker_1:5801,seatunnel_worker_2:5801
     entrypoint: >
       /bin/sh -c "
       /opt/seatunnel/bin/seatunnel-cluster.sh -r master
-      "    
+      "
     ports:
-      - "5801:5801"  
+      - "5801:5801"
     networks:
-      seatunnel_network:
-        ipv4_address: 172.16.0.2
+      - seatunnel_network
 
   worker1:
     image: apache/seatunnel
     container_name: seatunnel_worker_1
+    restart: unless-stopped
     environment:
-      - ST_DOCKER_MEMBER_LIST=172.16.0.2,172.16.0.3,172.16.0.4
+      - ST_DOCKER_MEMBER_LIST=seatunnel_master:5801,seatunnel_worker_1:5801,seatunnel_worker_2:5801
     entrypoint: >
       /bin/sh -c "
       /opt/seatunnel/bin/seatunnel-cluster.sh -r worker
-      " 
+      "
     depends_on:
       - master
     networks:
-      seatunnel_network:
-        ipv4_address: 172.16.0.3
+      - seatunnel_network
 
   worker2:
     image: apache/seatunnel
     container_name: seatunnel_worker_2
+    restart: unless-stopped
     environment:
-      - ST_DOCKER_MEMBER_LIST=172.16.0.2,172.16.0.3,172.16.0.4
+      - ST_DOCKER_MEMBER_LIST=seatunnel_master:5801,seatunnel_worker_1:5801,seatunnel_worker_2:5801
     entrypoint: >
       /bin/sh -c "
       /opt/seatunnel/bin/seatunnel-cluster.sh -r worker
-      " 
+      "
     depends_on:
       - master
     networks:
-      seatunnel_network:
-        ipv4_address: 172.16.0.4
+      - seatunnel_network
 
 networks:
   seatunnel_network:
+    name: seatunnel-network
     driver: bridge
-    ipam:
-      config:
-        - subnet: 172.16.0.0/24
 
 ```
 
@@ -295,77 +292,75 @@ After that, you can use client or restapi to submit job to this cluster.
 If you want to increase cluster node, like add a new work node.
 
 ```yaml
-version: '3.8'
 
 services:
   master:
     image: apache/seatunnel
     container_name: seatunnel_master
+    restart: unless-stopped
     environment:
-      - ST_DOCKER_MEMBER_LIST=172.16.0.2,172.16.0.3,172.16.0.4    
+      - ST_DOCKER_MEMBER_LIST=seatunnel_master:5801,seatunnel_worker_1:5801,seatunnel_worker_2:5801
     entrypoint: >
       /bin/sh -c "
       /opt/seatunnel/bin/seatunnel-cluster.sh -r master
-      "    
+      "
     ports:
-      - "5801:5801"  
+      - "5801:5801"
     networks:
-      seatunnel_network:
-        ipv4_address: 172.16.0.2
+      - seatunnel_network
 
   worker1:
     image: apache/seatunnel
     container_name: seatunnel_worker_1
+    restart: unless-stopped
     environment:
-      - ST_DOCKER_MEMBER_LIST=172.16.0.2,172.16.0.3,172.16.0.4
+      - ST_DOCKER_MEMBER_LIST=seatunnel_master:5801,seatunnel_worker_1:5801,seatunnel_worker_2:5801
     entrypoint: >
       /bin/sh -c "
       /opt/seatunnel/bin/seatunnel-cluster.sh -r worker
-      " 
+      "
     depends_on:
       - master
     networks:
-      seatunnel_network:
-        ipv4_address: 172.16.0.3
+      - seatunnel_network
 
   worker2:
     image: apache/seatunnel
     container_name: seatunnel_worker_2
+    restart: unless-stopped
     environment:
-      - ST_DOCKER_MEMBER_LIST=172.16.0.2,172.16.0.3,172.16.0.4
+      - ST_DOCKER_MEMBER_LIST=seatunnel_master:5801,seatunnel_worker_1:5801,seatunnel_worker_2:5801
     entrypoint: >
       /bin/sh -c "
       /opt/seatunnel/bin/seatunnel-cluster.sh -r worker
-      " 
+      "
     depends_on:
       - master
     networks:
-      seatunnel_network:
-        ipv4_address: 172.16.0.4
+      - seatunnel_network
+
   ####
   ## add new worker node
-  ####      
+  ####
   worker3:
     image: apache/seatunnel
     container_name: seatunnel_worker_3
+    restart: unless-stopped
     environment:
-      - ST_DOCKER_MEMBER_LIST=172.16.0.2,172.16.0.3,172.16.0.4,172.16.0.5 # add ip to here
+      - ST_DOCKER_MEMBER_LIST=seatunnel_master:5801,seatunnel_worker_1:5801,seatunnel_worker_2:5801,seatunnel_worker_3:5801
     entrypoint: >
       /bin/sh -c "
       /opt/seatunnel/bin/seatunnel-cluster.sh -r worker
-      " 
+      "
     depends_on:
       - master
     networks:
-      seatunnel_network:
-        ipv4_address: 172.16.0.5        # use a not used ip
+      - seatunnel_network
 
 networks:
   seatunnel_network:
+    name: seatunnel-network
     driver: bridge
-    ipam:
-      config:
-        - subnet: 172.16.0.0/24
 
 ```
 
@@ -375,23 +370,30 @@ and run `docker-compose up -d` command, the new worker node will start, and the 
 ### Job Operation on cluster
 
 #### use docker as a client
-- submit job :
+- submit job (local):
 ```shell
-# you need update yourself master container ip to `ST_DOCKER_MEMBER_LIST`
 docker run --name seatunnel_client \
     --network seatunnel-network \
-    -e ST_DOCKER_MEMBER_LIST=172.18.0.2:5801 \
+    -e ST_DOCKER_MEMBER_LIST=seatunnel_master:5801 \
     --rm \
     apache/seatunnel \
-    ./bin/seatunnel.sh  -c config/v2.batch.config.template
+    ./bin/seatunnel.sh  -c config/v2.batch.config.template -m local
+```
+- submit job (cluster):
+```shell
+docker run --name seatunnel_client \
+    --network seatunnel-network \
+    -e ST_DOCKER_MEMBER_LIST=seatunnel_master:5801 \
+    --rm \
+    apache/seatunnel \
+    ./bin/seatunnel.sh  -c config/v2.batch.config.template -m cluster
 ```
 
 - list job
 ```shell
-# you need update yourself master container ip to `ST_DOCKER_MEMBER_LIST`
 docker run --name seatunnel_client \
     --network seatunnel-network \
-    -e ST_DOCKER_MEMBER_LIST=172.18.0.2:5801 \
+    -e ST_DOCKER_MEMBER_LIST=seatunnel_master:5801 \
     --rm \
     apache/seatunnel \
     ./bin/seatunnel.sh  -l
