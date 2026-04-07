@@ -17,8 +17,6 @@
 
 package org.apache.seatunnel.transform.encrypt;
 
-import org.apache.seatunnel.shade.org.apache.commons.lang3.StringUtils;
-
 import org.apache.seatunnel.api.configuration.ReadonlyConfig;
 import org.apache.seatunnel.api.table.catalog.CatalogTable;
 import org.apache.seatunnel.api.table.catalog.Column;
@@ -109,9 +107,7 @@ public class FieldEncryptTransform extends AbstractCatalogSupportMapTransform {
                         "Field length exceeds the maximum limit of " + maxFieldLength);
             }
 
-            if (StringUtils.isNotBlank(value)) {
-                outputRow.setField(index, action.apply(value));
-            }
+            outputRow.setField(index, action.apply(value));
         }
         return outputRow;
     }

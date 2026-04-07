@@ -143,11 +143,16 @@ public abstract class ChunkSplitter implements AutoCloseable, Serializable {
         if (connection.getAutoCommit() != autoCommit) {
             connection.setAutoCommit(autoCommit);
         }
-        if (StringUtils.isNotBlank(config.getWhereConditionClause())) {
-            sql = String.format("SELECT * FROM (%s) tmp %s", sql, config.getWhereConditionClause());
-        }
         log.debug("Prepared statement: {}", sql);
         return jdbcDialect.creatPreparedStatement(connection, sql, fetchSize);
+    }
+
+    protected String applyUserWhereCondition(String sql) {
+        if (StringUtils.isNotBlank(config.getWhereConditionClause())) {
+            return SqlWhereConditionHelper.applyWhereConditionWithWrap(
+                    sql, config.getWhereConditionClause(), true);
+        }
+        return sql;
     }
 
     protected Connection getOrEstablishConnection() throws SQLException {
@@ -181,6 +186,7 @@ public abstract class ChunkSplitter implements AutoCloseable, Serializable {
                     String.format(
                             "SELECT * FROM %s", jdbcDialect.tableIdentifier(split.getTablePath()));
         }
+        splitQuery = applyUserWhereCondition(splitQuery);
         return createPreparedStatement(splitQuery);
     }
 

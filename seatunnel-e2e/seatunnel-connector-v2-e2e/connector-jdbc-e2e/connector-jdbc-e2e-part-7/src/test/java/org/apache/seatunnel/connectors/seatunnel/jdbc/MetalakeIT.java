@@ -130,6 +130,13 @@ public class MetalakeIT extends SeaTunnelContainer {
                                 + "/seatunnel-e2e/seatunnel-engine-e2e/connector-seatunnel-e2e-base/src/test/resources/"),
                 Paths.get(SEATUNNEL_HOME, "config").toString());
 
+        // Copy datasource-enabled seatunnel.yaml
+        server.withCopyFileToContainer(
+                MountableFile.forHostPath(
+                        PROJECT_ROOT_PATH
+                                + "/seatunnel-e2e/seatunnel-connector-v2-e2e/connector-jdbc-e2e/connector-jdbc-e2e-part-7/src/test/resources/config/seatunnel.yaml"),
+                Paths.get(SEATUNNEL_HOME, "config", "seatunnel.yaml").toString());
+
         server.withCopyFileToContainer(
                 MountableFile.forHostPath(
                         PROJECT_ROOT_PATH
@@ -151,7 +158,7 @@ public class MetalakeIT extends SeaTunnelContainer {
                 "bash",
                 "-c",
                 "sleep 60 && curl -L 'http://127.0.0.1:8090/api/metalakes' -H 'Content-Type: application/json' -H 'Accept: application/vnd.gravitino.v1+json' -d '{\"name\":\"test_metalake\",\"comment\":\"for metalake test\",\"properties\":{}}'"
-                        + "&& curl -L 'http://127.0.0.1:8090/api/metalakes/test_metalake/catalogs' -H 'Content-Type: application/json' -H 'Accept: application/vnd.gravitino.v1+json' -d '{\"name\":\"test_catalog\",\"type\":\"relational\",\"provider\":\"jdbc-mysql\",\"comment\":\"for metalake test\",\"properties\":{\"jdbc-driver\":\"com.mysql.cj.jdbc.Driver\",\"jdbc-url\":\"not used\",\"jdbc-user\":\"root\",\"jdbc-password\":\"Abc!@#135_seatunnel\"}}'");
+                        + "&& curl -L 'http://127.0.0.1:8090/api/metalakes/test_metalake/catalogs' -H 'Content-Type: application/json' -H 'Accept: application/vnd.gravitino.v1+json' -d '{\"name\":\"test_catalog\",\"type\":\"relational\",\"provider\":\"jdbc-mysql\",\"comment\":\"for metalake test\",\"properties\":{\"jdbc-driver\":\"com.mysql.cj.jdbc.Driver\",\"jdbc-url\":\"jdbc:mysql://mysql-e2e:3306/seatunnel?useSSL=false&serverTimezone=UTC&allowPublicKeyRetrieval=true\",\"jdbc-user\":\"root\",\"jdbc-password\":\"Abc!@#135_seatunnel\"}}'");
 
         dbServer = initContainer().withImagePullPolicy(PullPolicy.alwaysPull());
 
@@ -187,6 +194,13 @@ public class MetalakeIT extends SeaTunnelContainer {
     public void testMetalake() throws IOException, InterruptedException {
         Container.ExecResult execResult =
                 executeJob("/jdbc_mysql_source_to_assert_sink_with_metalake.conf");
+        Assertions.assertEquals(0, execResult.getExitCode());
+    }
+
+    @Test
+    public void testDataSource() throws IOException, InterruptedException {
+        Container.ExecResult execResult =
+                executeJob("/jdbc_mysql_source_to_assert_sink_with_datasource_enable.conf");
         Assertions.assertEquals(0, execResult.getExitCode());
     }
 

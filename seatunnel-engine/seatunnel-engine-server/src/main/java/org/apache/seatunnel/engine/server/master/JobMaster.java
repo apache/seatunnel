@@ -67,6 +67,7 @@ import org.apache.seatunnel.engine.server.dag.physical.ResourceUtils;
 import org.apache.seatunnel.engine.server.dag.physical.SubPlan;
 import org.apache.seatunnel.engine.server.execution.TaskExecutionState;
 import org.apache.seatunnel.engine.server.execution.TaskGroupLocation;
+import org.apache.seatunnel.engine.server.master.cleanup.PipelineCleanupRecord;
 import org.apache.seatunnel.engine.server.metrics.JobMetricsUtil;
 import org.apache.seatunnel.engine.server.resourcemanager.AbstractResourceManager;
 import org.apache.seatunnel.engine.server.resourcemanager.ResourceManager;
@@ -113,6 +114,8 @@ import static org.apache.seatunnel.common.constants.JobMode.BATCH;
 
 public class JobMaster {
     private static final ILogger LOGGER = Logger.getLogger(JobMaster.class);
+
+    private final Object metricsLock = new Object();
 
     private PhysicalPlan physicalPlan;
 
@@ -773,6 +776,10 @@ public class JobMaster {
         physicalPlan.cancelJob();
     }
 
+    public synchronized void stopJob() {
+        physicalPlan.stopJob();
+    }
+
     public ResourceManager getResourceManager() {
         return resourceManager;
     }
@@ -883,11 +890,76 @@ public class JobMaster {
                 this.getCurrJobMetrics(Collections.singletonList(pipelineLocation));
         JobMetrics jobMetrics = JobMetricsUtil.toJobMetrics(currJobMetrics);
         long jobId = this.getJobImmutableInformation().getJobId();
-        synchronized (this) {
+        synchronized (metricsLock) {
             jobHistoryService.storeFinishedPipelineMetrics(jobId, jobMetrics);
         }
         // Clean TaskGroupContext for TaskExecutionServer
         this.cleanTaskGroupContext(pipelineLocation);
+    }
+
+    public void enqueuePipelineCleanupIfNeeded(
+            PipelineLocation pipelineLocation, PipelineStatus pipelineStatus) {
+        if (pipelineLocation == null || pipelineStatus == null) {
+            return;
+        }
+        boolean savepointEnd =
+                PipelineStatus.FINISHED.equals(pipelineStatus)
+                        && checkpointManager != null
+                        && checkpointManager.isPipelineSavePointEnd(pipelineLocation);
+        boolean shouldCleanup =
+                PipelineStatus.CANCELED.equals(pipelineStatus)
+                        || (PipelineStatus.FINISHED.equals(pipelineStatus) && !savepointEnd);
+        if (!shouldCleanup) {
+            return;
+        }
+
+        Map<TaskGroupLocation, SlotProfile> slotProfileMap =
+                ownedSlotProfilesIMap.get(pipelineLocation);
+        Map<TaskGroupLocation, Address> taskGroups = new HashMap<>();
+        if (slotProfileMap != null) {
+            slotProfileMap.forEach(
+                    (taskGroupLocation, slotProfile) ->
+                            taskGroups.put(taskGroupLocation, slotProfile.getWorker()));
+        }
+
+        IMap<PipelineLocation, PipelineCleanupRecord> pendingCleanupIMap =
+                nodeEngine.getHazelcastInstance().getMap(Constant.IMAP_PENDING_PIPELINE_CLEANUP);
+        long now = System.currentTimeMillis();
+        PipelineCleanupRecord newRecord =
+                new PipelineCleanupRecord(
+                        pipelineLocation,
+                        pipelineStatus,
+                        savepointEnd,
+                        taskGroups,
+                        Collections.emptySet(),
+                        false,
+                        now,
+                        0,
+                        0);
+
+        while (true) {
+            PipelineCleanupRecord existing = pendingCleanupIMap.get(pipelineLocation);
+            if (existing == null) {
+                PipelineCleanupRecord prev =
+                        pendingCleanupIMap.putIfAbsent(pipelineLocation, newRecord);
+                if (prev == null) {
+                    return;
+                }
+                existing = prev;
+            }
+            PipelineCleanupRecord merged = existing.mergeFrom(newRecord);
+            if (merged.equals(existing)) {
+                return;
+            }
+            if (pendingCleanupIMap.replace(pipelineLocation, existing, merged)) {
+                return;
+            }
+            try {
+                Thread.sleep(10);
+            } catch (InterruptedException e) {
+                throw new RuntimeException(e);
+            }
+        }
     }
 
     public void removeMetricsContext(

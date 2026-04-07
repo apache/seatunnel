@@ -27,6 +27,7 @@ import org.apache.seatunnel.api.event.EventProcessor;
 import org.apache.seatunnel.api.tracing.MDCExecutorService;
 import org.apache.seatunnel.api.tracing.MDCTracer;
 import org.apache.seatunnel.common.utils.ExceptionUtils;
+import org.apache.seatunnel.common.utils.RetryUtils;
 import org.apache.seatunnel.common.utils.SeaTunnelException;
 import org.apache.seatunnel.common.utils.StringFormatUtils;
 import org.apache.seatunnel.engine.common.Constant;
@@ -39,6 +40,7 @@ import org.apache.seatunnel.engine.common.exception.SavePointFailedException;
 import org.apache.seatunnel.engine.common.exception.SeaTunnelEngineException;
 import org.apache.seatunnel.engine.common.job.JobResult;
 import org.apache.seatunnel.engine.common.job.JobStatus;
+import org.apache.seatunnel.engine.common.utils.ExceptionUtil;
 import org.apache.seatunnel.engine.common.utils.PassiveCompletableFuture;
 import org.apache.seatunnel.engine.common.utils.concurrent.CompletableFuture;
 import org.apache.seatunnel.engine.core.job.JobDAGInfo;
@@ -61,6 +63,7 @@ import org.apache.seatunnel.engine.server.execution.TaskGroupLocation;
 import org.apache.seatunnel.engine.server.execution.TaskLocation;
 import org.apache.seatunnel.engine.server.master.JobHistoryService;
 import org.apache.seatunnel.engine.server.master.JobMaster;
+import org.apache.seatunnel.engine.server.master.cleanup.PipelineCleanupRecord;
 import org.apache.seatunnel.engine.server.metrics.JobMetricsUtil;
 import org.apache.seatunnel.engine.server.metrics.SeaTunnelMetricsContext;
 import org.apache.seatunnel.engine.server.resourcemanager.NoEnoughResourceException;
@@ -68,6 +71,7 @@ import org.apache.seatunnel.engine.server.resourcemanager.ResourceManager;
 import org.apache.seatunnel.engine.server.resourcemanager.ResourceManagerFactory;
 import org.apache.seatunnel.engine.server.resourcemanager.resource.SlotProfile;
 import org.apache.seatunnel.engine.server.service.jar.ConnectorPackageService;
+import org.apache.seatunnel.engine.server.task.operation.CleanTaskGroupContextOperation;
 import org.apache.seatunnel.engine.server.task.operation.GetMetricsOperation;
 import org.apache.seatunnel.engine.server.telemetry.metrics.entity.JobCounter;
 import org.apache.seatunnel.engine.server.telemetry.metrics.entity.ThreadPoolStatus;
@@ -108,6 +112,7 @@ import java.util.stream.Collectors;
 import static org.apache.seatunnel.engine.server.metrics.JobMetricsUtil.toJobMetricsMap;
 
 public class CoordinatorService {
+    private static final int PIPELINE_CLEANUP_INTERVAL_SECONDS = 60;
     private final NodeEngineImpl nodeEngine;
     private final ILogger logger;
 
@@ -173,6 +178,8 @@ public class CoordinatorService {
 
     private IMap<Long, HashMap<TaskLocation, SeaTunnelMetricsContext>> metricsImap;
 
+    private IMap<PipelineLocation, PipelineCleanupRecord> pendingPipelineCleanupIMap;
+
     /** If this node is a master node */
     private volatile boolean isActive = false;
 
@@ -181,6 +188,8 @@ public class CoordinatorService {
     private final SeaTunnelServer seaTunnelServer;
 
     private final ScheduledExecutorService masterActiveListener;
+
+    private final ScheduledExecutorService pipelineCleanupScheduler;
 
     private final EngineConfig engineConfig;
 
@@ -217,6 +226,16 @@ public class CoordinatorService {
         masterActiveListener = Executors.newSingleThreadScheduledExecutor();
         masterActiveListener.scheduleAtFixedRate(
                 this::checkNewActiveMaster, 0, 100, TimeUnit.MILLISECONDS);
+        pipelineCleanupScheduler =
+                Executors.newSingleThreadScheduledExecutor(
+                        new ThreadFactoryBuilder()
+                                .setNameFormat("seatunnel-pipeline-cleanup-%d")
+                                .build());
+        pipelineCleanupScheduler.scheduleAtFixedRate(
+                this::cleanupPendingPipelines,
+                PIPELINE_CLEANUP_INTERVAL_SECONDS,
+                PIPELINE_CLEANUP_INTERVAL_SECONDS,
+                TimeUnit.SECONDS);
         scheduleStrategy = engineConfig.getScheduleStrategy();
         isWaitStrategy = scheduleStrategy.equals(ScheduleStrategy.WAIT);
         logger.info("Start pending job schedule thread");
@@ -411,7 +430,8 @@ public class CoordinatorService {
         ownedSlotProfilesIMap =
                 nodeEngine.getHazelcastInstance().getMap(Constant.IMAP_OWNED_SLOT_PROFILES);
         metricsImap = nodeEngine.getHazelcastInstance().getMap(Constant.IMAP_RUNNING_JOB_METRICS);
-
+        pendingPipelineCleanupIMap =
+                nodeEngine.getHazelcastInstance().getMap(Constant.IMAP_PENDING_PIPELINE_CLEANUP);
         jobHistoryService =
                 new JobHistoryService(
                         nodeEngine,
@@ -446,11 +466,189 @@ public class CoordinatorService {
                                 this::restoreAllRunningJobFromMasterNodeSwitch, executorService));
     }
 
+    private void cleanupPendingPipelines() {
+        if (!isActive) {
+            return;
+        }
+        IMap<PipelineLocation, PipelineCleanupRecord> pendingCleanupIMap =
+                this.pendingPipelineCleanupIMap;
+        if (pendingCleanupIMap == null || pendingCleanupIMap.isEmpty()) {
+            return;
+        }
+
+        try {
+            for (Map.Entry<PipelineLocation, PipelineCleanupRecord> entry :
+                    pendingCleanupIMap.entrySet()) {
+                processPendingPipelineCleanup(entry.getKey(), entry.getValue());
+            }
+        } catch (HazelcastInstanceNotActiveException e) {
+            logger.warning(
+                    String.format(
+                            "Skip pending pipeline cleanup: hazelcast not active: %s",
+                            ExceptionUtils.getMessage(e)));
+        } catch (Throwable t) {
+            logger.warning(
+                    String.format(
+                            "Unexpected exception in pending pipeline cleanup: %s",
+                            ExceptionUtils.getMessage(t)),
+                    t);
+        }
+    }
+
+    private void processPendingPipelineCleanup(
+            PipelineLocation pipelineLocation, PipelineCleanupRecord record) {
+        if (pipelineLocation == null || record == null) {
+            return;
+        }
+        if (!shouldCleanup(record)) {
+            removePendingCleanupRecord(pipelineLocation, record);
+            return;
+        }
+
+        PipelineStatus currentStatus = getPipelineStatusFromIMap(pipelineLocation);
+        if (currentStatus != null && !currentStatus.isEndState()) {
+            return;
+        }
+
+        long now = System.currentTimeMillis();
+        PipelineCleanupRecord updated = copy(record);
+        updated.setLastAttemptTimeMillis(now);
+        updated.setAttemptCount(record.getAttemptCount() + 1);
+
+        if (!updated.isMetricsImapCleaned() && cleanupPipelineMetrics(pipelineLocation)) {
+            updated.setMetricsImapCleaned(true);
+        }
+
+        Map<TaskGroupLocation, Address> taskGroups = updated.getTaskGroups();
+        if (taskGroups != null && !taskGroups.isEmpty()) {
+            for (Map.Entry<TaskGroupLocation, Address> taskGroup : taskGroups.entrySet()) {
+                TaskGroupLocation taskGroupLocation = taskGroup.getKey();
+                if (updated.getCleanedTaskGroups() != null
+                        && updated.getCleanedTaskGroups().contains(taskGroupLocation)) {
+                    continue;
+                }
+                Address workerAddress = taskGroup.getValue();
+                if (workerAddress == null
+                        || nodeEngine.getClusterService().getMember(workerAddress) == null) {
+                    continue;
+                }
+                try {
+                    NodeEngineUtil.sendOperationToMemberNode(
+                                    nodeEngine,
+                                    new CleanTaskGroupContextOperation(taskGroupLocation),
+                                    workerAddress)
+                            .get();
+                    updated.getCleanedTaskGroups().add(taskGroupLocation);
+                } catch (HazelcastInstanceNotActiveException e) {
+                    logger.warning(
+                            String.format(
+                                    "%s clean TaskGroupContext failed: %s",
+                                    taskGroupLocation, ExceptionUtils.getMessage(e)));
+                } catch (Exception e) {
+                    logger.warning(
+                            String.format(
+                                    "%s clean TaskGroupContext failed: %s",
+                                    taskGroupLocation, ExceptionUtils.getMessage(e)),
+                            e);
+                }
+            }
+        }
+
+        boolean replaced = pendingPipelineCleanupIMap.replace(pipelineLocation, record, updated);
+        if (!replaced) {
+            return;
+        }
+        if (updated.isCleaned()) {
+            pendingPipelineCleanupIMap.remove(pipelineLocation, updated);
+        }
+    }
+
+    private void removePendingCleanupRecord(
+            PipelineLocation pipelineLocation, PipelineCleanupRecord record) {
+        try {
+            pendingPipelineCleanupIMap.remove(pipelineLocation, record);
+        } catch (Exception e) {
+            logger.warning(
+                    String.format(
+                            "Remove pending pipeline cleanup record failed: %s",
+                            ExceptionUtils.getMessage(e)),
+                    e);
+        }
+    }
+
+    private boolean shouldCleanup(PipelineCleanupRecord record) {
+        if (record == null || record.getFinalStatus() == null) {
+            return false;
+        }
+        if (record.isSavepointEnd()) {
+            return false;
+        }
+        return PipelineStatus.CANCELED.equals(record.getFinalStatus())
+                || PipelineStatus.FINISHED.equals(record.getFinalStatus());
+    }
+
+    private PipelineStatus getPipelineStatusFromIMap(PipelineLocation pipelineLocation) {
+        Object state =
+                runningJobStateIMap != null ? runningJobStateIMap.get(pipelineLocation) : null;
+        return state instanceof PipelineStatus ? (PipelineStatus) state : null;
+    }
+
+    private PipelineCleanupRecord copy(PipelineCleanupRecord record) {
+        Map<TaskGroupLocation, Address> taskGroups =
+                record.getTaskGroups() == null
+                        ? Collections.emptyMap()
+                        : new HashMap<>(record.getTaskGroups());
+        Set<TaskGroupLocation> cleanedTaskGroups =
+                record.getCleanedTaskGroups() == null
+                        ? new HashSet<>()
+                        : new HashSet<>(record.getCleanedTaskGroups());
+        return new PipelineCleanupRecord(
+                record.getPipelineLocation(),
+                record.getFinalStatus(),
+                record.isSavepointEnd(),
+                taskGroups,
+                cleanedTaskGroups,
+                record.isMetricsImapCleaned(),
+                record.getCreateTimeMillis(),
+                record.getLastAttemptTimeMillis(),
+                record.getAttemptCount());
+    }
+
+    private boolean cleanupPipelineMetrics(PipelineLocation pipelineLocation) {
+        try {
+            seaTunnelServer.removeMetrics(pipelineLocation);
+            return true;
+        } catch (Exception e) {
+            logger.warning(
+                    String.format(
+                            "Failed to remove metrics context for pipeline %s: %s",
+                            pipelineLocation, ExceptionUtils.getMessage(e)),
+                    e);
+            return false;
+        }
+    }
+
     private void restoreAllRunningJobFromMasterNodeSwitch() {
-        List<Map.Entry<Long, JobInfo>> needRestoreFromMasterNodeSwitchJobs =
-                runningJobInfoIMap.entrySet().stream()
-                        .filter(entry -> !runningJobMasterMap.containsKey(entry.getKey()))
-                        .collect(Collectors.toList());
+        List<Map.Entry<Long, JobInfo>> needRestoreFromMasterNodeSwitchJobs;
+        try {
+            needRestoreFromMasterNodeSwitchJobs =
+                    RetryUtils.retryWithException(
+                            () ->
+                                    runningJobInfoIMap.entrySet().stream()
+                                            .filter(
+                                                    entry ->
+                                                            !runningJobMasterMap.containsKey(
+                                                                    entry.getKey()))
+                                            .collect(Collectors.toList()),
+                            new RetryUtils.RetryMaterial(
+                                    Constant.OPERATION_RETRY_TIME,
+                                    true,
+                                    ExceptionUtil::isOperationNeedRetryException,
+                                    Constant.OPERATION_RETRY_SLEEP));
+        } catch (Exception e) {
+            throw new SeaTunnelEngineException(
+                    "Failed to fetch running jobs from IMap during master switch restore", e);
+        }
         if (needRestoreFromMasterNodeSwitchJobs.isEmpty()) {
             return;
         }
@@ -504,7 +702,21 @@ public class CoordinatorService {
     }
 
     private void restoreJobFromMasterActiveSwitch(@NonNull Long jobId, @NonNull JobInfo jobInfo) {
-        if (runningJobStateIMap.get(jobId) == null) {
+        Object jobState;
+        try {
+            jobState =
+                    RetryUtils.retryWithException(
+                            () -> runningJobStateIMap.get(jobId),
+                            new RetryUtils.RetryMaterial(
+                                    Constant.OPERATION_RETRY_TIME,
+                                    true,
+                                    ExceptionUtil::isOperationNeedRetryException,
+                                    Constant.OPERATION_RETRY_SLEEP));
+        } catch (Exception e) {
+            throw new SeaTunnelEngineException(
+                    String.format("Job id %s restore failed, can not get job state", jobId), e);
+        }
+        if (jobState == null) {
             runningJobInfoIMap.remove(jobId);
             return;
         }
@@ -558,8 +770,12 @@ public class CoordinatorService {
             }
         } catch (Exception e) {
             isActive = false;
-            logger.severe(ExceptionUtils.getMessage(e));
-            throw new SeaTunnelEngineException("check new active master error, stop loop", e);
+            logger.severe("check new active master error, will retry later.", e);
+            try {
+                clearCoordinatorService();
+            } catch (Exception ex) {
+                logger.warning("clear coordinator service failed.", ex);
+            }
         }
     }
 
@@ -777,6 +993,28 @@ public class CoordinatorService {
         }
     }
 
+    public PassiveCompletableFuture<Void> stopJob(long jobId) {
+        JobMaster runningJobMaster = getJobMaster(jobId);
+        if (runningJobMaster == null) {
+            CompletableFuture<Void> future = new CompletableFuture<>();
+            future.complete(null);
+            return new PassiveCompletableFuture<>(future);
+        } else {
+            boolean isPendingJob = pendingJobQueue.contains(jobId);
+            if (isPendingJob) {
+                pendingJobQueue.removeById(jobId);
+                logger.fine(String.format("Stop pending tasks : %s", jobId));
+            }
+            return new PassiveCompletableFuture<>(
+                    CompletableFuture.supplyAsync(
+                            () -> {
+                                runningJobMaster.stopJob();
+                                return null;
+                            },
+                            executorService));
+        }
+    }
+
     public JobStatus getJobStatus(long jobId) {
         if (pendingJobQueue.contains(jobId)) {
             return JobStatus.PENDING;
@@ -905,6 +1143,9 @@ public class CoordinatorService {
     public void shutdown() {
         if (masterActiveListener != null) {
             masterActiveListener.shutdownNow();
+        }
+        if (pipelineCleanupScheduler != null) {
+            pipelineCleanupScheduler.shutdownNow();
         }
         clearCoordinatorService();
     }
@@ -1168,6 +1409,11 @@ public class CoordinatorService {
     @VisibleForTesting
     protected IMap<Long, HashMap<TaskLocation, SeaTunnelMetricsContext>> getMetricsImap() {
         return metricsImap;
+    }
+
+    @VisibleForTesting
+    void runPendingPipelineCleanupOnce() {
+        cleanupPendingPipelines();
     }
 
     @VisibleForTesting
