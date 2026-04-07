@@ -181,4 +181,33 @@ public class SqlServerCreateTableSqlBuilderTest {
 
         Assertions.assertEquals("[col1] VARCHAR(10) NOT NULL", result);
     }
+
+    @Test
+    public void testBuildWithDatetimeOffsetColumn() {
+        TablePath tablePath = TablePath.of("test_database", "test_table");
+        TableSchema tableSchema =
+                TableSchema.builder()
+                        .column(
+                                PhysicalColumn.builder()
+                                        .name("offsetTime")
+                                        .dataType(LocalTimeType.OFFSET_DATE_TIME_TYPE)
+                                        .scale(3)
+                                        .nullable(true)
+                                        .comment("offsetTime")
+                                        .build())
+                        .build();
+        CatalogTable catalogTable =
+                CatalogTable.of(
+                        TableIdentifier.of("test_catalog", "test_database", "test_table"),
+                        tableSchema,
+                        new HashMap<>(),
+                        new ArrayList<>(),
+                        null);
+
+        SqlServerCreateTableSqlBuilder sqlBuilder =
+                SqlServerCreateTableSqlBuilder.builder(tablePath, catalogTable, true);
+        String createTableSql = sqlBuilder.build(tablePath, catalogTable);
+
+        Assertions.assertTrue(createTableSql.contains("[offsetTime] DATETIMEOFFSET(3) NULL"));
+    }
 }
