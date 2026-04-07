@@ -51,6 +51,8 @@ When using `table_list` to read multiple key patterns, each table configuration 
 
 **Note:** When this configuration corresponds to a single table, you can flatten the configuration items in table_list to the outer layer (backward compatible).
 
+**Important:** In multi-table mode, the above table-level parameters should be configured within each item of `table_list`.
+
 ### host [string]
 
 redis host

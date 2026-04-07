@@ -46,7 +46,7 @@ public class RedisSource extends AbstractSingleSplitSource<SeaTunnelRow> {
     }
 
     public RedisSource(ReadonlyConfig readonlyConfig) {
-        this.redisParameters.buildWithConfig(readonlyConfig);
+        this.redisParameters.buildConnectionConfig(readonlyConfig);
         this.sourceTablesMap = createSourceTablesMap(readonlyConfig);
     }
 

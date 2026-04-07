@@ -69,8 +69,14 @@ public class RedisParameters implements Serializable {
     private String hashKeyField;
     private String hashValueField;
 
-    public void buildWithConfig(ReadonlyConfig config) {
-        // Connection configuration
+    /**
+     * Build connection-only configuration from ReadonlyConfig. This method only parses
+     * connection-related parameters and is intended for Source side where data-related parameters
+     * are managed per-table via {@link RedisTableConfig}.
+     *
+     * @param config ReadonlyConfig instance
+     */
+    public void buildConnectionConfig(ReadonlyConfig config) {
         // set host
         this.host = config.get(RedisBaseOptions.HOST);
         // set port
@@ -91,6 +97,18 @@ public class RedisParameters implements Serializable {
         if (config.getOptional(RedisBaseOptions.NODES).isPresent()) {
             this.redisNodes = config.get(RedisBaseOptions.NODES);
         }
+    }
+
+    /**
+     * Build full configuration from ReadonlyConfig including both connection and data parameters.
+     * This method is used by Sink side which requires data-related parameters (data_type, format,
+     * batch_size, etc.) at the global level.
+     *
+     * @param config ReadonlyConfig instance
+     */
+    public void buildWithConfig(ReadonlyConfig config) {
+        // Connection configuration
+        buildConnectionConfig(config);
 
         // set key
         if (config.getOptional(RedisBaseOptions.KEY).isPresent()) {

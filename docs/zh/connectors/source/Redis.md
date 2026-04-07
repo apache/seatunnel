@@ -51,6 +51,8 @@ import ChangeLog from '../changelog/connector-redis.md';
 
 **注意：** 当配置对应单个表时，可以将 table_list 中的配置项平铺到外层（向后兼容）。
 
+**重要提示：** 在多表模式下，上述表级参数需要配置在 `table_list` 的每个表项中。
+
 ### host [string]
 
 redis 主机地址
