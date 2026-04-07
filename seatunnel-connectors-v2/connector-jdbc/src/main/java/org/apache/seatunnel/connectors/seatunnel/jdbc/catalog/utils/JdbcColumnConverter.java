@@ -222,8 +222,9 @@ public class JdbcColumnConverter {
                 seaTunnelType = LocalTimeType.LOCAL_TIME_TYPE;
                 break;
             case TIMESTAMP:
-            case TIMESTAMP_WITH_TIMEZONE:
                 seaTunnelType = LocalTimeType.LOCAL_DATE_TIME_TYPE;
+            case TIMESTAMP_WITH_TIMEZONE:
+                seaTunnelType = LocalTimeType.OFFSET_DATE_TIME_TYPE;
                 break;
             case BINARY:
             case VARBINARY:
