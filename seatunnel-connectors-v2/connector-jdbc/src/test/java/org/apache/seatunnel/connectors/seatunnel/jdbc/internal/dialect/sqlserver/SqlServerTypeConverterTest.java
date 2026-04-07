@@ -873,7 +873,7 @@ public class SqlServerTypeConverterTest {
         Assertions.assertEquals(7, typeDefine.getScale());
     }
 
-        @Test
+    @Test
     public void testReconvertDatetimeOffset() {
         Column column =
                 PhysicalColumn.builder()
