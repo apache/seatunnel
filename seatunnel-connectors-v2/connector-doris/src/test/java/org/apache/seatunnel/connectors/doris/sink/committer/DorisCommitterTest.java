@@ -20,24 +20,34 @@ package org.apache.seatunnel.connectors.doris.sink.committer;
 import org.apache.seatunnel.api.configuration.ReadonlyConfig;
 import org.apache.seatunnel.connectors.doris.config.DorisSinkConfig;
 import org.apache.seatunnel.connectors.doris.exception.DorisConnectorException;
+import org.apache.seatunnel.connectors.doris.util.HttpUtil;
 
 import org.apache.http.Header;
 import org.apache.http.ProtocolVersion;
 import org.apache.http.client.methods.CloseableHttpResponse;
 import org.apache.http.client.methods.HttpPut;
+import org.apache.http.client.methods.HttpUriRequest;
 import org.apache.http.entity.StringEntity;
 import org.apache.http.impl.client.CloseableHttpClient;
 import org.apache.http.message.BasicHeader;
 import org.apache.http.message.BasicStatusLine;
+import org.apache.http.protocol.HttpContext;
 
 import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.Test;
 import org.mockito.ArgumentCaptor;
 
+import com.sun.net.httpserver.HttpExchange;
+import com.sun.net.httpserver.HttpServer;
+
 import java.io.IOException;
+import java.io.OutputStream;
+import java.net.InetSocketAddress;
+import java.net.ServerSocket;
 import java.util.Collections;
 import java.util.HashMap;
 import java.util.Map;
+import java.util.concurrent.Executors;
 
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.Mockito.mock;
@@ -58,7 +68,8 @@ public class DorisCommitterTest {
                         new BasicStatusLine(
                                 new ProtocolVersion("HTTP", 1, 1), 307, "Temporary Redirect"));
         when(response.getFirstHeader("Location")).thenReturn(location);
-        when(httpClient.execute(any())).thenReturn(response);
+        when(httpClient.execute(any(HttpUriRequest.class), any(HttpContext.class)))
+                .thenReturn(response);
 
         DorisCommitter committer = new DorisCommitter(createSinkConfig(true, true), httpClient);
 
@@ -81,22 +92,49 @@ public class DorisCommitterTest {
     }
 
     @Test
+    void testCommitAddsRedirectDiagnosticsAfterFollowUpConnectionFailure() throws Exception {
+        int unreachablePort = reserveUnusedPort();
+        String location =
+                String.format("http://127.0.0.1:%s/api/test_db/_stream_load_2pc", unreachablePort);
+        HttpServer redirectServer = createRedirectServer(location);
+        DorisCommitInfo commitInfo =
+                new DorisCommitInfo(
+                        "127.0.0.1:" + redirectServer.getAddress().getPort(), "test_db", 11L);
+        try (CloseableHttpClient httpClient = new HttpUtil().getHttpClient()) {
+            DorisCommitter committer =
+                    new DorisCommitter(createRuntimeConfig(commitInfo.getHostPort()), httpClient);
+
+            DorisConnectorException exception =
+                    Assertions.assertThrows(
+                            DorisConnectorException.class,
+                            () -> committer.commit(Collections.singletonList(commitInfo)));
+
+            Assertions.assertTrue(exception.getMessage().contains("redirect follow-up failed"));
+            Assertions.assertTrue(exception.getMessage().contains("Location=" + location));
+            Assertions.assertTrue(exception.getMessage().contains("stage=commit"));
+        } finally {
+            redirectServer.stop(0);
+        }
+    }
+
+    @Test
     void testAbortStopsAfterFirstSuccessfulResponse() throws IOException {
         CloseableHttpClient httpClient = mock(CloseableHttpClient.class);
         CloseableHttpResponse response = successResponse();
-        when(httpClient.execute(any())).thenReturn(response);
+        when(httpClient.execute(any(HttpUriRequest.class), any(HttpContext.class)))
+                .thenReturn(response);
 
         DorisCommitter committer = new DorisCommitter(createSinkConfig(true, true), httpClient);
         committer.abort(Collections.singletonList(new DorisCommitInfo("fe1:8030", "test_db", 11L)));
 
-        verify(httpClient, times(1)).execute(any());
+        verify(httpClient, times(1)).execute(any(HttpUriRequest.class), any(HttpContext.class));
     }
 
     @Test
     void testCommitRetriesNextFrontendInsteadOfUsingRawFenodesString() throws IOException {
         CloseableHttpClient httpClient = mock(CloseableHttpClient.class);
         CloseableHttpResponse successResponse = successResponse();
-        when(httpClient.execute(any()))
+        when(httpClient.execute(any(HttpUriRequest.class), any(HttpContext.class)))
                 .thenThrow(new IOException("first fe failed"))
                 .thenReturn(successResponse);
 
@@ -106,7 +144,7 @@ public class DorisCommitterTest {
                 Collections.singletonList(new DorisCommitInfo("fe1:8030", "test_db", 12L)));
 
         ArgumentCaptor<HttpPut> requestCaptor = ArgumentCaptor.forClass(HttpPut.class);
-        verify(httpClient, times(2)).execute(requestCaptor.capture());
+        verify(httpClient, times(2)).execute(requestCaptor.capture(), any(HttpContext.class));
 
         Assertions.assertEquals(
                 "http://fe1:8030/api/test_db/_stream_load_2pc",
@@ -148,6 +186,22 @@ public class DorisCommitterTest {
         return DorisSinkConfig.of(ReadonlyConfig.fromMap(options));
     }
 
+    private DorisSinkConfig createRuntimeConfig(String frontend) {
+        Map<String, Object> options = new HashMap<>();
+        options.put("fenodes", frontend);
+        options.put("benodes", "be1:8040");
+        options.put("direct_to_be", true);
+        options.put("sink.enable-2pc", true);
+        options.put("sink.max-retries", 0);
+        options.put("username", "root");
+        options.put("password", "");
+        options.put("database", "test_db");
+        options.put("table", "test_table");
+        options.put("sink.label-prefix", "test_job");
+        options.put("doris.config", createStreamLoadProperties());
+        return DorisSinkConfig.of(ReadonlyConfig.fromMap(options));
+    }
+
     private Map<String, String> createStreamLoadProperties() {
         Map<String, String> properties = new HashMap<>();
         properties.put("format", "json");
@@ -162,5 +216,29 @@ public class DorisCommitterTest {
         when(response.getEntity())
                 .thenReturn(new StringEntity("{\"status\":\"Success\",\"msg\":\"\"}"));
         return response;
+    }
+
+    private HttpServer createRedirectServer(String location) throws IOException {
+        HttpServer server = HttpServer.create(new InetSocketAddress("127.0.0.1", 0), 0);
+        server.createContext(
+                "/api/test_db/_stream_load_2pc",
+                exchange -> writeRedirectResponse(exchange, location));
+        server.setExecutor(Executors.newCachedThreadPool());
+        server.start();
+        return server;
+    }
+
+    private void writeRedirectResponse(HttpExchange exchange, String location) throws IOException {
+        exchange.getResponseHeaders().add("Location", location);
+        exchange.sendResponseHeaders(307, -1);
+        try (OutputStream outputStream = exchange.getResponseBody()) {
+            outputStream.flush();
+        }
+    }
+
+    private int reserveUnusedPort() throws IOException {
+        try (ServerSocket socket = new ServerSocket(0)) {
+            return socket.getLocalPort();
+        }
     }
 }

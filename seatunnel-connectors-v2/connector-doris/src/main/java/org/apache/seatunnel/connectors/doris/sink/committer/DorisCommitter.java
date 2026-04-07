@@ -84,6 +84,7 @@ public class DorisCommitter implements SinkCommitter<DorisCommitInfo> {
             throws IOException, DorisConnectorException {
         String reasonPhrase = null;
         IOException lastIOException = null;
+        DorisConnectorException lastRedirectException = null;
         List<String> retryHosts = resolveFrontendRetryHosts(committable.getHostPort());
         for (int attempt = 0; attempt <= dorisSinkConfig.getMaxRetries(); attempt++) {
             String hostPort = retryHosts.get(attempt % retryHosts.size());
@@ -98,7 +99,18 @@ public class DorisCommitter implements SinkCommitter<DorisCommitInfo> {
                     .commit();
             CloseableHttpResponse response;
             try {
-                response = httpClient.execute(putBuilder.build());
+                response =
+                        HttpUtil.executeWithRedirectTracking(
+                                httpClient,
+                                putBuilder.build(),
+                                requestUrl,
+                                dorisSinkConfig.isDirectToBe(),
+                                dorisSinkConfig.getEnable2PC(),
+                                "commit");
+            } catch (DorisConnectorException e) {
+                lastRedirectException = e;
+                log.error("commit transaction redirect follow-up failed on {}: ", hostPort, e);
+                continue;
             } catch (IOException e) {
                 lastIOException = e;
                 log.error("commit transaction failed on {}: ", hostPort, e);
@@ -125,6 +137,9 @@ public class DorisCommitter implements SinkCommitter<DorisCommitInfo> {
             return;
         }
 
+        if (lastRedirectException != null) {
+            throw lastRedirectException;
+        }
         if (lastIOException != null && reasonPhrase == null) {
             throw lastIOException;
         }
@@ -134,6 +149,7 @@ public class DorisCommitter implements SinkCommitter<DorisCommitInfo> {
     private void abortTransaction(DorisCommitInfo committable)
             throws IOException, DorisConnectorException {
         List<String> retryHosts = resolveFrontendRetryHosts(committable.getHostPort());
+        DorisConnectorException lastRedirectException = null;
         for (int attempt = 0; attempt <= maxRetry; attempt++) {
             String hostPort = retryHosts.get(attempt % retryHosts.size());
             String requestUrl = String.format(COMMIT_PATTERN, hostPort, committable.getDb());
@@ -144,7 +160,21 @@ public class DorisCommitter implements SinkCommitter<DorisCommitInfo> {
                     .addTxnId(committable.getTxbID())
                     .setEmptyEntity()
                     .abort();
-            CloseableHttpResponse response = httpClient.execute(builder.build());
+            CloseableHttpResponse response;
+            try {
+                response =
+                        HttpUtil.executeWithRedirectTracking(
+                                httpClient,
+                                builder.build(),
+                                requestUrl,
+                                dorisSinkConfig.isDirectToBe(),
+                                dorisSinkConfig.getEnable2PC(),
+                                "abort");
+            } catch (DorisConnectorException e) {
+                lastRedirectException = e;
+                log.error("abort transaction redirect follow-up failed on {}: ", hostPort, e);
+                continue;
+            }
             int statusCode = response.getStatusLine().getStatusCode();
             if (statusCode == HTTP_TEMPORARY_REDIRECT) {
                 Header location = response.getFirstHeader("Location");
@@ -163,6 +193,9 @@ public class DorisCommitter implements SinkCommitter<DorisCommitInfo> {
             }
             handleAbortSuccess(committable, response);
             return;
+        }
+        if (lastRedirectException != null) {
+            throw lastRedirectException;
         }
         throw new DorisConnectorException(
                 DorisConnectorErrorCode.STREAM_LOAD_FAILED,

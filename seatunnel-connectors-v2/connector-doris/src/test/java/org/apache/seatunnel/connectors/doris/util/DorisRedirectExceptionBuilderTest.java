@@ -42,4 +42,22 @@ public class DorisRedirectExceptionBuilderTest {
         Assertions.assertTrue(message.contains("stage=commit"));
         Assertions.assertTrue(message.contains("BE reachability"));
     }
+
+    @Test
+    void testBuildFollowUpFailureContainsRedirectAndCause() {
+        String message =
+                DorisRedirectExceptionBuilder.buildFollowUpFailure(
+                        "http://fe1:8030/api/test_db/test_table/_stream_load",
+                        "http://be1:8040/api/test_db/test_table/_stream_load",
+                        true,
+                        true,
+                        "stream-load-write",
+                        "Connection refused");
+
+        Assertions.assertTrue(message.contains("redirect follow-up failed"));
+        Assertions.assertTrue(
+                message.contains("Location=http://be1:8040/api/test_db/test_table/_stream_load"));
+        Assertions.assertTrue(message.contains("stage=stream-load-write"));
+        Assertions.assertTrue(message.contains("cause=Connection refused"));
+    }
 }

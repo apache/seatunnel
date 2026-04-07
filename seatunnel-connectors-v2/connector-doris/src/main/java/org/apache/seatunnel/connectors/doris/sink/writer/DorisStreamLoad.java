@@ -31,6 +31,7 @@ import org.apache.seatunnel.connectors.doris.rest.models.RespContent;
 import org.apache.seatunnel.connectors.doris.sink.HttpPutBuilder;
 import org.apache.seatunnel.connectors.doris.sink.LoadStatus;
 import org.apache.seatunnel.connectors.doris.util.DorisRedirectExceptionBuilder;
+import org.apache.seatunnel.connectors.doris.util.HttpUtil;
 import org.apache.seatunnel.connectors.doris.util.ResponseUtil;
 
 import org.apache.http.Header;
@@ -143,7 +144,15 @@ public class DorisStreamLoad implements Serializable {
                         .addProperties(streamLoadProp);
                 RespContent respContent =
                         handlePreCommitResponse(
-                                httpClient.execute(builder.build()), "pre-commit", loadUrlStr);
+                                HttpUtil.executeWithRedirectTracking(
+                                        httpClient,
+                                        builder.build(),
+                                        loadUrlStr,
+                                        directToBe,
+                                        enable2PC,
+                                        "pre-commit"),
+                                "pre-commit",
+                                loadUrlStr);
                 checkState("true".equals(respContent.getTwoPhaseCommit()));
                 if (LoadStatus.LABEL_ALREADY_EXIST.equals(respContent.getStatus())) {
                     // label already exist and job finished
@@ -287,7 +296,13 @@ public class DorisStreamLoad implements Serializable {
                     executorService.submit(
                             () -> {
                                 log.info("start execute load");
-                                return httpClient.execute(putBuilder.build());
+                                return HttpUtil.executeWithRedirectTracking(
+                                        httpClient,
+                                        putBuilder.build(),
+                                        loadUrlStr,
+                                        directToBe,
+                                        enable2PC,
+                                        "stream-load-write");
                             });
         } catch (Exception e) {
             String err = "failed to stream load data with label: " + label;
@@ -304,7 +319,9 @@ public class DorisStreamLoad implements Serializable {
                 .addTxnId(txnID)
                 .setEmptyEntity()
                 .abort();
-        CloseableHttpResponse response = httpClient.execute(builder.build());
+        CloseableHttpResponse response =
+                HttpUtil.executeWithRedirectTracking(
+                        httpClient, builder.build(), abortUrlStr, directToBe, enable2PC, "abort");
 
         int statusCode = response.getStatusLine().getStatusCode();
         if (statusCode == HTTP_TEMPORARY_REDIRECT) {

@@ -37,4 +37,23 @@ public final class DorisRedirectExceptionBuilder {
                 enable2PC,
                 requestStage);
     }
+
+    public static String buildFollowUpFailure(
+            String requestUrl,
+            String location,
+            boolean directToBe,
+            boolean enable2PC,
+            String requestStage,
+            String causeMessage) {
+        return String.format(
+                "stream load redirect follow-up failed after HTTP/1.1 307 Temporary Redirect, "
+                        + "request=%s, Location=%s, direct_to_be=%s, 2pc=%s, stage=%s, cause=%s. "
+                        + "Please check BE reachability, FE load, and consider benodes + direct_to_be=true when FE redirect is unstable.",
+                requestUrl,
+                location == null ? "<missing>" : location,
+                directToBe,
+                enable2PC,
+                requestStage,
+                causeMessage == null ? "<missing>" : causeMessage);
+    }
 }
