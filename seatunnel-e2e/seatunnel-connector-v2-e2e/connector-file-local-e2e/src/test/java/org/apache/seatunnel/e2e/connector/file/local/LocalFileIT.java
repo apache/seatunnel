@@ -34,12 +34,15 @@ import org.apache.seatunnel.e2e.common.container.TestHelper;
 import org.apache.seatunnel.e2e.common.junit.DisabledOnContainer;
 import org.apache.seatunnel.e2e.common.junit.TestContainerExtension;
 import org.apache.seatunnel.e2e.common.util.ContainerUtil;
+import org.apache.seatunnel.e2e.common.util.JobIdGenerator;
 
 import org.apache.commons.compress.archivers.tar.TarArchiveEntry;
 import org.apache.commons.compress.archivers.tar.TarArchiveOutputStream;
 
+import org.awaitility.Awaitility;
 import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.TestTemplate;
+import org.testcontainers.containers.Container;
 import org.testcontainers.containers.GenericContainer;
 import org.testcontainers.shaded.com.github.dockerjava.core.command.ExecStartResultCallback;
 
@@ -64,6 +67,8 @@ import java.nio.file.attribute.BasicFileAttributes;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Random;
+import java.util.concurrent.CompletableFuture;
+import java.util.concurrent.TimeUnit;
 import java.util.zip.GZIPOutputStream;
 import java.util.zip.ZipEntry;
 import java.util.zip.ZipOutputStream;
@@ -424,6 +429,127 @@ public class LocalFileIT extends TestSuiteBase {
 
     @TestTemplate
     @DisabledOnContainer(
+            value = {},
+            type = {EngineType.FLINK, EngineType.SPARK},
+            disabledReason =
+                    "sync_mode=update needs to compare source/target on the same filesystem. Local filesystem is not shared between engine master/workers in Flink/Spark E2E.")
+    public void testLocalFileBinaryUpdateModeDistcp(TestContainer container)
+            throws IOException, InterruptedException {
+        resetUpdateTestPath();
+        putLocalFile("/tmp/seatunnel/update/src/test.bin", "abc");
+
+        TestHelper helper = new TestHelper(container);
+        helper.execute("/binary/local_file_binary_update_distcp.conf");
+        Assertions.assertEquals("abc", readLocalFile("/tmp/seatunnel/update/dst/test.bin"));
+
+        // Make target newer with same length, distcp strategy should SKIP overwrite.
+        putLocalFile("/tmp/seatunnel/update/dst/test.bin", "zzz");
+        helper.execute("/binary/local_file_binary_update_distcp.conf");
+        Assertions.assertEquals("zzz", readLocalFile("/tmp/seatunnel/update/dst/test.bin"));
+
+        // Change source length, distcp strategy should COPY overwrite.
+        putLocalFile("/tmp/seatunnel/update/src/test.bin", "abcd");
+        helper.execute("/binary/local_file_binary_update_distcp.conf");
+        Assertions.assertEquals("abcd", readLocalFile("/tmp/seatunnel/update/dst/test.bin"));
+
+        baseContainer.execInContainer("sh", "-c", "rm -rf /tmp/seatunnel/update");
+    }
+
+    @TestTemplate
+    @DisabledOnContainer(
+            value = {},
+            type = {EngineType.FLINK, EngineType.SPARK},
+            disabledReason =
+                    "sync_mode=update needs to compare source/target on the same filesystem. Local filesystem is not shared between engine master/workers in Flink/Spark E2E.")
+    public void testLocalFileBinaryUpdateModeStrictChecksum(TestContainer container)
+            throws IOException, InterruptedException {
+        resetUpdateTestPath();
+        putLocalFile("/tmp/seatunnel/update/src/test.bin", "abc");
+
+        TestHelper helper = new TestHelper(container);
+        helper.execute("/binary/local_file_binary_update_strict_checksum.conf");
+        Assertions.assertEquals("abc", readLocalFile("/tmp/seatunnel/update/dst/test.bin"));
+
+        long firstMtimeSeconds = getLocalFileMtimeSeconds("/tmp/seatunnel/update/dst/test.bin");
+        Thread.sleep(1100);
+
+        helper.execute("/binary/local_file_binary_update_strict_checksum.conf");
+        long secondMtimeSeconds = getLocalFileMtimeSeconds("/tmp/seatunnel/update/dst/test.bin");
+        Assertions.assertEquals(
+                firstMtimeSeconds,
+                secondMtimeSeconds,
+                "Strict checksum should skip unchanged files and keep target mtime");
+
+        baseContainer.execInContainer("sh", "-c", "rm -rf /tmp/seatunnel/update");
+    }
+
+    @TestTemplate
+    @DisabledOnContainer(
+            value = {},
+            type = {EngineType.FLINK, EngineType.SPARK},
+            disabledReason =
+                    "Continuous discovery is a long-running job. Local filesystem is not shared between engine master/workers in Flink/Spark E2E.")
+    public void testLocalFileBinaryUpdateModeContinuousDiscovery(TestContainer container)
+            throws IOException, InterruptedException {
+        resetContinuousTestPath();
+        putLocalFile("/tmp/seatunnel/continuous/src/test1.bin", "abc");
+
+        String jobId = String.valueOf(JobIdGenerator.newJobId());
+        CompletableFuture<Container.ExecResult> jobFuture =
+                CompletableFuture.supplyAsync(
+                        () -> {
+                            try {
+                                return container.executeJob(
+                                        "/binary/local_file_binary_update_distcp_continuous.conf",
+                                        jobId);
+                            } catch (Exception e) {
+                                throw new RuntimeException(e);
+                            }
+                        });
+
+        Awaitility.await()
+                .atMost(60, TimeUnit.SECONDS)
+                .untilAsserted(
+                        () ->
+                                Assertions.assertEquals(
+                                        "abc",
+                                        readLocalFile("/tmp/seatunnel/continuous/dst/test1.bin")));
+
+        long firstMtimeSeconds =
+                getLocalFileMtimeSeconds("/tmp/seatunnel/continuous/dst/test1.bin");
+        Thread.sleep(2500);
+        long secondMtimeSeconds =
+                getLocalFileMtimeSeconds("/tmp/seatunnel/continuous/dst/test1.bin");
+        Assertions.assertEquals(
+                firstMtimeSeconds,
+                secondMtimeSeconds,
+                "Continuous discovery should skip unchanged files in update mode.");
+
+        putLocalFile("/tmp/seatunnel/continuous/src/test2.bin", "def");
+        Awaitility.await()
+                .atMost(60, TimeUnit.SECONDS)
+                .untilAsserted(
+                        () ->
+                                Assertions.assertEquals(
+                                        "def",
+                                        readLocalFile("/tmp/seatunnel/continuous/dst/test2.bin")));
+
+        Container.ExecResult cancelResult = container.cancelJob(jobId);
+        Assertions.assertEquals(0, cancelResult.getExitCode(), cancelResult.getStderr());
+
+        Container.ExecResult execResult;
+        try {
+            execResult = jobFuture.get(120, TimeUnit.SECONDS);
+        } catch (Exception e) {
+            throw new RuntimeException("Wait continuous job exit failed.", e);
+        }
+        Assertions.assertEquals(0, execResult.getExitCode(), execResult.getStderr());
+
+        baseContainer.execInContainer("sh", "-c", "rm -rf /tmp/seatunnel/continuous");
+    }
+
+    @TestTemplate
+    @DisabledOnContainer(
             value = {TestContainerId.SPARK_2_4},
             type = {EngineType.FLINK},
             disabledReason =
@@ -485,6 +611,55 @@ public class LocalFileIT extends TestSuiteBase {
         Assertions.assertFalse(localFileCatalog.isExistsData(tablePath));
         localFileCatalog.dropTable(tablePath, false);
         Assertions.assertFalse(localFileCatalog.tableExists(tablePath));
+    }
+
+    private void resetUpdateTestPath() throws IOException, InterruptedException {
+        Container.ExecResult result =
+                baseContainer.execInContainer(
+                        "sh",
+                        "-c",
+                        "rm -rf /tmp/seatunnel/update && mkdir -p /tmp/seatunnel/update/src /tmp/seatunnel/update/dst /tmp/seatunnel/update/tmp");
+        Assertions.assertEquals(0, result.getExitCode(), result.getStderr());
+    }
+
+    private void resetContinuousTestPath() throws IOException, InterruptedException {
+        Container.ExecResult result =
+                baseContainer.execInContainer(
+                        "sh",
+                        "-c",
+                        "rm -rf /tmp/seatunnel/continuous && mkdir -p /tmp/seatunnel/continuous/src /tmp/seatunnel/continuous/dst /tmp/seatunnel/continuous/tmp");
+        Assertions.assertEquals(0, result.getExitCode(), result.getStderr());
+    }
+
+    private void putLocalFile(String filePath, String content)
+            throws IOException, InterruptedException {
+        String command =
+                "mkdir -p $(dirname '"
+                        + filePath
+                        + "') && printf '"
+                        + content
+                        + "' > '"
+                        + filePath
+                        + "' && chmod 666 '"
+                        + filePath
+                        + "'";
+        Container.ExecResult result = baseContainer.execInContainer("sh", "-c", command);
+        Assertions.assertEquals(0, result.getExitCode(), result.getStderr());
+    }
+
+    private String readLocalFile(String filePath) throws IOException, InterruptedException {
+        Container.ExecResult result =
+                baseContainer.execInContainer("sh", "-c", "cat '" + filePath + "'");
+        Assertions.assertEquals(0, result.getExitCode(), result.getStderr());
+        return result.getStdout() == null ? "" : result.getStdout().trim();
+    }
+
+    private long getLocalFileMtimeSeconds(String filePath)
+            throws IOException, InterruptedException {
+        Container.ExecResult result =
+                baseContainer.execInContainer("sh", "-c", "stat -c %Y '" + filePath + "'");
+        Assertions.assertEquals(0, result.getExitCode(), result.getStderr());
+        return Long.parseLong(result.getStdout().trim());
     }
 
     private Path convertToLzoFile(File file) throws IOException {

@@ -68,6 +68,7 @@ public final class ClientToServerOperationDataSerializerHook implements DataSeri
     public static final int GET_RUNNING_JOB_METRICS_OPERATOR = 10;
 
     public static final int UPLOAD_CONNECTOR_JAR_OPERATION = 11;
+
     public static final int GET_JOB_CHECKPOINT_OPERATION = 12;
     public static final int GET_CHECKPOINT_OVERVIEW_OPERATION = 13;
     public static final int GET_CHECKPOINT_HISTORY_OPERATION = 14;

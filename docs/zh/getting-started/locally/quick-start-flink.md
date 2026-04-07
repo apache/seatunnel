@@ -57,7 +57,7 @@ sink {
 
 ```
 
-关于配置的更多信息请查看[配置的基本概念](../../concept/config.md)
+关于配置的更多信息请查看[配置的基本概念](../../introduction/concepts/config.md)
 
 ## 步骤 4: 运行SeaTunnel应用程序
 
@@ -105,6 +105,6 @@ row=16 : SGZCr, 94186144
 ## 此外
 
 - 开始编写您自己的配置文件，选择您想要使用的[连接器](../../connectors/source)，并根据连接器的文档配置参数。
-- 如果您想要了解更多关于SeaTunnel运行在Flink上的信息，请参阅[基于Flink的SeaTunnel](../../other-engine/flink.md)。
+- 如果您想要了解更多关于SeaTunnel运行在Flink上的信息，请参阅[基于Flink的SeaTunnel](../../engines/flink.md)。
 - SeaTunnel有内置的`Zeta`引擎，它是作为SeaTunnel的默认引擎。您可以参考[快速开始](quick-start-seatunnel-engine.md)配置和运行数据同步作业。
 

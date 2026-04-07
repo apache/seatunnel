@@ -79,7 +79,7 @@ public class SourceRecordUtils {
         }
 
         Struct source = value.getStruct(Envelope.FieldName.SOURCE);
-        if (source.schema().field(Envelope.FieldName.TIMESTAMP) == null) {
+        if (source == null || source.schema().field(Envelope.FieldName.TIMESTAMP) == null) {
             return null;
         }
 
@@ -225,5 +225,79 @@ public class SourceRecordUtils {
     public static String getDdl(SourceRecord record) {
         Struct schemaChangeStruct = (Struct) record.value();
         return schemaChangeStruct.getString(HistoryRecord.Fields.DDL_STATEMENTS);
+    }
+
+    /**
+     * Returns the binlog filename from the Debezium source struct, or null if not available. Only
+     * present for MySQL-CDC; other connectors (PostgreSQL, Oracle) use different offset keys.
+     * Returns null for snapshot rows where Debezium sets file to an empty string.
+     */
+    public static String getBinlogFile(SourceRecord record) {
+        Struct value = (Struct) record.value();
+        if (value == null) {
+            return null;
+        }
+        Struct source = value.getStruct(Envelope.FieldName.SOURCE);
+        if (source == null || source.schema().field("file") == null) {
+            return null;
+        }
+        String file = source.getString("file");
+        if (file == null || file.isEmpty()) {
+            return null;
+        }
+        return file;
+    }
+
+    /**
+     * Returns the binlog position from the Debezium source struct, or null if not available. Only
+     * present for MySQL-CDC.
+     */
+    public static Long getBinlogPos(SourceRecord record) {
+        Struct value = (Struct) record.value();
+        if (value == null) {
+            return null;
+        }
+        Struct source = value.getStruct(Envelope.FieldName.SOURCE);
+        if (source == null || source.schema().field("pos") == null) {
+            return null;
+        }
+        return source.getInt64("pos");
+    }
+
+    /**
+     * Returns the row index within the binlog event from the Debezium source struct, or null if not
+     * available. Only present for MySQL-CDC.
+     */
+    public static Integer getBinlogRow(SourceRecord record) {
+        Struct value = (Struct) record.value();
+        if (value == null) {
+            return null;
+        }
+        Struct source = value.getStruct(Envelope.FieldName.SOURCE);
+        if (source == null || source.schema().field("row") == null) {
+            return null;
+        }
+        return source.getInt32("row");
+    }
+
+    /**
+     * Returns the GTID from the Debezium source struct, or null if not available. Only present for
+     * MySQL-CDC when GTID mode is enabled on the server. Null for snapshot rows and when GTID is
+     * disabled.
+     */
+    public static String getGtid(SourceRecord record) {
+        Struct value = (Struct) record.value();
+        if (value == null) {
+            return null;
+        }
+        Struct source = value.getStruct(Envelope.FieldName.SOURCE);
+        if (source == null || source.schema().field("gtid") == null) {
+            return null;
+        }
+        String gtid = source.getString("gtid");
+        if (gtid == null || gtid.isEmpty()) {
+            return null;
+        }
+        return gtid;
     }
 }

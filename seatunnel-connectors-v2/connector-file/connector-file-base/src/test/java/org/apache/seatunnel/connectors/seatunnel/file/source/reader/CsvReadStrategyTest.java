@@ -20,6 +20,7 @@ package org.apache.seatunnel.connectors.seatunnel.file.source.reader;
 import org.apache.seatunnel.shade.com.typesafe.config.ConfigFactory;
 
 import org.apache.seatunnel.api.source.Collector;
+import org.apache.seatunnel.api.table.catalog.CatalogTable;
 import org.apache.seatunnel.api.table.catalog.CatalogTableUtil;
 import org.apache.seatunnel.api.table.type.BasicType;
 import org.apache.seatunnel.api.table.type.SeaTunnelDataType;
@@ -141,6 +142,54 @@ public class CsvReadStrategyTest {
         }
     }
 
+    @Test
+    public void testUtf8BomCsvRead() throws Exception {
+        CatalogTable catalogTable =
+                CatalogTableUtil.getCatalogTable(
+                        "test",
+                        new SeaTunnelRowType(
+                                new String[] {"id", "name", "age", "gender"},
+                                new SeaTunnelDataType[] {
+                                    BasicType.INT_TYPE,
+                                    BasicType.STRING_TYPE,
+                                    BasicType.INT_TYPE,
+                                    BasicType.STRING_TYPE
+                                }));
+        URL resource = CsvReadStrategyTest.class.getResource("/csv/utf8_bom_with_header.csv");
+        Map<String, Object> csvBomOptions = getCsvBomOptions(true);
+        checkCsvBomRead(resource, csvBomOptions, catalogTable);
+
+        URL resource1 = CsvReadStrategyTest.class.getResource("/csv/utf8_bom_without_header.csv");
+        Map<String, Object> csvBomOptions1 = getCsvBomOptions(false);
+        checkCsvBomRead(resource1, csvBomOptions1, catalogTable);
+    }
+
+    private void checkCsvBomRead(
+            URL resource, Map<String, Object> csvBomOptions, CatalogTable catalogTable)
+            throws Exception {
+        String path = Paths.get(resource.toURI()).toString();
+        TestCollector testCollector;
+        try (CsvReadStrategy csvReadStrategy = new CsvReadStrategy()) {
+            LocalConf localConf = new LocalConf(FS_DEFAULT_NAME_DEFAULT);
+            csvReadStrategy.init(localConf);
+            csvReadStrategy.getFileNamesByPath(path);
+            csvReadStrategy.setPluginConfig(ConfigFactory.parseMap(csvBomOptions));
+            csvReadStrategy.setCatalogTable(catalogTable);
+            testCollector = new TestCollector();
+            csvReadStrategy.read(path, "", testCollector);
+        }
+        final List<SeaTunnelRow> rows = testCollector.getRows();
+        Assertions.assertEquals(2, rows.size());
+        Assertions.assertEquals(9821, rows.get(0).getField(0));
+        Assertions.assertEquals("hawk", rows.get(0).getField(1));
+        Assertions.assertEquals(37, rows.get(0).getField(2));
+        Assertions.assertEquals("M", rows.get(0).getField(3));
+        Assertions.assertEquals(9822, rows.get(1).getField(0));
+        Assertions.assertEquals("jack", rows.get(1).getField(1));
+        Assertions.assertEquals(18, rows.get(1).getField(2));
+        Assertions.assertEquals("M", rows.get(1).getField(3));
+    }
+
     private boolean isWindows() {
         return System.getProperty("os.name").toLowerCase().contains("win");
     }
@@ -149,6 +198,12 @@ public class CsvReadStrategyTest {
         Map<String, Object> map = new HashMap<>();
         map.put(FileBaseSourceOptions.QUOTE_CHAR.key(), "`");
         map.put(FileBaseSourceOptions.ESCAPE_CHAR.key(), "\"");
+        return map;
+    }
+
+    private Map<String, Object> getCsvBomOptions(boolean withHeader) {
+        Map<String, Object> map = new HashMap<>();
+        map.put(FileBaseSourceOptions.CSV_USE_HEADER_LINE.key(), withHeader);
         return map;
     }
 

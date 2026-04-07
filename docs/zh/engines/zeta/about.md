@@ -36,7 +36,7 @@ SeaTunnel Engine 的整体设计遵循以下路径：
 
 ### 快速开始
 
-https://seatunnel.apache.org/docs/start-v2/locally/quick-start-seatunnel-engine
+https://seatunnel.apache.org/docs/getting-started/locally/quick-start-seatunnel-engine
 
 ### 下载安装
 

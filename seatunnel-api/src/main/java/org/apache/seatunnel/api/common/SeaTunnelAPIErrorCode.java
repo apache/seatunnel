@@ -33,7 +33,8 @@ public enum SeaTunnelAPIErrorCode implements SeaTunnelErrorCode {
     SINK_TABLE_NOT_EXIST("API-11", "The sink table not exist"),
     LIST_DATABASES_FAILED("API-12", "List databases failed"),
     LIST_TABLES_FAILED("API-13", "List tables failed"),
-    GET_PRIMARY_KEY_FAILED("API-14", "Get primary key failed");
+    GET_PRIMARY_KEY_FAILED("API-14", "Get primary key failed"),
+    DATASOURCE_PROVIDER_INITIALIZE_FAILED("API-15", "DataSource provider initialize failed");
 
     private final String code;
     private final String description;

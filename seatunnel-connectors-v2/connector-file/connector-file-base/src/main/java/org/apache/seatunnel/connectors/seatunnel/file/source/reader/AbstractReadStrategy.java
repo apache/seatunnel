@@ -124,6 +124,11 @@ public abstract class AbstractReadStrategy implements ReadStrategy {
     protected transient boolean shareTargetFileSystemProxy;
     protected transient boolean checksumUnavailableWarned;
 
+    private static final class UpdateModeStats {
+        private long scanned;
+        private long skipped;
+    }
+
     @Override
     public void init(HadoopConf conf) {
         this.hadoopConf = conf;
@@ -147,46 +152,74 @@ public abstract class AbstractReadStrategy implements ReadStrategy {
     @Override
     public List<String> getFileNamesByPath(String path) throws IOException {
         ArrayList<String> fileNames = new ArrayList<>();
+        UpdateModeStats updateModeStats = enableUpdateSync ? new UpdateModeStats() : null;
+        collectFileNamesByPath(path, fileNames, updateModeStats);
+        if (updateModeStats != null) {
+            log.info(
+                    "Update sync mode statistics: scanned={}, skipped={}, to_sync={}",
+                    updateModeStats.scanned,
+                    updateModeStats.skipped,
+                    updateModeStats.scanned - updateModeStats.skipped);
+        }
+        return fileNames;
+    }
+
+    private void collectFileNamesByPath(
+            String path, List<String> fileNames, UpdateModeStats updateModeStats)
+            throws IOException {
         FileStatus[] stats = hadoopFileSystemProxy.listStatus(path);
         for (FileStatus fileStatus : stats) {
             if (fileStatus.isDirectory()) {
                 // skip hidden tmp directory, such as .hive-staging_hive
                 if (!fileStatus.getPath().getName().startsWith(".")) {
-                    fileNames.addAll(getFileNamesByPath(fileStatus.getPath().toString()));
+                    collectFileNamesByPath(
+                            fileStatus.getPath().toString(), fileNames, updateModeStats);
                 }
                 continue;
             }
-            if (fileStatus.isFile() && filterFileByPattern(fileStatus) && fileStatus.getLen() > 0) {
-                // filter '_SUCCESS' file
-                if (!fileStatus.getPath().getName().equals("_SUCCESS")
-                        && !fileStatus.getPath().getName().startsWith(".")
-                        && filterFileByModificationDate(fileStatus)) {
+            if (!fileStatus.isFile()
+                    || !filterFileByPattern(fileStatus)
+                    || fileStatus.getLen() <= 0) {
+                continue;
+            }
 
-                    String filePath = fileStatus.getPath().toString();
-                    if (!readPartitions.isEmpty()) {
-                        for (String readPartition : readPartitions) {
-                            if (filePath.contains(readPartition)) {
-                                if (shouldSyncFileInUpdateMode(fileStatus)) {
-                                    fileNames.add(filePath);
-                                    this.fileNames.add(filePath);
-                                }
-                                break;
-                            }
-                        }
-                    } else {
-                        if (shouldSyncFileInUpdateMode(fileStatus)) {
-                            fileNames.add(filePath);
-                            this.fileNames.add(filePath);
-                        }
+            // filter '_SUCCESS' file and hidden files
+            String fileName = fileStatus.getPath().getName();
+            if (fileName.equals("_SUCCESS")
+                    || fileName.startsWith(".")
+                    || !filterFileByModificationDate(fileStatus)) {
+                continue;
+            }
+
+            String filePath = fileStatus.getPath().toString();
+            if (StringUtils.isNotEmpty(filenameExtension)
+                    && !filePath.endsWith(filenameExtension)) {
+                continue;
+            }
+
+            if (!readPartitions.isEmpty()) {
+                boolean partitionMatched = false;
+                for (String readPartition : readPartitions) {
+                    if (filePath.contains(readPartition)) {
+                        partitionMatched = true;
+                        break;
                     }
                 }
+                if (!partitionMatched) {
+                    continue;
+                }
+            }
+
+            if (updateModeStats != null) {
+                updateModeStats.scanned++;
+            }
+            if (shouldSyncFileInUpdateMode(fileStatus)) {
+                fileNames.add(filePath);
+                this.fileNames.add(filePath);
+            } else if (updateModeStats != null) {
+                updateModeStats.skipped++;
             }
         }
-        if (StringUtils.isNotEmpty(filenameExtension)) {
-            this.fileNames.removeIf(fileName -> !fileName.endsWith(filenameExtension));
-            fileNames.removeIf(fileName -> !fileName.endsWith(filenameExtension));
-        }
-        return fileNames;
     }
 
     private Date getFileModifiedDate(String modifiedDate) {
@@ -304,6 +337,12 @@ public abstract class AbstractReadStrategy implements ReadStrategy {
         enableUpdateSync = syncMode == FileSyncMode.UPDATE;
         if (enableUpdateSync) {
             validateUpdateSyncConfig(pluginConfig);
+            log.info(
+                    "Update sync mode enabled: source_path={}, target_path={}, update_strategy={}, compare_mode={}",
+                    maskUriUserInfo(sourceRootPath),
+                    maskUriUserInfo(targetPath),
+                    updateStrategy.name().toLowerCase(Locale.ROOT),
+                    compareMode.name().toLowerCase(Locale.ROOT));
         }
     }
 
@@ -711,37 +750,73 @@ public abstract class AbstractReadStrategy implements ReadStrategy {
         long targetMtime = targetFileStatus.getModificationTime();
 
         if (updateStrategy == FileUpdateStrategy.DISTCP) {
-            return sourceMtime > targetMtime;
+            if (sourceMtime > targetMtime) {
+                return true;
+            }
+            logUpdateModeSkip(sourceFilePath, targetFilePath, "distcp: target newer or same");
+            return false;
         }
 
         if (updateStrategy == FileUpdateStrategy.STRICT) {
             if (compareMode == FileCompareMode.LEN_MTIME) {
-                return sourceMtime != targetMtime;
+                if (sourceMtime != targetMtime) {
+                    return true;
+                }
+                logUpdateModeSkip(
+                        sourceFilePath, targetFilePath, "strict len_mtime: len and mtime equal");
+                return false;
             }
             if (compareMode == FileCompareMode.CHECKSUM) {
-                FileChecksum sourceChecksum = hadoopFileSystemProxy.getFileChecksum(sourceFilePath);
-                FileChecksum targetChecksum =
-                        targetHadoopFileSystemProxy.getFileChecksum(targetFilePath);
-                if (sourceChecksum == null || targetChecksum == null) {
+                FileChecksum sourceChecksum = null;
+                FileChecksum targetChecksum = null;
+                Exception checksumException = null;
+                try {
+                    sourceChecksum = hadoopFileSystemProxy.getFileChecksum(sourceFilePath);
+                    targetChecksum = targetHadoopFileSystemProxy.getFileChecksum(targetFilePath);
+                } catch (Exception e) {
+                    checksumException = e;
+                }
+
+                if (checksumException != null || sourceChecksum == null || targetChecksum == null) {
                     if (!checksumUnavailableWarned) {
-                        log.warn(
-                                "File checksum is not available, fallback to content comparison. source={}, target={}",
-                                sourceFilePath,
-                                targetFilePath);
+                        if (checksumException == null) {
+                            log.warn(
+                                    "File checksum is not available, fallback to content comparison. source={}, target={}",
+                                    maskUriUserInfo(sourceFilePath),
+                                    maskUriUserInfo(targetFilePath));
+                        } else {
+                            log.warn(
+                                    "File checksum is not available, fallback to content comparison. source={}, target={}",
+                                    maskUriUserInfo(sourceFilePath),
+                                    maskUriUserInfo(targetFilePath),
+                                    checksumException);
+                        }
                         checksumUnavailableWarned = true;
                     }
                     try {
-                        return !fileContentEquals(sourceFilePath, targetFilePath);
+                        boolean sameContent = fileContentEquals(sourceFilePath, targetFilePath);
+                        if (sameContent) {
+                            logUpdateModeSkip(
+                                    sourceFilePath,
+                                    targetFilePath,
+                                    "strict checksum: content equal (checksum unavailable)");
+                        }
+                        return !sameContent;
                     } catch (Exception e) {
                         log.warn(
                                 "Fallback content comparison failed, fallback to COPY. source={}, target={}",
-                                sourceFilePath,
-                                targetFilePath,
+                                maskUriUserInfo(sourceFilePath),
+                                maskUriUserInfo(targetFilePath),
                                 e);
                         return true;
                     }
                 }
-                return !checksumEquals(sourceChecksum, targetChecksum);
+                if (checksumEquals(sourceChecksum, targetChecksum)) {
+                    logUpdateModeSkip(
+                            sourceFilePath, targetFilePath, "strict checksum: checksum equal");
+                    return false;
+                }
+                return true;
             }
         }
 
@@ -790,7 +865,17 @@ public abstract class AbstractReadStrategy implements ReadStrategy {
         return new Path(targetBasePath, cleanRelativePath).toString();
     }
 
-    private static String resolveRelativePath(String basePath, String fullFilePath) {
+    /**
+     * Resolve relative path from {@code basePath} to {@code fullFilePath}.
+     *
+     * <p><b>NOTE:</b> This method is intended for internal use by specific read strategies (for
+     * example {@link BinaryReadStrategy}) that need custom path resolution logic.
+     *
+     * @param basePath base directory path
+     * @param fullFilePath full file path
+     * @return relative path from base to file
+     */
+    protected static String resolveRelativePath(String basePath, String fullFilePath) {
         String base = normalizePathPart(basePath);
         String file = normalizePathPart(fullFilePath);
         if (StringUtils.isBlank(file)) {
@@ -821,6 +906,35 @@ public abstract class AbstractReadStrategy implements ReadStrategy {
             return new Path(path).toUri().getPath();
         } catch (Exception e) {
             return path;
+        }
+    }
+
+    private static String maskUriUserInfo(String rawPath) {
+        if (StringUtils.isBlank(rawPath)) {
+            return rawPath;
+        }
+        try {
+            java.net.URI uri = new Path(rawPath).toUri();
+            if (uri.getUserInfo() == null || uri.getAuthority() == null) {
+                return rawPath;
+            }
+            String maskedAuthority = uri.getAuthority().replace(uri.getUserInfo() + "@", "***@");
+            return uri.getScheme()
+                    + "://"
+                    + maskedAuthority
+                    + (uri.getPath() == null ? "" : uri.getPath());
+        } catch (Exception e) {
+            return rawPath;
+        }
+    }
+
+    private void logUpdateModeSkip(String sourceFilePath, String targetFilePath, String reason) {
+        if (log.isDebugEnabled()) {
+            log.debug(
+                    "Update sync mode skipped file: source={}, target={}, reason={}",
+                    maskUriUserInfo(sourceFilePath),
+                    maskUriUserInfo(targetFilePath),
+                    reason);
         }
     }
 

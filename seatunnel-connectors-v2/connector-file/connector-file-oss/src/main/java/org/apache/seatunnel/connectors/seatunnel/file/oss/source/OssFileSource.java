@@ -18,14 +18,18 @@
 package org.apache.seatunnel.connectors.seatunnel.file.oss.source;
 
 import org.apache.seatunnel.api.configuration.ReadonlyConfig;
+import org.apache.seatunnel.api.table.catalog.CatalogTable;
 import org.apache.seatunnel.connectors.seatunnel.file.config.FileSystemType;
 import org.apache.seatunnel.connectors.seatunnel.file.oss.source.config.MultipleTableOssFileSourceConfig;
 import org.apache.seatunnel.connectors.seatunnel.file.source.BaseMultipleTableFileSource;
 
+import java.util.List;
+
 public class OssFileSource extends BaseMultipleTableFileSource {
 
-    public OssFileSource(ReadonlyConfig readonlyConfig) {
-        super(new MultipleTableOssFileSourceConfig(readonlyConfig));
+    public OssFileSource(
+            ReadonlyConfig readonlyConfig, List<CatalogTable> catalogTablesFromConfig) {
+        super(new MultipleTableOssFileSourceConfig(readonlyConfig, catalogTablesFromConfig));
     }
 
     @Override
