@@ -417,8 +417,8 @@ public class CheckpointCoordinatorTest
 
     /**
      * Regression: when {@code notifyCompleted()} fails (returns {@code false}), {@code
-     * completePendingCheckpoint} must return immediately without decrementing {@code pendingCounter}
-     * or executing any other "success path" logic.
+     * completePendingCheckpoint} must return immediately without decrementing {@code
+     * pendingCounter} or executing any other "success path" logic.
      *
      * <p>Before the fix the chained call on the {@code null} result of {@code
      * pendingCheckpoints.remove()} caused a {@link NullPointerException}.
@@ -437,8 +437,7 @@ public class CheckpointCoordinatorTest
                                 @SuppressWarnings("unchecked")
                                 ConcurrentHashMap<Long, PendingCheckpoint> map =
                                         (ConcurrentHashMap<Long, PendingCheckpoint>)
-                                                ReflectionUtils.getField(
-                                                                spy, "pendingCheckpoints")
+                                                ReflectionUtils.getField(spy, "pendingCheckpoints")
                                                         .orElse(null);
                                 if (map != null) {
                                     map.clear();
@@ -552,8 +551,8 @@ public class CheckpointCoordinatorTest
     }
 
     /**
-     * Regression: when {@code notifyCompleted()} fails inside {@code restoreCoordinator(true)},
-     * the method must return immediately and must NOT call {@code tryTriggerPendingCheckpoint}.
+     * Regression: when {@code notifyCompleted()} fails inside {@code restoreCoordinator(true)}, the
+     * method must return immediately and must NOT call {@code tryTriggerPendingCheckpoint}.
      */
     @Test
     void testRestoreCoordinatorShouldNotTriggerCheckpointWhenNotifyCompletedFails() {
