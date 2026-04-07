@@ -479,6 +479,28 @@ public class SqlServerTypeConverter implements TypeConverter<BasicTypeDefine> {
                 }
                 builder.dataType(SQLSERVER_DATETIME2);
                 break;
+            case TIMESTAMP_TZ:
+                if (column.getScale() != null) {
+                    int timestampScale = column.getScale();
+                    if (timestampScale > MAX_TIMESTAMP_SCALE) {
+                        timestampScale = MAX_TIMESTAMP_SCALE;
+                        log.warn(
+                                "The timestamp_tz column {} type timestamp_tz({}) is out of range, "
+                                        + "which exceeds the maximum scale of {}, "
+                                        + "it will be converted to timestamp_tz({})",
+                                column.getName(),
+                                column.getScale(),
+                                MAX_TIMESTAMP_SCALE,
+                                timestampScale);
+                    }
+                    builder.columnType(
+                            String.format("%s(%s)", SQLSERVER_DATETIMEOFFSET, timestampScale));
+                    builder.scale(timestampScale);
+                } else {
+                    builder.columnType(SQLSERVER_DATETIMEOFFSET);
+                }
+                builder.dataType(SQLSERVER_DATETIMEOFFSET);
+                break;
             default:
                 throw CommonError.convertToConnectorTypeError(
                         DatabaseIdentifier.SQLSERVER,
