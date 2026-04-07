@@ -91,8 +91,8 @@ public class SqlServerTypeConverter implements TypeConverter<BasicTypeDefine> {
     public static final String MAX_VARCHAR = String.format("%s(%s)", SQLSERVER_VARCHAR, "MAX");
 
     public static final String MAX_NVARCHAR = String.format("%s(%s)", SQLSERVER_NVARCHAR, "MAX");
-    public static final long POWER_2_30 = 1 << 30;
-    public static final long POWER_2_31 = 1 << 31;
+    public static final long POWER_2_30 = 1L << 30;
+    public static final long POWER_2_31 = 1L << 31;
     public static final SqlServerTypeConverter INSTANCE = new SqlServerTypeConverter();
 
     @Override
