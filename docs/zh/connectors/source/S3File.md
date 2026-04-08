@@ -223,9 +223,10 @@ schema {
 | file_filter_pattern             | string  | 否    |                                                       | 过滤模式，用于过滤文件。                                                                                                                                                                                                                                                                                                          |
 | filename_extension              | string  | 否    | -                                                     | 过滤文件名扩展名，用于过滤具有特定扩展名的文件。例如：`csv` `.txt` `json` `.xml`。                                                                                                                                                                                                                                                                |
 | common-options                  |         | 否    | -                                                     | 数据源插件通用参数，请参考[数据源通用选项](../common-options/source-common-options.md)了解详情。                                                                                                                                                                                                                                                              |
-| quote_char                      | string  | 否    | "                                                     | 用于包裹 CSV 字段的单字符，可保证包含逗号、换行符或引号的字段被正确解析。                                                                                                                                                                                                                                                                               |
-| escape_char                     | string  | 否    | -                                                     | 用于在 CSV 字段内转义引号或其他特殊字符，使其不会结束字段。                                                                                                                                                                                                                                                                                      |
-| metalake_type                   | string  | 否    | gravitino                                            | Metalake 服务类型，目前支持 `gravitino`。                                                                                                                                                                                                                                                 |
+| quote_char                      | string  | 否    | "                                                     | 用于包裹 CSV 字段的单字符，可保证包含逗号、换行符或引号的字段被正确解析。                                                                                                                                                                                                         |
+| escape_char                     | string  | 否    | -                                                     | 用于在 CSV 字段内转义引号或其他特殊字符，使其不会结束字段。                                                                                                                                                                                                         |
+| sort_files_by_modification_time | boolean | 否 | false               | 是否按修改时间降序排序文件。启用此选项后，在读取不断演化的 schema 时可确保 schema 推断使用最新的文件。                                                                                                                      |
+| metalake_type                   | string  | 否    | gravitino                                            | Metalake 服务类型，目前支持 `gravitino`。                                                                                                                                                                                                         |
 
 ### delimiter/field_delimiter [string]
 
@@ -246,6 +247,14 @@ schema {
 ### escape_char [string]
 
 用于在 CSV 字段内转义引号或其他特殊字符，使其不会结束字段。
+
+### sort_files_by_modification_time [boolean]
+
+是否按修改时间降序排序文件。默认值为 `false`。
+
+启用后，文件将按修改时间排序（最新的在前）。适用于以下场景：
+- 读取具有不断演化的 schema 的文件，且希望 schema 推断使用最新的文件
+- 需要按时间顺序处理文件
 
 ### file_filter_pattern [string]
 

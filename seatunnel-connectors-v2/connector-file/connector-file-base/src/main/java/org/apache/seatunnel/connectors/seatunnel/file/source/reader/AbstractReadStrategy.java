@@ -335,6 +335,10 @@ public abstract class AbstractReadStrategy implements ReadStrategy {
             enableSplitFile =
                     pluginConfig.getBoolean(FileBaseSourceOptions.ENABLE_FILE_SPLIT.key());
         }
+        if (pluginConfig.hasPath(FileBaseSourceOptions.SORT_FILES_BY_MOD_TIME.key())) {
+            sortFilesByModTime =
+                    pluginConfig.getBoolean(FileBaseSourceOptions.SORT_FILES_BY_MOD_TIME.key());
+        }
 
         if (pluginConfig.hasPath(FileBaseSourceOptions.FILE_PATH.key())
                 && pluginConfig.getValue(FileBaseSourceOptions.FILE_PATH.key()).valueType()
