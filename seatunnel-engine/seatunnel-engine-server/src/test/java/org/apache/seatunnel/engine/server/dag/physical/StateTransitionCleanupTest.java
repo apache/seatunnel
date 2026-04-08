@@ -32,6 +32,7 @@ import org.apache.seatunnel.engine.server.execution.ExecutionState;
 
 import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.Test;
+import org.junitpioneer.jupiter.SetEnvironmentVariable;
 
 import com.hazelcast.map.IMap;
 
@@ -40,7 +41,9 @@ import java.util.Collections;
 import java.util.concurrent.Executors;
 
 import static org.apache.seatunnel.engine.common.config.server.QueueType.BLOCKINGQUEUE;
+import static org.apache.seatunnel.engine.core.classloader.DefaultClassLoaderService.SKIP_CHECK_JAR;
 
+@SetEnvironmentVariable(key = SKIP_CHECK_JAR, value = "true")
 class StateTransitionCleanupTest extends AbstractSeaTunnelServerTest {
 
     @Test

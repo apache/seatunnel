@@ -1093,12 +1093,18 @@ public class CheckpointCoordinator {
         try {
             RetryUtils.retryWithException(
                     () -> {
+                        Object currentStatus = runningJobStateIMap.get(checkpointStateImapKey);
+                        if (currentStatus == null) {
+                            LOG.warning(
+                                    String.format(
+                                            "%s has already been cleaned, skip persisting transition to %s",
+                                            checkpointStateImapKey, targetStatus));
+                            return null;
+                        }
                         LOG.info(
                                 String.format(
                                         "Turn %s state from %s to %s",
-                                        checkpointStateImapKey,
-                                        runningJobStateIMap.get(checkpointStateImapKey),
-                                        targetStatus));
+                                        checkpointStateImapKey, currentStatus, targetStatus));
                         runningJobStateIMap.set(checkpointStateImapKey, targetStatus);
                         return null;
                     },
