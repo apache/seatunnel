@@ -160,7 +160,7 @@ For batch writing, when the number of buffered records reaches the number of `ba
 
 ### batch_interval_ms [long]
 
-The flush interval in milliseconds. When set to a value greater than 0, if the elapsed time since the last flush exceeds this interval, the next `writeRecord` call will trigger a synchronous flush, even if `batch_size` has not been reached. Default value is `0` (disabled). Note that when `auto_commit = false`, flushed rows are not visible to other transactions until the next commit (e.g. at checkpoint).
+The flush interval in milliseconds. When set to a value greater than 0, if the elapsed time since the last flush exceeds this interval, the next `writeRecord` call will trigger a synchronous flush, even if `batch_size` has not been reached. Default value is `0` (disabled). This is a **write-triggered** time check, not a background timer — if no new records arrive (idle partition), no time-based flush occurs; buffered data is flushed at the next `prepareCommit` (checkpoint) or `close`. Note that when `auto_commit = false`, flushed rows are not visible to other transactions until the next commit (e.g. at checkpoint).
 
 ### is_exactly_once [boolean]
 
