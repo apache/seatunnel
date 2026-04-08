@@ -5,7 +5,7 @@
 [![Slack](../../images/seatunnel-slack.svg)](https://s.apache.org/seatunnel-slack)
 [![Twitter Follow](../../images/ASFSeaTunnel.svg)](https://x.com/ASFSeaTunnel)
 
-SeaTunnel是一个非常易用、多模态、超高性能的分布式数据集成平台，支持实时海量数据同步。 每天可稳定高效同步数百亿数据，已被近百家企业应用于生产。
+SeaTunnel是一个多模态、超高性能、分布式的海量数据集成工具，每天可稳定高效同步数百亿数据，已被数千家企业应用于生产，以其高效和稳定性深受众多企业信赖。
 
 ## 为什么需要 SeaTunnel
 
@@ -41,17 +41,17 @@ SeaTunnel的运行流程如上图所示。
 
 Source Connector负责并行读取数据并将数据发送到下游Transform或直接发送到Sink，Sink将数据写入目的地。 值得注意的是，Source、Transform 和 Sink 可以很容易地自行开发和扩展。
 
-SeaTunnel 是一个 EL(T) 数据集成平台。 因此，在SeaTunnel中，Transform只能用于对数据进行一些简单的转换，例如将一列的数据转换为大写或小写，更改列名，或者将一列拆分为多列。
+SeaTunnel 是一个 EtL(T) 数据集成工具。 因此，在SeaTunnel中，transform(t)只能用于对数据进行一些简单的转换，例如将一列的数据转换为大写或小写，更改列名，或者将一列拆分为多列。
 
-SeaTunnel 使用的默认引擎是 [SeaTunnel Engine](../engines/zeta/about.md)。 如果您选择使用Flink或Spark引擎，SeaTunnel会将Connector打包成Flink或Spark程序并提交给Flink或Spark运行。
+SeaTunnel 使用的默认引擎是 [SeaTunnel Zeta Engine](../engines/zeta/about.md)。 如果您选择使用Flink或Spark引擎，SeaTunnel会将Connector打包成Flink或Spark程序并提交给Flink或Spark运行。
 
 ## 连接器
 
-- **源连接器** SeaTunnel 支持从各种关系、图形、NoSQL、文档和内存数据库读取数据； 分布式文件系统，例如HDFS； 以及各种云存储解决方案，例如S3和OSS。 我们还支持很多常见SaaS服务的数据读取。 您可以在[此处] 访问详细列表。 如果您愿意，您可以开发自己的源连接器并将其轻松集成到 SeaTunnel 中。
+- **源连接器** SeaTunnel 支持从各种关系、图形、NoSQL、文档和内存数据库读取数据； 分布式文件系统，例如HDFS； 以及各种云存储解决方案，例如S3和OSS。 我们还支持很多常见SaaS服务的数据读取。 您可以在[此处](../connectors/source) 访问详细列表。 如果您愿意，您可以开发自己的源连接器并将其轻松集成到 SeaTunnel 中。
 
 - **转换连接器** 如果源和接收器之间的架构不同，您可以使用转换连接器更改从源读取的架构，使其与接收器架构相同。
 
-- **Sink Connector** SeaTunnel 支持将数据写入各种关系型、图形、NoSQL、文档和内存数据库； 分布式文件系统，例如HDFS； 以及各种云存储解决方案，例如S3和OSS。 我们还支持将数据写入许多常见的 SaaS 服务。 您可以在[此处]访问详细列表。 如果您愿意，您可以开发自己的 Sink 连接器并轻松将其集成到 SeaTunnel 中。
+- **Sink Connector** SeaTunnel 支持将数据写入各种关系型、图形、NoSQL、文档和内存数据库； 分布式文件系统，例如HDFS； 以及各种云存储解决方案，例如S3和OSS。 我们还支持将数据写入许多常见的 SaaS 服务。 您可以在[此处](../connectors/sink)访问详细列表。 如果您愿意，您可以开发自己的 Sink 连接器并轻松将其集成到 SeaTunnel 中。
 
 ## 谁在使用 SeaTunnel
 

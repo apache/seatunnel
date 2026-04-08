@@ -168,6 +168,46 @@ public abstract class IncrementalSource<T, C extends SourceConfig>
                         true,
                         null,
                         null));
+        metadata.add(
+                MetadataColumn.of(
+                        CommonOptions.BINLOG_FILE.getName(),
+                        BasicType.STRING_TYPE,
+                        (Long) null,
+                        true,
+                        null,
+                        null));
+        metadata.add(
+                MetadataColumn.of(
+                        CommonOptions.BINLOG_POS.getName(),
+                        BasicType.LONG_TYPE,
+                        (Long) null,
+                        true,
+                        null,
+                        null));
+        metadata.add(
+                MetadataColumn.of(
+                        CommonOptions.BINLOG_ROW.getName(),
+                        BasicType.INT_TYPE,
+                        (Long) null,
+                        true,
+                        null,
+                        null));
+        metadata.add(
+                MetadataColumn.of(
+                        CommonOptions.GTID.getName(),
+                        BasicType.STRING_TYPE,
+                        (Long) null,
+                        true,
+                        null,
+                        null));
+        metadata.add(
+                MetadataColumn.of(
+                        CommonOptions.SOURCE_TIMESTAMP.getName(),
+                        BasicType.LONG_TYPE,
+                        (Long) null,
+                        true,
+                        null,
+                        null));
         return MetadataSchema.builder().columns(metadata).build();
     }
 

@@ -17,56 +17,26 @@
 
 package org.apache.seatunnel.connectors.seatunnel.file.obs.sink;
 
-import org.apache.seatunnel.shade.com.typesafe.config.Config;
-
-import org.apache.seatunnel.api.common.PrepareFailException;
-import org.apache.seatunnel.api.common.SeaTunnelAPIErrorCode;
-import org.apache.seatunnel.api.sink.SeaTunnelSink;
+import org.apache.seatunnel.api.configuration.ReadonlyConfig;
 import org.apache.seatunnel.api.table.catalog.CatalogTable;
-import org.apache.seatunnel.common.config.CheckConfigUtil;
-import org.apache.seatunnel.common.config.CheckResult;
-import org.apache.seatunnel.common.constants.PluginType;
-import org.apache.seatunnel.connectors.seatunnel.file.config.FileBaseOptions;
 import org.apache.seatunnel.connectors.seatunnel.file.config.FileSystemType;
-import org.apache.seatunnel.connectors.seatunnel.file.exception.FileConnectorException;
+import org.apache.seatunnel.connectors.seatunnel.file.config.HadoopConf;
 import org.apache.seatunnel.connectors.seatunnel.file.obs.config.ObsConf;
-import org.apache.seatunnel.connectors.seatunnel.file.obs.config.ObsFileSinkOptions;
 import org.apache.seatunnel.connectors.seatunnel.file.sink.BaseFileSink;
 
-import com.google.auto.service.AutoService;
-
-import java.util.Optional;
-
-@AutoService(SeaTunnelSink.class)
 public class ObsFileSink extends BaseFileSink {
+
+    public ObsFileSink(ReadonlyConfig pluginConfig, CatalogTable catalogTable) {
+        super(pluginConfig, catalogTable);
+    }
+
+    @Override
+    protected HadoopConf initHadoopConf() {
+        return ObsConf.buildWithReadonlyConfig(pluginConfig);
+    }
+
     @Override
     public String getPluginName() {
         return FileSystemType.OBS.getFileSystemPluginName();
-    }
-
-    @Override
-    public void prepare(Config pluginConfig) throws PrepareFailException {
-        super.prepare(pluginConfig);
-        CheckResult result =
-                CheckConfigUtil.checkAllExists(
-                        pluginConfig,
-                        FileBaseOptions.FILE_PATH.key(),
-                        ObsFileSinkOptions.BUCKET.key(),
-                        ObsFileSinkOptions.ACCESS_KEY.key(),
-                        ObsFileSinkOptions.ACCESS_SECRET.key(),
-                        ObsFileSinkOptions.BUCKET.key());
-        if (!result.isSuccess()) {
-            throw new FileConnectorException(
-                    SeaTunnelAPIErrorCode.CONFIG_VALIDATION_FAILED,
-                    String.format(
-                            "PluginName: %s, PluginType: %s, Message: %s",
-                            getPluginName(), PluginType.SINK, result.getMsg()));
-        }
-        hadoopConf = ObsConf.buildWithConfig(pluginConfig);
-    }
-
-    @Override
-    public Optional<CatalogTable> getWriteCatalogTable() {
-        return super.getWriteCatalogTable();
     }
 }
