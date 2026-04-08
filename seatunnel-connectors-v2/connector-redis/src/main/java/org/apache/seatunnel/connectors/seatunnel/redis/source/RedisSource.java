@@ -32,7 +32,7 @@ import org.apache.seatunnel.connectors.seatunnel.redis.config.RedisTableConfig;
 import org.apache.seatunnel.connectors.seatunnel.redis.exception.RedisConnectorException;
 
 import java.util.ArrayList;
-import java.util.HashMap;
+import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
 
@@ -58,7 +58,7 @@ public class RedisSource extends AbstractSingleSplitSource<SeaTunnelRow> {
      */
     private Map<TablePath, RedisTableConfig> createSourceTablesMap(ReadonlyConfig readonlyConfig) {
         List<RedisTableConfig> tableConfigs = RedisTableConfig.of(readonlyConfig);
-        Map<TablePath, RedisTableConfig> tablesMap = new HashMap<>();
+        Map<TablePath, RedisTableConfig> tablesMap = new LinkedHashMap<>();
 
         for (RedisTableConfig tableConfig : tableConfigs) {
             TablePath tablePath = tableConfig.getTablePath();
