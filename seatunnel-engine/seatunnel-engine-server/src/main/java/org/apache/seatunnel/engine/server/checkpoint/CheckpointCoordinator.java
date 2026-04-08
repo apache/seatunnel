@@ -1095,7 +1095,7 @@ public class CheckpointCoordinator {
                     () -> {
                         Object currentStatus = runningJobStateIMap.get(checkpointStateImapKey);
                         if (currentStatus == null) {
-                            LOG.warning(
+                            LOG.warn(
                                     String.format(
                                             "%s has already been cleaned, skip persisting transition to %s",
                                             checkpointStateImapKey, targetStatus));
