@@ -112,7 +112,7 @@ public class JobLogIT extends SeaTunnelEngineContainer {
                 server.execInContainer(
                         "sh",
                         "-c",
-                        "curl -s -o /dev/null -w '%{http_code}' 'http://localhost:8080/log/../../etc/passwd'");
+                        "curl --path-as-is -s -o /dev/null -w '%{http_code}' 'http://localhost:8080/log/../../etc/passwd'");
         Assertions.assertEquals(
                 "400",
                 result.getStdout().trim(),
@@ -123,7 +123,7 @@ public class JobLogIT extends SeaTunnelEngineContainer {
                 server.execInContainer(
                         "sh",
                         "-c",
-                        "curl -s -o /dev/null -w '%{http_code}' 'http://localhost:8080/log/../../../etc/shadow'");
+                        "curl --path-as-is -s -o /dev/null -w '%{http_code}' 'http://localhost:8080/log/../../../etc/shadow'");
         Assertions.assertEquals(
                 "400",
                 result.getStdout().trim(),
@@ -134,7 +134,7 @@ public class JobLogIT extends SeaTunnelEngineContainer {
                 server.execInContainer(
                         "sh",
                         "-c",
-                        "curl -s -o /dev/null -w '%{http_code}' 'http://localhost:8080/logs/../../etc/passwd'");
+                        "curl --path-as-is -s -o /dev/null -w '%{http_code}' 'http://localhost:8080/logs/../../etc/passwd'");
         Assertions.assertEquals(
                 "400",
                 result.getStdout().trim(),
