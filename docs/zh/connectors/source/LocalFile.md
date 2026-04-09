@@ -76,6 +76,9 @@ import ChangeLog from '../changelog/connector-file-local.md';
 | null_format                | string  | 否    | -                   |
 | binary_chunk_size          | int     | 否    | 1024                |
 | binary_complete_file_mode  | boolean | 否    | false               |
+| discovery_mode             | string  | 否    | once                |
+| scan_interval              | string  | 否    | 10S |
+| start_mode                 | string  | 否    | earliest            |
 | sync_mode                  | string  | 否    | full                |
 | target_path                | string  | 否    | -                   |
 | target_hadoop_conf         | map     | 否    | -                   |
@@ -429,6 +432,26 @@ null_format 定义哪些字符串可以表示为 null。
 
 是否将完整文件作为单个块读取，而不是分割成块。启用时，整个文件内容将一次性读入内存。默认为 false。
 
+### discovery_mode [string]
+
+文件发现模式，支持：`once`（默认）、`continuous`。
+
+- `once`：启动时枚举一次文件并结束（有界）。
+- `continuous`：作业保持运行，周期性扫描路径并在运行时处理新增/变更文件（无界）。
+
+当前实现中，`discovery_mode=continuous` 需要配合 `sync_mode=update`（仅 binary）使用，以避免重复传输。
+
+### scan_interval [string]
+
+仅在 `discovery_mode=continuous` 时使用。周期性扫描间隔，取值必须大于 `0`。推荐使用简写格式 `10S`、`30S`（大小写不敏感，例如 `10s`）；同时兼容 ISO-8601 格式 `PT10S`、`PT30S`。默认 `10S`。
+
+### start_mode [string]
+
+仅在 `discovery_mode=continuous` 时使用，支持：`earliest`（默认）、`latest`。
+
+- `earliest`：启动时读取已有文件。
+- `latest`：仅处理作业启动后修改的新文件。
+
 ### sync_mode [string]
 
 文件同步模式，支持：`full`（默认）、`update`。
@@ -660,6 +683,42 @@ sink {
   LocalFile {
     path = "/seatunnel/read/binary2/"
     tmp_path = "/seatunnel/read/binary2-tmp/"
+    file_format_type = "binary"
+  }
+}
+```
+
+### 持续发现（discovery_mode=continuous）
+
+`discovery_mode=continuous` 会让作业保持运行，并按间隔持续扫描路径发现新/变更文件（长跑作业，推荐使用 `job.mode="STREAMING"`）。
+
+**注意：** `discovery_mode=continuous` 当前需要配合 `sync_mode="update"`（仅支持 binary）使用，以避免重复传输而不引入无限增长的“已处理状态”。同时 `target_path` 通常应与 sink 的 `path` 保持一致（同一文件系统、相同相对路径）。
+
+```hocon
+env {
+  parallelism = 1
+  job.mode = "STREAMING"
+}
+
+source {
+  LocalFile {
+    path = "/seatunnel/watch/src/"
+    file_format_type = "binary"
+
+    discovery_mode = "continuous"
+    scan_interval = "10S"
+    start_mode = "latest"
+
+    sync_mode = "update"
+    target_path = "/seatunnel/watch/dst/"
+    update_strategy = "distcp"
+    compare_mode = "len_mtime"
+  }
+}
+sink {
+  LocalFile {
+    path = "/seatunnel/watch/dst/"
+    tmp_path = "/seatunnel/watch/dst-tmp/"
     file_format_type = "binary"
   }
 }
