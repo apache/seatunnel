@@ -39,6 +39,7 @@ import org.apache.seatunnel.engine.common.exception.JobNotFoundException;
 import org.apache.seatunnel.engine.common.exception.SavePointFailedException;
 import org.apache.seatunnel.engine.common.exception.SeaTunnelEngineException;
 import org.apache.seatunnel.engine.common.job.JobResult;
+import org.apache.seatunnel.engine.common.job.JobStateEvent;
 import org.apache.seatunnel.engine.common.job.JobStatus;
 import org.apache.seatunnel.engine.common.utils.ExceptionUtil;
 import org.apache.seatunnel.engine.common.utils.PassiveCompletableFuture;
@@ -805,7 +806,7 @@ public class CoordinatorService {
                             "Job %s is in terminal state %s in runningJobInfoIMap, "
                                     + "cleaning up zombie entry to prevent incorrect restore",
                             jobId, jobState));
-            cleanupZombieJob(jobId, jobInfo);
+            cleanupZombieJob(jobId, jobInfo, (JobStatus) jobState);
             return;
         }
 
@@ -838,13 +839,17 @@ public class CoordinatorService {
 
     /**
      * Clean up all IMap entries for a zombie job (a job in terminal state that was never removed
-     * from runningJobInfoIMap because the coordinator died mid-cleanup). Creates a temporary
-     * JobMaster solely to obtain the PhysicalPlan structure needed to enumerate all pipeline/task
-     * IMap keys, then calls cleanJob() directly — bypassing the pending queue to avoid
-     * transitioning the job back to PENDING state. Falls back to a direct IMap remove if JobMaster
-     * initialisation fails.
+     * from runningJobInfoIMap because the coordinator died mid-cleanup). Initialises a temporary
+     * JobMaster, then drives it through the normal completion lifecycle by completing the physical
+     * plan's end future with the already-known terminal status. This triggers the wired
+     * {@code jobEndFuture} handler which calls {@code cleanJob()} and completes
+     * {@code jobMasterCompleteFuture} — the same path taken by every normally-finishing job.
+     *
+     * <p>If initialisation fails (e.g. checkpoint storage unreachable) the exception is logged and
+     * the zombie is left in place for the next restore cycle to retry.
      */
-    private void cleanupZombieJob(@NonNull Long jobId, @NonNull JobInfo jobInfo) {
+    private void cleanupZombieJob(
+            @NonNull Long jobId, @NonNull JobInfo jobInfo, @NonNull JobStatus jobStatus) {
         JobMaster jobMaster =
                 new JobMaster(
                         jobId,
@@ -862,18 +867,26 @@ public class CoordinatorService {
         try {
             jobMaster.init(jobInfo.getInitializationTimestamp(), true);
             jobMaster.neverNeedRestore();
-            jobMaster.cleanJob();
+            JobResult jobResult = new JobResult(jobStatus, null);
+            jobMaster.getPhysicalPlan().completeJobEndFuture(jobResult);
+            getEventProcessor()
+                    .process(
+                            new JobStateEvent(
+                                    jobMaster.getJobImmutableInformation().getJobId(),
+                                    jobMaster.getJobImmutableInformation()
+                                            .getJobConfig()
+                                            .getName(),
+                                    jobStatus));
+            jobMaster.getJobMasterCompleteFuture().join();
             logger.info(
                     String.format(
-                            "Zombie job %s cleaned up successfully via JobMaster.cleanJob()",
+                            "Zombie job %s cleaned up successfully via completion lifecycle",
                             jobId));
         } catch (Exception e) {
             logger.warning(
                     String.format(
-                            "Failed to init JobMaster for zombie job %s, "
-                                    + "falling back to direct IMap remove: %s",
+                            "Failed to clean up zombie job %s, will retry on next restore: %s",
                             jobId, e.getMessage()));
-            runningJobInfoIMap.remove(jobId);
         }
     }
 
