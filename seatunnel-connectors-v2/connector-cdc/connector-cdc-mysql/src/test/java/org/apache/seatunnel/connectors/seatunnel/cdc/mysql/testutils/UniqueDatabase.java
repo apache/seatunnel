@@ -162,10 +162,11 @@ public class UniqueDatabase {
                                                 .collect(Collectors.joining("\n"))
                                                 .split(";"))
                                 .map(x -> x.replace("$$", ";"))
+                                .map(String::trim)
+                                .filter(x -> !x.isEmpty())
                                 .collect(Collectors.toList());
                 for (String stmt : statements) {
                     statement.execute(stmt);
-                    log.info(stmt);
                 }
             }
         } catch (final Exception e) {

@@ -423,7 +423,7 @@ public abstract class AbstractMysqlCDCITBase extends TestSuiteBase implements Te
             type = {EngineType.SPARK},
             disabledReason = "Currently SPARK do not support cdc")
     public void testMysqlCdcMultiDatabaseMultiTableE2e(TestContainer container) {
-        initializeMultiDbTables();
+        inventoryDatabase.setTemplateName("mysql_cdc_multi_db").createAndInitialize();
         clearTable(MULTI_DATABASE_SINK, MULTI_SOURCE_TABLE_A);
         clearTable(MULTI_DATABASE_SINK, MULTI_SOURCE_TABLE_B);
 
@@ -503,7 +503,7 @@ public abstract class AbstractMysqlCDCITBase extends TestSuiteBase implements Te
             disabledReason = "Currently SPARK and FLINK do not support restore")
     public void testMultiDatabaseWithRestore(TestContainer container)
             throws IOException, InterruptedException {
-        initializeMultiDbTables();
+        inventoryDatabase.setTemplateName("mysql_cdc_multi_db").createAndInitialize();
         clearTable(MULTI_DATABASE_SINK, MULTI_SOURCE_TABLE_A);
         clearTable(MULTI_DATABASE_SINK, MULTI_SOURCE_TABLE_B);
 
@@ -968,10 +968,6 @@ public abstract class AbstractMysqlCDCITBase extends TestSuiteBase implements Te
         if (MYSQL_CONTAINER != null) {
             MYSQL_CONTAINER.close();
         }
-    }
-
-    private void initializeMultiDbTables() {
-        new UniqueDatabase(MYSQL_CONTAINER, "mysql_cdc_multi_db").createAndInitialize();
     }
 
     private void clearTable(String database, String tableName) {
