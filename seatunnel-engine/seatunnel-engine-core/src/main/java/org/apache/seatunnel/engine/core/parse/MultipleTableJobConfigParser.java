@@ -858,7 +858,7 @@ public class MultipleTableJobConfigParser {
         Config tempconfig = seaTunnelJobConfig;
         // Only resolve MetaData configs when:
         // 1. MetaData is enabled
-        // 2. The job config contains datasource_id in any connector
+        // 2. The job config contains metadata_datasource_id in any connector
         if (metaDataConfig != null
                 && metaDataConfig.isEnabled()
                 && hasDatasourceId(seaTunnelJobConfig)) {
@@ -872,10 +872,11 @@ public class MultipleTableJobConfigParser {
     }
 
     /**
-     * Checks if the job config contains datasource_id in any connector configuration.
+     * Checks if the job config contains metadata_datasource_id in any connector configuration.
      *
      * @param config the SeaTunnel job configuration
-     * @return true if any connector (source or sink) contains datasource_id, false otherwise
+     * @return true if any connector (source or sink) contains metadata_datasource_id, false
+     *     otherwise
      */
     private boolean hasDatasourceId(Config config) {
         List<? extends Config> sourceConfigs =
@@ -900,10 +901,10 @@ public class MultipleTableJobConfigParser {
     }
 
     /**
-     * Checks if a single connector config contains datasource_id.
+     * Checks if a single connector config contains metadata_datasource_id.
      *
      * @param connectorConfig the connector configuration
-     * @return true if datasource_id is present, false otherwise
+     * @return true if metadata_datasource_id is present, false otherwise
      */
     private boolean hasDatasourceIdInConnector(Config connectorConfig) {
         try {
@@ -921,7 +922,7 @@ public class MultipleTableJobConfigParser {
                 }
             }
         } catch (Exception e) {
-            log.debug("Failed to check datasource_id in connector config", e);
+            log.debug("Failed to check metadata_datasource_id in connector config", e);
         }
         return false;
     }

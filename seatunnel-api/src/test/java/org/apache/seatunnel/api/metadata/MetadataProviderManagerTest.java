@@ -67,7 +67,7 @@ public class MetadataProviderManagerTest {
         MockTestMetadataProvider provider = new MockTestMetadataProvider();
         registerProvider(provider);
 
-        // Load config from file with datasource_id
+        // Load config from file with metadata_datasource_id
         Config jobConfig = loadTestConfig();
 
         // Create DataSourceConfig
@@ -75,7 +75,7 @@ public class MetadataProviderManagerTest {
         metaDataConfig.setEnabled(true);
         metaDataConfig.setKind(TEST_PROVIDER_KIND);
 
-        // Resolve with datasource_id
+        // Resolve with metadata_datasource_id
         Config resolved =
                 MetadataProviderManager.resolveDataSourceConfigs(jobConfig, metaDataConfig);
 
@@ -102,7 +102,7 @@ public class MetadataProviderManagerTest {
         assertEquals("metadata_user", source2.getString("username"));
         assertEquals("select id, value from table2", source2.getString("query"));
 
-        // Verify third source (Jdbc without datasource_id) - keep original config
+        // Verify third source (Jdbc without metadata_datasource_id) - keep original config
         Config source3 = sources.get(2);
         assertEquals("jdbc:mysql://localhost:3306", source3.getString("url"));
         assertEquals("com.mysql.cj.jdbc.Driver", source3.getString("driver"));
@@ -121,7 +121,7 @@ public class MetadataProviderManagerTest {
         assertEquals("jdbc:postgresql://metadata:5432/metadata_db", sink2.getString("url"));
         assertEquals("insert into sink_table2 (id, value) values (?, ?)", sink2.getString("query"));
 
-        // Verify third sink (Jdbc without datasource_id) - keep original config
+        // Verify third sink (Jdbc without metadata_datasource_id) - keep original config
         Config sink3 = sinks.get(2);
         assertEquals("jdbc:mysql://localhost:3306", sink3.getString("url"));
         assertEquals("com.mysql.cj.jdbc.Driver", sink3.getString("driver"));
@@ -135,7 +135,7 @@ public class MetadataProviderManagerTest {
         // Clear any cached provider
         MetadataProviderManager.clearCache();
 
-        // Load config from file with datasource_id
+        // Load config from file with metadata_datasource_id
         Config jobConfig = loadTestConfig();
 
         // Create MetadataConfig with unknown provider kind

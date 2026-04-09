@@ -121,26 +121,40 @@ public final class MetadataProviderManager {
     /**
      * Gets or creates an initialized MetadataProvider instance with lazy loading caching.
      *
+     * <p>Thread-safety: Uses double-checked locking - first check outside lock for fast path,
+     * re-check inside lock to handle concurrent modifications.
+     *
      * @param kind the provider kind (e.g., "gravitino", "datahub")
      * @param config the configuration for the provider
      * @return initialized MetadataProvider instance
      */
     private static MetadataProvider getOrCreateProvider(String kind, Config config) {
+        // First check: fast path - return if cached provider matches requested kind
         MetadataProvider provider = cachedProvider;
-        if (provider != null && !provider.kind().equalsIgnoreCase(kind)) {
-            provider.close();
-            provider = null;
-            cachedProvider = null;
+        if (provider != null && provider.kind().equalsIgnoreCase(kind)) {
+            return provider;
         }
-        if (provider == null) {
-            synchronized (MetadataProviderManager.class) {
-                provider = cachedProvider;
-                if (provider == null) {
-                    provider = MetadataProviderFactory.getProvider(kind);
-                    provider.init(config);
-                    cachedProvider = provider;
-                    log.info("Created and cached new MetadataProvider: {}", kind);
+        synchronized (MetadataProviderManager.class) {
+            // Re-read volatile variable to see other threads' updates
+            provider = cachedProvider;
+            // Handle kind mismatch: close old provider before creating new one
+            if (provider != null && !provider.kind().equalsIgnoreCase(kind)) {
+                log.info("Provider kind changed from {} to {}", provider.kind(), kind);
+                try {
+                    provider.close();
+                } catch (Exception e) {
+                    log.warn(
+                            "Failed to close old MetadataProvider of kind: {}", provider.kind(), e);
                 }
+                cachedProvider = null;
+                provider = null;
+            }
+            // Create new provider if needed (null or just closed due to kind mismatch)
+            if (provider == null) {
+                provider = MetadataProviderFactory.getProvider(kind);
+                provider.init(config);
+                cachedProvider = provider;
+                log.info("Created and cached new MetadataProvider: {}", kind);
             }
         }
         return provider;
@@ -149,11 +163,11 @@ public final class MetadataProviderManager {
     /**
      * Resolves and merges data source configuration for a single connector config.
      *
-     * <p>If the config contains a {@code datasource_id}, this method will:
+     * <p>If the config contains a {@code metadata_datasource_id}, this method will:
      *
      * <ol>
      *   <li>Use the provided {@link MetadataProvider} (already initialized)
-     *   <li>Fetch the connection config from the metadata service using the datasource_id
+     *   <li>Fetch the connection config from the metadata service using the metadata_datasource_id
      *   <li>Merge the fetched config into the original config
      * </ol>
      *
@@ -161,7 +175,7 @@ public final class MetadataProviderManager {
      * @param provider the initialized MetadataProvider instance
      * @param providerKind the kind of MetadataProvider (e.g., "gravitino", "datahub")
      * @return a new Config with datasource configuration merged, or the original config if no
-     *     datasource_id is present
+     *     metadata_datasource_id is present
      */
     private static Config resolveConnectorConfig(
             Config connectorConfig, MetadataProvider provider, String providerKind) {
@@ -169,7 +183,7 @@ public final class MetadataProviderManager {
 
         if (!datasourceIdOptional.isPresent()) {
             log.debug(
-                    "No datasource_id found in connector config at path: {}, returning original config",
+                    "No metadata_datasource_id found in connector config at path: {}, returning original config",
                     connectorConfig.origin().description());
             return connectorConfig;
         }
@@ -178,7 +192,7 @@ public final class MetadataProviderManager {
         String connectorIdentifier = getConnectorIdentifier(connectorConfig);
 
         log.info(
-                "Resolving datasource config for connector: {}, datasource_id: {}, provider: {}",
+                "Resolving datasource config for connector: {}, metadata_datasource_id: {}, provider: {}",
                 connectorIdentifier,
                 datasourceId,
                 providerKind);
@@ -190,7 +204,7 @@ public final class MetadataProviderManager {
 
             if (datasourceConfig == null || datasourceConfig.isEmpty()) {
                 log.warn(
-                        "Received empty or null config from MetadataProvider for datasource_id: {}",
+                        "Received empty or null config from MetadataProvider for metadata_datasource_id: {}",
                         datasourceId);
                 return connectorConfig;
             }
@@ -203,30 +217,31 @@ public final class MetadataProviderManager {
         } catch (Exception e) {
             throw new MetadataProviderException(
                     String.format(
-                            "Failed to resolve datasource config for connector: %s, datasource_id: %s, provider: %s",
+                            "Failed to resolve datasource config for connector: %s, metadata_datasource_id: %s, provider: %s",
                             connectorIdentifier, datasourceId, providerKind),
                     e);
         }
     }
 
     /**
-     * Gets the datasource_id from a connector config.
+     * Gets the metadata_datasource_id from a connector config.
      *
      * <p>This method first checks at the root level, then looks inside the nested connector config.
      *
      * @param config the connector configuration
-     * @return Optional containing the datasource_id if present, empty otherwise
+     * @return Optional containing the metadata_datasource_id if present, empty otherwise
      */
     private static Optional<String> getDatasourceId(Config config) {
         try {
-            // First check at root level (for configs like { Jdbc: {...}, datasource_id: "ds-123" })
+            // First check at root level (for configs like { Jdbc: {...}, metadata_datasource_id:
+            // "ds-123" })
             if (config.hasPath(ConnectorCommonOptions.METADATA_DATASOURCE_ID.key())) {
                 return Optional.of(
                         config.getString(ConnectorCommonOptions.METADATA_DATASOURCE_ID.key()));
             }
 
             // If not found at root, check inside the nested connector config
-            // (for configs like { Jdbc: { datasource_id: "ds-123", ... } })
+            // (for configs like { Jdbc: { metadata_datasource_id: "ds-123", ... } })
             String connectorIdentifier = getConnectorIdentifier(config);
             if (!"unknown".equals(connectorIdentifier)) {
                 Config nestedConfig = config.getConfig(connectorIdentifier);
@@ -237,7 +252,7 @@ public final class MetadataProviderManager {
                 }
             }
         } catch (ConfigException e) {
-            log.debug("Failed to get datasource_id from config", e);
+            log.debug("Failed to get metadata_datasource_id from config", e);
         }
         return Optional.empty();
     }
@@ -309,7 +324,10 @@ public final class MetadataProviderManager {
         for (Map.Entry<String, Object> entry : datasourceConfig.entrySet()) {
             String key = entry.getKey();
             Object value = entry.getValue();
-            log.debug("Merging datasource config: key={}, datasource_id={}", key, datasourceId);
+            log.debug(
+                    "Merging datasource config: key={}, metadata_datasource_id={}",
+                    key,
+                    datasourceId);
 
             if (isFlatStructure) {
                 // Flat structure: merge directly into the map
@@ -328,7 +346,7 @@ public final class MetadataProviderManager {
         Config mergedConfig = ConfigFactory.parseMap(mergedMap);
 
         log.info(
-                "Successfully merged datasource config for datasource_id: {}, connector: {}, merged keys count: {}",
+                "Successfully merged datasource config for metadata_datasource_id: {}, connector: {}, merged keys count: {}",
                 datasourceId,
                 connectorIdentifier,
                 datasourceConfig.size());
