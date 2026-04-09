@@ -271,8 +271,8 @@ public class JdbcSinkBatchIntervalIT extends TestSuiteBase implements TestResour
                     + ")";
 
     private void initializeJdbcTable() {
-        try (Connection connection = getJdbcConnection()) {
-            Statement statement = connection.createStatement();
+        try (Connection connection = getJdbcConnection();
+                Statement statement = connection.createStatement()) {
             statement.execute(String.format(CREATE_TABLE_SQL, "sink_batch_interval_timer"));
             statement.execute(String.format(CREATE_TABLE_SQL, "sink_batch_size_only"));
             statement.execute(String.format(CREATE_TABLE_SQL, "sink_batch_interval_bs1"));
