@@ -71,11 +71,7 @@ public class JsonWriteStrategy extends AbstractWriteStrategy<FSDataOutputStream>
         FSDataOutputStream fsDataOutputStream = getOrCreateOutputStream(filePath);
         try {
             byte[] rowBytes =
-                    serializationSchema.serialize(
-                            seaTunnelRow.copy(
-                                    sinkColumnsIndexInRow.stream()
-                                            .mapToInt(Integer::intValue)
-                                            .toArray()));
+                    serializationSchema.serialize(safeProjectedRow(seaTunnelRow));
             if (isFirstWrite.get(filePath)) {
                 isFirstWrite.put(filePath, false);
             } else {

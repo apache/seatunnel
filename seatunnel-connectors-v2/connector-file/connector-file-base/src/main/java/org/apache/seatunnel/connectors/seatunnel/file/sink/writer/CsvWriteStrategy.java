@@ -103,11 +103,7 @@ public class CsvWriteStrategy extends AbstractWriteStrategy<FSDataOutputStream> 
                 fsDataOutputStream.write(rowDelimiter.getBytes(charset));
             }
             fsDataOutputStream.write(
-                    serializationSchema.serialize(
-                            seaTunnelRow.copy(
-                                    sinkColumnsIndexInRow.stream()
-                                            .mapToInt(Integer::intValue)
-                                            .toArray())));
+                    serializationSchema.serialize(safeProjectedRow(seaTunnelRow)));
         } catch (IOException e) {
             throw CommonError.fileOperationFailed("CsvFile", "write", filePath, e);
         }

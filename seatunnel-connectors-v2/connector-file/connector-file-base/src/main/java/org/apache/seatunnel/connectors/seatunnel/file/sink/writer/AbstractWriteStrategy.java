@@ -249,6 +249,26 @@ public abstract class AbstractWriteStrategy<T> implements WriteStrategy<T> {
         return row.getField(index);
     }
 
+    /**
+     * Projects a row to only the sink columns, substituting null for any column whose index
+     * exceeds the row's arity. This mirrors {@link SeaTunnelRow#copy(int[])} but is safe for
+     * in-flight old-schema rows arriving after an ADD_COLUMN schema change event.
+     */
+    protected SeaTunnelRow safeProjectedRow(SeaTunnelRow row) {
+        int[] indexMapping =
+                sinkColumnsIndexInRow.stream().mapToInt(Integer::intValue).toArray();
+        Object[] newFields = new Object[indexMapping.length];
+        for (int i = 0; i < indexMapping.length; i++) {
+            newFields[i] =
+                    indexMapping[i] < row.getArity() ? row.getField(indexMapping[i]) : null;
+        }
+        SeaTunnelRow newRow = new SeaTunnelRow(newFields);
+        newRow.setRowKind(row.getRowKind());
+        newRow.setTableId(row.getTableId());
+        newRow.setOptions(row.getOptions());
+        return newRow;
+    }
+
     private void updateSinkColumnNames(SchemaChangeEvent event) {
         if (event instanceof AlterTableAddColumnEvent) {
             AlterTableAddColumnEvent e = (AlterTableAddColumnEvent) event;
