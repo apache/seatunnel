@@ -85,6 +85,8 @@ The URL of the JDBC connection. Refer to a case: jdbc:postgresql://localhost/tes
 
 Use this sql write upstream input datas to database. e.g `INSERT ...`
 
+Current limitation: when sink `query` is configured (custom write SQL), JDBC sink does not apply save mode handling. `schema_save_mode`, `data_save_mode`, and `custom_sql` are not executed in this mode. If you need save mode handling, use `generate_sink_sql = true` with `database` and `table`.
+
 ### compatible_mode [string]
 
 The compatible mode of database, required when the database supports multiple compatible modes.
@@ -219,6 +221,8 @@ Option introduction：
 ### custom_sql [String]
 
 When data_save_mode selects CUSTOM_PROCESSING, you should fill in the CUSTOM_SQL parameter. This parameter usually fills in a SQL that can be executed. SQL will be executed before synchronization tasks.
+
+Note: in sink `query` mode, `custom_sql` is not executed. This behavior is a current limitation of JDBC sink.
 
 ### enable_upsert [boolean]
 
@@ -514,4 +518,3 @@ sink {
 ## Changelog
 
 <ChangeLog />
-
