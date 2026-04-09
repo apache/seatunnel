@@ -427,7 +427,7 @@ sink {
 - [CatalogTable 和元数据](../api-design/catalog-table.md)
 - [目标端架构](../api-design/sink-architecture.md)
 - [DAG 执行](../engine/dag-execution.md)
-- [模式演化](../../introduction/concepts/schema-evolution.md)
+- [模式演化](../../introduction/configuration/schema-evolution.md)
 
 ## 14. 参考资料
 

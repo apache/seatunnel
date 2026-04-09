@@ -385,5 +385,5 @@ sink {
 
 - [source 数据源架构](source-architecture.md)
 - [sink 目标端架构](sink-architecture.md)
-- [模式演化](../../introduction/concepts/schema-evolution.md)
+- [模式演化](../../introduction/configuration/schema-evolution.md)
 - [模式特性](../../introduction/concepts/schema-feature.md)

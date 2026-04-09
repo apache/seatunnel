@@ -135,7 +135,7 @@ IMap<Long, JobInfo> completedJobInfoIMap;
 ```
 
 **Code Reference**:
-- [CoordinatorService.java](../../../seatunnel-engine/seatunnel-engine-server/src/main/java/org/apache/seatunnel/engine/server/CoordinatorService.java)
+- [CoordinatorService.java](../../../../seatunnel-engine/seatunnel-engine-server/src/main/java/org/apache/seatunnel/engine/server/CoordinatorService.java)
 
 #### JobMaster
 
@@ -160,7 +160,7 @@ Created → Initialized → Scheduled → Running → Finished/Failed/Canceled
 3. `handleFailure()`: Restart failed tasks, restore from checkpoint
 
 **Code Reference**:
-- [JobMaster.java](../../../seatunnel-engine/seatunnel-engine-server/src/main/java/org/apache/seatunnel/engine/server/master/JobMaster.java)
+- [JobMaster.java](../../../../seatunnel-engine/seatunnel-engine-server/src/main/java/org/apache/seatunnel/engine/server/master/JobMaster.java)
 
 #### ResourceManager
 
@@ -181,8 +181,8 @@ Manages worker resources and slot allocation.
 ```
 
 **Code Reference**:
-- [ResourceManager.java](../../../seatunnel-engine/seatunnel-engine-server/src/main/java/org/apache/seatunnel/engine/server/resourcemanager/ResourceManager.java)
-- [AbstractResourceManager.java](../../../seatunnel-engine/seatunnel-engine-server/src/main/java/org/apache/seatunnel/engine/server/resourcemanager/AbstractResourceManager.java)
+- [ResourceManager.java](../../../../seatunnel-engine/seatunnel-engine-server/src/main/java/org/apache/seatunnel/engine/server/resourcemanager/ResourceManager.java)
+- [AbstractResourceManager.java](../../../../seatunnel-engine/seatunnel-engine-server/src/main/java/org/apache/seatunnel/engine/server/resourcemanager/AbstractResourceManager.java)
 
 ## 3. DAG Execution Model
 
@@ -496,7 +496,7 @@ public class CheckpointCoordinator {
 7. Create CompletedCheckpoint, persist to storage
 
 **Code Reference**:
-- [CheckpointCoordinator.java](../../../seatunnel-engine/seatunnel-engine-server/src/main/java/org/apache/seatunnel/engine/server/checkpoint/CheckpointCoordinator.java)
+- [CheckpointCoordinator.java](../../../../seatunnel-engine/seatunnel-engine-server/src/main/java/org/apache/seatunnel/engine/server/checkpoint/CheckpointCoordinator.java)
 
 ### 5.2 Checkpoint Barrier
 

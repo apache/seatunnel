@@ -25,6 +25,7 @@ import org.apache.seatunnel.api.table.factory.Factory;
 import org.apache.seatunnel.api.table.factory.TableSourceFactory;
 import org.apache.seatunnel.api.table.factory.TableSourceFactoryContext;
 import org.apache.seatunnel.connectors.seatunnel.rocketmq.common.StartMode;
+import org.apache.seatunnel.connectors.seatunnel.rocketmq.config.RocketMqBaseOptions;
 import org.apache.seatunnel.connectors.seatunnel.rocketmq.config.RocketMqSourceOptions;
 
 import com.google.auto.service.AutoService;
@@ -49,6 +50,7 @@ public class RocketMqSourceFactory implements TableSourceFactory {
                         RocketMqSourceOptions.TABLE_LIST)
                 .optional(
                         RocketMqSourceOptions.FORMAT,
+                        RocketMqBaseOptions.FIELD_DELIMITER,
                         RocketMqSourceOptions.TAGS,
                         RocketMqSourceOptions.START_MODE,
                         RocketMqSourceOptions.CONSUMER_GROUP,
@@ -57,7 +59,8 @@ public class RocketMqSourceFactory implements TableSourceFactory {
                         RocketMqSourceOptions.KEY_PARTITION_DISCOVERY_INTERVAL_MILLIS,
                         RocketMqSourceOptions.POLL_TIMEOUT_MILLIS,
                         RocketMqSourceOptions.BATCH_SIZE,
-                        RocketMqSourceOptions.IGNORE_PARSE_ERRORS)
+                        RocketMqSourceOptions.IGNORE_PARSE_ERRORS,
+                        RocketMqBaseOptions.ACL_ENABLED)
                 .conditional(
                         RocketMqSourceOptions.START_MODE,
                         StartMode.CONSUME_FROM_TIMESTAMP,
@@ -66,6 +69,11 @@ public class RocketMqSourceFactory implements TableSourceFactory {
                         RocketMqSourceOptions.START_MODE,
                         StartMode.CONSUME_FROM_SPECIFIC_OFFSETS,
                         RocketMqSourceOptions.START_MODE_OFFSETS)
+                .conditional(
+                        RocketMqBaseOptions.ACL_ENABLED,
+                        true,
+                        RocketMqBaseOptions.ACCESS_KEY,
+                        RocketMqBaseOptions.SECRET_KEY)
                 .build();
     }
 

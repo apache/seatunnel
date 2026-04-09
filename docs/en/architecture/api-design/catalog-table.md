@@ -663,15 +663,15 @@ sink {
 
 - [Source Architecture](source-architecture.md)
 - [Sink Architecture](sink-architecture.md)
-- [Schema Evolution](../../introduction/concepts/schema-evolution.md)
+- [Schema Evolution](../../introduction/configuration/schema-evolution.md)
 - [Schema Feature](../../introduction/concepts/schema-feature.md)
 
 ## 11. References
 
 ### Key Source Files
 
-- [CatalogTable.java](../../../seatunnel-api/src/main/java/org/apache/seatunnel/api/table/catalog/CatalogTable.java)
-- [TableSchema.java](../../../seatunnel-api/src/main/java/org/apache/seatunnel/api/table/catalog/TableSchema.java)
-- [Column.java](../../../seatunnel-api/src/main/java/org/apache/seatunnel/api/table/catalog/Column.java)
-- [SeaTunnelDataType.java](../../../seatunnel-api/src/main/java/org/apache/seatunnel/api/table/type/SeaTunnelDataType.java)
-- [SchemaChangeEvent.java](../../../seatunnel-api/src/main/java/org/apache/seatunnel/api/table/event/SchemaChangeEvent.java)
+- [CatalogTable.java](../../../../seatunnel-api/src/main/java/org/apache/seatunnel/api/table/catalog/CatalogTable.java)
+- [TableSchema.java](../../../../seatunnel-api/src/main/java/org/apache/seatunnel/api/table/catalog/TableSchema.java)
+- [Column.java](../../../../seatunnel-api/src/main/java/org/apache/seatunnel/api/table/catalog/Column.java)
+- [SeaTunnelDataType.java](../../../../seatunnel-api/src/main/java/org/apache/seatunnel/api/table/type/SeaTunnelDataType.java)
+- [SchemaChangeEvent.java](../../../../seatunnel-api/src/main/java/org/apache/seatunnel/api/table/schema/event/SchemaChangeEvent.java)
