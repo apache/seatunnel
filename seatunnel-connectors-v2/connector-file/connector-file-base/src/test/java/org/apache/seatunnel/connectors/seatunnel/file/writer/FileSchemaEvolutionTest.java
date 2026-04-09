@@ -20,6 +20,7 @@ package org.apache.seatunnel.connectors.seatunnel.file.writer;
 import org.apache.seatunnel.shade.com.typesafe.config.Config;
 import org.apache.seatunnel.shade.com.typesafe.config.ConfigFactory;
 
+import org.apache.seatunnel.api.configuration.ReadonlyConfig;
 import org.apache.seatunnel.api.table.catalog.PhysicalColumn;
 import org.apache.seatunnel.api.table.catalog.TableIdentifier;
 import org.apache.seatunnel.api.table.schema.event.AlterTableAddColumnEvent;
@@ -69,14 +70,14 @@ public class FileSchemaEvolutionTest {
                         "path = \"/tmp/test\"\n"
                                 + "file_format_type = \"parquet\"\n"
                                 + "schema_evolution_enabled = true");
-        return new FileSinkConfig(config, BASE_ROW_TYPE);
+        return new FileSinkConfig(ReadonlyConfig.fromConfig(config), BASE_ROW_TYPE);
     }
 
     private static FileSinkConfig schemaEvolutionDisabledConfig() {
         Config config =
                 ConfigFactory.parseString(
                         "path = \"/tmp/test\"\n" + "file_format_type = \"parquet\"");
-        return new FileSinkConfig(config, BASE_ROW_TYPE);
+        return new FileSinkConfig(ReadonlyConfig.fromConfig(config), BASE_ROW_TYPE);
     }
 
     /**
@@ -92,7 +93,7 @@ public class FileSchemaEvolutionTest {
                                 + "file_format_type = \"parquet\"\n"
                                 + "sink_columns = [\"id\", \"NAME\", \"AGE\"]\n"
                                 + "schema_evolution_enabled = true");
-        return new FileSinkConfig(config, BASE_ROW_TYPE);
+        return new FileSinkConfig(ReadonlyConfig.fromConfig(config), BASE_ROW_TYPE);
     }
 
     // ── Helper to build a NoOpWriteStrategy with a given FileSinkConfig ──────────
