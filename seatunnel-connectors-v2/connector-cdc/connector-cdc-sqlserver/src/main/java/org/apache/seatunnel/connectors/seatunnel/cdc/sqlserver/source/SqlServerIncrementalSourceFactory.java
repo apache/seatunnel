@@ -69,6 +69,8 @@ public class SqlServerIncrementalSourceFactory implements TableSourceFactory {
                         SqlServerIncrementalSourceOptions
                                 .CHUNK_KEY_EVEN_DISTRIBUTION_FACTOR_UPPER_BOUND,
                         SqlServerIncrementalSourceOptions.SAMPLE_SHARDING_THRESHOLD,
+                        SqlServerIncrementalSourceOptions.INVERSE_SAMPLING_RATE,
+                        SqlServerIncrementalSourceOptions.SAMPLE_SHARDING_ENABLE,
                         SqlServerIncrementalSourceOptions.TABLE_NAMES_CONFIG)
                 .optional(
                         SqlServerIncrementalSourceOptions.STARTUP_MODE,
