@@ -81,7 +81,7 @@ import ChangeLog from '../changelog/connector-jdbc.md';
 | auto_commit                  | Boolean | 否    | true                         | 默认启用自动事务提交                                                                                  |
 | field_ide                    | String  | 否    | -                            | 标识从源同步到接收器时字段是否需要转换。`ORIGINAL` 表示不需要转换；`UPPERCASE` 表示转换为大写；`LOWERCASE` 表示转换为小写。             |
 | properties                   | Map     | 否    | -                            | 附加连接配置参数，当 properties 和 URL 具有相同参数时，优先级由 <br/>驱动程序的具体实现确定。例如，在 DuckDB 中，properties 优先于 URL。 |
-| common-options               |         | 否    | -                            | Sink 插件通用参数，详情请参考 [Sink Common Options](../sink-common-options.md)                          |
+| common-options               |         | 否    | -                            | Sink 插件通用参数，详情请参考 [Sink Common Options](../common-options/sink-common-options.md)                          |
 | schema_save_mode             | Enum    | 否    | CREATE_SCHEMA_WHEN_NOT_EXIST | 在同步任务开启之前，针对目标端已有的表结构选择不同的处理方案。                                                             |
 | data_save_mode               | Enum    | 否    | APPEND_DATA                  | 在同步任务开启之前，针对目标端已有数据选择不同的处理方案。                                                               |
 | custom_sql                   | String  | 否    | -                            | 当 data_save_mode 选择 CUSTOM_PROCESSING 时，应填写 CUSTOM_SQL 参数。此参数通常填写可执行的 SQL。SQL 将在同步任务之前执行。   |

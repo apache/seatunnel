@@ -46,7 +46,7 @@ import ChangeLog from '../changelog/connector-graphql.md';
 | retry_backoff_max_ms        | Int    | No       | 10000   | The maximum retry-backoff times(millis) if request http failed                                              |
 | connect_timeout_ms          | Int    | No       | 12000   | Connection timeout setting, default 12s.                                                                    |
 | socket_timeout_ms           | Int    | No       | 60000   | Socket timeout setting, default 60s.                                                                        |
-| common-options              |        | No       | -       | Sink plugin common parameters, please refer to [Sink Common Options](../sink-common-options.md) for details |
+| common-options              |        | No       | -       | Sink plugin common parameters, please refer to [Sink Common Options](../common-options/sink-common-options.md) for details |
 
 ## 示例
 
