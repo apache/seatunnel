@@ -89,9 +89,9 @@ public class JdbcSinkOptions extends JdbcCommonOptions {
                     .longType()
                     .defaultValue(0L)
                     .withDescription(
-                            "batch flush interval (ms). "
-                                    + "Set to 0 to disable time-based flushing (default). "
-                                    + "When > 0, a background thread periodically flushes buffered records.");
+                            "Write-triggered flush interval (ms). "
+                                    + "0 = disabled (default). "
+                                    + "When > 0, each writeRecord checks elapsed time and flushes synchronously if exceeded.");
 
     public static final Option<Integer> TRANSACTION_TIMEOUT_SEC =
             Options.key("transaction_timeout_sec")
