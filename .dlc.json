@@ -4,6 +4,9 @@
       "pattern": "^http://localhost"
     },
     {
+      "pattern": "^http://127\\.0\\.0\\.1"
+    },
+    {
       "pattern": "^https://mvnrepository.com"
     },
     {
@@ -26,6 +29,9 @@
     },
     {
       "pattern": "^https://github.com/apache/seatunnel/commit/"
+    },
+    {
+      "pattern": "src/main/java/"
     }
   ],
   "timeout": "10s",
