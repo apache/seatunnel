@@ -85,9 +85,9 @@ public class MysqlCreateTableSqlBuilder {
 
         return new MysqlCreateTableSqlBuilder(tablePath.getTableName(), typeConverter, createIndex)
                 .comment(catalogTable.getComment())
-                // todo: set charset and collate
-                .engine(null)
-                .charset(null)
+                .engine(catalogTable.getOptions().get(MySqlCatalog.TABLE_OPTION_ENGINE))
+                .charset(catalogTable.getOptions().get(MySqlCatalog.TABLE_OPTION_CHARSET))
+                .collate(catalogTable.getOptions().get(MySqlCatalog.TABLE_OPTION_COLLATE))
                 .primaryKey(tableSchema.getPrimaryKey())
                 .constraintKeys(tableSchema.getConstraintKeys())
                 .addColumn(tableSchema.getColumns())
@@ -265,9 +265,14 @@ public class MysqlCreateTableSqlBuilder {
                 keyName = "UNIQUE KEY";
                 break;
             case FOREIGN_KEY:
-                keyName = "FOREIGN KEY";
-                // todo:
-                break;
+                // Foreign key constraints require referenced table/column info which is
+                // not available in ConstraintKey. Skip generation to avoid producing
+                // invalid DDL.
+                return null;
+            case VECTOR_INDEX_KEY:
+                // VECTOR INDEX is MySQL 8.0+ specific, not supported in generic CREATE
+                // TABLE.
+                return null;
             default:
                 throw new UnsupportedOperationException(
                         "Unsupported constraint type: " + constraintType);
