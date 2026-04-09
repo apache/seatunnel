@@ -88,6 +88,9 @@ public class FileSinkConfig extends BaseFileSinkConfig implements PartitionConfi
 
     private Boolean mergeUpdateEvent;
 
+    private boolean schemaEvolutionEnabled =
+            FileBaseSinkOptions.SCHEMA_EVOLUTION_ENABLED.defaultValue();
+
     public FileSinkConfig(
             @NonNull ReadonlyConfig pluginConfig, @NonNull SeaTunnelRowType seaTunnelRowTypeInfo) {
         super(pluginConfig);
@@ -217,5 +220,8 @@ public class FileSinkConfig extends BaseFileSinkConfig implements PartitionConfi
                 || FileFormat.MAXWELL_JSON.equals(this.fileFormat)) {
             this.mergeUpdateEvent = pluginConfig.get(FileBaseSinkOptions.MERGE_UPDATE_EVENT);
         }
+
+        this.schemaEvolutionEnabled =
+                pluginConfig.get(FileBaseSinkOptions.SCHEMA_EVOLUTION_ENABLED);
     }
 }

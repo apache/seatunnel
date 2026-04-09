@@ -21,6 +21,14 @@ import org.apache.seatunnel.shade.com.google.common.collect.Lists;
 import org.apache.seatunnel.shade.org.apache.commons.lang3.StringUtils;
 
 import org.apache.seatunnel.api.table.catalog.CatalogTable;
+import org.apache.seatunnel.api.table.schema.event.AlterTableAddColumnEvent;
+import org.apache.seatunnel.api.table.schema.event.AlterTableChangeColumnEvent;
+import org.apache.seatunnel.api.table.schema.event.AlterTableColumnEvent;
+import org.apache.seatunnel.api.table.schema.event.AlterTableColumnsEvent;
+import org.apache.seatunnel.api.table.schema.event.AlterTableDropColumnEvent;
+import org.apache.seatunnel.api.table.schema.event.AlterTableModifyColumnEvent;
+import org.apache.seatunnel.api.table.schema.event.SchemaChangeEvent;
+import org.apache.seatunnel.api.table.schema.handler.DataTypeChangeEventDispatcher;
 import org.apache.seatunnel.api.table.type.SeaTunnelDataType;
 import org.apache.seatunnel.api.table.type.SeaTunnelRow;
 import org.apache.seatunnel.api.table.type.SeaTunnelRowType;
@@ -65,7 +73,10 @@ public abstract class AbstractWriteStrategy<T> implements WriteStrategy<T> {
     protected final Logger log = LoggerFactory.getLogger(this.getClass());
     protected final FileSinkConfig fileSinkConfig;
     protected final CompressFormat compressFormat;
-    protected final List<Integer> sinkColumnsIndexInRow;
+    // Non-final: rebuilt on each applySchemaChange call. Defensive copy in constructor.
+    protected List<Integer> sinkColumnsIndexInRow;
+    // Tracks which column names to write. Updated on each schema change event.
+    protected List<String> sinkColumnNames;
     protected String jobId;
     protected int subTaskIndex;
     protected HadoopConf hadoopConf;
@@ -89,7 +100,10 @@ public abstract class AbstractWriteStrategy<T> implements WriteStrategy<T> {
 
     public AbstractWriteStrategy(FileSinkConfig fileSinkConfig) {
         this.fileSinkConfig = fileSinkConfig;
-        this.sinkColumnsIndexInRow = fileSinkConfig.getSinkColumnsIndexInRow();
+        // Defensive copies — mutations in applySchemaChange must not affect FileSinkConfig
+        // (FileSinkConfig instance is shared across writer instances in multi-writer mode)
+        this.sinkColumnsIndexInRow = new ArrayList<>(fileSinkConfig.getSinkColumnsIndexInRow());
+        this.sinkColumnNames = new ArrayList<>(fileSinkConfig.getSinkColumnList());
         this.batchSize = fileSinkConfig.getBatchSize();
         this.compressFormat = fileSinkConfig.getCompressFormat();
         this.singleFileMode = fileSinkConfig.isSingleFileMode();
@@ -161,6 +175,125 @@ public abstract class AbstractWriteStrategy<T> implements WriteStrategy<T> {
     @Override
     public void setCatalogTable(CatalogTable catalogTable) {
         this.seaTunnelRowType = catalogTable.getSeaTunnelRowType();
+    }
+
+    // ── Schema Evolution ──────────────────────────────────────────────────────────
+
+    @Override
+    public void applySchemaChange(SchemaChangeEvent event) throws IOException {
+        if (!fileSinkConfig.isSchemaEvolutionEnabled()) {
+            return;
+        }
+        log.info(
+                "[FileSchemaEvolution] applying {} — before: rowType={}, sinkColumns={}, indices={}",
+                event.getClass().getSimpleName(),
+                seaTunnelRowType,
+                sinkColumnNames,
+                sinkColumnsIndexInRow);
+
+        // Step 1: flush + close all open writers; register partial files for commit.
+        // Reuses the subclass finishAndCloseFile() — Parquet and ORC each close their own
+        // beingWrittenWriter map entries and add to needMoveFiles there.
+        finishAndCloseFile();
+        // Clear path state so the next write() generates a new file path.
+        beingWrittenFile.clear();
+
+        // Step 2: compute new SeaTunnelRowType from the event.
+        this.seaTunnelRowType =
+                new DataTypeChangeEventDispatcher().reset(seaTunnelRowType).apply(event);
+
+        // Step 3: update sinkColumnNames to reflect the structural change.
+        updateSinkColumnNames(event);
+
+        // Step 4: rebuild sinkColumnsIndexInRow from sinkColumnNames + new seaTunnelRowType.
+        this.sinkColumnsIndexInRow = rebuildSinkColumnsIndex();
+
+        // Step 5: let subclasses invalidate any format-specific cached schema objects.
+        onSchemaChanged();
+
+        log.info(
+                "[FileSchemaEvolution] applied — after: rowType={}, sinkColumns={}, indices={}",
+                seaTunnelRowType,
+                sinkColumnNames,
+                sinkColumnsIndexInRow);
+    }
+
+    /**
+     * Hook for subclasses to invalidate format-specific cached schema objects after a schema
+     * change. Default is a no-op. Override in ParquetWriteStrategy to null the cached Avro
+     * schema. ORC does not need this because it calls buildSchemaWithRowType() on every write().
+     */
+    protected void onSchemaChanged() {
+        // no-op by default
+    }
+
+    /**
+     * Bounds-safe row field accessor. Returns null when {@code index >= row.getArity()}.
+     *
+     * <p>Used in write() loops of all format strategies to handle in-flight rows that were
+     * serialised against an old (shorter) schema before a schema change event was processed.
+     * Without this guard, row.getField(index) would throw ArrayIndexOutOfBoundsException.
+     *
+     * @param row the SeaTunnelRow being written
+     * @param index the field index from sinkColumnsIndexInRow
+     * @return the field value, or null if the row predates the schema change
+     */
+    protected Object getFieldSafe(SeaTunnelRow row, int index) {
+        if (index >= row.getArity()) {
+            return null;
+        }
+        return row.getField(index);
+    }
+
+    private void updateSinkColumnNames(SchemaChangeEvent event) {
+        if (event instanceof AlterTableAddColumnEvent) {
+            AlterTableAddColumnEvent e = (AlterTableAddColumnEvent) event;
+            String newCol = e.getColumn().getName();
+            if (!sinkColumnNames.contains(newCol)) {
+                if (e.isFirst()) {
+                    sinkColumnNames.add(0, newCol);
+                } else if (e.getAfterColumn() != null) {
+                    int pos = sinkColumnNames.indexOf(e.getAfterColumn());
+                    sinkColumnNames.add(
+                            pos >= 0 ? pos + 1 : sinkColumnNames.size(), newCol);
+                } else {
+                    sinkColumnNames.add(newCol);
+                }
+            }
+        } else if (event instanceof AlterTableDropColumnEvent) {
+            sinkColumnNames.remove(((AlterTableDropColumnEvent) event).getColumn());
+        } else if (event instanceof AlterTableChangeColumnEvent) {
+            // RENAME: replace old name with new name at same position
+            AlterTableChangeColumnEvent e = (AlterTableChangeColumnEvent) event;
+            int idx = sinkColumnNames.indexOf(e.getOldColumn());
+            if (idx >= 0) {
+                sinkColumnNames.set(idx, e.getColumn().getName());
+            }
+        } else if (event instanceof AlterTableModifyColumnEvent) {
+            // TYPE change only — column name is unchanged, no list update needed
+        } else if (event instanceof AlterTableColumnsEvent) {
+            // Batch: apply each sub-event in order
+            for (AlterTableColumnEvent sub : ((AlterTableColumnsEvent) event).getEvents()) {
+                updateSinkColumnNames(sub);
+            }
+        }
+    }
+
+    private List<Integer> rebuildSinkColumnsIndex() {
+        String[] fieldNames = seaTunnelRowType.getFieldNames();
+        Map<String, Integer> nameToIndex = new HashMap<>(fieldNames.length);
+        for (int i = 0; i < fieldNames.length; i++) {
+            nameToIndex.put(fieldNames[i].toLowerCase(), i);
+        }
+        List<Integer> newIndex = new ArrayList<>(sinkColumnNames.size());
+        for (String col : sinkColumnNames) {
+            Integer idx = nameToIndex.get(col.toLowerCase());
+            if (idx != null) {
+                newIndex.add(idx);
+            }
+            // Column not found in new rowType (e.g. just dropped) — skip silently
+        }
+        return newIndex;
     }
 
     /**
