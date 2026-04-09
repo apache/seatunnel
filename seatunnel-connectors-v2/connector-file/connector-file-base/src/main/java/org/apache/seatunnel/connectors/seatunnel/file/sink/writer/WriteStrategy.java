@@ -18,11 +18,11 @@
 package org.apache.seatunnel.connectors.seatunnel.file.sink.writer;
 
 import org.apache.seatunnel.api.table.catalog.CatalogTable;
+import org.apache.seatunnel.api.table.schema.event.SchemaChangeEvent;
 import org.apache.seatunnel.api.table.type.SeaTunnelRow;
 import org.apache.seatunnel.connectors.seatunnel.file.config.HadoopConf;
 import org.apache.seatunnel.connectors.seatunnel.file.exception.FileConnectorException;
 import org.apache.seatunnel.connectors.seatunnel.file.hadoop.HadoopFileSystemProxy;
-import org.apache.seatunnel.api.table.schema.event.SchemaChangeEvent;
 import org.apache.seatunnel.connectors.seatunnel.file.sink.config.FileSinkConfig;
 
 import org.apache.hadoop.conf.Configuration;
@@ -107,13 +107,12 @@ public interface WriteStrategy<T> extends Transaction, Serializable, Closeable {
     HadoopFileSystemProxy getHadoopFileSystemProxy();
 
     /**
-     * Apply a schema change event to this write strategy. Implementations must:
-     * 1. Close and flush all currently open writers (resource-safe: attempt all closes)
-     * 2. Update the row type and column index mapping
-     * 3. Invalidate any cached format-specific schema objects
+     * Apply a schema change event to this write strategy. Implementations must: 1. Close and flush
+     * all currently open writers (resource-safe: attempt all closes) 2. Update the row type and
+     * column index mapping 3. Invalidate any cached format-specific schema objects
      *
-     * <p>The next {@link #write(SeaTunnelRow)} call after this method returns will open
-     * new writers with the updated schema.
+     * <p>The next {@link #write(SeaTunnelRow)} call after this method returns will open new writers
+     * with the updated schema.
      *
      * <p>This method is a no-op when {@code schema_evolution_enabled=false}.
      *

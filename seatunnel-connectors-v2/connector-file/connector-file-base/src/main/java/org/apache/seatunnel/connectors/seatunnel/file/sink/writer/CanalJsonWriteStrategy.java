@@ -73,8 +73,7 @@ public class CanalJsonWriteStrategy extends AbstractWriteStrategy<FSDataOutputSt
         String filePath = getOrCreateFilePathBeingWritten(seaTunnelRow);
         FSDataOutputStream fsDataOutputStream = getOrCreateOutputStream(filePath);
         try {
-            byte[] rowBytes =
-                    serializationSchema.serialize(safeProjectedRow(seaTunnelRow));
+            byte[] rowBytes = serializationSchema.serialize(safeProjectedRow(seaTunnelRow));
             if (rowBytes == null) {
                 return;
             }

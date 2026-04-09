@@ -102,8 +102,7 @@ public class CsvWriteStrategy extends AbstractWriteStrategy<FSDataOutputStream> 
             } else {
                 fsDataOutputStream.write(rowDelimiter.getBytes(charset));
             }
-            fsDataOutputStream.write(
-                    serializationSchema.serialize(safeProjectedRow(seaTunnelRow)));
+            fsDataOutputStream.write(serializationSchema.serialize(safeProjectedRow(seaTunnelRow)));
         } catch (IOException e) {
             throw CommonError.fileOperationFailed("CsvFile", "write", filePath, e);
         }

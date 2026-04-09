@@ -97,8 +97,7 @@ public class TextWriteStrategy extends AbstractWriteStrategy<FSDataOutputStream>
             } else {
                 fsDataOutputStream.write(rowDelimiter.getBytes(charset));
             }
-            fsDataOutputStream.write(
-                    serializationSchema.serialize(safeProjectedRow(seaTunnelRow)));
+            fsDataOutputStream.write(serializationSchema.serialize(safeProjectedRow(seaTunnelRow)));
         } catch (IOException e) {
             throw CommonError.fileOperationFailed("TextFile", "write", filePath, e);
         }
