@@ -79,6 +79,22 @@ public class FileSchemaEvolutionTest {
         return new FileSinkConfig(config, BASE_ROW_TYPE);
     }
 
+    /**
+     * Config where sink_columns uses mixed case (e.g., "AGE" instead of "age"). This tests the
+     * case-insensitive matching in updateSinkColumnNames: CDC events carry schema-exact names, but
+     * user-configured sink_columns may have different capitalisation.
+     */
+    private static FileSinkConfig schemaEvolutionEnabledConfigWithUppercaseSinkColumns() {
+        // "AGE" uppercase in config, but schema has "age" — real mismatch scenario
+        Config config =
+                ConfigFactory.parseString(
+                        "path = \"/tmp/test\"\n"
+                                + "file_format_type = \"parquet\"\n"
+                                + "sink_columns = [\"id\", \"NAME\", \"AGE\"]\n"
+                                + "schema_evolution_enabled = true");
+        return new FileSinkConfig(config, BASE_ROW_TYPE);
+    }
+
     // ── Helper to build a NoOpWriteStrategy with a given FileSinkConfig ──────────
 
     private static NoOpWriteStrategy buildStrategy(FileSinkConfig config) {
@@ -318,6 +334,102 @@ public class FileSchemaEvolutionTest {
         }
     }
 
+    // ── Case-insensitive DROP ─────────────────────────────────────────────────────
+
+    @Test
+    public void testDropColumnCaseInsensitiveSinkColumns() throws IOException {
+        // sink_columns configured as ["id", "NAME", "AGE"] — user typed uppercase
+        // CDC event carries "age" (exact schema case) — dispatcher finds it, we must
+        // match it against "AGE" in sinkColumnNames via equalsIgnoreCase
+        NoOpWriteStrategy strategy =
+                buildStrategy(schemaEvolutionEnabledConfigWithUppercaseSinkColumns());
+
+        AlterTableDropColumnEvent event = new AlterTableDropColumnEvent(TABLE_ID, "age");
+        strategy.applySchemaChange(event);
+
+        // "AGE" must be removed even though sinkColumnNames stored it as uppercase
+        Assertions.assertFalse(
+                strategy.getSinkColumnNames().stream().anyMatch(c -> c.equalsIgnoreCase("age")),
+                "AGE should be removed via case-insensitive match");
+        Assertions.assertEquals(2, strategy.getSinkColumnNames().size());
+    }
+
+    // ── RENAME with position change ───────────────────────────────────────────────
+
+    @Test
+    public void testRenameColumnWithPositionMoveToFirst() throws IOException {
+        NoOpWriteStrategy strategy = buildStrategy(schemaEvolutionEnabledConfig());
+        // Original: [id, name, age]. Move-rename "age" → "score" and put it first.
+        PhysicalColumn renamedCol =
+                PhysicalColumn.builder()
+                        .name("score")
+                        .dataType(BasicType.INT_TYPE)
+                        .nullable(true)
+                        .build();
+        AlterTableChangeColumnEvent event =
+                AlterTableChangeColumnEvent.changeFirst(TABLE_ID, "age", renamedCol);
+        strategy.applySchemaChange(event);
+
+        // "score" (was "age") should now be at index 0
+        Assertions.assertEquals("score", strategy.getSinkColumnNames().get(0));
+        Assertions.assertFalse(strategy.getSinkColumnNames().contains("age"));
+    }
+
+    @Test
+    public void testRenameCaseInsensitiveSinkColumns() throws IOException {
+        // sink_columns configured as ["id", "NAME", "AGE"] — user typed "NAME" uppercase.
+        // CDC RENAME event sends oldColumn="name" (exact schema case), new name="full_name".
+        // Our updateSinkColumnNames must find "NAME" in sinkColumnNames via equalsIgnoreCase.
+        NoOpWriteStrategy strategy =
+                buildStrategy(schemaEvolutionEnabledConfigWithUppercaseSinkColumns());
+
+        PhysicalColumn renamedCol =
+                PhysicalColumn.builder()
+                        .name("full_name")
+                        .dataType(BasicType.STRING_TYPE)
+                        .nullable(true)
+                        .build();
+        // Event uses schema-exact lowercase "name" — dispatcher can find it
+        AlterTableChangeColumnEvent event =
+                AlterTableChangeColumnEvent.change(TABLE_ID, "name", renamedCol);
+        strategy.applySchemaChange(event);
+
+        // "NAME" (uppercase) should be replaced by "full_name"
+        Assertions.assertFalse(
+                strategy.getSinkColumnNames().stream().anyMatch(c -> c.equalsIgnoreCase("name")),
+                "old name should be removed regardless of case in sinkColumnNames");
+        Assertions.assertTrue(strategy.getSinkColumnNames().contains("full_name"));
+    }
+
+    // ── beingWrittenFile cleared even when finishAndCloseFile throws ──────────────
+
+    @Test
+    public void testBeingWrittenFileClearedEvenOnFinishAndCloseFileException() {
+        // Strategy whose finishAndCloseFile throws to simulate a writer-close failure
+        ThrowingWriteStrategy strategy = new ThrowingWriteStrategy(schemaEvolutionEnabledConfig());
+        strategy.setSeaTunnelRowTypeForTest(BASE_ROW_TYPE);
+        // Simulate a file already being tracked
+        strategy.exposeBeingWrittenFile().put("NON_PARTITION", "/tmp/test/some-file.parquet");
+
+        AlterTableDropColumnEvent event = new AlterTableDropColumnEvent(TABLE_ID, "age");
+        try {
+            strategy.applySchemaChange(event);
+            Assertions.fail("Expected exception from finishAndCloseFile was not thrown");
+        } catch (Exception e) {
+            // Expected — finishAndCloseFile threw (FileConnectorException is a RuntimeException)
+        }
+
+        // Despite the exception, beingWrittenFile must be cleared (try-finally guarantee)
+        Assertions.assertTrue(
+                strategy.exposeBeingWrittenFile().isEmpty(),
+                "beingWrittenFile must be cleared even when finishAndCloseFile throws");
+        // Schema state must NOT be updated (schema change did not complete successfully)
+        Assertions.assertEquals(
+                3,
+                strategy.getSeaTunnelRowType().getTotalFields(),
+                "seaTunnelRowType must remain unchanged after failed schema change");
+    }
+
     // ── Inner NoOp strategy ───────────────────────────────────────────────────────
 
     /**
@@ -354,6 +466,10 @@ public class FileSchemaEvolutionTest {
             this.seaTunnelRowType = rowType;
         }
 
+        LinkedHashMap<String, String> exposeBeingWrittenFile() {
+            return beingWrittenFile;
+        }
+
         Object callGetFieldSafe(SeaTunnelRow row, int index) {
             return getFieldSafe(row, index);
         }
@@ -386,6 +502,26 @@ public class FileSchemaEvolutionTest {
         @Override
         public Configuration getConfiguration(HadoopConf conf) {
             return new Configuration();
+        }
+    }
+
+    /**
+     * Variant that throws on finishAndCloseFile — used to verify the try-finally guarantee in
+     * applySchemaChange (beingWrittenFile must be cleared even when the close fails).
+     */
+    static class ThrowingWriteStrategy extends NoOpWriteStrategy {
+        ThrowingWriteStrategy(FileSinkConfig config) {
+            super(config);
+        }
+
+        @Override
+        public void finishAndCloseFile() {
+            // Simulate a writer that fails to close (e.g., HDFS timeout)
+            throw new org.apache.seatunnel.connectors.seatunnel.file.exception
+                    .FileConnectorException(
+                    org.apache.seatunnel.common.exception.CommonErrorCodeDeprecated
+                            .WRITER_OPERATION_FAILED,
+                    "Simulated writer close failure for test");
         }
     }
 }

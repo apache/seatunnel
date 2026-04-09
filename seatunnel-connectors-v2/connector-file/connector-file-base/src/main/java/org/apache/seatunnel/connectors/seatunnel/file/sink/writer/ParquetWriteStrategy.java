@@ -412,6 +412,19 @@ public class ParquetWriteStrategy extends AbstractWriteStrategy<ParquetWriter<Ge
     @Override
     protected void onSchemaChanged() {
         this.schema = null;
+        // Rebuild writePathsAsInt96 so that any TIMESTAMP columns added via schema evolution
+        // are included. Without this, new TIMESTAMP columns get INT64 encoding instead of INT96
+        // when parquetWriteTimestampAsInt96=true — silent data corruption.
+        if (fileSinkConfig.getParquetWriteTimestampAsInt96()) {
+            writePathsAsInt96 = new HashSet<>(fileSinkConfig.getParquetAvroWriteFixedAsInt96());
+            for (int i = 0; i < seaTunnelRowType.getTotalFields(); i++) {
+                if (SqlType.TIMESTAMP.equals(seaTunnelRowType.getFieldType(i).getSqlType())) {
+                    writePathsAsInt96.add(seaTunnelRowType.getFieldName(i));
+                }
+            }
+        }
+        // Note: if only parquetAvroWriteFixedAsInt96 (BYTES columns) is configured,
+        // those are static column names from config and don't need rebuilding.
     }
 
     private Schema buildAvroSchemaWithRowType(

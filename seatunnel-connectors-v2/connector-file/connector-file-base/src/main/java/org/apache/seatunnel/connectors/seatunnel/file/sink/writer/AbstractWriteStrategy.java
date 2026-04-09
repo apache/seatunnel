@@ -194,9 +194,13 @@ public abstract class AbstractWriteStrategy<T> implements WriteStrategy<T> {
         // Step 1: flush + close all open writers; register partial files for commit.
         // Reuses the subclass finishAndCloseFile() — Parquet and ORC each close their own
         // beingWrittenWriter map entries and add to needMoveFiles there.
-        finishAndCloseFile();
-        // Clear path state so the next write() generates a new file path.
-        beingWrittenFile.clear();
+        // beingWrittenFile.clear() is in a finally block to guarantee it runs even if a writer
+        // fails to close, so stale path entries never accumulate in the cache.
+        try {
+            finishAndCloseFile();
+        } finally {
+            beingWrittenFile.clear();
+        }
 
         // Step 2: compute new SeaTunnelRowType from the event.
         this.seaTunnelRowType =
@@ -220,8 +224,8 @@ public abstract class AbstractWriteStrategy<T> implements WriteStrategy<T> {
 
     /**
      * Hook for subclasses to invalidate format-specific cached schema objects after a schema
-     * change. Default is a no-op. Override in ParquetWriteStrategy to null the cached Avro
-     * schema. ORC does not need this because it calls buildSchemaWithRowType() on every write().
+     * change. Default is a no-op. Override in ParquetWriteStrategy to null the cached Avro schema.
+     * ORC does not need this because it calls buildSchemaWithRowType() on every write().
      */
     protected void onSchemaChanged() {
         // no-op by default
@@ -249,25 +253,47 @@ public abstract class AbstractWriteStrategy<T> implements WriteStrategy<T> {
         if (event instanceof AlterTableAddColumnEvent) {
             AlterTableAddColumnEvent e = (AlterTableAddColumnEvent) event;
             String newCol = e.getColumn().getName();
-            if (!sinkColumnNames.contains(newCol)) {
+            // Case-insensitive duplicate check — CDC sources may send names in any case
+            boolean alreadyPresent =
+                    sinkColumnNames.stream().anyMatch(c -> c.equalsIgnoreCase(newCol));
+            if (!alreadyPresent) {
                 if (e.isFirst()) {
                     sinkColumnNames.add(0, newCol);
                 } else if (e.getAfterColumn() != null) {
-                    int pos = sinkColumnNames.indexOf(e.getAfterColumn());
-                    sinkColumnNames.add(
-                            pos >= 0 ? pos + 1 : sinkColumnNames.size(), newCol);
+                    int pos = indexOfIgnoreCase(sinkColumnNames, e.getAfterColumn());
+                    sinkColumnNames.add(pos >= 0 ? pos + 1 : sinkColumnNames.size(), newCol);
                 } else {
                     sinkColumnNames.add(newCol);
                 }
             }
         } else if (event instanceof AlterTableDropColumnEvent) {
-            sinkColumnNames.remove(((AlterTableDropColumnEvent) event).getColumn());
+            // Case-insensitive removal: CDC sources may send column names in any case
+            String toDrop = ((AlterTableDropColumnEvent) event).getColumn();
+            boolean removed = sinkColumnNames.removeIf(c -> c.equalsIgnoreCase(toDrop));
+            if (!removed) {
+                log.warn(
+                        "[FileSchemaEvolution] DROP event references unknown column '{}' — ignored",
+                        toDrop);
+            }
         } else if (event instanceof AlterTableChangeColumnEvent) {
-            // RENAME: replace old name with new name at same position
+            // RENAME (and optional MOVE): remove old name, insert new name at target position.
+            // AlterTableChangeColumnEvent covers MySQL's CHANGE COLUMN which can rename and
+            // reorder in one statement. Both the rename and the position change are applied.
             AlterTableChangeColumnEvent e = (AlterTableChangeColumnEvent) event;
-            int idx = sinkColumnNames.indexOf(e.getOldColumn());
+            int idx = indexOfIgnoreCase(sinkColumnNames, e.getOldColumn());
             if (idx >= 0) {
-                sinkColumnNames.set(idx, e.getColumn().getName());
+                sinkColumnNames.remove(idx);
+                String newName = e.getColumn().getName();
+                if (e.isFirst()) {
+                    sinkColumnNames.add(0, newName);
+                } else if (e.getAfterColumn() != null) {
+                    int afterIdx = indexOfIgnoreCase(sinkColumnNames, e.getAfterColumn());
+                    sinkColumnNames.add(
+                            afterIdx >= 0 ? afterIdx + 1 : sinkColumnNames.size(), newName);
+                } else {
+                    // No position change — restore at the same index
+                    sinkColumnNames.add(idx, newName);
+                }
             }
         } else if (event instanceof AlterTableModifyColumnEvent) {
             // TYPE change only — column name is unchanged, no list update needed
@@ -277,6 +303,16 @@ public abstract class AbstractWriteStrategy<T> implements WriteStrategy<T> {
                 updateSinkColumnNames(sub);
             }
         }
+    }
+
+    /** Case-insensitive indexOf for a list of column names. Returns -1 if not found. */
+    private static int indexOfIgnoreCase(List<String> list, String name) {
+        for (int i = 0; i < list.size(); i++) {
+            if (list.get(i).equalsIgnoreCase(name)) {
+                return i;
+            }
+        }
+        return -1;
     }
 
     private List<Integer> rebuildSinkColumnsIndex() {
