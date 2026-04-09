@@ -31,6 +31,7 @@ import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
 
 import java.io.IOException;
+import java.util.Collections;
 import java.util.List;
 import java.util.Optional;
 
@@ -59,7 +60,7 @@ class IcebergSinkWriterTest {
     void testRestoreFromStateDoesNotCommit() {
         IcebergSinkState state = new IcebergSinkState("restored-user", 5L);
 
-        new IcebergSinkWriter(tableLoader, config, minimalSchema(), List.of(state));
+        new IcebergSinkWriter(tableLoader, config, minimalSchema(), Collections.singletonList(state));
 
         verifyNoInteractions(tableLoader);
     }
@@ -70,7 +71,7 @@ class IcebergSinkWriterTest {
         IcebergSinkState state = new IcebergSinkState(originalUser, 3L);
 
         IcebergSinkWriter writer =
-                new IcebergSinkWriter(tableLoader, config, minimalSchema(), List.of(state));
+                new IcebergSinkWriter(tableLoader, config, minimalSchema(), Collections.singletonList(state));
 
         List<IcebergSinkState> snapped = writer.snapshotState(4L);
         assertEquals(originalUser, snapped.get(0).getCommitUser());
