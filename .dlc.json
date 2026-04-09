@@ -31,7 +31,7 @@
   "timeout": "10s",
   "retryOn429": true,
   "retryCount": 10,
-  "fallbackRetryDelay": "1000s",
+  "fallbackRetryDelay": "1000ms",
   "aliveStatusCodes": [
     0,
     200,
@@ -39,4 +39,3 @@
     403
   ]
 }
-
