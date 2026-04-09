@@ -1,0 +1,527 @@
+/*
+ * Licensed to the Apache Software Foundation (ASF) under one or more
+ * contributor license agreements.  See the NOTICE file distributed with
+ * this work for additional information regarding copyright ownership.
+ * The ASF licenses this file to You under the Apache License, Version 2.0
+ * (the "License"); you may not use this file except in compliance with
+ * the License.  You may obtain a copy of the License at
+ *
+ *    http://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an "AS IS" BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
+ */
+
+package org.apache.seatunnel.e2e.connector.iceberg;
+
+import org.apache.seatunnel.api.configuration.ReadonlyConfig;
+import org.apache.seatunnel.connectors.seatunnel.iceberg.IcebergTableLoader;
+import org.apache.seatunnel.connectors.seatunnel.iceberg.config.IcebergCommonOptions;
+import org.apache.seatunnel.connectors.seatunnel.iceberg.config.IcebergSourceConfig;
+import org.apache.seatunnel.connectors.seatunnel.iceberg.sink.commit.IcebergFilesCommitter;
+import org.apache.seatunnel.e2e.common.TestSuiteBase;
+import org.apache.seatunnel.e2e.common.container.ContainerExtendedFactory;
+import org.apache.seatunnel.e2e.common.container.EngineType;
+import org.apache.seatunnel.e2e.common.container.TestContainer;
+import org.apache.seatunnel.e2e.common.container.TestContainerId;
+import org.apache.seatunnel.e2e.common.junit.DisabledOnContainer;
+import org.apache.seatunnel.e2e.common.junit.TestContainerExtension;
+import org.apache.seatunnel.e2e.common.util.JobIdGenerator;
+
+import org.apache.iceberg.Snapshot;
+import org.apache.iceberg.Table;
+import org.apache.iceberg.data.IcebergGenerics;
+import org.apache.iceberg.data.Record;
+import org.apache.iceberg.io.CloseableIterable;
+
+import org.junit.jupiter.api.Assertions;
+import org.junit.jupiter.api.TestTemplate;
+import org.junit.jupiter.api.condition.DisabledOnOs;
+import org.junit.jupiter.api.condition.OS;
+import org.testcontainers.containers.Container;
+
+import lombok.extern.slf4j.Slf4j;
+
+import java.io.IOException;
+import java.util.ArrayList;
+import java.util.HashMap;
+import java.util.HashSet;
+import java.util.List;
+import java.util.Map;
+import java.util.Set;
+import java.util.concurrent.CompletableFuture;
+import java.util.concurrent.TimeUnit;
+
+import static org.apache.seatunnel.connectors.seatunnel.iceberg.config.IcebergCatalogType.HADOOP;
+import static org.awaitility.Awaitility.given;
+
+/**
+ * E2E regression test for the fix that ensures the {@code IcebergAggregatedCommitter} produces
+ * exactly one Iceberg snapshot per checkpoint, regardless of sink parallelism.
+ *
+ * <p>The test runs a streaming job with {@code parallelism=2} and verifies:
+ *
+ * <ol>
+ *   <li>The total row count in the Iceberg table equals the source row count — no duplicate rows.
+ *   <li>Every committed Iceberg snapshot carries a unique {@code seatunnel.checkpoint-id} summary
+ *       property, meaning at most one snapshot was produced per checkpoint.
+ * </ol>
+ */
+@Slf4j
+@DisabledOnContainer(
+        value = {TestContainerId.SPARK_2_4},
+        type = {EngineType.SPARK},
+        disabledReason = "Spark engine does not support streaming checkpoint semantics")
+@DisabledOnOs(OS.WINDOWS)
+public class IcebergSinkParallelCommitIT extends TestSuiteBase {
+
+    private static final String CATALOG_DIR = "/tmp/seatunnel_mnt/iceberg/hadoop-parallel-sink/";
+
+    private static final int EXPECTED_ROW_COUNT = 100;
+
+    private String zstdUrl() {
+        return "https://repo1.maven.org/maven2/com/github/luben/zstd-jni/1.5.5-5/zstd-jni-1.5.5-5.jar";
+    }
+
+    @TestContainerExtension
+    protected final ContainerExtendedFactory extendedFactory =
+            container -> {
+                container.execInContainer(
+                        "sh",
+                        "-c",
+                        "mkdir -p "
+                                + CATALOG_DIR
+                                + "seatunnel_namespace/iceberg_parallel_sink_table/data");
+                container.execInContainer(
+                        "sh",
+                        "-c",
+                        "mkdir -p "
+                                + CATALOG_DIR
+                                + "seatunnel_namespace/iceberg_parallel_sink_table/metadata");
+                container.execInContainer(
+                        "sh",
+                        "-c",
+                        "mkdir -p "
+                                + CATALOG_DIR
+                                + "seatunnel_namespace/iceberg_parallel_recovery_table/data");
+                container.execInContainer(
+                        "sh",
+                        "-c",
+                        "mkdir -p "
+                                + CATALOG_DIR
+                                + "seatunnel_namespace/iceberg_parallel_recovery_table/metadata");
+                container.execInContainer(
+                        "sh",
+                        "-c",
+                        "mkdir -p "
+                                + CATALOG_DIR
+                                + "seatunnel_namespace/iceberg_parallel_batch_table/data");
+                container.execInContainer(
+                        "sh",
+                        "-c",
+                        "mkdir -p "
+                                + CATALOG_DIR
+                                + "seatunnel_namespace/iceberg_parallel_batch_table/metadata");
+                container.execInContainer(
+                        "sh",
+                        "-c",
+                        "mkdir -p "
+                                + CATALOG_DIR
+                                + "seatunnel_namespace/iceberg_parallel_row_delta_table/data");
+                container.execInContainer(
+                        "sh",
+                        "-c",
+                        "mkdir -p "
+                                + CATALOG_DIR
+                                + "seatunnel_namespace/iceberg_parallel_row_delta_table/metadata");
+                container.execInContainer("sh", "-c", "chmod -R 777 " + CATALOG_DIR);
+
+                Container.ExecResult zstdResult =
+                        container.execInContainer(
+                                "sh",
+                                "-c",
+                                "mkdir -p /tmp/seatunnel/plugins/Iceberg/lib"
+                                        + " && cd /tmp/seatunnel/plugins/Iceberg/lib"
+                                        + " && wget "
+                                        + zstdUrl());
+                Assertions.assertEquals(0, zstdResult.getExitCode(), zstdResult.getStderr());
+            };
+
+    /**
+     * Runs a streaming Iceberg sink job with parallelism=2 and verifies that:
+     *
+     * <ul>
+     *   <li>Exactly {@value #EXPECTED_ROW_COUNT} rows are written (no duplicates across workers).
+     *   <li>Every Iceberg snapshot has a unique {@code seatunnel.checkpoint-id}, proving that the
+     *       aggregated committer emits exactly one snapshot per checkpoint regardless of how many
+     *       parallel sink writers participated in that checkpoint.
+     * </ul>
+     */
+    @TestTemplate
+    public void testStreamingWithParallelismProducesOneSnapshotPerCheckpoint(
+            TestContainer container) throws IOException, InterruptedException {
+        Container.ExecResult result =
+                container.executeJob("/iceberg/fake_to_iceberg_parallel_streaming.conf");
+        Assertions.assertEquals(0, result.getExitCode(), result.getStderr());
+
+        given().ignoreExceptions()
+                .await()
+                .atMost(60, TimeUnit.SECONDS)
+                .untilAsserted(
+                        () -> {
+                            Table table = loadTable();
+
+                            // 1. No duplicate rows: total row count must equal source row count.
+                            List<Record> rows = readAllRows(table);
+                            Assertions.assertEquals(
+                                    EXPECTED_ROW_COUNT,
+                                    rows.size(),
+                                    "Expected "
+                                            + EXPECTED_ROW_COUNT
+                                            + " rows but got "
+                                            + rows.size()
+                                            + " — possible duplicate rows from parallel writers");
+
+                            // 2. One snapshot per checkpoint: every snapshot that carries a
+                            //    checkpoint-id must have a unique one. If two snapshots shared the
+                            //    same checkpoint-id it would mean a single checkpoint produced more
+                            //    than one Iceberg commit (the pre-fix behaviour with N writers).
+                            List<Snapshot> snapshots = new ArrayList<>();
+                            table.snapshots().forEach(snapshots::add);
+
+                            Set<String> seenCheckpointIds = new HashSet<>();
+                            for (Snapshot snapshot : snapshots) {
+                                String checkpointId =
+                                        snapshot.summary()
+                                                .get(
+                                                        IcebergFilesCommitter
+                                                                .SNAPSHOT_PROPERTY_CHECKPOINT_ID);
+                                if (checkpointId != null) {
+                                    Assertions.assertTrue(
+                                            seenCheckpointIds.add(checkpointId),
+                                            "Checkpoint "
+                                                    + checkpointId
+                                                    + " produced more than one Iceberg snapshot"
+                                                    + " — aggregated committer is not the sole"
+                                                    + " commit path");
+                                }
+                            }
+
+                            log.info(
+                                    "Verified: {} rows, {} snapshots, {} distinct checkpoint-ids",
+                                    rows.size(),
+                                    snapshots.size(),
+                                    seenCheckpointIds.size());
+                        });
+    }
+
+    /**
+     * Verifies that after a savepoint → restore cycle, the aggregated committer does not re-commit
+     * snapshots that were already persisted before the savepoint.
+     *
+     * <p>Test flow:
+     *
+     * <ol>
+     *   <li>Start a streaming job with {@code parallelism=2}. {@code split.read-interval} keeps
+     *       FakeSource alive long enough to trigger several checkpoints.
+     *   <li>Wait 9 s — at least 3 checkpoints complete and their snapshots land in Iceberg.
+     *   <li>Savepoint the job (stops it and persists the last committed state).
+     *   <li>Record the set of {@code seatunnel.checkpoint-id} values already present in the table.
+     *   <li>Restore the job from the savepoint. {@code IcebergAggregatedCommitter.restoreCommit()}
+     *       must detect the already-committed checkpoint via the snapshot summary and skip it.
+     *   <li>Let the restored job run and produce additional checkpoints, then verify:
+     *       <ul>
+     *         <li>Every snapshot in the table has a <em>unique</em> checkpoint-id — no checkpoint
+     *             was committed more than once.
+     *         <li>None of the checkpoint-ids present <em>before</em> the savepoint appear in a new
+     *             snapshot after restore.
+     *       </ul>
+     * </ol>
+     */
+    @TestTemplate
+    @DisabledOnContainer(
+            value = {TestContainerId.SPARK_2_4},
+            type = {EngineType.SPARK, EngineType.FLINK},
+            disabledReason = "savepointJob/restoreJob are only supported on the Zeta engine")
+    public void testRecoveryFromSavepointProducesNoDuplicateSnapshots(TestContainer container)
+            throws Exception {
+        final String recoveryConf = "/iceberg/fake_to_iceberg_parallel_streaming_recovery.conf";
+        Long jobId = JobIdGenerator.newJobId();
+
+        // ── Phase 1: run until at least 3 checkpoints have committed ────────
+        CompletableFuture<Container.ExecResult> firstRun =
+                CompletableFuture.supplyAsync(
+                        () -> {
+                            try {
+                                return container.executeJob(recoveryConf, String.valueOf(jobId));
+                            } catch (Exception e) {
+                                throw new RuntimeException(e);
+                            }
+                        });
+
+        // checkpoint.interval=3s × 3 = 9 s
+        Thread.sleep(9_000);
+
+        Assertions.assertEquals(
+                0,
+                container.savepointJob(String.valueOf(jobId)).getExitCode(),
+                "savepointJob should succeed");
+        firstRun.get(); // wait for the job to stop cleanly
+
+        // Snapshot of checkpoint-ids committed during the first run
+        Table tableAfterSavepoint = loadRecoveryTable();
+        Set<String> checkpointIdsBefore = collectCheckpointIds(tableAfterSavepoint);
+        Assertions.assertFalse(
+                checkpointIdsBefore.isEmpty(),
+                "At least one checkpoint must have been committed before the savepoint");
+        log.info("Checkpoint-ids committed before savepoint: {}", checkpointIdsBefore);
+
+        // ── Phase 2: restore and let the job run to completion ───────────────
+        CompletableFuture.supplyAsync(
+                () -> {
+                    try {
+                        return container.restoreJob(recoveryConf, String.valueOf(jobId));
+                    } catch (Exception e) {
+                        throw new RuntimeException(e);
+                    }
+                });
+
+        // Wait long enough for the restored job to finish (4 splits × 3 s + buffer)
+        given().ignoreExceptions()
+                .await()
+                .atMost(60, TimeUnit.SECONDS)
+                .untilAsserted(
+                        () -> {
+                            Table latest = loadRecoveryTable();
+                            Set<String> allCheckpointIds = collectCheckpointIds(latest);
+
+                            // 1. No two snapshots share a checkpoint-id.
+                            List<Snapshot> snapshots = new ArrayList<>();
+                            latest.snapshots().forEach(snapshots::add);
+                            Set<String> seen = new HashSet<>();
+                            for (Snapshot snapshot : snapshots) {
+                                String cpId =
+                                        snapshot.summary()
+                                                .get(
+                                                        IcebergFilesCommitter
+                                                                .SNAPSHOT_PROPERTY_CHECKPOINT_ID);
+                                if (cpId != null) {
+                                    Assertions.assertTrue(
+                                            seen.add(cpId),
+                                            "Checkpoint "
+                                                    + cpId
+                                                    + " produced more than one snapshot —"
+                                                    + " restoreCommit() is not idempotent");
+                                }
+                            }
+
+                            // 2. checkpoint-ids present before savepoint must not reappear as
+                            //    NEW snapshots: the snapshot count for each of those ids must
+                            //    be exactly 1 (the original commit, not re-committed).
+                            long duplicatesForOldCheckpoints =
+                                    snapshots.stream()
+                                            .map(
+                                                    s ->
+                                                            s.summary()
+                                                                    .get(
+                                                                            IcebergFilesCommitter
+                                                                                    .SNAPSHOT_PROPERTY_CHECKPOINT_ID))
+                                            .filter(checkpointIdsBefore::contains)
+                                            .count();
+                            Assertions.assertEquals(
+                                    checkpointIdsBefore.size(),
+                                    duplicatesForOldCheckpoints,
+                                    "Each pre-savepoint checkpoint should appear in exactly one"
+                                            + " snapshot after restore; got "
+                                            + duplicatesForOldCheckpoints
+                                            + " snapshot(s) for "
+                                            + checkpointIdsBefore.size()
+                                            + " checkpoint-id(s)");
+
+                            log.info(
+                                    "Recovery verified: {} total snapshots, {} distinct checkpoint-ids",
+                                    snapshots.size(),
+                                    allCheckpointIds.size());
+                        });
+    }
+
+    /**
+     * Runs a batch Iceberg sink job with parallelism=2 and verifies that:
+     *
+     * <ul>
+     *   <li>Exactly {@value #EXPECTED_ROW_COUNT} rows are written (no duplicates across workers).
+     *   <li>Exactly one Iceberg snapshot is produced — batch ends with a single
+     *       {@code COMPLETED_POINT_TYPE} barrier, so the aggregated committer must produce exactly
+     *       one commit regardless of how many parallel sink writers participated.
+     * </ul>
+     */
+    @TestTemplate
+    public void testBatchWithParallelismProducesOneSnapshotAndNoduplicates(TestContainer container)
+            throws IOException, InterruptedException {
+        Container.ExecResult result =
+                container.executeJob("/iceberg/fake_to_iceberg_parallel_batch.conf");
+        Assertions.assertEquals(0, result.getExitCode(), result.getStderr());
+
+        Table table = loadBatchTable();
+
+        List<Record> rows = readAllRows(table);
+        Assertions.assertEquals(
+                EXPECTED_ROW_COUNT,
+                rows.size(),
+                "Expected "
+                        + EXPECTED_ROW_COUNT
+                        + " rows but got "
+                        + rows.size()
+                        + " — possible duplicate rows from parallel writers");
+
+        List<Snapshot> snapshots = new ArrayList<>();
+        table.snapshots().forEach(snapshots::add);
+        Assertions.assertEquals(
+                1,
+                snapshots.size(),
+                "Batch job should produce exactly one Iceberg snapshot but got "
+                        + snapshots.size());
+    }
+
+    private Set<String> collectCheckpointIds(Table table) {
+        Set<String> ids = new HashSet<>();
+        for (Snapshot snapshot : table.snapshots()) {
+            String cpId =
+                    snapshot.summary().get(IcebergFilesCommitter.SNAPSHOT_PROPERTY_CHECKPOINT_ID);
+            if (cpId != null) {
+                ids.add(cpId);
+            }
+        }
+        return ids;
+    }
+
+    /**
+     * Verifies the RowDelta commit path with parallel writers.
+     *
+     * <p>With {@code iceberg.table.upsert-mode-enabled=true} every INSERT row also emits an
+     * equality-delete record, so {@code WriteResult.deleteFiles} is always non-empty. This forces
+     * {@link org.apache.seatunnel.connectors.seatunnel.iceberg.sink.commit.IcebergFilesCommitter}
+     * to take the {@code RowDelta} branch instead of {@code AppendFiles}.
+     *
+     * <p>The test verifies:
+     *
+     * <ul>
+     *   <li>The job succeeds — RowDelta commits work end-to-end with parallel workers.
+     *   <li>Exactly one Iceberg snapshot is produced — the aggregated committer merges all workers
+     *       into a single RowDelta commit regardless of parallelism.
+     *   <li>The snapshot operation is {@code "overwrite"} — confirming the RowDelta path was taken.
+     *   <li>The snapshot summary contains {@code seatunnel.checkpoint-id} — confirming the
+     *       idempotency guard is active even on the RowDelta branch.
+     * </ul>
+     */
+    @TestTemplate
+    public void testBatchUpsertWithParallelismUsesRowDeltaAndProducesOneSnapshot(
+            TestContainer container) throws IOException, InterruptedException {
+        Container.ExecResult result =
+                container.executeJob("/iceberg/fake_to_iceberg_parallel_row_delta.conf");
+        Assertions.assertEquals(0, result.getExitCode(), result.getStderr());
+
+        Table table = loadRowDeltaTable();
+
+        List<Snapshot> snapshots = new ArrayList<>();
+        table.snapshots().forEach(snapshots::add);
+        Assertions.assertEquals(
+                1,
+                snapshots.size(),
+                "Batch upsert job should produce exactly one Iceberg snapshot but got "
+                        + snapshots.size());
+
+        Snapshot snapshot = snapshots.get(0);
+        Assertions.assertEquals(
+                "overwrite",
+                snapshot.operation(),
+                "Upsert mode must use RowDelta (operation=overwrite), not AppendFiles");
+
+        Assertions.assertNotNull(
+                snapshot.summary().get(IcebergFilesCommitter.SNAPSHOT_PROPERTY_CHECKPOINT_ID),
+                "RowDelta snapshot must carry seatunnel.checkpoint-id in its summary");
+    }
+
+    private Table loadRowDeltaTable() throws IOException {
+        Map<String, Object> configs = new HashMap<>();
+        Map<String, Object> catalogProps = new HashMap<>();
+        catalogProps.put("type", HADOOP.getType());
+        catalogProps.put("warehouse", "file://" + CATALOG_DIR);
+        configs.put(IcebergCommonOptions.KEY_CATALOG_NAME.key(), "seatunnel_test");
+        configs.put(IcebergCommonOptions.KEY_NAMESPACE.key(), "seatunnel_namespace");
+        configs.put(IcebergCommonOptions.KEY_TABLE.key(), "iceberg_parallel_row_delta_table");
+        configs.put(IcebergCommonOptions.CATALOG_PROPS.key(), catalogProps);
+        try (IcebergTableLoader loader =
+                IcebergTableLoader.create(
+                        new IcebergSourceConfig(ReadonlyConfig.fromMap(configs)))) {
+            loader.open();
+            return loader.loadTable();
+        }
+    }
+
+    private Table loadBatchTable() throws IOException {
+        Map<String, Object> configs = new HashMap<>();
+        Map<String, Object> catalogProps = new HashMap<>();
+        catalogProps.put("type", HADOOP.getType());
+        catalogProps.put("warehouse", "file://" + CATALOG_DIR);
+        configs.put(IcebergCommonOptions.KEY_CATALOG_NAME.key(), "seatunnel_test");
+        configs.put(IcebergCommonOptions.KEY_NAMESPACE.key(), "seatunnel_namespace");
+        configs.put(IcebergCommonOptions.KEY_TABLE.key(), "iceberg_parallel_batch_table");
+        configs.put(IcebergCommonOptions.CATALOG_PROPS.key(), catalogProps);
+        try (IcebergTableLoader loader =
+                IcebergTableLoader.create(
+                        new IcebergSourceConfig(ReadonlyConfig.fromMap(configs)))) {
+            loader.open();
+            return loader.loadTable();
+        }
+    }
+
+    private Table loadRecoveryTable() throws IOException {
+        Map<String, Object> configs = new HashMap<>();
+        Map<String, Object> catalogProps = new HashMap<>();
+        catalogProps.put("type", HADOOP.getType());
+        catalogProps.put("warehouse", "file://" + CATALOG_DIR);
+        configs.put(IcebergCommonOptions.KEY_CATALOG_NAME.key(), "seatunnel_test");
+        configs.put(IcebergCommonOptions.KEY_NAMESPACE.key(), "seatunnel_namespace");
+        configs.put(IcebergCommonOptions.KEY_TABLE.key(), "iceberg_parallel_recovery_table");
+        configs.put(IcebergCommonOptions.CATALOG_PROPS.key(), catalogProps);
+        try (IcebergTableLoader loader =
+                IcebergTableLoader.create(
+                        new IcebergSourceConfig(ReadonlyConfig.fromMap(configs)))) {
+            loader.open();
+            return loader.loadTable();
+        }
+    }
+
+    private Table loadTable() throws IOException {
+        Map<String, Object> configs = new HashMap<>();
+        Map<String, Object> catalogProps = new HashMap<>();
+        catalogProps.put("type", HADOOP.getType());
+        catalogProps.put("warehouse", "file://" + CATALOG_DIR);
+        configs.put(IcebergCommonOptions.KEY_CATALOG_NAME.key(), "seatunnel_test");
+        configs.put(IcebergCommonOptions.KEY_NAMESPACE.key(), "seatunnel_namespace");
+        configs.put(IcebergCommonOptions.KEY_TABLE.key(), "iceberg_parallel_sink_table");
+        configs.put(IcebergCommonOptions.CATALOG_PROPS.key(), catalogProps);
+        try (IcebergTableLoader loader =
+                IcebergTableLoader.create(
+                        new IcebergSourceConfig(ReadonlyConfig.fromMap(configs)))) {
+            loader.open();
+            return loader.loadTable();
+        }
+    }
+
+    private List<Record> readAllRows(Table table) {
+        List<Record> rows = new ArrayList<>();
+        try (CloseableIterable<Record> records = IcebergGenerics.read(table).build()) {
+            for (Record record : records) {
+                rows.add(record);
+            }
+        } catch (IOException e) {
+            log.warn("Failed to read Iceberg table records", e);
+        }
+        return rows;
+    }
+}
