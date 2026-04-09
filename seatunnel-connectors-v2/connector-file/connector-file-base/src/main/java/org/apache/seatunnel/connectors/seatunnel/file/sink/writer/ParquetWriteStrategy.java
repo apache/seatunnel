@@ -123,7 +123,7 @@ public class ParquetWriteStrategy extends AbstractWriteStrategy<ParquetWriter<Ge
         GenericRecordBuilder recordBuilder = new GenericRecordBuilder(schema);
         for (Integer integer : sinkColumnsIndexInRow) {
             String fieldName = seaTunnelRowType.getFieldName(integer);
-            Object field = seaTunnelRow.getField(integer);
+            Object field = getFieldSafe(seaTunnelRow, integer);
             recordBuilder.set(
                     fieldName.toLowerCase(),
                     resolveObject(fieldName, field, seaTunnelRowType.getFieldType(integer)));
@@ -407,6 +407,11 @@ public class ParquetWriteStrategy extends AbstractWriteStrategy<ParquetWriter<Ge
                 throw new FileConnectorException(
                         CommonErrorCodeDeprecated.UNSUPPORTED_DATA_TYPE, errorMsg);
         }
+    }
+
+    @Override
+    protected void onSchemaChanged() {
+        this.schema = null;
     }
 
     private Schema buildAvroSchemaWithRowType(
