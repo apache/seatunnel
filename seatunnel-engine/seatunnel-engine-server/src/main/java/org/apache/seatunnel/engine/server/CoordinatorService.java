@@ -866,7 +866,6 @@ public class CoordinatorService {
                         seaTunnelServer);
         try {
             jobMaster.init(jobInfo.getInitializationTimestamp(), true);
-            jobMaster.neverNeedRestore();
             JobResult jobResult = new JobResult(jobStatus, null);
             jobMaster.getPhysicalPlan().completeJobEndFuture(jobResult);
             getEventProcessor()
