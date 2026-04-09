@@ -181,12 +181,7 @@ public class SeaTunnelServer
 
         // A trick to fix StatisticsDataReferenceCleaner thread class loader leak.
         // see https://issues.apache.org/jira/browse/HADOOP-19049
-        // Only load Hadoop classes when checkpoint storage actually requires them.
-        String storageType =
-                seaTunnelConfig.getEngineConfig().getCheckpointConfig().getStorage().getStorage();
-        if (!"localfile".equalsIgnoreCase(storageType)) {
-            FileSystem.Statistics statistics = new FileSystem.Statistics("SeaTunnel");
-        }
+        FileSystem.Statistics statistics = new FileSystem.Statistics("SeaTunnel");
     }
 
     private void startMaster() {
