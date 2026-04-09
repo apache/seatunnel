@@ -385,7 +385,7 @@ Get the http url of metadata information through restApi, such as: `http://local
 
 The type of metalake service, currently only supports `gravitino`. When using `schema_url` to obtain metadata from Gravitino, you can specify this parameter (default is `gravitino`).
 
-For more information about Metalake, please refer to [Metalake](../../introduction/concepts/metalake.md).
+For more information about Metalake, please refer to [Metalake](../../introduction/configuration/metalake.md).
 
 ## How to Create a Sftp Data Synchronization Jobs
 
