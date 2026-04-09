@@ -108,4 +108,3 @@ row=16 : SGZCr, 94186144
 - Start write your own config file now, choose the [connector](../../connectors/source) you want to use, and configure the parameters according to the connector's documentation.
 - See [SeaTunnel With Flink](../../engines/flink.md) if you want to know more about SeaTunnel With Flink.
 - SeaTunnel have a builtin engine named `Zeta`, and it's the default engine of SeaTunnel. You can follow [Quick Start](quick-start-seatunnel-engine.md) to configure and run a data synchronization job.
-

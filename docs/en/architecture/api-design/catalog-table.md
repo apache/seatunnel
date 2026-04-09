@@ -670,8 +670,8 @@ sink {
 
 ### Key Source Files
 
-- [CatalogTable.java](../../../seatunnel-api/src/main/java/org/apache/seatunnel/api/table/catalog/CatalogTable.java)
-- [TableSchema.java](../../../seatunnel-api/src/main/java/org/apache/seatunnel/api/table/catalog/TableSchema.java)
-- [Column.java](../../../seatunnel-api/src/main/java/org/apache/seatunnel/api/table/catalog/Column.java)
-- [SeaTunnelDataType.java](../../../seatunnel-api/src/main/java/org/apache/seatunnel/api/table/type/SeaTunnelDataType.java)
-- [SchemaChangeEvent.java](../../../seatunnel-api/src/main/java/org/apache/seatunnel/api/table/event/SchemaChangeEvent.java)
+- [CatalogTable.java](../../../../seatunnel-api/src/main/java/org/apache/seatunnel/api/table/catalog/CatalogTable.java)
+- [TableSchema.java](../../../../seatunnel-api/src/main/java/org/apache/seatunnel/api/table/catalog/TableSchema.java)
+- [Column.java](../../../../seatunnel-api/src/main/java/org/apache/seatunnel/api/table/catalog/Column.java)
+- [SeaTunnelDataType.java](../../../../seatunnel-api/src/main/java/org/apache/seatunnel/api/table/type/SeaTunnelDataType.java)
+- [SchemaChangeEvent.java](../../../../seatunnel-api/src/main/java/org/apache/seatunnel/api/table/schema/event/SchemaChangeEvent.java)

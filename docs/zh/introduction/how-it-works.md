@@ -102,3 +102,4 @@ seatunnel/
 - [引擎对比](../engines/overview.md)
 - [快速开始](../getting-started/locally/quick-start-seatunnel-engine.md)
 - [连接器列表](https://seatunnel.apache.org/zh-CN/docs/connectors/source/)
+- [连接器列表](../connectors)

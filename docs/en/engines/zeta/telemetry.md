@@ -145,6 +145,6 @@ the [Installation](https://grafana.com/docs/grafana/latest/setup-grafana/install
 ### Monitoring Dashboard
 
 - Add Prometheus DataSource on Grafana.
-  - Import `Seatunnel Cluster` monitoring dashboard into Grafana (dashboard JSON file needs to be prepared separately).
+  - Import the `Seatunnel Cluster` monitoring dashboard JSON into Grafana.
 
-The dashboard effect is shown in the Grafana monitoring interface.
+The [effect image](../../../images/grafana.png) of the dashboard

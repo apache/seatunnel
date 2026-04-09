@@ -96,7 +96,7 @@ Paimon表的changelog产生模式有[四种](https://paimon.apache.org/docs/mast
 * [`lookup`](https://paimon.apache.org/docs/master/primary-key-table/changelog-producer/#lookup)
 * [`full-compaction`](https://paimon.apache.org/docs/master/primary-key-table/changelog-producer/#full-compaction)
 > 注意：
-> 当你使用流模式去读paimon表的数据时，不同模式将会产生[不同的结果](https://github.com/apache/seatunnel/blob/dev/docs/en/connectors/source/Paimon.md#changelog)。
+> 当你使用流模式去读paimon表的数据时，不同模式将会产生[不同的结果](../source/Paimon.md#changelog)。
 
 ## 文件系统
 Paimon连接器支持向多文件系统写入数据。目前支持的文件系统有hdfs和s3。
