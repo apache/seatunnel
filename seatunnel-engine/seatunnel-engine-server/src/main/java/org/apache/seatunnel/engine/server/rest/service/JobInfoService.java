@@ -132,7 +132,14 @@ public class JobInfoService extends BaseService {
     public JsonArray getRunningJobsJson() {
         IMap<Long, JobInfo> values =
                 nodeEngine.getHazelcastInstance().getMap(Constant.IMAP_RUNNING_JOB_INFO);
+        SeaTunnelServer seaTunnelServer = getSeaTunnelServer(true);
         return values.entrySet().stream()
+                .filter(
+                        entry ->
+                                seaTunnelServer == null
+                                        || seaTunnelServer
+                                                .getCoordinatorService()
+                                                .shouldShowAsRunningJob(entry.getKey()))
                 .sorted(
                         Comparator.comparing(
                                 entry -> entry.getValue().getInitializationTimestamp(),

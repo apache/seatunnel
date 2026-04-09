@@ -22,12 +22,14 @@ import org.apache.seatunnel.engine.common.config.SeaTunnelConfig;
 import org.apache.seatunnel.engine.common.job.JobStatus;
 import org.apache.seatunnel.engine.core.job.JobInfo;
 import org.apache.seatunnel.engine.server.AbstractSeaTunnelServerTest;
+import org.apache.seatunnel.engine.server.rest.service.JobInfoService;
 
 import org.awaitility.Awaitility;
 import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.Test;
 
 import com.hazelcast.map.IMap;
+import com.hazelcast.spi.impl.NodeEngineImpl;
 
 import java.util.concurrent.TimeUnit;
 
@@ -62,14 +64,17 @@ class JobStateCleanupDelayTest extends AbstractSeaTunnelServerTest<JobStateClean
         IMap<Object, Long[]> runningJobStateTimestampsIMap =
                 nodeEngine.getHazelcastInstance().getMap(Constant.IMAP_STATE_TIMESTAMPS);
 
-        Assertions.assertNull(runningJobInfoIMap.get(jobId));
+        Assertions.assertNotNull(runningJobInfoIMap.get(jobId));
         Assertions.assertEquals(JobStatus.FINISHED, runningJobStateIMap.get(jobId));
         Assertions.assertNotNull(runningJobStateTimestampsIMap.get(jobId));
+        Assertions.assertTrue(
+                new JobInfoService((NodeEngineImpl) nodeEngine).getRunningJobsJson().isEmpty());
 
         Awaitility.await()
                 .atMost(10, TimeUnit.SECONDS)
                 .untilAsserted(
                         () -> {
+                            Assertions.assertNull(runningJobInfoIMap.get(jobId));
                             Assertions.assertNull(runningJobStateIMap.get(jobId));
                             Assertions.assertNull(runningJobStateTimestampsIMap.get(jobId));
                         });
