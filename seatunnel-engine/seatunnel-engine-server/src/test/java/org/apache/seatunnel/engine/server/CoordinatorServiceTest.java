@@ -526,13 +526,15 @@ public class CoordinatorServiceTest {
 
         // Inject a zombie: job in FAILED state that was never cleaned from runningJobInfoIMap
         // (simulates coordinator dying mid-cleanup before removeJobIMap executed).
-        // Use real serialized JobImmutableInformation so that cleanupZombieJob() can complete
-        // JobMaster.init() and exercise the JobMaster.cleanJob() path (not just the fallback).
+        // Use a STREAM job (not batch) so that if the fix is absent and the zombie is re-run,
+        // it will stay RUNNING indefinitely and never be removed from runningJobInfoIMap —
+        // causing the assertion to time out and the test to FAIL on unfixed code.
+        // With the fix, cleanupZombieJob() removes the zombie before any restore attempt.
         long zombieJobId =
                 instance1.getFlakeIdGenerator(Constant.SEATUNNEL_ID_GENERATOR_NAME).newId();
         LogicalDag zombieLogicalDag =
                 TestUtils.createTestLogicalPlan(
-                        "batch_fake_to_console.conf", "zombie-test-job", zombieJobId);
+                        "stream_fake_to_console.conf", "zombie-test-job", zombieJobId);
         JobImmutableInformation zombieImmutableInfo =
                 new JobImmutableInformation(
                         zombieJobId,
@@ -573,8 +575,9 @@ public class CoordinatorServiceTest {
                         });
 
         // All zombie IMap entries must be removed — exercises the JobMaster.cleanJob() path
-        // which cleans runningJobStateIMap in addition to runningJobInfoIMap (the fallback
-        // direct-remove only cleans runningJobInfoIMap).
+        // which cleans runningJobStateIMap in addition to runningJobInfoIMap.
+        // If the fix is absent the stream zombie is re-run indefinitely, so runningJobInfoIMap
+        // keeps the entry and the assertion below times out → test FAILS on unfixed code.
         IMap<Long, org.apache.seatunnel.engine.core.job.JobInfo> runningJobInfoOnInstance2 =
                 instance2.getMap(Constant.IMAP_RUNNING_JOB_INFO);
         IMap<Long, JobStatus> runningJobStateOnInstance2 =
