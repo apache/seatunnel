@@ -841,9 +841,9 @@ public class CoordinatorService {
      * Clean up all IMap entries for a zombie job (a job in terminal state that was never removed
      * from runningJobInfoIMap because the coordinator died mid-cleanup). Initialises a temporary
      * JobMaster, then drives it through the normal completion lifecycle by completing the physical
-     * plan's end future with the already-known terminal status. This triggers the wired
-     * {@code jobEndFuture} handler which calls {@code cleanJob()} and completes
-     * {@code jobMasterCompleteFuture} — the same path taken by every normally-finishing job.
+     * plan's end future with the already-known terminal status. This triggers the wired {@code
+     * jobEndFuture} handler which calls {@code cleanJob()} and completes {@code
+     * jobMasterCompleteFuture} — the same path taken by every normally-finishing job.
      *
      * <p>If initialisation fails (e.g. checkpoint storage unreachable) the exception is logged and
      * the zombie is left in place for the next restore cycle to retry.
@@ -873,9 +873,7 @@ public class CoordinatorService {
                     .process(
                             new JobStateEvent(
                                     jobMaster.getJobImmutableInformation().getJobId(),
-                                    jobMaster.getJobImmutableInformation()
-                                            .getJobConfig()
-                                            .getName(),
+                                    jobMaster.getJobImmutableInformation().getJobConfig().getName(),
                                     jobStatus));
             jobMaster.getJobMasterCompleteFuture().join();
             logger.info(
