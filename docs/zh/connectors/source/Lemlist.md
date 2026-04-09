@@ -45,7 +45,7 @@ HTTP 请求 URL
 
 API 密钥用于登录，您可以在以下链接获取更多详情：
 
-https://app.lemlist.com/settings/integrations
+https://developer.lemlist.com/
 
 ### method [String]
 
