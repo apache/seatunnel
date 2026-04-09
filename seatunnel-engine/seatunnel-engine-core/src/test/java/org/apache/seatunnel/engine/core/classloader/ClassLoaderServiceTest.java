@@ -29,11 +29,27 @@ import com.hazelcast.cluster.Address;
 import com.hazelcast.instance.impl.Node;
 import com.hazelcast.spi.impl.NodeEngineImpl;
 
+import javax.tools.JavaCompiler;
+import javax.tools.JavaFileObject;
+import javax.tools.StandardJavaFileManager;
+import javax.tools.ToolProvider;
+
 import java.io.File;
 import java.io.IOException;
 import java.net.MalformedURLException;
 import java.net.URL;
 import java.net.URLClassLoader;
+import java.nio.charset.StandardCharsets;
+import java.nio.file.Files;
+import java.nio.file.Path;
+import java.util.ArrayList;
+import java.util.Arrays;
+import java.util.Comparator;
+import java.util.List;
+import java.util.jar.JarEntry;
+import java.util.jar.JarOutputStream;
+import java.util.stream.Collectors;
+import java.util.stream.Stream;
 
 public class ClassLoaderServiceTest extends AbstractClassLoaderServiceTest {
 
@@ -253,5 +269,228 @@ public class ClassLoaderServiceTest extends AbstractClassLoaderServiceTest {
                 () -> classLoaderService.releaseClassLoader(1L, Lists.newArrayList(jarUrl)));
 
         tempJar.delete();
+    }
+
+    @Test
+    void testClassLoaderClosedOnReleaseWithDeepClean() throws Exception {
+        TestJar testJar =
+                createTestJar(
+                        "release",
+                        "org.apache.seatunnel.test.release.BeforeRelease",
+                        "org.apache.seatunnel.test.release.AfterRelease");
+        DefaultClassLoaderService serviceWithDeepClean = null;
+        try {
+            System.setProperty(DefaultClassLoaderService.ENABLE_DEEP_CLEAN, "true");
+            serviceWithDeepClean = new DefaultClassLoaderService(false, null);
+
+            ClassLoader classLoader =
+                    serviceWithDeepClean.getClassLoader(
+                            1L, Lists.newArrayList(testJar.getJarUrl()));
+            Assertions.assertNotNull(classLoader);
+            Assertions.assertTrue(classLoader instanceof URLClassLoader);
+            Assertions.assertSame(
+                    classLoader,
+                    classLoader
+                            .loadClass("org.apache.seatunnel.test.release.BeforeRelease")
+                            .getClassLoader());
+
+            serviceWithDeepClean.releaseClassLoader(1L, Lists.newArrayList(testJar.getJarUrl()));
+
+            Assertions.assertFalse(
+                    serviceWithDeepClean
+                            .queryClassLoaderById(1L, Lists.newArrayList(testJar.getJarUrl()))
+                            .isPresent());
+            Assertions.assertThrows(
+                    ClassNotFoundException.class,
+                    () -> classLoader.loadClass("org.apache.seatunnel.test.release.AfterRelease"));
+
+            URL resourceAfter =
+                    classLoader.getResource("org/apache/seatunnel/test/release/AfterRelease.class");
+            Assertions.assertNull(resourceAfter);
+        } finally {
+            if (serviceWithDeepClean != null) {
+                serviceWithDeepClean.close();
+            }
+            System.clearProperty(DefaultClassLoaderService.ENABLE_DEEP_CLEAN);
+            testJar.close();
+        }
+    }
+
+    @Test
+    void testCloseAllClassLoadersOnServiceCloseWithDeepClean() throws Exception {
+        TestJar firstJar =
+                createTestJar(
+                        "close-one",
+                        "org.apache.seatunnel.test.closeone.BeforeClose",
+                        "org.apache.seatunnel.test.closeone.AfterClose");
+        TestJar secondJar =
+                createTestJar(
+                        "close-two",
+                        "org.apache.seatunnel.test.closetwo.BeforeClose",
+                        "org.apache.seatunnel.test.closetwo.AfterClose");
+        DefaultClassLoaderService serviceWithDeepClean = null;
+        try {
+            System.setProperty(DefaultClassLoaderService.ENABLE_DEEP_CLEAN, "true");
+            serviceWithDeepClean = new DefaultClassLoaderService(false, null);
+
+            ClassLoader firstClassLoader =
+                    serviceWithDeepClean.getClassLoader(
+                            1L, Lists.newArrayList(firstJar.getJarUrl()));
+            ClassLoader secondClassLoader =
+                    serviceWithDeepClean.getClassLoader(
+                            2L, Lists.newArrayList(secondJar.getJarUrl()));
+
+            Assertions.assertSame(
+                    firstClassLoader,
+                    firstClassLoader
+                            .loadClass("org.apache.seatunnel.test.closeone.BeforeClose")
+                            .getClassLoader());
+            Assertions.assertSame(
+                    secondClassLoader,
+                    secondClassLoader
+                            .loadClass("org.apache.seatunnel.test.closetwo.BeforeClose")
+                            .getClassLoader());
+            Assertions.assertEquals(2, serviceWithDeepClean.queryClassLoaderCount());
+
+            serviceWithDeepClean.close();
+
+            Assertions.assertEquals(0, serviceWithDeepClean.queryClassLoaderCount());
+            Assertions.assertThrows(
+                    ClassNotFoundException.class,
+                    () ->
+                            firstClassLoader.loadClass(
+                                    "org.apache.seatunnel.test.closeone.AfterClose"));
+            Assertions.assertThrows(
+                    ClassNotFoundException.class,
+                    () ->
+                            secondClassLoader.loadClass(
+                                    "org.apache.seatunnel.test.closetwo.AfterClose"));
+        } finally {
+            if (serviceWithDeepClean != null) {
+                serviceWithDeepClean.close();
+            }
+            System.clearProperty(DefaultClassLoaderService.ENABLE_DEEP_CLEAN);
+            firstJar.close();
+            secondJar.close();
+        }
+    }
+
+    private TestJar createTestJar(String jarName, String... classNames) throws IOException {
+        Path rootDir = Files.createTempDirectory("classloader-test-");
+        Path sourceDir = Files.createDirectories(rootDir.resolve("src"));
+        Path classesDir = Files.createDirectories(rootDir.resolve("classes"));
+        List<File> sourceFiles = new ArrayList<>();
+        for (String className : classNames) {
+            sourceFiles.add(createSourceFile(sourceDir, className).toFile());
+        }
+        compileSourceFiles(sourceFiles, classesDir);
+        Path jarPath = rootDir.resolve(jarName + ".jar");
+        createJar(classesDir, jarPath);
+        return new TestJar(rootDir, jarPath.toUri().toURL());
+    }
+
+    private Path createSourceFile(Path sourceDir, String className) throws IOException {
+        int packageSeparator = className.lastIndexOf('.');
+        String packageName = packageSeparator >= 0 ? className.substring(0, packageSeparator) : "";
+        String simpleName =
+                packageSeparator >= 0 ? className.substring(packageSeparator + 1) : className;
+        Path packageDir =
+                packageName.isEmpty()
+                        ? sourceDir
+                        : Files.createDirectories(
+                                sourceDir.resolve(packageName.replace('.', File.separatorChar)));
+        Path sourceFile = packageDir.resolve(simpleName + ".java");
+        String sourceCode =
+                (packageName.isEmpty() ? "" : "package " + packageName + ";\n\n")
+                        + "public class "
+                        + simpleName
+                        + " {\n"
+                        + "    public String value() {\n"
+                        + "        return \""
+                        + simpleName
+                        + "\";\n"
+                        + "    }\n"
+                        + "}\n";
+        Files.write(sourceFile, sourceCode.getBytes(StandardCharsets.UTF_8));
+        return sourceFile;
+    }
+
+    private void compileSourceFiles(List<File> sourceFiles, Path classesDir) throws IOException {
+        JavaCompiler compiler = ToolProvider.getSystemJavaCompiler();
+        Assertions.assertNotNull(compiler, "A JDK compiler is required for this test");
+        try (StandardJavaFileManager fileManager =
+                compiler.getStandardFileManager(null, null, null)) {
+            Iterable<? extends JavaFileObject> compilationUnits =
+                    fileManager.getJavaFileObjectsFromFiles(sourceFiles);
+            Boolean success =
+                    compiler.getTask(
+                                    null,
+                                    fileManager,
+                                    null,
+                                    Arrays.asList("-d", classesDir.toString(), "-proc:none"),
+                                    null,
+                                    compilationUnits)
+                            .call();
+            Assertions.assertEquals(Boolean.TRUE, success, "Failed to compile test classes");
+        }
+    }
+
+    private void createJar(Path classesDir, Path jarPath) throws IOException {
+        try (JarOutputStream jarOutputStream = new JarOutputStream(Files.newOutputStream(jarPath));
+                Stream<Path> classFiles = Files.walk(classesDir)) {
+            for (Path classFile :
+                    classFiles.filter(Files::isRegularFile).collect(Collectors.toList())) {
+                String entryName =
+                        classesDir
+                                .relativize(classFile)
+                                .toString()
+                                .replace(File.separatorChar, '/');
+                jarOutputStream.putNextEntry(new JarEntry(entryName));
+                Files.copy(classFile, jarOutputStream);
+                jarOutputStream.closeEntry();
+            }
+        }
+    }
+
+    private void deleteRecursively(Path rootDir) throws IOException {
+        if (rootDir == null || Files.notExists(rootDir)) {
+            return;
+        }
+        IOException deleteException = null;
+        try (Stream<Path> paths = Files.walk(rootDir)) {
+            for (Path path : paths.sorted(Comparator.reverseOrder()).collect(Collectors.toList())) {
+                try {
+                    Files.deleteIfExists(path);
+                } catch (IOException e) {
+                    if (deleteException == null) {
+                        deleteException = e;
+                    } else {
+                        deleteException.addSuppressed(e);
+                    }
+                }
+            }
+        }
+        if (deleteException != null) {
+            throw deleteException;
+        }
+    }
+
+    private final class TestJar implements AutoCloseable {
+        private final Path rootDir;
+        private final URL jarUrl;
+
+        private TestJar(Path rootDir, URL jarUrl) {
+            this.rootDir = rootDir;
+            this.jarUrl = jarUrl;
+        }
+
+        private URL getJarUrl() {
+            return jarUrl;
+        }
+
+        @Override
+        public void close() throws IOException {
+            deleteRecursively(rootDir);
+        }
     }
 }
