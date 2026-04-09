@@ -353,9 +353,9 @@ public class IcebergSinkParallelCommitIT extends TestSuiteBase {
      *
      * <ul>
      *   <li>Exactly {@value #EXPECTED_ROW_COUNT} rows are written (no duplicates across workers).
-     *   <li>Exactly one Iceberg snapshot is produced — batch ends with a single
-     *       {@code COMPLETED_POINT_TYPE} barrier, so the aggregated committer must produce exactly
-     *       one commit regardless of how many parallel sink writers participated.
+     *   <li>Exactly one Iceberg snapshot is produced — batch ends with a single {@code
+     *       COMPLETED_POINT_TYPE} barrier, so the aggregated committer must produce exactly one
+     *       commit regardless of how many parallel sink writers participated.
      * </ul>
      */
     @TestTemplate
