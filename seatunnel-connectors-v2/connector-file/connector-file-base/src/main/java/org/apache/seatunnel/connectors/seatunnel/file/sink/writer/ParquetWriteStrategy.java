@@ -252,7 +252,8 @@ public class ParquetWriteStrategy extends AbstractWriteStrategy<ParquetWriter<Ge
                                             calendar.get(Calendar.MILLISECOND));
                     NanoTime nanoTime = new NanoTime(julianDays, timeOfDayNanos);
                     return new GenericData.Fixed(
-                            schema.getField(name).schema(), nanoTime.toBinary().getBytes());
+                            schema.getField(name.toLowerCase()).schema(),
+                            nanoTime.toBinary().getBytes());
                 }
                 return ((LocalDateTime) data)
                         .atZone(ZoneId.systemDefault())
@@ -260,7 +261,8 @@ public class ParquetWriteStrategy extends AbstractWriteStrategy<ParquetWriter<Ge
                         .toEpochMilli();
             case BYTES:
                 if (writePathsAsInt96.contains(name)) {
-                    return new GenericData.Fixed(schema.getField(name).schema(), (byte[]) data);
+                    return new GenericData.Fixed(
+                            schema.getField(name.toLowerCase()).schema(), (byte[]) data);
                 }
                 return ByteBuffer.wrap((byte[]) data);
             case ROW:

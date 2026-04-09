@@ -47,6 +47,7 @@ import org.apache.seatunnel.connectors.seatunnel.file.sink.writer.WriteStrategy;
 import org.apache.seatunnel.connectors.seatunnel.file.sink.writer.WriteStrategyFactory;
 
 import java.util.Arrays;
+import java.util.Collections;
 import java.util.List;
 import java.util.Optional;
 
@@ -127,6 +128,9 @@ public abstract class BaseMultipleTableFileSink
 
     @Override
     public List<SchemaChangeType> supports() {
+        if (!fileSinkConfig.isSchemaEvolutionEnabled()) {
+            return Collections.emptyList();
+        }
         return Arrays.asList(
                 SchemaChangeType.ADD_COLUMN,
                 SchemaChangeType.DROP_COLUMN,
