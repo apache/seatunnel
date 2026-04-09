@@ -149,6 +149,8 @@ public class DorisCommitter implements SinkCommitter<DorisCommitInfo> {
     private void abortTransaction(DorisCommitInfo committable)
             throws IOException, DorisConnectorException {
         List<String> retryHosts = resolveFrontendRetryHosts(committable.getHostPort());
+        String responseStatus = null;
+        IOException lastIOException = null;
         DorisConnectorException lastRedirectException = null;
         for (int attempt = 0; attempt <= maxRetry; attempt++) {
             String hostPort = retryHosts.get(attempt % retryHosts.size());
@@ -174,8 +176,13 @@ public class DorisCommitter implements SinkCommitter<DorisCommitInfo> {
                 lastRedirectException = e;
                 log.error("abort transaction redirect follow-up failed on {}: ", hostPort, e);
                 continue;
+            } catch (IOException e) {
+                lastIOException = e;
+                log.error("abort transaction failed on {}: ", hostPort, e);
+                continue;
             }
             int statusCode = response.getStatusLine().getStatusCode();
+            responseStatus = response.getStatusLine().toString();
             if (statusCode == HTTP_TEMPORARY_REDIRECT) {
                 Header location = response.getFirstHeader("Location");
                 throw new DorisConnectorException(
@@ -197,12 +204,17 @@ public class DorisCommitter implements SinkCommitter<DorisCommitInfo> {
         if (lastRedirectException != null) {
             throw lastRedirectException;
         }
+        if (lastIOException != null && responseStatus == null) {
+            throw lastIOException;
+        }
         throw new DorisConnectorException(
                 DorisConnectorErrorCode.STREAM_LOAD_FAILED,
-                "Fail to abort transaction "
-                        + committable.getTxbID()
-                        + " with frontends "
-                        + dorisSinkConfig.getFrontends());
+                responseStatus == null
+                        ? "Fail to abort transaction "
+                                + committable.getTxbID()
+                                + " with frontends "
+                                + dorisSinkConfig.getFrontends()
+                        : responseStatus);
     }
 
     private void handleCommitSuccess(

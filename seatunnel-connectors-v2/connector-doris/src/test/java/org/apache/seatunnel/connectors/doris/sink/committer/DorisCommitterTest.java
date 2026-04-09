@@ -154,6 +154,29 @@ public class DorisCommitterTest {
                 requestCaptor.getAllValues().get(1).getURI().toString());
     }
 
+    @Test
+    void testAbortRetriesNextFrontendOnIOException() throws IOException {
+        CloseableHttpClient httpClient = mock(CloseableHttpClient.class);
+        CloseableHttpResponse successResponse = successResponse();
+        when(httpClient.execute(any(HttpUriRequest.class), any(HttpContext.class)))
+                .thenThrow(new IOException("first fe failed"))
+                .thenReturn(successResponse);
+
+        DorisCommitter committer =
+                new DorisCommitter(createMultiFrontendConfig(true, true), httpClient);
+        committer.abort(Collections.singletonList(new DorisCommitInfo("fe1:8030", "test_db", 12L)));
+
+        ArgumentCaptor<HttpPut> requestCaptor = ArgumentCaptor.forClass(HttpPut.class);
+        verify(httpClient, times(2)).execute(requestCaptor.capture(), any(HttpContext.class));
+
+        Assertions.assertEquals(
+                "http://fe1:8030/api/test_db/_stream_load_2pc",
+                requestCaptor.getAllValues().get(0).getURI().toString());
+        Assertions.assertEquals(
+                "http://fe2:8030/api/test_db/_stream_load_2pc",
+                requestCaptor.getAllValues().get(1).getURI().toString());
+    }
+
     private DorisSinkConfig createSinkConfig(boolean directToBe, boolean enable2PC) {
         Map<String, Object> options = new HashMap<>();
         options.put("fenodes", "fe1:8030");

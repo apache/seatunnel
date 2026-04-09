@@ -43,6 +43,7 @@ import java.util.Optional;
 import static org.mockito.ArgumentMatchers.anyLong;
 import static org.mockito.ArgumentMatchers.anyString;
 import static org.mockito.Mockito.doNothing;
+import static org.mockito.Mockito.doThrow;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.times;
 import static org.mockito.Mockito.verify;
@@ -150,6 +151,53 @@ public class DorisSinkWriterTest {
         }
     }
 
+    @Test
+    void testDirectToBeClosesControlStreamLoadWhenBackendInitializationFails() throws Exception {
+        DorisStreamLoad frontendLoad = mock(DorisStreamLoad.class);
+        doNothing().when(frontendLoad).abortPreCommit(anyString(), anyLong());
+
+        RecordingStreamLoadFactory factory = new RecordingStreamLoadFactory();
+        factory.register("fe1:8030", frontendLoad);
+        factory.registerFailure("be1:8040", new IllegalStateException("be init failed"));
+
+        Assertions.assertThrows(
+                RuntimeException.class,
+                () ->
+                        new DorisSinkWriter(
+                                new DefaultSinkWriterContext(0, 1),
+                                new ArrayList<>(),
+                                mockCatalogTable(),
+                                createSinkConfig(true, true),
+                                "job_1",
+                                factory));
+
+        verify(frontendLoad, times(1)).close();
+    }
+
+    @Test
+    void testInitializeLoadClosesFailedStreamLoadWhenAbortPreCommitFails() throws Exception {
+        DorisStreamLoad frontendLoad = mock(DorisStreamLoad.class);
+        doThrow(new IllegalStateException("abort failed"))
+                .when(frontendLoad)
+                .abortPreCommit(anyString(), anyLong());
+
+        RecordingStreamLoadFactory factory = new RecordingStreamLoadFactory();
+        factory.register("fe1:8030", frontendLoad);
+
+        Assertions.assertThrows(
+                RuntimeException.class,
+                () ->
+                        new DorisSinkWriter(
+                                new DefaultSinkWriterContext(0, 1),
+                                new ArrayList<>(),
+                                mockCatalogTable(),
+                                createSinkConfig(true, true),
+                                "job_1",
+                                factory));
+
+        verify(frontendLoad, times(1)).close();
+    }
+
     private DorisSinkConfig createSinkConfig(boolean directToBe, boolean enable2PC) {
         Map<String, Object> options = new HashMap<>();
         options.put("fenodes", "fe1:8030");
@@ -195,10 +243,15 @@ public class DorisSinkWriterTest {
 
     private static final class RecordingStreamLoadFactory implements DorisStreamLoadFactory {
         private final Map<String, DorisStreamLoad> streamLoads = new HashMap<>();
+        private final Map<String, RuntimeException> createFailures = new HashMap<>();
         private final List<String> createdHosts = new ArrayList<>();
 
         private void register(String host, DorisStreamLoad streamLoad) {
             streamLoads.put(host, streamLoad);
+        }
+
+        private void registerFailure(String host, RuntimeException exception) {
+            createFailures.put(host, exception);
         }
 
         @Override
@@ -208,6 +261,10 @@ public class DorisSinkWriterTest {
                 DorisSinkConfig dorisSinkConfig,
                 LabelGenerator labelGenerator) {
             createdHosts.add(hostPort);
+            RuntimeException createFailure = createFailures.get(hostPort);
+            if (createFailure != null) {
+                throw createFailure;
+            }
             DorisStreamLoad streamLoad = streamLoads.get(hostPort);
             if (streamLoad == null) {
                 throw new IllegalArgumentException("Unexpected host " + hostPort);
