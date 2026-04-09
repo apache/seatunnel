@@ -114,6 +114,25 @@ class ReplaceTransformTest {
     }
 
     @Test
+    void testRejectConflictingReplaceFieldKeys() {
+        Map<String, Object> configMap = new HashMap<>();
+        configMap.put("replace_field", "name");
+        configMap.put(
+                ReplaceTransformConfig.KEY_REPLACE_FIELDS.key(), Arrays.asList("name", "title"));
+        configMap.put(ReplaceTransformConfig.KEY_PATTERN.key(), "before");
+        configMap.put(ReplaceTransformConfig.KEY_REPLACEMENT.key(), "after");
+
+        TransformException exception =
+                Assertions.assertThrows(
+                        TransformException.class,
+                        () ->
+                                new ReplaceTransform(
+                                        ReadonlyConfig.fromMap(configMap), catalogTable));
+
+        Assertions.assertTrue(exception.getMessage().contains("cannot be configured together"));
+    }
+
+    @Test
     void testNullFieldSkipped() {
         Map<String, Object> configMap = new HashMap<>();
         configMap.put(

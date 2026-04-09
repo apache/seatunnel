@@ -32,6 +32,7 @@ import lombok.NonNull;
 
 import java.util.ArrayList;
 import java.util.List;
+import java.util.Map;
 import java.util.regex.Pattern;
 import java.util.regex.PatternSyntaxException;
 
@@ -48,6 +49,7 @@ public class ReplaceTransform extends AbstractCatalogSupportMapTransform {
     public ReplaceTransform(
             @NonNull ReadonlyConfig config, @NonNull CatalogTable inputCatalogTable) {
         super(inputCatalogTable);
+        validateConflictingReplaceFieldKeys(config);
         this.replaceFields.addAll(
                 getRequiredOption(config, ReplaceTransformConfig.KEY_REPLACE_FIELDS));
 
@@ -69,6 +71,14 @@ public class ReplaceTransform extends AbstractCatalogSupportMapTransform {
     @Override
     public String getPluginName() {
         return PLUGIN_NAME;
+    }
+
+    private void validateConflictingReplaceFieldKeys(ReadonlyConfig config) {
+        Map<String, Object> sourceMap = config.getSourceMap();
+        if (sourceMap.containsKey("replace_field") && sourceMap.containsKey("replace_fields")) {
+            throw TransformCommonError.validationFailed(
+                    "Options 'replace_field' and 'replace_fields' cannot be configured together.");
+        }
     }
 
     private <T> T getRequiredOption(ReadonlyConfig config, Option<T> option) {
