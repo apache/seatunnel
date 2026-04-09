@@ -17,12 +17,16 @@
 
 package org.apache.seatunnel.transform.nlpmodel.embedding;
 
+import org.apache.seatunnel.transform.nlpmodel.embedding.multimodal.ModalityType;
+
 import lombok.Data;
+import lombok.extern.slf4j.Slf4j;
 
 import java.io.Serializable;
 import java.util.Base64;
 
 @Data
+@Slf4j
 public class SrcField implements Serializable {
 
     private static final long serialVersionUID = 1L;
@@ -32,8 +36,31 @@ public class SrcField implements Serializable {
     private Object fieldValue;
 
     public SrcField(SrcFieldSpec spec, Object value) {
-        this.fieldSpec = spec;
+        // create a new object avoid to mutate original src field spec
+        this.fieldSpec =
+                new SrcFieldSpec(
+                        spec.getFieldName(), spec.getModalityType(), spec.getPayloadFormat());
         this.fieldValue = value;
+        determineModalityType();
+    }
+
+    /**
+     * Determine the actual modality type based on field spec and value If not binary format,
+     * analyze the value suffix to determine modality type
+     */
+    private void determineModalityType() {
+        if (fieldSpec.isBinary()) {
+            return;
+        }
+        if (fieldValue != null) {
+            String valueStr = fieldValue.toString();
+            ModalityType detectedType = ModalityType.fromFileSuffix(valueStr);
+            if (detectedType != null) {
+                log.debug(
+                        "Auto-detected modality type '{}' from value: {}", detectedType, valueStr);
+                fieldSpec.setModalityType(detectedType);
+            }
+        }
     }
 
     public String toBase64() {

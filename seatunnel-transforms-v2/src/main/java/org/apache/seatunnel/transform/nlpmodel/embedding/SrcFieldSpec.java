@@ -81,6 +81,12 @@ public class SrcFieldSpec implements Serializable {
         }
     }
 
+    public SrcFieldSpec(String fieldName, ModalityType modalityType, PayloadFormat payloadFormat) {
+        this.fieldName = fieldName;
+        this.modalityType = modalityType;
+        this.payloadFormat = payloadFormat;
+    }
+
     public boolean isBinary() {
         return PayloadFormat.BINARY.equals(payloadFormat);
     }
