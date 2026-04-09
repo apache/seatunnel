@@ -37,7 +37,7 @@
 
 指定加密方式，如果您没有加密或解密配置文件的需求，此选项可以忽略。
 
-更多详细信息，您可以参考文档 [Config Encryption Decryption](../connectors/Config-Encryption-Decryption.md)
+更多详细信息，您可以参考文档 [Config Encryption Decryption](./config-encryption-decryption.md)
 
 ## Zeta 引擎参数
 

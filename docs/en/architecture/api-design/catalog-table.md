@@ -663,7 +663,7 @@ sink {
 
 - [Source Architecture](source-architecture.md)
 - [Sink Architecture](sink-architecture.md)
-- [Schema Evolution](../../introduction/concepts/schema-evolution.md)
+- [Schema Evolution](../../introduction/configuration/schema-evolution.md)
 - [Schema Feature](../../introduction/concepts/schema-feature.md)
 
 ## 11. References

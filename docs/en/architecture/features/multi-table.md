@@ -741,7 +741,7 @@ if (table.getWriteRate() > threshold) {
 - [CatalogTable and Metadata](../api-design/catalog-table.md)
 - [Sink Architecture](../api-design/sink-architecture.md)
 - [DAG Execution](../engine/dag-execution.md)
-- [Schema Evolution](../../introduction/concepts/schema-evolution.md)
+- [Schema Evolution](../../introduction/configuration/schema-evolution.md)
 
 ## 14. References
 

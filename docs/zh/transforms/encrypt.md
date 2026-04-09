@@ -41,7 +41,7 @@ Encrypt Transform 插件用于使用对称加密算法，对记录中指定的�
 
 ### common options [string]
 
-Transform 插件的通用参数，请参考 [Transform Plugin](common-options.md)。
+Transform 插件的通用参数。
 
 ## 示例
 
