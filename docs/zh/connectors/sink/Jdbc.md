@@ -44,6 +44,7 @@ import ChangeLog from '../changelog/connector-jdbc.md';
 | connection_check_timeout_sec              | Int     | 否    | 30                           |
 | max_retries                               | Int     | 否    | 0                            |
 | batch_size                                | Int     | 否    | 1000                         |
+| batch_interval_ms                         | Long    | 否    | 0                            |
 | is_exactly_once                           | Boolean | 否    | false                        |
 | generate_sink_sql                         | Boolean | 否    | false                        |
 | xa_data_source_class_name                 | String  | 否    | -                            |
@@ -154,6 +155,10 @@ Tip: 如果目标数据库有 SCHEMA 的概念，则表参数必须写成 `xxx.x
 ### batch_size [int]
 
 对于批量写入，当缓冲的记录数达到 `batch_size` 数量或者时间达到 `checkpoint.interval` 时，数据将被刷新到数据库中
+
+### batch_interval_ms [long]
+
+刷新间隔（毫秒）。当设置值大于 0 时，若距上次 flush 的时间超过该间隔，下一次 `writeRecord` 调用将同步触发 flush，即使尚未达到 `batch_size`。默认值为 `0`（禁用）。此为**写入触发**的时间检查，而非后台定时器——若无新记录到达（空闲分区），不会触发基于时间的 flush；缓冲数据将在下一次 `prepareCommit`（checkpoint）或 `close` 时刷出。注意：当 `auto_commit = false` 时，已 flush 的数据在下次 commit（如 checkpoint）之前对其他事务不可见。
 
 ### is_exactly_once [boolean]
 
