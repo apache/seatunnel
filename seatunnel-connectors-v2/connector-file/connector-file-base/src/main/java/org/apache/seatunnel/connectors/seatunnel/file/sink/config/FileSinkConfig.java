@@ -26,6 +26,7 @@ import org.apache.seatunnel.connectors.seatunnel.file.config.BaseFileSinkConfig;
 import org.apache.seatunnel.connectors.seatunnel.file.config.FileBaseSinkOptions;
 import org.apache.seatunnel.connectors.seatunnel.file.config.FileFormat;
 import org.apache.seatunnel.connectors.seatunnel.file.config.PartitionConfig;
+import org.apache.seatunnel.connectors.seatunnel.file.exception.FileConnectorErrorCode;
 import org.apache.seatunnel.connectors.seatunnel.file.exception.FileConnectorException;
 import org.apache.seatunnel.format.csv.constant.CsvStringQuoteMode;
 
@@ -223,5 +224,11 @@ public class FileSinkConfig extends BaseFileSinkConfig implements PartitionConfi
 
         this.schemaEvolutionEnabled =
                 pluginConfig.get(FileBaseSinkOptions.SCHEMA_EVOLUTION_ENABLED);
+        if (this.schemaEvolutionEnabled && FileFormat.BINARY.equals(this.fileFormat)) {
+            throw new FileConnectorException(
+                    FileConnectorErrorCode.FORMAT_NOT_SUPPORT,
+                    "schema_evolution_enabled=true is not supported for file_format_type=binary."
+                            + " Binary format has a fixed schema and cannot apply schema changes.");
+        }
     }
 }

@@ -33,6 +33,7 @@ import org.apache.seatunnel.api.table.type.SeaTunnelDataType;
 import org.apache.seatunnel.api.table.type.SeaTunnelRow;
 import org.apache.seatunnel.api.table.type.SeaTunnelRowType;
 import org.apache.seatunnel.connectors.seatunnel.file.config.HadoopConf;
+import org.apache.seatunnel.connectors.seatunnel.file.exception.FileConnectorException;
 import org.apache.seatunnel.connectors.seatunnel.file.sink.config.FileSinkConfig;
 import org.apache.seatunnel.connectors.seatunnel.file.sink.writer.AbstractWriteStrategy;
 
@@ -504,6 +505,21 @@ public class FileSchemaEvolutionTest {
         public Configuration getConfiguration(HadoopConf conf) {
             return new Configuration();
         }
+    }
+
+    // ── Config validation ─────────────────────────────────────────────────────
+
+    @Test
+    public void testBinaryWithSchemaEvolutionEnabledThrowsAtConfig() {
+        Config config =
+                ConfigFactory.parseString(
+                        "path = \"/tmp/test\"\n"
+                                + "file_format_type = \"binary\"\n"
+                                + "schema_evolution_enabled = true");
+        Assertions.assertThrows(
+                FileConnectorException.class,
+                () -> new FileSinkConfig(ReadonlyConfig.fromConfig(config), BASE_ROW_TYPE),
+                "binary format must reject schema_evolution_enabled=true at config time");
     }
 
     /**
