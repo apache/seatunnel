@@ -865,7 +865,12 @@ public class CoordinatorService {
                         engineConfig,
                         seaTunnelServer);
         try {
-            jobMaster.init(jobInfo.getInitializationTimestamp(), true);
+            // restart=false: we are not restarting this job, just cleaning up its IMap
+            // entries. Using restart=true would trigger CheckpointManager restore which
+            // can fail for zombies that were never checkpointed (e.g. freshly injected
+            // or crashed before first checkpoint), causing init() to throw and leaving
+            // the zombie uncleaned.
+            jobMaster.init(jobInfo.getInitializationTimestamp(), false);
             JobResult jobResult = new JobResult(jobStatus, null);
             jobMaster.getPhysicalPlan().completeJobEndFuture(jobResult);
             getEventProcessor()
