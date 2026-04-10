@@ -451,7 +451,7 @@ public abstract class AbstractMysqlCDCITBase extends TestSuiteBase implements Te
                                                                         MULTI_DATABASE_A,
                                                                         MULTI_SOURCE_TABLE_A)),
                                                         query(
-                                                                getSourceQuerySQL(
+                                                                getSinkQuerySQL(
                                                                         MULTI_DATABASE_SINK,
                                                                         MULTI_SOURCE_TABLE_A))),
                                         () ->
@@ -461,7 +461,7 @@ public abstract class AbstractMysqlCDCITBase extends TestSuiteBase implements Te
                                                                         MULTI_DATABASE_B,
                                                                         MULTI_SOURCE_TABLE_B)),
                                                         query(
-                                                                getSourceQuerySQL(
+                                                                getSinkQuerySQL(
                                                                         MULTI_DATABASE_SINK,
                                                                         MULTI_SOURCE_TABLE_B)))));
 
@@ -481,7 +481,7 @@ public abstract class AbstractMysqlCDCITBase extends TestSuiteBase implements Te
                                                                         MULTI_DATABASE_A,
                                                                         MULTI_SOURCE_TABLE_A)),
                                                         query(
-                                                                getSourceQuerySQL(
+                                                                getSinkQuerySQL(
                                                                         MULTI_DATABASE_SINK,
                                                                         MULTI_SOURCE_TABLE_A))),
                                         () ->
@@ -491,7 +491,7 @@ public abstract class AbstractMysqlCDCITBase extends TestSuiteBase implements Te
                                                                         MULTI_DATABASE_B,
                                                                         MULTI_SOURCE_TABLE_B)),
                                                         query(
-                                                                getSourceQuerySQL(
+                                                                getSinkQuerySQL(
                                                                         MULTI_DATABASE_SINK,
                                                                         MULTI_SOURCE_TABLE_B)))));
     }
@@ -564,7 +564,7 @@ public abstract class AbstractMysqlCDCITBase extends TestSuiteBase implements Te
                                                                         MULTI_DATABASE_A,
                                                                         MULTI_SOURCE_TABLE_A)),
                                                         query(
-                                                                getSourceQuerySQL(
+                                                                getSinkQuerySQL(
                                                                         MULTI_DATABASE_SINK,
                                                                         MULTI_SOURCE_TABLE_A))),
                                         () ->
@@ -574,7 +574,7 @@ public abstract class AbstractMysqlCDCITBase extends TestSuiteBase implements Te
                                                                         MULTI_DATABASE_B,
                                                                         MULTI_SOURCE_TABLE_B)),
                                                         query(
-                                                                getSourceQuerySQL(
+                                                                getSinkQuerySQL(
                                                                         MULTI_DATABASE_SINK,
                                                                         MULTI_SOURCE_TABLE_B)))));
     }
