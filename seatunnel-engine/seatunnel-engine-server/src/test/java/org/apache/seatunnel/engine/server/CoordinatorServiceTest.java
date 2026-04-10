@@ -574,15 +574,48 @@ public class CoordinatorServiceTest {
                                     server2.getCoordinatorService().isCoordinatorActive());
                         });
 
-        // All zombie IMap entries must be removed — exercises the JobMaster.cleanJob() path
-        // which cleans runningJobStateIMap in addition to runningJobInfoIMap.
-        // If the fix is absent the stream zombie is re-run indefinitely, so runningJobInfoIMap
-        // keeps the entry and the assertion below times out → test FAILS on unfixed code.
         IMap<Long, org.apache.seatunnel.engine.core.job.JobInfo> runningJobInfoOnInstance2 =
                 instance2.getMap(Constant.IMAP_RUNNING_JOB_INFO);
         IMap<Long, JobStatus> runningJobStateOnInstance2 =
                 instance2.getMap(Constant.IMAP_RUNNING_JOB_STATE);
-        await().atMost(10000, TimeUnit.MILLISECONDS)
+
+        // KEY ASSERTION — must fail on original (unfixed) code:
+        // With the fix: cleanupZombieJob() runs synchronously inside
+        // restoreAllRunningJobFromMasterNodeSwitch() BEFORE any job is enqueued, so the
+        // zombie is never added to the coordinator's runningJobMasterMap and is never
+        // seen as RUNNING. The IMap entries are also removed within the same synchronous
+        // call, so the tight 3-second window below is reliably met.
+        //
+        // Without the fix: the zombie is treated as a normal restore, queued via
+        // pendingJob, transitions to RUNNING (visible via getJobStatus), and only
+        // removed from runningJobInfoIMap after the stream job finishes (~5-15 s).
+        // The 3-second window will therefore time out → test FAILS on unfixed code.
+        CoordinatorService coordinatorService2 = server2.getCoordinatorService();
+
+        // Assert zombie is never RUNNING — poll every 200 ms for 4 s
+        long pollDeadline = System.currentTimeMillis() + 4000;
+        while (System.currentTimeMillis() < pollDeadline) {
+            try {
+                JobStatus status = coordinatorService2.getJobStatus(zombieJobId);
+                Assertions.assertNotEquals(
+                        JobStatus.RUNNING,
+                        status,
+                        "Zombie job must NOT be restored as RUNNING — "
+                                + "it should be cleaned up directly by cleanupZombieJob()");
+            } catch (Exception ignored) {
+                // job not in running map (already cleaned) — expected with fix
+            }
+            try {
+                Thread.sleep(200);
+            } catch (InterruptedException e) {
+                Thread.currentThread().interrupt();
+                break;
+            }
+        }
+
+        // IMap entries must be removed within 3 s (synchronous cleanup with the fix;
+        // job-completion-based cleanup on unfixed code takes 5-15 s → times out here)
+        await().atMost(3000, TimeUnit.MILLISECONDS)
                 .untilAsserted(
                         () -> {
                             Assertions.assertFalse(
@@ -591,8 +624,7 @@ public class CoordinatorServiceTest {
                             Assertions.assertFalse(
                                     runningJobStateOnInstance2.containsKey(zombieJobId),
                                     "Zombie job must be removed from runningJobStateIMap"
-                                            + " (proves JobMaster.cleanJob() ran, not just"
-                                            + " fallback direct-remove)");
+                                            + " (proves JobMaster.cleanJob() ran)");
                         });
 
         instance2.shutdown();

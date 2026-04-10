@@ -865,12 +865,12 @@ public class CoordinatorService {
                         engineConfig,
                         seaTunnelServer);
         try {
-            // restart=false: we are not restarting this job, just cleaning up its IMap
-            // entries. Using restart=true would trigger CheckpointManager restore which
-            // can fail for zombies that were never checkpointed (e.g. freshly injected
-            // or crashed before first checkpoint), causing init() to throw and leaving
-            // the zombie uncleaned.
-            jobMaster.init(jobInfo.getInitializationTimestamp(), false);
+            // restart=true: CheckpointManager is null-safe for jobs that were never
+            // checkpointed (e.g. coordinator died before first checkpoint), so init()
+            // will not throw for such zombies. Using restart=false would unintentionally
+            // trigger handleSaveMode() in init(), which can destructively truncate or
+            // drop sink tables during zombie cleanup.
+            jobMaster.init(jobInfo.getInitializationTimestamp(), true);
             JobResult jobResult = new JobResult(jobStatus, null);
             jobMaster.getPhysicalPlan().completeJobEndFuture(jobResult);
             getEventProcessor()
