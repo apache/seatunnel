@@ -167,6 +167,7 @@ public class UniqueDatabase {
                                 .collect(Collectors.toList());
                 for (String stmt : statements) {
                     statement.execute(stmt);
+                    log.info(stmt);
                 }
             }
         } catch (final Exception e) {
