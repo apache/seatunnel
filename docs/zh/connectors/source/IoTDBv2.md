@@ -66,7 +66,7 @@ import ChangeLog from '../changelog/connector-iotdb.md';
 | default_thrift_buffer_size | Integer | 否    | -    | Thrift 协议缓冲区大小                                                                   |
 | max_thrift_frame_size      | Integer | 否    | -    | Thrift 最大帧尺寸                                                                     |
 | enable_cache_leader        | Boolean | 否    | -    | 是否启用 Leader 节点缓存                                                                 |
-| common-options             |         | 否    | -    | Source 插件常用参数，详见 [Source common Options](../Source common Options.md)            |
+| common-options             |         | 否    | -    | Source 插件常用参数，详见 [Source common Options](../common-options/source-common-options.md)            |
 
 我们可以使用时间列进行分区查询。
 
@@ -221,4 +221,3 @@ IoTDB> SELECT time, sn, type, bidprice, bidsize, domain, buyno, askprice FROM te
 ## 变更日志
 
 <ChangeLog />
-
