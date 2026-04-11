@@ -21,15 +21,20 @@ import org.apache.seatunnel.api.configuration.ReadonlyConfig;
 import org.apache.seatunnel.api.table.type.SeaTunnelDataType;
 import org.apache.seatunnel.api.table.type.SeaTunnelRow;
 import org.apache.seatunnel.api.table.type.SeaTunnelRowType;
+import org.apache.seatunnel.connectors.seatunnel.pulsar.exception.PulsarConnectorException;
 
 import org.apache.pulsar.client.api.Producer;
+import org.apache.pulsar.client.api.PulsarClient;
 
 import org.junit.jupiter.api.Test;
 
+import java.lang.reflect.Field;
 import java.lang.reflect.Proxy;
 import java.util.HashMap;
 import java.util.Map;
+import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.concurrent.atomic.AtomicInteger;
+import java.util.concurrent.atomic.AtomicReference;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertSame;
@@ -139,13 +144,55 @@ public class PulsarSinkWriterTest {
         assertEquals(2, createCount.get());
     }
 
+    @Test
+    public void testCloseReleasesResourcesWhenAsyncSendFailed() throws Exception {
+        Map<String, Object> configMap = new HashMap<>();
+        configMap.put("format", "json");
+        configMap.put("field_delimiter", ",");
+        configMap.put("transaction_timeout", 1000);
+        configMap.put("semantics", "NON");
+        configMap.put("message.routing.mode", "RoundRobinPartition");
+
+        AtomicBoolean producerClosed = new AtomicBoolean(false);
+        AtomicBoolean clientClosed = new AtomicBoolean(false);
+
+        PulsarSinkWriter writer =
+                new PulsarSinkWriter(
+                        new SeaTunnelRowType(new String[] {}, new SeaTunnelDataType[] {}),
+                        ReadonlyConfig.fromMap(configMap),
+                        java.util.Collections.emptyList(),
+                        createPulsarClientProxy(clientClosed),
+                        topic -> createProducerProxy(producerClosed));
+        writer.getOrCreateProducer("topic-a");
+
+        Field sendFailureField = PulsarSinkWriter.class.getDeclaredField("sendMessageException");
+        sendFailureField.setAccessible(true);
+        @SuppressWarnings("unchecked")
+        AtomicReference<Throwable> sendFailure =
+                (AtomicReference<Throwable>) sendFailureField.get(writer);
+        sendFailure.set(new RuntimeException("send failed"));
+
+        assertThrows(PulsarConnectorException.class, writer::close);
+        assertTrue(producerClosed.get());
+        assertTrue(clientClosed.get());
+    }
+
     @SuppressWarnings("unchecked")
     private static Producer<byte[]> createProducerProxy() {
+        return createProducerProxy(new AtomicBoolean(false));
+    }
+
+    @SuppressWarnings("unchecked")
+    private static Producer<byte[]> createProducerProxy(AtomicBoolean closed) {
         return (Producer<byte[]>)
                 Proxy.newProxyInstance(
                         Producer.class.getClassLoader(),
                         new Class[] {Producer.class},
                         (proxy, method, args) -> {
+                            if ("close".equals(method.getName())) {
+                                closed.set(true);
+                                return null;
+                            }
                             Class<?> returnType = method.getReturnType();
                             if (returnType.equals(boolean.class)) {
                                 return false;
@@ -161,6 +208,31 @@ public class PulsarSinkWriterTest {
                             }
                             if (returnType.equals(double.class)) {
                                 return 0D;
+                            }
+                            return null;
+                        });
+    }
+
+    @SuppressWarnings("unchecked")
+    private static PulsarClient createPulsarClientProxy(AtomicBoolean closed) {
+        return (PulsarClient)
+                Proxy.newProxyInstance(
+                        PulsarClient.class.getClassLoader(),
+                        new Class[] {PulsarClient.class},
+                        (proxy, method, args) -> {
+                            if ("close".equals(method.getName())) {
+                                closed.set(true);
+                                return null;
+                            }
+                            Class<?> returnType = method.getReturnType();
+                            if (returnType.equals(boolean.class)) {
+                                return false;
+                            }
+                            if (returnType.equals(int.class)) {
+                                return 0;
+                            }
+                            if (returnType.equals(long.class)) {
+                                return 0L;
                             }
                             return null;
                         });

@@ -246,12 +246,29 @@ public class PulsarSinkWriter
 
     @Override
     public void close() throws IOException {
-        checkSendException();
+        Throwable closeFailure = null;
         for (Producer<byte[]> producer : producerMap.values()) {
-            producer.close();
+            try {
+                producer.close();
+            } catch (Throwable throwable) {
+                closeFailure = appendSuppressed(closeFailure, throwable);
+            }
         }
         if (pulsarClient != null) {
-            pulsarClient.close();
+            try {
+                pulsarClient.close();
+            } catch (Throwable throwable) {
+                closeFailure = appendSuppressed(closeFailure, throwable);
+            }
+        }
+
+        Throwable sendFailure = sendMessageException.get();
+        if (sendFailure != null) {
+            closeFailure = appendSuppressed(closeFailure, buildSendFailureException(sendFailure));
+        }
+
+        if (closeFailure != null) {
+            rethrowCloseFailure(closeFailure);
         }
     }
 
@@ -346,11 +363,33 @@ public class PulsarSinkWriter
     private void checkSendException() {
         Throwable throwable = sendMessageException.get();
         if (throwable != null) {
-            throw new PulsarConnectorException(
-                    PulsarConnectorErrorCode.SEND_MESSAGE_FAILED,
-                    "Send message failed, please check previous error log for details.",
-                    throwable);
+            throw buildSendFailureException(throwable);
         }
+    }
+
+    private PulsarConnectorException buildSendFailureException(Throwable throwable) {
+        return new PulsarConnectorException(
+                PulsarConnectorErrorCode.SEND_MESSAGE_FAILED,
+                "Send message failed, please check previous error log for details.",
+                throwable);
+    }
+
+    private Throwable appendSuppressed(Throwable existingFailure, Throwable newFailure) {
+        if (existingFailure == null) {
+            return newFailure;
+        }
+        existingFailure.addSuppressed(newFailure);
+        return existingFailure;
+    }
+
+    private void rethrowCloseFailure(Throwable throwable) throws IOException {
+        if (throwable instanceof IOException) {
+            throw (IOException) throwable;
+        }
+        if (throwable instanceof RuntimeException) {
+            throw (RuntimeException) throwable;
+        }
+        throw new IOException("Failed to close Pulsar sink writer.", throwable);
     }
 
     @Override
