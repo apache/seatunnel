@@ -30,6 +30,7 @@ import org.apache.seatunnel.engine.core.job.PipelineStatus;
 import org.apache.seatunnel.engine.server.dag.physical.PipelineLocation;
 import org.apache.seatunnel.engine.server.dag.physical.SubPlan;
 import org.apache.seatunnel.engine.server.execution.ExecutionState;
+import org.apache.seatunnel.engine.server.execution.TaskGroupContext;
 import org.apache.seatunnel.engine.server.execution.TaskGroupLocation;
 import org.apache.seatunnel.engine.server.execution.TaskLocation;
 import org.apache.seatunnel.engine.server.master.JobMaster;
@@ -63,12 +64,197 @@ import java.util.concurrent.CountDownLatch;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
 import java.util.concurrent.TimeUnit;
-import java.util.concurrent.atomic.AtomicReference;
 
 import static org.awaitility.Awaitility.await;
 
 @Slf4j
 public class CoordinatorServiceTest {
+    @Test
+    void testTerminalZombieJobShouldNotRestartAfterMasterSwitch() {
+        String clusterName =
+                TestUtils.getClusterName(
+                        "CoordinatorServiceTest_testTerminalZombieJobShouldNotRestartAfterMasterSwitch");
+
+        // instance1: initial master
+        HazelcastInstanceImpl instance1 =
+                createHazelcastInstanceWithJoinPortTryCount(clusterName, 100);
+        SeaTunnelServer server1 =
+                instance1.node.getNodeEngine().getService(SeaTunnelServer.SERVICE_NAME);
+
+        await().atMost(10, TimeUnit.SECONDS)
+                .untilAsserted(
+                        () -> {
+                            Assertions.assertTrue(server1.isMasterNode());
+                            Assertions.assertTrue(
+                                    server1.getCoordinatorService().isCoordinatorActive());
+                        });
+
+        // instance2: survives the master switch
+        HazelcastInstanceImpl instance2 =
+                createHazelcastInstanceWithJoinPortTryCount(clusterName, 100);
+        SeaTunnelServer server2 =
+                instance2.node.getNodeEngine().getService(SeaTunnelServer.SERVICE_NAME);
+
+        await().atMost(10, TimeUnit.SECONDS)
+                .untilAsserted(
+                        () ->
+                                Assertions.assertEquals(
+                                        2, instance1.getCluster().getMembers().size()));
+
+        long jobId = instance1.getFlakeIdGenerator(Constant.SEATUNNEL_ID_GENERATOR_NAME).newId();
+
+        LogicalDag logicalDag =
+                TestUtils.createTestLogicalPlan(
+                        "stream_fake_to_console.conf", "terminal-zombie-master-switch-test", jobId);
+
+        JobImmutableInformation jobImmutableInfo =
+                new JobImmutableInformation(
+                        jobId,
+                        "Test",
+                        instance1.getSerializationService(),
+                        logicalDag,
+                        Collections.emptyList(),
+                        Collections.emptyList());
+
+        Data jobData = instance1.getSerializationService().toData(jobImmutableInfo);
+
+        CoordinatorService coordinatorService = server1.getCoordinatorService();
+        coordinatorService
+                .submitJob(jobId, jobData, jobImmutableInfo.isStartWithSavePoint())
+                .join();
+
+        await().atMost(20, TimeUnit.SECONDS)
+                .untilAsserted(
+                        () ->
+                                Assertions.assertEquals(
+                                        JobStatus.RUNNING, coordinatorService.getJobStatus(jobId)));
+
+        // Collect restore keys before the job is terminated.
+        JobMaster jobMaster = coordinatorService.getJobMaster(jobId);
+        Assertions.assertNotNull(jobMaster);
+
+        List<PipelineLocation> pipelineLocations = new ArrayList<>();
+        List<TaskGroupLocation> taskGroupLocations = new ArrayList<>();
+        for (SubPlan subPlan : jobMaster.getPhysicalPlan().getPipelineList()) {
+            pipelineLocations.add(subPlan.getPipelineLocation());
+            subPlan.getCoordinatorVertexList()
+                    .forEach(vertex -> taskGroupLocations.add(vertex.getTaskGroupLocation()));
+            subPlan.getPhysicalVertexList()
+                    .forEach(vertex -> taskGroupLocations.add(vertex.getTaskGroupLocation()));
+        }
+
+        // 1) Terminate the real job first.
+        coordinatorService.cancelJob(jobId).join();
+
+        await().atMost(30, TimeUnit.SECONDS)
+                .untilAsserted(
+                        () ->
+                                Assertions.assertEquals(
+                                        JobStatus.CANCELED,
+                                        coordinatorService.getJobStatus(jobId)));
+
+        // Ensure the real execution is gone before injecting stale zombie metadata.
+        await().atMost(30, TimeUnit.SECONDS)
+                .untilAsserted(
+                        () -> {
+                            Assertions.assertTrue(
+                                    allTaskGroupsInactive(server1, taskGroupLocations));
+                            Assertions.assertTrue(
+                                    allTaskGroupsInactive(server2, taskGroupLocations));
+                        });
+
+        // 2) Re-inject stale terminal metadata using the locations we collected earlier.
+        IMap<Long, org.apache.seatunnel.engine.core.job.JobInfo> runningJobInfoIMap =
+                instance1.getMap(Constant.IMAP_RUNNING_JOB_INFO);
+        IMap<Object, Object> runningJobStateIMap =
+                instance1.getMap(Constant.IMAP_RUNNING_JOB_STATE);
+
+        runningJobInfoIMap.put(
+                jobId,
+                new org.apache.seatunnel.engine.core.job.JobInfo(
+                        System.currentTimeMillis(), jobData));
+        runningJobStateIMap.put(jobId, JobStatus.CANCELED);
+
+        for (PipelineLocation pipelineLocation : pipelineLocations) {
+            runningJobStateIMap.put(pipelineLocation, PipelineStatus.CANCELED);
+        }
+        for (TaskGroupLocation taskGroupLocation : taskGroupLocations) {
+            runningJobStateIMap.put(taskGroupLocation, ExecutionState.CANCELED);
+        }
+
+        Assertions.assertTrue(
+                runningJobInfoIMap.containsKey(jobId),
+                "Zombie job metadata should be present before master switch");
+
+        // 3) Trigger master switch.
+        instance1.shutdown();
+
+        await().atMost(20, TimeUnit.SECONDS)
+                .untilAsserted(
+                        () -> {
+                            Assertions.assertTrue(server2.isMasterNode());
+                            Assertions.assertTrue(
+                                    server2.getCoordinatorService().isCoordinatorActive());
+                        });
+
+        // 4) Metadata should be cleaned up on the new master.
+        IMap<Long, org.apache.seatunnel.engine.core.job.JobInfo> runningJobInfoOnInstance2 =
+                instance2.getMap(Constant.IMAP_RUNNING_JOB_INFO);
+        IMap<Object, Object> runningJobStateOnInstance2 =
+                instance2.getMap(Constant.IMAP_RUNNING_JOB_STATE);
+
+        await().atMost(20, TimeUnit.SECONDS)
+                .untilAsserted(
+                        () -> {
+                            Assertions.assertFalse(
+                                    runningJobInfoOnInstance2.containsKey(jobId),
+                                    "Zombie job must be removed from runningJobInfoIMap");
+                            Assertions.assertFalse(
+                                    runningJobStateOnInstance2.containsKey(jobId),
+                                    "Zombie job must be removed from runningJobStateIMap");
+                        });
+
+        // 5) The important assertion:
+        // terminal zombie metadata must NOT cause tasks to start running again.
+        await().during(10000, TimeUnit.MILLISECONDS)
+                .atMost(12000, TimeUnit.MILLISECONDS)
+                .untilAsserted(
+                        () -> {
+                            for (TaskGroupLocation location : taskGroupLocations) {
+                                TaskGroupContext activeExecutionContext = null;
+                                try {
+                                    activeExecutionContext =
+                                            server2.getTaskExecutionService()
+                                                    .getActiveExecutionContext(location);
+                                } catch (Exception e) {
+                                }
+                                Assertions.assertNull(
+                                        activeExecutionContext,
+                                        "Terminal zombie job should not be re-executed after "
+                                                + "master switch: "
+                                                + location);
+                            }
+                        });
+
+        instance2.shutdown();
+    }
+
+    private boolean allTaskGroupsInactive(
+            SeaTunnelServer server, List<TaskGroupLocation> taskGroupLocations) {
+        for (TaskGroupLocation location : taskGroupLocations) {
+            try {
+                TaskGroupContext context =
+                        server.getTaskExecutionService().getActiveExecutionContext(location);
+                if (context != null) {
+                    return false;
+                }
+            } catch (Exception e) {
+                return true;
+            }
+        }
+        return true;
+    }
+
     @Test
     public void testMasterNodeActive() {
         String clusterName =
@@ -513,131 +699,6 @@ public class CoordinatorServiceTest {
     }
 
     @Test
-    void testZombieJobRemovedFromImapOnMasterSwitchRestore() {
-        String clusterName =
-                TestUtils.getClusterName(
-                        "CoordinatorServiceTest_testZombieJobRemovedFromImapOnMasterSwitchRestore");
-        HazelcastInstanceImpl instance1 =
-                createHazelcastInstanceWithJoinPortTryCount(clusterName, 100);
-        SeaTunnelServer server1 =
-                instance1.node.getNodeEngine().getService(SeaTunnelServer.SERVICE_NAME);
-
-        // Wait for instance1 to become the active master
-        await().atMost(10000, TimeUnit.MILLISECONDS)
-                .untilAsserted(
-                        () -> {
-                            Assertions.assertTrue(server1.isMasterNode());
-                            Assertions.assertTrue(
-                                    server1.getCoordinatorService().isCoordinatorActive());
-                        });
-
-        // Inject a zombie: job in FAILED state that was never cleaned from runningJobInfoIMap
-        // (simulates coordinator dying mid-cleanup before removeJobIMap executed).
-        // Use a STREAM job (not batch) so that if the fix is absent and the zombie is re-run,
-        // it will stay RUNNING indefinitely and never be removed from runningJobInfoIMap —
-        // causing the assertion to time out and the test to FAIL on unfixed code.
-        // With the fix, cleanupZombieJob() removes the zombie before any restore attempt.
-        long zombieJobId =
-                instance1.getFlakeIdGenerator(Constant.SEATUNNEL_ID_GENERATOR_NAME).newId();
-        LogicalDag zombieLogicalDag =
-                TestUtils.createTestLogicalPlan(
-                        "stream_fake_to_console.conf", "zombie-test-job", zombieJobId);
-        JobImmutableInformation zombieImmutableInfo =
-                new JobImmutableInformation(
-                        zombieJobId,
-                        "Test",
-                        instance1.getSerializationService(),
-                        zombieLogicalDag,
-                        Collections.emptyList(),
-                        Collections.emptyList());
-        Data zombieData = instance1.getSerializationService().toData(zombieImmutableInfo);
-
-        IMap<Long, org.apache.seatunnel.engine.core.job.JobInfo> runningJobInfoIMap =
-                instance1.getMap(Constant.IMAP_RUNNING_JOB_INFO);
-        IMap<Long, JobStatus> runningJobStateIMap =
-                instance1.getMap(Constant.IMAP_RUNNING_JOB_STATE);
-        runningJobInfoIMap.put(
-                zombieJobId,
-                new org.apache.seatunnel.engine.core.job.JobInfo(
-                        System.currentTimeMillis(), zombieData));
-        runningJobStateIMap.put(zombieJobId, JobStatus.FAILED);
-
-        Assertions.assertTrue(runningJobInfoIMap.containsKey(zombieJobId));
-
-        // Start instance2 in same cluster, then shut down instance1 to trigger master switch
-        HazelcastInstanceImpl instance2 =
-                createHazelcastInstanceWithJoinPortTryCount(clusterName, 100);
-        instance1.shutdown();
-
-        SeaTunnelServer server2 =
-                instance2.node.getNodeEngine().getService(SeaTunnelServer.SERVICE_NAME);
-
-        // Wait for instance2 to become active master and complete restore
-        await().atMost(20000, TimeUnit.MILLISECONDS)
-                .untilAsserted(
-                        () -> {
-                            Assertions.assertTrue(server2.isMasterNode());
-                            Assertions.assertTrue(
-                                    server2.getCoordinatorService().isCoordinatorActive());
-                        });
-
-        IMap<Long, org.apache.seatunnel.engine.core.job.JobInfo> runningJobInfoOnInstance2 =
-                instance2.getMap(Constant.IMAP_RUNNING_JOB_INFO);
-        IMap<Long, JobStatus> runningJobStateOnInstance2 =
-                instance2.getMap(Constant.IMAP_RUNNING_JOB_STATE);
-
-        // KEY ASSERTION — must fail on original (unfixed) code:
-        // With the fix: cleanupZombieJob() runs synchronously inside
-        // restoreAllRunningJobFromMasterNodeSwitch() BEFORE any job is enqueued, so the
-        // zombie is never added to the coordinator's runningJobMasterMap and is never
-        // seen as RUNNING. The IMap entries are also removed within the same synchronous
-        // call, so the tight 3-second window below is reliably met.
-        //
-        // Without the fix: the zombie is treated as a normal restore, queued via
-        // pendingJob, transitions to RUNNING (visible via getJobStatus), and only
-        // removed from runningJobInfoIMap after the stream job finishes (~5-15 s).
-        // The 3-second window will therefore time out → test FAILS on unfixed code.
-        CoordinatorService coordinatorService2 = server2.getCoordinatorService();
-
-        // Assert zombie is never RUNNING — poll every 200 ms for 4 s
-        long pollDeadline = System.currentTimeMillis() + 4000;
-        while (System.currentTimeMillis() < pollDeadline) {
-            try {
-                JobStatus status = coordinatorService2.getJobStatus(zombieJobId);
-                Assertions.assertNotEquals(
-                        JobStatus.RUNNING,
-                        status,
-                        "Zombie job must NOT be restored as RUNNING — "
-                                + "it should be cleaned up directly by cleanupZombieJob()");
-            } catch (Exception ignored) {
-                // job not in running map (already cleaned) — expected with fix
-            }
-            try {
-                Thread.sleep(200);
-            } catch (InterruptedException e) {
-                Thread.currentThread().interrupt();
-                break;
-            }
-        }
-
-        // IMap entries must be removed within 3 s (synchronous cleanup with the fix;
-        // job-completion-based cleanup on unfixed code takes 5-15 s → times out here)
-        await().atMost(3000, TimeUnit.MILLISECONDS)
-                .untilAsserted(
-                        () -> {
-                            Assertions.assertFalse(
-                                    runningJobInfoOnInstance2.containsKey(zombieJobId),
-                                    "Zombie job must be removed from runningJobInfoIMap");
-                            Assertions.assertFalse(
-                                    runningJobStateOnInstance2.containsKey(zombieJobId),
-                                    "Zombie job must be removed from runningJobStateIMap"
-                                            + " (proves JobMaster.cleanJob() ran)");
-                        });
-
-        instance2.shutdown();
-    }
-
-    @Test
     public void testClearCoordinatorService() {
         JobInformation jobInformation =
                 submitJob(
@@ -906,179 +967,6 @@ public class CoordinatorServiceTest {
         System.out.printf("Average completion time per op: %.6f seconds%n", avgSeconds);
 
         return elapsedNs / 1_000_000_000.0;
-    }
-
-    /**
-     * Documents a known limitation of the current zombie-cleanup path: after a master switch,
-     * {@code cleanupZombieJob()} removes the job's IMap metadata entries but does NOT cancel the
-     * worker-side task-group that is still actively executing on the surviving node. The orphan
-     * task continues running until it is eventually interrupted by a heartbeat timeout or a manual
-     * cancel.
-     *
-     * <p>This test deliberately asserts that the orphan task IS still running after cleanup, so
-     * that any future change which also cancels the orphan worker tasks can flip this assertion to
-     * confirm the improvement.
-     */
-    @Test
-    void testZombieCleanupCanLeaveOrphanWorkerTaskAfterMasterSwitch() {
-        String clusterName =
-                TestUtils.getClusterName(
-                        "CoordinatorServiceTest_testZombieCleanupCanLeaveOrphanWorkerTaskAfterMasterSwitch");
-
-        // instance1: initial master
-        HazelcastInstanceImpl instance1 =
-                createHazelcastInstanceWithJoinPortTryCount(clusterName, 100);
-        SeaTunnelServer server1 =
-                instance1.node.getNodeEngine().getService(SeaTunnelServer.SERVICE_NAME);
-
-        await().atMost(10, TimeUnit.SECONDS)
-                .untilAsserted(
-                        () -> {
-                            Assertions.assertTrue(server1.isMasterNode());
-                            Assertions.assertTrue(
-                                    server1.getCoordinatorService().isCoordinatorActive());
-                        });
-
-        // instance2: worker that will survive the master switch
-        HazelcastInstanceImpl instance2 =
-                createHazelcastInstanceWithJoinPortTryCount(clusterName, 100);
-        SeaTunnelServer server2 =
-                instance2.node.getNodeEngine().getService(SeaTunnelServer.SERVICE_NAME);
-
-        await().atMost(10, TimeUnit.SECONDS)
-                .untilAsserted(
-                        () ->
-                                Assertions.assertEquals(
-                                        2, instance1.getCluster().getMembers().size()));
-
-        long zombieJobId =
-                instance1.getFlakeIdGenerator(Constant.SEATUNNEL_ID_GENERATOR_NAME).newId();
-
-        LogicalDag logicalDag =
-                TestUtils.createTestLogicalPlan(
-                        "stream_fake_to_console.conf",
-                        "zombie-orphan-running-task-test",
-                        zombieJobId);
-
-        JobImmutableInformation jobImmutableInfo =
-                new JobImmutableInformation(
-                        zombieJobId,
-                        "Test",
-                        instance1.getSerializationService(),
-                        logicalDag,
-                        Collections.emptyList(),
-                        Collections.emptyList());
-
-        Data jobData = instance1.getSerializationService().toData(jobImmutableInfo);
-
-        CoordinatorService coordinatorService = server1.getCoordinatorService();
-        coordinatorService
-                .submitJob(zombieJobId, jobData, jobImmutableInfo.isStartWithSavePoint())
-                .join();
-
-        await().atMost(20, TimeUnit.SECONDS)
-                .untilAsserted(
-                        () ->
-                                Assertions.assertEquals(
-                                        JobStatus.RUNNING,
-                                        coordinatorService.getJobStatus(zombieJobId)));
-
-        JobMaster jobMaster = coordinatorService.getJobMaster(zombieJobId);
-        Assertions.assertNotNull(jobMaster);
-
-        List<PipelineLocation> pipelineLocations = new ArrayList<>();
-        List<TaskGroupLocation> allTaskGroupLocations = new ArrayList<>();
-        for (SubPlan subPlan : jobMaster.getPhysicalPlan().getPipelineList()) {
-            pipelineLocations.add(subPlan.getPipelineLocation());
-            subPlan.getCoordinatorVertexList()
-                    .forEach(v -> allTaskGroupLocations.add(v.getTaskGroupLocation()));
-            subPlan.getPhysicalVertexList()
-                    .forEach(v -> allTaskGroupLocations.add(v.getTaskGroupLocation()));
-        }
-
-        // Wait until at least one task group is actively running on instance2 (the worker)
-        AtomicReference<TaskGroupLocation> survivingWorkerTaskGroup = new AtomicReference<>();
-        await().atMost(20, TimeUnit.SECONDS)
-                .untilAsserted(
-                        () -> {
-                            TaskGroupLocation found =
-                                    allTaskGroupLocations.stream()
-                                            .filter(loc -> hasActiveExecutionContext(server2, loc))
-                                            .findFirst()
-                                            .orElse(null);
-                            Assertions.assertNotNull(
-                                    found,
-                                    "Need at least one task group actively running on instance2 "
-                                            + "before killing the master");
-                            survivingWorkerTaskGroup.set(found);
-                        });
-
-        TaskGroupLocation orphanLocation = survivingWorkerTaskGroup.get();
-        Assertions.assertTrue(
-                hasActiveExecutionContext(server2, orphanLocation),
-                "Sanity check failed: chosen task group is not running on instance2");
-
-        // Poison the distributed metadata to simulate a zombie terminal job while the worker
-        // task is still actively executing on instance2.
-        IMap<Long, org.apache.seatunnel.engine.core.job.JobInfo> runningJobInfoIMap =
-                instance1.getMap(Constant.IMAP_RUNNING_JOB_INFO);
-        IMap<Object, Object> runningJobStateIMap =
-                instance1.getMap(Constant.IMAP_RUNNING_JOB_STATE);
-
-        Assertions.assertTrue(runningJobInfoIMap.containsKey(zombieJobId));
-        runningJobStateIMap.put(zombieJobId, JobStatus.FAILED);
-
-        // Optional but makes the terminal zombie metadata more explicit/consistent.
-        for (PipelineLocation pipelineLocation : pipelineLocations) {
-            runningJobStateIMap.put(pipelineLocation, PipelineStatus.FAILED);
-        }
-        for (TaskGroupLocation taskGroupLocation : allTaskGroupLocations) {
-            runningJobStateIMap.put(taskGroupLocation, ExecutionState.FAILED);
-        }
-
-        // Trigger master switch: instance2 survives and becomes the new master.
-        instance1.shutdown();
-
-        await().atMost(20, TimeUnit.SECONDS)
-                .untilAsserted(
-                        () -> {
-                            Assertions.assertTrue(server2.isMasterNode());
-                            Assertions.assertTrue(
-                                    server2.getCoordinatorService().isCoordinatorActive());
-                        });
-
-        IMap<Long, org.apache.seatunnel.engine.core.job.JobInfo> runningJobInfoOnInstance2 =
-                instance2.getMap(Constant.IMAP_RUNNING_JOB_INFO);
-        IMap<Object, Object> runningJobStateOnInstance2 =
-                instance2.getMap(Constant.IMAP_RUNNING_JOB_STATE);
-
-        await().atMost(20, TimeUnit.SECONDS)
-                .untilAsserted(
-                        () -> {
-                            Assertions.assertFalse(
-                                    runningJobInfoOnInstance2.containsKey(zombieJobId),
-                                    "Zombie job must be removed from runningJobInfoIMap");
-                            Assertions.assertFalse(
-                                    runningJobStateOnInstance2.containsKey(zombieJobId),
-                                    "Zombie job must be removed from runningJobStateIMap");
-                        });
-
-        // Known limitation: metadata cleanup does NOT cancel the surviving worker task.
-        // The orphan task group is still executing on instance2 after zombie cleanup.
-        Assertions.assertTrue(
-                hasActiveExecutionContext(server2, orphanLocation),
-                "Expected orphan task group to still be running on surviving worker "
-                        + "after zombie metadata cleanup");
-
-        instance2.shutdown();
-    }
-
-    private boolean hasActiveExecutionContext(SeaTunnelServer server, TaskGroupLocation location) {
-        try {
-            return server.getTaskExecutionService().getActiveExecutionContext(location) != null;
-        } catch (Exception e) {
-            return false;
-        }
     }
 
     private static class JobInformation {
