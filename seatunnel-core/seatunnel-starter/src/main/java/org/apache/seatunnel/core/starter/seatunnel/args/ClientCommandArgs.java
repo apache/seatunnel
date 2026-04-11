@@ -49,12 +49,12 @@ public class ClientCommandArgs extends AbstractCommandArgs {
     private MasterType masterType = MasterType.CLUSTER;
 
     @Parameter(
-            names = {"-r", "--restore"},
+            names = {"-r", "--restore", "--restore-job"},
             description = "restore with savepoint by jobId")
     private String restoreJobId;
 
     @Parameter(
-            names = {"-s", "--savepoint"},
+            names = {"-s", "--savepoint", "--savepoint-job"},
             description = "savepoint job by jobId")
     private String savePointJobId;
 
@@ -69,10 +69,16 @@ public class ClientCommandArgs extends AbstractCommandArgs {
     private String jobId;
 
     @Parameter(
-            names = {"-can", "--cancel-job"},
+            names = {"-can", "--cancel", "--cancel-job"},
             variableArity = true,
-            description = "Cancel job by JobId")
+            description = "Cancel job(s) by JobId")
     private List<String> cancelJobId;
+
+    @Parameter(
+            names = {"-f", "--force-cancel", "--force-cancel-job"},
+            variableArity = true,
+            description = "Force Cancel job(s) by JobId")
+    private List<String> forceCancelJobId;
 
     @Parameter(
             names = {"--metrics"},
@@ -126,7 +132,7 @@ public class ClientCommandArgs extends AbstractCommandArgs {
     private boolean async = false;
 
     @Parameter(
-            names = {"-cj", "--close-job"},
+            names = {"-cj", "--close", "--close-job"},
             description = "Close client the task will also be closed")
     private boolean closeJob = true;
 

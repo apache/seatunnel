@@ -47,13 +47,27 @@ import java.util.stream.Collectors;
 @Slf4j
 public class CheckpointMonitorService {
 
-    private final IMap<Long, CheckpointOverview> overviewMap;
+    private final NodeEngine nodeEngine;
+    private volatile IMap<Long, CheckpointOverview> overviewMap;
     private final int maxHistorySize;
 
     public CheckpointMonitorService(NodeEngine nodeEngine, int maxHistorySize) {
-        this.overviewMap =
-                nodeEngine.getHazelcastInstance().getMap(Constant.IMAP_CHECKPOINT_MONITOR);
+        this.nodeEngine = nodeEngine;
         this.maxHistorySize = maxHistorySize;
+    }
+
+    private IMap<Long, CheckpointOverview> getOverviewMap() {
+        if (overviewMap == null) {
+            synchronized (this) {
+                if (overviewMap == null) {
+                    overviewMap =
+                            nodeEngine
+                                    .getHazelcastInstance()
+                                    .getMap(Constant.IMAP_CHECKPOINT_MONITOR);
+                }
+            }
+        }
+        return overviewMap;
     }
 
     public void onCheckpointTriggered(
@@ -177,17 +191,17 @@ public class CheckpointMonitorService {
     }
 
     public void cleanupJob(long jobId) {
-        overviewMap.remove(jobId);
+        getOverviewMap().remove(jobId);
     }
 
     public Optional<CheckpointOverview> getOverview(long jobId) {
-        CheckpointOverview overview = overviewMap.get(jobId);
+        CheckpointOverview overview = getOverviewMap().get(jobId);
         return Optional.ofNullable(overview);
     }
 
     public List<CheckpointHistoryEntry> getHistory(
             long jobId, Integer pipelineId, int limit, CheckpointStatus status) {
-        CheckpointOverview overview = overviewMap.get(jobId);
+        CheckpointOverview overview = getOverviewMap().get(jobId);
         if (overview == null) {
             return Collections.emptyList();
         }
@@ -224,16 +238,18 @@ public class CheckpointMonitorService {
 
     private void updateOverview(
             long jobId, int pipelineId, Consumer<PipelineCheckpointOverview> consumer) {
-        overviewMap.compute(
-                jobId,
-                (id, overview) -> {
-                    CheckpointOverview snapshot =
-                            overview == null ? new CheckpointOverview(jobId) : overview;
-                    PipelineCheckpointOverview pipeline = snapshot.getOrCreatePipeline(pipelineId);
-                    consumer.accept(pipeline);
-                    snapshot.setUpdatedAt(System.currentTimeMillis());
-                    return snapshot;
-                });
+        getOverviewMap()
+                .compute(
+                        jobId,
+                        (id, overview) -> {
+                            CheckpointOverview snapshot =
+                                    overview == null ? new CheckpointOverview(jobId) : overview;
+                            PipelineCheckpointOverview pipeline =
+                                    snapshot.getOrCreatePipeline(pipelineId);
+                            consumer.accept(pipeline);
+                            snapshot.setUpdatedAt(System.currentTimeMillis());
+                            return snapshot;
+                        });
     }
 
     private void removeInProgressIfExists(PipelineCheckpointOverview pipeline, long checkpointId) {

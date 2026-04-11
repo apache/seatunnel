@@ -219,6 +219,7 @@ public class JdbcSinkFactory implements TableSinkFactory {
                         JdbcSinkOptions.PASSWORD,
                         JdbcSinkOptions.CONNECTION_CHECK_TIMEOUT_SEC,
                         JdbcSinkOptions.BATCH_SIZE,
+                        JdbcSinkOptions.BATCH_INTERVAL_MS,
                         JdbcSinkOptions.IS_EXACTLY_ONCE,
                         JdbcSinkOptions.GENERATE_SINK_SQL,
                         JdbcSinkOptions.AUTO_COMMIT,
