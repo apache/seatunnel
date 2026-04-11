@@ -19,7 +19,9 @@ package org.apache.seatunnel.core.starter.command;
 
 import org.apache.seatunnel.common.Constants;
 import org.apache.seatunnel.common.config.DeployMode;
+import org.apache.seatunnel.core.starter.enums.DryRun;
 
+import com.beust.jcommander.IStringConverter;
 import com.beust.jcommander.Parameter;
 import lombok.Data;
 import lombok.EqualsAndHashCode;
@@ -55,6 +57,13 @@ public abstract class AbstractCommandArgs extends CommandArgs {
             description = "Whether check config")
     protected boolean checkConfig = false;
 
+    /** dry-run flag */
+    @Parameter(
+            names = {"-d", "--dry-run"},
+            description = "Run the job in dry-run mode, support [static, connect, sample, shadow]",
+            converter = DryRunConverter.class)
+    protected DryRun dryRun = null;
+
     /** SeaTunnel job name */
     @Parameter(
             names = {"-n", "--name"},
@@ -74,4 +83,17 @@ public abstract class AbstractCommandArgs extends CommandArgs {
     protected boolean decrypt = false;
 
     public abstract DeployMode getDeployMode();
+
+    public static class DryRunConverter implements IStringConverter<DryRun> {
+        @Override
+        public DryRun convert(String value) {
+            for (DryRun run : DryRun.values()) {
+                if (run.getName().equalsIgnoreCase(value) || run.name().equalsIgnoreCase(value)) {
+                    return run;
+                }
+            }
+            throw new IllegalArgumentException(
+                    "SeaTunnel job dry-run mode only support these options: [static, connect, sample, shadow]");
+        }
+    }
 }

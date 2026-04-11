@@ -23,6 +23,7 @@ import org.apache.seatunnel.core.starter.command.AbstractCommandArgs;
 import org.apache.seatunnel.core.starter.command.Command;
 import org.apache.seatunnel.core.starter.command.ConfDecryptCommand;
 import org.apache.seatunnel.core.starter.command.ConfEncryptCommand;
+import org.apache.seatunnel.core.starter.enums.DryRun;
 import org.apache.seatunnel.core.starter.enums.MasterType;
 import org.apache.seatunnel.core.starter.seatunnel.command.ClientExecuteCommand;
 import org.apache.seatunnel.core.starter.seatunnel.command.SeaTunnelConfValidateCommand;
@@ -139,7 +140,7 @@ public class ClientCommandArgs extends AbstractCommandArgs {
     @Override
     public Command<?> buildCommand() {
         Common.setDeployMode(getDeployMode());
-        if (checkConfig) {
+        if (checkConfig || (dryRun != null && dryRun == DryRun.STATIC)) {
             return new SeaTunnelConfValidateCommand(this);
         }
         if (encrypt) {

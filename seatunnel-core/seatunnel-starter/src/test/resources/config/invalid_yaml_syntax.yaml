@@ -1,0 +1,12 @@
+env:
+  parallelism: 1
+  job.mode: BATCH
+
+source:
+  - plugin_name: FakeSource
+    schema:
+      fields:
+        id: int
+  # Invalid YAML: using tab for indentation below or missing colon
+  broken_line: [
+  this is invalid yaml [ because of unclosed brackets and no colon
