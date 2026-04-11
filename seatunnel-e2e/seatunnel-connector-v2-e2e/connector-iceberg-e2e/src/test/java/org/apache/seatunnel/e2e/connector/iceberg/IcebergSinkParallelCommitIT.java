@@ -75,7 +75,10 @@ import static org.awaitility.Awaitility.given;
 @DisabledOnContainer(
         value = {TestContainerId.SPARK_2_4},
         type = {EngineType.SPARK},
-        disabledReason = "Spark engine does not support aggregated committer semantics")
+        disabledReason =
+                "Spark runs as spark-submit --master local (batch-style); checkpoint.interval"
+                        + " has no effect and the per-checkpoint snapshot invariant is not"
+                        + " observable")
 @DisabledOnOs(OS.WINDOWS)
 public class IcebergSinkParallelCommitIT extends TestSuiteBase {
 
@@ -160,52 +163,64 @@ public class IcebergSinkParallelCommitIT extends TestSuiteBase {
      * would emit two snapshots per checkpoint (one per writer), while the fix must produce exactly
      * one.
      *
-     * <p>Disabled on Flink and Spark because FakeSource in STREAMING mode does not terminate after
-     * exhausting its splits on those engines, causing {@code executeJob()} to block indefinitely.
-     * On the Zeta engine FakeSource shuts down naturally when all splits are consumed.
+     * <p>FakeSource in STREAMING mode does not self-terminate after exhausting splits on any
+     * engine. The job is therefore started asynchronously and the test polls until the snapshot
+     * invariants are observable. The container teardown at the end of the test stops the job.
      */
     @TestTemplate
-    @DisabledOnContainer(
-            value = {},
-            type = {EngineType.SPARK, EngineType.FLINK},
-            disabledReason =
-                    "FakeSource in STREAMING mode does not terminate on Flink/Spark after"
-                            + " exhausting splits; Zeta engine terminates naturally")
     public void testStreamingWithParallelismProducesOneSnapshotPerCheckpoint(
             TestContainer container) throws IOException, InterruptedException {
-        Container.ExecResult result =
-                container.executeJob("/iceberg/fake_to_iceberg_parallel_streaming.conf");
-        Assertions.assertEquals(0, result.getExitCode(), result.getStderr());
+        CompletableFuture.supplyAsync(
+                () -> {
+                    try {
+                        return container.executeJob(
+                                "/iceberg/fake_to_iceberg_parallel_streaming.conf");
+                    } catch (Exception e) {
+                        throw new RuntimeException(e);
+                    }
+                });
 
-        Table table = loadStreamingTable();
+        given().ignoreExceptions()
+                .await()
+                .atMost(60, TimeUnit.SECONDS)
+                .untilAsserted(
+                        () -> {
+                            Table table = loadStreamingTable();
 
-        List<Snapshot> snapshots = new ArrayList<>();
-        table.snapshots().forEach(snapshots::add);
+                            List<Snapshot> snapshots = new ArrayList<>();
+                            table.snapshots().forEach(snapshots::add);
 
-        Assertions.assertTrue(
-                snapshots.size() >= 2,
-                "Expected at least 2 Iceberg snapshots (one per checkpoint) but got "
-                        + snapshots.size()
-                        + " — data may have been flushed in a single checkpoint");
+                            Assertions.assertTrue(
+                                    snapshots.size() >= 2,
+                                    "Expected at least 2 Iceberg snapshots (one per checkpoint)"
+                                            + " but got "
+                                            + snapshots.size()
+                                            + " — data may have been flushed in a single"
+                                            + " checkpoint");
 
-        Set<String> seenCheckpointIds = new HashSet<>();
-        for (Snapshot snapshot : snapshots) {
-            String checkpointId =
-                    snapshot.summary().get(IcebergFilesCommitter.SNAPSHOT_PROPERTY_CHECKPOINT_ID);
-            if (checkpointId != null) {
-                Assertions.assertTrue(
-                        seenCheckpointIds.add(checkpointId),
-                        "Checkpoint "
-                                + checkpointId
-                                + " produced more than one Iceberg snapshot"
-                                + " — aggregated committer is not the sole commit path");
-            }
-        }
+                            Set<String> seenCheckpointIds = new HashSet<>();
+                            for (Snapshot snapshot : snapshots) {
+                                String checkpointId =
+                                        snapshot.summary()
+                                                .get(
+                                                        IcebergFilesCommitter
+                                                                .SNAPSHOT_PROPERTY_CHECKPOINT_ID);
+                                if (checkpointId != null) {
+                                    Assertions.assertTrue(
+                                            seenCheckpointIds.add(checkpointId),
+                                            "Checkpoint "
+                                                    + checkpointId
+                                                    + " produced more than one Iceberg snapshot"
+                                                    + " — aggregated committer is not the sole"
+                                                    + " commit path");
+                                }
+                            }
 
-        log.info(
-                "Verified: {} snapshots, {} distinct checkpoint-ids",
-                snapshots.size(),
-                seenCheckpointIds.size());
+                            log.info(
+                                    "Verified: {} snapshots, {} distinct checkpoint-ids",
+                                    snapshots.size(),
+                                    seenCheckpointIds.size());
+                        });
     }
 
     /**
