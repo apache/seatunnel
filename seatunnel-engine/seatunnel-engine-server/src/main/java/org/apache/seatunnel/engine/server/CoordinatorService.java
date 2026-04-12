@@ -39,7 +39,6 @@ import org.apache.seatunnel.engine.common.exception.JobNotFoundException;
 import org.apache.seatunnel.engine.common.exception.SavePointFailedException;
 import org.apache.seatunnel.engine.common.exception.SeaTunnelEngineException;
 import org.apache.seatunnel.engine.common.job.JobResult;
-import org.apache.seatunnel.engine.common.job.JobStateEvent;
 import org.apache.seatunnel.engine.common.job.JobStatus;
 import org.apache.seatunnel.engine.common.utils.ExceptionUtil;
 import org.apache.seatunnel.engine.common.utils.PassiveCompletableFuture;
@@ -347,7 +346,8 @@ public class CoordinatorService {
                     try {
                         String jobFullName = finalJobMaster.getPhysicalPlan().getJobFullName();
                         JobStatus jobStatus = (JobStatus) runningJobStateIMap.get(jobId);
-                        if (pendingSourceState == PendingSourceState.RESTORE) {
+                        if (pendingSourceState == PendingSourceState.RESTORE
+                                && !jobStatus.isEndState()) {
                             finalJobMaster
                                     .getPhysicalPlan()
                                     .getPipelineList()
@@ -800,16 +800,6 @@ public class CoordinatorService {
             return;
         }
 
-        if (jobState instanceof JobStatus && ((JobStatus) jobState).isEndState()) {
-            logger.warning(
-                    String.format(
-                            "Job %s is in terminal state %s in runningJobInfoIMap, "
-                                    + "cleaning up zombie entry to prevent incorrect restore",
-                            jobId, jobState));
-            cleanupZombieJob(jobId, jobInfo, (JobStatus) jobState);
-            return;
-        }
-
         JobMaster jobMaster =
                 new JobMaster(
                         jobId,
@@ -835,61 +825,6 @@ public class CoordinatorService {
         pendingJobQueue.put(pendingJobInfo);
         jobMaster.getPhysicalPlan().updateJobState(JobStatus.PENDING);
         logger.info(String.format("The restore job enter pending queue, JobId: %s", jobId));
-    }
-
-    /**
-     * Clean up all IMap entries for a zombie job (a job in terminal state that was never removed
-     * from runningJobInfoIMap because the coordinator died mid-cleanup). Initialises a temporary
-     * JobMaster, then drives it through the normal completion lifecycle by completing the physical
-     * plan's end future with the already-known terminal status. This triggers the wired {@code
-     * jobEndFuture} handler which calls {@code cleanJob()} and completes {@code
-     * jobMasterCompleteFuture} — the same path taken by every normally-finishing job.
-     *
-     * <p>If initialisation fails (e.g. checkpoint storage unreachable) the exception is logged and
-     * the zombie is left in place for the next restore cycle to retry.
-     */
-    private void cleanupZombieJob(
-            @NonNull Long jobId, @NonNull JobInfo jobInfo, @NonNull JobStatus jobStatus) {
-        JobMaster jobMaster =
-                new JobMaster(
-                        jobId,
-                        jobInfo.getJobImmutableInformation(),
-                        nodeEngine,
-                        MDCTracer.tracing(jobId, executorService),
-                        getResourceManager(),
-                        getJobHistoryService(),
-                        runningJobStateIMap,
-                        runningJobStateTimestampsIMap,
-                        ownedSlotProfilesIMap,
-                        runningJobInfoIMap,
-                        engineConfig,
-                        seaTunnelServer);
-        try {
-            // restart=true: CheckpointManager is null-safe for jobs that were never
-            // checkpointed (e.g. coordinator died before first checkpoint), so init()
-            // will not throw for such zombies. Using restart=false would unintentionally
-            // trigger handleSaveMode() in init(), which can destructively truncate or
-            // drop sink tables during zombie cleanup.
-            jobMaster.init(jobInfo.getInitializationTimestamp(), true);
-            JobResult jobResult = new JobResult(jobStatus, null);
-            jobMaster.getPhysicalPlan().completeJobEndFuture(jobResult);
-            getEventProcessor()
-                    .process(
-                            new JobStateEvent(
-                                    jobMaster.getJobImmutableInformation().getJobId(),
-                                    jobMaster.getJobImmutableInformation().getJobConfig().getName(),
-                                    jobStatus));
-            jobMaster.getJobMasterCompleteFuture().join();
-            logger.info(
-                    String.format(
-                            "Zombie job %s cleaned up successfully via completion lifecycle",
-                            jobId));
-        } catch (Exception e) {
-            logger.warning(
-                    String.format(
-                            "Failed to clean up zombie job %s, will retry on next restore: %s",
-                            jobId, e.getMessage()));
-        }
     }
 
     /**
