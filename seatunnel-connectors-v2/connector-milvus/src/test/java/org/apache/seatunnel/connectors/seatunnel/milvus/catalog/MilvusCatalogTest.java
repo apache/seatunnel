@@ -20,6 +20,7 @@ import org.apache.seatunnel.api.configuration.ReadonlyConfig;
 import org.apache.seatunnel.api.table.catalog.ConstraintKey;
 import org.apache.seatunnel.api.table.catalog.TablePath;
 import org.apache.seatunnel.api.table.catalog.VectorIndex;
+import org.apache.seatunnel.connectors.seatunnel.milvus.exception.MilvusConnectorException;
 
 import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.Test;
@@ -32,6 +33,7 @@ import io.milvus.param.index.CreateIndexParam;
 import io.milvus.param.partition.CreatePartitionParam;
 
 import java.lang.reflect.Field;
+import java.lang.reflect.InvocationTargetException;
 import java.lang.reflect.Method;
 import java.util.Collections;
 import java.util.List;
@@ -93,13 +95,8 @@ class MilvusCatalogTest {
     }
 
     @Test
-    void createIndexInternalDefaultsIndexTypeAndMetricType() throws Exception {
+    void createIndexInternalThrowsWhenIndexTypeIsNull() throws Exception {
         MilvusServiceClient client = mock(MilvusServiceClient.class);
-        @SuppressWarnings("unchecked")
-        R<RpcStatus> successR = mock(R.class);
-        when(successR.getStatus()).thenReturn(R.Status.Success.getCode());
-        when(client.createIndex(any(CreateIndexParam.class))).thenReturn(successR);
-
         MilvusCatalog catalog = createCatalogWithClient(client);
         VectorIndex vectorIndex =
                 new VectorIndex(
@@ -110,18 +107,18 @@ class MilvusCatalogTest {
         List<ConstraintKey.ConstraintKeyColumn> columns = Collections.singletonList(vectorIndex);
         TablePath tablePath = TablePath.of("db", null, "coll");
 
-        invokeCreateIndexInternal(catalog, tablePath, columns);
-        verify(client, times(1)).createIndex(any(CreateIndexParam.class));
+        MilvusConnectorException exception =
+                Assertions.assertThrows(
+                        MilvusConnectorException.class,
+                        () -> invokeCreateIndexInternal(catalog, tablePath, columns));
+        Assertions.assertTrue(exception.getMessage().contains("indexType is required"));
+        Assertions.assertTrue(exception.getMessage().contains("vec_col"));
+        verify(client, never()).createIndex(any(CreateIndexParam.class));
     }
 
     @Test
-    void createIndexInternalDefaultsMetricTypeOnly() throws Exception {
+    void createIndexInternalThrowsWhenMetricTypeIsNull() throws Exception {
         MilvusServiceClient client = mock(MilvusServiceClient.class);
-        @SuppressWarnings("unchecked")
-        R<RpcStatus> successR = mock(R.class);
-        when(successR.getStatus()).thenReturn(R.Status.Success.getCode());
-        when(client.createIndex(any(CreateIndexParam.class))).thenReturn(successR);
-
         MilvusCatalog catalog = createCatalogWithClient(client);
         VectorIndex vectorIndex =
                 new VectorIndex(
@@ -132,8 +129,13 @@ class MilvusCatalogTest {
         List<ConstraintKey.ConstraintKeyColumn> columns = Collections.singletonList(vectorIndex);
         TablePath tablePath = TablePath.of("db", null, "coll");
 
-        invokeCreateIndexInternal(catalog, tablePath, columns);
-        verify(client, times(1)).createIndex(any(CreateIndexParam.class));
+        MilvusConnectorException exception =
+                Assertions.assertThrows(
+                        MilvusConnectorException.class,
+                        () -> invokeCreateIndexInternal(catalog, tablePath, columns));
+        Assertions.assertTrue(exception.getMessage().contains("metricType is required"));
+        Assertions.assertTrue(exception.getMessage().contains("vec_col"));
+        verify(client, never()).createIndex(any(CreateIndexParam.class));
     }
 
     @Test
@@ -186,7 +188,14 @@ class MilvusCatalogTest {
                 MilvusCatalog.class.getDeclaredMethod(
                         "createIndexInternal", TablePath.class, List.class);
         method.setAccessible(true);
-        method.invoke(catalog, tablePath, vectorIndexes);
+        try {
+            method.invoke(catalog, tablePath, vectorIndexes);
+        } catch (InvocationTargetException e) {
+            if (e.getCause() instanceof RuntimeException) {
+                throw (RuntimeException) e.getCause();
+            }
+            throw e;
+        }
     }
 
     private MilvusCatalog createCatalogWithClient(MilvusServiceClient client) throws Exception {
