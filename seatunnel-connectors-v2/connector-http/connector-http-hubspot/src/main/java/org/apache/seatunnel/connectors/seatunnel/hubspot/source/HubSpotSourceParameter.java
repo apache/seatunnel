@@ -29,18 +29,29 @@ public class HubSpotSourceParameter extends HttpParameter {
 
     @Override
     public void buildWithConfig(ReadonlyConfig pluginConfig) {
-        super.buildWithConfig(pluginConfig);
+        // 1. Create a mutable map to inject our pagination defaults
+        Map<String, Object> configMap = new HashMap<>(pluginConfig.toMap());
 
-        // 1. Inject Authorization Header (Blocker 1)
+        // Inject Cursor-based pagination settings
+        configMap.put("pageing.page_type", "Cursor");
+        configMap.put("pageing.cursor_field", "after");
+        configMap.put("pageing.cursor_response_field", "$.paging.next.after");
+
+        // 2. Wrap the map back into a ReadonlyConfig and pass it to the base class
+        ReadonlyConfig mergedConfig = ReadonlyConfig.fromMap(configMap);
+        super.buildWithConfig(mergedConfig);
+
+        // 3. Inject Authorization Header
+        // Note: Using mergedConfig here in case the base class needs it
         Map<String, String> currentHeaders =
-                this.getHeaders() == null ? new HashMap<>() : this.getHeaders();
+                this.getHeaders() == null ? new HashMap<>() : new HashMap<>(this.getHeaders());
         currentHeaders.put(
-                "Authorization", "Bearer " + pluginConfig.get(HubSpotSourceOptions.ACCESS_TOKEN));
+                "Authorization", "Bearer " + mergedConfig.get(HubSpotSourceOptions.ACCESS_TOKEN));
         this.setHeaders(currentHeaders);
 
-        // 2. Construct URL from object_type if url is not explicitly provided (Blocker 2)
+        // 4. Construct URL from object_type if url is not explicitly provided
         if (this.getUrl() == null || this.getUrl().isEmpty()) {
-            String objectType = pluginConfig.get(HubSpotSourceOptions.OBJECT_TYPE);
+            String objectType = mergedConfig.get(HubSpotSourceOptions.OBJECT_TYPE);
             if (objectType != null && !objectType.isEmpty()) {
                 this.setUrl(HUBSPOT_BASE_URL + objectType);
             }
