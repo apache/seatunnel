@@ -69,7 +69,7 @@ public abstract class BaseMultipleTableFileSink
         this.readonlyConfig = readonlyConfig;
         this.hadoopConf = hadoopConf;
         this.fileSinkConfig =
-                new FileSinkConfig(readonlyConfig.toConfig(), catalogTable.getSeaTunnelRowType());
+                new FileSinkConfig(readonlyConfig, catalogTable.getSeaTunnelRowType());
         this.catalogTable = catalogTable;
     }
 

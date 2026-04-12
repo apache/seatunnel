@@ -26,7 +26,9 @@ import org.apache.seatunnel.e2e.common.container.TestContainer;
 import org.apache.seatunnel.e2e.common.container.TestHelper;
 import org.apache.seatunnel.e2e.common.junit.DisabledOnContainer;
 import org.apache.seatunnel.e2e.common.util.ContainerUtil;
+import org.apache.seatunnel.e2e.common.util.JobIdGenerator;
 
+import org.awaitility.Awaitility;
 import org.junit.jupiter.api.AfterAll;
 import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.BeforeAll;
@@ -50,6 +52,8 @@ import java.util.ArrayList;
 import java.util.Collections;
 import java.util.List;
 import java.util.Properties;
+import java.util.concurrent.CompletableFuture;
+import java.util.concurrent.TimeUnit;
 import java.util.function.BiFunction;
 import java.util.stream.Collectors;
 import java.util.stream.IntStream;
@@ -235,6 +239,67 @@ public class FtpFileIT extends TestSuiteBase implements TestResource {
         Assertions.assertEquals("abcd", readFtpFile("/tmp/seatunnel/update/dst/test.bin"));
 
         deleteFileFromContainer(ftpHomeDir + "/tmp/seatunnel/update");
+    }
+
+    @TestTemplate
+    @DisabledOnContainer(
+            value = {},
+            type = {EngineType.FLINK, EngineType.SPARK},
+            disabledReason = "Continuous discovery is a long-running job; only run in zeta engine.")
+    public void testFtpBinaryUpdateModeContinuousDiscoveryDistcp(TestContainer container)
+            throws IOException, InterruptedException {
+        resetContinuousTestPath();
+        putFtpFile("/tmp/seatunnel/continuous/src/test1.bin", "abc");
+
+        String jobId = String.valueOf(JobIdGenerator.newJobId());
+        CompletableFuture<Container.ExecResult> jobFuture =
+                CompletableFuture.supplyAsync(
+                        () -> {
+                            try {
+                                return container.executeJob(
+                                        "/text/ftp_binary_update_distcp_continuous.conf", jobId);
+                            } catch (Exception e) {
+                                throw new RuntimeException(e);
+                            }
+                        });
+
+        Awaitility.await()
+                .atMost(60, TimeUnit.SECONDS)
+                .untilAsserted(
+                        () ->
+                                Assertions.assertEquals(
+                                        "abc",
+                                        readFtpFile("/tmp/seatunnel/continuous/dst/test1.bin")));
+
+        long firstMtimeSeconds = getFtpFileMtimeSeconds("/tmp/seatunnel/continuous/dst/test1.bin");
+        Thread.sleep(2500);
+        long secondMtimeSeconds = getFtpFileMtimeSeconds("/tmp/seatunnel/continuous/dst/test1.bin");
+        Assertions.assertEquals(
+                firstMtimeSeconds,
+                secondMtimeSeconds,
+                "Continuous discovery should skip unchanged files in update mode.");
+
+        putFtpFile("/tmp/seatunnel/continuous/src/test2.bin", "def");
+        Awaitility.await()
+                .atMost(60, TimeUnit.SECONDS)
+                .untilAsserted(
+                        () ->
+                                Assertions.assertEquals(
+                                        "def",
+                                        readFtpFile("/tmp/seatunnel/continuous/dst/test2.bin")));
+
+        Container.ExecResult cancelResult = container.cancelJob(jobId);
+        Assertions.assertEquals(0, cancelResult.getExitCode(), cancelResult.getStderr());
+
+        Container.ExecResult execResult;
+        try {
+            execResult = jobFuture.get(120, TimeUnit.SECONDS);
+        } catch (Exception e) {
+            throw new RuntimeException("Wait continuous job exit failed.", e);
+        }
+        Assertions.assertEquals(0, execResult.getExitCode(), execResult.getStderr());
+
+        deleteFileFromContainer(ftpHomeDir + "/tmp/seatunnel/continuous");
     }
 
     @TestTemplate
@@ -440,6 +505,26 @@ public class FtpFileIT extends TestSuiteBase implements TestResource {
                 "sh", "-c", "chown -R ftp:ftp " + ftpHomeDir + "/tmp/seatunnel/update || true");
     }
 
+    private void resetContinuousTestPath() throws IOException, InterruptedException {
+        deleteFileFromContainer(ftpHomeDir + "/tmp/seatunnel/continuous");
+        Container.ExecResult mkdirResult =
+                ftpContainer.execInContainer(
+                        "sh",
+                        "-c",
+                        "mkdir -p "
+                                + ftpHomeDir
+                                + "/tmp/seatunnel/continuous/src "
+                                + ftpHomeDir
+                                + "/tmp/seatunnel/continuous/dst "
+                                + ftpHomeDir
+                                + "/tmp/seatunnel/continuous/tmp");
+        Assertions.assertEquals(0, mkdirResult.getExitCode(), mkdirResult.getStderr());
+        ftpContainer.execInContainer(
+                "sh", "-c", "chmod -R 777 " + ftpHomeDir + "/tmp/seatunnel/continuous || true");
+        ftpContainer.execInContainer(
+                "sh", "-c", "chown -R ftp:ftp " + ftpHomeDir + "/tmp/seatunnel/continuous || true");
+    }
+
     private void putFtpFile(String ftpPath, String content)
             throws IOException, InterruptedException {
         String containerPath = ftpHomeDir + ftpPath;
@@ -465,6 +550,14 @@ public class FtpFileIT extends TestSuiteBase implements TestResource {
         return catResult.getStdout() == null ? "" : catResult.getStdout().trim();
     }
 
+    private long getFtpFileMtimeSeconds(String ftpPath) throws IOException, InterruptedException {
+        String containerPath = ftpHomeDir + ftpPath;
+        Container.ExecResult result =
+                ftpContainer.execInContainer("sh", "-c", "stat -c %Y '" + containerPath + "'");
+        Assertions.assertEquals(0, result.getExitCode(), result.getStderr());
+        return Long.parseLong(result.getStdout().trim());
+    }
+
     private String getFtpUserHomeDir() throws IOException, InterruptedException {
         // Prefer vsftpd local_root as the real filesystem root used by FTP paths in test configs.
         // In some images, FTP users are created as virtual users and may not exist in /etc/passwd.
@@ -483,7 +576,7 @@ public class FtpFileIT extends TestSuiteBase implements TestResource {
                                     .replace("$FTP_USER", USERNAME)
                                     .replace("${USER}", USERNAME)
                                     .replace("$USER", USERNAME);
-                    if (StringUtils.isNotBlank(resolved)) {
+                    if (StringUtils.isNotBlank(resolved) && containerDirExists(resolved)) {
                         return resolved;
                     }
                 }
@@ -502,12 +595,21 @@ public class FtpFileIT extends TestSuiteBase implements TestResource {
                                 + "\"{print $6}' /etc/passwd 2>/dev/null || true");
         if (homeResult.getExitCode() == 0) {
             String homeDir = homeResult.getStdout() == null ? "" : homeResult.getStdout().trim();
-            if (StringUtils.isNotBlank(homeDir)) {
+            if (StringUtils.isNotBlank(homeDir) && containerDirExists(homeDir)) {
                 return homeDir;
             }
         }
 
         // Last resort: use default directory used by fauria/vsftpd.
+        String defaultUserRoot = "/home/vsftpd/" + USERNAME;
+        if (containerDirExists(defaultUserRoot)) {
+            log.warn(
+                    "Cannot resolve ftp home directory for user: {}, fallback to {}",
+                    USERNAME,
+                    defaultUserRoot);
+            return defaultUserRoot;
+        }
+
         String defaultRoot = "/home/vsftpd";
         if (containerDirExists(defaultRoot)) {
             log.warn(
@@ -516,7 +618,7 @@ public class FtpFileIT extends TestSuiteBase implements TestResource {
                     defaultRoot);
             return defaultRoot;
         }
-        String defaultUserRoot = defaultRoot + "/" + USERNAME;
+
         log.warn(
                 "Cannot resolve ftp home directory for user: {}, fallback to {}",
                 USERNAME,

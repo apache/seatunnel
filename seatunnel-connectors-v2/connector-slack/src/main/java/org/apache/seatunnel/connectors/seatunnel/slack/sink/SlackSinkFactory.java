@@ -18,8 +18,10 @@
 package org.apache.seatunnel.connectors.seatunnel.slack.sink;
 
 import org.apache.seatunnel.api.configuration.util.OptionRule;
+import org.apache.seatunnel.api.table.connector.TableSink;
 import org.apache.seatunnel.api.table.factory.Factory;
 import org.apache.seatunnel.api.table.factory.TableSinkFactory;
+import org.apache.seatunnel.api.table.factory.TableSinkFactoryContext;
 import org.apache.seatunnel.connectors.seatunnel.slack.config.SlackSinkOptions;
 
 import com.google.auto.service.AutoService;
@@ -39,5 +41,10 @@ public class SlackSinkFactory implements TableSinkFactory {
                         SlackSinkOptions.OAUTH_TOKEN,
                         SlackSinkOptions.SLACK_CHANNEL)
                 .build();
+    }
+
+    @Override
+    public TableSink createSink(TableSinkFactoryContext context) {
+        return () -> new SlackSink(context.getOptions(), context.getCatalogTable());
     }
 }

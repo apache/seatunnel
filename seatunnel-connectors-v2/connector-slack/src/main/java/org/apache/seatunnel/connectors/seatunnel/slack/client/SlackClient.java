@@ -17,8 +17,7 @@
 
 package org.apache.seatunnel.connectors.seatunnel.slack.client;
 
-import org.apache.seatunnel.shade.com.typesafe.config.Config;
-
+import org.apache.seatunnel.api.configuration.ReadonlyConfig;
 import org.apache.seatunnel.common.utils.ExceptionUtils;
 import org.apache.seatunnel.connectors.seatunnel.slack.exception.SlackConnectorErrorCode;
 import org.apache.seatunnel.connectors.seatunnel.slack.exception.SlackConnectorException;
@@ -39,10 +38,10 @@ import static org.apache.seatunnel.connectors.seatunnel.slack.config.SlackSinkOp
 
 @Slf4j
 public class SlackClient {
-    private final Config pluginConfig;
+    private final ReadonlyConfig pluginConfig;
     private final MethodsClient methodsClient;
 
-    public SlackClient(Config pluginConfig) {
+    public SlackClient(ReadonlyConfig pluginConfig) {
         this.pluginConfig = pluginConfig;
         this.methodsClient = Slack.getInstance().methods();
     }
@@ -58,10 +57,10 @@ public class SlackClient {
                             r ->
                                     r
                                             // The Token used to initialize app
-                                            .token(pluginConfig.getString(OAUTH_TOKEN.key())));
+                                            .token(pluginConfig.get(OAUTH_TOKEN)));
             channels = conversationsListResponse.getChannels();
             for (Conversation channel : channels) {
-                if (channel.getName().equals(pluginConfig.getString(SLACK_CHANNEL.key()))) {
+                if (channel.getName().equals(pluginConfig.get(SLACK_CHANNEL))) {
                     conversionId = channel.getId();
                     // Break from for loop
                     break;
@@ -84,7 +83,7 @@ public class SlackClient {
                             r ->
                                     r
                                             // The Token used to initialize app
-                                            .token(pluginConfig.getString(SLACK_CHANNEL.key()))
+                                            .token(pluginConfig.get(SLACK_CHANNEL))
                                             .channel(channelId)
                                             .text(text));
             publishMessageSuccess = chatPostMessageResponse.isOk();

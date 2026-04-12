@@ -670,11 +670,22 @@ public class DynamicChunkSplitter extends ChunkSplitter {
 
         String splitQuery = split.getSplitQuery();
         if (StringUtils.isNotBlank(splitQuery)) {
-            splitQuery = String.format("SELECT * FROM (%s) tmp", splitQuery);
-        } else {
             splitQuery =
-                    String.format(
-                            "SELECT * FROM %s", jdbcDialect.tableIdentifier(split.getTablePath()));
+                    String.format("SELECT * FROM (%s) tmp", applyUserWhereCondition(splitQuery));
+        } else {
+            if (StringUtils.isNotBlank(config.getWhereConditionClause())) {
+                String userQuery =
+                        String.format(
+                                "SELECT * FROM %s",
+                                jdbcDialect.tableIdentifier(split.getTablePath()));
+                splitQuery =
+                        String.format("SELECT * FROM (%s) tmp", applyUserWhereCondition(userQuery));
+            } else {
+                splitQuery =
+                        String.format(
+                                "SELECT * FROM %s",
+                                jdbcDialect.tableIdentifier(split.getTablePath()));
+            }
         }
 
         StringBuilder sql = new StringBuilder();

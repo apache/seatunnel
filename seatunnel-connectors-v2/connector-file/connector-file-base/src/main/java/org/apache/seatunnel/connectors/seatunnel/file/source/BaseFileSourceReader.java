@@ -17,10 +17,12 @@
 
 package org.apache.seatunnel.connectors.seatunnel.file.source;
 
+import org.apache.seatunnel.api.source.Boundedness;
 import org.apache.seatunnel.api.source.Collector;
 import org.apache.seatunnel.api.source.SourceReader;
 import org.apache.seatunnel.api.table.type.SeaTunnelRow;
 import org.apache.seatunnel.common.exception.CommonError;
+import org.apache.seatunnel.connectors.seatunnel.file.source.event.FileSplitFinishedEvent;
 import org.apache.seatunnel.connectors.seatunnel.file.source.reader.ReadStrategy;
 import org.apache.seatunnel.connectors.seatunnel.file.source.split.FileSourceSplit;
 
@@ -34,6 +36,8 @@ import java.util.concurrent.ConcurrentLinkedDeque;
 
 @Slf4j
 public class BaseFileSourceReader implements SourceReader<SeaTunnelRow, FileSourceSplit> {
+    private static final long POLL_WAIT_MS = 1000L;
+
     private final ReadStrategy readStrategy;
     private final SourceReader.Context context;
     private final Deque<FileSourceSplit> sourceSplits = new ConcurrentLinkedDeque<>();
@@ -54,9 +58,10 @@ public class BaseFileSourceReader implements SourceReader<SeaTunnelRow, FileSour
 
     @Override
     public void pollNext(Collector<SeaTunnelRow> output) throws Exception {
+        FileSourceSplit split;
         synchronized (output.getCheckpointLock()) {
-            FileSourceSplit split = sourceSplits.poll();
-            if (null != split) {
+            split = sourceSplits.poll();
+            if (split != null) {
                 try {
                     // todo: If there is only one table , the tableId is not needed, but it's better
                     // to set this
@@ -64,13 +69,28 @@ public class BaseFileSourceReader implements SourceReader<SeaTunnelRow, FileSour
                 } catch (Exception e) {
                     throw CommonError.fileOperationFailed("SeaTunnel", "read", split.splitId(), e);
                 }
-            } else if (noMoreSplit && sourceSplits.isEmpty()) {
-                // signal to the source that we have reached the end of the data.
-                log.info("Closed the bounded File source");
-                context.signalNoMoreElement();
-            } else {
-                Thread.sleep(1000L);
             }
+        }
+
+        if (split != null) {
+            if (Boundedness.UNBOUNDED.equals(context.getBoundedness())) {
+                context.sendSourceEventToEnumerator(new FileSplitFinishedEvent(split.splitId()));
+            }
+            return;
+        }
+
+        if (noMoreSplit
+                && sourceSplits.isEmpty()
+                && Boundedness.BOUNDED.equals(context.getBoundedness())) {
+            // signal to the source that we have reached the end of the data.
+            log.info("Closed the bounded File source");
+            context.signalNoMoreElement();
+            return;
+        }
+
+        context.sendSplitRequest();
+        if (sourceSplits.isEmpty()) {
+            Thread.sleep(POLL_WAIT_MS);
         }
     }
 
