@@ -1,0 +1,12 @@
+{
+  "results": [
+    {"id": "1", "properties": {"firstname": "Alice"}},
+    {"id": "2", "properties": {"firstname": "Bob"}}
+  ],
+  "paging": {
+    "next": {
+      "after": "token-123",
+      "link": "?after=token-123"
+    }
+  }
+}
