@@ -232,21 +232,25 @@ public class MilvusCatalog implements Catalog {
             String fieldName = index.getColumnName();
             String indexName =
                     StringUtils.isNotBlank(index.getIndexName()) ? index.getIndexName() : fieldName;
-            if (index.getIndexType() == null) {
-                throw new MilvusConnectorException(
-                        MilvusConnectionErrorCode.CREATE_INDEX_ERROR,
-                        String.format(
-                                "indexType is required for vector index on column '%s', "
-                                        + "please specify it in schema constraintKeys or connector config",
-                                fieldName));
+            IndexType indexType;
+            if (index.getIndexType() != null) {
+                indexType = IndexType.valueOf(index.getIndexType().name());
+            } else {
+                indexType = IndexType.AUTOINDEX;
+                log.warn(
+                        "indexType is not specified for vector index on column '{}', defaulting to {}",
+                        fieldName,
+                        indexType);
             }
-            if (index.getMetricType() == null) {
-                throw new MilvusConnectorException(
-                        MilvusConnectionErrorCode.CREATE_INDEX_ERROR,
-                        String.format(
-                                "metricType is required for vector index on column '%s', "
-                                        + "please specify it in schema constraintKeys or connector config",
-                                fieldName));
+            MetricType metricType;
+            if (index.getMetricType() != null) {
+                metricType = MetricType.valueOf(index.getMetricType().name());
+            } else {
+                metricType = MetricType.COSINE;
+                log.warn(
+                        "metricType is not specified for vector index on column '{}', defaulting to {}",
+                        fieldName,
+                        metricType);
             }
             log.info(
                     "Creating Milvus vector index. database={}, collection={}, field={}, indexName={}, indexType={}, metricType={}",
@@ -254,16 +258,16 @@ public class MilvusCatalog implements Catalog {
                     tablePath.getTableName(),
                     fieldName,
                     indexName,
-                    index.getIndexType(),
-                    index.getMetricType());
+                    indexType,
+                    metricType);
             CreateIndexParam createIndexParam =
                     CreateIndexParam.newBuilder()
                             .withDatabaseName(tablePath.getDatabaseName())
                             .withCollectionName(tablePath.getTableName())
                             .withFieldName(fieldName)
                             .withIndexName(indexName)
-                            .withIndexType(IndexType.valueOf(index.getIndexType().name()))
-                            .withMetricType(MetricType.valueOf(index.getMetricType().name()))
+                            .withIndexType(indexType)
+                            .withMetricType(metricType)
                             .build();
 
             R<RpcStatus> response = client.createIndex(createIndexParam);
