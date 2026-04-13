@@ -46,7 +46,9 @@ Yes, you can specify different processing schemes for existing data on the targe
 - **`APPEND_DATA`**: Retains both the database structure and data.
 - **`CUSTOM_PROCESSING`**: User-defined processing.
 - **`ERROR_WHEN_DATA_EXISTS`**: Throws an error if data already exists.
-  Many connectors support handling existing data; please refer to the respective connector documentation, such as [Jdbc sink](./connectors/sink/Jdbc.md#data_save_mode-enum).
+
+  Many connectors support handling existing data; please refer to the respective connector documentation, such as [Jdbc sink](https://seatunnel.apache.org/docs/connectors/sink/Jdbc#data_save_mode-enum).
+  Note: for JDBC sink, when sink `query` is configured (custom write SQL), save mode handling is currently not applied, so `CUSTOM_PROCESSING`/`custom_sql` will not be executed.
 
 ## Does SeaTunnel support exactly-once consistency?
 SeaTunnel supports exactly-once consistency for some data sources, such as MySQL and PostgreSQL, ensuring data consistency during integration. Note that exactly-once consistency depends on the capabilities of the underlying database.
