@@ -17,6 +17,8 @@
 
 package org.apache.seatunnel.connectors.seatunnel.file.source;
 
+import org.apache.seatunnel.shade.com.google.common.annotations.VisibleForTesting;
+
 import org.apache.seatunnel.api.configuration.ReadonlyConfig;
 import org.apache.seatunnel.api.options.ConnectorCommonOptions;
 import org.apache.seatunnel.api.source.Boundedness;
@@ -52,6 +54,14 @@ public abstract class BaseFileSource
     private final CatalogTable catalogTable;
     private final List<String> filePaths;
     private final ReadStrategy readStrategy;
+
+    /** shouldn't use this construct method. just for testing */
+    @VisibleForTesting
+    public BaseFileSource() {
+        this.catalogTable = null;
+        this.filePaths = null;
+        this.readStrategy = null;
+    }
 
     public BaseFileSource(ReadonlyConfig pluginConfig) {
         this.pluginConfig = pluginConfig;
