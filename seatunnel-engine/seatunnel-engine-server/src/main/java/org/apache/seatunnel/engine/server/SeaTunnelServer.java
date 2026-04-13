@@ -24,6 +24,7 @@ import org.apache.seatunnel.engine.common.config.SeaTunnelConfig;
 import org.apache.seatunnel.engine.common.exception.SeaTunnelEngineException;
 import org.apache.seatunnel.engine.common.exception.SeaTunnelEngineRetryableException;
 import org.apache.seatunnel.engine.common.utils.DataSourceConfigResolver;
+import org.apache.seatunnel.engine.common.utils.JobMetricsPartitionUtils;
 import org.apache.seatunnel.engine.core.classloader.ClassLoaderService;
 import org.apache.seatunnel.engine.core.classloader.DefaultClassLoaderService;
 import org.apache.seatunnel.engine.server.checkpoint.monitor.CheckpointMonitorService;
@@ -361,7 +362,8 @@ public class SeaTunnelServer
         Map<Long, Map<TaskLocation, SeaTunnelMetricsContext>> partitioned = new HashMap<>();
         localMap.forEach(
                 (key, value) -> {
-                    long partition = getMetricsImapPartition(key, partitionCount);
+                    long partition =
+                            JobMetricsPartitionUtils.getMetricsImapPartition(key, partitionCount);
                     partitioned.computeIfAbsent(partition, k -> new HashMap<>()).put(key, value);
                 });
 
@@ -418,10 +420,6 @@ public class SeaTunnelServer
                                         return oldVal;
                                     });
                         });
-    }
-
-    public static long getMetricsImapPartition(TaskLocation key, int partitionCount) {
-        return (key.hashCode() & 0x7FFFFFFF) % partitionCount;
     }
 
     public SeaTunnelConfig getSeaTunnelConfig() {

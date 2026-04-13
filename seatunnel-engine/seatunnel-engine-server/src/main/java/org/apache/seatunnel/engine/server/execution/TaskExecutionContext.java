@@ -18,7 +18,7 @@
 package org.apache.seatunnel.engine.server.execution;
 
 import org.apache.seatunnel.engine.common.Constant;
-import org.apache.seatunnel.engine.server.SeaTunnelServer;
+import org.apache.seatunnel.engine.common.utils.JobMetricsPartitionUtils;
 import org.apache.seatunnel.engine.server.TaskExecutionService;
 import org.apache.seatunnel.engine.server.metrics.SeaTunnelMetricsContext;
 import org.apache.seatunnel.engine.server.utils.NodeEngineUtil;
@@ -66,7 +66,8 @@ public class TaskExecutionContext {
                         .getSeaTunnelConfig()
                         .getEngineConfig()
                         .getJobMetricsPartitionCount();
-        long partition = SeaTunnelServer.getMetricsImapPartition(taskLocation, partitionCount);
+        long partition =
+                JobMetricsPartitionUtils.getMetricsImapPartition(taskLocation, partitionCount);
         HashMap<TaskLocation, SeaTunnelMetricsContext> centralMap = map.get(partition);
         return centralMap == null || centralMap.get(taskLocation) == null
                 ? new SeaTunnelMetricsContext()
