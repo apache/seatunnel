@@ -39,7 +39,7 @@ For both `AES_GCM` and `AES_CBC`, valid key lengths are 16, 24, or 32 bytes (cor
 
 ### common options [string]
 
-Transform plugin common parameters, please refer to [Transform Plugin](common-options.md) for details
+Transform plugin common parameters, please refer to [Transform Plugin](common-options/common-options.md) for details
 
 ## Example
 

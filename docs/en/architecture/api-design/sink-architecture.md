@@ -607,10 +607,10 @@ public class HiveAggregatedCommitter
 ### 3.4 Code References
 
 **API Interfaces**:
-- [SeaTunnelSink.java](../../../seatunnel-api/src/main/java/org/apache/seatunnel/api/sink/SeaTunnelSink.java)
-- [SinkWriter.java](../../../seatunnel-api/src/main/java/org/apache/seatunnel/api/sink/SinkWriter.java)
-- [SinkCommitter.java](../../../seatunnel-api/src/main/java/org/apache/seatunnel/api/sink/SinkCommitter.java)
-- [SinkAggregatedCommitter.java](../../../seatunnel-api/src/main/java/org/apache/seatunnel/api/sink/SinkAggregatedCommitter.java)
+- [SeaTunnelSink.java](../../../../seatunnel-api/src/main/java/org/apache/seatunnel/api/sink/SeaTunnelSink.java)
+- [SinkWriter.java](../../../../seatunnel-api/src/main/java/org/apache/seatunnel/api/sink/SinkWriter.java)
+- [SinkCommitter.java](../../../../seatunnel-api/src/main/java/org/apache/seatunnel/api/sink/SinkCommitter.java)
+- [SinkAggregatedCommitter.java](../../../../seatunnel-api/src/main/java/org/apache/seatunnel/api/sink/SinkAggregatedCommitter.java)
 
 **Example Implementations**:
 - JDBC Sink: `seatunnel-connectors-v2/connector-jdbc/src/main/java/org/apache/seatunnel/connectors/seatunnel/jdbc/sink/`

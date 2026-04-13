@@ -37,7 +37,7 @@ This parameter configures the parallelism of source and sink.
 
 Specify the method of encryption, if you didn't have the requirement for encrypting or decrypting config files, this option can be ignored.
 
-For more details, you can refer to the documentation [Config Encryption Decryption](../concepts/config-encryption-decryption.md)
+For more details, you can refer to the documentation [Config Encryption Decryption](./config-encryption-decryption.md)
 
 ## Zeta Engine Parameter
 
