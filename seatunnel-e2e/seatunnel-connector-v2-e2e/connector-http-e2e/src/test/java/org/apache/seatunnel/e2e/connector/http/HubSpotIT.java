@@ -26,6 +26,7 @@ import org.junit.jupiter.api.TestTemplate;
 import org.mockserver.integration.ClientAndServer;
 import org.mockserver.model.HttpRequest;
 import org.mockserver.model.HttpResponse;
+import org.testcontainers.Testcontainers;
 import org.testcontainers.containers.Container;
 
 import java.nio.file.Files;
@@ -39,6 +40,10 @@ public class HubSpotIT extends TestSuiteBase {
 
     @BeforeAll
     public static void setup() throws Exception {
+
+        // Expose the host port so the Docker container can reach it
+        Testcontainers.exposeHostPorts(8089);
+
         // Start MockServer on port 8089 to match our conf file
         mockServer = ClientAndServer.startClientAndServer(8089);
 
