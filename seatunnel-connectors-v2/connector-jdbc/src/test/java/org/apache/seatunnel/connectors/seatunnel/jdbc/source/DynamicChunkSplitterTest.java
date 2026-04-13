@@ -125,13 +125,13 @@ public class DynamicChunkSplitterTest {
 
         Assertions.assertTrue(
                 defaultConfig.isSplitSampleShardingEnable(),
-                "Default value of split.sample-sharding.enable should be true");
+                "Default value of split.allow-sampling should be true");
 
-        configMap.put("split.sample-sharding.enable", false);
+        configMap.put("split.allow-sampling", false);
         JdbcSourceConfig disabledConfig = JdbcSourceConfig.of(ReadonlyConfig.fromMap(configMap));
         Assertions.assertFalse(
                 disabledConfig.isSplitSampleShardingEnable(),
-                "split.sample-sharding.enable should be false when explicitly set");
+                "split.allow-sampling should be false when explicitly set");
     }
 
     @Test

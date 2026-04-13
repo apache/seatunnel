@@ -707,7 +707,7 @@ public class JdbcMysqlSplitIT extends TestSuiteBase implements TestResource {
 
         // enable set is false
         Map<String, Object> disabledConfig = new HashMap<>(baseConfig);
-        disabledConfig.put("split.sample-sharding.enable", false);
+        disabledConfig.put("split.allow-sampling", false);
         Collection<JdbcSourceSplit> disabledSplits =
                 getDynamicChunkSplitter(disabledConfig).generateSplits(jdbcSourceTable);
 

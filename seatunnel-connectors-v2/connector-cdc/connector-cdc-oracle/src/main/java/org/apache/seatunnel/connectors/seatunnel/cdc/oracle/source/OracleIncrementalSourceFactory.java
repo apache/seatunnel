@@ -76,7 +76,7 @@ public class OracleIncrementalSourceFactory extends BaseChangeStreamTableSourceF
                                 .CHUNK_KEY_EVEN_DISTRIBUTION_FACTOR_UPPER_BOUND,
                         OracleIncrementalSourceOptions.SAMPLE_SHARDING_THRESHOLD,
                         OracleIncrementalSourceOptions.INVERSE_SAMPLING_RATE,
-                        OracleIncrementalSourceOptions.SAMPLE_SHARDING_ENABLE,
+                        OracleIncrementalSourceOptions.SPLIT_ALLOW_SAMPLING,
                         OracleIncrementalSourceOptions.TABLE_NAMES_CONFIG,
                         OracleIncrementalSourceOptions.SCHEMA_CHANGES_ENABLED)
                 .optional(

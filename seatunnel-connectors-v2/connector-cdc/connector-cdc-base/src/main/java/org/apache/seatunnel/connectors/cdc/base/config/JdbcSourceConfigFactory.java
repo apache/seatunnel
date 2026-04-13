@@ -54,7 +54,7 @@ public abstract class JdbcSourceConfigFactory implements SourceConfig.Factory<Jd
             JdbcSourceOptions.SAMPLE_SHARDING_THRESHOLD.defaultValue();
     protected int inverseSamplingRate = JdbcSourceOptions.INVERSE_SAMPLING_RATE.defaultValue();
     protected boolean sampleShardingEnable =
-            JdbcSourceOptions.SAMPLE_SHARDING_ENABLE.defaultValue();
+            JdbcSourceOptions.SPLIT_ALLOW_SAMPLING.defaultValue();
     protected int splitSize = SourceOptions.SNAPSHOT_SPLIT_SIZE.defaultValue();
     protected Map<String, String> splitColumn;
     protected int fetchSize = SourceOptions.SNAPSHOT_FETCH_SIZE.defaultValue();
@@ -267,7 +267,7 @@ public abstract class JdbcSourceConfigFactory implements SourceConfig.Factory<Jd
                 config.get(JdbcSourceOptions.CHUNK_KEY_EVEN_DISTRIBUTION_FACTOR_LOWER_BOUND);
         this.sampleShardingThreshold = config.get(JdbcSourceOptions.SAMPLE_SHARDING_THRESHOLD);
         this.inverseSamplingRate = config.get(JdbcSourceOptions.INVERSE_SAMPLING_RATE);
-        this.sampleShardingEnable = config.get(JdbcSourceOptions.SAMPLE_SHARDING_ENABLE);
+        this.sampleShardingEnable = config.get(JdbcSourceOptions.SPLIT_ALLOW_SAMPLING);
         this.splitSize = config.get(SourceOptions.SNAPSHOT_SPLIT_SIZE);
         this.splitColumn = new HashMap<>();
         config.getOptional(JdbcSourceOptions.TABLE_NAMES_CONFIG)
