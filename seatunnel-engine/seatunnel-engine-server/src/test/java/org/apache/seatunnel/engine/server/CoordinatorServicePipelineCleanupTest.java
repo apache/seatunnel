@@ -82,6 +82,46 @@ class CoordinatorServicePipelineCleanupTest extends AbstractSeaTunnelServerTest 
     }
 
     @Test
+    void testCleanupRemovesMetricsAndRecordForFailedPipeline() {
+        CoordinatorService coordinatorService = server.getCoordinatorService();
+        awaitCoordinatorActive(coordinatorService);
+
+        long jobId = System.currentTimeMillis();
+        PipelineLocation pipelineLocation = new PipelineLocation(jobId, 1);
+        PipelineLocation otherPipelineLocation = new PipelineLocation(jobId + 1, 1);
+
+        upsertMetricsForPipeline(pipelineLocation);
+        upsertMetricsForPipeline(otherPipelineLocation);
+        Assertions.assertTrue(hasMetricsForPipeline(pipelineLocation));
+        Assertions.assertTrue(hasMetricsForPipeline(otherPipelineLocation));
+
+        IMap<Object, Object> runningJobStateIMap =
+                nodeEngine.getHazelcastInstance().getMap(Constant.IMAP_RUNNING_JOB_STATE);
+        runningJobStateIMap.put(pipelineLocation, PipelineStatus.FAILED);
+
+        IMap<PipelineLocation, PipelineCleanupRecord> pendingCleanupIMap =
+                nodeEngine.getHazelcastInstance().getMap(Constant.IMAP_PENDING_PIPELINE_CLEANUP);
+        pendingCleanupIMap.put(
+                pipelineLocation,
+                new PipelineCleanupRecord(
+                        pipelineLocation,
+                        PipelineStatus.FAILED,
+                        false,
+                        Collections.emptyMap(),
+                        Collections.emptySet(),
+                        false,
+                        System.currentTimeMillis(),
+                        0L,
+                        0));
+
+        coordinatorService.runPendingPipelineCleanupOnce();
+
+        Assertions.assertFalse(hasMetricsForPipeline(pipelineLocation));
+        Assertions.assertTrue(hasMetricsForPipeline(otherPipelineLocation));
+        Assertions.assertFalse(pendingCleanupIMap.containsKey(pipelineLocation));
+    }
+
+    @Test
     void testSkipCleanupWhenPipelineNotEndState() {
         CoordinatorService coordinatorService = server.getCoordinatorService();
         awaitCoordinatorActive(coordinatorService);

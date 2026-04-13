@@ -34,6 +34,9 @@ import org.apache.seatunnel.engine.server.dag.physical.PipelineLocation;
 import org.apache.seatunnel.engine.server.dag.physical.SubPlan;
 import org.apache.seatunnel.engine.server.dag.physical.UnknownPhysicalPlanException;
 import org.apache.seatunnel.engine.server.execution.TaskGroupLocation;
+import org.apache.seatunnel.engine.server.execution.TaskLocation;
+import org.apache.seatunnel.engine.server.master.cleanup.PipelineCleanupRecord;
+import org.apache.seatunnel.engine.server.metrics.SeaTunnelMetricsContext;
 import org.apache.seatunnel.engine.server.resourcemanager.resource.SlotProfile;
 import org.apache.seatunnel.engine.server.service.slot.SlotService;
 import org.apache.seatunnel.engine.server.task.CoordinatorTask;
@@ -50,6 +53,7 @@ import com.hazelcast.internal.serialization.Data;
 import com.hazelcast.map.IMap;
 
 import java.util.Collections;
+import java.util.HashMap;
 import java.util.Map;
 import java.util.concurrent.TimeUnit;
 
@@ -262,6 +266,40 @@ public class JobMasterTest extends AbstractSeaTunnelServerTest {
                 () -> jobMaster.init(System.currentTimeMillis(), false));
     }
 
+    @Test
+    void testFailedPipelineCleanupEnqueuesRecordAndRemovesMetrics() throws Exception {
+        long jobId = instance.getFlakeIdGenerator(Constant.SEATUNNEL_ID_GENERATOR_NAME).newId();
+        JobMaster jobMaster = newJobInstanceWithRunningState(jobId);
+        PipelineLocation pipelineLocation = new PipelineLocation(jobId + 1, 1);
+
+        upsertMetricsForPipeline(pipelineLocation);
+        Assertions.assertTrue(hasMetricsForPipeline(pipelineLocation));
+
+        IMap<Object, Object> runningJobStateIMap =
+                nodeEngine.getHazelcastInstance().getMap(Constant.IMAP_RUNNING_JOB_STATE);
+        IMap<PipelineLocation, PipelineCleanupRecord> pendingCleanupIMap =
+                nodeEngine.getHazelcastInstance().getMap(Constant.IMAP_PENDING_PIPELINE_CLEANUP);
+        runningJobStateIMap.put(pipelineLocation, PipelineStatus.RUNNING);
+
+        try {
+            jobMaster.enqueuePipelineCleanupIfNeeded(pipelineLocation, PipelineStatus.FAILED);
+
+            PipelineCleanupRecord cleanupRecord = pendingCleanupIMap.get(pipelineLocation);
+            Assertions.assertNotNull(cleanupRecord);
+            Assertions.assertEquals(PipelineStatus.FAILED, cleanupRecord.getFinalStatus());
+            Assertions.assertFalse(cleanupRecord.isSavepointEnd());
+
+            jobMaster.removeMetricsContext(pipelineLocation, PipelineStatus.FAILED);
+
+            await().atMost(30, TimeUnit.SECONDS)
+                    .untilAsserted(
+                            () -> Assertions.assertFalse(hasMetricsForPipeline(pipelineLocation)));
+        } finally {
+            pendingCleanupIMap.remove(pipelineLocation);
+            runningJobStateIMap.remove(pipelineLocation);
+        }
+    }
+
     private void assertCloseIdleTask(JobMaster jobMaster) {
         SlotService slotService = server.getSlotService();
         Assertions.assertEquals(4, slotService.getWorkerProfile().getAssignedSlots().length);
@@ -335,5 +373,27 @@ public class JobMasterTest extends AbstractSeaTunnelServerTest {
         // status become running again
         Thread.sleep(5000);
         return jobMaster;
+    }
+
+    private void upsertMetricsForPipeline(PipelineLocation pipelineLocation) {
+        TaskGroupLocation taskGroupLocation =
+                new TaskGroupLocation(
+                        pipelineLocation.getJobId(), pipelineLocation.getPipelineId(), 1L);
+        TaskLocation taskLocation = new TaskLocation(taskGroupLocation, 0, 0);
+
+        Map<TaskLocation, SeaTunnelMetricsContext> local = new HashMap<>();
+        local.put(taskLocation, new SeaTunnelMetricsContext());
+        server.updateMetrics(local);
+    }
+
+    private boolean hasMetricsForPipeline(PipelineLocation pipelineLocation) {
+        IMap<Long, Map<TaskLocation, SeaTunnelMetricsContext>> metricsIMap =
+                nodeEngine.getHazelcastInstance().getMap(Constant.IMAP_RUNNING_JOB_METRICS);
+        return metricsIMap.entrySet().stream()
+                .flatMap(entry -> entry.getValue().keySet().stream())
+                .anyMatch(
+                        taskLocation ->
+                                pipelineLocation.equals(
+                                        taskLocation.getTaskGroupLocation().getPipelineLocation()));
     }
 }

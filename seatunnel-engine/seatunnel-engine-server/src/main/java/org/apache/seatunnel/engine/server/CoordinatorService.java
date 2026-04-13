@@ -608,7 +608,8 @@ public class CoordinatorService {
         if (record.isSavepointEnd()) {
             return false;
         }
-        return PipelineStatus.CANCELED.equals(record.getFinalStatus())
+        return PipelineStatus.FAILED.equals(record.getFinalStatus())
+                || PipelineStatus.CANCELED.equals(record.getFinalStatus())
                 || PipelineStatus.FINISHED.equals(record.getFinalStatus());
     }
 
