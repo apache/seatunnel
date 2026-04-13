@@ -516,10 +516,10 @@ public class ConfigChangeEvent implements SourceEvent {
 ### 3.4 Code References
 
 **API Interfaces**:
-- [SeaTunnelSource.java](../../../seatunnel-api/src/main/java/org/apache/seatunnel/api/source/SeaTunnelSource.java)
-- [SourceSplitEnumerator.java](../../../seatunnel-api/src/main/java/org/apache/seatunnel/api/source/SourceSplitEnumerator.java)
-- [SourceReader.java](../../../seatunnel-api/src/main/java/org/apache/seatunnel/api/source/SourceReader.java)
-- [SourceSplit.java](../../../seatunnel-api/src/main/java/org/apache/seatunnel/api/source/SourceSplit.java)
+- [SeaTunnelSource.java](../../../../seatunnel-api/src/main/java/org/apache/seatunnel/api/source/SeaTunnelSource.java)
+- [SourceSplitEnumerator.java](../../../../seatunnel-api/src/main/java/org/apache/seatunnel/api/source/SourceSplitEnumerator.java)
+- [SourceReader.java](../../../../seatunnel-api/src/main/java/org/apache/seatunnel/api/source/SourceReader.java)
+- [SourceSplit.java](../../../../seatunnel-api/src/main/java/org/apache/seatunnel/api/source/SourceSplit.java)
 
 **Example Implementations**:
 - JDBC Source: `seatunnel-connectors-v2/connector-jdbc/src/main/java/org/apache/seatunnel/connectors/seatunnel/jdbc/source/`
