@@ -4,7 +4,27 @@ sidebar_position: 1
 
 # SeaTunnel Engine
 
-SeaTunnel Engine is a community-developed data synchronization engine designed for data synchronization scenarios debuts. As the default engine of SeaTunnel, it supports high-throughput, low-latency, and strong-consistent synchronous job operation, which is faster, more stable, more resource-saving, and easy to use.
+SeaTunnel Engine is the native execution engine of SeaTunnel and the default recommendation for new deployments. It is built for data integration and synchronization workloads, with a focus on high throughput, low latency, strong consistency, and lower operational overhead than a full big data platform.
+
+Use this page as the entry point if you want to understand why many new users start with SeaTunnel Engine, what it is optimized for, and which pages to read next.
+
+## When SeaTunnel Engine Is The Right First Choice
+
+SeaTunnel Engine is usually the best starting point when:
+
+- you do not already operate Flink or Spark infrastructure
+- you want the shortest path from installation to a working job
+- your main scenarios are CDC, multi-table synchronization, or database migration
+- you need lower resource consumption for many small or medium synchronization pipelines
+
+If your team already has a stable Flink or Spark deployment that you want to reuse, read [Engine Overview](../overview.md) first and then jump to the matching engine guide.
+
+## Why Many New Users Start Here
+
+- **No external dependencies**: cluster management, snapshot storage, and HA do not depend on services such as Zookeeper or HDFS.
+- **Pipeline-level fault tolerance**: failures are isolated at the pipeline level instead of forcing a larger rollback scope.
+- **Lower runtime overhead**: dynamic thread sharing, reduced JDBC connection count, and reuse of CDC log-reading resources help reduce resource consumption.
+- **One engine for common synchronization workloads**: batch, streaming, and CDC-oriented jobs can share the same operational model.
 
 The overall design of the SeaTunnel Engine follows the path below:
 
@@ -34,10 +54,22 @@ In the future, SeaTunnel Engine will further optimize its functions to support f
 - Support fault tolerance for jobs at the Pipeline level. Task failure only affects the pipeline where it is located, and only the task under the Pipeline needs to be rolled back;
 - Support dynamic thread sharing to synchronize a large number of small data sets in real-time.
 
-### Quick Start
+## Recommended Reading Path
 
-https://seatunnel.apache.org/docs/start-v2/locally/quick-start-seatunnel-engine
+If you are starting from zero, read these pages in order:
 
-### Download & Install
+1. [Getting Started Overview](../../getting-started/overview.md)
+2. [Download & Install](download-seatunnel.md)
+3. [Quick Start With SeaTunnel Engine](../../getting-started/locally/quick-start-seatunnel-engine.md)
+4. [Job Configuration Guide](../../getting-started/job-configuration-guide.md)
+5. [REST API And Web UI](rest-api-and-web-ui.md)
+
+If you want to understand the internals after your first successful run, continue with:
+
+- [Architecture Overview](../../architecture/overview.md)
+- [Checkpoint Mechanism](../../architecture/fault-tolerance/checkpoint-mechanism.md)
+- [Resource Management](../../architecture/engine/resource-management.md)
+
+## Download & Install
 
 [Download & Install](download-seatunnel.md)
