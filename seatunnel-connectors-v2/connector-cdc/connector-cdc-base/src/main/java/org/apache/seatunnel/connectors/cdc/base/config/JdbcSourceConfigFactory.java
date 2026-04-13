@@ -53,8 +53,7 @@ public abstract class JdbcSourceConfigFactory implements SourceConfig.Factory<Jd
     protected int sampleShardingThreshold =
             JdbcSourceOptions.SAMPLE_SHARDING_THRESHOLD.defaultValue();
     protected int inverseSamplingRate = JdbcSourceOptions.INVERSE_SAMPLING_RATE.defaultValue();
-    protected boolean sampleShardingEnable =
-            JdbcSourceOptions.SPLIT_ALLOW_SAMPLING.defaultValue();
+    protected boolean sampleShardingEnable = JdbcSourceOptions.SPLIT_ALLOW_SAMPLING.defaultValue();
     protected int splitSize = SourceOptions.SNAPSHOT_SPLIT_SIZE.defaultValue();
     protected Map<String, String> splitColumn;
     protected int fetchSize = SourceOptions.SNAPSHOT_FETCH_SIZE.defaultValue();
