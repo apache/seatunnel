@@ -43,6 +43,7 @@ import org.apache.seatunnel.connectors.seatunnel.file.sink.state.FileSinkState;
 import org.apache.seatunnel.connectors.seatunnel.file.sink.writer.WriteStrategy;
 import org.apache.seatunnel.connectors.seatunnel.file.sink.writer.WriteStrategyFactory;
 import org.apache.seatunnel.connectors.seatunnel.hive.commit.HiveSinkAggregatedCommitter;
+import org.apache.seatunnel.connectors.seatunnel.hive.config.HiveConfig;
 import org.apache.seatunnel.connectors.seatunnel.hive.config.HiveConstants;
 import org.apache.seatunnel.connectors.seatunnel.hive.config.HiveOptions;
 import org.apache.seatunnel.connectors.seatunnel.hive.exception.HiveConnectorException;
@@ -150,7 +151,8 @@ public class HiveSink
                                     ConfigValueFactory.fromAnyRef(
                                             getDefaultTableLocation(readonlyConfig)));
 
-            return new FileSinkConfig(pluginConfig, catalogTable.getSeaTunnelRowType());
+            return new FileSinkConfig(
+                    ReadonlyConfig.fromConfig(pluginConfig), catalogTable.getSeaTunnelRowType());
         }
 
         List<String> sinkFields =
@@ -219,7 +221,8 @@ public class HiveSink
                             ConfigValueFactory.fromAnyRef("${transactionId}"));
         }
 
-        return new FileSinkConfig(pluginConfig, catalogTable.getSeaTunnelRowType());
+        return new FileSinkConfig(
+                ReadonlyConfig.fromConfig(pluginConfig), catalogTable.getSeaTunnelRowType());
     }
 
     @Override
@@ -237,7 +240,7 @@ public class HiveSink
             tableName = getTableInformation().getTableName();
         } else {
             // Derive from config to ensure non-null values during commit
-            String table = readonlyConfig.get(HiveOptions.TABLE_NAME);
+            String table = readonlyConfig.get(HiveConfig.TABLE_NAME);
             org.apache.seatunnel.api.table.catalog.TablePath path =
                     org.apache.seatunnel.api.table.catalog.TablePath.of(table);
             dbName = path.getDatabaseName();
@@ -310,7 +313,7 @@ public class HiveSink
     // Try to read from configuration, qualify default location via HiveLocationUtils
     private String getDefaultTableLocation(ReadonlyConfig config) {
         try {
-            String table = config.get(HiveOptions.TABLE_NAME);
+            String table = config.get(HiveConfig.TABLE_NAME);
             org.apache.seatunnel.api.table.catalog.TablePath path =
                     org.apache.seatunnel.api.table.catalog.TablePath.of(table);
             return org.apache.seatunnel.connectors.seatunnel.hive.utils.HiveLocationUtils

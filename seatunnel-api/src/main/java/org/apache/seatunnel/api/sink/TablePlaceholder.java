@@ -37,7 +37,9 @@ public enum TablePlaceholder {
     // Placeholder ${unique_key} or${unique_key:default_value}
     REPLACE_UNIQUE_KEY("unique_key"),
     // Placeholder ${field_names} or${field_names:default_value}
-    REPLACE_FIELD_NAMES_KEY("field_names");
+    REPLACE_FIELD_NAMES_KEY("field_names"),
+    // Placeholder ${partition_keys} or${partition_keys:default_value}
+    REPLACE_PARTITION_KEYS_KEY("partition_keys");
 
     private static Set<String> PLACEHOLDER_KEYS = new HashSet<>();
 

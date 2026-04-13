@@ -21,16 +21,13 @@ import org.apache.seatunnel.api.configuration.Option;
 import org.apache.seatunnel.api.configuration.Options;
 import org.apache.seatunnel.api.sink.DataSaveMode;
 import org.apache.seatunnel.api.sink.SchemaSaveMode;
+import org.apache.seatunnel.connectors.seatunnel.hive.config.HiveConfig;
 import org.apache.seatunnel.connectors.seatunnel.hive.config.HiveOptions;
 
 public class HiveSinkOptions extends HiveOptions {
 
     public static final Option<Boolean> ABORT_DROP_PARTITION_METADATA =
-            Options.key("abort_drop_partition_metadata")
-                    .booleanType()
-                    .defaultValue(false)
-                    .withDescription(
-                            "Flag to decide whether to drop partition metadata from Hive Metastore during an abort operation. Note: this only affects the metadata in the metastore, the data in the partition will always be deleted(data generated during the synchronization process).");
+            HiveConfig.ABORT_DROP_PARTITION_METADATA;
 
     public static final Option<Boolean> OVERWRITE =
             Options.key("overwrite")

@@ -19,9 +19,13 @@ package org.apache.seatunnel.e2e.connector.file.hdfs;
 
 import org.apache.seatunnel.e2e.common.TestResource;
 import org.apache.seatunnel.e2e.common.TestSuiteBase;
+import org.apache.seatunnel.e2e.common.container.EngineType;
 import org.apache.seatunnel.e2e.common.container.TestContainer;
+import org.apache.seatunnel.e2e.common.junit.DisabledOnContainer;
 import org.apache.seatunnel.e2e.common.junit.TestContainerExtension;
+import org.apache.seatunnel.e2e.common.util.JobIdGenerator;
 
+import org.awaitility.Awaitility;
 import org.junit.jupiter.api.AfterAll;
 import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.BeforeAll;
@@ -38,6 +42,8 @@ import lombok.extern.slf4j.Slf4j;
 
 import java.io.IOException;
 import java.time.Duration;
+import java.util.concurrent.CompletableFuture;
+import java.util.concurrent.TimeUnit;
 import java.util.stream.Stream;
 
 @Slf4j
@@ -127,5 +133,208 @@ public class HdfsFileIT extends TestSuiteBase implements TestResource {
         org.testcontainers.containers.Container.ExecResult readResult =
                 container.executeJob("/hdfs_normal_to_assert.conf");
         Assertions.assertEquals(0, readResult.getExitCode());
+    }
+
+    @TestTemplate
+    public void testHdfsParquetReadWithFileSplit(TestContainer container)
+            throws IOException, InterruptedException {
+        org.testcontainers.containers.Container.ExecResult writeResult =
+                container.executeJob("/fake_to_hdfs_normal.conf");
+        Assertions.assertEquals(0, writeResult.getExitCode());
+        org.testcontainers.containers.Container.ExecResult readResult =
+                container.executeJob("/hdfs_parquet_split_to_assert.conf");
+        Assertions.assertEquals(0, readResult.getExitCode());
+    }
+
+    @TestTemplate
+    public void testHdfsTextReadWithFileSplit(TestContainer container)
+            throws IOException, InterruptedException {
+        resetSplitTestPath();
+        putHdfsSequentialLinesFile("/split/input/test.txt", 1000);
+
+        org.testcontainers.containers.Container.ExecResult readResult =
+                container.executeJob("/hdfs_text_split_to_assert.conf");
+        Assertions.assertEquals(0, readResult.getExitCode());
+    }
+
+    @TestTemplate
+    public void testHdfsReadEmptyTextDirectory(TestContainer container)
+            throws IOException, InterruptedException {
+        nameNode.execInContainer("bash", "-c", "hdfs dfs -rm -r -f /empty/text || true");
+        org.testcontainers.containers.Container.ExecResult mkdirResult =
+                nameNode.execInContainer("hdfs", "dfs", "-mkdir", "-p", "/empty/text");
+        Assertions.assertEquals(0, mkdirResult.getExitCode());
+
+        org.testcontainers.containers.Container.ExecResult readResult =
+                container.executeJob("/hdfs_empty_text_to_assert.conf");
+        Assertions.assertEquals(0, readResult.getExitCode());
+    }
+
+    @TestTemplate
+    public void testHdfsBinaryUpdateModeDistcp(TestContainer container)
+            throws IOException, InterruptedException {
+        resetUpdateTestPath();
+        putHdfsFile("/update/src/test.bin", "abc");
+
+        org.testcontainers.containers.Container.ExecResult firstRun =
+                container.executeJob("/hdfs_binary_update_distcp.conf");
+        Assertions.assertEquals(0, firstRun.getExitCode());
+        Assertions.assertEquals("abc", readHdfsFile("/update/dst/test.bin"));
+
+        // Make target newer with same length, distcp strategy should SKIP overwrite.
+        putHdfsFile("/update/dst/test.bin", "zzz");
+        org.testcontainers.containers.Container.ExecResult secondRun =
+                container.executeJob("/hdfs_binary_update_distcp.conf");
+        Assertions.assertEquals(0, secondRun.getExitCode());
+        Assertions.assertEquals("zzz", readHdfsFile("/update/dst/test.bin"));
+
+        // Change source length, distcp strategy should COPY overwrite.
+        putHdfsFile("/update/src/test.bin", "abcd");
+        org.testcontainers.containers.Container.ExecResult thirdRun =
+                container.executeJob("/hdfs_binary_update_distcp.conf");
+        Assertions.assertEquals(0, thirdRun.getExitCode());
+        Assertions.assertEquals("abcd", readHdfsFile("/update/dst/test.bin"));
+    }
+
+    @TestTemplate
+    public void testHdfsBinaryUpdateModeStrictChecksum(TestContainer container)
+            throws IOException, InterruptedException {
+        resetUpdateTestPath();
+        putHdfsFile("/update/src/test.bin", "abc");
+
+        org.testcontainers.containers.Container.ExecResult firstRun =
+                container.executeJob("/hdfs_binary_update_strict_checksum.conf");
+        Assertions.assertEquals(0, firstRun.getExitCode());
+        Assertions.assertEquals("abc", readHdfsFile("/update/dst/test.bin"));
+
+        // Same length but different content, strict+checksum should COPY overwrite.
+        putHdfsFile("/update/dst/test.bin", "zzz");
+        org.testcontainers.containers.Container.ExecResult secondRun =
+                container.executeJob("/hdfs_binary_update_strict_checksum.conf");
+        Assertions.assertEquals(0, secondRun.getExitCode());
+        Assertions.assertEquals("abc", readHdfsFile("/update/dst/test.bin"));
+    }
+
+    @TestTemplate
+    @DisabledOnContainer(
+            value = {},
+            type = {EngineType.FLINK, EngineType.SPARK},
+            disabledReason = "Continuous discovery is a long-running job; only run in zeta engine.")
+    public void testHdfsBinaryUpdateModeContinuousDiscoveryDistcp(TestContainer container)
+            throws IOException, InterruptedException {
+        resetContinuousTestPath();
+        putHdfsFile("/continuous/src/test1.bin", "abc");
+
+        String jobId = String.valueOf(JobIdGenerator.newJobId());
+        CompletableFuture<org.testcontainers.containers.Container.ExecResult> jobFuture =
+                CompletableFuture.supplyAsync(
+                        () -> {
+                            try {
+                                return container.executeJob(
+                                        "/hdfs_binary_update_distcp_continuous.conf", jobId);
+                            } catch (Exception e) {
+                                throw new RuntimeException(e);
+                            }
+                        });
+
+        Awaitility.await()
+                .atMost(60, TimeUnit.SECONDS)
+                .untilAsserted(
+                        () ->
+                                Assertions.assertEquals(
+                                        "abc", readHdfsFile("/continuous/dst/test1.bin")));
+
+        long firstMtimeSeconds = getHdfsFileMtimeSeconds("/continuous/dst/test1.bin");
+        Thread.sleep(2500);
+        long secondMtimeSeconds = getHdfsFileMtimeSeconds("/continuous/dst/test1.bin");
+        Assertions.assertEquals(
+                firstMtimeSeconds,
+                secondMtimeSeconds,
+                "Continuous discovery should skip unchanged files in update mode.");
+
+        putHdfsFile("/continuous/src/test2.bin", "def");
+        Awaitility.await()
+                .atMost(60, TimeUnit.SECONDS)
+                .untilAsserted(
+                        () ->
+                                Assertions.assertEquals(
+                                        "def", readHdfsFile("/continuous/dst/test2.bin")));
+
+        org.testcontainers.containers.Container.ExecResult cancelResult =
+                container.cancelJob(jobId);
+        Assertions.assertEquals(0, cancelResult.getExitCode(), cancelResult.getStderr());
+
+        org.testcontainers.containers.Container.ExecResult execResult;
+        try {
+            execResult = jobFuture.get(120, TimeUnit.SECONDS);
+        } catch (Exception e) {
+            throw new RuntimeException("Wait continuous job exit failed.", e);
+        }
+        Assertions.assertEquals(0, execResult.getExitCode(), execResult.getStderr());
+
+        nameNode.execInContainer("bash", "-c", "hdfs dfs -rm -r -f /continuous || true");
+    }
+
+    private void resetUpdateTestPath() throws IOException, InterruptedException {
+        nameNode.execInContainer("bash", "-c", "hdfs dfs -rm -r -f /update || true");
+        org.testcontainers.containers.Container.ExecResult mkdirResult =
+                nameNode.execInContainer(
+                        "hdfs", "dfs", "-mkdir", "-p", "/update/src", "/update/dst", "/update/tmp");
+        Assertions.assertEquals(0, mkdirResult.getExitCode());
+    }
+
+    private void resetContinuousTestPath() throws IOException, InterruptedException {
+        nameNode.execInContainer("bash", "-c", "hdfs dfs -rm -r -f /continuous || true");
+        org.testcontainers.containers.Container.ExecResult mkdirResult =
+                nameNode.execInContainer(
+                        "hdfs",
+                        "dfs",
+                        "-mkdir",
+                        "-p",
+                        "/continuous/src",
+                        "/continuous/dst",
+                        "/continuous/tmp");
+        Assertions.assertEquals(0, mkdirResult.getExitCode());
+    }
+
+    private void resetSplitTestPath() throws IOException, InterruptedException {
+        nameNode.execInContainer("bash", "-c", "hdfs dfs -rm -r -f /split || true");
+        org.testcontainers.containers.Container.ExecResult mkdirResult =
+                nameNode.execInContainer("hdfs", "dfs", "-mkdir", "-p", "/split/input");
+        Assertions.assertEquals(0, mkdirResult.getExitCode());
+    }
+
+    private void putHdfsFile(String hdfsPath, String content)
+            throws IOException, InterruptedException {
+        String command = "printf '" + content + "' | hdfs dfs -put -f - " + hdfsPath;
+        org.testcontainers.containers.Container.ExecResult putResult =
+                nameNode.execInContainer("bash", "-c", command);
+        Assertions.assertEquals(0, putResult.getExitCode());
+    }
+
+    private void putHdfsSequentialLinesFile(String hdfsPath, int lineCount)
+            throws IOException, InterruptedException {
+        String command =
+                "i=1; while [ $i -le "
+                        + lineCount
+                        + " ]; do echo $i; i=$((i+1)); done | hdfs dfs -put -f - "
+                        + hdfsPath;
+        org.testcontainers.containers.Container.ExecResult putResult =
+                nameNode.execInContainer("bash", "-c", command);
+        Assertions.assertEquals(0, putResult.getExitCode());
+    }
+
+    private String readHdfsFile(String hdfsPath) throws IOException, InterruptedException {
+        org.testcontainers.containers.Container.ExecResult catResult =
+                nameNode.execInContainer("hdfs", "dfs", "-cat", hdfsPath);
+        Assertions.assertEquals(0, catResult.getExitCode());
+        return catResult.getStdout() == null ? "" : catResult.getStdout().trim();
+    }
+
+    private long getHdfsFileMtimeSeconds(String hdfsPath) throws IOException, InterruptedException {
+        org.testcontainers.containers.Container.ExecResult statResult =
+                nameNode.execInContainer("bash", "-c", "hdfs dfs -stat %Y " + hdfsPath);
+        Assertions.assertEquals(0, statResult.getExitCode());
+        return Long.parseLong(statResult.getStdout().trim());
     }
 }

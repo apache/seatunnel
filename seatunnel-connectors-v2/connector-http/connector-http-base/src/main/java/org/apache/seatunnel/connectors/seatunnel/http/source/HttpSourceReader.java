@@ -124,14 +124,7 @@ public class HttpSourceReader extends AbstractSingleSplitReader<SeaTunnelRow> {
     }
 
     public void pollAndCollectData(Collector<SeaTunnelRow> output) throws Exception {
-        HttpResponse response =
-                httpClient.execute(
-                        this.httpParameter.getUrl(),
-                        this.httpParameter.getMethod().getMethod(),
-                        this.httpParameter.getHeaders(),
-                        this.httpParameter.getParams(),
-                        this.httpParameter.getBody(),
-                        this.httpParameter.isKeepParamsAsForm());
+        HttpResponse response = executeRequest();
         if (response.getCode() >= 200 && response.getCode() <= 207) {
             String content = response.getContent();
             if (!Strings.isNullOrEmpty(content)) {
@@ -158,6 +151,16 @@ public class HttpSourceReader extends AbstractSingleSplitReader<SeaTunnelRow> {
                             response.getCode(), response.getContent());
             throw new HttpConnectorException(HttpConnectorErrorCode.REQUEST_FAILED, msg);
         }
+    }
+
+    protected HttpResponse executeRequest() throws Exception {
+        return httpClient.execute(
+                this.httpParameter.getUrl(),
+                this.httpParameter.getMethod().getMethod(),
+                this.httpParameter.getHeaders(),
+                this.httpParameter.getParams(),
+                this.httpParameter.getBody(),
+                this.httpParameter.isKeepParamsAsForm());
     }
 
     @VisibleForTesting

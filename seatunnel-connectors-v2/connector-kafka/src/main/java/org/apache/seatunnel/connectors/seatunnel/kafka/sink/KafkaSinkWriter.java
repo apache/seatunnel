@@ -61,6 +61,7 @@ import static org.apache.seatunnel.connectors.seatunnel.kafka.config.KafkaSinkOp
 import static org.apache.seatunnel.connectors.seatunnel.kafka.config.KafkaSinkOptions.FIELD_DELIMITER;
 import static org.apache.seatunnel.connectors.seatunnel.kafka.config.KafkaSinkOptions.FORMAT;
 import static org.apache.seatunnel.connectors.seatunnel.kafka.config.KafkaSinkOptions.KAFKA_CONFIG;
+import static org.apache.seatunnel.connectors.seatunnel.kafka.config.KafkaSinkOptions.KAFKA_HEADERS_FIELDS;
 import static org.apache.seatunnel.connectors.seatunnel.kafka.config.KafkaSinkOptions.PARTITION;
 import static org.apache.seatunnel.connectors.seatunnel.kafka.config.KafkaSinkOptions.PARTITION_KEY_FIELDS;
 import static org.apache.seatunnel.connectors.seatunnel.kafka.config.KafkaSinkOptions.SEMANTICS;
@@ -184,6 +185,12 @@ public class KafkaSinkWriter implements SinkWriter<SeaTunnelRow, KafkaCommitInfo
         MessageFormat messageFormat = pluginConfig.get(FORMAT);
         String topic = pluginConfig.get(TOPIC);
         if (MessageFormat.NATIVE.equals(messageFormat)) {
+            // Validate that kafka_headers_fields is not configured for NATIVE format
+            if (pluginConfig.get(KAFKA_HEADERS_FIELDS) != null) {
+                throw new KafkaConnectorException(
+                        CommonErrorCode.OPERATION_NOT_SUPPORTED,
+                        "kafka_headers_fields is not supported with NATIVE format. Please use JSON, TEXT, or other formats.");
+            }
             checkNativeSeaTunnelType(seaTunnelRowType);
             return DefaultSeaTunnelRowSerializer.create(topic, messageFormat, seaTunnelRowType);
         }
@@ -199,10 +206,26 @@ public class KafkaSinkWriter implements SinkWriter<SeaTunnelRow, KafkaCommitInfo
                     "Cannot select both `partiton` and `partition_key_fields`. You can configure only one of them");
         }
 
+        // Validate that partition_key_fields and kafka_headers_fields don't overlap
+        List<String> partitionKeyFields = getPartitionKeyFields(pluginConfig, seaTunnelRowType);
+        List<String> headerFields = getHeaderFields(pluginConfig, seaTunnelRowType);
+        if (!partitionKeyFields.isEmpty() && !headerFields.isEmpty()) {
+            for (String headerField : headerFields) {
+                if (partitionKeyFields.contains(headerField)) {
+                    throw new KafkaConnectorException(
+                            CommonErrorCode.ILLEGAL_ARGUMENT,
+                            String.format(
+                                    "Field '%s' cannot be in both partition_key_fields and kafka_headers_fields",
+                                    headerField));
+                }
+            }
+        }
+
         if (pluginConfig.get(PARTITION_KEY_FIELDS) != null) {
             return DefaultSeaTunnelRowSerializer.create(
                     topic,
-                    getPartitionKeyFields(pluginConfig, seaTunnelRowType),
+                    partitionKeyFields,
+                    headerFields,
                     seaTunnelRowType,
                     messageFormat,
                     delimiter,
@@ -212,6 +235,7 @@ public class KafkaSinkWriter implements SinkWriter<SeaTunnelRow, KafkaCommitInfo
             return DefaultSeaTunnelRowSerializer.create(
                     topic,
                     pluginConfig.get(PARTITION),
+                    headerFields,
                     seaTunnelRowType,
                     messageFormat,
                     delimiter,
@@ -219,7 +243,13 @@ public class KafkaSinkWriter implements SinkWriter<SeaTunnelRow, KafkaCommitInfo
         }
         // By default, all partitions are sent randomly
         return DefaultSeaTunnelRowSerializer.create(
-                topic, Arrays.asList(), seaTunnelRowType, messageFormat, delimiter, pluginConfig);
+                topic,
+                Collections.<String>emptyList(),
+                headerFields,
+                seaTunnelRowType,
+                messageFormat,
+                delimiter,
+                pluginConfig);
     }
 
     private KafkaSemantics getKafkaSemantics(ReadonlyConfig pluginConfig) {
@@ -256,6 +286,26 @@ public class KafkaSinkWriter implements SinkWriter<SeaTunnelRow, KafkaCommitInfo
                 }
             }
             return partitionKeyFields;
+        }
+        return Collections.emptyList();
+    }
+
+    private List<String> getHeaderFields(
+            ReadonlyConfig pluginConfig, SeaTunnelRowType seaTunnelRowType) {
+
+        if (pluginConfig.get(KAFKA_HEADERS_FIELDS) != null) {
+            List<String> headerFields = pluginConfig.get(KAFKA_HEADERS_FIELDS);
+            List<String> rowTypeFieldNames = Arrays.asList(seaTunnelRowType.getFieldNames());
+            for (String headerField : headerFields) {
+                if (!rowTypeFieldNames.contains(headerField)) {
+                    throw new KafkaConnectorException(
+                            CommonErrorCode.ILLEGAL_ARGUMENT,
+                            String.format(
+                                    "Header field not found: %s, rowType: %s",
+                                    headerField, rowTypeFieldNames));
+                }
+            }
+            return headerFields;
         }
         return Collections.emptyList();
     }

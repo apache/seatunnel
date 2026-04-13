@@ -336,6 +336,94 @@ public class JdbcCatalogUtilsTest {
     }
 
     @Test
+    public void testColumnNotIncludeMergeWithLargeColumnLength() {
+        long largeLength = 4294967295L;
+
+        CatalogTable tableOfPath =
+                CatalogTable.of(
+                        TableIdentifier.of("mysql-1", "database-x", null, "table-x"),
+                        TableSchema.builder()
+                                .column(
+                                        PhysicalColumn.of(
+                                                "id",
+                                                BasicType.LONG_TYPE,
+                                                (Long) null,
+                                                false,
+                                                null,
+                                                "id comment"))
+                                .column(
+                                        PhysicalColumn.of(
+                                                "config",
+                                                BasicType.STRING_TYPE,
+                                                largeLength,
+                                                false,
+                                                null,
+                                                "config comment"))
+                                .build(),
+                        Collections.emptyMap(),
+                        Collections.emptyList(),
+                        null);
+
+        CatalogTable tableOfQuery =
+                CatalogTable.of(
+                        TableIdentifier.of("default", null, null, "default"),
+                        TableSchema.builder()
+                                .column(
+                                        PhysicalColumn.of(
+                                                "id",
+                                                BasicType.LONG_TYPE,
+                                                (Long) null,
+                                                true,
+                                                null,
+                                                null))
+                                .column(
+                                        PhysicalColumn.of(
+                                                "config",
+                                                BasicType.STRING_TYPE,
+                                                largeLength,
+                                                true,
+                                                null,
+                                                null))
+                                .column(
+                                        PhysicalColumn.of(
+                                                "dummy",
+                                                BasicType.INT_TYPE,
+                                                (Long) null,
+                                                true,
+                                                null,
+                                                null))
+                                .build(),
+                        Collections.emptyMap(),
+                        Collections.emptyList(),
+                        null);
+
+        CatalogTable mergeTable = JdbcCatalogUtils.mergeCatalogTable(tableOfPath, tableOfQuery);
+
+        Assertions.assertEquals(
+                tableOfPath.getTableId().toTablePath(), mergeTable.getTableId().toTablePath());
+        Assertions.assertEquals(
+                tableOfQuery.getTableId().getCatalogName(),
+                mergeTable.getTableId().getCatalogName());
+
+        Map<String, Column> mergedColumns =
+                mergeTable.getTableSchema().getColumns().stream()
+                        .collect(Collectors.toMap(e -> e.getName(), e -> e));
+
+        Column mergedId = mergedColumns.get("id");
+        Column mergedConfig = mergedColumns.get("config");
+
+        Assertions.assertNotNull(mergedId);
+        Assertions.assertNotNull(mergedConfig);
+
+        // The merge should use the query column as base, and fill comment from the table_path.
+        Assertions.assertTrue(mergedId.isNullable());
+        Assertions.assertEquals("id comment", mergedId.getComment());
+
+        Assertions.assertEquals(Long.valueOf(largeLength), mergedConfig.getColumnLength());
+        Assertions.assertEquals("config comment", mergedConfig.getComment());
+    }
+
+    @Test
     public void testDecimalColumnMerge() {
         CatalogTable tableOfQuery =
                 CatalogTable.of(

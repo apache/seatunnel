@@ -71,6 +71,14 @@ public class TestDataValidatorIT extends TestSuiteBase {
     }
 
     @TestTemplate
+    public void testDataValidatorWithRouteToTableAndDatabasePrefix(TestContainer container)
+            throws IOException, InterruptedException {
+        Container.ExecResult execResult =
+                container.executeJob("/data_validator_route_to_table_with_db_prefix.conf");
+        Assertions.assertEquals(0, execResult.getExitCode());
+    }
+
+    @TestTemplate
     public void testDataValidatorWithUDF(TestContainer container)
             throws IOException, InterruptedException {
         Container.ExecResult execResult = container.executeJob("/data_validator_email_udf.conf");

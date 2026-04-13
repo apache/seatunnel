@@ -20,19 +20,10 @@ package org.apache.seatunnel.api.table.schema.exception;
 import org.apache.seatunnel.api.table.catalog.TableIdentifier;
 
 /**
- * Exception thrown when schema validation fails. This includes invalid schema structures,
- * incompatible changes, and outdated events.
+ * Exception thrown when schema validation fails. This includes invalid schema structures, outdated
+ * events.
  */
 public class SchemaValidationException extends SchemaEvolutionException {
-
-    public SchemaValidationException(SchemaEvolutionErrorCode errorCode, String errorMessage) {
-        super(errorCode, errorMessage);
-    }
-
-    public SchemaValidationException(
-            SchemaEvolutionErrorCode errorCode, String errorMessage, Throwable cause) {
-        super(errorCode, errorMessage, cause);
-    }
 
     public SchemaValidationException(
             SchemaEvolutionErrorCode errorCode,
@@ -40,23 +31,6 @@ public class SchemaValidationException extends SchemaEvolutionException {
             TableIdentifier tableIdentifier,
             String jobId) {
         super(errorCode, errorMessage, tableIdentifier, jobId);
-    }
-
-    public SchemaValidationException(
-            SchemaEvolutionErrorCode errorCode,
-            String errorMessage,
-            TableIdentifier tableIdentifier,
-            String jobId,
-            Throwable cause) {
-        super(errorCode, errorMessage, tableIdentifier, jobId, cause);
-    }
-
-    /** Create an exception for invalid schema structure */
-    public static SchemaValidationException invalidSchema(
-            TableIdentifier tableIdentifier, String jobId, String reason) {
-        String message = String.format("Invalid schema structure: %s", reason);
-        return new SchemaValidationException(
-                SchemaEvolutionErrorCode.INVALID_SCHEMA_STRUCTURE, message, tableIdentifier, jobId);
     }
 
     /** Create an exception for unsupported schema change types */

@@ -29,6 +29,7 @@ import org.apache.seatunnel.e2e.common.TestSuiteBase;
 import org.apache.seatunnel.e2e.common.container.ContainerExtendedFactory;
 import org.apache.seatunnel.e2e.common.junit.TestContainerExtension;
 
+import org.junit.jupiter.api.AfterAll;
 import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.BeforeAll;
 import org.junit.jupiter.api.Test;
@@ -260,6 +261,7 @@ public class JdbcMySqlSaveModeCatalogIT extends TestSuiteBase implements TestRes
     }
 
     @Override
+    @AfterAll
     public void tearDown() throws Exception {
         if (mysql_container != null) {
             mysql_container.close();
