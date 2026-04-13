@@ -89,10 +89,13 @@ libfb303-xxx.jar
 | end_snapshot_id          | long    | no       | -                    | Instructs this scan to look for changes up to a particular snapshot (inclusive).                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                       |
 | use_snapshot_id          | long    | no       | -                    | Instructs this scan to look for use the given snapshot ID.                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                             |
 | use_snapshot_timestamp   | long    | no       | -                    | Instructs this scan to look for use the most recent snapshot as of the given time in milliseconds. timestamp – the timestamp in millis since the Unix epoch                                                                                                                                                                                                                                                                                                                                                                                                                                                            |
-| stream_scan_strategy     | enum    | no       | FROM_LATEST_SNAPSHOT | Starting strategy for stream mode execution, Default to use `FROM_LATEST_SNAPSHOT` if don’t specify any value,The optional values are:<br/>TABLE_SCAN_THEN_INCREMENTAL: Do a regular table scan then switch to the incremental mode.<br/>FROM_LATEST_SNAPSHOT: Start incremental mode from the latest snapshot inclusive.<br/>FROM_EARLIEST_SNAPSHOT: Start incremental mode from the earliest snapshot inclusive.<br/>FROM_SNAPSHOT_ID: Start incremental mode from a snapshot with a specific id inclusive.<br/>FROM_SNAPSHOT_TIMESTAMP: Start incremental mode from a snapshot with a specific timestamp inclusive. |
+| stream_scan_strategy     | enum    | no       | FROM_LATEST_SNAPSHOT | Starting strategy for stream mode execution, Default to use `FROM_LATEST_SNAPSHOT` if don't specify any value,The optional values are:<br/>TABLE_SCAN_THEN_INCREMENTAL: Do a regular table scan then switch to the incremental mode.<br/>FROM_LATEST_SNAPSHOT: Start incremental mode from the latest snapshot inclusive.<br/>FROM_EARLIEST_SNAPSHOT: Start incremental mode from the earliest snapshot inclusive.<br/>FROM_SNAPSHOT_ID: Start incremental mode from a snapshot with a specific id inclusive.<br/>FROM_SNAPSHOT_TIMESTAMP: Start incremental mode from a snapshot with a specific timestamp inclusive. |
 | increment.scan-interval  | long    | no       | 2000                 | The interval of increment scan(mills)                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                  |
 | common-options           |         | no       | -                    | Source plugin common parameters, please refer to [Source Common Options](../common-options/source-common-options.md) for details.                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                     |
-| query                    | String  | no       | -                    | The select DML to select the iceberg data. It mustn't contain the table name, and doesn't support alias. For example: `select * from table where f1 > 100`, `select fn from table where f1 > 100`. The current support for the LIKE syntax is limited: the LIKE clause shouldn't start with `%`. The supported one is: `select f1 from t where f2 like 'tom%'  `                                                                                                                                                                                                                                                       |
+| query                    | String  | no       | -                    | The select DML to select the iceberg data. It mustn't contain the table name, and doesn’t support alias. For example: `select * from table where f1 > 100`, `select fn from table where f1 > 100`. The current support for the LIKE syntax is limited: the LIKE clause shouldn't start with `%`. The supported one is: `select f1 from t where f2 like 'tom%'  `                                                                                                                                                                                                                                                       |
+| krb5_path                              | string  | no       | /etc/krb5.conf              | The path to the `krb5.conf` file for Kerberos authentication.                                                                                                                                                                                                                                                                |
+| kerberos_principal                     | string  | no       | -                            | The principal for Kerberos authentication.                                                                                                                                                                                                                                                                               |
+| kerberos_keytab_path                   | string  | no       | -                            | The path to the keytab file for Kerberos authentication.                                                                                                                                                                                                                                                                         |
 
 
 ## Task Example
@@ -149,7 +152,7 @@ source {
         query = "select fn from table where f1 > 100"
       }
     ]
-    
+
     plugin_output = "iceberg"
   }
 }
@@ -191,12 +194,40 @@ source {
       warehouse = "hdfs://your_cluster//tmp/seatunnel/iceberg/"
     }
     catalog_type = "hive"
-    
+
     namespace = "your_iceberg_database"
     table = "your_iceberg_table"
   }
 }
 ```
+
+### Kerberos Authentication
+
+The following example demonstrates how to configure Kerberos authentication for the Iceberg Source when using Hadoop Catalog and HDFS:
+
+```hocon
+source {
+  Iceberg {
+    catalog_name = "seatunnel"
+    iceberg.catalog.config = {
+      type = "hadoop"
+      warehouse = "hdfs://your_cluster/tmp/seatunnel/iceberg/"
+    }
+    namespace = "your_iceberg_database"
+    table = "your_iceberg_table"
+    krb5_path = "/etc/krb5.conf"
+    kerberos_principal = "hive/your_host@EXAMPLE.COM"
+    kerberos_keytab_path = "/path/to/your.keytab"
+    plugin_output = "iceberg_kerberos"
+  }
+}
+```
+
+Description:
+
+- `krb5_path`: The path to the `krb5.conf` file for Kerberos authentication.
+- `kerberos_principal`: The principal for Kerberos authentication, in the format of `primary/instance@REALM`.
+- `kerberos_keytab_path`: The path to the keytab file for Kerberos authentication.
 
 ### Column Projection
 
