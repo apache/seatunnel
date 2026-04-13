@@ -37,6 +37,9 @@ public class HubSpotSourceParameter extends HttpParameter {
         configMap.put("pageing.cursor_field", "after");
         configMap.put("pageing.cursor_response_field", "$.paging.next.after");
 
+        // Explicitly tell HttpSourceReader to append the cursor to the HTTP request
+        configMap.put("keep_page_param_as_http_param", true);
+
         // 2. Wrap the map back into a ReadonlyConfig and pass it to the base class
         ReadonlyConfig mergedConfig = ReadonlyConfig.fromMap(configMap);
         super.buildWithConfig(mergedConfig);
