@@ -270,7 +270,7 @@ public class JobMasterTest extends AbstractSeaTunnelServerTest {
     void testFailedPipelineCleanupEnqueuesRecordAndRemovesMetrics() throws Exception {
         long jobId = instance.getFlakeIdGenerator(Constant.SEATUNNEL_ID_GENERATOR_NAME).newId();
         JobMaster jobMaster = newJobInstanceWithRunningState(jobId);
-        PipelineLocation pipelineLocation = new PipelineLocation(jobId + 1, 1);
+        PipelineLocation pipelineLocation = getRunningPipelineLocation(jobMaster);
 
         upsertMetricsForPipeline(pipelineLocation);
         Assertions.assertTrue(hasMetricsForPipeline(pipelineLocation));
@@ -298,6 +298,10 @@ public class JobMasterTest extends AbstractSeaTunnelServerTest {
             pendingCleanupIMap.remove(pipelineLocation);
             runningJobStateIMap.remove(pipelineLocation);
         }
+    }
+
+    private PipelineLocation getRunningPipelineLocation(JobMaster jobMaster) {
+        return jobMaster.getPhysicalPlan().getPipelineList().get(0).getPipelineLocation();
     }
 
     private void assertCloseIdleTask(JobMaster jobMaster) {

@@ -58,13 +58,11 @@ import lombok.extern.slf4j.Slf4j;
 
 import java.sql.DriverManager;
 import java.util.HashMap;
-import java.util.List;
 import java.util.Map;
 import java.util.Properties;
 import java.util.concurrent.Executors;
 import java.util.concurrent.ScheduledExecutorService;
 import java.util.concurrent.TimeUnit;
-import java.util.stream.Collectors;
 
 @Slf4j
 public class SeaTunnelServer
@@ -385,41 +383,25 @@ public class SeaTunnelServer
     public void removeMetrics(PipelineLocation pipelineLocation) {
         IMap<Long, Map<TaskLocation, SeaTunnelMetricsContext>> metricsImap =
                 getNodeEngine().getHazelcastInstance().getMap(Constant.IMAP_RUNNING_JOB_METRICS);
-
-        Map<Long, List<TaskLocation>> partitionedTasks = new HashMap<>();
-        for (Map.Entry<Long, Map<TaskLocation, SeaTunnelMetricsContext>> entry :
-                metricsImap.entrySet()) {
-            long partition = entry.getKey();
-            List<TaskLocation> tasksToRemove =
-                    entry.getValue().keySet().stream()
-                            .filter(
-                                    t ->
-                                            t.getTaskGroupLocation()
-                                                    .getPipelineLocation()
-                                                    .equals(pipelineLocation))
-                            .collect(Collectors.toList());
-            if (!tasksToRemove.isEmpty()) {
-                partitionedTasks.put(partition, tasksToRemove);
-            }
+        int partitionCount = seaTunnelConfig.getEngineConfig().getJobMetricsPartitionCount();
+        for (long partition = 0; partition < partitionCount; partition++) {
+            // Clean each metrics bucket in one compute to avoid full-map scans and removal races.
+            metricsImap.compute(
+                    partition,
+                    (k, oldVal) -> {
+                        if (oldVal == null || oldVal.isEmpty()) {
+                            return oldVal;
+                        }
+                        oldVal.entrySet()
+                                .removeIf(
+                                        entry ->
+                                                pipelineLocation.equals(
+                                                        entry.getKey()
+                                                                .getTaskGroupLocation()
+                                                                .getPipelineLocation()));
+                        return oldVal.isEmpty() ? null : oldVal;
+                    });
         }
-
-        partitionedTasks
-                .entrySet()
-                .parallelStream()
-                .forEach(
-                        entry -> {
-                            long partition = entry.getKey();
-                            List<TaskLocation> tasks = entry.getValue();
-                            metricsImap.compute(
-                                    partition,
-                                    (k, oldVal) -> {
-                                        if (oldVal != null) {
-                                            tasks.forEach(oldVal::remove);
-                                            if (oldVal.isEmpty()) return null;
-                                        }
-                                        return oldVal;
-                                    });
-                        });
     }
 
     public SeaTunnelConfig getSeaTunnelConfig() {
