@@ -84,6 +84,7 @@ public class PulsarSourceReader<T> implements SourceReader<T, PulsarPartitionSpl
             SourceReader.Context context,
             PulsarClientConfig clientConfig,
             Map<TablePath, PulsarConsumerMetadata> consumerMetadataMap,
+            boolean injectTableId,
             int pollTimeout,
             long pollInterval,
             int batchSize) {
@@ -94,7 +95,7 @@ public class PulsarSourceReader<T> implements SourceReader<T, PulsarPartitionSpl
                 consumerMetadataMap.size() == 1
                         ? consumerMetadataMap.keySet().iterator().next()
                         : null;
-        this.injectTableIdForRouting = consumerMetadataMap.size() > 1;
+        this.injectTableIdForRouting = injectTableId;
         this.pollTimeout = pollTimeout;
         this.pollInterval = pollInterval;
         this.batchSize = batchSize;

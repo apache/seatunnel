@@ -63,7 +63,7 @@ public class MultiTablePartitionDiscoverer implements PulsarDiscoverer {
             for (TopicPartition tp : partitions) {
                 TablePath existing = partitionToTablePath.putIfAbsent(tp, pair.tablePath);
                 if (existing != null && !existing.equals(pair.tablePath)) {
-                    LOG.debug(
+                    LOG.warn(
                             "TopicPartition '{}' matched by multiple table configs. Keeping '{}' and ignoring '{}'.",
                             tp,
                             existing,

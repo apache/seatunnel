@@ -105,6 +105,22 @@ class PulsarSourceTest {
     }
 
     @Test
+    void shouldKeepSingleTableTablesConfigsBatchCompatibilityForUnboundedSource() {
+        Map<String, Object> config = createBaseConfig("NEVER");
+        config.put(
+                "tables_configs",
+                Arrays.asList(
+                        createTableConfig("db.orders", "persistent://public/default/orders")));
+
+        PulsarSource source =
+                new PulsarSource(
+                        ReadonlyConfig.fromMap(config), CatalogTableUtil.buildSimpleTextTable());
+
+        Assertions.assertDoesNotThrow(
+                () -> source.setJobContext(new JobContext().setJobMode(JobMode.BATCH)));
+    }
+
+    @Test
     void shouldRejectSingleTableWithoutSubscriptionNameInFactory() {
         Map<String, Object> config = createBaseConfig("NEVER");
         config.remove("subscription.name");

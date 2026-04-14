@@ -125,6 +125,7 @@ public class PulsarSource
                 readerContext,
                 clientConfig,
                 consumerMetadataMap,
+                multiTableConfig.isTablesConfigs(),
                 pollTimeout,
                 pollInterval,
                 batchSize);
@@ -184,7 +185,7 @@ public class PulsarSource
         Map<TablePath, PulsarConsumerMetadata> metadataMap = new LinkedHashMap<>();
         for (PulsarTableConfig tableConfig : multiTableConfig.getTableConfigs()) {
             CatalogTable catalogTable =
-                    multiTableConfig.isMultiTable()
+                    multiTableConfig.isTablesConfigs()
                             ? buildCatalogTable(tableConfig)
                             : CatalogTable.of(
                                     TableIdentifier.of(

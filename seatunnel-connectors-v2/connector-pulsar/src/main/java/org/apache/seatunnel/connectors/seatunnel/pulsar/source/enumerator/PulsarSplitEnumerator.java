@@ -106,13 +106,6 @@ public class PulsarSplitEnumerator
             Map<TablePath, PulsarConsumerMetadata> consumerMetadataMap,
             Boundedness boundedness,
             Set<TopicPartition> assignedPartitions) {
-        if (hasTopicPattern(partitionDiscoverer)
-                && partitionDiscoveryIntervalMs > 0
-                && Boundedness.BOUNDED == boundedness) {
-            throw new PulsarConnectorException(
-                    CommonErrorCodeDeprecated.UNSUPPORTED_OPERATION,
-                    "Bounded streams do not support dynamic partition discovery.");
-        }
         this.context = context;
         this.adminConfig = adminConfig;
         this.partitionDiscoverer = partitionDiscoverer;

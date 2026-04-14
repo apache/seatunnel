@@ -145,6 +145,37 @@ class PulsarSourceReaderRestoreTest {
         Assertions.assertEquals(ordersPath.toString(), collector.records.get(0).getTableId());
     }
 
+    @Test
+    void shouldInjectConfiguredTableIdForSingleTableTablesConfigs() throws Exception {
+        TablePath tablePath = TablePath.of("db.orders");
+        TestingPulsarSourceReader reader =
+                new TestingPulsarSourceReader(
+                        new TestingReaderContext(),
+                        Collections.singletonMap(
+                                tablePath,
+                                createMetadata(tablePath, new TableIdAwareDeserializationSchema())),
+                        true);
+        PulsarPartitionSplit split =
+                new PulsarPartitionSplit(
+                        new TopicPartition("persistent://public/default/orders", 0),
+                        StopCursor.never(),
+                        null,
+                        tablePath);
+        reader.addSplits(Collections.singletonList(split));
+
+        reader.handover.produce(
+                new RecordWithSplitId(
+                        testingMessage(
+                                "value".getBytes(StandardCharsets.UTF_8), MessageId.earliest),
+                        split.splitId()));
+
+        TestingCollector collector = new TestingCollector();
+        reader.pollNext(collector);
+
+        Assertions.assertEquals(1, collector.records.size());
+        Assertions.assertEquals(tablePath.toString(), collector.records.get(0).getTableId());
+    }
+
     private static PulsarConsumerMetadata createMetadata(TablePath tablePath) {
         return createMetadata(tablePath, new TestingDeserializationSchema());
     }
@@ -224,10 +255,18 @@ class PulsarSourceReaderRestoreTest {
 
         private TestingPulsarSourceReader(
                 SourceReader.Context context, Map<TablePath, PulsarConsumerMetadata> metadataMap) {
+            this(context, metadataMap, metadataMap.size() > 1);
+        }
+
+        private TestingPulsarSourceReader(
+                SourceReader.Context context,
+                Map<TablePath, PulsarConsumerMetadata> metadataMap,
+                boolean injectTableId) {
             super(
                     context,
                     PulsarClientConfig.builder().serviceUrl("pulsar://localhost:6650").build(),
                     metadataMap,
+                    injectTableId,
                     100,
                     50L,
                     1);
