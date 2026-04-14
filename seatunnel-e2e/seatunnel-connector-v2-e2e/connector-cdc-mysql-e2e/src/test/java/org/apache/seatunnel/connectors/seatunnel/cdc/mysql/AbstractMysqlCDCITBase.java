@@ -100,8 +100,8 @@ public abstract class AbstractMysqlCDCITBase extends TestSuiteBase implements Te
     private static final String MULTI_DATABASE_A = "mysql_multi_cdc_db_a";
     private static final String MULTI_DATABASE_B = "mysql_multi_cdc_db_b";
     private static final String MULTI_DATABASE_SINK = "mysql_multi_cdc_db_sink";
-    private static final String MULTI_SOURCE_TABLE_A = "multi_src_a";
-    private static final String MULTI_SOURCE_TABLE_B = "multi_src_b";
+    private static final String MULTI_DATABASE_TABLE_A = "multi_src_a";
+    private static final String MULTI_DATABASE_TABLE_B = "multi_src_b";
 
     protected MySqlContainer MYSQL_CONTAINER;
     protected UniqueDatabase inventoryDatabase;
@@ -424,8 +424,9 @@ public abstract class AbstractMysqlCDCITBase extends TestSuiteBase implements Te
             disabledReason = "Currently SPARK do not support cdc")
     public void testMysqlCdcMultiDatabaseMultiTableE2e(TestContainer container) {
         inventoryDatabase.setTemplateName("mysql_cdc_multi_db").createAndInitialize();
-        clearTable(MULTI_DATABASE_SINK, MULTI_SOURCE_TABLE_A);
-        clearTable(MULTI_DATABASE_SINK, MULTI_SOURCE_TABLE_B);
+
+        clearTable(MULTI_DATABASE_SINK, MULTI_DATABASE_TABLE_A);
+        clearTable(MULTI_DATABASE_SINK, MULTI_DATABASE_TABLE_B);
 
         CompletableFuture.supplyAsync(
                 () -> {
@@ -449,28 +450,28 @@ public abstract class AbstractMysqlCDCITBase extends TestSuiteBase implements Te
                                                         query(
                                                                 getSourceQuerySQL(
                                                                         MULTI_DATABASE_A,
-                                                                        MULTI_SOURCE_TABLE_A)),
+                                                                        MULTI_DATABASE_TABLE_A)),
                                                         query(
                                                                 getSinkQuerySQL(
                                                                         MULTI_DATABASE_SINK,
-                                                                        MULTI_SOURCE_TABLE_A))),
+                                                                        MULTI_DATABASE_TABLE_A))),
                                         () ->
                                                 Assertions.assertIterableEquals(
                                                         query(
                                                                 getSourceQuerySQL(
                                                                         MULTI_DATABASE_B,
-                                                                        MULTI_SOURCE_TABLE_B)),
+                                                                        MULTI_DATABASE_TABLE_B)),
                                                         query(
                                                                 getSinkQuerySQL(
                                                                         MULTI_DATABASE_SINK,
-                                                                        MULTI_SOURCE_TABLE_B)))));
+                                                                        MULTI_DATABASE_TABLE_B)))));
 
         // incremental phase
-        upsertDeleteSourceTable(MULTI_DATABASE_A, MULTI_SOURCE_TABLE_A);
-        upsertDeleteSourceTable(MULTI_DATABASE_B, MULTI_SOURCE_TABLE_B);
+        upsertDeleteSourceTable(MULTI_DATABASE_A, MULTI_DATABASE_TABLE_A);
+        upsertDeleteSourceTable(MULTI_DATABASE_B, MULTI_DATABASE_TABLE_B);
 
-        await().atMost(120000, TimeUnit.MILLISECONDS)
-                .pollInterval(2000, TimeUnit.MILLISECONDS)
+        await().atMost(60000, TimeUnit.MILLISECONDS)
+                .pollInterval(1000, TimeUnit.MILLISECONDS)
                 .untilAsserted(
                         () ->
                                 Assertions.assertAll(
@@ -479,21 +480,21 @@ public abstract class AbstractMysqlCDCITBase extends TestSuiteBase implements Te
                                                         query(
                                                                 getSourceQuerySQL(
                                                                         MULTI_DATABASE_A,
-                                                                        MULTI_SOURCE_TABLE_A)),
+                                                                        MULTI_DATABASE_TABLE_A)),
                                                         query(
                                                                 getSinkQuerySQL(
                                                                         MULTI_DATABASE_SINK,
-                                                                        MULTI_SOURCE_TABLE_A))),
+                                                                        MULTI_DATABASE_TABLE_A))),
                                         () ->
                                                 Assertions.assertIterableEquals(
                                                         query(
                                                                 getSourceQuerySQL(
                                                                         MULTI_DATABASE_B,
-                                                                        MULTI_SOURCE_TABLE_B)),
+                                                                        MULTI_DATABASE_TABLE_B)),
                                                         query(
                                                                 getSinkQuerySQL(
                                                                         MULTI_DATABASE_SINK,
-                                                                        MULTI_SOURCE_TABLE_B)))));
+                                                                        MULTI_DATABASE_TABLE_B)))));
     }
 
     @TestTemplate
@@ -503,9 +504,11 @@ public abstract class AbstractMysqlCDCITBase extends TestSuiteBase implements Te
             disabledReason = "Currently SPARK and FLINK do not support restore")
     public void testMultiDatabaseWithRestore(TestContainer container)
             throws IOException, InterruptedException {
+
         inventoryDatabase.setTemplateName("mysql_cdc_multi_db").createAndInitialize();
-        clearTable(MULTI_DATABASE_SINK, MULTI_SOURCE_TABLE_A);
-        clearTable(MULTI_DATABASE_SINK, MULTI_SOURCE_TABLE_B);
+
+        clearTable(MULTI_DATABASE_SINK, MULTI_DATABASE_TABLE_B);
+        clearTable(MULTI_DATABASE_SINK, MULTI_DATABASE_TABLE_A);
 
         Long jobId = JobIdGenerator.newJobId();
         CompletableFuture.supplyAsync(
@@ -521,17 +524,27 @@ public abstract class AbstractMysqlCDCITBase extends TestSuiteBase implements Te
                 });
 
         // wait for snapshot data
-        await().atMost(60000, TimeUnit.MILLISECONDS)
+        await().atMost(100000, TimeUnit.MILLISECONDS)
                 .pollInterval(1000, TimeUnit.MILLISECONDS)
                 .untilAsserted(
                         () ->
-                                Assertions.assertTrue(
-                                        query(
-                                                                getSourceQuerySQL(
-                                                                        MULTI_DATABASE_SINK,
-                                                                        MULTI_SOURCE_TABLE_A))
-                                                        .size()
-                                                > 1));
+                                Assertions.assertAll(
+                                        () ->
+                                                Assertions.assertTrue(
+                                                        query(
+                                                                                getSourceQuerySQL(
+                                                                                        MULTI_DATABASE_SINK,
+                                                                                        MULTI_DATABASE_TABLE_A))
+                                                                        .size()
+                                                                > 1),
+                                        () ->
+                                                Assertions.assertTrue(
+                                                        query(
+                                                                                getSourceQuerySQL(
+                                                                                        MULTI_DATABASE_SINK,
+                                                                                        MULTI_DATABASE_TABLE_B))
+                                                                        .size()
+                                                                > 1)));
 
         // savepoint + restore
         Assertions.assertEquals(0, container.savepointJob(String.valueOf(jobId)).getExitCode());
@@ -549,11 +562,18 @@ public abstract class AbstractMysqlCDCITBase extends TestSuiteBase implements Te
                 });
 
         // incremental changes after restore
-        upsertDeleteSourceTable(MULTI_DATABASE_A, MULTI_SOURCE_TABLE_A);
-        upsertDeleteSourceTable(MULTI_DATABASE_B, MULTI_SOURCE_TABLE_B);
+        upsertDeleteSourceTable(MULTI_DATABASE_A, MULTI_DATABASE_TABLE_A);
+        upsertDeleteSourceTable(MULTI_DATABASE_B, MULTI_DATABASE_TABLE_B);
+
+        await().atMost(60000, TimeUnit.MILLISECONDS)
+                .pollInterval(1000, TimeUnit.MILLISECONDS)
+                .until(() -> getConnectionStatus("st_user_source").size() == 1);
+        await().atMost(60000, TimeUnit.MILLISECONDS)
+                .pollInterval(1000, TimeUnit.MILLISECONDS)
+                .until(() -> getConnectionStatus("st_user_sink").size() == 1);
 
         await().atMost(300000, TimeUnit.MILLISECONDS)
-                .pollInterval(1000, TimeUnit.MILLISECONDS)
+                .pollInterval(10000, TimeUnit.MILLISECONDS)
                 .untilAsserted(
                         () ->
                                 Assertions.assertAll(
@@ -562,21 +582,21 @@ public abstract class AbstractMysqlCDCITBase extends TestSuiteBase implements Te
                                                         query(
                                                                 getSourceQuerySQL(
                                                                         MULTI_DATABASE_A,
-                                                                        MULTI_SOURCE_TABLE_A)),
+                                                                        MULTI_DATABASE_TABLE_A)),
                                                         query(
                                                                 getSinkQuerySQL(
                                                                         MULTI_DATABASE_SINK,
-                                                                        MULTI_SOURCE_TABLE_A))),
+                                                                        MULTI_DATABASE_TABLE_A))),
                                         () ->
                                                 Assertions.assertIterableEquals(
                                                         query(
                                                                 getSourceQuerySQL(
                                                                         MULTI_DATABASE_B,
-                                                                        MULTI_SOURCE_TABLE_B)),
+                                                                        MULTI_DATABASE_TABLE_B)),
                                                         query(
                                                                 getSinkQuerySQL(
                                                                         MULTI_DATABASE_SINK,
-                                                                        MULTI_SOURCE_TABLE_B)))));
+                                                                        MULTI_DATABASE_TABLE_B)))));
     }
 
     @TestTemplate
@@ -738,7 +758,8 @@ public abstract class AbstractMysqlCDCITBase extends TestSuiteBase implements Te
         upsertDeleteSourceTable(MYSQL_DATABASE, SOURCE_TABLE_2_CUSTOM_PRIMARY_KEY);
 
         // stream stage
-        await().atMost(60000, TimeUnit.MILLISECONDS)
+        await().atMost(120000, TimeUnit.MILLISECONDS)
+                .pollInterval(2000, TimeUnit.MILLISECONDS)
                 .untilAsserted(
                         () ->
                                 Assertions.assertAll(
