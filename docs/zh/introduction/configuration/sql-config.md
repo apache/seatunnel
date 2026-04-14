@@ -178,7 +178,7 @@ CREATE TABLE temp1 AS SELECT id, name, age, email FROM source_table;
 ```
 
 * 该语法可以将一个`SELECT`查询结果作为一个临时表，用于的`INSERT INTO`操作
-* `SELECT` 部分的语法参考：[SQL Transform](../transforms/sql.md) `query` 配置项
+* `SELECT` 部分的语法参考：[SQL Transform](../../transforms/sql.md) `query` 配置项
 
 ```sql
 CREATE TABLE temp1 AS SELECT id, name, age, email FROM source_table;
@@ -191,4 +191,3 @@ INSERT INTO sink_table SELECT * FROM temp1;
 ```bash
 ./bin/seatunnel.sh --config ./config/sample.sql
 ```
-
