@@ -26,6 +26,8 @@ import org.apache.seatunnel.connectors.seatunnel.pulsar.source.enumerator.cursor
 import org.apache.seatunnel.connectors.seatunnel.pulsar.source.enumerator.cursor.stop.StopCursor;
 import org.apache.seatunnel.connectors.seatunnel.pulsar.source.enumerator.discoverer.PulsarDiscoverer;
 
+import lombok.Getter;
+
 import java.io.Serializable;
 
 /**
@@ -55,6 +57,7 @@ import java.io.Serializable;
  *   <li>Used to resolve table-specific deserializers, cursors, and discoverers
  * </ol>
  */
+@Getter
 public class PulsarConsumerMetadata implements Serializable {
     private static final long serialVersionUID = 1L;
 
@@ -100,33 +103,5 @@ public class PulsarConsumerMetadata implements Serializable {
         this.startCursor = startCursor;
         this.stopCursor = stopCursor;
         this.consumerConfig = consumerConfig;
-    }
-
-    public TablePath getTablePath() {
-        return tablePath;
-    }
-
-    public CatalogTable getCatalogTable() {
-        return catalogTable;
-    }
-
-    public DeserializationSchema<SeaTunnelRow> getDeserializationSchema() {
-        return deserializationSchema;
-    }
-
-    public PulsarDiscoverer getDiscoverer() {
-        return discoverer;
-    }
-
-    public StartCursor getStartCursor() {
-        return startCursor;
-    }
-
-    public StopCursor getStopCursor() {
-        return stopCursor;
-    }
-
-    public PulsarConsumerConfig getConsumerConfig() {
-        return consumerConfig;
     }
 }

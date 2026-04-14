@@ -40,26 +40,29 @@ import java.util.stream.Collectors;
 
 import static org.apache.pulsar.shade.org.apache.commons.lang3.StringUtils.isBlank;
 
-@Getter
 /**
  * Normalized Pulsar source configuration that unifies single-table and multi-table options into a
  * consistent runtime model.
  */
+@Getter
 public class PulsarMultiTableConfig implements Serializable {
     private static final long serialVersionUID = 1L;
 
     private final List<PulsarTableConfig> tableConfigs;
     private final ReadonlyConfig globalConfig;
     private final boolean isMultiTable;
+    private final boolean isTablesConfigs;
 
     /** Create the normalized config used by Pulsar source runtime components. */
     private PulsarMultiTableConfig(
             List<PulsarTableConfig> tableConfigs,
             ReadonlyConfig globalConfig,
-            boolean isMultiTable) {
+            boolean isMultiTable,
+            boolean isTablesConfigs) {
         this.tableConfigs = tableConfigs;
         this.globalConfig = globalConfig;
         this.isMultiTable = isMultiTable;
+        this.isTablesConfigs = isTablesConfigs;
     }
 
     /**
@@ -119,7 +122,7 @@ public class PulsarMultiTableConfig implements Serializable {
                         config);
 
         return new PulsarMultiTableConfig(
-                java.util.Collections.singletonList(tableConfig), config, false);
+                java.util.Collections.singletonList(tableConfig), config, false, false);
     }
 
     private static PulsarMultiTableConfig parseMultiTable(ReadonlyConfig config) {
@@ -239,7 +242,7 @@ public class PulsarMultiTableConfig implements Serializable {
             tableConfigs.add(pulsarTableConfig);
         }
 
-        return new PulsarMultiTableConfig(tableConfigs, config, true);
+        return new PulsarMultiTableConfig(tableConfigs, config, tableConfigs.size() > 1, true);
     }
 
     private static ReadonlyConfig mergeWithGlobal(
