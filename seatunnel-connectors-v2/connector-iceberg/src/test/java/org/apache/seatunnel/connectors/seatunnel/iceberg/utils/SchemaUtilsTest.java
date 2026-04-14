@@ -26,6 +26,7 @@ import org.apache.seatunnel.api.table.catalog.TableSchema;
 import org.apache.seatunnel.api.table.type.BasicType;
 import org.apache.seatunnel.api.table.type.SeaTunnelDataType;
 import org.apache.seatunnel.api.table.type.SeaTunnelRowType;
+import org.apache.seatunnel.connectors.seatunnel.iceberg.config.IcebergSinkConfig;
 import org.apache.seatunnel.connectors.seatunnel.iceberg.config.IcebergSinkOptions;
 
 import org.apache.iceberg.Schema;
@@ -168,5 +169,33 @@ class SchemaUtilsTest {
                         + "configured, even if the source TableSchema has a primary key. "
                         + "Inheriting the source PK silently activates BaseEqualityDeltaWriter "
                         + "and causes positional deletes in append-only CDC pipelines.");
+    }
+
+    /**
+     * Guard against the regression introduced by the SchemaUtils PK-fallback fix: when {@code
+     * iceberg.table.upsert-mode-enabled=true} is set without an explicit {@code
+     * iceberg.table.primary-keys}, the sink must fail fast with a clear error rather than silently
+     * creating a delta writer with an empty identifier-field set (which would produce broken upsert
+     * semantics).
+     */
+    @Test
+    void testIcebergSinkConfigThrowsWhenUpsertModeEnabledWithoutPrimaryKeys() {
+        ReadonlyConfig config =
+                ReadonlyConfig.fromMap(
+                        new HashMap<String, Object>() {
+                            {
+                                put(IcebergSinkOptions.TABLE_UPSERT_MODE_ENABLED_PROP.key(), true);
+                                // iceberg.table.primary-keys deliberately absent
+                            }
+                        });
+        IllegalArgumentException ex =
+                Assertions.assertThrows(
+                        IllegalArgumentException.class,
+                        () -> new IcebergSinkConfig(config),
+                        "IcebergSinkConfig must reject upsert-mode-enabled=true without an "
+                                + "explicit iceberg.table.primary-keys configuration");
+        Assertions.assertTrue(
+                ex.getMessage().contains(IcebergSinkOptions.TABLE_PRIMARY_KEYS.key()),
+                "Error message should name the missing config key");
     }
 }
