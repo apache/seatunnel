@@ -20,6 +20,11 @@ package org.apache.seatunnel.api.configuration.util;
 import org.apache.seatunnel.api.configuration.Option;
 import org.apache.seatunnel.api.configuration.ReadonlyConfig;
 import org.apache.seatunnel.api.configuration.SingleChoiceOption;
+import org.apache.seatunnel.api.options.ConnectorCommonOptions;
+import org.apache.seatunnel.api.options.EnvCommonOptions;
+import org.apache.seatunnel.api.options.SourceConnectorCommonOptions;
+import org.apache.seatunnel.api.options.table.CatalogOptions;
+import org.apache.seatunnel.api.options.table.TableSchemaOptions;
 
 import org.apache.commons.collections4.CollectionUtils;
 
@@ -37,23 +42,21 @@ import static org.apache.seatunnel.api.configuration.util.OptionUtil.getOptionKe
 public class ConfigValidator {
     private final ReadonlyConfig config;
 
-    /**
-     * Common framework-level keys that are always valid in any connector config but may not appear
-     * in a specific connector's OptionRule.
-     */
-    private static final Set<String> COMMON_KEYS =
-            new HashSet<>(
-                    Arrays.asList(
-                            "plugin_name",
-                            "plugin_output",
-                            "plugin_input",
-                            "result_table_name",
-                            "source_table_name",
-                            "parallelism",
-                            "schema",
-                            "catalog",
-                            "datasource_id",
-                            "dag-parsing.mode"));
+    private static final Set<String> COMMON_KEYS = new HashSet<>();
+
+    static {
+        collectKeys(
+                COMMON_KEYS,
+                Arrays.asList(
+                        ConnectorCommonOptions.PLUGIN_NAME,
+                        ConnectorCommonOptions.PLUGIN_INPUT,
+                        ConnectorCommonOptions.PLUGIN_OUTPUT,
+                        ConnectorCommonOptions.DATASOURCE_ID,
+                        EnvCommonOptions.PARALLELISM,
+                        TableSchemaOptions.SCHEMA,
+                        CatalogOptions.CATALOG_OPTIONS,
+                        SourceConnectorCommonOptions.DAG_PARSING_MODE));
+    }
 
     private ConfigValidator(ReadonlyConfig config) {
         this.config = config;
