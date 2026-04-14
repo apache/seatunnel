@@ -168,12 +168,12 @@ public class SchemaUtils {
         // Only use identifier fields when explicitly configured via iceberg.table.primary-keys.
         // Do NOT fall back to the source table's primary key: silently inheriting the MySQL PK
         // activates BaseEqualityDeltaWriter, which emits positional deletes for repeated keys
-        // within the same checkpoint window — causing silent data loss in append-only CDC pipelines.
+        // within the same checkpoint window — causing silent data loss in append-only CDC
+        // pipelines.
         Set<Integer> identifierFieldIds =
                 readonlyConfig.getOptional(IcebergSinkOptions.TABLE_PRIMARY_KEYS)
                         .map(e -> IcebergSinkConfig.stringToList(e, ","))
-                        .orElse(Collections.emptyList())
-                        .stream()
+                        .orElse(Collections.emptyList()).stream()
                         .map(f -> structType.field(f).fieldId())
                         .collect(Collectors.toSet());
         List<Types.NestedField> fields = new ArrayList<>();
