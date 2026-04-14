@@ -30,15 +30,18 @@ import ChangeLog from '../changelog/connector-rocketmq.md';
 |----------------------|---------|----------|--------------------------|---------------------------------------------------------------------------------------------------------------------------------------------------------------------|
 | topic                | string  | 是      | -                        | `RocketMQ topic` 名称.                                                                                                                                              |
 | name.srv.addr        | string  | 是      | -                        | `RocketMQ`名称服务器集群地址。                                                                                                                             |
-| acl.enabled          | Boolean | 否       | false                    | false                                                                                                                                                               |
-| access.key           | String  | 否       |                          | 当ACL_ENABLED为true时，access key不能为空。                                                                                                                |
-| secret.key           | String  | 否       |                          |  当ACL_ENABLED为true时, secret key 不能为空。                                                                                                                |
-| producer.group       | String  | 否       | SeaTunnel-producer-Group | SeaTunnel-producer-Group                                                                                                                                            |
+| acl.enabled          | Boolean | 否       | false                    | 如果为 true，启用访问控制，需要配置 access key 和 secret key。                                                                                                  |
+| access.key           | String  | 否       |                          | 当 ACL_ENABLED 为 true 时，access key 不能为空。                                                                                                                |
+| secret.key           | String  | 否       |                          | 当 ACL_ENABLED 为 true 时，secret key 不能为空。                                                                                                                |
+| producer.group       | String  | 否       | SeaTunnel-Producer-Group | RocketMQ 生产者组 ID。                                                                                                                                            |
 | tag                  | String  | 否       | -                        | `RocketMQ`消息标签。                                                                                                                                             |
 | partition.key.fields | array   | 否       | -                        | -                                                                                                                                                                   |
 | format               | String  | 否       | json                     | 数据格式。默认格式为json。可选text格式。默认字段分隔符为“，”。如果自定义分隔符，请添加“field_delimiter”选项。 |
 | field.delimiter      | String  | 否       | ,                        | 自定义数据格式的字段分隔符。                                                                                                                      |
 | producer.send.sync   | Boolean | 否       | false                    | 如果为 true, 则消息将同步发送。                                                                                                                             |
+| exactly.once         | Boolean | 否       | false                    | 如果为 true，将发送事务消息。                                                                                                                                     |
+| max.message.size     | int     | 否       | 4194304                  | 允许的最大消息体大小（字节）。                                                                                                                                    |
+| send.message.timeout | int     | 否       | 3000                     | 发送消息的超时时间（毫秒）。                                                                                                                                      |
 | common-options       | config  | 否       | -                        | Sink插件常用参数，请参考[sink common options]（../common-options/sink-common-options.md）了解详细信息。                                                        |
 
 ### partition.key.fields [array]
@@ -166,7 +169,6 @@ source {
     batch.size = "400"
     consumer.group = "test_topic_group"
     format = "json"
-    format = json
     schema = {
       fields {
         c_map = "map<string, string>"

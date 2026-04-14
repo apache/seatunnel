@@ -202,7 +202,9 @@ public abstract class BaseService {
                                 jobImmutableInformation.getCreateTime(),
                                 DateTimeUtils.Formatter.YYYY_MM_DD_HH_MM_SS))
                 .add(RestConstant.START_TIME, getJobStartTime(jobId))
-                .add(RestConstant.JOB_DAG, jobDAGInfo.toJsonObject())
+                .add(
+                        RestConstant.JOB_DAG,
+                        jobDAGInfo != null ? jobDAGInfo.toJsonObject() : new JsonObject())
                 .add(
                         RestConstant.PLUGIN_JARS_URLS,
                         (JsonValue)
@@ -236,7 +238,7 @@ public abstract class BaseService {
                         startTimestamp, DateTimeUtils.Formatter.YYYY_MM_DD_HH_MM_SS);
             }
         }
-        return null;
+        return "";
     }
 
     protected JsonObject getJobInfoJson(
@@ -253,15 +255,21 @@ public abstract class BaseService {
                                 DateTimeUtils.Formatter.YYYY_MM_DD_HH_MM_SS))
                 .add(
                         RestConstant.START_TIME,
-                        DateTimeUtils.toString(
-                                jobState.getStartTime(),
-                                DateTimeUtils.Formatter.YYYY_MM_DD_HH_MM_SS))
+                        jobState.getStartTime() == null
+                                ? ""
+                                : DateTimeUtils.toString(
+                                        jobState.getStartTime(),
+                                        DateTimeUtils.Formatter.YYYY_MM_DD_HH_MM_SS))
                 .add(
                         RestConstant.FINISH_TIME,
-                        DateTimeUtils.toString(
-                                jobState.getFinishTime(),
-                                DateTimeUtils.Formatter.YYYY_MM_DD_HH_MM_SS))
-                .add(RestConstant.JOB_DAG, jobDAGInfo.toJsonObject())
+                        jobState.getFinishTime() == null
+                                ? ""
+                                : DateTimeUtils.toString(
+                                        jobState.getFinishTime(),
+                                        DateTimeUtils.Formatter.YYYY_MM_DD_HH_MM_SS))
+                .add(
+                        RestConstant.JOB_DAG,
+                        jobDAGInfo != null ? jobDAGInfo.toJsonObject() : new JsonObject())
                 .add(RestConstant.PLUGIN_JARS_URLS, new JsonArray())
                 .add(
                         RestConstant.METRICS,
@@ -800,21 +808,34 @@ public abstract class BaseService {
             isStopWithSavePoint =
                     Boolean.parseBoolean(map.get(RestConstant.IS_STOP_WITH_SAVE_POINT).toString());
         }
+        boolean forceStop = false;
+        if (map.get(RestConstant.FORCE) != null) {
+            forceStop = Boolean.parseBoolean(map.get(RestConstant.FORCE).toString());
+        }
 
         if (!seaTunnelServer.isMasterNode()) {
+            if (forceStop) {
+                NodeEngineUtil.sendOperationToMasterNode(
+                                node.nodeEngine, new CancelJobOperation(jobId, true))
+                        .join();
+                return;
+            }
             if (isStopWithSavePoint) {
                 NodeEngineUtil.sendOperationToMasterNode(
                                 node.nodeEngine, new SavePointJobOperation(jobId))
                         .join();
             } else {
                 NodeEngineUtil.sendOperationToMasterNode(
-                                node.nodeEngine, new CancelJobOperation(jobId))
+                                node.nodeEngine, new CancelJobOperation(jobId, false))
                         .join();
             }
 
         } else {
             CoordinatorService coordinatorService = seaTunnelServer.getCoordinatorService();
-
+            if (forceStop) {
+                coordinatorService.stopJob(jobId);
+                return;
+            }
             if (isStopWithSavePoint) {
                 coordinatorService.savePoint(jobId);
             } else {

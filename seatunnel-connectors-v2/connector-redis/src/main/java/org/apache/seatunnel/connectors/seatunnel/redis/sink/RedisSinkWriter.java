@@ -54,7 +54,7 @@ import java.util.regex.Pattern;
 public class RedisSinkWriter extends AbstractSinkWriter<SeaTunnelRow, Void>
         implements SupportMultiTableSinkWriter<Void> {
     private static final Pattern LEGACY_PLACEHOLDER_PATTERN =
-            Pattern.compile("(?<!\\$)\\{([^}]+)\\}");
+            Pattern.compile("(?<!\\$)\\{([^{}]+)\\}");
     private static final Pattern PLACEHOLDER_PATTERN = Pattern.compile("\\$\\{([^}]+)\\}");
     private final SeaTunnelRowType seaTunnelRowType;
     private final RedisParameters redisParameters;
