@@ -154,7 +154,7 @@ SensorsData 实体数据模型的模式名称。
 
 ### 通用选项
 
-Sink 插件通用参数，请参考 [Sink 通用选项](common-options.md) 详见
+Sink 插件通用参数，请参考 [Sink 通用选项](../common-options/sink-common-options.md) 详见
 
 ## 示例
 
@@ -288,5 +288,4 @@ sink {
 ## 变更日志
 
 <ChangeLog />
-
 

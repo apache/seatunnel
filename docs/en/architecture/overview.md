@@ -98,8 +98,8 @@ The API layer provides engine-independent abstractions:
 **Key Design**: Separation of coordination (Enumerator) and execution (Reader) enables efficient parallel processing and fault tolerance.
 
 **Code Reference**:
-- [seatunnel-api/.../SeaTunnelSource.java](../../seatunnel-api/src/main/java/org/apache/seatunnel/api/source/SeaTunnelSource.java)
-- [seatunnel-api/.../SourceSplitEnumerator.java](../../seatunnel-api/src/main/java/org/apache/seatunnel/api/source/SourceSplitEnumerator.java)
+- [seatunnel-api/.../SeaTunnelSource.java](../../../seatunnel-api/src/main/java/org/apache/seatunnel/api/source/SeaTunnelSource.java)
+- [seatunnel-api/.../SourceSplitEnumerator.java](../../../seatunnel-api/src/main/java/org/apache/seatunnel/api/source/SourceSplitEnumerator.java)
 
 #### Sink API
 - **SeaTunnelSink**: Factory interface for creating writers and committers
@@ -110,8 +110,8 @@ The API layer provides engine-independent abstractions:
 **Key Design**: Two-phase commit protocol (prepareCommit → commit) ensures exactly-once semantics.
 
 **Code Reference**:
-- [seatunnel-api/.../SeaTunnelSink.java](../../seatunnel-api/src/main/java/org/apache/seatunnel/api/sink/SeaTunnelSink.java)
-- [seatunnel-api/.../SinkWriter.java](../../seatunnel-api/src/main/java/org/apache/seatunnel/api/sink/SinkWriter.java)
+- [seatunnel-api/.../SeaTunnelSink.java](../../../seatunnel-api/src/main/java/org/apache/seatunnel/api/sink/SeaTunnelSink.java)
+- [seatunnel-api/.../SinkWriter.java](../../../seatunnel-api/src/main/java/org/apache/seatunnel/api/sink/SinkWriter.java)
 
 #### Transform API
 - **SeaTunnelTransform**: Data transformation interface
@@ -119,7 +119,7 @@ The API layer provides engine-independent abstractions:
 - **SeaTunnelFlatMapTransform**: 1:N transformation
 
 **Code Reference**:
-- [seatunnel-api/.../SeaTunnelTransform.java](../../seatunnel-api/src/main/java/org/apache/seatunnel/api/transform/SeaTunnelTransform.java)
+- [seatunnel-api/.../SeaTunnelTransform.java](../../../seatunnel-api/src/main/java/org/apache/seatunnel/api/transform/SeaTunnelTransform.java)
 
 #### Table API
 - **CatalogTable**: Complete table metadata (schema, partition keys, options)
@@ -127,7 +127,7 @@ The API layer provides engine-independent abstractions:
 - **SchemaChangeEvent**: Represents DDL changes for schema evolution
 
 **Code Reference**:
-- [seatunnel-api/.../CatalogTable.java](../../seatunnel-api/src/main/java/org/apache/seatunnel/api/table/catalog/CatalogTable.java)
+- [seatunnel-api/.../CatalogTable.java](../../../seatunnel-api/src/main/java/org/apache/seatunnel/api/table/catalog/CatalogTable.java)
 
 ### 3.2 SeaTunnel Engine (Zeta)
 
@@ -150,8 +150,8 @@ LogicalDag → PhysicalPlan → SubPlan (Pipeline) → PhysicalVertex → TaskGr
 ```
 
 **Code Reference**:
-- [seatunnel-engine/.../server/CoordinatorService.java](../../seatunnel-engine/seatunnel-engine-server/src/main/java/org/apache/seatunnel/engine/server/CoordinatorService.java)
-- [seatunnel-engine/.../server/master/JobMaster.java](../../seatunnel-engine/seatunnel-engine-server/src/main/java/org/apache/seatunnel/engine/server/master/JobMaster.java)
+- [seatunnel-engine/.../server/CoordinatorService.java](../../../seatunnel-engine/seatunnel-engine-server/src/main/java/org/apache/seatunnel/engine/server/CoordinatorService.java)
+- [seatunnel-engine/.../server/master/JobMaster.java](../../../seatunnel-engine/seatunnel-engine-server/src/main/java/org/apache/seatunnel/engine/server/master/JobMaster.java)
 
 ### 3.3 Translation Layer
 
@@ -163,7 +163,7 @@ Enables engine portability through adapter pattern:
 - **Serialization Adapters**: Bridges SeaTunnel and engine serialization mechanisms
 
 **Code Reference**:
-- [seatunnel-translation/.../flink/source/FlinkSource.java](../../seatunnel-translation/seatunnel-translation-flink/seatunnel-translation-flink-common/src/main/java/org/apache/seatunnel/translation/flink/source/FlinkSource.java)
+- [seatunnel-translation/.../flink/source/FlinkSource.java](../../../seatunnel-translation/seatunnel-translation-flink/seatunnel-translation-flink-common/src/main/java/org/apache/seatunnel/translation/flink/source/FlinkSource.java)
 
 ### 3.4 Connector Ecosystem
 

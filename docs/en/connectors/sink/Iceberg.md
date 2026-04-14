@@ -80,6 +80,23 @@ libfb303-xxx.jar
 | data_save_mode                         | Enum    | no       | APPEND_DATA                  | the data save mode, please refer to `data_save_mode` below                                                                                                                                                                                                                                                                |
 | custom_sql                             | string  | no       | -                            | Custom `delete` data sql for data save mode. e.g: `delete from ... where ...`                                                                                                                                                                                                                                             |
 | iceberg.table.commit-branch            | string  | no       | -                            | Default branch for commits                                                                                                                                                                                                                                                                                                |
+| krb5_path                              | string  | no       | /etc/krb5.conf              | The path of `krb5.conf`, used for Kerberos authentication.                                                                                                                                                                                                                                                                |
+| kerberos_principal                     | string  | no       | -                            | The principal for Kerberos authentication.                                                                                                                                                                                                                                                                               |
+| kerberos_keytab_path                   | string  | no       | -                            | The keytab file path for Kerberos authentication.                                                                                                                                                                                                                                                                         |
+
+## Sink Option descriptions
+
+### krb5_path [string]
+
+The path of `krb5.conf`, used for Kerberos authentication.
+
+### kerberos_principal [string]
+
+The principal for Kerberos authentication.
+
+### kerberos_keytab_path [string]
+
+The keytab file path for Kerberos authentication.
 
 ## Task Example
 
@@ -233,6 +250,42 @@ sink {
   }
 }
 ```
+
+### Kerberos Authentication
+
+The following example demonstrates how to configure Iceberg sink with Kerberos authentication when using Hadoop catalog with HDFS:
+
+```hocon
+sink {
+  Iceberg {
+    catalog_name = "seatunnel_test"
+    iceberg.catalog.config = {
+      type = "hadoop"
+      warehouse = "hdfs://your_cluster/tmp/seatunnel/iceberg/"
+    }
+    namespace = "seatunnel_namespace"
+    table = "iceberg_sink_table"
+    iceberg.table.write-props = {
+      write.format.default = "parquet"
+      write.target-file-size-bytes = 536870912
+    }
+    krb5_path = "/etc/krb5.conf"
+    kerberos_principal = "hive/your_host@EXAMPLE.COM"
+    kerberos_keytab_path = "/path/to/your.keytab"
+    iceberg.table.primary-keys = "id"
+    iceberg.table.partition-keys = "f_datetime"
+    iceberg.table.upsert-mode-enabled = true
+    iceberg.table.schema-evolution-enabled = true
+    case_sensitive = true
+  }
+}
+```
+
+Description:
+
+- `krb5_path`: The path to the `krb5.conf` file used for Kerberos authentication.
+- `kerberos_principal`: The principal for Kerberos authentication in the format `primary/instance@REALM`.
+- `kerberos_keytab_path`: The keytab file path for Kerberos authentication.
 
 ### Multiple table
 

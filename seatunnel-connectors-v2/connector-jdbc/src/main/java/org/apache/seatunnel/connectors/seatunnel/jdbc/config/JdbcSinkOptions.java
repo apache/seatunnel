@@ -84,6 +84,15 @@ public class JdbcSinkOptions extends JdbcCommonOptions {
     public static final Option<Integer> BATCH_SIZE =
             Options.key("batch_size").intType().defaultValue(1000).withDescription("batch size");
 
+    public static final Option<Long> BATCH_INTERVAL_MS =
+            Options.key("batch_interval_ms")
+                    .longType()
+                    .defaultValue(0L)
+                    .withDescription(
+                            "Write-triggered flush interval (ms). "
+                                    + "0 = disabled (default). "
+                                    + "When > 0, each writeRecord checks elapsed time and flushes synchronously if exceeded.");
+
     public static final Option<Integer> TRANSACTION_TIMEOUT_SEC =
             Options.key("transaction_timeout_sec")
                     .intType()
