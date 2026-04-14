@@ -160,7 +160,7 @@ public class JdbcMySqlSaveModeCatalogIT extends TestSuiteBase implements TestRes
             JdbcUrlUtil.getUrlInfo("jdbc:mysql://localhost:3308/auto?useSSL=false");
 
     @Test
-    public void testCatalog() {
+    public void testCatalog() throws SQLException {
         TablePath tablePathMySql = TablePath.of("auto", "mysql_auto_create");
         TablePath tablePathMySqlSink = TablePath.of("auto", "mysql_auto_create_sink");
         MySqlCatalog mySqlCatalog =
