@@ -18,6 +18,7 @@
 package org.apache.seatunnel.connectors.seatunnel.file.source.reader;
 
 import org.apache.seatunnel.api.table.type.SeaTunnelRow;
+import org.apache.seatunnel.connectors.seatunnel.file.config.HadoopConf;
 import org.apache.seatunnel.connectors.seatunnel.file.exception.FileConnectorException;
 
 import org.junit.jupiter.api.Assertions;
@@ -32,6 +33,8 @@ import java.nio.file.Paths;
 import java.util.List;
 import java.util.stream.Collectors;
 
+import static org.apache.hadoop.fs.CommonConfigurationKeysPublic.FS_DEFAULT_NAME_DEFAULT;
+
 @Slf4j
 public class PdfReadStrategyTest {
 
@@ -42,6 +45,8 @@ public class PdfReadStrategyTest {
 
         String path = Paths.get(resource.toURI()).toString();
         PdfReadStrategy pdfReadStrategy = new PdfReadStrategy();
+        LocalConf localConf = new LocalConf(FS_DEFAULT_NAME_DEFAULT);
+        pdfReadStrategy.init(localConf);
         TempCollector tempCollector = new TempCollector();
         pdfReadStrategy.read(path, "", tempCollector);
 
@@ -88,6 +93,8 @@ public class PdfReadStrategyTest {
     @Test
     public void testReadInvalidPdfThrowsException() {
         PdfReadStrategy strategy = new PdfReadStrategy();
+        LocalConf localConf = new LocalConf(FS_DEFAULT_NAME_DEFAULT);
+        strategy.init(localConf);
         TempCollector collector = new TempCollector();
         Assertions.assertThrows(
                 FileConnectorException.class,
@@ -99,6 +106,8 @@ public class PdfReadStrategyTest {
         URL resource = this.getClass().getResource("/pdf_read_strategy_test.pdf");
         String path = Paths.get(resource.toURI()).toString();
         PdfReadStrategy pdfReadStrategy = new PdfReadStrategy();
+        LocalConf localConf = new LocalConf(FS_DEFAULT_NAME_DEFAULT);
+        pdfReadStrategy.init(localConf);
         TempCollector tempCollector = new TempCollector();
         pdfReadStrategy.read(path, "", tempCollector);
 
@@ -116,6 +125,8 @@ public class PdfReadStrategyTest {
         URL resource = this.getClass().getResource("/pdf_read_strategy_test.pdf");
         String path = Paths.get(resource.toURI()).toString();
         PdfReadStrategy pdfReadStrategy = new PdfReadStrategy();
+        LocalConf localConf = new LocalConf(FS_DEFAULT_NAME_DEFAULT);
+        pdfReadStrategy.init(localConf);
         TempCollector tempCollector = new TempCollector();
         pdfReadStrategy.read(path, "", tempCollector);
 
@@ -134,5 +145,24 @@ public class PdfReadStrategyTest {
 
     private List<SeaTunnelRow> getHeadingElements(List<SeaTunnelRow> rows) {
         return rows.stream().filter(row -> row.getField(2) != null).collect(Collectors.toList());
+    }
+
+    public static class LocalConf extends HadoopConf {
+        private static final String HDFS_IMPL = "org.apache.hadoop.fs.LocalFileSystem";
+        private static final String SCHEMA = "file";
+
+        public LocalConf(String hdfsNameKey) {
+            super(hdfsNameKey);
+        }
+
+        @Override
+        public String getFsHdfsImpl() {
+            return HDFS_IMPL;
+        }
+
+        @Override
+        public String getSchema() {
+            return SCHEMA;
+        }
     }
 }

@@ -29,6 +29,7 @@ import org.apache.seatunnel.connectors.seatunnel.file.config.DocumentElement;
 import org.apache.seatunnel.connectors.seatunnel.file.exception.FileConnectorErrorCode;
 import org.apache.seatunnel.connectors.seatunnel.file.exception.FileConnectorException;
 
+import org.apache.commons.io.IOUtils;
 import org.apache.pdfbox.Loader;
 import org.apache.pdfbox.contentstream.PDFStreamEngine;
 import org.apache.pdfbox.contentstream.operator.Operator;
@@ -61,8 +62,8 @@ import lombok.Getter;
 import lombok.extern.slf4j.Slf4j;
 
 import java.awt.geom.Rectangle2D;
-import java.io.File;
 import java.io.IOException;
+import java.io.InputStream;
 import java.util.ArrayList;
 import java.util.Comparator;
 import java.util.List;
@@ -82,7 +83,8 @@ public class PdfReadStrategy extends AbstractReadStrategy {
     public void read(String path, String tableId, Collector<SeaTunnelRow> output)
             throws IOException, FileConnectorException {
 
-        try (PDDocument document = Loader.loadPDF(new File(path))) {
+        try (InputStream inputStream = hadoopFileSystemProxy.getInputStream(path);
+                PDDocument document = Loader.loadPDF(IOUtils.toByteArray(inputStream))) {
             List<DocumentElement> elements = extractPdfDocumentElements(document);
 
             log.info(
