@@ -34,7 +34,8 @@ import org.apache.seatunnel.engine.server.dag.physical.SubPlan;
 import org.apache.seatunnel.engine.server.execution.ExecutionState;
 import org.apache.seatunnel.engine.server.execution.TaskExecutionState;
 import org.apache.seatunnel.engine.server.execution.TaskGroupContext;
-import org.apache.seatunnel.engine.server.execution.TaskGroupLocation;import org.apache.seatunnel.engine.server.execution.TaskLocation;
+import org.apache.seatunnel.engine.server.execution.TaskGroupLocation;
+import org.apache.seatunnel.engine.server.execution.TaskLocation;
 import org.apache.seatunnel.engine.server.master.JobMaster;
 import org.apache.seatunnel.engine.server.metrics.SeaTunnelMetricsContext;
 import org.apache.seatunnel.engine.server.operation.PrintMessageOperation;
@@ -230,6 +231,7 @@ public class CoordinatorServiceTest {
                                             server2.getTaskExecutionService()
                                                     .getActiveExecutionContext(location);
                                 } catch (Exception e) {
+                                    // ignored
                                 }
                                 Assertions.assertNull(
                                         activeExecutionContext,
@@ -948,7 +950,7 @@ public class CoordinatorServiceTest {
 
     @Test
     @Disabled("Disabled because we can't know when the master node switches in the unit tests")
-    public void testJobRestoreWhenMasterNodeSwitch() throws InterruptedException {
+    public void testJobRestoreWhenMasterNodeSwitch() {
         HazelcastInstanceImpl instance1 =
                 SeaTunnelServerStarter.createHazelcastInstance(
                         TestUtils.getClusterName(
