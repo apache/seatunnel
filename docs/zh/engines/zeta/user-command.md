@@ -32,6 +32,8 @@ Usage: seatunnel.sh [options]
                                               and --encrypt are specified, only 
                                               --encrypt will take effect (default: 
                                               false) 
+    -d, --dry-run                             Run the job in dry-run mode (目前仅支持 
+                                              'static')
     -m, --master, -e, --deploy-mode           SeaTunnel job submit master, support 
                                               [local, cluster] (default: cluster)
     --encrypt                                 Encrypt config file, when both --decrypt 
@@ -72,6 +74,14 @@ bin/seatunnel.sh --config $SEATUNNEL_HOME/config/v2.batch.config.template
 ```shell
 ./bin/seatunnel.sh --config $SEATUNNEL_HOME/config/v2.batch.config.template --async -n myjob
 ```
+
+## 验证作业配置 (Dry Run)
+
+```shell
+bin/seatunnel.sh --config $SEATUNNEL_HOME/config/v2.batch.config.template --dry-run static
+```
+
+使用 `--dry-run static`（或者 `--check`）参数可以在不实际运行作业或产生任何副作用的情况下，静态校验配置文件（包括 HOCON/YAML 语法检查、插件加载检查、DAG 拓扑验证、缺少必填选项的检查以及配置项的拼写错误检测）。
 
 ## 查看作业列表
 
