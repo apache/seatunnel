@@ -1,0 +1,4 @@
+interface:
+  display_name: "SeaTunnel PR Submit"
+  short_description: "Draft SeaTunnel PR titles and descriptions"
+  default_prompt: "Use $seatunnel-pr-submit to draft a SeaTunnel pull request from the current branch changes."
