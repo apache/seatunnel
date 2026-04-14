@@ -295,8 +295,8 @@ public class JobMasterTest extends AbstractSeaTunnelServerTest {
                     .untilAsserted(
                             () -> Assertions.assertFalse(hasMetricsForPipeline(pipelineLocation)));
         } finally {
-            pendingCleanupIMap.remove(pipelineLocation);
-            runningJobStateIMap.remove(pipelineLocation);
+            server.getCoordinatorService().cancelJob(jobId).join();
+            testIMapRemovedAfterJobComplete(jobId, jobMaster);
         }
     }
 
