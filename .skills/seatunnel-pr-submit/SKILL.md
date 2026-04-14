@@ -17,6 +17,7 @@ Prefer the user's own summary of the change, then use the current branch diff to
 Inspect the current change set before writing anything.
 Prefer committed branch changes when the branch is already ahead of its base.
 If the user is preparing a PR before committing, inspect staged and unstaged changes and say that the draft reflects the working tree.
+Read the repository's current PR template before drafting the body so the generated content follows the latest sections and checklist wording.
 
 Use non-interactive git commands such as:
 
@@ -27,6 +28,7 @@ git diff --stat
 git diff --name-only
 git diff --cached --stat
 git log --oneline -5
+sed -n '1,220p' .github/PULL_REQUEST_TEMPLATE.md
 ```
 
 If an upstream branch exists, also inspect the branch-level change set:
@@ -95,7 +97,9 @@ Examples:
 
 ### 4. Write the PR body
 
-Use this exact template and keep it in English:
+Mirror the current `.github/PULL_REQUEST_TEMPLATE.md` headings and checklist structure, and keep the body in English.
+Use the repository template as the source of truth when wording changes in the future.
+At minimum, include these sections:
 
 ```md
 ### Purpose of this pull request
@@ -120,6 +124,7 @@ Write the body from evidence:
 - If the user already summarized the change, use that wording as the backbone of the first section.
 - If the user gave no summary, infer the purpose from changed files, removed or added lines, and recent commits.
 - For docs-only changes, explain which docs were updated and what was corrected or removed.
+- Keep the same checklist intent as the repository template even if individual links or wording have changed.
 - Leave checklist items unchecked by default unless the current evidence clearly supports checking them.
 
 ### 5. Handle testing honestly
