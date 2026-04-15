@@ -65,6 +65,7 @@ public class JdbcMySqlSaveModeCatalogIT extends TestSuiteBase implements TestRes
     private static final String MYSQL_USERNAME = "root";
     private static final String MYSQL_PASSWORD = "Abc!@#135_seatunnel";
     private static final int MYSQL_PORT = 3308;
+    private static final String TABLE_COMMENT = "test table's \\ comment";
 
     private MySQLContainer<?> mysql_container;
 
@@ -104,7 +105,7 @@ public class JdbcMySqlSaveModeCatalogIT extends TestSuiteBase implements TestRes
                     + "  PRIMARY KEY (`id`),\n"
                     + "  KEY `idx_f_varchar` (`f_varchar`),\n"
                     + "  UNIQUE KEY `idx_f_bigint` (`f_bigint`)\n"
-                    + ") ENGINE = InnoDB DEFAULT CHARSET = utf8mb4 COLLATE = utf8mb4_unicode_ci COMMENT = 'test table comment';";
+                    + ") ENGINE = InnoDB DEFAULT CHARSET = utf8mb4 COLLATE = utf8mb4_unicode_ci COMMENT = 'test table''s \\\\ comment';";
 
     private final String getInsertSql =
             "INSERT INTO mysql_auto_create"
@@ -171,7 +172,7 @@ public class JdbcMySqlSaveModeCatalogIT extends TestSuiteBase implements TestRes
         Assertions.assertEquals(
                 "\"#¥%……&*（）;;',,..``````//'@特殊注释'\\'\"",
                 catalogTable.getTableSchema().getColumns().get(1).getComment());
-        Assertions.assertEquals("test table comment", catalogTable.getComment());
+        Assertions.assertEquals(TABLE_COMMENT, catalogTable.getComment());
         Assertions.assertEquals(
                 "InnoDB", catalogTable.getOptions().get(MySqlCatalog.TABLE_OPTION_ENGINE));
         Assertions.assertEquals(
@@ -196,7 +197,7 @@ public class JdbcMySqlSaveModeCatalogIT extends TestSuiteBase implements TestRes
         final Column column = sinkTable.getTableSchema().getColumns().get(1);
         Assertions.assertEquals("\"#¥%……&*（）;;',,..``````//'@特殊注释'\\'\"", column.getComment());
         // Table comment preserved
-        Assertions.assertEquals("test table comment", sinkTable.getComment());
+        Assertions.assertEquals(TABLE_COMMENT, sinkTable.getComment());
         // ENGINE/CHARSET/COLLATE preserved
         Assertions.assertEquals(
                 "InnoDB", sinkTable.getOptions().get(MySqlCatalog.TABLE_OPTION_ENGINE));
@@ -221,7 +222,7 @@ public class JdbcMySqlSaveModeCatalogIT extends TestSuiteBase implements TestRes
             Assertions.assertTrue(rs.next());
             Assertions.assertEquals("InnoDB", rs.getString("ENGINE"));
             Assertions.assertTrue(rs.getString("TABLE_COLLATION").startsWith("utf8mb4"));
-            Assertions.assertEquals("test table comment", rs.getString("TABLE_COMMENT"));
+            Assertions.assertEquals(TABLE_COMMENT, rs.getString("TABLE_COMMENT"));
         }
 
         // Verify indexes at SQL level

@@ -152,7 +152,7 @@ public class MysqlCreateTableSqlBuilder {
             sqls.add("COLLATE = " + collate);
         }
         if (comment != null) {
-            sqls.add("COMMENT = '" + comment + "'");
+            sqls.add("COMMENT = '" + escapeComment(comment) + "'");
         }
         return String.join(" ", sqls) + ";";
     }
@@ -209,13 +209,14 @@ public class MysqlCreateTableSqlBuilder {
         }
 
         if (column.getComment() != null) {
-            columnSqls.add(
-                    "COMMENT '"
-                            + column.getComment().replace("'", "''").replace("\\", "\\\\")
-                            + "'");
+            columnSqls.add("COMMENT '" + escapeComment(column.getComment()) + "'");
         }
 
         return String.join(" ", columnSqls);
+    }
+
+    private String escapeComment(String comment) {
+        return comment.replace("'", "''").replace("\\", "\\\\");
     }
 
     private String buildPrimaryKeySql() {
