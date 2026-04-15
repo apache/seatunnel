@@ -279,7 +279,6 @@ public class JobMasterTest extends AbstractSeaTunnelServerTest {
                 nodeEngine.getHazelcastInstance().getMap(Constant.IMAP_RUNNING_JOB_STATE);
         IMap<PipelineLocation, PipelineCleanupRecord> pendingCleanupIMap =
                 nodeEngine.getHazelcastInstance().getMap(Constant.IMAP_PENDING_PIPELINE_CLEANUP);
-        runningJobStateIMap.put(pipelineLocation, PipelineStatus.RUNNING);
 
         try {
             jobMaster.enqueuePipelineCleanupIfNeeded(pipelineLocation, PipelineStatus.FAILED);
