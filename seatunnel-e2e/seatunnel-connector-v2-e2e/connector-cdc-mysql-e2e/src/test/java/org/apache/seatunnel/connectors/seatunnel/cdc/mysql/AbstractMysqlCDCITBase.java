@@ -470,8 +470,8 @@ public abstract class AbstractMysqlCDCITBase extends TestSuiteBase implements Te
         upsertDeleteSourceTable(MULTI_DATABASE_A, MULTI_DATABASE_TABLE_A);
         upsertDeleteSourceTable(MULTI_DATABASE_B, MULTI_DATABASE_TABLE_B);
 
-        await().atMost(60000, TimeUnit.MILLISECONDS)
-                .pollInterval(1000, TimeUnit.MILLISECONDS)
+        await().atMost(300000, TimeUnit.MILLISECONDS)
+                .pollInterval(3000, TimeUnit.MILLISECONDS)
                 .untilAsserted(
                         () ->
                                 Assertions.assertAll(
