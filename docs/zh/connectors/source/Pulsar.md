@@ -74,7 +74,7 @@ Apache Pulsar 的源连接器。
 - `subscription.name` 必须在全局或 item 内存在。
 - 多表模式当前只支持 `JSON` 和 `CANAL_JSON`。
 - 显式配置的 `topic` 不能与任何 `topic-pattern` 发生重叠。
-- 在 batch 模式下，所有表都必须是 bounded。只要有任意一个表使用 `cursor.stop.mode = NEVER`，整个 source 就会被视为 unbounded，并拒绝在 batch 作业中运行。
+- 在 batch 模式下，多表配置必须全部是 bounded。只有当配置了多于一张表且任意一张表使用 `cursor.stop.mode = NEVER` 时，整个 source 才会被视为 unbounded，并拒绝在 batch 作业中运行。单表模式和仅包含一个配置项的 `tables_configs` 保持向后兼容的 batch 行为。
 
 - 当多个 `topic-pattern` 同时匹配到同一个 topic 时，会按 `tables_configs` 的声明顺序选择第一个匹配项。请将更具体的 pattern 放在更通用的 pattern 之前。
 

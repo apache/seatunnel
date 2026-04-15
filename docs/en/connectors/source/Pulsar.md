@@ -75,7 +75,7 @@ Additional rules:
 - Only `JSON` and `CANAL_JSON` are supported in multi-table mode.
 - Explicit `topic` entries must not overlap with any `topic-pattern` entry.
 - If multiple `topic-pattern` items can match the same topic, the first matching item in `tables_configs` wins. Put more specific patterns before broader ones.
-- In batch mode, every table must be bounded. If any table uses `cursor.stop.mode = NEVER`, the source is unbounded and batch jobs are rejected.
+- In batch mode, multi-table configurations must be bounded. If more than one table is configured and any table uses `cursor.stop.mode = NEVER`, the source is unbounded and batch jobs are rejected. Single-table mode and single-entry `tables_configs` keep backward-compatible batch behavior.
 
 ### topic-discovery.interval [Long]
 
