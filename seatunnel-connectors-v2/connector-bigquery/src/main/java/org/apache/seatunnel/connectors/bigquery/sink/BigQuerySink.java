@@ -40,8 +40,7 @@ import java.util.List;
 import java.util.Optional;
 
 public class BigQuerySink
-        implements SeaTunnelSink<
-                SeaTunnelRow, BigQuerySinkState, BigQueryCommitInfo, BigQueryCommitInfo> {
+        implements SeaTunnelSink<SeaTunnelRow, Void, BigQueryCommitInfo, BigQueryCommitInfo> {
 
     private final ReadonlyConfig config;
     private final boolean isBatch;
@@ -68,14 +67,12 @@ public class BigQuerySink
         if (isBatch) {
             return new BigQuerySinkBatchWriter(
                     config,
-                    null,
                     BigQueryBatchWriter.of(client, config),
                     new BigQuerySerializer(catalogTable, config),
                     client);
         } else {
             return new BigQuerySinkCDCWriter(
                     config,
-                    null,
                     BigQueryStreamingWriter.of(client, config),
                     new BigQuerySerializer(catalogTable, config),
                     client);
@@ -83,20 +80,18 @@ public class BigQuerySink
     }
 
     @Override
-    public SinkWriter<SeaTunnelRow, BigQueryCommitInfo, BigQuerySinkState> restoreWriter(
-            SinkWriter.Context context, List<BigQuerySinkState> states) {
+    public SinkWriter<SeaTunnelRow, BigQueryCommitInfo, Void> restoreWriter(
+            SinkWriter.Context context, List<Void> states) {
         BigQueryWriteClient client = BigQueryClientFactory.getWriteClient(config);
         if (isBatch) {
             return new BigQuerySinkBatchWriter(
                     config,
-                    states,
                     BigQueryBatchWriter.of(client, config),
                     new BigQuerySerializer(catalogTable, config),
                     client);
         } else {
             return new BigQuerySinkCDCWriter(
                     config,
-                    states,
                     BigQueryStreamingWriter.of(client, config),
                     new BigQuerySerializer(catalogTable, config),
                     client);
@@ -111,11 +106,6 @@ public class BigQuerySink
     @Override
     public Optional<Serializer<BigQueryCommitInfo>> getCommitInfoSerializer() {
         return Optional.of(new BigQueryCommitInfoSerializer());
-    }
-
-    @Override
-    public Optional<Serializer<BigQuerySinkState>> getWriterStateSerializer() {
-        return Optional.of(new BigQuerySinkStateSerializer());
     }
 
     @Override

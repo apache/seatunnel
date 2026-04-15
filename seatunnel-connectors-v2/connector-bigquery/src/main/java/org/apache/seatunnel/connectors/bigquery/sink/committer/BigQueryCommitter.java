@@ -93,29 +93,5 @@ public class BigQueryCommitter implements SinkCommitter<BigQueryCommitInfo> {
     }
 
     @Override
-    public void abort(List<BigQueryCommitInfo> commitInfos) {
-        if (commitInfos == null || commitInfos.isEmpty()) {
-            return;
-        }
-
-        commitInfos =
-                commitInfos.stream()
-                        .filter(info -> !info.getStreamName().contains(DEFAULT_PATH))
-                        .collect(Collectors.toList());
-
-        if (commitInfos.isEmpty()) {
-            return;
-        }
-
-        try (BigQueryWriteClient client = BigQueryClientFactory.getWriteClient(config)) {
-            for (BigQueryCommitInfo info : commitInfos) {
-                try {
-                    client.finalizeWriteStream(info.getStreamName());
-                    log.info("Successfully finalized (aborted) stream: {}", info.getStreamName());
-                } catch (Exception e) {
-                    log.error("Failed to explicitly abort stream: {}", info.getStreamName(), e);
-                }
-            }
-        }
-    }
+    public void abort(List<BigQueryCommitInfo> commitInfos) {}
 }

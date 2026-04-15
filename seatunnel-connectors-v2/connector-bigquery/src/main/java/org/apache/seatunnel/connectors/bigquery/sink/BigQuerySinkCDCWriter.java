@@ -26,8 +26,6 @@ import org.apache.seatunnel.connectors.bigquery.sink.writer.BigQueryWriter;
 import com.google.cloud.bigquery.storage.v1.BigQueryWriteClient;
 import lombok.extern.slf4j.Slf4j;
 
-import java.util.Collections;
-import java.util.List;
 import java.util.Optional;
 
 @Slf4j
@@ -36,11 +34,10 @@ public class BigQuerySinkCDCWriter extends AbstractBigQuerySinkWriter {
 
     public BigQuerySinkCDCWriter(
             ReadonlyConfig readOnlyConfig,
-            List<BigQuerySinkState> states,
             BigQueryWriter streamWriter,
             BigQuerySerializer serializer,
             BigQueryWriteClient client) {
-        super(readOnlyConfig, states, streamWriter, serializer, client);
+        super(readOnlyConfig, streamWriter, serializer, client);
     }
 
     @Override
@@ -60,9 +57,4 @@ public class BigQuerySinkCDCWriter extends AbstractBigQuerySinkWriter {
 
     @Override
     public void abortPrepare() {}
-
-    @Override
-    public List<BigQuerySinkState> snapshotState(long checkpointId) {
-        return Collections.emptyList();
-    }
 }

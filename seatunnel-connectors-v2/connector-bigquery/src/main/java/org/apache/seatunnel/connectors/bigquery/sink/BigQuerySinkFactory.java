@@ -57,8 +57,8 @@ public class BigQuerySinkFactory implements TableSinkFactory {
     }
 
     @Override
-    public TableSink<SeaTunnelRow, BigQuerySinkState, BigQueryCommitInfo, BigQueryCommitInfo>
-            createSink(TableSinkFactoryContext context) {
+    public TableSink<SeaTunnelRow, Void, BigQueryCommitInfo, BigQueryCommitInfo> createSink(
+            TableSinkFactoryContext context) {
         ReadonlyConfig config = context.getOptions();
         CatalogTable catalogTable = context.getCatalogTable();
         return () -> new BigQuerySink(config, catalogTable);

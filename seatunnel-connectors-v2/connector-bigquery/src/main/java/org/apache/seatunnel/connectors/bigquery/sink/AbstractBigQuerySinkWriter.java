@@ -35,15 +35,13 @@ import com.google.cloud.bigquery.storage.v1.AppendRowsResponse;
 import com.google.cloud.bigquery.storage.v1.BigQueryWriteClient;
 import lombok.extern.slf4j.Slf4j;
 
-import java.util.List;
 import java.util.concurrent.TimeUnit;
 
 @Slf4j
 public abstract class AbstractBigQuerySinkWriter
-        implements SinkWriter<SeaTunnelRow, BigQueryCommitInfo, BigQuerySinkState>,
+        implements SinkWriter<SeaTunnelRow, BigQueryCommitInfo, Void>,
                 SupportMultiTableSinkWriter<Void> {
     protected final ReadonlyConfig config;
-    protected final List<BigQuerySinkState> states;
     protected final BigQuerySerializer serializer;
     protected final BigQueryWriteClient client;
     protected BigQueryWriter streamWriter;
@@ -53,12 +51,10 @@ public abstract class AbstractBigQuerySinkWriter
 
     protected AbstractBigQuerySinkWriter(
             ReadonlyConfig readOnlyConfig,
-            List<BigQuerySinkState> states,
             BigQueryWriter streamWriter,
             BigQuerySerializer serializer,
             BigQueryWriteClient client) {
         this.config = readOnlyConfig;
-        this.states = states;
         this.batchSize = readOnlyConfig.get(BigQuerySinkOptions.BATCH_SIZE);
         this.streamWriter = streamWriter;
         this.serializer = serializer;
@@ -77,6 +73,7 @@ public abstract class AbstractBigQuerySinkWriter
             log.info("Successfully appended {} rows.", dataToSend.length());
         } catch (InterruptedException e) {
             Thread.currentThread().interrupt();
+            buffer = dataToSend;
             throw new BigQueryConnectorException(BigQueryConnectorErrorCode.APPEND_ROWS_FAILED, e);
         } catch (Exception e) {
             buffer = dataToSend;

@@ -96,6 +96,14 @@
                                     <shadedPattern>${seatunnel.shade.package}.bigquery.com.google.common</shadedPattern>
                                 </relocation>
                                 <relocation>
+                                    <pattern>com.google.common</pattern>
+                                    <shadedPattern>${seatunnel.shade.package}.bigquery.com.google.common</shadedPattern>
+                                </relocation>
+                                <relocation>
+                                    <pattern>com.google.gson</pattern>
+                                    <shadedPattern>${seatunnel.shade.package}.com.google.gson</shadedPattern>
+                                </relocation>
+                                <relocation>
                                     <pattern>com.google.protobuf</pattern>
                                     <shadedPattern>${seatunnel.shade.package}.com.google.protobuf</shadedPattern>
                                 </relocation>
@@ -104,8 +112,8 @@
                                     <shadedPattern>${seatunnel.shade.package}.io.grpc</shadedPattern>
                                 </relocation>
                                 <relocation>
-                                    <pattern>com.google.gson</pattern>
-                                    <shadedPattern>${seatunnel.shade.package}.com.google.gson</shadedPattern>
+                                    <pattern>org.apache.arrow</pattern>
+                                    <shadedPattern>${seatunnel.shade.package}.org.apache.arrow</shadedPattern>
                                 </relocation>
                             </relocations>
                             <filters>
