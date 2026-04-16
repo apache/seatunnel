@@ -23,6 +23,7 @@ import org.apache.seatunnel.api.table.schema.event.AlterTableChangeColumnEvent;
 import org.apache.seatunnel.api.table.schema.event.AlterTableColumnEvent;
 import org.apache.seatunnel.api.table.schema.event.AlterTableDropColumnEvent;
 import org.apache.seatunnel.api.table.schema.event.AlterTableModifyColumnEvent;
+import org.apache.seatunnel.api.table.schema.event.SchemaChangeEvent;
 import org.apache.seatunnel.api.table.type.BasicType;
 
 import org.junit.jupiter.api.Assertions;
@@ -70,6 +71,15 @@ public class PostgresAlterTableParserTest {
     }
 
     @Test
+    public void testParseDropColumnWithCascade() {
+        parser.parse("ALTER TABLE t1 DROP COLUMN f_small CASCADE", null);
+
+        List<AlterTableColumnEvent> events = parser.getAndClearParsedEvents();
+        Assertions.assertEquals(1, events.size());
+        Assertions.assertEquals("f_small", ((AlterTableDropColumnEvent) events.get(0)).getColumn());
+    }
+
+    @Test
     public void testParseRenameColumn() {
         parser.parse("ALTER TABLE inventory.t1 RENAME COLUMN f_int TO f_integer", null);
 
@@ -102,5 +112,43 @@ public class PostgresAlterTableParserTest {
         AlterTableModifyColumnEvent event = (AlterTableModifyColumnEvent) events.get(0);
         Assertions.assertEquals("f_added", event.getColumn().getName());
         Assertions.assertEquals(BasicType.OFFSET_DATE_TIME_TYPE, event.getColumn().getDataType());
+    }
+
+    @Test
+    public void testParseModifyColumnWithTimeZoneTypeAndPrecision() {
+        parser.parse(
+                "ALTER TABLE inventory.t1 ALTER COLUMN f_added TYPE timestamp(6) with time zone",
+                null);
+
+        List<AlterTableColumnEvent> events = parser.getAndClearParsedEvents();
+        Assertions.assertEquals(1, events.size());
+        AlterTableModifyColumnEvent event = (AlterTableModifyColumnEvent) events.get(0);
+        Assertions.assertEquals("f_added", event.getColumn().getName());
+        Assertions.assertEquals(BasicType.OFFSET_DATE_TIME_TYPE, event.getColumn().getDataType());
+    }
+
+    @Test
+    public void testParseAddColumnWithQuotedTableNameContainingKeyword() {
+        parser.parse(
+                "ALTER TABLE \"inventory\".\"audit_drop_log\" ADD COLUMN f_added bigint", null);
+
+        List<AlterTableColumnEvent> events = parser.getAndClearParsedEvents();
+        Assertions.assertEquals(1, events.size());
+        SchemaChangeEvent event = events.get(0);
+        Assertions.assertEquals("audit_drop_log", event.tablePath().getTableName());
+        Assertions.assertEquals(
+                "f_added", ((AlterTableAddColumnEvent) event).getColumn().getName());
+    }
+
+    @Test
+    public void testParseAddColumnWithUnquotedTableNameContainingKeyword() {
+        parser.parse("ALTER TABLE inventory.audit_drop_log ADD COLUMN f_added bigint", null);
+
+        List<AlterTableColumnEvent> events = parser.getAndClearParsedEvents();
+        Assertions.assertEquals(1, events.size());
+        SchemaChangeEvent event = events.get(0);
+        Assertions.assertEquals("audit_drop_log", event.tablePath().getTableName());
+        Assertions.assertEquals(
+                "f_added", ((AlterTableAddColumnEvent) event).getColumn().getName());
     }
 }

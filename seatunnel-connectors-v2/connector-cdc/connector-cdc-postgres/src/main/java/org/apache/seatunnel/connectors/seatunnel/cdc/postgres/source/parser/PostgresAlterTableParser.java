@@ -46,8 +46,6 @@ import java.util.regex.Pattern;
 
 public class PostgresAlterTableParser implements DdlParser {
 
-    private static final Pattern ACTION_PATTERN =
-            Pattern.compile("(?i)\\b(ADD|DROP|RENAME|ALTER)\\b");
     private static final Pattern MODIFIER_PATTERN =
             Pattern.compile(
                     "(?i)\\b(NOT\\s+NULL|NULL|DEFAULT|CHECK|CONSTRAINT|REFERENCES|PRIMARY\\s+KEY|UNIQUE|COLLATE|GENERATED|STORED|USING|COMMENT)\\b");
@@ -195,9 +193,15 @@ public class PostgresAlterTableParser implements DdlParser {
     }
 
     private void addDropEvent(TableIdentifier tableIdentifier, String columnName) {
-        if (StringUtils.isNotBlank(columnName)) {
-            parsedEvents.add(
-                    new AlterTableDropColumnEvent(tableIdentifier, unquoteIdentifier(columnName)));
+        ParsedIdentifier column = parseIdentifier(columnName);
+        if (column == null) {
+            return;
+        }
+        String remainder = column.remainder();
+        if (StringUtils.isBlank(remainder)
+                || startsWithIgnoreCase(remainder, "CASCADE")
+                || startsWithIgnoreCase(remainder, "RESTRICT")) {
+            parsedEvents.add(new AlterTableDropColumnEvent(tableIdentifier, column.identifier()));
         }
     }
 
@@ -328,11 +332,22 @@ public class PostgresAlterTableParser implements DdlParser {
         }
 
         String baseType = typeExpression.toLowerCase(Locale.ROOT);
+        String timeZoneSuffix = "";
+        if (baseType.endsWith(" with time zone")) {
+            timeZoneSuffix = " with time zone";
+            baseType = baseType.substring(0, baseType.length() - timeZoneSuffix.length()).trim();
+        } else if (baseType.endsWith(" without time zone")) {
+            timeZoneSuffix = " without time zone";
+            baseType = baseType.substring(0, baseType.length() - timeZoneSuffix.length()).trim();
+        }
         String args = null;
         Matcher matcher = TYPE_PATTERN.matcher(baseType);
         if (matcher.matches()) {
             baseType = matcher.group("type").trim();
             args = matcher.group("args");
+        }
+        if (StringUtils.isNotBlank(timeZoneSuffix)) {
+            baseType = baseType + timeZoneSuffix;
         }
 
         Long length = null;
@@ -422,11 +437,46 @@ public class PostgresAlterTableParser implements DdlParser {
     }
 
     private int findFirstActionIndex(String statement) {
-        Matcher matcher = ACTION_PATTERN.matcher(statement);
-        if (matcher.find()) {
-            return matcher.start();
+        boolean inDoubleQuote = false;
+        boolean inSingleQuote = false;
+        for (int i = 0; i < statement.length(); i++) {
+            char current = statement.charAt(i);
+            if (current == '"' && !inSingleQuote) {
+                inDoubleQuote = !inDoubleQuote;
+                continue;
+            }
+            if (current == '\'' && !inDoubleQuote) {
+                inSingleQuote = !inSingleQuote;
+                continue;
+            }
+            if (!inDoubleQuote && !inSingleQuote && isActionKeyword(statement, i)) {
+                return i;
+            }
         }
         return -1;
+    }
+
+    private boolean isActionKeyword(String statement, int start) {
+        return matchesAction(statement, start, "ADD")
+                || matchesAction(statement, start, "DROP")
+                || matchesAction(statement, start, "RENAME")
+                || matchesAction(statement, start, "ALTER");
+    }
+
+    private boolean matchesAction(String statement, int start, String keyword) {
+        int end = start + keyword.length();
+        if (end > statement.length()
+                || !statement.regionMatches(true, start, keyword, 0, keyword.length())) {
+            return false;
+        }
+        boolean leftBoundary = start == 0 || !isIdentifierChar(statement.charAt(start - 1));
+        boolean rightBoundary =
+                end == statement.length() || !isIdentifierChar(statement.charAt(end));
+        return leftBoundary && rightBoundary;
+    }
+
+    private boolean isIdentifierChar(char value) {
+        return Character.isLetterOrDigit(value) || value == '_' || value == '$';
     }
 
     private List<String> splitTopLevelClauses(String statement) {
