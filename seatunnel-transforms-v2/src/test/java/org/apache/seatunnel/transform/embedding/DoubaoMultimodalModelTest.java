@@ -85,20 +85,9 @@ public class DoubaoMultimodalModelTest {
     }
 
     /**
-     * spotless:off
-     * {
-     *   "model": "doubao-embedding-vision",
-     *   "encoding_format": "float",
-     *   "input": [
-     *     {
-     *       "type": "image_url",
-     *       "image_url": {
-     *         "url": "https://ck-test.tos-cn-beijing.volces.com/vlm/pexels-photo-27163466.jpeg"
-     *       }
-     *     }
-     *   ]
-     * }
-     * spotless:on
+     * { "model": "doubao-embedding-vision", "encoding_format": "float", "input": [ { "type":
+     * "image_url", "image_url": { "url":
+     * "https://ck-test.tos-cn-beijing.volces.com/vlm/pexels-photo-27163466.jpeg" } } ] }
      */
     @Test
     void testMultimodalBodyWithImage() {
@@ -136,20 +125,8 @@ public class DoubaoMultimodalModelTest {
     }
 
     /**
-     * spotless:off
-     * {
-     *   "model": "doubao-embedding-vision",
-     *   "encoding_format": "float",
-     *   "input": [
-     *     {
-     *       "type": "video_url",
-     *       "video_url": {
-     *         "url": "https://example.com/video.mp4"
-     *       }
-     *     }
-     *   ]
-     * }
-     * spotless:on
+     * { "model": "doubao-embedding-vision", "encoding_format": "float", "input": [ { "type":
+     * "video_url", "video_url": { "url": "https://example.com/video.mp4" } } ] }
      */
     @Test
     void testMultimodalBodyWithVideo() {
@@ -184,14 +161,8 @@ public class DoubaoMultimodalModelTest {
     }
 
     /**
-     * spotless:off
-     * {
-     *   "type": "image_url",
-     *   "image_url": {
-     *     "url": f"data:image/<IMAGE_FORMAT>;base64,{base64_image}"
-     *   }
-     * }
-     * spotless:on
+     * { "type": "image_url", "image_url": { "url":
+     * f"data:image/<IMAGE_FORMAT>;base64,{base64_image}" } }
      */
     @Test
     void testMultimodalBodyWithBinaryImage() {
@@ -228,22 +199,8 @@ public class DoubaoMultimodalModelTest {
     }
 
     /**
-     * spotless:off
-     * {
-     *   "model": "doubao-embedding-vision",
-     *   "encoding_format": "float",
-     *   "input": [
-     *     {
-     *       "type": "text",
-     *       "text": "Hello world 1"
-     *     },
-     *     {
-     *       "type": "text",
-     *       "text": "Hello world 2"
-     *     }
-     *   ]
-     * }
-     * spotless:on
+     * { "model": "doubao-embedding-vision", "encoding_format": "float", "input": [ { "type":
+     * "text", "text": "Hello world 1" }, { "type": "text", "text": "Hello world 2" } ] }
      */
     @Test
     void testMultimodalBodyWithSameModalityList() {
@@ -279,30 +236,10 @@ public class DoubaoMultimodalModelTest {
     }
 
     /**
-     * spotless:off
-     * {
-     *   "model": "doubao-embedding-vision",
-     *   "encoding_format": "float",
-     *   "input": [
-     *     {
-     *       "type": "text",
-     *       "text": "Hello world"
-     *     },
-     *     {
-     *       "type": "image_url",
-     *       "image_url": {
-     *         "url": "https://ck-test.tos-cn-beijing.volces.com/vlm/pexels-photo-27163466.jpeg"
-     *       }
-     *     },
-     *     {
-     *       "type": "video_url",
-     *       "video_url": {
-     *         "url": "https://example.com/video.mp4"
-     *       }
-     *     }
-     *   ]
-     * }
-     * spotless:on
+     * { "model": "doubao-embedding-vision", "encoding_format": "float", "input": [ { "type":
+     * "text", "text": "Hello world" }, { "type": "image_url", "image_url": { "url":
+     * "https://ck-test.tos-cn-beijing.volces.com/vlm/pexels-photo-27163466.jpeg" } }, { "type":
+     * "video_url", "video_url": { "url": "https://example.com/video.mp4" } } ] }
      */
     @Test
     void testMultimodalBodyWithDifferentModalityList() {
