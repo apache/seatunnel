@@ -35,6 +35,7 @@ public class PostgresSourceConfigFactory extends JdbcSourceConfigFactory {
     private static final String DATABASE_SERVER_NAME = "postgres_cdc_source";
 
     private static final String DRIVER_CLASS_NAME = "org.postgresql.Driver";
+    public static final String SCHEMA_CHANGE_KEY = "include.schema.changes";
 
     private String decodingPluginName =
             PostgresIncrementalSourceOptions.DECODING_PLUGIN_NAME.defaultValue();
@@ -77,7 +78,7 @@ public class PostgresSourceConfigFactory extends JdbcSourceConfigFactory {
         props.setProperty("database.history.refer.ddl", String.valueOf(true));
 
         props.setProperty("database.tcpKeepAlive", String.valueOf(true));
-        props.setProperty("include.schema.changes", String.valueOf(false));
+        props.setProperty(SCHEMA_CHANGE_KEY, String.valueOf(schemaChangeEnabled));
 
         if (schemaList != null) {
             props.setProperty("schema.include.list", String.join(",", schemaList));
