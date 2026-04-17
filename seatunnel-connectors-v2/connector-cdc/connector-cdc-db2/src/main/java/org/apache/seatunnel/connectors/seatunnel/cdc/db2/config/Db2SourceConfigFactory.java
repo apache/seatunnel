@@ -58,9 +58,9 @@ public class Db2SourceConfigFactory extends JdbcSourceConfigFactory {
         // TODO Not yet supported
         props.setProperty("include.schema.changes", String.valueOf(false));
 
-        if (databaseList != null) {
-            props.setProperty("database.include.list", String.join(",", databaseList));
-        }
+        // Db2 captures a single configured database via database.dbname. Debezium reports captured
+        // table ids without a catalog, so setting database.include.list would filter out valid
+        // Db2 change tables before snapshot split discovery.
         if (tableList != null) {
             // SeaTunnel table names are database.schema.table, while Debezium Db2 expects
             // schema.table in table.include.list for the single configured database.
