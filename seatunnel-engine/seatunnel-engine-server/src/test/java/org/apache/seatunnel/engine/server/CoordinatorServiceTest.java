@@ -32,6 +32,7 @@ import org.apache.seatunnel.engine.server.master.JobMaster;
 import org.apache.seatunnel.engine.server.metrics.SeaTunnelMetricsContext;
 import org.apache.seatunnel.engine.server.operation.PrintMessageOperation;
 import org.apache.seatunnel.engine.server.operation.ReturnRetryTimesOperation;
+import org.apache.seatunnel.engine.server.operation.SubmitJobOperation;
 import org.apache.seatunnel.engine.server.task.operation.ReportMetricsOperation;
 import org.apache.seatunnel.engine.server.utils.NodeEngineUtil;
 
@@ -58,6 +59,7 @@ import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
 import java.util.concurrent.TimeUnit;
 
+import static org.apache.seatunnel.engine.core.classloader.DefaultClassLoaderService.SKIP_CHECK_JAR;
 import static org.awaitility.Awaitility.await;
 
 @Slf4j
@@ -429,6 +431,56 @@ public class CoordinatorServiceTest {
                                         coordinatorService
                                                 .getPendingJobQueue()
                                                 .contains(jobInformation.jobId)));
+    }
+
+    @Test
+    @SetEnvironmentVariable(key = SKIP_CHECK_JAR, value = "true")
+    void testSubmitJobOperationCanCompleteOnHazelcastOperationThread() {
+        String clusterName =
+                TestUtils.getClusterName(
+                        "CoordinatorServiceTest_testSubmitJobOperationCanCompleteOnHazelcastOperationThread");
+        HazelcastInstanceImpl instance =
+                SeaTunnelServerStarter.createHazelcastInstance(clusterName);
+        try {
+            SeaTunnelServer server =
+                    instance.node.getNodeEngine().getService(SeaTunnelServer.SERVICE_NAME);
+            Long jobId = instance.getFlakeIdGenerator(Constant.SEATUNNEL_ID_GENERATOR_NAME).newId();
+            LogicalDag testLogicalDag =
+                    TestUtils.createTestLogicalPlan(
+                            "batch_fake_to_console.conf",
+                            "test_submit_job_operation_can_complete",
+                            jobId);
+
+            JobImmutableInformation jobImmutableInformation =
+                    new JobImmutableInformation(
+                            jobId,
+                            "Test",
+                            instance.getSerializationService(),
+                            testLogicalDag,
+                            Collections.emptyList(),
+                            Collections.emptyList());
+
+            Data data = instance.getSerializationService().toData(jobImmutableInformation);
+
+            Assertions.assertDoesNotThrow(
+                    () ->
+                            NodeEngineUtil.sendOperationToMasterNode(
+                                            instance.node.getNodeEngine(),
+                                            new SubmitJobOperation(
+                                                    jobId,
+                                                    data,
+                                                    jobImmutableInformation.isStartWithSavePoint()))
+                                    .join());
+
+            await().atMost(10000, TimeUnit.MILLISECONDS)
+                    .untilAsserted(
+                            () ->
+                                    Assertions.assertNotEquals(
+                                            JobStatus.PENDING,
+                                            server.getCoordinatorService().getJobStatus(jobId)));
+        } finally {
+            instance.shutdown();
+        }
     }
 
     @Test

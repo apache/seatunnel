@@ -1088,11 +1088,11 @@ public class CoordinatorService {
                                             "The job id %s has already been submitted and is not starting with a savepoint.",
                                             jobId));
                         }
+                        long initializationTimestamp = System.currentTimeMillis();
                         runningJobInfoIMap.put(
                                 jobId,
-                                new JobInfo(System.currentTimeMillis(), jobImmutableInformation));
-                        jobMaster.init(
-                                runningJobInfoIMap.get(jobId).getInitializationTimestamp(), false);
+                                new JobInfo(initializationTimestamp, jobImmutableInformation));
+                        jobMaster.init(initializationTimestamp, false);
                         // Initialize the JobMaster and add it to the pendingJobQueue, ensuring that
                         // calling the getJobMaster method does not return NULL when the
                         // jobSubmitFuture is still running.
