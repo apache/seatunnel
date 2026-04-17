@@ -232,11 +232,16 @@ public class MultiTableSinkWriter
      * <p>Row routing strategy:
      *
      * <ul>
-     *   <li>If the table has a primary key, the row is routed by {@code
-     *       Math.abs(primaryKeyValue.hashCode()) % queueSize}, guaranteeing that rows with the same
-     *       primary key always go to the same queue for ordered delivery.
-     *   <li>If the table has no primary key (or is the only table), the row is sent to a randomly
-     *       selected queue for load balancing.
+     *   <li>If the table's primary key information is present and the primary key field value is
+     *       non-null, the row is routed by {@code Math.abs(primaryKeyValue.hashCode()) %
+     *       queueSize}, guaranteeing that rows with the same primary key always go to the same
+     *       queue for ordered delivery.
+     *   <li>If the table's primary key information is present but the actual field value is {@code
+     *       null}, the row is routed to queue 0.
+     *   <li>If the table has no primary key or this is a single-table sink, the row is sent to a
+     *       randomly selected queue for load balancing.
+     *   <li>If the table's primary key metadata is missing (not initialized) in multi-table mode, a
+     *       {@link RuntimeException} is thrown.
      * </ul>
      *
      * <p>If the target queue is full, blocks with 500ms timeout retries, checking for sub-sink
