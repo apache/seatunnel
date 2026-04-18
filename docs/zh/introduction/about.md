@@ -24,7 +24,7 @@ SeaTunnel是一个多模态、超高性能、分布式的海量数据集成工�
 - [开发环境搭建](../developer/setup.md)，如果你要本地构建或调试 SeaTunnel
 - [贡献路径](../developer/contribution-path.md)，如果你想从最小、最稳妥的范围开始参与贡献
 - [贡献插件](../developer/contribute-plugin.md)，如果你准备贡献 connector 或 transform
-- [Slack](https://s.apache.org/seatunnel-slack)、[GitHub Issues](https://github.com/apache/seatunnel/issues) 和 [dev 邮件列表](https://lists.apache.org/list.html?dev@seatunnel.apache.org)，如果你需要社区帮助
+- [GitHub Issues](https://github.com/apache/seatunnel/issues) 和 [dev 邮件列表](https://lists.apache.org/list.html?dev@seatunnel.apache.org)，如果你需要社区帮助
 
 ## 为什么需要 SeaTunnel
 
