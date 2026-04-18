@@ -101,7 +101,6 @@ This is usually better than starting with a broad refactor.
 
 Use these channels depending on the kind of question:
 
-- [Slack](https://s.apache.org/seatunnel-slack) for quick discussion
 - [GitHub Issues](https://github.com/apache/seatunnel/issues) for concrete bugs, proposals, and tracking
 - [dev mailing list](https://lists.apache.org/list.html?dev@seatunnel.apache.org) for longer design discussions and project-wide decisions
 
