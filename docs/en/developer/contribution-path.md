@@ -104,7 +104,7 @@ Use these channels depending on the kind of question:
 - [GitHub Issues](https://github.com/apache/seatunnel/issues) for concrete bugs, proposals, and tracking
 - [dev mailing list](https://lists.apache.org/list.html?dev@seatunnel.apache.org) for longer design discussions and project-wide decisions
 
-If you are unsure where to ask, start with Slack or an issue describing the concrete problem and what you already checked.
+If you are unsure where to ask, start with an issue describing the concrete problem and what you already checked.
 
 ## What Maintainers Usually Need From You
 
