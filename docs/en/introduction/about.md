@@ -24,7 +24,7 @@ If you are evaluating SeaTunnel or running into issues, use these entry points f
 - [Developer Setup](../developer/setup.md) if you want to build or debug SeaTunnel locally
 - [Contribution Path](../developer/contribution-path.md) if you want to start contributing with the smallest reasonable scope
 - [Contribute Plugin](../developer/contribute-plugin.md) if you want to contribute a connector or transform
-- [Slack](https://s.apache.org/seatunnel-slack), [GitHub Issues](https://github.com/apache/seatunnel/issues), and the [dev mailing list](https://lists.apache.org/list.html?dev@seatunnel.apache.org) if you need community help
+- [GitHub Issues](https://github.com/apache/seatunnel/issues), and the [dev mailing list](https://lists.apache.org/list.html?dev@seatunnel.apache.org) if you need community help
 
 ## Why We Need SeaTunnel
 
