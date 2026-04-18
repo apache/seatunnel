@@ -3,7 +3,6 @@
 ## 遇到问题时，应该去哪里获取帮助并加入社区？
 建议优先从这些入口进入：
 
-- 社区即时沟通：[Slack](https://s.apache.org/seatunnel-slack)
 - 问题跟踪：[GitHub Issues](https://github.com/apache/seatunnel/issues)
 - 长线程讨论：[dev 邮件列表](https://lists.apache.org/list.html?dev@seatunnel.apache.org)
 - 稳定贡献入口：[贡献路径](./developer/contribution-path.md)

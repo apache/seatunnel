@@ -101,11 +101,10 @@ title: Contribution Path
 
 不同类型的问题，适合的渠道也不同：
 
-- [Slack](https://s.apache.org/seatunnel-slack) 适合快速讨论
 - [GitHub Issues](https://github.com/apache/seatunnel/issues) 适合具体 bug、proposal 和跟踪
 - [dev 邮件列表](https://lists.apache.org/list.html?dev@seatunnel.apache.org) 适合长线程设计讨论和项目级决策
 
-如果你不确定去哪里问，通常可以先在 Slack 或 issue 里说明你的具体问题，以及你已经检查过什么。
+如果你不确定去哪里问，通常可以先在 issue 里说明你的具体问题，以及你已经检查过什么。
 
 ## Maintainer 最希望你补齐什么
 
