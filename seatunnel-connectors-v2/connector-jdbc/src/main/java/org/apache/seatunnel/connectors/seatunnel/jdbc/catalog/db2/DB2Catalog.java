@@ -39,9 +39,11 @@ import java.sql.ResultSet;
 import java.sql.SQLException;
 import java.util.ArrayList;
 import java.util.Collections;
+import java.util.HashSet;
 import java.util.List;
 import java.util.Locale;
 import java.util.Optional;
+import java.util.Set;
 import java.util.stream.Collectors;
 
 public class DB2Catalog extends AbstractJdbcCatalog {
@@ -147,12 +149,16 @@ public class DB2Catalog extends AbstractJdbcCatalog {
     @Override
     protected String getCreateTableSql(
             TablePath tablePath, CatalogTable table, boolean createIndex) {
+        PrimaryKey primaryKey = table.getTableSchema().getPrimaryKey();
+        Set<String> primaryKeyColumns =
+                primaryKey == null || primaryKey.getColumnNames() == null
+                        ? Collections.emptySet()
+                        : new HashSet<>(primaryKey.getColumnNames());
         String columnSql =
                 table.getTableSchema().getColumns().stream()
                         .filter(Column::isPhysical)
-                        .map(this::buildCreateColumnSql)
+                        .map(column -> buildCreateColumnSql(column, primaryKeyColumns))
                         .collect(Collectors.joining(", "));
-        PrimaryKey primaryKey = table.getTableSchema().getPrimaryKey();
         if (primaryKey != null && primaryKey.getColumnNames() != null) {
             String primaryKeySql =
                     primaryKey.getColumnNames().stream()
@@ -195,11 +201,16 @@ public class DB2Catalog extends AbstractJdbcCatalog {
                 "SELECT 1 FROM %s FETCH FIRST 1 ROW ONLY", quoteSchemaTable(tablePath));
     }
 
-    private String buildCreateColumnSql(Column column) {
+    private String buildCreateColumnSql(Column column, Set<String> primaryKeyColumns) {
         BasicTypeDefine typeDefine = DB2TypeConverter.INSTANCE.reconvert(column);
-        String nullable = column.isNullable() ? "" : " NOT NULL";
+        // DB2 rejects a primary key if any key column is nullable, while JDBC query metadata can
+        // lose the original NOT NULL flag when generate_sink_sql builds the sink schema.
+        boolean nullable = column.isNullable() && !primaryKeyColumns.contains(column.getName());
         return String.format(
-                "%s %s%s", quoteIdentifier(column.getName()), typeDefine.getColumnType(), nullable);
+                "%s %s%s",
+                quoteIdentifier(column.getName()),
+                typeDefine.getColumnType(),
+                nullable ? "" : " NOT NULL");
     }
 
     private String quoteSchemaTable(TablePath tablePath) {
