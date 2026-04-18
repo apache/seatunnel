@@ -1,0 +1,123 @@
+/*
+ * Licensed to the Apache Software Foundation (ASF) under one or more
+ * contributor license agreements.  See the NOTICE file distributed with
+ * this work for additional information regarding copyright ownership.
+ * The ASF licenses this file to You under the Apache License, Version 2.0
+ * (the "License"); you may not use this file except in compliance with
+ * the License.  You may obtain a copy of the License at
+ *
+ *    http://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an "AS IS" BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
+ */
+
+package org.apache.seatunnel.core.starter.seatunnel;
+
+import org.junit.jupiter.api.Assertions;
+import org.junit.jupiter.api.Test;
+import org.junit.jupiter.api.condition.EnabledOnOs;
+import org.junit.jupiter.api.condition.OS;
+import org.junit.jupiter.api.io.TempDir;
+
+import java.nio.charset.StandardCharsets;
+import java.nio.file.Files;
+import java.nio.file.Path;
+import java.nio.file.Paths;
+import java.util.List;
+import java.util.Map;
+
+@EnabledOnOs({OS.LINUX, OS.MAC})
+public class SeaTunnelClusterScriptTest {
+
+    @TempDir private Path temporaryDirectory;
+
+    /**
+     * Verifies that cluster startup publishes the distribution home to Java system properties.
+     *
+     * <p>The server uses these properties to resolve connector metadata and connector jars when
+     * jobs are submitted through cluster-side paths such as REST.
+     */
+    @Test
+    public void testClusterScriptPassesSeatunnelHomeToServerJvm() throws Exception {
+        Path appDirectory = createMinimalDistribution();
+        Path capturedArguments = temporaryDirectory.resolve("java-args.txt");
+        Path fakeJavaDirectory = createFakeJava(capturedArguments);
+
+        ProcessBuilder processBuilder =
+                new ProcessBuilder(
+                        "/bin/bash",
+                        appDirectory.resolve("bin").resolve("seatunnel-cluster.sh").toString());
+        processBuilder.directory(temporaryDirectory.resolve("working-dir").toFile());
+        Map<String, String> environment = processBuilder.environment();
+        environment.put(
+                "PATH",
+                fakeJavaDirectory
+                        + System.getProperty("path.separator")
+                        + environment.getOrDefault("PATH", ""));
+        environment.put("CAPTURE_FILE", capturedArguments.toString());
+        environment.remove("SEATUNNEL_HOME");
+        environment.remove("JAVA_OPTS");
+        environment.remove("JvmOption");
+        environment.remove("SEATUNNEL_CONFIG");
+        environment.remove("HAZELCAST_CONFIG");
+
+        Process process = processBuilder.start();
+        int exitCode = process.waitFor();
+
+        Assertions.assertEquals(0, exitCode);
+        List<String> arguments = Files.readAllLines(capturedArguments, StandardCharsets.UTF_8);
+        Assertions.assertTrue(
+                arguments.contains("-Dseatunnel.home=" + appDirectory),
+                "seatunnel.home should default to the script distribution directory");
+        Assertions.assertTrue(
+                arguments.contains("-DSEATUNNEL_HOME=" + appDirectory),
+                "SEATUNNEL_HOME should default to the script distribution directory");
+    }
+
+    private Path createMinimalDistribution() throws Exception {
+        Path appDirectory = temporaryDirectory.resolve("apache-seatunnel");
+        Path binDirectory = appDirectory.resolve("bin");
+        Path configDirectory = appDirectory.resolve("config");
+        Files.createDirectories(binDirectory);
+        Files.createDirectories(configDirectory);
+        Files.createDirectories(appDirectory.resolve("starter"));
+        Files.createDirectories(appDirectory.resolve("lib"));
+        Files.createDirectories(temporaryDirectory.resolve("working-dir"));
+
+        Files.copy(locateClusterScript(), binDirectory.resolve("seatunnel-cluster.sh"));
+        Files.createFile(configDirectory.resolve("hazelcast.yaml"));
+        Files.createFile(configDirectory.resolve("seatunnel.yaml"));
+        Files.createFile(configDirectory.resolve("jvm_options"));
+        Files.createFile(configDirectory.resolve("jvm_master_options"));
+        Files.createFile(configDirectory.resolve("jvm_worker_options"));
+        Files.createFile(appDirectory.resolve("starter").resolve("seatunnel-starter.jar"));
+        return appDirectory;
+    }
+
+    private Path locateClusterScript() {
+        Path modulePath = Paths.get("src/main/bin/seatunnel-cluster.sh");
+        if (Files.exists(modulePath)) {
+            return modulePath;
+        }
+        return Paths.get("seatunnel-core/seatunnel-starter/src/main/bin/seatunnel-cluster.sh");
+    }
+
+    private Path createFakeJava(Path capturedArguments) throws Exception {
+        Path fakeJavaDirectory = temporaryDirectory.resolve("fake-java-bin");
+        Files.createDirectories(fakeJavaDirectory);
+        Path fakeJava = fakeJavaDirectory.resolve("java");
+        Files.write(
+                fakeJava,
+                ("#!/bin/sh\n"
+                                + "for arg in \"$@\"; do\n"
+                                + "  printf '%s\\n' \"$arg\"\n"
+                                + "done > \"$CAPTURE_FILE\"\n")
+                        .getBytes(StandardCharsets.UTF_8));
+        Assertions.assertTrue(fakeJava.toFile().setExecutable(true));
+        return fakeJavaDirectory;
+    }
+}
