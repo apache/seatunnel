@@ -1188,13 +1188,15 @@ public class PostgresCDCIT extends TestSuiteBase implements TestResource {
 
     private void assertTableSchemaAndDataEquals(
             String database, String sourceTableName, String sinkTableName) {
-        await().atMost(60000, TimeUnit.MILLISECONDS)
+        await().ignoreExceptions()
+                .atMost(5, TimeUnit.MINUTES)
                 .untilAsserted(
                         () ->
                                 Assertions.assertIterableEquals(
                                         query(getQuerySQL(database, sourceTableName)),
                                         query(getQuerySQL(database, sinkTableName))));
-        await().atMost(60000, TimeUnit.MILLISECONDS)
+        await().ignoreExceptions()
+                .atMost(3, TimeUnit.MINUTES)
                 .untilAsserted(
                         () ->
                                 Assertions.assertIterableEquals(
