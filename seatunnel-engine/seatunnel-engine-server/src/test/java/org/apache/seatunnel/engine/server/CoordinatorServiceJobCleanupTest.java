@@ -36,6 +36,7 @@ import org.junit.jupiter.api.Test;
 import com.hazelcast.internal.serialization.Data;
 import com.hazelcast.map.IMap;
 
+import java.lang.reflect.Method;
 import java.util.Collections;
 import java.util.LinkedHashSet;
 import java.util.Set;
@@ -238,6 +239,34 @@ class CoordinatorServiceJobCleanupTest extends AbstractSeaTunnelServerTest {
 
         Assertions.assertDoesNotThrow(
                 () -> coordinatorService.submitJob(jobId, createJobData(jobId, true), true).join());
+    }
+
+    @Test
+    void testTerminalZombieJobWithoutCleanupRecordRemovesRunningState() throws Exception {
+        CoordinatorService coordinatorService = server.getCoordinatorService();
+        long jobId = System.currentTimeMillis();
+
+        IMap<Long, JobInfo> runningJobInfoIMap =
+                nodeEngine.getHazelcastInstance().getMap(Constant.IMAP_RUNNING_JOB_INFO);
+        IMap<Object, Object> runningJobStateIMap =
+                nodeEngine.getHazelcastInstance().getMap(Constant.IMAP_RUNNING_JOB_STATE);
+        IMap<Object, Long[]> runningJobStateTimestampsIMap =
+                nodeEngine.getHazelcastInstance().getMap(Constant.IMAP_STATE_TIMESTAMPS);
+
+        runningJobInfoIMap.put(jobId, new JobInfo(100L, null));
+        runningJobStateIMap.put(jobId, JobStatus.CANCELED);
+        runningJobStateTimestampsIMap.put(jobId, new Long[JobStatus.values().length]);
+
+        Method method =
+                CoordinatorService.class.getDeclaredMethod(
+                        "restoreJobFromMasterActiveSwitch", Long.class, JobInfo.class);
+        method.setAccessible(true);
+
+        method.invoke(coordinatorService, jobId, runningJobInfoIMap.get(jobId));
+
+        Assertions.assertFalse(runningJobInfoIMap.containsKey(jobId));
+        Assertions.assertFalse(runningJobStateIMap.containsKey(jobId));
+        Assertions.assertFalse(runningJobStateTimestampsIMap.containsKey(jobId));
     }
 
     private Set<Object> stateKeys(Object... keys) {

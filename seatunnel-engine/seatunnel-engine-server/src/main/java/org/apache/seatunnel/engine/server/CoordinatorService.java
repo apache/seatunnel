@@ -937,7 +937,7 @@ public class CoordinatorService {
             if (cleanupRecord != null) {
                 schedulePendingJobCleanup(jobId, cleanupRecord);
             } else {
-                runningJobInfoIMap.remove(jobId);
+                cleanupTerminalZombieJob(jobId);
             }
             return;
         }
@@ -967,6 +967,16 @@ public class CoordinatorService {
         pendingJobQueue.put(pendingJobInfo);
         jobMaster.getPhysicalPlan().updateJobState(JobStatus.PENDING);
         logger.info(String.format("The restore job enter pending queue, JobId: %s", jobId));
+    }
+
+    private void cleanupTerminalZombieJob(long jobId) {
+        runningJobInfoIMap.remove(jobId);
+        if (runningJobStateIMap != null) {
+            runningJobStateIMap.remove(jobId);
+        }
+        if (runningJobStateTimestampsIMap != null) {
+            runningJobStateTimestampsIMap.remove(jobId);
+        }
     }
 
     /**
