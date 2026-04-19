@@ -36,7 +36,17 @@ public class LogBaseServlet extends BaseServlet {
     public LogBaseServlet(NodeEngineImpl nodeEngine) {
         super(nodeEngine);
     }
-    // Prepare log response with path traversal protection
+
+    /**
+     * Prepares the servlet log response after enforcing the configured log directory boundary.
+     *
+     * <p>The requested log file is resolved to its canonical path before reading so that relative
+     * segments and symbolic links cannot escape the canonical log directory.
+     *
+     * @param resp response used to return status and log content
+     * @param logPath configured log directory
+     * @param logName requested log file name from the request URI
+     */
     protected void prepareLogResponse(HttpServletResponse resp, String logPath, String logName) {
         if (StringUtils.isBlank(logPath)) {
             resp.setStatus(HttpServletResponse.SC_BAD_REQUEST);

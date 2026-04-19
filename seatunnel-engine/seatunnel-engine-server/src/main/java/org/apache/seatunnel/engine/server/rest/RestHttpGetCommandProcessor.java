@@ -344,7 +344,16 @@ public class RestHttpGetCommandProcessor extends HttpCommandProcessor<HttpGetCom
         }
     }
 
-    // Prepare log response with path traversal protection
+    /**
+     * Prepares the current-node log response after enforcing the configured log directory boundary.
+     *
+     * <p>The requested log file is resolved to its canonical path before reading so that relative
+     * segments and symbolic links cannot escape the canonical log directory.
+     *
+     * @param httpGetCommand command used to send the HTTP response
+     * @param logPath configured log directory
+     * @param logName requested log file name from the request URI
+     */
     private void prepareLogResponse(HttpGetCommand httpGetCommand, String logPath, String logName) {
         String logFilePath = new File(logPath, logName).getPath();
         try {
