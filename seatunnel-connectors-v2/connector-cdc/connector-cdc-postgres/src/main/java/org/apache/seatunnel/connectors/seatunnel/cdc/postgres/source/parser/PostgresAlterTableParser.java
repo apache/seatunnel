@@ -376,6 +376,10 @@ public class PostgresAlterTableParser implements DdlParser {
     }
 
     private String normalizeTypeAlias(String baseType) {
+        String arrayTypeAlias = normalizeArrayTypeAlias(baseType);
+        if (arrayTypeAlias != null) {
+            return arrayTypeAlias;
+        }
         switch (baseType) {
             case "smallint":
             case "smallserial":
@@ -415,6 +419,37 @@ public class PostgresAlterTableParser implements DdlParser {
             case "time with time zone":
             case "timetz":
                 return "timetz";
+            default:
+                return baseType;
+        }
+    }
+
+    private String normalizeArrayTypeAlias(String baseType) {
+        if (!baseType.endsWith("[]")) {
+            return null;
+        }
+
+        String elementType = baseType.substring(0, baseType.length() - 2).trim();
+        String normalizedElementType = normalizeTypeAlias(elementType);
+        switch (normalizedElementType) {
+            case "int2":
+                return "_int2";
+            case "int4":
+                return "_int4";
+            case "int8":
+                return "_int8";
+            case "float4":
+                return "_float4";
+            case "float8":
+                return "_float8";
+            case "varchar":
+                return "_varchar";
+            case "char":
+                return "_bpchar";
+            case "boolean":
+                return "_bool";
+            case "text":
+                return "_text";
             default:
                 return baseType;
         }

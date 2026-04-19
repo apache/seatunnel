@@ -24,6 +24,7 @@ import org.apache.seatunnel.api.table.schema.event.AlterTableColumnEvent;
 import org.apache.seatunnel.api.table.schema.event.AlterTableDropColumnEvent;
 import org.apache.seatunnel.api.table.schema.event.AlterTableModifyColumnEvent;
 import org.apache.seatunnel.api.table.schema.event.SchemaChangeEvent;
+import org.apache.seatunnel.api.table.type.ArrayType;
 import org.apache.seatunnel.api.table.type.BasicType;
 
 import org.junit.jupiter.api.Assertions;
@@ -58,6 +59,22 @@ public class PostgresAlterTableParserTest {
         Assertions.assertEquals("add_column2", second.getColumn().getName());
         Assertions.assertEquals(BasicType.STRING_TYPE, second.getColumn().getDataType());
         Assertions.assertFalse(second.getColumn().isNullable());
+    }
+
+    @Test
+    public void testParseAddColumnWithArrayType() {
+        parser.parse(
+                "ALTER TABLE inventory.t1 ADD COLUMN tags text[], ADD COLUMN flags boolean[]",
+                null);
+
+        List<AlterTableColumnEvent> events = parser.getAndClearParsedEvents();
+        Assertions.assertEquals(2, events.size());
+        AlterTableAddColumnEvent first = (AlterTableAddColumnEvent) events.get(0);
+        Assertions.assertEquals("tags", first.getColumn().getName());
+        Assertions.assertEquals(ArrayType.STRING_ARRAY_TYPE, first.getColumn().getDataType());
+        AlterTableAddColumnEvent second = (AlterTableAddColumnEvent) events.get(1);
+        Assertions.assertEquals("flags", second.getColumn().getName());
+        Assertions.assertEquals(ArrayType.BOOLEAN_ARRAY_TYPE, second.getColumn().getDataType());
     }
 
     @Test
@@ -99,6 +116,29 @@ public class PostgresAlterTableParserTest {
         AlterTableModifyColumnEvent event = (AlterTableModifyColumnEvent) events.get(0);
         Assertions.assertEquals("f_added", event.getColumn().getName());
         Assertions.assertEquals(BasicType.LONG_TYPE, event.getColumn().getDataType());
+    }
+
+    @Test
+    public void testParseModifyColumnWithArrayType() {
+        parser.parse("ALTER TABLE inventory.t1 ALTER COLUMN f_added TYPE integer[]", null);
+
+        List<AlterTableColumnEvent> events = parser.getAndClearParsedEvents();
+        Assertions.assertEquals(1, events.size());
+        AlterTableModifyColumnEvent event = (AlterTableModifyColumnEvent) events.get(0);
+        Assertions.assertEquals("f_added", event.getColumn().getName());
+        Assertions.assertEquals(ArrayType.INT_ARRAY_TYPE, event.getColumn().getDataType());
+    }
+
+    @Test
+    public void testParseModifyColumnWithCharacterVaryingArrayType() {
+        parser.parse(
+                "ALTER TABLE inventory.t1 ALTER COLUMN f_added TYPE character varying[]", null);
+
+        List<AlterTableColumnEvent> events = parser.getAndClearParsedEvents();
+        Assertions.assertEquals(1, events.size());
+        AlterTableModifyColumnEvent event = (AlterTableModifyColumnEvent) events.get(0);
+        Assertions.assertEquals("f_added", event.getColumn().getName());
+        Assertions.assertEquals(ArrayType.STRING_ARRAY_TYPE, event.getColumn().getDataType());
     }
 
     @Test
