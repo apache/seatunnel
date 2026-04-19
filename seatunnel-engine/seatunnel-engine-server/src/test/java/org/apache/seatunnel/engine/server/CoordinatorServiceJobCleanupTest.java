@@ -20,17 +20,23 @@ package org.apache.seatunnel.engine.server;
 import org.apache.seatunnel.engine.common.Constant;
 import org.apache.seatunnel.engine.common.exception.JobException;
 import org.apache.seatunnel.engine.common.job.JobStatus;
+import org.apache.seatunnel.engine.core.dag.logical.LogicalDag;
+import org.apache.seatunnel.engine.core.job.JobImmutableInformation;
 import org.apache.seatunnel.engine.core.job.JobInfo;
 import org.apache.seatunnel.engine.server.dag.physical.PipelineLocation;
 import org.apache.seatunnel.engine.server.execution.TaskGroupLocation;
 import org.apache.seatunnel.engine.server.master.cleanup.JobCleanupRecord;
+import org.apache.seatunnel.engine.server.operation.SubmitJobOperation;
+import org.apache.seatunnel.engine.server.utils.NodeEngineUtil;
 
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.Test;
 
+import com.hazelcast.internal.serialization.Data;
 import com.hazelcast.map.IMap;
 
+import java.util.Collections;
 import java.util.LinkedHashSet;
 import java.util.Set;
 import java.util.concurrent.CompletionException;
@@ -169,11 +175,92 @@ class CoordinatorServiceJobCleanupTest extends AbstractSeaTunnelServerTest {
                 exception.getCause().getMessage().contains("waiting for terminal state cleanup"));
     }
 
+    @Test
+    void testSubmitBlockedWhenCleanupStillPendingOnOperationThread() {
+        long jobId = System.currentTimeMillis();
+        long initializationTimestamp = 100L;
+
+        IMap<Long, JobInfo> runningJobInfoIMap =
+                nodeEngine.getHazelcastInstance().getMap(Constant.IMAP_RUNNING_JOB_INFO);
+        IMap<Object, Object> runningJobStateIMap =
+                nodeEngine.getHazelcastInstance().getMap(Constant.IMAP_RUNNING_JOB_STATE);
+        IMap<Long, JobCleanupRecord> pendingJobCleanupIMap =
+                nodeEngine.getHazelcastInstance().getMap(Constant.IMAP_PENDING_JOB_CLEANUP);
+
+        runningJobInfoIMap.put(jobId, new JobInfo(initializationTimestamp, null));
+        runningJobStateIMap.put(jobId, JobStatus.FINISHED);
+        pendingJobCleanupIMap.put(
+                jobId,
+                new JobCleanupRecord(
+                        initializationTimestamp,
+                        JobStatus.FINISHED,
+                        stateKeys(jobId),
+                        stateKeys(jobId),
+                        System.currentTimeMillis()));
+
+        CompletionException exception =
+                Assertions.assertThrows(
+                        CompletionException.class,
+                        () ->
+                                NodeEngineUtil.sendOperationToMasterNode(
+                                                nodeEngine,
+                                                new SubmitJobOperation(
+                                                        jobId, createJobData(jobId, false), false))
+                                        .join());
+        Assertions.assertInstanceOf(JobException.class, exception.getCause());
+        Assertions.assertTrue(
+                exception.getCause().getMessage().contains("waiting for terminal state cleanup"));
+    }
+
+    @Test
+    void testSubmitStartWithSavePointAllowedWhenCleanupStillPending() {
+        CoordinatorService coordinatorService = server.getCoordinatorService();
+        long jobId = System.currentTimeMillis();
+        long initializationTimestamp = 100L;
+
+        IMap<Long, JobInfo> runningJobInfoIMap =
+                nodeEngine.getHazelcastInstance().getMap(Constant.IMAP_RUNNING_JOB_INFO);
+        IMap<Object, Object> runningJobStateIMap =
+                nodeEngine.getHazelcastInstance().getMap(Constant.IMAP_RUNNING_JOB_STATE);
+        IMap<Long, JobCleanupRecord> pendingJobCleanupIMap =
+                nodeEngine.getHazelcastInstance().getMap(Constant.IMAP_PENDING_JOB_CLEANUP);
+
+        runningJobInfoIMap.put(jobId, new JobInfo(initializationTimestamp, null));
+        runningJobStateIMap.put(jobId, JobStatus.FINISHED);
+        pendingJobCleanupIMap.put(
+                jobId,
+                new JobCleanupRecord(
+                        initializationTimestamp,
+                        JobStatus.FINISHED,
+                        stateKeys(jobId),
+                        stateKeys(jobId),
+                        System.currentTimeMillis()));
+
+        Assertions.assertDoesNotThrow(
+                () -> coordinatorService.submitJob(jobId, createJobData(jobId, true), true).join());
+    }
+
     private Set<Object> stateKeys(Object... keys) {
         Set<Object> stateKeys = new LinkedHashSet<>();
         for (Object key : keys) {
             stateKeys.add(key);
         }
         return stateKeys;
+    }
+
+    private Data createJobData(long jobId, boolean isStartWithSavePoint) {
+        LogicalDag logicalDag =
+                TestUtils.createTestLogicalPlan(
+                        "batch_fake_to_console.conf", "job-cleanup-submit-test", jobId);
+        JobImmutableInformation jobImmutableInformation =
+                new JobImmutableInformation(
+                        jobId,
+                        "Test",
+                        isStartWithSavePoint,
+                        nodeEngine.getSerializationService(),
+                        logicalDag,
+                        Collections.emptyList(),
+                        Collections.emptyList());
+        return nodeEngine.getSerializationService().toData(jobImmutableInformation);
     }
 }

@@ -1072,20 +1072,6 @@ public class CoordinatorService {
             long jobId, Data jobImmutableInformation, boolean isStartWithSavePoint) {
         CompletableFuture<Void> jobSubmitFuture = new CompletableFuture<>();
 
-        JobCleanupRecord pendingCleanupRecord =
-                pendingJobCleanupIMap != null ? pendingJobCleanupIMap.get(jobId) : null;
-        if (pendingCleanupRecord != null
-                && isCleanupOwnedByCurrentJob(jobId, pendingCleanupRecord)) {
-            JobException exception =
-                    new JobException(
-                            String.format(
-                                    "The job id %s is waiting for terminal state cleanup, please retry later.",
-                                    jobId));
-            logger.warning(exception);
-            jobSubmitFuture.completeExceptionally(exception);
-            return new PassiveCompletableFuture<>(jobSubmitFuture);
-        }
-
         // Check if the current jobID is already running. If so, complete the submission
         // successfully.
         // This avoids potential issues like redundant job restores or other anomalies.
@@ -1098,23 +1084,37 @@ public class CoordinatorService {
         }
 
         MDCExecutorService mdcExecutorService = MDCTracer.tracing(jobId, executorService);
-        JobMaster jobMaster =
-                new JobMaster(
-                        jobId,
-                        jobImmutableInformation,
-                        this.nodeEngine,
-                        mdcExecutorService,
-                        getResourceManager(),
-                        getJobHistoryService(),
-                        runningJobStateIMap,
-                        runningJobStateTimestampsIMap,
-                        ownedSlotProfilesIMap,
-                        runningJobInfoIMap,
-                        engineConfig,
-                        seaTunnelServer);
         mdcExecutorService.submit(
                 () -> {
+                    JobMaster jobMaster = null;
                     try {
+                        JobCleanupRecord pendingCleanupRecord =
+                                pendingJobCleanupIMap != null
+                                        ? pendingJobCleanupIMap.get(jobId)
+                                        : null;
+                        if (!isStartWithSavePoint
+                                && pendingCleanupRecord != null
+                                && isCleanupOwnedByCurrentJob(jobId, pendingCleanupRecord)) {
+                            throw new JobException(
+                                    String.format(
+                                            "The job id %s is waiting for terminal state cleanup, please retry later.",
+                                            jobId));
+                        }
+
+                        jobMaster =
+                                new JobMaster(
+                                        jobId,
+                                        jobImmutableInformation,
+                                        this.nodeEngine,
+                                        mdcExecutorService,
+                                        getResourceManager(),
+                                        getJobHistoryService(),
+                                        runningJobStateIMap,
+                                        runningJobStateTimestampsIMap,
+                                        ownedSlotProfilesIMap,
+                                        runningJobInfoIMap,
+                                        engineConfig,
+                                        seaTunnelServer);
                         if (!isStartWithSavePoint
                                 && getJobHistoryService().getJobMetrics(jobId)
                                         != JobMetrics.empty()) {
