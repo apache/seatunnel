@@ -17,6 +17,7 @@
 
 package org.apache.seatunnel.connectors.seatunnel.socket.sink;
 
+import org.apache.seatunnel.api.sink.SupportMultiTableSinkWriter;
 import org.apache.seatunnel.api.table.type.SeaTunnelRow;
 import org.apache.seatunnel.api.table.type.SeaTunnelRowType;
 import org.apache.seatunnel.connectors.seatunnel.common.sink.AbstractSinkWriter;
@@ -25,7 +26,19 @@ import org.apache.seatunnel.format.json.JsonSerializationSchema;
 
 import java.io.IOException;
 
-public class SocketSinkWriter extends AbstractSinkWriter<SeaTunnelRow, Void> {
+/**
+ * Socket sink writer that writes data to network sockets.
+ *
+ * <p>Implements {@link SupportMultiTableSinkWriter} to prevent ClassCastException when the
+ * framework expects multi-table support. All rows are serialized using the schema provided at
+ * construction time.
+ *
+ * @see SupportMultiTableSinkWriter
+ * @since 2.3.13
+ */
+public class SocketSinkWriter extends AbstractSinkWriter<SeaTunnelRow, Void>
+        implements SupportMultiTableSinkWriter<Void> {
+
     private final SocketClient socketClient;
 
     SocketSinkWriter(SocketConfig socketConfig, SeaTunnelRowType seaTunnelRowType)
