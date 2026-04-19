@@ -25,6 +25,8 @@ import org.apache.seatunnel.api.table.catalog.TableIdentifier;
 import org.apache.seatunnel.api.table.schema.SchemaChangeType;
 import org.apache.seatunnel.api.table.schema.event.SchemaChangeEvent;
 import org.apache.seatunnel.api.table.schema.event.TableEvent;
+import org.apache.seatunnel.api.table.schema.exception.SchemaEvolutionErrorCode;
+import org.apache.seatunnel.api.table.schema.exception.SchemaEvolutionException;
 import org.apache.seatunnel.api.table.schema.exception.SchemaValidationException;
 import org.apache.seatunnel.api.table.type.SeaTunnelRow;
 import org.apache.seatunnel.translation.flink.schema.coordinator.LocalSchemaCoordinator;
@@ -53,11 +55,12 @@ import java.util.concurrent.ConcurrentHashMap;
  * Operator placed after the source to handle schema evolution.
  *
  * <p>schema change events are NOT processed synchronously in {@link #processElement}. Instead, they
- * are buffered and deferred until <b>two</b> checkpoint cycles have completed. This two-round wait
- * ensures that when the sink executes ALTER TABLE, all XA transactions from prior checkpoint cycles
- * have been fully committed by the {@code FlinkGlobalCommitter} (which runs asynchronously after
- * {@code notifyCheckpointComplete}), so their metadata locks are released and the ALTER TABLE can
- * acquire an exclusive MDL lock without deadlock.
+ * are buffered and deferred until an additional checkpoint cycle has completed after the first
+ * checkpoint that observed the pending DDL. This wait ensures that when the sink executes ALTER
+ * TABLE, all XA transactions from prior checkpoint cycles have been fully committed by the {@code
+ * FlinkGlobalCommitter} (which runs asynchronously after {@code notifyCheckpointComplete}), so
+ * their metadata locks are released and the ALTER TABLE can acquire an exclusive MDL lock without
+ * deadlock.
  *
  * <p>Per checkpoint cycle, at most ONE schema change is applied. If multiple DDLs arrive between
  * two checkpoints, they are processed across successive checkpoint cycles.
@@ -167,16 +170,31 @@ public class SchemaOperator extends AbstractStreamOperator<SeaTunnelRow>
 
     private void enqueueDataRecord(SeaTunnelRow row, long timestamp) {
         if (pendingQueue.size() >= MAX_BUFFERED_RECORDS) {
-            log.warn(
-                    "Pending queue exceeded max size {}, dropping oldest record",
-                    MAX_BUFFERED_RECORDS);
-            pendingQueue.poll();
+            TableIdentifier tableIdentifier = getPendingSchemaTableIdentifier();
+            throw new SchemaEvolutionException(
+                    SchemaEvolutionErrorCode.SCHEMA_EVENT_PROCESSING_FAILED,
+                    String.format(
+                            "Pending schema buffer overflow (max=%d). "
+                                    + "Failing fast to avoid dropping schema change control events.",
+                            MAX_BUFFERED_RECORDS),
+                    tableIdentifier,
+                    jobId);
         }
         pendingQueue.add(BufferedRecord.data(row, timestamp));
     }
 
+    private TableIdentifier getPendingSchemaTableIdentifier() {
+        for (BufferedRecord record : pendingQueue) {
+            if (record.isSchemaChange && record.schemaEvent != null) {
+                return record.schemaEvent.tableIdentifier();
+            }
+        }
+        return null;
+    }
+
     /**
-     * Called by Flink after a checkpoint succeeds. Uses a two-round wait to ensure safety:
+     * Called by Flink after a checkpoint succeeds. Uses an extra completed checkpoint round to
+     * ensure safety:
      *
      * <ul>
      *   <li><b>first time seeing the DDL: record {@link #firstSeenCheckpointId} but do NOT
@@ -184,9 +202,9 @@ public class SchemaOperator extends AbstractStreamOperator<SeaTunnelRow>
      *       running {@code XA COMMIT} for this checkpoint's prepared transactions, holding MDL
      *       locks on the sink table.
      *   <li><b>{@code checkpointId >= firstSeenCheckpointId + CHECKPOINT_WAIT_ROUNDS} : the XA
-     *       COMMIT from the earlier checkpoint cycle is guaranteed to have finished (another full
-     *       checkpoint cycle has completed, which implies the committer ran). The sink's ALTER
-     *       TABLE will not encounter MDL lock, it is now safe to broadcast the DDL.
+     *       COMMIT from the earlier checkpoint cycle is guaranteed to have finished (at least one
+     *       additional checkpoint cycle has completed, which implies the committer ran). The sink's
+     *       ALTER TABLE will not encounter MDL lock, it is now safe to broadcast the DDL.
      * </ul>
      */
     @Override
@@ -261,27 +279,21 @@ public class SchemaOperator extends AbstractStreamOperator<SeaTunnelRow>
 
         sendSchemaChangeEventToDownstream(event);
 
-        try {
-            boolean success =
-                    coordinator.requestSchemaChange(tableId, eventTime, SCHEMA_CHANGE_TIMEOUT_MS);
-            if (success) {
-                log.info(
-                        "Schema change for table {} (epoch {}) confirmed by all sink subtasks.",
-                        tableId,
-                        eventTime);
-            } else {
-                log.error(
-                        "Schema change for table {} (epoch {}) failed or timed out.",
-                        tableId,
-                        eventTime);
-            }
-        } catch (Exception e) {
-            log.error(
-                    "Error during schema change coordination for table {} (epoch {})",
+        boolean success =
+                coordinator.requestSchemaChange(tableId, eventTime, SCHEMA_CHANGE_TIMEOUT_MS);
+        if (!success) {
+            throw new SchemaEvolutionException(
+                    SchemaEvolutionErrorCode.SCHEMA_EVENT_PROCESSING_FAILED,
+                    String.format(
+                            "Schema change for table %s (epoch %d) failed during sink coordination.",
+                            tableId, eventTime),
                     tableId,
-                    eventTime,
-                    e);
+                    jobId);
         }
+        log.info(
+                "Schema change for table {} (epoch {}) confirmed by all sink subtasks.",
+                tableId,
+                eventTime);
 
         CatalogTable newSchema = event.getChangeAfter();
         if (newSchema != null) {
