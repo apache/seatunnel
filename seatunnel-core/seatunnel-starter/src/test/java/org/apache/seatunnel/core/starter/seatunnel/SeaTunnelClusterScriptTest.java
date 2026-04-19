@@ -44,9 +44,38 @@ public class SeaTunnelClusterScriptTest {
     @Test
     public void testClusterScriptPassesSeatunnelHomeToServerJvm() throws Exception {
         Path appDirectory = createMinimalDistribution();
+        List<String> arguments = runClusterScript(appDirectory, null);
+
+        Assertions.assertTrue(
+                arguments.contains("-Dseatunnel.home=" + appDirectory),
+                "seatunnel.home should default to the script distribution directory");
+        Assertions.assertTrue(
+                arguments.contains("-DSEATUNNEL_HOME=" + appDirectory),
+                "SEATUNNEL_HOME should default to the script distribution directory");
+    }
+
+    /**
+     * Verifies that an externally configured SeaTunnel home is forwarded without being overwritten
+     * by the script fallback.
+     */
+    @Test
+    public void testClusterScriptPassesCustomSeatunnelHomeToServerJvm() throws Exception {
+        Path appDirectory = createMinimalDistribution();
+        Path customSeaTunnelHome = temporaryDirectory.resolve("custom-seatunnel-home");
+        Files.createDirectories(customSeaTunnelHome);
+        List<String> arguments = runClusterScript(appDirectory, customSeaTunnelHome);
+
+        Assertions.assertTrue(
+                arguments.contains("-Dseatunnel.home=" + customSeaTunnelHome),
+                "seatunnel.home should use the externally configured SeaTunnel home");
+        Assertions.assertTrue(
+                arguments.contains("-DSEATUNNEL_HOME=" + customSeaTunnelHome),
+                "SEATUNNEL_HOME should use the externally configured SeaTunnel home");
+    }
+
+    private List<String> runClusterScript(Path appDirectory, Path seaTunnelHome) throws Exception {
         Path capturedArguments = temporaryDirectory.resolve("java-args.txt");
         Path fakeJavaDirectory = createFakeJava(capturedArguments);
-
         ProcessBuilder processBuilder =
                 new ProcessBuilder(
                         "/bin/bash",
@@ -59,7 +88,11 @@ public class SeaTunnelClusterScriptTest {
                         + System.getProperty("path.separator")
                         + environment.getOrDefault("PATH", ""));
         environment.put("CAPTURE_FILE", capturedArguments.toString());
-        environment.remove("SEATUNNEL_HOME");
+        if (seaTunnelHome == null) {
+            environment.remove("SEATUNNEL_HOME");
+        } else {
+            environment.put("SEATUNNEL_HOME", seaTunnelHome.toString());
+        }
         environment.remove("JAVA_OPTS");
         environment.remove("JvmOption");
         environment.remove("SEATUNNEL_CONFIG");
@@ -69,13 +102,7 @@ public class SeaTunnelClusterScriptTest {
         int exitCode = process.waitFor();
 
         Assertions.assertEquals(0, exitCode);
-        List<String> arguments = Files.readAllLines(capturedArguments, StandardCharsets.UTF_8);
-        Assertions.assertTrue(
-                arguments.contains("-Dseatunnel.home=" + appDirectory),
-                "seatunnel.home should default to the script distribution directory");
-        Assertions.assertTrue(
-                arguments.contains("-DSEATUNNEL_HOME=" + appDirectory),
-                "SEATUNNEL_HOME should default to the script distribution directory");
+        return Files.readAllLines(capturedArguments, StandardCharsets.UTF_8);
     }
 
     private Path createMinimalDistribution() throws Exception {
