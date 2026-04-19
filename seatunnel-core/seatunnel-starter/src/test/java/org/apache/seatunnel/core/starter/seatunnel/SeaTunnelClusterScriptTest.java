@@ -73,6 +73,41 @@ public class SeaTunnelClusterScriptTest {
                 "SEATUNNEL_HOME should use the externally configured SeaTunnel home");
     }
 
+    /**
+     * Verifies that the Windows cluster script keeps custom SeaTunnel home values and forwards the
+     * effective value before later JVM option appends.
+     */
+    @Test
+    public void testWindowsClusterScriptPassesSeatunnelHomeToServerJvm() throws Exception {
+        String script =
+                new String(Files.readAllBytes(locateWindowsClusterScript()), StandardCharsets.UTF_8)
+                        .replace("\r\n", "\n");
+
+        int fallbackIndex = script.indexOf("if not defined SEATUNNEL_HOME");
+        int fallbackValueIndex = script.indexOf("set \"SEATUNNEL_HOME=%APP_DIR%\"");
+        int seaTunnelHomeJvmOptionIndex =
+                script.indexOf(
+                        "set \"JAVA_OPTS=!JAVA_OPTS! -Dseatunnel.home=!SEATUNNEL_HOME! "
+                                + "-DSEATUNNEL_HOME=!SEATUNNEL_HOME!\"");
+        int log4jJvmOptionIndex =
+                script.indexOf(
+                        "set \"JAVA_OPTS=!JAVA_OPTS! "
+                                + "-Dlog4j2.contextSelector=org.apache.logging.log4j.core.async.AsyncLoggerContextSelector\"");
+
+        Assertions.assertTrue(
+                fallbackIndex >= 0,
+                "Windows cluster script should only fallback when SEATUNNEL_HOME is undefined");
+        Assertions.assertTrue(
+                fallbackValueIndex > fallbackIndex,
+                "Windows cluster script should fallback to APP_DIR as the distribution home");
+        Assertions.assertTrue(
+                seaTunnelHomeJvmOptionIndex > fallbackValueIndex,
+                "Windows cluster script should pass the effective SeaTunnel home to the JVM");
+        Assertions.assertTrue(
+                seaTunnelHomeJvmOptionIndex < log4jJvmOptionIndex,
+                "SeaTunnel home JVM options should be appended before later JVM options");
+    }
+
     private List<String> runClusterScript(Path appDirectory, Path seaTunnelHome) throws Exception {
         Path capturedArguments = temporaryDirectory.resolve("java-args.txt");
         Path fakeJavaDirectory = createFakeJava(capturedArguments);
@@ -131,6 +166,14 @@ public class SeaTunnelClusterScriptTest {
             return modulePath;
         }
         return Paths.get("seatunnel-core/seatunnel-starter/src/main/bin/seatunnel-cluster.sh");
+    }
+
+    private Path locateWindowsClusterScript() {
+        Path modulePath = Paths.get("src/main/bin/seatunnel-cluster.cmd");
+        if (Files.exists(modulePath)) {
+            return modulePath;
+        }
+        return Paths.get("seatunnel-core/seatunnel-starter/src/main/bin/seatunnel-cluster.cmd");
     }
 
     private Path createFakeJava(Path capturedArguments) throws Exception {
