@@ -23,6 +23,7 @@ import org.apache.seatunnel.api.source.Boundedness;
 import org.apache.seatunnel.api.table.catalog.CatalogTableUtil;
 import org.apache.seatunnel.api.table.factory.TableSourceFactoryContext;
 import org.apache.seatunnel.common.constants.JobMode;
+import org.apache.seatunnel.common.utils.SerializationUtils;
 import org.apache.seatunnel.connectors.seatunnel.pulsar.exception.PulsarConnectorException;
 
 import org.junit.jupiter.api.Assertions;
@@ -172,6 +173,21 @@ class PulsarSourceTest {
                         new PulsarSource(
                                 ReadonlyConfig.fromMap(config),
                                 CatalogTableUtil.buildSimpleTextTable()));
+    }
+
+    @Test
+    void shouldSerializeMultiTableSourceForSparkExecution() {
+        Map<String, Object> config = createBaseConfig("LATEST");
+        config.put(
+                "tables_configs",
+                Arrays.asList(
+                        createTableConfig("db.orders", "persistent://public/default/orders"),
+                        createTableConfig("db.users", "persistent://public/default/users")));
+        PulsarSource source =
+                new PulsarSource(
+                        ReadonlyConfig.fromMap(config), CatalogTableUtil.buildSimpleTextTable());
+
+        Assertions.assertDoesNotThrow(() -> SerializationUtils.serialize(source));
     }
 
     private Map<String, Object> createBaseConfig(String stopMode) {

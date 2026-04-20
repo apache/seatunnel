@@ -27,6 +27,7 @@ import org.slf4j.LoggerFactory;
 
 import lombok.Getter;
 
+import java.io.Serializable;
 import java.util.HashMap;
 import java.util.HashSet;
 import java.util.List;
@@ -83,7 +84,9 @@ public class MultiTablePartitionDiscoverer implements PulsarDiscoverer {
         return discovererPairs.stream().anyMatch(TableDiscovererPair::isTopicPattern);
     }
 
-    public static class TableDiscovererPair {
+    public static class TableDiscovererPair implements Serializable {
+        private static final long serialVersionUID = -7486130997031326385L;
+
         public final TablePath tablePath;
         public final PulsarDiscoverer discoverer;
         @Getter public final boolean topicPattern;

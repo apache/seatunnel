@@ -18,6 +18,7 @@
 package org.apache.seatunnel.connectors.seatunnel.pulsar.source.enumerator.discoverer;
 
 import org.apache.seatunnel.api.table.catalog.TablePath;
+import org.apache.seatunnel.common.utils.SerializationUtils;
 import org.apache.seatunnel.connectors.seatunnel.pulsar.source.enumerator.topic.TopicPartition;
 
 import org.apache.pulsar.client.admin.PulsarAdmin;
@@ -83,6 +84,27 @@ class MultiTablePartitionDiscovererTest {
         Assertions.assertEquals(
                 TablePath.of("db.orders_general"), discoverer.getTablePath(generalTopic));
         Assertions.assertEquals(TablePath.of("db.orders_vip"), discoverer.getTablePath(vipTopic));
+    }
+
+    @Test
+    void shouldSerializeMultiTableDiscovererForSparkExecution() {
+        MultiTablePartitionDiscoverer discoverer =
+                new MultiTablePartitionDiscoverer(
+                        Arrays.asList(
+                                new MultiTablePartitionDiscoverer.TableDiscovererPair(
+                                        TablePath.of("db.orders"),
+                                        new TestingDiscoverer(
+                                                new TopicPartition(
+                                                        "persistent://public/default/orders", 0)),
+                                        false),
+                                new MultiTablePartitionDiscoverer.TableDiscovererPair(
+                                        TablePath.of("db.users"),
+                                        new TestingDiscoverer(
+                                                new TopicPartition(
+                                                        "persistent://public/default/users", 0)),
+                                        false)));
+
+        Assertions.assertDoesNotThrow(() -> SerializationUtils.serialize(discoverer));
     }
 
     private static final class TestingDiscoverer implements PulsarDiscoverer {
