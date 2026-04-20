@@ -37,6 +37,7 @@ import java.time.Duration;
 import java.time.Instant;
 import java.util.ArrayList;
 import java.util.Arrays;
+import java.util.Comparator;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
@@ -240,6 +241,8 @@ public class SqlServerStreamingChangeEventSource
                                         databaseName, lastProcessedPosition.getCommitLsn())
                                 : lastProcessedPosition.getCommitLsn();
                 streamingExecutionContext.setShouldIncreaseFromLsn(true);
+                final Queue<SqlServerConnection.SqlServerDdlEntry> ddlEntries =
+                        getDdlEntriesToQuery(databaseName, fromLsn, toLsn);
 
                 while (!schemaChangeCheckpoints.isEmpty()) {
                     migrateTable(partition, schemaChangeCheckpoints, offsetContext);
@@ -396,6 +399,14 @@ public class SqlServerStreamingChangeEventSource
                                                     offsetContext);
                                         }
                                     }
+                                    dispatchPendingDdlHistory(
+                                            partition,
+                                            offsetContext,
+                                            tablesSlot.get(),
+                                            ddlEntries,
+                                            tableWithSmallestLsn
+                                                    .getChangePosition()
+                                                    .getCommitLsn());
                                     final TableId tableId =
                                             tableWithSmallestLsn
                                                     .getChangeTable()
@@ -455,6 +466,12 @@ public class SqlServerStreamingChangeEventSource
                                                     clock));
                                     tableWithSmallestLsn.next();
                                 }
+                                dispatchPendingDdlHistory(
+                                        partition,
+                                        offsetContext,
+                                        tablesSlot.get(),
+                                        ddlEntries,
+                                        null);
                             });
                     streamingExecutionContext.setLastProcessedPosition(
                             TxLogPosition.valueOf(toLsn));
@@ -510,6 +527,91 @@ public class SqlServerStreamingChangeEventSource
                         tableSchema,
                         SchemaChangeEventType.ALTER));
         newTable.setSourceTable(tableSchema);
+    }
+
+    private Queue<SqlServerConnection.SqlServerDdlEntry> getDdlEntriesToQuery(
+            String databaseName, Lsn fromLsn, Lsn toLsn) throws SQLException {
+        Queue<SqlServerConnection.SqlServerDdlEntry> ddlEntries =
+                new PriorityQueue<>(
+                        Comparator.comparing(SqlServerConnection.SqlServerDdlEntry::getDdlLsn));
+        dataConnection.getDdlHistory(databaseName, fromLsn, toLsn).stream()
+                .filter(
+                        ddlEntry ->
+                                connectorConfig
+                                        .getTableFilters()
+                                        .dataCollectionFilter()
+                                        .isIncluded(ddlEntry.getSourceTableId()))
+                .forEach(ddlEntries::add);
+        return ddlEntries;
+    }
+
+    private void dispatchPendingDdlHistory(
+            SqlServerPartition partition,
+            SqlServerOffsetContext offsetContext,
+            SqlServerChangeTable[] currentTables,
+            Queue<SqlServerConnection.SqlServerDdlEntry> ddlEntries,
+            Lsn currentCommitLsn)
+            throws InterruptedException, SQLException {
+        while (!ddlEntries.isEmpty()
+                && (currentCommitLsn == null
+                        || ddlEntries.peek().getDdlLsn().compareTo(currentCommitLsn) <= 0)) {
+            SqlServerConnection.SqlServerDdlEntry ddlEntry = ddlEntries.poll();
+            dispatchDdlHistorySchemaChange(partition, offsetContext, currentTables, ddlEntry);
+        }
+    }
+
+    private void dispatchDdlHistorySchemaChange(
+            SqlServerPartition partition,
+            SqlServerOffsetContext offsetContext,
+            SqlServerChangeTable[] currentTables,
+            SqlServerConnection.SqlServerDdlEntry ddlEntry)
+            throws InterruptedException, SQLException {
+        SqlServerChangeTable currentTable =
+                findChangeTable(currentTables, ddlEntry.getSourceTableId());
+        if (currentTable == null) {
+            LOGGER.warn("Ignoring SQL Server DDL history for unknown captured table {}", ddlEntry);
+            return;
+        }
+        Table oldTableSchema = schema.tableFor(ddlEntry.getSourceTableId());
+        Table tableSchema =
+                metadataConnection.getTableSchemaFromTable(
+                        partition.getDatabaseName(), currentTable);
+        if (oldTableSchema != null && oldTableSchema.equals(tableSchema)) {
+            LOGGER.info("Migration skipped, no table schema changes detected for {}", ddlEntry);
+            return;
+        }
+        offsetContext.setChangePosition(TxLogPosition.valueOf(ddlEntry.getDdlLsn()), 1);
+        offsetContext.event(
+                ddlEntry.getSourceTableId(),
+                ddlEntry.getDdlTime() == null ? Instant.now() : ddlEntry.getDdlTime().toInstant());
+        LOGGER.info(
+                "Dispatching SQL Server DDL history schema change for {} at {}: {}",
+                ddlEntry.getSourceTableId(),
+                ddlEntry.getDdlLsn(),
+                ddlEntry.getDdl());
+        dispatcher.dispatchSchemaChangeEvent(
+                partition,
+                ddlEntry.getSourceTableId(),
+                new SqlServerSchemaChangeEventEmitter(
+                        partition,
+                        offsetContext,
+                        currentTable,
+                        tableSchema,
+                        SchemaChangeEventType.ALTER));
+        currentTable.setSourceTable(tableSchema);
+    }
+
+    private SqlServerChangeTable findChangeTable(
+            SqlServerChangeTable[] currentTables, TableId sourceTableId) {
+        if (currentTables == null) {
+            return null;
+        }
+        for (SqlServerChangeTable currentTable : currentTables) {
+            if (currentTable.getSourceTableId().equals(sourceTableId)) {
+                return currentTable;
+            }
+        }
+        return null;
     }
 
     private SqlServerChangeTable[] processErrorFromChangeTableQuery(

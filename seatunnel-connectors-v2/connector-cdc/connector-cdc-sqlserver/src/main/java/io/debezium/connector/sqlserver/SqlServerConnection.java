@@ -129,6 +129,15 @@ public class SqlServerConnection extends JdbcConnection {
 
     private static final String GET_NEW_CHANGE_TABLES =
             "SELECT * FROM [#db].cdc.change_tables WHERE start_lsn BETWEEN ? AND ?";
+    private static final String GET_DDL_HISTORY =
+            "SELECT OBJECT_SCHEMA_NAME(source_object_id, DB_ID(?)),"
+                    + " OBJECT_NAME(source_object_id, DB_ID(?)),"
+                    + " ddl_command,"
+                    + " ddl_lsn,"
+                    + " ddl_time"
+                    + " FROM [#db].cdc.ddl_history"
+                    + " WHERE ddl_lsn > ? AND ddl_lsn <= ?"
+                    + " ORDER BY ddl_lsn ASC";
     private static final String OPENING_QUOTING_CHARACTER = "[";
     private static final String CLOSING_QUOTING_CHARACTER = "]";
 
@@ -695,6 +704,32 @@ public class SqlServerConnection extends JdbcConnection {
                 });
     }
 
+    public List<SqlServerDdlEntry> getDdlHistory(String databaseName, Lsn fromLsn, Lsn toLsn)
+            throws SQLException {
+        final String query = replaceDatabaseNamePlaceholder(GET_DDL_HISTORY, databaseName);
+
+        return prepareQueryAndMap(
+                query,
+                ps -> {
+                    ps.setString(1, databaseName);
+                    ps.setString(2, databaseName);
+                    ps.setBytes(3, fromLsn.getBinary());
+                    ps.setBytes(4, toLsn.getBinary());
+                },
+                rs -> {
+                    final List<SqlServerDdlEntry> ddlEntries = new ArrayList<>();
+                    while (rs.next()) {
+                        ddlEntries.add(
+                                new SqlServerDdlEntry(
+                                        new TableId(databaseName, rs.getString(1), rs.getString(2)),
+                                        rs.getString(3),
+                                        Lsn.valueOf(rs.getBytes(4)),
+                                        rs.getTimestamp(5)));
+                    }
+                    return ddlEntries;
+                });
+    }
+
     public Table getTableSchemaFromTable(String databaseName, SqlServerChangeTable changeTable)
             throws SQLException {
         final DatabaseMetaData metadata = connection().getMetaData();
@@ -761,6 +796,50 @@ public class SqlServerConnection extends JdbcConnection {
 
     public String getNameOfChangeTable(String captureName) {
         return captureName + "_CT";
+    }
+
+    public static class SqlServerDdlEntry {
+        private final TableId sourceTableId;
+        private final String ddl;
+        private final Lsn ddlLsn;
+        private final java.sql.Timestamp ddlTime;
+
+        public SqlServerDdlEntry(
+                TableId sourceTableId, String ddl, Lsn ddlLsn, java.sql.Timestamp ddlTime) {
+            this.sourceTableId = sourceTableId;
+            this.ddl = ddl;
+            this.ddlLsn = ddlLsn;
+            this.ddlTime = ddlTime;
+        }
+
+        public TableId getSourceTableId() {
+            return sourceTableId;
+        }
+
+        public String getDdl() {
+            return ddl;
+        }
+
+        public Lsn getDdlLsn() {
+            return ddlLsn;
+        }
+
+        public java.sql.Timestamp getDdlTime() {
+            return ddlTime;
+        }
+
+        @Override
+        public String toString() {
+            return "SqlServerDdlEntry{"
+                    + "sourceTableId="
+                    + sourceTableId
+                    + ", ddlLsn="
+                    + ddlLsn
+                    + ", ddl='"
+                    + ddl
+                    + "'"
+                    + '}';
+        }
     }
 
     /**
