@@ -66,6 +66,12 @@ public class ServerConfigOptions {
                     .type(new TypeReference<TelemetryConfig>() {})
                     .defaultValue(new TelemetryConfig())
                     .withDescription("The telemetry configuration.");
+
+    public static final Option<DataSourceConfig> DATASOURCE =
+            Options.key("datasource")
+                    .type(new TypeReference<DataSourceConfig>() {})
+                    .defaultValue(new DataSourceConfig())
+                    .withDescription("The DataSource Center configuration.");
     // The options for metrics end
     /////////////////////////////////////////////////
 

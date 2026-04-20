@@ -219,20 +219,35 @@ public class FixedChunkSplitter extends ChunkSplitter {
                 splitQuery =
                         String.format(
                                 "SELECT * FROM (%s) st_jdbc_splitter WHERE %s = ?",
-                                table.getQuery(),
+                                applyUserWhereCondition(table.getQuery()),
                                 jdbcDialect.hashModForField(
                                         column.getSourceType(),
                                         splitKeyName,
                                         table.getPartitionNumber()));
             } else {
-                splitQuery =
-                        String.format(
-                                "SELECT * FROM %s WHERE %s = ?",
-                                jdbcDialect.tableIdentifier(table.getTablePath()),
-                                jdbcDialect.hashModForField(
-                                        column.getSourceType(),
-                                        splitKeyName,
-                                        table.getPartitionNumber()));
+                if (StringUtils.isNotBlank(config.getWhereConditionClause())) {
+                    String userQuery =
+                            String.format(
+                                    "SELECT * FROM %s",
+                                    jdbcDialect.tableIdentifier(table.getTablePath()));
+                    splitQuery =
+                            String.format(
+                                    "SELECT * FROM (%s) st_jdbc_splitter WHERE %s = ?",
+                                    applyUserWhereCondition(userQuery),
+                                    jdbcDialect.hashModForField(
+                                            column.getSourceType(),
+                                            splitKeyName,
+                                            table.getPartitionNumber()));
+                } else {
+                    splitQuery =
+                            String.format(
+                                    "SELECT * FROM %s WHERE %s = ?",
+                                    jdbcDialect.tableIdentifier(table.getTablePath()),
+                                    jdbcDialect.hashModForField(
+                                            column.getSourceType(),
+                                            splitKeyName,
+                                            table.getPartitionNumber()));
+                }
             }
 
             JdbcSourceSplit split =
@@ -291,14 +306,27 @@ public class FixedChunkSplitter extends ChunkSplitter {
             splitQuery =
                     String.format(
                             "SELECT * FROM (%s) st_jdbc_splitter WHERE %s >= ? AND %s <= ?",
-                            split.getSplitQuery(), splitKeyName, splitKeyName);
-        } else {
-            splitQuery =
-                    String.format(
-                            "SELECT * FROM %s WHERE %s >= ? AND %s <= ?",
-                            jdbcDialect.tableIdentifier(split.getTablePath()),
+                            applyUserWhereCondition(split.getSplitQuery()),
                             splitKeyName,
                             splitKeyName);
+        } else {
+            if (StringUtils.isNotBlank(config.getWhereConditionClause())) {
+                String userQuery =
+                        String.format(
+                                "SELECT * FROM %s",
+                                jdbcDialect.tableIdentifier(split.getTablePath()));
+                splitQuery =
+                        String.format(
+                                "SELECT * FROM (%s) st_jdbc_splitter WHERE %s >= ? AND %s <= ?",
+                                applyUserWhereCondition(userQuery), splitKeyName, splitKeyName);
+            } else {
+                splitQuery =
+                        String.format(
+                                "SELECT * FROM %s WHERE %s >= ? AND %s <= ?",
+                                jdbcDialect.tableIdentifier(split.getTablePath()),
+                                splitKeyName,
+                                splitKeyName);
+            }
         }
         PreparedStatement statement = createPreparedStatement(splitQuery);
 

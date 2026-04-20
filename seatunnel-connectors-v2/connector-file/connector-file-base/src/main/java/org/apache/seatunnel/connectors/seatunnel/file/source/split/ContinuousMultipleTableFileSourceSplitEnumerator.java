@@ -379,6 +379,7 @@ public class ContinuousMultipleTableFileSourceSplitEnumerator
     private void scanOnce() throws IOException {
         int scanned = 0;
         int queued = 0;
+        Set<String> activeKnownSplitIds = new HashSet<>();
         for (TableScanContext ctx : tableScanContexts) {
             List<FileStatus> files = ctx.listFilesRecursively(ctx.rootPath);
             scanned += files.size();
@@ -389,12 +390,14 @@ public class ContinuousMultipleTableFileSourceSplitEnumerator
                 }
                 SplitVersion splitVersion = SplitVersion.fromFileStatus(fileStatus);
                 for (FileSourceSplit split : ctx.toSplits(fileStatus)) {
+                    activeKnownSplitIds.add(split.splitId());
                     if (enqueueSplitIfAbsent(split, splitVersion)) {
                         queued++;
                     }
                 }
             }
         }
+        cleanupStaleKnownVersions(activeKnownSplitIds);
         if (queued > 0) {
             log.info(
                     "Continuous discovery scan finished: scanned={}, queued={}, pending={}, inflight={}",
@@ -529,6 +532,20 @@ public class ContinuousMultipleTableFileSourceSplitEnumerator
                 restoredInFlightSplits.size(),
                 recovered,
                 skipped);
+    }
+
+    private void cleanupStaleKnownVersions(Set<String> activeKnownSplitIds) {
+        synchronized (lock) {
+            if (knownSplitVersions.isEmpty()) {
+                return;
+            }
+            Set<String> retainedSplitIds = new HashSet<>(activeKnownSplitIds);
+            retainedSplitIds.addAll(pendingSplitIds);
+            for (FileSourceSplit split : inFlightSplits) {
+                retainedSplitIds.add(split.splitId());
+            }
+            knownSplitVersions.keySet().removeIf(splitId -> !retainedSplitIds.contains(splitId));
+        }
     }
 
     private Optional<TableScanContext> findTableScanContext(String tableId) {

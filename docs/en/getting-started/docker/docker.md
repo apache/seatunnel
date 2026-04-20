@@ -40,7 +40,7 @@ You can download the source code from the [download page](https://seatunnel.apac
 ```shell
 cd seatunnel
 # Use already sett maven profile
-sh ./mvnw -B clean install -Dmaven.test.skip=true -Dmaven.javadoc.skip=true -Dlicense.skipAddThirdParty=true -D"docker.build.skip"=false -D"docker.verify.skip"=false -D"docker.push.skip"=true -D"docker.tag"=2.3.13 -Dmaven.deploy.skip -D"skip.spotless"=true --no-snapshot-updates -Pdocker,seatunnel
+sh ./mvnw -B clean install -Dmaven.test.skip=true -Dmaven.javadoc.skip=true -Dlicense.skipAddThirdParty=true -D"docker.build.skip"=false -D"docker.verify.skip"=false -D"docker.push.skip"=true -D"docker.tag"=3.0.0 -Dmaven.deploy.skip -D"skip.spotless"=true --no-snapshot-updates -Pdocker,seatunnel
 
 # Check the docker image
 docker images | grep apache/seatunnel
@@ -53,10 +53,10 @@ sh ./mvnw clean package -DskipTests -Dskip.spotless=true
 
 # Build docker image
 cd seatunnel-dist
-docker build -f src/main/docker/Dockerfile --build-arg VERSION=2.3.13 -t apache/seatunnel:2.3.13 .
+docker build -f src/main/docker/Dockerfile --build-arg VERSION=3.0.0 -t apache/seatunnel:3.0.0 .
 
 # If you build from dev branch, you should add SNAPSHOT suffix to the version
-docker build -f src/main/docker/Dockerfile --build-arg VERSION=2.3.13-SNAPSHOT -t apache/seatunnel:2.3.13-SNAPSHOT .
+docker build -f src/main/docker/Dockerfile --build-arg VERSION=3.0.0-SNAPSHOT -t apache/seatunnel:3.0.0-SNAPSHOT .
 
 # Check the docker image
 docker images | grep apache/seatunnel
@@ -64,7 +64,7 @@ docker images | grep apache/seatunnel
 
 The Dockerfile is like this:
 ```dockerfile
-FROM openjdk:8
+FROM seatunnelhub/openjdk:8u342
 
 ARG VERSION
 # Build from Source Code And Copy it into image
@@ -397,11 +397,10 @@ docker run --name seatunnel_client \
     ./bin/seatunnel.sh  -l
 ```
 
-more command please refer [user-command](../../seatunnel-engine/user-command.md)
+more command please refer [user-command](../../engines/zeta/user-command.md)
 
 
 
 #### use rest api
 
-please refer [Submit A Job](../../seatunnel-engine/rest-api-v2.md#submit-a-job)
-
+please refer [Submit A Job](../../engines/zeta/rest-api-v2.md#submit-a-job)

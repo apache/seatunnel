@@ -40,6 +40,7 @@ import org.mockito.ArgumentCaptor;
 import org.mockito.Mockito;
 
 import java.io.IOException;
+import java.lang.reflect.Field;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.nio.file.StandardCopyOption;
@@ -151,6 +152,39 @@ class ContinuousMultipleTableFileSourceSplitEnumeratorTest {
                     srcFile, FileTime.fromMillis(System.currentTimeMillis() + 2000));
             enumerator.scanOnceForTest();
             Assertions.assertEquals(1, enumerator.currentUnassignedSplitSize());
+        } finally {
+            enumerator.close();
+        }
+    }
+
+    @Test
+    void testScanOnceCleansKnownVersionWhenAckedSourceFileDisappears() throws Exception {
+        Path srcDir = Files.createDirectories(tempDir.resolve("src2_cleanup"));
+        Path dstDir = Files.createDirectories(tempDir.resolve("dst2_cleanup"));
+        Path srcFile = srcDir.resolve("test.bin");
+        Files.write(srcFile, "abc".getBytes());
+
+        EnumeratorWithContext enumeratorWithContext = createEnumerator(srcDir, dstDir);
+        ContinuousMultipleTableFileSourceSplitEnumerator enumerator =
+                enumeratorWithContext.enumerator;
+        try {
+            enumerator.scanOnceForTest();
+            enumerator.handleSplitRequest(0);
+            @SuppressWarnings("unchecked")
+            ArgumentCaptor<java.util.List<FileSourceSplit>> splitsCaptor =
+                    ArgumentCaptor.forClass((Class) java.util.List.class);
+            Mockito.verify(enumeratorWithContext.context)
+                    .assignSplit(Mockito.eq(0), splitsCaptor.capture());
+            FileSourceSplit assigned = splitsCaptor.getValue().get(0);
+
+            enumerator.handleSourceEvent(0, new FileSplitFinishedEvent(assigned.splitId()));
+            Assertions.assertEquals(1, getKnownSplitVersionSize(enumerator));
+
+            Files.delete(srcFile);
+            enumerator.scanOnceForTest();
+
+            Assertions.assertEquals(0, enumerator.currentUnassignedSplitSize());
+            Assertions.assertEquals(0, getKnownSplitVersionSize(enumerator));
         } finally {
             enumerator.close();
         }
@@ -753,6 +787,17 @@ class ContinuousMultipleTableFileSourceSplitEnumeratorTest {
             this.enumerator = enumerator;
             this.context = context;
         }
+    }
+
+    @SuppressWarnings("unchecked")
+    private static int getKnownSplitVersionSize(
+            ContinuousMultipleTableFileSourceSplitEnumerator enumerator)
+            throws NoSuchFieldException, IllegalAccessException {
+        Field field =
+                ContinuousMultipleTableFileSourceSplitEnumerator.class.getDeclaredField(
+                        "knownSplitVersions");
+        field.setAccessible(true);
+        return ((Map<String, Object>) field.get(enumerator)).size();
     }
 
     private static class LocalConf extends HadoopConf {

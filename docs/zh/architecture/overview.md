@@ -9,10 +9,10 @@ title: 架构概览
 
 ### 1.1 设计目标
 
-SeaTunnel 设计为分布式数据集成平台，具有以下核心目标：
+SeaTunnel 设计为分布式多模态数据集成工具，具有以下核心目标：
 
 - **引擎独立性**：将连接器逻辑尽量与执行引擎解耦；连接器可通过转换层适配到不同引擎，具体可用性以连接器能力与引擎支持为准
-- **高性能**：支持高吞吐、低延迟的大规模数据同步
+- **超高性能**：支持高吞吐、低延迟的大规模数据同步
 - **容错性**：在启用 checkpoint 且外部系统支持事务/幂等提交等前提下，通过分布式快照与提交协议提供可验证的一致性语义
 - **易用性**：提供简单的配置方式和丰富的连接器生态系统
 - **可扩展性**：基于插件的架构，便于添加新的连接器和转换组件
@@ -23,6 +23,20 @@ SeaTunnel 设计为分布式数据集成平台，具有以下核心目标：
 - **实时数据集成**：支持 CDC 的流式数据捕获和同步
 - **数据湖/仓入库**：高效加载数据到数据湖（Iceberg、Hudi、Delta Lake）和数据仓库
 - **多表同步**：在单个作业中同步多个表，支持模式演化
+
+### 1.3 推荐阅读路径
+
+如果你希望通过架构章节建立整体认知，建议按下面顺序阅读：
+
+- 先阅读本页，建立分层视图
+- 再看 [配置与 Option 系统](./configuration-and-option-system.md)，理解插件配置是如何定义、校验和暴露的
+- 再看 [Transform 插件体系](./transform-plugin-system.md)，理解 transform 如何位于 source、sink、schema 与引擎适配之间
+- 再看 [表模型与类型系统](./table-schema-and-type-system.md)，理解表元数据和可移植类型如何贯穿整条链路
+- 如果你关注 CDC 链路，再看 [CDC Pipeline 架构概览](./cdc-pipeline-architecture.md)
+- 再看 [Checkpoint 机制](./fault-tolerance/checkpoint-mechanism.md) 和 [Exactly-Once](./fault-tolerance/exactly-once.md)，理解一致性语义
+- 再看 [资源管理](./engine/resource-management.md)，理解 slot 分配与 worker 协调
+- 再看 [插件发现与类加载](./plugin-discovery-and-class-loading.md)，理解插件打包、发现与依赖隔离
+- 如果要理解多引擎适配，再看 [转换层](./api-design/translation-layer.md)
 
 ## 2. 整体架构
 
@@ -416,8 +430,12 @@ seatunnel/
 深入了解特定架构组件：
 
 - [设计理念](design-philosophy.md) - 核心设计原则和权衡
+- [Transform 插件体系](transform-plugin-system.md) - 理解 transform 插件如何组织、发现，并承担行数据与 schema 改写职责
+- [表模型与类型系统](table-schema-and-type-system.md) - 理解 schema、元数据和可移植类型如何在 connector 与引擎之间流动
+- [CDC Pipeline 架构概览](cdc-pipeline-architecture.md) - 理解快照、增量变更捕获与 sink 落地如何协同
 - [数据 Source 架构](api-design/source-architecture.md) - 数据源 API 设计深入探讨
 - [数据 Sink 架构](api-design/sink-architecture.md) - 数据 Sink  API 设计深入探讨
+- [插件发现与类加载](plugin-discovery-and-class-loading.md) - 理解 factory、jar 与依赖隔离在运行时如何被解析
 - [引擎架构](engine/engine-architecture.md) - SeaTunnel Engine 内部机制
 - [检查点机制](fault-tolerance/checkpoint-mechanism.md) - 容错实现
 
