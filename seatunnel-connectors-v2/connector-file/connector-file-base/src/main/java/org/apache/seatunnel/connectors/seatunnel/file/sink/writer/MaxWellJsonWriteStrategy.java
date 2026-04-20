@@ -71,9 +71,7 @@ public class MaxWellJsonWriteStrategy extends AbstractWriteStrategy<FSDataOutput
     protected void onSchemaChanged() {
         this.serializationSchema =
                 new MaxWellJsonSerializationSchema(
-                        buildSchemaWithRowType(seaTunnelRowType, sinkColumnsIndexInRow),
-                        charset,
-                        mergeUpdateEventFlag);
+                        buildSchemaWithRowType(seaTunnelRowType, sinkColumnsIndexInRow), charset);
     }
 
     @Override
