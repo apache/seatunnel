@@ -65,7 +65,7 @@ sh bin/seatunnel.sh --config $SEATUNNEL_HOME/config/v2.batch.config.template --a
 sh bin/seatunnel.sh --config $SEATUNNEL_HOME/config/v2.batch.config.template --dry-run static
 ```
 
-The `--dry-run static` (or `--check`) option allows you to statically validate the configuration file (e.g., HOCON/YAML syntax, plugin loadability, DAG topology, missing required options, and connector typos) without executing the actual job or causing any side-effects.
+The `--dry-run static` (or `--check`) option validates the configuration file **without submitting a job** (for example HOCON/YAML syntax, plugin loadability, DAG topology, missing required options, and unknown connector keys). It does not run the full data pipeline. Plugin loading may read local JARs, and some connectors might still open outbound connections while parsing or preparing configuration, so this is not a strict zero-network sandbox. Please note that this validation feature is provided exclusively via the CLI.
 
 ## Viewing The Job List
 

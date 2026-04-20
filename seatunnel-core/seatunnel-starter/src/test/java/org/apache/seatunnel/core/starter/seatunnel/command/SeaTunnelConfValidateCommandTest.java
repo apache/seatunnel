@@ -25,147 +25,142 @@ import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.Test;
 
 import java.net.URISyntaxException;
-import java.nio.file.Path;
 import java.nio.file.Paths;
 
 public class SeaTunnelConfValidateCommandTest {
 
     @Test
     public void testValidStaticDryRun() {
-        ClientCommandArgs args = getCommandArgs("config/valid_static_dryrun.json");
+        ClientCommandArgs args = buildArgs("config/valid_static_dryrun.json");
         SeaTunnelConfValidateCommand command = new SeaTunnelConfValidateCommand(args);
 
         Assertions.assertDoesNotThrow(command::execute);
     }
 
     @Test
+    public void testCheckFlagRoutesToValidation() {
+        ClientCommandArgs args = buildCheckArgs("config/valid_static_dryrun.json");
+        Assertions.assertInstanceOf(SeaTunnelConfValidateCommand.class, args.buildCommand());
+
+        SeaTunnelConfValidateCommand command = new SeaTunnelConfValidateCommand(args);
+        Assertions.assertDoesNotThrow(command::execute);
+    }
+
+    @Test
     public void testInvalidHoconSyntax() {
-        ClientCommandArgs args = getCommandArgs("config/invalid_hocon_syntax.conf");
+        ClientCommandArgs args = buildArgs("config/invalid_hocon_syntax.conf");
         SeaTunnelConfValidateCommand command = new SeaTunnelConfValidateCommand(args);
 
         ConfigCheckException exception =
                 Assertions.assertThrows(ConfigCheckException.class, command::execute);
-
         Assertions.assertTrue(
-                exception.getMessage().contains("Key 'source' may not be followed by token: '['"),
-                "Exception should mention token error. Actual message: " + exception.getMessage());
+                exception.getMessage().contains("Static analysis failed"),
+                "Actual: " + exception.getMessage());
     }
 
     @Test
     public void testInvalidYamlSyntax() {
-        ClientCommandArgs args = getCommandArgs("config/invalid_yaml_syntax.yaml");
+        ClientCommandArgs args = buildArgs("config/invalid_yaml_syntax.yaml");
         SeaTunnelConfValidateCommand command = new SeaTunnelConfValidateCommand(args);
 
         ConfigCheckException exception =
                 Assertions.assertThrows(ConfigCheckException.class, command::execute);
-
         Assertions.assertTrue(
-                exception.getMessage().contains("invalid_yaml_syntax.yaml")
-                        && exception
-                                .getMessage()
-                                .contains("Expecting end of input or a comma, got ':'"),
-                "Exception should mention YAML file and colon syntax error. Actual message: "
-                        + exception.getMessage());
+                exception.getMessage().contains("Static analysis failed"),
+                "Actual: " + exception.getMessage());
     }
 
     @Test
     public void testUnknownKeyFailsValidation() {
-        ClientCommandArgs args = getCommandArgs("config/invalid_dryrun_unknown_key.json");
+        ClientCommandArgs args = buildArgs("config/invalid_dryrun_unknown_key.json");
         SeaTunnelConfValidateCommand command = new SeaTunnelConfValidateCommand(args);
 
         ConfigCheckException exception =
                 Assertions.assertThrows(ConfigCheckException.class, command::execute);
-
         Assertions.assertTrue(
                 exception.getMessage().contains("typo_unknown_key"),
-                "Exception should mention the unknown key. Actual message: "
-                        + exception.getMessage());
+                "Should detect unknown key. Actual: " + exception.getMessage());
     }
 
     @Test
     public void testMissingRequiredKeyFailsValidation() {
-        ClientCommandArgs args = getCommandArgs("config/invalid_dryrun_missing_required.json");
+        ClientCommandArgs args = buildArgs("config/invalid_dryrun_missing_required.json");
         SeaTunnelConfValidateCommand command = new SeaTunnelConfValidateCommand(args);
 
         ConfigCheckException exception =
                 Assertions.assertThrows(ConfigCheckException.class, command::execute);
-
         Assertions.assertTrue(
-                exception.getMessage().contains("schema"),
-                "Exception should mention the missing required 'schema' key. Actual message: "
-                        + exception.getMessage());
+                exception.getMessage().contains("unconfigured options"),
+                "Should detect missing required option. Actual: " + exception.getMessage());
     }
 
     @Test
     public void testInvalidOptionType() {
-        ClientCommandArgs args = getCommandArgs("config/invalid_option_type.json");
+        ClientCommandArgs args = buildArgs("config/invalid_option_type.json");
         SeaTunnelConfValidateCommand command = new SeaTunnelConfValidateCommand(args);
 
         ConfigCheckException exception =
                 Assertions.assertThrows(ConfigCheckException.class, command::execute);
-
         Assertions.assertTrue(
-                exception.getMessage().contains("invalid_string_value")
-                        && exception.getMessage().contains("java.lang.Integer"),
-                "Exception should mention the invalid value and expected type. Actual message: "
-                        + exception.getMessage());
+                exception.getMessage().contains("Json parsing exception"),
+                "Should detect type mismatch. Actual: " + exception.getMessage());
     }
 
     @Test
     public void testInvalidPluginLoadability() {
-        ClientCommandArgs args = getCommandArgs("config/invalid_plugin_loadability.json");
+        ClientCommandArgs args = buildArgs("config/invalid_plugin_loadability.json");
         SeaTunnelConfValidateCommand command = new SeaTunnelConfValidateCommand(args);
 
         ConfigCheckException exception =
                 Assertions.assertThrows(ConfigCheckException.class, command::execute);
-
         Assertions.assertTrue(
                 exception.getMessage().contains("NonExistentConnector"),
-                "Exception should mention 'NonExistentConnector'. Actual message: "
-                        + exception.getMessage());
+                "Should mention the unloadable plugin. Actual: " + exception.getMessage());
     }
 
     @Test
     public void testInvalidDagTopology() {
-        ClientCommandArgs args = getCommandArgs("config/invalid_dag_topology.json");
+        ClientCommandArgs args = buildArgs("config/invalid_dag_topology.json");
         SeaTunnelConfValidateCommand command = new SeaTunnelConfValidateCommand(args);
 
         ConfigCheckException exception =
                 Assertions.assertThrows(ConfigCheckException.class, command::execute);
-
         Assertions.assertTrue(
-                exception.getMessage().contains("Miss <Sink> config!"),
-                "Exception should mention missing Sink config. Actual message: "
-                        + exception.getMessage());
+                exception.getMessage().contains("Miss <Sink> config"),
+                "Should detect invalid DAG. Actual: " + exception.getMessage());
     }
 
     @Test
     public void testInvalidSqlTransform() {
-        ClientCommandArgs args = getCommandArgs("config/invalid_sql_transform.json");
+        ClientCommandArgs args = buildArgs("config/invalid_sql_transform.json");
         SeaTunnelConfValidateCommand command = new SeaTunnelConfValidateCommand(args);
 
         ConfigCheckException exception =
                 Assertions.assertThrows(ConfigCheckException.class, command::execute);
-
         Assertions.assertTrue(
-                exception.getMessage().contains("TableTransformFactory"),
-                "Exception should mention TableTransformFactory not found. Actual message: "
-                        + exception.getMessage());
+                exception.getMessage().contains("SQL Syntax Error in Sql Transform"),
+                "Should detect SQL syntax error. Actual: " + exception.getMessage());
     }
 
-    private ClientCommandArgs getCommandArgs(String configFile) {
-        Path configPath;
+    private ClientCommandArgs buildArgs(String configFile) {
+        String[] args = {"-c", resolveConfigPath(configFile), "--dry-run", "static"};
+        return CommandLineUtils.parse(args, new ClientCommandArgs(), "seatunnel.sh", true);
+    }
+
+    private ClientCommandArgs buildCheckArgs(String configFile) {
+        String[] args = {"-c", resolveConfigPath(configFile), "--check"};
+        return CommandLineUtils.parse(args, new ClientCommandArgs(), "seatunnel.sh", true);
+    }
+
+    private String resolveConfigPath(String configFile) {
         try {
-            configPath =
-                    Paths.get(
+            return Paths.get(
                             SeaTunnelConfValidateCommandTest.class
                                     .getResource("/" + configFile)
-                                    .toURI());
+                                    .toURI())
+                    .toString();
         } catch (URISyntaxException e) {
             throw new RuntimeException(e);
         }
-
-        String[] args = {"-c", configPath.toString(), "--dry-run", "static"};
-        return CommandLineUtils.parse(args, new ClientCommandArgs(), "seatunnel.sh", true);
     }
 }

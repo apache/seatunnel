@@ -17,16 +17,16 @@
   ],
   "transform": [
     {
-      "plugin_name": "Copy",
+      "plugin_name": "Sql",
       "plugin_input": "fake",
-      "plugin_output": "copy_out",
-      "query": "SELCT FROM fake WHERE id > 1"
+      "plugin_output": "sql_out",
+      "query": "SELCT * FROM fake WHERE id > 1"
     }
   ],
   "sink": [
     {
       "plugin_name": "Console",
-      "plugin_input": "copy_out"
+      "plugin_input": "sql_out"
     }
   ]
 }

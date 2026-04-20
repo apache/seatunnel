@@ -81,7 +81,7 @@ bin/seatunnel.sh --config $SEATUNNEL_HOME/config/v2.batch.config.template
 bin/seatunnel.sh --config $SEATUNNEL_HOME/config/v2.batch.config.template --dry-run static
 ```
 
-使用 `--dry-run static`（或者 `--check`）参数可以在不实际运行作业或产生任何副作用的情况下，静态校验配置文件（包括 HOCON/YAML 语法检查、插件加载检查、DAG 拓扑验证、缺少必填选项的检查以及配置项的拼写错误检测）。
+使用 `--dry-run static`（或者 `--check`）参数可以在**不提交作业**的前提下静态校验配置文件（包括 HOCON/YAML 语法、插件可加载性、DAG 拓扑、必填项与未知配置键等）。它不会执行完整的数据管道。插件加载会读取本地 JAR；部分连接器在解析或准备配置时仍可能发起外连，因此这不等同于严格的零网络环境。请注意，该验证功能目前仅提供 CLI 服务。
 
 ## 查看作业列表
 

@@ -60,7 +60,8 @@ public abstract class AbstractCommandArgs extends CommandArgs {
     /** dry-run flag */
     @Parameter(
             names = {"-d", "--dry-run"},
-            description = "Run the job in dry-run mode, support [static, connect, sample, shadow]",
+            description =
+                    "Static config validation without running the job. Currently only [static] is supported.",
             converter = DryRunConverter.class)
     protected DryRun dryRun = null;
 
@@ -87,13 +88,21 @@ public abstract class AbstractCommandArgs extends CommandArgs {
     public static class DryRunConverter implements IStringConverter<DryRun> {
         @Override
         public DryRun convert(String value) {
-            for (DryRun run : DryRun.values()) {
-                if (run.getName().equalsIgnoreCase(value) || run.name().equalsIgnoreCase(value)) {
-                    return run;
-                }
+            if (value == null || value.trim().isEmpty()) {
+                throw new IllegalArgumentException("Dry-run mode must not be empty.");
+            }
+            String trimmed = value.trim();
+            // Only STATIC is implemented end-to-end; other enum values exist for forward
+            // compatibility but must not be accepted from the CLI until wired.
+            if (DryRun.STATIC.getName().equalsIgnoreCase(trimmed)
+                    || DryRun.STATIC.name().equalsIgnoreCase(trimmed)) {
+                return DryRun.STATIC;
             }
             throw new IllegalArgumentException(
-                    "SeaTunnel job dry-run mode only support these options: [static, connect, sample, shadow]");
+                    "Unsupported dry-run mode '"
+                            + value
+                            + "'. Currently only [static] is supported; connect, sample, and shadow"
+                            + " are not implemented yet.");
         }
     }
 }
