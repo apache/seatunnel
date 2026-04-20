@@ -112,9 +112,7 @@ public class SqlServerSchemaChangeResolverTest {
                         .setPrimaryKeyNames(Collections.singletonList("id"))
                         .setColumns(
                                 Arrays.asList(
-                                        intColumn("id", 1),
-                                        varcharColumn("full_name", 2, 64),
-                                        varcharColumn("email", 3, 128)))
+                                        intColumn("id", 1), varcharColumn("full_name", 2, 64)))
                         .create());
         SourceRecord record = createRecord(tableChanges);
 
@@ -131,6 +129,26 @@ public class SqlServerSchemaChangeResolverTest {
         Assertions.assertEquals("name", changeEvent.getOldColumn());
         Assertions.assertEquals("full_name", changeEvent.getColumn().getName());
         Assertions.assertEquals("id", changeEvent.getAfterColumn());
+    }
+
+    @Test
+    void shouldResolveSchemaChangeWhenIdentifiersAreBracketed() {
+        SourceRecord record =
+                createRecord(
+                        createAlterTableChange(varcharColumn("email", 3, 128)),
+                        "[test_db]",
+                        "[dbo]",
+                        "[customers]",
+                        "ALTER TABLE [test_db].[dbo].[customers] ADD [email] VARCHAR(128)");
+
+        SchemaChangeEvent event =
+                resolver.resolve(record, Collections.singletonList(createCatalogTable()));
+
+        Assertions.assertInstanceOf(AlterTableColumnsEvent.class, event);
+        AlterTableColumnsEvent columnsEvent = (AlterTableColumnsEvent) event;
+        Assertions.assertEquals(1, columnsEvent.getEvents().size());
+        Assertions.assertInstanceOf(
+                AlterTableAddColumnEvent.class, columnsEvent.getEvents().get(0));
     }
 
     private CatalogTable createCatalogTable() {
@@ -178,14 +196,23 @@ public class SqlServerSchemaChangeResolverTest {
     }
 
     private SourceRecord createRecord(TableChanges tableChanges) {
+        return createRecord(tableChanges, DATABASE_NAME, SCHEMA_NAME, TABLE_NAME, "ALTER TABLE");
+    }
+
+    private SourceRecord createRecord(
+            TableChanges tableChanges,
+            String databaseName,
+            String schemaName,
+            String tableName,
+            String ddl) {
         Struct value = new Struct(VALUE_SCHEMA);
         value.put(
                 Envelope.FieldName.SOURCE,
                 new Struct(SOURCE_SCHEMA)
-                        .put(AbstractSourceInfo.DATABASE_NAME_KEY, DATABASE_NAME)
-                        .put(AbstractSourceInfo.SCHEMA_NAME_KEY, SCHEMA_NAME)
-                        .put(AbstractSourceInfo.TABLE_NAME_KEY, TABLE_NAME));
-        value.put(HistoryRecord.Fields.DDL_STATEMENTS, "ALTER TABLE");
+                        .put(AbstractSourceInfo.DATABASE_NAME_KEY, databaseName)
+                        .put(AbstractSourceInfo.SCHEMA_NAME_KEY, schemaName)
+                        .put(AbstractSourceInfo.TABLE_NAME_KEY, tableName));
+        value.put(HistoryRecord.Fields.DDL_STATEMENTS, ddl);
         value.put(HistoryRecord.Fields.TABLE_CHANGES, serializer.serialize(tableChanges));
         return new SourceRecord(
                 Collections.emptyMap(),

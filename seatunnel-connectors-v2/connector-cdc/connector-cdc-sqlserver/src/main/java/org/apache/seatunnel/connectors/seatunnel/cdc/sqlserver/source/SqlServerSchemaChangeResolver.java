@@ -47,24 +47,36 @@ import lombok.extern.slf4j.Slf4j;
 
 import java.io.Serializable;
 import java.util.ArrayList;
+import java.util.Collections;
 import java.util.HashSet;
+import java.util.LinkedHashMap;
 import java.util.List;
+import java.util.Locale;
 import java.util.Map;
 import java.util.Objects;
 import java.util.Set;
+import java.util.regex.Matcher;
+import java.util.regex.Pattern;
 import java.util.stream.Collectors;
 
 @Slf4j
 public class SqlServerSchemaChangeResolver implements SchemaChangeResolver {
 
     private static final String SOURCE_DIALECT = DatabaseIdentifier.SQLSERVER;
+    private static final String SQLSERVER_SCHEMA_CHANGE_KEY =
+            "io.debezium.connector.sqlserver.SchemaChangeKey";
+    private static final Pattern ALTER_TABLE_PATTERN =
+            Pattern.compile(
+                    "(?i)ALTER\\s+TABLE\\s+(.+?)\\s+(ADD|DROP|ALTER|RENAME|WITH|SWITCH)\\b");
+    private static final Pattern TABLE_IDENTIFIER_PART_PATTERN =
+            Pattern.compile("\\[([^\\]]+)]|\"([^\"]+)\"|`([^`]+)`|([^\\.\\s]+)");
 
     private final ConnectTableChangeSerializer tableChangeSerializer =
             new ConnectTableChangeSerializer();
 
     @Override
     public boolean support(SourceRecord record) {
-        if (!SourceRecordUtils.isSchemaChangeEvent(record)) {
+        if (!isSqlServerSchemaChangeEvent(record)) {
             return false;
         }
         Struct value = (Struct) record.value();
@@ -74,7 +86,7 @@ public class SqlServerSchemaChangeResolver implements SchemaChangeResolver {
 
     @Override
     public SchemaChangeEvent resolve(SourceRecord record, List<CatalogTable> catalogTables) {
-        TablePath tablePath = SourceRecordUtils.getTablePath(record);
+        TablePath tablePath = resolveTablePath(record);
         CatalogTable currentCatalogTable = findCatalogTable(catalogTables, tablePath);
         if (currentCatalogTable == null) {
             log.warn("Ignoring SQL Server schema change for unknown table {}", tablePath);
@@ -109,9 +121,24 @@ public class SqlServerSchemaChangeResolver implements SchemaChangeResolver {
             return null;
         }
         return catalogTables.stream()
-                .filter(table -> table.getTablePath().equals(tablePath))
+                .filter(table -> isSameTablePath(table.getTablePath(), tablePath))
                 .findFirst()
                 .orElse(null);
+    }
+
+    private TablePath resolveTablePath(SourceRecord record) {
+        TablePath pathFromSource = SourceRecordUtils.getTablePath(record);
+        TablePath pathFromDdl = parseTablePathFromDdl(SourceRecordUtils.getDdl(record));
+        if (pathFromDdl == null) {
+            return pathFromSource;
+        }
+        return TablePath.of(
+                StringUtils.defaultIfBlank(
+                        pathFromSource.getDatabaseName(), pathFromDdl.getDatabaseName()),
+                StringUtils.defaultIfBlank(
+                        pathFromSource.getSchemaName(), pathFromDdl.getSchemaName()),
+                StringUtils.defaultIfBlank(
+                        pathFromSource.getTableName(), pathFromDdl.getTableName()));
     }
 
     private Table getCurrentTable(SourceRecord record, TablePath tablePath) {
@@ -123,9 +150,9 @@ public class SqlServerSchemaChangeResolver implements SchemaChangeResolver {
             if (table == null) {
                 continue;
             }
-            if (StringUtils.equals(table.id().catalog(), tablePath.getDatabaseName())
-                    && StringUtils.equals(table.id().schema(), tablePath.getSchemaName())
-                    && StringUtils.equals(table.id().table(), tablePath.getTableName())) {
+            if (isSameIdentifier(table.id().catalog(), tablePath.getDatabaseName())
+                    && isSameIdentifier(table.id().schema(), tablePath.getSchemaName())
+                    && isSameIdentifier(table.id().table(), tablePath.getTableName())) {
                 return table;
             }
         }
@@ -140,12 +167,20 @@ public class SqlServerSchemaChangeResolver implements SchemaChangeResolver {
 
         Map<String, Column> previousByName =
                 previousColumns.stream()
-                        .collect(Collectors.toMap(Column::getName, column -> column));
+                        .collect(
+                                Collectors.toMap(
+                                        column -> normalizeIdentifier(column.getName()),
+                                        column -> column,
+                                        (left, right) -> left,
+                                        LinkedHashMap::new));
         Map<String, io.debezium.relational.Column> currentByName =
                 newColumns.stream()
                         .collect(
                                 Collectors.toMap(
-                                        io.debezium.relational.Column::name, column -> column));
+                                        column -> normalizeIdentifier(column.name()),
+                                        column -> column,
+                                        (left, right) -> left,
+                                        LinkedHashMap::new));
 
         Set<String> matchedNames = new HashSet<>(previousByName.keySet());
         matchedNames.retainAll(currentByName.keySet());
@@ -153,10 +188,11 @@ public class SqlServerSchemaChangeResolver implements SchemaChangeResolver {
         List<AlterTableColumnEvent> events = new ArrayList<>();
         for (int index = 0; index < newColumns.size(); index++) {
             io.debezium.relational.Column newColumn = newColumns.get(index);
-            if (!matchedNames.contains(newColumn.name())) {
+            String normalizedName = normalizeIdentifier(newColumn.name());
+            if (!matchedNames.contains(normalizedName)) {
                 continue;
             }
-            Column oldColumn = previousByName.get(newColumn.name());
+            Column oldColumn = previousByName.get(normalizedName);
             Column convertedColumn = convertColumn(newColumn);
             boolean changed = hasColumnChanged(oldColumn, convertedColumn, index, previousColumns);
             if (!changed) {
@@ -172,7 +208,7 @@ public class SqlServerSchemaChangeResolver implements SchemaChangeResolver {
         List<ColumnWithIndex<Column>> removedColumns = new ArrayList<>();
         for (int index = 0; index < previousColumns.size(); index++) {
             Column column = previousColumns.get(index);
-            if (!currentByName.containsKey(column.getName())) {
+            if (!currentByName.containsKey(normalizeIdentifier(column.getName()))) {
                 removedColumns.add(new ColumnWithIndex<>(column, index));
             }
         }
@@ -180,7 +216,7 @@ public class SqlServerSchemaChangeResolver implements SchemaChangeResolver {
         List<ColumnWithIndex<io.debezium.relational.Column>> addedColumns = new ArrayList<>();
         for (int index = 0; index < newColumns.size(); index++) {
             io.debezium.relational.Column column = newColumns.get(index);
-            if (!previousByName.containsKey(column.name())) {
+            if (!previousByName.containsKey(normalizeIdentifier(column.name()))) {
                 addedColumns.add(new ColumnWithIndex<>(column, index));
             }
         }
@@ -296,7 +332,7 @@ public class SqlServerSchemaChangeResolver implements SchemaChangeResolver {
         if (oldColumn == null || newColumn == null) {
             return true;
         }
-        if (oldColumn.equals(newColumn)) {
+        if (isSameColumnDefinition(oldColumn, newColumn)) {
             int oldIndex = indexOfColumn(previousColumns, oldColumn.getName());
             return oldIndex != newIndex;
         }
@@ -305,7 +341,7 @@ public class SqlServerSchemaChangeResolver implements SchemaChangeResolver {
 
     private int indexOfColumn(List<Column> columns, String columnName) {
         for (int index = 0; index < columns.size(); index++) {
-            if (StringUtils.equals(columns.get(index).getName(), columnName)) {
+            if (isSameIdentifier(columns.get(index).getName(), columnName)) {
                 return index;
             }
         }
@@ -314,19 +350,13 @@ public class SqlServerSchemaChangeResolver implements SchemaChangeResolver {
 
     private boolean hasTypeChanged(Column oldColumn, Column newColumn) {
         return !Objects.equals(oldColumn.getDataType(), newColumn.getDataType())
-                || !Objects.equals(oldColumn.getColumnLength(), newColumn.getColumnLength())
-                || !Objects.equals(oldColumn.getScale(), newColumn.getScale())
-                || !Objects.equals(oldColumn.getSourceType(), newColumn.getSourceType());
+                || !isLengthCompatible(oldColumn.getColumnLength(), newColumn.getColumnLength())
+                || !isScaleCompatible(oldColumn.getScale(), newColumn.getScale())
+                || !isSourceTypeCompatible(oldColumn.getSourceType(), newColumn.getSourceType());
     }
 
     private boolean sameDefinitionExceptName(Column oldColumn, Column newColumn) {
-        return Objects.equals(oldColumn.getDataType(), newColumn.getDataType())
-                && Objects.equals(oldColumn.getColumnLength(), newColumn.getColumnLength())
-                && Objects.equals(oldColumn.getScale(), newColumn.getScale())
-                && Objects.equals(oldColumn.isNullable(), newColumn.isNullable())
-                && Objects.equals(oldColumn.getDefaultValue(), newColumn.getDefaultValue())
-                && Objects.equals(oldColumn.getComment(), newColumn.getComment())
-                && Objects.equals(oldColumn.getSourceType(), newColumn.getSourceType());
+        return isSameColumnDefinition(oldColumn, newColumn);
     }
 
     private Column convertColumn(io.debezium.relational.Column column) {
@@ -347,6 +377,127 @@ public class SqlServerSchemaChangeResolver implements SchemaChangeResolver {
                 .comment(column.comment())
                 .sourceType(sourceType)
                 .build();
+    }
+
+    private boolean isSameColumnDefinition(Column oldColumn, Column newColumn) {
+        return Objects.equals(oldColumn.getDataType(), newColumn.getDataType())
+                && isLengthCompatible(oldColumn.getColumnLength(), newColumn.getColumnLength())
+                && isScaleCompatible(oldColumn.getScale(), newColumn.getScale())
+                && Objects.equals(oldColumn.isNullable(), newColumn.isNullable())
+                && Objects.equals(oldColumn.getDefaultValue(), newColumn.getDefaultValue())
+                && Objects.equals(oldColumn.getComment(), newColumn.getComment())
+                && isSourceTypeCompatible(oldColumn.getSourceType(), newColumn.getSourceType());
+    }
+
+    private boolean isLengthCompatible(Long oldLength, Long newLength) {
+        return oldLength == null || newLength == null || Objects.equals(oldLength, newLength);
+    }
+
+    private boolean isScaleCompatible(Integer oldScale, Integer newScale) {
+        return oldScale == null || newScale == null || Objects.equals(oldScale, newScale);
+    }
+
+    private boolean isSourceTypeCompatible(String oldSourceType, String newSourceType) {
+        if (StringUtils.isBlank(oldSourceType) || StringUtils.isBlank(newSourceType)) {
+            return true;
+        }
+        String normalizedOld = oldSourceType.replace(" ", "").toLowerCase(Locale.ENGLISH);
+        String normalizedNew = newSourceType.replace(" ", "").toLowerCase(Locale.ENGLISH);
+        return StringUtils.equals(normalizedOld, normalizedNew);
+    }
+
+    private TablePath parseTablePathFromDdl(String ddl) {
+        if (StringUtils.isBlank(ddl)) {
+            return null;
+        }
+        Matcher matcher = ALTER_TABLE_PATTERN.matcher(ddl);
+        if (!matcher.find()) {
+            return null;
+        }
+        String tableIdentifier = matcher.group(1);
+        List<String> parts = parseIdentifierParts(tableIdentifier);
+        if (parts.isEmpty()) {
+            return null;
+        }
+        if (parts.size() == 1) {
+            return TablePath.of(null, null, parts.get(0));
+        }
+        if (parts.size() == 2) {
+            return TablePath.of(null, parts.get(0), parts.get(1));
+        }
+        return TablePath.of(
+                parts.get(parts.size() - 3),
+                parts.get(parts.size() - 2),
+                parts.get(parts.size() - 1));
+    }
+
+    private List<String> parseIdentifierParts(String rawIdentifier) {
+        if (StringUtils.isBlank(rawIdentifier)) {
+            return Collections.emptyList();
+        }
+        List<String> parts = new ArrayList<>();
+        Matcher matcher = TABLE_IDENTIFIER_PART_PATTERN.matcher(rawIdentifier);
+        while (matcher.find()) {
+            String part =
+                    firstNonBlank(
+                            matcher.group(1), matcher.group(2), matcher.group(3), matcher.group(4));
+            if (StringUtils.isNotBlank(part)) {
+                parts.add(part.trim());
+            }
+        }
+        return parts;
+    }
+
+    private String firstNonBlank(String... values) {
+        for (String value : values) {
+            if (StringUtils.isNotBlank(value)) {
+                return value;
+            }
+        }
+        return null;
+    }
+
+    private boolean isSqlServerSchemaChangeEvent(SourceRecord record) {
+        if (record == null || record.keySchema() == null) {
+            return false;
+        }
+        String keySchemaName = record.keySchema().name();
+        return StringUtils.equalsIgnoreCase(keySchemaName, SQLSERVER_SCHEMA_CHANGE_KEY)
+                || SourceRecordUtils.isSchemaChangeEvent(record);
+    }
+
+    private boolean isSameTablePath(TablePath left, TablePath right) {
+        return left != null
+                && right != null
+                && isSameIdentifier(left.getDatabaseName(), right.getDatabaseName())
+                && isSameIdentifier(left.getSchemaName(), right.getSchemaName())
+                && isSameIdentifier(left.getTableName(), right.getTableName());
+    }
+
+    private boolean isSameIdentifier(String left, String right) {
+        String normalizedLeft = normalizeIdentifier(left);
+        String normalizedRight = normalizeIdentifier(right);
+        if (StringUtils.isBlank(normalizedLeft) || StringUtils.isBlank(normalizedRight)) {
+            return StringUtils.equals(normalizedLeft, normalizedRight);
+        }
+        return StringUtils.equalsIgnoreCase(normalizedLeft, normalizedRight);
+    }
+
+    private String normalizeIdentifier(String identifier) {
+        if (identifier == null) {
+            return null;
+        }
+        String normalized = identifier.trim();
+        if (StringUtils.startsWith(normalized, "[") && StringUtils.endsWith(normalized, "]")) {
+            normalized = normalized.substring(1, normalized.length() - 1);
+        }
+        if (StringUtils.startsWith(normalized, "\"") && StringUtils.endsWith(normalized, "\"")) {
+            normalized = normalized.substring(1, normalized.length() - 1);
+        }
+        if (StringUtils.startsWith(normalized, "`") && StringUtils.endsWith(normalized, "`")) {
+            normalized = normalized.substring(1, normalized.length() - 1);
+        }
+        return normalized;
     }
 
     private static class ColumnWithIndex<T> implements Serializable {
