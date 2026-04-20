@@ -68,6 +68,15 @@ public class CanalJsonWriteStrategy extends AbstractWriteStrategy<FSDataOutputSt
     }
 
     @Override
+    protected void onSchemaChanged() {
+        this.serializationSchema =
+                new CanalJsonSerializationSchema(
+                        buildSchemaWithRowType(seaTunnelRowType, sinkColumnsIndexInRow),
+                        charset,
+                        mergeUpdateEventFlag);
+    }
+
+    @Override
     public void write(@NonNull SeaTunnelRow seaTunnelRow) {
         super.write(seaTunnelRow);
         String filePath = getOrCreateFilePathBeingWritten(seaTunnelRow);

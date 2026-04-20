@@ -68,6 +68,15 @@ public class MaxWellJsonWriteStrategy extends AbstractWriteStrategy<FSDataOutput
     }
 
     @Override
+    protected void onSchemaChanged() {
+        this.serializationSchema =
+                new MaxWellJsonSerializationSchema(
+                        buildSchemaWithRowType(seaTunnelRowType, sinkColumnsIndexInRow),
+                        charset,
+                        mergeUpdateEventFlag);
+    }
+
+    @Override
     public void write(@NonNull SeaTunnelRow seaTunnelRow) {
         super.write(seaTunnelRow);
         String filePath = getOrCreateFilePathBeingWritten(seaTunnelRow);

@@ -230,5 +230,13 @@ public class FileSinkConfig extends BaseFileSinkConfig implements PartitionConfi
                     "schema_evolution_enabled=true is not supported for file_format_type=binary."
                             + " Binary format has a fixed schema and cannot apply schema changes.");
         }
+        if (this.schemaEvolutionEnabled && !CollectionUtils.isEmpty(this.partitionFieldList)) {
+            throw new FileConnectorException(
+                    FileConnectorErrorCode.FORMAT_NOT_SUPPORT,
+                    "schema_evolution_enabled=true is not supported when partition_by is"
+                            + " configured. Partition field indices are derived from the original"
+                            + " schema and cannot be safely updated after a schema change."
+                            + " Remove partition_by or disable schema_evolution_enabled.");
+        }
     }
 }

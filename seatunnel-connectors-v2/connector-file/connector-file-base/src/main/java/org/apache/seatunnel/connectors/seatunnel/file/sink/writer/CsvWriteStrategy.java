@@ -92,6 +92,21 @@ public class CsvWriteStrategy extends AbstractWriteStrategy<FSDataOutputStream> 
     }
 
     @Override
+    protected void onSchemaChanged() {
+        this.serializationSchema =
+                CsvSerializationSchema.builder()
+                        .seaTunnelRowType(
+                                buildSchemaWithRowType(seaTunnelRowType, sinkColumnsIndexInRow))
+                        .delimiter(fieldDelimiter)
+                        .dateFormatter(dateFormat)
+                        .dateTimeFormatter(dateTimeFormat)
+                        .timeFormatter(timeFormat)
+                        .charset(charset)
+                        .quoteMode(csvStringQuoteMode)
+                        .build();
+    }
+
+    @Override
     public void write(@NonNull SeaTunnelRow seaTunnelRow) {
         super.write(seaTunnelRow);
         String filePath = getOrCreateFilePathBeingWritten(seaTunnelRow);

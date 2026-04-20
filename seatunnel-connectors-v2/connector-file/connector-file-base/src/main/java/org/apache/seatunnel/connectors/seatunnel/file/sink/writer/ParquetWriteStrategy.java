@@ -138,21 +138,27 @@ public class ParquetWriteStrategy extends AbstractWriteStrategy<ParquetWriter<Ge
 
     @Override
     public void finishAndCloseFile() {
+        List<FileConnectorException> closeErrors = new ArrayList<>();
         this.beingWrittenWriter.forEach(
                 (k, v) -> {
                     try {
                         v.close();
+                        needMoveFiles.put(k, getTargetLocation(k));
                     } catch (IOException e) {
-                        String errorMsg =
-                                String.format(
-                                        "Close file [%s] parquet writer failed, error msg: [%s]",
-                                        k, e.getMessage());
-                        throw new FileConnectorException(
-                                CommonErrorCodeDeprecated.WRITER_OPERATION_FAILED, errorMsg, e);
+                        closeErrors.add(
+                                new FileConnectorException(
+                                        CommonErrorCodeDeprecated.WRITER_OPERATION_FAILED,
+                                        String.format(
+                                                "Close file [%s] parquet writer failed, error"
+                                                        + " msg: [%s]",
+                                                k, e.getMessage()),
+                                        e));
                     }
-                    needMoveFiles.put(k, getTargetLocation(k));
                 });
         this.beingWrittenWriter.clear();
+        if (!closeErrors.isEmpty()) {
+            throw closeErrors.get(0);
+        }
     }
 
     @Override

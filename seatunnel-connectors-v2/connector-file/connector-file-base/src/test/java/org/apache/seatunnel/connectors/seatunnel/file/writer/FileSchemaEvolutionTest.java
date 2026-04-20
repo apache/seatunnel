@@ -518,8 +518,22 @@ public class FileSchemaEvolutionTest {
                                 + "schema_evolution_enabled = true");
         Assertions.assertThrows(
                 FileConnectorException.class,
-                () -> new FileSinkConfig(ReadonlyConfig.fromConfig(config), BASE_ROW_TYPE),
+                () -> new FileSinkConfig(config, BASE_ROW_TYPE),
                 "binary format must reject schema_evolution_enabled=true at config time");
+    }
+
+    @Test
+    public void testPartitionByWithSchemaEvolutionEnabledThrowsAtConfig() {
+        Config config =
+                ConfigFactory.parseString(
+                        "path = \"/tmp/test\"\n"
+                                + "file_format_type = \"text\"\n"
+                                + "partition_by = [\"age\"]\n"
+                                + "schema_evolution_enabled = true");
+        Assertions.assertThrows(
+                FileConnectorException.class,
+                () -> new FileSinkConfig(config, BASE_ROW_TYPE),
+                "partition_by must reject schema_evolution_enabled=true at config time");
     }
 
     /**

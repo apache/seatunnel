@@ -42,7 +42,7 @@ public class ExcelWriteStrategy extends AbstractWriteStrategy<ExcelGenerator> {
         super.write(seaTunnelRow);
         String filePath = getOrCreateFilePathBeingWritten(seaTunnelRow);
         ExcelGenerator excelGenerator = getOrCreateOutputStream(filePath);
-        excelGenerator.writeData(seaTunnelRow);
+        excelGenerator.writeData(safeProjectedRow(seaTunnelRow));
     }
 
     @Override

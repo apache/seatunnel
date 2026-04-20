@@ -68,6 +68,15 @@ public class DebeziumJsonWriteStrategy extends AbstractWriteStrategy<FSDataOutpu
     }
 
     @Override
+    protected void onSchemaChanged() {
+        this.serializationSchema =
+                new DebeziumJsonSerializationSchema(
+                        buildSchemaWithRowType(seaTunnelRowType, sinkColumnsIndexInRow),
+                        charset,
+                        mergeUpdateEventFlag);
+    }
+
+    @Override
     public void write(@NonNull SeaTunnelRow seaTunnelRow) {
         super.write(seaTunnelRow);
         String filePath = getOrCreateFilePathBeingWritten(seaTunnelRow);
