@@ -92,15 +92,13 @@ public class PulsarMultiTableIT extends TestSuiteBase implements TestResource {
                         client.newProducer(Schema.BYTES).topic(TOPIC_USERS).create()) {
             ordersProducer.send(
                     "{\"order_id\":1,\"amount\":99.9}".getBytes(StandardCharsets.UTF_8));
-            usersProducer.send(
-                    "{\"user_id\":2,\"name\":\"bob\"}".getBytes(StandardCharsets.UTF_8));
+            usersProducer.send("{\"user_id\":2,\"name\":\"bob\"}".getBytes(StandardCharsets.UTF_8));
         }
     }
 
     @TestTemplate
     void testMultiTableBatch(TestContainer container) throws IOException, InterruptedException {
-        Container.ExecResult result =
-                container.executeJob("/multi_table_pulsar_to_assert.conf");
+        Container.ExecResult result = container.executeJob("/multi_table_pulsar_to_assert.conf");
         Assertions.assertEquals(0, result.getExitCode(), result.getStderr());
     }
 }
