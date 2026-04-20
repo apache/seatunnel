@@ -49,7 +49,7 @@ public class XmlWriteStrategy extends AbstractWriteStrategy<XmlWriter> {
         super.write(seaTunnelRow);
         String filePath = getOrCreateFilePathBeingWritten(seaTunnelRow);
         XmlWriter xmlDocWriter = getOrCreateOutputStream(filePath);
-        xmlDocWriter.writeData(safeProjectedRow(seaTunnelRow));
+        xmlDocWriter.writeData(seaTunnelRow);
     }
 
     @Override
