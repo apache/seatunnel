@@ -198,7 +198,8 @@ public class SchemaUtils {
         return toIcebergSchema(tableSchema, pkColumns);
     }
 
-    private static Schema toIcebergSchema(TableSchema tableSchema, List<String> primaryKeyColumns) {
+    @VisibleForTesting
+    static Schema toIcebergSchema(TableSchema tableSchema, List<String> primaryKeyColumns) {
         Types.StructType structType = SchemaUtils.toIcebergType(tableSchema);
         Set<Integer> identifierFieldIds =
                 primaryKeyColumns.stream()
