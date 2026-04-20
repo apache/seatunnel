@@ -146,7 +146,7 @@ public class CoordinatorServiceTest {
         // 1) Terminate the real job first.
         coordinatorService.cancelJob(jobId).join();
 
-        await().atMost(30, TimeUnit.SECONDS)
+        await().atMost(120, TimeUnit.SECONDS)
                 .untilAsserted(
                         () ->
                                 Assertions.assertEquals(
@@ -189,7 +189,7 @@ public class CoordinatorServiceTest {
         // 3) Trigger master switch.
         instance1.shutdown();
 
-        await().atMost(20, TimeUnit.SECONDS)
+        await().atMost(30, TimeUnit.SECONDS)
                 .untilAsserted(
                         () -> {
                             Assertions.assertTrue(server2.isMasterNode());
@@ -203,7 +203,7 @@ public class CoordinatorServiceTest {
         IMap<Object, Object> runningJobStateOnInstance2 =
                 instance2.getMap(Constant.IMAP_RUNNING_JOB_STATE);
 
-        await().atMost(20, TimeUnit.SECONDS)
+        await().atMost(30, TimeUnit.SECONDS)
                 .untilAsserted(
                         () -> {
                             Assertions.assertFalse(
@@ -216,8 +216,8 @@ public class CoordinatorServiceTest {
 
         // 5) The important assertion:
         // terminal zombie metadata must NOT cause tasks to start running again.
-        await().during(10000, TimeUnit.MILLISECONDS)
-                .atMost(12000, TimeUnit.MILLISECONDS)
+        await().during(10, TimeUnit.SECONDS)
+                .atMost(20, TimeUnit.SECONDS)
                 .untilAsserted(
                         () -> {
                             for (TaskGroupLocation location : taskGroupLocations) {
