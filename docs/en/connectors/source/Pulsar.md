@@ -41,7 +41,7 @@ Source connector for Apache Pulsar.
 | cursor.stop.timestamp    | Long    | No       | -             | Stop timestamp (ms) when `cursor.stop.mode=TIMESTAMP`                                                            |
 | schema                   | Config  | No       | -             | Data structure including field names and types                                                                   |
 | format                   | String  | No       | json          | Data format. Default is json. **Multi-table mode only supports JSON and CANAL_JSON**                            |
-| common-options           |         | No       | -             | Source plugin common parameters. See [Source Common Options](../source-common-options.md) for details           |
+| common-options           |         | No       | -             | Source plugin common parameters. See [Source Common Options](../common-options/source-common-options.md) for details           |
 
 ### topic [String]
 
