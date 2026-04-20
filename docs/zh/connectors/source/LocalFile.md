@@ -35,6 +35,7 @@ import ChangeLog from '../changelog/connector-file-local.md';
   - [x] xml
   - [x] binary
   - [x] markdown
+  - [x] pdf
 
 ## 描述
 
@@ -102,7 +103,7 @@ import ChangeLog from '../changelog/connector-file-local.md';
 
 文件类型，支持以下文件类型：
 
-`text` `csv` `parquet` `orc` `json` `excel` `xml` `binary` `markdown`
+`text` `csv` `parquet` `orc` `json` `excel` `xml` `binary` `markdown` `pdf`
 
 如果您将文件类型指定为 `json`，您还应该指定 schema 选项来告诉连接器如何将数据解析为您想要的行。
 
@@ -204,6 +205,25 @@ markdown 解析器提取各种元素，包括标题、段落、列表、代码�
 - `child_ids`：子元素 ID 的逗号分隔列表
 
 注意：Markdown 格式仅支持读取，不支持写入。
+
+如果您将文件类型指定为 `pdf`，SeaTunnel 可以解析 PDF 文件并提取结构化的文档元素。
+
+PDF 解析器的行为取决于 PDF 文件是否包含**大纲**（书签/目录）：
+
+- **有大纲**：提取 `heading`（标题）、`paragraph`（段落）、`image`（图片）和 `link`（链接）元素。标题从大纲结构中派生，元素按照文档的逻辑结构组织为父子层级关系。
+- **无大纲**：仅提取 `paragraph`（段落）和 `image`（图片）元素，以扁平结构呈现，不包含层级关系。
+
+每个元素都转换为具有以下 schema 的行：
+- `element_id`：元素的唯一标识符（字符串）
+- `element_type`：元素类型 — `heading`、`paragraph`、`image` 或 `link`（字符串）
+- `heading_level`：标题的深度级别，从 1 开始（整数，非标题元素为 null）
+- `text`：元素的文本内容（字符串）
+- `page_number`：PDF 文件中的页码，从 1 开始（整数）
+- `position_index`：文档中的位置索引（整数）
+- `parent_id`：父标题元素的 ID（字符串，顶级元素为 null）
+- `child_ids`：子元素 ID 数组（字符串数组，无子元素时为 null）
+
+注意：仅支持单栏（从上到下）PDF 布局。不支持多栏布局（例如并排的双栏文档），可能会产生不正确的文本顺序。
 
 ### read_columns [list]
 
@@ -629,6 +649,31 @@ LocalFile {
 }
 
 ```
+
+### 读取 PDF 文件
+
+```hocon
+
+env {
+  parallelism = 1
+  job.mode = "BATCH"
+}
+
+source {
+  LocalFile {
+    path = "/data/documents/"
+    file_format_type = "pdf"
+  }
+}
+
+sink {
+  Console {
+  }
+}
+
+```
+
+为获得最佳效果，请使用包含大纲（书签/目录）的 PDF 文件。这使解析器能够提取具有层级信息的标题。
 
 ### 传输二进制文件
 
