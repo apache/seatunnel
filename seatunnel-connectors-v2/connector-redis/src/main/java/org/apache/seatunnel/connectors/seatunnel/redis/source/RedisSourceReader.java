@@ -111,6 +111,8 @@ public class RedisSourceReader extends AbstractSingleSplitReader<SeaTunnelRow> {
                 keysPattern,
                 batchSize);
 
+        RedisRecordReader redisRecordReader = createRecordReader(tableConfig);
+
         while (true) {
             scanIterations++;
             // Scan keys matching the pattern
@@ -131,7 +133,7 @@ public class RedisSourceReader extends AbstractSingleSplitReader<SeaTunnelRow> {
             }
 
             // Process the batch of keys
-            pollNext(tableConfig, keys, dataType, output);
+            pollNext(redisRecordReader, keys, dataType, output);
 
             // Check if scan is complete (cursor returns "0")
             if (ScanParams.SCAN_POINTER_START.equals(cursor)) {
@@ -148,17 +150,8 @@ public class RedisSourceReader extends AbstractSingleSplitReader<SeaTunnelRow> {
                 duration);
     }
 
-    /**
-     * Process a batch of keys and collect output rows.
-     *
-     * @param tableConfig Table configuration
-     * @param keys List of Redis keys to process
-     * @param dataType Redis data type
-     * @param output Collector for output rows
-     * @throws IOException If error occurs during processing
-     */
     private void pollNext(
-            RedisTableConfig tableConfig,
+            RedisRecordReader redisRecordReader,
             List<String> keys,
             RedisDataType dataType,
             Collector<SeaTunnelRow> output)
@@ -166,8 +159,6 @@ public class RedisSourceReader extends AbstractSingleSplitReader<SeaTunnelRow> {
         if (CollectionUtils.isEmpty(keys)) {
             return;
         }
-
-        RedisRecordReader redisRecordReader = createRecordReader(tableConfig);
 
         // Process keys based on data type
         if (RedisDataType.HASH.equals(dataType)) {
