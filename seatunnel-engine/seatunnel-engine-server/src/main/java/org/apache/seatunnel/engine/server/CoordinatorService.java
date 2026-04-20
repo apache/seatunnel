@@ -43,9 +43,14 @@ import org.apache.seatunnel.engine.common.job.JobStatus;
 import org.apache.seatunnel.engine.common.utils.ExceptionUtil;
 import org.apache.seatunnel.engine.common.utils.PassiveCompletableFuture;
 import org.apache.seatunnel.engine.common.utils.concurrent.CompletableFuture;
+import org.apache.seatunnel.engine.core.classloader.ClassLoaderService;
+import org.apache.seatunnel.engine.core.dag.logical.LogicalDag;
+import org.apache.seatunnel.engine.core.job.ExecutionAddress;
 import org.apache.seatunnel.engine.core.job.JobDAGInfo;
+import org.apache.seatunnel.engine.core.job.JobImmutableInformation;
 import org.apache.seatunnel.engine.core.job.JobInfo;
 import org.apache.seatunnel.engine.core.job.PipelineStatus;
+import org.apache.seatunnel.engine.server.dag.DAGUtils;
 import org.apache.seatunnel.engine.server.dag.physical.PhysicalVertex;
 import org.apache.seatunnel.engine.server.dag.physical.PipelineLocation;
 import org.apache.seatunnel.engine.server.dag.physical.SubPlan;
@@ -1383,7 +1388,37 @@ public class CoordinatorService {
             return pendingJobInfo.getJobMaster().getJobDAGInfo();
         }
 
+        JobInfo runningJobInfo = runningJobInfoIMap.get(jobId);
+        if (runningJobInfo != null) {
+            return restoreJobDAGInfo(runningJobInfo);
+        }
+
         throw new JobNotFoundException(String.format("Job %s not found", jobId));
+    }
+
+    private JobDAGInfo restoreJobDAGInfo(JobInfo jobInfo) {
+        JobImmutableInformation jobImmutableInformation =
+                nodeEngine
+                        .getSerializationService()
+                        .toObject(
+                                nodeEngine
+                                        .getSerializationService()
+                                        .toObject(jobInfo.getJobImmutableInformation()));
+        ClassLoaderService classLoaderService = seaTunnelServer.getClassLoaderService();
+        LogicalDag logicalDag =
+                DAGUtils.restoreLogicalDag(
+                        jobImmutableInformation,
+                        nodeEngine.getSerializationService(),
+                        classLoaderService);
+        return DAGUtils.getJobDAGInfo(
+                logicalDag,
+                jobImmutableInformation,
+                engineConfig,
+                true,
+                new ExecutionAddress(
+                        nodeEngine.getMasterAddress().getHost(),
+                        nodeEngine.getMasterAddress().getPort()),
+                new HashSet<>());
     }
 
     /**
