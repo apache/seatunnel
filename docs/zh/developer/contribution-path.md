@@ -1,5 +1,5 @@
 ---
-title: Contribution Path
+title: 贡献路径
 ---
 
 # 贡献路径

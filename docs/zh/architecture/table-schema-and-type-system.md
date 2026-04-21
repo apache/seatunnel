@@ -1,5 +1,5 @@
 ---
-title: Table Schema and Type System
+title: 表模型与类型系统
 ---
 
 # 表模型与类型系统

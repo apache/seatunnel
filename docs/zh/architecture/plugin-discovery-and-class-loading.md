@@ -1,5 +1,5 @@
 ---
-title: Plugin Discovery and Class Loading
+title: 插件发现与类加载
 ---
 
 # 插件发现与类加载
