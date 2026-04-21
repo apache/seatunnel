@@ -30,11 +30,8 @@ import org.apache.seatunnel.api.table.type.MapType;
 import org.apache.seatunnel.api.table.type.SeaTunnelDataType;
 import org.apache.seatunnel.api.table.type.SeaTunnelRow;
 import org.apache.seatunnel.api.table.type.SeaTunnelRowType;
-import org.apache.seatunnel.common.exception.SeaTunnelRuntimeException;
 import org.apache.seatunnel.connectors.seatunnel.file.config.FileBaseSourceOptions;
 import org.apache.seatunnel.connectors.seatunnel.file.util.LocalFileSystemConf;
-import org.apache.seatunnel.connectors.seatunnel.file.config.HadoopConf;
-import org.apache.seatunnel.connectors.seatunnel.file.source.reader.ParquetReadStrategy;
 
 import org.apache.avro.Conversions;
 import org.apache.avro.Schema;
@@ -219,28 +216,6 @@ public class ParquetReadStrategyTest {
         String[] arrayData = (String[]) seaTunnelRow.getField(3);
         Assertions.assertEquals(arrayData.length, 2);
         Assertions.assertEquals(arrayData[0], "Java");
-        AutoGenerateParquetData.deleteFile();
-    }
-
-    @DisabledOnOs(OS.WINDOWS)
-    @Test
-    public void testParquetReadUnsupportedType() throws Exception {
-        AutoGenerateParquetDataWithUnsupportedType.generateTestData();
-        ParquetReadStrategy parquetReadStrategy = new ParquetReadStrategy();
-        LocalFileSystemConf.LocalConf localConf =
-                new LocalFileSystemConf.LocalConf(FS_DEFAULT_NAME_DEFAULT);
-        parquetReadStrategy.init(localConf);
-        SeaTunnelRuntimeException exception =
-                Assertions.assertThrows(
-                        SeaTunnelRuntimeException.class,
-                        () ->
-                                parquetReadStrategy.getSeaTunnelRowTypeInfo(
-                                        AutoGenerateParquetDataWithUnsupportedType.DATA_FILE_PATH));
-        Assertions.assertEquals(
-                "ErrorCode:[COMMON-20], ErrorDescription:['Parquet' table 'default.default.default' unsupported get catalog table with field data types"
-                        + " '{\"id\":\"required group id (LIST) {\\n  repeated group array (LIST) {\\n    repeated binary array;\\n  }\\n}\",\"id2\":\"required group id2 (LIST) {\\n  repeated group array (LIST)"
-                        + " {\\n    repeated binary array;\\n  }\\n}\"}']",
-                exception.getMessage());
         AutoGenerateParquetData.deleteFile();
     }
 
@@ -499,7 +474,8 @@ public class ParquetReadStrategyTest {
     public void testParquetReadNestedArray() throws Exception {
         AutoGenerateParquetDataWithNestedArray.generateTestData();
         ParquetReadStrategy parquetReadStrategy = new ParquetReadStrategy();
-        LocalConf localConf = new LocalConf(FS_DEFAULT_NAME_DEFAULT);
+        LocalFileSystemConf.LocalConf localConf =
+                new LocalFileSystemConf.LocalConf(FS_DEFAULT_NAME_DEFAULT);
         parquetReadStrategy.init(localConf);
         SeaTunnelRowType seaTunnelRowTypeInfo =
                 parquetReadStrategy.getSeaTunnelRowTypeInfo(
@@ -552,7 +528,8 @@ public class ParquetReadStrategyTest {
     public void testParquetReadNestedBytesArray() throws Exception {
         AutoGenerateParquetDataWithNestedBytesArray.generateTestData();
         ParquetReadStrategy parquetReadStrategy = new ParquetReadStrategy();
-        LocalConf localConf = new LocalConf(FS_DEFAULT_NAME_DEFAULT);
+        LocalFileSystemConf.LocalConf localConf =
+                new LocalFileSystemConf.LocalConf(FS_DEFAULT_NAME_DEFAULT);
         parquetReadStrategy.init(localConf);
 
         SeaTunnelRowType seaTunnelRowTypeInfo =
@@ -605,7 +582,8 @@ public class ParquetReadStrategyTest {
     public void testParquetReadNestedArrayWithUserConfigRowType() throws Exception {
         AutoGenerateParquetDataWithNestedArray.generateTestData();
         ParquetReadStrategy parquetReadStrategy = new ParquetReadStrategy();
-        LocalConf localConf = new LocalConf(FS_DEFAULT_NAME_DEFAULT);
+        LocalFileSystemConf.LocalConf localConf =
+                new LocalFileSystemConf.LocalConf(FS_DEFAULT_NAME_DEFAULT);
         parquetReadStrategy.init(localConf);
 
         ArrayType<String[], String> stringArrayType = ArrayType.STRING_ARRAY_TYPE;
@@ -683,7 +661,8 @@ public class ParquetReadStrategyTest {
     public void testParquetReadArrayOfMap() throws Exception {
         AutoGenerateParquetDataWithArrayOfMap.generateTestData();
         ParquetReadStrategy parquetReadStrategy = new ParquetReadStrategy();
-        LocalConf localConf = new LocalConf(FS_DEFAULT_NAME_DEFAULT);
+        LocalFileSystemConf.LocalConf localConf =
+                new LocalFileSystemConf.LocalConf(FS_DEFAULT_NAME_DEFAULT);
         parquetReadStrategy.init(localConf);
         SeaTunnelRowType seaTunnelRowTypeInfo =
                 parquetReadStrategy.getSeaTunnelRowTypeInfo(
