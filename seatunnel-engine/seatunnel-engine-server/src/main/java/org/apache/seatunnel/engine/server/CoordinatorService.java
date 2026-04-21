@@ -984,6 +984,13 @@ public class CoordinatorService {
         }
     }
 
+    private void cleanupPendingJobStateForRestore(long jobId, JobCleanupRecord record) {
+        removeKeys(runningJobStateIMap, record.getStateKeys());
+        removeKeys(runningJobStateTimestampsIMap, record.getTimestampKeys());
+        removePendingJobCleanupRecord(jobId, record);
+        runningJobInfoIMap.remove(jobId);
+    }
+
     /**
      * Polls master ownership and reconciles the local coordinator lifecycle with cluster state.
      *
@@ -1107,13 +1114,16 @@ public class CoordinatorService {
                                 pendingJobCleanupIMap != null
                                         ? pendingJobCleanupIMap.get(jobId)
                                         : null;
-                        if (!isStartWithSavePoint
-                                && pendingCleanupRecord != null
+                        if (pendingCleanupRecord != null
                                 && isCleanupOwnedByCurrentJob(jobId, pendingCleanupRecord)) {
-                            throw new JobException(
-                                    String.format(
-                                            "The job id %s is waiting for terminal state cleanup, please retry later.",
-                                            jobId));
+                            if (isStartWithSavePoint) {
+                                cleanupPendingJobStateForRestore(jobId, pendingCleanupRecord);
+                            } else {
+                                throw new JobException(
+                                        String.format(
+                                                "The job id %s is waiting for terminal state cleanup, please retry later.",
+                                                jobId));
+                            }
                         }
 
                         jobMaster =

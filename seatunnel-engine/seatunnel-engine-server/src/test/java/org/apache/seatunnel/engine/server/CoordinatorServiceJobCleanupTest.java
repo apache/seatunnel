@@ -242,6 +242,48 @@ class CoordinatorServiceJobCleanupTest extends AbstractSeaTunnelServerTest {
     }
 
     @Test
+    void testSubmitStartWithSavePointClearsStaleTerminalState() {
+        CoordinatorService coordinatorService = server.getCoordinatorService();
+        long jobId = System.currentTimeMillis();
+        long initializationTimestamp = 100L;
+
+        IMap<Long, JobInfo> runningJobInfoIMap =
+                nodeEngine.getHazelcastInstance().getMap(Constant.IMAP_RUNNING_JOB_INFO);
+        IMap<Object, Object> runningJobStateIMap =
+                nodeEngine.getHazelcastInstance().getMap(Constant.IMAP_RUNNING_JOB_STATE);
+        IMap<Object, Long[]> runningJobStateTimestampsIMap =
+                nodeEngine.getHazelcastInstance().getMap(Constant.IMAP_STATE_TIMESTAMPS);
+        IMap<Long, JobCleanupRecord> pendingJobCleanupIMap =
+                nodeEngine.getHazelcastInstance().getMap(Constant.IMAP_PENDING_JOB_CLEANUP);
+
+        runningJobInfoIMap.put(jobId, new JobInfo(initializationTimestamp, null));
+        runningJobStateIMap.put(jobId, JobStatus.SAVEPOINT_DONE);
+        runningJobStateTimestampsIMap.put(jobId, new Long[JobStatus.values().length]);
+        pendingJobCleanupIMap.put(
+                jobId,
+                new JobCleanupRecord(
+                        initializationTimestamp,
+                        JobStatus.SAVEPOINT_DONE,
+                        stateKeys(jobId),
+                        stateKeys(jobId),
+                        System.currentTimeMillis()));
+
+        Assertions.assertDoesNotThrow(
+                () ->
+                        coordinatorService
+                                .submitJob(
+                                        jobId,
+                                        createJobData(jobId, true, "stream_fake_to_console.conf"),
+                                        true)
+                                .join());
+
+        Assertions.assertFalse(
+                pendingJobCleanupIMap.containsKey(jobId),
+                "restore submit should consume stale pending cleanup record");
+        Assertions.assertNotEquals(JobStatus.SAVEPOINT_DONE, runningJobStateIMap.get(jobId));
+    }
+
+    @Test
     void testTerminalZombieJobWithoutCleanupRecordRemovesRunningState() throws Exception {
         CoordinatorService coordinatorService = server.getCoordinatorService();
         long jobId = System.currentTimeMillis();
@@ -278,9 +320,12 @@ class CoordinatorServiceJobCleanupTest extends AbstractSeaTunnelServerTest {
     }
 
     private Data createJobData(long jobId, boolean isStartWithSavePoint) {
+        return createJobData(jobId, isStartWithSavePoint, "batch_fake_to_console.conf");
+    }
+
+    private Data createJobData(long jobId, boolean isStartWithSavePoint, String configFile) {
         LogicalDag logicalDag =
-                TestUtils.createTestLogicalPlan(
-                        "batch_fake_to_console.conf", "job-cleanup-submit-test", jobId);
+                TestUtils.createTestLogicalPlan(configFile, "job-cleanup-submit-test", jobId);
         JobImmutableInformation jobImmutableInformation =
                 new JobImmutableInformation(
                         jobId,
