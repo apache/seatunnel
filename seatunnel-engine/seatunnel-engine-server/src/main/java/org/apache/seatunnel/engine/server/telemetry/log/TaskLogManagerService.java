@@ -44,16 +44,17 @@ public class TaskLogManagerService {
     }
 
     public void clean(long jobId) {
-        log.info("Cleaning logs for jobId: {} , path : {}", jobId, path);
-        if (path == null) {
+        if (path == null || jobId <= 0) {
             return;
         }
         String[] logFiles = getLogFiles(jobId, path);
         for (String logFile : logFiles) {
+            String logPath = path + "/" + logFile;
+            log.info("Cleaning logs for jobId: {} , path : {}", jobId, logPath);
             try {
-                Files.delete(Paths.get(path + "/" + logFile));
+                Files.delete(Paths.get(logPath));
             } catch (IOException e) {
-                log.warn("Failed to delete log file: {}", logFile, e);
+                log.warn("Failed to delete log file: {}", logPath, e);
             }
         }
     }
