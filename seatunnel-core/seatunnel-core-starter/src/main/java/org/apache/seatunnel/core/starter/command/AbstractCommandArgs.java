@@ -19,9 +19,7 @@ package org.apache.seatunnel.core.starter.command;
 
 import org.apache.seatunnel.common.Constants;
 import org.apache.seatunnel.common.config.DeployMode;
-import org.apache.seatunnel.core.starter.enums.DryRun;
 
-import com.beust.jcommander.IStringConverter;
 import com.beust.jcommander.Parameter;
 import lombok.Data;
 import lombok.EqualsAndHashCode;
@@ -57,14 +55,6 @@ public abstract class AbstractCommandArgs extends CommandArgs {
             description = "Whether check config")
     protected boolean checkConfig = false;
 
-    /** dry-run flag */
-    @Parameter(
-            names = {"-d", "--dry-run"},
-            description =
-                    "Static config validation without running the job. Currently only [static] is supported.",
-            converter = DryRunConverter.class)
-    protected DryRun dryRun = null;
-
     /** SeaTunnel job name */
     @Parameter(
             names = {"-n", "--name"},
@@ -84,25 +74,4 @@ public abstract class AbstractCommandArgs extends CommandArgs {
     protected boolean decrypt = false;
 
     public abstract DeployMode getDeployMode();
-
-    public static class DryRunConverter implements IStringConverter<DryRun> {
-        @Override
-        public DryRun convert(String value) {
-            if (value == null || value.trim().isEmpty()) {
-                throw new IllegalArgumentException("Dry-run mode must not be empty.");
-            }
-            String trimmed = value.trim();
-            // Only STATIC is implemented end-to-end; other enum values exist for forward
-            // compatibility but must not be accepted from the CLI until wired.
-            if (DryRun.STATIC.getName().equalsIgnoreCase(trimmed)
-                    || DryRun.STATIC.name().equalsIgnoreCase(trimmed)) {
-                return DryRun.STATIC;
-            }
-            throw new IllegalArgumentException(
-                    "Unsupported dry-run mode '"
-                            + value
-                            + "'. Currently only [static] is supported; connect, sample, and shadow"
-                            + " are not implemented yet.");
-        }
-    }
 }
