@@ -60,6 +60,8 @@ public abstract class BaseMultipleTableFileSink
                 SupportSaveMode,
                 SupportSchemaEvolutionSink {
 
+    private static final long serialVersionUID = 1L;
+
     private final HadoopConf hadoopConf;
     private final CatalogTable catalogTable;
     private final FileSinkConfig fileSinkConfig;
