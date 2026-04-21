@@ -18,11 +18,18 @@
 package org.apache.seatunnel.connectors.seatunnel.cdc.sqlserver.source.reader.fetch;
 
 import org.apache.seatunnel.api.table.type.SeaTunnelRowType;
+import org.apache.seatunnel.connectors.cdc.base.debezium.DebeziumAdapter;
+import org.apache.seatunnel.connectors.cdc.base.debezium.DebeziumAdapterFactory;
+import org.apache.seatunnel.connectors.cdc.base.debezium.DebeziumEventDispatcherConfig;
+import org.apache.seatunnel.connectors.cdc.base.debezium.DebeziumSchemaHistory;
+import org.apache.seatunnel.connectors.cdc.base.debezium.DebeziumTopicNaming;
+import org.apache.seatunnel.connectors.cdc.base.debezium.TableChangeInfo;
 import org.apache.seatunnel.connectors.cdc.base.dialect.JdbcDataSourceDialect;
 import org.apache.seatunnel.connectors.cdc.base.relational.JdbcSourceEventDispatcher;
 import org.apache.seatunnel.connectors.cdc.base.source.offset.Offset;
 import org.apache.seatunnel.connectors.cdc.base.source.reader.external.JdbcSourceFetchTaskContext;
 import org.apache.seatunnel.connectors.cdc.base.source.split.SourceSplitBase;
+import org.apache.seatunnel.connectors.seatunnel.cdc.sqlserver.adapter.SqlServerEventDispatcherAdapter;
 import org.apache.seatunnel.connectors.seatunnel.cdc.sqlserver.config.SqlServerSourceConfig;
 import org.apache.seatunnel.connectors.seatunnel.cdc.sqlserver.source.offset.LsnOffset;
 import org.apache.seatunnel.connectors.seatunnel.cdc.sqlserver.utils.SqlServerConnectionUtils;
@@ -71,6 +78,7 @@ public class SqlServerSourceFetchTaskContext extends JdbcSourceFetchTaskContext 
     private SqlServerConnection metadataConnection;
 
     private final SqlServerEventMetadataProvider metadataProvider;
+    private DebeziumAdapter adapter;
     private SqlServerDatabaseSchema databaseSchema;
     private SqlServerOffsetContext offsetContext;
     private SqlServerPartition partition;
@@ -96,8 +104,9 @@ public class SqlServerSourceFetchTaskContext extends JdbcSourceFetchTaskContext 
     public void configure(SourceSplitBase sourceSplitBase) {
         super.registerDatabaseHistory(sourceSplitBase, dataConnection);
 
-        // initial stateful objects
         final SqlServerConnectorConfig connectorConfig = getDbzConnectorConfig();
+
+        this.adapter = DebeziumAdapterFactory.getAdapter("sqlserver");
 
         this.topicSelector = SqlServerTopicSelector.defaultSelector(connectorConfig);
 
@@ -133,25 +142,35 @@ public class SqlServerSourceFetchTaskContext extends JdbcSourceFetchTaskContext 
                                 () ->
                                         taskContext.configureLoggingContext(
                                                 "sqlServer-cdc-connector-task"))
-                        // do not buffer any element, we use signal event
-                        // .buffering()
                         .build();
-        this.dispatcher =
-                new JdbcSourceEventDispatcher<>(
+
+        io.debezium.pipeline.spi.ChangeEventCreator changeEventCreator = DataChangeEvent::new;
+        io.debezium.schema.DataCollectionFilters.DataCollectionFilter<TableId>
+                dataCollectionFilter = connectorConfig.getTableFilters().dataCollectionFilter();
+        HeartbeatFactory<TableId> heartbeatFactory =
+                new HeartbeatFactory<>(
                         connectorConfig,
                         topicSelector,
-                        databaseSchema,
-                        queue,
-                        connectorConfig.getTableFilters().dataCollectionFilter(),
-                        DataChangeEvent::new,
-                        metadataProvider,
-                        new HeartbeatFactory<>(
-                                connectorConfig,
-                                topicSelector,
-                                schemaNameAdjuster,
-                                new DefaultHeartbeatConnectionProvider(dataConnection),
-                                null),
-                        schemaNameAdjuster);
+                        schemaNameAdjuster,
+                        new DefaultHeartbeatConnectionProvider(dataConnection),
+                        null);
+
+        DebeziumEventDispatcherConfig dispatcherConfig =
+                DebeziumEventDispatcherConfig.builder()
+                        .connectorConfig(connectorConfig)
+                        .topicNaming((DebeziumTopicNaming<?>) (Object) topicSelector)
+                        .databaseSchema(databaseSchema)
+                        .queue(queue)
+                        .dataCollectionFilter(dataCollectionFilter)
+                        .changeEventCreator(changeEventCreator)
+                        .metadataProvider(metadataProvider)
+                        .heartbeatFactory(heartbeatFactory)
+                        .schemaNameAdjuster(schemaNameAdjuster)
+                        .build();
+
+        SqlServerEventDispatcherAdapter eventDispatcher =
+                (SqlServerEventDispatcherAdapter) adapter.createEventDispatcher(dispatcherConfig);
+        this.dispatcher = eventDispatcher.getDelegate();
 
         final DefaultChangeEventSourceMetricsFactory<SqlServerPartition>
                 changeEventSourceMetricsFactory = new DefaultChangeEventSourceMetricsFactory();
@@ -262,6 +281,94 @@ public class SqlServerSourceFetchTaskContext extends JdbcSourceFetchTaskContext 
             SqlServerOffsetContext offset, SqlServerDatabaseSchema schema) {
         schema.initializeStorage();
         schema.recover(partition, offset);
+    }
+
+    @Override
+    protected void registerDatabaseHistory(
+            SourceSplitBase sourceSplitBase, io.debezium.jdbc.JdbcConnection connection) {
+        java.util.List<io.debezium.relational.history.TableChanges.TableChange> engineHistory =
+                new java.util.ArrayList<>();
+        if (sourceSplitBase.isSnapshotSplit()) {
+            engineHistory.add(
+                    dataSourceDialect.queryTableSchema(
+                            connection, sourceSplitBase.asSnapshotSplit().getTableId()));
+        } else {
+            java.util.Map<TableId, byte[]> historyTableChanges =
+                    sourceSplitBase.asIncrementalSplit().getHistoryTableChanges();
+            for (TableId tableId : sourceSplitBase.asIncrementalSplit().getTableIds()) {
+                if (historyTableChanges != null && historyTableChanges.containsKey(tableId)) {
+                    org.apache.kafka.connect.data.SchemaAndValue schemaAndValue =
+                            jsonConverter.toConnectData("topic", historyTableChanges.get(tableId));
+                    Struct deserializedStruct = (Struct) schemaAndValue.value();
+
+                    io.debezium.relational.history.TableChanges tableChanges =
+                            tableChangeSerializer.deserialize(
+                                    java.util.Collections.singletonList(deserializedStruct), false);
+
+                    java.util.Iterator<io.debezium.relational.history.TableChanges.TableChange>
+                            iterator = tableChanges.iterator();
+                    io.debezium.relational.history.TableChanges.TableChange tableChange = null;
+                    while (iterator.hasNext()) {
+                        if (tableChange != null) {
+                            throw new IllegalStateException(
+                                    "The table changes should only have one element");
+                        }
+                        tableChange = iterator.next();
+                    }
+                    engineHistory.add(tableChange);
+                    continue;
+                }
+                engineHistory.add(dataSourceDialect.queryTableSchema(connection, tableId));
+            }
+        }
+
+        java.util.Collection<TableChangeInfo> tableChangeInfos =
+                convertToTableChangeInfo(engineHistory);
+
+        String instanceName =
+                sourceConfig.getDbzConfiguration().getString("database.history.instance.name");
+        DebeziumSchemaHistory schemaHistory =
+                adapter.createSchemaHistory(instanceName, tableChangeInfos);
+        schemaHistory.start();
+    }
+
+    private java.util.Collection<TableChangeInfo> convertToTableChangeInfo(
+            java.util.Collection<io.debezium.relational.history.TableChanges.TableChange> changes) {
+        return changes.stream()
+                .map(
+                        change ->
+                                new TableChangeInfo(
+                                        change.getId(),
+                                        convertChangeType(change.getType()),
+                                        serializeTableChange(change)))
+                .collect(java.util.stream.Collectors.toList());
+    }
+
+    private TableChangeInfo.TableChangeType convertChangeType(
+            io.debezium.relational.history.TableChanges.TableChangeType type) {
+        switch (type) {
+            case CREATE:
+                return TableChangeInfo.TableChangeType.CREATE;
+            case ALTER:
+                return TableChangeInfo.TableChangeType.ALTER;
+            case DROP:
+                return TableChangeInfo.TableChangeType.DROP;
+            default:
+                throw new IllegalArgumentException("Unknown table change type: " + type);
+        }
+    }
+
+    private byte[] serializeTableChange(
+            io.debezium.relational.history.TableChanges.TableChange change) {
+        io.debezium.relational.history.TableChanges tableChanges =
+                new io.debezium.relational.history.TableChanges();
+        tableChanges.create(change.getTable());
+        java.util.List<Struct> serialized = tableChangeSerializer.serialize(tableChanges);
+        if (serialized.isEmpty()) {
+            return new byte[0];
+        }
+        return jsonConverter.fromConnectData(
+                "topic", serialized.get(0).schema(), serialized.get(0));
     }
 
     /** Loads the connector's persistent offset (if present) via the given loader. */

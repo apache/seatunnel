@@ -84,6 +84,10 @@ public class JdbcSourceEventDispatcher<P extends Partition> extends EventDispatc
         return queue;
     }
 
+    public String getPrimaryTopic() {
+        return topic;
+    }
+
     public void dispatchWatermarkEvent(
             Map<String, ?> sourcePartition,
             SourceSplitBase sourceSplit,

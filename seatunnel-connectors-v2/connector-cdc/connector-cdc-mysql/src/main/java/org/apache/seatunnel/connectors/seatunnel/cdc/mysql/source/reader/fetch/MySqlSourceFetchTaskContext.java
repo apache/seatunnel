@@ -21,12 +21,19 @@ import org.apache.seatunnel.api.table.type.SeaTunnelRowType;
 import org.apache.seatunnel.common.utils.ReflectionUtils;
 import org.apache.seatunnel.common.utils.SeaTunnelException;
 import org.apache.seatunnel.connectors.cdc.base.config.JdbcSourceConfig;
+import org.apache.seatunnel.connectors.cdc.base.debezium.DebeziumAdapter;
+import org.apache.seatunnel.connectors.cdc.base.debezium.DebeziumAdapterFactory;
+import org.apache.seatunnel.connectors.cdc.base.debezium.DebeziumEventDispatcherConfig;
+import org.apache.seatunnel.connectors.cdc.base.debezium.DebeziumSchemaHistory;
+import org.apache.seatunnel.connectors.cdc.base.debezium.DebeziumTopicNaming;
+import org.apache.seatunnel.connectors.cdc.base.debezium.TableChangeInfo;
 import org.apache.seatunnel.connectors.cdc.base.dialect.JdbcDataSourceDialect;
 import org.apache.seatunnel.connectors.cdc.base.option.StartupMode;
 import org.apache.seatunnel.connectors.cdc.base.relational.JdbcSourceEventDispatcher;
 import org.apache.seatunnel.connectors.cdc.base.source.offset.Offset;
 import org.apache.seatunnel.connectors.cdc.base.source.reader.external.JdbcSourceFetchTaskContext;
 import org.apache.seatunnel.connectors.cdc.base.source.split.SourceSplitBase;
+import org.apache.seatunnel.connectors.seatunnel.cdc.mysql.adapter.MySqlEventDispatcherAdapter;
 import org.apache.seatunnel.connectors.seatunnel.cdc.mysql.config.MySqlSourceConfig;
 import org.apache.seatunnel.connectors.seatunnel.cdc.mysql.source.offset.BinlogOffset;
 import org.apache.seatunnel.connectors.seatunnel.cdc.mysql.utils.MySqlConnectionUtils;
@@ -67,6 +74,7 @@ import io.debezium.relational.RelationalDatabaseConnectorConfig;
 import io.debezium.relational.Table;
 import io.debezium.relational.TableId;
 import io.debezium.relational.Tables;
+import io.debezium.relational.history.TableChanges;
 import io.debezium.schema.DataCollectionId;
 import io.debezium.schema.TopicSelector;
 import io.debezium.util.Collect;
@@ -75,6 +83,7 @@ import lombok.extern.slf4j.Slf4j;
 import java.io.IOException;
 import java.sql.SQLException;
 import java.time.Instant;
+import java.util.Collection;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
@@ -93,6 +102,7 @@ public class MySqlSourceFetchTaskContext extends JdbcSourceFetchTaskContext {
     private final MySqlConnection connection;
     private final BinaryLogClient binaryLogClient;
     private final MySqlEventMetadataProvider metadataProvider;
+    private DebeziumAdapter adapter;
     private MySqlDatabaseSchema databaseSchema;
     private MySqlTaskContextImpl taskContext;
     private MySqlOffsetContext offsetContext;
@@ -118,9 +128,11 @@ public class MySqlSourceFetchTaskContext extends JdbcSourceFetchTaskContext {
     public void configure(SourceSplitBase sourceSplitBase) {
         super.registerDatabaseHistory(sourceSplitBase, connection);
 
-        // initial stateful objects
         final MySqlConnectorConfig connectorConfig = getDbzConnectorConfig();
         final boolean tableIdCaseInsensitive = connection.isTableIdCaseSensitive();
+
+        this.adapter = DebeziumAdapterFactory.getAdapter("mysql");
+
         this.topicSelector = MySqlTopicSelector.defaultSelector(connectorConfig);
 
         this.databaseSchema =
@@ -153,25 +165,35 @@ public class MySqlSourceFetchTaskContext extends JdbcSourceFetchTaskContext {
                                 () ->
                                         taskContext.configureLoggingContext(
                                                 "mysql-cdc-connector-task"))
-                        // do not buffer any element, we use signal event
-                        // .buffering()
                         .build();
-        this.dispatcher =
-                new JdbcSourceEventDispatcher<>(
+
+        io.debezium.pipeline.spi.ChangeEventCreator changeEventCreator = DataChangeEvent::new;
+        io.debezium.schema.DataCollectionFilters.DataCollectionFilter<TableId>
+                dataCollectionFilter = connectorConfig.getTableFilters().dataCollectionFilter();
+        HeartbeatFactory<TableId> heartbeatFactory =
+                new HeartbeatFactory<>(
                         connectorConfig,
                         topicSelector,
-                        databaseSchema,
-                        queue,
-                        connectorConfig.getTableFilters().dataCollectionFilter(),
-                        DataChangeEvent::new,
-                        metadataProvider,
-                        new HeartbeatFactory<>(
-                                connectorConfig,
-                                topicSelector,
-                                schemaNameAdjuster,
-                                new DefaultHeartbeatConnectionProvider(connection),
-                                null),
-                        schemaNameAdjuster);
+                        schemaNameAdjuster,
+                        new DefaultHeartbeatConnectionProvider(connection),
+                        null);
+
+        DebeziumEventDispatcherConfig dispatcherConfig =
+                DebeziumEventDispatcherConfig.builder()
+                        .connectorConfig(connectorConfig)
+                        .topicNaming((DebeziumTopicNaming<?>) (Object) topicSelector)
+                        .databaseSchema(databaseSchema)
+                        .queue(queue)
+                        .dataCollectionFilter(dataCollectionFilter)
+                        .changeEventCreator(changeEventCreator)
+                        .metadataProvider(metadataProvider)
+                        .heartbeatFactory(heartbeatFactory)
+                        .schemaNameAdjuster(schemaNameAdjuster)
+                        .build();
+
+        MySqlEventDispatcherAdapter eventDispatcher =
+                (MySqlEventDispatcherAdapter) adapter.createEventDispatcher(dispatcherConfig);
+        this.dispatcher = eventDispatcher.getDelegate();
 
         final MySqlChangeEventSourceMetricsFactory changeEventSourceMetricsFactory =
                 new MySqlChangeEventSourceMetricsFactory(
@@ -272,6 +294,88 @@ public class MySqlSourceFetchTaskContext extends JdbcSourceFetchTaskContext {
     @Override
     public Offset getStreamOffset(SourceRecord sourceRecord) {
         return MySqlUtils.getBinlogPosition(sourceRecord);
+    }
+
+    @Override
+    protected void registerDatabaseHistory(
+            SourceSplitBase sourceSplitBase, JdbcConnection connection) {
+        List<TableChanges.TableChange> engineHistory = new java.util.ArrayList<>();
+        if (sourceSplitBase.isSnapshotSplit()) {
+            engineHistory.add(
+                    dataSourceDialect.queryTableSchema(
+                            connection, sourceSplitBase.asSnapshotSplit().getTableId()));
+        } else {
+            java.util.Map<TableId, byte[]> historyTableChanges =
+                    sourceSplitBase.asIncrementalSplit().getHistoryTableChanges();
+            for (TableId tableId : sourceSplitBase.asIncrementalSplit().getTableIds()) {
+                if (historyTableChanges != null && historyTableChanges.containsKey(tableId)) {
+                    org.apache.kafka.connect.data.SchemaAndValue schemaAndValue =
+                            jsonConverter.toConnectData("topic", historyTableChanges.get(tableId));
+                    Struct deserializedStruct = (Struct) schemaAndValue.value();
+
+                    TableChanges tableChanges =
+                            tableChangeSerializer.deserialize(
+                                    java.util.Collections.singletonList(deserializedStruct), false);
+
+                    java.util.Iterator<TableChanges.TableChange> iterator = tableChanges.iterator();
+                    TableChanges.TableChange tableChange = null;
+                    while (iterator.hasNext()) {
+                        if (tableChange != null) {
+                            throw new IllegalStateException(
+                                    "The table changes should only have one element");
+                        }
+                        tableChange = iterator.next();
+                    }
+                    engineHistory.add(tableChange);
+                    continue;
+                }
+                engineHistory.add(dataSourceDialect.queryTableSchema(connection, tableId));
+            }
+        }
+
+        Collection<TableChangeInfo> tableChangeInfos = convertToTableChangeInfo(engineHistory);
+
+        String instanceName =
+                sourceConfig.getDbzConfiguration().getString("database.history.instance.name");
+        DebeziumSchemaHistory schemaHistory =
+                adapter.createSchemaHistory(instanceName, tableChangeInfos);
+        schemaHistory.start();
+    }
+
+    private Collection<TableChangeInfo> convertToTableChangeInfo(
+            Collection<TableChanges.TableChange> changes) {
+        return changes.stream()
+                .map(
+                        change ->
+                                new TableChangeInfo(
+                                        change.getId(),
+                                        convertChangeType(change.getType()),
+                                        serializeTableChange(change)))
+                .collect(java.util.stream.Collectors.toList());
+    }
+
+    private TableChangeInfo.TableChangeType convertChangeType(TableChanges.TableChangeType type) {
+        switch (type) {
+            case CREATE:
+                return TableChangeInfo.TableChangeType.CREATE;
+            case ALTER:
+                return TableChangeInfo.TableChangeType.ALTER;
+            case DROP:
+                return TableChangeInfo.TableChangeType.DROP;
+            default:
+                throw new IllegalArgumentException("Unknown table change type: " + type);
+        }
+    }
+
+    private byte[] serializeTableChange(TableChanges.TableChange change) {
+        TableChanges tableChanges = new TableChanges();
+        tableChanges.create(change.getTable());
+        List<Struct> serialized = tableChangeSerializer.serialize(tableChanges);
+        if (serialized.isEmpty()) {
+            return new byte[0];
+        }
+        return jsonConverter.fromConnectData(
+                "topic", serialized.get(0).schema(), serialized.get(0));
     }
 
     /** Loads the connector's persistent offset (if present) via the given loader. */

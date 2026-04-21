@@ -20,11 +20,18 @@ package org.apache.seatunnel.connectors.seatunnel.cdc.postgres.source.reader;
 import org.apache.seatunnel.api.table.type.SeaTunnelRowType;
 import org.apache.seatunnel.common.exception.SeaTunnelRuntimeException;
 import org.apache.seatunnel.connectors.cdc.base.config.JdbcSourceConfig;
+import org.apache.seatunnel.connectors.cdc.base.debezium.DebeziumAdapter;
+import org.apache.seatunnel.connectors.cdc.base.debezium.DebeziumAdapterFactory;
+import org.apache.seatunnel.connectors.cdc.base.debezium.DebeziumEventDispatcherConfig;
+import org.apache.seatunnel.connectors.cdc.base.debezium.DebeziumSchemaHistory;
+import org.apache.seatunnel.connectors.cdc.base.debezium.DebeziumTopicNaming;
+import org.apache.seatunnel.connectors.cdc.base.debezium.TableChangeInfo;
 import org.apache.seatunnel.connectors.cdc.base.dialect.JdbcDataSourceDialect;
 import org.apache.seatunnel.connectors.cdc.base.relational.JdbcSourceEventDispatcher;
 import org.apache.seatunnel.connectors.cdc.base.source.offset.Offset;
 import org.apache.seatunnel.connectors.cdc.base.source.reader.external.JdbcSourceFetchTaskContext;
 import org.apache.seatunnel.connectors.cdc.base.source.split.SourceSplitBase;
+import org.apache.seatunnel.connectors.seatunnel.cdc.postgres.adapter.PostgresEventDispatcherAdapter;
 import org.apache.seatunnel.connectors.seatunnel.cdc.postgres.config.PostgresSourceConfig;
 import org.apache.seatunnel.connectors.seatunnel.cdc.postgres.exception.PostgresConnectorErrorCode;
 import org.apache.seatunnel.connectors.seatunnel.cdc.postgres.source.offset.LsnOffset;
@@ -52,15 +59,18 @@ import io.debezium.connector.postgresql.spi.Snapshotter;
 import io.debezium.data.Envelope;
 import io.debezium.heartbeat.DefaultHeartbeatConnectionProvider;
 import io.debezium.heartbeat.HeartbeatFactory;
+import io.debezium.jdbc.JdbcConnection;
 import io.debezium.pipeline.DataChangeEvent;
 import io.debezium.pipeline.ErrorHandler;
 import io.debezium.pipeline.metrics.DefaultChangeEventSourceMetricsFactory;
 import io.debezium.pipeline.metrics.SnapshotChangeEventSourceMetrics;
 import io.debezium.pipeline.source.spi.EventMetadataProvider;
+import io.debezium.pipeline.spi.ChangeEventCreator;
 import io.debezium.relational.Table;
 import io.debezium.relational.TableId;
 import io.debezium.relational.Tables;
 import io.debezium.relational.history.TableChanges;
+import io.debezium.schema.DataCollectionFilters;
 import io.debezium.schema.TopicSelector;
 import io.debezium.util.LoggingContext;
 import lombok.Getter;
@@ -69,6 +79,7 @@ import lombok.extern.slf4j.Slf4j;
 import java.sql.SQLException;
 import java.util.Collection;
 import java.util.HashMap;
+import java.util.List;
 import java.util.Map;
 import java.util.Objects;
 
@@ -89,6 +100,8 @@ public class PostgresSourceFetchTaskContext extends JdbcSourceFetchTaskContext {
     @Getter private ReplicationConnection replicationConnection;
 
     private final EventMetadataProvider metadataProvider;
+
+    private DebeziumAdapter adapter;
 
     @Getter private Snapshotter snapshotter;
     private PostgresSchema databaseSchema;
@@ -128,13 +141,13 @@ public class PostgresSourceFetchTaskContext extends JdbcSourceFetchTaskContext {
     public void configure(SourceSplitBase sourceSplitBase) {
         super.registerDatabaseHistory(sourceSplitBase, dataConnection);
 
-        // initial stateful objects
         final PostgresConnectorConfig connectorConfig = getDbzConnectorConfig();
         PostgresConnectorConfig.SnapshotMode snapshotMode =
                 PostgresConnectorConfig.SnapshotMode.parse(
                         connectorConfig.getConfig().getString(SNAPSHOT_MODE));
         this.snapshotter = snapshotMode.getSnapshotter(connectorConfig.getConfig());
 
+        this.adapter = DebeziumAdapterFactory.getAdapter("postgres");
         this.topicSelector = PostgresTopicSelector.create(connectorConfig);
         final TypeRegistry typeRegistry = dataConnection.getTypeRegistry();
 
@@ -239,26 +252,36 @@ public class PostgresSourceFetchTaskContext extends JdbcSourceFetchTaskContext {
                             .maxQueueSizeInBytes(connectorConfig.getMaxQueueSizeInBytes())
                             .loggingContextSupplier(
                                     () -> taskContext.configureLoggingContext(CONTEXT_NAME))
-                            // do not buffer any element, we use signal event
-                            // .buffering()
                             .build();
 
-            this.dispatcher =
-                    new JdbcSourceEventDispatcher<>(
+            ChangeEventCreator changeEventCreator = DataChangeEvent::new;
+            DataCollectionFilters.DataCollectionFilter<TableId> dataCollectionFilter =
+                    connectorConfig.getTableFilters().dataCollectionFilter();
+            HeartbeatFactory<TableId> heartbeatFactory =
+                    new HeartbeatFactory<>(
                             connectorConfig,
                             topicSelector,
-                            databaseSchema,
-                            queue,
-                            connectorConfig.getTableFilters().dataCollectionFilter(),
-                            DataChangeEvent::new,
-                            metadataProvider,
-                            new HeartbeatFactory<>(
-                                    connectorConfig,
-                                    topicSelector,
-                                    schemaNameAdjuster,
-                                    new DefaultHeartbeatConnectionProvider(dataConnection),
-                                    null),
-                            schemaNameAdjuster);
+                            schemaNameAdjuster,
+                            new DefaultHeartbeatConnectionProvider(dataConnection),
+                            null);
+
+            DebeziumEventDispatcherConfig dispatcherConfig =
+                    DebeziumEventDispatcherConfig.builder()
+                            .connectorConfig(connectorConfig)
+                            .topicNaming((DebeziumTopicNaming<?>) (Object) topicSelector)
+                            .databaseSchema(databaseSchema)
+                            .queue(queue)
+                            .dataCollectionFilter(dataCollectionFilter)
+                            .changeEventCreator(changeEventCreator)
+                            .metadataProvider(metadataProvider)
+                            .heartbeatFactory(heartbeatFactory)
+                            .schemaNameAdjuster(schemaNameAdjuster)
+                            .build();
+
+            PostgresEventDispatcherAdapter eventDispatcher =
+                    (PostgresEventDispatcherAdapter)
+                            adapter.createEventDispatcher(dispatcherConfig);
+            this.dispatcher = eventDispatcher.getDelegate();
 
             this.pgEventDispatcher =
                     new PostgresEventDispatcher<>(
@@ -376,6 +399,56 @@ public class PostgresSourceFetchTaskContext extends JdbcSourceFetchTaskContext {
         } catch (Exception e) {
             log.warn("Failed to close connection", e);
         }
+    }
+
+    @Override
+    protected void registerDatabaseHistory(
+            SourceSplitBase sourceSplitBase, JdbcConnection connection) {
+        super.registerDatabaseHistory(sourceSplitBase, connection);
+
+        Collection<TableChangeInfo> tableChangeInfos = convertToTableChangeInfo(engineHistory);
+
+        String instanceName =
+                sourceConfig.getDbzConfiguration().getString("database.history.instance.name");
+        DebeziumSchemaHistory schemaHistory =
+                adapter.createSchemaHistory(instanceName, tableChangeInfos);
+        schemaHistory.start();
+    }
+
+    private Collection<TableChangeInfo> convertToTableChangeInfo(
+            Collection<TableChanges.TableChange> changes) {
+        return changes.stream()
+                .map(
+                        change ->
+                                new TableChangeInfo(
+                                        change.getId(),
+                                        convertChangeType(change.getType()),
+                                        serializeTableChange(change)))
+                .collect(java.util.stream.Collectors.toList());
+    }
+
+    private TableChangeInfo.TableChangeType convertChangeType(TableChanges.TableChangeType type) {
+        switch (type) {
+            case CREATE:
+                return TableChangeInfo.TableChangeType.CREATE;
+            case ALTER:
+                return TableChangeInfo.TableChangeType.ALTER;
+            case DROP:
+                return TableChangeInfo.TableChangeType.DROP;
+            default:
+                throw new IllegalArgumentException("Unknown table change type: " + type);
+        }
+    }
+
+    private byte[] serializeTableChange(TableChanges.TableChange change) {
+        TableChanges tableChanges = new TableChanges();
+        tableChanges.create(change.getTable());
+        List<Struct> serialized = tableChangeSerializer.serialize(tableChanges);
+        if (serialized.isEmpty()) {
+            return new byte[0];
+        }
+        return jsonConverter.fromConnectData(
+                "topic", serialized.get(0).schema(), serialized.get(0));
     }
 
     /** Loads the connector's persistent offset (if present) via the given loader. */
