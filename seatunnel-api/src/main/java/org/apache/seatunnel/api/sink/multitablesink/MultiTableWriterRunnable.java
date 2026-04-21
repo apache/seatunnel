@@ -73,26 +73,26 @@ public class MultiTableWriterRunnable implements Runnable {
                             row);
                     continue;
                 }
-                SinkWriter<SeaTunnelRow, ?, ?> writer = tableIdWriterMap.get(row.getTableId());
-                if (writer == null) {
-                    // Single-table jobs may still emit rewritten/non-canonical table ids.
-                    // Keep the historical sole-writer fallback only for runnables that
-                    // started with one writer so quarantined multi-table rows are not rerouted.
-                    if (allowSingleWriterFallback && tableIdWriterMap.size() == 1) {
-                        writer = tableIdWriterMap.values().stream().findFirst().get();
-                        currentTableId = tableIdWriterMap.keySet().stream().findFirst().get();
-                    } else if (continueOnTableFailure) {
-                        log.debug("Skip row for quarantined table {}", row.getTableId());
-                        continue;
-                    } else {
-                        throw new RuntimeException(
-                                "MultiTableWriterRunnable can't find writer for tableId: "
-                                        + row.getTableId());
-                    }
-                } else {
-                    currentTableId = row.getTableId();
-                }
                 synchronized (this) {
+                    SinkWriter<SeaTunnelRow, ?, ?> writer = tableIdWriterMap.get(row.getTableId());
+                    if (writer == null) {
+                        // Single-table jobs may still emit rewritten/non-canonical table ids.
+                        // Keep the historical sole-writer fallback only for runnables that
+                        // started with one writer so quarantined multi-table rows are not rerouted.
+                        if (allowSingleWriterFallback && tableIdWriterMap.size() == 1) {
+                            writer = tableIdWriterMap.values().stream().findFirst().get();
+                            currentTableId = tableIdWriterMap.keySet().stream().findFirst().get();
+                        } else if (continueOnTableFailure) {
+                            log.debug("Skip row for quarantined table {}", row.getTableId());
+                            continue;
+                        } else {
+                            throw new RuntimeException(
+                                    "MultiTableWriterRunnable can't find writer for tableId: "
+                                            + row.getTableId());
+                        }
+                    } else {
+                        currentTableId = row.getTableId();
+                    }
                     writer.write(row);
                 }
             } catch (InterruptedException e) {

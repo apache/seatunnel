@@ -402,7 +402,7 @@ markdown 解析器提取各种元素，包括标题、段落、列表、代码�
 
 Metalake 服务类型，目前仅支持 `gravitino`。当使用 `schema_url` 从 Gravitino 获取元数据时，可以指定此参数（默认为 `gravitino`）。
 
-有关 Metalake 的更多信息，请参考 [Metalake](../../introduction/concepts/metalake.md)。
+有关 Metalake 的更多信息，请参考 [Metalake](../../introduction/configuration/metalake.md)。
 
 ## 示例
 
@@ -431,7 +431,7 @@ source {
 
 transform {
   # 如果您想获取有关如何配置seatunnel和查看转换插件完整列表的更多信息，
-    # 请访问 https://seatunnel.apache.org/docs/transform-v2
+    # 请访问 https://seatunnel.apache.org/docs/transforms
 }
 
 sink {
@@ -493,7 +493,7 @@ source {
 
 transform {
   # 如果您想获取有关如何配置seatunnel和查看转换插件完整列表的更多信息，
-    # 请访问 https://seatunnel.apache.org/docs/transform-v2
+    # 请访问 https://seatunnel.apache.org/docs/transforms
 }
 
 sink {

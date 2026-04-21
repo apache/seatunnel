@@ -172,6 +172,22 @@ public class MultiTableSinkWriterTest {
     }
 
     @Test
+    public void testRunnableSelectsWriterUnderLock() {
+        GuardedWriterMap tableIdWriterMap = new GuardedWriterMap();
+        RecordingSinkWriter writer = new RecordingSinkWriter(false, true);
+        BlockingQueue<SeaTunnelRow> queue = new LinkedBlockingQueue<>(1);
+        tableIdWriterMap.put("test.table", writer);
+        queue.add(buildRow("test.table", 1));
+
+        MultiTableWriterRunnable runnable = new MultiTableWriterRunnable(tableIdWriterMap, queue);
+        tableIdWriterMap.setRequiredLock(runnable);
+        runnable.run();
+
+        Assertions.assertNull(runnable.getThrowable());
+        Assertions.assertEquals(1, writer.getWriteCount());
+    }
+
+    @Test
     public void testSingleWriterAcceptsNullTableId() throws IOException {
         Map<SinkIdentifier, SinkWriter<SeaTunnelRow, ?, ?>> sinkWriters = new HashMap<>();
         Map<SinkIdentifier, SinkWriter.Context> sinkWritersContext = new HashMap<>();
@@ -273,6 +289,28 @@ public class MultiTableSinkWriterTest {
 
         int getWriteCount() {
             return writeCount.get();
+        }
+    }
+
+    static class GuardedWriterMap extends HashMap<String, SinkWriter<SeaTunnelRow, ?, ?>> {
+        private static final long serialVersionUID = 1L;
+
+        private Object requiredLock;
+
+        void setRequiredLock(Object requiredLock) {
+            this.requiredLock = requiredLock;
+        }
+
+        @Override
+        public SinkWriter<SeaTunnelRow, ?, ?> get(Object key) {
+            assertLocked();
+            return super.get(key);
+        }
+
+        private void assertLocked() {
+            if (requiredLock != null && !Thread.holdsLock(requiredLock)) {
+                throw new AssertionError("table writer map must be read under runnable lock");
+            }
         }
     }
 

@@ -10,9 +10,9 @@ import ChangeLog from '../changelog/connector-graphql.md';
 
 ## 主要特性
 
-- [x] [批处理](../../concept/connector-v2-features.md)
-- [x] [流处理](../../concept/connector-v2-features.md)
-- [ ] [并行](../../concept/connector-v2-features.md)
+- [x] [批处理](../../introduction/concepts/connector-v2-features.md)
+- [x] [流处理](../../introduction/concepts/connector-v2-features.md)
+- [ ] [并行](../../introduction/concepts/connector-v2-features.md)
 
 ## 源选项
 
@@ -107,7 +107,7 @@ HTTP请求参数
 
 ### common options
 
-源插件常用参数，请参考 [Source Common Options](../source-common-options.md) 获取详细信息
+源插件常用参数，请参考 [Source Common Options](../common-options/source-common-options.md) 获取详细信息
 
 ## 示例
 
