@@ -6,6 +6,22 @@ sidebar_position: 1
 
 SeaTunnel 支持多种执行引擎，您可以根据实际场景选择最合适的引擎。本文档提供全面的对比分析，帮助您做出正确的选择。
 
+## 先看选择建议
+
+如果你是第一次评估 SeaTunnel，建议先用下面这条规则做初选，再看后面的完整对比：
+
+- 如果你没有现成的 Flink 或 Spark 运维体系，优先从 **SeaTunnel Engine (Zeta)** 开始。
+- 如果团队已经稳定运行 Flink 集群，并且希望复用现有体系，选择 **Flink**。
+- 如果团队已经稳定运行 Spark，并且任务以批处理为主，选择 **Spark**。
+
+对大多数新部署来说，SeaTunnel Engine 是默认推荐项，因为它的上手路径最短、运维负担更低，并且对 CDC、多表同步、数据库迁移这类数据同步场景支持更完整。
+
+## 推荐阅读路径
+
+- 我只想尽快跑通第一个任务：[快速入门总览](../getting-started/overview.md) -> [SeaTunnel Engine 简介](zeta/about.md) -> [SeaTunnel 引擎快速开始](../getting-started/locally/quick-start-seatunnel-engine.md)
+- 我想先理解整体架构再选引擎：[关于 SeaTunnel](../introduction/about.md) -> [工作原理](../introduction/how-it-works.md) -> [架构概览](../architecture/overview.md)
+- 我已经确定要复用现有平台：直接进入 [SeaTunnel Engine](zeta/about.md)、[Flink 引擎指南](flink.md) 或 [Spark 引擎指南](spark.md)
+
 ## 支持的引擎
 
 | 引擎 | 描述 | 推荐场景 |
@@ -202,6 +218,8 @@ env {
 
 ## 下一步
 
-- [SeaTunnel Engine 快速开始](zeta/about.md)
+- [SeaTunnel Engine 简介](zeta/about.md)
+- [快速入门总览](../getting-started/overview.md)
+- [SeaTunnel 引擎快速开始](../getting-started/locally/quick-start-seatunnel-engine.md)
 - [Flink 引擎指南](flink.md)
 - [Spark 引擎指南](spark.md)

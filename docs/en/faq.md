@@ -1,5 +1,13 @@
 # FAQ
 
+## Where can I get help and join the community?
+Use these entry points first:
+
+- Issue tracking: [GitHub Issues](https://github.com/apache/seatunnel/issues)
+- Long-form discussion: [dev mailing list](https://lists.apache.org/list.html?dev@seatunnel.apache.org)
+- Stable onboarding path: [Contribution Path](./developer/contribution-path.md)
+- Contributor onboarding: [Developer Setup](./developer/setup.md) and [Contribute Plugin](./developer/contribute-plugin.md)
+
 ## What data sources and destinations does SeaTunnel support?
 SeaTunnel supports various data sources and destinations. You can find a detailed list on the following list:
 - Supported data sources (Source): [Source List](./connectors/source)

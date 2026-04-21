@@ -15,9 +15,32 @@ SeaTunnel Engine can be used either for a quick single-node trial or as a multi-
 
 This path is intended for validating the installation, connectors, and job configuration on a single machine. The commands below all start SeaTunnel Engine with `-m local`.
 
+## Before You Begin
+
+If this is your first SeaTunnel page, read these in order:
+
+- [Getting Started Overview](../overview.md)
+- [Deployment](deployment.md)
+- [Job Configuration Guide](../job-configuration-guide.md)
+
+The sample pipeline on this page uses `FakeSource`, `FieldMapper`, and `Console`. Make sure the required plugins are installed before running the sample:
+
+```plugin_config
+--seatunnel-connectors--
+connector-fake
+connector-console
+--end--
+```
+
+```bash
+sh bin/install-plugin.sh
+```
+
 ### Step 1: Deploy SeaTunnel And Connectors
 
-Before starting, make sure you have downloaded and deployed SeaTunnel as described in [Deployment](deployment.md)
+Before starting, make sure you have downloaded and deployed SeaTunnel as described in [Deployment](deployment.md).
+
+If you already installed all connectors, you can keep that setup. If you want the smallest possible first run, the two plugins listed in the previous section are enough for the sample job on this page.
 
 ### Step 2: Add Job Config File To Define A Job
 
@@ -220,6 +243,8 @@ Recommendation:
 
 ## What's More
 
+- Start with [Getting Started Overview](../overview.md) if you want a guided reading path across deployment, quick start, and configuration.
+- Use [Job Configuration Guide](../job-configuration-guide.md) when you are ready to replace the sample source and sink with real connectors.
 - Start writing your own config file, choose the [connector](../../connectors/source) you want to use, and configure the parameters according to the connector documentation.
 - If you want to deploy a multi-node SeaTunnel Engine cluster, continue with [SeaTunnel Engine(Zeta) Deployment](../../engines/zeta/deployment.md).
 - See [SeaTunnel Engine(Zeta)](../../engines/zeta/about.md) if you want to learn more about SeaTunnel Engine.
