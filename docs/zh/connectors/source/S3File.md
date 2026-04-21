@@ -411,7 +411,7 @@ markdown 解析器提取各种元素，包括标题、段落、列表、代码�
 
 Metalake 服务类型，目前仅支持 `gravitino`。当使用 `schema_url` 从 Gravitino 获取元数据时，可以指定此参数（默认为 `gravitino`）。
 
-有关 Metalake 的更多信息，请参考 [Metalake](../../introduction/concepts/metalake.md)。
+有关 Metalake 的更多信息，请参考 [Metalake](../../introduction/configuration/metalake.md)。
 
 ## 示例
 

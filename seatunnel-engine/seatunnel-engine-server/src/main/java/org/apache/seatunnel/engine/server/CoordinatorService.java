@@ -243,6 +243,13 @@ public class CoordinatorService {
         startPendingJobScheduleThread();
     }
 
+    /**
+     * Starts the long-lived single-threaded pending job scheduler.
+     *
+     * <p>The scheduler keeps checking the queue head and only advances a job after resource
+     * pre-checks succeed. Unexpected exceptions are logged and retried so one bad scheduling cycle
+     * does not terminate future pending-job processing.
+     */
     private void startPendingJobScheduleThread() {
         Runnable pendingJobScheduleTask =
                 () -> {
@@ -266,6 +273,17 @@ public class CoordinatorService {
         executorService.submit(pendingJobScheduleTask);
     }
 
+    /**
+     * Attempts to advance the head job in the pending queue into execution.
+     *
+     * <p>This method peeks the queue head before removing it so the current job keeps its position
+     * while resource pre-allocation is evaluated. If resources are insufficient, the job either
+     * stays queued for retry under {@link ScheduleStrategy#WAIT} or is failed before entering
+     * {@link JobMaster#run()}. Restored jobs rehydrate pipeline execution state before the new
+     * master takes over execution.
+     *
+     * @throws InterruptedException if queue waiting or retry sleep is interrupted
+     */
     private void pendingJobSchedule() throws InterruptedException {
         PendingJobInfo pendingJobInfo = pendingJobQueue.peekBlocking();
         if (Objects.isNull(pendingJobInfo)) {
@@ -350,6 +368,13 @@ public class CoordinatorService {
         pendingJobQueue.removeById(jobMaster.getJobId());
     }
 
+    /**
+     * Completes a pending job as failed before it ever enters the running phase.
+     *
+     * <p>This path is used when the scheduling strategy does not permit waiting for resources. At
+     * this point no task has been deployed to workers, so the coordinator only needs to mark the
+     * physical plan failed and complete the job future rather than execute full runtime teardown.
+     */
     private void completeFailJob(JobMaster jobMaster) {
         // If the pending queue is not enabled and resources are insufficient, stop the task from
         // running
@@ -628,6 +653,14 @@ public class CoordinatorService {
         }
     }
 
+    /**
+     * Restores all distributed running jobs after this node becomes the active master.
+     *
+     * <p>The restore process scans shared job metadata, skips jobs that are already owned by the
+     * local coordinator, waits for workers to register, and then recreates each missing {@link
+     * JobMaster}. Each restored job is re-enqueued as a pending job so it can re-enter the normal
+     * scheduling path on the new master.
+     */
     private void restoreAllRunningJobFromMasterNodeSwitch() {
         List<Map.Entry<Long, JobInfo>> needRestoreFromMasterNodeSwitchJobs;
         try {
@@ -701,6 +734,17 @@ public class CoordinatorService {
         }
     }
 
+    /**
+     * Recreates a single {@link JobMaster} from distributed metadata after an active-master switch.
+     *
+     * <p>If the shared runtime state for the job has already disappeared, the stale {@link JobInfo}
+     * entry is removed and restore stops. Otherwise a new {@link JobMaster} is initialized in
+     * restart mode and re-enqueued as {@link PendingSourceState#RESTORE}, allowing the job to reuse
+     * the standard pending-job scheduling flow on the new master.
+     *
+     * @param jobId restored job identifier
+     * @param jobInfo distributed immutable job metadata captured before the master switch
+     */
     private void restoreJobFromMasterActiveSwitch(@NonNull Long jobId, @NonNull JobInfo jobInfo) {
         Object jobState;
         try {
@@ -748,6 +792,13 @@ public class CoordinatorService {
         logger.info(String.format("The restore job enter pending queue, JobId: %s", jobId));
     }
 
+    /**
+     * Polls master ownership and reconciles the local coordinator lifecycle with cluster state.
+     *
+     * <p>When this node becomes the active master, the coordinator initializes distributed services
+     * and triggers job restore. When it loses master ownership, local coordinator state is torn
+     * down. Initialization failures are cleaned up locally and retried by later polling cycles.
+     */
     private void checkNewActiveMaster() {
         try {
             if (!isActive && this.seaTunnelServer.isMasterNode()) {
@@ -779,6 +830,14 @@ public class CoordinatorService {
         }
     }
 
+    /**
+     * Clears the local coordinator runtime after this node stops serving as the active master.
+     *
+     * <p>This method interrupts locally owned {@link JobMaster} instances, optionally clears queued
+     * pending jobs for wait-based scheduling, and shuts down local services such as the executor,
+     * resource manager, and event processor. It does not delete distributed job metadata that a new
+     * active master needs for takeover recovery.
+     */
     public synchronized void clearCoordinatorService() {
         // interrupt all JobMaster
         runningJobMasterMap.values().forEach(JobMaster::interrupt);

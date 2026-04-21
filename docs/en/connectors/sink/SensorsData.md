@@ -154,7 +154,7 @@ When enabled, null values in profile properties will be converted to profile uns
 
 ### common options
 
-Sink plugin common parameters, please refer to [Sink Common Options](common-options.md) for details
+Sink plugin common parameters, please refer to [Sink Common Options](../common-options/sink-common-options.md) for details
 
 ## Examples
 
@@ -288,4 +288,3 @@ sink {
 ## Changelog
 
 <ChangeLog />
-

@@ -191,4 +191,3 @@ INSERT INTO sink_table SELECT * FROM temp1;
 ```bash
 ./bin/seatunnel.sh --config ./config/sample.sql
 ```
-
