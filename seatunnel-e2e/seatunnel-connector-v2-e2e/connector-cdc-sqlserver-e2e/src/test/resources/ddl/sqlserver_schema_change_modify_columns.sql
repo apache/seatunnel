@@ -19,9 +19,10 @@ USE schema_change_test;
 EXEC sys.sp_cdc_disable_table
     @source_schema = 'dbo',
     @source_name = 'products',
-    @capture_instance = 'dbo_products_v3';
+    @capture_instance = 'dbo_products_v4';
 
-ALTER TABLE dbo.products ALTER COLUMN name NVARCHAR(MAX) NULL;
+-- Use bounded length for stable source/sink metadata comparison in IT assertions.
+ALTER TABLE dbo.products ALTER COLUMN name NVARCHAR(255) NULL;
 
 EXEC sys.sp_cdc_enable_table
     @source_schema = 'dbo',

@@ -24,6 +24,7 @@ import org.apache.seatunnel.api.table.catalog.Column;
 import org.apache.seatunnel.api.table.catalog.PhysicalColumn;
 import org.apache.seatunnel.api.table.catalog.TableIdentifier;
 import org.apache.seatunnel.api.table.catalog.TablePath;
+import org.apache.seatunnel.api.table.converter.BasicTypeDefine;
 import org.apache.seatunnel.api.table.schema.event.AlterTableAddColumnEvent;
 import org.apache.seatunnel.api.table.schema.event.AlterTableChangeColumnEvent;
 import org.apache.seatunnel.api.table.schema.event.AlterTableColumnEvent;
@@ -34,8 +35,8 @@ import org.apache.seatunnel.api.table.schema.event.SchemaChangeEvent;
 import org.apache.seatunnel.connectors.cdc.base.schema.SchemaChangeResolver;
 import org.apache.seatunnel.connectors.cdc.base.utils.SourceRecordUtils;
 import org.apache.seatunnel.connectors.cdc.debezium.ConnectTableChangeSerializer;
-import org.apache.seatunnel.connectors.seatunnel.cdc.sqlserver.utils.SqlServerTypeUtils;
 import org.apache.seatunnel.connectors.seatunnel.jdbc.internal.dialect.DatabaseIdentifier;
+import org.apache.seatunnel.connectors.seatunnel.jdbc.internal.dialect.sqlserver.SqlServerTypeConverter;
 
 import org.apache.kafka.connect.data.Struct;
 import org.apache.kafka.connect.source.SourceRecord;
@@ -360,18 +361,38 @@ public class SqlServerSchemaChangeResolver implements SchemaChangeResolver {
     }
 
     private Column convertColumn(io.debezium.relational.Column column) {
-        String sourceType = column.typeExpression();
+        boolean hasLength = column.length() != io.debezium.relational.Column.UNSET_INT_VALUE;
+        long rawLength = hasLength ? (long) column.length() : 0L;
+        // Use SqlServerTypeConverter to compute columnLength, scale, and sourceType with the same
+        // transformation logic as the JDBC catalog (e.g. doubleByteTo4ByteLength for varchar),
+        // so that the diff comparison against catalog columns produces consistent results and the
+        // sourceType carries the fully-qualified type expression (e.g. "varchar(64)") needed by
+        // resolveColumnType in SqlServerDialect to generate correct DDL.
+        BasicTypeDefine typeDefine =
+                BasicTypeDefine.builder()
+                        .name(column.name())
+                        .columnType(column.typeName())
+                        .dataType(column.typeName())
+                        .length(hasLength ? rawLength : null)
+                        .precision(rawLength)
+                        .scale(column.scale().orElse(0))
+                        .build();
+        Column converted = SqlServerTypeConverter.INSTANCE.convert(typeDefine);
+        // Prefer the converter-derived sourceType (e.g. "varchar(64)") over the bare Debezium
+        // typeExpression (e.g. "varchar") so that resolveColumnType can use it for same-catalog
+        // DDL.
+        String sourceType = converted.getSourceType();
+        if (StringUtils.isBlank(sourceType)) {
+            sourceType = column.typeExpression();
+        }
         if (StringUtils.isBlank(sourceType)) {
             sourceType = column.typeName();
         }
         return PhysicalColumn.builder()
                 .name(column.name())
-                .dataType(SqlServerTypeUtils.convertFromColumn(column))
-                .columnLength(
-                        column.length() == io.debezium.relational.Column.UNSET_INT_VALUE
-                                ? null
-                                : (long) column.length())
-                .scale(column.scale().orElse(null))
+                .dataType(converted.getDataType())
+                .columnLength(hasLength ? converted.getColumnLength() : null)
+                .scale(converted.getScale())
                 .nullable(column.isOptional())
                 .defaultValue(column.defaultValueExpression().orElse(null))
                 .comment(column.comment())
@@ -403,7 +424,24 @@ public class SqlServerSchemaChangeResolver implements SchemaChangeResolver {
         }
         String normalizedOld = oldSourceType.replace(" ", "").toLowerCase(Locale.ENGLISH);
         String normalizedNew = newSourceType.replace(" ", "").toLowerCase(Locale.ENGLISH);
-        return StringUtils.equals(normalizedOld, normalizedNew);
+        if (StringUtils.equals(normalizedOld, normalizedNew)) {
+            return true;
+        }
+        // When the CDC migration path reads column metadata via JDBC DatabaseMetaData, the
+        // typeExpression field may not be populated, causing convertColumn() to fall back to
+        // typeName() which lacks length/precision (e.g. "varchar" instead of "varchar(255)").
+        // Treat the types as compatible when their base names match and at least one side is
+        // missing the length qualifier — the actual column type has not changed in that case.
+        String baseOld =
+                normalizedOld.contains("(")
+                        ? normalizedOld.substring(0, normalizedOld.indexOf('('))
+                        : normalizedOld;
+        String baseNew =
+                normalizedNew.contains("(")
+                        ? normalizedNew.substring(0, normalizedNew.indexOf('('))
+                        : normalizedNew;
+        return StringUtils.equals(baseOld, baseNew)
+                && (!normalizedOld.contains("(") || !normalizedNew.contains("("));
     }
 
     private TablePath parseTablePathFromDdl(String ddl) {

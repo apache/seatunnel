@@ -20,18 +20,21 @@ INSERT INTO dbo.products VALUES (110, 'scooter', 'Small 2-wheel scooter', 3.14);
 UPDATE dbo.products SET name = 'updated-before-add' WHERE id = 101;
 DELETE FROM dbo.products WHERE id = 102;
 
+-- Add columns as NULL first so that existing rows are not silently filled by SQL Server's
+-- DEFAULT mechanism (which does not generate CDC events). We will explicitly set values
+-- for all pre-existing rows via UPDATE so that CDC can replicate them to the sink.
 ALTER TABLE dbo.products
-ADD add_column1 VARCHAR(64) NOT NULL CONSTRAINT df_products_add_column1 DEFAULT 'yy',
-    add_column2 INT NOT NULL CONSTRAINT df_products_add_column2 DEFAULT 1;
+ADD add_column1 VARCHAR(64) NULL,
+    add_column2 INT NULL;
 
 INSERT INTO dbo.products VALUES (120, 'car battery', '12V car battery', 8.1, 'xx', 2);
 INSERT INTO dbo.products VALUES (121, 'drill bits', 'sizes from #40 to #3', 0.8, 'xx', 3);
 
 ALTER TABLE dbo.products
-ADD add_column3 FLOAT NOT NULL CONSTRAINT df_products_add_column3 DEFAULT 1.1;
+ADD add_column3 FLOAT NULL;
 
 ALTER TABLE dbo.products
-ADD add_column4 DATETIME2 NOT NULL CONSTRAINT df_products_add_column4 DEFAULT ('2023-02-02T09:09:09');
+ADD add_column4 DATETIME2 NULL;
 
 EXEC sys.sp_cdc_enable_table
     @source_schema = 'dbo',
@@ -39,6 +42,14 @@ EXEC sys.sp_cdc_enable_table
     @role_name = NULL,
     @capture_instance = 'dbo_products_v2',
     @supports_net_changes = 0;
+
+-- Backfill the newly added columns only after the new capture instance is enabled,
+-- otherwise the source table is updated but the sink never receives the non-null values.
+UPDATE dbo.products SET add_column1 = 'yy', add_column2 = 1
+WHERE id IN (101, 103, 104, 105, 106, 107, 108, 109, 110);
+
+UPDATE dbo.products SET add_column3 = 1.1, add_column4 = '2023-02-02T09:09:09'
+WHERE id IN (101, 103, 104, 105, 106, 107, 108, 109, 110, 120, 121);
 
 INSERT INTO dbo.products VALUES (128, 'scooter', 'Small 2-wheel scooter', 3.14, 'xx', 1, 1.1, '2023-02-02T09:09:09');
 INSERT INTO dbo.products VALUES (129, 'car battery', '12V car battery', 8.1, 'xx', 2, 1.2, '2023-02-02T09:09:09');

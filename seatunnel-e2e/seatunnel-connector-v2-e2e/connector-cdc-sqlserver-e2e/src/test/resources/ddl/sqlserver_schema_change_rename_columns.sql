@@ -19,7 +19,7 @@ USE schema_change_test;
 EXEC sys.sp_cdc_disable_table
     @source_schema = 'dbo',
     @source_name = 'products',
-    @capture_instance = 'dbo_products_v2';
+    @capture_instance = 'dbo_products_v3';
 
 EXEC sp_rename 'dbo.products.add_column2', 'add_column', 'COLUMN';
 
