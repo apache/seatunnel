@@ -43,6 +43,7 @@ github:
     - SEZ9
     - boy-xiaozhang
     - nzw921rx
+  dependabot_updates: false
   enabled_merge_buttons:
     squash: true
     merge: false

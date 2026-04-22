@@ -24,6 +24,20 @@ SeaTunnel is designed as a distributed multimodal data integration tool with the
 - **Data Lake/Warehouse Ingestion**: Efficient data loading to data lakes (Iceberg, Hudi, Delta Lake) and warehouses
 - **Multi-table Synchronization**: Synchronizing multiple tables in a single job with schema evolution support
 
+### 1.3 Recommended Reading Path
+
+If you are using this section to build architectural understanding, read in this order:
+
+- this page for the layered system view
+- [Configuration And Option System](./configuration-and-option-system.md) for how plugin configuration is modeled and validated
+- [Transform Plugin System](./transform-plugin-system.md) for how transform plugins fit between source, sink, schema, and engine translation
+- [Table Schema and Type System](./table-schema-and-type-system.md) for how table metadata and portable types flow through the pipeline
+- [CDC Pipeline Architecture](./cdc-pipeline-architecture.md) if you need the end-to-end view for changelog-style pipelines
+- [Checkpoint Mechanism](./fault-tolerance/checkpoint-mechanism.md) and [Exactly-Once](./fault-tolerance/exactly-once.md) for consistency semantics
+- [Resource Management](./engine/resource-management.md) for slot allocation and worker coordination
+- [Plugin Discovery and Class Loading](./plugin-discovery-and-class-loading.md) for runtime plugin packaging and isolation
+- [Translation Layer](./api-design/translation-layer.md) if you need to understand multi-engine support
+
 ## 2. Overall Architecture
 
 SeaTunnel adopts a layered architecture that separates concerns and enables flexibility:
@@ -437,8 +451,12 @@ seatunnel/
 To dive deeper into specific architectural components:
 
 - [Design Philosophy](design-philosophy.md) - Core design principles and trade-offs
+- [Transform Plugin System](transform-plugin-system.md) - How transform plugins are structured, discovered, and used to shape rows and schema
+- [Table Schema and Type System](table-schema-and-type-system.md) - How schema, metadata, and portable types are modeled across connectors and engines
+- [CDC Pipeline Architecture](cdc-pipeline-architecture.md) - How snapshot, incremental change capture, and sink application work together
 - [Source Architecture](api-design/source-architecture.md) - Deep dive into Source API design
 - [Sink Architecture](api-design/sink-architecture.md) - Deep dive into Sink API design
+- [Plugin Discovery and Class Loading](plugin-discovery-and-class-loading.md) - How factories, jars, and isolated dependencies are resolved at runtime
 - [Engine Architecture](engine/engine-architecture.md) - SeaTunnel Engine internals
 - [Checkpoint Mechanism](fault-tolerance/checkpoint-mechanism.md) - Fault tolerance implementation
 

@@ -8,6 +8,8 @@ sidebar_position: 2
 
 SeaTunnel is a distributed multimodal data integration tool with a pluggable architecture. It decouples the connector layer from the execution engine, allowing the same connectors to run on different engines.
 
+This page is the shortest bridge between first-run docs and deeper architecture docs. Read it when you already know SeaTunnel at a high level but still need a practical mental model of how job config, plugins, and engines connect.
+
 ```
 ┌─────────────────────────────────────────────────────────────┐
 │                      Job Configuration                       │
@@ -33,6 +35,17 @@ SeaTunnel is a distributed multimodal data integration tool with a pluggable arc
 │         SeaTunnel Engine (Zeta) / Flink / Spark              │
 └─────────────────────────────────────────────────────────────┘
 ```
+
+## Recommended Reading Path
+
+If you are building your first system-level understanding, read in this order:
+
+- [Getting Started Overview](../getting-started/overview.md) for the shortest first-run path
+- this page for the execution model in one diagram
+- [Engine Overview](../engines/overview.md) for engine selection
+- [Architecture Overview](../architecture/overview.md) for the layered system view
+- [Core API Design](../architecture/core-api-design.md) for the connector and metadata contracts
+- [Transform Plugin System](../architecture/transform-plugin-system.md) if you need to understand dataset wiring and transform behavior
 
 ## Core Components
 
@@ -100,5 +113,7 @@ seatunnel/
 ## Next Steps
 
 - [Engine Comparison](../engines/overview.md)
-- [Quick Start](../getting-started/locally/quick-start-seatunnel-engine.md)
+- [Getting Started Overview](../getting-started/overview.md)
+- [Quick Start With SeaTunnel Engine](../getting-started/locally/quick-start-seatunnel-engine.md)
+- [Architecture Overview](../architecture/overview.md)
 - [Connector List](../connectors)

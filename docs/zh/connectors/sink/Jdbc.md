@@ -83,6 +83,8 @@ JDBC 连接的 URL。参考案例：`jdbc:postgresql://localhost/test`
 
 使用 sql 语句将上游输入数据写入到数据库。如 `INSERT ...`
 
+当前限制：当 sink 配置了 `query`（自定义写入 SQL）时，JDBC sink 不会执行 save mode 处理。此模式下 `schema_save_mode`、`data_save_mode`、`custom_sql` 不生效。如需使用 save mode，请改用 `generate_sink_sql = true` 并配置 `database`、`table`。
+
 ### compatible_mode [string]
 
 数据库的兼容模式，当数据库支持多种兼容模式时需要。
@@ -218,6 +220,8 @@ Sink插件常用参数，请参考 [Sink常用选项](../common-options/sink-com
 ### custom_sql [String]
 
 当`data_save_mode`选择`CUSTOM_PROCESSING`时，需要填写`CUSTOM_SQL`参数。该参数通常填写一条可以执行的SQL。SQL将在同步任务之前执行
+
+注意：在 sink 的 `query` 模式下，`custom_sql` 不会执行。这是 JDBC sink 的当前限制。
 
 ### enable_upsert [boolean]
 

@@ -15,9 +15,32 @@ SeaTunnel Engine 既可以用于单机快速体验，也可以部署为多节点
 
 这一部分适合在单台机器上快速验证安装、连接器和作业配置。下面的命令都使用 `-m local` 启动 SeaTunnel Engine。
 
+## 开始前建议先看
+
+如果这是你第一次进入 SeaTunnel 文档，建议按下面顺序阅读：
+
+- [快速入门总览](../overview.md)
+- [安装部署](deployment.md)
+- [作业配置指南](../job-configuration-guide.md)
+
+本页示例链路使用 `FakeSource`、`FieldMapper` 和 `Console`。在运行示例前，请先确认相关插件已经安装：
+
+```plugin_config
+--seatunnel-connectors--
+connector-fake
+connector-console
+--end--
+```
+
+```bash
+sh bin/install-plugin.sh
+```
+
 ### 步骤 1: 部署SeaTunnel及连接器
 
 在开始前，请确保您已经按照[部署](deployment.md)中的描述下载并部署了SeaTunnel。
+
+如果你已经安装了完整插件，可以直接复用。若只是为了最短路径跑通本页示例，上面列出的两个插件就足够。
 
 ### 步骤 2: 添加作业配置文件来定义作业
 
@@ -218,6 +241,8 @@ Total Failed Count        :                   0
 
 ## 下一步
 
+- 如果你想先建立整体路径感，可以返回阅读[快速入门总览](../overview.md)。
+- 当你准备把示例 Source 和 Sink 替换成真实连接器时，建议继续阅读[作业配置指南](../job-configuration-guide.md)。
 - 开始编写您自己的配置文件，选择您想要使用的[连接器](../../connectors/source)，并根据连接器的文档配置参数。
 - 如果您要部署多节点 SeaTunnel Engine 集群，请继续阅读[SeaTunnel Engine(Zeta) 安装部署](../../engines/zeta/deployment.md)。
 - 如果您想进一步了解 SeaTunnel Engine，请参阅[SeaTunnel引擎](../../engines/zeta/about.md)。

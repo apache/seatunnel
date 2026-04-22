@@ -1,5 +1,13 @@
 # FAQ
 
+## Where can I get help and join the community?
+Use these entry points first:
+
+- Issue tracking: [GitHub Issues](https://github.com/apache/seatunnel/issues)
+- Long-form discussion: [dev mailing list](https://lists.apache.org/list.html?dev@seatunnel.apache.org)
+- Stable onboarding path: [Contribution Path](./developer/contribution-path.md)
+- Contributor onboarding: [Developer Setup](./developer/setup.md) and [Contribute Plugin](./developer/contribute-plugin.md)
+
 ## What data sources and destinations does SeaTunnel support?
 SeaTunnel supports various data sources and destinations. You can find a detailed list on the following list:
 - Supported data sources (Source): [Source List](./connectors/source)
@@ -46,7 +54,9 @@ Yes, you can specify different processing schemes for existing data on the targe
 - **`APPEND_DATA`**: Retains both the database structure and data.
 - **`CUSTOM_PROCESSING`**: User-defined processing.
 - **`ERROR_WHEN_DATA_EXISTS`**: Throws an error if data already exists.
-  Many connectors support handling existing data; please refer to the respective connector documentation, such as [Jdbc sink](./connectors/sink/Jdbc.md#data_save_mode-enum).
+
+  Many connectors support handling existing data; please refer to the respective connector documentation, such as [Jdbc sink](https://seatunnel.apache.org/docs/connectors/sink/Jdbc#data_save_mode-enum).
+  Note: for JDBC sink, when sink `query` is configured (custom write SQL), save mode handling is currently not applied, so `CUSTOM_PROCESSING`/`custom_sql` will not be executed.
 
 ## Does SeaTunnel support exactly-once consistency?
 SeaTunnel supports exactly-once consistency for some data sources, such as MySQL and PostgreSQL, ensuring data consistency during integration. Note that exactly-once consistency depends on the capabilities of the underlying database.

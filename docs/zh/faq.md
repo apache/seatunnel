@@ -1,5 +1,13 @@
 # 常见问题解答
 
+## 遇到问题时，应该去哪里获取帮助并加入社区？
+建议优先从这些入口进入：
+
+- 问题跟踪：[GitHub Issues](https://github.com/apache/seatunnel/issues)
+- 长线程讨论：[dev 邮件列表](https://lists.apache.org/list.html?dev@seatunnel.apache.org)
+- 稳定贡献入口：[贡献路径](./developer/contribution-path.md)
+- 贡献者入门：[开发环境搭建](./developer/setup.md) 与 [贡献插件](./developer/contribute-plugin.md)
+
 ## SeaTunnel 支持哪些数据来源和数据目的地？
 SeaTunnel 支持多种数据源来源和数据目的地，您可以在官网找到详细的列表：
 SeaTunnel 支持的数据来源(Source)列表：[Source List](./connectors/source)
@@ -52,7 +60,9 @@ SeaTunnel 支持增量数据同步。例如通过 CDC 连接器实现对数据�
 - **`APPEND_DATA`**：保留数据库结构，保留数据。
 - **`CUSTOM_PROCESSING`**：用户自定义处理。
 - **`ERROR_WHEN_DATA_EXISTS`**：当存在数据时，报错。
-  目前很多 connector 已经支持了对已有数据进行处理，请参考对应的 connector 文档，这里拿 Jdbc 举例，请参考 [Jdbc sink](./connectors/sink/Jdbc.md#data_save_mode-enum)
+
+  目前很多 connector 已经支持了对已有数据进行处理，请参考对应的 connector 文档，这里拿 Jdbc 举例，请参考 [Jdbc sink](https://seatunnel.apache.org/docs/connectors/sink/Jdbc#data_save_mode-enum)
+  注意：对于 JDBC sink，当 sink 配置了 `query`（自定义写入 SQL）时，当前不会执行 save mode 处理，因此 `CUSTOM_PROCESSING`/`custom_sql` 不会生效。
 
 ## SeaTunnel 是否支持精确一致性管理？
 SeaTunnel 支持一部分数据源的精确一致性，例如支持 MySQL、PostgreSQL 等数据库的事务写入，确保数据在同步过程中的一致性，另外精确一致性也要看数据库本身是否可以支持
@@ -122,3 +132,4 @@ SeaTunnel 拥有完全抽象、结构化的非常优秀的架构设计和代码�
 ## 如果想开发自己的 source、sink、transform 时，是否需要了解 SeaTunnel 所有源代码？
 不需要，您只需要关注 source、sink、transform 对应的接口即可。
 如果你想针对 SeaTunnel API 开发自己的连接器（Connector V2），请查看**[Connector Development Guide](https://github.com/apache/seatunnel/blob/dev/seatunnel-connectors-v2/README.zh.md)** 。
+
