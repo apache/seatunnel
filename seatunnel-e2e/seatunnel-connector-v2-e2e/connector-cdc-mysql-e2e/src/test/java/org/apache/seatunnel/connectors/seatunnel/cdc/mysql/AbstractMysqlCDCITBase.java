@@ -50,6 +50,7 @@ import java.util.ArrayList;
 import java.util.List;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.TimeUnit;
+import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.stream.Stream;
 
 import static org.awaitility.Awaitility.await;
@@ -102,6 +103,8 @@ public abstract class AbstractMysqlCDCITBase extends TestSuiteBase implements Te
     private static final String MULTI_DATABASE_SINK = "mysql_multi_cdc_db_sink";
     private static final String MULTI_DATABASE_TABLE_A = "multi_src_a";
     private static final String MULTI_DATABASE_TABLE_B = "multi_src_b";
+    private static final String TIMER_FLUSH_SRC_TABLE = "timer_flush_src";
+    private static final String TIMER_FLUSH_SINK_TABLE = "timer_flush_sink";
 
     protected MySqlContainer MYSQL_CONTAINER;
     protected UniqueDatabase inventoryDatabase;
@@ -978,6 +981,217 @@ public abstract class AbstractMysqlCDCITBase extends TestSuiteBase implements Te
         executeSql("DELETE FROM " + database + "." + tableName + " where id = 2");
 
         executeSql("UPDATE " + database + "." + tableName + " SET f_bigint = 10000 where id = 3");
+    }
+
+    @TestTemplate
+    @DisabledOnContainer(
+            value = {},
+            type = {EngineType.SPARK, EngineType.FLINK},
+            disabledReason =
+                    "engine-level timer flush (sink.flush.interval) is only supported on Zeta engine")
+    public void testJdbcSinkTimerFlushEnabled(TestContainer container) throws Exception {
+        inventoryDatabase.setTemplateName("timer_flush").createAndInitialize();
+
+        Long jobId = JobIdGenerator.newJobId();
+        AtomicBoolean jobFinished = new AtomicBoolean(false);
+        CompletableFuture.supplyAsync(
+                () -> {
+                    try {
+                        return container.executeJob(
+                                "/mysqlcdc_to_mysql_timer_flush_enabled.conf",
+                                String.valueOf(jobId));
+                    } catch (Exception e) {
+                        log.error("Commit task exception :" + e.getMessage());
+                        throw new RuntimeException(e);
+                    } finally {
+                        jobFinished.set(true);
+                    }
+                });
+
+        // snapshot phase
+        await().atMost(60000, TimeUnit.MILLISECONDS)
+                .pollInterval(1000, TimeUnit.MILLISECONDS)
+                .untilAsserted(
+                        () ->
+                                Assertions.assertTrue(
+                                        query(getQuerySQL(MYSQL_DATABASE, TIMER_FLUSH_SINK_TABLE))
+                                                        .size()
+                                                > 0));
+
+        // insert update delete
+        upsertDeleteTimerFlushTable(MYSQL_DATABASE, TIMER_FLUSH_SRC_TABLE);
+
+        // stream stage
+        await().atMost(60000, TimeUnit.MILLISECONDS)
+                .untilAsserted(
+                        () -> {
+                            log.info(
+                                    query(getQuerySQL(MYSQL_DATABASE, TIMER_FLUSH_SINK_TABLE))
+                                            .toString());
+                            Assertions.assertIterableEquals(
+                                    query(getQuerySQL(MYSQL_DATABASE, TIMER_FLUSH_SRC_TABLE)),
+                                    query(getQuerySQL(MYSQL_DATABASE, TIMER_FLUSH_SINK_TABLE)));
+                        });
+
+        Assertions.assertEquals(
+                0,
+                container.savepointJob(String.valueOf(jobId)).getExitCode(),
+                "Savepoint must succeed");
+    }
+
+    @TestTemplate
+    @DisabledOnContainer(
+            value = {},
+            type = {EngineType.SPARK, EngineType.FLINK},
+            disabledReason =
+                    "engine-level timer flush (sink.flush.interval) is only supported on Zeta engine")
+    public void testJdbcSinkTimerFlushDisabled(TestContainer container) throws Exception {
+        inventoryDatabase.setTemplateName("timer_flush").createAndInitialize();
+
+        Long jobId = JobIdGenerator.newJobId();
+        AtomicBoolean jobFinished = new AtomicBoolean(false);
+        CompletableFuture.supplyAsync(
+                () -> {
+                    try {
+                        return container.executeJob(
+                                "/mysqlcdc_to_mysql_timer_flush_disabled.conf",
+                                String.valueOf(jobId));
+                    } catch (Exception e) {
+                        log.error("Commit task exception :" + e.getMessage());
+                        throw new RuntimeException(e);
+                    } finally {
+                        jobFinished.set(true);
+                    }
+                });
+
+        // insert update delete
+        upsertDeleteTimerFlushTable(MYSQL_DATABASE, TIMER_FLUSH_SRC_TABLE);
+
+        // sink.flush.interval fires but enable_timer_flush=false — no rows must appear
+        // during the entire polling window (checkpoint.interval=300s ensures no ck commit either)
+        await().atMost(20000, TimeUnit.MILLISECONDS)
+                .pollInterval(2000, TimeUnit.MILLISECONDS)
+                .untilAsserted(
+                        () -> {
+                            Assertions.assertFalse(
+                                    jobFinished.get(),
+                                    "CDC job must still be running during the disabled check.");
+                            log.info(
+                                    query(getQuerySQL(MYSQL_DATABASE, TIMER_FLUSH_SINK_TABLE))
+                                            .toString());
+                            Assertions.assertEquals(
+                                    0,
+                                    query(getQuerySQL(MYSQL_DATABASE, TIMER_FLUSH_SINK_TABLE))
+                                            .size(),
+                                    "With enable_timer_flush=false no rows must appear in sink"
+                                            + " while the job is running.");
+                        });
+
+        Assertions.assertEquals(
+                0,
+                container.savepointJob(String.valueOf(jobId)).getExitCode(),
+                "Savepoint must succeed");
+    }
+
+    @TestTemplate
+    @DisabledOnContainer(
+            value = {},
+            type = {EngineType.SPARK, EngineType.FLINK},
+            disabledReason =
+                    "engine-level timer flush and savepoint/restore are only supported on Zeta engine")
+    public void testJdbcSinkTimerFlushRestore(TestContainer container) throws Exception {
+        inventoryDatabase.setTemplateName("timer_flush").createAndInitialize();
+
+        Long jobId = JobIdGenerator.newJobId();
+
+        // ── Phase 1: start job, snapshot, DML, wait for timer flush ─────────
+        CompletableFuture.supplyAsync(
+                () -> {
+                    try {
+                        return container.executeJob(
+                                "/mysqlcdc_to_mysql_timer_flush_restore.conf",
+                                String.valueOf(jobId));
+                    } catch (Exception e) {
+                        log.error("Commit task exception :" + e.getMessage());
+                        throw new RuntimeException(e);
+                    }
+                });
+
+        // snapshot phase
+        await().atMost(60000, TimeUnit.MILLISECONDS)
+                .pollInterval(1000, TimeUnit.MILLISECONDS)
+                .untilAsserted(
+                        () ->
+                                Assertions.assertTrue(
+                                        query(getQuerySQL(MYSQL_DATABASE, TIMER_FLUSH_SINK_TABLE))
+                                                        .size()
+                                                > 0));
+
+        // insert update delete
+        upsertDeleteTimerFlushTable(MYSQL_DATABASE, TIMER_FLUSH_SRC_TABLE);
+
+        // stream stage
+        await().atMost(60000, TimeUnit.MILLISECONDS)
+                .untilAsserted(
+                        () -> {
+                            log.info(
+                                    query(getQuerySQL(MYSQL_DATABASE, TIMER_FLUSH_SINK_TABLE))
+                                            .toString());
+                            Assertions.assertIterableEquals(
+                                    query(getQuerySQL(MYSQL_DATABASE, TIMER_FLUSH_SRC_TABLE)),
+                                    query(getQuerySQL(MYSQL_DATABASE, TIMER_FLUSH_SINK_TABLE)));
+                        });
+
+        // savepoint
+        Assertions.assertEquals(
+                0, container.savepointJob(String.valueOf(jobId)).getExitCode());
+
+        // ── Phase 2: restore, more DML, verify timer flush still works ────────
+        CompletableFuture.supplyAsync(
+                () -> {
+                    try {
+                        container.restoreJob(
+                                "/mysqlcdc_to_mysql_timer_flush_restore.conf",
+                                String.valueOf(jobId));
+                    } catch (Exception e) {
+                        log.error("Commit task exception :" + e.getMessage());
+                        throw new RuntimeException(e);
+                    }
+                    return null;
+                });
+
+        // insert update delete
+        upsertDeleteTimerFlushTable(MYSQL_DATABASE, TIMER_FLUSH_SRC_TABLE);
+
+        // stream stage
+        await().atMost(60000, TimeUnit.MILLISECONDS)
+                .untilAsserted(
+                        () -> {
+                            log.info(
+                                    query(getQuerySQL(MYSQL_DATABASE, TIMER_FLUSH_SINK_TABLE))
+                                            .toString());
+                            Assertions.assertIterableEquals(
+                                    query(getQuerySQL(MYSQL_DATABASE, TIMER_FLUSH_SRC_TABLE)),
+                                    query(getQuerySQL(MYSQL_DATABASE, TIMER_FLUSH_SINK_TABLE)));
+                        });
+
+        Assertions.assertEquals(
+                0,
+                container.savepointJob(String.valueOf(jobId)).getExitCode(),
+                "Phase-2 savepoint must succeed");
+    }
+
+    private void upsertDeleteTimerFlushTable(String database, String tableName) {
+        executeSql(
+                "INSERT INTO "
+                        + database
+                        + "."
+                        + tableName
+                        + " (id, f_bigint, f_varchar) VALUES (4, 400, 'row-4'), (5, 500, 'row-5')"
+                        + " ON DUPLICATE KEY UPDATE f_bigint = VALUES(f_bigint), f_varchar = VALUES(f_varchar)");
+        executeSql(
+                "UPDATE " + database + "." + tableName + " SET f_bigint = 9999 WHERE id = 1");
+        executeSql("DELETE FROM " + database + "." + tableName + " WHERE id = 2");
     }
 
     @Override

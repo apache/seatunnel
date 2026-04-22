@@ -160,4 +160,14 @@ public class JdbcSinkOptions extends JdbcCommonOptions {
                     .booleanType()
                     .defaultValue(true)
                     .withDescription("Create index or not when auto create table");
+
+    public static final Option<Boolean> ENABLE_TIMER_FLUSH =
+            Options.key("enable_timer_flush")
+                    .booleanType()
+                    .defaultValue(false)
+                    .withDescription(
+                            "Whether this Sink registers for engine-level timer flush. "
+                                    + "When true and env sink.flush.interval is set, "
+                                    + "the engine will periodically inject TimerFlushSignal "
+                                    + "into the record stream for this Sink.");
 }

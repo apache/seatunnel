@@ -83,7 +83,9 @@ public class IcebergSink
     @Override
     public IcebergSinkWriter createWriter(SinkWriter.Context context) throws IOException {
         IcebergSinkWriter writer = IcebergSinkWriter.of(config, catalogTable);
-        context.registerFlushAction(writer::timerFlush);
+        if (config.isEnableTimerFlush()) {
+            context.registerFlushAction(writer::timerFlush);
+        }
         return writer;
     }
 
@@ -91,7 +93,9 @@ public class IcebergSink
     public SinkWriter<SeaTunnelRow, IcebergCommitInfo, IcebergSinkState> restoreWriter(
             SinkWriter.Context context, List<IcebergSinkState> states) throws IOException {
         IcebergSinkWriter writer = IcebergSinkWriter.of(config, catalogTable, states);
-        context.registerFlushAction(writer::timerFlush);
+        if (config.isEnableTimerFlush()) {
+            context.registerFlushAction(writer::timerFlush);
+        }
         return writer;
     }
 
