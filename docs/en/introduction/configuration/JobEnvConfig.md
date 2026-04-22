@@ -55,6 +55,12 @@ This parameter is used to specify the location of the savemode when the job is e
 The default value is `CLUSTER`, which means that the savemode is executed on the cluster. If you want to execute the savemode on the client,
 you can set it to `CLIENT`. Please use `CLUSTER` mode as much as possible, because when there are no problems with `CLUSTER` mode, we will remove `CLIENT` mode.
 
+### sink.flush.interval
+
+The interval (in milliseconds) at which the engine broadcasts a `FlushSignal` to downstream sinks, triggering a flush of buffered data.
+
+When set to `0` or not configured (default), the flush timer is disabled. The sink connector must support and enable `enable_timer_flush`; otherwise the signal will be silently ignored, resulting in unnecessary broadcasts. This parameter only works in the Zeta engine.
+
 ## Flink Engine Parameter
 
 Here are some SeaTunnel parameter names corresponding to the names in Flink, not all of them. Please refer to the official [Flink Documentation](https://flink.apache.org/).

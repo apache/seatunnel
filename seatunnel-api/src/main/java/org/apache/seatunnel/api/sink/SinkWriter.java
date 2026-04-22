@@ -117,5 +117,27 @@ public interface SinkWriter<T, CommitInfoT, StateT> {
          * @return
          */
         EventListener getEventListener();
+
+        /**
+         * Register an action to be invoked by the engine when a periodic flush signal arrives.
+         *
+         * <p>This is the opt-in point for engine-level timer flush. A writer that wants to be
+         * flushed on a schedule should call this method during its initialization, typically with a
+         * method reference like {@code context.registerFlushAction(this::flush)}.
+         *
+         * @param action the action to invoke on each flush signal, must not be {@code null}
+         */
+        default void registerFlushAction(Runnable action) {}
+
+        /**
+         * Return the flush action previously registered via {@link #registerFlushAction(Runnable)},
+         * or {@code null} if the writer has not opted in to engine-level timer flush.
+         *
+         * <p>Callers must null-check the return value; a {@code null} return means the writer will
+         * silently ignore flush signals.
+         */
+        default Runnable getFlushAction() {
+            return null;
+        }
     }
 }

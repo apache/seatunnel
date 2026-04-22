@@ -22,6 +22,8 @@ import org.apache.seatunnel.api.common.metrics.MetricsContext;
 import org.apache.seatunnel.api.event.EventListener;
 import org.apache.seatunnel.api.event.StainTraceEvent;
 import org.apache.seatunnel.api.serialization.Serializer;
+import org.apache.seatunnel.api.signal.FlushSignal;
+import org.apache.seatunnel.api.signal.Signal;
 import org.apache.seatunnel.api.sink.SinkCommitter;
 import org.apache.seatunnel.api.sink.SinkWriter;
 import org.apache.seatunnel.api.sink.SinkWriter.Context;
@@ -293,6 +295,14 @@ public class SinkFlowLifeCycle<T, CommitInfoT extends Serializable, AggregatedCo
                 } else {
                     // todo remove deprecated method
                     writer.applySchemaChange(event);
+                }
+            } else if (record.getData() instanceof Signal) {
+                if (prepareClose) {
+                    return;
+                }
+                Signal signal = (Signal) record.getData();
+                if (signal instanceof FlushSignal && writerContext.getFlushAction() != null) {
+                    writerContext.getFlushAction().run();
                 }
             } else {
                 if (prepareClose) {

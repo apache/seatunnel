@@ -85,6 +85,18 @@ public class EnvCommonOptions {
                     .noDefaultValue()
                     .withDescription("The timeout (in milliseconds) for a checkpoint.");
 
+    public static Option<Long> SINK_FLUSH_INTERVAL =
+            Options.key("sink.flush.interval")
+                    .longType()
+                    .defaultValue(0L)
+                    .withDescription(
+                            "The interval (in milliseconds) for engine-level timer flush "
+                                    + "on Sink tasks. Default 0 means disabled. "
+                                    + "Values less than 100ms will trigger a WARN log "
+                                    + "but still be accepted. "
+                                    + "Only effective for Sink connectors that opt in via "
+                                    + "enable_timer_flush = true.");
+
     public static Option<Integer> CHECKPOINT_MIN_PAUSE =
             Options.key("min-pause")
                     .intType()

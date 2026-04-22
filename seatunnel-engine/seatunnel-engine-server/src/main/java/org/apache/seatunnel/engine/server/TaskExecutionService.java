@@ -91,6 +91,8 @@ import java.util.concurrent.Future;
 import java.util.concurrent.LinkedBlockingDeque;
 import java.util.concurrent.LinkedBlockingQueue;
 import java.util.concurrent.ScheduledExecutorService;
+import java.util.concurrent.ScheduledFuture;
+import java.util.concurrent.ScheduledThreadPoolExecutor;
 import java.util.concurrent.ThreadFactory;
 import java.util.concurrent.ThreadPoolExecutor;
 import java.util.concurrent.TimeUnit;
@@ -195,12 +197,18 @@ public class TaskExecutionService implements DynamicMetricsProvider {
             new ConcurrentHashMap<>();
 
     /** SeaTunnel configuration for this engine. */
+
+    private final ConcurrentMap<TaskGroupLocation, ConcurrentMap<TaskLocation, ScheduledFuture<?>>>
+            timerFlushFutures = new ConcurrentHashMap<>();
+
     private final SeaTunnelConfig seaTunnelConfig;
 
     /** Scheduled executor for periodic tasks like metrics backup. */
     private final ScheduledExecutorService scheduledExecutorService;
 
     /** Client for managing connector packages on the server. */
+    private final ScheduledThreadPoolExecutor timerFlushWorker;
+
     private final ServerConnectorPackageClient serverConnectorPackageClient;
 
     /** Service for reporting events. */
@@ -240,6 +248,12 @@ public class TaskExecutionService implements DynamicMetricsProvider {
                 new ServerConnectorPackageClient(nodeEngine, seaTunnelConfig);
 
         this.eventService = eventService;
+
+        int timerPoolSize = Math.max(2, Runtime.getRuntime().availableProcessors());
+        timerFlushWorker =
+                new ScheduledThreadPoolExecutor(timerPoolSize, new TimerFlushThreadFactory());
+        timerFlushWorker.setRemoveOnCancelPolicy(true);
+        timerFlushWorker.setRejectedExecutionHandler(new ThreadPoolExecutor.CallerRunsPolicy());
     }
 
     /**
@@ -264,6 +278,7 @@ public class TaskExecutionService implements DynamicMetricsProvider {
         isRunning = false;
         executorService.shutdownNow();
         scheduledExecutorService.shutdown();
+        timerFlushWorker.shutdown();
     }
 
     /**
@@ -829,6 +844,96 @@ public class TaskExecutionService implements DynamicMetricsProvider {
      *
      * @param e the event to report
      */
+    /**
+     * Register a periodic flush timer for a single Source-subtask (the F producer).
+     *
+     * <p>The supplied {@code callback} ({@code SourceFlowLifeCycle::onTimerTick}) is wrapped with
+     * MDC context and scheduled at a fixed delay of {@code intervalMs} ms on the shared {@link
+     * #timerFlushWorker} pool. {@code scheduleWithFixedDelay} is used intentionally: it avoids
+     * pile-up when the callback stalls (barrier/lock contention), so each new tick starts only
+     * after the previous one finishes.
+     *
+     * <p>At most one timer is kept per {@link TaskLocation}. Calling this method again for the same
+     * location cancels the previous timer before registering the new one.
+     *
+     * @param taskLocation the location of the Source subtask that owns the timer.
+     * @param callback the action to invoke on each tick (typically {@code
+     *     SourceFlowLifeCycle::onTimerTick}).
+     * @param intervalMs flush interval in milliseconds; must be positive.
+     * @return the {@link ScheduledFuture} handle so the caller can cancel it on close.
+     */
+    public ScheduledFuture<?> registerTimerFlushTask(
+            TaskLocation taskLocation, Runnable callback, long intervalMs) {
+        if (intervalMs <= 0) {
+            throw new IllegalArgumentException("intervalMs must be positive, got: " + intervalMs);
+        }
+        TaskGroupLocation groupLocation = taskLocation.getTaskGroupLocation();
+        ConcurrentMap<TaskLocation, ScheduledFuture<?>> groupFutures =
+                timerFlushFutures.computeIfAbsent(groupLocation, k -> new ConcurrentHashMap<>());
+
+        ScheduledFuture<?> existing = groupFutures.remove(taskLocation);
+        if (existing != null && !existing.isDone()) {
+            existing.cancel(false);
+        }
+
+        Runnable namedMdcCallback =
+                new NamedTaskWrapper(MDCTracer.tracing(callback), "TimerFlush-" + taskLocation);
+        ScheduledFuture<?> future =
+                timerFlushWorker.scheduleWithFixedDelay(
+                        namedMdcCallback, 10_000L, intervalMs, TimeUnit.MILLISECONDS);
+        groupFutures.put(taskLocation, future);
+        logger.fine(
+                String.format(
+                        "Registered timer-flush task for %s, intervalMs=%d",
+                        taskLocation, intervalMs));
+        return future;
+    }
+
+    /**
+     * Cancel and remove the flush timer registered for a single Source subtask (normal close path).
+     *
+     * <p>If the bucket becomes empty after removal it is also removed from the outer map to avoid
+     * keeping stale entries. If no timer has been registered for the given location this method is
+     * a no-op. The in-flight execution (if any) is allowed to finish; the timer is not interrupted.
+     *
+     * @param taskLocation the location of the Source subtask whose timer should be removed.
+     */
+    public void closeTimerFlushTask(TaskLocation taskLocation) {
+        TaskGroupLocation groupLocation = taskLocation.getTaskGroupLocation();
+        ConcurrentMap<TaskLocation, ScheduledFuture<?>> groupFutures =
+                timerFlushFutures.get(groupLocation);
+        if (groupFutures == null) {
+            return;
+        }
+        ScheduledFuture<?> future = groupFutures.remove(taskLocation);
+        if (future != null && !future.isDone()) {
+            future.cancel(false);
+        }
+        if (groupFutures.isEmpty()) {
+            timerFlushFutures.remove(groupLocation, groupFutures);
+        }
+        logger.fine(String.format("Closed timer-flush task for %s", taskLocation));
+    }
+
+    private void cancelTimerFlushForTaskGroup(TaskGroupLocation taskGroupLocation) {
+        ConcurrentMap<TaskLocation, ScheduledFuture<?>> groupFutures =
+                timerFlushFutures.remove(taskGroupLocation);
+        if (groupFutures == null) {
+            return;
+        }
+        groupFutures
+                .values()
+                .forEach(
+                        f -> {
+                            if (!f.isDone()) {
+                                f.cancel(false);
+                            }
+                        });
+        logger.fine(
+                String.format(
+                        "Cancelled all timer-flush tasks for task group %s", taskGroupLocation));
+    }
+
     public void reportEvent(Event e) {
         eventService.reportEvent(e);
     }
@@ -1160,6 +1265,7 @@ public class TaskExecutionService implements DynamicMetricsProvider {
                 // ignore
             }
             cancelAsyncFunction(taskGroupLocation);
+            cancelTimerFlushForTaskGroup(taskGroupLocation);
         }
 
         private void cancelAsyncFunction(TaskGroupLocation taskGroupLocation) {
@@ -1208,6 +1314,11 @@ public class TaskExecutionService implements DynamicMetricsProvider {
                     cancelAsyncFunction(taskGroupLocation);
                 } catch (Throwable t) {
                     logger.severe("cancel async function failed", t);
+                }
+                try {
+                    cancelTimerFlushForTaskGroup(taskGroupLocation);
+                } catch (Throwable t) {
+                    logger.severe("cancel timer-flush tasks failed", t);
                 }
                 try {
                     updateMetricsContextInImap();
@@ -1270,6 +1381,19 @@ public class TaskExecutionService implements DynamicMetricsProvider {
      * A Runnable wrapper that sets a custom thread name before executing the task and restores the
      * original name afterward.
      */
+    private final class TimerFlushThreadFactory implements ThreadFactory {
+        private final AtomicInteger seq = new AtomicInteger();
+
+        @Override
+        public Thread newThread(@NonNull Runnable r) {
+            return new Thread(
+                    r,
+                    String.format(
+                            "hz.%s.seaTunnel.timer-flush-%d",
+                            hzInstanceName, seq.getAndIncrement()));
+        }
+    }
+
     public static class NamedTaskWrapper implements Runnable {
         private final Runnable task;
         private final String threadName;

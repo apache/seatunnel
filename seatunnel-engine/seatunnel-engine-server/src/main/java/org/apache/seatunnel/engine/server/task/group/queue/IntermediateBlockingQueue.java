@@ -18,27 +18,40 @@
 package org.apache.seatunnel.engine.server.task.group.queue;
 
 import org.apache.seatunnel.api.common.metrics.Counter;
+import org.apache.seatunnel.api.signal.Signal;
 import org.apache.seatunnel.api.table.type.Record;
 import org.apache.seatunnel.api.table.type.SeaTunnelRow;
 import org.apache.seatunnel.api.transform.Collector;
 import org.apache.seatunnel.common.utils.function.ConsumerWithException;
+import org.apache.seatunnel.common.utils.function.FunctionWithException;
 import org.apache.seatunnel.engine.server.checkpoint.CheckpointBarrier;
+import org.apache.seatunnel.engine.server.flush.FlushSignalConstants;
 import org.apache.seatunnel.engine.server.task.record.Barrier;
 import org.apache.seatunnel.engine.server.trace.StainTraceConstants;
 import org.apache.seatunnel.engine.server.trace.StainTraceStage;
 import org.apache.seatunnel.engine.server.trace.StainTraceUtils;
+
+import lombok.extern.slf4j.Slf4j;
 
 import java.io.IOException;
 import java.util.concurrent.BlockingQueue;
 import java.util.concurrent.TimeUnit;
 
 /** Blocking-queue implementation that records queue-stage stain trace entries on buffered rows. */
+@Slf4j
 public class IntermediateBlockingQueue extends AbstractIntermediateQueue<BlockingQueue<Record<?>>> {
 
     private final Counter totalIntermediateQueueSize;
     private final Counter intermediateQueueSize;
     private final Counter putBlockedNs;
     private volatile Counter stainTraceEntriesTruncatedTotal;
+
+    private volatile Counter flushSignalTotal;
+
+    private volatile Counter flushSignalSuccessTotal;
+
+    private volatile Counter flushSignalFailureTotal;
+
     private volatile int stainTraceMaxEntriesPerTrace = -1;
 
     public IntermediateBlockingQueue(
@@ -54,30 +67,34 @@ public class IntermediateBlockingQueue extends AbstractIntermediateQueue<Blockin
 
     @Override
     public void received(Record<?> record) {
+        boolean result;
         try {
-            if (!(record.getData() instanceof Barrier)
-                    && getIntermediateQueueFlowLifeCycle().getPrepareClose()) {
-                return;
-            }
             boolean metricsEnabled =
                     getRunningTask() != null && getRunningTask().isObservabilityEnabled();
-            handleRecord(
-                    record,
-                    r -> {
-                        if (!metricsEnabled) {
-                            getIntermediateQueue().put(r);
-                            return;
-                        }
-                        if (!getIntermediateQueue().offer(r)) {
-                            long blockedStartNs = System.nanoTime();
-                            getIntermediateQueue().put(r);
-                            putBlockedNs.inc(System.nanoTime() - blockedStartNs);
-                        }
-                    },
-                    StainTraceStage.QUEUE_IN);
-            totalIntermediateQueueSize.inc();
-            if (metricsEnabled) {
-                intermediateQueueSize.set(getIntermediateQueue().size());
+            if (record.getData() instanceof Signal) {
+                result = handleSignalRecord(record, getIntermediateQueue()::offer);
+            } else {
+                result =
+                        handleRecord(
+                                record,
+                                r -> {
+                                    if (!metricsEnabled) {
+                                        getIntermediateQueue().put(r);
+                                        return;
+                                    }
+                                    if (!getIntermediateQueue().offer(r)) {
+                                        long blockedStartNs = System.nanoTime();
+                                        getIntermediateQueue().put(r);
+                                        putBlockedNs.inc(System.nanoTime() - blockedStartNs);
+                                    }
+                                },
+                                StainTraceStage.QUEUE_IN);
+            }
+            if (result) {
+                totalIntermediateQueueSize.inc();
+                if (metricsEnabled) {
+                    intermediateQueueSize.set(getIntermediateQueue().size());
+                }
             }
         } catch (Exception e) {
             throw new RuntimeException(e);
@@ -90,14 +107,15 @@ public class IntermediateBlockingQueue extends AbstractIntermediateQueue<Blockin
                 getRunningTask() != null && getRunningTask().isObservabilityEnabled();
         while (true) {
             Record<?> record = getIntermediateQueue().poll(100, TimeUnit.MILLISECONDS);
-            if (record != null) {
-                handleRecord(record, collector::collect, StainTraceStage.QUEUE_OUT);
+            if (record == null) {
+                break;
+            }
+            boolean result = handleRecord(record, collector::collect, StainTraceStage.QUEUE_OUT);
+            if (result) {
                 totalIntermediateQueueSize.dec();
                 if (metricsEnabled) {
                     intermediateQueueSize.set(getIntermediateQueue().size());
                 }
-            } else {
-                break;
             }
         }
     }
@@ -107,12 +125,7 @@ public class IntermediateBlockingQueue extends AbstractIntermediateQueue<Blockin
         getIntermediateQueue().clear();
     }
 
-    private void handleRecord(Record<?> record, ConsumerWithException<Record<?>> consumer)
-            throws Exception {
-        handleRecord(record, consumer, null);
-    }
-
-    private void handleRecord(
+    private boolean handleRecord(
             Record<?> record, ConsumerWithException<Record<?>> consumer, StainTraceStage stage)
             throws Exception {
         if (record.getData() instanceof Barrier) {
@@ -122,9 +135,17 @@ public class IntermediateBlockingQueue extends AbstractIntermediateQueue<Blockin
                 getIntermediateQueueFlowLifeCycle().setPrepareClose(true);
             }
             consumer.accept(record);
+        } else if (record.getData() instanceof Signal) {
+            if (getIntermediateQueueFlowLifeCycle().getPrepareClose()) {
+                return false;
+            }
+            if (stage == StainTraceStage.QUEUE_OUT) {
+                getFlushSignalSuccessTotal().inc();
+            }
+            consumer.accept(record);
         } else {
             if (getIntermediateQueueFlowLifeCycle().getPrepareClose()) {
-                return;
+                return false;
             }
             if (stage != null && record.getData() instanceof SeaTunnelRow) {
                 SeaTunnelRow row = (SeaTunnelRow) record.getData();
@@ -140,6 +161,23 @@ public class IntermediateBlockingQueue extends AbstractIntermediateQueue<Blockin
             }
             consumer.accept(record);
         }
+
+        return true;
+    }
+
+    private boolean handleSignalRecord(
+            Record<?> record, FunctionWithException<Record<?>, Boolean, Exception> function)
+            throws Exception {
+        if (getIntermediateQueueFlowLifeCycle().getPrepareClose()) {
+            return false;
+        }
+        boolean offered = function.apply(record);
+        getFlushSignalTotal().inc();
+        if (!offered) {
+            getFlushSignalFailureTotal().inc();
+        }
+
+        return offered;
     }
 
     private Counter getStainTraceEntriesTruncatedTotal() {
@@ -171,5 +209,49 @@ public class IntermediateBlockingQueue extends AbstractIntermediateQueue<Blockin
             }
         }
         return stainTraceMaxEntriesPerTrace;
+    }
+
+    public Counter getFlushSignalTotal() {
+        if (flushSignalTotal == null) {
+            synchronized (this) {
+                if (flushSignalTotal == null) {
+                    flushSignalTotal =
+                            getRunningTask()
+                                    .getMetricsContext()
+                                    .counter(FlushSignalConstants.METRIC_FLUSH_SIGNAL_TOTAL);
+                }
+            }
+        }
+        return stainTraceEntriesTruncatedTotal;
+    }
+
+    public Counter getFlushSignalSuccessTotal() {
+        if (flushSignalSuccessTotal == null) {
+            synchronized (this) {
+                if (flushSignalSuccessTotal == null) {
+                    flushSignalSuccessTotal =
+                            getRunningTask()
+                                    .getMetricsContext()
+                                    .counter(
+                                            FlushSignalConstants.METRIC_FLUSH_SIGNAL_SUCCESS_TOTAL);
+                }
+            }
+        }
+        return flushSignalSuccessTotal;
+    }
+
+    public Counter getFlushSignalFailureTotal() {
+        if (flushSignalFailureTotal == null) {
+            synchronized (this) {
+                if (flushSignalFailureTotal == null) {
+                    flushSignalFailureTotal =
+                            getRunningTask()
+                                    .getMetricsContext()
+                                    .counter(
+                                            FlushSignalConstants.METRIC_FLUSH_SIGNAL_FAILURE_TOTAL);
+                }
+            }
+        }
+        return flushSignalFailureTotal;
     }
 }

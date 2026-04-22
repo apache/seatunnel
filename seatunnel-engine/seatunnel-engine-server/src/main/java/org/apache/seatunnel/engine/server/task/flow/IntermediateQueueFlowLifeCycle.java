@@ -21,6 +21,7 @@ import org.apache.seatunnel.api.common.metrics.Counter;
 import org.apache.seatunnel.api.table.type.Record;
 import org.apache.seatunnel.api.transform.Collector;
 import org.apache.seatunnel.engine.common.utils.concurrent.CompletableFuture;
+import org.apache.seatunnel.engine.server.flush.FlushSignalConstants;
 import org.apache.seatunnel.engine.server.task.SeaTunnelTask;
 import org.apache.seatunnel.engine.server.task.group.queue.AbstractIntermediateQueue;
 import org.apache.seatunnel.engine.server.trace.StainTraceConstants;
@@ -35,6 +36,13 @@ public class IntermediateQueueFlowLifeCycle<T extends AbstractIntermediateQueue<
     private final AbstractIntermediateQueue<?> queue;
 
     private volatile Counter stainTraceEntriesTruncatedTotal;
+
+    private volatile Counter flushSignalTotal;
+
+    private volatile Counter flushSignalSuccessTotal;
+
+    private volatile Counter flushSignalFailureTotal;
+
     private volatile int stainTraceMaxEntriesPerTrace = -1;
 
     public IntermediateQueueFlowLifeCycle(
@@ -95,5 +103,49 @@ public class IntermediateQueueFlowLifeCycle<T extends AbstractIntermediateQueue<
             }
         }
         return stainTraceMaxEntriesPerTrace;
+    }
+
+    public Counter getFlushSignalTotal() {
+        if (flushSignalTotal == null) {
+            synchronized (this) {
+                if (flushSignalTotal == null) {
+                    flushSignalTotal =
+                            runningTask
+                                    .getMetricsContext()
+                                    .counter(FlushSignalConstants.METRIC_FLUSH_SIGNAL_TOTAL);
+                }
+            }
+        }
+        return stainTraceEntriesTruncatedTotal;
+    }
+
+    public Counter getFlushSignalSuccessTotal() {
+        if (flushSignalSuccessTotal == null) {
+            synchronized (this) {
+                if (flushSignalSuccessTotal == null) {
+                    flushSignalSuccessTotal =
+                            runningTask
+                                    .getMetricsContext()
+                                    .counter(
+                                            FlushSignalConstants.METRIC_FLUSH_SIGNAL_SUCCESS_TOTAL);
+                }
+            }
+        }
+        return flushSignalSuccessTotal;
+    }
+
+    public Counter getFlushSignalFailureTotal() {
+        if (flushSignalFailureTotal == null) {
+            synchronized (this) {
+                if (flushSignalFailureTotal == null) {
+                    flushSignalFailureTotal =
+                            runningTask
+                                    .getMetricsContext()
+                                    .counter(
+                                            FlushSignalConstants.METRIC_FLUSH_SIGNAL_FAILURE_TOTAL);
+                }
+            }
+        }
+        return flushSignalFailureTotal;
     }
 }

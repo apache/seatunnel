@@ -18,6 +18,7 @@
 package org.apache.seatunnel.engine.server.task.group.queue.disruptor;
 
 import org.apache.seatunnel.api.common.metrics.Counter;
+import org.apache.seatunnel.api.signal.Signal;
 import org.apache.seatunnel.api.table.type.Record;
 import org.apache.seatunnel.api.table.type.SeaTunnelRow;
 import org.apache.seatunnel.engine.server.checkpoint.CheckpointBarrier;
@@ -28,8 +29,9 @@ import org.apache.seatunnel.engine.server.trace.StainTraceUtils;
 
 import com.lmax.disruptor.InsufficientCapacityException;
 import com.lmax.disruptor.RingBuffer;
+import lombok.extern.slf4j.Slf4j;
 
-/** Publishes records into the Disruptor-backed intermediate queue while marking queue-in stages. */
+@Slf4j
 public class RecordEventProducer {
 
     /**
@@ -43,11 +45,6 @@ public class RecordEventProducer {
             Counter totalQueueSize,
             Counter queueSize) {
 
-        boolean metricsEnabled =
-                intermediateQueueFlowLifeCycle != null
-                        && intermediateQueueFlowLifeCycle.getRunningTask() != null
-                        && intermediateQueueFlowLifeCycle.getRunningTask().isObservabilityEnabled();
-
         if (record.getData() instanceof Barrier) {
             CheckpointBarrier barrier = (CheckpointBarrier) record.getData();
             intermediateQueueFlowLifeCycle.getRunningTask().ack(barrier);
@@ -55,11 +52,50 @@ public class RecordEventProducer {
                     intermediateQueueFlowLifeCycle.getRunningTask().getTaskLocation())) {
                 intermediateQueueFlowLifeCycle.setPrepareClose(true);
             }
+        } else if (record.getData() instanceof Signal) {
+            if (intermediateQueueFlowLifeCycle.getPrepareClose()) {
+                return;
+            }
+            publishSignalRecord(record, ringBuffer, intermediateQueueFlowLifeCycle);
+            return;
         } else {
             if (intermediateQueueFlowLifeCycle.getPrepareClose()) {
                 return;
             }
+            publishRecord(
+                    record,
+                    ringBuffer,
+                    intermediateQueueFlowLifeCycle,
+                    putBlockedNs,
+                    totalQueueSize,
+                    queueSize);
+            return;
         }
+    }
+
+    private static void publishSignalRecord(
+            Record<?> record,
+            RingBuffer<RecordEvent> ringBuffer,
+            IntermediateQueueFlowLifeCycle intermediateQueueFlowLifeCycle) {
+        boolean published = ringBuffer.tryPublishEvent((event, seq) -> event.setRecord(record));
+        intermediateQueueFlowLifeCycle.getFlushSignalTotal().inc();
+        if (!published) {
+            intermediateQueueFlowLifeCycle.getFlushSignalFailureTotal().inc();
+        }
+    }
+
+    private static void publishRecord(
+            Record<?> record,
+            RingBuffer<RecordEvent> ringBuffer,
+            IntermediateQueueFlowLifeCycle intermediateQueueFlowLifeCycle,
+            Counter putBlockedNs,
+            Counter totalQueueSize,
+            Counter queueSize) {
+
+        boolean metricsEnabled =
+                intermediateQueueFlowLifeCycle != null
+                        && intermediateQueueFlowLifeCycle.getRunningTask() != null
+                        && intermediateQueueFlowLifeCycle.getRunningTask().isObservabilityEnabled();
 
         long sequence;
         if (metricsEnabled) {

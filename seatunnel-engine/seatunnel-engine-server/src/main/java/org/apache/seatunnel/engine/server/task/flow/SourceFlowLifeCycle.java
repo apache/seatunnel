@@ -60,6 +60,7 @@ import java.util.Collection;
 import java.util.List;
 import java.util.Objects;
 import java.util.concurrent.ExecutionException;
+import java.util.concurrent.ScheduledFuture;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicReference;
 import java.util.stream.Collectors;
@@ -119,6 +120,12 @@ public class SourceFlowLifeCycle<T, SplitT extends SourceSplit> extends ActionFl
 
     private final AtomicReference<SchemaChangePhase> schemaChangePhase = new AtomicReference<>();
 
+    /** F tempo; {@code > 0} registers the flush timer in {@link #open()}. */
+    private final long flushIntervalMs;
+
+    /** Handle for the periodic flush timer; non-null only while the timer is active. */
+    private volatile ScheduledFuture<?> flushFuture;
+
     public SourceFlowLifeCycle(
             SourceAction<T, SplitT, ?> sourceAction,
             int indexID,
@@ -126,13 +133,15 @@ public class SourceFlowLifeCycle<T, SplitT extends SourceSplit> extends ActionFl
             SeaTunnelTask runningTask,
             TaskLocation currentTaskLocation,
             CompletableFuture<Void> completableFuture,
-            MetricsContext metricsContext) {
+            MetricsContext metricsContext,
+            long flushIntervalMs) {
         super(sourceAction, runningTask, completableFuture);
         this.sourceAction = sourceAction;
         this.indexID = indexID;
         this.enumeratorTaskLocation = enumeratorTaskLocation;
         this.currentTaskLocation = currentTaskLocation;
         this.metricsContext = metricsContext;
+        this.flushIntervalMs = flushIntervalMs;
         this.eventListener =
                 new JobEventListener(currentTaskLocation, runningTask.getExecutionContext());
     }
@@ -179,6 +188,26 @@ public class SourceFlowLifeCycle<T, SplitT extends SourceSplit> extends ActionFl
         context.getEventListener().onEvent(new ReaderOpenEvent());
         reader.open();
         register();
+        registerFlushTimer();
+    }
+
+    /**
+     * Timer callback invoked by the {@code timerFlushWorker} thread pool.
+     *
+     * <p>Acquires the {@code checkpointLock} (the same monitor that {@link #triggerBarrier} uses)
+     * so that flush signals and barriers are strictly serialized — a FlushSignal either completes
+     * entirely before a Barrier or queues behind it, never crossing it.
+     */
+    private void onTimerTick() {
+        if (prepareClose) {
+            return;
+        }
+        try {
+            collector.sendFlushSignal(
+                    currentTaskLocation.getJobId(), currentTaskLocation.getTaskID());
+        } catch (Exception e) {
+            log.warn("Failed to broadcast FlushSignal from task {}", currentTaskLocation, e);
+        }
     }
 
     private Address getEnumeratorTaskAddress() throws ExecutionException, InterruptedException {
@@ -193,6 +222,7 @@ public class SourceFlowLifeCycle<T, SplitT extends SourceSplit> extends ActionFl
     public void close() throws IOException {
         context.getEventListener().onEvent(new ReaderCloseEvent());
         reader.close();
+        closeFlushTimer();
         super.close();
     }
 
@@ -331,6 +361,37 @@ public class SourceFlowLifeCycle<T, SplitT extends SourceSplit> extends ActionFl
             log.warn("source register failed.", e);
             throw new RuntimeException(e);
         }
+    }
+
+    private void registerFlushTimer() {
+        if (flushIntervalMs <= 0) {
+            return;
+        }
+        flushFuture =
+                runningTask
+                        .getExecutionContext()
+                        .getTaskExecutionService()
+                        .registerTimerFlushTask(
+                                currentTaskLocation, this::onTimerTick, flushIntervalMs);
+        log.info(
+                "Registered flush timer for source task {}, intervalMs={}",
+                currentTaskLocation,
+                flushIntervalMs);
+    }
+
+    private void closeFlushTimer() {
+        if (flushFuture == null) {
+            return;
+        }
+        try {
+            runningTask
+                    .getExecutionContext()
+                    .getTaskExecutionService()
+                    .closeTimerFlushTask(currentTaskLocation);
+        } catch (Exception e) {
+            log.warn("Failed to close flush timer for task {}", currentTaskLocation, e);
+        }
+        flushFuture = null;
     }
 
     /**

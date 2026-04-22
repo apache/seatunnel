@@ -18,6 +18,7 @@
 package org.apache.seatunnel.engine.server.task.group.queue.disruptor;
 
 import org.apache.seatunnel.api.common.metrics.Counter;
+import org.apache.seatunnel.api.signal.Signal;
 import org.apache.seatunnel.api.table.type.Record;
 import org.apache.seatunnel.api.table.type.SeaTunnelRow;
 import org.apache.seatunnel.api.transform.Collector;
@@ -92,6 +93,10 @@ public class RecordEventHandler implements EventHandler<RecordEvent> {
                             intermediateQueueFlowLifeCycle.getStainTraceEntriesTruncatedTotal());
                 }
             }
+            if (record.getData() instanceof Signal) {
+                intermediateQueueFlowLifeCycle.getFlushSignalSuccessTotal().inc();
+            }
+
             collector.collect(record);
             totalQueueSize.dec();
             if (metricsEnabled) {
