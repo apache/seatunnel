@@ -91,6 +91,16 @@ public class OrcReadStrategy extends AbstractReadStrategy {
                             path);
             throw new FileConnectorException(FileConnectorErrorCode.FILE_TYPE_INVALID, errorMsg);
         }
+
+        Charset charset = StandardCharsets.UTF_8;
+        if (pluginConfig != null) {
+            charset =
+                    ReadonlyConfig.fromConfig(pluginConfig)
+                            .getOptional(FileBaseSourceOptions.ENCODING)
+                            .map(Charset::forName)
+                            .orElse(StandardCharsets.UTF_8);
+        }
+
         Map<String, String> partitionsMap = parsePartitionsByPath(path);
         try (Reader reader =
                 hadoopFileSystemProxy.doWithHadoopAuth(
@@ -132,7 +142,8 @@ public class OrcReadStrategy extends AbstractReadStrategy {
                                             cols[j],
                                             children.get(j),
                                             seaTunnelRowType.getFieldType(j),
-                                            num);
+                                            num,
+                                            charset);
                         }
                     }
                     SeaTunnelRow seaTunnelRow = new SeaTunnelRow(fields);
@@ -357,7 +368,8 @@ public class OrcReadStrategy extends AbstractReadStrategy {
             ColumnVector colVec,
             TypeDescription colType,
             @Nullable SeaTunnelDataType<?> dataType,
-            int rowNum) {
+            int rowNum,
+            Charset charset) {
         Object columnObj = null;
         if (!colVec.isNull[rowNum]) {
             switch (colVec.type) {
@@ -374,7 +386,7 @@ public class OrcReadStrategy extends AbstractReadStrategy {
                     }
                     break;
                 case BYTES:
-                    columnObj = readBytesVal(colVec, colType, dataType, rowNum);
+                    columnObj = readBytesVal(colVec, colType, dataType, rowNum, charset);
                     break;
                 case DECIMAL:
                     columnObj = readDecimalVal(colVec, dataType, rowNum);
@@ -383,7 +395,7 @@ public class OrcReadStrategy extends AbstractReadStrategy {
                     columnObj = readTimestampVal(colVec, colType, dataType, rowNum);
                     break;
                 case STRUCT:
-                    columnObj = readStructVal(colVec, colType, dataType, rowNum);
+                    columnObj = readStructVal(colVec, colType, dataType, rowNum, charset);
                     break;
                 case LIST:
                     columnObj = readListVal(colVec, colType, rowNum);
@@ -392,7 +404,7 @@ public class OrcReadStrategy extends AbstractReadStrategy {
                     columnObj = readMapVal(colVec, colType, rowNum);
                     break;
                 case UNION:
-                    columnObj = readUnionVal(colVec, colType, rowNum);
+                    columnObj = readUnionVal(colVec, colType, rowNum, charset);
                     break;
                 default:
                     throw new FileConnectorException(
@@ -435,16 +447,8 @@ public class OrcReadStrategy extends AbstractReadStrategy {
             ColumnVector colVec,
             TypeDescription typeDescription,
             SeaTunnelDataType<?> dataType,
-            int rowNum) {
-        Charset charset = StandardCharsets.UTF_8;
-        if (pluginConfig != null) {
-            charset =
-                    ReadonlyConfig.fromConfig(pluginConfig)
-                            .getOptional(FileBaseSourceOptions.ENCODING)
-                            .map(Charset::forName)
-                            .orElse(StandardCharsets.UTF_8);
-        }
-
+            int rowNum,
+            Charset charset) {
         Object bytesObj = null;
         if (!colVec.isNull[rowNum]) {
             BytesColumnVector bytesVector = (BytesColumnVector) colVec;
@@ -533,7 +537,8 @@ public class OrcReadStrategy extends AbstractReadStrategy {
             ColumnVector colVec,
             TypeDescription colType,
             SeaTunnelDataType<?> dataType,
-            int rowNum) {
+            int rowNum,
+            Charset charset) {
         Object structObj = null;
         if (!colVec.isNull[rowNum]) {
             StructColumnVector structVector = (StructColumnVector) colVec;
@@ -543,9 +548,11 @@ public class OrcReadStrategy extends AbstractReadStrategy {
             for (int i = 0; i < fieldVec.length; i++) {
                 if (dataType instanceof SeaTunnelRowType) {
                     SeaTunnelDataType<?> fieldType = ((SeaTunnelRowType) dataType).getFieldType(i);
-                    fieldValues[i] = readColumn(fieldVec[i], fieldTypes.get(i), fieldType, rowNum);
+                    fieldValues[i] =
+                            readColumn(fieldVec[i], fieldTypes.get(i), fieldType, rowNum, charset);
                 } else {
-                    fieldValues[i] = readColumn(fieldVec[i], fieldTypes.get(i), null, rowNum);
+                    fieldValues[i] =
+                            readColumn(fieldVec[i], fieldTypes.get(i), null, rowNum, charset);
                 }
             }
             structObj = new SeaTunnelRow(fieldValues);
@@ -624,7 +631,8 @@ public class OrcReadStrategy extends AbstractReadStrategy {
         return mapList;
     }
 
-    private Object readUnionVal(ColumnVector colVec, TypeDescription colType, int rowNum) {
+    private Object readUnionVal(
+            ColumnVector colVec, TypeDescription colType, int rowNum, Charset charset) {
         Pair<TypeDescription, Object> columnValuePair;
         UnionColumnVector unionVector = (UnionColumnVector) colVec;
         int tagVal = unionVector.tags[rowNum];
@@ -633,7 +641,7 @@ public class OrcReadStrategy extends AbstractReadStrategy {
             TypeDescription fieldType = unionFieldTypes.get(tagVal);
             if (tagVal < unionVector.fields.length) {
                 ColumnVector fieldVector = unionVector.fields[tagVal];
-                Object unionValue = readColumn(fieldVector, fieldType, null, rowNum);
+                Object unionValue = readColumn(fieldVector, fieldType, null, rowNum, charset);
                 columnValuePair = Pair.of(fieldType, unionValue);
             } else {
                 throw new FileConnectorException(

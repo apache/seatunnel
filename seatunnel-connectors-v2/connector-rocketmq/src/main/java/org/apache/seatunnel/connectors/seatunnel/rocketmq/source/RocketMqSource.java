@@ -90,6 +90,7 @@ public class RocketMqSource
                 sourceConfig.getMetadata(),
                 sourceConfig.getTopicConfigs(),
                 context,
-                sourceConfig.getDiscoveryIntervalMillis());
+                sourceConfig.getDiscoveryIntervalMillis(),
+                sourceState);
     }
 }

@@ -210,14 +210,15 @@ public abstract class AbstractJdbcRowConverter implements JdbcRowConverter {
                 SeaTunnelDataType<?> seaTunnelDataType = rowType.getFieldType(fieldIndex);
                 String fieldName = rowType.getFieldName(fieldIndex);
                 int statementIndex = fieldIndex + 1;
-                Object fieldValue = row.getField(fieldIndex);
-                if (fieldValue == null) {
-                    statement.setObject(statementIndex, null);
-                    continue;
-                }
                 String sourceType = null;
                 if (databaseTableSchema != null && databaseTableSchema.contains(fieldName)) {
                     sourceType = databaseTableSchema.getColumn(fieldName).getSourceType();
+                }
+                Object fieldValue = row.getField(fieldIndex);
+                if (fieldValue == null) {
+                    setNullToStatementByDataType(
+                            statement, seaTunnelDataType, statementIndex, sourceType);
+                    continue;
                 }
                 setValueToStatementByDataType(
                         row.getField(fieldIndex),
@@ -233,6 +234,32 @@ public abstract class AbstractJdbcRowConverter implements JdbcRowConverter {
             }
         }
         return statement;
+    }
+    /**
+     * Bind a null value to the PreparedStatement parameter.
+     *
+     * <p>Default implementation uses {@link PreparedStatement#setObject(int, Object)}, which works
+     * for most databases. However, some databases (e.g., SQL Server) require explicit type
+     * information for null values in certain column types (e.g., IMAGE, BLOB).
+     *
+     * <p>Subclasses can override this method to provide database-specific null handling. For
+     * example, SQL Server uses {@link PreparedStatement#setNull(int, int)} with the appropriate
+     * JDBC type (e.g., {@link java.sql.Types#LONGVARBINARY} for IMAGE columns).
+     *
+     * @param statement the PreparedStatement to bind the parameter to
+     * @param seaTunnelDataType the SeaTunnel data type of the field
+     * @param statementIndex the 1-based parameter index in the PreparedStatement
+     * @param sourceType the source database column type (if available), used to determine the
+     *     appropriate JDBC type for null values
+     * @throws SQLException if a database access error occurs
+     */
+    protected void setNullToStatementByDataType(
+            PreparedStatement statement,
+            SeaTunnelDataType<?> seaTunnelDataType,
+            int statementIndex,
+            @Nullable String sourceType)
+            throws SQLException {
+        statement.setObject(statementIndex, null);
     }
 
     protected void setValueToStatementByDataType(

@@ -23,6 +23,7 @@ import org.apache.seatunnel.shade.com.typesafe.config.ConfigFactory;
 import org.apache.seatunnel.api.common.metrics.JobMetrics;
 import org.apache.seatunnel.common.utils.JsonUtils;
 import org.apache.seatunnel.config.sql.SqlConfigBuilder;
+import org.apache.seatunnel.core.starter.utils.ConfigShadeUtils;
 import org.apache.seatunnel.engine.common.Constant;
 import org.apache.seatunnel.engine.common.job.JobStatus;
 import org.apache.seatunnel.engine.core.job.JobDAGInfo;
@@ -188,6 +189,7 @@ public class JobInfoService extends BaseService {
         }
         Config config;
         ConfigFormat configFormat = ConfigFormat.fromString(requestParams.get(CONFIG_FORMAT));
+
         switch (configFormat) {
             case HOCON:
                 config = ConfigFactory.parseString(new String(requestBody, StandardCharsets.UTF_8));
@@ -197,10 +199,14 @@ public class JobInfoService extends BaseService {
                 break;
             case JSON:
             default:
-                config = RestUtil.buildConfig(requestHandle(requestBody), false);
+                config = RestUtil.buildConfig(requestHandle(requestBody));
                 break;
         }
+
+        config = ConfigShadeUtils.decryptConfig(config);
+
         SeaTunnelServer seaTunnelServer = getSeaTunnelServer(false);
+
         return submitJobInternal(config, requestParams, seaTunnelServer, nodeEngine.getNode());
     }
 
@@ -215,7 +221,7 @@ public class JobInfoService extends BaseService {
 
     public JsonArray submitJobs(byte[] requestBody) {
         List<Tuple2<Map<String, String>, Config>> configTuples =
-                RestUtil.buildConfigList(requestHandle(requestBody), false);
+                RestUtil.buildConfigList(requestHandle(requestBody));
 
         return configTuples.stream()
                 .map(
@@ -224,8 +230,12 @@ public class JobInfoService extends BaseService {
                             Map<String, String> requestParams = new HashMap<>();
                             RestUtil.buildRequestParams(requestParams, urlParams);
                             SeaTunnelServer seaTunnelServer = getSeaTunnelServer(false);
+                            Config decryptConfig = ConfigShadeUtils.decryptConfig(tuple._2);
                             return submitJobInternal(
-                                    tuple._2, requestParams, seaTunnelServer, nodeEngine.getNode());
+                                    decryptConfig,
+                                    requestParams,
+                                    seaTunnelServer,
+                                    nodeEngine.getNode());
                         })
                 .collect(JsonArray::new, JsonArray::add, JsonArray::add);
     }

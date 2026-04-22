@@ -1,5 +1,9 @@
 # Set Up Develop Environment
 
+## Start Here
+
+If you are new to contributing, read [Contribution Path](./contribution-path.md) first. It will help you decide whether you should begin with docs, connector work, or engine debugging before setting up the full local environment.
+
 In this section, we are going to show you how to set up your development environment for SeaTunnel, and then run a simple
 example in your JetBrains IntelliJ IDEA.
 
