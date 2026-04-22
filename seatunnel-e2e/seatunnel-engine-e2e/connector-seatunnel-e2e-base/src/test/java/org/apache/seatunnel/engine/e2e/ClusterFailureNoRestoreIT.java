@@ -137,12 +137,20 @@ public class ClusterFailureNoRestoreIT {
                             () -> {
                                 Assertions.assertTrue(waitForCompleteFuture.isDone());
                                 JobResult jobResult = waitForCompleteFuture.get();
+                                JobStatus jobStatus = jobResult.getStatus();
                                 Assertions.assertTrue(
                                         EnumSet.of(
+                                                        JobStatus.FINISHED,
                                                         JobStatus.FAILED,
                                                         JobStatus.CANCELED,
                                                         JobStatus.UNKNOWABLE)
-                                                .contains(jobResult.getStatus()));
+                                                .contains(jobStatus));
+                                if (JobStatus.FINISHED.equals(jobStatus)) {
+                                    Assertions.assertEquals(
+                                            testRowNumber * testParallelism,
+                                            FileUtils.getFileLineNumberFromDir(
+                                                    testResources.getLeft()));
+                                }
                             });
         } finally {
             if (engineClient != null) {
