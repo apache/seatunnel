@@ -17,8 +17,12 @@
 
 package org.apache.seatunnel.connectors.seatunnel.jdbc.sink;
 
-import org.apache.seatunnel.shade.com.zaxxer.hikari.HikariDataSource;
-
+import java.io.IOException;
+import java.sql.SQLException;
+import java.util.Collections;
+import java.util.List;
+import java.util.Optional;
+import lombok.extern.slf4j.Slf4j;
 import org.apache.seatunnel.api.sink.MultiTableResourceManager;
 import org.apache.seatunnel.api.sink.SinkWriter;
 import org.apache.seatunnel.api.table.catalog.TablePath;
@@ -35,14 +39,7 @@ import org.apache.seatunnel.connectors.seatunnel.jdbc.internal.dialect.JdbcDiale
 import org.apache.seatunnel.connectors.seatunnel.jdbc.internal.dialect.dsql.DdsqlJdbcConnectionPoolProviderProxy;
 import org.apache.seatunnel.connectors.seatunnel.jdbc.state.JdbcSinkState;
 import org.apache.seatunnel.connectors.seatunnel.jdbc.state.XidInfo;
-
-import lombok.extern.slf4j.Slf4j;
-
-import java.io.IOException;
-import java.sql.SQLException;
-import java.util.Collections;
-import java.util.List;
-import java.util.Optional;
+import org.apache.seatunnel.shade.com.zaxxer.hikari.HikariDataSource;
 
 @Slf4j
 public class JdbcSinkWriter extends AbstractJdbcSinkWriter<ConnectionPoolManager> {
@@ -72,7 +69,9 @@ public class JdbcSinkWriter extends AbstractJdbcSinkWriter<ConnectionPoolManager
                                 tableSchema,
                                 databaseTableSchema)
                         .build();
-        context.registerFlushAction(this::timerFlush);
+        if(jdbcSinkConfig.isEnableTimerFlush()){
+            context.registerFlushAction(this::timerFlush);
+        }
     }
 
     @Override
