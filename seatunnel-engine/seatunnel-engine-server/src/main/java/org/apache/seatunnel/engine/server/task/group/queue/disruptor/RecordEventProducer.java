@@ -52,6 +52,7 @@ public class RecordEventProducer {
                     intermediateQueueFlowLifeCycle.getRunningTask().getTaskLocation())) {
                 intermediateQueueFlowLifeCycle.setPrepareClose(true);
             }
+            publishRecord(record, ringBuffer);
         } else if (record.getData() instanceof Signal) {
             if (intermediateQueueFlowLifeCycle.getPrepareClose()) {
                 return;

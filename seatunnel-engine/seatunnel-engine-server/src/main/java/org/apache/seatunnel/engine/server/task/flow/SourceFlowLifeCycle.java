@@ -218,10 +218,13 @@ public class SourceFlowLifeCycle<T, SplitT extends SourceSplit> extends ActionFl
 
     @Override
     public void close() throws IOException {
-        context.getEventListener().onEvent(new ReaderCloseEvent());
-        reader.close();
-        closeFlushTimer();
-        super.close();
+        try {
+            context.getEventListener().onEvent(new ReaderCloseEvent());
+            reader.close();
+            super.close();
+        } finally {
+            closeFlushTimer();
+        }
     }
 
     /**

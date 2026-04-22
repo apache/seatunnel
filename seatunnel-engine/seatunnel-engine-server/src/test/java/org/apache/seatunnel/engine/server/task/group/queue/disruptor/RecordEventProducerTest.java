@@ -33,6 +33,7 @@ import org.junit.jupiter.api.Test;
 import org.mockito.Mockito;
 
 import com.lmax.disruptor.RingBuffer;
+import com.lmax.disruptor.Sequence;
 import com.lmax.disruptor.YieldingWaitStrategy;
 import com.lmax.disruptor.dsl.ProducerType;
 
@@ -86,6 +87,9 @@ class RecordEventProducerTest {
 
     @Test
     void signalIsDroppedSilentlyWhenRingBufferIsFull() {
+        // Pin a gating sequence at -1 so the ring buffer tracks available capacity correctly.
+        Sequence gatingSeq = new Sequence(-1L);
+        ringBuffer.addGatingSequences(gatingSeq);
         for (int i = 0; i < 4; i++) {
             ringBuffer.publishEvent(
                     (e, s) -> e.setRecord(new Record<>(new SeaTunnelRow(new Object[] {"x"}))));
