@@ -21,6 +21,7 @@ import org.apache.seatunnel.shade.com.google.common.collect.Lists;
 import org.apache.seatunnel.shade.org.apache.commons.lang3.StringUtils;
 
 import org.apache.seatunnel.api.table.catalog.CatalogTable;
+import org.apache.seatunnel.api.table.catalog.TableSchema;
 import org.apache.seatunnel.api.table.schema.event.AlterTableAddColumnEvent;
 import org.apache.seatunnel.api.table.schema.event.AlterTableChangeColumnEvent;
 import org.apache.seatunnel.api.table.schema.event.AlterTableColumnEvent;
@@ -28,7 +29,7 @@ import org.apache.seatunnel.api.table.schema.event.AlterTableColumnsEvent;
 import org.apache.seatunnel.api.table.schema.event.AlterTableDropColumnEvent;
 import org.apache.seatunnel.api.table.schema.event.AlterTableModifyColumnEvent;
 import org.apache.seatunnel.api.table.schema.event.SchemaChangeEvent;
-import org.apache.seatunnel.api.table.schema.handler.DataTypeChangeEventDispatcher;
+import org.apache.seatunnel.api.table.schema.handler.AlterTableSchemaEventHandler;
 import org.apache.seatunnel.api.table.type.SeaTunnelDataType;
 import org.apache.seatunnel.api.table.type.SeaTunnelRow;
 import org.apache.seatunnel.api.table.type.SeaTunnelRowType;
@@ -90,6 +91,7 @@ public abstract class AbstractWriteStrategy<T> implements WriteStrategy<T> {
     protected LinkedHashMap<String, String> beingWrittenFile = new LinkedHashMap<>();
     private LinkedHashMap<String, List<String>> partitionDirAndValuesMap;
     protected SeaTunnelRowType seaTunnelRowType;
+    protected TableSchema tableSchema;
 
     // Checkpoint id from engine is start with 1
     protected Long checkpointId = 0L;
@@ -174,6 +176,7 @@ public abstract class AbstractWriteStrategy<T> implements WriteStrategy<T> {
      */
     @Override
     public void setCatalogTable(CatalogTable catalogTable) {
+        this.tableSchema = catalogTable.getTableSchema();
         this.seaTunnelRowType = catalogTable.getSeaTunnelRowType();
     }
 
@@ -202,9 +205,9 @@ public abstract class AbstractWriteStrategy<T> implements WriteStrategy<T> {
             beingWrittenFile.clear();
         }
 
-        // Step 2: compute new SeaTunnelRowType from the event.
-        this.seaTunnelRowType =
-                new DataTypeChangeEventDispatcher().reset(seaTunnelRowType).apply(event);
+        // Step 2: compute new TableSchema + SeaTunnelRowType from the event.
+        this.tableSchema = new AlterTableSchemaEventHandler().reset(tableSchema).apply(event);
+        this.seaTunnelRowType = tableSchema.toPhysicalRowDataType();
 
         // Step 3: update sinkColumnNames to reflect the structural change.
         updateSinkColumnNames(event);
