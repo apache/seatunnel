@@ -838,29 +838,18 @@ public class TaskExecutionService implements DynamicMetricsProvider {
                             taskCount));
         }
     }
-
     /**
-     * Reports an event to the event service.
+     * Register or replace a periodic timer-flush task for one source subtask.
      *
-     * @param e the event to report
-     */
-    /**
-     * Register a periodic flush timer for a single Source-subtask (the F producer).
+     * <p>If a timer already exists for the same {@link TaskLocation}, cancel it first. The task is
+     * scheduled with fixed delay on {@code timerFlushWorker} and stored in {@code
+     * timerFlushFutures}.
      *
-     * <p>The supplied {@code callback} ({@code SourceFlowLifeCycle::onTimerTick}) is wrapped with
-     * MDC context and scheduled at a fixed delay of {@code intervalMs} ms on the shared {@link
-     * #timerFlushWorker} pool. {@code scheduleWithFixedDelay} is used intentionally: it avoids
-     * pile-up when the callback stalls (barrier/lock contention), so each new tick starts only
-     * after the previous one finishes.
-     *
-     * <p>At most one timer is kept per {@link TaskLocation}. Calling this method again for the same
-     * location cancels the previous timer before registering the new one.
-     *
-     * @param taskLocation the location of the Source subtask that owns the timer.
-     * @param callback the action to invoke on each tick (typically {@code
-     *     SourceFlowLifeCycle::onTimerTick}).
-     * @param intervalMs flush interval in milliseconds; must be positive.
-     * @return the {@link ScheduledFuture} handle so the caller can cancel it on close.
+     * @param taskLocation source subtask location (map key)
+     * @param callback flush callback to run on each tick
+     * @param intervalMs flush interval in milliseconds, must be > 0
+     * @return scheduled future for later cancellation
+     * @throws IllegalArgumentException if intervalMs <= 0
      */
     public ScheduledFuture<?> registerTimerFlushTask(
             TaskLocation taskLocation, Runnable callback, long intervalMs) {
@@ -890,13 +879,12 @@ public class TaskExecutionService implements DynamicMetricsProvider {
     }
 
     /**
-     * Cancel and remove the flush timer registered for a single Source subtask (normal close path).
+     * Cancel and remove the timer-flush task for one source subtask.
      *
-     * <p>If the bucket becomes empty after removal it is also removed from the outer map to avoid
-     * keeping stale entries. If no timer has been registered for the given location this method is
-     * a no-op. The in-flight execution (if any) is allowed to finish; the timer is not interrupted.
+     * <p>No-op if the task group or task entry does not exist. If the task-group bucket becomes
+     * empty, remove the bucket as well.
      *
-     * @param taskLocation the location of the Source subtask whose timer should be removed.
+     * @param taskLocation source subtask location
      */
     public void closeTimerFlushTask(TaskLocation taskLocation) {
         TaskGroupLocation groupLocation = taskLocation.getTaskGroupLocation();
@@ -915,6 +903,13 @@ public class TaskExecutionService implements DynamicMetricsProvider {
         logger.fine(String.format("Closed timer-flush task for %s", taskLocation));
     }
 
+    /**
+     * Cancel and remove all timer-flush tasks in one task group.
+     *
+     * <p>No-op if the group has no registered timers.
+     *
+     * @param taskGroupLocation task group location
+     */
     private void cancelTimerFlushForTaskGroup(TaskGroupLocation taskGroupLocation) {
         ConcurrentMap<TaskLocation, ScheduledFuture<?>> groupFutures =
                 timerFlushFutures.remove(taskGroupLocation);
