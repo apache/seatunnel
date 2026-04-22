@@ -51,7 +51,6 @@ import org.testcontainers.utility.DockerLoggerFactory;
 
 import lombok.extern.slf4j.Slf4j;
 
-import java.io.IOException;
 import java.sql.Connection;
 import java.sql.DriverManager;
 import java.sql.SQLException;
@@ -424,7 +423,6 @@ public class IcebergEngineTimerFlushIT extends TestSuiteBase implements TestReso
         }
         return results.size();
     }
-
 
     @AfterAll
     @Override
