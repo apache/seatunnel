@@ -120,10 +120,8 @@ public class SourceFlowLifeCycle<T, SplitT extends SourceSplit> extends ActionFl
 
     private final AtomicReference<SchemaChangePhase> schemaChangePhase = new AtomicReference<>();
 
-    /** F tempo; {@code > 0} registers the flush timer in {@link #open()}. */
     private final long flushIntervalMs;
 
-    /** Handle for the periodic flush timer; non-null only while the timer is active. */
     private volatile ScheduledFuture<?> flushFuture;
 
     public SourceFlowLifeCycle(
