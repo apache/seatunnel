@@ -1160,8 +1160,8 @@ public abstract class AbstractMysqlCDCITBase extends TestSuiteBase implements Te
                     return null;
                 });
 
-        // insert update delete
-        upsertDeleteTimerFlushTable(MYSQL_DATABASE, TIMER_FLUSH_SRC_TABLE);
+        // insert update delete — use new ids (6-10) to produce changes not present in phase 1
+        upsertDeleteTimerFlushTablePhase2(MYSQL_DATABASE, TIMER_FLUSH_SRC_TABLE);
 
         // stream stage
         await().atMost(60000, TimeUnit.MILLISECONDS)
@@ -1188,10 +1188,26 @@ public abstract class AbstractMysqlCDCITBase extends TestSuiteBase implements Te
                         + "."
                         + tableName
                         + " (id, f_bigint, f_varchar) VALUES (4, 400, 'row-4'), (5, 500, 'row-5')"
-                        + " ON DUPLICATE KEY UPDATE f_bigint = VALUES(f_bigint), f_varchar = VALUES(f_varchar)");
+                        + " ON DUPLICATE KEY UPDATE f_bigint = VALUES(f_bigint),"
+                        + " f_varchar = VALUES(f_varchar)");
         executeSql(
                 "UPDATE " + database + "." + tableName + " SET f_bigint = 9999 WHERE id = 1");
         executeSql("DELETE FROM " + database + "." + tableName + " WHERE id = 2");
+    }
+
+    private void upsertDeleteTimerFlushTablePhase2(String database, String tableName) {
+        executeSql(
+                "INSERT INTO "
+                        + database
+                        + "."
+                        + tableName
+                        + " (id, f_bigint, f_varchar) VALUES (6, 600, 'row-6'), (7, 700, 'row-7'),"
+                        + " (8, 800, 'row-8'), (9, 900, 'row-9'), (10, 1000, 'row-10')"
+                        + " ON DUPLICATE KEY UPDATE f_bigint = VALUES(f_bigint),"
+                        + " f_varchar = VALUES(f_varchar)");
+        executeSql(
+                "UPDATE " + database + "." + tableName + " SET f_bigint = 88888 WHERE id = 3");
+        executeSql("DELETE FROM " + database + "." + tableName + " WHERE id = 4");
     }
 
     @Override
