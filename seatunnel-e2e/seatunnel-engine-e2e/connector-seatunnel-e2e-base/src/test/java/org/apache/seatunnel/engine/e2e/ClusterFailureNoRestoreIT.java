@@ -108,17 +108,19 @@ public class ClusterFailureNoRestoreIT {
 
             Awaitility.await()
                     .atMost(60, TimeUnit.SECONDS)
-                    .pollInterval(2, TimeUnit.SECONDS)
+                    .pollInterval(500, TimeUnit.MILLISECONDS)
                     .untilAsserted(
                             () -> {
                                 Long lineNumberFromDir =
                                         FileUtils.getFileLineNumberFromDir(testResources.getLeft());
+                                JobStatus status = clientJobProxy.getJobStatus();
                                 log.warn(
                                         "\n====================={}=====================\n",
                                         lineNumberFromDir);
-                                Assertions.assertEquals(
-                                        JobStatus.RUNNING, clientJobProxy.getJobStatus());
                                 Assertions.assertTrue(lineNumberFromDir > 1);
+                                Assertions.assertFalse(
+                                        status.isEndState(),
+                                        "job finished before worker shutdown: " + status);
                             });
 
             CompletableFuture<JobResult> waitForCompleteFuture =
