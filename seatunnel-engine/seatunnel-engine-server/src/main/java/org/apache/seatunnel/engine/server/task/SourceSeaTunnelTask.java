@@ -18,6 +18,7 @@
 package org.apache.seatunnel.engine.server.task;
 
 import org.apache.seatunnel.api.common.metrics.MetricsContext;
+import org.apache.seatunnel.api.configuration.ReadonlyConfig;
 import org.apache.seatunnel.api.serialization.Serializer;
 import org.apache.seatunnel.api.source.SourceSplit;
 import org.apache.seatunnel.api.table.catalog.CatalogTable;
@@ -123,10 +124,8 @@ public class SourceSeaTunnelTask<T, SplitT extends SourceSplit> extends SeaTunne
             SourceConfig config,
             CompletableFuture<Void> completableFuture,
             MetricsContext metricsContext) {
-        long flushIntervalMs =
-                (long)
-                        envOption.getOrDefault(
-                                SINK_FLUSH_INTERVAL.key(), SINK_FLUSH_INTERVAL.defaultValue());
+
+        long flushIntervalMs = ReadonlyConfig.fromMap(envOption).get(SINK_FLUSH_INTERVAL);
         if (flushIntervalMs > 0 && flushIntervalMs < 100) {
             LOGGER.warning(
                     String.format(
