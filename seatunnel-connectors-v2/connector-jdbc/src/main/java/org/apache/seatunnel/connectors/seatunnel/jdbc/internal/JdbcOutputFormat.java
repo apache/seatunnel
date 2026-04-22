@@ -290,8 +290,11 @@ public class JdbcOutputFormat<I, E extends JdbcBatchStatementExecutor<I>> implem
         }
 
         String normalizedMessage = message.toLowerCase(Locale.ROOT);
+        // SQL Server may report a closed statement handle without using "closed".
         return normalizedMessage.contains("statement closed")
-                || normalizedMessage.contains("statement is closed");
+                || normalizedMessage.contains("statement is closed")
+                || normalizedMessage.contains("statement handle is not executing")
+                || normalizedMessage.contains("statement handle is closed");
     }
 
     /**

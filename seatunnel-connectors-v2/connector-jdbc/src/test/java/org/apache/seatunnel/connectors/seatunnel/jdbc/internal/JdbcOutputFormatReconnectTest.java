@@ -93,6 +93,36 @@ public class JdbcOutputFormatReconnectTest {
         Mockito.verify(provider, Mockito.never()).isConnectionValid();
     }
 
+    @Test
+    public void testFlushRetryShouldReconnectWhenSqlServerStatementHandleIsNotExecuting()
+            throws Exception {
+        JdbcConnectionProvider provider = Mockito.mock(JdbcConnectionProvider.class);
+        Connection connection = Mockito.mock(Connection.class);
+        Mockito.when(provider.getOrEstablishConnection()).thenReturn(connection);
+        Mockito.when(provider.getConnection()).thenReturn(connection);
+        Mockito.when(provider.reestablishConnection()).thenReturn(connection);
+
+        TrackingJdbcBatchExecutor executor =
+                new TrackingJdbcBatchExecutor(
+                        batchException(
+                                "batch failed",
+                                "HY000",
+                                new SQLException("Statement handle is not executing.")));
+
+        JdbcOutputFormat<SeaTunnelRow, TrackingJdbcBatchExecutor> outputFormat =
+                new JdbcOutputFormat<>(provider, buildConnectionConfig(), () -> executor);
+        outputFormat.open();
+        outputFormat.writeRecord(new SeaTunnelRow(new Object[] {"AA"}));
+
+        outputFormat.flush();
+
+        Assertions.assertEquals(2, executor.prepareStatementsCalls);
+        Assertions.assertEquals(2, executor.executeBatchCalls);
+        Assertions.assertEquals(1, executor.closeStatementsCalls);
+        Mockito.verify(provider).reestablishConnection();
+        Mockito.verify(provider, Mockito.never()).isConnectionValid();
+    }
+
     private JdbcConnectionConfig buildConnectionConfig() {
         return JdbcConnectionConfig.builder()
                 .url("jdbc:postgresql://localhost:5432/test")
