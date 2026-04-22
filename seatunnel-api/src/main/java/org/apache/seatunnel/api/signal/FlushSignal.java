@@ -17,6 +17,13 @@
 
 package org.apache.seatunnel.api.signal;
 
+import lombok.Getter;
+import lombok.RequiredArgsConstructor;
+import lombok.ToString;
+
+@Getter
+@RequiredArgsConstructor
+@ToString
 public final class FlushSignal implements Signal {
 
     private final long jobId;
@@ -25,26 +32,5 @@ public final class FlushSignal implements Signal {
 
     public static FlushSignal of(long jobId, long taskId) {
         return new FlushSignal(jobId, taskId, System.currentTimeMillis());
-    }
-
-    public FlushSignal(long jobId, long taskId, long createdTime) {
-        this.jobId = jobId;
-        this.taskId = taskId;
-        this.createdTime = createdTime;
-    }
-
-    @Override
-    public long getJobId() {
-        return jobId;
-    }
-
-    @Override
-    public long getTaskId() {
-        return taskId;
-    }
-
-    @Override
-    public long getCreatedTime() {
-        return createdTime;
     }
 }

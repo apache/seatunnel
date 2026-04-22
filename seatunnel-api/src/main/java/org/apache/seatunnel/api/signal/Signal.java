@@ -17,6 +17,8 @@
 
 package org.apache.seatunnel.api.signal;
 
+import java.io.Serializable;
+
 /**
  * Interface for control-plane signals that the engine propagates through the data flow.
  *
@@ -37,7 +39,7 @@ package org.apache.seatunnel.api.signal;
  * <p>Concrete signals should be small and immutable. New signal types are added by introducing new
  * implementations of this interface; the engine routes them by type via {@code instanceof}.
  */
-public interface Signal {
+public interface Signal extends Serializable {
 
     /** @return the id of the job that created this signal. */
     long getJobId();
