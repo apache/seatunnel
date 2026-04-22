@@ -19,6 +19,7 @@ package org.apache.seatunnel.engine.server.task.operation;
 
 import org.apache.seatunnel.engine.core.job.ConnectorJarIdentifier;
 import org.apache.seatunnel.engine.server.SeaTunnelServer;
+import org.apache.seatunnel.engine.server.TaskExecutionService;
 import org.apache.seatunnel.engine.server.serializable.TaskDataSerializerHook;
 import org.apache.seatunnel.engine.server.service.jar.ServerConnectorPackageClient;
 
@@ -26,9 +27,11 @@ import com.hazelcast.nio.ObjectDataInput;
 import com.hazelcast.nio.ObjectDataOutput;
 import com.hazelcast.nio.serialization.IdentifiedDataSerializable;
 import com.hazelcast.spi.impl.operationservice.Operation;
+import lombok.extern.slf4j.Slf4j;
 
 import java.io.IOException;
 
+@Slf4j
 public class DeleteConnectorJarInExecutionNode extends Operation
         implements IdentifiedDataSerializable {
     private ConnectorJarIdentifier connectorJarIdentifier;
@@ -52,8 +55,16 @@ public class DeleteConnectorJarInExecutionNode extends Operation
     @Override
     public void run() throws Exception {
         SeaTunnelServer seaTunnelServer = getService();
+        TaskExecutionService taskExecutionService = seaTunnelServer.getTaskExecutionService();
+        if (taskExecutionService == null) {
+            log.info(
+                    "Skip deleting connector jar {} on non-worker node {}.",
+                    connectorJarIdentifier,
+                    getNodeEngine().getThisAddress());
+            return;
+        }
         ServerConnectorPackageClient serverConnectorPackageClient =
-                seaTunnelServer.getTaskExecutionService().getServerConnectorPackageClient();
+                taskExecutionService.getServerConnectorPackageClient();
         serverConnectorPackageClient.deleteConnectorJar(connectorJarIdentifier);
     }
 

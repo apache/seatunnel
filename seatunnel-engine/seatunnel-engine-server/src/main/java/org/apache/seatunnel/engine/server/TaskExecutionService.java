@@ -55,6 +55,7 @@ import org.apache.seatunnel.engine.server.task.TaskGroupImmutableInformation;
 import org.apache.seatunnel.engine.server.task.operation.NotifyTaskStatusOperation;
 import org.apache.seatunnel.engine.server.task.operation.ReportMetricsOperation;
 import org.apache.seatunnel.engine.server.telemetry.metrics.entity.ReportMetricsOperationStats;
+import org.apache.seatunnel.engine.server.utils.NodeEngineUtil;
 
 import org.apache.commons.collections4.CollectionUtils;
 
@@ -623,14 +624,9 @@ public class TaskExecutionService implements DynamicMetricsProvider {
         boolean notifyStateSuccess = false;
         while (isRunning && !notifyStateSuccess) {
             InvocationFuture<Object> invoke =
-                    nodeEngine
-                            .getOperationService()
-                            .createInvocationBuilder(
-                                    SeaTunnelServer.SERVICE_NAME,
-                                    new NotifyTaskStatusOperation(
-                                            taskGroupLocation, taskExecutionState),
-                                    nodeEngine.getMasterAddress())
-                            .invoke();
+                    NodeEngineUtil.sendOperationToMasterNode(
+                            nodeEngine,
+                            new NotifyTaskStatusOperation(taskGroupLocation, taskExecutionState));
             try {
                 invoke.get();
                 notifyStateSuccess = true;
@@ -773,13 +769,8 @@ public class TaskExecutionService implements DynamicMetricsProvider {
         HashMap<TaskLocation, SeaTunnelMetricsContext> localMetricsMap = collectLocalMetricsMap();
         int payloadTaskCount = localMetricsMap.size();
         InvocationFuture<Object> invoke =
-                nodeEngine
-                        .getOperationService()
-                        .createInvocationBuilder(
-                                SeaTunnelServer.SERVICE_NAME,
-                                new ReportMetricsOperation(localMetricsMap),
-                                nodeEngine.getMasterAddress())
-                        .invoke();
+                NodeEngineUtil.sendOperationToMasterNode(
+                        nodeEngine, new ReportMetricsOperation(localMetricsMap));
 
         try {
             invoke.get();

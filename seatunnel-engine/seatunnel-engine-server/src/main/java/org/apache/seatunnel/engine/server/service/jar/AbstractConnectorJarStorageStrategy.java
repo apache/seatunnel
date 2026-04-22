@@ -144,7 +144,7 @@ public abstract class AbstractConnectorJarStorageStrategy implements ConnectorJa
 
     @Override
     public void deleteConnectorJarInExecutionNode(ConnectorJarIdentifier connectorJarIdentifier) {
-        Address masterNodeAddress = nodeEngine.getMasterAddress();
+        Address masterNodeAddress = NodeEngineUtil.getActiveMasterAddress(nodeEngine);
         Collection<Member> memberList = nodeEngine.getClusterService().getMembers();
         memberList.forEach(
                 member -> {

@@ -17,6 +17,7 @@
 package org.apache.seatunnel.engine.server.protocol.task;
 
 import org.apache.seatunnel.engine.server.SeaTunnelServer;
+import org.apache.seatunnel.engine.server.utils.NodeEngineUtil;
 
 import com.hazelcast.client.impl.protocol.ClientMessage;
 import com.hazelcast.client.impl.protocol.task.AbstractInvocationMessageTask;
@@ -78,9 +79,9 @@ abstract class AbstractSeaTunnelMessageTask<P, R> extends AbstractInvocationMess
 
     @Override
     protected InvocationBuilder getInvocationBuilder(Operation operation) {
-        Address masterAddress = nodeEngine.getMasterAddress();
+        Address masterAddress = NodeEngineUtil.getActiveMasterAddress(nodeEngine);
         if (masterAddress == null) {
-            throw new RetryableHazelcastException("master not yet known");
+            throw new RetryableHazelcastException("active master not yet known");
         }
         return nodeEngine
                 .getOperationService()

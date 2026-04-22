@@ -43,6 +43,7 @@ import org.apache.seatunnel.engine.server.service.slot.DefaultSlotService;
 import org.apache.seatunnel.engine.server.service.slot.SlotService;
 import org.apache.seatunnel.engine.server.telemetry.log.TaskLogManagerService;
 import org.apache.seatunnel.engine.server.telemetry.metrics.entity.ThreadPoolStatus;
+import org.apache.seatunnel.engine.server.utils.NodeEngineUtil;
 
 import org.apache.hadoop.fs.FileSystem;
 
@@ -120,8 +121,7 @@ public class SeaTunnelServer
     /** Lazy load for Slot Service */
     public SlotService getSlotService() {
         // If the node is master node, the slot service is not needed.
-        if (EngineConfig.ClusterRole.MASTER.ordinal()
-                == seaTunnelConfig.getEngineConfig().getClusterRole().ordinal()) {
+        if (!isWorkerNode()) {
             return null;
         }
 
@@ -364,7 +364,12 @@ public class SeaTunnelServer
         try {
             return Boolean.TRUE.equals(
                     RetryUtils.retryWithException(
-                            () -> nodeEngine.getThisAddress().equals(nodeEngine.getMasterAddress()),
+                            () ->
+                                    nodeEngine
+                                            .getThisAddress()
+                                            .equals(
+                                                    NodeEngineUtil.getActiveMasterAddress(
+                                                            nodeEngine)),
                             new RetryUtils.RetryMaterial(
                                     Constant.OPERATION_RETRY_TIME,
                                     true,
@@ -377,6 +382,18 @@ public class SeaTunnelServer
         } catch (Exception e) {
             throw new SeaTunnelEngineException("cluster have no master node", e);
         }
+    }
+
+    public EngineConfig.ClusterRole getClusterRole() {
+        return seaTunnelConfig.getEngineConfig().getClusterRole();
+    }
+
+    public boolean isCoordinatorNode() {
+        return !EngineConfig.ClusterRole.WORKER.equals(getClusterRole());
+    }
+
+    public boolean isWorkerNode() {
+        return !EngineConfig.ClusterRole.MASTER.equals(getClusterRole());
     }
 
     private void printExecutionInfo() {

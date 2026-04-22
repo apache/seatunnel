@@ -141,6 +141,7 @@ public class ServerExecuteCommand implements Command<ServerCommandArgs> {
             Collection<Member> memberList = client.getClientClusterService().getMemberList();
 
             Member masterMember = client.getClientClusterService().getMasterMember();
+            Address activeMasterAddress = getActiveMasterAddress(memberList, masterMember);
             System.out.printf(
                     "%-36s %-20s %-20s %-10s\n", "Member ID", "Address", "Role", "Version");
 
@@ -149,7 +150,7 @@ public class ServerExecuteCommand implements Command<ServerCommandArgs> {
                         "%-36s %-20s %-20s %-10s\n",
                         member.getUuid(),
                         member.getAddress(),
-                        getRole(masterMember.getAddress(), member),
+                        getRole(activeMasterAddress, member),
                         member.getVersion());
             }
             return members;
@@ -166,12 +167,24 @@ public class ServerExecuteCommand implements Command<ServerCommandArgs> {
         }
     }
 
+    private Address getActiveMasterAddress(Collection<Member> memberList, Member masterMember) {
+        if (masterMember != null && !masterMember.isLiteMember()) {
+            return masterMember.getAddress();
+        }
+        return memberList.stream()
+                .filter(member -> !member.isLiteMember())
+                .map(Member::getAddress)
+                .findFirst()
+                .orElse(masterMember == null ? null : masterMember.getAddress());
+    }
+
     private String getRole(Address masterAddress, Member member) {
 
         if (member.isLiteMember()) {
             return EngineConfig.ClusterRole.WORKER.toString();
         }
-        if (masterAddress.toString().equals(member.getAddress().toString())) {
+        if (masterAddress != null
+                && masterAddress.toString().equals(member.getAddress().toString())) {
             return "ACTIVE MASTER";
         }
         return EngineConfig.ClusterRole.MASTER.toString();
