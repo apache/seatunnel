@@ -22,12 +22,6 @@ import org.junit.jupiter.api.Test;
 
 import java.util.concurrent.atomic.AtomicInteger;
 
-/**
- * Unit tests for {@link SinkWriterContext} covering the engine-level timer-flush opt-in contract.
- * The default behavior must leave {@link SinkWriterContext#getFlushAction()} as {@code null} so the
- * engine can cheaply skip signal delivery for writers that do not opt in; once registered, the
- * action replaces any previous registration.
- */
 class SinkWriterContextTest {
 
     @Test
