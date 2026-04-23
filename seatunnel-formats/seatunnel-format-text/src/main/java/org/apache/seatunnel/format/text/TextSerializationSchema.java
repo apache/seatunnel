@@ -175,6 +175,12 @@ public class TextSerializationSchema implements SerializationSchema {
                 return TimeUtils.toString((LocalTime) field, timeFormatter);
             case TIMESTAMP:
                 return DateTimeUtils.toString((LocalDateTime) field, dateTimeFormatter);
+            case TIMESTAMP_TZ:
+                return DateTimeUtils.toString(
+                        ((java.time.OffsetDateTime) field)
+                                .withOffsetSameInstant(java.time.ZoneOffset.UTC)
+                                .toLocalDateTime(),
+                        dateTimeFormatter);
             case NULL:
                 return "";
             case BYTES:

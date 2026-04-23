@@ -19,6 +19,7 @@ package org.apache.seatunnel.connectors.seatunnel.iceberg.data;
 
 import org.apache.seatunnel.api.table.catalog.Column;
 import org.apache.seatunnel.api.table.type.BasicType;
+import org.apache.seatunnel.api.table.type.LocalTimeType;
 import org.apache.seatunnel.api.table.type.SeaTunnelDataType;
 
 import org.apache.iceberg.types.Type;
@@ -79,5 +80,45 @@ public class IcebergTypeMapperTest {
                 () -> {
                     IcebergTypeMapper.toIcebergType(column, new AtomicInteger(1));
                 });
+    }
+
+    @Test
+    void timestampNtzMapsToWithoutZone() {
+        // TIMESTAMP (NTZ) → Iceberg withoutZone()
+        Column column = mock(Column.class);
+        when(column.getSinkType()).thenReturn(null);
+        when(column.getDataType())
+                .thenReturn((SeaTunnelDataType) LocalTimeType.LOCAL_DATE_TIME_TYPE);
+
+        Type result = IcebergTypeMapper.toIcebergType(column, new AtomicInteger(1));
+        assertEquals(Types.TimestampType.withoutZone(), result);
+    }
+
+    @Test
+    void timestampTzMapsToWithZone() {
+        // TIMESTAMP_TZ (LTZ) → Iceberg withZone()
+        Column column = mock(Column.class);
+        when(column.getSinkType()).thenReturn(null);
+        when(column.getDataType())
+                .thenReturn((SeaTunnelDataType) LocalTimeType.OFFSET_DATE_TIME_TYPE);
+
+        Type result = IcebergTypeMapper.toIcebergType(column, new AtomicInteger(1));
+        assertEquals(Types.TimestampType.withZone(), result);
+    }
+
+    @Test
+    void icebergWithoutZoneMapsToLocalDateTimeType() {
+        // Iceberg withoutZone() → SeaTunnel LOCAL_DATE_TIME_TYPE (TIMESTAMP / NTZ)
+        SeaTunnelDataType<?> result =
+                IcebergTypeMapper.mapping("ts_ntz", Types.TimestampType.withoutZone());
+        assertEquals(LocalTimeType.LOCAL_DATE_TIME_TYPE, result);
+    }
+
+    @Test
+    void icebergWithZoneMapsToOffsetDateTimeType() {
+        // Iceberg withZone() → SeaTunnel OFFSET_DATE_TIME_TYPE (TIMESTAMP_TZ / LTZ)
+        SeaTunnelDataType<?> result =
+                IcebergTypeMapper.mapping("ts_ltz", Types.TimestampType.withZone());
+        assertEquals(LocalTimeType.OFFSET_DATE_TIME_TYPE, result);
     }
 }

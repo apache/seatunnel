@@ -103,6 +103,7 @@ public class DorisTypeConverterV1 extends AbstractDorisTypeConverter {
                 builder.dataType(DORIS_DATEV2);
                 break;
             case TIMESTAMP:
+            case TIMESTAMP_TZ:
                 if (column.getScale() != null
                         && column.getScale() > 0
                         && column.getScale() <= MAX_DATETIME_SCALE) {

@@ -17,13 +17,44 @@
 
 package org.apache.seatunnel.connectors.seatunnel.jdbc.internal.dialect.xugu;
 
+import org.apache.seatunnel.api.table.type.SeaTunnelDataType;
+import org.apache.seatunnel.api.table.type.SqlType;
 import org.apache.seatunnel.connectors.seatunnel.jdbc.internal.converter.AbstractJdbcRowConverter;
 import org.apache.seatunnel.connectors.seatunnel.jdbc.internal.dialect.DatabaseIdentifier;
+
+import javax.annotation.Nullable;
+
+import java.sql.PreparedStatement;
+import java.sql.SQLException;
+import java.sql.Timestamp;
+import java.time.OffsetDateTime;
 
 public class XuguJdbcRowConverter extends AbstractJdbcRowConverter {
 
     @Override
     public String converterName() {
         return DatabaseIdentifier.XUGU;
+    }
+
+    @Override
+    protected void setValueToStatementByDataType(
+            Object value,
+            PreparedStatement statement,
+            SeaTunnelDataType<?> seaTunnelDataType,
+            int statementIndex,
+            @Nullable String sourceType)
+            throws SQLException {
+        if (seaTunnelDataType.getSqlType().equals(SqlType.TIMESTAMP_TZ)) {
+            // Xugu JDBC driver has a batch execution bug when receiving OffsetDateTime or
+            // a timezone-formatted string for TIMESTAMP WITH TIME ZONE columns ([E19138]).
+            // Fallback: convert OffsetDateTime to LocalDateTime (dropping timezone offset)
+            // and write as a plain Timestamp. Timezone info is lost on the Xugu Sink side,
+            // but this avoids the driver crash.
+            OffsetDateTime odt = (OffsetDateTime) value;
+            statement.setTimestamp(statementIndex, Timestamp.valueOf(odt.toLocalDateTime()));
+        } else {
+            super.setValueToStatementByDataType(
+                    value, statement, seaTunnelDataType, statementIndex, sourceType);
+        }
     }
 }

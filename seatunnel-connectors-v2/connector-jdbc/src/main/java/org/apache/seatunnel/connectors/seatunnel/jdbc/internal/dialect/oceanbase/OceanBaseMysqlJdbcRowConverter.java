@@ -126,6 +126,10 @@ public class OceanBaseMysqlJdbcRowConverter extends AbstractJdbcRowConverter {
                                     .map(e -> e.toLocalDateTime())
                                     .orElse(null);
                     break;
+                case TIMESTAMP_TZ:
+                    // OceanBase MySQL TIMESTAMP (LTZ) → read as OffsetDateTime
+                    fields[fieldIndex] = JdbcFieldTypeUtils.getOffsetDateTime(rs, resultSetIndex);
+                    break;
                 case BYTES:
                     fields[fieldIndex] = JdbcFieldTypeUtils.getBytes(rs, resultSetIndex);
                     break;
