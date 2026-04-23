@@ -64,6 +64,7 @@ import ChangeLog from '../changelog/connector-jdbc.md';
 | access_key_id                             | String  | 否       |                              |
 | secret_access_key                         | String  | 否       |                              |
 | region                                    | String  | 否       |                              |
+| enable_timer_flush                        | Boolean | 否       | false                        |
 
 ### driver [string]
 
@@ -257,6 +258,14 @@ AWS IAM 认证中所需要的secret_access_key。 该参考仅适用于 dialect=
 ### region [String]
 Amazon Aurora DSQL 所在的区域。 该参考仅适用于 dialect="dsql"
 
+### enable_timer_flush [boolean]
+
+是否启用定时刷新。默认值为 `false`。
+
+当设置为 `true` 且环境变量 `sink.flush.interval`（单位毫秒）已配置时，引擎会定期向该 sink 的记录流中注入 `FlushSignal` 信号。sink 收到该信号后，无论 `batch_size` 是否已满，都会立即将缓冲中的所有数据刷入数据库。
+
+注意：当 `is_exactly_once = true` 时，不支持该选项。
+
 ## tips
 
 在 is_exactly_once = "true" 的情况下，使用 XA 事务。这需要数据库支持，有些数据库需要一些设置：<br/>
@@ -326,6 +335,32 @@ jdbc {
     is_exactly_once = "true"
 
     xa_data_source_class_name = "com.mysql.cj.jdbc.MysqlXADataSource"
+}
+```
+
+定时刷新 (Timer flush)
+
+通过设置 `enable_timer_flush` 并配置 `sink.flush.interval` 启用定时刷新
+
+```hocon
+env {
+  job.mode = "STREAMING"
+  checkpoint.interval = 30000
+  sink.flush.interval = 5000
+}
+
+sink {
+  jdbc {
+    url = "jdbc:mysql://localhost:3306/test"
+    driver = "com.mysql.cj.jdbc.Driver"
+    user = "root"
+    password = "123456"
+    database = "sink_database"
+    table = "sink_table"
+    primary_keys = ["id"]
+    batch_size = 10000
+    enable_timer_flush = true
+  }
 }
 ```
 

@@ -268,6 +268,13 @@ The secret_access_key in AWS authentication. Only valid for dialect="dsql"
 ### region [String]
 The area where Amazon Aurora DSQL is located. Only valid for dialect="dsql"
 
+### enable_timer_flush [boolean]
+
+Whether to enable timer-based flush. Default value is `false`.
+
+When set to `true` and the environment variable `sink.flush.interval` is configured (in milliseconds), the engine periodically injects a `FlushSignal` into the record stream for this sink. Upon receiving the signal, the sink flushes all buffered records to the database immediately, regardless of whether `batch_size` has been reached.
+
+Note: This option is not supported when `is_exactly_once = true`.
 
 ## tips
 
@@ -339,6 +346,32 @@ jdbc {
     is_exactly_once = "true"
 
     xa_data_source_class_name = "com.mysql.cj.jdbc.MysqlXADataSource"
+}
+```
+
+Timer flush
+
+Enable timer-based flush by setting `enable_timer_flush` and configuring `sink.flush.interval`
+
+```hocon
+env {
+  job.mode = "STREAMING"
+  checkpoint.interval = 30000
+  sink.flush.interval = 5000
+}
+
+sink {
+  jdbc {
+    url = "jdbc:mysql://localhost:3306/test"
+    driver = "com.mysql.cj.jdbc.Driver"
+    user = "root"
+    password = "123456"
+    database = "sink_database"
+    table = "sink_table"
+    primary_keys = ["id"]
+    batch_size = 10000
+    enable_timer_flush = true
+  }
 }
 ```
 
