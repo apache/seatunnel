@@ -127,11 +127,11 @@ public class DorisCommitter implements SinkCommitter<DorisCommitInfo> {
                 sleepBeforeNextAttempt(attempt);
                 continue;
             }
-            try (response) {
-                int statusCode = response.getStatusLine().getStatusCode();
-                reasonPhrase = response.getStatusLine().getReasonPhrase();
+            try (CloseableHttpResponse closeableResponse = response) {
+                int statusCode = closeableResponse.getStatusLine().getStatusCode();
+                reasonPhrase = closeableResponse.getStatusLine().getReasonPhrase();
                 if (statusCode == HTTP_TEMPORARY_REDIRECT) {
-                    Header location = response.getFirstHeader("Location");
+                    Header location = closeableResponse.getFirstHeader("Location");
                     throw new DorisConnectorException(
                             DorisConnectorErrorCode.STREAM_LOAD_FAILED,
                             DorisRedirectExceptionBuilder.build(
@@ -146,7 +146,7 @@ public class DorisCommitter implements SinkCommitter<DorisCommitInfo> {
                     sleepBeforeNextAttempt(attempt);
                     continue;
                 }
-                handleCommitSuccess(committable, hostPort, response);
+                handleCommitSuccess(committable, hostPort, closeableResponse);
                 return;
             }
         }
@@ -197,11 +197,11 @@ public class DorisCommitter implements SinkCommitter<DorisCommitInfo> {
                 sleepBeforeNextAttempt(attempt);
                 continue;
             }
-            try (response) {
-                int statusCode = response.getStatusLine().getStatusCode();
-                responseStatus = response.getStatusLine().toString();
+            try (CloseableHttpResponse closeableResponse = response) {
+                int statusCode = closeableResponse.getStatusLine().getStatusCode();
+                responseStatus = closeableResponse.getStatusLine().toString();
                 if (statusCode == HTTP_TEMPORARY_REDIRECT) {
-                    Header location = response.getFirstHeader("Location");
+                    Header location = closeableResponse.getFirstHeader("Location");
                     throw new DorisConnectorException(
                             DorisConnectorErrorCode.STREAM_LOAD_FAILED,
                             DorisRedirectExceptionBuilder.build(
@@ -211,12 +211,14 @@ public class DorisCommitter implements SinkCommitter<DorisCommitInfo> {
                                     dorisSinkConfig.getEnable2PC(),
                                     "abort"));
                 }
-                if (statusCode != HTTP_OK || response.getEntity() == null) {
-                    log.warn("abort transaction response: {}", response.getStatusLine().toString());
+                if (statusCode != HTTP_OK || closeableResponse.getEntity() == null) {
+                    log.warn(
+                            "abort transaction response: {}",
+                            closeableResponse.getStatusLine().toString());
                     sleepBeforeNextAttempt(attempt);
                     continue;
                 }
-                handleAbortSuccess(committable, response);
+                handleAbortSuccess(committable, closeableResponse);
                 return;
             }
         }
