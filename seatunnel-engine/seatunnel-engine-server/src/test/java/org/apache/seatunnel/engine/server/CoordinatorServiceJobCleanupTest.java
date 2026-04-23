@@ -144,6 +144,50 @@ class CoordinatorServiceJobCleanupTest extends AbstractSeaTunnelServerTest {
     }
 
     @Test
+    void testCleanupRemovesStateWhenOwnerMissing() {
+        CoordinatorService coordinatorService = server.getCoordinatorService();
+        long jobId = System.currentTimeMillis();
+        PipelineLocation pipelineLocation = new PipelineLocation(jobId, 1);
+        TaskGroupLocation taskGroupLocation = new TaskGroupLocation(jobId, 1, 1L);
+        String checkpointStateKey = "checkpoint_state_" + jobId;
+
+        IMap<Object, Object> runningJobStateIMap =
+                nodeEngine.getHazelcastInstance().getMap(Constant.IMAP_RUNNING_JOB_STATE);
+        IMap<Object, Long[]> runningJobStateTimestampsIMap =
+                nodeEngine.getHazelcastInstance().getMap(Constant.IMAP_STATE_TIMESTAMPS);
+        IMap<Long, JobCleanupRecord> pendingJobCleanupIMap =
+                nodeEngine.getHazelcastInstance().getMap(Constant.IMAP_PENDING_JOB_CLEANUP);
+
+        runningJobStateIMap.put(jobId, JobStatus.FINISHED);
+        runningJobStateIMap.put(pipelineLocation, "pipeline");
+        runningJobStateIMap.put(taskGroupLocation, "task");
+        runningJobStateIMap.put(checkpointStateKey, "checkpoint");
+        runningJobStateTimestampsIMap.put(jobId, new Long[JobStatus.values().length]);
+        runningJobStateTimestampsIMap.put(pipelineLocation, new Long[1]);
+        runningJobStateTimestampsIMap.put(taskGroupLocation, new Long[1]);
+
+        pendingJobCleanupIMap.put(
+                jobId,
+                new JobCleanupRecord(
+                        100L,
+                        JobStatus.FINISHED,
+                        stateKeys(jobId, pipelineLocation, taskGroupLocation, checkpointStateKey),
+                        stateKeys(jobId, pipelineLocation, taskGroupLocation),
+                        System.currentTimeMillis()));
+
+        coordinatorService.runPendingJobCleanupOnce();
+
+        Assertions.assertNull(runningJobStateIMap.get(jobId));
+        Assertions.assertNull(runningJobStateIMap.get(pipelineLocation));
+        Assertions.assertNull(runningJobStateIMap.get(taskGroupLocation));
+        Assertions.assertNull(runningJobStateIMap.get(checkpointStateKey));
+        Assertions.assertNull(runningJobStateTimestampsIMap.get(jobId));
+        Assertions.assertNull(runningJobStateTimestampsIMap.get(pipelineLocation));
+        Assertions.assertNull(runningJobStateTimestampsIMap.get(taskGroupLocation));
+        Assertions.assertFalse(pendingJobCleanupIMap.containsKey(jobId));
+    }
+
+    @Test
     void testSubmitBlockedWhenCleanupStillPending() {
         CoordinatorService coordinatorService = server.getCoordinatorService();
         long jobId = System.currentTimeMillis();
@@ -174,6 +218,13 @@ class CoordinatorServiceJobCleanupTest extends AbstractSeaTunnelServerTest {
         Assertions.assertInstanceOf(JobException.class, exception.getCause());
         Assertions.assertTrue(
                 exception.getCause().getMessage().contains("waiting for terminal state cleanup"));
+        Assertions.assertEquals(
+                initializationTimestamp,
+                runningJobInfoIMap.get(jobId).getInitializationTimestamp(),
+                "failed submit must not delete the retained cleanup owner");
+        Assertions.assertTrue(
+                pendingJobCleanupIMap.containsKey(jobId),
+                "failed submit must not consume the pending cleanup record");
     }
 
     @Test

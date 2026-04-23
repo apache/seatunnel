@@ -707,6 +707,7 @@ public class CoordinatorService {
 
         JobInfo currentJobInfo = runningJobInfoIMap.get(jobId);
         if (currentJobInfo == null) {
+            cleanupPendingJobStateMaps(record);
             removePendingJobCleanupRecord(jobId, record);
             return;
         }
@@ -717,17 +718,18 @@ public class CoordinatorService {
 
         if (!runningJobInfoIMap.remove(jobId, currentJobInfo)) {
             JobInfo latestJobInfo = runningJobInfoIMap.get(jobId);
-            if (latestJobInfo == null
-                    || !Objects.equals(
-                            latestJobInfo.getInitializationTimestamp(),
-                            record.getOwnerInitializationTimestamp())) {
+            if (latestJobInfo == null) {
+                cleanupPendingJobStateMaps(record);
+                removePendingJobCleanupRecord(jobId, record);
+            } else if (!Objects.equals(
+                    latestJobInfo.getInitializationTimestamp(),
+                    record.getOwnerInitializationTimestamp())) {
                 removePendingJobCleanupRecord(jobId, record);
             }
             return;
         }
 
-        removeKeys(runningJobStateIMap, record.getStateKeys());
-        removeKeys(runningJobStateTimestampsIMap, record.getTimestampKeys());
+        cleanupPendingJobStateMaps(record);
         removePendingJobCleanupRecord(jobId, record);
     }
 
@@ -769,6 +771,11 @@ public class CoordinatorService {
         }
         Object jobState = runningJobStateIMap.get(jobId);
         return jobState instanceof JobStatus && ((JobStatus) jobState).isEndState();
+    }
+
+    private void cleanupPendingJobStateMaps(JobCleanupRecord record) {
+        removeKeys(runningJobStateIMap, record.getStateKeys());
+        removeKeys(runningJobStateTimestampsIMap, record.getTimestampKeys());
     }
 
     private void removeKeys(IMap<Object, ?> map, Set<Object> keys) {
@@ -1109,6 +1116,7 @@ public class CoordinatorService {
         mdcExecutorService.submit(
                 () -> {
                     JobMaster jobMaster = null;
+                    JobInfo submittedJobInfo = null;
                     try {
                         JobCleanupRecord pendingCleanupRecord =
                                 pendingJobCleanupIMap != null
@@ -1149,9 +1157,9 @@ public class CoordinatorService {
                                             jobId));
                         }
                         long initializationTimestamp = System.currentTimeMillis();
-                        runningJobInfoIMap.put(
-                                jobId,
-                                new JobInfo(initializationTimestamp, jobImmutableInformation));
+                        submittedJobInfo =
+                                new JobInfo(initializationTimestamp, jobImmutableInformation);
+                        runningJobInfoIMap.put(jobId, submittedJobInfo);
                         jobMaster.init(initializationTimestamp, false);
                         // Initialize the JobMaster and add it to the pendingJobQueue, ensuring that
                         // calling the getJobMaster method does not return NULL when the
@@ -1174,7 +1182,9 @@ public class CoordinatorService {
                                         jobId,
                                         jobMaster.getJobImmutableInformation().getJobName()));
                     } else {
-                        runningJobInfoIMap.remove(jobId);
+                        if (submittedJobInfo != null) {
+                            runningJobInfoIMap.remove(jobId, submittedJobInfo);
+                        }
                         runningJobMasterMap.remove(jobId);
                         pendingJobQueue.removeById(jobId);
                     }
