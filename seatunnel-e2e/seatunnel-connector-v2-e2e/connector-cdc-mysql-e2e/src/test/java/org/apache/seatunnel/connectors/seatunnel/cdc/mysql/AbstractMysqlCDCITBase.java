@@ -879,7 +879,7 @@ public abstract class AbstractMysqlCDCITBase extends TestSuiteBase implements Te
         int[] flushProbeIds = {10, 11, 12};
         for (int id : flushProbeIds) {
             insertTimerFlushRow(MYSQL_DATABASE, TIMER_FLUSH_SRC_TABLE, id);
-            await().atMost(10, TimeUnit.SECONDS)
+            await().atMost(1, TimeUnit.SECONDS)
                     .pollInterval(500, TimeUnit.MILLISECONDS)
                     .untilAsserted(
                             () ->
