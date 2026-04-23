@@ -22,6 +22,8 @@ import org.apache.seatunnel.api.event.EventListener;
 import org.apache.seatunnel.api.sink.SinkWriter;
 import org.apache.seatunnel.common.utils.function.RunnableWithException;
 
+import java.util.Objects;
+
 public class SinkContextProxy implements SinkWriter.Context {
 
     private final int index;
@@ -57,6 +59,7 @@ public class SinkContextProxy implements SinkWriter.Context {
 
     @Override
     public void registerFlushAction(RunnableWithException action) {
+        Objects.requireNonNull(action, "flushAction");
         this.flushAction = action;
     }
 
