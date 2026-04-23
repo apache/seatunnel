@@ -198,7 +198,8 @@ public class SourceFlowLifeCycle<T, SplitT extends SourceSplit> extends ActionFl
             return;
         }
         try {
-            FlushSignal flushSignal = FlushSignal.of(currentTaskLocation.getJobId(), currentTaskLocation.getTaskID());
+            FlushSignal flushSignal =
+                    FlushSignal.of(currentTaskLocation.getJobId(), currentTaskLocation.getTaskID());
             log.debug("Broadcasting FlushSignal {} ", flushSignal);
             Record<FlushSignal> flushSignalRecord = new Record<>(flushSignal);
             collector.sendRecordToNext(flushSignalRecord);
