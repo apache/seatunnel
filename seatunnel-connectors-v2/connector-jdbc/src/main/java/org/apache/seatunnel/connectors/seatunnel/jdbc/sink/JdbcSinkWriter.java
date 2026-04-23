@@ -195,4 +195,21 @@ public class JdbcSinkWriter extends AbstractJdbcSinkWriter<ConnectionPoolManager
             outputFormat.close();
         }
     }
+
+    public void timerFlush() throws IOException {
+        if (isOpen) {
+            outputFormat.checkFlushException();
+            outputFormat.flush();
+            try {
+                if (!connectionProvider.getConnection().getAutoCommit()) {
+                    connectionProvider.getConnection().commit();
+                }
+            } catch (SQLException e) {
+                throw new JdbcConnectorException(
+                        JdbcConnectorErrorCode.TRANSACTION_OPERATION_FAILED,
+                        "timer flush commit failed: " + e.getMessage(),
+                        e);
+            }
+        }
+    }
 }

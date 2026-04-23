@@ -86,11 +86,4 @@ public abstract class AbstractJdbcSinkWriter<ResourceT>
                         .build();
         this.outputFormat.open();
     }
-
-    public void timerFlush() throws IOException {
-        if (isOpen) {
-            outputFormat.checkFlushException();
-            outputFormat.flush();
-        }
-    }
 }
