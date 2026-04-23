@@ -36,7 +36,5 @@ public interface RecordWriter extends Cloneable {
         return ImmutableList.of();
     }
 
-    default void flush() {}
-
     default void close() {}
 }
