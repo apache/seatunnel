@@ -175,8 +175,7 @@ public class IcebergRecordWriter implements RecordWriter {
         this.recordConverter = new RowConverter(table, config);
     }
 
-    @Override
-    public void flush() {
+    private void flush() {
         if (writer == null) {
             return;
         }
