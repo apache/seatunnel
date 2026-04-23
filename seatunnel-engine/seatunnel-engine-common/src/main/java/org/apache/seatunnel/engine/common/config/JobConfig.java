@@ -34,6 +34,7 @@ import java.util.Map;
 public class JobConfig implements IdentifiedDataSerializable {
     private String name = EnvCommonOptions.JOB_NAME.defaultValue();
     private JobContext jobContext;
+    private int pipelineConcurrency = Integer.MAX_VALUE;
 
     private Map<String, Object> envOptions = new HashMap<>();
 
@@ -51,6 +52,7 @@ public class JobConfig implements IdentifiedDataSerializable {
     public void writeData(ObjectDataOutput out) throws IOException {
         out.writeString(name);
         out.writeObject(jobContext);
+        out.writeInt(pipelineConcurrency);
         out.writeObject(envOptions);
     }
 
@@ -58,6 +60,7 @@ public class JobConfig implements IdentifiedDataSerializable {
     public void readData(ObjectDataInput in) throws IOException {
         this.name = in.readString();
         this.jobContext = in.readObject();
+        this.pipelineConcurrency = in.readInt();
         this.envOptions = in.readObject();
     }
 }

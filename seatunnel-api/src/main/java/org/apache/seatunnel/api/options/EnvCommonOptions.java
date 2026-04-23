@@ -111,6 +111,15 @@ public class EnvCommonOptions {
                     .noDefaultValue()
                     .withDescription("custom parameters for run engine");
 
+    public static Option<Integer> PIPELINE_CONCURRENCY =
+            Options.key("pipeline_concurrency")
+                    .intType()
+                    .defaultValue(Integer.MAX_VALUE)
+                    .withDescription(
+                            "Maximum number of pipelines that can run concurrently. "
+                                    + "Set to 1 for serial execution, or a specific number to limit concurrency. "
+                                    + "Default is unlimited (Integer.MAX_VALUE).");
+
     public static Option<Map<String, String>> NODE_TAG_FILTER =
             Options.key("tag_filter")
                     .mapType()

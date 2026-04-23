@@ -348,6 +348,40 @@ public class MultipleTableJobConfigParser {
             jobConfig.setName(envOptions.get(EnvCommonOptions.JOB_NAME));
         }
         jobConfig.getEnvOptions().putAll(envOptions.getSourceMap());
+
+        // Parse pipeline_concurrency from env config
+        log.info("Checking for pipeline_concurrency configuration...");
+        log.info("Config has env section: {}", seaTunnelJobConfig.hasPath("env"));
+        if (seaTunnelJobConfig.hasPath("env")) {
+            log.info("Env config keys: {}", seaTunnelJobConfig.getConfig("env").entrySet());
+
+            // Get env config and check for pipeline_concurrency
+            Config envConfig = seaTunnelJobConfig.getConfig("env");
+            if (envConfig.hasPath(EnvCommonOptions.PIPELINE_CONCURRENCY.key())) {
+                try {
+                    Integer pipelineConcurrency =
+                            envConfig.getInt(EnvCommonOptions.PIPELINE_CONCURRENCY.key());
+                    if (pipelineConcurrency <= 0) {
+                        log.warn(
+                                "pipeline_concurrency must be positive, got: {}, using default: {}",
+                                pipelineConcurrency,
+                                Integer.MAX_VALUE);
+                    } else {
+                        jobConfig.setPipelineConcurrency(pipelineConcurrency);
+                        log.info(
+                                "✅ Parsed pipeline_concurrency from config: {}",
+                                pipelineConcurrency);
+                    }
+                } catch (Exception e) {
+                    log.warn("Failed to parse pipeline_concurrency from config, using default", e);
+                }
+            } else {
+                log.info(
+                        "pipeline_concurrency not found in env config, using default: {}",
+                        Integer.MAX_VALUE);
+            }
+        }
+
         this.commonPluginJars.addAll(
                 new ArrayList<>(
                         Common.getThirdPartyJars(
@@ -625,7 +659,8 @@ public class MultipleTableJobConfigParser {
             return sinkActions;
         }
 
-        // TODO move it into tryGenerateMultiTableSink when we don't support sink template
+        // TODO move it into tryGenerateMultiTableSink when we don't support sink
+        // template
         // sink template
         for (Tuple2<CatalogTable, Action> tuple : inputVertices.get(0)) {
             SinkAction<?, ?, ?, ?> sinkAction =

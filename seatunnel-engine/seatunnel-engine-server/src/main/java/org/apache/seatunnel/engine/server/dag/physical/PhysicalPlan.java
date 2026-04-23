@@ -88,6 +88,11 @@ public class PhysicalPlan {
 
     private volatile boolean isRunning = false;
 
+    // Pipeline concurrency control
+    private final int pipelineConcurrency;
+    private final AtomicInteger runningPipelineCount = new AtomicInteger(0);
+    private final AtomicInteger nextPipelineIndex = new AtomicInteger(0);
+
     public PhysicalPlan(
             @NonNull List<SubPlan> pipelineList,
             @NonNull ExecutorService executorService,
@@ -128,6 +133,13 @@ public class PhysicalPlan {
 
         this.runningJobStateIMap = runningJobStateIMap;
         this.runningJobStateTimestampsIMap = runningJobStateTimestampsIMap;
+
+        // Initialize pipeline concurrency from JobConfig
+        this.pipelineConcurrency = jobImmutableInformation.getJobConfig().getPipelineConcurrency();
+        log.info(
+                "Pipeline concurrency: {} (job has {} pipelines)",
+                pipelineConcurrency == Integer.MAX_VALUE ? "unlimited" : pipelineConcurrency,
+                pipelineList.size());
     }
 
     public void setJobMaster(JobMaster jobMaster) {
@@ -163,6 +175,26 @@ public class PhysicalPlan {
                                                 jobFullName));
                                 updateJobState(JobStatus.FAILING);
                             }
+                        } else if (PipelineStatus.FINISHED.equals(
+                                pipelineState.getPipelineStatus())) {
+                            // Pipeline finished successfully, decrease running count and try to
+                            // start next pipeline
+                            int currentRunning = runningPipelineCount.decrementAndGet();
+                            int completed =
+                                    finishedPipelineNum
+                                            .incrementAndGet(); // Will be incremented below
+                            int total = pipelineList.size();
+                            int queued = total - completed - currentRunning;
+
+                            log.info(
+                                    "Pipeline completed: {} | Progress: {}/{} | Running: {} | Queued: {}",
+                                    subPlan.getPipelineFullName(),
+                                    completed,
+                                    total,
+                                    currentRunning,
+                                    queued);
+
+                            startNextPipelines();
                         }
 
                         if (finishedPipelineNum.incrementAndGet() == this.pipelineList.size()) {
@@ -201,7 +233,8 @@ public class PhysicalPlan {
         }
 
         if (((JobStatus) runningJobStateIMap.get(jobId)).ordinal() <= JobStatus.PENDING.ordinal()) {
-            // Tasks with the status 'INITIALIZING', 'CREATED', 'PENDING' need to be set directly to
+            // Tasks with the status 'INITIALIZING', 'CREATED', 'PENDING' need to be set
+            // directly to
             // the 'CANCELLED' state because it has not yet started running
             updateJobState(JobStatus.CANCELED);
             jobEndFuture.complete(new JobResult(JobStatus.CANCELED));
@@ -295,7 +328,8 @@ public class PhysicalPlan {
                 throw new SeaTunnelEngineException(message);
             }
 
-            // Now do the actual state transition, we must update runningJobStateTimestampsIMap
+            // Now do the actual state transition, we must update
+            // runningJobStateTimestampsIMap
             // first and then can update runningJobStateIMap
             updateStateInfo(current, targetState);
             stateProcess();
@@ -348,14 +382,8 @@ public class PhysicalPlan {
                 break;
             case PENDING:
             case SCHEDULED:
-                getPipelineList()
-                        .forEach(
-                                subPlan -> {
-                                    if (PipelineStatus.CREATED.equals(
-                                            subPlan.getCurrPipelineStatus())) {
-                                        subPlan.startSubPlanStateProcess();
-                                    }
-                                });
+                // Use controlled pipeline startup based on concurrency limit
+                startNextPipelines();
                 updateJobState(JobStatus.RUNNING);
                 break;
             case RUNNING:
@@ -397,5 +425,57 @@ public class PhysicalPlan {
     public void setPreApplyResourceFutures(
             Map<TaskGroupLocation, CompletableFuture<SlotProfile>> preApplyResourceFutures) {
         this.preApplyResourceFutures = preApplyResourceFutures;
+    }
+
+    /** Start next pipelines according to concurrency limit */
+    private synchronized void startNextPipelines() {
+        while (runningPipelineCount.get() < pipelineConcurrency) {
+            int nextIndex = nextPipelineIndex.getAndIncrement();
+            if (nextIndex >= pipelineList.size()) {
+                // No more pipelines to start
+                break;
+            }
+
+            SubPlan nextPipeline = pipelineList.get(nextIndex);
+            if (PipelineStatus.CREATED.equals(nextPipeline.getCurrPipelineStatus())) {
+                runningPipelineCount.incrementAndGet();
+                int completed = finishedPipelineNum.get();
+                int total = pipelineList.size();
+                int running = runningPipelineCount.get();
+                int queued = total - completed - running;
+
+                if (pipelineConcurrency == 1) {
+                    log.info(
+                            "[Serial Mode] Starting pipeline {}/{}: {} | Running: {} | Queued: {} | Completed: {}",
+                            nextIndex + 1,
+                            total,
+                            nextPipeline.getPipelineFullName(),
+                            running,
+                            queued,
+                            completed);
+                } else if (pipelineConcurrency < Integer.MAX_VALUE) {
+                    log.info(
+                            "[Limited Concurrency={}] Starting pipeline {}/{}: {} | Running: {} | Queued: {} | Completed: {}",
+                            pipelineConcurrency,
+                            nextIndex + 1,
+                            total,
+                            nextPipeline.getPipelineFullName(),
+                            running,
+                            queued,
+                            completed);
+                } else {
+                    log.info(
+                            "[Concurrent Mode] Starting pipeline {}/{}: {} | Running: {} | Queued: {} | Completed: {}",
+                            nextIndex + 1,
+                            total,
+                            nextPipeline.getPipelineFullName(),
+                            running,
+                            queued,
+                            completed);
+                }
+
+                nextPipeline.startSubPlanStateProcess();
+            }
+        }
     }
 }
