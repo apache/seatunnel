@@ -80,6 +80,8 @@ public class PulsarSourceReader<T> implements SourceReader<T, PulsarPartitionSpl
     /** Indicating whether the SourceReader will be assigned more splits or not. */
     private boolean noMoreSplitsAssignment = false;
 
+    private boolean noMoreElementSignaled = false;
+
     public PulsarSourceReader(
             SourceReader.Context context,
             PulsarClientConfig clientConfig,
@@ -147,11 +149,8 @@ public class PulsarSourceReader<T> implements SourceReader<T, PulsarPartitionSpl
                     deserializationSchema.deserialize(message.getData(), collector);
                 }
             }
-            if (noMoreSplitsAssignment && finishedSplits.size() == splitStates.size()) {
-                context.signalNoMoreElement();
-                break;
-            }
         }
+        signalNoMoreElementIfFinished();
     }
 
     @Override
@@ -318,5 +317,15 @@ public class PulsarSourceReader<T> implements SourceReader<T, PulsarPartitionSpl
         // Reuse wrappers inside the current poll batch to avoid per-record allocations on hot path.
         return collectorCache.computeIfAbsent(
                 tablePath, path -> new TableIdInjectingCollector<>(output, path));
+    }
+
+    private void signalNoMoreElementIfFinished() throws Exception {
+        if (!noMoreElementSignaled
+                && noMoreSplitsAssignment
+                && finishedSplits.size() == splitStates.size()
+                && handover.isEmpty()) {
+            noMoreElementSignaled = true;
+            context.signalNoMoreElement();
+        }
     }
 }

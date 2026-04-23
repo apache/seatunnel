@@ -51,6 +51,7 @@ import java.io.IOException;
 import java.lang.reflect.Proxy;
 import java.nio.charset.StandardCharsets;
 import java.util.ArrayList;
+import java.util.Arrays;
 import java.util.Collections;
 import java.util.LinkedHashMap;
 import java.util.List;
@@ -174,6 +175,59 @@ class PulsarSourceReaderRestoreTest {
 
         Assertions.assertEquals(1, collector.records.size());
         Assertions.assertEquals(tablePath.toString(), collector.records.get(0).getTableId());
+    }
+
+    @Test
+    void shouldDrainBufferedRecordsBeforeSignalingNoMoreElements() throws Exception {
+        TablePath ordersPath = TablePath.of("db.orders");
+        TablePath usersPath = TablePath.of("db.users");
+        Map<TablePath, PulsarConsumerMetadata> metadataMap = new LinkedHashMap<>();
+        metadataMap.put(ordersPath, createMetadata(ordersPath));
+        metadataMap.put(usersPath, createMetadata(usersPath));
+
+        TestingReaderContext context = new TestingReaderContext();
+        TestingPulsarSourceReader reader = new TestingPulsarSourceReader(context, metadataMap);
+        PulsarPartitionSplit ordersSplit =
+                new PulsarPartitionSplit(
+                        new TopicPartition("persistent://public/default/orders", 0),
+                        StopCursor.never(),
+                        null,
+                        ordersPath);
+        PulsarPartitionSplit usersSplit =
+                new PulsarPartitionSplit(
+                        new TopicPartition("persistent://public/default/users", 0),
+                        StopCursor.never(),
+                        null,
+                        usersPath);
+        reader.addSplits(Arrays.asList(ordersSplit, usersSplit));
+        reader.handleNoMoreSplits();
+        reader.handover.produce(
+                new RecordWithSplitId(
+                        testingMessage(
+                                "order".getBytes(StandardCharsets.UTF_8), MessageId.earliest),
+                        ordersSplit.splitId()));
+        reader.handleNoMoreElements(ordersSplit.splitId(), MessageId.earliest);
+        reader.handover.produce(
+                new RecordWithSplitId(
+                        testingMessage("user".getBytes(StandardCharsets.UTF_8), MessageId.earliest),
+                        usersSplit.splitId()));
+        reader.handleNoMoreElements(usersSplit.splitId(), MessageId.earliest);
+
+        TestingCollector collector = new TestingCollector();
+        reader.pollNext(collector);
+
+        Assertions.assertEquals(1, collector.records.size());
+        Assertions.assertEquals(0, context.noMoreElementSignals);
+
+        reader.pollNext(collector);
+
+        Assertions.assertEquals(2, collector.records.size());
+        Assertions.assertEquals(1, context.noMoreElementSignals);
+        Assertions.assertEquals(
+                Arrays.asList(ordersPath.toString(), usersPath.toString()),
+                Arrays.asList(
+                        collector.records.get(0).getTableId(),
+                        collector.records.get(1).getTableId()));
     }
 
     private static PulsarConsumerMetadata createMetadata(TablePath tablePath) {
@@ -320,6 +374,8 @@ class PulsarSourceReaderRestoreTest {
 
     private static final class TestingReaderContext implements SourceReader.Context {
 
+        private int noMoreElementSignals;
+
         @Override
         public int getIndexOfSubtask() {
             return 0;
@@ -327,11 +383,13 @@ class PulsarSourceReaderRestoreTest {
 
         @Override
         public Boundedness getBoundedness() {
-            return Boundedness.UNBOUNDED;
+            return Boundedness.BOUNDED;
         }
 
         @Override
-        public void signalNoMoreElement() {}
+        public void signalNoMoreElement() {
+            noMoreElementSignals++;
+        }
 
         @Override
         public void sendSplitRequest() {}
