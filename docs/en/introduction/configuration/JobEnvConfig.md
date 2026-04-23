@@ -57,9 +57,9 @@ you can set it to `CLIENT`. Please use `CLUSTER` mode as much as possible, becau
 
 ### sink.flush.interval
 
-The interval (in milliseconds) at which the engine broadcasts a `FlushSignal` to downstream sinks, triggering a flush of buffered data.
+Interval (ms) at which the engine injects a `FlushSignal` into the pipeline to drive a flush at the Sink. `0` or unset (default) means disabled. Only works in the Zeta engine.
 
-When set to `0` or not configured (default), the flush timer is disabled. The sink connector must support and enable `enable_timer_flush`; otherwise the signal will be silently ignored, resulting in unnecessary broadcasts. This parameter only works in the Zeta engine.
+Values below 100ms are not recommended — excessive signals consume pipeline queue capacity, crowding out normal data records, and trigger empty flushes when no data has been buffered yet, increasing Sink I/O overhead.
 
 ## Flink Engine Parameter
 

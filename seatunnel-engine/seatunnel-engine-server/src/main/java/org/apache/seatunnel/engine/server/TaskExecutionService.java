@@ -249,7 +249,7 @@ public class TaskExecutionService implements DynamicMetricsProvider {
 
         this.eventService = eventService;
 
-        int timerPoolSize = Math.max(2, Runtime.getRuntime().availableProcessors());
+        int timerPoolSize = seaTunnelConfig.getEngineConfig().getTimerFlushPoolSize();
         timerFlushWorker =
                 new ScheduledThreadPoolExecutor(timerPoolSize, new TimerFlushThreadFactory());
         timerFlushWorker.setRemoveOnCancelPolicy(true);
