@@ -203,7 +203,7 @@ public class SourceFlowLifeCycle<T, SplitT extends SourceSplit> extends ActionFl
             log.info("Broadcasting FlushSignal {} ", flushSignal);
             Record<FlushSignal> flushSignalRecord = new Record<>(flushSignal);
             collector.sendRecordToNext(flushSignalRecord);
-        } catch (Exception e) {
+        } catch (Throwable e) {
             log.warn("Failed to broadcast FlushSignal from task {}", currentTaskLocation, e);
         }
     }
