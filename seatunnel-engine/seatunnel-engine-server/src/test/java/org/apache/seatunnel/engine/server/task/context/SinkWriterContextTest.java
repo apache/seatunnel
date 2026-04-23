@@ -33,7 +33,7 @@ class SinkWriterContextTest {
     }
 
     @Test
-    void registerFlushActionStoresLastRegistered() {
+    void registerFlushActionStoresLastRegistered() throws Exception {
         SinkWriterContext ctx = new SinkWriterContext(2, 0, null, null);
         AtomicInteger first = new AtomicInteger();
         AtomicInteger second = new AtomicInteger();

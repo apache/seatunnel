@@ -22,6 +22,7 @@ import org.apache.seatunnel.shade.com.google.common.base.Preconditions;
 import org.apache.seatunnel.api.common.metrics.MetricsContext;
 import org.apache.seatunnel.api.event.EventListener;
 import org.apache.seatunnel.api.sink.SinkWriter;
+import org.apache.seatunnel.common.utils.function.RunnableWithException;
 
 import java.util.Objects;
 
@@ -32,7 +33,7 @@ public class SinkWriterContext implements SinkWriter.Context {
     private final int numberOfParallelSubtasks;
     private final MetricsContext metricsContext;
     private final EventListener eventListener;
-    private transient volatile Runnable flushAction;
+    private transient volatile RunnableWithException flushAction;
 
     public SinkWriterContext(
             int numberOfParallelSubtasks,
@@ -69,13 +70,13 @@ public class SinkWriterContext implements SinkWriter.Context {
     }
 
     @Override
-    public void registerFlushAction(Runnable action) {
+    public void registerFlushAction(RunnableWithException action) {
         Objects.requireNonNull(action, "flushAction");
         this.flushAction = action;
     }
 
     @Override
-    public Runnable getFlushAction() {
+    public RunnableWithException getFlushAction() {
         return flushAction;
     }
 }

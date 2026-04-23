@@ -20,6 +20,7 @@ package org.apache.seatunnel.api.sink;
 import org.apache.seatunnel.api.common.metrics.MetricsContext;
 import org.apache.seatunnel.api.event.EventListener;
 import org.apache.seatunnel.api.table.schema.event.SchemaChangeEvent;
+import org.apache.seatunnel.common.utils.function.RunnableWithException;
 
 import java.io.IOException;
 import java.io.Serializable;
@@ -127,16 +128,17 @@ public interface SinkWriter<T, CommitInfoT, StateT> {
          *
          * @param action the action to invoke on each flush signal, must not be {@code null}
          */
-        default void registerFlushAction(Runnable action) {}
+        default void registerFlushAction(RunnableWithException action) {}
 
         /**
-         * Return the flush action previously registered via {@link #registerFlushAction(Runnable)},
-         * or {@code null} if the writer has not opted in to engine-level timer flush.
+         * Return the flush action previously registered via {@link
+         * #registerFlushAction(RunnableWithException)}, or {@code null} if the writer has not opted
+         * in to engine-level timer flush.
          *
          * <p>Callers must null-check the return value; a {@code null} return means the writer will
          * silently ignore flush signals.
          */
-        default Runnable getFlushAction() {
+        default RunnableWithException getFlushAction() {
             return null;
         }
     }
