@@ -49,7 +49,9 @@ class SeaTunnelSourceCollectorFlushSignalTest {
         RecordingOutput b = new RecordingOutput();
         SeaTunnelSourceCollector<Object> collector = newCollector(a, b);
 
-        collector.sendFlushSignal(7L, 42L);
+        FlushSignal flushSignal = FlushSignal.of(7L, 42L);
+        Record<FlushSignal> flushSignalRecord = new Record<>(flushSignal);
+        collector.sendRecordToNext(flushSignalRecord);
 
         Assertions.assertEquals(1, a.records.size());
         Assertions.assertEquals(1, b.records.size());
@@ -64,7 +66,13 @@ class SeaTunnelSourceCollectorFlushSignalTest {
     @Test
     void sendFlushSignalIsNoopWhenOutputsEmpty() throws Exception {
         SeaTunnelSourceCollector<Object> collector = newCollector();
-        Assertions.assertDoesNotThrow(() -> collector.sendFlushSignal(1L, 1L));
+
+        Assertions.assertDoesNotThrow(
+                () -> {
+                    FlushSignal flushSignal = FlushSignal.of(7L, 42L);
+                    Record<FlushSignal> flushSignalRecord = new Record<>(flushSignal);
+                    collector.sendRecordToNext(flushSignalRecord);
+                });
     }
 
     private static SeaTunnelSourceCollector<Object> newCollector(RecordingOutput... outputs) {
