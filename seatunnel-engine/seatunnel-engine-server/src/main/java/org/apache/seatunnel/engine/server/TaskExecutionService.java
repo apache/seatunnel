@@ -871,7 +871,7 @@ public class TaskExecutionService implements DynamicMetricsProvider {
                 timerFlushWorker.scheduleWithFixedDelay(
                         namedMdcCallback, 10_000L, intervalMs, TimeUnit.MILLISECONDS);
         groupFutures.put(taskLocation, future);
-        logger.fine(
+        logger.info(
                 String.format(
                         "Registered timer-flush task for %s, intervalMs=%d",
                         taskLocation, intervalMs));
@@ -900,7 +900,7 @@ public class TaskExecutionService implements DynamicMetricsProvider {
         if (groupFutures.isEmpty()) {
             timerFlushFutures.remove(groupLocation, groupFutures);
         }
-        logger.fine(String.format("Closed timer-flush task for %s", taskLocation));
+        logger.info(String.format("Closed timer-flush task for %s", taskLocation));
     }
 
     /**
@@ -924,7 +924,7 @@ public class TaskExecutionService implements DynamicMetricsProvider {
                                 f.cancel(false);
                             }
                         });
-        logger.fine(
+        logger.info(
                 String.format(
                         "Cancelled all timer-flush tasks for task group %s", taskGroupLocation));
     }

@@ -122,7 +122,7 @@ public class SourceFlowLifeCycle<T, SplitT extends SourceSplit> extends ActionFl
 
     private final long flushIntervalMs;
 
-    private volatile ScheduledFuture<?> flushFuture;
+    private transient volatile ScheduledFuture<?> flushFuture;
 
     public SourceFlowLifeCycle(
             SourceAction<T, SplitT, ?> sourceAction,
