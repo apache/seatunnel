@@ -29,12 +29,12 @@ Used to read data from Redis.
 | db_num         | int    | no                      | 0             | Redis database index |
 | mode           | string | no                      | single        | Redis mode: `single` or `cluster` |
 | nodes          | list   | yes when mode=cluster   | -             | Redis cluster nodes in format `["host1:port1", "host2:port2"]` |
-| table_list     | list   | no                      | -             | List of table configurations for multi-table reading |
+| tables_configs | list   | no                      | -             | List of table configurations for multi-table reading |
 | common-options |        | no                      | -             | Source plugin common parameters, please refer to [Source Common Options](../common-options/source-common-options.md) for details |
 
 ### Table list configuration
 
-When using `table_list` to read multiple key patterns, each table configuration can include the following parameters:
+When using `tables_configs` to read multiple key patterns, each table configuration can include the following parameters:
 
 | name                | type   | required | default value | description |
 |---------------------|--------|----------|---------------|-------------|
@@ -49,9 +49,9 @@ When using `table_list` to read multiple key patterns, each table configuration 
 | single_field_name   | string | no       | -             | Field name for single-value types |
 | field_delimiter     | string | no       | ','           | Delimiter for text format |
 
-**Note:** When this configuration corresponds to a single table, you can flatten the configuration items in table_list to the outer layer (backward compatible).
+**Note:** When this configuration corresponds to a single table, you can flatten the configuration items in tables_configs to the outer layer (backward compatible).
 
-**Important:** In multi-table mode, the above table-level parameters should be configured within each item of `table_list`.
+**Important:** In multi-table mode, the above table-level parameters should be configured within each item of `tables_configs`.
 
 ### host [string]
 
@@ -405,7 +405,7 @@ source {
     host = "localhost"
     port = 6379
     auth = "password"
-    table_list = [
+    tables_configs = [
       {
         keys = "user:active:*"
         data_type = STRING
@@ -460,7 +460,7 @@ source {
     mode = CLUSTER
     nodes = ["node1:6379", "node2:6379", "node3:6379"]
     auth = "cluster_password"
-    table_list = [
+    tables_configs = [
       {
         keys = "metric:cpu:*"
         data_type = STRING

@@ -29,12 +29,12 @@ import ChangeLog from '../changelog/connector-redis.md';
 | db_num         | int    | 否                  | 0     | Redis 数据库索引 |
 | mode           | string | 否                  | single | Redis 模式：`single` 或 `cluster` |
 | nodes          | list   | `mode=cluster` 时必须 | -     | Redis 集群节点，格式为 `["host1:port1", "host2:port2"]` |
-| table_list     | list   | 否                  | -     | 多表读取时的表配置列表 |
+| tables_configs | list   | 否                  | -     | 多表读取时的表配置列表 |
 | common-options |        | 否                  | -     | 源连接器插件通用参数，详情请参见 [Source Common Options](../common-options/source-common-options.md) |
 
 ### 表级配置参数
 
-使用 `table_list` 读取多个 key 模式时，每个表配置可以包含以下参数：
+使用 `tables_configs` 读取多个 key 模式时，每个表配置可以包含以下参数：
 
 | 名称                  | 类型     | 是否必须 | 默认值 | 描述                                         |
 |---------------------|---------|--------|-------|--------------------------------------------|
@@ -49,9 +49,9 @@ import ChangeLog from '../changelog/connector-redis.md';
 | single_field_name   | string  | 否     | -     | 单值类型的字段名称                                  |
 | field_delimiter     | string  | 否     | ','   | 文本格式的分隔符                                   |
 
-**注意：** 当配置对应单个表时，可以将 table_list 中的配置项平铺到外层（向后兼容）。
+**注意：** 当配置对应单个表时，可以将 tables_configs 中的配置项平铺到外层（向后兼容）。
 
-**重要提示：** 在多表模式下，上述表级参数需要配置在 `table_list` 的每个表项中。
+**重要提示：** 在多表模式下，上述表级参数需要配置在 `tables_configs` 的每个表项中。
 
 ### host [string]
 
@@ -341,7 +341,7 @@ source {
     port = 6379
     auth = "password"
     db_num = 0
-    table_list = [
+    tables_configs = [
       {
         keys = "user:active:*"
         data_type = STRING
@@ -396,7 +396,7 @@ source {
     mode = CLUSTER
     nodes = ["node1:6379", "node2:6379", "node3:6379"]
     auth = "cluster_password"
-    table_list = [
+    tables_configs = [
       {
         keys = "metric:cpu:*"
         data_type = STRING

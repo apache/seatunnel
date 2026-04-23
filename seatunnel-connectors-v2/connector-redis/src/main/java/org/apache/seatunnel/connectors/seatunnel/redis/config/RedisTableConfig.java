@@ -20,7 +20,6 @@ package org.apache.seatunnel.connectors.seatunnel.redis.config;
 import org.apache.seatunnel.api.configuration.ReadonlyConfig;
 import org.apache.seatunnel.api.options.ConnectorCommonOptions;
 import org.apache.seatunnel.api.options.table.TableIdentifierOptions;
-import org.apache.seatunnel.api.options.table.TableSchemaOptions;
 import org.apache.seatunnel.api.serialization.DeserializationSchema;
 import org.apache.seatunnel.api.table.catalog.CatalogTable;
 import org.apache.seatunnel.api.table.catalog.CatalogTableUtil;
@@ -51,7 +50,6 @@ import static org.apache.seatunnel.connectors.seatunnel.redis.config.RedisSource
 import static org.apache.seatunnel.connectors.seatunnel.redis.config.RedisSourceOptions.KEY_FIELD_NAME;
 import static org.apache.seatunnel.connectors.seatunnel.redis.config.RedisSourceOptions.READ_KEY_ENABLED;
 import static org.apache.seatunnel.connectors.seatunnel.redis.config.RedisSourceOptions.SINGLE_FIELD_NAME;
-import static org.apache.seatunnel.connectors.seatunnel.redis.config.RedisSourceOptions.TABLE_LIST;
 
 @Data
 @Builder
@@ -98,7 +96,7 @@ public class RedisTableConfig implements Serializable {
     private static TablePath getTablePath(ReadonlyConfig tableConfig, String keys) {
         ReadonlyConfig schemaConfig =
                 tableConfig
-                        .getOptional(TableSchemaOptions.SCHEMA)
+                        .getOptional(RedisBaseOptions.SCHEMA)
                         .map(ReadonlyConfig::fromMap)
                         .orElse(ReadonlyConfig.fromMap(Collections.emptyMap()));
 
@@ -117,9 +115,9 @@ public class RedisTableConfig implements Serializable {
      */
     public static List<RedisTableConfig> of(ReadonlyConfig config) {
         // Check if using multi-table mode
-        if (config.getOptional(TABLE_LIST).isPresent()) {
-            List<Map<String, Object>> tableListMaps = config.get(TABLE_LIST);
-            return tableListMaps.stream()
+        if (config.getOptional(RedisBaseOptions.TABLE_CONFIGS).isPresent()) {
+            List<Map<String, Object>> tableConfigMaps = config.get(RedisBaseOptions.TABLE_CONFIGS);
+            return tableConfigMaps.stream()
                     .map(ReadonlyConfig::fromMap)
                     .map(RedisTableConfig::buildFromConfig)
                     .collect(Collectors.toList());

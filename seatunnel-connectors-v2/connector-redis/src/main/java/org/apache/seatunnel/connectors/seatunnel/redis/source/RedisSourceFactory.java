@@ -18,7 +18,6 @@
 package org.apache.seatunnel.connectors.seatunnel.redis.source;
 
 import org.apache.seatunnel.api.configuration.util.OptionRule;
-import org.apache.seatunnel.api.options.SinkConnectorCommonOptions;
 import org.apache.seatunnel.api.source.SeaTunnelSource;
 import org.apache.seatunnel.api.source.SourceSplit;
 import org.apache.seatunnel.api.table.connector.TableSource;
@@ -48,10 +47,9 @@ public class RedisSourceFactory implements TableSourceFactory {
     @Override
     public OptionRule optionRule() {
         return OptionRule.builder()
+                .exclusive(RedisBaseOptions.TABLE_CONFIGS, RedisBaseOptions.KEY_PATTERN)
                 .optional(
-                        RedisBaseOptions.KEY_PATTERN,
                         RedisBaseOptions.DATA_TYPE,
-                        RedisSourceOptions.TABLE_LIST,
                         RedisBaseOptions.MODE,
                         RedisSourceOptions.HASH_KEY_PARSE_MODE,
                         RedisBaseOptions.AUTH,
@@ -64,7 +62,7 @@ public class RedisSourceFactory implements TableSourceFactory {
                         RedisBaseOptions.FORMAT,
                         RedisBaseOptions.FIELD_DELIMITER,
                         RedisBaseOptions.DB_NUM,
-                        SinkConnectorCommonOptions.SCHEMA)
+                        RedisBaseOptions.SCHEMA)
                 .conditional(
                         RedisBaseOptions.MODE,
                         RedisBaseOptions.RedisMode.CLUSTER,
