@@ -76,12 +76,6 @@ public class RecordEventHandler implements EventHandler<RecordEvent> {
                 if (barrier.prepareClose(this.runningTask.getTaskLocation())) {
                     this.intermediateQueueFlowLifeCycle.setPrepareClose(true);
                 }
-            } else if (record.getData() instanceof Signal) {
-                if (this.intermediateQueueFlowLifeCycle.getPrepareClose()) {
-                    return;
-                }
-                collector.collect(record);
-                return;
             } else {
                 if (this.intermediateQueueFlowLifeCycle.getPrepareClose()) {
                     return;
