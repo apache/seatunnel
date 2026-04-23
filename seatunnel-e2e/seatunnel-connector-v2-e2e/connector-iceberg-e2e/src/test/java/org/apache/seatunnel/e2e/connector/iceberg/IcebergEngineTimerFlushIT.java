@@ -174,7 +174,7 @@ public class IcebergEngineTimerFlushIT extends TestSuiteBase implements TestReso
         given().ignoreExceptions()
                 .await()
                 .atMost(60, TimeUnit.SECONDS)
-                .pollInterval(2, TimeUnit.SECONDS)
+                .pollInterval(3, TimeUnit.SECONDS)
                 .untilAsserted(
                         () -> {
                             int rowCount = loadIcebergRowCount(ENABLED_ICEBERG_TABLE);
@@ -325,30 +325,35 @@ public class IcebergEngineTimerFlushIT extends TestSuiteBase implements TestReso
 
     private int loadIcebergRowCount(String tableName) {
         List<Record> results = new ArrayList<>();
+        IcebergTableLoader tableLoader = getTableLoader(tableName);
         try {
-            Map<String, Object> configs = new HashMap<>();
-            Map<String, Object> catalogProps = new HashMap<>();
-            catalogProps.put("type", HADOOP.getType());
-            catalogProps.put("warehouse", "file://" + CATALOG_DIR);
-            configs.put(IcebergCommonOptions.KEY_CATALOG_NAME.key(), CATALOG_NAME);
-            configs.put(IcebergCommonOptions.KEY_NAMESPACE.key(), NAMESPACE);
-            configs.put(IcebergCommonOptions.KEY_TABLE.key(), tableName);
-            configs.put(IcebergCommonOptions.CATALOG_PROPS.key(), catalogProps);
-            try (IcebergTableLoader loader =
-                    IcebergTableLoader.create(
-                            new IcebergSourceConfig(ReadonlyConfig.fromMap(configs)))) {
-                loader.open();
-                Table table = loader.loadTable();
-                try (CloseableIterable<Record> records = IcebergGenerics.read(table).build()) {
-                    for (Record r : records) {
-                        results.add(r);
-                    }
+            Table table = tableLoader.loadTable();
+            try (CloseableIterable<Record> records = IcebergGenerics.read(table).build()) {
+                for (Record r : records) {
+                    results.add(r);
                 }
+            } catch (Exception e) {
+                log.debug("Iceberg table {} read error: {}", tableName, e.getMessage());
             }
-        } catch (Exception e) {
-            log.debug("Iceberg table {} not yet readable: {}", tableName, e.getMessage());
+        } catch (Exception ex) {
+            log.debug("Iceberg table {} not yet readable: {}", tableName, ex.getMessage());
         }
         return results.size();
+    }
+
+    private IcebergTableLoader getTableLoader(String tableName) {
+        Map<String, Object> configs = new HashMap<>();
+        Map<String, Object> catalogProps = new HashMap<>();
+        catalogProps.put("type", HADOOP.getType());
+        catalogProps.put("warehouse", "file://" + CATALOG_DIR);
+        configs.put(IcebergCommonOptions.KEY_CATALOG_NAME.key(), CATALOG_NAME);
+        configs.put(IcebergCommonOptions.KEY_NAMESPACE.key(), NAMESPACE);
+        configs.put(IcebergCommonOptions.KEY_TABLE.key(), tableName);
+        configs.put(IcebergCommonOptions.CATALOG_PROPS.key(), catalogProps);
+        IcebergTableLoader tableLoader =
+                IcebergTableLoader.create(new IcebergSourceConfig(ReadonlyConfig.fromMap(configs)));
+        tableLoader.open();
+        return tableLoader;
     }
 
     @AfterAll

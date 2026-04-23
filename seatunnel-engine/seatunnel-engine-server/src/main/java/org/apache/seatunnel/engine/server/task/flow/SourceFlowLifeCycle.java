@@ -21,6 +21,7 @@ import org.apache.seatunnel.api.common.metrics.Counter;
 import org.apache.seatunnel.api.common.metrics.MetricsContext;
 import org.apache.seatunnel.api.event.EventListener;
 import org.apache.seatunnel.api.serialization.Serializer;
+import org.apache.seatunnel.api.signal.FlushSignal;
 import org.apache.seatunnel.api.source.SourceEvent;
 import org.apache.seatunnel.api.source.SourceReader;
 import org.apache.seatunnel.api.source.SourceSplit;
@@ -197,8 +198,10 @@ public class SourceFlowLifeCycle<T, SplitT extends SourceSplit> extends ActionFl
             return;
         }
         try {
-            collector.sendFlushSignal(
-                    currentTaskLocation.getJobId(), currentTaskLocation.getTaskID());
+            FlushSignal flushSignal = FlushSignal.of(currentTaskLocation.getJobId(), currentTaskLocation.getTaskID());
+            log.debug("Broadcasting FlushSignal {} ", flushSignal);
+            Record<FlushSignal> flushSignalRecord = new Record<>(flushSignal);
+            collector.sendRecordToNext(flushSignalRecord);
         } catch (Exception e) {
             log.warn("Failed to broadcast FlushSignal from task {}", currentTaskLocation, e);
         }
