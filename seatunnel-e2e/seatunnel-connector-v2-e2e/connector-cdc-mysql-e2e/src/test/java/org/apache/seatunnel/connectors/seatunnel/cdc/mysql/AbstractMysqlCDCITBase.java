@@ -845,7 +845,7 @@ public abstract class AbstractMysqlCDCITBase extends TestSuiteBase implements Te
             disabledReason =
                     "engine-level timer flush (sink.flush.interval) is only supported on Zeta engine")
     public void testJdbcSinkTimerFlushEnabled(TestContainer container) throws Exception {
-        initTimerFlushTables();
+        // initTimerFlushTables();
 
         CompletableFuture.supplyAsync(
                 () -> {
@@ -869,15 +869,15 @@ public abstract class AbstractMysqlCDCITBase extends TestSuiteBase implements Te
                                                 > 0));
 
         // insert update delete
-        upsertDeleteTimerFlushTable(MYSQL_DATABASE, TIMER_FLUSH_SRC_TABLE);
+        upsertDeleteSourceTable(MYSQL_DATABASE, TIMER_FLUSH_SRC_TABLE);
 
         // stream stage
         await().atMost(10, TimeUnit.SECONDS)
                 .untilAsserted(
                         () -> {
                             Assertions.assertIterableEquals(
-                                    query(getQuerySQL(MYSQL_DATABASE, TIMER_FLUSH_SRC_TABLE)),
-                                    query(getQuerySQL(MYSQL_DATABASE, TIMER_FLUSH_SINK_TABLE)));
+                                    query(getSourceQuerySQL(MYSQL_DATABASE, TIMER_FLUSH_SRC_TABLE)),
+                                    query(getSinkQuerySQL(MYSQL_DATABASE, TIMER_FLUSH_SINK_TABLE)));
                         });
     }
 
@@ -888,7 +888,7 @@ public abstract class AbstractMysqlCDCITBase extends TestSuiteBase implements Te
             disabledReason =
                     "engine-level timer flush (sink.flush.interval) is only supported on Zeta engine")
     public void testJdbcSinkTimerFlushDisabled(TestContainer container) throws Exception {
-        initTimerFlushTables();
+        // upsertDeleteSourceTable();
 
         CompletableFuture.supplyAsync(
                 () -> {
@@ -902,7 +902,7 @@ public abstract class AbstractMysqlCDCITBase extends TestSuiteBase implements Te
                 });
 
         // insert update delete
-        upsertDeleteTimerFlushTable(MYSQL_DATABASE, TIMER_FLUSH_SRC_TABLE);
+        upsertDeleteSourceTable(MYSQL_DATABASE, TIMER_FLUSH_SRC_TABLE);
 
         // sink.flush.interval fires but enable_timer_flush=false — no rows must appear
         // during the entire polling window (checkpoint.interval=300s ensures no ck commit either)
@@ -912,11 +912,11 @@ public abstract class AbstractMysqlCDCITBase extends TestSuiteBase implements Te
                 .untilAsserted(
                         () -> {
                             log.info(
-                                    query(getQuerySQL(MYSQL_DATABASE, TIMER_FLUSH_SINK_TABLE))
+                                    query(getSourceQuerySQL(MYSQL_DATABASE, TIMER_FLUSH_SINK_TABLE))
                                             .toString());
                             Assertions.assertEquals(
                                     0,
-                                    query(getQuerySQL(MYSQL_DATABASE, TIMER_FLUSH_SINK_TABLE))
+                                    query(getSinkQuerySQL(MYSQL_DATABASE, TIMER_FLUSH_SINK_TABLE))
                                             .size(),
                                     "With enable_timer_flush=false no rows must appear in sink"
                                             + " while the job is running.");
@@ -930,7 +930,7 @@ public abstract class AbstractMysqlCDCITBase extends TestSuiteBase implements Te
             disabledReason =
                     "engine-level timer flush and savepoint/restore are only supported on Zeta engine")
     public void testJdbcSinkTimerFlushRestore(TestContainer container) throws Exception {
-        initTimerFlushTables();
+        // initTimerFlushTables();
 
         Long jobId = JobIdGenerator.newJobId();
         CompletableFuture.supplyAsync(
@@ -956,7 +956,7 @@ public abstract class AbstractMysqlCDCITBase extends TestSuiteBase implements Te
                                                 > 0));
 
         // insert update delete
-        upsertDeleteTimerFlushTable(MYSQL_DATABASE, TIMER_FLUSH_SRC_TABLE);
+        upsertDeleteSourceTable(MYSQL_DATABASE, TIMER_FLUSH_SRC_TABLE);
 
         // stream stage
         await().atMost(60000, TimeUnit.MILLISECONDS)
@@ -986,7 +986,7 @@ public abstract class AbstractMysqlCDCITBase extends TestSuiteBase implements Te
                 });
 
         // insert update delete — use new ids (6-10) to produce changes not present in phase 1
-        upsertDeleteTimerFlushTablePhase2(MYSQL_DATABASE, TIMER_FLUSH_SRC_TABLE);
+        upsertDeleteSourceTable(MYSQL_DATABASE, TIMER_FLUSH_SRC_TABLE);
 
         // stream stage
         await().atMost(60000, TimeUnit.MILLISECONDS)
@@ -1143,62 +1143,6 @@ public abstract class AbstractMysqlCDCITBase extends TestSuiteBase implements Te
         executeSql("DELETE FROM " + database + "." + tableName + " where id = 2");
 
         executeSql("UPDATE " + database + "." + tableName + " SET f_bigint = 10000 where id = 3");
-    }
-
-    private void initTimerFlushTables() {
-        executeSql("DROP TABLE IF EXISTS `" + MYSQL_DATABASE + "`.`" + TIMER_FLUSH_SRC_TABLE + "`");
-        executeSql(
-                "CREATE TABLE `"
-                        + MYSQL_DATABASE
-                        + "`.`"
-                        + TIMER_FLUSH_SRC_TABLE
-                        + "` ("
-                        + "`id` INT NOT NULL, `f_bigint` BIGINT, `f_varchar` VARCHAR(255),"
-                        + " PRIMARY KEY (`id`)) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4");
-        executeSql(
-                "INSERT INTO `"
-                        + MYSQL_DATABASE
-                        + "`.`"
-                        + TIMER_FLUSH_SRC_TABLE
-                        + "` (`id`, `f_bigint`, `f_varchar`) VALUES"
-                        + " (1, 100, 'row-1'), (2, 200, 'row-2'), (3, 300, 'row-3')");
-        executeSql(
-                "DROP TABLE IF EXISTS `" + MYSQL_DATABASE + "`.`" + TIMER_FLUSH_SINK_TABLE + "`");
-        executeSql(
-                "CREATE TABLE `"
-                        + MYSQL_DATABASE
-                        + "`.`"
-                        + TIMER_FLUSH_SINK_TABLE
-                        + "` ("
-                        + "`id` INT NOT NULL, `f_bigint` BIGINT, `f_varchar` VARCHAR(255),"
-                        + " PRIMARY KEY (`id`)) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4");
-    }
-
-    private void upsertDeleteTimerFlushTable(String database, String tableName) {
-        executeSql(
-                "INSERT INTO "
-                        + database
-                        + "."
-                        + tableName
-                        + " (id, f_bigint, f_varchar) VALUES (4, 400, 'row-4'), (5, 500, 'row-5')"
-                        + " ON DUPLICATE KEY UPDATE f_bigint = VALUES(f_bigint),"
-                        + " f_varchar = VALUES(f_varchar)");
-        executeSql("UPDATE " + database + "." + tableName + " SET f_bigint = 9999 WHERE id = 1");
-        executeSql("DELETE FROM " + database + "." + tableName + " WHERE id = 2");
-    }
-
-    private void upsertDeleteTimerFlushTablePhase2(String database, String tableName) {
-        executeSql(
-                "INSERT INTO "
-                        + database
-                        + "."
-                        + tableName
-                        + " (id, f_bigint, f_varchar) VALUES (6, 600, 'row-6'), (7, 700, 'row-7'),"
-                        + " (8, 800, 'row-8'), (9, 900, 'row-9'), (10, 1000, 'row-10')"
-                        + " ON DUPLICATE KEY UPDATE f_bigint = VALUES(f_bigint),"
-                        + " f_varchar = VALUES(f_varchar)");
-        executeSql("UPDATE " + database + "." + tableName + " SET f_bigint = 88888 WHERE id = 3");
-        executeSql("DELETE FROM " + database + "." + tableName + " WHERE id = 4");
     }
 
     @Override

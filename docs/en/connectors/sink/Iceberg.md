@@ -21,7 +21,7 @@ Sink connector for Apache Iceberg. It can support cdc mode 、auto create table 
 ## Key features
 
 - [x] [support multiple table write](../../introduction/concepts/connector-v2-features.md)
-- [x] [timer flush](../../introduction/concepts/connector-v2-features.md)
+- [ ] [timer flush](../../introduction/concepts/connector-v2-features.md)
 
 ## Supported DataSource Info
 

@@ -21,7 +21,7 @@ Apache Iceberg 目标连接器支持cdc模式、自动建表及表结构变更.
 ## 主要特性
 
 - [x] [支持多表写入](../../introduction/concepts/connector-v2-features.md)
-- [x] [定时刷新](../../introduction/concepts/connector-v2-features.md)
+- [ ] [定时刷新](../../introduction/concepts/connector-v2-features.md)
 
 ## 支持的数据源信息
 

@@ -133,12 +133,6 @@ public class IcebergSinkWriter
         return Collections.singletonList(new IcebergSinkState(commitUser, checkpointId));
     }
 
-    public void timerFlush() {
-        if (writer != null) {
-            writer.flush();
-        }
-    }
-
     @Override
     public void abortPrepare() {}
 
