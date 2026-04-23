@@ -24,19 +24,33 @@ import org.apache.seatunnel.connectors.seatunnel.iceberg.sink.writer.WriteResult
 import org.apache.iceberg.AppendFiles;
 import org.apache.iceberg.DataFile;
 import org.apache.iceberg.DeleteFile;
+import org.apache.iceberg.ManifestContent;
+import org.apache.iceberg.ManifestFile;
+import org.apache.iceberg.ManifestFiles;
 import org.apache.iceberg.RowDelta;
+import org.apache.iceberg.Snapshot;
+import org.apache.iceberg.SnapshotRef;
 import org.apache.iceberg.Table;
 import org.apache.iceberg.catalog.TableIdentifier;
+import org.apache.iceberg.io.CloseableIterable;
 
 import lombok.extern.slf4j.Slf4j;
 
+import java.io.IOException;
 import java.io.Serializable;
+import java.util.HashSet;
 import java.util.List;
+import java.util.Set;
 
 import static java.util.stream.Collectors.toList;
 
 @Slf4j
 public class IcebergFilesCommitter implements Serializable {
+
+    private static final long serialVersionUID = 1L;
+
+    public static final String SNAPSHOT_PROPERTY_CHECKPOINT_ID = "seatunnel.checkpoint-id";
+
     private IcebergTableLoader icebergTableLoader;
     private boolean caseSensitive;
     private String branch;
@@ -52,12 +66,98 @@ public class IcebergFilesCommitter implements Serializable {
         return new IcebergFilesCommitter(config, icebergTableLoader);
     }
 
-    public void doCommit(List<WriteResult> results) {
+    public void doCommit(List<WriteResult> results, long checkpointId) {
         TableIdentifier tableIdentifier = icebergTableLoader.getTableIdentifier();
-        commit(tableIdentifier, results);
+        commit(tableIdentifier, results, checkpointId);
     }
 
-    private void commit(TableIdentifier tableIdentifier, List<WriteResult> results) {
+    public boolean isAlreadyCommitted(long checkpointId, List<WriteResult> results) {
+        if (checkpointId > 0) {
+            return isCommittedById(checkpointId);
+        } else {
+            return areFilesAlreadyCommitted(results);
+        }
+    }
+
+    private boolean isCommittedById(long checkpointId) {
+        Table table = icebergTableLoader.loadTable();
+        String expected = String.valueOf(checkpointId);
+        Snapshot current = headSnapshot(table);
+        while (current != null) {
+            if (expected.equals(current.summary().get(SNAPSHOT_PROPERTY_CHECKPOINT_ID))) {
+                return true;
+            }
+            Long parentId = current.parentId();
+            current = parentId != null ? table.snapshot(parentId) : null;
+        }
+        return false;
+    }
+
+    private Snapshot headSnapshot(Table table) {
+        if (branch != null) {
+            SnapshotRef ref = table.refs().get(branch);
+            return ref != null ? table.snapshot(ref.snapshotId()) : null;
+        }
+        return table.currentSnapshot();
+    }
+
+    private boolean areFilesAlreadyCommitted(List<WriteResult> results) {
+        Table table = icebergTableLoader.loadTable();
+        Snapshot snapshot = headSnapshot(table);
+        if (snapshot == null) {
+            return false;
+        }
+
+        Set<String> pendingPaths = new HashSet<>();
+        for (WriteResult result : results) {
+            if (result.getDataFiles() != null) {
+                result.getDataFiles().stream()
+                        .filter(f -> f.recordCount() > 0)
+                        .forEach(f -> pendingPaths.add(f.path().toString()));
+            }
+            if (result.getDeleteFiles() != null) {
+                result.getDeleteFiles().stream()
+                        .filter(f -> f.recordCount() > 0)
+                        .forEach(f -> pendingPaths.add(f.path().toString()));
+            }
+        }
+        if (pendingPaths.isEmpty()) {
+            return false;
+        }
+
+        for (ManifestFile manifest : snapshot.allManifests(table.io())) {
+            try {
+                if (manifest.content() == ManifestContent.DATA) {
+                    try (CloseableIterable<DataFile> reader =
+                            ManifestFiles.read(manifest, table.io())) {
+                        for (DataFile file : reader) {
+                            if (pendingPaths.contains(file.path().toString())) {
+                                return true;
+                            }
+                        }
+                    }
+                } else {
+                    try (CloseableIterable<DeleteFile> reader =
+                            ManifestFiles.readDeleteManifest(manifest, table.io(), table.specs())) {
+                        for (DeleteFile file : reader) {
+                            if (pendingPaths.contains(file.path().toString())) {
+                                return true;
+                            }
+                        }
+                    }
+                }
+            } catch (IOException e) {
+                log.warn(
+                        "Failed to read manifest {}, assuming files not yet committed",
+                        manifest.path(),
+                        e);
+            }
+        }
+        return false;
+    }
+
+    private void commit(
+            TableIdentifier tableIdentifier, List<WriteResult> results, long checkpointId) {
         List<DataFile> dataFiles =
                 results.stream()
                         .filter(payload -> payload.getDataFiles() != null)
@@ -82,6 +182,9 @@ public class IcebergFilesCommitter implements Serializable {
                 if (branch != null) {
                     append.toBranch(branch);
                 }
+                if (checkpointId > 0) {
+                    append.set(SNAPSHOT_PROPERTY_CHECKPOINT_ID, String.valueOf(checkpointId));
+                }
                 dataFiles.forEach(append::appendFile);
                 append.commit();
             } else {
@@ -90,6 +193,9 @@ public class IcebergFilesCommitter implements Serializable {
                     delta.toBranch(branch);
                 }
                 delta.caseSensitive(caseSensitive);
+                if (checkpointId > 0) {
+                    delta.set(SNAPSHOT_PROPERTY_CHECKPOINT_ID, String.valueOf(checkpointId));
+                }
                 dataFiles.forEach(delta::addRows);
                 deleteFiles.forEach(delta::addDeletes);
                 delta.commit();

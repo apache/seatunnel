@@ -358,7 +358,9 @@ public class CheckpointCoordinator {
         }
         InvocationFuture<?>[] futures = notifyTaskStart();
         CompletableFuture.allOf(futures).join();
-        notifyCompleted(latestCompletedCheckpoint);
+        if (!notifyCompleted(latestCompletedCheckpoint)) {
+            return;
+        }
         if (coordinatorConfig.isCheckpointEnable()) {
             LOG.info("checkpoint is enabled, start schedule trigger pending checkpoint.");
             scheduleTriggerPendingCheckpoint(coordinatorConfig.getCheckpointInterval());
@@ -369,7 +371,7 @@ public class CheckpointCoordinator {
     }
 
     @VisibleForTesting
-    protected void notifyCompleted(CompletedCheckpoint completedCheckpoint) {
+    protected boolean notifyCompleted(CompletedCheckpoint completedCheckpoint) {
         if (completedCheckpoint != null) {
             try {
                 LOG.info(
@@ -390,8 +392,10 @@ public class CheckpointCoordinator {
                         "notify checkpoint completed failed",
                         e,
                         CheckpointCloseReason.CHECKPOINT_NOTIFY_COMPLETE_FAILED);
+                return false;
             }
         }
+        return true;
     }
 
     public InvocationFuture<?>[] notifyTaskStart() {
@@ -490,7 +494,9 @@ public class CheckpointCoordinator {
         shutdown = false;
         if (alreadyStarted) {
             isAllTaskReady.set(true);
-            notifyCompleted(latestCompletedCheckpoint);
+            if (!notifyCompleted(latestCompletedCheckpoint)) {
+                return;
+            }
             tryTriggerPendingCheckpoint(CHECKPOINT_TYPE);
         } else {
             isAllTaskReady.set(false);
@@ -1000,8 +1006,13 @@ public class CheckpointCoordinator {
             long stateSize = CheckpointMonitorService.calculateStateSize(completedCheckpoint);
             checkpointMonitorService.onCheckpointCompleted(completedCheckpoint, stateSize);
         }
-        notifyCompleted(completedCheckpoint);
-        pendingCheckpoints.remove(checkpointId).abortCheckpointTimeoutFutureWhenIsCompleted();
+        if (!notifyCompleted(completedCheckpoint)) {
+            return;
+        }
+        PendingCheckpoint pendingCheckpoint = pendingCheckpoints.remove(checkpointId);
+        if (pendingCheckpoint != null) {
+            pendingCheckpoint.abortCheckpointTimeoutFutureWhenIsCompleted();
+        }
         pendingCounter.decrementAndGet();
 
         if (isCompleted()) {
