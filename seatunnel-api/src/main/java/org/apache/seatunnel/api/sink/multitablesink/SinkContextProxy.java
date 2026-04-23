@@ -20,6 +20,7 @@ package org.apache.seatunnel.api.sink.multitablesink;
 import org.apache.seatunnel.api.common.metrics.MetricsContext;
 import org.apache.seatunnel.api.event.EventListener;
 import org.apache.seatunnel.api.sink.SinkWriter;
+import org.apache.seatunnel.common.utils.function.RunnableWithException;
 
 public class SinkContextProxy implements SinkWriter.Context {
 
@@ -53,5 +54,15 @@ public class SinkContextProxy implements SinkWriter.Context {
     @Override
     public EventListener getEventListener() {
         return context.getEventListener();
+    }
+
+    @Override
+    public void registerFlushAction(RunnableWithException action) {
+        context.registerFlushAction(action);
+    }
+
+    @Override
+    public RunnableWithException getFlushAction() {
+        return context.getFlushAction();
     }
 }
