@@ -147,7 +147,7 @@ public abstract class AbstractMysqlCDCITBase extends TestSuiteBase implements Te
         log.info("Mysql ddl execution is complete");
     }
 
-    //@TestTemplate
+    // @TestTemplate
     public void testMysqlCdcCheckDataE2e(TestContainer container) {
         // Clear related content to ensure that multiple operations are not affected
         clearTable(MYSQL_DATABASE, SOURCE_TABLE_1);
@@ -185,7 +185,7 @@ public abstract class AbstractMysqlCDCITBase extends TestSuiteBase implements Te
                         });
     }
 
-    //@TestTemplate
+    // @TestTemplate
     @DisabledOnContainer(
             value = {},
             type = {EngineType.SPARK, EngineType.FLINK},
@@ -245,7 +245,7 @@ public abstract class AbstractMysqlCDCITBase extends TestSuiteBase implements Te
                         });
     }
 
-    //@TestTemplate
+    // @TestTemplate
     @DisabledOnContainer(
             value = {},
             type = {EngineType.SPARK, EngineType.FLINK},
@@ -284,7 +284,7 @@ public abstract class AbstractMysqlCDCITBase extends TestSuiteBase implements Te
         }
     }
 
-    //@TestTemplate
+    // @TestTemplate
     public void testMysqlCdcCheckDataWithDisableExactlyonce(TestContainer container) {
         // Clear related content to ensure that multiple operations are not affected
         clearTable(MYSQL_DATABASE, SINK_TABLE);
@@ -322,7 +322,7 @@ public abstract class AbstractMysqlCDCITBase extends TestSuiteBase implements Te
                         });
     }
 
-    //@TestTemplate
+    // @TestTemplate
     public void testMysqlCdcCheckDataWithNoPrimaryKey(TestContainer container) {
         // Clear related content to ensure that multiple operations are not affected
         clearTable(MYSQL_DATABASE, SINK_TABLE);
@@ -364,7 +364,7 @@ public abstract class AbstractMysqlCDCITBase extends TestSuiteBase implements Te
                         });
     }
 
-    //@TestTemplate
+    // @TestTemplate
     @DisabledOnContainer(
             value = {},
             type = {EngineType.SPARK},
@@ -419,7 +419,7 @@ public abstract class AbstractMysqlCDCITBase extends TestSuiteBase implements Te
                                                                         SOURCE_TABLE_2)))));
     }
 
-    //@TestTemplate
+    // @TestTemplate
     @DisabledOnContainer(
             value = {},
             type = {EngineType.SPARK},
@@ -497,7 +497,7 @@ public abstract class AbstractMysqlCDCITBase extends TestSuiteBase implements Te
                                                                         MULTI_DATABASE_TABLE_B)))));
     }
 
-    //@TestTemplate
+    // @TestTemplate
     @DisabledOnContainer(
             value = {},
             type = {EngineType.SPARK, EngineType.FLINK},
@@ -599,7 +599,7 @@ public abstract class AbstractMysqlCDCITBase extends TestSuiteBase implements Te
                                                                         MULTI_DATABASE_TABLE_B)))));
     }
 
-    //@TestTemplate
+    // @TestTemplate
     @DisabledOnContainer(
             value = {},
             type = {EngineType.SPARK, EngineType.FLINK},
@@ -730,7 +730,7 @@ public abstract class AbstractMysqlCDCITBase extends TestSuiteBase implements Te
         log.info("****************** container logs end ******************");
     }
 
-    //@TestTemplate
+    // @TestTemplate
     @DisabledOnContainer(
             value = {},
             type = {EngineType.SPARK},
@@ -785,7 +785,7 @@ public abstract class AbstractMysqlCDCITBase extends TestSuiteBase implements Te
                                                                         SOURCE_TABLE_2_CUSTOM_PRIMARY_KEY)))));
     }
 
-    //@TestTemplate
+    // @TestTemplate
     @DisabledOnContainer(
             value = {},
             type = {EngineType.SPARK},
@@ -865,7 +865,10 @@ public abstract class AbstractMysqlCDCITBase extends TestSuiteBase implements Te
                 .untilAsserted(
                         () ->
                                 Assertions.assertTrue(
-                                        query(getSinkQuerySQL(MYSQL_DATABASE, TIMER_FLUSH_SINK_TABLE))
+                                        query(
+                                                                getSinkQuerySQL(
+                                                                        MYSQL_DATABASE,
+                                                                        TIMER_FLUSH_SINK_TABLE))
                                                         .size()
                                                 > 0));
 
@@ -889,7 +892,9 @@ public abstract class AbstractMysqlCDCITBase extends TestSuiteBase implements Te
                                                                             id))
                                                             .size()
                                                     == 1,
-                                            "row " + id + " should have been flushed to sink by engine timer"));
+                                            "row "
+                                                    + id
+                                                    + " should have been flushed to sink by engine timer"));
         }
 
         // final consistency check
@@ -905,7 +910,7 @@ public abstract class AbstractMysqlCDCITBase extends TestSuiteBase implements Te
                                                         MYSQL_DATABASE, TIMER_FLUSH_SINK_TABLE))));
     }
 
-    //@TestTemplate
+    // @TestTemplate
     @DisabledOnContainer(
             value = {},
             type = {EngineType.SPARK, EngineType.FLINK},
@@ -947,7 +952,7 @@ public abstract class AbstractMysqlCDCITBase extends TestSuiteBase implements Te
                         });
     }
 
-    //@TestTemplate
+    // @TestTemplate
     @DisabledOnContainer(
             value = {},
             type = {EngineType.SPARK, EngineType.FLINK},
@@ -996,7 +1001,9 @@ public abstract class AbstractMysqlCDCITBase extends TestSuiteBase implements Te
                                                                             id))
                                                             .size()
                                                     == 1,
-                                            "row " + id + " should have been flushed to sink by engine timer"));
+                                            "row "
+                                                    + id
+                                                    + " should have been flushed to sink by engine timer"));
         }
 
         await().atMost(10, TimeUnit.SECONDS)
@@ -1004,7 +1011,9 @@ public abstract class AbstractMysqlCDCITBase extends TestSuiteBase implements Te
                         () ->
                                 Assertions.assertIterableEquals(
                                         query(getQuerySQL(MYSQL_DATABASE, TIMER_FLUSH_SRC_TABLE)),
-                                        query(getQuerySQL(MYSQL_DATABASE, TIMER_FLUSH_SINK_TABLE))));
+                                        query(
+                                                getQuerySQL(
+                                                        MYSQL_DATABASE, TIMER_FLUSH_SINK_TABLE))));
 
         // savepoint + restore
         Assertions.assertEquals(0, container.savepointJob(String.valueOf(jobId)).getExitCode());
@@ -1038,7 +1047,9 @@ public abstract class AbstractMysqlCDCITBase extends TestSuiteBase implements Te
                                                                             id))
                                                             .size()
                                                     == 1,
-                                            "row " + id + " should have been flushed to sink by engine timer after restore"));
+                                            "row "
+                                                    + id
+                                                    + " should have been flushed to sink by engine timer after restore"));
         }
 
         await().atMost(10, TimeUnit.SECONDS)
@@ -1046,7 +1057,9 @@ public abstract class AbstractMysqlCDCITBase extends TestSuiteBase implements Te
                         () ->
                                 Assertions.assertIterableEquals(
                                         query(getQuerySQL(MYSQL_DATABASE, TIMER_FLUSH_SRC_TABLE)),
-                                        query(getQuerySQL(MYSQL_DATABASE, TIMER_FLUSH_SINK_TABLE))));
+                                        query(
+                                                getQuerySQL(
+                                                        MYSQL_DATABASE, TIMER_FLUSH_SINK_TABLE))));
     }
 
     private Connection getJdbcConnection() throws SQLException {
@@ -1211,7 +1224,9 @@ public abstract class AbstractMysqlCDCITBase extends TestSuiteBase implements Te
                         + " (id, f_smallint, f_int, f_bigint, f_varchar, f_date, f_datetime, f_timestamp, f_tinyint, f_json, f_year)"
                         + " VALUES ("
                         + id
-                        + ", 1, 1, 1, 'timer-probe', '2024-01-01', '2024-01-01 00:00:00', '2024-01-01 00:00:00', 1, '{\"probe\":" + id + "}', 2024)");
+                        + ", 1, 1, 1, 'timer-probe', '2024-01-01', '2024-01-01 00:00:00', '2024-01-01 00:00:00', 1, '{\"probe\":"
+                        + id
+                        + "}', 2024)");
     }
 
     private void clearTable(String database, String tableName) {
