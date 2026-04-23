@@ -509,7 +509,7 @@ public class ServerConfigOptions {
         public static final Option<Integer> TIMER_FLUSH_POOL_SIZE =
                 Options.key("timer-flush-pool-size")
                         .intType()
-                        .defaultValue(2)
+                        .defaultValue(1)
                         .withDescription(
                                 "The number of threads in the timer flush worker pool used to inject FlushSignals into the pipeline.");
     }
