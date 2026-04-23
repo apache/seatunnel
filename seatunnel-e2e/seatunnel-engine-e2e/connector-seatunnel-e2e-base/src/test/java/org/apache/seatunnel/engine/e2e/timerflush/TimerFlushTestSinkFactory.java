@@ -19,9 +19,13 @@ package org.apache.seatunnel.engine.e2e.timerflush;
 
 import org.apache.seatunnel.api.configuration.util.OptionRule;
 import org.apache.seatunnel.api.table.connector.TableSink;
+import org.apache.seatunnel.api.table.factory.Factory;
 import org.apache.seatunnel.api.table.factory.TableSinkFactory;
 import org.apache.seatunnel.api.table.factory.TableSinkFactoryContext;
 
+import com.google.auto.service.AutoService;
+
+@AutoService(Factory.class)
 public class TimerFlushTestSinkFactory implements TableSinkFactory {
 
     public static final String IDENTIFIER = "TimerFlushTest";
