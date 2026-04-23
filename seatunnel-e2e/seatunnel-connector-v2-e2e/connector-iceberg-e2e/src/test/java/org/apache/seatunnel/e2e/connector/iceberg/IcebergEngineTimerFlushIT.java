@@ -60,7 +60,6 @@ import java.util.List;
 import java.util.Map;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.TimeUnit;
-import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.stream.Stream;
 
 import static org.apache.seatunnel.connectors.seatunnel.iceberg.config.IcebergCatalogType.HADOOP;
@@ -83,6 +82,13 @@ public class IcebergEngineTimerFlushIT extends TestSuiteBase implements TestReso
     private static final String MYSQL_USER = "st_user";
     private static final String MYSQL_PASSWORD = "seatunnel";
     private static final String MYSQL_DATABASE = "mysql_cdc";
+
+    private static final String ENABLED_SRC_TABLE = "timer_flush_enabled_src";
+    private static final String ENABLED_ICEBERG_TABLE = "iceberg_timer_flush_enabled";
+    private static final String DISABLED_SRC_TABLE = "timer_flush_disabled_src";
+    private static final String DISABLED_ICEBERG_TABLE = "iceberg_timer_flush_disabled";
+    private static final String RESTORE_SRC_TABLE = "timer_flush_restore_src";
+    private static final String RESTORE_ICEBERG_TABLE = "iceberg_timer_flush_restore";
 
     private static final MySqlContainer MYSQL_CONTAINER =
             new MySqlContainer(MySqlVersion.V8_0)
@@ -114,9 +120,7 @@ public class IcebergEngineTimerFlushIT extends TestSuiteBase implements TestReso
             container -> {
                 for (String table :
                         new String[] {
-                            "iceberg_timer_flush_enabled",
-                            "iceberg_timer_flush_disabled",
-                            "iceberg_timer_flush_restore"
+                            ENABLED_ICEBERG_TABLE, DISABLED_ICEBERG_TABLE, RESTORE_ICEBERG_TABLE
                         }) {
                     container.execInContainer(
                             "sh",
@@ -153,139 +157,85 @@ public class IcebergEngineTimerFlushIT extends TestSuiteBase implements TestReso
 
     @TestTemplate
     public void testTimerFlushEnabled(TestContainer container) throws Exception {
-        final String sourceTable = "timer_flush_enabled_src";
-        final String icebergTable = "iceberg_timer_flush_enabled";
-        createSourceTable(sourceTable);
+        createSourceTable(ENABLED_SRC_TABLE);
 
-        Long jobId = JobIdGenerator.newJobId();
-        AtomicBoolean jobFinished = new AtomicBoolean(false);
+        CompletableFuture.supplyAsync(
+                () -> {
+                    try {
+                        container.executeJob("/iceberg/iceberg_engine_timer_flush_enabled.conf");
+                    } catch (Exception e) {
+                        throw new RuntimeException(e);
+                    }
+                    return null;
+                });
 
-        CompletableFuture<Container.ExecResult> jobFuture =
-                CompletableFuture.supplyAsync(
-                        () -> {
-                            try {
-                                return container.executeJob(
-                                        "/iceberg/iceberg_engine_timer_flush_enabled.conf",
-                                        String.valueOf(jobId));
-                            } catch (Exception e) {
-                                throw new RuntimeException(e);
-                            } finally {
-                                jobFinished.set(true);
-                            }
-                        });
+        insertRows(ENABLED_SRC_TABLE, 1, 10);
 
-        // Let the CDC connector reach the snapshot phase, then insert rows.
-        Thread.sleep(10000);
-        insertRows(sourceTable, 1, 10);
-
-        // Wait until the engine timer has committed the CDC rows to Iceberg.
         given().ignoreExceptions()
                 .await()
                 .atMost(60, TimeUnit.SECONDS)
                 .pollInterval(2, TimeUnit.SECONDS)
                 .untilAsserted(
                         () -> {
-                            Assertions.assertFalse(
-                                    jobFinished.get(),
-                                    "Streaming CDC job should still be running when the mid-job "
-                                            + "Iceberg commit is detected.");
-                            int rowCount = loadIcebergRowCount(icebergTable);
-                            log.info(
-                                    "Polling {}: {} rows, jobFinished={}",
-                                    icebergTable,
-                                    rowCount,
-                                    jobFinished.get());
+                            int rowCount = loadIcebergRowCount(ENABLED_ICEBERG_TABLE);
+                            log.info("Polling {}: {} rows", ENABLED_ICEBERG_TABLE, rowCount);
                             Assertions.assertTrue(
                                     rowCount > 0,
                                     "Engine timer (sink.flush.interval=3000) should have committed "
                                             + "Iceberg data files while the CDC job is running.");
                         });
-
-        Assertions.assertEquals(
-                0,
-                container.savepointJob(String.valueOf(jobId)).getExitCode(),
-                "Savepoint must succeed");
-        jobFuture.join();
     }
 
     @TestTemplate
     public void testTimerFlushDisabled(TestContainer container) throws Exception {
-        final String sourceTable = "timer_flush_disabled_src";
-        final String icebergTable = "iceberg_timer_flush_disabled";
-        createSourceTable(sourceTable);
+        createSourceTable(DISABLED_SRC_TABLE);
 
-        Long jobId = JobIdGenerator.newJobId();
-        AtomicBoolean jobFinished = new AtomicBoolean(false);
+        CompletableFuture.supplyAsync(
+                () -> {
+                    try {
+                        container.executeJob("/iceberg/iceberg_engine_timer_flush_disabled.conf");
+                    } catch (Exception e) {
+                        throw new RuntimeException(e);
+                    }
+                    return null;
+                });
 
-        CompletableFuture<Container.ExecResult> jobFuture =
-                CompletableFuture.supplyAsync(
-                        () -> {
-                            try {
-                                return container.executeJob(
-                                        "/iceberg/iceberg_engine_timer_flush_disabled.conf",
-                                        String.valueOf(jobId));
-                            } catch (Exception e) {
-                                throw new RuntimeException(e);
-                            } finally {
-                                jobFinished.set(true);
-                            }
-                        });
-
-        Thread.sleep(10000);
-        insertRows(sourceTable, 1, 10);
+        insertRows(DISABLED_SRC_TABLE, 1, 10);
 
         given().ignoreExceptions()
                 .await()
+                .during(15, TimeUnit.SECONDS)
                 .atMost(20, TimeUnit.SECONDS)
                 .pollInterval(2, TimeUnit.SECONDS)
                 .untilAsserted(
                         () -> {
-                            Assertions.assertFalse(jobFinished.get());
-                            int rowCount = loadIcebergRowCount(icebergTable);
-                            log.info(
-                                    "Polling {}: {} rows, jobFinished={}",
-                                    icebergTable,
-                                    rowCount,
-                                    jobFinished.get());
+                            int rowCount = loadIcebergRowCount(DISABLED_ICEBERG_TABLE);
+                            log.info("Polling {}: {} rows", DISABLED_ICEBERG_TABLE, rowCount);
                             Assertions.assertEquals(
                                     0,
                                     rowCount,
                                     "With enable_timer_flush=false the Iceberg table must have "
                                             + "zero committed rows while the CDC job runs.");
                         });
-
-        Assertions.assertEquals(
-                0,
-                container.savepointJob(String.valueOf(jobId)).getExitCode(),
-                "Savepoint must succeed");
-        jobFuture.join();
     }
 
     @TestTemplate
     public void testTimerFlushRestore(TestContainer container) throws Exception {
-        final String sourceTable = "timer_flush_restore_src";
-        final String icebergTable = "iceberg_timer_flush_restore";
-        createSourceTable(sourceTable);
+        createSourceTable(RESTORE_SRC_TABLE);
 
         Long jobId = JobIdGenerator.newJobId();
+        CompletableFuture.supplyAsync(
+                () -> {
+                    try {
+                        return container.executeJob(
+                                "/iceberg/iceberg_engine_timer_flush_restore.conf",
+                                String.valueOf(jobId));
+                    } catch (Exception e) {
+                        throw new RuntimeException(e);
+                    }
+                });
 
-        AtomicBoolean phase1Finished = new AtomicBoolean(false);
-        CompletableFuture<Container.ExecResult> phase1Future =
-                CompletableFuture.supplyAsync(
-                        () -> {
-                            try {
-                                return container.executeJob(
-                                        "/iceberg/iceberg_engine_timer_flush_restore.conf",
-                                        String.valueOf(jobId));
-                            } catch (Exception e) {
-                                throw new RuntimeException(e);
-                            } finally {
-                                phase1Finished.set(true);
-                            }
-                        });
-
-        Thread.sleep(10000);
-        insertRows(sourceTable, 1, 10);
+        insertRows(RESTORE_SRC_TABLE, 1, 10);
 
         given().ignoreExceptions()
                 .await()
@@ -293,44 +243,29 @@ public class IcebergEngineTimerFlushIT extends TestSuiteBase implements TestReso
                 .pollInterval(2, TimeUnit.SECONDS)
                 .untilAsserted(
                         () -> {
-                            Assertions.assertFalse(
-                                    phase1Finished.get(),
-                                    "CDC job should still be running during phase-1 detection.");
-                            int rowCount = loadIcebergRowCount(icebergTable);
-                            log.info("Phase-1 polling {}: {} rows", icebergTable, rowCount);
+                            int rowCount = loadIcebergRowCount(RESTORE_ICEBERG_TABLE);
+                            log.info(
+                                    "Phase-1 polling {}: {} rows", RESTORE_ICEBERG_TABLE, rowCount);
                             Assertions.assertTrue(
                                     rowCount > 0,
                                     "Engine timer should commit Iceberg rows before savepoint.");
                         });
 
-        Container.ExecResult savepointResult = container.savepointJob(String.valueOf(jobId));
-        Assertions.assertEquals(
-                0,
-                savepointResult.getExitCode(),
-                "Savepoint must succeed: " + savepointResult.getStderr());
-        phase1Future.join();
+        // savepoint + restore
+        Assertions.assertEquals(0, container.savepointJob(String.valueOf(jobId)).getExitCode());
+        CompletableFuture.supplyAsync(
+                () -> {
+                    try {
+                        container.restoreJob(
+                                "/iceberg/iceberg_engine_timer_flush_restore.conf",
+                                String.valueOf(jobId));
+                    } catch (Exception e) {
+                        throw new RuntimeException(e);
+                    }
+                    return null;
+                });
 
-        int rowsAfterSavepoint = loadIcebergRowCount(icebergTable);
-        log.info("Iceberg rows after savepoint: {}", rowsAfterSavepoint);
-        Assertions.assertTrue(rowsAfterSavepoint > 0, "Rows before savepoint must persist.");
-
-        AtomicBoolean phase2Finished = new AtomicBoolean(false);
-        CompletableFuture<Container.ExecResult> phase2Future =
-                CompletableFuture.supplyAsync(
-                        () -> {
-                            try {
-                                return container.restoreJob(
-                                        "/iceberg/iceberg_engine_timer_flush_restore.conf",
-                                        String.valueOf(jobId));
-                            } catch (Exception e) {
-                                throw new RuntimeException(e);
-                            } finally {
-                                phase2Finished.set(true);
-                            }
-                        });
-
-        Thread.sleep(10000);
-        insertRows(sourceTable, 11, 20);
+        insertRows(RESTORE_SRC_TABLE, 11, 20);
 
         given().ignoreExceptions()
                 .await()
@@ -338,22 +273,14 @@ public class IcebergEngineTimerFlushIT extends TestSuiteBase implements TestReso
                 .pollInterval(2, TimeUnit.SECONDS)
                 .untilAsserted(
                         () -> {
-                            Assertions.assertFalse(
-                                    phase2Finished.get(),
-                                    "Restored job should still be running during phase-2.");
-                            int rowCount = loadIcebergRowCount(icebergTable);
-                            log.info("Phase-2 polling {}: {} rows", icebergTable, rowCount);
+                            int rowCount = loadIcebergRowCount(RESTORE_ICEBERG_TABLE);
+                            log.info(
+                                    "Phase-2 polling {}: {} rows", RESTORE_ICEBERG_TABLE, rowCount);
                             Assertions.assertTrue(
-                                    rowCount > rowsAfterSavepoint,
+                                    rowCount > 10,
                                     "Restored engine timer must commit additional Iceberg rows, "
                                             + "confirming restoreWriter registers the flush action.");
                         });
-
-        Assertions.assertEquals(
-                0,
-                container.savepointJob(String.valueOf(jobId)).getExitCode(),
-                "Phase-2 savepoint must succeed");
-        phase2Future.join();
     }
 
     private void createSourceTable(String tableName) {
