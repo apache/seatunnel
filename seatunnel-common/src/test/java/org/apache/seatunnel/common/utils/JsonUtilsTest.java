@@ -17,7 +17,9 @@
 
 package org.apache.seatunnel.common.utils;
 
+import org.apache.seatunnel.shade.com.fasterxml.jackson.databind.JsonNode;
 import org.apache.seatunnel.shade.com.fasterxml.jackson.databind.ObjectMapper;
+import org.apache.seatunnel.shade.com.fasterxml.jackson.databind.node.ObjectNode;
 
 import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.Test;
@@ -59,7 +61,7 @@ public class JsonUtilsTest {
         byte[] utf8Bytes = CHINESE_JSON.getBytes(StandardCharsets.UTF_8);
 
         // OBJECT_MAPPER.readTree(utf8Bytes) parses as UTF-8 → succeeds
-        var node = OBJECT_MAPPER.readTree(utf8Bytes);
+        JsonNode node = OBJECT_MAPPER.readTree(utf8Bytes);
         Assertions.assertEquals("乐", node.get("company_name").asText());
         Assertions.assertEquals("互联网", node.get("industry").asText());
         Assertions.assertEquals("在营", node.get("status").asText());
