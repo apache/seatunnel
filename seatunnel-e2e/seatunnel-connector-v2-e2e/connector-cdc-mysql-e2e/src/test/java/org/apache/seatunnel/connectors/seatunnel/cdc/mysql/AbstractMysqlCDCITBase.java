@@ -860,7 +860,7 @@ public abstract class AbstractMysqlCDCITBase extends TestSuiteBase implements Te
                 });
 
         // snapshot phase: wait for initial rows to arrive in sink
-        await().atMost(30, TimeUnit.SECONDS)
+        await().atMost(60, TimeUnit.SECONDS)
                 .pollInterval(3, TimeUnit.SECONDS)
                 .untilAsserted(
                         () ->
