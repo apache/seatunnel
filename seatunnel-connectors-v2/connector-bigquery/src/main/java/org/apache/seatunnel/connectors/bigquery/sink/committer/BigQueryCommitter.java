@@ -34,7 +34,7 @@ import java.util.Collections;
 import java.util.List;
 import java.util.stream.Collectors;
 
-import static org.apache.seatunnel.connectors.bigquery.sink.writer.BigQueryStreamingWriter.DEFAULT_PATH;
+import static org.apache.seatunnel.connectors.bigquery.sink.writer.BigQueryStreamWriter.DEFAULT_PATH;
 
 @Slf4j
 public class BigQueryCommitter implements SinkCommitter<BigQueryCommitInfo> {

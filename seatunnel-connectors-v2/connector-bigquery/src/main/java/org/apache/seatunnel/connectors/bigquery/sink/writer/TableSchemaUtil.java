@@ -46,8 +46,8 @@ import com.google.protobuf.Descriptors;
 import java.io.IOException;
 
 import static org.apache.seatunnel.connectors.bigquery.option.BigQuerySinkOptions.IDENTIFIER;
-import static org.apache.seatunnel.connectors.bigquery.sink.writer.BigQueryStreamingWriter.CHANGE_TYPE;
-import static org.apache.seatunnel.connectors.bigquery.sink.writer.BigQueryStreamingWriter.SEQUENCE_NUM;
+import static org.apache.seatunnel.connectors.bigquery.sink.writer.BigQueryStreamWriter.CHANGE_TYPE;
+import static org.apache.seatunnel.connectors.bigquery.sink.writer.BigQueryStreamWriter.SEQUENCE_NUM;
 
 public class TableSchemaUtil {
     private TableSchemaUtil() {}

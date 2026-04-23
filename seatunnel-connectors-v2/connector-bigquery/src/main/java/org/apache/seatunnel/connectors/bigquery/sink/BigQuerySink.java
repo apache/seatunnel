@@ -32,7 +32,7 @@ import org.apache.seatunnel.connectors.bigquery.sink.committer.BigQueryCommitInf
 import org.apache.seatunnel.connectors.bigquery.sink.committer.BigQueryCommitInfoSerializer;
 import org.apache.seatunnel.connectors.bigquery.sink.committer.BigQueryCommitter;
 import org.apache.seatunnel.connectors.bigquery.sink.writer.BigQueryBatchWriter;
-import org.apache.seatunnel.connectors.bigquery.sink.writer.BigQueryStreamingWriter;
+import org.apache.seatunnel.connectors.bigquery.sink.writer.BigQueryStreamWriter;
 
 import com.google.cloud.bigquery.storage.v1.BigQueryWriteClient;
 
@@ -50,7 +50,7 @@ public class BigQuerySink
         this.config = config;
         if (BigQuerySinkBatchWriter.BATCH.equals(config.get(BigQuerySinkOptions.WRITE_MODE))) {
             this.isBatch = true;
-        } else if (BigQuerySinkCDCWriter.STREAMING.equals(
+        } else if (BigQuerySinkStreamWriter.STREAMING.equals(
                 config.get(BigQuerySinkOptions.WRITE_MODE))) {
             this.isBatch = false;
         } else {
@@ -71,9 +71,9 @@ public class BigQuerySink
                     new BigQuerySerializer(catalogTable, config),
                     client);
         } else {
-            return new BigQuerySinkCDCWriter(
+            return new BigQuerySinkStreamWriter(
                     config,
-                    BigQueryStreamingWriter.of(client, config),
+                    BigQueryStreamWriter.of(client, config),
                     new BigQuerySerializer(catalogTable, config),
                     client);
         }
@@ -90,9 +90,9 @@ public class BigQuerySink
                     new BigQuerySerializer(catalogTable, config),
                     client);
         } else {
-            return new BigQuerySinkCDCWriter(
+            return new BigQuerySinkStreamWriter(
                     config,
-                    BigQueryStreamingWriter.of(client, config),
+                    BigQueryStreamWriter.of(client, config),
                     new BigQuerySerializer(catalogTable, config),
                     client);
         }

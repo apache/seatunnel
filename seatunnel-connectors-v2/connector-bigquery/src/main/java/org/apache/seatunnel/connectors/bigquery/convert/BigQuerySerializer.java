@@ -37,8 +37,8 @@ import java.util.ArrayList;
 import java.util.Base64;
 import java.util.List;
 
-import static org.apache.seatunnel.connectors.bigquery.sink.writer.BigQueryStreamingWriter.CHANGE_TYPE;
-import static org.apache.seatunnel.connectors.bigquery.sink.writer.BigQueryStreamingWriter.SEQUENCE_NUM;
+import static org.apache.seatunnel.connectors.bigquery.sink.writer.BigQueryStreamWriter.CHANGE_TYPE;
+import static org.apache.seatunnel.connectors.bigquery.sink.writer.BigQueryStreamWriter.SEQUENCE_NUM;
 
 @Slf4j
 public class BigQuerySerializer {

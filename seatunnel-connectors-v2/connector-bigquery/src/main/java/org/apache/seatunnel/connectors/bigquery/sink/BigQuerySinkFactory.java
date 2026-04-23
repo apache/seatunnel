@@ -53,6 +53,10 @@ public class BigQuerySinkFactory implements TableSinkFactory {
                         BigQuerySinkOptions.BATCH_SIZE,
                         BigQuerySinkOptions.EMULATOR_HOST,
                         SinkConnectorCommonOptions.MULTI_TABLE_SINK_REPLICA)
+                .conditional(
+                        BigQuerySinkOptions.WRITE_MODE,
+                        "streaming",
+                        BigQuerySinkOptions.SEQUENCE_NUMBER_COLUMN)
                 .build();
     }
 

@@ -38,7 +38,7 @@ import static org.apache.seatunnel.connectors.bigquery.sink.writer.TableSchemaUt
 import static org.apache.seatunnel.connectors.bigquery.sink.writer.TableSchemaUtil.getActualTableSchema;
 
 @Slf4j
-public class BigQueryStreamingWriter implements BigQueryWriter {
+public class BigQueryStreamWriter implements BigQueryWriter {
     public static final String DEFAULT_PATH = "/streams/_default";
     public static final String CHANGE_TYPE = "_CHANGE_TYPE";
     public static final String SEQUENCE_NUM = "_CHANGE_SEQUENCE_NUMBER";
@@ -46,14 +46,14 @@ public class BigQueryStreamingWriter implements BigQueryWriter {
     @Getter private final String streamName;
     @Getter private final String tablePath;
 
-    public BigQueryStreamingWriter(
+    public BigQueryStreamWriter(
             JsonStreamWriter streamWriter, String streamName, String tablePath) {
         this.streamWriter = streamWriter;
         this.streamName = streamName;
         this.tablePath = tablePath;
     }
 
-    public static BigQueryStreamingWriter of(BigQueryWriteClient client, ReadonlyConfig config) {
+    public static BigQueryStreamWriter of(BigQueryWriteClient client, ReadonlyConfig config) {
         String projectId = config.get(BigQuerySinkOptions.PROJECT_ID);
         String datasetId = config.get(BigQuerySinkOptions.DATASET_ID);
         String tableId = config.get(BigQuerySinkOptions.TABLE_ID);
@@ -62,7 +62,7 @@ public class BigQueryStreamingWriter implements BigQueryWriter {
 
         String streamName = createStreamName(projectId, datasetId, tableId);
         log.info("Created Default write stream {}", streamName);
-        return new BigQueryStreamingWriter(
+        return new BigQueryStreamWriter(
                 createStreamWriter(streamName, tableSchema, client), streamName, parentTable);
     }
 
