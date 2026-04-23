@@ -147,7 +147,7 @@ public abstract class AbstractMysqlCDCITBase extends TestSuiteBase implements Te
         log.info("Mysql ddl execution is complete");
     }
 
-    // @TestTemplate
+    @TestTemplate
     public void testMysqlCdcCheckDataE2e(TestContainer container) {
         // Clear related content to ensure that multiple operations are not affected
         clearTable(MYSQL_DATABASE, SOURCE_TABLE_1);
@@ -185,7 +185,7 @@ public abstract class AbstractMysqlCDCITBase extends TestSuiteBase implements Te
                         });
     }
 
-    // @TestTemplate
+    @TestTemplate
     @DisabledOnContainer(
             value = {},
             type = {EngineType.SPARK, EngineType.FLINK},
@@ -245,7 +245,7 @@ public abstract class AbstractMysqlCDCITBase extends TestSuiteBase implements Te
                         });
     }
 
-    // @TestTemplate
+    @TestTemplate
     @DisabledOnContainer(
             value = {},
             type = {EngineType.SPARK, EngineType.FLINK},
@@ -284,7 +284,7 @@ public abstract class AbstractMysqlCDCITBase extends TestSuiteBase implements Te
         }
     }
 
-    // @TestTemplate
+    @TestTemplate
     public void testMysqlCdcCheckDataWithDisableExactlyonce(TestContainer container) {
         // Clear related content to ensure that multiple operations are not affected
         clearTable(MYSQL_DATABASE, SINK_TABLE);
@@ -322,7 +322,7 @@ public abstract class AbstractMysqlCDCITBase extends TestSuiteBase implements Te
                         });
     }
 
-    // @TestTemplate
+    @TestTemplate
     public void testMysqlCdcCheckDataWithNoPrimaryKey(TestContainer container) {
         // Clear related content to ensure that multiple operations are not affected
         clearTable(MYSQL_DATABASE, SINK_TABLE);
@@ -364,7 +364,7 @@ public abstract class AbstractMysqlCDCITBase extends TestSuiteBase implements Te
                         });
     }
 
-    // @TestTemplate
+    @TestTemplate
     @DisabledOnContainer(
             value = {},
             type = {EngineType.SPARK},
@@ -419,7 +419,7 @@ public abstract class AbstractMysqlCDCITBase extends TestSuiteBase implements Te
                                                                         SOURCE_TABLE_2)))));
     }
 
-    // @TestTemplate
+    @TestTemplate
     @DisabledOnContainer(
             value = {},
             type = {EngineType.SPARK},
@@ -497,7 +497,7 @@ public abstract class AbstractMysqlCDCITBase extends TestSuiteBase implements Te
                                                                         MULTI_DATABASE_TABLE_B)))));
     }
 
-    // @TestTemplate
+    @TestTemplate
     @DisabledOnContainer(
             value = {},
             type = {EngineType.SPARK, EngineType.FLINK},
@@ -599,7 +599,7 @@ public abstract class AbstractMysqlCDCITBase extends TestSuiteBase implements Te
                                                                         MULTI_DATABASE_TABLE_B)))));
     }
 
-    // @TestTemplate
+    @TestTemplate
     @DisabledOnContainer(
             value = {},
             type = {EngineType.SPARK, EngineType.FLINK},
@@ -730,7 +730,7 @@ public abstract class AbstractMysqlCDCITBase extends TestSuiteBase implements Te
         log.info("****************** container logs end ******************");
     }
 
-    // @TestTemplate
+    @TestTemplate
     @DisabledOnContainer(
             value = {},
             type = {EngineType.SPARK},
@@ -785,7 +785,7 @@ public abstract class AbstractMysqlCDCITBase extends TestSuiteBase implements Te
                                                                         SOURCE_TABLE_2_CUSTOM_PRIMARY_KEY)))));
     }
 
-    // @TestTemplate
+    @TestTemplate
     @DisabledOnContainer(
             value = {},
             type = {EngineType.SPARK},
@@ -881,7 +881,7 @@ public abstract class AbstractMysqlCDCITBase extends TestSuiteBase implements Te
                         });
     }
 
-    // @TestTemplate
+    @TestTemplate
     @DisabledOnContainer(
             value = {},
             type = {EngineType.SPARK, EngineType.FLINK},
@@ -923,7 +923,7 @@ public abstract class AbstractMysqlCDCITBase extends TestSuiteBase implements Te
                         });
     }
 
-    // @TestTemplate
+    @TestTemplate
     @DisabledOnContainer(
             value = {},
             type = {EngineType.SPARK, EngineType.FLINK},
