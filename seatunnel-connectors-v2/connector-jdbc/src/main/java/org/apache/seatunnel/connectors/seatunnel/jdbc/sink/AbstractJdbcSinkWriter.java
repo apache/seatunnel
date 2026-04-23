@@ -64,18 +64,6 @@ public abstract class AbstractJdbcSinkWriter<ResourceT>
         reOpenOutputFormat(event);
     }
 
-    public void timerFlush() {
-        if (isOpen) {
-            try {
-                outputFormat.checkFlushException();
-                outputFormat.flush();
-            } catch (IOException e) {
-                log.error("Timer flush failed for table {}", sinkTablePath, e);
-                throw new RuntimeException(e);
-            }
-        }
-    }
-
     protected void reOpenOutputFormat(SchemaChangeEvent event) throws IOException {
         this.prepareCommit();
         JdbcConnectionProvider refreshTableSchemaConnectionProvider =
@@ -97,5 +85,12 @@ public abstract class AbstractJdbcSinkWriter<ResourceT>
                                 databaseTableSchema)
                         .build();
         this.outputFormat.open();
+    }
+
+    public void timerFlush() throws IOException {
+        if (isOpen) {
+            outputFormat.checkFlushException();
+            outputFormat.flush();
+        }
     }
 }
