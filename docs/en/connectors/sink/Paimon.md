@@ -98,7 +98,7 @@ All `changelog-producer` modes are currently supported. The default is `none`.
 * [`lookup`](https://paimon.apache.org/docs/master/primary-key-table/changelog-producer/#lookup)
 * [`full-compaction`](https://paimon.apache.org/docs/master/primary-key-table/changelog-producer/#full-compaction)
 > note： 
-> When you use a streaming mode to read paimon table，different mode will produce [different results](https://github.com/apache/seatunnel/blob/dev/docs/en/connectors/source/Paimon.md#changelog)。
+> When you use a streaming mode to read paimon table，different mode will produce [different results](../source/Paimon.md#changelog)。
 
 ## Filesystems
 The Paimon connector supports writing data to multiple file systems. Currently, the supported file systems are hdfs and s3.

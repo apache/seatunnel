@@ -1,8 +1,9 @@
 ---
 sidebar_position: 14
+title: 监控与指标
 ---
 
-# Telemetry
+# 监控与指标
 
 通过 `Prometheus-exports` 集成 `Metrices` 可以更好地与相关的监控平台（如 Prometheus 和 Grafana）无缝衔接，提高对 SeaTunnel
 集群的监控和告警能力。
@@ -21,9 +22,9 @@ seatunnel:
 
 ## 指标
 
-Prometheus 的[指标文本](telemetryetrics.txt)，获取方式为 `http://{instanceHost}:5801/hazelcast/rest/instance/metrics`。
+Prometheus 的指标文本，获取方式为 `http://{instanceHost}:5801/hazelcast/rest/instance/metrics`。
 
-OpenMetrics 的[指标文本](telemetrypenmetrics.txt)
+OpenMetrics 的指标文本
 ，获取方式为 `http://{instanceHost}:5801/hazelcast/rest/instance/openmetrics`。
 
 可用的指标包括以下类别。
@@ -146,6 +147,6 @@ scrape_configs:
 #### 监控仪表板
 
 - 在 Grafana 中添加 Prometheus 数据源。
-- 将 `Seatunnel Cluster` 监控仪表板导入到 Grafana 中，使用 [仪表板 JSON](telemetryrafana-dashboard.json)。
+- 将 `Seatunnel Cluster` 监控仪表板 JSON 导入到 Grafana 中。
 
 监控[效果图](../../../images/grafana.png)
