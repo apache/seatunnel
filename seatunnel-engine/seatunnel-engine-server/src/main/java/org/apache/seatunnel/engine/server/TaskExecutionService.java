@@ -22,6 +22,7 @@ import org.apache.seatunnel.shade.com.google.common.collect.Lists;
 import org.apache.seatunnel.api.common.metrics.MetricTags;
 import org.apache.seatunnel.api.event.Event;
 import org.apache.seatunnel.api.tracing.MDCExecutorService;
+import org.apache.seatunnel.api.tracing.MDCScheduledExecutorService;
 import org.apache.seatunnel.api.tracing.MDCTracer;
 import org.apache.seatunnel.common.utils.ExceptionUtils;
 import org.apache.seatunnel.common.utils.StringFormatUtils;
@@ -865,11 +866,11 @@ public class TaskExecutionService implements DynamicMetricsProvider {
             existing.cancel(false);
         }
 
-        Runnable namedMdcCallback =
-                new NamedTaskWrapper(MDCTracer.tracing(callback), "TimerFlush-" + taskLocation);
+        MDCScheduledExecutorService mdcTimerFlushWorker = MDCTracer.tracing(timerFlushWorker);
+        Runnable namedCallback = new NamedTaskWrapper(callback, "TimerFlush-" + taskLocation);
         ScheduledFuture<?> future =
-                timerFlushWorker.scheduleWithFixedDelay(
-                        namedMdcCallback, intervalMs, intervalMs, TimeUnit.MILLISECONDS);
+                mdcTimerFlushWorker.scheduleWithFixedDelay(
+                        namedCallback, intervalMs, intervalMs, TimeUnit.MILLISECONDS);
         groupFutures.put(taskLocation, future);
         logger.info(
                 String.format(
@@ -900,7 +901,7 @@ public class TaskExecutionService implements DynamicMetricsProvider {
         if (groupFutures.isEmpty()) {
             timerFlushFutures.remove(groupLocation, groupFutures);
         }
-        logger.info(String.format("Closed timer-flush task for %s", taskLocation));
+        logger.severe(String.format("Closed timer-flush task for %s", taskLocation));
     }
 
     /**
