@@ -44,7 +44,6 @@
         <module>connector-http-persistiq</module>
         <module>connector-http-airtable</module>
         <module>connector-http-hubspot</module>
-        <module>connector-http-airtable</module>
     </modules>
 
 </project>
