@@ -156,6 +156,18 @@ public class ParquetReadStrategy extends AbstractReadStrategy {
         }
         switch (fieldType.getSqlType()) {
             case ARRAY:
+                SeaTunnelDataType<?> elementType = ((ArrayType<?, ?>) fieldType).getElementType();
+                SqlType elementSqlType = elementType.getSqlType();
+
+                if (elementSqlType == SqlType.MAP || elementSqlType == SqlType.ARRAY) {
+                    ArrayList<Object> nestedList = new ArrayList<>();
+                    ((GenericData.Array<?>) field)
+                            .iterator()
+                            .forEachRemaining(
+                                    ele -> nestedList.add(resolveObject(ele, elementType)));
+                    return nestedList.toArray(new Object[0]);
+                }
+
                 ArrayList<Object> origArray = new ArrayList<>();
                 ((GenericData.Array<?>) field)
                         .iterator()
@@ -167,8 +179,8 @@ public class ParquetReadStrategy extends AbstractReadStrategy {
                                         origArray.add(ele);
                                     }
                                 });
-                SeaTunnelDataType<?> elementType = ((ArrayType<?, ?>) fieldType).getElementType();
-                switch (elementType.getSqlType()) {
+
+                switch (elementSqlType) {
                     case STRING:
                         return origArray.toArray(TYPE_ARRAY_STRING);
                     case BOOLEAN:
@@ -185,11 +197,25 @@ public class ParquetReadStrategy extends AbstractReadStrategy {
                         return origArray.toArray(TYPE_ARRAY_FLOAT);
                     case DOUBLE:
                         return origArray.toArray(TYPE_ARRAY_DOUBLE);
+                    case BYTES:
+                        byte[][] bytesArray = new byte[origArray.size()][];
+                        for (int i = 0; i < origArray.size(); i++) {
+                            Object element = origArray.get(i);
+                            if (element instanceof ByteBuffer) {
+                                ByteBuffer buffer = (ByteBuffer) element;
+                                byte[] bytes = new byte[buffer.remaining()];
+                                buffer.get(bytes, 0, bytes.length);
+                                bytesArray[i] = bytes;
+                            } else if (element instanceof byte[]) {
+                                bytesArray[i] = (byte[]) element;
+                            }
+                        }
+                        return bytesArray;
                     default:
                         String errorMsg =
                                 String.format(
                                         "SeaTunnel array type not support this type [%s] now",
-                                        fieldType.getSqlType());
+                                        elementType.getSqlType());
                         throw new FileConnectorException(
                                 CommonErrorCodeDeprecated.UNSUPPORTED_DATA_TYPE, errorMsg);
                 }
@@ -436,11 +462,27 @@ public class ParquetReadStrategy extends AbstractReadStrategy {
                         }
                     case LIST:
                         Type elementType;
-                        try {
-                            elementType = type.asGroupType().getType(0).asGroupType().getType(0);
-                        } catch (Exception e) {
-                            elementType = type.asGroupType().getType(0);
+                        Type firstLevel = type.asGroupType().getType(0);
+
+                        if (firstLevel.isPrimitive()) {
+                            elementType = firstLevel;
+                        } else {
+                            GroupType firstLevelGroup = firstLevel.asGroupType();
+                            LogicalTypeAnnotation firstLevelAnnotation =
+                                    firstLevelGroup.getLogicalTypeAnnotation();
+
+                            if (firstLevelAnnotation != null
+                                    && (firstLevelAnnotation.toOriginalType() == OriginalType.LIST
+                                            || firstLevelAnnotation.toOriginalType()
+                                                    == OriginalType.MAP)) {
+                                elementType = firstLevel;
+                            } else if (firstLevelGroup.getFieldCount() == 1) {
+                                elementType = firstLevelGroup.getType(0);
+                            } else {
+                                elementType = firstLevel;
+                            }
                         }
+
                         SeaTunnelDataType<?> fieldType =
                                 parquetType2SeaTunnelType(elementType, null, name);
                         if (configType instanceof ArrayType) {
@@ -466,6 +508,11 @@ public class ParquetReadStrategy extends AbstractReadStrategy {
                                 return ArrayType.FLOAT_ARRAY_TYPE;
                             case DOUBLE:
                                 return ArrayType.DOUBLE_ARRAY_TYPE;
+                            case BYTES:
+                                return ArrayType.of(PrimitiveByteArrayType.INSTANCE);
+                            case ARRAY:
+                            case MAP:
+                                return ArrayType.of(fieldType);
                             default:
                                 throw CommonError.convertToSeaTunnelTypeError(
                                         PARQUET, type.toString(), name);

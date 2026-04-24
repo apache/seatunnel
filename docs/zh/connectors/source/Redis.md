@@ -16,26 +16,42 @@ import ChangeLog from '../changelog/connector-redis.md';
 - [ ] [列投影](../../introduction/concepts/connector-v2-features.md)
 - [ ] [并行度](../../introduction/concepts/connector-v2-features.md)
 - [ ] [支持用户自定义分片](../../introduction/concepts/connector-v2-features.md)
+- [x] [支持多表读取](../../introduction/concepts/connector-v2-features.md)
 
 ## 配置选项
 
-| 名称                  | 类型     | 是否必须               | 默认值    |
-|---------------------|--------|--------------------|--------|
-| host                | string | `mode=single`时必须   | -      |
-| port                | int    | 否                  | 6379   |
-| keys                | string | 是                  | -      |
-| batch_size          | int    | 是                  | 10     |
-| data_type           | string | 是                  | -      |
-| user                | string | 否                  | -      |
-| auth                | string | 否                  | -      |
-| db_num              | int    | 否                  | 0      |
-| mode                | string | 否                  | single |
-| hash_key_parse_mode | string | 否                  | all    |
-| nodes               | list   | `mode=cluster` 时必须 | -      |
-| schema              | config | `format=json` 时必须  | -      |
-| format              | string | 否                  | json   |
-| field_delimiter     | string | 否                  | ','    |
-| common-options      |        | 否                  | -      |
+| 名称            | 类型   | 是否必须               | 默认值 | 描述 |
+|----------------|--------|--------------------|-------|------|
+| host           | string | `mode=single`时必须   | -     | Redis 服务器主机地址 |
+| port           | int    | 否                  | 6379  | Redis 服务器端口 |
+| user           | string | 否                  | -     | Redis 认证用户名 |
+| auth           | string | 否                  | -     | Redis 认证密码 |
+| db_num         | int    | 否                  | 0     | Redis 数据库索引 |
+| mode           | string | 否                  | single | Redis 模式：`single` 或 `cluster` |
+| nodes          | list   | `mode=cluster` 时必须 | -     | Redis 集群节点，格式为 `["host1:port1", "host2:port2"]` |
+| tables_configs | list   | 否                  | -     | 多表读取时的表配置列表 |
+| common-options |        | 否                  | -     | 源连接器插件通用参数，详情请参见 [Source Common Options](../common-options/source-common-options.md) |
+
+### 表级配置参数
+
+使用 `tables_configs` 读取多个 key 模式时，每个表配置可以包含以下参数：
+
+| 名称                  | 类型     | 是否必须 | 默认值 | 描述                                         |
+|---------------------|---------|--------|-------|--------------------------------------------|
+| keys                | string  | 是     | -     | 要扫描的 Redis key pattern                     |
+| data_type           | string  | 是     | -     | Redis 数据类型：`key`、`hash`、`list`、`set`、`zset` |
+| batch_size          | int     | 否     | 10    | SCAN 操作的批量大小                               |
+| format              | string  | 否     | json  | 数据格式：`json` 或 `text`                       |
+| schema              | config  | 否     | -     | Schema 配置                               |
+| hash_key_parse_mode | string  | 否     | all   | Hash key 解析模式：`all` 或 `kv`                 |
+| read_key_enabled    | boolean | 否     | false | 是否在输出中包含 Redis key                         |
+| key_field_name      | string  | 否     | -     | Redis key 的字段名称                            |
+| single_field_name   | string  | 否     | -     | 单值类型的字段名称                                  |
+| field_delimiter     | string  | 否     | ','   | 文本格式的分隔符                                   |
+
+**注意：** 当配置对应单个表时，可以将 tables_configs 中的配置项平铺到外层（向后兼容）。
+
+**重要提示：** 在多表模式下，上述表级参数需要配置在 `tables_configs` 的每个表项中。
 
 ### host [string]
 
@@ -254,6 +270,7 @@ Redis 数据的 schema 字段列表。更多详情请参考 [Schema 特性](../.
 
 ## 示例
 
+### 单表模式
 简单使用示例：
 
 ```hocon
@@ -306,6 +323,113 @@ sink {
     data_type = list
     batch_size = 33
   }
+}
+```
+
+### 多表模式
+
+**示例 1：读取具有不同数据类型的多个 key pattern**
+
+```hocon
+env {
+  job.mode = "BATCH"
+}
+
+source {
+  Redis {
+    host = "localhost"
+    port = 6379
+    auth = "password"
+    db_num = 0
+    tables_configs = [
+      {
+        keys = "user:active:*"
+        data_type = STRING
+        format = JSON
+        batch_size = 50
+        schema {
+          fields {
+            id = int
+            name = string
+            email = string
+            created_at = timestamp
+          }
+        }
+      },
+      {
+        keys = "session:*"
+        data_type = HASH
+        hash_key_parse_mode = KV
+        read_key_enabled = true
+        key_field_name = "session_id"
+        schema {
+          fields {
+            session_id = string
+            user_id = int
+            ip_address = string
+            last_active = timestamp
+          }
+        }
+      },
+      {
+        keys = "queue:task:*"
+        data_type = LIST
+        format = TEXT
+        field_delimiter = "|"
+      }
+    ]
+  }
+}
+
+sink {
+  Console {
+    parallelism = 1
+  }
+}
+```
+
+**示例 2：集群模式下的多表配置**
+
+```hocon
+source {
+  Redis {
+    mode = CLUSTER
+    nodes = ["node1:6379", "node2:6379", "node3:6379"]
+    auth = "cluster_password"
+    tables_configs = [
+      {
+        keys = "metric:cpu:*"
+        data_type = STRING
+        format = JSON
+        batch_size = 10
+        schema {
+          fields {
+            host = string
+            timestamp = timestamp
+            usage = double
+          }
+        }
+      },
+      {
+        keys = "metric:memory:*"
+        data_type = STRING
+        format = JSON
+        batch_size = 10
+        schema {
+          fields {
+            host = string
+            timestamp = timestamp
+            used = long
+            total = long
+          }
+        }
+      }
+    ]
+  }
+}
+
+sink {
+  Console {}
 }
 ```
 

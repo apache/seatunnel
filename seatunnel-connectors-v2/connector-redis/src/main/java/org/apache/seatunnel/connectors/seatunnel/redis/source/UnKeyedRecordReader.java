@@ -19,9 +19,11 @@ package org.apache.seatunnel.connectors.seatunnel.redis.source;
 
 import org.apache.seatunnel.api.serialization.DeserializationSchema;
 import org.apache.seatunnel.api.source.Collector;
+import org.apache.seatunnel.api.table.catalog.TablePath;
 import org.apache.seatunnel.api.table.type.SeaTunnelRow;
 import org.apache.seatunnel.connectors.seatunnel.redis.client.RedisClient;
 import org.apache.seatunnel.connectors.seatunnel.redis.config.RedisParameters;
+import org.apache.seatunnel.connectors.seatunnel.redis.config.RedisTableConfig;
 
 import lombok.extern.slf4j.Slf4j;
 
@@ -34,9 +36,11 @@ public class UnKeyedRecordReader extends RedisRecordReader {
 
     public UnKeyedRecordReader(
             RedisParameters redisParameters,
+            RedisTableConfig tableConfig,
             DeserializationSchema<SeaTunnelRow> deserializationSchema,
-            RedisClient redisClient) {
-        super(redisParameters, deserializationSchema, redisClient);
+            RedisClient redisClient,
+            TablePath tablePath) {
+        super(redisParameters, tableConfig, deserializationSchema, redisClient, tablePath);
     }
 
     @Override
@@ -83,9 +87,11 @@ public class UnKeyedRecordReader extends RedisRecordReader {
 
     private void pollValueToNext(String value, Collector<SeaTunnelRow> output) throws IOException {
         if (deserializationSchema == null) {
-            output.collect(new SeaTunnelRow(new Object[] {value}));
+            output.collect(createRowWithTableId(new Object[] {value}));
         } else {
-            deserializationSchema.deserialize(value.getBytes(), output);
+            SeaTunnelRow row = deserializationSchema.deserialize(value.getBytes());
+            setTableId(row);
+            output.collect(row);
         }
     }
 }

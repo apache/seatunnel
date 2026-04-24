@@ -294,8 +294,7 @@ public class RestApiSubmitJobStartWithSavePointTest {
     private org.apache.seatunnel.shade.com.typesafe.config.Config
             buildSeaTunnelJobConfigFromJsonRequest() throws IOException {
         return RestUtil.buildConfig(
-                RestUtil.convertByteToJsonNode(getRequestBody().getBytes(StandardCharsets.UTF_8)),
-                false);
+                RestUtil.convertByteToJsonNode(getRequestBody().getBytes(StandardCharsets.UTF_8)));
     }
 
     private String getRequestBody() {

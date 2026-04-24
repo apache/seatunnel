@@ -203,6 +203,18 @@ public class DorisIT extends AbstractDorisIT {
     }
 
     @TestTemplate
+    public void testDorisDirectToBe(TestContainer container)
+            throws IOException, InterruptedException {
+        initializeJdbcTable();
+        batchInsertUniqueTableData();
+
+        Container.ExecResult execResult =
+                container.executeJob("/doris_source_and_sink_direct_to_be.conf");
+        Assertions.assertEquals(0, execResult.getExitCode());
+        checkSinkData();
+    }
+
+    @TestTemplate
     public void testNoSchemaDoris(TestContainer container)
             throws IOException, InterruptedException {
         initializeJdbcTable();

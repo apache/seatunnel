@@ -1,5 +1,5 @@
 ---
-title: Core API Design
+title: 核心 API 设计
 ---
 
 # 核心 API 设计

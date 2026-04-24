@@ -92,7 +92,6 @@ If you use SeaTunnel Engine, It automatically integrated the hadoop jar when you
 | file_split_size            | long    | no       | 134217728                            |
 | quote_char                 | string  | no       | "                                    |
 | escape_char                | string  | no       | -                                    |
-| metalake_type              | string  | no       | gravitino                            |
 ### path [string]
 
 The source file path.
@@ -282,17 +281,15 @@ Only need to be configured when the file_format_type are text, json, excel, xml 
 
 The schema information of upstream data. For more details, please refer to [Schema Feature](../../introduction/concepts/schema-feature.md).
 
-#### schema_url [string]
+#### metadata_table_id [string]
 
-Get the http url of metadata information through restApi, such as: `http://localhost:8090/api/metalakes/laowang_test/catalogs/221-pgsql/schemas/ykw/tables/all_type`
+The table identifier in the metadata service to fetch table schema. For Gravitino, the format should be `{catalog}.{database}.{table}`, such as `mysql-catalog.test_db.users`.
+
+When specified, the connector will fetch table schema from the external metadata service instead of using manual `columns` definition.
 
 > When using Gravitino as the metadata source, the column types from Gravitino will be automatically converted to SeaTunnel data types. For detailed type mapping information, please refer to [Gravitino Type Mapping](../../introduction/concepts/gravitino-type-mapping.md).
 
-### metalake_type [string]
-
-The type of metalake service, currently only supports `gravitino`. When using `schema_url` to obtain metadata from Gravitino, you can specify this parameter (default is `gravitino`).
-
-For more information about Metalake, please refer to [Metalake](../../introduction/configuration/metalake.md).
+For more information, please refer to [Metadata SPI](../../introduction/concepts/metadata-spi.md).
 
 ### sheet_name [string]
 

@@ -1,5 +1,5 @@
 ---
-title: CDC Pipeline Architecture
+title: CDC Pipeline 架构
 ---
 
 # CDC Pipeline 架构概览

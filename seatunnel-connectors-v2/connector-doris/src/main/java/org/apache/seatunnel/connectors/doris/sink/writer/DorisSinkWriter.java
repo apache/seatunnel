@@ -67,6 +67,7 @@ public class DorisSinkWriter
             new ArrayList<>(Arrays.asList(LoadStatus.SUCCESS, LoadStatus.PUBLISH_TIMEOUT));
     private long lastCheckpointId;
     private DorisStreamLoad dorisStreamLoad;
+    private DorisStreamLoad controlStreamLoad;
     private final DorisSinkConfig dorisSinkConfig;
     private final String labelPrefix;
     private final LabelGenerator labelGenerator;
@@ -80,6 +81,8 @@ public class DorisSinkWriter
     protected TableSchemaChangeEventDispatcher tableSchemaChanger =
             new TableSchemaChangeEventDispatcher();
     private SchemaChangeManager schemaChangeManager;
+    private final DorisStreamLoadFactory streamLoadFactory;
+    private String controlHostPort;
 
     public DorisSinkWriter(
             SinkWriter.Context context,
@@ -87,6 +90,28 @@ public class DorisSinkWriter
             CatalogTable catalogTable,
             DorisSinkConfig dorisSinkConfig,
             String jobId) {
+        this(
+                context,
+                state,
+                catalogTable,
+                dorisSinkConfig,
+                jobId,
+                (hostPort, tablePath, sinkConfig, currentLabelGenerator) ->
+                        new DorisStreamLoad(
+                                hostPort,
+                                tablePath,
+                                sinkConfig,
+                                currentLabelGenerator,
+                                new HttpUtil().getHttpClient()));
+    }
+
+    DorisSinkWriter(
+            SinkWriter.Context context,
+            List<DorisSinkState> state,
+            CatalogTable catalogTable,
+            DorisSinkConfig dorisSinkConfig,
+            String jobId,
+            DorisStreamLoadFactory streamLoadFactory) {
         this.dorisSinkConfig = dorisSinkConfig;
         this.catalogTable = catalogTable;
         this.lastCheckpointId = !state.isEmpty() ? state.get(0).getCheckpointId() : 0;
@@ -109,47 +134,54 @@ public class DorisSinkWriter
         this.tableSchema = catalogTable.getTableSchema();
         this.sinkTablePath = catalogTable.getTablePath();
         this.schemaChangeManager = new SchemaChangeManager(dorisSinkConfig);
+        this.streamLoadFactory = streamLoadFactory;
         this.initializeLoad();
     }
 
     private void initializeLoad() {
-
-        List<String> feNodes = Arrays.asList(dorisSinkConfig.getFrontends().split(","));
+        List<String> feNodes =
+                DorisNodeResolver.parseNodes(dorisSinkConfig.getFrontends(), "fenodes");
         Collections.shuffle(feNodes);
-        int feNodesNum = feNodes.size();
+        DorisStreamLoad initializedDorisStreamLoad = null;
+        DorisStreamLoad initializedControlStreamLoad = null;
+        String initializedControlHostPort = feNodes.get(0);
 
-        for (int i = 0; i < feNodesNum; i++) {
-            try {
-                log.info("Trying FE node {}  for stream load.", feNodes.get(i));
-                this.dorisStreamLoad =
-                        new DorisStreamLoad(
-                                feNodes.get(i),
-                                catalogTable.getTablePath(),
-                                dorisSinkConfig,
-                                labelGenerator,
-                                new HttpUtil().getHttpClient());
+        try {
+            if (dorisSinkConfig.isDirectToBe()) {
                 if (dorisSinkConfig.getEnable2PC()) {
-                    dorisStreamLoad.abortPreCommit(labelPrefix, lastCheckpointId + 1);
+                    InitializedStreamLoad controlHandle = initializeStreamLoad(feNodes, "FE", true);
+                    initializedControlHostPort = controlHandle.hostPort;
+                    initializedControlStreamLoad = controlHandle.streamLoad;
                 }
-                break;
-            } catch (Exception e) {
-                if (i == feNodesNum - 1) {
-                    log.error("All {} FE nodes failed, no more nodes to try", feNodesNum);
-                    throw new DorisConnectorException(
-                            DorisConnectorErrorCode.STREAM_LOAD_FAILED, e);
-                }
-                log.error(
-                        "stream load error for feNode: {} with exception: {}",
-                        feNodes.get(i),
-                        e.getMessage());
-            }
-        }
 
-        startLoad(labelGenerator.generateLabel(lastCheckpointId + 1));
-        // when uploading data in streaming mode, we need to regularly detect whether there are
-        // exceptions.
-        scheduledExecutorService.scheduleWithFixedDelay(
-                this::checkDone, INITIAL_DELAY, intervalTime, TimeUnit.MILLISECONDS);
+                List<String> beNodes =
+                        DorisNodeResolver.parseNodes(dorisSinkConfig.getBackends(), "benodes");
+                Collections.shuffle(beNodes);
+                InitializedStreamLoad dataHandle = initializeStreamLoad(beNodes, "BE", false);
+                initializedDorisStreamLoad = dataHandle.streamLoad;
+            } else {
+                InitializedStreamLoad dataHandle =
+                        initializeStreamLoad(feNodes, "FE", dorisSinkConfig.getEnable2PC());
+                initializedControlHostPort = dataHandle.hostPort;
+                initializedDorisStreamLoad = dataHandle.streamLoad;
+                initializedControlStreamLoad = dataHandle.streamLoad;
+            }
+
+            this.controlHostPort = initializedControlHostPort;
+            this.dorisStreamLoad = initializedDorisStreamLoad;
+            this.controlStreamLoad = initializedControlStreamLoad;
+
+            startLoad(labelGenerator.generateLabel(lastCheckpointId + 1));
+            // when uploading data in streaming mode, we need to regularly detect whether there are
+            // exceptions.
+            scheduledExecutorService.scheduleWithFixedDelay(
+                    this::checkDone, INITIAL_DELAY, intervalTime, TimeUnit.MILLISECONDS);
+        } catch (RuntimeException e) {
+            this.dorisStreamLoad = null;
+            this.controlStreamLoad = null;
+            cleanupInitializedStreamLoads(initializedDorisStreamLoad, initializedControlStreamLoad);
+            throw e;
+        }
     }
 
     @Override
@@ -193,8 +225,7 @@ public class DorisSinkWriter
         }
         long txnId = respContent.getTxnId();
 
-        return Optional.of(
-                new DorisCommitInfo(dorisStreamLoad.getHostPort(), dorisStreamLoad.getDb(), txnId));
+        return Optional.of(new DorisCommitInfo(controlHostPort, dorisStreamLoad.getDb(), txnId));
     }
 
     private RespContent flush() throws IOException {
@@ -227,7 +258,7 @@ public class DorisSinkWriter
     public void abortPrepare() {
         if (dorisSinkConfig.getEnable2PC()) {
             try {
-                dorisStreamLoad.abortPreCommit(labelPrefix, lastCheckpointId + 1);
+                controlStreamLoad.abortPreCommit(labelPrefix, lastCheckpointId + 1);
             } catch (Exception e) {
                 throw new RuntimeException(e);
             }
@@ -264,10 +295,80 @@ public class DorisSinkWriter
         if (dorisStreamLoad != null) {
             dorisStreamLoad.close();
         }
+        if (controlStreamLoad != null && controlStreamLoad != dorisStreamLoad) {
+            controlStreamLoad.close();
+        }
     }
 
     private DorisSerializer createSerializer(
             DorisSinkConfig dorisSinkConfig, SeaTunnelRowType seaTunnelRowType) {
         return SeaTunnelRowSerializerFactory.createSerializer(dorisSinkConfig, seaTunnelRowType);
+    }
+
+    private InitializedStreamLoad initializeStreamLoad(
+            List<String> nodes, String nodeType, boolean abortPreCommitOnInit) {
+        int nodeCount = nodes.size();
+        for (int i = 0; i < nodeCount; i++) {
+            String node = nodes.get(i);
+            DorisStreamLoad streamLoad = null;
+            try {
+                log.info("Trying {} node {} for stream load.", nodeType, node);
+                streamLoad =
+                        streamLoadFactory.create(
+                                node, catalogTable.getTablePath(), dorisSinkConfig, labelGenerator);
+                if (abortPreCommitOnInit) {
+                    streamLoad.abortPreCommit(labelPrefix, lastCheckpointId + 1);
+                }
+                return new InitializedStreamLoad(node, streamLoad);
+            } catch (Exception e) {
+                closeStreamLoadQuietly(streamLoad, nodeType + " node " + node);
+                if (i == nodeCount - 1) {
+                    log.error("All {} {} nodes failed, no more nodes to try", nodeCount, nodeType);
+                    throw new DorisConnectorException(
+                            DorisConnectorErrorCode.STREAM_LOAD_FAILED, e);
+                }
+                log.error(
+                        "stream load error for {} node: {} with exception: {}",
+                        nodeType,
+                        node,
+                        e.getMessage());
+            }
+        }
+        throw new DorisConnectorException(
+                DorisConnectorErrorCode.SHOULD_NEVER_HAPPEN,
+                "No Doris stream load node initialized.");
+    }
+
+    private void cleanupInitializedStreamLoads(
+            DorisStreamLoad dataStreamLoad, DorisStreamLoad cleanupControlStreamLoad) {
+        closeStreamLoadQuietly(dataStreamLoad, "data stream load");
+        if (cleanupControlStreamLoad != dataStreamLoad) {
+            closeStreamLoadQuietly(cleanupControlStreamLoad, "control stream load");
+        }
+        scheduledExecutorService.shutdownNow();
+    }
+
+    private void closeStreamLoadQuietly(DorisStreamLoad streamLoad, String streamLoadName) {
+        if (streamLoad == null) {
+            return;
+        }
+        try {
+            streamLoad.close();
+        } catch (IOException closeException) {
+            log.warn(
+                    "Failed to close {} during initialization cleanup.",
+                    streamLoadName,
+                    closeException);
+        }
+    }
+
+    private static final class InitializedStreamLoad {
+        private final String hostPort;
+        private final DorisStreamLoad streamLoad;
+
+        private InitializedStreamLoad(String hostPort, DorisStreamLoad streamLoad) {
+            this.hostPort = hostPort;
+            this.streamLoad = streamLoad;
+        }
     }
 }
