@@ -15,14 +15,15 @@
  * limitations under the License.
  */
 
-package org.apache.seatunnel.engine.common.utils;
+package org.apache.seatunnel.api.metadata;
 
 import org.apache.seatunnel.shade.com.typesafe.config.Config;
 import org.apache.seatunnel.shade.com.typesafe.config.ConfigFactory;
 
-import org.apache.seatunnel.api.datasource.DataSourceProvider;
-import org.apache.seatunnel.api.datasource.exception.DataSourceProviderException;
-import org.apache.seatunnel.engine.common.config.server.DataSourceConfig;
+import org.apache.seatunnel.api.metadata.exception.MetadataProviderException;
+import org.apache.seatunnel.api.table.catalog.PhysicalColumn;
+import org.apache.seatunnel.api.table.catalog.TableSchema;
+import org.apache.seatunnel.api.table.type.BasicType;
 
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
@@ -31,48 +32,52 @@ import org.junit.jupiter.api.Test;
 import lombok.SneakyThrows;
 
 import java.nio.file.Paths;
+import java.util.Arrays;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Objects;
+import java.util.Optional;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertNotNull;
 import static org.junit.jupiter.api.Assertions.assertThrows;
+import static org.junit.jupiter.api.Assertions.assertTrue;
 
-public class DataSourceConfigUtilTest {
+public class MetadataProviderManagerTest {
 
     private static final String TEST_PROVIDER_KIND = "test-provider";
 
     @BeforeEach
     public void setUp() {
         // Clear the cache before each test
-        DataSourceConfigResolver.clearCache();
+        MetadataProviderManager.clearCache();
     }
 
     @AfterEach
     public void tearDown() {
         // Clear the cache after each test
-        DataSourceConfigResolver.clearCache();
+        MetadataProviderManager.clearCache();
     }
 
     @Test
     public void testResolveDataSourceConfigsWithDatasourceId() {
         // Register mock provider
-        MockTestDataSourceProvider provider = new MockTestDataSourceProvider();
+        MockTestMetadataProvider provider = new MockTestMetadataProvider();
         registerProvider(provider);
 
-        // Load config from file with datasource_id
+        // Load config from file with metadata_datasource_id
         Config jobConfig = loadTestConfig();
 
         // Create DataSourceConfig
-        DataSourceConfig dataSourceConfig = new DataSourceConfig();
-        dataSourceConfig.setEnabled(true);
-        dataSourceConfig.setKind(TEST_PROVIDER_KIND);
+        MetadataConfig metaDataConfig = new MetadataConfig();
+        metaDataConfig.setEnabled(true);
+        metaDataConfig.setKind(TEST_PROVIDER_KIND);
 
-        // Resolve with datasource_id
+        // Resolve with metadata_datasource_id
         Config resolved =
-                DataSourceConfigResolver.resolveDataSourceConfigs(jobConfig, dataSourceConfig);
+                MetadataProviderManager.resolveDataSourceConfigs(jobConfig, metaDataConfig);
 
         assertNotNull(resolved);
 
@@ -97,7 +102,7 @@ public class DataSourceConfigUtilTest {
         assertEquals("metadata_user", source2.getString("username"));
         assertEquals("select id, value from table2", source2.getString("query"));
 
-        // Verify third source (Jdbc without datasource_id) - keep original config
+        // Verify third source (Jdbc without metadata_datasource_id) - keep original config
         Config source3 = sources.get(2);
         assertEquals("jdbc:mysql://localhost:3306", source3.getString("url"));
         assertEquals("com.mysql.cj.jdbc.Driver", source3.getString("driver"));
@@ -116,7 +121,7 @@ public class DataSourceConfigUtilTest {
         assertEquals("jdbc:postgresql://metadata:5432/metadata_db", sink2.getString("url"));
         assertEquals("insert into sink_table2 (id, value) values (?, ?)", sink2.getString("query"));
 
-        // Verify third sink (Jdbc without datasource_id) - keep original config
+        // Verify third sink (Jdbc without metadata_datasource_id) - keep original config
         Config sink3 = sinks.get(2);
         assertEquals("jdbc:mysql://localhost:3306", sink3.getString("url"));
         assertEquals("com.mysql.cj.jdbc.Driver", sink3.getString("driver"));
@@ -128,23 +133,23 @@ public class DataSourceConfigUtilTest {
     @Test
     public void testResolveDataSourceConfigsWithNoProvider() {
         // Clear any cached provider
-        DataSourceConfigResolver.clearCache();
+        MetadataProviderManager.clearCache();
 
-        // Load config from file with datasource_id
+        // Load config from file with metadata_datasource_id
         Config jobConfig = loadTestConfig();
 
-        // Create DataSourceConfig with unknown provider kind
-        DataSourceConfig dataSourceConfig = new DataSourceConfig();
-        dataSourceConfig.setEnabled(true);
-        dataSourceConfig.setKind("unknown-provider-kind");
+        // Create MetadataConfig with unknown provider kind
+        MetadataConfig metaDataConfig = new MetadataConfig();
+        metaDataConfig.setEnabled(true);
+        metaDataConfig.setKind("unknown-provider-kind");
 
         // Try to resolve with a provider kind that doesn't exist
-        DataSourceProviderException exception =
+        MetadataProviderException exception =
                 assertThrows(
-                        DataSourceProviderException.class,
+                        MetadataProviderException.class,
                         () ->
-                                DataSourceConfigResolver.resolveDataSourceConfigs(
-                                        jobConfig, dataSourceConfig));
+                                MetadataProviderManager.resolveDataSourceConfigs(
+                                        jobConfig, metaDataConfig));
 
         // Verify exception is thrown
         assertNotNull(exception);
@@ -157,7 +162,7 @@ public class DataSourceConfigUtilTest {
         return ConfigFactory.parseFile(
                 Paths.get(
                                 Objects.requireNonNull(
-                                                DataSourceConfigUtilTest.class.getResource(
+                                                MetadataProviderManagerTest.class.getResource(
                                                         "/conf/datasource-test.conf"))
                                         .toURI())
                         .toFile());
@@ -167,10 +172,10 @@ public class DataSourceConfigUtilTest {
      * Helper method to manually register a provider for testing. This is a workaround since we
      * can't easily use SPI in unit tests.
      */
-    private void registerProvider(DataSourceProvider provider) {
+    private void registerProvider(MetadataProvider provider) {
         try {
             java.lang.reflect.Field providerField =
-                    DataSourceConfigResolver.class.getDeclaredField("cachedProvider");
+                    MetadataProviderManager.class.getDeclaredField("cachedProvider");
             providerField.setAccessible(true);
             providerField.set(null, provider);
         } catch (Exception e) {
@@ -179,7 +184,7 @@ public class DataSourceConfigUtilTest {
     }
 
     /** Mock DataSourceProvider for testing. */
-    public static class MockTestDataSourceProvider implements DataSourceProvider {
+    public static class MockTestMetadataProvider implements MetadataProvider {
 
         @Override
         public String kind() {
@@ -192,7 +197,8 @@ public class DataSourceConfigUtilTest {
         }
 
         @Override
-        public Map<String, Object> datasourceMap(String connectorIdentifier, String datasourceId) {
+        public Map<String, Object> datasourceMap(
+                String connectorIdentifier, String metaDataDatasourceId) {
             // Only support Jdbc connector for testing
             if (!"Jdbc".equalsIgnoreCase(connectorIdentifier)) {
                 return new HashMap<>();
@@ -207,8 +213,100 @@ public class DataSourceConfigUtilTest {
         }
 
         @Override
+        public Optional<TableSchema> tableSchema(String metaDataTableId) {
+            // Create a simple TableSchema for testing
+            TableSchema schema =
+                    TableSchema.builder()
+                            .columns(
+                                    Arrays.asList(
+                                            PhysicalColumn.builder()
+                                                    .name("id")
+                                                    .dataType(BasicType.LONG_TYPE)
+                                                    .build(),
+                                            PhysicalColumn.builder()
+                                                    .name("name")
+                                                    .dataType(BasicType.STRING_TYPE)
+                                                    .build()))
+                            .build();
+            return Optional.of(schema);
+        }
+
+        @Override
         public void close() {
             // No-op for testing
         }
+    }
+
+    @Test
+    public void testResolveTableSchemaWithNullConfig() {
+        // Test with null metaDataConfig
+        Optional<TableSchema> result =
+                MetadataProviderManager.resolveTableSchema("test.table", null);
+
+        assertNotNull(result);
+        assertFalse(result.isPresent());
+    }
+
+    @Test
+    public void testResolveTableSchemaWithDisabledConfig() {
+        // Test with disabled metaDataConfig
+        MetadataConfig metaDataConfig = new MetadataConfig();
+        metaDataConfig.setEnabled(false);
+        metaDataConfig.setKind(TEST_PROVIDER_KIND);
+
+        Optional<TableSchema> result =
+                MetadataProviderManager.resolveTableSchema("test.table", metaDataConfig);
+
+        assertNotNull(result);
+        assertFalse(result.isPresent());
+    }
+
+    @Test
+    public void testResolveTableSchemaWithValidResult() {
+        // Register mock provider that returns a valid TableSchema
+        MockTestMetadataProvider provider = new MockTestMetadataProvider();
+        registerProvider(provider);
+
+        // Create enabled MetadataConfig
+        MetadataConfig metaDataConfig = new MetadataConfig();
+        metaDataConfig.setEnabled(true);
+        metaDataConfig.setKind(TEST_PROVIDER_KIND);
+
+        // The mock provider should return a valid TableSchema
+        Optional<TableSchema> result =
+                MetadataProviderManager.resolveTableSchema("catalog.db.table", metaDataConfig);
+
+        assertNotNull(result);
+        assertTrue(result.isPresent());
+        TableSchema schema = result.get();
+        assertEquals(2, schema.getColumns().size());
+        assertEquals("id", schema.getColumns().get(0).getName());
+        assertEquals("name", schema.getColumns().get(1).getName());
+    }
+
+    @Test
+    public void testResolveTableSchemaWithMultipleCalls() {
+        // Register mock provider that returns a valid TableSchema
+        MockTestMetadataProvider provider = new MockTestMetadataProvider();
+        registerProvider(provider);
+
+        // Create enabled MetadataConfig
+        MetadataConfig metaDataConfig = new MetadataConfig();
+        metaDataConfig.setEnabled(true);
+        metaDataConfig.setKind(TEST_PROVIDER_KIND);
+
+        // First call
+        Optional<TableSchema> result1 =
+                MetadataProviderManager.resolveTableSchema("catalog.db.table1", metaDataConfig);
+
+        // Second call - should use cached provider
+        Optional<TableSchema> result2 =
+                MetadataProviderManager.resolveTableSchema("catalog.db.table2", metaDataConfig);
+
+        // Both should return valid results
+        assertTrue(result1.isPresent());
+        assertTrue(result2.isPresent());
+        assertEquals(2, result1.get().getColumns().size());
+        assertEquals(2, result2.get().getColumns().size());
     }
 }
