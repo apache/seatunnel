@@ -21,6 +21,8 @@ import org.apache.seatunnel.api.sink.SinkAggregatedCommitter;
 import org.apache.seatunnel.connectors.seatunnel.file.config.HadoopConf;
 import org.apache.seatunnel.connectors.seatunnel.file.hadoop.HadoopFileSystemProxy;
 
+import org.apache.hadoop.fs.Path;
+
 import lombok.extern.slf4j.Slf4j;
 
 import java.io.IOException;
@@ -60,7 +62,9 @@ public class FileSinkAggregatedCommitter
                                         mvFileEntry.getKey(), mvFileEntry.getValue(), true);
                             }
                             // second delete transaction directory
-                            hadoopFileSystemProxy.deleteFile(entry.getKey());
+                            String transactionDir = entry.getKey();
+                            hadoopFileSystemProxy.deleteFile(transactionDir);
+                            cleanupTransactionParentDirectories(transactionDir);
                         }
                     } catch (Throwable e) {
                         log.error(
@@ -129,7 +133,9 @@ public class FileSinkAggregatedCommitter
                                 }
                             }
                             // delete the transaction dir
-                            hadoopFileSystemProxy.deleteFile(entry.getKey());
+                            String transactionDir = entry.getKey();
+                            hadoopFileSystemProxy.deleteFile(transactionDir);
+                            cleanupTransactionParentDirectories(transactionDir);
                         }
                     } catch (Exception e) {
                         log.error("abort aggregatedCommitInfo error ", e);
@@ -145,5 +151,26 @@ public class FileSinkAggregatedCommitter
     @Override
     public void close() throws IOException {
         hadoopFileSystemProxy.close();
+    }
+
+    private void cleanupTransactionParentDirectories(String transactionDir) {
+        Path uuidDir = new Path(transactionDir).getParent();
+        if (uuidDir == null) {
+            return;
+        }
+        Path jobDir = uuidDir.getParent();
+        if (jobDir == null) {
+            return;
+        }
+        cleanupEmptyDirectory(uuidDir);
+        cleanupEmptyDirectory(jobDir);
+    }
+
+    private void cleanupEmptyDirectory(Path directory) {
+        try {
+            hadoopFileSystemProxy.deleteEmptyDirectory(directory.toString());
+        } catch (IOException e) {
+            log.warn("Failed to clean empty transaction parent directory: {}", directory, e);
+        }
     }
 }
