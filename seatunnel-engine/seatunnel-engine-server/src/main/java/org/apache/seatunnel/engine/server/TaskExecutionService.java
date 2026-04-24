@@ -901,7 +901,7 @@ public class TaskExecutionService implements DynamicMetricsProvider {
         if (groupFutures.isEmpty()) {
             timerFlushFutures.remove(groupLocation, groupFutures);
         }
-        logger.severe(String.format("Closed timer-flush task for %s", taskLocation));
+        logger.info(String.format("Closed timer-flush task for %s", taskLocation));
     }
 
     /**
