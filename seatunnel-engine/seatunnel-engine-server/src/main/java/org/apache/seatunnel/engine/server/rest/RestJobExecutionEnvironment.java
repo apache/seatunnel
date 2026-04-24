@@ -24,6 +24,7 @@ import org.apache.seatunnel.shade.org.apache.commons.lang3.tuple.ImmutablePair;
 import org.apache.seatunnel.api.common.JobContext;
 import org.apache.seatunnel.engine.common.Constant;
 import org.apache.seatunnel.engine.common.config.JobConfig;
+import org.apache.seatunnel.engine.common.config.server.DataSourceConfig;
 import org.apache.seatunnel.engine.core.dag.actions.Action;
 import org.apache.seatunnel.engine.core.dag.logical.LogicalDag;
 import org.apache.seatunnel.engine.core.job.AbstractJobEnvironment;
@@ -109,13 +110,16 @@ public class RestJobExecutionEnvironment extends AbstractJobEnvironment {
                                 + ", cannot start with save point.");
             }
         }
+        DataSourceConfig dataSourceConfig =
+                seaTunnelServer.getSeaTunnelConfig().getEngineConfig().getDataSourceConfig();
         return new MultipleTableJobConfigParser(
                 seaTunnelJobConfig,
                 idGenerator,
                 jobConfig,
                 commonPluginJars,
                 isStartWithSavePoint,
-                pipelineCheckpoints);
+                pipelineCheckpoints,
+                dataSourceConfig);
     }
 
     private List<JobPipelineCheckpointData> loadPipelineCheckpointsFromMasterNode() {

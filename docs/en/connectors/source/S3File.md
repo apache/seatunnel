@@ -402,7 +402,7 @@ Get the http url of metadata information through restApi, such as: `http://local
 
 The type of metalake service, currently only supports `gravitino`. When using `schema_url` to obtain metadata from Gravitino, you can specify this parameter (default is `gravitino`).
 
-For more information about Metalake, please refer to [Metalake](../../introduction/concepts/metalake.md).
+For more information about Metalake, please refer to [Metalake](../../introduction/configuration/metalake.md).
 
 ## Example
 
@@ -431,7 +431,7 @@ source {
 
 transform {
   # If you would like to get more information about how to configure seatunnel and see full list of transform plugins,
-    # please go to https://seatunnel.apache.org/docs/transform-v2
+    # please go to https://seatunnel.apache.org/docs/transforms
 }
 
 sink {
@@ -493,7 +493,7 @@ source {
 
 transform {
   # If you would like to get more information about how to configure seatunnel and see full list of transform plugins,
-    # please go to https://seatunnel.apache.org/docs/transform-v2
+    # please go to https://seatunnel.apache.org/docs/transforms
 }
 
 sink {

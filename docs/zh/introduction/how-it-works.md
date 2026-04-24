@@ -8,6 +8,8 @@ sidebar_position: 2
 
 SeaTunnel 是一个分布式多模态数据集成工具，采用插件化架构。连接器层与执行引擎解耦，同一套连接器可在不同引擎上运行。
 
+这一页适合作为“快速开始”和“架构章节”之间的桥接页。当你已经知道 SeaTunnel 是什么，但还没形成“作业配置、插件体系、执行引擎如何连起来”的整体模型时，建议先读这里。
+
 ```
 ┌─────────────────────────────────────────────────────────────┐
 │                        作业配置                              │
@@ -33,6 +35,17 @@ SeaTunnel 是一个分布式多模态数据集成工具，采用插件化架构�
 │         SeaTunnel Engine (Zeta) / Flink / Spark              │
 └─────────────────────────────────────────────────────────────┘
 ```
+
+## 推荐阅读路径
+
+如果你希望先建立一套系统级理解，建议按下面顺序阅读：
+
+- [快速入门总览](../getting-started/overview.md)，先拿到最短首跑路径
+- 本页，先建立执行模型的整体图景
+- [引擎概览](../engines/overview.md)，理解执行引擎如何选择
+- [架构概览](../architecture/overview.md)，再进入更完整的分层视图
+- [核心 API 设计](../architecture/core-api-design.md)，理解 connector 与元数据契约
+- 如果你还需要理解数据集编排与 transform 行为，再看 [Transform 插件体系](../architecture/transform-plugin-system.md)
 
 ## 核心组件
 
@@ -100,5 +113,7 @@ seatunnel/
 ## 下一步
 
 - [引擎对比](../engines/overview.md)
-- [快速开始](../getting-started/locally/quick-start-seatunnel-engine.md)
-- [连接器列表](../connectors/overview.md)
+- [快速入门总览](../getting-started/overview.md)
+- [SeaTunnel 引擎快速开始](../getting-started/locally/quick-start-seatunnel-engine.md)
+- [架构概览](../architecture/overview.md)
+- [连接器列表](../connectors)

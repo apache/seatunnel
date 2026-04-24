@@ -64,7 +64,7 @@ docker images | grep apache/seatunnel
 
 The Dockerfile is like this:
 ```dockerfile
-FROM openjdk:8
+FROM seatunnelhub/openjdk:8u342
 
 ARG VERSION
 # Build from Source Code And Copy it into image
@@ -397,11 +397,10 @@ docker run --name seatunnel_client \
     ./bin/seatunnel.sh  -l
 ```
 
-more command please refer [user-command](../../seatunnel-engine/user-command.md)
+more command please refer [user-command](../../engines/zeta/user-command.md)
 
 
 
 #### use rest api
 
-please refer [Submit A Job](../../seatunnel-engine/rest-api-v2.md#submit-a-job)
-
+please refer [Submit A Job](../../engines/zeta/rest-api-v2.md#submit-a-job)
