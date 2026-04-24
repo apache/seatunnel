@@ -17,71 +17,88 @@
 
 package org.apache.seatunnel.connectors.seatunnel.file.hadoop;
 
-import org.apache.seatunnel.connectors.seatunnel.file.config.HadoopConf;
+import org.apache.hadoop.fs.FileStatus;
+import org.apache.hadoop.fs.FileSystem;
+import org.apache.hadoop.fs.Path;
 
 import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.Test;
-import org.junit.jupiter.api.io.TempDir;
+import org.mockito.Mockito;
 
-import java.nio.file.Files;
+import java.lang.reflect.Field;
 
 class HadoopFileSystemProxyDeleteEmptyDirectoryTest {
 
-    @TempDir private java.nio.file.Path tempDir;
-
     @Test
     void shouldDeleteEmptyDirectory() throws Exception {
-        java.nio.file.Path emptyDir = Files.createDirectory(tempDir.resolve("empty"));
+        Path emptyDir = new Path("/tmp/empty");
+        FileSystem fs = Mockito.mock(FileSystem.class);
+        Mockito.when(fs.exists(emptyDir)).thenReturn(true);
+        Mockito.when(fs.getFileStatus(emptyDir)).thenReturn(directoryStatus(emptyDir));
+        Mockito.when(fs.listStatus(emptyDir)).thenReturn(new FileStatus[0]);
+        Mockito.when(fs.delete(emptyDir, false)).thenReturn(true);
 
-        try (HadoopFileSystemProxy proxy = new HadoopFileSystemProxy(new LocalConf("file:///"))) {
+        try (HadoopFileSystemProxy proxy = newProxy(fs)) {
             Assertions.assertTrue(proxy.deleteEmptyDirectory(emptyDir.toUri().toString()));
         }
 
-        Assertions.assertFalse(Files.exists(emptyDir));
+        Mockito.verify(fs).delete(emptyDir, false);
     }
 
     @Test
-    void shouldKeepNonEmptyDirectory() throws Exception {
-        java.nio.file.Path nonEmptyDir = Files.createDirectory(tempDir.resolve("non-empty"));
-        java.nio.file.Path childFile = Files.createFile(nonEmptyDir.resolve("data.txt"));
+    void shouldSkipMissingFileAndNonEmptyDirectory() throws Exception {
+        Path missingPath = new Path("/tmp/missing");
+        Path regularFile = new Path("/tmp/data.txt");
+        Path nonEmptyDir = new Path("/tmp/non-empty");
+        FileSystem fs = Mockito.mock(FileSystem.class);
+        Mockito.when(fs.exists(missingPath)).thenReturn(false);
+        Mockito.when(fs.exists(regularFile)).thenReturn(true);
+        Mockito.when(fs.getFileStatus(regularFile)).thenReturn(fileStatus(regularFile));
+        Mockito.when(fs.exists(nonEmptyDir)).thenReturn(true);
+        Mockito.when(fs.getFileStatus(nonEmptyDir)).thenReturn(directoryStatus(nonEmptyDir));
+        Mockito.when(fs.listStatus(nonEmptyDir))
+                .thenReturn(new FileStatus[] {fileStatus(new Path(nonEmptyDir, "data.txt"))});
 
-        try (HadoopFileSystemProxy proxy = new HadoopFileSystemProxy(new LocalConf("file:///"))) {
+        try (HadoopFileSystemProxy proxy = newProxy(fs)) {
+            Assertions.assertFalse(proxy.deleteEmptyDirectory(missingPath.toString()));
+            Assertions.assertFalse(proxy.deleteEmptyDirectory(regularFile.toString()));
             Assertions.assertFalse(proxy.deleteEmptyDirectory(nonEmptyDir.toUri().toString()));
         }
 
-        Assertions.assertTrue(Files.exists(nonEmptyDir));
-        Assertions.assertTrue(Files.exists(childFile));
+        Mockito.verify(fs, Mockito.never()).delete(Mockito.any(Path.class), Mockito.anyBoolean());
     }
 
-    @Test
-    void shouldReturnFalseForMissingPathAndRegularFile() throws Exception {
-        java.nio.file.Path regularFile = Files.createFile(tempDir.resolve("data.txt"));
-        java.nio.file.Path missingPath = tempDir.resolve("missing");
-
-        try (HadoopFileSystemProxy proxy = new HadoopFileSystemProxy(new LocalConf("file:///"))) {
-            Assertions.assertFalse(proxy.deleteEmptyDirectory(missingPath.toUri().toString()));
-            Assertions.assertFalse(proxy.deleteEmptyDirectory(regularFile.toUri().toString()));
-        }
-
-        Assertions.assertTrue(Files.exists(regularFile));
+    private static FileStatus directoryStatus(Path path) {
+        return new FileStatus(0, true, 1, 0, 0, path);
     }
 
-    private static class LocalConf extends HadoopConf {
-        private static final String LOCAL_FILE_SYSTEM_IMPL = "org.apache.hadoop.fs.LocalFileSystem";
-        private static final String FILE_SCHEMA = "file";
+    private static FileStatus fileStatus(Path path) {
+        return new FileStatus(1, false, 1, 0, 0, path);
+    }
 
-        private LocalConf(String hdfsNameKey) {
-            super(hdfsNameKey);
-        }
+    private static HadoopFileSystemProxy newProxy(FileSystem fs) throws Exception {
+        HadoopFileSystemProxy proxy =
+                Mockito.mock(HadoopFileSystemProxy.class, Mockito.CALLS_REAL_METHODS);
+        set(proxy, "fileSystem", fs);
+        set(proxy, "isAuthTypeKerberos", false);
+        return proxy;
+    }
 
-        @Override
-        public String getFsHdfsImpl() {
-            return LOCAL_FILE_SYSTEM_IMPL;
+    private static void set(Object target, String field, Object value) throws Exception {
+        Field f = null;
+        Class<?> cls = target.getClass();
+        while (cls != null) {
+            try {
+                f = cls.getDeclaredField(field);
+                break;
+            } catch (NoSuchFieldException ignore) {
+                cls = cls.getSuperclass();
+            }
         }
-
-        @Override
-        public String getSchema() {
-            return FILE_SCHEMA;
+        if (f == null) {
+            throw new NoSuchFieldException(field);
         }
+        f.setAccessible(true);
+        f.set(target, value);
     }
 }

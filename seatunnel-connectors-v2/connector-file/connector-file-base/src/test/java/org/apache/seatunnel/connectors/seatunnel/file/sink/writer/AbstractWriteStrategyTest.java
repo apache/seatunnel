@@ -55,32 +55,29 @@ class AbstractWriteStrategyTest {
     }
 
     @Test
-    void shouldContinueAbortPrepareParentCleanupWhenOneParentCleanupFails() throws Exception {
+    void shouldHandleAbortPrepareCleanupFailures() throws Exception {
         TransactionPath transactionPath = newTransactionPath();
         HadoopFileSystemProxy fs = Mockito.mock(HadoopFileSystemProxy.class);
         Mockito.doThrow(new IOException("cleanup failed"))
                 .when(fs)
                 .deleteEmptyDirectory(transactionPath.uuidDir);
-        TestWriteStrategy writeStrategy = newTestWriteStrategy(fs);
+        TestWriteStrategy cleanupFailureStrategy = newTestWriteStrategy(fs);
 
-        Assertions.assertDoesNotThrow(() -> writeStrategy.abortPrepare(TRANSACTION_ID));
+        Assertions.assertDoesNotThrow(() -> cleanupFailureStrategy.abortPrepare(TRANSACTION_ID));
 
         Mockito.verify(fs).deleteFile(transactionPath.transactionDir);
         Mockito.verify(fs).deleteEmptyDirectory(transactionPath.uuidDir);
         Mockito.verify(fs).deleteEmptyDirectory(transactionPath.jobDir);
-    }
 
-    @Test
-    void shouldThrowWhenAbortPrepareTransactionDirectoryDeleteFails() throws Exception {
-        TransactionPath transactionPath = newTransactionPath();
-        HadoopFileSystemProxy fs = Mockito.mock(HadoopFileSystemProxy.class);
+        fs = Mockito.mock(HadoopFileSystemProxy.class);
         Mockito.doThrow(new IOException("delete failed"))
                 .when(fs)
                 .deleteFile(transactionPath.transactionDir);
-        TestWriteStrategy writeStrategy = newTestWriteStrategy(fs);
+        TestWriteStrategy deleteFailureStrategy = newTestWriteStrategy(fs);
 
         Assertions.assertThrows(
-                FileConnectorException.class, () -> writeStrategy.abortPrepare(TRANSACTION_ID));
+                FileConnectorException.class,
+                () -> deleteFailureStrategy.abortPrepare(TRANSACTION_ID));
 
         Mockito.verify(fs).deleteFile(transactionPath.transactionDir);
         Mockito.verify(fs, Mockito.never()).deleteEmptyDirectory(Mockito.anyString());
