@@ -72,4 +72,83 @@ class FileSinkAggregatedCommitterTest {
         Mockito.verify(fs).deleteEmptyDirectory(jobDir);
         Mockito.verify(fs, Mockito.never()).deleteEmptyDirectory(tmpRoot);
     }
+
+    @Test
+    void shouldCleanEmptyTransactionParentDirectoriesAfterAbort() throws Exception {
+        String tmpRoot = "/tmp/seatunnel/seatunnel";
+        String jobDir = tmpRoot + "/job-1";
+        String uuidDir = jobDir + "/uuid-1";
+        String transactionDir = uuidDir + "/T_job-1_uuid-1_0_1";
+
+        LinkedHashMap<String, LinkedHashMap<String, String>> transactionMap = new LinkedHashMap<>();
+        transactionMap.put(transactionDir, new LinkedHashMap<>());
+
+        HadoopFileSystemProxy fs = Mockito.mock(HadoopFileSystemProxy.class);
+        TestableCommitter committer = new TestableCommitter();
+        committer.setFileSystemProxy(fs);
+
+        committer.abort(
+                Collections.singletonList(
+                        new FileAggregatedCommitInfo(transactionMap, new LinkedHashMap<>())));
+
+        Mockito.verify(fs).deleteFile(transactionDir);
+        Mockito.verify(fs).deleteEmptyDirectory(uuidDir);
+        Mockito.verify(fs).deleteEmptyDirectory(jobDir);
+        Mockito.verify(fs, Mockito.never()).deleteEmptyDirectory(tmpRoot);
+    }
+
+    @Test
+    void shouldContinueAbortParentDirectoryCleanupWhenOneParentCleanupFails() throws Exception {
+        String jobDir = "/tmp/seatunnel/seatunnel/job-1";
+        String uuidDir = jobDir + "/uuid-1";
+        String transactionDir = uuidDir + "/T_job-1_uuid-1_0_1";
+
+        LinkedHashMap<String, LinkedHashMap<String, String>> transactionMap = new LinkedHashMap<>();
+        transactionMap.put(transactionDir, new LinkedHashMap<>());
+
+        HadoopFileSystemProxy fs = Mockito.mock(HadoopFileSystemProxy.class);
+        Mockito.doThrow(new java.io.IOException("cleanup failed"))
+                .when(fs)
+                .deleteEmptyDirectory(uuidDir);
+        TestableCommitter committer = new TestableCommitter();
+        committer.setFileSystemProxy(fs);
+
+        committer.abort(
+                Collections.singletonList(
+                        new FileAggregatedCommitInfo(transactionMap, new LinkedHashMap<>())));
+
+        Mockito.verify(fs).deleteFile(transactionDir);
+        Mockito.verify(fs).deleteEmptyDirectory(uuidDir);
+        Mockito.verify(fs).deleteEmptyDirectory(jobDir);
+    }
+
+    @Test
+    void shouldIgnoreTransactionDirectoryCleanupFailureAfterCommit() throws Exception {
+        String transactionDir = "/tmp/seatunnel/seatunnel/job-1/uuid-1/T_job-1_uuid-1_0_1";
+        String tempFile = transactionDir + "/NON_PARTITION/out.txt";
+        String targetFile = "/warehouse/table/out.txt";
+
+        LinkedHashMap<String, String> fileMoves = new LinkedHashMap<>();
+        fileMoves.put(tempFile, targetFile);
+
+        LinkedHashMap<String, LinkedHashMap<String, String>> transactionMap = new LinkedHashMap<>();
+        transactionMap.put(transactionDir, fileMoves);
+
+        HadoopFileSystemProxy fs = Mockito.mock(HadoopFileSystemProxy.class);
+        Mockito.doThrow(new java.io.IOException("cleanup failed"))
+                .when(fs)
+                .deleteFile(transactionDir);
+        TestableCommitter committer = new TestableCommitter();
+        committer.setFileSystemProxy(fs);
+
+        List<FileAggregatedCommitInfo> errors =
+                committer.commit(
+                        Collections.singletonList(
+                                new FileAggregatedCommitInfo(
+                                        transactionMap, new LinkedHashMap<>())));
+
+        Assertions.assertTrue(errors.isEmpty());
+        Mockito.verify(fs).renameFile(tempFile, targetFile, true);
+        Mockito.verify(fs).deleteFile(transactionDir);
+    }
 }

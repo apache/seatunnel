@@ -61,10 +61,18 @@ public class FileSinkAggregatedCommitter
                                 hadoopFileSystemProxy.renameFile(
                                         mvFileEntry.getKey(), mvFileEntry.getValue(), true);
                             }
-                            // second delete transaction directory
                             String transactionDir = entry.getKey();
-                            hadoopFileSystemProxy.deleteFile(transactionDir);
-                            cleanupTransactionParentDirectories(transactionDir);
+                            // Data files are already committed after rename; tmp cleanup is
+                            // best-effort and should not fail the whole checkpoint.
+                            try {
+                                hadoopFileSystemProxy.deleteFile(transactionDir);
+                                cleanupTransactionParentDirectories(transactionDir);
+                            } catch (Exception cleanupException) {
+                                log.warn(
+                                        "delete transaction directory [{}] failed after successful commit, ignore this cleanup error.",
+                                        transactionDir,
+                                        cleanupException);
+                            }
                         }
                     } catch (Throwable e) {
                         log.error(
