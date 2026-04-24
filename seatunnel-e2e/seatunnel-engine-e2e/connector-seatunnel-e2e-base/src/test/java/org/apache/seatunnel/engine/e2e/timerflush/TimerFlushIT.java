@@ -37,7 +37,6 @@ import org.junit.jupiter.api.Test;
 import com.hazelcast.client.config.ClientConfig;
 import com.hazelcast.instance.impl.HazelcastInstanceImpl;
 
-import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.TimeUnit;
 
 import static org.awaitility.Awaitility.await;
@@ -78,21 +77,17 @@ public class TimerFlushIT {
             ClientJobExecutionEnvironment env =
                     client.createExecutionContext(filePath, jobConfig, seaTunnelConfig);
             ClientJobProxy jobProxy = env.execute();
-            CompletableFuture.supplyAsync(jobProxy::waitForJobComplete);
 
-            // sink.flush.interval=2000ms; allow up to 15s for the first timer tick
+            // Timer flush can run before any rows reach the sink (empty buffer flush still
+            // increments FLUSH_COUNT). Wait until a flush actually moved rows into FLUSHED_ROWS.
             await().atMost(15, TimeUnit.SECONDS)
-                    .pollInterval(500, TimeUnit.MILLISECONDS)
+                    .pollInterval(200, TimeUnit.MILLISECONDS)
                     .untilAsserted(
                             () ->
-                                    Assertions.assertTrue(
-                                            TimerFlushTestSinkWriter.FLUSH_COUNT.get() >= 1,
-                                            "Expected at least one engine-timer-driven flush, but flushCount="
+                                    Assertions.assertFalse(
+                                            TimerFlushTestSinkWriter.FLUSHED_ROWS.isEmpty(),
+                                            "Expected at least one flush with buffered rows; flushCount="
                                                     + TimerFlushTestSinkWriter.FLUSH_COUNT.get()));
-
-            Assertions.assertFalse(
-                    TimerFlushTestSinkWriter.FLUSHED_ROWS.isEmpty(),
-                    "Flushed rows must not be empty after a timer flush");
 
             jobProxy.cancelJob();
         }
@@ -112,7 +107,6 @@ public class TimerFlushIT {
             ClientJobExecutionEnvironment env =
                     client.createExecutionContext(filePath, jobConfig, seaTunnelConfig);
             ClientJobProxy jobProxy = env.execute();
-            CompletableFuture.supplyAsync(jobProxy::waitForJobComplete);
 
             // Assert that flushCount stays at 0 for 8 continuous seconds.
             // No timer is registered when sink.flush.interval is unset, so nothing should leak.
