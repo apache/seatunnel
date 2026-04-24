@@ -195,7 +195,6 @@ public class SourceFlowLifeCycle<T, SplitT extends SourceSplit> extends ActionFl
      */
     private void onTimerTick() {
         if (prepareClose) {
-            log.warn("onTimerTick skipped, prepareClose=true, task={}", currentTaskLocation);
             return;
         }
         try {
