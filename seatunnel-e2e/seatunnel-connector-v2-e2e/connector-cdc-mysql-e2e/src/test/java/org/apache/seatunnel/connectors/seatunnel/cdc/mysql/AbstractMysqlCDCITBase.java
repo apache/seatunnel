@@ -103,6 +103,7 @@ public abstract class AbstractMysqlCDCITBase extends TestSuiteBase implements Te
     private static final String MULTI_DATABASE_TABLE_A = "multi_src_a";
     private static final String MULTI_DATABASE_TABLE_B = "multi_src_b";
     private static final String TIMER_FLUSH_SRC_TABLE = "timer_flush_src";
+    private static final String TIMER_FLUSH_SRC_TABLE_2 = "timer_flush_src_2";
     private static final String TIMER_FLUSH_SINK_TABLE = "timer_flush_sink";
 
     protected MySqlContainer MYSQL_CONTAINER;
@@ -147,7 +148,7 @@ public abstract class AbstractMysqlCDCITBase extends TestSuiteBase implements Te
         log.info("Mysql ddl execution is complete");
     }
 
-    // @TestTemplate
+    @TestTemplate
     public void testMysqlCdcCheckDataE2e(TestContainer container) {
         // Clear related content to ensure that multiple operations are not affected
         clearTable(MYSQL_DATABASE, SOURCE_TABLE_1);
@@ -185,7 +186,7 @@ public abstract class AbstractMysqlCDCITBase extends TestSuiteBase implements Te
                         });
     }
 
-    // @TestTemplate
+    @TestTemplate
     @DisabledOnContainer(
             value = {},
             type = {EngineType.SPARK, EngineType.FLINK},
@@ -245,7 +246,7 @@ public abstract class AbstractMysqlCDCITBase extends TestSuiteBase implements Te
                         });
     }
 
-    // @TestTemplate
+    @TestTemplate
     @DisabledOnContainer(
             value = {},
             type = {EngineType.SPARK, EngineType.FLINK},
@@ -284,7 +285,7 @@ public abstract class AbstractMysqlCDCITBase extends TestSuiteBase implements Te
         }
     }
 
-    // @TestTemplate
+    @TestTemplate
     public void testMysqlCdcCheckDataWithDisableExactlyonce(TestContainer container) {
         // Clear related content to ensure that multiple operations are not affected
         clearTable(MYSQL_DATABASE, SINK_TABLE);
@@ -322,7 +323,7 @@ public abstract class AbstractMysqlCDCITBase extends TestSuiteBase implements Te
                         });
     }
 
-    // @TestTemplate
+    @TestTemplate
     public void testMysqlCdcCheckDataWithNoPrimaryKey(TestContainer container) {
         // Clear related content to ensure that multiple operations are not affected
         clearTable(MYSQL_DATABASE, SINK_TABLE);
@@ -364,7 +365,7 @@ public abstract class AbstractMysqlCDCITBase extends TestSuiteBase implements Te
                         });
     }
 
-    // @TestTemplate
+    @TestTemplate
     @DisabledOnContainer(
             value = {},
             type = {EngineType.SPARK},
@@ -419,7 +420,7 @@ public abstract class AbstractMysqlCDCITBase extends TestSuiteBase implements Te
                                                                         SOURCE_TABLE_2)))));
     }
 
-    // @TestTemplate
+    @TestTemplate
     @DisabledOnContainer(
             value = {},
             type = {EngineType.SPARK},
@@ -497,7 +498,7 @@ public abstract class AbstractMysqlCDCITBase extends TestSuiteBase implements Te
                                                                         MULTI_DATABASE_TABLE_B)))));
     }
 
-    // @TestTemplate
+    @TestTemplate
     @DisabledOnContainer(
             value = {},
             type = {EngineType.SPARK, EngineType.FLINK},
@@ -599,7 +600,7 @@ public abstract class AbstractMysqlCDCITBase extends TestSuiteBase implements Te
                                                                         MULTI_DATABASE_TABLE_B)))));
     }
 
-    // @TestTemplate
+    @TestTemplate
     @DisabledOnContainer(
             value = {},
             type = {EngineType.SPARK, EngineType.FLINK},
@@ -730,7 +731,7 @@ public abstract class AbstractMysqlCDCITBase extends TestSuiteBase implements Te
         log.info("****************** container logs end ******************");
     }
 
-    // @TestTemplate
+    @TestTemplate
     @DisabledOnContainer(
             value = {},
             type = {EngineType.SPARK},
@@ -785,7 +786,7 @@ public abstract class AbstractMysqlCDCITBase extends TestSuiteBase implements Te
                                                                         SOURCE_TABLE_2_CUSTOM_PRIMARY_KEY)))));
     }
 
-    // @TestTemplate
+    @TestTemplate
     @DisabledOnContainer(
             value = {},
             type = {EngineType.SPARK},
@@ -851,7 +852,7 @@ public abstract class AbstractMysqlCDCITBase extends TestSuiteBase implements Te
         CompletableFuture.supplyAsync(
                 () -> {
                     try {
-                        container.executeJob("/mysqlcdc_to_mysql_timer_flush_enabled.conf");
+                        container.executeJob("/mysqlcdc_to_mysql_with_timer_flush.conf");
                     } catch (Exception e) {
                         log.error("Commit task exception :" + e.getMessage());
                         throw new RuntimeException(e);
@@ -872,29 +873,33 @@ public abstract class AbstractMysqlCDCITBase extends TestSuiteBase implements Te
                                                         .size()
                                                 > 0));
 
-        // Verify at least 3 independent timer-driven flushes by inserting one row at a time and
-        // waiting for each to appear in the sink. batch_size is set to a huge value in the conf so
-        // the connector's own flush threshold is never reached; only the engine timer can deliver
-        // rows to the sink.
-        int[] flushProbeIds = {10, 11, 12};
-        for (int id : flushProbeIds) {
-            insertTimerFlushRow(MYSQL_DATABASE, TIMER_FLUSH_SRC_TABLE, id);
-            await().atMost(1, TimeUnit.SECONDS)
-                    .pollInterval(500, TimeUnit.MILLISECONDS)
-                    .untilAsserted(
-                            () ->
-                                    Assertions.assertTrue(
-                                            query(
-                                                                    String.format(
-                                                                            "select id from %s.%s where id = %d",
-                                                                            MYSQL_DATABASE,
-                                                                            TIMER_FLUSH_SINK_TABLE,
-                                                                            id))
-                                                            .size()
-                                                    == 1,
-                                            "row "
-                                                    + id
-                                                    + " should have been flushed to sink by engine timer"));
+        // Insert 100 rows, verify every 10 rows are flushed to sink by engine timer
+        int startId = 10;
+        int totalRows = 100;
+        int batchSize = 10;
+        for (int i = 0; i < totalRows; i++) {
+            insertTimerFlushRow(MYSQL_DATABASE, TIMER_FLUSH_SRC_TABLE, startId + i);
+            if ((i + 1) % batchSize == 0) {
+                final int checkUpToId = startId + i;
+                await().atMost(30, TimeUnit.SECONDS)
+                        .pollInterval(1, TimeUnit.SECONDS)
+                        .untilAsserted(
+                                () ->
+                                        Assertions.assertEquals(
+                                                checkUpToId - startId + 1,
+                                                query(
+                                                                String.format(
+                                                                        "select id from %s.%s where id >= %d and id <= %d",
+                                                                        MYSQL_DATABASE,
+                                                                        TIMER_FLUSH_SINK_TABLE,
+                                                                        startId,
+                                                                        checkUpToId))
+                                                        .size(),
+                                                "expected "
+                                                        + (checkUpToId - startId + 1)
+                                                        + " rows flushed up to id "
+                                                        + checkUpToId));
+            }
         }
 
         // final consistency check
@@ -910,19 +915,20 @@ public abstract class AbstractMysqlCDCITBase extends TestSuiteBase implements Te
                                                         MYSQL_DATABASE, TIMER_FLUSH_SINK_TABLE))));
     }
 
-    // @TestTemplate
+    @TestTemplate
     @DisabledOnContainer(
             value = {},
             type = {EngineType.SPARK, EngineType.FLINK},
             disabledReason =
                     "engine-level timer flush (sink.flush.interval) is only supported on Zeta engine")
     public void testJdbcSinkTimerFlushDisabled(TestContainer container) throws Exception {
-        // upsertDeleteSourceTable();
+        inventoryDatabase.setTemplateName("timer_flush").createAndInitialize();
+        clearTable(MYSQL_DATABASE, TIMER_FLUSH_SINK_TABLE);
 
         CompletableFuture.supplyAsync(
                 () -> {
                     try {
-                        container.executeJob("/mysqlcdc_to_mysql_timer_flush_disabled.conf");
+                        container.executeJob("/mysqlcdc_to_mysql_with_timer_flush_disabled.conf");
                     } catch (Exception e) {
                         log.error("Commit task exception :" + e.getMessage());
                         throw new RuntimeException(e);
@@ -935,9 +941,8 @@ public abstract class AbstractMysqlCDCITBase extends TestSuiteBase implements Te
 
         // sink.flush.interval fires but enable_timer_flush=false — no rows must appear
         // during the entire polling window (checkpoint.interval=300s ensures no ck commit either)
-        await().during(15000, TimeUnit.MILLISECONDS)
-                .atMost(20000, TimeUnit.MILLISECONDS)
-                .pollInterval(2000, TimeUnit.MILLISECONDS)
+        await().atMost(15, TimeUnit.SECONDS)
+                .pollInterval(1000, TimeUnit.MILLISECONDS)
                 .untilAsserted(
                         () -> {
                             log.info(
@@ -952,21 +957,22 @@ public abstract class AbstractMysqlCDCITBase extends TestSuiteBase implements Te
                         });
     }
 
-    // @TestTemplate
+    @TestTemplate
     @DisabledOnContainer(
             value = {},
             type = {EngineType.SPARK, EngineType.FLINK},
             disabledReason =
                     "engine-level timer flush and savepoint/restore are only supported on Zeta engine")
     public void testJdbcSinkTimerFlushRestore(TestContainer container) throws Exception {
-        // initTimerFlushTables();
+        inventoryDatabase.setTemplateName("timer_flush").createAndInitialize();
+        clearTable(MYSQL_DATABASE, TIMER_FLUSH_SINK_TABLE);
 
         Long jobId = JobIdGenerator.newJobId();
         CompletableFuture.supplyAsync(
                 () -> {
                     try {
                         return container.executeJob(
-                                "/mysqlcdc_to_mysql_timer_flush_restore.conf",
+                                "/mysqlcdc_to_mysql_with_timer_flush_restore.conf",
                                 String.valueOf(jobId));
                     } catch (Exception e) {
                         log.error("Commit task exception :" + e.getMessage());
@@ -984,35 +990,44 @@ public abstract class AbstractMysqlCDCITBase extends TestSuiteBase implements Te
                                                         .size()
                                                 > 0));
 
-        // phase 1 — verify at least 3 timer-driven flushes before savepoint
-        int[] phase1Ids = {10, 11, 12};
-        for (int id : phase1Ids) {
-            insertTimerFlushRow(MYSQL_DATABASE, TIMER_FLUSH_SRC_TABLE, id);
-            await().atMost(10, TimeUnit.SECONDS)
-                    .pollInterval(500, TimeUnit.MILLISECONDS)
-                    .untilAsserted(
-                            () ->
-                                    Assertions.assertTrue(
-                                            query(
-                                                                    String.format(
-                                                                            "select id from %s.%s where id = %d",
-                                                                            MYSQL_DATABASE,
-                                                                            TIMER_FLUSH_SINK_TABLE,
-                                                                            id))
-                                                            .size()
-                                                    == 1,
-                                            "row "
-                                                    + id
-                                                    + " should have been flushed to sink by engine timer"));
+        // phase 1: insert 100 rows before savepoint, verify every 10 rows
+        int phase1Start = 10;
+        int phase1Total = 100;
+        int batchSize = 10;
+        for (int i = 0; i < phase1Total; i++) {
+            insertTimerFlushRow(MYSQL_DATABASE, TIMER_FLUSH_SRC_TABLE, phase1Start + i);
+            if ((i + 1) % batchSize == 0) {
+                final int checkUpToId = phase1Start + i;
+                await().atMost(30, TimeUnit.SECONDS)
+                        .pollInterval(1, TimeUnit.SECONDS)
+                        .untilAsserted(
+                                () ->
+                                        Assertions.assertEquals(
+                                                checkUpToId - phase1Start + 1,
+                                                query(
+                                                                String.format(
+                                                                        "select id from %s.%s where id >= %d and id <= %d",
+                                                                        MYSQL_DATABASE,
+                                                                        TIMER_FLUSH_SINK_TABLE,
+                                                                        phase1Start,
+                                                                        checkUpToId))
+                                                        .size(),
+                                                "expected "
+                                                        + (checkUpToId - phase1Start + 1)
+                                                        + " rows flushed up to id "
+                                                        + checkUpToId));
+            }
         }
 
         await().atMost(10, TimeUnit.SECONDS)
                 .untilAsserted(
                         () ->
                                 Assertions.assertIterableEquals(
-                                        query(getQuerySQL(MYSQL_DATABASE, TIMER_FLUSH_SRC_TABLE)),
                                         query(
-                                                getQuerySQL(
+                                                getSourceQuerySQL(
+                                                        MYSQL_DATABASE, TIMER_FLUSH_SRC_TABLE)),
+                                        query(
+                                                getSinkQuerySQL(
                                                         MYSQL_DATABASE, TIMER_FLUSH_SINK_TABLE))));
 
         // savepoint + restore
@@ -1021,7 +1036,7 @@ public abstract class AbstractMysqlCDCITBase extends TestSuiteBase implements Te
                 () -> {
                     try {
                         container.restoreJob(
-                                "/mysqlcdc_to_mysql_timer_flush_restore.conf",
+                                "/mysqlcdc_to_mysql_with_timer_flush_restore.conf",
                                 String.valueOf(jobId));
                     } catch (Exception e) {
                         log.error("Commit task exception :" + e.getMessage());
@@ -1030,36 +1045,397 @@ public abstract class AbstractMysqlCDCITBase extends TestSuiteBase implements Te
                     return null;
                 });
 
-        // phase 2 — verify at least 3 timer-driven flushes after restore
-        int[] phase2Ids = {20, 21, 22};
-        for (int id : phase2Ids) {
-            insertTimerFlushRow(MYSQL_DATABASE, TIMER_FLUSH_SRC_TABLE, id);
-            await().atMost(10, TimeUnit.SECONDS)
-                    .pollInterval(500, TimeUnit.MILLISECONDS)
-                    .untilAsserted(
-                            () ->
-                                    Assertions.assertTrue(
-                                            query(
-                                                                    String.format(
-                                                                            "select id from %s.%s where id = %d",
-                                                                            MYSQL_DATABASE,
-                                                                            TIMER_FLUSH_SINK_TABLE,
-                                                                            id))
-                                                            .size()
-                                                    == 1,
-                                            "row "
-                                                    + id
-                                                    + " should have been flushed to sink by engine timer after restore"));
+        // phase 2: insert 100 rows after restore, verify every 10 rows
+        int phase2Start = 200;
+        int phase2Total = 100;
+        for (int i = 0; i < phase2Total; i++) {
+            insertTimerFlushRow(MYSQL_DATABASE, TIMER_FLUSH_SRC_TABLE, phase2Start + i);
+            if ((i + 1) % batchSize == 0) {
+                final int checkUpToId = phase2Start + i;
+                await().atMost(30, TimeUnit.SECONDS)
+                        .pollInterval(1, TimeUnit.SECONDS)
+                        .untilAsserted(
+                                () ->
+                                        Assertions.assertEquals(
+                                                checkUpToId - phase2Start + 1,
+                                                query(
+                                                                String.format(
+                                                                        "select id from %s.%s where id >= %d and id <= %d",
+                                                                        MYSQL_DATABASE,
+                                                                        TIMER_FLUSH_SINK_TABLE,
+                                                                        phase2Start,
+                                                                        checkUpToId))
+                                                        .size(),
+                                                "expected "
+                                                        + (checkUpToId - phase2Start + 1)
+                                                        + " rows flushed up to id "
+                                                        + checkUpToId
+                                                        + " after restore"));
+            }
         }
 
         await().atMost(10, TimeUnit.SECONDS)
                 .untilAsserted(
                         () ->
                                 Assertions.assertIterableEquals(
-                                        query(getQuerySQL(MYSQL_DATABASE, TIMER_FLUSH_SRC_TABLE)),
                                         query(
-                                                getQuerySQL(
+                                                getSourceQuerySQL(
+                                                        MYSQL_DATABASE, TIMER_FLUSH_SRC_TABLE)),
+                                        query(
+                                                getSinkQuerySQL(
                                                         MYSQL_DATABASE, TIMER_FLUSH_SINK_TABLE))));
+    }
+
+    @TestTemplate
+    @DisabledOnContainer(
+            value = {},
+            type = {EngineType.SPARK, EngineType.FLINK},
+            disabledReason =
+                    "engine-level timer flush (sink.flush.interval) is only supported on Zeta engine")
+    public void testJdbcSinkTimerFlushMultiTable(TestContainer container) throws Exception {
+        inventoryDatabase.setTemplateName("multi_timer_flush").createAndInitialize();
+        clearTable(MYSQL_DATABASE2, TIMER_FLUSH_SRC_TABLE);
+        clearTable(MYSQL_DATABASE2, TIMER_FLUSH_SRC_TABLE_2);
+
+        CompletableFuture.supplyAsync(
+                () -> {
+                    try {
+                        container.executeJob(
+                                "/mysqlcdc_to_mysql_with_timer_flush_multi_table.conf");
+                    } catch (Exception e) {
+                        log.error("Commit task exception :" + e.getMessage());
+                        throw new RuntimeException(e);
+                    }
+                    return null;
+                });
+
+        // snapshot phase: both source tables should be flushed to sink database (mysql_cdc2)
+        await().atMost(60, TimeUnit.SECONDS)
+                .pollInterval(3, TimeUnit.SECONDS)
+                .untilAsserted(
+                        () ->
+                                Assertions.assertAll(
+                                        () ->
+                                                Assertions.assertTrue(
+                                                        query(
+                                                                                getSourceQuerySQL(
+                                                                                        MYSQL_DATABASE2,
+                                                                                        TIMER_FLUSH_SRC_TABLE))
+                                                                        .size()
+                                                                > 0,
+                                                        "timer_flush_src should be flushed to mysql_cdc2"),
+                                        () ->
+                                                Assertions.assertTrue(
+                                                        query(
+                                                                                getSourceQuerySQL(
+                                                                                        MYSQL_DATABASE2,
+                                                                                        TIMER_FLUSH_SRC_TABLE_2))
+                                                                        .size()
+                                                                > 0,
+                                                        "timer_flush_src_2 should be flushed to mysql_cdc2")));
+
+        // incremental phase: insert 100 rows into each source table, verify every 10 rows
+        int startId = 10;
+        int totalRows = 100;
+        int batchSize = 10;
+        for (int i = 0; i < totalRows; i++) {
+            int id = startId + i;
+            insertTimerFlushRow(MYSQL_DATABASE, TIMER_FLUSH_SRC_TABLE, id);
+            insertTimerFlushRow(MYSQL_DATABASE, TIMER_FLUSH_SRC_TABLE_2, id);
+
+            if ((i + 1) % batchSize == 0) {
+                final int checkUpToId = id;
+                await().atMost(30, TimeUnit.SECONDS)
+                        .pollInterval(1, TimeUnit.SECONDS)
+                        .untilAsserted(
+                                () ->
+                                        Assertions.assertAll(
+                                                () ->
+                                                        Assertions.assertEquals(
+                                                                checkUpToId - startId + 1,
+                                                                query(
+                                                                                String.format(
+                                                                                        "select id from %s.%s where id >= %d and id <= %d",
+                                                                                        MYSQL_DATABASE2,
+                                                                                        TIMER_FLUSH_SRC_TABLE,
+                                                                                        startId,
+                                                                                        checkUpToId))
+                                                                        .size(),
+                                                                "timer_flush_src: expected "
+                                                                        + (checkUpToId
+                                                                                - startId
+                                                                                + 1)
+                                                                        + " rows flushed up to id "
+                                                                        + checkUpToId),
+                                                () ->
+                                                        Assertions.assertEquals(
+                                                                checkUpToId - startId + 1,
+                                                                query(
+                                                                                String.format(
+                                                                                        "select id from %s.%s where id >= %d and id <= %d",
+                                                                                        MYSQL_DATABASE2,
+                                                                                        TIMER_FLUSH_SRC_TABLE_2,
+                                                                                        startId,
+                                                                                        checkUpToId))
+                                                                        .size(),
+                                                                "timer_flush_src_2: expected "
+                                                                        + (checkUpToId
+                                                                                - startId
+                                                                                + 1)
+                                                                        + " rows flushed up to id "
+                                                                        + checkUpToId)));
+            }
+        }
+
+        // final consistency: source and sink should have identical data for both tables
+        await().atMost(10, TimeUnit.SECONDS)
+                .untilAsserted(
+                        () ->
+                                Assertions.assertAll(
+                                        () ->
+                                                Assertions.assertIterableEquals(
+                                                        query(
+                                                                getSourceQuerySQL(
+                                                                        MYSQL_DATABASE,
+                                                                        TIMER_FLUSH_SRC_TABLE)),
+                                                        query(
+                                                                getSinkQuerySQL(
+                                                                        MYSQL_DATABASE2,
+                                                                        TIMER_FLUSH_SRC_TABLE))),
+                                        () ->
+                                                Assertions.assertIterableEquals(
+                                                        query(
+                                                                getSourceQuerySQL(
+                                                                        MYSQL_DATABASE,
+                                                                        TIMER_FLUSH_SRC_TABLE_2)),
+                                                        query(
+                                                                getSinkQuerySQL(
+                                                                        MYSQL_DATABASE2,
+                                                                        TIMER_FLUSH_SRC_TABLE_2)))));
+    }
+
+    @TestTemplate
+    @DisabledOnContainer(
+            value = {},
+            type = {EngineType.SPARK, EngineType.FLINK},
+            disabledReason =
+                    "engine-level timer flush and savepoint/restore are only supported on Zeta engine")
+    public void testJdbcSinkTimerFlushMultiTableRestore(TestContainer container) throws Exception {
+        inventoryDatabase.setTemplateName("multi_timer_flush").createAndInitialize();
+        clearTable(MYSQL_DATABASE2, TIMER_FLUSH_SRC_TABLE);
+        clearTable(MYSQL_DATABASE2, TIMER_FLUSH_SRC_TABLE_2);
+
+        Long jobId = JobIdGenerator.newJobId();
+        CompletableFuture.supplyAsync(
+                () -> {
+                    try {
+                        return container.executeJob(
+                                "/mysqlcdc_to_mysql_with_timer_flush_multi_table_restore.conf",
+                                String.valueOf(jobId));
+                    } catch (Exception e) {
+                        log.error("Commit task exception :" + e.getMessage());
+                        throw new RuntimeException(e);
+                    }
+                });
+
+        // snapshot phase: wait for initial rows to arrive in both sink tables
+        await().atMost(60, TimeUnit.SECONDS)
+                .pollInterval(3, TimeUnit.SECONDS)
+                .untilAsserted(
+                        () ->
+                                Assertions.assertAll(
+                                        () ->
+                                                Assertions.assertTrue(
+                                                        query(
+                                                                                getSourceQuerySQL(
+                                                                                        MYSQL_DATABASE2,
+                                                                                        TIMER_FLUSH_SRC_TABLE))
+                                                                        .size()
+                                                                > 0,
+                                                        "timer_flush_src should be flushed to mysql_cdc2"),
+                                        () ->
+                                                Assertions.assertTrue(
+                                                        query(
+                                                                                getSourceQuerySQL(
+                                                                                        MYSQL_DATABASE2,
+                                                                                        TIMER_FLUSH_SRC_TABLE_2))
+                                                                        .size()
+                                                                > 0,
+                                                        "timer_flush_src_2 should be flushed to mysql_cdc2")));
+
+        // phase 1: insert 100 rows before savepoint, verify every 10 rows
+        int phase1StartId = 10;
+        int totalRows = 100;
+        int batchSize = 10;
+        for (int i = 0; i < totalRows; i++) {
+            int id = phase1StartId + i;
+            insertTimerFlushRow(MYSQL_DATABASE, TIMER_FLUSH_SRC_TABLE, id);
+            insertTimerFlushRow(MYSQL_DATABASE, TIMER_FLUSH_SRC_TABLE_2, id);
+
+            if ((i + 1) % batchSize == 0) {
+                final int checkUpToId = id;
+                await().atMost(30, TimeUnit.SECONDS)
+                        .pollInterval(1, TimeUnit.SECONDS)
+                        .untilAsserted(
+                                () ->
+                                        Assertions.assertAll(
+                                                () ->
+                                                        Assertions.assertEquals(
+                                                                checkUpToId - phase1StartId + 1,
+                                                                query(
+                                                                                String.format(
+                                                                                        "select id from %s.%s where id >= %d and id <= %d",
+                                                                                        MYSQL_DATABASE2,
+                                                                                        TIMER_FLUSH_SRC_TABLE,
+                                                                                        phase1StartId,
+                                                                                        checkUpToId))
+                                                                        .size(),
+                                                                "timer_flush_src: expected "
+                                                                        + (checkUpToId
+                                                                                - phase1StartId
+                                                                                + 1)
+                                                                        + " rows flushed up to id "
+                                                                        + checkUpToId),
+                                                () ->
+                                                        Assertions.assertEquals(
+                                                                checkUpToId - phase1StartId + 1,
+                                                                query(
+                                                                                String.format(
+                                                                                        "select id from %s.%s where id >= %d and id <= %d",
+                                                                                        MYSQL_DATABASE2,
+                                                                                        TIMER_FLUSH_SRC_TABLE_2,
+                                                                                        phase1StartId,
+                                                                                        checkUpToId))
+                                                                        .size(),
+                                                                "timer_flush_src_2: expected "
+                                                                        + (checkUpToId
+                                                                                - phase1StartId
+                                                                                + 1)
+                                                                        + " rows flushed up to id "
+                                                                        + checkUpToId)));
+            }
+        }
+
+        // consistency check before savepoint
+        await().atMost(30, TimeUnit.SECONDS)
+                .untilAsserted(
+                        () ->
+                                Assertions.assertAll(
+                                        () ->
+                                                Assertions.assertIterableEquals(
+                                                        query(
+                                                                getSourceQuerySQL(
+                                                                        MYSQL_DATABASE,
+                                                                        TIMER_FLUSH_SRC_TABLE)),
+                                                        query(
+                                                                getSinkQuerySQL(
+                                                                        MYSQL_DATABASE2,
+                                                                        TIMER_FLUSH_SRC_TABLE))),
+                                        () ->
+                                                Assertions.assertIterableEquals(
+                                                        query(
+                                                                getSourceQuerySQL(
+                                                                        MYSQL_DATABASE,
+                                                                        TIMER_FLUSH_SRC_TABLE_2)),
+                                                        query(
+                                                                getSinkQuerySQL(
+                                                                        MYSQL_DATABASE2,
+                                                                        TIMER_FLUSH_SRC_TABLE_2)))));
+
+        // savepoint + restore
+        Assertions.assertEquals(0, container.savepointJob(String.valueOf(jobId)).getExitCode());
+        CompletableFuture.supplyAsync(
+                () -> {
+                    try {
+                        container.restoreJob(
+                                "/mysqlcdc_to_mysql_with_timer_flush_multi_table_restore.conf",
+                                String.valueOf(jobId));
+                    } catch (Exception e) {
+                        log.error("Commit task exception :" + e.getMessage());
+                        throw new RuntimeException(e);
+                    }
+                    return null;
+                });
+
+        // wait for the restored job to fully start
+        Thread.sleep(10000);
+
+        // phase 2: insert 100 rows after restore, verify every 10 rows
+        int phase2StartId = phase1StartId + totalRows + 100;
+        for (int i = 0; i < totalRows; i++) {
+            int id = phase2StartId + i;
+            insertTimerFlushRow(MYSQL_DATABASE, TIMER_FLUSH_SRC_TABLE, id);
+            insertTimerFlushRow(MYSQL_DATABASE, TIMER_FLUSH_SRC_TABLE_2, id);
+
+            if ((i + 1) % batchSize == 0) {
+                final int checkUpToId = id;
+                await().atMost(30, TimeUnit.SECONDS)
+                        .pollInterval(1, TimeUnit.SECONDS)
+                        .untilAsserted(
+                                () ->
+                                        Assertions.assertAll(
+                                                () ->
+                                                        Assertions.assertEquals(
+                                                                checkUpToId - phase2StartId + 1,
+                                                                query(
+                                                                                String.format(
+                                                                                        "select id from %s.%s where id >= %d and id <= %d",
+                                                                                        MYSQL_DATABASE2,
+                                                                                        TIMER_FLUSH_SRC_TABLE,
+                                                                                        phase2StartId,
+                                                                                        checkUpToId))
+                                                                        .size(),
+                                                                "timer_flush_src after restore: expected "
+                                                                        + (checkUpToId
+                                                                                - phase2StartId
+                                                                                + 1)
+                                                                        + " rows flushed up to id "
+                                                                        + checkUpToId),
+                                                () ->
+                                                        Assertions.assertEquals(
+                                                                checkUpToId - phase2StartId + 1,
+                                                                query(
+                                                                                String.format(
+                                                                                        "select id from %s.%s where id >= %d and id <= %d",
+                                                                                        MYSQL_DATABASE2,
+                                                                                        TIMER_FLUSH_SRC_TABLE_2,
+                                                                                        phase2StartId,
+                                                                                        checkUpToId))
+                                                                        .size(),
+                                                                "timer_flush_src_2 after restore: expected "
+                                                                        + (checkUpToId
+                                                                                - phase2StartId
+                                                                                + 1)
+                                                                        + " rows flushed up to id "
+                                                                        + checkUpToId)));
+            }
+        }
+
+        // final consistency check after restore
+        await().atMost(30, TimeUnit.SECONDS)
+                .untilAsserted(
+                        () ->
+                                Assertions.assertAll(
+                                        () ->
+                                                Assertions.assertIterableEquals(
+                                                        query(
+                                                                getSourceQuerySQL(
+                                                                        MYSQL_DATABASE,
+                                                                        TIMER_FLUSH_SRC_TABLE)),
+                                                        query(
+                                                                getSinkQuerySQL(
+                                                                        MYSQL_DATABASE2,
+                                                                        TIMER_FLUSH_SRC_TABLE))),
+                                        () ->
+                                                Assertions.assertIterableEquals(
+                                                        query(
+                                                                getSourceQuerySQL(
+                                                                        MYSQL_DATABASE,
+                                                                        TIMER_FLUSH_SRC_TABLE_2)),
+                                                        query(
+                                                                getSinkQuerySQL(
+                                                                        MYSQL_DATABASE2,
+                                                                        TIMER_FLUSH_SRC_TABLE_2)))));
     }
 
     private Connection getJdbcConnection() throws SQLException {
