@@ -21,14 +21,28 @@ import org.apache.seatunnel.api.table.type.SeaTunnelRow;
 import org.apache.seatunnel.connectors.seatunnel.file.config.HadoopConf;
 import org.apache.seatunnel.connectors.seatunnel.file.exception.FileConnectorException;
 
+import org.apache.pdfbox.pdmodel.PDDocument;
+import org.apache.pdfbox.pdmodel.PDPage;
+import org.apache.pdfbox.pdmodel.PDPageContentStream;
+import org.apache.pdfbox.pdmodel.common.PDRectangle;
+import org.apache.pdfbox.pdmodel.font.PDType1Font;
+import org.apache.pdfbox.pdmodel.font.Standard14Fonts;
+import org.apache.pdfbox.pdmodel.graphics.image.PDImageXObject;
+
 import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.Test;
 
 import lombok.extern.slf4j.Slf4j;
 
+import javax.imageio.ImageIO;
+
+import java.awt.image.BufferedImage;
+import java.io.ByteArrayOutputStream;
 import java.io.IOException;
 import java.net.URISyntaxException;
 import java.net.URL;
+import java.nio.file.Files;
+import java.nio.file.Path;
 import java.nio.file.Paths;
 import java.util.List;
 import java.util.stream.Collectors;
@@ -141,6 +155,93 @@ public class PdfReadStrategyTest {
             Assertions.assertTrue(
                     text.startsWith("image_page_"), "image text must start with 'image_page_'");
         }
+    }
+
+    @Test
+    public void testNoOutlinePdfWithImagesExtractsImageElements() throws IOException {
+        Path tempPdf = createNoOutlinePdfWithImage();
+        try {
+            PdfReadStrategy pdfReadStrategy = new PdfReadStrategy();
+            LocalConf localConf = new LocalConf(FS_DEFAULT_NAME_DEFAULT);
+            pdfReadStrategy.init(localConf);
+            TempCollector tempCollector = new TempCollector();
+            pdfReadStrategy.read(tempPdf.toString(), "", tempCollector);
+
+            List<SeaTunnelRow> rows = tempCollector.getRows();
+            Assertions.assertFalse(rows.isEmpty(), "Should produce at least one element");
+
+            List<SeaTunnelRow> paragraphs =
+                    rows.stream()
+                            .filter(row -> "paragraph".equals(row.getField(1)))
+                            .collect(Collectors.toList());
+            Assertions.assertFalse(paragraphs.isEmpty(), "Should have paragraph elements");
+
+            List<SeaTunnelRow> images =
+                    rows.stream()
+                            .filter(row -> "image".equals(row.getField(1)))
+                            .collect(Collectors.toList());
+            Assertions.assertFalse(
+                    images.isEmpty(), "Should have image elements for no-outline PDF");
+
+            for (SeaTunnelRow imageRow : images) {
+                String text = (String) imageRow.getField(3);
+                Assertions.assertNotNull(text, "image element must have text");
+                Assertions.assertTrue(
+                        text.startsWith("image_page_"), "image text must start with 'image_page_'");
+
+                Integer pageNumber = (Integer) imageRow.getField(4);
+                Assertions.assertNotNull(pageNumber, "image element must have page number");
+                Assertions.assertTrue(pageNumber >= 1, "page number must be >= 1");
+
+                // no-outline images should have null parentId
+                Assertions.assertNull(
+                        imageRow.getField(6), "no-outline image must have null parentId");
+            }
+
+            // elements should be sorted by page number
+            for (int i = 1; i < rows.size(); i++) {
+                int prevPage = (Integer) rows.get(i - 1).getField(4);
+                int currPage = (Integer) rows.get(i).getField(4);
+                Assertions.assertTrue(
+                        currPage >= prevPage, "elements should be sorted by page number");
+            }
+        } finally {
+            Files.deleteIfExists(tempPdf);
+        }
+    }
+
+    private Path createNoOutlinePdfWithImage() throws IOException {
+        Path tempFile = Files.createTempFile("no_outline_pdf_test_", ".pdf");
+        try (PDDocument document = new PDDocument()) {
+            PDPage page = new PDPage(PDRectangle.A4);
+            document.addPage(page);
+
+            // Create a simple test image (red 50x50 square)
+            BufferedImage bufferedImage = new BufferedImage(50, 50, BufferedImage.TYPE_INT_RGB);
+            for (int x = 0; x < 50; x++) {
+                for (int y = 0; y < 50; y++) {
+                    bufferedImage.setRGB(x, y, 0xFF0000);
+                }
+            }
+            ByteArrayOutputStream baos = new ByteArrayOutputStream();
+            ImageIO.write(bufferedImage, "png", baos);
+            PDImageXObject pdImage =
+                    PDImageXObject.createFromByteArray(document, baos.toByteArray(), "test.png");
+
+            try (PDPageContentStream contentStream = new PDPageContentStream(document, page)) {
+                contentStream.beginText();
+                contentStream.setFont(new PDType1Font(Standard14Fonts.FontName.HELVETICA), 12);
+                contentStream.newLineAtOffset(50, 700);
+                contentStream.showText("This is a PDF without outline containing an image.");
+                contentStream.endText();
+
+                contentStream.drawImage(pdImage, 50, 500, 100, 100);
+            }
+
+            // No outline is added — this PDF has no bookmarks
+            document.save(tempFile.toFile());
+        }
+        return tempFile;
     }
 
     private List<SeaTunnelRow> getHeadingElements(List<SeaTunnelRow> rows) {

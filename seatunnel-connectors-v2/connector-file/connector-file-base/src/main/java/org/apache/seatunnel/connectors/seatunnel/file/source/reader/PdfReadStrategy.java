@@ -617,6 +617,11 @@ public class PdfReadStrategy extends AbstractReadStrategy {
 
         List<CoordinateInfo> imagesCoordinates = pdfImageExtractor.getImagesCoordinates();
 
+        // When no headings exist (no-outline PDF), create flat image elements directly
+        if (headingCoordinates.isEmpty()) {
+            return createFlatImageElements(imagesCoordinates);
+        }
+
         return assignElementsToHeadings(
                 document,
                 imagesCoordinates,
@@ -626,6 +631,26 @@ public class PdfReadStrategy extends AbstractReadStrategy {
                         String.format(
                                 "image_page_%d_pos_(%.0f,%.0f)",
                                 coord.getPageNumber() + 1, coord.getX(), coord.getY()));
+    }
+
+    /** Create flat image elements for PDFs without outline structure */
+    private List<DocumentElement> createFlatImageElements(List<CoordinateInfo> imagesCoordinates) {
+        List<DocumentElement> elements = new ArrayList<>();
+        for (int i = 0; i < imagesCoordinates.size(); i++) {
+            CoordinateInfo coord = imagesCoordinates.get(i);
+            DocumentElement element = new DocumentElement();
+            element.setElementType("image");
+            element.setText(
+                    String.format(
+                            "image_page_%d_pos_(%.0f,%.0f)",
+                            coord.getPageNumber() + 1, coord.getX(), coord.getY()));
+            element.setPageNumber(coord.getPageNumber() + 1);
+            element.setPositionIndex(i);
+            element.setParentId(null);
+            element.setChildIds(new ArrayList<>());
+            elements.add(element);
+        }
+        return elements;
     }
 
     /** Determine if element belongs to a specific heading based on position rules */
