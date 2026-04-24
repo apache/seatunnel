@@ -88,10 +88,18 @@ public class PostgresUtils {
             throws SQLException {
         // The statement used to get approximate row count which is less
         // accurate than COUNT(*), but is more efficient for large table.
+        // Supports both regular tables (relkind='r') and partitioned parent tables (relkind='p').
+        // For partitioned tables, reltuples on the parent may be 0 in some PostgreSQL versions,
+        // so we sum the child partitions' reltuples as the more reliable estimate.
         final String rowCountQuery =
                 String.format(
-                        "SELECT reltuples FROM pg_class r WHERE relkind = 'r' AND relname = '%s';",
-                        tableId.table());
+                        "SELECT COALESCE("
+                                + "(SELECT SUM(c.reltuples) FROM pg_inherits i "
+                                + " JOIN pg_class c ON c.oid = i.inhrelid "
+                                + " WHERE i.inhparent = (SELECT oid FROM pg_class WHERE relname = '%s' AND relkind = 'p')), "
+                                + "(SELECT reltuples FROM pg_class WHERE relkind = 'r' AND relname = '%s')"
+                                + ");",
+                        tableId.table(), tableId.table());
         return jdbc.queryAndMap(
                 rowCountQuery,
                 rs -> {

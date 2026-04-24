@@ -257,9 +257,19 @@ public class PostgresDialect implements JdbcDialect {
                                         .getFullName()
                                         .equals(table.getTablePath().getFullName()));
         if (useTableStats) {
+            // Supports both regular tables (relkind='r') and partitioned parent tables
+            // (relkind='p'). For partitioned tables, reltuples on the parent may be 0 in some
+            // PostgreSQL versions, so we sum child partitions' reltuples as a more reliable
+            // estimate and fall back to the parent's own reltuples for regular tables.
             String rowCountQuery =
                     String.format(
-                            "SELECT reltuples FROM pg_class r WHERE relkind = 'r' AND relname = '%s';",
+                            "SELECT COALESCE("
+                                    + "(SELECT SUM(c.reltuples) FROM pg_inherits i "
+                                    + " JOIN pg_class c ON c.oid = i.inhrelid "
+                                    + " WHERE i.inhparent = (SELECT oid FROM pg_class WHERE relname = '%s' AND relkind = 'p')), "
+                                    + "(SELECT reltuples FROM pg_class WHERE relkind = 'r' AND relname = '%s')"
+                                    + ");",
+                            table.getTablePath().getTableName(),
                             table.getTablePath().getTableName());
             try (Statement stmt = connection.createStatement()) {
                 log.info("Split Chunk, approximateRowCntStatement: {}", rowCountQuery);
