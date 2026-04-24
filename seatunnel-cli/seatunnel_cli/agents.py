@@ -40,6 +40,7 @@ from .llm_provider import LLMProvider
 from .connectors import (
     get_connector_catalog, get_connector_detail, list_connector_names,
     route_by_keyword, validate_connector_options,
+    fetch_connector_metadata, format_metadata_for_prompt,
 )
 
 if TYPE_CHECKING:
@@ -66,7 +67,9 @@ TOOLS = [
     {
         "toolSpec": {
             "name": "get_connector_info",
-            "description": "Get detailed info about a specific connector including parameters and examples.",
+            "description": "Get detailed info about a specific connector including parameters and examples. "
+                           "IMPORTANT: Always specify connector_type ('source' or 'sink') to get the correct "
+                           "type-specific options. Source and sink connectors have different required/optional parameters.",
             "inputSchema": {
                 "json": {
                     "type": "object",
@@ -74,7 +77,13 @@ TOOLS = [
                         "connector_name": {
                             "type": "string",
                             "description": "Name of the connector, e.g. 'Jdbc', 'Kafka', 'S3File'",
-                        }
+                        },
+                        "connector_type": {
+                            "type": "string",
+                            "enum": ["source", "sink"],
+                            "description": "Whether this connector is used as 'source' or 'sink'. "
+                                           "Source and sink have different options — always specify this.",
+                        },
                     },
                     "required": ["connector_name"],
                 }
@@ -146,7 +155,8 @@ def _handle_tool_call(tool_name: str, tool_input: dict) -> str:
 
     elif tool_name == "get_connector_info":
         name = tool_input.get("connector_name", "")
-        detail = get_connector_detail(name)
+        ctype = tool_input.get("connector_type")
+        detail = get_connector_detail(name, connector_type=ctype)
         return detail or f"Connector '{name}' not found. Use list_connectors to see available options."
 
     elif tool_name == "route_connectors":
@@ -154,7 +164,7 @@ def _handle_tool_call(tool_name: str, tool_input: dict) -> str:
         matches = route_by_keyword(text)
         if matches:
             return f"Relevant connectors for '{text}': {', '.join(matches)}\nCall get_connector_info for each to get full option details."
-        return f"No direct keyword match for '{text}'. Use list_connectors to browse all 81 connectors."
+        return f"No direct keyword match for '{text}'. Use list_connectors to browse all available connectors."
 
     elif tool_name == "validate_config":
         config_str = tool_input.get("config", "")
@@ -200,6 +210,68 @@ def _flatten_hocon_keys(conf, prefix: str = "") -> set[str]:
     return keys
 
 
+def _get_hocon_value(conf, key: str):
+    """Safely get a value from a pyhocon config object by key."""
+    try:
+        if hasattr(conf, "get"):
+            return conf.get(key, None)
+        elif isinstance(conf, dict):
+            return conf.get(key, None)
+    except Exception:
+        pass
+    return None
+
+
+def _check_conditional_mismatches(
+    section: str, connector_name: str, connector_conf,
+    provided_keys: set[str], metadata: dict, errors: list[str],
+) -> None:
+    """Check for conditional options whose trigger condition doesn't match.
+
+    Reads the metadata's conditional groups and checks: if a conditional option
+    key is present in the config, does its trigger condition actually match?
+    If not, flag it as an error — these cause runtime type-mismatch failures.
+    """
+    # Build a map: option_key → set of (trigger_key, trigger_value)
+    # An option is valid if at least ONE of its trigger conditions matches.
+    cond_map: dict[str, set[tuple[str, str]]] = {}
+
+    for opt in metadata.get("required", []):
+        cond_key = opt.get("_condition_key")
+        cond_val = opt.get("_condition_value")
+        if cond_key and cond_val:
+            cond_map.setdefault(opt["key"], set()).add((cond_key, cond_val))
+
+    for cond in metadata.get("conditional", []):
+        trigger_key = cond.get("when", "")
+        trigger_val = cond.get("equals", "")
+        if trigger_key and trigger_val:
+            for opt_key in cond.get("then_require", []):
+                cond_map.setdefault(opt_key, set()).add((trigger_key, trigger_val))
+
+    # Check each conditional option that appears in the config
+    for opt_key, triggers in cond_map.items():
+        if opt_key not in provided_keys:
+            continue
+        # Check if any trigger condition matches
+        any_match = False
+        for trigger_key, trigger_val in triggers:
+            actual_val = _get_hocon_value(connector_conf, trigger_key)
+            if actual_val is not None and str(actual_val).strip('"') == trigger_val:
+                any_match = True
+                break
+            # Also check case-insensitive for enums
+            if actual_val is not None and str(actual_val).strip('"').upper() == trigger_val.upper():
+                any_match = True
+                break
+        if not any_match:
+            trigger_desc = " or ".join(f"{k}={v}" for k, v in triggers)
+            errors.append(
+                f"{section}.{connector_name}: '{opt_key}' is a conditional option "
+                f"(requires {trigger_desc}) but the condition doesn't match in this config"
+            )
+
+
 def validate_hocon(config_str: str) -> str:
     """Validate HOCON config — syntax, structure, and connector-level required params."""
     errors = []
@@ -231,7 +303,7 @@ def validate_hocon(config_str: str) -> str:
     except Exception as e:
         errors.append(f"HOCON parse error: {e}")
 
-    # ── 3. Connector-level required params check (uses catalog) ──
+    # ── 3. Connector-level required params + conditional mismatch check ──
     if parsed is not None:
         for section in ["source", "sink"]:
             try:
@@ -241,10 +313,20 @@ def validate_hocon(config_str: str) -> str:
                 for connector_name in section_conf:
                     connector_conf = section_conf[connector_name]
                     provided_keys = _flatten_hocon_keys(connector_conf)
-                    result = validate_connector_options(connector_name, provided_keys)
+                    result = validate_connector_options(
+                        connector_name, provided_keys, connector_type=section,
+                    )
                     if result.get("missing_required"):
                         missing = ", ".join(result["missing_required"])
                         errors.append(f"{section}.{connector_name}: missing required options: {missing}")
+
+                    # ── 3b. Generic conditional mismatch check (metadata-driven) ──
+                    metadata = fetch_connector_metadata(connector_name, section)
+                    if metadata:
+                        _check_conditional_mismatches(
+                            section, connector_name, connector_conf,
+                            provided_keys, metadata, errors,
+                        )
             except Exception:
                 pass
 
@@ -636,69 +718,197 @@ sink {{
 }}
 ```
 
-## CRITICAL Rules — read carefully:
+## CRITICAL Rules — MUST follow to avoid runtime errors:
 
-### Option placement
+### 1. Minimalism — ONLY include what's needed
+- Include **ALWAYS Required** options + relevant **Key Optional** options.
+- **Conditional options**: ONLY include when their trigger condition actually matches.
+  The metadata from `get_connector_info` shows conditions like "When `X` = `Y` → `a`, `b`, `c`".
+  If your config sets `X` to a different value, do NOT include `a`, `b`, `c`.
+  Including conditional options when their trigger doesn't match causes type-mismatch runtime errors.
+- Do NOT include all possible options "just in case". Extra options cause runtime errors.
+
+### 2. Option placement — source vs sink have DIFFERENT options
 - **NEVER** put sink-only options on a source connector, or vice versa.
-  - `schema_save_mode`, `data_save_mode`, `generate_sink_sql` → **SINK ONLY**
-  - `partition_num`, `fetch_size`, `where_condition` → **SOURCE ONLY**
-- When unsure, call `get_connector_info` for the specific connector and check the option list.
+- **ALWAYS** call `get_connector_info` with `connector_type='source'` or `connector_type='sink'`
+  to get the correct type-specific options. Do not guess — source and sink factories define
+  different required/optional parameters for the same connector name.
 
-### Option names and values
-- Use EXACTLY the option names from the connector catalog. Do NOT invent option names.
-- **S3/HDFS file connectors**: credential keys use DASHES not DOTS:
-  - Correct: `fs.s3a.access-key`, `fs.s3a.secret-key`, `fs.s3a.endpoint`
-  - WRONG: `fs.s3a.access.key`, `fs.s3a.secret.key`
-- **Jdbc connector**: the url option is `url` (with fallback key `base-url`), NOT `base_url` or `jdbc_url`.
-- **Enum values**: use the exact values from the catalog (e.g., `format = "parquet"` not `format = "PARQUET"` unless catalog says so).
+### 3. Use metadata as the source of truth
+- Use EXACTLY the option names from `get_connector_info` results. Do NOT invent option names.
+- Check `[aliases: ...]` in metadata — either the primary key or an alias is accepted.
+- Respect option types from metadata (string, boolean, list, etc.).
+- Refer to the Golden Examples below for known-good patterns.
 
-### Credential handling — PREFER real values from memory
-- If the user's memory store contains connection details (host, port, username, password, access keys),
-  use those ACTUAL VALUES directly in the config — do NOT replace them with ${{ENV_VAR}} placeholders.
-- Only use `${{ENV_VAR}}` placeholders when:
-  (a) No real value is available from memory or the user's request, AND
-  (b) You add a comment explaining what the user needs to fill in.
-- NEVER generate a config with unresolved `${{VAR}}` placeholders without warning the user.
-  If you must use placeholders, list them explicitly in the Explanation section.
+### 4. Credential handling
+- If the user provides credentials in their request or memory, use them directly.
+- Only use `${{ENV_VAR}}` placeholders when no real value is available.
 
-### General
-1. Always include the `env` block with job.mode
-2. Use correct connector names (case-sensitive): Jdbc, Kafka, S3File, Clickhouse, etc.
-3. Include ALL required parameters for each connector (call get_connector_info to verify)
-4. Set reasonable defaults for optional performance params
-5. For STREAMING jobs, always set checkpoint.interval
-6. When using multi-table, use plugin_output/plugin_input to chain stages
-7. Call `get_connector_info` for EVERY connector you use — do not rely on training data alone
+## Golden Examples — verified working configs:
+
+### MySQL → S3 Parquet (BATCH)
+```hocon
+env {{
+  parallelism = 2
+  job.mode = "BATCH"
+}}
+
+source {{
+  Jdbc {{
+    url = "jdbc:mysql://mysql-host:3306/mydb"
+    driver = "com.mysql.cj.jdbc.Driver"
+    user = "root"
+    password = "password"
+    query = "SELECT * FROM users"
+    plugin_output = "jdbc_out"
+  }}
+}}
+
+sink {{
+  S3File {{
+    plugin_input = "jdbc_out"
+    bucket = "s3a://my-bucket"
+    path = "/data/users"
+    tmp_path = "/tmp/seatunnel"
+    fs.s3a.endpoint = "s3.us-east-1.amazonaws.com"
+    fs.s3a.aws.credentials.provider = "org.apache.hadoop.fs.s3a.SimpleAWSCredentialsProvider"
+    access_key = "AKIAXXXXXXXX"
+    secret_key = "xxxxxxxxxxxxxxxx"
+    file_format_type = "PARQUET"
+    compress_codec = "SNAPPY"
+  }}
+}}
+```
+
+### Kafka → Clickhouse (STREAMING)
+```hocon
+env {{
+  parallelism = 2
+  job.mode = "STREAMING"
+  checkpoint.interval = 10000
+}}
+
+source {{
+  Kafka {{
+    bootstrap.servers = "kafka:9092"
+    topic = "events"
+    format = "json"
+    start_mode = "latest"
+    plugin_output = "kafka_out"
+    schema {{
+      fields {{
+        id = "bigint"
+        name = "string"
+        timestamp = "timestamp"
+      }}
+    }}
+  }}
+}}
+
+sink {{
+  Clickhouse {{
+    plugin_input = "kafka_out"
+    host = "clickhouse:8123"
+    database = "default"
+    table = "events"
+    username = "default"
+    password = ""
+  }}
+}}
+```
 
 ## Connector Catalog:
 {connector_catalog}
 
 ## Output:
-Return ONLY the HOCON config inside a ```hocon code block. Add brief comments inline.
-After the config block, add a "## Explanation" section that includes:
-1. Brief explanation of your choices
-2. List of any `${{VAR}}` placeholders that need to be filled in (if any)
-3. Any assumptions made about connection details
+Return the HOCON config inside a ```hocon code block. Keep it MINIMAL — only include options that are
+actually needed. Add brief inline comments only for non-obvious choices.
+After the config block, add a brief "## Explanation" section.
 """
 
 VALIDATOR_SYSTEM = """You are the **Validator Agent** of SeaTunnel CLI.
 
-Your job is to review a generated SeaTunnel HOCON config and identify issues.
+Your job is to review a generated SeaTunnel HOCON config and catch errors that will cause runtime failures.
 
-Check for:
-1. HOCON syntax correctness (matched braces, proper quoting)
-2. All required parameters present for each connector
-3. Correct connector names (case-sensitive)
-4. Reasonable values (ports, batch sizes, parallelism)
-5. Security (no hardcoded passwords — use ${VAR} placeholders)
-6. Mode consistency (STREAMING jobs need checkpoint.interval)
-7. Plugin input/output chaining correctness (if transforms exist)
+## Check for (in order of severity):
+
+### Runtime-breaking errors (MUST fail):
+1. **Conditional option mismatch**: options that belong to a conditional group are included but
+   their trigger condition value doesn't match. These cause type-mismatch or unknown-option errors at runtime.
+   For each option, check: does its trigger condition match the actual value set in the config?
+2. **Source/sink option mixing**: sink-only options on a source block, or vice versa.
+3. **Missing ALWAYS Required options**: check against connector metadata.
+4. **HOCON syntax errors**: unmatched braces, invalid quoting.
+5. **Option type mismatch**: boolean value where list is expected, string where int is expected, etc.
+
+### Warnings (PASS with notes):
+6. STREAMING jobs without checkpoint.interval
+7. Missing `env` block
+
+### NOT an issue (do NOT flag):
+- Hardcoded passwords (user explicitly provided them)
+- Missing optional parameters (they have defaults)
 
 Output one of:
-- "PASS" — config is valid, no issues
-- "PASS_WITH_NOTES: <notes>" — config is valid but has optional improvements
-- "FAIL: <issue list>" — config has errors that must be fixed, list each error clearly
+- "PASS" — config is valid
+- "PASS_WITH_NOTES: <notes>" — config works but has improvements
+- "FAIL: <issue list>" — config has errors that must be fixed
 """
+
+
+def _extract_connectors_from_plan(plan_text: str) -> list[tuple[str, str]]:
+    """Extract (connector_name, connector_type) pairs from planner output.
+
+    Parses lines like:
+      - Source: Jdbc (MySQL via JDBC)
+      - Source: MySQL-CDC (real-time CDC)
+      - Sink: S3File (S3 with Parquet)
+      - Sink: StarRocks (stream load)
+
+    Returns list of tuples, e.g., [("Jdbc", "source"), ("S3File", "sink")].
+    """
+    connectors = []
+    for line in plan_text.split("\n"):
+        stripped = line.strip().lstrip("- ")
+        # Match "Source: ConnectorName (...)" or "Sink: ConnectorName (...)"
+        m = re.match(r"(?:Source|source):\s*(\S+)", stripped)
+        if m:
+            name = m.group(1).rstrip(",")
+            connectors.append((name, "source"))
+            continue
+        m = re.match(r"(?:Sink|sink):\s*(\S+)", stripped)
+        if m:
+            name = m.group(1).rstrip(",")
+            connectors.append((name, "sink"))
+    return connectors
+
+
+def _fetch_metadata_for_plan(plan_text: str, on_status: Callable) -> str:
+    """Fetch precise connector metadata for all connectors identified in the plan.
+
+    Returns a formatted string block to inject into the ConfigAgent system prompt,
+    containing full option rules (required, optional, fallbackKeys, conditionals)
+    for each connector.
+    """
+    connectors = _extract_connectors_from_plan(plan_text)
+    if not connectors:
+        return ""
+
+    sections = []
+    for name, ctype in connectors:
+        on_status("fetching", f"Fetching {ctype} options for {name}...")
+        metadata = fetch_connector_metadata(name, ctype)
+        if metadata:
+            sections.append(format_metadata_for_prompt(metadata, name, ctype))
+        else:
+            sections.append(f"### {name} ({ctype.upper()}) — no metadata available, use catalog index")
+
+    if not sections:
+        return ""
+
+    header = "\n## Precise Connector Option Rules (fetched for this request)\n"
+    header += "Use EXACTLY these option keys. Do NOT invent or guess option names.\n\n"
+    return header + "\n\n".join(sections)
 
 
 class Orchestrator:
@@ -725,10 +935,76 @@ class Orchestrator:
         self.on_stream = on_stream or (lambda *a: None)
         self.memory_store = memory_store
         self.pending_question: str | None = None
+        self._connector_metadata_block: str = ""
+
+    # ─── Context window management ───
+    # conversation_history always holds the FULL session (saved to disk as-is).
+    # _trimmed_history() returns a shorter view for LLM calls:
+    #   - Recent messages kept verbatim (they carry active context).
+    #   - Older messages are summarized into one compact message so the LLM
+    #     still knows what happened but doesn't pay full token cost.
+    #   - Tool-use pairs (assistant+toolResult) are never split.
+    MAX_RECENT_MESSAGES = 20   # keep latest N messages verbatim
+    SUMMARY_THRESHOLD = 24     # only summarize when total exceeds this
 
     def load_history(self, history: list[dict]) -> None:
         """Replace conversation history (e.g., when resuming a session)."""
         self.conversation_history = list(history)
+
+    def _trimmed_history(self) -> list[dict]:
+        """Return a context-window-friendly view of conversation_history.
+
+        If the history is short enough, returns a full copy.
+        Otherwise, summarizes older messages into a single user message
+        and appends the recent messages verbatim.
+        """
+        history = self.conversation_history
+        if len(history) <= self.SUMMARY_THRESHOLD:
+            return list(history)
+
+        # Find safe split point: keep last MAX_RECENT_MESSAGES, but never
+        # split a tool-use pair (assistant with toolUse + user with toolResult).
+        split = len(history) - self.MAX_RECENT_MESSAGES
+        # If the message at split is a toolResult response, move split back
+        # to include the preceding assistant message.
+        while split > 0:
+            msg = history[split]
+            content = msg.get("content", [])
+            has_tool_result = any(
+                isinstance(b, dict) and "toolResult" in b for b in content
+            )
+            if has_tool_result:
+                split -= 1
+            else:
+                break
+
+        older = history[:split]
+        recent = history[split:]
+
+        if not older:
+            return list(history)
+
+        # Build a compact summary of older messages
+        snippets = []
+        for msg in older:
+            role = msg.get("role", "")
+            for block in msg.get("content", []):
+                if isinstance(block, dict) and "text" in block:
+                    text = block["text"][:200].replace("\n", " ")
+                    snippets.append(f"{role}: {text}")
+        summary_text = "\n".join(snippets[-20:])  # cap at ~20 snippets
+
+        summary_msg = {
+            "role": "user",
+            "content": [{
+                "text": (
+                    f"[Earlier conversation summary ({len(older)} messages)]\n"
+                    f"{summary_text}\n"
+                    f"[End of summary — recent messages follow]"
+                ),
+            }],
+        }
+        return [summary_msg] + list(recent)
 
     def _build_planner_system(self) -> str:
         base = PLANNER_SYSTEM
@@ -741,6 +1017,10 @@ class Orchestrator:
     def _build_config_system(self) -> str:
         from .connectors import get_connector_catalog
         system = CONFIG_SYSTEM_TEMPLATE.format(connector_catalog=get_connector_catalog())
+        # Inject precise connector metadata fetched in Phase 1.5
+        metadata_block = getattr(self, "_connector_metadata_block", "")
+        if metadata_block:
+            system = system + "\n\n" + metadata_block
         if self.memory_store:
             block = self.memory_store.format_for_prompt(max_tokens=500)
             if block:
@@ -776,6 +1056,11 @@ class Orchestrator:
                 "content": [{"text": plan_result["content"]}],
             })
             return plan_result
+
+        # Phase 1.5: Fetch precise connector metadata for identified connectors
+        self._connector_metadata_block = _fetch_metadata_for_plan(
+            plan_result["content"], self.on_status,
+        )
 
         # Phase 2: Config Generation
         self.on_status("generating", "Generating SeaTunnel config...")
@@ -839,7 +1124,7 @@ class Orchestrator:
 
     def _run_planner(self) -> dict:
         """Run the planner agent with tool use loop (streaming)."""
-        messages = list(self.conversation_history)
+        messages = self._trimmed_history()
         planner_system = self._build_planner_system()
 
         for _ in range(5):  # max 5 tool-use rounds
@@ -935,7 +1220,7 @@ class Orchestrator:
         system = self._build_config_system()
 
         user_request = ""
-        for msg in self.conversation_history:
+        for msg in self._trimmed_history():
             if msg["role"] == "user":
                 for block in msg.get("content", []):
                     if isinstance(block, dict) and "text" in block:

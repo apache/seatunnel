@@ -246,11 +246,45 @@ class MemoryStore:
             return True
         return False
 
+    def clear(self) -> int:
+        """Remove all memories. Returns the number of entries removed."""
+        count = len(self._memories)
+        self._memories.clear()
+        self._next_id = 1
+        self._save()
+        return count
+
     def get_all(self) -> list[dict]:
         return list(self._memories)
 
     def get_by_type(self, memory_type: str) -> list[dict]:
         return [m for m in self._memories if m["type"] == memory_type]
+
+    def needs_compaction(self, threshold: int = 20) -> bool:
+        """Check if memory count exceeds the compaction threshold."""
+        return len(self._memories) >= threshold
+
+    def compact(self, client: LLMProvider, threshold: int = 20) -> int:
+        """Compact memories using LLM when count exceeds threshold.
+
+        Merges similar memories per type into fewer, denser entries.
+        Returns the number of entries removed (before - after).
+        """
+        if len(self._memories) < threshold:
+            return 0
+
+        compacted = compact_memories(self._memories, client)
+        if not compacted or len(compacted) >= len(self._memories):
+            return 0
+
+        removed = len(self._memories) - len(compacted)
+        self._memories = compacted
+        # Reset IDs sequentially
+        for i, m in enumerate(self._memories, 1):
+            m["id"] = f"mem_{i:03d}"
+        self._next_id = len(self._memories) + 1
+        self._save()
+        return removed
 
     def format_for_prompt(self, max_tokens: int = 800) -> str:
         if not self._memories:
@@ -346,3 +380,58 @@ def extract_memories(
     except Exception as e:
         logger.debug(f"Memory extraction failed: {e}")
     return []
+
+
+def compact_memories(
+    memories: list[dict],
+    client: LLMProvider,
+) -> list[dict]:
+    """Merge memories into a smaller set using LLM summarization.
+
+    Groups by type, asks the LLM to consolidate duplicates and merge related
+    facts, then returns the compacted list with fresh timestamps.
+    """
+    if len(memories) < 5:
+        return list(memories)
+
+    formatted = "\n".join(
+        f"- [{m['type']}] {m['content']}" for m in memories
+    )
+
+    prompt = (
+        f"Current memories ({len(memories)} entries):\n{formatted}\n\n"
+        f"Consolidate these into the FEWEST entries possible:\n"
+        f"- Merge duplicates and near-duplicates into one entry\n"
+        f"- Combine related facts of the same type (e.g. multiple connection details for the same system)\n"
+        f"- Keep ALL concrete information (hosts, ports, URLs, specific settings) — do not lose detail\n"
+        f"- Remove outdated entries if a newer one supersedes them\n"
+        f"- Target: ≤10 entries total\n\n"
+        f'Return JSON array: [{{"content": "...", "type": "connection|preference|project"}}]'
+    )
+    system = (
+        "You consolidate SeaTunnel CLI memory entries. "
+        "Preserve every concrete fact (hosts, ports, URLs, credentials, specific settings). "
+        "Merge related items, remove true duplicates. Return valid JSON array only."
+    )
+
+    try:
+        raw = client.quick_chat(prompt, system=system, use_fast_model=True)
+        start = raw.find("[")
+        end = raw.rfind("]")
+        if start >= 0 and end > start:
+            items = json.loads(raw[start : end + 1])
+            now = _now_iso()
+            return [
+                {
+                    "id": f"mem_{i:03d}",
+                    "type": item["type"] if item.get("type") in MemoryStore.MEMORY_TYPES else "project",
+                    "content": item["content"],
+                    "created_at": now,
+                    "source": "compacted",
+                }
+                for i, item in enumerate(items, 1)
+                if isinstance(item, dict) and "content" in item
+            ]
+    except Exception as e:
+        logger.debug(f"Memory compaction failed: {e}")
+    return list(memories)

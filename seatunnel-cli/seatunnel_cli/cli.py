@@ -18,7 +18,9 @@
 """SeaTunnel CLI - Interactive terminal interface."""
 
 import argparse
+import logging
 import os
+import re
 import sys
 import time
 from pathlib import Path
@@ -69,12 +71,13 @@ Generate Apache SeaTunnel configs with natural language.
   [bold]/check[/bold]           — Dry-run validate last config (auto-fixes on failure)
   [bold]/run[/bold]             — Execute last config with SeaTunnel
   [bold]/connectors[/bold]      — List available connectors
+  [bold]/config[/bold]          — Show/change LLM provider settings
   [bold]/sessions[/bold]        — List recent sessions
   [bold]/resume [id][/bold]     — Resume a previous session
   [bold]/new[/bold]             — Start a fresh session
   [bold]/memory[/bold]          — Show remembered facts
   [bold]/remember <text>[/bold] — Save a fact to memory
-  [bold]/forget <id>[/bold]     — Delete a memory entry
+  [bold]/forget <id|--all>[/bold] — Delete a memory entry (or all)
   [bold]/clear[/bold]           — Clear conversation history
   [bold]/help[/bold]            — Show this help
   [bold]/quit[/bold]            — Exit
@@ -236,6 +239,19 @@ class SeaTunnelCLI:
         except Exception:
             pass
 
+        # Auto-compact when memories grow too large
+        try:
+            if self.memory_store.needs_compaction():
+                before = len(self.memory_store.get_all())
+                removed = self.memory_store.compact(self.client)
+                if removed > 0:
+                    after = len(self.memory_store.get_all())
+                    self.console.print(
+                        f"  [dim]🗜️ Memory compacted: {before} → {after} entries[/dim]"
+                    )
+        except Exception:
+            pass
+
     def _cmd_sessions(self):
         sessions = self.session_manager.list_sessions(limit=10)
         if not sessions:
@@ -317,7 +333,14 @@ class SeaTunnelCLI:
 
     def _cmd_forget(self, memory_id: str):
         if not memory_id:
-            self.console.print("  Usage: /forget <memory-id>", style="warning")
+            self.console.print("  Usage: /forget <memory-id> or /forget --all", style="warning")
+            return
+        if memory_id == "--all":
+            count = self.memory_store.clear()
+            if count:
+                self.console.print(f"  Cleared all {count} memories.", style="success")
+            else:
+                self.console.print("  No memories to clear.", style="info")
             return
         if self.memory_store.remove(memory_id):
             self.console.print(f"  Removed {memory_id}.", style="success")
@@ -340,6 +363,194 @@ class SeaTunnelCLI:
             return "preference"
         return "project"
 
+    def _cmd_config(self, arg: str):
+        """Show or change provider configuration."""
+        from .llm_provider import load_config, save_config, _PROVIDERS
+
+        if not arg:
+            # Show current config
+            config = load_config()
+            self.console.print("\n[heading]LLM Provider Configuration:[/heading]")
+            self.console.print(f"  Current provider: [bold]{self.client.provider_name}[/bold]")
+            self.console.print(f"  Model:            [bold]{self.client.model_id}[/bold]")
+            self.console.print(f"  Fast model:       [bold]{self.client.fast_model_id}[/bold]")
+            config_file = Path.home() / ".seatunnel" / "config.json"
+            if config_file.exists():
+                self.console.print(f"  Config file:      [bold]{config_file}[/bold]")
+            else:
+                self.console.print(f"  Config file:      [dim]not set (using env/auto-detect)[/dim]")
+            self.console.print(f"\n  [dim]Change provider: /config <{', '.join(sorted(_PROVIDERS.keys()))}>[/dim]")
+            return
+
+        provider_name = arg.lower()
+        if provider_name not in _PROVIDERS:
+            self.console.print(
+                f"  Unknown provider: {arg}. Available: {', '.join(sorted(_PROVIDERS.keys()))}",
+                style="error",
+            )
+            return
+
+        # Save to config file
+        config = load_config()
+        config["provider"] = provider_name
+        save_config(config)
+
+        # Try to create the new provider
+        try:
+            from .llm_provider import create_provider
+            new_client = create_provider(provider_name)
+            self.client = new_client
+            self.orchestrator.client = new_client
+            self.console.print(
+                f"  Provider switched to [bold]{provider_name}[/bold]", style="success"
+            )
+            self.console.print(f"  Model: [bold]{new_client.model_id}[/bold]", style="info")
+            self.console.print(f"  Saved to ~/.seatunnel/config.json", style="info")
+        except Exception as e:
+            self.console.print(f"  Failed to init {provider_name}: {e}", style="error")
+            self.console.print(
+                "  Config saved — provider will be used on next start if credentials are set.",
+                style="info",
+            )
+
+    @staticmethod
+    def run_init(console: Console):
+        """Interactive first-time setup. Guides user through provider selection and credentials."""
+        from .llm_provider import load_config, save_config, _PROVIDERS, _auto_detect_provider
+
+        console.print("\n[heading]SeaTunnel CLI — Initial Setup[/heading]\n")
+
+        # Security warning
+        console.print(
+            Panel(
+                "[bold]Security Notice:[/bold]\n"
+                "- API keys are stored in ~/.seatunnel/config.json (local only)\n"
+                "- Keys are NEVER logged, transmitted to third parties, or included in generated configs\n"
+                "- Make sure ~/.seatunnel/ is not committed to version control\n"
+                "- You can also use environment variables instead of storing keys in the config file",
+                border_style="yellow",
+                padding=(0, 2),
+            )
+        )
+
+        # Show detected credentials
+        detected = _auto_detect_provider()
+        if detected:
+            console.print(f"  Auto-detected credentials for: [bold]{detected}[/bold]")
+        else:
+            console.print("  No provider credentials detected in environment.")
+
+        # Provider selection
+        provider_names = sorted(_PROVIDERS.keys())
+        console.print(f"\n  Available providers:")
+        console.print("    [bold]1[/bold]. anthropic  — Anthropic API (requires ANTHROPIC_API_KEY)")
+        console.print("    [bold]2[/bold]. openai     — OpenAI / compatible APIs (requires OPENAI_API_KEY)")
+        console.print("    [bold]3[/bold]. bedrock    — AWS Bedrock (requires AWS credentials)\n")
+
+        try:
+            choice = pt_prompt(
+                f"  Choose provider [{detected or 'anthropic'}]: ",
+            ).strip().lower()
+        except (EOFError, KeyboardInterrupt):
+            console.print("\n  Setup cancelled.", style="warning")
+            return
+
+        # Allow numeric shorthand
+        choice_map = {"1": "anthropic", "2": "openai", "3": "bedrock"}
+        choice = choice_map.get(choice, choice)
+
+        if not choice:
+            choice = detected or "anthropic"
+
+        if choice not in _PROVIDERS:
+            console.print(f"  Unknown provider: {choice}", style="error")
+            return
+
+        # Build config
+        config = load_config()
+        config["provider"] = choice
+
+        # Provider-specific credential input
+        if choice == "anthropic":
+            existing = os.environ.get("ANTHROPIC_API_KEY")
+            if existing:
+                masked = existing[:7] + "..." + existing[-4:] if len(existing) > 15 else "***"
+                console.print(f"\n  ANTHROPIC_API_KEY detected: [bold]{masked}[/bold]")
+            else:
+                console.print("\n  ANTHROPIC_API_KEY not found in environment.")
+                try:
+                    key_input = pt_prompt(
+                        "  Enter Anthropic API key (or press Enter to skip): ",
+                    ).strip()
+                except (EOFError, KeyboardInterrupt):
+                    key_input = ""
+                if key_input:
+                    os.environ["ANTHROPIC_API_KEY"] = key_input
+                    config.setdefault("credentials", {})["anthropic_api_key"] = key_input
+                    console.print("  API key saved.", style="success")
+
+        elif choice == "openai":
+            existing = os.environ.get("OPENAI_API_KEY")
+            if existing:
+                masked = existing[:5] + "..." + existing[-4:] if len(existing) > 12 else "***"
+                console.print(f"\n  OPENAI_API_KEY detected: [bold]{masked}[/bold]")
+            else:
+                console.print("\n  OPENAI_API_KEY not found in environment.")
+                try:
+                    key_input = pt_prompt(
+                        "  Enter OpenAI API key (or press Enter to skip): ",
+                    ).strip()
+                except (EOFError, KeyboardInterrupt):
+                    key_input = ""
+                if key_input:
+                    os.environ["OPENAI_API_KEY"] = key_input
+                    config.setdefault("credentials", {})["openai_api_key"] = key_input
+                    console.print("  API key saved.", style="success")
+
+                # Optional base URL for compatible APIs
+                try:
+                    base_url = pt_prompt(
+                        "  Enter base URL (for compatible APIs, or press Enter to skip): ",
+                    ).strip()
+                except (EOFError, KeyboardInterrupt):
+                    base_url = ""
+                if base_url:
+                    os.environ["OPENAI_BASE_URL"] = base_url
+                    config.setdefault("credentials", {})["openai_base_url"] = base_url
+
+        elif choice == "bedrock":
+            console.print("\n  AWS Bedrock requires AWS credentials (aws configure / env vars / IAM role).")
+            try:
+                import boto3
+                sts = boto3.client("sts")
+                identity = sts.get_caller_identity()
+                console.print(f"  AWS Account: [bold]{identity.get('Account', 'unknown')}[/bold]", style="success")
+            except Exception:
+                console.print(
+                    "  [warning]AWS credentials not configured.[/warning]\n"
+                    "  Set up with: [bold]aws configure[/bold] or export AWS_ACCESS_KEY_ID / AWS_SECRET_ACCESS_KEY"
+                )
+
+        save_config(config)
+        config_path = Path.home() / ".seatunnel" / "config.json"
+        console.print(f"\n  Config saved to: [bold]{config_path}[/bold]", style="success")
+        console.print(f"  Provider: [bold]{choice}[/bold]")
+
+        # Try to validate
+        try:
+            from .llm_provider import create_provider
+            client = create_provider(choice)
+            console.print(f"  Model:    [bold]{client.model_id}[/bold]")
+            console.print(f"  Status:   [bold green]ready[/bold green]")
+        except Exception as e:
+            console.print(f"  Status:   [bold yellow]credentials needed[/bold yellow] — {e}")
+            console.print(
+                "  [dim]Set the required environment variable and retry, "
+                "or re-run: seatunnel --init[/dim]"
+            )
+
+        console.print()
+
     def run_interactive(self):
         """Main interactive loop."""
         self.console.print(BANNER, style="bold cyan")
@@ -350,8 +561,8 @@ class SeaTunnelCLI:
         history = FileHistory(str(self.history_dir / "history.txt"))
 
         command_completer = WordCompleter(
-            ["/save", "/check", "/run", "/connectors", "/clear", "/help", "/quit", "/exit",
-             "/sessions", "/resume", "/new", "/memory", "/remember", "/forget"],
+            ["/save", "/check", "/run", "/connectors", "/config", "/clear", "/help",
+             "/quit", "/exit", "/sessions", "/resume", "/new", "/memory", "/remember", "/forget"],
             sentence=True,
         )
 
@@ -391,7 +602,7 @@ class SeaTunnelCLI:
 
         self.console.print(f"  Provider: [bold]{provider_name}[/bold]", style="info")
 
-        # Provider-specific credential checks
+        # Provider-specific credential checks (never log actual key values)
         if provider_name == "bedrock":
             region = os.environ.get("AWS_REGION") or os.environ.get("AWS_DEFAULT_REGION")
             if not region:
@@ -410,20 +621,23 @@ class SeaTunnelCLI:
                 )
         elif provider_name == "anthropic":
             if os.environ.get("ANTHROPIC_API_KEY"):
-                self.console.print("  Anthropic API key: [bold green]configured[/bold green]", style="info")
+                self.console.print("  API key:  [bold green]configured[/bold green]", style="info")
             else:
                 self.console.print("[warning]Warning: ANTHROPIC_API_KEY not set.[/warning]")
         elif provider_name == "openai":
             if os.environ.get("OPENAI_API_KEY"):
-                self.console.print("  OpenAI API key: [bold green]configured[/bold green]", style="info")
+                self.console.print("  API key:  [bold green]configured[/bold green]", style="info")
             else:
                 self.console.print("[warning]Warning: OPENAI_API_KEY not set.[/warning]")
             base_url = os.environ.get("OPENAI_BASE_URL")
             if base_url:
-                self.console.print(f"  OpenAI Base URL: [bold]{base_url}[/bold]", style="info")
+                self.console.print(f"  Base URL: [bold]{base_url}[/bold]", style="info")
 
         self.console.print(f"  Model: [bold]{provider.model_id}[/bold]", style="info")
         self.console.print(f"  Fast model: [bold]{provider.fast_model_id}[/bold]", style="info")
+        self.console.print(
+            "  [dim]Credentials are never logged or included in generated configs.[/dim]"
+        )
 
         # Check SeaTunnel engine connection
         from .connectors import _check_engine, _ENGINE_API_BASE
@@ -433,7 +647,7 @@ class SeaTunnelCLI:
             self.console.print("  Mode:   [bold]cluster[/bold] (REST API available — live connector metadata)", style="info")
         else:
             self.console.print(
-                f"  Engine: [bold yellow]offline[/bold yellow] ({_ENGINE_API_BASE}) — using static catalog",
+                f"  Engine: [bold yellow]offline[/bold yellow] ({_ENGINE_API_BASE}) — using runtime metadata",
                 style="info",
             )
             self.console.print(
@@ -449,15 +663,19 @@ class SeaTunnelCLI:
                 style="info",
             )
 
-        # Catalog status
-        from .connectors import ensure_catalog
-        catalog = ensure_catalog(quiet=True)
-        count = len(catalog.get("index", []))
-        if count > 0:
-            self.console.print(f"  Catalog: [bold green]{count} connectors[/bold green] (built-in)", style="info")
+        # Runtime metadata status
+        from .connectors import _load_runtime_metadata
+        runtime_meta = _load_runtime_metadata()
+        if runtime_meta:
+            self.console.print(
+                f"  Metadata: [bold green]{len(runtime_meta)} entries[/bold green] "
+                f"(runtime JSON — 100% accurate)",
+                style="info",
+            )
         else:
             self.console.print(
-                "  Catalog: [bold red]empty[/bold red] — run: seatunnel --sync-catalog /path/to/seatunnel",
+                "  Metadata: [bold yellow]not found[/bold yellow] — "
+                "run: seatunnel --export-metadata",
                 style="info",
             )
 
@@ -611,6 +829,9 @@ class SeaTunnelCLI:
             self.console.print(f"  [bold]Sources:[/bold] {', '.join(names['sources'])}")
             self.console.print(f"  [bold]Sinks:[/bold]   {', '.join(names['sinks'])}")
             self.console.print(f"  [bold]Transforms:[/bold] {', '.join(names['transforms'])}")
+
+        elif command == "/config":
+            self._cmd_config(arg.strip())
 
         elif command == "/sessions":
             self._cmd_sessions()
@@ -1007,22 +1228,41 @@ def main():
         help="Override fast/small model ID",
     )
     parser.add_argument(
-        "--sync-catalog",
-        metavar="SEATUNNEL_SOURCE",
-        help="Regenerate connector catalog from SeaTunnel source code, then exit",
+        "--init",
+        action="store_true",
+        help="Interactive first-time setup: choose LLM provider and save config",
+    )
+    parser.add_argument(
+        "--export-metadata",
+        nargs="?",
+        const="auto",
+        metavar="OUTPUT_PATH",
+        help="Export connector metadata via Java runtime reflection (seatunnel-metadata-export.sh). "
+             "Produces 100%% accurate connector_metadata.json. "
+             "If OUTPUT_PATH is omitted, writes to ~/.seatunnel/connector_metadata.json",
     )
 
     args = parser.parse_args()
 
-    # --sync-catalog: standalone operation, no LLM needed
-    if args.sync_catalog:
-        from .connectors import sync_catalog
-        try:
-            sync_catalog(args.sync_catalog)
-        except Exception as e:
-            print(f"Error: {e}", file=sys.stderr)
-            sys.exit(1)
+    # --init: interactive setup, no LLM needed
+    if args.init:
+        console = Console(theme=THEME)
+        SeaTunnelCLI.run_init(console)
         sys.exit(0)
+
+    # --export-metadata: run Java exporter, no LLM needed
+    if args.export_metadata:
+        from .connectors import export_runtime_metadata
+        output = None if args.export_metadata == "auto" else args.export_metadata
+        result = export_runtime_metadata(output)
+        if result:
+            print(f"Metadata exported to: {result}")
+            sys.exit(0)
+        else:
+            print("Error: Failed to export metadata. "
+                  "Make sure SEATUNNEL_HOME is set and seatunnel-metadata-export.sh is available.",
+                  file=sys.stderr)
+            sys.exit(1)
 
     # Override provider if specified
     if args.provider:
@@ -1041,7 +1281,32 @@ def main():
             os.environ["ANTHROPIC_SMALL_FAST_MODEL"] = args.fast_model
 
     console = Console(theme=THEME)
-    cli = SeaTunnelCLI(console)
+
+    # Install credential-redacting log filter before any provider init
+    _install_secret_log_filter()
+
+    try:
+        cli = SeaTunnelCLI(console)
+    except (ValueError, ImportError) as e:
+        # No provider configured or credentials missing — guide user through setup
+        console.print(BANNER, style="bold cyan")
+        console.print(
+            Panel(
+                f"[warning]{e}[/warning]\n\n"
+                "Let's set up your LLM provider now.",
+                title="Setup Required",
+                border_style="yellow",
+                padding=(1, 2),
+            )
+        )
+        SeaTunnelCLI.run_init(console)
+        # Retry after setup
+        try:
+            cli = SeaTunnelCLI(console)
+        except (ValueError, ImportError) as e2:
+            console.print(f"\n[error]Still cannot initialize: {e2}[/error]")
+            console.print("Please configure credentials and try again.", style="warning")
+            sys.exit(1)
 
     if args.request:
         # Single-shot mode
@@ -1049,6 +1314,59 @@ def main():
     else:
         # Interactive mode
         cli.run_interactive()
+
+
+# ─── Credential-safe logging ───
+
+# Patterns that indicate a value is a secret and must be redacted in logs.
+_SECRET_PATTERNS = re.compile(
+    r'(sk-ant-[A-Za-z0-9_-]+)'       # Anthropic API key
+    r'|(sk-[A-Za-z0-9_-]{20,})'       # OpenAI API key
+    r'|(AKIA[A-Z0-9]{16})'            # AWS Access Key ID
+    r'|([A-Za-z0-9/+=]{40,})'         # AWS Secret Key / generic long token
+    r'|(api[_-]?key\s*[:=]\s*\S+)'    # key=value patterns
+    r'|(password\s*[:=]\s*\S+)'
+    r'|(secret\s*[:=]\s*\S+)'
+    r'|(token\s*[:=]\s*\S+)',
+    re.IGNORECASE,
+)
+
+
+class _SecretRedactFilter(logging.Filter):
+    """Logging filter that redacts credentials from log messages."""
+
+    def filter(self, record: logging.LogRecord) -> bool:
+        if record.msg and isinstance(record.msg, str):
+            record.msg = _SECRET_PATTERNS.sub("***REDACTED***", record.msg)
+        if record.args:
+            if isinstance(record.args, dict):
+                record.args = {
+                    k: _SECRET_PATTERNS.sub("***REDACTED***", str(v))
+                    if isinstance(v, str) else v
+                    for k, v in record.args.items()
+                }
+            elif isinstance(record.args, tuple):
+                record.args = tuple(
+                    _SECRET_PATTERNS.sub("***REDACTED***", str(a))
+                    if isinstance(a, str) else a
+                    for a in record.args
+                )
+        return True
+
+
+def _install_secret_log_filter():
+    """Install the secret-redacting filter on the root logger and all seatunnel_cli loggers."""
+    secret_filter = _SecretRedactFilter()
+    root_logger = logging.getLogger()
+    root_logger.addFilter(secret_filter)
+    for handler in root_logger.handlers:
+        handler.addFilter(secret_filter)
+    # Also cover our package loggers explicitly
+    for name in ("seatunnel_cli", "seatunnel_cli.llm_provider",
+                 "seatunnel_cli.agents", "seatunnel_cli.connectors",
+                 "seatunnel_cli.memory"):
+        pkg_logger = logging.getLogger(name)
+        pkg_logger.addFilter(secret_filter)
 
 
 if __name__ == "__main__":

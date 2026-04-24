@@ -666,6 +666,56 @@ class OpenAIProvider(LLMProvider):
         }
 
 
+# ─── Config file ───
+
+_CONFIG_PATH = os.path.join(os.path.expanduser("~"), ".seatunnel", "config.json")
+
+
+def load_config() -> dict:
+    """Load CLI config from ~/.seatunnel/config.json. Returns {} if not found."""
+    try:
+        with open(_CONFIG_PATH, "r", encoding="utf-8") as f:
+            return json.load(f)
+    except (FileNotFoundError, json.JSONDecodeError):
+        return {}
+
+
+def save_config(config: dict) -> None:
+    """Save CLI config to ~/.seatunnel/config.json."""
+    config_dir = os.path.dirname(_CONFIG_PATH)
+    os.makedirs(config_dir, exist_ok=True)
+    with open(_CONFIG_PATH, "w", encoding="utf-8") as f:
+        json.dump(config, f, indent=2, ensure_ascii=False)
+
+
+def _auto_detect_provider() -> str | None:
+    """Auto-detect the best available provider from environment credentials.
+
+    Returns provider name or None if no credentials found.
+    """
+    # 1. Anthropic API key
+    if os.environ.get("ANTHROPIC_API_KEY"):
+        return "anthropic"
+
+    # 2. OpenAI API key
+    if os.environ.get("OPENAI_API_KEY"):
+        return "openai"
+
+    # 3. AWS credentials (for Bedrock)
+    if os.environ.get("AWS_ACCESS_KEY_ID") or os.environ.get("AWS_PROFILE"):
+        return "bedrock"
+    try:
+        import boto3
+        session = boto3.Session()
+        credentials = session.get_credentials()
+        if credentials is not None:
+            return "bedrock"
+    except Exception:
+        pass
+
+    return None
+
+
 # ─── Factory ───
 
 _PROVIDERS = {
@@ -678,19 +728,73 @@ _PROVIDERS = {
 def create_provider(provider: str | None = None) -> LLMProvider:
     """Create an LLM provider instance.
 
-    Args:
-        provider: Provider name. If None, reads from AI_PROVIDER env var (default: bedrock).
+    Resolution order:
+      1. Explicit `provider` argument (from --provider CLI flag)
+      2. AI_PROVIDER environment variable
+      3. ~/.seatunnel/config.json "provider" field
+      4. Auto-detect from available credentials
 
     Returns:
         An initialized LLMProvider instance.
 
     Raises:
-        ValueError: If the provider name is unknown.
+        ValueError: If no provider can be determined or the name is unknown.
         ImportError: If the required SDK package is not installed.
     """
-    name = (provider or os.environ.get("AI_PROVIDER", "bedrock")).lower().strip()
+    available = ", ".join(sorted(_PROVIDERS.keys()))
+
+    # 1. Explicit argument
+    name = provider
+
+    # 2. Environment variable
+    if not name:
+        name = os.environ.get("AI_PROVIDER")
+
+    # 3. Config file
+    config = load_config()
+    if not name:
+        name = config.get("provider")
+
+    # Apply credentials from config file (only if not already set in env)
+    creds = config.get("credentials", {})
+    if creds.get("anthropic_api_key"):
+        os.environ.setdefault("ANTHROPIC_API_KEY", creds["anthropic_api_key"])
+    if creds.get("openai_api_key"):
+        os.environ.setdefault("OPENAI_API_KEY", creds["openai_api_key"])
+    if creds.get("openai_base_url"):
+        os.environ.setdefault("OPENAI_BASE_URL", creds["openai_base_url"])
+
+    # Apply model overrides from config file
+    if name and "models" in config:
+        model_config = config["models"].get(name, {})
+        if model_config.get("model") and not os.environ.get("ANTHROPIC_MODEL") and not os.environ.get("OPENAI_MODEL"):
+            if name == "openai":
+                os.environ.setdefault("OPENAI_MODEL", model_config["model"])
+            else:
+                os.environ.setdefault("ANTHROPIC_MODEL", model_config["model"])
+        if model_config.get("fast_model") and not os.environ.get("ANTHROPIC_SMALL_FAST_MODEL") and not os.environ.get("OPENAI_SMALL_FAST_MODEL"):
+            if name == "openai":
+                os.environ.setdefault("OPENAI_SMALL_FAST_MODEL", model_config["fast_model"])
+            else:
+                os.environ.setdefault("ANTHROPIC_SMALL_FAST_MODEL", model_config["fast_model"])
+
+    # 4. Auto-detect
+    if not name:
+        name = _auto_detect_provider()
+
+    if not name:
+        raise ValueError(
+            f"No AI provider configured. Set up with one of:\n"
+            f"  1. Run: seatunnel --init              (interactive setup)\n"
+            f"  2. Set: export AI_PROVIDER=<{available}>\n"
+            f"  3. Set provider credentials:\n"
+            f"     - Anthropic: export ANTHROPIC_API_KEY=sk-ant-...\n"
+            f"     - OpenAI:    export OPENAI_API_KEY=sk-...\n"
+            f"     - Bedrock:   configure AWS credentials (aws configure)"
+        )
+
+    name = name.lower().strip()
     cls = _PROVIDERS.get(name)
     if cls is None:
-        available = ", ".join(sorted(_PROVIDERS.keys()))
         raise ValueError(f"Unknown AI provider '{name}'. Available: {available}")
     return cls()
