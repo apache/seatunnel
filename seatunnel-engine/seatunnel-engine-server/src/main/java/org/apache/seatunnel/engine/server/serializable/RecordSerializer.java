@@ -52,7 +52,7 @@ public class RecordSerializer implements StreamSerializer<Record> {
             out.writeByte(RecordDataType.SEATUNNEL_ROW.ordinal());
             out.writeString(row.getTableId());
             out.writeByte(row.getRowKind().toByteValue());
-            out.writeByte(row.getArity());
+            out.writeInt(row.getArity());
             for (Object field : row.getFields()) {
                 out.writeObject(field);
             }
@@ -77,7 +77,7 @@ public class RecordSerializer implements StreamSerializer<Record> {
         } else if (dataType == RecordDataType.SEATUNNEL_ROW.ordinal()) {
             String tableId = in.readString();
             byte rowKind = in.readByte();
-            byte arity = in.readByte();
+            int arity = in.readInt();
             SeaTunnelRow row = new SeaTunnelRow(arity);
             row.setTableId(tableId);
             row.setRowKind(RowKind.fromByteValue(rowKind));
