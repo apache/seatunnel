@@ -28,14 +28,18 @@ import lombok.extern.slf4j.Slf4j;
 import java.io.IOException;
 import java.util.ArrayList;
 import java.util.LinkedHashMap;
+import java.util.LinkedHashSet;
 import java.util.List;
 import java.util.Map;
+import java.util.Set;
 
 @Slf4j
 public class FileSinkAggregatedCommitter
         implements SinkAggregatedCommitter<FileCommitInfo, FileAggregatedCommitInfo> {
     protected HadoopFileSystemProxy hadoopFileSystemProxy;
     private final HadoopConf hadoopConf;
+    private final Set<String> pendingUuidDirectories = new LinkedHashSet<>();
+    private final Set<String> pendingJobDirectories = new LinkedHashSet<>();
 
     public FileSinkAggregatedCommitter(HadoopConf hadoopConf) {
         this.hadoopConf = hadoopConf;
@@ -66,7 +70,7 @@ public class FileSinkAggregatedCommitter
                             // best-effort and should not fail the whole checkpoint.
                             try {
                                 hadoopFileSystemProxy.deleteFile(transactionDir);
-                                cleanupTransactionParentDirectories(transactionDir);
+                                registerTransactionParentDirectories(transactionDir);
                             } catch (Exception cleanupException) {
                                 log.warn(
                                         "delete transaction directory [{}] failed after successful commit, ignore this cleanup error.",
@@ -158,7 +162,24 @@ public class FileSinkAggregatedCommitter
      */
     @Override
     public void close() throws IOException {
-        hadoopFileSystemProxy.close();
+        try {
+            cleanupPendingTransactionParentDirectories();
+        } finally {
+            hadoopFileSystemProxy.close();
+        }
+    }
+
+    private void registerTransactionParentDirectories(String transactionDir) {
+        Path uuidDir = new Path(transactionDir).getParent();
+        if (uuidDir == null) {
+            return;
+        }
+        Path jobDir = uuidDir.getParent();
+        if (jobDir == null) {
+            return;
+        }
+        pendingUuidDirectories.add(uuidDir.toString());
+        pendingJobDirectories.add(jobDir.toString());
     }
 
     private void cleanupTransactionParentDirectories(String transactionDir) {
@@ -170,13 +191,20 @@ public class FileSinkAggregatedCommitter
         if (jobDir == null) {
             return;
         }
-        cleanupEmptyDirectory(uuidDir);
-        cleanupEmptyDirectory(jobDir);
+        cleanupEmptyDirectory(uuidDir.toString());
+        cleanupEmptyDirectory(jobDir.toString());
     }
 
-    private void cleanupEmptyDirectory(Path directory) {
+    private void cleanupPendingTransactionParentDirectories() {
+        pendingUuidDirectories.forEach(this::cleanupEmptyDirectory);
+        pendingJobDirectories.forEach(this::cleanupEmptyDirectory);
+        pendingUuidDirectories.clear();
+        pendingJobDirectories.clear();
+    }
+
+    private void cleanupEmptyDirectory(String directory) {
         try {
-            hadoopFileSystemProxy.deleteEmptyDirectory(directory.toString());
+            hadoopFileSystemProxy.deleteEmptyDirectory(directory);
         } catch (IOException e) {
             log.warn("Failed to clean empty transaction parent directory: {}", directory, e);
         }

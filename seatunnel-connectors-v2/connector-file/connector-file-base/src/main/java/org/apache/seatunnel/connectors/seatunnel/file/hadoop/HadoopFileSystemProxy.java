@@ -98,14 +98,15 @@ public class HadoopFileSystemProxy implements Serializable, Closeable {
                 () -> {
                     Path path = new Path(filePath);
                     FileSystem fileSystem = getFileSystem();
-                    if (!fileSystem.exists(path) || !fileSystem.getFileStatus(path).isDirectory()) {
-                        return false;
-                    }
-                    FileStatus[] children = fileSystem.listStatus(path);
-                    if (children != null && children.length > 0) {
-                        return false;
-                    }
                     try {
+                        if (!fileSystem.exists(path)
+                                || !fileSystem.getFileStatus(path).isDirectory()) {
+                            return false;
+                        }
+                        FileStatus[] children = fileSystem.listStatus(path);
+                        if (children != null && children.length > 0) {
+                            return false;
+                        }
                         return fileSystem.delete(path, false);
                     } catch (IOException e) {
                         log.debug(

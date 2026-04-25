@@ -48,7 +48,7 @@ class FileSinkAggregatedCommitterTest {
     }
 
     @Test
-    void shouldCleanEmptyTransactionParentDirectoriesAfterCommit() throws Exception {
+    void shouldDeferEmptyTransactionParentDirectoryCleanupUntilClose() throws Exception {
         HadoopFileSystemProxy fs = Mockito.mock(HadoopFileSystemProxy.class);
         TestableCommitter committer = newCommitter(fs);
 
@@ -58,9 +58,14 @@ class FileSinkAggregatedCommitterTest {
         Assertions.assertTrue(errors.isEmpty());
         Mockito.verify(fs).renameFile(TEMP_FILE, TARGET_FILE, true);
         Mockito.verify(fs).deleteFile(TRANSACTION_DIR);
+        Mockito.verify(fs, Mockito.never()).deleteEmptyDirectory(Mockito.anyString());
+
+        committer.close();
+
         Mockito.verify(fs).deleteEmptyDirectory(UUID_DIR);
         Mockito.verify(fs).deleteEmptyDirectory(JOB_DIR);
         Mockito.verify(fs, Mockito.never()).deleteEmptyDirectory(TMP_ROOT);
+        Mockito.verify(fs).close();
     }
 
     @Test

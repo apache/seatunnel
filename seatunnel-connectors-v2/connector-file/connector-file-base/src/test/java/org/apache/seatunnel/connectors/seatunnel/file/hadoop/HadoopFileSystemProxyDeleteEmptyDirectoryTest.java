@@ -25,6 +25,7 @@ import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.Test;
 import org.mockito.Mockito;
 
+import java.io.IOException;
 import java.lang.reflect.Field;
 
 class HadoopFileSystemProxyDeleteEmptyDirectoryTest {
@@ -63,6 +64,21 @@ class HadoopFileSystemProxyDeleteEmptyDirectoryTest {
             Assertions.assertFalse(proxy.deleteEmptyDirectory(missingPath.toString()));
             Assertions.assertFalse(proxy.deleteEmptyDirectory(regularFile.toString()));
             Assertions.assertFalse(proxy.deleteEmptyDirectory(nonEmptyDir.toUri().toString()));
+        }
+
+        Mockito.verify(fs, Mockito.never()).delete(Mockito.any(Path.class), Mockito.anyBoolean());
+    }
+
+    @Test
+    void shouldIgnoreDirectoryChangedDuringEmptyDirectoryCheck() throws Exception {
+        Path changingDir = new Path("/tmp/changing");
+        FileSystem fs = Mockito.mock(FileSystem.class);
+        Mockito.when(fs.exists(changingDir)).thenReturn(true);
+        Mockito.when(fs.getFileStatus(changingDir)).thenReturn(directoryStatus(changingDir));
+        Mockito.when(fs.listStatus(changingDir)).thenThrow(new IOException("changed"));
+
+        try (HadoopFileSystemProxy proxy = newProxy(fs)) {
+            Assertions.assertFalse(proxy.deleteEmptyDirectory(changingDir.toUri().toString()));
         }
 
         Mockito.verify(fs, Mockito.never()).delete(Mockito.any(Path.class), Mockito.anyBoolean());
