@@ -31,9 +31,6 @@ import com.hazelcast.config.Config;
 import com.hazelcast.instance.impl.HazelcastInstanceImpl;
 import com.hazelcast.internal.serialization.Data;
 
-import java.io.IOException;
-import java.net.ServerSocket;
-
 class RecordSerializerTest {
     @Test
     void testSerializeSeaTunnelRowWithArityGreaterThanSignedByteMaxValue() {
@@ -81,19 +78,8 @@ class RecordSerializerTest {
                 + "      auto-detection:\n"
                 + "        enabled: false\n"
                 + "    port:\n"
-                + "      auto-increment: false\n"
-                + "      port-count: 1\n"
-                + "      port: "
-                + findFreePort()
-                + "\n";
-    }
-
-    private int findFreePort() {
-        try (ServerSocket serverSocket = new ServerSocket(0)) {
-            serverSocket.setReuseAddress(true);
-            return serverSocket.getLocalPort();
-        } catch (IOException e) {
-            throw new RuntimeException("No free Hazelcast port available", e);
-        }
+                + "      auto-increment: true\n"
+                + "      port-count: 100\n"
+                + "      port: 5801\n";
     }
 }
