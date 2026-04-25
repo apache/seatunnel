@@ -105,6 +105,16 @@ public class BinaryWriteStrategy extends AbstractWriteStrategy<FSDataOutputStrea
         if (beingWrittenFilePath != null) {
             return beingWrittenFilePath;
         } else {
+            if (!beingWrittenFile.isEmpty()) {
+                String existingRelativePath = beingWrittenFile.keySet().iterator().next();
+                throw new FileConnectorException(
+                        CommonErrorCodeDeprecated.ILLEGAL_ARGUMENT,
+                        "Binary sink custom_filename only supports a single source file in each "
+                                + "sink task. Existing source file: "
+                                + existingRelativePath
+                                + ", new source file: "
+                                + relativePath);
+            }
             String[] pathSegments =
                     new String[] {
                         transactionDirectory,

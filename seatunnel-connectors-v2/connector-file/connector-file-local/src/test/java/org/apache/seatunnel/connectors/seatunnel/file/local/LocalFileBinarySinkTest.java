@@ -25,7 +25,9 @@ import org.apache.seatunnel.api.table.catalog.TableSchema;
 import org.apache.seatunnel.api.table.type.BasicType;
 import org.apache.seatunnel.api.table.type.PrimitiveByteArrayType;
 import org.apache.seatunnel.api.table.type.SeaTunnelRow;
+import org.apache.seatunnel.common.exception.SeaTunnelRuntimeException;
 import org.apache.seatunnel.common.utils.FileUtils;
+import org.apache.seatunnel.connectors.seatunnel.file.exception.FileConnectorException;
 import org.apache.seatunnel.connectors.seatunnel.file.local.sink.LocalFileSinkFactory;
 import org.apache.seatunnel.connectors.seatunnel.sink.SinkFlowTestUtils;
 
@@ -118,6 +120,37 @@ class LocalFileBinarySinkTest {
 
         Assertions.assertArrayEquals(
                 data, Files.readAllBytes(Paths.get(testPath, "nested", "source.raw")));
+    }
+
+    @Test
+    void testBinarySinkRejectsMultipleSourceFilesWhenUsingCustomFilename() throws Exception {
+        String testPath = "/tmp/seatunnel/LocalFileBinarySinkTest/customFilenameMultipleFiles";
+        FileUtils.deleteFile(testPath);
+
+        Map<String, Object> options = createBinarySinkOptions(testPath);
+        options.put("single_file_mode", true);
+        options.put("custom_filename", true);
+        options.put("file_name_expression", "expected_binary_file");
+        options.put("filename_extension", ".raw");
+
+        byte[] data = "binary-content".getBytes(StandardCharsets.UTF_8);
+        SeaTunnelRuntimeException exception =
+                Assertions.assertThrows(
+                        SeaTunnelRuntimeException.class,
+                        () ->
+                                SinkFlowTestUtils.runBatchWithCheckpointDisabled(
+                                        binaryCatalogTable,
+                                        ReadonlyConfig.fromMap(options),
+                                        new LocalFileSinkFactory(),
+                                        Arrays.asList(
+                                                new SeaTunnelRow(
+                                                        new Object[] {data, "source-1.raw", 0L}),
+                                                new SeaTunnelRow(
+                                                        new Object[] {data, "source-2.raw", 0L}))));
+
+        Assertions.assertInstanceOf(FileConnectorException.class, exception.getCause());
+        Assertions.assertTrue(
+                exception.getCause().getMessage().contains("only supports a single source file"));
     }
 
     private Map<String, Object> createBinarySinkOptions(String path) {
