@@ -17,13 +17,6 @@
 
 package org.apache.seatunnel.engine.server.serializable;
 
-import com.hazelcast.config.Config;
-import com.hazelcast.instance.impl.HazelcastInstanceImpl;
-import com.hazelcast.internal.serialization.Data;
-
-import java.io.IOException;
-import java.net.ServerSocket;
-
 import org.apache.seatunnel.api.table.type.Record;
 import org.apache.seatunnel.api.table.type.SeaTunnelRow;
 import org.apache.seatunnel.engine.common.config.ConfigProvider;
@@ -33,6 +26,13 @@ import org.apache.seatunnel.engine.server.TestUtils;
 
 import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.Test;
+
+import com.hazelcast.config.Config;
+import com.hazelcast.instance.impl.HazelcastInstanceImpl;
+import com.hazelcast.internal.serialization.Data;
+
+import java.io.IOException;
+import java.net.ServerSocket;
 
 class RecordSerializerTest {
     @Test
