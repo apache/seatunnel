@@ -69,6 +69,7 @@ public class Db2IncrementalSourceFactory implements TableSourceFactory {
                         Db2IncrementalSourceOptions.CHUNK_KEY_EVEN_DISTRIBUTION_FACTOR_LOWER_BOUND,
                         Db2IncrementalSourceOptions.CHUNK_KEY_EVEN_DISTRIBUTION_FACTOR_UPPER_BOUND,
                         Db2IncrementalSourceOptions.SAMPLE_SHARDING_THRESHOLD,
+                        Db2IncrementalSourceOptions.INVERSE_SAMPLING_RATE,
                         Db2IncrementalSourceOptions.TABLE_NAMES_CONFIG)
                 .optional(
                         Db2IncrementalSourceOptions.STARTUP_MODE,
