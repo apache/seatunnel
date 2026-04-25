@@ -468,9 +468,9 @@ public class OrcReadStrategy extends AbstractReadStrategy {
             return rawBytes;
         }
 
-        if (typeDescription.getCategory() == TypeDescription.Category.STRING ||
-                typeDescription.getCategory() == TypeDescription.Category.VARCHAR ||
-                typeDescription.getCategory() == TypeDescription.Category.CHAR) {
+        if (typeDescription.getCategory() == TypeDescription.Category.STRING
+                || typeDescription.getCategory() == TypeDescription.Category.VARCHAR
+                || typeDescription.getCategory() == TypeDescription.Category.CHAR) {
 
             String strObj = new String(rawBytes, charset);
             if (dataType != null && dataType.getSqlType().equals(SqlType.STRING)) {
