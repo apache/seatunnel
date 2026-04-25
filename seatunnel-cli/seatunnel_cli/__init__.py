@@ -17,4 +17,26 @@
 
 """SeaTunnel CLI - Generate Apache SeaTunnel configs with natural language."""
 
+import os
+from pathlib import Path
+
 __version__ = "0.1.0"
+
+
+def get_data_dir() -> Path:
+    """Return the CLI data directory (sessions, memory, config, cache).
+
+    Resolution order:
+      1. SEATUNNEL_CLI_DATA env var (explicit override)
+      2. <seatunnel-cli project>/.data/  (co-located with the CLI package)
+
+    All persistent files live here — never scattered to ~/.seatunnel/.
+    """
+    env_override = os.environ.get("SEATUNNEL_CLI_DATA")
+    if env_override:
+        p = Path(env_override)
+    else:
+        # seatunnel_cli/ -> seatunnel-cli/.data/
+        p = Path(__file__).parent.parent / ".data"
+    p.mkdir(parents=True, exist_ok=True)
+    return p

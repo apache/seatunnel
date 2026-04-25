@@ -668,23 +668,28 @@ class OpenAIProvider(LLMProvider):
 
 # ─── Config file ───
 
-_CONFIG_PATH = os.path.join(os.path.expanduser("~"), ".seatunnel", "config.json")
+
+def get_config_path() -> str:
+    """Return path to CLI config file (inside the CLI data directory)."""
+    from . import get_data_dir
+    return str(get_data_dir() / "config.json")
 
 
 def load_config() -> dict:
-    """Load CLI config from ~/.seatunnel/config.json. Returns {} if not found."""
+    """Load CLI config from data directory. Returns {} if not found."""
     try:
-        with open(_CONFIG_PATH, "r", encoding="utf-8") as f:
+        with open(get_config_path(), "r", encoding="utf-8") as f:
             return json.load(f)
     except (FileNotFoundError, json.JSONDecodeError):
         return {}
 
 
 def save_config(config: dict) -> None:
-    """Save CLI config to ~/.seatunnel/config.json."""
-    config_dir = os.path.dirname(_CONFIG_PATH)
+    """Save CLI config to data directory."""
+    path = get_config_path()
+    config_dir = os.path.dirname(path)
     os.makedirs(config_dir, exist_ok=True)
-    with open(_CONFIG_PATH, "w", encoding="utf-8") as f:
+    with open(path, "w", encoding="utf-8") as f:
         json.dump(config, f, indent=2, ensure_ascii=False)
 
 
@@ -731,7 +736,7 @@ def create_provider(provider: str | None = None) -> LLMProvider:
     Resolution order:
       1. Explicit `provider` argument (from --provider CLI flag)
       2. AI_PROVIDER environment variable
-      3. ~/.seatunnel/config.json "provider" field
+      3. <data_dir>/config.json "provider" field
       4. Auto-detect from available credentials
 
     Returns:
@@ -755,14 +760,11 @@ def create_provider(provider: str | None = None) -> LLMProvider:
     if not name:
         name = config.get("provider")
 
-    # Apply credentials from config file (only if not already set in env)
-    creds = config.get("credentials", {})
-    if creds.get("anthropic_api_key"):
-        os.environ.setdefault("ANTHROPIC_API_KEY", creds["anthropic_api_key"])
-    if creds.get("openai_api_key"):
-        os.environ.setdefault("OPENAI_API_KEY", creds["openai_api_key"])
-    if creds.get("openai_base_url"):
-        os.environ.setdefault("OPENAI_BASE_URL", creds["openai_base_url"])
+    # NOTE: API keys are NEVER stored in config.json — only environment variables.
+    # Only non-secret settings (base_url) can be loaded from config.
+    non_secret_settings = config.get("settings", {})
+    if non_secret_settings.get("openai_base_url"):
+        os.environ.setdefault("OPENAI_BASE_URL", non_secret_settings["openai_base_url"])
 
     # Apply model overrides from config file
     if name and "models" in config:

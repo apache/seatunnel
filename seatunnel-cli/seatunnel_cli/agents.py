@@ -272,6 +272,119 @@ def _check_conditional_mismatches(
             )
 
 
+def _extract_connector_blocks_raw(
+    config_str: str,
+) -> list[tuple[str, str, str]]:
+    """Extract individual connector blocks from raw HOCON text.
+
+    Handles duplicate connector names that pyhocon would merge.
+    Uses brace-counting on the raw text.
+
+    Returns list of ``(section, connector_name, block_content)`` where
+    *block_content* is the text between the connector's outermost braces
+    (inclusive), e.g. ``'url = "..." driver = "..."'``.
+    """
+    results: list[tuple[str, str, str]] = []
+    for section in ("source", "sink"):
+        # Find the section's opening brace
+        pattern = re.compile(
+            rf"(?:^|\n)\s*{section}\s*\{{", re.IGNORECASE,
+        )
+        m = pattern.search(config_str)
+        if not m:
+            continue
+
+        # Walk from section opening brace to find matching close
+        section_start = m.end() - 1  # position of '{'
+        depth = 0
+        section_end = section_start
+        for i in range(section_start, len(config_str)):
+            if config_str[i] == "{":
+                depth += 1
+            elif config_str[i] == "}":
+                depth -= 1
+                if depth == 0:
+                    section_end = i
+                    break
+
+        section_body = config_str[section_start + 1 : section_end]
+
+        # Find each connector block inside the section body
+        # Pattern: ConnectorName { ... }
+        connector_pattern = re.compile(r"(\w[\w-]*)\s*\{")
+        pos = 0
+        while pos < len(section_body):
+            cm = connector_pattern.search(section_body, pos)
+            if not cm:
+                break
+            connector_name = cm.group(1)
+            brace_start = cm.end() - 1  # position of '{'
+            # Walk to find matching close brace
+            bdepth = 0
+            block_end = brace_start
+            for j in range(brace_start, len(section_body)):
+                if section_body[j] == "{":
+                    bdepth += 1
+                elif section_body[j] == "}":
+                    bdepth -= 1
+                    if bdepth == 0:
+                        block_end = j
+                        break
+            block_content = section_body[brace_start + 1 : block_end].strip()
+            results.append((section, connector_name, block_content))
+            pos = block_end + 1
+
+    return results
+
+
+def _validate_routing_pairs(
+    blocks: list[tuple[str, str, str]],
+    errors: list[str],
+    warnings: list[str],
+) -> None:
+    """Validate plugin_output / plugin_input pairing across connector blocks."""
+    outputs: dict[str, str] = {}  # label → connector_name
+    inputs: dict[str, str] = {}
+
+    label_re = re.compile(
+        r'plugin_(?:output|input)\s*=\s*"([^"]+)"',
+    )
+
+    for section, connector_name, block_content in blocks:
+        for m in label_re.finditer(block_content):
+            label = m.group(1)
+            if "plugin_output" in m.group(0):
+                if label in outputs:
+                    errors.append(
+                        f"Duplicate plugin_output label \"{label}\" "
+                        f"in source.{connector_name} "
+                        f"(already used by source.{outputs[label]})"
+                    )
+                outputs[label] = connector_name
+            else:
+                inputs[label] = connector_name
+
+    # Only validate pairing when routing labels are actually used
+    if not outputs and not inputs:
+        return
+
+    unmatched_inputs = set(inputs) - set(outputs)
+    if unmatched_inputs:
+        for label in unmatched_inputs:
+            errors.append(
+                f"sink.{inputs[label]}: plugin_input \"{label}\" "
+                f"has no matching plugin_output in any source"
+            )
+
+    orphan_outputs = set(outputs) - set(inputs)
+    if orphan_outputs:
+        for label in orphan_outputs:
+            warnings.append(
+                f"source.{outputs[label]}: plugin_output \"{label}\" "
+                f"has no matching plugin_input in any sink"
+            )
+
+
 def validate_hocon(config_str: str) -> str:
     """Validate HOCON config — syntax, structure, and connector-level required params."""
     errors = []
@@ -304,7 +417,54 @@ def validate_hocon(config_str: str) -> str:
         errors.append(f"HOCON parse error: {e}")
 
     # ── 3. Connector-level required params + conditional mismatch check ──
-    if parsed is not None:
+    # Use raw block extraction to handle duplicate connector names (e.g.,
+    # two Jdbc blocks in source{}) that pyhocon would merge into one.
+    raw_blocks = _extract_connector_blocks_raw(config_str)
+    from collections import Counter
+
+    block_counts = Counter(
+        (section, name) for section, name, _ in raw_blocks
+    )
+    has_duplicate_connectors = any(c > 1 for c in block_counts.values())
+
+    if has_duplicate_connectors and raw_blocks:
+        # Multi-pipeline path: validate each block individually via raw text
+        try:
+            from pyhocon import ConfigFactory as _CF
+        except ImportError:
+            _CF = None
+
+        for section, connector_name, block_content in raw_blocks:
+            try:
+                if _CF:
+                    # Wrap block content so pyhocon can parse it
+                    block_conf = _CF.parse_string(
+                        f"{connector_name} {{ {block_content} }}"
+                    )
+                    inner = block_conf.get(connector_name, block_conf)
+                    provided_keys = _flatten_hocon_keys(inner)
+                else:
+                    # Fallback: regex-extract keys from raw text
+                    provided_keys = set(
+                        re.findall(r"^\s*([\w.]+)\s*=", block_content, re.MULTILINE)
+                    )
+
+                result = validate_connector_options(
+                    connector_name, provided_keys, connector_type=section,
+                )
+                if result.get("missing_required"):
+                    missing = ", ".join(result["missing_required"])
+                    errors.append(
+                        f"{section}.{connector_name}: missing required options: {missing}"
+                    )
+            except Exception:
+                pass
+
+        # Validate routing labels
+        _validate_routing_pairs(raw_blocks, errors, warnings)
+
+    elif parsed is not None:
+        # Standard single-connector-per-type path (pyhocon is accurate here)
         for section in ["source", "sink"]:
             try:
                 section_conf = parsed.get(section, None)
@@ -318,9 +478,12 @@ def validate_hocon(config_str: str) -> str:
                     )
                     if result.get("missing_required"):
                         missing = ", ".join(result["missing_required"])
-                        errors.append(f"{section}.{connector_name}: missing required options: {missing}")
+                        errors.append(
+                            f"{section}.{connector_name}: missing required "
+                            f"options: {missing}"
+                        )
 
-                    # ── 3b. Generic conditional mismatch check (metadata-driven) ──
+                    # ── 3b. Generic conditional mismatch check ──
                     metadata = fetch_connector_metadata(connector_name, section)
                     if metadata:
                         _check_conditional_mismatches(
@@ -330,7 +493,12 @@ def validate_hocon(config_str: str) -> str:
             except Exception:
                 pass
 
-        # Check STREAMING mode needs checkpoint.interval
+        # Also validate routing for single-connector configs if labels present
+        if raw_blocks:
+            _validate_routing_pairs(raw_blocks, errors, warnings)
+
+    # Check STREAMING mode needs checkpoint.interval
+    if parsed is not None:
         try:
             env = parsed.get("env", {})
             if hasattr(env, "get"):
@@ -338,17 +506,35 @@ def validate_hocon(config_str: str) -> str:
                 if isinstance(mode, str) and mode.upper() == "STREAMING":
                     interval = env.get("checkpoint.interval", None)
                     if interval is None:
-                        warnings.append("STREAMING job should set env.checkpoint.interval (e.g., 10000)")
+                        warnings.append(
+                            "STREAMING job should set env.checkpoint.interval "
+                            "(e.g., 10000)"
+                        )
         except Exception:
             pass
 
-    # ── 4. Security checks ──
+    # ── 4. Security & placeholder checks ──
     if '""' in config_str:
         warnings.append("Found empty string value. Make sure this is intentional.")
 
     password_pattern = re.compile(r'password\s*=\s*"(?!\$\{)[^"]{3,}"', re.IGNORECASE)
     if password_pattern.search(config_str):
         warnings.append("Hardcoded password detected. Consider using environment variable: ${PASSWORD}")
+
+    # Check for unresolved ${ENV_VAR} placeholders — these will be passed as literal
+    # strings to connectors at runtime, causing authentication/connection failures.
+    env_var_pattern = re.compile(r'\$\{([A-Za-z_][A-Za-z0-9_]*)\}')
+    unresolved_vars = set()
+    for m in env_var_pattern.finditer(config_str):
+        var_name = m.group(1)
+        if not os.environ.get(var_name):
+            unresolved_vars.add(var_name)
+    if unresolved_vars:
+        var_list = ", ".join(sorted(unresolved_vars))
+        errors.append(
+            f"Unresolved environment variables: {var_list}. "
+            f"Set them before running: export {sorted(unresolved_vars)[0]}=<value>"
+        )
 
     # ── Result ──
     if errors:
@@ -539,22 +725,69 @@ never as a pipeline creation request (PLAN). Analyze the error and provide actio
 - Parallelism → 2
 - job.mode → infer from context (CDC/Kafka → STREAMING, otherwise BATCH)
 - Ports → standard defaults (MySQL: 3306, PG: 5432, Kafka: 9092, etc.)
-- Host → localhost
-- If the user's remembered facts (memory) contain connection details (host, port, user, password,
-  access keys), pass those ACTUAL VALUES to the config agent instead of using placeholders.
-- Only use ${VAR} placeholders for credentials that are not in the user's memory or request.
+- Host → use from memory if available, otherwise localhost
+
+## SECURITY — Credential handling (MANDATORY):
+- NEVER include actual passwords, API keys, tokens, or secret values in generated configs.
+- ALWAYS use environment variable placeholders for ALL credentials:
+  - Passwords: ${PASSWORD}, ${MYSQL_PASSWORD}, ${PG_PASSWORD}
+  - API keys: ${ACCESS_KEY}, ${SECRET_KEY}, ${API_KEY}
+  - Tokens: ${TOKEN}, ${AUTH_TOKEN}
+- Non-secret connection info (host, port, database name) CAN be used directly from memory.
+- If the user provides a password in their request, use a placeholder and tell them to set the env var.
 
 ## Output Format
 
-For new pipeline requests:
+For new pipeline requests — output **structured JSON** inside a PLAN: block.
+
+Single pipeline:
 ```
 PLAN:
-- Source: <connector name> (reason)
-- Transform: <transform name> or none
-- Sink: <connector name> (reason)
-- Mode: BATCH/STREAMING
-- Key decisions: <any assumptions made>
-- Missing info: <none, or what was asked>
+```json
+{
+  "pipelines": [
+    {
+      "id": "pipeline_1",
+      "source": {"connector": "<name>", "reason": "<why this connector>"},
+      "sink": {"connector": "<name>", "reason": "<why this connector>"},
+      "transform": null,
+      "tables": ["<table1>", "<table2>"],
+      "database": "<database name>"
+    }
+  ],
+  "env": {"mode": "BATCH", "parallelism": 2},
+  "shared": {"database": "<db>", "host": "<host>", "port": <port>}
+}
+```
+```
+
+Multiple pipelines (when user requests multiple distinct source→sink routes):
+```
+PLAN:
+```json
+{
+  "pipelines": [
+    {
+      "id": "pipeline_1",
+      "source": {"connector": "<name>", "reason": "..."},
+      "sink": {"connector": "<name>", "reason": "..."},
+      "transform": null,
+      "tables": ["<table1>", "<table2>"],
+      "database": "<db>"
+    },
+    {
+      "id": "pipeline_2",
+      "source": {"connector": "<name>", "reason": "..."},
+      "sink": {"connector": "<name>", "reason": "..."},
+      "transform": null,
+      "tables": ["<table3>"],
+      "database": "<db>"
+    }
+  ],
+  "env": {"mode": "BATCH", "parallelism": 2},
+  "shared": {"database": "<db>", "host": "<host>", "port": <port>}
+}
+```
 ```
 
 For everything else:
@@ -667,24 +900,46 @@ CHAT:
 User: "从 MySQL 的 users 表同步到 S3 Parquet 文件"
 Response:
 PLAN:
-- Source: Jdbc (MySQL via JDBC — batch full-table read)
-- Transform: none
-- Sink: S3File (S3 with Parquet format)
-- Mode: BATCH
-- Key decisions: Using Jdbc (not CDC, since user said "sync" implying batch); Parquet format as requested; standard MySQL port 3306; password as ${MYSQL_PASSWORD}
-- Missing info: none
+```json
+{
+  "pipelines": [
+    {"id": "pipeline_1", "source": {"connector": "Jdbc", "reason": "MySQL via JDBC — batch full-table read"}, "sink": {"connector": "S3File", "reason": "S3 with Parquet format"}, "transform": null, "tables": ["users"], "database": ""}
+  ],
+  "env": {"mode": "BATCH", "parallelism": 2},
+  "shared": {"host": "localhost", "port": 3306}
+}
+```
 
 ---
 
 User: "I want real-time sync from MySQL orders to StarRocks, need to capture all changes"
 Response:
 PLAN:
-- Source: MySQL-CDC (real-time change data capture — captures insert/update/delete)
-- Transform: none
-- Sink: StarRocks (StarRocks sink with stream load)
-- Mode: STREAMING
-- Key decisions: MySQL-CDC chosen for real-time requirement; checkpoint.interval=10000 for streaming; using ${PASSWORD} placeholder
-- Missing info: none
+```json
+{
+  "pipelines": [
+    {"id": "pipeline_1", "source": {"connector": "MySQL-CDC", "reason": "real-time change data capture"}, "sink": {"connector": "StarRocks", "reason": "StarRocks sink with stream load"}, "transform": null, "tables": ["orders"], "database": ""}
+  ],
+  "env": {"mode": "STREAMING", "parallelism": 2},
+  "shared": {"host": "localhost", "port": 3306}
+}
+```
+
+---
+
+User: "2 Jdbc MySQL sources, 3 tables (db: codex_cli_tables_test), sync to Console and Assert, 2 pipelines: pipeline 1 = Jdbc(audit_log, orders) → Console, pipeline 2 = Jdbc(users) → Assert"
+Response:
+PLAN:
+```json
+{
+  "pipelines": [
+    {"id": "pipeline_1", "source": {"connector": "Jdbc", "reason": "MySQL JDBC for audit_log and orders"}, "sink": {"connector": "Console", "reason": "Console output for debugging"}, "transform": null, "tables": ["audit_log", "orders"], "database": "codex_cli_tables_test"},
+    {"id": "pipeline_2", "source": {"connector": "Jdbc", "reason": "MySQL JDBC for users"}, "sink": {"connector": "Assert", "reason": "Assert for data validation"}, "transform": null, "tables": ["users"], "database": "codex_cli_tables_test"}
+  ],
+  "env": {"mode": "BATCH", "parallelism": 2},
+  "shared": {"database": "codex_cli_tables_test", "host": "localhost", "port": 3306}
+}
+```
 """
 
 CONFIG_SYSTEM_TEMPLATE = """You are the **Config Generator Agent** of SeaTunnel CLI.
@@ -740,9 +995,15 @@ sink {{
 - Respect option types from metadata (string, boolean, list, etc.).
 - Refer to the Golden Examples below for known-good patterns.
 
-### 4. Credential handling
-- If the user provides credentials in their request or memory, use them directly.
-- Only use `${{ENV_VAR}}` placeholders when no real value is available.
+### 4. Credential handling — SECURITY CRITICAL
+- NEVER hardcode passwords, API keys, tokens, or secrets in generated configs.
+- ALWAYS use `${{ENV_VAR}}` placeholders for ALL credential values:
+  - `password = "${{MYSQL_PASSWORD}}"` (never the actual password)
+  - `access_key = "${{AWS_ACCESS_KEY}}"` (never the actual key)
+  - `secret_key = "${{AWS_SECRET_KEY}}"` (never the actual secret)
+  - `token = "${{AUTH_TOKEN}}"` (never the actual token)
+- Non-secret values (host, port, database, table, topic) CAN use actual values from memory.
+- After the config, list ALL env vars that need to be set in the Explanation section.
 
 ## Golden Examples — verified working configs:
 
@@ -757,8 +1018,8 @@ source {{
   Jdbc {{
     url = "jdbc:mysql://mysql-host:3306/mydb"
     driver = "com.mysql.cj.jdbc.Driver"
-    user = "root"
-    password = "password"
+    user = "${{MYSQL_USER}}"
+    password = "${{MYSQL_PASSWORD}}"
     query = "SELECT * FROM users"
     plugin_output = "jdbc_out"
   }}
@@ -772,8 +1033,8 @@ sink {{
     tmp_path = "/tmp/seatunnel"
     fs.s3a.endpoint = "s3.us-east-1.amazonaws.com"
     fs.s3a.aws.credentials.provider = "org.apache.hadoop.fs.s3a.SimpleAWSCredentialsProvider"
-    access_key = "AKIAXXXXXXXX"
-    secret_key = "xxxxxxxxxxxxxxxx"
+    access_key = "${{AWS_ACCESS_KEY}}"
+    secret_key = "${{AWS_SECRET_KEY}}"
     file_format_type = "PARQUET"
     compress_codec = "SNAPPY"
   }}
@@ -811,8 +1072,61 @@ sink {{
     host = "clickhouse:8123"
     database = "default"
     table = "events"
-    username = "default"
-    password = ""
+    username = "${{CLICKHOUSE_USER}}"
+    password = "${{CLICKHOUSE_PASSWORD}}"
+  }}
+}}
+```
+
+### Multi-Pipeline Routing (plugin_output / plugin_input)
+When generating configs with **multiple source/sink blocks**:
+- Each source block MUST have a unique `plugin_output` label
+- Each sink block MUST have `plugin_input` matching the corresponding source's `plugin_output`
+- Multiple blocks of the SAME connector type are allowed (e.g., two Jdbc sources)
+- Labels should be descriptive: "jdbc_audit_log", "jdbc_users", etc.
+- ALL source blocks go inside ONE `source {{ }}` section
+- ALL sink blocks go inside ONE `sink {{ }}` section
+
+Example — Two Jdbc sources routed to Console and Assert:
+```hocon
+env {{
+  parallelism = 2
+  job.mode = "BATCH"
+}}
+
+source {{
+  Jdbc {{
+    url = "jdbc:mysql://localhost:3306/mydb"
+    driver = "com.mysql.cj.jdbc.Driver"
+    user = "${{MYSQL_USER}}"
+    password = "${{MYSQL_PASSWORD}}"
+    query = "SELECT * FROM audit_log"
+    plugin_output = "jdbc_audit_log"
+  }}
+  Jdbc {{
+    url = "jdbc:mysql://localhost:3306/mydb"
+    driver = "com.mysql.cj.jdbc.Driver"
+    user = "${{MYSQL_USER}}"
+    password = "${{MYSQL_PASSWORD}}"
+    query = "SELECT * FROM users"
+    plugin_output = "jdbc_users"
+  }}
+}}
+
+sink {{
+  Console {{
+    plugin_input = "jdbc_audit_log"
+  }}
+  Assert {{
+    plugin_input = "jdbc_users"
+    rules {{
+      row_rules = [
+        {{
+          rule_type = MIN_ROW
+          rule_value = 1
+        }}
+      ]
+    }}
   }}
 }}
 ```
@@ -859,14 +1173,31 @@ Output one of:
 def _extract_connectors_from_plan(plan_text: str) -> list[tuple[str, str]]:
     """Extract (connector_name, connector_type) pairs from planner output.
 
-    Parses lines like:
-      - Source: Jdbc (MySQL via JDBC)
-      - Source: MySQL-CDC (real-time CDC)
-      - Sink: S3File (S3 with Parquet)
-      - Sink: StarRocks (stream load)
-
-    Returns list of tuples, e.g., [("Jdbc", "source"), ("S3File", "sink")].
+    Tries structured JSON first (new format), falls back to legacy regex.
+    Returns unique (name, type) pairs for metadata fetching.
     """
+    # Try structured JSON path first
+    try:
+        from .skills import parse_structured_plan
+
+        plan = parse_structured_plan(plan_text)
+        if plan.pipelines:
+            seen: set[tuple[str, str]] = set()
+            connectors: list[tuple[str, str]] = []
+            for p in plan.pipelines:
+                for name, ctype in [
+                    (p.source_connector, "source"),
+                    (p.sink_connector, "sink"),
+                ]:
+                    key = (name, ctype)
+                    if key not in seen:
+                        connectors.append(key)
+                        seen.add(key)
+            return connectors
+    except Exception:
+        pass
+
+    # Fallback: legacy regex parsing
     connectors = []
     for line in plan_text.split("\n"):
         stripped = line.strip().lstrip("- ")
@@ -881,34 +1212,6 @@ def _extract_connectors_from_plan(plan_text: str) -> list[tuple[str, str]]:
             name = m.group(1).rstrip(",")
             connectors.append((name, "sink"))
     return connectors
-
-
-def _fetch_metadata_for_plan(plan_text: str, on_status: Callable) -> str:
-    """Fetch precise connector metadata for all connectors identified in the plan.
-
-    Returns a formatted string block to inject into the ConfigAgent system prompt,
-    containing full option rules (required, optional, fallbackKeys, conditionals)
-    for each connector.
-    """
-    connectors = _extract_connectors_from_plan(plan_text)
-    if not connectors:
-        return ""
-
-    sections = []
-    for name, ctype in connectors:
-        on_status("fetching", f"Fetching {ctype} options for {name}...")
-        metadata = fetch_connector_metadata(name, ctype)
-        if metadata:
-            sections.append(format_metadata_for_prompt(metadata, name, ctype))
-        else:
-            sections.append(f"### {name} ({ctype.upper()}) — no metadata available, use catalog index")
-
-    if not sections:
-        return ""
-
-    header = "\n## Precise Connector Option Rules (fetched for this request)\n"
-    header += "Use EXACTLY these option keys. Do NOT invent or guess option names.\n\n"
-    return header + "\n\n".join(sections)
 
 
 class Orchestrator:
@@ -957,8 +1260,12 @@ class Orchestrator:
         If the history is short enough, returns a full copy.
         Otherwise, summarizes older messages into a single user message
         and appends the recent messages verbatim.
+
+        Security: all text content is redacted of credential values before
+        being sent to the LLM, to prevent leaking user-typed secrets.
         """
-        history = self.conversation_history
+        from .memory import _redact_conversation_history
+        history = _redact_conversation_history(self.conversation_history)
         if len(history) <= self.SUMMARY_THRESHOLD:
             return list(history)
 
@@ -1057,14 +1364,38 @@ class Orchestrator:
             })
             return plan_result
 
-        # Phase 1.5: Fetch precise connector metadata for identified connectors
-        self._connector_metadata_block = _fetch_metadata_for_plan(
-            plan_result["content"], self.on_status,
+        # Phase 1.5: Skill-based prompt enrichment (Match → Read → Execute)
+        from .skills import SkillRouter, SkillExecutor, parse_structured_plan
+
+        structured_plan = parse_structured_plan(plan_result["content"])
+
+        # Trigger-based skill matching: uses plan + user input keywords
+        matched_skills = SkillRouter.match(structured_plan, user_input)
+        skill = SkillExecutor(structured_plan, matched_skills)
+
+        # Fill slots (with pipeline expansion) and check for missing info
+        missing = skill.fill_and_check(user_input, self.memory_store, self.client)
+        if missing:
+            question = (
+                "I need a few more details to generate the config:\n"
+                + "\n".join(f"- {m}" for m in missing)
+            )
+            return {
+                "type": "question",
+                "content": question,
+                "config": None,
+                "explanation": None,
+            }
+
+        # Fetch metadata and build enriched prompt
+        self._connector_metadata_block = skill.fetch_all_metadata(self.on_status)
+        enriched_prompt = skill.build_enriched_prompt(
+            user_input, self.on_status, self.memory_store,
         )
 
-        # Phase 2: Config Generation
+        # Phase 2: Config Generation (with enriched prompt from Skill)
         self.on_status("generating", "Generating SeaTunnel config...")
-        config_result = self._run_config_generator(plan_result["content"])
+        config_result = self._run_config_generator(enriched_prompt, enriched=True)
 
         if not config_result.get("config"):
             return {"type": "error", "content": "Failed to generate config.", "config": None, "explanation": None}
@@ -1215,18 +1546,29 @@ class Orchestrator:
 
         return {"type": "plan", "content": "Direct generation mode.", "config": None, "explanation": None}
 
-    def _run_config_generator(self, plan: str) -> dict:
-        """Run the config generator agent (streaming)."""
+    def _run_config_generator(self, plan: str, enriched: bool = False) -> dict:
+        """Run the config generator agent (streaming).
+
+        Args:
+            plan: Either raw planner text or an enriched prompt from a Skill.
+            enriched: If True, *plan* is a self-contained prompt (includes user
+                request, golden examples, routing table, etc.) — skip history
+                reconstruction.
+        """
         system = self._build_config_system()
 
-        user_request = ""
-        for msg in self._trimmed_history():
-            if msg["role"] == "user":
-                for block in msg.get("content", []):
-                    if isinstance(block, dict) and "text" in block:
-                        user_request += block["text"] + "\n"
+        if enriched:
+            # Skill already assembled the full prompt
+            prompt = plan
+        else:
+            user_request = ""
+            for msg in self._trimmed_history():
+                if msg["role"] == "user":
+                    for block in msg.get("content", []):
+                        if isinstance(block, dict) and "text" in block:
+                            user_request += block["text"] + "\n"
 
-        prompt = f"""## User Request:
+            prompt = f"""## User Request:
 {user_request.strip()}
 
 ## Planner Analysis:
@@ -1286,14 +1628,18 @@ Generate the SeaTunnel HOCON config now. Use tools if you need connector details
 
     def _run_validator(self, config: str) -> str:
         """Run the validator agent."""
+        from .cli import _replace_creds_with_placeholders
         # First do local validation
         local_result = validate_hocon(config)
+
+        # Security: replace credentials with placeholders before sending to LLM
+        safe_config, _ = _replace_creds_with_placeholders(config)
 
         # Then LLM validation for semantic checks
         prompt = f"""Validate this SeaTunnel HOCON config:
 
 ```hocon
-{config}
+{safe_config}
 ```
 
 Local validation result: {local_result}
@@ -1305,13 +1651,18 @@ Check for semantic correctness, required parameters, and best practices."""
 
     def _run_fix(self, config: str, validation_errors: str) -> dict:
         """Attempt to fix config based on validation errors."""
+        from .cli import _replace_creds_with_placeholders, _restore_creds_from_placeholders
         system = self._build_config_system()
+
+        # Security: replace credentials with ${_CRED_N_} placeholders before sending to LLM.
+        # After LLM returns the fixed config, restore the original values.
+        safe_config, cred_map = _replace_creds_with_placeholders(config)
 
         prompt = f"""The following SeaTunnel config has validation issues. Fix them.
 
 ## Current Config:
 ```hocon
-{config}
+{safe_config}
 ```
 
 ## Validation Errors:
@@ -1353,7 +1704,11 @@ Fix ALL the issues and return the corrected config. Keep all existing correct pa
             for block in assistant_content:
                 if "text" in block:
                     full_text += block["text"]
-            return self._parse_config_response(full_text)
+            parsed = self._parse_config_response(full_text)
+            # Restore original credential values
+            if parsed.get("config") and cred_map:
+                parsed["config"] = _restore_creds_from_placeholders(parsed["config"], cred_map)
+            return parsed
 
         return {}
 
@@ -1399,5 +1754,18 @@ Fix ALL the issues and return the corrected config. Keep all existing correct pa
             if idx != -1:
                 explanation = text[idx:].strip()
                 break
+
+        # Security: warn if LLM generated hardcoded credentials.
+        # We do NOT redact the config itself — it must remain executable.
+        # Credentials are redacted only when persisting to session files (memory.py).
+        if config:
+            from .memory import contains_credential
+            if contains_credential(config):
+                warning = (
+                    "\n\n**⚠️ Security Warning:** The generated config contains "
+                    "hardcoded credentials. Consider using environment variables "
+                    "(e.g., `${DB_PASSWORD}`) instead of hardcoding secrets."
+                )
+                explanation = (explanation or "") + warning
 
         return {"config": config, "explanation": explanation}

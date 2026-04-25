@@ -58,7 +58,9 @@ _ENGINE_AVAILABLE: bool | None = None  # None = not checked yet
 _ENGINE_CHECK_TS: float = 0  # timestamp of last check — recheck after 60s
 
 # Disk cache directory for offline reuse of runtime API responses
-_DISK_CACHE_DIR = Path.home() / ".seatunnel" / "api_cache"
+def _get_disk_cache_dir() -> Path:
+    from . import get_data_dir
+    return get_data_dir() / "api_cache"
 
 
 def _check_engine() -> bool:
@@ -82,7 +84,7 @@ def _check_engine() -> bool:
 
 def _read_disk_cache(cache_key: str) -> dict | None:
     """Read a cached API response from disk."""
-    path = _DISK_CACHE_DIR / f"{cache_key.replace(':', '_')}.json"
+    path = _get_disk_cache_dir() / f"{cache_key.replace(':', '_')}.json"
     if path.exists():
         try:
             with open(path, "r", encoding="utf-8") as f:
@@ -95,8 +97,9 @@ def _read_disk_cache(cache_key: str) -> dict | None:
 def _write_disk_cache(cache_key: str, data: dict):
     """Write an API response to disk cache for offline reuse."""
     try:
-        _DISK_CACHE_DIR.mkdir(parents=True, exist_ok=True)
-        path = _DISK_CACHE_DIR / f"{cache_key.replace(':', '_')}.json"
+        cache_dir = _get_disk_cache_dir()
+        cache_dir.mkdir(parents=True, exist_ok=True)
+        path = cache_dir / f"{cache_key.replace(':', '_')}.json"
         with open(path, "w", encoding="utf-8") as f:
             json.dump(data, f, indent=2)
     except Exception as e:
@@ -239,154 +242,26 @@ def _api_opt_to_dict(opt: dict, rule_type: str = "") -> dict:
     return result
 
 
-# ─── CLI-based option rules (offline fallback) ───
-
-def _find_connector_sh() -> str | None:
-    """Locate seatunnel-connector.sh script for offline option rule retrieval."""
-    seatunnel_home = os.environ.get("SEATUNNEL_HOME", "")
-    if seatunnel_home:
-        path = os.path.join(seatunnel_home, "bin", "seatunnel-connector.sh")
-        if os.path.exists(path):
-            return path
-
-    project_root = Path(__file__).parent.parent.parent
-    path = str(project_root / "bin" / "seatunnel-connector.sh")
-    if os.path.exists(path):
-        return path
-    return None
-
-
-def _fetch_option_rules_cli(plugin_type: str, plugin_name: str) -> dict | None:
-    """Fetch option rules via seatunnel-connector.sh (offline mode).
-
-    Runs: seatunnel-connector.sh -o <plugin_name> -pt <plugin_type>
-    Parses the human-readable output into our internal detail format.
-    Returns None if CLI not available or parsing fails.
-    """
-    sh_path = _find_connector_sh()
-    if not sh_path:
-        return None
-
-    cache_key = f"cli_{plugin_type}:{plugin_name}"
-    if cache_key in _API_CACHE:
-        return _API_CACHE[cache_key]
-
-    try:
-        cmd = ["sh", sh_path, "-o", plugin_name, "-pt", plugin_type]
-        proc = subprocess.run(
-            cmd, capture_output=True, text=True, timeout=30,
-        )
-        if proc.returncode != 0:
-            logger.debug(f"seatunnel-connector.sh failed for {plugin_type}:{plugin_name}: {proc.stderr[:200]}")
-            return None
-
-        # Filter out discovery/classloading log lines
-        output = proc.stdout
-        detail = _parse_connector_sh_output(output, plugin_name, plugin_type)
-        if detail:
-            _API_CACHE[cache_key] = detail
-        return detail
-    except subprocess.TimeoutExpired:
-        logger.debug(f"seatunnel-connector.sh timed out for {plugin_type}:{plugin_name}")
-        return None
-    except Exception as e:
-        logger.debug(f"seatunnel-connector.sh error for {plugin_type}:{plugin_name}: {e}")
-        return None
-
-
-def _parse_connector_sh_output(output: str, plugin_name: str, plugin_type: str) -> dict | None:
-    """Parse human-readable output of seatunnel-connector.sh -o into detail format.
-
-    The output format from ConnectorCheckCommand is:
-      Required Options:
-        Option{key='url', type='java.lang.String', ...} description
-      Optional Options:
-        Option{key='user', type='java.lang.String', ...} description
-    """
-    required = []
-    optional = []
-    current_section = None  # "required" or "optional"
-
-    for line in output.split("\n"):
-        stripped = line.strip()
-        if not stripped:
-            continue
-        # Skip log/discovery lines
-        if stripped.startswith("[") or "INFO" in stripped or "DEBUG" in stripped:
-            continue
-        if "ClassLoader" in stripped or "Discovery" in stripped or "loading" in stripped.lower():
-            continue
-
-        lower = stripped.lower()
-        if "required option" in lower:
-            current_section = "required"
-            continue
-        elif "optional option" in lower:
-            current_section = "optional"
-            continue
-
-        # Parse Option{key='xxx', ...} lines
-        opt = _parse_option_line(stripped)
-        if opt:
-            if current_section == "required":
-                required.append(opt)
-            elif current_section == "optional":
-                optional.append(opt)
-
-    if not required and not optional:
-        return None
-
-    return {
-        "name": plugin_name,
-        "types": [plugin_type],
-        "required": required,
-        "optional": optional,
-        "exclusive": [],
-        "conditional": [],
-        "examples": [],
-        "source": "cli",
-    }
-
-
-def _parse_option_line(line: str) -> dict | None:
-    """Parse a single Option{...} line from seatunnel-connector.sh output."""
-    # Match: Option{key='url', type='java.lang.String', defaultValue=null, description='...'}
-    key_match = re.search(r"key='([^']*)'", line)
-    if not key_match:
-        return None
-
-    result = {"key": key_match.group(1)}
-
-    type_match = re.search(r"type='([^']*)'", line)
-    if type_match:
-        java_type = type_match.group(1)
-        result["type"] = java_type.rsplit(".", 1)[-1].lower()
-
-    default_match = re.search(r"defaultValue=([^,}]+)", line)
-    if default_match:
-        val = default_match.group(1).strip().strip("'")
-        if val != "null":
-            result["default"] = val
-
-    desc_match = re.search(r"description='([^']*)'", line)
-    if desc_match and desc_match.group(1):
-        result["description"] = desc_match.group(1)[:200]
-
-    return result
-
-
 # ─── Runtime JSON metadata (from Java exporter) ───
 
 _RUNTIME_METADATA: dict | None = None  # Parsed connector_metadata.json
 
 
 def _get_runtime_metadata_paths() -> list[str]:
-    """Build search paths for connector_metadata.json (evaluated lazily)."""
+    """Build search paths for connector_metadata.json (evaluated lazily).
+
+    Search order:
+      1. ``$SEATUNNEL_METADATA_JSON`` — explicit override
+      2. ``<package_dir>/connector_metadata.json`` — bundled with the CLI package
+      3. ``<data_dir>/connector_metadata.json`` — CLI data directory
+      4. ``$SEATUNNEL_HOME/connector_metadata.json`` — engine install dir
+    """
+    from . import get_data_dir
     return [
         os.environ.get("SEATUNNEL_METADATA_JSON", ""),
         str(Path(__file__).parent / "connector_metadata.json"),
+        str(get_data_dir() / "connector_metadata.json"),
         str(Path(os.environ.get("SEATUNNEL_HOME", "")) / "connector_metadata.json"),
-        str(Path.home() / ".seatunnel" / "connector_metadata.json"),
     ]
 
 
@@ -580,7 +455,8 @@ def export_runtime_metadata(output_path: str | None = None) -> str | None:
         return None
 
     if output_path is None:
-        output_path = str(Path.home() / ".seatunnel" / "connector_metadata.json")
+        from . import get_data_dir
+        output_path = str(get_data_dir() / "connector_metadata.json")
 
     try:
         cmd = ["sh", sh_path, "-o", output_path]
@@ -613,8 +489,7 @@ def _find_metadata_export_sh() -> str | None:
         return path
     return None
 
-
-# ─── Unified metadata fetcher (three-tier priority) ───
+# ─── Unified metadata fetcher (two-tier priority) ───
 
 def fetch_connector_metadata(
     plugin_name: str, plugin_type: str,
@@ -623,7 +498,7 @@ def fetch_connector_metadata(
 
     Priority:
       1. Runtime API (live /option-rules endpoint — always accurate, from engine/web)
-      2. Runtime JSON (connector_metadata.json — 100% accurate, from Java reflection export)
+      2. Runtime JSON (connector_metadata.json — bundled with CLI package)
 
     Returns internal detail dict or None. The dict includes 'source' field
     indicating which tier provided the data.
@@ -635,7 +510,7 @@ def fetch_connector_metadata(
         logger.info(f"Metadata for {plugin_type}:{plugin_name} from runtime API")
         return detail
 
-    # Tier 2: Runtime JSON (from SeaTunnelMetadataExporter)
+    # Tier 2: Runtime JSON (connector_metadata.json)
     runtime_meta = _load_runtime_metadata()
     if runtime_meta:
         cache_key = f"{plugin_type}:{plugin_name}"
@@ -840,6 +715,19 @@ KEYWORD_ALIASES: dict[str, list[str]] = {
     "全量": ["Jdbc"],
 }
 
+# ─── Sink multi-table capability ───
+# Sinks that natively support multiple logical tables in one block.
+# All other sinks require pipeline expansion (one source→sink per table).
+_MULTI_TABLE_SINKS = frozenset({
+    "Jdbc", "Doris", "StarRocks", "Paimon", "Iceberg", "Hudi",
+})
+
+
+def sink_supports_multi_table(sink_name: str) -> bool:
+    """Return True if *sink_name* can accept multiple tables in one block."""
+    return sink_name in _MULTI_TABLE_SINKS
+
+
 # JDBC driver and URL knowledge (enriches Jdbc connector detail)
 JDBC_DRIVERS = {
     "mysql": {"driver": "com.mysql.cj.jdbc.Driver", "url": "jdbc:mysql://{host}:{port}/{database}", "port": 3306},
@@ -850,6 +738,42 @@ JDBC_DRIVERS = {
     "sqlite": {"driver": "org.sqlite.JDBC", "url": "jdbc:sqlite:{path}", "port": None},
     "dm": {"driver": "dm.jdbc.driver.DmDriver", "url": "jdbc:dm://{host}:{port}", "port": 5236},
 }
+
+
+def infer_db_type(text: str) -> str:
+    """Infer database type from free-form text (user request / plan)."""
+    lower = text.lower()
+    for db_type in ("mysql", "postgresql", "postgres", "oracle", "sqlserver", "db2", "dm", "sqlite"):
+        if db_type in lower:
+            return "postgresql" if db_type == "postgres" else db_type
+    if "jdbc" in lower:
+        return "mysql"
+    return "mysql"
+
+
+def resolve_jdbc_options(
+    user_request: str,
+    host: str = "localhost",
+    port: str = "",
+    database: str = "",
+) -> dict[str, str]:
+    """Resolve JDBC driver, URL, and port from user context.
+
+    Returns dict with keys: ``url``, ``driver``, ``port``, ``db_type``.
+    Uses ``JDBC_DRIVERS`` as the single source of truth.
+    """
+    db_type = infer_db_type(user_request)
+    info = JDBC_DRIVERS.get(db_type, JDBC_DRIVERS["mysql"])
+    if not port:
+        port = str(info["port"] or "")
+    url = info["url"].format(host=host, port=port, database=database, sid=database, path=database)
+    return {
+        "url": url,
+        "driver": info["driver"],
+        "port": port,
+        "db_type": db_type,
+    }
+
 
 # ─── Transform plugins (kept inline — small, stable set) ───
 
