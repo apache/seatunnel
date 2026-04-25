@@ -461,25 +461,12 @@ public class OrcReadStrategy extends AbstractReadStrategy {
         int vecLen = bytesVector.length[row];
         byte[] rawBytes = Arrays.copyOfRange(bytesVector.vector[row], vecStart, vecStart + vecLen);
 
-        if (typeDescription.getCategory() == TypeDescription.Category.BINARY) {
-            if (dataType != null && dataType.getSqlType().equals(SqlType.STRING)) {
-                return new String(rawBytes, charset);
-            }
+        if (typeDescription.getCategory() == TypeDescription.Category.BINARY
+                && (dataType == null || !dataType.getSqlType().equals(SqlType.STRING))) {
             return rawBytes;
         }
 
-        if (typeDescription.getCategory() == TypeDescription.Category.STRING
-                || typeDescription.getCategory() == TypeDescription.Category.VARCHAR
-                || typeDescription.getCategory() == TypeDescription.Category.CHAR) {
-
-            String strObj = new String(rawBytes, charset);
-            if (dataType != null && dataType.getSqlType().equals(SqlType.STRING)) {
-                return strObj;
-            }
-            return strObj.getBytes(charset);
-        }
-
-        return rawBytes;
+        return new String(rawBytes, charset);
     }
 
     private Object readDecimalVal(ColumnVector colVec, SeaTunnelDataType<?> dataType, int rowNum) {
