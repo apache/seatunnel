@@ -445,6 +445,129 @@ public class FileSchemaEvolutionTest {
                 "seaTunnelRowType must remain unchanged after failed schema change");
     }
 
+    // ── Type-zoo coverage ─────────────────────────────────────────────────────────
+    //
+    // Production tables include BIGINT (often unsigned), DECIMAL, TIMESTAMP, BOOLEAN
+    // (tinyint(1)) and TINYINT — schema-evolution logic must preserve all of them.
+
+    /**
+     * Type zoo mirroring the columns we see across the bookkeeping / settlement / static_inventory
+     * tables: id (BIGINT), is_active (BOOLEAN), op (TINYINT), status (SMALLINT), version (INT),
+     * amount (DECIMAL), score (DOUBLE), name (STRING), created_at (TIMESTAMP), birth (DATE).
+     */
+    private static final SeaTunnelRowType TYPE_ZOO_ROW_TYPE =
+            new SeaTunnelRowType(
+                    new String[] {
+                        "id",
+                        "is_active",
+                        "op",
+                        "status",
+                        "version",
+                        "amount",
+                        "score",
+                        "name",
+                        "created_at",
+                        "birth"
+                    },
+                    new SeaTunnelDataType[] {
+                        BasicType.LONG_TYPE,
+                        BasicType.BOOLEAN_TYPE,
+                        BasicType.BYTE_TYPE,
+                        BasicType.SHORT_TYPE,
+                        BasicType.INT_TYPE,
+                        new org.apache.seatunnel.api.table.type.DecimalType(20, 6),
+                        BasicType.DOUBLE_TYPE,
+                        BasicType.STRING_TYPE,
+                        org.apache.seatunnel.api.table.type.LocalTimeType.LOCAL_DATE_TIME_TYPE,
+                        org.apache.seatunnel.api.table.type.LocalTimeType.LOCAL_DATE_TYPE
+                    });
+
+    private static NoOpWriteStrategy buildTypeZooStrategy() {
+        Config config =
+                ConfigFactory.parseString(
+                        "path = \"/tmp/test\"\n"
+                                + "file_format_type = \"parquet\"\n"
+                                + "schema_evolution_enabled = true");
+        FileSinkConfig sinkConfig = new FileSinkConfig(config, TYPE_ZOO_ROW_TYPE);
+        NoOpWriteStrategy strategy = new NoOpWriteStrategy(sinkConfig);
+        strategy.setCatalogTable(
+                org.apache.seatunnel.api.table.catalog.CatalogTableUtil.getCatalogTable(
+                        TABLE_ID.getCatalogName(),
+                        TABLE_ID.getDatabaseName(),
+                        TABLE_ID.getSchemaName(),
+                        TABLE_ID.getTableName(),
+                        TYPE_ZOO_ROW_TYPE));
+        return strategy;
+    }
+
+    @Test
+    public void testTypeZooAddBooleanColumnPreservesAllOriginalTypes() throws IOException {
+        NoOpWriteStrategy strategy = buildTypeZooStrategy();
+
+        PhysicalColumn newCol =
+                PhysicalColumn.builder()
+                        .name("is_archived")
+                        .dataType(BasicType.BOOLEAN_TYPE)
+                        .nullable(true)
+                        .build();
+        strategy.applySchemaChange(AlterTableAddColumnEvent.add(TABLE_ID, newCol));
+
+        SeaTunnelRowType after = strategy.getSeaTunnelRowType();
+        Assertions.assertEquals(11, after.getTotalFields());
+        Assertions.assertEquals("is_archived", after.getFieldNames()[10]);
+        // All original types must still match (no widening / narrowing).
+        for (int i = 0; i < TYPE_ZOO_ROW_TYPE.getTotalFields(); i++) {
+            Assertions.assertEquals(
+                    TYPE_ZOO_ROW_TYPE.getFieldType(i),
+                    after.getFieldType(i),
+                    "type at index " + i + " (" + after.getFieldNames()[i] + ") must be unchanged");
+        }
+    }
+
+    @Test
+    public void testTypeZooDropDecimalColumnLeavesAllOtherTypesIntact() throws IOException {
+        NoOpWriteStrategy strategy = buildTypeZooStrategy();
+
+        strategy.applySchemaChange(new AlterTableDropColumnEvent(TABLE_ID, "amount"));
+
+        SeaTunnelRowType after = strategy.getSeaTunnelRowType();
+        Assertions.assertEquals(9, after.getTotalFields());
+        Assertions.assertFalse(Arrays.asList(after.getFieldNames()).contains("amount"));
+        // Surviving columns must keep exact types — DECIMAL drop must not collapse other DECIMALs.
+        Assertions.assertEquals(BasicType.LONG_TYPE, after.getFieldType(0));
+        Assertions.assertEquals(BasicType.BOOLEAN_TYPE, after.getFieldType(1));
+        Assertions.assertEquals(BasicType.BYTE_TYPE, after.getFieldType(2));
+        Assertions.assertEquals(BasicType.SHORT_TYPE, after.getFieldType(3));
+        Assertions.assertEquals(BasicType.INT_TYPE, after.getFieldType(4));
+        Assertions.assertEquals(BasicType.DOUBLE_TYPE, after.getFieldType(5));
+        Assertions.assertEquals(BasicType.STRING_TYPE, after.getFieldType(6));
+    }
+
+    @Test
+    public void testTypeZooRenameTimestampColumnKeepsType() throws IOException {
+        NoOpWriteStrategy strategy = buildTypeZooStrategy();
+
+        PhysicalColumn renamed =
+                PhysicalColumn.builder()
+                        .name("event_time")
+                        .dataType(
+                                org.apache.seatunnel.api.table.type.LocalTimeType
+                                        .LOCAL_DATE_TIME_TYPE)
+                        .nullable(true)
+                        .build();
+        strategy.applySchemaChange(
+                AlterTableChangeColumnEvent.change(TABLE_ID, "created_at", renamed));
+
+        SeaTunnelRowType after = strategy.getSeaTunnelRowType();
+        Assertions.assertFalse(Arrays.asList(after.getFieldNames()).contains("created_at"));
+        Assertions.assertTrue(Arrays.asList(after.getFieldNames()).contains("event_time"));
+        int idx = Arrays.asList(after.getFieldNames()).indexOf("event_time");
+        Assertions.assertEquals(
+                org.apache.seatunnel.api.table.type.LocalTimeType.LOCAL_DATE_TIME_TYPE,
+                after.getFieldType(idx),
+                "rename must preserve TIMESTAMP type");
+    }
+
     // ── Inner NoOp strategy ───────────────────────────────────────────────────────
 
     /**
