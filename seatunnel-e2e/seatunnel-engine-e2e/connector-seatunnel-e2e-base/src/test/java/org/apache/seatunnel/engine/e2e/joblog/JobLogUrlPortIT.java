@@ -125,11 +125,9 @@ public class JobLogUrlPortIT extends SeaTunnelEngineContainer {
                                             "-c",
                                             "ls /tmp/seatunnel/logs/ 2>/dev/null | head -1");
                             Assertions.assertFalse(
-                                    r1.getStdout().trim().isEmpty(),
-                                    "master has no log files yet");
+                                    r1.getStdout().trim().isEmpty(), "master has no log files yet");
                             Assertions.assertFalse(
-                                    r2.getStdout().trim().isEmpty(),
-                                    "worker has no log files yet");
+                                    r2.getStdout().trim().isEmpty(), "worker has no log files yet");
                         });
 
         Container.ExecResult logsResult =
