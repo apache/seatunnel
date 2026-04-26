@@ -125,9 +125,11 @@ public class JobLogUrlPortIT extends SeaTunnelEngineContainer {
                                             "-c",
                                             "ls /tmp/seatunnel/logs/ 2>/dev/null | head -1");
                             Assertions.assertFalse(
-                                    r1.getStdout().isBlank(), "master has no log files yet");
+                                    r1.getStdout().trim().isEmpty(),
+                                    "master has no log files yet");
                             Assertions.assertFalse(
-                                    r2.getStdout().isBlank(), "worker has no log files yet");
+                                    r2.getStdout().trim().isEmpty(),
+                                    "worker has no log files yet");
                         });
 
         Container.ExecResult logsResult =
@@ -142,7 +144,7 @@ public class JobLogUrlPortIT extends SeaTunnelEngineContainer {
                 "curl /logs?format=JSON failed: " + logsResult.getStderr());
 
         String jsonBody = logsResult.getStdout();
-        Assertions.assertFalse(jsonBody.isBlank(), "Log list JSON is empty");
+        Assertions.assertFalse(jsonBody.trim().isEmpty(), "Log list JSON is empty");
 
         ArrayNode logArray = JsonUtils.parseArray(jsonBody);
         Assertions.assertFalse(logArray.isEmpty(), "No logs returned from master");
