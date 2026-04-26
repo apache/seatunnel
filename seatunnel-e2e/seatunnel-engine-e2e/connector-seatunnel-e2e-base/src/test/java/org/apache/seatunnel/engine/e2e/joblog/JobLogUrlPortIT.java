@@ -130,32 +130,40 @@ public class JobLogUrlPortIT extends SeaTunnelEngineContainer {
                                     r2.getStdout().trim().isEmpty(), "worker has no log files yet");
                         });
 
-        Container.ExecResult logsResult =
-                masterServer.execInContainer(
-                        "sh",
-                        "-c",
-                        "curl -sf 'http://localhost:" + MASTER_HTTP_PORT + "/logs?format=JSON'");
+        final String[] jsonBodyHolder = {null};
+        Awaitility.await()
+                .atMost(1, TimeUnit.MINUTES)
+                .pollInterval(3, TimeUnit.SECONDS)
+                .untilAsserted(
+                        () -> {
+                            Container.ExecResult logsResult =
+                                    masterServer.execInContainer(
+                                            "sh",
+                                            "-c",
+                                            "curl -sf 'http://localhost:"
+                                                    + MASTER_HTTP_PORT
+                                                    + "/logs?format=JSON'");
+                            Assertions.assertEquals(
+                                    0,
+                                    logsResult.getExitCode(),
+                                    "curl /logs?format=JSON failed: " + logsResult.getStderr());
+                            String body = logsResult.getStdout();
+                            Assertions.assertFalse(body.trim().isEmpty(), "Log list JSON is empty");
+                            ArrayNode nodes = JsonUtils.parseArray(body);
+                            Assertions.assertFalse(nodes.isEmpty(), "No logs returned from master");
+                            Set<String> respondedHosts = new HashSet<>();
+                            for (JsonNode entry : nodes) {
+                                respondedHosts.add(extractHost(entry.get("node").asText()));
+                            }
+                            Assertions.assertEquals(
+                                    2,
+                                    respondedHosts.size(),
+                                    "Expected both cluster nodes in /logs response, got: "
+                                            + respondedHosts);
+                            jsonBodyHolder[0] = body;
+                        });
 
-        Assertions.assertEquals(
-                0,
-                logsResult.getExitCode(),
-                "curl /logs?format=JSON failed: " + logsResult.getStderr());
-
-        String jsonBody = logsResult.getStdout();
-        Assertions.assertFalse(jsonBody.trim().isEmpty(), "Log list JSON is empty");
-
-        ArrayNode logArray = JsonUtils.parseArray(jsonBody);
-        Assertions.assertFalse(logArray.isEmpty(), "No logs returned from master");
-
-        Set<String> respondedHosts = new HashSet<>();
-        for (JsonNode entry : logArray) {
-            respondedHosts.add(extractHost(entry.get("node").asText()));
-        }
-        Assertions.assertEquals(
-                2,
-                respondedHosts.size(),
-                "Expected both cluster nodes in /logs response, got: " + respondedHosts);
-
+        ArrayNode logArray = JsonUtils.parseArray(jsonBodyHolder[0]);
         for (JsonNode entry : logArray) {
             String link = entry.get("logLink").asText();
             Container.ExecResult curlResult =
