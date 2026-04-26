@@ -66,7 +66,7 @@ public class LogService extends BaseLogService {
 
         List<Tuple3<String, String, String>> allLogNameList = new ArrayList<>();
 
-        for (Member member : nodeEngine.getHazelcastInstance().getCluster().getMembers()) {
+        for (Member member : nodeEngine.getClusterService().getMembers()) {
             String host = member.getAddress().getHost();
             int nodeHttpPort;
             try {
