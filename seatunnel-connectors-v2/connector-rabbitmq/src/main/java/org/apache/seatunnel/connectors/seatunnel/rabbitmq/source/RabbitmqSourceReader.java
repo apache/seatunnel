@@ -213,7 +213,7 @@ public class RabbitmqSourceReader implements SourceReader<SeaTunnelRow, Rabbitmq
                 // Create a new consumer that feeds messages into the shared internal 'queue'
                 DefaultConsumer consumer =
                         rabbitMQClient.getQueueingConsumer(queue, split.splitId());
-
+                rabbitMQClient.setupQueue(split.splitId());
                 channel.basicConsume(split.splitId(), autoAck, consumer);
                 activeConsumers.put(split.splitId(), consumer);
                 sourceSplits.add(split);

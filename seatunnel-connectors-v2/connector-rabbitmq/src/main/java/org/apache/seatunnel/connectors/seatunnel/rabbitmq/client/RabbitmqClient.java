@@ -212,12 +212,23 @@ public class RabbitmqClient implements AutoCloseable {
     }
 
     /** Declare the queue using configuration defaults. */
-    protected void setupQueue() throws IOException {
+    public void setupQueue() throws IOException {
         if (StringUtils.isNotEmpty(config.getQueueName())) {
             declareQueueDefaults(channel, config);
         }
     }
 
+    /** Declare a specific queue */
+    public void setupQueue(String queueName) throws IOException {
+        if (StringUtils.isNotEmpty(queueName)) {
+            channel.queueDeclare(
+                    queueName,
+                    config.getDurable(),
+                    config.getExclusive(),
+                    config.getAutoDelete(),
+                    null);
+        }
+    }
     private void declareQueueDefaults(Channel channel, RabbitmqConfig config) throws IOException {
         channel.queueDeclare(
                 config.getQueueName(),
