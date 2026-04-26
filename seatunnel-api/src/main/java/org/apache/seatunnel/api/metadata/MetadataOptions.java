@@ -15,31 +15,38 @@
  * limitations under the License.
  */
 
-package org.apache.seatunnel.engine.common.config.server;
+package org.apache.seatunnel.api.metadata;
 
 import org.apache.seatunnel.api.configuration.Option;
 import org.apache.seatunnel.api.configuration.Options;
 
-/** Configuration options for DataSource Center. */
-public class DataSourceOptions {
+/** Configuration options for Metadata Center. */
+public class MetadataOptions {
 
-    /** Whether to enable DataSource Center. */
+    /** The key for metadata configuration in env config. */
+    public static final Option<String> METADATA =
+            Options.key("metadata")
+                    .stringType()
+                    .noDefaultValue()
+                    .withDescription(
+                            "The metadata configuration containing enabled, kind and provider-specific properties.");
+
+    /** Whether to enable Metadata Center. */
     public static final Option<Boolean> ENABLED =
             Options.key("enabled")
                     .booleanType()
                     .defaultValue(false)
                     .withDescription(
-                            "Whether to enable DataSource Center for centralized data source metadata management. "
+                            "Whether to enable Metadata Center for centralized data source metadata management. "
                                     + "When enabled, data source connection details can be referenced via datasourceId instead of being directly specified in job configs.");
 
     /**
-     * The kind of DataSource provider to use. Supported values: "gravitino", "datahub", "atlas",
-     * etc.
+     * The kind of Metadata provider to use. Supported values: "gravitino", "datahub", "atlas", etc.
      */
     public static final Option<String> KIND =
             Options.key("kind")
                     .stringType()
                     .defaultValue("gravitino")
                     .withDescription(
-                            "The kind of DataSource provider to use. Supported values: gravitino, datahub, atlas, etc.");
+                            "The kind of Metadata provider to use. Supported values: gravitino, datahub, atlas, etc.");
 }

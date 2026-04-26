@@ -44,7 +44,7 @@ import java.util.Collections;
 import static org.apache.seatunnel.e2e.common.util.ContainerUtil.PROJECT_ROOT_PATH;
 
 @Slf4j
-public class LocalFileWithMetaLakeIT extends SeaTunnelContainer {
+public class LocalFileWithMetadataIT extends SeaTunnelContainer {
 
     private static final String GRAVITINO_IMAGE = "apache/gravitino:latest";
     private static final int GRAVITINO_PORT = 8090;
@@ -101,6 +101,12 @@ public class LocalFileWithMetaLakeIT extends SeaTunnelContainer {
                         PROJECT_ROOT_PATH
                                 + "/seatunnel-e2e/seatunnel-engine-e2e/connector-seatunnel-e2e-base/src/test/resources/"),
                 Paths.get(SEATUNNEL_HOME, "config").toString());
+
+        server.withCopyFileToContainer(
+                MountableFile.forHostPath(
+                        PROJECT_ROOT_PATH
+                                + "/seatunnel-e2e/seatunnel-connector-v2-e2e/connector-file-local-e2e/src/test/resources/conf/seatunnel.yaml"),
+                Paths.get(SEATUNNEL_HOME, "config", "seatunnel.yaml").toString());
 
         server.withCopyFileToContainer(
                 MountableFile.forHostPath(
@@ -254,7 +260,7 @@ public class LocalFileWithMetaLakeIT extends SeaTunnelContainer {
 
     @Test
     public void testLocalFileCsvToLocalFileCsvWithSchemaUrlAndFields() throws Exception {
-        // Execute job with LocalFile source using fields and schema_url
+        // Execute job with LocalFile source using fields and metadata_table_id
         // CSV data files are copied via @TestContainerExtension
         GenericContainer.ExecResult execResult =
                 executeJob("/csv/local_file_csv_to_local_file_csv_with_metalake.conf");

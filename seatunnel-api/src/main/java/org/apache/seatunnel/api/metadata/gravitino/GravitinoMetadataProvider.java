@@ -15,15 +15,17 @@
  * limitations under the License.
  */
 
-package org.apache.seatunnel.api.datasource.gravitino;
+package org.apache.seatunnel.api.metadata.gravitino;
 
 import org.apache.seatunnel.shade.com.fasterxml.jackson.databind.JsonNode;
 import org.apache.seatunnel.shade.com.typesafe.config.Config;
 
 import org.apache.seatunnel.api.configuration.Option;
 import org.apache.seatunnel.api.configuration.Options;
-import org.apache.seatunnel.api.datasource.DataSourceProvider;
+import org.apache.seatunnel.api.metadata.MetadataProvider;
 import org.apache.seatunnel.api.metalake.gravitino.GravitinoClient;
+import org.apache.seatunnel.api.metalake.gravitino.GravitinoTableSchemaConvertor;
+import org.apache.seatunnel.api.table.catalog.TableSchema;
 import org.apache.seatunnel.common.utils.SeaTunnelException;
 
 import com.google.auto.service.AutoService;
@@ -33,9 +35,10 @@ import java.io.IOException;
 import java.util.Collections;
 import java.util.HashMap;
 import java.util.Map;
+import java.util.Optional;
 
 /**
- * Gravitino implementation of {@link DataSourceProvider}.
+ * Gravitino implementation of {@link MetadataProvider}.
  *
  * <p>This provider integrates with Apache Gravitino for centralized data source metadata
  * management.
@@ -43,7 +46,7 @@ import java.util.Map;
  * <p>Configuration (from seatunnel.yaml under seatunnel.engine.datasource):
  *
  * <pre>
- * datasource:
+ * metadata:
  *   enabled: true
  *   kind: gravitino
  *   uri: <a href="http://localhost:8090">...</a>          # Gravitino server URI
@@ -81,15 +84,18 @@ import java.util.Map;
  * </pre>
  */
 @Slf4j
-@AutoService(DataSourceProvider.class)
-public class GravitinoDataSourceProvider implements DataSourceProvider {
+@AutoService(MetadataProvider.class)
+public class GravitinoMetadataProvider implements MetadataProvider {
 
     private String uri;
     private String metalake;
     private GravitinoClient client;
+    private GravitinoTableSchemaConvertor tableSchemaConvertor;
 
-    private static final String METALAKE_API_PATH = "/api/metalakes/";
-    private static final String CATALOGS_PATH = "/catalogs/";
+    private static final String METALAKE_API_PATH = "api/metalakes/";
+    private static final String CATALOGS_PATH = "/catalogs";
+    private static final String SCHEMAS_PATH = "/schemas";
+    private static final String TABLES_PATH = "/tables";
 
     // Gravitino JDBC property names
     private static final String GRAVITINO_JDBC_URL = "jdbc-url";
@@ -142,10 +148,12 @@ public class GravitinoDataSourceProvider implements DataSourceProvider {
         this.uri = uri;
         this.metalake = metalake;
         this.client = new GravitinoClient();
+        this.tableSchemaConvertor = new GravitinoTableSchemaConvertor();
     }
 
     @Override
-    public Map<String, Object> datasourceMap(String connectorIdentifier, String datasourceId) {
+    public Map<String, Object> datasourceMap(
+            String connectorIdentifier, String metaDataDatasourceId) {
         if (!JDBC_CONNECTOR.equalsIgnoreCase(connectorIdentifier)) {
             log.warn(
                     "Unsupported connector '{}' for Gravitino provider, only '{}' is supported",
@@ -156,14 +164,25 @@ public class GravitinoDataSourceProvider implements DataSourceProvider {
 
         try {
             String catalogBaseUrl = buildMetalakeUrl();
-            JsonNode propertiesNode = client.getMetaInfo(datasourceId, catalogBaseUrl);
+            JsonNode propertiesNode = client.getMetaInfo(metaDataDatasourceId, catalogBaseUrl);
             return convertToJdbcConfig(propertiesNode);
         } catch (IOException e) {
             throw new SeaTunnelException(
                     String.format(
-                            "Failed to fetch metadata from Gravitino for datasource: %s",
-                            datasourceId),
+                            "Failed to fetch metadata from Gravitino for metadata: %s",
+                            metaDataDatasourceId),
                     e);
+        }
+    }
+
+    @Override
+    public Optional<TableSchema> tableSchema(String metaDataTableId) {
+        try {
+            final JsonNode tableSchema =
+                    client.getTableSchema(buildMetalakeUrlTableUrl(metaDataTableId));
+            return Optional.of(tableSchemaConvertor.convertor(tableSchema));
+        } catch (IOException e) {
+            throw new SeaTunnelException("fail get tableSchema:" + metaDataTableId, e);
         }
     }
 
@@ -175,6 +194,29 @@ public class GravitinoDataSourceProvider implements DataSourceProvider {
     private String buildMetalakeUrl() {
         String baseUri = uri.endsWith("/") ? uri : uri + "/";
         return baseUri + METALAKE_API_PATH + metalake + CATALOGS_PATH;
+    }
+
+    private String buildMetalakeUrlTableUrl(String metaDataTableId) {
+        final String[] split = metaDataTableId.split("\\.");
+        if (split.length != 3) {
+            throw new SeaTunnelException("Invalid metalake table id: " + metaDataTableId);
+        }
+        String catalog = split[0];
+        String schema = split[1];
+        String table = split[2];
+        String baseUri = uri.endsWith("/") ? uri : uri + "/";
+        return baseUri
+                + METALAKE_API_PATH
+                + metalake
+                + CATALOGS_PATH
+                + "/"
+                + catalog
+                + SCHEMAS_PATH
+                + "/"
+                + schema
+                + TABLES_PATH
+                + "/"
+                + table;
     }
 
     /**
