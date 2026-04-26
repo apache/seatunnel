@@ -895,7 +895,7 @@ jobs:
       matrix:
         java: [ '8', '11' ]
         os: [ 'ubuntu-latest' ]
-    timeout-minutes: 180
+    timeout-minutes: 270
     steps:
       - uses: actions/checkout@v2
       - name: Set up JDK ${{ matrix.java }}

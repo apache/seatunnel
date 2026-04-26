@@ -24,9 +24,11 @@ import org.apache.seatunnel.api.source.Collector;
 import org.apache.seatunnel.api.table.catalog.CatalogTable;
 import org.apache.seatunnel.api.table.catalog.CatalogTableUtil;
 import org.apache.seatunnel.api.table.type.ArrayType;
+import org.apache.seatunnel.api.table.type.BasicType;
+import org.apache.seatunnel.api.table.type.MapType;
+import org.apache.seatunnel.api.table.type.SeaTunnelDataType;
 import org.apache.seatunnel.api.table.type.SeaTunnelRow;
 import org.apache.seatunnel.api.table.type.SeaTunnelRowType;
-import org.apache.seatunnel.common.exception.SeaTunnelRuntimeException;
 import org.apache.seatunnel.connectors.seatunnel.file.config.HadoopConf;
 import org.apache.seatunnel.connectors.seatunnel.file.source.reader.ParquetReadStrategy;
 
@@ -207,27 +209,6 @@ public class ParquetReadStrategyTest {
         String[] arrayData = (String[]) seaTunnelRow.getField(3);
         Assertions.assertEquals(arrayData.length, 2);
         Assertions.assertEquals(arrayData[0], "Java");
-        AutoGenerateParquetData.deleteFile();
-    }
-
-    @DisabledOnOs(OS.WINDOWS)
-    @Test
-    public void testParquetReadUnsupportedType() throws Exception {
-        AutoGenerateParquetDataWithUnsupportedType.generateTestData();
-        ParquetReadStrategy parquetReadStrategy = new ParquetReadStrategy();
-        LocalConf localConf = new LocalConf(FS_DEFAULT_NAME_DEFAULT);
-        parquetReadStrategy.init(localConf);
-        SeaTunnelRuntimeException exception =
-                Assertions.assertThrows(
-                        SeaTunnelRuntimeException.class,
-                        () ->
-                                parquetReadStrategy.getSeaTunnelRowTypeInfo(
-                                        AutoGenerateParquetDataWithUnsupportedType.DATA_FILE_PATH));
-        Assertions.assertEquals(
-                "ErrorCode:[COMMON-20], ErrorDescription:['Parquet' table 'default.default.default' unsupported get catalog table with field data types"
-                        + " '{\"id\":\"required group id (LIST) {\\n  repeated group array (LIST) {\\n    repeated binary array;\\n  }\\n}\",\"id2\":\"required group id2 (LIST) {\\n  repeated group array (LIST)"
-                        + " {\\n    repeated binary array;\\n  }\\n}\"}']",
-                exception.getMessage());
         AutoGenerateParquetData.deleteFile();
     }
 
@@ -497,9 +478,307 @@ public class ParquetReadStrategyTest {
         }
     }
 
-    public static class AutoGenerateParquetDataWithUnsupportedType {
+    /** Write data based on the Parquet native api */
+    @DisabledOnOs(OS.WINDOWS)
+    @Test
+    public void testParquetReadNestedArray() throws Exception {
+        AutoGenerateParquetDataWithNestedArray.generateTestData();
+        ParquetReadStrategy parquetReadStrategy = new ParquetReadStrategy();
+        LocalConf localConf = new LocalConf(FS_DEFAULT_NAME_DEFAULT);
+        parquetReadStrategy.init(localConf);
+        SeaTunnelRowType seaTunnelRowTypeInfo =
+                parquetReadStrategy.getSeaTunnelRowTypeInfo(
+                        AutoGenerateParquetDataWithNestedArray.DATA_FILE_PATH);
+        Assertions.assertNotNull(seaTunnelRowTypeInfo);
 
-        public static final String DATA_FILE_PATH = "/tmp/data_unsupported.parquet";
+        TestCollector testCollector = new TestCollector();
+        parquetReadStrategy.read(
+                AutoGenerateParquetDataWithNestedArray.DATA_FILE_PATH, "1", testCollector);
+        List<SeaTunnelRow> rows = testCollector.getRows();
+        Assertions.assertEquals(1, rows.size());
+
+        SeaTunnelRow row = rows.get(0);
+        Assertions.assertEquals(1, row.getField(0));
+        Assertions.assertEquals("Alice", row.getField(1).toString());
+
+        Object[] nestedArray = (Object[]) row.getField(2);
+        Assertions.assertNotNull(nestedArray);
+        Assertions.assertEquals(2, nestedArray.length);
+
+        String[] firstArray = (String[]) nestedArray[0];
+        Assertions.assertEquals(2, firstArray.length);
+        Assertions.assertEquals("Java", firstArray[0]);
+        Assertions.assertEquals("Python", firstArray[1]);
+
+        String[] secondArray = (String[]) nestedArray[1];
+        Assertions.assertEquals(2, secondArray.length);
+        Assertions.assertEquals("C++", secondArray[0]);
+        Assertions.assertEquals("Go", secondArray[1]);
+
+        HashMap<?, ?> nestedMap = (HashMap<?, ?>) row.getField(3);
+        Assertions.assertNotNull(nestedMap);
+        Assertions.assertEquals(2, nestedMap.size());
+
+        HashMap<?, ?> location1 = (HashMap<?, ?>) nestedMap.get("location1");
+        Assertions.assertNotNull(location1);
+        Assertions.assertEquals("Beijing", location1.get("city"));
+        Assertions.assertEquals("China", location1.get("country"));
+
+        HashMap<?, ?> location2 = (HashMap<?, ?>) nestedMap.get("location2");
+        Assertions.assertNotNull(location2);
+        Assertions.assertEquals("Shanghai", location2.get("city"));
+        Assertions.assertEquals("China", location2.get("country"));
+
+        AutoGenerateParquetDataWithNestedArray.deleteFile();
+    }
+
+    @DisabledOnOs(OS.WINDOWS)
+    @Test
+    public void testParquetReadNestedBytesArray() throws Exception {
+        AutoGenerateParquetDataWithNestedBytesArray.generateTestData();
+        ParquetReadStrategy parquetReadStrategy = new ParquetReadStrategy();
+        LocalConf localConf = new LocalConf(FS_DEFAULT_NAME_DEFAULT);
+        parquetReadStrategy.init(localConf);
+
+        SeaTunnelRowType seaTunnelRowTypeInfo =
+                parquetReadStrategy.getSeaTunnelRowTypeInfo(
+                        AutoGenerateParquetDataWithNestedBytesArray.DATA_FILE_PATH);
+        Assertions.assertNotNull(seaTunnelRowTypeInfo);
+
+        Assertions.assertEquals(ArrayType.class, seaTunnelRowTypeInfo.getFieldType(0).getClass());
+        ArrayType<?, ?> idType = (ArrayType<?, ?>) seaTunnelRowTypeInfo.getFieldType(0);
+        Assertions.assertEquals(ArrayType.class, idType.getElementType().getClass());
+
+        Assertions.assertEquals(ArrayType.class, seaTunnelRowTypeInfo.getFieldType(1).getClass());
+        ArrayType<?, ?> id2Type = (ArrayType<?, ?>) seaTunnelRowTypeInfo.getFieldType(1);
+        Assertions.assertEquals(ArrayType.class, id2Type.getElementType().getClass());
+
+        TestCollector testCollector = new TestCollector();
+        parquetReadStrategy.read(
+                AutoGenerateParquetDataWithNestedBytesArray.DATA_FILE_PATH, "1", testCollector);
+        List<SeaTunnelRow> rows = testCollector.getRows();
+        Assertions.assertEquals(1, rows.size());
+
+        SeaTunnelRow row = rows.get(0);
+
+        Object[] idNestedArray = (Object[]) row.getField(0);
+        Assertions.assertNotNull(idNestedArray);
+        Assertions.assertEquals(1, idNestedArray.length);
+
+        byte[][] idInnerArray = (byte[][]) idNestedArray[0];
+        Assertions.assertEquals(2, idInnerArray.length);
+        Assertions.assertArrayEquals(new byte[] {1, 2, 3}, idInnerArray[0]);
+        Assertions.assertArrayEquals(new byte[] {4, 5, 6}, idInnerArray[1]);
+
+        Object[] id2NestedArray = (Object[]) row.getField(1);
+        Assertions.assertNotNull(id2NestedArray);
+        Assertions.assertEquals(1, id2NestedArray.length);
+
+        byte[][] id2InnerArray = (byte[][]) id2NestedArray[0];
+        Assertions.assertEquals(3, id2InnerArray.length);
+        Assertions.assertArrayEquals(new byte[] {13, 14}, id2InnerArray[0]);
+        Assertions.assertArrayEquals(new byte[] {15, 16}, id2InnerArray[1]);
+        Assertions.assertArrayEquals(new byte[] {17, 18}, id2InnerArray[2]);
+
+        Assertions.assertEquals(Long.MAX_VALUE, row.getField(2));
+
+        AutoGenerateParquetDataWithNestedBytesArray.deleteFile();
+    }
+
+    @DisabledOnOs(OS.WINDOWS)
+    @Test
+    public void testParquetReadNestedArrayWithUserConfigRowType() throws Exception {
+        AutoGenerateParquetDataWithNestedArray.generateTestData();
+        ParquetReadStrategy parquetReadStrategy = new ParquetReadStrategy();
+        LocalConf localConf = new LocalConf(FS_DEFAULT_NAME_DEFAULT);
+        parquetReadStrategy.init(localConf);
+
+        ArrayType<String[], String> stringArrayType = ArrayType.STRING_ARRAY_TYPE;
+        ArrayType<?, ?> nestedArrayType = ArrayType.of(stringArrayType);
+
+        MapType<?, ?> stringMapType = new MapType<>(BasicType.STRING_TYPE, BasicType.STRING_TYPE);
+        MapType<?, ?> nestedMapType = new MapType<>(BasicType.STRING_TYPE, stringMapType);
+
+        SeaTunnelRowType configRowType =
+                new SeaTunnelRowType(
+                        new String[] {"id", "name", "nested_skills", "nested_map"},
+                        new SeaTunnelDataType<?>[] {
+                            BasicType.INT_TYPE,
+                            BasicType.STRING_TYPE,
+                            nestedArrayType,
+                            nestedMapType
+                        });
+
+        SeaTunnelRowType seaTunnelRowTypeInfo =
+                parquetReadStrategy.getSeaTunnelRowTypeInfoWithUserConfigRowType(
+                        AutoGenerateParquetDataWithNestedArray.DATA_FILE_PATH, configRowType);
+        Assertions.assertNotNull(seaTunnelRowTypeInfo);
+
+        Assertions.assertEquals(ArrayType.class, seaTunnelRowTypeInfo.getFieldType(2).getClass());
+        ArrayType<?, ?> nestedSkillsType = (ArrayType<?, ?>) seaTunnelRowTypeInfo.getFieldType(2);
+        Assertions.assertEquals(ArrayType.class, nestedSkillsType.getElementType().getClass());
+
+        Assertions.assertEquals(MapType.class, seaTunnelRowTypeInfo.getFieldType(3).getClass());
+        MapType<?, ?> nestedMapFieldType = (MapType<?, ?>) seaTunnelRowTypeInfo.getFieldType(3);
+        Assertions.assertEquals(MapType.class, nestedMapFieldType.getValueType().getClass());
+
+        TestCollector testCollector = new TestCollector();
+        parquetReadStrategy.read(
+                AutoGenerateParquetDataWithNestedArray.DATA_FILE_PATH, "1", testCollector);
+        List<SeaTunnelRow> rows = testCollector.getRows();
+        Assertions.assertEquals(1, rows.size());
+
+        SeaTunnelRow row = rows.get(0);
+        Assertions.assertEquals(1, row.getField(0));
+        Assertions.assertEquals("Alice", row.getField(1).toString());
+
+        Object[] nestedArray = (Object[]) row.getField(2);
+        Assertions.assertNotNull(nestedArray);
+        Assertions.assertEquals(2, nestedArray.length);
+
+        String[] firstArray = (String[]) nestedArray[0];
+        Assertions.assertEquals(2, firstArray.length);
+        Assertions.assertEquals("Java", firstArray[0]);
+        Assertions.assertEquals("Python", firstArray[1]);
+
+        String[] secondArray = (String[]) nestedArray[1];
+        Assertions.assertEquals(2, secondArray.length);
+        Assertions.assertEquals("C++", secondArray[0]);
+        Assertions.assertEquals("Go", secondArray[1]);
+
+        HashMap<?, ?> nestedMap = (HashMap<?, ?>) row.getField(3);
+        Assertions.assertNotNull(nestedMap);
+        Assertions.assertEquals(2, nestedMap.size());
+
+        HashMap<?, ?> location1 = (HashMap<?, ?>) nestedMap.get("location1");
+        Assertions.assertNotNull(location1);
+        Assertions.assertEquals("Beijing", location1.get("city"));
+        Assertions.assertEquals("China", location1.get("country"));
+
+        HashMap<?, ?> location2 = (HashMap<?, ?>) nestedMap.get("location2");
+        Assertions.assertNotNull(location2);
+        Assertions.assertEquals("Shanghai", location2.get("city"));
+        Assertions.assertEquals("China", location2.get("country"));
+
+        AutoGenerateParquetDataWithNestedArray.deleteFile();
+    }
+
+    @DisabledOnOs(OS.WINDOWS)
+    @Test
+    public void testParquetReadArrayOfMap() throws Exception {
+        AutoGenerateParquetDataWithArrayOfMap.generateTestData();
+        ParquetReadStrategy parquetReadStrategy = new ParquetReadStrategy();
+        LocalConf localConf = new LocalConf(FS_DEFAULT_NAME_DEFAULT);
+        parquetReadStrategy.init(localConf);
+        SeaTunnelRowType seaTunnelRowTypeInfo =
+                parquetReadStrategy.getSeaTunnelRowTypeInfo(
+                        AutoGenerateParquetDataWithArrayOfMap.DATA_FILE_PATH);
+        Assertions.assertNotNull(seaTunnelRowTypeInfo);
+
+        TestCollector testCollector = new TestCollector();
+        parquetReadStrategy.read(
+                AutoGenerateParquetDataWithArrayOfMap.DATA_FILE_PATH, "1", testCollector);
+        List<SeaTunnelRow> rows = testCollector.getRows();
+        Assertions.assertEquals(1, rows.size());
+
+        SeaTunnelRow row = rows.get(0);
+        Assertions.assertEquals(1, row.getField(0));
+        Assertions.assertEquals("Bob", row.getField(1).toString());
+
+        Object[] arrayOfMaps = (Object[]) row.getField(2);
+        Assertions.assertNotNull(arrayOfMaps);
+        Assertions.assertEquals(2, arrayOfMaps.length);
+
+        HashMap<?, ?> firstMap = (HashMap<?, ?>) arrayOfMaps[0];
+        Assertions.assertEquals("Engineering", firstMap.get("department"));
+        Assertions.assertEquals("Beijing", firstMap.get("location"));
+
+        HashMap<?, ?> secondMap = (HashMap<?, ?>) arrayOfMaps[1];
+        Assertions.assertEquals("Marketing", secondMap.get("department"));
+        Assertions.assertEquals("Shanghai", secondMap.get("location"));
+
+        AutoGenerateParquetDataWithArrayOfMap.deleteFile();
+    }
+
+    public static class AutoGenerateParquetDataWithNestedArray {
+
+        public static final String DATA_FILE_PATH = "/tmp/data_nested_array.parquet";
+
+        public static void generateTestData() throws IOException {
+            deleteFile();
+
+            String schemaString =
+                    "{\"type\":\"record\",\"name\":\"User\",\"fields\":["
+                            + "{\"name\":\"id\",\"type\":\"int\"},"
+                            + "{\"name\":\"name\",\"type\":\"string\"},"
+                            + "{\"name\":\"nested_skills\",\"type\":{\"type\":\"array\",\"items\":{\"type\":\"array\",\"items\":\"string\"}}},"
+                            + "{\"name\":\"nested_map\",\"type\":{\"type\":\"map\",\"values\":{\"type\":\"map\",\"values\":\"string\"}}}"
+                            + "]}";
+            Schema schema = new Schema.Parser().parse(schemaString);
+
+            Configuration conf = new Configuration();
+            Path file = new Path(DATA_FILE_PATH);
+
+            ParquetWriter<GenericRecord> writer =
+                    AvroParquetWriter.<GenericRecord>builder(file)
+                            .withSchema(schema)
+                            .withConf(conf)
+                            .withCompressionCodec(CompressionCodecName.SNAPPY)
+                            .build();
+
+            GenericRecord record = new GenericData.Record(schema);
+            record.put("id", 1);
+            record.put("name", "Alice");
+
+            Schema nestedArraySchema = schema.getField("nested_skills").schema();
+            Schema innerArraySchema = nestedArraySchema.getElementType();
+
+            GenericArray<GenericArray<Utf8>> nestedSkills =
+                    new GenericData.Array<>(2, nestedArraySchema);
+
+            GenericArray<Utf8> skills1 = new GenericData.Array<>(2, innerArraySchema);
+            skills1.add(new Utf8("Java"));
+            skills1.add(new Utf8("Python"));
+
+            GenericArray<Utf8> skills2 = new GenericData.Array<>(2, innerArraySchema);
+            skills2.add(new Utf8("C++"));
+            skills2.add(new Utf8("Go"));
+
+            nestedSkills.add(skills1);
+            nestedSkills.add(skills2);
+
+            record.put("nested_skills", nestedSkills);
+
+            Map<Utf8, Map<Utf8, Utf8>> nestedMap = new HashMap<>();
+
+            Map<Utf8, Utf8> innerMap1 = new HashMap<>();
+            innerMap1.put(new Utf8("city"), new Utf8("Beijing"));
+            innerMap1.put(new Utf8("country"), new Utf8("China"));
+
+            Map<Utf8, Utf8> innerMap2 = new HashMap<>();
+            innerMap2.put(new Utf8("city"), new Utf8("Shanghai"));
+            innerMap2.put(new Utf8("country"), new Utf8("China"));
+
+            nestedMap.put(new Utf8("location1"), innerMap1);
+            nestedMap.put(new Utf8("location2"), innerMap2);
+
+            record.put("nested_map", nestedMap);
+
+            writer.write(record);
+            writer.close();
+        }
+
+        public static void deleteFile() {
+            File parquetFile = new File(DATA_FILE_PATH);
+            if (parquetFile.exists()) {
+                parquetFile.delete();
+            }
+        }
+    }
+
+    public static class AutoGenerateParquetDataWithNestedBytesArray {
+
+        public static final String DATA_FILE_PATH = "/tmp/data_nested_bytes_array.parquet";
 
         public static void generateTestData() throws IOException {
             deleteFile();
@@ -519,12 +798,29 @@ public class ParquetReadStrategyTest {
                             .build();
 
             GenericRecord record1 = new GenericData.Record(schema);
-            GenericArray<GenericData.Array<Utf8>> id =
-                    new GenericData.Array<>(2, schema.getField("id").schema());
-            id.add(new GenericData.Array<>(2, schema.getField("id").schema().getElementType()));
-            id.add(new GenericData.Array<>(2, schema.getField("id").schema().getElementType()));
+
+            Schema idSchema = schema.getField("id").schema();
+            Schema innerArraySchema = idSchema.getElementType();
+
+            GenericArray<GenericArray<ByteBuffer>> id = new GenericData.Array<>(1, idSchema);
+
+            GenericArray<ByteBuffer> innerArray1 = new GenericData.Array<>(2, innerArraySchema);
+            innerArray1.add(ByteBuffer.wrap(new byte[] {1, 2, 3}));
+            innerArray1.add(ByteBuffer.wrap(new byte[] {4, 5, 6}));
+
+            id.add(innerArray1);
+
+            GenericArray<GenericArray<ByteBuffer>> id2 = new GenericData.Array<>(1, idSchema);
+
+            GenericArray<ByteBuffer> innerArray2 = new GenericData.Array<>(3, innerArraySchema);
+            innerArray2.add(ByteBuffer.wrap(new byte[] {13, 14}));
+            innerArray2.add(ByteBuffer.wrap(new byte[] {15, 16}));
+            innerArray2.add(ByteBuffer.wrap(new byte[] {17, 18}));
+
+            id2.add(innerArray2);
+
             record1.put("id", id);
-            record1.put("id2", id);
+            record1.put("id2", id2);
             record1.put("long", Long.MAX_VALUE);
             writer.write(record1);
             writer.close();
@@ -538,12 +834,67 @@ public class ParquetReadStrategyTest {
         }
     }
 
-    /** Write data based on the Parquet native api */
+    public static class AutoGenerateParquetDataWithArrayOfMap {
+
+        public static final String DATA_FILE_PATH = "/tmp/data_array_of_map.parquet";
+
+        public static void generateTestData() throws IOException {
+            deleteFile();
+
+            String schemaString =
+                    "{\"type\":\"record\",\"name\":\"User\",\"fields\":["
+                            + "{\"name\":\"id\",\"type\":\"int\"},"
+                            + "{\"name\":\"name\",\"type\":\"string\"},"
+                            + "{\"name\":\"locations\",\"type\":{\"type\":\"array\",\"items\":{\"type\":\"map\",\"values\":\"string\"}}}"
+                            + "]}";
+            Schema schema = new Schema.Parser().parse(schemaString);
+
+            Configuration conf = new Configuration();
+            Path file = new Path(DATA_FILE_PATH);
+
+            ParquetWriter<GenericRecord> writer =
+                    AvroParquetWriter.<GenericRecord>builder(file)
+                            .withSchema(schema)
+                            .withConf(conf)
+                            .withCompressionCodec(CompressionCodecName.SNAPPY)
+                            .build();
+
+            GenericRecord record = new GenericData.Record(schema);
+            record.put("id", 1);
+            record.put("name", "Bob");
+
+            Schema arrayOfMapSchema = schema.getField("locations").schema();
+            GenericArray<Map<Utf8, Utf8>> locations = new GenericData.Array<>(2, arrayOfMapSchema);
+
+            Map<Utf8, Utf8> location1 = new HashMap<>();
+            location1.put(new Utf8("department"), new Utf8("Engineering"));
+            location1.put(new Utf8("location"), new Utf8("Beijing"));
+
+            Map<Utf8, Utf8> location2 = new HashMap<>();
+            location2.put(new Utf8("department"), new Utf8("Marketing"));
+            location2.put(new Utf8("location"), new Utf8("Shanghai"));
+
+            locations.add(location1);
+            locations.add(location2);
+
+            record.put("locations", locations);
+
+            writer.write(record);
+            writer.close();
+        }
+
+        public static void deleteFile() {
+            File parquetFile = new File(DATA_FILE_PATH);
+            if (parquetFile.exists()) {
+                parquetFile.delete();
+            }
+        }
+    }
+
     public static class NativeParquetWriter {
 
         public static final String DATA_FILE_PATH = "/tmp/data_native.parquet";
 
-        // 1. Define Parquet Native Schema (MessageType)
         public static MessageType createSchema() {
             return Types.buildMessage()
                     .required(INT32)

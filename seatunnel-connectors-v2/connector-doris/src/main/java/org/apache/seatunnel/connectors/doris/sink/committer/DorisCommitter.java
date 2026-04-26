@@ -26,9 +26,11 @@ import org.apache.seatunnel.connectors.doris.exception.DorisConnectorErrorCode;
 import org.apache.seatunnel.connectors.doris.exception.DorisConnectorException;
 import org.apache.seatunnel.connectors.doris.sink.HttpPutBuilder;
 import org.apache.seatunnel.connectors.doris.sink.LoadStatus;
+import org.apache.seatunnel.connectors.doris.util.DorisRedirectExceptionBuilder;
 import org.apache.seatunnel.connectors.doris.util.HttpUtil;
 import org.apache.seatunnel.connectors.doris.util.ResponseUtil;
 
+import org.apache.http.Header;
 import org.apache.http.client.methods.CloseableHttpResponse;
 import org.apache.http.impl.client.CloseableHttpClient;
 import org.apache.http.util.EntityUtils;
@@ -36,6 +38,8 @@ import org.apache.http.util.EntityUtils;
 import lombok.extern.slf4j.Slf4j;
 
 import java.io.IOException;
+import java.util.ArrayList;
+import java.util.Arrays;
 import java.util.Collections;
 import java.util.HashMap;
 import java.util.List;
@@ -45,7 +49,8 @@ import java.util.Map;
 @Slf4j
 public class DorisCommitter implements SinkCommitter<DorisCommitInfo> {
     private static final String COMMIT_PATTERN = "http://%s/api/%s/_stream_load_2pc";
-    private static final int HTTP_TEMPORARY_REDIRECT = 200;
+    private static final int HTTP_OK = 200;
+    private static final int HTTP_TEMPORARY_REDIRECT = 307;
     private final CloseableHttpClient httpClient;
     private final DorisSinkConfig dorisSinkConfig;
     int maxRetry;
@@ -57,6 +62,7 @@ public class DorisCommitter implements SinkCommitter<DorisCommitInfo> {
     public DorisCommitter(DorisSinkConfig dorisSinkConfig, CloseableHttpClient client) {
         this.dorisSinkConfig = dorisSinkConfig;
         this.httpClient = client;
+        this.maxRetry = dorisSinkConfig.getMaxRetries();
     }
 
     @Override
@@ -76,42 +82,144 @@ public class DorisCommitter implements SinkCommitter<DorisCommitInfo> {
 
     private void commitTransaction(DorisCommitInfo committable)
             throws IOException, DorisConnectorException {
-        int statusCode = -1;
         String reasonPhrase = null;
-        int retry = 0;
-        String hostPort = committable.getHostPort();
-        CloseableHttpResponse response = null;
-        while (retry++ <= dorisSinkConfig.getMaxRetries()) {
+        IOException lastIOException = null;
+        DorisConnectorException lastRedirectException = null;
+        List<String> retryHosts = resolveFrontendRetryHosts(committable.getHostPort());
+        for (int attempt = 0; attempt <= dorisSinkConfig.getMaxRetries(); attempt++) {
+            String hostPort = retryHosts.get(attempt % retryHosts.size());
+            String requestUrl = String.format(COMMIT_PATTERN, hostPort, committable.getDb());
             HttpPutBuilder putBuilder = new HttpPutBuilder();
             putBuilder
-                    .setUrl(String.format(COMMIT_PATTERN, hostPort, committable.getDb()))
+                    .setUrl(requestUrl)
                     .baseAuth(dorisSinkConfig.getUsername(), dorisSinkConfig.getPassword())
                     .addCommonHeader()
                     .addTxnId(committable.getTxbID())
                     .setEmptyEntity()
                     .commit();
+            CloseableHttpResponse response;
             try {
-                response = httpClient.execute(putBuilder.build());
+                response =
+                        HttpUtil.executeWithRedirectTracking(
+                                httpClient,
+                                putBuilder.build(),
+                                requestUrl,
+                                dorisSinkConfig.isDirectToBe(),
+                                dorisSinkConfig.getEnable2PC(),
+                                "commit");
+            } catch (DorisConnectorException e) {
+                lastRedirectException = e;
+                log.error("commit transaction redirect follow-up failed on {}: ", hostPort, e);
+                continue;
             } catch (IOException e) {
-                log.error("commit transaction failed: ", e);
-                hostPort = dorisSinkConfig.getFrontends();
+                lastIOException = e;
+                log.error("commit transaction failed on {}: ", hostPort, e);
                 continue;
             }
-            statusCode = response.getStatusLine().getStatusCode();
+            int statusCode = response.getStatusLine().getStatusCode();
             reasonPhrase = response.getStatusLine().getReasonPhrase();
-            if (statusCode != HTTP_TEMPORARY_REDIRECT) {
-                log.warn("commit failed with {}, reason {}", hostPort, reasonPhrase);
-                hostPort = dorisSinkConfig.getFrontends();
-            } else {
-                break;
+            if (statusCode == HTTP_TEMPORARY_REDIRECT) {
+                Header location = response.getFirstHeader("Location");
+                throw new DorisConnectorException(
+                        DorisConnectorErrorCode.STREAM_LOAD_FAILED,
+                        DorisRedirectExceptionBuilder.build(
+                                requestUrl,
+                                location == null ? null : location.getValue(),
+                                dorisSinkConfig.isDirectToBe(),
+                                dorisSinkConfig.getEnable2PC(),
+                                "commit"));
             }
+            if (statusCode != HTTP_OK) {
+                log.warn("commit failed with {}, reason {}", hostPort, reasonPhrase);
+                continue;
+            }
+            handleCommitSuccess(committable, hostPort, response);
+            return;
         }
 
-        if (statusCode != HTTP_TEMPORARY_REDIRECT) {
-            throw new DorisConnectorException(
-                    DorisConnectorErrorCode.STREAM_LOAD_FAILED, reasonPhrase);
+        if (lastRedirectException != null) {
+            throw lastRedirectException;
         }
+        if (lastIOException != null && reasonPhrase == null) {
+            throw lastIOException;
+        }
+        throw new DorisConnectorException(DorisConnectorErrorCode.STREAM_LOAD_FAILED, reasonPhrase);
+    }
 
+    private void abortTransaction(DorisCommitInfo committable)
+            throws IOException, DorisConnectorException {
+        List<String> retryHosts = resolveFrontendRetryHosts(committable.getHostPort());
+        String responseStatus = null;
+        IOException lastIOException = null;
+        DorisConnectorException lastRedirectException = null;
+        for (int attempt = 0; attempt <= maxRetry; attempt++) {
+            String hostPort = retryHosts.get(attempt % retryHosts.size());
+            String requestUrl = String.format(COMMIT_PATTERN, hostPort, committable.getDb());
+            HttpPutBuilder builder = new HttpPutBuilder();
+            builder.setUrl(requestUrl)
+                    .baseAuth(dorisSinkConfig.getUsername(), dorisSinkConfig.getPassword())
+                    .addCommonHeader()
+                    .addTxnId(committable.getTxbID())
+                    .setEmptyEntity()
+                    .abort();
+            CloseableHttpResponse response;
+            try {
+                response =
+                        HttpUtil.executeWithRedirectTracking(
+                                httpClient,
+                                builder.build(),
+                                requestUrl,
+                                dorisSinkConfig.isDirectToBe(),
+                                dorisSinkConfig.getEnable2PC(),
+                                "abort");
+            } catch (DorisConnectorException e) {
+                lastRedirectException = e;
+                log.error("abort transaction redirect follow-up failed on {}: ", hostPort, e);
+                continue;
+            } catch (IOException e) {
+                lastIOException = e;
+                log.error("abort transaction failed on {}: ", hostPort, e);
+                continue;
+            }
+            int statusCode = response.getStatusLine().getStatusCode();
+            responseStatus = response.getStatusLine().toString();
+            if (statusCode == HTTP_TEMPORARY_REDIRECT) {
+                Header location = response.getFirstHeader("Location");
+                throw new DorisConnectorException(
+                        DorisConnectorErrorCode.STREAM_LOAD_FAILED,
+                        DorisRedirectExceptionBuilder.build(
+                                requestUrl,
+                                location == null ? null : location.getValue(),
+                                dorisSinkConfig.isDirectToBe(),
+                                dorisSinkConfig.getEnable2PC(),
+                                "abort"));
+            }
+            if (statusCode != HTTP_OK || response.getEntity() == null) {
+                log.warn("abort transaction response: {}", response.getStatusLine().toString());
+                continue;
+            }
+            handleAbortSuccess(committable, response);
+            return;
+        }
+        if (lastRedirectException != null) {
+            throw lastRedirectException;
+        }
+        if (lastIOException != null && responseStatus == null) {
+            throw lastIOException;
+        }
+        throw new DorisConnectorException(
+                DorisConnectorErrorCode.STREAM_LOAD_FAILED,
+                responseStatus == null
+                        ? "Fail to abort transaction "
+                                + committable.getTxbID()
+                                + " with frontends "
+                                + dorisSinkConfig.getFrontends()
+                        : responseStatus);
+    }
+
+    private void handleCommitSuccess(
+            DorisCommitInfo committable, String hostPort, CloseableHttpResponse response)
+            throws IOException {
         ObjectMapper mapper = new ObjectMapper();
         if (response.getEntity() != null) {
             String loadResult = EntityUtils.toString(response.getEntity());
@@ -132,33 +240,8 @@ public class DorisCommitter implements SinkCommitter<DorisCommitInfo> {
         }
     }
 
-    private void abortTransaction(DorisCommitInfo committable)
-            throws IOException, DorisConnectorException {
-        int statusCode;
-        int retry = 0;
-        String hostPort = committable.getHostPort();
-        CloseableHttpResponse response = null;
-        while (retry++ <= maxRetry) {
-            HttpPutBuilder builder = new HttpPutBuilder();
-            builder.setUrl(String.format(COMMIT_PATTERN, hostPort, committable.getDb()))
-                    .baseAuth(dorisSinkConfig.getUsername(), dorisSinkConfig.getPassword())
-                    .addCommonHeader()
-                    .addTxnId(committable.getTxbID())
-                    .setEmptyEntity()
-                    .abort();
-            response = httpClient.execute(builder.build());
-            statusCode = response.getStatusLine().getStatusCode();
-            if (statusCode != HTTP_TEMPORARY_REDIRECT || response.getEntity() == null) {
-                log.warn("abort transaction response: " + response.getStatusLine().toString());
-                throw new DorisConnectorException(
-                        DorisConnectorErrorCode.STREAM_LOAD_FAILED,
-                        "Fail to abort transaction "
-                                + committable.getTxbID()
-                                + " with url "
-                                + String.format(COMMIT_PATTERN, hostPort, committable.getDb()));
-            }
-        }
-
+    private void handleAbortSuccess(DorisCommitInfo committable, CloseableHttpResponse response)
+            throws IOException {
         ObjectMapper mapper = new ObjectMapper();
         String loadResult = EntityUtils.toString(response.getEntity());
         Map<String, String> res =
@@ -174,5 +257,16 @@ public class DorisCommitter implements SinkCommitter<DorisCommitInfo> {
                     committable.getTxbID(),
                     res.get("msg"));
         }
+    }
+
+    private List<String> resolveFrontendRetryHosts(String preferredHostPort) {
+        List<String> hosts = new ArrayList<>();
+        hosts.add(preferredHostPort);
+        Arrays.stream(dorisSinkConfig.getFrontends().split(","))
+                .map(String::trim)
+                .filter(host -> !host.isEmpty())
+                .filter(host -> !host.equals(preferredHostPort))
+                .forEach(hosts::add);
+        return hosts;
     }
 }
