@@ -255,13 +255,16 @@ def _get_runtime_metadata_paths() -> list[str]:
       2. ``<package_dir>/connector_metadata.json`` — bundled with the CLI package
       3. ``<data_dir>/connector_metadata.json`` — CLI data directory
       4. ``$SEATUNNEL_HOME/connector_metadata.json`` — engine install dir
+      5. ``$SEATUNNEL_HOME/cli/seatunnel_cli/connector_metadata.json`` — dist layout
     """
-    from . import get_data_dir
+    from . import get_data_dir, get_seatunnel_home
+    st_home = get_seatunnel_home() or ""
     return [
         os.environ.get("SEATUNNEL_METADATA_JSON", ""),
         str(Path(__file__).parent / "connector_metadata.json"),
         str(get_data_dir() / "connector_metadata.json"),
-        str(Path(os.environ.get("SEATUNNEL_HOME", "")) / "connector_metadata.json"),
+        str(Path(st_home) / "connector_metadata.json") if st_home else "",
+        str(Path(st_home) / "cli" / "seatunnel_cli" / "connector_metadata.json") if st_home else "",
     ]
 
 

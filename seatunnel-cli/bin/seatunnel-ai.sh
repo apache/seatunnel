@@ -62,18 +62,37 @@ if [ "$PYTHON_MINOR" -lt 10 ] 2>/dev/null; then
 fi
 
 # ─── Install on first run or --init ───
-if [ "$1" = "--init" ] || ! python3 -c "import seatunnel_cli" 2>/dev/null; then
-    if [ "$1" != "--init" ]; then
-        echo "First run detected — installing seatunnel-cli..."
-    fi
+NEED_INSTALL=false
 
+if [ "$1" = "--init" ]; then
+    NEED_INSTALL=true
+elif ! python3 -c "import seatunnel_cli" 2>/dev/null; then
+    NEED_INSTALL=true
+    echo "First run detected — installing seatunnel-cli..."
+else
+    # Guard against global/stale package: verify the installed package
+    # actually comes from this distribution's cli/ directory.
+    INSTALLED_PATH=$(python3 -c "import seatunnel_cli; print(seatunnel_cli.__file__)" 2>/dev/null || true)
+    if [[ "$INSTALLED_PATH" != "$CLI_DIR"* ]]; then
+        NEED_INSTALL=true
+        echo "Installed seatunnel-cli is not from this distribution — reinstalling..."
+    fi
+fi
+
+if [ "$NEED_INSTALL" = true ]; then
     if [ ! -f "$CLI_DIR/pyproject.toml" ]; then
         echo "Error: CLI package not found at $CLI_DIR"
         echo "Expected: $CLI_DIR/pyproject.toml"
         exit 1
     fi
 
-    python3 -m pip install "$CLI_DIR[all]" --quiet 2>&1 | grep -v "already satisfied" || true
+    echo "Installing seatunnel-cli dependencies..."
+    if ! python3 -m pip install "$CLI_DIR[all]" --quiet; then
+        echo "ERROR: Failed to install seatunnel-cli. Please check your Python/pip setup." >&2
+        echo "  Try manually: cd $CLI_DIR && pip install '.[all]'" >&2
+        exit 1
+    fi
+    echo "  SEATUNNEL_HOME: $SEATUNNEL_HOME"
     echo ""
 
     if [ "$1" = "--init" ]; then

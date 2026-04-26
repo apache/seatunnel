@@ -551,17 +551,12 @@ def validate_hocon(config_str: str) -> str:
 
 def _find_seatunnel_sh() -> str | None:
     """Locate seatunnel.sh script."""
-    seatunnel_home = os.environ.get("SEATUNNEL_HOME", "")
-    if seatunnel_home:
-        path = os.path.join(seatunnel_home, "bin", "seatunnel.sh")
+    from . import get_seatunnel_home
+    st_home = get_seatunnel_home()
+    if st_home:
+        path = os.path.join(st_home, "bin", "seatunnel.sh")
         if os.path.exists(path):
             return path
-
-    # Try relative path from project root
-    project_root = Path(__file__).parent.parent.parent
-    path = str(project_root / "bin" / "seatunnel.sh")
-    if os.path.exists(path):
-        return path
     return None
 
 

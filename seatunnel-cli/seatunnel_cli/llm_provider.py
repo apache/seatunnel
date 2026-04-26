@@ -25,7 +25,7 @@ Supports multiple backends while presenting a unified interface:
 All providers normalize their responses to a common internal format
 so that the agent layer (agents.py) needs no provider-specific code.
 
-Selection: set AI_PROVIDER env var (default: bedrock for backwards compat).
+Selection: set AI_PROVIDER env var, or run --init for interactive setup.
 """
 
 import abc

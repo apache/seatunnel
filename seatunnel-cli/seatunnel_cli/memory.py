@@ -500,7 +500,8 @@ def extract_memories(
     if len(conversation_history) < 2:
         return []
 
-    recent = conversation_history[-6:]
+    # SECURITY: redact credentials BEFORE building the LLM prompt
+    recent = _redact_conversation_history(conversation_history[-6:])
     snippets = []
     for msg in recent:
         for block in msg.get("content", []):

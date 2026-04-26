@@ -9,43 +9,69 @@ Describe your data synchronization task in English or Chinese, and the CLI gener
 - **Natural Language to Config** -- Describe what you want in plain English or Chinese, get a valid SeaTunnel config
 - **Multi-Provider LLM** -- AWS Bedrock, Anthropic API, OpenAI (and compatible APIs like Azure OpenAI)
 - **Multi-Agent Pipeline** -- Planner -> Generator -> Validator -> Auto-fix, up to 3 correction rounds
-- **100+ Connectors** -- Full coverage of SeaTunnel's connector ecosystem with auto-generated metadata catalog
-- **Auto-Save** -- Generated configs automatically saved to `~/.seatunnel/last_job.conf`
+- **100+ Connectors** -- Full coverage of SeaTunnel's connector ecosystem with runtime metadata reflection
+- **Skill Framework** -- Three-layer generation: Skill SOP -> Golden Example -> Connector Metadata
+- **Auto-Save** -- Generated configs automatically saved to `.data/last_job.conf` (co-located with CLI)
 - **Auto-Fix** -- `/check` and `/run` failures trigger automatic LLM-powered diagnosis and config repair
 - **Session & Memory** -- Multi-turn conversation with persistent session history and connection detail memory
 - **Dry-Run Validation** -- Local syntax check + engine `--check` + REST API validation
 - **Bilingual** -- English and Chinese natural language input
 
-## Requirements
+## Prerequisites
 
-- Python >= 3.10
+- **Python 3.10+** (3.11 or 3.12 recommended)
+- **pip** (bundled with Python 3.10+, used for automatic dependency installation)
+- **Operating System**: macOS, Linux, or WSL on Windows
 - One of the following LLM providers:
   - **AWS Bedrock** -- requires AWS credentials and `boto3`
   - **Anthropic API** -- requires `ANTHROPIC_API_KEY` and `anthropic` package
   - **OpenAI API** -- requires `OPENAI_API_KEY` and `openai` package
 - (Optional) Running Apache SeaTunnel engine for live metadata and job execution
 
+> **Note:** When launched via `bin/seatunnel-ai.sh`, Python dependencies are installed automatically on first run. No manual `pip install` needed.
+
 ## Installation
 
-### Quick Setup
+### From SeaTunnel Distribution (recommended)
+
+No manual installation needed. The shell wrapper handles everything:
+
+```bash
+# First run — auto-installs dependencies, then launches interactive setup
+bin/seatunnel-ai.sh --init
+
+# After init, launch directly
+bin/seatunnel-ai.sh
+```
+
+> **Note:** `bin/seatunnel-ai.sh` automatically sets `SEATUNNEL_HOME` to the distribution root directory. No manual configuration needed.
+
+### From Source (development)
 
 ```bash
 cd seatunnel-cli
+
+# Quick setup (installs all providers + dev tools)
 bash setup.sh
 ```
 
-### Manual Installation
+Then configure your LLM provider:
 
 ```bash
-cd seatunnel-cli
+seatunnel --init
+```
 
-# Install with your preferred provider
+#### Manual install (alternative to setup.sh)
+
+```bash
 pip install -e ".[bedrock]"    # AWS Bedrock
 pip install -e ".[anthropic]"  # Anthropic API
 pip install -e ".[openai]"     # OpenAI API
 pip install -e ".[all]"        # All providers
 pip install -e ".[dev]"        # Development (all providers + pytest, ruff)
 ```
+
+After `pip install`, the `seatunnel` command is available globally.
 
 ## Configuration
 
@@ -100,16 +126,43 @@ export OPENAI_SMALL_FAST_MODEL=gpt-4o-mini
 # export OPENAI_BASE_URL=https://your-endpoint.openai.azure.com/
 ```
 
-### SeaTunnel Engine (Optional)
+### SEATUNNEL_HOME
 
-For live connector metadata, dry-run validation, and job execution:
+`SEATUNNEL_HOME` is the path to your Apache SeaTunnel engine installation. The CLI uses it to:
+
+- **Connector metadata** — load `connector_metadata.json` for accurate connector option rules (150+ connectors)
+- **`/check`** — run `seatunnel.sh --check` for engine-level config validation
+- **`/run`** — execute jobs via `seatunnel.sh -e local` or REST API
 
 ```bash
 export SEATUNNEL_HOME=/path/to/apache-seatunnel
+```
+
+**Default behavior:** If `SEATUNNEL_HOME` is not set, the CLI auto-detects from its package location. In the distribution tarball the CLI lives at `cli/seatunnel_cli/`, so it resolves two levels up to the tarball root:
+
+```
+apache-seatunnel-3.0.0/          <-- auto-detected as SEATUNNEL_HOME
+├── bin/seatunnel.sh
+├── bin/seatunnel-ai.sh
+├── cli/seatunnel_cli/            <-- CLI package location
+│   └── connector_metadata.json
+├── connectors/
+└── lib/
+```
+
+For source installs (`setup.sh` / `pip install`), the directory structure does not match, so you need to set `SEATUNNEL_HOME` manually.
+
+> Without `SEATUNNEL_HOME`, the CLI can still generate configs using LLM knowledge, but `/check`, `/run`, and runtime connector metadata will be unavailable.
+
+### SeaTunnel Engine (Optional)
+
+For live connector metadata and REST API job submission, start the SeaTunnel server:
+
+```bash
 export SEATUNNEL_API_BASE=http://localhost:5801  # Default
 ```
 
-When the engine is running, the CLI operates in **cluster mode** with live connector metadata, engine-level validation, and direct job submission via REST API. When unavailable, it falls back to **offline mode** using the built-in static connector catalog.
+When the engine is running, the CLI operates in **cluster mode** with live connector metadata, engine-level validation, and direct job submission via REST API. When unavailable, it falls back to **offline mode** using the bundled connector metadata.
 
 ### Environment Variables
 
@@ -124,10 +177,13 @@ When the engine is running, the CLI operates in **cluster mode** with live conne
 | `ANTHROPIC_SMALL_FAST_MODEL` | No | Provider default | Override fast model ID |
 | `OPENAI_MODEL` | No | `gpt-4o` | Primary model for OpenAI provider |
 | `OPENAI_SMALL_FAST_MODEL` | No | `gpt-4o-mini` | Fast model for OpenAI provider |
-| `SEATUNNEL_HOME` | No | -- | SeaTunnel installation directory |
+| `SEATUNNEL_HOME` | No | Auto-detect | SeaTunnel installation directory. Auto-detected in distribution tarball; set manually for source install |
 | `SEATUNNEL_API_BASE` | No | `http://localhost:5801` | SeaTunnel REST API endpoint |
+| `SEATUNNEL_CLI_DATA` | No | `<cli-package>/.data/` | Override CLI data directory (sessions, memory, config) |
 
 ## Usage
+
+> **Tip:** Use `bin/seatunnel-ai.sh` from the SeaTunnel distribution, or `seatunnel` after pip install. Both are equivalent.
 
 ### Interactive Mode
 
@@ -172,7 +228,7 @@ Options:
 
 | Command | Description |
 |---------|-------------|
-| `/save <path>` | Save config to custom path (auto-saved to `~/.seatunnel/last_job.conf` on generation) |
+| `/save <path>` | Save config to custom path (auto-saved to `.data/last_job.conf` on generation) |
 | `/check` | Dry-run validate last config; auto-diagnoses and fixes on failure |
 | `/run` | Execute last config via REST API or `seatunnel.sh`; auto-diagnoses on failure |
 | `/connectors` | List all available sources, sinks, and transforms |
@@ -197,7 +253,7 @@ Options:
   ✅ Validating config (round 1)...
 
   📋 Generated SeaTunnel Config
-  Config saved to: ~/.seatunnel/last_job.conf
+  Config saved to: .data/last_job.conf
 ```
 
 ### Kafka to ClickHouse (Streaming)
@@ -206,7 +262,7 @@ Options:
 🐬 SeaTunnel > 从 Kafka 的 orders topic 实时同步到 ClickHouse 的 orders 表
 
   📋 Generated SeaTunnel Config
-  Config saved to: ~/.seatunnel/last_job.conf
+  Config saved to: .data/last_job.conf
 
 🐬 SeaTunnel > /check
   [1] Local validation: PASS
@@ -230,12 +286,12 @@ Options:
 🐬 SeaTunnel > Sync PostgreSQL orders to Doris
 
   📋 Generated SeaTunnel Config
-  Config saved to: ~/.seatunnel/last_job.conf
+  Config saved to: .data/last_job.conf
 
 🐬 SeaTunnel > Add a filter to only include orders where amount > 100
 
   📋 Generated SeaTunnel Config (updated)
-  Config saved to: ~/.seatunnel/last_job.conf
+  Config saved to: .data/last_job.conf
 
 🐬 SeaTunnel > /save production_job.conf
   Config saved to: production_job.conf
@@ -251,7 +307,7 @@ Options:
 
   🔧 Fixed Config
   (added missing S3 credentials)
-  Config saved to: ~/.seatunnel/last_job.conf
+  Config saved to: .data/last_job.conf
 
   Use /check to validate, then /run to retry.
 ```
@@ -300,11 +356,10 @@ User Input (natural language)
 
 ### Connector Knowledge Base
 
-Three-tier resolution with intelligent fallback:
+Two-tier resolution with intelligent fallback:
 
 1. **Runtime API** -- Live metadata from running SeaTunnel engine (`/option-rules` endpoint). Always accurate, zero maintenance.
-2. **Auto-Generated Catalog** -- 100+ connectors with 1200+ options, extracted from Java source code via regex. Cached at `~/.seatunnel/catalog/`. Zero LLM token cost.
-3. **Keyword Routing** -- Maps 50+ natural language terms (English and Chinese) to connector names. Examples: "mysql" -> `[Jdbc, MySQL-CDC]`, "kafka" -> `[Kafka]`.
+2. **Bundled Metadata** -- `connector_metadata.json` ships with the CLI package. 150 connectors with full option rules, exported from SeaTunnel engine via reflection. Zero LLM token cost.
 
 ### Memory System
 
@@ -314,7 +369,7 @@ The CLI remembers facts across sessions to improve config accuracy:
 - **Project context** -- Table names, database names, common patterns.
 - **Preferences** -- Parallelism, format, language preferences.
 
-Memory is stored locally at `~/.seatunnel/memory.json`. Use `/remember` to add facts, `/memory` to view, `/forget` to remove.
+Memory is stored locally at `.data/memory.json` (co-located with the CLI package). Use `/remember` to add facts, `/memory` to view, `/forget` to remove.
 
 ### Validation Pipeline
 
@@ -326,22 +381,18 @@ Memory is stored locally at `~/.seatunnel/memory.json`. Use `/remember` to add f
 | **Auto-fix** | LLM-powered | Up to 3 rounds of automatic error correction during generation |
 | **Auto-repair** | LLM-powered | Automatic diagnosis and config patching on `/check` or `/run` failure |
 
-## Connector Catalog
+## Connector Metadata
 
-The CLI ships with a built-in connector catalog (`connector_catalog.json`) covering 100+ connectors. No extra steps needed.
+The CLI ships with `connector_metadata.json` (150 connectors), exported from the SeaTunnel engine via runtime reflection. No extra steps needed.
 
-To regenerate for a different SeaTunnel version:
+To re-export for a different SeaTunnel version (requires a running engine):
 
 ```bash
-# From SeaTunnel source code
-seatunnel --sync-catalog /path/to/seatunnel
-
-# Or clone first
-git clone https://github.com/apache/seatunnel.git /tmp/seatunnel
-seatunnel --sync-catalog /tmp/seatunnel
+# Export metadata from running engine
+bin/seatunnel-metadata-export.sh
 ```
 
-This scans `*Factory.java` and `*Options.java`, extracts connector metadata via regex, resolves option inheritance chains, and updates the bundled catalog. First scan takes ~60s, subsequent loads from cache take ~6ms.
+This calls the engine's option-rule reflection API for all registered connectors and writes the result to `connector_metadata.json`.
 
 ## License
 

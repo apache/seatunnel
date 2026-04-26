@@ -23,6 +23,32 @@ from pathlib import Path
 __version__ = "0.1.0"
 
 
+def get_seatunnel_home() -> str | None:
+    """Return the SeaTunnel installation directory.
+
+    Resolution order:
+      1. SEATUNNEL_HOME env var (explicit override)
+      2. Auto-detect from package location — in the distribution tarball the
+         package lives at ``$SEATUNNEL_HOME/cli/seatunnel_cli/``, so going up
+         two levels from ``__file__`` yields SEATUNNEL_HOME when
+         ``bin/seatunnel.sh`` exists there.
+
+    Returns the path string, or None if not found.
+    """
+    # 1. Explicit env var
+    env = os.environ.get("SEATUNNEL_HOME", "").strip()
+    if env and Path(env).is_dir():
+        return env
+
+    # 2. Auto-detect: __file__ = .../cli/seatunnel_cli/__init__.py
+    #    -> parent.parent.parent = SEATUNNEL_HOME candidate
+    candidate = Path(__file__).parent.parent.parent
+    if (candidate / "bin" / "seatunnel.sh").exists():
+        return str(candidate)
+
+    return None
+
+
 def get_data_dir() -> Path:
     """Return the CLI data directory (sessions, memory, config, cache).
 

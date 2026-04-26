@@ -128,19 +128,14 @@ class SeaTunnelCLI:
 
     def __init__(self, console: Console):
         self.console = console
-        self.client = create_provider()
+        self.client = None  # initialized lazily; set by _ensure_provider()
         self.history_dir = get_data_dir()
 
         from .memory import SessionManager, MemoryStore
         self.session_manager = SessionManager(self.history_dir)
         self.memory_store = MemoryStore(self.history_dir)
 
-        self.orchestrator = Orchestrator(
-            client=self.client,
-            on_status=self._show_status,
-            on_stream=self._handle_stream,
-            memory_store=self.memory_store,
-        )
+        self.orchestrator = None  # initialized after provider is ready
         self.last_config: str | None = None
         self._pending_request: str | None = None  # original request awaiting clarification
         self.status_text = ""
@@ -149,6 +144,25 @@ class SeaTunnelCLI:
         self._stream_mode: str | None = None
         self._streamed_chat = False
         self._interaction_count = 0
+
+    def _ensure_provider(self) -> bool:
+        """Try to create LLM provider and orchestrator.
+
+        Returns True if ready, False if no provider could be created.
+        """
+        if self.client and self.orchestrator:
+            return True
+        try:
+            self.client = create_provider()
+            self.orchestrator = Orchestrator(
+                client=self.client,
+                on_status=self._show_status,
+                on_stream=self._handle_stream,
+                memory_store=self.memory_store,
+            )
+            return True
+        except (ValueError, ImportError):
+            return False
 
     def _show_status(self, phase: str, message: str):
         """Display status updates during agent processing."""
@@ -468,15 +482,14 @@ class SeaTunnelCLI:
 
         console.print("\n[heading]SeaTunnel CLI — Initial Setup[/heading]\n")
 
-        # Security warning
+        # Security notice
         console.print(
             Panel(
                 "[bold]Security Notice:[/bold]\n"
                 "- API keys are NEVER stored on disk — only in environment variables\n"
-                "- Passwords/secrets in generated configs always use ${ENV_VAR} placeholders\n"
-                "- Conversation history and memories are scrubbed of credential values\n"
-                "- Set API keys via environment variables or shell profile (~/.zshrc, ~/.bashrc)\n"
-                "- config.json (in CLI .data/ directory) only stores provider name and non-secret settings",
+                "- You can enter a key below for this session, or set it in your shell profile\n"
+                "- config.json only stores provider name, model IDs, and non-secret settings\n"
+                "- Passwords/secrets in generated configs use ${ENV_VAR} placeholders",
                 border_style="yellow",
                 padding=(0, 2),
             )
@@ -485,131 +498,243 @@ class SeaTunnelCLI:
         # Show detected credentials
         detected = _auto_detect_provider()
         if detected:
-            console.print(f"  Auto-detected credentials for: [bold]{detected}[/bold]")
-        else:
-            console.print("  No provider credentials detected in environment.")
+            console.print(f"  Auto-detected credentials for: [bold]{detected}[/bold]\n")
 
-        # Provider selection
-        provider_names = sorted(_PROVIDERS.keys())
-        console.print(f"\n  Available providers:")
-        console.print("    [bold]1[/bold]. anthropic  — Anthropic API (requires ANTHROPIC_API_KEY)")
-        console.print("    [bold]2[/bold]. openai     — OpenAI / compatible APIs (requires OPENAI_API_KEY)")
-        console.print("    [bold]3[/bold]. bedrock    — AWS Bedrock (requires AWS credentials)\n")
+        # ── Step 1: Provider selection (no default — user must choose) ──
+        console.print("  [bold]Step 1:[/bold] Choose your LLM provider\n")
+        console.print("    [bold]1[/bold]. anthropic  — Anthropic API (Claude)")
+        console.print("       Requires: ANTHROPIC_API_KEY")
+        console.print("       Get a key: https://console.anthropic.com/settings/keys\n")
+        console.print("    [bold]2[/bold]. openai     — OpenAI or any compatible API (GPT, DeepSeek, etc.)")
+        console.print("       Requires: OPENAI_API_KEY (and optionally OPENAI_BASE_URL)")
+        console.print("       Get a key: https://platform.openai.com/api-keys\n")
+        console.print("    [bold]3[/bold]. bedrock    — AWS Bedrock (Claude via AWS)")
+        console.print("       Requires: AWS credentials (aws configure / env vars / IAM role)")
+        console.print("       Docs: https://docs.aws.amazon.com/bedrock/\n")
 
         try:
-            choice = pt_prompt(
-                f"  Choose provider [{detected or 'anthropic'}]: ",
-            ).strip().lower()
+            choice = pt_prompt("  Enter your choice (1/2/3): ").strip().lower()
         except (EOFError, KeyboardInterrupt):
             console.print("\n  Setup cancelled.", style="warning")
             return
 
-        # Allow numeric shorthand
         choice_map = {"1": "anthropic", "2": "openai", "3": "bedrock"}
         choice = choice_map.get(choice, choice)
 
-        if not choice:
-            choice = detected or "anthropic"
-
-        if choice not in _PROVIDERS:
-            console.print(f"  Unknown provider: {choice}", style="error")
+        if not choice or choice not in _PROVIDERS:
+            console.print(
+                f"  [error]Invalid choice: '{choice}'. Please enter 1, 2, or 3.[/error]"
+            )
             return
 
         # Build config
         config = load_config()
         config["provider"] = choice
 
-        # Provider-specific credential guidance
-        # SECURITY: API keys are NEVER stored in config.json — environment variables only.
+        # ── Step 2: Credentials ──
+        console.print(f"\n  [bold]Step 2:[/bold] Configure credentials for [bold]{choice}[/bold]\n")
+
         if choice == "anthropic":
             existing = os.environ.get("ANTHROPIC_API_KEY")
             if existing:
-                console.print(f"\n  ANTHROPIC_API_KEY: [bold green]detected in environment[/bold green]")
+                masked = existing[:7] + "..." + existing[-4:] if len(existing) > 15 else "***"
+                console.print(f"  ANTHROPIC_API_KEY: [bold green]detected[/bold green] ({masked})")
             else:
-                console.print("\n  ANTHROPIC_API_KEY not found in environment.")
+                console.print("  ANTHROPIC_API_KEY not found in environment.\n")
                 console.print(
-                    "  [bold]Set it before running:[/bold]\n"
-                    "    export ANTHROPIC_API_KEY=sk-ant-...\n"
-                    "  Or add it to your shell profile (~/.zshrc, ~/.bashrc).",
-                    style="info",
+                    "  [dim]Persistent (recommended): add to ~/.zshrc or ~/.bashrc:[/dim]\n"
+                    "    export ANTHROPIC_API_KEY=sk-ant-...\n",
                 )
-                # Allow setting for current session only (NOT persisted to disk)
                 try:
                     key_input = pt_prompt(
-                        "  Enter API key for this session (or press Enter to skip): ",
+                        "  Enter API key for this session (or Enter to skip): ",
                     ).strip()
                 except (EOFError, KeyboardInterrupt):
                     key_input = ""
                 if key_input:
                     os.environ["ANTHROPIC_API_KEY"] = key_input
                     console.print(
-                        "  Key set for this session only (NOT saved to disk).", style="success"
+                        "  [success]Key set for this session (NOT saved to disk).[/success]"
                     )
 
         elif choice == "openai":
             existing = os.environ.get("OPENAI_API_KEY")
             if existing:
-                console.print(f"\n  OPENAI_API_KEY: [bold green]detected in environment[/bold green]")
+                masked = existing[:7] + "..." + existing[-4:] if len(existing) > 15 else "***"
+                console.print(f"  OPENAI_API_KEY: [bold green]detected[/bold green] ({masked})")
             else:
-                console.print("\n  OPENAI_API_KEY not found in environment.")
+                console.print("  OPENAI_API_KEY not found in environment.\n")
                 console.print(
-                    "  [bold]Set it before running:[/bold]\n"
-                    "    export OPENAI_API_KEY=sk-...\n"
-                    "  Or add it to your shell profile (~/.zshrc, ~/.bashrc).",
-                    style="info",
+                    "  [dim]Persistent (recommended): add to ~/.zshrc or ~/.bashrc:[/dim]\n"
+                    "    export OPENAI_API_KEY=sk-...\n",
                 )
                 try:
                     key_input = pt_prompt(
-                        "  Enter API key for this session (or press Enter to skip): ",
+                        "  Enter API key for this session (or Enter to skip): ",
                     ).strip()
                 except (EOFError, KeyboardInterrupt):
                     key_input = ""
                 if key_input:
                     os.environ["OPENAI_API_KEY"] = key_input
                     console.print(
-                        "  Key set for this session only (NOT saved to disk).", style="success"
+                        "  [success]Key set for this session (NOT saved to disk).[/success]"
                     )
 
-                # Optional base URL for compatible APIs (non-secret, can be persisted)
+            # Base URL for compatible APIs
+            existing_url = os.environ.get("OPENAI_BASE_URL")
+            if existing_url:
+                console.print(f"  OPENAI_BASE_URL: [bold]{existing_url}[/bold]")
+            else:
+                console.print(
+                    "\n  [dim]Using a compatible API (Azure OpenAI, DeepSeek, local model, etc.)?[/dim]"
+                )
                 try:
                     base_url = pt_prompt(
-                        "  Enter base URL (for compatible APIs, or press Enter to skip): ",
+                        "  Enter base URL (or Enter to use default OpenAI endpoint): ",
                     ).strip()
                 except (EOFError, KeyboardInterrupt):
                     base_url = ""
                 if base_url:
                     os.environ["OPENAI_BASE_URL"] = base_url
                     config.setdefault("settings", {})["openai_base_url"] = base_url
+                    console.print(f"  Base URL set: [bold]{base_url}[/bold]")
 
         elif choice == "bedrock":
-            console.print("\n  AWS Bedrock requires AWS credentials (aws configure / env vars / IAM role).")
+            console.print("  AWS Bedrock requires AWS credentials.\n")
+            console.print(
+                "  [dim]Options:[/dim]\n"
+                "    - aws configure           (interactive setup)\n"
+                "    - export AWS_ACCESS_KEY_ID=... && export AWS_SECRET_ACCESS_KEY=...\n"
+                "    - IAM role (EC2/ECS)      (automatic)\n"
+                "    - export AWS_PROFILE=...  (named profile)\n"
+            )
             try:
                 import boto3
                 sts = boto3.client("sts")
                 identity = sts.get_caller_identity()
-                console.print(f"  AWS Account: [bold]{identity.get('Account', 'unknown')}[/bold]", style="success")
+                console.print(
+                    f"  AWS credentials: [bold green]valid[/bold green] "
+                    f"(Account: {identity.get('Account', 'unknown')})"
+                )
+            except ImportError:
+                console.print(
+                    "  [error]boto3 not installed. Install it: pip install boto3[/error]"
+                )
             except Exception:
                 console.print(
-                    "  [warning]AWS credentials not configured.[/warning]\n"
-                    "  Set up with: [bold]aws configure[/bold] or export AWS_ACCESS_KEY_ID / AWS_SECRET_ACCESS_KEY"
+                    "  [warning]AWS credentials not detected. "
+                    "Run 'aws configure' or set environment variables.[/warning]"
                 )
 
+            # Region
+            region = os.environ.get("AWS_REGION") or os.environ.get("AWS_DEFAULT_REGION")
+            if region:
+                console.print(f"  AWS Region: [bold]{region}[/bold]")
+            else:
+                try:
+                    region_input = pt_prompt(
+                        "  Enter AWS region (e.g., us-east-1): ",
+                    ).strip()
+                except (EOFError, KeyboardInterrupt):
+                    region_input = ""
+                if region_input:
+                    os.environ["AWS_REGION"] = region_input
+                    console.print(f"  Region set: [bold]{region_input}[/bold]")
+
+        # ── Step 3: Model selection (optional) ──
+        console.print(f"\n  [bold]Step 3:[/bold] Model selection (optional)\n")
+
+        # Show provider-specific defaults
+        if choice == "anthropic":
+            default_model = "claude-sonnet-4-20250514"
+            default_fast = "claude-haiku-4-5-20251001"
+            model_env = "ANTHROPIC_MODEL"
+            fast_env = "ANTHROPIC_SMALL_FAST_MODEL"
+        elif choice == "openai":
+            default_model = "gpt-4o"
+            default_fast = "gpt-4o-mini"
+            model_env = "OPENAI_MODEL"
+            fast_env = "OPENAI_SMALL_FAST_MODEL"
+        else:  # bedrock
+            default_model = "us.anthropic.claude-sonnet-4-20250514-v1:0"
+            default_fast = "us.anthropic.claude-haiku-4-5-20251001-v1:0"
+            model_env = "ANTHROPIC_MODEL"
+            fast_env = "ANTHROPIC_SMALL_FAST_MODEL"
+
+        console.print(f"  Primary model (for config generation):")
+        console.print(f"    Default: [dim]{default_model}[/dim]")
+        console.print(f"    Env var: [dim]{model_env}[/dim]")
+        try:
+            model_input = pt_prompt(
+                f"  Enter model ID (or Enter for default): ",
+            ).strip()
+        except (EOFError, KeyboardInterrupt):
+            model_input = ""
+
+        console.print(f"\n  Fast model (for lightweight tasks like slot checking):")
+        console.print(f"    Default: [dim]{default_fast}[/dim]")
+        console.print(f"    Env var: [dim]{fast_env}[/dim]")
+        try:
+            fast_model_input = pt_prompt(
+                f"  Enter fast model ID (or Enter for default): ",
+            ).strip()
+        except (EOFError, KeyboardInterrupt):
+            fast_model_input = ""
+
+        # Save model overrides to config (non-secret)
+        if model_input or fast_model_input:
+            config.setdefault("models", {}).setdefault(choice, {})
+            if model_input:
+                config["models"][choice]["model"] = model_input
+            if fast_model_input:
+                config["models"][choice]["fast_model"] = fast_model_input
+
+        # ── Save & validate ──
         save_config(config)
         from .llm_provider import get_config_path
-        console.print(f"\n  Config saved to: [bold]{get_config_path()}[/bold]", style="success")
-        console.print(f"  Provider: [bold]{choice}[/bold]")
+        console.print(f"\n  Config saved to: [bold]{get_config_path()}[/bold]")
 
-        # Try to validate
+        # Try to create the provider
         try:
             from .llm_provider import create_provider
             client = create_provider(choice)
-            console.print(f"  Model:    [bold]{client.model_id}[/bold]")
-            console.print(f"  Status:   [bold green]ready[/bold green]")
-        except Exception as e:
-            console.print(f"  Status:   [bold yellow]credentials needed[/bold yellow] — {e}")
             console.print(
-                "  [dim]Set the required environment variable and retry, "
-                "or re-run: seatunnel --init[/dim]"
+                Panel(
+                    f"Provider:   [bold]{choice}[/bold]\n"
+                    f"Model:      [bold]{client.model_id}[/bold]\n"
+                    f"Fast model: [bold]{client.fast_model_id}[/bold]\n"
+                    f"Status:     [bold green]ready[/bold green]",
+                    title="Setup Complete",
+                    border_style="green",
+                    padding=(0, 2),
+                )
+            )
+        except Exception as e:
+            console.print(
+                Panel(
+                    f"Provider:   [bold]{choice}[/bold]\n"
+                    f"Status:     [bold yellow]credentials needed[/bold yellow]\n"
+                    f"Error:      {e}\n\n"
+                    f"Set the required environment variable and restart,\n"
+                    f"or re-run: [bold]seatunnel --init[/bold]",
+                    title="Setup Incomplete",
+                    border_style="yellow",
+                    padding=(0, 2),
+                )
+            )
+
+        # SEATUNNEL_HOME hint
+        from . import get_seatunnel_home
+        st_home = get_seatunnel_home()
+        if st_home:
+            console.print(f"  SEATUNNEL_HOME: [bold green]{st_home}[/bold green]")
+            if not os.environ.get("SEATUNNEL_HOME"):
+                console.print("  [dim](auto-detected from package location)[/dim]")
+        else:
+            console.print(
+                "\n  [bold]Optional:[/bold] Set SEATUNNEL_HOME for /check, /run and connector metadata:\n"
+                "    export SEATUNNEL_HOME=/path/to/apache-seatunnel\n"
+                "  [dim]Add to ~/.zshrc or ~/.bashrc for persistence.[/dim]"
             )
 
         console.print()
@@ -618,42 +743,28 @@ class SeaTunnelCLI:
         """Main interactive loop."""
         self.console.print(BANNER, style="bold cyan")
         self.console.print(Panel(WELCOME, border_style="cyan", padding=(1, 2)))
-        creds_ok = self._check_env()
 
-        if not creds_ok:
+        if not self._ensure_provider():
+            # No provider configured — run setup wizard
             self.console.print(
                 Panel(
-                    "Credentials are required before you can use the CLI.\n"
-                    "Run [bold]seatunnel --init[/bold] or set the required "
-                    "environment variables and restart.",
-                    title="Setup Required",
-                    border_style="red",
+                    "No LLM provider configured yet.\n"
+                    "Let's set one up now — it only takes a moment.",
+                    title="First-Time Setup",
+                    border_style="yellow",
                     padding=(1, 2),
                 )
             )
-            # Offer to run setup now
-            try:
-                answer = pt_prompt(
-                    "  Run setup now? [Y/n]: ",
-                ).strip().lower()
-            except (EOFError, KeyboardInterrupt):
+            self.run_init(self.console)
+            if not self._ensure_provider():
+                self.console.print(
+                    "\n[error]Provider still not ready. "
+                    "Set the required environment variables and restart.[/error]\n"
+                    "  Or re-run: [bold]seatunnel --init[/bold]",
+                    style="error",
+                )
                 return
-            if answer in ("", "y", "yes"):
-                self.run_init(self.console)
-                # Re-check after setup
-                try:
-                    from .llm_provider import create_provider
-                    self.client = create_provider()
-                    self.orchestrator.client = self.client
-                except Exception as e:
-                    self.console.print(
-                        f"\n[error]Still cannot connect: {e}[/error]\n"
-                        "  Set credentials and restart.",
-                        style="error",
-                    )
-                    return
-            else:
-                return
+        self._check_env()
 
         self._init_session()
 
@@ -699,6 +810,12 @@ class SeaTunnelCLI:
 
     def run_single(self, request: str, output_path: str | None = None):
         """Single-shot mode: process one request and exit."""
+        if not self._ensure_provider():
+            self.console.print(
+                "[error]No LLM provider configured. "
+                "Run 'seatunnel --init' first.[/error]"
+            )
+            return
         self._check_env()
         result = self._process_request(request)
         if result and result.get("config") and output_path:
@@ -1395,7 +1512,7 @@ def main():
     parser.add_argument(
         "--provider",
         choices=["bedrock", "anthropic", "openai"],
-        help="LLM provider (default: AI_PROVIDER env var or bedrock)",
+        help="LLM provider (overrides AI_PROVIDER env var and config.json)",
     )
     parser.add_argument(
         "--model",
@@ -1442,17 +1559,17 @@ def main():
                   file=sys.stderr)
             sys.exit(1)
 
-    # Override provider if specified
+    # Override provider if specified via CLI flags
     if args.provider:
         os.environ["AI_PROVIDER"] = args.provider
     if args.model:
-        provider = os.environ.get("AI_PROVIDER", "bedrock").lower()
+        provider = os.environ.get("AI_PROVIDER", "").lower()
         if provider == "openai":
             os.environ["OPENAI_MODEL"] = args.model
         else:
             os.environ["ANTHROPIC_MODEL"] = args.model
     if args.fast_model:
-        provider = os.environ.get("AI_PROVIDER", "bedrock").lower()
+        provider = os.environ.get("AI_PROVIDER", "").lower()
         if provider == "openai":
             os.environ["OPENAI_SMALL_FAST_MODEL"] = args.fast_model
         else:
@@ -1463,34 +1580,11 @@ def main():
     # Install credential-redacting log filter before any provider init
     _install_secret_log_filter()
 
-    try:
-        cli = SeaTunnelCLI(console)
-    except (ValueError, ImportError) as e:
-        # No provider configured or credentials missing — guide user through setup
-        console.print(BANNER, style="bold cyan")
-        console.print(
-            Panel(
-                f"[warning]{e}[/warning]\n\n"
-                "Let's set up your LLM provider now.",
-                title="Setup Required",
-                border_style="yellow",
-                padding=(1, 2),
-            )
-        )
-        SeaTunnelCLI.run_init(console)
-        # Retry after setup
-        try:
-            cli = SeaTunnelCLI(console)
-        except (ValueError, ImportError) as e2:
-            console.print(f"\n[error]Still cannot initialize: {e2}[/error]")
-            console.print("Please configure credentials and try again.", style="warning")
-            sys.exit(1)
+    cli = SeaTunnelCLI(console)
 
     if args.request:
-        # Single-shot mode
         cli.run_single(args.request, args.output)
     else:
-        # Interactive mode
         cli.run_interactive()
 
 
