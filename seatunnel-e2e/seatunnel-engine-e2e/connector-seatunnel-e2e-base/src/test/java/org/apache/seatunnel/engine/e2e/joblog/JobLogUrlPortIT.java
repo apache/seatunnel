@@ -51,10 +51,8 @@ import static io.restassured.RestAssured.given;
 import static org.apache.seatunnel.e2e.common.util.ContainerUtil.PROJECT_ROOT_PATH;
 
 /**
- * Verifies that each node's logLink URL uses that node's own REST port, not the master's port.
- *
- * <p>Bug: when nodes have different REST ports, allLogNameList() always used the master's port for
- * every URL. Fix: GetNodeHttpPortOperation fetches the REST port from the target node itself.
+ * Verifies that each node's logLink URL uses that node's own REST port when nodes in the cluster
+ * are configured with different REST ports.
  */
 public class JobLogUrlPortIT extends SeaTunnelEngineContainer {
 
@@ -81,7 +79,6 @@ public class JobLogUrlPortIT extends SeaTunnelEngineContainer {
         masterServer = createServer("server", "job-log-multiport/seatunnel-master.yaml");
         workerServer = createServer("secondServer", "job-log-multiport/seatunnel-worker.yaml");
 
-        // wait until both members joined
         Awaitility.await()
                 .atMost(2, TimeUnit.MINUTES)
                 .untilAsserted(
@@ -111,14 +108,8 @@ public class JobLogUrlPortIT extends SeaTunnelEngineContainer {
         CLUSTER_NETWORK.close();
     }
 
-    /**
-     * Verifies that the /logs?format=JSON response covers all cluster nodes and that every logLink
-     * URL is reachable (HTTP 200). If a logLink used the master's port instead of the worker's
-     * port, the curl would fail — proving the fix is effective.
-     */
     @Test
     public void testLogUrlUsesPerNodePort() throws IOException, InterruptedException {
-        // wait for seatunnel.log to appear on both nodes
         Awaitility.await()
                 .atMost(1, TimeUnit.MINUTES)
                 .untilAsserted(
@@ -139,7 +130,6 @@ public class JobLogUrlPortIT extends SeaTunnelEngineContainer {
                                     r2.getStdout().isBlank(), "worker has no log files yet");
                         });
 
-        // call /logs?format=JSON from inside the master container
         Container.ExecResult logsResult =
                 masterServer.execInContainer(
                         "sh",
@@ -157,7 +147,6 @@ public class JobLogUrlPortIT extends SeaTunnelEngineContainer {
         ArrayNode logArray = JsonUtils.parseArray(jsonBody);
         Assertions.assertFalse(logArray.isEmpty(), "No logs returned from master");
 
-        // Step 1: all cluster nodes must be represented in the response
         Set<String> respondedHosts = new HashSet<>();
         for (JsonNode entry : logArray) {
             respondedHosts.add(extractHost(entry.get("node").asText()));
@@ -167,7 +156,6 @@ public class JobLogUrlPortIT extends SeaTunnelEngineContainer {
                 respondedHosts.size(),
                 "Expected both cluster nodes in /logs response, got: " + respondedHosts);
 
-        // Step 2: every logLink URL must return HTTP 200 — wrong port means connection refused
         for (JsonNode entry : logArray) {
             String link = entry.get("logLink").asText();
             Container.ExecResult curlResult =
@@ -196,21 +184,18 @@ public class JobLogUrlPortIT extends SeaTunnelEngineContainer {
         copySeaTunnelStarterToContainer(container);
         container.setExposedPorts(Collections.singletonList(5801));
 
-        // base config (hazelcast + default seatunnel)
         container.withCopyFileToContainer(
                 MountableFile.forHostPath(MULTIPORT_RESOURCES), CONFIG_PATH.toString());
 
-        // cluster hazelcast config (both nodes use the same topology config)
         container.withCopyFileToContainer(
                 MountableFile.forHostPath(MULTIPORT_RESOURCES + "job-log-multiport/hazelcast.yaml"),
                 CONFIG_PATH.resolve("hazelcast.yaml").toString());
 
-        // node-specific seatunnel config (different REST port per node)
+        // each node uses a different REST port, so seatunnel.yaml is node-specific
         container.withCopyFileToContainer(
                 MountableFile.forHostPath(MULTIPORT_RESOURCES + seatunnelYamlRelPath),
                 CONFIG_PATH.resolve("seatunnel.yaml").toString());
 
-        // log4j2 config that writes per-job log files to /tmp/seatunnel/logs/
         container.withCopyFileToContainer(
                 MountableFile.forHostPath(
                         MULTIPORT_RESOURCES + "job-log-multiport/log4j2.properties"),
