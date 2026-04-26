@@ -227,6 +227,11 @@ public class ParquetWriteStrategy extends AbstractWriteStrategy<ParquetWriter<Ge
             case MAP:
             case STRING:
             case BOOLEAN:
+                // CDC maps tinyint(1) to BOOLEAN but sends Byte — coerce to Boolean for Avro
+                if (data instanceof Byte) {
+                    return ((Byte) data) != 0;
+                }
+                return data;
             case TINYINT:
             case SMALLINT:
             case INT:
