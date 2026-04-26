@@ -229,6 +229,7 @@ public class RabbitmqClient implements AutoCloseable {
                     null);
         }
     }
+
     private void declareQueueDefaults(Channel channel, RabbitmqConfig config) throws IOException {
         channel.queueDeclare(
                 config.getQueueName(),
