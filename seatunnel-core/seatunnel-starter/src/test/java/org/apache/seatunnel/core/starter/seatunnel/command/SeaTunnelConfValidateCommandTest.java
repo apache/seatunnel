@@ -47,6 +47,17 @@ public class SeaTunnelConfValidateCommandTest {
     }
 
     @Test
+    public void testEnvUnknownKeyFailsValidation() {
+        ClientCommandArgs args = buildArgs("config/invalid_env_unknown_key.json");
+        SeaTunnelConfValidateCommand command = new SeaTunnelConfValidateCommand(args);
+
+        ConfigCheckException exception =
+                Assertions.assertThrows(ConfigCheckException.class, command::execute);
+        Assertions.assertTrue(
+                exception.getMessage().contains("Connector 'env' has unknown option keys"));
+    }
+
+    @Test
     public void testInvalidHoconSyntax() {
         ClientCommandArgs args = buildArgs("config/invalid_hocon_syntax.conf");
         SeaTunnelConfValidateCommand command = new SeaTunnelConfValidateCommand(args);

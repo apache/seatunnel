@@ -90,6 +90,7 @@ public class SeaTunnelConfValidateCommand implements Command<ClientCommandArgs> 
                 OptionRule envRule = new EnvOptionRule().optionRule();
                 ConfigValidator.of(envConfig).validate(envRule);
                 validateOptionTypes(envConfig, envRule);
+                ConfigValidator.validateUnknownKeys(envConfig, envRule, "env");
             }
 
             List<? extends Config> sourceConfigs =

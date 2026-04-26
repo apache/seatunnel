@@ -32,7 +32,7 @@ Usage: seatunnel.sh [options]
                                               and --encrypt are specified, only 
                                               --encrypt will take effect (default: 
                                               false) 
-    -d, --dry-run                             Run the job in dry-run mode (目前仅支持 
+    -d, --dry-run                             Run the job in dry-run mode (目前仅支持
                                               'static')
     -m, --master, -e, --deploy-mode           SeaTunnel job submit master, support 
                                               [local, cluster] (default: cluster)
