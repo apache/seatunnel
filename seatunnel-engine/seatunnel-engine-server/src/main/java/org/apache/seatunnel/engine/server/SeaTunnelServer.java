@@ -31,6 +31,7 @@ import org.apache.seatunnel.engine.server.dag.physical.PipelineLocation;
 import org.apache.seatunnel.engine.server.execution.ExecutionState;
 import org.apache.seatunnel.engine.server.execution.TaskGroupLocation;
 import org.apache.seatunnel.engine.server.execution.TaskLocation;
+import org.apache.seatunnel.engine.server.metadata.DynamicMetadataProvider;
 import org.apache.seatunnel.engine.server.metrics.SeaTunnelMetricsContext;
 import org.apache.seatunnel.engine.server.service.jar.ConnectorPackageService;
 import org.apache.seatunnel.engine.server.service.slot.DefaultSlotService;
@@ -64,6 +65,8 @@ import java.util.concurrent.Executors;
 import java.util.concurrent.ScheduledExecutorService;
 import java.util.concurrent.TimeUnit;
 import java.util.stream.Collectors;
+
+import static org.apache.seatunnel.engine.common.Constant.IMAP_METADATA_DATASOURCE;
 
 @Slf4j
 public class SeaTunnelServer
@@ -178,6 +181,10 @@ public class SeaTunnelServer
             jettyService = new JettyService(nodeEngine, seaTunnelConfig);
             jettyService.createJettyServer();
         }
+
+        // Set IMap for DynamicMetadataProvider
+        DynamicMetadataProvider.setMetadataDatasourceImap(
+                nodeEngine.getHazelcastInstance().getMap(IMAP_METADATA_DATASOURCE));
 
         // a trick way to fix StatisticsDataReferenceCleaner thread class loader leak.
         // see https://issues.apache.org/jira/browse/HADOOP-19049

@@ -34,6 +34,7 @@ import org.apache.seatunnel.engine.server.rest.servlet.AllNodeLogServlet;
 import org.apache.seatunnel.engine.server.rest.servlet.CheckpointHistoryServlet;
 import org.apache.seatunnel.engine.server.rest.servlet.CheckpointOverviewServlet;
 import org.apache.seatunnel.engine.server.rest.servlet.CurrentNodeLogServlet;
+import org.apache.seatunnel.engine.server.rest.servlet.DynamicMetadataDataSourceServlet;
 import org.apache.seatunnel.engine.server.rest.servlet.EncryptConfigServlet;
 import org.apache.seatunnel.engine.server.rest.servlet.FinishedJobsServlet;
 import org.apache.seatunnel.engine.server.rest.servlet.JobInfoServlet;
@@ -73,6 +74,8 @@ import static org.apache.seatunnel.engine.server.rest.RestConstant.REST_URL_GET_
 import static org.apache.seatunnel.engine.server.rest.RestConstant.REST_URL_JOB_INFO;
 import static org.apache.seatunnel.engine.server.rest.RestConstant.REST_URL_LOG;
 import static org.apache.seatunnel.engine.server.rest.RestConstant.REST_URL_LOGS;
+import static org.apache.seatunnel.engine.server.rest.RestConstant.REST_URL_METADATA_DATASOURCE;
+import static org.apache.seatunnel.engine.server.rest.RestConstant.REST_URL_METADATA_DATASOURCES;
 import static org.apache.seatunnel.engine.server.rest.RestConstant.REST_URL_METRICS;
 import static org.apache.seatunnel.engine.server.rest.RestConstant.REST_URL_OPEN_METRICS;
 import static org.apache.seatunnel.engine.server.rest.RestConstant.REST_URL_OPTION_RULES;
@@ -214,6 +217,8 @@ public class JettyService {
                 new ServletHolder(new CheckpointOverviewServlet(nodeEngine));
         ServletHolder checkpointHistoryHolder =
                 new ServletHolder(new CheckpointHistoryServlet(nodeEngine));
+        ServletHolder metadataDataSourceHolder =
+                new ServletHolder(new DynamicMetadataDataSourceServlet(nodeEngine));
 
         context.addServlet(overviewHolder, convertUrlToPath(REST_URL_OVERVIEW));
         context.addServlet(runningJobsHolder, convertUrlToPath(REST_URL_RUNNING_JOBS));
@@ -246,6 +251,10 @@ public class JettyService {
         context.addServlet(
                 checkpointOverviewHolder, convertUrlToPath(REST_URL_CHECKPOINT_OVERVIEW));
         context.addServlet(checkpointHistoryHolder, convertUrlToPath(REST_URL_CHECKPOINT_HISTORY));
+        context.addServlet(
+                metadataDataSourceHolder, convertUrlToPath(REST_URL_METADATA_DATASOURCE));
+        context.addServlet(
+                metadataDataSourceHolder, convertUrlToPath(REST_URL_METADATA_DATASOURCES));
 
         server.setHandler(context);
 
