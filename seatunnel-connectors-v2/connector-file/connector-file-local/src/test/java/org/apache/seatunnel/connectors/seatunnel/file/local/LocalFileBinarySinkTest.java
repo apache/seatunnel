@@ -153,6 +153,36 @@ class LocalFileBinarySinkTest {
                 exception.getCause().getMessage().contains("only supports a single source file"));
     }
 
+    @Test
+    void testBinarySinkRejectsUnsafeCustomFilenameWithParallelSubtasks() throws Exception {
+        String testPath = "/tmp/seatunnel/LocalFileBinarySinkTest/parallelCustomFilename";
+        FileUtils.deleteFile(testPath);
+
+        Map<String, Object> options = createBinarySinkOptions(testPath);
+        options.put("custom_filename", true);
+        options.put("file_name_expression", "expected_binary_file");
+        options.put("filename_extension", ".raw");
+
+        byte[] data = "binary-content".getBytes(StandardCharsets.UTF_8);
+        IllegalArgumentException exception =
+                Assertions.assertThrows(
+                        IllegalArgumentException.class,
+                        () ->
+                                SinkFlowTestUtils.runParallelSubtasksBatchWithCheckpointDisabled(
+                                        binaryCatalogTable,
+                                        ReadonlyConfig.fromMap(options),
+                                        new LocalFileSinkFactory(),
+                                        Collections.singletonList(
+                                                new SeaTunnelRow(
+                                                        new Object[] {data, "source.raw", 0L})),
+                                        2));
+
+        Assertions.assertTrue(
+                exception
+                        .getMessage()
+                        .contains("Binary custom filename requires a unique filename expression"));
+    }
+
     private Map<String, Object> createBinarySinkOptions(String path) {
         Map<String, Object> options = new HashMap<>();
         options.put("path", path);
