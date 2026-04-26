@@ -101,8 +101,15 @@ public class FileSchemaEvolutionTest {
 
     private static NoOpWriteStrategy buildStrategy(FileSinkConfig config) {
         NoOpWriteStrategy strategy = new NoOpWriteStrategy(config);
-        // Manually set seaTunnelRowType (normally set via setCatalogTable)
-        strategy.setSeaTunnelRowTypeForTest(BASE_ROW_TYPE);
+        // applySchemaChange (post 01cc356f2) reads tableSchema, not just seaTunnelRowType.
+        // Use the production setCatalogTable() path so both fields are wired up correctly.
+        strategy.setCatalogTable(
+                org.apache.seatunnel.api.table.catalog.CatalogTableUtil.getCatalogTable(
+                        TABLE_ID.getCatalogName(),
+                        TABLE_ID.getDatabaseName(),
+                        TABLE_ID.getSchemaName(),
+                        TABLE_ID.getTableName(),
+                        BASE_ROW_TYPE));
         return strategy;
     }
 
@@ -409,7 +416,13 @@ public class FileSchemaEvolutionTest {
     public void testBeingWrittenFileClearedEvenOnFinishAndCloseFileException() {
         // Strategy whose finishAndCloseFile throws to simulate a writer-close failure
         ThrowingWriteStrategy strategy = new ThrowingWriteStrategy(schemaEvolutionEnabledConfig());
-        strategy.setSeaTunnelRowTypeForTest(BASE_ROW_TYPE);
+        strategy.setCatalogTable(
+                org.apache.seatunnel.api.table.catalog.CatalogTableUtil.getCatalogTable(
+                        TABLE_ID.getCatalogName(),
+                        TABLE_ID.getDatabaseName(),
+                        TABLE_ID.getSchemaName(),
+                        TABLE_ID.getTableName(),
+                        BASE_ROW_TYPE));
         // Simulate a file already being tracked
         strategy.exposeBeingWrittenFile().put("NON_PARTITION", "/tmp/test/some-file.parquet");
 
