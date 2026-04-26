@@ -29,8 +29,8 @@ hazelcast:
       tcp-ip:
         enabled: true
         member-list:
-          - secondServer
-          - server
+          - master
+          - worker
     port:
       auto-increment: true
       port-count: 100

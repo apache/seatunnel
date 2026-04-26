@@ -76,8 +76,8 @@ public class JobLogUrlPortIT extends SeaTunnelEngineContainer {
     @Override
     @BeforeEach
     public void startUp() throws Exception {
-        masterServer = createServer("server", "job-log-multiport/seatunnel-master.yaml");
-        workerServer = createServer("secondServer", "job-log-multiport/seatunnel-worker.yaml");
+        masterServer = createServer("master", "job-log-multiport/seatunnel-master.yaml");
+        workerServer = createServer("worker", "job-log-multiport/seatunnel-worker.yaml");
 
         Awaitility.await()
                 .atMost(2, TimeUnit.MINUTES)

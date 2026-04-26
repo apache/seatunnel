@@ -20,13 +20,9 @@ package org.apache.seatunnel.engine.server.operation;
 import org.apache.seatunnel.engine.server.SeaTunnelServer;
 import org.apache.seatunnel.engine.server.serializable.ClientToServerOperationDataSerializerHook;
 
-import com.hazelcast.nio.ObjectDataInput;
-import com.hazelcast.nio.ObjectDataOutput;
 import com.hazelcast.nio.serialization.IdentifiedDataSerializable;
 import com.hazelcast.spi.impl.AllowedDuringPassiveState;
 import com.hazelcast.spi.impl.operationservice.Operation;
-
-import java.io.IOException;
 
 /** Returns the REST HTTP port configured on the node that executes this operation. */
 public class GetNodeHttpPortOperation extends Operation
@@ -53,15 +49,5 @@ public class GetNodeHttpPortOperation extends Operation
     @Override
     public int getClassId() {
         return ClientToServerOperationDataSerializerHook.GET_NODE_HTTP_PORT_OPERATION;
-    }
-
-    @Override
-    protected void writeInternal(ObjectDataOutput out) throws IOException {
-        super.writeInternal(out);
-    }
-
-    @Override
-    protected void readInternal(ObjectDataInput in) throws IOException {
-        super.readInternal(in);
     }
 }
