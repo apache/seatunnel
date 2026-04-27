@@ -51,7 +51,6 @@ public class ConfigValidator {
                         ConnectorCommonOptions.PLUGIN_NAME,
                         ConnectorCommonOptions.PLUGIN_INPUT,
                         ConnectorCommonOptions.PLUGIN_OUTPUT,
-                        ConnectorCommonOptions.DATASOURCE_ID,
                         ConnectorCommonOptions.METADATA_DATASOURCE_ID,
                         EnvCommonOptions.PARALLELISM,
                         TableSchemaOptions.SCHEMA,
