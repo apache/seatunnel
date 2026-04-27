@@ -279,7 +279,7 @@ Options:
 ### Multi-Turn Refinement with Memory
 
 ```
-🐬 SeaTunnel > /remember MySQL host=10.0.1.100 port=3306 user=etl password=etl123
+🐬 SeaTunnel > /remember MySQL host=10.0.1.100 port=3306 database=orders
 
   Saved mem_01 (type: connection)
 
@@ -297,16 +297,18 @@ Options:
   Config saved to: production_job.conf
 ```
 
+> **Security:** `/remember` rejects entries containing passwords, API keys, tokens, or other credential values. Only non-sensitive facts (hostnames, ports, database names, table names) are stored.
+
 ### Auto-Fix on Failure
 
 ```
 🐬 SeaTunnel > /run
-  Job FAILED: The value of property fs.s3a.access-key must not be null
+  Job FAILED: Missing required option 'fs.s3a.endpoint'
 
   Diagnosing and fixing config...
 
   🔧 Fixed Config
-  (added missing S3 credentials)
+  (added missing S3 endpoint configuration)
   Config saved to: .data/last_job.conf
 
   Use /check to validate, then /run to retry.

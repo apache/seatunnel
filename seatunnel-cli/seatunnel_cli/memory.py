@@ -573,14 +573,16 @@ def compact_memories(
         f"Consolidate these into the FEWEST entries possible:\n"
         f"- Merge duplicates and near-duplicates into one entry\n"
         f"- Combine related facts of the same type (e.g. multiple connection details for the same system)\n"
-        f"- Keep ALL concrete information (hosts, ports, URLs, specific settings) — do not lose detail\n"
+        f"- Keep concrete non-sensitive information (hosts, ports, database names, table names) — do not lose detail\n"
         f"- Remove outdated entries if a newer one supersedes them\n"
+        f"- NEVER include passwords, API keys, tokens, secrets, or any credential values\n"
         f"- Target: ≤10 entries total\n\n"
         f'Return JSON array: [{{"content": "...", "type": "connection|preference|project"}}]'
     )
     system = (
         "You consolidate SeaTunnel CLI memory entries. "
-        "Preserve every concrete fact (hosts, ports, URLs, credentials, specific settings). "
+        "Preserve every concrete NON-SENSITIVE fact (hosts, ports, database names, table names, connector types). "
+        "NEVER include passwords, API keys, tokens, secrets, or any credential values. "
         "Merge related items, remove true duplicates. Return valid JSON array only."
     )
 
@@ -591,17 +593,22 @@ def compact_memories(
         if start >= 0 and end > start:
             items = json.loads(raw[start : end + 1])
             now = _now_iso()
-            return [
-                {
+            result = []
+            for i, item in enumerate(items, 1):
+                if not isinstance(item, dict) or "content" not in item:
+                    continue
+                # Security gate: reject compacted entries that contain credentials
+                if contains_credential(item["content"]):
+                    logger.warning("Compacted memory rejected — contains credential: %s", item["content"][:40])
+                    continue
+                result.append({
                     "id": f"mem_{i:03d}",
                     "type": item["type"] if item.get("type") in MemoryStore.MEMORY_TYPES else "project",
                     "content": item["content"],
                     "created_at": now,
                     "source": "compacted",
-                }
-                for i, item in enumerate(items, 1)
-                if isinstance(item, dict) and "content" in item
-            ]
+                })
+            return result
     except Exception as e:
         logger.debug(f"Memory compaction failed: {e}")
     return list(memories)
