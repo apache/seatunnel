@@ -53,7 +53,7 @@ public abstract class JdbcSourceConfigFactory implements SourceConfig.Factory<Jd
     protected int sampleShardingThreshold =
             JdbcSourceOptions.SAMPLE_SHARDING_THRESHOLD.defaultValue();
     protected int inverseSamplingRate = JdbcSourceOptions.INVERSE_SAMPLING_RATE.defaultValue();
-    protected boolean sampleShardingEnable = JdbcSourceOptions.SPLIT_ALLOW_SAMPLING.defaultValue();
+    protected boolean sampleShardingAllow = JdbcSourceOptions.SPLIT_ALLOW_SAMPLING.defaultValue();
     protected int splitSize = SourceOptions.SNAPSHOT_SPLIT_SIZE.defaultValue();
     protected Map<String, String> splitColumn;
     protected int fetchSize = SourceOptions.SNAPSHOT_FETCH_SIZE.defaultValue();
@@ -192,11 +192,11 @@ public abstract class JdbcSourceConfigFactory implements SourceConfig.Factory<Jd
      * If set false the system should fall back to unevenly-sized chunk splitting (iterative query
      * approach) regardless of the shard count.
      *
-     * @param sampleShardingEnable The value Indicate whether to enable sampling
+     * @param sampleShardingAllow The value Indicate whether to allow sampling
      * @return this JdbcSourceConfigFactory instance.
      */
-    public JdbcSourceConfigFactory sampleShardingEnable(boolean sampleShardingEnable) {
-        this.sampleShardingEnable = sampleShardingEnable;
+    public JdbcSourceConfigFactory sampleShardingAllow(boolean sampleShardingAllow) {
+        this.sampleShardingAllow = sampleShardingAllow;
         return this;
     }
 
@@ -266,7 +266,7 @@ public abstract class JdbcSourceConfigFactory implements SourceConfig.Factory<Jd
                 config.get(JdbcSourceOptions.CHUNK_KEY_EVEN_DISTRIBUTION_FACTOR_LOWER_BOUND);
         this.sampleShardingThreshold = config.get(JdbcSourceOptions.SAMPLE_SHARDING_THRESHOLD);
         this.inverseSamplingRate = config.get(JdbcSourceOptions.INVERSE_SAMPLING_RATE);
-        this.sampleShardingEnable = config.get(JdbcSourceOptions.SPLIT_ALLOW_SAMPLING);
+        this.sampleShardingAllow = config.get(JdbcSourceOptions.SPLIT_ALLOW_SAMPLING);
         this.splitSize = config.get(SourceOptions.SNAPSHOT_SPLIT_SIZE);
         this.splitColumn = new HashMap<>();
         config.getOptional(JdbcSourceOptions.TABLE_NAMES_CONFIG)

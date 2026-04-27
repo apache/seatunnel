@@ -682,7 +682,7 @@ public class JdbcMysqlSplitIT extends TestSuiteBase implements TestResource {
     }
 
     @Test
-    public void testSampleShardingEnableSwitch() throws Exception {
+    public void testSampleShardingAllowSwitch() throws Exception {
         Map<String, Object> baseConfig = new HashMap<>();
         baseConfig.put("url", mysqlUrlInfo.getUrlWithDatabase().get());
         baseConfig.put("driver", "com.mysql.cj.jdbc.Driver");

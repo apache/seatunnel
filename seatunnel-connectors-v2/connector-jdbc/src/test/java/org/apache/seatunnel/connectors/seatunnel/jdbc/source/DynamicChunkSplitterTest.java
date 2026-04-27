@@ -116,7 +116,7 @@ public class DynamicChunkSplitterTest {
     }
 
     @Test
-    public void testSampleShardingEnableConfigParsing() {
+    public void testSampleShardingAllowConfigParsing() {
         Map<String, Object> configMap = new HashMap<>();
         configMap.put("url", "jdbc:mysql://localhost:3306/test");
         configMap.put("driver", "com.mysql.cj.jdbc.Driver");
@@ -124,13 +124,13 @@ public class DynamicChunkSplitterTest {
         JdbcSourceConfig defaultConfig = JdbcSourceConfig.of(ReadonlyConfig.fromMap(configMap));
 
         Assertions.assertTrue(
-                defaultConfig.isSplitSampleShardingEnable(),
+                defaultConfig.isSplitSampleShardingAllow(),
                 "Default value of split.allow-sampling should be true");
 
         configMap.put("split.allow-sampling", false);
         JdbcSourceConfig disabledConfig = JdbcSourceConfig.of(ReadonlyConfig.fromMap(configMap));
         Assertions.assertFalse(
-                disabledConfig.isSplitSampleShardingEnable(),
+                disabledConfig.isSplitSampleShardingAllow(),
                 "split.allow-sampling should be false when explicitly set");
     }
 
