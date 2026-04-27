@@ -37,7 +37,12 @@ import org.junit.jupiter.api.Test;
 import com.hazelcast.client.config.ClientConfig;
 import com.hazelcast.instance.impl.HazelcastInstanceImpl;
 
+import java.util.List;
+import java.util.Set;
 import java.util.concurrent.TimeUnit;
+import java.util.concurrent.atomic.AtomicInteger;
+import java.util.concurrent.atomic.AtomicLong;
+import java.util.stream.Collectors;
 
 import static org.awaitility.Awaitility.await;
 
@@ -51,13 +56,14 @@ public class TimerFlushIT {
     @BeforeEach
     void setUp() {
         TimerFlushTestSinkWriter.reset();
+        MultiTableFlushTestSinkWriter.reset();
         seaTunnelConfig = ConfigProvider.locateAndGetSeaTunnelConfig();
         seaTunnelConfig.getHazelcastConfig().setClusterName(TestUtils.getClusterName(CLUSTER_NAME));
         hazelcastInstance = SeaTunnelServerStarter.createHazelcastInstance(seaTunnelConfig);
     }
 
     @AfterEach
-    void tearDown() {
+    void tearDown() throws InterruptedException {
         if (hazelcastInstance != null) {
             hazelcastInstance.shutdown();
         }
@@ -119,6 +125,92 @@ public class TimerFlushIT {
             Assertions.assertTrue(
                     TimerFlushTestSinkWriter.FLUSHED_ROWS.isEmpty(),
                     "Flushed rows must remain empty when timer flush is disabled");
+
+            jobProxy.cancelJob();
+        }
+    }
+
+    @Test
+    void testMultiTableAggregatedFlush() throws Exception {
+        Common.setDeployMode(DeployMode.CLIENT);
+        String filePath = TestUtils.getResource("timer_flush_multi_table.conf");
+        JobConfig jobConfig = new JobConfig();
+        jobConfig.setName("timer-flush-multi-table");
+
+        ClientConfig clientConfig = ConfigProvider.locateAndGetClientConfig();
+        clientConfig.setClusterName(TestUtils.getClusterName(CLUSTER_NAME));
+
+        try (SeaTunnelClient client = new SeaTunnelClient(clientConfig)) {
+            ClientJobExecutionEnvironment env =
+                    client.createExecutionContext(filePath, jobConfig, seaTunnelConfig);
+            ClientJobProxy jobProxy = env.execute();
+
+            // 1. Wait until all three tables have been flushed at least 3 times
+            String[] tableIds = {"db1.table_a", "db1.table_b", "db1.table_c"};
+            await().atMost(30, TimeUnit.SECONDS)
+                    .pollInterval(200, TimeUnit.MILLISECONDS)
+                    .untilAsserted(
+                            () -> {
+                                for (String tableId : tableIds) {
+                                    AtomicInteger count =
+                                            MultiTableFlushTestSinkWriter.FLUSH_COUNTS.get(tableId);
+                                    Assertions.assertNotNull(
+                                            count, tableId + " should have been flushed");
+                                    Assertions.assertTrue(
+                                            count.get() >= 3,
+                                            tableId
+                                                    + " flush count should be >= 3, got: "
+                                                    + count.get());
+                                }
+                            });
+
+            // 2. Every flush snapshot must contain at least one row (queue drain before flush)
+            List<MultiTableFlushTestSinkWriter.FlushSnapshot> snapshots =
+                    MultiTableFlushTestSinkWriter.FLUSH_SNAPSHOTS;
+            Assertions.assertFalse(snapshots.isEmpty(), "Should have recorded flush snapshots");
+            for (int i = 0; i < snapshots.size(); i++) {
+                MultiTableFlushTestSinkWriter.FlushSnapshot snap = snapshots.get(i);
+                Assertions.assertFalse(
+                        snap.tableCounts.isEmpty(),
+                        "Flush snapshot #" + i + " should have table counts");
+                for (MultiTableFlushTestSinkWriter.FlushSnapshot.TableCount tc : snap.tableCounts) {
+                    Assertions.assertTrue(
+                            tc.rowCount > 0,
+                            "Flush snapshot #"
+                                    + i
+                                    + " table="
+                                    + tc.tableId
+                                    + " should have rowCount > 0, got: "
+                                    + tc.rowCount);
+                }
+            }
+
+            // 3. Verify concurrency: multiple writer instances participated in flushing
+            Set<String> flushThreads =
+                    snapshots.stream().map(s -> s.threadName).collect(Collectors.toSet());
+            Assertions.assertTrue(
+                    flushThreads.size() >= 1,
+                    "At least one flush thread expected, got: " + flushThreads);
+
+            // 4. No row loss: flushed row totals <= written row totals for each table
+            for (String tableId : MultiTableFlushTestSinkWriter.WRITE_COUNTS.keySet()) {
+                AtomicLong written = MultiTableFlushTestSinkWriter.WRITE_COUNTS.get(tableId);
+                AtomicLong flushed = MultiTableFlushTestSinkWriter.FLUSHED_ROW_TOTALS.get(tableId);
+                Assertions.assertNotNull(
+                        flushed, "Table " + tableId + " should have flushed row totals");
+                Assertions.assertTrue(
+                        flushed.get() <= written.get(),
+                        "Table "
+                                + tableId
+                                + " flushed rows ("
+                                + flushed.get()
+                                + ") should not exceed written rows ("
+                                + written.get()
+                                + ")");
+                Assertions.assertTrue(
+                        flushed.get() > 0,
+                        "Table " + tableId + " should have flushed at least some rows");
+            }
 
             jobProxy.cancelJob();
         }

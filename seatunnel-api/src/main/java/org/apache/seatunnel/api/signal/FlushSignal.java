@@ -20,6 +20,8 @@ package org.apache.seatunnel.api.signal;
 import lombok.Getter;
 import lombok.RequiredArgsConstructor;
 
+import java.util.Objects;
+
 @Getter
 @RequiredArgsConstructor
 public final class FlushSignal implements Signal {
@@ -30,6 +32,23 @@ public final class FlushSignal implements Signal {
 
     public static FlushSignal of(long jobId, long taskId) {
         return new FlushSignal(jobId, taskId, System.currentTimeMillis());
+    }
+
+    @Override
+    public boolean equals(Object o) {
+        if (this == o) {
+            return true;
+        }
+        if (!(o instanceof FlushSignal)) {
+            return false;
+        }
+        FlushSignal that = (FlushSignal) o;
+        return jobId == that.jobId && taskId == that.taskId && createdTime == that.createdTime;
+    }
+
+    @Override
+    public int hashCode() {
+        return Objects.hash(jobId, taskId, createdTime);
     }
 
     @Override
