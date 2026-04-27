@@ -29,21 +29,6 @@ import java.util.concurrent.CopyOnWriteArrayList;
 import java.util.concurrent.atomic.AtomicInteger;
 import java.util.concurrent.atomic.AtomicLong;
 
-/**
- * Test sink writer that tracks per-table flush statistics for verifying the aggregated flush
- * behavior under concurrent writes.
- *
- * <p>Each instance buffers row counts per tableId. On flush (triggered by the engine timer via
- * {@code aggregatedFlush}), it records a {@link FlushSnapshot} capturing the buffered row count per
- * table at that moment. This allows the test to verify:
- *
- * <ul>
- *   <li>Queue drain correctness: every flush snapshot has rows > 0 (queues were drained before
- *       flush)
- *   <li>No row loss: total flushed rows across all snapshots equals total written rows
- *   <li>Concurrency safety: snapshots are recorded atomically relative to the buffer state
- * </ul>
- */
 public class MultiTableFlushTestSinkWriter extends AbstractSinkWriter<SeaTunnelRow, Void> {
 
     public static final ConcurrentMap<String, AtomicInteger> FLUSH_COUNTS =
