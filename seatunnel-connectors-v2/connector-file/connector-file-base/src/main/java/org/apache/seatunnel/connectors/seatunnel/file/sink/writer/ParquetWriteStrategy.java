@@ -79,6 +79,7 @@ public class ParquetWriteStrategy extends AbstractWriteStrategy<ParquetWriter<Ge
     private AvroSchemaConverter schemaConverter;
     private Schema schema;
     private Set<String> writePathsAsInt96;
+
     public static final int[] PRECISION_TO_BYTE_COUNT = new int[38];
 
     static {

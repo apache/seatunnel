@@ -40,6 +40,7 @@ import org.apache.seatunnel.connectors.seatunnel.file.config.CompressFormat;
 import org.apache.seatunnel.connectors.seatunnel.file.config.FileBaseSinkOptions;
 import org.apache.seatunnel.connectors.seatunnel.file.config.FileFormat;
 import org.apache.seatunnel.connectors.seatunnel.file.config.HadoopConf;
+import org.apache.seatunnel.connectors.seatunnel.file.exception.FileConnectorErrorCode;
 import org.apache.seatunnel.connectors.seatunnel.file.exception.FileConnectorException;
 import org.apache.seatunnel.connectors.seatunnel.file.hadoop.HadoopFileSystemProxy;
 import org.apache.seatunnel.connectors.seatunnel.file.sink.commit.FileCommitInfo;
@@ -78,6 +79,10 @@ public abstract class AbstractWriteStrategy<T> implements WriteStrategy<T> {
     protected List<Integer> sinkColumnsIndexInRow;
     // Tracks which column names to write. Updated on each schema change event.
     protected List<String> sinkColumnNames;
+    // Writer-local partition indices: rebuilt on each applySchemaChange so that ADD COLUMN before
+    // a partition column does not leave the partition key reading stale row positions. Defensive
+    // copy in constructor — fileSinkConfig is shared across writer instances.
+    protected List<Integer> partitionFieldsIndexInRow;
     protected String jobId;
     protected int subTaskIndex;
     protected HadoopConf hadoopConf;
@@ -106,6 +111,10 @@ public abstract class AbstractWriteStrategy<T> implements WriteStrategy<T> {
         // (FileSinkConfig instance is shared across writer instances in multi-writer mode)
         this.sinkColumnsIndexInRow = new ArrayList<>(fileSinkConfig.getSinkColumnsIndexInRow());
         this.sinkColumnNames = new ArrayList<>(fileSinkConfig.getSinkColumnList());
+        this.partitionFieldsIndexInRow =
+                fileSinkConfig.getPartitionFieldsIndexInRow() == null
+                        ? new ArrayList<>()
+                        : new ArrayList<>(fileSinkConfig.getPartitionFieldsIndexInRow());
         this.batchSize = fileSinkConfig.getBatchSize();
         this.compressFormat = fileSinkConfig.getCompressFormat();
         this.singleFileMode = fileSinkConfig.isSingleFileMode();
@@ -185,7 +194,22 @@ public abstract class AbstractWriteStrategy<T> implements WriteStrategy<T> {
     @Override
     public void applySchemaChange(SchemaChangeEvent event) throws IOException {
         if (!fileSinkConfig.isSchemaEvolutionEnabled()) {
-            return;
+            // Fail-fast guard: if a real schema change arrives but the sink is configured to
+            // ignore them, silently swallowing the event leaves sinkColumnsIndexInRow stale.
+            // The next data row will read row[idx] with stale catalog assumptions and produce a
+            // confusing ClassCastException several rows later. Throw immediately with an
+            // actionable message instead — it's a config mismatch, not a runtime fault.
+            throw new FileConnectorException(
+                    FileConnectorErrorCode.FORMAT_NOT_SUPPORT,
+                    "Received schema-change event ["
+                            + event.getClass().getSimpleName()
+                            + "] but schema_evolution_enabled=false on the file sink. "
+                            + "This combination is unsafe — the sink would keep writing with the "
+                            + "pre-ALTER schema and corrupt subsequent rows. "
+                            + "Resolve by either: "
+                            + "(a) setting schema_evolution_enabled=true on the sink, OR "
+                            + "(b) setting schema-changes.enabled=false on the CDC source so "
+                            + "ALTER events are not emitted in the first place.");
         }
         log.info(
                 "[FileSchemaEvolution] applying {} — before: rowType={}, sinkColumns={}, indices={}",
@@ -205,8 +229,19 @@ public abstract class AbstractWriteStrategy<T> implements WriteStrategy<T> {
             beingWrittenFile.clear();
         }
 
-        // Step 2: compute new TableSchema + SeaTunnelRowType from the event.
-        this.tableSchema = new AlterTableSchemaEventHandler().reset(tableSchema).apply(event);
+        // Step 2: adopt the upstream's actual produced schema, propagated through the chain via
+        // event.changeAfter (each transform's mapSchemaChangeEvent updates this field with its own
+        // getProducedCatalogTable). This avoids order-divergence — applying ALTER locally would
+        // append new cols at the end of the sink's catalog, but upstream's actual row has new
+        // cols at the position upstream put them. Reading changeAfter directly aligns the sink's
+        // catalog with the actual row layout.
+        if (event.getChangeAfter() != null) {
+            this.tableSchema = event.getChangeAfter().getTableSchema();
+        } else {
+            // Fallback for events without changeAfter (older sources or events that bypass the
+            // transform chain). Apply ALTER locally as before.
+            this.tableSchema = new AlterTableSchemaEventHandler().reset(tableSchema).apply(event);
+        }
         this.seaTunnelRowType = tableSchema.toPhysicalRowDataType();
 
         // Step 3: update sinkColumnNames to reflect the structural change.
@@ -215,14 +250,20 @@ public abstract class AbstractWriteStrategy<T> implements WriteStrategy<T> {
         // Step 4: rebuild sinkColumnsIndexInRow from sinkColumnNames + new seaTunnelRowType.
         this.sinkColumnsIndexInRow = rebuildSinkColumnsIndex();
 
+        // Step 4b: rebuild partitionFieldsIndexInRow so partition keys read from correct row
+        // positions after ADD/DROP column shifts. Without this, ADD COLUMN before a partition
+        // field causes generatorPartitionDir() to read the wrong field for the partition value.
+        this.partitionFieldsIndexInRow = rebuildPartitionFieldsIndex();
+
         // Step 5: let subclasses invalidate any format-specific cached schema objects.
         onSchemaChanged();
 
         log.info(
-                "[FileSchemaEvolution] applied — after: rowType={}, sinkColumns={}, indices={}",
+                "[FileSchemaEvolution] applied — after: rowType={}, sinkColumns={}, sinkIndices={}, partitionIndices={}",
                 seaTunnelRowType,
                 sinkColumnNames,
-                sinkColumnsIndexInRow);
+                sinkColumnsIndexInRow,
+                partitionFieldsIndexInRow);
     }
 
     /**
@@ -354,6 +395,42 @@ public abstract class AbstractWriteStrategy<T> implements WriteStrategy<T> {
     }
 
     /**
+     * Rebuilds partition-field row indices from the configured partition column names against the
+     * post-ALTER {@link #seaTunnelRowType}. Partition column NAMES are immutable (set once at job
+     * start); only their row positions can shift when other columns are added/dropped.
+     *
+     * <p>Throws if a configured partition column has been dropped from the schema — a dropped
+     * partition key would corrupt the partition tree, so we fail fast rather than silently writing
+     * to the wrong directory.
+     */
+    private List<Integer> rebuildPartitionFieldsIndex() {
+        List<String> partitionFieldList = fileSinkConfig.getPartitionFieldList();
+        if (partitionFieldList == null || partitionFieldList.isEmpty()) {
+            return new ArrayList<>();
+        }
+        String[] fieldNames = seaTunnelRowType.getFieldNames();
+        Map<String, Integer> nameToIndex = new HashMap<>(fieldNames.length);
+        for (int i = 0; i < fieldNames.length; i++) {
+            nameToIndex.put(fieldNames[i].toLowerCase(), i);
+        }
+        List<Integer> newIndex = new ArrayList<>(partitionFieldList.size());
+        for (String col : partitionFieldList) {
+            Integer idx = nameToIndex.get(col.toLowerCase());
+            if (idx == null) {
+                throw new IllegalStateException(
+                        "Schema evolution: partition column ["
+                                + col
+                                + "] is missing from the post-ALTER schema. "
+                                + "Dropping or renaming a partition column is not supported. "
+                                + "Available columns: "
+                                + java.util.Arrays.toString(fieldNames));
+            }
+            newIndex.add(idx);
+        }
+        return newIndex;
+    }
+
+    /**
      * use seaTunnelRow generate partition directory
      *
      * @param seaTunnelRow seaTunnelRow
@@ -361,7 +438,9 @@ public abstract class AbstractWriteStrategy<T> implements WriteStrategy<T> {
      */
     @Override
     public LinkedHashMap<String, List<String>> generatorPartitionDir(SeaTunnelRow seaTunnelRow) {
-        List<Integer> partitionFieldsIndexInRow = fileSinkConfig.getPartitionFieldsIndexInRow();
+        // Use writer-local indices (not fileSinkConfig.getPartitionFieldsIndexInRow()): these get
+        // rebuilt in applySchemaChange so they stay aligned with the post-ALTER row layout.
+        List<Integer> partitionFieldsIndexInRow = this.partitionFieldsIndexInRow;
         LinkedHashMap<String, List<String>> partitionDirAndValuesMap = new LinkedHashMap<>(1);
         if (CollectionUtils.isEmpty(partitionFieldsIndexInRow)) {
             partitionDirAndValuesMap.put(FileBaseSinkOptions.NON_PARTITION, null);
