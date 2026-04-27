@@ -26,6 +26,8 @@ import java.util.Objects;
 @RequiredArgsConstructor
 public final class FlushSignal implements Signal {
 
+    private static final long serialVersionUID = 1L;
+
     private final long jobId;
     private final long taskId;
     private final long createdTime;
