@@ -209,6 +209,16 @@ public class SQLTransform extends AbstractCatalogSupportFlatMapTransform {
         return event;
     }
 
+    /**
+     * Replace input schema from upstream and invalidate the cached SQL engine so the next {@code
+     * transformRow} re-initializes against the new schema.
+     */
+    @Override
+    public void setInputCatalogTable(@NonNull CatalogTable inputCatalogTable) {
+        super.setInputCatalogTable(inputCatalogTable);
+        this.sqlEngine = null;
+    }
+
     @Override
     public void close() {
         if (sqlEngine != null) {

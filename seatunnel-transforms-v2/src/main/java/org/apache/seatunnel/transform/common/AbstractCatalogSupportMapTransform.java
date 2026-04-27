@@ -82,4 +82,11 @@ public abstract class AbstractCatalogSupportMapTransform
         }
         return event;
     }
+
+    /** Eagerly rebuild any field-index/row-container caches that depend on inputCatalogTable. */
+    @Override
+    public void setInputCatalogTable(@NonNull CatalogTable inputCatalogTable) {
+        super.setInputCatalogTable(inputCatalogTable);
+        transformTableSchema();
+    }
 }
