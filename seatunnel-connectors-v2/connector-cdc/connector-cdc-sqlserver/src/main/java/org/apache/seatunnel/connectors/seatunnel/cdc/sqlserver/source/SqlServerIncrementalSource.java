@@ -51,6 +51,7 @@ import io.debezium.relational.history.TableChanges;
 
 import java.time.ZoneId;
 import java.util.Arrays;
+import java.util.Collections;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
@@ -98,7 +99,10 @@ public class SqlServerIncrementalSource<T> extends IncrementalSource<T, JdbcSour
     @Override
     public DebeziumDeserializationSchema<T> createDebeziumDeserializationSchema(
             ReadonlyConfig config) {
-        Map<TableId, Struct> tableIdTableChangeMap = tableChanges();
+        boolean schemaChangesEnabled =
+                config.get(SqlServerIncrementalSourceOptions.SCHEMA_CHANGES_ENABLED);
+        Map<TableId, Struct> tableIdTableChangeMap =
+                schemaChangesEnabled ? tableChanges() : Collections.emptyMap();
         if (DeserializeFormat.COMPATIBLE_DEBEZIUM_JSON.equals(
                 config.get(JdbcSourceOptions.FORMAT))) {
             return (DebeziumDeserializationSchema<T>)
@@ -113,7 +117,8 @@ public class SqlServerIncrementalSource<T> extends IncrementalSource<T, JdbcSour
                         .setTables(catalogTables)
                         .setServerTimeZone(ZoneId.of(zoneId))
                         .setTableIdTableChangeMap(tableIdTableChangeMap)
-                        .setSchemaChangeResolver(new SqlServerSchemaChangeResolver())
+                        .setSchemaChangeResolver(
+                                schemaChangesEnabled ? new SqlServerSchemaChangeResolver() : null)
                         .build();
     }
 

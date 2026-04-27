@@ -667,19 +667,6 @@ public class SqlServerStreamingChangeEventSource
         return oldest;
     }
 
-    private SqlServerChangeTable findChangeTable(
-            SqlServerChangeTable[] currentTables, TableId sourceTableId) {
-        if (currentTables == null) {
-            return null;
-        }
-        for (SqlServerChangeTable currentTable : currentTables) {
-            if (currentTable.getSourceTableId().equals(sourceTableId)) {
-                return currentTable;
-            }
-        }
-        return null;
-    }
-
     /**
      * Queries all active change tables (without an LSN upper-bound) to find a capture instance for
      * {@code sourceTableId} whose start LSN is strictly greater than {@code knownTable}'s start
