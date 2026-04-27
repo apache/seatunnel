@@ -33,7 +33,7 @@ import org.apache.seatunnel.api.table.type.BasicType;
 import org.apache.seatunnel.api.table.type.CommonOptions;
 import org.apache.seatunnel.api.table.type.MetadataUtil;
 import org.apache.seatunnel.api.table.type.SeaTunnelRow;
-import org.apache.seatunnel.transform.filter.FieldFieldMultiCatalogTransform;
+import org.apache.seatunnel.transform.filter.FilterFieldMultiCatalogTransform;
 import org.apache.seatunnel.transform.filterrowkind.FieldRowKindMultiCatalogTransform;
 import org.apache.seatunnel.transform.rowkind.RowKindExtractorMultiCatalogTransform;
 import org.apache.seatunnel.transform.sql.SQLMultiCatalogFlatMapTransform;
@@ -148,12 +148,12 @@ public class ProductionPipelineSchemaChangeTest {
                 new SQLMultiCatalogFlatMapTransform(
                         Collections.singletonList(rkeOut), ReadonlyConfig.fromMap(sqlCfg));
 
-        // 5. FieldFieldMultiCatalogTransform — exclude c_delay
+        // 5. FilterFieldMultiCatalogTransform — exclude c_delay
         CatalogTable sqlOut = sql.getProducedCatalogTables().get(0);
         Map<String, Object> filterFieldCfg = new HashMap<>();
         filterFieldCfg.put("exclude_fields", Arrays.asList("c_delay"));
-        FieldFieldMultiCatalogTransform filterField =
-                new FieldFieldMultiCatalogTransform(
+        FilterFieldMultiCatalogTransform filterField =
+                new FilterFieldMultiCatalogTransform(
                         Collections.singletonList(sqlOut), ReadonlyConfig.fromMap(filterFieldCfg));
 
         // List of all wrappers in chain order — engine iterates in this order during ALTER.

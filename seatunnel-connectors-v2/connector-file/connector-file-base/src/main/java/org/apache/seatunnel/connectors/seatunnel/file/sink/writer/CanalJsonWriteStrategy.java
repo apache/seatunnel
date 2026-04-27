@@ -71,7 +71,9 @@ public class CanalJsonWriteStrategy extends AbstractWriteStrategy<FSDataOutputSt
     protected void onSchemaChanged() {
         this.serializationSchema =
                 new CanalJsonSerializationSchema(
-                        buildSchemaWithRowType(seaTunnelRowType, sinkColumnsIndexInRow), charset);
+                        buildSchemaWithRowType(seaTunnelRowType, sinkColumnsIndexInRow),
+                        charset,
+                        mergeUpdateEventFlag);
     }
 
     @Override

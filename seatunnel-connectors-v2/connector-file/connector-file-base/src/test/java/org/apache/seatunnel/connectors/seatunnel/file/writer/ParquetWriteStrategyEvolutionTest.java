@@ -19,6 +19,7 @@ package org.apache.seatunnel.connectors.seatunnel.file.writer;
 
 import org.apache.seatunnel.shade.com.typesafe.config.ConfigFactory;
 
+import org.apache.seatunnel.api.configuration.ReadonlyConfig;
 import org.apache.seatunnel.api.source.Collector;
 import org.apache.seatunnel.api.table.catalog.CatalogTableUtil;
 import org.apache.seatunnel.api.table.catalog.PhysicalColumn;
@@ -86,7 +87,9 @@ public class ParquetWriteStrategyEvolutionTest {
         writeConfig.put("schema_evolution_enabled", true);
 
         FileSinkConfig sinkConfig =
-                new FileSinkConfig(ConfigFactory.parseMap(writeConfig), baseRowType);
+                new FileSinkConfig(
+                        ReadonlyConfig.fromConfig(ConfigFactory.parseMap(writeConfig)),
+                        baseRowType);
         ParquetWriteStrategy strategy = new ParquetWriteStrategy(sinkConfig);
         ParquetReadStrategyTest.LocalConf hadoopConf =
                 new ParquetReadStrategyTest.LocalConf(FS_DEFAULT_NAME_DEFAULT);
@@ -187,7 +190,9 @@ public class ParquetWriteStrategyEvolutionTest {
         writeConfig.put("schema_evolution_enabled", true);
 
         FileSinkConfig sinkConfig =
-                new FileSinkConfig(ConfigFactory.parseMap(writeConfig), baseRowType);
+                new FileSinkConfig(
+                        ReadonlyConfig.fromConfig(ConfigFactory.parseMap(writeConfig)),
+                        baseRowType);
         ParquetWriteStrategy strategy = new ParquetWriteStrategy(sinkConfig);
         ParquetReadStrategyTest.LocalConf hadoopConf =
                 new ParquetReadStrategyTest.LocalConf(FS_DEFAULT_NAME_DEFAULT);

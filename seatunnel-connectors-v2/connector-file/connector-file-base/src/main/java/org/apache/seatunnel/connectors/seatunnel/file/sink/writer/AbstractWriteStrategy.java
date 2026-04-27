@@ -40,7 +40,6 @@ import org.apache.seatunnel.connectors.seatunnel.file.config.CompressFormat;
 import org.apache.seatunnel.connectors.seatunnel.file.config.FileBaseSinkOptions;
 import org.apache.seatunnel.connectors.seatunnel.file.config.FileFormat;
 import org.apache.seatunnel.connectors.seatunnel.file.config.HadoopConf;
-import org.apache.seatunnel.connectors.seatunnel.file.exception.FileConnectorErrorCode;
 import org.apache.seatunnel.connectors.seatunnel.file.exception.FileConnectorException;
 import org.apache.seatunnel.connectors.seatunnel.file.hadoop.HadoopFileSystemProxy;
 import org.apache.seatunnel.connectors.seatunnel.file.sink.commit.FileCommitInfo;
@@ -194,22 +193,12 @@ public abstract class AbstractWriteStrategy<T> implements WriteStrategy<T> {
     @Override
     public void applySchemaChange(SchemaChangeEvent event) throws IOException {
         if (!fileSinkConfig.isSchemaEvolutionEnabled()) {
-            // Fail-fast guard: if a real schema change arrives but the sink is configured to
-            // ignore them, silently swallowing the event leaves sinkColumnsIndexInRow stale.
-            // The next data row will read row[idx] with stale catalog assumptions and produce a
-            // confusing ClassCastException several rows later. Throw immediately with an
-            // actionable message instead — it's a config mismatch, not a runtime fault.
-            throw new FileConnectorException(
-                    FileConnectorErrorCode.FORMAT_NOT_SUPPORT,
-                    "Received schema-change event ["
-                            + event.getClass().getSimpleName()
-                            + "] but schema_evolution_enabled=false on the file sink. "
-                            + "This combination is unsafe — the sink would keep writing with the "
-                            + "pre-ALTER schema and corrupt subsequent rows. "
-                            + "Resolve by either: "
-                            + "(a) setting schema_evolution_enabled=true on the sink, OR "
-                            + "(b) setting schema-changes.enabled=false on the CDC source so "
-                            + "ALTER events are not emitted in the first place.");
+            // No-op when schema evolution is disabled at the sink. NOTE: if the upstream CDC
+            // source has schema-changes.enabled=true, this leaves sinkColumnsIndexInRow stale and
+            // the next data row may produce a ClassCastException several rows later. Open
+            // discussion with maintainers on whether this should fail-fast instead — the silent
+            // return is the historical behavior preserved here for backwards compatibility.
+            return;
         }
         log.info(
                 "[FileSchemaEvolution] applying {} — before: rowType={}, sinkColumns={}, indices={}",

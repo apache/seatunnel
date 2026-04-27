@@ -488,7 +488,8 @@ public class FileSchemaEvolutionTest {
                         "path = \"/tmp/test\"\n"
                                 + "file_format_type = \"parquet\"\n"
                                 + "schema_evolution_enabled = true");
-        FileSinkConfig sinkConfig = new FileSinkConfig(config, TYPE_ZOO_ROW_TYPE);
+        FileSinkConfig sinkConfig =
+                new FileSinkConfig(ReadonlyConfig.fromConfig(config), TYPE_ZOO_ROW_TYPE);
         NoOpWriteStrategy strategy = new NoOpWriteStrategy(sinkConfig);
         strategy.setCatalogTable(
                 org.apache.seatunnel.api.table.catalog.CatalogTableUtil.getCatalogTable(
@@ -654,22 +655,25 @@ public class FileSchemaEvolutionTest {
                                 + "schema_evolution_enabled = true");
         Assertions.assertThrows(
                 FileConnectorException.class,
-                () -> new FileSinkConfig(config, BASE_ROW_TYPE),
+                () -> new FileSinkConfig(ReadonlyConfig.fromConfig(config), BASE_ROW_TYPE),
                 "binary format must reject schema_evolution_enabled=true at config time");
     }
 
     @Test
-    public void testPartitionByWithSchemaEvolutionEnabledThrowsAtConfig() {
+    public void testPartitionByWithSchemaEvolutionEnabledIsAccepted() {
+        // partition_by + schema_evolution_enabled is supported: applySchemaChange rebuilds
+        // partitionFieldsIndexInRow on every ALTER via name-based lookup against the post-ALTER
+        // row type, mirroring sinkColumnsIndexInRow. Drop/rename of a partition column itself is
+        // rejected at rebuild time with an explicit IllegalStateException (covered separately).
         Config config =
                 ConfigFactory.parseString(
                         "path = \"/tmp/test\"\n"
                                 + "file_format_type = \"text\"\n"
                                 + "partition_by = [\"age\"]\n"
                                 + "schema_evolution_enabled = true");
-        Assertions.assertThrows(
-                FileConnectorException.class,
-                () -> new FileSinkConfig(config, BASE_ROW_TYPE),
-                "partition_by must reject schema_evolution_enabled=true at config time");
+        Assertions.assertDoesNotThrow(
+                () -> new FileSinkConfig(ReadonlyConfig.fromConfig(config), BASE_ROW_TYPE),
+                "partition_by + schema_evolution_enabled=true must be supported");
     }
 
     /**

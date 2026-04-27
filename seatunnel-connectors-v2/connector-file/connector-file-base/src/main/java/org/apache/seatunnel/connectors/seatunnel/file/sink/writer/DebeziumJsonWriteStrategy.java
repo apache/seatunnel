@@ -71,7 +71,9 @@ public class DebeziumJsonWriteStrategy extends AbstractWriteStrategy<FSDataOutpu
     protected void onSchemaChanged() {
         this.serializationSchema =
                 new DebeziumJsonSerializationSchema(
-                        buildSchemaWithRowType(seaTunnelRowType, sinkColumnsIndexInRow), charset);
+                        buildSchemaWithRowType(seaTunnelRowType, sinkColumnsIndexInRow),
+                        charset,
+                        mergeUpdateEventFlag);
     }
 
     @Override
