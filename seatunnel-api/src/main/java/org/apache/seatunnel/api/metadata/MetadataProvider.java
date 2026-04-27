@@ -15,11 +15,14 @@
  * limitations under the License.
  */
 
-package org.apache.seatunnel.api.datasource;
+package org.apache.seatunnel.api.metadata;
 
 import org.apache.seatunnel.shade.com.typesafe.config.Config;
 
+import org.apache.seatunnel.api.table.catalog.TableSchema;
+
 import java.util.Map;
+import java.util.Optional;
 
 /**
  * SPI interface for external data source metadata providers.
@@ -65,7 +68,7 @@ import java.util.Map;
  * <p>Provider instances may be accessed concurrently by multiple threads. Implementations must be
  * thread-safe.
  */
-public interface DataSourceProvider extends AutoCloseable {
+public interface MetadataProvider extends AutoCloseable {
 
     /**
      * Returns a unique identifier for this data source provider.
@@ -91,10 +94,21 @@ public interface DataSourceProvider extends AutoCloseable {
      * converts it into a configuration map compatible with the target connector.
      *
      * @param connectorIdentifier the connector identifier (e.g., "Jdbc", "MySQL-CDC", "Kafka")
-     * @param datasourceId the data source ID in the external metadata system
+     * @param metaDataDatasourceId the data source ID in the external metadata system
      * @return configuration map for the connector, or null if mapping fails
      */
-    Map<String, Object> datasourceMap(String connectorIdentifier, String datasourceId);
+    Map<String, Object> datasourceMap(String connectorIdentifier, String metaDataDatasourceId);
+
+    /**
+     * Retrieves the table schema for the given metadata table ID.
+     *
+     * <p>This method fetches table metadata from the external metadata system, including column
+     * definitions, data types, and constraints.
+     *
+     * @param metaDataTableId the table ID in the external metadata system
+     * @return table schema if found, empty otherwise
+     */
+    Optional<TableSchema> tableSchema(String metaDataTableId);
 
     /** Closes resources held by this provider. */
     @Override

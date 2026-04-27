@@ -19,6 +19,8 @@ package org.apache.seatunnel.engine.common.config;
 
 import org.apache.seatunnel.shade.org.apache.commons.lang3.StringUtils;
 
+import org.apache.seatunnel.api.metadata.MetadataConfig;
+import org.apache.seatunnel.api.metadata.MetadataOptions;
 import org.apache.seatunnel.engine.common.config.server.AllocateStrategy;
 import org.apache.seatunnel.engine.common.config.server.CheckpointConfig;
 import org.apache.seatunnel.engine.common.config.server.CheckpointStorageConfig;
@@ -26,8 +28,6 @@ import org.apache.seatunnel.engine.common.config.server.ConnectorJarHAStorageCon
 import org.apache.seatunnel.engine.common.config.server.ConnectorJarStorageConfig;
 import org.apache.seatunnel.engine.common.config.server.ConnectorJarStorageMode;
 import org.apache.seatunnel.engine.common.config.server.CoordinatorServiceConfig;
-import org.apache.seatunnel.engine.common.config.server.DataSourceConfig;
-import org.apache.seatunnel.engine.common.config.server.DataSourceOptions;
 import org.apache.seatunnel.engine.common.config.server.HttpConfig;
 import org.apache.seatunnel.engine.common.config.server.QueueType;
 import org.apache.seatunnel.engine.common.config.server.ScheduleStrategy;
@@ -257,8 +257,8 @@ public class YamlSeaTunnelDomConfigProcessor extends AbstractDomConfigProcessor 
                         ScheduleStrategy.valueOf(getTextContent(node).toUpperCase(Locale.ROOT)));
             } else if (ServerConfigOptions.MasterServerConfigOptions.HTTP.key().equals(name)) {
                 engineConfig.setHttpConfig(parseHttpConfig(node));
-            } else if (ServerConfigOptions.DATASOURCE.key().equals(name)) {
-                engineConfig.setDataSourceConfig(parseDataSourceConfig(node));
+            } else if (ServerConfigOptions.METADATA.key().equals(name)) {
+                engineConfig.setMetadataConfig(parseMetadataConfigConfig(node));
             } else if (ServerConfigOptions.MasterServerConfigOptions.COORDINATOR_SERVICE
                     .key()
                     .equals(name)) {
@@ -589,27 +589,25 @@ public class YamlSeaTunnelDomConfigProcessor extends AbstractDomConfigProcessor 
         return httpConfig;
     }
 
-    private DataSourceConfig parseDataSourceConfig(Node dataSourceNode) {
-        DataSourceConfig dataSourceConfig = new DataSourceConfig();
+    private MetadataConfig parseMetadataConfigConfig(Node dataSourceNode) {
+        MetadataConfig metadataConfig = new MetadataConfig();
         String providerKind = null;
 
         for (Node node : childElements(dataSourceNode)) {
             String name = cleanNodeName(node);
-            if (DataSourceOptions.ENABLED.key().equals(name)) {
-                dataSourceConfig.setEnabled(getBooleanValue(getTextContent(node)));
-            } else if (DataSourceOptions.KIND.key().equals(name)) {
+            if (MetadataOptions.ENABLED.key().equals(name)) {
+                metadataConfig.setEnabled(getBooleanValue(getTextContent(node)));
+            } else if (MetadataOptions.KIND.key().equals(name)) {
                 providerKind = getTextContent(node);
-                dataSourceConfig.setKind(providerKind);
+                metadataConfig.setKind(providerKind);
             } else if (providerKind != null && providerKind.equalsIgnoreCase(name)) {
                 // Parse nested provider properties (e.g., gravitino.uri, gravitino.metalake)
                 for (Node propertyNode : childElements(node)) {
                     String propertyName = cleanNodeName(propertyNode);
-                    dataSourceConfig
-                            .getProperties()
-                            .put(propertyName, getTextContent(propertyNode));
+                    metadataConfig.getProperties().put(propertyName, getTextContent(propertyNode));
                 }
             }
         }
-        return dataSourceConfig;
+        return metadataConfig;
     }
 }

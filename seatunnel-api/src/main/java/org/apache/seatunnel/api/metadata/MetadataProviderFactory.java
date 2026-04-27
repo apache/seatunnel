@@ -15,9 +15,9 @@
  * limitations under the License.
  */
 
-package org.apache.seatunnel.api.datasource;
+package org.apache.seatunnel.api.metadata;
 
-import org.apache.seatunnel.api.datasource.exception.DataSourceProviderException;
+import org.apache.seatunnel.api.metadata.exception.MetadataProviderException;
 
 import lombok.extern.slf4j.Slf4j;
 
@@ -27,8 +27,7 @@ import java.util.ServiceConfigurationError;
 import java.util.ServiceLoader;
 
 /**
- * Utility class for discovering and loading {@link DataSourceProvider} implementations via Java
- * SPI.
+ * Utility class for discovering and loading {@link MetadataProvider} implementations via Java SPI.
  *
  * <p>This class provides methods to:
  *
@@ -38,32 +37,32 @@ import java.util.ServiceLoader;
  * </ul>
  */
 @Slf4j
-public final class DataSourceProviderFactory {
+public final class MetadataProviderFactory {
 
     /**
-     * Finds a {@link DataSourceProvider} by its kind identifier.
+     * Finds a {@link MetadataProvider} by its kind identifier.
      *
      * @param kind the kind identifier of the provider to find
      * @return the provider
-     * @throws DataSourceProviderException if provider is not found or multiple providers with the
+     * @throws MetadataProviderException if provider is not found or multiple providers with the
      *     same kind are found
      */
-    public static DataSourceProvider getProvider(String kind) {
-        List<DataSourceProvider> providers = loadProviders();
+    public static MetadataProvider getProvider(String kind) {
+        List<MetadataProvider> providers = loadProviders();
 
-        DataSourceProvider matchedProvider = null;
+        MetadataProvider matchedProvider = null;
         List<String> matchedKinds = new ArrayList<>();
 
-        for (DataSourceProvider provider : providers) {
+        for (MetadataProvider provider : providers) {
             if (provider.kind().equalsIgnoreCase(kind)) {
                 if (matchedProvider != null) {
                     log.error(
-                            "Multiple DataSourceProvider implementations found for kind '{}': {}",
+                            "Multiple MetadataProvider implementations found for kind '{}': {}",
                             kind,
                             matchedKinds);
-                    throw new DataSourceProviderException(
+                    throw new MetadataProviderException(
                             String.format(
-                                    "Multiple DataSourceProvider implementations found for kind '%s'.\n\n"
+                                    "Multiple MetadataProvider implementations found for kind '%s'.\n\n"
                                             + "Ambiguous provider classes are:\n\n%s",
                                     kind, String.join("\n", matchedKinds)));
                 }
@@ -74,13 +73,13 @@ public final class DataSourceProviderFactory {
 
         if (matchedProvider == null) {
             List<String> availableKinds = new ArrayList<>();
-            for (DataSourceProvider provider : providers) {
+            for (MetadataProvider provider : providers) {
                 availableKinds.add(provider.kind());
             }
-            log.debug("No DataSourceProvider found for kind: {}", kind);
-            throw new DataSourceProviderException(
+            log.debug("No MetadataProvider found for kind: {}", kind);
+            throw new MetadataProviderException(
                     String.format(
-                            "No DataSourceProvider found for kind '%s'.\n\n"
+                            "No MetadataProvider found for kind '%s'.\n\n"
                                     + "Available provider kinds are:\n\n%s",
                             kind, String.join("\n", availableKinds)));
         }
@@ -103,31 +102,31 @@ public final class DataSourceProviderFactory {
      *
      * @return list of all discovered providers
      */
-    private static List<DataSourceProvider> loadProviders() {
+    private static List<MetadataProvider> loadProviders() {
         try {
             ClassLoader classLoader = Thread.currentThread().getContextClassLoader();
-            List<DataSourceProvider> providers = new ArrayList<>();
-            ServiceLoader.load(DataSourceProvider.class, classLoader)
+            List<MetadataProvider> providers = new ArrayList<>();
+            ServiceLoader.load(MetadataProvider.class, classLoader)
                     .iterator()
                     .forEachRemaining(providers::add);
 
             if (providers.isEmpty()) {
-                log.info("No DataSourceProvider implementations found");
+                log.info("No MetadataProvider implementations found");
             } else {
                 log.info(
-                        "Loaded {} DataSourceProvider: {}",
+                        "Loaded {} MetadataProvider: {}",
                         providers.size(),
                         providers.stream()
-                                .map(DataSourceProvider::kind)
+                                .map(MetadataProvider::kind)
                                 .reduce((a, b) -> a + ", " + b)
                                 .orElse(""));
             }
 
             return providers;
         } catch (ServiceConfigurationError e) {
-            log.error("Could not load service provider for DataSourceProvider.", e);
-            throw new DataSourceProviderException(
-                    "Could not load service provider for DataSourceProvider.", e);
+            log.error("Could not load service provider for MetadataProvider.", e);
+            throw new MetadataProviderException(
+                    "Could not load service provider for MetadataProvider.", e);
         }
     }
 }
