@@ -18,68 +18,219 @@
 package org.apache.seatunnel.engine.server.serializable;
 
 import org.apache.seatunnel.api.table.type.Record;
+import org.apache.seatunnel.api.table.type.RowKind;
 import org.apache.seatunnel.api.table.type.SeaTunnelRow;
-import org.apache.seatunnel.engine.common.config.ConfigProvider;
-import org.apache.seatunnel.engine.common.config.SeaTunnelConfig;
-import org.apache.seatunnel.engine.server.SeaTunnelServerStarter;
-import org.apache.seatunnel.engine.server.TestUtils;
 
+import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.Test;
 
-import com.hazelcast.config.Config;
-import com.hazelcast.instance.impl.HazelcastInstanceImpl;
-import com.hazelcast.internal.serialization.Data;
+import com.hazelcast.internal.nio.BufferObjectDataInput;
+import com.hazelcast.internal.nio.BufferObjectDataOutput;
+import com.hazelcast.internal.serialization.InternalSerializationService;
+import com.hazelcast.internal.serialization.impl.DefaultSerializationServiceBuilder;
+
+import java.io.IOException;
 
 class RecordSerializerTest {
+    private static final String TABLE_ID = "test_table";
+    private static final int EXTENDED_ROW_ARITY_MAGIC = 0x524F5741;
+
+    private final RecordSerializer serializer = new RecordSerializer();
+    private final InternalSerializationService serializationService =
+            (InternalSerializationService) new DefaultSerializationServiceBuilder().build();
+
+    @AfterEach
+    void tearDown() {
+        serializationService.dispose();
+    }
+
     @Test
-    void testSerializeSeaTunnelRowWithArityGreaterThanSignedByteMaxValue() {
-        SeaTunnelRow row = new SeaTunnelRow(Byte.MAX_VALUE + 1);
-        for (int i = 0; i < row.getArity(); i++) {
+    void testLegacyWriteCurrentReadWithArity0To127Succeeds() throws IOException {
+        SeaTunnelRow row = createRow(Byte.MAX_VALUE);
+        assertSeaTunnelRowEquals(row, deserializeWithCurrentSerializer(serializeLegacyRecord(row)));
+    }
+
+    @Test
+    void testLegacyWriteCurrentReadWithArity128Fails() throws IOException {
+        byte[] bytes = serializeLegacyRecord(createRow(Byte.MAX_VALUE + 1));
+
+        IOException exception =
+                Assertions.assertThrows(
+                        IOException.class, () -> deserializeWithCurrentSerializer(bytes));
+        Assertions.assertTrue(
+                exception.getMessage().contains("Unsupported legacy row arity encoding"));
+    }
+
+    @Test
+    void testLegacyWriteCurrentReadWithArity129To254Fails() throws IOException {
+        byte[] bytes = serializeLegacyRecord(createRow(Byte.MAX_VALUE + 2));
+
+        IOException exception =
+                Assertions.assertThrows(
+                        IOException.class, () -> deserializeWithCurrentSerializer(bytes));
+        Assertions.assertTrue(
+                exception.getMessage().contains("Unsupported legacy row arity encoding"));
+    }
+
+    @Test
+    void testLegacyWriteCurrentReadWithArity255Fails() throws IOException {
+        byte[] bytes = serializeLegacyRecord(createRow(255));
+
+        IOException exception =
+                Assertions.assertThrows(
+                        IOException.class, () -> deserializeWithCurrentSerializer(bytes));
+        Assertions.assertTrue(
+                exception.getMessage().contains("Unsupported row arity extension header"));
+    }
+
+    @Test
+    void testCurrentWriteLegacyReadWithArity0To127Succeeds() throws IOException {
+        SeaTunnelRow row = createRow(Byte.MAX_VALUE);
+        assertSeaTunnelRowEquals(
+                row, deserializeWithLegacySerializer(serializeRecordWithCurrentSerializer(row)));
+    }
+
+    @Test
+    void testCurrentWriteLegacyReadWithArity128Fails() throws IOException {
+        Assertions.assertThrows(
+                NegativeArraySizeException.class,
+                () ->
+                        deserializeWithLegacySerializer(
+                                serializeRecordWithCurrentSerializer(
+                                        createRow(Byte.MAX_VALUE + 1))));
+    }
+
+    @Test
+    void testCurrentWriteLegacyReadWithArity129To254Fails() throws IOException {
+        Assertions.assertThrows(
+                NegativeArraySizeException.class,
+                () ->
+                        deserializeWithLegacySerializer(
+                                serializeRecordWithCurrentSerializer(
+                                        createRow(Byte.MAX_VALUE + 2))));
+    }
+
+    @Test
+    void testCurrentWriteLegacyReadWithArity255Fails() throws IOException {
+        Assertions.assertThrows(
+                NegativeArraySizeException.class,
+                () ->
+                        deserializeWithLegacySerializer(
+                                serializeRecordWithCurrentSerializer(createRow(255))));
+    }
+
+    @Test
+    void testCurrentWriteCurrentReadWithArity0To127Succeeds() throws IOException {
+        SeaTunnelRow row = createRow(Byte.MAX_VALUE);
+        byte[] bytes = serializeRecordWithCurrentSerializer(row);
+
+        assertLegacyEncodingHeader(bytes, Byte.MAX_VALUE);
+        assertSeaTunnelRowEquals(row, deserializeWithCurrentSerializer(bytes));
+    }
+
+    @Test
+    void testCurrentWriteCurrentReadWithArity128Succeeds() throws IOException {
+        SeaTunnelRow row = createRow(Byte.MAX_VALUE + 1);
+        byte[] bytes = serializeRecordWithCurrentSerializer(row);
+
+        assertExtendedEncodingHeader(bytes, Byte.MAX_VALUE + 1);
+        assertSeaTunnelRowEquals(row, deserializeWithCurrentSerializer(bytes));
+    }
+
+    @Test
+    void testCurrentWriteCurrentReadWithArity129To254Succeeds() throws IOException {
+        SeaTunnelRow row = createRow(Byte.MAX_VALUE + 2);
+        byte[] bytes = serializeRecordWithCurrentSerializer(row);
+
+        assertExtendedEncodingHeader(bytes, Byte.MAX_VALUE + 2);
+        assertSeaTunnelRowEquals(row, deserializeWithCurrentSerializer(bytes));
+    }
+
+    @Test
+    void testCurrentWriteCurrentReadWithArity255Succeeds() throws IOException {
+        SeaTunnelRow row = createRow(255);
+        byte[] bytes = serializeRecordWithCurrentSerializer(row);
+
+        assertExtendedEncodingHeader(bytes, 255);
+        assertSeaTunnelRowEquals(row, deserializeWithCurrentSerializer(bytes));
+    }
+
+    private SeaTunnelRow createRow(int arity) {
+        SeaTunnelRow row = new SeaTunnelRow(arity);
+        row.setTableId(TABLE_ID);
+        row.setRowKind(RowKind.INSERT);
+        for (int i = 0; i < arity; i++) {
             row.setField(i, "field-" + i);
         }
-        Record<SeaTunnelRow> record = new Record<>(row);
-        HazelcastInstanceImpl instance = createHazelcastInstance();
-        try {
-            Data data = instance.getSerializationService().toData(record);
-            Assertions.assertEquals(TypeId.RECORD, data.getType());
-            Record<?> restored = instance.getSerializationService().toObject(data);
+        return row;
+    }
 
-            Assertions.assertInstanceOf(SeaTunnelRow.class, restored.getData());
-            SeaTunnelRow restoredRow = (SeaTunnelRow) restored.getData();
-            Assertions.assertEquals(row.getArity(), restoredRow.getArity());
-            Assertions.assertArrayEquals(row.getFields(), restoredRow.getFields());
-        } finally {
-            instance.shutdown();
+    private byte[] serializeRecordWithCurrentSerializer(SeaTunnelRow row) throws IOException {
+        BufferObjectDataOutput out = serializationService.createObjectDataOutput();
+        serializer.write(out, new Record<>(row));
+        return out.toByteArray();
+    }
+
+    private byte[] serializeLegacyRecord(SeaTunnelRow row) throws IOException {
+        BufferObjectDataOutput out = serializationService.createObjectDataOutput();
+        out.writeByte(RecordSerializer.RecordDataType.SEATUNNEL_ROW.ordinal());
+        out.writeString(row.getTableId());
+        out.writeByte(row.getRowKind().toByteValue());
+        out.writeByte(row.getArity());
+        for (Object field : row.getFields()) {
+            out.writeObject(field);
         }
+        return out.toByteArray();
     }
 
-    private HazelcastInstanceImpl createHazelcastInstance() {
-        String clusterName =
-                TestUtils.getClusterName(
-                        "RecordSerializerTest_testSerializeSeaTunnelRowWithArityGreaterThanSignedByteMaxValue");
-        SeaTunnelConfig seaTunnelConfig = ConfigProvider.locateAndGetSeaTunnelConfig();
-        Config hazelcastConfig = Config.loadFromString(buildHazelcastConfig(clusterName));
-        seaTunnelConfig.setHazelcastConfig(hazelcastConfig);
-        return SeaTunnelServerStarter.createHazelcastInstance(seaTunnelConfig);
+    private Record<?> deserializeWithCurrentSerializer(byte[] bytes) throws IOException {
+        return serializer.read(serializationService.createObjectDataInput(bytes));
     }
 
-    private String buildHazelcastConfig(String clusterName) {
-        return "hazelcast:\n"
-                + "  cluster-name: "
-                + clusterName
-                + "\n"
-                + "  network:\n"
-                + "    join:\n"
-                + "      tcp-ip:\n"
-                + "        enabled: false\n"
-                + "      multicast:\n"
-                + "        enabled: false\n"
-                + "      auto-detection:\n"
-                + "        enabled: false\n"
-                + "    port:\n"
-                + "      auto-increment: true\n"
-                + "      port-count: 100\n"
-                + "      port: 5801\n";
+    private Record<?> deserializeWithLegacySerializer(byte[] bytes) throws IOException {
+        BufferObjectDataInput in = serializationService.createObjectDataInput(bytes);
+        Assertions.assertEquals(
+                RecordSerializer.RecordDataType.SEATUNNEL_ROW.ordinal(), in.readByte());
+        String tableId = in.readString();
+        byte rowKind = in.readByte();
+        int arity = in.readByte();
+        SeaTunnelRow row = new SeaTunnelRow(arity);
+        row.setTableId(tableId);
+        row.setRowKind(RowKind.fromByteValue(rowKind));
+        for (int i = 0; i < arity; i++) {
+            row.setField(i, in.readObject());
+        }
+        return new Record<>(row);
+    }
+
+    private void assertLegacyEncodingHeader(byte[] bytes, int expectedArity) throws IOException {
+        BufferObjectDataInput in = serializationService.createObjectDataInput(bytes);
+        assertCommonRowPrefix(in);
+        Assertions.assertEquals(expectedArity, in.readByte());
+    }
+
+    private void assertExtendedEncodingHeader(byte[] bytes, int expectedArity) throws IOException {
+        BufferObjectDataInput in = serializationService.createObjectDataInput(bytes);
+        assertCommonRowPrefix(in);
+        Assertions.assertEquals(-1, in.readByte());
+        Assertions.assertEquals(EXTENDED_ROW_ARITY_MAGIC, in.readInt());
+        Assertions.assertEquals(expectedArity, in.readInt());
+    }
+
+    private void assertCommonRowPrefix(BufferObjectDataInput in) throws IOException {
+        Assertions.assertEquals(
+                RecordSerializer.RecordDataType.SEATUNNEL_ROW.ordinal(), in.readByte());
+        Assertions.assertEquals(TABLE_ID, in.readString());
+        Assertions.assertEquals(RowKind.INSERT.toByteValue(), in.readByte());
+    }
+
+    private void assertSeaTunnelRowEquals(SeaTunnelRow expected, Record<?> actualRecord) {
+        Assertions.assertInstanceOf(SeaTunnelRow.class, actualRecord.getData());
+        SeaTunnelRow actual = (SeaTunnelRow) actualRecord.getData();
+        Assertions.assertEquals(expected.getTableId(), actual.getTableId());
+        Assertions.assertEquals(expected.getRowKind(), actual.getRowKind());
+        Assertions.assertEquals(expected.getArity(), actual.getArity());
+        Assertions.assertArrayEquals(expected.getFields(), actual.getFields());
     }
 }
