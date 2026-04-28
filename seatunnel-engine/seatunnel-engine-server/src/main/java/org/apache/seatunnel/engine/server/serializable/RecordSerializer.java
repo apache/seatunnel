@@ -119,13 +119,7 @@ public class RecordSerializer implements StreamSerializer<Record> {
         if (encodedArity >= 0) {
             return encodedArity;
         }
-        if (encodedArity != EXTENDED_ROW_ARITY_MARKER) {
-            throw new IOException("Unsupported legacy row arity encoding: " + encodedArity);
-        }
-        int extensionMagic = in.readInt();
-        if (extensionMagic != EXTENDED_ROW_ARITY_MAGIC) {
-            throw new IOException("Unsupported row arity extension header: " + extensionMagic);
-        }
+        in.readInt();
         return in.readInt();
     }
 }

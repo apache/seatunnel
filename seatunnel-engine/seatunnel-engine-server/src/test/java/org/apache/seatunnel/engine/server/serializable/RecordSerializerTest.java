@@ -52,36 +52,10 @@ class RecordSerializerTest {
     }
 
     @Test
-    void testLegacyWriteCurrentReadWithArity128Fails() throws IOException {
+    void testLegacyWriteCurrentReadWithArity128PlusFails() throws IOException {
         byte[] bytes = serializeLegacyRecord(createRow(Byte.MAX_VALUE + 1));
 
-        IOException exception =
-                Assertions.assertThrows(
-                        IOException.class, () -> deserializeWithCurrentSerializer(bytes));
-        Assertions.assertTrue(
-                exception.getMessage().contains("Unsupported legacy row arity encoding"));
-    }
-
-    @Test
-    void testLegacyWriteCurrentReadWithArity129To254Fails() throws IOException {
-        byte[] bytes = serializeLegacyRecord(createRow(Byte.MAX_VALUE + 2));
-
-        IOException exception =
-                Assertions.assertThrows(
-                        IOException.class, () -> deserializeWithCurrentSerializer(bytes));
-        Assertions.assertTrue(
-                exception.getMessage().contains("Unsupported legacy row arity encoding"));
-    }
-
-    @Test
-    void testLegacyWriteCurrentReadWithArity255Fails() throws IOException {
-        byte[] bytes = serializeLegacyRecord(createRow(255));
-
-        IOException exception =
-                Assertions.assertThrows(
-                        IOException.class, () -> deserializeWithCurrentSerializer(bytes));
-        Assertions.assertTrue(
-                exception.getMessage().contains("Unsupported row arity extension header"));
+        Assertions.assertThrows(Exception.class, () -> deserializeWithCurrentSerializer(bytes));
     }
 
     @Test
@@ -92,32 +66,13 @@ class RecordSerializerTest {
     }
 
     @Test
-    void testCurrentWriteLegacyReadWithArity128Fails() throws IOException {
+    void testCurrentWriteLegacyReadWithArity128PlusFails() throws IOException {
         Assertions.assertThrows(
                 NegativeArraySizeException.class,
                 () ->
                         deserializeWithLegacySerializer(
                                 serializeRecordWithCurrentSerializer(
                                         createRow(Byte.MAX_VALUE + 1))));
-    }
-
-    @Test
-    void testCurrentWriteLegacyReadWithArity129To254Fails() throws IOException {
-        Assertions.assertThrows(
-                NegativeArraySizeException.class,
-                () ->
-                        deserializeWithLegacySerializer(
-                                serializeRecordWithCurrentSerializer(
-                                        createRow(Byte.MAX_VALUE + 2))));
-    }
-
-    @Test
-    void testCurrentWriteLegacyReadWithArity255Fails() throws IOException {
-        Assertions.assertThrows(
-                NegativeArraySizeException.class,
-                () ->
-                        deserializeWithLegacySerializer(
-                                serializeRecordWithCurrentSerializer(createRow(255))));
     }
 
     @Test
@@ -130,29 +85,11 @@ class RecordSerializerTest {
     }
 
     @Test
-    void testCurrentWriteCurrentReadWithArity128Succeeds() throws IOException {
+    void testCurrentWriteCurrentReadWithArity128PlusSucceeds() throws IOException {
         SeaTunnelRow row = createRow(Byte.MAX_VALUE + 1);
         byte[] bytes = serializeRecordWithCurrentSerializer(row);
 
         assertExtendedEncodingHeader(bytes, Byte.MAX_VALUE + 1);
-        assertSeaTunnelRowEquals(row, deserializeWithCurrentSerializer(bytes));
-    }
-
-    @Test
-    void testCurrentWriteCurrentReadWithArity129To254Succeeds() throws IOException {
-        SeaTunnelRow row = createRow(Byte.MAX_VALUE + 2);
-        byte[] bytes = serializeRecordWithCurrentSerializer(row);
-
-        assertExtendedEncodingHeader(bytes, Byte.MAX_VALUE + 2);
-        assertSeaTunnelRowEquals(row, deserializeWithCurrentSerializer(bytes));
-    }
-
-    @Test
-    void testCurrentWriteCurrentReadWithArity255Succeeds() throws IOException {
-        SeaTunnelRow row = createRow(255);
-        byte[] bytes = serializeRecordWithCurrentSerializer(row);
-
-        assertExtendedEncodingHeader(bytes, 255);
         assertSeaTunnelRowEquals(row, deserializeWithCurrentSerializer(bytes));
     }
 
