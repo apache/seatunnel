@@ -335,9 +335,13 @@ class CoordinatorServiceJobCleanupTest extends AbstractSeaTunnelServerTest {
     }
 
     @Test
-    void testTerminalZombieJobWithoutCleanupRecordRemovesRunningState() throws Exception {
+    void testTerminalZombieJobWithoutCleanupRecordPersistsHistoryAndRemovesState()
+            throws Exception {
         CoordinatorService coordinatorService = server.getCoordinatorService();
         long jobId = System.currentTimeMillis();
+        PipelineLocation pipelineLocation = new PipelineLocation(jobId, 1);
+        TaskGroupLocation taskGroupLocation = new TaskGroupLocation(jobId, 1, 1L);
+        String checkpointStateKey = "checkpoint_state_" + jobId + "_1";
 
         IMap<Long, JobInfo> runningJobInfoIMap =
                 nodeEngine.getHazelcastInstance().getMap(Constant.IMAP_RUNNING_JOB_INFO);
@@ -346,9 +350,19 @@ class CoordinatorServiceJobCleanupTest extends AbstractSeaTunnelServerTest {
         IMap<Object, Long[]> runningJobStateTimestampsIMap =
                 nodeEngine.getHazelcastInstance().getMap(Constant.IMAP_STATE_TIMESTAMPS);
 
-        runningJobInfoIMap.put(jobId, new JobInfo(100L, null));
+        Data jobData = createJobData(jobId, false, "stream_fake_to_console.conf");
+        runningJobInfoIMap.put(jobId, new JobInfo(100L, jobData));
         runningJobStateIMap.put(jobId, JobStatus.CANCELED);
-        runningJobStateTimestampsIMap.put(jobId, new Long[JobStatus.values().length]);
+        runningJobStateIMap.put(pipelineLocation, "pipeline");
+        runningJobStateIMap.put(taskGroupLocation, "task");
+        runningJobStateIMap.put(checkpointStateKey, "checkpoint");
+
+        Long[] jobStateTimestamps = new Long[JobStatus.values().length];
+        jobStateTimestamps[JobStatus.SCHEDULED.ordinal()] = 10L;
+        jobStateTimestamps[JobStatus.CANCELED.ordinal()] = 20L;
+        runningJobStateTimestampsIMap.put(jobId, jobStateTimestamps);
+        runningJobStateTimestampsIMap.put(pipelineLocation, new Long[1]);
+        runningJobStateTimestampsIMap.put(taskGroupLocation, new Long[1]);
 
         Method method =
                 CoordinatorService.class.getDeclaredMethod(
@@ -359,7 +373,16 @@ class CoordinatorServiceJobCleanupTest extends AbstractSeaTunnelServerTest {
 
         Assertions.assertFalse(runningJobInfoIMap.containsKey(jobId));
         Assertions.assertFalse(runningJobStateIMap.containsKey(jobId));
+        Assertions.assertFalse(runningJobStateIMap.containsKey(pipelineLocation));
+        Assertions.assertFalse(runningJobStateIMap.containsKey(taskGroupLocation));
+        Assertions.assertFalse(runningJobStateIMap.containsKey(checkpointStateKey));
         Assertions.assertFalse(runningJobStateTimestampsIMap.containsKey(jobId));
+        Assertions.assertFalse(runningJobStateTimestampsIMap.containsKey(pipelineLocation));
+        Assertions.assertFalse(runningJobStateTimestampsIMap.containsKey(taskGroupLocation));
+        Assertions.assertNotNull(coordinatorService.getJobHistoryService().getJobDAGInfo(jobId));
+        Assertions.assertEquals(
+                JobStatus.CANCELED,
+                coordinatorService.getJobHistoryService().getJobDetailState(jobId).getJobStatus());
     }
 
     private Set<Object> stateKeys(Object... keys) {

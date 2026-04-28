@@ -102,6 +102,7 @@ import java.util.Comparator;
 import java.util.HashMap;
 import java.util.HashSet;
 import java.util.Iterator;
+import java.util.LinkedHashSet;
 import java.util.List;
 import java.util.Map;
 import java.util.Objects;
@@ -949,7 +950,7 @@ public class CoordinatorService {
             if (cleanupRecord != null) {
                 schedulePendingJobCleanup(jobId, cleanupRecord);
             } else {
-                cleanupTerminalZombieJob(jobId);
+                cleanupTerminalZombieJob(jobId, jobInfo, (JobStatus) jobState);
             }
             return;
         }
@@ -981,14 +982,10 @@ public class CoordinatorService {
         logger.info(String.format("The restore job enter pending queue, JobId: %s", jobId));
     }
 
-    private void cleanupTerminalZombieJob(long jobId) {
+    private void cleanupTerminalZombieJob(long jobId, JobInfo jobInfo, JobStatus finalStatus) {
+        persistTerminalZombieHistoryIfNecessary(jobId, jobInfo, finalStatus);
+        cleanupPendingJobStateMaps(createTerminalZombieCleanupRecord(jobId, jobInfo, finalStatus));
         runningJobInfoIMap.remove(jobId);
-        if (runningJobStateIMap != null) {
-            runningJobStateIMap.remove(jobId);
-        }
-        if (runningJobStateTimestampsIMap != null) {
-            runningJobStateTimestampsIMap.remove(jobId);
-        }
     }
 
     private void cleanupPendingJobStateForRestore(long jobId, JobCleanupRecord record) {
@@ -1417,13 +1414,7 @@ public class CoordinatorService {
     }
 
     private JobDAGInfo restoreJobDAGInfo(JobInfo jobInfo) {
-        JobImmutableInformation jobImmutableInformation =
-                nodeEngine
-                        .getSerializationService()
-                        .toObject(
-                                nodeEngine
-                                        .getSerializationService()
-                                        .toObject(jobInfo.getJobImmutableInformation()));
+        JobImmutableInformation jobImmutableInformation = restoreJobImmutableInformation(jobInfo);
         ClassLoaderService classLoaderService = seaTunnelServer.getClassLoaderService();
         LogicalDag logicalDag =
                 DAGUtils.restoreLogicalDag(
@@ -1439,6 +1430,78 @@ public class CoordinatorService {
                         nodeEngine.getMasterAddress().getHost(),
                         nodeEngine.getMasterAddress().getPort()),
                 new HashSet<>());
+    }
+
+    private JobImmutableInformation restoreJobImmutableInformation(JobInfo jobInfo) {
+        return nodeEngine.getSerializationService().toObject(jobInfo.getJobImmutableInformation());
+    }
+
+    private void persistTerminalZombieHistoryIfNecessary(
+            long jobId, JobInfo jobInfo, JobStatus finalStatus) {
+        JobHistoryService historyService = getJobHistoryService();
+        if (historyService.getJobDAGInfo(jobId) == null) {
+            historyService.storeJobInfo(jobId, restoreJobDAGInfo(jobInfo));
+        }
+        if (historyService.getFinishedJobStateImap().containsKey(jobId)) {
+            return;
+        }
+        JobImmutableInformation jobImmutableInformation = restoreJobImmutableInformation(jobInfo);
+        historyService.storeFinishedJobState(
+                new JobHistoryService.JobState(
+                        jobId,
+                        jobImmutableInformation.getJobName(),
+                        finalStatus,
+                        jobImmutableInformation.getCreateTime(),
+                        getJobStateTimestamp(jobId, JobStatus.SCHEDULED),
+                        getJobStateTimestamp(jobId, finalStatus),
+                        Collections.emptyMap(),
+                        null));
+    }
+
+    private Long getJobStateTimestamp(long jobId, JobStatus status) {
+        if (runningJobStateTimestampsIMap == null) {
+            return null;
+        }
+        Long[] jobStateTimestamps = runningJobStateTimestampsIMap.get(jobId);
+        if (jobStateTimestamps == null || jobStateTimestamps.length <= status.ordinal()) {
+            return null;
+        }
+        return jobStateTimestamps[status.ordinal()];
+    }
+
+    private JobCleanupRecord createTerminalZombieCleanupRecord(
+            long jobId, JobInfo jobInfo, JobStatus finalStatus) {
+        return new JobCleanupRecord(
+                jobInfo.getInitializationTimestamp(),
+                finalStatus,
+                collectTerminalZombieKeys(runningJobStateIMap, jobId),
+                collectTerminalZombieKeys(runningJobStateTimestampsIMap, jobId),
+                System.currentTimeMillis());
+    }
+
+    private Set<Object> collectTerminalZombieKeys(IMap<Object, ?> sourceMap, long jobId) {
+        if (sourceMap == null) {
+            return Collections.emptySet();
+        }
+        return sourceMap.keySet().stream()
+                .filter(key -> belongsToJob(key, jobId))
+                .collect(Collectors.toCollection(LinkedHashSet::new));
+    }
+
+    private boolean belongsToJob(Object key, long jobId) {
+        if (key instanceof Long) {
+            return ((Long) key) == jobId;
+        }
+        if (key instanceof PipelineLocation) {
+            return ((PipelineLocation) key).getJobId() == jobId;
+        }
+        if (key instanceof TaskGroupLocation) {
+            return ((TaskGroupLocation) key).getJobId() == jobId;
+        }
+        if (key instanceof String) {
+            return ((String) key).startsWith("checkpoint_state_" + jobId + "_");
+        }
+        return false;
     }
 
     /**

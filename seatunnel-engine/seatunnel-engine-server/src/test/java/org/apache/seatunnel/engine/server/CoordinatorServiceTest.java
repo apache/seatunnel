@@ -52,6 +52,7 @@ import com.hazelcast.map.IMap;
 import com.hazelcast.spi.impl.NodeEngineImpl;
 import lombok.extern.slf4j.Slf4j;
 
+import java.lang.reflect.Field;
 import java.nio.file.Path;
 import java.nio.file.Paths;
 import java.util.ArrayList;
@@ -696,6 +697,27 @@ public class CoordinatorServiceTest {
         jobInformation.coordinatorServiceTest.shutdown();
     }
 
+    @Test
+    void testGetJobInfoFallsBackToRunningJobInfo() throws Exception {
+        JobInformation jobInformation =
+                submitJob(
+                        "CoordinatorServiceTest_testGetJobInfoFallsBackToRunningJobInfo",
+                        "batch_fake_to_console.conf",
+                        "test_get_job_info_running_job_info_fallback");
+
+        CoordinatorService coordinatorService = jobInformation.coordinatorService;
+        Long jobId = jobInformation.jobId;
+
+        coordinatorService.getPendingJobQueue().removeById(jobId);
+        getRunningJobMasterMap(coordinatorService).remove(jobId);
+
+        JobDAGInfo jobDAGInfo =
+                Assertions.assertDoesNotThrow(() -> coordinatorService.getJobInfo(jobId));
+        Assertions.assertEquals(jobId, jobDAGInfo.getJobId());
+
+        jobInformation.coordinatorServiceTest.shutdown();
+    }
+
     private void setDefaultConfigFile() {
         setConfigFile("seatunnel.yaml");
     }
@@ -748,6 +770,14 @@ public class CoordinatorServiceTest {
                 .submitJob(jobId, data, jobImmutableInformation.isStartWithSavePoint())
                 .join();
         return new JobInformation(coordinatorServiceTest, coordinatorService, jobId);
+    }
+
+    @SuppressWarnings("unchecked")
+    private Map<Long, JobMaster> getRunningJobMasterMap(CoordinatorService coordinatorService)
+            throws Exception {
+        Field field = CoordinatorService.class.getDeclaredField("runningJobMasterMap");
+        field.setAccessible(true);
+        return (Map<Long, JobMaster>) field.get(coordinatorService);
     }
 
     @Test
