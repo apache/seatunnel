@@ -32,9 +32,9 @@ import org.slf4j.LoggerFactory;
 import javax.annotation.Nullable;
 
 import java.io.IOException;
+import java.util.HashSet;
 import java.util.List;
 import java.util.Set;
-import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.stream.Collectors;
 
 /**
@@ -58,10 +58,9 @@ public class FlinkSourceEnumerator<SplitT extends SourceSplit, EnumStateT>
     private final Set<Integer> noMoreSplitsSignaledReaders;
 
     private final Object lock = new Object();
+    private final Set<Integer> registeredReaderIds = new HashSet<>();
 
-    private AtomicBoolean isRun = new AtomicBoolean(false);
-
-    private volatile int currentRegisterReaders = 0;
+    private volatile boolean isRun = false;
 
     public FlinkSourceEnumerator(
             SourceSplitEnumerator<SplitT, EnumStateT> enumerator,
@@ -96,22 +95,25 @@ public class FlinkSourceEnumerator<SplitT extends SourceSplit, EnumStateT>
 
     @Override
     public void addReader(int subtaskId) {
+        boolean needResignalNoMoreSplits;
         synchronized (lock) {
             sourceSplitEnumerator.registerReader(subtaskId);
-            currentRegisterReaders++;
-            if (noMoreSplitsSignaledReaders.contains(subtaskId)) {
-                LOGGER.info(
-                        "Reader [{}] re-registered after failover. Re-signaling NoMoreSplitsEvent.",
-                        subtaskId);
-                enumeratorContext.signalNoMoreSplits(subtaskId);
+            registeredReaderIds.add(subtaskId);
+            needResignalNoMoreSplits = noMoreSplitsSignaledReaders.contains(subtaskId);
+            if (!isRun && registeredReaderIds.size() == parallelism) {
+                try {
+                    sourceSplitEnumerator.run();
+                } catch (Exception e) {
+                    throw new RuntimeException(e);
+                }
+                isRun = true;
             }
         }
-        if (currentRegisterReaders == parallelism && !isRun.getAndSet(true)) {
-            try {
-                sourceSplitEnumerator.run();
-            } catch (Exception e) {
-                throw new RuntimeException(e);
-            }
+        if (needResignalNoMoreSplits) {
+            LOGGER.info(
+                    "Reader [{}] re-registered after failover. Re-signaling NoMoreSplitsEvent.",
+                    subtaskId);
+            enumeratorContext.signalNoMoreSplits(subtaskId);
         }
     }
 

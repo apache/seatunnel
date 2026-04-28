@@ -59,4 +59,26 @@ class FlinkSourceEnumeratorTest {
 
         Mockito.verify(enumeratorContext).signalNoMoreSplits(0);
     }
+
+    @Test
+    void testDuplicateReaderRegistrationDoesNotStartEnumeratorEarly() throws Exception {
+        SourceSplitEnumerator<DummySplit, Serializable> sourceSplitEnumerator =
+                Mockito.mock(SourceSplitEnumerator.class);
+        SplitEnumeratorContext<SplitWrapper<DummySplit>> enumeratorContext =
+                Mockito.mock(SplitEnumeratorContext.class);
+        Mockito.when(enumeratorContext.currentParallelism()).thenReturn(2);
+
+        FlinkSourceEnumerator<DummySplit, Serializable> enumerator =
+                new FlinkSourceEnumerator<>(
+                        sourceSplitEnumerator, enumeratorContext, ConcurrentHashMap.newKeySet());
+
+        enumerator.addReader(0);
+        enumerator.addReader(0);
+
+        Mockito.verify(sourceSplitEnumerator, Mockito.never()).run();
+
+        enumerator.addReader(1);
+
+        Mockito.verify(sourceSplitEnumerator).run();
+    }
 }
