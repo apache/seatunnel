@@ -29,7 +29,8 @@ public enum PulsarConnectorErrorCode implements SeaTunnelErrorCode {
     ACK_CUMULATE_FAILED("PULSAR-07", "Pulsar consumer acknowledgeCumulative failed"),
     CREATE_PRODUCER_FAILED("PULSAR-08", "create producer failed"),
     CREATE_TRANSACTION_FAILED("PULSAR-09", "create transaction failed"),
-    SEND_MESSAGE_FAILED("PULSAR-10", "send message failed");
+    SEND_MESSAGE_FAILED("PULSAR-10", "send message failed"),
+    DESERIALIZATION_SCHEMA_NOT_FOUND("PULSAR-11", "Deserialization schema not found for table");
 
     private final String code;
     private final String description;

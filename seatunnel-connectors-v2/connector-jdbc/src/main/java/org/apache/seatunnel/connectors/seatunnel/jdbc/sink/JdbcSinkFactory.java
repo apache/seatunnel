@@ -133,7 +133,7 @@ public class JdbcSinkFactory implements TableSinkFactory {
         }
         map.put(JdbcSinkOptions.DATABASE.key(), catalogTable.getTableId().getDatabaseName());
         PrimaryKey primaryKey = catalogTable.getTableSchema().getPrimaryKey();
-        if (!config.getOptional(JdbcSinkOptions.PRIMARY_KEYS).isPresent()) {
+        if (CollectionUtils.isEmpty(config.get(JdbcSinkOptions.PRIMARY_KEYS))) {
             if (primaryKey != null && !CollectionUtils.isEmpty(primaryKey.getColumnNames())) {
                 map.put(
                         JdbcSinkOptions.PRIMARY_KEYS.key(),

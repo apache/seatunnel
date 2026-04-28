@@ -32,15 +32,21 @@ schema = {
 
 The table full name of the table identifier which the schema belongs to, it contains database, schema, table name. e.g. `database.schema.table`, `database.table`, `table`.
 
-### schema_url
+### metadata_table_id
 
-Get the http url of metadata information through restApi, such as: `http://localhost:8090/api/metalakes/laowang_test/catalogs/221-pgsql/schemas/ykw/tables/all_type`
+The Metadata SPI (Service Provider Interface) is an extension mechanism introduced in SeaTunnel for centralized management of data source connection configurations and table schema metadata. It allows external metadata systems to manage data source metadata, while SeaTunnel jobs reference these configurations via a simple `metadata_table_id`.
+
+When specified, the connector will fetch table schema from the external metadata service instead of using manual `columns` definition.
+
+For Gravitino, the `metadata_table_id` should be formatted as `{catalog}.{database}.{table}`. For example, `mysql-catalog.test_db.users`.
 
 > When using Gravitino as the metadata source, the column types from Gravitino will be automatically converted to SeaTunnel data types. For detailed type mapping information, please refer to [Gravitino Type Mapping](./gravitino-type-mapping.md).
 
-#### schema_url Examples
+See [Metadata SPI](./metadata-spi.md) for more information.
 
-**1. Single table with table and schema_url:**
+#### metadata_table_id Examples
+
+**1. Single table with metadata_table_id:**
 
 ```hocon
 source {
@@ -49,27 +55,13 @@ source {
     file_format_type = "json"
     schema {
       table = "db.table2"
-      schema_url = "http://gravitino:8090/api/metalakes/test_metalake/catalogs/test_catalog/schemas/test_schema/tables/table2"
+      metadata_table_id = "mysql-catalog.test_db.table2"
     }
   }
 }
 ```
 
-**2. Single table with schema_url only (without table attribute):**
-
-```hocon
-source {
-  LocalFile {
-    path = "/tmp/data"
-    file_format_type = "json"
-    schema {
-      schema_url = "http://gravitino:8090/api/metalakes/test_metalake/catalogs/test_catalog/schemas/test_schema/tables/table2"
-    }
-  }
-}
-```
-
-**3. Multi-table with columns and schema_url:**
+**2. Multi-table with metadata_table_id:**
 
 ```hocon
 source {
@@ -92,7 +84,7 @@ source {
         file_format_type = "json"
         schema {
           table = "db.table2"
-          schema_url = "http://gravitino:8090/api/metalakes/test_metalake/catalogs/test_catalog/schemas/test_schema/tables/table2"
+          metadata_table_id = "mysql-catalog.test_db.table2"
         }
       }
     ]

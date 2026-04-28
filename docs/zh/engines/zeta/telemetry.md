@@ -1,8 +1,9 @@
 ---
 sidebar_position: 14
+title: 监控与指标
 ---
 
-# Telemetry
+# 监控与指标
 
 通过 `Prometheus-exports` 集成 `Metrices` 可以更好地与相关的监控平台（如 Prometheus 和 Grafana）无缝衔接，提高对 SeaTunnel
 集群的监控和告警能力。

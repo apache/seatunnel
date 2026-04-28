@@ -217,7 +217,6 @@ If you assign file type to `parquet` `orc`, schema option not required, connecto
 | file_filter_modified_end   | string  | no       | -                   | File modification time filter. The connector will filter some files base on the last modification end time (not include end time). The default data format is `yyyy-MM-dd HH:mm:ss`.                                                                                                                                                |
 | quote_char                 | string  | no       | "                   | A single character that encloses CSV fields, allowing fields with commas, line breaks, or quotes to be read correctly.                                                                                                                                                                                                              |
 | escape_char                | string  | no       | -                   | A single character that allows the quote or other special characters to appear inside a CSV field without ending the field.                                                                                                                                                                                                         |
-| metalake_type              | string  | no       | gravitino          | The type of metalake service, currently supports `gravitino`.                                                                                                                                                                                                                                                              |
 
 ### file_format_type [string]
 
@@ -335,17 +334,15 @@ Only need to be configured when the file_format_type are text, json, excel, xml 
 
 The schema of upstream data. For more details, please refer to [Schema Feature](../../introduction/concepts/schema-feature.md).
 
-#### schema_url [string]
+#### metadata_table_id [string]
 
-Get the http url of metadata information through restApi, such as: `http://localhost:8090/api/metalakes/laowang_test/catalogs/221-pgsql/schemas/ykw/tables/all_type`
+The table identifier in the metadata service to fetch table schema. For Gravitino, the format should be `{catalog}.{database}.{table}`, such as `mysql-catalog.test_db.users`.
+
+When specified, the connector will fetch table schema from the external metadata service instead of using manual `columns` definition.
 
 > When using Gravitino as the metadata source, the column types from Gravitino will be automatically converted to SeaTunnel data types. For detailed type mapping information, please refer to [Gravitino Type Mapping](../../introduction/concepts/gravitino-type-mapping.md).
 
-### metalake_type [string]
-
-The type of metalake service, currently only supports `gravitino`. When using `schema_url` to obtain metadata from Gravitino, you can specify this parameter (default is `gravitino`).
-
-For more information about Metalake, please refer to [Metalake](../../introduction/configuration/metalake.md).
+For more information, please refer to [Metadata SPI](../../introduction/concepts/metadata-spi.md).
 
 ## How to Create a Oss Data Synchronization Jobs
 

@@ -22,10 +22,10 @@ import org.apache.seatunnel.api.configuration.ReadonlyConfig;
 import org.apache.seatunnel.common.config.CheckConfigUtil;
 import org.apache.seatunnel.common.config.CheckResult;
 import org.apache.seatunnel.common.constants.PluginType;
+import org.apache.seatunnel.connectors.seatunnel.file.config.FileBaseSourceOptions;
 import org.apache.seatunnel.connectors.seatunnel.file.config.FileSystemType;
 import org.apache.seatunnel.connectors.seatunnel.file.config.HadoopConf;
 import org.apache.seatunnel.connectors.seatunnel.file.exception.FileConnectorException;
-import org.apache.seatunnel.connectors.seatunnel.file.hdfs.source.config.HdfsSourceConfigOptions;
 
 public class HdfsFileHadoopConfig extends HadoopConf {
     public HdfsFileHadoopConfig(String hdfsNameKey) {
@@ -36,9 +36,9 @@ public class HdfsFileHadoopConfig extends HadoopConf {
         CheckResult result =
                 CheckConfigUtil.checkAllExists(
                         readonlyConfig.toConfig(),
-                        HdfsSourceConfigOptions.FILE_PATH.key(),
-                        HdfsSourceConfigOptions.FILE_FORMAT_TYPE.key(),
-                        HdfsSourceConfigOptions.DEFAULT_FS.key());
+                        FileBaseSourceOptions.FILE_PATH.key(),
+                        FileBaseSourceOptions.FILE_FORMAT_TYPE.key(),
+                        FileBaseSourceOptions.DEFAULT_FS.key());
         if (!result.isSuccess()) {
             throw new FileConnectorException(
                     SeaTunnelAPIErrorCode.CONFIG_VALIDATION_FAILED,
@@ -49,28 +49,28 @@ public class HdfsFileHadoopConfig extends HadoopConf {
                             result.getMsg()));
         }
         HadoopConf hadoopConf =
-                new HdfsFileHadoopConfig(readonlyConfig.get(HdfsSourceConfigOptions.DEFAULT_FS));
+                new HdfsFileHadoopConfig(readonlyConfig.get(FileBaseSourceOptions.DEFAULT_FS));
 
-        if (readonlyConfig.getOptional(HdfsSourceConfigOptions.HDFS_SITE_PATH).isPresent()) {
-            hadoopConf.setHdfsSitePath(readonlyConfig.get(HdfsSourceConfigOptions.HDFS_SITE_PATH));
+        if (readonlyConfig.getOptional(FileBaseSourceOptions.HDFS_SITE_PATH).isPresent()) {
+            hadoopConf.setHdfsSitePath(readonlyConfig.get(FileBaseSourceOptions.HDFS_SITE_PATH));
         }
 
-        if (readonlyConfig.getOptional(HdfsSourceConfigOptions.REMOTE_USER).isPresent()) {
-            hadoopConf.setRemoteUser(readonlyConfig.get(HdfsSourceConfigOptions.REMOTE_USER));
+        if (readonlyConfig.getOptional(FileBaseSourceOptions.REMOTE_USER).isPresent()) {
+            hadoopConf.setRemoteUser(readonlyConfig.get(FileBaseSourceOptions.REMOTE_USER));
         }
 
-        if (readonlyConfig.getOptional(HdfsSourceConfigOptions.KRB5_PATH).isPresent()) {
-            hadoopConf.setKrb5Path(readonlyConfig.get(HdfsSourceConfigOptions.KRB5_PATH));
+        if (readonlyConfig.getOptional(FileBaseSourceOptions.KRB5_PATH).isPresent()) {
+            hadoopConf.setKrb5Path(readonlyConfig.get(FileBaseSourceOptions.KRB5_PATH));
         }
 
-        if (readonlyConfig.getOptional(HdfsSourceConfigOptions.KERBEROS_PRINCIPAL).isPresent()) {
+        if (readonlyConfig.getOptional(FileBaseSourceOptions.KERBEROS_PRINCIPAL).isPresent()) {
             hadoopConf.setKerberosPrincipal(
-                    readonlyConfig.get(HdfsSourceConfigOptions.KERBEROS_PRINCIPAL));
+                    readonlyConfig.get(FileBaseSourceOptions.KERBEROS_PRINCIPAL));
         }
 
-        if (readonlyConfig.getOptional(HdfsSourceConfigOptions.KERBEROS_KEYTAB_PATH).isPresent()) {
+        if (readonlyConfig.getOptional(FileBaseSourceOptions.KERBEROS_KEYTAB_PATH).isPresent()) {
             hadoopConf.setKerberosKeytabPath(
-                    readonlyConfig.get(HdfsSourceConfigOptions.KERBEROS_KEYTAB_PATH));
+                    readonlyConfig.get(FileBaseSourceOptions.KERBEROS_KEYTAB_PATH));
         }
 
         return hadoopConf;
