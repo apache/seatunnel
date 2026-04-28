@@ -44,14 +44,16 @@ public class MaxComputeCatalogFactory implements CatalogFactory {
     public OptionRule optionRule() {
         return OptionRule.builder()
                 .required(
-                        MaxcomputeBaseOptions.ACCESS_ID,
-                        MaxcomputeBaseOptions.ACCESS_KEY,
                         MaxcomputeBaseOptions.ENDPOINT,
                         MaxcomputeBaseOptions.PROJECT,
                         MaxcomputeBaseOptions.TABLE_NAME)
                 .optional(
+                        MaxcomputeBaseOptions.ACCESS_ID,
+                        MaxcomputeBaseOptions.ACCESS_KEY,
+                        MaxcomputeBaseOptions.STS_TOKEN,
                         MaxcomputeBaseOptions.PARTITION_SPEC,
                         MaxcomputeBaseOptions.SPLIT_ROW,
+                        MaxcomputeBaseOptions.SCHEMA_NAME,
                         ConnectorCommonOptions.SCHEMA)
                 .build();
     }
