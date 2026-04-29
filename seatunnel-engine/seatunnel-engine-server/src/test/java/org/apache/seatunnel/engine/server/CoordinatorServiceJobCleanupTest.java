@@ -18,6 +18,7 @@
 package org.apache.seatunnel.engine.server;
 
 import org.apache.seatunnel.engine.checkpoint.storage.PipelineState;
+import org.apache.seatunnel.engine.checkpoint.storage.exception.CheckpointStorageException;
 import org.apache.seatunnel.engine.common.Constant;
 import org.apache.seatunnel.engine.common.exception.JobException;
 import org.apache.seatunnel.engine.common.job.JobStatus;
@@ -438,7 +439,7 @@ class CoordinatorServiceJobCleanupTest extends AbstractSeaTunnelServerTest {
         return nodeEngine.getSerializationService().toData(jobImmutableInformation);
     }
 
-    private void storeCheckpoint(long jobId) {
+    private void storeCheckpoint(long jobId) throws CheckpointStorageException {
         long now = System.currentTimeMillis();
         CompletedCheckpoint completedCheckpoint =
                 new CompletedCheckpoint(
