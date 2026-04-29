@@ -19,6 +19,19 @@ import ChangeLog from '../changelog/connector-bigquery.md';
 
 用于 Google Cloud BigQuery 的数据接收器连接器,使用 Storage Write API 实现高性能数据摄取。
 
+## 写入模式语义
+
+### Batch 模式
+
+在 `batch` 模式下，连接器通过 BigQuery Storage Write API 的 pending stream 写入数据。写入 pending stream 的数据在通过 `BatchCommitWriteStreams` 提交之前，对查询不可见。
+
+如果某个 checkpoint 在 pending stream 已 finalize 但尚未 commit 之前失败，连接器在 restore 时不会提交该 stream。这是有意的行为，因为作业可能会从上一个成功的 checkpoint 重新处理相同的数据
+如果在 restore 时提交失败 checkpoint 对应的 stream，可能会导致重复数据。相反，恢复后的 writer 会创建新的 pending stream，并重新写入回放的数据。
+
+### Streaming 模式
+
+在 `streaming` 模式下，连接器直接向 BigQuery 写入记录。当配置 `sequence_number_column` 时，该列的值会作为 `_CHANGE_SEQUENCE_NUMBER` 发送给 BigQuery，用于去重。
+
 ## 支持的数据源信息
 
 | 数据源     | 支持的版本    | Maven                                                                                  |

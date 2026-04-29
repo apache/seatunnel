@@ -19,6 +19,22 @@ import ChangeLog from '../changelog/connector-bigquery.md';
 
 Sink connector for Google Cloud BigQuery using the Storage Write API for high-performance data ingestion.
 
+## Write Mode Semantics
+
+### Batch Mode
+
+In `batch` mode, the connector writes data through BigQuery Storage Write API pending streams.
+Data written to a pending stream is not visible to readers until the stream is committed by `BatchCommitWriteStreams`.
+
+If a checkpoint fails after a pending stream has been finalized but before it is committed, the connector intentionally does not commit that stream during restore.
+The job may replay the same records from the previous successful checkpoint, so committing the failed-checkpoint stream during restore could produce duplicate rows.
+Instead, the restored writer creates a new pending stream and writes the replayed records again.
+
+### Streaming Mode
+
+In `streaming` mode, the connector writes records directly to BigQuery.
+When `sequence_number_column` is configured, the value from that column is sent as `_CHANGE_SEQUENCE_NUMBER` to BigQuery for deduplication.
+
 ## Supported DataSource Info
 
 | Datasource | Supported Versions | Maven                                                                                  |
