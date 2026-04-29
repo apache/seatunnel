@@ -158,6 +158,8 @@ public class CheckpointCoordinator {
 
     private final String checkpointStateImapKey;
 
+    private final String readyToCloseImapKey;
+
     @SneakyThrows
     public CheckpointCoordinator(
             CheckpointManager manager,
@@ -178,6 +180,7 @@ public class CheckpointCoordinator {
         this.jobId = jobId;
         this.pipelineId = plan.getPipelineId();
         this.checkpointStateImapKey = "checkpoint_state_" + jobId + "_" + pipelineId;
+        this.readyToCloseImapKey = checkpointStateImapKey + "_ready_to_close";
         this.runningJobStateIMap = runningJobStateIMap;
         this.plan = plan;
         this.coordinatorConfig = checkpointConfig;
@@ -428,7 +431,36 @@ public class CheckpointCoordinator {
     protected void readyToClose(TaskLocation taskLocation) {
         readyToCloseStartingTask.add(taskLocation);
         if (readyToCloseStartingTask.size() == plan.getStartingSubtasks().size()) {
+            // Write the complete set to IMap only once, avoiding stale overwrites from
+            // concurrent readyToClose calls that could leave an incomplete set in IMap.
+            updateReadyToCloseStartingTaskState();
             tryTriggerPendingCheckpoint(CheckpointType.COMPLETED_POINT_TYPE);
+        }
+    }
+
+    private void updateReadyToCloseStartingTaskState() {
+        try {
+            RetryUtils.retryWithException(
+                    () -> {
+                        runningJobStateIMap.set(
+                                readyToCloseImapKey, new HashSet<>(readyToCloseStartingTask));
+                        return null;
+                    },
+                    new RetryUtils.RetryMaterial(
+                            Constant.OPERATION_RETRY_TIME,
+                            true,
+                            ExceptionUtil::isOperationNeedRetryException,
+                            Constant.OPERATION_RETRY_SLEEP));
+        } catch (Exception e) {
+            LOG.error(
+                    "Failed to persist readyToCloseStartingTask to IMap after retries, key={}."
+                            + " Failing the job to avoid an unrecoverable stuck state on master failover.",
+                    readyToCloseImapKey,
+                    e);
+            throw new RuntimeException(
+                    "Failed to persist readyToCloseStartingTask to IMap, key="
+                            + readyToCloseImapKey,
+                    e);
         }
     }
 
@@ -490,14 +522,63 @@ public class CheckpointCoordinator {
         errorByPhysicalVertex = new AtomicReference<>();
         checkpointCoordinatorFuture = new CompletableFuture<>();
         updateStatus(CheckpointCoordinatorStatus.RUNNING);
+
+        // Recover readyToCloseStartingTask from IMap before cleanPendingCheckpoint wipes it.
+        // This handles the case where source tasks already sent LastCheckpointNotifyOperation
+        // before master failover, so the new coordinator can resume from the persisted state.
+        Set<TaskLocation> restoredReadyToClose = null;
+        try {
+            Object stored = runningJobStateIMap.get(readyToCloseImapKey);
+            if (stored instanceof Set) {
+                restoredReadyToClose = (Set<TaskLocation>) stored;
+                LOG.info(
+                        "Restored readyToCloseStartingTask from IMap for job({}@{}): {}",
+                        pipelineId,
+                        jobId,
+                        restoredReadyToClose);
+            }
+        } catch (Exception e) {
+            LOG.error(
+                    "Failed to restore readyToCloseStartingTask from IMap for job({}@{})."
+                            + " Failing the job to avoid an unrecoverable stuck state.",
+                    pipelineId,
+                    jobId,
+                    e);
+            throw new RuntimeException(
+                    "Failed to restore readyToCloseStartingTask from IMap, key="
+                            + readyToCloseImapKey,
+                    e);
+        }
+
         cleanPendingCheckpoint(CheckpointCloseReason.CHECKPOINT_COORDINATOR_RESET);
         shutdown = false;
+
+        if (restoredReadyToClose != null && !restoredReadyToClose.isEmpty()) {
+            readyToCloseStartingTask.addAll(restoredReadyToClose);
+            LOG.info(
+                    "Refilled readyToCloseStartingTask({}/{}) after coordinator reset for job({}@{})",
+                    readyToCloseStartingTask.size(),
+                    plan.getStartingSubtasks().size(),
+                    pipelineId,
+                    jobId);
+        }
+
         if (alreadyStarted) {
             isAllTaskReady.set(true);
             if (!notifyCompleted(latestCompletedCheckpoint)) {
                 return;
             }
-            tryTriggerPendingCheckpoint(CHECKPOINT_TYPE);
+            // If all source tasks had already reported ready-to-close before failover,
+            // trigger COMPLETED_POINT_TYPE directly instead of waiting again.
+            if (readyToCloseStartingTask.size() == plan.getStartingSubtasks().size()) {
+                LOG.info(
+                        "All starting tasks already ready to close after restore for job({}@{}), triggering COMPLETED_POINT_TYPE",
+                        pipelineId,
+                        jobId);
+                tryTriggerPendingCheckpoint(CheckpointType.COMPLETED_POINT_TYPE);
+            } else {
+                tryTriggerPendingCheckpoint(CHECKPOINT_TYPE);
+            }
         } else {
             isAllTaskReady.set(false);
         }
@@ -897,6 +978,12 @@ public class CheckpointCoordinator {
             closedIdleTask.clear();
             pendingCounter.set(0);
             schemaChanging.set(false);
+            // Only remove the persisted ready-to-close state when the coordinator truly ends
+            // (completed/failed/cancelled). During a reset (master failover), the IMap entry
+            // must be preserved so restoreCoordinator() can recover from it.
+            if (closedReason != CheckpointCloseReason.CHECKPOINT_COORDINATOR_RESET) {
+                runningJobStateIMap.remove(readyToCloseImapKey);
+            }
             scheduler.shutdownNow();
             scheduler =
                     Executors.newScheduledThreadPool(
