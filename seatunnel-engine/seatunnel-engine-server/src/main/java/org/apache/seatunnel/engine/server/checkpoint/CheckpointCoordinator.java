@@ -218,7 +218,7 @@ public class CheckpointCoordinator {
                     serializer.deserialize(pipelineState.getStates(), CompletedCheckpoint.class);
             this.latestCompletedCheckpoint.setRestored(true);
             LOG.info(
-                    "restore checkpoint, checkpointId={}, pipelineId={}, jobId={}, data={}",
+                    "Restore checkpoint({}) for job({}@{}), data: {}",
                     latestCompletedCheckpoint.getCheckpointId(),
                     pipelineId,
                     jobId,
@@ -378,7 +378,7 @@ public class CheckpointCoordinator {
         if (completedCheckpoint != null) {
             try {
                 LOG.info(
-                        "start notify checkpoint completed, checkpointId={}, pipelineId={}, jobId={}",
+                        "start notify checkpoint completed({}/{}@{}).",
                         completedCheckpoint.getCheckpointId(),
                         completedCheckpoint.getPipelineId(),
                         completedCheckpoint.getJobId());
@@ -626,13 +626,13 @@ public class CheckpointCoordinator {
         synchronized (lock) {
             if (isCompleted() || isShutdown()) {
                 LOG.warn(
-                        String.format(
-                                "can't trigger checkpoint with type: %s, because checkpoint coordinator already have last completed checkpoint: (%s) or shutdown (%b).",
-                                checkpointType,
-                                latestCompletedCheckpoint != null
-                                        ? latestCompletedCheckpoint.getCheckpointType()
-                                        : "null",
-                                shutdown));
+                        "can't trigger checkpoint with type: {}, because checkpoint coordinator"
+                                + " already have last completed checkpoint: ({}) or shutdown ({}).",
+                        checkpointType,
+                        latestCompletedCheckpoint != null
+                                ? latestCompletedCheckpoint.getCheckpointType()
+                                : "null",
+                        shutdown);
                 return;
             }
 
@@ -675,7 +675,7 @@ public class CheckpointCoordinator {
 
     @SneakyThrows
     public PassiveCompletableFuture<CompletedCheckpoint> startSavepoint() {
-        LOG.info("start save point, jobId={}", jobId);
+        LOG.info("start save point for job({}).", jobId);
         if (shutdown || isCompleted()) {
             return completableFutureWithError(
                     CheckpointCloseReason.CHECKPOINT_COORDINATOR_SHUTDOWN);
@@ -702,8 +702,9 @@ public class CheckpointCoordinator {
         }
         savepointPendingCheckpoint = savepoint.join();
         LOG.info(
-                "save point created, checkpointId={}, jobId={}",
+                "save point checkpoint({}/{}@{}) is created.",
                 savepointPendingCheckpoint.getCheckpointId(),
+                pipelineId,
                 jobId);
         return savepointPendingCheckpoint.getCompletableFuture();
     }
@@ -719,9 +720,7 @@ public class CheckpointCoordinator {
             CompletableFuture<PendingCheckpoint> pendingCompletableFuture) {
         pendingCompletableFuture.thenAccept(
                 pendingCheckpoint -> {
-                    LOG.info(
-                            "wait checkpoint completed, checkpointId={}",
-                            pendingCheckpoint.getCheckpointId());
+                    LOG.info("wait checkpoint({}) completed.", pendingCheckpoint.getCheckpointId());
                     PassiveCompletableFuture<CompletedCheckpoint> completableFuture =
                             pendingCheckpoint.getCompletableFuture();
                     completableFuture.whenCompleteAsync(
@@ -1187,11 +1186,10 @@ public class CheckpointCoordinator {
             RetryUtils.retryWithException(
                     () -> {
                         LOG.info(
-                                String.format(
-                                        "Turn %s state from %s to %s",
-                                        checkpointStateImapKey,
-                                        runningJobStateIMap.get(checkpointStateImapKey),
-                                        targetStatus));
+                                "Turn {} state from {} to {}",
+                                checkpointStateImapKey,
+                                runningJobStateIMap.get(checkpointStateImapKey),
+                                targetStatus);
                         runningJobStateIMap.set(checkpointStateImapKey, targetStatus);
                         return null;
                     },
@@ -1202,9 +1200,9 @@ public class CheckpointCoordinator {
                             Constant.OPERATION_RETRY_SLEEP));
         } catch (Exception e) {
             LOG.warn(
-                    String.format(
-                            "Set %s state %s to IMap failed, skip do it",
-                            checkpointStateImapKey, targetStatus));
+                    "Set {} state {} to IMap failed, skip do it",
+                    checkpointStateImapKey,
+                    targetStatus);
         }
     }
 
@@ -1239,7 +1237,7 @@ public class CheckpointCoordinator {
     protected void completeSchemaChangeAfterCheckpoint(CompletedCheckpoint checkpoint) {
         if (schemaChanging.compareAndSet(true, false)) {
             LOG.info(
-                    "completed schema-change-after checkpoint, checkpointId={}, pipelineId={}, jobId={}",
+                    "completed schema-change-after checkpoint({}/{}@{}).",
                     checkpoint.getCheckpointId(),
                     pipelineId,
                     jobId);
