@@ -1001,7 +1001,7 @@ public class CheckpointCoordinator {
         final long checkpointId = ackOperation.getBarrier().getId();
         final PendingCheckpoint pendingCheckpoint = pendingCheckpoints.get(checkpointId);
         if (pendingCheckpoint == null) {
-            LOG.info("skip already ack checkpoint, checkpointId={}", checkpointId);
+            LOG.info("skip already ack checkpoint {}", checkpointId);
             return;
         }
         TaskLocation location = ackOperation.getTaskLocation();
@@ -1036,8 +1036,7 @@ public class CheckpointCoordinator {
 
     public synchronized void completePendingCheckpoint(CompletedCheckpoint completedCheckpoint) {
         LOG.debug(
-                "pending checkpoint completed, checkpointId={}, pipelineId={}, jobId={}, cost={},"
-                        + " trigger={}, completed={}",
+                "pending checkpoint({}/{}@{}) completed! cost: {}, trigger: {}, completed: {}",
                 completedCheckpoint.getCheckpointId(),
                 completedCheckpoint.getPipelineId(),
                 completedCheckpoint.getJobId(),
@@ -1080,7 +1079,7 @@ public class CheckpointCoordinator {
             sneakyThrow(e);
         }
         LOG.info(
-                "pending checkpoint notify finished, checkpointId={}, pipelineId={}, jobId={}",
+                "pending checkpoint({}/{}@{}) notify finished!",
                 completedCheckpoint.getCheckpointId(),
                 completedCheckpoint.getPipelineId(),
                 completedCheckpoint.getJobId());
@@ -1245,7 +1244,7 @@ public class CheckpointCoordinator {
                     pipelineId,
                     jobId);
             LOG.info(
-                    "recover trigger general-checkpoint, checkpointId={}, pipelineId={}, jobId={}",
+                    "recover trigger general-checkpoint({}/{}@{}).",
                     checkpoint.getCheckpointId(),
                     pipelineId,
                     jobId);
