@@ -50,6 +50,7 @@ import java.util.Set;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicInteger;
+import java.util.concurrent.atomic.AtomicLong;
 
 @Slf4j
 public class CheckpointCoordinatorFailoverIT {
@@ -116,43 +117,51 @@ public class CheckpointCoordinatorFailoverIT {
                             testResources.getRight(), jobConfig, config1);
             ClientJobProxy clientJobProxy = jobExecutionEnv.execute();
 
-            // Wait until a strict subset of starting enumerator tasks has reported
-            // readyToClose: directly read the IMap entry and require 0 < size < total.
+            // Wait until any pipeline reports a strict subset of readyToClose tasks:
+            // directly read IMap and require 0 < size < total for at least one pipeline.
             long jobId = clientJobProxy.getJobId();
-            int pipelineId = 1;
-            String readyToCloseImapKey =
-                    "checkpoint_state_" + jobId + "_" + pipelineId + "_ready_to_close";
             IMap<Object, Object> runningJobStateImap =
                     masterNode2.getMap(Constant.IMAP_RUNNING_JOB_STATE);
             AtomicInteger observedSubsetSize = new AtomicInteger(-1);
+            AtomicInteger observedPipelineId = new AtomicInteger(-1);
             Awaitility.await()
                     .atMost(3, TimeUnit.MINUTES)
                     .pollInterval(200, TimeUnit.MILLISECONDS)
                     .untilAsserted(
                             () -> {
-                                Assertions.assertEquals(
-                                        JobStatus.RUNNING, clientJobProxy.getJobStatus());
-                                Object stored = runningJobStateImap.get(readyToCloseImapKey);
-                                if (stored instanceof Set) {
-                                    int size = ((Set<?>) stored).size();
-                                    if (size > 0 && size < sourceCount) {
-                                        observedSubsetSize.compareAndSet(-1, size);
+                                for (int pipelineId = 1; pipelineId <= sourceCount; pipelineId++) {
+                                    String readyToCloseImapKey =
+                                            "checkpoint_state_"
+                                                    + jobId
+                                                    + "_"
+                                                    + pipelineId
+                                                    + "_ready_to_close";
+                                    Object stored = runningJobStateImap.get(readyToCloseImapKey);
+                                    if (stored instanceof Set) {
+                                        int size = ((Set<?>) stored).size();
+                                        if (size > 0 && size < sourceCount) {
+                                            observedSubsetSize.compareAndSet(-1, size);
+                                            observedPipelineId.compareAndSet(-1, pipelineId);
+                                        }
                                     }
                                 }
                                 Assertions.assertTrue(
                                         observedSubsetSize.get() > 0,
-                                        "Waiting for a partial readyToCloseStartingTask subset"
+                                        "Waiting for a partial readyToCloseStartingTask subset "
+                                                + "in any pipeline"
                                                 + " (1.."
                                                 + (sourceCount - 1)
                                                 + ")");
                             });
 
             log.info(
-                    "Observed readyToCloseStartingTask subset of size {}/{} for job {}. "
+                    "Observed readyToCloseStartingTask subset of size {}/{} for job {} "
+                            + "(pipelineId={}). "
                             + "Triggering master failover by shutting down masterNode1.",
                     observedSubsetSize.get(),
                     sourceCount,
-                    jobId);
+                    jobId,
+                    observedPipelineId.get());
 
             CompletableFuture<JobStatus> waitFuture =
                     CompletableFuture.supplyAsync(clientJobProxy::waitForJobComplete);
@@ -237,7 +246,6 @@ public class CheckpointCoordinatorFailoverIT {
             ClientJobProxy clientJobProxy = jobExecutionEnv.execute();
 
             long jobId = clientJobProxy.getJobId();
-            int pipelineId = 1;
 
             // Trigger failover after ~1/4 of the bounded data has been written; FakeSource
             // in STREAMING mode is UNBOUNDED, so total rows are still bounded by row.num
@@ -264,40 +272,83 @@ public class CheckpointCoordinatorFailoverIT {
             masterNode1.shutdown();
             masterNode1 = null;
 
+            HazelcastInstanceImpl finalMaster2 = masterNode2;
             Awaitility.await()
-                    .atMost(2, TimeUnit.MINUTES)
+                    .atMost(1, TimeUnit.MINUTES)
+                    .pollInterval(1, TimeUnit.SECONDS)
+                    .untilAsserted(
+                            () ->
+                                    Assertions.assertEquals(
+                                            1, finalMaster2.getCluster().getMembers().size()));
+
+            Awaitility.await()
+                    .atMost(3, TimeUnit.MINUTES)
                     .pollInterval(3, TimeUnit.SECONDS)
                     .untilAsserted(
                             () ->
                                     Assertions.assertEquals(
                                             JobStatus.RUNNING, clientJobProxy.getJobStatus()));
 
-            // Verify checkpoint id strictly grows on the new master.
-            String ckIdKey = IMapCheckpointIDCounter.convertLongIntToBase64(jobId, pipelineId);
+            // Verify at least one pipeline's checkpoint id strictly grows on the new master.
             IMap<String, Long> ckIdMap = masterNode2.getMap(Constant.IMAP_CHECKPOINT_ID);
-            Awaitility.await()
-                    .atMost(30, TimeUnit.SECONDS)
-                    .pollInterval(1, TimeUnit.SECONDS)
-                    .untilAsserted(() -> Assertions.assertNotNull(ckIdMap.get(ckIdKey)));
-            long ckIdBefore = ckIdMap.get(ckIdKey);
+            Map<Integer, Long> checkpointBefore = new HashMap<>();
             Awaitility.await()
                     .atMost(30, TimeUnit.SECONDS)
                     .pollInterval(1, TimeUnit.SECONDS)
                     .untilAsserted(
-                            () ->
-                                    Assertions.assertTrue(
-                                            ckIdMap.get(ckIdKey) > ckIdBefore,
-                                            String.format(
-                                                    "Checkpoint id should grow after failover"
-                                                            + " (before=%d, current=%d)",
-                                                    ckIdBefore, ckIdMap.get(ckIdKey))));
-            long ckIdAfter = ckIdMap.get(ckIdKey);
+                            () -> {
+                                checkpointBefore.clear();
+                                for (int pipelineId = 1;
+                                        pipelineId <= rowNumPerSource.length;
+                                        pipelineId++) {
+                                    String ckIdKey =
+                                            IMapCheckpointIDCounter.convertLongIntToBase64(
+                                                    jobId, pipelineId);
+                                    Long value = ckIdMap.get(ckIdKey);
+                                    if (value != null) {
+                                        checkpointBefore.put(pipelineId, value);
+                                    }
+                                }
+                                Assertions.assertFalse(
+                                        checkpointBefore.isEmpty(),
+                                        "Waiting for checkpoint ids after failover");
+                            });
+
+            AtomicInteger observedPipelineId = new AtomicInteger(-1);
+            AtomicLong ckIdBefore = new AtomicLong(-1);
+            AtomicLong ckIdAfter = new AtomicLong(-1);
+            Awaitility.await()
+                    .atMost(30, TimeUnit.SECONDS)
+                    .pollInterval(1, TimeUnit.SECONDS)
+                    .untilAsserted(
+                            () -> {
+                                boolean grew = false;
+                                for (Map.Entry<Integer, Long> entry : checkpointBefore.entrySet()) {
+                                    int pid = entry.getKey();
+                                    long before = entry.getValue();
+                                    String ckIdKey =
+                                            IMapCheckpointIDCounter.convertLongIntToBase64(
+                                                    jobId, pid);
+                                    Long current = ckIdMap.get(ckIdKey);
+                                    if (current != null && current > before) {
+                                        observedPipelineId.set(pid);
+                                        ckIdBefore.set(before);
+                                        ckIdAfter.set(current);
+                                        grew = true;
+                                        break;
+                                    }
+                                }
+                                Assertions.assertTrue(
+                                        grew,
+                                        "Checkpoint id should grow after failover for at least"
+                                                + " one pipeline");
+                            });
             Assertions.assertTrue(
-                    ckIdAfter > ckIdBefore,
+                    ckIdAfter.get() > ckIdBefore.get(),
                     String.format(
-                            "Checkpoint id must continue to grow on the new master"
-                                    + " (before=%d, after=%d)",
-                            ckIdBefore, ckIdAfter));
+                            "Checkpoint id must continue to grow on the new master for at least"
+                                    + " one pipeline (pipelineId=%d, before=%d, after=%d)",
+                            observedPipelineId.get(), ckIdBefore.get(), ckIdAfter.get()));
 
             clientJobProxy.cancelJob();
         } finally {

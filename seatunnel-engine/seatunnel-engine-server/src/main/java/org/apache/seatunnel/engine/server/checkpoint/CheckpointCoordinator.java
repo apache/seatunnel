@@ -218,10 +218,10 @@ public class CheckpointCoordinator {
                     serializer.deserialize(pipelineState.getStates(), CompletedCheckpoint.class);
             this.latestCompletedCheckpoint.setRestored(true);
             LOG.info(
-                    "Restore job({}@{}) with checkpoint({}), data: {}",
+                    "restore checkpoint, checkpointId={}, pipelineId={}, jobId={}, data={}",
+                    latestCompletedCheckpoint.getCheckpointId(),
                     pipelineId,
                     jobId,
-                    latestCompletedCheckpoint.getCheckpointId(),
                     latestCompletedCheckpoint);
         }
         this.checkpointCoordinatorFuture = new CompletableFuture();
@@ -378,10 +378,10 @@ public class CheckpointCoordinator {
         if (completedCheckpoint != null) {
             try {
                 LOG.info(
-                        "start notify checkpoint completed, job id: {}, pipeline id: {}, checkpoint id:{}",
-                        completedCheckpoint.getJobId(),
+                        "start notify checkpoint completed, checkpointId={}, pipelineId={}, jobId={}",
+                        completedCheckpoint.getCheckpointId(),
                         completedCheckpoint.getPipelineId(),
-                        completedCheckpoint.getCheckpointId());
+                        completedCheckpoint.getJobId());
                 InvocationFuture<?>[] invocationFutures =
                         notifyCheckpointCompleted(completedCheckpoint);
                 CompletableFuture.allOf(invocationFutures).join();
@@ -675,7 +675,7 @@ public class CheckpointCoordinator {
 
     @SneakyThrows
     public PassiveCompletableFuture<CompletedCheckpoint> startSavepoint() {
-        LOG.info(String.format("Start save point for Job (%s)", jobId));
+        LOG.info("start save point, jobId={}", jobId);
         if (shutdown || isCompleted()) {
             return completableFutureWithError(
                     CheckpointCloseReason.CHECKPOINT_COORDINATOR_SHUTDOWN);
@@ -702,9 +702,9 @@ public class CheckpointCoordinator {
         }
         savepointPendingCheckpoint = savepoint.join();
         LOG.info(
-                String.format(
-                        "The save point checkpointId is %s",
-                        savepointPendingCheckpoint.getCheckpointId()));
+                "save point created, checkpointId={}, jobId={}",
+                savepointPendingCheckpoint.getCheckpointId(),
+                jobId);
         return savepointPendingCheckpoint.getCompletableFuture();
     }
 
@@ -719,7 +719,9 @@ public class CheckpointCoordinator {
             CompletableFuture<PendingCheckpoint> pendingCompletableFuture) {
         pendingCompletableFuture.thenAccept(
                 pendingCheckpoint -> {
-                    LOG.info("wait checkpoint completed: {}", pendingCheckpoint.getCheckpointId());
+                    LOG.info(
+                            "wait checkpoint completed, checkpointId={}",
+                            pendingCheckpoint.getCheckpointId());
                     PassiveCompletableFuture<CompletedCheckpoint> completableFuture =
                             pendingCheckpoint.getCompletableFuture();
                     completableFuture.whenCompleteAsync(
@@ -999,7 +1001,7 @@ public class CheckpointCoordinator {
         final long checkpointId = ackOperation.getBarrier().getId();
         final PendingCheckpoint pendingCheckpoint = pendingCheckpoints.get(checkpointId);
         if (pendingCheckpoint == null) {
-            LOG.info("skip already ack checkpoint {}", checkpointId);
+            LOG.info("skip already ack checkpoint, checkpointId={}", checkpointId);
             return;
         }
         TaskLocation location = ackOperation.getTaskLocation();
@@ -1034,7 +1036,8 @@ public class CheckpointCoordinator {
 
     public synchronized void completePendingCheckpoint(CompletedCheckpoint completedCheckpoint) {
         LOG.debug(
-                "pending checkpoint({}/{}@{}) completed! cost: {}, trigger: {}, completed: {}",
+                "pending checkpoint completed, checkpointId={}, pipelineId={}, jobId={}, cost={},"
+                        + " trigger={}, completed={}",
                 completedCheckpoint.getCheckpointId(),
                 completedCheckpoint.getPipelineId(),
                 completedCheckpoint.getJobId(),
@@ -1077,7 +1080,7 @@ public class CheckpointCoordinator {
             sneakyThrow(e);
         }
         LOG.info(
-                "pending checkpoint({}/{}@{}) notify finished!",
+                "pending checkpoint notify finished, checkpointId={}, pipelineId={}, jobId={}",
                 completedCheckpoint.getCheckpointId(),
                 completedCheckpoint.getPipelineId(),
                 completedCheckpoint.getJobId());
@@ -1237,12 +1240,12 @@ public class CheckpointCoordinator {
     protected void completeSchemaChangeAfterCheckpoint(CompletedCheckpoint checkpoint) {
         if (schemaChanging.compareAndSet(true, false)) {
             LOG.info(
-                    "completed schema-change-after checkpoint({}/{}@{}).",
+                    "completed schema-change-after checkpoint, checkpointId={}, pipelineId={}, jobId={}",
                     checkpoint.getCheckpointId(),
                     pipelineId,
                     jobId);
             LOG.info(
-                    "recover trigger general-checkpoint({}/{}@{}).",
+                    "recover trigger general-checkpoint, checkpointId={}, pipelineId={}, jobId={}",
                     checkpoint.getCheckpointId(),
                     pipelineId,
                     jobId);
