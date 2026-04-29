@@ -70,6 +70,7 @@ import org.apache.seatunnel.engine.core.dag.actions.SourceAction;
 import org.apache.seatunnel.engine.core.dag.actions.TransformAction;
 import org.apache.seatunnel.engine.core.job.ConnectorJarIdentifier;
 import org.apache.seatunnel.engine.core.job.JobPipelineCheckpointData;
+import org.apache.seatunnel.plugin.discovery.AbstractPluginDiscovery;
 import org.apache.seatunnel.plugin.discovery.seatunnel.SeaTunnelSinkPluginDiscovery;
 import org.apache.seatunnel.plugin.discovery.seatunnel.SeaTunnelSourcePluginDiscovery;
 import org.apache.seatunnel.plugin.discovery.seatunnel.SeaTunnelTransformPluginDiscovery;
@@ -318,10 +319,22 @@ public class MultipleTableJobConfigParser {
                                                 factory))
                         .collect(Collectors.toList());
         List<URL> jarPaths = new ArrayList<>();
-        jarPaths.addAll(
-                new SeaTunnelSinkPluginDiscovery().getPluginJarAndDependencyPaths(factoryIds));
+        jarPaths.addAll(createPluginDiscovery(type).getPluginJarAndDependencyPaths(factoryIds));
         jarPaths.addAll(commonPluginJars);
         return jarPaths;
+    }
+
+    private AbstractPluginDiscovery<?> createPluginDiscovery(PluginType type) {
+        switch (type) {
+            case SOURCE:
+                return new SeaTunnelSourcePluginDiscovery();
+            case TRANSFORM:
+                return new SeaTunnelTransformPluginDiscovery();
+            case SINK:
+                return new SeaTunnelSinkPluginDiscovery();
+            default: // would not happen
+                throw new IllegalArgumentException("Unsupported plugin type: " + type);
+        }
     }
 
     private void fillUsedFactoryUrls(List<Action> actions, Set<URL> result) {
