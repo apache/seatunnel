@@ -104,7 +104,8 @@ public class JdbcSourceFactory implements TableSourceFactory {
                         JdbcSourceOptions.SPLIT_ALLOW_SAMPLING,
                         JdbcSourceOptions.DECIMAL_TYPE_NARROWING,
                         JdbcSourceOptions.INT_TYPE_NARROWING,
-                        JdbcSourceOptions.DIALECT)
+                        JdbcSourceOptions.DIALECT,
+                        JdbcSourceOptions.ENABLE_CONCURRENT_READ)
                 .build();
     }
 
