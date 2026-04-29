@@ -62,25 +62,35 @@ public class JobInfoService extends BaseService {
                 nodeEngine.getHazelcastInstance().getMap(Constant.IMAP_RUNNING_JOB_INFO);
         JobInfo jobInfo = (JobInfo) jobInfoMap.get(jobId);
 
-        IMap<Object, Object> finishedJobStateMap =
-                nodeEngine.getHazelcastInstance().getMap(Constant.IMAP_FINISHED_JOB_STATE);
-        JobState finishedJobState = (JobState) finishedJobStateMap.get(jobId);
-
         if (jobInfo != null) {
             return convertToJson(jobInfo, jobId);
-        } else if (finishedJobState != null) {
+        }
+
+        JobState finishedJobState =
+                (JobState)
+                        nodeEngine
+                                .getHazelcastInstance()
+                                .getMap(Constant.IMAP_FINISHED_JOB_STATE)
+                                .get(jobId);
+
+        if (finishedJobState != null) {
             JobMetrics finishedJobMetrics =
                     (JobMetrics)
                             nodeEngine
                                     .getHazelcastInstance()
                                     .getMap(Constant.IMAP_FINISHED_JOB_METRICS)
                                     .get(jobId);
+            if (finishedJobMetrics == null) {
+                finishedJobMetrics = JobMetrics.empty();
+            }
+
             JobDAGInfo finishedJobDAGInfo =
                     (JobDAGInfo)
                             nodeEngine
                                     .getHazelcastInstance()
                                     .getMap(Constant.IMAP_FINISHED_JOB_VERTEX_INFO)
                                     .get(jobId);
+
             return getJobInfoJson(
                     finishedJobState, finishedJobMetrics.toJsonString(), finishedJobDAGInfo);
         } else {
