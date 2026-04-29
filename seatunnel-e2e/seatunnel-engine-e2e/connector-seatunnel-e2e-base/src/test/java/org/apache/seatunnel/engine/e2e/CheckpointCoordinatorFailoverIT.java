@@ -46,8 +46,10 @@ import java.io.File;
 import java.io.IOException;
 import java.util.HashMap;
 import java.util.Map;
+import java.util.Set;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.TimeUnit;
+import java.util.concurrent.atomic.AtomicInteger;
 
 @Slf4j
 public class CheckpointCoordinatorFailoverIT {
@@ -68,9 +70,13 @@ public class CheckpointCoordinatorFailoverIT {
         String testCaseName = "testBatchJobCompletesAfterMasterFailover";
         String testClusterName =
                 "CheckpointCoordinatorFailoverIT_testBatchJobCompletesAfterMasterFailover";
-        long rowNumPerSource = 200;
-        int sourceCount = 5;
-        long expectedTotalRows = rowNumPerSource * SOURCE_PARALLELISM * sourceCount;
+        // Per-source row.num must match batch_fake_to_localfile_master_failover_template.conf.
+        long[] rowNumPerSource = {100, 150, 200, 250, 300};
+        int sourceCount = rowNumPerSource.length;
+        long expectedTotalRows = 0;
+        for (long rows : rowNumPerSource) {
+            expectedTotalRows += rows * SOURCE_PARALLELISM;
+        }
 
         HazelcastInstanceImpl masterNode1 = null;
         HazelcastInstanceImpl masterNode2 = null;
@@ -110,25 +116,43 @@ public class CheckpointCoordinatorFailoverIT {
                             testResources.getRight(), jobConfig, config1);
             ClientJobProxy clientJobProxy = jobExecutionEnv.execute();
 
-            // Trigger failover mid-flight: some sources done, others still reading.
-            long triggerThreshold = expectedTotalRows / 4;
+            // Wait until a strict subset of starting enumerator tasks has reported
+            // readyToClose: directly read the IMap entry and require 0 < size < total.
+            long jobId = clientJobProxy.getJobId();
+            int pipelineId = 1;
+            String readyToCloseImapKey =
+                    "checkpoint_state_" + jobId + "_" + pipelineId + "_ready_to_close";
+            IMap<Object, Object> runningJobStateImap =
+                    masterNode2.getMap(Constant.IMAP_RUNNING_JOB_STATE);
+            AtomicInteger observedSubsetSize = new AtomicInteger(-1);
             Awaitility.await()
                     .atMost(3, TimeUnit.MINUTES)
-                    .pollInterval(1, TimeUnit.SECONDS)
+                    .pollInterval(200, TimeUnit.MILLISECONDS)
                     .untilAsserted(
                             () -> {
                                 Assertions.assertEquals(
                                         JobStatus.RUNNING, clientJobProxy.getJobStatus());
+                                Object stored = runningJobStateImap.get(readyToCloseImapKey);
+                                if (stored instanceof Set) {
+                                    int size = ((Set<?>) stored).size();
+                                    if (size > 0 && size < sourceCount) {
+                                        observedSubsetSize.compareAndSet(-1, size);
+                                    }
+                                }
                                 Assertions.assertTrue(
-                                        FileUtils.getFileLineNumberFromDir(testResources.getLeft())
-                                                > triggerThreshold);
+                                        observedSubsetSize.get() > 0,
+                                        "Waiting for a partial readyToCloseStartingTask subset"
+                                                + " (1.."
+                                                + (sourceCount - 1)
+                                                + ")");
                             });
 
             log.info(
-                    "Over {} rows written for job {}. "
+                    "Observed readyToCloseStartingTask subset of size {}/{} for job {}. "
                             + "Triggering master failover by shutting down masterNode1.",
-                    triggerThreshold,
-                    clientJobProxy.getJobId());
+                    observedSubsetSize.get(),
+                    sourceCount,
+                    jobId);
 
             CompletableFuture<JobStatus> waitFuture =
                     CompletableFuture.supplyAsync(clientJobProxy::waitForJobComplete);
@@ -167,7 +191,12 @@ public class CheckpointCoordinatorFailoverIT {
         String testCaseName = "testStreamJobContinuesAfterMasterFailover";
         String testClusterName =
                 "CheckpointCoordinatorFailoverIT_testStreamJobContinuesAfterMasterFailover";
-        long rowNum = 500;
+        // Per-source row.num must match stream_fake_to_localfile_master_failover_template.conf.
+        long[] rowNumPerSource = {100, 150, 200, 250, 300};
+        long maxBoundedRows = 0;
+        for (long rows : rowNumPerSource) {
+            maxBoundedRows += rows * SOURCE_PARALLELISM;
+        }
 
         HazelcastInstanceImpl masterNode1 = null;
         HazelcastInstanceImpl masterNode2 = null;
@@ -210,7 +239,10 @@ public class CheckpointCoordinatorFailoverIT {
             long jobId = clientJobProxy.getJobId();
             int pipelineId = 1;
 
-            long triggerThreshold = rowNum * SOURCE_PARALLELISM / 4;
+            // Trigger failover after ~1/4 of the bounded data has been written; FakeSource
+            // in STREAMING mode is UNBOUNDED, so total rows are still bounded by row.num
+            // per split but the source itself never finishes.
+            long triggerThreshold = maxBoundedRows / 4;
             Awaitility.await()
                     .atMost(3, TimeUnit.MINUTES)
                     .pollInterval(1, TimeUnit.SECONDS)
@@ -248,7 +280,17 @@ public class CheckpointCoordinatorFailoverIT {
                     .pollInterval(1, TimeUnit.SECONDS)
                     .untilAsserted(() -> Assertions.assertNotNull(ckIdMap.get(ckIdKey)));
             long ckIdBefore = ckIdMap.get(ckIdKey);
-            Thread.sleep(8000);
+            Awaitility.await()
+                    .atMost(30, TimeUnit.SECONDS)
+                    .pollInterval(1, TimeUnit.SECONDS)
+                    .untilAsserted(
+                            () ->
+                                    Assertions.assertTrue(
+                                            ckIdMap.get(ckIdKey) > ckIdBefore,
+                                            String.format(
+                                                    "Checkpoint id should grow after failover"
+                                                            + " (before=%d, current=%d)",
+                                                    ckIdBefore, ckIdMap.get(ckIdKey))));
             long ckIdAfter = ckIdMap.get(ckIdKey);
             Assertions.assertTrue(
                     ckIdAfter > ckIdBefore,
