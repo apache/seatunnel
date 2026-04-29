@@ -256,17 +256,17 @@ constraintKeys = [
 - `columnName`：向量列名
 - `indexName`：索引名称（可选，未指定时默认使用列名）
 - `indexType`：向量索引类型（schema 解析层面可选，但需要创建向量索引的 connector 如 Milvus 要求必填）。大小写不敏感。可选值：
-  - 浮点型: `FLAT`, `IVF_FLAT`, `IVF_SQ8`, `IVF_PQ`, `HNSW`, `DISKANN`, `AUTOINDEX`, `SCANN`
-  - 二进制型: `BIN_FLAT`, `BIN_IVF_FLAT`
-  - GPU 浮点型: `GPU_IVF_FLAT`, `GPU_IVF_PQ`, `GPU_BRUTE_FORCE`, `GPU_CAGRA`
-  - 字符串型: `TRIE`
-  - 标量字段: `STL_SORT` (数值类型), `INVERTED` (所有类型，JSON除外)
-  - 稀疏向量: `SPARSE_INVERTED_INDEX`, `SPARSE_WAND`
-  - 大小写不敏感 (如：`hnsw`, `HNSW`, `Hnsw`，均满足)
+  - 浮点型：`FLAT`，`IVF_FLAT`，`IVF_SQ8`，`IVF_PQ`，`HNSW`，`DISKANN`，`AUTOINDEX`，`SCANN`
+  - 二进制型：`BIN_FLAT`，`BIN_IVF_FLAT`
+  - GPU 浮点型：`GPU_IVF_FLAT`，`GPU_IVF_PQ`，`GPU_BRUTE_FORCE`，`GPU_CAGRA`
+  - 字符串型：`TRIE`
+  - 标量字段：`STL_SORT`（数值类型），`INVERTED`（所有类型，JSON 除外）
+  - 稀疏向量：`SPARSE_INVERTED_INDEX`，`SPARSE_WAND`
+  - 大小写不敏感（如：`hnsw`，`HNSW`，`Hnsw`，均满足）
 - `metricType`：距离度量类型（schema 解析层面可选，但需要创建向量索引的 connector 如 Milvus 要求必填）。大小写不敏感。可选值：
-  - 浮点型: `L2`, `IP`, `COSINE`
-  - 二进制型: `HAMMING`, `JACCARD`
-  - 大小写不敏感 (如：`cosine`, `COSINE`, `Cosine`，均满足)
+  - 浮点型：`L2`，`IP`，`COSINE`
+  - 二进制型：`HAMMING`，`JACCARD`
+  - 大小写不敏感（如：`cosine`，`COSINE`，`Cosine`，均满足）
 
 示例：
 
