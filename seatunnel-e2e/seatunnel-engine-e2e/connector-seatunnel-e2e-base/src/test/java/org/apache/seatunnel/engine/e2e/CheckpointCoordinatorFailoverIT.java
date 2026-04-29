@@ -29,6 +29,7 @@ import org.apache.seatunnel.engine.common.config.JobConfig;
 import org.apache.seatunnel.engine.common.config.SeaTunnelConfig;
 import org.apache.seatunnel.engine.common.job.JobStatus;
 import org.apache.seatunnel.engine.server.SeaTunnelServerStarter;
+import org.apache.seatunnel.engine.server.checkpoint.IMapCheckpointIDCounter;
 
 import org.awaitility.Awaitility;
 import org.junit.jupiter.api.Assertions;
@@ -52,7 +53,7 @@ import java.util.concurrent.TimeUnit;
 import static org.apache.seatunnel.shade.com.google.common.base.Preconditions.checkArgument;
 
 @Slf4j
-public class MasterFailoverBatchJobIT {
+public class CheckpointCoordinatorFailoverIT {
 
     private static final String BATCH_TEMPLATE_CONF =
             "batch_fake_to_localfile_master_failover_template.conf";
@@ -61,15 +62,13 @@ public class MasterFailoverBatchJobIT {
             "stream_fake_to_localfile_master_failover_template.conf";
 
     private static final String DYNAMIC_TEST_CASE_NAME = "dynamic_test_case_name";
-    private static final String DYNAMIC_TEST_ROW_NUM_PER_PARALLELISM =
-            "dynamic_test_row_num_per_parallelism";
     private static final String DYNAMIC_TEST_PARALLELISM = "dynamic_test_parallelism";
 
     @Test
     public void testBatchJobCompletesAfterMasterFailover() throws Exception {
         String testCaseName = "testBatchJobCompletesAfterMasterFailover";
         String testClusterName =
-                "MasterFailoverBatchJobIT_testBatchJobCompletesAfterMasterFailover";
+                "CheckpointCoordinatorFailoverIT_testBatchJobCompletesAfterMasterFailover";
         long rowNum = 200;
         int parallelism = 2;
 
@@ -98,7 +97,7 @@ public class MasterFailoverBatchJobIT {
 
             Common.setDeployMode(DeployMode.CLUSTER);
             ImmutablePair<String, String> testResources =
-                    createTestResources(testCaseName, rowNum, parallelism, BATCH_TEMPLATE_CONF);
+                    createTestResources(testCaseName, parallelism, BATCH_TEMPLATE_CONF);
             JobConfig jobConfig = new JobConfig();
             jobConfig.setName(testCaseName);
 
@@ -112,9 +111,7 @@ public class MasterFailoverBatchJobIT {
 
             long jobId = clientJobProxy.getJobId();
 
-            // Wait until all expected rows are written – at this point every source task has
-            // sent LastCheckpointNotifyOperation and is entering PREPARE_CLOSE.
-            // The fix ensures readyToCloseStartingTask is already persisted to IMap.
+            // Step 1: wait until all rows are written (sink layer done).
             Awaitility.await()
                     .atMost(3, TimeUnit.MINUTES)
                     .pollInterval(1, TimeUnit.SECONDS)
@@ -125,10 +122,32 @@ public class MasterFailoverBatchJobIT {
                                             FileUtils.getFileLineNumberFromDir(
                                                     testResources.getLeft())));
 
+            // Step 2: confirm the fix has written readyToCloseStartingTask to IMap before failover.
+            // Sink completion lags source shutdown: without this gate the failover races IMap
+            // persistence.
+            // Pipeline id for a single-pipeline job is always 1.
+            int pipelineId = 1;
+            String readyToCloseImapKey =
+                    "checkpoint_state_" + jobId + "_" + pipelineId + "_ready_to_close";
+            IMap<Object, Object> runningJobStateIMap =
+                    masterNode2.getMap(Constant.IMAP_RUNNING_JOB_STATE);
+            Awaitility.await()
+                    .atMost(2, TimeUnit.MINUTES)
+                    .pollInterval(500, TimeUnit.MILLISECONDS)
+                    .untilAsserted(
+                            () -> {
+                                Object stored = runningJobStateIMap.get(readyToCloseImapKey);
+                                Assertions.assertNotNull(
+                                        stored,
+                                        "readyToCloseStartingTask IMap entry must be persisted"
+                                                + " before triggering master failover");
+                            });
+
             log.info(
-                    "=== All {} rows written for job {}. Sources are in shutdown phase. "
-                            + "Triggering master failover by shutting down masterNode1. ===",
+                    "All {} rows written and IMap entry '{}' confirmed for job {}. "
+                            + "Triggering master failover by shutting down masterNode1.",
                     rowNum * parallelism,
+                    readyToCloseImapKey,
                     jobId);
 
             // Register the wait-future BEFORE killing the master so it survives reconnect.
@@ -172,7 +191,7 @@ public class MasterFailoverBatchJobIT {
     public void testBatchJobStuckWhenReadyToCloseImapDeleted() throws Exception {
         String testCaseName = "testBatchJobStuckWhenReadyToCloseImapDeleted";
         String testClusterName =
-                "MasterFailoverBatchJobIT_testBatchJobStuckWhenReadyToCloseImapDeleted";
+                "CheckpointCoordinatorFailoverIT_testBatchJobStuckWhenReadyToCloseImapDeleted";
         long rowNum = 200;
         int parallelism = 2;
 
@@ -200,7 +219,7 @@ public class MasterFailoverBatchJobIT {
 
             Common.setDeployMode(DeployMode.CLUSTER);
             ImmutablePair<String, String> testResources =
-                    createTestResources(testCaseName, rowNum, parallelism, BATCH_TEMPLATE_CONF);
+                    createTestResources(testCaseName, parallelism, BATCH_TEMPLATE_CONF);
             JobConfig jobConfig = new JobConfig();
             jobConfig.setName(testCaseName);
 
@@ -237,16 +256,27 @@ public class MasterFailoverBatchJobIT {
             IMap<Object, Object> runningJobStateIMap =
                     masterNode2.getMap(Constant.IMAP_RUNNING_JOB_STATE);
 
-            // Sanity check: the fix must have written the entry before failover.
+            // Confirm the entry exists before deleting it: sink completion lags source shutdown,
+            // so poll until readyToCloseStartingTask is durably written.
+            Awaitility.await()
+                    .atMost(2, TimeUnit.MINUTES)
+                    .pollInterval(500, TimeUnit.MILLISECONDS)
+                    .untilAsserted(
+                            () -> {
+                                Object stored = runningJobStateIMap.get(readyToCloseImapKey);
+                                Assertions.assertNotNull(
+                                        stored,
+                                        "readyToCloseStartingTask IMap entry must be persisted"
+                                                + " before we can delete it");
+                                Assertions.assertFalse(
+                                        ((Set<?>) stored).isEmpty(),
+                                        "readyToCloseStartingTask IMap entry must not be empty");
+                            });
+
             Set<?> persisted = (Set<?>) runningJobStateIMap.get(readyToCloseImapKey);
-            Assertions.assertNotNull(
-                    persisted,
-                    "readyToCloseStartingTask IMap entry must exist after sources finish");
-            Assertions.assertFalse(
-                    persisted.isEmpty(), "readyToCloseStartingTask IMap entry must not be empty");
             log.info(
-                    "=== Confirmed IMap entry '{}' exists with {} entries. "
-                            + "Now deleting it to reproduce the original bug. ===",
+                    "Confirmed IMap entry '{}' exists with {} entries. "
+                            + "Now deleting it to reproduce the original bug.",
                     readyToCloseImapKey,
                     persisted.size());
 
@@ -258,7 +288,7 @@ public class MasterFailoverBatchJobIT {
                     "IMap entry must be gone before failover");
 
             log.info(
-                    "=== IMap entry deleted. Triggering master failover by shutting down masterNode1. ===");
+                    "IMap entry deleted. Triggering master failover by shutting down masterNode1.");
 
             CompletableFuture<JobStatus> waitFuture =
                     CompletableFuture.supplyAsync(clientJobProxy::waitForJobComplete);
@@ -281,7 +311,28 @@ public class MasterFailoverBatchJobIT {
             Assertions.assertFalse(
                     finishedUnexpectedly,
                     "Job should be stuck after IMap deletion + master failover (bug reproduced)");
-            log.info("=== Bug reproduced: job is stuck as expected after IMap deletion. ===");
+            log.info("Bug reproduced: job is stuck as expected after IMap deletion.");
+
+            // Verify the root cause: checkpoints are growing indefinitely.
+            // Source tasks in PREPARE_CLOSE still ACK checkpoint barriers, so the new coordinator
+            // keeps completing regular CHECKPOINT_TYPE checkpoints while COMPLETED_POINT_TYPE is
+            // never triggered — checkpoint ID must strictly increase over time.
+            String ckIdKey = IMapCheckpointIDCounter.convertLongIntToBase64(jobId, pipelineId);
+            IMap<String, Long> ckIdMap = masterNode2.getMap(Constant.IMAP_CHECKPOINT_ID);
+            long ckIdBefore = ckIdMap.get(ckIdKey);
+            // Wait for at least 2 checkpoint intervals (conf: checkpoint.interval = 2000 ms).
+            Thread.sleep(6000);
+            long ckIdAfter = ckIdMap.get(ckIdKey);
+            Assertions.assertTrue(
+                    ckIdAfter > ckIdBefore,
+                    String.format(
+                            "Checkpoint ID must grow while job is stuck"
+                                    + " (before=%d, after=%d) — confirms infinite checkpoint loop",
+                            ckIdBefore, ckIdAfter));
+            log.info(
+                    "Confirmed infinite checkpoint loop: ID grew from {} to {} while job remained stuck.",
+                    ckIdBefore,
+                    ckIdAfter);
 
             // Tear down gracefully.
             clientJobProxy.cancelJob();
@@ -298,19 +349,11 @@ public class MasterFailoverBatchJobIT {
         }
     }
 
-    /**
-     * Submits a STREAMING job to a 2-node cluster, waits until some rows are written (indicating at
-     * least one checkpoint has completed), then shuts down the current master node to trigger a
-     * Hazelcast leader election.
-     *
-     * <p>Expected: the job resumes on the new master, restores from the last checkpoint, and
-     * eventually completes with the full expected row count.
-     */
     @Test
     public void testStreamJobCompletesAfterMasterFailover() throws Exception {
         String testCaseName = "testStreamJobCompletesAfterMasterFailover";
         String testClusterName =
-                "MasterFailoverBatchJobIT_testStreamJobCompletesAfterMasterFailover";
+                "CheckpointCoordinatorFailoverIT_testStreamJobCompletesAfterMasterFailover";
         long rowNum = 500;
         int parallelism = 2;
 
@@ -338,7 +381,7 @@ public class MasterFailoverBatchJobIT {
 
             Common.setDeployMode(DeployMode.CLUSTER);
             ImmutablePair<String, String> testResources =
-                    createTestResources(testCaseName, rowNum, parallelism, STREAM_TEMPLATE_CONF);
+                    createTestResources(testCaseName, parallelism, STREAM_TEMPLATE_CONF);
             JobConfig jobConfig = new JobConfig();
             jobConfig.setName(testCaseName);
 
@@ -352,8 +395,7 @@ public class MasterFailoverBatchJobIT {
 
             long jobId = clientJobProxy.getJobId();
 
-            // Wait until 1/4 of rows are written, indicating at least one checkpoint has completed
-            // and checkpoint state has been persisted to IMap.
+            // Step 1: wait until some rows are written so there is data in flight.
             long triggerThreshold = rowNum * parallelism / 4;
             Awaitility.await()
                     .atMost(3, TimeUnit.MINUTES)
@@ -367,8 +409,26 @@ public class MasterFailoverBatchJobIT {
                                                 > triggerThreshold);
                             });
 
+            // Step 2: confirm at least one checkpoint is committed to IMap before failover.
+            // Row writes lag checkpoint commits; without this gate the new coordinator
+            // starts from scratch instead of restoring, producing duplicate rows.
+            int pipelineId = 1;
+            String checkpointStateImapKey = "checkpoint_state_" + jobId + "_" + pipelineId;
+            IMap<Object, Object> runningJobStateIMap =
+                    masterNode2.getMap(Constant.IMAP_RUNNING_JOB_STATE);
+            Awaitility.await()
+                    .atMost(2, TimeUnit.MINUTES)
+                    .pollInterval(500, TimeUnit.MILLISECONDS)
+                    .untilAsserted(
+                            () ->
+                                    Assertions.assertNotNull(
+                                            runningJobStateIMap.get(checkpointStateImapKey),
+                                            "At least one checkpoint must be committed to IMap"
+                                                    + " before triggering master failover"));
+
             log.info(
-                    "=== {} rows written for job {}. Triggering master failover by shutting down masterNode1. ===",
+                    "{} rows written and checkpoint committed to IMap for job {}. "
+                            + "Triggering master failover by shutting down masterNode1.",
                     triggerThreshold,
                     jobId);
 
@@ -408,14 +468,11 @@ public class MasterFailoverBatchJobIT {
     }
 
     private ImmutablePair<String, String> createTestResources(
-            @NonNull String testCaseName, long rowNum, int parallelism, String templateConf)
-            throws IOException {
-        checkArgument(rowNum > 0, "rowNum must be greater than 0");
+            @NonNull String testCaseName, int parallelism, String templateConf) throws IOException {
         checkArgument(parallelism > 0, "parallelism must be greater than 0");
 
         Map<String, String> valueMap = new HashMap<>();
         valueMap.put(DYNAMIC_TEST_CASE_NAME, testCaseName);
-        valueMap.put(DYNAMIC_TEST_ROW_NUM_PER_PARALLELISM, String.valueOf(rowNum));
         valueMap.put(DYNAMIC_TEST_PARALLELISM, String.valueOf(parallelism));
 
         String targetDir = "/tmp/hive/warehouse/" + testCaseName;
