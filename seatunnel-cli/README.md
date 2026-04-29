@@ -367,7 +367,6 @@ Two-tier resolution with intelligent fallback:
 
 The CLI remembers facts across sessions to improve config accuracy:
 
-- **Connection details** -- Host, port, user, password, access keys. Used directly in generated configs instead of `${VAR}` placeholders.
 - **Project context** -- Table names, database names, common patterns.
 - **Preferences** -- Parallelism, format, language preferences.
 
