@@ -431,14 +431,37 @@ public class CheckpointCoordinator {
     protected void readyToClose(TaskLocation taskLocation) {
         readyToCloseStartingTask.add(taskLocation);
         if (readyToCloseStartingTask.size() == plan.getStartingSubtasks().size()) {
-            // Write the complete set to IMap only once, avoiding stale overwrites from
-            // concurrent readyToClose calls that could leave an incomplete set in IMap.
-            updateReadyToCloseStartingTaskState();
+            updateReadyToCloseStartingTask();
             tryTriggerPendingCheckpoint(CheckpointType.COMPLETED_POINT_TYPE);
         }
     }
 
-    private void updateReadyToCloseStartingTaskState() {
+    private Set<TaskLocation> loadReadyToCloseStartingTask() {
+        try {
+            Object stored = runningJobStateIMap.get(readyToCloseImapKey);
+            if (stored instanceof Set) {
+                Set<TaskLocation> result = (Set<TaskLocation>) stored;
+                LOG.info(
+                        "Loaded readyToCloseStartingTask from IMap for job({}@{}): {}",
+                        pipelineId,
+                        jobId,
+                        result);
+                return result;
+            }
+            return null;
+        } catch (Exception e) {
+            LOG.error(
+                    "Failed to load readyToCloseStartingTask from IMap for job({}@{}).",
+                    pipelineId,
+                    jobId,
+                    e);
+            throw new RuntimeException(
+                    "Failed to load readyToCloseStartingTask from IMap, key=" + readyToCloseImapKey,
+                    e);
+        }
+    }
+
+    private void updateReadyToCloseStartingTask() {
         try {
             RetryUtils.retryWithException(
                     () -> {
@@ -523,32 +546,7 @@ public class CheckpointCoordinator {
         checkpointCoordinatorFuture = new CompletableFuture<>();
         updateStatus(CheckpointCoordinatorStatus.RUNNING);
 
-        // Recover readyToCloseStartingTask from IMap before cleanPendingCheckpoint wipes it.
-        // This handles the case where source tasks already sent LastCheckpointNotifyOperation
-        // before master failover, so the new coordinator can resume from the persisted state.
-        Set<TaskLocation> restoredReadyToClose = null;
-        try {
-            Object stored = runningJobStateIMap.get(readyToCloseImapKey);
-            if (stored instanceof Set) {
-                restoredReadyToClose = (Set<TaskLocation>) stored;
-                LOG.info(
-                        "Restored readyToCloseStartingTask from IMap for job({}@{}): {}",
-                        pipelineId,
-                        jobId,
-                        restoredReadyToClose);
-            }
-        } catch (Exception e) {
-            LOG.error(
-                    "Failed to restore readyToCloseStartingTask from IMap for job({}@{})."
-                            + " Failing the job to avoid an unrecoverable stuck state.",
-                    pipelineId,
-                    jobId,
-                    e);
-            throw new RuntimeException(
-                    "Failed to restore readyToCloseStartingTask from IMap, key="
-                            + readyToCloseImapKey,
-                    e);
-        }
+        Set<TaskLocation> restoredReadyToClose = loadReadyToCloseStartingTask();
 
         cleanPendingCheckpoint(CheckpointCloseReason.CHECKPOINT_COORDINATOR_RESET);
         shutdown = false;
@@ -556,7 +554,7 @@ public class CheckpointCoordinator {
         if (restoredReadyToClose != null && !restoredReadyToClose.isEmpty()) {
             readyToCloseStartingTask.addAll(restoredReadyToClose);
             LOG.info(
-                    "Refilled readyToCloseStartingTask({}/{}) after coordinator reset for job({}@{})",
+                    "Restored readyToCloseStartingTask({}/{}) for job({}@{})",
                     readyToCloseStartingTask.size(),
                     plan.getStartingSubtasks().size(),
                     pipelineId,
@@ -568,13 +566,8 @@ public class CheckpointCoordinator {
             if (!notifyCompleted(latestCompletedCheckpoint)) {
                 return;
             }
-            // If all source tasks had already reported ready-to-close before failover,
-            // trigger COMPLETED_POINT_TYPE directly instead of waiting again.
             if (readyToCloseStartingTask.size() == plan.getStartingSubtasks().size()) {
-                LOG.info(
-                        "All starting tasks already ready to close after restore for job({}@{}), triggering COMPLETED_POINT_TYPE",
-                        pipelineId,
-                        jobId);
+                // All sources already finished before failover; complete the job now.
                 tryTriggerPendingCheckpoint(CheckpointType.COMPLETED_POINT_TYPE);
             } else {
                 tryTriggerPendingCheckpoint(CHECKPOINT_TYPE);
