@@ -17,12 +17,16 @@
 
 package org.apache.seatunnel.engine.server;
 
+import org.apache.seatunnel.engine.checkpoint.storage.PipelineState;
 import org.apache.seatunnel.engine.common.Constant;
 import org.apache.seatunnel.engine.common.exception.JobException;
 import org.apache.seatunnel.engine.common.job.JobStatus;
+import org.apache.seatunnel.engine.core.checkpoint.CheckpointType;
 import org.apache.seatunnel.engine.core.dag.logical.LogicalDag;
 import org.apache.seatunnel.engine.core.job.JobImmutableInformation;
 import org.apache.seatunnel.engine.core.job.JobInfo;
+import org.apache.seatunnel.engine.serializer.protobuf.ProtoStuffSerializer;
+import org.apache.seatunnel.engine.server.checkpoint.CompletedCheckpoint;
 import org.apache.seatunnel.engine.server.dag.physical.PipelineLocation;
 import org.apache.seatunnel.engine.server.execution.TaskGroupLocation;
 import org.apache.seatunnel.engine.server.master.cleanup.JobCleanupRecord;
@@ -38,6 +42,7 @@ import com.hazelcast.map.IMap;
 
 import java.lang.reflect.Method;
 import java.util.Collections;
+import java.util.HashMap;
 import java.util.LinkedHashSet;
 import java.util.Set;
 import java.util.concurrent.CompletionException;
@@ -363,6 +368,21 @@ class CoordinatorServiceJobCleanupTest extends AbstractSeaTunnelServerTest {
         runningJobStateTimestampsIMap.put(jobId, jobStateTimestamps);
         runningJobStateTimestampsIMap.put(pipelineLocation, new Long[1]);
         runningJobStateTimestampsIMap.put(taskGroupLocation, new Long[1]);
+        storeCheckpoint(jobId);
+        server.getCheckpointMonitorService()
+                .onCheckpointTriggered(
+                        jobId,
+                        1,
+                        1,
+                        CheckpointType.COMPLETED_POINT_TYPE,
+                        System.currentTimeMillis(),
+                        1);
+        Assertions.assertFalse(
+                server.getCheckpointService()
+                        .getCheckpointStorage()
+                        .getAllCheckpoints(String.valueOf(jobId))
+                        .isEmpty());
+        Assertions.assertTrue(server.getCheckpointMonitorService().getOverview(jobId).isPresent());
 
         Method method =
                 CoordinatorService.class.getDeclaredMethod(
@@ -383,6 +403,12 @@ class CoordinatorServiceJobCleanupTest extends AbstractSeaTunnelServerTest {
         Assertions.assertEquals(
                 JobStatus.CANCELED,
                 coordinatorService.getJobHistoryService().getJobDetailState(jobId).getJobStatus());
+        Assertions.assertTrue(
+                server.getCheckpointService()
+                        .getCheckpointStorage()
+                        .getAllCheckpoints(String.valueOf(jobId))
+                        .isEmpty());
+        Assertions.assertFalse(server.getCheckpointMonitorService().getOverview(jobId).isPresent());
     }
 
     private Set<Object> stateKeys(Object... keys) {
@@ -410,5 +436,28 @@ class CoordinatorServiceJobCleanupTest extends AbstractSeaTunnelServerTest {
                         Collections.emptyList(),
                         Collections.emptyList());
         return nodeEngine.getSerializationService().toData(jobImmutableInformation);
+    }
+
+    private void storeCheckpoint(long jobId) {
+        long now = System.currentTimeMillis();
+        CompletedCheckpoint completedCheckpoint =
+                new CompletedCheckpoint(
+                        jobId,
+                        1,
+                        1,
+                        now,
+                        CheckpointType.COMPLETED_POINT_TYPE,
+                        now,
+                        new HashMap<>(),
+                        new HashMap<>());
+        server.getCheckpointService()
+                .getCheckpointStorage()
+                .storeCheckPoint(
+                        PipelineState.builder()
+                                .jobId(String.valueOf(jobId))
+                                .pipelineId(1)
+                                .checkpointId(1)
+                                .states(new ProtoStuffSerializer().serialize(completedCheckpoint))
+                                .build());
     }
 }

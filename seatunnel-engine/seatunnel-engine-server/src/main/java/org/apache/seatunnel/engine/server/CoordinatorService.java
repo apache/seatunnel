@@ -32,6 +32,7 @@ import org.apache.seatunnel.common.utils.SeaTunnelException;
 import org.apache.seatunnel.common.utils.StringFormatUtils;
 import org.apache.seatunnel.engine.common.Constant;
 import org.apache.seatunnel.engine.common.config.EngineConfig;
+import org.apache.seatunnel.engine.common.config.JobConfig;
 import org.apache.seatunnel.engine.common.config.server.ConnectorJarStorageConfig;
 import org.apache.seatunnel.engine.common.config.server.ScheduleStrategy;
 import org.apache.seatunnel.engine.common.exception.JobException;
@@ -117,6 +118,8 @@ import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicLong;
 import java.util.stream.Collectors;
 
+import static org.apache.seatunnel.api.options.EnvCommonOptions.CHECKPOINT_INTERVAL;
+import static org.apache.seatunnel.common.constants.JobMode.BATCH;
 import static org.apache.seatunnel.engine.server.metrics.JobMetricsUtil.toJobMetricsMap;
 
 public class CoordinatorService {
@@ -983,7 +986,9 @@ public class CoordinatorService {
     }
 
     private void cleanupTerminalZombieJob(long jobId, JobInfo jobInfo, JobStatus finalStatus) {
-        persistTerminalZombieHistoryIfNecessary(jobId, jobInfo, finalStatus);
+        JobImmutableInformation jobImmutableInformation = restoreJobImmutableInformation(jobInfo);
+        cleanupTerminalZombieCheckpointIfNecessary(jobId, jobImmutableInformation, finalStatus);
+        persistTerminalZombieHistoryIfNecessary(jobId, jobImmutableInformation, finalStatus);
         cleanupPendingJobStateMaps(createTerminalZombieCleanupRecord(jobId, jobInfo, finalStatus));
         runningJobInfoIMap.remove(jobId);
     }
@@ -1415,6 +1420,10 @@ public class CoordinatorService {
 
     private JobDAGInfo restoreJobDAGInfo(JobInfo jobInfo) {
         JobImmutableInformation jobImmutableInformation = restoreJobImmutableInformation(jobInfo);
+        return restoreJobDAGInfo(jobImmutableInformation);
+    }
+
+    private JobDAGInfo restoreJobDAGInfo(JobImmutableInformation jobImmutableInformation) {
         ClassLoaderService classLoaderService = seaTunnelServer.getClassLoaderService();
         LogicalDag logicalDag =
                 DAGUtils.restoreLogicalDag(
@@ -1436,16 +1445,40 @@ public class CoordinatorService {
         return nodeEngine.getSerializationService().toObject(jobInfo.getJobImmutableInformation());
     }
 
+    private void cleanupTerminalZombieCheckpointIfNecessary(
+            long jobId, JobImmutableInformation jobImmutableInformation, JobStatus finalStatus) {
+        if (finalStatus != JobStatus.FINISHED && finalStatus != JobStatus.CANCELED) {
+            return;
+        }
+        if (isCheckpointEnabled(jobImmutableInformation.getJobConfig())
+                && seaTunnelServer.getCheckpointService() != null) {
+            seaTunnelServer
+                    .getCheckpointService()
+                    .getCheckpointStorage()
+                    .deleteCheckpoint(jobId + "");
+        }
+        if (seaTunnelServer.getCheckpointMonitorService() != null) {
+            seaTunnelServer.getCheckpointMonitorService().cleanupJob(jobId);
+        }
+    }
+
+    private boolean isCheckpointEnabled(JobConfig jobConfig) {
+        if (jobConfig == null) {
+            return true;
+        }
+        return jobConfig.getJobContext().getJobMode() != BATCH
+                || jobConfig.getEnvOptions().containsKey(CHECKPOINT_INTERVAL.key());
+    }
+
     private void persistTerminalZombieHistoryIfNecessary(
-            long jobId, JobInfo jobInfo, JobStatus finalStatus) {
+            long jobId, JobImmutableInformation jobImmutableInformation, JobStatus finalStatus) {
         JobHistoryService historyService = getJobHistoryService();
         if (historyService.getJobDAGInfo(jobId) == null) {
-            historyService.storeJobInfo(jobId, restoreJobDAGInfo(jobInfo));
+            historyService.storeJobInfo(jobId, restoreJobDAGInfo(jobImmutableInformation));
         }
         if (historyService.getFinishedJobStateImap().containsKey(jobId)) {
             return;
         }
-        JobImmutableInformation jobImmutableInformation = restoreJobImmutableInformation(jobInfo);
         historyService.storeFinishedJobState(
                 new JobHistoryService.JobState(
                         jobId,
