@@ -430,8 +430,8 @@ public class CheckpointCoordinator {
 
     protected void readyToClose(TaskLocation taskLocation) {
         readyToCloseStartingTask.add(taskLocation);
+        updateReadyToCloseStartingTask();
         if (readyToCloseStartingTask.size() == plan.getStartingSubtasks().size()) {
-            updateReadyToCloseStartingTask();
             tryTriggerPendingCheckpoint(CheckpointType.COMPLETED_POINT_TYPE);
         }
     }
