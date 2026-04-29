@@ -27,6 +27,7 @@ import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 
+import com.hazelcast.internal.json.JsonObject;
 import com.hazelcast.spi.impl.NodeEngineImpl;
 
 import java.lang.reflect.Method;
@@ -397,6 +398,49 @@ public class BaseServiceTableMetricsTest {
         BigDecimal bigDecimalNumber = new BigDecimal("85210718.2630262");
         Assertions.assertEquals(
                 new BigDecimal(bigDecimalNumber.toString()).toPlainString(), "85210718.2630262");
+    }
+
+    @Test
+    public void testMetricsToJsonObjectConvertsLargeNumbersToPlainString() throws Exception {
+        Method metricsToJsonObjectMethod =
+                BaseService.class.getDeclaredMethod("metricsToJsonObject", Map.class);
+        metricsToJsonObjectMethod.setAccessible(true);
+
+        Map<String, Object> metricsMap = new HashMap<>();
+        metricsMap.put("SourceReceivedQPS", 85210718.2630262);
+        metricsMap.put("SinkWriteQPS", 99999999.999);
+        metricsMap.put("FloatValue", 85210718.263026f);
+        metricsMap.put("LongValue", 123456789L);
+        metricsMap.put("IntValue", 42);
+
+        // Nested map to test recursive conversion
+        Map<String, Object> nestedMap = new HashMap<>();
+        nestedMap.put("NestedQPS", 77777777.777);
+        metricsMap.put("NestedMetrics", nestedMap);
+
+        JsonObject result =
+                (JsonObject) metricsToJsonObjectMethod.invoke(jobInfoService, metricsMap);
+        String jsonString = result.toString();
+
+        // Verify plain string format is present
+        Assertions.assertTrue(
+                jsonString.contains("85210718.2630262"),
+                "JSON should contain plain number format without scientific notation");
+        Assertions.assertTrue(
+                jsonString.contains("99999999.999"),
+                "JSON should contain large decimal in plain format");
+        Assertions.assertTrue(
+                jsonString.contains("77777777.777"),
+                "JSON should contain nested value in plain format");
+
+        // Verify NO scientific notation (no "E" in the output)
+        Assertions.assertFalse(
+                jsonString.contains("E"),
+                "JSON should NOT contain scientific notation (letter 'E')");
+
+        // Verify integer values are also present
+        Assertions.assertTrue(jsonString.contains("123456789"), "JSON should contain long value");
+        Assertions.assertTrue(jsonString.contains("42"), "JSON should contain int value");
     }
 
     private JobDAGInfo createDAGInfoWithMultipleSinks() {
