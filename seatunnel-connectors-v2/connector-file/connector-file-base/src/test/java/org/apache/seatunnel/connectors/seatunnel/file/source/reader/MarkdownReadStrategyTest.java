@@ -17,23 +17,52 @@
 
 package org.apache.seatunnel.connectors.seatunnel.file.source.reader;
 
+import org.apache.seatunnel.shade.com.typesafe.config.ConfigFactory;
+
+import org.apache.seatunnel.api.table.type.SeaTunnelRowType;
+
 import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.Test;
+import org.junit.jupiter.api.io.TempDir;
 
 import java.net.URL;
+import java.nio.charset.StandardCharsets;
+import java.nio.file.Files;
+import java.nio.file.Path;
 import java.nio.file.Paths;
+import java.util.Arrays;
 
 class MarkdownReadStrategyTest {
+
+    private static final String[] DEFAULT_FIELD_NAMES = {
+        "element_id",
+        "element_type",
+        "heading_level",
+        "text",
+        "page_number",
+        "position_index",
+        "parent_id",
+        "child_ids"
+    };
+    private static final String[] RAG_FIELD_NAMES = {
+        "source_uri", "document_id", "chunk_id", "chunk_index", "content_hash"
+    };
+
+    @TempDir private Path tempDir;
 
     @Test
     public void testReadMarkdown() throws Exception {
         URL resource = this.getClass().getResource("/test.md");
         String path = Paths.get(resource.toURI()).toString();
         AbstractReadStrategy markdownReadStrategy = new MarkdownReadStrategy();
+        SeaTunnelRowType rowType = markdownReadStrategy.getSeaTunnelRowTypeInfo(path);
         TempCollector tempCollector = new TempCollector();
         markdownReadStrategy.read(path, "", tempCollector);
 
+        Assertions.assertArrayEquals(DEFAULT_FIELD_NAMES, rowType.getFieldNames());
         Assertions.assertEquals(75, tempCollector.getRows().size());
+        Assertions.assertEquals(
+                DEFAULT_FIELD_NAMES.length, tempCollector.getRows().get(0).getArity());
 
         Assertions.assertEquals("Heading_1", tempCollector.getRows().get(0).getField(0));
         Assertions.assertEquals("Heading", tempCollector.getRows().get(0).getField(1));
@@ -76,5 +105,75 @@ class MarkdownReadStrategyTest {
         Assertions.assertEquals(1, tempCollector.getRows().get(4).getField(5));
         Assertions.assertEquals("OrderedList_1", tempCollector.getRows().get(4).getField(6));
         Assertions.assertNull(tempCollector.getRows().get(4).getField(7));
+    }
+
+    @Test
+    public void testReadMarkdownWithRagMetadata() throws Exception {
+        URL resource = this.getClass().getResource("/test.md");
+        String path = Paths.get(resource.toURI()).toString();
+        AbstractReadStrategy markdownReadStrategy = createRagMetadataMarkdownReadStrategy();
+        SeaTunnelRowType rowType = markdownReadStrategy.getSeaTunnelRowTypeInfo(path);
+        TempCollector firstCollector = new TempCollector();
+        markdownReadStrategy.read(path, "", firstCollector);
+
+        Assertions.assertArrayEquals(
+                concat(DEFAULT_FIELD_NAMES, RAG_FIELD_NAMES), rowType.getFieldNames());
+        Assertions.assertEquals(75, firstCollector.getRows().size());
+        Assertions.assertEquals(13, firstCollector.getRows().get(0).getArity());
+        Assertions.assertEquals(path, firstCollector.getRows().get(0).getField(8));
+        Assertions.assertTrue(
+                String.valueOf(firstCollector.getRows().get(0).getField(9)).startsWith("doc_"));
+        Assertions.assertTrue(
+                String.valueOf(firstCollector.getRows().get(0).getField(10)).startsWith("chunk_"));
+        Assertions.assertEquals(1, firstCollector.getRows().get(0).getField(11));
+        Assertions.assertEquals(
+                64, String.valueOf(firstCollector.getRows().get(0).getField(12)).length());
+
+        AbstractReadStrategy secondReadStrategy = createRagMetadataMarkdownReadStrategy();
+        TempCollector secondCollector = new TempCollector();
+        secondReadStrategy.read(path, "", secondCollector);
+
+        for (int fieldIndex = 8; fieldIndex < 13; fieldIndex++) {
+            Assertions.assertEquals(
+                    firstCollector.getRows().get(0).getField(fieldIndex),
+                    secondCollector.getRows().get(0).getField(fieldIndex));
+        }
+    }
+
+    @Test
+    public void testRagMetadataContentHashChangesWithText() throws Exception {
+        Path markdownFile = tempDir.resolve("doc.md");
+        Files.write(markdownFile, Arrays.asList("# First Title"), StandardCharsets.UTF_8);
+
+        AbstractReadStrategy firstReadStrategy = createRagMetadataMarkdownReadStrategy();
+        TempCollector firstCollector = new TempCollector();
+        firstReadStrategy.read(markdownFile.toString(), "", firstCollector);
+        Object firstDocumentId = firstCollector.getRows().get(0).getField(9);
+        Object firstChunkIndex = firstCollector.getRows().get(0).getField(11);
+        Object firstContentHash = firstCollector.getRows().get(0).getField(12);
+
+        Files.write(markdownFile, Arrays.asList("# Second Title"), StandardCharsets.UTF_8);
+
+        AbstractReadStrategy secondReadStrategy = createRagMetadataMarkdownReadStrategy();
+        TempCollector secondCollector = new TempCollector();
+        secondReadStrategy.read(markdownFile.toString(), "", secondCollector);
+
+        Assertions.assertEquals(firstDocumentId, secondCollector.getRows().get(0).getField(9));
+        Assertions.assertEquals(firstChunkIndex, secondCollector.getRows().get(0).getField(11));
+        Assertions.assertNotEquals(firstContentHash, secondCollector.getRows().get(0).getField(12));
+    }
+
+    private static AbstractReadStrategy createRagMetadataMarkdownReadStrategy() {
+        AbstractReadStrategy markdownReadStrategy = new MarkdownReadStrategy();
+        markdownReadStrategy.setPluginConfig(
+                ConfigFactory.parseString("markdown_rag_metadata_enabled = true"));
+        return markdownReadStrategy;
+    }
+
+    private static String[] concat(String[] left, String[] right) {
+        String[] result = new String[left.length + right.length];
+        System.arraycopy(left, 0, result, 0, left.length);
+        System.arraycopy(right, 0, result, left.length, right.length);
+        return result;
     }
 }

@@ -100,6 +100,7 @@ public class FtpFileSourceFactory implements TableSourceFactory {
                 .optional(FileBaseSourceOptions.NULL_FORMAT)
                 .optional(FileBaseSourceOptions.FILENAME_EXTENSION)
                 .optional(FileBaseSourceOptions.READ_COLUMNS)
+                .optional(FileBaseSourceOptions.MARKDOWN_RAG_METADATA_ENABLED)
                 .optional(FtpFileSourceOptions.FTP_REMOTE_VERIFICATION_ENABLED)
                 .optional(FtpFileSourceOptions.FTP_CONTROL_ENCODING)
                 .optional(FileBaseSourceOptions.QUOTE_CHAR)
