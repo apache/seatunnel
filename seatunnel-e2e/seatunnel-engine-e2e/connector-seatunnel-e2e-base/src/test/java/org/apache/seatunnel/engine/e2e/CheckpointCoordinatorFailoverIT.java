@@ -60,11 +60,7 @@ public class CheckpointCoordinatorFailoverIT {
 
     private static final String DYNAMIC_TEST_CASE_NAME = "dynamic_test_case_name";
 
-    /**
-     * Source parallelism is hard-coded inside the conf templates (parallelism = 5); tests must use
-     * the same value when computing expected row counts and trigger thresholds. Keep this constant
-     * in sync with the templates.
-     */
+    /** Must match the parallelism value set in the conf templates (env.parallelism). */
     private static final int SOURCE_PARALLELISM = 5;
 
     @Test
@@ -72,8 +68,6 @@ public class CheckpointCoordinatorFailoverIT {
         String testCaseName = "testBatchJobCompletesAfterMasterFailover";
         String testClusterName =
                 "CheckpointCoordinatorFailoverIT_testBatchJobCompletesAfterMasterFailover";
-        // The batch template defines 5 independent FakeSource actions; total rows
-        // produced equals rowNumPerSource * SOURCE_PARALLELISM * sourceCount.
         long rowNumPerSource = 200;
         int sourceCount = 5;
         long expectedTotalRows = rowNumPerSource * SOURCE_PARALLELISM * sourceCount;
@@ -116,10 +110,7 @@ public class CheckpointCoordinatorFailoverIT {
                             testResources.getRight(), jobConfig, config1);
             ClientJobProxy clientJobProxy = jobExecutionEnv.execute();
 
-            // Wait until ~1/4 of rows are written so the job is mid-flight: some
-            // sources may have already signalled readyToClose (and persisted to
-            // IMap) while others are still reading. This is exactly the partial
-            // state that the persisted readyToCloseStartingTask must recover.
+            // Trigger failover mid-flight: some sources done, others still reading.
             long triggerThreshold = expectedTotalRows / 4;
             Awaitility.await()
                     .atMost(3, TimeUnit.MINUTES)
@@ -171,12 +162,6 @@ public class CheckpointCoordinatorFailoverIT {
         }
     }
 
-    /**
-     * Verifies that an UNBOUNDED streaming job survives a master-node failover: after the master is
-     * shut down the job must remain RUNNING on the new master and the checkpoint coordinator must
-     * continue to advance (checkpoint id grows). FakeSource in STREAMING mode is UNBOUNDED, so the
-     * job never naturally reaches FINISHED — the test cancels it explicitly at the end.
-     */
     @Test
     public void testStreamJobContinuesAfterMasterFailover() throws Exception {
         String testCaseName = "testStreamJobContinuesAfterMasterFailover";
@@ -225,8 +210,6 @@ public class CheckpointCoordinatorFailoverIT {
             long jobId = clientJobProxy.getJobId();
             int pipelineId = 1;
 
-            // Wait until enough rows are written so the job is RUNNING and at least
-            // one checkpoint cycle has likely elapsed (checkpoint.interval = 2000 ms).
             long triggerThreshold = rowNum * SOURCE_PARALLELISM / 4;
             Awaitility.await()
                     .atMost(3, TimeUnit.MINUTES)
@@ -249,7 +232,6 @@ public class CheckpointCoordinatorFailoverIT {
             masterNode1.shutdown();
             masterNode1 = null;
 
-            // After failover the job must still be RUNNING (not FAILED/CANCELED).
             Awaitility.await()
                     .atMost(2, TimeUnit.MINUTES)
                     .pollInterval(3, TimeUnit.SECONDS)
@@ -258,9 +240,7 @@ public class CheckpointCoordinatorFailoverIT {
                                     Assertions.assertEquals(
                                             JobStatus.RUNNING, clientJobProxy.getJobStatus()));
 
-            // The new checkpoint coordinator must continue triggering checkpoints —
-            // verify by observing that the checkpoint id strictly grows over a window
-            // larger than the configured checkpoint.interval (2000 ms).
+            // Verify checkpoint id strictly grows on the new master.
             String ckIdKey = IMapCheckpointIDCounter.convertLongIntToBase64(jobId, pipelineId);
             IMap<String, Long> ckIdMap = masterNode2.getMap(Constant.IMAP_CHECKPOINT_ID);
             Awaitility.await()
@@ -277,7 +257,6 @@ public class CheckpointCoordinatorFailoverIT {
                                     + " (before=%d, after=%d)",
                             ckIdBefore, ckIdAfter));
 
-            // UNBOUNDED FakeSource never naturally finishes; cancel to clean up.
             clientJobProxy.cancelJob();
         } finally {
             if (engineClient != null) {
