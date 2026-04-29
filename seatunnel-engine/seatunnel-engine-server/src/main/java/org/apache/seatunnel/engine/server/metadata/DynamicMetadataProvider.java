@@ -66,16 +66,35 @@ public class DynamicMetadataProvider implements MetadataProvider {
     /** Hazelcast instance reference, set by SeaTunnelServer during initialization */
     private static volatile IMap<String, DynamicMetadataDataSource> datasourceIMap;
 
+    /** Lock object for thread-safe initialization */
+    private static final Object INIT_LOCK = new Object();
+
+    /** Flag to track if initialization has been completed */
+    private static volatile boolean initialized = false;
+
     /**
      * Set the Hazelcast instance for this provider.
      *
-     * <p>This method is called by SeaTunnelServer during initialization.
+     * <p>This method is called by SeaTunnelServer during initialization or by SeaTunnelClient in
+     * cluster mode. This method is thread-safe and will only set the IMap once - subsequent calls
+     * will be ignored.
      *
-     * @param iMap the Hazelcast instance
+     * @param iMap the Hazelcast IMap instance
      */
     public static void setMetadataDatasourceImap(IMap<String, DynamicMetadataDataSource> iMap) {
-        datasourceIMap = iMap;
-        log.info("DynamicMetadataProvider: Hazelcast instance set");
+        if (iMap == null) {
+            throw new IllegalArgumentException("IMap cannot be null");
+        }
+        // Double-checked locking for thread-safe lazy initialization
+        if (!initialized) {
+            synchronized (INIT_LOCK) {
+                if (!initialized) {
+                    datasourceIMap = iMap;
+                    initialized = true;
+                    log.info("DynamicMetadataProvider: Hazelcast IMap initialized");
+                }
+            }
+        }
     }
 
     @Override
@@ -146,6 +165,10 @@ public class DynamicMetadataProvider implements MetadataProvider {
 
     @Override
     public void close() {
-        datasourceIMap = null;
+        synchronized (INIT_LOCK) {
+            datasourceIMap = null;
+            initialized = false;
+            log.info("DynamicMetadataProvider: Hazelcast IMap closed and reset");
+        }
     }
 }
