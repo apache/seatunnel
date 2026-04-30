@@ -17,6 +17,7 @@
 
 package org.apache.seatunnel.engine.server;
 
+import org.apache.seatunnel.common.utils.ReflectionUtils;
 import org.apache.seatunnel.engine.checkpoint.storage.PipelineState;
 import org.apache.seatunnel.engine.checkpoint.storage.exception.CheckpointStorageException;
 import org.apache.seatunnel.engine.common.Constant;
@@ -39,9 +40,11 @@ import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.condition.DisabledOnOs;
 import org.junit.jupiter.api.condition.OS;
+import org.mockito.Mockito;
 
 import com.hazelcast.internal.serialization.Data;
 import com.hazelcast.map.IMap;
+import com.hazelcast.spi.exception.RetryableHazelcastException;
 
 import java.lang.reflect.Method;
 import java.util.Collections;
@@ -49,6 +52,8 @@ import java.util.HashMap;
 import java.util.LinkedHashSet;
 import java.util.Set;
 import java.util.concurrent.CompletionException;
+
+import static org.mockito.Mockito.doThrow;
 
 class CoordinatorServiceJobCleanupTest extends AbstractSeaTunnelServerTest {
 
@@ -415,12 +420,54 @@ class CoordinatorServiceJobCleanupTest extends AbstractSeaTunnelServerTest {
         Assertions.assertFalse(server.getCheckpointMonitorService().getOverview(jobId).isPresent());
     }
 
+    @Test
+    void testRestoreUsesProvidedJobInfoInitializationTimestamp() throws Exception {
+        CoordinatorService coordinatorService = server.getCoordinatorService();
+        long jobId = System.currentTimeMillis();
+        long initializationTimestamp = 100L;
+
+        IMap<Long, JobInfo> runningJobInfoIMap =
+                nodeEngine.getHazelcastInstance().getMap(Constant.IMAP_RUNNING_JOB_INFO);
+        IMap<Object, Object> runningJobStateIMap =
+                nodeEngine.getHazelcastInstance().getMap(Constant.IMAP_RUNNING_JOB_STATE);
+
+        JobInfo jobInfo =
+                new JobInfo(
+                        initializationTimestamp,
+                        createJobData(jobId, false, "stream_fake_to_console.conf"));
+        runningJobInfoIMap.put(jobId, jobInfo);
+        runningJobStateIMap.put(jobId, JobStatus.RUNNING);
+
+        IMap<Long, JobInfo> spiedRunningJobInfoIMap = Mockito.spy(runningJobInfoIMap);
+        doThrow(new RetryableHazelcastException("loading"))
+                .when(spiedRunningJobInfoIMap)
+                .get(jobId);
+        ReflectionUtils.setField(coordinatorService, "runningJobInfoIMap", spiedRunningJobInfoIMap);
+
+        try {
+            invokeRestoreJobFromMasterActiveSwitch(coordinatorService, jobId, jobInfo);
+        } finally {
+            ReflectionUtils.setField(coordinatorService, "runningJobInfoIMap", runningJobInfoIMap);
+        }
+
+        Assertions.assertTrue(coordinatorService.getPendingJobQueue().contains(jobId));
+    }
+
     private Set<Object> stateKeys(Object... keys) {
         Set<Object> stateKeys = new LinkedHashSet<>();
         for (Object key : keys) {
             stateKeys.add(key);
         }
         return stateKeys;
+    }
+
+    private void invokeRestoreJobFromMasterActiveSwitch(
+            CoordinatorService coordinatorService, long jobId, JobInfo jobInfo) throws Exception {
+        Method method =
+                CoordinatorService.class.getDeclaredMethod(
+                        "restoreJobFromMasterActiveSwitch", Long.class, JobInfo.class);
+        method.setAccessible(true);
+        method.invoke(coordinatorService, jobId, jobInfo);
     }
 
     private Data createJobData(long jobId, boolean isStartWithSavePoint) {
