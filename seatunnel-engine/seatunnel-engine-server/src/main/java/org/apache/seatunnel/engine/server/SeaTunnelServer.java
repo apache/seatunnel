@@ -424,6 +424,10 @@ public class SeaTunnelServer
         return (key.hashCode() & 0x7FFFFFFF) % partitionCount;
     }
 
+    public boolean isCoordinatorActive() {
+        return coordinatorService.isCoordinatorActive();
+    }
+
     public SeaTunnelConfig getSeaTunnelConfig() {
         return seaTunnelConfig;
     }

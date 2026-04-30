@@ -36,8 +36,8 @@ public class JobMetricExports extends AbstractCollector {
     @Override
     public List<MetricFamilySamples> collect() {
         List<MetricFamilySamples> mfs = new ArrayList();
-        // Only the master can get job metrics
-        if (isMaster()) {
+        // Report metrics only when the local node is ACTIVE and the master is available.
+        if (isMaster() && isCoordinatorReady()) {
             CoordinatorService coordinatorService = getCoordinatorService();
             JobCounter jobCountMetrics = coordinatorService.getJobCountMetrics();
 
