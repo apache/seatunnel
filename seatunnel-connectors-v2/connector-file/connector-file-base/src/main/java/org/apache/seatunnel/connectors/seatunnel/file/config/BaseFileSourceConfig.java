@@ -114,6 +114,9 @@ public abstract class BaseFileSourceConfig implements Serializable {
                         readStrategy.getSeaTunnelRowTypeInfoWithUserConfigRowType(
                                 filePaths.get(0),
                                 configSchema ? catalogTable.getSeaTunnelRowType() : null));
+            case MARKDOWN:
+                return newCatalogTable(
+                        catalogTable, readStrategy.getSeaTunnelRowTypeInfo(filePaths.get(0)));
             default:
                 throw new FileConnectorException(
                         FileConnectorErrorCode.FORMAT_NOT_SUPPORT,
