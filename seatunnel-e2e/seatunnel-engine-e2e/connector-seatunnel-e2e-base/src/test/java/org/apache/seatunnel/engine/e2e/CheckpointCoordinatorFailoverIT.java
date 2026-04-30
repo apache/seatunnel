@@ -72,7 +72,8 @@ public class CheckpointCoordinatorFailoverIT {
         String testClusterName =
                 "CheckpointCoordinatorFailoverIT_testBatchJobCompletesAfterMasterFailover";
         // Per-source row.num must match batch_fake_to_localfile_master_failover_template.conf.
-        long[] rowNumPerSource = {100, 150, 200, 250, 300};
+        // table1 finishes fast (row.num=5), table2-5 run slow (row.num=500).
+        long[] rowNumPerSource = {5, 500, 500, 500, 500};
         int sourceCount = rowNumPerSource.length;
         long expectedTotalRows = 0;
         for (long rows : rowNumPerSource) {
@@ -117,18 +118,18 @@ public class CheckpointCoordinatorFailoverIT {
                             testResources.getRight(), jobConfig, config1);
             ClientJobProxy clientJobProxy = jobExecutionEnv.execute();
 
-            // Wait until any pipeline reports a strict subset of readyToClose tasks:
-            // directly read IMap and require 0 < size < total for at least one pipeline.
             long jobId = clientJobProxy.getJobId();
             IMap<Object, Object> runningJobStateImap =
                     masterNode2.getMap(Constant.IMAP_RUNNING_JOB_STATE);
-            AtomicInteger observedSubsetSize = new AtomicInteger(-1);
-            AtomicInteger observedPipelineId = new AtomicInteger(-1);
+            AtomicInteger completedPipelineCount = new AtomicInteger(0);
+            AtomicInteger incompletePipelineCount = new AtomicInteger(0);
             Awaitility.await()
                     .atMost(3, TimeUnit.MINUTES)
                     .pollInterval(200, TimeUnit.MILLISECONDS)
                     .untilAsserted(
                             () -> {
+                                int completed = 0;
+                                int incomplete = 0;
                                 for (int pipelineId = 1; pipelineId <= sourceCount; pipelineId++) {
                                     String readyToCloseImapKey =
                                             "checkpoint_state_"
@@ -137,31 +138,33 @@ public class CheckpointCoordinatorFailoverIT {
                                                     + pipelineId
                                                     + "_ready_to_close";
                                     Object stored = runningJobStateImap.get(readyToCloseImapKey);
-                                    if (stored instanceof Set) {
-                                        int size = ((Set<?>) stored).size();
-                                        if (size > 0 && size < sourceCount) {
-                                            observedSubsetSize.compareAndSet(-1, size);
-                                            observedPipelineId.compareAndSet(-1, pipelineId);
-                                        }
+                                    if (stored instanceof Set && !((Set<?>) stored).isEmpty()) {
+                                        completed++;
+                                    } else {
+                                        incomplete++;
                                     }
                                 }
+                                completedPipelineCount.set(completed);
+                                incompletePipelineCount.set(incomplete);
                                 Assertions.assertTrue(
-                                        observedSubsetSize.get() > 0,
-                                        "Waiting for a partial readyToCloseStartingTask subset "
-                                                + "in any pipeline"
-                                                + " (1.."
-                                                + (sourceCount - 1)
-                                                + ")");
+                                        completed > 0 && incomplete > 0,
+                                        String.format(
+                                                "Waiting for cross-pipeline partial progress: "
+                                                        + "need at least one completed and one "
+                                                        + "incomplete pipeline "
+                                                        + "(completed=%d, incomplete=%d)",
+                                                completed, incomplete));
                             });
 
             log.info(
-                    "Observed readyToCloseStartingTask subset of size {}/{} for job {} "
-                            + "(pipelineId={}). "
+                    "Observed cross-pipeline partial readyToClose progress for job {}: "
+                            + "{}/{} pipelines completed, {}/{} still running. "
                             + "Triggering master failover by shutting down masterNode1.",
-                    observedSubsetSize.get(),
-                    sourceCount,
                     jobId,
-                    observedPipelineId.get());
+                    completedPipelineCount.get(),
+                    sourceCount,
+                    incompletePipelineCount.get(),
+                    sourceCount);
 
             CompletableFuture<JobStatus> waitFuture =
                     CompletableFuture.supplyAsync(clientJobProxy::waitForJobComplete);

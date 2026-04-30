@@ -375,6 +375,133 @@ public class CheckpointCoordinatorTest
         executor.shutdownNow();
     }
 
+    @Test
+    void testReadyToClosePartialProgressPersistedAndRestoredCorrectly() {
+        ExecutorService executorService = Executors.newCachedThreadPool();
+        try {
+            TaskLocation task1 = new TaskLocation(new TaskGroupLocation(1L, 1, 1), 1, 1);
+            TaskLocation task2 = new TaskLocation(new TaskGroupLocation(1L, 1, 2), 2, 2);
+            TaskLocation task3 = new TaskLocation(new TaskGroupLocation(1L, 1, 3), 3, 3);
+            Set<TaskLocation> allStarting = new HashSet<>(Arrays.asList(task1, task2, task3));
+
+            CheckpointConfig checkpointConfig = new CheckpointConfig();
+            checkpointConfig.setStorage(new CheckpointStorageConfig());
+
+            CheckpointPlan plan =
+                    CheckpointPlan.builder()
+                            .pipelineId(1)
+                            .pipelineSubtasks(allStarting)
+                            .startingSubtasks(allStarting)
+                            .build();
+
+            IMap<Object, Object> realIMap =
+                    nodeEngine.getHazelcastInstance().getMap(IMAP_RUNNING_JOB_STATE);
+            String readyToCloseKey = "checkpoint_state_1_1_ready_to_close";
+            realIMap.remove(readyToCloseKey);
+
+            CheckpointManager mockManager = Mockito.mock(CheckpointManager.class);
+            CheckpointStorage mockStorage = Mockito.mock(CheckpointStorage.class);
+            CheckpointIDCounter mockIdCounter = Mockito.mock(CheckpointIDCounter.class);
+
+            // Phase 1: partial readyToClose (1 of 3)
+            CheckpointCoordinator coord1 =
+                    new CheckpointCoordinator(
+                            mockManager,
+                            mockStorage,
+                            checkpointConfig,
+                            1L,
+                            plan,
+                            mockIdCounter,
+                            null,
+                            executorService,
+                            realIMap,
+                            false,
+                            null);
+            CheckpointCoordinator spy1 = Mockito.spy(coord1);
+            Mockito.doNothing()
+                    .when(spy1)
+                    .tryTriggerPendingCheckpoint(Mockito.any(CheckpointType.class));
+
+            spy1.readyToClose(task1);
+
+            Object stored = realIMap.get(readyToCloseKey);
+            Assertions.assertInstanceOf(Set.class, stored);
+            Assertions.assertEquals(
+                    1,
+                    ((Set<?>) stored).size(),
+                    "After 1 of 3 readyToClose, IMap should contain exactly 1 task");
+            Mockito.verify(spy1, Mockito.never())
+                    .tryTriggerPendingCheckpoint(CheckpointType.COMPLETED_POINT_TYPE);
+
+            // Phase 2: restore with partial progress → should trigger normal checkpoint
+            CheckpointCoordinator coord2 =
+                    new CheckpointCoordinator(
+                            mockManager,
+                            mockStorage,
+                            checkpointConfig,
+                            1L,
+                            plan,
+                            mockIdCounter,
+                            null,
+                            executorService,
+                            realIMap,
+                            false,
+                            null);
+            CheckpointCoordinator spy2 = Mockito.spy(coord2);
+            Mockito.doReturn(true).when(spy2).notifyCompleted(Mockito.any());
+            Mockito.doNothing()
+                    .when(spy2)
+                    .tryTriggerPendingCheckpoint(Mockito.any(CheckpointType.class));
+
+            spy2.restoreCoordinator(true);
+
+            Mockito.verify(spy2).tryTriggerPendingCheckpoint(CheckpointType.CHECKPOINT_TYPE);
+            Mockito.verify(spy2, Mockito.never())
+                    .tryTriggerPendingCheckpoint(CheckpointType.COMPLETED_POINT_TYPE);
+
+            // Phase 3: all tasks readyToClose (3 of 3)
+            spy1.readyToClose(task2);
+            spy1.readyToClose(task3);
+
+            stored = realIMap.get(readyToCloseKey);
+            Assertions.assertInstanceOf(Set.class, stored);
+            Assertions.assertEquals(
+                    3,
+                    ((Set<?>) stored).size(),
+                    "After 3 of 3 readyToClose, IMap should contain all 3 tasks");
+            Mockito.verify(spy1).tryTriggerPendingCheckpoint(CheckpointType.COMPLETED_POINT_TYPE);
+
+            // Phase 4: restore with full progress → should trigger COMPLETED_POINT
+            CheckpointCoordinator coord3 =
+                    new CheckpointCoordinator(
+                            mockManager,
+                            mockStorage,
+                            checkpointConfig,
+                            1L,
+                            plan,
+                            mockIdCounter,
+                            null,
+                            executorService,
+                            realIMap,
+                            false,
+                            null);
+            CheckpointCoordinator spy3 = Mockito.spy(coord3);
+            Mockito.doReturn(true).when(spy3).notifyCompleted(Mockito.any());
+            Mockito.doNothing()
+                    .when(spy3)
+                    .tryTriggerPendingCheckpoint(Mockito.any(CheckpointType.class));
+
+            spy3.restoreCoordinator(true);
+
+            Mockito.verify(spy3).tryTriggerPendingCheckpoint(CheckpointType.COMPLETED_POINT_TYPE);
+            Mockito.verify(spy3, Mockito.never())
+                    .tryTriggerPendingCheckpoint(CheckpointType.CHECKPOINT_TYPE);
+
+        } finally {
+            executorService.shutdownNow();
+        }
+    }
+
     // ------------------------------------------------------------------
     // Regression tests: notifyCompleted returns false → callers bail out
     // ------------------------------------------------------------------
