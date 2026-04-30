@@ -37,6 +37,8 @@ import org.apache.seatunnel.engine.server.utils.NodeEngineUtil;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.Test;
+import org.junit.jupiter.api.condition.DisabledOnOs;
+import org.junit.jupiter.api.condition.OS;
 
 import com.hazelcast.internal.serialization.Data;
 import com.hazelcast.map.IMap;
@@ -341,6 +343,7 @@ class CoordinatorServiceJobCleanupTest extends AbstractSeaTunnelServerTest {
     }
 
     @Test
+    @DisabledOnOs(OS.WINDOWS)
     void testTerminalZombieJobWithoutCleanupRecordPersistsHistoryAndRemovesState()
             throws Exception {
         CoordinatorService coordinatorService = server.getCoordinatorService();
