@@ -502,6 +502,170 @@ public class CheckpointCoordinatorTest
         }
     }
 
+    @Test
+    void testRestoreCoordinatorShouldBeIdempotentWithPartialReadyToCloseProgress() {
+        ExecutorService executorService = Executors.newCachedThreadPool();
+        try {
+            TaskLocation task1 = new TaskLocation(new TaskGroupLocation(1L, 1, 1), 1, 1);
+            TaskLocation task2 = new TaskLocation(new TaskGroupLocation(1L, 1, 2), 2, 2);
+            TaskLocation task3 = new TaskLocation(new TaskGroupLocation(1L, 1, 3), 3, 3);
+            Set<TaskLocation> allStarting = new HashSet<>(Arrays.asList(task1, task2, task3));
+
+            CheckpointConfig checkpointConfig = new CheckpointConfig();
+            checkpointConfig.setStorage(new CheckpointStorageConfig());
+            CheckpointPlan plan =
+                    CheckpointPlan.builder()
+                            .pipelineId(1)
+                            .pipelineSubtasks(allStarting)
+                            .startingSubtasks(allStarting)
+                            .build();
+
+            IMap<Object, Object> realIMap =
+                    nodeEngine.getHazelcastInstance().getMap(IMAP_RUNNING_JOB_STATE);
+            String readyToCloseKey = "checkpoint_state_1_1_ready_to_close";
+            realIMap.put(readyToCloseKey, new HashSet<>(Collections.singleton(task1)));
+
+            CheckpointCoordinator coordinator =
+                    new CheckpointCoordinator(
+                            Mockito.mock(CheckpointManager.class),
+                            Mockito.mock(CheckpointStorage.class),
+                            checkpointConfig,
+                            1L,
+                            plan,
+                            Mockito.mock(CheckpointIDCounter.class),
+                            null,
+                            executorService,
+                            realIMap,
+                            false,
+                            null);
+            CheckpointCoordinator spy = Mockito.spy(coordinator);
+            Mockito.doReturn(true).when(spy).notifyCompleted(Mockito.any());
+            Mockito.doNothing()
+                    .when(spy)
+                    .tryTriggerPendingCheckpoint(Mockito.any(CheckpointType.class));
+
+            Assertions.assertDoesNotThrow(() -> spy.restoreCoordinator(true));
+            Assertions.assertDoesNotThrow(() -> spy.restoreCoordinator(true));
+
+            Mockito.verify(spy, Mockito.times(2))
+                    .tryTriggerPendingCheckpoint(CheckpointType.CHECKPOINT_TYPE);
+            Mockito.verify(spy, Mockito.never())
+                    .tryTriggerPendingCheckpoint(CheckpointType.COMPLETED_POINT_TYPE);
+
+            Set<TaskLocation> restoredReadyToClose =
+                    (Set<TaskLocation>)
+                            ReflectionUtils.getField(spy, "readyToCloseStartingTask")
+                                    .orElse(Collections.emptySet());
+            Assertions.assertEquals(
+                    1,
+                    restoredReadyToClose.size(),
+                    "Repeated restore should not duplicate partial readyToClose progress");
+            Assertions.assertTrue(restoredReadyToClose.contains(task1));
+        } finally {
+            executorService.shutdownNow();
+        }
+    }
+
+    @Test
+    void testRestoreCoordinatorShouldFallbackToCheckpointWhenReadyToCloseKeyMissing() {
+        ExecutorService executorService = Executors.newCachedThreadPool();
+        try {
+            TaskLocation task1 = new TaskLocation(new TaskGroupLocation(1L, 1, 1), 1, 1);
+            TaskLocation task2 = new TaskLocation(new TaskGroupLocation(1L, 1, 2), 2, 2);
+            Set<TaskLocation> allStarting = new HashSet<>(Arrays.asList(task1, task2));
+
+            CheckpointConfig checkpointConfig = new CheckpointConfig();
+            checkpointConfig.setStorage(new CheckpointStorageConfig());
+            CheckpointPlan plan =
+                    CheckpointPlan.builder()
+                            .pipelineId(1)
+                            .pipelineSubtasks(allStarting)
+                            .startingSubtasks(allStarting)
+                            .build();
+
+            IMap<Object, Object> realIMap =
+                    nodeEngine.getHazelcastInstance().getMap(IMAP_RUNNING_JOB_STATE);
+            String readyToCloseKey = "checkpoint_state_1_1_ready_to_close";
+            realIMap.remove(readyToCloseKey);
+
+            CheckpointCoordinator coordinator =
+                    new CheckpointCoordinator(
+                            Mockito.mock(CheckpointManager.class),
+                            Mockito.mock(CheckpointStorage.class),
+                            checkpointConfig,
+                            1L,
+                            plan,
+                            Mockito.mock(CheckpointIDCounter.class),
+                            null,
+                            executorService,
+                            realIMap,
+                            false,
+                            null);
+            CheckpointCoordinator spy = Mockito.spy(coordinator);
+            Mockito.doReturn(true).when(spy).notifyCompleted(Mockito.any());
+            Mockito.doNothing()
+                    .when(spy)
+                    .tryTriggerPendingCheckpoint(Mockito.any(CheckpointType.class));
+
+            Assertions.assertDoesNotThrow(() -> spy.restoreCoordinator(true));
+            Mockito.verify(spy).tryTriggerPendingCheckpoint(CheckpointType.CHECKPOINT_TYPE);
+            Mockito.verify(spy, Mockito.never())
+                    .tryTriggerPendingCheckpoint(CheckpointType.COMPLETED_POINT_TYPE);
+        } finally {
+            executorService.shutdownNow();
+        }
+    }
+
+    @Test
+    void testRestoreCoordinatorShouldFallbackToCheckpointWhenReadyToCloseValueCorrupted() {
+        ExecutorService executorService = Executors.newCachedThreadPool();
+        try {
+            TaskLocation task1 = new TaskLocation(new TaskGroupLocation(1L, 1, 1), 1, 1);
+            TaskLocation task2 = new TaskLocation(new TaskGroupLocation(1L, 1, 2), 2, 2);
+            Set<TaskLocation> allStarting = new HashSet<>(Arrays.asList(task1, task2));
+
+            CheckpointConfig checkpointConfig = new CheckpointConfig();
+            checkpointConfig.setStorage(new CheckpointStorageConfig());
+            CheckpointPlan plan =
+                    CheckpointPlan.builder()
+                            .pipelineId(1)
+                            .pipelineSubtasks(allStarting)
+                            .startingSubtasks(allStarting)
+                            .build();
+
+            IMap<Object, Object> realIMap =
+                    nodeEngine.getHazelcastInstance().getMap(IMAP_RUNNING_JOB_STATE);
+            String readyToCloseKey = "checkpoint_state_1_1_ready_to_close";
+            realIMap.set(readyToCloseKey, "corrupted_ready_to_close_payload");
+
+            CheckpointCoordinator coordinator =
+                    new CheckpointCoordinator(
+                            Mockito.mock(CheckpointManager.class),
+                            Mockito.mock(CheckpointStorage.class),
+                            checkpointConfig,
+                            1L,
+                            plan,
+                            Mockito.mock(CheckpointIDCounter.class),
+                            null,
+                            executorService,
+                            realIMap,
+                            false,
+                            null);
+            CheckpointCoordinator spy = Mockito.spy(coordinator);
+            Mockito.doReturn(true).when(spy).notifyCompleted(Mockito.any());
+            Mockito.doNothing()
+                    .when(spy)
+                    .tryTriggerPendingCheckpoint(Mockito.any(CheckpointType.class));
+
+            Assertions.assertDoesNotThrow(() -> spy.restoreCoordinator(true));
+            Mockito.verify(spy).tryTriggerPendingCheckpoint(CheckpointType.CHECKPOINT_TYPE);
+            Mockito.verify(spy, Mockito.never())
+                    .tryTriggerPendingCheckpoint(CheckpointType.COMPLETED_POINT_TYPE);
+        } finally {
+            executorService.shutdownNow();
+        }
+    }
+
     // ------------------------------------------------------------------
     // Regression tests: notifyCompleted returns false → callers bail out
     // ------------------------------------------------------------------
