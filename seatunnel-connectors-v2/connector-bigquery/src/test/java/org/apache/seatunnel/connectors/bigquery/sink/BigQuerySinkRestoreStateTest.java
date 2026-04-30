@@ -15,23 +15,26 @@
  * limitations under the License.
  */
 
-package org.apache.seatunnel.connectors.bigquery.sink.writer;
+package org.apache.seatunnel.connectors.bigquery.sink;
 
-import org.json.JSONArray;
+import org.junit.jupiter.api.Test;
 
-import com.google.api.core.ApiFuture;
-import com.google.cloud.bigquery.storage.v1.AppendRowsResponse;
-import com.google.protobuf.Descriptors;
+import java.util.Arrays;
 
-import java.io.IOException;
+import static org.junit.jupiter.api.Assertions.assertEquals;
 
-public interface BigQueryWriter {
-    ApiFuture<AppendRowsResponse> append(JSONArray jsonArr)
-            throws Descriptors.DescriptorValidationException, IOException;
+class BigQuerySinkRestoreStateTest {
+    @Test
+    void testGetLatestStateByCheckpointId() {
+        BigQuerySinkState state1 = new BigQuerySinkState("stream-1", 100L, 1L);
+        BigQuerySinkState state3 = new BigQuerySinkState("stream-3", 300L, 3L);
+        BigQuerySinkState state2 = new BigQuerySinkState("stream-2", 200L, 2L);
 
-    default void onAppendSuccess(int rowCount) {}
+        BigQuerySinkState latest =
+                BigQuerySink.getLatestState(Arrays.asList(state1, state3, state2));
 
-    void close();
-
-    String getStreamName();
+        assertEquals("stream-3", latest.getStreamName());
+        assertEquals(300L, latest.getNextOffset());
+        assertEquals(3L, latest.getCheckpointId());
+    }
 }

@@ -39,7 +39,7 @@ import java.util.concurrent.TimeUnit;
 
 @Slf4j
 public abstract class AbstractBigQuerySinkWriter
-        implements SinkWriter<SeaTunnelRow, BigQueryCommitInfo, Void>,
+        implements SinkWriter<SeaTunnelRow, BigQueryCommitInfo, BigQuerySinkState>,
                 SupportMultiTableSinkWriter<Void> {
     protected final ReadonlyConfig config;
     protected final BigQuerySerializer serializer;
@@ -70,6 +70,7 @@ public abstract class AbstractBigQuerySinkWriter
         try {
             ApiFuture<AppendRowsResponse> future = streamWriter.append(dataToSend);
             future.get(60, TimeUnit.SECONDS);
+            streamWriter.onAppendSuccess(dataToSend.length());
             log.info("Successfully appended {} rows.", dataToSend.length());
         } catch (InterruptedException e) {
             Thread.currentThread().interrupt();
@@ -81,10 +82,16 @@ public abstract class AbstractBigQuerySinkWriter
         }
     }
 
+    protected boolean flushOnClose() {
+        return true;
+    }
+
     @Override
     public void close() {
         try {
-            flush();
+            if (flushOnClose()) {
+                flush();
+            }
         } finally {
             try {
                 streamWriter.close();

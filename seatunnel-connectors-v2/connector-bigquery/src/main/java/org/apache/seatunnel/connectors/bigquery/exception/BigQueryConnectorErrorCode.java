@@ -26,6 +26,7 @@ public enum BigQueryConnectorErrorCode implements SeaTunnelErrorCode {
     STREAM_FINALIZE_FAILED("Bigquery-04", "finalize stream write failed"),
     CLIENT_CREATE_FAILED("Bigquery-05", "create bigquery client failed"),
     BAD_CREDENTIALS("Bigquery-06", "bad credentials for bigquery client"),
+    TABLE_NOT_FOUND("Bigquery-07", "the specified table is not found in bigquery"),
     ;
 
     private final String code;

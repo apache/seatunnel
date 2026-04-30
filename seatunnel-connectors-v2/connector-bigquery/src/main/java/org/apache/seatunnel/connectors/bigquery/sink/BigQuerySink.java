@@ -33,14 +33,17 @@ import org.apache.seatunnel.connectors.bigquery.sink.committer.BigQueryCommitInf
 import org.apache.seatunnel.connectors.bigquery.sink.committer.BigQueryCommitter;
 import org.apache.seatunnel.connectors.bigquery.sink.writer.BigQueryBatchWriter;
 import org.apache.seatunnel.connectors.bigquery.sink.writer.BigQueryStreamWriter;
+import org.apache.seatunnel.connectors.bigquery.sink.writer.BigQueryWriter;
 
 import com.google.cloud.bigquery.storage.v1.BigQueryWriteClient;
 
+import java.util.Comparator;
 import java.util.List;
 import java.util.Optional;
 
 public class BigQuerySink
-        implements SeaTunnelSink<SeaTunnelRow, Void, BigQueryCommitInfo, BigQueryCommitInfo> {
+        implements SeaTunnelSink<
+                SeaTunnelRow, BigQuerySinkState, BigQueryCommitInfo, BigQueryCommitInfo> {
 
     private final ReadonlyConfig config;
     private final boolean isBatch;
@@ -80,15 +83,25 @@ public class BigQuerySink
     }
 
     @Override
-    public SinkWriter<SeaTunnelRow, BigQueryCommitInfo, Void> restoreWriter(
-            SinkWriter.Context context, List<Void> states) {
+    public SinkWriter<SeaTunnelRow, BigQueryCommitInfo, BigQuerySinkState> restoreWriter(
+            SinkWriter.Context context, List<BigQuerySinkState> states) {
         BigQueryWriteClient client = BigQueryClientFactory.getWriteClient(config);
+        BigQueryWriter writer;
         if (isBatch) {
+            if (states != null && !states.isEmpty()) {
+                BigQuerySinkState latestState = getLatestState(states);
+                writer =
+                        BigQueryBatchWriter.restore(
+                                client,
+                                config,
+                                latestState.getStreamName(),
+                                latestState.getNextOffset());
+            } else {
+                writer = BigQueryBatchWriter.of(client, config);
+            }
+
             return new BigQuerySinkBatchWriter(
-                    config,
-                    BigQueryBatchWriter.of(client, config),
-                    new BigQuerySerializer(catalogTable, config),
-                    client);
+                    config, writer, new BigQuerySerializer(catalogTable, config), client);
         } else {
             return new BigQuerySinkStreamWriter(
                     config,
@@ -109,6 +122,11 @@ public class BigQuerySink
     }
 
     @Override
+    public Optional<Serializer<BigQuerySinkState>> getWriterStateSerializer() {
+        return Optional.of(new BigQuerySinkStateSerializer());
+    }
+
+    @Override
     public Optional<CatalogTable> getWriteCatalogTable() {
         return Optional.of(catalogTable);
     }
@@ -116,5 +134,11 @@ public class BigQuerySink
     @Override
     public String getPluginName() {
         return BigQuerySinkOptions.IDENTIFIER;
+    }
+
+    static BigQuerySinkState getLatestState(List<BigQuerySinkState> states) {
+        return states.stream()
+                .max(Comparator.comparingLong(BigQuerySinkState::getCheckpointId))
+                .get();
     }
 }

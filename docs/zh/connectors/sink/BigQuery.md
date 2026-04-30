@@ -12,25 +12,12 @@ import ChangeLog from '../changelog/connector-bigquery.md';
 
 ## 主要特性
 
-- [x] [精确一次](../../introduction/concepts/connector-v2-features.md)
+- [x] [精确一次](../../introduction/concepts/connector-v2-features.md) 仅适用于 batch 模式
 - [x] [cdc](../../introduction/concepts/connector-v2-features.md)
 
 ## 描述
 
 用于 Google Cloud BigQuery 的数据接收器连接器,使用 Storage Write API 实现高性能数据摄取。
-
-## 写入模式语义
-
-### Batch 模式
-
-在 `batch` 模式下，连接器通过 BigQuery Storage Write API 的 pending stream 写入数据。写入 pending stream 的数据在通过 `BatchCommitWriteStreams` 提交之前，对查询不可见。
-
-如果某个 checkpoint 在 pending stream 已 finalize 但尚未 commit 之前失败，连接器在 restore 时不会提交该 stream。这是有意的行为，因为作业可能会从上一个成功的 checkpoint 重新处理相同的数据
-如果在 restore 时提交失败 checkpoint 对应的 stream，可能会导致重复数据。相反，恢复后的 writer 会创建新的 pending stream，并重新写入回放的数据。
-
-### Streaming 模式
-
-在 `streaming` 模式下，连接器直接向 BigQuery 写入记录。当配置 `sequence_number_column` 时，该列的值会作为 `_CHANGE_SEQUENCE_NUMBER` 发送给 BigQuery，用于去重。
 
 ## 支持的数据源信息
 
@@ -50,23 +37,22 @@ import ChangeLog from '../changelog/connector-bigquery.md';
 | write_mode                  | string  | 否      | batch   | 写入模式。支持的值：`batch` 和 `streaming`                                                                      |
 | sequence_number_column      | string  | 否      | -       | 用于 CDC 去重的序列号列名。仅在 `write_mode` 为 `streaming` 时适用                                                |
 | batch_size                  | int     | 否      | 1000    | 发送到 BigQuery 之前批量处理的行数                                                                               |
-| emulator_host               | string  | 否      | -       | 用于测试的 BigQuery 模拟器主机地址（例如 `localhost:9050`）                                                        |
 
-### 认证选项
+### 表选项
 
-您必须提供以下认证方法之一:
-
-1. **service_account_key_path**: 服务账号 JSON 文件路径
-2. **service_account_key_json**: 内联 JSON 密钥内容
-3. **默认凭据**: 如果未指定上述选项,则使用应用程序默认凭据 (ADC)
+目标 BigQuery 表必须已经存在。
+连接器会在 writer 初始化时读取已有的表 schema，并且不会自动创建 BigQuery 表。
 
 #### sequence_number_column
 
-配置 `sequence_number_column` 后，该列的值将作为 `_CHANGE_SEQUENCE_NUMBER` 发送到 BigQuery，从而实现幂等写入。当源端重新传输时，具有相同序列号的行将被 BigQuery 自动去重。
+`sequence_number_column` 是可选配置。
+
+当配置了 `sequence_number_column` 时，该列的值会作为 `_CHANGE_SEQUENCE_NUMBER` 发送到 BigQuery，用于启用 BigQuery 侧的去重。在 source 重新发送数据时，具有相同 primary key 和相同 sequence number 的行可以由 BigQuery 进行去重。
+如果没有配置 `sequence_number_column`，则不会发送 `_CHANGE_SEQUENCE_NUMBER`，BigQuery 也不会执行基于 sequence number 的去重。
 
 > **注意**
-> - `sequence_number_column` 应引用源表中单调递增的列（例如 `updated_at` 的 epoch 毫秒值、`version` 或 `seq_id`）。列值必须是可转换为 `long` 的类型。
-> - 要在流式模式下启用精确一次（去重），目标 BigQuery 表必须定义主键。否则，无论序列号如何，BigQuery 都会将每次写入视为追加操作。
+> - `sequence_number_column` 应该引用 source 表中单调递增的列，例如以 epoch millis 表示的 `updated_at`、`version` 或 `seq_id`。该列的值必须能够转换为 `long` 类型。
+> - 如果要在 streaming 模式下启用 BigQuery 侧的去重，目标 BigQuery 表必须定义 Primary Key。否则，无论是否配置 sequence number，BigQuery 都会将每次写入视为 append 操作。
 
 ## 任务示例
 
@@ -99,20 +85,6 @@ sink {
     table_id = "user_events"
     service_account_key_path = "/path/to/key.json"
     batch_size = 1000
-  }
-}
-```
-
-### BigQuery 模拟器示例 (测试)
-
-```hocon
-sink {
-  BigQuery {
-    project_id = "test-project"
-    dataset_id = "test_dataset"
-    table_id = "test_table"
-    emulator_host = "localhost:9050"
-    batch_size = 100
   }
 }
 ```
@@ -181,6 +153,11 @@ sink {
   }
 }
 ```
+
+### 测试
+
+该连接器使用 BigQuery Storage Write API。当前本地 BigQuery emulator 不能完整支持该连接器使用的写入路径。
+因此，目前应在真实的 BigQuery 环境中测试该连接器。
 
 ## 更新日志
 

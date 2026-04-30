@@ -80,7 +80,4 @@ public class BigQueryStreamWriter implements BigQueryWriter {
     public void close() {
         streamWriter.close();
     }
-
-    @Override
-    public void finalizeStream() {}
 }

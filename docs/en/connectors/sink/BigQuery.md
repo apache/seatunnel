@@ -12,28 +12,12 @@ import ChangeLog from '../changelog/connector-bigquery.md';
 
 ## Key Features
 
-- [x] [exactly-once](../../introduction/concepts/connector-v2-features.md)
+- [x] [exactly-once](../../introduction/concepts/connector-v2-features.md) for batch mode only
 - [x] [cdc](../../introduction/concepts/connector-v2-features.md)
 
 ## Description
 
 Sink connector for Google Cloud BigQuery using the Storage Write API for high-performance data ingestion.
-
-## Write Mode Semantics
-
-### Batch Mode
-
-In `batch` mode, the connector writes data through BigQuery Storage Write API pending streams.
-Data written to a pending stream is not visible to readers until the stream is committed by `BatchCommitWriteStreams`.
-
-If a checkpoint fails after a pending stream has been finalized but before it is committed, the connector intentionally does not commit that stream during restore.
-The job may replay the same records from the previous successful checkpoint, so committing the failed-checkpoint stream during restore could produce duplicate rows.
-Instead, the restored writer creates a new pending stream and writes the replayed records again.
-
-### Streaming Mode
-
-In `streaming` mode, the connector writes records directly to BigQuery.
-When `sequence_number_column` is configured, the value from that column is sent as `_CHANGE_SEQUENCE_NUMBER` to BigQuery for deduplication.
 
 ## Supported DataSource Info
 
@@ -54,7 +38,6 @@ When `sequence_number_column` is configured, the value from that column is sent 
 | write_mode                  | string  | No       | batch   | Write mode. Supported values: `batch` and `streaming`                                                       |
 | sequence_number_column      | string  | No       | -       | Column name used as sequence number for CDC deduplication. Only applicable when `write_mode` is `streaming` |
 | batch_size                  | int     | No       | 1000    | Number of rows to batch before sending to BigQuery                                                          |
-| emulator_host               | string  | No       | -       | BigQuery emulator host for testing (e.g., `localhost:9050`)                                                 |
 
 ### Authentication Options
 
@@ -64,13 +47,22 @@ You must provide **one** of the following authentication methods:
 2. **service_account_key_json**: Inline JSON key content
 3. **Default credentials**: Uses application default credentials (ADC) if neither is specified
 
+### Table Options
+
+The target BigQuery table must already exist.
+The connector reads the existing table schema during writer initialization and does not create the table automatically.
+
 #### sequence_number_column
 
-When `sequence_number_column` is configured, the value from that column is sent as `_CHANGE_SEQUENCE_NUMBER` to BigQuery, enabling idempotent writes. On source retransmission, rows with the same sequence number are deduplicated by BigQuery.
+`sequence_number_column` is optional.
+
+When `sequence_number_column` is configured, the value from that column is sent as `_CHANGE_SEQUENCE_NUMBER` to BigQuery, enabling BigQuery-side deduplication. On source retransmission, rows with the same primary key and sequence number can be deduplicated by BigQuery.
+If `sequence_number_column` is not configured, `_CHANGE_SEQUENCE_NUMBER` is not sent and BigQuery will not perform sequence-number-based deduplication.
 
 > **Note**
 > - The `sequence_number_column` should reference a monotonically increasing column in your source table (e.g., `updated_at` as epoch millis, `version`, or `seq_id`). The column value must be of a type convertible to `long`.
-> - To enable exactly-once (deduplication) in streaming mode, the target BigQuery table must have a Primary Key defined. Otherwise, BigQuery will treat every write as an append operation, regardless of the sequence number.
+> - To enable BigQuery-side deduplication in streaming mode, the target BigQuery table must have a Primary Key defined. Otherwise, BigQuery will treat every write as an append operation, regardless of the sequence number.
+
 ## Task Example
 
 ### Simple Example (Using Service Account File)
@@ -102,20 +94,6 @@ sink {
     table_id = "user_events"
     service_account_key_path = "/path/to/key.json"
     batch_size = 1000
-  }
-}
-```
-
-### Example with BigQuery Emulator (Testing)
-
-```hocon
-sink {
-  BigQuery {
-    project_id = "test-project"
-    dataset_id = "test_dataset"
-    table_id = "test_table"
-    emulator_host = "localhost:9050"
-    batch_size = 100
   }
 }
 ```
@@ -184,6 +162,11 @@ sink {
   }
 }
 ```
+
+### Testing
+
+This connector uses the BigQuery Storage Write API. The current local BigQuery emulator does not fully support the write path used by this connector.
+For now, the connector should be tested against a real BigQuery environment.
 
 ## Changelog
 

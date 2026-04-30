@@ -53,16 +53,12 @@ public class BigQuerySinkFactory implements TableSinkFactory {
                         BigQuerySinkOptions.BATCH_SIZE,
                         BigQuerySinkOptions.EMULATOR_HOST,
                         SinkConnectorCommonOptions.MULTI_TABLE_SINK_REPLICA)
-                .conditional(
-                        BigQuerySinkOptions.WRITE_MODE,
-                        "streaming",
-                        BigQuerySinkOptions.SEQUENCE_NUMBER_COLUMN)
                 .build();
     }
 
     @Override
-    public TableSink<SeaTunnelRow, Void, BigQueryCommitInfo, BigQueryCommitInfo> createSink(
-            TableSinkFactoryContext context) {
+    public TableSink<SeaTunnelRow, BigQuerySinkState, BigQueryCommitInfo, BigQueryCommitInfo>
+            createSink(TableSinkFactoryContext context) {
         ReadonlyConfig config = context.getOptions();
         CatalogTable catalogTable = context.getCatalogTable();
         return () -> new BigQuerySink(config, catalogTable);

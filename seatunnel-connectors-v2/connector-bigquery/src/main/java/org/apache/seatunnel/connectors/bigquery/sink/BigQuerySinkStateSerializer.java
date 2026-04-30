@@ -15,7 +15,7 @@
  * limitations under the License.
  */
 
-package org.apache.seatunnel.connectors.bigquery.sink.committer;
+package org.apache.seatunnel.connectors.bigquery.sink;
 
 import org.apache.seatunnel.api.serialization.Serializer;
 
@@ -25,25 +25,27 @@ import java.io.DataInputStream;
 import java.io.DataOutputStream;
 import java.io.IOException;
 
-public class BigQueryCommitInfoSerializer implements Serializer<BigQueryCommitInfo> {
+public class BigQuerySinkStateSerializer implements Serializer<BigQuerySinkState> {
     @Override
-    public byte[] serialize(BigQueryCommitInfo bigQueryCommitInfo) throws IOException {
+    public byte[] serialize(BigQuerySinkState bigQuerySinkState) throws IOException {
         try (final ByteArrayOutputStream baos = new ByteArrayOutputStream();
                 final DataOutputStream out = new DataOutputStream(baos)) {
-            out.writeUTF(bigQueryCommitInfo.getStreamName());
-            out.writeLong(bigQueryCommitInfo.getFlushOffset());
+            out.writeUTF(bigQuerySinkState.getStreamName());
+            out.writeLong(bigQuerySinkState.getNextOffset());
+            out.writeLong(bigQuerySinkState.getCheckpointId());
             out.flush();
             return baos.toByteArray();
         }
     }
 
     @Override
-    public BigQueryCommitInfo deserialize(byte[] serialized) throws IOException {
+    public BigQuerySinkState deserialize(byte[] serialized) throws IOException {
         try (final ByteArrayInputStream bais = new ByteArrayInputStream(serialized);
                 final DataInputStream in = new DataInputStream(bais)) {
             final String streamName = in.readUTF();
-            final long flushOffset = in.readLong();
-            return new BigQueryCommitInfo(streamName, flushOffset);
+            final long nextOffset = in.readLong();
+            final long checkpointId = in.readLong();
+            return new BigQuerySinkState(streamName, nextOffset, checkpointId);
         }
     }
 }

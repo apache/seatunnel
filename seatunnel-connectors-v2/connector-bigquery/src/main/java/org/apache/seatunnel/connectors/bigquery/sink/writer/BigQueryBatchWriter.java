@@ -42,18 +42,22 @@ import static org.apache.seatunnel.connectors.bigquery.sink.writer.TableSchemaUt
 public class BigQueryBatchWriter implements BigQueryWriter {
     private final JsonStreamWriter streamWriter;
     private final BigQueryWriteClient client;
+
     @Getter private final String streamName;
     @Getter private final String tablePath;
+    @Getter private long nextOffset;
 
     public BigQueryBatchWriter(
             JsonStreamWriter streamWriter,
             BigQueryWriteClient client,
             String streamName,
-            String tablePath) {
+            String tablePath,
+            long nextOffset) {
         this.streamWriter = streamWriter;
         this.client = client;
         this.streamName = streamName;
         this.tablePath = tablePath;
+        this.nextOffset = nextOffset;
     }
 
     public static BigQueryBatchWriter of(BigQueryWriteClient client, ReadonlyConfig config) {
@@ -62,37 +66,62 @@ public class BigQueryBatchWriter implements BigQueryWriter {
 
     public static BigQueryBatchWriter of(
             BigQueryWriteClient client, ReadonlyConfig config, TableSchema tableSchema) {
+        return BigQueryBatchWriter.of(client, config, tableSchema, null, 0L);
+    }
+
+    public static BigQueryBatchWriter restore(
+            BigQueryWriteClient client, ReadonlyConfig config, String streamName, long nextOffset) {
+        return BigQueryBatchWriter.of(
+                client, config, getActualTableSchema(config, false), streamName, nextOffset);
+    }
+
+    private static BigQueryBatchWriter of(
+            BigQueryWriteClient client,
+            ReadonlyConfig config,
+            TableSchema tableSchema,
+            String restoredStreamName,
+            long nextOffset) {
         String projectId = config.get(BigQuerySinkOptions.PROJECT_ID);
         String datasetId = config.get(BigQuerySinkOptions.DATASET_ID);
         String tableId = config.get(BigQuerySinkOptions.TABLE_ID);
         String parentTable = TableName.of(projectId, datasetId, tableId).toString();
 
-        WriteStream writeStream =
-                WriteStream.newBuilder().setType(WriteStream.Type.PENDING).build();
-        WriteStream createdStream = client.createWriteStream(parentTable, writeStream);
+        String assignedStreamName = restoredStreamName;
+        if (assignedStreamName == null || assignedStreamName.isEmpty()) {
+            WriteStream writeStream =
+                    WriteStream.newBuilder().setType(WriteStream.Type.BUFFERED).build();
+            WriteStream createdStream = client.createWriteStream(parentTable, writeStream);
+            assignedStreamName = createdStream.getName();
+            log.info("Created Buffered write stream {}", assignedStreamName);
+        } else {
+            log.info(
+                    "Restored Buffered write stream {} at nextOffset {}",
+                    assignedStreamName,
+                    nextOffset);
+        }
 
-        String assignedStreamName = createdStream.getName();
-        log.info("Created Pending write stream {}", assignedStreamName);
         return new BigQueryBatchWriter(
                 createStreamWriter(assignedStreamName, tableSchema, client),
                 client,
                 assignedStreamName,
-                parentTable);
+                parentTable,
+                nextOffset);
     }
 
     @Override
     public ApiFuture<AppendRowsResponse> append(JSONArray jsonArr)
             throws Descriptors.DescriptorValidationException, IOException {
-        return streamWriter.append(jsonArr);
+        long appendOffset = nextOffset;
+        return streamWriter.append(jsonArr, appendOffset);
+    }
+
+    @Override
+    public void onAppendSuccess(int rowCount) {
+        nextOffset += rowCount;
     }
 
     @Override
     public void close() {
         streamWriter.close();
-    }
-
-    @Override
-    public void finalizeStream() {
-        client.finalizeWriteStream(streamName);
     }
 }

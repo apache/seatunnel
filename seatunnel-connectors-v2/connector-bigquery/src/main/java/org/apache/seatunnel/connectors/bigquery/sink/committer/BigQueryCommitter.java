@@ -22,16 +22,16 @@ import org.apache.seatunnel.api.sink.SinkCommitter;
 import org.apache.seatunnel.connectors.bigquery.client.BigQueryClientFactory;
 import org.apache.seatunnel.connectors.bigquery.exception.BigQueryConnectorErrorCode;
 import org.apache.seatunnel.connectors.bigquery.exception.BigQueryConnectorException;
-import org.apache.seatunnel.connectors.bigquery.option.BigQuerySinkOptions;
 
-import com.google.cloud.bigquery.storage.v1.BatchCommitWriteStreamsRequest;
-import com.google.cloud.bigquery.storage.v1.BatchCommitWriteStreamsResponse;
 import com.google.cloud.bigquery.storage.v1.BigQueryWriteClient;
-import com.google.cloud.bigquery.storage.v1.TableName;
+import com.google.cloud.bigquery.storage.v1.FlushRowsRequest;
+import com.google.cloud.bigquery.storage.v1.FlushRowsResponse;
+import com.google.protobuf.Int64Value;
 import lombok.extern.slf4j.Slf4j;
 
 import java.util.Collections;
 import java.util.List;
+import java.util.Objects;
 import java.util.stream.Collectors;
 
 import static org.apache.seatunnel.connectors.bigquery.sink.writer.BigQueryStreamWriter.DEFAULT_PATH;
@@ -39,14 +39,9 @@ import static org.apache.seatunnel.connectors.bigquery.sink.writer.BigQueryStrea
 @Slf4j
 public class BigQueryCommitter implements SinkCommitter<BigQueryCommitInfo> {
     private final ReadonlyConfig config;
-    private final String parentTable;
 
     public BigQueryCommitter(ReadonlyConfig config) {
         this.config = config;
-        String projectId = config.get(BigQuerySinkOptions.PROJECT_ID);
-        String datasetId = config.get(BigQuerySinkOptions.DATASET_ID);
-        String tableId = config.get(BigQuerySinkOptions.TABLE_ID);
-        this.parentTable = TableName.of(projectId, datasetId, tableId).toString();
     }
 
     @Override
@@ -55,43 +50,51 @@ public class BigQueryCommitter implements SinkCommitter<BigQueryCommitInfo> {
             return commitInfos;
         }
 
-        commitInfos =
+        List<BigQueryCommitInfo> bufferedCommitInfos =
                 commitInfos.stream()
+                        .filter(Objects::nonNull)
+                        .filter(info -> info.getStreamName() != null)
                         .filter(info -> !info.getStreamName().contains(DEFAULT_PATH))
+                        .filter(BigQueryCommitInfo::hasData)
                         .collect(Collectors.toList());
 
-        if (commitInfos.isEmpty()) {
-            return commitInfos;
+        if (bufferedCommitInfos.isEmpty()) {
+            return Collections.emptyList();
         }
 
         try (BigQueryWriteClient client = BigQueryClientFactory.getWriteClient(config)) {
-            List<String> streamNames =
-                    commitInfos.stream()
-                            .map(BigQueryCommitInfo::getStreamName)
-                            .collect(Collectors.toList());
+            for (BigQueryCommitInfo info : bufferedCommitInfos) {
+                FlushRowsRequest request =
+                        FlushRowsRequest.newBuilder()
+                                .setWriteStream(info.getStreamName())
+                                .setOffset(Int64Value.of(info.getFlushOffset()))
+                                .build();
 
-            BatchCommitWriteStreamsRequest commitRequest =
-                    BatchCommitWriteStreamsRequest.newBuilder()
-                            .setParent(parentTable)
-                            .addAllWriteStreams(streamNames)
-                            .build();
+                FlushRowsResponse response = client.flushRows(request);
 
-            BatchCommitWriteStreamsResponse response =
-                    client.batchCommitWriteStreams(commitRequest);
+                long flushedOffset = response.getOffset();
+                if (flushedOffset < info.getFlushOffset()) {
+                    throw new BigQueryConnectorException(
+                            BigQueryConnectorErrorCode.COMMIT_FAILED,
+                            String.format(
+                                    "FlushRows did not reach expected offset. stream=%s, expected=%d, actual=%d",
+                                    info.getStreamName(), info.getFlushOffset(), flushedOffset));
+                }
 
-            if (response.hasCommitTime()) {
-                log.info("Successfully committed {} streams", commitInfos.size());
-            } else {
-                throw new BigQueryConnectorException(
-                        BigQueryConnectorErrorCode.COMMIT_FAILED,
-                        "Commit failed with errors: " + response.getStreamErrorsList());
+                log.info(
+                        "Successfully flushed BigQuery buffered stream {} to offset {}",
+                        info.getStreamName(),
+                        info.getFlushOffset());
             }
         } catch (Exception e) {
             throw new BigQueryConnectorException(BigQueryConnectorErrorCode.COMMIT_FAILED, e);
         }
+
         return Collections.emptyList();
     }
 
     @Override
-    public void abort(List<BigQueryCommitInfo> commitInfos) {}
+    public void abort(List<BigQueryCommitInfo> commitInfos) {
+        // No explicit abort is needed. Unflushed buffered rows are not visible to readers.
+    }
 }

@@ -17,25 +17,20 @@
 
 package org.apache.seatunnel.connectors.bigquery.sink.committer;
 
-import lombok.EqualsAndHashCode;
-import lombok.Getter;
-import lombok.ToString;
+import lombok.AllArgsConstructor;
+import lombok.Data;
 
 import java.io.Serializable;
 
-@Getter
-@ToString
-@EqualsAndHashCode
+@Data
+@AllArgsConstructor
 public class BigQueryCommitInfo implements Serializable {
     private static final long serialVersionUID = 1L;
 
-    private final String streamName;
+    private String streamName;
+    private long flushOffset;
 
-    public BigQueryCommitInfo(String streamName) {
-        this.streamName = streamName;
-    }
-
-    public String getStreamName() {
-        return streamName;
+    public boolean hasData() {
+        return flushOffset >= 0;
     }
 }

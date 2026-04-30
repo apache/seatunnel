@@ -15,23 +15,19 @@
  * limitations under the License.
  */
 
-package org.apache.seatunnel.connectors.bigquery.sink.writer;
+package org.apache.seatunnel.connectors.bigquery.sink;
 
-import org.json.JSONArray;
+import lombok.AllArgsConstructor;
+import lombok.Data;
 
-import com.google.api.core.ApiFuture;
-import com.google.cloud.bigquery.storage.v1.AppendRowsResponse;
-import com.google.protobuf.Descriptors;
+import java.io.Serializable;
 
-import java.io.IOException;
+@Data
+@AllArgsConstructor
+public class BigQuerySinkState implements Serializable {
+    private static final long serialVersionUID = 1L;
 
-public interface BigQueryWriter {
-    ApiFuture<AppendRowsResponse> append(JSONArray jsonArr)
-            throws Descriptors.DescriptorValidationException, IOException;
-
-    default void onAppendSuccess(int rowCount) {}
-
-    void close();
-
-    String getStreamName();
+    private final String streamName;
+    private long nextOffset;
+    private long checkpointId;
 }

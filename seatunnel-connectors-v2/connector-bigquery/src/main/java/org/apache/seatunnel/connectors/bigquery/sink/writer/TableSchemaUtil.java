@@ -94,6 +94,14 @@ public class TableSchemaUtil {
         String tableId = config.get(BigQuerySinkOptions.TABLE_ID);
         BigQuery bigquery = BigQueryClientFactory.getBigQuery(config);
         Table table = bigquery.getTable(TableId.of(projectId, datasetId, tableId));
+        if (table == null) {
+            throw new BigQueryConnectorException(
+                    BigQueryConnectorErrorCode.TABLE_NOT_FOUND,
+                    String.format(
+                            "BigQuery target table does not exist: %s.%s.%s. "
+                                    + "Please create the target table before starting the sink.",
+                            projectId, datasetId, tableId));
+        }
         Schema bqSchema = table.getDefinition().getSchema();
         TableSchema.Builder builder = TableSchema.newBuilder();
 
