@@ -19,10 +19,10 @@ package org.apache.seatunnel.engine.server.telemetry.metrics.exports;
 
 import org.apache.seatunnel.engine.server.telemetry.metrics.AbstractCollector;
 
-import com.hazelcast.cluster.Address;
 import com.hazelcast.instance.impl.Node;
 import io.prometheus.client.GaugeMetricFamily;
 
+import java.net.UnknownHostException;
 import java.util.ArrayList;
 import java.util.List;
 
@@ -59,20 +59,23 @@ public class ClusterMetricExports extends AbstractCollector {
     }
 
     private void clusterInfo(final List<MetricFamilySamples> mfs) {
-        // Snapshot once to avoid TOCTOU race during master election.
-        Address masterAddr = getClusterService().getMasterAddress();
-        if (masterAddr == null) {
-            return;
-        }
-        String masterAddrStr = masterAddr.getHost() + ":" + masterAddr.getPort();
         GaugeMetricFamily metricFamily =
                 new GaugeMetricFamily(
                         "cluster_info",
                         "Cluster info",
                         clusterLabelNames("hazelcastVersion", "master"));
-        metricFamily.addMetric(
-                labelValues(getClusterService().getClusterVersion().toString(), masterAddrStr),
-                1.0);
+        List<String> labelValues = null;
+        try {
+            labelValues =
+                    labelValues(
+                            getClusterService().getClusterVersion().toString(), masterAddress());
+        } catch (UnknownHostException ignored) {
+
+        }
+        if (labelValues == null) {
+            return;
+        }
+        metricFamily.addMetric(labelValues, 1.0);
         mfs.add(metricFamily);
     }
 
