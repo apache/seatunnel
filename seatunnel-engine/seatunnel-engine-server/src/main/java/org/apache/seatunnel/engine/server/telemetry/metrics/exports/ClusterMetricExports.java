@@ -19,6 +19,7 @@ package org.apache.seatunnel.engine.server.telemetry.metrics.exports;
 
 import org.apache.seatunnel.engine.server.telemetry.metrics.AbstractCollector;
 
+import com.hazelcast.cluster.Address;
 import com.hazelcast.instance.impl.Node;
 import io.prometheus.client.GaugeMetricFamily;
 
@@ -59,22 +60,28 @@ public class ClusterMetricExports extends AbstractCollector {
     }
 
     private void clusterInfo(final List<MetricFamilySamples> mfs) {
+        // Snapshot once to avoid TOCTOU race during master election.
+        Address masterAddr = getClusterService().getMasterAddress();
+        if (masterAddr == null) {
+            return;
+        }
+        // Keep the historical label format compatible with previous IP:port output.
+        String masterIpPort;
+        try {
+            masterIpPort =
+                    masterAddr.getInetAddress().getHostAddress() + ":" + masterAddr.getPort();
+        } catch (UnknownHostException e) {
+            getLogger(ClusterMetricExports.class)
+                    .warning("Skip cluster_info metric: unable to resolve master address", e);
+            return;
+        }
         GaugeMetricFamily metricFamily =
                 new GaugeMetricFamily(
                         "cluster_info",
                         "Cluster info",
                         clusterLabelNames("hazelcastVersion", "master"));
-        List<String> labelValues = null;
-        try {
-            labelValues =
-                    labelValues(
-                            getClusterService().getClusterVersion().toString(), masterAddress());
-        } catch (UnknownHostException ignored) {
-
-        }
-        if (labelValues == null) {
-            return;
-        }
+        List<String> labelValues =
+                labelValues(getClusterService().getClusterVersion().toString(), masterIpPort);
         metricFamily.addMetric(labelValues, 1.0);
         mfs.add(metricFamily);
     }

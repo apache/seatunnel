@@ -36,6 +36,7 @@ import com.hazelcast.config.Config;
 import com.hazelcast.instance.impl.Node;
 import com.hazelcast.internal.cluster.Versions;
 import com.hazelcast.internal.cluster.impl.ClusterServiceImpl;
+import com.hazelcast.logging.ILogger;
 import com.hazelcast.spi.impl.NodeEngineImpl;
 import com.hazelcast.version.Version;
 import io.prometheus.client.Collector;
@@ -52,6 +53,7 @@ public class TelemetryCollectorCoordinatorGuardTest {
     private SeaTunnelServer mockServer;
     private CoordinatorService mockCoordinatorService;
     private ClusterServiceImpl mockClusterService;
+    private ILogger mockLogger;
 
     @BeforeEach
     void setUp() throws UnknownHostException, NoSuchFieldException, IllegalAccessException {
@@ -59,6 +61,7 @@ public class TelemetryCollectorCoordinatorGuardTest {
         mockServer = Mockito.mock(SeaTunnelServer.class);
         mockCoordinatorService = Mockito.mock(CoordinatorService.class);
         mockClusterService = Mockito.mock(ClusterServiceImpl.class);
+        mockLogger = Mockito.mock(ILogger.class);
 
         NodeEngineImpl mockNodeEngine = Mockito.mock(NodeEngineImpl.class);
         MemberImpl mockMember = Mockito.mock(MemberImpl.class);
@@ -69,6 +72,7 @@ public class TelemetryCollectorCoordinatorGuardTest {
                 .thenReturn(mockServer);
         Mockito.when(mockNodeEngine.getLocalMember()).thenReturn(mockMember);
         Mockito.when(mockNode.getClusterService()).thenReturn(mockClusterService);
+        Mockito.when(mockNode.getLogger(Mockito.any(Class.class))).thenReturn(mockLogger);
         Mockito.when(mockNode.getConfig()).thenReturn(mockConfig);
         Mockito.when(mockConfig.getClusterName()).thenReturn("test-cluster");
 
@@ -200,8 +204,37 @@ public class TelemetryCollectorCoordinatorGuardTest {
 
         List<Collector.MetricFamilySamples> result = new ClusterMetricExports(mockNode).collect();
 
-        boolean hasClusterInfo = result.stream().anyMatch(s -> "cluster_info".equals(s.name));
+        Collector.MetricFamilySamples clusterInfoMetric =
+                result.stream().filter(s -> "cluster_info".equals(s.name)).findFirst().orElse(null);
+        boolean hasClusterInfo = clusterInfoMetric != null;
         Assertions.assertTrue(
                 hasClusterInfo, "cluster_info must be present when master address is available");
+        Assertions.assertNotNull(clusterInfoMetric);
+        Assertions.assertFalse(clusterInfoMetric.samples.isEmpty());
+
+        Collector.MetricFamilySamples.Sample sample = clusterInfoMetric.samples.get(0);
+        int masterLabelIndex = sample.labelNames.indexOf("master");
+        Assertions.assertTrue(masterLabelIndex >= 0, "cluster_info must contain 'master' label");
+        Assertions.assertEquals("127.0.0.1:5801", sample.labelValues.get(masterLabelIndex));
+    }
+
+    @Test
+    void testClusterMetricExportsSkipsClusterInfoAndLogsWarningWhenMasterAddressUnresolvable()
+            throws UnknownHostException {
+        Address mockAddress = Mockito.mock(Address.class);
+        Mockito.when(mockAddress.getInetAddress()).thenThrow(new UnknownHostException("mock"));
+        Mockito.when(mockAddress.getPort()).thenReturn(5801);
+        Mockito.when(mockClusterService.getMasterAddress()).thenReturn(mockAddress);
+
+        List<Collector.MetricFamilySamples> result = new ClusterMetricExports(mockNode).collect();
+
+        boolean hasClusterInfo = result.stream().anyMatch(s -> "cluster_info".equals(s.name));
+        Assertions.assertFalse(
+                hasClusterInfo,
+                "cluster_info must be skipped when master address can't be resolved");
+        Mockito.verify(mockLogger)
+                .warning(
+                        Mockito.eq("Skip cluster_info metric: unable to resolve master address"),
+                        Mockito.any(UnknownHostException.class));
     }
 }
