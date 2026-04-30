@@ -27,6 +27,8 @@ import org.apache.seatunnel.api.table.type.SeaTunnelRowType;
 import org.apache.seatunnel.connectors.seatunnel.file.config.FileBaseSourceOptions;
 import org.apache.seatunnel.connectors.seatunnel.file.exception.FileConnectorException;
 
+import org.apache.commons.io.IOUtils;
+
 import com.vladsch.flexmark.ast.BlockQuote;
 import com.vladsch.flexmark.ast.BulletList;
 import com.vladsch.flexmark.ast.Code;
@@ -46,8 +48,9 @@ import com.vladsch.flexmark.util.ast.Node;
 import lombok.extern.slf4j.Slf4j;
 
 import java.io.IOException;
+import java.io.InputStream;
+import java.net.URI;
 import java.nio.charset.StandardCharsets;
-import java.nio.file.Files;
 import java.nio.file.Paths;
 import java.security.MessageDigest;
 import java.security.NoSuchAlgorithmException;
@@ -113,16 +116,26 @@ public class MarkdownReadStrategy extends AbstractReadStrategy {
     @Override
     public void read(String path, String tableId, Collector<SeaTunnelRow> output)
             throws IOException, FileConnectorException {
-        String markdown = new String(Files.readAllBytes(Paths.get(path)));
+        String markdown;
+        try (InputStream inputStream = hadoopFileSystemProxy.getInputStream(path)) {
+            markdown = IOUtils.toString(inputStream, StandardCharsets.UTF_8);
+        }
         Parser parser = Parser.builder().build();
         Node document = parser.parse(markdown);
+        String sourceUri = normalizeSourceUri(path);
 
         Map<Node, NodeInfo> nodeInfoMap = new IdentityHashMap<>();
         Map<String, Integer> typeCounters = new HashMap<>();
         List<SeaTunnelRow> rows = new ArrayList<>();
 
         assignIdsAndCollectTree(document, null, nodeInfoMap, DEFAULT_POSITION, typeCounters);
-        generateRows(document, rows, nodeInfoMap, DEFAULT_PAGE_NUMBER, path, buildDocumentId(path));
+        generateRows(
+                document,
+                rows,
+                nodeInfoMap,
+                DEFAULT_PAGE_NUMBER,
+                sourceUri,
+                buildDocumentId(sourceUri));
 
         for (SeaTunnelRow row : rows) {
             output.collect(row);
@@ -336,6 +349,17 @@ public class MarkdownReadStrategy extends AbstractReadStrategy {
 
     private static String buildDocumentId(String sourceUri) {
         return "doc_" + sha256Hex(sourceUri);
+    }
+
+    private static String normalizeSourceUri(String sourceUri) {
+        if (!sourceUri.startsWith("file:")) {
+            return sourceUri;
+        }
+        try {
+            return Paths.get(URI.create(sourceUri)).toString();
+        } catch (IllegalArgumentException e) {
+            return sourceUri;
+        }
     }
 
     private static String sha256Hex(String value) {

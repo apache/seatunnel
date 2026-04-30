@@ -20,6 +20,7 @@ package org.apache.seatunnel.connectors.seatunnel.file.source.reader;
 import org.apache.seatunnel.shade.com.typesafe.config.ConfigFactory;
 
 import org.apache.seatunnel.api.table.type.SeaTunnelRowType;
+import org.apache.seatunnel.connectors.seatunnel.file.config.HadoopConf;
 
 import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.Test;
@@ -31,6 +32,8 @@ import java.nio.file.Files;
 import java.nio.file.Path;
 import java.nio.file.Paths;
 import java.util.Arrays;
+
+import static org.apache.hadoop.fs.CommonConfigurationKeysPublic.FS_DEFAULT_NAME_DEFAULT;
 
 class MarkdownReadStrategyTest {
 
@@ -54,7 +57,7 @@ class MarkdownReadStrategyTest {
     public void testReadMarkdown() throws Exception {
         URL resource = this.getClass().getResource("/test.md");
         String path = Paths.get(resource.toURI()).toString();
-        AbstractReadStrategy markdownReadStrategy = new MarkdownReadStrategy();
+        AbstractReadStrategy markdownReadStrategy = createMarkdownReadStrategy();
         SeaTunnelRowType rowType = markdownReadStrategy.getSeaTunnelRowTypeInfo(path);
         TempCollector tempCollector = new TempCollector();
         markdownReadStrategy.read(path, "", tempCollector);
@@ -108,6 +111,19 @@ class MarkdownReadStrategyTest {
     }
 
     @Test
+    public void testReadMarkdownWithFileUri() throws Exception {
+        Path markdownFile = tempDir.resolve("doc.md");
+        Files.write(markdownFile, Arrays.asList("# Title"), StandardCharsets.UTF_8);
+
+        AbstractReadStrategy markdownReadStrategy = createMarkdownReadStrategy();
+        TempCollector tempCollector = new TempCollector();
+        markdownReadStrategy.read(markdownFile.toUri().toString(), "", tempCollector);
+
+        Assertions.assertEquals(1, tempCollector.getRows().size());
+        Assertions.assertEquals("Title", tempCollector.getRows().get(0).getField(3));
+    }
+
+    @Test
     public void testReadMarkdownWithRagMetadata() throws Exception {
         URL resource = this.getClass().getResource("/test.md");
         String path = Paths.get(resource.toURI()).toString();
@@ -141,6 +157,28 @@ class MarkdownReadStrategyTest {
     }
 
     @Test
+    public void testReadMarkdownWithRagMetadataNormalizesFileUri() throws Exception {
+        Path markdownFile = tempDir.resolve("doc.md");
+        Files.write(markdownFile, Arrays.asList("# Title"), StandardCharsets.UTF_8);
+
+        AbstractReadStrategy markdownReadStrategy = createRagMetadataMarkdownReadStrategy();
+        TempCollector tempCollector = new TempCollector();
+        markdownReadStrategy.read(markdownFile.toUri().toString(), "", tempCollector);
+
+        AbstractReadStrategy expectedReadStrategy = createRagMetadataMarkdownReadStrategy();
+        TempCollector expectedCollector = new TempCollector();
+        expectedReadStrategy.read(markdownFile.toString(), "", expectedCollector);
+
+        Assertions.assertEquals(
+                markdownFile.toString(), tempCollector.getRows().get(0).getField(8));
+        for (int fieldIndex = 8; fieldIndex < 11; fieldIndex++) {
+            Assertions.assertEquals(
+                    expectedCollector.getRows().get(0).getField(fieldIndex),
+                    tempCollector.getRows().get(0).getField(fieldIndex));
+        }
+    }
+
+    @Test
     public void testRagMetadataContentHashChangesWithText() throws Exception {
         Path markdownFile = tempDir.resolve("doc.md");
         Files.write(markdownFile, Arrays.asList("# First Title"), StandardCharsets.UTF_8);
@@ -163,8 +201,14 @@ class MarkdownReadStrategyTest {
         Assertions.assertNotEquals(firstContentHash, secondCollector.getRows().get(0).getField(12));
     }
 
-    private static AbstractReadStrategy createRagMetadataMarkdownReadStrategy() {
+    private static AbstractReadStrategy createMarkdownReadStrategy() {
         AbstractReadStrategy markdownReadStrategy = new MarkdownReadStrategy();
+        markdownReadStrategy.init(new LocalConf(FS_DEFAULT_NAME_DEFAULT));
+        return markdownReadStrategy;
+    }
+
+    private static AbstractReadStrategy createRagMetadataMarkdownReadStrategy() {
+        AbstractReadStrategy markdownReadStrategy = createMarkdownReadStrategy();
         markdownReadStrategy.setPluginConfig(
                 ConfigFactory.parseString("markdown_rag_metadata_enabled = true"));
         return markdownReadStrategy;
@@ -175,5 +219,24 @@ class MarkdownReadStrategyTest {
         System.arraycopy(left, 0, result, 0, left.length);
         System.arraycopy(right, 0, result, left.length, right.length);
         return result;
+    }
+
+    public static class LocalConf extends HadoopConf {
+        private static final String HDFS_IMPL = "org.apache.hadoop.fs.LocalFileSystem";
+        private static final String SCHEMA = "file";
+
+        public LocalConf(String hdfsNameKey) {
+            super(hdfsNameKey);
+        }
+
+        @Override
+        public String getFsHdfsImpl() {
+            return HDFS_IMPL;
+        }
+
+        @Override
+        public String getSchema() {
+            return SCHEMA;
+        }
     }
 }
