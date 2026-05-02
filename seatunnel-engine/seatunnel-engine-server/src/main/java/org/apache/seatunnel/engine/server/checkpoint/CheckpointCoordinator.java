@@ -456,7 +456,8 @@ public class CheckpointCoordinator {
                     pipelineId,
                     e);
             throw new RuntimeException(
-                    "Failed to load readyToCloseStartingTask from IMap, key=" + readyToCloseImapKey,
+                    "Failed to load readyToCloseStartingTask from IMap, key: "
+                            + readyToCloseImapKey,
                     e);
         }
     }
@@ -600,7 +601,7 @@ public class CheckpointCoordinator {
             if (interval < coordinatorConfig.getCheckpointInterval()) {
                 LOG.info(
                         "skip trigger checkpoint "
-                                + "because the last trigger timestamp is {} and current timestamp is {}, "
+                                + "because the last trigger timestamp is ({}) and current timestamp is ({}), "
                                 + "the interval is less than config.",
                         latestTriggerTimestamp.get(),
                         currentTimestamp);
