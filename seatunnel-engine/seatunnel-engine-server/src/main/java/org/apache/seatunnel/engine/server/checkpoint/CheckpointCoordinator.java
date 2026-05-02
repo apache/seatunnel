@@ -378,8 +378,7 @@ public class CheckpointCoordinator {
         if (completedCheckpoint != null) {
             try {
                 LOG.info(
-                        "start notify checkpoint completed, job id: {}, pipeline id: {}, "
-                                + "checkpoint id: {}.",
+                        "start notify checkpoint completed, job id: {}, pipeline id: {}, checkpoint id: {}.",
                         completedCheckpoint.getJobId(),
                         completedCheckpoint.getPipelineId(),
                         completedCheckpoint.getCheckpointId());
@@ -477,12 +476,12 @@ public class CheckpointCoordinator {
                             Constant.OPERATION_RETRY_SLEEP));
         } catch (Exception e) {
             LOG.error(
-                    "Failed to persist readyToCloseStartingTask to IMap after retries, key={}."
+                    "Failed to persist readyToCloseStartingTask to IMap after retries, key: {}."
                             + " Failing the job to avoid an unrecoverable stuck state on master failover.",
                     readyToCloseImapKey,
                     e);
             throw new RuntimeException(
-                    "Failed to persist readyToCloseStartingTask to IMap, key="
+                    "Failed to persist readyToCloseStartingTask to IMap, key: "
                             + readyToCloseImapKey,
                     e);
         }
@@ -542,7 +541,7 @@ public class CheckpointCoordinator {
     }
 
     protected void restoreCoordinator(boolean alreadyStarted) {
-        LOG.info("received restore CheckpointCoordinator with alreadyStarted = {}", alreadyStarted);
+        LOG.info("received restore CheckpointCoordinator with alreadyStarted: {}", alreadyStarted);
         errorByPhysicalVertex = new AtomicReference<>();
         checkpointCoordinatorFuture = new CompletableFuture<>();
         updateStatus(CheckpointCoordinatorStatus.RUNNING);
@@ -555,7 +554,8 @@ public class CheckpointCoordinator {
         if (restoredReadyToClose != null && !restoredReadyToClose.isEmpty()) {
             readyToCloseStartingTask.addAll(restoredReadyToClose);
             LOG.info(
-                    "Restored readyToCloseStartingTask({}/{}), job id: {}, pipeline id: {}",
+                    "Restored readyToCloseStartingTask, restored count: {}, "
+                            + "total starting subtasks: {}, job id: {}, pipeline id: {}",
                     readyToCloseStartingTask.size(),
                     plan.getStartingSubtasks().size(),
                     jobId,
@@ -681,7 +681,7 @@ public class CheckpointCoordinator {
 
     @SneakyThrows
     public PassiveCompletableFuture<CompletedCheckpoint> startSavepoint() {
-        LOG.info("start save point for job({}).", jobId);
+        LOG.info("start save point for job id: {}.", jobId);
         if (shutdown || isCompleted()) {
             return completableFutureWithError(
                     CheckpointCloseReason.CHECKPOINT_COORDINATOR_SHUTDOWN);
@@ -708,8 +708,7 @@ public class CheckpointCoordinator {
         }
         savepointPendingCheckpoint = savepoint.join();
         LOG.info(
-                "save point checkpoint is created, job id: {}, pipeline id: {}, checkpoint id: "
-                        + "{}.",
+                "save point checkpoint is created, job id: {}, pipeline id: {}, checkpoint id: {}.",
                 jobId,
                 pipelineId,
                 savepointPendingCheckpoint.getCheckpointId());
@@ -727,7 +726,9 @@ public class CheckpointCoordinator {
             CompletableFuture<PendingCheckpoint> pendingCompletableFuture) {
         pendingCompletableFuture.thenAccept(
                 pendingCheckpoint -> {
-                    LOG.info("wait checkpoint({}) completed.", pendingCheckpoint.getCheckpointId());
+                    LOG.info(
+                            "wait checkpoint id: {} completed.",
+                            pendingCheckpoint.getCheckpointId());
                     PassiveCompletableFuture<CompletedCheckpoint> completableFuture =
                             pendingCheckpoint.getCompletableFuture();
                     completableFuture.whenCompleteAsync(
@@ -1086,8 +1087,7 @@ public class CheckpointCoordinator {
             sneakyThrow(e);
         }
         LOG.info(
-                "pending checkpoint notify finished, job id: {}, pipeline id: {}, checkpoint id: "
-                        + "{}!",
+                "pending checkpoint notify finished, job id: {}, pipeline id: {}, checkpoint id: {}!",
                 completedCheckpoint.getJobId(),
                 completedCheckpoint.getPipelineId(),
                 completedCheckpoint.getCheckpointId());
