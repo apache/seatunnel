@@ -955,6 +955,35 @@
                 </dependency>
                 <!-- hive jar end -->
             </dependencies>
+            <build>
+                <plugins>
+                    <!-- Generate connector_metadata.json via runtime reflection.
+                         Uses PluginDiscovery + factory.optionRule() — same mechanism as SeaTunnel Web.
+                         classpathScope=test includes provided-scope connector JARs. -->
+                    <plugin>
+                        <groupId>org.codehaus.mojo</groupId>
+                        <artifactId>exec-maven-plugin</artifactId>
+                        <version>${exec-maven-plugin.version}</version>
+                        <executions>
+                            <execution>
+                                <id>export-connector-metadata</id>
+                                <goals>
+                                    <goal>java</goal>
+                                </goals>
+                                <phase>prepare-package</phase>
+                                <configuration>
+                                    <mainClass>org.apache.seatunnel.core.starter.seatunnel.SeaTunnelMetadataExporter</mainClass>
+                                    <arguments>
+                                        <argument>-o</argument>
+                                        <argument>${project.build.directory}/connector_metadata.json</argument>
+                                    </arguments>
+                                    <classpathScope>test</classpathScope>
+                                </configuration>
+                            </execution>
+                        </executions>
+                    </plugin>
+                </plugins>
+            </build>
             <repositories>
                 <repository>
                     <id>cloudera</id>
@@ -1070,6 +1099,28 @@
             <build>
                 <finalName>apache-seatunnel-${project.version}</finalName>
                 <plugins>
+                    <plugin>
+                        <groupId>org.codehaus.mojo</groupId>
+                        <artifactId>exec-maven-plugin</artifactId>
+                        <version>${exec-maven-plugin.version}</version>
+                        <executions>
+                            <execution>
+                                <id>export-connector-metadata</id>
+                                <goals>
+                                    <goal>java</goal>
+                                </goals>
+                                <phase>prepare-package</phase>
+                                <configuration>
+                                    <mainClass>org.apache.seatunnel.core.starter.seatunnel.SeaTunnelMetadataExporter</mainClass>
+                                    <arguments>
+                                        <argument>-o</argument>
+                                        <argument>${project.build.directory}/connector_metadata.json</argument>
+                                    </arguments>
+                                    <classpathScope>test</classpathScope>
+                                </configuration>
+                            </execution>
+                        </executions>
+                    </plugin>
                     <plugin>
                         <artifactId>maven-assembly-plugin</artifactId>
                         <executions>

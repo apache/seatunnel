@@ -275,6 +275,10 @@ public class DorisSinkWriter
             loadException =
                     new DorisConnectorException(
                             DorisConnectorErrorCode.STREAM_LOAD_FAILED, errorMsg);
+            // Stop the scheduler to prevent repeated error logging when downstream is unavailable.
+            // Once loadException is set, write() will throw on the next call via
+            // checkLoadException().
+            scheduledExecutorService.shutdownNow();
         }
     }
 
