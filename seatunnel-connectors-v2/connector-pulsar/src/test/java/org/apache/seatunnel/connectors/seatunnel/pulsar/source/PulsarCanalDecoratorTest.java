@@ -30,8 +30,6 @@ import org.apache.seatunnel.format.json.canal.CanalJsonDeserializationSchema;
 import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.Test;
 
-import lombok.Getter;
-
 import java.io.IOException;
 import java.nio.charset.StandardCharsets;
 import java.util.ArrayList;
@@ -66,7 +64,7 @@ public class PulsarCanalDecoratorTest {
 
         SimpleCollector simpleCollector = new SimpleCollector();
         pulsarCanalDecorator.deserialize(json.getBytes(StandardCharsets.UTF_8), simpleCollector);
-        Assertions.assertFalse(simpleCollector.getList().isEmpty());
+        Assertions.assertFalse(simpleCollector.list.isEmpty());
         for (SeaTunnelRow seaTunnelRow : simpleCollector.list) {
             for (Object field : seaTunnelRow.getFields()) {
                 Assertions.assertNotNull(field);
@@ -75,7 +73,7 @@ public class PulsarCanalDecoratorTest {
     }
 
     private static class SimpleCollector implements Collector<SeaTunnelRow> {
-        @Getter private List<SeaTunnelRow> list = new ArrayList<>();
+        private final List<SeaTunnelRow> list = new ArrayList<>();
 
         @Override
         public void collect(SeaTunnelRow record) {

@@ -275,8 +275,6 @@ public class JobMasterTest extends AbstractSeaTunnelServerTest {
         upsertMetricsForPipeline(pipelineLocation);
         Assertions.assertTrue(hasMetricsForPipeline(pipelineLocation));
 
-        IMap<Object, Object> runningJobStateIMap =
-                nodeEngine.getHazelcastInstance().getMap(Constant.IMAP_RUNNING_JOB_STATE);
         IMap<PipelineLocation, PipelineCleanupRecord> pendingCleanupIMap =
                 nodeEngine.getHazelcastInstance().getMap(Constant.IMAP_PENDING_PIPELINE_CLEANUP);
 

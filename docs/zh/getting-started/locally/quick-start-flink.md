@@ -4,6 +4,16 @@ sidebar_position: 3
 
 # Flink 引擎快速开始
 
+## 开始前建议先看
+
+这一页适合已经明确要把 SeaTunnel 跑在 Flink 上的团队。如果你只是第一次评估 SeaTunnel，且没有必须使用 Flink 的前提，建议先从 [SeaTunnel 引擎快速开始](./quick-start-seatunnel-engine.md) 开始。
+
+如有需要，建议先看这几页：
+
+- [引擎概览](../../engines/overview.md)
+- [SeaTunnel 运行在 Flink 上](../../engines/flink.md)
+- [作业配置指南](../job-configuration-guide.md)
+
 ## 步骤 1: 部署SeaTunnel及连接器
 
 在开始前，请确保您已经按照[部署](deployment.md)中的描述下载并部署了SeaTunnel。
@@ -59,6 +69,11 @@ sink {
 
 关于配置的更多信息请查看[配置的基本概念](../../introduction/concepts/config.md)
 
+如果你还需要了解数据集编排或 Transform 参数，可继续阅读：
+
+- [作业配置指南](../job-configuration-guide.md)
+- [Transform 通用参数](../../transforms/common-options/common-options.md)
+
 ## 步骤 4: 运行SeaTunnel应用程序
 
 您可以通过以下命令启动应用程序：
@@ -106,4 +121,5 @@ row=16 : SGZCr, 94186144
 
 - 开始编写您自己的配置文件，选择您想要使用的[连接器](../../connectors/source)，并根据连接器的文档配置参数。
 - 如果您想要了解更多关于SeaTunnel运行在Flink上的信息，请参阅[基于Flink的SeaTunnel](../../engines/flink.md)。
-- SeaTunnel有内置的`Zeta`引擎，它是作为SeaTunnel的默认引擎。您可以参考[快速开始](quick-start-seatunnel-engine.md)配置和运行数据同步作业。
+- 如果您想理解 SeaTunnel API 如何被适配到 Flink，请继续看 [Flink 转换层](../../architecture/api-design/flink-translation-layer.md)。
+- SeaTunnel 内置了 `Zeta` 引擎，它也是默认推荐引擎。如果您希望走最短的本地验证路径，可以回到 [SeaTunnel 引擎快速开始](quick-start-seatunnel-engine.md)。

@@ -1,5 +1,13 @@
 # 常见问题解答
 
+## 遇到问题时，应该去哪里获取帮助并加入社区？
+建议优先从这些入口进入：
+
+- 问题跟踪：[GitHub Issues](https://github.com/apache/seatunnel/issues)
+- 长线程讨论：[dev 邮件列表](https://lists.apache.org/list.html?dev@seatunnel.apache.org)
+- 稳定贡献入口：[贡献路径](./developer/contribution-path.md)
+- 贡献者入门：[开发环境搭建](./developer/setup.md) 与 [贡献插件](./developer/contribute-plugin.md)
+
 ## SeaTunnel 支持哪些数据来源和数据目的地？
 SeaTunnel 支持多种数据源来源和数据目的地，您可以在官网找到详细的列表：
 SeaTunnel 支持的数据来源(Source)列表：[Source List](./connectors/source)

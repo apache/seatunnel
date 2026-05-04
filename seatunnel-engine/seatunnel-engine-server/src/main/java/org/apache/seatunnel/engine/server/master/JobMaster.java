@@ -106,6 +106,7 @@ import java.util.concurrent.CompletionException;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.CopyOnWriteArrayList;
 import java.util.concurrent.ExecutorService;
+import java.util.concurrent.atomic.AtomicLong;
 import java.util.stream.Collectors;
 
 import static com.hazelcast.jet.impl.util.ExceptionUtil.withTryCatch;
@@ -430,15 +431,32 @@ public class JobMaster {
             preApplyResourcesForAll(preApplyResourceFutures);
         }
 
+        AtomicLong successCount = new AtomicLong(0);
+        AtomicLong failedCount = new AtomicLong(0);
+
         boolean enoughResource =
                 preApplyResourceFutures.values().stream()
                                 .filter(
                                         value -> {
                                             try {
-                                                return value != null && value.join() != null;
+                                                if (value != null && value.join() != null) {
+                                                    successCount.incrementAndGet();
+                                                    return true;
+                                                }
+                                                failedCount.incrementAndGet();
+                                                return false;
                                             } catch (CompletionException e) {
+                                                long failed = failedCount.incrementAndGet();
                                                 LOGGER.warning(
-                                                        "Pre resource application failed, resources may be not enough");
+                                                        String.format(
+                                                                "Pre resource application failed for job: %s, success: %d, failed: %d/%d, error: %s",
+                                                                jobImmutableInformation.getJobId(),
+                                                                successCount.get(),
+                                                                failed,
+                                                                preApplyResourceFutures.size(),
+                                                                e.getCause() != null
+                                                                        ? e.getCause().getMessage()
+                                                                        : e.getMessage()));
                                                 return false;
                                             }
                                         })
@@ -481,7 +499,16 @@ public class JobMaster {
                                                                             && value.join() != null;
                                                                 } catch (CompletionException e) {
                                                                     LOGGER.warning(
-                                                                            "Pre resource application failed, resources may be not enough");
+                                                                            String.format(
+                                                                                    "Filtering failed resource for job %s during release: %s",
+                                                                                    jobImmutableInformation
+                                                                                            .getJobId(),
+                                                                                    e.getCause()
+                                                                                                    != null
+                                                                                            ? e.getCause()
+                                                                                                    .getMessage()
+                                                                                            : e
+                                                                                                    .getMessage()));
                                                                     return false;
                                                                 }
                                                             })

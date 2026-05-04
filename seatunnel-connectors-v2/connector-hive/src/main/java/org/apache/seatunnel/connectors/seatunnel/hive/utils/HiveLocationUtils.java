@@ -18,7 +18,7 @@
 package org.apache.seatunnel.connectors.seatunnel.hive.utils;
 
 import org.apache.seatunnel.api.configuration.ReadonlyConfig;
-import org.apache.seatunnel.connectors.seatunnel.hive.config.HiveConfig;
+import org.apache.seatunnel.connectors.seatunnel.hive.config.HiveBaseOptions;
 
 import java.io.File;
 import java.nio.file.Files;
@@ -35,8 +35,8 @@ public final class HiveLocationUtils {
 
     public static String qualifiedDefaultLocation(
             ReadonlyConfig config, String database, String table) {
-        String confDir = config.getOptional(HiveConfig.HADOOP_CONF_PATH).orElse(null);
-        String hiveSite = config.getOptional(HiveConfig.HIVE_SITE_PATH).orElse(null);
+        String confDir = config.getOptional(HiveBaseOptions.HADOOP_CONF_PATH).orElse(null);
+        String hiveSite = config.getOptional(HiveBaseOptions.HIVE_SITE_PATH).orElse(null);
         return qualifiedDefaultLocation(confDir, hiveSite, database, table);
     }
 
