@@ -675,26 +675,24 @@ public class CoordinatorService {
                         record.getCreateTimeMillis()
                                 + engineConfig.getStateCleanupDelayMillis()
                                 - System.currentTimeMillis());
-        if (seaTunnelServer.getMonitorService() == null) {
-            processPendingJobCleanup(jobId, pendingJobCleanupIMap.get(jobId));
-            return;
+        ScheduledExecutorService cleanupScheduler = seaTunnelServer.getMonitorService();
+        if (cleanupScheduler == null) {
+            cleanupScheduler = masterActiveListener;
         }
-        seaTunnelServer
-                .getMonitorService()
-                .schedule(
-                        () -> {
-                            try {
-                                processPendingJobCleanup(jobId, pendingJobCleanupIMap.get(jobId));
-                            } catch (Exception e) {
-                                logger.warning(
-                                        String.format(
-                                                "Delayed job cleanup failed for job %s: %s",
-                                                jobId, ExceptionUtils.getMessage(e)),
-                                        e);
-                            }
-                        },
-                        remainingDelayMillis,
-                        TimeUnit.MILLISECONDS);
+        cleanupScheduler.schedule(
+                () -> {
+                    try {
+                        processPendingJobCleanup(jobId, pendingJobCleanupIMap.get(jobId));
+                    } catch (Exception e) {
+                        logger.warning(
+                                String.format(
+                                        "Delayed job cleanup failed for job %s: %s",
+                                        jobId, ExceptionUtils.getMessage(e)),
+                                e);
+                    }
+                },
+                remainingDelayMillis,
+                TimeUnit.MILLISECONDS);
     }
 
     private void processPendingJobCleanup(long jobId, JobCleanupRecord record) {

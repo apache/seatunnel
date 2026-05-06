@@ -185,12 +185,12 @@ public class SeaTunnelServer
     }
 
     private void startMaster() {
-        coordinatorService =
-                new CoordinatorService(nodeEngine, this, seaTunnelConfig.getEngineConfig());
         checkpointService =
                 new CheckpointService(seaTunnelConfig.getEngineConfig().getCheckpointConfig());
         checkpointMonitorService = new CheckpointMonitorService(nodeEngine, 32);
         monitorService = Executors.newSingleThreadScheduledExecutor();
+        coordinatorService =
+                new CoordinatorService(nodeEngine, this, seaTunnelConfig.getEngineConfig());
         monitorService.scheduleAtFixedRate(
                 this::printExecutionInfo,
                 0,

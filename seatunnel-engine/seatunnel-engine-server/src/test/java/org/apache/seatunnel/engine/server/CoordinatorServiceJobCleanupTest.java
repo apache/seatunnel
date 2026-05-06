@@ -52,7 +52,10 @@ import java.util.HashMap;
 import java.util.LinkedHashSet;
 import java.util.Set;
 import java.util.concurrent.CompletionException;
+import java.util.concurrent.ScheduledExecutorService;
+import java.util.concurrent.TimeUnit;
 
+import static org.awaitility.Awaitility.await;
 import static org.mockito.Mockito.doThrow;
 
 class CoordinatorServiceJobCleanupTest extends AbstractSeaTunnelServerTest {
@@ -345,6 +348,66 @@ class CoordinatorServiceJobCleanupTest extends AbstractSeaTunnelServerTest {
                 pendingJobCleanupIMap.containsKey(jobId),
                 "restore submit should consume stale pending cleanup record");
         Assertions.assertNotEquals(JobStatus.SAVEPOINT_DONE, runningJobStateIMap.get(jobId));
+    }
+
+    @Test
+    void testDelayedOrphanCleanupIsScheduledWhenMonitorServiceUnavailable() {
+        CoordinatorService coordinatorService = server.getCoordinatorService();
+        long jobId = System.currentTimeMillis();
+        PipelineLocation pipelineLocation = new PipelineLocation(jobId, 1);
+        TaskGroupLocation taskGroupLocation = new TaskGroupLocation(jobId, 1, 1L);
+
+        IMap<Object, Object> runningJobStateIMap =
+                nodeEngine.getHazelcastInstance().getMap(Constant.IMAP_RUNNING_JOB_STATE);
+        IMap<Object, Long[]> runningJobStateTimestampsIMap =
+                nodeEngine.getHazelcastInstance().getMap(Constant.IMAP_STATE_TIMESTAMPS);
+        IMap<Long, JobCleanupRecord> pendingJobCleanupIMap =
+                nodeEngine.getHazelcastInstance().getMap(Constant.IMAP_PENDING_JOB_CLEANUP);
+
+        runningJobStateIMap.put(jobId, JobStatus.FINISHED);
+        runningJobStateIMap.put(pipelineLocation, "pipeline");
+        runningJobStateIMap.put(taskGroupLocation, "task");
+        runningJobStateTimestampsIMap.put(jobId, new Long[JobStatus.values().length]);
+        runningJobStateTimestampsIMap.put(pipelineLocation, new Long[1]);
+        runningJobStateTimestampsIMap.put(taskGroupLocation, new Long[1]);
+
+        JobCleanupRecord cleanupRecord =
+                new JobCleanupRecord(
+                        100L,
+                        JobStatus.FINISHED,
+                        stateKeys(jobId, pipelineLocation, taskGroupLocation),
+                        stateKeys(jobId, pipelineLocation, taskGroupLocation),
+                        System.currentTimeMillis());
+        pendingJobCleanupIMap.put(jobId, cleanupRecord);
+
+        ScheduledExecutorService monitorService = server.getMonitorService();
+        server.getSeaTunnelConfig().getEngineConfig().setStateCleanupDelayMillis(50L);
+        ReflectionUtils.setField(server, "monitorService", null);
+        try {
+            coordinatorService.schedulePendingJobCleanup(jobId, cleanupRecord);
+
+            await().atMost(5, TimeUnit.SECONDS)
+                    .untilAsserted(
+                            () -> {
+                                Assertions.assertFalse(pendingJobCleanupIMap.containsKey(jobId));
+                                Assertions.assertFalse(runningJobStateIMap.containsKey(jobId));
+                                Assertions.assertFalse(
+                                        runningJobStateIMap.containsKey(pipelineLocation));
+                                Assertions.assertFalse(
+                                        runningJobStateIMap.containsKey(taskGroupLocation));
+                                Assertions.assertFalse(
+                                        runningJobStateTimestampsIMap.containsKey(jobId));
+                                Assertions.assertFalse(
+                                        runningJobStateTimestampsIMap.containsKey(
+                                                pipelineLocation));
+                                Assertions.assertFalse(
+                                        runningJobStateTimestampsIMap.containsKey(
+                                                taskGroupLocation));
+                            });
+        } finally {
+            ReflectionUtils.setField(server, "monitorService", monitorService);
+            server.getSeaTunnelConfig().getEngineConfig().setStateCleanupDelayMillis(0L);
+        }
     }
 
     @Test
