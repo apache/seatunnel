@@ -22,10 +22,9 @@ seatunnel:
 
 ## 指标
 
-Prometheus 的指标文本，获取方式为 `http://{instanceHost}:5801/hazelcast/rest/instance/metrics`。
+Prometheus 的指标文本可通过 `http://{instanceHost}:5801/hazelcast/rest/instance/metrics` 获取。
 
-OpenMetrics 的指标文本
-，获取方式为 `http://{instanceHost}:5801/hazelcast/rest/instance/openmetrics`。
+OpenMetrics 的指标文本可通过 `http://{instanceHost}:5801/hazelcast/rest/instance/openmetrics` 获取。
 
 可用的指标包括以下类别。
 

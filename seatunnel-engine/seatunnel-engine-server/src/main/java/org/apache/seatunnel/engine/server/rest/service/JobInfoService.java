@@ -176,6 +176,10 @@ public class JobInfoService extends BaseService {
 
     public JsonObject submitJob(Map<String, String> requestParams, byte[] requestBody) {
 
+        if (requestParams.containsKey(RestConstant.DRY_RUN)
+                && requestParams.get(RestConstant.DRY_RUN) != null) {
+            throw new IllegalArgumentException("Dry-run is only supported via CLI");
+        }
         if (Boolean.parseBoolean(requestParams.get(RestConstant.IS_START_WITH_SAVE_POINT))
                 && requestParams.get(RestConstant.JOB_ID) == null) {
             throw new IllegalArgumentException("Please provide jobId when start with save point.");
@@ -204,6 +208,10 @@ public class JobInfoService extends BaseService {
     }
 
     public JsonObject submitJob(Map<String, String> requestParams, Config config) {
+        if (requestParams.containsKey(RestConstant.DRY_RUN)
+                && requestParams.get(RestConstant.DRY_RUN) != null) {
+            throw new IllegalArgumentException("Dry-run is only supported via CLI");
+        }
         if (Boolean.parseBoolean(requestParams.get(RestConstant.IS_START_WITH_SAVE_POINT))
                 && requestParams.get(RestConstant.JOB_ID) == null) {
             throw new IllegalArgumentException("Please provide jobId when start with save point.");
@@ -222,6 +230,11 @@ public class JobInfoService extends BaseService {
                             String urlParams = mapToUrlParams(tuple._1);
                             Map<String, String> requestParams = new HashMap<>();
                             RestUtil.buildRequestParams(requestParams, urlParams);
+                            if (requestParams.containsKey(RestConstant.DRY_RUN)
+                                    && requestParams.get(RestConstant.DRY_RUN) != null) {
+                                throw new IllegalArgumentException(
+                                        "Dry-run is only supported via CLI");
+                            }
                             SeaTunnelServer seaTunnelServer = getSeaTunnelServer(false);
                             Config decryptConfig = ConfigShadeUtils.decryptConfig(tuple._2);
                             return submitJobInternal(

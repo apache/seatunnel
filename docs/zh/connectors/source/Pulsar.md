@@ -41,7 +41,7 @@ Apache Pulsar 的源连接器。
 | cursor.stop.timestamp    | Long    | 否    | -      | 当 `cursor.stop.mode=TIMESTAMP` 时的停止时间戳(毫秒)                                                |
 | schema                   | Config  | 否    | -      | 数据结构,包括字段名称和字段类型                                                                          |
 | format                   | String  | 否    | json   | 数据格式。默认为 json。**多表模式仅支持 JSON 和 CANAL_JSON**                                               |
-| common-options           |         | 否    | -      | Source 插件通用参数,请参考 [Source Common Options](../source-common-options.md) 了解详情               |
+| common-options           |         | 否    | -      | Source 插件通用参数,请参考 [Source Common Options](../common-options/source-common-options.md) 了解详情               |
 
 ### topic [String]
 

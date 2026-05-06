@@ -26,6 +26,7 @@ Usage: seatunnel.sh [options]
     -cn, --cluster                              The name of the cluster.
     -c, --config                                Config file.
     --decrypt                                   Decrypt the config file. When both --decrypt and --encrypt are specified, only --encrypt will take effect (default: false). 
+    -d, --dry-run                               Run the job in dry-run mode (Currently only 'static' is supported).
     -m, --master, -e, --deploy-mode             SeaTunnel job submit master, support [local, cluster] (default: cluster).
     --encrypt                                   Encrypt the config file. When both --decrypt and --encrypt are specified, only --encrypt will take effect (default: false). 
     --get_running_job_metrics                   Get metrics for running jobs (default: false).
@@ -57,6 +58,14 @@ The **-n** or **--name** parameter can specify the name of the job.
 ```shell
 sh bin/seatunnel.sh --config $SEATUNNEL_HOME/config/v2.batch.config.template --async -n myjob
 ```
+
+## Validating Configuration (Dry Run)
+
+```shell
+sh bin/seatunnel.sh --config $SEATUNNEL_HOME/config/v2.batch.config.template --dry-run static
+```
+
+The `--dry-run static` (or `--check`) option validates the configuration file **without submitting a job** (for example HOCON/YAML syntax, plugin loadability, DAG topology, missing required options, and unknown connector keys). It does not run the full data pipeline. Plugin loading may read local JARs, and some connectors might still open outbound connections while parsing or preparing configuration, so this is not a strict zero-network sandbox. Please note that this validation feature is provided exclusively via the CLI.
 
 ## Viewing The Job List
 

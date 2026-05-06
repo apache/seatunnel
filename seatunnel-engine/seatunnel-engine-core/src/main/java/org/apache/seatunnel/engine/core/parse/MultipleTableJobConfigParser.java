@@ -50,7 +50,6 @@ import org.apache.seatunnel.api.table.factory.FactoryUtil;
 import org.apache.seatunnel.api.table.type.SeaTunnelDataType;
 import org.apache.seatunnel.api.transform.SeaTunnelTransform;
 import org.apache.seatunnel.common.Constants;
-import org.apache.seatunnel.common.config.Common;
 import org.apache.seatunnel.common.config.TypesafeConfigUtils;
 import org.apache.seatunnel.common.constants.CollectionConstants;
 import org.apache.seatunnel.common.constants.JobMode;
@@ -59,7 +58,6 @@ import org.apache.seatunnel.common.exception.SeaTunnelRuntimeException;
 import org.apache.seatunnel.core.starter.utils.ConfigBuilder;
 import org.apache.seatunnel.engine.common.config.JobConfig;
 import org.apache.seatunnel.engine.common.exception.JobDefineCheckException;
-import org.apache.seatunnel.engine.common.exception.SeaTunnelEngineException;
 import org.apache.seatunnel.engine.common.loader.SeaTunnelChildFirstClassLoader;
 import org.apache.seatunnel.engine.common.utils.IdGenerator;
 import org.apache.seatunnel.engine.core.classloader.ClassLoaderService;
@@ -80,9 +78,7 @@ import lombok.extern.slf4j.Slf4j;
 import scala.Tuple2;
 
 import java.io.Serializable;
-import java.net.MalformedURLException;
 import java.net.URL;
-import java.nio.file.Path;
 import java.nio.file.Paths;
 import java.sql.DriverManager;
 import java.util.ArrayList;
@@ -306,22 +302,15 @@ public class MultipleTableJobConfigParser {
         return urls;
     }
 
+    /**
+     * Resolves connector JAR paths for the given plugin configs and type.
+     *
+     * <p>Delegates to {@link JobPluginClasspathHelper#connectorJarList} so that dry-run validation
+     * ({@link org.apache.seatunnel.core.starter.seatunnel.command.SeaTunnelConfValidateCommand})
+     * and the normal runtime parse path use the same discovery contract.
+     */
     private List<URL> getConnectorJarList(List<? extends Config> configs, PluginType type) {
-        List<PluginIdentifier> factoryIds =
-                configs.stream()
-                        .map(ConfigParserUtil::getFactoryId)
-                        .map(
-                                factory ->
-                                        PluginIdentifier.of(
-                                                CollectionConstants.SEATUNNEL_PLUGIN,
-                                                type.getType(),
-                                                factory))
-                        .collect(Collectors.toList());
-        List<URL> jarPaths = new ArrayList<>();
-        jarPaths.addAll(
-                new SeaTunnelSinkPluginDiscovery().getPluginJarAndDependencyPaths(factoryIds));
-        jarPaths.addAll(commonPluginJars);
-        return jarPaths;
+        return JobPluginClasspathHelper.connectorJarList(configs, type, commonPluginJars);
     }
 
     private void fillUsedFactoryUrls(List<Action> actions, Set<URL> result) {
@@ -348,25 +337,7 @@ public class MultipleTableJobConfigParser {
             jobConfig.setName(envOptions.get(EnvCommonOptions.JOB_NAME));
         }
         jobConfig.getEnvOptions().putAll(envOptions.getSourceMap());
-        this.commonPluginJars.addAll(
-                new ArrayList<>(
-                        Common.getThirdPartyJars(
-                                        jobConfig
-                                                .getEnvOptions()
-                                                .getOrDefault(EnvCommonOptions.JARS.key(), "")
-                                                .toString())
-                                .stream()
-                                .map(Path::toUri)
-                                .map(
-                                        uri -> {
-                                            try {
-                                                return uri.toURL();
-                                            } catch (MalformedURLException e) {
-                                                throw new SeaTunnelEngineException(
-                                                        "the uri of jar illegal:" + uri, e);
-                                            }
-                                        })
-                                .collect(Collectors.toList())));
+        this.commonPluginJars.addAll(JobPluginClasspathHelper.thirdPartyJarsFromEnv(envOptions));
         log.info("add common jar in plugins :{}", commonPluginJars);
     }
 

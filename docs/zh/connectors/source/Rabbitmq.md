@@ -32,8 +32,9 @@ import ChangeLog from '../changelog/connector-rabbitmq.md';
 | virtual_host               | string  | 是  | -     | 虚拟主机 – 连接到代理时使用的虚拟主机                                                        |
 | username                   | string  | 是  | -     | 连接到代理时使用的 AMQP 用户名                                                          |
 | password                   | string  | 是  | -     | 连接到代理时使用的密码                                                                 |
-| queue_name                 | string  | 是  | -     | 要发布消息的队列                                                                    |
-| schema                     | config  | 是  | -     | 上游数据的模式。更多详情请参考 [Schema 特性](../../introduction/concepts/schema-feature.md)。 |
+| queue_name                 | string  | 否  | -     | 要消费消息的队列                                                                    |
+| schema                     | config  | 否  | -     | 上游数据的模式。更多详情请参考 [Schema 特性](../../introduction/concepts/schema-feature.md)。 |
+| tables_configs             | array   | 否  | -     | 用于同时从多个队列读取消息。数组中的每个对象必须包含 queue_name 和 schema。                            |
 | url                        | string  | 否  | -     | 便捷方法，用于设置 AMQP URI 中的字段：主机、端口、用户名、密码和虚拟主机                                   |
 | routing_key                | string  | 否  | -     | 要发布消息的路由密钥                                                                  |
 | exchange                   | string  | 否  | -     | 要发布消息的交换机                                                                   |
@@ -77,7 +78,7 @@ import ChangeLog from '../changelog/connector-rabbitmq.md';
 
 ### queue_name [string]
 
-要发布消息的队列
+要消费消息的队列。*注意：如果未配置 `tables_configs`，则为必填项。*
 
 ### routing_key [string]
 
@@ -91,17 +92,21 @@ import ChangeLog from '../changelog/connector-rabbitmq.md';
 
 #### fields [Config]
 
-上游数据的模式字段。更多详情请参考 [Schema 特性](../../introduction/concepts/schema-feature.md)。
+上游数据的模式字段。更多详情请参考 [Schema 特性](../../introduction/concepts/schema-feature.md)。*注意：如果未配置 `tables_configs`，则为必填项。*
+
+### tables_configs [array]
+
+用于同时从多个队列读取消息。数组中的每个对象必须包含 queue_name 和 schema。
 
 ### network_recovery_interval [int]
 
 自动恢复在尝试重新连接之前等待多长时间（毫秒）
 
-### topology_recovery_enabled [string]
+### topology_recovery_enabled [boolean]
 
 如果为 true，启用拓扑恢复
 
-### automatic_recovery_enabled [string]
+### automatic_recovery_enabled [boolean]
 
 如果为 true，启用连接恢复
 
@@ -148,9 +153,18 @@ import ChangeLog from '../changelog/connector-rabbitmq.md';
 - true：队列将在最后一个消费者取消订阅时自动删除。
 - false：队列不会自动删除。
 
+## 迁移指南与配置规则
+
+如果您从仅支持单表读取的早期版本升级，您现有的配置无需任何更改即可正常工作。
+
+**配置优先级：**
+- 您不能同时配置 `tables_configs` 和根级别的 `queue_name`/`schema`。它们是互斥的。这样做将导致配置验证错误。
+- 使用 `tables_configs` 进行多表模式。
+- 使用根级别的 `queue_name` 和 `schema` 进行单表模式。
+
 ## 示例
 
-简单：
+### 单表读取示例
 
 ```hocon
 source {
@@ -169,6 +183,62 @@ source {
             }
         }
     }
+}
+
+```
+### 多表读取示例
+您可以使用 `tables_configs` 选项在一个作业中同时从多个 RabbitMQ 队列消费消息。连接器将根据消息来源的队列自动为每行数据分配正确的表标识符，允许您使用 `plugin_input` 将它们路由到不同的 sink。
+
+```hocon
+source {
+  RabbitMQ {
+    host = "localhost"
+    port = 5672
+    username = "guest"
+    password = "guest"
+    
+    # 使用 tables_configs 从多个队列中读取
+    tables_configs = [
+      {
+        queue_name = "users_queue"
+        schema = {
+          table = "users_table" # 定义用于路由的表名
+          fields {
+            user_id = bigint
+            name = string
+          }
+        }
+      },
+      {
+        queue_name = "orders_queue"
+        schema = {
+          table = "orders_table" # 定义用于路由的表名
+          fields {
+            order_id = bigint
+            amount = double
+          }
+        }
+      }
+    ]
+  }
+}
+
+sink {
+  # 第一个 sink 将仅接收来自 users_queue 的数据
+  Jdbc {
+    plugin_input = "users_table"
+    driver = "com.mysql.cj.jdbc.Driver"
+    url = "jdbc:mysql://localhost:3306/mydb"
+    query = "insert into users (user_id, name) values (?, ?)"
+  }
+
+  # 第二个 sink 将仅接收来自 orders_queue 的数据
+  Jdbc {
+    plugin_input = "orders_table"
+    driver = "com.mysql.cj.jdbc.Driver"
+    url = "jdbc:mysql://localhost:3306/mydb"
+    query = "insert into orders (order_id, amount) values (?, ?)"
+  }
 }
 ```
 

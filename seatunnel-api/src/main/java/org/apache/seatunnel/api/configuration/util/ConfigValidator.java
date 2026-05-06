@@ -20,18 +20,43 @@ package org.apache.seatunnel.api.configuration.util;
 import org.apache.seatunnel.api.configuration.Option;
 import org.apache.seatunnel.api.configuration.ReadonlyConfig;
 import org.apache.seatunnel.api.configuration.SingleChoiceOption;
+import org.apache.seatunnel.api.options.ConnectorCommonOptions;
+import org.apache.seatunnel.api.options.EnvCommonOptions;
+import org.apache.seatunnel.api.options.SourceConnectorCommonOptions;
+import org.apache.seatunnel.api.options.table.CatalogOptions;
+import org.apache.seatunnel.api.options.table.TableSchemaOptions;
 
 import org.apache.commons.collections4.CollectionUtils;
 
 import java.util.ArrayList;
 import java.util.Arrays;
+import java.util.HashSet;
 import java.util.List;
+import java.util.Map;
 import java.util.Objects;
+import java.util.Set;
+import java.util.stream.Collectors;
 
 import static org.apache.seatunnel.api.configuration.util.OptionUtil.getOptionKeys;
 
 public class ConfigValidator {
     private final ReadonlyConfig config;
+
+    private static final Set<String> COMMON_KEYS = new HashSet<>();
+
+    static {
+        collectKeys(
+                COMMON_KEYS,
+                Arrays.asList(
+                        ConnectorCommonOptions.PLUGIN_NAME,
+                        ConnectorCommonOptions.PLUGIN_INPUT,
+                        ConnectorCommonOptions.PLUGIN_OUTPUT,
+                        ConnectorCommonOptions.METADATA_DATASOURCE_ID,
+                        EnvCommonOptions.PARALLELISM,
+                        TableSchemaOptions.SCHEMA,
+                        CatalogOptions.CATALOG_OPTIONS,
+                        SourceConnectorCommonOptions.DAG_PARSING_MODE));
+    }
 
     private ConfigValidator(ReadonlyConfig config) {
         this.config = config;
@@ -39,6 +64,76 @@ public class ConfigValidator {
 
     public static ConfigValidator of(ReadonlyConfig config) {
         return new ConfigValidator(config);
+    }
+
+    /**
+     * Validates that all user-provided config keys are declared in the connector's OptionRule.
+     * Unknown keys are treated as errors to catch typos and misconfigured options early.
+     *
+     * @param config the user-provided configuration
+     * @param rule the connector's declared option rule
+     * @param connectorName the connector name for error messages
+     * @throws OptionValidationException if unknown keys are detected
+     */
+    public static void validateUnknownKeys(
+            ReadonlyConfig config, OptionRule rule, String connectorName) {
+        Set<String> declaredKeys = collectDeclaredKeys(rule);
+        declaredKeys.addAll(COMMON_KEYS);
+
+        List<String> unknownKeys = new ArrayList<>();
+        validatePaths(config.getSourceMap(), "", declaredKeys, unknownKeys);
+
+        if (!unknownKeys.isEmpty()) {
+            throw new OptionValidationException(
+                    "Connector '%s' has unknown option keys: %s. "
+                            + "Please check for typos. Declared options are: %s",
+                    connectorName,
+                    unknownKeys,
+                    declaredKeys.stream().sorted().collect(Collectors.toList()));
+        }
+    }
+
+    private static void validatePaths(
+            Map<String, Object> map,
+            String prefix,
+            Set<String> declaredKeys,
+            List<String> unknownKeys) {
+        for (Map.Entry<String, Object> entry : map.entrySet()) {
+            String fullKey = prefix.isEmpty() ? entry.getKey() : prefix + "." + entry.getKey();
+
+            boolean isValid =
+                    declaredKeys.contains(fullKey)
+                            || declaredKeys.stream().anyMatch(dk -> dk.startsWith(fullKey + "."));
+
+            if (!isValid) {
+                unknownKeys.add(fullKey);
+            } else if (entry.getValue() instanceof Map && !declaredKeys.contains(fullKey)) {
+                validatePaths(
+                        (Map<String, Object>) entry.getValue(), fullKey, declaredKeys, unknownKeys);
+            }
+        }
+    }
+
+    private static Set<String> collectDeclaredKeys(OptionRule rule) {
+        Set<String> keys = new HashSet<>();
+
+        if (rule != null) {
+            collectKeys(keys, rule.getOptionalOptions());
+            for (RequiredOption requiredOption : rule.getRequiredOptions()) {
+                collectKeys(keys, requiredOption.getOptions());
+            }
+            for (ConditionRule conditionRule : rule.getConditionRules()) {
+                keys.addAll(collectDeclaredKeys(conditionRule.getOptionRule()));
+            }
+        }
+        return keys;
+    }
+
+    private static void collectKeys(Set<String> keys, List<? extends Option<?>> options) {
+        for (Option<?> option : options) {
+            keys.add(option.key());
+            option.getFallbackKeys().forEach(keys::add);
+        }
     }
 
     public void validate(OptionRule rule) {
