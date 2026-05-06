@@ -53,11 +53,14 @@ import java.util.List;
 import java.util.Map;
 import java.util.Set;
 import java.util.concurrent.ConcurrentHashMap;
+import java.util.concurrent.CountDownLatch;
 import java.util.concurrent.ExecutionException;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
+import java.util.concurrent.Future;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.TimeoutException;
+import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.concurrent.atomic.AtomicInteger;
 import java.util.concurrent.atomic.AtomicLong;
 
@@ -663,6 +666,200 @@ public class CheckpointCoordinatorTest
                     .tryTriggerPendingCheckpoint(CheckpointType.COMPLETED_POINT_TYPE);
         } finally {
             executorService.shutdownNow();
+        }
+    }
+
+    @Test
+    void testUpdateReadyToCloseStartingTaskWithTenTaskLocationsConcurrently() throws Exception {
+        ExecutorService coordinatorExecutor = Executors.newCachedThreadPool();
+        ExecutorService concurrentExecutor = Executors.newFixedThreadPool(10);
+        try {
+            Set<TaskLocation> allStarting = new HashSet<>();
+            for (int i = 1; i <= 10; i++) {
+                allStarting.add(new TaskLocation(new TaskGroupLocation(1L, 1, i), i, i));
+            }
+
+            CheckpointConfig checkpointConfig = new CheckpointConfig();
+            checkpointConfig.setStorage(new CheckpointStorageConfig());
+            CheckpointPlan plan =
+                    CheckpointPlan.builder()
+                            .pipelineId(1)
+                            .pipelineSubtasks(allStarting)
+                            .startingSubtasks(allStarting)
+                            .build();
+
+            IMap<Object, Object> realIMap = Mockito.mock(IMap.class);
+            String readyToCloseKey = "checkpoint_state_1_1_ready_to_close";
+            Map<Object, Object> simulatedImapStorage = new ConcurrentHashMap<>();
+            Mockito.when(realIMap.get(Mockito.any()))
+                    .thenAnswer(invocation -> simulatedImapStorage.get(invocation.getArgument(0)));
+
+            CountDownLatch firstSnapshotReady = new CountDownLatch(1);
+            CountDownLatch fullSnapshotWritten = new CountDownLatch(1);
+            CountDownLatch allowFirstSnapshotWrite = new CountDownLatch(1);
+            AtomicBoolean blockedFirstSnapshot = new AtomicBoolean(false);
+
+            AtomicInteger computeCallCount = new AtomicInteger(0);
+            AtomicInteger setCallCount = new AtomicInteger(0);
+
+            Mockito.doAnswer(
+                            invocation -> {
+                                Object key = invocation.getArgument(0);
+                                java.util.function.BiFunction<Object, Object, Object>
+                                        remappingFunction = invocation.getArgument(1);
+                                if (!readyToCloseKey.equals(key)) {
+                                    return simulatedImapStorage.compute(key, remappingFunction);
+                                }
+                                computeCallCount.incrementAndGet();
+                                if (blockedFirstSnapshot.compareAndSet(false, true)) {
+                                    firstSnapshotReady.countDown();
+                                    if (!allowFirstSnapshotWrite.await(30, TimeUnit.SECONDS)) {
+                                        throw new AssertionError(
+                                                "Timed out while waiting to release first snapshot write");
+                                    }
+                                }
+                                Object result =
+                                        simulatedImapStorage.compute(key, remappingFunction);
+                                @SuppressWarnings("unchecked")
+                                Set<TaskLocation> snapshot = (Set<TaskLocation>) result;
+                                if (snapshot.size() == allStarting.size()) {
+                                    fullSnapshotWritten.countDown();
+                                }
+                                return result;
+                            })
+                    .when(realIMap)
+                    .compute(Mockito.any(), Mockito.any());
+
+            Mockito.doAnswer(
+                            invocation -> {
+                                Object key = invocation.getArgument(0);
+                                Object value = invocation.getArgument(1);
+                                if (readyToCloseKey.equals(key)) {
+                                    setCallCount.incrementAndGet();
+                                }
+                                simulatedImapStorage.put(key, value);
+                                return null;
+                            })
+                    .when(realIMap)
+                    .set(Mockito.any(), Mockito.any());
+
+            CheckpointCoordinator coordinator =
+                    new CheckpointCoordinator(
+                            Mockito.mock(CheckpointManager.class),
+                            Mockito.mock(CheckpointStorage.class),
+                            checkpointConfig,
+                            1L,
+                            plan,
+                            Mockito.mock(CheckpointIDCounter.class),
+                            null,
+                            coordinatorExecutor,
+                            realIMap,
+                            false,
+                            null);
+            CheckpointCoordinator spy = Mockito.spy(coordinator);
+            Mockito.doNothing()
+                    .when(spy)
+                    .tryTriggerPendingCheckpoint(Mockito.any(CheckpointType.class));
+
+            CountDownLatch finishLatch = new CountDownLatch(allStarting.size());
+            List<Future<?>> futures = new ArrayList<>(allStarting.size());
+            List<TaskLocation> taskLocations = new ArrayList<>(allStarting);
+            TaskLocation firstTask = taskLocations.get(0);
+
+            Future<?> firstFuture =
+                    concurrentExecutor.submit(
+                            () -> {
+                                try {
+                                    spy.readyToClose(firstTask);
+                                } finally {
+                                    finishLatch.countDown();
+                                }
+                            });
+            futures.add(firstFuture);
+
+            Assertions.assertTrue(
+                    firstSnapshotReady.await(30, TimeUnit.SECONDS),
+                    "Should observe the first snapshot write");
+
+            for (int i = 1; i < taskLocations.size(); i++) {
+                TaskLocation taskLocation = taskLocations.get(i);
+                Future<?> future =
+                        concurrentExecutor.submit(
+                                () -> {
+                                    try {
+                                        spy.readyToClose(taskLocation);
+                                    } finally {
+                                        finishLatch.countDown();
+                                    }
+                                });
+                futures.add(future);
+            }
+
+            Assertions.assertTrue(
+                    fullSnapshotWritten.await(30, TimeUnit.SECONDS),
+                    "Should observe full snapshot write before releasing first write");
+            allowFirstSnapshotWrite.countDown();
+            Assertions.assertTrue(
+                    finishLatch.await(30, TimeUnit.SECONDS),
+                    "All concurrent readyToClose calls should finish in time");
+            for (Future<?> future : futures) {
+                future.get(30, TimeUnit.SECONDS);
+            }
+
+            Object persistedValue = simulatedImapStorage.get(readyToCloseKey);
+            Assertions.assertInstanceOf(
+                    Set.class, persistedValue, "Persisted ready-to-close state should be a Set");
+            Set<TaskLocation> persisted = (Set<TaskLocation>) persistedValue;
+            Assertions.assertEquals(10, persisted.size());
+            Assertions.assertTrue(persisted.containsAll(allStarting));
+            Mockito.verify(spy, Mockito.atLeastOnce())
+                    .tryTriggerPendingCheckpoint(CheckpointType.COMPLETED_POINT_TYPE);
+
+            Assertions.assertTrue(
+                    computeCallCount.get() >= 10,
+                    "Production code must use atomic compute() for ready-to-close persistence,"
+                            + " actual compute calls: "
+                            + computeCallCount.get());
+            Assertions.assertEquals(
+                    0,
+                    setCallCount.get(),
+                    "Production code must NOT use non-atomic set() for ready-to-close persistence;"
+                            + " set() would cause lost-update under concurrency");
+
+            // Restore from persisted IMap state and verify merged set is fully recoverable.
+            CheckpointCoordinator restoredCoordinator =
+                    new CheckpointCoordinator(
+                            Mockito.mock(CheckpointManager.class),
+                            Mockito.mock(CheckpointStorage.class),
+                            checkpointConfig,
+                            1L,
+                            plan,
+                            Mockito.mock(CheckpointIDCounter.class),
+                            null,
+                            coordinatorExecutor,
+                            realIMap,
+                            false,
+                            null);
+            CheckpointCoordinator restoreSpy = Mockito.spy(restoredCoordinator);
+            Mockito.doReturn(true).when(restoreSpy).notifyCompleted(Mockito.any());
+            Mockito.doNothing()
+                    .when(restoreSpy)
+                    .tryTriggerPendingCheckpoint(Mockito.any(CheckpointType.class));
+            restoreSpy.restoreCoordinator(true);
+
+            Set<TaskLocation> restoredReadyToClose =
+                    (Set<TaskLocation>)
+                            ReflectionUtils.getField(restoreSpy, "readyToCloseStartingTask")
+                                    .orElse(Collections.emptySet());
+            Assertions.assertEquals(
+                    allStarting,
+                    restoredReadyToClose,
+                    "Restored ready-to-close state should recover the full merged set");
+            Mockito.verify(restoreSpy)
+                    .tryTriggerPendingCheckpoint(CheckpointType.COMPLETED_POINT_TYPE);
+        } finally {
+            concurrentExecutor.shutdownNow();
+            coordinatorExecutor.shutdownNow();
         }
     }
 

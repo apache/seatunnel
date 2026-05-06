@@ -466,8 +466,16 @@ public class CheckpointCoordinator {
         try {
             RetryUtils.retryWithException(
                     () -> {
-                        runningJobStateIMap.set(
-                                readyToCloseImapKey, new HashSet<>(readyToCloseStartingTask));
+                        runningJobStateIMap.compute(
+                                readyToCloseImapKey,
+                                (k, exist) -> {
+                                    Set<TaskLocation> merged =
+                                            exist instanceof Set
+                                                    ? new HashSet<>((Set<TaskLocation>) exist)
+                                                    : new HashSet<>();
+                                    merged.addAll(readyToCloseStartingTask);
+                                    return merged;
+                                });
                         return null;
                     },
                     new RetryUtils.RetryMaterial(

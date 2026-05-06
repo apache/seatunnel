@@ -17,6 +17,8 @@
 
 package org.apache.seatunnel.engine.e2e;
 
+import org.apache.seatunnel.shade.org.apache.commons.lang3.tuple.ImmutablePair;
+
 import org.apache.seatunnel.common.config.Common;
 import org.apache.seatunnel.common.config.DeployMode;
 import org.apache.seatunnel.common.utils.FileUtils;
@@ -34,7 +36,6 @@ import org.apache.seatunnel.engine.server.checkpoint.IMapCheckpointIDCounter;
 import org.awaitility.Awaitility;
 import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.Test;
-import org.apache.seatunnel.shade.org.apache.commons.lang3.tuple.ImmutablePair;
 
 import com.hazelcast.client.config.ClientConfig;
 import com.hazelcast.instance.impl.HazelcastInstanceImpl;
