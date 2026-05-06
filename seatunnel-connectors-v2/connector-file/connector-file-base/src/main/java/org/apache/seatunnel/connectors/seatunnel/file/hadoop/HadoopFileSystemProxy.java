@@ -93,6 +93,31 @@ public class HadoopFileSystemProxy implements Serializable, Closeable {
                 });
     }
 
+    public boolean deleteEmptyDirectory(@NonNull String filePath) throws IOException {
+        return execute(
+                () -> {
+                    Path path = new Path(filePath);
+                    FileSystem fileSystem = getFileSystem();
+                    try {
+                        if (!fileSystem.exists(path)
+                                || !fileSystem.getFileStatus(path).isDirectory()) {
+                            return false;
+                        }
+                        FileStatus[] children = fileSystem.listStatus(path);
+                        if (children != null && children.length > 0) {
+                            return false;
+                        }
+                        return fileSystem.delete(path, false);
+                    } catch (IOException e) {
+                        log.debug(
+                                "Skip deleting empty directory {}, it may be changed concurrently",
+                                filePath,
+                                e);
+                        return false;
+                    }
+                });
+    }
+
     public void renameFile(
             @NonNull String oldFilePath,
             @NonNull String newFilePath,

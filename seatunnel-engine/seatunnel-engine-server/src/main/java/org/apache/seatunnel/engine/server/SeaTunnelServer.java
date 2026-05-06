@@ -17,13 +17,13 @@
 
 package org.apache.seatunnel.engine.server;
 
+import org.apache.seatunnel.api.metadata.MetadataProviderManager;
 import org.apache.seatunnel.common.utils.RetryUtils;
 import org.apache.seatunnel.engine.common.Constant;
 import org.apache.seatunnel.engine.common.config.EngineConfig;
 import org.apache.seatunnel.engine.common.config.SeaTunnelConfig;
 import org.apache.seatunnel.engine.common.exception.SeaTunnelEngineException;
 import org.apache.seatunnel.engine.common.exception.SeaTunnelEngineRetryableException;
-import org.apache.seatunnel.engine.common.utils.DataSourceConfigResolver;
 import org.apache.seatunnel.engine.core.classloader.ClassLoaderService;
 import org.apache.seatunnel.engine.core.classloader.DefaultClassLoaderService;
 import org.apache.seatunnel.engine.server.checkpoint.monitor.CheckpointMonitorService;
@@ -236,7 +236,7 @@ public class SeaTunnelServer
             eventService.shutdownNow();
         }
 
-        DataSourceConfigResolver.closeProviders();
+        MetadataProviderManager.closeProviders();
     }
 
     @Override

@@ -449,42 +449,24 @@ public class OrcReadStrategy extends AbstractReadStrategy {
             SeaTunnelDataType<?> dataType,
             int rowNum,
             Charset charset) {
-        Object bytesObj = null;
-        if (!colVec.isNull[rowNum]) {
-            BytesColumnVector bytesVector = (BytesColumnVector) colVec;
-            bytesObj = this.bytesVectorToString(bytesVector, rowNum, charset);
-            if (typeDescription.getCategory() == TypeDescription.Category.BINARY
-                    && bytesObj != null) {
-                bytesObj = ((String) bytesObj).getBytes(charset);
-            }
-            if (dataType != null
-                    && dataType.getSqlType().equals(SqlType.STRING)
-                    && bytesObj != null) {
-                bytesObj = bytesObj.toString();
-            }
-        }
-        return bytesObj;
-    }
 
-    /**
-     * copied from {@link BytesColumnVector#toString(int)}
-     *
-     * @param bytesVector the BytesColumnVector
-     * @param row rowNum
-     * @param charset read charset
-     */
-    private Object bytesVectorToString(BytesColumnVector bytesVector, int row, Charset charset) {
-        if (bytesVector.isRepeating) {
-            row = 0;
+        if (colVec.isNull[rowNum]) {
+            return null;
         }
 
-        return !bytesVector.noNulls && bytesVector.isNull[row]
-                ? null
-                : new String(
-                        bytesVector.vector[row],
-                        bytesVector.start[row],
-                        bytesVector.length[row],
-                        charset);
+        BytesColumnVector bytesVector = (BytesColumnVector) colVec;
+        int row = bytesVector.isRepeating ? 0 : rowNum;
+
+        int vecStart = bytesVector.start[row];
+        int vecLen = bytesVector.length[row];
+        byte[] rawBytes = Arrays.copyOfRange(bytesVector.vector[row], vecStart, vecStart + vecLen);
+
+        if (typeDescription.getCategory() == TypeDescription.Category.BINARY
+                && (dataType == null || !dataType.getSqlType().equals(SqlType.STRING))) {
+            return rawBytes;
+        }
+
+        return new String(rawBytes, charset);
     }
 
     private Object readDecimalVal(ColumnVector colVec, SeaTunnelDataType<?> dataType, int rowNum) {

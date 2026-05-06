@@ -55,11 +55,9 @@ public class KingbaseDialect implements JdbcDialect {
 
     @Override
     public Optional<String> getUpsertStatement(
-            String database, String tableName, String[] fieldNames, String[] uniqueKeyFields) {
+            String database, String tableName, String[] fieldNames, String[] pkNames) {
         String uniqueColumns =
-                Arrays.stream(uniqueKeyFields)
-                        .map(this::quoteIdentifier)
-                        .collect(Collectors.joining(", "));
+                Arrays.stream(pkNames).map(this::quoteIdentifier).collect(Collectors.joining(", "));
         String updateClause =
                 Arrays.stream(fieldNames)
                         .map(

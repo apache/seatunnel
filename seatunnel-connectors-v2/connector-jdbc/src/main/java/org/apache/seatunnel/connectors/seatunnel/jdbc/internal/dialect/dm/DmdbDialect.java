@@ -79,10 +79,10 @@ public class DmdbDialect implements JdbcDialect {
 
     @Override
     public Optional<String> getUpsertStatement(
-            String database, String tableName, String[] fieldNames, String[] uniqueKeyFields) {
+            String database, String tableName, String[] fieldNames, String[] pkNames) {
         List<String> nonUniqueKeyFields =
                 Arrays.stream(fieldNames)
-                        .filter(fieldName -> !Arrays.asList(uniqueKeyFields).contains(fieldName))
+                        .filter(fieldName -> !Arrays.asList(pkNames).contains(fieldName))
                         .collect(Collectors.toList());
         String valuesBinding =
                 Arrays.stream(fieldNames)
@@ -90,7 +90,7 @@ public class DmdbDialect implements JdbcDialect {
                         .collect(Collectors.joining(", "));
         String usingClause = String.format("SELECT %s", valuesBinding);
         String onConditions =
-                Arrays.stream(uniqueKeyFields)
+                Arrays.stream(pkNames)
                         .map(
                                 fieldName ->
                                         String.format(

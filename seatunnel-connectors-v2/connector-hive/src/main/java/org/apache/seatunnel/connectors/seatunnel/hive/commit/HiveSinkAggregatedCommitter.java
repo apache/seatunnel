@@ -21,7 +21,7 @@ import org.apache.seatunnel.api.configuration.ReadonlyConfig;
 import org.apache.seatunnel.connectors.seatunnel.file.config.HadoopConf;
 import org.apache.seatunnel.connectors.seatunnel.file.sink.commit.FileAggregatedCommitInfo;
 import org.apache.seatunnel.connectors.seatunnel.file.sink.commit.FileSinkAggregatedCommitter;
-import org.apache.seatunnel.connectors.seatunnel.hive.sink.HiveSinkOptions;
+import org.apache.seatunnel.connectors.seatunnel.hive.config.HiveSinkOptions;
 import org.apache.seatunnel.connectors.seatunnel.hive.utils.HiveMetaStoreCatalog;
 
 import org.apache.thrift.TException;
@@ -80,9 +80,7 @@ public class HiveSinkAggregatedCommitter extends FileSinkAggregatedCommitter {
                 readonlyConfig.get(HiveSinkOptions.ABORT_DROP_PARTITION_METADATA);
         // Normalize overwrite into data_save_mode
         org.apache.seatunnel.api.sink.DataSaveMode configured =
-                readonlyConfig.get(
-                        org.apache.seatunnel.connectors.seatunnel.hive.sink.HiveSinkOptions
-                                .DATA_SAVE_MODE);
+                readonlyConfig.get(HiveSinkOptions.DATA_SAVE_MODE);
         boolean overwrite = readonlyConfig.get(HiveSinkOptions.OVERWRITE);
         this.dataSaveMode =
                 overwrite ? org.apache.seatunnel.api.sink.DataSaveMode.DROP_DATA : configured;

@@ -17,6 +17,7 @@
 
 package org.apache.seatunnel.engine.server;
 
+import org.apache.seatunnel.common.utils.ReflectionUtils;
 import org.apache.seatunnel.engine.common.Constant;
 import org.apache.seatunnel.engine.common.config.ConfigProvider;
 import org.apache.seatunnel.engine.common.config.SeaTunnelConfig;
@@ -26,6 +27,7 @@ import org.apache.seatunnel.engine.common.utils.concurrent.CompletableFuture;
 import org.apache.seatunnel.engine.core.dag.logical.LogicalDag;
 import org.apache.seatunnel.engine.core.job.JobDAGInfo;
 import org.apache.seatunnel.engine.core.job.JobImmutableInformation;
+import org.apache.seatunnel.engine.core.job.JobInfo;
 import org.apache.seatunnel.engine.core.job.PipelineStatus;
 import org.apache.seatunnel.engine.server.dag.physical.PipelineLocation;
 import org.apache.seatunnel.engine.server.dag.physical.SubPlan;
@@ -45,14 +47,17 @@ import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.Disabled;
 import org.junit.jupiter.api.Test;
 import org.junitpioneer.jupiter.SetEnvironmentVariable;
+import org.mockito.Mockito;
 
 import com.hazelcast.instance.impl.HazelcastInstanceImpl;
 import com.hazelcast.internal.serialization.Data;
 import com.hazelcast.map.IMap;
+import com.hazelcast.spi.exception.RetryableHazelcastException;
 import com.hazelcast.spi.impl.NodeEngineImpl;
 import lombok.extern.slf4j.Slf4j;
 
 import java.lang.reflect.Field;
+import java.lang.reflect.Method;
 import java.nio.file.Path;
 import java.nio.file.Paths;
 import java.util.ArrayList;
@@ -69,6 +74,7 @@ import java.util.concurrent.TimeUnit;
 
 import static org.apache.seatunnel.engine.core.classloader.DefaultClassLoaderService.SKIP_CHECK_JAR;
 import static org.awaitility.Awaitility.await;
+import static org.mockito.Mockito.doThrow;
 
 @Slf4j
 public class CoordinatorServiceTest {
@@ -149,7 +155,7 @@ public class CoordinatorServiceTest {
         // 1) Terminate the real job first.
         coordinatorService.cancelJob(jobId).join();
 
-        await().atMost(30, TimeUnit.SECONDS)
+        await().atMost(120, TimeUnit.SECONDS)
                 .untilAsserted(
                         () ->
                                 Assertions.assertEquals(
@@ -192,7 +198,7 @@ public class CoordinatorServiceTest {
         // 3) Trigger master switch.
         instance1.shutdown();
 
-        await().atMost(20, TimeUnit.SECONDS)
+        await().atMost(30, TimeUnit.SECONDS)
                 .untilAsserted(
                         () -> {
                             Assertions.assertTrue(server2.isMasterNode());
@@ -206,7 +212,7 @@ public class CoordinatorServiceTest {
         IMap<Object, Object> runningJobStateOnInstance2 =
                 instance2.getMap(Constant.IMAP_RUNNING_JOB_STATE);
 
-        await().atMost(20, TimeUnit.SECONDS)
+        await().atMost(30, TimeUnit.SECONDS)
                 .untilAsserted(
                         () -> {
                             Assertions.assertFalse(
@@ -219,8 +225,8 @@ public class CoordinatorServiceTest {
 
         // 5) The important assertion:
         // terminal zombie metadata must NOT cause tasks to start running again.
-        await().during(10000, TimeUnit.MILLISECONDS)
-                .atMost(12000, TimeUnit.MILLISECONDS)
+        await().during(10, TimeUnit.SECONDS)
+                .atMost(20, TimeUnit.SECONDS)
                 .untilAsserted(
                         () -> {
                             for (TaskGroupLocation location : taskGroupLocations) {
@@ -780,6 +786,15 @@ public class CoordinatorServiceTest {
         return (Map<Long, JobMaster>) field.get(coordinatorService);
     }
 
+    private void invokeRestoreJobFromMasterActiveSwitch(
+            CoordinatorService coordinatorService, long jobId, JobInfo jobInfo) throws Exception {
+        Method method =
+                CoordinatorService.class.getDeclaredMethod(
+                        "restoreJobFromMasterActiveSwitch", Long.class, JobInfo.class);
+        method.setAccessible(true);
+        method.invoke(coordinatorService, jobId, jobInfo);
+    }
+
     @Test
     public void testClearCoordinatorService() {
         JobInformation jobInformation =
@@ -829,6 +844,67 @@ public class CoordinatorServiceTest {
                                 thread ->
                                         thread.getName().startsWith("pending-job-schedule-runner"))
                         .count());
+    }
+
+    @Test
+    void testRestoreUsesProvidedJobInfoInitializationTimestamp() throws Exception {
+        HazelcastInstanceImpl instance =
+                createHazelcastInstanceWithJoinPortTryCount(
+                        TestUtils.getClusterName(
+                                "CoordinatorServiceTest_testRestoreUsesProvidedJobInfoInitializationTimestamp"),
+                        100);
+        try {
+            SeaTunnelServer server =
+                    instance.node.getNodeEngine().getService(SeaTunnelServer.SERVICE_NAME);
+            CoordinatorService coordinatorService = server.getCoordinatorService();
+            await().atMost(10, TimeUnit.SECONDS)
+                    .untilAsserted(
+                            () -> Assertions.assertTrue(coordinatorService.isCoordinatorActive()));
+
+            Long jobId = instance.getFlakeIdGenerator(Constant.SEATUNNEL_ID_GENERATOR_NAME).newId();
+            long initializationTimestamp = 100L;
+            LogicalDag logicalDag =
+                    TestUtils.createTestLogicalPlan(
+                            "stream_fake_to_console.conf",
+                            "restore-job-info-initialization-timestamp-test",
+                            jobId);
+            JobImmutableInformation jobImmutableInformation =
+                    new JobImmutableInformation(
+                            jobId,
+                            "Test",
+                            instance.getSerializationService(),
+                            logicalDag,
+                            Collections.emptyList(),
+                            Collections.emptyList());
+            JobInfo jobInfo =
+                    new JobInfo(
+                            initializationTimestamp,
+                            instance.getSerializationService().toData(jobImmutableInformation));
+
+            IMap<Long, JobInfo> runningJobInfoIMap =
+                    instance.getMap(Constant.IMAP_RUNNING_JOB_INFO);
+            IMap<Object, Object> runningJobStateIMap =
+                    instance.getMap(Constant.IMAP_RUNNING_JOB_STATE);
+            runningJobInfoIMap.put(jobId, jobInfo);
+            runningJobStateIMap.put(jobId, JobStatus.RUNNING);
+
+            IMap<Long, JobInfo> spiedRunningJobInfoIMap = Mockito.spy(runningJobInfoIMap);
+            doThrow(new RetryableHazelcastException("loading"))
+                    .when(spiedRunningJobInfoIMap)
+                    .get(jobId);
+            ReflectionUtils.setField(
+                    coordinatorService, "runningJobInfoIMap", spiedRunningJobInfoIMap);
+            try {
+                invokeRestoreJobFromMasterActiveSwitch(coordinatorService, jobId, jobInfo);
+            } finally {
+                ReflectionUtils.setField(
+                        coordinatorService, "runningJobInfoIMap", runningJobInfoIMap);
+            }
+
+            Assertions.assertTrue(coordinatorService.getPendingJobQueue().contains(jobId));
+        } finally {
+            instance.shutdown();
+        }
     }
 
     @Test

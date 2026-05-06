@@ -64,25 +64,35 @@ public class JobInfoService extends BaseService {
                 nodeEngine.getHazelcastInstance().getMap(Constant.IMAP_RUNNING_JOB_INFO);
         JobInfo jobInfo = (JobInfo) jobInfoMap.get(jobId);
 
-        IMap<Object, Object> finishedJobStateMap =
-                nodeEngine.getHazelcastInstance().getMap(Constant.IMAP_FINISHED_JOB_STATE);
-        JobState finishedJobState = (JobState) finishedJobStateMap.get(jobId);
-
         if (jobInfo != null) {
             return convertToJson(jobInfo, jobId);
-        } else if (finishedJobState != null) {
+        }
+
+        JobState finishedJobState =
+                (JobState)
+                        nodeEngine
+                                .getHazelcastInstance()
+                                .getMap(Constant.IMAP_FINISHED_JOB_STATE)
+                                .get(jobId);
+
+        if (finishedJobState != null) {
             JobMetrics finishedJobMetrics =
                     (JobMetrics)
                             nodeEngine
                                     .getHazelcastInstance()
                                     .getMap(Constant.IMAP_FINISHED_JOB_METRICS)
                                     .get(jobId);
+            if (finishedJobMetrics == null) {
+                finishedJobMetrics = JobMetrics.empty();
+            }
+
             JobDAGInfo finishedJobDAGInfo =
                     (JobDAGInfo)
                             nodeEngine
                                     .getHazelcastInstance()
                                     .getMap(Constant.IMAP_FINISHED_JOB_VERTEX_INFO)
                                     .get(jobId);
+
             return getJobInfoJson(
                     finishedJobState, finishedJobMetrics.toJsonString(), finishedJobDAGInfo);
         } else {
@@ -183,6 +193,10 @@ public class JobInfoService extends BaseService {
 
     public JsonObject submitJob(Map<String, String> requestParams, byte[] requestBody) {
 
+        if (requestParams.containsKey(RestConstant.DRY_RUN)
+                && requestParams.get(RestConstant.DRY_RUN) != null) {
+            throw new IllegalArgumentException("Dry-run is only supported via CLI");
+        }
         if (Boolean.parseBoolean(requestParams.get(RestConstant.IS_START_WITH_SAVE_POINT))
                 && requestParams.get(RestConstant.JOB_ID) == null) {
             throw new IllegalArgumentException("Please provide jobId when start with save point.");
@@ -211,6 +225,10 @@ public class JobInfoService extends BaseService {
     }
 
     public JsonObject submitJob(Map<String, String> requestParams, Config config) {
+        if (requestParams.containsKey(RestConstant.DRY_RUN)
+                && requestParams.get(RestConstant.DRY_RUN) != null) {
+            throw new IllegalArgumentException("Dry-run is only supported via CLI");
+        }
         if (Boolean.parseBoolean(requestParams.get(RestConstant.IS_START_WITH_SAVE_POINT))
                 && requestParams.get(RestConstant.JOB_ID) == null) {
             throw new IllegalArgumentException("Please provide jobId when start with save point.");
@@ -229,6 +247,11 @@ public class JobInfoService extends BaseService {
                             String urlParams = mapToUrlParams(tuple._1);
                             Map<String, String> requestParams = new HashMap<>();
                             RestUtil.buildRequestParams(requestParams, urlParams);
+                            if (requestParams.containsKey(RestConstant.DRY_RUN)
+                                    && requestParams.get(RestConstant.DRY_RUN) != null) {
+                                throw new IllegalArgumentException(
+                                        "Dry-run is only supported via CLI");
+                            }
                             SeaTunnelServer seaTunnelServer = getSeaTunnelServer(false);
                             Config decryptConfig = ConfigShadeUtils.decryptConfig(tuple._2);
                             return submitJobInternal(

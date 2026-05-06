@@ -25,10 +25,8 @@ import org.apache.seatunnel.api.table.connector.TableSource;
 import org.apache.seatunnel.api.table.factory.Factory;
 import org.apache.seatunnel.api.table.factory.TableSourceFactory;
 import org.apache.seatunnel.api.table.factory.TableSourceFactoryContext;
-import org.apache.seatunnel.connectors.seatunnel.file.config.FileBaseSourceOptions;
-import org.apache.seatunnel.connectors.seatunnel.hive.config.HiveConfig;
 import org.apache.seatunnel.connectors.seatunnel.hive.config.HiveConstants;
-import org.apache.seatunnel.connectors.seatunnel.hive.config.HiveOptions;
+import org.apache.seatunnel.connectors.seatunnel.hive.config.HiveSourceOptions;
 
 import com.google.auto.service.AutoService;
 
@@ -50,17 +48,17 @@ public class HiveSourceFactory implements TableSourceFactory {
     @Override
     public OptionRule optionRule() {
         return OptionRule.builder()
-                .optional(HiveConfig.TABLE_NAME)
-                .optional(HiveConfig.METASTORE_URI)
+                .optional(HiveSourceOptions.TABLE_NAME)
+                .optional(HiveSourceOptions.METASTORE_URI)
                 .optional(ConnectorCommonOptions.TABLE_CONFIGS, ConnectorCommonOptions.TABLE_LIST)
-                .optional(HiveOptions.USE_REGEX)
-                .optional(FileBaseSourceOptions.READ_PARTITIONS)
-                .optional(FileBaseSourceOptions.READ_COLUMNS)
-                .optional(FileBaseSourceOptions.KERBEROS_PRINCIPAL)
-                .optional(FileBaseSourceOptions.KERBEROS_KEYTAB_PATH)
-                .optional(FileBaseSourceOptions.REMOTE_USER)
-                .optional(HiveConfig.HADOOP_CONF)
-                .optional(HiveConfig.HADOOP_CONF_PATH)
+                .optional(HiveSourceOptions.USE_REGEX)
+                .optional(HiveSourceOptions.READ_PARTITIONS)
+                .optional(HiveSourceOptions.READ_COLUMNS)
+                .optional(HiveSourceOptions.KERBEROS_PRINCIPAL)
+                .optional(HiveSourceOptions.KERBEROS_KEYTAB_PATH)
+                .optional(HiveSourceOptions.REMOTE_USER)
+                .optional(HiveSourceOptions.HADOOP_CONF)
+                .optional(HiveSourceOptions.HADOOP_CONF_PATH)
                 .build();
     }
 
