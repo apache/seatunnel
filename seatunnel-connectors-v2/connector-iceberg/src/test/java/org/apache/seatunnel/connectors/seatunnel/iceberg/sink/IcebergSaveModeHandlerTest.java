@@ -26,6 +26,7 @@ import org.apache.seatunnel.api.table.catalog.TablePath;
 import org.apache.seatunnel.api.table.catalog.TableSchema;
 import org.apache.seatunnel.api.table.type.BasicType;
 import org.apache.seatunnel.connectors.seatunnel.iceberg.catalog.IcebergCatalog;
+import org.apache.seatunnel.connectors.seatunnel.iceberg.config.IcebergDropDataStrategy;
 
 import org.junit.jupiter.api.Test;
 
@@ -60,7 +61,7 @@ class IcebergSaveModeHandlerTest {
                     "source");
 
     @Test
-    void shouldResetExistingTableMetadataInStreamingMode() {
+    void shouldUseDeleteCommitStrategyByDefault() {
         IcebergCatalog catalog = mock(IcebergCatalog.class);
         when(catalog.tableExists(TABLE_PATH)).thenReturn(true);
         IcebergSaveModeHandler handler =
@@ -69,18 +70,19 @@ class IcebergSaveModeHandlerTest {
                         DataSaveMode.DROP_DATA,
                         catalog,
                         SOURCE_TABLE,
+                        null,
+                        IcebergDropDataStrategy.DELETE_COMMIT,
                         null);
 
         handler.handleDataSaveMode();
 
         verify(catalog).tableExists(TABLE_PATH);
-        verify(catalog).truncateTable(TABLE_PATH, true);
-        verify(catalog, never()).getTable(TABLE_PATH);
-        verify(catalog, never()).createTable(any(), any(), anyBoolean());
+        verify(catalog)
+                .truncateTable(TABLE_PATH, true, IcebergDropDataStrategy.DELETE_COMMIT, null);
     }
 
     @Test
-    void shouldResetExistingTableMetadataInBatchMode() {
+    void shouldUseHardMetadataResetStrategyWhenConfigured() {
         IcebergCatalog catalog = mock(IcebergCatalog.class);
         when(catalog.tableExists(TABLE_PATH)).thenReturn(true);
 
@@ -90,12 +92,16 @@ class IcebergSaveModeHandlerTest {
                         DataSaveMode.DROP_DATA,
                         catalog,
                         SOURCE_TABLE,
-                        null);
+                        null,
+                        IcebergDropDataStrategy.HARD_METADATA_RESET,
+                        "st_branch");
 
         handler.handleDataSaveMode();
 
         verify(catalog).tableExists(TABLE_PATH);
-        verify(catalog).truncateTable(TABLE_PATH, true);
+        verify(catalog)
+                .truncateTable(
+                        TABLE_PATH, true, IcebergDropDataStrategy.HARD_METADATA_RESET, "st_branch");
         verify(catalog, never()).getTable(TABLE_PATH);
         verify(catalog, never()).createTable(any(), any(), anyBoolean());
     }

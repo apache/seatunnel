@@ -125,26 +125,21 @@ public class IcebergSink
                     SeaTunnelAPIErrorCode.CONFIG_VALIDATION_FAILED,
                     String.format(
                             "PluginName: %s, PluginType: %s, Message: %s",
-                            getPluginName(), PluginType.SINK, "Cannot find Doris catalog factory"));
+                            getPluginName(),
+                            PluginType.SINK,
+                            "Cannot find Iceberg catalog factory"));
         }
         Catalog catalog =
                 catalogFactory.createCatalog(catalogFactory.factoryIdentifier(), readonlyConfig);
-        if (!(catalog instanceof IcebergCatalog)) {
-            throw new IcebergConnectorException(
-                    SeaTunnelAPIErrorCode.CONFIG_VALIDATION_FAILED,
-                    String.format(
-                            "PluginName: %s, PluginType: %s, Message: %s",
-                            getPluginName(),
-                            PluginType.SINK,
-                            "Catalog factory did not return IcebergCatalog"));
-        }
         return Optional.of(
                 new IcebergSaveModeHandler(
                         config.getSchemaSaveMode(),
                         config.getDataSaveMode(),
                         (IcebergCatalog) catalog,
                         catalogTable,
-                        config.getDataSaveModeSQL()));
+                        config.getDataSaveModeSQL(),
+                        config.getDropDataStrategy(),
+                        config.getCommitBranch()));
     }
 
     @Override

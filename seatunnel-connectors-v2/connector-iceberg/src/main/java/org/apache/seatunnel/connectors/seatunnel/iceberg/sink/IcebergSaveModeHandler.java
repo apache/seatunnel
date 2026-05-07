@@ -22,22 +22,31 @@ import org.apache.seatunnel.api.sink.DefaultSaveModeHandler;
 import org.apache.seatunnel.api.sink.SchemaSaveMode;
 import org.apache.seatunnel.api.table.catalog.CatalogTable;
 import org.apache.seatunnel.connectors.seatunnel.iceberg.catalog.IcebergCatalog;
+import org.apache.seatunnel.connectors.seatunnel.iceberg.config.IcebergDropDataStrategy;
 
 import lombok.extern.slf4j.Slf4j;
+
+import javax.annotation.Nullable;
 
 @Slf4j
 public class IcebergSaveModeHandler extends DefaultSaveModeHandler {
 
     private final IcebergCatalog icebergCatalog;
+    private final IcebergDropDataStrategy dropDataStrategy;
+    @Nullable private final String commitBranch;
 
     public IcebergSaveModeHandler(
             SchemaSaveMode schemaSaveMode,
             DataSaveMode dataSaveMode,
             IcebergCatalog catalog,
             CatalogTable catalogTable,
-            String customSql) {
+            String customSql,
+            IcebergDropDataStrategy dropDataStrategy,
+            @Nullable String commitBranch) {
         super(schemaSaveMode, dataSaveMode, catalog, catalogTable, customSql);
         this.icebergCatalog = catalog;
+        this.dropDataStrategy = dropDataStrategy;
+        this.commitBranch = commitBranch;
     }
 
     @Override
@@ -45,9 +54,16 @@ public class IcebergSaveModeHandler extends DefaultSaveModeHandler {
         if (!tableExists()) {
             return;
         }
-        log.info(
-                "Clearing Iceberg table {} by resetting table metadata instead of running a full-table delete commit.",
-                tablePath);
-        icebergCatalog.truncateTable(tablePath, true);
+        if (dropDataStrategy == IcebergDropDataStrategy.HARD_METADATA_RESET) {
+            log.info(
+                    "Clearing Iceberg table {} using HARD_METADATA_RESET. This removes all snapshot refs and requires orphan cleanup outside the task startup path.",
+                    tablePath);
+        } else {
+            log.info(
+                    "Clearing Iceberg table {} using DELETE_COMMIT on branch {}.",
+                    tablePath,
+                    commitBranch == null ? "main" : commitBranch);
+        }
+        icebergCatalog.truncateTable(tablePath, true, dropDataStrategy, commitBranch);
     }
 }
