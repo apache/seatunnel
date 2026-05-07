@@ -110,16 +110,20 @@ public class BigtableSinkWriter
 
     @Override
     public void write(SeaTunnelRow element) throws IOException {
-        RowKeyMutation entry = convertRowToMutation(element);
-        buffer.add(entry);
-        if (buffer.size() >= parameters.getBatchMutationSize()) {
-            flush();
+        RowKeyMutation entry = convertRowToMutation(element); // outside lock: no shared state
+        synchronized (buffer) {
+            buffer.add(entry);
+            if (buffer.size() >= parameters.getBatchMutationSize()) {
+                flush();
+            }
         }
     }
 
     @Override
     public Optional<BigtableCommitInfo> prepareCommit() throws IOException {
-        flush();
+        synchronized (buffer) {
+            flush();
+        }
         return Optional.empty();
     }
 
@@ -129,7 +133,9 @@ public class BigtableSinkWriter
     @Override
     public void close() throws IOException {
         try {
-            flush();
+            synchronized (buffer) {
+                flush();
+            }
         } finally {
             if (bigtableClient != null) {
                 bigtableClient.close();
@@ -138,10 +144,12 @@ public class BigtableSinkWriter
     }
 
     private void flush() {
-        if (!buffer.isEmpty()) {
-            bigtableClient.bulkMutate(buffer);
-            buffer.clear();
+        if (buffer.isEmpty()) {
+            return;
         }
+        List<RowKeyMutation> toFlush = new ArrayList<>(buffer);
+        buffer.clear(); // clear first: prevents re-sending if bulkMutate throws
+        bigtableClient.bulkMutate(toFlush);
     }
 
     private RowKeyMutation convertRowToMutation(SeaTunnelRow row) {
