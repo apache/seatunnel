@@ -1,3 +1,5 @@
+import ChangeLog from '../changelog/connector-google-bigtable.md';
+
 # GoogleBigtable
 
 > Google Bigtable Sink 连接器
@@ -105,4 +107,4 @@ sink {
 
 ## Changelog
 
-- 0.1.0 — 初始实现：支持 BulkMutation 批量写入，支持服务账号和 ADC 认证。
+<ChangeLog />

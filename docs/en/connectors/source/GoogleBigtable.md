@@ -1,3 +1,5 @@
+import ChangeLog from '../changelog/connector-google-bigtable.md';
+
 # GoogleBigtable
 
 > Google Bigtable source connector
@@ -134,4 +136,4 @@ source {
 
 ## Changelog
 
-- 0.1.0 — Initial implementation: bounded batch Source with row-key range and timestamp filters.
+<ChangeLog />

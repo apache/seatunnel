@@ -1,3 +1,5 @@
+import ChangeLog from '../changelog/connector-google-bigtable.md';
+
 # GoogleBigtable
 
 > Google Bigtable Source 连接器
@@ -54,4 +56,4 @@ source {
 
 ## Changelog
 
-- 0.1.0 — 初始实现：有界批量 Source，支持行键范围扫描和时间戳过滤。
+<ChangeLog />

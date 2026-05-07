@@ -1,3 +1,5 @@
+import ChangeLog from '../changelog/connector-google-bigtable.md';
+
 # GoogleBigtable
 
 > Google Bigtable sink connector
@@ -178,4 +180,4 @@ sink {
 
 ## Changelog
 
-- 0.1.0 — Initial implementation: Sink connector with BulkMutation support, service account and ADC authentication.
+<ChangeLog />
