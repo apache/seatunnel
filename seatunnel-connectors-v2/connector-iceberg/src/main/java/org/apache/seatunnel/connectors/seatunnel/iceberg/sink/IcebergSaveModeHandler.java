@@ -45,11 +45,9 @@ public class IcebergSaveModeHandler extends DefaultSaveModeHandler {
         if (!tableExists()) {
             return;
         }
-        CatalogTable currentTable = icebergCatalog.getTable(tablePath);
         log.info(
-                "Rebuilding Iceberg table {} to clear data without running a full-table delete commit.",
+                "Clearing Iceberg table {} by resetting table metadata instead of running a full-table delete commit.",
                 tablePath);
-        icebergCatalog.dropTableWithoutPurge(tablePath, true);
-        icebergCatalog.createTable(tablePath, currentTable, true);
+        icebergCatalog.truncateTable(tablePath, true);
     }
 }

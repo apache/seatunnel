@@ -31,6 +31,8 @@ import org.junit.jupiter.api.Test;
 
 import java.util.Collections;
 
+import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.ArgumentMatchers.anyBoolean;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.verify;
@@ -57,29 +59,10 @@ class IcebergSaveModeHandlerTest {
                     Collections.emptyList(),
                     "source");
 
-    private static final CatalogTable TARGET_TABLE =
-            CatalogTable.of(
-                    TableIdentifier.of("catalog", "database", "table"),
-                    TableSchema.builder()
-                            .column(
-                                    PhysicalColumn.of(
-                                            "target_col",
-                                            BasicType.INT_TYPE,
-                                            (Long) null,
-                                            true,
-                                            null,
-                                            ""))
-                            .build(),
-                    Collections.emptyMap(),
-                    Collections.emptyList(),
-                    "target");
-
     @Test
-    void shouldRebuildExistingTableWithoutPurgeInStreamingMode() {
+    void shouldResetExistingTableMetadataInStreamingMode() {
         IcebergCatalog catalog = mock(IcebergCatalog.class);
         when(catalog.tableExists(TABLE_PATH)).thenReturn(true);
-        when(catalog.getTable(TABLE_PATH)).thenReturn(TARGET_TABLE);
-
         IcebergSaveModeHandler handler =
                 new IcebergSaveModeHandler(
                         SchemaSaveMode.CREATE_SCHEMA_WHEN_NOT_EXIST,
@@ -91,17 +74,15 @@ class IcebergSaveModeHandlerTest {
         handler.handleDataSaveMode();
 
         verify(catalog).tableExists(TABLE_PATH);
-        verify(catalog).getTable(TABLE_PATH);
-        verify(catalog).dropTableWithoutPurge(TABLE_PATH, true);
-        verify(catalog).createTable(TABLE_PATH, TARGET_TABLE, true);
-        verify(catalog, never()).truncateTable(TABLE_PATH, true);
+        verify(catalog).truncateTable(TABLE_PATH, true);
+        verify(catalog, never()).getTable(TABLE_PATH);
+        verify(catalog, never()).createTable(any(), any(), anyBoolean());
     }
 
     @Test
-    void shouldRebuildExistingTableWithoutPurgeInBatchMode() {
+    void shouldResetExistingTableMetadataInBatchMode() {
         IcebergCatalog catalog = mock(IcebergCatalog.class);
         when(catalog.tableExists(TABLE_PATH)).thenReturn(true);
-        when(catalog.getTable(TABLE_PATH)).thenReturn(TARGET_TABLE);
 
         IcebergSaveModeHandler handler =
                 new IcebergSaveModeHandler(
@@ -114,9 +95,8 @@ class IcebergSaveModeHandlerTest {
         handler.handleDataSaveMode();
 
         verify(catalog).tableExists(TABLE_PATH);
-        verify(catalog).getTable(TABLE_PATH);
-        verify(catalog).dropTableWithoutPurge(TABLE_PATH, true);
-        verify(catalog).createTable(TABLE_PATH, TARGET_TABLE, true);
-        verify(catalog, never()).truncateTable(TABLE_PATH, true);
+        verify(catalog).truncateTable(TABLE_PATH, true);
+        verify(catalog, never()).getTable(TABLE_PATH);
+        verify(catalog, never()).createTable(any(), any(), anyBoolean());
     }
 }

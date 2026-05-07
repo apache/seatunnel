@@ -40,16 +40,19 @@ import org.apache.seatunnel.connectors.seatunnel.iceberg.utils.ExpressionUtils;
 import org.apache.seatunnel.connectors.seatunnel.iceberg.utils.SchemaUtils;
 
 import org.apache.commons.collections.CollectionUtils;
+import org.apache.iceberg.HasTableOperations;
 import org.apache.iceberg.PartitionField;
 import org.apache.iceberg.Schema;
 import org.apache.iceberg.Snapshot;
+import org.apache.iceberg.SnapshotRef;
 import org.apache.iceberg.Table;
+import org.apache.iceberg.TableMetadata;
+import org.apache.iceberg.TableOperations;
 import org.apache.iceberg.catalog.Namespace;
 import org.apache.iceberg.catalog.SupportsNamespaces;
 import org.apache.iceberg.catalog.TableIdentifier;
 import org.apache.iceberg.exceptions.NoSuchTableException;
 import org.apache.iceberg.expressions.Expression;
-import org.apache.iceberg.expressions.Expressions;
 import org.apache.iceberg.types.Types;
 
 import lombok.extern.slf4j.Slf4j;
@@ -60,6 +63,7 @@ import net.sf.jsqlparser.statement.delete.Delete;
 import java.io.Closeable;
 import java.io.IOException;
 import java.util.ArrayList;
+import java.util.LinkedHashSet;
 import java.util.List;
 import java.util.Objects;
 import java.util.Optional;
@@ -183,16 +187,6 @@ public class IcebergCatalog implements Catalog {
     @Override
     public void dropTable(TablePath tablePath, boolean ignoreIfNotExists)
             throws TableNotExistException, CatalogException {
-        dropTable(tablePath, ignoreIfNotExists, true);
-    }
-
-    public void dropTableWithoutPurge(TablePath tablePath, boolean ignoreIfNotExists)
-            throws TableNotExistException, CatalogException {
-        dropTable(tablePath, ignoreIfNotExists, false);
-    }
-
-    private void dropTable(TablePath tablePath, boolean ignoreIfNotExists, boolean purge)
-            throws TableNotExistException, CatalogException {
         if (ignoreIfNotExists) {
             if (!tableExists(tablePath)) {
                 log.info(
@@ -201,8 +195,8 @@ public class IcebergCatalog implements Catalog {
                 return;
             }
         }
-        catalog.dropTable(toIcebergTableIdentifier(tablePath), purge);
-        log.info("Dropped table at path: {}, purge: {}", tablePath, purge);
+        catalog.dropTable(toIcebergTableIdentifier(tablePath), true);
+        log.info("Dropped table at path: {}, purge: true", tablePath);
     }
 
     @Override
@@ -271,14 +265,53 @@ public class IcebergCatalog implements Catalog {
     public void truncateTable(TablePath tablePath, boolean ignoreIfNotExists)
             throws TableNotExistException, CatalogException {
         if (!tableExists(tablePath)) {
+            if (ignoreIfNotExists) {
+                log.info(
+                        "Attempted to truncate table at path: {}. The table does not exist, but proceeding as 'ignoreIfNotExists' is set to true.",
+                        tablePath);
+                return;
+            }
             throw new TableNotExistException("table not exist", tablePath);
         }
         TableIdentifier icebergTableIdentifier = toIcebergTableIdentifier(tablePath);
-        catalog.loadTable(icebergTableIdentifier)
-                .newDelete()
-                .deleteFromRowFilter(Expressions.alwaysTrue())
-                .commit();
-        log.info("Truncated table at path: {}", tablePath);
+        Table table = catalog.loadTable(icebergTableIdentifier);
+        if (!(table instanceof HasTableOperations)) {
+            throw new CatalogException(
+                    String.format(
+                            "Iceberg table %s does not expose TableOperations, cannot reset metadata safely",
+                            tablePath));
+        }
+
+        Set<String> nonMainRefs =
+                table.refs().keySet().stream()
+                        .filter(refName -> !SnapshotRef.MAIN_BRANCH.equals(refName))
+                        .collect(Collectors.toCollection(LinkedHashSet::new));
+        if (!nonMainRefs.isEmpty()) {
+            throw new CatalogException(
+                    String.format(
+                            "Iceberg table %s contains non-main snapshot refs %s, metadata reset is not supported",
+                            tablePath, nonMainRefs));
+        }
+
+        TableOperations operations = ((HasTableOperations) table).operations();
+        TableMetadata base = operations.current();
+        if (base.snapshots().isEmpty() && !base.refs().containsKey(SnapshotRef.MAIN_BRANCH)) {
+            log.info("Iceberg table {} is already empty, skip metadata reset.", tablePath);
+            return;
+        }
+
+        List<Long> snapshotIds =
+                base.snapshots().stream().map(Snapshot::snapshotId).collect(Collectors.toList());
+        TableMetadata resetMetadata =
+                TableMetadata.buildFrom(base)
+                        .removeRef(SnapshotRef.MAIN_BRANCH)
+                        .removeSnapshots(snapshotIds)
+                        .build();
+
+        operations.commit(base, resetMetadata);
+        log.info(
+                "Truncated Iceberg table {} by resetting table metadata. Any orphan files must be cleaned separately.",
+                tablePath);
     }
 
     public CatalogTable toCatalogTable(Table icebergTable, TablePath tablePath) {
