@@ -66,12 +66,6 @@ public class DynamicMetadataProvider implements MetadataProvider {
     /** Hazelcast instance reference, set by SeaTunnelServer during initialization */
     private static volatile IMap<String, DynamicMetadataDataSource> datasourceIMap;
 
-    /** Lock object for thread-safe initialization */
-    private static final Object INIT_LOCK = new Object();
-
-    /** Flag to track if initialization has been completed */
-    private static volatile boolean initialized = false;
-
     /**
      * Set the Hazelcast instance for this provider.
      *
@@ -85,12 +79,10 @@ public class DynamicMetadataProvider implements MetadataProvider {
         if (iMap == null) {
             throw new IllegalArgumentException("IMap cannot be null");
         }
-        // Double-checked locking for thread-safe lazy initialization
-        if (!initialized) {
-            synchronized (INIT_LOCK) {
-                if (!initialized) {
+        if (datasourceIMap == null) {
+            synchronized (DynamicMetadataProvider.class) {
+                if (datasourceIMap == null) {
                     datasourceIMap = iMap;
-                    initialized = true;
                     log.info("DynamicMetadataProvider: Hazelcast IMap initialized");
                 }
             }
@@ -165,9 +157,8 @@ public class DynamicMetadataProvider implements MetadataProvider {
 
     @Override
     public void close() {
-        synchronized (INIT_LOCK) {
+        synchronized (DynamicMetadataProvider.class) {
             datasourceIMap = null;
-            initialized = false;
             log.info("DynamicMetadataProvider: Hazelcast IMap closed and reset");
         }
     }
