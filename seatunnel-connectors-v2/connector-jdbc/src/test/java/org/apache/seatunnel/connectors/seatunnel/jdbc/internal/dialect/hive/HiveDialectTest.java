@@ -53,6 +53,32 @@ class HiveDialectTest {
     }
 
     @Test
+    void testGetPartitionKeysStopsAtDetailedTableInformation() throws Exception {
+        HiveDialect hiveDialect = new HiveDialect();
+        Connection connection = mock(Connection.class);
+        PreparedStatement preparedStatement = mock(PreparedStatement.class);
+        ResultSet resultSet = mock(ResultSet.class);
+
+        when(connection.prepareStatement("DESCRIBE test_db.test_table"))
+                .thenReturn(preparedStatement);
+        when(preparedStatement.executeQuery()).thenReturn(resultSet);
+        when(resultSet.next()).thenReturn(true, true, true, true, true, true, true, false);
+        when(resultSet.getString(1))
+                .thenReturn(
+                        "id",
+                        "# Partition Information",
+                        "# col_name",
+                        "dt",
+                        "hr",
+                        "# Detailed Table Information",
+                        "Database: default");
+
+        Assertions.assertEquals(
+                Arrays.asList("dt", "hr"),
+                hiveDialect.getPartitionKeys(connection, TablePath.of("test_db.test_table")));
+    }
+
+    @Test
     void testGetPartitionKeysWithoutPartitionSection() throws Exception {
         HiveDialect hiveDialect = new HiveDialect();
         Connection connection = mock(Connection.class);

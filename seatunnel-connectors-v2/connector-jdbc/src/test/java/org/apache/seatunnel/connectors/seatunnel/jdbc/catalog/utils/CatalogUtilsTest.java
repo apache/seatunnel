@@ -56,6 +56,25 @@ public class CatalogUtilsTest {
     }
 
     @Test
+    void testGetTableSchemaIgnoresUnsupportedPrimaryKeyMetadata() throws SQLException {
+        TestDatabaseMetaData metadata =
+                new TestDatabaseMetaData() {
+                    @Override
+                    public java.sql.ResultSet getPrimaryKeys(
+                            String catalog, String schema, String table) throws SQLException {
+                        throw new SQLException("getPrimaryKeys is not supported");
+                    }
+                };
+
+        TableSchema tableSchema =
+                CatalogUtils.getTableSchema(
+                        metadata, TablePath.of("test.test"), new JdbcDialectTypeMapper() {});
+
+        Assertions.assertNull(tableSchema.getPrimaryKey());
+        Assertions.assertEquals("id", tableSchema.getColumns().get(0).getName());
+    }
+
+    @Test
     void testConstraintKeysNameWithOutSpecialChar() throws SQLException {
         List<ConstraintKey> constraintKeys =
                 CatalogUtils.getConstraintKeys(

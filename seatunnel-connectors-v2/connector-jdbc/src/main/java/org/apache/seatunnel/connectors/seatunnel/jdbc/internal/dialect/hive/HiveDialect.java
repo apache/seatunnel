@@ -97,6 +97,10 @@ public class HiveDialect implements JdbcDialect {
                     continue;
                 }
                 if (columnName.startsWith("#")) {
+                    if (!partitionHeader) {
+                        break;
+                    }
+                    partitionHeader = false;
                     continue;
                 }
                 if (partitionHeader) {

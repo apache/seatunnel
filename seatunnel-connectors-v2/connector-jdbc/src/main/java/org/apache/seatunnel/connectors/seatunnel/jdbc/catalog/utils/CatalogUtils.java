@@ -141,6 +141,14 @@ public class CatalogUtils {
                 // KEY_SEQ is 1-based index
                 primaryKeyColumns.add(Pair.of(keySeq, columnName));
             }
+        } catch (SQLException e) {
+            // Some JDBC drivers (e.g., Hive/Inceptor) do not fully support getPrimaryKeys()
+            // Return empty optional as primary key information is not mandatory for table schema
+            log.warn(
+                    "Failed to get primary key info for table {}, returning empty primary key. Error: {}",
+                    tablePath,
+                    e.getMessage());
+            return Optional.empty();
         }
         // initialize size
         List<String> pkFields =
