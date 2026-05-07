@@ -28,7 +28,6 @@ import com.google.cloud.bigtable.data.v2.BigtableDataSettings;
 import com.google.cloud.bigtable.data.v2.models.BulkMutation;
 import com.google.cloud.bigtable.data.v2.models.Mutation;
 import com.google.cloud.bigtable.data.v2.models.Query;
-import com.google.cloud.bigtable.data.v2.models.Row;
 import com.google.cloud.bigtable.data.v2.models.RowMutation;
 import com.google.protobuf.ByteString;
 import lombok.extern.slf4j.Slf4j;
@@ -36,7 +35,6 @@ import lombok.extern.slf4j.Slf4j;
 import java.io.FileInputStream;
 import java.io.IOException;
 import java.io.Serializable;
-import java.util.ArrayList;
 import java.util.List;
 
 /**
@@ -130,25 +128,6 @@ public class BigtableClient implements Serializable, AutoCloseable {
                             + mutations.size()
                             + " rows in table "
                             + parameters.getTable(),
-                    e);
-        }
-    }
-
-    /**
-     * Reads rows from Bigtable using the given Query.
-     *
-     * @param query the read query
-     * @return list of rows returned by the query
-     */
-    public List<Row> readRows(Query query) {
-        try {
-            List<Row> results = new ArrayList<>();
-            dataClient.readRows(query).forEach(results::add);
-            return results;
-        } catch (Exception e) {
-            throw new BigtableConnectorException(
-                    BigtableConnectorErrorCode.READ_FAILED,
-                    "Failed to read rows from table " + parameters.getTable(),
                     e);
         }
     }

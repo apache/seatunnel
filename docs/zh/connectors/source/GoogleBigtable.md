@@ -11,7 +11,7 @@ import ChangeLog from '../changelog/connector-google-bigtable.md';
 ## 主要特性
 
 - [x] [batch](../../introduction/concepts/connector-v2-features.md)
-- [x] [parallelism](../../introduction/concepts/connector-v2-features.md)
+- [ ] [parallelism](../../introduction/concepts/connector-v2-features.md)
 - [ ] [exactly-once](../../introduction/concepts/connector-v2-features.md)
 
 ## 参数

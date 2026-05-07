@@ -26,7 +26,6 @@ Writes data to Google Cloud Bigtable using the native Bigtable Data v2 Java clie
 | rowkey_delimiter    | string  | no       | ""            |
 | version_column      | string  | no       | -             |
 | null_mode           | string  | no       | skip          |
-| ttl                 | long    | no       | -1            |
 | batch_mutation_size | int     | no       | 100           |
 | common-options      |         | no       | -             |
 
@@ -87,12 +86,6 @@ How to handle `null` field values. Supported: `skip` (default), `empty`.
 
 - `skip` — the cell is omitted from the mutation
 - `empty` — an empty byte array is written to the cell
-
-### ttl [long]
-
-Cell TTL in milliseconds. `-1` (default) means no explicit TTL is set on the mutation.
-
-> **Note**: Bigtable TTL is enforced per column-family via table configuration, not per mutation. Setting this option sends the TTL hint in the mutation metadata but requires the column family to have GC rules configured in Bigtable.
 
 ### batch_mutation_size [int]
 

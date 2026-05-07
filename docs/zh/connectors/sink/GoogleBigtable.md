@@ -26,7 +26,6 @@ import ChangeLog from '../changelog/connector-google-bigtable.md';
 | rowkey_delimiter   | string  | 否     | ""   |
 | version_column     | string  | 否     | -    |
 | null_mode          | string  | 否     | skip |
-| ttl                | long    | 否     | -1   |
 | batch_mutation_size| int     | 否     | 100  |
 | common-options     |         | 否     | -    |
 
@@ -80,10 +79,6 @@ Google Cloud 服务账号 JSON 密钥文件路径。未设置时使用应用默�
 ### null_mode [string]
 
 空值写入策略：`skip`（默认，跳过该 Cell）或 `empty`（写入空字节数组）。
-
-### ttl [long]
-
-Cell TTL（毫秒），`-1` 表示不设置。
 
 ### batch_mutation_size [int]
 
