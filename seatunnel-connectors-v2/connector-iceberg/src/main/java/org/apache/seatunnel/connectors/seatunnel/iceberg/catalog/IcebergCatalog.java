@@ -183,6 +183,16 @@ public class IcebergCatalog implements Catalog {
     @Override
     public void dropTable(TablePath tablePath, boolean ignoreIfNotExists)
             throws TableNotExistException, CatalogException {
+        dropTable(tablePath, ignoreIfNotExists, true);
+    }
+
+    public void dropTableWithoutPurge(TablePath tablePath, boolean ignoreIfNotExists)
+            throws TableNotExistException, CatalogException {
+        dropTable(tablePath, ignoreIfNotExists, false);
+    }
+
+    private void dropTable(TablePath tablePath, boolean ignoreIfNotExists, boolean purge)
+            throws TableNotExistException, CatalogException {
         if (ignoreIfNotExists) {
             if (!tableExists(tablePath)) {
                 log.info(
@@ -191,8 +201,8 @@ public class IcebergCatalog implements Catalog {
                 return;
             }
         }
-        catalog.dropTable(toIcebergTableIdentifier(tablePath), true);
-        log.info("Dropped table at path: {}", tablePath);
+        catalog.dropTable(toIcebergTableIdentifier(tablePath), purge);
+        log.info("Dropped table at path: {}, purge: {}", tablePath, purge);
     }
 
     @Override
