@@ -91,10 +91,8 @@ public abstract class BaseFileSourceConfig implements Serializable {
         if (CollectionUtils.isEmpty(filePaths)) {
             // When there are no files (including sync_mode=update filtered all files), choose a
             // compatible schema so that downstream can initialize correctly.
-            if (fileFormat == FileFormat.BINARY) {
-                String rootPath = readonlyConfig.get(FileBaseSourceOptions.FILE_PATH);
-                return newCatalogTable(
-                        catalogTable, readStrategy.getSeaTunnelRowTypeInfo(rootPath));
+            if (fileFormat == FileFormat.BINARY || fileFormat == FileFormat.MARKDOWN) {
+                return newCatalogTable(catalogTable, getSchemaForEmptyFilePath(readonlyConfig));
             }
             return catalogTable;
         }
@@ -122,6 +120,11 @@ public abstract class BaseFileSourceConfig implements Serializable {
                         FileConnectorErrorCode.FORMAT_NOT_SUPPORT,
                         "SeaTunnel does not supported this file format: [" + fileFormat + "]");
         }
+    }
+
+    private SeaTunnelRowType getSchemaForEmptyFilePath(ReadonlyConfig readonlyConfig) {
+        String rootPath = readonlyConfig.get(FileBaseSourceOptions.FILE_PATH);
+        return readStrategy.getSeaTunnelRowTypeInfo(rootPath);
     }
 
     private CatalogTable newCatalogTable(

@@ -86,9 +86,11 @@ public class MarkdownReadStrategy extends AbstractReadStrategy {
         BasicType.STRING_TYPE,
         BasicType.STRING_TYPE
     };
+    /** Stable metadata fields appended for downstream RAG/document indexing pipelines. */
     private static final String[] RAG_METADATA_FIELD_NAMES = {
         "source_uri", "document_id", "chunk_id", "chunk_index", "content_hash"
     };
+
     private static final SeaTunnelDataType[] RAG_METADATA_FIELD_TYPES = {
         BasicType.STRING_TYPE,
         BasicType.STRING_TYPE,
@@ -336,6 +338,8 @@ public class MarkdownReadStrategy extends AbstractReadStrategy {
     private Object[] appendRagMetadata(
             Object[] fields, String sourceUri, String documentId, int chunkIndex, String text) {
         String contentHash = sha256Hex(text == null ? "" : text);
+        // Keep chunk ids stable across re-reads of the same logical document while still changing
+        // when the chunk content changes.
         String chunkId = "chunk_" + sha256Hex(documentId + ":" + chunkIndex + ":" + contentHash);
         Object[] enriched = new Object[fields.length + RAG_METADATA_FIELD_NAMES.length];
         System.arraycopy(fields, 0, enriched, 0, fields.length);
@@ -348,10 +352,14 @@ public class MarkdownReadStrategy extends AbstractReadStrategy {
     }
 
     private static String buildDocumentId(String sourceUri) {
+        // Document ids stay anchored to the normalized source location so every chunk from the same
+        // file shares one stable parent id.
         return "doc_" + sha256Hex(sourceUri);
     }
 
     private static String normalizeSourceUri(String sourceUri) {
+        // Normalize local file URIs to the path form emitted by existing local-file reads so the
+        // metadata contract stays stable between "file:/..." and plain local paths.
         if (!sourceUri.startsWith("file:")) {
             return sourceUri;
         }
