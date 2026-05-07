@@ -26,7 +26,6 @@ import org.apache.seatunnel.api.table.catalog.PhysicalColumn;
 import org.apache.seatunnel.api.table.catalog.TableIdentifier;
 import org.apache.seatunnel.api.table.catalog.TableSchema;
 import org.apache.seatunnel.api.table.type.BasicType;
-import org.apache.seatunnel.connectors.seatunnel.bigtable.config.BigtableSinkOptions;
 import org.apache.seatunnel.connectors.seatunnel.bigtable.exception.BigtableConnectorException;
 
 import org.junit.jupiter.api.BeforeEach;
@@ -135,8 +134,8 @@ class BigtableSinkSaveModeTest {
     }
 
     /**
-     * Verify that the handleSaveMode guard logic throws for DROP_DATA when invoked directly
-     * via reflection (bypassing OptionRule validation — simulates engine-level injection).
+     * Verify that the handleSaveMode guard logic throws for DROP_DATA when invoked directly via
+     * reflection (bypassing OptionRule validation — simulates engine-level injection).
      */
     @Test
     void testHandleSaveModeThrowsForDropDataViaReflection() throws Exception {
@@ -149,8 +148,7 @@ class BigtableSinkSaveModeTest {
         dataSaveModeField.setAccessible(true);
         dataSaveModeField.set(sink, DataSaveMode.DROP_DATA);
 
-        java.lang.reflect.Method method =
-                BigtableSink.class.getDeclaredMethod("handleSaveMode");
+        java.lang.reflect.Method method = BigtableSink.class.getDeclaredMethod("handleSaveMode");
         method.setAccessible(true);
         assertThrows(
                 java.lang.reflect.InvocationTargetException.class,
@@ -168,8 +166,7 @@ class BigtableSinkSaveModeTest {
         dataSaveModeField.setAccessible(true);
         dataSaveModeField.set(sink, DataSaveMode.ERROR_WHEN_DATA_EXISTS);
 
-        java.lang.reflect.Method method =
-                BigtableSink.class.getDeclaredMethod("handleSaveMode");
+        java.lang.reflect.Method method = BigtableSink.class.getDeclaredMethod("handleSaveMode");
         method.setAccessible(true);
         assertThrows(
                 java.lang.reflect.InvocationTargetException.class,
@@ -187,8 +184,7 @@ class BigtableSinkSaveModeTest {
         schemaSaveModeField.setAccessible(true);
         schemaSaveModeField.set(sink, SchemaSaveMode.CREATE_SCHEMA_WHEN_NOT_EXIST);
 
-        java.lang.reflect.Method method =
-                BigtableSink.class.getDeclaredMethod("handleSaveMode");
+        java.lang.reflect.Method method = BigtableSink.class.getDeclaredMethod("handleSaveMode");
         method.setAccessible(true);
         assertThrows(
                 java.lang.reflect.InvocationTargetException.class,

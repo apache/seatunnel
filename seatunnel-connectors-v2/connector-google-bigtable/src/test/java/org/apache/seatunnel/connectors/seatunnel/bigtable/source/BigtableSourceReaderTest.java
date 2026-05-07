@@ -25,23 +25,22 @@ import org.apache.seatunnel.api.table.type.SeaTunnelRowType;
 import org.apache.seatunnel.connectors.seatunnel.bigtable.client.BigtableClient;
 import org.apache.seatunnel.connectors.seatunnel.bigtable.config.BigtableParameters;
 
-import com.google.cloud.bigtable.data.v2.BigtableDataClient;
-import com.google.cloud.bigtable.data.v2.models.Query;
-import com.google.cloud.bigtable.data.v2.models.Row;
-import com.google.cloud.bigtable.data.v2.models.RowCell;
-import com.google.protobuf.ByteString;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.mockito.ArgumentCaptor;
 import org.mockito.Mockito;
 
-import java.util.Arrays;
+import com.google.cloud.bigtable.data.v2.BigtableDataClient;
+import com.google.cloud.bigtable.data.v2.models.Query;
+import com.google.cloud.bigtable.data.v2.models.Row;
+import com.google.cloud.bigtable.data.v2.models.RowCell;
+import com.google.protobuf.ByteString;
+
 import java.util.Collections;
 import java.util.List;
 import java.util.function.Consumer;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
-import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.Mockito.mock;
@@ -52,6 +51,7 @@ import static org.mockito.Mockito.when;
  * Unit tests for {@link BigtableSourceReader}.
  *
  * <p>Covers:
+ *
  * <ul>
  *   <li>Checkpoint state includes the in-flight split (Issue 1 fix)
  *   <li>Streaming read path — rows emitted via forEach, not buffered (Issue 2 fix)
@@ -81,12 +81,7 @@ class BigtableSourceReaderTest {
                             BasicType.STRING_TYPE, BasicType.STRING_TYPE
                         });
 
-        parameters =
-                BigtableParameters.builder()
-                        .projectId("p")
-                        .instanceId("i")
-                        .table("t")
-                        .build();
+        parameters = BigtableParameters.builder().projectId("p").instanceId("i").table("t").build();
     }
 
     // -------------------------------------------------------------------------
@@ -130,8 +125,7 @@ class BigtableSourceReaderTest {
 
         // The snapshot taken during readSplit() must contain the split
         assertTrue(
-                capturedState[0].stream()
-                        .anyMatch(s -> s.splitId().equals(split.splitId())),
+                capturedState[0].stream().anyMatch(s -> s.splitId().equals(split.splitId())),
                 "snapshotState taken during readSplit() must include the in-flight split");
     }
 
@@ -197,12 +191,16 @@ class BigtableSourceReaderTest {
                 .readRows(any(Query.class));
 
         // Use a real iterable answer to make the forEach fire
-        com.google.api.gax.rpc.ServerStream<Row> fakeStream = mock(com.google.api.gax.rpc.ServerStream.class);
-        Mockito.doAnswer(invocation -> {
-            Consumer<Row> action = invocation.getArgument(0);
-            action.accept(fakeRow);
-            return null;
-        }).when(fakeStream).forEach(any());
+        com.google.api.gax.rpc.ServerStream<Row> fakeStream =
+                mock(com.google.api.gax.rpc.ServerStream.class);
+        Mockito.doAnswer(
+                        invocation -> {
+                            Consumer<Row> action = invocation.getArgument(0);
+                            action.accept(fakeRow);
+                            return null;
+                        })
+                .when(fakeStream)
+                .forEach(any());
         when(mockDataClient.readRows(any(Query.class))).thenReturn(fakeStream);
 
         BigtableSourceReader reader =
@@ -226,8 +224,8 @@ class BigtableSourceReaderTest {
     // -------------------------------------------------------------------------
 
     /**
-     * When rowkey_column is configured, the named field should receive the row key value, not
-     * the default literal "rowkey".
+     * When rowkey_column is configured, the named field should receive the row key value, not the
+     * default literal "rowkey".
      */
     @SuppressWarnings("unchecked")
     @Test
@@ -256,16 +254,21 @@ class BigtableSourceReaderTest {
         when(fakeRow.getCells()).thenReturn(Collections.singletonList(cell));
         when(fakeRow.getKey()).thenReturn(ByteString.copyFromUtf8("my-key"));
 
-        com.google.api.gax.rpc.ServerStream<Row> fakeStream = mock(com.google.api.gax.rpc.ServerStream.class);
-        Mockito.doAnswer(invocation -> {
-            Consumer<Row> action = invocation.getArgument(0);
-            action.accept(fakeRow);
-            return null;
-        }).when(fakeStream).forEach(any());
+        com.google.api.gax.rpc.ServerStream<Row> fakeStream =
+                mock(com.google.api.gax.rpc.ServerStream.class);
+        Mockito.doAnswer(
+                        invocation -> {
+                            Consumer<Row> action = invocation.getArgument(0);
+                            action.accept(fakeRow);
+                            return null;
+                        })
+                .when(fakeStream)
+                .forEach(any());
         when(mockDataClient.readRows(any(Query.class))).thenReturn(fakeStream);
 
         BigtableSourceReader reader =
-                new BigtableSourceReader(paramsWithRowkeyCol, mockContext, customRowType, mockClient);
+                new BigtableSourceReader(
+                        paramsWithRowkeyCol, mockContext, customRowType, mockClient);
         reader.addSplits(Collections.singletonList(new BigtableSourceSplit(0, "", "")));
 
         Object lock = new Object();
