@@ -20,6 +20,8 @@ package org.apache.seatunnel.engine.server.common.statestore.hazelcast;
 import org.apache.seatunnel.api.common.metrics.JobMetrics;
 import org.apache.seatunnel.engine.core.job.JobDAGInfo;
 import org.apache.seatunnel.engine.core.job.JobInfo;
+import org.apache.seatunnel.engine.server.common.jar.ConnectorJarReferenceStateStore;
+import org.apache.seatunnel.engine.server.common.jar.hazelcast.HazelcastConnectorJarReferenceStateStore;
 import org.apache.seatunnel.engine.server.common.statestore.AuthoritativeStateStores;
 import org.apache.seatunnel.engine.server.common.statestore.AuxiliaryStateStores;
 import org.apache.seatunnel.engine.server.common.statestore.DefaultAuthoritativeStateStores;
@@ -50,6 +52,7 @@ import java.util.Objects;
 
 import static org.apache.seatunnel.engine.server.common.statestore.EngineStateStoreNames.CHECKPOINT_ID;
 import static org.apache.seatunnel.engine.server.common.statestore.EngineStateStoreNames.CHECKPOINT_MONITOR;
+import static org.apache.seatunnel.engine.server.common.statestore.EngineStateStoreNames.CONNECTOR_JAR_REF_COUNTERS;
 import static org.apache.seatunnel.engine.server.common.statestore.EngineStateStoreNames.FINISHED_JOB_METRICS;
 import static org.apache.seatunnel.engine.server.common.statestore.EngineStateStoreNames.FINISHED_JOB_STATE;
 import static org.apache.seatunnel.engine.server.common.statestore.EngineStateStoreNames.FINISHED_JOB_VERTEX_INFO;
@@ -70,8 +73,8 @@ public class HazelcastEngineStateStores implements EngineStateStores {
 
     private final NodeEngine nodeEngine;
     private final int metricsPartitionCount;
-    private AuthoritativeStateStores authoritativeStateStores;
-    private AuxiliaryStateStores auxiliaryStateStores;
+    private volatile AuthoritativeStateStores authoritativeStateStores;
+    private volatile AuxiliaryStateStores auxiliaryStateStores;
 
     public HazelcastEngineStateStores(NodeEngine nodeEngine, int metricsPartitionCount) {
         Objects.requireNonNull(nodeEngine, "nodeEngine");
@@ -123,6 +126,9 @@ public class HazelcastEngineStateStores implements EngineStateStores {
             CheckpointOverviewStateStore checkpointOverviewStateStore =
                     new HazelcastCheckpointOverviewStateStore(
                             nodeEngine.getHazelcastInstance().getMap(CHECKPOINT_MONITOR));
+            ConnectorJarReferenceStateStore connectorJarReferenceStateStore =
+                    new HazelcastConnectorJarReferenceStateStore(
+                            nodeEngine.getHazelcastInstance().getMap(CONNECTOR_JAR_REF_COUNTERS));
             this.authoritativeStateStores =
                     new DefaultAuthoritativeStateStores(
                             runningJobInfoStore,
@@ -130,7 +136,8 @@ public class HazelcastEngineStateStores implements EngineStateStores {
                             runningJobStateTimestampsStore,
                             ownedSlotProfilesStore,
                             checkpointCounterStore,
-                            pendingPipelineCleanupStore);
+                            pendingPipelineCleanupStore,
+                            connectorJarReferenceStateStore);
             this.auxiliaryStateStores =
                     new DefaultAuxiliaryStateStores(
                             finishedJobStateStore,

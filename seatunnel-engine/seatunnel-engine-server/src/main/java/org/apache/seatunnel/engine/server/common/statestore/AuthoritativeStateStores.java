@@ -18,6 +18,7 @@
 package org.apache.seatunnel.engine.server.common.statestore;
 
 import org.apache.seatunnel.engine.core.job.JobInfo;
+import org.apache.seatunnel.engine.server.common.jar.ConnectorJarReferenceStateStore;
 import org.apache.seatunnel.engine.server.common.statestore.cleanup.PendingPipelineCleanupStore;
 import org.apache.seatunnel.engine.server.common.statestore.counter.CounterStateStore;
 import org.apache.seatunnel.engine.server.common.statestore.runtime.RuntimeStateStore;
@@ -83,4 +84,11 @@ public interface AuthoritativeStateStores {
      * @return pending pipeline cleanup store
      */
     PendingPipelineCleanupStore pendingPipelineCleanupStore();
+
+    /**
+     * Returns the store for connector jar reference counts.
+     *
+     * @return connector jar reference state store
+     */
+    ConnectorJarReferenceStateStore connectorJarReferenceStateStore();
 }

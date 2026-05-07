@@ -18,6 +18,7 @@
 package org.apache.seatunnel.engine.server.common.statestore;
 
 import org.apache.seatunnel.engine.core.job.JobInfo;
+import org.apache.seatunnel.engine.server.common.jar.ConnectorJarReferenceStateStore;
 import org.apache.seatunnel.engine.server.common.statestore.cleanup.PendingPipelineCleanupStore;
 import org.apache.seatunnel.engine.server.common.statestore.counter.CounterStateStore;
 import org.apache.seatunnel.engine.server.common.statestore.runtime.RuntimeStateStore;
@@ -38,6 +39,7 @@ public class DefaultAuthoritativeStateStores implements AuthoritativeStateStores
             ownedSlotProfilesStore;
     private final CounterStateStore<String> checkpointCounterStore;
     private final PendingPipelineCleanupStore pendingPipelineCleanupStore;
+    private final ConnectorJarReferenceStateStore connectorJarReferenceStateStore;
 
     public DefaultAuthoritativeStateStores(
             RuntimeStateStore<Long, JobInfo> runningJobInfoStore,
@@ -46,7 +48,8 @@ public class DefaultAuthoritativeStateStores implements AuthoritativeStateStores
             RuntimeStateStore<PipelineLocation, Map<TaskGroupLocation, SlotProfile>>
                     ownedSlotProfilesStore,
             CounterStateStore<String> checkpointCounterStore,
-            PendingPipelineCleanupStore pendingPipelineCleanupStore) {
+            PendingPipelineCleanupStore pendingPipelineCleanupStore,
+            ConnectorJarReferenceStateStore connectorJarReferenceStateStore) {
         this.runningJobInfoStore =
                 Objects.requireNonNull(runningJobInfoStore, "runningJobInfoStore");
         this.runningJobStateStore =
@@ -60,6 +63,9 @@ public class DefaultAuthoritativeStateStores implements AuthoritativeStateStores
                 Objects.requireNonNull(checkpointCounterStore, "checkpointCounterStore");
         this.pendingPipelineCleanupStore =
                 Objects.requireNonNull(pendingPipelineCleanupStore, "pendingPipelineCleanupStore");
+        this.connectorJarReferenceStateStore =
+                Objects.requireNonNull(
+                        connectorJarReferenceStateStore, "connectorJarReferenceStateStore");
     }
 
     @Override
@@ -91,5 +97,10 @@ public class DefaultAuthoritativeStateStores implements AuthoritativeStateStores
     @Override
     public PendingPipelineCleanupStore pendingPipelineCleanupStore() {
         return pendingPipelineCleanupStore;
+    }
+
+    @Override
+    public ConnectorJarReferenceStateStore connectorJarReferenceStateStore() {
+        return connectorJarReferenceStateStore;
     }
 }

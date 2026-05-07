@@ -20,6 +20,7 @@ package org.apache.seatunnel.engine.server.common.statestore;
 import org.apache.seatunnel.api.common.metrics.JobMetrics;
 import org.apache.seatunnel.engine.core.job.JobDAGInfo;
 import org.apache.seatunnel.engine.core.job.JobInfo;
+import org.apache.seatunnel.engine.server.common.jar.ConnectorJarReferenceStateStore;
 import org.apache.seatunnel.engine.server.common.statestore.checkpoint.CheckpointOverviewStateStore;
 import org.apache.seatunnel.engine.server.common.statestore.cleanup.PendingPipelineCleanupStore;
 import org.apache.seatunnel.engine.server.common.statestore.counter.CounterStateStore;
@@ -166,6 +167,15 @@ public interface EngineStateStores extends AutoCloseable {
      */
     default CheckpointOverviewStateStore checkpointOverviewStateStore() {
         return auxiliary().checkpointOverviewStateStore();
+    }
+
+    /**
+     * Returns the store for connector jar reference counts.
+     *
+     * @return connector jar reference state store
+     */
+    default ConnectorJarReferenceStateStore connectorJarReferenceStateStore() {
+        return authoritative().connectorJarReferenceStateStore();
     }
 
     /**

@@ -25,7 +25,9 @@ import org.apache.seatunnel.engine.server.metrics.SeaTunnelMetricsContext;
 import com.hazelcast.map.IMap;
 
 import java.util.HashMap;
+import java.util.List;
 import java.util.Map;
+import java.util.stream.Collectors;
 
 /** Implementation backed by a partitioned Hazelcast metrics {@link IMap}. */
 public class HazelcastMetricsSnapshotStateStore implements MetricsSnapshotStateStore {
@@ -91,24 +93,40 @@ public class HazelcastMetricsSnapshotStateStore implements MetricsSnapshotStateS
 
     @Override
     public void removePipeline(final PipelineLocation pipelineLocation) {
-        for (long partition = 0; partition < partitionCount; partition++) {
-            // Clean each metrics bucket in one compute to avoid full-map scans and removal races.
-            metricsImap.compute(
-                    partition,
-                    (k, oldVal) -> {
-                        if (oldVal == null || oldVal.isEmpty()) {
-                            return oldVal;
-                        }
-                        oldVal.entrySet()
-                                .removeIf(
-                                        entry ->
-                                                pipelineLocation.equals(
-                                                        entry.getKey()
-                                                                .getTaskGroupLocation()
-                                                                .getPipelineLocation()));
-                        return oldVal.isEmpty() ? null : oldVal;
-                    });
+        Map<Long, List<TaskLocation>> partitionedTasks = new HashMap<>();
+        for (Map.Entry<Long, Map<TaskLocation, SeaTunnelMetricsContext>> entry :
+                metricsImap.entrySet()) {
+            long partition = entry.getKey();
+            List<TaskLocation> tasksToRemove =
+                    entry.getValue().keySet().stream()
+                            .filter(
+                                    t ->
+                                            t.getTaskGroupLocation()
+                                                    .getPipelineLocation()
+                                                    .equals(pipelineLocation))
+                            .collect(Collectors.toList());
+            if (!tasksToRemove.isEmpty()) {
+                partitionedTasks.put(partition, tasksToRemove);
+            }
         }
+
+        partitionedTasks
+                .entrySet()
+                .parallelStream()
+                .forEach(
+                        entry -> {
+                            long partition = entry.getKey();
+                            List<TaskLocation> tasks = entry.getValue();
+                            metricsImap.compute(
+                                    partition,
+                                    (k, oldVal) -> {
+                                        if (oldVal != null) {
+                                            tasks.forEach(oldVal::remove);
+                                            if (oldVal.isEmpty()) return null;
+                                        }
+                                        return oldVal;
+                                    });
+                        });
     }
 
     @Override
