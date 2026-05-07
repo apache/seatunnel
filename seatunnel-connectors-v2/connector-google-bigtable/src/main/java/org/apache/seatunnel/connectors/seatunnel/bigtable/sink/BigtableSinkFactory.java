@@ -52,7 +52,6 @@ public class BigtableSinkFactory implements TableSinkFactory {
                         BigtableSinkOptions.ROWKEY_DELIMITER,
                         BigtableSinkOptions.VERSION_COLUMN,
                         BigtableSinkOptions.NULL_MODE,
-                        BigtableSinkOptions.TTL,
                         BigtableSinkOptions.BATCH_MUTATION_SIZE,
                         BigtableSinkOptions.SCHEMA_SAVE_MODE,
                         BigtableSinkOptions.DATA_SAVE_MODE,

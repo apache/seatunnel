@@ -61,6 +61,15 @@ public class BigtableSourceReader implements SourceReader<SeaTunnelRow, Bigtable
     private volatile boolean noMoreSplits = false;
     private BigtableClient bigtableClient;
 
+    /** The split currently being read. Persisted in checkpoint to survive failover. */
+    private volatile BigtableSourceSplit currentSplit = null;
+
+    /**
+     * Set of field names that map to the Bigtable row key. Populated from {@code rowkey_column}
+     * config; falls back to the literal field name {@value ROW_KEY_FIELD} when not configured.
+     */
+    private final java.util.Set<String> rowKeyFieldNames;
+
     public BigtableSourceReader(
             BigtableParameters parameters, Context context, SeaTunnelRowType rowType) {
         this(parameters, context, rowType, null);
@@ -76,6 +85,11 @@ public class BigtableSourceReader implements SourceReader<SeaTunnelRow, Bigtable
         this.rowType = rowType;
         this.bigtableClient = bigtableClient;
         this.deserializationFormat = new BigtableDeserializationFormat();
+        if (parameters.getRowkeyColumns() != null && !parameters.getRowkeyColumns().isEmpty()) {
+            this.rowKeyFieldNames = new java.util.HashSet<>(parameters.getRowkeyColumns());
+        } else {
+            this.rowKeyFieldNames = java.util.Collections.singleton(ROW_KEY_FIELD);
+        }
     }
 
     @Override
@@ -95,27 +109,36 @@ public class BigtableSourceReader implements SourceReader<SeaTunnelRow, Bigtable
 
     @Override
     public void pollNext(Collector<SeaTunnelRow> output) throws Exception {
-        synchronized (output.getCheckpointLock()) {
-            final BigtableSourceSplit split = pendingSplits.poll();
-            if (Objects.nonNull(split)) {
-                readSplit(split, output);
-            } else if (noMoreSplits && pendingSplits.isEmpty()) {
-                log.info("Closed the bounded Bigtable source");
-                context.signalNoMoreElement();
-            } else {
-                log.warn("Waiting for Bigtable split, sleeping 1s");
-                Thread.sleep(1000L);
-            }
+        final BigtableSourceSplit split = pendingSplits.poll();
+        if (Objects.nonNull(split)) {
+            // Assign currentSplit before reading so checkpoints taken during readSplit()
+            // include it and can re-enqueue it on restore.
+            currentSplit = split;
+            readSplit(split, output);
+            currentSplit = null;
+        } else if (noMoreSplits && pendingSplits.isEmpty()) {
+            log.info("Closed the bounded Bigtable source");
+            context.signalNoMoreElement();
+        } else {
+            log.warn("Waiting for Bigtable split, sleeping 1s");
+            Thread.sleep(1000L);
         }
     }
 
     private void readSplit(BigtableSourceSplit split, Collector<SeaTunnelRow> output) {
         Query query = buildQuery(split);
-        List<Row> rows = bigtableClient.readRows(query);
-        for (Row bigtableRow : rows) {
-            SeaTunnelRow seaTunnelRow = convertRow(bigtableRow);
-            output.collect(seaTunnelRow);
-        }
+        // Stream rows one at a time to avoid buffering the full result in memory.
+        // Each collect() acquires the checkpoint lock only for the emit, not for the network read.
+        bigtableClient
+                .getDataClient()
+                .readRows(query)
+                .forEach(
+                        bigtableRow -> {
+                            SeaTunnelRow seaTunnelRow = convertRow(bigtableRow);
+                            synchronized (output.getCheckpointLock()) {
+                                output.collect(seaTunnelRow);
+                            }
+                        });
     }
 
     private Query buildQuery(BigtableSourceSplit split) {
@@ -179,7 +202,8 @@ public class BigtableSourceReader implements SourceReader<SeaTunnelRow, Bigtable
      * <p>Field names drive the mapping:
      *
      * <ul>
-     *   <li>{@code rowkey} → the row key bytes
+     *   <li>Fields listed in {@code rowkey_column} config (or the literal {@value ROW_KEY_FIELD}
+     *       when the option is absent) → the row key bytes
      *   <li>{@code familyName:qualifier} → the latest cell value for that column
      * </ul>
      */
@@ -195,7 +219,7 @@ public class BigtableSourceReader implements SourceReader<SeaTunnelRow, Bigtable
         ByteString[] rawCells = new ByteString[fieldNames.length];
         for (int i = 0; i < fieldNames.length; i++) {
             String fieldName = fieldNames[i];
-            if (ROW_KEY_FIELD.equals(fieldName)) {
+            if (rowKeyFieldNames.contains(fieldName)) {
                 rawCells[i] = bigtableRow.getKey();
             } else {
                 rawCells[i] = cellMap.get(fieldName);
@@ -206,7 +230,13 @@ public class BigtableSourceReader implements SourceReader<SeaTunnelRow, Bigtable
 
     @Override
     public List<BigtableSourceSplit> snapshotState(long checkpointId) {
-        return new ArrayList<>(pendingSplits);
+        List<BigtableSourceSplit> state = new ArrayList<>();
+        // Include the split currently being read so it can be re-enqueued on restore.
+        if (currentSplit != null) {
+            state.add(currentSplit);
+        }
+        state.addAll(pendingSplits);
+        return state;
     }
 
     @Override

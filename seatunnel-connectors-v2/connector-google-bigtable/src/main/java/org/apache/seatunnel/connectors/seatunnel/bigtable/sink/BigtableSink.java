@@ -29,6 +29,8 @@ import org.apache.seatunnel.api.table.type.SeaTunnelRowType;
 import org.apache.seatunnel.connectors.seatunnel.bigtable.config.BigtableParameters;
 import org.apache.seatunnel.connectors.seatunnel.bigtable.config.BigtableSinkOptions;
 import org.apache.seatunnel.connectors.seatunnel.bigtable.constant.BigtableIdentifier;
+import org.apache.seatunnel.connectors.seatunnel.bigtable.exception.BigtableConnectorErrorCode;
+import org.apache.seatunnel.connectors.seatunnel.bigtable.exception.BigtableConnectorException;
 import org.apache.seatunnel.connectors.seatunnel.bigtable.state.BigtableAggregatedCommitInfo;
 import org.apache.seatunnel.connectors.seatunnel.bigtable.state.BigtableCommitInfo;
 import org.apache.seatunnel.connectors.seatunnel.bigtable.state.BigtableSinkState;
@@ -88,32 +90,34 @@ public class BigtableSink
     }
 
     /**
-     * Applies the configured {@link SchemaSaveMode} and {@link DataSaveMode} before writing starts.
+     * Validates and applies the configured {@link SchemaSaveMode} and {@link DataSaveMode}.
      *
-     * <p>Currently only logs the configured modes. Full implementation requires a Bigtable Admin
-     * client to create/truncate tables, which can be added in a follow-up iteration once a
-     * BigtableCatalog is available.
+     * <p>Only {@link SchemaSaveMode#RECREATE_SCHEMA} and {@link DataSaveMode#APPEND_DATA} are
+     * currently supported. Unsupported modes throw immediately so users are never misled by
+     * accepted-but-no-op settings. Full Admin API support (table creation / truncation) can be
+     * added in a follow-up once a BigtableCatalog is available.
      */
     private void handleSaveMode() {
-        log.info("Bigtable sink save mode: schema={}, data={}", schemaSaveMode, dataSaveMode);
         if (schemaSaveMode == SchemaSaveMode.CREATE_SCHEMA_WHEN_NOT_EXIST) {
-            log.info(
-                    "schema_save_mode=CREATE_SCHEMA_WHEN_NOT_EXIST: "
-                            + "Bigtable table creation via Admin API is not yet implemented. "
-                            + "Please ensure the table and column families exist before running the job.");
+            throw new BigtableConnectorException(
+                    BigtableConnectorErrorCode.TABLE_CREATE_FAILED,
+                    "schema_save_mode=CREATE_SCHEMA_WHEN_NOT_EXIST is not yet supported by the "
+                            + "Bigtable connector. Please create the table and column families "
+                            + "manually and set schema_save_mode=RECREATE_SCHEMA.");
         }
         if (dataSaveMode == DataSaveMode.DROP_DATA) {
-            log.warn(
-                    "data_save_mode=DROP_DATA: "
-                            + "Bigtable table truncation via Admin API is not yet implemented. "
-                            + "Existing data will NOT be dropped.");
+            throw new BigtableConnectorException(
+                    BigtableConnectorErrorCode.TABLE_TRUNCATE_FAILED,
+                    "data_save_mode=DROP_DATA is not yet supported by the Bigtable connector. "
+                            + "Please truncate the table manually or use data_save_mode=APPEND_DATA.");
         }
         if (dataSaveMode == DataSaveMode.ERROR_WHEN_DATA_EXISTS) {
-            log.warn(
-                    "data_save_mode=ERROR_WHEN_DATA_EXISTS: "
-                            + "Bigtable data existence check is not yet implemented. "
-                            + "The job will proceed regardless.");
+            throw new BigtableConnectorException(
+                    BigtableConnectorErrorCode.TABLE_QUERY_FAILED,
+                    "data_save_mode=ERROR_WHEN_DATA_EXISTS is not yet supported by the Bigtable "
+                            + "connector. Please use data_save_mode=APPEND_DATA.");
         }
+        log.info("Bigtable sink save mode: schema={}, data={}", schemaSaveMode, dataSaveMode);
     }
 
     @Override

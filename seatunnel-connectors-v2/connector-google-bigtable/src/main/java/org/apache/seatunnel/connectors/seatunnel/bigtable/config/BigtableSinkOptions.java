@@ -22,12 +22,9 @@ import org.apache.seatunnel.api.configuration.Options;
 import org.apache.seatunnel.api.sink.DataSaveMode;
 import org.apache.seatunnel.api.sink.SchemaSaveMode;
 
-import java.util.Arrays;
 import java.util.Map;
 
 import static org.apache.seatunnel.api.sink.DataSaveMode.APPEND_DATA;
-import static org.apache.seatunnel.api.sink.DataSaveMode.DROP_DATA;
-import static org.apache.seatunnel.api.sink.DataSaveMode.ERROR_WHEN_DATA_EXISTS;
 
 public class BigtableSinkOptions extends BigtableBaseOptions {
 
@@ -61,14 +58,6 @@ public class BigtableSinkOptions extends BigtableBaseOptions {
                     .withDescription(
                             "How to handle null field values: SKIP (default) omits the cell; EMPTY writes an empty byte array.");
 
-    public static final Option<Long> TTL =
-            Options.key("ttl")
-                    .longType()
-                    .defaultValue(-1L)
-                    .withDescription(
-                            "Cell TTL in milliseconds. -1 (default) means no expiration. "
-                                    + "Note: Bigtable TTL is configured per column family, not per mutation.");
-
     public static final Option<Integer> BATCH_MUTATION_SIZE =
             Options.key("batch_mutation_size")
                     .intType()
@@ -78,17 +67,21 @@ public class BigtableSinkOptions extends BigtableBaseOptions {
 
     public static final Option<SchemaSaveMode> SCHEMA_SAVE_MODE =
             Options.key("schema_save_mode")
-                    .enumType(SchemaSaveMode.class)
-                    .defaultValue(SchemaSaveMode.CREATE_SCHEMA_WHEN_NOT_EXIST)
-                    .withDescription("schema_save_mode");
+                    .singleChoice(
+                            SchemaSaveMode.class,
+                            java.util.Arrays.asList(SchemaSaveMode.RECREATE_SCHEMA))
+                    .defaultValue(SchemaSaveMode.RECREATE_SCHEMA)
+                    .withDescription(
+                            "Schema save mode. Only RECREATE_SCHEMA is currently supported. "
+                                    + "Table and column families must be created manually before running the job.");
 
     public static final Option<DataSaveMode> DATA_SAVE_MODE =
             Options.key("data_save_mode")
-                    .singleChoice(
-                            DataSaveMode.class,
-                            Arrays.asList(DROP_DATA, APPEND_DATA, ERROR_WHEN_DATA_EXISTS))
+                    .singleChoice(DataSaveMode.class, java.util.Arrays.asList(APPEND_DATA))
                     .defaultValue(APPEND_DATA)
-                    .withDescription("data_save_mode");
+                    .withDescription(
+                            "Data save mode. Only APPEND_DATA is currently supported. "
+                                    + "DROP_DATA and ERROR_WHEN_DATA_EXISTS are not yet implemented.");
 
     public enum NullMode {
         SKIP,

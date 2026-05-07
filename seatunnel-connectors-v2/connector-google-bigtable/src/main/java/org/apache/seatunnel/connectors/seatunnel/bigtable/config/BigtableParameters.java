@@ -44,7 +44,6 @@ public class BigtableParameters implements Serializable {
     @Builder.Default
     private BigtableSinkOptions.NullMode nullMode = BigtableSinkOptions.NullMode.SKIP;
 
-    @Builder.Default private long ttl = -1L;
     @Builder.Default private int batchMutationSize = 100;
 
     // Source-specific
@@ -69,7 +68,6 @@ public class BigtableParameters implements Serializable {
                 .ifPresent(builder::rowkeyDelimiter);
         config.getOptional(BigtableSinkOptions.VERSION_COLUMN).ifPresent(builder::versionColumn);
         config.getOptional(BigtableSinkOptions.NULL_MODE).ifPresent(builder::nullMode);
-        config.getOptional(BigtableSinkOptions.TTL).ifPresent(builder::ttl);
         config.getOptional(BigtableSinkOptions.BATCH_MUTATION_SIZE)
                 .ifPresent(builder::batchMutationSize);
         return builder.build();
