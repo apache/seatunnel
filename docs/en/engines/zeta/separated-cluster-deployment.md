@@ -12,7 +12,7 @@ This is the most recommended usage method. In this mode, the load on the Master 
 
 ## Minimum Deployment Configuration
 
-The following is the minimum configuration required to start a separated cluster. Refer to the subsequent sections for detailed parameter descriptions.
+The following table lists the minimum and HA-recommended node counts for each role in a separated cluster. Refer to the subsequent sections for detailed parameter descriptions.
 
 **Node Requirements**
 
