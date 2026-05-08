@@ -16,14 +16,14 @@ The following is the minimum configuration required to start a separated cluster
 
 **Node Requirements**
 
-| Role | Minimum Count | Description |
-|------|---------------|-------------|
-| Master | 2 | Responsible for scheduling and IMap data storage. At least 2 are required for HA. |
-| Worker | 1 | Responsible for task execution. |
+| Role | Minimum Count | Recommended (HA) | Description |
+|------|---------------|------------------|-------------|
+| Master | 1 | 2 | Responsible for scheduling and IMap data storage. |
+| Worker | 1 | 2+ | Responsible for task execution. |
 
 :::tip
 
-Master nodes are responsible for storing all IMap data (job state, resource information). With `backup-count: 1`, at least 2 Master nodes are needed to place backup replicas. Without this, a single Master node failure will leave the cluster unable to recover.
+A single Master node can start and run normally, but provides no high availability. For HA, deploy at least 2 Master nodes: the default `backup-count: 1` requires at least 2 Master nodes to place IMap backup replicas. Without a second Master, a single Master failure will leave the cluster unable to recover.
 
 :::
 
