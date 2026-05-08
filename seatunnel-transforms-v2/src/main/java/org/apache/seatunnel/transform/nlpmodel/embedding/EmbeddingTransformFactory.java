@@ -26,6 +26,7 @@ import org.apache.seatunnel.api.table.factory.TableTransformFactory;
 import org.apache.seatunnel.api.table.factory.TableTransformFactoryContext;
 import org.apache.seatunnel.transform.common.TransformCommonOptions;
 import org.apache.seatunnel.transform.nlpmodel.ModelProvider;
+import org.apache.seatunnel.transform.nlpmodel.ModelTransformConfig;
 import org.apache.seatunnel.transform.nlpmodel.llm.LLMTransformConfig;
 
 import com.google.auto.service.AutoService;
@@ -47,7 +48,11 @@ public class EmbeddingTransformFactory implements TableTransformFactory {
                 .optional(
                         EmbeddingTransformConfig.API_PATH,
                         EmbeddingTransformConfig.SINGLE_VECTORIZED_INPUT_NUMBER,
-                        EmbeddingTransformConfig.PROCESS_BATCH_SIZE)
+                        EmbeddingTransformConfig.PROCESS_BATCH_SIZE,
+                        ModelTransformConfig.MODEL_RETRY_MAX_ATTEMPTS,
+                        ModelTransformConfig.MODEL_RETRY_BACKOFF_MS,
+                        ModelTransformConfig.MODEL_RETRY_MAX_BACKOFF_MS,
+                        ModelTransformConfig.MODEL_REQUEST_TIMEOUT_MS)
                 .conditional(
                         EmbeddingTransformConfig.MODEL_PROVIDER,
                         ModelProvider.AMAZON,

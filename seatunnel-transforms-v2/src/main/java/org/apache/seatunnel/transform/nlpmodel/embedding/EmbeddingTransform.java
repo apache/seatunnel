@@ -29,6 +29,7 @@ import org.apache.seatunnel.api.table.type.SeaTunnelRowType;
 import org.apache.seatunnel.api.table.type.VectorType;
 import org.apache.seatunnel.transform.common.MultipleFieldOutputTransform;
 import org.apache.seatunnel.transform.exception.TransformCommonError;
+import org.apache.seatunnel.transform.nlpmodel.ModelInvocationOptions;
 import org.apache.seatunnel.transform.nlpmodel.ModelProvider;
 import org.apache.seatunnel.transform.nlpmodel.ModelTransformConfig;
 import org.apache.seatunnel.transform.nlpmodel.embedding.multimodal.MultimodalFieldValue;
@@ -88,6 +89,7 @@ public class EmbeddingTransform extends MultipleFieldOutputTransform {
     @Override
     public void open() {
         ModelProvider provider = config.get(ModelTransformConfig.MODEL_PROVIDER);
+        ModelInvocationOptions invocationOptions = ModelInvocationOptions.fromConfig(config);
         String apiPath =
                 provider.usedEmbeddingPath(
                         config.get(ModelTransformConfig.API_PATH), isMultimodalFields);
@@ -118,7 +120,8 @@ public class EmbeddingTransform extends MultipleFieldOutputTransform {
                                                     .CUSTOM_RESPONSE_PARSE),
                                     config.get(
                                             EmbeddingTransformConfig
-                                                    .SINGLE_VECTORIZED_INPUT_NUMBER));
+                                                    .SINGLE_VECTORIZED_INPUT_NUMBER),
+                                    invocationOptions);
                     break;
                 case OPENAI:
                     model =
@@ -128,7 +131,8 @@ public class EmbeddingTransform extends MultipleFieldOutputTransform {
                                     apiPath,
                                     config.get(
                                             EmbeddingTransformConfig
-                                                    .SINGLE_VECTORIZED_INPUT_NUMBER));
+                                                    .SINGLE_VECTORIZED_INPUT_NUMBER),
+                                    invocationOptions);
                     break;
                 case DOUBAO:
                     model =
@@ -139,7 +143,8 @@ public class EmbeddingTransform extends MultipleFieldOutputTransform {
                                     config.get(
                                             EmbeddingTransformConfig
                                                     .SINGLE_VECTORIZED_INPUT_NUMBER),
-                                    isMultimodalFields);
+                                    isMultimodalFields,
+                                    invocationOptions);
                     break;
                 case QIANFAN:
                     model =
@@ -151,7 +156,8 @@ public class EmbeddingTransform extends MultipleFieldOutputTransform {
                                     config.get(ModelTransformConfig.OAUTH_PATH),
                                     config.get(
                                             EmbeddingTransformConfig
-                                                    .SINGLE_VECTORIZED_INPUT_NUMBER));
+                                                    .SINGLE_VECTORIZED_INPUT_NUMBER),
+                                    invocationOptions);
 
                     break;
                 case ZHIPU:
@@ -163,7 +169,8 @@ public class EmbeddingTransform extends MultipleFieldOutputTransform {
                                     config.get(ModelTransformConfig.DIMENSION),
                                     config.get(
                                             EmbeddingTransformConfig
-                                                    .SINGLE_VECTORIZED_INPUT_NUMBER));
+                                                    .SINGLE_VECTORIZED_INPUT_NUMBER),
+                                    invocationOptions);
                     break;
                 case AMAZON:
                     model =

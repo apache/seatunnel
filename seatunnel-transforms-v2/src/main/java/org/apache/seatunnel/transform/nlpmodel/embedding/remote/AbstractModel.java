@@ -21,6 +21,8 @@ import org.apache.seatunnel.shade.com.fasterxml.jackson.databind.ObjectMapper;
 import org.apache.seatunnel.shade.org.apache.commons.lang3.ArrayUtils;
 
 import org.apache.seatunnel.common.utils.VectorUtils;
+import org.apache.seatunnel.transform.nlpmodel.ModelInvocationOptions;
+import org.apache.seatunnel.transform.nlpmodel.ModelInvocationRuntime;
 
 import java.io.IOException;
 import java.nio.ByteBuffer;
@@ -32,9 +34,16 @@ public abstract class AbstractModel implements Model {
     protected static final ObjectMapper OBJECT_MAPPER = new ObjectMapper();
     protected static final String DIMENSION_EXAMPLE = "dimension example";
     protected final Integer singleVectorizedInputNumber;
+    protected final ModelInvocationRuntime invocationRuntime;
 
     protected AbstractModel(Integer singleVectorizedInputNumber) {
+        this(singleVectorizedInputNumber, ModelInvocationOptions.defaults());
+    }
+
+    protected AbstractModel(
+            Integer singleVectorizedInputNumber, ModelInvocationOptions invocationOptions) {
         this.singleVectorizedInputNumber = singleVectorizedInputNumber;
+        this.invocationRuntime = new ModelInvocationRuntime(invocationOptions);
     }
 
     @Override
