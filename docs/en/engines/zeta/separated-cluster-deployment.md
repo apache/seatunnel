@@ -10,6 +10,23 @@ Among all the Master nodes, only one Master node works at the same time, and the
 
 This is the most recommended usage method. In this mode, the load on the Master will be very low, and the Master has more resources for job scheduling, task fault tolerance index monitoring, and providing RESTful API services, etc., and will have higher stability. At the same time, the Worker node does not store Imap data. All Imap data is stored on the Master node. Even if the Worker node has a high load or crashes, it will not cause the Imap data to be redistributed.
 
+## Minimum Deployment Configuration
+
+The following is the minimum configuration required to start a separated cluster. Refer to the subsequent sections for detailed parameter descriptions.
+
+**Node Requirements**
+
+| Role | Minimum Count | Description |
+|------|---------------|-------------|
+| Master | 2 | Responsible for scheduling and IMap data storage. At least 2 are required for HA. |
+| Worker | 1 | Responsible for task execution. |
+
+:::tip
+
+Master nodes are responsible for storing all IMap data (job state, resource information). With `backup-count: 1`, at least 2 Master nodes are needed to place backup replicas. Without this, a single Master node failure will leave the cluster unable to recover.
+
+:::
+
 ## 1. Download
 
 [Download And Make SeaTunnel Installation Package](download-seatunnel.md)
@@ -71,7 +88,7 @@ SeaTunnel Engine implements cluster management based on [Hazelcast IMDG](https:/
 
 The `backup count` is a parameter that defines the number of synchronous backups. For example, if it is set to 1, the backup of the partition will be placed on one other member. If it is set to 2, it will be placed on two other members.
 
-We recommend that the value of `backup-count` be `max(1, min(5, N/2))`. `N` is the number of cluster nodes.
+We recommend that the value of `backup-count` be `max(1, min(5, N/2))`. `N` is the number of Master nodes.
 
 ```yaml
 seatunnel:

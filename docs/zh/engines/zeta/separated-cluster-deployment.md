@@ -10,6 +10,25 @@ SeaTunnel Engine 的Master服务和Worker服务分离，每个服务单独一个
 
 这是最推荐的一种使用方式，在该模式下Master的负载会很小，Master有更多的资源用来进行作业的调度，任务的容错指标监控以及提供rest api服务等，会有更高的稳定性。同时Worker节点不存储Imap的数据，所有的Imap数据都存储在Master节点中，即使Worker节点负载高或者挂掉，也不会导致Imap数据重新分布。
 
+
+## 最小化部署配置
+
+以下为快速拉起分离集群所需的最小配置，适合初次部署参考。详细参数说明见后续各节。
+
+**节点要求**
+
+| 角色 | 最少数量 | 说明 |
+|------|----------|------|
+| Master | 2 | 负责调度与 IMap 数据存储，需 ≥ 2 个才能保证 HA |
+| Worker | 1 | 负责任务执行 |
+
+:::tip
+
+Master 节点负责存储所有 IMap 数据（作业状态、资源信息）。`backup-count: 1` 要求至少 2 个 Master 节点才能存放备份副本，否则单个 Master 宕机后集群将无法自愈。
+
+:::
+
+
 ## 1. 下载
 
 [下载和制作SeaTunnel安装包](download-seatunnel.md)
@@ -75,7 +94,7 @@ SeaTunnel Engine 基于 [Hazelcast IMDG](https://docs.hazelcast.com/imdg/4.1/) �
 
 `backup count` 是定义同步备份数量的参数。例如，如果设置为 1，则分区的备份将放置在一个其他成员上。如果设置为 2，则将放置在两个其他成员上。
 
-我们建议 `backup-count` 的值为 `max(1, min(5, N/2))`。 `N` 是集群节点的数量。
+我们建议 `backup-count` 的值为 `max(1, min(5, N/2))`。`N` 是 Master 节点的数量。
 
 ```yaml
 seatunnel:
