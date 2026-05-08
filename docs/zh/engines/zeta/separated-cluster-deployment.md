@@ -492,9 +492,9 @@ export SEATUNNEL_HOME=${seatunnel install path}
 export PATH=$PATH:$SEATUNNEL_HOME/bin
 ```
 
-## 8. 提交作业和管理作业
+## 9. 提交作业和管理作业
 
-### 8.1 使用 SeaTunnel Engine 客户端提交作业
+### 9.1 使用 SeaTunnel Engine 客户端提交作业
 
 #### 安装 SeaTunnel Engine 客户端
 
@@ -534,6 +534,6 @@ hazelcast-client:
 
 现在集群部署完成了，您可以通过以下教程完成作业的提交和管理：[提交和管理作业](user-command.md)
 
-### 8.2 使用 REST API 提交作业
+### 9.2 使用 REST API 提交作业
 
 SeaTunnel Engine 提供了 REST API 用于提交作业。有关详细信息，请参阅 [REST API V2](rest-api-v2.md)
