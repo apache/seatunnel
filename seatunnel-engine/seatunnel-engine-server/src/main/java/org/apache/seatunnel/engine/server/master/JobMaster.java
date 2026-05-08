@@ -661,6 +661,12 @@ public class JobMaster {
                                             .getCheckpointCoordinator(pipeline.getPipelineId())
                                             .getCheckpointStateImapKey();
                             runningJobStateIMap.remove(checkpointStateImapKey);
+
+                            String readyToCloseImapKey =
+                                    checkpointManager
+                                            .getCheckpointCoordinator(pipeline.getPipelineId())
+                                            .getReadyToCloseImapKey();
+                            runningJobStateIMap.remove(readyToCloseImapKey);
                         });
         runningJobStateIMap.remove(jobId);
         runningJobInfoIMap.remove(jobId);
