@@ -56,6 +56,7 @@ import org.apache.seatunnel.engine.core.job.JobInfo;
 import org.apache.seatunnel.engine.core.job.PipelineStatus;
 import org.apache.seatunnel.engine.server.CoordinatorService;
 import org.apache.seatunnel.engine.server.SeaTunnelServer;
+import org.apache.seatunnel.engine.server.checkpoint.CheckpointCoordinator;
 import org.apache.seatunnel.engine.server.checkpoint.CheckpointManager;
 import org.apache.seatunnel.engine.server.checkpoint.CheckpointPlan;
 import org.apache.seatunnel.engine.server.checkpoint.CompletedCheckpoint;
@@ -662,11 +663,11 @@ public class JobMaster {
                                             });
 
                             if (checkpointManager != null) {
-                                String checkpointStateImapKey =
-                                        checkpointManager
-                                                .getCheckpointCoordinator(pipeline.getPipelineId())
-                                                .getCheckpointStateImapKey();
-                                stateKeys.add(checkpointStateImapKey);
+                                CheckpointCoordinator checkpointCoordinator =
+                                        checkpointManager.getCheckpointCoordinator(
+                                                pipeline.getPipelineId());
+                                stateKeys.add(checkpointCoordinator.getCheckpointStateImapKey());
+                                stateKeys.add(checkpointCoordinator.getReadyToCloseImapKey());
                             }
                         });
         return new JobCleanupRecord(
