@@ -32,6 +32,7 @@
 
     <properties>
         <hadoop-aliyun.version>3.0.0</hadoop-aliyun.version>
+        <aws-java-sdk.version>1.12.770</aws-java-sdk.version>
     </properties>
 
     <dependencies>
@@ -58,7 +59,7 @@
         <dependency>
             <groupId>com.amazonaws</groupId>
             <artifactId>aws-java-sdk-bundle</artifactId>
-            <version>1.12.770</version>
+            <version>${aws-java-sdk.version}</version>
             <scope>provided</scope>
         </dependency>
         <dependency>
