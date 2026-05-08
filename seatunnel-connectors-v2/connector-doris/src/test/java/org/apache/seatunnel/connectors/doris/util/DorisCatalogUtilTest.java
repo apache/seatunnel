@@ -18,11 +18,13 @@
 package org.apache.seatunnel.connectors.doris.util;
 
 import org.apache.seatunnel.api.table.catalog.Column;
+import org.apache.seatunnel.api.table.catalog.PhysicalColumn;
 import org.apache.seatunnel.api.table.converter.BasicTypeDefine;
 import org.apache.seatunnel.api.table.converter.TypeConverter;
 import org.apache.seatunnel.api.table.type.BasicType;
 import org.apache.seatunnel.api.table.type.SeaTunnelDataType;
 import org.apache.seatunnel.connectors.doris.datatype.DorisTypeConverterFactory;
+import org.apache.seatunnel.connectors.doris.datatype.DorisTypeConverterV2;
 
 import org.junit.jupiter.api.Test;
 
@@ -68,5 +70,22 @@ public class DorisCatalogUtilTest {
         String result = DorisCatalogUtil.columnToDorisType(column, typeConverter);
 
         assertEquals("`col1` VARCHAR NOT NULL ", result);
+    }
+
+    @Test
+    void returnsVariantTypeWhenSourceTypeIsVariant() {
+        Column column =
+                PhysicalColumn.builder()
+                        .name("col1")
+                        .dataType(BasicType.STRING_TYPE)
+                        .sourceType(DorisTypeConverterV2.DORIS_VARIANT)
+                        .nullable(true)
+                        .build();
+        TypeConverter<BasicTypeDefine> typeConverter =
+                DorisTypeConverterFactory.getTypeConverter("Doris version Doris-2.0.0");
+
+        String result = DorisCatalogUtil.columnToDorisType(column, typeConverter);
+
+        assertEquals("`col1` VARIANT NULL ", result);
     }
 }
