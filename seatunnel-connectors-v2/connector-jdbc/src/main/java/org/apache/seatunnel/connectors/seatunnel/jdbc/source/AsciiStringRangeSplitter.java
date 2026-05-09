@@ -21,7 +21,9 @@ import java.math.BigInteger;
 
 final class AsciiStringRangeSplitter {
 
-    private static final int RADIX = 128;
+    private static final int FIRST_PRINTABLE_ASCII = 32;
+    private static final int LAST_PRINTABLE_ASCII = 126;
+    private static final int RADIX = LAST_PRINTABLE_ASCII - FIRST_PRINTABLE_ASCII + 1;
 
     private AsciiStringRangeSplitter() {}
 
@@ -92,7 +94,10 @@ final class AsciiStringRangeSplitter {
         BigInteger result = BigInteger.ZERO;
         BigInteger radix = BigInteger.valueOf(RADIX);
         for (int i = value.length() - 1, index = 0; i >= 0; i--, index++) {
-            result = result.add(BigInteger.valueOf(value.charAt(i)).multiply(radix.pow(index)));
+            result =
+                    result.add(
+                            BigInteger.valueOf(value.charAt(i) - FIRST_PRINTABLE_ASCII)
+                                    .multiply(radix.pow(index)));
         }
         return result;
     }
@@ -102,7 +107,7 @@ final class AsciiStringRangeSplitter {
         BigInteger current = value;
         BigInteger radix = BigInteger.valueOf(RADIX);
         for (int i = length - 1; i >= 0; i--) {
-            result[i] = (char) current.mod(radix).intValue();
+            result[i] = (char) (current.mod(radix).intValue() + FIRST_PRINTABLE_ASCII);
             current = current.divide(radix);
         }
         if (current.compareTo(BigInteger.ZERO) > 0) {
@@ -114,7 +119,7 @@ final class AsciiStringRangeSplitter {
     private static void validateRangeBoundary(String value, String name) {
         for (int i = 0; i < value.length(); i++) {
             char ch = value.charAt(i);
-            if (ch < 32 || ch > 126) {
+            if (ch < FIRST_PRINTABLE_ASCII || ch > LAST_PRINTABLE_ASCII) {
                 throw new IllegalArgumentException(
                         String.format(
                                 "Only printable ASCII strings are supported for string range split, %s=[%s]",

@@ -20,6 +20,7 @@ package org.apache.seatunnel.connectors.seatunnel.jdbc.source;
 import org.junit.jupiter.api.Test;
 
 import static org.junit.jupiter.api.Assertions.assertArrayEquals;
+import static org.junit.jupiter.api.Assertions.assertDoesNotThrow;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 
 public class AsciiStringRangeSplitterTest {
@@ -28,6 +29,11 @@ public class AsciiStringRangeSplitterTest {
     public void testSplitFixedLengthPrintableAsciiRange() {
         assertArrayEquals(
                 new String[] {"aa", "ff", "kk"}, AsciiStringRangeSplitter.split("aa", "kk", 2));
+    }
+
+    @Test
+    public void testSplitNumericSuffixKeepsGeneratedBoundariesPrintable() {
+        assertDoesNotThrow(() -> AsciiStringRangeSplitter.split("key00000", "key00099", 11));
     }
 
     @Test
