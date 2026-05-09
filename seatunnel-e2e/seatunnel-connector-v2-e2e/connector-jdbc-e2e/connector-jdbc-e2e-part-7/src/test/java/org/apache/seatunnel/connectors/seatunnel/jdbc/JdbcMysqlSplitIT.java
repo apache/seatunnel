@@ -123,6 +123,7 @@ public class JdbcMysqlSplitIT extends TestSuiteBase implements TestResource {
                     + "    `c_mediumtext`           mediumtext,\n"
                     + "    `c_text`                 text,\n"
                     + "    `c_varchar`              varchar(255)          DEFAULT NULL,\n"
+                    + "    `c_varchar_bin`          varchar(8) CHARACTER SET utf8mb4 COLLATE utf8mb4_bin DEFAULT NULL,\n"
                     + "    `c_json`                 json                  DEFAULT NULL,\n"
                     + "    `c_longtext`             longtext,\n"
                     + "    `c_date`                 date                  DEFAULT NULL,\n"
@@ -267,6 +268,7 @@ public class JdbcMysqlSplitIT extends TestSuiteBase implements TestResource {
                     "c_mediumtext",
                     "c_text",
                     "c_varchar",
+                    "c_varchar_bin",
                     "c_json",
                     "c_longtext",
                     "c_date",
@@ -328,6 +330,7 @@ public class JdbcMysqlSplitIT extends TestSuiteBase implements TestResource {
                                 String.format("f1_%s", i),
                                 String.format("f1_%s", i),
                                 String.format("f1_%s", i),
+                                String.format("key%05d", i),
                                 String.format("{\"aa\":\"bb_%s\"}", i),
                                 String.format("f1_%s", i),
                                 Date.valueOf(currentDate),
@@ -467,6 +470,22 @@ public class JdbcMysqlSplitIT extends TestSuiteBase implements TestResource {
         configMap.put("partition_column", "c_date");
         assertDateSplit(splitArray);
 
+        configMap.put("split.string-strategy", "none");
+        splitArray = getCheckedSplitArray(configMap, table, "c_varchar", 1);
+        assertStringSingleSplit(splitArray);
+
+        configMap.put("split.string-strategy", "hash");
+        splitArray = getCheckedSplitArray(configMap, table, "c_varchar", 11);
+        assertStringHashSplit(splitArray);
+
+        configMap.put("split.string-strategy", "range");
+        splitArray = getCheckedSplitArray(configMap, table, "c_varchar_bin", 11);
+        assertStringRangeSplit(splitArray);
+
+        configMap.put("split.string-strategy", "auto");
+        splitArray = getCheckedSplitArray(configMap, table, "c_varchar_bin", 11);
+        assertStringRangeSplit(splitArray);
+
         mySqlCatalog.close();
     }
 
@@ -532,6 +551,32 @@ public class JdbcMysqlSplitIT extends TestSuiteBase implements TestResource {
             Assertions.assertEquals(
                     currentDateOld.plusDays(i * 9).toString(),
                     splitArray[i].getSplitEnd().toString());
+        }
+    }
+
+    private void assertStringSingleSplit(JdbcSourceSplit[] splitArray) {
+        Assertions.assertEquals(1, splitArray.length);
+        Assertions.assertNull(splitArray[0].getSplitStart());
+        Assertions.assertNull(splitArray[0].getSplitEnd());
+    }
+
+    private void assertStringHashSplit(JdbcSourceSplit[] splitArray) {
+        Assertions.assertTrue(splitArray.length > 1);
+        for (JdbcSourceSplit split : splitArray) {
+            Assertions.assertTrue(split.getSplitStart() instanceof Integer);
+            Assertions.assertNull(split.getSplitEnd());
+        }
+    }
+
+    private void assertStringRangeSplit(JdbcSourceSplit[] splitArray) {
+        Assertions.assertTrue(splitArray.length > 1);
+        Assertions.assertNull(splitArray[0].getSplitStart());
+        for (int i = 0; i < splitArray.length; i++) {
+            if (i == splitArray.length - 1) {
+                Assertions.assertNull(splitArray[i].getSplitEnd());
+                continue;
+            }
+            Assertions.assertTrue(splitArray[i].getSplitEnd() instanceof String);
         }
     }
 

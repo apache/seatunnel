@@ -74,6 +74,7 @@ public class JdbcSourceFactory implements TableSourceFactory {
                         JdbcSourceOptions.PARTITION_NUM,
                         JdbcSourceOptions.COMPATIBLE_MODE,
                         JdbcSourceOptions.STRING_SPLIT_MODE,
+                        JdbcSourceOptions.STRING_SPLIT_STRATEGY,
                         JdbcSourceOptions.STRING_SPLIT_MODE_COLLATE,
                         JdbcSourceOptions.PROPERTIES,
                         JdbcSourceOptions.QUERY,
