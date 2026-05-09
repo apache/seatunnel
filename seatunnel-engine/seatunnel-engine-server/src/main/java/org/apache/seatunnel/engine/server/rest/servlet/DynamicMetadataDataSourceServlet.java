@@ -61,7 +61,8 @@ public class DynamicMetadataDataSourceServlet extends BaseServlet {
 
         // GET /metadata/datasource/{datasourceId} - Get specific datasource
         String datasourceId = pathInfo.startsWith("/") ? pathInfo.substring(1) : pathInfo;
-        writeJson(resp, metadataDataSourceService.getDatasource(datasourceId));
+        JsonObject result = metadataDataSourceService.getDatasource(datasourceId);
+        writeJson(resp, result, getStatusCode(result));
     }
 
     /** Handle POST requests: - POST /metadata/datasource - Create a new datasource */

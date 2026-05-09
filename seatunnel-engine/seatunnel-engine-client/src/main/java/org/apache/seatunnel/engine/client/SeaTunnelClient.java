@@ -23,6 +23,7 @@ import org.apache.seatunnel.common.utils.JsonUtils;
 import org.apache.seatunnel.engine.client.job.ClientJobExecutionEnvironment;
 import org.apache.seatunnel.engine.client.job.JobClient;
 import org.apache.seatunnel.engine.client.job.JobMetricsRunner.JobMetricsSummary;
+import org.apache.seatunnel.engine.common.Constant;
 import org.apache.seatunnel.engine.common.config.JobConfig;
 import org.apache.seatunnel.engine.common.config.SeaTunnelConfig;
 import org.apache.seatunnel.engine.core.job.JobDAGInfo;
@@ -84,7 +85,9 @@ public class SeaTunnelClient implements SeaTunnelClientInstance, AutoCloseable {
         try {
             // Get IMap from Hazelcast client
             IMap<?, ?> datasourceIMap =
-                    hazelcastClient.getHazelcastInstance().getMap("engine_metadataDatasource");
+                    hazelcastClient
+                            .getHazelcastInstance()
+                            .getMap(Constant.IMAP_METADATA_DATASOURCE);
 
             // Use reflection to call DynamicMetadataProvider.setMetadataDatasourceImap()
             Class<?> providerClass =
