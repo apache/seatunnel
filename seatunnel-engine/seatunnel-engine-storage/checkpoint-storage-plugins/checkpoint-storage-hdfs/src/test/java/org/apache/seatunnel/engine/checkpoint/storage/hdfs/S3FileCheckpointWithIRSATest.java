@@ -28,29 +28,8 @@ import org.junit.jupiter.api.Disabled;
 import java.util.HashMap;
 import java.util.Map;
 
-/**
- * Test S3 checkpoint storage using Kubernetes IRSA (IAM Roles for Service Accounts).
- *
- * <p>This test uses DefaultAWSCredentialsProviderChain which supports: 1. Environment variables
- * (AWS_ACCESS_KEY_ID, AWS_SECRET_ACCESS_KEY) 2. Java system properties 3. Web Identity Token
- * (Kubernetes IRSA) - reads from AWS_WEB_IDENTITY_TOKEN_FILE 4. EC2 instance profile credentials 5.
- * ECS container credentials
- *
- * <p>To run this test in Kubernetes with IRSA: 1. Create a Kubernetes service account with IRSA
- * annotation: kubectl create serviceaccount seatunnel-sa kubectl annotate serviceaccount
- * seatunnel-sa \ eks.amazonaws.com/role-arn=arn:aws:iam::YOUR_ACCOUNT:role/YOUR_ROLE
- *
- * <p>2. Deploy the test pod with this service account
- *
- * <p>3. The AWS_WEB_IDENTITY_TOKEN_FILE and AWS_ROLE_ARN environment variables will be
- * automatically set by EKS
- *
- * <p>Alternatively, for local testing with environment variables: export AWS_ACCESS_KEY_ID=your-key
- * export AWS_SECRET_ACCESS_KEY=your-secret export AWS_REGION=your-region
- */
 @Disabled(
-        "IRSA requires Kubernetes environment with proper IAM role setup. "
-                + "Enable this test when running in EKS with IRSA configured.")
+        "S3 with IRSA is not available in CI, if you want to run this test, please set up your own S3 environment with DefaultAWSCredentialsProviderChain (environment variables, EC2 instance profile, or Kubernetes IRSA)")
 public class S3FileCheckpointWithIRSATest extends AbstractFileCheckPointTest {
 
     @BeforeAll
@@ -58,19 +37,10 @@ public class S3FileCheckpointWithIRSATest extends AbstractFileCheckPointTest {
         Map<String, String> config = new HashMap<>();
         config.put("storage.type", "s3");
         config.put("disable.cache", "false");
-
-        // Set your S3 bucket - replace with your actual bucket name
-        config.put("s3.bucket", "s3a://your-test-bucket");
-
-        // Optional: set endpoint for non-AWS S3-compatible storage
-        // config.put("fs.s3a.endpoint", "https://s3.us-west-2.amazonaws.com");
-
-        // Use DefaultAWSCredentialsProviderChain for automatic credential detection
-        // This will work with IRSA, environment variables, EC2 instance profiles, etc.
+        config.put("s3.bucket", "s3a://your-s3-bucket");
         config.put(
                 "fs.s3a.aws.credentials.provider",
                 "com.amazonaws.auth.DefaultAWSCredentialsProviderChain");
-
         STORAGE = new HdfsStorage(config);
         initStorageData();
     }
