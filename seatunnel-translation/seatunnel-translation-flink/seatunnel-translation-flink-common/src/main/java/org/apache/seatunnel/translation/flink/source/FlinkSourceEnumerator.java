@@ -96,17 +96,21 @@ public class FlinkSourceEnumerator<SplitT extends SourceSplit, EnumStateT>
     @Override
     public void addReader(int subtaskId) {
         boolean needResignalNoMoreSplits;
+        boolean shouldRun = false;
         synchronized (lock) {
             sourceSplitEnumerator.registerReader(subtaskId);
             registeredReaderIds.add(subtaskId);
             needResignalNoMoreSplits = noMoreSplitsSignaledReaders.contains(subtaskId);
             if (!isRun && registeredReaderIds.size() == parallelism) {
-                try {
-                    sourceSplitEnumerator.run();
-                } catch (Exception e) {
-                    throw new RuntimeException(e);
-                }
+                shouldRun = true;
                 isRun = true;
+            }
+        }
+        if (shouldRun) {
+            try {
+                sourceSplitEnumerator.run();
+            } catch (Exception e) {
+                throw new RuntimeException(e);
             }
         }
         if (needResignalNoMoreSplits) {
