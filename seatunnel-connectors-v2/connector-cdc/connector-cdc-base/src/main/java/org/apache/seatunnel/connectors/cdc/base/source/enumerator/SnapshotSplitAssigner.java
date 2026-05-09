@@ -218,11 +218,18 @@ public class SnapshotSplitAssigner<C extends SourceConfig> implements SplitAssig
     @Override
     public void addSplits(Collection<SourceSplitBase> splits) {
         for (SourceSplitBase split : splits) {
-            remainingSplits.add(split.asSnapshotSplit());
+            SnapshotSplit snapshotSplit = split.asSnapshotSplit();
+            if (isAlreadyCompletedSnapshotSplit(snapshotSplit)) {
+                LOG.info(
+                        "Ignore add-back for completed snapshot split {}, keep checkpointed completion state",
+                        snapshotSplit.splitId());
+                continue;
+            }
+            remainingSplits.add(snapshotSplit);
             // we should remove the add-backed splits from the assigned list, because they are
             // failed
-            assignedSplits.remove(split.splitId());
-            splitCompletedOffsets.remove(split.splitId());
+            assignedSplits.remove(snapshotSplit.splitId());
+            splitCompletedOffsets.remove(snapshotSplit.splitId());
         }
     }
 
@@ -281,6 +288,12 @@ public class SnapshotSplitAssigner<C extends SourceConfig> implements SplitAssig
      */
     private boolean allSplitsCompleted() {
         return noMoreSplits() && assignedSplits.size() == splitCompletedOffsets.size();
+    }
+
+    private boolean isAlreadyCompletedSnapshotSplit(SnapshotSplit snapshotSplit) {
+        return snapshotSplit.isSnapshotReadFinished()
+                && assignedSplits.containsKey(snapshotSplit.splitId())
+                && splitCompletedOffsets.containsKey(snapshotSplit.splitId());
     }
 
     @VisibleForTesting
