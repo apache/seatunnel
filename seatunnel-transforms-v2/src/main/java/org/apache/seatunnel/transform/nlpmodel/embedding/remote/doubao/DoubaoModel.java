@@ -136,30 +136,7 @@ public class DoubaoModel extends MultimodalModel {
 
     @Override
     protected List<List<Float>> textVector(Object[] fields) throws IOException {
-        return invocationRuntime.invoke(
-                fields,
-                new ProviderAdapter<List<List<Float>>>() {
-                    @Override
-                    public List<List<Float>> invoke(Object[] inputs, ModelInvocationContext context)
-                            throws IOException {
-                        return textVectorGeneration(inputs, context.getRequestTimeoutMs());
-                    }
-
-                    @Override
-                    public int getOutputCount(List<List<Float>> output) {
-                        return output == null ? 0 : output.size();
-                    }
-
-                    @Override
-                    public String getProvider() {
-                        return "DOUBAO";
-                    }
-
-                    @Override
-                    public String getModel() {
-                        return model;
-                    }
-                });
+        return invocationRuntime.invoke(fields, textVectorAdapter(true));
     }
 
     @Override
@@ -215,7 +192,40 @@ public class DoubaoModel extends MultimodalModel {
                                 })
                         .get(0)
                         .size()
-                : textVector(new Object[] {DIMENSION_EXAMPLE}).get(0).size();
+                : invocationRuntime
+                        .invoke(new Object[] {DIMENSION_EXAMPLE}, textVectorAdapter(false))
+                        .get(0)
+                        .size();
+    }
+
+    private ProviderAdapter<List<List<Float>>> textVectorAdapter(boolean validateOutputCount) {
+        return new ProviderAdapter<List<List<Float>>>() {
+            @Override
+            public List<List<Float>> invoke(Object[] inputs, ModelInvocationContext context)
+                    throws IOException {
+                return textVectorGeneration(inputs, context.getRequestTimeoutMs());
+            }
+
+            @Override
+            public int getOutputCount(List<List<Float>> output) {
+                return output == null ? 0 : output.size();
+            }
+
+            @Override
+            public String getProvider() {
+                return "DOUBAO";
+            }
+
+            @Override
+            public String getModel() {
+                return model;
+            }
+
+            @Override
+            public boolean validateOutputCount() {
+                return validateOutputCount;
+            }
+        };
     }
 
     private List<List<Float>> textVectorGeneration(Object[] fields, int requestTimeoutMs)

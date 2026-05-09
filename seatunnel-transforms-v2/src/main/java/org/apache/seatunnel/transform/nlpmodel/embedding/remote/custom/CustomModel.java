@@ -132,35 +132,45 @@ public class CustomModel extends AbstractModel {
 
     @Override
     protected List<List<Float>> vector(Object[] fields) throws IOException {
-        return invocationRuntime.invoke(
-                fields,
-                new ProviderAdapter<List<List<Float>>>() {
-                    @Override
-                    public List<List<Float>> invoke(Object[] inputs, ModelInvocationContext context)
-                            throws IOException {
-                        return vectorGeneration(inputs, context.getRequestTimeoutMs());
-                    }
-
-                    @Override
-                    public int getOutputCount(List<List<Float>> output) {
-                        return output == null ? 0 : output.size();
-                    }
-
-                    @Override
-                    public String getProvider() {
-                        return "CUSTOM";
-                    }
-
-                    @Override
-                    public String getModel() {
-                        return model;
-                    }
-                });
+        return invocationRuntime.invoke(fields, vectorAdapter(true));
     }
 
     @Override
     public Integer dimension() throws IOException {
-        return vector(new Object[] {DIMENSION_EXAMPLE}).get(0).size();
+        return invocationRuntime
+                .invoke(new Object[] {DIMENSION_EXAMPLE}, vectorAdapter(false))
+                .get(0)
+                .size();
+    }
+
+    private ProviderAdapter<List<List<Float>>> vectorAdapter(boolean validateOutputCount) {
+        return new ProviderAdapter<List<List<Float>>>() {
+            @Override
+            public List<List<Float>> invoke(Object[] inputs, ModelInvocationContext context)
+                    throws IOException {
+                return vectorGeneration(inputs, context.getRequestTimeoutMs());
+            }
+
+            @Override
+            public int getOutputCount(List<List<Float>> output) {
+                return output == null ? 0 : output.size();
+            }
+
+            @Override
+            public String getProvider() {
+                return "CUSTOM";
+            }
+
+            @Override
+            public String getModel() {
+                return model;
+            }
+
+            @Override
+            public boolean validateOutputCount() {
+                return validateOutputCount;
+            }
+        };
     }
 
     private List<List<Float>> vectorGeneration(Object[] fields, int requestTimeoutMs)
