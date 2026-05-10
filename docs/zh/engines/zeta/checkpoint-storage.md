@@ -183,6 +183,26 @@ seatunnel:
        # 重要：此密钥的用户需要对bucket具有写权限，否则将返回403异常
 ```
 
+如果您在 **Kubernetes 上使用 IRSA（IAM Roles for Service Accounts）** 运行 SeaTunnel，可以使用 `WebIdentityTokenCredentialsProvider`。
+您可以这样配置:
+
+```yaml
+seatunnel:
+  engine:
+    checkpoint:
+      interval: 6000
+      timeout: 7000
+      storage:
+        type: hdfs
+        max-retained: 3
+        plugin-config:
+          namespace: # 检查点存储父路径，默认值为/seatunnel/checkpoint/
+          storage.type: s3
+          s3.bucket: your-bucket
+          fs.s3a.aws.credentials.provider: com.amazonaws.auth.WebIdentityTokenCredentialsProvider
+```
+
+
 有关Hadoop Credential Provider API的更多信息，请参见: [Credential Provider API](https://hadoop.apache.org/docs/stable/hadoop-project-dist/hadoop-common/CredentialProviderAPI.html).
 
 #### HDFS
