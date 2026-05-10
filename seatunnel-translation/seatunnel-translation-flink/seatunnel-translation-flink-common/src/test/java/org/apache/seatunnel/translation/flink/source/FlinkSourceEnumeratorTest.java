@@ -89,6 +89,29 @@ class FlinkSourceEnumeratorTest {
     }
 
     @Test
+    void testRunFailureCanRetryOnReaderReregister() throws Exception {
+        SourceSplitEnumerator<DummySplit, Serializable> sourceSplitEnumerator =
+                Mockito.mock(SourceSplitEnumerator.class);
+        SplitEnumeratorContext<SplitWrapper<DummySplit>> enumeratorContext =
+                Mockito.mock(SplitEnumeratorContext.class);
+        Mockito.when(enumeratorContext.currentParallelism()).thenReturn(1);
+        Mockito.doThrow(new RuntimeException("run failed"))
+                .doNothing()
+                .when(sourceSplitEnumerator)
+                .run();
+
+        FlinkSourceEnumerator<DummySplit, Serializable> enumerator =
+                new FlinkSourceEnumerator<>(
+                        sourceSplitEnumerator, enumeratorContext, ConcurrentHashMap.newKeySet());
+
+        Assertions.assertThrows(RuntimeException.class, () -> enumerator.addReader(0));
+
+        enumerator.addReader(0);
+
+        Mockito.verify(sourceSplitEnumerator, Mockito.times(2)).run();
+    }
+
+    @Test
     void testSnapshotStateDoesNotWaitForBlockingRun() throws Exception {
         SourceSplitEnumerator<DummySplit, Serializable> sourceSplitEnumerator =
                 Mockito.mock(SourceSplitEnumerator.class);

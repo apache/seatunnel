@@ -61,6 +61,7 @@ public class FlinkSourceEnumerator<SplitT extends SourceSplit, EnumStateT>
     private final Set<Integer> registeredReaderIds = new HashSet<>();
 
     private volatile boolean isRun = false;
+    private volatile boolean isRunning = false;
 
     public FlinkSourceEnumerator(
             SourceSplitEnumerator<SplitT, EnumStateT> enumerator,
@@ -101,15 +102,22 @@ public class FlinkSourceEnumerator<SplitT extends SourceSplit, EnumStateT>
             sourceSplitEnumerator.registerReader(subtaskId);
             registeredReaderIds.add(subtaskId);
             needResignalNoMoreSplits = noMoreSplitsSignaledReaders.contains(subtaskId);
-            if (!isRun && registeredReaderIds.size() == parallelism) {
+            if (!isRun && !isRunning && registeredReaderIds.size() == parallelism) {
                 shouldRun = true;
-                isRun = true;
+                isRunning = true;
             }
         }
         if (shouldRun) {
             try {
                 sourceSplitEnumerator.run();
+                synchronized (lock) {
+                    isRun = true;
+                    isRunning = false;
+                }
             } catch (Exception e) {
+                synchronized (lock) {
+                    isRunning = false;
+                }
                 throw new RuntimeException(e);
             }
         }
