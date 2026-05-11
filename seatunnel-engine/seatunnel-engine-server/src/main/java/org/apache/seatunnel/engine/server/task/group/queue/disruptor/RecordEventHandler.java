@@ -72,8 +72,8 @@ public class RecordEventHandler implements EventHandler<RecordEvent> {
                 }
             }
             collector.collect(record);
+            totalQueueSize.dec();
             if (metricsEnabled) {
-                totalQueueSize.dec();
                 queueSize.dec();
             }
         }

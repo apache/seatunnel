@@ -625,65 +625,14 @@ In Job Detail's DAG view:
 
 ---
 
-## 14. Change Log (Recent Three Commits, Corresponding to This Overall Implementation)
+## 14. Testing and Verification Suggestions (Covering This Feature)
 
-> Note: Here summarizes key changes and impact scope by "feature point", for Review / version tracing. Commit numbers refer to your local branch.
-
-### 14.1 Commit 1: Realtime Observability Main Feature (Engine + UI)
-
-**Engine (Zeta / Server)**
-
-- Added `ObservabilityConfig`: Unified parsing of `env.engine.observability.*` configuration (enabled, bucket, retention, async boundaries, edge capacity, split sink io, etc.).
-- Physical plan phase inserts `IntermediateQueue`:
-  - Supports inserting async boundary queue at TransformChain based on `async_boundaries`.
-  - Supports `split_sink_io=true` to insert queue before Sink, for statistics of "downstream wait ratio/queue fill ratio before entering sink".
-- Runtime metrics collection:
-  - Queue: put blocking time, size, capacity.
-  - Source: read_ns / idle_ns.
-  - Transform: process_ns / records_in / records_out.
-  - Sink: write_ns / records_in (and prepareCommit/commit/abort timing metrics).
-- Master memory aggregation: `RealtimeMetricsService` periodically pulls running job metrics, aggregates to memory `Deque` by bucket, and evicts by retention.
-- Added REST: `/metrics/realtime/jobs|edges|vertices` (provided on master node).
-
-**UI (seatunnel-engine-ui)**
-
-- Job Detail view integrates realtime metrics:
-  - Edge: Coloring/bolding based on `bpRatio` + `queueFillRatio` and supports click to view details.
-  - Node: Shows Source/Transform/Sink busy/idle ratios and time/throughput (click to view details).
-- i18n: Added Chinese and English entries and provides language switch entry (based on final UI interaction).
-
-### 14.2 Commit 2: UI Percentage Display + Running DAG JSON Cache (Stability/Performance)
-
-**UI**
-
-- Format ratio metrics (0~1) as percentage display in UI (e.g., 0.5 → 50%), interface unchanged.
-
-**Engine / REST Performance and Stability**
-
-- `BaseService` adds running job DAG JSON cache:
-  - Preferentially gets `JobDAGInfo` from `CoordinatorService.getJobInfo(jobId)` and serializes to JSON.
-  - Only falls back to generating from LogicalDag when unable to get (this path slower and may have non-determinism).
-  - Auto-cleans cache after job ends, avoiding infinite growth.
-
-### 14.3 Commit 3: Regression Test Completion + Documentation Completion
-
-- Added UT: Covers `ObservabilityConfig` default value/parsing/auto enable and override capability.
-- Added UT: Covers transform chain vertexId stable generation logic (avoid UI refresh pipelineEdges mixing).
-- Added E2E/IT:
-  - `/job-info/{jobId}` continuous polling `jobDag.pipelineEdges` signature must be stable (regression for "dynamic refresh mixing").
-  - `/metrics/realtime/*` endpoint returns non-empty and ratio range correct, `targetVertexId` mappable to vertices.
-- Added documentation: Completed design, configuration, metric measurement, REST and UI behavior description (this document).
-
----
-
-## 15. Testing and Verification Suggestions (Covering This Feature)
-
-### 15.1 Unit Tests (UT)
+### 14.1 Unit Tests (UT)
 
 - `seatunnel-engine-server`: Verify plan generation stability + observability config parsing.
 - `seatunnel-engine-ui`: Verify percentage formatting and UI rendering.
 
-### 15.2 End-to-End Tests (E2E/IT)
+### 14.2 End-to-End Tests (E2E/IT)
 
 - `JobInfoDagStabilityRestIT`: Verify DAG doesn't "mix" under UI refresh (pipelineEdges signature stable).
 - `RealtimeMetricsRestIT`: Verify `/metrics/realtime/*` returns time series data after job submission, and `targetVertexId` mapping correct.

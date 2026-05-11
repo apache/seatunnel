@@ -624,65 +624,14 @@ Sink 侧通常已经有“Sink 前队列”作为天然观测点，因此：
 
 ---
 
-## 14. 变更记录（最近三次提交，对应本次整体实现）
+## 14. 测试与验证建议（覆盖本次功能点）
 
-> 说明：这里按“功能点”总结关键改动与影响范围，便于 Review / 版本回溯。提交号以你本地分支为准。
-
-### 14.1 提交 1：实时可观测性主功能（Engine + UI）
-
-**Engine（Zeta / Server）**
-
-- 新增 `ObservabilityConfig`：统一解析 `env.engine.observability.*` 配置（enabled、bucket、retention、async boundaries、edge capacity、split sink io 等）。
-- 物理计划阶段插入 `IntermediateQueue`：
-  - 支持按 `async_boundaries` 在 TransformChain 处插入 async boundary queue。
-  - 支持 `split_sink_io=true` 在 Sink 前插入 queue，用于统计“进入 sink 前的下游等待占比/队列填充率”。
-- 运行时指标采集：
-  - Queue：put 阻塞时间、size、capacity。
-  - Source：read_ns / idle_ns。
-  - Transform：process_ns / records_in / records_out。
-  - Sink：write_ns / records_in（以及 prepareCommit/commit/abort 的耗时指标）。
-- Master 内存聚合：`RealtimeMetricsService` 周期性拉取 running job metrics，按 bucket 聚合到内存 `Deque`，并按 retention 淘汰。
-- 新增 REST：`/metrics/realtime/jobs|edges|vertices`（在 master 节点提供）。
-
-**UI（seatunnel-engine-ui）**
-
-- Job Detail 视图接入 realtime metrics：
-  - 边：根据 `bpRatio` + `queueFillRatio` 着色/加粗并支持点击查看详情。
-  - 节点：展示 Source/Transform/Sink 的 busy/idle 等比例与耗时/吞吐（点击查看详情）。
-- i18n：补充中英文词条并提供语言切换入口（以最终 UI 交互为准）。
-
-### 14.2 提交 2：UI 百分比显示 + 运行中 DAG JSON 缓存（稳定性/性能）
-
-**UI**
-
-- 将 ratio 类指标（0~1）在 UI 中格式化为百分比展示（例如 0.5 → 50%），接口保持不变。
-
-**Engine / REST 性能与稳定性**
-
-- `BaseService` 增加 running job DAG 的 JSON 缓存：
-  - 优先从 `CoordinatorService.getJobInfo(jobId)` 获取 `JobDAGInfo` 并序列化为 JSON。
-  - 仅在获取不到的情况下才 fallback 到从 LogicalDag 再生成（该路径更慢且可能出现非确定性）。
-  - job 结束后自动清理缓存，避免无限增长。
-
-### 14.3 提交 3：回归测试补齐 + 文档补齐
-
-- 增加 UT：覆盖 `ObservabilityConfig` 默认值/解析/自动 enable 与 override 能力。
-- 增加 UT：覆盖 transform chain vertexId 的稳定生成逻辑（避免 UI 刷新时 pipelineEdges 混线）。
-- 增加 E2E/IT：
-  - `/job-info/{jobId}` 连续轮询时 `jobDag.pipelineEdges` signature 必须稳定（回归“动态刷新混线”）。
-  - `/metrics/realtime/*` 端点返回非空并且 ratio 范围正确、`targetVertexId` 可映射到 vertices。
-- 补充文档：补齐设计、配置、指标口径、REST 与 UI 行为说明（即本文）。
-
----
-
-## 15. 测试与验证建议（覆盖本次功能点）
-
-### 15.1 单元测试（UT）
+### 14.1 单元测试（UT）
 
 - `seatunnel-engine-server`：验证计划生成稳定性 + observability config 解析。
 - `seatunnel-engine-ui`：验证百分比格式化与 UI 渲染。
 
-### 15.2 端到端测试（E2E/IT）
+### 14.2 端到端测试（E2E/IT）
 
 - `JobInfoDagStabilityRestIT`：验证 UI 刷新下 DAG 不“混线”（pipelineEdges signature 稳定）。
 - `RealtimeMetricsRestIT`：验证 `/metrics/realtime/*` 在提交 job 后能返回时序数据，且 `targetVertexId` 映射正确。

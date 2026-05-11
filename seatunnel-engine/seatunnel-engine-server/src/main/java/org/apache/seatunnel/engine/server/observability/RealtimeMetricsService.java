@@ -302,14 +302,6 @@ public class RealtimeMetricsService {
                 Map<String, Object> envOptions = jobInfo.getEnvOptions();
                 ObservabilityConfig cfg =
                         ObservabilityConfig.fromEnvOptions(envOptions, jobName, createTime);
-                // If users did NOT explicitly configure `engine.observability.enabled`, enable
-                // lightweight realtime collection by default so UI can show source/sink busy/idle
-                // without requiring extra job config. Plan-level features (async boundaries / sink
-                // splitting) still require explicit config.
-                Boolean enabledExplicit = ObservabilityConfig.getEnabledOrNull(envOptions);
-                if (enabledExplicit == null) {
-                    cfg = cfg.withEnabled(true);
-                }
                 return cfg;
             }
         } catch (Exception e) {
@@ -319,8 +311,7 @@ public class RealtimeMetricsService {
                     e.getMessage());
         }
 
-        // Keep collecting with defaults even if JobDAGInfo is temporarily unavailable.
-        return ObservabilityConfig.disabled(jobName, createTime).withEnabled(true);
+        return ObservabilityConfig.disabled(jobName, createTime);
     }
 
     @SuppressWarnings("unchecked")

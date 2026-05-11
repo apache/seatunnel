@@ -407,24 +407,13 @@ public class PhysicalPlanGenerator {
                                     flows.addAll(splitAsyncBoundaryFromFlow(flows.get(idx++)));
                                 }
                             }
-                            // Keep the legacy sink split for normal jobs. The engine has long
-                            // executed source->sink edges via an intermediate queue consumer task,
-                            // and several cancellation/checkpoint paths rely on that topology.
-                            //
-                            // For observability-enabled jobs, `split_sink_io` remains the switch
-                            // that controls whether we rewrite the sink edge for queue-level
-                            // observability.
-                            boolean shouldSplitSinkIo =
-                                    !observabilityConfig.isEnabled()
-                                            || observabilityConfig.isSplitSinkIo();
-                            if (shouldSplitSinkIo) {
-                                // Must not repeatedly split the newly created queue-consumer
-                                // flows, otherwise it may keep inserting nested queues and cause
-                                // huge memory overhead.
-                                List<Flow> sinkSplitRoots = new ArrayList<>(flows);
-                                for (Flow root : sinkSplitRoots) {
-                                    flows.addAll(splitSinkFromFlow(root));
-                                }
+                            // Keep the legacy sink split regardless of realtime observability.
+                            // Do not gate the legacy split on `split_sink_io`; otherwise enabling
+                            // observability without that flag would move Source and Sink back into
+                            // one thread.
+                            List<Flow> sinkSplitRoots = new ArrayList<>(flows);
+                            for (Flow root : sinkSplitRoots) {
+                                flows.addAll(splitSinkFromFlow(root));
                             }
                             for (int i = 0; i < flow.getAction().getParallelism(); i++) {
                                 long taskGroupId = taskGroupIdGenerator.getNextId();

@@ -232,19 +232,15 @@ public class JobInfoService extends BaseService {
                     TimeUnit.NANOSECONDS.toMillis(decodeTotalNs));
             Runtime rt = Runtime.getRuntime();
             long usedBytes = rt.totalMemory() - rt.freeMemory();
-            System.out.println(
-                    "[DIAG] running-jobs summary slow: totalMs="
-                            + totalMs
-                            + " jobs="
-                            + values.size()
-                            + " decodeMs="
-                            + TimeUnit.NANOSECONDS.toMillis(decodeTotalNs)
-                            + " heapUsedMB="
-                            + (usedBytes / 1024 / 1024)
-                            + " heapTotalMB="
-                            + (rt.totalMemory() / 1024 / 1024)
-                            + " heapMaxMB="
-                            + (rt.maxMemory() / 1024 / 1024));
+            log.warn(
+                    "running-jobs summary slow diagnostics: totalMs={} jobs={} decodeMs={} "
+                            + "heapUsedMB={} heapTotalMB={} heapMaxMB={}",
+                    totalMs,
+                    values.size(),
+                    TimeUnit.NANOSECONDS.toMillis(decodeTotalNs),
+                    usedBytes / 1024 / 1024,
+                    rt.totalMemory() / 1024 / 1024,
+                    rt.maxMemory() / 1024 / 1024);
         } else {
             log.debug(
                     "running-jobs summary: total={}ms jobs={} decode={}ms",

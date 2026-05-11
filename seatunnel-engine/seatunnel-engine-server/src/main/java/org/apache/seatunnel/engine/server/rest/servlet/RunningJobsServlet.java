@@ -78,29 +78,24 @@ public class RunningJobsServlet extends PageBaseServlet {
         writeJsonWithPagination(req, resp, runningJobs);
 
         if (dispatchDelayMs > 500) {
-            System.out.println(
-                    "[DIAG] /running-jobs dispatchDelayMs="
-                            + dispatchDelayMs
-                            + " thread="
-                            + Thread.currentThread().getName());
+            log.warn(
+                    "GET /running-jobs dispatch delayed: dispatchDelayMs={} thread={}",
+                    dispatchDelayMs,
+                    Thread.currentThread().getName());
         }
         if (costMs > 500) {
             log.warn("GET /running-jobs slow: full={} costMs={}", full, costMs);
             Runtime rt = Runtime.getRuntime();
             long usedBytes = rt.totalMemory() - rt.freeMemory();
-            System.out.println(
-                    "[DIAG] GET /running-jobs slow: full="
-                            + full
-                            + " costMs="
-                            + costMs
-                            + " thread="
-                            + Thread.currentThread().getName()
-                            + " heapUsedMB="
-                            + (usedBytes / 1024 / 1024)
-                            + " heapTotalMB="
-                            + (rt.totalMemory() / 1024 / 1024)
-                            + " heapMaxMB="
-                            + (rt.maxMemory() / 1024 / 1024));
+            log.warn(
+                    "GET /running-jobs slow diagnostics: full={} costMs={} thread={} "
+                            + "heapUsedMB={} heapTotalMB={} heapMaxMB={}",
+                    full,
+                    costMs,
+                    Thread.currentThread().getName(),
+                    usedBytes / 1024 / 1024,
+                    rt.totalMemory() / 1024 / 1024,
+                    rt.maxMemory() / 1024 / 1024);
         } else {
             log.debug("GET /running-jobs: full={} costMs={}", full, costMs);
         }

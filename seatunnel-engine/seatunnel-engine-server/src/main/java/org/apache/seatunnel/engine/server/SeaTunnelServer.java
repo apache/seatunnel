@@ -97,7 +97,7 @@ public class SeaTunnelServer
     @Getter private CheckpointService checkpointService;
     @Getter private CheckpointMonitorService checkpointMonitorService;
     private ScheduledExecutorService monitorService;
-    private RealtimeMetricsService realtimeMetricsService;
+    private volatile RealtimeMetricsService realtimeMetricsService;
     private JettyService jettyService;
     private TaskLogManagerService taskLogManagerService;
 
@@ -194,9 +194,6 @@ public class SeaTunnelServer
         checkpointService =
                 new CheckpointService(seaTunnelConfig.getEngineConfig().getCheckpointConfig());
         checkpointMonitorService = new CheckpointMonitorService(nodeEngine, 32);
-        realtimeMetricsService =
-                new RealtimeMetricsService((NodeEngineImpl) nodeEngine, coordinatorService);
-        realtimeMetricsService.start();
         monitorService = Executors.newSingleThreadScheduledExecutor();
         monitorService.scheduleAtFixedRate(
                 this::printExecutionInfo,
@@ -233,15 +230,13 @@ public class SeaTunnelServer
         if (monitorService != null) {
             monitorService.shutdownNow();
         }
-        if (realtimeMetricsService != null) {
-            realtimeMetricsService.shutdown();
-        }
         if (slotService != null) {
             slotService.close();
         }
         if (coordinatorService != null) {
             coordinatorService.shutdown();
         }
+        stopRealtimeMetricsService();
 
         if (eventService != null) {
             eventService.shutdownNow();
@@ -314,6 +309,22 @@ public class SeaTunnelServer
 
     public RealtimeMetricsService getRealtimeMetricsService() {
         return realtimeMetricsService;
+    }
+
+    synchronized void startRealtimeMetricsService(CoordinatorService activeCoordinatorService) {
+        if (realtimeMetricsService != null) {
+            return;
+        }
+        realtimeMetricsService =
+                new RealtimeMetricsService((NodeEngineImpl) nodeEngine, activeCoordinatorService);
+        realtimeMetricsService.start();
+    }
+
+    synchronized void stopRealtimeMetricsService() {
+        if (realtimeMetricsService != null) {
+            realtimeMetricsService.shutdown();
+            realtimeMetricsService = null;
+        }
     }
 
     public TaskExecutionService getTaskExecutionService() {

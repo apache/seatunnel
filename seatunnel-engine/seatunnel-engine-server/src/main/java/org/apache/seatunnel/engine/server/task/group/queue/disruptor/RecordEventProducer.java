@@ -71,8 +71,8 @@ public class RecordEventProducer {
             recordEvent.setRecord(record);
         } finally {
             ringBuffer.publish(sequence);
+            totalQueueSize.inc();
             if (metricsEnabled) {
-                totalQueueSize.inc();
                 queueSize.inc();
             }
         }

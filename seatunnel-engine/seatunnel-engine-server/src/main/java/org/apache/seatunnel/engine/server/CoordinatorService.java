@@ -861,15 +861,18 @@ public class CoordinatorService {
                 }
                 initCoordinatorService();
                 isActive = true;
+                seaTunnelServer.startRealtimeMetricsService(this);
             } else if (isActive && !this.seaTunnelServer.isMasterNode()) {
                 isActive = false;
                 logger.info(
                         "This node become leave active master node, begin clear coordinator service");
+                seaTunnelServer.stopRealtimeMetricsService();
                 clearCoordinatorService();
             }
         } catch (Exception e) {
             isActive = false;
             logger.severe("check new active master error, will retry later.", e);
+            seaTunnelServer.stopRealtimeMetricsService();
             try {
                 clearCoordinatorService();
             } catch (Exception ex) {

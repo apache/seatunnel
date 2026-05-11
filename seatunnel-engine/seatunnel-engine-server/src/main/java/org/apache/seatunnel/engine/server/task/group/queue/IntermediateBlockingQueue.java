@@ -67,8 +67,8 @@ public class IntermediateBlockingQueue extends AbstractIntermediateQueue<Blockin
                             putBlockedNs.inc(System.nanoTime() - blockedStartNs);
                         }
                     });
+            totalIntermediateQueueSize.inc();
             if (metricsEnabled) {
-                totalIntermediateQueueSize.inc();
                 intermediateQueueSize.set(getIntermediateQueue().size());
             }
         } catch (Exception e) {
@@ -84,8 +84,8 @@ public class IntermediateBlockingQueue extends AbstractIntermediateQueue<Blockin
             Record<?> record = getIntermediateQueue().poll(100, TimeUnit.MILLISECONDS);
             if (record != null) {
                 handleRecord(record, collector::collect);
+                totalIntermediateQueueSize.dec();
                 if (metricsEnabled) {
-                    totalIntermediateQueueSize.dec();
                     intermediateQueueSize.set(getIntermediateQueue().size());
                 }
             } else {

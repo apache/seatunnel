@@ -25,6 +25,7 @@ import org.apache.seatunnel.engine.server.rest.service.OverviewService;
 import com.hazelcast.internal.json.JsonObject;
 import com.hazelcast.internal.util.JsonUtil;
 import com.hazelcast.spi.impl.NodeEngineImpl;
+import lombok.extern.slf4j.Slf4j;
 
 import javax.servlet.ServletException;
 import javax.servlet.http.HttpServletRequest;
@@ -34,6 +35,7 @@ import java.io.IOException;
 import java.util.Map;
 import java.util.concurrent.TimeUnit;
 
+@Slf4j
 public class OverviewServlet extends BaseServlet {
 
     private final OverviewService overviewService;
@@ -74,26 +76,22 @@ public class OverviewServlet extends BaseServlet {
 
         writeJson(resp, body);
         if (dispatchDelayMs > 500) {
-            System.out.println(
-                    "[DIAG] /overview dispatchDelayMs="
-                            + dispatchDelayMs
-                            + " thread="
-                            + Thread.currentThread().getName());
+            log.warn(
+                    "GET /overview dispatch delayed: dispatchDelayMs={} thread={}",
+                    dispatchDelayMs,
+                    Thread.currentThread().getName());
         }
         if (costMs > 500) {
             Runtime rt = Runtime.getRuntime();
             long usedBytes = rt.totalMemory() - rt.freeMemory();
-            System.out.println(
-                    "[DIAG] /overview slow: costMs="
-                            + costMs
-                            + " thread="
-                            + Thread.currentThread().getName()
-                            + " heapUsedMB="
-                            + (usedBytes / 1024 / 1024)
-                            + " heapTotalMB="
-                            + (rt.totalMemory() / 1024 / 1024)
-                            + " heapMaxMB="
-                            + (rt.maxMemory() / 1024 / 1024));
+            log.warn(
+                    "GET /overview slow: costMs={} thread={} heapUsedMB={} heapTotalMB={} "
+                            + "heapMaxMB={}",
+                    costMs,
+                    Thread.currentThread().getName(),
+                    usedBytes / 1024 / 1024,
+                    rt.totalMemory() / 1024 / 1024,
+                    rt.maxMemory() / 1024 / 1024);
         }
     }
 }
