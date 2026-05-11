@@ -10,8 +10,8 @@
 
 ## SeaTunnel 支持哪些数据来源和数据目的地？
 SeaTunnel 支持多种数据源来源和数据目的地，您可以在官网找到详细的列表：
-SeaTunnel 支持的数据来源(Source)列表：[Source List](../connectors/source)
-SeaTunnel 支持的数据目的地(Sink)列表：[Sink List](../connectors/sink)
+SeaTunnel 支持的数据来源(Source)列表：[Source List](/docs/category/source)
+SeaTunnel 支持的数据目的地(Sink)列表：[Sink List](/docs/category/sink)
 
 ## SeaTunnel 是否支持批处理和流处理？
 SeaTunnel 支持批流一体，SeaTunnel 可以设置批处理和流处理两种模式。您可以根据具体的业务场景和需求选择合适的处理模式。批处理适合定时数据同步场景，而流处理适合实时同步和数据变更捕获 (CDC) 场景。
@@ -30,7 +30,7 @@ SeaTunnel 支持自定义数据清洗规则。可以在 `transform` 模块中配
 SeaTunnel 支持增量数据同步。例如通过 CDC 连接器实现对数据库的增量同步，适用于需要实时捕获数据变更的场景。
 
 ## SeaTunnel 目前支持哪些数据源的 CDC ？
-目前支持 MongoDB CDC、MySQL CDC、Opengauss CDC、Oracle CDC、PostgreSQL CDC、Sql Server CDC、TiDB CDC等，更多请查阅[Source](../connectors/source)。
+目前支持 MongoDB CDC、MySQL CDC、Opengauss CDC、Oracle CDC、PostgreSQL CDC、Sql Server CDC、TiDB CDC等，更多请查阅[Source](/docs/category/source)。
 
 ## SeaTunnel CDC 同步需要的权限如何开启？
 这样就可以了。
@@ -131,4 +131,4 @@ SeaTunnel 拥有完全抽象、结构化的非常优秀的架构设计和代码�
 
 ## 如果想开发自己的 source、sink、transform 时，是否需要了解 SeaTunnel 所有源代码？
 不需要，您只需要关注 source、sink、transform 对应的接口即可。
-如果你想针对 SeaTunnel API 开发自己的连接器（Connector V2），请查看**[Connector Development Guide](https://github.com/apache/seatunnel/blob/dev/seatunnel-connectors-v2/README.zh.md)** 。
+如果你想针对 SeaTunnel API 开发自己的连接器（Connector V2），请查看**[Connector Development Guide](../../seatunnel-connectors-v2/README.zh.md)** 。
