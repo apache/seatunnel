@@ -187,6 +187,14 @@ public abstract class ChunkSplitter implements AutoCloseable, Serializable {
             return requestedStrategy;
         }
 
+        if (!jdbcDialect.supportStringRangeSplit()) {
+            throw new JdbcConnectorException(
+                    CommonErrorCodeDeprecated.ILLEGAL_ARGUMENT,
+                    String.format(
+                            "String split strategy %s requires validated range split support, but dialect %s does not support range/auto string split strategy.",
+                            requestedStrategy, jdbcDialect.dialectName()));
+        }
+
         StringRangeSplitDecision decision =
                 jdbcDialect.validateStringRangeSplit(
                         getOrEstablishConnection(), table, splitKeyName, 256);

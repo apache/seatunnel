@@ -159,7 +159,7 @@ public class JdbcSourceOptions extends JdbcCommonOptions {
                     .enumType(StringSplitStrategy.class)
                     .noDefaultValue()
                     .withDescription(
-                            "Controls how String partition columns are split. `range` uses range-based splitting, `hash` uses hash-based splitting, `none` disables String splitting, and `auto` prefers range splitting then falls back to hash when needed. When this option is not set, SeaTunnel keeps the existing split.string_split_mode behavior.");
+                            "Controls how String partition columns are split. `range` uses range-based splitting, `hash` uses hash-based splitting, `none` disables String splitting, and `auto` prefers range splitting then falls back to hash when needed. `range` and `auto` currently require MySQL binary collation and fixed-length printable ASCII key values. When this option is not set, SeaTunnel keeps the existing split.string_split_mode behavior.");
 
     public static final Option<String> STRING_SPLIT_MODE_COLLATE =
             Options.key("split.string_split_mode_collate")

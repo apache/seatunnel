@@ -344,6 +344,11 @@ public interface JdbcDialect extends Serializable {
                 "string range split is not validated for this JDBC dialect");
     }
 
+    /** Returns whether this dialect has validated string range split support. */
+    default boolean supportStringRangeSplit() {
+        return false;
+    }
+
     default boolean supportHashSplitter() {
         return true;
     }

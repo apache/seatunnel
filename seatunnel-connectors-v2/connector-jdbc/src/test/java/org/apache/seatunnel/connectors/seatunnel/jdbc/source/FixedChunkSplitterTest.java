@@ -20,8 +20,11 @@ package org.apache.seatunnel.connectors.seatunnel.jdbc.source;
 import org.apache.seatunnel.api.table.catalog.TablePath;
 import org.apache.seatunnel.api.table.catalog.TableSchema;
 import org.apache.seatunnel.api.table.type.BasicType;
+import org.apache.seatunnel.api.table.type.SeaTunnelDataType;
+import org.apache.seatunnel.api.table.type.SeaTunnelRowType;
 import org.apache.seatunnel.connectors.seatunnel.jdbc.config.JdbcConnectionConfig;
 import org.apache.seatunnel.connectors.seatunnel.jdbc.config.JdbcSourceConfig;
+import org.apache.seatunnel.connectors.seatunnel.jdbc.exception.JdbcConnectorException;
 
 import org.junit.jupiter.api.Test;
 
@@ -38,6 +41,8 @@ import java.util.Map;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertNotEquals;
+import static org.junit.jupiter.api.Assertions.assertThrows;
+import static org.junit.jupiter.api.Assertions.assertTrue;
 
 @Slf4j
 public class FixedChunkSplitterTest {
@@ -79,6 +84,34 @@ public class FixedChunkSplitterTest {
 
         assertEquals("SELECT * FROM `db`.`tbl` WHERE `id` >= ?", splitter.sql);
         assertEquals("mm", splitter.stringParameters.get(1));
+    }
+
+    @Test
+    public void testRejectAutoStringRangeSplitForNonMysqlDialect() {
+        JdbcSourceConfig config =
+                JdbcSourceConfig.builder()
+                        .jdbcConnectionConfig(
+                                JdbcConnectionConfig.builder()
+                                        .url("jdbc:postgresql://localhost:5432/test")
+                                        .driverName("org.postgresql.Driver")
+                                        .build())
+                        .stringSplitStrategy(StringSplitStrategy.AUTO)
+                        .build();
+        CapturingFixedChunkSplitter splitter = new CapturingFixedChunkSplitter(config);
+        JdbcSourceTable table =
+                JdbcSourceTable.builder().tablePath(TablePath.of("public", "tbl")).build();
+
+        JdbcConnectorException exception =
+                assertThrows(
+                        JdbcConnectorException.class,
+                        () ->
+                                splitter.createSplits(
+                                        table,
+                                        new SeaTunnelRowType(
+                                                new String[] {"id"},
+                                                new SeaTunnelDataType[] {BasicType.STRING_TYPE})));
+
+        assertTrue(exception.getMessage().contains("does not support range/auto"));
     }
 
     @Test

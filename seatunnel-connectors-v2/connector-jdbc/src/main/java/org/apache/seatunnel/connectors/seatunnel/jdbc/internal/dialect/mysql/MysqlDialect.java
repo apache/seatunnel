@@ -272,11 +272,6 @@ public class MysqlDialect implements JdbcDialect {
                 return StringRangeSplitDecision.unsafe(
                         String.format("sample value contains non-ASCII characters: [%s]", sample));
             }
-            if (!isKeyLike(sample)) {
-                return StringRangeSplitDecision.unsafe(
-                        String.format(
-                                "sample value does not look like a key string: [%s]", sample));
-            }
             if (sampleLength == null) {
                 sampleLength = sample.length();
             } else if (sample.length() != sampleLength) {
@@ -286,8 +281,13 @@ public class MysqlDialect implements JdbcDialect {
         }
         return StringRangeSplitDecision.safe(
                 String.format(
-                        "collation %s is binary and %s sampled values look like ASCII keys",
+                        "collation %s is binary and %s sampled values are fixed-length printable ASCII",
                         collation, samples.size()));
+    }
+
+    @Override
+    public boolean supportStringRangeSplit() {
+        return true;
     }
 
     private String queryColumnCollation(
@@ -355,13 +355,6 @@ public class MysqlDialect implements JdbcDialect {
             }
         }
         return true;
-    }
-
-    private boolean isKeyLike(String value) {
-        return value.matches("^[A-Za-z0-9_-]+$")
-                || value.matches("^[0-9a-fA-F-]{36}$")
-                || value.matches("^[0-9a-fA-F]+$")
-                || value.matches("^[0-9]+$");
     }
 
     @Override
