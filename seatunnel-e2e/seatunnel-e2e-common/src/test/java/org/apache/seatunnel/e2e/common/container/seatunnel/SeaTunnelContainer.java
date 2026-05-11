@@ -401,6 +401,7 @@ public class SeaTunnelContainer extends AbstractTestContainer {
         return s.startsWith("hz.main")
                 || s.startsWith("seatunnel-coordinator-service")
                 || s.startsWith("seatunnel-metrics-fetch-")
+                || s.startsWith("pending-job-schedule-runner")
                 || s.startsWith("GC task thread")
                 || s.contains("CompilerThread")
                 || s.startsWith("SeaTunnel-CompletableFuture-Thread-")

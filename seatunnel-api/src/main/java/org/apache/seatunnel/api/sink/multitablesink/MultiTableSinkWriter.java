@@ -44,6 +44,20 @@ import java.util.concurrent.LinkedBlockingQueue;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicInteger;
 
+/**
+ * A composite {@link SinkWriter} that distributes rows to multiple per-table sub-writers via async
+ * blocking queues.
+ *
+ * <p>Incoming rows are routed to one of {@code queueSize} {@link BlockingQueue}s. Each queue is
+ * consumed by a dedicated {@link MultiTableWriterRunnable} thread that dispatches rows to the
+ * appropriate sub-writer. Routing is based on the row's primary key hash for ordered delivery, or
+ * random selection when no primary key exists.
+ *
+ * <p>Thread pool sizing is {@code queueSize * 2}: half for queue consumer threads, half for
+ * parallel {@link #prepareCommit(long)} tasks. Synchronization between the consumer threads and
+ * checkpoint/commit operations is coordinated through locks on each {@link
+ * MultiTableWriterRunnable} instance.
+ */
 @Slf4j
 public class MultiTableSinkWriter
         implements SinkWriter<SeaTunnelRow, MultiTableCommitInfo, MultiTableState>,
@@ -61,6 +75,19 @@ public class MultiTableSinkWriter
     private MultiTableResourceManager resourceManager;
     private volatile boolean submitted = false;
 
+    /**
+     * Creates a MultiTableSinkWriter that distributes writes across multiple queues.
+     *
+     * <p>Initializes a fixed thread pool of size {@code queueSize * 2}: half the threads run {@link
+     * MultiTableWriterRunnable} consumers that drain the blocking queues, and the other half are
+     * reserved for parallel {@link #prepareCommit(long)} tasks. Each sub-writer is assigned to a
+     * queue using the formula {@code sinkIdentifier.getIndex() % queueSize}, ensuring deterministic
+     * distribution across queues.
+     *
+     * @param sinkWriters map of sink identifiers to their corresponding writers
+     * @param queueSize number of blocking queues (and consumer threads) to create
+     * @param sinkWritersContext map of sink identifiers to their writer contexts
+     */
     public MultiTableSinkWriter(
             Map<SinkIdentifier, SinkWriter<SeaTunnelRow, ?, ?>> sinkWriters,
             int queueSize,
@@ -109,6 +136,18 @@ public class MultiTableSinkWriter
         initResourceManager(queueSize);
     }
 
+    /**
+     * Initializes the shared {@link MultiTableResourceManager} from the first available writer and
+     * broadcasts it to all sub-writers.
+     *
+     * <p>This is a one-shot initialization: the resource manager is created by the first writer via
+     * {@link SupportMultiTableSinkWriter#initMultiTableResourceManager}, then distributed to every
+     * writer through {@link SupportMultiTableSinkWriter#setMultiTableResourceManager}. Also
+     * populates the {@link #sinkPrimaryKeys} map used for hash-based row routing in {@link
+     * #write(SeaTunnelRow)}.
+     *
+     * @param queueSize the number of queues, passed to the resource manager for sizing
+     */
     private void initResourceManager(int queueSize) {
         for (SinkIdentifier tableIdentifier : sinkWriters.keySet()) {
             SinkWriter<SeaTunnelRow, ?, ?> sink = sinkWriters.get(tableIdentifier);
@@ -131,6 +170,15 @@ public class MultiTableSinkWriter
         }
     }
 
+    /**
+     * Checks all async writer threads for errors and propagates any exception to the caller.
+     *
+     * <p>Each {@link MultiTableWriterRunnable} captures exceptions thrown during write into a
+     * volatile field. This method iterates over all runnables and re-throws the first error found
+     * as a {@link RuntimeException}. It is called before every state-mutating operation ({@link
+     * #write(SeaTunnelRow)}, {@link #snapshotState(long)}, {@link #prepareCommit(long)}) to fail
+     * fast.
+     */
     private void subSinkErrorCheck() {
         for (MultiTableWriterRunnable writerRunnable : runnable) {
             if (writerRunnable.getThrowable() != null) {
@@ -175,6 +223,33 @@ public class MultiTableSinkWriter
         }
     }
 
+    /**
+     * Routes a row to the appropriate blocking queue for async writing.
+     *
+     * <p>On the first call, lazily starts all {@link MultiTableWriterRunnable} consumer threads via
+     * the executor service (controlled by the {@code submitted} flag).
+     *
+     * <p>Row routing strategy:
+     *
+     * <ul>
+     *   <li>If the table's primary key information is present and the primary key field value is
+     *       non-null, the row is routed by {@code Math.abs(primaryKeyValue.hashCode()) %
+     *       queueSize}, guaranteeing that rows with the same primary key always go to the same
+     *       queue for ordered delivery.
+     *   <li>If the table's primary key information is present but the actual field value is {@code
+     *       null}, the row is routed to queue 0.
+     *   <li>If the table has no primary key or this is a single-table sink, the row is sent to a
+     *       randomly selected queue for load balancing.
+     *   <li>If the table's primary key metadata is missing (not initialized) in multi-table mode, a
+     *       {@link RuntimeException} is thrown.
+     * </ul>
+     *
+     * <p>If the target queue is full, blocks with 500ms timeout retries, checking for sub-sink
+     * errors between attempts.
+     *
+     * @param element the row to write
+     * @throws IOException if interrupted while waiting for queue capacity
+     */
     @Override
     public void write(SeaTunnelRow element) throws IOException {
         if (element != null && element.getOptions() != null) {
@@ -218,6 +293,18 @@ public class MultiTableSinkWriter
         }
     }
 
+    /**
+     * Captures the state of all sub-writers for the given checkpoint.
+     *
+     * <p>First drains all blocking queues via {@link #checkQueueRemain()} to ensure all pending
+     * rows have been written. Then acquires the lock on each {@link MultiTableWriterRunnable}
+     * ({@code synchronized(runnable.get(i))}) to prevent concurrent mutation while each
+     * sub-writer's state is being captured.
+     *
+     * @param checkpointId the checkpoint identifier
+     * @return a list containing a single {@link MultiTableState} with all sub-writer states
+     * @throws IOException if an error occurs during state capture
+     */
     @Override
     public List<MultiTableState> snapshotState(long checkpointId) throws IOException {
         checkQueueRemain();
@@ -242,6 +329,22 @@ public class MultiTableSinkWriter
         return Optional.empty();
     }
 
+    /**
+     * Prepares commit info for all sub-writers in parallel.
+     *
+     * <p>After draining all queues via {@link #checkQueueRemain()} and checking for errors, submits
+     * one task per queue to the executor service. Each task acquires the corresponding {@link
+     * MultiTableWriterRunnable} lock and calls {@code prepareCommit} on every sub-writer assigned
+     * to that queue. Results are aggregated into a single {@link MultiTableCommitInfo} using a
+     * {@link ConcurrentHashMap}.
+     *
+     * <p>Blocks until all futures complete, then returns the aggregated commit info (or empty if no
+     * sub-writer produced commit info).
+     *
+     * @param checkpointId the checkpoint identifier
+     * @return commit info aggregated from all sub-writers, or empty if none
+     * @throws IOException if a sub-writer fails during prepare commit
+     */
     @Override
     public Optional<MultiTableCommitInfo> prepareCommit(long checkpointId) throws IOException {
         checkQueueRemain();
@@ -290,6 +393,14 @@ public class MultiTableSinkWriter
         return Optional.of(multiTableCommitInfo);
     }
 
+    /**
+     * Aborts the prepare phase for all sub-writers.
+     *
+     * <p>Drains remaining queues, then iterates over all sub-writers under their respective {@link
+     * MultiTableWriterRunnable} locks, calling {@code abortPrepare()} on each. Uses a
+     * first-exception-wins strategy: if multiple sub-writers throw, only the first exception is
+     * propagated; subsequent errors are logged.
+     */
     @Override
     public void abortPrepare() {
         Throwable firstE = null;
@@ -318,6 +429,22 @@ public class MultiTableSinkWriter
         }
     }
 
+    /**
+     * Closes this writer and releases all resources.
+     *
+     * <p>Drains remaining queues, then calls {@link ExecutorService#shutdownNow()} to interrupt all
+     * consumer threads. Each sub-writer is closed under its respective {@link
+     * MultiTableWriterRunnable} lock to avoid concurrent access. Finally, the shared {@link
+     * MultiTableResourceManager} is closed.
+     *
+     * <p>Uses first-exception-wins error handling: if multiple sub-writers throw during close, only
+     * the first exception is propagated. Resource manager close errors are logged but not
+     * propagated.
+     *
+     * @throws RuntimeException wrapping the first {@link Throwable} caught from any sub-writer;
+     *     note that the method signature declares {@code throws IOException} (inherited from the
+     *     interface), but the current implementation always wraps in {@code RuntimeException}
+     */
     @Override
     public void close() throws IOException {
         // The variables used in lambda expressions should be final or valid final, so they are
@@ -358,6 +485,14 @@ public class MultiTableSinkWriter
         }
     }
 
+    /**
+     * Busy-waits until all blocking queues are fully drained.
+     *
+     * <p>Polls each queue every 100 milliseconds, checking for sub-sink errors between iterations
+     * via {@link #subSinkErrorCheck()}. This must complete before any lock-protected state
+     * operations ({@link #snapshotState(long)}, {@link #prepareCommit(long)}) to ensure all
+     * enqueued rows have been consumed by the writer threads.
+     */
     private void checkQueueRemain() {
         try {
             for (BlockingQueue<SeaTunnelRow> blockingQueue : blockingQueues) {

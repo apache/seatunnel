@@ -75,7 +75,7 @@ public class DB2Dialect implements JdbcDialect {
 
     @Override
     public Optional<String> getUpsertStatement(
-            String database, String tableName, String[] fieldNames, String[] uniqueKeyFields) {
+            String database, String tableName, String[] fieldNames, String[] pkNames) {
         // Generate field list for USING and INSERT clauses
         String fieldList =
                 Arrays.stream(fieldNames)
@@ -87,7 +87,7 @@ public class DB2Dialect implements JdbcDialect {
 
         // Generate ON clause
         String onClause =
-                Arrays.stream(uniqueKeyFields)
+                Arrays.stream(pkNames)
                         .map(
                                 field ->
                                         "target."

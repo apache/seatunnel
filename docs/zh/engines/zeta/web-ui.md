@@ -1,5 +1,11 @@
 # Web UI
 
+## 从这里开始
+
+建议把 [REST API 与 Web UI](./rest-api-and-web-ui.md) 作为运维入口页先读完。那一页会先解释什么时候启用 HTTP 服务、接下来该看哪些 REST API 页面，以及 Web UI 在日常运维里的位置。
+
+本页只聚焦 Web UI 各个界面本身。
+
 ## 访问
 
 在访问 web ui 之前我们需要开启 http rest api。首先需要在`seatunnel.yaml`配置文件中配置
@@ -56,3 +62,9 @@ Apache SeaTunnel 的 Web UI 提供了一个友好的用户界面，用于监控�
 
 “管理节点”模块提供了 SeaTunnel 集群中主节点的状态和配置信息。用户可以查看 Master 节点的地址、运行状态、负责的作业调度情况以及整体集群的资源分配情况。该模块帮助用户全面了解集群的核心管理部分，便于进行集群配置优化和故障排查。
 ![master.png](../../../images/ui/master.png)
+
+## 下一步
+
+- [REST API 与 Web UI](./rest-api-and-web-ui.md)
+- [REST API V2](./rest-api-v2.md)
+- [安全](./security.md)

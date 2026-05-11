@@ -17,6 +17,7 @@
 
 package org.apache.seatunnel.engine.server;
 
+import org.apache.seatunnel.api.metadata.MetadataProviderManager;
 import org.apache.seatunnel.common.utils.RetryUtils;
 import org.apache.seatunnel.engine.common.Constant;
 import org.apache.seatunnel.engine.common.config.EngineConfig;
@@ -245,6 +246,8 @@ public class SeaTunnelServer
         if (eventService != null) {
             eventService.shutdownNow();
         }
+
+        MetadataProviderManager.closeProviders();
     }
 
     @Override
@@ -434,6 +437,10 @@ public class SeaTunnelServer
 
     public static long getMetricsImapPartition(TaskLocation key, int partitionCount) {
         return (key.hashCode() & 0x7FFFFFFF) % partitionCount;
+    }
+
+    public boolean isCoordinatorActive() {
+        return coordinatorService.isCoordinatorActive();
     }
 
     public SeaTunnelConfig getSeaTunnelConfig() {

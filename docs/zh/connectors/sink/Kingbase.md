@@ -118,12 +118,12 @@ source {
     }
   }
   # 如果您想了解更多关于如何配置 seatunnel 和查看源插件的完整列表，
-  # 请访问 https://seatunnel.apache.org/docs/connector-v2/source
+  # 请访问 https://seatunnel.apache.org/docs/connectors/source
 }
 
 transform {
   # 如果您想了解更多关于如何配置 seatunnel 和查看转换插件的完整列表，
-    # 请访问 https://seatunnel.apache.org/docs/transform-v2
+    # 请访问 https://seatunnel.apache.org/docs/transforms
 }
 
 sink {
@@ -135,7 +135,7 @@ sink {
         query = "insert into test_table(c_string,c_boolean,c_tinyint,c_smallint,c_int,c_bigint,c_float,c_double,c_decimal,c_date,c_time,c_timestamp) values(?,?,?,?,?,?,?,?,?,?,?,?)"
         }
   # 如果您想了解更多关于如何配置 seatunnel 和查看 sink 插件的完整列表，
-  # 请访问 https://seatunnel.apache.org/docs/connector-v2/sink
+  # 请访问 https://seatunnel.apache.org/docs/connectors/sink
 }
 ```
 

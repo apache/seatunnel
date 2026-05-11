@@ -27,15 +27,18 @@ import org.apache.seatunnel.engine.server.log.FormatType;
 import org.apache.seatunnel.engine.server.log.Log4j2HttpGetCommandProcessor;
 import org.apache.seatunnel.engine.server.rest.service.JobInfoService;
 import org.apache.seatunnel.engine.server.rest.service.LogService;
+import org.apache.seatunnel.engine.server.rest.service.OptionRulesService;
 import org.apache.seatunnel.engine.server.rest.service.OverviewService;
 import org.apache.seatunnel.engine.server.rest.service.RunningThreadService;
 import org.apache.seatunnel.engine.server.rest.service.SystemMonitoringService;
 import org.apache.seatunnel.engine.server.rest.service.ThreadDumpService;
 
+import com.google.gson.Gson;
 import com.hazelcast.internal.ascii.TextCommandService;
 import com.hazelcast.internal.ascii.rest.HttpCommandProcessor;
 import com.hazelcast.internal.ascii.rest.HttpGetCommand;
 import com.hazelcast.internal.ascii.rest.RestValue;
+import com.hazelcast.internal.json.Json;
 import com.hazelcast.internal.util.JsonUtil;
 import com.hazelcast.internal.util.StringUtil;
 import com.hazelcast.spi.impl.NodeEngineImpl;
@@ -51,6 +54,7 @@ import java.util.Map;
 import java.util.stream.Collectors;
 
 import static com.hazelcast.internal.ascii.rest.HttpStatusCode.SC_400;
+import static com.hazelcast.internal.ascii.rest.HttpStatusCode.SC_404;
 import static com.hazelcast.internal.ascii.rest.HttpStatusCode.SC_500;
 import static org.apache.seatunnel.engine.server.rest.RestConstant.CONTEXT_PATH;
 import static org.apache.seatunnel.engine.server.rest.RestConstant.INSTANCE_CONTEXT_PATH;
@@ -61,6 +65,7 @@ import static org.apache.seatunnel.engine.server.rest.RestConstant.REST_URL_LOG;
 import static org.apache.seatunnel.engine.server.rest.RestConstant.REST_URL_LOGS;
 import static org.apache.seatunnel.engine.server.rest.RestConstant.REST_URL_METRICS;
 import static org.apache.seatunnel.engine.server.rest.RestConstant.REST_URL_OPEN_METRICS;
+import static org.apache.seatunnel.engine.server.rest.RestConstant.REST_URL_OPTION_RULES;
 import static org.apache.seatunnel.engine.server.rest.RestConstant.REST_URL_OVERVIEW;
 import static org.apache.seatunnel.engine.server.rest.RestConstant.REST_URL_RUNNING_JOB;
 import static org.apache.seatunnel.engine.server.rest.RestConstant.REST_URL_RUNNING_JOBS;
@@ -80,6 +85,7 @@ public class RestHttpGetCommandProcessor extends HttpCommandProcessor<HttpGetCom
     private ThreadDumpService threadDumpService;
     private RunningThreadService runningThreadService;
     private LogService logService;
+    private OptionRulesService optionRulesService;
 
     public RestHttpGetCommandProcessor(TextCommandService textCommandService) {
 
@@ -91,6 +97,7 @@ public class RestHttpGetCommandProcessor extends HttpCommandProcessor<HttpGetCom
         this.threadDumpService = new ThreadDumpService(nodeEngine);
         this.runningThreadService = new RunningThreadService(nodeEngine);
         this.logService = new LogService(nodeEngine);
+        this.optionRulesService = new OptionRulesService(nodeEngine);
     }
 
     public RestHttpGetCommandProcessor(
@@ -107,6 +114,7 @@ public class RestHttpGetCommandProcessor extends HttpCommandProcessor<HttpGetCom
         this.threadDumpService = new ThreadDumpService(nodeEngine);
         this.runningThreadService = new RunningThreadService(nodeEngine);
         this.logService = new LogService(nodeEngine);
+        this.optionRulesService = new OptionRulesService(nodeEngine);
     }
 
     @Override
@@ -129,6 +137,8 @@ public class RestHttpGetCommandProcessor extends HttpCommandProcessor<HttpGetCom
                 getRunningThread(httpGetCommand);
             } else if (uri.startsWith(CONTEXT_PATH + REST_URL_OVERVIEW)) {
                 overView(httpGetCommand, uri);
+            } else if (uri.startsWith(CONTEXT_PATH + REST_URL_OPTION_RULES)) {
+                getOptionRules(httpGetCommand, uri);
             } else if (uri.equals(INSTANCE_CONTEXT_PATH + REST_URL_METRICS)) {
                 handleMetrics(httpGetCommand, TextFormat.CONTENT_TYPE_004);
             } else if (uri.equals(INSTANCE_CONTEXT_PATH + REST_URL_OPEN_METRICS)) {
@@ -181,6 +191,20 @@ public class RestHttpGetCommandProcessor extends HttpCommandProcessor<HttpGetCom
                 JsonUtil.toJsonObject(
                         JsonUtils.toMap(
                                 JsonUtils.toJsonString(overviewService.getOverviewInfo(tags)))));
+    }
+
+    private void getOptionRules(HttpGetCommand command, String uri) {
+        try {
+            Map<String, String> params = getUriParam(uri);
+            String response =
+                    new Gson()
+                            .toJson(
+                                    optionRulesService.getOptionRules(
+                                            params.get("type"), params.get("plugin")));
+            this.prepareResponse(command, Json.parse(response).asObject());
+        } catch (java.util.NoSuchElementException e) {
+            prepareResponse(SC_404, command, exceptionResponse(e));
+        }
     }
 
     public void getThreadDump(HttpGetCommand command) {

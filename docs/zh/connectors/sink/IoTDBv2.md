@@ -64,7 +64,7 @@ import ChangeLog from '../changelog/connector-iotdb.md';
 | zone_id                     | String  | 否    | -      | IoTDB java.time.ZoneId  client                                                                                                                                                                                                          |
 | enable_rpc_compression      | Boolean | 否    | -      | 在 IoTDB 客户端中启用 rpc 压缩，只在树模型中生效                                                                                                                                                                                                          |
 | connection_timeout_in_ms    | Integer | 否    | -      | 连接到 IoTDB 时等待的最长时间（毫秒）                                                                                                                                                                                                                  |
-| common-options              |         | 否    | -      | Sink 插件常用参数，详见 [Sink common Options](../Sink common Options.md)                                                                                                                                                                         |
+| common-options              |         | 否    | -      | Sink 插件常用参数，详见 [Sink common Options](../common-options/sink-common-options.md)                                                                                                                                                                         |
 
 
 ## 示例

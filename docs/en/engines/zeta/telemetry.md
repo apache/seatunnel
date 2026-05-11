@@ -21,11 +21,9 @@ seatunnel:
 
 ## Metrics
 
-The [metric text of prometheus](./telemetry/metrics.txt),which get
-from `http://{instanceHost}:5801/hazelcast/rest/instance/metrics`.
+The metric text of prometheus can be obtained from `http://{instanceHost}:5801/hazelcast/rest/instance/metrics`.
 
-The [metric text of openMetrics](./telemetry/openmetrics.txt),which get
-from `http://{instanceHost}:5801/hazelcast/rest/instance/openmetrics`.
+The metric text of openMetrics can be obtained from `http://{instanceHost}:5801/hazelcast/rest/instance/openmetrics`.
 
 Available metrics include the following categories.
 
@@ -147,6 +145,6 @@ the [Installation](https://grafana.com/docs/grafana/latest/setup-grafana/install
 ### Monitoring Dashboard
 
 - Add Prometheus DataSource on Grafana.
-  - Import `Seatunnel Cluster` monitoring dashboard by [Dashboard JSON](./telemetry/grafana-dashboard.json) into Grafana.
+  - Import the `Seatunnel Cluster` monitoring dashboard JSON into Grafana.
 
-The [effect image](../../images/grafana.png) of the dashboard
+The [effect image](../../../images/grafana.png) of the dashboard

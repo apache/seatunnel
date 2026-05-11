@@ -38,6 +38,7 @@ import org.apache.seatunnel.engine.server.rest.servlet.EncryptConfigServlet;
 import org.apache.seatunnel.engine.server.rest.servlet.FinishedJobsServlet;
 import org.apache.seatunnel.engine.server.rest.servlet.JobInfoServlet;
 import org.apache.seatunnel.engine.server.rest.servlet.MetricsServlet;
+import org.apache.seatunnel.engine.server.rest.servlet.OptionRulesServlet;
 import org.apache.seatunnel.engine.server.rest.servlet.OverviewServlet;
 import org.apache.seatunnel.engine.server.rest.servlet.PendingJobsServlet;
 import org.apache.seatunnel.engine.server.rest.servlet.RealtimeMetricsServlet;
@@ -75,6 +76,7 @@ import static org.apache.seatunnel.engine.server.rest.RestConstant.REST_URL_LOG;
 import static org.apache.seatunnel.engine.server.rest.RestConstant.REST_URL_LOGS;
 import static org.apache.seatunnel.engine.server.rest.RestConstant.REST_URL_METRICS;
 import static org.apache.seatunnel.engine.server.rest.RestConstant.REST_URL_OPEN_METRICS;
+import static org.apache.seatunnel.engine.server.rest.RestConstant.REST_URL_OPTION_RULES;
 import static org.apache.seatunnel.engine.server.rest.RestConstant.REST_URL_OVERVIEW;
 import static org.apache.seatunnel.engine.server.rest.RestConstant.REST_URL_PENDING_JOBS;
 import static org.apache.seatunnel.engine.server.rest.RestConstant.REST_URL_REALTIME_METRICS;
@@ -212,6 +214,7 @@ public class JettyService {
         ServletHolder metricsServlet = new ServletHolder(new MetricsServlet(nodeEngine));
         ServletHolder realtimeMetricsServlet =
                 new ServletHolder(new RealtimeMetricsServlet(nodeEngine));
+        ServletHolder optionRulesHolder = new ServletHolder(new OptionRulesServlet(nodeEngine));
         ServletHolder checkpointOverviewHolder =
                 new ServletHolder(new CheckpointOverviewServlet(nodeEngine));
         ServletHolder checkpointHistoryHolder =
@@ -246,6 +249,7 @@ public class JettyService {
         context.addServlet(metricsServlet, convertUrlToPath(REST_URL_METRICS));
         context.addServlet(metricsServlet, convertUrlToPath(REST_URL_OPEN_METRICS));
         context.addServlet(realtimeMetricsServlet, convertUrlToPath(REST_URL_REALTIME_METRICS));
+        context.addServlet(optionRulesHolder, convertUrlToPath(REST_URL_OPTION_RULES));
         context.addServlet(
                 checkpointOverviewHolder, convertUrlToPath(REST_URL_CHECKPOINT_OVERVIEW));
         context.addServlet(checkpointHistoryHolder, convertUrlToPath(REST_URL_CHECKPOINT_HISTORY));

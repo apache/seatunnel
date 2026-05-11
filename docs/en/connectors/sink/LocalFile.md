@@ -94,6 +94,8 @@ Only used when `custom_filename` is `true`
 `file_name_expression` describes the file expression which will be created into the `path`. We can add the variable `${now}` or `${uuid}` in the `file_name_expression`, like `test_${uuid}_${now}`,
 `${now}` represents the current time, and its format can be defined by specifying the option `filename_time_format`.
 
+For `file_format_type = "binary"`, `custom_filename = true` is intended for renaming a single source file in each sink task. When multiple source files are written by the same sink task, keep `custom_filename = false` to preserve source relative paths. When parallel sink subtasks are used, include `${transactionId}` or `${uuid}` in `file_name_expression` to avoid multiple subtasks writing the same final file.
+
 Please note that, If `is_enable_transaction` is `true`, we will auto add `${transactionId}_` in the head of the file.
 
 ### filename_time_format [string]

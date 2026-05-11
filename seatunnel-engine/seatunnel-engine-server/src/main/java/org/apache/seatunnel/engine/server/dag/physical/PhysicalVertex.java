@@ -412,12 +412,10 @@ public class PhysicalVertex {
         int i = 0;
         // In order not to generate uncontrolled tasks, We will try again until the taskFuture is
         // completed
-        Address executionAddress;
+        Address executionAddress = getCurrentExecutionAddress();
         while (!taskFuture.isDone()
-                && nodeEngine
-                                .getClusterService()
-                                .getMember(executionAddress = getCurrentExecutionAddress())
-                        != null) {
+                && executionAddress != null
+                && nodeEngine.getClusterService().getMember(executionAddress) != null) {
             try {
                 i++;
                 log.info(
@@ -444,6 +442,15 @@ public class PhysicalVertex {
                     throw new RuntimeException(ex);
                 }
             }
+            executionAddress = getCurrentExecutionAddress();
+        }
+
+        if (!taskFuture.isDone() && ExecutionState.CANCELING.equals(getExecutionState())) {
+            log.warn(
+                    "{} cancel did not receive a terminal callback before member {} became unavailable, mark task as CANCELED locally.",
+                    taskFullName,
+                    executionAddress);
+            updateTaskState(ExecutionState.CANCELED);
         }
     }
 
@@ -515,6 +522,17 @@ public class PhysicalVertex {
         }
         errorByPhysicalVertex.compareAndSet(null, taskExecutionState.getThrowableMsg());
         updateTaskState(taskExecutionState.getExecutionState());
+    }
+
+    public synchronized void forceStop() {
+        ExecutionState executionState = getExecutionState();
+        if (executionState == null || executionState.isEndState()) {
+            return;
+        }
+        noticeTaskExecutionServiceCancel();
+        if (!taskFuture.isDone()) {
+            updateTaskState(ExecutionState.CANCELED);
+        }
     }
 
     public Address getCurrentExecutionAddress() {

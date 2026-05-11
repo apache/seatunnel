@@ -19,12 +19,46 @@ package org.apache.seatunnel.api.sink;
 
 import java.util.Optional;
 
-/** The multi table resource manager */
+/**
+ * Manages a shared resource (e.g., a connection pool) across multiple per-table sink writers in a
+ * multi-table sink scenario.
+ *
+ * <p>Created by {@link SupportResourceShare#initMultiTableResourceManager(int, int)} and closed by
+ * the multi-table sink runtime (e.g., {@link
+ * org.apache.seatunnel.api.sink.multitablesink.MultiTableSinkWriter#close()} or {@link
+ * org.apache.seatunnel.api.sink.multitablesink.MultiTableSinkAggregatedCommitter#close()}) after
+ * all participating components are closed.
+ *
+ * @param <T> the type of shared resource
+ * @see SupportResourceShare
+ */
 public interface MultiTableResourceManager<T> {
 
+    /**
+     * Returns the shared resource held by this manager.
+     *
+     * <p>Implementations that manage a shared object (e.g., a connection pool) should return it
+     * wrapped in an {@link Optional}. Return {@link Optional#empty()} only when the sink does not
+     * require a shared resource.
+     *
+     * <p>This method must be thread-safe, as multiple per-table writers may call it concurrently
+     * from different write queues.
+     *
+     * @return an {@link Optional} containing the shared resource, or {@link Optional#empty()} if no
+     *     shared resource is needed
+     */
     default Optional<T> getSharedResource() {
         return Optional.empty();
     }
 
+    /**
+     * Releases the shared resource held by this manager.
+     *
+     * <p>Called by the multi-table sink runtime (e.g., {@link
+     * org.apache.seatunnel.api.sink.multitablesink.MultiTableSinkWriter#close()} or {@link
+     * org.apache.seatunnel.api.sink.multitablesink.MultiTableSinkAggregatedCommitter#close()})
+     * after all participating components have been closed. Implementations should release pooled
+     * connections or other resources here.
+     */
     default void close() {}
 }

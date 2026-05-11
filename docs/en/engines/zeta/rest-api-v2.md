@@ -39,6 +39,100 @@ Please refer [security](security.md)
 
 ## API reference
 
+### Get Connector Option Rules
+
+<details>
+ <summary><code>GET</code> <code><b>/option-rules?type=source&plugin=FakeSource</b></code> <code>(Returns the full runtime OptionRule metadata of a connector.)</code></summary>
+
+#### Parameters
+
+> |  name  |   type   | data type |                            description                             |
+> |--------|----------|-----------|--------------------------------------------------------------------|
+> | type   | required | string    | plugin type, currently supports `source` and `sink`                |
+> | plugin | required | string    | connector factory identifier, for example `FakeSource` or `Console` |
+
+#### Responses
+
+```json
+{
+  "engineType": "seatunnel",
+  "pluginType": "source",
+  "pluginName": "FakeSource",
+  "optionRule": {
+    "optionalOptions": [
+      {
+        "key": "row.num",
+        "type": "java.lang.Integer",
+        "defaultValue": 5,
+        "description": "The total number of data generated per degree of parallelism",
+        "fallbackKeys": [],
+        "optionValues": null
+      }
+    ],
+    "requiredOptions": [
+      {
+        "ruleType": "EXCLUSIVE",
+        "options": [
+          {
+            "key": "schema",
+            "type": "org.apache.seatunnel.api.table.catalog.TableSchema",
+            "defaultValue": null,
+            "description": "The schema of the upstream table",
+            "fallbackKeys": [],
+            "optionValues": null
+          }
+        ]
+      },
+      {
+        "ruleType": "CONDITIONAL",
+        "options": [
+          {
+            "key": "string.template",
+            "type": "java.util.List<java.lang.String>",
+            "defaultValue": null,
+            "description": "The template list of string type that connector generated, if user configured it, connector will randomly select an item from the template list",
+            "fallbackKeys": [],
+            "optionValues": null
+          }
+        ],
+        "expression": "'string.fake.mode' == TEMPLATE",
+        "expressionTree": {
+          "condition": {
+            "option": {
+              "key": "string.fake.mode",
+              "type": "org.apache.seatunnel.connectors.seatunnel.fake.config.FakeSourceOptions$FakeMode",
+              "defaultValue": "RANDOM",
+              "description": "The fake mode of generating string data",
+              "fallbackKeys": [],
+              "optionValues": [
+                "RANDOM",
+                "TEMPLATE"
+              ]
+            },
+            "expectValue": "TEMPLATE",
+            "operator": null,
+            "next": null
+          },
+          "operator": null,
+          "next": null
+        }
+      }
+    ],
+    "conditionRules": []
+  }
+}
+```
+
+**Notes:**
+- The response is resolved from runtime plugin discovery, so it follows the connector version installed on the server.
+- `requiredOptions[].ruleType` can be `ABSOLUTELY_REQUIRED`, `EXCLUSIVE`, `BUNDLED`, or `CONDITIONAL`.
+- `optionRule.conditionRules` recursively exposes nested conditional option rules and is an empty array when the connector does not define nested rules.
+- For conditional rules, both `expression` and `expressionTree` are returned for dynamic form rendering.
+
+</details>
+
+------------------------------------------------------------------------------------------
+
 ### Returns an overview over the Zeta engine cluster.
 
 <details>
@@ -597,6 +691,8 @@ When we can't get the job info, the response will be:
 > | isStartWithSavePoint | optional | string    | if job is started with save point                        |
 > | format               | optional | string    | config format, support json, hocon and sql, default json |
 
+**Note:** The dry-run feature is intentionally not supported via the REST API. It is exclusively available through the SeaTunnel CLI.
+
 #### Body
 
 You can choose json, hocon or sql to pass request body.
@@ -858,14 +954,24 @@ curl --location 'http://127.0.0.1:8080/submit-job/upload' --form 'config_file=@"
 ### Stop A Job
 
 <details>
-<summary><code>POST</code> <code><b>/stop-job</b></code> <code>(Returns jobId if job stoped successfully.)</code></summary>
+<summary><code>POST</code> <code><b>/stop-job</b></code> <code>(Returns jobId if job stopped successfully.)</code></summary>
+
+#### Parameters
+
+> | name                | required | data type | description                                                      |
+> |---------------------|----------|-----------|------------------------------------------------------------------|
+> | jobId               | yes      | long      | job id                                                           |
+> | isStopWithSavePoint | no       | boolean   | If the job is stopped with a savepoint.                          |
+> | force               | no       | boolean   | If true, the job is force-stopped (ignores isStopWithSavePoint). |
+
 
 #### Body
 
 ```json
 {
-    "jobId": 733584788375666689,
-    "isStopWithSavePoint": false # if job is stopped with save point
+  "jobId": 733584788375666689,
+  "isStopWithSavePoint": false,
+  "force": false
 }
 ```
 
@@ -876,6 +982,10 @@ curl --location 'http://127.0.0.1:8080/submit-job/upload' --form 'config_file=@"
 "jobId": 733584788375666689
 }
 ```
+
+**Notes:**
+- If the job status is `DOING_SAVEPOINT` and the savepoint does not complete successfully, a forced stop (When the `force` option is enabled) will set the job status to `CANCELED`.
+- A forced stop may leave checkpoint data incomplete or in an inconsistent state. It should be used only for exceptional or abnormal situations.
 
 </details>
 
@@ -891,11 +1001,13 @@ curl --location 'http://127.0.0.1:8080/submit-job/upload' --form 'config_file=@"
 [
   {
     "jobId": 881432421482889220,
-    "isStopWithSavePoint": false
+    "isStopWithSavePoint": false,
+    "force": false
   },
   {
     "jobId": 881432456517910529,
-    "isStopWithSavePoint": false
+    "isStopWithSavePoint": false,
+    "force": false
   }
 ]
 ```
@@ -920,7 +1032,7 @@ curl --location 'http://127.0.0.1:8080/submit-job/upload' --form 'config_file=@"
 
 <details>
 <summary><code>POST</code> <code><b>/encrypt-config</b></code> <code>(Returns the encrypted config if config is encrypted successfully.)</code></summary>
-For more information about customize encryption, please refer to the documentation [config-encryption-decryption](../connector-v2/Config-Encryption-Decryption.md).
+For more information about customize encryption, please refer to the documentation [config-encryption-decryption](../../introduction/configuration/config-encryption-decryption.md).
 
 #### Body
 
