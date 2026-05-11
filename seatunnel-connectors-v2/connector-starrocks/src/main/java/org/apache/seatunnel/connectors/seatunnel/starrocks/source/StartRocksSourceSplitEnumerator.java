@@ -29,11 +29,13 @@ import lombok.extern.slf4j.Slf4j;
 import java.util.ArrayList;
 import java.util.Collection;
 import java.util.Collections;
+import java.util.Comparator;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
 import java.util.concurrent.ConcurrentLinkedQueue;
+import java.util.concurrent.atomic.AtomicInteger;
 import java.util.stream.Collectors;
 
 @Slf4j
@@ -46,6 +48,7 @@ public class StartRocksSourceSplitEnumerator
 
     private final Object stateLock = new Object();
     private final Context<StarRocksSourceSplit> context;
+    private final AtomicInteger assignCount = new AtomicInteger(0);
 
     public StartRocksSourceSplitEnumerator(
             SourceSplitEnumerator.Context<StarRocksSourceSplit> context,
@@ -147,8 +150,15 @@ public class StartRocksSourceSplitEnumerator
 
     private void addPendingSplit(Collection<StarRocksSourceSplit> splits) {
         int readerCount = context.currentParallelism();
-        for (StarRocksSourceSplit split : splits) {
-            int ownerReader = getSplitOwner(split.splitId(), readerCount);
+
+        List<StarRocksSourceSplit> sortedSplits =
+                splits.stream()
+                        .sorted(Comparator.comparing(StarRocksSourceSplit::getSplitId))
+                        .collect(Collectors.toList());
+
+        assignCount.set(0);
+        for (StarRocksSourceSplit split : sortedSplits) {
+            int ownerReader = getSplitOwner(assignCount.getAndIncrement(), readerCount);
             log.info("Assigning {} to {} reader.", split.getSplitId(), ownerReader);
             pendingSplit.computeIfAbsent(ownerReader, r -> new ArrayList<>()).add(split);
         }
@@ -191,7 +201,7 @@ public class StartRocksSourceSplitEnumerator
         return sourceSplits;
     }
 
-    private static int getSplitOwner(String tp, int numReaders) {
-        return (tp.hashCode() & Integer.MAX_VALUE) % numReaders;
+    private static int getSplitOwner(int assignCount, int numReaders) {
+        return assignCount % numReaders;
     }
 }
