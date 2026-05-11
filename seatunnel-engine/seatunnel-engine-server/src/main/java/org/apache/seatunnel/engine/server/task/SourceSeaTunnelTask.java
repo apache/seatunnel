@@ -19,6 +19,7 @@ package org.apache.seatunnel.engine.server.task;
 
 import org.apache.seatunnel.api.common.metrics.MetricsContext;
 import org.apache.seatunnel.api.serialization.Serializer;
+import org.apache.seatunnel.api.source.SourceEvent;
 import org.apache.seatunnel.api.source.SourceSplit;
 import org.apache.seatunnel.api.table.catalog.CatalogTable;
 import org.apache.seatunnel.api.table.catalog.CatalogTableUtil;
@@ -135,6 +136,10 @@ public class SourceSeaTunnelTask<T, SplitT extends SourceSplit> extends SeaTunne
 
     public void receivedSourceSplit(List<SplitT> splits) {
         ((SourceFlowLifeCycle<T, SplitT>) startFlowLifeCycle).receivedSplits(splits);
+    }
+
+    public void handleSourceEvent(SourceEvent sourceEvent) {
+        ((SourceFlowLifeCycle<T, SplitT>) startFlowLifeCycle).handleSourceEvent(sourceEvent);
     }
 
     @Override

@@ -95,4 +95,8 @@ public class MultiTableWriterRunnable implements Runnable {
     public String getCurrentTableId() {
         return currentTableId;
     }
+
+    public void removeTableWriter(String tableId) {
+        tableIdWriterMap.remove(tableId);
+    }
 }

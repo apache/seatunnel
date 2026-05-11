@@ -24,8 +24,10 @@ import org.apache.seatunnel.api.serialization.DefaultSerializer;
 import org.apache.seatunnel.api.sink.SinkWriter;
 import org.apache.seatunnel.api.sink.SupportMultiTableSinkWriter;
 import org.apache.seatunnel.api.table.catalog.TablePath;
+import org.apache.seatunnel.api.table.event.CloseTableEvent;
 import org.apache.seatunnel.api.table.type.SeaTunnelRow;
 
+import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.Test;
 
 import lombok.AllArgsConstructor;
@@ -37,6 +39,7 @@ import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
+import java.util.concurrent.atomic.AtomicInteger;
 
 public class MultiTableSinkWriterTest {
 
@@ -62,6 +65,47 @@ public class MultiTableSinkWriterTest {
         }
     }
 
+    @Test
+    public void testCloseTableEventOnlyClosesMatchedSubWriters() throws IOException {
+        String table1 = TablePath.of("db", "schema", "table1").getFullName();
+        String table2 = TablePath.of("db", "schema", "table2").getFullName();
+        TrackingSinkWriter table1Writer0 = new TrackingSinkWriter("table1-0");
+        TrackingSinkWriter table1Writer1 = new TrackingSinkWriter("table1-1");
+        TrackingSinkWriter table2Writer0 = new TrackingSinkWriter("table2-0");
+
+        Map<SinkIdentifier, SinkWriter<SeaTunnelRow, ?, ?>> sinkWriters = new HashMap<>();
+        Map<SinkIdentifier, SinkWriter.Context> sinkWritersContext = new HashMap<>();
+        sinkWriters.put(SinkIdentifier.of(table1, 0), table1Writer0);
+        sinkWriters.put(SinkIdentifier.of(table1, 1), table1Writer1);
+        sinkWriters.put(SinkIdentifier.of(table2, 0), table2Writer0);
+        sinkWritersContext.put(SinkIdentifier.of(table1, 0), new TestSinkWriterContext());
+        sinkWritersContext.put(SinkIdentifier.of(table1, 1), new TestSinkWriterContext());
+        sinkWritersContext.put(SinkIdentifier.of(table2, 0), new TestSinkWriterContext());
+
+        MultiTableSinkWriter multiTableSinkWriter =
+                new MultiTableSinkWriter(sinkWriters, 2, sinkWritersContext);
+
+        multiTableSinkWriter.handleCloseTableEvent(
+                new CloseTableEvent(TablePath.of("db", "schema", "table1"), 0, 2));
+
+        Assertions.assertEquals(0, table1Writer0.closeCount.get());
+        Assertions.assertEquals(0, table1Writer1.closeCount.get());
+        Assertions.assertEquals(0, table2Writer0.closeCount.get());
+
+        multiTableSinkWriter.handleCloseTableEvent(
+                new CloseTableEvent(TablePath.of("db", "schema", "table1"), 1, 2));
+
+        Assertions.assertEquals(1, table1Writer0.closeCount.get());
+        Assertions.assertEquals(1, table1Writer1.closeCount.get());
+        Assertions.assertEquals(0, table2Writer0.closeCount.get());
+
+        Optional<MultiTableCommitInfo> commitInfo = multiTableSinkWriter.prepareCommit(1L);
+        Assertions.assertTrue(commitInfo.isPresent());
+        Assertions.assertEquals(1, commitInfo.get().getCommitInfo().size());
+        Assertions.assertTrue(
+                commitInfo.get().getCommitInfo().containsKey(SinkIdentifier.of(table2, 0)));
+    }
+
     static class TestSinkWriter
             implements SinkWriter<SeaTunnelRow, TestSinkState, Object>,
                     SupportMultiTableSinkWriter {
@@ -83,6 +127,25 @@ public class MultiTableSinkWriterTest {
 
         @Override
         public void close() throws IOException {}
+    }
+
+    static class TrackingSinkWriter extends TestSinkWriter {
+        private final AtomicInteger closeCount = new AtomicInteger();
+        private final String stateValue;
+
+        TrackingSinkWriter(String stateValue) {
+            this.stateValue = stateValue;
+        }
+
+        @Override
+        public Optional<TestSinkState> prepareCommit() {
+            return Optional.of(new TestSinkState(stateValue));
+        }
+
+        @Override
+        public void close() {
+            closeCount.incrementAndGet();
+        }
     }
 
     static class TestSinkWriterContext implements SinkWriter.Context {

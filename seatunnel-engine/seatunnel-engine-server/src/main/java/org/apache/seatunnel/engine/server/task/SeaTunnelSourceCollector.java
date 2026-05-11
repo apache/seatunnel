@@ -20,6 +20,7 @@ package org.apache.seatunnel.engine.server.task;
 import org.apache.seatunnel.api.common.metrics.MetricsContext;
 import org.apache.seatunnel.api.source.Collector;
 import org.apache.seatunnel.api.table.catalog.TablePath;
+import org.apache.seatunnel.api.table.event.CloseTableEvent;
 import org.apache.seatunnel.api.table.schema.event.SchemaChangeEvent;
 import org.apache.seatunnel.api.table.schema.handler.DataTypeChangeEventDispatcher;
 import org.apache.seatunnel.api.table.schema.handler.DataTypeChangeEventHandler;
@@ -129,6 +130,15 @@ public class SeaTunnelSourceCollector<T> implements Collector<T> {
                 throw new SeaTunnelEngineException(
                         "Unsupported row type: " + rowType.getClass().getName());
             }
+            sendRecordToNext(new Record<>(event));
+        } catch (IOException e) {
+            throw new RuntimeException(e);
+        }
+    }
+
+    @Override
+    public void collect(CloseTableEvent event) {
+        try {
             sendRecordToNext(new Record<>(event));
         } catch (IOException e) {
             throw new RuntimeException(e);

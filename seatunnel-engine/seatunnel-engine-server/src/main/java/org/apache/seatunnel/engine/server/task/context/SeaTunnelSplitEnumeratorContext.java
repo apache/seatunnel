@@ -24,6 +24,7 @@ import org.apache.seatunnel.api.source.SourceSplit;
 import org.apache.seatunnel.api.source.SourceSplitEnumerator;
 import org.apache.seatunnel.engine.server.task.SourceSplitEnumeratorTask;
 import org.apache.seatunnel.engine.server.task.operation.source.AssignSplitOperation;
+import org.apache.seatunnel.engine.server.task.operation.source.SourceEnumeratorEventOperation;
 
 import lombok.extern.slf4j.Slf4j;
 
@@ -102,7 +103,24 @@ public class SeaTunnelSplitEnumeratorContext<SplitT extends SourceSplit>
     }
 
     @Override
-    public void sendEventToSourceReader(int subtaskId, SourceEvent event) {}
+    public void sendEventToSourceReader(int subtaskId, SourceEvent event) {
+        if (event == null) {
+            return;
+        }
+        if (task.getTaskMemberLocationByIndex(subtaskId) == null
+                || task.getTaskMemberAddressByIndex(subtaskId) == null) {
+            log.warn("Reader {} is not registered, skip sending source event {}", subtaskId, event);
+            return;
+        }
+        task.getExecutionContext()
+                .sendToMember(
+                        new SourceEnumeratorEventOperation(
+                                task.getTaskMemberLocationByIndex(subtaskId),
+                                task.getTaskLocation(),
+                                event),
+                        task.getTaskMemberAddressByIndex(subtaskId))
+                .join();
+    }
 
     @Override
     public MetricsContext getMetricsContext() {

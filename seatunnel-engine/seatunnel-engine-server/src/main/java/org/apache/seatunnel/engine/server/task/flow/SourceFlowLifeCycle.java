@@ -340,6 +340,10 @@ public class SourceFlowLifeCycle<T, SplitT extends SourceSplit> extends ActionFl
         }
     }
 
+    public void handleSourceEvent(SourceEvent sourceEvent) {
+        reader.handleSourceEvent(sourceEvent);
+    }
+
     /**
      * Handles splits received from the remote split enumerator.
      *
