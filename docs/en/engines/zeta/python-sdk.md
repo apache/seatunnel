@@ -4,11 +4,15 @@ The SeaTunnel Python SDK allows developers to interact with the SeaTunnel Engine
 
 ## Installation
 
-To install the SeaTunnel Python SDK, run the following command:
+The SeaTunnel Python SDK is not published to PyPI yet. Install it from the SeaTunnel source tree:
 
 ```bash
-pip install seatunnel
+git clone https://github.com/apache/seatunnel.git
+cd seatunnel
+python -m pip install ./tools/seatunnel-python-sdk
 ```
+
+Python 3.9 or newer is required.
 
 ## Usage
 
@@ -19,7 +23,7 @@ You can use the `jobs` property of the client to manage jobs.
 #### Submit a Job
 
 ```python
-from seatunnel import SubmitJobQueryParams
+from seatunnel import SeaTunnelClient, SubmitJobQueryParams
 
 config = """
 env {
@@ -73,7 +77,7 @@ You can use the `cluster` property to get cluster information.
 
 ```python
 with SeaTunnelClient(base_url="http://localhost:8080") as client:
-  overview = client.cluster.get_overview()
+  overview = client.cluster.get_overview({"jobId": "12345"})
   print(overview)
 ```
 
@@ -94,14 +98,14 @@ with SeaTunnelClient(base_url="http://localhost:8080") as client:
 - **`stop_jobs(params: list[StopJobQueryParams])`**: Stop multiple jobs.
 - **`get_running_jobs()`**: Retrieve a list of currently running jobs.
 - **`get_job_details(jobId: int)`**: Retrieve details for a specific job.
-- **`get_finished_jobs_info(state: JobStatus | None = None)`**: Retrieve information about finished jobs, optionally filtered by status.
+- **`get_finished_jobs_info(state: Optional[JobStatus] = None)`**: Retrieve information about finished jobs, optionally filtered by status.
 
 ### Cluster (`client.cluster`)
 
-- **`get_overview(params: list[OverviewQueryParams] = [])`**: Get the cluster overview.
+- **`get_overview(params: Optional[dict[str, str]] = None)`**: Get the cluster overview with optional tag filters forwarded as query parameters.
 - **`get_metrics()`**: Get cluster metrics.
 - **`get_log()`**: Get logs from a single node.
-- **`get_logs(jobId: int | None = None)`**: Get logs from all nodes, optionally filtered by Job ID.
+- **`get_logs(jobId: Optional[int] = None)`**: Get logs from all nodes, optionally filtered by Job ID.
 
 ### Helper Classes
 

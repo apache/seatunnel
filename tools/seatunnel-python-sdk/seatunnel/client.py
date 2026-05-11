@@ -15,22 +15,31 @@
 
 
 import httpx
+from typing import Any
+
 from .helpers.httpMethod import HttpMethod
+
 
 class SeaTunnelError(Exception):
     """Base exception for SeaTunnel SDK"""
+
     pass
+
 
 class SeaTunnelAPIError(SeaTunnelError):
     """API error (4xx/5xx responses)"""
+
     def __init__(self, status_code: int, message: str):
         self.status_code = status_code
         self.message = message
         super().__init__(f"[{status_code}] {message}")
 
+
 class SeaTunnelConnectionError(SeaTunnelError):
     """Network connection error"""
+
     pass
+
 
 class Client:
     def __init__(self, base_url: str, timeout: float = 10):
@@ -38,42 +47,36 @@ class Client:
         self.timeout = timeout
         self.session = httpx.Client(timeout=timeout)
 
-    def request(self, method: HttpMethod, path: str, **kwargs):
+    def request(self, method: HttpMethod, path: str, **kwargs: Any):
+        """Send a REST request and normalize transport and API failures."""
         try:
-            resp = self.session.request(
-                method.value,
-                f"{self.base_url}{path}",
-                **kwargs
-            )
+            resp = self.session.request(method.value, f"{self.base_url}{path}", **kwargs)
             resp.raise_for_status()
         except httpx.RequestError as exc:
-            raise SeaTunnelConnectionError(
-                f"Failed to connect to {exc.request.url}: {exc}"
-            ) from exc
+            raise SeaTunnelConnectionError(f"Failed to connect to {exc.request.url}: {exc}") from exc
         except httpx.HTTPStatusError as exc:
             try:
                 error_data = exc.response.json()
                 message = error_data.get("message", exc.response.text)
-            except:
+            except ValueError:
                 message = exc.response.text
-            
-            raise SeaTunnelAPIError(
-                status_code=exc.response.status_code,
-                message=message
-            ) from exc
+
+            raise SeaTunnelAPIError(status_code=exc.response.status_code, message=message) from exc
 
         content_type = resp.headers.get("Content-Type", "")
         return resp.json() if "application/json" in content_type else resp.text
 
     def close(self):
         self.session.close()
-        
+
+
 class SeaTunnelClient:
     def __init__(self, base_url):
+        from .endpoints.config import ConfigApi
         from .endpoints.cluster import ClusterApi
         from .endpoints.jobs import JobsApi
-        from .endpoints.config import ConfigApi
         from .endpoints.system import SystemApi
+
         self.client = Client(base_url)
 
         self.cluster = ClusterApi(self.client)

@@ -1,13 +1,14 @@
-## Local Installation
+## Installation
 
-- Install dependencies:
-`pip install -r requirements.txt`
+The SDK is not published to PyPI yet. Install it directly from the SeaTunnel source tree:
 
-- Build the package
-`python setup.py sdist bdist_wheel`
+```bash
+git clone https://github.com/apache/seatunnel.git
+cd seatunnel
+python -m pip install ./tools/seatunnel-python-sdk
+```
 
-- Install from the local package
-`pip install ./dist/seatunnel-0.1-py3-none-any.whl --force-reinstall`
+Python 3.9 or newer is required.
 
 ## Usage
 
@@ -15,8 +16,6 @@ With a server already running at port 8080, this example submits a job:
 
 ``` py
 from seatunnel import SeaTunnelClient, SubmitJobQueryParams
-
-client = SeaTunnelClient(base_url="http://localhost:8080")
 
 config = """
 env {
@@ -47,7 +46,8 @@ sink {
 }
 """
 
-query_params = SubmitJobQueryParams()
-response = client.jobs.submit_job(conf=config, params=query_params)
-print(response)
+with SeaTunnelClient(base_url="http://localhost:8080") as client:
+  query_params = SubmitJobQueryParams()
+  response = client.jobs.submit_job(conf=config, params=query_params)
+  print(response)
 ```

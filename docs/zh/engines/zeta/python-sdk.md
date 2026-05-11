@@ -4,11 +4,15 @@ SeaTunnel Python SDK 允许开发者使用 Python 与 SeaTunnel Engine 进行交
 
 ## 安装
 
-要安装 SeaTunnel Python SDK，请运行以下命令：
+SeaTunnel Python SDK 目前还没有发布到 PyPI，需要直接从 SeaTunnel 源码目录安装：
 
 ```bash
-pip install seatunnel
+git clone https://github.com/apache/seatunnel.git
+cd seatunnel
+python -m pip install ./tools/seatunnel-python-sdk
 ```
+
+需要 Python 3.9 或更高版本。
 
 ## 使用方法
 
@@ -19,7 +23,7 @@ pip install seatunnel
 #### 提交作业
 
 ```python
-from seatunnel import SubmitJobQueryParams
+from seatunnel import SeaTunnelClient, SubmitJobQueryParams
 
 config = """
 env {
@@ -74,7 +78,7 @@ with SeaTunnelClient(base_url="http://localhost:8080") as client:
 
 ```python
 with SeaTunnelClient(base_url="http://localhost:8080") as client:
-  overview = client.cluster.get_overview()
+  overview = client.cluster.get_overview({"jobId": "12345"})
   print(overview)
 ```
 
@@ -95,14 +99,14 @@ with SeaTunnelClient(base_url="http://localhost:8080") as client:
 - **`stop_jobs(params: list[StopJobQueryParams])`**: 停止多个作业。
 - **`get_running_jobs()`**: 获取当前正在运行的作业列表。
 - **`get_job_details(jobId: int)`**: 获取特定作业的详细信息。
-- **`get_finished_jobs_info(state: JobStatus | None = None)`**: 获取已完成作业的信息，可按状态过滤。
+- **`get_finished_jobs_info(state: Optional[JobStatus] = None)`**: 获取已完成作业的信息，可按状态过滤。
 
 ### Cluster (`client.cluster`)
 
-- **`get_overview(params: list[OverviewQueryParams] = [])`**: 获取集群概览。
+- **`get_overview(params: Optional[dict[str, str]] = None)`**: 获取集群概览，并将过滤标签作为查询参数透传给 REST API。
 - **`get_metrics()`**: 获取集群指标。
 - **`get_log()`**: 获取单个节点的日志。
-- **`get_logs(jobId: int | None = None)`**: 获取所有节点的日志，可按 Job ID 过滤。
+- **`get_logs(jobId: Optional[int] = None)`**: 获取所有节点的日志，可按 Job ID 过滤。
 
 ### Helper Classes (辅助类)
 
