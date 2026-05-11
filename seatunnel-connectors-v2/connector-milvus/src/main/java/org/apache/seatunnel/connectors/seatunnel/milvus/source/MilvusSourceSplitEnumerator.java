@@ -41,11 +41,14 @@ import java.io.IOException;
 import java.util.ArrayList;
 import java.util.Collection;
 import java.util.Collections;
+import java.util.Comparator;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
 import java.util.concurrent.ConcurrentLinkedQueue;
+import java.util.concurrent.atomic.AtomicInteger;
+import java.util.stream.Collectors;
 
 @Slf4j
 public class MilvusSourceSplitEnumerator
@@ -57,6 +60,7 @@ public class MilvusSourceSplitEnumerator
     private final Map<Integer, List<MilvusSourceSplit>> pendingSplits;
     private final Object stateLock = new Object();
     private MilvusClient client = null;
+    private final AtomicInteger assignCount = new AtomicInteger(0);
 
     private final ReadonlyConfig config;
 
@@ -166,16 +170,23 @@ public class MilvusSourceSplitEnumerator
 
     private void addPendingSplit(Collection<MilvusSourceSplit> splits) {
         int readerCount = context.currentParallelism();
-        for (MilvusSourceSplit split : splits) {
-            int ownerReader = getSplitOwner(split.splitId(), readerCount);
+
+        List<MilvusSourceSplit> sortedSplits =
+                splits.stream()
+                        .sorted(Comparator.comparing(MilvusSourceSplit::getSplitId))
+                        .collect(Collectors.toList());
+
+        assignCount.set(0);
+        for (MilvusSourceSplit split : sortedSplits) {
+            int ownerReader = getSplitOwner(assignCount.getAndIncrement(), readerCount);
             log.info("Assigning {} to {} reader.", split, ownerReader);
 
             pendingSplits.computeIfAbsent(ownerReader, r -> new ArrayList<>()).add(split);
         }
     }
 
-    private static int getSplitOwner(String tp, int numReaders) {
-        return (tp.hashCode() & Integer.MAX_VALUE) % numReaders;
+    private static int getSplitOwner(int assignCount, int numReaders) {
+        return assignCount % numReaders;
     }
 
     private void assignSplit(Collection<Integer> readers) {
