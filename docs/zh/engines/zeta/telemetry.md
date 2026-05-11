@@ -34,7 +34,7 @@ OpenMetrics 的指标文本可通过 `http://{instanceHost}:5801/hazelcast/rest/
 
 | MetricName                                | Type  | Labels                                                                                                     | 描述                                  |
 |-------------------------------------------|-------|------------------------------------------------------------------------------------------------------------|-------------------------------------|
-| cluster_info                              | Gauge | **hazelcastVersion**，hazelcast 的版本。**master**，seatunnel 主地址。                                               | 集群信息                                |
+| cluster_info                              | Gauge | **hazelcastVersion**，hazelcast 的版本。**master**，当前激活的 SeaTunnel coordinator 地址。                               | 集群信息                                |
 | cluster_time                              | Gauge | **hazelcastVersion**，hazelcast 的版本。                                                                        | 集群时间                                |
 | node_count                                | Gauge | -                                                                                                          | 集群节点总数                              |
 | node_state                                | Gauge | **address**，服务器实例地址，例如："127.0.0.1:5801"                                                                    | seatunnel 节点是否正常                    |

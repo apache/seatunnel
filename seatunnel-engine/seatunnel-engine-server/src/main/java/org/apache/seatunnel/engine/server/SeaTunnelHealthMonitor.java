@@ -17,6 +17,9 @@
 
 package org.apache.seatunnel.engine.server;
 
+import org.apache.seatunnel.engine.server.utils.NodeEngineUtil;
+
+import com.hazelcast.cluster.Address;
 import com.hazelcast.instance.impl.Node;
 import com.hazelcast.internal.diagnostics.HealthMonitorLevel;
 import com.hazelcast.internal.memory.MemoryStats;
@@ -228,7 +231,13 @@ public class SeaTunnelHealthMonitor {
         }
 
         private void isMasterFlag() {
-            sb.append("isMaster=").append(node.isMaster()).append(", ");
+            // Keep the legacy field name, but report the active SeaTunnel coordinator instead of
+            // Hazelcast mastership so separated master/worker deployments expose the correct role.
+            Address activeMasterAddress =
+                    NodeEngineUtil.getActiveMasterAddress(node.getNodeEngine());
+            sb.append("isMaster=")
+                    .append(node.getNodeEngine().getThisAddress().equals(activeMasterAddress))
+                    .append(", ");
         }
 
         private void renderConnection() {

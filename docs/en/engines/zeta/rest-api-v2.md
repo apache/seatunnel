@@ -702,6 +702,12 @@ When we can't get the job info, the response will be:
 ```json
 [
   {
+    "isMaster":"true",
+    "nodeRole":"MASTER_AND_WORKER",
+    "coordinator":"true",
+    "worker":"true",
+    "host":"localhost",
+    "port":"5801",
     "processors":"8",
     "physical.memory.total":"16.0G",
     "physical.memory.free":"16.3M",

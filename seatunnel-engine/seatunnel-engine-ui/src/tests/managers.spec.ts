@@ -18,24 +18,30 @@
 import { describe, test, expect, vi, beforeEach } from 'vitest'
 import { flushPromises, mount } from '@vue/test-utils'
 // import { createTestingPinia } from '@pinia/testing'
-import { createApp } from 'vue'
 import { createPinia, setActivePinia } from 'pinia'
 import i18n from '@/locales'
 import type { Monitor } from '@/service/manager/types'
 import { managerService } from '@/service/manager'
 import managers from '@/views/managers'
+import { useRoute } from 'vue-router'
+
+vi.mock('vue-router', () => ({
+  useRoute: vi.fn()
+}))
 
 describe('managers', () => {
-  const app = createApp({})
   beforeEach(() => {
+    vi.restoreAllMocks()
     const pinia = createPinia()
-    app.use(pinia)
-    setActivePinia(createPinia())
+    setActivePinia(pinia)
   })
-  test('managers component', async () => {
+  test('master managers page should show coordinator-capable nodes', async () => {
     const mockData = [
       {
         isMaster: 'true',
+        nodeRole: 'MASTER',
+        coordinator: 'true',
+        worker: 'false',
         host: 'localhost',
         port: '5801',
         'physical.memory.total': '3.6G',
@@ -43,13 +49,27 @@ describe('managers', () => {
       },
       {
         isMaster: 'false',
+        nodeRole: 'MASTER_AND_WORKER',
+        coordinator: 'true',
+        worker: 'true',
         host: 'localhost',
         port: '5802',
         'physical.memory.total': '3.6G',
         'heap.memory.used': '1002.6M'
+      },
+      {
+        isMaster: 'false',
+        nodeRole: 'WORKER',
+        coordinator: 'false',
+        worker: 'true',
+        host: 'localhost',
+        port: '5803',
+        'physical.memory.total': '3.6G',
+        'heap.memory.used': '888.8M'
       }
     ] as Monitor[]
 
+    vi.mocked(useRoute).mockReturnValue({ path: '/managers/master' } as ReturnType<typeof useRoute>)
     vi.spyOn(managerService, 'getMonitors').mockResolvedValue(mockData)
 
     const wrapper = mount(managers, {
@@ -61,6 +81,58 @@ describe('managers', () => {
     expect(managerService.getMonitors).toHaveBeenCalledTimes(1)
     expect(managerService.getMonitors).toHaveBeenCalledWith()
     await flushPromises()
-    expect(wrapper.text()).toContain('localhost')
+    expect(wrapper.text()).toContain('5801')
+    expect(wrapper.text()).toContain('5802')
+    expect(wrapper.text()).not.toContain('5803')
+  })
+
+  test('worker managers page should show worker-capable nodes', async () => {
+    const mockData = [
+      {
+        isMaster: 'true',
+        nodeRole: 'MASTER',
+        coordinator: 'true',
+        worker: 'false',
+        host: 'localhost',
+        port: '5801',
+        'physical.memory.total': '3.6G',
+        'heap.memory.used': '229.6M'
+      },
+      {
+        isMaster: 'false',
+        nodeRole: 'MASTER_AND_WORKER',
+        coordinator: 'true',
+        worker: 'true',
+        host: 'localhost',
+        port: '5802',
+        'physical.memory.total': '3.6G',
+        'heap.memory.used': '1002.6M'
+      },
+      {
+        isMaster: 'false',
+        nodeRole: 'WORKER',
+        coordinator: 'false',
+        worker: 'true',
+        host: 'localhost',
+        port: '5803',
+        'physical.memory.total': '3.6G',
+        'heap.memory.used': '888.8M'
+      }
+    ] as Monitor[]
+
+    vi.mocked(useRoute).mockReturnValue(
+      { path: '/managers/workers' } as ReturnType<typeof useRoute>
+    )
+    vi.spyOn(managerService, 'getMonitors').mockResolvedValue(mockData)
+
+    const wrapper = mount(managers, {
+      global: {
+        plugins: [i18n]
+      }
+    })
+    await flushPromises()
+    expect(wrapper.text()).not.toContain('5801')
+    expect(wrapper.text()).toContain('5802')
+    expect(wrapper.text()).toContain('5803')
   })
 })

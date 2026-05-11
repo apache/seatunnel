@@ -470,6 +470,9 @@ network:
 [
   {
     "isMaster": "true",
+    "nodeRole": "MASTER_AND_WORKER",
+    "coordinator": "true",
+    "worker": "true",
     "host": "localhost",
     "port": "5801",
     "processors":"8",
