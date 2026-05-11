@@ -24,12 +24,12 @@ public class EdgeSocketCommonOptions {
 
     public static final String identifier = "EdgeSocket";
 
-    public static final Option<String> HOST =
-            Options.key("host")
+    public static final Option<String> ENDPOINT =
+            Options.key("endpoint")
                     .stringType()
                     .noDefaultValue()
                     .withDescription(
-                            "Optional externally reachable host/domain used by edge collector discovery (for example LB IP or DNS in Kubernetes). If not configured, discovery falls back to runtime worker address.");
+                            "Optional externally reachable ingress endpoint in format host:port (for example LB DNS:port in Kubernetes). If configured, collector should connect to this endpoint directly instead of cluster discovery.");
 
     public static final Option<Integer> PORT =
             Options.key("port")

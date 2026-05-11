@@ -25,8 +25,13 @@ import lombok.Data;
 @Data
 @AllArgsConstructor
 public class EdgeSocketQueuedRecord {
+    private long batchId;
 
     private byte[] payloadBytes;
 
     private EdgeSocketCompressionType compressionType;
+
+    public EdgeSocketQueuedRecord(byte[] payloadBytes, EdgeSocketCompressionType compressionType) {
+        this(0L, payloadBytes, compressionType);
+    }
 }

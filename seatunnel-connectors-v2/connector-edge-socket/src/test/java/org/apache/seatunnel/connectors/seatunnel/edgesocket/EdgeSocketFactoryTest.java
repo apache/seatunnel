@@ -41,13 +41,13 @@ class EdgeSocketFactoryTest {
     }
 
     @Test
-    void shouldUseNullableAdvertiseHostAndQueueCapacity() {
+    void shouldUseNullableEndpointAndQueueCapacity() {
         Map<String, Object> configMap = new HashMap<>();
         configMap.put(EdgeSocketCommonOptions.PORT.key(), 10001);
         configMap.put(EdgeSocketSourceOptions.AUTH_TOKEN.key(), "token");
 
         EdgeSocketConfig config = new EdgeSocketConfig(ReadonlyConfig.fromMap(configMap));
-        Assertions.assertNull(config.getHost());
+        Assertions.assertNull(config.getEndpoint());
         Assertions.assertEquals(1024, config.getLocalQueueCapacity());
     }
 
@@ -90,13 +90,25 @@ class EdgeSocketFactoryTest {
     }
 
     @Test
-    void shouldSupportAdvertiseHost() {
+    void shouldSupportConfiguredEndpoint() {
         Map<String, Object> configMap = new HashMap<>();
         configMap.put(EdgeSocketCommonOptions.PORT.key(), 10001);
         configMap.put(EdgeSocketSourceOptions.AUTH_TOKEN.key(), "token");
-        configMap.put(EdgeSocketCommonOptions.HOST.key(), "edge.lb.example.com");
+        configMap.put(EdgeSocketCommonOptions.ENDPOINT.key(), "edge.lb.example.com:10091");
 
         EdgeSocketConfig config = new EdgeSocketConfig(ReadonlyConfig.fromMap(configMap));
-        Assertions.assertEquals("edge.lb.example.com", config.getHost());
+        Assertions.assertEquals("edge.lb.example.com:10091", config.getEndpoint());
+    }
+
+    @Test
+    void shouldRejectInvalidEndpoint() {
+        Map<String, Object> configMap = new HashMap<>();
+        configMap.put(EdgeSocketCommonOptions.PORT.key(), 10001);
+        configMap.put(EdgeSocketSourceOptions.AUTH_TOKEN.key(), "token");
+        configMap.put(EdgeSocketCommonOptions.ENDPOINT.key(), "edge.lb.example.com");
+
+        Assertions.assertThrows(
+                IllegalArgumentException.class,
+                () -> new EdgeSocketConfig(ReadonlyConfig.fromMap(configMap)));
     }
 }

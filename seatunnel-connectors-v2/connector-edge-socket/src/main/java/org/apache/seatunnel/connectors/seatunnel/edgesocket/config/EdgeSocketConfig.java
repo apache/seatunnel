@@ -27,7 +27,7 @@ import java.util.Base64;
 
 @Data
 public class EdgeSocketConfig implements Serializable {
-    private String host;
+    private String endpoint;
     private int port;
     private int localQueueCapacity;
     private int maxNumRetries;
@@ -40,7 +40,7 @@ public class EdgeSocketConfig implements Serializable {
     private EdgeSocketAuthType authType;
 
     public EdgeSocketConfig(ReadonlyConfig config) {
-        this.host = config.getOptional(EdgeSocketCommonOptions.HOST).orElse(null);
+        this.endpoint = config.getOptional(EdgeSocketCommonOptions.ENDPOINT).orElse(null);
         this.port = config.get(EdgeSocketCommonOptions.PORT);
         this.localQueueCapacity = config.get(EdgeSocketSourceOptions.LOCAL_QUEUE_CAPACITY);
         this.maxNumRetries = config.get(EdgeSocketSourceOptions.MAX_RETRIES);
@@ -52,8 +52,24 @@ public class EdgeSocketConfig implements Serializable {
                 config.getOptional(EdgeSocketSourceOptions.AES_SECRET_KEY_BASE64).orElse(null);
         this.authType = EdgeSocketAuthType.from(config.get(EdgeSocketSourceOptions.AUTH_TYPE));
         this.authToken = config.getOptional(EdgeSocketSourceOptions.AUTH_TOKEN).orElse(null);
-        if (this.host != null && this.host.trim().isEmpty()) {
-            this.host = null;
+        if (this.endpoint != null && this.endpoint.trim().isEmpty()) {
+            this.endpoint = null;
+        }
+        if (this.endpoint != null) {
+            int separatorIndex = this.endpoint.lastIndexOf(':');
+            if (separatorIndex <= 0 || separatorIndex >= this.endpoint.length() - 1) {
+                throw new IllegalArgumentException(
+                        "Invalid endpoint: "
+                                + this.endpoint
+                                + ", expected format host:port");
+            }
+            String endpointPort = this.endpoint.substring(separatorIndex + 1);
+            try {
+                Integer.parseInt(endpointPort);
+            } catch (NumberFormatException parseException) {
+                throw new IllegalArgumentException(
+                        "Invalid endpoint port in endpoint: " + this.endpoint, parseException);
+            }
         }
         if (this.localQueueCapacity <= 0) {
             throw new IllegalArgumentException(

@@ -44,7 +44,7 @@ public class EdgeSocketSourceFactory implements TableSourceFactory {
                 .required(EdgeSocketSourceOptions.PORT, EdgeSocketSourceOptions.AUTH_TOKEN)
                 .optional(
                         // Optional schema enables typed JSON parsing at source side.
-                        EdgeSocketSourceOptions.HOST,
+                        EdgeSocketSourceOptions.ENDPOINT,
                         ConnectorCommonOptions.SCHEMA,
                         EdgeSocketSourceOptions.LOCAL_QUEUE_CAPACITY,
                         EdgeSocketSourceOptions.MAX_RETRIES,

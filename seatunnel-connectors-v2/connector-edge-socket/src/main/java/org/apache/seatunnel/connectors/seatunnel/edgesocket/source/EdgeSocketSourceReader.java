@@ -37,8 +37,12 @@ import org.apache.seatunnel.connectors.seatunnel.edgesocket.serialize.EdgeSocket
 
 import lombok.extern.slf4j.Slf4j;
 
+import java.io.ByteArrayInputStream;
+import java.io.ByteArrayOutputStream;
 import java.io.BufferedReader;
 import java.io.BufferedWriter;
+import java.io.DataInputStream;
+import java.io.DataOutputStream;
 import java.io.IOException;
 import java.io.InputStreamReader;
 import java.io.OutputStreamWriter;
@@ -47,6 +51,11 @@ import java.net.ServerSocket;
 import java.net.Socket;
 import java.net.SocketTimeoutException;
 import java.nio.charset.StandardCharsets;
+import java.util.HashMap;
+import java.util.HashSet;
+import java.util.Map;
+import java.util.Set;
+import java.util.TreeMap;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
 import java.util.concurrent.Future;
@@ -56,9 +65,14 @@ import java.util.concurrent.TimeUnit;
 public class EdgeSocketSourceReader extends AbstractSingleSplitReader<SeaTunnelRow> {
 
     private static final String INGRESS_ACK_RESPONSE = "ACK";
+    private static final String INGRESS_ACK_PREFIX = "ACK:";
+    private static final String INGRESS_PENDING_RESPONSE = "PENDING";
+    private static final String INGRESS_RECEIVED_RESPONSE = "RECEIVED";
     private static final String INGRESS_RETRY_RESPONSE = "RETRY";
     private static final String INGRESS_AUTH_FAILED_RESPONSE = "AUTH_FAILED";
     private static final String AUTH_TOKEN_PREFIX = "__AUTH__:";
+    private static final String BATCH_PREFIX = "__BATCH__:";
+    private static final String BATCH_COMMIT_PREFIX = "__COMMIT__:";
 
     private final EdgeSocketConfig parameter;
     private final SingleSplitReaderContext context;
@@ -67,10 +81,18 @@ public class EdgeSocketSourceReader extends AbstractSingleSplitReader<SeaTunnelR
     private final EdgeSocketPayloadDeserializer payloadDeserializer;
     private final DeserializationSchema<SeaTunnelRow> rowDeserializationSchema;
     private final Object lifecycleLock = new Object();
+    private final Object checkpointStateLock = new Object();
 
     private volatile ServerSocket serverSocket;
     private volatile ExecutorService receiverExecutor;
     private volatile Future<?> receiverFuture;
+    private volatile RuntimeException fatalReceiverException;
+    private volatile int remainingOpenRetries;
+    private long latestReceivedBatchId = 0L;
+    private long latestCheckpointedBatchId = 0L;
+    private final Map<Long, Integer> pendingBatchRecordCounts = new HashMap<>();
+    private final Set<Long> drainedBatchIds = new HashSet<>();
+    private final Map<Long, Long> checkpointBatchWatermarks = new TreeMap<>();
 
     EdgeSocketSourceReader(
             EdgeSocketConfig parameter,
@@ -91,6 +113,8 @@ public class EdgeSocketSourceReader extends AbstractSingleSplitReader<SeaTunnelR
                 log.warn("Edge socket source reader is already running, skip duplicate open");
                 return;
             }
+            fatalReceiverException = null;
+            remainingOpenRetries = parameter.getMaxNumRetries();
             startReceiverLoop();
         }
     }
@@ -105,6 +129,7 @@ public class EdgeSocketSourceReader extends AbstractSingleSplitReader<SeaTunnelR
 
     @Override
     public void pollNext(Collector<SeaTunnelRow> output) {
+        rethrowFatalIfNeeded();
         // Source readers must hold checkpoint lock while emitting records.
         synchronized (output.getCheckpointLock()) {
             EdgeSocketQueuedRecord record = recordQueue.poll();
@@ -123,6 +148,7 @@ public class EdgeSocketSourceReader extends AbstractSingleSplitReader<SeaTunnelR
             if (row != null) {
                 output.collect(row);
             }
+            markRecordEmitted(record.getBatchId());
         } catch (Exception deserializeException) {
             // Schema mode is strict: fail-fast instead of silently skipping bad records.
             throw new EdgeSocketConnectorException(
@@ -133,14 +159,50 @@ public class EdgeSocketSourceReader extends AbstractSingleSplitReader<SeaTunnelR
         }
     }
 
+    @Override
+    protected byte[] snapshotStateToBytes(long checkpointId) throws Exception {
+        synchronized (checkpointStateLock) {
+            long snapshotWatermark = computeContiguousDrainedWatermark(latestCheckpointedBatchId);
+            checkpointBatchWatermarks.put(checkpointId, snapshotWatermark);
+            return serializeCheckpointState(snapshotWatermark);
+        }
+    }
+
+    @Override
+    protected void restoreState(byte[] restoredState) {
+        synchronized (checkpointStateLock) {
+            deserializeCheckpointState(restoredState);
+        }
+    }
+
+    @Override
+    public void notifyCheckpointComplete(long checkpointId) {
+        synchronized (checkpointStateLock) {
+            Long completedWatermark = checkpointBatchWatermarks.remove(checkpointId);
+            if (completedWatermark == null) {
+                return;
+            }
+            if (completedWatermark > latestCheckpointedBatchId) {
+                latestCheckpointedBatchId = completedWatermark;
+            }
+            clearCommittedBatchState(latestCheckpointedBatchId);
+        }
+    }
+
+    @Override
+    public void notifyCheckpointAborted(long checkpointId) {
+        synchronized (checkpointStateLock) {
+            checkpointBatchWatermarks.remove(checkpointId);
+        }
+    }
+
     private void openServerSocketWithRetry() {
         if (serverSocket != null && !serverSocket.isClosed()) {
             return;
         }
 
-        int maxRetries = parameter.getMaxNumRetries();
-        int retries = 0;
-        while (isReceiverActive() && (maxRetries < 0 || retries <= maxRetries)) {
+        int attempt = 1;
+        while (isReceiverActive()) {
             try {
                 serverSocket = new ServerSocket();
                 serverSocket.setReuseAddress(true);
@@ -148,11 +210,11 @@ public class EdgeSocketSourceReader extends AbstractSingleSplitReader<SeaTunnelR
                 serverSocket.setSoTimeout(parameter.getAcceptTimeoutMs());
                 // This log is the key observability point for ingress readiness.
                 log.info(
-                        "Edge socket ingress started, bind host:[{}], port:[{}], advertise host:[{}], attempt:[{}]",
+                        "Edge socket ingress started, bind host:[{}], port:[{}], endpoint:[{}], attempt:[{}]",
                         "0.0.0.0",
                         parameter.getPort(),
-                        parameter.getHost(),
-                        retries + 1);
+                        parameter.getEndpoint(),
+                        attempt);
                 return;
             } catch (IOException bindException) {
                 try {
@@ -163,16 +225,15 @@ public class EdgeSocketSourceReader extends AbstractSingleSplitReader<SeaTunnelR
                             "Close edge socket ingress server failed during reopen",
                             closeException);
                 }
-                // Exhaust retries only when maxRetries is configured to a finite value.
-                if (maxRetries >= 0 && retries >= maxRetries) {
+                if (!tryConsumeRetryBudget(bindException)) {
                     throw new EdgeSocketConnectorException(
                             EdgeSocketConnectorErrorCode.SOURCE_REOPEN_EXHAUSTED,
                             String.format(
-                                    "Bind edge socket ingress %s:%s failed after %s retries",
-                                    "0.0.0.0", parameter.getPort(), maxRetries),
+                                    "Bind edge socket ingress %s:%s failed after exhausting retries",
+                                    "0.0.0.0", parameter.getPort()),
                             bindException);
                 }
-                retries++;
+                attempt++;
                 if (!sleepBeforeRetry()) {
                     return;
                 }
@@ -196,6 +257,23 @@ public class EdgeSocketSourceReader extends AbstractSingleSplitReader<SeaTunnelR
                 if (!isReceiverActive()) {
                     return;
                 }
+            } catch (EdgeSocketConnectorException openException) {
+                if (!isReceiverActive()) {
+                    return;
+                }
+                if (openException.getSeaTunnelErrorCode()
+                        == EdgeSocketConnectorErrorCode.SOURCE_REOPEN_EXHAUSTED) {
+                    throw openException;
+                }
+                log.warn(
+                        "Open edge socket ingress failed on {}:{}, retrying",
+                        "0.0.0.0",
+                        parameter.getPort(),
+                        openException);
+                if (!sleepBeforeRetry()) {
+                    return;
+                }
+                continue;
             } catch (RuntimeException openException) {
                 if (!isReceiverActive()) {
                     return;
@@ -314,22 +392,45 @@ public class EdgeSocketSourceReader extends AbstractSingleSplitReader<SeaTunnelR
             if (record == null) {
                 return;
             }
-            writeResponse(writer, enqueueIncomingRecord(record));
+            writeResponse(writer, handleCollectorRequest(record));
         }
     }
 
-    private String enqueueIncomingRecord(String incomingRecord) {
+    private String handleCollectorRequest(String request) {
+        String normalizedRequest = stripTailCarriageReturn(request);
+        if (normalizedRequest.startsWith(BATCH_COMMIT_PREFIX)) {
+            Long batchId = parseBatchId(normalizedRequest, BATCH_COMMIT_PREFIX);
+            if (batchId == null || batchId <= 0) {
+                return INGRESS_RETRY_RESPONSE;
+            }
+            return buildBatchCommitResponse(batchId);
+        }
+        if (!normalizedRequest.startsWith(BATCH_PREFIX)) {
+            return INGRESS_RETRY_RESPONSE;
+        }
+        int separatorIndex = normalizedRequest.indexOf(':', BATCH_PREFIX.length());
+        if (separatorIndex < 0) {
+            return INGRESS_RETRY_RESPONSE;
+        }
+        Long batchId = parseBatchId(normalizedRequest.substring(0, separatorIndex), BATCH_PREFIX);
+        if (batchId == null || batchId <= 0) {
+            return INGRESS_RETRY_RESPONSE;
+        }
+        String payload = normalizedRequest.substring(separatorIndex + 1);
+        return enqueueIncomingRecord(batchId, payload);
+    }
+
+    private String enqueueIncomingRecord(long batchId, String incomingRecord) {
         try {
-            EdgeSocketQueuedRecord decoded =
-                    recordDeserializer.deserializeRecord(stripTailCarriageReturn(incomingRecord));
+            EdgeSocketQueuedRecord decoded = recordDeserializer.deserializeRecord(incomingRecord);
+            decoded.setBatchId(batchId);
             QueueOfferResult offerResult = recordQueue.offer(decoded);
-            // ACK only means record was accepted into local queue.
             if (offerResult == QueueOfferResult.ACCEPTED) {
-                return INGRESS_ACK_RESPONSE;
+                markRecordReceived(batchId);
+                return INGRESS_RECEIVED_RESPONSE;
             }
             return INGRESS_RETRY_RESPONSE;
         } catch (Exception decodeException) {
-            // Decode/enqueue failures are retried by collector protocol.
             log.warn(
                     "Decode or enqueue ingress packet failed, collector should retry",
                     decodeException);
@@ -360,6 +461,115 @@ public class EdgeSocketSourceReader extends AbstractSingleSplitReader<SeaTunnelR
         return value;
     }
 
+    private String buildBatchCommitResponse(long batchId) {
+        synchronized (checkpointStateLock) {
+            if (batchId <= latestCheckpointedBatchId) {
+                return INGRESS_ACK_PREFIX + latestCheckpointedBatchId;
+            }
+            if (batchId <= latestReceivedBatchId) {
+                return INGRESS_PENDING_RESPONSE;
+            }
+            return INGRESS_RETRY_RESPONSE;
+        }
+    }
+
+    private Long parseBatchId(String input, String prefix) {
+        if (!input.startsWith(prefix)) {
+            return null;
+        }
+        try {
+            return Long.parseLong(input.substring(prefix.length()));
+        } catch (NumberFormatException ignored) {
+            return null;
+        }
+    }
+
+    private void markRecordReceived(long batchId) {
+        synchronized (checkpointStateLock) {
+            latestReceivedBatchId = Math.max(latestReceivedBatchId, batchId);
+            pendingBatchRecordCounts.merge(batchId, 1, Integer::sum);
+            drainedBatchIds.remove(batchId);
+        }
+    }
+
+    private void markRecordEmitted(long batchId) {
+        if (batchId <= 0) {
+            return;
+        }
+        synchronized (checkpointStateLock) {
+            Integer count = pendingBatchRecordCounts.get(batchId);
+            if (count == null) {
+                return;
+            }
+            if (count <= 1) {
+                pendingBatchRecordCounts.remove(batchId);
+                drainedBatchIds.add(batchId);
+            } else {
+                pendingBatchRecordCounts.put(batchId, count - 1);
+            }
+        }
+    }
+
+    private long computeContiguousDrainedWatermark(long startWatermark) {
+        long watermark = startWatermark;
+        while (drainedBatchIds.contains(watermark + 1)) {
+            watermark++;
+        }
+        return watermark;
+    }
+
+    private void clearCommittedBatchState(long committedWatermark) {
+        pendingBatchRecordCounts.keySet().removeIf(batchId -> batchId <= committedWatermark);
+        drainedBatchIds.removeIf(batchId -> batchId <= committedWatermark);
+    }
+
+    private byte[] serializeCheckpointState(long snapshotWatermark) throws IOException {
+        ByteArrayOutputStream byteArrayOutputStream = new ByteArrayOutputStream();
+        try (DataOutputStream outputStream = new DataOutputStream(byteArrayOutputStream)) {
+            outputStream.writeLong(latestCheckpointedBatchId);
+            outputStream.writeLong(latestReceivedBatchId);
+            outputStream.writeLong(snapshotWatermark);
+            outputStream.writeInt(pendingBatchRecordCounts.size());
+            for (Map.Entry<Long, Integer> entry : pendingBatchRecordCounts.entrySet()) {
+                outputStream.writeLong(entry.getKey());
+                outputStream.writeInt(entry.getValue());
+            }
+            outputStream.writeInt(drainedBatchIds.size());
+            for (Long batchId : drainedBatchIds) {
+                outputStream.writeLong(batchId);
+            }
+            outputStream.flush();
+            return byteArrayOutputStream.toByteArray();
+        }
+    }
+
+    private void deserializeCheckpointState(byte[] restoredState) {
+        try (DataInputStream inputStream =
+                new DataInputStream(new ByteArrayInputStream(restoredState))) {
+            latestCheckpointedBatchId = inputStream.readLong();
+            latestReceivedBatchId = inputStream.readLong();
+            long restoredSnapshotWatermark = inputStream.readLong();
+            pendingBatchRecordCounts.clear();
+            int pendingSize = inputStream.readInt();
+            for (int i = 0; i < pendingSize; i++) {
+                pendingBatchRecordCounts.put(inputStream.readLong(), inputStream.readInt());
+            }
+            drainedBatchIds.clear();
+            int drainedSize = inputStream.readInt();
+            for (int i = 0; i < drainedSize; i++) {
+                drainedBatchIds.add(inputStream.readLong());
+            }
+            latestCheckpointedBatchId = Math.max(latestCheckpointedBatchId, restoredSnapshotWatermark);
+            clearCommittedBatchState(latestCheckpointedBatchId);
+            checkpointBatchWatermarks.clear();
+        } catch (IOException deserializeException) {
+            throw new EdgeSocketConnectorException(
+                    EdgeSocketConnectorErrorCode.PACKET_DECODE_ERROR,
+                    "Restore edge socket batch checkpoint state failed",
+                    deserializeException);
+        }
+    }
+
     private void closeServerSocket() throws IOException {
         ServerSocket current = serverSocket;
         serverSocket = null;
@@ -376,7 +586,16 @@ public class EdgeSocketSourceReader extends AbstractSingleSplitReader<SeaTunnelR
                             thread.setDaemon(false);
                             return thread;
                         });
-        receiverFuture = receiverExecutor.submit(this::receiveLoop);
+        receiverFuture =
+                receiverExecutor.submit(
+                        () -> {
+                            try {
+                                receiveLoop();
+                            } catch (RuntimeException receiverException) {
+                                fatalReceiverException = receiverException;
+                                throw receiverException;
+                            }
+                        });
     }
 
     private void stopReceiverLoop() {
@@ -412,5 +631,28 @@ public class EdgeSocketSourceReader extends AbstractSingleSplitReader<SeaTunnelR
     private boolean isReceiverAlive() {
         Future<?> future = receiverFuture;
         return future != null && !future.isDone();
+    }
+
+    private void rethrowFatalIfNeeded() {
+        RuntimeException receiverException = fatalReceiverException;
+        if (receiverException != null) {
+            throw receiverException;
+        }
+    }
+
+    private boolean tryConsumeRetryBudget(IOException bindException) {
+        if (remainingOpenRetries < 0) {
+            return true;
+        }
+        if (remainingOpenRetries == 0) {
+            log.error(
+                    "Edge socket ingress bind retry budget exhausted on {}:{}",
+                    "0.0.0.0",
+                    parameter.getPort(),
+                    bindException);
+            return false;
+        }
+        remainingOpenRetries--;
+        return true;
     }
 }

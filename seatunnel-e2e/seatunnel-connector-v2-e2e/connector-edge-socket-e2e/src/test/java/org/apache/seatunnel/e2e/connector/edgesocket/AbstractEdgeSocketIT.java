@@ -58,6 +58,8 @@ public abstract class AbstractEdgeSocketIT extends TestSuiteBase implements Test
     protected static final int EDGE_FORWARDER_PORT = 19091;
     protected static final String AUTH_TOKEN = "edge-e2e-token";
     protected static final String TRANSFORM_SUFFIX = "_transformed";
+    protected static final String EDGE_BATCH_PREFIX = "__BATCH__:";
+    protected static final String EDGE_COMMIT_PREFIX = "__COMMIT__:";
 
     protected GenericContainer<?> edgeSocketForwarderContainer;
     private String edgeSocketForwarderTargetHost;
@@ -146,8 +148,11 @@ public abstract class AbstractEdgeSocketIT extends TestSuiteBase implements Test
                 String authReply = readLine(reader);
                 Assertions.assertEquals("ACK", authReply, "Auth response should be ACK");
 
+                long batchId = 1L;
                 for (String message : messages) {
-                    sendMessageWithRetry(writer, reader, message);
+                    sendMessageWithRetry(writer, reader, batchId, message);
+                    awaitBatchCheckpointAck(writer, reader, batchId);
+                    batchId++;
                 }
                 return;
             } catch (SocketTimeoutException timeoutException) {
@@ -346,12 +351,13 @@ public abstract class AbstractEdgeSocketIT extends TestSuiteBase implements Test
         }
     }
 
-    private void sendMessageWithRetry(BufferedWriter writer, BufferedReader reader, String message)
+    private void sendMessageWithRetry(
+            BufferedWriter writer, BufferedReader reader, long batchId, String message)
             throws Exception {
         while (true) {
-            writeLine(writer, message);
+            writeLine(writer, EDGE_BATCH_PREFIX + batchId + ":" + message);
             String reply = readLine(reader);
-            if ("ACK".equals(reply)) {
+            if ("RECEIVED".equals(reply)) {
                 return;
             }
             if ("RETRY".equals(reply)) {
@@ -360,6 +366,33 @@ public abstract class AbstractEdgeSocketIT extends TestSuiteBase implements Test
             }
             throw new IllegalStateException("Unexpected collector response: " + reply);
         }
+    }
+
+    private void awaitBatchCheckpointAck(
+            BufferedWriter writer, BufferedReader reader, long expectedBatchId) throws Exception {
+        long deadlineMillis = System.currentTimeMillis() + TimeUnit.SECONDS.toMillis(30);
+        while (System.currentTimeMillis() < deadlineMillis) {
+            writeLine(writer, EDGE_COMMIT_PREFIX + expectedBatchId);
+            String reply = readLine(reader);
+            if ("PENDING".equals(reply)) {
+                TimeUnit.MILLISECONDS.sleep(200);
+                continue;
+            }
+            if (reply.startsWith("ACK:")) {
+                long ackedBatchId = Long.parseLong(reply.substring("ACK:".length()));
+                if (ackedBatchId >= expectedBatchId) {
+                    return;
+                }
+                TimeUnit.MILLISECONDS.sleep(200);
+                continue;
+            }
+            if ("RETRY".equals(reply)) {
+                TimeUnit.MILLISECONDS.sleep(200);
+                continue;
+            }
+            throw new IllegalStateException("Unexpected commit response: " + reply);
+        }
+        throw new IllegalStateException("Timeout waiting checkpoint ACK for batch: " + expectedBatchId);
     }
 
     private void writeLine(BufferedWriter writer, String value) throws IOException {
