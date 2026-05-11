@@ -17,8 +17,8 @@
 
 package org.apache.seatunnel.edge.agent.config;
 
-import com.fasterxml.jackson.databind.DeserializationFeature;
-import com.fasterxml.jackson.dataformat.yaml.YAMLMapper;
+import org.apache.seatunnel.shade.com.fasterxml.jackson.databind.DeserializationFeature;
+import org.apache.seatunnel.shade.com.fasterxml.jackson.dataformat.yaml.YAMLMapper;
 
 import java.io.IOException;
 import java.nio.file.Files;
@@ -31,7 +31,7 @@ import java.nio.file.Path;
  *
  * <ul>
  *   <li>Unknown YAML keys are ignored ({@link
- *       com.fasterxml.jackson.databind.DeserializationFeature#FAIL_ON_UNKNOWN_PROPERTIES}
+ *       org.apache.seatunnel.shade.com.fasterxml.jackson.databind.DeserializationFeature#FAIL_ON_UNKNOWN_PROPERTIES}
  *       disabled).
  *   <li>After deserialization, {@link AgentYamlConfig#validate(AgentYamlConfig)} enforces required
  *       inputs/output/queue fields and per-input typing constraints ({@code file}/{@code

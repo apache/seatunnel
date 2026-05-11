@@ -17,10 +17,10 @@
 
 package org.apache.seatunnel.edge.agent.transport;
 
-import org.apache.seatunnel.edge.agent.config.AgentYamlConfig;
+import org.apache.seatunnel.shade.com.fasterxml.jackson.core.JsonProcessingException;
+import org.apache.seatunnel.shade.com.fasterxml.jackson.databind.ObjectMapper;
 
-import com.fasterxml.jackson.core.JsonProcessingException;
-import com.fasterxml.jackson.databind.ObjectMapper;
+import org.apache.seatunnel.edge.agent.config.AgentYamlConfig;
 
 import java.io.IOException;
 import java.util.ArrayList;
