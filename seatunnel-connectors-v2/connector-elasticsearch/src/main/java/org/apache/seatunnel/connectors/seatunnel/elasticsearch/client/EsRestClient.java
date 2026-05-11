@@ -571,8 +571,8 @@ public class EsRestClient implements Closeable {
                         ElasticsearchConnectorErrorCode.CREATE_INDEX_FAILED,
                         "PUT " + endpoint + " response null");
             }
+            String entity = EntityUtils.toString(response.getEntity(), StandardCharsets.UTF_8);
             if (response.getStatusLine().getStatusCode() != HttpStatus.SC_OK) {
-                String entity = EntityUtils.toString(response.getEntity(), StandardCharsets.UTF_8);
                 throw new ElasticsearchConnectorException(
                         ElasticsearchConnectorErrorCode.CREATE_INDEX_FAILED,
                         String.format(
@@ -595,9 +595,8 @@ public class EsRestClient implements Closeable {
                         ElasticsearchConnectorErrorCode.DROP_INDEX_FAILED,
                         "DELETE " + endpoint + " response null");
             }
-            // todo: if the index doesn't exist, the response status code is 200?
+            String entity = EntityUtils.toString(response.getEntity(), StandardCharsets.UTF_8);
             if (response.getStatusLine().getStatusCode() != HttpStatus.SC_OK) {
-                String entity = EntityUtils.toString(response.getEntity(), StandardCharsets.UTF_8);
                 throw new ElasticsearchConnectorException(
                         ElasticsearchConnectorErrorCode.DROP_INDEX_FAILED,
                         String.format(
@@ -623,9 +622,8 @@ public class EsRestClient implements Closeable {
                         ElasticsearchConnectorErrorCode.CLEAR_INDEX_DATA_FAILED,
                         "POST " + endpoint + " response null");
             }
-            // todo: if the index doesn't exist, the response status code is 200?
+            String entity = EntityUtils.toString(response.getEntity(), StandardCharsets.UTF_8);
             if (response.getStatusLine().getStatusCode() != HttpStatus.SC_OK) {
-                String entity = EntityUtils.toString(response.getEntity(), StandardCharsets.UTF_8);
                 throw new ElasticsearchConnectorException(
                         ElasticsearchConnectorErrorCode.CLEAR_INDEX_DATA_FAILED,
                         String.format(
@@ -849,15 +847,13 @@ public class EsRestClient implements Closeable {
                         ElasticsearchConnectorErrorCode.ADD_FIELD_FAILED,
                         "PUT " + endpoint + " response null");
             }
+            String entity = EntityUtils.toString(response.getEntity(), StandardCharsets.UTF_8);
             if (response.getStatusLine().getStatusCode() != HttpStatus.SC_OK) {
                 throw new ElasticsearchConnectorException(
                         ElasticsearchConnectorErrorCode.ADD_FIELD_FAILED,
                         String.format(
-                                "PUT %s response status code=%d, response=%s",
-                                endpoint,
-                                response.getStatusLine().getStatusCode(),
-                                EntityUtils.toString(
-                                        response.getEntity(), StandardCharsets.UTF_8)));
+                                "PUT %s response status code=%d, body=%s",
+                                endpoint, response.getStatusLine().getStatusCode(), entity));
             }
         } catch (IOException ex) {
             throw new ElasticsearchConnectorException(
