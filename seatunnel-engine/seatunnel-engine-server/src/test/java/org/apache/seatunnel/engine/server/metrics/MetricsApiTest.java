@@ -55,7 +55,7 @@ public class MetricsApiTest {
                 .then()
                 .statusCode(200)
                 .body(containsString("process_start_time_seconds"))
-                .body(containsString("engine_state_store_entries"));
+                .body(containsString("engine_state_store_local_owned_entries"));
     }
 
     @AfterAll

@@ -53,23 +53,16 @@ class EngineStateStoreMetricExportsTest {
     }
 
     @Test
-    void collectShouldExportGlobalAndLocalStateStoreMetrics() {
+    void collectShouldExportLocalStateStoreMetrics() {
         instance =
                 SeaTunnelServerStarter.createHazelcastInstance(
-                        TestUtils.getClusterName(
-                                "EngineStateStoreMetricExportsTest_globalAndLocal"));
+                        TestUtils.getClusterName("EngineStateStoreMetricExportsTest_localMetrics"));
         await().atMost(10, TimeUnit.SECONDS)
                 .untilAsserted(() -> Assertions.assertTrue(instance.node.isMaster()));
         instance.getMap(Constant.IMAP_RUNNING_JOB_INFO).put(1L, "job-info");
 
         List<MetricFamilySamples> metrics =
                 new EngineStateStoreMetricExports(instance.node).collect();
-
-        Sample entries =
-                findSample(metrics, "engine_state_store_entries", Constant.IMAP_RUNNING_JOB_INFO);
-        Assertions.assertEquals(1.0, entries.value);
-        Assertions.assertEquals(Arrays.asList("cluster", "store", "backend"), entries.labelNames);
-        Assertions.assertEquals("hazelcast", labelValue(entries, "backend"));
 
         Sample ownedEntries =
                 findSample(
@@ -106,7 +99,7 @@ class EngineStateStoreMetricExportsTest {
                 new EngineStateStoreMetricExports(instance.node).collect();
 
         Set<String> exportedStores =
-                findMetricFamily(metrics, "engine_state_store_entries").samples.stream()
+                findMetricFamily(metrics, "engine_state_store_local_owned_entries").samples.stream()
                         .map(sample -> labelValue(sample, "store"))
                         .collect(Collectors.toSet());
 

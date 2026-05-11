@@ -54,11 +54,6 @@ public class EngineStateStoreMetricExports extends AbstractCollector {
 
     @Override
     public List<MetricFamilySamples> collect() {
-        GaugeMetricFamily entries =
-                new GaugeMetricFamily(
-                        "engine_state_store_entries",
-                        "Total entries of an engine state store",
-                        clusterLabelNames("store", "backend"));
         List<String> localLabelNames = clusterLabelNames(ADDRESS, "store", "backend");
         GaugeMetricFamily localOwnedEntries =
                 new GaugeMetricFamily(
@@ -78,23 +73,19 @@ public class EngineStateStoreMetricExports extends AbstractCollector {
 
         for (String storeName : ENGINE_STATE_STORES) {
             collectStoreMetrics(
-                    storeName, entries, localOwnedEntries, localBackupEntries, localHeapCostBytes);
+                    storeName, localOwnedEntries, localBackupEntries, localHeapCostBytes);
         }
 
-        return Arrays.asList(entries, localOwnedEntries, localBackupEntries, localHeapCostBytes);
+        return Arrays.asList(localOwnedEntries, localBackupEntries, localHeapCostBytes);
     }
 
     private void collectStoreMetrics(
             String storeName,
-            GaugeMetricFamily entries,
             GaugeMetricFamily localOwnedEntries,
             GaugeMetricFamily localBackupEntries,
             GaugeMetricFamily localHeapCostBytes) {
         try {
             IMap<?, ?> map = getNode().hazelcastInstance.getMap(storeName);
-            if (isMaster()) {
-                entries.addMetric(labelValues(storeName, BACKEND), map.size());
-            }
             LocalMapStats localMapStats = map.getLocalMapStats();
             List<String> localLabelValues = labelValues(localAddress(), storeName, BACKEND);
             localOwnedEntries.addMetric(localLabelValues, localMapStats.getOwnedEntryCount());
