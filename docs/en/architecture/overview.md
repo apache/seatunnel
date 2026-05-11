@@ -36,6 +36,7 @@ If you are using this section to build architectural understanding, read in this
 - [Checkpoint Mechanism](./fault-tolerance/checkpoint-mechanism.md) and [Exactly-Once](./fault-tolerance/exactly-once.md) for consistency semantics
 - [Resource Management](./engine/resource-management.md) for slot allocation and worker coordination
 - [Plugin Discovery and Class Loading](./plugin-discovery-and-class-loading.md) for runtime plugin packaging and isolation
+- [Edge Agent Architecture](./edge-agent-architecture.md) if you deploy the lightweight edge collector that ships local NDJSON into Zeta via EdgeSocket
 - [Translation Layer](./api-design/translation-layer.md) if you need to understand multi-engine support
 
 ## 2. Overall Architecture

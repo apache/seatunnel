@@ -392,7 +392,8 @@ public abstract class AbstractEdgeSocketIT extends TestSuiteBase implements Test
             }
             throw new IllegalStateException("Unexpected commit response: " + reply);
         }
-        throw new IllegalStateException("Timeout waiting checkpoint ACK for batch: " + expectedBatchId);
+        throw new IllegalStateException(
+                "Timeout waiting checkpoint ACK for batch: " + expectedBatchId);
     }
 
     private void writeLine(BufferedWriter writer, String value) throws IOException {

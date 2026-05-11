@@ -1,0 +1,77 @@
+# Licensed to the Apache Software Foundation (ASF) under one or more
+# contributor license agreements.  See the NOTICE file distributed with
+# this work for additional information regarding copyright ownership.
+# The ASF licenses this file to You under the Apache License, Version 2.0
+# (the "License"); you may not use this file except in compliance with
+# the License.  You may obtain a copy of the License at
+#
+#   http://www.apache.org/licenses/LICENSE-2.0
+#
+# Unless required by applicable law or agreed to in writing, software
+# distributed under the License is distributed on an "AS IS" BASIS,
+# WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+# See the License for the specific language governing permissions and
+# limitations under the License.
+
+# SeaTunnel Edge Agent — example covering inputs (file / log / event),
+# EdgeSocket output, SQLite WAL queue, in-memory batch accumulator,
+# and transport retry backoff after WAL send failures.
+#
+# All connector payloads are newline-delimited JSON (NDJSON) records.
+
+inputs:
+  # type=file — reads NDJSON lines from paths in order until EOF (non-tail).
+  - id: local_file_ndjson
+    type: file
+    paths:
+      - ./data/input-primary.ndjson
+      - ./data/input-secondary.ndjson
+
+  # type=log — single UTF-8 file; tail-follow when read-from-beginning is false or omitted.
+  - id: local_log_ndjson
+    type: log
+    path: ./logs/app.ndjson.log
+    read-from-beginning: false
+
+  # type=event — file-backed queue: at open(), loads all NDJSON lines from paths into memory,
+  # then poll drains them (use paths: [] or omit paths only when injecting via API — YAML-only runs typically list paths).
+  - id: local_event_ndjson
+    type: event
+    paths:
+      - ./data/event-bootstrap.ndjson
+
+output:
+  # SeaTunnel Hazelcast cluster name for SeaTunnelClient (matches engine cluster).
+  cluster-name: seatunnel
+  # Hazelcast member addresses for SeaTunnelClient bootstrap (host or host:port per Hazelcast).
+  # Edge ingress hosts come from getJobTaskGroupAddresses(job-id); output.port is the EdgeSocket TCP port on those workers.
+  cluster-addresses:
+    - 127.0.0.1:5801
+    # - secondary-member.example.com:5701
+  # Running SeaTunnel job id (YAML accepts integer or quoted string).
+  job-id: 1
+  # Must match the EdgeSocket source auth-token on the engine side.
+  auth-token: edge-token
+  # EdgeSocket source ingress TCP port on each cluster-address entry.
+  port: 10091
+  # Optional; omit for defaults connect 5000 ms, read 30000 ms (see README).
+  connect-timeout-ms: 5000
+  read-timeout-ms: 30000
+
+queue:
+  # SQLite persistent WAL database path (relative paths resolve against agent working directory).
+  sqlite-path: ./data/edge-agent-wal.db
+  # Upper bound on rows polled per input poll iteration AND per WAL claim batch for downstream send.
+  poll-batch-size: 128
+
+batch:
+  # Flush buffered input records into the WAL when bulk-max-size lines accumulated...
+  bulk-max-size: 256
+  # ...or flush-interval-ms elapsed since the first line after the last flush (whichever comes first).
+  flush-interval-ms: 1000
+
+retry:
+  # Max EdgeSocket send attempts per WAL row (attempt counter resets semantics are WAL-internal).
+  max-attempts: 16
+  # Sleep after a failed batch send before the loop continues (milliseconds).
+  backoff-ms: 250

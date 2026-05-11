@@ -36,6 +36,7 @@ SeaTunnel 设计为分布式多模态数据集成工具，具有以下核心目�
 - 再看 [Checkpoint 机制](./fault-tolerance/checkpoint-mechanism.md) 和 [Exactly-Once](./fault-tolerance/exactly-once.md)，理解一致性语义
 - 再看 [资源管理](./engine/resource-management.md)，理解 slot 分配与 worker 协调
 - 再看 [插件发现与类加载](./plugin-discovery-and-class-loading.md)，理解插件打包、发现与依赖隔离
+- 如果你部署轻量的 Edge Agent（通过 EdgeSocket 把本地 NDJSON 推送到 Zeta），再看 [Edge Agent 架构](./edge-agent-architecture.md)
 - 如果要理解多引擎适配，再看 [转换层](./api-design/translation-layer.md)
 
 ## 2. 整体架构

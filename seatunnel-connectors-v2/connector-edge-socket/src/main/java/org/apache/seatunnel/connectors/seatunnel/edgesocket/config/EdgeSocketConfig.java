@@ -59,9 +59,7 @@ public class EdgeSocketConfig implements Serializable {
             int separatorIndex = this.endpoint.lastIndexOf(':');
             if (separatorIndex <= 0 || separatorIndex >= this.endpoint.length() - 1) {
                 throw new IllegalArgumentException(
-                        "Invalid endpoint: "
-                                + this.endpoint
-                                + ", expected format host:port");
+                        "Invalid endpoint: " + this.endpoint + ", expected format host:port");
             }
             String endpointPort = this.endpoint.substring(separatorIndex + 1);
             try {

@@ -127,8 +127,7 @@ class EdgeSocketSourceReaderTest {
         SingleSplitReaderContext readerContext = new SingleSplitReaderContext(context);
         SeaTunnelRowType rowType =
                 new SeaTunnelRowType(
-                        new String[] {"value"},
-                        new SeaTunnelDataType<?>[] {BasicType.STRING_TYPE});
+                        new String[] {"value"}, new SeaTunnelDataType<?>[] {BasicType.STRING_TYPE});
         return new EdgeSocketSourceReader(
                 new org.apache.seatunnel.connectors.seatunnel.edgesocket.config.EdgeSocketConfig(
                         config),

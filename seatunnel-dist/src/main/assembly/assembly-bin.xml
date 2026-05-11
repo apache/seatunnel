@@ -107,6 +107,16 @@
             <outputDirectory>/bin</outputDirectory>
             <fileMode>0755</fileMode>
         </fileSet>
+        <!-- ============ Edge Agent Bin/Conf ============  -->
+        <fileSet>
+            <directory>../seatunnel-edge-agent/bin</directory>
+            <outputDirectory>/bin</outputDirectory>
+            <fileMode>0755</fileMode>
+        </fileSet>
+        <fileSet>
+            <directory>../seatunnel-edge-agent/conf</directory>
+            <outputDirectory>/conf</outputDirectory>
+        </fileSet>
         <!--Licenses And NOTICE-->
         <fileSet>
             <directory>release-docs</directory>
@@ -240,6 +250,20 @@
                 <include>org.apache.seatunnel:connector-cdc-base:jar</include>
             </includes>
             <outputDirectory>/connectors</outputDirectory>
+            <scope>provided</scope>
+        </dependencySet>
+        <!-- ============ Edge Agent Jars ============  -->
+        <dependencySet>
+            <useProjectArtifact>false</useProjectArtifact>
+            <useTransitiveDependencies>true</useTransitiveDependencies>
+            <unpack>false</unpack>
+            <includes>
+                <include>org.apache.seatunnel:seatunnel-edge-agent-core:jar</include>
+                <include>org.apache.seatunnel:seatunnel-edge-agent-transport:jar</include>
+                <include>org.apache.seatunnel:seatunnel-edge-agent-connector:jar</include>
+            </includes>
+            <outputFileNameMapping>${artifact.file.name}</outputFileNameMapping>
+            <outputDirectory>/lib</outputDirectory>
             <scope>provided</scope>
         </dependencySet>
     </dependencySets>

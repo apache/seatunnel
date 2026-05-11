@@ -55,6 +55,7 @@ const sidebars = {
             "label": "Architecture",
             "items": [
                 "architecture/overview",
+                "architecture/edge-agent-architecture",
                 "architecture/design-philosophy",
                 "architecture/configuration-and-option-system",
                 "architecture/core-api-design",

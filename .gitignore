@@ -61,3 +61,8 @@ node/
 dist/
 
 seatunnel-engine/seatunnel-engine-server/**/ui/*
+
+# edge agent runtime artifacts
+seatunnel-edge-agent/edge-agent.pid
+seatunnel-edge-agent/edge-agent.out
+seatunnel-edge-agent/data/
