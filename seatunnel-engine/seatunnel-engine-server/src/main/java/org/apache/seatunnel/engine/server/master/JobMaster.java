@@ -799,6 +799,26 @@ public class JobMaster {
                 "can't find task group address from taskGroupLocation: " + taskGroupLocation);
     }
 
+    public Map<TaskGroupLocation, Address> queryTaskGroupAddresses() {
+        Map<TaskGroupLocation, Address> taskGroupLocationAddressMap = new HashMap<>();
+        long jobId = this.getJobImmutableInformation().getJobId();
+        ownedSlotProfilesIMap.forEach(
+                (pipelineLocation, taskGroupMap) -> {
+                    if (pipelineLocation.getJobId() == jobId && taskGroupMap != null) {
+                        taskGroupMap.forEach(
+                                (taskGroupLocation, slotProfile) -> {
+                                    if (taskGroupLocation.getJobId() == jobId
+                                            && slotProfile != null
+                                            && slotProfile.getWorker() != null) {
+                                        taskGroupLocationAddressMap.put(
+                                                taskGroupLocation, slotProfile.getWorker());
+                                    }
+                                });
+                    }
+                });
+        return taskGroupLocationAddressMap;
+    }
+
     public synchronized void cancelJob() {
         physicalPlan.cancelJob();
     }

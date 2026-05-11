@@ -26,6 +26,7 @@ import org.apache.seatunnel.engine.core.protocol.codec.SeaTunnelGetJobDetailStat
 import org.apache.seatunnel.engine.core.protocol.codec.SeaTunnelGetJobInfoCodec;
 import org.apache.seatunnel.engine.core.protocol.codec.SeaTunnelGetJobMetricsCodec;
 import org.apache.seatunnel.engine.core.protocol.codec.SeaTunnelGetJobStatusCodec;
+import org.apache.seatunnel.engine.core.protocol.codec.SeaTunnelGetJobTaskGroupAddressesCodec;
 import org.apache.seatunnel.engine.core.protocol.codec.SeaTunnelGetRunningJobMetricsCodec;
 import org.apache.seatunnel.engine.core.protocol.codec.SeaTunnelListJobStatusCodec;
 import org.apache.seatunnel.engine.core.protocol.codec.SeaTunnelPrintMessageCodec;
@@ -86,6 +87,10 @@ public class SeaTunnelMessageTaskFactoryProvider implements MessageTaskFactoryPr
                 SeaTunnelGetJobMetricsCodec.REQUEST_MESSAGE_TYPE,
                 (clientMessage, connection) ->
                         new GetJobMetricsTask(clientMessage, node, connection));
+        factories.put(
+                SeaTunnelGetJobTaskGroupAddressesCodec.REQUEST_MESSAGE_TYPE,
+                (clientMessage, connection) ->
+                        new GetJobTaskGroupAddressesTask(clientMessage, node, connection));
         factories.put(
                 SeaTunnelGetJobInfoCodec.REQUEST_MESSAGE_TYPE,
                 (clientMessage, connection) -> new GetJobInfoTask(clientMessage, node, connection));

@@ -443,6 +443,14 @@ public class CoordinatorService {
         return runningJobMasterMap.get(jobId);
     }
 
+    public Map<TaskGroupLocation, Address> queryJobTaskGroupAddresses(long jobId) {
+        JobMaster runningJobMaster = getJobMaster(jobId);
+        if (runningJobMaster == null) {
+            throw new JobNotFoundException(jobId);
+        }
+        return runningJobMaster.queryTaskGroupAddresses();
+    }
+
     public EventProcessor getEventProcessor() {
         return eventProcessor;
     }

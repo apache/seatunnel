@@ -42,6 +42,7 @@ import org.apache.seatunnel.engine.core.protocol.codec.SeaTunnelGetJobDetailStat
 import org.apache.seatunnel.engine.core.protocol.codec.SeaTunnelGetJobInfoCodec;
 import org.apache.seatunnel.engine.core.protocol.codec.SeaTunnelGetJobMetricsCodec;
 import org.apache.seatunnel.engine.core.protocol.codec.SeaTunnelGetJobStatusCodec;
+import org.apache.seatunnel.engine.core.protocol.codec.SeaTunnelGetJobTaskGroupAddressesCodec;
 import org.apache.seatunnel.engine.core.protocol.codec.SeaTunnelGetRunningJobMetricsCodec;
 import org.apache.seatunnel.engine.core.protocol.codec.SeaTunnelListJobStatusCodec;
 import org.apache.seatunnel.engine.core.protocol.codec.SeaTunnelSavePointJobCodec;
@@ -124,6 +125,12 @@ public class JobClient {
         return hazelcastClient.requestOnMasterAndDecodeResponse(
                 SeaTunnelGetJobMetricsCodec.encodeRequest(jobId),
                 SeaTunnelGetJobMetricsCodec::decodeResponse);
+    }
+
+    public String getJobTaskGroupAddresses(Long jobId) {
+        return hazelcastClient.requestOnMasterAndDecodeResponse(
+                SeaTunnelGetJobTaskGroupAddressesCodec.encodeRequest(jobId),
+                SeaTunnelGetJobTaskGroupAddressesCodec::decodeResponse);
     }
 
     public String getRunningJobMetrics() {

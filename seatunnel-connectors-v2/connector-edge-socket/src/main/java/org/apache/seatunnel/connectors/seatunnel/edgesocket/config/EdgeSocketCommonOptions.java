@@ -25,8 +25,15 @@ public class EdgeSocketCommonOptions {
     public static final String identifier = "EdgeSocket";
 
     public static final Option<String> HOST =
-            Options.key("host").stringType().noDefaultValue().withDescription("socket host");
+            Options.key("host")
+                    .stringType()
+                    .noDefaultValue()
+                    .withDescription(
+                            "Optional externally reachable host/domain used by edge collector discovery (for example LB IP or DNS in Kubernetes). If not configured, discovery falls back to runtime worker address.");
 
     public static final Option<Integer> PORT =
-            Options.key("port").intType().noDefaultValue().withDescription("socket port");
+            Options.key("port")
+                    .intType()
+                    .noDefaultValue()
+                    .withDescription("ingress bind port for edge collector connections");
 }

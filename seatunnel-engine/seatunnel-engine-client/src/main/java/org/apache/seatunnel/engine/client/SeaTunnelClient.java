@@ -151,6 +151,10 @@ public class SeaTunnelClient implements SeaTunnelClientInstance, AutoCloseable {
         return jobClient.getJobMetrics(jobId);
     }
 
+    public String getJobTaskGroupAddresses(Long jobId) {
+        return jobClient.getJobTaskGroupAddresses(jobId);
+    }
+
     @Deprecated
     public void savePointJob(Long jobId) {
         jobClient.savePointJob(jobId);

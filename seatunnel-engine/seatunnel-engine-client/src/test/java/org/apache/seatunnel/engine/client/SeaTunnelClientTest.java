@@ -224,6 +224,44 @@ public class SeaTunnelClientTest {
     }
 
     @Test
+    public void testGetJobTaskGroupAddresses() {
+        Common.setDeployMode(DeployMode.CLUSTER);
+        String filePath = ContentFormatUtilTest.getResource("/streaming_fake_to_console.conf");
+        JobConfig jobConfig = new JobConfig();
+        jobConfig.setName("testGetJobTaskGroupAddresses");
+
+        SeaTunnelClient seaTunnelClient = createSeaTunnelClient();
+        JobClient jobClient = seaTunnelClient.getJobClient();
+
+        try {
+            ClientJobExecutionEnvironment jobExecutionEnv =
+                    seaTunnelClient.createExecutionContext(filePath, jobConfig, SEATUNNEL_CONFIG);
+            final ClientJobProxy clientJobProxy = jobExecutionEnv.execute();
+            long jobId = clientJobProxy.getJobId();
+
+            await().atMost(30000, TimeUnit.MILLISECONDS)
+                    .untilAsserted(
+                            () ->
+                                    Assertions.assertEquals(
+                                            "RUNNING", jobClient.getJobStatus(jobId)));
+
+            String taskGroupAddresses = seaTunnelClient.getJobTaskGroupAddresses(jobId);
+            Assertions.assertNotNull(taskGroupAddresses);
+            Assertions.assertTrue(taskGroupAddresses.contains("\"jobId\""));
+            Assertions.assertTrue(taskGroupAddresses.contains("\"pipelineId\""));
+            Assertions.assertTrue(taskGroupAddresses.contains("\"taskGroupId\""));
+            Assertions.assertTrue(taskGroupAddresses.contains("\"host\""));
+            Assertions.assertTrue(taskGroupAddresses.contains("\"port\""));
+
+            jobClient.cancelJob(jobId);
+        } catch (Exception e) {
+            throw new RuntimeException(e);
+        } finally {
+            seaTunnelClient.close();
+        }
+    }
+
+    @Test
     public void testGetRunningJobMetrics() throws ExecutionException, InterruptedException {
         Common.setDeployMode(DeployMode.CLUSTER);
         String filePath = ContentFormatUtilTest.getResource("/batch_fake_to_console.conf");

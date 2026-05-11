@@ -232,4 +232,21 @@ public class JobClientTest {
         Assertions.assertEquals(0L, summary.getSinkWriteCount());
         Assertions.assertEquals(0L, summary.getSinkCommittedCount());
     }
+
+    @Test
+    public void testGetJobTaskGroupAddresses() {
+        String addressesJson =
+                "[{\"jobId\":123456,\"pipelineId\":1,\"taskGroupId\":1,"
+                        + "\"host\":\"127.0.0.1\",\"port\":5802}]";
+
+        when(hazelcastClient.requestOnMasterAndDecodeResponse(any(), any()))
+                .thenReturn(addressesJson);
+
+        String response = jobClient.getJobTaskGroupAddresses(123456L);
+
+        Assertions.assertNotNull(response);
+        Assertions.assertTrue(response.contains("\"jobId\":123456"));
+        Assertions.assertTrue(response.contains("\"host\":\"127.0.0.1\""));
+        Assertions.assertTrue(response.contains("\"port\":5802"));
+    }
 }

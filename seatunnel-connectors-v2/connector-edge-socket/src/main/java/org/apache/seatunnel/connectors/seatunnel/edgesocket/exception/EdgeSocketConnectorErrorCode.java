@@ -20,30 +20,14 @@ package org.apache.seatunnel.connectors.seatunnel.edgesocket.exception;
 import org.apache.seatunnel.common.exception.SeaTunnelErrorCode;
 
 public enum EdgeSocketConnectorErrorCode implements SeaTunnelErrorCode {
-    BULK_RESPONSE_ERROR("ELASTICSEARCH-01", "Bulk es response error"),
-    GET_ES_VERSION_FAILED("ELASTICSEARCH-02", "Get elasticsearch version failed"),
-    SCROLL_REQUEST_ERROR("ELASTICSEARCH-03", "Fail to scroll request"),
-    GET_INDEX_DOCS_COUNT_FAILED(
-            "ELASTICSEARCH-04", "Get elasticsearch document index count failed"),
-    LIST_INDEX_FAILED("ELASTICSEARCH-05", "List elasticsearch index failed"),
-    DROP_INDEX_FAILED("ELASTICSEARCH-06", "Drop elasticsearch index failed"),
-    CREATE_INDEX_FAILED("ELASTICSEARCH-07", "Create elasticsearch index failed"),
-    ES_FIELD_TYPE_NOT_SUPPORT("ELASTICSEARCH-08", "Not support the elasticsearch field type"),
-    CLEAR_INDEX_DATA_FAILED("ELASTICSEARCH-09", "Clear elasticsearch index data failed"),
-    CHECK_INDEX_FAILED("ELASTICSEARCH-10", "Failed to check whether the index exists"),
-    SOURCE_CONFIG_ERROR_01(
-            "ELASTICSEARCH-11",
-            "'index' or 'index_list' must be configured, with at least one being required."),
-    SOURCE_CONFIG_ERROR_02("ELASTICSEARCH-12", "'query' must be configured."),
-    ADD_FIELD_FAILED("ELASTICSEARCH-13", "Field add failed"),
-    SCHEMA_CHANGE_FAILED("ELASTICSEARCH-14", "Schema change failed"),
-    CREATE_PIT_FAILED("ELASTICSEARCH-15", "Create Point-in-Time failed"),
-    DELETE_PIT_FAILED("ELASTICSEARCH-16", "Delete Point-in-Time failed"),
-    SEARCH_WITH_PIT_FAILED("ELASTICSEARCH-17", "Search with Point-in-Time failed"),
-    UNSUPPORTED_AUTH_TYPE("ELASTICSEARCH-18", "Unsupported authentication type"),
-    AUTH_CONFIG_INVALID("ELASTICSEARCH-19", "Authentication configuration is invalid"),
-    AUTH_SETUP_FAILED("ELASTICSEARCH-20", "Authentication setup failed"),
-    ;
+    SOURCE_BIND_FAILED("EDGE_SOCKET-01", "Failed to bind edge socket ingress port"),
+    SOURCE_REOPEN_EXHAUSTED("EDGE_SOCKET-02", "Reopen retries exhausted"),
+    SOURCE_ACCEPT_ERROR("EDGE_SOCKET-03", "Failed to accept edge collector connection"),
+    SOURCE_READ_ERROR("EDGE_SOCKET-04", "Failed to read data from edge collector socket"),
+    PACKET_DECODE_ERROR("EDGE_SOCKET-05", "Failed to decode ingress packet"),
+    PACKET_UNSUPPORTED_COMPRESSION("EDGE_SOCKET-06", "Unsupported ingress packet compression type"),
+    PACKET_UNSUPPORTED_ENCRYPTION("EDGE_SOCKET-07", "Unsupported ingress packet encryption type"),
+    PACKET_AES_KEY_MISSING("EDGE_SOCKET-08", "Missing aes_secret_key_base64 for AES_GCM packet");
 
     private final String code;
     private final String description;

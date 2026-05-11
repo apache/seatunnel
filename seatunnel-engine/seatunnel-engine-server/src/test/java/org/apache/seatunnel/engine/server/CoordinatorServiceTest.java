@@ -21,6 +21,7 @@ import org.apache.seatunnel.common.utils.ReflectionUtils;
 import org.apache.seatunnel.engine.common.Constant;
 import org.apache.seatunnel.engine.common.config.ConfigProvider;
 import org.apache.seatunnel.engine.common.config.SeaTunnelConfig;
+import org.apache.seatunnel.engine.common.exception.JobNotFoundException;
 import org.apache.seatunnel.engine.common.exception.SeaTunnelEngineException;
 import org.apache.seatunnel.engine.common.job.JobStatus;
 import org.apache.seatunnel.engine.common.utils.concurrent.CompletableFuture;
@@ -48,6 +49,7 @@ import org.junit.jupiter.api.Test;
 import org.junitpioneer.jupiter.SetEnvironmentVariable;
 import org.mockito.Mockito;
 
+import com.hazelcast.cluster.Address;
 import com.hazelcast.instance.impl.HazelcastInstanceImpl;
 import com.hazelcast.internal.serialization.Data;
 import com.hazelcast.map.IMap;
@@ -628,6 +630,65 @@ public class CoordinatorServiceTest {
                                         coordinatorService
                                                 .getPendingJobQueue()
                                                 .contains(jobInformation.jobId)));
+    }
+
+    @Test
+    void testQueryJobTaskGroupAddresses() {
+        JobInformation jobInformation =
+                submitJob(
+                        "CoordinatorServiceTest_testQueryJobTaskGroupAddresses",
+                        "stream_fake_to_console.conf",
+                        "test_query_job_taskgroup_addresses");
+        CoordinatorService coordinatorService = jobInformation.coordinatorService;
+        try {
+            await().atMost(10000, TimeUnit.MILLISECONDS)
+                    .untilAsserted(
+                            () ->
+                                    Assertions.assertEquals(
+                                            JobStatus.RUNNING,
+                                            coordinatorService.getJobStatus(jobInformation.jobId)));
+
+            Map<TaskGroupLocation, Address> response =
+                    coordinatorService.queryJobTaskGroupAddresses(jobInformation.jobId);
+            Assertions.assertNotNull(response);
+            Assertions.assertFalse(response.isEmpty());
+            response.forEach(
+                    (taskGroupLocation, address) -> {
+                        Assertions.assertEquals(
+                                jobInformation.jobId.longValue(), taskGroupLocation.getJobId());
+                        Assertions.assertNotNull(address.getHost());
+                        Assertions.assertTrue(address.getPort() > 0);
+                    });
+        } finally {
+            coordinatorService.cancelJob(jobInformation.jobId).join();
+            coordinatorService.clearCoordinatorService();
+            jobInformation.coordinatorServiceTest.shutdown();
+        }
+    }
+
+    @Test
+    void testQueryJobTaskGroupAddressesJobNotFound() {
+        HazelcastInstanceImpl instance =
+                createHazelcastInstanceWithJoinPortTryCount(
+                        TestUtils.getClusterName(
+                                "CoordinatorServiceTest_testQueryJobTaskGroupAddressesJobNotFound"),
+                        100);
+        try {
+            SeaTunnelServer server =
+                    instance.node.getNodeEngine().getService(SeaTunnelServer.SERVICE_NAME);
+            CoordinatorService coordinatorService = server.getCoordinatorService();
+            await().atMost(10, TimeUnit.SECONDS)
+                    .untilAsserted(
+                            () -> Assertions.assertTrue(coordinatorService.isCoordinatorActive()));
+
+            long notExistsJobId =
+                    instance.getFlakeIdGenerator(Constant.SEATUNNEL_ID_GENERATOR_NAME).newId();
+            Assertions.assertThrows(
+                    JobNotFoundException.class,
+                    () -> coordinatorService.queryJobTaskGroupAddresses(notExistsJobId));
+        } finally {
+            instance.shutdown();
+        }
     }
 
     @Test
