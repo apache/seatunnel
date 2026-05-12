@@ -30,6 +30,7 @@ import org.junit.jupiter.api.Test;
 import com.hazelcast.spi.impl.NodeEngineImpl;
 
 import java.lang.reflect.Method;
+import java.math.BigDecimal;
 import java.util.Arrays;
 import java.util.HashMap;
 import java.util.LinkedHashMap;
@@ -376,6 +377,26 @@ public class BaseServiceTableMetricsTest {
         Assertions.assertNotNull(tableSinkCount);
         Assertions.assertEquals(1L, tableSinkCount.get("Sink[0].fake.user_table"));
         Assertions.assertEquals(2L, tableSinkCount.get("Sink[1].fake.user_table"));
+    }
+
+    @Test
+    public void testMetricsToJsonObjectForSpecialNumber() {
+        // test double
+        Double doubleNumber = 85210718.2630262;
+        String doubleNumberStr = doubleNumber.toString();
+        Assertions.assertTrue(doubleNumberStr.contains("E"));
+        Assertions.assertEquals(
+                new BigDecimal(doubleNumber.toString()).toPlainString(), "85210718.2630262");
+        // test float
+        Float floatNumber = 85210718.263026f;
+        String floatNumberStr = floatNumber.toString();
+        Assertions.assertTrue(floatNumberStr.contains("E"));
+        Assertions.assertFalse(
+                new BigDecimal(floatNumber.toString()).toPlainString().contains("E"));
+        // test BigDecimal
+        BigDecimal bigDecimalNumber = new BigDecimal("85210718.2630262");
+        Assertions.assertEquals(
+                new BigDecimal(bigDecimalNumber.toString()).toPlainString(), "85210718.2630262");
     }
 
     private JobDAGInfo createDAGInfoWithMultipleSinks() {
