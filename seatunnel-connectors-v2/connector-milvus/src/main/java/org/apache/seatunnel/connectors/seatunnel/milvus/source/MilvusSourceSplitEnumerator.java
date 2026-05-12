@@ -176,7 +176,6 @@ public class MilvusSourceSplitEnumerator
                         .sorted(Comparator.comparing(MilvusSourceSplit::getSplitId))
                         .collect(Collectors.toList());
 
-        assignCount.set(0);
         for (MilvusSourceSplit split : sortedSplits) {
             int ownerReader = getSplitOwner(assignCount.getAndIncrement(), readerCount);
             log.info("Assigning {} to {} reader.", split, ownerReader);
