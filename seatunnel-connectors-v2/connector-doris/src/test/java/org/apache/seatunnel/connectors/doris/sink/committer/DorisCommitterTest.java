@@ -44,8 +44,11 @@ import java.io.IOException;
 import java.io.OutputStream;
 import java.net.InetSocketAddress;
 import java.net.ServerSocket;
+import java.util.ArrayList;
+import java.util.Arrays;
 import java.util.Collections;
 import java.util.HashMap;
+import java.util.List;
 import java.util.Map;
 import java.util.concurrent.Executors;
 
@@ -177,13 +180,95 @@ public class DorisCommitterTest {
                 requestCaptor.getAllValues().get(1).getURI().toString());
     }
 
+    @Test
+    void testCommitBackoffSkipsFinalSleep() throws IOException {
+        CloseableHttpClient httpClient = mock(CloseableHttpClient.class);
+        when(httpClient.execute(any(HttpUriRequest.class), any(HttpContext.class)))
+                .thenThrow(new IOException("attempt-1"))
+                .thenThrow(new IOException("attempt-2"))
+                .thenThrow(new IOException("attempt-3"));
+
+        List<Integer> sleepRetries = new ArrayList<>();
+        DorisCommitter committer =
+                new DorisCommitter(createSinkConfig(true, true, 2), httpClient, sleepRetries::add);
+
+        Assertions.assertThrows(
+                IOException.class,
+                () ->
+                        committer.commit(
+                                Collections.singletonList(
+                                        new DorisCommitInfo("fe1:8030", "test_db", 21L))));
+        Assertions.assertEquals(Arrays.asList(1, 2), sleepRetries);
+    }
+
+    @Test
+    void testAbortBackoffSkipsFinalSleep() throws IOException {
+        CloseableHttpClient httpClient = mock(CloseableHttpClient.class);
+        when(httpClient.execute(any(HttpUriRequest.class), any(HttpContext.class)))
+                .thenThrow(new IOException("attempt-1"))
+                .thenThrow(new IOException("attempt-2"))
+                .thenThrow(new IOException("attempt-3"));
+
+        List<Integer> sleepRetries = new ArrayList<>();
+        DorisCommitter committer =
+                new DorisCommitter(createSinkConfig(true, true, 2), httpClient, sleepRetries::add);
+
+        Assertions.assertThrows(
+                IOException.class,
+                () ->
+                        committer.abort(
+                                Collections.singletonList(
+                                        new DorisCommitInfo("fe1:8030", "test_db", 22L))));
+        Assertions.assertEquals(Arrays.asList(1, 2), sleepRetries);
+    }
+
+    @Test
+    void testCommitClosesFailedResponseBeforeRetry() throws IOException {
+        CloseableHttpClient httpClient = mock(CloseableHttpClient.class);
+        CloseableHttpResponse failedResponse =
+                responseWithStatus(500, "Internal Server Error", null);
+        CloseableHttpResponse successResponse = successResponse();
+        when(httpClient.execute(any(HttpUriRequest.class), any(HttpContext.class)))
+                .thenReturn(failedResponse)
+                .thenReturn(successResponse);
+
+        DorisCommitter committer = new DorisCommitter(createSinkConfig(true, true), httpClient);
+        committer.commit(
+                Collections.singletonList(new DorisCommitInfo("fe1:8030", "test_db", 23L)));
+
+        verify(failedResponse, times(1)).close();
+        verify(successResponse, times(1)).close();
+    }
+
+    @Test
+    void testAbortClosesFailedResponseBeforeRetry() throws IOException {
+        CloseableHttpClient httpClient = mock(CloseableHttpClient.class);
+        CloseableHttpResponse failedResponse =
+                responseWithStatus(500, "Internal Server Error", null);
+        CloseableHttpResponse successResponse = successResponse();
+        when(httpClient.execute(any(HttpUriRequest.class), any(HttpContext.class)))
+                .thenReturn(failedResponse)
+                .thenReturn(successResponse);
+
+        DorisCommitter committer = new DorisCommitter(createSinkConfig(true, true), httpClient);
+        committer.abort(Collections.singletonList(new DorisCommitInfo("fe1:8030", "test_db", 24L)));
+
+        verify(failedResponse, times(1)).close();
+        verify(successResponse, times(1)).close();
+    }
+
     private DorisSinkConfig createSinkConfig(boolean directToBe, boolean enable2PC) {
+        return createSinkConfig(directToBe, enable2PC, 3);
+    }
+
+    private DorisSinkConfig createSinkConfig(
+            boolean directToBe, boolean enable2PC, int maxRetries) {
         Map<String, Object> options = new HashMap<>();
         options.put("fenodes", "fe1:8030");
         options.put("benodes", "be1:8040");
         options.put("direct_to_be", directToBe);
         options.put("sink.enable-2pc", enable2PC);
-        options.put("sink.max-retries", 3);
+        options.put("sink.max-retries", maxRetries);
         options.put("username", "root");
         options.put("password", "");
         options.put("database", "test_db");
@@ -233,11 +318,18 @@ public class DorisCommitterTest {
     }
 
     private CloseableHttpResponse successResponse() throws IOException {
+        return responseWithStatus(
+                200, "OK", new StringEntity("{\"status\":\"Success\",\"msg\":\"\"}"));
+    }
+
+    private CloseableHttpResponse responseWithStatus(
+            int statusCode, String reasonPhrase, StringEntity entity) throws IOException {
         CloseableHttpResponse response = mock(CloseableHttpResponse.class);
         when(response.getStatusLine())
-                .thenReturn(new BasicStatusLine(new ProtocolVersion("HTTP", 1, 1), 200, "OK"));
-        when(response.getEntity())
-                .thenReturn(new StringEntity("{\"status\":\"Success\",\"msg\":\"\"}"));
+                .thenReturn(
+                        new BasicStatusLine(
+                                new ProtocolVersion("HTTP", 1, 1), statusCode, reasonPhrase));
+        when(response.getEntity()).thenReturn(entity);
         return response;
     }
 

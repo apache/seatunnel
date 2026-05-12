@@ -53,16 +53,25 @@ public class DorisCommitter implements SinkCommitter<DorisCommitInfo> {
     private static final int HTTP_TEMPORARY_REDIRECT = 307;
     private final CloseableHttpClient httpClient;
     private final DorisSinkConfig dorisSinkConfig;
-    int maxRetry;
+    private final int maxRetry;
+    private final RetrySleeper retrySleeper;
 
     public DorisCommitter(DorisSinkConfig dorisSinkConfig) {
-        this(dorisSinkConfig, new HttpUtil().getHttpClient());
+        this(dorisSinkConfig, new HttpUtil().getHttpClient(), DorisCommitter::sleepBeforeRetry);
     }
 
     public DorisCommitter(DorisSinkConfig dorisSinkConfig, CloseableHttpClient client) {
+        this(dorisSinkConfig, client, DorisCommitter::sleepBeforeRetry);
+    }
+
+    DorisCommitter(
+            DorisSinkConfig dorisSinkConfig,
+            CloseableHttpClient client,
+            RetrySleeper retrySleeper) {
         this.dorisSinkConfig = dorisSinkConfig;
         this.httpClient = client;
         this.maxRetry = dorisSinkConfig.getMaxRetries();
+        this.retrySleeper = retrySleeper;
     }
 
     @Override
@@ -86,7 +95,7 @@ public class DorisCommitter implements SinkCommitter<DorisCommitInfo> {
         IOException lastIOException = null;
         DorisConnectorException lastRedirectException = null;
         List<String> retryHosts = resolveFrontendRetryHosts(committable.getHostPort());
-        for (int attempt = 0; attempt <= dorisSinkConfig.getMaxRetries(); attempt++) {
+        for (int attempt = 0; attempt <= maxRetry; attempt++) {
             String hostPort = retryHosts.get(attempt % retryHosts.size());
             String requestUrl = String.format(COMMIT_PATTERN, hostPort, committable.getDb());
             HttpPutBuilder putBuilder = new HttpPutBuilder();
@@ -110,31 +119,36 @@ public class DorisCommitter implements SinkCommitter<DorisCommitInfo> {
             } catch (DorisConnectorException e) {
                 lastRedirectException = e;
                 log.error("commit transaction redirect follow-up failed on {}: ", hostPort, e);
+                sleepBeforeNextAttempt(attempt);
                 continue;
             } catch (IOException e) {
                 lastIOException = e;
                 log.error("commit transaction failed on {}: ", hostPort, e);
+                sleepBeforeNextAttempt(attempt);
                 continue;
             }
-            int statusCode = response.getStatusLine().getStatusCode();
-            reasonPhrase = response.getStatusLine().getReasonPhrase();
-            if (statusCode == HTTP_TEMPORARY_REDIRECT) {
-                Header location = response.getFirstHeader("Location");
-                throw new DorisConnectorException(
-                        DorisConnectorErrorCode.STREAM_LOAD_FAILED,
-                        DorisRedirectExceptionBuilder.build(
-                                requestUrl,
-                                location == null ? null : location.getValue(),
-                                dorisSinkConfig.isDirectToBe(),
-                                dorisSinkConfig.getEnable2PC(),
-                                "commit"));
+            try (CloseableHttpResponse closeableResponse = response) {
+                int statusCode = closeableResponse.getStatusLine().getStatusCode();
+                reasonPhrase = closeableResponse.getStatusLine().getReasonPhrase();
+                if (statusCode == HTTP_TEMPORARY_REDIRECT) {
+                    Header location = closeableResponse.getFirstHeader("Location");
+                    throw new DorisConnectorException(
+                            DorisConnectorErrorCode.STREAM_LOAD_FAILED,
+                            DorisRedirectExceptionBuilder.build(
+                                    requestUrl,
+                                    location == null ? null : location.getValue(),
+                                    dorisSinkConfig.isDirectToBe(),
+                                    dorisSinkConfig.getEnable2PC(),
+                                    "commit"));
+                }
+                if (statusCode != HTTP_OK) {
+                    log.warn("commit failed with {}, reason {}", hostPort, reasonPhrase);
+                    sleepBeforeNextAttempt(attempt);
+                    continue;
+                }
+                handleCommitSuccess(committable, hostPort, closeableResponse);
+                return;
             }
-            if (statusCode != HTTP_OK) {
-                log.warn("commit failed with {}, reason {}", hostPort, reasonPhrase);
-                continue;
-            }
-            handleCommitSuccess(committable, hostPort, response);
-            return;
         }
 
         if (lastRedirectException != null) {
@@ -175,31 +189,38 @@ public class DorisCommitter implements SinkCommitter<DorisCommitInfo> {
             } catch (DorisConnectorException e) {
                 lastRedirectException = e;
                 log.error("abort transaction redirect follow-up failed on {}: ", hostPort, e);
+                sleepBeforeNextAttempt(attempt);
                 continue;
             } catch (IOException e) {
                 lastIOException = e;
                 log.error("abort transaction failed on {}: ", hostPort, e);
+                sleepBeforeNextAttempt(attempt);
                 continue;
             }
-            int statusCode = response.getStatusLine().getStatusCode();
-            responseStatus = response.getStatusLine().toString();
-            if (statusCode == HTTP_TEMPORARY_REDIRECT) {
-                Header location = response.getFirstHeader("Location");
-                throw new DorisConnectorException(
-                        DorisConnectorErrorCode.STREAM_LOAD_FAILED,
-                        DorisRedirectExceptionBuilder.build(
-                                requestUrl,
-                                location == null ? null : location.getValue(),
-                                dorisSinkConfig.isDirectToBe(),
-                                dorisSinkConfig.getEnable2PC(),
-                                "abort"));
+            try (CloseableHttpResponse closeableResponse = response) {
+                int statusCode = closeableResponse.getStatusLine().getStatusCode();
+                responseStatus = closeableResponse.getStatusLine().toString();
+                if (statusCode == HTTP_TEMPORARY_REDIRECT) {
+                    Header location = closeableResponse.getFirstHeader("Location");
+                    throw new DorisConnectorException(
+                            DorisConnectorErrorCode.STREAM_LOAD_FAILED,
+                            DorisRedirectExceptionBuilder.build(
+                                    requestUrl,
+                                    location == null ? null : location.getValue(),
+                                    dorisSinkConfig.isDirectToBe(),
+                                    dorisSinkConfig.getEnable2PC(),
+                                    "abort"));
+                }
+                if (statusCode != HTTP_OK || closeableResponse.getEntity() == null) {
+                    log.warn(
+                            "abort transaction response: {}",
+                            closeableResponse.getStatusLine().toString());
+                    sleepBeforeNextAttempt(attempt);
+                    continue;
+                }
+                handleAbortSuccess(committable, closeableResponse);
+                return;
             }
-            if (statusCode != HTTP_OK || response.getEntity() == null) {
-                log.warn("abort transaction response: {}", response.getStatusLine().toString());
-                continue;
-            }
-            handleAbortSuccess(committable, response);
-            return;
         }
         if (lastRedirectException != null) {
             throw lastRedirectException;
@@ -240,6 +261,22 @@ public class DorisCommitter implements SinkCommitter<DorisCommitInfo> {
         }
     }
 
+    private void sleepBeforeNextAttempt(int attempt) throws IOException {
+        if (attempt < maxRetry) {
+            retrySleeper.sleep(attempt + 1);
+        }
+    }
+
+    private static void sleepBeforeRetry(int retry) throws IOException {
+        try {
+            int shift = Math.min(Math.max(retry - 1, 0), 4);
+            Thread.sleep(1000L * (1L << shift));
+        } catch (InterruptedException ie) {
+            Thread.currentThread().interrupt();
+            throw new IOException("Interrupted during Doris retry backoff", ie);
+        }
+    }
+
     private void handleAbortSuccess(DorisCommitInfo committable, CloseableHttpResponse response)
             throws IOException {
         ObjectMapper mapper = new ObjectMapper();
@@ -268,5 +305,10 @@ public class DorisCommitter implements SinkCommitter<DorisCommitInfo> {
                 .filter(host -> !host.equals(preferredHostPort))
                 .forEach(hosts::add);
         return hosts;
+    }
+
+    @FunctionalInterface
+    interface RetrySleeper {
+        void sleep(int retry) throws IOException;
     }
 }

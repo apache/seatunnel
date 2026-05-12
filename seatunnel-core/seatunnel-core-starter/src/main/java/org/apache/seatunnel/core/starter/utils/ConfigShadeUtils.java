@@ -146,6 +146,23 @@ public final class ConfigShadeUtils {
     @SuppressWarnings("unchecked")
     private static Config processConfig(
             String identifier, Config config, boolean isDecrypted, Map<String, Object> props) {
+        String jsonString = config.root().render(ConfigRenderOptions.concise());
+        ObjectNode jsonNodes = JsonUtils.parseObject(jsonString);
+        Map<String, Object> configMap = JsonUtils.toMap(jsonNodes);
+
+        List<Map<String, Object>> sources =
+                (List<Map<String, Object>>) configMap.get(Constants.SOURCE);
+        List<Map<String, Object>> sinks = (List<Map<String, Object>>) configMap.get(Constants.SINK);
+        List<Map<String, Object>> transforms =
+                (List<Map<String, Object>>)
+                        configMap.getOrDefault(Constants.TRANSFORM, new ArrayList<>());
+
+        Preconditions.checkArgument(
+                sources != null && !sources.isEmpty(),
+                "Miss <Source> config! Please check the config file.");
+        Preconditions.checkArgument(
+                sinks != null && !sinks.isEmpty(),
+                "Miss <Sink> config! Please check the config file.");
         try {
             ConfigShade configShade = CONFIG_SHADES.getOrDefault(identifier, DEFAULT_SHADE);
             // call open method before the encrypt/decrypt
@@ -171,20 +188,7 @@ public final class ConfigShadeUtils {
                                     : configShade.encrypt((String) value);
                         }
                     };
-            String jsonString = config.root().render(ConfigRenderOptions.concise());
-            ObjectNode jsonNodes = JsonUtils.parseObject(jsonString);
-            Map<String, Object> configMap = JsonUtils.toMap(jsonNodes);
-            List<Map<String, Object>> sources =
-                    (ArrayList<Map<String, Object>>) configMap.get(Constants.SOURCE);
-            List<Map<String, Object>> sinks =
-                    (ArrayList<Map<String, Object>>) configMap.get(Constants.SINK);
-            List<Map<String, Object>> transforms =
-                    (ArrayList<Map<String, Object>>)
-                            configMap.getOrDefault(Constants.TRANSFORM, new ArrayList<>());
-            Preconditions.checkArgument(
-                    !sources.isEmpty(), "Miss <Source> config! Please check the config file.");
-            Preconditions.checkArgument(
-                    !sinks.isEmpty(), "Miss <Sink> config! Please check the config file.");
+
             sources.forEach(
                     source -> {
                         for (String sensitiveOption : sensitiveOptions) {

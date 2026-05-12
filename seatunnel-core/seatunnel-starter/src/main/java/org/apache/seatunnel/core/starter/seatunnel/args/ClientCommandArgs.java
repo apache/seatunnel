@@ -23,6 +23,7 @@ import org.apache.seatunnel.core.starter.command.AbstractCommandArgs;
 import org.apache.seatunnel.core.starter.command.Command;
 import org.apache.seatunnel.core.starter.command.ConfDecryptCommand;
 import org.apache.seatunnel.core.starter.command.ConfEncryptCommand;
+import org.apache.seatunnel.core.starter.enums.DryRun;
 import org.apache.seatunnel.core.starter.enums.MasterType;
 import org.apache.seatunnel.core.starter.seatunnel.command.ClientExecuteCommand;
 import org.apache.seatunnel.core.starter.seatunnel.command.SeaTunnelConfValidateCommand;
@@ -41,6 +42,14 @@ import java.util.List;
 @EqualsAndHashCode(callSuper = true)
 @Data
 public class ClientCommandArgs extends AbstractCommandArgs {
+
+    @Parameter(
+            names = {"-d", "--dry-run"},
+            description =
+                    "Static config validation without running the job. Currently only [static] is supported.",
+            converter = DryRunConverter.class)
+    protected DryRun dryRun = null;
+
     @Parameter(
             names = {"-m", "--master", "-e", "--deploy-mode"},
             description = "SeaTunnel job submit master, support [local, cluster]",
@@ -139,7 +148,7 @@ public class ClientCommandArgs extends AbstractCommandArgs {
     @Override
     public Command<?> buildCommand() {
         Common.setDeployMode(getDeployMode());
-        if (checkConfig) {
+        if (checkConfig || (dryRun != null && dryRun == DryRun.STATIC)) {
             return new SeaTunnelConfValidateCommand(this);
         }
         if (encrypt) {
@@ -153,6 +162,25 @@ public class ClientCommandArgs extends AbstractCommandArgs {
 
     public DeployMode getDeployMode() {
         return DeployMode.CLIENT;
+    }
+
+    public static class DryRunConverter implements IStringConverter<DryRun> {
+        @Override
+        public DryRun convert(String value) {
+            if (value == null || value.trim().isEmpty()) {
+                throw new IllegalArgumentException("Dry-run mode must not be empty.");
+            }
+            String trimmed = value.trim();
+            if (DryRun.STATIC.getName().equalsIgnoreCase(trimmed)
+                    || DryRun.STATIC.name().equalsIgnoreCase(trimmed)) {
+                return DryRun.STATIC;
+            }
+            throw new IllegalArgumentException(
+                    "Unsupported dry-run mode '"
+                            + value
+                            + "'. Currently only [static] is supported; connect, sample, and shadow"
+                            + " are not implemented yet.");
+        }
     }
 
     public static class SeaTunnelMasterTargetConverter implements IStringConverter<MasterType> {

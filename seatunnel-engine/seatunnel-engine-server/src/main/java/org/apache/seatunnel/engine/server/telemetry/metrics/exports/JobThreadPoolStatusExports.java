@@ -39,7 +39,8 @@ public class JobThreadPoolStatusExports extends AbstractCollector {
     @Override
     public List<MetricFamilySamples> collect() {
         List<MetricFamilySamples> mfs = new ArrayList();
-        if (isMaster()) {
+        // Only report metrics when the local node is master and in READY state.
+        if (isMaster() && isCoordinatorReady()) {
             ThreadPoolStatus threadPoolStatusMetrics = getServer().getThreadPoolStatusMetrics();
             List<String> labelNames = clusterLabelNames(ADDRESS, "type");
 

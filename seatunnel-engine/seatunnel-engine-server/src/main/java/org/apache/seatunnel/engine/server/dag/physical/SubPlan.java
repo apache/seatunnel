@@ -342,6 +342,13 @@ public class SubPlan {
     public synchronized void updatePipelineState(@NonNull PipelineStatus targetState) {
         try {
             PipelineStatus current = (PipelineStatus) runningJobStateIMap.get(pipelineLocation);
+            if (current == null) {
+                log.warn(
+                        "{} current state is null, skip transition to {}",
+                        pipelineFullName,
+                        targetState);
+                return;
+            }
             log.debug(
                     String.format(
                             "Try to update the %s state from %s to %s",
@@ -369,7 +376,9 @@ public class SubPlan {
             RetryUtils.retryWithException(
                     () -> {
                         updateStateTimestamps(finalTargetState);
-                        runningJobStateIMap.set(pipelineLocation, finalTargetState);
+                        if (runningJobStateIMap.get(pipelineLocation) != null) {
+                            runningJobStateIMap.set(pipelineLocation, finalTargetState);
+                        }
                         return null;
                     },
                     new RetryUtils.RetryMaterial(
@@ -426,6 +435,13 @@ public class SubPlan {
         // we must update runningJobStateTimestampsIMap first and then can update
         // runningJobStateIMap
         Long[] stateTimestamps = runningJobStateTimestampsIMap.get(pipelineLocation);
+        if (stateTimestamps == null) {
+            log.warn(
+                    "{} state timestamps have already been cleaned, skip persisting transition to {}",
+                    pipelineFullName,
+                    targetState);
+            return;
+        }
         stateTimestamps[targetState.ordinal()] = System.currentTimeMillis();
         runningJobStateTimestampsIMap.set(pipelineLocation, stateTimestamps);
     }

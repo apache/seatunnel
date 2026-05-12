@@ -27,6 +27,7 @@ import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 
+import com.hazelcast.internal.json.JsonObject;
 import com.hazelcast.spi.impl.NodeEngineImpl;
 
 import java.lang.reflect.Method;
@@ -380,23 +381,25 @@ public class BaseServiceTableMetricsTest {
     }
 
     @Test
-    public void testMetricsToJsonObjectForSpecialNumber() {
-        // test double
-        Double doubleNumber = 85210718.2630262;
-        String doubleNumberStr = doubleNumber.toString();
-        Assertions.assertTrue(doubleNumberStr.contains("E"));
-        Assertions.assertEquals(
-                new BigDecimal(doubleNumber.toString()).toPlainString(), "85210718.2630262");
-        // test float
-        Float floatNumber = 85210718.263026f;
-        String floatNumberStr = floatNumber.toString();
-        Assertions.assertTrue(floatNumberStr.contains("E"));
-        Assertions.assertFalse(
-                new BigDecimal(floatNumber.toString()).toPlainString().contains("E"));
-        // test BigDecimal
-        BigDecimal bigDecimalNumber = new BigDecimal("85210718.2630262");
-        Assertions.assertEquals(
-                new BigDecimal(bigDecimalNumber.toString()).toPlainString(), "85210718.2630262");
+    public void testMetricsToJsonObjectConvertsLargeNumbersToPlainString() throws Exception {
+        Double doubleValue = 85210718.2630262;
+        Assertions.assertTrue(doubleValue.toString().contains("E"));
+
+        Method metricsToJsonObjectMethod =
+                BaseService.class.getDeclaredMethod("metricsToJsonObject", Map.class);
+        metricsToJsonObjectMethod.setAccessible(true);
+
+        Map<String, Object> metricsMap = new HashMap<>();
+        metricsMap.put("SourceReceivedQPS", 85210718.2630262);
+        metricsMap.put("SinkWriteQPS", 99999999.999);
+        metricsMap.put("FloatValue", 85210718.263026f);
+        metricsMap.put("LongValue", 123456789L);
+        metricsMap.put("BigDecimalValue", new BigDecimal("6.752132322232343E7"));
+
+        JsonObject result =
+                (JsonObject) metricsToJsonObjectMethod.invoke(jobInfoService, metricsMap);
+        String jsonString = result.toString();
+        Assertions.assertFalse(jsonString.contains("E"));
     }
 
     private JobDAGInfo createDAGInfoWithMultipleSinks() {
