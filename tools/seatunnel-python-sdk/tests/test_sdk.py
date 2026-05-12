@@ -81,6 +81,36 @@ class SeaTunnelSdkTest(unittest.TestCase):
         self.assertEqual("http://localhost:8080/overview", url)
         self.assertEqual({"jobId": "12345", "pipelineId": "daily"}, kwargs["params"])
 
+    def test_get_logs_without_job_id_keeps_base_logs_endpoint(self):
+        response = httpx.Response(
+            200,
+            json={"logs": []},
+            request=httpx.Request("GET", "http://localhost:8080/logs"),
+        )
+        session = RecordingSession(response=response)
+        sdk = self.create_client(session)
+
+        sdk.cluster.get_logs()
+
+        _, url, kwargs = session.calls[0]
+        self.assertEqual("http://localhost:8080/logs", url)
+        self.assertEqual({"format": "json"}, kwargs["params"])
+
+    def test_get_logs_with_job_id_uses_path_segment_contract(self):
+        response = httpx.Response(
+            200,
+            json={"logs": []},
+            request=httpx.Request("GET", "http://localhost:8080/logs/733584788375666689"),
+        )
+        session = RecordingSession(response=response)
+        sdk = self.create_client(session)
+
+        sdk.cluster.get_logs(jobId=733584788375666689)
+
+        _, url, kwargs = session.calls[0]
+        self.assertEqual("http://localhost:8080/logs/733584788375666689", url)
+        self.assertEqual({"format": "json"}, kwargs["params"])
+
     def test_http_status_error_uses_response_message_and_preserves_cause(self):
         response = httpx.Response(
             400,

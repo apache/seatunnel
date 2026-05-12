@@ -47,6 +47,6 @@ class ClusterApi:
         """
         Get Logs from All Nodes
         """
-        return self.client.request(
-            HttpMethod.GET, "/logs", params={"jobId": jobId, "format": "json"}
-        )
+        # The current REST servlet reads the job filter from `/logs/{jobId}`.
+        path = "/logs" if jobId is None else f"/logs/{jobId}"
+        return self.client.request(HttpMethod.GET, path, params={"format": "json"})
