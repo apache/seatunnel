@@ -100,7 +100,9 @@ public abstract class AbstractSeaTunnelServerTest<T extends AbstractSeaTunnelSer
     }
 
     public SeaTunnelConfig loadSeaTunnelConfig() {
-        return ConfigProvider.locateAndGetSeaTunnelConfig();
+        SeaTunnelConfig seaTunnelConfig = ConfigProvider.locateAndGetSeaTunnelConfig();
+        seaTunnelConfig.getEngineConfig().setStateCleanupDelayMillis(0L);
+        return seaTunnelConfig;
     }
 
     protected void startJob(Long jobId, String path, boolean isStartWithSavePoint) {

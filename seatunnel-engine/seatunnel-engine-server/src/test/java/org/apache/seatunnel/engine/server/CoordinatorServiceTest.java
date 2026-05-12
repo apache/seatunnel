@@ -39,6 +39,7 @@ import org.apache.seatunnel.engine.server.master.JobMaster;
 import org.apache.seatunnel.engine.server.metrics.SeaTunnelMetricsContext;
 import org.apache.seatunnel.engine.server.operation.PrintMessageOperation;
 import org.apache.seatunnel.engine.server.operation.ReturnRetryTimesOperation;
+import org.apache.seatunnel.engine.server.operation.SubmitJobOperation;
 import org.apache.seatunnel.engine.server.resourcemanager.resource.SlotProfile;
 import org.apache.seatunnel.engine.server.task.operation.ReportMetricsOperation;
 import org.apache.seatunnel.engine.server.utils.NodeEngineUtil;
@@ -57,6 +58,7 @@ import com.hazelcast.spi.exception.RetryableHazelcastException;
 import com.hazelcast.spi.impl.NodeEngineImpl;
 import lombok.extern.slf4j.Slf4j;
 
+import java.lang.reflect.Field;
 import java.lang.reflect.Method;
 import java.nio.file.Path;
 import java.nio.file.Paths;
@@ -73,6 +75,7 @@ import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
 import java.util.concurrent.TimeUnit;
 
+import static org.apache.seatunnel.engine.core.classloader.DefaultClassLoaderService.SKIP_CHECK_JAR;
 import static org.awaitility.Awaitility.await;
 import static org.mockito.Mockito.doThrow;
 
@@ -660,6 +663,56 @@ public class CoordinatorServiceTest {
     }
 
     @Test
+    @SetEnvironmentVariable(key = SKIP_CHECK_JAR, value = "true")
+    void testSubmitJobOperationCanCompleteOnHazelcastOperationThread() {
+        String clusterName =
+                TestUtils.getClusterName(
+                        "CoordinatorServiceTest_testSubmitJobOperationCanCompleteOnHazelcastOperationThread");
+        HazelcastInstanceImpl instance =
+                SeaTunnelServerStarter.createHazelcastInstance(clusterName);
+        try {
+            SeaTunnelServer server =
+                    instance.node.getNodeEngine().getService(SeaTunnelServer.SERVICE_NAME);
+            Long jobId = instance.getFlakeIdGenerator(Constant.SEATUNNEL_ID_GENERATOR_NAME).newId();
+            LogicalDag testLogicalDag =
+                    TestUtils.createTestLogicalPlan(
+                            "batch_fake_to_console.conf",
+                            "test_submit_job_operation_can_complete",
+                            jobId);
+
+            JobImmutableInformation jobImmutableInformation =
+                    new JobImmutableInformation(
+                            jobId,
+                            "Test",
+                            instance.getSerializationService(),
+                            testLogicalDag,
+                            Collections.emptyList(),
+                            Collections.emptyList());
+
+            Data data = instance.getSerializationService().toData(jobImmutableInformation);
+
+            Assertions.assertDoesNotThrow(
+                    () ->
+                            NodeEngineUtil.sendOperationToMasterNode(
+                                            instance.node.getNodeEngine(),
+                                            new SubmitJobOperation(
+                                                    jobId,
+                                                    data,
+                                                    jobImmutableInformation.isStartWithSavePoint()))
+                                    .join());
+
+            await().atMost(10000, TimeUnit.MILLISECONDS)
+                    .untilAsserted(
+                            () ->
+                                    Assertions.assertNotEquals(
+                                            JobStatus.PENDING,
+                                            server.getCoordinatorService().getJobStatus(jobId)));
+        } finally {
+            instance.shutdown();
+        }
+    }
+
+    @Test
     void testGetPendingJobInfo() {
         JobInformation jobInformation =
                 submitJob(
@@ -671,6 +724,27 @@ public class CoordinatorServiceTest {
         Long jobId = jobInformation.jobId;
 
         Assertions.assertTrue(coordinatorService.getPendingJobQueue().contains(jobId));
+
+        JobDAGInfo jobDAGInfo =
+                Assertions.assertDoesNotThrow(() -> coordinatorService.getJobInfo(jobId));
+        Assertions.assertEquals(jobId, jobDAGInfo.getJobId());
+
+        jobInformation.coordinatorServiceTest.shutdown();
+    }
+
+    @Test
+    void testGetJobInfoFallsBackToRunningJobInfo() throws Exception {
+        JobInformation jobInformation =
+                submitJob(
+                        "CoordinatorServiceTest_testGetJobInfoFallsBackToRunningJobInfo",
+                        "batch_fake_to_console.conf",
+                        "test_get_job_info_running_job_info_fallback");
+
+        CoordinatorService coordinatorService = jobInformation.coordinatorService;
+        Long jobId = jobInformation.jobId;
+
+        coordinatorService.getPendingJobQueue().removeById(jobId);
+        getRunningJobMasterMap(coordinatorService).remove(jobId);
 
         JobDAGInfo jobDAGInfo =
                 Assertions.assertDoesNotThrow(() -> coordinatorService.getJobInfo(jobId));
@@ -731,6 +805,14 @@ public class CoordinatorServiceTest {
                 .submitJob(jobId, data, jobImmutableInformation.isStartWithSavePoint())
                 .join();
         return new JobInformation(coordinatorServiceTest, coordinatorService, jobId);
+    }
+
+    @SuppressWarnings("unchecked")
+    private Map<Long, JobMaster> getRunningJobMasterMap(CoordinatorService coordinatorService)
+            throws Exception {
+        Field field = CoordinatorService.class.getDeclaredField("runningJobMasterMap");
+        field.setAccessible(true);
+        return (Map<Long, JobMaster>) field.get(coordinatorService);
     }
 
     private void invokeRestoreJobFromMasterActiveSwitch(

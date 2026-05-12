@@ -33,6 +33,7 @@ import org.apache.seatunnel.engine.core.job.JobInfo;
 import org.apache.seatunnel.engine.server.SeaTunnelServer;
 import org.apache.seatunnel.engine.server.master.JobHistoryService.JobState;
 import org.apache.seatunnel.engine.server.operation.GetJobMetricsOperation;
+import org.apache.seatunnel.engine.server.operation.GetJobStatusOperation;
 import org.apache.seatunnel.engine.server.rest.ConfigFormat;
 import org.apache.seatunnel.engine.server.rest.RestConstant;
 import org.apache.seatunnel.engine.server.utils.NodeEngineUtil;
@@ -157,7 +158,9 @@ public class JobInfoService extends BaseService {
 
     public JsonArray getRunningJobsJson() {
         IMap<Long, JobInfo> values = getRunningJobInfoMap();
+        SeaTunnelServer seaTunnelServer = getSeaTunnelServer(true);
         return values.entrySet().stream()
+                .filter(entry -> shouldShowAsRunningJob(seaTunnelServer, entry.getKey()))
                 .sorted(
                         Comparator.comparing(
                                 entry -> entry.getValue().getInitializationTimestamp(),
@@ -175,6 +178,7 @@ public class JobInfoService extends BaseService {
         long startNs = System.nanoTime();
         IMap<Long, JobInfo> values = getRunningJobInfoMap();
         IMap<Object, Object> jobStateMap = getRunningJobStateMap();
+        SeaTunnelServer seaTunnelServer = getSeaTunnelServer(true);
 
         long decodeTotalNs = 0L;
         JsonArray out = new JsonArray();
@@ -183,6 +187,9 @@ public class JobInfoService extends BaseService {
         for (Map.Entry<Long, JobInfo> entry : values.entrySet()) {
             long jobId = entry.getKey();
             JobInfo jobInfo = entry.getValue();
+            if (!shouldShowAsRunningJob(seaTunnelServer, jobId)) {
+                continue;
+            }
             jobIds.add(jobId);
 
             long decodeStartNs = System.nanoTime();
@@ -325,6 +332,19 @@ public class JobInfoService extends BaseService {
             this.jobName = jobName;
             this.createTime = createTime;
         }
+    }
+
+    private boolean shouldShowAsRunningJob(SeaTunnelServer seaTunnelServer, long jobId) {
+        if (seaTunnelServer != null) {
+            return seaTunnelServer.getCoordinatorService().shouldShowAsRunningJob(jobId);
+        }
+        Integer statusOrdinal =
+                (Integer)
+                        NodeEngineUtil.sendOperationToMasterNode(
+                                        nodeEngine, new GetJobStatusOperation(jobId))
+                                .join();
+        JobStatus status = JobStatus.values()[statusOrdinal];
+        return !status.isEndState();
     }
 
     public JsonObject stopJob(byte[] requestBody) {
