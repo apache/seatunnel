@@ -55,9 +55,8 @@ public class SqliteDialect implements JdbcDialect {
                         .map(
                                 fieldName ->
                                         quoteIdentifier(fieldName)
-                                                + "=VALUES("
-                                                + quoteIdentifier(fieldName)
-                                                + ")")
+                                                + "=EXCLUDED."
+                                                + quoteIdentifier(fieldName))
                         .collect(Collectors.joining(", "));
 
         String conflictFields =
