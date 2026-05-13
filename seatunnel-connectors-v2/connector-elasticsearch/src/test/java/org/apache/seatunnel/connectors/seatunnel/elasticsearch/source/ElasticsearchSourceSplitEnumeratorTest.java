@@ -28,6 +28,8 @@ import org.junit.jupiter.api.Test;
 import java.lang.reflect.Method;
 import java.util.ArrayList;
 import java.util.Collections;
+import java.util.HashMap;
+import java.util.LinkedHashSet;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
@@ -56,6 +58,22 @@ public class ElasticsearchSourceSplitEnumeratorTest {
         Assertions.assertEquals(2, pendingSplits.get(3).size());
     }
 
+    @Test
+    public void shouldReassignReturnedSplitsToOriginalReader() throws Exception {
+        TestingContext context = new TestingContext(3);
+        ElasticsearchSourceSplitEnumerator enumerator =
+                new ElasticsearchSourceSplitEnumerator(context, null, Collections.emptyList());
+
+        enumerator.addSplitsBack(buildSplits(3), 2);
+
+        Assertions.assertEquals(0, context.getAssignedSplitCount(0));
+        Assertions.assertEquals(0, context.getAssignedSplitCount(1));
+        Assertions.assertEquals(3, context.getAssignedSplitCount(2));
+
+        ElasticsearchSourceState state = enumerator.snapshotState(1L);
+        Assertions.assertTrue(state.getPendingSplit().isEmpty());
+    }
+
     private List<ElasticsearchSourceSplit> buildSplits(int size) {
         List<ElasticsearchSourceSplit> splits = new ArrayList<>();
         for (int i = 0; i < size; i++) {
@@ -67,9 +85,15 @@ public class ElasticsearchSourceSplitEnumeratorTest {
     private static class TestingContext
             implements SourceSplitEnumerator.Context<ElasticsearchSourceSplit> {
         private final int parallelism;
+        private final Set<Integer> readers;
+        private final Map<Integer, List<ElasticsearchSourceSplit>> assignments = new HashMap<>();
 
         private TestingContext(int parallelism) {
             this.parallelism = parallelism;
+            this.readers = new LinkedHashSet<>();
+            for (int i = 0; i < parallelism; i++) {
+                readers.add(i);
+            }
         }
 
         @Override
@@ -79,11 +103,13 @@ public class ElasticsearchSourceSplitEnumeratorTest {
 
         @Override
         public Set<Integer> registeredReaders() {
-            return Collections.emptySet();
+            return readers;
         }
 
         @Override
-        public void assignSplit(int subtaskId, List<ElasticsearchSourceSplit> splits) {}
+        public void assignSplit(int subtaskId, List<ElasticsearchSourceSplit> splits) {
+            assignments.computeIfAbsent(subtaskId, ignored -> new ArrayList<>()).addAll(splits);
+        }
 
         @Override
         public void signalNoMoreSplits(int subtask) {}
@@ -99,6 +125,10 @@ public class ElasticsearchSourceSplitEnumeratorTest {
         @Override
         public EventListener getEventListener() {
             return null;
+        }
+
+        private int getAssignedSplitCount(int subtaskId) {
+            return assignments.getOrDefault(subtaskId, Collections.emptyList()).size();
         }
     }
 }

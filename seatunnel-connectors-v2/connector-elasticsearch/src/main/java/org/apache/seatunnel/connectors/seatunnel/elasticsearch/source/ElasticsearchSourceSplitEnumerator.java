@@ -121,6 +121,10 @@ public class ElasticsearchSourceSplitEnumerator
         }
     }
 
+    private void addPendingSplit(Collection<ElasticsearchSourceSplit> splits, int ownerReader) {
+        pendingSplit.computeIfAbsent(ownerReader, r -> new ArrayList<>()).addAll(splits);
+    }
+
     private static int getSplitOwner(int assignCount, int numReaders) {
         return assignCount % numReaders;
     }
@@ -176,7 +180,7 @@ public class ElasticsearchSourceSplitEnumerator
     @Override
     public void addSplitsBack(List<ElasticsearchSourceSplit> splits, int subtaskId) {
         if (!splits.isEmpty()) {
-            addPendingSplit(splits);
+            addPendingSplit(splits, subtaskId);
             assignSplit(Collections.singletonList(subtaskId));
         }
     }
