@@ -60,6 +60,7 @@ public class MilvusSourceSplitEnumerator
     private final Map<Integer, List<MilvusSourceSplit>> pendingSplits;
     private final Object stateLock = new Object();
     private MilvusClient client = null;
+    // Keeps round-robin assignment global across collections and restore.
     private final AtomicInteger assignCount = new AtomicInteger(0);
 
     private final ReadonlyConfig config;
@@ -78,6 +79,7 @@ public class MilvusSourceSplitEnumerator
         } else {
             this.pendingTables = new ConcurrentLinkedQueue<>(sourceState.getPendingTables());
             this.pendingSplits = new HashMap<>(sourceState.getPendingSplits());
+            this.assignCount.set(sourceState.getAssignCount());
         }
     }
 
@@ -251,7 +253,9 @@ public class MilvusSourceSplitEnumerator
     public MilvusSourceState snapshotState(long checkpointId) throws Exception {
         synchronized (stateLock) {
             return new MilvusSourceState(
-                    new ArrayList(pendingTables), new HashMap<>(pendingSplits));
+                    new ArrayList<>(pendingTables),
+                    new HashMap<>(pendingSplits),
+                    assignCount.get());
         }
     }
 

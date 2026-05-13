@@ -99,6 +99,27 @@ public class MilvusSourceSplitEnumeratorTest {
         Assertions.assertEquals(1, context.getAssignmentSize(2));
     }
 
+    @Test
+    public void shouldContinueRoundRobinAfterRestore() throws Exception {
+        TestingContext context = new TestingContext(3);
+        TablePath remainingTable = TablePath.of("db", null, "collection_after_restore");
+        Map<TablePath, CatalogTable> tables = new LinkedHashMap<>();
+        tables.put(remainingTable, createCatalogTable(remainingTable));
+
+        MilvusSourceState restoredState =
+                new MilvusSourceState(
+                        Collections.singletonList(remainingTable), new HashMap<>(), 1);
+        MilvusSourceSplitEnumerator enumerator =
+                new MilvusSourceSplitEnumerator(context, null, tables, restoredState);
+        setClient(enumerator, mockSingleSplitMilvusClient());
+
+        enumerator.run();
+
+        Assertions.assertEquals(0, context.getAssignmentSize(0));
+        Assertions.assertEquals(1, context.getAssignmentSize(1));
+        Assertions.assertEquals(0, context.getAssignmentSize(2));
+    }
+
     private List<MilvusSourceSplit> buildSplits(int size) {
         List<MilvusSourceSplit> splits = new ArrayList<>();
         for (int i = 0; i < size; i++) {
