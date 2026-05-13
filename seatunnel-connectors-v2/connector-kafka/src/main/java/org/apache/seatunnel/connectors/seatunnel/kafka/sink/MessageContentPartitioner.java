@@ -25,11 +25,10 @@ import java.util.List;
 import java.util.Map;
 
 public class MessageContentPartitioner implements Partitioner {
-    private static List<String> ASSIGNPARTITIONS;
 
-    public static void setAssignPartitions(List<String> assignPartitionList) {
-        ASSIGNPARTITIONS = assignPartitionList;
-    }
+    public static final String ASSIGN_PARTITIONS_CONFIG = "assign.partitions";
+
+    private List<String> assignPartitions;
 
     @Override
     public int partition(
@@ -42,10 +41,10 @@ public class MessageContentPartitioner implements Partitioner {
         List<PartitionInfo> partitions = cluster.partitionsForTopic(topic);
         int numPartitions = partitions.size();
 
-        int assignPartitionsSize = ASSIGNPARTITIONS.size();
+        int assignPartitionsSize = assignPartitions.size();
         String message = new String(valueBytes);
         for (int i = 0; i < assignPartitionsSize; i++) {
-            if (message.contains(ASSIGNPARTITIONS.get(i))) {
+            if (message.contains(assignPartitions.get(i))) {
                 return i;
             }
         }
@@ -57,6 +56,9 @@ public class MessageContentPartitioner implements Partitioner {
     @Override
     public void close() {}
 
+    @SuppressWarnings("unchecked")
     @Override
-    public void configure(Map<String, ?> map) {}
+    public void configure(Map<String, ?> configs) {
+        this.assignPartitions = (List<String>) configs.get(ASSIGN_PARTITIONS_CONFIG);
+    }
 }
