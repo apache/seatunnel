@@ -113,7 +113,6 @@ public class ElasticsearchSourceSplitEnumerator
                         .sorted(Comparator.comparing(ElasticsearchSourceSplit::splitId))
                         .collect(Collectors.toList());
 
-        assignCount.set(0);
         for (ElasticsearchSourceSplit split : sortedSplits) {
             int ownerReader = getSplitOwner(assignCount.getAndIncrement(), readerCount);
             log.info("Assigning {} to {} reader.", split, ownerReader);
