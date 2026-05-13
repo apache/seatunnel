@@ -17,10 +17,7 @@
 
 package org.apache.seatunnel.connectors.seatunnel.starrocks.source;
 
-import org.apache.seatunnel.api.common.metrics.MetricsContext;
 import org.apache.seatunnel.api.configuration.ReadonlyConfig;
-import org.apache.seatunnel.api.event.EventListener;
-import org.apache.seatunnel.api.source.SourceEvent;
 import org.apache.seatunnel.api.source.SourceSplitEnumerator;
 import org.apache.seatunnel.connectors.seatunnel.starrocks.config.SourceConfig;
 
@@ -34,12 +31,22 @@ import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
+import java.util.concurrent.ConcurrentLinkedQueue;
+
+import static org.mockito.ArgumentMatchers.anyInt;
+import static org.mockito.ArgumentMatchers.anyList;
+import static org.mockito.Mockito.doAnswer;
+import static org.mockito.Mockito.doReturn;
+import static org.mockito.Mockito.mock;
+import static org.mockito.Mockito.spy;
+import static org.mockito.Mockito.when;
 
 public class StarRocksSourceSplitEnumeratorTest {
 
     @Test
     public void shouldBalanceSplitsEvenlyAcrossReaders() throws Exception {
-        TestingContext context = new TestingContext(4);
+        Map<Integer, List<StarRocksSourceSplit>> assignments = new HashMap<>();
+        SourceSplitEnumerator.Context<StarRocksSourceSplit> context = createContext(4, assignments);
         StartRocksSourceSplitEnumerator enumerator =
                 new StartRocksSourceSplitEnumerator(
                         context, new SourceConfig(ReadonlyConfig.fromMap(configMap())));
@@ -60,6 +67,89 @@ public class StarRocksSourceSplitEnumeratorTest {
         Assertions.assertEquals(2, pendingSplits.get(3).size());
     }
 
+    @Test
+    public void shouldBalanceSingleSplitTablesAcrossReadersInRun() {
+        Map<Integer, List<StarRocksSourceSplit>> assignments = new HashMap<>();
+        SourceSplitEnumerator.Context<StarRocksSourceSplit> context = createContext(3, assignments);
+        StartRocksSourceSplitEnumerator enumerator =
+                spy(
+                        new StartRocksSourceSplitEnumerator(
+                                context,
+                                new SourceConfig(ReadonlyConfig.fromMap(configMap())),
+                                new StarRocksSourceState(
+                                        new HashMap<>(),
+                                        new ConcurrentLinkedQueue<>(
+                                                new ArrayList<String>() {
+                                                    {
+                                                        add("table_0");
+                                                        add("table_1");
+                                                        add("table_2");
+                                                    }
+                                                }),
+                                        0)));
+
+        doReturn(Collections.singletonList(buildSplit("split-0")))
+                .when(enumerator)
+                .getStarRocksSourceSplit("table_0");
+        doReturn(Collections.singletonList(buildSplit("split-1")))
+                .when(enumerator)
+                .getStarRocksSourceSplit("table_1");
+        doReturn(Collections.singletonList(buildSplit("split-2")))
+                .when(enumerator)
+                .getStarRocksSourceSplit("table_2");
+
+        enumerator.run();
+
+        Assertions.assertEquals(1, getAssignedSplitCount(assignments, 0));
+        Assertions.assertEquals(1, getAssignedSplitCount(assignments, 1));
+        Assertions.assertEquals(1, getAssignedSplitCount(assignments, 2));
+    }
+
+    @Test
+    public void shouldReassignReturnedSplitsToOriginalReader() {
+        Map<Integer, List<StarRocksSourceSplit>> assignments = new HashMap<>();
+        SourceSplitEnumerator.Context<StarRocksSourceSplit> context = createContext(3, assignments);
+        StartRocksSourceSplitEnumerator enumerator =
+                new StartRocksSourceSplitEnumerator(
+                        context, new SourceConfig(ReadonlyConfig.fromMap(configMap())));
+
+        enumerator.addSplitsBack(buildSplits(3), 2);
+
+        Assertions.assertEquals(0, getAssignedSplitCount(assignments, 0));
+        Assertions.assertEquals(0, getAssignedSplitCount(assignments, 1));
+        Assertions.assertEquals(3, getAssignedSplitCount(assignments, 2));
+
+        StarRocksSourceState state = enumerator.snapshotState(1L);
+        Assertions.assertTrue(state.getPendingSplit().isEmpty());
+    }
+
+    @Test
+    public void shouldContinueRoundRobinAfterRestore() {
+        Map<Integer, List<StarRocksSourceSplit>> assignments = new HashMap<>();
+        SourceSplitEnumerator.Context<StarRocksSourceSplit> context = createContext(3, assignments);
+        String remainingTable = "table_after_restore";
+        StartRocksSourceSplitEnumerator enumerator =
+                spy(
+                        new StartRocksSourceSplitEnumerator(
+                                context,
+                                new SourceConfig(ReadonlyConfig.fromMap(configMap())),
+                                new StarRocksSourceState(
+                                        new HashMap<>(),
+                                        new ConcurrentLinkedQueue<>(
+                                                Collections.singletonList(remainingTable)),
+                                        1)));
+
+        doReturn(Collections.singletonList(buildSplit("split-after-restore")))
+                .when(enumerator)
+                .getStarRocksSourceSplit(remainingTable);
+
+        enumerator.run();
+
+        Assertions.assertEquals(0, getAssignedSplitCount(assignments, 0));
+        Assertions.assertEquals(1, getAssignedSplitCount(assignments, 1));
+        Assertions.assertEquals(0, getAssignedSplitCount(assignments, 2));
+    }
+
     private Map<String, Object> configMap() {
         Map<String, Object> config = new HashMap<>();
         config.put("nodeUrls", Collections.singletonList("localhost:8030"));
@@ -74,46 +164,46 @@ public class StarRocksSourceSplitEnumeratorTest {
     private List<StarRocksSourceSplit> buildSplits(int size) {
         List<StarRocksSourceSplit> splits = new ArrayList<>();
         for (int i = 0; i < size; i++) {
-            splits.add(new StarRocksSourceSplit(null, "split-" + i));
+            splits.add(buildSplit("split-" + i));
         }
         return splits;
     }
 
-    private static class TestingContext
-            implements SourceSplitEnumerator.Context<StarRocksSourceSplit> {
-        private final int parallelism;
+    private StarRocksSourceSplit buildSplit(String splitId) {
+        return new StarRocksSourceSplit(null, splitId);
+    }
 
-        private TestingContext(int parallelism) {
-            this.parallelism = parallelism;
+    private SourceSplitEnumerator.Context<StarRocksSourceSplit> createContext(
+            int parallelism, Map<Integer, List<StarRocksSourceSplit>> assignments) {
+        @SuppressWarnings("unchecked")
+        SourceSplitEnumerator.Context<StarRocksSourceSplit> context =
+                mock(SourceSplitEnumerator.Context.class);
+        when(context.currentParallelism()).thenReturn(parallelism);
+        when(context.registeredReaders()).thenReturn(createReaders(parallelism));
+        doAnswer(
+                        invocation -> {
+                            int subtaskId = invocation.getArgument(0);
+                            List<StarRocksSourceSplit> splits = invocation.getArgument(1);
+                            assignments
+                                    .computeIfAbsent(subtaskId, ignored -> new ArrayList<>())
+                                    .addAll(splits);
+                            return null;
+                        })
+                .when(context)
+                .assignSplit(anyInt(), anyList());
+        return context;
+    }
+
+    private Set<Integer> createReaders(int parallelism) {
+        Set<Integer> readers = new java.util.LinkedHashSet<>();
+        for (int i = 0; i < parallelism; i++) {
+            readers.add(i);
         }
+        return readers;
+    }
 
-        @Override
-        public int currentParallelism() {
-            return parallelism;
-        }
-
-        @Override
-        public Set<Integer> registeredReaders() {
-            return Collections.emptySet();
-        }
-
-        @Override
-        public void assignSplit(int subtaskId, List<StarRocksSourceSplit> splits) {}
-
-        @Override
-        public void signalNoMoreSplits(int subtask) {}
-
-        @Override
-        public void sendEventToSourceReader(int subtaskId, SourceEvent event) {}
-
-        @Override
-        public MetricsContext getMetricsContext() {
-            return null;
-        }
-
-        @Override
-        public EventListener getEventListener() {
-            return null;
-        }
+    private int getAssignedSplitCount(
+            Map<Integer, List<StarRocksSourceSplit>> assignments, int subtaskId) {
+        return assignments.getOrDefault(subtaskId, Collections.emptyList()).size();
     }
 }

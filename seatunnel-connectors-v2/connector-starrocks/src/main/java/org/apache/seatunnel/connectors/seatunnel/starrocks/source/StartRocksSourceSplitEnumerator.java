@@ -48,6 +48,7 @@ public class StartRocksSourceSplitEnumerator
 
     private final Object stateLock = new Object();
     private final Context<StarRocksSourceSplit> context;
+    // Keeps round-robin assignment global across tables and restore.
     private final AtomicInteger assignCount = new AtomicInteger(0);
 
     public StartRocksSourceSplitEnumerator(
@@ -74,6 +75,7 @@ public class StartRocksSourceSplitEnumerator
         if (sourceState != null) {
             this.pendingSplit.putAll(sourceState.getPendingSplit());
             this.pendingTables.addAll(sourceState.getPendingTables());
+            this.assignCount.set(sourceState.getAssignCount());
         }
     }
 
@@ -102,7 +104,7 @@ public class StartRocksSourceSplitEnumerator
     public void addSplitsBack(List<StarRocksSourceSplit> splits, int subtaskId) {
         log.debug("Add back splits {} to StartRocksSourceSplitEnumerator.", splits);
         if (!splits.isEmpty()) {
-            addPendingSplit(splits);
+            addPendingSplit(splits, subtaskId);
             assignSplit(Collections.singletonList(subtaskId));
         }
     }
@@ -123,7 +125,7 @@ public class StartRocksSourceSplitEnumerator
     @Override
     public StarRocksSourceState snapshotState(long checkpointId) {
         synchronized (stateLock) {
-            return new StarRocksSourceState(pendingSplit, pendingTables);
+            return new StarRocksSourceState(pendingSplit, pendingTables, assignCount.get());
         }
     }
 
@@ -156,12 +158,15 @@ public class StartRocksSourceSplitEnumerator
                         .sorted(Comparator.comparing(StarRocksSourceSplit::getSplitId))
                         .collect(Collectors.toList());
 
-        assignCount.set(0);
         for (StarRocksSourceSplit split : sortedSplits) {
             int ownerReader = getSplitOwner(assignCount.getAndIncrement(), readerCount);
             log.info("Assigning {} to {} reader.", split.getSplitId(), ownerReader);
             pendingSplit.computeIfAbsent(ownerReader, r -> new ArrayList<>()).add(split);
         }
+    }
+
+    private void addPendingSplit(Collection<StarRocksSourceSplit> splits, int ownerReader) {
+        pendingSplit.computeIfAbsent(ownerReader, r -> new ArrayList<>()).addAll(splits);
     }
 
     private void assignSplit(Collection<Integer> readers) {
