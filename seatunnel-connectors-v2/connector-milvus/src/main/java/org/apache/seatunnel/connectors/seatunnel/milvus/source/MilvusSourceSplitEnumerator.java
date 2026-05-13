@@ -166,7 +166,7 @@ public class MilvusSourceSplitEnumerator
         return milvusSourceSplits;
     }
 
-    protected String createSplitId(TablePath tablePath, String index) {
+    private String createSplitId(TablePath tablePath, String index) {
         return String.format("%s-%s", tablePath, index);
     }
 
@@ -222,7 +222,7 @@ public class MilvusSourceSplitEnumerator
                         splits);
             }
         }
-        log.info("Add back splits {} to JdbcSourceSplitEnumerator.", splits.size());
+        log.info("Add back splits {} to MilvusSourceSplitEnumerator.", splits.size());
     }
 
     private void addPendingSplit(Collection<MilvusSourceSplit> splits, int ownerReader) {
