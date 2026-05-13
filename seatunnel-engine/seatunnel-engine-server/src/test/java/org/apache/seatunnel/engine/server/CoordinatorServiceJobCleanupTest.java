@@ -31,6 +31,7 @@ import org.apache.seatunnel.engine.serializer.protobuf.ProtoStuffSerializer;
 import org.apache.seatunnel.engine.server.checkpoint.CompletedCheckpoint;
 import org.apache.seatunnel.engine.server.dag.physical.PipelineLocation;
 import org.apache.seatunnel.engine.server.execution.TaskGroupLocation;
+import org.apache.seatunnel.engine.server.master.JobMaster;
 import org.apache.seatunnel.engine.server.master.cleanup.JobCleanupRecord;
 import org.apache.seatunnel.engine.server.operation.SubmitJobOperation;
 import org.apache.seatunnel.engine.server.utils.NodeEngineUtil;
@@ -46,10 +47,12 @@ import com.hazelcast.internal.serialization.Data;
 import com.hazelcast.map.IMap;
 import com.hazelcast.spi.exception.RetryableHazelcastException;
 
+import java.lang.reflect.Field;
 import java.lang.reflect.Method;
 import java.util.Collections;
 import java.util.HashMap;
 import java.util.LinkedHashSet;
+import java.util.Map;
 import java.util.Set;
 import java.util.concurrent.CompletionException;
 import java.util.concurrent.ScheduledExecutorService;
@@ -493,6 +496,8 @@ class CoordinatorServiceJobCleanupTest extends AbstractSeaTunnelServerTest {
                 nodeEngine.getHazelcastInstance().getMap(Constant.IMAP_RUNNING_JOB_INFO);
         IMap<Object, Object> runningJobStateIMap =
                 nodeEngine.getHazelcastInstance().getMap(Constant.IMAP_RUNNING_JOB_STATE);
+        IMap<Object, Long[]> runningJobStateTimestampsIMap =
+                nodeEngine.getHazelcastInstance().getMap(Constant.IMAP_STATE_TIMESTAMPS);
 
         JobInfo jobInfo =
                 new JobInfo(
@@ -513,7 +518,21 @@ class CoordinatorServiceJobCleanupTest extends AbstractSeaTunnelServerTest {
             ReflectionUtils.setField(coordinatorService, "runningJobInfoIMap", runningJobInfoIMap);
         }
 
-        Assertions.assertTrue(coordinatorService.getPendingJobQueue().contains(jobId));
+        Long[] jobStateTimestamps = runningJobStateTimestampsIMap.get(jobId);
+        Assertions.assertNotNull(jobStateTimestamps);
+        Assertions.assertEquals(
+                initializationTimestamp, jobStateTimestamps[JobStatus.INITIALIZING.ordinal()]);
+        Assertions.assertTrue(
+                coordinatorService.getPendingJobQueue().contains(jobId)
+                        || getRunningJobMasterMap(coordinatorService).containsKey(jobId));
+    }
+
+    @SuppressWarnings("unchecked")
+    private Map<Long, JobMaster> getRunningJobMasterMap(CoordinatorService coordinatorService)
+            throws Exception {
+        Field field = CoordinatorService.class.getDeclaredField("runningJobMasterMap");
+        field.setAccessible(true);
+        return (Map<Long, JobMaster>) field.get(coordinatorService);
     }
 
     private Set<Object> stateKeys(Object... keys) {

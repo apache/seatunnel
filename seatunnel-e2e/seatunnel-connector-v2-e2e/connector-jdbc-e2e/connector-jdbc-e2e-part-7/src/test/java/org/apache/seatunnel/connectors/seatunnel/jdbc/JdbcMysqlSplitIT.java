@@ -681,6 +681,48 @@ public class JdbcMysqlSplitIT extends TestSuiteBase implements TestResource {
         mySqlCatalog.close();
     }
 
+    @Test
+    public void testSampleShardingAllowSwitch() throws Exception {
+        Map<String, Object> baseConfig = new HashMap<>();
+        baseConfig.put("url", mysqlUrlInfo.getUrlWithDatabase().get());
+        baseConfig.put("driver", "com.mysql.cj.jdbc.Driver");
+        baseConfig.put("username", MYSQL_USERNAME);
+        baseConfig.put("password", MYSQL_PASSWORD);
+        baseConfig.put("table_path", MYSQL_DATABASE + "." + MYSQL_TABLE);
+        baseConfig.put("split.size", "3");
+        baseConfig.put("split.even-distribution.factor.upper-bound", 0.5d); // Forced uneven
+        baseConfig.put("split.sample-sharding.threshold", 10);
+        TablePath tablePathMySql = TablePath.of(MYSQL_DATABASE, MYSQL_TABLE);
+        MySqlCatalog mySqlCatalog =
+                new MySqlCatalog("mysql", MYSQL_USERNAME, MYSQL_PASSWORD, mysqlUrlInfo, null);
+        mySqlCatalog.open();
+        CatalogTable table = mySqlCatalog.getTable(tablePathMySql);
+        JdbcSourceTable jdbcSourceTable =
+                JdbcSourceTable.builder().tablePath(tablePathMySql).catalogTable(table).build();
+
+        // enable default true
+        Map<String, Object> enabledConfig = new HashMap<>(baseConfig);
+        Collection<JdbcSourceSplit> enabledSplits =
+                getDynamicChunkSplitter(enabledConfig).generateSplits(jdbcSourceTable);
+
+        // enable set is false
+        Map<String, Object> disabledConfig = new HashMap<>(baseConfig);
+        disabledConfig.put("split.allow-sampling", false);
+        Collection<JdbcSourceSplit> disabledSplits =
+                getDynamicChunkSplitter(disabledConfig).generateSplits(jdbcSourceTable);
+
+        Assertions.assertFalse(enabledSplits.isEmpty(), "Enabled splits should not be empty");
+        Assertions.assertFalse(disabledSplits.isEmpty(), "Disabled splits should not be empty");
+        LOG.info("Sample sharding enabled: {} splits", enabledSplits.size());
+        LOG.info("Sample sharding disabled: {} splits", disabledSplits.size());
+
+        Assertions.assertNotEquals(
+                enabledSplits.size(),
+                disabledSplits.size(),
+                "Enable and disable should produce different split counts");
+        mySqlCatalog.close();
+    }
+
     private void printCharSplitBoundaries(JdbcSourceSplit[] splitArray) {
         LOG.info("Character column split boundaries:");
         for (int i = 0; i < splitArray.length; i++) {

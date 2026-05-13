@@ -88,6 +88,7 @@ public class JdbcSourceFactory implements TableSourceFactory {
                         JdbcSourceOptions.SPLIT_EVEN_DISTRIBUTION_FACTOR_LOWER_BOUND,
                         JdbcSourceOptions.SPLIT_SAMPLE_SHARDING_THRESHOLD,
                         JdbcSourceOptions.SPLIT_INVERSE_SAMPLING_RATE,
+                        JdbcSourceOptions.SPLIT_ALLOW_SAMPLING,
                         JdbcSourceOptions.DECIMAL_TYPE_NARROWING,
                         JdbcSourceOptions.INT_TYPE_NARROWING,
                         JdbcSourceOptions.DIALECT)

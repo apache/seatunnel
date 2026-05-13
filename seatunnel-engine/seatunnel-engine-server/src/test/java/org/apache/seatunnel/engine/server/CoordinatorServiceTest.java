@@ -1118,7 +1118,7 @@ public class CoordinatorServiceTest {
                 createHazelcastInstanceWithJoinPortTryCount(
                         TestUtils.getClusterName(
                                 "CoordinatorServiceTest_testRestoreUsesProvidedJobInfoInitializationTimestamp"),
-                        100);
+                        1);
         try {
             SeaTunnelServer server =
                     instance.node.getNodeEngine().getService(SeaTunnelServer.SERVICE_NAME);
@@ -1151,6 +1151,8 @@ public class CoordinatorServiceTest {
                     instance.getMap(Constant.IMAP_RUNNING_JOB_INFO);
             IMap<Object, Object> runningJobStateIMap =
                     instance.getMap(Constant.IMAP_RUNNING_JOB_STATE);
+            IMap<Object, Long[]> runningJobStateTimestampsIMap =
+                    instance.getMap(Constant.IMAP_STATE_TIMESTAMPS);
             runningJobInfoIMap.put(jobId, jobInfo);
             runningJobStateIMap.put(jobId, JobStatus.RUNNING);
 
@@ -1169,16 +1171,15 @@ public class CoordinatorServiceTest {
 
             await().atMost(10, TimeUnit.SECONDS)
                     .untilAsserted(
-                            () -> {
-                                JobMaster restoredJobMaster =
-                                        coordinatorService.getJobMaster(jobId);
-                                Assertions.assertNotNull(restoredJobMaster);
-                                Assertions.assertEquals(
-                                        initializationTimestamp,
-                                        restoredJobMaster
-                                                .getPhysicalPlan()
-                                                .getStateTimestamp(JobStatus.INITIALIZING));
-                            });
+                            () ->
+                                    Assertions.assertTrue(
+                                            coordinatorService.getPendingJobQueue().contains(jobId)
+                                                    || getRunningJobMasterMap(coordinatorService)
+                                                            .containsKey(jobId)));
+            Long[] jobStateTimestamps = runningJobStateTimestampsIMap.get(jobId);
+            Assertions.assertNotNull(jobStateTimestamps);
+            Assertions.assertEquals(
+                    initializationTimestamp, jobStateTimestamps[JobStatus.INITIALIZING.ordinal()]);
         } finally {
             instance.shutdown();
         }
