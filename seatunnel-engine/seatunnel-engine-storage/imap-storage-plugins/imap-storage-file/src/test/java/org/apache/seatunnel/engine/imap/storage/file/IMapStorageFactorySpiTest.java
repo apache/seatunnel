@@ -27,14 +27,6 @@ import java.util.List;
 import java.util.ServiceLoader;
 import java.util.stream.Collectors;
 
-/**
- * Verifies that the IMapStorageFactory SPI registration survives fat-jar packaging.
- *
- * <p>Without ServicesResourceTransformer in the maven-shade-plugin configuration, META-INF/services
- * entries are overwritten during shading, causing ServiceLoader to return an empty result and
- * making IMap persistence silently non-functional. See:
- * https://github.com/apache/seatunnel/issues/10883
- */
 public class IMapStorageFactorySpiTest {
 
     @Test
