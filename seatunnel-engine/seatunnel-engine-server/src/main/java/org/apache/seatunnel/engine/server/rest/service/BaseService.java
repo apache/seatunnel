@@ -141,12 +141,7 @@ public abstract class BaseService {
 
         JsonObject jobInfoJson = new JsonObject();
         JobImmutableInformation jobImmutableInformation =
-                nodeEngine
-                        .getSerializationService()
-                        .toObject(
-                                nodeEngine
-                                        .getSerializationService()
-                                        .toObject(jobInfo.getJobImmutableInformation()));
+                nodeEngine.getSerializationService().toObject(jobInfo.getJobImmutableInformation());
 
         SeaTunnelServer seaTunnelServer = getSeaTunnelServer(true);
         ClassLoaderService classLoaderService =

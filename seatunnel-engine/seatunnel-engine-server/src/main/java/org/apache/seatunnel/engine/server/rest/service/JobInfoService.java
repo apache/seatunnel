@@ -25,11 +25,13 @@ import org.apache.seatunnel.common.utils.JsonUtils;
 import org.apache.seatunnel.config.sql.SqlConfigBuilder;
 import org.apache.seatunnel.core.starter.utils.ConfigShadeUtils;
 import org.apache.seatunnel.engine.common.Constant;
+import org.apache.seatunnel.engine.common.job.JobStatus;
 import org.apache.seatunnel.engine.core.job.JobDAGInfo;
 import org.apache.seatunnel.engine.core.job.JobInfo;
 import org.apache.seatunnel.engine.server.SeaTunnelServer;
 import org.apache.seatunnel.engine.server.master.JobHistoryService.JobState;
 import org.apache.seatunnel.engine.server.operation.GetJobMetricsOperation;
+import org.apache.seatunnel.engine.server.operation.GetJobStatusOperation;
 import org.apache.seatunnel.engine.server.rest.ConfigFormat;
 import org.apache.seatunnel.engine.server.rest.RestConstant;
 import org.apache.seatunnel.engine.server.utils.NodeEngineUtil;
@@ -143,13 +145,28 @@ public class JobInfoService extends BaseService {
     public JsonArray getRunningJobsJson() {
         IMap<Long, JobInfo> values =
                 nodeEngine.getHazelcastInstance().getMap(Constant.IMAP_RUNNING_JOB_INFO);
+        SeaTunnelServer seaTunnelServer = getSeaTunnelServer(true);
         return values.entrySet().stream()
+                .filter(entry -> shouldShowAsRunningJob(seaTunnelServer, entry.getKey()))
                 .sorted(
                         Comparator.comparing(
                                 entry -> entry.getValue().getInitializationTimestamp(),
                                 Comparator.reverseOrder()))
                 .map(jobInfoEntry -> convertToJson(jobInfoEntry.getValue(), jobInfoEntry.getKey()))
                 .collect(JsonArray::new, JsonArray::add, JsonArray::add);
+    }
+
+    private boolean shouldShowAsRunningJob(SeaTunnelServer seaTunnelServer, long jobId) {
+        if (seaTunnelServer != null) {
+            return seaTunnelServer.getCoordinatorService().shouldShowAsRunningJob(jobId);
+        }
+        Integer statusOrdinal =
+                (Integer)
+                        NodeEngineUtil.sendOperationToMasterNode(
+                                        nodeEngine, new GetJobStatusOperation(jobId))
+                                .join();
+        JobStatus status = JobStatus.values()[statusOrdinal];
+        return !status.isEndState();
     }
 
     public JsonObject stopJob(byte[] requestBody) {

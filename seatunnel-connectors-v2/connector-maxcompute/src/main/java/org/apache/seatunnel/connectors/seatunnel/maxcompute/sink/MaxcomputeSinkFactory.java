@@ -41,13 +41,15 @@ public class MaxcomputeSinkFactory implements TableSinkFactory {
     public OptionRule optionRule() {
         return OptionRule.builder()
                 .required(
-                        MaxcomputeSinkOptions.ACCESS_ID,
-                        MaxcomputeSinkOptions.ACCESS_KEY,
                         MaxcomputeSinkOptions.ENDPOINT,
                         MaxcomputeSinkOptions.PROJECT,
                         MaxcomputeSinkOptions.TABLE_NAME)
                 .optional(
+                        MaxcomputeSinkOptions.ACCESS_ID,
+                        MaxcomputeSinkOptions.ACCESS_KEY,
+                        MaxcomputeSinkOptions.STS_TOKEN,
                         MaxcomputeSinkOptions.PARTITION_SPEC,
+                        MaxcomputeSinkOptions.SCHEMA_NAME,
                         MaxcomputeSinkOptions.OVERWRITE,
                         MaxcomputeSinkOptions.SCHEMA_SAVE_MODE,
                         MaxcomputeSinkOptions.DATA_SAVE_MODE,
@@ -68,6 +70,9 @@ public class MaxcomputeSinkFactory implements TableSinkFactory {
                                 TableIdentifier.of(
                                         context.getCatalogTable().getCatalogName(),
                                         context.getOptions().get(MaxcomputeSinkOptions.PROJECT),
+                                        context.getOptions()
+                                                .getOptional(MaxcomputeSinkOptions.SCHEMA_NAME)
+                                                .orElse(null),
                                         context.getOptions().get(MaxcomputeSinkOptions.TABLE_NAME)),
                                 context.getCatalogTable()));
     }
