@@ -56,7 +56,7 @@ public class CatalogUtilsTest {
     }
 
     @Test
-    void testGetTableSchemaIgnoresUnsupportedPrimaryKeyMetadata() throws SQLException {
+    void testGetTableSchemaPropagatesPrimaryKeyMetadataFailure() {
         TestDatabaseMetaData metadata =
                 new TestDatabaseMetaData() {
                     @Override
@@ -66,12 +66,13 @@ public class CatalogUtilsTest {
                     }
                 };
 
-        TableSchema tableSchema =
-                CatalogUtils.getTableSchema(
-                        metadata, TablePath.of("test.test"), new JdbcDialectTypeMapper() {});
-
-        Assertions.assertNull(tableSchema.getPrimaryKey());
-        Assertions.assertEquals("id", tableSchema.getColumns().get(0).getName());
+        Assertions.assertThrows(
+                SQLException.class,
+                () ->
+                        CatalogUtils.getTableSchema(
+                                metadata,
+                                TablePath.of("test.test"),
+                                new JdbcDialectTypeMapper() {}));
     }
 
     @Test
