@@ -67,4 +67,22 @@ public interface ConstraintKeyOptions {
                     .defaultValue(ConstraintKey.ColumnSortType.ASC)
                     .withDescription(
                             "SeaTunnel Schema Constraint Key Column Sort Type, e.g. ASC, DESC");
+
+    Option<String> VECTOR_INDEX_NAME =
+            Options.key("indexName")
+                    .stringType()
+                    .noDefaultValue()
+                    .withDescription("Vector index name for VECTOR_INDEX_KEY");
+
+    Option<String> VECTOR_INDEX_TYPE =
+            Options.key("indexType")
+                    .stringType()
+                    .noDefaultValue()
+                    .withDescription("Vector index type for VECTOR_INDEX_KEY, e.g. HNSW");
+
+    Option<String> VECTOR_METRIC_TYPE =
+            Options.key("metricType")
+                    .stringType()
+                    .noDefaultValue()
+                    .withDescription("Vector metric type for VECTOR_INDEX_KEY, e.g. L2");
 }

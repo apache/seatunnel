@@ -95,6 +95,7 @@ import java.util.Collections;
 import java.util.Comparator;
 import java.util.HashMap;
 import java.util.HashSet;
+import java.util.Iterator;
 import java.util.List;
 import java.util.Map;
 import java.util.Objects;
@@ -345,7 +346,8 @@ public class CoordinatorService {
                     try {
                         String jobFullName = finalJobMaster.getPhysicalPlan().getJobFullName();
                         JobStatus jobStatus = (JobStatus) runningJobStateIMap.get(jobId);
-                        if (pendingSourceState == PendingSourceState.RESTORE) {
+                        if (pendingSourceState == PendingSourceState.RESTORE
+                                && !jobStatus.isEndState()) {
                             finalJobMaster
                                     .getPhysicalPlan()
                                     .getPipelineList()
@@ -685,6 +687,39 @@ public class CoordinatorService {
         if (needRestoreFromMasterNodeSwitchJobs.isEmpty()) {
             return;
         }
+        // Pre-filter: clean up terminal-state zombie jobs immediately before waiting for workers.
+        // Zombies do not need a worker — they only need IMap cleanup. Processing them here avoids
+        // blocking zombie cleanup behind the worker-wait loop.
+        Iterator<Map.Entry<Long, JobInfo>> zombieIterator =
+                needRestoreFromMasterNodeSwitchJobs.iterator();
+        while (zombieIterator.hasNext()) {
+            Map.Entry<Long, JobInfo> entry = zombieIterator.next();
+            Object jobState;
+            try {
+                jobState =
+                        RetryUtils.retryWithException(
+                                () -> runningJobStateIMap.get(entry.getKey()),
+                                new RetryUtils.RetryMaterial(
+                                        Constant.OPERATION_RETRY_TIME,
+                                        true,
+                                        ExceptionUtil::isOperationNeedRetryException,
+                                        Constant.OPERATION_RETRY_SLEEP));
+            } catch (Exception e) {
+                logger.warning(
+                        String.format(
+                                "Failed to read job state for job %s during zombie pre-filter,"
+                                        + " skipping: %s",
+                                entry.getKey(), e.getMessage()));
+                continue;
+            }
+            if (jobState instanceof JobStatus && ((JobStatus) jobState).isEndState()) {
+                restoreJobFromMasterActiveSwitch(entry.getKey(), entry.getValue());
+                zombieIterator.remove();
+            }
+        }
+        if (needRestoreFromMasterNodeSwitchJobs.isEmpty()) {
+            return;
+        }
         // waiting have worker registered
         while (getResourceManager().workerCount(Collections.emptyMap()) == 0) {
             try {
@@ -781,7 +816,7 @@ public class CoordinatorService {
                         seaTunnelServer);
 
         try {
-            jobMaster.init(runningJobInfoIMap.get(jobId).getInitializationTimestamp(), true);
+            jobMaster.init(jobInfo.getInitializationTimestamp(), true);
         } catch (Exception e) {
             throw new SeaTunnelEngineException(String.format("Job id %s init failed", jobId), e);
         }

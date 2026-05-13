@@ -32,4 +32,3 @@ seatunnel:
                     namespace: /tmp/seatunnel/checkpoint_snapshot
                     storage.type: hdfs
                     fs.defaultFS: file:/// # Ensure that the directory has written permission
-                    

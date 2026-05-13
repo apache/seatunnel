@@ -19,19 +19,15 @@
 
 package org.apache.seatunnel.connectors.seatunnel.iceberg.sink.state;
 
-import org.apache.seatunnel.connectors.seatunnel.iceberg.sink.writer.WriteResult;
-
 import lombok.AllArgsConstructor;
 import lombok.Data;
 
 import java.io.Serializable;
-import java.util.List;
 
 @Data
 @AllArgsConstructor
 public class IcebergSinkState implements Serializable {
     private static final long serialVersionUID = 1L;
-    private List<WriteResult> writeResults;
     private String commitUser;
     private long checkpointId;
 }

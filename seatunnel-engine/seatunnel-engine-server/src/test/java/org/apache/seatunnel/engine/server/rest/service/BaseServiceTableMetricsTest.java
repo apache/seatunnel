@@ -27,9 +27,11 @@ import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 
+import com.hazelcast.internal.json.JsonObject;
 import com.hazelcast.spi.impl.NodeEngineImpl;
 
 import java.lang.reflect.Method;
+import java.math.BigDecimal;
 import java.util.Arrays;
 import java.util.HashMap;
 import java.util.LinkedHashMap;
@@ -376,6 +378,28 @@ public class BaseServiceTableMetricsTest {
         Assertions.assertNotNull(tableSinkCount);
         Assertions.assertEquals(1L, tableSinkCount.get("Sink[0].fake.user_table"));
         Assertions.assertEquals(2L, tableSinkCount.get("Sink[1].fake.user_table"));
+    }
+
+    @Test
+    public void testMetricsToJsonObjectConvertsLargeNumbersToPlainString() throws Exception {
+        Double doubleValue = 85210718.2630262;
+        Assertions.assertTrue(doubleValue.toString().contains("E"));
+
+        Method metricsToJsonObjectMethod =
+                BaseService.class.getDeclaredMethod("metricsToJsonObject", Map.class);
+        metricsToJsonObjectMethod.setAccessible(true);
+
+        Map<String, Object> metricsMap = new HashMap<>();
+        metricsMap.put("SourceReceivedQPS", 85210718.2630262);
+        metricsMap.put("SinkWriteQPS", 99999999.999);
+        metricsMap.put("FloatValue", 85210718.263026f);
+        metricsMap.put("LongValue", 123456789L);
+        metricsMap.put("BigDecimalValue", new BigDecimal("6.752132322232343E7"));
+
+        JsonObject result =
+                (JsonObject) metricsToJsonObjectMethod.invoke(jobInfoService, metricsMap);
+        String jsonString = result.toString();
+        Assertions.assertFalse(jsonString.contains("E"));
     }
 
     private JobDAGInfo createDAGInfoWithMultipleSinks() {

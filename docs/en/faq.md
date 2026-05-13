@@ -1,9 +1,17 @@
 # FAQ
 
+## Where can I get help and join the community?
+Use these entry points first:
+
+- Issue tracking: [GitHub Issues](https://github.com/apache/seatunnel/issues)
+- Long-form discussion: [dev mailing list](https://lists.apache.org/list.html?dev@seatunnel.apache.org)
+- Stable onboarding path: [Contribution Path](./developer/contribution-path.md)
+- Contributor onboarding: [Developer Setup](./developer/setup.md) and [Contribute Plugin](./developer/contribute-plugin.md)
+
 ## What data sources and destinations does SeaTunnel support?
 SeaTunnel supports various data sources and destinations. You can find a detailed list on the following list:
-- Supported data sources (Source): [Source List](./connectors/source)
-- Supported data destinations (Sink): [Sink List](./connectors/sink)
+- Supported data sources (Source): [Source List](../connectors/source)
+- Supported data destinations (Sink): [Sink List](../connectors/sink)
 
 ## Does SeaTunnel support batch and streaming processing?
 SeaTunnel supports both batch and streaming processing modes. You can select the appropriate mode based on your specific business scenarios and needs. Batch processing is suitable for scheduled data integration tasks, while streaming processing is ideal for real-time integration and Change Data Capture (CDC).
@@ -21,7 +29,7 @@ Yes, SeaTunnel supports custom data cleansing rules. You can configure custom ru
 SeaTunnel supports incremental data integration. For example, the CDC connector allows real-time capture of data changes, which is ideal for scenarios requiring real-time data integration.
 
 ## What CDC data sources are currently supported by SeaTunnel?
-SeaTunnel currently supports MongoDB CDC, MySQL CDC, OpenGauss CDC, Oracle CDC, PostgreSQL CDC, SQL Server CDC, TiDB CDC, and more. For more details, refer to the [Source List](./connectors/source).
+SeaTunnel currently supports MongoDB CDC, MySQL CDC, OpenGauss CDC, Oracle CDC, PostgreSQL CDC, SQL Server CDC, TiDB CDC, and more. For more details, refer to the [Source List](../connectors/source).
 
 ## How do I enable permissions required for SeaTunnel CDC integration?
 Please refer to the official SeaTunnel documentation for the necessary steps to enable permissions for each connector’s CDC functionality.

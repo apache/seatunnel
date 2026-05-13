@@ -69,6 +69,11 @@ public abstract class AbstractCollector extends Collector {
         return getServer().getCoordinatorService();
     }
 
+    // Non-blocking coordinator readiness check; call before getCoordinatorService() in collect().
+    protected boolean isCoordinatorReady() {
+        return getServer().isCoordinatorActive();
+    }
+
     protected ManagementService getManagementService() {
         return getNode().hazelcastInstance.getManagementService();
     }
