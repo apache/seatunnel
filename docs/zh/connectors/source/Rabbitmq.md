@@ -196,7 +196,7 @@ source {
     port = 5672
     username = "guest"
     password = "guest"
-    
+
     # 使用 tables_configs 从多个队列中读取
     tables_configs = [
       {
@@ -245,4 +245,3 @@ sink {
 ## 变更日志
 
 <ChangeLog />
-

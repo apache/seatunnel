@@ -192,6 +192,14 @@ seatunnel:
     history-job-expire-minutes: 1440
 ```
 
+SeaTunnel also retains terminal job state in distributed maps for a short time before removing it. This retention is controlled by `state-cleanup-delay-ms`, whose default value is `60000` milliseconds. Keeping the terminal tombstone briefly allows late asynchronous callbacks to observe an end state instead of a missing map entry. Setting it to `0` restores more aggressive cleanup but also narrows the protection window for terminal-state races.
+
+```yaml
+seatunnel:
+  engine:
+    state-cleanup-delay-ms: 60000
+```
+
 ### 4.5 Class Loader Cache Mode
 
 This configuration mainly solves the problem of resource leakage caused by continuously creating and attempting to destroy class loaders.

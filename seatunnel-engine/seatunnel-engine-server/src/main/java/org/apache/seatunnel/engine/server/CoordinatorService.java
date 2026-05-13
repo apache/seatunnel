@@ -32,6 +32,7 @@ import org.apache.seatunnel.common.utils.SeaTunnelException;
 import org.apache.seatunnel.common.utils.StringFormatUtils;
 import org.apache.seatunnel.engine.common.Constant;
 import org.apache.seatunnel.engine.common.config.EngineConfig;
+import org.apache.seatunnel.engine.common.config.JobConfig;
 import org.apache.seatunnel.engine.common.config.server.ConnectorJarStorageConfig;
 import org.apache.seatunnel.engine.common.config.server.ScheduleStrategy;
 import org.apache.seatunnel.engine.common.exception.JobException;
@@ -43,9 +44,14 @@ import org.apache.seatunnel.engine.common.job.JobStatus;
 import org.apache.seatunnel.engine.common.utils.ExceptionUtil;
 import org.apache.seatunnel.engine.common.utils.PassiveCompletableFuture;
 import org.apache.seatunnel.engine.common.utils.concurrent.CompletableFuture;
+import org.apache.seatunnel.engine.core.classloader.ClassLoaderService;
+import org.apache.seatunnel.engine.core.dag.logical.LogicalDag;
+import org.apache.seatunnel.engine.core.job.ExecutionAddress;
 import org.apache.seatunnel.engine.core.job.JobDAGInfo;
+import org.apache.seatunnel.engine.core.job.JobImmutableInformation;
 import org.apache.seatunnel.engine.core.job.JobInfo;
 import org.apache.seatunnel.engine.core.job.PipelineStatus;
+import org.apache.seatunnel.engine.server.dag.DAGUtils;
 import org.apache.seatunnel.engine.server.dag.physical.PhysicalVertex;
 import org.apache.seatunnel.engine.server.dag.physical.PipelineLocation;
 import org.apache.seatunnel.engine.server.dag.physical.SubPlan;
@@ -63,6 +69,7 @@ import org.apache.seatunnel.engine.server.execution.TaskGroupLocation;
 import org.apache.seatunnel.engine.server.execution.TaskLocation;
 import org.apache.seatunnel.engine.server.master.JobHistoryService;
 import org.apache.seatunnel.engine.server.master.JobMaster;
+import org.apache.seatunnel.engine.server.master.cleanup.JobCleanupRecord;
 import org.apache.seatunnel.engine.server.master.cleanup.PipelineCleanupRecord;
 import org.apache.seatunnel.engine.server.metrics.JobMetricsUtil;
 import org.apache.seatunnel.engine.server.metrics.SeaTunnelMetricsContext;
@@ -96,6 +103,7 @@ import java.util.Comparator;
 import java.util.HashMap;
 import java.util.HashSet;
 import java.util.Iterator;
+import java.util.LinkedHashSet;
 import java.util.List;
 import java.util.Map;
 import java.util.Objects;
@@ -110,6 +118,8 @@ import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicLong;
 import java.util.stream.Collectors;
 
+import static org.apache.seatunnel.api.options.EnvCommonOptions.CHECKPOINT_INTERVAL;
+import static org.apache.seatunnel.common.constants.JobMode.BATCH;
 import static org.apache.seatunnel.engine.server.metrics.JobMetricsUtil.toJobMetricsMap;
 
 public class CoordinatorService {
@@ -180,6 +190,8 @@ public class CoordinatorService {
     private IMap<Long, HashMap<TaskLocation, SeaTunnelMetricsContext>> metricsImap;
 
     private IMap<PipelineLocation, PipelineCleanupRecord> pendingPipelineCleanupIMap;
+
+    private IMap<Long, JobCleanupRecord> pendingJobCleanupIMap;
 
     /** If this node is a master node */
     private volatile boolean isActive = false;
@@ -459,6 +471,8 @@ public class CoordinatorService {
         metricsImap = nodeEngine.getHazelcastInstance().getMap(Constant.IMAP_RUNNING_JOB_METRICS);
         pendingPipelineCleanupIMap =
                 nodeEngine.getHazelcastInstance().getMap(Constant.IMAP_PENDING_PIPELINE_CLEANUP);
+        pendingJobCleanupIMap =
+                nodeEngine.getHazelcastInstance().getMap(Constant.IMAP_PENDING_JOB_CLEANUP);
         jobHistoryService =
                 new JobHistoryService(
                         nodeEngine,
@@ -487,10 +501,20 @@ public class CoordinatorService {
             connectorPackageService = new ConnectorPackageService(seaTunnelServer);
         }
 
+        reschedulePendingJobCleanup();
         restoreAllJobFromMasterNodeSwitchFuture =
                 new PassiveCompletableFuture(
                         CompletableFuture.runAsync(
                                 this::restoreAllRunningJobFromMasterNodeSwitch, executorService));
+    }
+
+    private void reschedulePendingJobCleanup() {
+        if (pendingJobCleanupIMap == null || pendingJobCleanupIMap.isEmpty()) {
+            return;
+        }
+        for (Map.Entry<Long, JobCleanupRecord> entry : pendingJobCleanupIMap.entrySet()) {
+            schedulePendingJobCleanup(entry.getKey(), entry.getValue());
+        }
     }
 
     private void cleanupPendingPipelines() {
@@ -639,6 +663,128 @@ public class CoordinatorService {
                 record.getCreateTimeMillis(),
                 record.getLastAttemptTimeMillis(),
                 record.getAttemptCount());
+    }
+
+    public void schedulePendingJobCleanup(long jobId, JobCleanupRecord record) {
+        if (record == null) {
+            return;
+        }
+        long remainingDelayMillis =
+                Math.max(
+                        0L,
+                        record.getCreateTimeMillis()
+                                + engineConfig.getStateCleanupDelayMillis()
+                                - System.currentTimeMillis());
+        ScheduledExecutorService cleanupScheduler = seaTunnelServer.getMonitorService();
+        if (cleanupScheduler == null) {
+            cleanupScheduler = masterActiveListener;
+        }
+        cleanupScheduler.schedule(
+                () -> {
+                    try {
+                        processPendingJobCleanup(jobId, pendingJobCleanupIMap.get(jobId));
+                    } catch (Exception e) {
+                        logger.warning(
+                                String.format(
+                                        "Delayed job cleanup failed for job %s: %s",
+                                        jobId, ExceptionUtils.getMessage(e)),
+                                e);
+                    }
+                },
+                remainingDelayMillis,
+                TimeUnit.MILLISECONDS);
+    }
+
+    private void processPendingJobCleanup(long jobId, JobCleanupRecord record) {
+        if (record == null || pendingJobCleanupIMap == null) {
+            return;
+        }
+        if (!shouldCleanup(record)) {
+            removePendingJobCleanupRecord(jobId, record);
+            return;
+        }
+        if (!isCleanupDelayElapsed(record)) {
+            return;
+        }
+
+        JobInfo currentJobInfo = runningJobInfoIMap.get(jobId);
+        if (currentJobInfo == null) {
+            cleanupPendingJobStateMaps(record);
+            removePendingJobCleanupRecord(jobId, record);
+            return;
+        }
+        if (!isCleanupOwnedByCurrentJob(currentJobInfo, jobId, record)) {
+            removePendingJobCleanupRecord(jobId, record);
+            return;
+        }
+
+        if (!runningJobInfoIMap.remove(jobId, currentJobInfo)) {
+            JobInfo latestJobInfo = runningJobInfoIMap.get(jobId);
+            if (latestJobInfo == null) {
+                cleanupPendingJobStateMaps(record);
+                removePendingJobCleanupRecord(jobId, record);
+            } else if (!Objects.equals(
+                    latestJobInfo.getInitializationTimestamp(),
+                    record.getOwnerInitializationTimestamp())) {
+                removePendingJobCleanupRecord(jobId, record);
+            }
+            return;
+        }
+
+        cleanupPendingJobStateMaps(record);
+        removePendingJobCleanupRecord(jobId, record);
+    }
+
+    private void removePendingJobCleanupRecord(long jobId, JobCleanupRecord record) {
+        try {
+            pendingJobCleanupIMap.remove(jobId, record);
+        } catch (Exception e) {
+            logger.warning(
+                    String.format(
+                            "Remove pending job cleanup record failed for job %s: %s",
+                            jobId, ExceptionUtils.getMessage(e)),
+                    e);
+        }
+    }
+
+    private boolean shouldCleanup(JobCleanupRecord record) {
+        return record.getFinalStatus() != null && record.getFinalStatus().isEndState();
+    }
+
+    private boolean isCleanupDelayElapsed(JobCleanupRecord record) {
+        long cleanupDueTime =
+                record.getCreateTimeMillis() + engineConfig.getStateCleanupDelayMillis();
+        return System.currentTimeMillis() >= cleanupDueTime;
+    }
+
+    private boolean isCleanupOwnedByCurrentJob(long jobId, JobCleanupRecord record) {
+        return isCleanupOwnedByCurrentJob(runningJobInfoIMap.get(jobId), jobId, record);
+    }
+
+    private boolean isCleanupOwnedByCurrentJob(
+            JobInfo currentJobInfo, long jobId, JobCleanupRecord record) {
+        if (currentJobInfo == null || record == null) {
+            return false;
+        }
+        if (!Objects.equals(
+                currentJobInfo.getInitializationTimestamp(),
+                record.getOwnerInitializationTimestamp())) {
+            return false;
+        }
+        Object jobState = runningJobStateIMap.get(jobId);
+        return jobState instanceof JobStatus && ((JobStatus) jobState).isEndState();
+    }
+
+    private void cleanupPendingJobStateMaps(JobCleanupRecord record) {
+        removeKeys(runningJobStateIMap, record.getStateKeys());
+        removeKeys(runningJobStateTimestampsIMap, record.getTimestampKeys());
+    }
+
+    private void removeKeys(IMap<Object, ?> map, Set<Object> keys) {
+        if (map == null || keys == null || keys.isEmpty()) {
+            return;
+        }
+        keys.forEach(map::remove);
     }
 
     private boolean cleanupPipelineMetrics(PipelineLocation pipelineLocation) {
@@ -799,6 +945,16 @@ public class CoordinatorService {
             runningJobInfoIMap.remove(jobId);
             return;
         }
+        if (jobState instanceof JobStatus && ((JobStatus) jobState).isEndState()) {
+            JobCleanupRecord cleanupRecord =
+                    pendingJobCleanupIMap != null ? pendingJobCleanupIMap.get(jobId) : null;
+            if (cleanupRecord != null) {
+                schedulePendingJobCleanup(jobId, cleanupRecord);
+            } else {
+                cleanupTerminalZombieJob(jobId, jobInfo, (JobStatus) jobState);
+            }
+            return;
+        }
 
         JobMaster jobMaster =
                 new JobMaster(
@@ -825,6 +981,21 @@ public class CoordinatorService {
         pendingJobQueue.put(pendingJobInfo);
         jobMaster.getPhysicalPlan().updateJobState(JobStatus.PENDING);
         logger.info(String.format("The restore job enter pending queue, JobId: %s", jobId));
+    }
+
+    private void cleanupTerminalZombieJob(long jobId, JobInfo jobInfo, JobStatus finalStatus) {
+        JobImmutableInformation jobImmutableInformation = restoreJobImmutableInformation(jobInfo);
+        cleanupTerminalZombieCheckpointIfNecessary(jobId, jobImmutableInformation, finalStatus);
+        persistTerminalZombieHistoryIfNecessary(jobId, jobImmutableInformation, finalStatus);
+        cleanupPendingJobStateMaps(createTerminalZombieCleanupRecord(jobId, jobInfo, finalStatus));
+        runningJobInfoIMap.remove(jobId);
+    }
+
+    private void cleanupPendingJobStateForRestore(long jobId, JobCleanupRecord record) {
+        removeKeys(runningJobStateIMap, record.getStateKeys());
+        removeKeys(runningJobStateTimestampsIMap, record.getTimestampKeys());
+        removePendingJobCleanupRecord(jobId, record);
+        runningJobInfoIMap.remove(jobId);
     }
 
     /**
@@ -942,23 +1113,41 @@ public class CoordinatorService {
         }
 
         MDCExecutorService mdcExecutorService = MDCTracer.tracing(jobId, executorService);
-        JobMaster jobMaster =
-                new JobMaster(
-                        jobId,
-                        jobImmutableInformation,
-                        this.nodeEngine,
-                        mdcExecutorService,
-                        getResourceManager(),
-                        getJobHistoryService(),
-                        runningJobStateIMap,
-                        runningJobStateTimestampsIMap,
-                        ownedSlotProfilesIMap,
-                        runningJobInfoIMap,
-                        engineConfig,
-                        seaTunnelServer);
         mdcExecutorService.submit(
                 () -> {
+                    JobMaster jobMaster = null;
+                    JobInfo submittedJobInfo = null;
                     try {
+                        JobCleanupRecord pendingCleanupRecord =
+                                pendingJobCleanupIMap != null
+                                        ? pendingJobCleanupIMap.get(jobId)
+                                        : null;
+                        if (pendingCleanupRecord != null
+                                && isCleanupOwnedByCurrentJob(jobId, pendingCleanupRecord)) {
+                            if (isStartWithSavePoint) {
+                                cleanupPendingJobStateForRestore(jobId, pendingCleanupRecord);
+                            } else {
+                                throw new JobException(
+                                        String.format(
+                                                "The job id %s is waiting for terminal state cleanup, please retry later.",
+                                                jobId));
+                            }
+                        }
+
+                        jobMaster =
+                                new JobMaster(
+                                        jobId,
+                                        jobImmutableInformation,
+                                        this.nodeEngine,
+                                        mdcExecutorService,
+                                        getResourceManager(),
+                                        getJobHistoryService(),
+                                        runningJobStateIMap,
+                                        runningJobStateTimestampsIMap,
+                                        ownedSlotProfilesIMap,
+                                        runningJobInfoIMap,
+                                        engineConfig,
+                                        seaTunnelServer);
                         if (!isStartWithSavePoint
                                 && getJobHistoryService().getJobMetrics(jobId)
                                         != JobMetrics.empty()) {
@@ -967,11 +1156,11 @@ public class CoordinatorService {
                                             "The job id %s has already been submitted and is not starting with a savepoint.",
                                             jobId));
                         }
-                        runningJobInfoIMap.put(
-                                jobId,
-                                new JobInfo(System.currentTimeMillis(), jobImmutableInformation));
-                        jobMaster.init(
-                                runningJobInfoIMap.get(jobId).getInitializationTimestamp(), false);
+                        long initializationTimestamp = System.currentTimeMillis();
+                        submittedJobInfo =
+                                new JobInfo(initializationTimestamp, jobImmutableInformation);
+                        runningJobInfoIMap.put(jobId, submittedJobInfo);
+                        jobMaster.init(initializationTimestamp, false);
                         // Initialize the JobMaster and add it to the pendingJobQueue, ensuring that
                         // calling the getJobMaster method does not return NULL when the
                         // jobSubmitFuture is still running.
@@ -993,7 +1182,9 @@ public class CoordinatorService {
                                         jobId,
                                         jobMaster.getJobImmutableInformation().getJobName()));
                     } else {
-                        runningJobInfoIMap.remove(jobId);
+                        if (submittedJobInfo != null) {
+                            runningJobInfoIMap.remove(jobId, submittedJobInfo);
+                        }
                         runningJobMasterMap.remove(jobId);
                         pendingJobQueue.removeById(jobId);
                     }
@@ -1125,6 +1316,11 @@ public class CoordinatorService {
         return jobStatus;
     }
 
+    public boolean shouldShowAsRunningJob(long jobId) {
+        JobStatus status = getJobStatus(jobId);
+        return status != null && !status.isEndState();
+    }
+
     public JobMetrics getJobMetrics(long jobId) {
         if (pendingJobQueue.contains(jobId)) {
             // Tasks in pending, metric data is empty
@@ -1212,7 +1408,131 @@ public class CoordinatorService {
             return pendingJobInfo.getJobMaster().getJobDAGInfo();
         }
 
+        JobInfo runningJobInfo = runningJobInfoIMap.get(jobId);
+        if (runningJobInfo != null) {
+            return restoreJobDAGInfo(runningJobInfo);
+        }
+
         throw new JobNotFoundException(String.format("Job %s not found", jobId));
+    }
+
+    private JobDAGInfo restoreJobDAGInfo(JobInfo jobInfo) {
+        JobImmutableInformation jobImmutableInformation = restoreJobImmutableInformation(jobInfo);
+        return restoreJobDAGInfo(jobImmutableInformation);
+    }
+
+    private JobDAGInfo restoreJobDAGInfo(JobImmutableInformation jobImmutableInformation) {
+        ClassLoaderService classLoaderService = seaTunnelServer.getClassLoaderService();
+        LogicalDag logicalDag =
+                DAGUtils.restoreLogicalDag(
+                        jobImmutableInformation,
+                        nodeEngine.getSerializationService(),
+                        classLoaderService);
+        return DAGUtils.getJobDAGInfo(
+                logicalDag,
+                jobImmutableInformation,
+                engineConfig,
+                true,
+                new ExecutionAddress(
+                        nodeEngine.getMasterAddress().getHost(),
+                        nodeEngine.getMasterAddress().getPort()),
+                new HashSet<>());
+    }
+
+    private JobImmutableInformation restoreJobImmutableInformation(JobInfo jobInfo) {
+        return nodeEngine.getSerializationService().toObject(jobInfo.getJobImmutableInformation());
+    }
+
+    private void cleanupTerminalZombieCheckpointIfNecessary(
+            long jobId, JobImmutableInformation jobImmutableInformation, JobStatus finalStatus) {
+        if (finalStatus != JobStatus.FINISHED && finalStatus != JobStatus.CANCELED) {
+            return;
+        }
+        if (isCheckpointEnabled(jobImmutableInformation.getJobConfig())
+                && seaTunnelServer.getCheckpointService() != null) {
+            seaTunnelServer
+                    .getCheckpointService()
+                    .getCheckpointStorage()
+                    .deleteCheckpoint(jobId + "");
+        }
+        if (seaTunnelServer.getCheckpointMonitorService() != null) {
+            seaTunnelServer.getCheckpointMonitorService().cleanupJob(jobId);
+        }
+    }
+
+    private boolean isCheckpointEnabled(JobConfig jobConfig) {
+        if (jobConfig == null) {
+            return true;
+        }
+        return jobConfig.getJobContext().getJobMode() != BATCH
+                || jobConfig.getEnvOptions().containsKey(CHECKPOINT_INTERVAL.key());
+    }
+
+    private void persistTerminalZombieHistoryIfNecessary(
+            long jobId, JobImmutableInformation jobImmutableInformation, JobStatus finalStatus) {
+        JobHistoryService historyService = getJobHistoryService();
+        if (historyService.getJobDAGInfo(jobId) == null) {
+            historyService.storeJobInfo(jobId, restoreJobDAGInfo(jobImmutableInformation));
+        }
+        if (historyService.getFinishedJobStateImap().containsKey(jobId)) {
+            return;
+        }
+        historyService.storeFinishedJobState(
+                new JobHistoryService.JobState(
+                        jobId,
+                        jobImmutableInformation.getJobName(),
+                        finalStatus,
+                        jobImmutableInformation.getCreateTime(),
+                        getJobStateTimestamp(jobId, JobStatus.SCHEDULED),
+                        getJobStateTimestamp(jobId, finalStatus),
+                        Collections.emptyMap(),
+                        null));
+    }
+
+    private Long getJobStateTimestamp(long jobId, JobStatus status) {
+        if (runningJobStateTimestampsIMap == null) {
+            return null;
+        }
+        Long[] jobStateTimestamps = runningJobStateTimestampsIMap.get(jobId);
+        if (jobStateTimestamps == null || jobStateTimestamps.length <= status.ordinal()) {
+            return null;
+        }
+        return jobStateTimestamps[status.ordinal()];
+    }
+
+    private JobCleanupRecord createTerminalZombieCleanupRecord(
+            long jobId, JobInfo jobInfo, JobStatus finalStatus) {
+        return new JobCleanupRecord(
+                jobInfo.getInitializationTimestamp(),
+                finalStatus,
+                collectTerminalZombieKeys(runningJobStateIMap, jobId),
+                collectTerminalZombieKeys(runningJobStateTimestampsIMap, jobId),
+                System.currentTimeMillis());
+    }
+
+    private Set<Object> collectTerminalZombieKeys(IMap<Object, ?> sourceMap, long jobId) {
+        if (sourceMap == null) {
+            return Collections.emptySet();
+        }
+        return sourceMap.keySet().stream()
+                .filter(key -> belongsToJob(key, jobId))
+                .collect(Collectors.toCollection(LinkedHashSet::new));
+    }
+
+    private boolean belongsToJob(Object key, long jobId) {
+        if (key instanceof Long) {
+            return ((Long) key) == jobId;
+        }
+        if (key instanceof PipelineLocation) {
+            return ((PipelineLocation) key).getJobId() == jobId;
+        }
+        if (key instanceof TaskGroupLocation) {
+            return ((TaskGroupLocation) key).getJobId() == jobId;
+        }
+        if (key instanceof String) {
+            return ((String) key).startsWith("checkpoint_state_" + jobId + "_");
+        }
+        return false;
     }
 
     /**
@@ -1508,6 +1828,16 @@ public class CoordinatorService {
     @VisibleForTesting
     void runPendingPipelineCleanupOnce() {
         cleanupPendingPipelines();
+    }
+
+    @VisibleForTesting
+    void runPendingJobCleanupOnce() {
+        if (pendingJobCleanupIMap == null || pendingJobCleanupIMap.isEmpty()) {
+            return;
+        }
+        for (Map.Entry<Long, JobCleanupRecord> entry : pendingJobCleanupIMap.entrySet()) {
+            processPendingJobCleanup(entry.getKey(), entry.getValue());
+        }
     }
 
     @VisibleForTesting

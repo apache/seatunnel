@@ -25,11 +25,14 @@ import org.apache.seatunnel.common.exception.CommonErrorCodeDeprecated;
 import org.apache.seatunnel.connectors.seatunnel.maxcompute.config.MaxcomputeBaseOptions;
 import org.apache.seatunnel.connectors.seatunnel.maxcompute.exception.MaxcomputeConnectorException;
 
+import com.aliyun.credentials.provider.DefaultCredentialsProvider;
 import com.aliyun.odps.Odps;
 import com.aliyun.odps.PartitionSpec;
 import com.aliyun.odps.Table;
 import com.aliyun.odps.account.Account;
+import com.aliyun.odps.account.AklessAccount;
 import com.aliyun.odps.account.AliyunAccount;
+import com.aliyun.odps.account.StsAccount;
 import com.aliyun.odps.tunnel.TableTunnel;
 import com.aliyun.odps.tunnel.TunnelException;
 import lombok.extern.slf4j.Slf4j;
@@ -50,14 +53,32 @@ public class MaxcomputeUtil {
         return tableTunnel;
     }
 
+    public static Account getAccount(ReadonlyConfig readonlyConfig) {
+        String stsToken = readonlyConfig.getOptional(MaxcomputeBaseOptions.STS_TOKEN).orElse(null);
+        String accessId = readonlyConfig.getOptional(MaxcomputeBaseOptions.ACCESS_ID).orElse(null);
+        String accessKey =
+                readonlyConfig.getOptional(MaxcomputeBaseOptions.ACCESS_KEY).orElse(null);
+
+        if (StringUtils.isNotEmpty(stsToken)) {
+            if (StringUtils.isEmpty(accessId) || StringUtils.isEmpty(accessKey)) {
+                throw new IllegalArgumentException(
+                        "accessId and accesskey must be provided when sts_token is used.");
+            }
+            return new StsAccount(accessId, accessKey, stsToken);
+        } else if (StringUtils.isNotEmpty(accessId) && StringUtils.isNotEmpty(accessKey)) {
+            return new AliyunAccount(accessId, accessKey);
+        } else {
+            return new AklessAccount(new DefaultCredentialsProvider());
+        }
+    }
+
     public static Odps getOdps(ReadonlyConfig readonlyConfig) {
-        Account account =
-                new AliyunAccount(
-                        readonlyConfig.get(MaxcomputeBaseOptions.ACCESS_ID),
-                        readonlyConfig.get(MaxcomputeBaseOptions.ACCESS_KEY));
+        Account account = getAccount(readonlyConfig);
         Odps odps = new Odps(account);
         odps.setEndpoint(readonlyConfig.get(MaxcomputeBaseOptions.ENDPOINT));
         odps.setDefaultProject(readonlyConfig.get(MaxcomputeBaseOptions.PROJECT));
+        odps.setCurrentSchema(
+                readonlyConfig.getOptional(MaxcomputeBaseOptions.SCHEMA_NAME).orElse(null));
         return odps;
     }
 
@@ -139,5 +160,19 @@ public class MaxcomputeUtil {
                 .setSchemaName(tunnel.getConfig().getOdps().getCurrentSchema())
                 .setPartitionSpec(partitionSpec)
                 .build();
+    }
+
+    /**
+     * Note: Unlike DownloadSession and UpsertSession, we do not need to explicitly pass the schema
+     * name to the builder here. The underlying `TableTunnel.createUploadSession` automatically
+     * inherits the schema_name directly from `tunnel.getConfig().getOdps().getCurrentSchema()`.
+     */
+    public static TableTunnel.UploadSession buildUploadSession(
+            TableTunnel tunnel, String projectName, String tableName, PartitionSpec partitionSpec)
+            throws TunnelException {
+        if (partitionSpec != null) {
+            return tunnel.createUploadSession(projectName, tableName, partitionSpec);
+        }
+        return tunnel.createUploadSession(projectName, tableName);
     }
 }

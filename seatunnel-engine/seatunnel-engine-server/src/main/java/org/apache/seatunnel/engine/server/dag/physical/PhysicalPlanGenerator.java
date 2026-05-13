@@ -168,7 +168,8 @@ public class PhysicalPlanGenerator {
                     new PipelineLocation(jobImmutableInformation.getJobId(), pipeline.getId());
             PipelineStatus pipelineStatus =
                     (PipelineStatus) runningJobStateIMap.get(pipelineLocation);
-            if (!PipelineStatus.FINISHED.equals(pipelineStatus)) {
+            if (jobImmutableInformation.isStartWithSavePoint()
+                    || !PipelineStatus.FINISHED.equals(pipelineStatus)) {
                 unclosedPipelines.add(pipeline);
             }
         }
