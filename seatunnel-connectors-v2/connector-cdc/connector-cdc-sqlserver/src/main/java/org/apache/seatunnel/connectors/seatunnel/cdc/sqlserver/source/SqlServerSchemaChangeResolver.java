@@ -45,7 +45,6 @@ import io.debezium.relational.history.HistoryRecord;
 import io.debezium.relational.history.TableChanges;
 import lombok.extern.slf4j.Slf4j;
 
-import java.io.Serializable;
 import java.util.ArrayList;
 import java.util.Collections;
 import java.util.HashSet;
@@ -65,6 +64,10 @@ public class SqlServerSchemaChangeResolver implements SchemaChangeResolver {
     private static final String SOURCE_DIALECT = DatabaseIdentifier.SQLSERVER;
     private static final String SQLSERVER_SCHEMA_CHANGE_KEY =
             "io.debezium.connector.sqlserver.SchemaChangeKey";
+
+    // This value must stay in sync with the entry in
+    // SourceRecordUtils.SUPPORT_SCHEMA_CHANGE_EVENT_KEY_NAME.
+    // TODO: expose it as a named constant in SourceRecordUtils and reference it here.
     private static final Pattern ALTER_TABLE_PATTERN =
             Pattern.compile(
                     "(?i)ALTER\\s+TABLE\\s+(.+?)\\s+(ADD|DROP|ALTER|RENAME|WITH|SWITCH)\\b");
@@ -241,14 +244,25 @@ public class SqlServerSchemaChangeResolver implements SchemaChangeResolver {
         return events;
     }
 
+    /**
+     * Attempts to pair "removed" and "added" columns as rename operations by matching on index
+     * position and identical type/nullable/length definition.
+     *
+     * <p><b>Limitation:</b> the diff-based heuristic can produce false positives. If a column is
+     * dropped and a structurally identical column is added at the same ordinal position in a single
+     * DDL statement, this method will incorrectly emit a RENAME event instead of DROP + ADD. There
+     * is no DDL text available at this stage to disambiguate the intent. Callers must accept this
+     * trade-off; the emitted RENAME event is functionally safe (the downstream schema will remain
+     * consistent) but may cause unexpected rename semantics for some sinks.
+     */
     private void pairRenameColumns(
             List<AlterTableColumnEvent> events,
             TableIdentifier tableIdentifier,
             List<io.debezium.relational.Column> newColumns,
             List<ColumnWithIndex<Column>> removedColumns,
             List<ColumnWithIndex<io.debezium.relational.Column>> addedColumns) {
-        List<ColumnWithIndex<Column>> matchedRemoved = new ArrayList<>();
-        List<ColumnWithIndex<io.debezium.relational.Column>> matchedAdded = new ArrayList<>();
+        Set<ColumnWithIndex<Column>> matchedRemoved = new HashSet<>();
+        Set<ColumnWithIndex<io.debezium.relational.Column>> matchedAdded = new HashSet<>();
 
         for (ColumnWithIndex<io.debezium.relational.Column> added : addedColumns) {
             Column convertedAdded = convertColumn(added.value);
@@ -355,6 +369,12 @@ public class SqlServerSchemaChangeResolver implements SchemaChangeResolver {
                 || !isSourceTypeCompatible(oldColumn.getSourceType(), newColumn.getSourceType());
     }
 
+    /**
+     * Returns {@code true} when the two columns share the same structural definition (type, length,
+     * scale, nullability, default, comment), ignoring the column name. Used to heuristically detect
+     * renames. Note: comment equality is included — a rename that also changes the comment will not
+     * be detected as a rename but as DROP + ADD.
+     */
     private boolean sameDefinitionExceptName(Column oldColumn, Column newColumn) {
         return isSameColumnDefinition(oldColumn, newColumn);
     }
@@ -517,8 +537,7 @@ public class SqlServerSchemaChangeResolver implements SchemaChangeResolver {
         return normalized;
     }
 
-    private static class ColumnWithIndex<T> implements Serializable {
-        private static final long serialVersionUID = 1L;
+    private static class ColumnWithIndex<T> {
 
         private final T value;
         private final int index;

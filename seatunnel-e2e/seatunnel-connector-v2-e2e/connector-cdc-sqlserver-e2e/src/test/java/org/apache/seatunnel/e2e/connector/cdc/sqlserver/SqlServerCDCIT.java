@@ -659,8 +659,9 @@ public class SqlServerCDCIT extends TestSuiteBase implements TestResource {
     }
 
     private void executeSql(String sql) {
-        try (Connection connection = getJdbcConnection()) {
-            connection.createStatement().execute(sql);
+        try (Connection connection = getJdbcConnection();
+                Statement statement = connection.createStatement()) {
+            statement.execute(sql);
         } catch (SQLException e) {
             throw new RuntimeException(e);
         }

@@ -386,36 +386,29 @@ public class SqlServerConnection extends JdbcConnection {
     protected Optional<ColumnEditor> readTableColumn(
             ResultSet columnMetadata, TableId tableId, Tables.ColumnNameFilter columnFilter)
             throws SQLException {
-        return doReadTableColumn(columnMetadata, tableId, columnFilter);
+        return doReadTableColumn(columnMetadata, tableId, columnFilter, null);
     }
 
+    /**
+     * Reads a single column from the JDBC metadata ResultSet.
+     *
+     * @param columnTypeMapping pre-fetched UDT name map (column name → type name) for the table, or
+     *     {@code null} to fall back to per-column query (legacy path, avoid in hot loops)
+     */
     private Optional<ColumnEditor> doReadTableColumn(
-            ResultSet columnMetadata, TableId tableId, Tables.ColumnNameFilter columnFilter)
+            ResultSet columnMetadata,
+            TableId tableId,
+            Tables.ColumnNameFilter columnFilter,
+            Map<String, String> columnTypeMapping)
             throws SQLException {
         // Oracle drivers require this for LONG/LONGRAW to be fetched first.
         final String defaultValue = columnMetadata.getString(13);
-        String tableSql =
-                StringUtils.isNotEmpty(tableId.table())
-                        ? "AND tbl.name = '" + tableId.table() + "'"
-                        : "";
 
-        Map<String, String> columnTypeMapping = new HashMap<>();
-
-        // Support user-defined types (UDTs)
-        try (PreparedStatement ps =
-                        connection()
-                                .prepareStatement(
-                                        String.format(
-                                                SELECT_COLUMNS_SQL_TEMPLATE,
-                                                tableId.schema(),
-                                                tableSql));
-                ResultSet resultSet = ps.executeQuery()) {
-            while (resultSet.next()) {
-                String columnName = resultSet.getString("column_name");
-                String dataType = resultSet.getString("type");
-                columnTypeMapping.put(columnName, dataType);
-            }
+        if (columnTypeMapping == null) {
+            // Fallback: fetch UDT mapping for this single call (used by the base-class code path).
+            columnTypeMapping = fetchColumnTypeMapping(tableId);
         }
+
         final String columnName = columnMetadata.getString(4);
         if (columnFilter == null
                 || columnFilter.matches(
@@ -453,6 +446,32 @@ public class SqlServerConnection extends JdbcConnection {
         }
 
         return Optional.empty();
+    }
+
+    /**
+     * Fetches UDT type names for all columns in {@code tableId} in a single query.
+     *
+     * @return map of column name → resolved type name (empty map if the query returns no rows)
+     */
+    private Map<String, String> fetchColumnTypeMapping(TableId tableId) throws SQLException {
+        String tableSql =
+                StringUtils.isNotEmpty(tableId.table())
+                        ? "AND tbl.name = '" + tableId.table() + "'"
+                        : "";
+        Map<String, String> mapping = new HashMap<>();
+        try (PreparedStatement ps =
+                        connection()
+                                .prepareStatement(
+                                        String.format(
+                                                SELECT_COLUMNS_SQL_TEMPLATE,
+                                                tableId.schema(),
+                                                tableSql));
+                ResultSet resultSet = ps.executeQuery()) {
+            while (resultSet.next()) {
+                mapping.put(resultSet.getString("column_name"), resultSet.getString("type"));
+            }
+        }
+        return mapping;
     }
 
     /**
@@ -736,6 +755,11 @@ public class SqlServerConnection extends JdbcConnection {
         JdbcIdentifierUtils.IdentifierCaseStrategy identifierCaseStrategy =
                 JdbcIdentifierUtils.identifierCaseStrategy(metadata);
 
+        // Fetch UDT type mapping once for the whole table to avoid N queries inside the column
+        // loop (one per column via doReadTableColumn).
+        final Map<String, String> columnTypeMapping =
+                fetchColumnTypeMapping(changeTable.getSourceTableId());
+
         List<Column> columns = new ArrayList<>();
         int filteredRows = 0;
         try (ResultSet rs =
@@ -763,7 +787,7 @@ public class SqlServerConnection extends JdbcConnection {
                     filteredRows++;
                     continue;
                 }
-                readTableColumn(rs, changeTable.getSourceTableId(), null)
+                doReadTableColumn(rs, changeTable.getSourceTableId(), null, columnTypeMapping)
                         .ifPresent(
                                 ce -> {
                                     // Filter out columns not included in the change table.
