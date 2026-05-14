@@ -1437,7 +1437,7 @@ See [Realtime Observability](realtime-observability.md) for configuration and me
 </details>
 
 <details>
- <summary><code>GET</code> <code><b>/metrics/realtime/jobs/{jobId}/vertices?windowMs=600000</b></code> <code>(Return Source/Transform/Sink vertex time series.)</code></summary>
+ <summary><code>GET</code> <code><b>/metrics/realtime/jobs/{'{'}jobId{'}'}/vertices?windowMs=600000</b></code> <code>(Return Source/Transform/Sink vertex time series.)</code></summary>
 
 #### Query Parameters
 
@@ -1475,7 +1475,7 @@ Ratio fields are in the range `0~1` and can be displayed as percentages. Fields 
 </details>
 
 <details>
- <summary><code>GET</code> <code><b>/metrics/realtime/jobs/{jobId}/edges?windowMs=600000</b></code> <code>(Return queue/edge downstream wait ratio and queue fill ratio time series.)</code></summary>
+ <summary><code>GET</code> <code><b>/metrics/realtime/jobs/{'{'}jobId{'}'}/edges?windowMs=600000</b></code> <code>(Return queue/edge downstream wait ratio and queue fill ratio time series.)</code></summary>
 
 #### Query Parameters
 
