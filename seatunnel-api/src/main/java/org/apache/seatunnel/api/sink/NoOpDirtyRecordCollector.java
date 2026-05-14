@@ -18,7 +18,6 @@
 package org.apache.seatunnel.api.sink;
 
 import org.apache.seatunnel.api.table.catalog.CatalogTable;
-import org.apache.seatunnel.api.table.type.SeaTunnelRow;
 
 /**
  * A no-operation dirty record collector that does nothing. This is used as a default implementation
@@ -35,8 +34,12 @@ public class NoOpDirtyRecordCollector implements DirtyRecordCollector {
     @Override
     public void collect(
             int subTaskIndex,
-            SeaTunnelRow dirtyRecord,
+            Object dirtyRecord,
             Throwable exception,
             String errorMessage,
             CatalogTable catalogTable) {}
+
+    private Object readResolve() {
+        return INSTANCE;
+    }
 }

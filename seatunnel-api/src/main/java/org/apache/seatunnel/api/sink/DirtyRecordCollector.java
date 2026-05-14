@@ -32,14 +32,14 @@ public interface DirtyRecordCollector extends Serializable {
 
     void collect(
             final int subTaskIndex,
-            final SeaTunnelRow dirtyRecord,
+            final Object dirtyRecord,
             final Throwable exception,
             final String errorMessage,
             final CatalogTable catalogTable);
 
     default void collect(
             final int subTaskIndex,
-            final SeaTunnelRow dirtyRecord,
+            final Object dirtyRecord,
             final Throwable exception,
             final String errorMessage) {
         collect(subTaskIndex, dirtyRecord, exception, errorMessage, null);
@@ -47,14 +47,14 @@ public interface DirtyRecordCollector extends Serializable {
 
     default void collect(
             final int subTaskIndex,
-            final SeaTunnelRow dirtyRecord,
+            final Object dirtyRecord,
             final Throwable exception,
             final CatalogTable catalogTable) {
         collect(subTaskIndex, dirtyRecord, exception, "", catalogTable);
     }
 
     default void collect(
-            final int subTaskIndex, final SeaTunnelRow dirtyRecord, final Throwable exception) {
+            final int subTaskIndex, final Object dirtyRecord, final Throwable exception) {
         collect(subTaskIndex, dirtyRecord, exception, "", null);
     }
 
@@ -65,7 +65,7 @@ public interface DirtyRecordCollector extends Serializable {
     }
 
     default void collectFromUserRule(
-            int subTaskIndex, SeaTunnelRow record, String errorMessage, CatalogTable catalogTable) {
+            int subTaskIndex, Object record, String errorMessage, CatalogTable catalogTable) {
         collect(subTaskIndex, record, null, errorMessage, catalogTable);
     }
 
@@ -82,7 +82,7 @@ public interface DirtyRecordCollector extends Serializable {
 
     default void checkThreshold() throws Exception {}
 
-    default void setDistributedCounter(Object counter) {}
+    default void setDistributedCounter(DistributedCounter counter) {}
 
     default void incrementDistributedCounter() {}
 }

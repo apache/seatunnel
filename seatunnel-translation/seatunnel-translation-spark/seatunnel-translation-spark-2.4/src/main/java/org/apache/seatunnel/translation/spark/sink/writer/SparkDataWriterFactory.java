@@ -19,7 +19,9 @@ package org.apache.seatunnel.translation.spark.sink.writer;
 
 import org.apache.seatunnel.api.event.DefaultEventProcessor;
 import org.apache.seatunnel.api.sink.DefaultSinkWriterContext;
+import org.apache.seatunnel.api.sink.DirtyDataAwareSinkWriter;
 import org.apache.seatunnel.api.sink.DirtyRecordCollector;
+import org.apache.seatunnel.api.sink.DistributedCounter;
 import org.apache.seatunnel.api.sink.NoOpDirtyRecordCollector;
 import org.apache.seatunnel.api.sink.SeaTunnelSink;
 import org.apache.seatunnel.api.sink.SinkCommitter;
@@ -102,7 +104,20 @@ public class SparkDataWriterFactory<CommitInfoT, StateT> implements DataWriterFa
     public DataWriter<InternalRow> createDataWriter(int partitionId, long taskId, long epochId) {
         if (dirtyRecordAccumulator != null
                 && !(dirtyRecordCollector instanceof NoOpDirtyRecordCollector)) {
-            dirtyRecordCollector.setDistributedCounter(dirtyRecordAccumulator);
+            dirtyRecordCollector.setDistributedCounter(
+                    new DistributedCounter() {
+                        private static final long serialVersionUID = 1L;
+
+                        @Override
+                        public void add(long delta) {
+                            dirtyRecordAccumulator.add(delta);
+                        }
+
+                        @Override
+                        public long value() {
+                            return dirtyRecordAccumulator.value();
+                        }
+                    });
             log.debug(
                     "Set Spark accumulator to dirty record collector for partition {}",
                     partitionId);
@@ -120,6 +135,16 @@ public class SparkDataWriterFactory<CommitInfoT, StateT> implements DataWriterFa
             writer = sink.createWriter(context);
         } catch (IOException e) {
             throw new RuntimeException("Failed to create SinkWriter.", e);
+        }
+        if (!(dirtyRecordCollector instanceof NoOpDirtyRecordCollector)) {
+            writer =
+                    new DirtyDataAwareSinkWriter<>(
+                            writer,
+                            dirtyRecordCollector,
+                            context.getIndexOfSubtask(),
+                            catalogTables != null && catalogTables.length == 1
+                                    ? catalogTables[0]
+                                    : null);
         }
         try {
             committer = sink.createCommitter().orElse(null);

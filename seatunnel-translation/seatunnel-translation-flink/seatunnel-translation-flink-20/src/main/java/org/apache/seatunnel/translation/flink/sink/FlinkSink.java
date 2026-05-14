@@ -18,6 +18,7 @@
 package org.apache.seatunnel.translation.flink.sink;
 
 import org.apache.seatunnel.api.serialization.Serializer;
+import org.apache.seatunnel.api.sink.DirtyDataAwareSinkWriter;
 import org.apache.seatunnel.api.sink.DirtyRecordCollector;
 import org.apache.seatunnel.api.sink.NoOpDirtyRecordCollector;
 import org.apache.seatunnel.api.sink.SeaTunnelSink;
@@ -88,9 +89,18 @@ public class FlinkSink<CommT, WriterStateT, GlobalCommT>
     public SinkWriter<SeaTunnelRow> createWriter(WriterInitContext context) throws IOException {
         FlinkSinkWriterContext writerContext =
                 new FlinkSinkWriterContext(context, parallelism, dirtyRecordCollector);
+        CatalogTable catalogTable = catalogTables.size() == 1 ? catalogTables.get(0) : null;
 
         org.apache.seatunnel.api.sink.SinkWriter<SeaTunnelRow, CommT, WriterStateT>
                 seatunnelWriter = seaTunnelSink.createWriter(writerContext);
+        if (!(dirtyRecordCollector instanceof NoOpDirtyRecordCollector)) {
+            seatunnelWriter =
+                    new DirtyDataAwareSinkWriter<>(
+                            seatunnelWriter,
+                            dirtyRecordCollector,
+                            writerContext.getIndexOfSubtask(),
+                            catalogTable);
+        }
 
         return new FlinkSinkWriter<>(seatunnelWriter, context, writerContext);
     }
@@ -154,12 +164,22 @@ public class FlinkSink<CommT, WriterStateT, GlobalCommT>
     public StatefulSinkWriter<SeaTunnelRow, FlinkWriterState<WriterStateT>> restoreWriter(
             WriterInitContext context, Collection<FlinkWriterState<WriterStateT>> recoveredState)
             throws IOException {
-        FlinkSinkWriterContext writerContext = new FlinkSinkWriterContext(context, parallelism);
+        FlinkSinkWriterContext writerContext =
+                new FlinkSinkWriterContext(context, parallelism, dirtyRecordCollector);
+        CatalogTable catalogTable = catalogTables.size() == 1 ? catalogTables.get(0) : null;
 
         if (recoveredState == null || recoveredState.isEmpty()) {
             // No state to restore, create new writer
             org.apache.seatunnel.api.sink.SinkWriter<SeaTunnelRow, CommT, WriterStateT>
                     seatunnelWriter = seaTunnelSink.createWriter(writerContext);
+            if (!(dirtyRecordCollector instanceof NoOpDirtyRecordCollector)) {
+                seatunnelWriter =
+                        new DirtyDataAwareSinkWriter<>(
+                                seatunnelWriter,
+                                dirtyRecordCollector,
+                                writerContext.getIndexOfSubtask(),
+                                catalogTable);
+            }
             return new FlinkSinkWriter<>(seatunnelWriter, context, writerContext);
         } else {
             // Restore from state
@@ -170,6 +190,14 @@ public class FlinkSink<CommT, WriterStateT, GlobalCommT>
 
             org.apache.seatunnel.api.sink.SinkWriter<SeaTunnelRow, CommT, WriterStateT>
                     seatunnelWriter = seaTunnelSink.restoreWriter(writerContext, states);
+            if (!(dirtyRecordCollector instanceof NoOpDirtyRecordCollector)) {
+                seatunnelWriter =
+                        new DirtyDataAwareSinkWriter<>(
+                                seatunnelWriter,
+                                dirtyRecordCollector,
+                                writerContext.getIndexOfSubtask(),
+                                catalogTable);
+            }
 
             // Find the maximum checkpoint ID from all recovered states to ensure consistency
             long maxCheckpointId =

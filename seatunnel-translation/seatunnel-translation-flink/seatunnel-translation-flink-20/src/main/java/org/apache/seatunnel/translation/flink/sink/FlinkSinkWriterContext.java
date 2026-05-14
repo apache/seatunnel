@@ -22,6 +22,7 @@ import org.apache.seatunnel.api.common.metrics.MetricsContext;
 import org.apache.seatunnel.api.event.DefaultEventProcessor;
 import org.apache.seatunnel.api.event.EventListener;
 import org.apache.seatunnel.api.sink.DirtyRecordCollector;
+import org.apache.seatunnel.api.sink.DistributedCounter;
 import org.apache.seatunnel.api.sink.NoOpDirtyRecordCollector;
 import org.apache.seatunnel.api.sink.SinkWriter;
 import org.apache.seatunnel.translation.flink.metric.FlinkMetricContext;
@@ -77,7 +78,20 @@ public class FlinkSinkWriterContext implements SinkWriter.Context {
         }
         try {
             Counter dirtyCounter = metricsContext.counter(DIRTY_RECORD_COUNT_METRIC);
-            dirtyRecordCollector.setDistributedCounter(dirtyCounter);
+            dirtyRecordCollector.setDistributedCounter(
+                    new DistributedCounter() {
+                        private static final long serialVersionUID = 1L;
+
+                        @Override
+                        public void add(long delta) {
+                            dirtyCounter.inc(delta);
+                        }
+
+                        @Override
+                        public long value() {
+                            return dirtyCounter.getCount();
+                        }
+                    });
             log.info(
                     "Set up Flink distributed counter for dirty record counting (subtask {})",
                     initContext.getTaskInfo().getIndexOfThisSubtask());

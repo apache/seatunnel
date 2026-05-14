@@ -17,6 +17,7 @@
 
 package org.apache.seatunnel.translation.flink.sink;
 
+import org.apache.seatunnel.api.sink.DirtyDataAwareSinkWriter;
 import org.apache.seatunnel.api.sink.DirtyRecordCollector;
 import org.apache.seatunnel.api.sink.NoOpDirtyRecordCollector;
 import org.apache.seatunnel.api.sink.SeaTunnelSink;
@@ -96,15 +97,33 @@ public class FlinkSink<InputT, CommT, WriterStateT, GlobalCommT>
             throws IOException {
         org.apache.seatunnel.api.sink.SinkWriter.Context stContext =
                 new FlinkSinkWriterContext(context, parallelism, dirtyRecordCollector);
+        CatalogTable catalogTable = catalogTables.size() == 1 ? catalogTables.get(0) : null;
         if (states == null || states.isEmpty()) {
-            return new FlinkSinkWriter<>(sink.createWriter(stContext), 1, stContext);
+            org.apache.seatunnel.api.sink.SinkWriter<SeaTunnelRow, CommT, WriterStateT> writer =
+                    sink.createWriter(stContext);
+            if (!(dirtyRecordCollector instanceof NoOpDirtyRecordCollector)) {
+                writer =
+                        new DirtyDataAwareSinkWriter<>(
+                                writer,
+                                dirtyRecordCollector,
+                                stContext.getIndexOfSubtask(),
+                                catalogTable);
+            }
+            return new FlinkSinkWriter<>(writer, 1, stContext);
         } else {
             List<WriterStateT> restoredState =
                     states.stream().map(FlinkWriterState::getState).collect(Collectors.toList());
-            return new FlinkSinkWriter<>(
-                    sink.restoreWriter(stContext, restoredState),
-                    states.get(0).getCheckpointId() + 1,
-                    stContext);
+            org.apache.seatunnel.api.sink.SinkWriter<SeaTunnelRow, CommT, WriterStateT> writer =
+                    sink.restoreWriter(stContext, restoredState);
+            if (!(dirtyRecordCollector instanceof NoOpDirtyRecordCollector)) {
+                writer =
+                        new DirtyDataAwareSinkWriter<>(
+                                writer,
+                                dirtyRecordCollector,
+                                stContext.getIndexOfSubtask(),
+                                catalogTable);
+            }
+            return new FlinkSinkWriter<>(writer, states.get(0).getCheckpointId() + 1, stContext);
         }
     }
 

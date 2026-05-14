@@ -17,6 +17,7 @@
 
 package org.apache.seatunnel.api.sink;
 
+import org.apache.seatunnel.shade.com.google.common.base.Preconditions;
 import org.apache.seatunnel.shade.com.typesafe.config.Config;
 
 import org.apache.seatunnel.api.table.catalog.CatalogTable;
@@ -42,13 +43,13 @@ public class ValidatingDirtyRecordCollector implements DirtyRecordCollector {
     public ValidatingDirtyRecordCollector(
             DirtyRecordCollector delegate, DirtyDataValidator validator) {
         this.delegate = delegate;
-        this.validator = validator;
+        this.validator = Preconditions.checkNotNull(validator, "validator cannot be null");
     }
 
     @Override
     public void collect(
             int subTaskIndex,
-            SeaTunnelRow dirtyRecord,
+            Object dirtyRecord,
             Throwable exception,
             String errorMessage,
             CatalogTable catalogTable) {
@@ -57,16 +58,13 @@ public class ValidatingDirtyRecordCollector implements DirtyRecordCollector {
 
     @Override
     public void collectFromUserRule(
-            int subTaskIndex, SeaTunnelRow record, String errorMessage, CatalogTable catalogTable) {
+            int subTaskIndex, Object record, String errorMessage, CatalogTable catalogTable) {
         delegate.collectFromUserRule(subTaskIndex, record, errorMessage, catalogTable);
     }
 
     @Override
     public boolean validateAndCollectIfDirty(
             int subTaskIndex, SeaTunnelRow record, CatalogTable catalogTable) {
-        if (validator == null) {
-            return false;
-        }
         DirtyDataValidator.ValidationResult result;
         try {
             result = validator.validate(record, catalogTable);
@@ -98,9 +96,7 @@ public class ValidatingDirtyRecordCollector implements DirtyRecordCollector {
     @Override
     public void close() throws Exception {
         try {
-            if (validator != null) {
-                validator.close();
-            }
+            validator.close();
         } finally {
             delegate.close();
         }
@@ -117,7 +113,7 @@ public class ValidatingDirtyRecordCollector implements DirtyRecordCollector {
     }
 
     @Override
-    public void setDistributedCounter(Object counter) {
+    public void setDistributedCounter(DistributedCounter counter) {
         delegate.setDistributedCounter(counter);
     }
 

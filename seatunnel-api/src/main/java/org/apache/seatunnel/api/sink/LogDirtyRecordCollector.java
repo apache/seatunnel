@@ -20,12 +20,17 @@ package org.apache.seatunnel.api.sink;
 import org.apache.seatunnel.shade.com.typesafe.config.Config;
 
 import org.apache.seatunnel.api.table.catalog.CatalogTable;
+import org.apache.seatunnel.api.table.catalog.Column;
 import org.apache.seatunnel.api.table.type.SeaTunnelRow;
 import org.apache.seatunnel.common.utils.ExceptionUtils;
 
 import lombok.extern.slf4j.Slf4j;
 
-import java.util.concurrent.atomic.AtomicLong;
+import java.util.ArrayList;
+import java.util.HashSet;
+import java.util.List;
+import java.util.Set;
+import java.util.stream.Collectors;
 
 /** A dirty record collector that logs dirty data information. */
 @Slf4j
@@ -35,69 +40,23 @@ public class LogDirtyRecordCollector implements DirtyRecordCollector {
 
     private String logLevel = "ERROR";
     private boolean includeStackTrace = true;
-    // -1 means no threshold
     private long threshold = -1;
     private boolean failOnThreshold = false;
-    private final AtomicLong dirtyRecordCount = new AtomicLong(0);
-    private transient Object distributedCounter;
+    private String logPayload = "false";
+    private Set<String> maskFields = new HashSet<>();
+    private DistributedCounter dirtyRecordCounter = new LocalAtomicCounter();
 
     @Override
-    public void setDistributedCounter(Object counter) {
-        this.distributedCounter = counter;
+    public void setDistributedCounter(DistributedCounter counter) {
+        this.dirtyRecordCounter = counter != null ? counter : new LocalAtomicCounter();
         log.debug(
                 "[LogCollector] distributed counter set: {}",
-                counter != null ? counter.getClass().getName() : "null");
+                dirtyRecordCounter.getClass().getName());
     }
 
     @Override
     public void incrementDistributedCounter() {
-        if (distributedCounter == null) {
-            return;
-        }
-        try {
-            if (distributedCounter.getClass().getName().contains("LongAccumulator")) {
-                // spark LongAccumulator
-                distributedCounter
-                        .getClass()
-                        .getMethod("add", long.class)
-                        .invoke(distributedCounter, 1L);
-            } else {
-                // flink LongCounter or seaTunnel Counter
-                try {
-                    distributedCounter.getClass().getMethod("inc").invoke(distributedCounter);
-                } catch (NoSuchMethodException e) {
-                    distributedCounter
-                            .getClass()
-                            .getMethod("add", long.class)
-                            .invoke(distributedCounter, 1L);
-                }
-            }
-        } catch (Exception e) {
-            log.trace("Failed to increment distributed counter", e);
-        }
-    }
-
-    private long getDistributedCount() {
-        if (distributedCounter == null) {
-            return dirtyRecordCount.get();
-        }
-        try {
-            if (distributedCounter.getClass().getName().contains("LongAccumulator")) {
-                // spark LongAccumulator
-                return (Long)
-                        distributedCounter.getClass().getMethod("value").invoke(distributedCounter);
-            } else {
-                // flink or seaTunnel Counter
-                return (Long)
-                        distributedCounter
-                                .getClass()
-                                .getMethod("getCount")
-                                .invoke(distributedCounter);
-            }
-        } catch (Exception e) {
-            log.trace("Failed to get distributed count, using local count", e);
-            return dirtyRecordCount.get();
-        }
+        dirtyRecordCounter.add(1L);
     }
 
     @Override
@@ -113,6 +72,18 @@ public class LogDirtyRecordCollector implements DirtyRecordCollector {
         }
         if (config.hasPath("fail_on_threshold")) {
             this.failOnThreshold = config.getBoolean("fail_on_threshold");
+        }
+        if (config.hasPath("log_payload")) {
+            this.logPayload = config.getString("log_payload").toLowerCase();
+        }
+        if (config.hasPath("mask_fields")) {
+            this.maskFields =
+                    config.getStringList("mask_fields").stream()
+                            .map(String::toLowerCase)
+                            .collect(Collectors.toSet());
+        }
+        if ("full".equals(logPayload)) {
+            log.warn("Dirty collector payload logging is enabled in full mode");
         }
     }
 
@@ -130,23 +101,20 @@ public class LogDirtyRecordCollector implements DirtyRecordCollector {
     @Override
     public void collect(
             int subTaskIndex,
-            SeaTunnelRow dirtyRecord,
+            Object dirtyRecord,
             Throwable exception,
             String errorMessage,
             CatalogTable catalogTable) {
-
-        long currentCount = dirtyRecordCount.incrementAndGet();
         incrementDistributedCounter();
-
-        String tableInfo = formatTableInfo(catalogTable);
+        long currentCount = dirtyRecordCounter.value();
 
         String logMessage =
                 String.format(
                         "Dirty record collected (exception) - SubTask: %d, %s, Count: %d, Record: %s, Error: %s",
                         subTaskIndex,
-                        tableInfo,
+                        formatTableInfo(catalogTable),
                         currentCount,
-                        dirtyRecord != null ? dirtyRecord.toString() : "null",
+                        summarizeRecord(dirtyRecord, catalogTable),
                         errorMessage != null ? errorMessage : "");
 
         if (includeStackTrace && exception != null) {
@@ -159,19 +127,17 @@ public class LogDirtyRecordCollector implements DirtyRecordCollector {
 
     @Override
     public void collectFromUserRule(
-            int subTaskIndex, SeaTunnelRow record, String errorMessage, CatalogTable catalogTable) {
-
-        long currentCount = dirtyRecordCount.incrementAndGet();
+            int subTaskIndex, Object record, String errorMessage, CatalogTable catalogTable) {
         incrementDistributedCounter();
+        long currentCount = dirtyRecordCounter.value();
 
-        String tableInfo = formatTableInfo(catalogTable);
         String logMessage =
                 String.format(
                         "Dirty record collected (user rule) - SubTask: %d, %s, Count: %d, Record: %s, Reason: %s",
                         subTaskIndex,
-                        tableInfo,
+                        formatTableInfo(catalogTable),
                         currentCount,
-                        record != null ? record.toString() : "null",
+                        summarizeRecord(record, catalogTable),
                         errorMessage != null ? errorMessage : "");
 
         doLog(logMessage);
@@ -186,6 +152,66 @@ public class LogDirtyRecordCollector implements DirtyRecordCollector {
                         catalogTable.getTableId().getSchemaName(),
                         catalogTable.getTableId().getTableName())
                 : "Table: unknown";
+    }
+
+    private String summarizeRecord(Object dirtyRecord, CatalogTable catalogTable) {
+        if (!(dirtyRecord instanceof SeaTunnelRow)) {
+            return dirtyRecord == null
+                    ? "null"
+                    : "payloadType=" + dirtyRecord.getClass().getSimpleName();
+        }
+        SeaTunnelRow row = (SeaTunnelRow) dirtyRecord;
+        if ("fields".equals(logPayload)) {
+            return summarizeFieldNames(row, catalogTable);
+        }
+        if ("full".equals(logPayload)) {
+            return summarizeFullRow(row, catalogTable);
+        }
+        return "fields=" + row.getArity();
+    }
+
+    private String summarizeFieldNames(SeaTunnelRow row, CatalogTable catalogTable) {
+        List<String> fieldNames = getFieldNames(row, catalogTable);
+        List<String> nonNullFields = new ArrayList<>();
+        for (int i = 0; i < row.getArity(); i++) {
+            if (row.getField(i) != null) {
+                nonNullFields.add(fieldNames.get(i));
+            }
+        }
+        return "nonNullFields=" + nonNullFields;
+    }
+
+    private String summarizeFullRow(SeaTunnelRow row, CatalogTable catalogTable) {
+        List<String> fieldNames = getFieldNames(row, catalogTable);
+        List<String> values = new ArrayList<>();
+        for (int i = 0; i < row.getArity(); i++) {
+            String fieldName = fieldNames.get(i);
+            Object value = row.getField(i);
+            values.add(
+                    fieldName
+                            + "="
+                            + (maskFields.contains(fieldName.toLowerCase()) ? "***" : value));
+        }
+        return values.toString();
+    }
+
+    private List<String> getFieldNames(SeaTunnelRow row, CatalogTable catalogTable) {
+        if (catalogTable == null || catalogTable.getTableSchema() == null) {
+            return buildPositionalFieldNames(row.getArity());
+        }
+        List<Column> columns = catalogTable.getTableSchema().getColumns();
+        if (columns == null || columns.size() != row.getArity()) {
+            return buildPositionalFieldNames(row.getArity());
+        }
+        return columns.stream().map(Column::getName).collect(Collectors.toList());
+    }
+
+    private List<String> buildPositionalFieldNames(int arity) {
+        List<String> fieldNames = new ArrayList<>(arity);
+        for (int i = 0; i < arity; i++) {
+            fieldNames.add("field_" + i);
+        }
+        return fieldNames;
     }
 
     private void doLog(String logMessage) {
@@ -217,7 +243,7 @@ public class LogDirtyRecordCollector implements DirtyRecordCollector {
 
     @Override
     public long getDirtyRecordCount() {
-        return dirtyRecordCount.get();
+        return dirtyRecordCounter.value();
     }
 
     @Override
@@ -226,13 +252,10 @@ public class LogDirtyRecordCollector implements DirtyRecordCollector {
             return;
         }
 
-        long count = getDistributedCount();
+        long count = dirtyRecordCounter.value();
         if (count >= threshold) {
             String message =
-                    String.format(
-                            "Dirty record threshold exceeded: %d >= %d (distributed=%s)",
-                            count, threshold, distributedCounter != null);
-
+                    String.format("Dirty record threshold exceeded: %d >= %d", count, threshold);
             if (failOnThreshold) {
                 log.error(message + " - Task will be failed!");
                 throw new RuntimeException(message);

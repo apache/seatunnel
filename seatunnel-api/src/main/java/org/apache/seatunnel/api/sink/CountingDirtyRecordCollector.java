@@ -20,11 +20,8 @@ package org.apache.seatunnel.api.sink;
 import org.apache.seatunnel.shade.com.typesafe.config.Config;
 
 import org.apache.seatunnel.api.table.catalog.CatalogTable;
-import org.apache.seatunnel.api.table.type.SeaTunnelRow;
 
 import lombok.extern.slf4j.Slf4j;
-
-import java.util.concurrent.atomic.AtomicLong;
 
 /**
  * A sample custom dirty record collector discovered via SPI. Logs each dirty record with a
@@ -36,10 +33,9 @@ public class CountingDirtyRecordCollector implements DirtyRecordCollector {
 
     private static final long serialVersionUID = 1L;
 
-    private final AtomicLong dirtyRecordCount = new AtomicLong(0);
+    private DistributedCounter dirtyRecordCounter = new LocalAtomicCounter();
     private long threshold = -1;
     private boolean failOnThreshold = false;
-    private transient Object distributedCounter;
 
     @Override
     public void init(Config config) {
@@ -56,91 +52,27 @@ public class CountingDirtyRecordCollector implements DirtyRecordCollector {
     }
 
     @Override
-    public void setDistributedCounter(Object counter) {
-        this.distributedCounter = counter;
+    public void setDistributedCounter(DistributedCounter counter) {
+        this.dirtyRecordCounter = counter != null ? counter : new LocalAtomicCounter();
         log.debug(
                 "[CountingCollector] distributed counter set: {}",
-                counter != null ? counter.getClass().getName() : "null");
+                dirtyRecordCounter.getClass().getName());
     }
 
     @Override
     public void incrementDistributedCounter() {
-        if (distributedCounter == null) {
-            return;
-        }
-        try {
-            if (distributedCounter.getClass().getName().contains("LongAccumulator")) {
-                // spark LongAccumulator
-                distributedCounter
-                        .getClass()
-                        .getMethod("add", long.class)
-                        .invoke(distributedCounter, 1L);
-            } else if (distributedCounter.getClass().getName().contains("Counter")) {
-                // flink LongCounter
-                distributedCounter.getClass().getMethod("inc").invoke(distributedCounter);
-            } else {
-                // seaTunnel Counter
-                try {
-                    distributedCounter.getClass().getMethod("inc").invoke(distributedCounter);
-                } catch (NoSuchMethodException e) {
-                    distributedCounter
-                            .getClass()
-                            .getMethod("add", long.class)
-                            .invoke(distributedCounter, 1L);
-                }
-            }
-        } catch (Exception e) {
-            log.trace("Failed to increment distributed counter", e);
-        }
-    }
-
-    private long getDistributedCount() {
-        if (distributedCounter == null) {
-            return dirtyRecordCount.get();
-        }
-        try {
-            if (distributedCounter.getClass().getName().contains("LongAccumulator")) {
-                // spark LongAccumulator
-                return (Long)
-                        distributedCounter.getClass().getMethod("value").invoke(distributedCounter);
-            } else if (distributedCounter.getClass().getName().contains("Counter")) {
-                // flink Counter
-                return (Long)
-                        distributedCounter
-                                .getClass()
-                                .getMethod("getCount")
-                                .invoke(distributedCounter);
-            } else {
-                // seaTunnel Counter
-                try {
-                    return (Long)
-                            distributedCounter
-                                    .getClass()
-                                    .getMethod("getCount")
-                                    .invoke(distributedCounter);
-                } catch (NoSuchMethodException e) {
-                    return (Long)
-                            distributedCounter
-                                    .getClass()
-                                    .getMethod("value")
-                                    .invoke(distributedCounter);
-                }
-            }
-        } catch (Exception e) {
-            log.trace("Failed to get distributed count, using local count", e);
-            return dirtyRecordCount.get();
-        }
+        dirtyRecordCounter.add(1L);
     }
 
     @Override
     public void collect(
             int subTaskIndex,
-            SeaTunnelRow dirtyRecord,
+            Object dirtyRecord,
             Throwable exception,
             String errorMessage,
             CatalogTable catalogTable) {
-        long n = dirtyRecordCount.incrementAndGet();
         incrementDistributedCounter();
+        long n = dirtyRecordCounter.value();
         log.error(
                 "[CountingCollector] dirty record #{}: SubTask={}, Record={}, Error={}",
                 n,
@@ -152,7 +84,7 @@ public class CountingDirtyRecordCollector implements DirtyRecordCollector {
 
     @Override
     public long getDirtyRecordCount() {
-        return dirtyRecordCount.get();
+        return dirtyRecordCounter.value();
     }
 
     @Override
@@ -161,12 +93,11 @@ public class CountingDirtyRecordCollector implements DirtyRecordCollector {
             return;
         }
 
-        long count = getDistributedCount();
+        long count = dirtyRecordCounter.value();
         if (count >= threshold) {
             String message =
                     String.format(
-                            "[CountingCollector] threshold exceeded: %d >= %d (distributed=%s)",
-                            count, threshold, distributedCounter != null);
+                            "[CountingCollector] threshold exceeded: %d >= %d", count, threshold);
             if (failOnThreshold) {
                 throw new RuntimeException(message);
             } else {

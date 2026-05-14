@@ -86,7 +86,7 @@ public class ConsoleSinkWriter extends AbstractSinkWriter<SeaTunnelRow, Void>
     }
 
     @Override
-    protected void doWrite(SeaTunnelRow element) {
+    public void write(SeaTunnelRow element) {
         if (element.getArity() == 0) {
             return;
         }
