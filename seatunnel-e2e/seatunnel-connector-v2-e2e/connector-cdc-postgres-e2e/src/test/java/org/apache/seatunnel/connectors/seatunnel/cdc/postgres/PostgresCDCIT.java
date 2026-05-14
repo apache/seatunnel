@@ -1072,6 +1072,10 @@ public class PostgresCDCIT extends TestSuiteBase implements TestResource {
                         + SCHEMA_EVOLUTION_SOURCE_TABLE
                         + " (id INTEGER NOT NULL, f_bytea BYTEA, f_small SMALLINT, f_int INTEGER, PRIMARY KEY (id))");
         executeSql(
+                "ALTER TABLE inventory."
+                        + SCHEMA_EVOLUTION_SOURCE_TABLE
+                        + " REPLICA IDENTITY FULL");
+        executeSql(
                 "CREATE TABLE inventory."
                         + SCHEMA_EVOLUTION_SINK_TABLE
                         + " (id INTEGER NOT NULL, f_bytea BYTEA, f_small SMALLINT, f_int INTEGER, PRIMARY KEY (id))");
