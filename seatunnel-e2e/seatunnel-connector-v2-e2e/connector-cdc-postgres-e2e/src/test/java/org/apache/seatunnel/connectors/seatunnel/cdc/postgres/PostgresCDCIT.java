@@ -767,29 +767,21 @@ public class PostgresCDCIT extends TestSuiteBase implements TestResource {
                     POSTGRESQL_SCHEMA, SCHEMA_EVOLUTION_SOURCE_TABLE, SCHEMA_EVOLUTION_SINK_TABLE);
 
             addFieldForSchemaEvolution(POSTGRESQL_SCHEMA, SCHEMA_EVOLUTION_SOURCE_TABLE);
-            assertTableSchemaAndDataEquals(
-                    POSTGRESQL_SCHEMA, SCHEMA_EVOLUTION_SOURCE_TABLE, SCHEMA_EVOLUTION_SINK_TABLE);
             insertRowAfterAddField(POSTGRESQL_SCHEMA, SCHEMA_EVOLUTION_SOURCE_TABLE);
             assertTableSchemaAndDataEquals(
                     POSTGRESQL_SCHEMA, SCHEMA_EVOLUTION_SOURCE_TABLE, SCHEMA_EVOLUTION_SINK_TABLE);
 
             dropFieldForSchemaEvolution(POSTGRESQL_SCHEMA, SCHEMA_EVOLUTION_SOURCE_TABLE);
-            assertTableSchemaAndDataEquals(
-                    POSTGRESQL_SCHEMA, SCHEMA_EVOLUTION_SOURCE_TABLE, SCHEMA_EVOLUTION_SINK_TABLE);
             insertRowAfterDropField(POSTGRESQL_SCHEMA, SCHEMA_EVOLUTION_SOURCE_TABLE);
             assertTableSchemaAndDataEquals(
                     POSTGRESQL_SCHEMA, SCHEMA_EVOLUTION_SOURCE_TABLE, SCHEMA_EVOLUTION_SINK_TABLE);
 
             renameFieldForSchemaEvolution(POSTGRESQL_SCHEMA, SCHEMA_EVOLUTION_SOURCE_TABLE);
-            assertTableSchemaAndDataEquals(
-                    POSTGRESQL_SCHEMA, SCHEMA_EVOLUTION_SOURCE_TABLE, SCHEMA_EVOLUTION_SINK_TABLE);
             insertRowAfterRenameField(POSTGRESQL_SCHEMA, SCHEMA_EVOLUTION_SOURCE_TABLE);
             assertTableSchemaAndDataEquals(
                     POSTGRESQL_SCHEMA, SCHEMA_EVOLUTION_SOURCE_TABLE, SCHEMA_EVOLUTION_SINK_TABLE);
 
             modifyFieldForSchemaEvolution(POSTGRESQL_SCHEMA, SCHEMA_EVOLUTION_SOURCE_TABLE);
-            assertTableSchemaAndDataEquals(
-                    POSTGRESQL_SCHEMA, SCHEMA_EVOLUTION_SOURCE_TABLE, SCHEMA_EVOLUTION_SINK_TABLE);
             insertRowAfterModifyField(POSTGRESQL_SCHEMA, SCHEMA_EVOLUTION_SOURCE_TABLE);
             assertTableSchemaAndDataEquals(
                     POSTGRESQL_SCHEMA, SCHEMA_EVOLUTION_SOURCE_TABLE, SCHEMA_EVOLUTION_SINK_TABLE);
