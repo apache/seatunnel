@@ -54,6 +54,15 @@ SeaTunnel's translation layer aims to:
 └──────────────────┘  └──────────────────┘  └──────────────────┘
 ```
 
+### 1.4 Recommended Reading Path
+
+Use this page as the cross-engine overview, then branch into the engine-specific pages:
+
+- [Flink Translation Layer](./flink-translation-layer.md)
+- [Spark Translation Layer](./spark-translation-layer.md)
+
+Read the rest of this page when you want the combined view of shared translation concerns.
+
 ## 2. Flink Translation Layer
 
 ### 2.1 FlinkSource Adapter

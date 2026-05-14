@@ -24,6 +24,7 @@ import org.apache.seatunnel.core.starter.enums.MasterType;
 import org.apache.seatunnel.core.starter.flink.args.FlinkCommandArgs;
 import org.apache.seatunnel.core.starter.utils.CommandLineUtils;
 
+import java.nio.file.Paths;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Objects;
@@ -65,7 +66,10 @@ public abstract class AbstractFlinkStarter implements Starter {
         if (flinkCommandArgs.getMasterType() == MasterType.YARN_APPLICATION) {
             command.add(
                     String.format("-Dyarn.ship-files=\"%s\"", flinkCommandArgs.getConfigFile()));
-            command.add(String.format("-Dyarn.ship-archives=%s", RUNTIME_FILE));
+            command.add(
+                    String.format(
+                            "-Dyarn.ship-archives=\"%s\"",
+                            Paths.get(Common.getSeaTunnelHome(), RUNTIME_FILE)));
         }
         // set yarn application name
         if (flinkCommandArgs.getMasterType() == MasterType.YARN_APPLICATION

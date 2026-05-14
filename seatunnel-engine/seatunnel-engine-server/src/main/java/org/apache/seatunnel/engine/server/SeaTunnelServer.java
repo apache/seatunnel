@@ -17,13 +17,13 @@
 
 package org.apache.seatunnel.engine.server;
 
+import org.apache.seatunnel.api.metadata.MetadataProviderManager;
 import org.apache.seatunnel.common.utils.RetryUtils;
 import org.apache.seatunnel.engine.common.Constant;
 import org.apache.seatunnel.engine.common.config.EngineConfig;
 import org.apache.seatunnel.engine.common.config.SeaTunnelConfig;
 import org.apache.seatunnel.engine.common.exception.SeaTunnelEngineException;
 import org.apache.seatunnel.engine.common.exception.SeaTunnelEngineRetryableException;
-import org.apache.seatunnel.engine.common.utils.DataSourceConfigResolver;
 import org.apache.seatunnel.engine.core.classloader.ClassLoaderService;
 import org.apache.seatunnel.engine.core.classloader.DefaultClassLoaderService;
 import org.apache.seatunnel.engine.server.checkpoint.monitor.CheckpointMonitorService;
@@ -94,7 +94,7 @@ public class SeaTunnelServer
     private CoordinatorService coordinatorService;
     @Getter private CheckpointService checkpointService;
     @Getter private CheckpointMonitorService checkpointMonitorService;
-    private ScheduledExecutorService monitorService;
+    @Getter private ScheduledExecutorService monitorService;
     private JettyService jettyService;
     private TaskLogManagerService taskLogManagerService;
 
@@ -185,12 +185,12 @@ public class SeaTunnelServer
     }
 
     private void startMaster() {
-        coordinatorService =
-                new CoordinatorService(nodeEngine, this, seaTunnelConfig.getEngineConfig());
         checkpointService =
                 new CheckpointService(seaTunnelConfig.getEngineConfig().getCheckpointConfig());
         checkpointMonitorService = new CheckpointMonitorService(nodeEngine, 32);
         monitorService = Executors.newSingleThreadScheduledExecutor();
+        coordinatorService =
+                new CoordinatorService(nodeEngine, this, seaTunnelConfig.getEngineConfig());
         monitorService.scheduleAtFixedRate(
                 this::printExecutionInfo,
                 0,
@@ -236,7 +236,7 @@ public class SeaTunnelServer
             eventService.shutdownNow();
         }
 
-        DataSourceConfigResolver.closeProviders();
+        MetadataProviderManager.closeProviders();
     }
 
     @Override
@@ -422,6 +422,10 @@ public class SeaTunnelServer
 
     public static long getMetricsImapPartition(TaskLocation key, int partitionCount) {
         return (key.hashCode() & 0x7FFFFFFF) % partitionCount;
+    }
+
+    public boolean isCoordinatorActive() {
+        return coordinatorService.isCoordinatorActive();
     }
 
     public SeaTunnelConfig getSeaTunnelConfig() {

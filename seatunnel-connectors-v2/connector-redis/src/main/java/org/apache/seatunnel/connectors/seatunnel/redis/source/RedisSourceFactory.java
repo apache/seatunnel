@@ -18,7 +18,6 @@
 package org.apache.seatunnel.connectors.seatunnel.redis.source;
 
 import org.apache.seatunnel.api.configuration.util.OptionRule;
-import org.apache.seatunnel.api.options.SinkConnectorCommonOptions;
 import org.apache.seatunnel.api.source.SeaTunnelSource;
 import org.apache.seatunnel.api.source.SourceSplit;
 import org.apache.seatunnel.api.table.connector.TableSource;
@@ -48,8 +47,9 @@ public class RedisSourceFactory implements TableSourceFactory {
     @Override
     public OptionRule optionRule() {
         return OptionRule.builder()
-                .required(RedisBaseOptions.KEY_PATTERN, RedisBaseOptions.DATA_TYPE)
+                .exclusive(RedisBaseOptions.TABLE_CONFIGS, RedisBaseOptions.KEY_PATTERN)
                 .optional(
+                        RedisBaseOptions.DATA_TYPE,
                         RedisBaseOptions.MODE,
                         RedisSourceOptions.HASH_KEY_PARSE_MODE,
                         RedisBaseOptions.AUTH,
@@ -57,7 +57,12 @@ public class RedisSourceFactory implements TableSourceFactory {
                         RedisBaseOptions.KEY,
                         RedisSourceOptions.READ_KEY_ENABLED,
                         RedisSourceOptions.SINGLE_FIELD_NAME,
-                        RedisSourceOptions.KEY_FIELD_NAME)
+                        RedisSourceOptions.KEY_FIELD_NAME,
+                        RedisBaseOptions.BATCH_SIZE,
+                        RedisBaseOptions.FORMAT,
+                        RedisBaseOptions.FIELD_DELIMITER,
+                        RedisBaseOptions.DB_NUM,
+                        RedisBaseOptions.SCHEMA)
                 .conditional(
                         RedisBaseOptions.MODE,
                         RedisBaseOptions.RedisMode.CLUSTER,
@@ -71,7 +76,6 @@ public class RedisSourceFactory implements TableSourceFactory {
                         RedisSourceOptions.READ_KEY_ENABLED,
                         true,
                         RedisSourceOptions.SINGLE_FIELD_NAME)
-                .bundled(RedisBaseOptions.FORMAT, SinkConnectorCommonOptions.SCHEMA)
                 .build();
     }
 

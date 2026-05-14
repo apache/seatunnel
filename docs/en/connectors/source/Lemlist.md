@@ -45,7 +45,7 @@ http request url
 
 API key for login, you can get more detail at this link:
 
-https://app.lemlist.com/settings/integrations
+https://developer.lemlist.com/
 
 ### method [String]
 

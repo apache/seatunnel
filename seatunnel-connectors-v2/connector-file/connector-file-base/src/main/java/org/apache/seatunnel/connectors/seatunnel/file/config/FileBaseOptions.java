@@ -23,6 +23,8 @@ import org.apache.seatunnel.api.options.ConnectorCommonOptions;
 
 import java.util.List;
 
+import static org.apache.hadoop.fs.CommonConfigurationKeysPublic.FS_DEFAULT_NAME_KEY;
+
 public class FileBaseOptions extends ConnectorCommonOptions {
 
     public static final Option<String> FILENAME_EXTENSION =
@@ -165,4 +167,10 @@ public class FileBaseOptions extends ConnectorCommonOptions {
                             "File split size in bytes when enable_file_split=true. Must be greater than 0. "
                                     + "For text-like formats, the split end will be aligned to the next row_delimiter. "
                                     + "Default is 128MB (128*1024*1024).");
+
+    public static final Option<String> DEFAULT_FS =
+            Options.key(FS_DEFAULT_NAME_KEY)
+                    .stringType()
+                    .noDefaultValue()
+                    .withDescription("HDFS namenode host");
 }

@@ -21,11 +21,9 @@ seatunnel:
 
 ## Metrics
 
-The metric text of prometheus, which get
-from `http://{instanceHost}:5801/hazelcast/rest/instance/metrics`.
+The metric text of prometheus can be obtained from `http://{instanceHost}:5801/hazelcast/rest/instance/metrics`.
 
-The metric text of openMetrics, which get
-from `http://{instanceHost}:5801/hazelcast/rest/instance/openmetrics`.
+The metric text of openMetrics can be obtained from `http://{instanceHost}:5801/hazelcast/rest/instance/openmetrics`.
 
 Available metrics include the following categories.
 
