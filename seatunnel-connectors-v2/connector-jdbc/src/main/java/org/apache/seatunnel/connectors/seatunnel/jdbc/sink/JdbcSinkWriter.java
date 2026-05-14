@@ -55,7 +55,6 @@ import java.util.Set;
 public class JdbcSinkWriter extends AbstractJdbcSinkWriter<ConnectionPoolManager>
         implements SupportRowLevelError<SeaTunnelRow> {
     private final Integer primaryKeyIndex;
-    private SchemaCoordinator schemaCoordinator;
     private final Optional<RowErrorCollector> rowErrorCollector;
     private final int batchSize;
     private final boolean autoCommit;
@@ -239,51 +238,6 @@ public class JdbcSinkWriter extends AbstractJdbcSinkWriter<ConnectionPoolManager
             current = current.getNextException();
         }
         return false;
-    }
-
-    @Override
-    public void handleFlushEvent(FlushEvent event) throws IOException {
-        log.info("JdbcSinkWriter handling FlushEvent for table: {}", event.tableIdentifier());
-        try {
-            flushData();
-            log.info("JdbcSinkWriter flush completed for table: {}", event.tableIdentifier());
-            sendFlushSuccessful(event);
-        } catch (Exception e) {
-            log.error("JdbcSinkWriter flush failed for table: {}", event.tableIdentifier(), e);
-            throw SinkWriterSchemaException.flushFailed(
-                    event.tableIdentifier(), event.getJobId(), "JDBC flush operation failed", e);
-        }
-    }
-
-    @Override
-    public void flushData() throws IOException {
-        if (rowErrorCollector.isPresent()) {
-            synchronized (batchLock) {
-                tryOpen();
-                outputFormat.checkFlushException();
-                try {
-                    outputFormat.flush();
-                } catch (Throwable e) {
-                    if (!isRowLevelDataError(e)) {
-                        throwAsIoException(e);
-                    }
-                    List<SeaTunnelRow> batchRows = swapPendingRowsLocked();
-                    handleRowLevelBatchFailure(RowErrorPhase.FLUSH, null, batchRows, e);
-                }
-                if (autoCommit && pendingRows != null) {
-                    pendingRows.clear();
-                }
-            }
-            return;
-        }
-        tryOpen();
-        outputFormat.checkFlushException();
-        outputFormat.flush();
-    }
-
-    @Override
-    public SchemaCoordinator getSchemaCoordinator() {
-        return schemaCoordinator;
     }
 
     @Override
