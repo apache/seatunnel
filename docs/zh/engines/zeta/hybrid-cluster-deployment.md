@@ -128,6 +128,14 @@ seatunnel:
     history-job-expire-minutes: 1440
 ```
 
+SeaTunnel 还会在分布式 Map 中短暂保留终态作业状态，然后再统一删除。这个保留窗口由 `state-cleanup-delay-ms` 控制，默认值是 `60000` 毫秒。短暂保留终态 tombstone 可以让晚到的异步回调读到终态，而不是直接遇到缺失的状态项。将它设置为 `0` 会恢复更激进的清理策略，但也会缩小终态竞态的保护窗口。
+
+```yaml
+seatunnel:
+  engine:
+    state-cleanup-delay-ms: 60000
+```
+
 ### 4.5 类加载器缓存模式
 
 此配置主要解决不断创建和尝试销毁类加载器所导致的资源泄漏问题。

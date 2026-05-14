@@ -106,9 +106,8 @@ public abstract class BaseFileSource
                             "SeaTunnel does not supported this file format");
             }
         } else {
-            if (filePaths.isEmpty() && fileFormat != FileFormat.BINARY) {
-                // When the directory is empty, distribute default behavior schema
-                userDefinedCatalogTable = CatalogTableUtil.buildSimpleTextTable();
+            if (filePaths.isEmpty()) {
+                userDefinedCatalogTable = buildCatalogTableForEmptyPath(path, fileFormat);
             } else {
                 try {
                     SeaTunnelRowType rowType =
@@ -124,6 +123,16 @@ public abstract class BaseFileSource
             }
         }
         this.catalogTable = userDefinedCatalogTable;
+    }
+
+    private CatalogTable buildCatalogTableForEmptyPath(String path, FileFormat fileFormat) {
+        if (fileFormat != FileFormat.BINARY && fileFormat != FileFormat.MARKDOWN) {
+            // Preserve the legacy simple-text fallback for formats that still infer schema from
+            // the first concrete file.
+            return CatalogTableUtil.buildSimpleTextTable();
+        }
+        SeaTunnelRowType rowType = readStrategy.getSeaTunnelRowTypeInfo(path);
+        return CatalogTableUtil.getCatalogTable("default", rowType);
     }
 
     protected abstract HadoopConf initHadoopConf();

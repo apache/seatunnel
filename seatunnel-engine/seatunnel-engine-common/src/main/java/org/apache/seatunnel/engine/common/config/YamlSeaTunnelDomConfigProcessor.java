@@ -219,6 +219,10 @@ public class YamlSeaTunnelDomConfigProcessor extends AbstractDomConfigProcessor 
                                         .HISTORY_JOB_EXPIRE_MINUTES
                                         .key(),
                                 getTextContent(node)));
+            } else if (ServerConfigOptions.MasterServerConfigOptions.STATE_CLEANUP_DELAY_MILLIS
+                    .key()
+                    .equals(name)) {
+                engineConfig.setStateCleanupDelayMillis(Long.parseLong(getTextContent(node)));
             } else if (ServerConfigOptions.MasterServerConfigOptions.CONNECTOR_JAR_STORAGE_CONFIG
                     .key()
                     .equals(name)) {
