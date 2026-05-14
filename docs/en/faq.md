@@ -10,8 +10,8 @@ Use these entry points first:
 
 ## What data sources and destinations does SeaTunnel support?
 SeaTunnel supports various data sources and destinations. You can find a detailed list on the following list:
-- Supported data sources (Source): [Source List](../connectors/source)
-- Supported data destinations (Sink): [Sink List](../connectors/sink)
+- Supported data sources (Source): [Source List](./connectors/source)
+- Supported data destinations (Sink): [Sink List](./connectors/sink)
 
 ## Does SeaTunnel support batch and streaming processing?
 SeaTunnel supports both batch and streaming processing modes. You can select the appropriate mode based on your specific business scenarios and needs. Batch processing is suitable for scheduled data integration tasks, while streaming processing is ideal for real-time integration and Change Data Capture (CDC).
@@ -29,7 +29,7 @@ Yes, SeaTunnel supports custom data cleansing rules. You can configure custom ru
 SeaTunnel supports incremental data integration. For example, the CDC connector allows real-time capture of data changes, which is ideal for scenarios requiring real-time data integration.
 
 ## What CDC data sources are currently supported by SeaTunnel?
-SeaTunnel currently supports MongoDB CDC, MySQL CDC, OpenGauss CDC, Oracle CDC, PostgreSQL CDC, SQL Server CDC, TiDB CDC, and more. For more details, refer to the [Source List](../connectors/source).
+SeaTunnel currently supports MongoDB CDC, MySQL CDC, OpenGauss CDC, Oracle CDC, PostgreSQL CDC, SQL Server CDC, TiDB CDC, and more. For more details, refer to the [Source List](./connectors/source).
 
 ## How do I enable permissions required for SeaTunnel CDC integration?
 Please refer to the official SeaTunnel documentation for the necessary steps to enable permissions for each connector’s CDC functionality.
@@ -123,4 +123,4 @@ For more details, see: [lightbend/config#456](https://github.com/lightbend/confi
 SeaTunnel features a highly abstracted and well-structured architecture, making it an excellent choice for learning big data architecture. You can start by exploring and debugging the `seatunnel-examples` module: `SeaTunnelEngineLocalExample.java`. For more details, refer to the [SeaTunnel Contribution Guide](https://seatunnel.apache.org/docs/developer/setup).
 
 ## Do I need to understand all of SeaTunnel’s source code if I want to develop my own source, sink, or transform?
-No, you only need to focus on the interfaces for source, sink, and transform. If you want to develop your own connector (Connector V2) for the SeaTunnel API, refer to the **[Connector Development Guide](https://github.com/apache/seatunnel/blob/dev/seatunnel-connectors-v2/README.md)**.
+No, you only need to focus on the interfaces for source, sink, and transform. If you want to develop your own connector (Connector V2) for the SeaTunnel API, refer to the **[Connector Development Guide](../../seatunnel-connectors-v2/README.md)**.

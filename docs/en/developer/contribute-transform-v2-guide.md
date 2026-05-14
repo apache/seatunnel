@@ -50,10 +50,10 @@ Transforms are easier to review when the code, docs, and examples change togethe
 2. [Transforms Catalog](../transforms)
 3. [Transform Common Options](../transforms/common-options/common-options.md)
 4. [Core API Design](../architecture/core-api-design.md)
-5. [seatunnel-transforms-v2 README](https://github.com/apache/seatunnel/blob/dev/seatunnel-transforms-v2/README.md)
+5. [seatunnel-transforms-v2 README](../../../seatunnel-transforms-v2/README.md)
 
 ## When You Need The Repository-Level Guide
 
 For module-specific details such as transform module conventions or examples inside the `seatunnel-transforms-v2` tree, continue with the repository guide:
 
-- [Transform-V2 Contribution Guide](https://github.com/apache/seatunnel/blob/dev/seatunnel-transforms-v2/README.md)
+- [Transform-V2 Contribution Guide](../../../seatunnel-transforms-v2/README.md)
