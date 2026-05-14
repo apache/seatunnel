@@ -192,7 +192,7 @@ at the same time. You can find the specific usage in the example below.
 
 If you assign file type to `markdown`, SeaTunnel can parse markdown files and extract structured data.
 The markdown parser extracts various elements including headings, paragraphs, lists, code blocks, tables, and more.
-Each element is converted to a row with the following schema:
+Each extracted element is converted to a document-element row with the following schema:
 - `element_id`: Unique identifier for the element
 - `element_type`: Type of the element (Heading, Paragraph, ListItem, etc.)
 - `heading_level`: Level of heading (1-6, null for non-heading elements)
@@ -205,21 +205,13 @@ Each element is converted to a row with the following schema:
 Note: Markdown format only supports reading, not writing.
 
 If you assign file type to `pdf`, SeaTunnel can parse PDF files and extract structured document elements.
+PDF uses the same document-element row schema described above.
 
-The PDF parser behavior depends on whether the PDF file contains an **outline** (bookmarks/table of contents):
+The main PDF-specific behaviors are:
 
 - **With outline**: Extracts `heading`, `paragraph`, `image`, and `link` elements. Headings are derived from the outline structure, and elements are organized into a parent-child hierarchy reflecting the document's logical structure.
 - **Without outline**: Extracts only `paragraph` and `image` elements in a flat structure without hierarchy.
-
-Each element is converted to a row with the following schema:
-- `element_id`: Unique identifier for the element (string)
-- `element_type`: Type of the element — `heading`, `paragraph`, `image`, or `link` (string)
-- `heading_level`: Depth level of the heading starting from 1 (integer, null for non-heading elements)
-- `text`: Text content of the element (string)
-- `page_number`: Page number in the PDF file, starting from 1 (integer)
-- `position_index`: Position index within the document (integer)
-- `parent_id`: ID of the parent heading element (string, null for top-level elements)
-- `child_ids`: Array of child element IDs (string array, null when no children)
+- `element_type` values for PDF are `heading`, `paragraph`, `image`, and `link`.
 
 Note: Only single-column (top-to-bottom) PDF layouts are supported. Multi-column layouts (e.g., side-by-side two-column documents) are not supported and may produce incorrect text ordering.
 

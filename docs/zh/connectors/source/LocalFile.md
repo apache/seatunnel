@@ -192,7 +192,7 @@ schema {
 
 如果您将文件类型指定为 `markdown`，SeaTunnel 可以解析 markdown 文件并提取结构化数据。
 markdown 解析器提取各种元素，包括标题、段落、列表、代码块、表格等。
-每个元素都转换为具有以下架构的行：
+每个提取出的元素都会转换为一条文档元素结构化记录，schema 如下：
 - `element_id`：元素的唯一标识符
 - `element_type`：元素类型（Heading、Paragraph、ListItem 等）
 - `heading_level`：标题级别（1-6，非标题元素为 null）
@@ -205,21 +205,13 @@ markdown 解析器提取各种元素，包括标题、段落、列表、代码�
 注意：Markdown 格式仅支持读取，不支持写入。
 
 如果您将文件类型指定为 `pdf`，SeaTunnel 可以解析 PDF 文件并提取结构化的文档元素。
+PDF 使用与上文相同的文档元素 schema。
 
-PDF 解析器的行为取决于 PDF 文件是否包含**大纲**（书签/目录）：
+PDF 特有的解析行为如下：
 
 - **有大纲**：提取 `heading`（标题）、`paragraph`（段落）、`image`（图片）和 `link`（链接）元素。标题从大纲结构中派生，元素按照文档的逻辑结构组织为父子层级关系。
 - **无大纲**：仅提取 `paragraph`（段落）和 `image`（图片）元素，以扁平结构呈现，不包含层级关系。
-
-每个元素都转换为具有以下 schema 的行：
-- `element_id`：元素的唯一标识符（字符串）
-- `element_type`：元素类型 — `heading`、`paragraph`、`image` 或 `link`（字符串）
-- `heading_level`：标题的深度级别，从 1 开始（整数，非标题元素为 null）
-- `text`：元素的文本内容（字符串）
-- `page_number`：PDF 文件中的页码，从 1 开始（整数）
-- `position_index`：文档中的位置索引（整数）
-- `parent_id`：父标题元素的 ID（字符串，顶级元素为 null）
-- `child_ids`：子元素 ID 数组（字符串数组，无子元素时为 null）
+- `element_type` 在 PDF 场景下可能为 `heading`、`paragraph`、`image` 或 `link`。
 
 注意：仅支持单栏（从上到下）PDF 布局。不支持多栏布局（例如并排的双栏文档），可能会产生不正确的文本顺序。
 
