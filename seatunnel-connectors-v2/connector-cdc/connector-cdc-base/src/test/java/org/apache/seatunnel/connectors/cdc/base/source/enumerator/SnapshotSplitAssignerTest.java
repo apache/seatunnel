@@ -114,10 +114,7 @@ public class SnapshotSplitAssignerTest {
                 null,
                 null,
                 new TestOffset(1L),
-                new TestOffset(2L),
-                false,
-                null,
-                null);
+                new TestOffset(2L));
     }
 
     private static final class TestOffset extends Offset {
