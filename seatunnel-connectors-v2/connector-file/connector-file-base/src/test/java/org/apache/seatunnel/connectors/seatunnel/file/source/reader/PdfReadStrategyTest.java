@@ -18,6 +18,7 @@
 package org.apache.seatunnel.connectors.seatunnel.file.source.reader;
 
 import org.apache.seatunnel.api.table.type.SeaTunnelRow;
+import org.apache.seatunnel.connectors.seatunnel.file.config.DocumentElement;
 import org.apache.seatunnel.connectors.seatunnel.file.config.HadoopConf;
 import org.apache.seatunnel.connectors.seatunnel.file.exception.FileConnectorException;
 
@@ -39,11 +40,15 @@ import javax.imageio.ImageIO;
 import java.awt.image.BufferedImage;
 import java.io.ByteArrayOutputStream;
 import java.io.IOException;
+import java.lang.reflect.InvocationTargetException;
+import java.lang.reflect.Method;
 import java.net.URISyntaxException;
 import java.net.URL;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.nio.file.Paths;
+import java.util.ArrayList;
+import java.util.Collections;
 import java.util.List;
 import java.util.stream.Collectors;
 
@@ -210,6 +215,55 @@ public class PdfReadStrategyTest {
         }
     }
 
+    @Test
+    public void testMergeElementsIgnoresImageAndLinkWithoutParentId()
+            throws NoSuchMethodException, InvocationTargetException, IllegalAccessException {
+        PdfReadStrategy strategy = new PdfReadStrategy();
+        Method mergeElementsMethod =
+                PdfReadStrategy.class.getDeclaredMethod(
+                        "mergeElements", List.class, List.class, List.class, List.class);
+        mergeElementsMethod.setAccessible(true);
+
+        DocumentElement heading = new DocumentElement("heading", "Section 1");
+        heading.setChildIds(new ArrayList<>());
+
+        DocumentElement image = new DocumentElement("image", "image_page_1_pos_(100,100)");
+        image.setParentId(null);
+
+        DocumentElement link = new DocumentElement("link", "https://example.com/orphan");
+        link.setParentId(null);
+
+        @SuppressWarnings("unchecked")
+        List<DocumentElement> mergedElements =
+                (List<DocumentElement>)
+                        mergeElementsMethod.invoke(
+                                strategy,
+                                Collections.singletonList(heading),
+                                new ArrayList<>(),
+                                Collections.singletonList(image),
+                                Collections.singletonList(link));
+
+        Assertions.assertEquals(1, mergedElements.size());
+        Assertions.assertEquals("heading", mergedElements.get(0).getElementType());
+    }
+
+    @Test
+    public void testReadDeletesTemporaryPdfCopy()
+            throws IOException, URISyntaxException, FileConnectorException {
+        URL resource = this.getClass().getResource("/pdf_read_strategy_test.pdf");
+        String path = Paths.get(resource.toURI()).toString();
+        TrackingPdfReadStrategy pdfReadStrategy = new TrackingPdfReadStrategy();
+        LocalConf localConf = new LocalConf(FS_DEFAULT_NAME_DEFAULT);
+        pdfReadStrategy.init(localConf);
+
+        TempCollector tempCollector = new TempCollector();
+        pdfReadStrategy.read(path, "", tempCollector);
+
+        Assertions.assertNotNull(pdfReadStrategy.getCreatedTempPdfPath());
+        Assertions.assertTrue(pdfReadStrategy.wasTempPdfDeleted());
+        Assertions.assertFalse(Files.exists(pdfReadStrategy.getCreatedTempPdfPath()));
+    }
+
     private Path createNoOutlinePdfWithImage() throws IOException {
         Path tempFile = Files.createTempFile("no_outline_pdf_test_", ".pdf");
         try (PDDocument document = new PDDocument()) {
@@ -264,6 +318,31 @@ public class PdfReadStrategyTest {
         @Override
         public String getSchema() {
             return SCHEMA;
+        }
+    }
+
+    private static class TrackingPdfReadStrategy extends PdfReadStrategy {
+        private Path createdTempPdfPath;
+        private boolean tempPdfDeleted;
+
+        @Override
+        Path createTempPdfPath() throws IOException {
+            createdTempPdfPath = super.createTempPdfPath();
+            return createdTempPdfPath;
+        }
+
+        @Override
+        void deleteTempPdfPath(Path tempPdfPath) throws IOException {
+            super.deleteTempPdfPath(tempPdfPath);
+            tempPdfDeleted = true;
+        }
+
+        Path getCreatedTempPdfPath() {
+            return createdTempPdfPath;
+        }
+
+        boolean wasTempPdfDeleted() {
+            return tempPdfDeleted;
         }
     }
 }

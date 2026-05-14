@@ -29,7 +29,6 @@ import org.apache.seatunnel.connectors.seatunnel.file.config.DocumentElement;
 import org.apache.seatunnel.connectors.seatunnel.file.exception.FileConnectorErrorCode;
 import org.apache.seatunnel.connectors.seatunnel.file.exception.FileConnectorException;
 
-import org.apache.commons.io.IOUtils;
 import org.apache.pdfbox.Loader;
 import org.apache.pdfbox.contentstream.PDFStreamEngine;
 import org.apache.pdfbox.contentstream.operator.Operator;
@@ -64,6 +63,9 @@ import lombok.extern.slf4j.Slf4j;
 import java.awt.geom.Rectangle2D;
 import java.io.IOException;
 import java.io.InputStream;
+import java.nio.file.Files;
+import java.nio.file.Path;
+import java.nio.file.StandardCopyOption;
 import java.util.ArrayList;
 import java.util.Comparator;
 import java.util.List;
@@ -83,24 +85,43 @@ public class PdfReadStrategy extends AbstractReadStrategy {
     public void read(String path, String tableId, Collector<SeaTunnelRow> output)
             throws IOException, FileConnectorException {
 
-        try (InputStream inputStream = hadoopFileSystemProxy.getInputStream(path);
-                PDDocument document = Loader.loadPDF(IOUtils.toByteArray(inputStream))) {
-            List<DocumentElement> elements = extractPdfDocumentElements(document);
+        Path tempPdfPath = null;
+        try {
+            tempPdfPath = createTempPdfPath();
+            try (InputStream inputStream = hadoopFileSystemProxy.getInputStream(path)) {
+                Files.copy(inputStream, tempPdfPath, StandardCopyOption.REPLACE_EXISTING);
+            }
 
-            log.info(
-                    "PDF file '{}' processed successfully, generated {} elements",
-                    path,
-                    elements.size());
+            try (PDDocument document = Loader.loadPDF(tempPdfPath.toFile())) {
+                List<DocumentElement> elements = extractPdfDocumentElements(document);
 
-            for (DocumentElement element : elements) {
-                output.collect(element.toSeaTunnelRow());
+                log.info(
+                        "PDF file '{}' processed successfully, generated {} elements",
+                        path,
+                        elements.size());
+
+                for (DocumentElement element : elements) {
+                    output.collect(element.toSeaTunnelRow());
+                }
             }
         } catch (Exception e) {
             throw new FileConnectorException(
                     FileConnectorErrorCode.FILE_READ_FAILED,
                     String.format("Failed to parse PDF document [%s]: %s", path, e.getMessage()),
                     e);
+        } finally {
+            if (tempPdfPath != null) {
+                deleteTempPdfPath(tempPdfPath);
+            }
         }
+    }
+
+    Path createTempPdfPath() throws IOException {
+        return Files.createTempFile("seatunnel-pdf-read-", ".pdf");
+    }
+
+    void deleteTempPdfPath(Path tempPdfPath) throws IOException {
+        Files.deleteIfExists(tempPdfPath);
     }
 
     @Override
@@ -803,10 +824,14 @@ public class PdfReadStrategy extends AbstractReadStrategy {
                                         (existing, replacement) -> existing));
 
         Map<String, List<DocumentElement>> imageMap =
-                images.stream().collect(Collectors.groupingBy(DocumentElement::getParentId));
+                images.stream()
+                        .filter(element -> element.getParentId() != null)
+                        .collect(Collectors.groupingBy(DocumentElement::getParentId));
 
         Map<String, List<DocumentElement>> linkMap =
-                links.stream().collect(Collectors.groupingBy(DocumentElement::getParentId));
+                links.stream()
+                        .filter(element -> element.getParentId() != null)
+                        .collect(Collectors.groupingBy(DocumentElement::getParentId));
 
         for (DocumentElement heading : headings) {
             String parentId = heading.getElementId();
@@ -821,7 +846,9 @@ public class PdfReadStrategy extends AbstractReadStrategy {
 
                 mergeResult.add(paragraph);
             } else {
-                log.error("heading id {} not found in paragraphMap.", heading.getElementId());
+                log.debug(
+                        "No paragraph text found under heading '{}', which is expected for headings without body content.",
+                        heading.getText());
             }
 
             if (imageMap.containsKey(parentId)) {
@@ -897,6 +924,7 @@ public class PdfReadStrategy extends AbstractReadStrategy {
         }
     }
 
+    /** Finds the paragraph boundary below an outline heading based on text position changes. */
     private static class ParagraphCoordinateExtractor {
         private final PDDocument document;
 
@@ -956,6 +984,7 @@ public class PdfReadStrategy extends AbstractReadStrategy {
         }
     }
 
+    /** Extracts image coordinates from PDF drawing operations for later heading assignment. */
     private static class PdfImageExtractor extends PDFStreamEngine {
         private final PDDocument document;
         @Getter private List<CoordinateInfo> imagesCoordinates = new ArrayList<>();
