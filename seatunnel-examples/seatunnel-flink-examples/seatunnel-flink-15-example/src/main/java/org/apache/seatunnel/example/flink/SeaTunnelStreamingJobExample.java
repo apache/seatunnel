@@ -31,7 +31,7 @@ public class SeaTunnelStreamingJobExample {
     public static void main(String[] args)
             throws FileNotFoundException, URISyntaxException, CommandException {
         String configurePath =
-                args.length > 0 ? args[0] : "/examples/mysqlcdc_flink_schema_change.conf";
+                args.length > 0 ? args[0] : "/examples/fake_to_console_streaming.conf";
         String configFile = getTestConfigFile(configurePath);
         FlinkCommandArgs flinkCommandArgs = new FlinkCommandArgs();
         flinkCommandArgs.setConfigFile(configFile);

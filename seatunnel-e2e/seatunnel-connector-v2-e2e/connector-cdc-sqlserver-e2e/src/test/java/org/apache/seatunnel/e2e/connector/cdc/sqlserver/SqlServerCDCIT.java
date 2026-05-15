@@ -785,17 +785,17 @@ public class SqlServerCDCIT extends TestSuiteBase implements TestResource {
     @TestTemplate
     @DisabledOnContainer(
             value = {},
-            type = {EngineType.SEATUNNEL, EngineType.SPARK},
+            type = {EngineType.SPARK},
             disabledReason =
-                    "This case validates SqlServer CDC schema evolution on the Flink engine.")
-    public void testWithFlinkSchemaEvolution(TestContainer container) {
+                    "This case validates SqlServer CDC schema evolution on the Flink engine & zeta engine.")
+    public void testWithSchemaEvolution(TestContainer container) {
         initializeSqlServerTable("schema_change_test");
 
         CompletableFuture.supplyAsync(
                 () -> {
                     try {
                         container.executeJob(
-                                "/sqlservercdc_to_sqlserver_with_flink_schema_change.conf");
+                                "/sqlservercdc_to_sqlserver_with_schema_change.conf");
                     } catch (Exception e) {
                         throw new RuntimeException(e);
                     }

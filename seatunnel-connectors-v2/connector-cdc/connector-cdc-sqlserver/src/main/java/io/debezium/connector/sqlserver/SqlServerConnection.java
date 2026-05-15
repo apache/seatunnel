@@ -393,7 +393,7 @@ public class SqlServerConnection extends JdbcConnection {
      * Reads a single column from the JDBC metadata ResultSet.
      *
      * @param columnTypeMapping pre-fetched UDT name map (column name → type name) for the table, or
-     *     {@code null} to fall back to per-column query (legacy path, avoid in hot loops)
+     *     {@code null} to fall back to per-column query
      */
     private Optional<ColumnEditor> doReadTableColumn(
             ResultSet columnMetadata,
@@ -405,7 +405,7 @@ public class SqlServerConnection extends JdbcConnection {
         final String defaultValue = columnMetadata.getString(13);
 
         if (columnTypeMapping == null) {
-            // Fallback: fetch UDT mapping for this single call (used by the base-class code path).
+            // Fallback: fetch UDT mapping for this single call
             columnTypeMapping = fetchColumnTypeMapping(tableId);
         }
 
@@ -451,7 +451,7 @@ public class SqlServerConnection extends JdbcConnection {
     /**
      * Fetches UDT type names for all columns in {@code tableId} in a single query.
      *
-     * @return map of column name → resolved type name (empty map if the query returns no rows)
+     * @return map of column name -> resolved type name (empty map if the query returns no rows)
      */
     private Map<String, String> fetchColumnTypeMapping(TableId tableId) throws SQLException {
         String tableSql =
@@ -756,7 +756,6 @@ public class SqlServerConnection extends JdbcConnection {
                 JdbcIdentifierUtils.identifierCaseStrategy(metadata);
 
         // Fetch UDT type mapping once for the whole table to avoid N queries inside the column
-        // loop (one per column via doReadTableColumn).
         final Map<String, String> columnTypeMapping =
                 fetchColumnTypeMapping(changeTable.getSourceTableId());
 

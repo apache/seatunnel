@@ -149,7 +149,6 @@ public class SqlServerIncrementalSource<T> extends IncrementalSource<T, JdbcSour
 
     private Map<TableId, Struct> tableChanges() {
         // Reuse the already-initialized dialect and config rather than constructing a second
-        // SqlServerDialect instance, which would open an extra JDBC connection unnecessarily.
         SqlServerDialect dialect = (SqlServerDialect) dataSourceDialect;
         JdbcSourceConfig jdbcSourceConfig = configFactory.create(0);
         List<TableId> discoverTables = dialect.discoverDataCollections(jdbcSourceConfig);
