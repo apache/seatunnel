@@ -137,6 +137,9 @@
                             <exclude>org.apache.seatunnel:seatunnel-hadoop3-3.1.4-uber</exclude>
                         </excludes>
                     </artifactSet>
+                    <transformers>
+                        <transformer implementation="org.apache.maven.plugins.shade.resource.ServicesResourceTransformer" />
+                    </transformers>
                 </configuration>
             </plugin>
         </plugins>

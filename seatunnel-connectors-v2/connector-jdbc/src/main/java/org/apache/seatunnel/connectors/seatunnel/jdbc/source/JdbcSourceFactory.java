@@ -74,6 +74,7 @@ public class JdbcSourceFactory implements TableSourceFactory {
                         JdbcSourceOptions.PARTITION_NUM,
                         JdbcSourceOptions.COMPATIBLE_MODE,
                         JdbcSourceOptions.STRING_SPLIT_MODE,
+                        JdbcSourceOptions.STRING_SPLIT_STRATEGY,
                         JdbcSourceOptions.STRING_SPLIT_MODE_COLLATE,
                         JdbcSourceOptions.PROPERTIES,
                         JdbcSourceOptions.QUERY,
@@ -88,6 +89,7 @@ public class JdbcSourceFactory implements TableSourceFactory {
                         JdbcSourceOptions.SPLIT_EVEN_DISTRIBUTION_FACTOR_LOWER_BOUND,
                         JdbcSourceOptions.SPLIT_SAMPLE_SHARDING_THRESHOLD,
                         JdbcSourceOptions.SPLIT_INVERSE_SAMPLING_RATE,
+                        JdbcSourceOptions.SPLIT_ALLOW_SAMPLING,
                         JdbcSourceOptions.DECIMAL_TYPE_NARROWING,
                         JdbcSourceOptions.INT_TYPE_NARROWING,
                         JdbcSourceOptions.DIALECT)

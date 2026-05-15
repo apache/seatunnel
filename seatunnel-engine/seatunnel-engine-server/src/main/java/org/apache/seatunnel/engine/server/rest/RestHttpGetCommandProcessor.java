@@ -344,14 +344,39 @@ public class RestHttpGetCommandProcessor extends HttpCommandProcessor<HttpGetCom
         }
     }
 
-    /** Prepare Log Response */
+    /**
+     * Prepares the current-node log response after enforcing the configured log directory boundary.
+     *
+     * <p>The requested log file is resolved to its canonical path before reading so that relative
+     * segments and symbolic links cannot escape the canonical log directory.
+     *
+     * @param httpGetCommand command used to send the HTTP response
+     * @param logPath configured log directory
+     * @param logName requested log file name from the request URI
+     */
     private void prepareLogResponse(HttpGetCommand httpGetCommand, String logPath, String logName) {
-        String logFilePath = logPath + "/" + logName;
+        String logFilePath = new File(logPath, logName).getPath();
         try {
-            String logContent = FileUtils.readFileToStr(new File(logFilePath).toPath());
+            String canonicalLogDir = new File(logPath).getCanonicalPath();
+            String canonicalFilePath = new File(logFilePath).getCanonicalPath();
+            if (!canonicalFilePath.startsWith(canonicalLogDir + File.separator)
+                    && !canonicalFilePath.equals(canonicalLogDir)) {
+                httpGetCommand.send400();
+                logger.warning(
+                        String.format(
+                                "Path traversal attempt blocked - Requested: %s, Resolved: %s, LogDir: %s",
+                                logName, canonicalFilePath, canonicalLogDir));
+                return;
+            }
+            String logContent = FileUtils.readFileToStr(new File(canonicalFilePath).toPath());
             this.prepareResponse(httpGetCommand, logContent);
+        } catch (IOException e) {
+            httpGetCommand.send400();
+            logger.warning(
+                    String.format(
+                            "Failed to resolve log file path: %s, error: %s",
+                            logFilePath, e.getMessage()));
         } catch (SeaTunnelRuntimeException e) {
-            // If the log file does not exist, return 400
             httpGetCommand.send400();
             logger.warning(
                     String.format("Log file content is empty, get log path : %s", logFilePath));

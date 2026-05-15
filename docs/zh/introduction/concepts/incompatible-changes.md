@@ -34,6 +34,23 @@
 
 ### 连接器变更
 
+- **破坏性变更：Iceberg 连接器 — 不再自动继承源表主键**
+  - **影响范围**：`seatunnel-connectors-v2/connector-iceberg`
+  - **变更说明**：当未显式配置 `iceberg.table.primary-keys` 时，`SchemaUtils.toIcebergSchema()`
+    以前会回退使用 CDC 源表的主键。这会静默地将 `identifier-field-ids` 设置到自动创建的 Iceberg
+    表上，激活等值删除语义，导致 append-only CDC 管道中的 INSERT 数据静默丢失
+    （详见 [#10747](https://github.com/apache/seatunnel/issues/10747)）。该回退行为已被移除。
+  - **影响**：使用 `iceberg.table.upsert-mode-enabled=true` 但未显式配置
+    `iceberg.table.primary-keys` 的任务，启动时将抛出 `IllegalArgumentException` 并快速失败。
+    依赖隐式 PK 继承来实现 upsert 语义的任务，需要显式设置 `iceberg.table.primary-keys`。
+  - **迁移指南**：
+    - **Upsert 模式任务**：在 Iceberg sink 配置中添加
+      `iceberg.table.primary-keys = "<主键列名>"`。
+    - **Append-only CDC 任务**：无需任何操作 — 不配置 `iceberg.table.primary-keys`
+      现在会正确使用纯 append writer，不会产生等值删除文件。
+    - **已存在的 Iceberg 表**（Glue/Hive 元数据中已有 `identifier-field-ids`）在运行时不受影响；
+      只有 sink 新建的表会改变行为。
+
 ### 转换变更
 
 - **[BREAKING]** SQL Transform 的 `PARSEDATETIME`、`TO_DATE` 和 `IS_DATE` 函数现在只接受白名单中的日期时间格式模式。以前接受的自定义格式模式现在将在运行时失败。支持的模式有：

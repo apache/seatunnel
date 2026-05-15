@@ -68,12 +68,6 @@ public class IcebergSink
         this.readonlyConfig = pluginConfig;
         this.config = new IcebergSinkConfig(pluginConfig);
         this.catalogTable = catalogTable;
-        // Reset primary keys if need
-        if (config.getPrimaryKeys().isEmpty()
-                && Objects.nonNull(this.catalogTable.getTableSchema().getPrimaryKey())) {
-            this.config.setPrimaryKeys(
-                    this.catalogTable.getTableSchema().getPrimaryKey().getColumnNames());
-        }
         // reset partition keys if need
         if (config.getPartitionKeys().isEmpty()
                 && Objects.nonNull(this.catalogTable.getPartitionKeys())) {
