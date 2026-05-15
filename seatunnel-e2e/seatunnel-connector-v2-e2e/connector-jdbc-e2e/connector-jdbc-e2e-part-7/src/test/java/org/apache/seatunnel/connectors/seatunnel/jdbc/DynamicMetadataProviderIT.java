@@ -17,8 +17,6 @@
 
 package org.apache.seatunnel.connectors.seatunnel.jdbc;
 
-import org.apache.seatunnel.shade.com.google.common.collect.Lists;
-
 import org.apache.seatunnel.e2e.common.container.seatunnel.SeaTunnelContainer;
 
 import org.junit.jupiter.api.AfterAll;
@@ -89,7 +87,7 @@ public class DynamicMetadataProviderIT extends SeaTunnelContainer {
                         .withEnv("TZ", "UTC")
                         .withCommand(buildStartCommand())
                         .withNetworkAliases("server")
-                        .withExposedPorts()
+                        .withExposedPorts(5801, 8080)
                         .withFileSystemBind("/tmp", "/opt/hive")
                         .withLogConsumer(
                                 new Slf4jLogConsumer(
@@ -98,7 +96,6 @@ public class DynamicMetadataProviderIT extends SeaTunnelContainer {
                         .waitingFor(Wait.forLogMessage(".*received new worker register:.*", 1));
 
         copySeaTunnelStarterToContainer(server);
-        server.setPortBindings(Lists.newArrayList("5801:5801", "8080:8080"));
 
         // Copy base resources
         server.withCopyFileToContainer(
@@ -123,6 +120,7 @@ public class DynamicMetadataProviderIT extends SeaTunnelContainer {
 
         executeExtraCommands(server);
         server.start();
+        baseUrl = "http://" + server.getHost() + ":" + server.getMappedPort(8080);
 
         copyJdbcConnectorJarToContainer();
 
@@ -148,12 +146,9 @@ public class DynamicMetadataProviderIT extends SeaTunnelContainer {
                         () ->
                                 this.initializeJdbcConnection(
                                         "jdbc:mysql://localhost:"
-                                                + MYSQL_PORT
+                                                + dbServer.getMappedPort(MYSQL_PORT)
                                                 + "/"
                                                 + MYSQL_DATABASE));
-
-        // Set up REST API base URL
-        baseUrl = "http://localhost:8080";
     }
 
     @AfterAll
@@ -207,8 +202,6 @@ public class DynamicMetadataProviderIT extends SeaTunnelContainer {
                         .withLogConsumer(
                                 new Slf4jLogConsumer(DockerLoggerFactory.getLogger(MYSQL_IMAGE)));
 
-        container.setPortBindings(
-                Lists.newArrayList(String.format("%s:%s", MYSQL_PORT, MYSQL_PORT)));
         return container;
     }
 
@@ -417,6 +410,7 @@ public class DynamicMetadataProviderIT extends SeaTunnelContainer {
                 "test_get_ds", response.jsonPath().getString("metadataDatasourceId"));
         Assertions.assertEquals("Jdbc", response.jsonPath().getString("connectorType"));
         Assertions.assertNotNull(response.jsonPath().get("properties"));
+        Assertions.assertEquals("******", response.jsonPath().getString("properties.password"));
     }
 
     @Test

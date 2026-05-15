@@ -71,6 +71,7 @@ seatunnel:
 - 该 API 由 `dynamic` Metadata SPI 提供者使用。详见 [元数据 SPI](../../introduction/concepts/metadata-spi.md)。
 - `connectorType` 必须与作业中使用的连接器标识匹配，例如 `Jdbc`。
 - 作业通过 `metadata_datasource_id` 引用该数据源时，`properties` 中的配置会被合并到连接器配置中。
+- 查询响应会对密码、token 等敏感字段做脱敏处理。
 
 </details>
 
@@ -87,7 +88,7 @@ seatunnel:
     "url": "jdbc:mysql://mysql:3306/seatunnel",
     "driver": "com.mysql.cj.jdbc.Driver",
     "username": "root",
-    "password": "secret"
+    "password": "******"
   },
   "createTime": 1717500000000,
   "updateTime": 1717500000000
@@ -110,7 +111,7 @@ seatunnel:
       "url": "jdbc:mysql://mysql:3306/seatunnel",
       "driver": "com.mysql.cj.jdbc.Driver",
       "username": "root",
-      "password": "secret"
+      "password": "******"
     },
     "createTime": 1717500000000,
     "updateTime": 1717500000000

@@ -73,6 +73,7 @@ Please refer [security](security.md)
 - This API is used by the `dynamic` Metadata SPI provider. See [Metadata SPI](../../introduction/concepts/metadata-spi.md).
 - `connectorType` must match the connector identifier used in the job, for example `Jdbc`.
 - The values under `properties` are merged into the connector configuration when the job references this datasource by `metadata_datasource_id`.
+- Query responses mask sensitive fields such as passwords and tokens.
 
 </details>
 
@@ -89,7 +90,7 @@ Please refer [security](security.md)
     "url": "jdbc:mysql://mysql:3306/seatunnel",
     "driver": "com.mysql.cj.jdbc.Driver",
     "username": "root",
-    "password": "secret"
+    "password": "******"
   },
   "createTime": 1717500000000,
   "updateTime": 1717500000000
@@ -112,7 +113,7 @@ Please refer [security](security.md)
       "url": "jdbc:mysql://mysql:3306/seatunnel",
       "driver": "com.mysql.cj.jdbc.Driver",
       "username": "root",
-      "password": "secret"
+      "password": "******"
     },
     "createTime": 1717500000000,
     "updateTime": 1717500000000

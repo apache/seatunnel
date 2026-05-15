@@ -285,7 +285,7 @@ curl -X DELETE http://localhost:8080/metadata/datasource/mysql_source
 
 ### Use Registered Datasource In A Job
 
-After registering the datasource, reference it with `metadata_datasource_id` in the connector configuration. The provider merges the registered `properties` into the connector configuration. Job-level options still take precedence over values returned by the provider.
+After registering the datasource, reference it with `metadata_datasource_id` in the connector configuration. The provider merges the registered `properties` into the connector configuration. Job-level options take precedence over values returned by the provider.
 
 ```hocon
 env {
@@ -322,6 +322,7 @@ sink {
 
 - Only supported by the Zeta engine.
 - Datasource definitions are stored in the Zeta cluster runtime state.
+- Query responses mask sensitive fields such as passwords and tokens.
 - `connectorType` is validated against the connector identifier in the job. For example, a datasource created with `connectorType: "Jdbc"` can only be used by the `Jdbc` connector.
 - Table schema retrieval through `metadata_table_id` is not supported by `DynamicMetadataProvider`.
 

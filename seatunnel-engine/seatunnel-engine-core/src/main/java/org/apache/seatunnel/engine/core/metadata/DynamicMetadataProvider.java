@@ -15,9 +15,10 @@
  * limitations under the License.
  */
 
-package org.apache.seatunnel.engine.server.metadata;
+package org.apache.seatunnel.engine.core.metadata;
 
 import org.apache.seatunnel.shade.com.typesafe.config.Config;
+import org.apache.seatunnel.shade.org.apache.commons.lang3.StringUtils;
 
 import org.apache.seatunnel.api.metadata.MetadataProvider;
 import org.apache.seatunnel.api.metadata.exception.MetadataProviderException;
@@ -27,7 +28,6 @@ import org.apache.seatunnel.engine.core.job.DynamicMetadataDataSource;
 import com.google.auto.service.AutoService;
 import com.hazelcast.map.IMap;
 import lombok.extern.slf4j.Slf4j;
-import shade.org.apache.commons.lang3.StringUtils;
 
 import java.util.Collections;
 import java.util.Map;
@@ -38,60 +38,35 @@ import java.util.Optional;
  *
  * <p>This provider stores and retrieves datasource configurations from Hazelcast distributed IMap,
  * allowing users to register datasources through REST API and reference them in job configs.
- *
- * <p>Configuration (from seatunnel.yaml):
- *
- * <pre>
- * seatunnel:
- *   metadata:
- *     enabled: true
- *     kind: dynamic
- * </pre>
- *
- * <p>Usage in job config:
- *
- * <pre>
- * source {
- *   Jdbc {
- *     metadata_datasource_id = "mysql_001"
- *     query = "select * from user"
- *   }
- * }
- * </pre>
  */
 @Slf4j
 @AutoService(MetadataProvider.class)
 public class DynamicMetadataProvider implements MetadataProvider {
 
-    /** Hazelcast instance reference, set by SeaTunnelServer during initialization */
+    public static final String KIND = "dynamic";
+
     private static volatile IMap<String, DynamicMetadataDataSource> datasourceIMap;
 
-    /**
-     * Set the Hazelcast instance for this provider.
-     *
-     * <p>This method is called by SeaTunnelServer during initialization or by SeaTunnelClient in
-     * cluster mode. This method is thread-safe and will only set the IMap once - subsequent calls
-     * will be ignored.
-     *
-     * @param iMap the Hazelcast IMap instance
-     */
     public static void setMetadataDatasourceImap(IMap<String, DynamicMetadataDataSource> iMap) {
         if (iMap == null) {
             throw new IllegalArgumentException("IMap cannot be null");
         }
-        if (datasourceIMap == null) {
-            synchronized (DynamicMetadataProvider.class) {
-                if (datasourceIMap == null) {
-                    datasourceIMap = iMap;
-                    log.info("DynamicMetadataProvider: Hazelcast IMap initialized");
-                }
-            }
+        synchronized (DynamicMetadataProvider.class) {
+            datasourceIMap = iMap;
+            log.info("DynamicMetadataProvider: Hazelcast IMap initialized");
+        }
+    }
+
+    public static void clearMetadataDatasourceImap() {
+        synchronized (DynamicMetadataProvider.class) {
+            datasourceIMap = null;
+            log.info("DynamicMetadataProvider: Hazelcast IMap closed and reset");
         }
     }
 
     @Override
     public String kind() {
-        return "dynamic";
+        return KIND;
     }
 
     @Override
@@ -115,7 +90,6 @@ public class DynamicMetadataProvider implements MetadataProvider {
                 connectorIdentifier,
                 metaDataDatasourceId);
 
-        // Get datasource from IMap
         DynamicMetadataDataSource dataSource = datasourceIMap.get(metaDataDatasourceId);
         if (dataSource == null) {
             throw new MetadataProviderException(
@@ -125,7 +99,6 @@ public class DynamicMetadataProvider implements MetadataProvider {
                             metaDataDatasourceId));
         }
 
-        // Validate connector type matches (case-insensitive)
         String storedConnectorType = dataSource.getConnectorType();
         if (!connectorIdentifier.equalsIgnoreCase(storedConnectorType)) {
             throw new MetadataProviderException(
@@ -134,7 +107,6 @@ public class DynamicMetadataProvider implements MetadataProvider {
                             connectorIdentifier, metaDataDatasourceId, storedConnectorType));
         }
 
-        // Return properties as Map<String, Object>
         Map<String, Object> properties = dataSource.getProperties();
         if (properties == null || properties.isEmpty()) {
             log.warn("Datasource '{}' has no properties defined", metaDataDatasourceId);
@@ -142,8 +114,6 @@ public class DynamicMetadataProvider implements MetadataProvider {
         }
 
         log.info("Successfully retrieved datasource configuration for '{}'", metaDataDatasourceId);
-
-        // Convert to Map<String, Object> for compatibility
         return Collections.unmodifiableMap(properties);
     }
 
@@ -157,9 +127,6 @@ public class DynamicMetadataProvider implements MetadataProvider {
 
     @Override
     public void close() {
-        synchronized (DynamicMetadataProvider.class) {
-            datasourceIMap = null;
-            log.info("DynamicMetadataProvider: Hazelcast IMap closed and reset");
-        }
+        clearMetadataDatasourceImap();
     }
 }

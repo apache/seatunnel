@@ -28,6 +28,11 @@ public class MetadataProviderException extends SeaTunnelRuntimeException {
         super(SeaTunnelAPIErrorCode.METADATA_PROVIDER_INITIALIZE_FAILED, message);
     }
 
+    /** @param cause the cause. */
+    public MetadataProviderException(Throwable cause) {
+        super(SeaTunnelAPIErrorCode.METADATA_PROVIDER_INITIALIZE_FAILED, cause);
+    }
+
     /**
      * @param message the detail message.
      * @param cause the cause.

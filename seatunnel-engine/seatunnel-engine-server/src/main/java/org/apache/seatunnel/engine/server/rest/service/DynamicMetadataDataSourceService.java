@@ -27,7 +27,10 @@ import com.hazelcast.map.IMap;
 import com.hazelcast.spi.impl.NodeEngineImpl;
 import lombok.extern.slf4j.Slf4j;
 
+import java.util.Arrays;
+import java.util.HashSet;
 import java.util.Map;
+import java.util.Set;
 
 import static org.apache.seatunnel.engine.server.rest.RestConstant.MESSAGE;
 import static org.apache.seatunnel.engine.server.rest.RestConstant.STATUS;
@@ -42,6 +45,17 @@ public class DynamicMetadataDataSourceService extends BaseService {
     public static final String PROPERTIES = "properties";
     public static final String CREATE_TIME = "createTime";
     public static final String UPDATE_TIME = "updateTime";
+    private static final String MASKED_VALUE = "******";
+    private static final Set<String> SENSITIVE_KEYS =
+            new HashSet<>(
+                    Arrays.asList(
+                            "password",
+                            "passwd",
+                            "pwd",
+                            "secret",
+                            "token",
+                            "access_key",
+                            "secret_key"));
 
     public DynamicMetadataDataSourceService(NodeEngineImpl nodeEngine) {
         super(nodeEngine);
@@ -74,17 +88,15 @@ public class DynamicMetadataDataSourceService extends BaseService {
         IMap<String, DynamicMetadataDataSource> datasourceIMap =
                 nodeEngine.getHazelcastInstance().getMap(Constant.IMAP_METADATA_DATASOURCE);
 
-        // Check if datasource already exists
-        if (datasourceIMap.containsKey(datasourceId)) {
+        DynamicMetadataDataSource metadataDataSource =
+                new DynamicMetadataDataSource(datasourceId, type, properties);
+        DynamicMetadataDataSource existing =
+                datasourceIMap.putIfAbsent(datasourceId, metadataDataSource);
+        if (existing != null) {
             return new JsonObject()
                     .add(STATUS, "error")
                     .add(MESSAGE, "Datasource with id '" + datasourceId + "' already exists");
         }
-
-        // Create new datasource
-        DynamicMetadataDataSource metadataDataSource =
-                new DynamicMetadataDataSource(datasourceId, type, properties);
-        datasourceIMap.put(datasourceId, metadataDataSource);
 
         log.info("Created metadata datasource: id={}, type={}", datasourceId, type);
 
@@ -155,28 +167,31 @@ public class DynamicMetadataDataSourceService extends BaseService {
         Map<String, Object> params = JsonUtils.toMap(requestHandle(requestBody));
         String type = (String) params.get(CONNECTOR_TYPE);
         @SuppressWarnings("unchecked")
-        Map<String, String> properties = (Map<String, String>) params.get(PROPERTIES);
+        Map<String, Object> properties = (Map<String, Object>) params.get(PROPERTIES);
 
         IMap<String, DynamicMetadataDataSource> datasourceIMap =
                 nodeEngine.getHazelcastInstance().getMap(Constant.IMAP_METADATA_DATASOURCE);
 
-        DynamicMetadataDataSource existingDatasource = datasourceIMap.get(datasourceId);
-        if (existingDatasource == null) {
-            return new JsonObject()
-                    .add(STATUS, "error")
-                    .add(MESSAGE, "Datasource with id '" + datasourceId + "' not found");
-        }
+        datasourceIMap.lock(datasourceId);
+        try {
+            DynamicMetadataDataSource existingDatasource = datasourceIMap.get(datasourceId);
+            if (existingDatasource == null) {
+                return new JsonObject()
+                        .add(STATUS, "error")
+                        .add(MESSAGE, "Datasource with id '" + datasourceId + "' not found");
+            }
 
-        // Update fields
-        if (type != null && !type.trim().isEmpty()) {
-            existingDatasource.setConnectorType(type);
-        }
-        if (properties != null && !properties.isEmpty()) {
-            existingDatasource.updateProperties(properties);
-        }
+            if (type != null && !type.trim().isEmpty()) {
+                existingDatasource.setConnectorType(type);
+            }
+            if (properties != null && !properties.isEmpty()) {
+                existingDatasource.updateProperties(properties);
+            }
 
-        // Update the datasource in IMap
-        datasourceIMap.put(datasourceId, existingDatasource);
+            datasourceIMap.put(datasourceId, existingDatasource);
+        } finally {
+            datasourceIMap.unlock(datasourceId);
+        }
 
         log.info("Updated metadata datasource: id={}", datasourceId);
 
@@ -235,7 +250,11 @@ public class DynamicMetadataDataSourceService extends BaseService {
                     .getProperties()
                     .forEach(
                             (key, value) -> {
-                                propertiesJson.add(key, value != null ? value.toString() : "");
+                                propertiesJson.add(
+                                        key,
+                                        isSensitiveKey(key)
+                                                ? MASKED_VALUE
+                                                : value != null ? value.toString() : "");
                             });
         }
         result.add(PROPERTIES, propertiesJson);
@@ -244,5 +263,10 @@ public class DynamicMetadataDataSourceService extends BaseService {
         result.add(UPDATE_TIME, datasource.getUpdateTime());
 
         return result;
+    }
+
+    private boolean isSensitiveKey(String key) {
+        String lowerKey = key.toLowerCase();
+        return SENSITIVE_KEYS.stream().anyMatch(lowerKey::contains);
     }
 }

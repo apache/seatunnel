@@ -26,7 +26,9 @@ import org.apache.seatunnel.engine.client.job.JobMetricsRunner.JobMetricsSummary
 import org.apache.seatunnel.engine.common.Constant;
 import org.apache.seatunnel.engine.common.config.JobConfig;
 import org.apache.seatunnel.engine.common.config.SeaTunnelConfig;
+import org.apache.seatunnel.engine.core.job.DynamicMetadataDataSource;
 import org.apache.seatunnel.engine.core.job.JobDAGInfo;
+import org.apache.seatunnel.engine.core.metadata.DynamicMetadataProvider;
 import org.apache.seatunnel.engine.core.protocol.codec.SeaTunnelGetClusterHealthMetricsCodec;
 import org.apache.seatunnel.engine.core.protocol.codec.SeaTunnelPrintMessageCodec;
 
@@ -36,9 +38,7 @@ import com.hazelcast.logging.ILogger;
 import com.hazelcast.map.IMap;
 import lombok.Getter;
 import lombok.NonNull;
-import lombok.extern.slf4j.Slf4j;
 
-import java.lang.reflect.Method;
 import java.util.Arrays;
 import java.util.HashMap;
 import java.util.LinkedHashMap;
@@ -46,7 +46,6 @@ import java.util.List;
 import java.util.Map;
 import java.util.Set;
 
-@Slf4j
 public class SeaTunnelClient implements SeaTunnelClientInstance, AutoCloseable {
     private final SeaTunnelHazelcastClient hazelcastClient;
     @Getter private final JobClient jobClient;
@@ -62,8 +61,8 @@ public class SeaTunnelClient implements SeaTunnelClientInstance, AutoCloseable {
     /**
      * Initialize DynamicMetadataProvider with Hazelcast client IMap.
      *
-     * <p>This method uses reflection to avoid direct dependency on server module. The
-     * initialization is performed only once per client instance - subsequent calls will be ignored.
+     * <p>The initialization is performed only once per client instance - subsequent calls will be
+     * ignored.
      *
      * @param seaTunnelConfig the SeaTunnel configuration
      */
@@ -78,7 +77,7 @@ public class SeaTunnelClient implements SeaTunnelClientInstance, AutoCloseable {
             return;
         }
 
-        if (!"dynamic".equalsIgnoreCase(metaDataConfig.getKind())) {
+        if (!DynamicMetadataProvider.KIND.equalsIgnoreCase(metaDataConfig.getKind())) {
             return;
         }
 
@@ -89,21 +88,17 @@ public class SeaTunnelClient implements SeaTunnelClientInstance, AutoCloseable {
                             .getHazelcastInstance()
                             .getMap(Constant.IMAP_METADATA_DATASOURCE);
 
-            // Use reflection to call DynamicMetadataProvider.setMetadataDatasourceImap()
-            Class<?> providerClass =
-                    Class.forName(
-                            "org.apache.seatunnel.engine.server.metadata.DynamicMetadataProvider");
-            Method setMethod = providerClass.getMethod("setMetadataDatasourceImap", IMap.class);
-            setMethod.invoke(null, datasourceIMap);
+            @SuppressWarnings("unchecked")
+            IMap<String, DynamicMetadataDataSource> typedDatasourceIMap =
+                    (IMap<String, DynamicMetadataDataSource>) datasourceIMap;
+            DynamicMetadataProvider.setMetadataDatasourceImap(typedDatasourceIMap);
 
             metadataProviderInitialized = true;
-            log.info("Successfully initialized DynamicMetadataProvider with Hazelcast client IMap");
-        } catch (ClassNotFoundException e) {
-            // DynamicMetadataProvider not found in classpath (e.g., running in client-only mode)
-            log.debug(
-                    "DynamicMetadataProvider not found, skipping initialization. This is expected if running in client-only mode.");
+            getLogger()
+                    .info(
+                            "Successfully initialized DynamicMetadataProvider with Hazelcast client IMap");
         } catch (Exception e) {
-            log.warn("Failed to initialize DynamicMetadataProvider", e);
+            getLogger().warning("Failed to initialize DynamicMetadataProvider", e);
         }
     }
 

@@ -79,11 +79,7 @@ public class DynamicMetadataDataSource implements IdentifiedDataSerializable {
     public void writeData(ObjectDataOutput out) throws IOException {
         out.writeString(metadataDatasourceId);
         out.writeString(connectorType);
-        out.writeInt(properties.size());
-        for (Map.Entry<String, Object> entry : properties.entrySet()) {
-            out.writeString(entry.getKey());
-            out.writeString(entry.getValue().toString());
-        }
+        out.writeObject(properties == null ? new HashMap<>() : new HashMap<>(properties));
         out.writeLong(createTime);
         out.writeLong(updateTime);
     }
@@ -92,13 +88,7 @@ public class DynamicMetadataDataSource implements IdentifiedDataSerializable {
     public void readData(ObjectDataInput in) throws IOException {
         metadataDatasourceId = in.readString();
         connectorType = in.readString();
-        int size = in.readInt();
-        properties = new HashMap<>(size);
-        for (int i = 0; i < size; i++) {
-            String key = in.readString();
-            String value = in.readString();
-            properties.put(key, value);
-        }
+        properties = in.readObject();
         createTime = in.readLong();
         updateTime = in.readLong();
     }
@@ -108,7 +98,7 @@ public class DynamicMetadataDataSource implements IdentifiedDataSerializable {
      *
      * @param newProperties the new properties to merge/update
      */
-    public void updateProperties(Map<String, String> newProperties) {
+    public void updateProperties(Map<String, Object> newProperties) {
         if (newProperties != null) {
             if (this.properties == null) {
                 this.properties = new HashMap<>();

@@ -27,6 +27,7 @@ import org.apache.seatunnel.shade.org.eclipse.jetty.util.ssl.SslContextFactory;
 
 import org.apache.seatunnel.engine.common.config.SeaTunnelConfig;
 import org.apache.seatunnel.engine.common.config.server.HttpConfig;
+import org.apache.seatunnel.engine.core.metadata.DynamicMetadataProvider;
 import org.apache.seatunnel.engine.server.rest.filter.BasicAuthFilter;
 import org.apache.seatunnel.engine.server.rest.filter.ExceptionHandlingFilter;
 import org.apache.seatunnel.engine.server.rest.servlet.AllLogNameServlet;
@@ -218,7 +219,9 @@ public class JettyService {
         ServletHolder checkpointHistoryHolder =
                 new ServletHolder(new CheckpointHistoryServlet(nodeEngine));
         ServletHolder metadataDataSourceHolder =
-                new ServletHolder(new DynamicMetadataDataSourceServlet(nodeEngine));
+                isDynamicMetadataEnabled()
+                        ? new ServletHolder(new DynamicMetadataDataSourceServlet(nodeEngine))
+                        : null;
 
         context.addServlet(overviewHolder, convertUrlToPath(REST_URL_OVERVIEW));
         context.addServlet(runningJobsHolder, convertUrlToPath(REST_URL_RUNNING_JOBS));
@@ -251,10 +254,12 @@ public class JettyService {
         context.addServlet(
                 checkpointOverviewHolder, convertUrlToPath(REST_URL_CHECKPOINT_OVERVIEW));
         context.addServlet(checkpointHistoryHolder, convertUrlToPath(REST_URL_CHECKPOINT_HISTORY));
-        context.addServlet(
-                metadataDataSourceHolder, convertUrlToPath(REST_URL_METADATA_DATASOURCE));
-        context.addServlet(
-                metadataDataSourceHolder, convertUrlToPath(REST_URL_METADATA_DATASOURCES));
+        if (metadataDataSourceHolder != null) {
+            context.addServlet(
+                    metadataDataSourceHolder, convertUrlToPath(REST_URL_METADATA_DATASOURCE));
+            context.addServlet(
+                    metadataDataSourceHolder, convertUrlToPath(REST_URL_METADATA_DATASOURCES));
+        }
 
         server.setHandler(context);
 
@@ -277,6 +282,13 @@ public class JettyService {
 
     private static String convertUrlToPath(String url) {
         return url + "/*";
+    }
+
+    private boolean isDynamicMetadataEnabled() {
+        return seaTunnelConfig.getEngineConfig().getMetadataConfig() != null
+                && seaTunnelConfig.getEngineConfig().getMetadataConfig().isEnabled()
+                && DynamicMetadataProvider.KIND.equalsIgnoreCase(
+                        seaTunnelConfig.getEngineConfig().getMetadataConfig().getKind());
     }
 
     public int chooseAppropriatePort(int initialPort, int portRange) {

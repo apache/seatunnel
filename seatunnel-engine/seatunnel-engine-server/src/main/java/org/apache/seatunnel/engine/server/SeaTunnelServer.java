@@ -26,12 +26,12 @@ import org.apache.seatunnel.engine.common.exception.SeaTunnelEngineException;
 import org.apache.seatunnel.engine.common.exception.SeaTunnelEngineRetryableException;
 import org.apache.seatunnel.engine.core.classloader.ClassLoaderService;
 import org.apache.seatunnel.engine.core.classloader.DefaultClassLoaderService;
+import org.apache.seatunnel.engine.core.metadata.DynamicMetadataProvider;
 import org.apache.seatunnel.engine.server.checkpoint.monitor.CheckpointMonitorService;
 import org.apache.seatunnel.engine.server.dag.physical.PipelineLocation;
 import org.apache.seatunnel.engine.server.execution.ExecutionState;
 import org.apache.seatunnel.engine.server.execution.TaskGroupLocation;
 import org.apache.seatunnel.engine.server.execution.TaskLocation;
-import org.apache.seatunnel.engine.server.metadata.DynamicMetadataProvider;
 import org.apache.seatunnel.engine.server.metrics.SeaTunnelMetricsContext;
 import org.apache.seatunnel.engine.server.service.jar.ConnectorPackageService;
 import org.apache.seatunnel.engine.server.service.slot.DefaultSlotService;
@@ -182,13 +182,21 @@ public class SeaTunnelServer
             jettyService.createJettyServer();
         }
 
-        // Set IMap for DynamicMetadataProvider
-        DynamicMetadataProvider.setMetadataDatasourceImap(
-                nodeEngine.getHazelcastInstance().getMap(IMAP_METADATA_DATASOURCE));
+        if (isDynamicMetadataEnabled()) {
+            DynamicMetadataProvider.setMetadataDatasourceImap(
+                    nodeEngine.getHazelcastInstance().getMap(IMAP_METADATA_DATASOURCE));
+        }
 
         // a trick way to fix StatisticsDataReferenceCleaner thread class loader leak.
         // see https://issues.apache.org/jira/browse/HADOOP-19049
         FileSystem.Statistics statistics = new FileSystem.Statistics("SeaTunnel");
+    }
+
+    private boolean isDynamicMetadataEnabled() {
+        return seaTunnelConfig.getEngineConfig().getMetadataConfig() != null
+                && seaTunnelConfig.getEngineConfig().getMetadataConfig().isEnabled()
+                && DynamicMetadataProvider.KIND.equalsIgnoreCase(
+                        seaTunnelConfig.getEngineConfig().getMetadataConfig().getKind());
     }
 
     private void startMaster() {

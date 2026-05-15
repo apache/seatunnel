@@ -284,7 +284,7 @@ curl -X DELETE http://localhost:8080/metadata/datasource/mysql_source
 
 ### 在作业中使用已注册的数据源
 
-注册数据源后，在连接器配置中通过 `metadata_datasource_id` 引用。提供者会将已注册的 `properties` 合并到连接器配置中；作业级别配置仍然优先于提供者返回的配置。
+注册数据源后，在连接器配置中通过 `metadata_datasource_id` 引用。提供者会将已注册的 `properties` 合并到连接器配置中；作业级别配置优先于提供者返回的配置。
 
 ```hocon
 env {
@@ -321,6 +321,7 @@ sink {
 
 - 仅支持 Zeta 引擎。
 - 数据源定义保存在 Zeta 集群运行时状态中。
+- 查询响应会对密码、token 等敏感字段做脱敏处理。
 - `connectorType` 会与作业中的连接器标识进行校验。例如，使用 `connectorType: "Jdbc"` 创建的数据源只能被 `Jdbc` 连接器使用。
 - `DynamicMetadataProvider` 不支持通过 `metadata_table_id` 获取表结构。
 
