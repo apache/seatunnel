@@ -34,10 +34,12 @@ import org.apache.seatunnel.e2e.common.container.TestHelper;
 import org.apache.seatunnel.e2e.common.junit.DisabledOnContainer;
 import org.apache.seatunnel.e2e.common.junit.TestContainerExtension;
 import org.apache.seatunnel.e2e.common.util.ContainerUtil;
+import org.apache.seatunnel.e2e.common.util.JobIdGenerator;
 
 import org.apache.commons.compress.archivers.tar.TarArchiveEntry;
 import org.apache.commons.compress.archivers.tar.TarArchiveOutputStream;
 
+import org.awaitility.Awaitility;
 import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.TestTemplate;
 import org.testcontainers.containers.Container;
@@ -65,6 +67,8 @@ import java.nio.file.attribute.BasicFileAttributes;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Random;
+import java.util.concurrent.CompletableFuture;
+import java.util.concurrent.TimeUnit;
 import java.util.zip.GZIPOutputStream;
 import java.util.zip.ZipEntry;
 import java.util.zip.ZipOutputStream;
@@ -315,6 +319,11 @@ public class LocalFileIT extends TestSuiteBase {
                         "/seatunnel/read/e2e_null_format/e2e_null_format.txt",
                         container);
 
+                container.execInContainer(
+                        "sh",
+                        "-c",
+                        "mkdir -p /seatunnel/read/markdown && printf '# E2E Markdown RAG\\n' > /seatunnel/read/markdown/e2e.md");
+
                 container.execInContainer("mkdir", "-p", "/tmp/fake_empty");
             };
 
@@ -424,6 +433,13 @@ public class LocalFileIT extends TestSuiteBase {
     }
 
     @TestTemplate
+    public void testLocalFileReadMarkdownRagMetadata(TestContainer container)
+            throws IOException, InterruptedException {
+        TestHelper helper = new TestHelper(container);
+        helper.execute("/markdown/local_file_markdown_rag_metadata_to_assert.conf");
+    }
+
+    @TestTemplate
     @DisabledOnContainer(
             value = {},
             type = {EngineType.FLINK, EngineType.SPARK},
@@ -477,6 +493,71 @@ public class LocalFileIT extends TestSuiteBase {
                 "Strict checksum should skip unchanged files and keep target mtime");
 
         baseContainer.execInContainer("sh", "-c", "rm -rf /tmp/seatunnel/update");
+    }
+
+    @TestTemplate
+    @DisabledOnContainer(
+            value = {},
+            type = {EngineType.FLINK, EngineType.SPARK},
+            disabledReason =
+                    "Continuous discovery is a long-running job. Local filesystem is not shared between engine master/workers in Flink/Spark E2E.")
+    public void testLocalFileBinaryUpdateModeContinuousDiscovery(TestContainer container)
+            throws IOException, InterruptedException {
+        resetContinuousTestPath();
+        putLocalFile("/tmp/seatunnel/continuous/src/test1.bin", "abc");
+
+        String jobId = String.valueOf(JobIdGenerator.newJobId());
+        CompletableFuture<Container.ExecResult> jobFuture =
+                CompletableFuture.supplyAsync(
+                        () -> {
+                            try {
+                                return container.executeJob(
+                                        "/binary/local_file_binary_update_distcp_continuous.conf",
+                                        jobId);
+                            } catch (Exception e) {
+                                throw new RuntimeException(e);
+                            }
+                        });
+
+        Awaitility.await()
+                .atMost(60, TimeUnit.SECONDS)
+                .untilAsserted(
+                        () ->
+                                Assertions.assertEquals(
+                                        "abc",
+                                        readLocalFile("/tmp/seatunnel/continuous/dst/test1.bin")));
+
+        long firstMtimeSeconds =
+                getLocalFileMtimeSeconds("/tmp/seatunnel/continuous/dst/test1.bin");
+        Thread.sleep(2500);
+        long secondMtimeSeconds =
+                getLocalFileMtimeSeconds("/tmp/seatunnel/continuous/dst/test1.bin");
+        Assertions.assertEquals(
+                firstMtimeSeconds,
+                secondMtimeSeconds,
+                "Continuous discovery should skip unchanged files in update mode.");
+
+        putLocalFile("/tmp/seatunnel/continuous/src/test2.bin", "def");
+        Awaitility.await()
+                .atMost(60, TimeUnit.SECONDS)
+                .untilAsserted(
+                        () ->
+                                Assertions.assertEquals(
+                                        "def",
+                                        readLocalFile("/tmp/seatunnel/continuous/dst/test2.bin")));
+
+        Container.ExecResult cancelResult = container.cancelJob(jobId);
+        Assertions.assertEquals(0, cancelResult.getExitCode(), cancelResult.getStderr());
+
+        Container.ExecResult execResult;
+        try {
+            execResult = jobFuture.get(120, TimeUnit.SECONDS);
+        } catch (Exception e) {
+            throw new RuntimeException("Wait continuous job exit failed.", e);
+        }
+        Assertions.assertEquals(0, execResult.getExitCode(), execResult.getStderr());
+
+        baseContainer.execInContainer("sh", "-c", "rm -rf /tmp/seatunnel/continuous");
     }
 
     @TestTemplate
@@ -550,6 +631,15 @@ public class LocalFileIT extends TestSuiteBase {
                         "sh",
                         "-c",
                         "rm -rf /tmp/seatunnel/update && mkdir -p /tmp/seatunnel/update/src /tmp/seatunnel/update/dst /tmp/seatunnel/update/tmp");
+        Assertions.assertEquals(0, result.getExitCode(), result.getStderr());
+    }
+
+    private void resetContinuousTestPath() throws IOException, InterruptedException {
+        Container.ExecResult result =
+                baseContainer.execInContainer(
+                        "sh",
+                        "-c",
+                        "rm -rf /tmp/seatunnel/continuous && mkdir -p /tmp/seatunnel/continuous/src /tmp/seatunnel/continuous/dst /tmp/seatunnel/continuous/tmp");
         Assertions.assertEquals(0, result.getExitCode(), result.getStderr());
     }
 

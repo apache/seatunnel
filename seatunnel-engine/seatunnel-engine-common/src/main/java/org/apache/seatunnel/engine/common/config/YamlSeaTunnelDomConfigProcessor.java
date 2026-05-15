@@ -19,6 +19,8 @@ package org.apache.seatunnel.engine.common.config;
 
 import org.apache.seatunnel.shade.org.apache.commons.lang3.StringUtils;
 
+import org.apache.seatunnel.api.metadata.MetadataConfig;
+import org.apache.seatunnel.api.metadata.MetadataOptions;
 import org.apache.seatunnel.engine.common.config.server.AllocateStrategy;
 import org.apache.seatunnel.engine.common.config.server.CheckpointConfig;
 import org.apache.seatunnel.engine.common.config.server.CheckpointStorageConfig;
@@ -217,6 +219,10 @@ public class YamlSeaTunnelDomConfigProcessor extends AbstractDomConfigProcessor 
                                         .HISTORY_JOB_EXPIRE_MINUTES
                                         .key(),
                                 getTextContent(node)));
+            } else if (ServerConfigOptions.MasterServerConfigOptions.STATE_CLEANUP_DELAY_MILLIS
+                    .key()
+                    .equals(name)) {
+                engineConfig.setStateCleanupDelayMillis(Long.parseLong(getTextContent(node)));
             } else if (ServerConfigOptions.MasterServerConfigOptions.CONNECTOR_JAR_STORAGE_CONFIG
                     .key()
                     .equals(name)) {
@@ -255,6 +261,8 @@ public class YamlSeaTunnelDomConfigProcessor extends AbstractDomConfigProcessor 
                         ScheduleStrategy.valueOf(getTextContent(node).toUpperCase(Locale.ROOT)));
             } else if (ServerConfigOptions.MasterServerConfigOptions.HTTP.key().equals(name)) {
                 engineConfig.setHttpConfig(parseHttpConfig(node));
+            } else if (ServerConfigOptions.METADATA.key().equals(name)) {
+                engineConfig.setMetadataConfig(parseMetadataConfigConfig(node));
             } else if (ServerConfigOptions.MasterServerConfigOptions.COORDINATOR_SERVICE
                     .key()
                     .equals(name)) {
@@ -583,5 +591,27 @@ public class YamlSeaTunnelDomConfigProcessor extends AbstractDomConfigProcessor 
             }
         }
         return httpConfig;
+    }
+
+    private MetadataConfig parseMetadataConfigConfig(Node dataSourceNode) {
+        MetadataConfig metadataConfig = new MetadataConfig();
+        String providerKind = null;
+
+        for (Node node : childElements(dataSourceNode)) {
+            String name = cleanNodeName(node);
+            if (MetadataOptions.ENABLED.key().equals(name)) {
+                metadataConfig.setEnabled(getBooleanValue(getTextContent(node)));
+            } else if (MetadataOptions.KIND.key().equals(name)) {
+                providerKind = getTextContent(node);
+                metadataConfig.setKind(providerKind);
+            } else if (providerKind != null && providerKind.equalsIgnoreCase(name)) {
+                // Parse nested provider properties (e.g., gravitino.uri, gravitino.metalake)
+                for (Node propertyNode : childElements(node)) {
+                    String propertyName = cleanNodeName(propertyNode);
+                    metadataConfig.getProperties().put(propertyName, getTextContent(propertyNode));
+                }
+            }
+        }
+        return metadataConfig;
     }
 }

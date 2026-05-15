@@ -17,16 +17,22 @@ Encrypt Transform 插件用于使用对称加密算法，对记录中指定的�
 
 ### algorithm [string]
 
-本 Transform 使用的加密算法。
-目前仅支持 `AES_CBC`。
+用于指定该 transform 所使用的加密算法。
+
+支持的值：
+- `AES_GCM`：默认值。采用 GCM 模式并包含认证标签（Authentication Tag）的 AES 加密。
+- `AES_CBC`：采用 CBC 模式及 PKCS5 填充（Padding）的 AES 加密。
+
+`AES_GCM` 提供认证加密（Authenticated Encryption），安全性更高，推荐使用。
+
+如果未明确指定，系统将默认使用 `AES_GCM`。
 
 ### key [string]
 
 加密密钥必须以 Base64 编码格式提供。
 请确保密钥长度符合所选加密算法的要求。
 
-对于 `AES_CBC`，支持的密钥长度为 16、24 或 32 字节
-（分别对应 AES-128、AES-192 和 AES-256）。
+对于 `AES_GCM` 和 `AES_CBC`，支持的密钥长度为 16、24 或 32 字节 （分别对应 AES-128、AES-192 和 AES-256）。
 
 **示例**
 
@@ -35,7 +41,7 @@ Encrypt Transform 插件用于使用对称加密算法，对记录中指定的�
 
 ### common options [string]
 
-Transform 插件的通用参数，请参考 [Transform Plugin](common-options.md)。
+Transform 插件的通用参数，请参考 [Transform Plugin](common-options/common-options.md)。
 
 ## 示例
 

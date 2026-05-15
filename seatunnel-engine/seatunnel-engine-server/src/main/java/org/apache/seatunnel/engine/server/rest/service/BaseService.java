@@ -71,6 +71,7 @@ import com.hazelcast.spi.impl.NodeEngineImpl;
 import lombok.extern.slf4j.Slf4j;
 
 import java.io.IOException;
+import java.math.BigDecimal;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.Comparator;
@@ -140,12 +141,7 @@ public abstract class BaseService {
 
         JsonObject jobInfoJson = new JsonObject();
         JobImmutableInformation jobImmutableInformation =
-                nodeEngine
-                        .getSerializationService()
-                        .toObject(
-                                nodeEngine
-                                        .getSerializationService()
-                                        .toObject(jobInfo.getJobImmutableInformation()));
+                nodeEngine.getSerializationService().toObject(jobInfo.getJobImmutableInformation());
 
         SeaTunnelServer seaTunnelServer = getSeaTunnelServer(true);
         ClassLoaderService classLoaderService =
@@ -778,7 +774,15 @@ public abstract class BaseService {
                     if (value instanceof Map) {
                         members.add(key, metricsToJsonObject((Map<String, Object>) value));
                     } else {
-                        members.add(key, value.toString());
+                        String strValue;
+                        if (value instanceof Float
+                                || value instanceof Double
+                                || value instanceof BigDecimal) {
+                            strValue = new BigDecimal(value.toString()).toPlainString();
+                        } else {
+                            strValue = value.toString();
+                        }
+                        members.add(key, strValue);
                     }
                 });
         return members;
@@ -808,21 +812,34 @@ public abstract class BaseService {
             isStopWithSavePoint =
                     Boolean.parseBoolean(map.get(RestConstant.IS_STOP_WITH_SAVE_POINT).toString());
         }
+        boolean forceStop = false;
+        if (map.get(RestConstant.FORCE) != null) {
+            forceStop = Boolean.parseBoolean(map.get(RestConstant.FORCE).toString());
+        }
 
         if (!seaTunnelServer.isMasterNode()) {
+            if (forceStop) {
+                NodeEngineUtil.sendOperationToMasterNode(
+                                node.nodeEngine, new CancelJobOperation(jobId, true))
+                        .join();
+                return;
+            }
             if (isStopWithSavePoint) {
                 NodeEngineUtil.sendOperationToMasterNode(
                                 node.nodeEngine, new SavePointJobOperation(jobId))
                         .join();
             } else {
                 NodeEngineUtil.sendOperationToMasterNode(
-                                node.nodeEngine, new CancelJobOperation(jobId))
+                                node.nodeEngine, new CancelJobOperation(jobId, false))
                         .join();
             }
 
         } else {
             CoordinatorService coordinatorService = seaTunnelServer.getCoordinatorService();
-
+            if (forceStop) {
+                coordinatorService.stopJob(jobId);
+                return;
+            }
             if (isStopWithSavePoint) {
                 coordinatorService.savePoint(jobId);
             } else {

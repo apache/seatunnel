@@ -36,6 +36,7 @@ import lombok.Getter;
 
 import java.io.Serializable;
 import java.util.ArrayList;
+import java.util.Collections;
 import java.util.List;
 import java.util.Map;
 import java.util.function.Function;
@@ -68,6 +69,10 @@ public abstract class BaseFileSourceConfig implements Serializable {
     }
 
     private List<String> parseFilePaths(ReadonlyConfig readonlyConfig) {
+        if (readonlyConfig.get(FileBaseSourceOptions.DISCOVERY_MODE)
+                == FileDiscoveryMode.CONTINUOUS) {
+            return Collections.emptyList();
+        }
         String rootPath = null;
         try {
             rootPath = readonlyConfig.get(FileBaseSourceOptions.FILE_PATH);
@@ -86,10 +91,8 @@ public abstract class BaseFileSourceConfig implements Serializable {
         if (CollectionUtils.isEmpty(filePaths)) {
             // When there are no files (including sync_mode=update filtered all files), choose a
             // compatible schema so that downstream can initialize correctly.
-            if (fileFormat == FileFormat.BINARY) {
-                String rootPath = readonlyConfig.get(FileBaseSourceOptions.FILE_PATH);
-                return newCatalogTable(
-                        catalogTable, readStrategy.getSeaTunnelRowTypeInfo(rootPath));
+            if (fileFormat == FileFormat.BINARY || fileFormat == FileFormat.MARKDOWN) {
+                return newCatalogTable(catalogTable, getSchemaForEmptyFilePath(readonlyConfig));
             }
             return catalogTable;
         }
@@ -109,11 +112,19 @@ public abstract class BaseFileSourceConfig implements Serializable {
                         readStrategy.getSeaTunnelRowTypeInfoWithUserConfigRowType(
                                 filePaths.get(0),
                                 configSchema ? catalogTable.getSeaTunnelRowType() : null));
+            case MARKDOWN:
+                return newCatalogTable(
+                        catalogTable, readStrategy.getSeaTunnelRowTypeInfo(filePaths.get(0)));
             default:
                 throw new FileConnectorException(
                         FileConnectorErrorCode.FORMAT_NOT_SUPPORT,
                         "SeaTunnel does not supported this file format: [" + fileFormat + "]");
         }
+    }
+
+    private SeaTunnelRowType getSchemaForEmptyFilePath(ReadonlyConfig readonlyConfig) {
+        String rootPath = readonlyConfig.get(FileBaseSourceOptions.FILE_PATH);
+        return readStrategy.getSeaTunnelRowTypeInfo(rootPath);
     }
 
     private CatalogTable newCatalogTable(

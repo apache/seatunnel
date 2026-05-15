@@ -49,7 +49,6 @@ By default, we use 2PC commit to ensure `exactly-once`
 | parquet_avro_write_timestamp_as_int96 | boolean | no       | false          |
 | overwrite                             | boolean | no       | false          |
 | data_save_mode                        | enum    | no       | APPEND_DATA    |
-
 | schema_save_mode                      | enum    | no       | CREATE_SCHEMA_WHEN_NOT_EXIST |
 | save_mode_create_template             | string  | no       | -              |
 | common-options                        |         | no       | -              |

@@ -30,21 +30,18 @@ import com.google.auto.service.AutoService;
 public class ReplaceTransformFactory implements TableTransformFactory {
     @Override
     public String factoryIdentifier() {
-        return "Replace";
+        return ReplaceTransform.PLUGIN_NAME;
     }
 
     @Override
     public OptionRule optionRule() {
         return OptionRule.builder()
                 .optional(
-                        ReplaceTransformConfig.KEY_REPLACE_FIELD,
+                        ReplaceTransformConfig.KEY_REPLACE_FIELDS,
                         ReplaceTransformConfig.KEY_PATTERN,
                         ReplaceTransformConfig.KEY_REPLACEMENT)
                 .optional(ReplaceTransformConfig.KEY_IS_REGEX)
-                .conditional(
-                        ReplaceTransformConfig.KEY_IS_REGEX,
-                        true,
-                        ReplaceTransformConfig.KEY_REPLACE_FIRST)
+                .optional(ReplaceTransformConfig.KEY_REPLACE_FIRST)
                 .optional(TransformCommonOptions.MULTI_TABLES)
                 .optional(TransformCommonOptions.TABLE_MATCH_REGEX)
                 .build();

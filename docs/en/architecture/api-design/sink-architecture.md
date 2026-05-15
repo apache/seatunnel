@@ -607,10 +607,10 @@ public class HiveAggregatedCommitter
 ### 3.4 Code References
 
 **API Interfaces**:
-- [SeaTunnelSink.java](../../../seatunnel-api/src/main/java/org/apache/seatunnel/api/sink/SeaTunnelSink.java)
-- [SinkWriter.java](../../../seatunnel-api/src/main/java/org/apache/seatunnel/api/sink/SinkWriter.java)
-- [SinkCommitter.java](../../../seatunnel-api/src/main/java/org/apache/seatunnel/api/sink/SinkCommitter.java)
-- [SinkAggregatedCommitter.java](../../../seatunnel-api/src/main/java/org/apache/seatunnel/api/sink/SinkAggregatedCommitter.java)
+- [SeaTunnelSink.java](../../../../seatunnel-api/src/main/java/org/apache/seatunnel/api/sink/SeaTunnelSink.java)
+- [SinkWriter.java](../../../../seatunnel-api/src/main/java/org/apache/seatunnel/api/sink/SinkWriter.java)
+- [SinkCommitter.java](../../../../seatunnel-api/src/main/java/org/apache/seatunnel/api/sink/SinkCommitter.java)
+- [SinkAggregatedCommitter.java](../../../../seatunnel-api/src/main/java/org/apache/seatunnel/api/sink/SinkAggregatedCommitter.java)
 
 **Example Implementations**:
 - JDBC Sink: `seatunnel-connectors-v2/connector-jdbc/src/main/java/org/apache/seatunnel/connectors/seatunnel/jdbc/sink/`
@@ -1009,6 +1009,6 @@ public void testCheckpointFailureRecovery() {
 ### Further Reading
 
 - [Two-Phase Commit Protocol](https://en.wikipedia.org/wiki/Two-phase_commit_protocol)
-- [XA Transactions](https://www.oracle.com/java/technologies/xa-transactions.html)
+- [XA Transactions](https://en.wikipedia.org/wiki/X/Open_XA)
 - [Kafka Transactions](https://kafka.apache.org/documentation/#semantics)
 - [Iceberg Table Format](https://iceberg.apache.org/spec/)

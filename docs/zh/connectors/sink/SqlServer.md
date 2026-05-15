@@ -117,12 +117,12 @@ source {
     partition_num = 10
   }
   # 如果想了解更多关于如何配置 SeaTunnel 的信息，并查看完整的源插件列表，
-  # 请访问 https://seatunnel.apache.org/docs/connector-v2/source/Jdbc
+  # 请访问 https://seatunnel.apache.org/docs/connectors/source/Jdbc
 }
 
 transform {
   # 如果想了解更多关于如何配置 SeaTunnel 的信息，并查看完整的转换插件列表，
-  # 请访问 https://seatunnel.apache.org/docs/transform-v2/sql
+  # 请访问 https://seatunnel.apache.org/docs/transforms/sql
 }
 
 sink {
@@ -134,7 +134,7 @@ sink {
     query = "insert into full_types_jdbc_sink( id, val_char, val_varchar, val_text, val_nchar, val_nvarchar, val_ntext, val_decimal, val_numeric, val_float, val_real, val_smallmoney, val_money, val_bit, val_tinyint, val_smallint, val_int, val_bigint, val_date, val_time, val_datetime2, val_datetime, val_smalldatetime ) values( ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ? )"
   }
   # 如果想了解更多关于如何配置 SeaTunnel 的信息，并查看完整的接收器插件列表，
-  # 请访问 https://seatunnel.apache.org/docs/connector-v2/sink/Jdbc
+  # 请访问 https://seatunnel.apache.org/docs/connectors/sink/Jdbc
 }
 ```
 
@@ -173,7 +173,7 @@ Jdbc {
 }
 
 # 如果想了解更多关于如何配置 SeaTunnel 的信息，并查看完整的接收器插件列表，
-# 请访问 https://seatunnel.apache.org/docs/connector-v2/sink/Jdbc
+# 请访问 https://seatunnel.apache.org/docs/connectors/sink/Jdbc
 ```
 
 ## 变更日志
