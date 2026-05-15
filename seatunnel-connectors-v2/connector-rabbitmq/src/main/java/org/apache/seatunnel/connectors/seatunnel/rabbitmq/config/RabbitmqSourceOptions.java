@@ -19,8 +19,14 @@ package org.apache.seatunnel.connectors.seatunnel.rabbitmq.config;
 
 import org.apache.seatunnel.api.configuration.Option;
 import org.apache.seatunnel.api.configuration.Options;
+import org.apache.seatunnel.api.options.ConnectorCommonOptions;
+
+import java.util.List;
+import java.util.Map;
 
 public class RabbitmqSourceOptions extends RabbitmqBaseOptions {
+    public static final Option<List<Map<String, Object>>> TABLE_CONFIGS =
+            ConnectorCommonOptions.TABLE_CONFIGS;
 
     public static final Option<Integer> REQUESTED_CHANNEL_MAX =
             Options.key("requested_channel_max")

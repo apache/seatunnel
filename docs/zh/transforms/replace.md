@@ -8,17 +8,21 @@
 
 ## 属性
 
-|      名称       |   类型    | 是否必须 |  默认值  |
+|      名称       | 类型      | 是否必须 |  默认值  |
 |---------------|---------|------|-------|
-| replace_field | string  | yes  |       |
+| replace_fields | array   | yes  |       |
 | pattern       | string  | yes  | -     |
 | replacement   | string  | yes  | -     |
 | is_regex      | boolean | no   | false |
 | replace_first | boolean | no   | false |
 
-### replace_field [string]
+### replace_fields [array]
 
 需要替换的字段
+
+`replace_fields` 支持列表形式，例如：`["name"]` 或 `["name", "title"]`。
+
+为了向后兼容，旧配置 `replace_field = "name"` 仍然支持，但新配置建议统一使用 `replace_fields`。
 
 ### pattern [string]
 
@@ -58,7 +62,7 @@ transform {
   Replace {
     plugin_input = "fake"
     plugin_output = "fake1"
-    replace_field = "name"
+    replace_fields = ["name"]
     pattern = " "
     replacement = "_"
     is_regex = true
@@ -99,7 +103,7 @@ transform {
   Replace {
     plugin_input = "fake"
     plugin_output = "fake1"
-    replace_field = "name"
+    replace_fields = ["name"]
     pattern = ".+"
     replacement = "b"
     is_regex = true
@@ -118,4 +122,3 @@ sink {
 ### 新版本
 
 - 添加替换转换连接器
-

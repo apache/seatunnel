@@ -7,4 +7,4 @@ If you want to contribute Connector-V2, use the internal docs below as the main 
 - [Source Connector Development](./source-connector-development.md)
 - [Sink Connector Development](./sink-connector-development.md)
 - [Set Up Develop Environment](./setup.md)
-- External repository guide: [Connector-v2 Contribution Guide](https://github.com/apache/seatunnel/blob/dev/seatunnel-connectors-v2/README.md)
+- External repository guide: [Connector-v2 Contribution Guide](../../../seatunnel-connectors-v2/README.md)

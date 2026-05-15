@@ -203,6 +203,86 @@ class JdbcSourceSplitEnumeratorTest {
         Assertions.assertEquals(0, enumerator.currentUnassignedSplitSize());
     }
 
+    @Test
+    void testRegisterReaderReassignsReturnedSplitsWithoutResignaling() throws Exception {
+        int parallelism = 1;
+        TablePath tablePath = TablePath.of("db", "schema", "table");
+
+        Map<TablePath, JdbcSourceTable> tables = new HashMap<>();
+        tables.put(tablePath, createJdbcSourceTable(tablePath));
+
+        Set<Integer> registeredReaders = new HashSet<>(Collections.singleton(0));
+        List<List<String>> assignedSplitBatches = new ArrayList<>();
+        AtomicInteger noMoreSplitsCallCount = new AtomicInteger();
+
+        SourceSplitEnumerator.Context<JdbcSourceSplit> context =
+                new SourceSplitEnumerator.Context<JdbcSourceSplit>() {
+                    @Override
+                    public int currentParallelism() {
+                        return parallelism;
+                    }
+
+                    @Override
+                    public Set<Integer> registeredReaders() {
+                        return new HashSet<>(registeredReaders);
+                    }
+
+                    @Override
+                    public void assignSplit(int subtaskId, List<JdbcSourceSplit> splits) {
+                        assignedSplitBatches.add(
+                                splits.stream()
+                                        .map(JdbcSourceSplit::splitId)
+                                        .collect(java.util.stream.Collectors.toList()));
+                    }
+
+                    @Override
+                    public void signalNoMoreSplits(int subtask) {
+                        noMoreSplitsCallCount.incrementAndGet();
+                    }
+
+                    @Override
+                    public void sendEventToSourceReader(int subtaskId, SourceEvent event) {}
+
+                    @Override
+                    public MetricsContext getMetricsContext() {
+                        return null;
+                    }
+
+                    @Override
+                    public EventListener getEventListener() {
+                        return null;
+                    }
+                };
+
+        JdbcSourceConfig sourceConfig =
+                JdbcSourceConfig.builder()
+                        .jdbcConnectionConfig(
+                                JdbcConnectionConfig.builder()
+                                        .url("jdbc:generic://localhost:0/test")
+                                        .driverName("org.example.Driver")
+                                        .build())
+                        .build();
+
+        JdbcSourceSplitEnumerator enumerator =
+                new JdbcSourceSplitEnumerator(context, sourceConfig, tables, null);
+
+        enumerator.open();
+        enumerator.run();
+
+        registeredReaders.clear();
+
+        JdbcSourceSplit returnedSplit = createSplit(tablePath, "returned-split");
+        enumerator.addSplitsBack(Collections.singletonList(returnedSplit), 0);
+
+        registeredReaders.add(0);
+        enumerator.registerReader(0);
+
+        Assertions.assertEquals(2, assignedSplitBatches.size());
+        Assertions.assertEquals(
+                Collections.singletonList("returned-split"), assignedSplitBatches.get(1));
+        Assertions.assertEquals(1, noMoreSplitsCallCount.get());
+    }
+
     private JdbcSourceTable createJdbcSourceTable(TablePath tablePath) {
         TableIdentifier tableId = TableIdentifier.of("default", tablePath);
         TableSchema tableSchema = TableSchema.builder().columns(Collections.emptyList()).build();
@@ -210,5 +290,9 @@ class JdbcSourceSplitEnumeratorTest {
                 CatalogTable.of(
                         tableId, tableSchema, Collections.emptyMap(), Collections.emptyList(), "");
         return JdbcSourceTable.builder().tablePath(tablePath).catalogTable(catalogTable).build();
+    }
+
+    private JdbcSourceSplit createSplit(TablePath tablePath, String splitId) {
+        return new JdbcSourceSplit(tablePath, splitId, "SELECT 1", "id", null, 0, 1);
     }
 }

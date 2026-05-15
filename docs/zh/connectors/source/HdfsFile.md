@@ -114,6 +114,15 @@ markdown 解析器提取各种元素，包括标题、段落、列表、代码�
 - `parent_id`：父元素的 ID
 - `child_ids`：子元素 ID 的逗号分隔列表
 
+当 `markdown_rag_metadata_enabled` 设置为 `true` 时，SeaTunnel 会在 `child_ids` 之后追加以下 RAG 元数据字段：
+- `source_uri`：源文件路径或 URI
+- `document_id`：由 `source_uri` 派生的稳定文档标识符
+- `chunk_id`：由文档标识、chunk 顺序和内容哈希派生的稳定 chunk 标识符
+- `chunk_index`：解析后文档中的一基 chunk 顺序
+- `content_hash`：已输出 `text` 值的 SHA-256 哈希
+
+该选项默认值为 `false`，因此只有显式启用后才会改变原始 Markdown schema。
+
 注意：Markdown 格式仅支持读取，不支持写入。
 
 ### delimiter/field_delimiter [string]
@@ -133,7 +142,7 @@ markdown 解析器提取各种元素，包括标题、段落、列表、代码�
 
 文件过滤模式，用于过滤文件。若只想根据文件名称筛选，则直接写文件名称的正则；若同时想根据文件目录进行过滤，则表达式以`path`起始。
 
-该模式遵循标准正则表达式。详情请参考 https://en.wikipedia.org/wiki/Regular_expression。
+该模式遵循标准正则表达式。详情请参考 [正则表达式](https://en.wikipedia.org/wiki/Regular_expression)。
 以下是一些示例。
 
 若`path`为`/data/seatunnel`,且文件结构示例：
