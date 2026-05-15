@@ -39,6 +39,135 @@ Please refer [security](security.md)
 
 ## API reference
 
+### Manage Dynamic Metadata Datasources
+
+<details>
+ <summary><code>POST</code> <code><b>/metadata/datasource</b></code> <code>(Create a datasource for DynamicMetadataProvider.)</code></summary>
+
+#### Request Body
+
+```json
+{
+  "metadataDatasourceId": "mysql_source",
+  "connectorType": "Jdbc",
+  "properties": {
+    "url": "jdbc:mysql://mysql:3306/seatunnel",
+    "driver": "com.mysql.cj.jdbc.Driver",
+    "username": "root",
+    "password": "secret"
+  }
+}
+```
+
+#### Responses
+
+```json
+{
+  "status": "success",
+  "metadataDatasourceId": "mysql_source",
+  "message": "Datasource created successfully"
+}
+```
+
+**Notes:**
+- This API is used by the `dynamic` Metadata SPI provider. See [Metadata SPI](../../introduction/concepts/metadata-spi.md).
+- `connectorType` must match the connector identifier used in the job, for example `Jdbc`.
+- The values under `properties` are merged into the connector configuration when the job references this datasource by `metadata_datasource_id`.
+
+</details>
+
+<details>
+ <summary><code>GET</code> <code><b>/metadata/datasource/{metadataDatasourceId}</b></code> <code>(Get one dynamic metadata datasource.)</code></summary>
+
+#### Responses
+
+```json
+{
+  "metadataDatasourceId": "mysql_source",
+  "connectorType": "Jdbc",
+  "properties": {
+    "url": "jdbc:mysql://mysql:3306/seatunnel",
+    "driver": "com.mysql.cj.jdbc.Driver",
+    "username": "root",
+    "password": "secret"
+  },
+  "createTime": 1717500000000,
+  "updateTime": 1717500000000
+}
+```
+
+</details>
+
+<details>
+ <summary><code>GET</code> <code><b>/metadata/datasources</b></code> <code>(List dynamic metadata datasources.)</code></summary>
+
+#### Responses
+
+```json
+[
+  {
+    "metadataDatasourceId": "mysql_source",
+    "connectorType": "Jdbc",
+    "properties": {
+      "url": "jdbc:mysql://mysql:3306/seatunnel",
+      "driver": "com.mysql.cj.jdbc.Driver",
+      "username": "root",
+      "password": "secret"
+    },
+    "createTime": 1717500000000,
+    "updateTime": 1717500000000
+  }
+]
+```
+
+</details>
+
+<details>
+ <summary><code>PUT</code> <code><b>/metadata/datasource/{metadataDatasourceId}</b></code> <code>(Update one dynamic metadata datasource.)</code></summary>
+
+#### Request Body
+
+```json
+{
+  "connectorType": "Jdbc",
+  "properties": {
+    "url": "jdbc:mysql://mysql:3306/seatunnel",
+    "driver": "com.mysql.cj.jdbc.Driver",
+    "username": "root",
+    "password": "new-secret"
+  }
+}
+```
+
+#### Responses
+
+```json
+{
+  "status": "success",
+  "metadataDatasourceId": "mysql_source",
+  "message": "Datasource updated successfully"
+}
+```
+
+</details>
+
+<details>
+ <summary><code>DELETE</code> <code><b>/metadata/datasource/{metadataDatasourceId}</b></code> <code>(Delete one dynamic metadata datasource.)</code></summary>
+
+#### Responses
+
+```json
+{
+  "status": "success",
+  "metadataDatasourceId": "mysql_source",
+  "message": "Datasource deleted successfully"
+}
+```
+
+</details>
+
+------------------------------------------------------------------------------------------
+
 ### Get Connector Option Rules
 
 <details>
