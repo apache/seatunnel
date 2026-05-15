@@ -20,12 +20,6 @@ package org.apache.seatunnel.example.engine;
 import org.apache.seatunnel.core.starter.SeaTunnel;
 import org.apache.seatunnel.core.starter.exception.CommandException;
 import org.apache.seatunnel.core.starter.seatunnel.args.ServerCommandArgs;
-import org.apache.seatunnel.engine.common.Constant;
-
-import java.io.FileNotFoundException;
-import java.net.URISyntaxException;
-import java.net.URL;
-import java.nio.file.Paths;
 
 public class SeaTunnelEngineClusterServerExample {
 
@@ -34,23 +28,8 @@ public class SeaTunnelEngineClusterServerExample {
         System.setProperty("log4j2.isThreadContextMapInheritable", "true");
     }
 
-    public static void main(String[] args)
-            throws FileNotFoundException, URISyntaxException, CommandException {
-        // Load custom seatunnel.yaml from resources before starting the server
-        String seatunnelYamlPath = args.length > 0 ? args[0] : "/seatunnel.yaml";
-        String seatunnelYamlFile = getTestConfigFile(seatunnelYamlPath);
-        System.setProperty(Constant.SYSPROP_SEATUNNEL_CONFIG, seatunnelYamlFile);
-
+    public static void main(String[] args) throws CommandException {
         ServerCommandArgs serverCommandArgs = new ServerCommandArgs();
         SeaTunnel.run(serverCommandArgs.buildCommand());
-    }
-
-    public static String getTestConfigFile(String configFile)
-            throws FileNotFoundException, URISyntaxException {
-        URL resource = SeaTunnelEngineClusterServerExample.class.getResource(configFile);
-        if (resource == null) {
-            throw new FileNotFoundException("Can't find config file: " + configFile);
-        }
-        return Paths.get(resource.toURI()).toString();
     }
 }

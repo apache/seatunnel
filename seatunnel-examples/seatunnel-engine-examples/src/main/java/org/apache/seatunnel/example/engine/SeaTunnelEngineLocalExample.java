@@ -21,7 +21,6 @@ import org.apache.seatunnel.core.starter.SeaTunnel;
 import org.apache.seatunnel.core.starter.enums.MasterType;
 import org.apache.seatunnel.core.starter.exception.CommandException;
 import org.apache.seatunnel.core.starter.seatunnel.args.ClientCommandArgs;
-import org.apache.seatunnel.engine.common.Constant;
 
 import java.io.FileNotFoundException;
 import java.net.URISyntaxException;
@@ -37,11 +36,6 @@ public class SeaTunnelEngineLocalExample {
 
     public static void main(String[] args)
             throws FileNotFoundException, URISyntaxException, CommandException {
-        // Load custom seatunnel.yaml from resources before executing the job
-        String seatunnelYamlPath = args.length > 1 ? args[1] : "/seatunnel.yaml";
-        String seatunnelYamlFile = getTestConfigFile(seatunnelYamlPath);
-        System.setProperty(Constant.SYSPROP_SEATUNNEL_CONFIG, seatunnelYamlFile);
-
         String configurePath = args.length > 0 ? args[0] : "/examples/fake_to_console.conf";
         String configFile = getTestConfigFile(configurePath);
         ClientCommandArgs clientCommandArgs = new ClientCommandArgs();
@@ -50,7 +44,7 @@ public class SeaTunnelEngineLocalExample {
         clientCommandArgs.setJobName(Paths.get(configFile).getFileName().toString());
         // Change Execution Mode to CLUSTER to use client mode, before do this, you should start
         // SeaTunnelEngineClusterServerExample
-        clientCommandArgs.setMasterType(MasterType.REMOTE);
+        clientCommandArgs.setMasterType(MasterType.LOCAL);
         SeaTunnel.run(clientCommandArgs.buildCommand());
     }
 
