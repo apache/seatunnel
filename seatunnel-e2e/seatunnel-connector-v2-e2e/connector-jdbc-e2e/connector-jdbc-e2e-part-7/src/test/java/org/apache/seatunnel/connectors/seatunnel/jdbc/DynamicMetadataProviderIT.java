@@ -21,10 +21,11 @@ import org.apache.seatunnel.shade.com.google.common.collect.Lists;
 
 import org.apache.seatunnel.e2e.common.container.seatunnel.SeaTunnelContainer;
 
-import org.junit.jupiter.api.AfterEach;
+import org.junit.jupiter.api.AfterAll;
 import org.junit.jupiter.api.Assertions;
-import org.junit.jupiter.api.BeforeEach;
+import org.junit.jupiter.api.BeforeAll;
 import org.junit.jupiter.api.Test;
+import org.junit.jupiter.api.TestInstance;
 import org.testcontainers.containers.Container;
 import org.testcontainers.containers.GenericContainer;
 import org.testcontainers.containers.MySQLContainer;
@@ -53,6 +54,7 @@ import java.util.stream.Stream;
 import static io.restassured.RestAssured.given;
 import static io.restassured.http.ContentType.JSON;
 import static org.apache.seatunnel.e2e.common.util.ContainerUtil.PROJECT_ROOT_PATH;
+import static org.apache.seatunnel.e2e.common.util.ContainerUtil.copyConnectorJarToContainer;
 import static org.apache.seatunnel.engine.server.rest.RestConstant.REST_URL_JOB_INFO;
 import static org.apache.seatunnel.engine.server.rest.RestConstant.REST_URL_METADATA_DATASOURCE;
 import static org.apache.seatunnel.engine.server.rest.RestConstant.REST_URL_METADATA_DATASOURCES;
@@ -62,6 +64,7 @@ import static org.apache.seatunnel.engine.server.rest.RestConstant.REST_URL_SUBM
  * E2E tests for DynamicMetadataProvider. Tests REST API CRUD operations, MySQL integration, and
  * JSON job submission.
  */
+@TestInstance(TestInstance.Lifecycle.PER_CLASS)
 public class DynamicMetadataProviderIT extends SeaTunnelContainer {
 
     protected GenericContainer<?> dbServer;
@@ -76,7 +79,7 @@ public class DynamicMetadataProviderIT extends SeaTunnelContainer {
     private static final int MYSQL_PORT = 3306;
     private static final String MYSQL_CONTAINER_HOST = "mysql-e2e";
 
-    @BeforeEach
+    @BeforeAll
     @Override
     public void startUp() throws Exception {
         // Setup SeaTunnel container with dynamic metadata enabled
@@ -121,6 +124,8 @@ public class DynamicMetadataProviderIT extends SeaTunnelContainer {
         executeExtraCommands(server);
         server.start();
 
+        copyJdbcConnectorJarToContainer();
+
         // Download MySQL driver
         server.execInContainer(
                 "bash",
@@ -151,7 +156,7 @@ public class DynamicMetadataProviderIT extends SeaTunnelContainer {
         baseUrl = "http://localhost:8080";
     }
 
-    @AfterEach
+    @AfterAll
     @Override
     public void tearDown() throws Exception {
         // Cleanup any remaining datasources
@@ -178,7 +183,15 @@ public class DynamicMetadataProviderIT extends SeaTunnelContainer {
         super.tearDown();
     }
 
-    // ==================== Helper Methods ====================
+    private void copyJdbcConnectorJarToContainer() {
+        copyConnectorJarToContainer(
+                server,
+                "/jdbc_mysql_source_to_sink_with_dynamic_metadata.conf",
+                getConnectorModulePath(),
+                getConnectorNamePrefix(),
+                getConnectorType(),
+                SEATUNNEL_HOME);
+    }
 
     protected GenericContainer<?> initContainer() {
         DockerImageName imageName = DockerImageName.parse(MYSQL_IMAGE);
@@ -262,7 +275,7 @@ public class DynamicMetadataProviderIT extends SeaTunnelContainer {
     }
 
     private String getJobStatus(long jobId) {
-        return given().get(baseUrl + REST_URL_JOB_INFO + "?jobId=" + jobId)
+        return given().get(baseUrl + REST_URL_JOB_INFO + "/" + jobId)
                 .jsonPath()
                 .getString("jobStatus");
     }
@@ -668,7 +681,9 @@ public class DynamicMetadataProviderIT extends SeaTunnelContainer {
                         + "        {"
                         + "            \"plugin_name\": \"Jdbc\","
                         + "            \"metadata_datasource_id\": \"json_test_datasource\","
-                        + "            \"table_name\": \"sink\""
+                        + "            \"generate_sink_sql\": true,"
+                        + "            \"database\": \"seatunnel\","
+                        + "            \"table\": \"sink\""
                         + "        }"
                         + "    ]"
                         + "}";
