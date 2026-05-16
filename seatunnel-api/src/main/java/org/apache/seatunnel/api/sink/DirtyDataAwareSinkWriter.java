@@ -106,6 +106,22 @@ public final class DirtyDataAwareSinkWriter<T, CommitInfoT, StateT>
 
     @Override
     public void close() throws IOException {
-        delegate.close();
+        IOException closeException = null;
+        try {
+            delegate.close();
+        } catch (IOException e) {
+            closeException = e;
+            throw e;
+        } finally {
+            try {
+                collector.close();
+            } catch (Exception e) {
+                if (closeException != null) {
+                    closeException.addSuppressed(e);
+                } else {
+                    throw new IOException("Failed to close dirty record collector", e);
+                }
+            }
+        }
     }
 }

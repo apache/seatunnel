@@ -123,6 +123,8 @@ public interface SinkWriter<T, CommitInfoT, StateT> {
          *
          * @return the dirty record collector
          */
-        DirtyRecordCollector getDirtyRecordCollector();
+        default DirtyRecordCollector getDirtyRecordCollector() {
+            return NoOpDirtyRecordCollector.INSTANCE;
+        }
     }
 }

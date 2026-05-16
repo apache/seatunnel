@@ -21,8 +21,6 @@ import org.apache.seatunnel.api.common.metrics.MetricsContext;
 import org.apache.seatunnel.api.event.DefaultEventProcessor;
 import org.apache.seatunnel.api.event.EventListener;
 import org.apache.seatunnel.api.serialization.DefaultSerializer;
-import org.apache.seatunnel.api.sink.DirtyRecordCollector;
-import org.apache.seatunnel.api.sink.NoOpDirtyRecordCollector;
 import org.apache.seatunnel.api.sink.SinkWriter;
 import org.apache.seatunnel.api.sink.SupportMultiTableSinkWriter;
 import org.apache.seatunnel.api.table.catalog.TablePath;
@@ -102,11 +100,6 @@ public class MultiTableSinkWriterTest {
         @Override
         public EventListener getEventListener() {
             return new DefaultEventProcessor();
-        }
-
-        @Override
-        public DirtyRecordCollector getDirtyRecordCollector() {
-            return NoOpDirtyRecordCollector.INSTANCE;
         }
     }
 

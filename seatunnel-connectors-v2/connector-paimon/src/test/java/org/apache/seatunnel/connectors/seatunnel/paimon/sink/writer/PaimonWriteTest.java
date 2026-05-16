@@ -21,8 +21,6 @@ import org.apache.seatunnel.api.common.JobContext;
 import org.apache.seatunnel.api.common.metrics.MetricsContext;
 import org.apache.seatunnel.api.configuration.ReadonlyConfig;
 import org.apache.seatunnel.api.event.EventListener;
-import org.apache.seatunnel.api.sink.DirtyRecordCollector;
-import org.apache.seatunnel.api.sink.NoOpDirtyRecordCollector;
 import org.apache.seatunnel.api.sink.SinkWriter;
 import org.apache.seatunnel.api.table.catalog.CatalogTable;
 import org.apache.seatunnel.api.table.catalog.PhysicalColumn;
@@ -225,11 +223,6 @@ public class PaimonWriteTest {
                     @Override
                     public EventListener getEventListener() {
                         return null;
-                    }
-
-                    @Override
-                    public DirtyRecordCollector getDirtyRecordCollector() {
-                        return NoOpDirtyRecordCollector.INSTANCE;
                     }
                 };
     }

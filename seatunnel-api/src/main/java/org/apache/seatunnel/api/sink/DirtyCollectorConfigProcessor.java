@@ -65,19 +65,13 @@ public class DirtyCollectorConfigProcessor {
             return NoOpDirtyRecordCollector.INSTANCE;
         }
 
-        try {
-            Config collectorConfig = config.getConfig(DIRTY_COLLECTOR_CONFIG_KEY);
-            DirtyRecordCollector collector =
-                    DirtyRecordCollectorFactory.createCollector(collectorConfig);
-            log.info(
-                    "Successfully initialized dirty record collector: {}",
-                    collector.getClass().getSimpleName());
-            return collector;
-        } catch (Exception e) {
-            log.error(
-                    "Failed to initialize dirty record collector, using NoOp collector instead", e);
-            return NoOpDirtyRecordCollector.INSTANCE;
-        }
+        Config collectorConfig = config.getConfig(DIRTY_COLLECTOR_CONFIG_KEY);
+        DirtyRecordCollector collector =
+                DirtyRecordCollectorFactory.createCollector(collectorConfig);
+        log.info(
+                "Successfully initialized dirty record collector: {}",
+                collector.getClass().getSimpleName());
+        return collector;
     }
 
     public static Config getMergedSinkConfigForDirty(Config envConfig, Config sinkConfig) {
@@ -133,8 +127,8 @@ public class DirtyCollectorConfigProcessor {
         try {
             Config validatorConfig = config.getConfig(DIRTY_VALIDATOR_CONFIG_KEY);
             if (!validatorConfig.hasPath("type")) {
-                log.warn("Dirty validator configuration missing 'type' field");
-                return null;
+                throw new IllegalArgumentException(
+                        "dirty.validator is configured but missing required 'type' field.");
             }
 
             String validatorType = validatorConfig.getString("type");
@@ -142,17 +136,21 @@ public class DirtyCollectorConfigProcessor {
                     DirtyDataValidatorFactory.createValidator(
                             validatorType, validatorConfig, catalogTable);
 
-            if (validator != null) {
-                log.info("Successfully created dirty data validator: {}", validatorType);
-            } else {
-                log.warn("Failed to create dirty data validator: {}", validatorType);
+            if (validator == null) {
+                throw new IllegalArgumentException(
+                        "Could not resolve dirty.validator type '"
+                                + validatorType
+                                + "'. Ensure the implementation is on the classpath or registered via SPI.");
             }
 
+            log.info("Successfully created dirty data validator: {}", validatorType);
             return validator;
-
+        } catch (IllegalArgumentException e) {
+            throw e;
         } catch (Exception e) {
-            log.error("Failed to create dirty data validator", e);
-            return null;
+            String validatorType = config.getConfig(DIRTY_VALIDATOR_CONFIG_KEY).getString("type");
+            throw new RuntimeException(
+                    "Failed to initialize dirty.validator of type '" + validatorType + "'", e);
         }
     }
 }

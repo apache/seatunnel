@@ -71,11 +71,15 @@ public class DirtyDataCollectionIT extends TestSuiteBase {
         Container.ExecResult failResult =
                 container.executeJob("/fake_to_console_dirty_fail_threshold.conf");
 
-        log.info("Container exit code: {}", failResult.getExitCode());
-        String failOutput = failResult.getStdout();
-        String failErrorOutput = failResult.getStderr();
-        String serverLogs = container.getServerLogs();
-        String combinedOutput = failOutput + "\n" + failErrorOutput + "\n" + serverLogs;
+        Assertions.assertNotEquals(
+                0, failResult.getExitCode(), "Job should fail when dirty threshold is exceeded");
+
+        String combinedOutput =
+                failResult.getStdout()
+                        + "\n"
+                        + failResult.getStderr()
+                        + "\n"
+                        + container.getServerLogs();
 
         boolean hasDirtyCollected =
                 combinedOutput.contains("Dirty record collected")

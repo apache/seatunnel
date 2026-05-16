@@ -90,20 +90,20 @@ public class DirtyRecordCollectorFactory {
         }
 
         if (provider == null) {
-            log.warn(
-                    "No DirtyRecordCollectorProvider found for type '{}'. "
-                            + "Available types: {}. Using NoOp collector.",
-                    type,
-                    PROVIDERS.keySet());
-            return NoOpDirtyRecordCollector.INSTANCE;
+            throw new IllegalArgumentException(
+                    "Unknown dirty.collector type '"
+                            + type
+                            + "'. Available built-in types: "
+                            + PROVIDERS.keySet()
+                            + ". Register a custom DirtyRecordCollectorProvider via SPI.");
         }
 
         DirtyRecordCollector collector = provider.createCollector();
         try {
             collector.init(config);
         } catch (Exception e) {
-            log.error("Failed to initialize dirty record collector: {}", type, e);
-            return NoOpDirtyRecordCollector.INSTANCE;
+            throw new RuntimeException(
+                    "Failed to initialize dirty record collector of type '" + type + "'", e);
         }
 
         log.info(

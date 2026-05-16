@@ -19,6 +19,7 @@ package org.apache.seatunnel.api.sink;
 
 import org.apache.seatunnel.shade.com.typesafe.config.ConfigFactory;
 
+import org.apache.seatunnel.api.event.EventListener;
 import org.apache.seatunnel.api.table.catalog.CatalogTable;
 import org.apache.seatunnel.api.table.catalog.TableIdentifier;
 import org.apache.seatunnel.api.table.catalog.TableSchema;
@@ -135,6 +136,88 @@ public class DirtyRecordCollectorTest {
                 validator.validate(new SeaTunnelRow(new Object[] {1}), catalogTable).isDirty());
     }
 
+    @Test
+    void testSinkWriterContextDefaultCollectorIsNoOp() {
+        SinkWriter.Context context =
+                new SinkWriter.Context() {
+                    @Override
+                    public int getIndexOfSubtask() {
+                        return 0;
+                    }
+
+                    @Override
+                    public org.apache.seatunnel.api.common.metrics.MetricsContext
+                            getMetricsContext() {
+                        return null;
+                    }
+
+                    @Override
+                    public EventListener getEventListener() {
+                        return null;
+                    }
+                };
+
+        Assertions.assertSame(NoOpDirtyRecordCollector.INSTANCE, context.getDirtyRecordCollector());
+    }
+
+    @Test
+    void testUnknownCollectorTypeFailsFast() {
+        IllegalArgumentException exception =
+                Assertions.assertThrows(
+                        IllegalArgumentException.class,
+                        () ->
+                                DirtyRecordCollectorFactory.createCollector(
+                                        ConfigFactory.parseString("type=missing")));
+        Assertions.assertTrue(exception.getMessage().contains("Unknown dirty.collector type"));
+    }
+
+    @Test
+    void testMissingValidatorTypeFailsFast() {
+        IllegalArgumentException exception =
+                Assertions.assertThrows(
+                        IllegalArgumentException.class,
+                        () ->
+                                DirtyCollectorConfigProcessor.createValidator(
+                                        ConfigFactory.parseString("dirty.validator={}"), null));
+        Assertions.assertTrue(exception.getMessage().contains("missing required 'type'"));
+    }
+
+    @Test
+    void testUnknownValidatorTypeFailsFast() {
+        IllegalArgumentException exception =
+                Assertions.assertThrows(
+                        IllegalArgumentException.class,
+                        () ->
+                                DirtyCollectorConfigProcessor.createValidator(
+                                        ConfigFactory.parseString(
+                                                "dirty.validator { type = missing }"),
+                                        null));
+        Assertions.assertTrue(exception.getMessage().contains("Could not resolve dirty.validator"));
+    }
+
+    @Test
+    void testDirtyDataAwareWriterClosesCollector() throws Exception {
+        CloseTrackingCollector collector = new CloseTrackingCollector();
+        DirtyDataAwareSinkWriter<String, Void, Void> writer =
+                new DirtyDataAwareSinkWriter<>(new NoOpWriter(), collector, 1);
+
+        writer.close();
+
+        Assertions.assertTrue(collector.closed);
+    }
+
+    @Test
+    void testDirtyDataAwareWriterClosesCollectorWhenDelegateCloseFails() {
+        CloseTrackingCollector collector = new CloseTrackingCollector();
+        DirtyDataAwareSinkWriter<String, Void, Void> writer =
+                new DirtyDataAwareSinkWriter<>(new CloseFailingWriter(), collector, 1);
+
+        IOException exception = Assertions.assertThrows(IOException.class, writer::close);
+
+        Assertions.assertEquals("delegate-close", exception.getMessage());
+        Assertions.assertTrue(collector.closed);
+    }
+
     private Object roundTrip(Object value) throws IOException, ClassNotFoundException {
         ByteArrayOutputStream byteArrayOutputStream = new ByteArrayOutputStream();
         try (ObjectOutputStream outputStream = new ObjectOutputStream(byteArrayOutputStream)) {
@@ -163,6 +246,48 @@ public class DirtyRecordCollectorTest {
         public void abortPrepare() {}
 
         @Override
-        public void close() {}
+        public void close() throws IOException {}
+    }
+
+    private static class NoOpWriter implements SinkWriter<String, Void, Void> {
+
+        @Override
+        public void write(String element) {}
+
+        @Override
+        public Optional<Void> prepareCommit() {
+            return Optional.empty();
+        }
+
+        @Override
+        public void abortPrepare() {}
+
+        @Override
+        public void close() throws IOException {}
+    }
+
+    private static class CloseFailingWriter extends NoOpWriter {
+
+        @Override
+        public void close() throws IOException {
+            throw new IOException("delegate-close");
+        }
+    }
+
+    private static class CloseTrackingCollector implements DirtyRecordCollector {
+        private boolean closed;
+
+        @Override
+        public void collect(
+                int subTaskIndex,
+                Object dirtyRecord,
+                Throwable exception,
+                String errorMessage,
+                CatalogTable catalogTable) {}
+
+        @Override
+        public void close() {
+            closed = true;
+        }
     }
 }
