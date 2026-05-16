@@ -17,10 +17,6 @@
 
 package org.apache.seatunnel.connectors.seatunnel.edgesocket.socket;
 
-/**
- * Callback interface invoked by {@link EdgeSocketIngressServer} when a collector sends batch data
- * or commit requests. Implementations are responsible for enqueuing records and building responses.
- */
 public interface IncomingRecordHandler {
 
     /**

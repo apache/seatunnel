@@ -40,11 +40,6 @@ import java.util.concurrent.Executors;
 import java.util.concurrent.Future;
 import java.util.concurrent.TimeUnit;
 
-/**
- * Manages the TCP server lifecycle for EdgeSocket source: bind, accept, single-collector
- * enforcement, authentication, and the receive loop. Dispatches incoming records to the {@link
- * IncomingRecordHandler} callback.
- */
 @Slf4j
 public class EdgeSocketIngressServer {
 

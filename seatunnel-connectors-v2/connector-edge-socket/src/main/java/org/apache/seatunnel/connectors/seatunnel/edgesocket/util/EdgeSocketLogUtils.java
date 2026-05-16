@@ -17,22 +17,16 @@
 
 package org.apache.seatunnel.connectors.seatunnel.edgesocket.util;
 
-/** Helpers for safe, size-bounded log message formatting in EdgeSocket. */
 public final class EdgeSocketLogUtils {
 
     private static final int DEFAULT_MAX_LOG_LENGTH = 80;
 
     private EdgeSocketLogUtils() {}
 
-    /** Abbreviates {@code value} to {@link #DEFAULT_MAX_LOG_LENGTH} characters for logging. */
     public static String abbreviateForLog(String value) {
         return abbreviateForLog(value, DEFAULT_MAX_LOG_LENGTH);
     }
 
-    /**
-     * Returns {@code value} when shorter than {@code maxLength}; otherwise the first {@code
-     * maxLength} characters plus {@code "..."}. {@code null} is returned as {@code "(null)"}.
-     */
     public static String abbreviateForLog(String value, int maxLength) {
         if (value == null) {
             return "(null)";

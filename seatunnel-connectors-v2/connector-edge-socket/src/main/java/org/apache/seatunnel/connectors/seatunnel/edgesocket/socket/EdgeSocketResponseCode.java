@@ -17,7 +17,6 @@
 
 package org.apache.seatunnel.connectors.seatunnel.edgesocket.socket;
 
-/** Protocol response codes sent from EdgeSocket source to the collector. */
 public enum EdgeSocketResponseCode {
     ACK("ACK"),
     RECEIVED("RECEIVED"),

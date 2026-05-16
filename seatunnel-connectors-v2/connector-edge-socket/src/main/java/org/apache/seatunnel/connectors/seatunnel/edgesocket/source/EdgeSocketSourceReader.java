@@ -46,11 +46,6 @@ import java.io.IOException;
 import java.nio.charset.StandardCharsets;
 import java.util.List;
 
-/**
- * Orchestrates the EdgeSocket source lifecycle. Delegates TCP server management to {@link
- * EdgeSocketIngressServer} and checkpoint state to {@link EdgeSocketSourceState}. Implements {@link
- * IncomingRecordHandler} to receive data from the TCP server callback.
- */
 @Slf4j
 public class EdgeSocketSourceReader extends AbstractSingleSplitReader<SeaTunnelRow>
         implements IncomingRecordHandler {

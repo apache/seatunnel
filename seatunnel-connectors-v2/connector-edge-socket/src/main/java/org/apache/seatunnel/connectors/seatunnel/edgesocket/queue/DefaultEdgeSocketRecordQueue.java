@@ -20,7 +20,6 @@ package org.apache.seatunnel.connectors.seatunnel.edgesocket.queue;
 import java.util.concurrent.ArrayBlockingQueue;
 import java.util.concurrent.BlockingQueue;
 
-/** Default {@link EdgeSocketRecordQueue} backed by an in-memory {@link ArrayBlockingQueue}. */
 public class DefaultEdgeSocketRecordQueue implements EdgeSocketRecordQueue {
 
     private final int capacity;
