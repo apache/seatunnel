@@ -36,6 +36,7 @@ import java.sql.Connection;
 import java.sql.PreparedStatement;
 import java.sql.ResultSetMetaData;
 import java.sql.SQLException;
+import java.sql.SQLFeatureNotSupportedException;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.Collections;
@@ -396,6 +397,49 @@ public class CatalogUtilsTest {
         TableSchema tableSchema =
                 CatalogUtils.getTableSchema(metadata, tablePath, new JdbcDialectTypeMapper() {});
         Assertions.assertEquals(Collections.emptyList(), tableSchema.getColumns());
+    }
+
+    @Test
+    void testGetTableSchemaFallsBackWhenIdentifierCaseMetadataUnsupported() throws SQLException {
+        TestDatabaseMetaData metadata =
+                new TestDatabaseMetaData() {
+                    @Override
+                    public boolean supportsMixedCaseIdentifiers() throws SQLException {
+                        throw new SQLFeatureNotSupportedException("Method not supported");
+                    }
+
+                    @Override
+                    public java.sql.ResultSet getColumns(
+                            String catalog,
+                            String schemaPattern,
+                            String tableNamePattern,
+                            String columnNamePattern)
+                            throws SQLException {
+                        List<Map<String, Object>> value = new ArrayList<>();
+                        value.add(
+                                new HashMap<String, Object>() {
+                                    {
+                                        put("TABLE_NAME", "USER_INFO");
+                                        put("TABLE_SCHEM", "public");
+                                        put("COLUMN_NAME", "id");
+                                        put("DATA_TYPE", 1);
+                                        put("TYPE_NAME", "INT");
+                                        put("COLUMN_SIZE", 11);
+                                        put("DECIMAL_DIGITS", 0);
+                                        put("NULLABLE", 0);
+                                        put("REMARKS", "id comment");
+                                    }
+                                });
+                        return new TestResultSet(value);
+                    }
+                };
+
+        TablePath tablePath = TablePath.of("test_db", "public", "user_info");
+        TableSchema tableSchema =
+                CatalogUtils.getTableSchema(metadata, tablePath, new JdbcDialectTypeMapper() {});
+
+        Assertions.assertEquals(1, tableSchema.getColumns().size());
+        Assertions.assertEquals("id", tableSchema.getColumns().get(0).getName());
     }
 
     @Test

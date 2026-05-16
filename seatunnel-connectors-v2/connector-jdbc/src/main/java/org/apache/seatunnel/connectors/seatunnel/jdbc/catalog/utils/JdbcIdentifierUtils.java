@@ -19,6 +19,7 @@ package org.apache.seatunnel.connectors.seatunnel.jdbc.catalog.utils;
 
 import java.sql.DatabaseMetaData;
 import java.sql.SQLException;
+import java.sql.SQLFeatureNotSupportedException;
 import java.util.Locale;
 
 public final class JdbcIdentifierUtils {
@@ -44,14 +45,19 @@ public final class JdbcIdentifierUtils {
         if (metadata == null) {
             return IdentifierCaseStrategy.CASE_INSENSITIVE;
         }
-        if (metadata.supportsMixedCaseIdentifiers()) {
-            return IdentifierCaseStrategy.CASE_SENSITIVE;
-        }
-        if (metadata.storesLowerCaseIdentifiers()) {
-            return IdentifierCaseStrategy.LOWER_CASE;
-        }
-        if (metadata.storesUpperCaseIdentifiers()) {
-            return IdentifierCaseStrategy.UPPER_CASE;
+        try {
+            if (metadata.supportsMixedCaseIdentifiers()) {
+                return IdentifierCaseStrategy.CASE_SENSITIVE;
+            }
+            if (metadata.storesLowerCaseIdentifiers()) {
+                return IdentifierCaseStrategy.LOWER_CASE;
+            }
+            if (metadata.storesUpperCaseIdentifiers()) {
+                return IdentifierCaseStrategy.UPPER_CASE;
+            }
+        } catch (SQLFeatureNotSupportedException e) {
+            // Some drivers, such as Hive JDBC, do not support identifier case metadata.
+            return IdentifierCaseStrategy.CASE_INSENSITIVE;
         }
         return IdentifierCaseStrategy.CASE_INSENSITIVE;
     }
