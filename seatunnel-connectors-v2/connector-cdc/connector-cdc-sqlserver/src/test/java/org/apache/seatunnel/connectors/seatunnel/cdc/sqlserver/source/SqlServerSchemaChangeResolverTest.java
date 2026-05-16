@@ -25,6 +25,7 @@ import org.apache.seatunnel.api.table.catalog.TableSchema;
 import org.apache.seatunnel.api.table.schema.event.AlterTableAddColumnEvent;
 import org.apache.seatunnel.api.table.schema.event.AlterTableChangeColumnEvent;
 import org.apache.seatunnel.api.table.schema.event.AlterTableColumnsEvent;
+import org.apache.seatunnel.api.table.schema.event.AlterTableDropColumnEvent;
 import org.apache.seatunnel.api.table.schema.event.SchemaChangeEvent;
 import org.apache.seatunnel.api.table.type.BasicType;
 import org.apache.seatunnel.connectors.cdc.debezium.ConnectTableChangeSerializer;
@@ -114,7 +115,13 @@ public class SqlServerSchemaChangeResolverTest {
                                 Arrays.asList(
                                         intColumn("id", 1), varcharColumn("full_name", 2, 64)))
                         .create());
-        SourceRecord record = createRecord(tableChanges);
+        SourceRecord record =
+                createRecord(
+                        tableChanges,
+                        DATABASE_NAME,
+                        SCHEMA_NAME,
+                        TABLE_NAME,
+                        "EXEC sp_rename 'dbo.customers.name', 'full_name', 'COLUMN'");
 
         SchemaChangeEvent event =
                 resolver.resolve(record, Collections.singletonList(createCatalogTable()));
@@ -129,6 +136,48 @@ public class SqlServerSchemaChangeResolverTest {
         Assertions.assertEquals("name", changeEvent.getOldColumn());
         Assertions.assertEquals("full_name", changeEvent.getColumn().getName());
         Assertions.assertEquals("id", changeEvent.getAfterColumn());
+    }
+
+    @Test
+    void shouldEmitDropAndAddWhenDdlIsNotExplicitRename() {
+        TableChanges tableChanges = new TableChanges();
+        tableChanges.alter(
+                Table.editor()
+                        .tableId(
+                                new io.debezium.relational.TableId(
+                                        DATABASE_NAME, SCHEMA_NAME, TABLE_NAME))
+                        .setPrimaryKeyNames(Collections.singletonList("id"))
+                        .setColumns(
+                                Arrays.asList(
+                                        intColumn("id", 1), varcharColumn("full_name", 2, 64)))
+                        .create());
+        SourceRecord record =
+                createRecord(
+                        tableChanges,
+                        DATABASE_NAME,
+                        SCHEMA_NAME,
+                        TABLE_NAME,
+                        "ALTER TABLE dbo.customers DROP COLUMN name; ALTER TABLE dbo.customers ADD full_name VARCHAR(64)");
+
+        SchemaChangeEvent event =
+                resolver.resolve(record, Collections.singletonList(createCatalogTable()));
+
+        Assertions.assertInstanceOf(AlterTableColumnsEvent.class, event);
+        AlterTableColumnsEvent columnsEvent = (AlterTableColumnsEvent) event;
+        Assertions.assertEquals(2, columnsEvent.getEvents().size());
+        Assertions.assertInstanceOf(
+                AlterTableAddColumnEvent.class, columnsEvent.getEvents().get(0));
+        Assertions.assertInstanceOf(
+                AlterTableDropColumnEvent.class, columnsEvent.getEvents().get(1));
+
+        AlterTableAddColumnEvent addEvent =
+                (AlterTableAddColumnEvent) columnsEvent.getEvents().get(0);
+        Assertions.assertEquals("full_name", addEvent.getColumn().getName());
+        Assertions.assertEquals("id", addEvent.getAfterColumn());
+
+        AlterTableDropColumnEvent dropEvent =
+                (AlterTableDropColumnEvent) columnsEvent.getEvents().get(1);
+        Assertions.assertEquals("name", dropEvent.getColumn());
     }
 
     @Test

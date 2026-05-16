@@ -794,8 +794,7 @@ public class SqlServerCDCIT extends TestSuiteBase implements TestResource {
         CompletableFuture.supplyAsync(
                 () -> {
                     try {
-                        container.executeJob(
-                                "/sqlservercdc_to_sqlserver_with_schema_change.conf");
+                        container.executeJob("/sqlservercdc_to_sqlserver_with_schema_change.conf");
                     } catch (Exception e) {
                         throw new RuntimeException(e);
                     }

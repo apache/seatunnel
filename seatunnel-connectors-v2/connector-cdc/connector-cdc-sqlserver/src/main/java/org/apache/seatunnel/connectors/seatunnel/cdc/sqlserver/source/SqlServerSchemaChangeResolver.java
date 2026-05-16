@@ -71,6 +71,9 @@ public class SqlServerSchemaChangeResolver implements SchemaChangeResolver {
     private static final Pattern ALTER_TABLE_PATTERN =
             Pattern.compile(
                     "(?i)ALTER\\s+TABLE\\s+(.+?)\\s+(ADD|DROP|ALTER|RENAME|WITH|SWITCH)\\b");
+    private static final Pattern SP_RENAME_COLUMN_PATTERN =
+            Pattern.compile(
+                    "(?i)(?:EXEC(?:UTE)?\\s+)?(?:(?:\\[[^\\]]+\\]|[^.\\s]+)\\.)?(?:sys\\.)?sp_rename\\s+N?'([^']+)'\\s*,\\s*N?'([^']+)'\\s*,\\s*N?'COLUMN'");
     private static final Pattern TABLE_IDENTIFIER_PART_PATTERN =
             Pattern.compile("\\[([^\\]]+)]|\"([^\"]+)\"|`([^`]+)`|([^\\.\\s]+)");
 
@@ -104,7 +107,9 @@ public class SqlServerSchemaChangeResolver implements SchemaChangeResolver {
             return null;
         }
 
-        List<AlterTableColumnEvent> events = diffColumns(currentCatalogTable, currentTable);
+        String ddl = SourceRecordUtils.getDdl(record);
+        List<AlterTableColumnEvent> events =
+                diffColumns(currentCatalogTable, currentTable, parseSpRenameColumns(ddl));
         if (events.isEmpty()) {
             log.info(
                     "Ignoring SQL Server schema change without column diff for table {}",
@@ -114,7 +119,7 @@ public class SqlServerSchemaChangeResolver implements SchemaChangeResolver {
 
         TableIdentifier tableIdentifier = currentCatalogTable.getTableId();
         AlterTableColumnsEvent event = new AlterTableColumnsEvent(tableIdentifier, events);
-        event.setStatement(SourceRecordUtils.getDdl(record));
+        event.setStatement(ddl);
         event.setSourceDialectName(SOURCE_DIALECT);
         return event;
     }
@@ -163,7 +168,9 @@ public class SqlServerSchemaChangeResolver implements SchemaChangeResolver {
     }
 
     private List<AlterTableColumnEvent> diffColumns(
-            CatalogTable currentCatalogTable, Table currentTable) {
+            CatalogTable currentCatalogTable,
+            Table currentTable,
+            Map<String, String> explicitRenames) {
         List<Column> previousColumns = currentCatalogTable.getTableSchema().getColumns();
         List<io.debezium.relational.Column> newColumns = currentTable.columns();
         TableIdentifier tableIdentifier = currentCatalogTable.getTableId();
@@ -224,7 +231,8 @@ public class SqlServerSchemaChangeResolver implements SchemaChangeResolver {
             }
         }
 
-        pairRenameColumns(events, tableIdentifier, newColumns, removedColumns, addedColumns);
+        pairRenameColumns(
+                events, tableIdentifier, newColumns, removedColumns, addedColumns, explicitRenames);
 
         for (ColumnWithIndex<io.debezium.relational.Column> added : addedColumns) {
             Column convertedColumn = convertColumn(added.value);
@@ -244,34 +252,44 @@ public class SqlServerSchemaChangeResolver implements SchemaChangeResolver {
         return events;
     }
 
-    /**
-     * Attempts to pair "removed" and "added" columns as rename operations by matching on index
-     * position and identical type/nullable/length definition.
-     *
-     * <p><b>Limitation:</b> the diff-based heuristic can produce false positives. If a column is
-     * dropped and a structurally identical column is added at the same ordinal position in a single
-     * DDL statement, this method will incorrectly emit a RENAME event instead of DROP + ADD. There
-     * is no DDL text available at this stage to disambiguate the intent. Callers must accept this
-     * trade-off; the emitted RENAME event is functionally safe (the downstream schema will remain
-     * consistent) but may cause unexpected rename semantics for some sinks.
-     */
+    /** Extracts explicit SQL Server column renames declared through {@code sp_rename}. */
+    private Map<String, String> parseSpRenameColumns(String ddl) {
+        if (StringUtils.isBlank(ddl)) {
+            return Collections.emptyMap();
+        }
+        Map<String, String> renames = new LinkedHashMap<>();
+        Matcher matcher = SP_RENAME_COLUMN_PATTERN.matcher(ddl);
+        while (matcher.find()) {
+            String oldColumnName = extractLastIdentifierPart(matcher.group(1));
+            String newColumnName = extractLastIdentifierPart(matcher.group(2));
+            if (StringUtils.isBlank(oldColumnName) || StringUtils.isBlank(newColumnName)) {
+                continue;
+            }
+            renames.put(normalizeIdentifier(oldColumnName), normalizeIdentifier(newColumnName));
+        }
+        return renames;
+    }
+
     private void pairRenameColumns(
             List<AlterTableColumnEvent> events,
             TableIdentifier tableIdentifier,
             List<io.debezium.relational.Column> newColumns,
             List<ColumnWithIndex<Column>> removedColumns,
-            List<ColumnWithIndex<io.debezium.relational.Column>> addedColumns) {
+            List<ColumnWithIndex<io.debezium.relational.Column>> addedColumns,
+            Map<String, String> explicitRenames) {
         Set<ColumnWithIndex<Column>> matchedRemoved = new HashSet<>();
         Set<ColumnWithIndex<io.debezium.relational.Column>> matchedAdded = new HashSet<>();
 
         for (ColumnWithIndex<io.debezium.relational.Column> added : addedColumns) {
+            String addedName = normalizeIdentifier(added.value.name());
             Column convertedAdded = convertColumn(added.value);
             ColumnWithIndex<Column> renameCandidate = null;
             for (ColumnWithIndex<Column> removed : removedColumns) {
                 if (matchedRemoved.contains(removed)) {
                     continue;
                 }
-                if (removed.index != added.index) {
+                String removedName = normalizeIdentifier(removed.value.getName());
+                if (!StringUtils.equalsIgnoreCase(addedName, explicitRenames.get(removedName))) {
                     continue;
                 }
                 if (!sameDefinitionExceptName(removed.value, convertedAdded)) {
@@ -441,6 +459,14 @@ public class SqlServerSchemaChangeResolver implements SchemaChangeResolver {
                         : normalizedNew;
         return StringUtils.equals(baseOld, baseNew)
                 && (!normalizedOld.contains("(") || !normalizedNew.contains("("));
+    }
+
+    private String extractLastIdentifierPart(String identifier) {
+        List<String> parts = parseIdentifierParts(identifier);
+        if (!parts.isEmpty()) {
+            return parts.get(parts.size() - 1);
+        }
+        return identifier;
     }
 
     private TablePath parseTablePathFromDdl(String ddl) {

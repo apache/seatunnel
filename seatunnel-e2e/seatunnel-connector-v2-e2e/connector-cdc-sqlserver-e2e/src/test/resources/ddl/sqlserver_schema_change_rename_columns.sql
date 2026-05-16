@@ -30,6 +30,19 @@ EXEC sys.sp_cdc_enable_table
     @capture_instance = 'dbo_products_v4',
     @supports_net_changes = 0;
 
+-- SQL Server exposes sp_rename as a capture-instance switch. SeaTunnel now
+-- treats it conservatively as ADD + DROP unless the downstream sink can
+-- preserve existing values itself, so force real post-switch row updates under
+-- the renamed column. A no-op assignment is not enough here because SQL Server
+-- may skip writing CDC rows when the value does not change.
+UPDATE dbo.products
+SET add_column = add_column + 1000
+WHERE id IN (101, 103, 104, 105, 106, 107, 108, 109, 110, 120, 121, 128, 129, 130, 131, 140, 141);
+
+UPDATE dbo.products
+SET add_column = add_column - 1000
+WHERE id IN (101, 103, 104, 105, 106, 107, 108, 109, 110, 120, 121, 128, 129, 130, 131, 140, 141);
+
 DELETE FROM dbo.products WHERE id = 130;
 INSERT INTO dbo.products VALUES (150, 'scooter', 'Small 2-wheel scooter', 3.14, 1);
 INSERT INTO dbo.products VALUES (151, 'car battery', '12V car battery', 8.1, 2);
