@@ -21,15 +21,20 @@ import org.apache.seatunnel.api.configuration.util.OptionRule;
 import org.apache.seatunnel.api.options.ConnectorCommonOptions;
 import org.apache.seatunnel.api.source.SeaTunnelSource;
 import org.apache.seatunnel.api.source.SourceSplit;
+import org.apache.seatunnel.api.table.catalog.CatalogTable;
 import org.apache.seatunnel.api.table.connector.TableSource;
 import org.apache.seatunnel.api.table.factory.Factory;
 import org.apache.seatunnel.api.table.factory.TableSourceFactory;
 import org.apache.seatunnel.api.table.factory.TableSourceFactoryContext;
+import org.apache.seatunnel.connectors.seatunnel.fake.config.FakeConfig;
 import org.apache.seatunnel.connectors.seatunnel.fake.config.FakeSourceOptions;
+import org.apache.seatunnel.connectors.seatunnel.fake.config.MultipleTableFakeSourceConfig;
 
 import com.google.auto.service.AutoService;
 
 import java.io.Serializable;
+import java.util.List;
+import java.util.stream.Collectors;
 
 import static org.apache.seatunnel.connectors.seatunnel.fake.config.FakeSourceOptions.ARRAY_SIZE;
 import static org.apache.seatunnel.connectors.seatunnel.fake.config.FakeSourceOptions.BIGINT_FAKE_MODE;
@@ -112,6 +117,14 @@ public class FakeSourceFactory implements TableSourceFactory {
     public <T, SplitT extends SourceSplit, StateT extends Serializable>
             TableSource<T, SplitT, StateT> createSource(TableSourceFactoryContext context) {
         return () -> (SeaTunnelSource<T, SplitT, StateT>) new FakeSource(context.getOptions());
+    }
+
+    @Override
+    public List<CatalogTable> inferSchemaForDryRun(TableSourceFactoryContext context) {
+        return new MultipleTableFakeSourceConfig(context.getOptions())
+                .getFakeConfigs().stream()
+                        .map(FakeConfig::getCatalogTable)
+                        .collect(Collectors.toList());
     }
 
     @Override

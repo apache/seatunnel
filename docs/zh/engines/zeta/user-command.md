@@ -32,8 +32,8 @@ Usage: seatunnel.sh [options]
                                               and --encrypt are specified, only
                                               --encrypt will take effect (default:
                                               false)
-    -d, --dry-run                             Run the job in dry-run mode (目前仅支持
-                                              'static')
+    -d, --dry-run                             Run the job in dry-run mode, support
+                                              [static, connect]
     -m, --master, -e, --deploy-mode           SeaTunnel job submit master, support
                                               [local, cluster] (default: cluster)
     --encrypt                                 Encrypt config file, when both --decrypt
@@ -81,7 +81,13 @@ bin/seatunnel.sh --config $SEATUNNEL_HOME/config/v2.batch.config.template
 bin/seatunnel.sh --config $SEATUNNEL_HOME/config/v2.batch.config.template --dry-run static
 ```
 
-使用 `--dry-run static`（或者 `--check`）参数可以在**不提交作业**的前提下静态校验配置文件（包括 HOCON/YAML 语法、插件可加载性、DAG 拓扑、必填项与未知配置键等）。它不会执行完整的数据管道。插件加载会读取本地 JAR；部分连接器在解析或准备配置时仍可能发起外连，因此这不等同于严格的零网络环境。请注意，该验证功能目前仅提供 CLI 服务。
+使用 `--dry-run static`（或者 `--check`）参数可以在**不提交作业**的前提下静态校验配置文件（包括 HOCON/YAML 语法、插件可加载性、DAG 拓扑、必填项与未知配置键等）。它不会执行完整的数据管道。插件加载可能读取本地 JAR，因此这是配置文件的离线校验，不是严格的零 I/O 沙箱。
+
+```shell
+bin/seatunnel.sh --config $SEATUNNEL_HOME/config/v2.batch.config.template --dry-run connect
+```
+
+使用 `--dry-run connect` 参数会先执行静态校验，然后通过 factory 级别的 dry-run 钩子推断 source schema、校验 sink schema 兼容性，并检查连接器连通性。该模式可能连接外部系统以校验凭据、权限以及 source 或 sink 是否存在，但框架不会创建 source/sink 运行时实例、提交作业、读取 source 数据、创建 sink writer、执行 save-mode 逻辑或写入目标数据。Dry-run 校验仅通过 CLI 提供。
 
 ## 查看作业列表
 

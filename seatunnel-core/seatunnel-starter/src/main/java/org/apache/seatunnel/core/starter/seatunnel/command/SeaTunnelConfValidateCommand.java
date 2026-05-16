@@ -33,6 +33,7 @@ import org.apache.seatunnel.api.table.factory.TableSourceFactory;
 import org.apache.seatunnel.api.table.factory.TableTransformFactory;
 import org.apache.seatunnel.common.constants.PluginType;
 import org.apache.seatunnel.core.starter.command.Command;
+import org.apache.seatunnel.core.starter.enums.DryRun;
 import org.apache.seatunnel.core.starter.exception.ConfigCheckException;
 import org.apache.seatunnel.core.starter.seatunnel.args.ClientCommandArgs;
 import org.apache.seatunnel.core.starter.utils.ConfigBuilder;
@@ -52,8 +53,8 @@ import java.util.List;
 import static org.apache.seatunnel.api.options.ConnectorCommonOptions.PLUGIN_NAME;
 
 /**
- * Checks the job config file without running the job. Use {@code --check} or {@code
- * --dry-run=static}.
+ * Checks the job config file without running the job. Use {@code --check}, {@code
+ * --dry-run=static}, or {@code --dry-run=connect}.
  *
  * <p>What gets checked:
  *
@@ -66,11 +67,11 @@ import static org.apache.seatunnel.api.options.ConnectorCommonOptions.PLUGIN_NAM
  *       classpath
  * </ul>
  *
- * <p>This does not submit a job and does not run the full "build the pipeline and talk to databases
- * or catalogs" step. SeaTunnel still loads plugin classes to read their option definitions; loading
- * code may touch disk or, in rare cases, the network during class startup, so treat this as offline
- * validation of the config file, not a strict "zero I/O" sandbox. Please note that this validation
- * service is provided exclusively via the Command Line Interface (CLI).
+ * <p>Static dry-run does not submit a job and does not run the full "build the pipeline and talk to
+ * databases or catalogs" step. Connect dry-run additionally uses factory-level dry-run hooks for
+ * schema inference and connectivity checks, but it still does not create source/sink runtime
+ * instances, read records, create writers, run save mode, or submit a job. Please note that this
+ * validation service is provided exclusively via the Command Line Interface (CLI).
  *
  * <p>Plugin discovery and classloader creation follow the same contract as {@link
  * org.apache.seatunnel.engine.core.parse.MultipleTableJobConfigParser}: source and transform
@@ -161,8 +162,22 @@ public class SeaTunnelConfValidateCommand implements Command<ClientCommandArgs> 
                 Thread.currentThread().setContextClassLoader(parentClassLoader);
             }
 
+            if (clientCommandArgs.getDryRun() == DryRun.CONNECT) {
+                new DryRunConnectValidator(
+                                sourceConfigs,
+                                transformConfigs,
+                                sinkConfigs,
+                                sourceAndTransformClassLoader,
+                                sinkClassLoader)
+                        .validate();
+            }
+
         } catch (Exception e) {
-            throw new ConfigCheckException("Static analysis failed: " + e.getMessage(), e);
+            String validationMode =
+                    clientCommandArgs.getDryRun() == DryRun.CONNECT
+                            ? "Connectivity check"
+                            : "Static analysis";
+            throw new ConfigCheckException(validationMode + " failed: " + e.getMessage(), e);
         }
     }
 

@@ -38,6 +38,15 @@ public class SeaTunnelConfValidateCommandTest {
     }
 
     @Test
+    public void testValidConnectDryRun() {
+        ClientCommandArgs args = buildConnectArgs("config/valid_static_dryrun.json");
+        Assertions.assertInstanceOf(SeaTunnelConfValidateCommand.class, args.buildCommand());
+
+        SeaTunnelConfValidateCommand command = new SeaTunnelConfValidateCommand(args);
+        Assertions.assertDoesNotThrow(command::execute);
+    }
+
+    @Test
     public void testCheckFlagRoutesToValidation() {
         ClientCommandArgs args = buildCheckArgs("config/valid_static_dryrun.json");
         Assertions.assertInstanceOf(SeaTunnelConfValidateCommand.class, args.buildCommand());
@@ -155,6 +164,11 @@ public class SeaTunnelConfValidateCommandTest {
 
     private ClientCommandArgs buildArgs(String configFile) {
         String[] args = {"-c", resolveConfigPath(configFile), "--dry-run", "static"};
+        return CommandLineUtils.parse(args, new ClientCommandArgs(), "seatunnel.sh", true);
+    }
+
+    private ClientCommandArgs buildConnectArgs(String configFile) {
+        String[] args = {"-c", resolveConfigPath(configFile), "--dry-run", "connect"};
         return CommandLineUtils.parse(args, new ClientCommandArgs(), "seatunnel.sh", true);
     }
 

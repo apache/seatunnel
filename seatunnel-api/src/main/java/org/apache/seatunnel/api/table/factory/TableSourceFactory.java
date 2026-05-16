@@ -56,6 +56,33 @@ public interface TableSourceFactory extends Factory {
     }
 
     /**
+     * Infers source schemas for {@code --dry-run=connect} without creating source readers or
+     * reading records.
+     *
+     * <p>The default implementation delegates to {@link #discoverTableSchemas}. Connectors can
+     * override this method when Layer 1 schema inference needs connector-specific metadata access.
+     *
+     * @param context source factory context
+     * @return source catalog tables visible to downstream transforms and sinks
+     */
+    default List<CatalogTable> inferSchemaForDryRun(TableSourceFactoryContext context) {
+        return discoverTableSchemas(context);
+    }
+
+    /**
+     * Validates source connectivity for {@code --dry-run=connect} after schema inference.
+     *
+     * <p>This hook must not create readers or read records. It is intended for metadata-level
+     * checks such as credentials, permissions, and source table/topic/path existence.
+     *
+     * @param context source factory context
+     * @param catalogTables schemas inferred for this source
+     * @throws Exception when connectivity validation fails
+     */
+    default void validateConnectionForDryRun(
+            TableSourceFactoryContext context, List<CatalogTable> catalogTables) throws Exception {}
+
+    /**
      * TODO: Implement SupportParallelism in the TableSourceFactory instead of the SeaTunnelSource,
      * Then deprecated the method
      */

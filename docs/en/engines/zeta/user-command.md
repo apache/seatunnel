@@ -26,7 +26,7 @@ Usage: seatunnel.sh [options]
     -cn, --cluster                              The name of the cluster.
     -c, --config                                Config file.
     --decrypt                                   Decrypt the config file. When both --decrypt and --encrypt are specified, only --encrypt will take effect (default: false).
-    -d, --dry-run                               Run the job in dry-run mode (Currently only 'static' is supported).
+    -d, --dry-run                               Run the job in dry-run mode, support [static, connect].
     -m, --master, -e, --deploy-mode             SeaTunnel job submit master, support [local, cluster] (default: cluster).
     --encrypt                                   Encrypt the config file. When both --decrypt and --encrypt are specified, only --encrypt will take effect (default: false).
     --get_running_job_metrics                   Get metrics for running jobs (default: false).
@@ -65,7 +65,13 @@ sh bin/seatunnel.sh --config $SEATUNNEL_HOME/config/v2.batch.config.template --a
 sh bin/seatunnel.sh --config $SEATUNNEL_HOME/config/v2.batch.config.template --dry-run static
 ```
 
-The `--dry-run static` (or `--check`) option validates the configuration file **without submitting a job** (for example HOCON/YAML syntax, plugin loadability, DAG topology, missing required options, and unknown connector keys). It does not run the full data pipeline. Plugin loading may read local JARs, and some connectors might still open outbound connections while parsing or preparing configuration, so this is not a strict zero-network sandbox. Please note that this validation feature is provided exclusively via the CLI.
+The `--dry-run static` (or `--check`) option validates the configuration file **without submitting a job** (for example HOCON/YAML syntax, plugin loadability, DAG topology, missing required options, and unknown connector keys). It does not run the full data pipeline. Plugin loading may read local JARs, so this is offline validation of the configuration file, not a strict zero-I/O sandbox.
+
+```shell
+sh bin/seatunnel.sh --config $SEATUNNEL_HOME/config/v2.batch.config.template --dry-run connect
+```
+
+The `--dry-run connect` option runs the static checks first, then uses factory-level dry-run hooks to infer source schemas, validate sink schema compatibility, and check connector connectivity. It may connect to external systems to validate credentials, permissions, and source or sink existence, but the framework does not create source/sink runtime instances, submit a job, read source records, create sink writers, execute save-mode logic, or write target data. Please note that dry-run validation is provided exclusively via the CLI.
 
 ## Viewing The Job List
 
