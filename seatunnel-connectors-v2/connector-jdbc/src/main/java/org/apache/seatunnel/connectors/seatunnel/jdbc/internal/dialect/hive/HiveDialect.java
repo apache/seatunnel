@@ -54,6 +54,12 @@ public class HiveDialect implements JdbcDialect {
     }
 
     @Override
+    public boolean supportsPrimaryKeyMetadata() {
+        // Hive 3.x can throw from getPrimaryKeys while partition metadata is still available.
+        return false;
+    }
+
+    @Override
     public Optional<String> getUpsertStatement(
             String database, String tableName, String[] fieldNames, String[] uniqueKeyFields) {
         return Optional.empty();

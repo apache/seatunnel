@@ -26,6 +26,7 @@ import org.apache.seatunnel.api.table.catalog.TablePath;
 import org.apache.seatunnel.api.table.catalog.TableSchema;
 import org.apache.seatunnel.api.table.converter.BasicTypeDefine;
 import org.apache.seatunnel.api.table.type.BasicType;
+import org.apache.seatunnel.connectors.seatunnel.jdbc.internal.dialect.JdbcDialect;
 import org.apache.seatunnel.connectors.seatunnel.jdbc.internal.dialect.JdbcDialectTypeMapper;
 
 import org.junit.jupiter.api.Assertions;
@@ -73,6 +74,35 @@ public class CatalogUtilsTest {
                                 metadata,
                                 TablePath.of("test.test"),
                                 new JdbcDialectTypeMapper() {}));
+    }
+
+    @Test
+    void testGetCatalogTableCanSkipPrimaryKeyMetadata() throws SQLException {
+        Connection connection =
+                new TestConnection() {
+                    @Override
+                    public java.sql.DatabaseMetaData getMetaData() {
+                        return new TestDatabaseMetaData() {
+                            @Override
+                            public java.sql.ResultSet getPrimaryKeys(
+                                    String catalog, String schema, String table)
+                                    throws SQLException {
+                                throw new SQLException("getPrimaryKeys is not supported");
+                            }
+                        };
+                    }
+                };
+
+        TablePath tablePath = TablePath.of("test.test");
+        JdbcDialect dialect = mock(JdbcDialect.class);
+        when(dialect.supportsPrimaryKeyMetadata()).thenReturn(false);
+        when(dialect.getJdbcDialectTypeMapper()).thenReturn(new JdbcDialectTypeMapper() {});
+        when(dialect.getPartitionKeys(connection, tablePath)).thenReturn(Arrays.asList("dt", "hr"));
+
+        CatalogTable catalogTable = CatalogUtils.getCatalogTable(connection, tablePath, dialect);
+
+        Assertions.assertNull(catalogTable.getTableSchema().getPrimaryKey());
+        Assertions.assertEquals(Arrays.asList("dt", "hr"), catalogTable.getPartitionKeys());
     }
 
     @Test

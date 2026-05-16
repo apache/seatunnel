@@ -34,6 +34,11 @@ import static org.mockito.Mockito.when;
 class HiveDialectTest {
 
     @Test
+    void testHiveDoesNotSupportPrimaryKeyMetadata() {
+        Assertions.assertFalse(new HiveDialect().supportsPrimaryKeyMetadata());
+    }
+
+    @Test
     void testGetPartitionKeysFromDescribeOutput() throws Exception {
         HiveDialect hiveDialect = new HiveDialect();
         Connection connection = mock(Connection.class);
