@@ -34,6 +34,7 @@ public abstract class MilvusBaseOptions {
             Options.key("collection")
                     .stringType()
                     .noDefaultValue()
+                    .withFallbackKeys("collection_name")
                     .withDescription("Milvus collection");
 
     public static final Option<String> TOKEN =
