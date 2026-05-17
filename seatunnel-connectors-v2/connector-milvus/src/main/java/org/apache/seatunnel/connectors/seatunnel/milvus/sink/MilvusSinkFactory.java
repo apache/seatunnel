@@ -44,15 +44,26 @@ public class MilvusSinkFactory implements TableSinkFactory {
         return OptionRule.builder()
                 .required(MilvusSinkOptions.URL, MilvusSinkOptions.TOKEN)
                 .optional(
+                        MilvusSinkOptions.DATABASE,
+                        MilvusSinkOptions.COLLECTION,
+                        MilvusSinkOptions.COLLECTION_DESCRIPTION,
+                        MilvusSinkOptions.PARTITION_KEY,
                         MilvusSinkOptions.ENABLE_UPSERT,
                         MilvusSinkOptions.ENABLE_DYNAMIC_FIELD,
                         MilvusSinkOptions.ENABLE_AUTO_ID,
+                        MilvusSinkOptions.BATCH_SIZE,
+                        MilvusSinkOptions.RATE_LIMIT,
+                        MilvusSinkOptions.LOAD_COLLECTION,
+                        MilvusSinkOptions.CREATE_INDEX,
                         MilvusSinkOptions.SCHEMA_SAVE_MODE,
                         MilvusSinkOptions.DATA_SAVE_MODE)
                 .build();
     }
 
     public TableSink createSink(TableSinkFactoryContext context) {
+        if (context == null) {
+            return () -> new MilvusSink(null, null);
+        }
         ReadonlyConfig config = context.getOptions();
         CatalogTable catalogTable = renameCatalogTable(config, context.getCatalogTable());
         return () -> new MilvusSink(config, catalogTable);

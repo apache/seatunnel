@@ -713,4 +713,22 @@ public class JsonRowDataSerDeSchemaTest {
         String expected = "{\"id\":1,\"code\":\"1001015\",\"fe_result\":80}";
         assertEquals(new String(serialize), expected);
     }
+
+    @Test
+    public void testMultipleDateColumnsWithDifferentFormats() throws IOException {
+        SeaTunnelRowType rowType =
+                new SeaTunnelRowType(
+                        new String[] {"date_dash", "date_dot"},
+                        new SeaTunnelDataType<?>[] {
+                            LocalTimeType.LOCAL_DATE_TYPE, LocalTimeType.LOCAL_DATE_TYPE
+                        });
+        JsonDeserializationSchema deserializationSchema =
+                new JsonDeserializationSchema(false, false, rowType);
+
+        String json = "{\"date_dash\":\"2024-01-15\",\"date_dot\":\"2024.06.20\"}";
+        SeaTunnelRow row = deserializationSchema.deserialize(json.getBytes());
+
+        assertEquals(LocalDate.of(2024, 1, 15), row.getField(0));
+        assertEquals(LocalDate.of(2024, 6, 20), row.getField(1));
+    }
 }

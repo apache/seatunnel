@@ -226,17 +226,7 @@ public class CoordinatorService {
         this.nodeEngine = nodeEngine;
         this.engineConfig = engineConfig;
         this.logger = nodeEngine.getLogger(getClass());
-        this.executorService =
-                new ThreadPoolExecutor(
-                        engineConfig.getCoordinatorServiceConfig().getCoreThreadNum(),
-                        engineConfig.getCoordinatorServiceConfig().getMaxThreadNum(),
-                        60L,
-                        TimeUnit.SECONDS,
-                        new SynchronousQueue<>(),
-                        new ThreadFactoryBuilder()
-                                .setNameFormat("seatunnel-coordinator-service-%d")
-                                .build(),
-                        new ThreadPoolStatus.RejectionCountingHandler());
+        this.executorService = createCoordinatorExecutor();
 
         int metricsFetchThreads =
                 Math.max(1, Math.min(8, Runtime.getRuntime().availableProcessors()));
@@ -264,9 +254,19 @@ public class CoordinatorService {
                 TimeUnit.SECONDS);
         scheduleStrategy = engineConfig.getScheduleStrategy();
         isWaitStrategy = scheduleStrategy.equals(ScheduleStrategy.WAIT);
-        logger.info("Start pending job schedule thread");
-        // start pending job schedule thread
-        startPendingJobScheduleThread();
+    }
+
+    private ExecutorService createCoordinatorExecutor() {
+        return new ThreadPoolExecutor(
+                engineConfig.getCoordinatorServiceConfig().getCoreThreadNum(),
+                engineConfig.getCoordinatorServiceConfig().getMaxThreadNum(),
+                60L,
+                TimeUnit.SECONDS,
+                new SynchronousQueue<>(),
+                new ThreadFactoryBuilder()
+                        .setNameFormat("seatunnel-coordinator-service-%d")
+                        .build(),
+                new ThreadPoolStatus.RejectionCountingHandler());
     }
 
     /**
@@ -277,10 +277,11 @@ public class CoordinatorService {
      * does not terminate future pending-job processing.
      */
     private void startPendingJobScheduleThread() {
+        logger.info("Start pending job schedule thread");
         Runnable pendingJobScheduleTask =
                 () -> {
                     Thread.currentThread().setName("pending-job-schedule-runner");
-                    while (true) {
+                    while (isActive) {
                         try {
                             pendingJobSchedule();
                         } catch (InterruptedException interrupted) {
@@ -1023,15 +1024,12 @@ public class CoordinatorService {
             if (!isActive && this.seaTunnelServer.isMasterNode()) {
                 logger.info(
                         "This node become a new active master node, begin init coordinator service");
-                if (this.executorService.isShutdown()) {
-                    this.executorService =
-                            Executors.newCachedThreadPool(
-                                    new ThreadFactoryBuilder()
-                                            .setNameFormat("seatunnel-coordinator-service-%d")
-                                            .build());
+                if (this.executorService.isShutdown() || this.executorService.isTerminated()) {
+                    this.executorService = createCoordinatorExecutor();
                 }
                 initCoordinatorService();
                 isActive = true;
+                startPendingJobScheduleThread();
                 seaTunnelServer.startRealtimeMetricsService(this);
             } else if (isActive && !this.seaTunnelServer.isMasterNode()) {
                 isActive = false;
@@ -1750,6 +1748,7 @@ public class CoordinatorService {
     }
 
     public void shutdown() {
+        isActive = false;
         if (masterActiveListener != null) {
             masterActiveListener.shutdownNow();
         }
