@@ -24,7 +24,7 @@ Read data from Apache Cassandra.
 | host              | String             | Yes      | -             |
 | keyspace          | String             | Yes      | -             |
 | cql               | String             | No *     | -             |
-| tables_configs    | List<Map>          | No *     | -             |
+| tables_configs    | List\<Map\>        | No *     | -             |
 | username          | String             | No       | -             |
 | password          | String             | No       | -             |
 | datacenter        | String             | No       | datacenter1   |
@@ -46,7 +46,7 @@ The `Cassandra` keyspace.
 The query CQL used to read data from Cassandra. Use this for single-table reads.
 Mutually exclusive with `tables_configs`.
 
-### tables_configs [List<Map>]
+### tables_configs [List\<Map\>]
 
 Multi-table read configuration. Each entry must contain a `cql` field with the query for that table.
 Mutually exclusive with `cql`.
