@@ -79,7 +79,9 @@ public class CassandraSource extends AbstractSingleSplitSource<SeaTunnelRow>
                     String cql = tableConfig.get(CassandraSourceOptions.CQL);
                     configs.add(
                             buildTableConfig(
-                                    cql, session, params.getKeyspace(),
+                                    cql,
+                                    session,
+                                    params.getKeyspace(),
                                     params.getConsistencyLevel()));
                 }
                 return configs;
@@ -87,7 +89,9 @@ public class CassandraSource extends AbstractSingleSplitSource<SeaTunnelRow>
                 String cql = config.get(CassandraSourceOptions.CQL);
                 return Collections.singletonList(
                         buildTableConfig(
-                                cql, session, params.getKeyspace(),
+                                cql,
+                                session,
+                                params.getKeyspace(),
                                 params.getConsistencyLevel()));
             }
         } catch (CassandraConnectorException e) {
