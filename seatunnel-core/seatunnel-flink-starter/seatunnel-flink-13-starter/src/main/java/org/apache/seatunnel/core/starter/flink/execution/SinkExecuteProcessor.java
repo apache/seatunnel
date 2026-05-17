@@ -201,6 +201,9 @@ public class SinkExecuteProcessor
         try {
             return DirtyCollectorConfigProcessor.processConfig(envConfig, sinkConfig);
         } catch (Exception e) {
+            if (DirtyCollectorConfigProcessor.hasDirtyHandlingConfig(envConfig, sinkConfig)) {
+                throw e;
+            }
             LOGGER.warn("Failed to create dirty record collector, using NoOp collector", e);
             return org.apache.seatunnel.api.sink.NoOpDirtyRecordCollector.INSTANCE;
         }

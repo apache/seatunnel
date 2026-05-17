@@ -88,6 +88,12 @@ public class DirtyCollectorConfigProcessor {
         return mergedConfig;
     }
 
+    public static boolean hasDirtyHandlingConfig(Config envConfig, Config sinkConfig) {
+        Config mergedConfig = getMergedSinkConfigForDirty(envConfig, sinkConfig);
+        return mergedConfig.hasPath(DIRTY_COLLECTOR_CONFIG_KEY)
+                || mergedConfig.hasPath(DIRTY_VALIDATOR_CONFIG_KEY);
+    }
+
     public static DirtyRecordCollector processConfig(Config envConfig, Config sinkConfig) {
         return processConfig(envConfig, sinkConfig, null);
     }

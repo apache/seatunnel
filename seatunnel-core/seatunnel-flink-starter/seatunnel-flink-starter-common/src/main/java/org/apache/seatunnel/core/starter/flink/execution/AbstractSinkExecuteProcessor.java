@@ -203,6 +203,9 @@ public abstract class AbstractSinkExecuteProcessor
         try {
             return DirtyCollectorConfigProcessor.processConfig(envConfig, sinkConfig, catalogTable);
         } catch (Exception e) {
+            if (DirtyCollectorConfigProcessor.hasDirtyHandlingConfig(envConfig, sinkConfig)) {
+                throw e;
+            }
             LOGGER.warn("Failed to create dirty record collector, using NoOp collector", e);
             return NoOpDirtyRecordCollector.INSTANCE;
         }
