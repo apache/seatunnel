@@ -19,8 +19,9 @@ package org.apache.seatunnel.connectors.seatunnel.cassandra.config;
 
 import org.apache.seatunnel.api.configuration.Option;
 import org.apache.seatunnel.api.configuration.Options;
+import org.apache.seatunnel.api.options.ConnectorCommonOptions;
 
-public class CassandraBaseOptions {
+public class CassandraBaseOptions extends ConnectorCommonOptions {
 
     public static final Integer DEFAULT_BATCH_SIZE = 5000;
 

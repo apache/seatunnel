@@ -18,6 +18,7 @@
 package org.apache.seatunnel.connectors.seatunnel.cassandra.source;
 
 import org.apache.seatunnel.api.configuration.util.OptionRule;
+import org.apache.seatunnel.api.options.ConnectorCommonOptions;
 import org.apache.seatunnel.api.source.SeaTunnelSource;
 import org.apache.seatunnel.api.source.SourceSplit;
 import org.apache.seatunnel.api.table.connector.TableSource;
@@ -48,7 +49,8 @@ public class CassandraSourceFactory implements TableSourceFactory {
     @Override
     public OptionRule optionRule() {
         return OptionRule.builder()
-                .required(HOST, KEYSPACE, CQL)
+                .required(HOST, KEYSPACE)
+                .exclusive(CQL, ConnectorCommonOptions.TABLE_CONFIGS)
                 .bundled(USERNAME, PASSWORD)
                 .optional(DATACENTER, CONSISTENCY_LEVEL)
                 .build();
