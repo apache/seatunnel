@@ -79,9 +79,9 @@ jobs:
           else
             echo "No .class files found in git repository."
           fi
-      - name: Check connector dist registration completeness
+      - name: Check connector registration completeness
         run: |
-          python3 tools/check_connector_dist.py
+          python3 tools/check_connector_registration.py --base-ref "$GITHUB_BASE_REF"
 
   helm-chart-check:
     name: Check Helm Chart Syntax
