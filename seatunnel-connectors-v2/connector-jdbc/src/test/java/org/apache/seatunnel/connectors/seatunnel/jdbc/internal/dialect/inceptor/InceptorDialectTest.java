@@ -17,26 +17,13 @@
 
 package org.apache.seatunnel.connectors.seatunnel.jdbc.internal.dialect.inceptor;
 
-import org.apache.seatunnel.connectors.seatunnel.jdbc.internal.converter.JdbcRowConverter;
-import org.apache.seatunnel.connectors.seatunnel.jdbc.internal.dialect.DatabaseIdentifier;
-import org.apache.seatunnel.connectors.seatunnel.jdbc.internal.dialect.hive.HiveDialect;
+import org.junit.jupiter.api.Assertions;
+import org.junit.jupiter.api.Test;
 
-public class InceptorDialect extends HiveDialect {
+class InceptorDialectTest {
 
-    @Override
-    public String dialectName() {
-        return DatabaseIdentifier.INCEPTOR;
-    }
-
-    @Override
-    public boolean supportsPrimaryKeyMetadata() {
-        // Inceptor shares Hive syntax, but it should not inherit Hive's primary-key metadata
-        // workaround because its JDBC metadata support is a separate contract.
-        return true;
-    }
-
-    @Override
-    public JdbcRowConverter getRowConverter() {
-        return new InceptorJdbcRowConverter();
+    @Test
+    void testSupportsPrimaryKeyMetadata() {
+        Assertions.assertTrue(new InceptorDialect().supportsPrimaryKeyMetadata());
     }
 }

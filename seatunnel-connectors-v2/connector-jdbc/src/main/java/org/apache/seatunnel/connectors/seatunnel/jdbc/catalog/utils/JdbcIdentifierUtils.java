@@ -55,11 +55,23 @@ public final class JdbcIdentifierUtils {
             if (metadata.storesUpperCaseIdentifiers()) {
                 return IdentifierCaseStrategy.UPPER_CASE;
             }
-        } catch (SQLFeatureNotSupportedException e) {
-            // Some drivers, such as Hive JDBC, do not support identifier case metadata.
-            return IdentifierCaseStrategy.CASE_INSENSITIVE;
+        } catch (SQLException e) {
+            if (isUnsupportedIdentifierCaseMetadata(e)) {
+                // Hive JDBC 3.x may report this capability gap as a plain SQLException.
+                return IdentifierCaseStrategy.CASE_INSENSITIVE;
+            }
+            throw e;
         }
         return IdentifierCaseStrategy.CASE_INSENSITIVE;
+    }
+
+    private static boolean isUnsupportedIdentifierCaseMetadata(SQLException e) {
+        if (e instanceof SQLFeatureNotSupportedException) {
+            return true;
+        }
+        // Keep this narrow: other SQLExceptions from metadata calls should still fail fast.
+        String message = e.getMessage();
+        return message != null && "Method not supported".equalsIgnoreCase(message);
     }
 
     public static boolean identifierEquals(

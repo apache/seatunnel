@@ -36,7 +36,6 @@ import java.sql.Connection;
 import java.sql.PreparedStatement;
 import java.sql.ResultSetMetaData;
 import java.sql.SQLException;
-import java.sql.SQLFeatureNotSupportedException;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.Collections;
@@ -405,7 +404,9 @@ public class CatalogUtilsTest {
                 new TestDatabaseMetaData() {
                     @Override
                     public boolean supportsMixedCaseIdentifiers() throws SQLException {
-                        throw new SQLFeatureNotSupportedException("Method not supported");
+                        // Hive JDBC 3.1.3 throws a plain SQLException for this metadata API on
+                        // JDK 8, not SQLFeatureNotSupportedException.
+                        throw new SQLException("Method not supported");
                     }
 
                     @Override
@@ -440,6 +441,27 @@ public class CatalogUtilsTest {
 
         Assertions.assertEquals(1, tableSchema.getColumns().size());
         Assertions.assertEquals("id", tableSchema.getColumns().get(0).getName());
+    }
+
+    @Test
+    void testGetTableSchemaPropagatesIdentifierCaseMetadataFailure() {
+        TestDatabaseMetaData metadata =
+                new TestDatabaseMetaData() {
+                    @Override
+                    public boolean supportsMixedCaseIdentifiers() throws SQLException {
+                        throw new SQLException("connection broken");
+                    }
+                };
+
+        SQLException exception =
+                Assertions.assertThrows(
+                        SQLException.class,
+                        () ->
+                                CatalogUtils.getTableSchema(
+                                        metadata,
+                                        TablePath.of("test_db", "public", "user_info"),
+                                        new JdbcDialectTypeMapper() {}));
+        Assertions.assertEquals("connection broken", exception.getMessage());
     }
 
     @Test
