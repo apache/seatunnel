@@ -35,6 +35,10 @@ public interface ModelInvocationMetrics {
 
     void recordLatency(String provider, String model, long elapsedMs);
 
+    void recordCacheHit(String provider, String model, int hitCount);
+
+    void recordCacheMiss(String provider, String model, int missCount);
+
     class NoopModelInvocationMetrics implements ModelInvocationMetrics {
 
         @Override
@@ -60,5 +64,11 @@ public interface ModelInvocationMetrics {
 
         @Override
         public void recordLatency(String provider, String model, long elapsedMs) {}
+
+        @Override
+        public void recordCacheHit(String provider, String model, int hitCount) {}
+
+        @Override
+        public void recordCacheMiss(String provider, String model, int missCount) {}
     }
 }

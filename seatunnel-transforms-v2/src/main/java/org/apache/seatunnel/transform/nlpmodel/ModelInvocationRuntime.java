@@ -23,6 +23,10 @@ import lombok.extern.slf4j.Slf4j;
 
 import java.io.IOException;
 import java.net.SocketTimeoutException;
+import java.util.ArrayList;
+import java.util.List;
+import java.util.Map;
+import java.util.Optional;
 
 @Slf4j
 public class ModelInvocationRuntime {
@@ -46,6 +50,39 @@ public class ModelInvocationRuntime {
 
     public <T> T invoke(Object[] inputs, ProviderAdapter<T> adapter) throws IOException {
         int inputCount = inputs == null ? 0 : inputs.length;
+        if (cache != ModelInvocationCache.NOOP && inputCount > 0) {
+            CacheLookup cacheLookup = lookupCache(inputs, adapter);
+            if (cacheLookup.isCompleteHit()) {
+                metrics.recordCacheHit(adapter.getProvider(), adapter.getModel(), inputCount);
+                return castOutput(cacheLookup.getCachedOutput());
+            }
+
+            int hitCount = inputCount - cacheLookup.getMissingCount();
+            if (hitCount > 0) {
+                metrics.recordCacheHit(adapter.getProvider(), adapter.getModel(), hitCount);
+            }
+            if (cacheLookup.getMissingCount() > 0) {
+                metrics.recordCacheMiss(
+                        adapter.getProvider(), adapter.getModel(), cacheLookup.getMissingCount());
+            }
+
+            T output =
+                    invokeWithRetries(
+                            cacheLookup.getMissingInputs(), adapter, cacheLookup.getMissingCount());
+            List<List<Float>> remoteVectors = asVectors(output);
+            cacheLookup.putMissing(remoteVectors, cache);
+            return castOutput(cacheLookup.merge(remoteVectors));
+        }
+
+        return invokeWithRetries(inputs, adapter, inputCount);
+    }
+
+    public ModelInvocationCache getCache() {
+        return cache;
+    }
+
+    private <T> T invokeWithRetries(Object[] inputs, ProviderAdapter<T> adapter, int inputCount)
+            throws IOException {
         for (int attempt = 1; attempt <= options.getRetryMaxAttempts(); attempt++) {
             ModelInvocationContext context =
                     new ModelInvocationContext(
@@ -80,8 +117,57 @@ public class ModelInvocationRuntime {
                 null);
     }
 
-    public ModelInvocationCache getCache() {
-        return cache;
+    private CacheLookup lookupCache(Object[] inputs, ProviderAdapter<?> adapter) {
+        List<String> keys = new ArrayList<>(inputs.length);
+        List<List<Float>> cachedOutput = new ArrayList<>(inputs.length);
+        List<Integer> missingIndices = new ArrayList<>();
+        List<Object> missingInputs = new ArrayList<>();
+        for (int i = 0; i < inputs.length; i++) {
+            Object input = inputs[i];
+            String key = buildCacheKey(adapter, input);
+            keys.add(key);
+            Optional<?> cachedValue = cache.get(key);
+            if (cachedValue.isPresent()) {
+                cachedOutput.add(asVector(cachedValue.get()));
+                continue;
+            }
+            cachedOutput.add(null);
+            missingIndices.add(i);
+            missingInputs.add(input);
+        }
+        return new CacheLookup(
+                keys, cachedOutput, missingIndices, missingInputs.toArray(new Object[0]));
+    }
+
+    private String buildCacheKey(ProviderAdapter<?> adapter, Object input) {
+        ModelInvocationCacheKey.Builder builder =
+                ModelInvocationCacheKey.builder()
+                        .provider(adapter.getProvider())
+                        .model(adapter.getModel())
+                        .dimension(adapter.getDimension())
+                        .modality(adapter.getInputModality(input))
+                        .format(adapter.getInputFormat(input))
+                        .input(input);
+        Map<String, Object> metadata = adapter.getCacheMetadata(input);
+        if (metadata != null) {
+            metadata.forEach(builder::metadata);
+        }
+        return builder.build();
+    }
+
+    @SuppressWarnings("unchecked")
+    private List<List<Float>> asVectors(Object output) {
+        return (List<List<Float>>) output;
+    }
+
+    @SuppressWarnings("unchecked")
+    private List<Float> asVector(Object value) {
+        return (List<Float>) value;
+    }
+
+    @SuppressWarnings("unchecked")
+    private <T> T castOutput(List<List<Float>> output) {
+        return (T) output;
     }
 
     private <T> void validateOutputCount(
@@ -191,6 +277,55 @@ public class ModelInvocationRuntime {
                     "UNKNOWN",
                     "Interrupted while waiting to retry model invocation",
                     e);
+        }
+    }
+
+    private static final class CacheLookup {
+
+        private final List<String> keys;
+        private final List<List<Float>> cachedOutput;
+        private final List<Integer> missingIndices;
+        private final Object[] missingInputs;
+
+        private CacheLookup(
+                List<String> keys,
+                List<List<Float>> cachedOutput,
+                List<Integer> missingIndices,
+                Object[] missingInputs) {
+            this.keys = keys;
+            this.cachedOutput = cachedOutput;
+            this.missingIndices = missingIndices;
+            this.missingInputs = missingInputs;
+        }
+
+        private boolean isCompleteHit() {
+            return missingIndices.isEmpty();
+        }
+
+        private List<List<Float>> getCachedOutput() {
+            return cachedOutput;
+        }
+
+        private Object[] getMissingInputs() {
+            return missingInputs;
+        }
+
+        private int getMissingCount() {
+            return missingInputs.length;
+        }
+
+        private void putMissing(List<List<Float>> remoteVectors, ModelInvocationCache cache) {
+            for (int i = 0; i < missingIndices.size(); i++) {
+                int index = missingIndices.get(i);
+                cache.put(keys.get(index), remoteVectors.get(i));
+            }
+        }
+
+        private List<List<Float>> merge(List<List<Float>> remoteVectors) {
+            for (int i = 0; i < missingIndices.size(); i++) {
+                cachedOutput.set(missingIndices.get(i), remoteVectors.get(i));
+            }
+            return cachedOutput;
         }
     }
 }

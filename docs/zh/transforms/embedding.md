@@ -75,7 +75,17 @@ provider 侧副作用。该配置不会改变下游 Sink 的幂等语义。
 运行时会记录 provider、model、batch size、attempt number、error category、retryable flag、elapsed time 等安全诊断上下文。
 日志不会记录 API key、secret key、完整源文本 chunk、二进制 payload 或完整 provider response body。
 
-本变更不新增持久化 embedding 结果缓存。现有 binary multimodal cache 只用于向量化前的文件分片重组，不用于复用模型输入或向量结果。
+Bedrock 现在也走统一的 common runtime 路径，因此 retry、timeout、响应解析和返回数量校验在各个 provider 之间保持一致。
+
+运行时也提供了一个 cache 边界。当接入 cache 实现时，key 由 provider、model、输出配置、modality、format、规范化后的 metadata，
+以及规范化输入内容的 SHA-256 摘要组成。默认的生产 wiring 仍然使用 `ModelInvocationCache.NOOP`，因此在接入层显式启用缓存之前，
+现有任务的行为保持不变。现有的 binary multimodal cache 行为不变，仍然只用于向量化前的文件分片重组。
+
+兼容性说明：
+
+- `model_retry_max_attempts`、`model_retry_backoff_ms` 和 `model_request_timeout_ms` 的默认值保持不变。
+- 本次更新没有重命名或删除任何用户可见的配置项。
+- cache 集成是增量能力，不会改变默认执行路径。
 
 ### vectorization_fields
 

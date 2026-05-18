@@ -112,6 +112,11 @@ public class ZhipuModel extends AbstractModel {
                     public String getModel() {
                         return model;
                     }
+
+                    @Override
+                    public Integer getDimension() {
+                        return dimension;
+                    }
                 });
     }
 

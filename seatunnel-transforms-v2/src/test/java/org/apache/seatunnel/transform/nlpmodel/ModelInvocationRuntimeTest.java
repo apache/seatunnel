@@ -21,6 +21,7 @@ import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.Test;
 
 import java.io.IOException;
+import java.net.SocketTimeoutException;
 import java.util.ArrayList;
 import java.util.LinkedList;
 import java.util.List;
@@ -68,6 +69,39 @@ public class ModelInvocationRuntimeTest {
                 new CountingVectorAdapter(
                         ModelInvocationException.fromHttpStatus(
                                 "DOUBAO", "doubao-embedding", 500, "temporary failure"));
+        adapter.setSuccessResponse(vectors(1));
+
+        List<List<Float>> result = runtime.invoke(new Object[] {"chunk"}, adapter);
+
+        Assertions.assertEquals(1, result.size());
+        Assertions.assertEquals(2, adapter.getAttempts());
+    }
+
+    @Test
+    void retryableFailureIsRetriedUntilAttemptsAreExhausted() {
+        ModelInvocationRuntime runtime = new ModelInvocationRuntime(testRetryOptions());
+        CountingVectorAdapter adapter =
+                new CountingVectorAdapter(
+                        ModelInvocationException.fromHttpStatus(
+                                "OPENAI", "text-embedding-3-small", 429, "rate limited"),
+                        ModelInvocationException.fromHttpStatus(
+                                "OPENAI", "text-embedding-3-small", 429, "rate limited"),
+                        ModelInvocationException.fromHttpStatus(
+                                "OPENAI", "text-embedding-3-small", 429, "rate limited"));
+
+        ModelInvocationException exception =
+                Assertions.assertThrows(
+                        ModelInvocationException.class,
+                        () -> runtime.invoke(new Object[] {"chunk"}, adapter));
+
+        Assertions.assertEquals(ModelInvocationErrorType.RATE_LIMIT, exception.getErrorType());
+        Assertions.assertEquals(3, adapter.getAttempts());
+    }
+
+    @Test
+    void socketTimeoutIsNormalizedAsRetryableTimeout() throws IOException {
+        ModelInvocationRuntime runtime = new ModelInvocationRuntime(testRetryOptions());
+        CountingVectorAdapter adapter = new CountingVectorAdapter(new SocketTimeoutException());
         adapter.setSuccessResponse(vectors(1));
 
         List<List<Float>> result = runtime.invoke(new Object[] {"chunk"}, adapter);

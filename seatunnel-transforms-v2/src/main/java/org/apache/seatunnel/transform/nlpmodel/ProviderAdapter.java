@@ -18,6 +18,8 @@
 package org.apache.seatunnel.transform.nlpmodel;
 
 import java.io.IOException;
+import java.util.Collections;
+import java.util.Map;
 
 public interface ProviderAdapter<T> {
 
@@ -31,6 +33,22 @@ public interface ProviderAdapter<T> {
 
     default String getModel() {
         return "UNKNOWN";
+    }
+
+    default Integer getDimension() {
+        return null;
+    }
+
+    default String getInputModality(Object input) {
+        return null;
+    }
+
+    default String getInputFormat(Object input) {
+        return null;
+    }
+
+    default Map<String, Object> getCacheMetadata(Object input) {
+        return Collections.emptyMap();
     }
 
     default boolean validateOutputCount() {

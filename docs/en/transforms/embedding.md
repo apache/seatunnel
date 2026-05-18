@@ -85,8 +85,20 @@ The runtime records safe diagnostic context such as provider, model, batch size,
 retryable flag, and elapsed time. It does not log API keys, secret keys, full source text chunks, binary payloads, or full
 provider response bodies.
 
-This change does not add a persistent embedding result cache. Existing binary multimodal cache state is only used to
-reassemble file chunks before vectorization, not to reuse model input or vector results.
+Bedrock now uses the same common runtime path as the other embedding providers, so retry, timeout, response parsing,
+and response-count validation behave consistently across providers.
+
+The runtime also has a cache boundary. When a cache implementation is wired in, keys are built from provider, model,
+output configuration, modality, format, normalized metadata, and a SHA-256 digest of normalized input content. The
+default production wiring still uses `ModelInvocationCache.NOOP`, so existing jobs keep the previous behavior unless an
+integration layer enables caching. Existing binary multimodal cache state is unchanged and still only reassembles file
+chunks before vectorization.
+
+Compatibility notes:
+
+- The default values for `model_retry_max_attempts`, `model_retry_backoff_ms`, and `model_request_timeout_ms` remain unchanged.
+- No user-facing config names were renamed or removed in this update.
+- The cache integration is additive and does not change the default execution path.
 
 ### vectorization_fields
 
