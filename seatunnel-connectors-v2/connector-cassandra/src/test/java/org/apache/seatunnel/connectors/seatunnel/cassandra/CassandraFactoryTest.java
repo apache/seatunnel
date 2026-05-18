@@ -57,8 +57,7 @@ class CassandraFactoryTest {
         List<Map<String, Object>> tablesConfigs =
                 Collections.singletonList(
                         Collections.singletonMap(
-                                CassandraSourceOptions.CQL.key(),
-                                "select * from test.table1"));
+                                CassandraSourceOptions.CQL.key(), "select * from test.table1"));
         cfg.put(ConnectorCommonOptions.TABLE_CONFIGS.key(), tablesConfigs);
         ConfigValidator.of(ReadonlyConfig.fromMap(cfg)).validate(rule);
     }
@@ -71,8 +70,7 @@ class CassandraFactoryTest {
         List<Map<String, Object>> tablesConfigs =
                 Collections.singletonList(
                         Collections.singletonMap(
-                                CassandraSourceOptions.CQL.key(),
-                                "select * from test.table2"));
+                                CassandraSourceOptions.CQL.key(), "select * from test.table2"));
         cfg.put(ConnectorCommonOptions.TABLE_CONFIGS.key(), tablesConfigs);
         Assertions.assertThrows(
                 OptionValidationException.class,

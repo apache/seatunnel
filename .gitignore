@@ -60,4 +60,4 @@ node/
 
 dist/
 
-seatunnel-engine/seatunnel-engine-server/**/ui/*
+seatunnel-engine/seatunnel-engine-server/**/ui/*.claude/
