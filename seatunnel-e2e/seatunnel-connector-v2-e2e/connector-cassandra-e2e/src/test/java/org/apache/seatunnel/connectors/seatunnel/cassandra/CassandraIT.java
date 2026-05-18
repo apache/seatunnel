@@ -131,13 +131,11 @@ public class CassandraIT extends TestSuiteBase implements TestResource {
         Set<Long> sinkIds = getMTSinkIds();
         for (long i = 0; i < MT_ROWS_PER_TABLE; i++) {
             Assertions.assertTrue(
-                    sinkIds.contains(i),
-                    "Expected id " + i + " from mt_source_a in sink");
+                    sinkIds.contains(i), "Expected id " + i + " from mt_source_a in sink");
         }
         for (long i = MT_ROWS_PER_TABLE; i < MT_ROWS_PER_TABLE * 2L; i++) {
             Assertions.assertTrue(
-                    sinkIds.contains(i),
-                    "Expected id " + i + " from mt_source_b in sink");
+                    sinkIds.contains(i), "Expected id " + i + " from mt_source_b in sink");
         }
         clearMTSinkTable();
     }
