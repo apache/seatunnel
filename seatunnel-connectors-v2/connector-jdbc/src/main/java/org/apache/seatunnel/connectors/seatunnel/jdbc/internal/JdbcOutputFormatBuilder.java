@@ -92,8 +92,7 @@ public class JdbcOutputFormatBuilder {
                                     databaseTableSchema,
                                     primaryKeys.toArray(new String[0]),
                                     jdbcSinkConfig.isEnableUpsert(),
-                                    jdbcSinkConfig.isPrimaryKeyUpdated(),
-                                    jdbcSinkConfig.isSupportUpsertByInsertOnly());
+                                    jdbcSinkConfig.isPrimaryKeyUpdated());
         }
 
         return new JdbcOutputFormat(
@@ -132,8 +131,7 @@ public class JdbcOutputFormatBuilder {
             TableSchema databaseTableSchema,
             String[] pkNames,
             boolean enableUpsert,
-            boolean isPrimaryKeyUpdated,
-            boolean supportUpsertByInsertOnly) {
+            boolean isPrimaryKeyUpdated) {
         int[] pkFields =
                 Arrays.stream(pkNames)
                         .mapToInt(tableSchema.toPhysicalRowDataType()::indexOf)
@@ -163,8 +161,7 @@ public class JdbcOutputFormatBuilder {
                         pkSchema,
                         keyExtractor,
                         enableUpsert,
-                        isPrimaryKeyUpdated,
-                        supportUpsertByInsertOnly);
+                        isPrimaryKeyUpdated);
         return new BufferReducedBatchStatementExecutor(
                 upsertExecutor, deleteExecutor, keyExtractor, Function.identity());
     }
@@ -179,12 +176,7 @@ public class JdbcOutputFormatBuilder {
             TableSchema pkTableSchema,
             Function<SeaTunnelRow, SeaTunnelRow> keyExtractor,
             boolean enableUpsert,
-            boolean isPrimaryKeyUpdated,
-            boolean supportUpsertByInsertOnly) {
-        if (supportUpsertByInsertOnly) {
-            return createInsertOnlyExecutor(
-                    dialect, database, table, tableSchema, databaseTableSchema);
-        }
+            boolean isPrimaryKeyUpdated) {
         if (enableUpsert) {
             Optional<String> upsertSQL =
                     dialect.getUpsertStatementByTableSchema(database, table, tableSchema, pkNames);
@@ -230,24 +222,6 @@ public class JdbcOutputFormatBuilder {
                         .collect(Collectors.joining(",", "(", ")"));
         String copyInSql = String.format("COPY %s %s FROM STDIN WITH CSV", table, columns);
         return new CopyManagerBatchStatementExecutor(copyInSql, tableSchema);
-    }
-
-    private static JdbcBatchStatementExecutor<SeaTunnelRow> createInsertOnlyExecutor(
-            JdbcDialect dialect,
-            String database,
-            String table,
-            TableSchema tableSchema,
-            TableSchema databaseTableSchema) {
-        return new SimpleBatchStatementExecutor(
-                connection ->
-                        FieldNamedPreparedStatement.prepareStatement(
-                                connection,
-                                dialect.getInsertIntoStatement(
-                                        database, table, tableSchema.getFieldNames()),
-                                tableSchema.getFieldNames()),
-                tableSchema,
-                databaseTableSchema,
-                dialect.getRowConverter());
     }
 
     private static JdbcBatchStatementExecutor<SeaTunnelRow> createInsertOrUpdateExecutor(

@@ -64,7 +64,7 @@ semantics (using XA transaction guarantee).
 
 ## Sink Options
 
-> Redshift sink is implemented on top of the JDBC sink. The table below focuses on the most commonly used Redshift options. For inherited advanced JDBC sink options such as `compatible_mode`, `dialect`, `is_primary_key_updated`, `support_upsert_by_insert_only`, `use_copy_statement`, `tablePrefix`, `tableSuffix`, and `create_index`, see [JDBC Sink](Jdbc.md).
+> Redshift sink is implemented on top of the JDBC sink. The table below focuses on the most commonly used Redshift options. For inherited advanced JDBC sink options such as `compatible_mode`, `dialect`, `is_primary_key_updated`, `use_copy_statement`, `tablePrefix`, `tableSuffix`, and `create_index`, see [JDBC Sink](Jdbc.md).
 
 |                   Name                    |  Type   | Required |           Default            |                                                                                                                  Description                                                                                                                   |
 |-------------------------------------------|---------|----------|------------------------------|------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------|

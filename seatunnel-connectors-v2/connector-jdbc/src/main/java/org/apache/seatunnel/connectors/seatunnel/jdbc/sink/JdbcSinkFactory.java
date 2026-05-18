@@ -225,7 +225,6 @@ public class JdbcSinkFactory implements TableSinkFactory {
                         JdbcSinkOptions.AUTO_COMMIT,
                         JdbcSinkOptions.PRIMARY_KEYS,
                         JdbcSinkOptions.IS_PRIMARY_KEY_UPDATED,
-                        JdbcSinkOptions.SUPPORT_UPSERT_BY_INSERT_ONLY,
                         JdbcSinkOptions.USE_COPY_STATEMENT,
                         JdbcSinkOptions.COMPATIBLE_MODE,
                         JdbcSinkOptions.ENABLE_UPSERT,

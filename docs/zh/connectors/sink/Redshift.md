@@ -62,7 +62,7 @@ import ChangeLog from '../changelog/connector-jdbc.md';
 
 ## Sink 参数
 
-> Redshift Sink 基于 JDBC Sink 实现。下表聚焦于 Redshift 常用参数。对于继承自 JDBC Sink 的高级参数，例如 `compatible_mode`、`dialect`、`is_primary_key_updated`、`support_upsert_by_insert_only`、`use_copy_statement`、`tablePrefix`、`tableSuffix` 和 `create_index`，请参考 [JDBC Sink](Jdbc.md)。
+> Redshift Sink 基于 JDBC Sink 实现。下表聚焦于 Redshift 常用参数。对于继承自 JDBC Sink 的高级参数，例如 `compatible_mode`、`dialect`、`is_primary_key_updated`、`use_copy_statement`、`tablePrefix`、`tableSuffix` 和 `create_index`，请参考 [JDBC Sink](Jdbc.md)。
 
 | 名称                           | 类型    | 是否必填 |           默认值            |                                                                                                                  描述                                                                                                                   |
 |------------------------------|---------|----------|------------------------------|------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------|
