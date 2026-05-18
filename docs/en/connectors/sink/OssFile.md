@@ -583,9 +583,6 @@ sink {
 
 > 1.[SeaTunnel Deployment Document](../../getting-started/locally/deployment.md).
 
-## Changelog
-
-<ChangeLog />
 
 ### schema_evolution_enabled [boolean]
 
@@ -614,3 +611,7 @@ LocalFile {
 }
 ```
 
+
+## Changelog
+
+<ChangeLog />

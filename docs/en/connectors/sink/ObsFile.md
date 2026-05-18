@@ -298,9 +298,6 @@ Please note that excel type does not support any compression format
 
 ```
 
-## Changelog
-
-<ChangeLog />
 
 ### schema_evolution_enabled [boolean]
 
@@ -329,3 +326,7 @@ LocalFile {
 }
 ```
 
+
+## Changelog
+
+<ChangeLog />

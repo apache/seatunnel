@@ -292,9 +292,6 @@ Configure mount table in `core-site.xml`:
 </configuration>
 ```
 
-## Changelog
-
-<ChangeLog /
 
 ### schema_evolution_enabled [boolean]
 
@@ -322,4 +319,8 @@ LocalFile {
     partition_by = ["updated_at_month"]
 }
 ```
->
+
+
+## Changelog
+
+<ChangeLog />

@@ -288,9 +288,6 @@ HdfsFile {
 </configuration>
 ```
 
-## 变更日志
-
-<ChangeLog /
 
 ### schema_evolution_enabled [boolean]
 
@@ -318,4 +315,8 @@ LocalFile {
     partition_by = ["updated_at_month"]
 }
 ```
->
+
+
+## 变更日志
+
+<ChangeLog />

@@ -579,9 +579,6 @@ sink {
 
 > 1.[SeaTunnel部署方案](../../getting-started/locally/deployment.md).
 
-## 变更日志
-
-<ChangeLog />
 
 ### schema_evolution_enabled [boolean]
 
@@ -610,3 +607,7 @@ LocalFile {
 }
 ```
 
+
+## 变更日志
+
+<ChangeLog />

@@ -314,9 +314,6 @@ Sink插件常用参数，请参考[Sink common Options]（../common-options/sink
 
 ```
 
-## 变更日志
-
-<ChangeLog /
 
 ### schema_evolution_enabled [boolean]
 
@@ -344,4 +341,8 @@ LocalFile {
     partition_by = ["updated_at_month"]
 }
 ```
->
+
+
+## 变更日志
+
+<ChangeLog />
