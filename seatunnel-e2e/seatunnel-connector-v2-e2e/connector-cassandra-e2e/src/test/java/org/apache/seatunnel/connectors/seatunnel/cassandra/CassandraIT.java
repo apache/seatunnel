@@ -128,6 +128,17 @@ public class CassandraIT extends TestSuiteBase implements TestResource {
         Assertions.assertEquals(0, execResult.getExitCode());
         long sinkCount = getMTSinkRowCount();
         Assertions.assertEquals(MT_ROWS_PER_TABLE * 2L, sinkCount);
+        Set<Long> sinkIds = getMTSinkIds();
+        for (long i = 0; i < MT_ROWS_PER_TABLE; i++) {
+            Assertions.assertTrue(
+                    sinkIds.contains(i),
+                    "Expected id " + i + " from mt_source_a in sink");
+        }
+        for (long i = MT_ROWS_PER_TABLE; i < MT_ROWS_PER_TABLE * 2L; i++) {
+            Assertions.assertTrue(
+                    sinkIds.contains(i),
+                    "Expected id " + i + " from mt_source_b in sink");
+        }
         clearMTSinkTable();
     }
 
@@ -467,6 +478,15 @@ public class CassandraIT extends TestSuiteBase implements TestResource {
                                 .build());
         Row row = rs.one();
         return row != null ? row.getLong(0) : 0;
+    }
+
+    private Set<Long> getMTSinkIds() {
+        ResultSet rs =
+                session.execute(
+                        SimpleStatement.builder("select id from " + MT_SINK_TABLE)
+                                .setKeyspace(KEYSPACE)
+                                .build());
+        return rs.all().stream().map(row -> row.getLong(0)).collect(Collectors.toSet());
     }
 
     private void clearMTSinkTable() {
