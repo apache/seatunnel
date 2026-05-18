@@ -81,7 +81,11 @@ jobs:
           fi
       - name: Check connector registration completeness
         run: |
-          python3 tools/check_connector_registration.py --base-ref "$GITHUB_BASE_REF"
+          if [ -n "$GITHUB_BASE_REF" ]; then
+            python3 tools/check_connector_registration.py --base-ref "$GITHUB_BASE_REF"
+          else
+            echo "GITHUB_BASE_REF is not set (push event), skipping connector registration check."
+          fi
 
   helm-chart-check:
     name: Check Helm Chart Syntax
