@@ -41,6 +41,7 @@
         <module>connector-kafka</module>
         <module>connector-pulsar</module>
         <module>connector-socket</module>
+        <module>connector-syslog</module>
         <module>connector-hive</module>
         <module>connector-file</module>
         <module>connector-hudi</module>
