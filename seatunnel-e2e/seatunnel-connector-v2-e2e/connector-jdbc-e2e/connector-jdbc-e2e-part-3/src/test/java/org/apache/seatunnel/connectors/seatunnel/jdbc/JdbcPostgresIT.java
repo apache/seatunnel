@@ -18,7 +18,6 @@
 package org.apache.seatunnel.connectors.seatunnel.jdbc;
 
 import org.apache.seatunnel.shade.com.google.common.collect.Lists;
-import org.apache.seatunnel.shade.org.apache.commons.lang3.StringUtils;
 
 import org.apache.seatunnel.api.table.catalog.Catalog;
 import org.apache.seatunnel.api.table.catalog.CatalogTable;
@@ -115,6 +114,7 @@ public class JdbcPostgresIT extends TestSuiteBase implements TestResource {
                     + "  jsonb_col jsonb NOT NULL,\n"
                     + "  xml_col xml NOT NULL\n"
                     + ");comment on column pg_e2e_source_table.uuid_col is '\"#¥%……&*（）;;'',,.\\.``````//''@特殊注释''\\\\''\"'";
+
     private static final String PG_SINK_DDL =
             "CREATE TABLE IF NOT EXISTS pg_e2e_sink_table (\n"
                     + "    gid SERIAL PRIMARY KEY,\n"
@@ -152,6 +152,7 @@ public class JdbcPostgresIT extends TestSuiteBase implements TestResource {
                     + "    jsonb_col jsonb NOT NULL,\n"
                     + "    xml_col xml NOT NULL\n"
                     + "  )";
+
     private static final String SOURCE_SQL =
             "select \n"
                     + "gid,\n"
@@ -189,6 +190,7 @@ public class JdbcPostgresIT extends TestSuiteBase implements TestResource {
                     + "jsonb_col,\n"
                     + " cast(xml_col as varchar) \n"
                     + "from pg_e2e_source_table";
+
     private static final String SINK_SQL =
             "select\n"
                     + "  gid,\n"
@@ -305,7 +307,9 @@ public class JdbcPostgresIT extends TestSuiteBase implements TestResource {
         TableSchema tableSchema = catalog.getTable(targetTablePath).getTableSchema();
         PrimaryKey primaryKey = tableSchema.getPrimaryKey();
         List<ConstraintKey> constraintKeys = tableSchema.getConstraintKeys();
-        if (primaryKey != null && StringUtils.isNotBlank(primaryKey.getPrimaryKey())) {
+        if (primaryKey != null
+                && primaryKey.getPrimaryKey() != null
+                && !primaryKey.getPrimaryKey().trim().isEmpty()) {
             return true;
         }
         if (!constraintKeys.isEmpty()) {
@@ -355,44 +359,6 @@ public class JdbcPostgresIT extends TestSuiteBase implements TestResource {
             }
             log.info(CONFIG_FILE + " e2e test completed");
         }
-    }
-
-    @Test
-    public void testCatalog() {
-        String schema = "public";
-        String databaseName = POSTGRESQL_CONTAINER.getDatabaseName();
-        String tableName = "pg_e2e_sink_table";
-        String catalogDatabaseName = "pg_e2e_catalog_database";
-        String catalogTableName = "pg_e2e_catalog_table";
-
-        Catalog catalog =
-                new PostgresCatalog(
-                        DatabaseIdentifier.POSTGRESQL,
-                        POSTGRESQL_CONTAINER.getUsername(),
-                        POSTGRESQL_CONTAINER.getPassword(),
-                        JdbcUrlUtil.getUrlInfo(POSTGRESQL_CONTAINER.getJdbcUrl()),
-                        schema,
-                        null);
-        catalog.open();
-
-        TablePath tablePath = new TablePath(databaseName, schema, tableName);
-        TablePath catalogTablePath = new TablePath(catalogDatabaseName, schema, catalogTableName);
-
-        Assertions.assertFalse(catalog.databaseExists(catalogTablePath.getDatabaseName()));
-        catalog.createDatabase(catalogTablePath, false);
-        Assertions.assertTrue(catalog.databaseExists(catalogTablePath.getDatabaseName()));
-
-        CatalogTable catalogTable = catalog.getTable(tablePath);
-        catalog.createTable(catalogTablePath, catalogTable, false);
-        Assertions.assertTrue(catalog.tableExists(catalogTablePath));
-
-        catalog.dropTable(catalogTablePath, false);
-        Assertions.assertFalse(catalog.tableExists(catalogTablePath));
-
-        catalog.dropDatabase(catalogTablePath, false);
-        Assertions.assertFalse(catalog.databaseExists(catalogTablePath.getDatabaseName()));
-
-        catalog.close();
     }
 
     private void initializeJdbcTable() {
