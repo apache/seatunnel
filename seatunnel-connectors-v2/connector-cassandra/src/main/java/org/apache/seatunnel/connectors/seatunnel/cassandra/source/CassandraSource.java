@@ -77,12 +77,22 @@ public class CassandraSource extends AbstractSingleSplitSource<SeaTunnelRow>
                 for (Map<String, Object> tableConfigMap : tableConfigMaps) {
                     ReadonlyConfig tableConfig = ReadonlyConfig.fromMap(tableConfigMap);
                     String cql = tableConfig.get(CassandraSourceOptions.CQL);
-                    configs.add(
+                    CassandraTableConfig built =
                             buildTableConfig(
                                     cql,
                                     session,
                                     params.getKeyspace(),
-                                    params.getConsistencyLevel()));
+                                    params.getConsistencyLevel());
+                    String tableId = built.getTableId();
+                    boolean duplicate =
+                            configs.stream()
+                                    .anyMatch(c -> c.getTableId().equals(tableId));
+                    if (duplicate) {
+                        throw new CassandraConnectorException(
+                                CommonErrorCodeDeprecated.ILLEGAL_ARGUMENT,
+                                "Duplicate table found in tables_configs: " + tableId);
+                    }
+                    configs.add(built);
                 }
                 return configs;
             } else {

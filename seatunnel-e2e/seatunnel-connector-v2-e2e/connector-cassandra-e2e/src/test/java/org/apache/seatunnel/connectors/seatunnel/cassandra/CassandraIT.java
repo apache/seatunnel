@@ -481,7 +481,12 @@ public class CassandraIT extends TestSuiteBase implements TestResource {
         Config config = ConfigFactory.parseFile(file);
         assert config.hasPath(SOURCE_TABLE)
                 && config.hasPath(SINK_TABLE)
-                && config.hasPath(INSERT_CQL);
+                && config.hasPath(INSERT_CQL)
+                && config.hasPath(MT_SOURCE_TABLE_A)
+                && config.hasPath(MT_SOURCE_TABLE_B)
+                && config.hasPath(MT_SINK_TABLE)
+                && config.hasPath(MT_INSERT_A)
+                && config.hasPath(MT_INSERT_B);
         this.config = config;
     }
 
