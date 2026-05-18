@@ -21,12 +21,11 @@ Verifies that every new connector module is registered in ALL required configura
 files. A connector that misses even one of these registrations will be silently broken:
 not distributed, not discoverable by name, and not installable via install-plugin.sh.
 
-Registration points checked (all are ERRORS except labeler which is a WARNING):
+Registration points checked (all are ERRORS):
   1. seatunnel-connectors-v2/pom.xml              -- Maven module (required for compile/build)
   2. seatunnel-dist/pom.xml  <scope>provided>     -- Dist packaging (connectors/ directory)
   3. plugin-mapping.properties                    -- Runtime connector-name -> jar resolution
   4. config/plugin_config                         -- install-plugin.sh downloadable list
-  5. .github/workflows/labeler/label-scope-conf.yml -- PR auto-labeling (WARNING only)
 
 Modes of operation:
   --base-ref <ref>   CI diff mode: check only connectors newly added against <ref>.
@@ -234,26 +233,6 @@ def build_plugin_config_set(plugin_config_path):
     return names
 
 
-def is_in_labeler(artifact_id, labeler_content):
-    """
-    Return True if the connector is covered by the labeler config, either via
-    an exact entry (connector-xxx/**) or a parent-wildcard entry (connector-xxx-base/**
-    that covers sub-connectors, e.g. connector-cdc/** covers connector-cdc-mysql).
-    """
-    # Direct match
-    if f"seatunnel-connectors-v2/{artifact_id}/**" in labeler_content:
-        return True
-    # Parent wildcard match: connector-cdc-mysql is covered by connector-cdc/**
-    # Split: connector-foo-bar-baz → try connector-foo/**, connector-foo-bar/**
-    parts = artifact_id.split("-")
-    # parts[0] is always 'connector'
-    for end in range(2, len(parts)):
-        parent = "-".join(parts[:end])
-        if f"seatunnel-connectors-v2/{parent}/**" in labeler_content:
-            return True
-    return False
-
-
 # ---------------------------------------------------------------------------
 # Main
 # ---------------------------------------------------------------------------
@@ -283,9 +262,6 @@ def main():
     dist_pom = os.path.join(repo_root, "seatunnel-dist", "pom.xml")
     plugin_mapping = os.path.join(repo_root, "plugin-mapping.properties")
     plugin_config = os.path.join(repo_root, "config", "plugin_config")
-    labeler_yml = os.path.join(
-        repo_root, ".github", "workflows", "labeler", "label-scope-conf.yml"
-    )
 
     # --- Validate required files exist ---
     for path, label in [
@@ -293,7 +269,6 @@ def main():
         (dist_pom, "seatunnel-dist/pom.xml"),
         (plugin_mapping, "plugin-mapping.properties"),
         (plugin_config, "config/plugin_config"),
-        (labeler_yml, ".github/workflows/labeler/label-scope-conf.yml"),
     ]:
         if not os.path.exists(path):
             print(f"ERROR: Required file not found: {path}")
@@ -336,18 +311,12 @@ def main():
     dist_registered = build_dist_registered(dist_pom)
     pm_jars = build_plugin_mapping_jars(plugin_mapping)
     pc_names = build_plugin_config_set(plugin_config)
-    with open(labeler_yml, "r", encoding="utf-8") as f:
-        labeler_content = f.read()
 
     # --- Check each connector ---
-    # errors: missing from critical registration points (causes broken behavior)
-    # warnings: missing from advisory registration points (causes inconvenience)
     errors = {}   # {connector: [missing_locations]}
-    warnings = {}  # {connector: [missing_locations]}
 
     for artifact_id, connector_dir in sorted(connectors_to_check.items()):
         connector_errors = []
-        connector_warnings = []
 
         # Check 1: parent pom.xml module declaration
         # Each connector must be declared as <module> in its parent directory's pom.xml.
@@ -384,27 +353,10 @@ def main():
                 "install-plugin.sh cannot download this connector)"
             )
 
-        # Check 5: labeler config (WARNING only -- does not affect functionality)
-        if not is_in_labeler(artifact_id, labeler_content):
-            connector_warnings.append(
-                ".github/workflows/labeler/label-scope-conf.yml "
-                "(missing label rule; PRs touching this connector will not be auto-labeled)"
-            )
-
         if connector_errors:
             errors[artifact_id] = connector_errors
-        if connector_warnings:
-            warnings[artifact_id] = connector_warnings
 
     # --- Print results ---
-    if warnings:
-        print("WARNINGS (non-blocking -- does not affect connector functionality):")
-        for connector, locs in sorted(warnings.items()):
-            print(f"  {connector}:")
-            for loc in locs:
-                print(f"    - {loc}")
-        print()
-
     if not errors:
         mode_desc = "newly added" if diff_mode else "all"
         print(
