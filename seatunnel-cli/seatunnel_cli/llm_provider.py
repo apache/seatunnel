@@ -36,6 +36,40 @@ from typing import Generator
 
 logger = logging.getLogger(__name__)
 
+
+def _env_bool(name: str, default: bool) -> bool:
+    """Read a boolean environment flag."""
+    value = os.environ.get(name)
+    if value is None:
+        return default
+    return value.strip().lower() not in {"0", "false", "no", "off"}
+
+
+def format_llm_error(error: Exception) -> str:
+    """Return an actionable error message for common provider protocol issues."""
+    message = str(error)
+    lower = message.lower()
+    if "reasoning_content" in lower and "passed back" in lower:
+        return (
+            f"{message}\n\n"
+            "Hint: This looks like an OpenAI-compatible reasoning model "
+            "requiring reasoning_content replay after a tool call. SeaTunnel CLI "
+            "preserves and sends reasoning_content by default for the OpenAI "
+            "provider. If this session was created before the fix, start a fresh "
+            "session with /new. Also make sure OPENAI_ECHO_REASONING_CONTENT is "
+            "not set to false."
+        )
+    if "thinking" in lower and "signature" in lower:
+        return (
+            f"{message}\n\n"
+            "Hint: This looks like a Claude thinking blocks replay issue. "
+            "SeaTunnel CLI preserves Anthropic thinking/signature blocks and "
+            "Bedrock reasoningContent blocks in assistant history. If this "
+            "session was created before the fix, start a fresh session with /new."
+        )
+    return message
+
+
 # ─── Common internal message format ───
 # We reuse the Bedrock Converse API message shape as our internal format:
 #
@@ -48,6 +82,11 @@ logger = logging.getLogger(__name__)
 #       "output": {"message": {"role": "assistant", "content": [...]}},
 #       "stopReason": "end_turn" | "tool_use",
 #   }
+#
+# Provider-owned reasoning state is preserved as opaque replay data:
+#   {"reasoningContent": "..."}                         # OpenAI-compatible
+#   {"reasoningContent": {"reasoningText": {...}}}      # Bedrock Converse
+#   {"anthropicThinking": {"thinking": "...", ...}}     # Anthropic Messages
 #
 # Tools follow the Bedrock Converse toolSpec shape:
 #   {"toolSpec": {"name": "...", "description": "...", "inputSchema": {"json": {...}}}}
@@ -130,17 +169,112 @@ class LLMProvider(abc.ABC):
         """Reconstruct a full internal-format response from collected stream events."""
         content: list[dict] = []
         current_text = ""
+        current_reasoning = ""
+        current_anthropic_thinking: dict | None = None
+        current_bedrock_reasoning: dict | None = None
         current_tool: dict | None = None
         stop_reason = "end_turn"
+
+        def flush_text() -> None:
+            nonlocal current_text
+            if current_text:
+                content.append({"text": current_text})
+                current_text = ""
+
+        def flush_reasoning() -> None:
+            nonlocal current_reasoning
+            if current_reasoning:
+                content.append({"reasoningContent": current_reasoning})
+                current_reasoning = ""
+
+        def flush_anthropic_thinking() -> None:
+            nonlocal current_anthropic_thinking
+            if current_anthropic_thinking:
+                block = {
+                    "thinking": current_anthropic_thinking.get("thinking", ""),
+                }
+                signature = current_anthropic_thinking.get("signature", "")
+                if signature:
+                    block["signature"] = signature
+                if block["thinking"] or signature:
+                    content.append({"anthropicThinking": block})
+                current_anthropic_thinking = None
+
+        def flush_bedrock_reasoning() -> None:
+            nonlocal current_bedrock_reasoning
+            if current_bedrock_reasoning:
+                reasoning_text = current_bedrock_reasoning.get("reasoningText")
+                if isinstance(reasoning_text, dict) and not reasoning_text.get("signature"):
+                    reasoning_text.pop("signature", None)
+                content.append({"reasoningContent": current_bedrock_reasoning})
+                current_bedrock_reasoning = None
+
+        def flush_model_state() -> None:
+            flush_reasoning()
+            flush_anthropic_thinking()
+            flush_bedrock_reasoning()
 
         for event in events:
             etype = event.get("type", "")
             if etype == "text_delta":
+                flush_model_state()
                 current_text += event["text"]
+            elif etype == "reasoning_delta":
+                flush_text()
+                flush_anthropic_thinking()
+                flush_bedrock_reasoning()
+                current_reasoning += event["text"]
+            elif etype == "thinking_start":
+                flush_text()
+                flush_reasoning()
+                flush_bedrock_reasoning()
+                flush_anthropic_thinking()
+                current_anthropic_thinking = {
+                    "thinking": event.get("thinking", ""),
+                    "signature": event.get("signature", ""),
+                }
+            elif etype == "thinking_delta":
+                flush_text()
+                flush_reasoning()
+                flush_bedrock_reasoning()
+                if current_anthropic_thinking is None:
+                    current_anthropic_thinking = {"thinking": "", "signature": ""}
+                current_anthropic_thinking["thinking"] += event.get("text", "")
+            elif etype == "signature_delta":
+                if current_anthropic_thinking is None:
+                    current_anthropic_thinking = {"thinking": "", "signature": ""}
+                current_anthropic_thinking["signature"] += event.get("signature", "")
+            elif etype == "thinking_stop":
+                flush_anthropic_thinking()
+            elif etype == "redacted_thinking":
+                flush_text()
+                flush_model_state()
+                content.append({
+                    "anthropicRedactedThinking": {"data": event.get("data", "")}
+                })
+            elif etype == "bedrock_reasoning_delta":
+                flush_text()
+                flush_reasoning()
+                flush_anthropic_thinking()
+                redacted = event.get("redacted_content")
+                if redacted is not None:
+                    flush_bedrock_reasoning()
+                    content.append({"reasoningContent": {"redactedContent": redacted}})
+                else:
+                    if (
+                        current_bedrock_reasoning is None
+                        or "reasoningText" not in current_bedrock_reasoning
+                    ):
+                        current_bedrock_reasoning = {
+                            "reasoningText": {"text": "", "signature": ""}
+                        }
+                    reasoning_text = current_bedrock_reasoning["reasoningText"]
+                    reasoning_text["text"] += event.get("text", "")
+                    if event.get("signature"):
+                        reasoning_text["signature"] += event["signature"]
             elif etype == "tool_start":
-                if current_text:
-                    content.append({"text": current_text})
-                    current_text = ""
+                flush_text()
+                flush_model_state()
                 current_tool = {
                     "toolUseId": event["tool_use_id"],
                     "name": event["name"],
@@ -166,8 +300,8 @@ class LLMProvider(abc.ABC):
             elif etype == "message_stop":
                 stop_reason = event.get("stop_reason", "end_turn")
 
-        if current_text:
-            content.append({"text": current_text})
+        flush_text()
+        flush_model_state()
 
         return {
             "output": {"message": {"role": "assistant", "content": content}},
@@ -263,7 +397,21 @@ class BedrockProvider(LLMProvider):
                     yield {"type": "tool_start", "tool_use_id": current_tool_id, "name": tu.get("name", "")}
             elif "contentBlockDelta" in event:
                 delta = event["contentBlockDelta"].get("delta", {})
-                if "text" in delta:
+                if "reasoningContent" in delta:
+                    rc = delta["reasoningContent"]
+                    reasoning_text = rc.get("reasoningText", {})
+                    if reasoning_text:
+                        yield {
+                            "type": "bedrock_reasoning_delta",
+                            "text": reasoning_text.get("text", ""),
+                            "signature": reasoning_text.get("signature", ""),
+                        }
+                    if "redactedContent" in rc:
+                        yield {
+                            "type": "bedrock_reasoning_delta",
+                            "redacted_content": rc["redactedContent"],
+                        }
+                elif "text" in delta:
                     yield {"type": "text_delta", "text": delta["text"]}
                 elif "toolUse" in delta:
                     yield {"type": "tool_input_delta", "tool_use_id": current_tool_id or "", "delta": delta["toolUse"].get("input", "")}
@@ -357,14 +505,29 @@ class AnthropicProvider(LLMProvider):
             kwargs["tools"] = self._to_anthropic_tools(tools)
 
         current_tool_id = None
+        block_types: dict[int, str] = {}
         with self._client.messages.stream(**kwargs) as stream:
             for event in stream:
                 etype = getattr(event, "type", "")
                 if etype == "content_block_start":
+                    index = getattr(event, "index", 0)
                     block = getattr(event, "content_block", None)
-                    if block and getattr(block, "type", "") == "tool_use":
+                    block_type = getattr(block, "type", "") if block else ""
+                    block_types[index] = block_type
+                    if block_type == "tool_use":
                         current_tool_id = getattr(block, "id", "")
                         yield {"type": "tool_start", "tool_use_id": current_tool_id, "name": getattr(block, "name", "")}
+                    elif block_type == "thinking":
+                        yield {
+                            "type": "thinking_start",
+                            "thinking": getattr(block, "thinking", ""),
+                            "signature": getattr(block, "signature", ""),
+                        }
+                    elif block_type == "redacted_thinking":
+                        yield {
+                            "type": "redacted_thinking",
+                            "data": getattr(block, "data", ""),
+                        }
                 elif etype == "content_block_delta":
                     delta = getattr(event, "delta", None)
                     if delta:
@@ -373,10 +536,18 @@ class AnthropicProvider(LLMProvider):
                             yield {"type": "text_delta", "text": getattr(delta, "text", "")}
                         elif dt == "input_json_delta":
                             yield {"type": "tool_input_delta", "tool_use_id": current_tool_id or "", "delta": getattr(delta, "partial_json", "")}
+                        elif dt == "thinking_delta":
+                            yield {"type": "thinking_delta", "text": getattr(delta, "thinking", "")}
+                        elif dt == "signature_delta":
+                            yield {"type": "signature_delta", "signature": getattr(delta, "signature", "")}
                 elif etype == "content_block_stop":
-                    if current_tool_id:
+                    index = getattr(event, "index", 0)
+                    block_type = block_types.pop(index, "")
+                    if block_type == "tool_use" and current_tool_id:
                         yield {"type": "tool_stop", "tool_use_id": current_tool_id}
                         current_tool_id = None
+                    elif block_type == "thinking":
+                        yield {"type": "thinking_stop"}
                 elif etype == "message_stop":
                     msg = getattr(event, "message", None)
                     sr = getattr(msg, "stop_reason", "end_turn") if msg else "end_turn"
@@ -393,6 +564,19 @@ class AnthropicProvider(LLMProvider):
             for block in content:
                 if "text" in block:
                     anthropic_content.append({"type": "text", "text": block["text"]})
+                elif "anthropicThinking" in block:
+                    thinking = dict(block["anthropicThinking"])
+                    anthropic_content.append({
+                        "type": "thinking",
+                        "thinking": thinking.get("thinking", ""),
+                        "signature": thinking.get("signature", ""),
+                    })
+                elif "anthropicRedactedThinking" in block:
+                    redacted = dict(block["anthropicRedactedThinking"])
+                    anthropic_content.append({
+                        "type": "redacted_thinking",
+                        "data": redacted.get("data", ""),
+                    })
                 elif "toolUse" in block:
                     tu = block["toolUse"]
                     anthropic_content.append({
@@ -431,7 +615,20 @@ class AnthropicProvider(LLMProvider):
         """Convert Anthropic API response to internal format."""
         content = []
         for block in response.content:
-            if block.type == "text":
+            if block.type == "thinking":
+                content.append({
+                    "anthropicThinking": {
+                        "thinking": getattr(block, "thinking", ""),
+                        "signature": getattr(block, "signature", ""),
+                    }
+                })
+            elif block.type == "redacted_thinking":
+                content.append({
+                    "anthropicRedactedThinking": {
+                        "data": getattr(block, "data", ""),
+                    }
+                })
+            elif block.type == "text":
                 content.append({"text": block.text})
             elif block.type == "tool_use":
                 content.append({
@@ -478,6 +675,7 @@ class OpenAIProvider(LLMProvider):
         self._client = openai.OpenAI(**client_kwargs)
         self._model_id = os.environ.get("OPENAI_MODEL", "gpt-4o")
         self._fast_model_id = os.environ.get("OPENAI_SMALL_FAST_MODEL", "gpt-4o-mini")
+        self._echo_reasoning_content = _env_bool("OPENAI_ECHO_REASONING_CONTENT", True)
 
     @property
     def provider_name(self) -> str:
@@ -543,6 +741,10 @@ class OpenAIProvider(LLMProvider):
             choice = chunk.choices[0]
             delta = choice.delta
 
+            reasoning_content = self._get_openai_field(delta, "reasoning_content")
+            if reasoning_content:
+                yield {"type": "reasoning_delta", "text": reasoning_content}
+
             if delta and delta.content:
                 yield {"type": "text_delta", "text": delta.content}
 
@@ -564,6 +766,7 @@ class OpenAIProvider(LLMProvider):
     def _to_openai_messages(self, messages: list[dict], system: str = "") -> list[dict]:
         """Convert internal message format to OpenAI API format."""
         result = []
+        echo_reasoning = getattr(self, "_echo_reasoning_content", True)
         if system:
             result.append({"role": "system", "content": system})
 
@@ -591,10 +794,13 @@ class OpenAIProvider(LLMProvider):
 
             if has_tool_use:
                 text_parts = []
+                reasoning_parts = []
                 tool_calls = []
                 for block in content:
                     if "text" in block:
                         text_parts.append(block["text"])
+                    elif "reasoningContent" in block and isinstance(block["reasoningContent"], str):
+                        reasoning_parts.append(block["reasoningContent"])
                     elif "toolUse" in block:
                         tu = block["toolUse"]
                         tool_calls.append({
@@ -608,6 +814,8 @@ class OpenAIProvider(LLMProvider):
                 msg_dict = {"role": "assistant"}
                 if text_parts:
                     msg_dict["content"] = "\n".join(text_parts)
+                if echo_reasoning and reasoning_parts:
+                    msg_dict["reasoning_content"] = "\n".join(reasoning_parts)
                 if tool_calls:
                     msg_dict["tool_calls"] = tool_calls
                 result.append(msg_dict)
@@ -615,8 +823,21 @@ class OpenAIProvider(LLMProvider):
 
             # Regular text message
             text_parts = [block["text"] for block in content if "text" in block]
+            reasoning_parts = [
+                block["reasoningContent"]
+                for block in content
+                if "reasoningContent" in block and isinstance(block["reasoningContent"], str)
+            ]
             if text_parts:
-                result.append({"role": role, "content": "\n".join(text_parts)})
+                msg_dict = {"role": role, "content": "\n".join(text_parts)}
+                if echo_reasoning and role == "assistant" and reasoning_parts:
+                    msg_dict["reasoning_content"] = "\n".join(reasoning_parts)
+                result.append(msg_dict)
+            elif echo_reasoning and role == "assistant" and reasoning_parts:
+                result.append({
+                    "role": role,
+                    "reasoning_content": "\n".join(reasoning_parts),
+                })
 
         return result
 
@@ -643,6 +864,10 @@ class OpenAIProvider(LLMProvider):
         message = choice.message
         content = []
 
+        reasoning_content = OpenAIProvider._get_openai_field(message, "reasoning_content")
+        if reasoning_content:
+            content.append({"reasoningContent": reasoning_content})
+
         if message.content:
             content.append({"text": message.content})
 
@@ -664,6 +889,24 @@ class OpenAIProvider(LLMProvider):
             "output": {"message": {"role": "assistant", "content": content}},
             "stopReason": stop_reason,
         }
+
+    @staticmethod
+    def _get_openai_field(obj, field_name: str):
+        """Read SDK fields, including provider-specific extra fields."""
+        if obj is None:
+            return None
+        if isinstance(obj, dict):
+            return obj.get(field_name)
+
+        value = getattr(obj, field_name, None)
+        if value is not None:
+            return value
+
+        model_extra = getattr(obj, "model_extra", None)
+        if isinstance(model_extra, dict):
+            return model_extra.get(field_name)
+
+        return None
 
 
 # ─── Config file ───

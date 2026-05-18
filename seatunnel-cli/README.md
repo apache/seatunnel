@@ -101,6 +101,9 @@ export ANTHROPIC_SMALL_FAST_MODEL='us.anthropic.claude-haiku-4-5-20251001-v1:0'
 # export AWS_SECRET_ACCESS_KEY=...
 ```
 
+The Bedrock provider preserves Claude `reasoningContent` blocks in streamed
+Converse responses when Bedrock returns them.
+
 #### Option B: Anthropic API
 
 ```bash
@@ -111,6 +114,9 @@ export ANTHROPIC_API_KEY=sk-ant-...
 export ANTHROPIC_MODEL=claude-sonnet-4-20250514
 export ANTHROPIC_SMALL_FAST_MODEL=claude-haiku-4-5-20251001
 ```
+
+The Anthropic provider preserves Claude thinking blocks (`thinking`, `signature`, and
+`redacted_thinking`) in assistant history when the API returns them.
 
 #### Option C: OpenAI API
 
@@ -124,6 +130,9 @@ export OPENAI_SMALL_FAST_MODEL=gpt-4o-mini
 
 # Custom base URL for compatible APIs (Azure OpenAI, local models, etc.)
 # export OPENAI_BASE_URL=https://your-endpoint.openai.azure.com/
+
+# Keep enabled for compatible reasoning models that require reasoning_content replay
+# export OPENAI_ECHO_REASONING_CONTENT=true
 ```
 
 ### SEATUNNEL_HOME
@@ -173,6 +182,7 @@ When the engine is running, the CLI operates in **cluster mode** with live conne
 | `ANTHROPIC_API_KEY` | Anthropic | -- | Anthropic API key |
 | `OPENAI_API_KEY` | OpenAI | -- | OpenAI API key |
 | `OPENAI_BASE_URL` | No | -- | Custom endpoint for OpenAI-compatible APIs |
+| `OPENAI_ECHO_REASONING_CONTENT` | No | `true` | Preserve and replay `reasoning_content` for OpenAI-compatible reasoning models such as DeepSeek or GLM thinking mode |
 | `ANTHROPIC_MODEL` | No | Provider default | Override primary model ID |
 | `ANTHROPIC_SMALL_FAST_MODEL` | No | Provider default | Override fast model ID |
 | `OPENAI_MODEL` | No | `gpt-4o` | Primary model for OpenAI provider |
