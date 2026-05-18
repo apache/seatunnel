@@ -19,6 +19,7 @@ package org.apache.seatunnel.connectors.seatunnel.typesense.sink;
 
 import org.apache.seatunnel.api.configuration.ReadonlyConfig;
 import org.apache.seatunnel.api.configuration.util.OptionRule;
+import org.apache.seatunnel.api.options.SinkConnectorCommonOptions;
 import org.apache.seatunnel.api.table.catalog.CatalogTable;
 import org.apache.seatunnel.api.table.catalog.TableIdentifier;
 import org.apache.seatunnel.api.table.connector.TableSink;
@@ -50,6 +51,7 @@ public class TypesenseSinkFactory implements TableSinkFactory {
                 .optional(TypesenseSinkOptions.KEY_DELIMITER)
                 .optional(TypesenseSinkOptions.MAX_BATCH_SIZE)
                 .optional(TypesenseSinkOptions.MAX_RETRY_COUNT)
+                .optional(SinkConnectorCommonOptions.MULTI_TABLE_SINK_REPLICA)
                 .build();
     }
 
