@@ -85,8 +85,7 @@ public class CassandraSource extends AbstractSingleSplitSource<SeaTunnelRow>
                                     params.getConsistencyLevel());
                     String tableId = built.getTableId();
                     boolean duplicate =
-                            configs.stream()
-                                    .anyMatch(c -> c.getTableId().equals(tableId));
+                            configs.stream().anyMatch(c -> c.getTableId().equals(tableId));
                     if (duplicate) {
                         throw new CassandraConnectorException(
                                 CommonErrorCodeDeprecated.ILLEGAL_ARGUMENT,
