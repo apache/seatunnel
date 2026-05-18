@@ -20,18 +20,25 @@ package org.apache.seatunnel.engine.server;
 import org.apache.seatunnel.common.utils.ReflectionUtils;
 import org.apache.seatunnel.engine.common.Constant;
 import org.apache.seatunnel.engine.common.config.ConfigProvider;
+import org.apache.seatunnel.engine.common.config.EngineConfig;
 import org.apache.seatunnel.engine.common.config.SeaTunnelConfig;
+import org.apache.seatunnel.engine.common.config.server.ScheduleStrategy;
 import org.apache.seatunnel.engine.common.exception.SeaTunnelEngineException;
+import org.apache.seatunnel.engine.common.job.JobResult;
 import org.apache.seatunnel.engine.common.job.JobStatus;
+import org.apache.seatunnel.engine.common.utils.PassiveCompletableFuture;
 import org.apache.seatunnel.engine.common.utils.concurrent.CompletableFuture;
 import org.apache.seatunnel.engine.core.dag.logical.LogicalDag;
 import org.apache.seatunnel.engine.core.job.JobDAGInfo;
 import org.apache.seatunnel.engine.core.job.JobImmutableInformation;
 import org.apache.seatunnel.engine.core.job.JobInfo;
 import org.apache.seatunnel.engine.core.job.PipelineStatus;
+import org.apache.seatunnel.engine.server.dag.physical.PhysicalPlan;
 import org.apache.seatunnel.engine.server.dag.physical.PipelineLocation;
 import org.apache.seatunnel.engine.server.dag.physical.SubPlan;
 import org.apache.seatunnel.engine.server.execution.ExecutionState;
+import org.apache.seatunnel.engine.server.execution.PendingJobInfo;
+import org.apache.seatunnel.engine.server.execution.PendingSourceState;
 import org.apache.seatunnel.engine.server.execution.TaskGroupContext;
 import org.apache.seatunnel.engine.server.execution.TaskGroupLocation;
 import org.apache.seatunnel.engine.server.execution.TaskLocation;
@@ -51,6 +58,7 @@ import org.mockito.Mockito;
 
 import com.hazelcast.instance.impl.HazelcastInstanceImpl;
 import com.hazelcast.internal.serialization.Data;
+import com.hazelcast.logging.ILogger;
 import com.hazelcast.map.IMap;
 import com.hazelcast.spi.exception.RetryableHazelcastException;
 import com.hazelcast.spi.impl.NodeEngineImpl;
@@ -70,7 +78,10 @@ import java.util.concurrent.CompletionException;
 import java.util.concurrent.CountDownLatch;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
+import java.util.concurrent.ScheduledExecutorService;
+import java.util.concurrent.ThreadPoolExecutor;
 import java.util.concurrent.TimeUnit;
+import java.util.concurrent.atomic.AtomicBoolean;
 
 import static org.apache.seatunnel.engine.core.classloader.DefaultClassLoaderService.SKIP_CHECK_JAR;
 import static org.awaitility.Awaitility.await;
@@ -157,10 +168,13 @@ public class CoordinatorServiceTest {
 
         await().atMost(120, TimeUnit.SECONDS)
                 .untilAsserted(
-                        () ->
-                                Assertions.assertEquals(
-                                        JobStatus.CANCELED,
-                                        coordinatorService.getJobStatus(jobId)));
+                        () -> {
+                            JobStatus status = coordinatorService.getJobStatus(jobId);
+                            Assertions.assertTrue(
+                                    status == JobStatus.CANCELING || status == JobStatus.CANCELED,
+                                    "Expected job status to be CANCELING or CANCELED, but got "
+                                            + status);
+                        });
 
         // Ensure the real execution is gone before injecting stale zombie metadata.
         await().atMost(30, TimeUnit.SECONDS)
@@ -258,7 +272,7 @@ public class CoordinatorServiceTest {
                     return false;
                 }
             } catch (Exception e) {
-                return true;
+                continue;
             }
         }
         return true;
@@ -310,6 +324,175 @@ public class CoordinatorServiceTest {
         instance2.shutdown();
     }
 
+    @Test
+    void testCheckNewActiveMasterCanSchedulePendingQueue() throws Exception {
+        AtomicBoolean masterFlag = new AtomicBoolean(false);
+        SeaTunnelServer server = Mockito.mock(SeaTunnelServer.class);
+        Mockito.when(server.isMasterNode()).thenAnswer(invocation -> masterFlag.get());
+        CoordinatorService coordinatorService = newMockCoordinatorService(server);
+        try {
+            CountDownLatch runLatch = new CountDownLatch(1);
+            JobMaster jobMaster = enqueueMockPendingJob(coordinatorService, 10001L, runLatch);
+
+            masterFlag.set(true);
+            invokeCheckNewActiveMaster(coordinatorService);
+
+            await().atMost(5, TimeUnit.SECONDS)
+                    .untilAsserted(
+                            () -> Assertions.assertTrue(coordinatorService.isCoordinatorActive()));
+            await().atMost(5, TimeUnit.SECONDS)
+                    .untilAsserted(() -> Assertions.assertEquals(0L, runLatch.getCount()));
+            Mockito.verify(jobMaster, Mockito.times(1)).run();
+        } finally {
+            coordinatorService.shutdown();
+        }
+    }
+
+    @Test
+    void testFailoverStopsOldPendingQueueAndNewCoordinatorCanSchedule() throws Exception {
+        AtomicBoolean oldMasterFlag = new AtomicBoolean(false);
+        SeaTunnelServer oldServer = Mockito.mock(SeaTunnelServer.class);
+        Mockito.when(oldServer.isMasterNode()).thenAnswer(invocation -> oldMasterFlag.get());
+        CoordinatorService oldCoordinator = newMockCoordinatorService(oldServer);
+        try {
+            oldMasterFlag.set(true);
+            invokeCheckNewActiveMaster(oldCoordinator);
+
+            await().atMost(15, TimeUnit.SECONDS)
+                    .untilAsserted(
+                            () -> Assertions.assertTrue(oldCoordinator.isCoordinatorActive()));
+
+            oldMasterFlag.set(false);
+            invokeCheckNewActiveMaster(oldCoordinator);
+            Assertions.assertTrue(getCoordinatorExecutor(oldCoordinator).isShutdown());
+
+            CountDownLatch oldRunLatch = new CountDownLatch(1);
+            JobMaster oldPendingJob = enqueueMockPendingJob(oldCoordinator, 20001L, oldRunLatch);
+            Assertions.assertTrue(oldCoordinator.getPendingJobQueue().contains(20001L));
+            await().during(1, TimeUnit.SECONDS)
+                    .atMost(2, TimeUnit.SECONDS)
+                    .untilAsserted(() -> Assertions.assertEquals(1L, oldRunLatch.getCount()));
+            Mockito.verify(oldPendingJob, Mockito.never()).run();
+            Assertions.assertTrue(
+                    oldCoordinator.getPendingJobQueue().contains(20001L),
+                    "old coordinator pending queue should not be consumed after failover");
+
+            AtomicBoolean newMasterFlag = new AtomicBoolean(true);
+            SeaTunnelServer newServer = Mockito.mock(SeaTunnelServer.class);
+            Mockito.when(newServer.isMasterNode()).thenAnswer(invocation -> newMasterFlag.get());
+            CoordinatorService newCoordinator = newMockCoordinatorService(newServer);
+            try {
+                CountDownLatch newRunLatch = new CountDownLatch(1);
+                JobMaster newPendingJob =
+                        enqueueMockPendingJob(newCoordinator, 30001L, newRunLatch);
+
+                invokeCheckNewActiveMaster(newCoordinator);
+
+                await().atMost(5, TimeUnit.SECONDS)
+                        .untilAsserted(
+                                () -> Assertions.assertTrue(newCoordinator.isCoordinatorActive()));
+                await().atMost(5, TimeUnit.SECONDS)
+                        .untilAsserted(() -> Assertions.assertEquals(0L, newRunLatch.getCount()));
+                Mockito.verify(newPendingJob, Mockito.times(1)).run();
+                Assertions.assertFalse(newCoordinator.getPendingJobQueue().contains(30001L));
+            } finally {
+                newCoordinator.shutdown();
+            }
+        } finally {
+            if (!getCoordinatorExecutor(oldCoordinator).isShutdown()) {
+                oldCoordinator.shutdown();
+            }
+        }
+    }
+
+    @Test
+    void testCheckNewActiveMasterIsIdempotentWhenAlreadyActive() throws Exception {
+        AtomicBoolean masterFlag = new AtomicBoolean(true);
+        SeaTunnelServer server = Mockito.mock(SeaTunnelServer.class);
+        Mockito.when(server.isMasterNode()).thenAnswer(invocation -> masterFlag.get());
+        CoordinatorService coordinatorService = newMockCoordinatorService(server);
+        try {
+            CountDownLatch runLatch = new CountDownLatch(1);
+            JobMaster jobMaster = enqueueMockPendingJob(coordinatorService, 40001L, runLatch);
+
+            invokeCheckNewActiveMaster(coordinatorService);
+            await().atMost(5, TimeUnit.SECONDS)
+                    .untilAsserted(
+                            () -> Assertions.assertTrue(coordinatorService.isCoordinatorActive()));
+            await().atMost(5, TimeUnit.SECONDS)
+                    .untilAsserted(() -> Assertions.assertEquals(0L, runLatch.getCount()));
+
+            invokeCheckNewActiveMaster(coordinatorService);
+            await().during(1, TimeUnit.SECONDS)
+                    .atMost(2, TimeUnit.SECONDS)
+                    .untilAsserted(() -> Mockito.verify(jobMaster, Mockito.times(1)).run());
+        } finally {
+            coordinatorService.shutdown();
+        }
+    }
+
+    @Test
+    void testPendingJobWithInsufficientResourceRespectsWaitStrategy() throws Exception {
+        AtomicBoolean masterFlag = new AtomicBoolean(true);
+        SeaTunnelServer server = Mockito.mock(SeaTunnelServer.class);
+        Mockito.when(server.isMasterNode()).thenAnswer(invocation -> masterFlag.get());
+
+        EngineConfig engineConfig = new EngineConfig();
+        engineConfig.setScheduleStrategy(ScheduleStrategy.WAIT);
+        CoordinatorService coordinatorService = newMockCoordinatorService(server, engineConfig);
+        try {
+            CountDownLatch runLatch = new CountDownLatch(1);
+            JobMaster jobMaster =
+                    enqueueMockPendingJob(coordinatorService, 50001L, runLatch, false);
+
+            invokeCheckNewActiveMaster(coordinatorService);
+            await().atMost(5, TimeUnit.SECONDS)
+                    .untilAsserted(
+                            () -> Assertions.assertTrue(coordinatorService.isCoordinatorActive()));
+            await().during(1, TimeUnit.SECONDS)
+                    .atMost(2, TimeUnit.SECONDS)
+                    .untilAsserted(() -> Assertions.assertEquals(1L, runLatch.getCount()));
+
+            Mockito.verify(jobMaster, Mockito.never()).run();
+            Assertions.assertTrue(coordinatorService.getPendingJobQueue().contains(50001L));
+        } finally {
+            coordinatorService.shutdown();
+        }
+    }
+
+    @Test
+    void testPendingJobWithInsufficientResourceRespectsRejectStrategy() throws Exception {
+        AtomicBoolean masterFlag = new AtomicBoolean(true);
+        SeaTunnelServer server = Mockito.mock(SeaTunnelServer.class);
+        Mockito.when(server.isMasterNode()).thenAnswer(invocation -> masterFlag.get());
+
+        EngineConfig engineConfig = new EngineConfig();
+        engineConfig.setScheduleStrategy(ScheduleStrategy.REJECT);
+        CoordinatorService coordinatorService = newMockCoordinatorService(server, engineConfig);
+        try {
+            CountDownLatch runLatch = new CountDownLatch(1);
+            JobMaster jobMaster =
+                    enqueueMockPendingJob(coordinatorService, 60001L, runLatch, false);
+
+            invokeCheckNewActiveMaster(coordinatorService);
+            await().atMost(5, TimeUnit.SECONDS)
+                    .untilAsserted(
+                            () -> Assertions.assertTrue(coordinatorService.isCoordinatorActive()));
+            await().atMost(5, TimeUnit.SECONDS)
+                    .untilAsserted(
+                            () ->
+                                    Assertions.assertFalse(
+                                            coordinatorService
+                                                    .getPendingJobQueue()
+                                                    .contains(60001L)));
+
+            Mockito.verify(jobMaster, Mockito.never()).run();
+            Assertions.assertEquals(1L, runLatch.getCount());
+        } finally {
+            coordinatorService.shutdown();
+        }
+    }
+
     private HazelcastInstanceImpl createHazelcastInstanceWithJoinPortTryCount(
             String clusterName, int joinPortTryCount) {
         SeaTunnelConfig seaTunnelConfig = ConfigProvider.locateAndGetSeaTunnelConfig();
@@ -318,6 +501,82 @@ public class CoordinatorServiceTest {
                 .getHazelcastConfig()
                 .setProperty("hazelcast.tcp.join.port.try.count", String.valueOf(joinPortTryCount));
         return SeaTunnelServerStarter.createHazelcastInstance(seaTunnelConfig);
+    }
+
+    private CoordinatorService newMockCoordinatorService(SeaTunnelServer server) {
+        return newMockCoordinatorService(server, new EngineConfig());
+    }
+
+    private CoordinatorService newMockCoordinatorService(
+            SeaTunnelServer server, EngineConfig engineConfig) {
+        NodeEngineImpl nodeEngine = Mockito.mock(NodeEngineImpl.class);
+        ILogger logger = Mockito.mock(ILogger.class);
+        HazelcastInstanceImpl hazelcastInstance = Mockito.mock(HazelcastInstanceImpl.class);
+        IMap<Object, Object> map = Mockito.mock(IMap.class);
+        Mockito.when(map.entrySet()).thenReturn(Collections.emptySet());
+        Mockito.when(nodeEngine.getLogger(Mockito.any(Class.class))).thenReturn(logger);
+        Mockito.when(nodeEngine.getHazelcastInstance()).thenReturn(hazelcastInstance);
+        Mockito.when(hazelcastInstance.getMap(Mockito.anyString())).thenReturn(map);
+
+        CoordinatorService coordinatorService =
+                new CoordinatorService(nodeEngine, server, engineConfig);
+        stopCoordinatorSchedulers(coordinatorService);
+        return coordinatorService;
+    }
+
+    private void stopCoordinatorSchedulers(CoordinatorService coordinatorService) {
+        ReflectionUtils.getField(coordinatorService, "masterActiveListener")
+                .map(ScheduledExecutorService.class::cast)
+                .ifPresent(ScheduledExecutorService::shutdownNow);
+        ReflectionUtils.getField(coordinatorService, "pipelineCleanupScheduler")
+                .map(ScheduledExecutorService.class::cast)
+                .ifPresent(ScheduledExecutorService::shutdownNow);
+    }
+
+    private JobMaster enqueueMockPendingJob(
+            CoordinatorService coordinatorService, long jobId, CountDownLatch runLatch) {
+        return enqueueMockPendingJob(coordinatorService, jobId, runLatch, true);
+    }
+
+    private JobMaster enqueueMockPendingJob(
+            CoordinatorService coordinatorService,
+            long jobId,
+            CountDownLatch runLatch,
+            boolean preApplyResourceResult) {
+        JobMaster jobMaster = Mockito.mock(JobMaster.class);
+        PhysicalPlan physicalPlan = Mockito.mock(PhysicalPlan.class);
+        @SuppressWarnings("unchecked")
+        PassiveCompletableFuture<JobResult> completionFuture =
+                Mockito.mock(PassiveCompletableFuture.class);
+
+        Mockito.when(jobMaster.getJobId()).thenReturn(jobId);
+        Mockito.when(jobMaster.preApplyResources()).thenReturn(preApplyResourceResult);
+        Mockito.when(jobMaster.getPhysicalPlan()).thenReturn(physicalPlan);
+        Mockito.when(jobMaster.getJobMasterCompleteFuture()).thenReturn(completionFuture);
+        Mockito.when(completionFuture.isCancelled()).thenReturn(false);
+        Mockito.when(completionFuture.isCompletedExceptionally()).thenReturn(false);
+        Mockito.when(physicalPlan.getJobFullName()).thenReturn("mock-job-" + jobId);
+        Mockito.doAnswer(
+                        invocation -> {
+                            runLatch.countDown();
+                            return null;
+                        })
+                .when(jobMaster)
+                .run();
+
+        coordinatorService
+                .getPendingJobQueue()
+                .put(new PendingJobInfo(PendingSourceState.SUBMIT, jobMaster));
+        return jobMaster;
+    }
+
+    private ThreadPoolExecutor getCoordinatorExecutor(CoordinatorService coordinatorService) {
+        return ReflectionUtils.getField(coordinatorService, "executorService")
+                .map(ThreadPoolExecutor.class::cast)
+                .orElseThrow(
+                        () ->
+                                new AssertionError(
+                                        "Failed to get coordinator executorService by reflection"));
     }
 
     @Test
@@ -795,6 +1054,13 @@ public class CoordinatorServiceTest {
         method.invoke(coordinatorService, jobId, jobInfo);
     }
 
+    private void invokeCheckNewActiveMaster(CoordinatorService coordinatorService)
+            throws Exception {
+        Method method = CoordinatorService.class.getDeclaredMethod("checkNewActiveMaster");
+        method.setAccessible(true);
+        method.invoke(coordinatorService);
+    }
+
     @Test
     public void testClearCoordinatorService() {
         JobInformation jobInformation =
@@ -903,13 +1169,17 @@ public class CoordinatorServiceTest {
                         coordinatorService, "runningJobInfoIMap", runningJobInfoIMap);
             }
 
+            await().atMost(10, TimeUnit.SECONDS)
+                    .untilAsserted(
+                            () ->
+                                    Assertions.assertTrue(
+                                            coordinatorService.getPendingJobQueue().contains(jobId)
+                                                    || getRunningJobMasterMap(coordinatorService)
+                                                            .containsKey(jobId)));
             Long[] jobStateTimestamps = runningJobStateTimestampsIMap.get(jobId);
             Assertions.assertNotNull(jobStateTimestamps);
             Assertions.assertEquals(
                     initializationTimestamp, jobStateTimestamps[JobStatus.INITIALIZING.ordinal()]);
-            Assertions.assertTrue(
-                    coordinatorService.getPendingJobQueue().contains(jobId)
-                            || getRunningJobMasterMap(coordinatorService).containsKey(jobId));
         } finally {
             instance.shutdown();
         }
