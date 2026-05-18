@@ -22,6 +22,8 @@ import org.apache.seatunnel.api.table.type.SqlType;
 import org.apache.seatunnel.connectors.seatunnel.jdbc.internal.converter.AbstractJdbcRowConverter;
 import org.apache.seatunnel.connectors.seatunnel.jdbc.internal.dialect.DatabaseIdentifier;
 
+import lombok.extern.slf4j.Slf4j;
+
 import javax.annotation.Nullable;
 
 import java.sql.PreparedStatement;
@@ -29,7 +31,11 @@ import java.sql.SQLException;
 import java.sql.Timestamp;
 import java.time.OffsetDateTime;
 
+@Slf4j
 public class XuguJdbcRowConverter extends AbstractJdbcRowConverter {
+
+    private static final java.util.concurrent.atomic.AtomicBoolean TIMESTAMP_TZ_WARNED =
+            new java.util.concurrent.atomic.AtomicBoolean(false);
 
     @Override
     public String converterName() {
@@ -45,11 +51,16 @@ public class XuguJdbcRowConverter extends AbstractJdbcRowConverter {
             @Nullable String sourceType)
             throws SQLException {
         if (seaTunnelDataType.getSqlType().equals(SqlType.TIMESTAMP_TZ)) {
-            // Xugu JDBC driver has a batch execution bug when receiving OffsetDateTime or
-            // a timezone-formatted string for TIMESTAMP WITH TIME ZONE columns ([E19138]).
-            // Fallback: convert OffsetDateTime to LocalDateTime (dropping timezone offset)
-            // and write as a plain Timestamp. Timezone info is lost on the Xugu Sink side,
-            // but this avoids the driver crash.
+            // LOSSY PATH: Xugu JDBC driver crashes on batch writes of OffsetDateTime /
+            // timezone-formatted strings for TIMESTAMP WITH TIME ZONE columns (bug [E19138]).
+            // The timezone offset is intentionally dropped; only the wall-clock value is stored.
+            // This is a documented limitation — not silent data loss.
+            if (TIMESTAMP_TZ_WARNED.compareAndSet(false, true)) {
+                log.warn(
+                        "TIMESTAMP_TZ is written to Xugu as a plain TIMESTAMP: the timezone"
+                                + " offset is dropped and only the wall-clock value is stored."
+                                + " This is a known Xugu JDBC driver limitation (bug [E19138]).");
+            }
             OffsetDateTime odt = (OffsetDateTime) value;
             statement.setTimestamp(statementIndex, Timestamp.valueOf(odt.toLocalDateTime()));
         } else {

@@ -38,6 +38,8 @@ import java.nio.charset.StandardCharsets;
 import java.time.LocalDate;
 import java.time.LocalDateTime;
 import java.time.LocalTime;
+import java.time.OffsetDateTime;
+import java.time.format.DateTimeFormatter;
 import java.util.Arrays;
 import java.util.Map;
 import java.util.stream.Collectors;
@@ -176,11 +178,7 @@ public class TextSerializationSchema implements SerializationSchema {
             case TIMESTAMP:
                 return DateTimeUtils.toString((LocalDateTime) field, dateTimeFormatter);
             case TIMESTAMP_TZ:
-                return DateTimeUtils.toString(
-                        ((java.time.OffsetDateTime) field)
-                                .withOffsetSameInstant(java.time.ZoneOffset.UTC)
-                                .toLocalDateTime(),
-                        dateTimeFormatter);
+                return ((OffsetDateTime) field).format(DateTimeFormatter.ISO_OFFSET_DATE_TIME);
             case NULL:
                 return "";
             case BYTES:

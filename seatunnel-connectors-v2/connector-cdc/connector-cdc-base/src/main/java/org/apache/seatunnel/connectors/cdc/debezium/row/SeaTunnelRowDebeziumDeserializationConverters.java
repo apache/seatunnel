@@ -445,8 +445,9 @@ public class SeaTunnelRowDebeziumDeserializationConverters implements Serializab
      *   <li>{@link java.time.OffsetDateTime#parse} — strict ISO-8601 with numeric offset, e.g.
      *       {@code 2024-01-01T12:00:00+08:00}
      *   <li>{@link java.time.ZonedDateTime#parse} — IANA zone-region id, e.g. {@code
-     *       2024-01-01T12:00:00 Asia/Shanghai} (the space before the zone id is normalized to 'T'
-     *       first)
+     *       2024-01-01T12:00:00 Asia/Shanghai} or {@code 2024-01-01 12:00:00 Asia/Shanghai}. The
+     *       last space before an alphabetic token is treated as the zone-id boundary; any remaining
+     *       space in the datetime portion is replaced with 'T'.
      *   <li>{@link #FLEXIBLE_OFFSET_FORMATTER} — space date/time separator or short offset, e.g.
      *       {@code 2024-01-01 12:00:00+08:00} or {@code 2024-01-01T12:00:00+08}
      *   <li>{@link Instant#parse} — UTC epoch literal, e.g. {@code 2024-01-01T12:00:00Z}
@@ -466,23 +467,31 @@ public class SeaTunnelRowDebeziumDeserializationConverters implements Serializab
             // fall through
         }
 
-        // 2. IANA zone-region id: 2024-01-01T12:00:00 Asia/Shanghai
-        // Debezium separates the zone id with a space; replace the *last* space before a
-        // letter-only token so that the date/time part is unaffected.
+        // 2. IANA zone-region id: "2024-01-01T12:00:00 Asia/Shanghai"
+        //    or space-date/time variant: "2024-01-01 12:00:00 Asia/Shanghai"
+        // Use lastIndexOf to isolate the zone id from the datetime part so that
+        // any space between the date and time is not corrupted by a global replace.
         try {
-            String normalized = str.replaceFirst(" ([A-Za-z])", "[$1").replace(" ", "/") + "]";
-            // Build a formatter that accepts [...] as a zone-region
-            java.time.format.DateTimeFormatter zoneRegionFmt =
-                    new java.time.format.DateTimeFormatterBuilder()
-                            .append(java.time.format.DateTimeFormatter.ISO_LOCAL_DATE_TIME)
-                            .appendLiteral('[')
-                            .parseCaseSensitive()
-                            .appendZoneRegionId()
-                            .appendLiteral(']')
-                            .toFormatter();
-            return java.time.ZonedDateTime.parse(normalized, zoneRegionFmt)
-                    .toOffsetDateTime()
-                    .withOffsetSameInstant(java.time.ZoneOffset.UTC);
+            int zoneStart = str.lastIndexOf(' ');
+            if (zoneStart > 0
+                    && zoneStart + 1 < str.length()
+                    && Character.isLetter(str.charAt(zoneStart + 1))) {
+                // Replace any space between date and time in the datetime portion with 'T'.
+                String dateTimePart = str.substring(0, zoneStart).trim().replace(' ', 'T');
+                String zonePart = str.substring(zoneStart + 1);
+                String normalized = dateTimePart + "[" + zonePart + "]";
+                java.time.format.DateTimeFormatter zoneRegionFmt =
+                        new java.time.format.DateTimeFormatterBuilder()
+                                .append(java.time.format.DateTimeFormatter.ISO_LOCAL_DATE_TIME)
+                                .appendLiteral('[')
+                                .parseCaseSensitive()
+                                .appendZoneRegionId()
+                                .appendLiteral(']')
+                                .toFormatter();
+                return java.time.ZonedDateTime.parse(normalized, zoneRegionFmt)
+                        .toOffsetDateTime()
+                        .withOffsetSameInstant(java.time.ZoneOffset.UTC);
+            }
         } catch (Exception ignored) {
             // fall through
         }

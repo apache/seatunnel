@@ -474,7 +474,7 @@ public class RowConverter {
                             i, Timestamp.fromLocalDateTime(datetime), precision);
                     break;
                 case TIMESTAMP_TZ:
-                    DataField tzDataField = SchemaUtil.getDataField(sinkTotalFields, fieldName);
+                    DataField tzDataField = SchemaUtil.getDataField(sinkFields, fieldName);
                     int tzWritePrecision =
                             ((LocalZonedTimestampType) tzDataField.type()).getPrecision();
                     Instant instant = ((OffsetDateTime) fieldValue).toInstant();

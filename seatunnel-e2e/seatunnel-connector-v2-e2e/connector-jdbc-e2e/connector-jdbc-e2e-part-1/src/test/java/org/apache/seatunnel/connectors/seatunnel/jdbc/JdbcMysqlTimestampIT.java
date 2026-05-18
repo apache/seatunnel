@@ -38,10 +38,16 @@ import org.testcontainers.utility.DockerLoggerFactory;
 
 import lombok.extern.slf4j.Slf4j;
 
+import org.apache.seatunnel.connectors.seatunnel.jdbc.utils.JdbcFieldTypeUtils;
+
 import java.io.IOException;
 import java.sql.Connection;
 import java.sql.DriverManager;
+import java.sql.ResultSet;
 import java.sql.Statement;
+import java.time.LocalDateTime;
+import java.time.OffsetDateTime;
+import java.time.ZoneOffset;
 import java.util.concurrent.TimeUnit;
 import java.util.stream.Stream;
 
@@ -167,12 +173,11 @@ public class JdbcMysqlTimestampIT extends TestSuiteBase implements TestResource 
      *
      * <p>Before the fix, {@code JdbcFieldTypeUtils.getOffsetDateTime()} applied the JVM default
      * timezone during {@code ResultSet} traversal. In a Seoul-timezone session a value stored as
-     * UTC midnight would be shifted by +09:00 and read back incorrectly.
+     * UTC midnight would be shifted by +09:00 and read back as {@code 2026-01-01T09:00:00Z}
+     * instead of {@code 2026-01-01T00:00:00Z} — a 9-hour epoch error.
      *
-     * <p>After the fix the UTC instant must be preserved regardless of the JDBC session timezone.
-     * If the fix regresses, the {@code field_type = timestamp_tz} assertion inside the Assert sink
-     * will fail because the column will be read as a plain {@code TIMESTAMP} (LocalDateTime)
-     * shifted by the Seoul offset.
+     * <p>This test catches both the type-mapping regression (via the SeaTunnel Assert job) and the
+     * value regression (via a direct JDBC call to {@link JdbcFieldTypeUtils#getOffsetDateTime}).
      */
     @TestTemplate
     public void testMysqlTimestampIsLtzInNonUtcSession(TestContainer container)
@@ -184,6 +189,42 @@ public class JdbcMysqlTimestampIT extends TestSuiteBase implements TestResource 
                 result.getExitCode(),
                 "MySQL TIMESTAMP (LTZ) assertion failed with non-UTC serverTimezone (Asia/Seoul):\n"
                         + result.getStderr());
+
+        verifyUtcInstantPreservedUnderNonUtcSession();
+    }
+
+    /**
+     * Directly calls {@link JdbcFieldTypeUtils#getOffsetDateTime} through a Seoul-timezone JDBC
+     * connection and asserts the returned epoch equals the stored UTC instant.
+     *
+     * <p>The field_type check in the SeaTunnel Assert job does not catch value regressions: even a
+     * 9-hour shift still produces a {@code TIMESTAMP_TZ} (non-null). This method verifies the
+     * actual epoch to close that gap.
+     */
+    private void verifyUtcInstantPreservedUnderNonUtcSession() throws Exception {
+        // The row was inserted as '2026-01-01 00:00:00' via a UTC connection.
+        long expectedEpochMilli =
+                LocalDateTime.of(2026, 1, 1, 0, 0, 0).toInstant(ZoneOffset.UTC).toEpochMilli();
+
+        String seoulUrl =
+                String.format(
+                        "jdbc:mysql://%s:%d/%s?useSSL=false&serverTimezone=Asia%%2FSeoul",
+                        mysqlContainer.getHost(),
+                        mysqlContainer.getFirstMappedPort(),
+                        MYSQL_DATABASE);
+
+        try (Connection conn = DriverManager.getConnection(seoulUrl, MYSQL_USER, MYSQL_PASSWORD);
+                Statement stmt = conn.createStatement();
+                ResultSet rs = stmt.executeQuery("SELECT ts_col FROM ts_source WHERE id = 1")) {
+            Assertions.assertTrue(rs.next(), "Expected a row in ts_source");
+            OffsetDateTime odt = JdbcFieldTypeUtils.getOffsetDateTime(rs, 1);
+            Assertions.assertNotNull(odt, "ts_col must not be null");
+            Assertions.assertEquals(
+                    expectedEpochMilli,
+                    odt.toInstant().toEpochMilli(),
+                    "9-hour shift regression: Seoul session produced wrong UTC epoch. "
+                            + "Got " + odt + " but expected epoch " + expectedEpochMilli);
+        }
     }
 
     // -------------------------------------------------------------------------
