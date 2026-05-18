@@ -471,8 +471,7 @@ public class CassandraIT extends TestSuiteBase implements TestResource {
 
     private void clearMTSinkTable() {
         session.execute(
-                SimpleStatement.builder(
-                                String.format("truncate table %s", MT_SINK_TABLE))
+                SimpleStatement.builder(String.format("truncate table %s", MT_SINK_TABLE))
                         .setKeyspace(KEYSPACE)
                         .build());
     }
