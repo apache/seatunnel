@@ -193,12 +193,10 @@ public abstract class AbstractWriteStrategy<T> implements WriteStrategy<T> {
     @Override
     public void applySchemaChange(SchemaChangeEvent event) throws IOException {
         if (!fileSinkConfig.isSchemaEvolutionEnabled()) {
-            // No-op when schema evolution is disabled at the sink. NOTE: if the upstream CDC
-            // source has schema-changes.enabled=true, this leaves sinkColumnsIndexInRow stale and
-            // the next data row may produce a ClassCastException several rows later. Open
-            // discussion with maintainers on whether this should fail-fast instead — the silent
-            // return is the historical behavior preserved here for backwards compatibility.
-            return;
+            throw new UnsupportedOperationException(
+                    "Received AlterTableEvent but schema_evolution_enabled=false at this sink. "
+                            + "Either set schema_evolution_enabled=true to handle schema changes, "
+                            + "or set schema-changes.enabled=false at the CDC source to suppress them.");
         }
         log.info(
                 "[FileSchemaEvolution] applying {} — before: rowType={}, sinkColumns={}, indices={}",
