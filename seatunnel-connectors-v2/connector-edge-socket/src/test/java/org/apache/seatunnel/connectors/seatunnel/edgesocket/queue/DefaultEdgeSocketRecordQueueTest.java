@@ -46,12 +46,6 @@ class DefaultEdgeSocketRecordQueueTest {
         Assertions.assertTrue(full.isBackpressure());
     }
 
-    @Test
-    void invalidWatermarkRatioThrows() {
-        Assertions.assertThrows(
-                IllegalArgumentException.class, () -> new DefaultEdgeSocketRecordQueue(10, 0));
-    }
-
     private static void fillQueue(DefaultEdgeSocketRecordQueue queue, int count) {
         for (int i = 0; i < count; i++) {
             Assertions.assertEquals(

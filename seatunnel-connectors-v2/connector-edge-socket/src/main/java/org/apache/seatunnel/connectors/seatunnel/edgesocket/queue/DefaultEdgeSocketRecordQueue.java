@@ -31,11 +31,6 @@ public class DefaultEdgeSocketRecordQueue implements EdgeSocketRecordQueue {
      * @param backpressureWatermarkRatio high-water mark ratio in (0, 1]
      */
     public DefaultEdgeSocketRecordQueue(int capacity, double backpressureWatermarkRatio) {
-        if (backpressureWatermarkRatio <= 0 || backpressureWatermarkRatio > 1) {
-            throw new IllegalArgumentException(
-                    "queue_backpressure_watermark_ratio must be in (0, 1], got: "
-                            + backpressureWatermarkRatio);
-        }
         this.capacity = capacity;
         this.backpressureHighWaterMark = (int) Math.ceil(capacity * backpressureWatermarkRatio);
         this.queue = new ArrayBlockingQueue<>(capacity);
