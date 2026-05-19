@@ -255,23 +255,19 @@ public class FileSchemaEvolutionTest {
         Assertions.assertEquals(1, strategy.finishAndCloseFileCalls);
     }
 
-    // ── Disabled flag: applySchemaChange is a no-op ───────────────────────────────
+    // ── Disabled flag: applySchemaChange fails fast with actionable message ────────
 
     @Test
-    public void testDisabledFlagMakesApplySchemaChangeNoOp() throws IOException {
+    public void testDisabledFlagThrowsOnAlterTableEvent() throws IOException {
         NoOpWriteStrategy strategy = buildStrategy(schemaEvolutionDisabledConfig());
 
-        // Initial state: columns [id, name, age]
-        List<String> originalNames = new ArrayList<>(strategy.getSinkColumnNames());
-        List<Integer> originalIndices = new ArrayList<>(strategy.getSinkColumnsIndexInRow());
-
         AlterTableDropColumnEvent event = new AlterTableDropColumnEvent(TABLE_ID, "age");
-        strategy.applySchemaChange(event);
-
-        // Nothing should have changed
-        Assertions.assertEquals(originalNames, strategy.getSinkColumnNames());
-        Assertions.assertEquals(originalIndices, strategy.getSinkColumnsIndexInRow());
-        Assertions.assertEquals(0, strategy.finishAndCloseFileCalls);
+        UnsupportedOperationException ex =
+                Assertions.assertThrows(
+                        UnsupportedOperationException.class,
+                        () -> strategy.applySchemaChange(event));
+        Assertions.assertTrue(ex.getMessage().contains("schema_evolution_enabled=false"));
+        Assertions.assertTrue(ex.getMessage().contains("schema-changes.enabled=false"));
     }
 
     // ── finishAndCloseFile called on each schema change ───────────────────────────
