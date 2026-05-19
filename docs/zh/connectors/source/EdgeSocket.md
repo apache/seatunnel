@@ -522,6 +522,6 @@ checkpoint 状态峰值 ≈ local_queue_capacity × 入队消息大小 × 3
 若采集器频繁收到 `QUEUE_FULL`，说明下游消费慢于入队。应优先优化 Sink 吞吐，或按上文公式调整 `local_queue_capacity` / `queue_backpressure_watermark_ratio`。`QUEUE_FULL` 在高水位触发且不解码 payload，避免背压下的重试风暴；`RETRY` 保留给格式错误等场景或极少数物理队列溢出。
 :::
 
-## Changelog
+## 变更日志
 
 <ChangeLog />
