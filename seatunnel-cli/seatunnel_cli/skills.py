@@ -188,7 +188,9 @@ def _try_parse_json_plan(plan_text: str) -> StructuredPlan | None:
         src = p.get("source", {})
         sink = p.get("sink", {})
         tables = p.get("tables", [])
-        if isinstance(tables, str):
+        if tables is None:
+            tables = []
+        elif isinstance(tables, str):
             tables = [tables]
         pipelines.append(PipelineSlot(
             pipeline_id=p.get("id", f"pipeline_{len(pipelines) + 1}"),
