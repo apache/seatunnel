@@ -1,42 +1,49 @@
 package org.apache.seatunnel.azuredataexplorer.config;
 
-import org.apache.seatunnel.api.configuration.Option;
-import org.apache.seatunnel.api.configuration.Options;
+import lombok.Builder;
+import lombok.Getter;
+import org.apache.seatunnel.api.configuration.ReadonlyConfig;
 
+import static org.apache.seatunnel.api.options.table.TableIdentifierOptions.TABLE;
+import static org.apache.seatunnel.azuredataexplorer.config
+        .AzureDataExplorerSinkOptions.*;
+
+/** Immutable config value object used by both sink and source. */
+@Getter
+@Builder
 public class AzureDataExplorerConfig {
-    public static final Option<String> CLUSTER_URL =
-            Options.key("cluster_url").stringType().noDefaultValue()
-                    .withDescription("ADX cluster URI e.g. https://mycluster.eastus.kusto.windows.net");
 
-    public static final Option<String> DATABASE =
-            Options.key("database").stringType().noDefaultValue()
-                    .withDescription("Database name");
+    private final String clusterUri;
+    private final String database;
+    private final String clientId;
+    private final String clientSecret;
+    private final String tenantId;
 
-    public static final Option<String> TABLE =
-            Options.key("table").stringType().noDefaultValue()
-                    .withDescription("Table name");
+    private final String table;
+    private final String ingestionMappingReference;
+    private final AzureDataExplorerSinkOptions.IngestionType ingestionType;
+    private final int batchSize;
+    private final long flushIntervalMs;
 
-    public static final Option<String> CLIENT_ID =
-            Options.key("client_id").stringType().noDefaultValue()
-                    .withDescription("Azure AD service principal client ID");
+    public String getQueuedIngestUri() {
+        if (clusterUri.startsWith("https://")) {
+            return "https://ingest-" + clusterUri.substring("https://".length());
+        }
+        return clusterUri;
+    }
 
-    public static final Option<String> CLIENT_SECRET =
-            Options.key("client_secret").stringType().noDefaultValue()
-                    .withDescription("Azure AD service principal client secret");
-
-    public static final Option<String> TENANT_ID =
-            Options.key("tenant_id").stringType().noDefaultValue()
-                    .withDescription("Azure AD tenant ID");
-
-    public static final Option<String> QUERY =
-            Options.key("query").stringType().noDefaultValue()
-                    .withDescription("KQL query for reading, e.g. MyTable | take 1000");
-
-    public static final Option<Boolean> USE_STREAMING_INGEST =
-            Options.key("use_streaming_ingest").booleanType().defaultValue(false)
-                    .withDescription("Use streaming ingestion (must be enabled on cluster)");
-
-    public static final Option<Integer> BATCH_SIZE =
-            Options.key("batch_size").intType().defaultValue(1000)
-                    .withDescription("Row buffer size before flushing to ADX");
+    public static AzureDataExplorerConfig fromSinkConfig(ReadonlyConfig cfg) {
+        return AzureDataExplorerConfig.builder()
+                .clusterUri(cfg.get(AzureDataExplorerSinkOptions.CLUSTER_URI))
+                .database(cfg.get(AzureDataExplorerSinkOptions.DATABASE))
+                .table(cfg.get(TABLE))
+                .clientId(cfg.get(CLIENT_ID))
+                .clientSecret(cfg.get(CLIENT_SECRET))
+                .tenantId(cfg.get(TENANT_ID))
+                .ingestionMappingReference(cfg.get(INGESTION_MAPPING_REFERENCE))
+                .ingestionType(cfg.get(INGESTION_TYPE))
+                .batchSize(cfg.get(BATCH_SIZE))
+                .flushIntervalMs(cfg.get(FLUSH_INTERVAL_MS))
+                .build();
+    }
 }
