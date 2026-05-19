@@ -50,6 +50,24 @@ OpenMetrics 的指标文本可通过 `http://{instanceHost}:5801/hazelcast/rest/
 | hazelcast_partition_isClusterSafe         | Gauge | -                                                                                                          | 分区是否安全                              |
 | hazelcast_partition_isLocalMemberSafe     | Gauge | -                                                                                                          | 本地成员是否安全                            |
 
+### 引擎状态存储指标
+
+这些指标暴露 Zeta 引擎状态存储的基础大小和本地资源使用情况。当前后端是 Hazelcast IMap，因此 `backend`
+标签值为 `hazelcast`。本地指标由每个节点输出，并包含 `address` 标签。如需监控某个引擎状态存储的全局
+entry 总量，请在 Prometheus 中聚合 `engine_state_store_local_owned_entries`。
+
+| MetricName                                      | Type  | Labels                                                    | 描述                                      |
+|-------------------------------------------------|-------|-----------------------------------------------------------|-----------------------------------------|
+| engine_state_store_local_owned_entries          | Gauge | **address**，服务器实例地址。**store**，状态存储名称。**backend**，状态存储后端。 | 当前节点上该引擎状态存储的本地 owned entry 数。       |
+| engine_state_store_local_backup_entries         | Gauge | **address**，服务器实例地址。**store**，状态存储名称。**backend**，状态存储后端。 | 当前节点上该引擎状态存储的本地 backup entry 数。      |
+| engine_state_store_local_heap_cost_bytes        | Gauge | **address**，服务器实例地址。**store**，状态存储名称。**backend**，状态存储后端。 | 后端支持时，当前节点上该引擎状态存储的本地堆内存成本，单位为字节。 |
+
+PromQL 示例：
+
+```promql
+sum by (cluster, store, backend) (engine_state_store_local_owned_entries)
+```
+
 ### 线程池状态
 
 | MetricName                          | Type    | Labels                                  | 描述                             |

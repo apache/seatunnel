@@ -54,7 +54,8 @@ public class MetricsApiTest {
         given().get("http://localhost:8080" + RestConstant.REST_URL_METRICS)
                 .then()
                 .statusCode(200)
-                .body(containsString("process_start_time_seconds"));
+                .body(containsString("process_start_time_seconds"))
+                .body(containsString("engine_state_store_local_owned_entries"));
     }
 
     @AfterAll

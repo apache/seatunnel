@@ -81,6 +81,21 @@ public class IcebergSinkConfig extends IcebergCommonConfig {
         this.dataSaveMode = readonlyConfig.get(IcebergSinkOptions.DATA_SAVE_MODE);
         this.dataSaveModeSQL = readonlyConfig.get(IcebergSinkOptions.DATA_SAVE_MODE_CUSTOM_SQL);
         this.commitBranch = readonlyConfig.get(IcebergSinkOptions.TABLES_DEFAULT_COMMIT_BRANCH);
+        if (this.upsertModeEnabled
+                && readonlyConfig
+                        .getOptional(IcebergSinkOptions.TABLE_PRIMARY_KEYS)
+                        .map(String::trim)
+                        .map(String::isEmpty)
+                        .orElse(true)) {
+            throw new IllegalArgumentException(
+                    String.format(
+                            "'%s' is enabled but '%s' is not explicitly configured. "
+                                    + "Upsert mode requires an explicit primary-key list. "
+                                    + "The source table primary key is no longer inherited "
+                                    + "automatically (see: apache/seatunnel#10747).",
+                            IcebergSinkOptions.TABLE_UPSERT_MODE_ENABLED_PROP.key(),
+                            IcebergSinkOptions.TABLE_PRIMARY_KEYS.key()));
+        }
     }
 
     @VisibleForTesting

@@ -106,6 +106,42 @@ public class JobLogIT extends SeaTunnelEngineContainer {
     }
 
     @Test
+    public void testPathTraversalAttackPrevention() throws IOException, InterruptedException {
+        // Test path traversal with Unix-style relative path
+        Container.ExecResult result =
+                server.execInContainer(
+                        "sh",
+                        "-c",
+                        "curl --path-as-is -s -o /dev/null -w '%{http_code}' 'http://localhost:8080/log/../../etc/passwd'");
+        Assertions.assertEquals(
+                "400",
+                result.getStdout().trim(),
+                "Path traversal attack with ../../etc/passwd should be blocked with HTTP 400");
+
+        // Test path traversal with deeper relative path
+        result =
+                server.execInContainer(
+                        "sh",
+                        "-c",
+                        "curl --path-as-is -s -o /dev/null -w '%{http_code}' 'http://localhost:8080/log/../../../etc/shadow'");
+        Assertions.assertEquals(
+                "400",
+                result.getStdout().trim(),
+                "Path traversal attack with ../../../etc/shadow should be blocked with HTTP 400");
+
+        // Test path traversal via /logs endpoint (all node log)
+        result =
+                server.execInContainer(
+                        "sh",
+                        "-c",
+                        "curl --path-as-is -s -o /dev/null -w '%{http_code}' 'http://localhost:8080/logs/../../etc/passwd'");
+        Assertions.assertEquals(
+                "400",
+                result.getStdout().trim(),
+                "Path traversal attack on /logs endpoint should be blocked with HTTP 400");
+    }
+
+    @Test
     public void testJobLogFile() throws Exception {
         submitJobAndAssertResponse(
                 server, JobMode.BATCH.name(), false, CUSTOM_JOB_NAME, CUSTOM_JOB_ID);

@@ -30,8 +30,12 @@ import ChangeLog from '../changelog/connector-elasticsearch.md';
 | index_type             | string  | 否    |                              |
 | primary_keys           | list    | 否    |                              |
 | key_delimiter          | string  | 否    | `_`                          |
+| auth_type              | string  | 否    | basic                        |
 | username               | string  | 否    |                              |
 | password               | string  | 否    |                              |
+| auth.api_key_id        | string  | 否    | -                            |
+| auth.api_key           | string  | 否    | -                            |
+| auth.api_key_encoded   | string  | 否    | -                            |
 | max_retry_count        | int     | 否    | 3                            |
 | max_batch_size         | int     | 否    | 10                           |
 | tls_verify_certificate | boolean | 否    | true                         |
@@ -64,13 +68,86 @@ import ChangeLog from '../changelog/connector-elasticsearch.md';
 
 设定复合键的分隔符（默认为 `_`），例如，如果使用 `$` 作为分隔符，那么文档的 `_id` 将呈现为 `KEY1$KEY2$KEY3` 的格式
 
-### username [string]
+## 认证
 
-x-pack 用户名
+Elasticsearch 连接器支持多种认证方式连接到安全的 Elasticsearch 集群。您可以根据 Elasticsearch 的安全配置选择合适的认证方式。
 
-### password [string]
+### auth_type [enum]
 
-x-pack 密码
+指定使用的认证方式。支持的值：
+- `basic`（默认）：使用用户名和密码的 HTTP 基本认证
+- `api_key`：使用独立的 ID 和密钥的 Elasticsearch API Key 认证
+- `api_key_encoded`：使用编码密钥的 Elasticsearch API Key 认证
+
+如果未指定，默认使用 `basic` 以保持向后兼容。
+
+### 基本认证
+
+基本认证使用 HTTP 基本认证，通过用户名和密码凭据进行认证。
+
+#### username [string]
+
+基本认证用户名（x-pack 用户名）。
+
+#### password [string]
+
+基本认证密码（x-pack 密码）。
+
+**示例：**
+```hocon
+sink {
+    Elasticsearch {
+        hosts = ["https://localhost:9200"]
+        auth_type = "basic"
+        username = "elastic"
+        password = "your_password"
+        index = "my_index"
+    }
+}
+```
+
+### API Key 认证
+
+API Key 认证提供了一种更安全的方式，使用 API 密钥对 Elasticsearch 进行认证。
+
+#### auth.api_key_id [string]
+
+Elasticsearch 生成的 API 密钥 ID。
+
+#### auth.api_key [string]
+
+Elasticsearch 生成的 API 密钥。
+
+#### auth.api_key_encoded [string]
+
+Base64 编码的 API 密钥，格式为 `base64(id:api_key)`。这是分别指定 `auth.api_key_id` 和 `auth.api_key` 的替代方式。
+
+**注意：** 可以使用 `auth.api_key_id` + `auth.api_key` 或 `auth.api_key_encoded`，但不能同时使用两者。
+
+**使用独立 ID 和密钥的示例：**
+```hocon
+sink {
+    Elasticsearch {
+        hosts = ["https://localhost:9200"]
+        auth_type = "api_key"
+        auth.api_key_id = "your_api_key_id"
+        auth.api_key = "your_api_key_secret"
+        index = "my_index"
+    }
+}
+```
+
+**使用编码密钥的示例：**
+```hocon
+sink {
+    Elasticsearch {
+        hosts = ["https://localhost:9200"]
+        auth_type = "api_key_encoded"
+        auth.api_key_encoded = "eW91cl9hcGlfa2V5X2lkOnlvdXJfYXBpX2tleV9zZWNyZXQ="
+        index = "my_index"
+    }
+}
+```
 
 ### max_retry_count [int]
 
