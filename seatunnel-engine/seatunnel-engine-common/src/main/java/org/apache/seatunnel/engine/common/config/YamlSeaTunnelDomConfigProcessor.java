@@ -58,6 +58,7 @@ import static com.hazelcast.internal.config.DomConfigHelper.cleanNodeName;
 import static com.hazelcast.internal.config.DomConfigHelper.getBooleanValue;
 import static com.hazelcast.internal.config.DomConfigHelper.getIntegerValue;
 
+/** Builds {@link SeaTunnelConfig} from the YAML DOM tree used by the engine startup path. */
 public class YamlSeaTunnelDomConfigProcessor extends AbstractDomConfigProcessor {
     private static final ILogger LOGGER = Logger.getLogger(YamlSeaTunnelDomConfigProcessor.class);
 
@@ -140,6 +141,9 @@ public class YamlSeaTunnelDomConfigProcessor extends AbstractDomConfigProcessor 
         return coordinatorServiceConfig;
     }
 
+    /**
+     * Parses the top-level engine section, including stain trace sampling and file output options.
+     */
     private void parseEngineConfig(Node engineNode, SeaTunnelConfig config) {
         final EngineConfig engineConfig = config.getEngineConfig();
         for (Node node : childElements(engineNode)) {
@@ -229,6 +233,52 @@ public class YamlSeaTunnelDomConfigProcessor extends AbstractDomConfigProcessor 
                 engineConfig.setConnectorJarStorageConfig(parseConnectorJarStorageConfig(node));
             } else if (ServerConfigOptions.CLASSLOADER_CACHE_MODE.key().equals(name)) {
                 engineConfig.setClassloaderCacheMode(getBooleanValue(getTextContent(node)));
+            } else if (ServerConfigOptions.STAIN_TRACE_ENABLED.key().equals(name)) {
+                engineConfig.setStainTraceEnabled(getBooleanValue(getTextContent(node)));
+            } else if (ServerConfigOptions.STAIN_TRACE_SAMPLE_RATE.key().equals(name)
+                    || "stain-trace-sample-interval".equals(name)) {
+                // "stain-trace-sample-interval" is accepted as a backward-compatible alias
+                engineConfig.setStainTraceSampleRate(
+                        getIntegerValue(
+                                ServerConfigOptions.STAIN_TRACE_SAMPLE_RATE.key(),
+                                getTextContent(node)));
+            } else if (ServerConfigOptions.STAIN_TRACE_MAX_TRACES_PER_SECOND_PER_WORKER
+                    .key()
+                    .equals(name)) {
+                engineConfig.setStainTraceMaxTracesPerSecondPerWorker(
+                        getIntegerValue(
+                                ServerConfigOptions.STAIN_TRACE_MAX_TRACES_PER_SECOND_PER_WORKER
+                                        .key(),
+                                getTextContent(node)));
+            } else if (ServerConfigOptions.STAIN_TRACE_MAX_ENTRIES_PER_TRACE.key().equals(name)) {
+                engineConfig.setStainTraceMaxEntriesPerTrace(
+                        getIntegerValue(
+                                ServerConfigOptions.STAIN_TRACE_MAX_ENTRIES_PER_TRACE.key(),
+                                getTextContent(node)));
+            } else if (ServerConfigOptions.STAIN_TRACE_PROPAGATE_TO_ALL_SPLITS.key().equals(name)) {
+                engineConfig.setStainTracePropagateToAllSplits(
+                        getBooleanValue(getTextContent(node)));
+            } else if (ServerConfigOptions.STAIN_TRACE_FILE_BASE_PATH.key().equals(name)) {
+                engineConfig.setStainTraceFileBasePath(getTextContent(node));
+            } else if (ServerConfigOptions.STAIN_TRACE_FILE_MAX_EVENTS_PER_FILE
+                    .key()
+                    .equals(name)) {
+                engineConfig.setStainTraceFileMaxEventsPerFile(
+                        getIntegerValue(
+                                ServerConfigOptions.STAIN_TRACE_FILE_MAX_EVENTS_PER_FILE.key(),
+                                getTextContent(node)));
+            } else if (ServerConfigOptions.STAIN_TRACE_FILE_MAX_SIZE_MB.key().equals(name)) {
+                engineConfig.setStainTraceFileMaxSizeMb(
+                        getIntegerValue(
+                                ServerConfigOptions.STAIN_TRACE_FILE_MAX_SIZE_MB.key(),
+                                getTextContent(node)));
+            } else if (ServerConfigOptions.STAIN_TRACE_FILE_FLUSH_INTERVAL_SECONDS
+                    .key()
+                    .equals(name)) {
+                engineConfig.setStainTraceFileFlushIntervalSeconds(
+                        getIntegerValue(
+                                ServerConfigOptions.STAIN_TRACE_FILE_FLUSH_INTERVAL_SECONDS.key(),
+                                getTextContent(node)));
             } else if (ServerConfigOptions.MasterServerConfigOptions.EVENT_REPORT_HTTP
                     .equalsIgnoreCase(name)) {
                 NamedNodeMap attributes = node.getAttributes();

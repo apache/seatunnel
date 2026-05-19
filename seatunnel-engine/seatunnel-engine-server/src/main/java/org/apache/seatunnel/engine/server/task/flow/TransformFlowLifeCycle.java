@@ -17,8 +17,10 @@
 
 package org.apache.seatunnel.engine.server.task.flow;
 
+import org.apache.seatunnel.api.common.metrics.Counter;
 import org.apache.seatunnel.api.table.schema.event.SchemaChangeEvent;
 import org.apache.seatunnel.api.table.type.Record;
+import org.apache.seatunnel.api.table.type.SeaTunnelRow;
 import org.apache.seatunnel.api.transform.Collector;
 import org.apache.seatunnel.api.transform.SeaTunnelFlatMapTransform;
 import org.apache.seatunnel.api.transform.SeaTunnelMapTransform;
@@ -30,6 +32,9 @@ import org.apache.seatunnel.engine.server.checkpoint.ActionSubtaskState;
 import org.apache.seatunnel.engine.server.checkpoint.CheckpointBarrier;
 import org.apache.seatunnel.engine.server.task.SeaTunnelTask;
 import org.apache.seatunnel.engine.server.task.record.Barrier;
+import org.apache.seatunnel.engine.server.trace.StainTraceConstants;
+import org.apache.seatunnel.engine.server.trace.StainTraceStage;
+import org.apache.seatunnel.engine.server.trace.StainTraceUtils;
 
 import org.apache.commons.collections4.CollectionUtils;
 
@@ -40,6 +45,7 @@ import java.util.ArrayList;
 import java.util.Collections;
 import java.util.List;
 
+/** Executes transform operators and extends stain trace payloads across transform boundaries. */
 @Slf4j
 public class TransformFlowLifeCycle<T> extends ActionFlowLifeCycle
         implements OneInputFlowLifeCycle<Record<?>> {
@@ -49,6 +55,10 @@ public class TransformFlowLifeCycle<T> extends ActionFlowLifeCycle
     private final List<SeaTunnelTransform<T>> transform;
 
     private final Collector<Record<?>> collector;
+
+    private volatile int stainTraceMaxEntriesPerTrace = -1;
+    private volatile Counter stainTraceEntriesTruncatedTotal;
+    private volatile Boolean stainTracePropagateToAllSplits;
 
     public TransformFlowLifeCycle(
             TransformChainAction<T> action,
@@ -77,6 +87,7 @@ public class TransformFlowLifeCycle<T> extends ActionFlowLifeCycle
         }
     }
 
+    /** Propagates barriers and schema changes, and extends stain trace payloads for row data. */
     @Override
     public void received(Record<?> record) {
         if (record.getData() instanceof Barrier) {
@@ -119,16 +130,67 @@ public class TransformFlowLifeCycle<T> extends ActionFlowLifeCycle
                 return;
             }
             T inputData = (T) record.getData();
+            boolean hasTracePayload =
+                    inputData instanceof SeaTunnelRow
+                            && StainTraceUtils.hasPayload((SeaTunnelRow) inputData);
+            if (hasTracePayload) {
+                SeaTunnelRow inputRow = (SeaTunnelRow) inputData;
+                StainTraceUtils.appendIfPresent(
+                        inputRow,
+                        StainTraceStage.TRANSFORM_IN,
+                        runningTask.getTaskID(),
+                        System.currentTimeMillis(),
+                        getStainTraceMaxEntriesPerTrace(),
+                        getStainTraceEntriesTruncatedTotal());
+            }
             List<T> outputDataList = transform(inputData);
             if (!outputDataList.isEmpty()) {
                 // todo log metrics
+                byte[] inheritedPayload = null;
+                if (hasTracePayload) {
+                    inheritedPayload = StainTraceUtils.getPayloadOrNull((SeaTunnelRow) inputData);
+                }
+                boolean propagateToAllSplits =
+                        hasTracePayload
+                                && inheritedPayload != null
+                                && outputDataList.size() > 1
+                                && isStainTracePropagateToAllSplits();
+                boolean payloadInherited = false;
                 for (T outputData : outputDataList) {
+                    if (hasTracePayload && outputData instanceof SeaTunnelRow) {
+                        SeaTunnelRow outputRow = (SeaTunnelRow) outputData;
+                        if (inheritedPayload == null) {
+                            StainTraceUtils.removePayload(outputRow);
+                        } else if (propagateToAllSplits) {
+                            StainTraceUtils.setPayload(outputRow, inheritedPayload);
+                            StainTraceUtils.appendIfPresent(
+                                    outputRow,
+                                    StainTraceStage.TRANSFORM_OUT,
+                                    runningTask.getTaskID(),
+                                    System.currentTimeMillis(),
+                                    getStainTraceMaxEntriesPerTrace(),
+                                    getStainTraceEntriesTruncatedTotal());
+                        } else if (!payloadInherited) {
+                            StainTraceUtils.setPayload(outputRow, inheritedPayload);
+                            StainTraceUtils.appendIfPresent(
+                                    outputRow,
+                                    StainTraceStage.TRANSFORM_OUT,
+                                    runningTask.getTaskID(),
+                                    System.currentTimeMillis(),
+                                    getStainTraceMaxEntriesPerTrace(),
+                                    getStainTraceEntriesTruncatedTotal());
+                            payloadInherited = true;
+                        } else {
+                            StainTraceUtils.removePayload(outputRow);
+                        }
+                    }
                     collector.collect(new Record<>(outputData));
                 }
             }
         }
     }
 
+    /** Runs the configured transform chain and returns all rows produced from the current input. */
     public List<T> transform(T inputData) {
         if (transform.isEmpty()) {
             return Collections.singletonList(inputData);
@@ -196,5 +258,53 @@ public class TransformFlowLifeCycle<T> extends ActionFlowLifeCycle
             }
         }
         super.close();
+    }
+
+    private Counter getStainTraceEntriesTruncatedTotal() {
+        if (stainTraceEntriesTruncatedTotal == null) {
+            synchronized (this) {
+                if (stainTraceEntriesTruncatedTotal == null) {
+                    stainTraceEntriesTruncatedTotal =
+                            runningTask
+                                    .getMetricsContext()
+                                    .counter(StainTraceConstants.METRIC_ENTRIES_TRUNCATED_TOTAL);
+                }
+            }
+        }
+        return stainTraceEntriesTruncatedTotal;
+    }
+
+    private int getStainTraceMaxEntriesPerTrace() {
+        if (stainTraceMaxEntriesPerTrace < 0) {
+            synchronized (this) {
+                if (stainTraceMaxEntriesPerTrace < 0) {
+                    stainTraceMaxEntriesPerTrace =
+                            runningTask
+                                    .getExecutionContext()
+                                    .getTaskExecutionService()
+                                    .getSeaTunnelConfig()
+                                    .getEngineConfig()
+                                    .getStainTraceMaxEntriesPerTrace();
+                }
+            }
+        }
+        return stainTraceMaxEntriesPerTrace;
+    }
+
+    private boolean isStainTracePropagateToAllSplits() {
+        if (stainTracePropagateToAllSplits == null) {
+            synchronized (this) {
+                if (stainTracePropagateToAllSplits == null) {
+                    stainTracePropagateToAllSplits =
+                            runningTask
+                                    .getExecutionContext()
+                                    .getTaskExecutionService()
+                                    .getSeaTunnelConfig()
+                                    .getEngineConfig()
+                                    .isStainTracePropagateToAllSplits();
+                }
+            }
+        }
+        return stainTracePropagateToAllSplits;
     }
 }

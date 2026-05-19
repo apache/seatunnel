@@ -60,6 +60,7 @@ import org.apache.seatunnel.engine.server.diagnostic.PendingJobDiagnostic;
 import org.apache.seatunnel.engine.server.diagnostic.PendingJobsResponse;
 import org.apache.seatunnel.engine.server.diagnostic.PendingQueueSummary;
 import org.apache.seatunnel.engine.server.event.JobEventHttpReportHandler;
+import org.apache.seatunnel.engine.server.event.JobEventLocalFileHandler;
 import org.apache.seatunnel.engine.server.event.JobEventProcessor;
 import org.apache.seatunnel.engine.server.execution.ExecutionState;
 import org.apache.seatunnel.engine.server.execution.PendingJobInfo;
@@ -115,6 +116,7 @@ import java.util.concurrent.ScheduledExecutorService;
 import java.util.concurrent.SynchronousQueue;
 import java.util.concurrent.ThreadPoolExecutor;
 import java.util.concurrent.TimeUnit;
+import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.concurrent.atomic.AtomicLong;
 import java.util.stream.Collectors;
 
@@ -122,6 +124,7 @@ import static org.apache.seatunnel.api.options.EnvCommonOptions.CHECKPOINT_INTER
 import static org.apache.seatunnel.common.constants.JobMode.BATCH;
 import static org.apache.seatunnel.engine.server.metrics.JobMetricsUtil.toJobMetricsMap;
 
+/** Coordinates job submission, scheduling, recovery, and event reporting on the master node. */
 public class CoordinatorService {
     private static final int PIPELINE_CLEANUP_INTERVAL_SECONDS = 60;
     private final NodeEngineImpl nodeEngine;
@@ -215,6 +218,8 @@ public class CoordinatorService {
     private final boolean isWaitStrategy;
 
     private final ScheduleStrategy scheduleStrategy;
+
+    private final AtomicBoolean coordinatorServiceCleared = new AtomicBoolean(false);
 
     public CoordinatorService(
             @NonNull NodeEngineImpl nodeEngine,
@@ -414,9 +419,14 @@ public class CoordinatorService {
                         && state == PendingSourceState.SUBMIT);
     }
 
+    /** Creates the event processor that fans out sampled stain trace events to configured sinks. */
     private JobEventProcessor createJobEventProcessor(
             String reportHttpEndpoint,
             Map<String, String> reportHttpHeaders,
+            String stainTraceFileBasePath,
+            int stainTraceFileMaxEventsPerFile,
+            int stainTraceFileMaxSizeMb,
+            int stainTraceFileFlushIntervalSeconds,
             NodeEngineImpl nodeEngine) {
         List<EventHandler> handlers =
                 EventProcessor.loadEventHandlers(Thread.currentThread().getContextClassLoader());
@@ -440,6 +450,32 @@ public class CoordinatorService {
                             reportHttpEndpoint, reportHttpHeaders, ringbuffer);
             handlers.add(httpReportHandler);
         }
+
+        if (stainTraceFileBasePath != null && !stainTraceFileBasePath.isEmpty()) {
+            String ringBufferName = "zeta-stain-trace-file-event";
+            int maxBufferCapacity = 2000;
+            nodeEngine
+                    .getHazelcastInstance()
+                    .getConfig()
+                    .addRingBufferConfig(
+                            new Config()
+                                    .getRingbufferConfig(ringBufferName)
+                                    .setCapacity(maxBufferCapacity)
+                                    .setBackupCount(0)
+                                    .setAsyncBackupCount(1)
+                                    .setTimeToLiveSeconds(0));
+            Ringbuffer ringbuffer = nodeEngine.getHazelcastInstance().getRingbuffer(ringBufferName);
+            handlers.add(
+                    new JobEventLocalFileHandler(
+                            stainTraceFileBasePath,
+                            java.time.Duration.ofSeconds(stainTraceFileFlushIntervalSeconds),
+                            ringbuffer,
+                            stainTraceFileMaxEventsPerFile,
+                            (long) stainTraceFileMaxSizeMb * 1024 * 1024L));
+            logger.info(
+                    "StainTrace local file handler enabled, writing to: " + stainTraceFileBasePath);
+        }
+
         logger.info("Loaded event handlers: " + handlers);
         return new JobEventProcessor(handlers);
     }
@@ -461,6 +497,7 @@ public class CoordinatorService {
     }
 
     private void initCoordinatorService() {
+        coordinatorServiceCleared.set(false);
         runningJobInfoIMap =
                 nodeEngine.getHazelcastInstance().getMap(Constant.IMAP_RUNNING_JOB_INFO);
         runningJobStateIMap =
@@ -493,6 +530,10 @@ public class CoordinatorService {
                 createJobEventProcessor(
                         engineConfig.getEventReportHttpApi(),
                         engineConfig.getEventReportHttpHeaders(),
+                        engineConfig.getStainTraceFileBasePath(),
+                        engineConfig.getStainTraceFileMaxEventsPerFile(),
+                        engineConfig.getStainTraceFileMaxSizeMb(),
+                        engineConfig.getStainTraceFileFlushIntervalSeconds(),
                         nodeEngine);
 
         // If the user has configured the connector package service, create it  on the master node.
@@ -1043,6 +1084,10 @@ public class CoordinatorService {
      * active master needs for takeover recovery.
      */
     public synchronized void clearCoordinatorService() {
+        isActive = false;
+        if (!coordinatorServiceCleared.compareAndSet(false, true)) {
+            return;
+        }
         // interrupt all JobMaster
         runningJobMasterMap.values().forEach(JobMaster::interrupt);
         if (isWaitStrategy) {
@@ -1060,18 +1105,28 @@ public class CoordinatorService {
         runningJobMasterMap.clear();
 
         try {
-            executorService.awaitTermination(20, TimeUnit.SECONDS);
+            boolean terminated = executorService.awaitTermination(20, TimeUnit.SECONDS);
+            if (!terminated) {
+                logger.warning(
+                        "Coordinator service executorService did not terminate within 20 seconds.");
+            }
         } catch (InterruptedException e) {
-            throw new SeaTunnelEngineException("wait clean executor service error", e);
+            Thread.currentThread().interrupt();
+            logger.info(
+                    "Coordinator service shutdown interrupted while waiting executorService termination, continue cleanup.");
         }
 
-        if (resourceManager != null) {
-            resourceManager.close();
+        ResourceManager manager = resourceManager;
+        resourceManager = null;
+        if (manager != null) {
+            manager.close();
         }
 
         try {
-            if (eventProcessor != null) {
-                eventProcessor.close();
+            EventProcessor processor = eventProcessor;
+            eventProcessor = null;
+            if (processor != null) {
+                processor.close();
             }
         } catch (Exception e) {
             throw new SeaTunnelEngineException("close event processor error", e);
@@ -1555,12 +1610,14 @@ public class CoordinatorService {
     public void shutdown() {
         isActive = false;
         if (masterActiveListener != null) {
-            masterActiveListener.shutdownNow();
+            masterActiveListener.shutdown();
         }
         if (pipelineCleanupScheduler != null) {
-            pipelineCleanupScheduler.shutdownNow();
+            pipelineCleanupScheduler.shutdown();
         }
         clearCoordinatorService();
+        awaitSchedulerTermination("master active listener", masterActiveListener);
+        awaitSchedulerTermination("pipeline cleanup scheduler", pipelineCleanupScheduler);
     }
 
     /** return true if this node is a master node and the coordinator service init finished. */
@@ -1842,5 +1899,30 @@ public class CoordinatorService {
     @VisibleForTesting
     public PeekBlockingQueue<PendingJobInfo> getPendingJobQueue() {
         return pendingJobQueue;
+    }
+
+    private void awaitSchedulerTermination(
+            String schedulerName, ScheduledExecutorService scheduler) {
+        if (scheduler == null) {
+            return;
+        }
+        try {
+            if (!scheduler.awaitTermination(20, TimeUnit.SECONDS)) {
+                logger.warning(
+                        String.format(
+                                "%s did not terminate within 20 seconds, forcing shutdown.",
+                                schedulerName));
+                scheduler.shutdownNow();
+                if (!scheduler.awaitTermination(5, TimeUnit.SECONDS)) {
+                    logger.warning(
+                            String.format(
+                                    "%s did not terminate after forced shutdown.", schedulerName));
+                }
+            }
+        } catch (InterruptedException e) {
+            Thread.currentThread().interrupt();
+            logger.info(
+                    String.format("Interrupted while waiting for %s to terminate.", schedulerName));
+        }
     }
 }
