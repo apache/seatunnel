@@ -254,8 +254,6 @@ public class SchemaOperator extends AbstractStreamOperator<SeaTunnelRow>
         }
 
         long waitedSince = firstSeenCheckpointId;
-        pendingQueue.poll();
-        firstSeenCheckpointId = -1L;
         SchemaChangeEvent event = head.schemaEvent;
         TableIdentifier tableId = event.tableIdentifier();
         long eventTime = event.getCreatedTime();
@@ -273,6 +271,8 @@ public class SchemaOperator extends AbstractStreamOperator<SeaTunnelRow>
                     "Skipping outdated schema change event (epoch {} <= last processed {})",
                     eventTime,
                     lastProcessedEventTime);
+            pendingQueue.poll();
+            firstSeenCheckpointId = -1L;
             drainDataUntilNextSchemaChange();
             return;
         }
@@ -294,6 +294,9 @@ public class SchemaOperator extends AbstractStreamOperator<SeaTunnelRow>
                 "Schema change for table {} (epoch {}) confirmed by all sink subtasks.",
                 tableId,
                 eventTime);
+
+        pendingQueue.poll();
+        firstSeenCheckpointId = -1L;
 
         CatalogTable newSchema = event.getChangeAfter();
         if (newSchema != null) {
