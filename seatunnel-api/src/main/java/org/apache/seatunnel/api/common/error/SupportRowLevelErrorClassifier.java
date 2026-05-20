@@ -15,12 +15,20 @@
  * limitations under the License.
  */
 
-package org.apache.seatunnel.api.sink.error;
+package org.apache.seatunnel.api.common.error;
 
-/** Indicates at which phase a row-level error was observed by a connector. */
-public enum RowErrorPhase {
-    WRITE,
-    FLUSH,
-    PREPARE_COMMIT,
-    CLOSE
+/**
+ * Marker interface for connectors/transforms that can classify exceptions as row-level or
+ * system-level errors.
+ */
+public interface SupportRowLevelErrorClassifier<T> {
+
+    /**
+     * Classifies the exception raised while processing one row.
+     *
+     * @param t the thrown error
+     * @param row the row being processed
+     * @return row-level or system-level classification
+     */
+    RowErrorClassification classifyRowError(Throwable t, T row);
 }

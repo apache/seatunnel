@@ -237,6 +237,53 @@ public class ErrorHandlerTest {
     }
 
     @Test
+    public void testErrorSinkCloseFailurePropagates() {
+        ErrorSinkRowWriter<SeaTunnelRow> failingCloseSink =
+                new ErrorSinkRowWriter<SeaTunnelRow>() {
+                    @Override
+                    public void write(RowErrorContext ctx, SeaTunnelRow row, Throwable t) {}
+
+                    @Override
+                    public void close() throws Exception {
+                        throw new Exception("close failed");
+                    }
+                };
+
+        StageErrorConfig config = StageErrorConfig.builder().mode(ErrorHandlerMode.ROUTE).build();
+        ErrorHandler<SeaTunnelRow> handler = new ErrorHandler<>(config, failingCloseSink);
+
+        RuntimeException ex = assertThrows(RuntimeException.class, handler::close);
+
+        assertTrue(ex.getMessage().contains("Failed to close error sink writer"));
+        assertTrue(ex.getCause().getMessage().contains("close failed"));
+    }
+
+    @Test
+    public void testErrorSinkFlushFailurePropagates() {
+        ErrorSinkRowWriter<SeaTunnelRow> failingFlushSink =
+                new ErrorSinkRowWriter<SeaTunnelRow>() {
+                    @Override
+                    public void write(RowErrorContext ctx, SeaTunnelRow row, Throwable t) {}
+
+                    @Override
+                    public void flush() throws Exception {
+                        throw new Exception("flush failed");
+                    }
+
+                    @Override
+                    public void close() {}
+                };
+
+        StageErrorConfig config = StageErrorConfig.builder().mode(ErrorHandlerMode.ROUTE).build();
+        ErrorHandler<SeaTunnelRow> handler = new ErrorHandler<>(config, failingFlushSink);
+
+        Exception ex = assertThrows(Exception.class, handler::flush);
+
+        assertTrue(ex.getMessage().contains("flush failed"));
+        handler.close();
+    }
+
+    @Test
     public void testOriginalDataTruncation() {
         MockErrorSinkWriter mockSink = new MockErrorSinkWriter();
 

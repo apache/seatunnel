@@ -6,7 +6,7 @@ Starting with this experimental capability, users can change this behavior, allo
 
 > **Status: Experimental**
 >
-> Currently, error handling JDBC Sink is validated; error handling and row-level error routing are disabled by default. The configuration and semantics may be adjusted in future versions.
+> Currently this capability is wired only in the Zeta engine, and JDBC Sink is the validated Sink implementation. Flink/Spark translation paths do not use this mechanism yet. Error handling and row-level error routing are disabled by default, and the configuration and semantics may be adjusted in future versions.
 
 ## Use Cases
 
@@ -23,7 +23,7 @@ Scenarios where error handling is not recommended or should be used with caution
 
 ## Overall Approach
 
-After enabling error handling, the engine's processing logic for each record can be summarized as:
+After enabling error handling, the Zeta engine's processing logic for each record can be summarized as:
 
 1. First, process the record normally through Transform / Sink according to the original logic;
 2. If an exception occurs during processing, the engine will attempt to distinguish:
@@ -89,16 +89,22 @@ The engine will attempt to distinguish:
 
 Current version's default classification strategy (important):
 
-- **Sink stage**: If the Sink Connector does not implement `SupportRowLevelError`, its exceptions will be treated as system-level errors (even if `sink_error_handler` is configured, the job will still fail).
-- **Transform stage**: If the Transform does not implement `SupportRowLevelError`, its exceptions will be treated as system-level errors (even if `transform_error_handler` is configured, the job will still fail).
+- **Sink stage**: If the Sink Connector does not implement `SupportRowLevelErrorClassifier`, its exceptions will be treated as system-level errors (even if `sink_error_handler` is configured, the job will still fail).
+- **Transform stage**: If the Transform does not implement `SupportRowLevelErrorClassifier`, its exceptions will be treated as system-level errors (even if `transform_error_handler` is configured, the job will still fail).
 
 For some Connectors (such as JDBC), the Connector itself will explicitly declare "which exceptions are row-level errors" through the interface. The engine will prioritize such explicit declarations.
 
-Only Connectors/Transforms that implement `SupportRowLevelError` can trigger row-level errors; otherwise, all exceptions will be treated as system-level errors and cause the job to fail.
+Only Connectors/Transforms that implement `SupportRowLevelErrorClassifier` can trigger row-level errors; otherwise, all exceptions will be treated as system-level errors and cause the job to fail.
 
 > Note
 >
-> This document describes the current version's **generic engine-level process**. In the future, more built-in Transforms will be gradually promoted to implement `SupportRowLevelError` to more accurately distinguish between "row-level errors" and "system-level errors".
+> This document describes the current Zeta engine process. In the future, more built-in Transforms and engine integrations will be gradually promoted to implement `SupportRowLevelErrorClassifier` to more accurately distinguish between "row-level errors" and "system-level errors".
+
+### Reliability Scope of ROUTE Mode
+
+In Zeta, `ROUTE` mode drains pending error rows and flushes the configured error sink writer before checkpoint acknowledgement. If writing or closing the error sink fails, the task fails instead of silently reporting a clean shutdown.
+
+This is still an experimental capability. The final delivery semantics of routed error records depend on the configured error sink connector and its own transaction/commit behavior, so this should not be treated as a general exactly-once DLQ guarantee.
 
 ### What Happens When Row-Level Error Occurs in Transform Stage (Important)
 
@@ -219,7 +225,7 @@ JDBC is currently the main Connector using row-level error handling capability.
 
 It will treat it as a **row-level error**. Otherwise, it is treated as a **system-level error**, directly causing the job to fail.
 
-For other Sinks, if `SupportRowLevelError` interface is not implemented, the engine will more conservatively treat exceptions as system-level errors: even if `sink_error_handler` is configured, such exceptions will not be bypassed as row-level errors, but will directly fail the job.
+For other Sinks, if `SupportRowLevelErrorClassifier` interface is not implemented, the engine will more conservatively treat exceptions as system-level errors: even if `sink_error_handler` is configured, such exceptions will not be bypassed as row-level errors, but will directly fail the job.
 
 ### What Happens to Batch Processing When Row-Level Error Occurs?
 
@@ -291,7 +297,7 @@ env {
 
 ### MySQL Error Table Structure
 
-If you use MySQL as the error sink, you need to create the table manually with the following structure:
+When the JDBC error sink uses the default save-mode settings, SeaTunnel creates the error table automatically from the built-in error schema. If you disable automatic schema creation or need to pre-create the table, use the following structure:
 
 ```sql
 CREATE TABLE sink_error_basic (

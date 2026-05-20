@@ -15,9 +15,9 @@
  * limitations under the License.
  */
 
-package org.apache.seatunnel.api.sink.error;
+package org.apache.seatunnel.api.common.error;
 
-/** Collector for sink row-level errors that occur outside SinkWriter.write(). */
+/** Collector for row-level errors that occur outside a single write/map call. */
 @FunctionalInterface
 public interface RowErrorCollector {
     void collect(RowErrorEvent event) throws Exception;

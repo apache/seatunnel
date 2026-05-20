@@ -18,7 +18,8 @@
 package org.apache.seatunnel.engine.server.task.error;
 
 import org.apache.seatunnel.api.common.JobContext;
-import org.apache.seatunnel.api.common.SupportRowLevelError;
+import org.apache.seatunnel.api.common.error.RowErrorClassification;
+import org.apache.seatunnel.api.common.error.SupportRowLevelErrorClassifier;
 import org.apache.seatunnel.api.table.catalog.CatalogTable;
 import org.apache.seatunnel.api.table.schema.event.SchemaChangeEvent;
 import org.apache.seatunnel.api.table.type.SeaTunnelRow;
@@ -75,15 +76,18 @@ public class ErrorHandlingMapTransform<T> implements SeaTunnelMapTransform<T> {
     @SuppressWarnings("unchecked")
     private boolean isRowError(T row, Throwable t) {
         try {
-            if (delegate instanceof SupportRowLevelError) {
-                return ((SupportRowLevelError<T>) delegate).isRowError(t, row);
+            if (delegate instanceof SupportRowLevelErrorClassifier) {
+                RowErrorClassification classification =
+                        ((SupportRowLevelErrorClassifier<T>) delegate).classifyRowError(t, row);
+                return classification != null && classification.isRowError();
             }
         } catch (Throwable ex) {
             if (ex instanceof Error) {
                 throw (Error) ex;
             }
             log.debug(
-                    "SupportRowLevelError.isRowError threw exception, fallback to classifier", ex);
+                    "SupportRowLevelErrorClassifier.classifyRowError threw exception, fallback to classifier",
+                    ex);
         }
 
         if (rowErrorClassifier == null) {

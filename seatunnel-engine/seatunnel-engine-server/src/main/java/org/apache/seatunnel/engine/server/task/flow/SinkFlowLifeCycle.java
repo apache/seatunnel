@@ -117,7 +117,8 @@ public class SinkFlowLifeCycle<T, CommitInfoT extends Serializable, AggregatedCo
     private transient StageErrorConfig stageErrorConfig;
     private transient ErrorHandler<T> stageErrorHandler;
     private transient RowErrorClassifier<T> stageRowErrorClassifier;
-    private transient org.apache.seatunnel.api.sink.error.RowErrorCollector stageRowErrorCollector;
+    private transient org.apache.seatunnel.api.common.error.RowErrorCollector
+            stageRowErrorCollector;
 
     /** Mapping relationship between upstream TablePath and downstream TablePath. */
     private final Map<TablePath, TablePath> tablesMaps = new HashMap<>();

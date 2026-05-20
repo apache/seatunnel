@@ -19,12 +19,13 @@ package org.apache.seatunnel.connectors.seatunnel.jdbc.sink;
 
 import org.apache.seatunnel.shade.com.zaxxer.hikari.HikariDataSource;
 
-import org.apache.seatunnel.api.common.SupportRowLevelError;
+import org.apache.seatunnel.api.common.error.RowErrorClassification;
+import org.apache.seatunnel.api.common.error.RowErrorCollector;
+import org.apache.seatunnel.api.common.error.RowErrorEvent;
+import org.apache.seatunnel.api.common.error.RowErrorPhase;
+import org.apache.seatunnel.api.common.error.SupportRowLevelErrorClassifier;
 import org.apache.seatunnel.api.sink.MultiTableResourceManager;
 import org.apache.seatunnel.api.sink.SinkWriter;
-import org.apache.seatunnel.api.sink.error.RowErrorCollector;
-import org.apache.seatunnel.api.sink.error.RowErrorEvent;
-import org.apache.seatunnel.api.sink.error.RowErrorPhase;
 import org.apache.seatunnel.api.table.catalog.TablePath;
 import org.apache.seatunnel.api.table.catalog.TableSchema;
 import org.apache.seatunnel.api.table.type.SeaTunnelRow;
@@ -53,7 +54,7 @@ import java.util.Set;
 
 @Slf4j
 public class JdbcSinkWriter extends AbstractJdbcSinkWriter<ConnectionPoolManager>
-        implements SupportRowLevelError<SeaTunnelRow> {
+        implements SupportRowLevelErrorClassifier<SeaTunnelRow> {
     private final Integer primaryKeyIndex;
     private final Optional<RowErrorCollector> rowErrorCollector;
     private final int batchSize;
@@ -204,8 +205,10 @@ public class JdbcSinkWriter extends AbstractJdbcSinkWriter<ConnectionPoolManager
     }
 
     @Override
-    public boolean isRowError(Throwable t, SeaTunnelRow row) {
-        return isRowLevelDataError(t);
+    public RowErrorClassification classifyRowError(Throwable t, SeaTunnelRow row) {
+        return isRowLevelDataError(t)
+                ? RowErrorClassification.ROW_ERROR
+                : RowErrorClassification.SYSTEM_ERROR;
     }
 
     private boolean isRowLevelDataError(Throwable t) {

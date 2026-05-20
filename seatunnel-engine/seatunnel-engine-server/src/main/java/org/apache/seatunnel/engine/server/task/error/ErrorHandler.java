@@ -193,6 +193,12 @@ public class ErrorHandler<T> implements Serializable, AutoCloseable {
         return value.substring(0, maxLength);
     }
 
+    public void flush() throws Exception {
+        if (errorSinkWriter != null) {
+            errorSinkWriter.flush();
+        }
+    }
+
     @Override
     public void close() {
         if (config.getMode() != ErrorHandlerMode.DISABLE) {
@@ -206,8 +212,10 @@ public class ErrorHandler<T> implements Serializable, AutoCloseable {
         if (errorSinkWriter != null) {
             try {
                 errorSinkWriter.close();
+            } catch (RuntimeException e) {
+                throw e;
             } catch (Exception e) {
-                log.error("Failed to close error sink writer", e);
+                throw new RuntimeException("Failed to close error sink writer", e);
             }
         }
     }

@@ -6,7 +6,7 @@
 
 > **状态：实验性（Experimental）**
 >
-> 目前错误处理 JDBC Sink 是经过验证的；错误处理与行级错误路由默认关闭，配置和语义在后续版本中可能有调整。
+> 目前该能力只接入 Zeta 引擎，且经过验证的 Sink 实现为 JDBC Sink。Flink/Spark translation 路径暂未使用这套机制。错误处理与行级错误路由默认关闭，配置和语义在后续版本中可能有调整。
 
 ## 适用场景
 
@@ -23,7 +23,7 @@
 
 ## 整体思路
 
-启用错误处理后，引擎对于每条记录的处理逻辑可概括为：
+启用错误处理后，Zeta 引擎对于每条记录的处理逻辑可概括为：
 
 1. 首先按照原有逻辑，由 Transform / Sink 正常处理该记录；
 2. 在处理过程中如发生异常，引擎会尝试区分：
@@ -89,16 +89,22 @@ env {
 
 当前版本的默认分类策略：
 
-- **Sink 阶段**：若 Sink Connector 未实现 `SupportRowLevelError`，其异常将被当作系统级错误处理（即使配置了 `sink_error_handler` 也会失败作业）。
-- **Transform 阶段**：若 Transform 未实现 `SupportRowLevelError`，其异常将被当作系统级错误处理（即使配置了 `transform_error_handler` 也会失败作业）。
+- **Sink 阶段**：若 Sink Connector 未实现 `SupportRowLevelErrorClassifier`，其异常将被当作系统级错误处理（即使配置了 `sink_error_handler` 也会失败作业）。
+- **Transform 阶段**：若 Transform 未实现 `SupportRowLevelErrorClassifier`，其异常将被当作系统级错误处理（即使配置了 `transform_error_handler` 也会失败作业）。
 
 对于部分 Connector（例如 JDBC），Connector 本身会通过接口显式声明“哪些异常属于行级错误”。引擎会优先采用这类显式声明。
 
-只有实现了 `SupportRowLevelError` 的 Connector/Transform，才能触发行级错误；否则所有异常都会被当作系统级错误处理并导致作业失败。
+只有实现了 `SupportRowLevelErrorClassifier` 的 Connector/Transform，才能触发行级错误；否则所有异常都会被当作系统级错误处理并导致作业失败。
 
 > 说明
 >
-> 本文描述的是当前版本的**通用引擎级流程**。后续会逐步推动更多内置 Transform 实现 `SupportRowLevelError`，以便更准确地区分“行级错误”与“系统级错误”。
+> 本文描述的是当前版本的 Zeta 引擎处理流程。后续会逐步推动更多内置 Transform 和引擎集成实现 `SupportRowLevelErrorClassifier`，以便更准确地区分“行级错误”与“系统级错误”。
+
+### ROUTE 模式的可靠性范围
+
+在 Zeta 中，`ROUTE` 模式会在 checkpoint ack 前等待待写入的错误记录写入完成，并 flush 已配置的错误 Sink writer。若错误 Sink 写入或关闭失败，任务会失败，而不是仅记录日志后表现为正常关闭。
+
+该能力仍属于实验性功能。错误记录的最终投递语义取决于所配置错误 Sink Connector 自身的事务和提交行为，因此不应将其视为通用的 exactly-once DLQ 保证。
 
 ### Transform 阶段发生行级错误时会怎样
 
@@ -219,7 +225,7 @@ JDBC 是当前最主要使用行级错误处理能力的 Connector。
 
 则会将其视为 **行级错误**。否则视为 **系统级错误**，直接让作业失败。
 
-对于其他 Sink，如果未实现 `SupportRowLevelError` 接口，引擎会更保守地将异常视为系统级错误：即使配置了 `sink_error_handler`，这类异常也不会被当作行级错误旁路，而是直接失败作业。
+对于其他 Sink，如果未实现 `SupportRowLevelErrorClassifier` 接口，引擎会更保守地将异常视为系统级错误：即使配置了 `sink_error_handler`，这类异常也不会被当作行级错误旁路，而是直接失败作业。
 
 ### 发生行级错误时，批处理会怎样？
 
@@ -291,7 +297,7 @@ env {
 
 ### MySQL 错误表结构
 
-如果您使用 MySQL 作为错误 Sink，需要手动创建如下结构的表：
+当 JDBC 错误 Sink 使用默认 save-mode 设置时，SeaTunnel 会根据内置错误表结构自动创建错误表。如果您关闭了自动建表，或需要提前手动建表，可使用如下结构：
 
 ```sql
 CREATE TABLE sink_error_basic (

@@ -15,20 +15,14 @@
  * limitations under the License.
  */
 
-package org.apache.seatunnel.api.common;
+package org.apache.seatunnel.api.common.error;
 
-/**
- * Marker interface for connectors/transforms that can classify exceptions as row-level or
- * system-level errors.
- */
-public interface SupportRowLevelError<T> {
+/** Classification result for errors raised while processing one row. */
+public enum RowErrorClassification {
+    ROW_ERROR,
+    SYSTEM_ERROR;
 
-    /**
-     * Determines if the exception is a row-level error that can be bypassed.
-     *
-     * @param t the thrown error
-     * @param row the row being processed
-     * @return true if row-level error, false if system-level error
-     */
-    boolean isRowError(Throwable t, T row);
+    public boolean isRowError() {
+        return this == ROW_ERROR;
+    }
 }

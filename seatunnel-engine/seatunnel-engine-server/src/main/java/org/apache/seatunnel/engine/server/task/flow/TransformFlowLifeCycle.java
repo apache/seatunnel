@@ -102,6 +102,7 @@ public class TransformFlowLifeCycle<T> extends ActionFlowLifeCycle
                 prepareClose = true;
             }
             if (barrier.snapshot()) {
+                flushErrorHandler();
                 runningTask.addState(barrier, ActionStateKey.of(action), Collections.emptyList());
             }
             // ack after #addState
@@ -217,9 +218,21 @@ public class TransformFlowLifeCycle<T> extends ActionFlowLifeCycle
                 errorHandler.close();
             } catch (Exception e) {
                 log.error("Close ErrorHandler for transform stage failed", e);
+                throw new IOException("Close ErrorHandler for transform stage failed", e);
             }
         }
         super.close();
+    }
+
+    private void flushErrorHandler() {
+        if (errorHandler == null) {
+            return;
+        }
+        try {
+            errorHandler.flush();
+        } catch (Exception e) {
+            throw new RuntimeException("Flush ErrorHandler for transform stage failed", e);
+        }
     }
 
     private void initErrorHandlingTransforms() {

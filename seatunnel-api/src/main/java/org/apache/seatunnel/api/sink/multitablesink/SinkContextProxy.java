@@ -17,10 +17,10 @@
 
 package org.apache.seatunnel.api.sink.multitablesink;
 
+import org.apache.seatunnel.api.common.error.RowErrorCollector;
 import org.apache.seatunnel.api.common.metrics.MetricsContext;
 import org.apache.seatunnel.api.event.EventListener;
 import org.apache.seatunnel.api.sink.SinkWriter;
-import org.apache.seatunnel.api.sink.error.RowErrorCollector;
 
 import java.util.Optional;
 

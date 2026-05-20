@@ -17,9 +17,9 @@
 
 package org.apache.seatunnel.api.sink;
 
+import org.apache.seatunnel.api.common.error.RowErrorCollector;
 import org.apache.seatunnel.api.common.metrics.MetricsContext;
 import org.apache.seatunnel.api.event.EventListener;
-import org.apache.seatunnel.api.sink.error.RowErrorCollector;
 import org.apache.seatunnel.api.table.schema.event.SchemaChangeEvent;
 
 import java.io.IOException;

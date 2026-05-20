@@ -15,17 +15,12 @@
  * limitations under the License.
  */
 
-package org.apache.seatunnel.engine.server.task.error;
+package org.apache.seatunnel.api.common.error;
 
-import java.io.Serializable;
-
-/** Sink writer used by {@link ErrorHandler} to persist error records. */
-public interface ErrorSinkRowWriter<T> extends Serializable, AutoCloseable {
-
-    void write(RowErrorContext ctx, T row, Throwable t) throws Exception;
-
-    default void flush() throws Exception {}
-
-    @Override
-    void close() throws Exception;
+/** Indicates at which phase a row-level error was observed by a connector. */
+public enum RowErrorPhase {
+    WRITE,
+    FLUSH,
+    PREPARE_COMMIT,
+    CLOSE
 }

@@ -17,7 +17,8 @@
 
 package org.apache.seatunnel.engine.server.task.error;
 
-import org.apache.seatunnel.api.common.SupportRowLevelError;
+import org.apache.seatunnel.api.common.error.RowErrorClassification;
+import org.apache.seatunnel.api.common.error.SupportRowLevelErrorClassifier;
 import org.apache.seatunnel.api.sink.SinkWriter;
 import org.apache.seatunnel.api.table.schema.event.SchemaChangeEvent;
 import org.apache.seatunnel.api.table.type.SeaTunnelRow;
@@ -78,15 +79,18 @@ public class ErrorHandlingSinkWriter<T, CommT, StateT> implements SinkWriter<T, 
     @SuppressWarnings("unchecked")
     private boolean isRowError(T row, Throwable t) {
         try {
-            if (delegate instanceof SupportRowLevelError) {
-                return ((SupportRowLevelError<T>) delegate).isRowError(t, row);
+            if (delegate instanceof SupportRowLevelErrorClassifier) {
+                RowErrorClassification classification =
+                        ((SupportRowLevelErrorClassifier<T>) delegate).classifyRowError(t, row);
+                return classification != null && classification.isRowError();
             }
         } catch (Throwable ex) {
             if (ex instanceof Error) {
                 throw (Error) ex;
             }
             log.debug(
-                    "SupportRowLevelError.isRowError threw exception, fallback to classifier", ex);
+                    "SupportRowLevelErrorClassifier.classifyRowError threw exception, fallback to classifier",
+                    ex);
         }
 
         if (rowErrorClassifier == null) {
@@ -122,7 +126,9 @@ public class ErrorHandlingSinkWriter<T, CommT, StateT> implements SinkWriter<T, 
 
     @Override
     public List<StateT> snapshotState(long checkpointId) throws IOException {
-        return delegate.snapshotState(checkpointId);
+        List<StateT> states = delegate.snapshotState(checkpointId);
+        flushErrorHandler();
+        return states;
     }
 
     @Override
@@ -132,16 +138,46 @@ public class ErrorHandlingSinkWriter<T, CommT, StateT> implements SinkWriter<T, 
 
     @Override
     public void close() throws IOException {
+        IOException closeException = null;
         try {
             delegate.close();
+        } catch (IOException e) {
+            closeException = e;
         } finally {
             if (errorHandler != null) {
                 try {
                     errorHandler.close();
                 } catch (Exception e) {
                     log.error("Failed to close ErrorHandler for sink writer", e);
+                    IOException errorHandlerCloseException = toIOException(e);
+                    if (closeException == null) {
+                        closeException = errorHandlerCloseException;
+                    } else {
+                        closeException.addSuppressed(errorHandlerCloseException);
+                    }
                 }
             }
         }
+        if (closeException != null) {
+            throw closeException;
+        }
+    }
+
+    private void flushErrorHandler() throws IOException {
+        if (errorHandler == null) {
+            return;
+        }
+        try {
+            errorHandler.flush();
+        } catch (Exception e) {
+            throw toIOException(e);
+        }
+    }
+
+    private IOException toIOException(Exception e) {
+        if (e instanceof IOException) {
+            return (IOException) e;
+        }
+        return new IOException(e);
     }
 }

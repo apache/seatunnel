@@ -15,7 +15,7 @@
  * limitations under the License.
  */
 
-package org.apache.seatunnel.api.sink.error;
+package org.apache.seatunnel.api.common.error;
 
 import org.apache.seatunnel.api.table.type.SeaTunnelRow;
 
@@ -23,7 +23,7 @@ import java.io.Serializable;
 import java.util.Objects;
 import java.util.Optional;
 
-/** Row-level error event reported by sink connectors during flush/commit/close operations. */
+/** Row-level error event reported by connectors during flush/commit/close operations. */
 public final class RowErrorEvent implements Serializable {
 
     private static final long serialVersionUID = 1L;

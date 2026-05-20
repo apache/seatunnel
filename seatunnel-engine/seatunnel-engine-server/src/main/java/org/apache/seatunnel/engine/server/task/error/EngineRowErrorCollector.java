@@ -17,8 +17,8 @@
 
 package org.apache.seatunnel.engine.server.task.error;
 
-import org.apache.seatunnel.api.sink.error.RowErrorCollector;
-import org.apache.seatunnel.api.sink.error.RowErrorEvent;
+import org.apache.seatunnel.api.common.error.RowErrorCollector;
+import org.apache.seatunnel.api.common.error.RowErrorEvent;
 import org.apache.seatunnel.api.table.type.SeaTunnelRow;
 
 import java.util.Objects;

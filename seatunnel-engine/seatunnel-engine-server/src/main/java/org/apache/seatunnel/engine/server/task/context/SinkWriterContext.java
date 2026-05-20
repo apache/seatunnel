@@ -19,10 +19,10 @@ package org.apache.seatunnel.engine.server.task.context;
 
 import org.apache.seatunnel.shade.com.google.common.base.Preconditions;
 
+import org.apache.seatunnel.api.common.error.RowErrorCollector;
 import org.apache.seatunnel.api.common.metrics.MetricsContext;
 import org.apache.seatunnel.api.event.EventListener;
 import org.apache.seatunnel.api.sink.SinkWriter;
-import org.apache.seatunnel.api.sink.error.RowErrorCollector;
 
 public class SinkWriterContext implements SinkWriter.Context {
 

@@ -57,6 +57,7 @@ import java.util.TreeSet;
 import java.util.concurrent.ArrayBlockingQueue;
 import java.util.concurrent.BlockingQueue;
 import java.util.concurrent.TimeUnit;
+import java.util.concurrent.atomic.AtomicInteger;
 
 /** Default error sink writer that routes error rows to a configured sink asynchronously. */
 @Slf4j
@@ -84,6 +85,8 @@ public class DefaultErrorSinkWriter<T> implements ErrorSinkRowWriter<T> {
     private transient ClassLoader errorSinkClassLoader;
     private transient List<URL> errorSinkPluginJars;
     private transient volatile boolean classLoaderReleased;
+    private transient AtomicInteger pendingRows;
+    private transient Object writerLock;
 
     public DefaultErrorSinkWriter(
             StageErrorConfig stageConfig,
@@ -118,14 +121,20 @@ public class DefaultErrorSinkWriter<T> implements ErrorSinkRowWriter<T> {
         try {
             switch (stageConfig.getQueueOverflowPolicy()) {
                 case DROP:
-                    queue.offer(errorRow);
+                    pendingRows.incrementAndGet();
+                    if (!queue.offer(errorRow)) {
+                        pendingRows.decrementAndGet();
+                    }
                     break;
                 case BLOCK:
+                    pendingRows.incrementAndGet();
                     queue.put(errorRow);
                     break;
                 case FAIL:
                 default:
+                    pendingRows.incrementAndGet();
                     if (!queue.offer(errorRow)) {
+                        pendingRows.decrementAndGet();
                         throw new RuntimeException(
                                 String.format(
                                         "Error queue overflow for stage [%s], plugin [%s]",
@@ -135,8 +144,36 @@ public class DefaultErrorSinkWriter<T> implements ErrorSinkRowWriter<T> {
             }
         } catch (InterruptedException e) {
             Thread.currentThread().interrupt();
+            pendingRows.decrementAndGet();
             throw new RuntimeException("Interrupted while enqueuing error row for error sink", e);
         }
+    }
+
+    @Override
+    public void flush() throws Exception {
+        if (!initialized) {
+            return;
+        }
+        waitForPendingRows(DEFAULT_CLOSE_TIMEOUT_MILLIS);
+        throwWorkerFailureIfAny();
+
+        SinkWriter<SeaTunnelRow, ?, ?> sinkWriter = this.writer;
+        if (sinkWriter == null) {
+            return;
+        }
+        synchronized (writerLock) {
+            throwWorkerFailureIfAny();
+            try {
+                sinkWriter.prepareCommit();
+            } catch (Throwable e) {
+                workerFailure = e;
+                if (e instanceof Exception) {
+                    throw (Exception) e;
+                }
+                throw new RuntimeException(e);
+            }
+        }
+        throwWorkerFailureIfAny();
     }
 
     @Override
@@ -157,6 +194,11 @@ public class DefaultErrorSinkWriter<T> implements ErrorSinkRowWriter<T> {
                         jobId,
                         sinkConfig.getPluginName(),
                         currentWorkerThread.getName());
+                closeEx =
+                        new RuntimeException(
+                                String.format(
+                                        "Timed out waiting for error sink worker to close. jobId=%d, pluginName=%s",
+                                        jobId, sinkConfig.getPluginName()));
             } else {
                 // Worker thread stopped; close remaining resources.
                 closeWriterIfPossible();
@@ -182,12 +224,16 @@ public class DefaultErrorSinkWriter<T> implements ErrorSinkRowWriter<T> {
             }
             releaseErrorSinkClassLoaderIfNeeded();
         }
+        if (closeEx != null && workerFailure != null) {
+            closeEx.addSuppressed(workerFailure);
+        }
         if (closeEx != null) {
             if (closeEx instanceof Exception) {
                 throw (Exception) closeEx;
             }
             throw new RuntimeException(closeEx);
         }
+        throwWorkerFailureIfAny();
     }
 
     private synchronized void ensureInitialized() {
@@ -274,6 +320,8 @@ public class DefaultErrorSinkWriter<T> implements ErrorSinkRowWriter<T> {
             int capacity =
                     stageConfig.getQueueCapacity() > 0 ? stageConfig.getQueueCapacity() : 10000;
             this.queue = new ArrayBlockingQueue<>(capacity);
+            this.pendingRows = new AtomicInteger(0);
+            this.writerLock = new Object();
             this.closed = false;
             this.workerThread =
                     new Thread(
@@ -340,7 +388,16 @@ public class DefaultErrorSinkWriter<T> implements ErrorSinkRowWriter<T> {
                     continue;
                 }
                 log.debug("Writing error row to sink: {}", row);
-                sinkWriter.write(row);
+                try {
+                    synchronized (writerLock) {
+                        sinkWriter.write(row);
+                    }
+                } catch (Throwable writeEx) {
+                    workerFailure = writeEx;
+                    throw writeEx;
+                } finally {
+                    pendingRows.decrementAndGet();
+                }
             }
         } catch (Throwable e) {
             if (e instanceof Error) {
@@ -445,6 +502,43 @@ public class DefaultErrorSinkWriter<T> implements ErrorSinkRowWriter<T> {
                         "Interrupted while waiting for error sink worker to close after interrupt");
             }
         }
+    }
+
+    private void waitForPendingRows(long timeoutMillis) throws Exception {
+        AtomicInteger currentPendingRows = this.pendingRows;
+        if (currentPendingRows == null) {
+            return;
+        }
+        long deadline = System.currentTimeMillis() + timeoutMillis;
+        while (currentPendingRows.get() > 0) {
+            throwWorkerFailureIfAny();
+            if (System.currentTimeMillis() >= deadline) {
+                throw new RuntimeException(
+                        String.format(
+                                "Timed out waiting for error sink queue to drain. jobId=%d, pluginName=%s, pendingRows=%d",
+                                jobId, sinkConfig.getPluginName(), currentPendingRows.get()));
+            }
+            try {
+                Thread.sleep(10L);
+            } catch (InterruptedException e) {
+                Thread.currentThread().interrupt();
+                throw new RuntimeException("Interrupted while waiting for error sink queue", e);
+            }
+        }
+    }
+
+    private void throwWorkerFailureIfAny() throws Exception {
+        Throwable failure = workerFailure;
+        if (failure == null) {
+            return;
+        }
+        if (failure instanceof Error) {
+            throw (Error) failure;
+        }
+        if (failure instanceof Exception) {
+            throw (Exception) failure;
+        }
+        throw new RuntimeException(failure);
     }
 
     private void closeWriterIfPossible() {

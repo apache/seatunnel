@@ -17,7 +17,8 @@
 
 package org.apache.seatunnel.engine.server.task.error;
 
-import org.apache.seatunnel.api.common.SupportRowLevelError;
+import org.apache.seatunnel.api.common.error.RowErrorClassification;
+import org.apache.seatunnel.api.common.error.SupportRowLevelErrorClassifier;
 import org.apache.seatunnel.api.sink.SinkWriter;
 import org.apache.seatunnel.api.sink.multitablesink.MultiTableRowErrorHandler;
 import org.apache.seatunnel.api.table.type.SeaTunnelRow;
@@ -73,18 +74,20 @@ public class EngineMultiTableRowErrorHandler implements MultiTableRowErrorHandle
     private boolean isRowError(
             SinkWriter<SeaTunnelRow, ?, ?> writer, SeaTunnelRow row, Throwable t) {
         try {
-            if (writer instanceof SupportRowLevelError) {
+            if (writer instanceof SupportRowLevelErrorClassifier) {
                 @SuppressWarnings("unchecked")
-                SupportRowLevelError<SeaTunnelRow> support =
-                        (SupportRowLevelError<SeaTunnelRow>) writer;
-                return support.isRowError(t, row);
+                SupportRowLevelErrorClassifier<SeaTunnelRow> support =
+                        (SupportRowLevelErrorClassifier<SeaTunnelRow>) writer;
+                RowErrorClassification classification = support.classifyRowError(t, row);
+                return classification != null && classification.isRowError();
             }
         } catch (Throwable ex) {
             if (ex instanceof Error) {
                 throw (Error) ex;
             }
             log.debug(
-                    "SupportRowLevelError.isRowError threw exception, fallback to classifier", ex);
+                    "SupportRowLevelErrorClassifier.classifyRowError threw exception, fallback to classifier",
+                    ex);
         }
 
         if (rowErrorClassifier == null) {
