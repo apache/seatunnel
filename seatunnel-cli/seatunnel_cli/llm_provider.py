@@ -814,7 +814,7 @@ class OpenAIProvider(LLMProvider):
                 msg_dict = {"role": "assistant"}
                 if text_parts:
                     msg_dict["content"] = "\n".join(text_parts)
-                if echo_reasoning:
+                if echo_reasoning and reasoning_parts:
                     msg_dict["reasoning_content"] = "\n".join(reasoning_parts)
                 if tool_calls:
                     msg_dict["tool_calls"] = tool_calls
