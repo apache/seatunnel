@@ -2,7 +2,7 @@
 
 This guide helps AI assistants (LLMs / Agents) make **safe, consistent, and verifiable** changes to the Apache SeaTunnel codebase. It mirrors practices from mature Apache projects and adapts them to SeaTunnel’s **build, testing, architecture, and documentation conventions**.
 
-## ⚠️ CRITICAL: Validate Before Proposing Changes.
+## ⚠️ CRITICAL: Validate Before Proposing Changes
 
 **Agents MUST run verification commands locally before suggesting or finalizing changes.**
 
