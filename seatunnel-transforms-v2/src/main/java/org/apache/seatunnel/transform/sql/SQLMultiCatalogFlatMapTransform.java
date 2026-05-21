@@ -17,7 +17,8 @@
 
 package org.apache.seatunnel.transform.sql;
 
-import org.apache.seatunnel.api.common.SupportRowLevelError;
+import org.apache.seatunnel.api.common.error.RowErrorClassification;
+import org.apache.seatunnel.api.common.error.SupportRowLevelErrorClassifier;
 import org.apache.seatunnel.api.configuration.ReadonlyConfig;
 import org.apache.seatunnel.api.table.catalog.CatalogTable;
 import org.apache.seatunnel.api.table.type.SeaTunnelRow;
@@ -31,7 +32,7 @@ import org.apache.seatunnel.transform.exception.TransformException;
 import java.util.List;
 
 public class SQLMultiCatalogFlatMapTransform extends AbstractMultiCatalogFlatMapTransform
-        implements SupportRowLevelError<SeaTunnelRow> {
+        implements SupportRowLevelErrorClassifier<SeaTunnelRow> {
 
     public SQLMultiCatalogFlatMapTransform(
             List<CatalogTable> inputCatalogTables, ReadonlyConfig config) {
@@ -50,15 +51,18 @@ public class SQLMultiCatalogFlatMapTransform extends AbstractMultiCatalogFlatMap
     }
 
     @Override
-    public boolean isRowError(Throwable t, SeaTunnelRow row) {
+    public RowErrorClassification classifyRowError(Throwable t, SeaTunnelRow row) {
         TransformException transformException = findTransformException(t);
         if (transformException == null) {
-            return false;
+            return RowErrorClassification.SYSTEM_ERROR;
         }
-        return transformException.getSeaTunnelErrorCode()
+        if (transformException.getSeaTunnelErrorCode()
                         == TransformCommonErrorCode.EXPRESSION_EXECUTE_ERROR
                 || transformException.getSeaTunnelErrorCode()
-                        == TransformCommonErrorCode.WHERE_STATEMENT_ERROR;
+                        == TransformCommonErrorCode.WHERE_STATEMENT_ERROR) {
+            return RowErrorClassification.ROW_ERROR;
+        }
+        return RowErrorClassification.SYSTEM_ERROR;
     }
 
     private TransformException findTransformException(Throwable t) {

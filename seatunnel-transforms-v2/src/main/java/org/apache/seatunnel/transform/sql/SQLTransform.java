@@ -17,7 +17,8 @@
 
 package org.apache.seatunnel.transform.sql;
 
-import org.apache.seatunnel.api.common.SupportRowLevelError;
+import org.apache.seatunnel.api.common.error.RowErrorClassification;
+import org.apache.seatunnel.api.common.error.SupportRowLevelErrorClassifier;
 import org.apache.seatunnel.api.configuration.Option;
 import org.apache.seatunnel.api.configuration.Options;
 import org.apache.seatunnel.api.configuration.ReadonlyConfig;
@@ -48,7 +49,7 @@ import static org.apache.seatunnel.transform.sql.SQLEngineFactory.EngineType.ZET
 
 @Slf4j
 public class SQLTransform extends AbstractCatalogSupportFlatMapTransform
-        implements SupportRowLevelError<SeaTunnelRow> {
+        implements SupportRowLevelErrorClassifier<SeaTunnelRow> {
     public static final String PLUGIN_NAME = "Sql";
 
     public static final Option<String> KEY_QUERY =
@@ -115,15 +116,18 @@ public class SQLTransform extends AbstractCatalogSupportFlatMapTransform
     }
 
     @Override
-    public boolean isRowError(Throwable t, SeaTunnelRow row) {
+    public RowErrorClassification classifyRowError(Throwable t, SeaTunnelRow row) {
         TransformException transformException = findTransformException(t);
         if (transformException == null) {
-            return false;
+            return RowErrorClassification.SYSTEM_ERROR;
         }
-        return transformException.getSeaTunnelErrorCode()
+        if (transformException.getSeaTunnelErrorCode()
                         == TransformCommonErrorCode.EXPRESSION_EXECUTE_ERROR
                 || transformException.getSeaTunnelErrorCode()
-                        == TransformCommonErrorCode.WHERE_STATEMENT_ERROR;
+                        == TransformCommonErrorCode.WHERE_STATEMENT_ERROR) {
+            return RowErrorClassification.ROW_ERROR;
+        }
+        return RowErrorClassification.SYSTEM_ERROR;
     }
 
     private TransformException findTransformException(Throwable t) {

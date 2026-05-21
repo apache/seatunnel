@@ -17,6 +17,7 @@
 
 package org.apache.seatunnel.transform.sql;
 
+import org.apache.seatunnel.api.common.error.RowErrorClassification;
 import org.apache.seatunnel.api.configuration.ReadonlyConfig;
 import org.apache.seatunnel.api.table.catalog.CatalogTable;
 import org.apache.seatunnel.api.table.catalog.CatalogTableUtil;
@@ -29,6 +30,7 @@ import org.apache.seatunnel.api.table.type.MapType;
 import org.apache.seatunnel.api.table.type.SeaTunnelDataType;
 import org.apache.seatunnel.api.table.type.SeaTunnelRow;
 import org.apache.seatunnel.api.table.type.SeaTunnelRowType;
+import org.apache.seatunnel.transform.exception.TransformCommonErrorCode;
 import org.apache.seatunnel.transform.exception.TransformException;
 
 import org.junit.jupiter.api.Assertions;
@@ -105,6 +107,34 @@ public class SQLTransformTest {
                                         "testInSQL", column.getOptions().get("context"));
                             }
                         });
+    }
+
+    @Test
+    public void testClassifyRowError() {
+        SQLTransform sqlTransform = new SQLTransform(READONLY_CONFIG, getCatalogTable());
+        SeaTunnelRow row = new SeaTunnelRow(new Object[] {1, "name", 18, null});
+
+        Assertions.assertEquals(
+                RowErrorClassification.ROW_ERROR,
+                sqlTransform.classifyRowError(
+                        new TransformException(
+                                TransformCommonErrorCode.EXPRESSION_EXECUTE_ERROR, "error"),
+                        row));
+        Assertions.assertEquals(
+                RowErrorClassification.ROW_ERROR,
+                sqlTransform.classifyRowError(
+                        new RuntimeException(
+                                new TransformException(
+                                        TransformCommonErrorCode.WHERE_STATEMENT_ERROR, "error")),
+                        row));
+        Assertions.assertEquals(
+                RowErrorClassification.SYSTEM_ERROR,
+                sqlTransform.classifyRowError(
+                        new TransformException(TransformCommonErrorCode.ENCRYPTION_FAILED, "error"),
+                        row));
+        Assertions.assertEquals(
+                RowErrorClassification.SYSTEM_ERROR,
+                sqlTransform.classifyRowError(new RuntimeException("error"), row));
     }
 
     private CatalogTable getCatalogTable() {
