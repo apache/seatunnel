@@ -25,13 +25,16 @@ import com.hazelcast.cluster.Address;
 import com.hazelcast.internal.json.JsonObject;
 import com.hazelcast.spi.impl.NodeEngineImpl;
 
+import java.lang.reflect.Field;
 import java.lang.reflect.Method;
+import java.util.concurrent.atomic.AtomicLong;
 
 public class BaseServiceHealthMetricsParsingTest {
 
     private BaseService baseService;
     private Address memberAddress;
     private Method parseSystemMonitoringMetricsMethod;
+    private Method shouldLogInvalidMetricsMethod;
 
     @BeforeEach
     void setUp() throws Exception {
@@ -41,6 +44,9 @@ public class BaseServiceHealthMetricsParsingTest {
                 BaseService.class.getDeclaredMethod(
                         "parseSystemMonitoringMetrics", String.class, Address.class);
         parseSystemMonitoringMetricsMethod.setAccessible(true);
+        shouldLogInvalidMetricsMethod =
+                BaseService.class.getDeclaredMethod("shouldLogInvalidMetrics");
+        shouldLogInvalidMetricsMethod.setAccessible(true);
     }
 
     @Test
@@ -74,5 +80,28 @@ public class BaseServiceHealthMetricsParsingTest {
         Assertions.assertEquals("12,34%", parsed.getString("load.process", null));
         Assertions.assertEquals("1,2GB", parsed.getString("heap.memory.used", null));
         Assertions.assertEquals("10", parsed.getString("connection.count", null));
+    }
+
+    @Test
+    void testMalformedMetricsWarningRateLimit() throws Exception {
+        long originalLastLogTime = setLastInvalidMetricsLogTimeMs(0L);
+
+        try {
+            Assertions.assertTrue((boolean) shouldLogInvalidMetricsMethod.invoke(null));
+            Assertions.assertFalse((boolean) shouldLogInvalidMetricsMethod.invoke(null));
+        } finally {
+            setLastInvalidMetricsLogTimeMs(originalLastLogTime);
+        }
+    }
+
+    private static long setLastInvalidMetricsLogTimeMs(long value) {
+        try {
+            Field field = BaseService.class.getDeclaredField("LAST_INVALID_METRICS_LOG_TIME_MS");
+            field.setAccessible(true);
+            AtomicLong lastInvalidMetricsLogTimeMs = (AtomicLong) field.get(null);
+            return lastInvalidMetricsLogTimeMs.getAndSet(value);
+        } catch (ReflectiveOperationException e) {
+            throw new RuntimeException("Failed to set LAST_INVALID_METRICS_LOG_TIME_MS", e);
+        }
     }
 }

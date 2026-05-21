@@ -80,6 +80,7 @@ import java.util.List;
 import java.util.Map;
 import java.util.Set;
 import java.util.concurrent.ExecutionException;
+import java.util.concurrent.atomic.AtomicLong;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 import java.util.stream.Collectors;
@@ -116,9 +117,11 @@ import static org.apache.seatunnel.engine.server.rest.RestConstant.TABLE_SOURCE_
 public abstract class BaseService {
 
     private static final int JOB_METRICS_LOG_TRUNCATE_LENGTH = 500;
+    private static final int INVALID_METRICS_LOG_INTERVAL_MS = 60_000;
     private static final int INVALID_METRICS_LOG_PREFIX_MAX_LEN = 512;
     private static final int INVALID_METRICS_LOG_TOKEN_MAX_LEN = 128;
     private static final int INVALID_METRICS_LOG_TOKEN_MAX_COUNT = 5;
+    private static final AtomicLong LAST_INVALID_METRICS_LOG_TIME_MS = new AtomicLong(0L);
     private static final Pattern VERTEX_IDENTIFIER_PATTERN =
             Pattern.compile("((?:Sink|Source|Transform)\\[(\\d+)\\])");
 
@@ -972,7 +975,7 @@ public abstract class BaseService {
             jobInfo.add(key, value);
         }
 
-        if (!invalidTokens.isEmpty()) {
+        if (!invalidTokens.isEmpty() && log.isWarnEnabled() && shouldLogInvalidMetrics()) {
             log.warn(
                     "Ignored malformed cluster health metrics token(s) from member {}, tokens={}, rawPrefix={}",
                     memberAddress == null ? "unknown" : memberAddress,
@@ -981,6 +984,15 @@ public abstract class BaseService {
         }
 
         return jobInfo;
+    }
+
+    private static boolean shouldLogInvalidMetrics() {
+        long now = System.currentTimeMillis();
+        long last = LAST_INVALID_METRICS_LOG_TIME_MS.get();
+        if (now - last < INVALID_METRICS_LOG_INTERVAL_MS) {
+            return false;
+        }
+        return LAST_INVALID_METRICS_LOG_TIME_MS.compareAndSet(last, now);
     }
 
     private static String truncateForLog(String input, int maxLen) {

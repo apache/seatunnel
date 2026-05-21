@@ -191,10 +191,7 @@ public class SeaTunnelClient implements SeaTunnelClientInstance, AutoCloseable {
         Set<Member> members = hazelcastClient.getHazelcastInstance().getCluster().getMembers();
         Member member =
                 members.stream()
-                        .filter(
-                                m ->
-                                        (m.getAddress().getHost() + ":" + m.getAddress().getPort())
-                                                .equals(address))
+                        .filter(m -> m.getAddress().toString().equals(address))
                         .findFirst()
                         .orElseThrow(
                                 () ->
