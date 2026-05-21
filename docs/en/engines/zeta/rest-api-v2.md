@@ -691,6 +691,8 @@ When we can't get the job info, the response will be:
 > | isStartWithSavePoint | optional | string    | if job is started with save point                        |
 > | format               | optional | string    | config format, support json, hocon and sql, default json |
 
+**Note:** The dry-run feature is intentionally not supported via the REST API. It is exclusively available through the SeaTunnel CLI.
+
 #### Body
 
 You can choose json, hocon or sql to pass request body.

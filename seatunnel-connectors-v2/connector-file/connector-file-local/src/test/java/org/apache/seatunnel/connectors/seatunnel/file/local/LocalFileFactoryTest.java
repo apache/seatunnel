@@ -60,6 +60,16 @@ class LocalFileFactoryTest {
                 optionRule
                         .getOptionalOptions()
                         .contains(FileBaseSourceOptions.RETENTION_CHECK_INTERVAL));
+        Assertions.assertTrue(
+                optionRule.getRequiredOptions().stream()
+                        .filter(RequiredOption.ConditionalRequiredOptions.class::isInstance)
+                        .map(RequiredOption.ConditionalRequiredOptions.class::cast)
+                        .anyMatch(
+                                required ->
+                                        required.getOptions()
+                                                .contains(
+                                                        FileBaseSourceOptions
+                                                                .MARKDOWN_RAG_METADATA_ENABLED)));
 
         Expression expectExpression =
                 Expression.of(FileBaseSourceOptions.SYNC_MODE, FileSyncMode.UPDATE);

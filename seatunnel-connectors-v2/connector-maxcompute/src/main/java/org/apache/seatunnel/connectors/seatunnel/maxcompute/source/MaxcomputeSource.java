@@ -69,6 +69,9 @@ public class MaxcomputeSource
                             TableIdentifier.of(
                                     "maxcompute",
                                     readonlyConfig.get(MaxcomputeSourceOptions.PROJECT),
+                                    readonlyConfig
+                                            .getOptional(MaxcomputeSourceOptions.SCHEMA_NAME)
+                                            .orElse(null),
                                     readonlyConfig.get(MaxcomputeSourceOptions.TABLE_NAME)),
                             catalogTable);
             tables.put(
@@ -90,9 +93,19 @@ public class MaxcomputeSource
                                         .orElse(
                                                 readonlyConfig.get(
                                                         MaxcomputeSourceOptions.PROJECT));
+                        // schema_name: per-table override, falls back to top-level value
+                        String schemaName =
+                                subReadonlyConfig
+                                        .getOptional(MaxcomputeSourceOptions.SCHEMA_NAME)
+                                        .orElse(
+                                                readonlyConfig
+                                                        .getOptional(
+                                                                MaxcomputeSourceOptions.SCHEMA_NAME)
+                                                        .orElse(null));
                         TablePath tablePath =
                                 TablePath.of(
                                         project,
+                                        schemaName,
                                         subReadonlyConfig.get(MaxcomputeSourceOptions.TABLE_NAME));
                         String partitionSpec =
                                 subReadonlyConfig
@@ -139,6 +152,9 @@ public class MaxcomputeSource
                     TablePath tablePath =
                             TablePath.of(
                                     readonlyConfig.get(MaxcomputeSourceOptions.PROJECT),
+                                    readonlyConfig
+                                            .getOptional(MaxcomputeSourceOptions.SCHEMA_NAME)
+                                            .orElse(null),
                                     readonlyConfig.get(MaxcomputeSourceOptions.TABLE_NAME));
                     tables.put(
                             tablePath,

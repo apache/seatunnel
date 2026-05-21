@@ -7,4 +7,4 @@
 - [Source Connector 开发指南](./source-connector-development.md)
 - [Sink Connector 开发指南](./sink-connector-development.md)
 - [搭建开发环境](./setup.md)
-- 外部仓库指南：[Connector-v2 贡献指南](https://github.com/apache/seatunnel/blob/dev/seatunnel-connectors-v2/README.zh.md)
+- 外部仓库指南：[Connector-v2 贡献指南](../../../seatunnel-connectors-v2/README.zh.md)

@@ -83,6 +83,9 @@ public class GravitinoClient implements MetalakeClient {
 
     @Override
     public JsonNode getMetaInfo(String sourceId, String metalakeUrl) throws IOException {
+        if (!metalakeUrl.endsWith("/")) {
+            metalakeUrl = metalakeUrl + "/";
+        }
         JsonNode rootNode = executeGetRequest(metalakeUrl + sourceId);
         JsonNode catalogNode = getRequiredNode(rootNode, JSON_FIELD_CATALOG);
         return getRequiredNode(catalogNode, JSON_FIELD_PROPERTIES);
@@ -159,7 +162,7 @@ public class GravitinoClient implements MetalakeClient {
                 }
                 // Exponential backoff delay before retry
                 long delayMs = RETRY_DELAY_MS;
-                log.debug(
+                log.warn(
                         "HTTP request to {} failed on attempt {}/{}, retrying in {}ms: {}",
                         url,
                         attempt,

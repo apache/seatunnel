@@ -17,13 +17,13 @@
 
 package org.apache.seatunnel.engine.client;
 
+import org.apache.seatunnel.api.metadata.MetadataProviderManager;
 import org.apache.seatunnel.common.utils.JsonUtils;
 import org.apache.seatunnel.engine.client.job.ClientJobExecutionEnvironment;
 import org.apache.seatunnel.engine.client.job.JobClient;
 import org.apache.seatunnel.engine.client.job.JobMetricsRunner.JobMetricsSummary;
 import org.apache.seatunnel.engine.common.config.JobConfig;
 import org.apache.seatunnel.engine.common.config.SeaTunnelConfig;
-import org.apache.seatunnel.engine.common.utils.DataSourceConfigResolver;
 import org.apache.seatunnel.engine.core.job.JobDAGInfo;
 import org.apache.seatunnel.engine.core.protocol.codec.SeaTunnelGetClusterHealthMetricsCodec;
 import org.apache.seatunnel.engine.core.protocol.codec.SeaTunnelPrintMessageCodec;
@@ -107,7 +107,7 @@ public class SeaTunnelClient implements SeaTunnelClientInstance, AutoCloseable {
     @Override
     public void close() {
         hazelcastClient.getHazelcastInstance().shutdown();
-        DataSourceConfigResolver.closeProviders();
+        MetadataProviderManager.closeProviders();
     }
 
     public ILogger getLogger() {

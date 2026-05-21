@@ -71,6 +71,7 @@ import com.hazelcast.spi.impl.NodeEngineImpl;
 import lombok.extern.slf4j.Slf4j;
 
 import java.io.IOException;
+import java.math.BigDecimal;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.Comparator;
@@ -140,12 +141,7 @@ public abstract class BaseService {
 
         JsonObject jobInfoJson = new JsonObject();
         JobImmutableInformation jobImmutableInformation =
-                nodeEngine
-                        .getSerializationService()
-                        .toObject(
-                                nodeEngine
-                                        .getSerializationService()
-                                        .toObject(jobInfo.getJobImmutableInformation()));
+                nodeEngine.getSerializationService().toObject(jobInfo.getJobImmutableInformation());
 
         SeaTunnelServer seaTunnelServer = getSeaTunnelServer(true);
         ClassLoaderService classLoaderService =
@@ -778,7 +774,15 @@ public abstract class BaseService {
                     if (value instanceof Map) {
                         members.add(key, metricsToJsonObject((Map<String, Object>) value));
                     } else {
-                        members.add(key, value.toString());
+                        String strValue;
+                        if (value instanceof Float
+                                || value instanceof Double
+                                || value instanceof BigDecimal) {
+                            strValue = new BigDecimal(value.toString()).toPlainString();
+                        } else {
+                            strValue = value.toString();
+                        }
+                        members.add(key, strValue);
                     }
                 });
         return members;

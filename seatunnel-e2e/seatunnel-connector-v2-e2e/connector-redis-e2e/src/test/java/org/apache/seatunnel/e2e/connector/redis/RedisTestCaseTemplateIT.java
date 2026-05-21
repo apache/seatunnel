@@ -16,6 +16,7 @@
  */
 package org.apache.seatunnel.e2e.connector.redis;
 
+import org.apache.seatunnel.shade.com.fasterxml.jackson.core.type.TypeReference;
 import org.apache.seatunnel.shade.com.fasterxml.jackson.databind.node.ObjectNode;
 
 import org.apache.seatunnel.api.table.type.ArrayType;
@@ -135,6 +136,74 @@ public abstract class RedisTestCaseTemplateIT extends TestSuiteBase implements T
         }
         // db_num backup
         jedis.select(0);
+    }
+
+    /**
+     * Initialize source data for multi-table tests. Creates test data with different key patterns:
+     * - user:* (50 keys) - order:* (30 keys) - product:* (20 keys)
+     */
+    protected void initMultiTableSourceData() {
+        JsonSerializationSchema jsonSerializationSchema =
+                new JsonSerializationSchema(testDateSet.getKey());
+        List<SeaTunnelRow> rows = testDateSet.getValue();
+
+        // Prepare user table data (50 records)
+        for (int i = 0; i < 50; i++) {
+            SeaTunnelRow row = rows.get(i % rows.size());
+            String json = new String(jsonSerializationSchema.serialize(row));
+            jedis.set("user:" + i, json);
+        }
+
+        // Prepare order table data (30 records)
+        for (int i = 0; i < 30; i++) {
+            SeaTunnelRow row = rows.get(i % rows.size());
+            String json = new String(jsonSerializationSchema.serialize(row));
+            jedis.set("order:" + i, json);
+        }
+
+        // Prepare product table data (20 records)
+        for (int i = 0; i < 20; i++) {
+            SeaTunnelRow row = rows.get(i % rows.size());
+            String json = new String(jsonSerializationSchema.serialize(row));
+            jedis.set("product:" + i, json);
+        }
+    }
+
+    /** Initialize mixed data types for multi-table tests. */
+    protected void initMixedTypesMultiTableData() {
+        JsonSerializationSchema jsonSerializationSchema =
+                new JsonSerializationSchema(testDateSet.getKey());
+        List<SeaTunnelRow> rows = testDateSet.getValue();
+
+        // Hash type data (10 hash keys)
+        for (int i = 0; i < 10; i++) {
+            String hashKey = "multi:hash:" + i;
+            for (int j = 0; j < 5; j++) {
+                SeaTunnelRow row = rows.get(j % rows.size());
+                String json = new String(jsonSerializationSchema.serialize(row));
+                jedis.hset(hashKey, "field_" + j, json);
+            }
+        }
+
+        // List type data (10 list keys)
+        for (int i = 0; i < 10; i++) {
+            String listKey = "multi:list:" + i;
+            for (int j = 0; j < 5; j++) {
+                SeaTunnelRow row = rows.get(j % rows.size());
+                String json = new String(jsonSerializationSchema.serialize(row));
+                jedis.rpush(listKey, json);
+            }
+        }
+
+        // Set type data (10 set keys)
+        for (int i = 0; i < 10; i++) {
+            String setKey = "multi:set:" + i;
+            for (int j = 0; j < 5; j++) {
+                SeaTunnelRow row = rows.get(j % rows.size());
+                String json = new String(jsonSerializationSchema.serialize(row));
+                jedis.sadd(setKey, json);
+            }
+        }
     }
 
     protected Pair<SeaTunnelRowType, List<SeaTunnelRow>> generateTestDataSet() {
@@ -695,6 +764,92 @@ public abstract class RedisTestCaseTemplateIT extends TestSuiteBase implements T
             }
         }
         Assertions.assertEquals(2, count);
+    }
+
+    @TestTemplate
+    public void testMultipleTableRedisSource(TestContainer container)
+            throws IOException, InterruptedException {
+        // Prepare multi-table source data
+        initMultiTableSourceData();
+
+        // Execute job
+        Container.ExecResult execResult =
+                container.executeJob("/scan-multitable-string-to-redis.conf");
+        Assertions.assertEquals(0, execResult.getExitCode(), "Job should complete successfully");
+
+        // Verify user table results (50 records)
+        long userCount = jedis.llen("multitable-result-user_table");
+        Assertions.assertEquals(50, userCount, "User table should have 50 records");
+
+        // Verify order table results (30 records)
+        long orderCount = jedis.llen("multitable-result-order_table");
+        Assertions.assertEquals(30, orderCount, "Order table should have 30 records");
+
+        // Verify product table results (20 records)
+        long productCount = jedis.llen("multitable-result-product_table");
+        Assertions.assertEquals(20, productCount, "Product table should have 20 records");
+
+        // Clean up source data
+        for (int i = 0; i < 50; i++) {
+            jedis.del("user:" + i);
+        }
+        for (int i = 0; i < 30; i++) {
+            jedis.del("order:" + i);
+        }
+        for (int i = 0; i < 20; i++) {
+            jedis.del("product:" + i);
+        }
+
+        // Clean up result data
+        jedis.del("multitable-result-user_table");
+        jedis.del("multitable-result-order_table");
+        jedis.del("multitable-result-product_table");
+    }
+
+    @TestTemplate
+    public void testMultipleTableRedisMixedTypes(TestContainer container)
+            throws IOException, InterruptedException {
+        // Prepare mixed types source data
+        initMixedTypesMultiTableData();
+
+        // Execute job
+        Container.ExecResult execResult =
+                container.executeJob("/scan-multitable-mixed-types-to-redis.conf");
+        Assertions.assertEquals(0, execResult.getExitCode(), "Job should complete successfully");
+
+        // Verify hash table results
+        long hashCount = jedis.llen("mixed-types-result-hash_table");
+        Assertions.assertEquals(10, hashCount);
+
+        List<String> hashTabelValueList =
+                jedis.lrange("mixed-types-result-hash_table", 0, hashCount);
+
+        for (String hashValue : hashTabelValueList) {
+            Map<String, Object> valueMap =
+                    JsonUtils.parseObject(hashValue, new TypeReference<Map<String, Object>>() {});
+            Assertions.assertNotNull(valueMap);
+            Assertions.assertEquals(6, valueMap.size());
+        }
+
+        // Verify list table results
+        long listCount = jedis.llen("mixed-types-result-list_table");
+        Assertions.assertEquals(50, listCount);
+
+        // Verify set table results
+        long setCount = jedis.llen("mixed-types-result-set_table");
+        Assertions.assertEquals(50, setCount);
+
+        // Clean up source data
+        for (int i = 0; i < 10; i++) {
+            jedis.del("multi:hash:" + i);
+            jedis.del("multi:list:" + i);
+            jedis.del("multi:set:" + i);
+        }
+
+        // Clean up result data
+        jedis.del("mixed-types-result-hash_table");
+        jedis.del("mixed-types-result-list_table");
+        jedis.del("mixed-types-result-set_table");
     }
 
     public abstract RedisContainerInfo getRedisContainerInfo();

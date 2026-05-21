@@ -159,7 +159,7 @@ public class JsonPathTransform extends MultipleFieldOutputTransform {
             }
             Object result = JSON_PATH_CACHE.get(columnConfig.getPath()).read(jsonString);
             JsonNode jsonNode = JsonUtils.toJsonNode(result);
-            return converter.convert(jsonNode, null);
+            return converter.convert(jsonNode, columnConfig.getDestField());
         } catch (JsonPathException e) {
             if (columnConfig.errorHandleWay() != null
                     && columnConfig.errorHandleWay().allowSkip()) {

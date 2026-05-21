@@ -257,6 +257,29 @@ public class RedisClusterIT extends TestSuiteBase implements TestResource {
         log.info("Initialized {} test records in Redis cluster", rows.size());
     }
 
+    /** Initialize cluster multi-table source data. */
+    private void initClusterMultiTableSourceData() {
+        JsonSerializationSchema jsonSerializationSchema =
+                new JsonSerializationSchema(generateTestDataSet().getKey());
+        List<SeaTunnelRow> rows = generateTestDataSet().getValue();
+
+        // Prepare cluster user data (40 records)
+        for (int i = 0; i < 40; i++) {
+            SeaTunnelRow row = rows.get(i % rows.size());
+            String json = new String(jsonSerializationSchema.serialize(row));
+            jedisCluster.set("cluster:user:" + i, json);
+        }
+
+        // Prepare cluster order data (30 records)
+        for (int i = 0; i < 30; i++) {
+            SeaTunnelRow row = rows.get(i % rows.size());
+            String json = new String(jsonSerializationSchema.serialize(row));
+            jedisCluster.set("cluster:order:" + i, json);
+        }
+
+        log.info("Initialized cluster multi-table source data: 40 user records, 30 order records");
+    }
+
     @AfterAll
     @Override
     public void tearDown() {
@@ -386,6 +409,43 @@ public class RedisClusterIT extends TestSuiteBase implements TestResource {
             }
         } finally {
             jedisCluster.del("cluster-hash-value-check");
+        }
+    }
+
+    @TestTemplate
+    public void testClusterMultipleTableRedisSource(TestContainer container)
+            throws IOException, InterruptedException {
+        // Prepare cluster multi-table source data
+        initClusterMultiTableSourceData();
+
+        try {
+            // Execute job
+            Container.ExecResult execResult =
+                    container.executeJob("/cluster-scan-multitable-to-redis.conf");
+            Assertions.assertEquals(
+                    0,
+                    execResult.getExitCode(),
+                    "Cluster multi-table job should complete successfully");
+
+            // Verify user table results (40 records)
+            long userCount = jedisCluster.llen("cluster-multitable-cluster_user_table");
+            Assertions.assertEquals(40, userCount, "Cluster user table should have 40 records");
+
+            // Verify order table results (30 records)
+            long orderCount = jedisCluster.llen("cluster-multitable-cluster_order_table");
+            Assertions.assertEquals(30, orderCount, "Cluster order table should have 30 records");
+        } finally {
+            // Clean up source data
+            for (int i = 0; i < 40; i++) {
+                jedisCluster.del("cluster:user:" + i);
+            }
+            for (int i = 0; i < 30; i++) {
+                jedisCluster.del("cluster:order:" + i);
+            }
+
+            // Clean up result data
+            jedisCluster.del("cluster-multitable-cluster_user_table");
+            jedisCluster.del("cluster-multitable-cluster_order_table");
         }
     }
 

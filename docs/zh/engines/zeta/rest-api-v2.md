@@ -670,6 +670,8 @@ seatunnel:
 > | isStartWithSavePoint | optional | string | if job is started with save point |
 > | format               | optional | string    | 配置风格,支持json、hocon 和 sql,默认 json   |
 
+**注意:** REST API 不支持 dry-run 功能。该功能仅通过 CLI 提供。
+
 #### 请求体
 
 你可以选择用json、hocon或者sql的方式来传递请求体。

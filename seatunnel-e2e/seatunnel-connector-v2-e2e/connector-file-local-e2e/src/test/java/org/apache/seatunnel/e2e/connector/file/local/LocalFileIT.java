@@ -319,6 +319,11 @@ public class LocalFileIT extends TestSuiteBase {
                         "/seatunnel/read/e2e_null_format/e2e_null_format.txt",
                         container);
 
+                container.execInContainer(
+                        "sh",
+                        "-c",
+                        "mkdir -p /seatunnel/read/markdown && printf '# E2E Markdown RAG\\n' > /seatunnel/read/markdown/e2e.md");
+
                 container.execInContainer("mkdir", "-p", "/tmp/fake_empty");
             };
 
@@ -425,6 +430,13 @@ public class LocalFileIT extends TestSuiteBase {
         helper.execute("/excel/local_excel_multi_zip_to_assert.conf");
         helper.execute("/excel/local_excel_xls_gz_to_assert.conf");
         helper.execute("/excel/local_excel_xlsx_gz_to_assert.conf");
+    }
+
+    @TestTemplate
+    public void testLocalFileReadMarkdownRagMetadata(TestContainer container)
+            throws IOException, InterruptedException {
+        TestHelper helper = new TestHelper(container);
+        helper.execute("/markdown/local_file_markdown_rag_metadata_to_assert.conf");
     }
 
     @TestTemplate

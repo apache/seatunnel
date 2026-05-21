@@ -18,25 +18,23 @@
 package org.apache.seatunnel.connectors.seatunnel.jdbc.internal.dialect.sqlserver;
 
 import org.apache.seatunnel.api.table.type.SeaTunnelDataType;
-import org.apache.seatunnel.api.table.type.SeaTunnelRow;
-import org.apache.seatunnel.api.table.type.SeaTunnelRowType;
 import org.apache.seatunnel.api.table.type.SqlType;
-import org.apache.seatunnel.common.exception.CommonErrorCodeDeprecated;
-import org.apache.seatunnel.connectors.seatunnel.jdbc.exception.JdbcConnectorException;
 import org.apache.seatunnel.connectors.seatunnel.jdbc.internal.converter.AbstractJdbcRowConverter;
 import org.apache.seatunnel.connectors.seatunnel.jdbc.internal.dialect.DatabaseIdentifier;
 import org.apache.seatunnel.connectors.seatunnel.jdbc.utils.JdbcFieldTypeUtils;
 
-import java.math.BigDecimal;
+import lombok.extern.slf4j.Slf4j;
+
+import javax.annotation.Nullable;
+
 import java.sql.PreparedStatement;
 import java.sql.ResultSet;
 import java.sql.SQLException;
 import java.sql.Timestamp;
-import java.time.LocalDate;
-import java.time.LocalDateTime;
 import java.time.LocalTime;
 import java.util.Optional;
 
+@Slf4j
 public class SqlserverJdbcRowConverter extends AbstractJdbcRowConverter {
 
     @Override
@@ -51,79 +49,75 @@ public class SqlserverJdbcRowConverter extends AbstractJdbcRowConverter {
                 .map(e -> e.toLocalDateTime().toLocalTime())
                 .orElse(null);
     }
-
-    public PreparedStatement toExternal(
-            SeaTunnelRowType rowType, SeaTunnelRow row, PreparedStatement statement)
+    /**
+     * {@inheritDoc}
+     *
+     * <p>SQL Server requires explicit type information for null values in binary columns (IMAGE,
+     * VARBINARY, BINARY). Using {@code setObject(index, null)} causes the driver to infer the type
+     * as NVARCHAR, which leads to conversion errors:
+     *
+     * <pre>
+     * Implicit conversion from data type nvarchar to image is not allowed
+     * </pre>
+     *
+     * <p>This method uses {@code setNull(index, sqlType)} with the appropriate JDBC type based on
+     * the source column type.
+     */
+    @Override
+    protected void setNullToStatementByDataType(
+            PreparedStatement statement,
+            SeaTunnelDataType<?> seaTunnelDataType,
+            int statementIndex,
+            @Nullable String sourceType)
             throws SQLException {
-        for (int fieldIndex = 0; fieldIndex < rowType.getTotalFields(); fieldIndex++) {
-            SeaTunnelDataType<?> seaTunnelDataType = rowType.getFieldType(fieldIndex);
-            int statementIndex = fieldIndex + 1;
-            Object fieldValue = row.getField(fieldIndex);
-            if (fieldValue == null && seaTunnelDataType.getSqlType() != SqlType.BYTES) {
-                statement.setObject(statementIndex, null);
-                continue;
-            }
 
-            switch (seaTunnelDataType.getSqlType()) {
-                case STRING:
-                    statement.setString(statementIndex, (String) row.getField(fieldIndex));
-                    break;
-                case BOOLEAN:
-                    statement.setBoolean(statementIndex, (Boolean) row.getField(fieldIndex));
-                    break;
-                case TINYINT:
-                    statement.setByte(statementIndex, (Byte) row.getField(fieldIndex));
-                    break;
-                case SMALLINT:
-                    statement.setShort(statementIndex, (Short) row.getField(fieldIndex));
-                    break;
-                case INT:
-                    statement.setInt(statementIndex, (Integer) row.getField(fieldIndex));
-                    break;
-                case BIGINT:
-                    statement.setLong(statementIndex, (Long) row.getField(fieldIndex));
-                    break;
-                case FLOAT:
-                    statement.setFloat(statementIndex, (Float) row.getField(fieldIndex));
-                    break;
-                case DOUBLE:
-                    statement.setDouble(statementIndex, (Double) row.getField(fieldIndex));
-                    break;
-                case DECIMAL:
-                    statement.setBigDecimal(statementIndex, (BigDecimal) row.getField(fieldIndex));
-                    break;
-                case DATE:
-                    LocalDate localDate = (LocalDate) row.getField(fieldIndex);
-                    statement.setDate(statementIndex, java.sql.Date.valueOf(localDate));
-                    break;
-                case TIME:
-                    LocalTime localTime = (LocalTime) row.getField(fieldIndex);
-                    statement.setTime(statementIndex, java.sql.Time.valueOf(localTime));
-                    break;
-                case TIMESTAMP:
-                    LocalDateTime localDateTime = (LocalDateTime) row.getField(fieldIndex);
-                    statement.setTimestamp(
-                            statementIndex, java.sql.Timestamp.valueOf(localDateTime));
-                    break;
-                case BYTES:
-                    if (row.getField(fieldIndex) == null) {
-                        statement.setBytes(statementIndex, new byte[0]);
-                        break;
-                    }
-                    statement.setBytes(statementIndex, (byte[]) row.getField(fieldIndex));
-                    break;
-                case NULL:
-                    statement.setNull(statementIndex, java.sql.Types.NULL);
-                    break;
-                case MAP:
-                case ARRAY:
-                case ROW:
-                default:
-                    throw new JdbcConnectorException(
-                            CommonErrorCodeDeprecated.UNSUPPORTED_DATA_TYPE,
-                            "Unexpected value: " + seaTunnelDataType);
-            }
+        if (seaTunnelDataType.getSqlType() == SqlType.BYTES) {
+            statement.setNull(statementIndex, resolveSqlServerBytesNullType(sourceType));
+            return;
         }
-        return statement;
+
+        statement.setObject(statementIndex, null);
+    }
+
+    /**
+     * Resolves the appropriate JDBC type for SQL Server binary columns when the value is null.
+     *
+     * <p>SQL Server has multiple binary types, each mapping to a different JDBC type:
+     *
+     * <ul>
+     *   <li>IMAGE → LONGVARBINARY (legacy large binary type)
+     *   <li>VARBINARY(*) → VARBINARY
+     *   <li>VARBINARY(MAX) → VARBINARY
+     *   <li>BINARY(*) → BINARY (fixed-length)
+     *   <li>other → VARBINARY
+     * </ul>
+     *
+     * @param sourceType the SQL Server column type (e.g., "IMAGE", "VARBINARY", "BINARY")
+     * @return the JDBC type constant from {@link java.sql.Types}
+     */
+    private int resolveSqlServerBytesNullType(@Nullable String sourceType) {
+        if (sourceType == null) {
+            log.warn(
+                    "Cannot determine source type for BYTES field, defaulting to VARBINARY. "
+                            + "If this causes errors, please provide databaseTableSchema.");
+            return java.sql.Types.VARBINARY;
+        }
+
+        if (SqlServerTypeConverter.SQLSERVER_IMAGE.equals(sourceType)) {
+            return java.sql.Types.LONGVARBINARY;
+        }
+        if (sourceType.startsWith(SqlServerTypeConverter.SQLSERVER_VARBINARY)) {
+            return java.sql.Types.VARBINARY;
+        }
+        if (sourceType.startsWith(SqlServerTypeConverter.SQLSERVER_BINARY)) {
+            return java.sql.Types.BINARY;
+        }
+
+        // Unknown type, log warning and use conservative LONGVARBINARY
+        log.warn(
+                "Unknown SQLServer binary type: {}, defaulting to LONGVARBINARY. "
+                        + "This may cause issues if the target column is not a large binary type.",
+                sourceType);
+        return java.sql.Types.VARBINARY;
     }
 }

@@ -49,7 +49,7 @@ public class SqliteDialect implements JdbcDialect {
 
     @Override
     public Optional<String> getUpsertStatement(
-            String database, String tableName, String[] fieldNames, String[] uniqueKeyFields) {
+            String database, String tableName, String[] fieldNames, String[] pkNames) {
         String updateClause =
                 Arrays.stream(fieldNames)
                         .map(
@@ -61,9 +61,7 @@ public class SqliteDialect implements JdbcDialect {
                         .collect(Collectors.joining(", "));
 
         String conflictFields =
-                Arrays.stream(uniqueKeyFields)
-                        .map(this::quoteIdentifier)
-                        .collect(Collectors.joining(","));
+                Arrays.stream(pkNames).map(this::quoteIdentifier).collect(Collectors.joining(","));
 
         String upsertSQL =
                 getInsertIntoStatement(database, tableName, fieldNames)
