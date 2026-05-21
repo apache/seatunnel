@@ -46,6 +46,7 @@ import org.apache.kafka.common.TopicPartition;
 import org.junit.jupiter.api.AfterAll;
 import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.BeforeAll;
+import org.junit.jupiter.api.Disabled;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.TestTemplate;
 import org.slf4j.Logger;
@@ -278,6 +279,7 @@ public class PostgresCDCIT extends TestSuiteBase implements TestResource {
     }
 
     @TestTemplate
+    @Disabled("Debezium PostgreSQL 1.9 cannot emit DDL schema change events to consumers.")
     @DisabledOnContainer(
             value = {},
             type = {EngineType.SPARK, EngineType.FLINK},
