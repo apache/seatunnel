@@ -766,6 +766,10 @@ public class PostgresCDCIT extends TestSuiteBase implements TestResource {
             assertTableSchemaAndDataEquals(
                     POSTGRESQL_SCHEMA, SCHEMA_EVOLUTION_SOURCE_TABLE, SCHEMA_EVOLUTION_SINK_TABLE);
 
+            updateRowBeforeSchemaEvolution(POSTGRESQL_SCHEMA, SCHEMA_EVOLUTION_SOURCE_TABLE);
+            assertTableSchemaAndDataEquals(
+                    POSTGRESQL_SCHEMA, SCHEMA_EVOLUTION_SOURCE_TABLE, SCHEMA_EVOLUTION_SINK_TABLE);
+
             addFieldForSchemaEvolution(POSTGRESQL_SCHEMA, SCHEMA_EVOLUTION_SOURCE_TABLE);
             insertRowAfterAddField(POSTGRESQL_SCHEMA, SCHEMA_EVOLUTION_SOURCE_TABLE);
             assertTableSchemaAndDataEquals(
@@ -1080,6 +1084,10 @@ public class PostgresCDCIT extends TestSuiteBase implements TestResource {
     private void clearSchemaEvolutionTables() {
         executeSql("DROP TABLE IF EXISTS inventory." + SCHEMA_EVOLUTION_SINK_TABLE);
         executeSql("DROP TABLE IF EXISTS inventory." + SCHEMA_EVOLUTION_SOURCE_TABLE);
+    }
+
+    private void updateRowBeforeSchemaEvolution(String database, String tableName) {
+        executeSql("UPDATE " + database + "." + tableName + " SET f_int = 65536 WHERE id = 1;");
     }
 
     private void dropFieldForSchemaEvolution(String database, String tableName) {
