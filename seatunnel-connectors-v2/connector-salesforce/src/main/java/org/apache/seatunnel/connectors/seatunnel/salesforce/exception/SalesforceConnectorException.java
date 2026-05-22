@@ -31,8 +31,7 @@ public class SalesforceConnectorException extends SeaTunnelRuntimeException {
         super(seaTunnelErrorCode, errorMessage, cause);
     }
 
-    public SalesforceConnectorException(
-            SeaTunnelErrorCode seaTunnelErrorCode, Throwable cause) {
+    public SalesforceConnectorException(SeaTunnelErrorCode seaTunnelErrorCode, Throwable cause) {
         super(seaTunnelErrorCode, cause);
     }
 }

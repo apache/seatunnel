@@ -67,8 +67,7 @@ public class SalesforceSource extends AbstractSingleSplitSource<SeaTunnelRow>
                     ReadonlyConfig tableConfig = ReadonlyConfig.fromMap(map);
                     SalesforceTableConfig built = buildOneTableConfig(tableConfig, client);
                     String tableId = built.getTableId();
-                    boolean duplicate =
-                            configs.stream().anyMatch(c -> c.getTableId().equals(tableId));
+                    boolean duplicate = configs.stream().anyMatch(c -> c.getTableId().equals(tableId));
                     if (duplicate) {
                         throw new SalesforceConnectorException(
                                 SalesforceConnectorErrorCode.DUPLICATE_OBJECT,

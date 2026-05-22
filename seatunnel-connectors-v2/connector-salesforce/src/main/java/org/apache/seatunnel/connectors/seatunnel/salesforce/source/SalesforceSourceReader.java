@@ -41,8 +41,7 @@ import java.util.List;
 @Slf4j
 public class SalesforceSourceReader extends AbstractSingleSplitReader<SeaTunnelRow> {
 
-    private static final DateTimeFormatter DATE_FMT =
-            DateTimeFormatter.ofPattern("yyyy-MM-dd");
+    private static final DateTimeFormatter DATE_FMT = DateTimeFormatter.ofPattern("yyyy-MM-dd");
     private static final DateTimeFormatter DATETIME_FMT =
             DateTimeFormatter.ofPattern("yyyy-MM-dd'T'HH:mm:ss.SSSZ");
     private static final DateTimeFormatter TIME_FMT =
@@ -82,8 +81,7 @@ public class SalesforceSourceReader extends AbstractSingleSplitReader<SeaTunnelR
                 CatalogTable catalogTable = tableConfig.getCatalogTable();
                 SeaTunnelRowType rowType = catalogTable.getSeaTunnelRowType();
                 int columnCount = rowType.getTotalFields();
-                List<Object[]> rawRows =
-                        client.executeBulkQuery(tableConfig.getSoql(), columnCount);
+                List<Object[]> rawRows = client.executeBulkQuery(tableConfig.getSoql(), columnCount);
                 String tableId = tableConfig.getTableId();
                 log.info(
                         "Fetched {} rows from Salesforce object {}",

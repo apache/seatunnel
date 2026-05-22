@@ -32,6 +32,7 @@ import org.apache.seatunnel.connectors.seatunnel.salesforce.exception.Salesforce
 import org.apache.commons.csv.CSVFormat;
 import org.apache.commons.csv.CSVParser;
 import org.apache.commons.csv.CSVRecord;
+import org.apache.http.Header;
 import org.apache.http.HttpHeaders;
 import org.apache.http.NameValuePair;
 import org.apache.http.client.config.RequestConfig;
@@ -39,7 +40,6 @@ import org.apache.http.client.entity.UrlEncodedFormEntity;
 import org.apache.http.client.methods.CloseableHttpResponse;
 import org.apache.http.client.methods.HttpGet;
 import org.apache.http.client.methods.HttpPost;
-import org.apache.http.Header;
 import org.apache.http.entity.ContentType;
 import org.apache.http.entity.StringEntity;
 import org.apache.http.impl.client.CloseableHttpClient;
@@ -83,8 +83,7 @@ public class SalesforceClient implements Closeable {
                         .setConnectTimeout(params.getRequestTimeoutMs())
                         .setSocketTimeout(params.getRequestTimeoutMs())
                         .build();
-        this.httpClient =
-                HttpClients.custom().setDefaultRequestConfig(requestConfig).build();
+        this.httpClient = HttpClients.custom().setDefaultRequestConfig(requestConfig).build();
     }
 
     public void authenticate() {
@@ -118,8 +117,7 @@ public class SalesforceClient implements Closeable {
         } catch (SalesforceConnectorException e) {
             throw e;
         } catch (Exception e) {
-            throw new SalesforceConnectorException(
-                    SalesforceConnectorErrorCode.AUTH_FAILED, e);
+            throw new SalesforceConnectorException(SalesforceConnectorErrorCode.AUTH_FAILED, e);
         }
     }
 
@@ -153,8 +151,7 @@ public class SalesforceClient implements Closeable {
             String name = field.get("name").asText();
             String sfType = field.get("type").asText();
             SeaTunnelDataType<?> seaType = mapSalesforceType(sfType);
-            schemaBuilder.column(
-                    PhysicalColumn.of(name, seaType, null, null, true, null, null));
+            schemaBuilder.column(PhysicalColumn.of(name, seaType, null, null, true, null, null));
         }
         return CatalogTable.of(
                 TableIdentifier.of(PLUGIN_NAME, database, objectName),

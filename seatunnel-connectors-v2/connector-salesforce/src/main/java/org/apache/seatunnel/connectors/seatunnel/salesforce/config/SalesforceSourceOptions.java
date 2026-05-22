@@ -105,8 +105,7 @@ public class SalesforceSourceOptions {
             Options.key("poll_interval_ms")
                     .longType()
                     .defaultValue(5000L)
-                    .withDescription(
-                            "Interval in milliseconds between Bulk API job status polls.");
+                    .withDescription("Interval in milliseconds between Bulk API job status polls.");
 
     public static final Option<String> TABLE_PATH =
             Options.key("table_path")
