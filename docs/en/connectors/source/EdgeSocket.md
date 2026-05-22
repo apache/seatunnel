@@ -19,17 +19,17 @@ import ChangeLog from '../changelog/connector-edge-socket.md';
 
 ## Description
 
-`EdgeSocket` listens on a TCP port inside a Zeta worker and accepts connections from edge collectors.
+EdgeSocket listens on a TCP port inside a Zeta worker and accepts connections from edge collectors.
 Each collector pushes batches of records over the socket, and the source enqueues them for downstream processing.
-Because the source binds a fixed TCP port, parallelism must be set to `1`. If parallelism were greater than 1, multiple readers would attempt to bind the same port and all but one would fail.
+Because the source binds a fixed TCP port, parallelism must be set to 1. If parallelism were greater than 1, multiple readers would attempt to bind the same port and all but one would fail.
 
 The source uses a push model: collectors dial in to the source, not the other way around.
 This means the network must allow collector → worker TCP connectivity.
 
 :::caution Single Collector Restriction
 
-Each `EdgeSocket` source reader accepts exactly one collector connection at a time.
-Connection behavior, `REJECTED` handling, and retry guidance are described in the "Collector Protocol" section below.
+Each EdgeSocket source reader accepts exactly one collector connection at a time.
+Connection behavior, REJECTED handling, and retry guidance are described in the "Collector Protocol" section below.
 
 If multiple collectors need to push data into the same job, create separate jobs for each collector.
 
@@ -41,17 +41,17 @@ If multiple collectors need to push data into the same job, create separate jobs
 |-----------------------|---------|----------|---------|-------------|
 | port                  | Integer | Yes      | -       | TCP port the source binds on the Zeta worker. |
 | token                 | String  | Yes      | -       | Shared token for collector authentication. Collectors must send `__AUTH__:<token>` as the first line before any data. |
-| auth_type             | String  | No       | TOKEN   | Authentication mode. Only `TOKEN` is supported in the current release. |
-| packet_mode           | String  | No       | RAW     | Ingress framing mode. `RAW`: each line is a plain-text payload. `PACKET`: each line is a JSON envelope (see [Packet Protocol](#packet-protocol)). |
-| secret_key            | String  | No       | -       | Base64-encoded AES-256 key (32 bytes). Required when `packet_mode = PACKET` and `encryption = AES_GCM`. Both sides must use the same value. |
+| auth_type             | String  | No       | TOKEN   | Authentication mode. Only TOKEN is supported in the current release. |
+| packet_mode           | String  | No       | RAW     | Ingress framing mode. RAW: each line is a plain-text payload. PACKET: each line is a JSON envelope (see [Packet Protocol](#packet-protocol)). |
+| secret_key            | String  | No       | -       | Base64-encoded AES-256 key (32 bytes). Required when packet_mode = PACKET and encryption = AES_GCM. Both sides must use the same value. |
 | local_queue_capacity  | Integer | No       | 1024    | Maximum number of records held in the in-memory queue. Must be greater than 0. See [Tuning Guide](#tuning-guide). |
-| queue_backpressure_watermark_ratio | Double | No | 0.9 | High-water mark ratio of `local_queue_capacity`. When queue size reaches `ceil(capacity × ratio)`, the source replies `QUEUE_FULL` without decoding the payload. Must be in `(0, 1]`. |
-| queue_full_retry_after_ms | Integer | No | 500 | Suggested backoff in milliseconds embedded in `QUEUE_FULL` responses (`QUEUE_FULL:<ms>`). Must be greater than 0. |
-| max_retries           | Integer | No       | 3       | How many times the source retries binding the port on failure before giving up. Set to `-1` for unlimited retries. |
+| queue_backpressure_watermark_ratio | Double | No | 0.9 | High-water mark ratio of local_queue_capacity. When queue size reaches ceil(capacity × ratio), the source replies QUEUE_FULL without decoding the payload. Must be in (0, 1]. |
+| queue_full_retry_after_ms | Integer | No | 500 | Backoff in milliseconds embedded in QUEUE_FULL responses (format QUEUE_FULL:ms). Must be greater than 0. |
+| max_retries           | Integer | No       | 3       | How many times the source retries binding the port on failure before giving up. Set to -1 for unlimited retries. |
 | reconnect_interval_ms | Integer | No       | 1000    | Milliseconds to wait between source-side port bind retry attempts; this controls bind retries after source startup failure, not collector reconnect intervals. |
 | accept_timeout_ms     | Integer | No       | 1000    | Socket accept/read timeout in milliseconds. The source loops on timeout so it can check its own state; this does not mean the source exits on timeout. |
-| endpoint              | String  | No       | -       | Externally reachable address of this ingress in `host:port` format (for example a K8s LoadBalancer DNS, VPC EIP, or NAT address). This field does not change the local bind address (`0.0.0.0:<port>`); it is for observability only. |
-| schema                | Config  | No       | -       | Output schema definition. When omitted, the source outputs a single `STRING` field named `value`. When set, the incoming payload is parsed as JSON and mapped to the declared fields. See [Schema Mode](#schema-mode). |
+| endpoint              | String  | No       | -       | Externally reachable address of this ingress in host:port format (for example a K8s LoadBalancer DNS, VPC EIP, or NAT address). This field does not change the local bind address (always 0.0.0.0:port); it is for observability only. |
+| schema                | Config  | No       | -       | Output schema definition. When omitted, the source outputs a single STRING field named value. When set, the incoming payload is parsed as JSON and mapped to the declared fields. See [Schema Mode](#schema-mode). |
 | common-options        | -       | No       | -       | Common source options. See [Source Common Options](../common-options/source-common-options.md). |
 
 ## Quick Start
@@ -93,9 +93,9 @@ sink {
 
 ## Schema Mode
 
-By default the source emits one `STRING` field (`value`) containing the raw payload line.
+By default the source emits one STRING field (value) containing the raw payload line.
 
-To parse JSON payloads into typed fields, declare a `schema`:
+To parse JSON payloads into typed fields, declare a schema:
 
 ```hocon
 source {
@@ -119,18 +119,20 @@ Incoming payload must be valid JSON matching the declared fields; a schema misma
 
 The source listens passively; collectors must be able to reach the worker's TCP port.
 
-::::tip Source task migration and address stability
-`EdgeSocket` binds a specific port on the worker it runs on. If the job restarts and the source task migrates to a different worker, the collector's target address becomes stale.
+:::tip Source task migration and address stability
+EdgeSocket binds the local port of the worker that runs the source task. After a job restart, if the source task migrates to another worker, the collector target address becomes invalid immediately.
 
-How to handle this depends on your deployment:
+Deployment requirements:
 
-- K8s — use a `LoadBalancer` Service (recommended). See [K8s deployment](#k8s-deployment) below.
-- VM / bare-metal — use Zeta's `tag_filter` to pin the source to a fixed worker. See example below.
+- K8s: use a LoadBalancer Service (recommended). See [K8s deployment](#k8s-deployment).
+- VM / bare-metal: use Zeta tag_filter to pin the source to a fixed worker.
+
+:::
 
 <details>
 <summary>VM / bare-metal: pin source via tag_filter</summary>
 
-Step 1 — label the target worker in its `hazelcast.yaml`:
+Step 1 — label the target worker in hazelcast.yaml:
 
 ```yaml
 hazelcast:
@@ -140,7 +142,7 @@ hazelcast:
       value: "true"
 ```
 
-Step 2 — add a `tag_filter` to the job so the source always lands on that worker:
+Step 2 — add tag_filter to the job so the source always lands on that worker:
 
 ```hocon
 env {
@@ -159,20 +161,19 @@ source {
 }
 ```
 
-The job scheduler will only allocate slots on workers whose attributes match all `tag_filter` entries.
+The job scheduler allocates slots only on workers whose attributes fully match all tag_filter entries.
 
 </details>
-::::
 
 ### Common deployment scenarios
 
 | Deployment | Reachable by default | Recommendation | What to do |
 |---|---|---|---|
-| Collector and worker in the same VPC / private network | Yes | - | Configure collector to dial `<worker-ip>:<port>` directly. |
-| Collector and worker in different VPCs (routing opened) | Yes | - | Configure collector to dial the worker IP. Consider setting `endpoint` for logging clarity. |
-| Worker behind VPC EIP or NAT | Yes (via public address) | - | Configure collector to dial the EIP/NAT address. Set `endpoint = "<eip>:<port>"`. |
-| Worker behind K8s LoadBalancer | Yes (via LB address) | Recommended | Configure collector to dial the LB DNS or IP. Set `endpoint = "<lb-dns>:<port>"`. |
-| Worker on K8s with node taint + tag pinning | Yes (via node IP) | Not recommended | Pin pod to a fixed node via taint/nodeSelector + SeaTunnel `tag_filter`. Fragile — node failure blocks the job. |
+| Collector and worker in the same VPC / private network | Yes | - | Configure the collector to dial worker-ip:port directly. |
+| Collector and worker in different VPCs (routing opened) | Yes | - | Configure collector to dial the worker IP. Consider setting endpoint for logging clarity. |
+| Worker behind VPC EIP or NAT | Yes (via public address) | - | Configure the collector to dial the EIP/NAT address. Set endpoint = eip:port. |
+| Worker behind K8s LoadBalancer | Yes (via LB address) | Recommended | Configure the collector to dial the LB DNS or IP. Set endpoint = lb-dns:port. |
+| Worker on K8s with node taint + tag pinning | Yes (via node IP) | Not recommended | Pin pod to a fixed node via taint/nodeSelector + SeaTunnel tag_filter. Fragile — node failure blocks the job. |
 | Worker in a network with no inbound path at all | No | - | Expose a reachable ingress first (EIP / LB / NAT / reverse tunnel), then configure collectors to dial that ingress. |
 
 ### K8s deployment
@@ -181,7 +182,7 @@ There are two main approaches for exposing the EdgeSocket port in Kubernetes:
 
 #### Approach 1: LoadBalancer / ELB (recommended)
 
-Create a `Service` of type `LoadBalancer` pointing to the Zeta worker pod. The collector dials the external LB address, and traffic is routed to the correct pod automatically.
+Create a Service of type LoadBalancer pointing to the Zeta worker pod. The collector dials the external LB address, and traffic is routed to the correct pod automatically.
 
 This is the recommended approach because:
 - The collector address remains stable regardless of pod rescheduling.
@@ -201,7 +202,7 @@ source {
 
 #### Approach 2: Node taint + SeaTunnel tag (not recommended)
 
-Use a Kubernetes node taint / `nodeSelector` to pin the Zeta worker pod to a specific node, combined with SeaTunnel's `tag_filter` to ensure the source task always lands on that worker. The collector dials the node's IP directly.
+Use a Kubernetes node taint / nodeSelector to pin the Zeta worker pod to a specific node, combined with SeaTunnel's tag_filter to ensure the source task always lands on that worker. The collector dials the node's IP directly.
 
 :::warning
 
@@ -251,8 +252,8 @@ Collectors connect to the source over plain TCP and use a line-based text protoc
 
 The source accepts exactly one collector at a time. Two mechanisms enforce this:
 
-1. Once a collector session is established, the server socket is suspended (closed). Subsequent connection attempts fail at the TCP level (`Connection refused`).
-2. In a narrow race window — if a second collector was already waiting in the TCP backlog when the first was accepted — the source replies `REJECTED` at application level.
+1. Once a collector session is established, the server socket is suspended (closed). Subsequent connection attempts fail at the TCP level (Connection refused).
+2. In a narrow race window — if a second collector was already waiting in the TCP backlog when the first was accepted — the source replies REJECTED at application level.
 
 After the active collector disconnects, the server socket reopens and a new collector can connect.
 
@@ -266,8 +267,8 @@ __AUTH__:<token>
 
 The source replies:
 
-- `ACK` — authentication succeeded; the collector can now send data.
-- `AUTH_FAILED` — wrong token; the collector should reconnect with the correct token.
+- ACK — authentication succeeded; the collector can now send data.
+- AUTH_FAILED — wrong token; the collector should reconnect with the correct token.
 
 ### Sending batches
 
@@ -279,22 +280,22 @@ __BATCH__:<batchId>:<payload>
 
 The source replies:
 
-- `RECEIVED` — batch accepted and queued.
-- `QUEUE_FULL:<ms>` — queue reached the backpressure watermark; wait at least `<ms>` milliseconds (from `queue_full_retry_after_ms`) and resend the same batch unchanged. The source does not decode the payload in this case.
-- `RETRY` — physically full queue (rare, below watermark race) or malformed request; wait briefly and resend the same batch.
-- `DECRYPT_FAILED` — decryption failed; verify both sides use the same `secret_key`.
+- RECEIVED — batch accepted and queued.
+- `QUEUE_FULL:<ms>` — queue reached the backpressure watermark; wait at least `<ms>` milliseconds (from queue_full_retry_after_ms) and resend the same batch unchanged. The source does not decode the payload in this case.
+- RETRY — physically full queue (rare, below watermark race) or malformed request; wait briefly and resend the same batch.
+- DECRYPT_FAILED — decryption failed; verify both sides use the same secret_key.
 
 ### Backpressure
 
-When queue size reaches `ceil(local_queue_capacity × queue_backpressure_watermark_ratio)` (default 90%), the source replies `QUEUE_FULL:<ms>` at application level without decoding the payload. `<ms>` comes from `queue_full_retry_after_ms` (default `500`).
+When queue size reaches ceil(local_queue_capacity × queue_backpressure_watermark_ratio) (default 90%), the source replies `QUEUE_FULL:<ms>` at application level without decoding the payload. `<ms>` comes from queue_full_retry_after_ms (default 500).
 
-This differs from `RETRY` on a physically full queue: `QUEUE_FULL` signals that downstream consumption is lagging. `RETRY` is still used for malformed requests and rare physical-full races below the watermark.
+This differs from RETRY on a physically full queue: QUEUE_FULL signals that downstream consumption is lagging. RETRY is still used for malformed requests and rare physical-full races below the watermark.
 
 ### Polling for checkpoint confirmation
 
-`RECEIVED` means the batch is enqueued only, not that a job checkpoint has completed. If the worker restarts before the next completed checkpoint, records still in the in-memory queue may be lost. `__COMMIT__` is optional; collectors may use only `__BATCH__` → `RECEIVED`. If you use `__COMMIT__`, keep local buffers until `ACK:<watermark>` and evict using the returned watermark.
+RECEIVED means the batch is enqueued only, not checkpoint-confirmed. If the worker restarts before the next completed checkpoint, records still in the in-memory queue are lost. `__COMMIT__` is optional; collectors can use only `__BATCH__` → RECEIVED. If `__COMMIT__` is enabled, keep local buffers until `ACK:<watermark>` and evict by the returned watermark.
 
-**`batchId` must be globally monotonic** for the lifetime of the logical source, including reconnects and worker restarts. After a restart, the collector must resume from a batchId strictly above the last `ACK:<watermark>` it received — never restart from 1. This lets the source use its committed watermark as an unambiguous ACK boundary.
+**batchId must be globally monotonic** for the lifetime of the logical source, including reconnects and worker restarts. After a restart, the collector must resume from a batchId strictly above the last `ACK:<watermark>` it received — never restart from 1. This lets the source use its committed watermark as an unambiguous ACK boundary.
 
 ```
 __COMMIT__:<batchId>
@@ -302,10 +303,10 @@ __COMMIT__:<batchId>
 
 The source replies:
 
-- `PENDING` — batch received but not yet checkpoint-confirmed. Keep the batch; poll again.
-- `ACK:<watermarkBatchId>` — all batches up to `watermarkBatchId` are checkpoint-confirmed. Discard buffered batches whose `batchId ≤ watermarkBatchId`.
-- `RESEND` — this batchId was in-flight at the last snapshot but has not been re-received in the current execution attempt (e.g. the worker restarted and the batch is no longer in the queue). Resend via `__BATCH__:<batchId>:<payload>` before polling `__COMMIT__` again.
-- `RETRY` — batchId not yet seen; send `__BATCH__` first.
+- PENDING — batch received but not yet checkpoint-confirmed. Keep the batch; poll again.
+- `ACK:<watermarkBatchId>` — all batches up to watermarkBatchId are checkpoint-confirmed. Discard buffered batches whose batchId ≤ watermarkBatchId.
+- RESEND — this batchId was in-flight at the last snapshot but has not been re-received in the current execution attempt (e.g. the worker restarted and the batch is no longer in the queue). Resend via `__BATCH__:<batchId>:<payload>` before polling `__COMMIT__` again.
+- RETRY — batchId not yet seen; send `__BATCH__` first.
 
 Example send loop (includes optional `__COMMIT__`):
 
@@ -326,25 +327,25 @@ The following table lists connection outcomes and every application-level respon
 
 | Response | Triggered by | Meaning | Collector action |
 |---|---|---|---|
-| `ACK` | `__AUTH__` | Authentication succeeded. | Begin sending batches. |
-| `AUTH_FAILED` | `__AUTH__` | Wrong or missing token. | Reconnect with the correct token. |
-| `Connection refused` | Connection | Server socket is suspended; connect fails at TCP level (see [Connection](#connection)). | Investigate before reconnecting; causes vary. |
-| `REJECTED` | Connection | Accepted through TCP backlog race while another collector is active (see [Connection](#connection)). | Stop immediately; verify no other collector instance is running. Do not retry automatically. |
-| `RECEIVED` | `__BATCH__` | Record accepted and queued. | Continue sending; `__COMMIT__` is optional—poll until `ACK` and evict by the returned watermark if you want buffers aligned with the checkpoint watermark. |
-| `QUEUE_FULL:<ms>` | `__BATCH__` | Queue reached backpressure watermark (see [Backpressure](#backpressure)). | Wait at least `<ms>` ms, then resend the same batch unchanged. |
-| `RETRY` | `__BATCH__` or `__COMMIT__` | Physically full queue (rare) or malformed request. | Malformed: fix and resend; physical full: exponential back-off, then resend the same batch unchanged. |
-| `DECRYPT_FAILED` | `__BATCH__` | Decryption failed, typically because the collector's key does not match the source's `secret_key`. | Stop sending and verify both sides use the same `secret_key`. |
-| `PENDING` | `__COMMIT__` | Batch reached the source but is not yet covered by a completed checkpoint. | Keep the batch in local buffer; wait and poll `__COMMIT__` again. |
-| `RESEND` | `__COMMIT__` | Source has no record of this batchId in the current session (e.g. worker restarted and the batch was never re-received in this execution attempt). | Resend the batch via `__BATCH__:<batchId>:<payload>` before polling `__COMMIT__` again. |
-| `ACK:<watermarkBatchId>` | `__COMMIT__` | All batches with `batchId ≤ watermarkBatchId` are checkpoint-confirmed. | Discard buffered batches whose `batchId ≤ watermarkBatchId`. |
+| ACK | `__AUTH__` | Authentication succeeded. | Begin sending batches. |
+| AUTH_FAILED | `__AUTH__` | Wrong or missing token. | Reconnect with the correct token. |
+| Connection refused | Connection | Server socket is suspended; connect fails at TCP level (see [Connection](#connection)). | Investigate before reconnecting; causes vary. |
+| REJECTED | Connection | Accepted through TCP backlog race while another collector is active (see [Connection](#connection)). | Stop immediately; verify no other collector instance is running. Do not retry automatically. |
+| RECEIVED | `__BATCH__` | Record accepted and queued. | Continue sending. If checkpoint-watermark-aligned buffer eviction is required, enable `__COMMIT__`, poll until ACK, and evict by the returned watermark. |
+| QUEUE_FULL:ms | `__BATCH__` | Queue reached backpressure watermark (see [Backpressure](#backpressure)). | Wait at least ms milliseconds, then resend the same batch unchanged. |
+| RETRY | `__BATCH__` or `__COMMIT__` | Physically full queue (rare) or malformed request. | Malformed: fix and resend; physical full: exponential back-off, then resend the same batch unchanged. |
+| DECRYPT_FAILED | `__BATCH__` | Decryption failed, typically because the collector's key does not match the source's secret_key. | Stop sending and verify both sides use the same secret_key. |
+| PENDING | `__COMMIT__` | Batch reached the source but is not yet covered by a completed checkpoint. | Keep the batch in local buffer; wait and poll `__COMMIT__` again. |
+| RESEND | `__COMMIT__` | Source has no record of this batchId in the current session (e.g. worker restarted and the batch was never re-received in this execution attempt). | Resend the batch via `__BATCH__:<batchId>:<payload>` before polling `__COMMIT__` again. |
+| ACK:watermarkBatchId | `__COMMIT__` | All batches with batchId ≤ watermarkBatchId are checkpoint-confirmed. | Discard buffered batches whose batchId ≤ watermarkBatchId. |
 
-> `Connection refused` is a TCP connect failure, not a line-protocol response; it is included alongside `REJECTED` to document both connection outcomes in the single-collector model.
+> Connection refused is a TCP connect failure, not a line-protocol response; it is included alongside REJECTED to document both connection outcomes in the single-collector model.
 >
-> `batchId` format: decimal positive integer in Java `long` range (`1` – `9223372036854775807`). Non-numeric, zero, or negative values cause a `RETRY` response.
+> batchId format: decimal positive integer in Java long range (1 – 9223372036854775807). Non-numeric, zero, or negative values cause a RETRY response.
 >
-> **`batchId` monotonicity**: values must increase monotonically for the full lifetime of the logical source, including reconnects and worker restarts. After reconnecting, resume from a value strictly above the last `ACK:<watermark>` received — never reset to 1.
+> **batchId monotonicity**: values must increase monotonically for the full lifetime of the logical source, including reconnects and worker restarts. After reconnecting, resume from a value strictly above the last `ACK:<watermark>` received — never reset to 1.
 >
-> `ACK:<watermarkBatchId>` note: the returned number is the source's current checkpoint watermark, which may be higher than the queried `batchId`. Always use the returned watermark for buffer eviction.
+> `ACK:<watermarkBatchId>` note: the returned number is the source current checkpoint watermark, and it can be higher than the queried batchId. Always use the returned watermark for buffer eviction.
 
 ### Collector Interaction Sequence
 
@@ -413,11 +414,11 @@ sequenceDiagram
       end
 ```
 
-Phases 3 and 4 can be interleaved. Phase 4 applies only if you use `__COMMIT__`—you may omit it entirely; `__BATCH__` → `RECEIVED` alone is valid. You do **not** need to wait for `ACK` before sending the next `__BATCH__`.
+Phases 3 and 4 can run in parallel. Phase 4 is required only when `__COMMIT__` is used; omitting Phase 4 is still protocol-compliant, and `__BATCH__` → RECEIVED alone is valid. Sending the next `__BATCH__` does not require waiting for ACK.
 
 ### Packet Protocol
 
-When `packet_mode = PACKET`, each batch payload must be a JSON envelope:
+When packet_mode = PACKET, each batch payload must be a JSON envelope:
 
 ```json
 {
@@ -433,7 +434,7 @@ Processing order: decrypt on ingress → decompress on queue poll → decode as 
 
 ### Encrypted Transport
 
-When `packet_mode = PACKET` and encryption is needed, the collector encrypts the payload with AES-256-GCM and the source decrypts it using the same key.
+When packet_mode = PACKET and encryption is needed, the collector encrypts the payload with AES-256-GCM and the source decrypts it using the same key.
 
 #### Key Generation
 
@@ -488,7 +489,7 @@ writer.write("__BATCH__:1:" + packetJson + "\n");
 
 ## Tuning Guide
 
-### `local_queue_capacity`
+### local_queue_capacity
 
 When a checkpoint is triggered, the entire in-memory queue is serialized into the checkpoint state. The checkpoint state size is approximately:
 
@@ -500,13 +501,13 @@ The factor of 3 accounts for: the queue itself, the serialized byte array, and t
 
 :::caution Enqueued message size ≠ raw message size
 
-The queue stores the post-protocol-processing `byte[]`. When `packet_mode = PACKET` with compression enabled (`compression = GZIP / ZLIB / DEFLATE`), the enqueued data is the compressed bytes, which can be significantly smaller than the original payload.
+The queue stores the post-protocol-processing byte[]. When packet_mode = PACKET with compression enabled (compression = GZIP / ZLIB / DEFLATE), the enqueued data is the compressed bytes, which can be significantly smaller than the original payload.
 
-Use the enqueued (i.e. post-compression) size for estimation. If unsure, sample a few real messages from the collector side and measure their compressed size as a baseline.
+Use the enqueued (post-compression) size for estimation. When baseline data is missing, sample real collector messages and measure their compressed size first.
 
 :::
 
-It is recommended to keep the checkpoint state under 10 MB. Checkpoint state is replicated across the cluster via Hazelcast IMap, so larger states increase memory usage and network overhead. The actual acceptable threshold depends on your cluster's hardware and network bandwidth.
+Keep checkpoint state under 10 MB. Checkpoint state is replicated across the cluster through Hazelcast IMap; larger states increase memory and network overhead. The final threshold is bounded by cluster hardware and network bandwidth.
 
 Recommended settings (based on enqueued message size):
 
@@ -517,12 +518,12 @@ Recommended settings (based on enqueued message size):
 | Large JSON (or still large after compression) | 5–10 KB | 512 | 2.5–5 MB |
 | Extra-large nested structures | > 10 KB | Calculate with formula | Depends on actual enqueued size |
 
-Formula: `local_queue_capacity` ≤ 10 MB ÷ enqueued_message_size ÷ 3
+Formula: local_queue_capacity ≤ 10 MB ÷ enqueued_message_size ÷ 3
 
-For `> 10 KB` payloads, sample real enqueued message sizes first, then apply the formula to compute `local_queue_capacity` instead of relying on a fixed preset.
+For `> 10 KB` payloads, sample real enqueued message sizes first, then apply the formula to compute local_queue_capacity instead of relying on a fixed preset.
 
 :::tip
-If the collector receives many `QUEUE_FULL` responses, the downstream pipeline is slower than ingress. Tune sink throughput or adjust `local_queue_capacity` / `queue_backpressure_watermark_ratio` using the formula above. `QUEUE_FULL` is returned before payload decode to avoid retry storms under backpressure; `RETRY` is reserved for malformed requests or rare physical queue overflow.
+If the collector receives many QUEUE_FULL responses, the downstream pipeline is slower than ingress. Tune sink throughput or adjust local_queue_capacity / queue_backpressure_watermark_ratio using the formula above. QUEUE_FULL is returned before payload decode to avoid retry storms under backpressure; RETRY is reserved for malformed requests or rare physical queue overflow.
 :::
 
 ## Changelog
