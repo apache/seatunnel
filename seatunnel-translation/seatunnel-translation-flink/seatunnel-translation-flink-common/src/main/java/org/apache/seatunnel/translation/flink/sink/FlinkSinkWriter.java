@@ -70,6 +70,19 @@ public class FlinkSinkWriter<InputT, CommT, WriterStateT>
 
     private MultiTableResourceManager resourceManager;
 
+    /**
+     * Cached writer states produced together with {@link #prepareCommit(boolean)}.
+     *
+     * <p>Flink 1.13+ calls {@code prepareCommit(..)} in {@code prepareSnapshotPreBarrier} and
+     * {@code snapshotState(..)} afterwards. To guarantee that SeaTunnel {@link
+     * org.apache.seatunnel.api.sink.SinkWriter} always sees {@code prepareCommit(checkpointId)}
+     * followed immediately by {@code snapshotState(checkpointId)} without any further writes to the
+     * same transaction, we invoke {@code snapshotState(checkpointId)} inside {@link
+     * #prepareCommit(boolean)} and cache the result here. The subsequent Flink {@code
+     * snapshotState(..)} call simply consumes this cached state.
+     */
+    private List<FlinkWriterState<WriterStateT>> pendingStates;
+
     FlinkSinkWriter(
             org.apache.seatunnel.api.sink.SinkWriter<SeaTunnelRow, CommT, WriterStateT> sinkWriter,
             long checkpointId,
@@ -202,7 +215,22 @@ public class FlinkSinkWriter<InputT, CommT, WriterStateT>
 
     @Override
     public List<CommitWrapper<CommT>> prepareCommit(boolean flush) throws IOException {
+        // 1. Let SeaTunnel SinkWriter prepare the commit for the current checkpointId
         Optional<CommT> commTOptional = sinkWriter.prepareCommit(checkpointId);
+
+        // 2. Immediately snapshot state for the same checkpointId, so from SeaTunnel's
+        //    perspective prepareCommit(checkpointId) and snapshotState(checkpointId) are
+        //    executed back-to-back with no further writes to the same transaction.
+        List<FlinkWriterState<WriterStateT>> states =
+                sinkWriter.snapshotState(this.checkpointId).stream()
+                        .map(state -> new FlinkWriterState<>(this.checkpointId, state))
+                        .collect(Collectors.toList());
+        this.pendingStates = states;
+
+        // 3. Advance internal checkpointId for the next round.
+        this.checkpointId++;
+
+        // 4. Wrap commit info as before.
         return commTOptional
                 .map(CommitWrapper::new)
                 .map(Collections::singletonList)
@@ -211,6 +239,17 @@ public class FlinkSinkWriter<InputT, CommT, WriterStateT>
 
     @Override
     public List<FlinkWriterState<WriterStateT>> snapshotState() throws IOException {
+        // If we have already snapshotted state in prepareCommit for this checkpoint,
+        // just return the cached value to Flink and avoid calling the underlying
+        // SeaTunnel SinkWriter.snapshotState(..) a second time.
+        if (pendingStates != null) {
+            List<FlinkWriterState<WriterStateT>> states = pendingStates;
+            pendingStates = null;
+            return states;
+        }
+
+        // Fallback: in some edge cases (e.g., sinks without 2PC) Flink might call snapshotState
+        // without a preceding prepareCommit. Preserve the original behaviour then.
         List<FlinkWriterState<WriterStateT>> states =
                 sinkWriter.snapshotState(this.checkpointId).stream()
                         .map(state -> new FlinkWriterState<>(this.checkpointId, state))
