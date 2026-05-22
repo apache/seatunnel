@@ -35,6 +35,8 @@ import java.util.stream.Stream;
 
 public final class MultiTableFailureHelper {
 
+    public static final String ISOLATED_FAILURE_MARKER = "[MULTI_TABLE_ISOLATED_FAILURE]";
+
     private static final String FAILED_TABLE_DELIMITER = ":";
     private static final int FAILED_TABLE_FIELD_COUNT = 6;
 
@@ -104,6 +106,20 @@ public final class MultiTableFailureHelper {
                 + sortedFailures.values().stream()
                         .map(MultiTableFailureHelper::formatFailedTableLine)
                         .collect(Collectors.joining(System.lineSeparator()));
+    }
+
+    public static String withIsolatedFailureMarker(String message) {
+        if (message == null || message.isEmpty()) {
+            return ISOLATED_FAILURE_MARKER;
+        }
+        if (isIsolatedFailure(message)) {
+            return message;
+        }
+        return ISOLATED_FAILURE_MARKER + System.lineSeparator() + message;
+    }
+
+    public static boolean isIsolatedFailure(String message) {
+        return message != null && message.contains(ISOLATED_FAILURE_MARKER);
     }
 
     public static String formatFailedTableLine(MultiTableFailedTable failure) {

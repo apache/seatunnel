@@ -156,6 +156,204 @@ public class MultiTableSinkWriterTest {
     }
 
     @Test
+    public void testRuntimeWriteRetriesFailedTableBeforeIsolation() throws IOException {
+        Map<SinkIdentifier, SinkWriter<SeaTunnelRow, ?, ?>> sinkWriters = new HashMap<>();
+        Map<SinkIdentifier, SinkWriter.Context> sinkWritersContext = new HashMap<>();
+        RecordingSinkWriter failedThenRecoveredWriter = new RetryableWriteSinkWriter(2);
+        RecordingSinkWriter healthyWriter = new RecordingSinkWriter(false);
+        SinkIdentifier failedIdentifier = SinkIdentifier.of("test.failed", 0);
+        SinkIdentifier healthyIdentifier = SinkIdentifier.of("test.healthy", 1);
+        sinkWriters.put(failedIdentifier, failedThenRecoveredWriter);
+        sinkWriters.put(healthyIdentifier, healthyWriter);
+        sinkWritersContext.put(failedIdentifier, new TestSinkWriterContext());
+        sinkWritersContext.put(healthyIdentifier, new TestSinkWriterContext());
+
+        MultiTableSinkWriter multiTableSinkWriter =
+                new MultiTableSinkWriter(
+                        sinkWriters,
+                        2,
+                        sinkWritersContext,
+                        MultiTableFailurePolicy.CONTINUE_OTHER_TABLES,
+                        JobMode.BATCH,
+                        2,
+                        0);
+
+        multiTableSinkWriter.write(buildRow("test.failed", 0));
+        multiTableSinkWriter.write(buildRow("test.healthy", 1));
+
+        Optional<MultiTableCommitInfo> commitInfo = multiTableSinkWriter.prepareCommit(1L);
+        Assertions.assertTrue(commitInfo.isPresent());
+        Assertions.assertEquals(2, commitInfo.get().getCommitInfo().size());
+        Assertions.assertEquals(3, failedThenRecoveredWriter.getWriteCount());
+        Assertions.assertEquals(1, healthyWriter.getWriteCount());
+        Assertions.assertDoesNotThrow(multiTableSinkWriter::close);
+    }
+
+    @Test
+    public void testRuntimeWriteIsolatesFailedTableAfterRetryExhausted() throws IOException {
+        Map<SinkIdentifier, SinkWriter<SeaTunnelRow, ?, ?>> sinkWriters = new HashMap<>();
+        Map<SinkIdentifier, SinkWriter.Context> sinkWritersContext = new HashMap<>();
+        RecordingSinkWriter failedWriter = new RecordingSinkWriter(true);
+        RecordingSinkWriter healthyWriter = new RecordingSinkWriter(false);
+        SinkIdentifier failedIdentifier = SinkIdentifier.of("test.failed", 0);
+        SinkIdentifier healthyIdentifier = SinkIdentifier.of("test.healthy", 1);
+        sinkWriters.put(failedIdentifier, failedWriter);
+        sinkWriters.put(healthyIdentifier, healthyWriter);
+        sinkWritersContext.put(failedIdentifier, new TestSinkWriterContext());
+        sinkWritersContext.put(healthyIdentifier, new TestSinkWriterContext());
+
+        MultiTableSinkWriter multiTableSinkWriter =
+                new MultiTableSinkWriter(
+                        sinkWriters,
+                        2,
+                        sinkWritersContext,
+                        MultiTableFailurePolicy.CONTINUE_OTHER_TABLES,
+                        JobMode.BATCH,
+                        2,
+                        0);
+
+        multiTableSinkWriter.write(buildRow("test.failed", 0));
+        multiTableSinkWriter.write(buildRow("test.healthy", 1));
+
+        Optional<MultiTableCommitInfo> commitInfo = multiTableSinkWriter.prepareCommit(1L);
+        Assertions.assertTrue(commitInfo.isPresent());
+        Assertions.assertEquals(1, commitInfo.get().getCommitInfo().size());
+        Assertions.assertEquals(3, failedWriter.getWriteCount());
+        Assertions.assertEquals(1, healthyWriter.getWriteCount());
+
+        IOException closeException =
+                Assertions.assertThrows(IOException.class, multiTableSinkWriter::close);
+        Assertions.assertTrue(closeException.getMessage().contains("test.failed"));
+        Assertions.assertTrue(
+                MultiTableFailureHelper.isIsolatedFailure(closeException.getMessage()));
+    }
+
+    @Test
+    public void testRuntimeWriteZeroRetryKeepsImmediateIsolation() throws IOException {
+        Map<SinkIdentifier, SinkWriter<SeaTunnelRow, ?, ?>> sinkWriters = new HashMap<>();
+        Map<SinkIdentifier, SinkWriter.Context> sinkWritersContext = new HashMap<>();
+        RecordingSinkWriter failedWriter = new RecordingSinkWriter(true);
+        SinkIdentifier failedIdentifier = SinkIdentifier.of("test.failed", 0);
+        sinkWriters.put(failedIdentifier, failedWriter);
+        sinkWritersContext.put(failedIdentifier, new TestSinkWriterContext());
+
+        MultiTableSinkWriter multiTableSinkWriter =
+                new MultiTableSinkWriter(
+                        sinkWriters,
+                        1,
+                        sinkWritersContext,
+                        MultiTableFailurePolicy.CONTINUE_OTHER_TABLES,
+                        JobMode.BATCH,
+                        0,
+                        0);
+
+        multiTableSinkWriter.write(buildRow("test.failed", 0));
+
+        RuntimeException prepareCommitException =
+                Assertions.assertThrows(
+                        RuntimeException.class, () -> multiTableSinkWriter.prepareCommit(1L));
+        Assertions.assertTrue(
+                MultiTableFailureHelper.isIsolatedFailure(prepareCommitException.getMessage()));
+        Assertions.assertEquals(1, failedWriter.getWriteCount());
+        IOException closeException =
+                Assertions.assertThrows(IOException.class, multiTableSinkWriter::close);
+        Assertions.assertTrue(
+                MultiTableFailureHelper.isIsolatedFailure(closeException.getMessage()));
+    }
+
+    @Test
+    public void testFailFastDoesNotUseTableRetry() throws IOException {
+        Map<SinkIdentifier, SinkWriter<SeaTunnelRow, ?, ?>> sinkWriters = new HashMap<>();
+        Map<SinkIdentifier, SinkWriter.Context> sinkWritersContext = new HashMap<>();
+        RecordingSinkWriter failedWriter = new RecordingSinkWriter(true);
+        SinkIdentifier failedIdentifier = SinkIdentifier.of("test.failed", 0);
+        sinkWriters.put(failedIdentifier, failedWriter);
+        sinkWritersContext.put(failedIdentifier, new TestSinkWriterContext());
+
+        MultiTableSinkWriter multiTableSinkWriter =
+                new MultiTableSinkWriter(
+                        sinkWriters,
+                        1,
+                        sinkWritersContext,
+                        MultiTableFailurePolicy.FAIL_FAST,
+                        JobMode.BATCH,
+                        2,
+                        0);
+
+        multiTableSinkWriter.write(buildRow("test.failed", 0));
+
+        Assertions.assertThrows(
+                RuntimeException.class, () -> multiTableSinkWriter.prepareCommit(1L));
+        Assertions.assertEquals(1, failedWriter.getWriteCount());
+        multiTableSinkWriter.close();
+    }
+
+    @Test
+    public void testPrepareCommitRetriesBeforeIsolation() throws IOException {
+        Map<SinkIdentifier, SinkWriter<SeaTunnelRow, ?, ?>> sinkWriters = new HashMap<>();
+        Map<SinkIdentifier, SinkWriter.Context> sinkWritersContext = new HashMap<>();
+        PrepareCommitRetrySinkWriter retryWriter = new PrepareCommitRetrySinkWriter(1);
+        SinkIdentifier sinkIdentifier = SinkIdentifier.of("test.retry", 0);
+        sinkWriters.put(sinkIdentifier, retryWriter);
+        sinkWritersContext.put(sinkIdentifier, new TestSinkWriterContext());
+
+        MultiTableSinkWriter multiTableSinkWriter =
+                new MultiTableSinkWriter(
+                        sinkWriters,
+                        1,
+                        sinkWritersContext,
+                        MultiTableFailurePolicy.CONTINUE_OTHER_TABLES,
+                        JobMode.BATCH,
+                        1,
+                        0);
+
+        Optional<MultiTableCommitInfo> commitInfo = multiTableSinkWriter.prepareCommit(1L);
+
+        Assertions.assertTrue(commitInfo.isPresent());
+        Assertions.assertEquals(1, commitInfo.get().getCommitInfo().size());
+        Assertions.assertEquals(2, retryWriter.getPrepareCommitCount());
+        Assertions.assertDoesNotThrow(multiTableSinkWriter::close);
+    }
+
+    @Test
+    public void testSnapshotStateRetriesBeforeIsolation() throws IOException {
+        Map<SinkIdentifier, SinkWriter<SeaTunnelRow, ?, ?>> sinkWriters = new HashMap<>();
+        Map<SinkIdentifier, SinkWriter.Context> sinkWritersContext = new HashMap<>();
+        SnapshotRetrySinkWriter retryWriter = new SnapshotRetrySinkWriter(1);
+        SinkIdentifier sinkIdentifier = SinkIdentifier.of("test.retry", 0);
+        sinkWriters.put(sinkIdentifier, retryWriter);
+        sinkWritersContext.put(sinkIdentifier, new TestSinkWriterContext());
+
+        MultiTableSinkWriter multiTableSinkWriter =
+                new MultiTableSinkWriter(
+                        sinkWriters,
+                        1,
+                        sinkWritersContext,
+                        MultiTableFailurePolicy.CONTINUE_OTHER_TABLES,
+                        JobMode.BATCH,
+                        1,
+                        0);
+
+        List<MultiTableState> states = multiTableSinkWriter.snapshotState(1L);
+
+        Assertions.assertEquals(1, states.size());
+        Assertions.assertEquals(1, retryWriter.getSnapshotCount());
+        Assertions.assertEquals(2, retryWriter.getSnapshotAttemptCount());
+        Assertions.assertDoesNotThrow(multiTableSinkWriter::close);
+    }
+
+    @Test
+    public void testIsolatedFailureMarkerRecognition() {
+        String message =
+                MultiTableFailureHelper.withIsolatedFailureMarker(
+                        "Failed tables were isolated in multi-table sink.");
+
+        Assertions.assertTrue(MultiTableFailureHelper.isIsolatedFailure(message));
+        Assertions.assertFalse(MultiTableFailureHelper.isIsolatedFailure(null));
+        Assertions.assertFalse(MultiTableFailureHelper.isIsolatedFailure("regular failure"));
+    }
+
+    @Test
     public void testSingleWriterFallbackAcceptsExplicitTableId() {
         Map<String, SinkWriter<SeaTunnelRow, ?, ?>> tableIdWriterMap = new HashMap<>();
         RecordingSinkWriter onlyWriter = new RecordingSinkWriter(false, true);
@@ -289,6 +487,75 @@ public class MultiTableSinkWriterTest {
 
         int getWriteCount() {
             return writeCount.get();
+        }
+    }
+
+    static class RetryableWriteSinkWriter extends RecordingSinkWriter {
+        private final int failuresBeforeSuccess;
+
+        RetryableWriteSinkWriter(int failuresBeforeSuccess) {
+            super(false);
+            this.failuresBeforeSuccess = failuresBeforeSuccess;
+        }
+
+        @Override
+        public void write(SeaTunnelRow seaTunnelRow) {
+            super.write(seaTunnelRow);
+            if (getWriteCount() <= failuresBeforeSuccess) {
+                throw new RuntimeException("temporary sink failure");
+            }
+        }
+    }
+
+    static class PrepareCommitRetrySinkWriter extends RecordingSinkWriter {
+        private final int failuresBeforeSuccess;
+        private final AtomicInteger prepareCommitCount = new AtomicInteger();
+
+        PrepareCommitRetrySinkWriter(int failuresBeforeSuccess) {
+            super(false);
+            this.failuresBeforeSuccess = failuresBeforeSuccess;
+        }
+
+        @Override
+        public Optional<TestSinkState> prepareCommit(long checkpointId) throws IOException {
+            int count = prepareCommitCount.incrementAndGet();
+            if (count <= failuresBeforeSuccess) {
+                throw new IOException("temporary prepare commit failure");
+            }
+            return Optional.of(new TestSinkState("retry"));
+        }
+
+        int getPrepareCommitCount() {
+            return prepareCommitCount.get();
+        }
+    }
+
+    static class SnapshotRetrySinkWriter extends RecordingSinkWriter {
+        private final int failuresBeforeSuccess;
+        private final AtomicInteger snapshotAttemptCount = new AtomicInteger();
+        private final AtomicInteger snapshotCount = new AtomicInteger();
+
+        SnapshotRetrySinkWriter(int failuresBeforeSuccess) {
+            super(false);
+            this.failuresBeforeSuccess = failuresBeforeSuccess;
+        }
+
+        @Override
+        public List<Object> snapshotState(long checkpointId) throws IOException {
+            int count = snapshotAttemptCount.incrementAndGet();
+            if (count <= failuresBeforeSuccess) {
+                throw new IOException("temporary snapshot failure");
+            }
+            snapshotCount.incrementAndGet();
+            return Collections.singletonList(new TestSinkState("snapshot"));
+        }
+
+        int getSnapshotAttemptCount() {
+            return snapshotAttemptCount.get();
+        }
+
+        int getSnapshotCount() {
+            return snapshotCount.get();
         }
     }
 

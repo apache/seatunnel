@@ -20,6 +20,7 @@ package org.apache.seatunnel.api.sink.multitablesink;
 import org.apache.seatunnel.api.common.JobContext;
 import org.apache.seatunnel.api.common.multitable.MultiTableFailedTable;
 import org.apache.seatunnel.api.common.multitable.MultiTableFailureHelper;
+import org.apache.seatunnel.api.options.EnvCommonOptions;
 import org.apache.seatunnel.api.options.MultiTableCommonOptions;
 import org.apache.seatunnel.api.options.MultiTableFailurePolicy;
 import org.apache.seatunnel.api.options.SinkConnectorCommonOptions;
@@ -71,6 +72,8 @@ public class MultiTableSink
     private final int replicaNum;
     @Getter private final MultiTableFailurePolicy failurePolicy;
     private final List<MultiTableFailedTable> initialFailedTables;
+    private final int tableRetryTimes;
+    private final int tableRetryIntervalSeconds;
     private JobContext jobContext;
 
     /**
@@ -89,6 +92,9 @@ public class MultiTableSink
                 context.getOptions().get(SinkConnectorCommonOptions.MULTI_TABLE_SINK_REPLICA);
         this.failurePolicy =
                 context.getOptions().get(MultiTableCommonOptions.MULTI_TABLE_FAILURE_POLICY);
+        this.tableRetryTimes = context.getOptions().get(EnvCommonOptions.JOB_RETRY_TIMES);
+        this.tableRetryIntervalSeconds =
+                context.getOptions().get(EnvCommonOptions.JOB_RETRY_INTERVAL_SECONDS);
         this.initialFailedTables =
                 new ArrayList<>(
                         MultiTableFailureHelper.getInitialFailedTables(context.getOptions()));
@@ -133,7 +139,9 @@ public class MultiTableSink
                 sinkWritersContext,
                 failurePolicy,
                 getJobMode(),
-                initialFailedTables);
+                initialFailedTables,
+                tableRetryTimes,
+                tableRetryIntervalSeconds);
     }
 
     /**
@@ -187,7 +195,9 @@ public class MultiTableSink
                 sinkWritersContext,
                 failurePolicy,
                 getJobMode(),
-                initialFailedTables);
+                initialFailedTables,
+                tableRetryTimes,
+                tableRetryIntervalSeconds);
     }
 
     @Override
