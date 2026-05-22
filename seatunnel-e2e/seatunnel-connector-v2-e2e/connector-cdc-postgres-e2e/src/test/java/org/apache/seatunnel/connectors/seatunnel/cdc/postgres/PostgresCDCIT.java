@@ -744,6 +744,7 @@ public class PostgresCDCIT extends TestSuiteBase implements TestResource {
     }
 
     @TestTemplate
+    @Disabled("Debezium PostgreSQL 1.9 cannot emit DDL schema change events to consumers.")
     @DisabledOnContainer(
             value = {},
             type = {EngineType.SPARK, EngineType.FLINK},
