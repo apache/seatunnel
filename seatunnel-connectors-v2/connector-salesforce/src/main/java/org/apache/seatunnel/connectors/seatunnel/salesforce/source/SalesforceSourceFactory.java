@@ -50,8 +50,7 @@ public class SalesforceSourceFactory implements TableSourceFactory {
                         SalesforceSourceOptions.PASSWORD,
                         SalesforceSourceOptions.INSTANCE_URL)
                 .exclusive(
-                        SalesforceSourceOptions.OBJECT_NAME,
-                        ConnectorCommonOptions.TABLE_CONFIGS)
+                        SalesforceSourceOptions.OBJECT_NAME, ConnectorCommonOptions.TABLE_CONFIGS)
                 .optional(
                         SalesforceSourceOptions.SECURITY_TOKEN,
                         SalesforceSourceOptions.API_VERSION,

@@ -17,6 +17,8 @@
 
 package org.apache.seatunnel.connectors.seatunnel.salesforce.source;
 
+import org.apache.seatunnel.shade.org.apache.commons.lang3.StringUtils;
+
 import org.apache.seatunnel.api.configuration.ReadonlyConfig;
 import org.apache.seatunnel.api.options.ConnectorCommonOptions;
 import org.apache.seatunnel.api.source.Boundedness;
@@ -32,8 +34,6 @@ import org.apache.seatunnel.connectors.seatunnel.salesforce.config.SalesforceSou
 import org.apache.seatunnel.connectors.seatunnel.salesforce.config.SalesforceTableConfig;
 import org.apache.seatunnel.connectors.seatunnel.salesforce.exception.SalesforceConnectorErrorCode;
 import org.apache.seatunnel.connectors.seatunnel.salesforce.exception.SalesforceConnectorException;
-
-import org.apache.commons.lang3.StringUtils;
 
 import java.util.ArrayList;
 import java.util.Collections;
@@ -123,10 +123,11 @@ public class SalesforceSource extends AbstractSingleSplitSource<SeaTunnelRow>
         }
         String fields = "FIELDS(ALL)";
         String filter = config.getOptional(SalesforceSourceOptions.FILTER).orElse(null);
-        StringBuilder soql = new StringBuilder("SELECT ")
-                .append(fields)
-                .append(" FROM ")
-                .append(objectName);
+        StringBuilder soql =
+                new StringBuilder("SELECT ")
+                        .append(fields)
+                        .append(" FROM ")
+                        .append(objectName);
         if (filter != null) {
             soql.append(" WHERE ").append(filter);
         }

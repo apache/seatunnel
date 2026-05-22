@@ -301,8 +301,7 @@ public class SalesforceClient implements Closeable {
         return rows;
     }
 
-    private void parseCsvInto(String csv, int columnCount, List<Object[]> rows)
-            throws IOException {
+    private void parseCsvInto(String csv, int columnCount, List<Object[]> rows) throws IOException {
         try (CSVParser parser =
                 CSVFormat.DEFAULT.withFirstRecordAsHeader().parse(new StringReader(csv))) {
             for (CSVRecord record : parser) {
