@@ -61,8 +61,7 @@ public class ArrowToSeatunnelRowReader implements AutoCloseable {
     private int readRowCount = 0;
     private List<FieldVector> fieldVectors;
     private VectorSchemaRoot root;
-    private ArrowStreamReader arrowStreamReader;
-    private RootAllocator rootAllocator;
+    private byte[] byteArray;
     private final Map<String, Integer> fieldIndexMap = new HashMap<>();
     private final List<SeaTunnelRow> seatunnelRowBatch = new ArrayList<>();
     private static final List<Converter> converters = new ArrayList<>();
@@ -89,13 +88,14 @@ public class ArrowToSeatunnelRowReader implements AutoCloseable {
     }
 
     private void initArrowReader(byte[] byteArray) {
-        this.rootAllocator = new RootAllocator(Integer.MAX_VALUE);
-        this.arrowStreamReader =
-                new ArrowStreamReader(new ByteArrayInputStream(byteArray), rootAllocator);
+        this.byteArray = byteArray;
     }
 
     public ArrowToSeatunnelRowReader readArrow() {
-        try {
+        try (RootAllocator rootAllocator = new RootAllocator(Integer.MAX_VALUE);
+                ByteArrayInputStream byteArrayInputStream = new ByteArrayInputStream(byteArray);
+                ArrowStreamReader arrowStreamReader =
+                        new ArrowStreamReader(byteArrayInputStream, rootAllocator)) {
             this.root = arrowStreamReader.getVectorSchemaRoot();
             while (arrowStreamReader.loadNextBatch()) {
                 this.fieldVectors = root.getFieldVectors();
@@ -103,7 +103,6 @@ public class ArrowToSeatunnelRowReader implements AutoCloseable {
                     log.debug("one batch in arrow has no data.");
                     continue;
                 }
-                log.info("one batch in arrow row count size '{}'", root.getRowCount());
                 this.rowCountInOneBatch = root.getRowCount();
                 for (int i = 0; i < rowCountInOneBatch; i++) {
                     seatunnelRowBatch.add(new SeaTunnelRow(this.seaTunnelDataTypes.length));
@@ -114,8 +113,6 @@ public class ArrowToSeatunnelRowReader implements AutoCloseable {
             return this;
         } catch (IOException e) {
             throw new RuntimeException(e);
-        } finally {
-            close();
         }
     }
 
@@ -318,19 +315,5 @@ public class ArrowToSeatunnelRowReader implements AutoCloseable {
     }
 
     @Override
-    public void close() {
-        try {
-            if (root != null) {
-                root.close();
-            }
-            if (rootAllocator != null) {
-                rootAllocator.close();
-            }
-            if (arrowStreamReader != null) {
-                arrowStreamReader.close();
-            }
-        } catch (IOException e) {
-            throw new RuntimeException("failed to close arrow stream reader.", e);
-        }
-    }
+    public void close() {}
 }
