@@ -46,7 +46,7 @@ If multiple collectors need to push data into the same job, create separate jobs
 | secret_key            | String  | No       | -       | Base64-encoded AES-256 key (32 bytes). Required when packet_mode = PACKET and encryption = AES_GCM. Both sides must use the same value. |
 | local_queue_capacity  | Integer | No       | 1024    | Maximum number of records held in the in-memory queue. Must be greater than 0. See [Tuning Guide](#tuning-guide). |
 | queue_backpressure_watermark_ratio | Double | No | 0.9 | High-water mark ratio of local_queue_capacity. When queue size reaches ceil(capacity × ratio), the source replies QUEUE_FULL without decoding the payload. Must be in (0, 1]. |
-| queue_full_retry_after_ms | Integer | No | 500 | Backoff in milliseconds embedded in QUEUE_FULL responses (format QUEUE_FULL:ms). Must be greater than 0. |
+| queue_full_retry_after_ms | Integer | No | 500 | Backoff in milliseconds embedded in QUEUE_FULL responses (format `QUEUE_FULL:<ms>`). Must be greater than 0. |
 | max_retries           | Integer | No       | 3       | How many times the source retries binding the port on failure before giving up. Set to -1 for unlimited retries. |
 | reconnect_interval_ms | Integer | No       | 1000    | Milliseconds to wait between source-side port bind retry attempts; this controls bind retries after source startup failure, not collector reconnect intervals. |
 | accept_timeout_ms     | Integer | No       | 1000    | Socket accept/read timeout in milliseconds. The source loops on timeout so it can check its own state; this does not mean the source exits on timeout. |
@@ -268,7 +268,7 @@ __AUTH__:<token>
 The source replies:
 
 - ACK — authentication succeeded; the collector can now send data.
-- AUTH_FAILED — wrong token; the collector should reconnect with the correct token.
+- AUTH_FAILED — wrong token; the collector must reconnect with the correct token.
 
 ### Sending batches
 
@@ -323,17 +323,17 @@ Example send loop (includes optional `__COMMIT__`):
 
 ### Response Code Reference
 
-The following table lists connection outcomes and every application-level response the source can send, with suggested collector actions in the last column.
+The following table lists connection outcomes and every application-level response the source can send, with required collector actions in the last column.
 
 | Response | Triggered by | Meaning | Collector action |
 |---|---|---|---|
 | ACK | `__AUTH__` | Authentication succeeded. | Begin sending batches. |
 | AUTH_FAILED | `__AUTH__` | Wrong or missing token. | Reconnect with the correct token. |
-| Connection refused | Connection | Server socket is suspended; connect fails at TCP level (see [Connection](#connection)). | Investigate before reconnecting; causes vary. |
+| Connection refused | Connection | Server socket is suspended; connect fails at TCP level (see [Connection](#connection)). | Verify network reachability, active collector state, and listener status before reconnecting. |
 | REJECTED | Connection | Accepted through TCP backlog race while another collector is active (see [Connection](#connection)). | Stop immediately; verify no other collector instance is running. Do not retry automatically. |
 | RECEIVED | `__BATCH__` | Record accepted and queued. | Continue sending. If checkpoint-watermark-aligned buffer eviction is required, enable `__COMMIT__`, poll until ACK, and evict by the returned watermark. |
-| QUEUE_FULL:ms | `__BATCH__` | Queue reached backpressure watermark (see [Backpressure](#backpressure)). | Wait at least ms milliseconds, then resend the same batch unchanged. |
-| RETRY | `__BATCH__` or `__COMMIT__` | Physically full queue (rare) or malformed request. | Malformed: fix and resend; physical full: exponential back-off, then resend the same batch unchanged. |
+| `QUEUE_FULL:<ms>` | `__BATCH__` | Queue reached backpressure watermark (see [Backpressure](#backpressure)). | Wait at least `<ms>` milliseconds, then resend the same batch unchanged. |
+| RETRY | `__BATCH__` or `__COMMIT__` | Physically full queue (rare) or malformed request. | Malformed: fix and resend. Physical full: use exponential back-off, then resend the same batch unchanged. |
 | DECRYPT_FAILED | `__BATCH__` | Decryption failed, typically because the collector's key does not match the source's secret_key. | Stop sending and verify both sides use the same secret_key. |
 | PENDING | `__COMMIT__` | Batch reached the source but is not yet covered by a completed checkpoint. | Keep the batch in local buffer; wait and poll `__COMMIT__` again. |
 | RESEND | `__COMMIT__` | Source has no record of this batchId in the current session (e.g. worker restarted and the batch was never re-received in this execution attempt). | Resend the batch via `__BATCH__:<batchId>:<payload>` before polling `__COMMIT__` again. |
@@ -345,7 +345,7 @@ The following table lists connection outcomes and every application-level respon
 >
 > **batchId monotonicity**: values must increase monotonically for the full lifetime of the logical source, including reconnects and worker restarts. After reconnecting, resume from a value strictly above the last `ACK:<watermark>` received — never reset to 1.
 >
-> `ACK:<watermarkBatchId>` note: the returned number is the source current checkpoint watermark, and it can be higher than the queried batchId. Always use the returned watermark for buffer eviction.
+> `ACK:<watermarkBatchId>` note: the returned number is the source's current checkpoint watermark, and it can be higher than the queried batchId. Always use the returned watermark for buffer eviction.
 
 ### Collector Interaction Sequence
 
