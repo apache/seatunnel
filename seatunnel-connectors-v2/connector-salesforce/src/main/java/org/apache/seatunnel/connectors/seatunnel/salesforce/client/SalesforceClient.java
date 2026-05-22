@@ -191,9 +191,7 @@ public class SalesforceClient implements Closeable {
     }
 
     private String createBulkQueryJob(String soql) {
-        String url =
-                authorizedInstanceUrl
-                        + String.format(JOBS_QUERY_PATH, params.getApiVersion());
+        String url = authorizedInstanceUrl + String.format(JOBS_QUERY_PATH, params.getApiVersion());
         HttpPost post = new HttpPost(url);
         post.setHeader(HttpHeaders.AUTHORIZATION, "Bearer " + accessToken);
         post.setHeader(HttpHeaders.CONTENT_TYPE, ContentType.APPLICATION_JSON.getMimeType());
@@ -205,8 +203,7 @@ public class SalesforceClient implements Closeable {
             body.put("query", soql);
             post.setEntity(
                     new StringEntity(
-                            objectMapper.writeValueAsString(body),
-                            ContentType.APPLICATION_JSON));
+                            objectMapper.writeValueAsString(body), ContentType.APPLICATION_JSON));
 
             try (CloseableHttpResponse response = httpClient.execute(post)) {
                 int status = response.getStatusLine().getStatusCode();
@@ -230,9 +227,7 @@ public class SalesforceClient implements Closeable {
     }
 
     private void waitForJobCompletion(String jobId) {
-        String url =
-                authorizedInstanceUrl
-                        + String.format(JOB_PATH, params.getApiVersion(), jobId);
+        String url = authorizedInstanceUrl + String.format(JOB_PATH, params.getApiVersion(), jobId);
         int attempts = 0;
         while (true) {
             try {
@@ -242,8 +237,7 @@ public class SalesforceClient implements Closeable {
                 try (CloseableHttpResponse response = httpClient.execute(get)) {
                     String responseBody =
                             EntityUtils.toString(response.getEntity(), StandardCharsets.UTF_8);
-                    String state =
-                            objectMapper.readTree(responseBody).get("state").asText();
+                    String state = objectMapper.readTree(responseBody).get("state").asText();
                     log.debug("Bulk API job {} state: {}", jobId, state);
                     if ("JobComplete".equals(state)) {
                         return;
@@ -284,8 +278,7 @@ public class SalesforceClient implements Closeable {
 
             try (CloseableHttpResponse response = httpClient.execute(get)) {
                 int status = response.getStatusLine().getStatusCode();
-                String body =
-                        EntityUtils.toString(response.getEntity(), StandardCharsets.UTF_8);
+                String body = EntityUtils.toString(response.getEntity(), StandardCharsets.UTF_8);
                 if (status != 200) {
                     throw new SalesforceConnectorException(
                             SalesforceConnectorErrorCode.BULK_RESULTS_FAILED,

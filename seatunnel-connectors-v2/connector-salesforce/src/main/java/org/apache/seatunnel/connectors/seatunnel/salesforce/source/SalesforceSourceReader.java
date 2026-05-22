@@ -81,7 +81,8 @@ public class SalesforceSourceReader extends AbstractSingleSplitReader<SeaTunnelR
                 CatalogTable catalogTable = tableConfig.getCatalogTable();
                 SeaTunnelRowType rowType = catalogTable.getSeaTunnelRowType();
                 int columnCount = rowType.getTotalFields();
-                List<Object[]> rawRows = client.executeBulkQuery(tableConfig.getSoql(), columnCount);
+                List<Object[]> rawRows =
+                        client.executeBulkQuery(tableConfig.getSoql(), columnCount);
                 String tableId = tableConfig.getTableId();
                 log.info(
                         "Fetched {} rows from Salesforce object {}",
