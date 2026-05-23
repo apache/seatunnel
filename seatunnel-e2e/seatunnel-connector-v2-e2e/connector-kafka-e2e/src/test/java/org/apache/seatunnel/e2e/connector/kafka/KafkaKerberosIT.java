@@ -165,9 +165,7 @@ public class KafkaKerberosIT extends TestSuiteBase implements TestResource {
                 "-c",
                 "kadmin.local -q \"addprinc -randkey kafka/kafkacluster@EXAMPLE.COM\"");
         kerberosContainer.execInContainer(
-                "bash",
-                "-c",
-                "kadmin.local -q \"addprinc -randkey kafka/localhost@EXAMPLE.COM\"");
+                "bash", "-c", "kadmin.local -q \"addprinc -randkey kafka/localhost@EXAMPLE.COM\"");
         kerberosContainer.execInContainer(
                 "bash",
                 "-c",
@@ -209,8 +207,7 @@ public class KafkaKerberosIT extends TestSuiteBase implements TestResource {
                                 "/etc/krb5.conf")
                         .withExposedPorts(9092, 2181)
                         .withFileSystemBind(
-                                kafkaPropertiesFile.toString(),
-                                "/etc/kafka/kafka.properties")
+                                kafkaPropertiesFile.toString(), "/etc/kafka/kafka.properties")
                         .withFileSystemBind("/tmp/kafka.keytab", "/tmp/kafka.keytab")
                         .withLogConsumer(
                                 new Slf4jLogConsumer(

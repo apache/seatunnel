@@ -638,7 +638,8 @@ public class KafkaIT extends TestSuiteBase implements TestResource {
                                                 .allTopicNames()
                                                 .get();
                                 Assertions.assertTrue(
-                                        topicDescriptions.get(sourceTopic).partitions().size() >= 2);
+                                        topicDescriptions.get(sourceTopic).partitions().size()
+                                                >= 2);
                             }
                         });
 
@@ -1044,7 +1045,8 @@ public class KafkaIT extends TestSuiteBase implements TestResource {
         Awaitility.await()
                 .pollInterval(2, SECONDS)
                 .atMost(1, MINUTES)
-                .untilAsserted(() -> Assertions.assertEquals("RUNNING", container.getJobStatus(jobId)));
+                .untilAsserted(
+                        () -> Assertions.assertEquals("RUNNING", container.getJobStatus(jobId)));
     }
 
     /**
