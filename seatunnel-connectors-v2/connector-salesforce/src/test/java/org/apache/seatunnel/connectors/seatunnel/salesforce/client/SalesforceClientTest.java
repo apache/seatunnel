@@ -190,11 +190,7 @@ class SalesforceClientTest {
     }
 
     private static String describeJson(String fieldName, String fieldType) {
-        return "{\"fields\":[{\"name\":\""
-                + fieldName
-                + "\",\"type\":\""
-                + fieldType
-                + "\"}]}";
+        return "{\"fields\":[{\"name\":\"" + fieldName + "\",\"type\":\"" + fieldType + "\"}]}";
     }
 
     private static void respondJson(HttpExchange exchange, int status, String body)
