@@ -188,7 +188,8 @@ public class JdbcPostgresIT extends TestSuiteBase implements TestResource {
                     + "json_col,\n"
                     + "jsonb_col,\n"
                     + " cast(xml_col as varchar) \n"
-                    + "from pg_e2e_source_table";
+                    + "from pg_e2e_source_table\n"
+                    + "order by gid";
     private static final String SINK_SQL =
             "select\n"
                     + "  gid,\n"
@@ -226,7 +227,8 @@ public class JdbcPostgresIT extends TestSuiteBase implements TestResource {
                     + "   jsonb_col,\n"
                     + "  cast(xml_col as varchar) \n"
                     + "from\n"
-                    + "  pg_e2e_sink_table";
+                    + "  pg_e2e_sink_table\n"
+                    + "order by gid";
 
     @TestContainerExtension
     private final ContainerExtendedFactory extendedFactory =

@@ -189,12 +189,11 @@ public class JdbcDorisdbIT extends TestSuiteBase implements TestResource {
         dorisServer.setPortBindings(Lists.newArrayList(String.format("%s:%s", PORT, DOCKER_PORT)));
         Startables.deepStart(Stream.of(dorisServer)).join();
         log.info("Doris container started");
-        // wait to add BE
-        Thread.sleep(600000);
         // wait for doris fully start
         given().ignoreExceptions()
                 .await()
-                .atMost(600, TimeUnit.SECONDS)
+                .pollInterval(10, TimeUnit.SECONDS)
+                .atMost(1200, TimeUnit.SECONDS)
                 .untilAsserted(this::initializeJdbcConnection);
         initializeJdbcTable();
         batchInsertData();

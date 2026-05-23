@@ -661,6 +661,7 @@ public class JdbcMysqlSplitIT extends TestSuiteBase implements TestResource {
                 }
             } catch (Exception e) {
                 LOG.error("Error splitting on column {}: {}", charColumn, e.getMessage(), e);
+                Assertions.fail("Error splitting on column " + charColumn, e);
             }
         }
 
@@ -720,6 +721,7 @@ public class JdbcMysqlSplitIT extends TestSuiteBase implements TestResource {
                 }
             } catch (Exception e) {
                 LOG.error("Error splitting on column {}: {}", charColumn, e.getMessage(), e);
+                Assertions.fail("Error splitting on column " + charColumn, e);
             }
         }
 
