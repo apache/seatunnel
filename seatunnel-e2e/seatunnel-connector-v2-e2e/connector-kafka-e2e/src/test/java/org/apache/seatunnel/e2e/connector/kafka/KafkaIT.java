@@ -616,8 +616,8 @@ public class KafkaIT extends TestSuiteBase implements TestResource {
                     }
                 });
 
-        // Wait for job to start and process initial data
-        Awaitility.await().pollDelay(5, SECONDS).atMost(1, MINUTES).until(() -> true);
+        // Wait for job to be RUNNING before changing partitions.
+        awaitJobRunning(container, jobId);
 
         try (AdminClient adminClient = createKafkaAdmin()) {
             Map<String, NewPartitions> newPartitions = new HashMap<>();
@@ -626,7 +626,21 @@ public class KafkaIT extends TestSuiteBase implements TestResource {
             log.info("Successfully created new partition for topic: {}", sourceTopic);
         }
 
-        Awaitility.await().pollDelay(3, SECONDS).atMost(30, SECONDS).until(() -> true);
+        Awaitility.await()
+                .pollInterval(1, SECONDS)
+                .atMost(30, SECONDS)
+                .untilAsserted(
+                        () -> {
+                            try (AdminClient adminClient = createKafkaAdmin()) {
+                                Map<String, TopicDescription> topicDescriptions =
+                                        adminClient
+                                                .describeTopics(Arrays.asList(sourceTopic))
+                                                .allTopicNames()
+                                                .get();
+                                Assertions.assertTrue(
+                                        topicDescriptions.get(sourceTopic).partitions().size() >= 2);
+                            }
+                        });
 
         for (int i = 0; i < 15; i++) {
             String message =
@@ -702,8 +716,7 @@ public class KafkaIT extends TestSuiteBase implements TestResource {
                     }
                 });
 
-        // Warm up (simple delay).
-        Awaitility.await().pollDelay(5, SECONDS).atMost(1, MINUTES).until(() -> true);
+        awaitJobRunning(container, jobId);
 
         // Produce 10 additional records after the job starts.
         for (int i = 0; i < 10; i++) {
@@ -762,7 +775,6 @@ public class KafkaIT extends TestSuiteBase implements TestResource {
         // After restore, sink should advance by the 15 newly produced records at
         // minimum.
         Awaitility.await()
-                .pollDelay(3, SECONDS)
                 .pollInterval(2, SECONDS)
                 .atMost(5, MINUTES)
                 .until(() -> visibleCountOnP0(sinkTopic) == expectedSinkAfterFirstRun + 15);
@@ -802,7 +814,7 @@ public class KafkaIT extends TestSuiteBase implements TestResource {
                     }
                 });
 
-        Awaitility.await().pollDelay(5, SECONDS).atMost(1, MINUTES).until(() -> true);
+        awaitJobRunning(container, jobId);
 
         // Produce 10 records after job start; latest mode should consume only these 10
         // initially.
@@ -849,7 +861,6 @@ public class KafkaIT extends TestSuiteBase implements TestResource {
                 });
 
         Awaitility.await()
-                .pollDelay(3, SECONDS)
                 .pollInterval(2, SECONDS)
                 .atMost(5, MINUTES)
                 .until(() -> visibleCountOnP0(sinkTopic) == expectedSinkAfterFirstRun + 15);
@@ -888,7 +899,7 @@ public class KafkaIT extends TestSuiteBase implements TestResource {
                     }
                 });
 
-        Awaitility.await().pollDelay(5, SECONDS).atMost(1, MINUTES).until(() -> true);
+        awaitJobRunning(container, jobId);
 
         // Produce 10 records after job start.
         for (int i = 0; i < 10; i++) {
@@ -936,7 +947,6 @@ public class KafkaIT extends TestSuiteBase implements TestResource {
                 });
 
         Awaitility.await()
-                .pollDelay(3, SECONDS)
                 .pollInterval(2, SECONDS)
                 .atMost(5, MINUTES)
                 .until(() -> visibleCountOnP0(sinkTopic) == expectedSinkAfterFirstRun + 15);
@@ -976,7 +986,7 @@ public class KafkaIT extends TestSuiteBase implements TestResource {
                     }
                 });
 
-        Awaitility.await().pollDelay(5, SECONDS).atMost(1, MINUTES).until(() -> true);
+        awaitJobRunning(container, jobId);
 
         // Produce 10 records after job start.
         for (int i = 0; i < 10; i++) {
@@ -1025,10 +1035,16 @@ public class KafkaIT extends TestSuiteBase implements TestResource {
                 });
 
         Awaitility.await()
-                .pollDelay(3, SECONDS)
                 .pollInterval(2, SECONDS)
                 .atMost(5, MINUTES)
                 .until(() -> visibleCountOnP0(sinkTopic) == expectedSinkAfterFirstRun + 15 - 11);
+    }
+
+    private void awaitJobRunning(TestContainer container, String jobId) {
+        Awaitility.await()
+                .pollInterval(2, SECONDS)
+                .atMost(1, MINUTES)
+                .untilAsserted(() -> Assertions.assertEquals("RUNNING", container.getJobStatus(jobId)));
     }
 
     /**

@@ -66,6 +66,8 @@ import lombok.extern.slf4j.Slf4j;
 
 import java.io.IOException;
 import java.math.BigDecimal;
+import java.nio.file.Files;
+import java.nio.file.Path;
 import java.time.Duration;
 import java.time.LocalDate;
 import java.time.LocalDateTime;
@@ -94,7 +96,6 @@ public class KafkaKerberosIT extends TestSuiteBase implements TestResource {
     // The hostname is uniformly set to lowercase letters to prevent errors during Kerberos
     // authentication
     private static final String KAFKA_HOST = "kafkacluster";
-    private static final String BOOTSTRAP_SERVERS = KAFKA_HOST + ":9092";
 
     private KafkaProducer<byte[], byte[]> producer;
 
@@ -156,7 +157,6 @@ public class KafkaKerberosIT extends TestSuiteBase implements TestResource {
                         .withLogConsumer(
                                 new Slf4jLogConsumer(
                                         DockerLoggerFactory.getLogger(KERBEROS_IMAGE_NAME)));
-        kerberosContainer.setPortBindings(Arrays.asList("88/udp:88/udp", "749:749"));
         Startables.deepStart(Stream.of(kerberosContainer)).join();
         log.info("Kerberos just started");
 
@@ -167,7 +167,11 @@ public class KafkaKerberosIT extends TestSuiteBase implements TestResource {
         kerberosContainer.execInContainer(
                 "bash",
                 "-c",
-                "kadmin.local -q \"xst -k /tmp/kafka.keytab kafka/kafkacluster@EXAMPLE.COM\"");
+                "kadmin.local -q \"addprinc -randkey kafka/localhost@EXAMPLE.COM\"");
+        kerberosContainer.execInContainer(
+                "bash",
+                "-c",
+                "kadmin.local -q \"xst -k /tmp/kafka.keytab kafka/kafkacluster@EXAMPLE.COM kafka/localhost@EXAMPLE.COM\"");
 
         // test.keytab verify unprivileged keytab usage
         kerberosContainer.execInContainer(
@@ -191,6 +195,7 @@ public class KafkaKerberosIT extends TestSuiteBase implements TestResource {
                                     "/tmp/test.keytab", "/tmp/test.keytab");
                         });
 
+        Path kafkaPropertiesFile = createKafkaPropertiesForHost();
         kafkaContainer =
                 new GenericContainer<>(DockerImageName.parse(KAFKA_IMAGE_NAME))
                         .withNetwork(NETWORK)
@@ -204,8 +209,7 @@ public class KafkaKerberosIT extends TestSuiteBase implements TestResource {
                                 "/etc/krb5.conf")
                         .withExposedPorts(9092, 2181)
                         .withFileSystemBind(
-                                ContainerUtil.getResourcesFile("/kerberos/kafka.properties")
-                                        .getPath(),
+                                kafkaPropertiesFile.toString(),
                                 "/etc/kafka/kafka.properties")
                         .withFileSystemBind("/tmp/kafka.keytab", "/tmp/kafka.keytab")
                         .withLogConsumer(
@@ -217,12 +221,8 @@ public class KafkaKerberosIT extends TestSuiteBase implements TestResource {
                                 FileUtils.readFileToStr(
                                         ContainerUtil.getResourcesFile("/kerberos/start.sh")
                                                 .toPath()));
-        kafkaContainer.setPortBindings(Arrays.asList("9092:9092", "2181:2181"));
         Startables.deepStart(Stream.of(kafkaContainer)).join();
         log.info("Kafka container started");
-
-        // Add Hosts, local connection kerberos kafka use
-        appendToHosts("127.0.0.1", "kafkacluster");
 
         Awaitility.given()
                 .ignoreExceptions()
@@ -234,7 +234,7 @@ public class KafkaKerberosIT extends TestSuiteBase implements TestResource {
 
     private void initKafkaProducer() {
         Properties props = new Properties();
-        props.put(ProducerConfig.BOOTSTRAP_SERVERS_CONFIG, BOOTSTRAP_SERVERS);
+        props.put(ProducerConfig.BOOTSTRAP_SERVERS_CONFIG, getBootstrapServers());
         props.put(ProducerConfig.KEY_SERIALIZER_CLASS_CONFIG, ByteArraySerializer.class);
         props.put(ProducerConfig.VALUE_SERIALIZER_CLASS_CONFIG, ByteArraySerializer.class);
         props.put("security.protocol", "SASL_PLAINTEXT");
@@ -245,7 +245,7 @@ public class KafkaKerberosIT extends TestSuiteBase implements TestResource {
 
     private Properties kafkaConsumerConfig() {
         Properties props = new Properties();
-        props.put(ConsumerConfig.BOOTSTRAP_SERVERS_CONFIG, BOOTSTRAP_SERVERS);
+        props.put(ConsumerConfig.BOOTSTRAP_SERVERS_CONFIG, getBootstrapServers());
         props.put(ConsumerConfig.GROUP_ID_CONFIG, "seatunnel-kafka-sink-group");
         props.put(
                 ConsumerConfig.AUTO_OFFSET_RESET_CONFIG,
@@ -258,24 +258,24 @@ public class KafkaKerberosIT extends TestSuiteBase implements TestResource {
         return props;
     }
 
-    private static void appendToHosts(String ip, String hostname) {
+    private String getBootstrapServers() {
+        return kafkaContainer.getHost() + ":" + kafkaContainer.getMappedPort(9092);
+    }
+
+    private Path createKafkaPropertiesForHost() {
         try {
-            String entry = String.format("%s %s", ip, hostname);
-            ProcessBuilder processBuilder =
-                    new ProcessBuilder("sudo", "sh", "-c", "echo '" + entry + "' >> /etc/hosts");
-            processBuilder.redirectErrorStream(true);
-
-            Process process = processBuilder.start();
-
-            int exitCode = process.waitFor();
-            if (exitCode == 0) {
-                log.info("Successfully added to /etc/hosts: {}", entry);
-            } else {
-                log.error("Failed to add to /etc/hosts: {}", entry);
-            }
-        } catch (Exception e) {
-            log.error("Failed to add to /etc/hosts: {}", e.getMessage());
-            throw new RuntimeException(e);
+            Path sourcePath = ContainerUtil.getResourcesFile("/kerberos/kafka.properties").toPath();
+            String propertiesContent = new String(Files.readAllBytes(sourcePath), "UTF-8");
+            String patchedContent =
+                    propertiesContent.replace(
+                            "advertised.listeners=SASL_PLAINTEXT://kafkacluster:9092",
+                            "advertised.listeners=SASL_PLAINTEXT://localhost:9092");
+            Path tempFile = Files.createTempFile("seatunnel-kafka-kerberos", ".properties");
+            Files.write(tempFile, patchedContent.getBytes("UTF-8"));
+            tempFile.toFile().deleteOnExit();
+            return tempFile;
+        } catch (IOException e) {
+            throw new RuntimeException("Failed to prepare kafka kerberos properties", e);
         }
     }
 

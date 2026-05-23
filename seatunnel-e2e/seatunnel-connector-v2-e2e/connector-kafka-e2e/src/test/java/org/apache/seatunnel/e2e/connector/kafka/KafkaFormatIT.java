@@ -303,7 +303,7 @@ public class KafkaFormatIT extends TestSuiteBase implements TestResource {
 
     @BeforeAll
     @Override
-    public void startUp() throws ClassNotFoundException, InterruptedException, IOException {
+    public void startUp() throws ClassNotFoundException, IOException {
 
         LOG.info("The first stage: Starting Kafka containers...");
         createKafkaContainer();
@@ -335,7 +335,6 @@ public class KafkaFormatIT extends TestSuiteBase implements TestResource {
                 .pollInterval(500, TimeUnit.MILLISECONDS)
                 .atMost(3, TimeUnit.MINUTES)
                 .untilAsserted(this::initLocalDataToKafka);
-        Thread.sleep(20 * 1000);
     }
 
     @DisabledOnContainer(
@@ -981,7 +980,11 @@ public class KafkaFormatIT extends TestSuiteBase implements TestResource {
                         producer.send(record).get();
                     }
                 } catch (IOException | InterruptedException | ExecutionException e) {
-                    e.printStackTrace();
+                    if (e instanceof InterruptedException) {
+                        Thread.currentThread().interrupt();
+                    }
+                    throw new RuntimeException(
+                            "Failed to initialize local Kafka data for topic " + kafkaTopic, e);
                 }
             }
         }
@@ -1013,7 +1016,7 @@ public class KafkaFormatIT extends TestSuiteBase implements TestResource {
                 LOG.info("truncate table sink");
             }
         } catch (SQLException e) {
-            e.printStackTrace();
+            throw new RuntimeException("Query Postgre sink table failed: " + tableName, e);
         }
         return actual;
     }
