@@ -320,12 +320,12 @@ public class ArrowToSeatunnelRowReader implements AutoCloseable {
     @Override
     public void close() {
         try {
-            if (byteArrayInputStream != null) {
-                byteArrayInputStream.close();
-            }
             if (arrowStreamReader != null) {
                 arrowStreamReader.close();
                 root = null;
+            }
+            if (byteArrayInputStream != null) {
+                byteArrayInputStream.close();
             }
             if (rootAllocator != null) {
                 rootAllocator.close();
