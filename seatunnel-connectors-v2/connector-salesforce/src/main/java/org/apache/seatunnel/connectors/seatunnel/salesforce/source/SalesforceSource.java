@@ -124,10 +124,7 @@ public class SalesforceSource extends AbstractSingleSplitSource<SeaTunnelRow>
         String fields = "FIELDS(ALL)";
         String filter = config.getOptional(SalesforceSourceOptions.FILTER).orElse(null);
         StringBuilder soql =
-                new StringBuilder("SELECT ")
-                        .append(fields)
-                        .append(" FROM ")
-                        .append(objectName);
+                new StringBuilder("SELECT ").append(fields).append(" FROM ").append(objectName);
         if (filter != null) {
             soql.append(" WHERE ").append(filter);
         }
