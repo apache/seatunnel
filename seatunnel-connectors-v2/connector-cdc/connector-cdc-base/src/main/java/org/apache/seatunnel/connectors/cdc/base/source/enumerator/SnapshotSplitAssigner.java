@@ -219,7 +219,7 @@ public class SnapshotSplitAssigner<C extends SourceConfig> implements SplitAssig
     public void addSplits(Collection<SourceSplitBase> splits) {
         for (SourceSplitBase split : splits) {
             SnapshotSplit snapshotSplit = split.asSnapshotSplit();
-            if (isAlreadyCompletedSnapshotSplit(snapshotSplit)) {
+            if (hasCheckpointedCompletionState(snapshotSplit)) {
                 LOG.info(
                         "Ignore add-back for completed snapshot split {}, keep checkpointed completion state",
                         snapshotSplit.splitId());
@@ -290,7 +290,14 @@ public class SnapshotSplitAssigner<C extends SourceConfig> implements SplitAssig
         return noMoreSplits() && assignedSplits.size() == splitCompletedOffsets.size();
     }
 
-    private boolean isAlreadyCompletedSnapshotSplit(SnapshotSplit snapshotSplit) {
+    /**
+     * Returns whether the restored split already has durable completion state in the checkpoint.
+     *
+     * <p>We can safely skip add-back only when the checkpoint persisted both the original
+     * assignment and the finished watermark. If either side is missing, the split still needs to be
+     * replayed after restore so the enumerator can rebuild the missing completion state.
+     */
+    private boolean hasCheckpointedCompletionState(SnapshotSplit snapshotSplit) {
         return snapshotSplit.isSnapshotReadFinished()
                 && assignedSplits.containsKey(snapshotSplit.splitId())
                 && splitCompletedOffsets.containsKey(snapshotSplit.splitId());

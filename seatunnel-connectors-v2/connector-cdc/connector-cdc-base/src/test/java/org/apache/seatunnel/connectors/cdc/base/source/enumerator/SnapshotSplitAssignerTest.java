@@ -84,6 +84,36 @@ public class SnapshotSplitAssignerTest {
         Assertions.assertTrue(splitAssigner.waitingForCompletedSplits());
     }
 
+    @Test
+    public void testRestoreAfterCheckpointedCompletionShouldKeepFinishedSplitOutOfReplayQueue() {
+        SnapshotSplit finishedSplit = createFinishedSnapshotSplit("db1.table1.2");
+        Map<String, SnapshotSplit> assignedSplits = new HashMap<>();
+        assignedSplits.put(finishedSplit.splitId(), finishedSplit);
+        SnapshotSplitAssigner<?> runningAssigner =
+                createRestoredSnapshotSplitAssigner(assignedSplits, new HashMap<>());
+
+        runningAssigner.onCompletedSplits(
+                Collections.singletonList(createWatermark(finishedSplit)));
+        SnapshotPhaseState checkpointState = runningAssigner.snapshotState(13L);
+
+        SnapshotSplitAssigner<?> restoredAssigner =
+                createRestoredSnapshotSplitAssigner(
+                        checkpointState.getAssignedSplits(),
+                        checkpointState.getSplitCompletedOffsets());
+
+        restoredAssigner.addSplits(Collections.singletonList(finishedSplit));
+
+        SnapshotPhaseState restoredState = restoredAssigner.snapshotState(14L);
+        Assertions.assertTrue(restoredState.getRemainingSplits().isEmpty());
+        Assertions.assertEquals(
+                Collections.singleton(finishedSplit.splitId()),
+                restoredState.getAssignedSplits().keySet());
+        Assertions.assertEquals(
+                Collections.singleton(finishedSplit.splitId()),
+                restoredState.getSplitCompletedOffsets().keySet());
+        Assertions.assertFalse(restoredAssigner.waitingForCompletedSplits());
+    }
+
     private SnapshotSplitAssigner<?> createRestoredSnapshotSplitAssigner(
             Map<String, SnapshotSplit> assignedSplits,
             Map<String, SnapshotSplitWatermark> completedOffsets) {
@@ -115,6 +145,13 @@ public class SnapshotSplitAssignerTest {
                 null,
                 new TestOffset(1L),
                 new TestOffset(2L));
+    }
+
+    private SnapshotSplitWatermark createWatermark(SnapshotSplit finishedSplit) {
+        return new SnapshotSplitWatermark(
+                finishedSplit.splitId(),
+                finishedSplit.getLowWatermark(),
+                finishedSplit.getHighWatermark());
     }
 
     private static final class TestOffset extends Offset {
