@@ -223,7 +223,8 @@ public class JdbcSinkBatchIntervalIT extends TestSuiteBase implements TestResour
                 .untilAsserted(
                         () -> {
                             Assertions.assertFalse(
-                                    jobFinished.get(), "Job should still be running for second poll");
+                                    jobFinished.get(),
+                                    "Job should still be running for second poll");
                             int secondCount = getSinkRowCount("sink_batch_interval_bs1");
                             log.info(
                                     "batch_size=1 incremental check: firstCount={}, secondCount={}",
