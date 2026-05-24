@@ -30,8 +30,7 @@ import org.apache.seatunnel.api.table.type.MapType;
 import org.apache.seatunnel.api.table.type.SeaTunnelDataType;
 import org.apache.seatunnel.api.table.type.SeaTunnelRow;
 import org.apache.seatunnel.api.table.type.SeaTunnelRowType;
-import org.apache.seatunnel.transform.exception.TransformCommonErrorCode;
-import org.apache.seatunnel.transform.exception.TransformException;
+import org.apache.seatunnel.transform.exception.TransformCommonError;
 
 import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.Test;
@@ -117,20 +116,20 @@ public class SQLTransformTest {
         Assertions.assertEquals(
                 RowErrorClassification.ROW_ERROR,
                 sqlTransform.classifyRowError(
-                        new TransformException(
-                                TransformCommonErrorCode.EXPRESSION_EXECUTE_ERROR, "error"),
+                        TransformCommonError.sqlExpressionError(
+                                "select * from dual", new RuntimeException("error")),
                         row));
         Assertions.assertEquals(
                 RowErrorClassification.ROW_ERROR,
                 sqlTransform.classifyRowError(
                         new RuntimeException(
-                                new TransformException(
-                                        TransformCommonErrorCode.WHERE_STATEMENT_ERROR, "error")),
+                                TransformCommonError.sqlWhereStatementError(
+                                        "id > 0", new RuntimeException("error"))),
                         row));
         Assertions.assertEquals(
                 RowErrorClassification.SYSTEM_ERROR,
                 sqlTransform.classifyRowError(
-                        new TransformException(TransformCommonErrorCode.ENCRYPTION_FAILED, "error"),
+                        TransformCommonError.encryptionError("name", new RuntimeException("error")),
                         row));
         Assertions.assertEquals(
                 RowErrorClassification.SYSTEM_ERROR,

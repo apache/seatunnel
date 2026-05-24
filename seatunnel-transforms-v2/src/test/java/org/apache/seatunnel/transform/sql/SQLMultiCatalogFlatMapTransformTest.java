@@ -28,8 +28,7 @@ import org.apache.seatunnel.api.transform.SeaTunnelFlatMapTransform;
 import org.apache.seatunnel.api.transform.SeaTunnelTransform;
 import org.apache.seatunnel.transform.common.IdentityFlatMapTransform;
 import org.apache.seatunnel.transform.common.TransformCommonOptions;
-import org.apache.seatunnel.transform.exception.TransformCommonErrorCode;
-import org.apache.seatunnel.transform.exception.TransformException;
+import org.apache.seatunnel.transform.exception.TransformCommonError;
 
 import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.Test;
@@ -113,20 +112,20 @@ class SQLMultiCatalogFlatMapTransformTest {
         Assertions.assertEquals(
                 RowErrorClassification.ROW_ERROR,
                 transform.classifyRowError(
-                        new TransformException(
-                                TransformCommonErrorCode.EXPRESSION_EXECUTE_ERROR, "error"),
+                        TransformCommonError.sqlExpressionError(
+                                "select * from dual", new RuntimeException("error")),
                         row));
         Assertions.assertEquals(
                 RowErrorClassification.ROW_ERROR,
                 transform.classifyRowError(
                         new RuntimeException(
-                                new TransformException(
-                                        TransformCommonErrorCode.WHERE_STATEMENT_ERROR, "error")),
+                                TransformCommonError.sqlWhereStatementError(
+                                        "id > 0", new RuntimeException("error"))),
                         row));
         Assertions.assertEquals(
                 RowErrorClassification.SYSTEM_ERROR,
                 transform.classifyRowError(
-                        new TransformException(TransformCommonErrorCode.ENCRYPTION_FAILED, "error"),
+                        TransformCommonError.encryptionError("name", new RuntimeException("error")),
                         row));
         Assertions.assertEquals(
                 RowErrorClassification.SYSTEM_ERROR,
