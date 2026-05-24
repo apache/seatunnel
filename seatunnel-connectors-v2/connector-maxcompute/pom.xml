@@ -30,7 +30,7 @@
     <name>SeaTunnel : Connectors V2 : Maxcompute</name>
 
     <properties>
-        <maxcompute.version>0.51.0</maxcompute.version>
+        <maxcompute.version>0.51.2</maxcompute.version>
         <commons.lang3.version>3.18.0</commons.lang3.version>
     </properties>
 
@@ -47,13 +47,13 @@
         </dependency>
 
         <dependency>
-            <groupId>org.apache.commons</groupId>
-            <artifactId>commons-lang3</artifactId>
-            <version>${commons.lang3.version}</version>
+            <groupId>org.apache.seatunnel</groupId>
+            <artifactId>connector-common</artifactId>
+            <version>${project.version}</version>
         </dependency>
         <dependency>
             <groupId>org.apache.seatunnel</groupId>
-            <artifactId>connector-common</artifactId>
+            <artifactId>seatunnel-commons-lang3</artifactId>
             <version>${project.version}</version>
         </dependency>
     </dependencies>
@@ -63,6 +63,18 @@
             <plugin>
                 <groupId>org.apache.maven.plugins</groupId>
                 <artifactId>maven-shade-plugin</artifactId>
+                <dependencies>
+                    <dependency>
+                        <groupId>org.ow2.asm</groupId>
+                        <artifactId>asm</artifactId>
+                        <version>9.6</version>
+                    </dependency>
+                    <dependency>
+                        <groupId>org.ow2.asm</groupId>
+                        <artifactId>asm-commons</artifactId>
+                        <version>9.6</version>
+                    </dependency>
+                </dependencies>
                 <executions>
                     <execution>
                         <goals>

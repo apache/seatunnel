@@ -59,7 +59,7 @@ public class LocalSchemaCoordinator {
     private static final long CLEANUP_INTERVAL_MS = 60_000L;
     private final String jobId;
     private final long requestTtlMs;
-    private volatile int sinkParallelism = 0;
+    private final Set<Integer> activeSinkSubtasks = ConcurrentHashMap.newKeySet();
     private final Map<String, TimestampedPendingRequest> pendingRequests =
             new ConcurrentHashMap<>();
     private final Map<String, Set<Integer>> receivedAcks = new ConcurrentHashMap<>();
@@ -106,17 +106,59 @@ public class LocalSchemaCoordinator {
                 .get();
     }
 
+    /**
+     * @deprecated Sink parallelism is now tracked dynamically via {@link
+     *     #registerSinkStateProvider} and {@link #unregisterSinkSubtask}. This method is kept for
+     *     backward compatibility but is effectively a no-op.
+     */
+    @Deprecated
     public void registerSinkParallelism(int parallelism) {
-        this.sinkParallelism = parallelism;
         log.info(
-                "Registered sink parallelism: {} for schema change coordination in jobId: {}",
+                "Registered sink parallelism hint: {} for jobId: {} (active tracking used instead)",
                 parallelism,
                 jobId);
     }
 
     public void registerSinkStateProvider(int subtaskId, SinkStateProvider provider) {
         sinkStateProviders.put(subtaskId, provider);
+        activeSinkSubtasks.add(subtaskId);
         log.info("Registered sink state provider for subtask {} in jobId: {}", subtaskId, jobId);
+    }
+
+    public void unregisterSinkSubtask(int subtaskId) {
+        boolean removed = activeSinkSubtasks.remove(subtaskId);
+        sinkStateProviders.remove(subtaskId);
+        if (!removed) {
+            return;
+        }
+        int remaining = activeSinkSubtasks.size();
+        log.info(
+                "Sink subtask {} unregistered (closed). Active sink subtasks remaining: {} in jobId: {}",
+                subtaskId,
+                remaining,
+                jobId);
+
+        for (Map.Entry<String, TimestampedPendingRequest> entry : pendingRequests.entrySet()) {
+            String key = entry.getKey();
+            TimestampedPendingRequest request = entry.getValue();
+            Set<Integer> applied = receivedAcks.get(key);
+
+            int expectedActive = Math.max(remaining, 1);
+            if (applied != null && applied.size() >= expectedActive) {
+                if (request.appliedPhaseCompleteAtomic.compareAndSet(false, true)) {
+                    boolean allSuccess = request.allSuccess.get();
+                    request.future.complete(allSuccess);
+                    log.info(
+                            "After subtask {} unregistered, all {} active subtasks have applied "
+                                    + "schema change for table {} (epoch {}). Completing request with result: {}",
+                            subtaskId,
+                            expectedActive,
+                            request.tableId,
+                            request.epoch,
+                            allSuccess);
+                }
+            }
+        }
     }
 
     public SchemaProcessingStatus querySchemaProcessingStatus(TableIdentifier tableId, long epoch) {
@@ -176,10 +218,10 @@ public class LocalSchemaCoordinator {
     public boolean requestSchemaChange(TableIdentifier tableId, long epoch, long timeoutMs)
             throws InterruptedException, SchemaCoordinationException {
         String key = tableId.toString() + "#" + epoch;
-        int expectedAcks = sinkParallelism;
+        int expectedAcks = activeSinkSubtasks.size();
         if (expectedAcks == 0) {
             log.warn(
-                    "Sink parallelism not registered yet. Cannot coordinate schema change for table {} (epoch {}). "
+                    "No active sink subtasks. Cannot coordinate schema change for table {} (epoch {}). "
                             + "Assuming success to avoid deadlock.",
                     tableId,
                     epoch);
@@ -270,6 +312,8 @@ public class LocalSchemaCoordinator {
         }
 
         appliedSubtasks.add(subtaskId);
+        int currentExpected = Math.min(request.expectedAcks, activeSinkSubtasks.size());
+        currentExpected = Math.max(currentExpected, 1);
         log.info(
                 "Subtask {} applied schema change for table {} (epoch {}), success: {}. {}/{} subtasks applied.",
                 subtaskId,
@@ -277,20 +321,19 @@ public class LocalSchemaCoordinator {
                 epoch,
                 success,
                 appliedSubtasks.size(),
-                request.expectedAcks);
+                currentExpected);
 
         if (!success) {
             request.allSuccess.set(false);
         }
 
-        // if all subtasks have applied, complete the future
-        if (appliedSubtasks.size() >= request.expectedAcks) {
+        if (appliedSubtasks.size() >= currentExpected) {
             if (request.appliedPhaseCompleteAtomic.compareAndSet(false, true)) {
                 boolean allSuccess = request.allSuccess.get();
                 request.future.complete(allSuccess);
                 log.info(
-                        "All {} subtasks have applied schema change for table {} (epoch {}). Completing request with result: {}",
-                        request.expectedAcks,
+                        "All {} active subtasks have applied schema change for table {} (epoch {}). Completing request with result: {}",
+                        currentExpected,
                         tableId,
                         epoch,
                         allSuccess);

@@ -1,6 +1,6 @@
 # 开发自己的Connector
 
-如果你想针对SeaTunnel新的连接器API开发自己的连接器（Connector V2），请查看[这里](https://github.com/apache/seatunnel/blob/dev/seatunnel-connectors-v2/README.zh.md) 。
+如果你想针对SeaTunnel新的连接器API开发自己的连接器（Connector V2），请查看[这里](../../../seatunnel-connectors-v2/README.zh.md) 。
 
 ## 从这里开始
 
@@ -23,4 +23,3 @@
 - [检查点机制](../architecture/fault-tolerance/checkpoint-mechanism.md) - 容错和状态管理
 
 这些文档将帮助你理解 SeaTunnel 连接器中使用的底层架构和设计模式。
-

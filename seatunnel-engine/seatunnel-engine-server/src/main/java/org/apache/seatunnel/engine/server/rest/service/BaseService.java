@@ -71,6 +71,7 @@ import com.hazelcast.spi.impl.NodeEngineImpl;
 import lombok.extern.slf4j.Slf4j;
 
 import java.io.IOException;
+import java.math.BigDecimal;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.Comparator;
@@ -80,6 +81,7 @@ import java.util.List;
 import java.util.Map;
 import java.util.Set;
 import java.util.concurrent.ExecutionException;
+import java.util.concurrent.atomic.AtomicLong;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 import java.util.stream.Collectors;
@@ -116,6 +118,11 @@ import static org.apache.seatunnel.engine.server.rest.RestConstant.TABLE_SOURCE_
 public abstract class BaseService {
 
     private static final int JOB_METRICS_LOG_TRUNCATE_LENGTH = 500;
+    private static final int INVALID_METRICS_LOG_INTERVAL_MS = 60_000;
+    private static final int INVALID_METRICS_LOG_PREFIX_MAX_LEN = 512;
+    private static final int INVALID_METRICS_LOG_TOKEN_MAX_LEN = 128;
+    private static final int INVALID_METRICS_LOG_TOKEN_MAX_COUNT = 5;
+    private static final AtomicLong LAST_INVALID_METRICS_LOG_TIME_MS = new AtomicLong(0L);
     private static final Pattern VERTEX_IDENTIFIER_PATTERN =
             Pattern.compile("((?:Sink|Source|Transform)\\[(\\d+)\\])");
 
@@ -140,12 +147,7 @@ public abstract class BaseService {
 
         JsonObject jobInfoJson = new JsonObject();
         JobImmutableInformation jobImmutableInformation =
-                nodeEngine
-                        .getSerializationService()
-                        .toObject(
-                                nodeEngine
-                                        .getSerializationService()
-                                        .toObject(jobInfo.getJobImmutableInformation()));
+                nodeEngine.getSerializationService().toObject(jobInfo.getJobImmutableInformation());
 
         SeaTunnelServer seaTunnelServer = getSeaTunnelServer(true);
         ClassLoaderService classLoaderService =
@@ -778,7 +780,15 @@ public abstract class BaseService {
                     if (value instanceof Map) {
                         members.add(key, metricsToJsonObject((Map<String, Object>) value));
                     } else {
-                        members.add(key, value.toString());
+                        String strValue;
+                        if (value instanceof Float
+                                || value instanceof Double
+                                || value instanceof BigDecimal) {
+                            strValue = new BigDecimal(value.toString()).toPlainString();
+                        } else {
+                            strValue = value.toString();
+                        }
+                        members.add(key, strValue);
                     }
                 });
         return members;
@@ -929,17 +939,71 @@ public abstract class BaseService {
 
                                         log.error("Failed to get cluster health metrics", e);
                                     }
-                                    String[] parts = input.split(", ");
-                                    JsonObject jobInfo = new JsonObject();
-                                    Arrays.stream(parts)
-                                            .forEach(
-                                                    part -> {
-                                                        String[] keyValue = part.split("=");
-                                                        jobInfo.add(keyValue[0], keyValue[1]);
-                                                    });
-                                    return jobInfo;
+                                    return parseSystemMonitoringMetrics(input, address);
                                 })
                         .collect(JsonArray::new, JsonArray::add, JsonArray::add);
         return jsonValues;
+    }
+
+    private JsonObject parseSystemMonitoringMetrics(String input, Address memberAddress) {
+        JsonObject jobInfo = new JsonObject();
+        if (input == null || input.isEmpty()) {
+            return jobInfo;
+        }
+
+        String[] parts = input.split(",\\s+");
+        List<String> invalidTokens = new ArrayList<>();
+        for (String part : parts) {
+            if (part == null) {
+                continue;
+            }
+            String trimmed = part.trim();
+            if (trimmed.isEmpty()) {
+                continue;
+            }
+            int equalIndex = trimmed.indexOf('=');
+            if (equalIndex <= 0) {
+                if (invalidTokens.size() < INVALID_METRICS_LOG_TOKEN_MAX_COUNT) {
+                    invalidTokens.add(truncateForLog(trimmed, INVALID_METRICS_LOG_TOKEN_MAX_LEN));
+                }
+                continue;
+            }
+            String key = trimmed.substring(0, equalIndex).trim();
+            if (key.isEmpty()) {
+                continue;
+            }
+            String value =
+                    equalIndex == trimmed.length() - 1
+                            ? ""
+                            : trimmed.substring(equalIndex + 1).trim();
+            jobInfo.add(key, value);
+        }
+
+        if (!invalidTokens.isEmpty() && log.isWarnEnabled() && shouldLogInvalidMetrics()) {
+            log.warn(
+                    "Ignored malformed cluster health metrics token(s) from member {}, tokens={}, rawPrefix={}",
+                    memberAddress == null ? "unknown" : memberAddress,
+                    invalidTokens,
+                    truncateForLog(input, INVALID_METRICS_LOG_PREFIX_MAX_LEN));
+        }
+
+        return jobInfo;
+    }
+
+    private static boolean shouldLogInvalidMetrics() {
+        long now = System.currentTimeMillis();
+        long last = LAST_INVALID_METRICS_LOG_TIME_MS.get();
+        if (now - last < INVALID_METRICS_LOG_INTERVAL_MS) {
+            return false;
+        }
+        return LAST_INVALID_METRICS_LOG_TIME_MS.compareAndSet(last, now);
+    }
+
+    private static String truncateForLog(String input, int maxLen) {
+        if (input == null || maxLen <= 0) {
+            return "";
+        }
+        String normalized = input.replace('\n', ' ').replace('\r', ' ');
+        return normalized.length() <= maxLen ? normalized : normalized.substring(0, maxLen) + "...";
     }
 }

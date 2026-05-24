@@ -35,6 +35,27 @@ You need to check this document before you upgrade to related version.
 
 ### Connector Changes
 
+- **Breaking Change: Iceberg Connector — source table primary key is no longer silently inherited**
+  - **Affected component**: `seatunnel-connectors-v2/connector-iceberg`
+  - **Description**: `SchemaUtils.toIcebergSchema()` previously fell back to the CDC source
+    table's primary key when `iceberg.table.primary-keys` was not explicitly configured. This
+    silently set `identifier-field-ids` on auto-created Iceberg tables, activating equality-delete
+    semantics and causing silent INSERT data loss in append-only CDC pipelines
+    (see [#10747](https://github.com/apache/seatunnel/issues/10747)). The fallback has been
+    removed.
+  - **Impact**: Jobs that set `iceberg.table.upsert-mode-enabled=true` without an explicit
+    `iceberg.table.primary-keys` will now fail at startup with a clear `IllegalArgumentException`.
+    Jobs that relied on implicit PK inheritance to drive upsert semantics must now set
+    `iceberg.table.primary-keys` explicitly.
+  - **Migration Guide**:
+    - **Upsert mode jobs**: Add `iceberg.table.primary-keys = "<your key columns>"` to the Iceberg
+      sink config.
+    - **Append-only CDC jobs**: No action needed — omitting `iceberg.table.primary-keys` now
+      correctly routes writes through the pure append writer with no equality deletes.
+    - **Existing Iceberg tables** that already have `identifier-field-ids` stored in their
+      Glue/Hive metastore schema are not affected at runtime; only newly auto-created tables change
+      behavior.
+
 ### Transform Changes
 
 - **[BREAKING]** SQL Transform `PARSEDATETIME`, `TO_DATE`, and `IS_DATE` functions now only accept whitelisted datetime format patterns. Custom format patterns that were previously accepted will now fail at runtime. The supported patterns are:

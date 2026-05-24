@@ -108,6 +108,10 @@ public class HdfsFileSourceFactory implements TableSourceFactory {
                 .optional(HdfsFileSourceOptions.NULL_FORMAT)
                 .optional(HdfsFileSourceOptions.FILENAME_EXTENSION)
                 .optional(HdfsFileSourceOptions.READ_COLUMNS)
+                .conditional(
+                        HdfsFileSourceOptions.FILE_FORMAT_TYPE,
+                        FileFormat.MARKDOWN,
+                        HdfsFileSourceOptions.MARKDOWN_RAG_METADATA_ENABLED)
                 .optional(
                         HdfsFileSourceOptions.DISCOVERY_MODE,
                         HdfsFileSourceOptions.SCAN_INTERVAL,

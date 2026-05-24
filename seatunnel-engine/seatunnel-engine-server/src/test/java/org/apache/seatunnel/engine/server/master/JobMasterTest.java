@@ -18,6 +18,7 @@
 package org.apache.seatunnel.engine.server.master;
 
 import org.apache.seatunnel.engine.common.Constant;
+import org.apache.seatunnel.engine.common.config.ConfigProvider;
 import org.apache.seatunnel.engine.common.job.JobResult;
 import org.apache.seatunnel.engine.common.job.JobStatus;
 import org.apache.seatunnel.engine.common.utils.PassiveCompletableFuture;
@@ -55,6 +56,8 @@ import com.hazelcast.map.IMap;
 import java.util.Collections;
 import java.util.HashMap;
 import java.util.Map;
+import java.util.concurrent.ExecutorService;
+import java.util.concurrent.Executors;
 import java.util.concurrent.TimeUnit;
 
 import static org.awaitility.Awaitility.await;
@@ -109,6 +112,8 @@ public class JobMasterTest extends AbstractSeaTunnelServerTest {
      * active
      */
     private IMap<PipelineLocation, Map<TaskGroupLocation, SlotProfile>> ownedSlotProfilesIMap;
+
+    private final ExecutorService jobMasterTestExecutor = Executors.newCachedThreadPool();
 
     @BeforeAll
     public void before() {
@@ -297,8 +302,20 @@ public class JobMasterTest extends AbstractSeaTunnelServerTest {
         }
     }
 
-    private PipelineLocation getRunningPipelineLocation(JobMaster jobMaster) {
-        return jobMaster.getPhysicalPlan().getPipelineList().get(0).getPipelineLocation();
+    @Test
+    void testRestoreStartWithSavePointKeepsFinishedPipelines() throws Exception {
+        long jobId = instance.getFlakeIdGenerator(Constant.SEATUNNEL_ID_GENERATOR_NAME).newId();
+        JobMaster jobMaster =
+                newJobMaster(
+                        jobId,
+                        "batch_fake_to_console.conf",
+                        "test_restore_savepoint_pipeline",
+                        true);
+
+        runningJobStateIMap.put(new PipelineLocation(jobId, 1), PipelineStatus.FINISHED);
+
+        Assertions.assertDoesNotThrow(() -> jobMaster.init(System.currentTimeMillis(), true));
+        Assertions.assertEquals(1, jobMaster.getPhysicalPlan().getPipelineList().size());
     }
 
     private void assertCloseIdleTask(JobMaster jobMaster) {
@@ -374,6 +391,43 @@ public class JobMasterTest extends AbstractSeaTunnelServerTest {
         // status become running again
         Thread.sleep(5000);
         return jobMaster;
+    }
+
+    private JobMaster newJobMaster(long jobId, String configFile, String jobName, boolean restore) {
+        runningJobInfoIMap = nodeEngine.getHazelcastInstance().getMap("runningJobInfo");
+        runningJobStateIMap = nodeEngine.getHazelcastInstance().getMap("runningJobState");
+        runningJobStateTimestampsIMap = nodeEngine.getHazelcastInstance().getMap("stateTimestamps");
+        ownedSlotProfilesIMap = nodeEngine.getHazelcastInstance().getMap("ownedSlotProfilesIMap");
+
+        LogicalDag testLogicalDag = TestUtils.createTestLogicalPlan(configFile, jobName, jobId);
+        JobImmutableInformation jobImmutableInformation =
+                new JobImmutableInformation(
+                        jobId,
+                        "Test",
+                        restore,
+                        nodeEngine.getSerializationService(),
+                        testLogicalDag,
+                        Collections.emptyList(),
+                        Collections.emptyList());
+        Data data = nodeEngine.getSerializationService().toData(jobImmutableInformation);
+
+        return new JobMaster(
+                jobId,
+                data,
+                nodeEngine,
+                jobMasterTestExecutor,
+                server.getCoordinatorService().getResourceManager(),
+                server.getCoordinatorService().getJobHistoryService(),
+                runningJobStateIMap,
+                runningJobStateTimestampsIMap,
+                ownedSlotProfilesIMap,
+                runningJobInfoIMap,
+                ConfigProvider.locateAndGetSeaTunnelConfig().getEngineConfig(),
+                server);
+    }
+
+    private PipelineLocation getRunningPipelineLocation(JobMaster jobMaster) {
+        return jobMaster.getPhysicalPlan().getPipelineList().get(0).getPipelineLocation();
     }
 
     private void upsertMetricsForPipeline(PipelineLocation pipelineLocation) {

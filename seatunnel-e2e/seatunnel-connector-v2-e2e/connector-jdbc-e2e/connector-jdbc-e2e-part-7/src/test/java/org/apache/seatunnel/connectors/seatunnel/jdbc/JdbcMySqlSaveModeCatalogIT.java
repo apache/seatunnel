@@ -46,6 +46,7 @@ import lombok.extern.slf4j.Slf4j;
 
 import java.sql.Connection;
 import java.sql.DriverManager;
+import java.sql.ResultSet;
 import java.sql.SQLException;
 import java.sql.Statement;
 import java.time.Duration;
@@ -64,6 +65,7 @@ public class JdbcMySqlSaveModeCatalogIT extends TestSuiteBase implements TestRes
     private static final String MYSQL_USERNAME = "root";
     private static final String MYSQL_PASSWORD = "Abc!@#135_seatunnel";
     private static final int MYSQL_PORT = 3308;
+    private static final String TABLE_COMMENT = "test table's \\ comment";
 
     private MySQLContainer<?> mysql_container;
 
@@ -76,7 +78,7 @@ public class JdbcMySqlSaveModeCatalogIT extends TestSuiteBase implements TestRes
                     + "  `f_smallint_unsigned` smallint(5) unsigned DEFAULT NULL,\n"
                     + "  `f_mediumint` mediumint(9) DEFAULT NULL,\n"
                     + "  `f_mediumint_unsigned` mediumint(8) unsigned DEFAULT NULL,\n"
-                    + "  `f_int` int(11) DEFAULT NULL,\n"
+                    + "  `f_int` int(11) DEFAULT NULL COMMENT 'test column comment',\n"
                     + "  `f_int_unsigned` int(10) unsigned DEFAULT NULL,\n"
                     + "  `f_integer` int(11) DEFAULT NULL,\n"
                     + "  `f_integer_unsigned` int(10) unsigned DEFAULT NULL,\n"
@@ -100,8 +102,10 @@ public class JdbcMySqlSaveModeCatalogIT extends TestSuiteBase implements TestRes
                     + "  `f_bigint8` bigint(8) DEFAULT NULL,\n"
                     + "  `f_bigint1` bigint(1) DEFAULT NULL,\n"
                     + "  `f_data` date DEFAULT NULL,\n"
-                    + "  PRIMARY KEY (`id`)\n"
-                    + ");";
+                    + "  PRIMARY KEY (`id`),\n"
+                    + "  KEY `idx_f_varchar` (`f_varchar`),\n"
+                    + "  UNIQUE KEY `idx_f_bigint` (`f_bigint`)\n"
+                    + ") ENGINE = InnoDB DEFAULT CHARSET = utf8mb4 COLLATE = utf8mb4_unicode_ci COMMENT = 'test table''s \\\\ comment';";
 
     private final String getInsertSql =
             "INSERT INTO mysql_auto_create"
@@ -157,17 +161,28 @@ public class JdbcMySqlSaveModeCatalogIT extends TestSuiteBase implements TestRes
             JdbcUrlUtil.getUrlInfo("jdbc:mysql://localhost:3308/auto?useSSL=false");
 
     @Test
-    public void testCatalog() {
+    public void testCatalog() throws SQLException {
         TablePath tablePathMySql = TablePath.of("auto", "mysql_auto_create");
         TablePath tablePathMySqlSink = TablePath.of("auto", "mysql_auto_create_sink");
         MySqlCatalog mySqlCatalog =
                 new MySqlCatalog("mysql", "root", MYSQL_PASSWORD, MysqlUrlInfo, null);
         mySqlCatalog.open();
         CatalogTable catalogTable = mySqlCatalog.getTable(tablePathMySql);
-        // source comment
+        // source table comment
         Assertions.assertEquals(
                 "\"#¥%……&*（）;;',,..``````//'@特殊注释'\\'\"",
                 catalogTable.getTableSchema().getColumns().get(1).getComment());
+        Assertions.assertEquals(TABLE_COMMENT, catalogTable.getComment());
+        Assertions.assertEquals(
+                "InnoDB", catalogTable.getOptions().get(MySqlCatalog.TABLE_OPTION_ENGINE));
+        Assertions.assertEquals(
+                "utf8mb4", catalogTable.getOptions().get(MySqlCatalog.TABLE_OPTION_CHARSET));
+        Assertions.assertTrue(
+                catalogTable
+                        .getOptions()
+                        .get(MySqlCatalog.TABLE_OPTION_COLLATE)
+                        .startsWith("utf8mb4"));
+
         // sink tableExists ?
         boolean tableExistsBefore = mySqlCatalog.tableExists(tablePathMySqlSink);
         Assertions.assertFalse(tableExistsBefore);
@@ -175,10 +190,61 @@ public class JdbcMySqlSaveModeCatalogIT extends TestSuiteBase implements TestRes
         mySqlCatalog.createTable(tablePathMySqlSink, catalogTable, true);
         boolean tableExistsAfter = mySqlCatalog.tableExists(tablePathMySqlSink);
         Assertions.assertTrue(tableExistsAfter);
-        // comment
+
+        // Verify metadata is preserved in sink table
         final CatalogTable sinkTable = mySqlCatalog.getTable(tablePathMySqlSink);
+        // Column comment preserved
         final Column column = sinkTable.getTableSchema().getColumns().get(1);
         Assertions.assertEquals("\"#¥%……&*（）;;',,..``````//'@特殊注释'\\'\"", column.getComment());
+        // Table comment preserved
+        Assertions.assertEquals(TABLE_COMMENT, sinkTable.getComment());
+        // ENGINE/CHARSET/COLLATE preserved
+        Assertions.assertEquals(
+                "InnoDB", sinkTable.getOptions().get(MySqlCatalog.TABLE_OPTION_ENGINE));
+        Assertions.assertEquals(
+                "utf8mb4", sinkTable.getOptions().get(MySqlCatalog.TABLE_OPTION_CHARSET));
+        Assertions.assertTrue(
+                sinkTable
+                        .getOptions()
+                        .get(MySqlCatalog.TABLE_OPTION_COLLATE)
+                        .startsWith("utf8mb4"));
+        // Non-PK indexes preserved
+        Assertions.assertEquals(2, sinkTable.getTableSchema().getConstraintKeys().size());
+
+        // Verify at SQL level
+        try (Connection conn = getJdbcMySqlConnection();
+                Statement stmt = conn.createStatement();
+                ResultSet rs =
+                        stmt.executeQuery(
+                                "SELECT ENGINE, TABLE_COLLATION, TABLE_COMMENT "
+                                        + "FROM information_schema.tables "
+                                        + "WHERE TABLE_SCHEMA = 'auto' AND TABLE_NAME = 'mysql_auto_create_sink'")) {
+            Assertions.assertTrue(rs.next());
+            Assertions.assertEquals("InnoDB", rs.getString("ENGINE"));
+            Assertions.assertTrue(rs.getString("TABLE_COLLATION").startsWith("utf8mb4"));
+            Assertions.assertEquals(TABLE_COMMENT, rs.getString("TABLE_COMMENT"));
+        }
+
+        // Verify indexes at SQL level
+        try (Connection conn = getJdbcMySqlConnection();
+                Statement stmt = conn.createStatement();
+                ResultSet rs =
+                        stmt.executeQuery("SHOW INDEX FROM `auto`.`mysql_auto_create_sink`")) {
+            boolean hasIdxVarchar = false;
+            boolean hasIdxBigint = false;
+            while (rs.next()) {
+                String keyName = rs.getString("Key_name");
+                if ("idx_f_varchar".equals(keyName)) {
+                    hasIdxVarchar = true;
+                }
+                if ("idx_f_bigint".equals(keyName)) {
+                    hasIdxBigint = true;
+                }
+            }
+            Assertions.assertTrue(hasIdxVarchar, "Index idx_f_varchar should exist");
+            Assertions.assertTrue(hasIdxBigint, "Unique index idx_f_bigint should exist");
+        }
+
         // isExistsData ?
         boolean existsDataBefore = mySqlCatalog.isExistsData(tablePathMySqlSink);
         Assertions.assertFalse(existsDataBefore);

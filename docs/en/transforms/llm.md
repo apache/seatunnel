@@ -96,7 +96,7 @@ of `/v1/chat/completions` endpoint.
 ### api_key
 
 The API key to use for the model provider.
-If you use OpenAI model, please refer https://platform.openai.com/docs/api-reference/api-keys of how to get the API key.
+If you use OpenAI model, please refer https://help.openai.com/en/articles/4936850-how-to-create-and-use-an-api-key for how to get the API key.
 
 ### api_path
 

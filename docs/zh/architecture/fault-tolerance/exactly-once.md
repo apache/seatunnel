@@ -494,7 +494,7 @@ sink.records_committed = 1,000,000
 ### 学术论文
 
 - Chandy & Lamport (1985): ["Distributed Snapshots"](https://lamport.azurewebsites.net/pubs/chandy.pdf)
-- Gray & Lamport (2006): ["Consensus on Transaction Commit"](https://lamport.azurewebsites.net/pubs/paxos-commit.pdf)
+- Gray & Lamport (2006): "Consensus on Transaction Commit", ACM Trans. Database Syst. 31, 1 (March 2006), 1-33
 - Carbone et al. (2017): ["State Management in Apache Flink"](http://www.vldb.org/pvldb/vol10/p1718-carbone.pdf)
 
 ### 进一步阅读

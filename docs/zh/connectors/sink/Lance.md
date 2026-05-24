@@ -7,7 +7,7 @@ import ChangeLog from '../changelog/connector-lance.md';
 ## 支持的引擎
 
 > Spark（不支持 Spark 3.4 以下版本，参考 https://lance.org/integrations/spark/install/#scala）<br/>
-> Flink（暂不支持，参考 https://github.com/lance-format/lance-flink）<br/>
+> Flink（暂不支持，参考 https://github.com/lance-format/lance-flink)<br/>
 > SeaTunnel Zeta<br/>
 
 ## 描述
