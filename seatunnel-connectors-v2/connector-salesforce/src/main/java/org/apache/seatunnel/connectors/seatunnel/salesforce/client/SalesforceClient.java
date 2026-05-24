@@ -187,10 +187,10 @@ public class SalesforceClient implements Closeable {
     }
 
     /**
-     * Runs one Bulk API query end-to-end: creates the job, polls until it reaches a
-     * terminal state, then streams the result pages to rowConsumer. Rows are emitted
-     * as they are parsed rather than buffered, so callers can forward each row to a
-     * downstream collector without holding the full result set in memory.
+     * Runs one Bulk API query end-to-end: creates the job, polls until it reaches a terminal state,
+     * then streams the result pages to rowConsumer. Rows are emitted as they are parsed rather than
+     * buffered, so callers can forward each row to a downstream collector without holding the full
+     * result set in memory.
      */
     public void executeBulkQuery(String soql, int columnCount, Consumer<Object[]> rowConsumer) {
         String jobId = createBulkQueryJob(soql);
@@ -272,10 +272,9 @@ public class SalesforceClient implements Closeable {
     }
 
     /**
-     * Pulls every result page for a completed Bulk API query job, walking forward via
-     * the Sforce-Locator header. Each parsed row is pushed to rowConsumer immediately;
-     * no whole-job buffering happens at this layer, only one page's CSV body is held
-     * at a time.
+     * Pulls every result page for a completed Bulk API query job, walking forward via the
+     * Sforce-Locator header. Each parsed row is pushed to rowConsumer immediately; no whole-job
+     * buffering happens at this layer, only one page's CSV body is held at a time.
      */
     private void downloadResults(String jobId, int columnCount, Consumer<Object[]> rowConsumer) {
         String url =
@@ -313,10 +312,10 @@ public class SalesforceClient implements Closeable {
     }
 
     /**
-     * Parses one Bulk API CSV result page (header row plus data rows) and emits each
-     * data row to rowConsumer as a fixed-width Object[]. Missing trailing columns are
-     * filled with null and empty cells also become null, so the type-converting reader
-     * can distinguish them from real string values.
+     * Parses one Bulk API CSV result page (header row plus data rows) and emits each data row to
+     * rowConsumer as a fixed-width Object[]. Missing trailing columns are filled with null and
+     * empty cells also become null, so the type-converting reader can distinguish them from real
+     * string values.
      */
     private void parseCsvInto(String csv, int columnCount, Consumer<Object[]> rowConsumer)
             throws IOException {

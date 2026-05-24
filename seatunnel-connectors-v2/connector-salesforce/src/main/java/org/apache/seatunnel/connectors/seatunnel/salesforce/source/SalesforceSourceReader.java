@@ -75,12 +75,11 @@ public class SalesforceSourceReader extends AbstractSingleSplitReader<SeaTunnelR
     }
 
     /**
-     * Single-pass bounded read for the assigned split. For each configured table,
-     * submits one Bulk API query job and hands the client a per-row consumer that
-     * converts the raw CSV Object[] to a SeaTunnelRow, tags it with the table id,
-     * and forwards it to the downstream collector. Rows flow through without buffering
-     * the whole result set in the reader. After every table has drained, signals
-     * no-more-elements so the framework can close the split.
+     * Single-pass bounded read for the assigned split. For each configured table, submits one Bulk
+     * API query job and hands the client a per-row consumer that converts the raw CSV Object[] to a
+     * SeaTunnelRow, tags it with the table id, and forwards it to the downstream collector. Rows
+     * flow through without buffering the whole result set in the reader. After every table has
+     * drained, signals no-more-elements so the framework can close the split.
      */
     @Override
     public void pollNext(Collector<SeaTunnelRow> output) throws Exception {
