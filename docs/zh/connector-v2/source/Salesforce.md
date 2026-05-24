@@ -43,21 +43,23 @@
 | api_version        | String  | 否    | v59.0   | Salesforce REST API 版本。                                                                    |
 | object_name        | String  | 否\*  | -       | 单对象模式下要读取的 Salesforce 对象，例如 `Account`。与 `tables_configs` 互斥。                |
 | tables_configs     | List    | 否\*  | -       | 多对象配置列表。每一项必须提供 `table_path`。与 `object_name` 互斥。                            |
-| soql_query         | String  | 否    | -       | 完整的 SOQL 查询覆盖。未设置时连接器会构造 `SELECT FIELDS(ALL) FROM <object>`。                |
-| filter             | String  | 否    | -       | 未设置 `soql_query` 时附加到 SOQL 的 WHERE 条件。                                              |
+| filter             | String  | 否    | -       | 附加到自动构造的 `SELECT FIELDS(ALL) FROM <object>` 查询上的 SOQL WHERE 条件。                 |
 | max_retries        | Integer | 否    | 3       | 瞬时错误的最大重试次数。                                                                       |
 | request_timeout_ms | Integer | 否    | 60000   | HTTP 请求超时时间（毫秒）。                                                                    |
 | poll_interval_ms   | Long    | 否    | 5000    | Bulk API 作业状态轮询间隔（毫秒）。                                                            |
 
 \* `object_name` 与 `tables_configs` 必须且只能提供其中一个。
 
+连接器始终发起 `SELECT FIELDS(ALL) FROM <object> [WHERE <filter>]` 查询，以保证
+发出的行与基于 `/describe` 构造的 schema 在位置上保持一致。自定义投影式查询暂不
+属于此版本的支持范围。
+
 ### tables_configs 项选项
 
 | 名称        | 类型   | 必填 | 描述                                                                |
 |-------------|--------|------|---------------------------------------------------------------------|
 | table_path  | String | 是   | 格式为 `database.ObjectName`，例如 `salesforce.Account`。            |
-| soql_query  | String | 否   | 针对该对象的完整 SOQL 查询覆盖。                                     |
-| filter      | String | 否   | 未设置 `soql_query` 时针对该对象的 SOQL WHERE 条件。                 |
+| filter      | String | 否   | 针对该对象的 SOQL WHERE 条件。                                       |
 
 ## 示例
 
@@ -95,8 +97,8 @@ source {
         filter     = "AnnualRevenue > 1000000"
       },
       {
-        table_path  = "salesforce.Contact"
-        soql_query  = "SELECT Id, FirstName, LastName FROM Contact WHERE IsDeleted = false"
+        table_path = "salesforce.Contact"
+        filter     = "IsDeleted = false"
       },
       {
         table_path = "salesforce.Opportunity"

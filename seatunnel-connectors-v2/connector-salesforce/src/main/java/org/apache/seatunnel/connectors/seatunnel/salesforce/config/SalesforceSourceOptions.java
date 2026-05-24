@@ -75,19 +75,13 @@ public class SalesforceSourceOptions {
                             "Salesforce object name for single-object mode, e.g. Account. "
                                     + "Mutually exclusive with tables_configs.");
 
-    public static final Option<String> SOQL_QUERY =
-            Options.key("soql_query")
-                    .stringType()
-                    .noDefaultValue()
-                    .withDescription(
-                            "Full SOQL query override. When omitted the connector builds "
-                                    + "SELECT <fields> FROM <object> [WHERE <filter>].");
-
     public static final Option<String> FILTER =
             Options.key("filter")
                     .stringType()
                     .noDefaultValue()
-                    .withDescription("SOQL WHERE clause appended when soql_query is not set.");
+                    .withDescription(
+                            "SOQL WHERE clause appended to the auto-built "
+                                    + "SELECT FIELDS(ALL) FROM <object> query.");
 
     public static final Option<Integer> MAX_RETRIES =
             Options.key("max_retries")

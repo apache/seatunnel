@@ -54,7 +54,6 @@ public class SalesforceSourceFactory implements TableSourceFactory {
                 .optional(
                         SalesforceSourceOptions.SECURITY_TOKEN,
                         SalesforceSourceOptions.API_VERSION,
-                        SalesforceSourceOptions.SOQL_QUERY,
                         SalesforceSourceOptions.FILTER,
                         SalesforceSourceOptions.MAX_RETRIES,
                         SalesforceSourceOptions.REQUEST_TIMEOUT_MS,

@@ -54,6 +54,12 @@ public class SalesforceSource extends AbstractSingleSplitSource<SeaTunnelRow>
         this.tableConfigs = buildTableConfigs(params, config);
     }
 
+    /**
+     * Resolves the user-facing object_name / tables_configs options into one or more
+     * SalesforceTableConfig instances, calling /describe per object to derive the
+     * CatalogTable schema. Runs once during factory createSource and uses a one-shot
+     * SalesforceClient whose lifetime is scoped to this call (try-with-resources).
+     */
     private List<SalesforceTableConfig> buildTableConfigs(
             SalesforceParameters params, ReadonlyConfig config) {
         try (SalesforceClient client = new SalesforceClient(params)) {
@@ -117,14 +123,15 @@ public class SalesforceSource extends AbstractSingleSplitSource<SeaTunnelRow>
         return new SalesforceTableConfig(soql, objectName, table);
     }
 
+    /**
+     * Builds the SOQL the Bulk API job will run for one object. Always selects every
+     * describe-discovered field via FIELDS(ALL) so the emitted rows stay positionally
+     * aligned with the CatalogTable schema. An optional filter is appended verbatim as
+     * the WHERE clause.
+     */
     private String buildSoql(ReadonlyConfig config, String objectName) {
-        if (config.getOptional(SalesforceSourceOptions.SOQL_QUERY).isPresent()) {
-            return config.get(SalesforceSourceOptions.SOQL_QUERY);
-        }
-        String fields = "FIELDS(ALL)";
+        StringBuilder soql = new StringBuilder("SELECT FIELDS(ALL) FROM ").append(objectName);
         String filter = config.getOptional(SalesforceSourceOptions.FILTER).orElse(null);
-        StringBuilder soql =
-                new StringBuilder("SELECT ").append(fields).append(" FROM ").append(objectName);
         if (filter != null) {
             soql.append(" WHERE ").append(filter);
         }

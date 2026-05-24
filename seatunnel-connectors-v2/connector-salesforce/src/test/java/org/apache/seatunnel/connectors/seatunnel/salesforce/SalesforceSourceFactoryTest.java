@@ -71,18 +71,6 @@ class SalesforceSourceFactoryTest {
     }
 
     @Test
-    void testSingleObjectModeWithSoqlOverrideValid() {
-        Map<String, Object> config = requiredAuthConfig();
-        config.put("object_name", "Opportunity");
-        config.put("soql_query", "SELECT Id, Name FROM Opportunity WHERE StageName = 'Closed Won'");
-
-        Assertions.assertDoesNotThrow(
-                () ->
-                        ConfigValidator.of(ReadonlyConfig.fromMap(config))
-                                .validate(FACTORY.optionRule()));
-    }
-
-    @Test
     void testMultiObjectModeValid() {
         Map<String, Object> config = requiredAuthConfig();
         config.put("tables_configs", multiObjectTablesConfigs());

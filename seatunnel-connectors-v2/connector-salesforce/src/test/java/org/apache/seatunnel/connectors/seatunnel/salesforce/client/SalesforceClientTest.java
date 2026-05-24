@@ -36,6 +36,7 @@ import java.io.IOException;
 import java.io.OutputStream;
 import java.net.InetSocketAddress;
 import java.nio.charset.StandardCharsets;
+import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
@@ -131,7 +132,8 @@ class SalesforceClientTest {
 
         try (SalesforceClient client = new SalesforceClient(buildParams(baseUrl))) {
             client.authenticate();
-            List<Object[]> rows = client.executeBulkQuery("SELECT Id, Name FROM Account", 2);
+            List<Object[]> rows = new ArrayList<>();
+            client.executeBulkQuery("SELECT Id, Name FROM Account", 2, rows::add);
             Assertions.assertEquals(2, rows.size());
             Assertions.assertArrayEquals(new Object[] {"001", "Acme"}, rows.get(0));
             Assertions.assertArrayEquals(new Object[] {"002", "Globex"}, rows.get(1));
@@ -155,7 +157,8 @@ class SalesforceClientTest {
 
         try (SalesforceClient client = new SalesforceClient(buildParams(baseUrl))) {
             client.authenticate();
-            List<Object[]> rows = client.executeBulkQuery("SELECT Id FROM Account", 1);
+            List<Object[]> rows = new ArrayList<>();
+            client.executeBulkQuery("SELECT Id FROM Account", 1, rows::add);
             Assertions.assertEquals(2, rows.size());
             Assertions.assertEquals(2, resultsHits.get());
         }
@@ -169,7 +172,7 @@ class SalesforceClientTest {
             client.authenticate();
             Assertions.assertThrows(
                     SalesforceConnectorException.class,
-                    () -> client.executeBulkQuery("SELECT Id FROM Account", 1));
+                    () -> client.executeBulkQuery("SELECT Id FROM Account", 1, row -> {}));
         }
     }
 

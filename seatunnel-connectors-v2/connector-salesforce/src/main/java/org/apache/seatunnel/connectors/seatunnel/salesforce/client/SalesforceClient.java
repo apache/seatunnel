@@ -60,6 +60,7 @@ import java.nio.charset.StandardCharsets;
 import java.util.ArrayList;
 import java.util.Collections;
 import java.util.List;
+import java.util.function.Consumer;
 
 @Slf4j
 public class SalesforceClient implements Closeable {
@@ -185,10 +186,16 @@ public class SalesforceClient implements Closeable {
         }
     }
 
-    public List<Object[]> executeBulkQuery(String soql, int columnCount) {
+    /**
+     * Runs one Bulk API query end-to-end: creates the job, polls until it reaches a
+     * terminal state, then streams the result pages to rowConsumer. Rows are emitted
+     * as they are parsed rather than buffered, so callers can forward each row to a
+     * downstream collector without holding the full result set in memory.
+     */
+    public void executeBulkQuery(String soql, int columnCount, Consumer<Object[]> rowConsumer) {
         String jobId = createBulkQueryJob(soql);
         waitForJobCompletion(jobId);
-        return downloadResults(jobId, columnCount);
+        downloadResults(jobId, columnCount, rowConsumer);
     }
 
     private String createBulkQueryJob(String soql) {
@@ -264,11 +271,16 @@ public class SalesforceClient implements Closeable {
         }
     }
 
-    private List<Object[]> downloadResults(String jobId, int columnCount) {
+    /**
+     * Pulls every result page for a completed Bulk API query job, walking forward via
+     * the Sforce-Locator header. Each parsed row is pushed to rowConsumer immediately;
+     * no whole-job buffering happens at this layer, only one page's CSV body is held
+     * at a time.
+     */
+    private void downloadResults(String jobId, int columnCount, Consumer<Object[]> rowConsumer) {
         String url =
                 authorizedInstanceUrl
                         + String.format(JOB_RESULTS_PATH, params.getApiVersion(), jobId);
-        List<Object[]> rows = new ArrayList<>();
         String locator = null;
 
         do {
@@ -290,7 +302,7 @@ public class SalesforceClient implements Closeable {
                         (locatorHeader != null && !"null".equals(locatorHeader.getValue()))
                                 ? locatorHeader.getValue()
                                 : null;
-                parseCsvInto(body, columnCount, rows);
+                parseCsvInto(body, columnCount, rowConsumer);
             } catch (SalesforceConnectorException e) {
                 throw e;
             } catch (Exception e) {
@@ -298,11 +310,16 @@ public class SalesforceClient implements Closeable {
                         SalesforceConnectorErrorCode.BULK_RESULTS_FAILED, e);
             }
         } while (locator != null);
-
-        return rows;
     }
 
-    private void parseCsvInto(String csv, int columnCount, List<Object[]> rows) throws IOException {
+    /**
+     * Parses one Bulk API CSV result page (header row plus data rows) and emits each
+     * data row to rowConsumer as a fixed-width Object[]. Missing trailing columns are
+     * filled with null and empty cells also become null, so the type-converting reader
+     * can distinguish them from real string values.
+     */
+    private void parseCsvInto(String csv, int columnCount, Consumer<Object[]> rowConsumer)
+            throws IOException {
         try (CSVParser parser =
                 CSVFormat.DEFAULT.withFirstRecordAsHeader().parse(new StringReader(csv))) {
             for (CSVRecord record : parser) {
@@ -311,7 +328,7 @@ public class SalesforceClient implements Closeable {
                     String val = i < record.size() ? record.get(i) : null;
                     row[i] = (val == null || val.isEmpty()) ? null : val;
                 }
-                rows.add(row);
+                rowConsumer.accept(row);
             }
         }
     }

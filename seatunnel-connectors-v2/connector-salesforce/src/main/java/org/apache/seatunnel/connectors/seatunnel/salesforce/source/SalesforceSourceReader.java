@@ -74,6 +74,14 @@ public class SalesforceSourceReader extends AbstractSingleSplitReader<SeaTunnelR
         }
     }
 
+    /**
+     * Single-pass bounded read for the assigned split. For each configured table,
+     * submits one Bulk API query job and hands the client a per-row consumer that
+     * converts the raw CSV Object[] to a SeaTunnelRow, tags it with the table id,
+     * and forwards it to the downstream collector. Rows flow through without buffering
+     * the whole result set in the reader. After every table has drained, signals
+     * no-more-elements so the framework can close the split.
+     */
     @Override
     public void pollNext(Collector<SeaTunnelRow> output) throws Exception {
         try {
@@ -81,18 +89,16 @@ public class SalesforceSourceReader extends AbstractSingleSplitReader<SeaTunnelR
                 CatalogTable catalogTable = tableConfig.getCatalogTable();
                 SeaTunnelRowType rowType = catalogTable.getSeaTunnelRowType();
                 int columnCount = rowType.getTotalFields();
-                List<Object[]> rawRows =
-                        client.executeBulkQuery(tableConfig.getSoql(), columnCount);
                 String tableId = tableConfig.getTableId();
-                log.info(
-                        "Fetched {} rows from Salesforce object {}",
-                        rawRows.size(),
-                        tableConfig.getObjectName());
-                for (Object[] raw : rawRows) {
-                    SeaTunnelRow row = convertRow(raw, rowType);
-                    row.setTableId(tableId);
-                    output.collect(row);
-                }
+                log.info("Reading rows from Salesforce object {}", tableConfig.getObjectName());
+                client.executeBulkQuery(
+                        tableConfig.getSoql(),
+                        columnCount,
+                        raw -> {
+                            SeaTunnelRow row = convertRow(raw, rowType);
+                            row.setTableId(tableId);
+                            output.collect(row);
+                        });
             }
         } finally {
             readerContext.signalNoMoreElement();

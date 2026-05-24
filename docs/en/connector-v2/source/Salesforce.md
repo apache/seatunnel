@@ -43,21 +43,24 @@ Authentication uses the OAuth 2.0 Username-Password flow.
 | api_version        | String  | No       | v59.0   | Salesforce REST API version.                                                                  |
 | object_name        | String  | No*      | -       | Salesforce object for single-object mode, e.g. `Account`. Exclusive with `tables_configs`.   |
 | tables_configs     | List    | No*      | -       | Multi-object configuration list. Each entry requires `table_path`. Exclusive with `object_name`. |
-| soql_query         | String  | No       | -       | Full SOQL override. When omitted the connector builds `SELECT FIELDS(ALL) FROM <object>`.    |
-| filter             | String  | No       | -       | SOQL WHERE clause appended when `soql_query` is not set.                                     |
+| filter             | String  | No       | -       | SOQL WHERE clause appended to the auto-built `SELECT FIELDS(ALL) FROM <object>` query.       |
 | max_retries        | Integer | No       | 3       | Maximum retries on transient errors.                                                          |
 | request_timeout_ms | Integer | No       | 60000   | HTTP request timeout in milliseconds.                                                         |
 | poll_interval_ms   | Long    | No       | 5000    | Interval between Bulk API job status polls (ms).                                              |
 
 \* Exactly one of `object_name` or `tables_configs` must be provided.
 
+The connector always issues `SELECT FIELDS(ALL) FROM <object> [WHERE <filter>]`
+so the emitted rows stay positionally aligned with the schema produced from
+`/describe`. Custom projection-style queries are intentionally out of scope for
+this first version.
+
 ### tables_configs entry options
 
 | Name        | Type   | Required | Description                                                       |
 |-------------|--------|----------|-------------------------------------------------------------------|
 | table_path  | String | Yes      | Format: `database.ObjectName`, e.g. `salesforce.Account`.        |
-| soql_query  | String | No       | Full SOQL override for this object.                               |
-| filter      | String | No       | SOQL WHERE clause for this object when `soql_query` is not set.  |
+| filter      | String | No       | SOQL WHERE clause for this object.                                |
 
 ## Example
 
@@ -95,8 +98,8 @@ source {
         filter     = "AnnualRevenue > 1000000"
       },
       {
-        table_path  = "salesforce.Contact"
-        soql_query  = "SELECT Id, FirstName, LastName FROM Contact WHERE IsDeleted = false"
+        table_path = "salesforce.Contact"
+        filter     = "IsDeleted = false"
       },
       {
         table_path = "salesforce.Opportunity"
