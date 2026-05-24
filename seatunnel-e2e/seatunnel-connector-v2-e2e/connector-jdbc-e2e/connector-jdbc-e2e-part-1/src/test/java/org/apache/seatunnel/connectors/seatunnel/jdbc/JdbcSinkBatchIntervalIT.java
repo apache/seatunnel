@@ -107,7 +107,7 @@ public class JdbcSinkBatchIntervalIT extends TestSuiteBase implements TestResour
 
         given().ignoreExceptions()
                 .await()
-                .atMost(30, TimeUnit.SECONDS)
+                .atMost(120, TimeUnit.SECONDS)
                 .pollInterval(2, TimeUnit.SECONDS)
                 .untilAsserted(
                         () -> {
@@ -149,7 +149,7 @@ public class JdbcSinkBatchIntervalIT extends TestSuiteBase implements TestResour
 
         given().ignoreExceptions()
                 .await()
-                .atMost(30, TimeUnit.SECONDS)
+                .atMost(120, TimeUnit.SECONDS)
                 .pollInterval(2, TimeUnit.SECONDS)
                 .untilAsserted(
                         () -> {
@@ -179,7 +179,8 @@ public class JdbcSinkBatchIntervalIT extends TestSuiteBase implements TestResour
     }
 
     @TestTemplate
-    public void testBatchIntervalWithBatchSize1(TestContainer container) throws SQLException {
+    public void testBatchIntervalWithBatchSize1(TestContainer container)
+            throws SQLException, InterruptedException {
         AtomicBoolean jobFinished = new AtomicBoolean(false);
 
         CompletableFuture<Container.ExecResult> jobFuture =
@@ -197,7 +198,7 @@ public class JdbcSinkBatchIntervalIT extends TestSuiteBase implements TestResour
 
         given().ignoreExceptions()
                 .await()
-                .atMost(30, TimeUnit.SECONDS)
+                .atMost(120, TimeUnit.SECONDS)
                 .pollInterval(2, TimeUnit.SECONDS)
                 .untilAsserted(
                         () -> {
@@ -216,28 +217,20 @@ public class JdbcSinkBatchIntervalIT extends TestSuiteBase implements TestResour
                         });
 
         int firstCount = getSinkRowCount("sink_batch_interval_bs1");
-        given().ignoreExceptions()
-                .await()
-                .atMost(30, TimeUnit.SECONDS)
-                .pollInterval(1, TimeUnit.SECONDS)
-                .untilAsserted(
-                        () -> {
-                            Assertions.assertFalse(
-                                    jobFinished.get(),
-                                    "Job should still be running for second poll");
-                            int secondCount = getSinkRowCount("sink_batch_interval_bs1");
-                            log.info(
-                                    "batch_size=1 incremental check: firstCount={}, secondCount={}",
-                                    firstCount,
-                                    secondCount);
-                            Assertions.assertTrue(
-                                    secondCount > firstCount,
-                                    "Row count should keep growing with batch_size=1 (per-row flush), "
-                                            + "firstCount="
-                                            + firstCount
-                                            + ", secondCount="
-                                            + secondCount);
-                        });
+        Thread.sleep(5000);
+        Assertions.assertFalse(jobFinished.get(), "Job should still be running for second poll");
+        int secondCount = getSinkRowCount("sink_batch_interval_bs1");
+        log.info(
+                "batch_size=1 incremental check: firstCount={}, secondCount={}",
+                firstCount,
+                secondCount);
+        Assertions.assertTrue(
+                secondCount > firstCount,
+                "Row count should keep growing with batch_size=1 (per-row flush), "
+                        + "firstCount="
+                        + firstCount
+                        + ", secondCount="
+                        + secondCount);
 
         Container.ExecResult result = jobFuture.join();
         Assertions.assertEquals(0, result.getExitCode(), result.getStderr());

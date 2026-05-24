@@ -181,7 +181,7 @@ public class JdbcCloudberryIT extends AbstractJdbcIT {
                             "bash", "-c", "su - gpadmin -c 'psql -c \"SELECT version();\"'");
             log.info("Apache Cloudberry version: {}", execResult.getStdout());
 
-        } catch (IOException e) {
+        } catch (IOException | InterruptedException e) {
             log.error("Failed to initialize Apache Cloudberry", e);
             throw new RuntimeException("Failed to initialize Apache Cloudberry", e);
         }
