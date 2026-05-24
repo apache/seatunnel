@@ -12,9 +12,9 @@
 
 - [x] [batch](../../introduction/concepts/connector-v2-features.md)
 - [ ] [stream](../../introduction/concepts/connector-v2-features.md)
-- [x] [exactly-once](../../introduction/concepts/connector-v2-features.md)
+- [ ] [exactly-once](../../introduction/concepts/connector-v2-features.md)
 - [x] [column projection](../../introduction/concepts/connector-v2-features.md)
-- [x] [parallelism](../../introduction/concepts/connector-v2-features.md)
+- [ ] [parallelism](../../introduction/concepts/connector-v2-features.md)
 - [x] [support multiple table read](../../introduction/concepts/connector-v2-features.md)
 
 ## Description
