@@ -65,6 +65,14 @@ import static org.apache.seatunnel.api.common.metrics.MetricNames.TRANSFORM_PROC
 import static org.apache.seatunnel.api.common.metrics.MetricNames.TRANSFORM_RECORDS_IN;
 import static org.apache.seatunnel.api.common.metrics.MetricNames.TRANSFORM_RECORDS_OUT;
 
+/**
+ * Active-master service that collects and serves recent-window realtime metrics for enabled jobs.
+ *
+ * <p>The service is started and stopped by the master-election lifecycle. A single background
+ * collector periodically fetches targeted worker metric prefixes, aggregates them into bounded
+ * in-memory buckets, and exposes best-effort snapshots to the REST layer. Shutdown stops the
+ * collector and clears all cached job state so a standby or stopped node does not serve stale data.
+ */
 @Slf4j
 public class RealtimeMetricsService {
 
@@ -119,17 +127,20 @@ public class RealtimeMetricsService {
                         });
     }
 
+    /** Starts periodic collection on the active master. */
     public void start() {
         scheduler.scheduleWithFixedDelay(
                 this::collectSafely, 0, POLL_INTERVAL_MS, TimeUnit.MILLISECONDS);
     }
 
+    /** Stops collection and releases all in-memory metric windows. */
     public void shutdown() {
         scheduler.shutdownNow();
         jobStores.clear();
         jobMetas.clear();
     }
 
+    /** Returns a lightweight summary of running jobs and their observability status. */
     public List<Map<String, Object>> listJobs() {
         return jobMetas.entrySet().stream()
                 .sorted(Map.Entry.comparingByKey())
@@ -149,6 +160,7 @@ public class RealtimeMetricsService {
                 .collect(Collectors.toList());
     }
 
+    /** Returns recent queue/backpressure metrics for the requested job edge window. */
     public Map<String, Object> getJobEdges(long jobId, long windowMs) {
         JobStore store = jobStores.get(jobId);
         if (store != null) {
@@ -161,6 +173,7 @@ public class RealtimeMetricsService {
         return emptyEdgesResponse(meta.bucketMs, windowMs, meta.enabled);
     }
 
+    /** Returns recent source, transform, and sink busy metrics for the requested job window. */
     public Map<String, Object> getJobVertices(long jobId, long windowMs) {
         JobStore store = jobStores.get(jobId);
         if (store != null) {
@@ -173,6 +186,7 @@ public class RealtimeMetricsService {
         return emptyVerticesResponse(meta.bucketMs, windowMs, meta.enabled);
     }
 
+    /** Returns collector lifecycle and last-collection diagnostics for REST responses. */
     public Map<String, Object> getCollectorStatus() {
         Map<String, Object> m = new HashMap<>();
         m.put("pollIntervalMs", POLL_INTERVAL_MS);

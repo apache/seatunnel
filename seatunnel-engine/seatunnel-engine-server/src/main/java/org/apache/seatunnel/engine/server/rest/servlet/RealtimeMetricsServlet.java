@@ -31,6 +31,13 @@ import java.util.HashMap;
 import java.util.Map;
 import java.util.concurrent.TimeUnit;
 
+/**
+ * REST entry point for active-master realtime observability snapshots.
+ *
+ * <p>The servlet only serves requests on the current master. It validates the realtime metrics
+ * path, delegates aggregation reads to {@link RealtimeMetricsService}, and keeps the HTTP contract
+ * small: job summaries, vertex busy windows, edge backpressure windows, and collector status.
+ */
 public class RealtimeMetricsServlet extends BaseServlet {
 
     private static final long DEFAULT_WINDOW_MS = TimeUnit.MINUTES.toMillis(3);
@@ -40,6 +47,7 @@ public class RealtimeMetricsServlet extends BaseServlet {
         super(nodeEngine);
     }
 
+    /** Handles realtime metrics read endpoints under {@code /metrics/realtime}. */
     @Override
     protected void doGet(HttpServletRequest req, HttpServletResponse resp)
             throws ServletException, IOException {

@@ -30,6 +30,14 @@ import java.util.Set;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.stream.Collectors;
 
+/**
+ * Immutable job-level settings for Zeta realtime observability.
+ *
+ * <p>The same env options are consumed by planning, worker enablement, and master-side aggregation,
+ * so this class is the single place that keeps enablement semantics aligned. Observability remains
+ * disabled by default unless users explicitly enable it or configure split points that require the
+ * feature to be active.
+ */
 @Getter
 @Slf4j
 public class ObservabilityConfig {

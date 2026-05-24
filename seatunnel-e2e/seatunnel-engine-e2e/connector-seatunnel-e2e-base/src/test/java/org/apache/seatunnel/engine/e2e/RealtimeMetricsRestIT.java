@@ -36,6 +36,8 @@ import com.hazelcast.client.config.ClientConfig;
 import com.hazelcast.config.MemberAttributeConfig;
 import com.hazelcast.instance.impl.HazelcastInstanceImpl;
 
+import java.io.IOException;
+import java.net.ServerSocket;
 import java.util.Collections;
 import java.util.List;
 import java.util.Map;
@@ -67,7 +69,7 @@ public class RealtimeMetricsRestIT {
     void beforeEach() throws Exception {
         String testClusterName = TestUtils.getClusterName("RealtimeMetricsRestIT");
         config = ConfigProvider.locateAndGetSeaTunnelConfig();
-        config.getEngineConfig().getHttpConfig().setPort(8080);
+        config.getEngineConfig().getHttpConfig().setPort(getAvailablePort());
         config.getEngineConfig().getHttpConfig().setEnabled(true);
         config.getHazelcastConfig().setClusterName(testClusterName);
         config.getEngineConfig().getSlotServiceConfig().setDynamicSlot(false);
@@ -266,6 +268,14 @@ public class RealtimeMetricsRestIT {
             return Long.parseLong(String.valueOf(value));
         } catch (Exception ignored) {
             return 0L;
+        }
+    }
+
+    private static int getAvailablePort() {
+        try (ServerSocket socket = new ServerSocket(0)) {
+            return socket.getLocalPort();
+        } catch (IOException e) {
+            throw new IllegalStateException("No available port for realtime metrics REST IT", e);
         }
     }
 }
