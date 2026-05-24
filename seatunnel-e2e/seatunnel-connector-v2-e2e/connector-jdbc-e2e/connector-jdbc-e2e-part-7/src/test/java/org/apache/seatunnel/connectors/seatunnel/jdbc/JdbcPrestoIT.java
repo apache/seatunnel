@@ -35,6 +35,7 @@ import org.testcontainers.utility.DockerLoggerFactory;
 import lombok.extern.slf4j.Slf4j;
 
 import java.sql.Driver;
+import java.sql.ResultSet;
 import java.sql.SQLException;
 import java.sql.Statement;
 import java.util.List;
@@ -109,18 +110,44 @@ public class JdbcPrestoIT extends AbstractJdbcIT {
 
         this.connection = driver.connect(jdbcUrl, props);
 
-        // Wait until Presto is ready to execute SQL instead of fixed sleep retries.
         given().ignoreExceptions()
                 .await()
                 .pollInterval(2, TimeUnit.SECONDS)
-                .atMost(90, TimeUnit.SECONDS)
+                .atMost(120, TimeUnit.SECONDS)
                 .untilAsserted(
                         () -> {
-                            try (Statement statement = connection.createStatement()) {
-                                statement.executeQuery("select 1");
+                            try (Statement statement = connection.createStatement();
+                                    ResultSet rs =
+                                            statement.executeQuery(
+                                                    "SELECT count(*) FROM system.runtime.nodes WHERE state = 'active'")) {
+                                rs.next();
+                                int activeNodes = rs.getInt(1);
+                                if (activeNodes < 1) {
+                                    throw new RuntimeException(
+                                            "Waiting for active Presto worker nodes, current: "
+                                                    + activeNodes);
+                                }
                             }
                         });
         this.connection.setAutoCommit(false);
+    }
+
+    @Override
+    protected void createNeededTables() {
+        try (Statement statement = connection.createStatement()) {
+            String createTemplate = jdbcCase.getCreateSql();
+            String createSource =
+                    String.format(
+                            createTemplate,
+                            buildTableInfoWithSchema(
+                                    jdbcCase.getDatabase(),
+                                    jdbcCase.getSchema(),
+                                    jdbcCase.getSourceTable()));
+            statement.execute(createSource);
+        } catch (Exception exception) {
+            log.error(ExceptionUtils.getMessage(exception));
+            throw new SeaTunnelRuntimeException(JdbcITErrorCode.CREATE_TABLE_FAILED, exception);
+        }
     }
 
     @Override
