@@ -35,7 +35,6 @@ import org.testcontainers.utility.DockerLoggerFactory;
 import lombok.extern.slf4j.Slf4j;
 
 import java.sql.Driver;
-import java.sql.ResultSet;
 import java.sql.SQLException;
 import java.sql.Statement;
 import java.util.List;
@@ -116,17 +115,9 @@ public class JdbcPrestoIT extends AbstractJdbcIT {
                 .atMost(120, TimeUnit.SECONDS)
                 .untilAsserted(
                         () -> {
-                            try (Statement statement = connection.createStatement();
-                                    ResultSet rs =
-                                            statement.executeQuery(
-                                                    "SELECT count(*) FROM system.runtime.nodes WHERE state = 'active'")) {
-                                rs.next();
-                                int activeNodes = rs.getInt(1);
-                                if (activeNodes < 1) {
-                                    throw new RuntimeException(
-                                            "Waiting for active Presto worker nodes, current: "
-                                                    + activeNodes);
-                                }
+                            try (Statement statement = connection.createStatement()) {
+                                statement.execute(
+                                        "CREATE TABLE IF NOT EXISTS memory.default._readiness_probe (id INTEGER)");
                             }
                         });
         this.connection.setAutoCommit(false);
