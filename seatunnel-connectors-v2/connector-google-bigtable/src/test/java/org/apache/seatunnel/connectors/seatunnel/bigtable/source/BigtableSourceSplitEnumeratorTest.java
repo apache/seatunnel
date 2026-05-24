@@ -17,8 +17,6 @@
 
 package org.apache.seatunnel.connectors.seatunnel.bigtable.source;
 
-import org.apache.seatunnel.connectors.seatunnel.bigtable.config.BigtableParameters;
-
 import org.junit.jupiter.api.Test;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
@@ -27,13 +25,6 @@ public class BigtableSourceSplitEnumeratorTest {
 
     @Test
     void testSingleSplitFullRange() {
-        BigtableParameters parameters =
-                BigtableParameters.builder().projectId("p").instanceId("i").table("t").build();
-
-        // Use package-private constructor via subclass — just instantiate and call buildSplits via
-        // the public open/run path by inspecting the pending set.
-        // Since buildSplits is private, we test via registerReader indirectly.
-        // For now verify the split object structure directly.
         BigtableSourceSplit split = new BigtableSourceSplit(0, "", "");
         assertEquals("bigtable_source_split_0", split.splitId());
         assertEquals("", split.getStartRowKey());
@@ -42,15 +33,6 @@ public class BigtableSourceSplitEnumeratorTest {
 
     @Test
     void testSplitWithRowKeyRange() {
-        BigtableParameters parameters =
-                BigtableParameters.builder()
-                        .projectId("p")
-                        .instanceId("i")
-                        .table("t")
-                        .startRowkey("aaa")
-                        .endRowkey("zzz")
-                        .build();
-
         BigtableSourceSplit split = new BigtableSourceSplit(0, "aaa", "zzz");
         assertEquals("aaa", split.getStartRowKey());
         assertEquals("zzz", split.getEndRowKey());

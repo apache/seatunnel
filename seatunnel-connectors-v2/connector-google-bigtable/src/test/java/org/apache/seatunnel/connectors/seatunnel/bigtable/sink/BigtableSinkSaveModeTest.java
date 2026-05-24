@@ -20,7 +20,6 @@ package org.apache.seatunnel.connectors.seatunnel.bigtable.sink;
 import org.apache.seatunnel.api.configuration.ReadonlyConfig;
 import org.apache.seatunnel.api.sink.DataSaveMode;
 import org.apache.seatunnel.api.sink.SchemaSaveMode;
-import org.apache.seatunnel.api.sink.SinkWriter;
 import org.apache.seatunnel.api.table.catalog.CatalogTable;
 import org.apache.seatunnel.api.table.catalog.PhysicalColumn;
 import org.apache.seatunnel.api.table.catalog.TableIdentifier;
@@ -31,6 +30,9 @@ import org.apache.seatunnel.connectors.seatunnel.bigtable.exception.BigtableConn
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 
+import java.lang.reflect.Field;
+import java.lang.reflect.InvocationTargetException;
+import java.lang.reflect.Method;
 import java.util.Arrays;
 import java.util.Collections;
 import java.util.HashMap;
@@ -38,7 +40,6 @@ import java.util.Map;
 
 import static org.junit.jupiter.api.Assertions.assertDoesNotThrow;
 import static org.junit.jupiter.api.Assertions.assertThrows;
-import static org.mockito.Mockito.mock;
 
 /**
  * Unit tests for {@link BigtableSink#handleSaveMode()}.
@@ -94,101 +95,59 @@ class BigtableSinkSaveModeTest {
         return ReadonlyConfig.fromMap(map);
     }
 
-    // -------------------------------------------------------------------------
-    // Supported mode: RECREATE_SCHEMA + APPEND_DATA must not throw
-    // -------------------------------------------------------------------------
+    private BigtableSink newSink() {
+        ReadonlyConfig config = buildConfig("RECREATE_SCHEMA", "APPEND_DATA");
+        return new BigtableSink(config, catalogTable);
+    }
+
+    private static void setField(Object target, String fieldName, Object value) throws Exception {
+        Field field = BigtableSink.class.getDeclaredField(fieldName);
+        field.setAccessible(true);
+        field.set(target, value);
+    }
+
+    /** Invokes the private handleSaveMode guard without creating a writer or Bigtable client. */
+    private static void invokeHandleSaveMode(BigtableSink sink) throws Exception {
+        Method method = BigtableSink.class.getDeclaredMethod("handleSaveMode");
+        method.setAccessible(true);
+        try {
+            method.invoke(sink);
+        } catch (InvocationTargetException e) {
+            Throwable cause = e.getCause();
+            if (cause instanceof Exception) {
+                throw (Exception) cause;
+            }
+            if (cause instanceof Error) {
+                throw (Error) cause;
+            }
+            throw e;
+        }
+    }
 
     @Test
     void testSupportedModeDoesNotThrow() {
-        ReadonlyConfig config = buildConfig("RECREATE_SCHEMA", "APPEND_DATA");
-        BigtableSink sink = new BigtableSink(config, catalogTable);
-        SinkWriter.Context ctx = mock(SinkWriter.Context.class);
-        assertDoesNotThrow(() -> sink.createWriter(ctx));
-    }
-
-    // -------------------------------------------------------------------------
-    // Unsupported modes must throw BigtableConnectorException immediately
-    // -------------------------------------------------------------------------
-
-    @Test
-    void testDropDataThrows() {
-        ReadonlyConfig config = buildConfig("RECREATE_SCHEMA", "DROP_DATA");
-        // DROP_DATA is excluded from singleChoice, so ReadonlyConfig.fromMap will use default.
-        // We verify the behavior when the enum value is manually injected via reflection.
-        // Since singleChoice prevents DROP_DATA from being set via config, test the guard
-        // directly by inspecting the handleSaveMode logic path.
-        // The OptionRule will prevent users from setting DROP_DATA, so the exception path
-        // acts as a defence-in-depth guard. We verify the default (APPEND_DATA) doesn't throw.
-        BigtableSink sink = new BigtableSink(config, catalogTable);
-        SinkWriter.Context ctx = mock(SinkWriter.Context.class);
-        assertDoesNotThrow(() -> sink.createWriter(ctx));
+        BigtableSink sink = newSink();
+        assertDoesNotThrow(() -> invokeHandleSaveMode(sink));
     }
 
     @Test
-    void testCreateSchemaWhenNotExistThrows() {
-        // CREATE_SCHEMA_WHEN_NOT_EXIST is excluded from singleChoice; verify default is safe
-        ReadonlyConfig config = buildConfig("RECREATE_SCHEMA", "APPEND_DATA");
-        BigtableSink sink = new BigtableSink(config, catalogTable);
-        SinkWriter.Context ctx = mock(SinkWriter.Context.class);
-        assertDoesNotThrow(() -> sink.createWriter(ctx));
-    }
-
-    /**
-     * Verify that the handleSaveMode guard logic throws for DROP_DATA when invoked directly via
-     * reflection (bypassing OptionRule validation — simulates engine-level injection).
-     */
-    @Test
-    void testHandleSaveModeThrowsForDropDataViaReflection() throws Exception {
-        ReadonlyConfig config = buildConfig("RECREATE_SCHEMA", "APPEND_DATA");
-        BigtableSink sink = new BigtableSink(config, catalogTable);
-
-        // Inject DataSaveMode.DROP_DATA directly
-        java.lang.reflect.Field dataSaveModeField =
-                BigtableSink.class.getDeclaredField("dataSaveMode");
-        dataSaveModeField.setAccessible(true);
-        dataSaveModeField.set(sink, DataSaveMode.DROP_DATA);
-
-        java.lang.reflect.Method method = BigtableSink.class.getDeclaredMethod("handleSaveMode");
-        method.setAccessible(true);
-        assertThrows(
-                java.lang.reflect.InvocationTargetException.class,
-                () -> method.invoke(sink),
-                "handleSaveMode() must throw for DROP_DATA");
+    void testDropDataThrows() throws Exception {
+        BigtableSink sink = newSink();
+        setField(sink, "dataSaveMode", DataSaveMode.DROP_DATA);
+        assertThrows(BigtableConnectorException.class, () -> invokeHandleSaveMode(sink));
     }
 
     @Test
-    void testHandleSaveModeThrowsForErrorWhenDataExistsViaReflection() throws Exception {
-        ReadonlyConfig config = buildConfig("RECREATE_SCHEMA", "APPEND_DATA");
-        BigtableSink sink = new BigtableSink(config, catalogTable);
-
-        java.lang.reflect.Field dataSaveModeField =
-                BigtableSink.class.getDeclaredField("dataSaveMode");
-        dataSaveModeField.setAccessible(true);
-        dataSaveModeField.set(sink, DataSaveMode.ERROR_WHEN_DATA_EXISTS);
-
-        java.lang.reflect.Method method = BigtableSink.class.getDeclaredMethod("handleSaveMode");
-        method.setAccessible(true);
-        assertThrows(
-                java.lang.reflect.InvocationTargetException.class,
-                () -> method.invoke(sink),
-                "handleSaveMode() must throw for ERROR_WHEN_DATA_EXISTS");
+    void testErrorWhenDataExistsThrows() throws Exception {
+        BigtableSink sink = newSink();
+        setField(sink, "dataSaveMode", DataSaveMode.ERROR_WHEN_DATA_EXISTS);
+        assertThrows(BigtableConnectorException.class, () -> invokeHandleSaveMode(sink));
     }
 
     @Test
-    void testHandleSaveModeThrowsForCreateSchemaWhenNotExistViaReflection() throws Exception {
-        ReadonlyConfig config = buildConfig("RECREATE_SCHEMA", "APPEND_DATA");
-        BigtableSink sink = new BigtableSink(config, catalogTable);
-
-        java.lang.reflect.Field schemaSaveModeField =
-                BigtableSink.class.getDeclaredField("schemaSaveMode");
-        schemaSaveModeField.setAccessible(true);
-        schemaSaveModeField.set(sink, SchemaSaveMode.CREATE_SCHEMA_WHEN_NOT_EXIST);
-
-        java.lang.reflect.Method method = BigtableSink.class.getDeclaredMethod("handleSaveMode");
-        method.setAccessible(true);
-        assertThrows(
-                java.lang.reflect.InvocationTargetException.class,
-                () -> method.invoke(sink),
-                "handleSaveMode() must throw for CREATE_SCHEMA_WHEN_NOT_EXIST");
+    void testCreateSchemaWhenNotExistThrows() throws Exception {
+        BigtableSink sink = newSink();
+        setField(sink, "schemaSaveMode", SchemaSaveMode.CREATE_SCHEMA_WHEN_NOT_EXIST);
+        assertThrows(BigtableConnectorException.class, () -> invokeHandleSaveMode(sink));
     }
 }

@@ -30,6 +30,7 @@ import org.junit.jupiter.api.Test;
 import org.mockito.ArgumentCaptor;
 import org.mockito.Mockito;
 
+import com.google.api.gax.rpc.ServerStream;
 import com.google.cloud.bigtable.data.v2.BigtableDataClient;
 import com.google.cloud.bigtable.data.v2.models.Query;
 import com.google.cloud.bigtable.data.v2.models.Row;
@@ -84,6 +85,30 @@ class BigtableSourceReaderTest {
         parameters = BigtableParameters.builder().projectId("p").instanceId("i").table("t").build();
     }
 
+    /** Matches production lifecycle: open() initializes the client before pollNext(). */
+    private BigtableSourceReader createOpenedReader(
+            BigtableParameters params, SeaTunnelRowType type) throws Exception {
+        BigtableSourceReader reader =
+                new BigtableSourceReader(params, mockContext, type, mockClient);
+        reader.open();
+        return reader;
+    }
+
+    @SuppressWarnings("unchecked")
+    private void mockReadStream(Runnable duringForEach) {
+        ServerStream<Row> fakeStream = mock(ServerStream.class);
+        Mockito.doAnswer(
+                        invocation -> {
+                            if (duringForEach != null) {
+                                duringForEach.run();
+                            }
+                            return null;
+                        })
+                .when(fakeStream)
+                .forEach(any());
+        when(mockDataClient.readRows(any(Query.class))).thenReturn(fakeStream);
+    }
+
     // -------------------------------------------------------------------------
     // Issue 1: snapshotState must include the currently-being-read split
     // -------------------------------------------------------------------------
@@ -91,39 +116,22 @@ class BigtableSourceReaderTest {
     /**
      * When a split is being read (between addSplits and end of readSplit), snapshotState must
      * include it so that a failover can re-enqueue it.
-     *
-     * <p>We simulate the in-flight condition by making readRows() block long enough for us to call
-     * snapshotState() while pollNext() is executing.
      */
     @Test
     void testSnapshotStateIncludesInFlightSplit() throws Exception {
         BigtableSourceSplit split = new BigtableSourceSplit(0, "a", "z");
-
-        // readRows returns an Iterable whose forEach blocks, then captures the snapshot mid-read
         final List<BigtableSourceSplit>[] capturedState = new List[1];
 
-        BigtableSourceReader reader =
-                new BigtableSourceReader(parameters, mockContext, rowType, mockClient);
+        BigtableSourceReader reader = createOpenedReader(parameters, rowType);
         reader.addSplits(Collections.singletonList(split));
 
-        // Make readRows() call our callback once, giving us a chance to inspect state
-        Mockito.doAnswer(
-                        invocation -> {
-                            // At this point readSplit() is executing — currentSplit is set
-                            // We call snapshotState() as a checkpoint would
-                            capturedState[0] = reader.snapshotState(1L);
-                            return null;
-                        })
-                .when(mockDataClient)
-                .readRows(any(Query.class));
+        mockReadStream(() -> capturedState[0] = reader.snapshotState(1L));
 
-        // Trigger a dummy collector
         Collector<SeaTunnelRow> collector = mock(Collector.class);
         when(collector.getCheckpointLock()).thenReturn(new Object());
 
         reader.pollNext(collector);
 
-        // The snapshot taken during readSplit() must contain the split
         assertTrue(
                 capturedState[0].stream().anyMatch(s -> s.splitId().equals(split.splitId())),
                 "snapshotState taken during readSplit() must include the in-flight split");
@@ -137,19 +145,16 @@ class BigtableSourceReaderTest {
     void testSnapshotStateAfterReadDoesNotDuplicateSplit() throws Exception {
         BigtableSourceSplit split = new BigtableSourceSplit(0, "", "");
 
-        // readRows returns an empty iterable immediately
-        Mockito.doAnswer(invocation -> null).when(mockDataClient).readRows(any(Query.class));
-
-        BigtableSourceReader reader =
-                new BigtableSourceReader(parameters, mockContext, rowType, mockClient);
+        BigtableSourceReader reader = createOpenedReader(parameters, rowType);
         reader.addSplits(Collections.singletonList(split));
+
+        mockReadStream(null);
 
         Collector<SeaTunnelRow> collector = mock(Collector.class);
         when(collector.getCheckpointLock()).thenReturn(new Object());
 
         reader.pollNext(collector);
 
-        // Split has been fully consumed — snapshot after completion should be empty
         List<BigtableSourceSplit> state = reader.snapshotState(2L);
         assertTrue(state.isEmpty(), "State after completed read must be empty");
     }
@@ -160,15 +165,13 @@ class BigtableSourceReaderTest {
 
     /**
      * Verifies that each row is emitted individually via output.collect() inside the forEach
-     * lambda, rather than being buffered first. We inject a Row mock and confirm collect() is
-     * called once per row.
+     * lambda, rather than being buffered first.
      */
     @SuppressWarnings("unchecked")
     @Test
     void testRowsEmittedStreamingNotBuffered() throws Exception {
         BigtableSourceSplit split = new BigtableSourceSplit(0, "", "");
 
-        // Build a fake Bigtable Row with one cell "cf:name" = "alice"
         Row fakeRow = mock(Row.class);
         RowCell cell = mock(RowCell.class);
         when(cell.getFamily()).thenReturn("cf");
@@ -177,22 +180,7 @@ class BigtableSourceReaderTest {
         when(fakeRow.getCells()).thenReturn(Collections.singletonList(cell));
         when(fakeRow.getKey()).thenReturn(ByteString.copyFromUtf8("row-1"));
 
-        // Make readRows() emit our fakeRow via the forEach consumer
-        Mockito.doAnswer(
-                        invocation -> {
-                            // readRows returns an Iterable; the reader calls .forEach(consumer)
-                            // We simulate that by invoking the action on our fake row
-                            // The actual call is: dataClient.readRows(query).forEach(lambda)
-                            // We can't easily intercept the lambda, so we verify collect() was
-                            // called via the answer below.
-                            return null;
-                        })
-                .when(mockDataClient)
-                .readRows(any(Query.class));
-
-        // Use a real iterable answer to make the forEach fire
-        com.google.api.gax.rpc.ServerStream<Row> fakeStream =
-                mock(com.google.api.gax.rpc.ServerStream.class);
+        ServerStream<Row> fakeStream = mock(ServerStream.class);
         Mockito.doAnswer(
                         invocation -> {
                             Consumer<Row> action = invocation.getArgument(0);
@@ -203,8 +191,7 @@ class BigtableSourceReaderTest {
                 .forEach(any());
         when(mockDataClient.readRows(any(Query.class))).thenReturn(fakeStream);
 
-        BigtableSourceReader reader =
-                new BigtableSourceReader(parameters, mockContext, rowType, mockClient);
+        BigtableSourceReader reader = createOpenedReader(parameters, rowType);
         reader.addSplits(Collections.singletonList(split));
 
         Object lock = new Object();
@@ -213,7 +200,6 @@ class BigtableSourceReaderTest {
 
         reader.pollNext(collector);
 
-        // One row emitted
         ArgumentCaptor<SeaTunnelRow> captor = ArgumentCaptor.forClass(SeaTunnelRow.class);
         verify(collector).collect(captor.capture());
         assertEquals("alice", captor.getValue().getField(1));
@@ -230,7 +216,6 @@ class BigtableSourceReaderTest {
     @SuppressWarnings("unchecked")
     @Test
     void testRowkeyColumnConfigMapsCorrectField() throws Exception {
-        // Schema uses "id" as the row-key field, not the default "rowkey"
         SeaTunnelRowType customRowType =
                 new SeaTunnelRowType(
                         new String[] {"id", "cf:value"},
@@ -254,8 +239,7 @@ class BigtableSourceReaderTest {
         when(fakeRow.getCells()).thenReturn(Collections.singletonList(cell));
         when(fakeRow.getKey()).thenReturn(ByteString.copyFromUtf8("my-key"));
 
-        com.google.api.gax.rpc.ServerStream<Row> fakeStream =
-                mock(com.google.api.gax.rpc.ServerStream.class);
+        ServerStream<Row> fakeStream = mock(ServerStream.class);
         Mockito.doAnswer(
                         invocation -> {
                             Consumer<Row> action = invocation.getArgument(0);
@@ -266,9 +250,7 @@ class BigtableSourceReaderTest {
                 .forEach(any());
         when(mockDataClient.readRows(any(Query.class))).thenReturn(fakeStream);
 
-        BigtableSourceReader reader =
-                new BigtableSourceReader(
-                        paramsWithRowkeyCol, mockContext, customRowType, mockClient);
+        BigtableSourceReader reader = createOpenedReader(paramsWithRowkeyCol, customRowType);
         reader.addSplits(Collections.singletonList(new BigtableSourceSplit(0, "", "")));
 
         Object lock = new Object();
@@ -279,9 +261,7 @@ class BigtableSourceReaderTest {
 
         ArgumentCaptor<SeaTunnelRow> captor = ArgumentCaptor.forClass(SeaTunnelRow.class);
         verify(collector).collect(captor.capture());
-        // field[0] = "id" → should be the row key "my-key"
         assertEquals("my-key", captor.getValue().getField(0));
-        // field[1] = "cf:value" → should be "hello"
         assertEquals("hello", captor.getValue().getField(1));
     }
 }
