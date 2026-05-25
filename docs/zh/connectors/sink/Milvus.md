@@ -44,6 +44,7 @@ Milvus sink连接器将数据写入Milvus或Zilliz Cloud，它具有以下功能
 | url                    | String              | 是    | -                            | 连接到Milvus或Zilliz Cloud的URL。                                         |
 | token                  | String              | 是    | -                            | 用户：密码                                                               |
 | database               | String              | 否    | -                            | 将数据写入哪个数据库，默认为源数据库。                                                 |
+| collection             | String              | 否    | -                            | 将数据写入哪个集合，默认为源表名。兼容旧配置键 `collection_name`。                              |
 | schema_save_mode       | enum                | 否    | CREATE_SCHEMA_WHEN_NOT_EXIST | 当表不存在时自动创建表。                                                        |
 | enable_auto_id         | boolean             | 否    | false                        | 主键列启用autoId。                                                        |
 | enable_upsert          | boolean             | 否    | false                        | 是否启用upsert。                                                         |
@@ -62,6 +63,7 @@ sink {
   Milvus {
     url = "http://127.0.0.1:19530"
     token = "username:password"
+    collection = "user_vectors"
     batch_size = 1000
   }
 }

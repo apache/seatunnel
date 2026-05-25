@@ -94,7 +94,7 @@ public class SeaTunnelServer
     private CoordinatorService coordinatorService;
     @Getter private CheckpointService checkpointService;
     @Getter private CheckpointMonitorService checkpointMonitorService;
-    private ScheduledExecutorService monitorService;
+    @Getter private ScheduledExecutorService monitorService;
     private JettyService jettyService;
     private TaskLogManagerService taskLogManagerService;
 
@@ -185,12 +185,12 @@ public class SeaTunnelServer
     }
 
     private void startMaster() {
-        coordinatorService =
-                new CoordinatorService(nodeEngine, this, seaTunnelConfig.getEngineConfig());
         checkpointService =
                 new CheckpointService(seaTunnelConfig.getEngineConfig().getCheckpointConfig());
         checkpointMonitorService = new CheckpointMonitorService(nodeEngine, 32);
         monitorService = Executors.newSingleThreadScheduledExecutor();
+        coordinatorService =
+                new CoordinatorService(nodeEngine, this, seaTunnelConfig.getEngineConfig());
         monitorService.scheduleAtFixedRate(
                 this::printExecutionInfo,
                 0,
@@ -422,6 +422,10 @@ public class SeaTunnelServer
 
     public static long getMetricsImapPartition(TaskLocation key, int partitionCount) {
         return (key.hashCode() & 0x7FFFFFFF) % partitionCount;
+    }
+
+    public boolean isCoordinatorActive() {
+        return coordinatorService.isCoordinatorActive();
     }
 
     public SeaTunnelConfig getSeaTunnelConfig() {

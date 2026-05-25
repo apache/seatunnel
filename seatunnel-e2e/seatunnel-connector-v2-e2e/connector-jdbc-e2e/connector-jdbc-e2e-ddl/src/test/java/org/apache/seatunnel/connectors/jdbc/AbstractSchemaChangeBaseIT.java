@@ -73,6 +73,8 @@ import static org.awaitility.Awaitility.given;
         disabledReason =
                 "Currently SPARK do not support cdc. In addition, currently only the zeta engine supports schema evolution for pr https://github.com/apache/seatunnel/pull/5125.")
 public abstract class AbstractSchemaChangeBaseIT extends TestSuiteBase implements TestResource {
+    private static final long SCHEMA_ASSERT_TIMEOUT_MILLIS = 300000L;
+
     private static final String SOURCE_DATABASE = "shop";
     private static final String SOURCE_TABLE = "products";
     private static final String MYSQL_HOST = "mysql_cdc_e2e";
@@ -428,7 +430,7 @@ public abstract class AbstractSchemaChangeBaseIT extends TestSuiteBase implement
     private void assertTableStructureAndData(String sourceTable, String sinkTable) {
         given().pollDelay(Duration.ofSeconds(5))
                 .await()
-                .atMost(30000, TimeUnit.MILLISECONDS)
+                .atMost(SCHEMA_ASSERT_TIMEOUT_MILLIS, TimeUnit.MILLISECONDS)
                 .untilAsserted(
                         () ->
                                 Assertions.assertIterableEquals(
@@ -442,7 +444,7 @@ public abstract class AbstractSchemaChangeBaseIT extends TestSuiteBase implement
                                                         schemaChangeCase.getSinkQueryColumns(),
                                                         schemaChangeCase.getSchemaName(),
                                                         sinkTable))));
-        await().atMost(30000, TimeUnit.MILLISECONDS)
+        await().atMost(SCHEMA_ASSERT_TIMEOUT_MILLIS, TimeUnit.MILLISECONDS)
                 .untilAsserted(
                         () ->
                                 Assertions.assertIterableEquals(

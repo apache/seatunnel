@@ -198,7 +198,7 @@ source {
     port = 5672
     username = "guest"
     password = "guest"
-    
+
     # Use tables_configs to read from multiple queues
     tables_configs = [
       {

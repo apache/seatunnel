@@ -85,6 +85,9 @@ public class EngineConfig {
     private int historyJobExpireMinutes =
             ServerConfigOptions.MasterServerConfigOptions.HISTORY_JOB_EXPIRE_MINUTES.defaultValue();
 
+    private long stateCleanupDelayMillis =
+            ServerConfigOptions.MasterServerConfigOptions.STATE_CLEANUP_DELAY_MILLIS.defaultValue();
+
     private ClusterRole clusterRole = ClusterRole.MASTER_AND_WORKER;
 
     private String eventReportHttpApi;
@@ -154,6 +157,15 @@ public class EngineConfig {
                 ServerConfigOptions.MasterServerConfigOptions.HISTORY_JOB_EXPIRE_MINUTES
                         + " must be > 0");
         this.historyJobExpireMinutes = historyJobExpireMinutes;
+    }
+
+    public void setStateCleanupDelayMillis(long stateCleanupDelayMillis) {
+        if (stateCleanupDelayMillis < 0) {
+            throw new IllegalArgumentException(
+                    ServerConfigOptions.MasterServerConfigOptions.STATE_CLEANUP_DELAY_MILLIS
+                            + " must be >= 0");
+        }
+        this.stateCleanupDelayMillis = stateCleanupDelayMillis;
     }
 
     public EngineConfig setQueueType(QueueType queueType) {
