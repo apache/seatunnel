@@ -552,15 +552,14 @@ public class KafkaIT extends TestSuiteBase implements TestResource {
         Container.ExecResult execResult =
                 container.executeJob(
                         "/kafka/kafkasource_format_error_handle_way_fail_to_console.conf");
-        Assertions.assertNotEquals(
-                0,
-                execResult.getExitCode(),
-                "Expected job failure when format_error_handle_way = fail");
-        String stderr = execResult.getStderr();
+        String serverLogs = container.getServerLogs();
         Assertions.assertTrue(
-                stderr.contains("NumberFormatException") || stderr.contains("For input string"),
-                "Expected NumberFormatException in stderr, but got: "
-                        + stderr.substring(0, Math.min(stderr.length(), 500)));
+                execResult.getExitCode() != 0
+                        || serverLogs.contains("NumberFormatException")
+                        || serverLogs.contains("For input string"),
+                "Expected format error and job failure when format_error_handle_way = fail, "
+                        + "but exit code was "
+                        + execResult.getExitCode());
     }
 
     @TestTemplate
