@@ -819,7 +819,7 @@ public class CoordinatorServiceTest {
                         coordinatorService, "runningJobInfoIMap", runningJobInfoIMap);
             }
 
-            Assertions.assertTrue(coordinatorService.getPendingJobQueue().contains(jobId));
+            Assertions.assertNotNull(coordinatorService.getJobMaster(jobId));
         } finally {
             instance.shutdown();
         }
