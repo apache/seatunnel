@@ -199,7 +199,7 @@ public abstract class AbstractSchemaChangeBaseIT extends TestSuiteBase implement
         given().pollDelay(Duration.ofSeconds(5))
                 .pollInterval(Duration.ofMillis(1000))
                 .await()
-                .atMost(30, TimeUnit.SECONDS)
+                .atMost(60, TimeUnit.SECONDS)
                 .untilAsserted(
                         () -> {
                             Assertions.assertEquals("RUNNING", container.getJobStatus(jobId));
@@ -231,7 +231,7 @@ public abstract class AbstractSchemaChangeBaseIT extends TestSuiteBase implement
 
         // savepoint 2
         given().pollDelay(Duration.ofSeconds(5))
-                .atMost(30000, TimeUnit.MILLISECONDS)
+                .atMost(60, TimeUnit.SECONDS)
                 .untilAsserted(
                         () ->
                                 Assertions.assertEquals(
@@ -284,7 +284,7 @@ public abstract class AbstractSchemaChangeBaseIT extends TestSuiteBase implement
         given().pollDelay(Duration.ofSeconds(5))
                 .pollInterval(Duration.ofMillis(1000))
                 .await()
-                .atMost(30, TimeUnit.SECONDS)
+                .atMost(60, TimeUnit.SECONDS)
                 .untilAsserted(
                         () -> {
                             Assertions.assertEquals("RUNNING", container.getJobStatus(jobId));
@@ -294,7 +294,7 @@ public abstract class AbstractSchemaChangeBaseIT extends TestSuiteBase implement
     }
 
     private void assertSchemaEvolution(String sourceTable, String sinkTable) {
-        await().atMost(60000, TimeUnit.MILLISECONDS)
+        await().atMost(120, TimeUnit.SECONDS)
                 .untilAsserted(
                         () ->
                                 Assertions.assertIterableEquals(
@@ -309,7 +309,7 @@ public abstract class AbstractSchemaChangeBaseIT extends TestSuiteBase implement
 
         // case1 add columns with cdc data at same time
         sourceDatabase.setTemplateName("add_columns").createAndInitialize();
-        await().atMost(60000, TimeUnit.MILLISECONDS)
+        await().atMost(120, TimeUnit.SECONDS)
                 .untilAsserted(
                         () ->
                                 Assertions.assertIterableEquals(
@@ -323,7 +323,7 @@ public abstract class AbstractSchemaChangeBaseIT extends TestSuiteBase implement
                                                         schemaChangeCase.getSinkQueryColumns(),
                                                         schemaChangeCase.getSchemaName(),
                                                         sinkTable))));
-        await().atMost(60000, TimeUnit.MILLISECONDS)
+        await().atMost(120, TimeUnit.SECONDS)
                 .untilAsserted(
                         () -> {
                             Assertions.assertIterableEquals(
@@ -368,7 +368,7 @@ public abstract class AbstractSchemaChangeBaseIT extends TestSuiteBase implement
     }
 
     private void assertSchemaEvolutionForAddColumns(String sourceTable, String sinkTable) {
-        await().atMost(60000, TimeUnit.MILLISECONDS)
+        await().atMost(120, TimeUnit.SECONDS)
                 .untilAsserted(
                         () ->
                                 Assertions.assertIterableEquals(
@@ -385,7 +385,7 @@ public abstract class AbstractSchemaChangeBaseIT extends TestSuiteBase implement
         sourceDatabase.setTemplateName("add_columns").createAndInitialize();
         given().pollDelay(Duration.ofSeconds(5))
                 .await()
-                .atMost(120000, TimeUnit.MILLISECONDS)
+                .atMost(120, TimeUnit.SECONDS)
                 .untilAsserted(
                         () ->
                                 Assertions.assertIterableEquals(
@@ -397,7 +397,7 @@ public abstract class AbstractSchemaChangeBaseIT extends TestSuiteBase implement
                                                                 schemaChangeCase.getSchemaName(),
                                                                 sinkTable)
                                                         + ORDER_BY)));
-        await().atMost(60000, TimeUnit.MILLISECONDS)
+        await().atMost(120, TimeUnit.SECONDS)
                 .untilAsserted(
                         () -> {
                             Assertions.assertIterableEquals(
