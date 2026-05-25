@@ -329,6 +329,8 @@ public class KafkaKerberosIT extends TestSuiteBase implements TestResource {
     @TestTemplate
     public void testNotKerberosConfig(TestContainer container)
             throws IOException, InterruptedException {
+        int brokerLogOffsetBeforeJob = kafkaContainer.getLogs().length();
+
         String jobId = "123456";
         CompletableFuture.runAsync(
                 () -> {
@@ -338,17 +340,6 @@ public class KafkaKerberosIT extends TestSuiteBase implements TestResource {
                         throw new RuntimeException(e);
                     }
                 });
-        // step 1. Verify whether Kafka has authentication failure logs
-        Awaitility.given()
-                .ignoreExceptions()
-                .atLeast(100, TimeUnit.MILLISECONDS)
-                .pollInterval(500, TimeUnit.MILLISECONDS)
-                .atMost(60, TimeUnit.SECONDS)
-                .untilAsserted(
-                        () ->
-                                Assertions.assertTrue(
-                                        containsKafkaAuthenticationFailure(
-                                                kafkaContainer.getLogs())));
 
         Awaitility.given()
                 .ignoreExceptions()
@@ -357,6 +348,19 @@ public class KafkaKerberosIT extends TestSuiteBase implements TestResource {
                 .atMost(60, TimeUnit.SECONDS)
                 .untilAsserted(
                         () -> Assertions.assertEquals("RUNNING", container.getJobStatus(jobId)));
+
+        Awaitility.given()
+                .ignoreExceptions()
+                .pollInterval(1, TimeUnit.SECONDS)
+                .atMost(30, TimeUnit.SECONDS)
+                .untilAsserted(
+                        () -> {
+                            String newBrokerLogs =
+                                    kafkaContainer.getLogs().substring(brokerLogOffsetBeforeJob);
+                            Assertions.assertTrue(
+                                    containsKafkaAuthenticationFailure(newBrokerLogs),
+                                    "Expected broker to log authentication failure for non-Kerberos PLAINTEXT client");
+                        });
 
         container.cancelJob(jobId);
 
