@@ -31,6 +31,7 @@ import org.apache.seatunnel.api.table.type.SeaTunnelDataType;
 import org.apache.seatunnel.api.table.type.SeaTunnelRow;
 import org.apache.seatunnel.api.table.type.SeaTunnelRowType;
 import org.apache.seatunnel.transform.exception.TransformCommonError;
+import org.apache.seatunnel.transform.exception.TransformException;
 
 import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.Test;
