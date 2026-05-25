@@ -32,6 +32,8 @@ import org.apache.seatunnel.api.common.multitable.MultiTableFailureHelper;
 import org.apache.seatunnel.api.common.multitable.MultiTableFailurePhase;
 import org.apache.seatunnel.api.configuration.ReadonlyConfig;
 import org.apache.seatunnel.api.configuration.util.ConfigValidator;
+import org.apache.seatunnel.api.metadata.MetadataConfig;
+import org.apache.seatunnel.api.metadata.MetadataProviderManager;
 import org.apache.seatunnel.api.metalake.MetalakeConfigUtils;
 import org.apache.seatunnel.api.options.ConnectorCommonOptions;
 import org.apache.seatunnel.api.options.EnvCommonOptions;
@@ -51,7 +53,6 @@ import org.apache.seatunnel.api.table.factory.FactoryUtil;
 import org.apache.seatunnel.api.table.type.SeaTunnelDataType;
 import org.apache.seatunnel.api.transform.SeaTunnelTransform;
 import org.apache.seatunnel.common.Constants;
-import org.apache.seatunnel.common.config.Common;
 import org.apache.seatunnel.common.config.TypesafeConfigUtils;
 import org.apache.seatunnel.common.constants.CollectionConstants;
 import org.apache.seatunnel.common.constants.JobMode;
@@ -59,11 +60,8 @@ import org.apache.seatunnel.common.constants.PluginType;
 import org.apache.seatunnel.common.exception.SeaTunnelRuntimeException;
 import org.apache.seatunnel.core.starter.utils.ConfigBuilder;
 import org.apache.seatunnel.engine.common.config.JobConfig;
-import org.apache.seatunnel.engine.common.config.server.DataSourceConfig;
 import org.apache.seatunnel.engine.common.exception.JobDefineCheckException;
-import org.apache.seatunnel.engine.common.exception.SeaTunnelEngineException;
 import org.apache.seatunnel.engine.common.loader.SeaTunnelChildFirstClassLoader;
-import org.apache.seatunnel.engine.common.utils.DataSourceConfigResolver;
 import org.apache.seatunnel.engine.common.utils.IdGenerator;
 import org.apache.seatunnel.engine.core.classloader.ClassLoaderService;
 import org.apache.seatunnel.engine.core.dag.actions.Action;
@@ -83,9 +81,7 @@ import lombok.extern.slf4j.Slf4j;
 import scala.Tuple2;
 
 import java.io.Serializable;
-import java.net.MalformedURLException;
 import java.net.URL;
-import java.nio.file.Path;
 import java.nio.file.Paths;
 import java.sql.DriverManager;
 import java.util.ArrayList;
@@ -138,7 +134,7 @@ public class MultipleTableJobConfigParser {
     private final List<JobPipelineCheckpointData> pipelineCheckpoints;
     private final List<MultiTableFailedTable> failedTables = new ArrayList<>();
 
-    private final DataSourceConfig dataSourceConfig;
+    private final MetadataConfig metaDataConfig;
 
     @VisibleForTesting
     public MultipleTableJobConfigParser(
@@ -156,7 +152,7 @@ public class MultipleTableJobConfigParser {
                 Collections.emptyList(),
                 false,
                 Collections.emptyList(),
-                new DataSourceConfig());
+                new MetadataConfig());
     }
 
     @VisibleForTesting
@@ -174,7 +170,7 @@ public class MultipleTableJobConfigParser {
                 commonPluginJars,
                 isStartWithSavePoint,
                 Collections.emptyList(),
-                new DataSourceConfig());
+                new MetadataConfig());
     }
 
     public MultipleTableJobConfigParser(
@@ -185,7 +181,7 @@ public class MultipleTableJobConfigParser {
             List<URL> commonPluginJars,
             boolean isStartWithSavePoint,
             List<JobPipelineCheckpointData> pipelineCheckpoints,
-            DataSourceConfig dataSourceConfig) {
+            MetadataConfig metaDataConfig) {
         this(
                 ConfigBuilder.of(Paths.get(jobDefineFilePath), variables),
                 idGenerator,
@@ -193,7 +189,7 @@ public class MultipleTableJobConfigParser {
                 commonPluginJars,
                 isStartWithSavePoint,
                 pipelineCheckpoints,
-                dataSourceConfig);
+                metaDataConfig);
     }
 
     public MultipleTableJobConfigParser(
@@ -203,15 +199,15 @@ public class MultipleTableJobConfigParser {
             List<URL> commonPluginJars,
             boolean isStartWithSavePoint,
             List<JobPipelineCheckpointData> pipelineCheckpoints,
-            DataSourceConfig dataSourceConfig) {
+            MetadataConfig metaDataConfig) {
         this.idGenerator = idGenerator;
         this.jobConfig = jobConfig;
         this.commonPluginJars = commonPluginJars;
         this.isStartWithSavePoint = isStartWithSavePoint;
-        this.seaTunnelJobConfig = handleDataSource(seaTunnelJobConfig, dataSourceConfig);
+        this.seaTunnelJobConfig = handleDataSource(seaTunnelJobConfig, metaDataConfig);
         this.envOptions = ReadonlyConfig.fromConfig(seaTunnelJobConfig.getConfig("env"));
         this.pipelineCheckpoints = pipelineCheckpoints;
-        this.dataSourceConfig = dataSourceConfig;
+        this.metaDataConfig = metaDataConfig;
         ConfigValidator.of(this.envOptions).validate(new EnvOptionRule().optionRule());
     }
 
@@ -330,22 +326,15 @@ public class MultipleTableJobConfigParser {
         return urls;
     }
 
+    /**
+     * Resolves connector JAR paths for the given plugin configs and type.
+     *
+     * <p>Delegates to {@link JobPluginClasspathHelper#connectorJarList} so that dry-run validation
+     * ({@link org.apache.seatunnel.core.starter.seatunnel.command.SeaTunnelConfValidateCommand})
+     * and the normal runtime parse path use the same discovery contract.
+     */
     private List<URL> getConnectorJarList(List<? extends Config> configs, PluginType type) {
-        List<PluginIdentifier> factoryIds =
-                configs.stream()
-                        .map(ConfigParserUtil::getFactoryId)
-                        .map(
-                                factory ->
-                                        PluginIdentifier.of(
-                                                CollectionConstants.SEATUNNEL_PLUGIN,
-                                                type.getType(),
-                                                factory))
-                        .collect(Collectors.toList());
-        List<URL> jarPaths = new ArrayList<>();
-        jarPaths.addAll(
-                new SeaTunnelSinkPluginDiscovery().getPluginJarAndDependencyPaths(factoryIds));
-        jarPaths.addAll(commonPluginJars);
-        return jarPaths;
+        return JobPluginClasspathHelper.connectorJarList(configs, type, commonPluginJars);
     }
 
     private void fillUsedFactoryUrls(List<Action> actions, Set<URL> result) {
@@ -372,25 +361,7 @@ public class MultipleTableJobConfigParser {
             jobConfig.setName(envOptions.get(EnvCommonOptions.JOB_NAME));
         }
         jobConfig.getEnvOptions().putAll(envOptions.getSourceMap());
-        this.commonPluginJars.addAll(
-                new ArrayList<>(
-                        Common.getThirdPartyJars(
-                                        jobConfig
-                                                .getEnvOptions()
-                                                .getOrDefault(EnvCommonOptions.JARS.key(), "")
-                                                .toString())
-                                .stream()
-                                .map(Path::toUri)
-                                .map(
-                                        uri -> {
-                                            try {
-                                                return uri.toURL();
-                                            } catch (MalformedURLException e) {
-                                                throw new SeaTunnelEngineException(
-                                                        "the uri of jar illegal:" + uri, e);
-                                            }
-                                        })
-                                .collect(Collectors.toList())));
+        this.commonPluginJars.addAll(JobPluginClasspathHelper.thirdPartyJarsFromEnv(envOptions));
         log.info("add common jar in plugins :{}", commonPluginJars);
     }
 
@@ -429,7 +400,7 @@ public class MultipleTableJobConfigParser {
                             checkpoint,
                             fallbackCreateSource,
                             null,
-                            envOptions);
+                            metaDataConfig);
         } else {
             tuple2 =
                     FactoryUtil.createAndPrepareSource(
@@ -438,7 +409,7 @@ public class MultipleTableJobConfigParser {
                             factoryId,
                             fallbackCreateSource,
                             null,
-                            envOptions);
+                            metaDataConfig);
         }
 
         Set<URL> factoryUrls = new HashSet<>();
@@ -935,17 +906,17 @@ public class MultipleTableJobConfigParser {
         return new ChangeStreamTableSourceCheckpoint(coordinatorState, subtaskState);
     }
 
-    private Config handleDataSource(Config seaTunnelJobConfig, DataSourceConfig dataSourceConfig) {
+    private Config handleDataSource(Config seaTunnelJobConfig, MetadataConfig metaDataConfig) {
         Config tempconfig = seaTunnelJobConfig;
-        // Only resolve datasource configs when:
-        // 1. DataSource is enabled
-        // 2. The job config contains datasource_id in any connector
-        if (dataSourceConfig != null
-                && dataSourceConfig.isEnabled()
+        // Only resolve MetaData configs when:
+        // 1. MetaData is enabled
+        // 2. The job config contains metadata_datasource_id in any connector
+        if (metaDataConfig != null
+                && metaDataConfig.isEnabled()
                 && hasDatasourceId(seaTunnelJobConfig)) {
             tempconfig =
-                    DataSourceConfigResolver.resolveDataSourceConfigs(
-                            seaTunnelJobConfig, dataSourceConfig);
+                    MetadataProviderManager.resolveDataSourceConfigs(
+                            seaTunnelJobConfig, metaDataConfig);
         }
         // Compatible with old code
         tempconfig = MetalakeConfigUtils.getMetalakeConfig(tempconfig);
@@ -953,10 +924,11 @@ public class MultipleTableJobConfigParser {
     }
 
     /**
-     * Checks if the job config contains datasource_id in any connector configuration.
+     * Checks if the job config contains metadata_datasource_id in any connector configuration.
      *
      * @param config the SeaTunnel job configuration
-     * @return true if any connector (source or sink) contains datasource_id, false otherwise
+     * @return true if any connector (source or sink) contains metadata_datasource_id, false
+     *     otherwise
      */
     private boolean hasDatasourceId(Config config) {
         List<? extends Config> sourceConfigs =
@@ -981,15 +953,15 @@ public class MultipleTableJobConfigParser {
     }
 
     /**
-     * Checks if a single connector config contains datasource_id.
+     * Checks if a single connector config contains metadata_datasource_id.
      *
      * @param connectorConfig the connector configuration
-     * @return true if datasource_id is present, false otherwise
+     * @return true if metadata_datasource_id is present, false otherwise
      */
     private boolean hasDatasourceIdInConnector(Config connectorConfig) {
         try {
             // Check at root level
-            if (connectorConfig.hasPath(ConnectorCommonOptions.DATASOURCE_ID.key())) {
+            if (connectorConfig.hasPath(ConnectorCommonOptions.METADATA_DATASOURCE_ID.key())) {
                 return true;
             }
 
@@ -997,12 +969,12 @@ public class MultipleTableJobConfigParser {
             String connectorIdentifier = getConnectorIdentifier(connectorConfig);
             if (!"unknown".equals(connectorIdentifier)) {
                 Config nestedConfig = connectorConfig.getConfig(connectorIdentifier);
-                if (nestedConfig.hasPath(ConnectorCommonOptions.DATASOURCE_ID.key())) {
+                if (nestedConfig.hasPath(ConnectorCommonOptions.METADATA_DATASOURCE_ID.key())) {
                     return true;
                 }
             }
         } catch (Exception e) {
-            log.debug("Failed to check datasource_id in connector config", e);
+            log.debug("Failed to check metadata_datasource_id in connector config", e);
         }
         return false;
     }

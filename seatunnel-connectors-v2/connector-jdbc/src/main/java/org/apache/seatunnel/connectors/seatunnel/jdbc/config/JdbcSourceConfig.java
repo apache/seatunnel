@@ -21,6 +21,7 @@ import org.apache.seatunnel.api.configuration.ReadonlyConfig;
 import org.apache.seatunnel.api.options.MultiTableCommonOptions;
 import org.apache.seatunnel.api.options.MultiTableFailurePolicy;
 import org.apache.seatunnel.connectors.seatunnel.jdbc.source.StringSplitMode;
+import org.apache.seatunnel.connectors.seatunnel.jdbc.source.StringSplitStrategy;
 
 import lombok.Builder;
 import lombok.Data;
@@ -45,11 +46,14 @@ public class JdbcSourceConfig implements Serializable {
     private double splitEvenDistributionFactorLowerBound;
     private int splitSampleShardingThreshold;
     private int splitInverseSamplingRate;
+    private boolean splitSampleShardingAllow;
     private boolean decimalTypeNarrowing;
     private boolean handleBlobAsString;
     private MultiTableFailurePolicy multiTableFailurePolicy;
 
     private StringSplitMode stringSplitMode;
+
+    private StringSplitStrategy stringSplitStrategy;
 
     private String stringSplitModeCollate;
 
@@ -65,6 +69,8 @@ public class JdbcSourceConfig implements Serializable {
                         && config.getOptional(JdbcSourceOptions.PARTITION_COLUMN).isPresent();
         builder.useDynamicSplitter(!isOldVersion);
         builder.stringSplitMode(config.get(JdbcSourceOptions.STRING_SPLIT_MODE));
+        config.getOptional(JdbcSourceOptions.STRING_SPLIT_STRATEGY)
+                .ifPresent(builder::stringSplitStrategy);
         builder.stringSplitModeCollate(config.get(JdbcSourceOptions.STRING_SPLIT_MODE_COLLATE));
         builder.splitSize(config.get(JdbcSourceOptions.SPLIT_SIZE));
         builder.splitEvenDistributionFactorUpperBound(
@@ -74,6 +80,7 @@ public class JdbcSourceConfig implements Serializable {
         builder.splitSampleShardingThreshold(
                 config.get(JdbcSourceOptions.SPLIT_SAMPLE_SHARDING_THRESHOLD));
         builder.splitInverseSamplingRate(config.get(JdbcSourceOptions.SPLIT_INVERSE_SAMPLING_RATE));
+        builder.splitSampleShardingAllow(config.get(JdbcSourceOptions.SPLIT_ALLOW_SAMPLING));
 
         builder.decimalTypeNarrowing(config.get(JdbcSourceOptions.DECIMAL_TYPE_NARROWING));
         builder.handleBlobAsString(config.get(JdbcSourceOptions.HANDLE_BLOB_AS_STRING));

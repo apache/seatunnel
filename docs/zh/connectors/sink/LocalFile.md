@@ -91,6 +91,8 @@ import ChangeLog from '../changelog/connector-file-local.md';
 
 `file_name_expression` 描述将创建到 `path` 中的文件表达式。我们可以在 `file_name_expression` 中添加变量 `${now}` 或 `${uuid}`，例如 `test_${uuid}_${now}`，`${now}` 表示当前时间，其格式可以通过指定 `filename_time_format` 选项来定义。
 
+对于 `file_format_type = "binary"`，`custom_filename = true` 适用于在每个 sink task 中重命名单个源文件。当同一个 sink task 会写入多个源文件时，请保持 `custom_filename = false`，以保留源文件相对路径。当使用并行 sink subtask 时，请在 `file_name_expression` 中包含 `${transactionId}` 或 `${uuid}`，避免多个 subtask 写入同一个最终文件。
+
 请注意，如果 `is_enable_transaction` 为 `true`，我们将自动在文件名的头部添加 `${transactionId}_`。
 
 ### filename_time_format [string]

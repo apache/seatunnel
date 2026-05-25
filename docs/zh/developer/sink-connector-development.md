@@ -1,5 +1,5 @@
 ---
-title: Sink Connector Development
+title: Sink Connector 开发指南
 ---
 
 # Sink Connector 开发指南

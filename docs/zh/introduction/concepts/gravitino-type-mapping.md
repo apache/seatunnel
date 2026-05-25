@@ -85,4 +85,5 @@ Gravitino 索引映射到 SeaTunnel 约束：
 
 - [Gravitino 列类型](https://gravitino.apache.org/docs/1.1.0/manage-relational-metadata-using-gravitino/#apache-gravitino-table-column-type)
 - [Schema 特性](./schema-feature.md)
+- SeaTunnel 数据类型
 - [SeaTunnel 数据类型](./schema-feature.md)

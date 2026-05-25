@@ -23,6 +23,7 @@ import org.apache.seatunnel.api.configuration.ReadonlyConfig;
 import org.apache.seatunnel.api.configuration.util.ConfigValidator;
 import org.apache.seatunnel.api.configuration.util.OptionRule;
 import org.apache.seatunnel.api.env.ParsingMode;
+import org.apache.seatunnel.api.metadata.MetadataConfig;
 import org.apache.seatunnel.api.options.ConnectorCommonOptions;
 import org.apache.seatunnel.api.options.EnvCommonOptions;
 import org.apache.seatunnel.api.options.SourceConnectorCommonOptions;
@@ -83,7 +84,7 @@ public final class FactoryUtil {
                     String factoryIdentifier,
                     Function<PluginIdentifier, SeaTunnelSource> fallbackCreateSource,
                     TableSourceFactory factory,
-                    ReadonlyConfig envOptions) {
+                    MetadataConfig metaDataConfig) {
         return restoreAndPrepareSource(
                 options,
                 classLoader,
@@ -91,7 +92,7 @@ public final class FactoryUtil {
                 null,
                 fallbackCreateSource,
                 factory,
-                envOptions);
+                metaDataConfig);
     }
 
     public static <T, SplitT extends SourceSplit, StateT extends Serializable>
@@ -102,7 +103,7 @@ public final class FactoryUtil {
                     ChangeStreamTableSourceCheckpoint checkpoint,
                     Function<PluginIdentifier, SeaTunnelSource> fallbackCreateSource,
                     TableSourceFactory factory,
-                    ReadonlyConfig envOptions) {
+                    MetadataConfig metaDataConfig) {
 
         try {
 
@@ -141,7 +142,7 @@ public final class FactoryUtil {
                             restoreAndPrepareSource(
                                     changeStreamTableSourceFactory, options, classLoader, state);
                 } else {
-                    source = createAndPrepareSource(factory, options, classLoader, envOptions);
+                    source = createAndPrepareSource(factory, options, classLoader, metaDataConfig);
                 }
             }
             List<CatalogTable> catalogTables;
@@ -184,9 +185,9 @@ public final class FactoryUtil {
                     TableSourceFactory factory,
                     ReadonlyConfig options,
                     ClassLoader classLoader,
-                    ReadonlyConfig envOptions) {
+                    MetadataConfig metaDataConfig) {
         TableSourceFactoryContext context =
-                new TableSourceFactoryContext(options, classLoader, envOptions);
+                new TableSourceFactoryContext(options, classLoader, metaDataConfig);
         ConfigValidator.of(context.getOptions()).validate(factory.optionRule());
         TableSource<T, SplitT, StateT> tableSource = factory.createSource(context);
         return tableSource.createSource();

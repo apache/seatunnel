@@ -31,6 +31,9 @@ import java.io.IOException;
 import java.io.UnsupportedEncodingException;
 
 public class RecordSerializer implements StreamSerializer<Record> {
+    private static final byte EXTENDED_ROW_ARITY_MARKER = -1;
+    private static final int EXTENDED_ROW_ARITY_MAGIC = 0x524F5741;
+
     enum RecordDataType {
         CHECKPOINT_BARRIER,
         SEATUNNEL_ROW;
@@ -52,7 +55,7 @@ public class RecordSerializer implements StreamSerializer<Record> {
             out.writeByte(RecordDataType.SEATUNNEL_ROW.ordinal());
             out.writeString(row.getTableId());
             out.writeByte(row.getRowKind().toByteValue());
-            out.writeByte(row.getArity());
+            writeRowArity(out, row.getArity());
             for (Object field : row.getFields()) {
                 out.writeObject(field);
             }
@@ -77,7 +80,7 @@ public class RecordSerializer implements StreamSerializer<Record> {
         } else if (dataType == RecordDataType.SEATUNNEL_ROW.ordinal()) {
             String tableId = in.readString();
             byte rowKind = in.readByte();
-            byte arity = in.readByte();
+            int arity = readRowArity(in);
             SeaTunnelRow row = new SeaTunnelRow(arity);
             row.setTableId(tableId);
             row.setRowKind(RowKind.fromByteValue(rowKind));
@@ -95,5 +98,28 @@ public class RecordSerializer implements StreamSerializer<Record> {
     @Override
     public int getTypeId() {
         return TypeId.RECORD;
+    }
+
+    /**
+     * Keep the legacy single-byte arity encoding for rows up to {@link Byte#MAX_VALUE} so mixed
+     * old/new clusters can continue to deserialize valid legacy records during rolling upgrades.
+     */
+    private void writeRowArity(ObjectDataOutput out, int arity) throws IOException {
+        if (arity <= Byte.MAX_VALUE) {
+            out.writeByte(arity);
+            return;
+        }
+        out.writeByte(EXTENDED_ROW_ARITY_MARKER);
+        out.writeInt(EXTENDED_ROW_ARITY_MAGIC);
+        out.writeInt(arity);
+    }
+
+    private int readRowArity(ObjectDataInput in) throws IOException {
+        byte encodedArity = in.readByte();
+        if (encodedArity >= 0) {
+            return encodedArity;
+        }
+        in.readInt();
+        return in.readInt();
     }
 }

@@ -21,6 +21,7 @@ import org.apache.seatunnel.shade.com.fasterxml.jackson.core.type.TypeReference;
 
 import org.apache.seatunnel.api.configuration.Option;
 import org.apache.seatunnel.api.configuration.Options;
+import org.apache.seatunnel.api.metadata.MetadataConfig;
 
 import java.util.Map;
 
@@ -67,11 +68,11 @@ public class ServerConfigOptions {
                     .defaultValue(new TelemetryConfig())
                     .withDescription("The telemetry configuration.");
 
-    public static final Option<DataSourceConfig> DATASOURCE =
-            Options.key("datasource")
-                    .type(new TypeReference<DataSourceConfig>() {})
-                    .defaultValue(new DataSourceConfig())
-                    .withDescription("The DataSource Center configuration.");
+    public static final Option<MetadataConfig> METADATA =
+            Options.key("metadata")
+                    .type(new TypeReference<MetadataConfig>() {})
+                    .defaultValue(new MetadataConfig())
+                    .withDescription("The MetaData Center configuration.");
     // The options for metrics end
     /////////////////////////////////////////////////
 
@@ -115,6 +116,14 @@ public class ServerConfigOptions {
                         .intType()
                         .defaultValue(1440)
                         .withDescription("The expire time of history jobs.time unit minute");
+
+        public static final Option<Long> STATE_CLEANUP_DELAY_MILLIS =
+                Options.key("state-cleanup-delay-ms")
+                        .longType()
+                        .defaultValue(60000L)
+                        .withDescription(
+                                "How long to retain terminal job/pipeline/task state in distributed maps before removing it. "
+                                        + "This delay allows late asynchronous callbacks to observe a terminal tombstone instead of a missing state entry.");
         // The options about Hazelcast IMAP store end
         /////////////////////////////////////////////////
 

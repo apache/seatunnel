@@ -124,7 +124,6 @@ public class MaxcomputeSourceSplitEnumerator
             if (sourceTableInfo.getSplitRow() != null && sourceTableInfo.getSplitRow() > 0) {
                 splitRow = sourceTableInfo.getSplitRow();
             }
-            int splitIndex = 0;
             for (int i = 0; i < numReaders; i++) {
                 int readerStart = i * splitRowNum;
                 int readerEnd = (int) Math.min((i + 1) * splitRowNum, recordCount);
@@ -134,7 +133,7 @@ public class MaxcomputeSourceSplitEnumerator
                                     num,
                                     Math.min(splitRow, readerEnd - num),
                                     sourceTableInfo.getCatalogTable().getTablePath(),
-                                    splitIndex));
+                                    i));
                 }
             }
             assignedSplits.forEach(splits::remove);

@@ -74,9 +74,10 @@ public class ExcelGenerator {
         String newSheetName = String.format("Sheet%d", currentSheetIndex);
         this.st = wb.createSheet(newSheetName);
         Row headerRow = st.createRow(0);
+        int index = 0;
         for (Integer i : sinkColumnsIndexInRow) {
             String fieldName = seaTunnelRowType.getFieldName(i);
-            headerRow.createCell(i).setCellValue(fieldName);
+            headerRow.createCell(index++).setCellValue(fieldName);
         }
         currentRowInSheet = 0;
     }
@@ -95,9 +96,10 @@ public class ExcelGenerator {
         Optional<String> sheetName = Optional.ofNullable(fileSinkConfig.getSheetName());
         this.st = wb.createSheet(sheetName.orElseGet(() -> String.format("Sheet%d", 0)));
         Row row = st.createRow(0);
+        int index = 0;
         for (Integer i : sinkColumnsIndexInRow) {
             String fieldName = seaTunnelRowType.getFieldName(i);
-            row.createCell(i).setCellValue(fieldName);
+            row.createCell(index++).setCellValue(fieldName);
         }
         this.dateFormat = fileSinkConfig.getDateFormat();
         this.dateTimeFormat = fileSinkConfig.getDatetimeFormat();
@@ -117,8 +119,9 @@ public class ExcelGenerator {
         }
         Row excelRow = this.st.createRow(currentRowInSheet + HEADER_ROWS);
         SeaTunnelDataType<?>[] fieldTypes = seaTunnelRowType.getFieldTypes();
+        int index = 0;
         for (Integer i : sinkColumnsIndexInRow) {
-            Cell cell = excelRow.createCell(i);
+            Cell cell = excelRow.createCell(index++);
             Object value = seaTunnelRow.getField(i);
             setCellValue(fieldTypes[i], seaTunnelRowType.getFieldName(i), value, cell);
         }

@@ -18,6 +18,7 @@
 package org.apache.seatunnel.engine.server.telemetry.metrics;
 
 import org.apache.seatunnel.engine.server.telemetry.metrics.exports.ClusterMetricExports;
+import org.apache.seatunnel.engine.server.telemetry.metrics.exports.EngineStateStoreMetricExports;
 import org.apache.seatunnel.engine.server.telemetry.metrics.exports.JobMetricExports;
 import org.apache.seatunnel.engine.server.telemetry.metrics.exports.JobThreadPoolStatusExports;
 import org.apache.seatunnel.engine.server.telemetry.metrics.exports.NodeMetricExports;
@@ -45,6 +46,8 @@ public final class ExportsInstanceInitializer {
             new JobThreadPoolStatusExports(node).register(collectorRegistry);
             // Node metrics
             new NodeMetricExports(node).register(collectorRegistry);
+            // Engine state store metrics
+            new EngineStateStoreMetricExports(node).register(collectorRegistry);
             // Cluster metrics
             new ClusterMetricExports(node).register(collectorRegistry);
             initialized = true;

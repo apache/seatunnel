@@ -44,6 +44,7 @@ This Milvus sink connector write data to Milvus or Zilliz Cloud, it has the foll
 | url                    | String              | Yes      | -                            | The URL to connect to Milvus or Zilliz Cloud.                                                                                                       |
 | token                  | String              | Yes      | -                            | User:password                                                                                                                                       |
 | database               | String              | No       | -                            | Write data to which database, default is source database.                                                                                           |
+| collection             | String              | No       | -                            | Write data to which collection, default is source table name. The deprecated `collection_name` key is accepted as an alias.                         |
 | schema_save_mode       | enum                | No       | CREATE_SCHEMA_WHEN_NOT_EXIST | Auto create table when table not exist.                                                                                                             |
 | enable_auto_id         | boolean             | No       | false                        | Primary key column enable autoId.                                                                                                                   |
 | enable_upsert          | boolean             | No       | false                        | Upsert data not insert.                                                                                                                             |
@@ -62,6 +63,7 @@ sink {
   Milvus {
     url = "http://127.0.0.1:19530"
     token = "username:password"
+    collection = "user_vectors"
     batch_size = 1000
   }
 }

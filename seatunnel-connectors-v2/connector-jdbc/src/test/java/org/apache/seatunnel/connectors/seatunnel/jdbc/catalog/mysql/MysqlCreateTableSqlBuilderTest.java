@@ -164,4 +164,29 @@ public class MysqlCreateTableSqlBuilderTest {
 
         Assertions.assertEquals("`col1` VARCHAR(10) NOT NULL", result);
     }
+
+    @Test
+    public void testBuildEscapeTableComment() {
+        String dataBaseName = "test_database";
+        String tableName = "test_table";
+        TablePath tablePath = TablePath.of(dataBaseName, tableName);
+        TableSchema tableSchema =
+                TableSchema.builder()
+                        .column(PhysicalColumn.of("id", BasicType.LONG_TYPE, 22, false, null, null))
+                        .build();
+        CatalogTable catalogTable =
+                CatalogTable.of(
+                        TableIdentifier.of("test_catalog", dataBaseName, tableName),
+                        tableSchema,
+                        new HashMap<>(),
+                        new ArrayList<>(),
+                        "table's \\\\ comment");
+
+        String createTableSql =
+                MysqlCreateTableSqlBuilder.builder(
+                                tablePath, catalogTable, MySqlTypeConverter.DEFAULT_INSTANCE, false)
+                        .build(DatabaseIdentifier.MYSQL);
+
+        Assertions.assertTrue(createTableSql.endsWith("COMMENT = 'table''s \\\\\\\\ comment';"));
+    }
 }

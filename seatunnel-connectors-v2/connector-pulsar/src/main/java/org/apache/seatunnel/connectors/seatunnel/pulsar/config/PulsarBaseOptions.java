@@ -70,7 +70,9 @@ public class PulsarBaseOptions extends ConnectorCommonOptions {
                     .stringType()
                     .defaultValue(DEFAULT_FORMAT)
                     .withDescription(
-                            "Data format. The default format is json. Optional text format. The default field separator is \", \". "
+                            "Data format. The default format is json. Optional text format. "
+                                    + "For multi-table mode, only JSON and CANAL_JSON are supported. "
+                                    + "The default field separator is \", \". "
                                     + "If you customize the delimiter, add the \"field_delimiter\" option.");
 
     public static final Option<String> FIELD_DELIMITER =
