@@ -404,9 +404,17 @@ public class HttpSourceReader extends AbstractSingleSplitReader<SeaTunnelRow> {
                 if (cursorList != null && !cursorList.isEmpty()) {
                     newCursor = cursorList.get(0);
                 }
+                boolean cursorNotAdvanced =
+                        !Strings.isNullOrEmpty(newCursor)
+                                && Objects.equals(pageInfo.getCursor(), newCursor);
                 pageInfo.setCursor(newCursor);
-                // if not present cursor, then no more data
-                noMoreElementFlag = Strings.isNullOrEmpty(newCursor);
+                // if not present cursor or cursor not advanced, then no more data
+                noMoreElementFlag = Strings.isNullOrEmpty(newCursor) || cursorNotAdvanced;
+                if (cursorNotAdvanced) {
+                    log.warn(
+                            "HTTP cursor pagination stopped because cursor [{}] did not advance",
+                            newCursor);
+                }
             } else {
                 // if not set page pagination is default
                 // Determine whether the task is completed by specifying the presence of the 'total
