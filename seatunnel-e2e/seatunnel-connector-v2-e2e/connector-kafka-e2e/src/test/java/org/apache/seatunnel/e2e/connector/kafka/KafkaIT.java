@@ -111,6 +111,7 @@ import java.util.Properties;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ExecutionException;
 import java.util.concurrent.TimeUnit;
+import java.util.stream.Collectors;
 import java.util.stream.IntStream;
 import java.util.stream.Stream;
 
@@ -197,7 +198,23 @@ public class KafkaIT extends TestSuiteBase implements TestResource {
                             kafkaExactlyOnceSink,
                             kafkaExactlyOnceBatchSource,
                             kafkaExactlyOnceBatchSink);
-            adminClient.createTopics(topics);
+            adminClient.createTopics(topics).all().get(60, SECONDS);
+
+            List<String> topicNames =
+                    topics.stream().map(NewTopic::name).collect(Collectors.toList());
+            given().ignoreExceptions()
+                    .atLeast(100, TimeUnit.MILLISECONDS)
+                    .pollInterval(500, TimeUnit.MILLISECONDS)
+                    .atMost(60, SECONDS)
+                    .untilAsserted(
+                            () -> {
+                                Map<String, TopicDescription> desc =
+                                        adminClient
+                                                .describeTopics(topicNames)
+                                                .allTopicNames()
+                                                .get(30, SECONDS);
+                                Assertions.assertEquals(topicNames.size(), desc.size());
+                            });
         }
 
         log.info("Write 100 records to topic test_topic_source");
@@ -535,14 +552,15 @@ public class KafkaIT extends TestSuiteBase implements TestResource {
         Container.ExecResult execResult =
                 container.executeJob(
                         "/kafka/kafkasource_format_error_handle_way_fail_to_console.conf");
-        String serverLogs = container.getServerLogs();
+        Assertions.assertNotEquals(
+                0,
+                execResult.getExitCode(),
+                "Expected job failure when format_error_handle_way = fail");
+        String stderr = execResult.getStderr();
         Assertions.assertTrue(
-                execResult.getExitCode() != 0
-                        || serverLogs.contains("NumberFormatException")
-                        || serverLogs.contains("For input string"),
-                "Expected format error and job failure when format_error_handle_way = fail, "
-                        + "but exit code was "
-                        + execResult.getExitCode());
+                stderr.contains("NumberFormatException") || stderr.contains("For input string"),
+                "Expected NumberFormatException in stderr, but got: "
+                        + stderr.substring(0, Math.min(stderr.length(), 500)));
     }
 
     @TestTemplate
