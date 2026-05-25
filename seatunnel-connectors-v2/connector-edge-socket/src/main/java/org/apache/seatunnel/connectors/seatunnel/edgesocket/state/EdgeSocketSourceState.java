@@ -38,6 +38,8 @@ import java.util.TreeMap;
 
 public class EdgeSocketSourceState {
 
+    private static final byte STATE_VERSION = 1;
+
     private long lastReceivedBatchId;
     private long lastCommittedBatchId;
     private final Map<Long, Integer> pendingBatchRecordCounts = new HashMap<>();
@@ -152,8 +154,8 @@ public class EdgeSocketSourceState {
      * #checkpointBatchWatermarks}; it is applied to {@link #lastCommittedBatchId} when {@link
      * #notifyCheckpointComplete(long)} runs for that id.
      *
-     * <p>Binary layout matches {@link #restoreState(byte[])} (high-water marks, pending counts,
-     * drained ids, then each {@link EdgeSocketQueuedRecord} in {@code queueSnapshot}).
+     * <p>Binary layout: {@code [version:1byte][lastCommitted:8][lastReceived:8][watermark:8]
+     * [pendingSize:4][...pending...][drainedSize:4][...drained...][queuedSize:4][...records...]}.
      */
     public byte[] snapshotState(long checkpointId, EdgeSocketQueuedRecord[] queueSnapshot)
             throws IOException {
@@ -162,6 +164,7 @@ public class EdgeSocketSourceState {
 
         ByteArrayOutputStream byteArrayOutputStream = new ByteArrayOutputStream();
         try (DataOutputStream out = new DataOutputStream(byteArrayOutputStream)) {
+            out.writeByte(STATE_VERSION);
             out.writeLong(lastCommittedBatchId);
             out.writeLong(lastReceivedBatchId);
             out.writeLong(snapshotWatermark);
@@ -207,6 +210,7 @@ public class EdgeSocketSourceState {
      */
     public List<EdgeSocketQueuedRecord> restoreState(byte[] restoredState) {
         try (DataInputStream in = new DataInputStream(new ByteArrayInputStream(restoredState))) {
+            in.readByte();
             lastCommittedBatchId = in.readLong();
             lastReceivedBatchId = in.readLong();
             long restoredSnapshotWatermark = in.readLong();
