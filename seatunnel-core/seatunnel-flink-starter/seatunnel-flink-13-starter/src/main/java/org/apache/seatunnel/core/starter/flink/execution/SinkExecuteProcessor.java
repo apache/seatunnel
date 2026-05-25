@@ -24,6 +24,8 @@ import org.apache.seatunnel.api.common.JobContext;
 import org.apache.seatunnel.api.common.PluginIdentifier;
 import org.apache.seatunnel.api.configuration.ReadonlyConfig;
 import org.apache.seatunnel.api.options.EnvCommonOptions;
+import org.apache.seatunnel.api.sink.DirtyCollectorConfigProcessor;
+import org.apache.seatunnel.api.sink.DirtyRecordCollector;
 import org.apache.seatunnel.api.sink.SaveModeExecuteWrapper;
 import org.apache.seatunnel.api.sink.SaveModeHandler;
 import org.apache.seatunnel.api.sink.SeaTunnelSink;
@@ -130,6 +132,9 @@ public class SinkExecuteProcessor
         for (int i = 0; i < plugins.size(); i++) {
             Optional<? extends Factory> factory = plugins.get(i);
             Config sinkConfig = pluginConfigs.get(i);
+            Config mergedSinkConfig =
+                    DirtyCollectorConfigProcessor.getMergedSinkConfigForDirty(
+                            envConfig, sinkConfig);
             DataStreamTableInfo stream =
                     fromSourceTable(sinkConfig, upstreamDataStreams).orElse(input);
             Map<TablePath, SeaTunnelSink> sinks = new HashMap<>();
@@ -137,7 +142,7 @@ public class SinkExecuteProcessor
                 SeaTunnelSink sink =
                         FactoryUtil.createAndPrepareSink(
                                 catalogTable,
-                                ReadonlyConfig.fromConfig(sinkConfig),
+                                ReadonlyConfig.fromConfig(mergedSinkConfig),
                                 classLoader,
                                 sinkConfig.getString(PLUGIN_NAME.key()),
                                 fallbackCreateSink,
@@ -175,13 +180,33 @@ public class SinkExecuteProcessor
                                 .name("BroadcastSchemaHandler")
                                 .setParallelism(parallelism);
             }
+
+            DirtyRecordCollector dirtyCollector = createDirtyRecordCollector(envConfig, sinkConfig);
+
             DataStreamSink<SeaTunnelRow> dataStreamSink =
-                    ds.sinkTo(new FlinkSink<>(sink, stream.getCatalogTables(), parallelism))
+                    ds.sinkTo(
+                                    new FlinkSink<>(
+                                            sink,
+                                            stream.getCatalogTables(),
+                                            parallelism,
+                                            dirtyCollector))
                             .name(String.format("%s-Sink", sink.getPluginName()));
             dataStreamSink.setParallelism(parallelism);
         }
         // the sink is the last stream
         return null;
+    }
+
+    protected DirtyRecordCollector createDirtyRecordCollector(Config envConfig, Config sinkConfig) {
+        try {
+            return DirtyCollectorConfigProcessor.processConfig(envConfig, sinkConfig);
+        } catch (Exception e) {
+            if (DirtyCollectorConfigProcessor.hasDirtyHandlingConfig(envConfig, sinkConfig)) {
+                throw e;
+            }
+            LOGGER.warn("Failed to create dirty record collector, using NoOp collector", e);
+            return org.apache.seatunnel.api.sink.NoOpDirtyRecordCollector.INSTANCE;
+        }
     }
 
     // if not support multi table, rollback

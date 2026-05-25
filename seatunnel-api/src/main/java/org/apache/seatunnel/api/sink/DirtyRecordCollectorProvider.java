@@ -15,36 +15,38 @@
  * limitations under the License.
  */
 
-package org.apache.seatunnel.connectors.seatunnel.common.sink;
+package org.apache.seatunnel.api.sink;
 
-import org.apache.seatunnel.api.sink.SinkWriter;
+import org.apache.seatunnel.api.configuration.util.OptionRule;
+import org.apache.seatunnel.api.table.factory.Factory;
 
-import lombok.extern.slf4j.Slf4j;
+/**
+ * SPI interface for pluggable dirty record collector implementations.
+ *
+ * <p>Configuration example:
+ *
+ * <pre>{@code
+ * env {
+ *   dirty.collector = {
+ *     type = my-custom-collector
+ *     my_option = value
+ *   }
+ * }
+ * }</pre>
+ */
+public interface DirtyRecordCollectorProvider extends Factory {
 
-import java.io.IOException;
-import java.util.Optional;
+    String getType();
 
-@Slf4j
-public abstract class AbstractSinkWriter<T, StateT> implements SinkWriter<T, Void, StateT> {
+    DirtyRecordCollector createCollector();
 
-    protected SinkWriter.Context context;
-
-    protected AbstractSinkWriter() {}
-
-    protected AbstractSinkWriter(SinkWriter.Context context) {
-        this.context = context;
+    @Override
+    default String factoryIdentifier() {
+        return getType();
     }
 
     @Override
-    public abstract void write(T element) throws IOException;
-
-    @Override
-    public Optional<Void> prepareCommit() {
-        return Optional.empty();
-    }
-
-    @Override
-    public final void abortPrepare() {
-        // nothing
+    default OptionRule optionRule() {
+        return OptionRule.builder().build();
     }
 }

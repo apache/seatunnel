@@ -15,36 +15,23 @@
  * limitations under the License.
  */
 
-package org.apache.seatunnel.connectors.seatunnel.common.sink;
+package org.apache.seatunnel.api.sink;
 
-import org.apache.seatunnel.api.sink.SinkWriter;
+import java.util.concurrent.atomic.AtomicLong;
 
-import lombok.extern.slf4j.Slf4j;
+public class LocalAtomicCounter implements DistributedCounter {
 
-import java.io.IOException;
-import java.util.Optional;
+    private static final long serialVersionUID = 1L;
 
-@Slf4j
-public abstract class AbstractSinkWriter<T, StateT> implements SinkWriter<T, Void, StateT> {
+    private final AtomicLong counter = new AtomicLong();
 
-    protected SinkWriter.Context context;
-
-    protected AbstractSinkWriter() {}
-
-    protected AbstractSinkWriter(SinkWriter.Context context) {
-        this.context = context;
+    @Override
+    public void add(long delta) {
+        counter.addAndGet(delta);
     }
 
     @Override
-    public abstract void write(T element) throws IOException;
-
-    @Override
-    public Optional<Void> prepareCommit() {
-        return Optional.empty();
-    }
-
-    @Override
-    public final void abortPrepare() {
-        // nothing
+    public long value() {
+        return counter.get();
     }
 }

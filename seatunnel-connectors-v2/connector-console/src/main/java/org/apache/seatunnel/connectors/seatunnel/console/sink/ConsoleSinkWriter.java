@@ -47,7 +47,6 @@ public class ConsoleSinkWriter extends AbstractSinkWriter<SeaTunnelRow, Void>
 
     private SeaTunnelRowType seaTunnelRowType;
     private final AtomicLong rowCounter = new AtomicLong(0);
-    private final SinkWriter.Context context;
     private final DataTypeChangeEventHandler dataTypeChangeEventHandler;
 
     boolean isPrintData = true;
@@ -58,11 +57,12 @@ public class ConsoleSinkWriter extends AbstractSinkWriter<SeaTunnelRow, Void>
             SinkWriter.Context context,
             boolean isPrintData,
             int delayMs) {
+        super(context);
         this.seaTunnelRowType = seaTunnelRowType;
-        this.context = context;
         this.isPrintData = isPrintData;
         this.delayMs = delayMs;
         this.dataTypeChangeEventHandler = new DataTypeChangeEventDispatcher();
+
         log.info("output rowType: {}", fieldsInfo(seaTunnelRowType));
     }
 

@@ -20,6 +20,7 @@ package org.apache.seatunnel.core.starter.flink.execution;
 import org.apache.seatunnel.shade.com.typesafe.config.Config;
 
 import org.apache.seatunnel.api.common.JobContext;
+import org.apache.seatunnel.api.sink.DirtyRecordCollector;
 import org.apache.seatunnel.api.sink.SeaTunnelSink;
 import org.apache.seatunnel.api.sink.SupportSchemaEvolutionSink;
 import org.apache.seatunnel.api.table.type.SeaTunnelRow;
@@ -49,7 +50,11 @@ public class SinkExecuteProcessor extends AbstractSinkExecuteProcessor {
 
     @Override
     protected DataStreamSink<SeaTunnelRow> createVersionSpecificDataStreamSink(
-            DataStreamTableInfo stream, SeaTunnelSink sink, int parallelism, Config sinkConfig) {
+            DataStreamTableInfo stream,
+            SeaTunnelSink sink,
+            int parallelism,
+            Config sinkConfig,
+            DirtyRecordCollector dirtyCollector) {
         boolean isStreaming =
                 envConfig.hasPath("job.mode")
                         && STREAMING.toString().equalsIgnoreCase(envConfig.getString("job.mode"));
@@ -66,7 +71,11 @@ public class SinkExecuteProcessor extends AbstractSinkExecuteProcessor {
         }
         return ds.sinkTo(
                         SinkV1Adapter.wrap(
-                                new FlinkSink<>(sink, stream.getCatalogTables(), parallelism)))
+                                new FlinkSink<>(
+                                        sink,
+                                        stream.getCatalogTables(),
+                                        parallelism,
+                                        dirtyCollector)))
                 .name(String.format("%s-Sink", sink.getPluginName()));
     }
 }

@@ -15,36 +15,23 @@
  * limitations under the License.
  */
 
-package org.apache.seatunnel.connectors.seatunnel.common.sink;
+package org.apache.seatunnel.api.sink;
 
-import org.apache.seatunnel.api.sink.SinkWriter;
+import org.apache.seatunnel.api.table.factory.Factory;
 
-import lombok.extern.slf4j.Slf4j;
+import com.google.auto.service.AutoService;
 
-import java.io.IOException;
-import java.util.Optional;
+/** Built-in provider for the "log" type dirty record collector. */
+@AutoService(Factory.class)
+public class LogDirtyRecordCollectorProvider implements DirtyRecordCollectorProvider {
 
-@Slf4j
-public abstract class AbstractSinkWriter<T, StateT> implements SinkWriter<T, Void, StateT> {
-
-    protected SinkWriter.Context context;
-
-    protected AbstractSinkWriter() {}
-
-    protected AbstractSinkWriter(SinkWriter.Context context) {
-        this.context = context;
+    @Override
+    public String getType() {
+        return "log";
     }
 
     @Override
-    public abstract void write(T element) throws IOException;
-
-    @Override
-    public Optional<Void> prepareCommit() {
-        return Optional.empty();
-    }
-
-    @Override
-    public final void abortPrepare() {
-        // nothing
+    public DirtyRecordCollector createCollector() {
+        return new LogDirtyRecordCollector();
     }
 }

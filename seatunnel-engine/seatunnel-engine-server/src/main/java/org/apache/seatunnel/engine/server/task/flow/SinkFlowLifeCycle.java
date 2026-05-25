@@ -20,6 +20,9 @@ package org.apache.seatunnel.engine.server.task.flow;
 import org.apache.seatunnel.api.common.metrics.MetricsContext;
 import org.apache.seatunnel.api.event.EventListener;
 import org.apache.seatunnel.api.serialization.Serializer;
+import org.apache.seatunnel.api.sink.DirtyDataAwareSinkWriter;
+import org.apache.seatunnel.api.sink.DirtyRecordCollector;
+import org.apache.seatunnel.api.sink.NoOpDirtyRecordCollector;
 import org.apache.seatunnel.api.sink.SinkCommitter;
 import org.apache.seatunnel.api.sink.SinkWriter;
 import org.apache.seatunnel.api.sink.SinkWriter.Context;
@@ -180,6 +183,24 @@ public class SinkFlowLifeCycle<T, CommitInfoT extends Serializable, AggregatedCo
         }
     }
 
+    private DirtyRecordCollector createDirtyRecordCollector() {
+        DirtyRecordCollector collector = sinkAction.getDirtyRecordCollector();
+        if (collector != null) {
+            return collector;
+        }
+        log.debug("No pre-built dirty collector in SinkAction, using NoOp");
+        return NoOpDirtyRecordCollector.INSTANCE;
+    }
+
+    private SinkWriter<T, CommitInfoT, StateT> wrapWriterIfNeeded(
+            SinkWriter<T, CommitInfoT, StateT> rawWriter, DirtyRecordCollector collector) {
+        if (collector == null || collector instanceof NoOpDirtyRecordCollector) {
+            return rawWriter;
+        }
+        CatalogTable catalogTable = sinkAction.getSink().getWriteCatalogTable().orElse(null);
+        return new DirtyDataAwareSinkWriter<>(rawWriter, collector, indexID, catalogTable);
+    }
+
     @Override
     public void received(Record<?> record) {
         try {
@@ -332,13 +353,25 @@ public class SinkFlowLifeCycle<T, CommitInfoT extends Serializable, AggregatedCo
                                                                     .deserialize(bytes)))
                             .collect(Collectors.toList());
         }
+        // initialize dirty record collector
+        DirtyRecordCollector dirtyCollector = createDirtyRecordCollector();
+
         this.writerContext =
                 new SinkWriterContext(
-                        sinkAction.getParallelism(), indexID, metricsContext, eventListener);
+                        sinkAction.getParallelism(),
+                        indexID,
+                        metricsContext,
+                        eventListener,
+                        dirtyCollector);
         if (states.isEmpty()) {
-            this.writer = sinkAction.getSink().createWriter(writerContext);
+            this.writer =
+                    wrapWriterIfNeeded(
+                            sinkAction.getSink().createWriter(writerContext), dirtyCollector);
         } else {
-            this.writer = sinkAction.getSink().restoreWriter(writerContext, states);
+            this.writer =
+                    wrapWriterIfNeeded(
+                            sinkAction.getSink().restoreWriter(writerContext, states),
+                            dirtyCollector);
         }
     }
 }

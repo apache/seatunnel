@@ -117,5 +117,14 @@ public interface SinkWriter<T, CommitInfoT, StateT> {
          * @return
          */
         EventListener getEventListener();
+
+        /**
+         * Get the dirty record collector for this writer.
+         *
+         * @return the dirty record collector
+         */
+        default DirtyRecordCollector getDirtyRecordCollector() {
+            return NoOpDirtyRecordCollector.INSTANCE;
+        }
     }
 }

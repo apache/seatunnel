@@ -24,6 +24,8 @@ import org.apache.seatunnel.api.common.JobContext;
 import org.apache.seatunnel.api.common.PluginIdentifier;
 import org.apache.seatunnel.api.configuration.ReadonlyConfig;
 import org.apache.seatunnel.api.options.EnvCommonOptions;
+import org.apache.seatunnel.api.sink.DirtyCollectorConfigProcessor;
+import org.apache.seatunnel.api.sink.DirtyRecordCollector;
 import org.apache.seatunnel.api.sink.SaveModeExecuteWrapper;
 import org.apache.seatunnel.api.sink.SaveModeHandler;
 import org.apache.seatunnel.api.sink.SeaTunnelSink;
@@ -112,6 +114,10 @@ public class SinkExecuteProcessor
                 sinkPluginDiscovery::createPluginInstance;
         for (int i = 0; i < plugins.size(); i++) {
             Config sinkConfig = pluginConfigs.get(i);
+            Config envConfig = sparkRuntimeEnvironment.getConfig();
+            Config mergedSinkConfig =
+                    DirtyCollectorConfigProcessor.getMergedSinkConfigForDirty(
+                            envConfig, sinkConfig);
             DatasetTableInfo datasetTableInfo =
                     fromSourceTable(sinkConfig, sparkRuntimeEnvironment, upstreamDataStreams)
                             .orElse(input);
@@ -135,7 +141,7 @@ public class SinkExecuteProcessor
                                 SeaTunnelSink<Object, Object, Object, Object> sink =
                                         FactoryUtil.createAndPrepareSink(
                                                 catalogTable,
-                                                ReadonlyConfig.fromConfig(sinkConfig),
+                                                ReadonlyConfig.fromConfig(mergedSinkConfig),
                                                 classLoader,
                                                 sinkConfig.getString(PLUGIN_NAME.key()),
                                                 fallbackCreateSink,
@@ -152,8 +158,22 @@ public class SinkExecuteProcessor
                     sparkRuntimeEnvironment.getStreamingContext().sparkContext().applicationId();
             CatalogTable[] catalogTables =
                     datasetTableInfo.getCatalogTables().toArray(new CatalogTable[0]);
+            CatalogTable firstCatalogTable = catalogTables.length > 0 ? catalogTables[0] : null;
+            DirtyRecordCollector dirtyCollector =
+                    DirtyCollectorConfigProcessor.processConfig(
+                            envConfig, sinkConfig, firstCatalogTable);
+            log.info(
+                    "Dirty record collector for sink [{}]: type={}, classLoader={}",
+                    sinkConfig.getString(PLUGIN_NAME.key()),
+                    dirtyCollector != null ? dirtyCollector.getClass().getName() : "null",
+                    Thread.currentThread().getContextClassLoader().getClass().getName());
             SparkSinkInjector.inject(
-                            dataset.write(), sink, catalogTables, applicationId, parallelism)
+                            dataset.write(),
+                            sink,
+                            catalogTables,
+                            applicationId,
+                            parallelism,
+                            dirtyCollector)
                     .option("checkpointLocation", "/tmp")
                     .mode(SaveMode.Append)
                     .save();

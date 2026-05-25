@@ -17,6 +17,7 @@
 
 package org.apache.seatunnel.translation.spark.sink.write;
 
+import org.apache.seatunnel.api.sink.DirtyRecordCollector;
 import org.apache.seatunnel.api.sink.SeaTunnelSink;
 import org.apache.seatunnel.api.table.catalog.CatalogTable;
 import org.apache.seatunnel.api.table.type.SeaTunnelRow;
@@ -34,22 +35,26 @@ public class SeaTunnelWrite<AggregatedCommitInfoT, CommitInfoT, StateT> implemen
     private final CatalogTable[] catalogTables;
     private final String jobId;
     private final int parallelism;
+    private final DirtyRecordCollector dirtyRecordCollector;
 
     public SeaTunnelWrite(
             SeaTunnelSink<SeaTunnelRow, StateT, CommitInfoT, AggregatedCommitInfoT> sink,
             CatalogTable[] catalogTables,
             String jobId,
-            int parallelism) {
+            int parallelism,
+            DirtyRecordCollector dirtyRecordCollector) {
         this.sink = sink;
         this.catalogTables = catalogTables;
         this.jobId = jobId;
         this.parallelism = parallelism;
+        this.dirtyRecordCollector = dirtyRecordCollector;
     }
 
     @Override
     public BatchWrite toBatch() {
         try {
-            return new SeaTunnelBatchWrite<>(sink, catalogTables, jobId, parallelism);
+            return new SeaTunnelBatchWrite<>(
+                    sink, catalogTables, jobId, parallelism, dirtyRecordCollector);
         } catch (IOException e) {
             throw new RuntimeException("SeaTunnel Spark sink create batch failed", e);
         }
@@ -58,7 +63,8 @@ public class SeaTunnelWrite<AggregatedCommitInfoT, CommitInfoT, StateT> implemen
     @Override
     public StreamingWrite toStreaming() {
         try {
-            return new SeaTunnelBatchWrite<>(sink, catalogTables, jobId, parallelism);
+            return new SeaTunnelBatchWrite<>(
+                    sink, catalogTables, jobId, parallelism, dirtyRecordCollector);
         } catch (IOException e) {
             throw new RuntimeException("SeaTunnel Spark sink create batch failed", e);
         }

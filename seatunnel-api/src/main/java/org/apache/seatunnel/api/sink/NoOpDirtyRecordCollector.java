@@ -15,36 +15,31 @@
  * limitations under the License.
  */
 
-package org.apache.seatunnel.connectors.seatunnel.common.sink;
+package org.apache.seatunnel.api.sink;
 
-import org.apache.seatunnel.api.sink.SinkWriter;
+import org.apache.seatunnel.api.table.catalog.CatalogTable;
 
-import lombok.extern.slf4j.Slf4j;
+/**
+ * A no-operation dirty record collector that does nothing. This is used as a default implementation
+ * when no dirty data collection is configured.
+ */
+public class NoOpDirtyRecordCollector implements DirtyRecordCollector {
 
-import java.io.IOException;
-import java.util.Optional;
+    private static final long serialVersionUID = 1L;
 
-@Slf4j
-public abstract class AbstractSinkWriter<T, StateT> implements SinkWriter<T, Void, StateT> {
+    public static final NoOpDirtyRecordCollector INSTANCE = new NoOpDirtyRecordCollector();
 
-    protected SinkWriter.Context context;
-
-    protected AbstractSinkWriter() {}
-
-    protected AbstractSinkWriter(SinkWriter.Context context) {
-        this.context = context;
-    }
+    private NoOpDirtyRecordCollector() {}
 
     @Override
-    public abstract void write(T element) throws IOException;
+    public void collect(
+            int subTaskIndex,
+            Object dirtyRecord,
+            Throwable exception,
+            String errorMessage,
+            CatalogTable catalogTable) {}
 
-    @Override
-    public Optional<Void> prepareCommit() {
-        return Optional.empty();
-    }
-
-    @Override
-    public final void abortPrepare() {
-        // nothing
+    private Object readResolve() {
+        return INSTANCE;
     }
 }

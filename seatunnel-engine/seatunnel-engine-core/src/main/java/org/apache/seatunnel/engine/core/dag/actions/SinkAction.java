@@ -17,6 +17,7 @@
 
 package org.apache.seatunnel.engine.core.dag.actions;
 
+import org.apache.seatunnel.api.sink.DirtyRecordCollector;
 import org.apache.seatunnel.api.sink.SeaTunnelSink;
 import org.apache.seatunnel.engine.core.job.ConnectorJarIdentifier;
 
@@ -29,6 +30,8 @@ import java.util.Set;
 
 public class SinkAction<IN, StateT, CommitInfoT, AggregatedCommitInfoT> extends AbstractAction {
     private final SeaTunnelSink<IN, StateT, CommitInfoT, AggregatedCommitInfoT> sink;
+
+    private DirtyRecordCollector dirtyRecordCollector;
 
     public SinkAction(
             long id,
@@ -63,6 +66,14 @@ public class SinkAction<IN, StateT, CommitInfoT, AggregatedCommitInfoT> extends 
 
     public SeaTunnelSink<IN, StateT, CommitInfoT, AggregatedCommitInfoT> getSink() {
         return sink;
+    }
+
+    public DirtyRecordCollector getDirtyRecordCollector() {
+        return dirtyRecordCollector;
+    }
+
+    public void setDirtyRecordCollector(DirtyRecordCollector dirtyRecordCollector) {
+        this.dirtyRecordCollector = dirtyRecordCollector;
     }
 
     @Override

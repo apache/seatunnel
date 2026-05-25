@@ -17,6 +17,7 @@
 
 package org.apache.seatunnel.translation.spark.sink.writer;
 
+import org.apache.seatunnel.api.sink.DirtyRecordCollector;
 import org.apache.seatunnel.api.sink.SeaTunnelSink;
 import org.apache.seatunnel.api.table.catalog.CatalogTable;
 import org.apache.seatunnel.api.table.type.SeaTunnelRow;
@@ -36,9 +37,10 @@ public class SparkStreamWriter<StateT, CommitInfoT, AggregatedCommitInfoT>
             SeaTunnelSink<SeaTunnelRow, StateT, CommitInfoT, AggregatedCommitInfoT> sink,
             CatalogTable[] catalogTables,
             String jobId,
-            int parallelism)
+            int parallelism,
+            DirtyRecordCollector dirtyRecordCollector)
             throws IOException {
-        super(sink, catalogTables, jobId, parallelism);
+        super(sink, catalogTables, jobId, parallelism, dirtyRecordCollector);
     }
 
     @Override

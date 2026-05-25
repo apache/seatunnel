@@ -15,36 +15,26 @@
  * limitations under the License.
  */
 
-package org.apache.seatunnel.connectors.seatunnel.common.sink;
+package org.apache.seatunnel.api.sink;
 
-import org.apache.seatunnel.api.sink.SinkWriter;
+import org.apache.seatunnel.api.table.factory.Factory;
 
-import lombok.extern.slf4j.Slf4j;
+import com.google.auto.service.AutoService;
 
-import java.io.IOException;
-import java.util.Optional;
+/**
+ * SPI provider for the "counting" type dirty record collector. Used by integration tests to verify
+ * that custom collectors registered via ServiceLoader are properly discovered and used.
+ */
+@AutoService(Factory.class)
+public class CountingDirtyRecordCollectorProvider implements DirtyRecordCollectorProvider {
 
-@Slf4j
-public abstract class AbstractSinkWriter<T, StateT> implements SinkWriter<T, Void, StateT> {
-
-    protected SinkWriter.Context context;
-
-    protected AbstractSinkWriter() {}
-
-    protected AbstractSinkWriter(SinkWriter.Context context) {
-        this.context = context;
+    @Override
+    public String getType() {
+        return "counting";
     }
 
     @Override
-    public abstract void write(T element) throws IOException;
-
-    @Override
-    public Optional<Void> prepareCommit() {
-        return Optional.empty();
-    }
-
-    @Override
-    public final void abortPrepare() {
-        // nothing
+    public DirtyRecordCollector createCollector() {
+        return new CountingDirtyRecordCollector();
     }
 }

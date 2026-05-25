@@ -24,6 +24,9 @@ import org.apache.seatunnel.api.common.JobContext;
 import org.apache.seatunnel.api.common.PluginIdentifier;
 import org.apache.seatunnel.api.configuration.ReadonlyConfig;
 import org.apache.seatunnel.api.options.EnvCommonOptions;
+import org.apache.seatunnel.api.sink.DirtyCollectorConfigProcessor;
+import org.apache.seatunnel.api.sink.DirtyRecordCollector;
+import org.apache.seatunnel.api.sink.NoOpDirtyRecordCollector;
 import org.apache.seatunnel.api.sink.SaveModeExecuteWrapper;
 import org.apache.seatunnel.api.sink.SaveModeHandler;
 import org.apache.seatunnel.api.sink.SeaTunnelSink;
@@ -130,6 +133,9 @@ public abstract class AbstractSinkExecuteProcessor
         for (int i = 0; i < plugins.size(); i++) {
             Optional<? extends Factory> factory = plugins.get(i);
             Config sinkConfig = pluginConfigs.get(i);
+            Config mergedSinkConfig =
+                    DirtyCollectorConfigProcessor.getMergedSinkConfigForDirty(
+                            envConfig, sinkConfig);
             DataStreamTableInfo stream =
                     fromSourceTable(sinkConfig, upstreamDataStreams).orElse(input);
             Map<TablePath, SeaTunnelSink> sinks = new HashMap<>();
@@ -138,7 +144,7 @@ public abstract class AbstractSinkExecuteProcessor
                 SeaTunnelSink sink =
                         FactoryUtil.createAndPrepareSink(
                                 catalogTable,
-                                ReadonlyConfig.fromConfig(sinkConfig),
+                                ReadonlyConfig.fromConfig(mergedSinkConfig),
                                 classLoader,
                                 sinkConfig.getString(PLUGIN_NAME.key()),
                                 fallbackCreateSink,
@@ -162,8 +168,15 @@ public abstract class AbstractSinkExecuteProcessor
                                     ? envConfig.getInt(EnvCommonOptions.PARALLELISM.key())
                                     : 1;
 
+            DirtyRecordCollector dirtyCollector =
+                    createDirtyRecordCollector(
+                            envConfig,
+                            sinkConfig,
+                            (CatalogTable) sink.getWriteCatalogTable().orElse(null));
+
             DataStreamSink<SeaTunnelRow> dataStreamSink =
-                    createVersionSpecificDataStreamSink(stream, sink, parallelism, sinkConfig);
+                    createVersionSpecificDataStreamSink(
+                            stream, sink, parallelism, sinkConfig, dirtyCollector);
 
             if (sinkParallelism || envParallelism) {
                 dataStreamSink.setParallelism(parallelism);
@@ -175,7 +188,28 @@ public abstract class AbstractSinkExecuteProcessor
 
     /** Create version-specific DataStreamSink with multi-table and parallelism support. */
     protected abstract DataStreamSink<SeaTunnelRow> createVersionSpecificDataStreamSink(
-            DataStreamTableInfo stream, SeaTunnelSink sink, int parallelism, Config sinkConfig);
+            DataStreamTableInfo stream,
+            SeaTunnelSink sink,
+            int parallelism,
+            Config sinkConfig,
+            DirtyRecordCollector dirtyCollector);
+
+    protected DirtyRecordCollector createDirtyRecordCollector(Config envConfig, Config sinkConfig) {
+        return createDirtyRecordCollector(envConfig, sinkConfig, null);
+    }
+
+    protected DirtyRecordCollector createDirtyRecordCollector(
+            Config envConfig, Config sinkConfig, CatalogTable catalogTable) {
+        try {
+            return DirtyCollectorConfigProcessor.processConfig(envConfig, sinkConfig, catalogTable);
+        } catch (Exception e) {
+            if (DirtyCollectorConfigProcessor.hasDirtyHandlingConfig(envConfig, sinkConfig)) {
+                throw e;
+            }
+            LOGGER.warn("Failed to create dirty record collector, using NoOp collector", e);
+            return NoOpDirtyRecordCollector.INSTANCE;
+        }
+    }
 
     // if not support multi table, rollback
     public SeaTunnelSink tryGenerateMultiTableSink(
