@@ -259,8 +259,11 @@ public class SalesforceClient implements Closeable {
                 if (System.currentTimeMillis() > deadline) {
                     throw new SalesforceConnectorException(
                             SalesforceConnectorErrorCode.BULK_JOB_FAILED,
-                            "Job " + jobId + " did not complete within "
-                                    + params.getJobCompletionTimeoutMs() + "ms");
+                            "Job "
+                                    + jobId
+                                    + " did not complete within "
+                                    + params.getJobCompletionTimeoutMs()
+                                    + "ms");
                 }
             } catch (SalesforceConnectorException e) {
                 throw e;
