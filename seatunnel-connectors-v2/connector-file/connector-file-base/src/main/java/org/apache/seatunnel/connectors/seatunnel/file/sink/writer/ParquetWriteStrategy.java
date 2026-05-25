@@ -127,10 +127,11 @@ public class ParquetWriteStrategy extends AbstractWriteStrategy<ParquetWriter<Ge
         GenericRecordBuilder recordBuilder = new GenericRecordBuilder(schema);
         for (Integer integer : sinkColumnsIndexInRow) {
             String fieldName = seaTunnelRowType.getFieldName(integer);
+            String parquetFieldName = normalizeFieldName(fieldName);
             Object field = getFieldSafe(seaTunnelRow, integer);
             recordBuilder.set(
-                    fieldName.toLowerCase(),
-                    resolveObject(fieldName, field, seaTunnelRowType.getFieldType(integer)));
+                    parquetFieldName,
+                    resolveObject(parquetFieldName, field, seaTunnelRowType.getFieldType(integer)));
         }
         GenericData.Record record = recordBuilder.build();
         try {
@@ -307,7 +308,7 @@ public class ParquetWriteStrategy extends AbstractWriteStrategy<ParquetWriter<Ge
                 GenericRecordBuilder recordBuilder = new GenericRecordBuilder(recordSchema);
                 for (int i = 0; i < fieldNames.length; i++) {
                     recordBuilder.set(
-                            fieldNames[i].toLowerCase(),
+                            normalizeFieldName(fieldNames[i]),
                             resolveObject(fieldNames[i], seaTunnelRow.getField(i), fieldTypes[i]));
                 }
                 return recordBuilder.build();
@@ -468,7 +469,7 @@ public class ParquetWriteStrategy extends AbstractWriteStrategy<ParquetWriter<Ge
                 index -> {
                     Type type =
                             seaTunnelDataType2ParquetDataType(
-                                    fieldNames[index].toLowerCase(), fieldTypes[index]);
+                                    normalizeFieldName(fieldNames[index]), fieldTypes[index]);
                     types.add(type);
                 });
         MessageType seaTunnelRow =
