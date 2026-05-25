@@ -973,22 +973,27 @@ public class CoordinatorServiceTest {
 
     @Test
     void testGetPendingJobInfo() {
+        setConfigFile("seatunnel_fixed_slots.yaml");
         JobInformation jobInformation =
                 submitJob(
                         "CoordinatorServiceTest_testGetPendingJobInfo",
-                        "batch_fake_to_console.conf",
+                        "batch_slot_not_enough.conf",
                         "test_get_pending_job_info");
 
-        CoordinatorService coordinatorService = jobInformation.coordinatorService;
-        Long jobId = jobInformation.jobId;
+        try {
+            CoordinatorService coordinatorService = jobInformation.coordinatorService;
+            Long jobId = jobInformation.jobId;
 
-        Assertions.assertTrue(coordinatorService.getPendingJobQueue().contains(jobId));
+            Assertions.assertTrue(coordinatorService.getPendingJobQueue().contains(jobId));
 
-        JobDAGInfo jobDAGInfo =
-                Assertions.assertDoesNotThrow(() -> coordinatorService.getJobInfo(jobId));
-        Assertions.assertEquals(jobId, jobDAGInfo.getJobId());
-
-        jobInformation.coordinatorServiceTest.shutdown();
+            JobDAGInfo jobDAGInfo =
+                    Assertions.assertDoesNotThrow(() -> coordinatorService.getJobInfo(jobId));
+            Assertions.assertEquals(jobId, jobDAGInfo.getJobId());
+        } finally {
+            jobInformation.coordinatorService.clearCoordinatorService();
+            jobInformation.coordinatorServiceTest.shutdown();
+            setDefaultConfigFile();
+        }
     }
 
     @Test
