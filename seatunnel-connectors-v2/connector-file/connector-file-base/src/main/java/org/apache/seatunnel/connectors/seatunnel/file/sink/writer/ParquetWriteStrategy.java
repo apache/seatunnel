@@ -65,9 +65,9 @@ import java.time.temporal.JulianFields;
 import java.util.ArrayList;
 import java.util.Calendar;
 import java.util.Date;
-import java.util.HashSet;
 import java.util.LinkedHashMap;
 import java.util.List;
+import java.util.Locale;
 import java.util.Set;
 import java.util.TimeZone;
 import java.util.concurrent.TimeUnit;
@@ -98,12 +98,15 @@ public class ParquetWriteStrategy extends AbstractWriteStrategy<ParquetWriter<Ge
     public void init(HadoopConf conf, String jobId, String uuidPrefix, int subTaskIndex) {
         super.init(conf, jobId, uuidPrefix, subTaskIndex);
         Configuration configuration = getConfiguration(hadoopConf);
-        writePathsAsInt96 = new HashSet<>(fileSinkConfig.getParquetAvroWriteFixedAsInt96());
+        writePathsAsInt96 =
+                fileSinkConfig.getParquetAvroWriteFixedAsInt96().stream()
+                        .map(ParquetWriteStrategy::normalizeFieldName)
+                        .collect(Collectors.toSet());
         if (fileSinkConfig.getParquetWriteTimestampAsInt96()) {
             List<String> timestampFields = new ArrayList<>();
             for (int i = 0; i < seaTunnelRowType.getTotalFields(); i++) {
                 if (SqlType.TIMESTAMP.equals(seaTunnelRowType.getFieldType(i).getSqlType())) {
-                    timestampFields.add(seaTunnelRowType.getFieldName(i));
+                    timestampFields.add(normalizeFieldName(seaTunnelRowType.getFieldName(i)));
                 }
             }
             writePathsAsInt96.addAll(timestampFields);
@@ -123,10 +126,11 @@ public class ParquetWriteStrategy extends AbstractWriteStrategy<ParquetWriter<Ge
         GenericRecordBuilder recordBuilder = new GenericRecordBuilder(schema);
         for (Integer integer : sinkColumnsIndexInRow) {
             String fieldName = seaTunnelRowType.getFieldName(integer);
+            String parquetFieldName = normalizeFieldName(fieldName);
             Object field = seaTunnelRow.getField(integer);
             recordBuilder.set(
-                    fieldName.toLowerCase(),
-                    resolveObject(fieldName, field, seaTunnelRowType.getFieldType(integer)));
+                    parquetFieldName,
+                    resolveObject(parquetFieldName, field, seaTunnelRowType.getFieldType(integer)));
         }
         GenericData.Record record = recordBuilder.build();
         try {
@@ -292,6 +296,10 @@ public class ParquetWriteStrategy extends AbstractWriteStrategy<ParquetWriter<Ge
         }
     }
 
+    private static String normalizeFieldName(String fieldName) {
+        return fieldName.toLowerCase(Locale.ROOT);
+    }
+
     public Type seaTunnelDataType2ParquetDataType(
             String fieldName, SeaTunnelDataType<?> seaTunnelDataType) {
         switch (seaTunnelDataType.getSqlType()) {
@@ -418,7 +426,7 @@ public class ParquetWriteStrategy extends AbstractWriteStrategy<ParquetWriter<Ge
                 index -> {
                     Type type =
                             seaTunnelDataType2ParquetDataType(
-                                    fieldNames[index].toLowerCase(), fieldTypes[index]);
+                                    normalizeFieldName(fieldNames[index]), fieldTypes[index]);
                     types.add(type);
                 });
         MessageType seaTunnelRow =
