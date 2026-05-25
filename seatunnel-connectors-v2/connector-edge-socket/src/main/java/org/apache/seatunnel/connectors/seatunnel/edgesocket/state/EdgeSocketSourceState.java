@@ -154,8 +154,9 @@ public class EdgeSocketSourceState {
      * #checkpointBatchWatermarks}; it is applied to {@link #lastCommittedBatchId} when {@link
      * #notifyCheckpointComplete(long)} runs for that id.
      *
-     * <p>Binary layout: {@code [version:1byte][lastCommitted:8][lastReceived:8][watermark:8]
-     * [pendingSize:4][...pending...][drainedSize:4][...drained...][queuedSize:4][...records...]}.
+     * <p>Binary layout matches {@link #restoreState(byte[])} (high-water marks, pending counts,
+     * drained ids, then each {@link EdgeSocketQueuedRecord} in {@code queueSnapshot}). A {@link
+     * #STATE_VERSION} byte is written as the first byte.
      */
     public byte[] snapshotState(long checkpointId, EdgeSocketQueuedRecord[] queueSnapshot)
             throws IOException {
