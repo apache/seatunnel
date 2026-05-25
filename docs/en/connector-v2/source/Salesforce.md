@@ -44,9 +44,9 @@ Authentication uses the OAuth 2.0 Username-Password flow.
 | object_name        | String  | No*      | -       | Salesforce object for single-object mode, e.g. `Account`. Exclusive with `tables_configs`.   |
 | tables_configs     | List    | No*      | -       | Multi-object configuration list. Each entry requires `table_path`. Exclusive with `object_name`. |
 | filter             | String  | No       | -       | SOQL WHERE clause appended to the auto-built `SELECT FIELDS(ALL) FROM <object>` query.       |
-| max_retries        | Integer | No       | 3       | Maximum retries on transient errors.                                                          |
 | request_timeout_ms | Integer | No       | 60000   | HTTP request timeout in milliseconds.                                                         |
 | poll_interval_ms   | Long    | No       | 5000    | Interval between Bulk API job status polls (ms).                                              |
+| job_completion_timeout_ms | Long | No   | 3600000 | Maximum time (ms) to wait for a Bulk API job to reach a terminal state. Default 60 minutes. |
 
 \* Exactly one of `object_name` or `tables_configs` must be provided.
 

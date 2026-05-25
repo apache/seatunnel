@@ -44,9 +44,9 @@
 | object_name        | String  | 否\*  | -       | 单对象模式下要读取的 Salesforce 对象，例如 `Account`。与 `tables_configs` 互斥。                |
 | tables_configs     | List    | 否\*  | -       | 多对象配置列表。每一项必须提供 `table_path`。与 `object_name` 互斥。                            |
 | filter             | String  | 否    | -       | 附加到自动构造的 `SELECT FIELDS(ALL) FROM <object>` 查询上的 SOQL WHERE 条件。                 |
-| max_retries        | Integer | 否    | 3       | 瞬时错误的最大重试次数。                                                                       |
 | request_timeout_ms | Integer | 否    | 60000   | HTTP 请求超时时间（毫秒）。                                                                    |
 | poll_interval_ms   | Long    | 否    | 5000    | Bulk API 作业状态轮询间隔（毫秒）。                                                            |
+| job_completion_timeout_ms | Long | 否  | 3600000 | 等待 Bulk API 作业达到终止状态的最长时间（毫秒）。默认 60 分钟。                                |
 
 \* `object_name` 与 `tables_configs` 必须且只能提供其中一个。
 

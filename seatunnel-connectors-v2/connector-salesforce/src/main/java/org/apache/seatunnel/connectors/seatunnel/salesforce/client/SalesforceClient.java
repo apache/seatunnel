@@ -236,7 +236,7 @@ public class SalesforceClient implements Closeable {
 
     private void waitForJobCompletion(String jobId) {
         String url = authorizedInstanceUrl + String.format(JOB_PATH, params.getApiVersion(), jobId);
-        int attempts = 0;
+        long deadline = System.currentTimeMillis() + params.getJobCompletionTimeoutMs();
         while (true) {
             try {
                 Thread.sleep(params.getPollIntervalMs());
@@ -256,11 +256,11 @@ public class SalesforceClient implements Closeable {
                                 "Job " + jobId + " ended with state: " + state);
                     }
                 }
-                attempts++;
-                if (attempts > params.getMaxRetries() * 10) {
+                if (System.currentTimeMillis() > deadline) {
                     throw new SalesforceConnectorException(
                             SalesforceConnectorErrorCode.BULK_JOB_FAILED,
-                            "Job " + jobId + " did not complete after " + attempts + " polls");
+                            "Job " + jobId + " did not complete within "
+                                    + params.getJobCompletionTimeoutMs() + "ms");
                 }
             } catch (SalesforceConnectorException e) {
                 throw e;

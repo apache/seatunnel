@@ -176,6 +176,18 @@ class SalesforceClientTest {
         }
     }
 
+    @Test
+    void executeBulkQueryTimesOutWhenJobNeverCompletes() throws IOException {
+        registerBulkJobHandlers("job-1", "InProgress");
+
+        try (SalesforceClient client = new SalesforceClient(buildParams(baseUrl))) {
+            client.authenticate();
+            Assertions.assertThrows(
+                    SalesforceConnectorException.class,
+                    () -> client.executeBulkQuery("SELECT Id FROM Account", 1, row -> {}));
+        }
+    }
+
     private void registerBulkJobHandlers(String jobId, String terminalState) {
         server.createContext(
                 "/services/oauth2/token",
@@ -225,7 +237,7 @@ class SalesforceClientTest {
         map.put("password", "pwd");
         map.put("instance_url", instanceUrl);
         map.put("poll_interval_ms", 10L);
-        map.put("max_retries", 1);
+        map.put("job_completion_timeout_ms", 500L);
         SalesforceParameters p = new SalesforceParameters();
         p.buildWithConfig(ReadonlyConfig.fromMap(map));
         return p;

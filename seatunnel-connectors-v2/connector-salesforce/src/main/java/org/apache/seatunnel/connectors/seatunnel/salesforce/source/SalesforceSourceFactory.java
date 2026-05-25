@@ -55,9 +55,9 @@ public class SalesforceSourceFactory implements TableSourceFactory {
                         SalesforceSourceOptions.SECURITY_TOKEN,
                         SalesforceSourceOptions.API_VERSION,
                         SalesforceSourceOptions.FILTER,
-                        SalesforceSourceOptions.MAX_RETRIES,
                         SalesforceSourceOptions.REQUEST_TIMEOUT_MS,
-                        SalesforceSourceOptions.POLL_INTERVAL_MS)
+                        SalesforceSourceOptions.POLL_INTERVAL_MS,
+                        SalesforceSourceOptions.JOB_COMPLETION_TIMEOUT_MS)
                 .build();
     }
 

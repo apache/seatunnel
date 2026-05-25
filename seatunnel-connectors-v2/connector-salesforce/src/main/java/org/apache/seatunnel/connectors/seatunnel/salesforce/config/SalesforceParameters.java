@@ -33,9 +33,9 @@ public class SalesforceParameters implements Serializable {
     private String securityToken;
     private String instanceUrl;
     private String apiVersion;
-    private int maxRetries;
     private int requestTimeoutMs;
     private long pollIntervalMs;
+    private long jobCompletionTimeoutMs;
 
     public void buildWithConfig(ReadonlyConfig config) {
         this.clientId = config.get(SalesforceSourceOptions.CLIENT_ID);
@@ -45,8 +45,8 @@ public class SalesforceParameters implements Serializable {
         this.securityToken = config.get(SalesforceSourceOptions.SECURITY_TOKEN);
         this.instanceUrl = config.get(SalesforceSourceOptions.INSTANCE_URL);
         this.apiVersion = config.get(SalesforceSourceOptions.API_VERSION);
-        this.maxRetries = config.get(SalesforceSourceOptions.MAX_RETRIES);
         this.requestTimeoutMs = config.get(SalesforceSourceOptions.REQUEST_TIMEOUT_MS);
         this.pollIntervalMs = config.get(SalesforceSourceOptions.POLL_INTERVAL_MS);
+        this.jobCompletionTimeoutMs = config.get(SalesforceSourceOptions.JOB_COMPLETION_TIMEOUT_MS);
     }
 }

@@ -83,12 +83,6 @@ public class SalesforceSourceOptions {
                             "SOQL WHERE clause appended to the auto-built "
                                     + "SELECT FIELDS(ALL) FROM <object> query.");
 
-    public static final Option<Integer> MAX_RETRIES =
-            Options.key("max_retries")
-                    .intType()
-                    .defaultValue(3)
-                    .withDescription("Maximum number of retries on transient HTTP errors.");
-
     public static final Option<Integer> REQUEST_TIMEOUT_MS =
             Options.key("request_timeout_ms")
                     .intType()
@@ -100,6 +94,14 @@ public class SalesforceSourceOptions {
                     .longType()
                     .defaultValue(5000L)
                     .withDescription("Interval in milliseconds between Bulk API job status polls.");
+
+    public static final Option<Long> JOB_COMPLETION_TIMEOUT_MS =
+            Options.key("job_completion_timeout_ms")
+                    .longType()
+                    .defaultValue(3_600_000L)
+                    .withDescription(
+                            "Maximum time in milliseconds to wait for a Bulk API job to reach a "
+                                    + "terminal state. Default 3600000 (60 minutes).");
 
     public static final Option<String> TABLE_PATH =
             Options.key("table_path")
