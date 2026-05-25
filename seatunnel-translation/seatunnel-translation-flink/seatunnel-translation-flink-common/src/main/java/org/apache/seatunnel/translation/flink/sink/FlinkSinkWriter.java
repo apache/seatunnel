@@ -22,6 +22,8 @@ import org.apache.seatunnel.api.common.metrics.Meter;
 import org.apache.seatunnel.api.common.metrics.MetricNames;
 import org.apache.seatunnel.api.common.metrics.MetricsContext;
 import org.apache.seatunnel.api.sink.MultiTableResourceManager;
+import org.apache.seatunnel.api.sink.SinkAggregatedCommitter;
+import org.apache.seatunnel.api.sink.SinkCommitter;
 import org.apache.seatunnel.api.sink.SupportResourceShare;
 import org.apache.seatunnel.api.sink.SupportSchemaEvolutionSinkWriter;
 import org.apache.seatunnel.api.sink.event.WriterCloseEvent;
@@ -68,7 +70,15 @@ public class FlinkSinkWriter<InputT, CommT, WriterStateT>
 
     private long checkpointId;
 
+    private volatile boolean checkpointStalled;
+
+    private final SinkCommitter<CommT> sinkCommitter;
+
+    private final SinkAggregatedCommitter<CommT, Object> sinkAggregatedCommitter;
+
     private MultiTableResourceManager resourceManager;
+
+    private MultiTableResourceManager aggregatedCommitterResourceManager;
 
     /**
      * Cached writer states produced together with {@link #prepareCommit(boolean)}.
@@ -86,10 +96,17 @@ public class FlinkSinkWriter<InputT, CommT, WriterStateT>
     FlinkSinkWriter(
             org.apache.seatunnel.api.sink.SinkWriter<SeaTunnelRow, CommT, WriterStateT> sinkWriter,
             long checkpointId,
-            org.apache.seatunnel.api.sink.SinkWriter.Context context) {
+            org.apache.seatunnel.api.sink.SinkWriter.Context context,
+            SinkCommitter<CommT> sinkCommitter,
+            SinkAggregatedCommitter<CommT, ?> sinkAggregatedCommitter) {
         this.context = context;
         this.sinkWriter = sinkWriter;
         this.checkpointId = checkpointId;
+        this.sinkCommitter = sinkCommitter;
+        this.sinkAggregatedCommitter =
+                sinkAggregatedCommitter == null
+                        ? null
+                        : (SinkAggregatedCommitter<CommT, Object>) sinkAggregatedCommitter;
         MetricsContext metricsContext = context.getMetricsContext();
         this.sinkWriteCount = metricsContext.counter(MetricNames.SINK_WRITE_COUNT);
         this.sinkWriteBytes = metricsContext.counter(MetricNames.SINK_WRITE_BYTES);
@@ -98,6 +115,16 @@ public class FlinkSinkWriter<InputT, CommT, WriterStateT>
             resourceManager =
                     ((SupportResourceShare) sinkWriter).initMultiTableResourceManager(1, 1);
             ((SupportResourceShare) sinkWriter).setMultiTableResourceManager(resourceManager, 0);
+        }
+        if (this.sinkAggregatedCommitter != null) {
+            this.sinkAggregatedCommitter.init();
+            if (this.sinkAggregatedCommitter instanceof SupportResourceShare) {
+                aggregatedCommitterResourceManager =
+                        ((SupportResourceShare) this.sinkAggregatedCommitter)
+                                .initMultiTableResourceManager(1, 1);
+                ((SupportResourceShare) this.sinkAggregatedCommitter)
+                        .setMultiTableResourceManager(aggregatedCommitterResourceManager, 0);
+            }
         }
     }
 
@@ -118,6 +145,15 @@ public class FlinkSinkWriter<InputT, CommT, WriterStateT>
         sinkWriteCount.inc();
         sinkWriteBytes.inc(seaTunnelRow.getBytesSize());
         sinkWriterQPS.markEvent();
+
+        if (checkpointStalled) {
+            try {
+                Optional<CommT> commitInfo = sinkWriter.prepareCommit(checkpointId);
+                immediateCommitIfStalled(commitInfo);
+            } catch (Exception e) {
+                log.warn("Auto-flush after write failed (checkpoint stalled mode)", e);
+            }
+        }
     }
 
     private boolean handleControlMessage(Map<String, Object> options) throws IOException {
@@ -132,7 +168,36 @@ public class FlinkSinkWriter<InputT, CommT, WriterStateT>
             return true;
         }
 
+        if (options.containsKey("flush_signal")) {
+            flushBufferedData();
+            return true;
+        }
+
         return false;
+    }
+
+    private void flushBufferedData() {
+        checkpointStalled = true;
+        try {
+            Optional<CommT> commitInfo = sinkWriter.prepareCommit(checkpointId);
+            immediateCommitIfStalled(commitInfo);
+            log.info(
+                    "Flushed buffered data in response to flush signal. "
+                            + "Checkpoint-stalled mode enabled: subsequent writes will auto-flush.");
+        } catch (Exception e) {
+            log.warn("Failed to flush buffered data on flush signal", e);
+        }
+    }
+
+    private void immediateCommitIfStalled(Optional<CommT> commitInfo) {
+        if (!commitInfo.isPresent()) {
+            return;
+        }
+        try {
+            commitPreparedData(commitInfo);
+        } catch (Exception e) {
+            log.warn("Failed to immediately commit prepared data (checkpoint-stalled mode)", e);
+        }
     }
 
     private void handleSchemaChangeEvent(
@@ -155,6 +220,7 @@ public class FlinkSinkWriter<InputT, CommT, WriterStateT>
         boolean success = false;
 
         try {
+            flushBeforeSchemaChange(schemaChangeEvent);
             ((SupportSchemaEvolutionSinkWriter) sinkWriter).applySchemaChange(schemaChangeEvent);
             log.info(
                     "FlinkSinkWriter successfully applied SchemaChangeEvent for table: {}",
@@ -176,6 +242,47 @@ public class FlinkSinkWriter<InputT, CommT, WriterStateT>
                     schemaChangeEvent.tableIdentifier(),
                     schemaChangeEvent.getJobId(),
                     null);
+        }
+    }
+
+    private void flushBeforeSchemaChange(SchemaChangeEvent schemaChangeEvent) throws IOException {
+        if (sinkCommitter == null && sinkAggregatedCommitter == null) {
+            return;
+        }
+
+        try {
+            Optional<CommT> commitInfo = sinkWriter.prepareCommit(checkpointId);
+            commitPreparedData(commitInfo);
+            log.info(
+                    "Committed pending sink data before schema change for table: {}",
+                    schemaChangeEvent.tableIdentifier());
+        } catch (Exception e) {
+            throw new IOException(
+                    String.format(
+                            "Failed to commit pending sink data before schema change for table %s",
+                            schemaChangeEvent.tableIdentifier()),
+                    e);
+        }
+    }
+
+    private void commitPreparedData(Optional<CommT> commitInfo) throws Exception {
+        if (!commitInfo.isPresent()) {
+            return;
+        }
+        if (sinkCommitter != null) {
+            sinkCommitter.commit(Collections.singletonList(commitInfo.get()));
+            return;
+        }
+        if (sinkAggregatedCommitter != null) {
+            Object aggregatedCommitInfo =
+                    sinkAggregatedCommitter.combine(Collections.singletonList(commitInfo.get()));
+            List<Object> retryCommitInfos =
+                    sinkAggregatedCommitter.commit(Collections.singletonList(aggregatedCommitInfo));
+            if (!retryCommitInfos.isEmpty()) {
+                log.warn(
+                        "Aggregated committer returned {} retry commit(s).",
+                        retryCommitInfos.size());
+            }
         }
     }
 
@@ -259,6 +366,14 @@ public class FlinkSinkWriter<InputT, CommT, WriterStateT>
 
     @Override
     public void close() throws Exception {
+        try {
+            if (checkpointStalled) {
+                Optional<CommT> commitInfo = sinkWriter.prepareCommit(checkpointId);
+                immediateCommitIfStalled(commitInfo);
+            }
+        } catch (Exception e) {
+            log.warn("Failed to perform final stalled-mode flush before close", e);
+        }
         sinkWriter.close();
         context.getEventListener().onEvent(new WriterCloseEvent());
         try {
@@ -267,6 +382,16 @@ public class FlinkSinkWriter<InputT, CommT, WriterStateT>
             }
         } catch (Throwable e) {
             log.error("close resourceManager error", e);
+        }
+        try {
+            if (sinkAggregatedCommitter != null) {
+                sinkAggregatedCommitter.close();
+            }
+            if (aggregatedCommitterResourceManager != null) {
+                aggregatedCommitterResourceManager.close();
+            }
+        } catch (Throwable e) {
+            log.error("close aggregated committer resource error", e);
         }
     }
 }

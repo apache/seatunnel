@@ -19,6 +19,7 @@ package org.apache.seatunnel.translation.flink.sink;
 
 import org.apache.seatunnel.api.common.metrics.MetricsContext;
 import org.apache.seatunnel.api.event.EventListener;
+import org.apache.seatunnel.api.sink.SinkCommitter;
 import org.apache.seatunnel.api.sink.SinkWriter;
 import org.apache.seatunnel.api.table.type.SeaTunnelRow;
 
@@ -27,8 +28,11 @@ import org.junit.jupiter.api.Test;
 
 import java.io.IOException;
 import java.util.ArrayList;
+import java.util.Arrays;
 import java.util.Collections;
+import java.util.LinkedHashMap;
 import java.util.List;
+import java.util.Map;
 import java.util.Optional;
 
 class FlinkSinkWriterTest {
@@ -39,7 +43,7 @@ class FlinkSinkWriterTest {
         RecordingContext context = new RecordingContext();
 
         FlinkSinkWriter<SeaTunnelRow, String, String> flinkSinkWriter =
-                new FlinkSinkWriter<>(delegate, 1L, context);
+                new FlinkSinkWriter<>(delegate, 1L, context, null, null);
 
         // first checkpoint
         List<CommitWrapper<String>> commits = flinkSinkWriter.prepareCommit(false);
@@ -72,7 +76,7 @@ class FlinkSinkWriterTest {
         RecordingContext context = new RecordingContext();
 
         FlinkSinkWriter<SeaTunnelRow, String, String> flinkSinkWriter =
-                new FlinkSinkWriter<>(delegate, 3L, context);
+                new FlinkSinkWriter<>(delegate, 3L, context, null, null);
 
         // Direct snapshotState should call delegate.snapshotState with checkpointId 3
         List<FlinkWriterState<String>> states = flinkSinkWriter.snapshotState();
@@ -83,13 +87,40 @@ class FlinkSinkWriterTest {
         Assertions.assertEquals("state-3", states.get(0).getState());
     }
 
+    @Test
+    void testFlushSignalEnablesImmediateCommitForStalledCheckpoint() throws Exception {
+        RecordingSinkWriter delegate = new RecordingSinkWriter();
+        RecordingCommitter committer = new RecordingCommitter();
+        RecordingContext context = new RecordingContext();
+
+        FlinkSinkWriter<SeaTunnelRow, String, String> flinkSinkWriter =
+                new FlinkSinkWriter<>(delegate, 7L, context, committer, null);
+
+        SeaTunnelRow flushSignal = new SeaTunnelRow(0);
+        Map<String, Object> options = new LinkedHashMap<>();
+        options.put("flush_signal", true);
+        flushSignal.setOptions(options);
+        flinkSinkWriter.write(flushSignal, null);
+
+        SeaTunnelRow row = new SeaTunnelRow(1);
+        row.setField(0, "value");
+        flinkSinkWriter.write(row, null);
+
+        Assertions.assertEquals(1, delegate.writtenRows.size());
+        Assertions.assertEquals(Arrays.asList(7L, 7L), delegate.prepareCommitCalls);
+        Assertions.assertEquals(Arrays.asList("commit-7", "commit-7"), committer.committed);
+    }
+
     private static class RecordingSinkWriter implements SinkWriter<SeaTunnelRow, String, String> {
 
         private final List<Long> prepareCommitCalls = new ArrayList<>();
         private final List<Long> snapshotCalls = new ArrayList<>();
+        private final List<SeaTunnelRow> writtenRows = new ArrayList<>();
 
         @Override
-        public void write(SeaTunnelRow element) throws IOException {}
+        public void write(SeaTunnelRow element) throws IOException {
+            writtenRows.add(element);
+        }
 
         @Override
         public Optional<String> prepareCommit() {
@@ -114,6 +145,19 @@ class FlinkSinkWriterTest {
 
         @Override
         public void close() throws IOException {}
+    }
+
+    private static class RecordingCommitter implements SinkCommitter<String> {
+        private final List<String> committed = new ArrayList<>();
+
+        @Override
+        public List<String> commit(List<String> commitInfos) {
+            committed.addAll(commitInfos);
+            return Collections.emptyList();
+        }
+
+        @Override
+        public void abort(List<String> commitInfos) {}
     }
 
     private static class RecordingContext implements SinkWriter.Context {
