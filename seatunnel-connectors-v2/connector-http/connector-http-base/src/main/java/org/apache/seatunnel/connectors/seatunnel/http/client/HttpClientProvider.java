@@ -169,6 +169,43 @@ public class HttpClientProvider implements AutoCloseable {
         return doGet(url, headers, params);
     }
 
+    public HttpResponse executeBinary(
+            String url,
+            String method,
+            Map<String, String> headers,
+            Map<String, String> params,
+            String body,
+            boolean keepParamsAsForm)
+            throws Exception {
+        method = method.toUpperCase(Locale.ROOT);
+        if (HttpGet.METHOD_NAME.equals(method)) {
+            URIBuilder uriBuilder = new URIBuilder(url);
+            addParameters(uriBuilder, params);
+            HttpGet httpGet = new HttpGet(uriBuilder.build());
+            httpGet.setConfig(requestConfig);
+            addHeaders(httpGet, headers);
+            return getResponseBinary(httpGet);
+        }
+        if (HttpPost.METHOD_NAME.equals(method)) {
+            HttpPost httpPost = new HttpPost(url);
+            httpPost.setConfig(requestConfig);
+            addHeaders(httpPost, headers);
+            if (!Strings.isNullOrEmpty(body)) {
+                httpPost.setEntity(new StringEntity(body, ContentType.APPLICATION_JSON));
+            } else {
+                addParameters(httpPost, params);
+            }
+            return getResponseBinary(httpPost);
+        }
+        // fallback to GET for other methods
+        URIBuilder uriBuilder = new URIBuilder(url);
+        addParameters(uriBuilder, params);
+        HttpGet httpGet = new HttpGet(uriBuilder.build());
+        httpGet.setConfig(requestConfig);
+        addHeaders(httpGet, headers);
+        return getResponseBinary(httpGet);
+    }
+
     /**
      * Send a get request without request headers and request parameters
      *
@@ -425,6 +462,27 @@ public class HttpClientProvider implements AutoCloseable {
                     content = EntityUtils.toString(httpResponse.getEntity(), ENCODING);
                 }
                 return new HttpResponse(httpResponse.getStatusLine().getStatusCode(), content);
+            }
+        }
+        return new HttpResponse(HttpStatus.SC_INTERNAL_SERVER_ERROR);
+    }
+
+    private HttpResponse getResponseBinary(HttpRequestBase request) throws Exception {
+        try (CloseableHttpResponse httpResponse = retryWithException(request)) {
+            if (httpResponse != null && httpResponse.getStatusLine() != null) {
+                byte[] bodyBytes = null;
+                if (httpResponse.getEntity() != null) {
+                    bodyBytes = EntityUtils.toByteArray(httpResponse.getEntity());
+                }
+                String contentDisposition = null;
+                if (httpResponse.getFirstHeader("Content-Disposition") != null) {
+                    contentDisposition =
+                            httpResponse.getFirstHeader("Content-Disposition").getValue();
+                }
+                return new HttpResponse(
+                        httpResponse.getStatusLine().getStatusCode(),
+                        bodyBytes,
+                        contentDisposition);
             }
         }
         return new HttpResponse(HttpStatus.SC_INTERNAL_SERVER_ERROR);
