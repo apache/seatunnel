@@ -245,6 +245,7 @@ public class EdgeSocketIngressServer {
                             reader, writer, collectorSocket.getRemoteSocketAddress())) {
                         continue;
                     }
+                    closeServerSocket();
                     receiveFromCollector(reader, writer);
                 } finally {
                     hasActiveCollector = false;
