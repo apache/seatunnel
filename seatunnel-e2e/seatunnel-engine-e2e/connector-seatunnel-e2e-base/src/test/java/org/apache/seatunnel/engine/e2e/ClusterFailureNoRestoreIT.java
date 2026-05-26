@@ -65,8 +65,12 @@ public class ClusterFailureNoRestoreIT {
     /** Wait for the batch job to enter the steady RUNNING state before shutting a worker down. */
     private static final long PRE_SHUTDOWN_RUNNING_TIMEOUT_SECONDS = 30L;
 
-    /** Ensure the sink has started receiving records before we trigger the worker shutdown. */
-    private static final long PRE_SHUTDOWN_PROGRESS_TIMEOUT_SECONDS = 30L;
+    /**
+     * Give the running batch topology a short warm-up window before shutting down a worker. The
+     * LocalFile sink used by this test commits files transactionally, so intermediate file lines
+     * are not a reliable progress signal while the job is still running.
+     */
+    private static final long PRE_SHUTDOWN_RUNNING_GRACE_SECONDS = 5L;
 
     private static final String DYNAMIC_TEST_CASE_NAME = "dynamic_test_case_name";
 
@@ -126,18 +130,7 @@ public class ClusterFailureNoRestoreIT {
                                     Assertions.assertEquals(
                                             JobStatus.RUNNING, clientJobProxy.getJobStatus()));
 
-            Awaitility.await()
-                    .atMost(PRE_SHUTDOWN_PROGRESS_TIMEOUT_SECONDS, TimeUnit.SECONDS)
-                    .pollInterval(500, TimeUnit.MILLISECONDS)
-                    .untilAsserted(
-                            () -> {
-                                Long lineNumberFromDir =
-                                        FileUtils.getFileLineNumberFromDir(testResources.getLeft());
-                                log.warn(
-                                        "\n====================={}=====================\n",
-                                        lineNumberFromDir);
-                                Assertions.assertTrue(lineNumberFromDir > 0);
-                            });
+            TimeUnit.SECONDS.sleep(PRE_SHUTDOWN_RUNNING_GRACE_SECONDS);
 
             CompletableFuture<JobResult> waitForCompleteFuture =
                     CompletableFuture.supplyAsync(clientJobProxy::waitForJobCompleteV2);

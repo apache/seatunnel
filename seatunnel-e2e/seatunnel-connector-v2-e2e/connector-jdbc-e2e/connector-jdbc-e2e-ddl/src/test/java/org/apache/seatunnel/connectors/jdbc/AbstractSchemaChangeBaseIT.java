@@ -385,7 +385,7 @@ public abstract class AbstractSchemaChangeBaseIT extends TestSuiteBase implement
         sourceDatabase.setTemplateName("add_columns").createAndInitialize();
         given().pollDelay(Duration.ofSeconds(5))
                 .await()
-                .atMost(120, TimeUnit.SECONDS)
+                .atMost(SCHEMA_ASSERT_TIMEOUT_MILLIS, TimeUnit.MILLISECONDS)
                 .untilAsserted(
                         () ->
                                 Assertions.assertIterableEquals(
