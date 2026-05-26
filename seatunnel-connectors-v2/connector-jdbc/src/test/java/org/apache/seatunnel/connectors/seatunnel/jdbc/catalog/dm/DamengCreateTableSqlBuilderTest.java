@@ -96,34 +96,49 @@ public class DamengCreateTableSqlBuilderTest {
                         new ArrayList<>(),
                         "User table");
 
-        String createTableSql =
+        java.util.List<String> createTableSqls =
                 new DamengCreateTableSqlBuilder(catalogTable, true).build(tablePath);
-        String expect =
+
+        Assertions.assertEquals(6, createTableSqls.size());
+        Assertions.assertTrue(createTableSqls.get(0).startsWith("CREATE TABLE"));
+
+        String regex1 = "id_\\w+";
+        String regex2 = "name_\\w+";
+        String actualCreate =
+                createTableSqls.get(0).replaceAll(regex1, "id_").replaceAll(regex2, "name_");
+        String expectCreate =
                 "CREATE TABLE \"test_schema\".\"test_table\" (\n"
                         + "\"id\" BIGINT NOT NULL,\n"
                         + "\"name\" VARCHAR2(128) NOT NULL,\n"
                         + "\"age\" INT,\n"
                         + "\"createTime\" TIMESTAMP,\n"
                         + "\"lastUpdateTime\" TIMESTAMP,\n"
-                        + "CONSTRAINT id_63d5 PRIMARY KEY (\"id\"),\n"
-                        + "\tCONSTRAINT name_49b6 UNIQUE (\"name\")\n"
-                        + ");\n"
-                        + "COMMENT ON COLUMN \"test_schema\".\"test_table\".\"id\" IS 'id';\n"
-                        + "COMMENT ON COLUMN \"test_schema\".\"test_table\".\"name\" IS 'name';\n"
-                        + "COMMENT ON COLUMN \"test_schema\".\"test_table\".\"age\" IS 'age';\n"
-                        + "COMMENT ON COLUMN \"test_schema\".\"test_table\".\"createTime\" IS 'createTime';\n"
-                        + "COMMENT ON COLUMN \"test_schema\".\"test_table\".\"lastUpdateTime\" IS 'lastUpdateTime';";
+                        + "CONSTRAINT id_ PRIMARY KEY (\"id\"),\n"
+                        + "\tCONSTRAINT name_ UNIQUE (\"name\")\n"
+                        + ")";
+        Assertions.assertEquals(expectCreate, actualCreate);
 
-        String regex1 = "id_\\w+";
-        String regex2 = "name_\\w+";
-        String replacedStr1 = createTableSql.replaceAll(regex1, "id_").replaceAll(regex2, "name_");
-        String replacedStr2 = expect.replaceAll(regex1, "id_").replaceAll(regex2, "name_");
-        Assertions.assertEquals(replacedStr2, replacedStr1);
+        Assertions.assertEquals(
+                "COMMENT ON COLUMN \"test_schema\".\"test_table\".\"id\" IS 'id'",
+                createTableSqls.get(1));
+        Assertions.assertEquals(
+                "COMMENT ON COLUMN \"test_schema\".\"test_table\".\"name\" IS 'name'",
+                createTableSqls.get(2));
+        Assertions.assertEquals(
+                "COMMENT ON COLUMN \"test_schema\".\"test_table\".\"age\" IS 'age'",
+                createTableSqls.get(3));
+        Assertions.assertEquals(
+                "COMMENT ON COLUMN \"test_schema\".\"test_table\".\"createTime\" IS 'createTime'",
+                createTableSqls.get(4));
+        Assertions.assertEquals(
+                "COMMENT ON COLUMN \"test_schema\".\"test_table\".\"lastUpdateTime\" IS 'lastUpdateTime'",
+                createTableSqls.get(5));
 
         // skip index
-        String createTableSqlSkipIndex =
+        java.util.List<String> createTableSqlsSkipIndex =
                 new DamengCreateTableSqlBuilder(catalogTable, false).build(tablePath);
-        // create table sql is change; The old unit tests are no longer applicable
+
+        Assertions.assertEquals(6, createTableSqlsSkipIndex.size());
         String expectSkipIndex =
                 "CREATE TABLE \"test_schema\".\"test_table\" (\n"
                         + "\"id\" BIGINT NOT NULL,\n"
@@ -131,13 +146,14 @@ public class DamengCreateTableSqlBuilderTest {
                         + "\"age\" INT,\n"
                         + "\"createTime\" TIMESTAMP,\n"
                         + "\"lastUpdateTime\" TIMESTAMP\n"
-                        + ");\n"
-                        + "COMMENT ON COLUMN \"test_schema\".\"test_table\".\"id\" IS 'id';\n"
-                        + "COMMENT ON COLUMN \"test_schema\".\"test_table\".\"name\" IS 'name';\n"
-                        + "COMMENT ON COLUMN \"test_schema\".\"test_table\".\"age\" IS 'age';\n"
-                        + "COMMENT ON COLUMN \"test_schema\".\"test_table\".\"createTime\" IS 'createTime';\n"
-                        + "COMMENT ON COLUMN \"test_schema\".\"test_table\".\"lastUpdateTime\" IS 'lastUpdateTime';";
-        Assertions.assertEquals(expectSkipIndex, createTableSqlSkipIndex);
+                        + ")";
+        Assertions.assertEquals(expectSkipIndex, createTableSqlsSkipIndex.get(0));
+        Assertions.assertEquals(
+                "COMMENT ON COLUMN \"test_schema\".\"test_table\".\"id\" IS 'id'",
+                createTableSqlsSkipIndex.get(1));
+        Assertions.assertEquals(
+                "COMMENT ON COLUMN \"test_schema\".\"test_table\".\"lastUpdateTime\" IS 'lastUpdateTime'",
+                createTableSqlsSkipIndex.get(5));
     }
 
     @Test
