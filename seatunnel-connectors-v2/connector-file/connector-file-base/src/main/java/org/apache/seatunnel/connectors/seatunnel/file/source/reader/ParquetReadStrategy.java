@@ -36,6 +36,7 @@ import org.apache.seatunnel.connectors.seatunnel.file.exception.FileConnectorExc
 import org.apache.seatunnel.connectors.seatunnel.file.source.split.FileSourceSplit;
 
 import org.apache.avro.Conversions;
+import org.apache.avro.SchemaParseException;
 import org.apache.avro.data.TimeConversions;
 import org.apache.avro.generic.GenericData;
 import org.apache.avro.generic.GenericRecord;
@@ -43,9 +44,11 @@ import org.apache.avro.util.Utf8;
 import org.apache.hadoop.fs.FSDataInputStream;
 import org.apache.hadoop.fs.Path;
 import org.apache.parquet.avro.AvroParquetReader;
+import org.apache.parquet.example.data.Group;
 import org.apache.parquet.example.data.simple.NanoTime;
 import org.apache.parquet.hadoop.ParquetFileReader;
 import org.apache.parquet.hadoop.ParquetReader;
+import org.apache.parquet.hadoop.example.GroupReadSupport;
 import org.apache.parquet.hadoop.metadata.FileMetaData;
 import org.apache.parquet.hadoop.metadata.ParquetMetadata;
 import org.apache.parquet.hadoop.util.HadoopInputFile;
@@ -54,16 +57,19 @@ import org.apache.parquet.schema.GroupType;
 import org.apache.parquet.schema.LogicalTypeAnnotation;
 import org.apache.parquet.schema.MessageType;
 import org.apache.parquet.schema.OriginalType;
+import org.apache.parquet.schema.PrimitiveType;
 import org.apache.parquet.schema.Type;
 
 import lombok.extern.slf4j.Slf4j;
 
 import java.io.IOException;
 import java.math.BigDecimal;
+import java.math.BigInteger;
 import java.math.RoundingMode;
 import java.nio.ByteBuffer;
 import java.sql.Timestamp;
 import java.time.Instant;
+import java.time.LocalDate;
 import java.time.LocalDateTime;
 import java.time.ZoneId;
 import java.util.ArrayList;
@@ -95,6 +101,23 @@ public class ParquetReadStrategy extends AbstractReadStrategy {
 
     @Override
     public void read(FileSourceSplit split, Collector<SeaTunnelRow> output)
+            throws IOException, FileConnectorException {
+        try {
+            readWithAvro(split, output);
+        } catch (RuntimeException e) {
+            if (!isIllegalAvroFieldNameException(e)) {
+                throw e;
+            }
+            log.warn(
+                    "Failed to read parquet file [{}] with Avro reader due to illegal Avro field"
+                            + " name, fallback to native parquet reader",
+                    split.getFilePath(),
+                    e);
+            readWithNativeParquet(split, output);
+        }
+    }
+
+    private void readWithAvro(FileSourceSplit split, Collector<SeaTunnelRow> output)
             throws IOException, FileConnectorException {
         String tableId = split.getTableId();
         String path = split.getFilePath();
@@ -148,6 +171,172 @@ public class ParquetReadStrategy extends AbstractReadStrategy {
                 output.collect(seaTunnelRow);
             }
         }
+    }
+
+    private void readWithNativeParquet(FileSourceSplit split, Collector<SeaTunnelRow> output)
+            throws IOException {
+        String tableId = split.getTableId();
+        String path = split.getFilePath();
+        Path filePath = new Path(path);
+        Map<String, String> partitionsMap = parsePartitionsByPath(path);
+        int fieldsCount = seaTunnelRowType.getTotalFields();
+        final boolean useSplitRange =
+                enableSplitFile && split.getStart() >= 0 && split.getLength() > 0;
+        ParquetReader<Group> reader =
+                hadoopFileSystemProxy.doWithHadoopAuth(
+                        (configuration, userGroupInformation) -> {
+                            ParquetReader.Builder<Group> builder =
+                                    ParquetReader.builder(new GroupReadSupport(), filePath)
+                                            .withConf(configuration);
+                            if (useSplitRange) {
+                                long start = split.getStart();
+                                long end = start + split.getLength();
+                                builder.withFileRange(start, end);
+                            }
+                            return builder.build();
+                        });
+        try (ParquetReader<Group> closeableReader = reader) {
+            Group record;
+            while ((record = closeableReader.read()) != null) {
+                Object[] fields;
+                if (isMergePartition) {
+                    int index = fieldsCount;
+                    fields = new Object[fieldsCount + partitionsMap.size()];
+                    for (String value : partitionsMap.values()) {
+                        fields[index++] = value;
+                    }
+                } else {
+                    fields = new Object[fieldsCount];
+                }
+                for (int i = 0; i < fieldsCount; i++) {
+                    fields[i] =
+                            resolveGroupObject(
+                                    record,
+                                    record.getType().getType(indexes[i]),
+                                    indexes[i],
+                                    seaTunnelRowType.getFieldType(i));
+                }
+                SeaTunnelRow seaTunnelRow = new SeaTunnelRow(fields);
+                seaTunnelRow.setTableId(tableId);
+                output.collect(seaTunnelRow);
+            }
+        }
+    }
+
+    private boolean isIllegalAvroFieldNameException(Throwable throwable) {
+        while (throwable != null) {
+            String message = throwable.getMessage();
+            if ((throwable instanceof SchemaParseException
+                            || throwable.getClass().getName().endsWith(".SchemaParseException"))
+                    && message != null
+                    && message.contains("Illegal character in")) {
+                return true;
+            }
+            throwable = throwable.getCause();
+        }
+        return false;
+    }
+
+    private Object resolveGroupObject(
+            Group group, Type parquetType, int fieldIndex, SeaTunnelDataType<?> fieldType) {
+        if (group.getFieldRepetitionCount(fieldIndex) == 0) {
+            return null;
+        }
+        if (!parquetType.isPrimitive()) {
+            return resolveGroupType(group, parquetType, fieldIndex, fieldType);
+        }
+        Object field = readPrimitiveGroupObject(group, parquetType.asPrimitiveType(), fieldIndex);
+        if (field instanceof LocalDateTime || field instanceof LocalDate) {
+            return field;
+        }
+        return resolveObject(field, fieldType);
+    }
+
+    private Object resolveGroupType(
+            Group group, Type parquetType, int fieldIndex, SeaTunnelDataType<?> fieldType) {
+        GroupType groupType = parquetType.asGroupType();
+        LogicalTypeAnnotation logicalTypeAnnotation = groupType.getLogicalTypeAnnotation();
+        if (logicalTypeAnnotation != null) {
+            throw CommonError.convertToSeaTunnelTypeError(
+                    PARQUET, parquetType.toString(), parquetType.getName());
+        }
+        SeaTunnelRowType rowType = (SeaTunnelRowType) fieldType;
+        Group childGroup = group.getGroup(fieldIndex, 0);
+        Object[] objects = new Object[rowType.getTotalFields()];
+        for (int i = 0; i < rowType.getTotalFields(); i++) {
+            objects[i] =
+                    resolveGroupObject(
+                            childGroup, groupType.getType(i), i, rowType.getFieldType(i));
+        }
+        return new SeaTunnelRow(objects);
+    }
+
+    private Object readPrimitiveGroupObject(
+            Group group, PrimitiveType parquetType, int fieldIndex) {
+        switch (parquetType.getPrimitiveTypeName()) {
+            case BOOLEAN:
+                return group.getBoolean(fieldIndex, 0);
+            case INT32:
+                if (parquetType.getOriginalType() == OriginalType.DATE) {
+                    return LocalDate.ofEpochDay(group.getInteger(fieldIndex, 0));
+                }
+                return group.getInteger(fieldIndex, 0);
+            case INT64:
+                return group.getLong(fieldIndex, 0);
+            case INT96:
+                return int96ToLocalDateTime(group.getInt96(fieldIndex, 0));
+            case FLOAT:
+                return group.getFloat(fieldIndex, 0);
+            case DOUBLE:
+                return group.getDouble(fieldIndex, 0);
+            case BINARY:
+                return readBinaryGroupObject(group.getBinary(fieldIndex, 0), parquetType);
+            case FIXED_LEN_BYTE_ARRAY:
+                return readFixedLenByteArrayGroupObject(
+                        group.getBinary(fieldIndex, 0), parquetType);
+            default:
+                throw CommonError.convertToSeaTunnelTypeError(
+                        PARQUET, parquetType.toString(), parquetType.getName());
+        }
+    }
+
+    private Object readBinaryGroupObject(Binary binary, PrimitiveType parquetType) {
+        if (parquetType.getOriginalType() == OriginalType.DECIMAL) {
+            return binaryToDecimal(binary, parquetType);
+        }
+        if (parquetType.getOriginalType() == null) {
+            return binary.toByteBuffer();
+        }
+        return binary.toStringUsingUTF8();
+    }
+
+    private Object readFixedLenByteArrayGroupObject(Binary binary, PrimitiveType parquetType) {
+        if (parquetType.getLogicalTypeAnnotation()
+                instanceof LogicalTypeAnnotation.DecimalLogicalTypeAnnotation) {
+            return binaryToDecimal(binary, parquetType);
+        }
+        return binary.toByteBuffer();
+    }
+
+    private BigDecimal binaryToDecimal(Binary binary, PrimitiveType parquetType) {
+        int scale =
+                parquetType.getLogicalTypeAnnotation()
+                                instanceof LogicalTypeAnnotation.DecimalLogicalTypeAnnotation
+                        ? ((LogicalTypeAnnotation.DecimalLogicalTypeAnnotation)
+                                        parquetType.getLogicalTypeAnnotation())
+                                .getScale()
+                        : parquetType.getDecimalMetadata().getScale();
+        return new BigDecimal(new BigInteger(binary.getBytes()), scale);
+    }
+
+    private LocalDateTime int96ToLocalDateTime(Binary binary) {
+        NanoTime nanoTime = NanoTime.fromBinary(binary);
+        int julianDay = nanoTime.getJulianDay();
+        long nanosOfDay = nanoTime.getTimeOfDayNanos();
+        long timestamp =
+                (julianDay - JULIAN_DAY_NUMBER_FOR_UNIX_EPOCH) * MILLIS_PER_DAY
+                        + nanosOfDay / NANOS_PER_MILLISECOND;
+        return new Timestamp(timestamp).toLocalDateTime();
     }
 
     private Object resolveObject(Object field, SeaTunnelDataType<?> fieldType) {
