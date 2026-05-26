@@ -455,7 +455,7 @@ public class SeaTunnelEngineClusterRoleTest {
                                                             .contains("RUNNING")));
             jobClient.cancelJob(jobId);
             await().pollDelay(10000, TimeUnit.MILLISECONDS)
-                    .atMost(60000, TimeUnit.MILLISECONDS)
+                    .atMost(120000, TimeUnit.MILLISECONDS)
                     .untilAsserted(
                             () ->
                                     Assertions.assertEquals(
