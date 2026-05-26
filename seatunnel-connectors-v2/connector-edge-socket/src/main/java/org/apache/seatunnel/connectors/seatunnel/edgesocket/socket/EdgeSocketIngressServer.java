@@ -153,18 +153,6 @@ public class EdgeSocketIngressServer {
                         "0.0.0.0", config.getPort()));
     }
 
-    private void suspendServerSocket() {
-        ServerSocket current = serverSocket;
-        serverSocket = null;
-        if (current != null) {
-            try {
-                current.close();
-            } catch (IOException closeException) {
-                log.warn("Close server socket during collector session failed", closeException);
-            }
-        }
-    }
-
     private void closeServerSocket() throws IOException {
         ServerSocket current = serverSocket;
         serverSocket = null;
@@ -238,8 +226,6 @@ public class EdgeSocketIngressServer {
                     continue;
                 }
                 hasActiveCollector = true;
-                drainBacklogConnections(currentServerSocket);
-                suspendServerSocket();
                 try {
                     if (!authenticateCollector(
                             reader, writer, collectorSocket.getRemoteSocketAddress())) {
@@ -367,41 +353,6 @@ public class EdgeSocketIngressServer {
         }
         String payload = normalizedRequest.substring(separatorIndex + 1);
         return handler.handleBatchRecord(batchId, payload);
-    }
-
-    private void drainBacklogConnections(ServerSocket ss) {
-        int originalTimeout;
-        try {
-            originalTimeout = ss.getSoTimeout();
-            ss.setSoTimeout(1);
-        } catch (IOException e) {
-            return;
-        }
-        try {
-            while (true) {
-                try (Socket backlogged = ss.accept();
-                        BufferedWriter w =
-                                new BufferedWriter(
-                                        new OutputStreamWriter(
-                                                backlogged.getOutputStream(),
-                                                StandardCharsets.UTF_8))) {
-                    log.warn(
-                            "Rejected backlog collector from {}: another collector is already connected",
-                            backlogged.getRemoteSocketAddress());
-                    writeResponse(w, EdgeSocketResponseCode.REJECTED);
-                } catch (SocketTimeoutException drained) {
-                    break;
-                }
-            }
-        } catch (IOException e) {
-            log.warn("Drain backlog connections failed", e);
-        } finally {
-            try {
-                ss.setSoTimeout(originalTimeout);
-            } catch (IOException ignored) {
-                // Safe to ignore: suspendServerSocket() closes this socket right after drain
-            }
-        }
     }
 
     private void startReceiverLoop() {
