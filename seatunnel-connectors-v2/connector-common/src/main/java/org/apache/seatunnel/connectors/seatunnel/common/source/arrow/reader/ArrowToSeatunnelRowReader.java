@@ -320,14 +320,16 @@ public class ArrowToSeatunnelRowReader implements AutoCloseable {
     @Override
     public void close() {
         try {
-            if (root != null) {
-                root.close();
+            // ArrowStreamReader must be closed before RootAllocator.
+            // ArrowStreamReader internally closes VectorSchemaRoot and releases all Arrow
+            // buffer allocations back to the allocator. If the allocator is closed first,
+            // it detects unreleased memory and throws IllegalStateException ("Memory was
+            // leaked by query"), which is the root cause of issue #9863.
+            if (arrowStreamReader != null) {
+                arrowStreamReader.close();
             }
             if (rootAllocator != null) {
                 rootAllocator.close();
-            }
-            if (arrowStreamReader != null) {
-                arrowStreamReader.close();
             }
         } catch (IOException e) {
             throw new RuntimeException("failed to close arrow stream reader.", e);
