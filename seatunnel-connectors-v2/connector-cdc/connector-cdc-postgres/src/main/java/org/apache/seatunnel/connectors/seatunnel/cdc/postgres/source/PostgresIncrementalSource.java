@@ -20,9 +20,7 @@ package org.apache.seatunnel.connectors.seatunnel.cdc.postgres.source;
 import org.apache.seatunnel.api.configuration.Option;
 import org.apache.seatunnel.api.configuration.ReadonlyConfig;
 import org.apache.seatunnel.api.source.SupportParallelism;
-import org.apache.seatunnel.api.source.SupportSchemaEvolution;
 import org.apache.seatunnel.api.table.catalog.CatalogTable;
-import org.apache.seatunnel.api.table.schema.SchemaChangeType;
 import org.apache.seatunnel.common.utils.JdbcUrlUtil;
 import org.apache.seatunnel.common.utils.SeaTunnelException;
 import org.apache.seatunnel.connectors.cdc.base.config.JdbcSourceConfig;
@@ -50,7 +48,6 @@ import io.debezium.relational.history.TableChanges;
 import io.debezium.util.SchemaNameAdjuster;
 
 import java.time.ZoneId;
-import java.util.Arrays;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
@@ -58,7 +55,7 @@ import java.util.function.Function;
 import java.util.stream.Collectors;
 
 public class PostgresIncrementalSource<T> extends IncrementalSource<T, JdbcSourceConfig>
-        implements SupportParallelism, SupportSchemaEvolution {
+        implements SupportParallelism {
 
     static final String IDENTIFIER = "Postgres-CDC";
 
@@ -132,15 +129,6 @@ public class PostgresIncrementalSource<T> extends IncrementalSource<T, JdbcSourc
     @Override
     public Optional<String> driverName() {
         return Optional.of("org.postgresql.Driver");
-    }
-
-    @Override
-    public List<SchemaChangeType> supports() {
-        return Arrays.asList(
-                SchemaChangeType.ADD_COLUMN,
-                SchemaChangeType.DROP_COLUMN,
-                SchemaChangeType.RENAME_COLUMN,
-                SchemaChangeType.UPDATE_COLUMN);
     }
 
     private Map<TableId, Struct> tableChanges() {
