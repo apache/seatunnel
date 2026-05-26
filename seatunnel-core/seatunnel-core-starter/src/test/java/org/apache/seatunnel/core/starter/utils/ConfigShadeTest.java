@@ -453,3 +453,12 @@ public class ConfigShadeTest {
         }
     }
 }
+    @Test
+    public void testAzureKeyVaultConfigShadeIdentifier() {
+        AzureKeyVaultConfigShade shade = new AzureKeyVaultConfigShade();
+
+        Assertions.assertEquals("azure-kv", shade.getIdentifier());
+        Assertions.assertEquals("plain-value", shade.encrypt("plain-value"));
+        Assertions.assertEquals("plain-value", shade.decrypt("plain-value"));
+        Assertions.assertNull(shade.decrypt(null));
+    }
