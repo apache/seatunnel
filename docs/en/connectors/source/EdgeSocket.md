@@ -308,7 +308,7 @@ The source replies:
 
 - PENDING — batch received but not yet checkpoint-confirmed. Keep the batch; poll again.
 - `ACK:<watermarkBatchId>` — all batches up to watermarkBatchId are checkpoint-confirmed. Discard buffered batches whose batchId ≤ watermarkBatchId.
-- RESEND — this batchId was in-flight at the last snapshot but has not been re-received in the current execution attempt (e.g. the worker restarted and the batch is no longer in the queue). Resend via `__BATCH__:<batchId>:<payload>` before polling `__COMMIT__` again.
+- RESEND — this batchId falls within the previous session's received batch-id range but is absent from the current session state (e.g. the worker restarted and the batch was lost from the in-memory queue). Resend via `__BATCH__:<batchId>:<payload>` before polling `__COMMIT__` again.
 - RETRY — no `__BATCH__` has been received for this batchId yet on this reader. Wait and poll `__COMMIT__` again after the batch has been sent.
 - BAD_REQUEST — the request format is invalid. The collector should correct the format and resend.
 - INVALID_PARAM — the batchId is invalid (non-positive integer). The collector should correct the parameter and resend.
@@ -344,7 +344,7 @@ The following table lists connection outcomes and every application-level respon
 | DECODE_FAILED | `__BATCH__` | Payload decoding failed (e.g. corrupted compressed data, or invalid JSON in PACKET mode). | Verify the payload content and resend after correction. |
 | DECRYPT_FAILED | `__BATCH__` | Decryption failed, typically because the collector's key does not match the source's secret_key. | Stop sending and verify both sides use the same secret_key. |
 | PENDING | `__COMMIT__` | Batch reached the source but is not yet covered by a completed checkpoint. | Keep the batch in local buffer; wait and poll `__COMMIT__` again. |
-| RESEND | `__COMMIT__` | Source has no record of this batchId in the current session (e.g. worker restarted and the batch was never re-received in this execution attempt). | Resend the batch via `__BATCH__:<batchId>:<payload>` before polling `__COMMIT__` again. |
+| RESEND | `__COMMIT__` | This batchId falls within the previous session's received batch-id range but is absent from the current session state (e.g. the worker restarted and the batch was lost). | Resend the batch via `__BATCH__:<batchId>:<payload>` before polling `__COMMIT__` again. |
 | ACK:watermarkBatchId | `__COMMIT__` | All batches with batchId ≤ watermarkBatchId are checkpoint-confirmed. | Discard buffered batches whose batchId ≤ watermarkBatchId. |
 
 > Connection refused is a TCP connect failure, not a line-protocol response; it is included alongside REJECTED to document both connection outcomes in the single-collector model.

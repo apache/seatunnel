@@ -155,7 +155,7 @@ public class EdgeSocketSourceState {
                 : Optional.empty();
     }
 
-    /** Was received in a previous session but not re-received after restore. */
+    /** Within the previous session's received batch-id horizon but absent from current state. */
     private Optional<String> matchLostAfterRestore(long batchId) {
         return batchId <= sessionFloorWatermark
                 ? Optional.of(EdgeSocketResponseCode.RESEND.getCode())

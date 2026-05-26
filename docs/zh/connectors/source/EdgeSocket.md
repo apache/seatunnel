@@ -305,7 +305,7 @@ Source 回复：
 
 - PENDING — 批次已接收，尚未完成 checkpoint 确认。保留缓冲，稍后继续轮询。
 - `ACK:<watermarkBatchId>` — 小于等于 watermarkBatchId 的批次均已 checkpoint 确认，可安全丢弃这些批次的本地缓冲。
-- RESEND — 该 batchId 在上次快照时处于 in-flight 状态，但当前执行中尚未重新入队（例如 Worker 重启后批次已从内存队列丢失）。需先通过 `__BATCH__:<batchId>:<payload>` 重新发送，再继续轮询 `__COMMIT__`。
+- RESEND — 该 batchId 处于上一会话已接收的批次 ID 范围内，但在当前会话状态中不存在（例如 Worker 重启后批次已从内存队列丢失）。需先通过 `__BATCH__:<batchId>:<payload>` 重新发送，再继续轮询 `__COMMIT__`。
 - RETRY — 该 batchId 尚未通过 `__BATCH__` 被 Source 接收。等待批次发送完成后再轮询 `__COMMIT__`。
 - BAD_REQUEST — 请求格式无效。采集器应修正请求格式后重发。
 - INVALID_PARAM — batchId 无效（非正整数）。采集器应修正参数后重发。
@@ -341,7 +341,7 @@ Source 回复：
 | DECODE_FAILED | `__BATCH__` | payload 解码失败（例如解压缩数据损坏或 PACKET 模式下 JSON 格式无效）。 | 检查数据内容并修正后重发。 |
 | DECRYPT_FAILED | `__BATCH__` | 解密失败，通常因为采集器与 Source 配置的 secret_key 不一致。 | 停止发送，检查两端 secret_key 是否相同。 |
 | PENDING | `__COMMIT__` | 批次已到达 Source，尚未被 checkpoint 水位覆盖。 | 保留本地缓冲，等待后继续轮询 `__COMMIT__`。 |
-| RESEND | `__COMMIT__` | 该 batchId 在上次快照时处于 in-flight 状态，但当前执行中尚未重新入队（如 Worker 重启后批次已丢失）。 | 通过 `__BATCH__:<batchId>:<payload>` 重新发送，再继续轮询 `__COMMIT__`。 |
+| RESEND | `__COMMIT__` | 该 batchId 处于上一会话已接收的批次 ID 范围内，但在当前会话状态中不存在（如 Worker 重启后批次已丢失）。 | 通过 `__BATCH__:<batchId>:<payload>` 重新发送，再继续轮询 `__COMMIT__`。 |
 | ACK:watermarkBatchId | `__COMMIT__` | batchId ≤ watermarkBatchId 的批次均已 checkpoint 确认。 | 丢弃本地 batchId ≤ watermarkBatchId 的缓冲数据。 |
 
 > Connection refused 不是应用层行协议响应，而是 TCP 连接失败；表中列出是为了与 REJECTED 一并说明单采集器场景下的两种连接结果。

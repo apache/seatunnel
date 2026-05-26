@@ -29,20 +29,20 @@ import java.util.List;
 class EdgeSocketSourceStateTest {
 
     @Test
-    void buildCommitResponseReturnsRetryForUnknownBatch() {
+    void resolveCommitResponseReturnsRetryForUnknownBatch() {
         EdgeSocketSourceState state = new EdgeSocketSourceState();
         Assertions.assertEquals("RETRY", state.resolveCommitResponse(1));
     }
 
     @Test
-    void buildCommitResponseReturnsPendingForReceivedBatch() {
+    void resolveCommitResponseReturnsPendingForReceivedBatch() {
         EdgeSocketSourceState state = new EdgeSocketSourceState();
         state.markRecordReceived(1);
         Assertions.assertEquals("PENDING", state.resolveCommitResponse(1));
     }
 
     @Test
-    void buildCommitResponseReturnsAckAfterCheckpoint() throws Exception {
+    void resolveCommitResponseReturnsAckAfterCheckpoint() throws Exception {
         EdgeSocketSourceState state = new EdgeSocketSourceState();
         state.markRecordReceived(1);
         state.markRecordEmitted(1);
@@ -182,7 +182,7 @@ class EdgeSocketSourceStateTest {
     }
 
     @Test
-    void buildCommitResponseReturnsResendForGappedBatchAfterRestore() throws Exception {
+    void resolveCommitResponseReturnsResendForGappedBatchAfterRestore() throws Exception {
         EdgeSocketSourceState state = new EdgeSocketSourceState();
         state.markRecordReceived(1);
         state.markRecordReceived(2);
