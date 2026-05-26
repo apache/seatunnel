@@ -79,7 +79,7 @@ public class EdgeSocketCompressionPayloadDeserializer implements EdgeSocketPaylo
      */
     private byte[] readAll(InputStreamFactory inputStreamFactory) {
         try (ByteArrayOutputStream baos = new ByteArrayOutputStream()) {
-            try (java.io.InputStream inputStream = inputStreamFactory.create()) {
+            try (InputStream inputStream = inputStreamFactory.create()) {
                 byte[] buffer = new byte[1024];
                 int len;
                 while ((len = inputStream.read(buffer)) != -1) {
@@ -115,7 +115,6 @@ public class EdgeSocketCompressionPayloadDeserializer implements EdgeSocketPaylo
 
         @Override
         public InputStream create() throws IOException {
-            // GZIP stream validates header and performs decompression progressively.
             return new GZIPInputStream(new ByteArrayInputStream(input));
         }
     }
@@ -131,8 +130,16 @@ public class EdgeSocketCompressionPayloadDeserializer implements EdgeSocketPaylo
 
         @Override
         public InputStream create() {
-            // Inflater mode differs by wrapper flag (zlib header vs raw deflate).
-            return new InflaterInputStream(new ByteArrayInputStream(input), inflater);
+            return new InflaterInputStream(new ByteArrayInputStream(input), inflater) {
+                @Override
+                public void close() throws IOException {
+                    try {
+                        super.close();
+                    } finally {
+                        inflater.end();
+                    }
+                }
+            };
         }
     }
 }

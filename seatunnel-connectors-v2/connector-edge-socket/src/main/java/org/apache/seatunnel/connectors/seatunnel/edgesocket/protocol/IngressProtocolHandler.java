@@ -26,6 +26,9 @@ import lombok.extern.slf4j.Slf4j;
 
 import java.io.IOException;
 import java.net.SocketTimeoutException;
+import java.nio.charset.StandardCharsets;
+import java.security.MessageDigest;
+import java.util.Objects;
 import java.util.function.BooleanSupplier;
 
 @Slf4j
@@ -66,7 +69,7 @@ public class IngressProtocolHandler {
             return false;
         }
         String presentedToken = parseAuthToken(authLine);
-        if (!config.getToken().equals(presentedToken)) {
+        if (!constantTimeEquals(config.getToken(), presentedToken)) {
             channel.writeLine(EdgeSocketResponseCode.AUTH_FAILED.getCode());
             log.warn("Collector authentication failed from {}", channel.remoteAddress());
             return false;
@@ -140,14 +143,23 @@ public class IngressProtocolHandler {
         return handler.handleBatchRecord(batchId, payload);
     }
 
-    static String parseAuthToken(String authLine) {
+    private static boolean constantTimeEquals(String expected, String actual) {
+        if (expected == null || actual == null) {
+            return Objects.equals(expected, actual);
+        }
+        byte[] a = expected.getBytes(StandardCharsets.UTF_8);
+        byte[] b = actual.getBytes(StandardCharsets.UTF_8);
+        return MessageDigest.isEqual(a, b);
+    }
+
+    private static String parseAuthToken(String authLine) {
         if (IngressCommand.AUTH.matches(authLine)) {
             return IngressCommand.AUTH.stripPrefix(authLine);
         }
         return authLine;
     }
 
-    static Long parseBatchId(String input, String prefix) {
+    private static Long parseBatchId(String input, String prefix) {
         if (!input.startsWith(prefix)) {
             return null;
         }

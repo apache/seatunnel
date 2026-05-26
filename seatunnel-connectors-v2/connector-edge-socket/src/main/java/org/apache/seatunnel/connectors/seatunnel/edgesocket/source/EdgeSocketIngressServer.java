@@ -106,6 +106,7 @@ public class EdgeSocketIngressServer {
                 serverSocket.setReuseAddress(true);
                 serverSocket.bind(new InetSocketAddress(config.getPort()));
                 serverSocket.setSoTimeout(config.getAcceptTimeoutMs());
+                remainingOpenRetries = config.getMaxNumRetries();
                 log.info(
                         "Edge socket ingress started, bind host:[{}], port:[{}], endpoint:[{}], attempt:[{}]",
                         "0.0.0.0",
