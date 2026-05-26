@@ -15,7 +15,7 @@
  * limitations under the License.
  */
 
-package org.apache.seatunnel.connectors.seatunnel.edgesocket.socket;
+package org.apache.seatunnel.connectors.seatunnel.edgesocket.source;
 
 import org.apache.seatunnel.api.configuration.ReadonlyConfig;
 import org.apache.seatunnel.connectors.seatunnel.edgesocket.config.EdgeSocketCommonOptions;
@@ -23,6 +23,8 @@ import org.apache.seatunnel.connectors.seatunnel.edgesocket.config.EdgeSocketCon
 import org.apache.seatunnel.connectors.seatunnel.edgesocket.config.EdgeSocketSourceOptions;
 import org.apache.seatunnel.connectors.seatunnel.edgesocket.exception.EdgeSocketConnectorErrorCode;
 import org.apache.seatunnel.connectors.seatunnel.edgesocket.exception.EdgeSocketConnectorException;
+import org.apache.seatunnel.connectors.seatunnel.edgesocket.protocol.EdgeSocketResponseCode;
+import org.apache.seatunnel.connectors.seatunnel.edgesocket.protocol.IncomingRecordHandler;
 
 import org.awaitility.Awaitility;
 import org.junit.jupiter.api.Assertions;
@@ -180,7 +182,7 @@ class EdgeSocketIngressServerTest {
     }
 
     @Test
-    void returnsRetryForMalformedBatchRequest() throws Exception {
+    void rejectsMalformedBatchRequest() throws Exception {
         int port = allocateFreePort();
         RecordingHandler handler = new RecordingHandler();
         EdgeSocketIngressServer server = createServer(port, 5, handler);
@@ -194,13 +196,13 @@ class EdgeSocketIngressServerTest {
             Assertions.assertEquals("ACK", readLine(reader));
 
             writeLine(writer, "__BATCH__:notanumber:data");
-            Assertions.assertEquals("RETRY", readLine(reader));
+            Assertions.assertEquals("INVALID_PARAM", readLine(reader));
 
             writeLine(writer, "__BATCH__:1");
-            Assertions.assertEquals("RETRY", readLine(reader));
+            Assertions.assertEquals("BAD_REQUEST", readLine(reader));
 
             writeLine(writer, "UNKNOWN_PREFIX:something");
-            Assertions.assertEquals("RETRY", readLine(reader));
+            Assertions.assertEquals("BAD_REQUEST", readLine(reader));
 
             Assertions.assertTrue(handler.batchRecords.isEmpty());
         } finally {
@@ -209,7 +211,7 @@ class EdgeSocketIngressServerTest {
     }
 
     @Test
-    void returnsRetryForInvalidCommitBatchId() throws Exception {
+    void rejectsInvalidCommitBatchId() throws Exception {
         int port = allocateFreePort();
         RecordingHandler handler = new RecordingHandler();
         EdgeSocketIngressServer server = createServer(port, 5, handler);
@@ -223,15 +225,36 @@ class EdgeSocketIngressServerTest {
             Assertions.assertEquals("ACK", readLine(reader));
 
             writeLine(writer, "__COMMIT__:abc");
-            Assertions.assertEquals("RETRY", readLine(reader));
+            Assertions.assertEquals("INVALID_PARAM", readLine(reader));
 
             writeLine(writer, "__COMMIT__:0");
-            Assertions.assertEquals("RETRY", readLine(reader));
+            Assertions.assertEquals("INVALID_PARAM", readLine(reader));
 
             writeLine(writer, "__COMMIT__:-1");
-            Assertions.assertEquals("RETRY", readLine(reader));
+            Assertions.assertEquals("INVALID_PARAM", readLine(reader));
 
             Assertions.assertTrue(handler.commitRequests.isEmpty());
+        } finally {
+            server.stop();
+        }
+    }
+
+    @Test
+    void rejectsAuthCommandAfterAuthentication() throws Exception {
+        int port = allocateFreePort();
+        RecordingHandler handler = new RecordingHandler();
+        EdgeSocketIngressServer server = createServer(port, 5, handler);
+        server.start();
+        awaitListening(server);
+
+        try (Socket socket = connect(port);
+                BufferedWriter writer = writer(socket);
+                BufferedReader reader = reader(socket)) {
+            writeLine(writer, "__AUTH__:test-token-123");
+            Assertions.assertEquals("ACK", readLine(reader));
+
+            writeLine(writer, "__AUTH__:test-token-123");
+            Assertions.assertEquals("BAD_REQUEST", readLine(reader));
         } finally {
             server.stop();
         }
@@ -362,6 +385,94 @@ class EdgeSocketIngressServerTest {
 
             writeLine(writer, "__BATCH__:1:encrypted-data");
             Assertions.assertEquals("DECRYPT_FAILED", readLine(reader));
+        } finally {
+            server.stop();
+        }
+    }
+
+    @Test
+    void commitResendResponsePassthrough() throws Exception {
+        int port = allocateFreePort();
+        RecordingHandler handler = new RecordingHandler();
+        handler.commitResponse = EdgeSocketResponseCode.RESEND.getCode();
+        EdgeSocketIngressServer server = createServer(port, 5, handler);
+        server.start();
+        awaitListening(server);
+
+        try (Socket socket = connect(port);
+                BufferedWriter writer = writer(socket);
+                BufferedReader reader = reader(socket)) {
+            writeLine(writer, "__AUTH__:test-token-123");
+            Assertions.assertEquals("ACK", readLine(reader));
+
+            writeLine(writer, "__COMMIT__:1");
+            Assertions.assertEquals("RESEND", readLine(reader));
+        } finally {
+            server.stop();
+        }
+    }
+
+    @Test
+    void batchQueueFullResponsePassthrough() throws Exception {
+        int port = allocateFreePort();
+        RecordingHandler handler = new RecordingHandler();
+        handler.batchResponse = EdgeSocketResponseCode.QUEUE_FULL.withPayload(500);
+        EdgeSocketIngressServer server = createServer(port, 5, handler);
+        server.start();
+        awaitListening(server);
+
+        try (Socket socket = connect(port);
+                BufferedWriter writer = writer(socket);
+                BufferedReader reader = reader(socket)) {
+            writeLine(writer, "__AUTH__:test-token-123");
+            Assertions.assertEquals("ACK", readLine(reader));
+
+            writeLine(writer, "__BATCH__:1:data");
+            Assertions.assertEquals("QUEUE_FULL:500", readLine(reader));
+        } finally {
+            server.stop();
+        }
+    }
+
+    @Test
+    void batchDecodeFailedResponsePassthrough() throws Exception {
+        int port = allocateFreePort();
+        RecordingHandler handler = new RecordingHandler();
+        handler.batchResponse = EdgeSocketResponseCode.DECODE_FAILED.getCode();
+        EdgeSocketIngressServer server = createServer(port, 5, handler);
+        server.start();
+        awaitListening(server);
+
+        try (Socket socket = connect(port);
+                BufferedWriter writer = writer(socket);
+                BufferedReader reader = reader(socket)) {
+            writeLine(writer, "__AUTH__:test-token-123");
+            Assertions.assertEquals("ACK", readLine(reader));
+
+            writeLine(writer, "__BATCH__:1:data");
+            Assertions.assertEquals("DECODE_FAILED", readLine(reader));
+        } finally {
+            server.stop();
+        }
+    }
+
+    @Test
+    void commitRetryResponsePassthrough() throws Exception {
+        int port = allocateFreePort();
+        RecordingHandler handler = new RecordingHandler();
+        handler.commitResponse = EdgeSocketResponseCode.RETRY.getCode();
+        EdgeSocketIngressServer server = createServer(port, 5, handler);
+        server.start();
+        awaitListening(server);
+
+        try (Socket socket = connect(port);
+                BufferedWriter writer = writer(socket);
+                BufferedReader reader = reader(socket)) {
+            writeLine(writer, "__AUTH__:test-token-123");
+            Assertions.assertEquals("ACK", readLine(reader));
+
+            writeLine(writer, "__COMMIT__:1");
+            Assertions.assertEquals("RETRY", readLine(reader));
         } finally {
             server.stop();
         }

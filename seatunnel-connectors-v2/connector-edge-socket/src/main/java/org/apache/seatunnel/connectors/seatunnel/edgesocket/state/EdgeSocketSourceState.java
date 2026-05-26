@@ -19,9 +19,9 @@ package org.apache.seatunnel.connectors.seatunnel.edgesocket.state;
 
 import org.apache.seatunnel.connectors.seatunnel.edgesocket.exception.EdgeSocketConnectorErrorCode;
 import org.apache.seatunnel.connectors.seatunnel.edgesocket.exception.EdgeSocketConnectorException;
+import org.apache.seatunnel.connectors.seatunnel.edgesocket.protocol.EdgeSocketResponseCode;
 import org.apache.seatunnel.connectors.seatunnel.edgesocket.queue.EdgeSocketQueuedRecord;
 import org.apache.seatunnel.connectors.seatunnel.edgesocket.serialize.EdgeSocketCompressionType;
-import org.apache.seatunnel.connectors.seatunnel.edgesocket.socket.EdgeSocketResponseCode;
 
 import java.io.ByteArrayInputStream;
 import java.io.ByteArrayOutputStream;
@@ -33,6 +33,7 @@ import java.util.HashMap;
 import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
+import java.util.Optional;
 import java.util.Set;
 import java.util.TreeMap;
 
@@ -47,8 +48,8 @@ public class EdgeSocketSourceState {
     private final Map<Long, Long> checkpointBatchWatermarks = new TreeMap<>();
 
     /**
-     * Effective committed watermark after the last {@link #restoreState(byte[])}. Used by {@link
-     * #buildCommitResponse(long)} to distinguish batches that were in flight at restore but have
+     * Highest batchId received before the last {@link #restoreState(byte[])}. Used by {@link
+     * #resolveCommitResponse(long)} to distinguish batches that were in flight at restore but have
      * not been re-received yet in this session (e.g. {@code RESEND} vs {@code PENDING}).
      */
     private long sessionFloorWatermark;
@@ -102,47 +103,78 @@ public class EdgeSocketSourceState {
     }
 
     /**
-     * Builds the response for a {@code __COMMIT__} request.
+     * Resolves the response for a {@code __COMMIT__} request.
      *
-     * <p>Decisions are applied in order; earlier branches win. The collector must use strictly
-     * monotonic {@code batchId}s across reconnects and restores, and after a restart should resume
-     * from a {@code batchId} above the last acknowledged watermark.
+     * <p>Rules are evaluated in declaration order; the first match wins. If no rule matches, the
+     * default response is {@code PENDING}. The collector must use strictly monotonic {@code
+     * batchId}s across reconnects and restores, and after a restart should resume from a {@code
+     * batchId} above the last acknowledged watermark.
      *
      * <ol>
-     *   <li>{@code batchId <= 0} — treat as a non-batch probe; ack the current committed watermark.
-     *   <li>{@code batchId <= lastCommittedBatchId} — already committed (idempotent {@code
-     *       __COMMIT__}); ack the watermark.
-     *   <li>Batch appears in {@link #pendingBatchRecordCounts} or {@link #drainedBatchIds} — work
-     *       for this batch exists in this attempt; not ready to ack until checkpoint logic catches
-     *       up, so {@code PENDING}.
-     *   <li>{@code batchId > lastReceivedBatchId} — no {@code __BATCH__} has been accepted for this
-     *       id yet on this reader; ask the collector to {@code RETRY}.
-     *   <li>{@code batchId <= sessionFloorWatermark} after restore — the batch sits at or below the
-     *       effective post-restore committed floor but was not re-received in this session; the
-     *       collector must {@code RESEND} the payload via {@code __BATCH__} before committing.
-     *   <li>Otherwise — conservative {@code PENDING} (seen some ingress for other ids but this
-     *       branch does not yet warrant {@code ACK}/{@code RETRY}/{@code RESEND}).
+     *   <li>{@link #matchCommitted} — {@code batchId <= lastCommittedBatchId} (includes probe with
+     *       batchId <= 0); returns {@code ACK:<watermark>}.
+     *   <li>{@link #matchInFlight} — batch appears in {@link #pendingBatchRecordCounts} or {@link
+     *       #drainedBatchIds}; returns {@code PENDING}.
+     *   <li>{@link #matchNeverReceived} — {@code batchId > lastReceivedBatchId}; returns {@code
+     *       RETRY}.
+     *   <li>{@link #matchLostAfterRestore} — {@code batchId <= sessionFloorWatermark} after
+     *       restore; returns {@code RESEND}.
+     *   <li>Default — conservative {@code PENDING}.
      * </ol>
      *
      * @return {@code "ACK:<watermark>"}, {@code "PENDING"}, {@code "RETRY"}, or {@code "RESEND"}
      */
-    public String buildCommitResponse(long batchId) {
-        if (batchId <= 0) {
-            return EdgeSocketResponseCode.ACK.withPayload(lastCommittedBatchId);
+    public String resolveCommitResponse(long batchId) {
+        return firstMatch(
+                        batchId,
+                        this::matchCommitted,
+                        this::matchInFlight,
+                        this::matchNeverReceived,
+                        this::matchLostAfterRestore)
+                .orElse(EdgeSocketResponseCode.PENDING.getCode());
+    }
+
+    /** {@code batchId <= lastCommittedBatchId} (includes probe with batchId <= 0). */
+    private Optional<String> matchCommitted(long batchId) {
+        return batchId <= lastCommittedBatchId
+                ? Optional.of(EdgeSocketResponseCode.ACK.withPayload(lastCommittedBatchId))
+                : Optional.empty();
+    }
+
+    /** Records exist in {@link #pendingBatchRecordCounts} or {@link #drainedBatchIds}. */
+    private Optional<String> matchInFlight(long batchId) {
+        return pendingBatchRecordCounts.containsKey(batchId) || drainedBatchIds.contains(batchId)
+                ? Optional.of(EdgeSocketResponseCode.PENDING.getCode())
+                : Optional.empty();
+    }
+
+    /** No {@code __BATCH__} has been accepted for this batchId yet. */
+    private Optional<String> matchNeverReceived(long batchId) {
+        return batchId > lastReceivedBatchId
+                ? Optional.of(EdgeSocketResponseCode.RETRY.getCode())
+                : Optional.empty();
+    }
+
+    /** Was received in a previous session but not re-received after restore. */
+    private Optional<String> matchLostAfterRestore(long batchId) {
+        return batchId <= sessionFloorWatermark
+                ? Optional.of(EdgeSocketResponseCode.RESEND.getCode())
+                : Optional.empty();
+    }
+
+    @FunctionalInterface
+    interface CommitRule {
+        Optional<String> apply(long batchId);
+    }
+
+    private static Optional<String> firstMatch(long batchId, CommitRule... rules) {
+        for (CommitRule rule : rules) {
+            Optional<String> result = rule.apply(batchId);
+            if (result.isPresent()) {
+                return result;
+            }
         }
-        if (batchId <= lastCommittedBatchId) {
-            return EdgeSocketResponseCode.ACK.withPayload(lastCommittedBatchId);
-        }
-        if (pendingBatchRecordCounts.containsKey(batchId) || drainedBatchIds.contains(batchId)) {
-            return EdgeSocketResponseCode.PENDING.getCode();
-        }
-        if (batchId > lastReceivedBatchId) {
-            return EdgeSocketResponseCode.RETRY.getCode();
-        }
-        if (batchId <= sessionFloorWatermark) {
-            return EdgeSocketResponseCode.RESEND.getCode();
-        }
-        return EdgeSocketResponseCode.PENDING.getCode();
+        return Optional.empty();
     }
 
     /**
@@ -200,9 +232,10 @@ public class EdgeSocketSourceState {
      * #drainedBatchIds}. Then advances {@link #lastCommittedBatchId} to {@code max(committed,
      * snapshotWatermark)} and runs {@link #clearCommittedBatchState(long)} so bookkeeping matches
      * the resumed checkpoint. In-flight checkpoint bookkeeping is cleared ({@link
-     * #checkpointBatchWatermarks}); {@link #sessionFloorWatermark} is set to the effective
-     * committed watermark for {@link #buildCommitResponse(long)} (e.g. {@code RESEND} for batches
-     * below the floor that were not re-received yet in this session).
+     * #checkpointBatchWatermarks}); {@link #sessionFloorWatermark} is set to the highest batchId
+     * received in the previous session for {@link #resolveCommitResponse(long)} (e.g. {@code
+     * RESEND} for batches within the previous session's received range that were not re-received
+     * yet).
      *
      * <p>Returns queued records that were persisted inside the snapshot but not yet emitted; the
      * caller must {@code offer} them back into the reader's queue in order (see reader restore
@@ -231,7 +264,7 @@ public class EdgeSocketSourceState {
             lastCommittedBatchId = Math.max(lastCommittedBatchId, restoredSnapshotWatermark);
             clearCommittedBatchState(lastCommittedBatchId);
             checkpointBatchWatermarks.clear();
-            sessionFloorWatermark = lastCommittedBatchId;
+            sessionFloorWatermark = lastReceivedBatchId;
 
             if (in.available() == 0) {
                 return new ArrayList<>();

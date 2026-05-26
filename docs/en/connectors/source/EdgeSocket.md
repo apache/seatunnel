@@ -282,14 +282,17 @@ The source replies:
 
 - RECEIVED — batch accepted and queued.
 - `QUEUE_FULL:<ms>` — queue reached the backpressure watermark; wait at least `<ms>` milliseconds (from queue_full_retry_after_ms) and resend the same batch unchanged. The source does not decode the payload in this case.
-- RETRY — physically full queue (rare, below watermark race) or malformed request; wait briefly and resend the same batch.
-- DECRYPT_FAILED — decryption failed; verify both sides use the same secret_key.
+- BAD_REQUEST — the request format is invalid (unrecognized command prefix, missing payload separator, etc.). The collector should correct the request format and resend.
+- INVALID_PARAM — a request parameter is invalid (e.g. a non-positive batchId). The collector should correct the parameter and resend.
+- RETRY — the internal queue is full (extremely rare; occurs only during a watermark race window). The collector should apply exponential back-off and resend the same batch.
+- DECODE_FAILED — payload decoding failed (e.g. corrupted compressed data, or invalid JSON in PACKET mode). The collector should verify the payload content and resend after correction.
+- DECRYPT_FAILED — payload decryption failed. The collector should stop sending and verify that both sides use the same secret_key.
 
 ### Backpressure
 
 When queue size reaches ceil(local_queue_capacity × queue_backpressure_watermark_ratio) (default 90%), the source replies `QUEUE_FULL:<ms>` at application level without decoding the payload. `<ms>` comes from queue_full_retry_after_ms (default 500).
 
-This differs from RETRY on a physically full queue: QUEUE_FULL signals that downstream consumption is lagging. RETRY is still used for malformed requests and rare physical-full races below the watermark.
+QUEUE_FULL differs from RETRY: QUEUE_FULL is a backpressure signal triggered when downstream consumption cannot keep up, at the high-water mark threshold. RETRY is returned only when the queue's physical capacity is exhausted (extremely rare during the watermark race window). BAD_REQUEST and INVALID_PARAM indicate protocol format or parameter errors. DECODE_FAILED and DECRYPT_FAILED indicate that the payload content cannot be processed correctly.
 
 ### Polling for checkpoint confirmation
 
@@ -306,7 +309,9 @@ The source replies:
 - PENDING — batch received but not yet checkpoint-confirmed. Keep the batch; poll again.
 - `ACK:<watermarkBatchId>` — all batches up to watermarkBatchId are checkpoint-confirmed. Discard buffered batches whose batchId ≤ watermarkBatchId.
 - RESEND — this batchId was in-flight at the last snapshot but has not been re-received in the current execution attempt (e.g. the worker restarted and the batch is no longer in the queue). Resend via `__BATCH__:<batchId>:<payload>` before polling `__COMMIT__` again.
-- RETRY — batchId not yet seen; send `__BATCH__` first.
+- RETRY — no `__BATCH__` has been received for this batchId yet on this reader. Wait and poll `__COMMIT__` again after the batch has been sent.
+- BAD_REQUEST — the request format is invalid. The collector should correct the format and resend.
+- INVALID_PARAM — the batchId is invalid (non-positive integer). The collector should correct the parameter and resend.
 
 Example send loop (includes optional `__COMMIT__`):
 
@@ -333,7 +338,10 @@ The following table lists connection outcomes and every application-level respon
 | REJECTED | Connection | Accepted through TCP backlog race while another collector is active (see [Connection](#connection)). | Stop immediately; verify no other collector instance is running. Do not retry automatically. |
 | RECEIVED | `__BATCH__` | Record accepted and queued. | Continue sending. If checkpoint-watermark-aligned buffer eviction is required, enable `__COMMIT__`, poll until ACK, and evict by the returned watermark. |
 | `QUEUE_FULL:<ms>` | `__BATCH__` | Queue reached backpressure watermark (see [Backpressure](#backpressure)). | Wait at least `<ms>` milliseconds, then resend the same batch unchanged. |
-| RETRY | `__BATCH__` or `__COMMIT__` | Physically full queue (rare) or malformed request. | Malformed: fix and resend. Physical full: use exponential back-off, then resend the same batch unchanged. |
+| BAD_REQUEST | `__BATCH__` or `__COMMIT__` | Request format is invalid (unrecognized command prefix, missing payload separator, etc.). | Correct the request format and resend. |
+| INVALID_PARAM | `__BATCH__` or `__COMMIT__` | A request parameter is invalid (e.g. non-positive batchId). | Correct the parameter and resend. |
+| RETRY | `__BATCH__` or `__COMMIT__` | `__BATCH__`: internal queue is full (extremely rare; occurs only during the watermark race window). `__COMMIT__`: no `__BATCH__` has been received for this batchId yet. | For `__BATCH__`: apply exponential back-off, then resend the same batch unchanged. For `__COMMIT__`: wait and poll again after the batch has been sent. |
+| DECODE_FAILED | `__BATCH__` | Payload decoding failed (e.g. corrupted compressed data, or invalid JSON in PACKET mode). | Verify the payload content and resend after correction. |
 | DECRYPT_FAILED | `__BATCH__` | Decryption failed, typically because the collector's key does not match the source's secret_key. | Stop sending and verify both sides use the same secret_key. |
 | PENDING | `__COMMIT__` | Batch reached the source but is not yet covered by a completed checkpoint. | Keep the batch in local buffer; wait and poll `__COMMIT__` again. |
 | RESEND | `__COMMIT__` | Source has no record of this batchId in the current session (e.g. worker restarted and the batch was never re-received in this execution attempt). | Resend the batch via `__BATCH__:<batchId>:<payload>` before polling `__COMMIT__` again. |
@@ -341,7 +349,7 @@ The following table lists connection outcomes and every application-level respon
 
 > Connection refused is a TCP connect failure, not a line-protocol response; it is included alongside REJECTED to document both connection outcomes in the single-collector model.
 >
-> batchId format: decimal positive integer in Java long range (1 – 9223372036854775807). Non-numeric, zero, or negative values cause a RETRY response.
+> batchId format: decimal positive integer in Java long range (1 – 9223372036854775807). Non-numeric, zero, or negative values cause an INVALID_PARAM response.
 >
 > **batchId monotonicity**: values must increase monotonically for the full lifetime of the logical source, including reconnects and worker restarts. After reconnecting, resume from a value strictly above the last `ACK:<watermark>` received — never reset to 1.
 >
@@ -384,9 +392,18 @@ sequenceDiagram
           else Backpressure watermark reached
               S-->>C: QUEUE_FULL:ms
               Note over C: Wait ms then resend same batch
-          else Full or malformed
+          else Invalid request format
+              S-->>C: BAD_REQUEST
+              Note over C: Correct the request format and resend
+          else Invalid parameter
+              S-->>C: INVALID_PARAM
+              Note over C: Correct the parameter and resend
+          else Internal queue full (extremely rare)
               S-->>C: RETRY
               Note over C: Exponential back-off then resend
+          else Payload decode failure
+              S-->>C: DECODE_FAILED
+              Note over C: Verify payload content and resend after correction
           else Decryption failed
               S-->>C: DECRYPT_FAILED
               Note over C: Stop - verify secret_key on both sides
@@ -408,7 +425,10 @@ sequenceDiagram
                   Note over C: Batch lost on restart — resend via __BATCH__ then re-poll
               else RETRY
                   S-->>C: RETRY
-                  Note over C: Send __BATCH__ first
+                  Note over C: No __BATCH__ received yet — wait and re-poll
+              else BAD_REQUEST or INVALID_PARAM
+                  S-->>C: BAD_REQUEST / INVALID_PARAM
+                  Note over C: Correct the request format or parameter and resend
               end
           end
       end
@@ -523,7 +543,7 @@ Formula: local_queue_capacity ≤ 10 MB ÷ enqueued_message_size ÷ 3
 For `> 10 KB` payloads, sample real enqueued message sizes first, then apply the formula to compute local_queue_capacity instead of relying on a fixed preset.
 
 :::tip
-If the collector receives many QUEUE_FULL responses, the downstream pipeline is slower than ingress. Tune sink throughput or adjust local_queue_capacity / queue_backpressure_watermark_ratio using the formula above. QUEUE_FULL is returned before payload decode to avoid retry storms under backpressure; RETRY is reserved for malformed requests or rare physical queue overflow.
+If the collector receives frequent QUEUE_FULL responses, the downstream pipeline is consuming slower than the ingress rate. Prioritize tuning Sink throughput, or adjust local_queue_capacity and queue_backpressure_watermark_ratio using the formula above. QUEUE_FULL is returned before payload decoding to prevent retry storms under backpressure. RETRY is returned only when the queue's physical capacity is exhausted. DECODE_FAILED and DECRYPT_FAILED indicate that the payload content cannot be processed correctly.
 :::
 
 ## Changelog

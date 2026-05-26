@@ -279,14 +279,17 @@ Source 回复：
 
 - RECEIVED — 批次已接收并入队。
 - `QUEUE_FULL:<ms>` — 队列达到背压高水位；至少等待 `<ms>` 毫秒（来自 queue_full_retry_after_ms）后原样重发同一批次。此情况下 Source 不会解码 payload。
-- RETRY — 物理队列已满（少见，高水位竞态）或请求格式非法，稍等后重发同一批次。
-- DECRYPT_FAILED — 解密失败，检查两端 secret_key 是否一致。
+- BAD_REQUEST — 请求格式无效（无法识别的命令前缀、缺少 payload 分隔符等）。采集器应修正请求格式后重发。
+- INVALID_PARAM — 请求参数无效（例如 batchId 为非正整数）。采集器应修正参数后重发。
+- RETRY — 内部队列已满（高水位竞态窗口下极少出现）。采集器应执行指数退避后重发同一批次。
+- DECODE_FAILED — payload 解码失败（例如解压缩数据损坏或 PACKET 模式下 JSON 格式无效）。采集器应检查数据内容后修正重发。
+- DECRYPT_FAILED — 解密失败。采集器应停止发送并检查两端 secret_key 配置是否一致。
 
 ### 背压
 
 当本地队列长度达到 ceil(local_queue_capacity × queue_backpressure_watermark_ratio)（默认 90%）时，Source 在应用层回复 `QUEUE_FULL:<ms>`，且不会解码 payload。`<ms>` 来自 queue_full_retry_after_ms（默认 500）。
 
-这与物理队列已满时的 RETRY 不同：QUEUE_FULL 表示下游消费跟不上，属于背压信号；RETRY 仍用于格式错误等场景，或极少数高水位竞态下的物理满队。
+QUEUE_FULL 与 RETRY 的区别：QUEUE_FULL 是下游消费速度不足的背压信号，在高水位阈值处触发；RETRY 仅在队列物理容量耗尽时返回（高水位竞态窗口下极少出现）。BAD_REQUEST / INVALID_PARAM 针对协议格式或参数错误；DECODE_FAILED / DECRYPT_FAILED 表示 payload 内容无法正确处理。
 
 ### 轮询 checkpoint 确认
 
@@ -303,7 +306,9 @@ Source 回复：
 - PENDING — 批次已接收，尚未完成 checkpoint 确认。保留缓冲，稍后继续轮询。
 - `ACK:<watermarkBatchId>` — 小于等于 watermarkBatchId 的批次均已 checkpoint 确认，可安全丢弃这些批次的本地缓冲。
 - RESEND — 该 batchId 在上次快照时处于 in-flight 状态，但当前执行中尚未重新入队（例如 Worker 重启后批次已从内存队列丢失）。需先通过 `__BATCH__:<batchId>:<payload>` 重新发送，再继续轮询 `__COMMIT__`。
-- RETRY — Source 尚未收到该批次，请先发送 `__BATCH__`。
+- RETRY — 该 batchId 尚未通过 `__BATCH__` 被 Source 接收。等待批次发送完成后再轮询 `__COMMIT__`。
+- BAD_REQUEST — 请求格式无效。采集器应修正请求格式后重发。
+- INVALID_PARAM — batchId 无效（非正整数）。采集器应修正参数后重发。
 
 含可选 `__COMMIT__` 的发送示例：
 
@@ -330,7 +335,10 @@ Source 回复：
 | REJECTED | 连接阶段 | 在 TCP backlog 竞争窗口内被接受，已有其他采集器连接中（见[连接](#连接)）。 | 立即停止，确认是否有其他采集器实例在运行。不要自动重试。 |
 | RECEIVED | `__BATCH__` | 记录已接收并成功入队。 | 继续发送；如需与 checkpoint 水位对齐本地缓冲，启用 `__COMMIT__` 并轮询至 ACK，再按返回水位丢弃缓冲。 |
 | `QUEUE_FULL:<ms>` | `__BATCH__` | 队列达到背压高水位（见[背压](#背压)）。 | 至少等待 `<ms>` 毫秒后原样重发同一批次。 |
-| RETRY | `__BATCH__` 或 `__COMMIT__` | 物理队列已满（少见）或请求格式非法。 | 格式错误：修正后重发。物理满队：执行指数退避后原样重发同一批次。 |
+| BAD_REQUEST | `__BATCH__` 或 `__COMMIT__` | 请求格式无效（无法识别的命令前缀、缺少 payload 分隔符等）。 | 修正请求格式后重发。 |
+| INVALID_PARAM | `__BATCH__` 或 `__COMMIT__` | 请求参数无效（例如 batchId 为非正整数）。 | 修正参数后重发。 |
+| RETRY | `__BATCH__` 或 `__COMMIT__` | `__BATCH__`：内部队列已满（高水位竞态窗口下极少出现）。`__COMMIT__`：该 batchId 尚未通过 `__BATCH__` 被 Source 接收。 | `__BATCH__`：执行指数退避后原样重发同一批次。`__COMMIT__`：等待批次发送完成后再轮询。 |
+| DECODE_FAILED | `__BATCH__` | payload 解码失败（例如解压缩数据损坏或 PACKET 模式下 JSON 格式无效）。 | 检查数据内容并修正后重发。 |
 | DECRYPT_FAILED | `__BATCH__` | 解密失败，通常因为采集器与 Source 配置的 secret_key 不一致。 | 停止发送，检查两端 secret_key 是否相同。 |
 | PENDING | `__COMMIT__` | 批次已到达 Source，尚未被 checkpoint 水位覆盖。 | 保留本地缓冲，等待后继续轮询 `__COMMIT__`。 |
 | RESEND | `__COMMIT__` | 该 batchId 在上次快照时处于 in-flight 状态，但当前执行中尚未重新入队（如 Worker 重启后批次已丢失）。 | 通过 `__BATCH__:<batchId>:<payload>` 重新发送，再继续轮询 `__COMMIT__`。 |
@@ -338,7 +346,7 @@ Source 回复：
 
 > Connection refused 不是应用层行协议响应，而是 TCP 连接失败；表中列出是为了与 REJECTED 一并说明单采集器场景下的两种连接结果。
 >
-> batchId 格式要求：十进制正整数，在 Java long 范围内（1 – 9223372036854775807）。非数字、零或负值均会收到 RETRY。
+> batchId 格式要求：十进制正整数，在 Java long 范围内（1 – 9223372036854775807）。非数字、零或负值会收到 INVALID_PARAM。
 >
 > **batchId 单调性要求**：batchId 必须在逻辑 Source 的整个生命周期内全局单调递增，包括断线重连和 Worker 重启。重新连接后从上次 `ACK:<watermark>` 水位之后的值继续，不能重置为 1。
 >
@@ -381,9 +389,18 @@ sequenceDiagram
         else 队列达到背压高水位
             S-->>C: QUEUE_FULL:ms
             Note over C: 至少等待 ms 后原样重发同一批次
-        else 物理队列满 / 格式非法
+        else 请求格式无效
+            S-->>C: BAD_REQUEST
+            Note over C: 修正请求格式后重发
+        else 请求参数无效
+            S-->>C: INVALID_PARAM
+            Note over C: 修正参数后重发
+        else 内部队列已满（极少出现）
             S-->>C: RETRY
             Note over C: 指数退避后原样重发同一批次
+        else payload 解码失败
+            S-->>C: DECODE_FAILED
+            Note over C: 检查数据内容并修正后重发
         else 解密失败（仅 PACKET + AES_GCM）
             S-->>C: DECRYPT_FAILED
             Note over C: 停止发送，检查两端 secret_key 是否一致
@@ -405,7 +422,10 @@ sequenceDiagram
                 Note over C: Worker 重启后批次丢失，通过 __BATCH__ 重新发送再轮询
             else Source 返回 RETRY
                 S-->>C: RETRY
-                Note over C: 先发送 __BATCH__ 再轮询 __COMMIT__
+                Note over C: 该 batchId 尚未被接收，等待批次发送后再轮询
+            else Source 返回 BAD_REQUEST 或 INVALID_PARAM
+                S-->>C: BAD_REQUEST / INVALID_PARAM
+                Note over C: 修正请求格式或参数后重发
             end
         end
     end
@@ -520,7 +540,7 @@ checkpoint 状态峰值 ≈ local_queue_capacity × 入队消息大小 × 3
 对于 `> 10 KB` 的场景，建议先采样测量真实入队大小，再代入公式计算 local_queue_capacity，不要直接套用固定推荐值。
 
 :::tip
-若采集器频繁收到 QUEUE_FULL，说明下游消费慢于入队。应优先优化 Sink 吞吐，或按上文公式调整 local_queue_capacity / queue_backpressure_watermark_ratio。QUEUE_FULL 在高水位触发且不解码 payload，避免背压下的重试风暴；RETRY 保留给格式错误等场景或极少数物理队列溢出。
+若采集器频繁收到 QUEUE_FULL 响应，表明下游消费速度不足。应优先优化 Sink 吞吐，或根据上文公式调整 local_queue_capacity 与 queue_backpressure_watermark_ratio。QUEUE_FULL 在高水位阈值处触发且不解码 payload，避免背压场景下的重试风暴；RETRY 仅在队列物理容量耗尽时返回；DECODE_FAILED 与 DECRYPT_FAILED 表示 payload 内容无法正确处理。
 :::
 
 ## 变更日志

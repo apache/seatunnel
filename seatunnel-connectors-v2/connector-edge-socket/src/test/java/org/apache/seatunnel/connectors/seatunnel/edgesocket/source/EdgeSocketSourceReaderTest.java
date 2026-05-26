@@ -374,6 +374,241 @@ class EdgeSocketSourceReaderTest {
         }
     }
 
+    /**
+     * After restore from a snapshot that contains a batch-ID gap (1,2,3,5 — missing 4), a {@code
+     * __COMMIT__:4} must receive {@code RESEND} because batch 4 was never received in the original
+     * session and has not been re-sent after restore.
+     */
+    @Test
+    void shouldReturnResendForGappedBatchAfterRestore() throws Exception {
+        int port = allocateFreePort();
+        EdgeSocketSourceReader reader = createReader(port, 5);
+        List<SingleSplit> snapshot;
+        try {
+            reader.open();
+            awaitServerReady(reader);
+            try (Socket socket = new Socket("127.0.0.1", port);
+                    BufferedWriter writer =
+                            new BufferedWriter(
+                                    new OutputStreamWriter(
+                                            socket.getOutputStream(), StandardCharsets.UTF_8));
+                    BufferedReader bufferedReader =
+                            new BufferedReader(
+                                    new InputStreamReader(
+                                            socket.getInputStream(), StandardCharsets.UTF_8))) {
+                socket.setSoTimeout(3000);
+                writeLine(writer, "__AUTH__:edge-test-token");
+                Assertions.assertEquals("ACK", readLine(bufferedReader));
+
+                writeLine(writer, "__BATCH__:1:msg-1");
+                Assertions.assertEquals("RECEIVED", readLine(bufferedReader));
+                writeLine(writer, "__BATCH__:2:msg-2");
+                Assertions.assertEquals("RECEIVED", readLine(bufferedReader));
+                writeLine(writer, "__BATCH__:3:msg-3");
+                Assertions.assertEquals("RECEIVED", readLine(bufferedReader));
+                writeLine(writer, "__BATCH__:5:msg-5");
+                Assertions.assertEquals("RECEIVED", readLine(bufferedReader));
+
+                TestCollector collector = new TestCollector();
+                reader.pollNext(collector);
+                reader.pollNext(collector);
+                reader.pollNext(collector);
+                reader.pollNext(collector);
+                Assertions.assertEquals(4, collector.rows.size());
+
+                reader.snapshotState(1L);
+                reader.notifyCheckpointComplete(1L);
+
+                snapshot = reader.snapshotState(2L);
+            }
+        } finally {
+            reader.close();
+        }
+
+        int newPort = allocateFreePort();
+        EdgeSocketSourceReader restored = createReader(newPort, 5);
+        restored.addSplits(snapshot);
+        restored.open();
+        try {
+            awaitServerReady(restored);
+            try (Socket socket = new Socket("127.0.0.1", newPort);
+                    BufferedWriter writer =
+                            new BufferedWriter(
+                                    new OutputStreamWriter(
+                                            socket.getOutputStream(), StandardCharsets.UTF_8));
+                    BufferedReader bufferedReader =
+                            new BufferedReader(
+                                    new InputStreamReader(
+                                            socket.getInputStream(), StandardCharsets.UTF_8))) {
+                socket.setSoTimeout(3000);
+                writeLine(writer, "__AUTH__:edge-test-token");
+                Assertions.assertEquals("ACK", readLine(bufferedReader));
+
+                writeLine(writer, "__COMMIT__:4");
+                Assertions.assertEquals(
+                        "RESEND",
+                        readLine(bufferedReader),
+                        "Batch 4 was never received — source must request RESEND");
+            }
+        } finally {
+            restored.close();
+        }
+    }
+
+    @Test
+    void shouldReturnDecodeFailedForInvalidPacketPayload() throws Exception {
+        int port = allocateFreePort();
+        Map<String, Object> configMap = new HashMap<>();
+        configMap.put(EdgeSocketCommonOptions.PORT.key(), port);
+        configMap.put(EdgeSocketSourceOptions.TOKEN.key(), "edge-test-token");
+        configMap.put(EdgeSocketSourceOptions.MAX_RETRIES.key(), 5);
+        configMap.put(EdgeSocketSourceOptions.RECONNECT_INTERVAL_MS.key(), 50);
+        configMap.put(EdgeSocketSourceOptions.ACCEPT_TIMEOUT_MS.key(), 100);
+        configMap.put(EdgeSocketSourceOptions.LOCAL_QUEUE_CAPACITY.key(), 8);
+        configMap.put(EdgeSocketSourceOptions.PACKET_MODE.key(), "PACKET");
+        ReadonlyConfig config = ReadonlyConfig.fromMap(configMap);
+        SourceReader.Context ctx = Mockito.mock(SourceReader.Context.class);
+        Mockito.when(ctx.getBoundedness()).thenReturn(Boundedness.UNBOUNDED);
+        SingleSplitReaderContext readerContext = new SingleSplitReaderContext(ctx);
+        SeaTunnelRowType rowType =
+                new SeaTunnelRowType(
+                        new String[] {"value"}, new SeaTunnelDataType<?>[] {BasicType.STRING_TYPE});
+        try (EdgeSocketSourceReader reader =
+                new EdgeSocketSourceReader(
+                        new EdgeSocketConfig(config),
+                        readerContext,
+                        new EdgeSocketTextDeserializationSchema(rowType))) {
+            reader.open();
+            awaitServerReady(reader);
+            try (Socket socket = new Socket("127.0.0.1", port);
+                    BufferedWriter writer =
+                            new BufferedWriter(
+                                    new OutputStreamWriter(
+                                            socket.getOutputStream(), StandardCharsets.UTF_8));
+                    BufferedReader bufferedReader =
+                            new BufferedReader(
+                                    new InputStreamReader(
+                                            socket.getInputStream(), StandardCharsets.UTF_8))) {
+                socket.setSoTimeout(3000);
+                writeLine(writer, "__AUTH__:edge-test-token");
+                Assertions.assertEquals("ACK", readLine(bufferedReader));
+
+                writeLine(writer, "__BATCH__:1:this-is-not-valid-json");
+                Assertions.assertEquals("DECODE_FAILED", readLine(bufferedReader));
+            }
+        }
+    }
+
+    /**
+     * PACKET mode with AES_GCM encryption configured. Sending a packet whose ciphertext is tampered
+     * (too short for a valid GCM auth-tag) must trigger a {@link
+     * java.security.GeneralSecurityException} inside the deserializer, which the reader maps to
+     * {@code DECRYPT_FAILED}.
+     */
+    @Test
+    void shouldReturnDecryptFailedForTamperedAesPayload() throws Exception {
+        int port = allocateFreePort();
+        Map<String, Object> configMap = new HashMap<>();
+        configMap.put(EdgeSocketCommonOptions.PORT.key(), port);
+        configMap.put(EdgeSocketSourceOptions.TOKEN.key(), "edge-test-token");
+        configMap.put(EdgeSocketSourceOptions.MAX_RETRIES.key(), 5);
+        configMap.put(EdgeSocketSourceOptions.RECONNECT_INTERVAL_MS.key(), 50);
+        configMap.put(EdgeSocketSourceOptions.ACCEPT_TIMEOUT_MS.key(), 100);
+        configMap.put(EdgeSocketSourceOptions.LOCAL_QUEUE_CAPACITY.key(), 8);
+        configMap.put(EdgeSocketSourceOptions.PACKET_MODE.key(), "PACKET");
+        configMap.put(
+                EdgeSocketSourceOptions.SECRET_KEY.key(),
+                java.util.Base64.getEncoder().encodeToString(new byte[32]));
+        ReadonlyConfig config = ReadonlyConfig.fromMap(configMap);
+        SourceReader.Context ctx = Mockito.mock(SourceReader.Context.class);
+        Mockito.when(ctx.getBoundedness()).thenReturn(Boundedness.UNBOUNDED);
+        SingleSplitReaderContext readerContext = new SingleSplitReaderContext(ctx);
+        SeaTunnelRowType rowType =
+                new SeaTunnelRowType(
+                        new String[] {"value"}, new SeaTunnelDataType<?>[] {BasicType.STRING_TYPE});
+        try (EdgeSocketSourceReader reader =
+                new EdgeSocketSourceReader(
+                        new EdgeSocketConfig(config),
+                        readerContext,
+                        new EdgeSocketTextDeserializationSchema(rowType))) {
+            reader.open();
+            awaitServerReady(reader);
+            try (Socket socket = new Socket("127.0.0.1", port);
+                    BufferedWriter writer =
+                            new BufferedWriter(
+                                    new OutputStreamWriter(
+                                            socket.getOutputStream(), StandardCharsets.UTF_8));
+                    BufferedReader bufferedReader =
+                            new BufferedReader(
+                                    new InputStreamReader(
+                                            socket.getInputStream(), StandardCharsets.UTF_8))) {
+                socket.setSoTimeout(3000);
+                writeLine(writer, "__AUTH__:edge-test-token");
+                Assertions.assertEquals("ACK", readLine(bufferedReader));
+
+                String ivB64 = java.util.Base64.getEncoder().encodeToString(new byte[12]);
+                String packetJson =
+                        "{\"payload\":\"dGVzdA==\",\"encryption\":\"aes_gcm\",\"iv\":\""
+                                + ivB64
+                                + "\"}";
+                writeLine(writer, "__BATCH__:1:" + packetJson);
+                Assertions.assertEquals("DECRYPT_FAILED", readLine(bufferedReader));
+            }
+        }
+    }
+
+    /**
+     * PACKET mode without a configured {@code secret_key}. When the incoming packet declares {@code
+     * encryption=aes_gcm}, the deserializer throws {@code PACKET_AES_KEY_MISSING}, which the reader
+     * maps to {@code DECRYPT_FAILED}.
+     */
+    @Test
+    void shouldReturnDecryptFailedWhenSecretKeyMissing() throws Exception {
+        int port = allocateFreePort();
+        Map<String, Object> configMap = new HashMap<>();
+        configMap.put(EdgeSocketCommonOptions.PORT.key(), port);
+        configMap.put(EdgeSocketSourceOptions.TOKEN.key(), "edge-test-token");
+        configMap.put(EdgeSocketSourceOptions.MAX_RETRIES.key(), 5);
+        configMap.put(EdgeSocketSourceOptions.RECONNECT_INTERVAL_MS.key(), 50);
+        configMap.put(EdgeSocketSourceOptions.ACCEPT_TIMEOUT_MS.key(), 100);
+        configMap.put(EdgeSocketSourceOptions.LOCAL_QUEUE_CAPACITY.key(), 8);
+        configMap.put(EdgeSocketSourceOptions.PACKET_MODE.key(), "PACKET");
+        ReadonlyConfig config = ReadonlyConfig.fromMap(configMap);
+        SourceReader.Context ctx = Mockito.mock(SourceReader.Context.class);
+        Mockito.when(ctx.getBoundedness()).thenReturn(Boundedness.UNBOUNDED);
+        SingleSplitReaderContext readerContext = new SingleSplitReaderContext(ctx);
+        SeaTunnelRowType rowType =
+                new SeaTunnelRowType(
+                        new String[] {"value"}, new SeaTunnelDataType<?>[] {BasicType.STRING_TYPE});
+        try (EdgeSocketSourceReader reader =
+                new EdgeSocketSourceReader(
+                        new EdgeSocketConfig(config),
+                        readerContext,
+                        new EdgeSocketTextDeserializationSchema(rowType))) {
+            reader.open();
+            awaitServerReady(reader);
+            try (Socket socket = new Socket("127.0.0.1", port);
+                    BufferedWriter writer =
+                            new BufferedWriter(
+                                    new OutputStreamWriter(
+                                            socket.getOutputStream(), StandardCharsets.UTF_8));
+                    BufferedReader bufferedReader =
+                            new BufferedReader(
+                                    new InputStreamReader(
+                                            socket.getInputStream(), StandardCharsets.UTF_8))) {
+                socket.setSoTimeout(3000);
+                writeLine(writer, "__AUTH__:edge-test-token");
+                Assertions.assertEquals("ACK", readLine(bufferedReader));
+
+                String packetJson =
+                        "{\"payload\":\"dGVzdA==\",\"encryption\":\"aes_gcm\","
+                                + "\"iv\":\"AAAAAAAAAAAAAAAA\"}";
+                writeLine(writer, "__BATCH__:1:" + packetJson);
+                Assertions.assertEquals("DECRYPT_FAILED", readLine(bufferedReader));
+            }
+        }
+    }
+
     private EdgeSocketSourceReader createReader(int port, int maxRetries) {
         Map<String, Object> configMap = new HashMap<>();
         configMap.put(EdgeSocketCommonOptions.PORT.key(), port);

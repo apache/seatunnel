@@ -27,6 +27,8 @@ import org.apache.seatunnel.connectors.seatunnel.common.source.SingleSplitReader
 import org.apache.seatunnel.connectors.seatunnel.edgesocket.config.EdgeSocketConfig;
 import org.apache.seatunnel.connectors.seatunnel.edgesocket.exception.EdgeSocketConnectorErrorCode;
 import org.apache.seatunnel.connectors.seatunnel.edgesocket.exception.EdgeSocketConnectorException;
+import org.apache.seatunnel.connectors.seatunnel.edgesocket.protocol.EdgeSocketResponseCode;
+import org.apache.seatunnel.connectors.seatunnel.edgesocket.protocol.IncomingRecordHandler;
 import org.apache.seatunnel.connectors.seatunnel.edgesocket.queue.DefaultEdgeSocketRecordQueue;
 import org.apache.seatunnel.connectors.seatunnel.edgesocket.queue.EdgeSocketQueuedRecord;
 import org.apache.seatunnel.connectors.seatunnel.edgesocket.queue.EdgeSocketRecordQueue;
@@ -35,9 +37,6 @@ import org.apache.seatunnel.connectors.seatunnel.edgesocket.serialize.DefaultEdg
 import org.apache.seatunnel.connectors.seatunnel.edgesocket.serialize.DefaultEdgeSocketRecordDeserializer;
 import org.apache.seatunnel.connectors.seatunnel.edgesocket.serialize.EdgeSocketPayloadDeserializer;
 import org.apache.seatunnel.connectors.seatunnel.edgesocket.serialize.EdgeSocketRecordDeserializer;
-import org.apache.seatunnel.connectors.seatunnel.edgesocket.socket.EdgeSocketIngressServer;
-import org.apache.seatunnel.connectors.seatunnel.edgesocket.socket.EdgeSocketResponseCode;
-import org.apache.seatunnel.connectors.seatunnel.edgesocket.socket.IncomingRecordHandler;
 import org.apache.seatunnel.connectors.seatunnel.edgesocket.state.EdgeSocketSourceState;
 
 import lombok.extern.slf4j.Slf4j;
@@ -206,23 +205,18 @@ public class EdgeSocketSourceReader extends AbstractSingleSplitReader<SeaTunnelR
                         connectorException);
                 return EdgeSocketResponseCode.DECRYPT_FAILED.getCode();
             }
-            log.warn(
-                    "Decode ingress packet failed for batchId={}, collector should retry",
-                    batchId,
-                    connectorException);
-            return EdgeSocketResponseCode.RETRY.getCode();
+            log.warn("Decode ingress packet failed for batchId={}", batchId, connectorException);
+            return EdgeSocketResponseCode.DECODE_FAILED.getCode();
         } catch (Exception decodeException) {
-            log.warn(
-                    "Decode or enqueue ingress packet failed, collector should retry",
-                    decodeException);
-            return EdgeSocketResponseCode.RETRY.getCode();
+            log.warn("Decode or enqueue ingress packet failed", decodeException);
+            return EdgeSocketResponseCode.DECODE_FAILED.getCode();
         }
     }
 
     @Override
     public String handleCommitRequest(long batchId) {
         synchronized (stateLock) {
-            return sourceState.buildCommitResponse(batchId);
+            return sourceState.resolveCommitResponse(batchId);
         }
     }
 

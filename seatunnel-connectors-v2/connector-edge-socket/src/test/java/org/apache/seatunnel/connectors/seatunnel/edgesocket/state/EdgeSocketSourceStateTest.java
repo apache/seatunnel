@@ -31,14 +31,14 @@ class EdgeSocketSourceStateTest {
     @Test
     void buildCommitResponseReturnsRetryForUnknownBatch() {
         EdgeSocketSourceState state = new EdgeSocketSourceState();
-        Assertions.assertEquals("RETRY", state.buildCommitResponse(1));
+        Assertions.assertEquals("RETRY", state.resolveCommitResponse(1));
     }
 
     @Test
     void buildCommitResponseReturnsPendingForReceivedBatch() {
         EdgeSocketSourceState state = new EdgeSocketSourceState();
         state.markRecordReceived(1);
-        Assertions.assertEquals("PENDING", state.buildCommitResponse(1));
+        Assertions.assertEquals("PENDING", state.resolveCommitResponse(1));
     }
 
     @Test
@@ -50,7 +50,7 @@ class EdgeSocketSourceStateTest {
         state.snapshotState(100L, new EdgeSocketQueuedRecord[0]);
         state.notifyCheckpointComplete(100L);
 
-        Assertions.assertTrue(state.buildCommitResponse(1).startsWith("ACK:"));
+        Assertions.assertTrue(state.resolveCommitResponse(1).startsWith("ACK:"));
     }
 
     @Test
@@ -65,8 +65,8 @@ class EdgeSocketSourceStateTest {
         state.snapshotState(1L, new EdgeSocketQueuedRecord[0]);
         state.notifyCheckpointComplete(1L);
 
-        Assertions.assertEquals("ACK:2", state.buildCommitResponse(1));
-        Assertions.assertEquals("PENDING", state.buildCommitResponse(3));
+        Assertions.assertEquals("ACK:2", state.resolveCommitResponse(1));
+        Assertions.assertEquals("PENDING", state.resolveCommitResponse(3));
     }
 
     @Test
@@ -81,15 +81,15 @@ class EdgeSocketSourceStateTest {
         state.snapshotState(1L, new EdgeSocketQueuedRecord[0]);
         state.notifyCheckpointComplete(1L);
 
-        Assertions.assertEquals("ACK:0", state.buildCommitResponse(0));
-        Assertions.assertEquals("PENDING", state.buildCommitResponse(1));
+        Assertions.assertEquals("ACK:0", state.resolveCommitResponse(0));
+        Assertions.assertEquals("PENDING", state.resolveCommitResponse(1));
 
         // emit the last record — now batch 1 is fully drained
         state.markRecordEmitted(1);
         state.snapshotState(2L, new EdgeSocketQueuedRecord[0]);
         state.notifyCheckpointComplete(2L);
 
-        Assertions.assertEquals("ACK:1", state.buildCommitResponse(1));
+        Assertions.assertEquals("ACK:1", state.resolveCommitResponse(1));
     }
 
     @Test
@@ -115,8 +115,8 @@ class EdgeSocketSourceStateTest {
         Assertions.assertEquals(
                 EdgeSocketCompressionType.NONE, records.get(0).getCompressionType());
         // batch 1 committed (snapshotWatermark=1); batch 2 restored as pending
-        Assertions.assertEquals("ACK:1", restored.buildCommitResponse(1));
-        Assertions.assertEquals("PENDING", restored.buildCommitResponse(2));
+        Assertions.assertEquals("ACK:1", restored.resolveCommitResponse(1));
+        Assertions.assertEquals("PENDING", restored.resolveCommitResponse(2));
     }
 
     @Test
@@ -128,7 +128,7 @@ class EdgeSocketSourceStateTest {
         List<EdgeSocketQueuedRecord> records = restored.restoreState(serialized);
 
         Assertions.assertTrue(records.isEmpty());
-        Assertions.assertEquals("RETRY", restored.buildCommitResponse(1));
+        Assertions.assertEquals("RETRY", restored.resolveCommitResponse(1));
     }
 
     @Test
@@ -139,7 +139,7 @@ class EdgeSocketSourceStateTest {
         state.snapshotState(1L, new EdgeSocketQueuedRecord[0]);
         state.notifyCheckpointAborted(1L);
 
-        Assertions.assertEquals("PENDING", state.buildCommitResponse(1));
+        Assertions.assertEquals("PENDING", state.resolveCommitResponse(1));
     }
 
     @Test
@@ -158,7 +158,7 @@ class EdgeSocketSourceStateTest {
         EdgeSocketSourceState restored = new EdgeSocketSourceState();
         restored.restoreState(snapshot);
         restored.markRecordReceived(1); // batchId=1 <= watermark=100; ACK regardless
-        Assertions.assertEquals("ACK:100", restored.buildCommitResponse(1));
+        Assertions.assertEquals("ACK:100", restored.resolveCommitResponse(1));
     }
 
     @Test
@@ -178,7 +178,32 @@ class EdgeSocketSourceStateTest {
         EdgeSocketSourceState restored = new EdgeSocketSourceState();
         restored.restoreState(snapshot);
 
-        Assertions.assertEquals("ACK:50", restored.buildCommitResponse(1));
+        Assertions.assertEquals("ACK:50", restored.resolveCommitResponse(1));
+    }
+
+    @Test
+    void buildCommitResponseReturnsResendForGappedBatchAfterRestore() throws Exception {
+        EdgeSocketSourceState state = new EdgeSocketSourceState();
+        state.markRecordReceived(1);
+        state.markRecordReceived(2);
+        state.markRecordReceived(3);
+        state.markRecordReceived(5);
+        state.markRecordEmitted(1);
+        state.markRecordEmitted(2);
+        state.markRecordEmitted(3);
+        state.markRecordEmitted(5);
+
+        state.snapshotState(1L, new EdgeSocketQueuedRecord[0]);
+        state.notifyCheckpointComplete(1L);
+
+        byte[] snapshot = state.snapshotState(2L, new EdgeSocketQueuedRecord[0]);
+
+        EdgeSocketSourceState restored = new EdgeSocketSourceState();
+        restored.restoreState(snapshot);
+
+        Assertions.assertEquals("RESEND", restored.resolveCommitResponse(4));
+        Assertions.assertEquals("PENDING", restored.resolveCommitResponse(5));
+        Assertions.assertTrue(restored.resolveCommitResponse(3).startsWith("ACK:"));
     }
 
     @Test
@@ -200,6 +225,6 @@ class EdgeSocketSourceStateTest {
         restored.snapshotState(10L, new EdgeSocketQueuedRecord[0]);
         restored.notifyCheckpointComplete(10L);
 
-        Assertions.assertTrue(restored.buildCommitResponse(51).startsWith("ACK:"));
+        Assertions.assertTrue(restored.resolveCommitResponse(51).startsWith("ACK:"));
     }
 }

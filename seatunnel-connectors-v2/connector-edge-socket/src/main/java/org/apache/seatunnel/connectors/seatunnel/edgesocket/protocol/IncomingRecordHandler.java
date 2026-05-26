@@ -15,7 +15,7 @@
  * limitations under the License.
  */
 
-package org.apache.seatunnel.connectors.seatunnel.edgesocket.socket;
+package org.apache.seatunnel.connectors.seatunnel.edgesocket.protocol;
 
 public interface IncomingRecordHandler {
 
@@ -32,7 +32,7 @@ public interface IncomingRecordHandler {
      * Handle a commit (watermark query) request from the collector.
      *
      * @param batchId the batch identifier the collector wants to confirm
-     * @return protocol response code (ACK:watermark, PENDING, or RETRY)
+     * @return protocol response code (ACK:watermark, PENDING, RETRY, or RESEND)
      */
     String handleCommitRequest(long batchId);
 }

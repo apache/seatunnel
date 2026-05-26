@@ -15,14 +15,31 @@
  * limitations under the License.
  */
 
-package org.apache.seatunnel.connectors.seatunnel.edgesocket.socket;
+package org.apache.seatunnel.connectors.seatunnel.edgesocket.protocol;
 
 public enum EdgeSocketResponseCode {
+
+    /**
+     * Request processed successfully. Also used as checkpoint watermark prefix via {@link
+     * #withPayload}.
+     */
     ACK("ACK"),
+
+    /** Batch data received and enqueued for processing. */
     RECEIVED("RECEIVED"),
+
+    /** Internal record queue is full; collector should back off and retry later. */
     QUEUE_FULL("QUEUE_FULL"),
+
+    /**
+     * Internal record queue is physically full; collector should apply exponential back-off and
+     * retry.
+     */
     RETRY("RETRY"),
+
+    /** Commit query accepted but the batch has not yet been checkpointed; poll again later. */
     PENDING("PENDING"),
+
     /**
      * Returned by {@code __COMMIT__} when the source has no record of the queried batchId in the
      * current session (e.g. after a worker restart the collector reconnects with a batchId that was
@@ -30,8 +47,23 @@ public enum EdgeSocketResponseCode {
      * {@code __BATCH__} before polling {@code __COMMIT__} again.
      */
     RESEND("RESEND"),
+
+    /** Payload decode failed (e.g. decompression error, malformed JSON in PACKET mode). */
+    DECODE_FAILED("DECODE_FAILED"),
+
+    /** Payload decryption failed; typically indicates a token / key mismatch. */
     DECRYPT_FAILED("DECRYPT_FAILED"),
+
+    /** Authentication token is missing or invalid. */
     AUTH_FAILED("AUTH_FAILED"),
+
+    /** Request format is invalid (unrecognized command, missing separator, etc.). */
+    BAD_REQUEST("BAD_REQUEST"),
+
+    /** A required parameter value is invalid (e.g. non-numeric or non-positive batchId). */
+    INVALID_PARAM("INVALID_PARAM"),
+
+    /** Connection rejected (e.g. another collector is already connected). */
     REJECTED("REJECTED");
 
     private final String code;
