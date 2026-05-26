@@ -140,7 +140,8 @@ public class SchemaOperator extends AbstractStreamOperator<SeaTunnelRow>
     }
 
     @Override
-    public void processElement(StreamRecord<SeaTunnelRow> streamRecord) throws InterruptedException {
+    public void processElement(StreamRecord<SeaTunnelRow> streamRecord)
+            throws InterruptedException {
         SeaTunnelRow element = streamRecord.getValue();
 
         if (!isSchemaEvolutionEnabled(pluginConfig)) {
@@ -289,7 +290,7 @@ public class SchemaOperator extends AbstractStreamOperator<SeaTunnelRow>
                 tableId,
                 eventTime);
 
-        applyNextPendingSchemaChange();
+        applyNextPendingSchemaChange(false);
     }
 
     private void handleFallbackTimerOnTaskThread() throws InterruptedException {
@@ -316,7 +317,7 @@ public class SchemaOperator extends AbstractStreamOperator<SeaTunnelRow>
             return;
         }
 
-        applyNextPendingSchemaChange();
+        applyNextPendingSchemaChange(true);
     }
 
     private void scheduleFallbackTimer() {
@@ -400,13 +401,13 @@ public class SchemaOperator extends AbstractStreamOperator<SeaTunnelRow>
         return head;
     }
 
-    private void applyNextPendingSchemaChange() throws InterruptedException {
-        BufferedRecord head = pendingQueue.poll();
+    private void applyNextPendingSchemaChange(boolean emitFlushSignalAfterDrain)
+            throws InterruptedException {
+        BufferedRecord head = pendingQueue.peek();
         if (head == null || !head.isSchemaChange) {
             return;
         }
 
-        firstSeenCheckpointId = -1L;
         SchemaChangeEvent event = head.schemaEvent;
         TableIdentifier tableId = event.tableIdentifier();
         long eventTime = event.getCreatedTime();
@@ -416,8 +417,9 @@ public class SchemaOperator extends AbstractStreamOperator<SeaTunnelRow>
                     "Skipping outdated schema change event (epoch {} <= last processed {})",
                     eventTime,
                     lastProcessedEventTime);
+            pendingQueue.poll();
             firstSeenCheckpointId = -1L;
-            drainDataUntilNextSchemaChange();
+            drainDataUntilNextSchemaChange(emitFlushSignalAfterDrain);
             return;
         }
 
@@ -438,6 +440,8 @@ public class SchemaOperator extends AbstractStreamOperator<SeaTunnelRow>
                 "Schema change for table {} (epoch {}) confirmed by all sink subtasks.",
                 tableId,
                 eventTime);
+        pendingQueue.poll();
+        firstSeenCheckpointId = -1L;
 
         CatalogTable newSchema = event.getChangeAfter();
         if (newSchema != null) {
@@ -445,7 +449,7 @@ public class SchemaOperator extends AbstractStreamOperator<SeaTunnelRow>
         }
         lastProcessedEventTime = eventTime;
 
-        drainDataUntilNextSchemaChange();
+        drainDataUntilNextSchemaChange(emitFlushSignalAfterDrain);
 
         log.info(
                 "Schema change for table {} (epoch {}) processing complete. pendingQueue remaining: {}",
@@ -454,7 +458,7 @@ public class SchemaOperator extends AbstractStreamOperator<SeaTunnelRow>
                 pendingQueue.size());
     }
 
-    private void drainDataUntilNextSchemaChange() {
+    private void drainDataUntilNextSchemaChange(boolean emitFlushSignalAfterDrain) {
         int released = 0;
         while (!pendingQueue.isEmpty()) {
             BufferedRecord record = pendingQueue.peek();
@@ -475,7 +479,9 @@ public class SchemaOperator extends AbstractStreamOperator<SeaTunnelRow>
         // queue is empty
         schemaChangePending = false;
         log.info("Released {} buffered data records. Normal data flow resumed.", released);
-        sendFlushSignalToDownstream();
+        if (emitFlushSignalAfterDrain) {
+            sendFlushSignalToDownstream();
+        }
     }
 
     private void sendFlushSignalToDownstream() {
