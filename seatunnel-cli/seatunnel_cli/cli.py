@@ -39,7 +39,7 @@ from prompt_toolkit.completion import WordCompleter
 from prompt_toolkit.history import FileHistory
 
 from . import __version__, get_data_dir
-from .llm_provider import create_provider
+from .llm_provider import create_provider, format_llm_error
 from .agents import Orchestrator
 
 
@@ -928,7 +928,7 @@ class SeaTunnelCLI:
             result = self.orchestrator.process_user_input(user_input)
         except Exception as e:
             self._stop_live()
-            self.console.print(f"\n[error]Error: {e}[/error]")
+            self.console.print(f"\n[error]Error: {format_llm_error(e)}[/error]")
             import traceback
             self.console.print(f"[dim]{traceback.format_exc()}[/dim]")
             return None

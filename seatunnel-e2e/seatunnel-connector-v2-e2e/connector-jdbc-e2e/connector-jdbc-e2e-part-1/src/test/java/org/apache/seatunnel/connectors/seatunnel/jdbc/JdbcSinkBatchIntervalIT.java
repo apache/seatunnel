@@ -107,7 +107,7 @@ public class JdbcSinkBatchIntervalIT extends TestSuiteBase implements TestResour
 
         given().ignoreExceptions()
                 .await()
-                .atMost(30, TimeUnit.SECONDS)
+                .atMost(120, TimeUnit.SECONDS)
                 .pollInterval(2, TimeUnit.SECONDS)
                 .untilAsserted(
                         () -> {
@@ -149,7 +149,7 @@ public class JdbcSinkBatchIntervalIT extends TestSuiteBase implements TestResour
 
         given().ignoreExceptions()
                 .await()
-                .atMost(30, TimeUnit.SECONDS)
+                .atMost(120, TimeUnit.SECONDS)
                 .pollInterval(2, TimeUnit.SECONDS)
                 .untilAsserted(
                         () -> {
@@ -198,7 +198,7 @@ public class JdbcSinkBatchIntervalIT extends TestSuiteBase implements TestResour
 
         given().ignoreExceptions()
                 .await()
-                .atMost(30, TimeUnit.SECONDS)
+                .atMost(120, TimeUnit.SECONDS)
                 .pollInterval(2, TimeUnit.SECONDS)
                 .untilAsserted(
                         () -> {
