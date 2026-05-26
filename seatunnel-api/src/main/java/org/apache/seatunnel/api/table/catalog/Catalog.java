@@ -19,6 +19,7 @@ package org.apache.seatunnel.api.table.catalog;
 
 import org.apache.seatunnel.shade.org.apache.commons.lang3.StringUtils;
 
+import org.apache.seatunnel.api.common.multitable.MultiTableFailedTable;
 import org.apache.seatunnel.api.common.multitable.MultiTableFailureHelper;
 import org.apache.seatunnel.api.common.multitable.MultiTableFailurePhase;
 import org.apache.seatunnel.api.configuration.ReadonlyConfig;
@@ -277,14 +278,13 @@ public interface Catalog extends AutoCloseable {
     }
 
     default void logSkipFailedTable(TablePath tablePath, Throwable error) {
+        MultiTableFailedTable failedTable =
+                MultiTableFailureHelper.buildFailedTable(
+                        tablePath.getFullName(), MultiTableFailurePhase.DISCOVERY, name(), error);
+        MultiTableFailureHelper.recordFailedTable(failedTable);
         LOG.warn(
                 "Skip failed table in discovery: {}",
-                MultiTableFailureHelper.formatFailedTableLine(
-                        MultiTableFailureHelper.buildFailedTable(
-                                tablePath.getFullName(),
-                                MultiTableFailurePhase.DISCOVERY,
-                                name(),
-                                error)),
+                MultiTableFailureHelper.formatFailedTableLine(failedTable),
                 error);
     }
 

@@ -100,6 +100,10 @@ public class MultiTableSink
                         MultiTableFailureHelper.getInitialFailedTables(context.getOptions()));
     }
 
+    public List<MultiTableFailedTable> getInitialFailedTables() {
+        return Collections.unmodifiableList(initialFailedTables);
+    }
+
     @Override
     public String getPluginName() {
         return "MultiTableSink";

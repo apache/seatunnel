@@ -22,6 +22,7 @@ import org.apache.seatunnel.api.options.MultiTableCommonOptions;
 import org.apache.seatunnel.api.options.MultiTableFailurePolicy;
 
 import java.nio.charset.StandardCharsets;
+import java.util.ArrayList;
 import java.util.Base64;
 import java.util.Collection;
 import java.util.Collections;
@@ -30,6 +31,7 @@ import java.util.List;
 import java.util.Map;
 import java.util.Objects;
 import java.util.TreeMap;
+import java.util.function.Supplier;
 import java.util.stream.Collectors;
 import java.util.stream.Stream;
 
@@ -39,6 +41,8 @@ public final class MultiTableFailureHelper {
 
     private static final String FAILED_TABLE_DELIMITER = ":";
     private static final int FAILED_TABLE_FIELD_COUNT = 6;
+    private static final ThreadLocal<List<MultiTableFailedTable>> FAILED_TABLE_COLLECTOR =
+            new ThreadLocal<>();
 
     private MultiTableFailureHelper() {}
 
@@ -56,6 +60,19 @@ public final class MultiTableFailureHelper {
             return primary;
         }
         return ReadonlyConfig.fromConfig(primary.toConfig().withFallback(fallback.toConfig()));
+    }
+
+    public static ReadonlyConfig withMultiTableFailurePolicy(
+            ReadonlyConfig options, ReadonlyConfig envOptions) {
+        if (envOptions == null) {
+            return options;
+        }
+        Map<String, Object> internalOptions = new HashMap<>();
+        MultiTableFailurePolicy failurePolicy =
+                envOptions.get(MultiTableCommonOptions.MULTI_TABLE_FAILURE_POLICY);
+        internalOptions.put(
+                MultiTableCommonOptions.MULTI_TABLE_FAILURE_POLICY.key(), failurePolicy.name());
+        return mergeOptions(ReadonlyConfig.fromMap(internalOptions), options);
     }
 
     public static ReadonlyConfig withFailedTables(
@@ -81,6 +98,33 @@ public final class MultiTableFailureHelper {
                 message,
                 System.currentTimeMillis(),
                 error);
+    }
+
+    public static <T> T collectFailedTables(
+            Collection<MultiTableFailedTable> target, Supplier<T> action) {
+        List<MultiTableFailedTable> previous = FAILED_TABLE_COLLECTOR.get();
+        List<MultiTableFailedTable> current = new ArrayList<>();
+        FAILED_TABLE_COLLECTOR.set(current);
+        try {
+            return action.get();
+        } finally {
+            if (target != null) {
+                target.addAll(current);
+            }
+            if (previous == null) {
+                FAILED_TABLE_COLLECTOR.remove();
+            } else {
+                previous.addAll(current);
+                FAILED_TABLE_COLLECTOR.set(previous);
+            }
+        }
+    }
+
+    public static void recordFailedTable(MultiTableFailedTable failedTable) {
+        List<MultiTableFailedTable> failedTables = FAILED_TABLE_COLLECTOR.get();
+        if (failedTables != null && failedTable != null) {
+            failedTables.add(failedTable);
+        }
     }
 
     public static List<MultiTableFailedTable> getInitialFailedTables(ReadonlyConfig options) {

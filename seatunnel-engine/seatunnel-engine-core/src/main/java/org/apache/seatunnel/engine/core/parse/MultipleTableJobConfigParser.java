@@ -133,6 +133,7 @@ public class MultipleTableJobConfigParser {
     private final boolean isStartWithSavePoint;
     private final List<JobPipelineCheckpointData> pipelineCheckpoints;
     private final List<MultiTableFailedTable> failedTables = new ArrayList<>();
+    private final List<MultiTableFailedTable> sourceFailedTables = new ArrayList<>();
 
     private final MetadataConfig metaDataConfig;
 
@@ -213,6 +214,7 @@ public class MultipleTableJobConfigParser {
 
     public ImmutablePair<List<Action>, Set<URL>> parse(ClassLoaderService classLoaderService) {
         failedTables.clear();
+        sourceFailedTables.clear();
         this.fillJobConfigAndCommonJars();
         List<? extends Config> sourceConfigs =
                 TypesafeConfigUtils.getConfigList(
@@ -374,7 +376,9 @@ public class MultipleTableJobConfigParser {
 
     public Tuple2<String, List<Tuple2<CatalogTable, Action>>> parseSource(
             int configIndex, Config sourceConfig, ClassLoader classLoader) {
-        final ReadonlyConfig readonlyConfig = ReadonlyConfig.fromConfig(sourceConfig);
+        final ReadonlyConfig readonlyConfig =
+                MultiTableFailureHelper.withMultiTableFailurePolicy(
+                        ReadonlyConfig.fromConfig(sourceConfig), envOptions);
         final String factoryId = getFactoryId(readonlyConfig);
         final String tableId =
                 readonlyConfig.getOptional(ConnectorCommonOptions.PLUGIN_OUTPUT).orElse(DEFAULT_ID);
@@ -388,29 +392,19 @@ public class MultipleTableJobConfigParser {
                     return sourcePluginDiscovery.createPluginInstance(pluginIdentifier);
                 };
 
-        Tuple2<SeaTunnelSource<Object, SourceSplit, Serializable>, List<CatalogTable>> tuple2;
-        if (isStartWithSavePoint && pipelineCheckpoints != null && !pipelineCheckpoints.isEmpty()) {
-            ChangeStreamTableSourceCheckpoint checkpoint =
-                    getSourceCheckpoint(configIndex, factoryId);
-            tuple2 =
-                    FactoryUtil.restoreAndPrepareSource(
-                            readonlyConfig,
-                            classLoader,
-                            factoryId,
-                            checkpoint,
-                            fallbackCreateSource,
-                            null,
-                            metaDataConfig);
-        } else {
-            tuple2 =
-                    FactoryUtil.createAndPrepareSource(
-                            readonlyConfig,
-                            classLoader,
-                            factoryId,
-                            fallbackCreateSource,
-                            null,
-                            metaDataConfig);
-        }
+        List<MultiTableFailedTable> discoveryFailedTables = new ArrayList<>();
+        Tuple2<SeaTunnelSource<Object, SourceSplit, Serializable>, List<CatalogTable>> tuple2 =
+                MultiTableFailureHelper.collectFailedTables(
+                        discoveryFailedTables,
+                        () ->
+                                createAndPrepareSource(
+                                        configIndex,
+                                        readonlyConfig,
+                                        classLoader,
+                                        factoryId,
+                                        fallbackCreateSource));
+        failedTables.addAll(discoveryFailedTables);
+        sourceFailedTables.addAll(discoveryFailedTables);
 
         Set<URL> factoryUrls = new HashSet<>();
         factoryUrls.addAll(getSourcePluginJarPaths(sourceConfig));
@@ -428,6 +422,29 @@ public class MultipleTableJobConfigParser {
             actions.add(new Tuple2<>(catalogTable, action));
         }
         return new Tuple2<>(tableId, actions);
+    }
+
+    protected Tuple2<SeaTunnelSource<Object, SourceSplit, Serializable>, List<CatalogTable>>
+            createAndPrepareSource(
+                    int configIndex,
+                    ReadonlyConfig readonlyConfig,
+                    ClassLoader classLoader,
+                    String factoryId,
+                    Function<PluginIdentifier, SeaTunnelSource> fallbackCreateSource) {
+        if (isStartWithSavePoint && pipelineCheckpoints != null && !pipelineCheckpoints.isEmpty()) {
+            ChangeStreamTableSourceCheckpoint checkpoint =
+                    getSourceCheckpoint(configIndex, factoryId);
+            return FactoryUtil.restoreAndPrepareSource(
+                    readonlyConfig,
+                    classLoader,
+                    factoryId,
+                    checkpoint,
+                    fallbackCreateSource,
+                    null,
+                    metaDataConfig);
+        }
+        return FactoryUtil.createAndPrepareSource(
+                readonlyConfig, classLoader, factoryId, fallbackCreateSource, null, metaDataConfig);
     }
 
     public void parseTransforms(
@@ -644,8 +661,7 @@ public class MultipleTableJobConfigParser {
                         classLoader,
                         factoryId,
                         configIndex,
-                        new ArrayList<>(
-                                failedTables.subList(failedTableStartIndex, failedTables.size())));
+                        getInitialFailedTablesForSink(failedTableStartIndex));
         return multiTableSink
                 .<List<SinkAction<?, ?, ?, ?>>>map(Collections::singletonList)
                 .orElse(sinkActions);
@@ -696,6 +712,18 @@ public class MultipleTableJobConfigParser {
                         new HashSet<>());
         multiTableAction.setParallelism(sinkActions.get(0).getParallelism());
         return Optional.of(multiTableAction);
+    }
+
+    private List<MultiTableFailedTable> getInitialFailedTablesForSink(int failedTableStartIndex) {
+        Map<String, MultiTableFailedTable> initialFailedTables = new LinkedHashMap<>();
+        sourceFailedTables.forEach(
+                failedTable -> initialFailedTables.put(failedTable.getTablePath(), failedTable));
+        failedTables
+                .subList(failedTableStartIndex, failedTables.size())
+                .forEach(
+                        failedTable ->
+                                initialFailedTables.put(failedTable.getTablePath(), failedTable));
+        return new ArrayList<>(initialFailedTables.values());
     }
 
     protected Optional<SinkAction<?, ?, ?, ?>> createSinkAction(

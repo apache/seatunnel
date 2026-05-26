@@ -20,6 +20,7 @@ package org.apache.seatunnel.connectors.seatunnel.jdbc.utils;
 import org.apache.seatunnel.shade.com.google.common.base.Strings;
 import org.apache.seatunnel.shade.org.apache.commons.lang3.StringUtils;
 
+import org.apache.seatunnel.api.common.multitable.MultiTableFailedTable;
 import org.apache.seatunnel.api.common.multitable.MultiTableFailureHelper;
 import org.apache.seatunnel.api.common.multitable.MultiTableFailurePhase;
 import org.apache.seatunnel.api.configuration.ReadonlyConfig;
@@ -124,14 +125,9 @@ public class JdbcCatalogUtils {
                                         CommonErrorCode
                                                 .GET_CATALOG_TABLE_WITH_UNSUPPORTED_TYPE_ERROR)) {
                             if (continueOtherTables) {
-                                log.warn(
-                                        "Skip failed JDBC source table in discovery: {}",
-                                        MultiTableFailureHelper.formatFailedTableLine(
-                                                MultiTableFailureHelper.buildFailedTable(
-                                                        e.getParams().get("tableName"),
-                                                        MultiTableFailurePhase.DISCOVERY,
-                                                        jdbcDialect.dialectName(),
-                                                        e)),
+                                logSkipFailedTable(
+                                        e.getParams().get("tableName"),
+                                        jdbcDialect.dialectName(),
                                         e);
                             } else {
                                 unsupportedTable.put(
@@ -139,29 +135,15 @@ public class JdbcCatalogUtils {
                                         e.getParamsValueAsMap("fieldWithDataTypes"));
                             }
                         } else if (continueOtherTables) {
-                            log.warn(
-                                    "Skip failed JDBC source table in discovery: {}",
-                                    MultiTableFailureHelper.formatFailedTableLine(
-                                            MultiTableFailureHelper.buildFailedTable(
-                                                    tableConfig.getTablePath(),
-                                                    MultiTableFailurePhase.DISCOVERY,
-                                                    jdbcDialect.dialectName(),
-                                                    e)),
-                                    e);
+                            logSkipFailedTable(
+                                    tableConfig.getTablePath(), jdbcDialect.dialectName(), e);
                         } else {
                             throw e;
                         }
                     } catch (Exception e) {
                         if (continueOtherTables) {
-                            log.warn(
-                                    "Skip failed JDBC source table in discovery: {}",
-                                    MultiTableFailureHelper.formatFailedTableLine(
-                                            MultiTableFailureHelper.buildFailedTable(
-                                                    tableConfig.getTablePath(),
-                                                    MultiTableFailurePhase.DISCOVERY,
-                                                    jdbcDialect.dialectName(),
-                                                    e)),
-                                    e);
+                            logSkipFailedTable(
+                                    tableConfig.getTablePath(), jdbcDialect.dialectName(), e);
                         } else {
                             throw wrapThrowable(e);
                         }
@@ -208,15 +190,8 @@ public class JdbcCatalogUtils {
                     }
                 } catch (Exception e) {
                     if (continueOtherTables) {
-                        log.warn(
-                                "Skip failed JDBC source table in discovery: {}",
-                                MultiTableFailureHelper.formatFailedTableLine(
-                                        MultiTableFailureHelper.buildFailedTable(
-                                                tableConfig.getTablePath(),
-                                                MultiTableFailurePhase.DISCOVERY,
-                                                jdbcDialect.dialectName(),
-                                                e)),
-                                e);
+                        logSkipFailedTable(
+                                tableConfig.getTablePath(), jdbcDialect.dialectName(), e);
                     } else {
                         throw wrapThrowable(e);
                     }
@@ -228,6 +203,17 @@ public class JdbcCatalogUtils {
                     jdbcConnectionConfig.getUrl());
             return tables;
         }
+    }
+
+    private static void logSkipFailedTable(String tablePath, String pluginName, Throwable error) {
+        MultiTableFailedTable failedTable =
+                MultiTableFailureHelper.buildFailedTable(
+                        tablePath, MultiTableFailurePhase.DISCOVERY, pluginName, error);
+        MultiTableFailureHelper.recordFailedTable(failedTable);
+        log.warn(
+                "Skip failed JDBC source table in discovery: {}",
+                MultiTableFailureHelper.formatFailedTableLine(failedTable),
+                error);
     }
 
     private static RuntimeException wrapThrowable(Throwable error)
