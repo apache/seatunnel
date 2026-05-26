@@ -17,14 +17,11 @@
 
 import { defineComponent, onUnmounted, ref } from 'vue'
 import { NSpace, NCard } from 'naive-ui'
-import { useI18n } from 'vue-i18n'
 import { overviewService } from '@/service/overview'
 import type { Overview } from '@/service/overview/types'
 
 export default defineComponent({
   setup() {
-    const { t } = useI18n()
-
     const data = ref({} as Overview)
 
     let timer: NodeJS.Timeout
