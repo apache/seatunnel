@@ -79,6 +79,16 @@ public class FileCollectReaderBehaviorTest {
                                 return System.currentTimeMillis() >= idleDeadlineMs;
                             });
 
+            // Ensure glob scan rediscovers the file before new data is appended
+            Awaitility.await()
+                    .atMost(3, TimeUnit.SECONDS)
+                    .pollInterval(5, TimeUnit.MILLISECONDS)
+                    .until(
+                            () -> {
+                                reader.poll(10);
+                                return System.currentTimeMillis()
+                                        >= idleDeadlineMs + GLOB_SCAN_INTERVAL_MS;
+                            });
             Assertions.assertTrue(reader.poll(10).isEmpty());
 
             Files.write(
