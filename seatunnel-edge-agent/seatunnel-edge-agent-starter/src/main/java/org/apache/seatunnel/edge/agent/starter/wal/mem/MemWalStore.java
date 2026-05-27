@@ -26,15 +26,7 @@ import org.apache.seatunnel.edge.agent.starter.wal.WalStore;
 import java.util.ArrayList;
 import java.util.List;
 
-/**
- * In-memory {@link WalStore} for the {@code NON} delivery guarantee.
- *
- * <p>Events are buffered in a plain {@code ArrayList}; {@link #claimPending} returns and clears the
- * list so that claimed events are never retried. This lets the scheduler use a single WAL-based
- * code path for both {@code BEST_EFFORT} and {@code NON} modes. Lifecycle methods ({@code ack},
- * {@code resurrectSending}, {@code markExceededAsDead}, {@code cleanupAcked}) remain no-op because
- * the in-memory store has no durable state to manage.
- */
+/** In-memory {@link WalStore} for the {@code NON} delivery guarantee. */
 public class MemWalStore implements WalStore {
 
     private final MemSourcePositionStore sourcePositionStore = new MemSourcePositionStore();

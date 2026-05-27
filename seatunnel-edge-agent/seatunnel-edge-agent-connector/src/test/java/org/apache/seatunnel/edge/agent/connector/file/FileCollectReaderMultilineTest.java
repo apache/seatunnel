@@ -268,46 +268,57 @@ public class FileCollectReaderMultilineTest {
 
         // app1: deep Java stacktrace with a Caused-by chain (partial, no next boundary)
         StringBuilder sb1 = new StringBuilder();
-        sb1.append("2024-01-01 10:15:33.421 ERROR [pool-3-thread-7] "
-                + "c.f.o.OrderService - Failed to process order #98712\n");
+        sb1.append(
+                "2024-01-01 10:15:33.421 ERROR [pool-3-thread-7] "
+                        + "c.f.o.OrderService - Failed to process order #98712\n");
         sb1.append("java.lang.RuntimeException: Order processing pipeline failed\n");
         sb1.append("\tat com.foo.order.OrderService.process(OrderService.java:142)\n");
         sb1.append("\tat com.foo.order.OrderService.lambda$submit$0(OrderService.java:87)\n");
-        sb1.append("\tat java.base/java.util.concurrent.CompletableFuture$AsyncRun"
-                + ".run(CompletableFuture.java:1804)\n");
-        sb1.append("\tat java.base/java.util.concurrent.ThreadPoolExecutor"
-                + ".runWorker(ThreadPoolExecutor.java:1136)\n");
-        sb1.append("\tat java.base/java.util.concurrent.ThreadPoolExecutor$Worker"
-                + ".run(ThreadPoolExecutor.java:635)\n");
+        sb1.append(
+                "\tat java.base/java.util.concurrent.CompletableFuture$AsyncRun"
+                        + ".run(CompletableFuture.java:1804)\n");
+        sb1.append(
+                "\tat java.base/java.util.concurrent.ThreadPoolExecutor"
+                        + ".runWorker(ThreadPoolExecutor.java:1136)\n");
+        sb1.append(
+                "\tat java.base/java.util.concurrent.ThreadPoolExecutor$Worker"
+                        + ".run(ThreadPoolExecutor.java:635)\n");
         sb1.append("\tat java.base/java.lang.Thread.run(Thread.java:842)\n");
-        sb1.append("Caused by: java.sql.SQLException: Deadlock found when trying to get lock;"
-                + " try restarting transaction\n");
-        sb1.append("\tat com.mysql.cj.jdbc.exceptions.SQLError"
-                + ".createSQLException(SQLError.java:129)\n");
-        sb1.append("\tat com.foo.order.repository.OrderRepository"
-                + ".updateStatus(OrderRepository.java:201)\n");
+        sb1.append(
+                "Caused by: java.sql.SQLException: Deadlock found when trying to get lock;"
+                        + " try restarting transaction\n");
+        sb1.append(
+                "\tat com.mysql.cj.jdbc.exceptions.SQLError"
+                        + ".createSQLException(SQLError.java:129)\n");
+        sb1.append(
+                "\tat com.foo.order.repository.OrderRepository"
+                        + ".updateStatus(OrderRepository.java:201)\n");
         sb1.append("\tat com.foo.order.OrderService.persistState(OrderService.java:165)\n");
         sb1.append("\t... 5 more\n");
         Files.write(app1, sb1.toString().getBytes(StandardCharsets.UTF_8));
 
         // app2: a complete OOM stacktrace + start of a second event
         StringBuilder sb2 = new StringBuilder();
-        sb2.append("2024-01-01 10:15:34.002 ERROR [http-nio-8080-exec-12] "
-                + "c.f.a.ApiController - Request /api/export failed\n");
+        sb2.append(
+                "2024-01-01 10:15:34.002 ERROR [http-nio-8080-exec-12] "
+                        + "c.f.a.ApiController - Request /api/export failed\n");
         sb2.append("java.lang.OutOfMemoryError: Java heap space\n");
         sb2.append("\tat java.base/java.util.Arrays.copyOf(Arrays.java:3512)\n");
         sb2.append("\tat java.base/java.util.ArrayList.grow(ArrayList.java:237)\n");
         sb2.append("\tat com.foo.export.CsvExporter.bufferAll(CsvExporter.java:89)\n");
         sb2.append("\tat com.foo.api.ApiController.handleExport(ApiController.java:214)\n");
-        sb2.append("\tat jdk.internal.reflect.NativeMethodAccessorImpl"
-                + ".invoke0(Native Method)\n");
-        sb2.append("\tat org.springframework.web.servlet.FrameworkServlet"
-                + ".service(FrameworkServlet.java:897)\n");
+        sb2.append(
+                "\tat jdk.internal.reflect.NativeMethodAccessorImpl" + ".invoke0(Native Method)\n");
+        sb2.append(
+                "\tat org.springframework.web.servlet.FrameworkServlet"
+                        + ".service(FrameworkServlet.java:897)\n");
         sb2.append("\tat javax.servlet.http.HttpServlet.service(HttpServlet.java:764)\n");
-        sb2.append("\tat org.apache.catalina.core.ApplicationFilterChain"
-                + ".internalDoFilter(ApplicationFilterChain.java:227)\n");
-        sb2.append("2024-01-01 10:15:35.100 WARN  [http-nio-8080-exec-12] "
-                + "c.f.a.ApiController - Circuit breaker tripped for /api/export\n");
+        sb2.append(
+                "\tat org.apache.catalina.core.ApplicationFilterChain"
+                        + ".internalDoFilter(ApplicationFilterChain.java:227)\n");
+        sb2.append(
+                "2024-01-01 10:15:35.100 WARN  [http-nio-8080-exec-12] "
+                        + "c.f.a.ApiController - Circuit breaker tripped for /api/export\n");
         Files.write(app2, sb2.toString().getBytes(StandardCharsets.UTF_8));
 
         Map<String, Object> map = new HashMap<>();
@@ -336,8 +347,7 @@ public class FileCollectReaderMultilineTest {
 
             // Verify this is app2's OOM event with full stacktrace intact
             Assertions.assertTrue(
-                    payload.contains("OutOfMemoryError"),
-                    "Emitted event should be app2's OOM");
+                    payload.contains("OutOfMemoryError"), "Emitted event should be app2's OOM");
             Assertions.assertTrue(
                     payload.contains("CsvExporter.bufferAll"),
                     "OOM stacktrace must include app-level frame");
@@ -350,8 +360,7 @@ public class FileCollectReaderMultilineTest {
 
             // Must NOT contain any app1 content (the deadlock stacktrace)
             Assertions.assertFalse(
-                    payload.contains("OrderService"),
-                    "app2 event must not contain app1 frames");
+                    payload.contains("OrderService"), "app2 event must not contain app1 frames");
             Assertions.assertFalse(
                     payload.contains("Deadlock found"),
                     "app2 event must not contain app1 Caused-by");
@@ -361,8 +370,9 @@ public class FileCollectReaderMultilineTest {
 
             // Now write a new boundary to app1 to flush its deep stacktrace
             StringBuilder app1Next = new StringBuilder();
-            app1Next.append("2024-01-01 10:15:40.000 INFO  [pool-3-thread-7] "
-                    + "c.f.o.OrderService - Retry succeeded for order #98712\n");
+            app1Next.append(
+                    "2024-01-01 10:15:40.000 INFO  [pool-3-thread-7] "
+                            + "c.f.o.OrderService - Retry succeeded for order #98712\n");
             Files.write(
                     app1,
                     app1Next.toString().getBytes(StandardCharsets.UTF_8),
@@ -396,11 +406,9 @@ public class FileCollectReaderMultilineTest {
 
                     // Must NOT bleed app2 content
                     Assertions.assertFalse(
-                            p.contains("OutOfMemoryError"),
-                            "app1 event must not contain app2 OOM");
+                            p.contains("OutOfMemoryError"), "app1 event must not contain app2 OOM");
                     Assertions.assertFalse(
-                            p.contains("CsvExporter"),
-                            "app1 event must not contain app2 frames");
+                            p.contains("CsvExporter"), "app1 event must not contain app2 frames");
                     Assertions.assertFalse(
                             p.contains("Circuit breaker"),
                             "app1 event must not contain app2 warn line");
@@ -421,21 +429,27 @@ public class FileCollectReaderMultilineTest {
                     StandardOpenOption.APPEND);
 
             StringBuilder app2More = new StringBuilder();
-            app2More.append("2024-01-01 10:15:36.200 ERROR [scheduler-1] "
-                    + "c.f.j.JobScheduler - Scheduled job batch-cleanup failed\n");
-            app2More.append("org.springframework.dao.DataAccessResourceFailureException:"
-                    + " Unable to acquire connection\n");
-            app2More.append("\tat org.springframework.jdbc.datasource.DataSourceUtils"
-                    + ".getConnection(DataSourceUtils.java:82)\n");
+            app2More.append(
+                    "2024-01-01 10:15:36.200 ERROR [scheduler-1] "
+                            + "c.f.j.JobScheduler - Scheduled job batch-cleanup failed\n");
+            app2More.append(
+                    "org.springframework.dao.DataAccessResourceFailureException:"
+                            + " Unable to acquire connection\n");
+            app2More.append(
+                    "\tat org.springframework.jdbc.datasource.DataSourceUtils"
+                            + ".getConnection(DataSourceUtils.java:82)\n");
             app2More.append("\tat com.foo.job.BatchCleanupJob.execute(BatchCleanupJob.java:44)\n");
             app2More.append("\tat org.quartz.core.JobRunShell.run(JobRunShell.java:202)\n");
-            app2More.append("Caused by: com.zaxxer.hikari.pool.HikariPool$PoolInitializationException:"
-                    + " Failed to initialize pool\n");
-            app2More.append("\tat com.zaxxer.hikari.pool.HikariPool"
-                    + ".throwPoolInitializationException(HikariPool.java:596)\n");
+            app2More.append(
+                    "Caused by: com.zaxxer.hikari.pool.HikariPool$PoolInitializationException:"
+                            + " Failed to initialize pool\n");
+            app2More.append(
+                    "\tat com.zaxxer.hikari.pool.HikariPool"
+                            + ".throwPoolInitializationException(HikariPool.java:596)\n");
             app2More.append("\t... 3 more\n");
-            app2More.append("2024-01-01 10:15:37.000 INFO  [scheduler-1] "
-                    + "c.f.j.JobScheduler - Will retry in 30s\n");
+            app2More.append(
+                    "2024-01-01 10:15:37.000 INFO  [scheduler-1] "
+                            + "c.f.j.JobScheduler - Will retry in 30s\n");
             Files.write(
                     app2,
                     app2More.toString().getBytes(StandardCharsets.UTF_8),

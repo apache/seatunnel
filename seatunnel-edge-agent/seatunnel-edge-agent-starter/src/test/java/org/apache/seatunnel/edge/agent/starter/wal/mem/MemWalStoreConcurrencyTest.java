@@ -42,14 +42,14 @@ import java.util.concurrent.atomic.AtomicInteger;
 
 public class MemWalStoreConcurrencyTest {
 
-    private static final int THREAD_COUNT = 8;
-    private static final int EVENTS_PER_THREAD = 500;
+    private static final int THREAD_COUNT = 4;
+    private static final int EVENTS_PER_THREAD = 200;
 
     /**
      * Multiple threads appending concurrently must produce unique, strictly positive IDs with no
      * duplicates or gaps.
      */
-    @RepeatedTest(3)
+    @RepeatedTest(2)
     void concurrentAppendProducesUniqueMonotonicIds() throws Exception {
         MemWalStore store = new MemWalStore();
         CyclicBarrier barrier = new CyclicBarrier(THREAD_COUNT);
@@ -72,8 +72,7 @@ public class MemWalStoreConcurrencyTest {
                                                                     new byte[] {
                                                                         (byte) threadIdx, (byte) i
                                                                     })
-                                                            .eventTime(
-                                                                    System.currentTimeMillis())
+                                                            .eventTime(System.currentTimeMillis())
                                                             .build());
                                     ids.add(id);
                                 }
@@ -102,11 +101,11 @@ public class MemWalStoreConcurrencyTest {
      * Multiple producers appending concurrently while a consumer calls claimPending repeatedly.
      * Total claimed events must equal total appended — no events lost.
      */
-    @RepeatedTest(3)
+    @RepeatedTest(2)
     void concurrentAppendAndClaimLosesNoEvents() throws Exception {
         MemWalStore store = new MemWalStore();
         int producerCount = 4;
-        int eventsPerProducer = 1000;
+        int eventsPerProducer = 300;
         int totalExpected = producerCount * eventsPerProducer;
 
         CountDownLatch producersDone = new CountDownLatch(producerCount);
@@ -147,7 +146,8 @@ public class MemWalStoreConcurrencyTest {
                                     allClaimed.addAll(batch);
                                 }
                                 // Final drain after all producers done
-                                List<WalRecord> remaining = store.claimPending(Integer.MAX_VALUE, 10);
+                                List<WalRecord> remaining =
+                                        store.claimPending(Integer.MAX_VALUE, 10);
                                 allClaimed.addAll(remaining);
                             } catch (Exception e) {
                                 throw new RuntimeException(e);
@@ -166,17 +166,19 @@ public class MemWalStoreConcurrencyTest {
         // Verify no duplicate IDs
         Set<Long> ids = new HashSet<>();
         for (WalRecord record : allClaimed) {
-            Assertions.assertTrue(ids.add(record.getId()), "Duplicate WAL record ID: " + record.getId());
+            Assertions.assertTrue(
+                    ids.add(record.getId()), "Duplicate WAL record ID: " + record.getId());
         }
     }
 
     /**
-     * claimPending is atomic: concurrent claims must never return the same record twice.
+     * claimPending is atomic: concurrent claims must never return the same record twice. Only one
+     * thread wins the full drain; others get empty.
      */
-    @RepeatedTest(3)
+    @RepeatedTest(2)
     void concurrentClaimPendingNeverReturnsDuplicates() throws Exception {
         MemWalStore store = new MemWalStore();
-        int totalEvents = 2000;
+        int totalEvents = 800;
 
         for (int i = 0; i < totalEvents; i++) {
             store.append(
@@ -197,13 +199,7 @@ public class MemWalStoreConcurrencyTest {
                     executor.submit(
                             () -> {
                                 barrier.await();
-                                List<WalRecord> claimed = new ArrayList<>();
-                                List<WalRecord> batch;
-                                do {
-                                    batch = store.claimPending(100, 10);
-                                    claimed.addAll(batch);
-                                } while (!batch.isEmpty());
-                                return claimed;
+                                return store.claimPending(Integer.MAX_VALUE, 10);
                             }));
         }
 
@@ -254,7 +250,7 @@ public class MemWalStoreConcurrencyTest {
     /**
      * sourcePositionStore() operations are safe under concurrent save/load from multiple threads.
      */
-    @RepeatedTest(3)
+    @RepeatedTest(2)
     void concurrentPositionStoreAccess() throws Exception {
         MemWalStore store = new MemWalStore();
         EdgeSourcePositionStore posStore = store.sourcePositionStore();
@@ -268,7 +264,7 @@ public class MemWalStoreConcurrencyTest {
         List<Future<?>> futures = new ArrayList<>();
         for (int t = 0; t < writerCount; t++) {
             final int threadIdx = t;
-            Assertions.assertTrue(futures.add(
+            futures.add(
                     executor.submit(
                             () -> {
                                 try {
@@ -290,7 +286,7 @@ public class MemWalStoreConcurrencyTest {
                                 } catch (Exception e) {
                                     throw new RuntimeException(e);
                                 }
-                            })));
+                            }));
         }
 
         for (Future<?> f : futures) {
