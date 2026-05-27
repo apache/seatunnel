@@ -43,6 +43,7 @@ import org.apache.paimon.data.InternalRow;
 import org.apache.paimon.data.Timestamp;
 import org.apache.paimon.data.serializer.InternalArraySerializer;
 import org.apache.paimon.data.serializer.InternalMapSerializer;
+import org.apache.paimon.data.serializer.InternalRowSerializer;
 import org.apache.paimon.schema.TableSchema;
 import org.apache.paimon.types.DataField;
 import org.apache.paimon.types.DataType;
@@ -366,5 +367,112 @@ public class RowConverterTest {
                         throw e;
                     }
                 });
+    }
+
+    @Test
+    public void nestedRowPaimonToSeaTunnel() {
+        // Top-level: c_int INT, c_string STRING, c_nested ROW<a INT, b STRING>
+        RowType nestedRowType =
+                RowType.of(
+                        new DataType[] {DataTypes.INT(), DataTypes.STRING()},
+                        new String[] {"a", "b"});
+
+        RowType topLevelRowType =
+                RowType.of(
+                        new DataType[] {DataTypes.INT(), DataTypes.STRING(), nestedRowType},
+                        new String[] {"c_int", "c_string", "c_nested"});
+
+        TableSchema tableSchema =
+                new TableSchema(
+                        0,
+                        TableSchema.newFields(topLevelRowType),
+                        topLevelRowType.getFieldCount(),
+                        Collections.emptyList(),
+                        Collections.emptyList(),
+                        Collections.emptyMap(),
+                        "");
+
+        // Build nested Paimon row
+        BinaryRow nestedBinaryRow = new BinaryRow(2);
+        BinaryRowWriter nestedWriter = new BinaryRowWriter(nestedBinaryRow);
+        nestedWriter.writeInt(0, 42);
+        nestedWriter.writeString(1, BinaryString.fromString("world"));
+
+        // Build top-level Paimon row
+        BinaryRow binaryRow = new BinaryRow(3);
+        BinaryRowWriter writer = new BinaryRowWriter(binaryRow);
+        writer.writeInt(0, 1);
+        writer.writeString(1, BinaryString.fromString("hello"));
+        writer.writeRow(2, nestedBinaryRow, new InternalRowSerializer(nestedRowType));
+
+        // SeaTunnel types
+        SeaTunnelRowType seaTunnelNestedType =
+                new SeaTunnelRowType(
+                        new String[] {"a", "b"},
+                        new SeaTunnelDataType[] {BasicType.INT_TYPE, BasicType.STRING_TYPE});
+        SeaTunnelRowType seaTunnelTopLevelType =
+                new SeaTunnelRowType(
+                        new String[] {"c_int", "c_string", "c_nested"},
+                        new SeaTunnelDataType[] {
+                            BasicType.INT_TYPE, BasicType.STRING_TYPE, seaTunnelNestedType
+                        });
+
+        // Convert Paimon → SeaTunnel
+        SeaTunnelRow result = RowConverter.convert(binaryRow, seaTunnelTopLevelType, tableSchema);
+
+        Assertions.assertEquals(1, result.getField(0));
+        Assertions.assertEquals("hello", result.getField(1));
+        SeaTunnelRow nestedResult = (SeaTunnelRow) result.getField(2);
+        Assertions.assertEquals(42, nestedResult.getField(0));
+        Assertions.assertEquals("world", nestedResult.getField(1));
+    }
+
+    @Test
+    public void nestedRowSeaTunnelToPaimon() {
+        // Top-level: c_int INT, c_string STRING, c_nested ROW<a INT, b STRING>
+        RowType nestedRowType =
+                RowType.of(
+                        new DataType[] {DataTypes.INT(), DataTypes.STRING()},
+                        new String[] {"a", "b"});
+
+        RowType topLevelRowType =
+                RowType.of(
+                        new DataType[] {DataTypes.INT(), DataTypes.STRING(), nestedRowType},
+                        new String[] {"c_int", "c_string", "c_nested"});
+
+        TableSchema tableSchema =
+                new TableSchema(
+                        0,
+                        TableSchema.newFields(topLevelRowType),
+                        topLevelRowType.getFieldCount(),
+                        Collections.emptyList(),
+                        Collections.emptyList(),
+                        Collections.emptyMap(),
+                        "");
+
+        // SeaTunnel types
+        SeaTunnelRowType seaTunnelNestedType =
+                new SeaTunnelRowType(
+                        new String[] {"a", "b"},
+                        new SeaTunnelDataType[] {BasicType.INT_TYPE, BasicType.STRING_TYPE});
+        SeaTunnelRowType seaTunnelTopLevelType =
+                new SeaTunnelRowType(
+                        new String[] {"c_int", "c_string", "c_nested"},
+                        new SeaTunnelDataType[] {
+                            BasicType.INT_TYPE, BasicType.STRING_TYPE, seaTunnelNestedType
+                        });
+
+        SeaTunnelRow nestedRow = new SeaTunnelRow(new Object[] {42, "world"});
+        SeaTunnelRow topLevelRow = new SeaTunnelRow(new Object[] {1, "hello", nestedRow});
+
+        // Convert SeaTunnel → Paimon (would throw before fix due to field count mismatch)
+        InternalRow result =
+                RowConverter.reconvert(topLevelRow, seaTunnelTopLevelType, tableSchema);
+
+        Assertions.assertEquals(1, result.getInt(0));
+        Assertions.assertEquals("hello", result.getString(1).toString());
+        InternalRow nestedResult = result.getRow(2, 2);
+        Assertions.assertEquals(42, nestedResult.getInt(0));
+        Assertions.assertEquals("world", nestedResult.getString(1).toString());
     }
 }
