@@ -16,8 +16,8 @@
  */
 
 const log = {
-  capsule: (unusedTitle: string, unusedText: string, unusedType?: string) => {},
-  error: (unusedInfo: any) => {}
+  capsule: (() => {}) as (title: string, text: string, type?: string) => void,
+  error: (() => {}) as (info: any) => void
 }
 
 /**
