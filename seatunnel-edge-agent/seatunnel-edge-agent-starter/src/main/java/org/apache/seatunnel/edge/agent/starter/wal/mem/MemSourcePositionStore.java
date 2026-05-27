@@ -23,6 +23,7 @@ import org.apache.seatunnel.edge.agent.connector.EdgeSourcePositionStore;
 import java.util.Collections;
 import java.util.HashMap;
 import java.util.Map;
+import java.util.concurrent.ConcurrentHashMap;
 
 /**
  * In-memory position store for NON delivery mode. Positions live only for the current process
@@ -30,7 +31,8 @@ import java.util.Map;
  */
 public class MemSourcePositionStore implements EdgeSourcePositionStore {
 
-    private final Map<String, Map<String, EdgeSourcePosition>> store = new HashMap<>();
+    private final ConcurrentHashMap<String, ConcurrentHashMap<String, EdgeSourcePosition>> store =
+            new ConcurrentHashMap<>();
 
     @Override
     public EdgeSourcePosition load(String sourceId, String partition) {
@@ -40,12 +42,16 @@ public class MemSourcePositionStore implements EdgeSourcePositionStore {
 
     @Override
     public Map<String, EdgeSourcePosition> loadBySource(String sourceId) {
-        return store.getOrDefault(sourceId, Collections.emptyMap());
+        ConcurrentHashMap<String, EdgeSourcePosition> partitions = store.get(sourceId);
+        if (partitions == null) {
+            return Collections.emptyMap();
+        }
+        return Collections.unmodifiableMap(new HashMap<>(partitions));
     }
 
     @Override
     public void save(EdgeSourcePosition position) {
-        store.computeIfAbsent(position.getSourceId(), k -> new HashMap<>())
+        store.computeIfAbsent(position.getSourceId(), k -> new ConcurrentHashMap<>())
                 .put(position.getPartition(), position);
     }
 }

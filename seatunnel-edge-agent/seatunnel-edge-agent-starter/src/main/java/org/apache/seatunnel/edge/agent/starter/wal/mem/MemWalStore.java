@@ -38,6 +38,7 @@ import java.util.List;
 public class MemWalStore implements WalStore {
 
     private final MemSourcePositionStore sourcePositionStore = new MemSourcePositionStore();
+    private final Object lock = new Object();
     private final List<WalRecord> pending = new ArrayList<>();
     private long nextId = 1;
 
@@ -48,24 +49,28 @@ public class MemWalStore implements WalStore {
 
     @Override
     public long append(EdgeEvent event) {
-        long id = nextId++;
-        pending.add(
-                WalRecord.builder()
-                        .id(id)
-                        .batchId(id)
-                        .sourceId(event.getSourceId())
-                        .payload(event.getPayload())
-                        .eventTime(event.getEventTime())
-                        .status(WalRecordStatus.PENDING)
-                        .build());
-        return id;
+        synchronized (lock) {
+            long id = nextId++;
+            pending.add(
+                    WalRecord.builder()
+                            .id(id)
+                            .batchId(id)
+                            .sourceId(event.getSourceId())
+                            .payload(event.getPayload())
+                            .eventTime(event.getEventTime())
+                            .status(WalRecordStatus.PENDING)
+                            .build());
+            return id;
+        }
     }
 
     @Override
     public List<WalRecord> claimPending(int maxRecords, int maxAttempts) {
-        List<WalRecord> claimed = new ArrayList<>(pending);
-        pending.clear();
-        return claimed;
+        synchronized (lock) {
+            List<WalRecord> claimed = new ArrayList<>(pending);
+            pending.clear();
+            return claimed;
+        }
     }
 
     @Override
