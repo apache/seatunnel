@@ -177,6 +177,34 @@ public class SchemaOperatorTest {
     }
 
     @Test
+    void testFallbackTimerAppliesSchemaChangeWithoutFlushSignal() throws Exception {
+        LocalSchemaCoordinator coordinator = Mockito.mock(LocalSchemaCoordinator.class);
+        Mockito.when(
+                        coordinator.requestSchemaChange(
+                                Mockito.any(), Mockito.anyLong(), Mockito.anyLong()))
+                .thenReturn(true);
+
+        OperatorTestContext context = createOperator(false);
+        setField(context.operator, "coordinator", coordinator);
+
+        AlterTableAddColumnEvent event = createSchemaChangeEvent();
+        SeaTunnelRow row = createDataRow("row-released-after-fallback");
+
+        context.operator.processElement(new StreamRecord<>(createSchemaRow(event), 400L));
+        context.operator.processElement(new StreamRecord<>(row, 401L));
+
+        invokeNoArgMethod(context.operator, "handleFallbackTimerOnTaskThread");
+
+        // Should emit schema broadcast and buffered data, but NO flush_signal
+        assertEquals(2, context.output.records.size());
+        assertSchemaBroadcast(context.output.records.get(0), event);
+        assertEquals(row, context.output.records.get(1).getValue());
+        assertFalse(getBooleanField(context.operator, "schemaChangePending"));
+        assertTrue(getPendingQueue(context.operator).isEmpty());
+        Mockito.verify(coordinator)
+                .requestSchemaChange(event.tableIdentifier(), event.getCreatedTime(), 300_000L);
+    }
+
     private static OperatorTestContext createOperator(boolean restored) throws Exception {
         return createOperator(new OperatorStateStoreStub(), restored);
     }
@@ -284,6 +312,12 @@ public class SchemaOperatorTest {
         Field field = owner.getDeclaredField(fieldName);
         field.setAccessible(true);
         field.set(target, value);
+    }
+
+    private static Object invokeNoArgMethod(Object target, String methodName) throws Exception {
+        java.lang.reflect.Method method = target.getClass().getDeclaredMethod(methodName);
+        method.setAccessible(true);
+        return method.invoke(target);
     }
 
     private static Field findField(Class<?> type, String fieldName) throws NoSuchFieldException {

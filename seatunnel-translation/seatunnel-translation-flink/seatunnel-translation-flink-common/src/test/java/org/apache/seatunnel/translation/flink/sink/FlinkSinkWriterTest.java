@@ -110,17 +110,19 @@ class FlinkSinkWriterTest {
                                 null,
                                 null));
         event.setJobId("job-under-test");
-        SeaTunnelRow flushSignal = new SeaTunnelRow(0);
+        SeaTunnelRow schemaEvent = new SeaTunnelRow(0);
         Map<String, Object> options = new LinkedHashMap<>();
         options.put("schema_change_event", event);
         options.put("schema_subtask_id", 0L);
-        flushSignal.setOptions(options);
-        flinkSinkWriter.write(flushSignal, null);
+        schemaEvent.setOptions(options);
+        flinkSinkWriter.write(schemaEvent, null);
 
         SeaTunnelRow row = new SeaTunnelRow(1);
         row.setField(0, "value");
         flinkSinkWriter.write(row, null);
 
+        // Schema change should apply without forcing commit - commits happen via normal Flink
+        // lifecycle
         Assertions.assertEquals(1, delegate.writtenRows.size());
         Assertions.assertEquals(Collections.emptyList(), delegate.prepareCommitCalls);
         Assertions.assertEquals(1, delegate.appliedSchemaChanges.size());
