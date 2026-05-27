@@ -21,16 +21,17 @@ import org.apache.seatunnel.edge.agent.starter.parse.EdgeAgentResolvedConfig;
 
 final class EdgeAgentRuntimeSession implements AutoCloseable {
 
-    private final EdgeAgentResolvedConfig resolved;
+    private final EdgeAgentResolvedConfig resolvedConfig;
     private final EdgeAgentRuntimeBootstrap bootstrap;
 
-    EdgeAgentRuntimeSession(EdgeAgentResolvedConfig resolved, EdgeAgentRuntimeBootstrap bootstrap) {
-        this.resolved = resolved;
+    EdgeAgentRuntimeSession(
+            EdgeAgentResolvedConfig resolvedConfig, EdgeAgentRuntimeBootstrap bootstrap) {
+        this.resolvedConfig = resolvedConfig;
         this.bootstrap = bootstrap;
     }
 
-    EdgeAgentResolvedConfig getResolved() {
-        return resolved;
+    EdgeAgentResolvedConfig getResolvedConfig() {
+        return resolvedConfig;
     }
 
     EdgeAgentRuntimeBootstrap getBootstrap() {

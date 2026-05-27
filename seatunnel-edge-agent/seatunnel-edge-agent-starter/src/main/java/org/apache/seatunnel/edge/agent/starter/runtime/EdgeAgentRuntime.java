@@ -42,7 +42,7 @@ public class EdgeAgentRuntime {
     public static void start(Path agentYamlPath) throws Exception {
         try (EdgeAgentRuntimeSession session =
                 bootstrapSession(agentYamlPath, Paths.get("").toAbsolutePath())) {
-            EdgeAgentResolvedConfig resolved = session.getResolved();
+            EdgeAgentResolvedConfig resolved = session.getResolvedConfig();
             LOG.info(
                     "BOOTSTRAP_READY edge-agent started agentId={}, inputId={}, outputId={},"
                             + " inputType={}, outputType={}, deliveryGuarantee={}",
