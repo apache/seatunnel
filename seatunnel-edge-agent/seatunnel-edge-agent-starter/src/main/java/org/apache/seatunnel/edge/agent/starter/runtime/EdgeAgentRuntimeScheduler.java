@@ -19,7 +19,6 @@ package org.apache.seatunnel.edge.agent.starter.runtime;
 
 import org.apache.seatunnel.edge.agent.connector.EdgeEvent;
 import org.apache.seatunnel.edge.agent.connector.EdgeInputReader;
-import org.apache.seatunnel.edge.agent.connector.EdgeSourcePositionStore;
 import org.apache.seatunnel.edge.agent.starter.config.AgentRuntimeConfig;
 import org.apache.seatunnel.edge.agent.starter.wal.WalRecord;
 import org.apache.seatunnel.edge.agent.starter.wal.WalStore;
@@ -43,7 +42,6 @@ public class EdgeAgentRuntimeScheduler implements AutoCloseable {
     private final EdgeAgentRuntimeContext ctx;
     private final EdgeInputReader reader;
     private final WalStore walStore;
-    private final EdgeSourcePositionStore sourcePositionStore;
     private final EdgeCollectorTransport transport;
     private final PayloadSerializer payloadSerializer;
     private final int maxPollRecords;
@@ -71,7 +69,6 @@ public class EdgeAgentRuntimeScheduler implements AutoCloseable {
         this.ctx = ctx;
         this.reader = ctx.getReader();
         this.walStore = ctx.getWalStore();
-        this.sourcePositionStore = ctx.getWalStore().sourcePositionStore();
         this.transport = ctx.getTransport();
         this.payloadSerializer = ctx.getPayloadSerializer();
         this.maxPollRecords = config.getMaxPollRecords();
@@ -238,7 +235,7 @@ public class EdgeAgentRuntimeScheduler implements AutoCloseable {
 
     private void saveSourcePositionIfPresent(EdgeEvent event) throws Exception {
         if (event.getSourcePosition() != null) {
-            sourcePositionStore.save(event.getSourcePosition());
+            ctx.getWalStore().sourcePositionStore().save(event.getSourcePosition());
         }
     }
 
