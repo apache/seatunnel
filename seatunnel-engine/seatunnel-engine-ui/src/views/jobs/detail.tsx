@@ -92,31 +92,40 @@ export default defineComponent({
       return job.jobDag?.vertexInfoMap?.filter((v) => v.type !== 'transform') || []
     })
     const sourceCell = (
-      row: Vertex,
-      key:
-        | 'TableSourceReceivedBytes'
-        | 'TableSourceReceivedCount'
-        | 'TableSourceReceivedQPS'
-        | 'TableSourceReceivedBytesPerSeconds'
-    ) => {
-      if (row.type === 'source') {
-        return row.tablePaths.reduce((s, path) => s + Number(job.metrics?.[key][path]), 0)
-      }
-      return 0
-    }
-    const sinkCell = (
-      row: Vertex,
-      key:
-        | 'TableSinkWriteBytes'
-        | 'TableSinkWriteCount'
-        | 'TableSinkWriteQPS'
-        | 'TableSinkWriteBytesPerSeconds'
-    ) => {
-      if (row.type === 'sink') {
-        return row.tablePaths.reduce((s, path) => s + Number(job.metrics?.[key][path]), 0)
-      }
-      return 0
-    }
+  row: Vertex,
+  key:
+    | 'TableSourceReceivedBytes'
+    | 'TableSourceReceivedCount'
+    | 'TableSourceReceivedQPS'
+    | 'TableSourceReceivedBytesPerSeconds'
+) => {
+  if (row.type === 'source') {
+    return row.tablePaths.reduce((s, path) => {
+      const metrics = job.metrics?.[key] || {}
+      const matchedKey = Object.keys(metrics).find(k => k.endsWith(path))
+      return s + Number(matchedKey ? metrics[matchedKey] : 0)
+    }, 0)
+  }
+  return 0
+}
+
+const sinkCell = (
+  row: Vertex,
+  key:
+    | 'TableSinkWriteBytes'
+    | 'TableSinkWriteCount'
+    | 'TableSinkWriteQPS'
+    | 'TableSinkWriteBytesPerSeconds'
+) => {
+  if (row.type === 'sink') {
+    return row.tablePaths.reduce((s, path) => {
+      const metrics = job.metrics?.[key] || {}
+      const matchedKey = Object.keys(metrics).find(k => k.endsWith(path))
+      return s + Number(matchedKey ? metrics[matchedKey] : 0)
+    }, 0)
+  }
+  return 0
+}
     const columns: DataTableColumns<Vertex> = [
       {
         title: 'Name',
